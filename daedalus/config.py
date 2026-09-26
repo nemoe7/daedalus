@@ -35,7 +35,7 @@ def resolve_env(value: str) -> str:
 def expand(node: Any) -> Any:
   """Replace every `os.environ/NAME` string in the tree with its value."""
   if isinstance(node, str):
-    if node.startswith(ENV_PREFIX):
+    if ENV_PREFIX in node:
       return resolve_env(node)
     return node
   if isinstance(node, list):

@@ -1,4 +1,4 @@
-"""Runnable check for the YAML config loader. Run: .venv/bin/python tests/test_config.py"""
+"""Runnable check for the YAML config loader. Run: python tests/test_config.py"""
 
 import os
 import sys
@@ -87,8 +87,33 @@ def check_repo_file() -> None:
   assert loaded["groq"]["rpm"] == 30, loaded["groq"]["rpm"]
 
 
+def walk(node: object) -> list[str]:
+  """Every string in the tree."""
+  if isinstance(node, str):
+    return [node]
+  if isinstance(node, list):
+    return [text for item in node for text in walk(item)]
+  if isinstance(node, dict):
+    return [text for value in node.values() for text in walk(value)]
+  return []
+
+
+def check_url_substitution() -> None:
+  """A URL carries `os.environ/NAME` inside it, not as a whole value."""
+  os.environ["CLOUDFLARE_ACCOUNT_ID"] = "acct-123"
+  loaded = config.load_config(Path("config/providers/free.yml"))
+  url = loaded["cloudflare"]["discovery_url"]
+  assert url == (
+    "https://api.cloudflare.com/client/v4/accounts/acct-123"
+    "/ai/models/search?per_page=100"
+  ), url
+  left = [text for text in walk(loaded) if "os.environ/" in text]
+  assert left == [], left
+
+
 def main() -> int:
   check_load()
+  check_url_substitution()
   check_repo_file()
   check_missing_file()
   config.set_config(None)
