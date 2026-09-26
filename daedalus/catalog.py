@@ -179,11 +179,16 @@ def fetch_json(url: str, headers: dict[str, str]) -> dict[str, Any]:
 def select(provider: dict[str, Any], slugs: Iterable[str]) -> list[str]:
   """Keep the slugs that `exclude` does not drop.
 
-  A pattern matches the slug alone; the block key already names the provider. An excluded
-  slug stays excluded: `tier` is routing metadata, and the catalog does not read it.
+  A pattern matches the slug alone; the block key already names the provider. A slug that a
+  `models:` key names is always kept when discovery finds it. `tier` is routing metadata,
+  and the catalog does not read it.
   """
   exclude = provider.get("exclude") or []
-  return sorted({slug for slug in slugs if not any_match(exclude, slug)})
+  declared = list((provider.get("models") or {}).keys())
+  kept = {
+    slug for slug in slugs if any_match(declared, slug) or not any_match(exclude, slug)
+  }
+  return sorted(kept)
 
 
 def discover_provider(
