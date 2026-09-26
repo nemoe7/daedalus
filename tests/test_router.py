@@ -140,6 +140,37 @@ def check_route() -> None:
   assert router.route("hi", config, []) is None
 
 
+def check_pools() -> None:
+  """ADR 1: four pools, and the fallback chain each one walks."""
+  assert router.POOLS == {
+    "daedalus/moros": 1,
+    "daedalus/koinos": 2,
+    "daedalus/deinos": 3,
+    "daedalus/sophos": 4,
+  }
+  chains = {1: (1, 2, 3, 4), 2: (2, 3, 4, 1), 3: (3, 4, 2, 1), 4: (4, 3, 2, 1)}
+  for tier, expected in chains.items():
+    assert router.fallback_order(tier) == expected, tier
+
+  config = {
+    "gemini": {"tier": {"TIER-B": ["gemini-3.5-flash"]}},
+    "openrouter": {"tier": {"TIER-A": ["anthropic/*"]}},
+  }
+  lines = ["gemini/gemini-3.5-flash", "openrouter/anthropic/claude-opus-5"]
+  # sophos is tier 4, and openrouter holds TIER-A, so it answers at once.
+  assert (
+    router.route_pool("daedalus/sophos", config, lines)
+    == "openrouter/anthropic/claude-opus-5"
+  )
+  # moros is tier 1, so the chain promotes to TIER-B before it reaches TIER-A.
+  assert router.route_pool("daedalus/moros", config, lines) == "gemini/gemini-3.5-flash"
+  # koinos is tier 2, which is empty, so the chain promotes to TIER-B.
+  assert (
+    router.route_pool("daedalus/koinos", config, lines) == "gemini/gemini-3.5-flash"
+  )
+  assert router.route_pool("daedalus/unknown", config, lines) is None
+
+
 def main() -> int:
   """Run every check."""
   check_classify()
@@ -150,6 +181,7 @@ def main() -> int:
   check_tier_names()
   check_tier_models()
   check_route()
+  check_pools()
   print("ok: router checks passed")
   return 0
 

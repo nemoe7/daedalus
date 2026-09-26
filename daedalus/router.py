@@ -24,6 +24,13 @@ ARTIFACT_PATH: Final = (
 )
 # The one model name the proxy resolves itself. Every other name goes upstream as written.
 RESERVED_MODEL: Final = "daedalus/auto"
+# Four pools, each a gateway to one tier. ADR 1.
+POOLS: Final[Mapping[str, int]] = {
+  "daedalus/moros": 1,
+  "daedalus/koinos": 2,
+  "daedalus/deinos": 3,
+  "daedalus/sophos": 4,
+}
 TIERS: Final = (1, 2, 3, 4)
 # litellm numbers its tiers 1 to 4 as SIMPLE, MEDIUM, COMPLEX, REASONING. The config names
 # them TIER-D, TIER-C, TIER-B and TIER-A, so the ladder runs the other way. Map the numbers
@@ -344,21 +351,51 @@ def candidates(
   return wanted
 
 
+def fallback_order(tier: int) -> tuple[int, ...]:
+  """The tiers to try, in order: this one, up to 4, then down from the next to 1.
+
+  ADR 1 names this promote then demote. Tier 4 has nothing above it, so it only demotes.
+  """
+  above: Final = tuple(range(tier, TIERS[-1] + 1))
+  below: Final = tuple(range(tier - 1, 0, -1))
+  return above + below
+
+
+def first_available(
+  config: Mapping[str, Any],
+  lines: list[str],
+  order: tuple[int, ...],
+) -> str | None:
+  """The first `provider/slug` in a tier chain that holds a model."""
+  for tier in order:
+    found = candidates(config, TIER_NAMES[tier], lines)
+    if found:
+      return found[0]
+  return None
+
+
 def route(
   prompt: str,
   config: Mapping[str, Any],
   lines: list[str],
   artifact: Artifact | None = None,
 ) -> str | None:
-  """The `provider/slug` for a prompt, or `None` when no tier holds a model.
-
-  A tier with no models escalates to the next stronger one, because a weaker model is the
-  likelier failure and the caller asked for this much capability.
-  """
+  """The `provider/slug` for a prompt, or `None` when no tier holds a model."""
   table: Final = load_artifact() if artifact is None else artifact
   required: Final = predict(prompt, table).required_tier
-  for tier in range(required, TIERS[-1] + 1):
-    found = candidates(config, TIER_NAMES[tier], lines)
-    if found:
-      return found[0]
-  return None
+  return first_available(config, lines, fallback_order(required))
+
+
+def route_pool(
+  pool: str,
+  config: Mapping[str, Any],
+  lines: list[str],
+) -> str | None:
+  """The `provider/slug` for a named pool, or `None` for an unknown name.
+
+  A pool goes straight to its tier. No classifier runs.
+  """
+  tier = POOLS.get(pool)
+  if tier is None:
+    return None
+  return first_available(config, lines, fallback_order(tier))
