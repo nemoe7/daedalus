@@ -1,6 +1,6 @@
 """Model catalog from the provider config.
 
-For each provider in the config: read its `discovery_url`, collate the pages, write the
+For each provider in the config: read its `discovery_url`, merge_pages the pages, write the
 full response to `{provider}.yml`, keep the rows the config patterns allow, and write the
 kept `provider/slug` lines to `models.txt`.
 
@@ -105,7 +105,7 @@ def extract_slugs(payload: dict[str, Any]) -> list[str]:
   return slugs
 
 
-def collate(pages: list[dict[str, Any]]) -> dict[str, Any]:
+def merge_pages(pages: list[dict[str, Any]]) -> dict[str, Any]:
   """Merge paged rows into one payload. Keeps the first page's other fields."""
   if not pages:
     return {}
@@ -197,7 +197,7 @@ def discover_provider(
   provider: dict[str, Any],
   fetch: Fetch = fetch_json,
 ) -> tuple[list[str], dict[str, Any]]:
-  """Read every page of one provider. Returns kept slugs and the collated payload."""
+  """Read every page of one provider. Returns kept slugs and the merged payload."""
   url = provider.get("discovery_url")
   if not isinstance(url, str) or not url:
     raise ValueError("no discovery_url")
@@ -212,7 +212,7 @@ def discover_provider(
     pages.append(payload)
     url = next_page_url(url, payload)
     page += 1
-  full = collate(pages)
+  full = merge_pages(pages)
   return select(provider_name, provider, extract_slugs(full)), full
 
 
@@ -222,7 +222,7 @@ def build_catalog(
 ) -> tuple[list[str], dict[str, dict[str, Any]], list[str]]:
   """Build the catalog.
 
-  Returns the `provider/slug` lines, the collated payload per provider, and one reason
+  Returns the `provider/slug` lines, the merged payload per provider, and one reason
   per skipped provider.
   """
   providers = get_config() if config is None else config
@@ -258,7 +258,7 @@ def write_provider_yml(
   payload: dict[str, Any],
   directory: Path | str = PROVIDER_DIR,
 ) -> Path:
-  """Write one provider's collated response as YAML."""
+  """Write one provider's merged response as YAML."""
   target = Path(directory) / f"{provider_name}.yml"
   target.write_text(
     yaml.safe_dump(payload, sort_keys=False, allow_unicode=True),
