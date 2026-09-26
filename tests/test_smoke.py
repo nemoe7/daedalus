@@ -117,13 +117,17 @@ async def check_non_stream(client: httpx.AsyncClient) -> None:
 
 
 async def check_routed_model(client: httpx.AsyncClient) -> None:
-  """The reserved name resolves to a provider model; any other name passes through."""
-  config.set_config({"gemini": {"tier": {"TIER-C": ["gemini-3.5-flash"]}}})
+  """A reserved name resolves to a provider model; any other name passes through."""
+  config.set_config(
+    {"gemini": {"tier": {"TIER-C": ["gemini-3.5-flash"], "TIER-A": ["gemini-3.5-pro"]}}}
+  )
   saved = catalog.MODELS_TXT
   try:
     with tempfile.TemporaryDirectory() as folder:
       catalog.MODELS_TXT = pathlib.Path(folder) / "models.txt"
-      catalog.MODELS_TXT.write_text("gemini/gemini-3.5-flash\n", encoding="utf-8")
+      catalog.MODELS_TXT.write_text(
+        "gemini/gemini-3.5-flash\ngemini/gemini-3.5-pro\n", encoding="utf-8"
+      )
       response = await client.post(
         "/v1/chat/completions",
         json=chat_body(
@@ -135,6 +139,13 @@ async def check_routed_model(client: httpx.AsyncClient) -> None:
       )
       assert response.status_code == 200, response.text
       assert SEEN[-1]["model"] == "gemini/gemini-3.5-flash", SEEN[-1]
+      # A pool skips the classifier and goes to its own tier.
+      pooled = await client.post(
+        "/v1/chat/completions",
+        json=chat_body(model="daedalus/sophos"),
+      )
+      assert pooled.status_code == 200, pooled.text
+      assert SEEN[-1]["model"] == "gemini/gemini-3.5-pro", SEEN[-1]
   finally:
     catalog.MODELS_TXT = saved
     config.set_config(None)
