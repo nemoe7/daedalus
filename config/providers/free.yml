@@ -93,6 +93,7 @@ kilo:
     - free
     - "*content-safety*"
     - kilo-auto/*
+    - openrouter/*
     - "!*:free"
   tier:
     REASONING:
