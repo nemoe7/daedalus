@@ -145,25 +145,34 @@ def last_user_text(messages: object) -> str:
 
 
 def routed_body(body: bytes) -> bytes:
-  """Swap the reserved model name for a routed provider model.
+  """Swap a reserved model name for a routed provider model.
 
-  Any other body, and any body that is not a JSON object, goes upstream untouched.
+  `daedalus/auto` scores the prompt. A pool name goes straight to its tier. Any other body,
+  and any body that is not a JSON object, goes upstream untouched.
   """
-  if router.RESERVED_MODEL not in body.decode("utf-8", "ignore"):
+  if "daedalus/" not in body.decode("utf-8", "ignore"):
     return body
   try:
     payload = json.loads(body)
   except ValueError:
     return body
-  if not isinstance(payload, dict) or payload.get("model") != router.RESERVED_MODEL:
+  if not isinstance(payload, dict):
     return body
-  prompt = last_user_text(payload.get("messages"))
-  target = router.route(prompt, get_config(), catalog.read_models_txt())
+  name = payload.get("model")
+  if not isinstance(name, str) or not name.startswith("daedalus/"):
+    return body
+  if name in router.POOLS:
+    target = router.route_pool(name, get_config(), catalog.read_models_txt())
+  elif name == router.RESERVED_MODEL:
+    prompt = last_user_text(payload.get("messages"))
+    target = router.route(prompt, get_config(), catalog.read_models_txt())
+  else:
+    return body
   if target is None:
-    logger.warning("no model in any tier for a routed request")
+    logger.warning("no model in any tier for %s", name)
     return body
   payload["model"] = target
-  logger.info("routed a request to %s", target)
+  logger.info("routed %s to %s", name, target)
   return json.dumps(payload).encode("utf-8")
 
 
