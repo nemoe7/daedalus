@@ -25,6 +25,9 @@ LOCAL_API_KEY = ""
 HOST = "0.0.0.0"
 PORT = 8080
 TIMEOUT_SECONDS = 600.0
+# ADR 2: the wait for one answer. A provider that sends bytes resets it, so a slow
+# stream is not cut off.
+WAIT_SECONDS = 60.0
 
 # Headers that must not cross a proxy hop.
 HOP_BY_HOP = frozenset(
@@ -61,7 +64,9 @@ _client: httpx.AsyncClient | None = None
 def get_client() -> httpx.AsyncClient:
   global _client
   if _client is None:
-    _client = httpx.AsyncClient(timeout=httpx.Timeout(TIMEOUT_SECONDS))
+    _client = httpx.AsyncClient(
+      timeout=httpx.Timeout(TIMEOUT_SECONDS, read=WAIT_SECONDS)
+    )
   return _client
 
 
