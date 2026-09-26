@@ -67,8 +67,29 @@ def check_missing_file() -> None:
     raise AssertionError("a missing file must raise FileNotFoundError")
 
 
+def check_repo_file() -> None:
+  """The committed provider file parses, and its top-level keys are alphabetical."""
+  loaded = config.load_config(Path("config/providers/free.yml"))
+  assert sorted(loaded) == list(loaded), list(loaded)
+  assert list(loaded) == [
+    "cloudflare",
+    "gemini",
+    "groq",
+    "kilo",
+    "mistral",
+    "openrouter",
+    "zai",
+  ], list(loaded)
+  for name, provider in loaded.items():
+    assert provider.get("discovery_url", "").startswith("https://"), name
+    assert "api_key" in provider, name
+  assert loaded["zai"]["exclude"] == ["*"], loaded["zai"]["exclude"]
+  assert loaded["groq"]["rpm"] == 30, loaded["groq"]["rpm"]
+
+
 def main() -> int:
   check_load()
+  check_repo_file()
   check_missing_file()
   config.set_config(None)
   print("ok: config loader checks passed")
