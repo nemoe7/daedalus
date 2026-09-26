@@ -241,6 +241,45 @@ def check_chunk() -> None:
   assert final["usageMetadata"]["totalTokenCount"] == 4
 
 
+def check_streamed_tool_call() -> None:
+  """Tool call fragments come together on the chunk that ends them."""
+  calls = gemini.StreamCalls()
+
+  def parts(chunk: dict) -> list:
+    return gemini.chunk_to_gemini(chunk, "m", calls)["candidates"][0]["content"][
+      "parts"
+    ]
+
+  head = {
+    "choices": [
+      {
+        "index": 0,
+        "delta": {
+          "tool_calls": [
+            {"index": 0, "function": {"name": "get_weather", "arguments": '{"ci'}}
+          ]
+        },
+      }
+    ]
+  }
+  assert parts(head) == []
+  tail = {
+    "choices": [
+      {
+        "index": 0,
+        "delta": {
+          "tool_calls": [{"index": 0, "function": {"arguments": 'ty": "Manila"}'}}]
+        },
+      }
+    ]
+  }
+  assert parts(tail) == []
+  end = {"choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}]}
+  assert parts(end) == [
+    {"functionCall": {"name": "get_weather", "args": {"city": "Manila"}}}
+  ]
+
+
 def check_empty_shapes() -> None:
   """An empty body or answer does not raise."""
   assert gemini.to_openai("m", {}) == {"model": "m", "messages": []}
@@ -261,6 +300,7 @@ def main() -> int:
   check_answer_with_tool_call()
   check_length_reason()
   check_chunk()
+  check_streamed_tool_call()
   check_empty_shapes()
   print("ok: gemini translation checks passed")
   return 0
