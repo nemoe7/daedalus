@@ -118,6 +118,28 @@ def check_tier_models() -> None:
   assert router.tier_models({}, "TIER-A") == []
 
 
+def check_route() -> None:
+  """A tier resolves to the provider rows that claim it, and escalates when empty."""
+  config = {
+    "gemini": {"tier": {"TIER-C": ["gemini-3.5-flash"]}},
+    "openrouter": {"tier": {"TIER-C": ["*:free"], "TIER-A": ["anthropic/*"]}},
+  }
+  lines = [
+    "gemini/gemini-3.5-flash",
+    "openrouter/google/gemini-3.5-flash:free",
+    "openrouter/anthropic/claude-opus-5",
+  ]
+  assert router.candidates(config, "TIER-C", lines) == [
+    "gemini/gemini-3.5-flash",
+    "openrouter/google/gemini-3.5-flash:free",
+  ]
+  assert router.candidates(config, "TIER-B", lines) == []
+  # "hi" needs TIER-D, which no block declares, so the next stronger tier answers.
+  assert router.route("hi", config, lines) == "gemini/gemini-3.5-flash"
+  assert router.route("hi", {}, lines) is None
+  assert router.route("hi", config, []) is None
+
+
 def main() -> int:
   """Run every check."""
   check_classify()
@@ -127,6 +149,7 @@ def main() -> int:
   check_predict()
   check_tier_names()
   check_tier_models()
+  check_route()
   print("ok: router checks passed")
   return 0
 
