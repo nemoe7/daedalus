@@ -301,6 +301,50 @@ async def check_gemini_bad_action(client: httpx.AsyncClient) -> None:
   assert response.json()["error"]["type"] == "invalid_request_error", response.text
 
 
+async def check_interactions_route(client: httpx.AsyncClient) -> None:
+  """An interactions request reaches the upstream as OpenAI, and comes back as steps."""
+  response = await client.post(
+    "/v1beta/interactions", json={"model": "gemini-3.5-flash", "input": "hi"}
+  )
+  assert response.status_code == 200, response.text
+  body = response.json()
+  assert body["object"] == "interaction", body
+  assert body["status"] == "completed", body
+  assert body["steps"][0]["type"] == "user_input", body
+  assert body["steps"][1]["content"] == [{"type": "text", "text": "hi"}], body
+  last = SEEN[-1]
+  assert last["model"] == "gemini-3.5-flash", last
+  assert last["messages"] == [{"role": "user", "content": "hi"}], last
+
+
+async def check_interactions_stream(client: httpx.AsyncClient) -> None:
+  """A streamed interaction carries the documented event names."""
+  response = await client.post(
+    "/v1beta/interactions",
+    json={"model": "gemini-3.5-flash", "input": "hi", "stream": True},
+  )
+  assert response.status_code == 200, response.text
+  names = [
+    line[7:] for line in response.text.splitlines() if line.startswith("event: ")
+  ]
+  assert names == [
+    "interaction.created",
+    "interaction.in_progress",
+    "step.start",
+    "step.delta",
+    "step.delta",
+    "step.stop",
+    "interaction.completed",
+  ], names
+
+
+async def check_interactions_needs_model(client: httpx.AsyncClient) -> None:
+  """An interaction with no model is refused."""
+  response = await client.post("/v1beta/interactions", json={"input": "hi"})
+  assert response.status_code == 400, response.text
+  assert response.json()["error"]["type"] == "invalid_request_error", response.text
+
+
 async def run_checks() -> None:
   use_upstream()
   async with make_client() as client:
@@ -313,6 +357,9 @@ async def run_checks() -> None:
     await check_gemini_route(client)
     await check_gemini_stream(client)
     await check_gemini_bad_action(client)
+    await check_interactions_route(client)
+    await check_interactions_stream(client)
+    await check_interactions_needs_model(client)
     await check_upstream_error_passthrough(client)
   check_wait_cap()
   await check_local_key()
