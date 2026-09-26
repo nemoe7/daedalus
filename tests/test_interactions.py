@@ -1,6 +1,8 @@
 """Runnable check for the interactions translator. Run: python tests/test_interactions.py"""
 
+import pathlib
 import sys
+import tempfile
 
 from daedalus import interactions
 
@@ -147,7 +149,7 @@ def check_answer() -> None:
   result = interactions.to_interaction(answer, {"input": "Why?"}, "m")
   assert result["object"] == "interaction"
   assert result["status"] == "completed"
-  assert result["id"] == "chatcmpl-1"
+  assert result["id"] == interactions.LOCAL_ID
   assert result["model"] == "gpt-4o"
   assert result["usage"] == {
     "prompt_tokens": 9,
@@ -220,6 +222,58 @@ def check_stream_events() -> None:
   assert raw == b'event: step.delta\ndata: {"a": 1}\n\n', raw
 
 
+def check_prior_steps() -> None:
+  """A stored turn comes before the new one."""
+  answer = {
+    "choices": [
+      {
+        "index": 0,
+        "message": {"content": "Eight paws."},
+        "finish_reason": "stop",
+      }
+    ]
+  }
+  prior = [
+    {
+      "type": "user_input",
+      "status": "done",
+      "content": [{"type": "text", "text": "I have 2 dogs."}],
+    }
+  ]
+  result = interactions.to_interaction(
+    answer, {"input": "How many paws?"}, "m", "int_9", prior
+  )
+  assert result["id"] == "int_9"
+  assert result["steps"][0] == prior[0]
+  assert result["steps"][1]["content"] == [{"type": "text", "text": "How many paws?"}]
+  assert result["steps"][2]["type"] == "model_output"
+
+
+def check_state_round_trip() -> None:
+  """The stored turns come back, and a bad id cannot leave the directory."""
+  with tempfile.TemporaryDirectory() as folder:
+    original = interactions.STATE_DIR
+    interactions.STATE_DIR = pathlib.Path(folder)
+    try:
+      record = {
+        "model": "m",
+        "messages": [{"role": "user", "content": "hi"}],
+        "steps": [{"type": "user_input"}],
+      }
+      interactions.save("int_1", record)
+      assert interactions.load("int_1") == record
+      assert interactions.load("int_missing") == {}
+      assert interactions.history_of(record) == [{"role": "user", "content": "hi"}]
+      assert interactions.steps_in(record) == [{"type": "user_input"}]
+      assert interactions.safe_id("int_1") == "int_1"
+      assert interactions.safe_id("../escape") == ""
+      assert interactions.safe_id("a/b") == ""
+      interactions.save("../escape", record)
+      assert not (pathlib.Path(folder).parent / "escape.json").exists()
+    finally:
+      interactions.STATE_DIR = original
+
+
 def check_empty_input() -> None:
   """An empty input does not raise."""
   payload = interactions.to_openai({})
@@ -242,6 +296,8 @@ def main() -> int:
   check_requires_action()
   check_incomplete()
   check_stream_events()
+  check_prior_steps()
+  check_state_round_trip()
   check_empty_input()
   print("ok: interactions translation checks passed")
   return 0
