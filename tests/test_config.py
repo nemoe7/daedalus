@@ -15,7 +15,7 @@ cloudflare:
   exclude:
     - "llama-guard*"
   tier:
-    COMPLEX:
+    TIER-B:
       - "*"
   models:
     "@cf/qwen/qwq-32b": { max_in_tok: 20000, max_out_tok: 4000 }
@@ -46,7 +46,7 @@ def check_load() -> None:
   assert cloudflare["api_base"] == "", repr(cloudflare["api_base"])
   assert cloudflare["discovery_url"].startswith("https://"), cloudflare
   assert cloudflare["exclude"] == ["llama-guard*"], cloudflare["exclude"]
-  assert cloudflare["tier"]["COMPLEX"] == ["*"], cloudflare["tier"]
+  assert cloudflare["tier"]["TIER-B"] == ["*"], cloudflare["tier"]
   limits = cloudflare["models"]["@cf/qwen/qwq-32b"]
   assert limits == {"max_in_tok": 20000, "max_out_tok": 4000}, limits
 
