@@ -1,8 +1,7 @@
 """Model catalog from the provider config.
 
-For each provider in the config: read its `discovery_url`, merge_pages the pages, write the
-full response to `{provider}.yml`, keep the rows the config patterns allow, and write the
-kept `provider/slug` lines to `models.txt`.
+For each provider in the config: read its `discovery_url`, merge the pages, keep the rows
+the config patterns allow, and write the kept `provider/slug` lines to `models.txt`.
 
 Pattern rules, in `matches`: exact, `*` and `?` are glob, `^` at the head is regex, and
 `!` at the head inverts the rest.
@@ -18,14 +17,12 @@ from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import httpx
-import yaml
 
 from daedalus.config import get_config
 
 logger = logging.getLogger("daedalus.catalog")
 
 MODELS_TXT = Path("models.txt")
-PROVIDER_DIR = Path("config/providers")
 TIMEOUT_SECONDS = 60.0
 MAX_PAGES = 50
 
@@ -195,8 +192,8 @@ def discover_provider(
   provider_name: str,
   provider: dict[str, Any],
   fetch: Fetch = fetch_json,
-) -> tuple[list[str], dict[str, Any]]:
-  """Read every page of one provider. Returns kept slugs and the merged payload."""
+) -> list[str]:
+  """Read every page of one provider, and return its kept slugs."""
   url = provider.get("discovery_url")
   if not isinstance(url, str) or not url:
     raise ValueError("no discovery_url")
@@ -212,21 +209,19 @@ def discover_provider(
     url = next_page_url(url, payload)
     page += 1
   full = merge_pages(pages)
-  return select(provider, extract_slugs(full)), full
+  return select(provider, extract_slugs(full))
 
 
 def build_catalog(
   config: dict[str, Any] | None = None,
   fetch: Fetch = fetch_json,
-) -> tuple[list[str], dict[str, dict[str, Any]], list[str]]:
+) -> tuple[list[str], list[str]]:
   """Build the catalog.
 
-  Returns the `provider/slug` lines, the merged payload per provider, and one reason
-  per skipped provider.
+  Returns the `provider/slug` lines, and one reason per skipped provider.
   """
   providers = get_config() if config is None else config
   lines: list[str] = []
-  payloads: dict[str, dict[str, Any]] = {}
   skipped: list[str] = []
   for provider_name, provider in providers.items():
     if not isinstance(provider, dict):
@@ -236,13 +231,12 @@ def build_catalog(
       skipped.append(f"{provider_name}: no api_key")
       continue
     try:
-      slugs, full = discover_provider(provider_name, provider, fetch)
+      slugs = discover_provider(provider_name, provider, fetch)
     except (httpx.HTTPError, ValueError) as error:
       skipped.append(f"{provider_name}: {error}")
       continue
-    payloads[provider_name] = full
     lines.extend(f"{provider_name}/{slug}" for slug in slugs)
-  return lines, payloads, skipped
+  return lines, skipped
 
 
 def write_models_txt(lines: Iterable[str], path: Path | str = MODELS_TXT) -> Path:
@@ -253,32 +247,14 @@ def write_models_txt(lines: Iterable[str], path: Path | str = MODELS_TXT) -> Pat
   return target
 
 
-def write_provider_yml(
-  provider_name: str,
-  payload: dict[str, Any],
-  directory: Path | str = PROVIDER_DIR,
-) -> Path:
-  """Write one provider's merged response as YAML."""
-  target = Path(directory) / f"{provider_name}.yml"
-  target.write_text(
-    yaml.safe_dump(payload, sort_keys=False, allow_unicode=True),
-    encoding="utf-8",
-  )
-  return target
-
-
 def main() -> int:
   logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
-  lines, payloads, skipped = build_catalog()
+  lines, skipped = build_catalog()
   target = write_models_txt(lines)
-  written = [write_provider_yml(name, payload) for name, payload in payloads.items()]
   for reason in skipped:
     logger.warning("skipped %s", reason)
-  print(f"wrote {len(lines)} models to {target}")
-  for path in written:
-    print(f"wrote {path}")
-  if skipped:
-    print(f"skipped {len(skipped)}: " + "; ".join(skipped))
+  providers = len({line.split("/", 1)[0] for line in lines})
+  logger.info("wrote %d models from %d providers to %s", len(lines), providers, target)
   return 0
 
 

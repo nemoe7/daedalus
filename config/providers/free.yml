@@ -93,7 +93,6 @@ kilo:
     - free
     - "*content-safety*"
     - kilo-auto/*
-    - openrouter/*
     - "!*:free"
   tier:
     REASONING:
@@ -138,7 +137,7 @@ openrouter:
     "*gemma-4-26b-a4b-it:free": { reasoning_effort: low }
     "*gemma-4-31b-it:free": { reasoning_effort: low }
 
-zai:
+z-ai:
   api_key: os.environ/ZAI_API_KEY
   discovery_url: https://open.bigmodel.cn/api/paas/v4/models
   exclude:

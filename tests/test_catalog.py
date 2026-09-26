@@ -33,9 +33,9 @@ CONFIG: dict[str, Any] = {
     "exclude": ["free", "*content-safety*", "openrouter/*", "!*:free"],
     "tier": {"COMPLEX": ["*"]},
   },
-  "zai": {
+  "z-ai": {
     "api_key": "zai-token",
-    "discovery_url": "https://zai.test/v4/models",
+    "discovery_url": "https://z-ai.test/v4/models",
     "exclude": ["*"],
     "tier": {"REASONING": ["glm-4.5"]},
   },
@@ -99,7 +99,7 @@ PAYOUT: dict[str, dict[str, Any]] = {
     "total_count": 3,
     "links": {"next": None},
   },
-  "https://zai.test/v4/models": {
+  "https://z-ai.test/v4/models": {
     "object": "list",
     "data": [{"id": "glm-4.5"}, {"id": "glm-4.6"}, {"id": "glm-4.5-air"}],
   },
@@ -194,7 +194,7 @@ def check_select() -> None:
   assert kept == ["@cf/meta/llama-guard-3-8b", "@cf/qwen/qwq-32b"], kept
 
   # An excluded slug stays excluded: a tier pattern does not claim it back.
-  assert catalog.select(CONFIG["zai"], ["glm-4.5", "glm-4.6"]) == []
+  assert catalog.select(CONFIG["z-ai"], ["glm-4.5", "glm-4.6"]) == []
 
   # A pattern that names its own provider is a slug pattern, not a head to strip:
   # `openrouter/*` reaches `openrouter/auto`, and only that.
@@ -213,24 +213,12 @@ def check_auth_headers() -> None:
 
 def check_discover_provider() -> None:
   fetch = make_fetch(PAYOUT)
-  gemini, full = catalog.discover_provider("gemini", CONFIG["gemini"], fetch)
+  gemini = catalog.discover_provider("gemini", CONFIG["gemini"], fetch)
   assert gemini == ["gemini-3.5-flash", "gemini-3.6-flash"], gemini
-  assert [row["name"] for row in full["models"]] == [
-    "models/gemini-3.5-flash",
-    "models/gemini-2.5-flash-lite",
-    "models/gemini-pro-latest",
-    "models/aqa",
-    "models/gemini-3.6-flash",
-  ], full
-  assert "nextPageToken" not in full, full
   assert SEEN["https://gem.test/v1beta/models"][0] == {"x-goog-api-key": "gem-token"}
 
   # Cloudflare pages on its row total, and takes `name`, not the UUID `id`.
-  cloudflare, cf_full = catalog.discover_provider(
-    "cloudflare",
-    CONFIG["cloudflare"],
-    fetch,
-  )
+  cloudflare = catalog.discover_provider("cloudflare", CONFIG["cloudflare"], fetch)
   assert "@cf/openai/gpt-oss-120b" in cloudflare, cloudflare
   assert "@cf/qwen/qwq-32b" in cloudflare, cloudflare
   assert "@cf/zai-org/glm-5.3" not in cloudflare, cloudflare
@@ -238,13 +226,12 @@ def check_discover_provider() -> None:
   assert "@cf/meta/llama-guard-3-8b" in cloudflare, (
     "the anchored pattern cannot drop it"
   )
-  assert len(cf_full["result"]) == 6, cf_full["result"]
   assert "https://cf.test/accounts/x/ai/models/search?per_page=100&page=2" in SEEN
 
   # A single page, and no row survives `exclude: ["*"]`.
-  openrouter, _ = catalog.discover_provider("openrouter", CONFIG["openrouter"], fetch)
+  openrouter = catalog.discover_provider("openrouter", CONFIG["openrouter"], fetch)
   assert openrouter == ["google/gemma-4-26b-a4b-it:free"], openrouter
-  assert catalog.discover_provider("zai", CONFIG["zai"], fetch)[0] == []
+  assert catalog.discover_provider("z-ai", CONFIG["z-ai"], fetch) == []
 
   try:
     catalog.discover_provider("denied", CONFIG["denied"], fetch)
@@ -255,7 +242,7 @@ def check_discover_provider() -> None:
 
 
 def check_build_catalog() -> None:
-  lines, payloads, skipped = catalog.build_catalog(CONFIG, make_fetch(PAYOUT))
+  lines, skipped = catalog.build_catalog(CONFIG, make_fetch(PAYOUT))
   assert lines == [
     "cloudflare/@cf/deepseek-ai/deepseek-r1-distill-llama-8b",
     "cloudflare/@cf/meta/llama-guard-3-8b",
@@ -265,12 +252,6 @@ def check_build_catalog() -> None:
     "gemini/gemini-3.6-flash",
     "openrouter/google/gemma-4-26b-a4b-it:free",
   ], lines
-  assert sorted(payloads) == ["cloudflare", "gemini", "openrouter", "zai"], payloads
-  assert payloads["zai"]["data"] == [
-    {"id": "glm-4.5"},
-    {"id": "glm-4.6"},
-    {"id": "glm-4.5-air"},
-  ], payloads["zai"]
   assert "nokey: no api_key" in skipped, skipped
   assert "denied: No route for that URI" in skipped, skipped
   assert any(item.startswith("broken: ") for item in skipped), skipped
@@ -297,17 +278,6 @@ def check_writers() -> None:
     target = Path(directory) / "models.txt"
     catalog.write_models_txt(["groq/a", "gemini/b"], target)
     assert target.read_bytes() == b"groq/a\ngemini/b\n", "LF only, on every platform"
-
-    path = catalog.write_provider_yml(
-      "groq",
-      {"object": "list", "data": [{"id": "llama-3.3-70b"}]},
-      Path(directory),
-    )
-    assert path.name == "groq.yml", path.name
-    assert path.read_text(encoding="utf-8") == (
-      "object: list\ndata:\n- id: llama-3.3-70b\n"
-    ), path.read_text(encoding="utf-8")
-  assert str(catalog.PROVIDER_DIR) == "config/providers", catalog.PROVIDER_DIR
 
 
 def check_declared_kept() -> None:
