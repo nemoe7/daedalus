@@ -27,6 +27,7 @@ An ADR holds one decision and the reason for it.
 - Lint every human-facing file with `.agents/skills/asd-ste100/scripts/ste-lint.py`. The run
   must report 0 violations, advisory findings included.
 - Lint Python comments and docstrings with `scripts/lint_prose.py`.
+- Docs never hold narrative. State the fact, and leave out the story.
 - Use lists and tables. A human reads the text, not a model.
 - Write at most four sentences in a paragraph, and keep only the core idea.
 
