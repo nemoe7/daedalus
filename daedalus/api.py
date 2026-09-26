@@ -12,7 +12,7 @@ import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import catalog, gemini, router
+from daedalus import catalog, gemini, interactions, router
 from daedalus.config import get_config
 
 # Hardcoded for now. Edit here, not through environment variables.
@@ -339,6 +339,108 @@ async def gemini_proxy(request: Request, target: str) -> Response:
   except ValueError:
     return Response(content=raw, status_code=200, media_type="application/json")
   return JSONResponse(gemini.to_gemini(answer, model))
+
+
+async def send_upstream(
+  url: str, content: bytes, headers: Mapping[str, str]
+) -> httpx.Response:
+  """Send one upstream request, ready to stream."""
+  client = get_client()
+  request = client.build_request("POST", url, content=content, headers=headers)
+  return await client.send(request, stream=True)
+
+
+@app.post("/v1beta/interactions")
+async def interactions_proxy(request: Request) -> Response:
+  """Take an interactions request and answer in the interactions shape."""
+  denied = check_local_key(request)
+  if denied is not None:
+    return denied
+
+  try:
+    body = json.loads(await request.body())
+  except ValueError:
+    return error_response(
+      400, "Request body is not valid JSON", "invalid_request_error"
+    )
+  if not isinstance(body, dict):
+    return error_response(
+      400, "Request body is not a JSON object", "invalid_request_error"
+    )
+
+  model = interactions.model_of(body)
+  if not model:
+    return error_response(400, "The request names no model", "invalid_request_error")
+  streaming = bool(body.get("stream")) or "alt=sse" in request.url.query
+  payload = interactions.to_openai(body)
+  if streaming:
+    payload["stream"] = True
+  logger.info("interaction for %s, stream=%s", model, streaming)
+
+  try:
+    upstream_response = await send_upstream(
+      build_upstream_url("/v1/chat/completions"),
+      json.dumps(payload).encode("utf-8"),
+      build_upstream_headers(request.headers),
+    )
+  except httpx.HTTPError as exc:
+    logger.warning("upstream request failed: %s", exc)
+    return error_response(502, f"Upstream request failed: {exc}", "upstream_error")
+
+  if upstream_response.status_code >= 400:
+    detail = await upstream_response.aread()
+    await upstream_response.aclose()
+    return Response(
+      content=detail,
+      status_code=upstream_response.status_code,
+      media_type=upstream_response.headers.get("content-type", "application/json"),
+    )
+
+  if streaming:
+    return StreamingResponse(
+      interaction_frames(upstream_response, interactions.Stream(model)),
+      media_type="text/event-stream",
+    )
+
+  raw = await upstream_response.aread()
+  await upstream_response.aclose()
+  try:
+    answer = json.loads(raw)
+  except ValueError:
+    return Response(content=raw, status_code=200, media_type="application/json")
+  return JSONResponse(interactions.to_interaction(answer, body, model))
+
+
+async def interaction_frames(
+  upstream_response: httpx.Response, stream: interactions.Stream
+) -> AsyncIterator[bytes]:
+  """Translate an OpenAI SSE answer into interactions SSE events."""
+  buffer = b""
+  last: dict[str, Any] = {}
+  try:
+    async for piece in upstream_response.aiter_bytes():
+      buffer += piece
+      while b"\n\n" in buffer:
+        block, buffer = buffer.split(b"\n\n", 1)
+        for line in block.split(b"\n"):
+          if not line.startswith(b"data:"):
+            continue
+          payload = line[5:].strip()
+          if payload == b"[DONE]":
+            yield interactions.frame(stream.close(last))
+            return
+          try:
+            chunk = json.loads(payload)
+          except ValueError:
+            continue
+          if isinstance(chunk, dict) and chunk:
+            last = chunk
+          delta = gemini.first(chunk.get("choices")).get("delta") or {}
+          text = delta.get("content")
+          if isinstance(text, str):
+            yield interactions.frame(stream.delta(text))
+  finally:
+    await upstream_response.aclose()
 
 
 def run() -> None:
