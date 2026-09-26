@@ -182,6 +182,15 @@ async def check_reroute(client: httpx.AsyncClient) -> None:
     config.set_config(None)
 
 
+def check_wait_cap() -> None:
+  """The wait for one answer is capped, and the other timeouts are not."""
+  api.set_client(None)
+  client = api.get_client()
+  assert client.timeout.read == api.WAIT_SECONDS, client.timeout
+  assert client.timeout.connect == api.TIMEOUT_SECONDS, client.timeout
+  api.set_client(None)
+
+
 async def check_query_string(client: httpx.AsyncClient) -> None:
   await client.post("/v1/chat/completions?beta=true", json=chat_body())
   assert SEEN[-1]["query"] == "beta=true", SEEN[-1]
@@ -251,6 +260,7 @@ async def run_checks() -> None:
     await check_query_string(client)
     await check_stream(client)
     await check_upstream_error_passthrough(client)
+  check_wait_cap()
   await check_local_key()
   await check_upstream_unreachable()
 
