@@ -11,6 +11,5 @@ build/
 models.txt
 
 # Local proxy state
-arena-state/
 *.log
 .env
