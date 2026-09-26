@@ -29,6 +29,7 @@ def make_upstream() -> FastAPI:
         "path": request.url.path,
         "query": request.url.query,
         "model": payload.get("model", ""),
+        "messages": payload.get("messages"),
         "authorization": request.headers.get("authorization", ""),
         "user_agent": request.headers.get("user-agent", ""),
       }
@@ -250,6 +251,56 @@ async def check_upstream_unreachable() -> None:
   assert response.json()["error"]["type"] == "upstream_error", response.text
 
 
+def gemini_body() -> dict:
+  return {
+    "system_instruction": {"parts": [{"text": "Answer in one line."}]},
+    "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
+    "generation_config": {"maxOutputTokens": 16},
+  }
+
+
+async def check_gemini_route(client: httpx.AsyncClient) -> None:
+  """A Gemini request reaches the upstream as OpenAI, and comes back as Gemini."""
+  response = await client.post(
+    "/v1beta/models/gemini-2.5-flash:generateContent", json=gemini_body()
+  )
+  assert response.status_code == 200, response.text
+  body = response.json()
+  assert body["candidates"][0]["content"]["parts"] == [{"text": "hi"}], body
+  assert body["candidates"][0]["finishReason"] == "STOP", body
+  last = SEEN[-1]
+  assert last["model"] == "gemini-2.5-flash", last
+  assert last["messages"] == [
+    {"role": "system", "content": "Answer in one line."},
+    {"role": "user", "content": "hi"},
+  ], last
+
+
+async def check_gemini_stream(client: httpx.AsyncClient) -> None:
+  """A Gemini stream request comes back as Gemini SSE frames."""
+  response = await client.post(
+    "/v1beta/models/gemini-2.5-flash:streamGenerateContent", json=gemini_body()
+  )
+  assert response.status_code == 200, response.text
+  assert response.headers["content-type"].startswith("text/event-stream"), (
+    response.headers
+  )
+  frames = [
+    line[5:].strip() for line in response.text.splitlines() if line.startswith("data:")
+  ]
+  assert frames[-1] == "[DONE]", frames
+  first = json.loads(frames[0])
+  assert first["candidates"][0]["content"]["parts"] == [{"text": "Hel"}], first
+  assert SEEN[-1]["model"] == "gemini-2.5-flash", SEEN[-1]
+
+
+async def check_gemini_bad_action(client: httpx.AsyncClient) -> None:
+  """An unknown Gemini action is refused."""
+  response = await client.post("/v1beta/models/gemini-2.5-flash:countTokens", json={})
+  assert response.status_code == 404, response.text
+  assert response.json()["error"]["type"] == "invalid_request_error", response.text
+
+
 async def run_checks() -> None:
   use_upstream()
   async with make_client() as client:
@@ -259,6 +310,9 @@ async def run_checks() -> None:
     await check_reroute(client)
     await check_query_string(client)
     await check_stream(client)
+    await check_gemini_route(client)
+    await check_gemini_stream(client)
+    await check_gemini_bad_action(client)
     await check_upstream_error_passthrough(client)
   check_wait_cap()
   await check_local_key()
