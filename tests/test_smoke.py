@@ -33,6 +33,8 @@ def make_upstream() -> FastAPI:
         "user_agent": request.headers.get("user-agent", ""),
       }
     )
+    if payload.get("model") == "gemini/bad":
+      return JSONResponse({"error": {"message": "slow down"}}, status_code=429)
     if payload.get("stream"):
 
       async def chunks():
@@ -151,6 +153,35 @@ async def check_routed_model(client: httpx.AsyncClient) -> None:
     config.set_config(None)
 
 
+async def check_reroute(client: httpx.AsyncClient) -> None:
+  """A failed model logs internally, and the next model in the chain answers."""
+  config.set_config({"gemini": {"tier": {"TIER-B": ["bad", "gemini-3.5-flash"]}}})
+  saved = catalog.MODELS_TXT
+  try:
+    with tempfile.TemporaryDirectory() as folder:
+      catalog.MODELS_TXT = pathlib.Path(folder) / "models.txt"
+      catalog.MODELS_TXT.write_text(
+        "gemini/bad\ngemini/gemini-3.5-flash\n", encoding="utf-8"
+      )
+      response = await client.post(
+        "/v1/chat/completions", json=chat_body(model="daedalus/sophos")
+      )
+      assert response.status_code == 200, response.text
+      assert SEEN[-2]["model"] == "gemini/bad", SEEN[-2]
+      assert SEEN[-1]["model"] == "gemini/gemini-3.5-flash", SEEN[-1]
+
+      # When the last model in the chain fails, the client sees that error.
+      config.set_config({"gemini": {"tier": {"TIER-B": ["bad"]}}})
+      catalog.MODELS_TXT.write_text("gemini/bad\n", encoding="utf-8")
+      doomed = await client.post(
+        "/v1/chat/completions", json=chat_body(model="daedalus/sophos")
+      )
+      assert doomed.status_code == 429, doomed.text
+  finally:
+    catalog.MODELS_TXT = saved
+    config.set_config(None)
+
+
 async def check_query_string(client: httpx.AsyncClient) -> None:
   await client.post("/v1/chat/completions?beta=true", json=chat_body())
   assert SEEN[-1]["query"] == "beta=true", SEEN[-1]
@@ -216,6 +247,7 @@ async def run_checks() -> None:
     await check_health(client)
     await check_non_stream(client)
     await check_routed_model(client)
+    await check_reroute(client)
     await check_query_string(client)
     await check_stream(client)
     await check_upstream_error_passthrough(client)

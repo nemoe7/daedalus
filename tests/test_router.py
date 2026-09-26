@@ -135,9 +135,13 @@ def check_route() -> None:
   ]
   assert router.candidates(config, "TIER-B", lines) == []
   # "hi" needs TIER-D, which no block declares, so the next stronger tier answers.
-  assert router.route("hi", config, lines) == "gemini/gemini-3.5-flash"
-  assert router.route("hi", {}, lines) is None
-  assert router.route("hi", config, []) is None
+  assert router.route("hi", config, lines) == [
+    "gemini/gemini-3.5-flash",
+    "openrouter/google/gemini-3.5-flash:free",
+    "openrouter/anthropic/claude-opus-5",
+  ]
+  assert router.route("hi", {}, lines) == []
+  assert router.route("hi", config, []) == []
 
 
 def check_pools() -> None:
@@ -157,18 +161,22 @@ def check_pools() -> None:
     "openrouter": {"tier": {"TIER-A": ["anthropic/*"]}},
   }
   lines = ["gemini/gemini-3.5-flash", "openrouter/anthropic/claude-opus-5"]
-  # sophos is tier 4, and openrouter holds TIER-A, so it answers at once.
-  assert (
-    router.route_pool("daedalus/sophos", config, lines)
-    == "openrouter/anthropic/claude-opus-5"
-  )
+  # sophos is tier 4, so TIER-A leads and TIER-B follows.
+  assert router.route_pool("daedalus/sophos", config, lines) == [
+    "openrouter/anthropic/claude-opus-5",
+    "gemini/gemini-3.5-flash",
+  ]
   # moros is tier 1, so the chain promotes to TIER-B before it reaches TIER-A.
-  assert router.route_pool("daedalus/moros", config, lines) == "gemini/gemini-3.5-flash"
+  assert router.route_pool("daedalus/moros", config, lines) == [
+    "gemini/gemini-3.5-flash",
+    "openrouter/anthropic/claude-opus-5",
+  ]
   # koinos is tier 2, which is empty, so the chain promotes to TIER-B.
-  assert (
-    router.route_pool("daedalus/koinos", config, lines) == "gemini/gemini-3.5-flash"
-  )
-  assert router.route_pool("daedalus/unknown", config, lines) is None
+  assert router.route_pool("daedalus/koinos", config, lines) == [
+    "gemini/gemini-3.5-flash",
+    "openrouter/anthropic/claude-opus-5",
+  ]
+  assert router.route_pool("daedalus/unknown", config, lines) == []
 
 
 def main() -> int:

@@ -6,6 +6,7 @@ import time
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from secrets import compare_digest
+from typing import Any
 
 import httpx
 from fastapi import FastAPI, Request, Response
@@ -141,32 +142,36 @@ def last_user_text(messages: object) -> str:
   return ""
 
 
-def routed_body(body: bytes) -> bytes:
-  """Swap a reserved model name for a routed provider model, and pass any other body on."""
+def routed_models(body: bytes) -> tuple[dict[str, Any] | None, list[str]]:
+  """Split a request into its JSON body and the models to try, in order."""
+  empty: tuple[dict[str, Any] | None, list[str]] = (None, [])
   if "daedalus/" not in body.decode("utf-8", "ignore"):
-    return body
+    return empty
   try:
     payload = json.loads(body)
   except ValueError:
-    return body
+    return empty
   if not isinstance(payload, dict):
-    return body
+    return empty
   name = payload.get("model")
   if not isinstance(name, str) or not name.startswith("daedalus/"):
-    return body
+    return empty
   if name in router.POOLS:
-    target = router.route_pool(name, get_config(), catalog.read_models_txt())
+    models = router.route_pool(name, get_config(), catalog.read_models_txt())
   elif name == router.RESERVED_MODEL:
     prompt = last_user_text(payload.get("messages"))
-    target = router.route(prompt, get_config(), catalog.read_models_txt())
+    models = router.route(prompt, get_config(), catalog.read_models_txt())
   else:
-    return body
-  if target is None:
+    return empty
+  if not models:
     logger.warning("no model in any tier for %s", name)
-    return body
-  payload["model"] = target
-  logger.info("routed %s to %s", name, target)
-  return json.dumps(payload).encode("utf-8")
+  logger.info("routed %s to %d models", name, len(models))
+  return payload, models
+
+
+def body_for(payload: dict[str, Any], model: str) -> bytes:
+  """Encode one attempt of a routed request."""
+  return json.dumps({**payload, "model": model}).encode("utf-8")
 
 
 @app.get("/health")
@@ -181,29 +186,51 @@ async def proxy(request: Request, rest_of_path: str) -> Response:
     return denied
 
   query = f"?{request.url.query}" if request.url.query else ""
+  await_body = await request.body()
   url = build_upstream_url(request.url.path + query)
-  body = routed_body(await request.body())
+  payload, models = routed_models(await_body)
+  attempts = [body_for(payload, model) for model in models] if payload else [await_body]
   client = get_client()
-  upstream_request = client.build_request(
-    request.method,
-    url,
-    content=body,
-    headers=build_upstream_headers(request.headers),
-  )
+  headers = build_upstream_headers(request.headers)
+  failure: Response | None = None
 
-  try:
-    upstream_response = await client.send(upstream_request, stream=True)
-  except httpx.HTTPError as exc:
-    return error_response(502, f"Upstream request failed: {exc}", "upstream_error")
+  for content in attempts:
+    upstream_request = client.build_request(
+      request.method, url, content=content, headers=headers
+    )
+    try:
+      upstream_response = await client.send(upstream_request, stream=True)
+    except httpx.HTTPError as exc:
+      logger.warning("upstream request failed: %s", exc)
+      failure = error_response(502, f"Upstream request failed: {exc}", "upstream_error")
+      continue
 
-  if upstream_response.status_code >= 400:
-    payload = await upstream_response.aread()
-    await upstream_response.aclose()
-    return Response(
-      content=payload,
+    if upstream_response.status_code >= 400:
+      detail = await upstream_response.aread()
+      await upstream_response.aclose()
+      logger.warning(
+        "upstream answered %s, so the next model tries", upstream_response.status_code
+      )
+      failure = Response(
+        content=detail,
+        status_code=upstream_response.status_code,
+        media_type=upstream_response.headers.get("content-type", "application/json"),
+      )
+      continue
+
+    return StreamingResponse(
+      stream_from(upstream_response),
       status_code=upstream_response.status_code,
       media_type=upstream_response.headers.get("content-type", "application/json"),
     )
+
+  if failure is not None:
+    return failure
+  return error_response(502, "No model answered the request", "upstream_error")
+
+
+def stream_from(upstream_response: httpx.Response) -> AsyncIterator[bytes]:
+  """Pass one upstream answer through, unbuffered."""
 
   async def stream() -> AsyncIterator[bytes]:
     try:
@@ -213,11 +240,7 @@ async def proxy(request: Request, rest_of_path: str) -> Response:
     finally:
       await upstream_response.aclose()
 
-  return StreamingResponse(
-    stream(),
-    status_code=upstream_response.status_code,
-    media_type=upstream_response.headers.get("content-type", "application/json"),
-  )
+  return stream()
 
 
 def run() -> None:

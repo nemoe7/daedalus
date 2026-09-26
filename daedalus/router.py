@@ -350,17 +350,16 @@ def fallback_order(tier: int) -> tuple[int, ...]:
   return above + below
 
 
-def first_available(
+def chain_models(
   config: Mapping[str, Any],
   lines: list[str],
   order: tuple[int, ...],
-) -> str | None:
-  """The first `provider/slug` in a tier chain that holds a model."""
+) -> list[str]:
+  """Every `provider/slug` in a tier chain, in the order the proxy tries them."""
+  found: list[str] = []
   for tier in order:
-    found = candidates(config, TIER_NAMES[tier], lines)
-    if found:
-      return found[0]
-  return None
+    found.extend(candidates(config, TIER_NAMES[tier], lines))
+  return found
 
 
 def route(
@@ -368,20 +367,20 @@ def route(
   config: Mapping[str, Any],
   lines: list[str],
   artifact: Artifact | None = None,
-) -> str | None:
-  """The `provider/slug` for a prompt, or `None` when no tier holds a model."""
+) -> list[str]:
+  """The models for a prompt, in the order the proxy tries them."""
   table: Final = load_artifact() if artifact is None else artifact
   required: Final = predict(prompt, table).required_tier
-  return first_available(config, lines, fallback_order(required))
+  return chain_models(config, lines, fallback_order(required))
 
 
 def route_pool(
   pool: str,
   config: Mapping[str, Any],
   lines: list[str],
-) -> str | None:
-  """Return the provider/slug for a named pool, with no classifier call."""
+) -> list[str]:
+  """The models for a named pool, with no classifier call."""
   tier = POOLS.get(pool)
   if tier is None:
-    return None
-  return first_available(config, lines, fallback_order(tier))
+    return []
+  return chain_models(config, lines, fallback_order(tier))
