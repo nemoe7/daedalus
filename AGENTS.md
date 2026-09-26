@@ -29,3 +29,8 @@ run must report 0 violations, advisory findings included.
 
 - Use lists and tables. A human reads the text, not a model.
 - Write at most four sentences in a paragraph, and keep only the core idea.
+
+## Code comments
+
+- Write a comment only where the function is extremely complex.
+- Keep a comment to two lines and three sentences.
