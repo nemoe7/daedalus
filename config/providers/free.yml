@@ -92,6 +92,8 @@ kilo:
   exclude:
     - free
     - "*content-safety*"
+    - kilo-auto/*
+    - "!*:free"
   tier:
     REASONING:
       - "glm-5*"
@@ -126,6 +128,8 @@ openrouter:
   exclude:
     - free
     - "*content-safety*"
+    - openrouter/*
+    - "!*:free"
   tier:
     COMPLEX:
       - "*"

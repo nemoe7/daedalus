@@ -4,9 +4,9 @@ For each provider in the config: read its `discovery_url`, merge_pages the pages
 full response to `{provider}.yml`, keep the rows the config patterns allow, and write the
 kept `provider/slug` lines to `models.txt`.
 
-Pattern rules, in `matches`: exact, `*` and `?` are glob, `^` at the head is regex.
-A pattern matches the slug alone: the block key already supplies the provider, so a
-`provider/` head on a pattern is dropped before the match.
+Pattern rules, in `matches`: exact, `*` and `?` are glob, `^` at the head is regex, and
+`!` at the head inverts the rest.
+A pattern matches the slug alone: the block key already supplies the provider.
 """
 
 import logging
@@ -46,7 +46,13 @@ Fetch = Callable[[str, dict[str, str]], dict[str, Any]]
 
 
 def matches(pattern: str, slug: str) -> bool:
-  """Match one config pattern against one slug."""
+  """Match one config pattern against one slug.
+
+  `!` at the head inverts the rest, so `!*:free` matches every slug that is not a
+  `:free` variant. `^` at the head is regex. `*` and `?` are glob. Else exact.
+  """
+  if pattern.startswith("!"):
+    return not matches(pattern[1:], slug)
   if pattern.startswith("^"):
     return re.search(pattern, slug) is not None
   if "*" in pattern or "?" in pattern:
@@ -56,11 +62,6 @@ def matches(pattern: str, slug: str) -> bool:
 
 def any_match(patterns: Iterable[str], slug: str) -> bool:
   return any(matches(pattern, slug) for pattern in patterns)
-
-
-def strip_provider_head(pattern: str, provider_name: str) -> str:
-  """Drop a `provider/` head. The block key already names the provider."""
-  return pattern.removeprefix(f"{provider_name}/")
 
 
 def auth_headers(provider_name: str, provider: dict[str, Any]) -> dict[str, str]:
@@ -175,20 +176,13 @@ def fetch_json(url: str, headers: dict[str, str]) -> dict[str, Any]:
   return payload if isinstance(payload, dict) else {}
 
 
-def select(
-  provider_name: str,
-  provider: dict[str, Any],
-  slugs: Iterable[str],
-) -> list[str]:
+def select(provider: dict[str, Any], slugs: Iterable[str]) -> list[str]:
   """Keep the slugs that `exclude` does not drop.
 
-  An excluded slug stays excluded: `tier` is routing metadata, and the catalog does not
-  read it.
+  A pattern matches the slug alone; the block key already names the provider. An excluded
+  slug stays excluded: `tier` is routing metadata, and the catalog does not read it.
   """
-  exclude = [
-    strip_provider_head(pattern, provider_name)
-    for pattern in provider.get("exclude") or []
-  ]
+  exclude = provider.get("exclude") or []
   return sorted({slug for slug in slugs if not any_match(exclude, slug)})
 
 
@@ -213,7 +207,7 @@ def discover_provider(
     url = next_page_url(url, payload)
     page += 1
   full = merge_pages(pages)
-  return select(provider_name, provider, extract_slugs(full)), full
+  return select(provider, extract_slugs(full)), full
 
 
 def build_catalog(
@@ -249,7 +243,8 @@ def build_catalog(
 def write_models_txt(lines: Iterable[str], path: Path | str = MODELS_TXT) -> Path:
   """Write one `provider/slug` per line."""
   target = Path(path)
-  target.write_text("".join(f"{line}\n" for line in lines), encoding="utf-8")
+  with target.open("w", encoding="utf-8", newline="\n") as handle:
+    handle.write("".join(f"{line}\n" for line in lines))
   return target
 
 
