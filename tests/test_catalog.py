@@ -291,6 +291,17 @@ def check_declared_kept() -> None:
     "openai/gpt-oss-120b"
   ]
 
+  # An exact `models:` key is written even when discovery does not return it.
+  absent = {"exclude": ["*"], "models": {"glm-4.5-flash": {"rpm": 60}}}
+  assert catalog.select(absent, ["glm-4.5", "glm-5"]) == ["glm-4.5-flash"]
+
+  # A pattern key is a matcher, not an id, so it never becomes a slug of its own.
+  pattern_only = {"exclude": ["*"], "models": {"*gemma-4-31b-it:free": {"rpm": 5}}}
+  assert catalog.select(pattern_only, ["google/gemma-4-31b-it:free"]) == [
+    "google/gemma-4-31b-it:free"
+  ]
+  assert catalog.select(pattern_only, []) == []
+
 
 def check_free_only() -> None:
   """The committed config keeps only `:free` rows for kilo and openrouter.
