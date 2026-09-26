@@ -15,7 +15,7 @@ from typing import Any
 import yaml
 
 ENV_PREFIX = "os.environ/"
-DEFAULT_PATH = Path("config.yml")
+DEFAULT_PATH = Path("config/providers/free.yml")
 
 _config: dict[str, Any] | None = None
 
@@ -48,7 +48,7 @@ def load_config(path: Path | str = DEFAULT_PATH) -> dict[str, Any]:
 
 
 def get_config() -> dict[str, Any]:
-  """Return the loaded config, loading `config.yml` on the first call."""
+  """Return the loaded config, loading `config/providers/free.yml` on the first call."""
   if _config is None:
     return load_config()
   return _config
