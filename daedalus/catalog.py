@@ -173,18 +173,31 @@ def fetch_json(url: str, headers: dict[str, str]) -> dict[str, Any]:
   return payload if isinstance(payload, dict) else {}
 
 
+def declared_ids(provider: dict[str, Any]) -> list[str]:
+  """Take the model ids that a `models:` block names exactly.
+
+  A key with `*`, `?` or `^` is a pattern, not an id, so it cannot be written as a slug.
+  """
+  keys = (provider.get("models") or {}).keys()
+  return [
+    key for key in keys if isinstance(key, str) and not any(c in key for c in "*?^")
+  ]
+
+
 def select(provider: dict[str, Any], slugs: Iterable[str]) -> list[str]:
   """Keep the slugs that `exclude` does not drop.
 
-  A pattern matches the slug alone; the block key already names the provider. A slug that a
-  `models:` key names is always kept when discovery finds it. `tier` is routing metadata,
-  and the catalog does not read it.
+  A pattern matches the slug alone; the block key already names the provider. Every exact
+  `models:` key is written, whether or not discovery returns it, because the endpoint may
+  omit a model that still answers. `tier` is routing metadata, and the catalog does not
+  read it.
   """
   exclude = provider.get("exclude") or []
   declared = list((provider.get("models") or {}).keys())
-  kept = {
+  kept = set(declared_ids(provider))
+  kept.update(
     slug for slug in slugs if any_match(declared, slug) or not any_match(exclude, slug)
-  }
+  )
   return sorted(kept)
 
 
