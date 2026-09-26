@@ -2,6 +2,9 @@
 
 import json
 import logging
+import re
+import uuid
+from pathlib import Path
 from typing import Any
 
 from daedalus import gemini
@@ -17,6 +20,11 @@ UNSUPPORTED_TOOLS = frozenset(
 UNSUPPORTED_CONFIG = ("thinking_level", "thinkingLevel")
 
 LOCAL_ID = "int_local"
+
+# The turns live on disk, so a restart keeps them. The id must stay inside this
+# directory, so it takes no dots and no slashes.
+STATE_DIR = Path(__file__).resolve().parent.parent / "state"
+ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 
 
 def content_items(source: Any) -> list[dict[str, Any]]:
@@ -164,8 +172,6 @@ def to_openai(body: dict[str, Any]) -> dict[str, Any]:
   declared = tools(body)
   if declared:
     payload["tools"] = declared
-  if body.get("previous_interaction_id") or body.get("previousInteractionId"):
-    logger.warning("previous_interaction_id needs stored state, so it is ignored")
   return payload
 
 
@@ -225,19 +231,105 @@ def status_of(choice: dict[str, Any], steps: list[dict[str, Any]]) -> str:
   return "completed"
 
 
-def to_interaction(
-  answer: dict[str, Any], body: dict[str, Any], model: str
-) -> dict[str, Any]:
-  """An OpenAI chat answer as an interaction."""
+def steps_of(body: dict[str, Any], answer: dict[str, Any]) -> list[dict[str, Any]]:
+  """One turn as interaction steps."""
   choice = gemini.first(answer.get("choices"))
   steps = [user_step(body)]
   steps.extend(model_steps(choice.get("message") or {}))
+  return steps
+
+
+def assistant_messages(answer: dict[str, Any]) -> list[dict[str, Any]]:
+  """The answer as messages to add to the stored history."""
+  message = gemini.first(answer.get("choices")).get("message")
+  return [message] if isinstance(message, dict) else []
+
+
+def new_id() -> str:
+  """A fresh interaction id."""
+  return f"int_{uuid.uuid4().hex[:16]}"
+
+
+def safe_id(value: Any) -> str:
+  """An id that cannot leave the state directory."""
+  text = str(value or "")
+  return text if ID_PATTERN.fullmatch(text) else ""
+
+
+def state_path(interaction_id: str) -> Path:
+  """The file that holds one interaction."""
+  return STATE_DIR / f"{interaction_id}.json"
+
+
+def load(interaction_id: str) -> dict[str, Any]:
+  """The stored turns of one interaction, or an empty dict."""
+  checked = safe_id(interaction_id)
+  if not checked:
+    logger.warning("an unsafe interaction id arrived, so no state loads")
+    return {}
+  try:
+    raw = state_path(checked).read_text(encoding="utf-8")
+  except OSError:
+    return {}
+  try:
+    record = json.loads(raw)
+  except ValueError:
+    logger.warning("the stored interaction %s is corrupt, so it loads empty", checked)
+    return {}
+  return record if isinstance(record, dict) else {}
+
+
+def save(interaction_id: str, record: dict[str, Any]) -> None:
+  """Store the turns of one interaction."""
+  checked = safe_id(interaction_id)
+  if not checked:
+    return
+  path = state_path(checked)
+  try:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(record), encoding="utf-8")
+    temporary.replace(path)
+  except OSError as exc:
+    logger.warning("the interaction state did not save: %s", exc)
+
+
+def history_of(record: dict[str, Any]) -> list[dict[str, Any]]:
+  """The stored messages of one interaction."""
+  found = record.get("messages")
+  return (
+    [entry for entry in found if isinstance(entry, dict)]
+    if isinstance(found, list)
+    else []
+  )
+
+
+def steps_in(record: dict[str, Any]) -> list[dict[str, Any]]:
+  """The stored steps of one interaction."""
+  found = record.get("steps")
+  return (
+    [entry for entry in found if isinstance(entry, dict)]
+    if isinstance(found, list)
+    else []
+  )
+
+
+def to_interaction(
+  answer: dict[str, Any],
+  body: dict[str, Any],
+  model: str,
+  interaction_id: str = LOCAL_ID,
+  prior: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+  """An OpenAI chat answer as an interaction, after the stored turns."""
+  choice = gemini.first(answer.get("choices"))
+  fresh = steps_of(body, answer)
   return {
-    "id": answer.get("id") or LOCAL_ID,
+    "id": interaction_id,
     "object": "interaction",
     "model": answer.get("model") or model,
-    "status": status_of(choice, steps),
-    "steps": steps,
+    "status": status_of(choice, fresh),
+    "steps": [*steps_in({"steps": prior or []}), *fresh],
     "usage": usage(answer),
   }
 
