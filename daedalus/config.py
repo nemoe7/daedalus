@@ -1,13 +1,4 @@
-"""Provider config from one YAML file.
-
-Shape: provider name at the top level, in alphabetical order. Per provider:
-`api_key`, `api_base`, `discovery_url`, `rpm`, `exclude`, `tier`, `models`.
-A string may carry `os.environ/NAME` anywhere, as a whole value or inside a URL. Each
-occurrence resolves to that environment variable; an unset variable gives an empty
-string.
-
-This module holds the config. It does not use it.
-"""
+"""Load the provider config from YAML and resolve os.environ/NAME inside any string."""
 
 import os
 import re
@@ -24,11 +15,7 @@ _config: dict[str, Any] | None = None
 
 
 def resolve_env(value: str) -> str:
-  """Replace every `os.environ/NAME` in the string with that variable.
-
-  A name ends at the first character outside `[A-Za-z0-9_]`, so a URL may carry one.
-  An unset variable gives an empty string.
-  """
+  """Read one environment variable that an os.environ/NAME token names."""
   return ENV_PATTERN.sub(lambda found: os.environ.get(found.group(1), ""), value)
 
 

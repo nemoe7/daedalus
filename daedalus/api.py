@@ -1,7 +1,4 @@
-"""OpenAI-compatible local proxy.
-
-Set API_KEY below to your upstream key. Do not commit a real key.
-"""
+"""OpenAI-compatible local proxy with the upstream key set below, never committed."""
 
 import json
 import logging
@@ -145,11 +142,7 @@ def last_user_text(messages: object) -> str:
 
 
 def routed_body(body: bytes) -> bytes:
-  """Swap a reserved model name for a routed provider model.
-
-  `daedalus/auto` scores the prompt. A pool name goes straight to its tier. Any other body,
-  and any body that is not a JSON object, goes upstream untouched.
-  """
+  """Swap a reserved model name for a routed provider model, and pass any other body on."""
   if "daedalus/" not in body.decode("utf-8", "ignore"):
     return body
   try:
