@@ -47,5 +47,4 @@ follows the same chain from that tier.
 - Promotion comes before demotion, so a request can reach a stronger model before a
   weaker one.
 - The proxy reserves the four pool names. No provider model may use them.
-- A retry inside a pool comes before the chain moves on. The trigger and the streaming
-  rule are not decided yet, so the chain moves on when a tier holds no model.
+- A retry inside a pool comes before the chain moves on.
