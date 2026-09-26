@@ -252,6 +252,13 @@ def build_catalog(
   return lines, skipped
 
 
+def read_models_txt() -> list[str]:
+  """The lines the last catalog run wrote, or an empty list before the first run."""
+  if not MODELS_TXT.exists():
+    return []
+  return [line for line in MODELS_TXT.read_text(encoding="utf-8").splitlines() if line]
+
+
 def write_models_txt(lines: Iterable[str], path: Path | str = MODELS_TXT) -> Path:
   """Write one `provider/slug` per line."""
   target = Path(path)
