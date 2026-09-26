@@ -17,9 +17,13 @@ from pathlib import Path
 from re import Pattern
 from typing import Any, Final
 
+from daedalus.catalog import any_match
+
 ARTIFACT_PATH: Final = (
   Path(__file__).with_name("artifacts") / "ultrafeedback_tiers.json"
 )
+# The one model name the proxy resolves itself. Every other name goes upstream as written.
+RESERVED_MODEL: Final = "daedalus/auto"
 TIERS: Final = (1, 2, 3, 4)
 # litellm numbers its tiers 1 to 4 as SIMPLE, MEDIUM, COMPLEX, REASONING. The config names
 # them TIER-D, TIER-C, TIER-B and TIER-A, so the ladder runs the other way. Map the numbers
@@ -314,3 +318,47 @@ def tier_models(provider: Mapping[str, Any], tier_name: str) -> list[str]:
   tiers = provider.get("tier") or {}
   names = tiers.get(tier_name) or []
   return [name for name in names if isinstance(name, str) and name]
+
+
+def candidates(
+  config: Mapping[str, Any],
+  tier_name: str,
+  lines: list[str],
+) -> list[str]:
+  """The `provider/slug` rows that a provider block places in one tier.
+
+  A tier lists patterns, so a row belongs to a tier when its slug matches. The same model
+  can sit in different tiers on different providers, so every block answers for itself.
+  """
+  wanted: list[str] = []
+  for provider_name, provider in config.items():
+    if not isinstance(provider, dict):
+      continue
+    patterns = tier_models(provider, tier_name)
+    if not patterns:
+      continue
+    head = f"{provider_name}/"
+    for line in lines:
+      if line.startswith(head) and any_match(patterns, line[len(head) :]):
+        wanted.append(line)
+  return wanted
+
+
+def route(
+  prompt: str,
+  config: Mapping[str, Any],
+  lines: list[str],
+  artifact: Artifact | None = None,
+) -> str | None:
+  """The `provider/slug` for a prompt, or `None` when no tier holds a model.
+
+  A tier with no models escalates to the next stronger one, because a weaker model is the
+  likelier failure and the caller asked for this much capability.
+  """
+  table: Final = load_artifact() if artifact is None else artifact
+  required: Final = predict(prompt, table).required_tier
+  for tier in range(required, TIERS[-1] + 1):
+    found = candidates(config, TIER_NAMES[tier], lines)
+    if found:
+      return found[0]
+  return None
