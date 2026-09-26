@@ -29,9 +29,8 @@ POOLS: Final[Mapping[str, int]] = {
   "daedalus/sophos": 4,
 }
 TIERS: Final = (1, 2, 3, 4)
-# litellm numbers its tiers 1 to 4 as SIMPLE, MEDIUM, COMPLEX, REASONING. The config names
-# them TIER-D, TIER-C, TIER-B and TIER-A, so the ladder runs the other way. Map the numbers
-# explicitly; sorting the tier names would invert it.
+# litellm numbers its tiers 1 to 4 as SIMPLE, MEDIUM, COMPLEX, REASONING, and the config
+# names them TIER-D to TIER-A, so the map is explicit. Sorting the names inverts it.
 TIER_NAMES: Final[Mapping[int, str]] = {
   1: "TIER-D",
   2: "TIER-C",
