@@ -1,12 +1,4 @@
-"""Model catalog from the provider config.
-
-For each provider in the config: read its `discovery_url`, merge the pages, keep the rows
-the config patterns allow, and write the kept `provider/slug` lines to `models.txt`.
-
-Pattern rules, in `matches`: exact, `*` and `?` are glob, `^` at the head is regex, and
-`!` at the head inverts the rest.
-A pattern matches the slug alone: the block key already supplies the provider.
-"""
+"""Discover the models each provider serves and write them to models.txt."""
 
 import logging
 import re
@@ -43,11 +35,7 @@ Fetch = Callable[[str, dict[str, str]], dict[str, Any]]
 
 
 def matches(pattern: str, slug: str) -> bool:
-  """Match one config pattern against one slug.
-
-  `!` at the head inverts the rest, so `!*:free` matches every slug that is not a
-  `:free` variant. `^` at the head is regex. `*` and `?` are glob. Else exact.
-  """
+  """Test one slug against one pattern."""
   if pattern.startswith("!"):
     return not matches(pattern[1:], slug)
   if pattern.startswith("^"):
@@ -81,11 +69,7 @@ def row_shape(payload: dict[str, Any]) -> str | None:
 
 
 def extract_slugs(payload: dict[str, Any]) -> list[str]:
-  """Take the slug from each row of one payload.
-
-  `data[].id`: groq, kilo, mistral, openrouter, zai. `models[].name` without the
-  `models/` head: gemini. `result[].name`: cloudflare, where `id` is a UUID.
-  """
+  """Take the slug from each row of one payload."""
   shape = row_shape(payload)
   if shape is None:
     return []
@@ -154,10 +138,7 @@ def next_page_url(url: str, payload: dict[str, Any]) -> str | None:
 
 
 def with_param(url: str, key: str, value: str | int) -> str:
-  """Set one query parameter, and keep the others.
-
-  `safe="="` keeps a base64 page token verbatim: gemini's `nextPageToken` ends with `=`.
-  """
+  """Add or replace one query parameter in a URL."""
   parts = urlsplit(url)
   params = [(name, text) for name, text in parse_qsl(parts.query) if name != key]
   params.append((key, str(value)))
@@ -174,10 +155,7 @@ def fetch_json(url: str, headers: dict[str, str]) -> dict[str, Any]:
 
 
 def declared_ids(provider: dict[str, Any]) -> list[str]:
-  """Take the model ids that a `models:` block names exactly.
-
-  A key with `*`, `?` or `^` is a pattern, not an id, so it cannot be written as a slug.
-  """
+  """Take the model ids that a models block names exactly."""
   keys = (provider.get("models") or {}).keys()
   return [
     key for key in keys if isinstance(key, str) and not any(c in key for c in "*?^")
@@ -185,13 +163,7 @@ def declared_ids(provider: dict[str, Any]) -> list[str]:
 
 
 def select(provider: dict[str, Any], slugs: Iterable[str]) -> list[str]:
-  """Keep the slugs that `exclude` does not drop.
-
-  A pattern matches the slug alone; the block key already names the provider. Every exact
-  `models:` key is written, whether or not discovery returns it, because the endpoint may
-  omit a model that still answers. `tier` is routing metadata, and the catalog does not
-  read it.
-  """
+  """Keep the slugs that exclude does not drop, plus every exact declared id."""
   exclude = provider.get("exclude") or []
   declared = list((provider.get("models") or {}).keys())
   kept = set(declared_ids(provider))
@@ -229,10 +201,7 @@ def build_catalog(
   config: dict[str, Any] | None = None,
   fetch: Fetch = fetch_json,
 ) -> tuple[list[str], list[str]]:
-  """Build the catalog.
-
-  Returns the `provider/slug` lines, and one reason per skipped provider.
-  """
+  """Build the catalog, and return its lines with one reason per skipped provider."""
   providers = get_config() if config is None else config
   lines: list[str] = []
   skipped: list[str] = []

@@ -1,10 +1,7 @@
-"""Pick a tier for a request, using the vendored litellm heuristic v2.
+"""Pick a tier for a request with the vendored litellm heuristic v2."""
 
-Vendored from litellm 1.102.1, MIT licence: `classify_prompt` from
-`litellm/router_strategy/adaptive_router/classifier.py`, and `TierSuccessPredictor` from
-`litellm/router_strategy/complexity_router/tier_predictor.py`, with its bundled
-`ultrafeedback_tiers.json` artifact. The port uses only the standard library.
-"""
+# Vendored from litellm 1.102.1, MIT licence: classify_prompt, TierSuccessPredictor,
+# and the bundled ultrafeedback_tiers.json artifact.
 
 from __future__ import annotations
 
@@ -332,11 +329,7 @@ def candidates(
   tier_name: str,
   lines: list[str],
 ) -> list[str]:
-  """The `provider/slug` rows that a provider block places in one tier.
-
-  A tier lists patterns, so a row belongs to a tier when its slug matches. The same model
-  can sit in different tiers on different providers, so every block answers for itself.
-  """
+  """Return the provider/slug rows that one tier claims."""
   wanted: list[str] = []
   for provider_name, provider in config.items():
     if not isinstance(provider, dict):
@@ -352,10 +345,7 @@ def candidates(
 
 
 def fallback_order(tier: int) -> tuple[int, ...]:
-  """The tiers to try, in order: this one, up to 4, then down from the next to 1.
-
-  ADR 1 names this promote then demote. Tier 4 has nothing above it, so it only demotes.
-  """
+  """List the tiers to try, this one, up to tier 4, then down to tier 1."""
   above: Final = tuple(range(tier, TIERS[-1] + 1))
   below: Final = tuple(range(tier - 1, 0, -1))
   return above + below
@@ -391,10 +381,7 @@ def route_pool(
   config: Mapping[str, Any],
   lines: list[str],
 ) -> str | None:
-  """The `provider/slug` for a named pool, or `None` for an unknown name.
-
-  A pool goes straight to its tier. No classifier runs.
-  """
+  """Return the provider/slug for a named pool, with no classifier call."""
   tier = POOLS.get(pool)
   if tier is None:
     return None
