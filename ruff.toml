@@ -1,0 +1,7 @@
+indent-width = 2
+required-version = "0.16.6"
+exclude = [".agents"]
+
+[lint]
+ignore = ["BLE001", "S110"]
+extend-safe-fixes = ["C408", "PERF102", "RUF059"]
