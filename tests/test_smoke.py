@@ -1,4 +1,4 @@
-"""Runnable check for the proxy. Run: .venv/bin/python tests/test_smoke.py"""
+"""Runnable check for the proxy. Run: python tests/test_smoke.py"""
 
 import asyncio
 import json

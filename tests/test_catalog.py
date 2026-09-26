@@ -1,4 +1,4 @@
-"""Runnable check for the catalog. Run: .venv/bin/python tests/test_catalog.py
+"""Runnable check for the catalog. Run: python tests/test_catalog.py
 
 Stub payloads copy the shapes in the provider dumps: `data[].id` for groq, kilo,
 mistral, openrouter, and zai; `models[].name` with a `models/` head for gemini;
