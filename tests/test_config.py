@@ -78,12 +78,12 @@ def check_repo_file() -> None:
     "kilo",
     "mistral",
     "openrouter",
-    "zai",
+    "z-ai",
   ], list(loaded)
   for name, provider in loaded.items():
     assert provider.get("discovery_url", "").startswith("https://"), name
     assert "api_key" in provider, name
-  assert loaded["zai"]["exclude"] == ["*"], loaded["zai"]["exclude"]
+  assert loaded["z-ai"]["exclude"] == ["*"], loaded["z-ai"]["exclude"]
   assert loaded["groq"]["rpm"] == 30, loaded["groq"]["rpm"]
 
 
