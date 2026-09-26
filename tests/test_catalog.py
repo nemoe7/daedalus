@@ -1,9 +1,4 @@
-"""Runnable check for the catalog. Run: python tests/test_catalog.py
-
-Stub payloads copy the shapes in the provider dumps: `data[].id` for groq, kilo,
-mistral, openrouter, and zai; `models[].name` with a `models/` head for gemini;
-`result[].name` with a UUID `id` and a `result_info` row total for cloudflare.
-"""
+"""Runnable check for the model catalog. Run: python tests/test_catalog.py"""
 
 import sys
 import tempfile
@@ -304,10 +299,7 @@ def check_declared_kept() -> None:
 
 
 def check_free_only() -> None:
-  """The committed config keeps only `:free` rows for kilo and openrouter.
-
-  Slugs are real rows from a generated models.txt.
-  """
+  """The committed config keeps only :free rows for kilo and openrouter."""
   providers = config.load_config()
   rows = [
     "openai/gpt-6-sol",
