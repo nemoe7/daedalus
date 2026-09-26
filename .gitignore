@@ -13,3 +13,6 @@ models.txt
 # Local proxy state
 *.log
 .env
+
+# Interaction turns, replayed on previous_interaction_id
+state/

@@ -372,10 +372,17 @@ async def interactions_proxy(request: Request) -> Response:
   if not model:
     return error_response(400, "The request names no model", "invalid_request_error")
   streaming = bool(body.get("stream")) or "alt=sse" in request.url.query
+  prior_id = str(
+    body.get("previous_interaction_id") or body.get("previousInteractionId") or ""
+  )
+  record = interactions.load(prior_id) if prior_id else {}
+  interaction_id = interactions.safe_id(prior_id) or interactions.new_id()
+  prior_steps = interactions.steps_in(record)
   payload = interactions.to_openai(body)
+  payload["messages"] = [*interactions.history_of(record), *payload["messages"]]
   if streaming:
     payload["stream"] = True
-  logger.info("interaction for %s, stream=%s", model, streaming)
+  logger.info("interaction %s for %s, stream=%s", interaction_id, model, streaming)
 
   try:
     upstream_response = await send_upstream(
@@ -397,8 +404,16 @@ async def interactions_proxy(request: Request) -> Response:
     )
 
   if streaming:
+
+    def on_finish(text: str, usage: dict[str, Any]) -> None:
+      store_turn(
+        interaction_id, model, payload["messages"], prior_steps, body, text, usage
+      )
+
     return StreamingResponse(
-      interaction_frames(upstream_response, interactions.Stream(model)),
+      interaction_frames(
+        upstream_response, interactions.Stream(model, interaction_id), on_finish
+      ),
       media_type="text/event-stream",
     )
 
@@ -408,15 +423,66 @@ async def interactions_proxy(request: Request) -> Response:
     answer = json.loads(raw)
   except ValueError:
     return Response(content=raw, status_code=200, media_type="application/json")
-  return JSONResponse(interactions.to_interaction(answer, body, model))
+  store_turn(
+    interaction_id,
+    model,
+    payload["messages"],
+    prior_steps,
+    body,
+    answer_text(answer),
+    (answer.get("usage") or {}) if isinstance(answer, dict) else {},
+  )
+  return JSONResponse(
+    interactions.to_interaction(answer, body, model, interaction_id, prior_steps)
+  )
+
+
+def answer_text(answer: dict[str, Any]) -> str:
+  """The text of one upstream answer."""
+  message = gemini.first(answer.get("choices")).get("message") or {}
+  text = message.get("content")
+  return text if isinstance(text, str) else ""
+
+
+def store_turn(
+  interaction_id: str,
+  model: str,
+  messages: list[dict[str, Any]],
+  prior_steps: list[dict[str, Any]],
+  body: dict[str, Any],
+  text: str,
+  usage: dict[str, Any],
+) -> None:
+  """Add one finished turn to the stored interaction."""
+  answer: dict[str, Any] = {
+    "choices": [
+      {
+        "index": 0,
+        "message": {"role": "assistant", "content": text},
+        "finish_reason": "stop",
+      }
+    ],
+    "usage": usage,
+  }
+  interactions.save(
+    interaction_id,
+    {
+      "model": model,
+      "messages": [*messages, *interactions.assistant_messages(answer)],
+      "steps": [*prior_steps, *interactions.steps_of(body, answer)],
+    },
+  )
 
 
 async def interaction_frames(
-  upstream_response: httpx.Response, stream: interactions.Stream
+  upstream_response: httpx.Response,
+  stream: interactions.Stream,
+  on_finish,
 ) -> AsyncIterator[bytes]:
   """Translate an OpenAI SSE answer into interactions SSE events."""
   buffer = b""
   last: dict[str, Any] = {}
+  pieces: list[str] = []
   try:
     async for piece in upstream_response.aiter_bytes():
       buffer += piece
@@ -427,6 +493,7 @@ async def interaction_frames(
             continue
           payload = line[5:].strip()
           if payload == b"[DONE]":
+            on_finish("".join(pieces), last.get("usage") or {})
             yield interactions.frame(stream.close(last))
             return
           try:
@@ -438,6 +505,7 @@ async def interaction_frames(
           delta = gemini.first(chunk.get("choices")).get("delta") or {}
           text = delta.get("content")
           if isinstance(text, str):
+            pieces.append(text)
             yield interactions.frame(stream.delta(text))
   finally:
     await upstream_response.aclose()
