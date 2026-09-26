@@ -9,7 +9,7 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import api, catalog, config
+from daedalus import api, catalog, config, interactions
 
 UPSTREAM_BASE = "http://upstream.test"
 UPSTREAM_KEY = "upstream-secret"
@@ -345,8 +345,51 @@ async def check_interactions_needs_model(client: httpx.AsyncClient) -> None:
   assert response.json()["error"]["type"] == "invalid_request_error", response.text
 
 
+async def check_interactions_replay(client: httpx.AsyncClient) -> None:
+  """A second turn replays the first from disk."""
+  first = await client.post(
+    "/v1beta/interactions", json={"model": "m", "input": "I have 2 dogs."}
+  )
+  assert first.status_code == 200, first.text
+  body = first.json()
+  interaction_id = body["id"]
+  assert len(body["steps"]) == 2, body
+
+  second = await client.post(
+    "/v1beta/interactions",
+    json={
+      "model": "m",
+      "input": "How many paws?",
+      "previous_interaction_id": interaction_id,
+    },
+  )
+  assert second.status_code == 200, second.text
+  body = second.json()
+  assert body["id"] == interaction_id, body
+  assert len(body["steps"]) == 4, body
+  assert SEEN[-1]["messages"] == [
+    {"role": "user", "content": "I have 2 dogs."},
+    {"role": "assistant", "content": "hi"},
+    {"role": "user", "content": "How many paws?"},
+  ], SEEN[-1]
+
+
 async def run_checks() -> None:
   use_upstream()
+  with tempfile.TemporaryDirectory() as folder:
+    original = interactions.STATE_DIR
+    interactions.STATE_DIR = pathlib.Path(folder)
+    try:
+      await run_client_checks()
+    finally:
+      interactions.STATE_DIR = original
+  check_wait_cap()
+  await check_local_key()
+  await check_upstream_unreachable()
+
+
+async def run_client_checks() -> None:
+  """Every check that talks to the app, with the state in a temp folder."""
   async with make_client() as client:
     await check_health(client)
     await check_non_stream(client)
@@ -359,11 +402,9 @@ async def run_checks() -> None:
     await check_gemini_bad_action(client)
     await check_interactions_route(client)
     await check_interactions_stream(client)
+    await check_interactions_replay(client)
     await check_interactions_needs_model(client)
     await check_upstream_error_passthrough(client)
-  check_wait_cap()
-  await check_local_key()
-  await check_upstream_unreachable()
 
 
 def main() -> None:
