@@ -9,6 +9,7 @@ Use `scripts/preview.py` relative to the actual installed steering skill. Put `-
 | `init` | Create a missing state database before restoring an NDJSON backup |
 | `serve --port 8000` | Start the shared preview with a long-lived process tool |
 | `read` | List every pending note and report answer; mark only delivered IDs Seen |
+| `poll` | Wait for a pending inbox item before ending a turn |
 | `seen <ids>` | Mark fully delivered IDs Seen without answering; never use on counts or truncated output |
 | `ack <id> --reply <markdown>` | Answer one delivered ID with a rendered reply |
 | `ack <id> --note <text>` | Answer one delivered ID with one plain line |
@@ -28,7 +29,7 @@ Use this only after the owner selects the external channel. The owner supplies a
 
 ## Read cadence
 
-Read the inbox at turn start, each reasoning boundary, before and after every tool-call block, before expensive or irreversible work, and before turn end. When ending a turn or a report form awaits answers, loop `sleep 10` and `read`; break on a new message or after 100 loops. Co-issue a read inside each parallel block and read again after it returns; a block is the cadence unit. A count that changes inside a block is a read now, not at the next boundary: the reminder prints only a count, so a higher count means notes nobody has read. End every bash call with a poll, so no call, chained or not, starves the inbox. A blocking-only call needs its read after return. Initial discovery may precede the first read; startup MUST.
+Read the inbox at turn start, each reasoning boundary, before and after every tool-call block, before expensive or irreversible work, and before turn end. When ending a turn or a report form awaits answers, run `poll`. Co-issue a read inside each parallel block and read again after it returns; a block is the cadence unit. A count that changes inside a block is a read now, not at the next boundary: the reminder prints only a count, so a higher count means notes nobody has read. End every bash call with a poll, so no call, chained or not, starves the inbox. A blocking-only call needs its read after return. Initial discovery may precede the first read; startup MUST.
 
 ## Tasks
 
