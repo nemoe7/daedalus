@@ -285,7 +285,39 @@ def to_gemini(answer: dict[str, Any], model: str) -> dict[str, Any]:
   }
 
 
-def chunk_to_gemini(chunk: dict[str, Any], model: str) -> dict[str, Any]:
+class StreamCalls:
+  """Collect streamed tool call fragments, and emit whole calls at the end."""
+
+  def __init__(self) -> None:
+    self.slots: dict[int, dict[str, str]] = {}
+
+  def take(self, delta: dict[str, Any]) -> None:
+    """Add one chunk of a streamed tool call."""
+    for fragment in delta.get("tool_calls") or []:
+      if not isinstance(fragment, dict):
+        continue
+      slot = self.slots.setdefault(
+        int(fragment.get("index") or 0), {"name": "", "arguments": ""}
+      )
+      function = fragment.get("function") or {}
+      if function.get("name"):
+        slot["name"] = str(function["name"])
+      if function.get("arguments"):
+        slot["arguments"] += str(function["arguments"])
+
+  def drain(self) -> list[dict[str, Any]]:
+    """The collected calls as Gemini function call parts, in stream order."""
+    found = [
+      {"functionCall": {"name": slot["name"], "args": loads(slot["arguments"])}}
+      for _, slot in sorted(self.slots.items())
+    ]
+    self.slots.clear()
+    return found
+
+
+def chunk_to_gemini(
+  chunk: dict[str, Any], model: str, calls: StreamCalls | None = None
+) -> dict[str, Any]:
   """One OpenAI stream chunk as one Gemini stream chunk."""
   choice = first(chunk.get("choices"))
   delta = choice.get("delta") or {}
@@ -293,13 +325,17 @@ def chunk_to_gemini(chunk: dict[str, Any], model: str) -> dict[str, Any]:
   text = delta.get("content")
   if isinstance(text, str) and text:
     parts.append({"text": text})
+  reason = choice.get("finish_reason")
+  if calls is not None:
+    calls.take(delta)
+    if reason == "tool_calls":
+      parts.extend(calls.drain())
   result: dict[str, Any] = {
     "candidates": [
       {"content": {"parts": parts, "role": "model"}, "index": choice.get("index", 0)}
     ],
     "modelVersion": chunk.get("model") or model,
   }
-  reason = choice.get("finish_reason")
   if reason:
     result["candidates"][0]["finishReason"] = FINISH_REASON.get(
       str(reason), UNSPECIFIED
