@@ -25,6 +25,7 @@ from daedalus.config import get_config
 logger = logging.getLogger("daedalus.catalog")
 
 MODELS_TXT = Path("models.txt")
+PROVIDER_DIR = Path("config/providers")
 TIMEOUT_SECONDS = 60.0
 MAX_PAGES = 50
 
@@ -119,27 +120,51 @@ def collate(pages: list[dict[str, Any]]) -> dict[str, Any]:
   return merged
 
 
+def failure(payload: dict[str, Any]) -> str | None:
+  """Return the message of a failed envelope, so a bad URL is not an empty catalog."""
+  if payload.get("success") is not False:
+    return None
+  for error in payload.get("errors") or []:
+    if isinstance(error, dict) and error.get("message"):
+      return str(error["message"])
+  return "the upstream reported a failure"
+
+
 def next_page_url(url: str, payload: dict[str, Any]) -> str | None:
   """Build the next page URL, or None when the page is the last one."""
   token = payload.get("nextPageToken")
   if isinstance(token, str) and token:
     return with_param(url, "pageToken", token)
+  links = payload.get("links")
+  if isinstance(links, dict) and isinstance(links.get("next"), str) and links["next"]:
+    return links["next"]
   info = payload.get("result_info")
   if not isinstance(info, dict):
     return None
   page = info.get("page")
+  if not isinstance(page, int):
+    return None
   total_pages = info.get("total_pages")
-  if isinstance(page, int) and isinstance(total_pages, int) and page < total_pages:
-    return with_param(url, "page", page + 1)
+  if isinstance(total_pages, int):
+    return with_param(url, "page", page + 1) if page < total_pages else None
+  # Cloudflare names a row total, not a page total.
+  total_count = info.get("total_count")
+  per_page = info.get("per_page")
+  if isinstance(total_count, int) and isinstance(per_page, int) and per_page > 0:
+    return with_param(url, "page", page + 1) if page * per_page < total_count else None
   return None
 
 
 def with_param(url: str, key: str, value: str | int) -> str:
-  """Set one query parameter, and keep the others."""
+  """Set one query parameter, and keep the others.
+
+  `safe="="` keeps a base64 page token verbatim: gemini's `nextPageToken` ends with `=`.
+  """
   parts = urlsplit(url)
   params = [(name, text) for name, text in parse_qsl(parts.query) if name != key]
   params.append((key, str(value)))
-  return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(params), ""))
+  query = urlencode(params, safe="=")
+  return urlunsplit((parts.scheme, parts.netloc, parts.path, query, ""))
 
 
 def fetch_json(url: str, headers: dict[str, str]) -> dict[str, Any]:
@@ -155,24 +180,16 @@ def select(
   provider: dict[str, Any],
   slugs: Iterable[str],
 ) -> list[str]:
-  """Keep the slugs the config allows.
+  """Keep the slugs that `exclude` does not drop.
 
-  `exclude` drops a slug. A `tier` pattern claims it back, so a provider that excludes
-  every fetched row still keeps the rows its tiers name.
+  An excluded slug stays excluded: `tier` is routing metadata, and the catalog does not
+  read it.
   """
   exclude = [
     strip_provider_head(pattern, provider_name)
     for pattern in provider.get("exclude") or []
   ]
-  claimed = [
-    strip_provider_head(pattern, provider_name)
-    for patterns in (provider.get("tier") or {}).values()
-    for pattern in patterns
-  ]
-  kept = {
-    slug for slug in slugs if not any_match(exclude, slug) or any_match(claimed, slug)
-  }
-  return sorted(kept)
+  return sorted({slug for slug in slugs if not any_match(exclude, slug)})
 
 
 def discover_provider(
@@ -189,6 +206,9 @@ def discover_provider(
   page = 0
   while url is not None and page < MAX_PAGES:
     payload = fetch(url, headers)
+    problem = failure(payload)
+    if problem is not None:
+      raise ValueError(problem)
     pages.append(payload)
     url = next_page_url(url, payload)
     page += 1
@@ -236,7 +256,7 @@ def write_models_txt(lines: Iterable[str], path: Path | str = MODELS_TXT) -> Pat
 def write_provider_yml(
   provider_name: str,
   payload: dict[str, Any],
-  directory: Path | str = Path("."),
+  directory: Path | str = PROVIDER_DIR,
 ) -> Path:
   """Write one provider's collated response as YAML."""
   target = Path(directory) / f"{provider_name}.yml"
