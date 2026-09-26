@@ -21,3 +21,11 @@ An ADR holds one decision and the reason for it.
 - Say that an ADR needs an amendment before the implementation changes, not after.
 - The owner dictates an ADR. Write a terse, formatted draft, publish it as a report, and
   change `docs/adr` only after the owner approves it.
+
+## Human-facing text
+
+Lint every human-facing file with `.agents/skills/asd-ste100/scripts/ste-lint.py`. No hard
+violation may remain.
+
+- Use lists and tables. A human reads the text, not a model.
+- Write at most four sentences in a paragraph, and keep only the core idea.
