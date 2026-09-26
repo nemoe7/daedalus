@@ -1,7 +1,7 @@
 cloudflare:
   api_key: os.environ/CLOUDFLARE_API_TOKEN
   api_base: os.environ/CLOUDFLARE_API_BASE
-  discovery_url: https://api.cloudflare.com/client/v4/ai/models/search
+  discovery_url: https://api.cloudflare.com/client/v4/accounts/os.environ/CLOUDFLARE_ACCOUNT_ID/ai/models/search?per_page=100
   exclude:
     - "llama-guard*"
     - "llama-3.2-11b-vision*"
