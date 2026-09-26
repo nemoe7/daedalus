@@ -310,6 +310,18 @@ def check_writers() -> None:
   assert str(catalog.PROVIDER_DIR) == "config/providers", catalog.PROVIDER_DIR
 
 
+def check_declared_kept() -> None:
+  """A slug a `models:` key names is kept even when `exclude` drops it."""
+  provider = {"exclude": ["*"], "models": {"glm-4.7-flash": {"tpm": 8000}}}
+  slugs = ["glm-4.5", "glm-4.6", "glm-4.7-flash"]
+  assert catalog.select(provider, slugs) == ["glm-4.7-flash"]
+
+  globbed = {"exclude": ["openai/*"], "models": {"*gpt-oss-120b": {"max_in_tok": 7000}}}
+  assert catalog.select(globbed, ["openai/gpt-oss-120b", "openai/gpt-6-sol"]) == [
+    "openai/gpt-oss-120b"
+  ]
+
+
 def check_free_only() -> None:
   """The committed config keeps only `:free` rows for kilo and openrouter.
 
