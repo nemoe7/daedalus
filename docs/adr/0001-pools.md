@@ -28,8 +28,8 @@ in -os.
 A request that names a pool goes to that tier. No classifier runs.
 
 A tier that holds no model falls back. The owner names the rule promote then demote. In
-order, the chain starts at the pool's tier, walks up to tier 4, and then walks down from
-the next tier to tier 1:
+order, the chain starts at the pool's tier, walks up to TIER-A, and then walks down from
+the next tier to TIER-D:
 
 - moros: moros, koinos, deinos, sophos
 - koinos: koinos, deinos, sophos, moros
