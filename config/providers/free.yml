@@ -80,9 +80,9 @@ groq:
     TIER-B:
       - qwen3.8-27b
   models:
-    gpt-oss-120b: { max_in_tok: 7000 }
-    gpt-oss-20b: { max_in_tok: 7000, tpm: 8000 }
-    qwen3.8-27b: { max_in_tok: 7000, max_out_tok: 16384 }
+    openai/gpt-oss-120b: { max_in_tok: 7000 }
+    openai/gpt-oss-20b: { max_in_tok: 7000, tpm: 8000 }
+    qwen/qwen3.8-27b: { max_in_tok: 7000, max_out_tok: 16384 }
     allam-2-7b: { tpm: 6000 }
 
 kilo:
