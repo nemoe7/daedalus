@@ -34,3 +34,4 @@ run must report 0 violations, advisory findings included.
 
 - Write a comment only where the function is extremely complex.
 - Keep a comment to two lines and three sentences.
+- Keep a docstring to one line and one sentence.
