@@ -253,6 +253,7 @@ async def gemini_frames(
 ) -> AsyncIterator[bytes]:
   """Translate an OpenAI SSE answer into Gemini SSE frames."""
   buffer = b""
+  calls = gemini.StreamCalls()
   try:
     async for piece in upstream_response.aiter_bytes():
       buffer += piece
@@ -269,7 +270,7 @@ async def gemini_frames(
             chunk = json.loads(payload)
           except ValueError:
             continue
-          out = json.dumps(gemini.chunk_to_gemini(chunk, model)).encode("utf-8")
+          out = json.dumps(gemini.chunk_to_gemini(chunk, model, calls)).encode("utf-8")
           yield b"data: " + out + b"\n\n"
   finally:
     await upstream_response.aclose()
