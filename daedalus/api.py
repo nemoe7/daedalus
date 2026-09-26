@@ -3,6 +3,7 @@
 Set API_KEY below to your upstream key. Do not commit a real key.
 """
 
+import json
 import logging
 import time
 from collections.abc import AsyncIterator, Mapping
@@ -12,6 +13,9 @@ from secrets import compare_digest
 import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
+
+from daedalus import catalog, router
+from daedalus.config import get_config
 
 # Hardcoded for now. Edit here, not through environment variables.
 UPSTREAM_BASE_URL = "https://api.openai.com"
@@ -124,6 +128,45 @@ async def log_request(request: Request, call_next):
   return response
 
 
+def last_user_text(messages: object) -> str:
+  """The text of the last user turn, whatever shape its content takes."""
+  if not isinstance(messages, list):
+    return ""
+  for message in reversed(messages):
+    if not isinstance(message, dict) or message.get("role") != "user":
+      continue
+    content = message.get("content")
+    if isinstance(content, str):
+      return content
+    if isinstance(content, list):
+      parts = [part.get("text", "") for part in content if isinstance(part, dict)]
+      return "\n".join(part for part in parts if part)
+  return ""
+
+
+def routed_body(body: bytes) -> bytes:
+  """Swap the reserved model name for a routed provider model.
+
+  Any other body, and any body that is not a JSON object, goes upstream untouched.
+  """
+  if router.RESERVED_MODEL not in body.decode("utf-8", "ignore"):
+    return body
+  try:
+    payload = json.loads(body)
+  except ValueError:
+    return body
+  if not isinstance(payload, dict) or payload.get("model") != router.RESERVED_MODEL:
+    return body
+  prompt = last_user_text(payload.get("messages"))
+  target = router.route(prompt, get_config(), catalog.read_models_txt())
+  if target is None:
+    logger.warning("no model in any tier for a routed request")
+    return body
+  payload["model"] = target
+  logger.info("routed a request to %s", target)
+  return json.dumps(payload).encode("utf-8")
+
+
 @app.get("/health")
 async def health() -> dict[str, str]:
   return {"status": "ok", "upstream": UPSTREAM_BASE_URL}
@@ -137,7 +180,7 @@ async def proxy(request: Request, rest_of_path: str) -> Response:
 
   query = f"?{request.url.query}" if request.url.query else ""
   url = build_upstream_url(request.url.path + query)
-  body = await request.body()
+  body = routed_body(await request.body())
   client = get_client()
   upstream_request = client.build_request(
     request.method,

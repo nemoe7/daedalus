@@ -2,12 +2,14 @@
 
 import asyncio
 import json
+import pathlib
+import tempfile
 
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import api
+from daedalus import api, catalog, config
 
 UPSTREAM_BASE = "http://upstream.test"
 UPSTREAM_KEY = "upstream-secret"
@@ -26,6 +28,7 @@ def make_upstream() -> FastAPI:
       {
         "path": request.url.path,
         "query": request.url.query,
+        "model": payload.get("model", ""),
         "authorization": request.headers.get("authorization", ""),
         "user_agent": request.headers.get("user-agent", ""),
       }
@@ -110,6 +113,31 @@ async def check_non_stream(client: httpx.AsyncClient) -> None:
   assert last["path"] == "/v1/chat/completions", last
   assert last["authorization"] == f"Bearer {UPSTREAM_KEY}", last
   assert last["user_agent"] == "daedalus-test", last
+  assert last["model"] == "gpt-test", last
+
+
+async def check_routed_model(client: httpx.AsyncClient) -> None:
+  """The reserved name resolves to a provider model; any other name passes through."""
+  config.set_config({"gemini": {"tier": {"TIER-C": ["gemini-3.5-flash"]}}})
+  saved = catalog.MODELS_TXT
+  try:
+    with tempfile.TemporaryDirectory() as folder:
+      catalog.MODELS_TXT = pathlib.Path(folder) / "models.txt"
+      catalog.MODELS_TXT.write_text("gemini/gemini-3.5-flash\n", encoding="utf-8")
+      response = await client.post(
+        "/v1/chat/completions",
+        json=chat_body(
+          model="daedalus/auto",
+          messages=[
+            {"role": "user", "content": "write a python function to parse a csv file"}
+          ],
+        ),
+      )
+      assert response.status_code == 200, response.text
+      assert SEEN[-1]["model"] == "gemini/gemini-3.5-flash", SEEN[-1]
+  finally:
+    catalog.MODELS_TXT = saved
+    config.set_config(None)
 
 
 async def check_query_string(client: httpx.AsyncClient) -> None:
@@ -176,6 +204,7 @@ async def run_checks() -> None:
   async with make_client() as client:
     await check_health(client)
     await check_non_stream(client)
+    await check_routed_model(client)
     await check_query_string(client)
     await check_stream(client)
     await check_upstream_error_passthrough(client)
