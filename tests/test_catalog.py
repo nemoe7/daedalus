@@ -12,7 +12,7 @@ from typing import Any
 
 import httpx
 
-from daedalus import catalog
+from daedalus import catalog, config
 
 CONFIG: dict[str, Any] = {
   "cloudflare": {
@@ -30,7 +30,7 @@ CONFIG: dict[str, Any] = {
   "openrouter": {
     "api_key": "or-token",
     "discovery_url": "https://or.test/api/v1/models",
-    "exclude": ["*content-safety*"],
+    "exclude": ["free", "*content-safety*", "openrouter/*", "!*:free"],
     "tier": {"COMPLEX": ["*"]},
   },
   "zai": {
@@ -124,6 +124,10 @@ def check_matches() -> None:
   assert not catalog.matches("llama-guard*", "@cf/meta/llama-guard-3-8b"), (
     "an anchored pattern does not reach past an org head"
   )
+  assert catalog.matches("!*:free", "openai/gpt-6-sol"), "negation drops a paid row"
+  assert not catalog.matches("!*:free", "google/gemma-4-31b-it:free")
+  assert catalog.matches("!^glm-4\\.[67]$", "glm-4.5"), "negation inverts regex too"
+  assert not catalog.matches("!^glm-4\\.[67]$", "glm-4.6")
 
 
 def check_extract_slugs() -> None:
@@ -186,17 +190,19 @@ def check_select() -> None:
     "@cf/zai-org/glm-5.3",
     "@cf/moonshotai/kimi-k2.6",
   ]
-  kept = catalog.select("cloudflare", provider, slugs)
+  kept = catalog.select(provider, slugs)
   assert kept == ["@cf/meta/llama-guard-3-8b", "@cf/qwen/qwq-32b"], kept
 
   # An excluded slug stays excluded: a tier pattern does not claim it back.
-  assert catalog.select("zai", CONFIG["zai"], ["glm-4.5", "glm-4.6"]) == []
+  assert catalog.select(CONFIG["zai"], ["glm-4.5", "glm-4.6"]) == []
 
-  # The block key supplies the provider, so a `provider/` head on a pattern is dropped.
-  headed = {"exclude": ["openrouter/google/gemma-4-26b-a4b-it:free"]}
-  assert catalog.select("openrouter", headed, ["google/gemma-4-26b-a4b-it:free"]) == []
-  assert catalog.strip_provider_head("openrouter/google/x", "openrouter") == "google/x"
-  assert catalog.strip_provider_head("*google/x", "openrouter") == "*google/x"
+  # A pattern that names its own provider is a slug pattern, not a head to strip:
+  # `openrouter/*` reaches `openrouter/auto`, and only that.
+  routers = catalog.select(
+    {"exclude": ["openrouter/*"]},
+    ["openrouter/auto", "openai/gpt-6-sol", "qwen/qwen3.8-27b:free"],
+  )
+  assert routers == ["openai/gpt-6-sol", "qwen/qwen3.8-27b:free"], routers
 
 
 def check_auth_headers() -> None:
@@ -237,9 +243,7 @@ def check_discover_provider() -> None:
 
   # A single page, and no row survives `exclude: ["*"]`.
   openrouter, _ = catalog.discover_provider("openrouter", CONFIG["openrouter"], fetch)
-  assert openrouter == ["google/gemma-4-26b-a4b-it:free", "openai/gpt-6-sol"], (
-    openrouter
-  )
+  assert openrouter == ["google/gemma-4-26b-a4b-it:free"], openrouter
   assert catalog.discover_provider("zai", CONFIG["zai"], fetch)[0] == []
 
   try:
@@ -260,7 +264,6 @@ def check_build_catalog() -> None:
     "gemini/gemini-3.5-flash",
     "gemini/gemini-3.6-flash",
     "openrouter/google/gemma-4-26b-a4b-it:free",
-    "openrouter/openai/gpt-6-sol",
   ], lines
   assert sorted(payloads) == ["cloudflare", "gemini", "openrouter", "zai"], payloads
   assert payloads["zai"]["data"] == [
@@ -293,7 +296,7 @@ def check_writers() -> None:
   with tempfile.TemporaryDirectory() as directory:
     target = Path(directory) / "models.txt"
     catalog.write_models_txt(["groq/a", "gemini/b"], target)
-    assert target.read_text(encoding="utf-8") == "groq/a\ngemini/b\n"
+    assert target.read_bytes() == b"groq/a\ngemini/b\n", "LF only, on every platform"
 
     path = catalog.write_provider_yml(
       "groq",
@@ -305,6 +308,43 @@ def check_writers() -> None:
       "object: list\ndata:\n- id: llama-3.3-70b\n"
     ), path.read_text(encoding="utf-8")
   assert str(catalog.PROVIDER_DIR) == "config/providers", catalog.PROVIDER_DIR
+
+
+def check_free_only() -> None:
+  """The committed config keeps only `:free` rows for kilo and openrouter.
+
+  Slugs are real rows from a generated models.txt.
+  """
+  providers = config.load_config()
+  rows = [
+    "openai/gpt-6-sol",
+    "google/gemma-4-31b-it:free",
+    "anthropic/claude-opus-5.5",
+    "nvidia/nemotron-3.5-content-safety",
+  ]
+  openrouter = catalog.select(
+    "openrouter",
+    providers["openrouter"],
+    rows
+    + [
+      "openrouter/auto",
+      "openrouter/free",
+      "openrouter/pareto-code",
+    ],
+  )
+  assert openrouter == ["google/gemma-4-31b-it:free"], openrouter
+
+  kilo = catalog.select(
+    "kilo",
+    providers["kilo"],
+    rows
+    + [
+      "kilo-auto/free",
+      "kilo-auto/efficient",
+      "poolside/laguna-s-2.1:free",
+    ],
+  )
+  assert kilo == ["google/gemma-4-31b-it:free", "poolside/laguna-s-2.1:free"], kilo
 
 
 def main() -> int:
