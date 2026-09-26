@@ -274,10 +274,10 @@ def check_build_catalog() -> None:
   assert len(skipped) == 3, skipped
 
 
-def check_collate() -> None:
-  one = catalog.collate([{"data": [{"id": "a"}], "object": "list"}])
+def check_merge_pages() -> None:
+  one = catalog.merge_pages([{"data": [{"id": "a"}], "object": "list"}])
   assert one == {"data": [{"id": "a"}], "object": "list"}, one
-  two = catalog.collate(
+  two = catalog.merge_pages(
     [
       {"data": [{"id": "a"}], "object": "list", "nextPageToken": "p2"},
       {"data": [{"id": "b"}], "object": "list"},
@@ -286,7 +286,7 @@ def check_collate() -> None:
   assert two["data"] == [{"id": "a"}, {"id": "b"}], two
   assert two["object"] == "list", two
   assert "nextPageToken" not in two, two
-  assert catalog.collate([]) == {}
+  assert catalog.merge_pages([]) == {}
 
 
 def check_writers() -> None:
@@ -316,7 +316,7 @@ def main() -> int:
   check_auth_headers()
   check_discover_provider()
   check_build_catalog()
-  check_collate()
+  check_merge_pages()
   check_writers()
   print(f"ok: catalog checks passed, {len(SEEN)} stub pages fetched")
   return 0
