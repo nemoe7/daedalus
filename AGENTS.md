@@ -24,8 +24,8 @@ An ADR holds one decision and the reason for it.
 
 ## Human-facing text
 
-Lint every human-facing file with `.agents/skills/asd-ste100/scripts/ste-lint.py`. No hard
-violation may remain.
+Lint every human-facing file with `.agents/skills/asd-ste100/scripts/ste-lint.py`. The
+run must report 0 violations, advisory findings included.
 
 - Use lists and tables. A human reads the text, not a model.
 - Write at most four sentences in a paragraph, and keep only the core idea.
