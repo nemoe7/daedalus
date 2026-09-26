@@ -117,7 +117,7 @@ async def check_non_stream(client: httpx.AsyncClient) -> None:
 
 
 async def check_routed_model(client: httpx.AsyncClient) -> None:
-  """A reserved name resolves to a provider model; any other name passes through."""
+  """A reserved name resolves to a provider model, and any other name passes on."""
   config.set_config(
     {"gemini": {"tier": {"TIER-C": ["gemini-3.5-flash"], "TIER-A": ["gemini-3.5-pro"]}}}
   )
