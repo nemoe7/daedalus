@@ -19,7 +19,7 @@ services:
       - ./config:/app/config # read-write: the dashboard edits and reloads these files
     restart: unless-stopped
 
-  # Optional profiles. Start one with: docker compose --profile NAME up -d
+  # Optional profiles. Set COMPOSE_PROFILES in .env, or use: docker compose --profile NAME up -d
 
   open-webui:
     profiles: [webui]
