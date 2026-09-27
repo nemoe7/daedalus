@@ -61,6 +61,65 @@ The endpoints for models that do not chat have no fallback. Vectors, voices and 
 | `daedalus/moros`, `daedalus/koinos`, `daedalus/deinos`, `daedalus/sophos` | The fallback ladder from that tier |
 | `provider/slug`, for example `groq/llama-3.3-70b-versatile` | That model only |
 
+## Model list fields
+
+Each chat model and pool model in `GET /v1/models` has these catalog fields, when the catalog has a value:
+
+| Field | Chat model | Pool model |
+| --- | --- | --- |
+| `max_input_tokens` | Catalog value | Highest value in the pool |
+| `max_output_tokens` | Catalog value | Highest value in the pool |
+| `supports_function_calling` | Catalog value | `true` if 1 model in the pool is `true` |
+| `supports_reasoning` | Catalog value | `true` if 1 model in the pool is `true` |
+| `supports_vision` | Catalog value | `true` if 1 model in the pool is `true` |
+
+`daedalus/auto` has the values of `daedalus/sophos`. A request that is too large for a model skips that model.
+
+## Kilo Code plugin
+
+Kilo Code reads token limits only from its config. The plugin `integrations/kilo/daedalus.js` copies the model list fields into the Kilo config in memory. It runs when Kilo starts and after each config change. The config file does not change.
+
+| Kilo model field | Value |
+| --- | --- |
+| `limit.context` | `max_input_tokens` |
+| `limit.output` | `0`: Kilo uses its default |
+| `tool_call` | `supports_function_calling` |
+| `reasoning` | `supports_reasoning` |
+| `modalities.input`, `attachment` | `["text", "image"]` and `true`, when `supports_vision` is `true` |
+
+The plugin changes each provider that has the id `daedalus` or a `daedalus/` model. It uses the `baseURL` of the provider. The key comes from the first of these:
+
+1. `options.apiKey` of the provider
+2. The Kilo auth store: the key from the custom provider dialog
+3. The `DAEDALUS_API_KEY` variable
+
+When Daedalus does not answer in 3 s, the plugin logs `[daedalus] ... fail open` and changes nothing.
+
+Install: copy the file into the Kilo plugin folder, then restart Kilo.
+
+cmd:
+
+```cmd
+mkdir "%USERPROFILE%\.config\kilo\plugin"
+copy integrations\kilo\daedalus.js "%USERPROFILE%\.config\kilo\plugin\"
+```
+
+PowerShell:
+
+```powershell
+New-Item -ItemType Directory -Force "$HOME\.config\kilo\plugin"
+Copy-Item integrations\kilo\daedalus.js "$HOME\.config\kilo\plugin\"
+```
+
+bash:
+
+```bash
+mkdir -p ~/.config/kilo/plugin
+cp integrations/kilo/daedalus.js ~/.config/kilo/plugin/
+```
+
+Kilo cannot show the routed model for a custom provider. The **Requests** page and the log show it.
+
 ## Chat completions
 
 | Field | Rule |
