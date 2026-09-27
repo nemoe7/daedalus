@@ -3,26 +3,29 @@
 import argparse
 import json
 import logging
+import os
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
 import httpx
+import yaml
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import catalog, keys, penalties, providers, router
+from daedalus import catalog, keys, penalties, providers, router, settings
 from daedalus.config import get_config
 from daedalus.providers.base import error_text
 
-HOST = "0.0.0.0"
-PORT = 3357
+HOST = os.environ.get("DAEDALUS_HOST") or "0.0.0.0"
+PORT = int(os.environ.get("DAEDALUS_PORT") or 3357)
 TIMEOUT_SECONDS = 600.0
 # The wait for one answer. A provider that sends bytes resets it, so a slow
 # stream is not cut off.
 WAIT_SECONDS = 60.0
 SLOW_SECONDS = WAIT_SECONDS / 2
+AFFINITY = True
 
 logger = logging.getLogger("daedalus")
 LOG_FORMAT = "%(asctime)s %(levelname)-5s %(name)s %(message)s"
@@ -201,7 +204,8 @@ class Tracker:
   """Weights and the pin of one request, keyed by the hash of its API key."""
 
   def __init__(self, token: str, slot: str | None) -> None:
-    self.key, self.slot = keys.digest(token) if token else "", slot
+    self.key = keys.digest(token) if token else ""
+    self.slot = slot if AFFINITY else None
     self.dropped = False
 
   def order(self, groups: list[list[str]]) -> list[str]:
@@ -210,7 +214,7 @@ class Tracker:
   def answered(self, model: str, ttft: float) -> str | None:
     """Update the weight and pin the model. A slow success removes the pin instead."""
     slow = ttft >= SLOW_SECONDS
-    PENALTIES.record(model, penalties.SLOW if slow else penalties.SUCCESS)
+    PENALTIES.record(model, PENALTIES.slow if slow else PENALTIES.success)
     if not self.slot:
       return None
     if slow:
@@ -221,7 +225,7 @@ class Tracker:
 
   def failed(self, model: str) -> None:
     """Lower the weight, and remove the pin when it names this model."""
-    PENALTIES.record(model, penalties.FAULT)
+    PENALTIES.record(model, PENALTIES.fault)
     if self.slot and PENALTIES.unpin(self.key, self.slot, model):
       self.dropped = True
 
@@ -451,6 +455,22 @@ async def relay(
 KEY_OFF = "off"
 
 
+def apply_settings(values: dict[str, dict[str, Any]]) -> None:
+  """Use the timeouts, session affinity, and weights of `config/daedalus.yml`."""
+  global TIMEOUT_SECONDS, WAIT_SECONDS, SLOW_SECONDS, AFFINITY
+  timeouts, affinity, weights = (
+    values["timeouts"],
+    values["session_affinity"],
+    values["weights"],
+  )
+  TIMEOUT_SECONDS, WAIT_SECONDS = timeouts["request"], timeouts["wait"]
+  SLOW_SECONDS, AFFINITY = timeouts["slow"], affinity["enabled"]
+  PENALTIES.idle, PENALTIES.enabled = affinity["idle"], weights["enabled"]
+  for name in ("success", "fault", "slow", "hourly"):
+    setattr(PENALTIES, name, weights[name])
+  set_client(None)
+
+
 def set_key(value: str) -> None:
   """Store a new, custom, or no local API key. Show a new key once."""
   if value == KEY_OFF:
@@ -474,7 +494,9 @@ def run(argv: list[str] | None = None) -> None:
     "serve",
     help=f"start the router on {HOST}:PORT; build a missing model store first",
   )
-  serve.add_argument("port", nargs="?", default=PORT, type=int, help=f"default {PORT}")
+  serve.add_argument(
+    "port", nargs="?", default=PORT, type=int, help=f"default {PORT}, or DAEDALUS_PORT"
+  )
   serve.add_argument(
     "--catalog", action="store_true", help="rebuild the model store first"
   )
@@ -505,6 +527,10 @@ def run(argv: list[str] | None = None) -> None:
   elif args.command == "catalog":
     catalog.refresh()
   else:
+    try:
+      apply_settings(settings.load())
+    except (settings.SettingsError, yaml.YAMLError) as exc:
+      parser.exit(2, f"daedalus: {exc}\n")
     if args.catalog or not catalog.has_store():
       catalog.refresh()
     import uvicorn
