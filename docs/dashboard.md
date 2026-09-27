@@ -22,7 +22,7 @@ The dashboard is mainly a utility for monitoring the application state and fine-
 | Providers | YAML editor for `config/providers/free.yml`. It keeps the comments. |
 | Settings | Form for `config/daedalus.yml`. The mouse wheel changes the last decimal digit of a decimal field. |
 
-The Requests page shows "koinos from moros" when a `daedalus/auto` request starts in moros and a koinos model answers.
+The Requests page shows "koinos from moros" when a `daedalus/auto` request starts in moros and a koinos model answers. It shows "try again N" for a [try again](architecture.md#try-again) in Open WebUI.
 
 ## API keys
 
