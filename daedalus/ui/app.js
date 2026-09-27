@@ -19,9 +19,10 @@ const clock = (seconds) => new Date(seconds * 1000).toLocaleTimeString(
 
 const state = {
   models: [], tier: "All", sort: { key: "", dir: 1 }, files: [], file: 0, saved: [], timers: [],
-  pools: [], requests: [], keys: [], catalog: {},
+  pools: [], requests: [], keys: [], catalog: {}, settings: null,
 };
 
+const fileName = (path) => path.split(/[\\/]/).pop();
 const line = (left, right) => `<div class="line"><span>${left}</span><span>${right}</span></div>`;
 const count = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const none = (text) => `<div class="more">${text}</div>`;
@@ -46,9 +47,15 @@ function renderOverview() {
     ? line("Keys", count(state.keys.length, "key")) + line("Last used", used ? `${esc(used.name)} &middot; ${dateTime(used.used)}` : "never")
     : none("No API keys. The master key opens /v1.");
   const { built, next } = state.catalog;
-  $("ov-config").innerHTML = state.files.map((f) => line(esc(f.path.split(/[\\/]/).pop()), "YAML")).join("")
+  $("ov-providers").innerHTML = state.files.map((f) => line(esc(fileName(f.path)), "YAML")).join("")
     + line("Catalog built", built ? shortTime(built) : "never")
     + line("Next rebuild", next ? shortTime(next) : "no schedule");
+  if (state.settings) {
+    const on = (group) => (setting(group, "enabled") ? "On" : "Off");
+    $("ov-settings").innerHTML = line("Session affinity", on("session_affinity"))
+      + line("Weights", on("weights"))
+      + line("Request timeout", `${setting("timeouts", "request")} s`);
+  }
 }
 
 class LoggedOut extends Error {}
@@ -259,7 +266,7 @@ function renderFiles() {
   $("files").innerHTML = state.files.map((file, index) => {
     const mark = index === state.file && dirty() ? " &bull;" : "";
     return `<button type="button" class="tab${index === state.file ? " on" : ""}"
-      data-file="${index}">${esc(file.path)}${mark}</button>`;
+      data-file="${index}" title="${esc(file.path)}">${esc(fileName(file.path))}${mark}</button>`;
   }).join(" ");
   $("save").disabled = !dirty();
 }
@@ -290,6 +297,105 @@ async function save() {
     message.textContent = error.message;
   }
   renderFiles();
+}
+
+// The Settings form: [group, title, [[key, label, unit, hint], ...]].
+const SETTINGS = [
+  ["timeouts", "Timeouts", [
+    ["request", "Request", "s", "The time for one full request."],
+    ["wait", "Wait", "s", "The time without bytes from the provider."],
+    ["slow", "Slow first token", "s", "A first token after this time is slow. Empty: half of Wait."],
+  ]],
+  ["session_affinity", "Session affinity", [
+    ["enabled", "On", "", "Each conversation stays on 1 model."],
+    ["idle", "Idle expiry", "s", "The session model expires after this time without a request."],
+    ["stay", "Stay share", "", "The share of first-tier draws for the session model. Below 1."],
+  ]],
+  ["weights", "Weights", [
+    ["enabled", "On", "", "Off: all weights stay at 1, and the chain keeps the usual order."],
+    ["success", "Success", "x", "The weight factor for a success."],
+    ["fault", "Fault", "x", "The weight factor for a fault."],
+    ["slow", "Slow success", "x", "The weight factor for a slow first token."],
+    ["hourly", "Hourly recovery", "x", "The weight factor for each hour."],
+  ]],
+  ["catalog", "Catalog", [
+    ["every", "Rebuild interval", "h", "The hours between rebuilds. 0 stops them."],
+    ["anchor", "Anchor hour", "h", "The local hour (TZ) that the rebuild times start from."],
+  ]],
+  ["headroom", "Headroom", [
+    ["timeout", "Timeout", "s", "After this time, the original messages go to the provider."],
+  ]],
+];
+
+// The value in the file, or null when the file does not set it.
+const fileValue = (group, key) => state.settings.file?.[group]?.[key] ?? null;
+const setting = (group, key) => fileValue(group, key) ?? state.settings.defaults[group][key];
+
+function renderSettings() {
+  $("settings-path").textContent = `${fileName(state.settings.path)} · Ctrl+S saves and reloads`;
+  $("settings").innerHTML = SETTINGS.map(([group, title, fields]) => `
+    <div class="card"><h3>${esc(title)}</h3>${fields.map(([key, label, unit, hint]) => {
+      const id = `set-${group}-${key}`;
+      if (key === "enabled") {
+        return `<label class="field check" for="${id}"><input type="checkbox" id="${id}"
+          ${setting(group, key) ? "checked" : ""}><span><b>${esc(label)}</b><small>${esc(hint)}</small></span></label>`;
+      }
+      const fallback = state.settings.defaults[group][key];
+      const value = fileValue(group, key);
+      return `<label class="field" for="${id}"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
+        <span class="input"><input type="number" step="any" min="0" id="${id}" value="${value ?? ""}"
+          placeholder="${fallback ?? "half of Wait"}"><i>${esc(unit)}</i></span></label>`;
+    }).join("")}</div>`).join("");
+  renderSettingsSave();
+}
+
+function settingsChanges() {
+  if (!state.settings) return {};
+  const changes = {};
+  for (const [group, , fields] of SETTINGS) {
+    for (const [key] of fields) {
+      const input = $(`set-${group}-${key}`);
+      let value, before;
+      if (key === "enabled") {
+        value = input.checked;
+        before = setting(group, key);
+      } else {
+        value = input.value.trim() === "" ? null : Number(input.value);
+        before = fileValue(group, key);
+      }
+      if (value !== before) (changes[group] ||= {})[key] = value;
+    }
+  }
+  return changes;
+}
+
+const settingsDirty = () => Object.keys(settingsChanges()).length > 0;
+
+function renderSettingsSave() {
+  $("settings-save").disabled = !settingsDirty();
+}
+
+async function loadSettings() {
+  state.settings = await call("settings");
+  renderSettings();
+}
+
+async function saveSettings() {
+  const changes = settingsChanges();
+  if (!Object.keys(changes).length) return;
+  const message = $("settings-message");
+  try {
+    await call("settings", { method: "PUT", body: JSON.stringify({ changes }) });
+    await loadSettings();
+    message.className = "message ok";
+    message.textContent = "Saved and reloaded";
+    refresh();
+  } catch (error) {
+    if (error instanceof LoggedOut) return showLogin("The session ended. Log in to save again.");
+    message.className = "message bad";
+    message.textContent = error.message;
+  }
+  renderSettingsSave();
 }
 
 async function refreshFast() {
@@ -323,6 +429,7 @@ async function start() {
   state.file = 0;
   $("editor").value = state.files[0]?.text ?? "";
   renderFiles();
+  await loadSettings();
   renderTiers();
   renderOverview();
   $("login").hidden = true;
@@ -419,10 +526,10 @@ $("reveal-close").addEventListener("click", () => {
   $("reveal-key").textContent = "";
   $("copy").textContent = "Copy";
 });
-const PAGES = ["overview", "pools", "requests", "models", "keys", "config"];
+const PAGES = ["overview", "pools", "requests", "models", "keys", "providers", "settings"];
 
 function showPage() {
-  const asked = location.hash.replace("#/", "");
+  const asked = location.hash.replace("#/", "").replace(/^config$/, "providers");
   const page = PAGES.includes(asked) ? asked : PAGES[0];
   document.querySelectorAll("section[data-page]").forEach((section) => {
     section.hidden = section.dataset.page !== page;
@@ -457,14 +564,20 @@ $("files").addEventListener("click", (event) => {
 });
 $("editor").addEventListener("input", renderFiles);
 $("save").addEventListener("click", save);
+$("settings").addEventListener("input", () => {
+  $("settings-message").textContent = "";
+  renderSettingsSave();
+});
+$("settings-save").addEventListener("click", saveSettings);
 document.addEventListener("keydown", (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
     event.preventDefault();
-    save();
+    if (location.hash === "#/settings") saveSettings();
+    else save();
   }
 });
 window.addEventListener("beforeunload", (event) => {
-  if (dirty()) event.preventDefault();
+  if (dirty() || settingsDirty()) event.preventDefault();
 });
 
 guarded(start);
