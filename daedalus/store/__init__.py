@@ -174,6 +174,42 @@ def model_rows() -> list[dict[str, Any]]:
   ]
 
 
+# The catalog fields that `/v1/models` sends for each chat model.
+INFO_NUMBERS = ("max_input_tokens", "max_output_tokens")
+INFO_FLAGS = ("supports_function_calling", "supports_reasoning", "supports_vision")
+
+
+def model_info() -> dict[str, dict[str, int | bool]]:
+  """The token limits and the feature flags of each stored model, without empty values."""
+  if not Path(MODELS_DB).exists():
+    return {}
+  names = (*INFO_NUMBERS, *INFO_FLAGS)
+  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
+  try:
+    rows = database.execute(f"SELECT id, {', '.join(names)} FROM models").fetchall()
+  except sqlite3.OperationalError:
+    return {}
+  finally:
+    database.close()
+  info: dict[str, dict[str, int | bool]] = {}
+  for key, *values in rows:
+    fields: dict[str, int | bool] = {}
+    for name, value in zip(names, values, strict=True):
+      if value is None:
+        continue
+      if name in INFO_FLAGS:
+        fields[name] = bool(value)
+        continue
+      try:
+        number = int(float(value))
+      except (TypeError, ValueError):
+        continue
+      if number > 0:
+        fields[name] = number
+    info[key] = fields
+  return info
+
+
 def input_limits() -> dict[str, int]:
   """The `max_input_tokens` of each stored model that has one."""
   if not Path(MODELS_DB).exists():

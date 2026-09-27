@@ -122,9 +122,28 @@ async def models(request: Request) -> Response:
   chat = store.read_models()
   known = set(chat)
   others = [m for m in store.read_models(routable_only=False) if m not in known]
+  info = store.model_info()
+  fields = {name: info.get(name, {}) for name in chat}
+  config = get_config()
+  for name, tier in router.POOLS.items():
+    members = router.candidates(config, router.TIER_NAMES[tier], chat)
+    fields[name] = pool_info([fields[m] for m in members])
+  fields[router.RESERVED_MODEL] = fields["daedalus/sophos"]
   names = [router.RESERVED_MODEL, *router.POOLS, *chat, *others]
-  data = [{"id": name, "object": "model", "owned_by": "daedalus"} for name in names]
+  data = [
+    {"id": name, "object": "model", "owned_by": "daedalus", **fields.get(name, {})}
+    for name in names
+  ]
   return JSONResponse({"object": "list", "data": data})
+
+
+def pool_info(members: list[dict[str, int | bool]]) -> dict[str, int | bool]:
+  """The highest limit and any true flag among the members of one pool."""
+  found: dict[str, int | bool] = {}
+  for fields in members:
+    for name, value in fields.items():
+      found[name] = max(found.get(name, value), value)
+  return found
 
 
 def chain(
