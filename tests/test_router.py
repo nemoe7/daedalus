@@ -179,6 +179,25 @@ def check_pools() -> None:
   assert router.route_pool("daedalus/unknown", config, lines) == []
 
 
+def check_praktos() -> None:
+  """ADR 3: praktos holds TIER-A members first, then TIER-B, and no lower tier."""
+  assert router.PRAKTOS == "daedalus/praktos"
+  config = {
+    "gemini": {"tier": {"TIER-B": ["gemini-3.5-flash"], "TIER-C": ["gemma-*"]}},
+    "openrouter": {"tier": {"TIER-A": ["anthropic/*"]}},
+  }
+  lines = [
+    "gemini/gemini-3.5-flash",
+    "gemini/gemma-4-31b-it",
+    "openrouter/anthropic/claude-opus-5",
+  ]
+  assert router.route_praktos(config, lines) == [
+    "openrouter/anthropic/claude-opus-5",
+    "gemini/gemini-3.5-flash",
+  ]
+  assert router.route_praktos(config, []) == []
+
+
 def main() -> int:
   """Run every check."""
   check_classify()
@@ -190,6 +209,7 @@ def main() -> int:
   check_tier_models()
   check_route()
   check_pools()
+  check_praktos()
   print("ok: router checks passed")
   return 0
 

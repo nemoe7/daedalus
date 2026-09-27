@@ -314,12 +314,20 @@ def litellm_entries(
   return entries
 
 
+def column_values(values: dict[str, Any]) -> dict[str, Any]:
+  """The stored columns that one config block sets, with `tools` as the tool flag."""
+  found = {key: values[key] for key in COLUMNS if values.get(key) is not None}
+  if values.get("tools") is not None:
+    found["supports_function_calling"] = bool(values["tools"])
+  return found
+
+
 def config_params(provider: dict[str, Any], slug: str) -> dict[str, Any]:
   """Provider-level values, then every matching `models` entry, in config order."""
-  found = {key: provider[key] for key in COLUMNS if provider.get(key) is not None}
+  found = column_values(provider)
   for pattern, values in (provider.get("models") or {}).items():
     if isinstance(values, dict) and matches(str(pattern), slug):
-      found.update({key: values[key] for key in COLUMNS if values.get(key) is not None})
+      found.update(column_values(values))
   return found
 
 
@@ -399,14 +407,20 @@ def write_store(rows: Iterable[dict[str, Any]], path: Path | str | None = None) 
   return target
 
 
-def read_models(routable_only: bool = True) -> list[str]:
-  """The stored model ids, chat or unmatched rows only by default."""
+def read_models(routable_only: bool = True, tools_only: bool = False) -> list[str]:
+  """The stored model ids, chat or unmatched rows by default, and tool rows on request."""
   if not Path(MODELS_DB).exists():
     return []
   database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
   try:
-    rows = database.execute("SELECT id, mode FROM models ORDER BY rowid")
-    return [key for key, mode in rows if not routable_only or mode in ROUTABLE_MODES]
+    rows = database.execute(
+      "SELECT id, mode, supports_function_calling FROM models ORDER BY rowid"
+    )
+    return [
+      key
+      for key, mode, tools in rows
+      if (not routable_only or mode in ROUTABLE_MODES) and (not tools_only or tools)
+    ]
   finally:
     database.close()
 

@@ -123,9 +123,32 @@ async def models(request: Request) -> Response:
   denied = check_local_key(request)
   if denied is not None:
     return denied
-  names = [router.RESERVED_MODEL, *router.POOLS, *catalog.read_models()]
+  names = [
+    router.RESERVED_MODEL,
+    *router.POOLS,
+    router.PRAKTOS,
+    *catalog.read_models(),
+  ]
   data = [{"id": name, "object": "model", "owned_by": "daedalus"} for name in names]
   return JSONResponse({"object": "list", "data": data})
+
+
+def chain(model: str, body: dict[str, Any], config: dict[str, Any]) -> list[str] | None:
+  """The models to try for one request, or None for an unknown name."""
+  if model == router.PRAKTOS or (model == router.RESERVED_MODEL and body.get("tools")):
+    models = router.route_praktos(config, catalog.read_models(tools_only=True))
+    if models:
+      return models
+    logger.warning("praktos has no member; using the daedalus/auto chain")
+    model = router.RESERVED_MODEL
+  if model in router.POOLS:
+    return router.route_pool(model, config, catalog.read_models())
+  if model == router.RESERVED_MODEL:
+    prompt = last_user_text(body["messages"])
+    return router.route(prompt, config, catalog.read_models())
+  if model.partition("/")[0] in config:
+    return [model]
+  return None
 
 
 @app.post("/v1/chat/completions")
@@ -153,15 +176,8 @@ async def chat(request: Request) -> Response:
       400, "stream_options must be an object", "invalid_request_error"
     )
   config = get_config()
-  if model in router.POOLS:
-    models = router.route_pool(model, config, catalog.read_models())
-  elif model == router.RESERVED_MODEL:
-    models = router.route(
-      last_user_text(body["messages"]), config, catalog.read_models()
-    )
-  elif model.partition("/")[0] in config:
-    models = [model]
-  else:
+  models = chain(model, body, config)
+  if models is None:
     return error_response(400, "Unknown provider or pool", "invalid_request_error")
   include_usage = bool((body.get("stream_options") or {}).get("include_usage"))
   failure = error_response(502, "No model answered the request", "upstream_error")
