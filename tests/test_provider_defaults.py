@@ -106,7 +106,15 @@ def check_mistral_fields() -> None:
   ], sent["messages"]
   assert history[2]["reasoning_content"] == "secret thoughts", "the client body stays"
   _, _, sent, _ = providers.prepare("groq/m", body, {"groq": {"api_key": "k"}})
-  assert sent["messages"][2]["reasoning_content"], "only Mistral drops fields"
+  assert sent["messages"][2] == {
+    "role": "assistant",
+    "content": "",
+    "tool_calls": [call],
+  }
+  assert sent["messages"][0] == {"role": "system", "content": "s", "name": "x"}, "name"
+  keys = {"openrouter": {"api_key": "k"}}
+  _, _, sent, _ = providers.prepare("openrouter/m", body, keys)
+  assert sent["messages"] == history, "OpenRouter keeps all fields"
 
 
 def check_hidden_inputs() -> None:
