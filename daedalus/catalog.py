@@ -10,11 +10,11 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import httpx
 
-from daedalus.config import get_config
+from daedalus.config import STATE_DIR, get_config
 
 logger = logging.getLogger("daedalus.catalog")
 
-MODELS_TXT = Path("models.txt")
+MODELS_TXT = STATE_DIR / "models.txt"
 TIMEOUT_SECONDS = 60.0
 MAX_PAGES = 50
 
@@ -231,6 +231,7 @@ def read_models_txt() -> list[str]:
 def write_models_txt(lines: Iterable[str], path: Path | str = MODELS_TXT) -> Path:
   """Write one `provider/slug` per line."""
   target = Path(path)
+  target.parent.mkdir(parents=True, exist_ok=True)
   with target.open("w", encoding="utf-8", newline="\n") as handle:
     handle.write("".join(f"{line}\n" for line in lines))
   return target
