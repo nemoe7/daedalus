@@ -1,5 +1,6 @@
 # Router settings. Each key is optional; a missing key uses the value shown here.
 # DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.
+# HEADROOM_URL turns on message compression through a Headroom sidecar.
 timeouts:
   request: 600 # seconds for one full request
   wait: 60 # seconds without bytes from the provider
@@ -17,3 +18,5 @@ weights:
 catalog:
   every: 6 # hours between rebuilds of the model catalog; 0 stops them
   anchor: 6 # local hour (TZ env var) that the rebuild times start from: 00, 06, 12 and 18
+headroom:
+  timeout: 5 # seconds for Headroom; after this, the original messages go to the provider

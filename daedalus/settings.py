@@ -17,6 +17,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "hourly": 1.2,
   },
   "catalog": {"every": 6.0, "anchor": 6.0},
+  "headroom": {"timeout": 5.0},
 }
 
 

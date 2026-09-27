@@ -7,6 +7,8 @@ services:
     environment:
       DAEDALUS_HOST: 0.0.0.0
       DAEDALUS_PORT: 3357 # keep the container port below in step
+      # Daedalus sends the messages here first. When Headroom does not run, the original messages go on.
+      HEADROOM_URL: ${HEADROOM_URL-http://headroom:8787}
     ports:
       - "3357:3357"
     env_file:
@@ -16,3 +18,58 @@ services:
       - ./.daedalus-state:/app/.daedalus-state
       - ./config:/app/config # read-write: the dashboard edits and reloads these files
     restart: unless-stopped
+
+  # Optional profiles. Start one with: docker compose --profile NAME up -d
+
+  open-webui:
+    profiles: [webui]
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: daedalus-webui
+    environment:
+      OPENAI_API_BASE_URL: http://daedalus:3357/v1
+      OPENAI_API_KEY: ${OPENWEBUI_API_KEY:-}
+      ENABLE_OLLAMA_API: "false"
+    ports:
+      - "3000:8080"
+    volumes:
+      - open-webui:/app/backend/data
+    depends_on:
+      - daedalus
+    restart: unless-stopped
+
+  headroom:
+    profiles: [headroom]
+    image: ghcr.io/chopratejas/headroom:latest
+    container_name: daedalus-headroom
+    entrypoint: ["headroom", "proxy"]
+    command: ["--host", "0.0.0.0", "--port", "8787"]
+    environment:
+      HEADROOM_COMPRESS_ALLOW_REMOTE: "1" # else Headroom answers the Daedalus container with 404
+      HEADROOM_TELEMETRY: "off"
+      HOME: /data
+      HEADROOM_WORKSPACE_DIR: /data/.headroom
+    volumes:
+      - headroom:/data
+    restart: unless-stopped # no port: only Daedalus connects to it
+
+  tailscale:
+    profiles: [tailscale]
+    image: tailscale/tailscale:latest
+    container_name: daedalus-tailscale
+    hostname: ${TS_HOSTNAME:-daedalus}
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_HOSTNAME: ${TS_HOSTNAME:-daedalus}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/serve.json # https://NAME.TAILNET.ts.net to Daedalus, tailnet only
+    volumes:
+      - tailscale:/var/lib/tailscale
+      - ./tailscale:/config:ro
+    depends_on:
+      - daedalus
+    restart: unless-stopped
+
+volumes:
+  open-webui:
+  headroom:
+  tailscale:
