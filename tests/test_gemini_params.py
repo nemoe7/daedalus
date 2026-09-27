@@ -86,7 +86,7 @@ def main() -> None:
     "type": "object",
     "strict": True,
     "additionalProperties": False,
-    "properties": {"a": {"type": "string"}},
+    "properties": {"a": {"type": "string"}, "strict": {"type": "boolean"}},
   }
   fmt = body(
     "m",
@@ -99,7 +99,7 @@ def main() -> None:
   assert fmt["responseJsonSchema"] == {
     "type": "object",
     "additionalProperties": False,
-    "properties": {"a": {"type": "string"}},
+    "properties": {"a": {"type": "string"}, "strict": {"type": "boolean"}},
   }, fmt
   assert body("m", response_format={"type": "text"})["generationConfig"] == {
     "responseMimeType": "text/plain"
@@ -116,7 +116,11 @@ def main() -> None:
       "functionDeclarations": [
         {
           "name": "weather",
-          "parameters": {"type": "object", "properties": {"a": {"type": "string"}}},
+          "parametersJsonSchema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {"a": {"type": "string"}, "strict": {"type": "boolean"}},
+          },
         }
       ]
     }
