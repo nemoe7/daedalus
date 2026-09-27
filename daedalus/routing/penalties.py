@@ -22,6 +22,10 @@ TABLES = (
     "CREATE TABLE IF NOT EXISTS pins (key TEXT NOT NULL, slot TEXT NOT NULL,"
     " model TEXT NOT NULL, used REAL NOT NULL, PRIMARY KEY (key, slot))"
   ),
+  (
+    "CREATE TABLE IF NOT EXISTS tiers"
+    " (key TEXT PRIMARY KEY, tier INTEGER NOT NULL, used REAL NOT NULL)"
+  ),
 )
 
 
@@ -52,6 +56,7 @@ class Penalties:
     with database:
       database.execute("DELETE FROM weights")
       database.execute("DELETE FROM pins")
+      database.execute("DELETE FROM tiers")
     database.close()
 
   def weights(self, models: list[str]) -> dict[str, float]:
@@ -96,6 +101,21 @@ class Penalties:
       ).fetchone()
     database.close()
     return row[0] if row else None
+
+  def highest(self, key: str, tier: int) -> int:
+    """The highest tier of one conversation, this request included. Idle entries expire."""
+    now = self.clock()
+    database = self.connect()
+    with database:
+      database.execute("DELETE FROM tiers WHERE used < ?", (now - self.idle,))
+      row = database.execute("SELECT tier FROM tiers WHERE key = ?", (key,)).fetchone()
+      top = max(tier, row[0]) if row else tier
+      database.execute(
+        "INSERT OR REPLACE INTO tiers (key, tier, used) VALUES (?, ?, ?)",
+        (key, top, now),
+      )
+    database.close()
+    return top
 
   def sessions(self) -> int:
     """The count of session models that did not expire."""
