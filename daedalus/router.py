@@ -359,10 +359,16 @@ def chain_models(
   order: tuple[int, ...],
 ) -> list[str]:
   """Every `provider/slug` in a tier chain, in the order the proxy tries them."""
-  found: list[str] = []
-  for tier in order:
-    found.extend(candidates(config, TIER_NAMES[tier], lines))
-  return found
+  return [line for group in chain_groups(config, lines, order) for line in group]
+
+
+def chain_groups(
+  config: Mapping[str, Any],
+  lines: list[str],
+  order: tuple[int, ...],
+) -> list[list[str]]:
+  """The `provider/slug` rows of each tier in a chain, one list for each tier."""
+  return [candidates(config, TIER_NAMES[tier], lines) for tier in order]
 
 
 def route(

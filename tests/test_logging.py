@@ -1,9 +1,11 @@
 import logging
+import tempfile
+from pathlib import Path
 
 import httpx
 from fastapi.testclient import TestClient
 
-from daedalus import api
+from daedalus import api, catalog
 from daedalus.providers.base import error_text
 
 
@@ -39,6 +41,12 @@ def check_error_text() -> None:
 
 
 def main() -> None:
+  with tempfile.TemporaryDirectory() as folder:
+    catalog.MODELS_DB = Path(folder) / "models.sqlite3"
+    check_lines()
+
+
+def check_lines() -> None:
   api.setup_logging()
   assert logging.getLogger("httpx").level == logging.WARNING, "no httpx request lines"
   record = logging.LogRecord("uvicorn.error", logging.INFO, "", 0, "up", None, None)
@@ -53,7 +61,8 @@ def main() -> None:
   }
   original = api.get_config, api.chain
   api.get_config = lambda: config
-  api.chain = lambda model, body, config: (["keyless/c", "first/a", "second/b"], None)
+  groups = [["keyless/c"], ["first/a"], ["second/b"]]
+  api.chain = lambda model, body, config: (groups, None)
   api.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
   try:
     body = {"model": "daedalus/auto", "messages": [{"role": "user", "content": "hi"}]}

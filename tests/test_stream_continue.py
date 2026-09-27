@@ -48,7 +48,8 @@ def output(raw: str) -> list[str]:
 
 
 async def send(client: httpx.AsyncClient) -> list[str]:
-  api.PINS.pins.clear()
+  api.PENALTIES.clear()
+  api.PENALTIES.pick = lambda: 0.0
   body = {
     "model": "daedalus/moros",
     "stream": True,
