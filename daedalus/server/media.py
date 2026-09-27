@@ -1,6 +1,7 @@
 """The OpenAI endpoints for models that do not chat, each for one model with no fallback."""
 
 import base64
+import re
 import struct
 import time
 from collections.abc import Awaitable, Callable
@@ -18,6 +19,7 @@ from daedalus.server import access, stream, upstream
 routes = APIRouter()
 TRANSCRIPT_FORMATS = ("json", "text", "srt", "verbose_json", "vtt")
 SPEECH_FORMATS = ("mp3", "opus", "aac", "flac", "wav", "pcm")
+SIZE = re.compile(r"auto|[1-9][0-9]*x[1-9][0-9]*")
 
 
 def invalid(message: str) -> JSONResponse:
@@ -201,3 +203,47 @@ async def speech(request: Request) -> Response:
     return result
   audio, media_type = result
   return Response(audio, media_type=media_type)
+
+
+def image_error(body: dict) -> str | None:
+  """The problem with an image request, or None."""
+  if not isinstance(body.get("prompt"), str) or not body["prompt"]:
+    return "prompt must be a string"
+  n = body.get("n", 1)
+  if n is not None and (type(n) is not int or n < 1):
+    return "n must be a positive integer"
+  size = body.get("size")
+  if size is not None and not (isinstance(size, str) and SIZE.fullmatch(size)):
+    return "size must be auto or WIDTHxHEIGHT"
+  if body.get("response_format", "url") not in ("url", "b64_json", None):
+    return "response_format must be url or b64_json"
+  return None
+
+
+@routes.post("/v1/images/generations")
+async def images(request: Request) -> Response:
+  denied = access.check_api_key(request)
+  if denied is not None:
+    return denied
+  body = await json_body(request)
+  if isinstance(body, Response):
+    return body
+  problem = image_error(body)
+  if problem:
+    return invalid(problem)
+  model = body["model"]
+  found = provider_for(model)
+  if isinstance(found, Response):
+    return found
+  provider, slug = found
+  try:
+    url, content, headers = provider.image_request(slug, body)
+  except providers.ProviderError as exc:
+    return invalid(str(exc))
+
+  async def call() -> dict:
+    response = await upstream.post(model, url, headers, **content)
+    return provider.images(response, body)
+
+  result = await attempt(request, model, call)
+  return result if isinstance(result, Response) else JSONResponse(result)

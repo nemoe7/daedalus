@@ -393,6 +393,11 @@ class GeminiProvider(OpenAIProvider):
   ) -> tuple[str, dict[str, Any], dict[str, str]]:
     raise ProviderError("Gemini has no speech endpoint")
 
+  def image_request(
+    self, slug: str, payload: dict
+  ) -> tuple[str, dict[str, Any], dict[str, str]]:
+    raise ProviderError("Gemini has no image endpoint")
+
   def embeddings(self, answer: dict, model: str) -> dict:
     """The OpenAI shape of a native batch answer, which has no token counts."""
     found = answer.get("embeddings")
