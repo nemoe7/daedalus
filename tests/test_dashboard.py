@@ -57,7 +57,6 @@ def check_data(client: TestClient) -> None:
   assert status == {
     "healthy": True,
     "models": 2,
-    "key": False,
     "sessions": 0,
     "catalog": status["catalog"],
   }, status
@@ -140,6 +139,32 @@ def check_login(client: TestClient) -> None:
   assert expires > time.time() + dashboard.REMEMBER_SECONDS - 60, "a 30-day session"
 
 
+def check_keys(client: TestClient) -> None:
+  assert client.get("/ui/api/keys").json() == []
+  made = client.post("/ui/api/keys", json={"name": " laptop "})
+  assert made.status_code == 201 and made.json()["name"] == "laptop", made.text
+  key = made.json()["key"]
+  listed = client.get("/ui/api/keys").json()
+  assert [row["name"] for row in listed] == ["laptop"] and "key" not in listed[0], (
+    listed
+  )
+  assert client.post("/ui/api/keys", json={"name": "laptop"}).status_code == 400, (
+    "in use"
+  )
+  assert client.post("/ui/api/keys", json={"name": ""}).status_code == 400
+  body = {"model": "daedalus/sophos", "messages": [{"role": "user", "content": "k"}]}
+  bearer = {"Authorization": f"Bearer {key}"}
+  sent = client.post("/v1/chat/completions", json=body, headers=bearer)
+  assert sent.status_code == 200, sent.text
+  outside = TestClient(api.app)
+  assert outside.get("/ui/api/keys", headers=bearer).status_code == 401, "no dashboard"
+  assert client.delete("/ui/api/keys/laptop").status_code == 204
+  assert client.delete("/ui/api/keys/laptop").status_code == 404
+  assert (
+    client.post("/v1/chat/completions", json=body, headers=bearer).status_code == 401
+  )
+
+
 def check_files(client: TestClient, folder: Path) -> None:
   names = [item["path"] for item in client.get("/ui/api/files").json()]
   assert names == [str(path) for path in dashboard.FILES], names
@@ -202,6 +227,7 @@ def main() -> None:
       check_page(client)
       check_login(client)
       check_data(client)
+      check_keys(client)
       check_files(client, Path(folder))
     finally:
       api.get_config, settings.DEFAULT_PATH, config.DEFAULT_PATH, dashboard.FILES = (

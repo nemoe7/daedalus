@@ -118,16 +118,19 @@ def bearer(request: Request) -> str:
   return keys.bearer(request.headers.get("authorization", ""))
 
 
-def check_local_key(request: Request) -> JSONResponse | None:
-  """Reject the request unless the bearer token is the master key or the local key."""
+def check_api_key(request: Request) -> JSONResponse | None:
+  """Reject the request unless the bearer token is the master key or an API key."""
   token, master = bearer(request), dashboard.master()
   if master is not None and hmac.compare_digest(token.encode(), master.encode()):
+    request.state.key = "master"
     return None
-  if keys.matches(store.MODELS_DB, token) is True:
+  name = keys.find(store.MODELS_DB, token)
+  if name is not None:
+    request.state.key = name
     return None
   return error_response(
     401,
-    "Send the master key or the local API key as 'Authorization: Bearer <key>'.",
+    "Send the master key or an API key as 'Authorization: Bearer <key>'.",
     "authentication_error",
   )
 
@@ -138,7 +141,7 @@ async def log_request(request: Request, call_next):
   response = await call_next(request)
   models = [
     f"{key}={getattr(request.state, key)}"
-    for key in ("model", "pool", "via", "pin", "ttft", "fallbacks")
+    for key in ("key", "model", "pool", "via", "pin", "ttft", "fallbacks")
     if getattr(request.state, key, None)
   ]
   line = " ".join(
@@ -186,7 +189,7 @@ async def health() -> dict[str, str]:
 
 @app.get("/v1/models")
 async def models(request: Request) -> Response:
-  denied = check_local_key(request)
+  denied = check_api_key(request)
   if denied is not None:
     return denied
   names = [
@@ -304,7 +307,7 @@ class Tracker:
 
 @app.post("/v1/chat/completions")
 async def chat(request: Request) -> Response:
-  denied = check_local_key(request)
+  denied = check_api_key(request)
   if denied is not None:
     return denied
   try:

@@ -147,7 +147,7 @@ def check_requests() -> None:
   api.PENALTIES.clear()
   client = TestClient(api.app, headers=AUTH)
 
-  keys.save_hash(model_store.MODELS_DB, keys.digest(LOCAL))
+  keys.add(model_store.MODELS_DB, "second", LOCAL)
 
   def ask(token: str = MASTER, pick: float = 0.5) -> str:
     api.PENALTIES.pick = lambda: pick
