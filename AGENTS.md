@@ -36,3 +36,4 @@ An ADR holds one decision and the reason for it.
 - Write a comment only where the function is extremely complex.
 - Keep a comment to two lines and three sentences.
 - Keep a docstring to one line and one sentence.
+- Do not refer to ADRs in code, comments, docstrings or tests.
