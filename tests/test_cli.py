@@ -17,8 +17,9 @@ def check_help() -> None:
   )
   assert shown.returncode == 0, shown.stderr
   assert shown.stdout.startswith("usage:"), shown.stdout
-  for flag in ("-i [PORT], --init [PORT]", "-c, --catalog", "-d, --dump"):
-    assert flag in shown.stdout, shown.stdout
+  for command in ("serve", "catalog", "dump", "key"):
+    assert f"\n    {command} " in shown.stdout, shown.stdout
+  assert "--init" not in shown.stdout and "-c," not in shown.stdout, "no flags"
   wrong = subprocess.run(
     [*DAEDALUS, "--wrong"], capture_output=True, text=True, timeout=10, check=False
   )
@@ -26,7 +27,7 @@ def check_help() -> None:
   assert not hasattr(catalog, "main"), "python -m daedalus.catalog has no entry point"
 
 
-def check_flags() -> None:
+def check_commands() -> None:
   calls: list[str] = []
   original = (
     catalog.MODELS_DB,
@@ -46,30 +47,30 @@ def check_flags() -> None:
       with contextlib.redirect_stdout(shown):
         api.run([])
       assert calls == [] and shown.getvalue().startswith("usage:"), calls
-      api.run(["-d"])
+      api.run(["dump"])
       assert calls == ["dump"], "a dump does not build the store"
       calls.clear()
-      api.run(["--init"])
-      assert calls == ["catalog", "listen:3357"], calls
+      api.run(["serve"])
+      assert calls == ["catalog", "listen:3357"], "serve builds a missing store"
       catalog.MODELS_DB.touch()
       calls.clear()
-      api.run(["--init"])
+      api.run(["serve"])
       assert calls == ["catalog", "listen:3357"], "a file without the model table"
       catalog.write_store([], catalog.MODELS_DB)
       calls.clear()
-      api.run(["--init"])
+      api.run(["serve"])
       assert calls == ["listen:3357"], calls
       calls.clear()
-      api.run(["--catalog"])
+      api.run(["catalog"])
       assert calls == ["catalog"], calls
       calls.clear()
-      api.run(["--catalog", "--init"])
+      api.run(["serve", "--catalog"])
       assert calls == ["catalog", "listen:3357"], calls
       calls.clear()
-      api.run(["-c", "-i"])
-      assert calls == ["catalog", "listen:3357"], calls
+      api.run(["serve", "--catalog", "9000"])
+      assert calls == ["catalog", "listen:9000"], calls
       calls.clear()
-      api.run(["-i", "9000"])
+      api.run(["serve", "9000"])
       assert calls == ["listen:9000"], calls
       check_key(calls)
   finally:
@@ -84,7 +85,7 @@ def check_key(calls: list[str]) -> None:
   database = catalog.MODELS_DB
   shown = io.StringIO()
   with contextlib.redirect_stdout(shown):
-    api.run(["-k"])
+    api.run(["key"])
   key = shown.getvalue().strip()
   assert key.startswith("sk-") and len(key) == 46, key
   assert keys.matches(database, key) is True, "the store keeps the hash"
@@ -92,28 +93,28 @@ def check_key(calls: list[str]) -> None:
   catalog.write_store([], database)
   assert keys.matches(database, key) is True, "a rebuild keeps the key"
   calls.clear()
-  api.run(["--key", "my-custom-key-0001", "-i"])
-  assert calls == ["listen:3357"], calls
+  api.run(["key", "my-custom-key-0001"])
+  assert calls == [], "key does not start the router"
   assert keys.matches(database, "my-custom-key-0001") is True
   assert keys.matches(database, key) is False, "a new key replaces the old key"
-  api.run(["-k", "off"])
+  api.run(["key", "off"])
   assert keys.matches(database, key) is None, "off removes the key"
   for bad in ("short-key", "has a space in it!"):
     wrong = subprocess.run(
-      [*DAEDALUS, "-k", bad], capture_output=True, text=True, check=False
+      [*DAEDALUS, "key", bad], capture_output=True, text=True, check=False
     )
     assert wrong.returncode == 2 and "16 or more" in wrong.stderr, wrong.stderr
   database.unlink()
-  api.run(["-k"])
+  api.run(["key"])
   calls.clear()
-  api.run(["-i"])
+  api.run(["serve"])
   assert calls == ["catalog", "listen:3357"], "a key-only store is not a model store"
 
 
 def main() -> None:
   check_help()
-  check_flags()
-  print("ok: cli flags")
+  check_commands()
+  print("ok: cli subcommands")
 
 
 if __name__ == "__main__":
