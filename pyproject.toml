@@ -24,7 +24,17 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["daedalus", "daedalus.providers"]
+packages = [
+  "daedalus",
+  "daedalus.catalog",
+  "daedalus.config",
+  "daedalus.dashboard",
+  "daedalus.providers",
+  "daedalus.routing",
+  "daedalus.server",
+  "daedalus.store",
+]
 
 [tool.setuptools.package-data]
-daedalus = ["artifacts/*.json", "artifacts/*-LICENSE.txt", "ui/*"]
+"daedalus.dashboard" = ["ui/*"]
+"daedalus.routing" = ["artifacts/*.json", "artifacts/*-LICENSE.txt"]

@@ -8,7 +8,8 @@ from typing import Any
 
 import httpx
 
-from daedalus import config, discovery
+from daedalus import config
+from daedalus.catalog import discovery
 
 CONFIG: dict[str, Any] = {
   "cloudflare": {

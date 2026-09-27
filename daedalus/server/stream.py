@@ -8,11 +8,13 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from daedalus import context, providers, store, upstream
+from daedalus import providers, store
 from daedalus.providers.base import error_text
+from daedalus.routing import context
+from daedalus.server import upstream
 
 if TYPE_CHECKING:
-  from daedalus.api import Tracker
+  from daedalus.server.api import Tracker
 
 logger = logging.getLogger("daedalus")
 

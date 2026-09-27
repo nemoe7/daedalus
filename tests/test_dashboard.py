@@ -8,7 +8,9 @@ from pathlib import Path
 import httpx
 from fastapi.testclient import TestClient
 
-from daedalus import api, config, dashboard, settings, store, upstream
+from daedalus import config, dashboard, store
+from daedalus.config import settings
+from daedalus.server import api, upstream
 
 CONFIG = {
   "p": {

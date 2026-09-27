@@ -12,24 +12,14 @@ from typing import Any
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import (
-  access,
-  context,
-  dashboard,
-  headroom,
-  keys,
-  logs,
-  penalties,
-  providers,
-  router,
-  schedule,
-  signatures,
-  store,
-  stream,
-  upstream,
-)
+from daedalus import dashboard, providers, store
+from daedalus.catalog import schedule
 from daedalus.config import get_config
+from daedalus.providers import signatures
 from daedalus.providers.base import error_text
+from daedalus.routing import context, penalties, router
+from daedalus.server import access, headroom, logs, stream, upstream
+from daedalus.store import keys
 
 HOST = os.environ.get("DAEDALUS_HOST") or "0.0.0.0"
 PORT = int(os.environ.get("DAEDALUS_PORT") or 3357)

@@ -5,7 +5,9 @@ import tempfile
 import time
 from pathlib import Path
 
-from daedalus import schedule, settings, store
+from daedalus import store
+from daedalus.catalog import schedule
+from daedalus.config import settings
 
 
 def local(text: str) -> float:

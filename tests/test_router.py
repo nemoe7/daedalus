@@ -5,7 +5,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from daedalus import classifier, router
+from daedalus.routing import classifier, router
 
 
 def check_classify() -> None:
