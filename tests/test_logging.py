@@ -6,7 +6,7 @@ from pathlib import Path
 import httpx
 from fastapi.testclient import TestClient
 
-from daedalus import api, catalog
+from daedalus import api, store
 from daedalus.providers.base import error_text
 
 
@@ -43,7 +43,7 @@ def check_error_text() -> None:
 
 def main() -> None:
   with tempfile.TemporaryDirectory() as folder:
-    catalog.MODELS_DB = Path(folder) / "models.sqlite3"
+    store.MODELS_DB = Path(folder) / "models.sqlite3"
     check_lines()
 
 

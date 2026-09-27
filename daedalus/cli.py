@@ -5,7 +5,7 @@ import logging
 
 import yaml
 
-from daedalus import api, catalog, keys, settings
+from daedalus import api, catalog, keys, settings, store
 
 logger = logging.getLogger("daedalus")
 KEY_OFF = "off"
@@ -14,14 +14,14 @@ KEY_OFF = "off"
 def set_key(value: str) -> None:
   """Store a new, custom, or no local API key. Show a new key once."""
   if value == KEY_OFF:
-    keys.save_hash(catalog.MODELS_DB, None)
+    keys.save_hash(store.MODELS_DB, None)
     logger.info("removed the local API key; the router accepts all requests")
     return
   key = value or keys.generate()
-  keys.save_hash(catalog.MODELS_DB, keys.digest(key))
+  keys.save_hash(store.MODELS_DB, keys.digest(key))
   if not value:
     print(key)
-  logger.info("stored the local API key hash in %s", catalog.MODELS_DB)
+  logger.info("stored the local API key hash in %s", store.MODELS_DB)
 
 
 def run(argv: list[str] | None = None) -> None:
@@ -75,7 +75,7 @@ def run(argv: list[str] | None = None) -> None:
       api.apply_settings(settings.load())
     except (settings.SettingsError, yaml.YAMLError) as exc:
       parser.exit(2, f"daedalus: {exc}\n")
-    if args.catalog or not catalog.has_store():
+    if args.catalog or not store.has_store():
       catalog.refresh()
     import uvicorn
 

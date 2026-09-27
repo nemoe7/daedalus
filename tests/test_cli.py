@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
-from daedalus import catalog, cli, keys
+from daedalus import catalog, cli, keys, store
 
 DAEDALUS = [sys.executable, "-c", "from daedalus.cli import run; run()"]
 
@@ -30,7 +30,7 @@ def check_help() -> None:
 def check_commands() -> None:
   calls: list[str] = []
   original = (
-    catalog.MODELS_DB,
+    store.MODELS_DB,
     catalog.refresh,
     catalog.dump,
     sys.modules.get("uvicorn"),
@@ -42,7 +42,7 @@ def check_commands() -> None:
   )
   try:
     with tempfile.TemporaryDirectory() as folder:
-      catalog.MODELS_DB = Path(folder) / "models.sqlite3"
+      store.MODELS_DB = Path(folder) / "models.sqlite3"
       shown = io.StringIO()
       with contextlib.redirect_stdout(shown):
         cli.run([])
@@ -52,11 +52,11 @@ def check_commands() -> None:
       calls.clear()
       cli.run(["serve"])
       assert calls == ["catalog", "listen:3357"], "serve builds a missing store"
-      catalog.MODELS_DB.touch()
+      store.MODELS_DB.touch()
       calls.clear()
       cli.run(["serve"])
       assert calls == ["catalog", "listen:3357"], "a file without the model table"
-      catalog.write_store([], catalog.MODELS_DB)
+      store.write_store([], store.MODELS_DB)
       calls.clear()
       cli.run(["serve"])
       assert calls == ["listen:3357"], calls
@@ -74,7 +74,7 @@ def check_commands() -> None:
       assert calls == ["listen:9000"], calls
       check_key(calls)
   finally:
-    catalog.MODELS_DB, catalog.refresh, catalog.dump, uvicorn = original
+    store.MODELS_DB, catalog.refresh, catalog.dump, uvicorn = original
     if uvicorn is None:
       sys.modules.pop("uvicorn", None)
     else:
@@ -82,7 +82,7 @@ def check_commands() -> None:
 
 
 def check_key(calls: list[str]) -> None:
-  database = catalog.MODELS_DB
+  database = store.MODELS_DB
   shown = io.StringIO()
   with contextlib.redirect_stdout(shown):
     cli.run(["key"])
@@ -90,7 +90,7 @@ def check_key(calls: list[str]) -> None:
   assert key.startswith("sk-") and len(key) == 46, key
   assert keys.matches(database, key) is True, "the store keeps the hash"
   assert key not in database.read_bytes().decode("latin-1"), "no plain key"
-  catalog.write_store([], database)
+  store.write_store([], database)
   assert keys.matches(database, key) is True, "a rebuild keeps the key"
   calls.clear()
   cli.run(["key", "my-custom-key-0001"])

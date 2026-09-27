@@ -12,7 +12,7 @@ import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import catalog, keys, penalties, providers, router
+from daedalus import keys, penalties, providers, router, store
 from daedalus.config import get_config
 from daedalus.providers.base import error_text
 
@@ -102,7 +102,7 @@ def bearer(request: Request) -> str:
 
 def check_local_key(request: Request) -> JSONResponse | None:
   """Reject the request when a local key exists and the bearer token does not match it."""
-  if keys.matches(catalog.MODELS_DB, bearer(request)) is not False:
+  if keys.matches(store.MODELS_DB, bearer(request)) is not False:
     return None
   return error_response(
     401,
@@ -157,7 +157,7 @@ async def models(request: Request) -> Response:
     router.RESERVED_MODEL,
     *router.POOLS,
     router.PRAKTOS,
-    *catalog.read_models(),
+    *store.read_models(),
   ]
   data = [{"id": name, "object": "model", "owned_by": "daedalus"} for name in names]
   return JSONResponse({"object": "list", "data": data})
@@ -168,7 +168,7 @@ def chain(
 ) -> tuple[list[list[str]], str | None] | None:
   """The tier groups to try and the pin slot for one request, or None for an unknown name."""
   if model == router.PRAKTOS or (model == router.RESERVED_MODEL and body.get("tools")):
-    lines = catalog.read_models(tools_only=True)
+    lines = store.read_models(tools_only=True)
     groups = router.chain_groups(config, lines, router.PRAKTOS_TIERS)
     if any(groups):
       return groups, router.PRAKTOS
@@ -176,11 +176,11 @@ def chain(
     model = router.RESERVED_MODEL
   if model in router.POOLS:
     order = router.fallback_order(router.POOLS[model])
-    return router.chain_groups(config, catalog.read_models(), order), model
+    return router.chain_groups(config, store.read_models(), order), model
   if model == router.RESERVED_MODEL:
     tier = router.required_tier(last_user_text(body["messages"]))
     order = router.fallback_order(tier)
-    groups = router.chain_groups(config, catalog.read_models(), order)
+    groups = router.chain_groups(config, store.read_models(), order)
     return groups, f"{model}:{router.TIER_NAMES[tier]}"
   if model.partition("/")[0] in config:
     return [[model]], None
@@ -227,7 +227,7 @@ def routed_pool(slot: str) -> str:
   return names[slot.rpartition(":")[2]].rpartition("/")[2]
 
 
-PENALTIES = penalties.Penalties(lambda: catalog.MODELS_DB)
+PENALTIES = penalties.Penalties(lambda: store.MODELS_DB)
 
 
 class Tracker:
@@ -295,7 +295,7 @@ async def chat(request: Request) -> Response:
   models = pin.order(found[0])
   include_usage = bool((body.get("stream_options") or {}).get("include_usage"))
   failure = error_response(502, "No model answered the request", "upstream_error")
-  tokens, limits, tried = input_tokens(body), catalog.input_limits(), False
+  tokens, limits, tried = input_tokens(body), store.input_limits(), False
   for index, candidate in enumerate(models):
     request.state.fallbacks = str(index)
     if too_large(candidate, tokens, limits):
@@ -485,7 +485,7 @@ async def relay(
       return
     prefix = {"role": "assistant", "content": "".join(sent)}
     continued = {**body, "messages": [*body["messages"], prefix]} if sent else body
-    tokens, limits = input_tokens(continued), catalog.input_limits()
+    tokens, limits = input_tokens(continued), store.input_limits()
     while rest:
       candidate = rest.pop(0)
       if too_large(candidate, tokens, limits):
