@@ -1,6 +1,6 @@
 # Providers
 
-> Q: Why these 7 providers? For example: free tiers, speed, or model choice.
+These are the only providers that I have personally confirmed are genuinely free.
 
 | Provider key | Provider | API | Notes |
 | --- | --- | --- | --- |
@@ -12,7 +12,7 @@
 | `openrouter` | OpenRouter | OpenAI-compatible | |
 | `z-ai` | Z.ai | OpenAI-compatible | |
 
-> Q: Which provider do you trust most, and why?
+Kilo and Openrouter are established gateway providers that have rotating free models. Google Gemini has a more generous free tier than the rest.
 
 ## Catalog
 

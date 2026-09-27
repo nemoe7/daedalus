@@ -34,7 +34,7 @@ flowchart TD
 | Error | The next model gets the request. The client sees only the last error. |
 | Stream | When a stream stops, the next model continues the answer. |
 
-> Q: Why does the client see only the last error?
+The end client only sees the last error to provide a cleaner transition between models in the fallback ladder.
 
 ## Classification
 
@@ -61,7 +61,7 @@ flowchart TD
 | Tool call | After the first tool call, the tier is koinos or higher. |
 | Conversation | The tier does not go down until the session expires (1 h idle). |
 
-> Q: What do you want users to know about the limits of the classifier?
+The classified used is vendored in from LiteLLM heuristics v2. It is not perfect, but it is a good start.
 
 ## Pools and the fallback ladder
 
@@ -94,7 +94,7 @@ flowchart LR
   end
 ```
 
-> Q: Why does the chain go up before it goes down?
+The chain goes up first to "escalate" the request to a higher tier and model since the next highest tier is normally capable of handling the same request. The chain goes down to the next tier only if going up hits the ceiling. It is not guaranteed that going down will result in a successful request and will often fail due to insufficient capabilities.
 
 ## Weights
 
@@ -146,4 +146,4 @@ sequenceDiagram
 | Expiry | 1 h with no request |
 | Storage | `.daedalus-state/models.sqlite3`, kept after a restart |
 
-> Q: Why is session affinity important for your clients? For example: prompt cache, or a consistent style.
+Session affinity is important for clients to maintain a response style and to make use of prompt caching (not guaranteed but worth it if available). Without session affinity, the client would see different styles clashing between each other (tested this myself and it looks like a mess).
