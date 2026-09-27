@@ -1,4 +1,4 @@
-"""Build the model chains of the pools, praktos and `daedalus/auto`."""
+"""Build the model chains of the pools and `daedalus/auto`."""
 
 from __future__ import annotations
 
@@ -19,9 +19,6 @@ POOLS: Final[Mapping[str, int]] = {
   "daedalus/deinos": 3,
   "daedalus/sophos": 4,
 }
-# The pool for tool calls. It has no tier and holds TIER-A, then TIER-B members.
-PRAKTOS: Final = "daedalus/praktos"
-PRAKTOS_TIERS: Final = (4, 3)
 
 
 def tier_models(provider: Mapping[str, Any], tier_name: str) -> list[str]:
@@ -116,8 +113,3 @@ def route_pool(
   if tier is None:
     return []
   return chain_models(config, lines, fallback_order(tier))
-
-
-def route_praktos(config: Mapping[str, Any], lines: list[str]) -> list[str]:
-  """The tool-capable models, TIER-A first, then TIER-B."""
-  return chain_models(config, lines, PRAKTOS_TIERS)
