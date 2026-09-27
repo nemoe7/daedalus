@@ -7,6 +7,7 @@ from pathlib import Path
 import httpx
 
 from daedalus import api, config, store
+from daedalus.upstream import set_client
 
 MASTER = "test-master-key-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}
@@ -79,7 +80,7 @@ async def main() -> None:
     store.write_store([{"id": f"{name}/x"} for name in names])
     transport = httpx.MockTransport(upstream)
     async with httpx.AsyncClient(transport=transport) as upstream_client:
-      api.set_client(upstream_client)
+      set_client(upstream_client)
       app = httpx.ASGITransport(app=api.app)
       async with httpx.AsyncClient(
         transport=app, base_url="http://t", headers=AUTH
@@ -131,7 +132,7 @@ async def main() -> None:
         assert lines[-1] == "[DONE]", lines
         assert [host for host, _ in SEEN] == ["a.test", "b.test"], SEEN
   store.MODELS_DB = saved
-  api.set_client(None)
+  set_client(None)
   config.set_config(None)
   print("ok: stream continuation")
 

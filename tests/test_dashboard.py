@@ -8,7 +8,7 @@ from pathlib import Path
 import httpx
 from fastapi.testclient import TestClient
 
-from daedalus import api, config, dashboard, settings, store
+from daedalus import api, config, dashboard, settings, store, upstream
 
 CONFIG = {
   "p": {
@@ -222,7 +222,7 @@ def main() -> None:
     config.DEFAULT_PATH = Path(shutil.copy("config/providers/free.yml", folder))
     dashboard.FILES = (settings.DEFAULT_PATH, config.DEFAULT_PATH)
     api.get_config = lambda: CONFIG
-    api.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
+    upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
     api.PENALTIES.clear()
     dashboard.RECENT.clear()
     try:
@@ -236,7 +236,7 @@ def main() -> None:
       api.get_config, settings.DEFAULT_PATH, config.DEFAULT_PATH, dashboard.FILES = (
         original
       )
-      api.set_client(None)
+      upstream.set_client(None)
       config.set_config(None)
       api.apply_settings(settings.load())
       os.environ.pop(dashboard.MASTER_ENV, None)

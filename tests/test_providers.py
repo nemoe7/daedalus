@@ -7,6 +7,7 @@ from pathlib import Path
 import httpx
 
 from daedalus import api, config, providers, store
+from daedalus.upstream import set_client
 
 MASTER = "test-master-key-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}
@@ -143,7 +144,7 @@ async def main() -> None:
   async with httpx.AsyncClient(
     transport=httpx.MockTransport(upstream)
   ) as upstream_client:
-    api.set_client(upstream_client)
+    set_client(upstream_client)
     async with httpx.AsyncClient(
       transport=httpx.ASGITransport(app=api.app), base_url="http://test", headers=AUTH
     ) as client:
@@ -304,7 +305,7 @@ async def main() -> None:
             "content": [{"type": "text", "text": "sunny"}]
           }
           assert sent["response_format"]["schema"] == {"type": "object"}
-  api.set_client(None)
+  set_client(None)
   config.set_config(None)
   print("ok: provider routing, native requests, responses, streams, and fallback")
 
