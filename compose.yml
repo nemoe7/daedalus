@@ -3,6 +3,9 @@ services:
     build: .
     image: daedalus:local
     user: "${DAEDALUS_UID:-1000}:${DAEDALUS_GID:-1000}"
+    environment:
+      DAEDALUS_HOST: 0.0.0.0
+      DAEDALUS_PORT: 3357 # keep the container port below in step
     ports:
       - "3357:3357"
     env_file:

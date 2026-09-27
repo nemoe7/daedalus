@@ -1,0 +1,15 @@
+# Router settings. Each key is optional; a missing key uses the value shown here.
+# DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.
+timeouts:
+  request: 600 # seconds for one full request
+  wait: 60 # seconds without bytes from the provider
+  slow: 30 # a first token after this is slow; half of wait when missing
+session_affinity:
+  enabled: true
+  idle: 3600 # seconds without a request, then the pin expires
+weights:
+  enabled: true # false: all weights stay at 1 and the chain keeps the usual order
+  success: 1.5
+  fault: 0.5
+  slow: 0.75
+  hourly: 1.2
