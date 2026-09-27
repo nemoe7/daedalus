@@ -4,6 +4,23 @@ from typing import Any, ClassVar
 from daedalus.providers.base import OpenAIProvider, limits
 
 
+def text_only(message: Any) -> Any:
+  """The message with its text-part list as one string, and null content as empty text."""
+  if not isinstance(message, dict):
+    return message
+  content = message.get("content")
+  if content is None:
+    return {**message, "content": ""}
+  if not isinstance(content, list) or not content:
+    return message
+  if not all(isinstance(part, dict) and part.get("type") == "text" for part in content):
+    return message
+  return {
+    **message,
+    "content": "\n".join(str(part.get("text", "")) for part in content),
+  }
+
+
 class CloudflareProvider(OpenAIProvider):
   """Cloudflare Workers AI through its OpenAI-compatible API."""
 
@@ -13,6 +30,14 @@ class CloudflareProvider(OpenAIProvider):
     # Discovery gets text-generation models only. Remove the task filter when Daedalus supports multimodal input.
     "discovery_url": "https://api.cloudflare.com/client/v4/accounts/os.environ/CLOUDFLARE_ACCOUNT_ID/ai/models/search?per_page=100&task=Text%20Generation",
   }
+
+  def body(self, slug: str, payload: dict) -> dict:
+    """The OpenAI body, with string content where Workers AI models need it."""
+    return {
+      **payload,
+      "model": slug,
+      "messages": [text_only(m) for m in payload["messages"]],
+    }
 
   @staticmethod
   def columns(row: dict) -> dict[str, Any]:
