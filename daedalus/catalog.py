@@ -1,5 +1,6 @@
 """Discover the models each provider serves and write them to models.txt."""
 
+import argparse
 import logging
 import re
 from collections.abc import Callable, Iterable
@@ -238,6 +239,10 @@ def write_models_txt(lines: Iterable[str], path: Path | str = MODELS_TXT) -> Pat
 
 
 def main() -> int:
+  argparse.ArgumentParser(
+    prog="python -m daedalus.catalog",
+    description="Discover provider models and write them to .daedalus-state/models.txt.",
+  ).parse_args()
   logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
   lines, skipped = build_catalog()
   target = write_models_txt(lines)
