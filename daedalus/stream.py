@@ -78,9 +78,11 @@ async def relay(
   include_usage: bool,
   model: str,
   pin: "Tracker",
+  attempts: list[dict[str, Any]] | None = None,
 ) -> AsyncIterator[bytes]:
   """Stream one answer, and continue from the sent text on a failure."""
   identifier, sent, tool = None, [], False
+  attempts = [] if attempts is None else attempts
   while True:
     try:
       while True:
@@ -102,8 +104,14 @@ async def relay(
         yield providers.frame(chunk)
     except StopAsyncIteration:
       logger.warning("upstream stream ended without [DONE]")
+      attempts.append(
+        upstream.note(model, "stream failed", None, "ended without [DONE]")
+      )
     except STREAM_ERRORS as exc:
       logger.warning("upstream stream failed: %s", upstream.failure_text(exc))
+      attempts.append(
+        upstream.note(model, "stream failed", None, upstream.failure_text(exc))
+      )
     await events.aclose()
     pin.failed(model)
     if tool:
@@ -115,6 +123,12 @@ async def relay(
     while rest:
       candidate = rest.pop(0)
       if context.too_large(candidate, tokens, limits):
+        limit = limits[candidate]
+        attempts.append(
+          upstream.note(
+            candidate, "skipped", None, f"input ~{tokens} tokens > limit {limit}"
+          )
+        )
         continue
       started = time.perf_counter()
       try:
@@ -123,8 +137,10 @@ async def relay(
         pending = await first_content(events)
         model = candidate
         pin.answered(model, time.perf_counter() - started)
+        attempts.append(upstream.note(candidate, "answered", started))
         break
       except (upstream.UpstreamStatus, *ATTEMPT_ERRORS) as exc:
+        attempts.append(upstream.failure_note(candidate, started, exc))
         logger.warning(
           "upstream %s continuation failed: %s", candidate, upstream.failure_text(exc)
         )

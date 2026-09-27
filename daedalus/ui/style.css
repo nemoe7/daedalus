@@ -116,6 +116,26 @@ input[type=search] { flex: 1; min-width: 180px; }
 .danger:hover { color: var(--bad); border-color: var(--bad); }
 td.end { text-align: right; }
 .empty { padding: 24px 16px; color: var(--muted); text-align: center; }
+tr.request { cursor: pointer; }
+tr.request:hover td, tr.request.open td { background: var(--field); }
+tr.request.open td { border-bottom: 0; }
+.caret {
+  display: inline-block; width: 6px; height: 6px; margin: 0 10px 1px 0;
+  border: solid var(--muted); border-width: 0 1.5px 1.5px 0; transform: rotate(-45deg);
+}
+tr.open .caret { transform: rotate(45deg); }
+tr.chain td { background: var(--field); padding-top: 4px; }
+.chain-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+.chain ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.step { font-size: 13px; }
+.step .result { font-weight: 600; margin-left: 6px; }
+.step.good .result { color: var(--ok); }
+.step.bad .result { color: var(--bad); }
+.step pre {
+  margin: 4px 0 0 20px; padding: 8px 10px; border-radius: 8px; background: var(--panel);
+  border: 1px solid var(--line); font: 12px/1.5 var(--mono); white-space: pre-wrap;
+  overflow-wrap: anywhere; max-height: 180px; overflow: auto; user-select: text;
+}
 .primary {
   padding: 8px 18px; border-radius: 8px; border: 0; background: var(--accent); color: #fff;
   font-weight: 600;
