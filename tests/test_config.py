@@ -5,7 +5,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from daedalus import config
+from daedalus import config, providers
 
 SAMPLE = """\
 cloudflare:
@@ -81,7 +81,8 @@ def check_repo_file() -> None:
     "z-ai",
   ], list(loaded)
   for name, provider in loaded.items():
-    assert provider.get("discovery_url", "").startswith("https://"), name
+    merged = providers.settings(name, provider)
+    assert merged.get("discovery_url", "").startswith("https://"), name
     assert "api_key" in provider, name
   assert loaded["z-ai"]["exclude"] == ["*"], loaded["z-ai"]["exclude"]
   assert loaded["groq"]["rpm"] == 30, loaded["groq"]["rpm"]
@@ -102,7 +103,7 @@ def check_url_substitution() -> None:
   """A URL carries `os.environ/NAME` inside it, not as a whole value."""
   os.environ["CLOUDFLARE_ACCOUNT_ID"] = "acct-123"
   loaded = config.load_config(Path("config/providers/free.yml"))
-  url = loaded["cloudflare"]["discovery_url"]
+  url = providers.settings("cloudflare", loaded["cloudflare"])["discovery_url"]
   assert url == (
     "https://api.cloudflare.com/client/v4/accounts/acct-123"
     "/ai/models/search?per_page=100"

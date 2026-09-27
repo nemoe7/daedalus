@@ -2,7 +2,7 @@ import json
 import time
 import uuid
 from collections.abc import AsyncIterator, Mapping
-from typing import Any
+from typing import Any, ClassVar
 from urllib.parse import urlsplit
 
 import httpx
@@ -115,6 +115,7 @@ class OpenAIProvider:
   """A provider that serves the OpenAI Chat Completions API."""
 
   unsupported: tuple[str, ...] = ()
+  defaults: ClassVar[Mapping[str, str]] = {"api_type": "openai"}
 
   def __init__(self, name: str, config: Mapping) -> None:
     base = str(config.get("api_base") or "").rstrip("/")

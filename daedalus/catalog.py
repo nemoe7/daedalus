@@ -12,6 +12,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 import httpx
 
 from daedalus.config import STATE_DIR, get_config
+from daedalus.providers import settings
 
 logger = logging.getLogger("daedalus.catalog")
 
@@ -210,6 +211,7 @@ def build_catalog(
     if not isinstance(provider, dict):
       skipped.append(f"{provider_name}: not a mapping")
       continue
+    provider = settings(provider_name, provider)
     if not (provider.get("api_key") or ""):
       skipped.append(f"{provider_name}: no api_key")
       continue

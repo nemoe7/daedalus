@@ -1,0 +1,14 @@
+from collections.abc import Mapping
+from typing import ClassVar
+
+from daedalus.providers.base import OpenAIProvider
+
+
+class MistralProvider(OpenAIProvider):
+  """Mistral through its OpenAI-compatible API."""
+
+  defaults: ClassVar[Mapping[str, str]] = {
+    "api_type": "openai",
+    "api_base": "https://api.mistral.ai/v1",
+    "discovery_url": "https://api.mistral.ai/v1/models",
+  }
