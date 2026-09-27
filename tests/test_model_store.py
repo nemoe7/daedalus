@@ -17,6 +17,8 @@ PAGES = {
         "max_output_tokens": 128000,
         "supports_function_calling": True,
         "rpm": 10,
+        "input_cost_per_token": 1e-06,
+        "source": "https://zai.test",
       }
     ],
     "has_more": True,
@@ -98,7 +100,8 @@ def main() -> None:
     cells = dict(zip(header.split("\t"), first.split("\t"), strict=True))
     assert cells["id"] == "z-ai/glm-5" and cells["mode"] == "chat", cells
     assert cells["supports_function_calling"] == "true", cells
-    assert cells["deprecation_date"] == "", cells
+    dropped = {"input_cost_per_token", "deprecation_date", "source"}
+    assert not dropped & set(cells), cells
   print("ok: model store")
 
 
