@@ -1,4 +1,5 @@
 import logging
+import re
 import tempfile
 from pathlib import Path
 
@@ -81,7 +82,7 @@ def check_lines() -> None:
   assert lines.lines[0].endswith("ProviderError: Missing api_key for keyless")
   assert lines.lines[1].split()[4] == "429", lines.lines
   assert lines.lines[1].endswith("ms: slow"), "the provider message"
-  assert lines.lines[3].endswith("model=daedalus/auto via=second/b"), lines.lines
+  assert re.search(r"model=daedalus/auto via=second/b ttft=\d+ms$", lines.lines[3])
   check_error_text()
   print("ok: log lines")
 

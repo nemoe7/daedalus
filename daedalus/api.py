@@ -22,6 +22,7 @@ TIMEOUT_SECONDS = 600.0
 # The wait for one answer. A provider that sends bytes resets it, so a slow
 # stream is not cut off.
 WAIT_SECONDS = 60.0
+SLOW_SECONDS = WAIT_SECONDS / 2
 
 logger = logging.getLogger("daedalus")
 LOG_FORMAT = "%(asctime)s %(levelname)-5s %(name)s %(message)s"
@@ -45,9 +46,14 @@ def short_name(record: logging.LogRecord) -> bool:
   return True
 
 
+def milliseconds(seconds: float) -> str:
+  """A duration as log text."""
+  return f"{seconds * 1000:.0f}ms"
+
+
 def elapsed(started: float) -> str:
   """The milliseconds since `started`, as log text."""
-  return f"{(time.perf_counter() - started) * 1000:.0f}ms"
+  return milliseconds(time.perf_counter() - started)
 
 
 @asynccontextmanager
@@ -110,7 +116,7 @@ async def log_request(request: Request, call_next):
   response = await call_next(request)
   models = [
     f"{key}={getattr(request.state, key)}"
-    for key in ("model", "via", "pin")
+    for key in ("model", "via", "pin", "ttft")
     if getattr(request.state, key, None)
   ]
   line = " ".join(
@@ -193,9 +199,10 @@ class Tracker:
   def order(self, groups: list[list[str]]) -> list[str]:
     return PENALTIES.order(groups, self.key, self.slot)
 
-  def answered(self, model: str) -> str | None:
-    """Raise the weight and pin the model. A pin that failed in this request shows as `moved`."""
-    PENALTIES.record(model, success=True)
+  def answered(self, model: str, ttft: float) -> str | None:
+    """Update the weight and pin the model. A pin that failed in this request shows as `moved`."""
+    slow = ttft >= SLOW_SECONDS
+    PENALTIES.record(model, penalties.SLOW if slow else penalties.SUCCESS)
     if not self.slot:
       return None
     state = PENALTIES.pin(self.key, self.slot, model)
@@ -203,7 +210,7 @@ class Tracker:
 
   def failed(self, model: str) -> None:
     """Lower the weight, and remove the pin when it names this model."""
-    PENALTIES.record(model, success=False)
+    PENALTIES.record(model, penalties.FAULT)
     if self.slot and PENALTIES.unpin(self.key, self.slot, model):
       self.dropped = True
 
@@ -242,6 +249,7 @@ async def chat(request: Request) -> Response:
   include_usage = bool((body.get("stream_options") or {}).get("include_usage"))
   failure = error_response(502, "No model answered the request", "upstream_error")
   for index, candidate in enumerate(models):
+    started = time.perf_counter()
     try:
       provider, response = await attempt(candidate, body, config)
       if not body.get("stream"):
@@ -251,10 +259,13 @@ async def chat(request: Request) -> Response:
         if not isinstance(answer, dict) or answer.get("error"):
           raise providers.ProviderError(f"Invalid upstream answer: {error_text(raw)}")
         completion = provider.completion(answer, candidate)
-        request.state.via, request.state.pin = candidate, pin.answered(candidate)
+        ttft = time.perf_counter() - started
+        request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
+        request.state.ttft = milliseconds(ttft)
         return JSONResponse(completion)
       events = sse_data(provider.stream(response, candidate, include_usage))
-      first = await anext(events)
+      pending = await first_content(events)
+      ttft = time.perf_counter() - started
     except UpstreamStatus as exc:
       pin.failed(candidate)
       failure = error_response(
@@ -269,9 +280,10 @@ async def chat(request: Request) -> Response:
       )
       continue
     rest = models[index + 1 :]
-    request.state.via, request.state.pin = candidate, pin.answered(candidate)
+    request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
+    request.state.ttft = milliseconds(ttft)
     return StreamingResponse(
-      relay(first, events, rest, body, config, include_usage, candidate, pin),
+      relay(pending, events, rest, body, config, include_usage, candidate, pin),
       media_type="text/event-stream",
     )
   return failure
@@ -339,8 +351,31 @@ async def sse_data(chunks: AsyncIterator[bytes]) -> AsyncIterator[str]:
     await chunks.aclose()
 
 
+def has_content(data: str) -> bool:
+  """True for `[DONE]`, and for a chunk with text, a tool call, or a finish reason."""
+  if data == "[DONE]":
+    return True
+  chunk = json.loads(data)
+  if not isinstance(chunk, dict) or chunk.get("error"):
+    raise providers.ProviderError(f"Upstream stream error: {error_text(chunk)}")
+  for choice in chunk.get("choices") or []:
+    delta = choice.get("delta") or {}
+    text = [delta.get(key) for key in ("content", "reasoning_content", "reasoning")]
+    if any(text) or delta.get("tool_calls") or choice.get("finish_reason"):
+      return True
+  return False
+
+
+async def first_content(events: AsyncIterator[str]) -> list[str]:
+  """The events up to the first one with content."""
+  pending = [await anext(events)]
+  while not has_content(pending[-1]):
+    pending.append(await anext(events))
+  return pending
+
+
 async def relay(
-  first: str,
+  pending: list[str],
   events: AsyncIterator[str],
   rest: list[str],
   body: dict[str, Any],
@@ -351,7 +386,6 @@ async def relay(
 ) -> AsyncIterator[bytes]:
   """Stream one answer, and continue from the sent text on a failure."""
   identifier, sent, tool = None, [], False
-  pending: list[str] = [first]
   while True:
     try:
       while True:
@@ -384,12 +418,13 @@ async def relay(
     continued = {**body, "messages": [*body["messages"], prefix]} if sent else body
     while rest:
       candidate = rest.pop(0)
+      started = time.perf_counter()
       try:
         provider, response = await attempt(candidate, continued, config)
         events = sse_data(provider.stream(response, candidate, include_usage))
-        pending = [await anext(events)]
+        pending = await first_content(events)
         model = candidate
-        pin.answered(model)
+        pin.answered(model, time.perf_counter() - started)
         break
       except (UpstreamStatus, *ATTEMPT_ERRORS) as exc:
         logger.warning(
