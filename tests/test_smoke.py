@@ -9,7 +9,7 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import api, catalog, config, keys
+from daedalus import api, config, keys, store
 
 UPSTREAM_BASE = "http://upstream.test"
 UPSTREAM_KEY = "upstream-secret"
@@ -86,7 +86,7 @@ def use_config(api_key: str = UPSTREAM_KEY) -> None:
 def use_upstream(api_key: str = UPSTREAM_KEY, local_key: str = "") -> None:
   """Point the app at the stub upstream."""
   use_config(api_key)
-  keys.save_hash(catalog.MODELS_DB, keys.digest(local_key) if local_key else None)
+  keys.save_hash(store.MODELS_DB, keys.digest(local_key) if local_key else None)
   api.PENALTIES.clear()
   api.PENALTIES.pick = lambda: 0.0
   api.set_client(
@@ -153,11 +153,11 @@ async def check_routed_model(client: httpx.AsyncClient) -> None:
       }
     }
   )
-  saved = catalog.MODELS_DB
+  saved = store.MODELS_DB
   try:
     with tempfile.TemporaryDirectory() as folder:
-      catalog.MODELS_DB = pathlib.Path(folder) / "models.sqlite3"
-      catalog.write_store(
+      store.MODELS_DB = pathlib.Path(folder) / "models.sqlite3"
+      store.write_store(
         [{"id": "gemini/gemini-3.5-flash"}, {"id": "gemini/gemini-3.5-pro"}]
       )
       response = await client.post(
@@ -185,7 +185,7 @@ async def check_routed_model(client: httpx.AsyncClient) -> None:
           "/v1/chat/completions", json=chat_body(model=model, tools=[tool])
         )
         assert empty.status_code == 200, empty.text
-      catalog.write_store(
+      store.write_store(
         [
           {"id": "gemini/gemini-3.5-flash", "supports_function_calling": True},
           {"id": "gemini/gemini-3.5-pro"},
@@ -199,7 +199,7 @@ async def check_routed_model(client: httpx.AsyncClient) -> None:
         assert tooled.status_code == 200, tooled.text
         assert SEEN[-1]["model"] == "gemini-3.6-flash", (model, SEEN[-1])
   finally:
-    catalog.MODELS_DB = saved
+    store.MODELS_DB = saved
     use_config()
 
 
@@ -215,11 +215,11 @@ async def check_reroute(client: httpx.AsyncClient) -> None:
       }
     }
   )
-  saved = catalog.MODELS_DB
+  saved = store.MODELS_DB
   try:
     with tempfile.TemporaryDirectory() as folder:
-      catalog.MODELS_DB = pathlib.Path(folder) / "models.sqlite3"
-      catalog.write_store([{"id": "gemini/bad"}, {"id": "gemini/gemini-3.5-flash"}])
+      store.MODELS_DB = pathlib.Path(folder) / "models.sqlite3"
+      store.write_store([{"id": "gemini/bad"}, {"id": "gemini/gemini-3.5-flash"}])
       response = await client.post(
         "/v1/chat/completions", json=chat_body(model="daedalus/sophos")
       )
@@ -238,13 +238,13 @@ async def check_reroute(client: httpx.AsyncClient) -> None:
           }
         }
       )
-      catalog.write_store([{"id": "gemini/bad"}])
+      store.write_store([{"id": "gemini/bad"}])
       doomed = await client.post(
         "/v1/chat/completions", json=chat_body(model="daedalus/sophos")
       )
       assert doomed.status_code == 429, doomed.text
   finally:
-    catalog.MODELS_DB = saved
+    store.MODELS_DB = saved
     use_config()
 
 
@@ -258,14 +258,14 @@ def check_wait_cap() -> None:
 
 
 async def check_models(client: httpx.AsyncClient) -> None:
-  saved = catalog.MODELS_DB
+  saved = store.MODELS_DB
   try:
     with tempfile.TemporaryDirectory() as folder:
-      catalog.MODELS_DB = pathlib.Path(folder) / "models.sqlite3"
-      catalog.write_store([{"id": "stub/gpt-test"}])
+      store.MODELS_DB = pathlib.Path(folder) / "models.sqlite3"
+      store.write_store([{"id": "stub/gpt-test"}])
       response = await client.get("/v1/models")
   finally:
-    catalog.MODELS_DB = saved
+    store.MODELS_DB = saved
   assert response.status_code == 200, response.text
   names = [row["id"] for row in response.json()["data"]]
   assert names == [
@@ -369,7 +369,7 @@ async def run_client_checks() -> None:
 
 def main() -> None:
   with tempfile.TemporaryDirectory() as folder:
-    catalog.MODELS_DB = pathlib.Path(folder) / "models.sqlite3"
+    store.MODELS_DB = pathlib.Path(folder) / "models.sqlite3"
     asyncio.run(run_checks())
   print(f"ok: {len(SEEN)} upstream requests, all checks passed")
 
