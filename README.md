@@ -1,8 +1,8 @@
 # Daedalus
 
-One of them is bound to hit. Aggregates personal API keys and utilizes a classifier to select a model that suits the task.
+One of them is bound to hit. Daedalus puts your personal API keys behind 1 endpoint and uses a classifier to select a model for each task.
 
-I got the name "Daedalus" since I wanted something that had the same impact as "Odyssey" [link to odyssey-dev]. It has to be Greek and recognizable. I took inspiration from the Terraria weapon "Daedalus Stormbow" and thought of each arrow being a request sent to a provider that just keeps trying to hit until one lands.
+I wanted a name with the same impact as [Odysseus](https://odysseusai.dev/). It has to be Greek and easy to recognize. The idea comes from the Terraria weapon "Daedalus Stormbow". Each arrow is a request to a provider, and the bow shoots until 1 arrow hits.
 
 ## Features
 
@@ -16,7 +16,7 @@ I got the name "Daedalus" since I wanted something that had the same impact as "
 - A dashboard for pools, requests, models, API keys, providers and settings.
 - Docker Compose, with optional Open WebUI, Headroom and Tailscale.
 
-Daedalus is meant for personal use only. It is not meant to be shared to other users due to providers' terms of service.
+Daedalus is for personal use only. Do not share it with other users, because the provider terms of service can forbid it.
 
 ## Quick start
 
