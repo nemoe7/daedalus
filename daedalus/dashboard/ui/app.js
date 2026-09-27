@@ -157,7 +157,7 @@ const seconds = (value) => value == null ? "" : `${value.toFixed(3)}s`;
 
 function chainText(r) {
   const head = [clock(r.at), r.model, r.status, r.pool && `pool=${r.pool}`, r.routed && `from=${r.routed}`,
-    `fallbacks=${r.fallbacks ?? 0}`].filter(Boolean).join(" ");
+    `fallbacks=${r.fallbacks ?? 0}`, r.retry && `retry=${r.retry}`].filter(Boolean).join(" ");
   const steps = (r.attempts || []).map((a, i) =>
     `${i + 1}. ${a.model} ${a.result} ${seconds(a.seconds)}`.trim() + (a.error ? `\n   ${a.error}` : ""));
   return [head, ...steps].join("\n");
@@ -187,7 +187,7 @@ function renderRequests(rows) {
     <tr class="request${opened.has(String(r.at)) ? " open" : ""}" data-at="${r.at}" title="Show the fallback chain">
       <td class="num muted"><span class="caret"></span>${clock(r.at)}</td>
       <td>${esc(r.model || "-")}</td>
-      <td class="hide-sm muted">${esc(r.pool || "-")}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}</td>
+      <td class="hide-sm muted">${esc(r.pool || "-")}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${r.retry ? ` <span class="from">try again ${esc(r.retry)}</span>` : ""}</td>
       <td>${r.via ? esc(r.via) : '<span class="muted">none</span>'}</td>
       <td class="status s${String(r.status)[0]}">${r.status}</td>
       <td class="hide-sm num">${esc(r.ttft || "-")}</td>

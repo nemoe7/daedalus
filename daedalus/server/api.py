@@ -17,7 +17,7 @@ from daedalus.catalog import schedule
 from daedalus.config import get_config
 from daedalus.providers import signatures
 from daedalus.providers.base import error_text
-from daedalus.routing import context, penalties, router
+from daedalus.routing import context, penalties, retries, router
 from daedalus.server import access, headroom, logs, media, stream, upstream
 from daedalus.store import keys
 
@@ -54,7 +54,17 @@ async def log_request(request: Request, call_next):
   response = await call_next(request)
   models = [
     f"{key}={getattr(request.state, key)}"
-    for key in ("key", "model", "pool", "via", "pin", "ttft", "fallbacks", "saved")
+    for key in (
+      "key",
+      "model",
+      "pool",
+      "via",
+      "pin",
+      "ttft",
+      "fallbacks",
+      "retry",
+      "saved",
+    )
     if getattr(request.state, key, None)
   ]
   line = " ".join(
@@ -169,6 +179,25 @@ def chain(
   return router.chain_groups(config, lines, order), slot
 
 
+def retry_chain(
+  turn: retries.Turn, body: dict[str, Any], config: dict[str, Any]
+) -> tuple[list[list[str]], str]:
+  """The chain of a try again: 1 tier above the last answer, without the tier A models that answered."""
+  tier = retries.next_tier(turn)
+  lines = store.read_models(tools_only=bool(body.get("tools")))
+  groups = router.chain_groups(config, lines, router.fallback_order(tier))
+  groups[0] = retries.fresh_models(turn, groups[0])
+  return groups, f"{router.RESERVED_MODEL}:{router.TIER_NAMES[tier]}"
+
+
+def remember(request: Request, turn: retries.Turn | None, candidate: str) -> None:
+  """Keep the tier of the pool that answered, for the next try again of this message."""
+  if turn is None:
+    return
+  pool = getattr(request.state, "pool", None)
+  retries.record(turn, router.POOLS.get(f"daedalus/{pool}"), candidate)
+
+
 # The short pool name of each tier name, for example moros for TIER-D.
 POOL_NAMES = {
   router.TIER_NAMES[tier]: name.rpartition("/")[2]
@@ -193,6 +222,7 @@ def served(request: Request, config: dict[str, Any], candidate: str) -> None:
 
 
 PENALTIES = penalties.Penalties(lambda: store.MODELS_DB)
+RETRIES = retries.Retries()
 app.include_router(dashboard.page())
 app.include_router(
   dashboard.routes(
@@ -264,7 +294,15 @@ async def chat(request: Request) -> Response:
     )
   config = get_config()
   key = session_key(access.bearer(request), body["messages"])
-  found = chain(model, body, config, key)
+  turn = None
+  chat_id = request.headers.get(retries.CHAT_HEADER)
+  if model == router.RESERVED_MODEL and chat_id:
+    turn = RETRIES.start(chat_id, body["messages"])
+  if turn is not None and turn.count:
+    found = retry_chain(turn, body, config)
+    request.state.retry = str(turn.count)
+  else:
+    found = chain(model, body, config, key)
   if found is None:
     return upstream.error_response(
       400, "Unknown provider or pool", "invalid_request_error"
@@ -306,6 +344,7 @@ async def chat(request: Request) -> Response:
         request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
         request.state.ttft = logs.seconds_text(ttft)
         served(request, config, candidate)
+        remember(request, turn, candidate)
         attempts.append(upstream.note(candidate, "answered", started))
         return JSONResponse(completion)
       events = stream.sse_data(provider.stream(response, candidate, include_usage))
@@ -330,6 +369,7 @@ async def chat(request: Request) -> Response:
     request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
     request.state.ttft = logs.seconds_text(ttft)
     served(request, config, candidate)
+    remember(request, turn, candidate)
     attempts.append(upstream.note(candidate, "answered", started))
     return StreamingResponse(
       stream.relay(
@@ -354,7 +394,7 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   )
   SLOW_SECONDS, AFFINITY = timeouts["slow"], affinity["enabled"]
   PENALTIES.idle, PENALTIES.enabled = affinity["idle"], weights["enabled"]
-  signatures.IDLE_SECONDS = affinity["idle"]
+  signatures.IDLE_SECONDS = RETRIES.idle = affinity["idle"]
   PENALTIES.stay = affinity["stay"]
   headroom.TIMEOUT_SECONDS = values["headroom"]["timeout"]
   schedule.EVERY, schedule.ANCHOR = (

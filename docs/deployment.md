@@ -48,6 +48,7 @@ flowchart LR
 | API base | `http://daedalus:3357/v1` |
 | API key | `OPENWEBUI_API_KEY`, else `DAEDALUS_MASTER_KEY` |
 | First user | Becomes the Open WebUI admin |
+| `ENABLE_FORWARD_USER_INFO_HEADERS` | `true`. Sends the chat id for [try again](architecture.md#try-again). It also sends the user name, id, e-mail and role. |
 
 > Q: Which Open WebUI settings do you recommend with Daedalus? For example: the task model, or the function calling mode.
 
