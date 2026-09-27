@@ -1,12 +1,11 @@
 import tempfile
 from pathlib import Path
 
-from daedalus import catalog, store
+from daedalus import store
 
 
 def main() -> None:
   root = Path(__file__).resolve().parent.parent / ".daedalus-state"
-  assert catalog.MODELS_TSV == root / "models.tsv"
   assert store.MODELS_DB == root / "models.sqlite3"
   with tempfile.TemporaryDirectory() as directory:
     target = Path(directory) / ".daedalus-state" / "models.sqlite3"

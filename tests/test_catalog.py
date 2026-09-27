@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 
-from daedalus import catalog, config, discovery
+from daedalus import config, discovery
 
 CONFIG: dict[str, Any] = {
   "cloudflare": {
@@ -310,17 +310,6 @@ def check_merge_pages() -> None:
   assert discovery.merge_pages([]) == {}
 
 
-def check_writers() -> None:
-  with tempfile.TemporaryDirectory() as directory:
-    target = Path(directory) / "models.tsv"
-    catalog.write_models_tsv([{"id": "groq/a"}, {"id": "gemini/b"}], target)
-    lines = target.read_bytes().split(b"\n")
-    assert b"\r" not in target.read_bytes(), "LF only, on every platform"
-    assert lines[1].startswith(b"groq/a\t") and lines[2].startswith(b"gemini/b\t"), (
-      lines
-    )
-
-
 def check_declared_kept() -> None:
   """A slug a `models:` key names is kept even when `exclude` drops it."""
   provider = {"exclude": ["*"], "models": {"glm-4.7-flash": {"tpm": 8000}}}
@@ -399,6 +388,27 @@ def check_non_text() -> None:
   assert discovery.select(providers["mistral"], mistral) == ["codestral-2508"]
 
 
+def check_failed_providers() -> None:
+  """Only a model list fetch that fails puts the provider on the failed list."""
+  providers = {
+    "up": {"api_key": "k", "discovery_url": "https://up.test/models"},
+    "down": {"api_key": "k", "discovery_url": "https://down.test/models"},
+    "nokey": {"discovery_url": "https://nokey.test/models"},
+    "nourl": {"api_key": "k"},
+  }
+
+  def fetch(url: str, headers: dict[str, str]) -> dict[str, Any]:
+    if "down" in url:
+      raise httpx.ConnectError("refused")
+    return {"data": [{"id": "m"}]}
+
+  failed: list[str] = []
+  lines, skipped = discovery.build_rows(providers, fetch, failed)
+  assert list(lines) == ["up/m"], lines
+  assert failed == ["down"], failed
+  assert len(skipped) == 3, skipped
+
+
 def main() -> int:
   check_matches()
   check_extract_slugs()
@@ -411,8 +421,8 @@ def main() -> int:
   check_merge_pages()
   check_dump()
   check_discovery_match()
-  check_writers()
   check_non_text()
+  check_failed_providers()
   print(f"ok: catalog checks passed, {len(SEEN)} stub pages fetched")
   return 0
 

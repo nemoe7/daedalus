@@ -1,4 +1,4 @@
-"""The SQLite model store: the model table and the tables that a rebuild keeps."""
+"""The SQLite model store: the model table, and the tables of the other modules."""
 
 import sqlite3
 import time
@@ -10,7 +10,7 @@ from daedalus import keys
 from daedalus.config import STATE_DIR
 
 MODELS_DB = STATE_DIR / "models.sqlite3"
-# Metadata columns, in table and models.tsv order. Config values win over the catalog.
+# Metadata columns, in table order. Config values win over the catalog.
 COLUMNS = (
   "mode",
   "max_input_tokens",
@@ -30,8 +30,6 @@ COLUMNS = (
   "supports_audio_output",
   "supports_web_search",
 )
-# Tables that a store rebuild keeps: the API keys, the model weights, the pins and the signatures.
-KEPT_TABLES = frozenset({keys.TABLE, "weights", "pins", "signatures"})
 # Each step of `migrate` raises the file version by 1.
 SCHEMA_VERSION = 1
 TEXT_COLUMNS = frozenset({"mode", "reasoning_effort"})
@@ -61,50 +59,70 @@ def migrate(path: Path | str | None = None) -> None:
   database.close()
 
 
-def keep_tables(database: sqlite3.Connection, old: Path) -> None:
-  """Copy the key, weight, pin and signature tables of the old store into a new store."""
-  database.execute("ATTACH DATABASE ? AS old", (str(old),))
-  found = database.execute(
-    "SELECT name, sql FROM old.sqlite_master WHERE type = 'table'"
-  ).fetchall()
-  for name, sql in found:
-    if name in KEPT_TABLES:
-      database.execute(sql)
-      database.execute(f"INSERT INTO {name} SELECT * FROM old.{name}")
-  database.commit()
-  database.execute("DETACH DATABASE old")
-
-
-def write_store(rows: Iterable[dict[str, Any]], path: Path | str | None = None) -> Path:
-  """Replace the model table in one transaction-safe file swap, and record the build time."""
+def write_store(
+  rows: Iterable[dict[str, Any]],
+  path: Path | str | None = None,
+  keep: Iterable[str] = (),
+  fill: Iterable[str] = (),
+) -> Path:
+  """Update the model rows in place in 1 transaction, and delete the stale rows."""
   target = Path(path or MODELS_DB)
   target.parent.mkdir(parents=True, exist_ok=True)
-  temporary = target.with_suffix(".tmp")
-  temporary.unlink(missing_ok=True)
-  columns = ", ".join(
-    f"{key} {'TEXT' if key in TEXT_COLUMNS else 'NUMERIC'}" for key in COLUMNS
-  )
-  with sqlite3.connect(temporary) as database:
-    database.execute(
-      f"CREATE TABLE models (id TEXT PRIMARY KEY, provider TEXT, slug TEXT, {columns})"
+  migrate(target)
+  kept, filled = set(keep), set(fill)
+  names = ("id", "provider", "slug", *COLUMNS)
+  database = sqlite3.connect(target, isolation_level=None, timeout=10)
+  try:
+    database.execute("BEGIN IMMEDIATE")
+    columns = ", ".join(
+      f"{key} {'TEXT' if key in TEXT_COLUMNS else 'NUMERIC'}" for key in COLUMNS
     )
-    database.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
-    if target.exists():
-      migrate(target)
-      keep_tables(database, target)
-    names = ("id", "provider", "slug", *COLUMNS)
+    database.execute(
+      f"CREATE TABLE IF NOT EXISTS models (id TEXT PRIMARY KEY, provider TEXT, slug TEXT, {columns})"
+    )
+    present = {row[1] for row in database.execute("PRAGMA table_info(models)")}
+    for key in names[1:]:
+      if key not in present:
+        kind = "TEXT" if key in {"provider", "slug", *TEXT_COLUMNS} else "NUMERIC"
+        database.execute(f"ALTER TABLE models ADD COLUMN {key} {kind}")
+    database.row_factory = sqlite3.Row
+    old = {row["id"]: dict(row) for row in database.execute("SELECT * FROM models")}
+    database.row_factory = None
     values = []
     for row in rows:
       provider, _, slug = row["id"].partition("/")
-      values.append((row["id"], provider, slug, *(row.get(key) for key in COLUMNS)))
-    marks = ", ".join("?" * len(names))
+      found = {key: row.get(key) for key in COLUMNS}
+      if provider in filled and row["id"] in old:
+        previous = old[row["id"]]
+        found = {
+          key: previous.get(key) if value is None else value
+          for key, value in found.items()
+        }
+      values.append((row["id"], provider, slug, *found.values()))
+    updates = ", ".join(f"{key} = excluded.{key}" for key in names[1:])
     database.executemany(
-      f"INSERT INTO models ({', '.join(names)}) VALUES ({marks})", values
+      f"INSERT INTO models ({', '.join(names)}) VALUES ({', '.join('?' * len(names))})"
+      f" ON CONFLICT(id) DO UPDATE SET {updates}",
+      values,
     )
-    database.execute("CREATE TABLE catalog (built REAL)")
+    fresh = {value[0] for value in values}
+    stale = [
+      (key,)
+      for key, row in old.items()
+      if key not in fresh and row["provider"] not in kept
+    ]
+    database.executemany("DELETE FROM models WHERE id = ?", stale)
+    database.execute("CREATE TABLE IF NOT EXISTS catalog (built REAL)")
+    database.execute("DELETE FROM catalog")
     database.execute("INSERT INTO catalog VALUES (?)", (time.time(),))
-  database.close()
-  temporary.replace(target)
+    database.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+    database.execute("COMMIT")
+  except BaseException:
+    if database.in_transaction:
+      database.execute("ROLLBACK")
+    raise
+  finally:
+    database.close()
   return target
 
 
