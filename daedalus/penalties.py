@@ -95,6 +95,17 @@ class Penalties:
     database.close()
     return row[0] if row else None
 
+  def sessions(self) -> int:
+    """The count of session models that did not expire."""
+    database = self.connect()
+    try:
+      row = database.execute(
+        "SELECT COUNT(*) FROM pins WHERE used >= ?", (self.clock() - self.idle,)
+      ).fetchone()
+    finally:
+      database.close()
+    return row[0]
+
   def pin(self, key: str, slot: str, model: str) -> str:
     """Pin the model that answered. Returns `hit` or `new` for the log."""
     old = self.pinned(key, slot)
