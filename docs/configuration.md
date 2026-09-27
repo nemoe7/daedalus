@@ -8,7 +8,7 @@ Daedalus reads 3 sources:
 | `config/daedalus.yml` | Router settings | Yes, on the **Settings** page |
 | `config/providers/free.yml` | Providers, tiers and model limits | Yes, on the **Providers** page |
 
-> Q: Why are the router settings and the provider settings in 2 files?
+`daedalus.yml` contains the main settings for the router and its jobs. `config/providers/` contains the provider configurations (tiers, models, limits, etc).
 
 ## Environment variables
 
@@ -105,4 +105,5 @@ When patterns of 2 tiers match 1 model, the most specific pattern sets the tier.
 
 Order of the model values: provider file, then discovery, then LiteLLM.
 
-> Q: How do you select the tier of a new model? For example: benchmarks, your own tests, or the model size.
+Models are classified by their size, capabilities, and ranking across established and anecdotal evidence.
+Kilo and OpenRouter models are usually sent to `TIER-B` since their free catalog is usually for agentic tasks already.
