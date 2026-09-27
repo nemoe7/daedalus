@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
-from daedalus import catalog, cli, keys, store
+from daedalus import api, catalog, cli, keys, store
 
 os.environ["DAEDALUS_MASTER_KEY"] = "test-master-key-0001"
 
@@ -55,6 +55,7 @@ def check_commands() -> None:
       calls.clear()
       cli.run(["serve"])
       assert calls == ["catalog", "listen:3357"], "serve builds a missing store"
+      assert api.CATALOG_REFRESH is catalog.refresh, "serve starts the rebuild schedule"
       store.MODELS_DB.touch()
       calls.clear()
       cli.run(["serve"])
@@ -78,6 +79,7 @@ def check_commands() -> None:
       check_key(calls)
   finally:
     store.MODELS_DB, catalog.refresh, catalog.dump, uvicorn = original
+    api.CATALOG_REFRESH = None
     if uvicorn is None:
       sys.modules.pop("uvicorn", None)
     else:

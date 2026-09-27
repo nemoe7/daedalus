@@ -82,6 +82,7 @@ def run(argv: list[str] | None = None) -> None:
       parser.exit(2, f"daedalus: {exc}\n")
     if args.catalog or not store.has_store():
       catalog.refresh()
+    api.CATALOG_REFRESH = catalog.refresh
     import uvicorn
 
     uvicorn.run(

@@ -1,6 +1,7 @@
 """The SQLite model store: the model table and the tables that a rebuild keeps."""
 
 import sqlite3
+import time
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
@@ -50,7 +51,7 @@ def keep_tables(database: sqlite3.Connection, old: Path) -> None:
 
 
 def write_store(rows: Iterable[dict[str, Any]], path: Path | str | None = None) -> Path:
-  """Replace the model table in one transaction-safe file swap."""
+  """Replace the model table in one transaction-safe file swap, and record the build time."""
   target = Path(path or MODELS_DB)
   target.parent.mkdir(parents=True, exist_ok=True)
   temporary = target.with_suffix(".tmp")
@@ -73,6 +74,8 @@ def write_store(rows: Iterable[dict[str, Any]], path: Path | str | None = None) 
     database.executemany(
       f"INSERT INTO models ({', '.join(names)}) VALUES ({marks})", values
     )
+    database.execute("CREATE TABLE catalog (built REAL)")
+    database.execute("INSERT INTO catalog VALUES (?)", (time.time(),))
   database.close()
   temporary.replace(target)
   return target
@@ -142,6 +145,20 @@ def input_limits() -> dict[str, int]:
     if limit > 0:
       limits[key] = limit
   return limits
+
+
+def built() -> float | None:
+  """The time of the last catalog rebuild. None without a store or an older store."""
+  if not Path(MODELS_DB).exists():
+    return None
+  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
+  try:
+    row = database.execute("SELECT built FROM catalog").fetchone()
+  except sqlite3.OperationalError:
+    return None
+  finally:
+    database.close()
+  return row[0] if row else None
 
 
 def has_store() -> bool:
