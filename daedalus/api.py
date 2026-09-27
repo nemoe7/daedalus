@@ -16,6 +16,7 @@ from daedalus import (
   access,
   context,
   dashboard,
+  headroom,
   keys,
   logs,
   penalties,
@@ -62,7 +63,7 @@ async def log_request(request: Request, call_next):
   response = await call_next(request)
   models = [
     f"{key}={getattr(request.state, key)}"
-    for key in ("key", "model", "pool", "via", "pin", "ttft", "fallbacks")
+    for key in ("key", "model", "pool", "via", "pin", "ttft", "fallbacks", "saved")
     if getattr(request.state, key, None)
   ]
   line = " ".join(
@@ -235,6 +236,10 @@ async def chat(request: Request) -> Response:
     request.state.pool = routed_pool(found[1])
   pin = Tracker(session_key(access.bearer(request), body["messages"]), found[1])
   models = pin.order(found[0])
+  if models:
+    body, saved = await headroom.compress(body, models[0])
+    if saved is not None:
+      request.state.saved = str(saved)
   include_usage = bool((body.get("stream_options") or {}).get("include_usage"))
   failure = upstream.error_response(
     502, "No model answered the request", "upstream_error"
@@ -288,7 +293,7 @@ async def chat(request: Request) -> Response:
 
 
 def apply_settings(values: dict[str, dict[str, Any]]) -> None:
-  """Use the timeouts, session affinity, and weights of `config/daedalus.yml`."""
+  """Use the values of `config/daedalus.yml`."""
   global SLOW_SECONDS, AFFINITY
   timeouts, affinity, weights = (
     values["timeouts"],
@@ -303,6 +308,7 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   PENALTIES.idle, PENALTIES.enabled = affinity["idle"], weights["enabled"]
   signatures.IDLE_SECONDS = affinity["idle"]
   PENALTIES.stay = affinity["stay"]
+  headroom.TIMEOUT_SECONDS = values["headroom"]["timeout"]
   schedule.EVERY, schedule.ANCHOR = (
     values["catalog"]["every"],
     values["catalog"]["anchor"],
