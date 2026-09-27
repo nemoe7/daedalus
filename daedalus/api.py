@@ -12,7 +12,16 @@ import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import keys, penalties, providers, router, signatures, store, stream
+from daedalus import (
+  dashboard,
+  keys,
+  penalties,
+  providers,
+  router,
+  signatures,
+  store,
+  stream,
+)
 from daedalus.config import get_config
 from daedalus.providers.base import error_text
 
@@ -96,8 +105,7 @@ def error_response(status: int, message: str, error_type: str) -> JSONResponse:
 
 
 def bearer(request: Request) -> str:
-  header = request.headers.get("authorization", "")
-  return header[7:].strip() if header.lower().startswith("bearer ") else ""
+  return keys.bearer(request.headers.get("authorization", ""))
 
 
 def check_local_key(request: Request) -> JSONResponse | None:
@@ -124,6 +132,8 @@ async def log_request(request: Request, call_next):
     [request.method, request.url.path, str(response.status_code), elapsed(started)]
   )
   logger.info(" ".join([line, *models]))
+  if request.url.path == "/v1/chat/completions":
+    dashboard.record(request, response.status_code, time.perf_counter() - started)
   return response
 
 
@@ -238,6 +248,7 @@ def routed_pool(slot: str) -> str:
 
 
 PENALTIES = penalties.Penalties(lambda: store.MODELS_DB)
+app.include_router(dashboard.routes(PENALTIES, lambda: get_config()))
 
 
 class Tracker:
