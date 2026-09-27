@@ -37,14 +37,27 @@ def text_only(message: Any) -> Any:
   }
 
 
+TASK_MODES = {
+  "Text Generation": "chat",
+  "Automatic Speech Recognition": "audio_transcription",
+  "Text-to-Speech": "audio_speech",
+  "Text-to-Image": "image_generation",
+  "Text Embeddings": "embedding",
+}
+
+
+def task_name(row: dict) -> Any:
+  task = row.get("task")
+  return task.get("name") if isinstance(task, dict) else None
+
+
 class CloudflareProvider(OpenAIProvider):
   """Cloudflare Workers AI through its OpenAI-compatible API."""
 
   defaults: ClassVar[Mapping[str, str]] = {
     "api_type": "openai",
     "api_base": "https://api.cloudflare.com/client/v4/accounts/os.environ/CLOUDFLARE_ACCOUNT_ID/ai/v1",
-    # Discovery gets text-generation models only. Remove the task filter when Daedalus supports multimodal input.
-    "discovery_url": "https://api.cloudflare.com/client/v4/accounts/os.environ/CLOUDFLARE_ACCOUNT_ID/ai/models/search?per_page=100&task=Text%20Generation",
+    "discovery_url": "https://api.cloudflare.com/client/v4/accounts/os.environ/CLOUDFLARE_ACCOUNT_ID/ai/models/search?per_page=100",
   }
 
   def body(self, slug: str, payload: dict) -> dict:
@@ -150,6 +163,11 @@ class CloudflareProvider(OpenAIProvider):
     return {"created": int(time.time()), "data": [item]}
 
   @staticmethod
+  def discoverable(row: dict) -> bool:
+    """Only the tasks that a Daedalus endpoint serves go into the catalog."""
+    return task_name(row) in TASK_MODES
+
+  @staticmethod
   def columns(row: dict) -> dict[str, Any]:
     """Store columns from one Cloudflare row. Properties show true values only."""
     found = {
@@ -158,9 +176,8 @@ class CloudflareProvider(OpenAIProvider):
       if isinstance(item, dict)
     }
     effort = found.get("reasoning_effort")
-    task = (row.get("task") or {}).get("name")
     return {
-      "mode": "chat" if task == "Text Generation" else None,
+      "mode": TASK_MODES.get(task_name(row)),
       **limits(found.get("context_window")),
       "reasoning_effort": effort.get("default_effort")
       if isinstance(effort, dict)

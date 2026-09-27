@@ -37,7 +37,7 @@ def main() -> None:
   gateway = providers.settings("cloudflare", {"api_base": "https://gateway.test/v1"})
   assert gateway["api_base"] == "https://gateway.test/v1", "the yml wins"
   assert "/accounts/account/" in cloudflare["discovery_url"], cloudflare
-  assert "task=Text%20Generation" in cloudflare["discovery_url"], cloudflare
+  assert "task=" not in cloudflare["discovery_url"], "the provider class filters tasks"
 
   setup = {
     "gemini": {"api_key": "k"},
