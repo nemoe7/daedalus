@@ -28,22 +28,24 @@ or a failed stream. One weight applies to all clients.
 
 TTFT is the time from the send to the first chunk with text or a tool call. Chunks without
 content, for example a role chunk or a keep-alive comment, do not stop the clock. Without a
-stream, TTFT is the time to the full answer. A successful request logs `ttft=N.NNNs`, in seconds with 3 decimals.
+stream, TTFT is the time to the full answer. A successful request logs `ttft=N.NNNs`, in
+seconds with 3 decimals.
 
 ### Order
 
 The tier order of ADR 1 and ADR 2 stays. The weights sort the models only inside each tier.
 
-1. The pin goes first, if the chain has it.
-2. Without a pin, the first model is a random choice from the first tier. The probability of
-   each model is its weight divided by the sum of the weights in that tier.
-3. All other models follow by weight, high first, tier by tier. Equal weights keep the usual
+1. The first model is a random choice from the first tier. The probability of each model is
+   its weight divided by the sum of the weights in that tier.
+2. All other models follow by weight, high first, tier by tier. Equal weights keep the usual
    order.
+
+In a session, each model other than the session model uses its weight x 0.05.
 
 ### Session affinity
 
-Daedalus keeps one pin for each pair of API key and slot. The API key is the SHA-256 hash of
-the bearer token. Clients without a token share one key.
+Daedalus keeps one session model for each conversation and slot. The conversation key is the
+SHA-256 hash of the bearer token and the first user message.
 
 | Request | Slot |
 | --- | --- |
@@ -52,12 +54,12 @@ the bearer token. Clients without a token share one key.
 | `daedalus/auto` | `daedalus/auto` and the required tier |
 | `provider/slug` | None |
 
-The first model that answers in time becomes the pin. A fault or a slow success of the pinned
-model removes the pin, and the next model that answers in time becomes the new pin. A slow
-success does not become the pin. A pin expires after 1 hour without a
-request.
+The first model that answers in time becomes the session model. A fault or a slow success of
+the session model removes it, and the next model that answers in time becomes the new session
+model. A slow success does not become the session model. A session model expires after 1 hour
+without a request.
 
-Weights and pins stay in `models.sqlite3`. A restart keeps them, and `daedalus catalog` keeps them
+Weights and session models stay in `models.sqlite3`. A restart keeps them, and `daedalus catalog` keeps them
 when it rebuilds the model table.
 
 ### Settings
@@ -69,6 +71,6 @@ turn off the weights or the session affinity.
 
 - A model that fails often gets fewer first attempts, but it is not removed.
 - A model with a low weight comes back over time: from 0.5 to 1 in about 4 hours.
-- One client stays on one model for each slot until that model fails.
-- A pin can be in a lower tier than the other models, because it goes first.
+- One conversation stays on its session model for most turns. The other models of the first
+  tier still get some turns, so a bad session model does not hold a conversation for ever.
 - The request log shows `pin=new`, `pin=hit`, `pin=moved` or `pin=slow`.
