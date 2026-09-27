@@ -10,7 +10,7 @@ from pathlib import Path
 IDLE_SECONDS = 3600.0
 # In a session, the share of first-tier draws for the session model.
 STAY = 0.85
-SUCCESS, FAULT, SLOW, HOURLY = 1.5, 0.5, 0.75, 1.2
+SUCCESS, FAULT, SLOW, HOURLY = 1.5, 0.5, 0.75, 1.212
 # The lowest weight, so that a model with many faults can recover.
 FLOOR = 0.01
 TABLES = (
