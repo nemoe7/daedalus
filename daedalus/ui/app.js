@@ -114,7 +114,7 @@ function renderStatus(status) {
     `<span class="chip"><span class="dot${status.healthy ? "" : " off"}"></span>` +
       `<b>${status.healthy ? "Healthy" : "Down"}</b></span>`,
     `<span class="chip"><b>${status.models}</b> models</span>`,
-    `<span class="chip"><b>${status.sessions}</b> sessions</span>`,
+    `<span class="chip" title="Conversations with a session model and a request in the last hour"><b>${status.sessions}</b> sessions</span>`,
     catalogChip(status.catalog),
   ];
   $("status").outerHTML = `<span id="status" class="chips">${chips.join("")}</span>`;
