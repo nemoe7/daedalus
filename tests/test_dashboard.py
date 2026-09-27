@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import tempfile
@@ -113,6 +114,10 @@ def check_login(client: TestClient) -> None:
   os.environ[dashboard.MASTER_ENV] = MASTER
   client.post("/ui/api/logout")
   assert client.get("/ui/api/status").status_code == 401, "logout ends the session"
+  https = {"Origin": "https://3357-box.example.app"}
+  framed = client.post("/ui/api/login", json=login, headers=https).headers["set-cookie"]
+  assert "samesite=none" in framed.lower() and "secure" in framed.lower(), framed
+  assert "partitioned" in framed.lower(), "the cookie works in a preview frame"
   remember = client.post("/ui/api/login", json={**login, "remember": True})
   assert (
     f"max-age={dashboard.REMEMBER_SECONDS}" in remember.headers["set-cookie"].lower()
@@ -150,6 +155,10 @@ def check_files(client: TestClient, folder: Path) -> None:
     == 200
   )
   assert config.get_config() == {"q": {"api_key": "k"}}, "the save reloads the config"
+  form = {"Content-Type": "text/plain"}
+  body = json.dumps({"path": providers, "text": "a: 1\n"})
+  posted = client.put("/ui/api/files", content=body, headers=form)
+  assert posted.status_code == 400, "a cross-site form cannot write a file"
   outside = str(folder / "other.yml")
   assert (
     client.put("/ui/api/files", json={"path": outside, "text": ""}).status_code == 400
