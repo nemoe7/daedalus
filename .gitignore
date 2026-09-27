@@ -11,6 +11,7 @@ build/
 models.txt
 
 # Local proxy state
+.daedalus-state/
 *.log
 .env
 
