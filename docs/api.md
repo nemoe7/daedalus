@@ -38,7 +38,7 @@ curl http://localhost:3357/v1/models -H "Authorization: Bearer $DAEDALUS_KEY"
 | Method and path | Models | Fallback |
 | --- | --- | --- |
 | `GET /health` | None. No key is necessary. | None |
-| `GET /v1/models` | `daedalus/auto`, the 4 pools and the chat models in the catalog | None |
+| `GET /v1/models` | `daedalus/auto`, the 4 pools, the chat models, then the other catalog models | None |
 | `POST /v1/chat/completions` | `daedalus/auto`, a pool, or `provider/slug` | Yes, for `daedalus/auto` and pools |
 | `POST /v1/embeddings` | `provider/slug` | No |
 | `POST /v1/audio/transcriptions` | `provider/slug` | No |
