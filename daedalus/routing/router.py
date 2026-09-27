@@ -25,6 +25,11 @@ POOLS: Final[Mapping[str, int]] = {
   "daedalus/deinos": 3,
   "daedalus/sophos": 4,
 }
+# The pools of the endpoints that do not chat, and the catalog mode of their models.
+MEDIA_POOLS: Final[Mapping[str, str]] = {
+  "daedalus/graphos": "audio_transcription",
+  "daedalus/photos": "image_generation",
+}
 
 
 def tier_models(provider: Mapping[str, Any], tier_name: str) -> list[str]:

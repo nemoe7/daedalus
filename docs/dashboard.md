@@ -15,7 +15,7 @@ The dashboard is mainly a utility for monitoring the application state and fine-
 | Page | Contents |
 | --- | --- |
 | Overview | Status, pools and the last requests |
-| Pools | The models of each pool, the highest weight first. "+N more" opens the Models page with the filters of the pool. |
+| Pools | The models of each pool, the media pools included, the highest weight first. "+N more" opens the Models page with the filters of the pool. |
 | Requests | Each request: model, pool, the model that answered, time to first token, fallbacks and each attempt. Errors have a copy button. |
 | Models | All catalog models, with a type filter, a tier filter, column sort, a reasoning column and weight bars |
 | API keys | Make and remove API keys |

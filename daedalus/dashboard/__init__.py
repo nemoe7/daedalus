@@ -24,6 +24,8 @@ from daedalus.store import keys
 RECENT: deque[dict[str, Any]] = deque(maxlen=50)
 FIELDS = ("model", "pool", "routed", "retry", "via", "ttft", "fallbacks", "attempts")
 AUTO_TIERS = (4, 3, 2, 1)
+# The modes whose models have weights: chat, and the modes of the media pools.
+WEIGHTED_MODES = frozenset({"chat", *router.MEDIA_POOLS.values()})
 MASTER_ENV = "DAEDALUS_MASTER_KEY"
 USERNAME = "admin"
 COOKIE = "daedalus_session"
@@ -244,6 +246,16 @@ def routes(
           "members": members(router.chain_groups(config, lines, order), order),
         }
       )
+    for name, mode in router.MEDIA_POOLS.items():
+      media = store.mode_models(mode)
+      weights = penalties.weights(media)
+      found.append(
+        {
+          "name": name,
+          "mode": mode,
+          "members": [{"id": m, "tier": None, "weight": weights[m]} for m in media],
+        }
+      )
     return JSONResponse(found)
 
   @api.get("/models")
@@ -252,7 +264,8 @@ def routes(
       return denied()
     rows = store.model_rows()
     chat = [row["id"] for row in rows if row["mode"] == "chat"]
-    tiers, weights = tier_map(get_config(), chat), penalties.weights(chat)
+    weighted = [row["id"] for row in rows if row["mode"] in WEIGHTED_MODES]
+    tiers, weights = tier_map(get_config(), chat), penalties.weights(weighted)
     return JSONResponse(
       [
         {**row, "tier": tiers.get(row["id"]), "weight": weights.get(row["id"])}
