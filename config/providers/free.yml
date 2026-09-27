@@ -12,7 +12,7 @@ cloudflare:
     - "*kimi-k2.7-code"
   tier:
     TIER-A:
-      - "qwen3*"
+      - "*qwen3*"
       - "*deepseek-r1*"
       - "*nemotron-3-120b-a12b*"
 
