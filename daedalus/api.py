@@ -411,7 +411,7 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   TIMEOUT_SECONDS, WAIT_SECONDS = timeouts["request"], timeouts["wait"]
   SLOW_SECONDS, AFFINITY = timeouts["slow"], affinity["enabled"]
   PENALTIES.idle, PENALTIES.enabled = affinity["idle"], weights["enabled"]
-  PENALTIES.others = affinity["others"]
+  PENALTIES.stay = affinity["stay"]
   for name in ("success", "fault", "slow", "hourly"):
     setattr(PENALTIES, name, weights[name])
   set_client(None)
