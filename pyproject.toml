@@ -17,7 +17,7 @@ dev = [
 ]
 
 [project.scripts]
-daedalus = "daedalus.api:run"
+daedalus = "daedalus.cli:run"
 
 [build-system]
 requires = ["setuptools>=68"]
