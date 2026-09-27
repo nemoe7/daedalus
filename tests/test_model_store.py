@@ -60,13 +60,14 @@ def main() -> None:
     "kilo/google/gemma-4-31b-it:free",
     "broken/x",
   ]
-  rows, problems = catalog.enrich(lines, config, fetch)
+  native = {"z-ai/glm-5": {"max_input_tokens": 1, "max_output_tokens": 64000}}
+  rows, problems = catalog.enrich(lines, config, fetch, native)
   assert [query["page"] for query in seen[:2]] == [["1"], ["2"]], seen
   assert len(seen) == 4, seen
   assert problems == ["broken: LiteLLM catalog failed: down"], problems
   glm = rows[0]
   assert glm["max_input_tokens"] == 131072, glm
-  assert glm["max_output_tokens"] == 128000, glm
+  assert glm["max_output_tokens"] == 64000, "the provider row wins over LiteLLM"
   assert glm["rpm"] == 60 and glm["tpm"] == 8000, glm
   assert glm["supports_function_calling"] is True, glm
   assert rows[1]["mode"] == "embedding", rows[1]

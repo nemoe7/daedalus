@@ -12,6 +12,73 @@ class ProviderError(ValueError):
   pass
 
 
+def count(value: Any) -> int | None:
+  """Read a positive token count from a number or a digit string."""
+  if isinstance(value, bool) or not isinstance(value, (int, str)):
+    return None
+  text = str(value)
+  return int(text) if text.isdigit() and int(text) > 0 else None
+
+
+def limits(max_input: Any = None, max_output: Any = None) -> dict[str, Any]:
+  """Token limit columns, with `max_tokens` as a copy of the output limit."""
+  output = count(max_output)
+  return {
+    "max_input_tokens": count(max_input),
+    "max_output_tokens": output,
+    "max_tokens": output,
+  }
+
+
+def listed(names: Any, columns: Mapping[str, str]) -> dict[str, bool]:
+  """Mark each column by its name in a full list. No list gives no values."""
+  if not isinstance(names, list):
+    return {}
+  return {column: name in names for column, name in columns.items()}
+
+
+def modalities(inputs: Any, outputs: Any) -> dict[str, bool]:
+  """Media columns from full input and output modality lists."""
+  found = {}
+  if isinstance(inputs, list):
+    found["supports_vision"] = "image" in inputs
+    found["supports_pdf_input"] = "pdf" in inputs or "file" in inputs
+    found["supports_audio_input"] = "audio" in inputs
+  if isinstance(outputs, list):
+    found["supports_audio_output"] = "audio" in outputs
+  return found
+
+
+def openrouter_columns(row: dict) -> dict[str, Any]:
+  """Store columns from one OpenRouter-shaped discovery row."""
+  top = row.get("top_provider") or {}
+  architecture = row.get("architecture") or {}
+  reasoning = row.get("reasoning") or {}
+  return {
+    **limits(
+      top.get("context_length") or row.get("context_length"),
+      top.get("max_completion_tokens"),
+    ),
+    **listed(
+      row.get("supported_parameters"),
+      {
+        "supports_function_calling": "tools",
+        "supports_tool_choice": "tool_choice",
+        "supports_parallel_function_calling": "parallel_tool_calls",
+        "supports_response_schema": "structured_outputs",
+        "supports_reasoning": "reasoning",
+        "supports_web_search": "web_search_options",
+      },
+    ),
+    **modalities(
+      architecture.get("input_modalities"), architecture.get("output_modalities")
+    ),
+    "reasoning_effort": reasoning.get("default_effort")
+    if isinstance(reasoning, dict)
+    else None,
+  }
+
+
 def first(items: Any) -> dict:
   return (
     items[0] if isinstance(items, list) and items and isinstance(items[0], dict) else {}
@@ -133,6 +200,11 @@ class OpenAIProvider:
     if not isinstance(key, str) or not key:
       raise ProviderError(f"Missing api_key for {name}")
     self.name, self.base, self.key = name, base, key
+
+  @staticmethod
+  def columns(row: dict) -> dict[str, Any]:
+    """Store columns from one discovery row. The base class reads none."""
+    return {}
 
   def headers(self) -> dict[str, str]:
     return {"content-type": "application/json", "authorization": f"Bearer {self.key}"}
