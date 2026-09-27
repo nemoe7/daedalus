@@ -4,6 +4,7 @@
   --accent: #304ffe; --ok: #283593; --warn: #a3386c; --bad: #781f4c; --bar: #e3e8fd;
   --tier: #212c70; --tag: #5c388c; --field: #f7f7f9; --radius: 12px;
   --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light dark; scrollbar-color: var(--line) transparent;
 }
 @media (prefers-color-scheme: dark) {
   :root {
