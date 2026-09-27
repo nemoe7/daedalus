@@ -1,12 +1,26 @@
-"""The local API key, kept as one SHA-256 hash in the model store."""
+"""Named API keys for `/v1`, kept as SHA-256 hashes in the model store."""
 
 import hashlib
 import secrets
 import sqlite3
+import time
 from pathlib import Path
+from typing import Any
 
-TABLE = "api_key"
+TABLE = "api_keys"
+SCHEMA = (
+  f"CREATE TABLE IF NOT EXISTS {TABLE} (name TEXT PRIMARY KEY, hash TEXT NOT NULL UNIQUE, "
+  "start TEXT NOT NULL, created REAL NOT NULL, used REAL)"
+)
 MIN_LENGTH = 16
+NAME_LENGTH = 40
+START_LENGTH = 7
+# The last use time changes at most once in this time, so requests do not write each time.
+USE_SECONDS = 60.0
+
+
+class KeyNameError(ValueError):
+  """A wrong key name, or a name that is in use."""
 
 
 def generate() -> str:
@@ -15,7 +29,7 @@ def generate() -> str:
 
 
 def valid(key: str) -> bool:
-  """Accept a custom key of 16 or more characters, with no spaces."""
+  """Accept a key of 16 or more characters, with no spaces."""
   return len(key) >= MIN_LENGTH and not any(char.isspace() for char in key)
 
 
@@ -28,34 +42,73 @@ def digest(key: str) -> str:
   return hashlib.sha256(key.encode()).hexdigest()
 
 
-def stored_hash(path: Path | str) -> str | None:
-  """The stored key hash, or None when the store has no key."""
+def check_name(name: object) -> str:
+  """The name without outer spaces, when it has 1 to 40 characters."""
+  if not isinstance(name, str) or not 0 < len(name.strip()) <= NAME_LENGTH:
+    raise KeyNameError(f"A key name has 1 to {NAME_LENGTH} characters.")
+  return name.strip()
+
+
+def listing(path: Path | str) -> list[dict[str, Any]]:
+  """The keys, oldest first, without their hashes."""
   if not Path(path).exists():
-    return None
+    return []
   database = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
   try:
-    row = database.execute(f"SELECT hash FROM {TABLE}").fetchone()
+    rows = database.execute(
+      f"SELECT name, start, created, used FROM {TABLE} ORDER BY created"
+    ).fetchall()
   except sqlite3.OperationalError:
-    return None
+    return []
   finally:
     database.close()
-  return row[0] if row else None
+  return [
+    dict(zip(("name", "start", "created", "used"), row, strict=True)) for row in rows
+  ]
 
 
-def save_hash(path: Path | str, value: str | None) -> None:
-  """Replace the stored key hash. None removes the key."""
+def add(path: Path | str, name: object, key: str | None = None) -> str:
+  """Keep a new named key and return it. Without `key`, Daedalus makes one."""
+  name, key = check_name(name), key or generate()
   Path(path).parent.mkdir(parents=True, exist_ok=True)
+  try:
+    with sqlite3.connect(path) as database:
+      database.execute(SCHEMA)
+      database.execute(
+        f"INSERT INTO {TABLE} (name, hash, start, created) VALUES (?, ?, ?, ?)",
+        (name, digest(key), key[:START_LENGTH], time.time()),
+      )
+  except sqlite3.IntegrityError as exc:
+    raise KeyNameError(f"The name {name!r} is in use.") from exc
+  finally:
+    database.close()
+  return key
+
+
+def delete(path: Path | str, name: str) -> bool:
+  """Delete the named key. False when no key has that name."""
+  if not Path(path).exists():
+    return False
   with sqlite3.connect(path) as database:
-    database.execute(f"CREATE TABLE IF NOT EXISTS {TABLE} (hash TEXT NOT NULL)")
-    database.execute(f"DELETE FROM {TABLE}")
-    if value:
-      database.execute(f"INSERT INTO {TABLE} (hash) VALUES (?)", (value,))
+    database.execute(SCHEMA)
+    found = database.execute(f"DELETE FROM {TABLE} WHERE name = ?", (name,)).rowcount
   database.close()
+  return found > 0
 
 
-def matches(path: Path | str, token: str) -> bool | None:
-  """Test one bearer token. None means that no key is set."""
-  stored = stored_hash(path)
-  if stored is None:
+def find(path: Path | str, token: str) -> str | None:
+  """The name of the key that matches the bearer token, and a new last use time."""
+  if not token or not Path(path).exists():
     return None
-  return secrets.compare_digest(digest(token), stored)
+  with sqlite3.connect(path) as database:
+    try:
+      row = database.execute(
+        f"SELECT name, used FROM {TABLE} WHERE hash = ?", (digest(token),)
+      ).fetchone()
+    except sqlite3.OperationalError:
+      row = None
+    now = time.time()
+    if row is not None and (row[1] is None or now - row[1] > USE_SECONDS):
+      database.execute(f"UPDATE {TABLE} SET used = ? WHERE name = ?", (now, row[0]))
+  database.close()
+  return row[0] if row else None

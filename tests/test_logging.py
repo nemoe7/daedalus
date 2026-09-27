@@ -88,7 +88,7 @@ def check_lines() -> None:
   assert lines.lines[1].split()[4] == "429", lines.lines
   assert lines.lines[1].endswith("s: slow"), "the provider message"
   assert re.search(
-    r"model=daedalus/auto pool=deinos via=second/b pin=new ttft=\d+\.\d{3}s fallbacks=2$",
+    r"key=master model=daedalus/auto pool=deinos via=second/b pin=new ttft=\d+\.\d{3}s fallbacks=2$",
     lines.lines[3],
   )
   lines.lines.clear()

@@ -19,4 +19,4 @@ docker compose up -d --build
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Host 'Daedalus runs on http://localhost:3357/v1'
 Write-Host 'Dashboard: http://localhost:3357/ (user admin, password DAEDALUS_MASTER_KEY)'
-Write-Host 'Set a local API key: docker compose exec daedalus daedalus key'
+Write-Host 'Make API keys for your clients in the dashboard.'
