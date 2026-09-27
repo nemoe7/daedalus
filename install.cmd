@@ -13,4 +13,4 @@ if not exist .env echo No .env file. Daedalus skips each provider that has no AP
 docker compose up -d --build
 if errorlevel 1 exit /b 1
 echo Daedalus runs on http://localhost:3357/v1
-echo Set a local API key: docker compose exec daedalus daedalus -k
+echo Set a local API key: docker compose exec daedalus daedalus key

@@ -14,4 +14,4 @@ RUN pip install -e . \
 
 USER daedalus
 EXPOSE 3357
-CMD ["daedalus", "-i"]
+CMD ["daedalus", "serve"]
