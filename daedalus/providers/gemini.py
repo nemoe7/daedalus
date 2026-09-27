@@ -47,6 +47,9 @@ GEMINI_HOSTED_TOOLS = {
 
 GEMINI_SEARCH_TOOLS = {"googleSearch", "urlContext"}
 
+# Google's placeholder for a function call that has no signature from Gemini 3.
+DUMMY_SIGNATURE = "skip_thought_signature_validator"
+
 
 def without_strict(node: Any, names: bool = False) -> Any:
   """Drop `strict` keywords, but keep schema properties that use that name."""
@@ -255,6 +258,14 @@ def usage(answer: dict) -> dict:
   }
 
 
+def thought_signature(call: dict) -> str | None:
+  """The signature from `extra_content`, in the Daedalus or the Google form."""
+  extra = call.get("extra_content") or {}
+  return extra.get("thought_signature") or (extra.get("google") or {}).get(
+    "thought_signature"
+  )
+
+
 def parts(content: Any) -> list[dict]:
   if content is None:
     return []
@@ -326,11 +337,13 @@ class GeminiProvider(OpenAIProvider):
         found = [{"functionResponse": {"name": name, "response": response}}]
       elif role not in {"user", "assistant"}:
         raise ProviderError(f"Unsupported message role: {role}")
-      for call in message.get("tool_calls") or []:
+      for number, call in enumerate(message.get("tool_calls") or []):
         identifier, name, arguments = function_call(call)
         names[identifier] = name
         part = {"functionCall": {"name": name, "args": arguments}}
-        signature = (call.get("extra_content") or {}).get("thought_signature")
+        signature = thought_signature(call)
+        if not signature and number == 0 and "gemini-3" in slug.lower():
+          signature = DUMMY_SIGNATURE
         if signature:
           part["thoughtSignature"] = signature
         found.append(part)

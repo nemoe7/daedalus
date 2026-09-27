@@ -152,7 +152,37 @@ def main() -> None:
   }
   assert second["index"] == 1
   assert second["finish_reason"] == "length"
+  check_signatures()
   print("ok: gemini parameter mapping")
+
+
+def check_signatures() -> None:
+  def call(name: str, extra: dict | None = None) -> dict:
+    found = {
+      "id": name,
+      "type": "function",
+      "function": {"name": name, "arguments": "{}"},
+    }
+    return {**found, "extra_content": extra} if extra else found
+
+  signed = {"google": {"thought_signature": "real"}}
+  messages = [
+    {"role": "user", "content": "hi"},
+    {"role": "assistant", "content": None, "tool_calls": [call("a"), call("b")]},
+    {"role": "tool", "tool_call_id": "a", "content": "1"},
+    {"role": "tool", "tool_call_id": "b", "content": "2"},
+    {"role": "assistant", "content": None, "tool_calls": [call("c", signed)]},
+    {"role": "tool", "tool_call_id": "c", "content": "3"},
+  ]
+  sent = GEMINI.body("gemini-3.7-flash", {"messages": messages})["contents"]
+  first, second = (c["parts"] for c in sent if c["role"] == "model")
+  assert first[0]["thoughtSignature"] == "skip_thought_signature_validator", (
+    "an unsigned first call gets the dummy signature"
+  )
+  assert "thoughtSignature" not in first[1], "only the first call of a step"
+  assert second[0]["thoughtSignature"] == "real", "the Google form of extra_content"
+  older = GEMINI.body("gemini-2.5-flash", {"messages": messages})["contents"]
+  assert "thoughtSignature" not in older[1]["parts"][0], "Gemini 2.5 needs no signature"
 
 
 if __name__ == "__main__":
