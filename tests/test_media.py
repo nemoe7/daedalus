@@ -40,9 +40,12 @@ def gemini_answer(body: dict) -> httpx.Response:
 class Upstream:
   def __init__(self) -> None:
     self.sent: list[httpx.Request] = []
+    self.down: set[str] = set()
 
   def __call__(self, request: httpx.Request) -> httpx.Response:
     self.sent.append(request)
+    if request.url.host in self.down:
+      return httpx.Response(503, json={"error": "down"})
     if request.url.path.endswith(":generateContent"):
       return gemini_answer(json.loads(request.content))
     if request.url.host == "gemini.test":
@@ -405,7 +408,81 @@ def check_model_list(client: TestClient) -> None:
   assert "max_input_tokens" not in found["mistral/mistral-embed"], "chat models only"
   assert names[:5] == ["daedalus/auto", *api.router.POOLS], names
   assert names[5:7] == ["groq/llama", "kilo/new"], "chat models first"
-  assert sorted(names[7:]) == ["groq/whisper-large-v3", "mistral/mistral-embed"], names
+  assert names[7] == "daedalus/graphos", "a media pool with members is listed"
+  assert sorted(names[8:]) == ["groq/whisper-large-v3", "mistral/mistral-embed"], names
+
+
+POOL_ROWS = [
+  {"id": "mistral/voxtral", "mode": "audio_transcription"},
+  {"id": "groq/whisper", "mode": "audio_transcription"},
+  {"id": "cloudflare/@cf/black-forest-labs/flux-1-schnell", "mode": "image_generation"},
+  {"id": "groq/img", "mode": "image_generation"},
+]
+
+
+def transcribe(client: TestClient, audio: bytes) -> dict:
+  """Send one graphos request, and return its dashboard row."""
+  files = {"file": ("a.wav", audio, "audio/wav")}
+  response = client.post(
+    "/v1/audio/transcriptions",
+    data={"model": "daedalus/graphos", "response_format": "text"},
+    files=files,
+  )
+  assert response.status_code == 200, response.text
+  return dashboard.RECENT[0]
+
+
+def check_pools(fake: Upstream, client: TestClient) -> None:
+  pick, api.PENALTIES.pick = api.PENALTIES.pick, lambda: 0.0
+  try:
+    row = transcribe(client, b"RIFF-one")
+    assert row["via"] == "mistral/voxtral" and row["fallbacks"] == "0", row
+    fake.down.add("mistral.test")
+    row = transcribe(client, b"RIFF-two")
+    fake.down.clear()
+    assert [a["result"] for a in row["attempts"]] == ["HTTP 503", "answered"], row
+    assert row["fallbacks"] == "1" and row.get("retry") is None, row
+    weights = api.PENALTIES.weights(["mistral/voxtral", "groq/whisper"])
+    weights = {m: round(w, 3) for m, w in weights.items()}
+    assert weights == {"mistral/voxtral": 0.5, "groq/whisper": 1.0}, weights
+    row = transcribe(client, b"RIFF-two")
+    assert (row["via"], row["retry"]) == ("mistral/voxtral", "1"), row
+    row = transcribe(client, b"RIFF-two")
+    assert (row["via"], row["retry"]) == ("groq/whisper", "2"), "the list starts again"
+    row = transcribe(client, b"RIFF-three")
+    assert row.get("retry") is None, "new content is not a try again"
+    body = {"model": "daedalus/photos", "prompt": "a cat", "n": 2}
+    response = client.post("/v1/images/generations", json=body)
+    assert response.json()["data"] == [{"url": "https://i.test/1"}], response.text
+    results = [a["result"] for a in dashboard.RECENT[0]["attempts"]]
+    assert results == ["skipped", "answered"], "Flux 1 makes 1 image only"
+    login = {"username": "admin", "password": MASTER}
+    assert client.post("/ui/api/login", json=login).status_code == 200
+    pools = client.get("/ui/api/pools").json()
+    found = {pool["name"]: pool for pool in pools}
+    assert found["daedalus/photos"]["mode"] == "image_generation", found
+    ids = [m["id"] for m in found["daedalus/graphos"]["members"]]
+    assert ids == ["mistral/voxtral", "groq/whisper"], ids
+    models = {row["id"]: row for row in client.get("/ui/api/models").json()}
+    voxtral = models["mistral/voxtral"]
+    assert isinstance(voxtral["weight"], float), "media pool models have weights"
+  finally:
+    api.PENALTIES.pick = pick
+  count = len(fake.sent)
+  for path, body in (
+    ("/v1/images/generations", {"model": "daedalus/graphos", "prompt": "a cat"}),
+    ("/v1/embeddings", {"model": "daedalus/photos", "input": "hi"}),
+  ):
+    response = client.post(path, json=body)
+    assert response.status_code == 400, (body, response.text)
+  assert len(fake.sent) == count, "a pool of another endpoint is not sent"
+
+
+def check_empty_pool(client: TestClient) -> None:
+  body = {"model": "daedalus/photos", "prompt": "a cat"}
+  response = client.post("/v1/images/generations", json=body)
+  assert response.status_code == 400, response.text
+  assert "has no models" in response.text, response.text
 
 
 def main() -> None:
@@ -424,10 +501,18 @@ def main() -> None:
     check_images(fake, client)
     check_gemini_audio(fake, client)
     check_model_list(client)
+    check_empty_pool(client)
+    with tempfile.TemporaryDirectory() as name:
+      original, store.MODELS_DB = store.MODELS_DB, Path(name) / "models.sqlite3"
+      try:
+        store.write_store(POOL_ROWS)
+        check_pools(fake, client)
+      finally:
+        store.MODELS_DB = original
   finally:
     media.get_config = original
     upstream.set_client(None)
-  print("ok: embeddings, transcriptions, speech and images")
+  print("ok: embeddings, transcriptions, speech, images and media pools")
 
 
 if __name__ == "__main__":

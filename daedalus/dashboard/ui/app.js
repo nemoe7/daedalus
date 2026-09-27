@@ -6,6 +6,8 @@ const POOL_NOTES = {
   "daedalus/deinos": "Tier B",
   "daedalus/koinos": "Tier C",
   "daedalus/moros": "Tier D",
+  "daedalus/graphos": "Transcription",
+  "daedalus/photos": "Image",
 };
 const SHOWN = 4;
 const $ = (id) => document.getElementById(id);
@@ -137,11 +139,11 @@ function renderPools(pools) {
     // The highest weight first. A tie keeps the chain order.
     const members = [...pool.members].sort((a, b) => b.weight - a.weight);
     const shown = members.slice(0, SHOWN).map((m) => `
-      <div class="member" title="${esc(m.id)} (${esc(m.tier)})">
+      <div class="member" title="${esc(m.id)}${m.tier ? ` (${esc(m.tier)})` : ""}">
         <div class="name">${esc(m.id)}</div><div class="w">${m.weight.toFixed(2)}</div>
         ${weightBar(m.weight)}
       </div>`).join("");
-    const filters = `tier=${POOL_TIERS[pool.name] || "All"}&mode=chat&sort=weight`;
+    const filters = `tier=${POOL_TIERS[pool.name] || "All"}&mode=${pool.mode || "chat"}&sort=weight`;
     const rest = members.length > SHOWN
       ? `<a class="more" href="#/models?${filters}">+${members.length - SHOWN} more</a>` : "";
     return `<div class="card"><h3>${esc(pool.name)}</h3>

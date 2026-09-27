@@ -147,6 +147,22 @@ def read_models(routable_only: bool = True, tools_only: bool = False) -> list[st
     database.close()
 
 
+def mode_models(mode: str) -> list[str]:
+  """The stored models of one catalog mode, in table order."""
+  if not Path(MODELS_DB).exists():
+    return []
+  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
+  try:
+    rows = database.execute(
+      "SELECT id FROM models WHERE mode = ? ORDER BY rowid", (mode,)
+    ).fetchall()
+  except sqlite3.OperationalError:
+    return []
+  finally:
+    database.close()
+  return [key for (key,) in rows]
+
+
 def model_rows() -> list[dict[str, Any]]:
   """All rows, with the mode, the input limit, the tool flag and the reasoning flag."""
   if not Path(MODELS_DB).exists():
