@@ -245,9 +245,17 @@ async def chat(request: Request) -> Response:
     502, "No model answered the request", "upstream_error"
   )
   tokens, limits, tried = context.input_tokens(body), store.input_limits(), False
+  attempts: list[dict[str, Any]] = []
+  request.state.attempts = attempts
   for index, candidate in enumerate(models):
     request.state.fallbacks = str(index)
     if context.too_large(candidate, tokens, limits):
+      limit = limits[candidate]
+      attempts.append(
+        upstream.note(
+          candidate, "skipped", None, f"input ~{tokens} tokens > limit {limit}"
+        )
+      )
       continue
     tried = True
     started = time.perf_counter()
@@ -263,11 +271,13 @@ async def chat(request: Request) -> Response:
         ttft = time.perf_counter() - started
         request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
         request.state.ttft = logs.seconds_text(ttft)
+        attempts.append(upstream.note(candidate, "answered", started))
         return JSONResponse(completion)
       events = stream.sse_data(provider.stream(response, candidate, include_usage))
       pending = await stream.first_content(events)
       ttft = time.perf_counter() - started
     except upstream.UpstreamStatus as exc:
+      attempts.append(upstream.failure_note(candidate, started, exc))
       pin.failed(candidate)
       failure = upstream.error_response(
         exc.status, "Upstream provider rejected the request", "upstream_error"
@@ -275,6 +285,7 @@ async def chat(request: Request) -> Response:
       continue
     except stream.ATTEMPT_ERRORS as exc:
       logger.warning("upstream %s failed: %s", candidate, upstream.failure_text(exc))
+      attempts.append(upstream.failure_note(candidate, started, exc))
       pin.failed(candidate)
       failure = upstream.error_response(
         502, "Upstream provider attempt failed", "upstream_error"
@@ -283,8 +294,11 @@ async def chat(request: Request) -> Response:
     rest = [m for m in models[index + 1 :] if not context.too_large(m, tokens, limits)]
     request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
     request.state.ttft = logs.seconds_text(ttft)
+    attempts.append(upstream.note(candidate, "answered", started))
     return StreamingResponse(
-      stream.relay(pending, events, rest, body, config, include_usage, candidate, pin),
+      stream.relay(
+        pending, events, rest, body, config, include_usage, candidate, pin, attempts
+      ),
       media_type="text/event-stream",
     )
   if models and not tried:

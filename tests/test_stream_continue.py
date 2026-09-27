@@ -6,7 +6,7 @@ from pathlib import Path
 
 import httpx
 
-from daedalus import api, config, store
+from daedalus import api, config, dashboard, store
 from daedalus.upstream import set_client
 
 MASTER = "test-master-key-0001"
@@ -100,6 +100,13 @@ async def main() -> None:
         prefix = {"role": "assistant", "content": "Hello"}
         assert SEEN[1][1]["messages"][-1] == prefix, SEEN[1]
         assert SEEN[2][1]["messages"] == [{"role": "user", "content": "hi"}, prefix]
+        steps = [(s["model"], s["result"]) for s in dashboard.RECENT[0]["attempts"]]
+        assert steps == [
+          ("a/x", "answered"),
+          ("a/x", "stream failed"),
+          ("b/x", "HTTP 429"),
+          ("c/x", "answered"),
+        ], steps
 
         SEEN.clear()
         call = {"index": 0, "id": "call_1", "function": {"name": "f", "arguments": "{"}}
