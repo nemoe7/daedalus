@@ -5,7 +5,7 @@ from pathlib import Path
 import httpx
 from fastapi.testclient import TestClient
 
-from daedalus import api, penalties
+from daedalus import api, penalties, stream
 from daedalus import store as model_store
 
 FAILING: set[str] = set()
@@ -134,18 +134,20 @@ def check_ttft() -> None:
   role = {"choices": [{"index": 0, "delta": {"role": "assistant"}}]}
   text = {"choices": [{"index": 0, "delta": {"content": "hi"}}]}
   tool = {"choices": [{"index": 0, "delta": {"tool_calls": [{"index": 0}]}}]}
-  assert not api.has_content(json.dumps(role)), "a role chunk does not stop the clock"
-  assert api.has_content(json.dumps(text)) and api.has_content(json.dumps(tool))
-  assert api.has_content("[DONE]")
+  assert not stream.has_content(json.dumps(role)), (
+    "a role chunk does not stop the clock"
+  )
+  assert stream.has_content(json.dumps(text)) and stream.has_content(json.dumps(tool))
+  assert stream.has_content("[DONE]")
   config = {"a": {"api_key": "k", "api_base": "https://a.test/v1"}}
   original = api.get_config, api.chain, api.SLOW_SECONDS
   api.get_config = lambda: config
   api.chain = lambda model, body, config: ([["a/1"]], "daedalus/deinos")
   frames = [role, text, "[DONE]"]
-  stream = "".join(
+  sse = "".join(
     f"data: {json.dumps(item) if item != '[DONE]' else item}\n\n" for item in frames
   )
-  transport = httpx.MockTransport(lambda request: httpx.Response(200, text=stream))
+  transport = httpx.MockTransport(lambda request: httpx.Response(200, text=sse))
   api.set_client(httpx.AsyncClient(transport=transport))
   client = TestClient(api.app)
   body = {
