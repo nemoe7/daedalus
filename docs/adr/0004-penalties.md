@@ -52,8 +52,9 @@ the bearer token. Clients without a token share one key.
 | `daedalus/auto` | `daedalus/auto` and the required tier |
 | `provider/slug` | None |
 
-The first model that answers becomes the pin. A fault of the pinned model removes the pin,
-and the next model that answers becomes the new pin. A pin expires after 1 hour without a
+The first model that answers in time becomes the pin. A fault or a slow success of the pinned
+model removes the pin, and the next model that answers in time becomes the new pin. A slow
+success does not become the pin. A pin expires after 1 hour without a
 request.
 
 Weights and pins stay in `models.sqlite3`. A restart keeps them, and `daedalus catalog` keeps them
