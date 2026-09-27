@@ -17,7 +17,7 @@ def check_help() -> None:
   )
   assert shown.returncode == 0, shown.stderr
   assert shown.stdout.startswith("usage:"), shown.stdout
-  for flag in ("-i [PORT], --init [PORT]", "-c, --catalog"):
+  for flag in ("-i [PORT], --init [PORT]", "-c, --catalog", "-d, --dump"):
     assert flag in shown.stdout, shown.stdout
   wrong = subprocess.run(
     [*DAEDALUS, "--wrong"], capture_output=True, text=True, timeout=10, check=False
@@ -28,8 +28,14 @@ def check_help() -> None:
 
 def check_flags() -> None:
   calls: list[str] = []
-  original = (catalog.MODELS_DB, catalog.refresh, sys.modules.get("uvicorn"))
+  original = (
+    catalog.MODELS_DB,
+    catalog.refresh,
+    catalog.dump,
+    sys.modules.get("uvicorn"),
+  )
   catalog.refresh = lambda: calls.append("catalog")
+  catalog.dump = lambda: calls.append("dump")
   sys.modules["uvicorn"] = SimpleNamespace(
     run=lambda *_, port, **__: calls.append(f"listen:{port}")
   )
@@ -40,6 +46,9 @@ def check_flags() -> None:
       with contextlib.redirect_stdout(shown):
         api.run([])
       assert calls == [] and shown.getvalue().startswith("usage:"), calls
+      api.run(["-d"])
+      assert calls == ["dump"], "a dump does not build the store"
+      calls.clear()
       api.run(["--init"])
       assert calls == ["catalog", "listen:3357"], calls
       catalog.MODELS_DB.touch()
@@ -59,7 +68,7 @@ def check_flags() -> None:
       api.run(["-i", "9000"])
       assert calls == ["listen:9000"], calls
   finally:
-    catalog.MODELS_DB, catalog.refresh, uvicorn = original
+    catalog.MODELS_DB, catalog.refresh, catalog.dump, uvicorn = original
     if uvicorn is None:
       sys.modules.pop("uvicorn", None)
     else:

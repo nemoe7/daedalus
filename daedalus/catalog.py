@@ -1,5 +1,6 @@
 """Discover provider models, add LiteLLM catalog metadata, and store them."""
 
+import json
 import logging
 import re
 import sqlite3
@@ -18,6 +19,7 @@ logger = logging.getLogger("daedalus.catalog")
 
 MODELS_TSV = STATE_DIR / "models.tsv"
 MODELS_DB = STATE_DIR / "models.sqlite3"
+DUMP_DIR = STATE_DIR / "dump"
 LITELLM_CATALOG = "https://api.litellm.ai/model_catalog"
 LITELLM_PAGE_SIZE = 500
 # Provider names that differ in the LiteLLM catalog. Kilo serves OpenRouter slugs.
@@ -203,12 +205,10 @@ def select(provider: dict[str, Any], slugs: Iterable[str]) -> list[str]:
   return sorted(kept)
 
 
-def discover_provider(
-  provider_name: str,
-  provider: dict[str, Any],
-  fetch: Fetch = fetch_json,
-) -> list[str]:
-  """Read every page of one provider, and return its kept slugs."""
+def read_pages(
+  provider_name: str, provider: dict[str, Any], fetch: Fetch = fetch_json
+) -> dict[str, Any]:
+  """Read every discovery page of one provider, and merge them into one payload."""
   url = provider.get("discovery_url")
   if not isinstance(url, str) or not url:
     raise ValueError("no discovery_url")
@@ -223,17 +223,24 @@ def discover_provider(
     pages.append(payload)
     url = next_page_url(url, payload)
     page += 1
-  full = merge_pages(pages)
-  return select(provider, extract_slugs(full))
+  return merge_pages(pages)
 
 
-def build_catalog(
-  config: dict[str, Any] | None = None,
+def discover_provider(
+  provider_name: str,
+  provider: dict[str, Any],
   fetch: Fetch = fetch_json,
-) -> tuple[list[str], list[str]]:
-  """Build the catalog, and return its lines with one reason per skipped provider."""
+) -> list[str]:
+  """Read every page of one provider, and return its kept slugs."""
+  return select(provider, extract_slugs(read_pages(provider_name, provider, fetch)))
+
+
+def read_providers(
+  config: dict[str, Any] | None = None, fetch: Fetch = fetch_json
+) -> tuple[list[tuple[str, dict[str, Any], dict[str, Any]]], list[str]]:
+  """Read each provider, and return its settings and payload, with one reason per skip."""
   providers = get_config() if config is None else config
-  lines: list[str] = []
+  found: list[tuple[str, dict[str, Any], dict[str, Any]]] = []
   skipped: list[str] = []
   for provider_name, provider in providers.items():
     if not isinstance(provider, dict):
@@ -244,12 +251,48 @@ def build_catalog(
       skipped.append(f"{provider_name}: no api_key")
       continue
     try:
-      slugs = discover_provider(provider_name, provider, fetch)
+      payload = read_pages(provider_name, provider, fetch)
     except (httpx.HTTPError, ValueError) as error:
       skipped.append(f"{provider_name}: {error}")
       continue
-    lines.extend(f"{provider_name}/{slug}" for slug in slugs)
+    found.append((provider_name, provider, payload))
+  return found, skipped
+
+
+def build_catalog(
+  config: dict[str, Any] | None = None,
+  fetch: Fetch = fetch_json,
+) -> tuple[list[str], list[str]]:
+  """Build the catalog, and return its lines with one reason per skipped provider."""
+  found, skipped = read_providers(config, fetch)
+  lines = [
+    f"{provider_name}/{slug}"
+    for provider_name, provider, payload in found
+    for slug in select(provider, extract_slugs(payload))
+  ]
   return lines, skipped
+
+
+def dump(
+  config: dict[str, Any] | None = None,
+  fetch: Fetch = fetch_json,
+  folder: Path | str = DUMP_DIR,
+) -> list[Path]:
+  """Write each provider's raw discovery payload to one JSON file, before `exclude`."""
+  target = Path(folder)
+  target.mkdir(parents=True, exist_ok=True)
+  for old in target.glob("*.json"):
+    old.unlink()
+  found, skipped = read_providers(config, fetch)
+  paths = []
+  for provider_name, _, payload in found:
+    path = target / f"{provider_name}.json"
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", "utf-8")
+    paths.append(path)
+  for reason in skipped:
+    logger.warning("skipped %s", reason)
+  logger.info("wrote %d provider catalogs to %s", len(paths), target)
+  return paths
 
 
 def litellm_entries(
