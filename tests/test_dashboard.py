@@ -53,7 +53,7 @@ def check_data(client: TestClient) -> None:
   assert models[1]["reasoning"] is False, models[1]
   pools = {pool["name"]: pool["members"] for pool in client.get("/ui/api/pools").json()}
   assert [m["id"] for m in pools["daedalus/auto"]] == ["p/big", "p/small"]
-  assert [m["id"] for m in pools["daedalus/praktos"]] == ["p/big"], "tool models only"
+  assert "daedalus/praktos" not in pools
   assert [m["id"] for m in pools["daedalus/koinos"]] == ["p/small"]
   assert pools["daedalus/moros"] == [], "a pool with no member"
   status = client.get("/ui/api/status").json()

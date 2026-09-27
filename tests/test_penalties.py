@@ -141,7 +141,7 @@ def check_slots() -> None:
   assert slot.startswith("daedalus/auto:TIER-"), "auto pins per tier"
   assert api.routed_pool(slot) in {"moros", "koinos", "deinos", "sophos"}
   assert api.routed_pool("daedalus/auto:TIER-A") == "sophos"
-  assert api.routed_pool("daedalus/praktos") == "praktos"
+  assert api.chain("daedalus/praktos", body, {}) is None, "no praktos"
   assert api.chain("daedalus/sophos", body, {})[1] == "daedalus/sophos"
   assert api.chain("x/y", body, {"x": {}}) == ([["x/y"]], None), "no pin for one model"
 

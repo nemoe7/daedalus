@@ -188,13 +188,8 @@ async def check_routed_model(client: httpx.AsyncClient) -> None:
       )
       assert pooled.status_code == 200, pooled.text
       assert SEEN[-1]["model"] == "gemini-3.5-pro", SEEN[-1]
-      # A tool request goes to praktos, and an empty praktos falls back.
+      # A tool request skips the models that cannot call tools.
       tool = {"type": "function", "function": {"name": "f", "parameters": {}}}
-      for model in ("daedalus/praktos", "daedalus/auto"):
-        empty = await client.post(
-          "/v1/chat/completions", json=chat_body(model=model, tools=[tool])
-        )
-        assert empty.status_code == 200, empty.text
       store.write_store(
         [
           {"id": "gemini/gemini-3.5-flash", "supports_function_calling": True},
@@ -202,12 +197,22 @@ async def check_routed_model(client: httpx.AsyncClient) -> None:
           {"id": "gemini/gemini-3.6-flash", "supports_function_calling": True},
         ]
       )
-      for model in ("daedalus/praktos", "daedalus/auto"):
-        tooled = await client.post(
-          "/v1/chat/completions", json=chat_body(model=model, tools=[tool])
-        )
-        assert tooled.status_code == 200, tooled.text
-        assert SEEN[-1]["model"] == "gemini-3.6-flash", (model, SEEN[-1])
+      tooled = await client.post(
+        "/v1/chat/completions", json=chat_body(model="daedalus/sophos", tools=[tool])
+      )
+      assert tooled.status_code == 200, tooled.text
+      assert SEEN[-1]["model"] == "gemini-3.6-flash", SEEN[-1]
+      csv = [{"role": "user", "content": "write a python function to parse a csv file"}]
+      tooled = await client.post(
+        "/v1/chat/completions",
+        json=chat_body(model="daedalus/auto", messages=csv, tools=[tool]),
+      )
+      assert tooled.status_code == 200, tooled.text
+      assert SEEN[-1]["model"] == "gemini-3.5-flash", "the classifier still runs"
+      gone = await client.post(
+        "/v1/chat/completions", json=chat_body(model="daedalus/praktos", tools=[tool])
+      )
+      assert gone.status_code == 400, gone.text
   finally:
     store.MODELS_DB = saved
     use_config()
@@ -284,7 +289,6 @@ async def check_models(client: httpx.AsyncClient) -> None:
     "daedalus/koinos",
     "daedalus/deinos",
     "daedalus/sophos",
-    "daedalus/praktos",
     "stub/gpt-test",
   ], names
 
