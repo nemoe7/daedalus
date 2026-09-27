@@ -50,7 +50,7 @@ def check_apply(folder: Path) -> None:
   store.path = lambda: folder / "models.sqlite3"
   try:
     api.apply_settings(settings.load(path))
-    assert api.Tracker("token", "daedalus/deinos").slot is None, "no pins"
+    assert api.Tracker("key", "daedalus/deinos").slot is None, "no pins"
     store.pick = lambda: 0.99
     assert store.record("a", store.fault) == 1.0, "no weights"
     assert store.order([["a", "b", "c"], ["d"]]) == ["a", "b", "c", "d"], "usual order"

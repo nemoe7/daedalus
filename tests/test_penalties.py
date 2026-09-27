@@ -58,9 +58,21 @@ def check_pins(folder: Path) -> None:
   store.pick = lambda: 0.0
   groups = [["a/1", "b/1"], ["c/1"]]
   assert store.pin("k", "pool", "c/1") == "new"
-  assert store.order(groups, "k", "pool") == ["c/1", "a/1", "b/1"], "the pin goes first"
-  assert store.order(groups, "other", "pool")[0] == "a/1", "each key has its own pins"
-  assert store.order(groups, "k", "other")[0] == "a/1", "each slot has its own pin"
+  order = store.order(groups, "k", "pool")
+  assert order == ["a/1", "b/1", "c/1"], "a lower-tier session model does not go first"
+  store.pin("k", "pool", "b/1")
+  store.pick = lambda: 0.1
+  assert store.order(groups, "k", "pool") == ["b/1", "a/1", "c/1"], "the session model"
+  assert store.order(groups, "other", "pool")[0] == "a/1", (
+    "each key has its own session"
+  )
+  assert store.order(groups, "k", "other")[0] == "a/1", "each slot has its own session"
+  store.pick = lambda: 0.03
+  assert store.order(groups, "k", "pool")[0] == "a/1", "a/1 keeps 0.05 of its weight"
+  store.enabled = False
+  assert store.order(groups, "k", "pool")[0] == "b/1", "no draw without weights"
+  store.enabled = True
+  store.pin("k", "pool", "c/1")
   assert store.pin("k", "pool", "c/1") == "hit"
   assert store.order([["a/1"]], "k", "pool") == ["a/1"], "a pin not in the chain"
   assert store.unpin("k", "pool", "a/1") is False, "only the pinned model"
@@ -79,6 +91,20 @@ def check_rebuild(folder: Path) -> None:
   store.pin("k", "pool", "a")
   model_store.write_store([{"id": "p/x"}], database)
   assert store.weights(["a"])["a"] < 1 and store.pinned("k", "pool") == "a", "kept"
+
+
+def check_session_key() -> None:
+  first = [{"role": "system", "content": "s"}, {"role": "user", "content": "a"}]
+  later = [
+    *first,
+    {"role": "assistant", "content": "b"},
+    {"role": "user", "content": "c"},
+  ]
+  other = [{"role": "system", "content": "s"}, {"role": "user", "content": "z"}]
+  key = api.session_key("t", first)
+  assert key == api.session_key("t", later), "one conversation keeps its key"
+  assert key != api.session_key("t", other), "each first user message has its own key"
+  assert key != api.session_key("u", first), "each token has its own key"
 
 
 def check_slots() -> None:
@@ -101,10 +127,10 @@ def check_requests() -> None:
   api.chain = lambda model, body, config: ([["a/1", "b/1"], ["c/1"]], "daedalus/deinos")
   api.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
   api.PENALTIES.clear()
-  api.PENALTIES.pick = lambda: 0.0
   client = TestClient(api.app)
 
-  def ask(token: str = "key-one") -> str:
+  def ask(token: str = "key-one", pick: float = 0.5) -> str:
+    api.PENALTIES.pick = lambda: pick
     body = {"model": "daedalus/deinos", "messages": [{"role": "user", "content": "x"}]}
     headers = {"Authorization": f"Bearer {token}"}
     response = client.post("/v1/chat/completions", json=body, headers=headers)
@@ -113,17 +139,15 @@ def check_requests() -> None:
 
   try:
     FAILING.add("a.test")
-    assert ask() == "b.test", "the first model that answers"
+    assert ask(pick=0.0) == "b.test", "the first model that answers"
     assert api.PENALTIES.weights(["a/1"])["a/1"] < 0.51, "a fault lowers the weight"
     FAILING.clear()
-    assert ask() == "b.test", "the pin stays while it answers"
-    api.PENALTIES.pick = lambda: 0.4
-    assert ask("key-two") == "b.test", "a/1 has a lower weight for all keys"
-    api.PENALTIES.pick = lambda: 0.0
+    assert ask() == "b.test", "the session model keeps the turn"
+    assert ask("key-two", pick=0.4) == "b.test", "a/1 has a lower weight for all keys"
     FAILING.add("b.test")
-    assert ask() == "a.test", "a failed pin moves to the next model that answers"
+    assert ask() == "a.test", "a failed session model moves to the next model"
     FAILING.clear()
-    assert ask() == "a.test", "the new pin"
+    assert ask() == "a.test", "the new session model"
   finally:
     api.get_config, api.chain = original
     api.set_client(None)
@@ -155,16 +179,17 @@ def check_ttft() -> None:
     "stream": True,
     "messages": [{"role": "user", "content": "x"}],
   }
+  key = api.session_key("", body["messages"])
   try:
     for limit, expected in ((60.0, 1.0), (0.0, 0.75)):
       api.PENALTIES.clear()
       api.SLOW_SECONDS = limit
-      api.PENALTIES.pin("", "daedalus/deinos", "a/1")
+      api.PENALTIES.pin(key, "daedalus/deinos", "a/1")
       response = client.post("/v1/chat/completions", json=body)
       assert response.status_code == 200 and '"hi"' in response.text, response.text
       weight = api.PENALTIES.weights(["a/1"])["a/1"]
       assert abs(weight - expected) < 1e-3, (limit, weight)
-      pinned = api.PENALTIES.pinned("", "daedalus/deinos")
+      pinned = api.PENALTIES.pinned(key, "daedalus/deinos")
       assert pinned == (None if limit == 0.0 else "a/1"), (
         "a slow success removes the pin"
       )
@@ -181,6 +206,7 @@ def main() -> None:
     check_pins(folder)
     check_rebuild(folder)
     model_store.MODELS_DB = folder / "models.sqlite3"
+    check_session_key()
     check_slots()
     check_requests()
     check_ttft()
