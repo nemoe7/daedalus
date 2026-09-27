@@ -116,11 +116,8 @@ select {
   background: var(--field) var(--chevron) no-repeat right 12px center;
 }
 .models th:not(:first-child), .models td:not(:first-child) { padding-left: 8px; padding-right: 8px; }
-.models th:not(:first-child):not(:last-child), .models td:not(:first-child):not(:last-child) {
-  width: 1%; white-space: nowrap;
-}
-.models th:first-child, .models td:first-child { width: 1%; white-space: nowrap; }
-.models .weight { max-width: 180px; }
+.models th:not(:first-child), .models td:not(:first-child) { width: 1%; white-space: nowrap; }
+.models .weight { width: 150px; }
 .models .mid { text-align: center; }
 .models th.mid .sort { margin: 0 auto; }
 a.more { display: inline-block; margin-top: 2px; color: var(--muted); text-decoration: none; }
@@ -218,9 +215,6 @@ section[data-page="settings"] > .editbar { margin-bottom: 16px; }
   header { grid-template-columns: auto 1fr; grid-template-areas: "brand chips" "tabs tabs"; }
   .tabs a { min-height: 38px; }
 }
-@media (max-width: 900px) {
-  .models th:first-child, .models td:first-child { width: auto; white-space: normal; }
-}
 @media (max-width: 720px) {
   header, main { padding-left: 16px; padding-right: 16px; }
   header { grid-template-columns: 1fr; grid-template-areas: "brand" "chips" "tabs"; }
@@ -228,6 +222,6 @@ section[data-page="settings"] > .editbar { margin-bottom: 16px; }
   .chips { justify-content: flex-start; padding: 6px 0 0; }
   th, td { padding: 10px; }
   .hide-sm { display: none; }
-  .models .weight { min-width: 72px; gap: 6px; }
+  .models .weight { width: 80px; min-width: 0; gap: 6px; }
 }
 .from { font-size: 12px; opacity: .8; white-space: nowrap; }
