@@ -4,7 +4,7 @@
 
 | Provider key | Provider | API | Notes |
 | --- | --- | --- | --- |
-| `cloudflare` | Cloudflare Workers AI | OpenAI-compatible, plus the native run API for audio and images | Text content only. Paid models stay out of the catalog. |
+| `cloudflare` | Cloudflare Workers AI | OpenAI-compatible, plus the native run API for audio and images | Text content only. Paid models stay out of the catalog. The catalog gets 5 tasks only (see below). |
 | `gemini` | Google Gemini | Native Gemini API | Daedalus maps OpenAI requests to Gemini and back, with thought signatures. |
 | `groq` | Groq | OpenAI-compatible | Gets only the message fields that it accepts. |
 | `kilo` | Kilo Gateway | OpenAI-compatible | |
@@ -32,6 +32,18 @@ flowchart LR
 | Schedule | Each 6 h from 06:00 in `TZ`. `catalog.every: 0` stops it. |
 | Provider error | Daedalus keeps the old rows of that provider only. |
 | Chat chains | Only chat rows, and rows with no mode, go into the chains. |
+
+Cloudflare tasks in the catalog:
+
+| Cloudflare task | Mode |
+| --- | --- |
+| Text Generation | `chat` |
+| Automatic Speech Recognition | `audio_transcription` |
+| Text-to-Speech | `audio_speech` |
+| Text-to-Image | `image_generation` |
+| Text Embeddings | `embedding` |
+
+Models of other tasks stay out of the catalog.
 
 ## Endpoints for models that do not chat
 

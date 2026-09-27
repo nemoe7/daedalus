@@ -11,6 +11,7 @@ import httpx
 from daedalus import config
 from daedalus.catalog import discovery, enrichment
 
+TEXT = {"name": "Text Generation"}
 CONFIG: dict[str, Any] = {
   "cloudflare": {
     "api_key": "cf-token",
@@ -60,18 +61,24 @@ PAYOUT: dict[str, dict[str, Any]] = {
   "https://cf.test/accounts/x/ai/models/search?per_page=100": {
     "success": True,
     "result": [
-      {"id": "fe8904cf-e20e", "name": "@cf/qwen/qwq-32b"},
-      {"id": "1a2b3c4d-0000", "name": "@cf/meta/llama-guard-3-8b"},
-      {"id": "5e6f7a8b-1111", "name": "@cf/zai-org/glm-5.3"},
-      {"id": "9f8e7d6c-2222", "name": "@cf/moonshotai/kimi-k2.6"},
-      {"id": "0b1c2d3e-3333", "name": "@cf/deepseek-ai/deepseek-r1-distill-llama-8b"},
+      {"id": "fe8904cf-e20e", "name": "@cf/qwen/qwq-32b", "task": TEXT},
+      {"id": "1a2b3c4d-0000", "name": "@cf/meta/llama-guard-3-8b", "task": TEXT},
+      {"id": "5e6f7a8b-1111", "name": "@cf/zai-org/glm-5.3", "task": TEXT},
+      {"id": "9f8e7d6c-2222", "name": "@cf/moonshotai/kimi-k2.6", "task": TEXT},
+      {
+        "id": "0b1c2d3e-3333",
+        "name": "@cf/deepseek-ai/deepseek-r1-distill-llama-8b",
+        "task": TEXT,
+      },
     ],
     "errors": [],
     "result_info": {"count": 5, "page": 1, "per_page": 100, "total_count": 105},
   },
   "https://cf.test/accounts/x/ai/models/search?per_page=100&page=2": {
     "success": True,
-    "result": [{"id": "7d8e9f0a-4444", "name": "@cf/openai/gpt-oss-120b"}],
+    "result": [
+      {"id": "7d8e9f0a-4444", "name": "@cf/openai/gpt-oss-120b", "task": TEXT}
+    ],
     "errors": [],
     "result_info": {"count": 1, "page": 2, "per_page": 100, "total_count": 105},
   },
