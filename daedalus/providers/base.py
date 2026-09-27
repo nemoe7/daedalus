@@ -255,6 +255,19 @@ class OpenAIProvider:
     "response_format",
     "speed",
   )
+  # The image request fields that the provider accepts, apart from model.
+  image_fields: ClassVar[tuple[str, ...]] = (
+    "prompt",
+    "n",
+    "size",
+    "quality",
+    "style",
+    "response_format",
+    "background",
+    "output_format",
+    "output_compression",
+    "moderation",
+  )
 
   def __init__(self, name: str, config: Mapping) -> None:
     base = str(config.get("api_base") or "").rstrip("/")
@@ -343,6 +356,21 @@ class OpenAIProvider:
   def speech(self, response: httpx.Response, payload: dict) -> tuple[bytes, str]:
     """The audio and its media type, as the provider sends them."""
     return response.content, response.headers.get("content-type", "audio/mpeg")
+
+  def image_request(
+    self, slug: str, payload: dict
+  ) -> tuple[str, dict[str, Any], dict[str, str]]:
+    """The upstream image request, with only the fields that the provider accepts."""
+    body = {key: value for key, value in payload.items() if key in self.image_fields}
+    url = self.base + "/images/generations"
+    return url, {"json": {**body, "model": slug}}, self.headers()
+
+  def images(self, response: httpx.Response, payload: dict) -> dict:
+    """The OpenAI images answer, as the provider sends it."""
+    answer = response.json()
+    if not isinstance(answer, dict) or not isinstance(answer.get("data"), list):
+      raise ProviderError("Invalid images answer")
+    return answer
 
   def embeddings(self, answer: dict, model: str) -> dict:
     """The OpenAI embeddings answer, with the Daedalus model name."""
