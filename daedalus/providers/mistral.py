@@ -1,7 +1,7 @@
 from collections.abc import Mapping
-from typing import ClassVar
+from typing import Any, ClassVar
 
-from daedalus.providers.base import OpenAIProvider
+from daedalus.providers.base import OpenAIProvider, limits
 
 
 class MistralProvider(OpenAIProvider):
@@ -12,3 +12,16 @@ class MistralProvider(OpenAIProvider):
     "api_base": "https://api.mistral.ai/v1",
     "discovery_url": "https://api.mistral.ai/v1/models",
   }
+
+  @staticmethod
+  def columns(row: dict) -> dict[str, Any]:
+    """Store columns from one Mistral row, whose capabilities are booleans."""
+    found = row.get("capabilities") or {}
+    return {
+      "mode": "chat" if found.get("completion_chat") is True else None,
+      **limits(row.get("max_context_length")),
+      "supports_function_calling": found.get("function_calling"),
+      "supports_reasoning": found.get("reasoning"),
+      "supports_vision": found.get("vision"),
+      "supports_audio_input": found.get("audio"),
+    }

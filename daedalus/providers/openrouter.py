@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from typing import ClassVar
 
-from daedalus.providers.base import OpenAIProvider
+from daedalus.providers.base import OpenAIProvider, openrouter_columns
 
 
 class OpenRouterProvider(OpenAIProvider):
@@ -12,3 +12,5 @@ class OpenRouterProvider(OpenAIProvider):
     "api_base": "https://openrouter.ai/api/v1",
     "discovery_url": "https://openrouter.ai/api/v1/models",
   }
+
+  columns = staticmethod(openrouter_columns)
