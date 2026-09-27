@@ -20,7 +20,7 @@ from daedalus.config import get_config
 LOCAL_API_KEY = ""
 
 HOST = "0.0.0.0"
-PORT = 8080
+PORT = 3357
 TIMEOUT_SECONDS = 600.0
 # ADR 2: the wait for one answer. A provider that sends bytes resets it, so a slow
 # stream is not cut off.
@@ -310,8 +310,11 @@ def run(argv: list[str] | None = None) -> None:
   parser.add_argument(
     "-i",
     "--init",
-    action="store_true",
-    help=f"start the router on {HOST}:{PORT}; build a missing model store first",
+    nargs="?",
+    const=PORT,
+    type=int,
+    metavar="PORT",
+    help=f"start the router on {HOST}:PORT (default {PORT}); build a missing model store first",
   )
   parser.add_argument(
     "-c",
@@ -320,14 +323,14 @@ def run(argv: list[str] | None = None) -> None:
     help="discover provider models and rebuild the model store",
   )
   args = parser.parse_args(argv)
-  if not (args.init or args.catalog):
+  if args.init is None and not args.catalog:
     parser.print_help()
     return
   logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
   if args.catalog or not catalog.MODELS_DB.exists():
     catalog.refresh()
-  if not args.init:
+  if args.init is None:
     return
   import uvicorn
 
-  uvicorn.run(app, host=HOST, port=PORT)
+  uvicorn.run(app, host=HOST, port=args.init)

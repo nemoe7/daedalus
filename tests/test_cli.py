@@ -17,7 +17,7 @@ def check_help() -> None:
   )
   assert shown.returncode == 0, shown.stderr
   assert shown.stdout.startswith("usage:"), shown.stdout
-  for flag in ("-i, --init", "-c, --catalog"):
+  for flag in ("-i [PORT], --init [PORT]", "-c, --catalog"):
     assert flag in shown.stdout, shown.stdout
   wrong = subprocess.run(
     [*DAEDALUS, "--wrong"], capture_output=True, text=True, timeout=10, check=False
@@ -30,7 +30,9 @@ def check_flags() -> None:
   calls: list[str] = []
   original = (catalog.MODELS_DB, catalog.refresh, sys.modules.get("uvicorn"))
   catalog.refresh = lambda: calls.append("catalog")
-  sys.modules["uvicorn"] = SimpleNamespace(run=lambda *_, **__: calls.append("listen"))
+  sys.modules["uvicorn"] = SimpleNamespace(
+    run=lambda *_, port, **__: calls.append(f"listen:{port}")
+  )
   try:
     with tempfile.TemporaryDirectory() as folder:
       catalog.MODELS_DB = Path(folder) / "models.sqlite3"
@@ -39,20 +41,23 @@ def check_flags() -> None:
         api.run([])
       assert calls == [] and shown.getvalue().startswith("usage:"), calls
       api.run(["--init"])
-      assert calls == ["catalog", "listen"], calls
+      assert calls == ["catalog", "listen:3357"], calls
       catalog.MODELS_DB.touch()
       calls.clear()
       api.run(["--init"])
-      assert calls == ["listen"], calls
+      assert calls == ["listen:3357"], calls
       calls.clear()
       api.run(["--catalog"])
       assert calls == ["catalog"], calls
       calls.clear()
       api.run(["--catalog", "--init"])
-      assert calls == ["catalog", "listen"], calls
+      assert calls == ["catalog", "listen:3357"], calls
       calls.clear()
       api.run(["-c", "-i"])
-      assert calls == ["catalog", "listen"], calls
+      assert calls == ["catalog", "listen:3357"], calls
+      calls.clear()
+      api.run(["-i", "9000"])
+      assert calls == ["listen:9000"], calls
   finally:
     catalog.MODELS_DB, catalog.refresh, uvicorn = original
     if uvicorn is None:
