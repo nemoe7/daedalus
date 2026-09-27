@@ -86,6 +86,19 @@ def user_turns(messages: object) -> list[str]:
   return texts
 
 
+def used_tools(messages: list) -> bool:
+  """Tell if the conversation already has a tool call or a tool result."""
+  return any(
+    isinstance(m, dict)
+    and (
+      m.get("role") in ("tool", "function")
+      or m.get("tool_calls")
+      or m.get("function_call")
+    )
+    for m in messages
+  )
+
+
 def first_user_text(messages: object) -> str:
   texts = user_turns(messages)
   return texts[0] if texts else ""
@@ -123,6 +136,8 @@ def chain(
     order, slot = router.fallback_order(router.POOLS[model]), model
   elif model == router.RESERVED_MODEL:
     tier = router.required_tier("\n".join(user_turns(body["messages"])))
+    if used_tools(body["messages"]):
+      tier = max(tier, router.POOLS["daedalus/koinos"])
     if key and AFFINITY:
       # A conversation keeps the highest tier that it got, so a short "continue" stays up.
       tier = PENALTIES.highest(key, tier)
