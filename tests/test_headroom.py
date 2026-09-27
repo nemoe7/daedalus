@@ -80,7 +80,7 @@ def check_request(sidecar: Sidecar, lines: Lines) -> None:
   config = {"a": {"api_key": "k", "api_base": "https://a.test/v1"}}
   original = api.get_config, api.chain
   api.get_config = lambda: config
-  api.chain = lambda model, body, config: ([["a/1"]], None)
+  api.chain = lambda model, body, config, key="": ([["a/1"]], None)
   client = TestClient(api.app, headers=AUTH)
   body = {"model": "daedalus/deinos", "messages": [{"role": "user", "content": "long"}]}
   try:
