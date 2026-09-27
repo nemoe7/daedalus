@@ -120,7 +120,7 @@ kilo:
       - "thinkingmachines/inkling*"
     TIER-B:
       - "*" # every other model; a more specific pattern wins
-    TIER-D:
+    TIER-C:
       - "liquid/lfm-2.5-2.6b*"
 
 mistral:
@@ -173,7 +173,7 @@ openrouter:
       - "thinkingmachines/inkling*"
     TIER-B:
       - "*" # every other model; a more specific pattern wins
-    TIER-D:
+    TIER-C:
       - "liquid/lfm-2.5-2.6b*"
   models:
     "*gemma-4-26b-a4b-it:free": { reasoning_effort: low }
