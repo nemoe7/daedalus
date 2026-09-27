@@ -103,7 +103,7 @@ def bearer(request: Request) -> str:
 
 
 def check_local_key(request: Request) -> JSONResponse | None:
-  """Reject the request when a local key is set and not matched."""
+  """Reject the request when a local key exists and the bearer token does not match it."""
   if keys.matches(catalog.MODELS_DB, bearer(request)) is not False:
     return None
   return error_response(
@@ -189,6 +189,38 @@ def chain(
   return None
 
 
+# Parts that hold binary data. Their text does not count as input tokens.
+BINARY_KEYS = frozenset({"image_url", "input_audio", "file"})
+
+
+def text_length(node: object) -> int:
+  """The characters of all strings in a message tree, without binary parts."""
+  if isinstance(node, str):
+    return len(node)
+  if isinstance(node, list):
+    return sum(text_length(item) for item in node)
+  if isinstance(node, dict):
+    return sum(
+      text_length(value) for key, value in node.items() if key not in BINARY_KEYS
+    )
+  return 0
+
+
+def input_tokens(body: dict[str, Any]) -> int:
+  """An estimate of the input tokens: the characters of the messages and tools, divided by 4."""
+  characters = text_length(body.get("messages")) + text_length(body.get("tools"))
+  return -(-characters // 4)
+
+
+def too_large(candidate: str, tokens: int, limits: dict[str, int]) -> bool:
+  """Tell if the input does not fit the model, and log the skip."""
+  limit = limits.get(candidate)
+  if limit is None or tokens <= limit:
+    return False
+  logger.warning("skip %s: input ~%d tokens > limit %d", candidate, tokens, limit)
+  return True
+
+
 def routed_pool(slot: str) -> str:
   """The short name of the pool that serves a `daedalus/auto` slot."""
   if slot == router.PRAKTOS:
@@ -265,8 +297,12 @@ async def chat(request: Request) -> Response:
   models = pin.order(found[0])
   include_usage = bool((body.get("stream_options") or {}).get("include_usage"))
   failure = error_response(502, "No model answered the request", "upstream_error")
+  tokens, limits, tried = input_tokens(body), catalog.input_limits(), False
   for index, candidate in enumerate(models):
     request.state.fallbacks = str(index)
+    if too_large(candidate, tokens, limits):
+      continue
+    tried = True
     started = time.perf_counter()
     try:
       provider, response = await attempt(candidate, body, config)
@@ -297,14 +333,31 @@ async def chat(request: Request) -> Response:
         502, "Upstream provider attempt failed", "upstream_error"
       )
       continue
-    rest = models[index + 1 :]
+    rest = [m for m in models[index + 1 :] if not too_large(m, tokens, limits)]
     request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
     request.state.ttft = seconds_text(ttft)
     return StreamingResponse(
       relay(pending, events, rest, body, config, include_usage, candidate, pin),
       media_type="text/event-stream",
     )
+  if not tried:
+    return too_long(tokens)
   return failure
+
+
+def too_long(tokens: int) -> JSONResponse:
+  """The OpenAI error for an input that no model in the chain can take."""
+  message = (
+    f"The input (~{tokens} tokens) is larger than the context window of each model"
+  )
+  body = {
+    "error": {
+      "message": message,
+      "type": "invalid_request_error",
+      "code": "context_length_exceeded",
+    }
+  }
+  return JSONResponse(body, status_code=400)
 
 
 def failure_text(exc: Exception) -> str:
@@ -434,8 +487,11 @@ async def relay(
       return
     prefix = {"role": "assistant", "content": "".join(sent)}
     continued = {**body, "messages": [*body["messages"], prefix]} if sent else body
+    tokens, limits = input_tokens(continued), catalog.input_limits()
     while rest:
       candidate = rest.pop(0)
+      if too_large(candidate, tokens, limits):
+        continue
       started = time.perf_counter()
       try:
         provider, response = await attempt(candidate, continued, config)
