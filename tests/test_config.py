@@ -117,7 +117,7 @@ def check_repo_file() -> None:
   assert set(discovery.select(loaded["mistral"], mistral)) & set(mistral) == {
     mistral[2]
   }
-  assert router.candidates(loaded, "TIER-B", ["groq/qwen/qwen3.8-27b"]), "groq tier"
+  assert router.candidates(loaded, "TIER-A", ["groq/qwen/qwen3.8-27b"]), "groq tier"
   qwen = ["cloudflare/@cf/qwen/qwen3-30b-a3b-fp8", "cloudflare/@cf/qwen/qwen3.8-27b"]
   assert router.candidates(loaded, "TIER-A", qwen) == qwen[1:], (
     "the org head must not hide"

@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from typing import Any, Final
 
 from daedalus.classifier import TIER_NAMES, TIERS, Artifact, load_artifact, predict
-from daedalus.discovery import any_match
+from daedalus.discovery import matches, specificity
 
 __all__ = ["TIERS", "TIER_NAMES"]
 
@@ -31,6 +31,17 @@ def tier_models(provider: Mapping[str, Any], tier_name: str) -> list[str]:
   return [name for name in names if isinstance(name, str) and name]
 
 
+def claiming_tier(provider: Mapping[str, Any], slug: str) -> str | None:
+  """The tier with the most specific pattern for a slug. A tie goes to the higher tier."""
+  best: tuple[tuple[int, int], str] | None = None
+  for tier in reversed(TIERS):
+    name = TIER_NAMES[tier]
+    ranks = [specificity(p) for p in tier_models(provider, name) if matches(p, slug)]
+    if ranks and (best is None or max(ranks) > best[0]):
+      best = (max(ranks), name)
+  return None if best is None else best[1]
+
+
 def candidates(
   config: Mapping[str, Any],
   tier_name: str,
@@ -46,7 +57,10 @@ def candidates(
       continue
     head = f"{provider_name}/"
     for line in lines:
-      if line.startswith(head) and any_match(patterns, line[len(head) :]):
+      if (
+        line.startswith(head)
+        and claiming_tier(provider, line[len(head) :]) == tier_name
+      ):
         wanted.append(line)
   return wanted
 

@@ -144,6 +144,46 @@ def check_route() -> None:
   assert router.route("hi", config, []) == []
 
 
+def check_most_specific_tier() -> None:
+  """A slug that 2 tiers claim goes only to the tier with the most specific pattern."""
+  config = {
+    "kilo": {
+      "tier": {
+        "TIER-A": ["nvidia/nemotron-3-ultra-*", "^qwen/"],
+        "TIER-B": ["*", "qwen/qwen3-32b"],
+        "TIER-C": ["nvidia/*"],
+        "TIER-D": ["*:free"],
+      },
+    },
+  }
+  lines = [
+    "kilo/nvidia/nemotron-3-ultra-550b:free",
+    "kilo/nvidia/nemotron-3-nano:free",
+    "kilo/qwen/qwen3-32b",
+    "kilo/qwen/qwen3-8b",
+    "kilo/liquid/lfm:free",
+    "kilo/other/model",
+  ]
+  # A glob beats a regex, and an exact name beats a glob.
+  assert router.candidates(config, "TIER-A", lines) == [
+    "kilo/nvidia/nemotron-3-ultra-550b:free"
+  ]
+  assert router.candidates(config, "TIER-B", lines) == [
+    "kilo/qwen/qwen3-32b",
+    "kilo/qwen/qwen3-8b",
+    "kilo/other/model",
+  ]
+  # Between 2 globs, the one with more literal characters wins.
+  assert router.candidates(config, "TIER-C", lines) == [
+    "kilo/nvidia/nemotron-3-nano:free"
+  ]
+  assert router.candidates(config, "TIER-D", lines) == ["kilo/liquid/lfm:free"]
+  # Equal patterns go to the higher tier.
+  tie = {"groq": {"tier": {"TIER-A": ["gpt-*"], "TIER-B": ["gpt-*"]}}}
+  assert router.candidates(tie, "TIER-A", ["groq/gpt-oss"]) == ["groq/gpt-oss"]
+  assert router.candidates(tie, "TIER-B", ["groq/gpt-oss"]) == []
+
+
 def check_pools() -> None:
   """Four pools, and the fallback chain each one walks."""
   assert router.POOLS == {
@@ -208,6 +248,7 @@ def main() -> int:
   check_tier_names()
   check_tier_models()
   check_route()
+  check_most_specific_tier()
   check_pools()
   check_praktos()
   print("ok: router checks passed")
