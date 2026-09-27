@@ -17,7 +17,8 @@ def check_help() -> None:
   )
   assert shown.returncode == 0, shown.stderr
   assert shown.stdout.startswith("usage:"), shown.stdout
-  assert "--init" in shown.stdout and "--catalog" in shown.stdout, shown.stdout
+  for flag in ("-i, --init", "-c, --catalog"):
+    assert flag in shown.stdout, shown.stdout
   wrong = subprocess.run(
     [*DAEDALUS, "--wrong"], capture_output=True, text=True, timeout=10, check=False
   )
@@ -48,6 +49,9 @@ def check_flags() -> None:
       assert calls == ["catalog"], calls
       calls.clear()
       api.run(["--catalog", "--init"])
+      assert calls == ["catalog", "listen"], calls
+      calls.clear()
+      api.run(["-c", "-i"])
       assert calls == ["catalog", "listen"], calls
   finally:
     catalog.MODELS_DB, catalog.refresh, uvicorn = original
