@@ -71,6 +71,32 @@ def failure(status: int, message: str, kind: str) -> JSONResponse:
   return JSONResponse(status_code=status, content={"error": error})
 
 
+async def json_body(request: Request) -> Any:
+  """The JSON body. Other content types give None, so a cross-site form cannot post."""
+  if (
+    request.headers.get("content-type", "").split(";")[0].strip() != "application/json"
+  ):
+    return None
+  try:
+    return await request.json()
+  except ValueError:
+    return None
+
+
+def secure(request: Request) -> bool:
+  """Tell if the browser uses https, also behind a proxy that ends TLS."""
+  forwarded = request.headers.get("x-forwarded-proto", "")
+  origin = request.headers.get("origin", "")
+  return "https" in (request.url.scheme, forwarded) or origin.startswith("https://")
+
+
+def partition(response: Response) -> None:
+  """Mark the last cookie as partitioned. Starlette does this only on Python 3.14."""
+  name, value = response.raw_headers[-1]
+  if name == b"set-cookie":
+    response.raw_headers[-1] = (name, value + b"; Partitioned")
+
+
 def check_file(path: Path, text: str) -> dict[str, Any] | None:
   """Validate the text of one config file. Returns settings values for the settings file."""
   if path == settings.DEFAULT_PATH:
@@ -119,10 +145,7 @@ def routes(
     key = master()
     if key is None:
       return failure(503, f"Set {MASTER_ENV}: 16 or more characters.", "server_error")
-    try:
-      body = await request.json()
-    except ValueError:
-      body = None
+    body = await json_body(request)
     if not isinstance(body, dict):
       return failure(400, "Send a username and a password.", "invalid_request_error")
     user = hmac.compare_digest(
@@ -140,15 +163,21 @@ def routes(
       cookie(key, time.time(), seconds),
       max_age=seconds if remember else None,
       httponly=True,
-      samesite="strict",
-      secure=request.url.scheme == "https",
+      # Over https, the cookie also works in a frame on another site, such as a preview.
+      samesite="none" if secure(request) else "strict",
+      secure=secure(request),
     )
+    if secure(request):
+      partition(response)
     return response
 
   @api.post("/logout")
-  async def log_out() -> JSONResponse:
+  async def log_out(request: Request) -> JSONResponse:
     response = JSONResponse({"ok": True})
-    response.delete_cookie(COOKIE)
+    https = secure(request)
+    response.delete_cookie(COOKIE, secure=https, samesite="none" if https else "strict")
+    if https:
+      partition(response)
     return response
 
   def members(groups: list[list[str]], order: tuple[int, ...]) -> list[dict]:
@@ -240,10 +269,7 @@ def routes(
   async def save(request: Request) -> JSONResponse:
     if not allowed(request):
       return denied()
-    try:
-      body = await request.json()
-    except ValueError:
-      body = None
+    body = await json_body(request)
     names = {str(path): path for path in FILES}
     if not isinstance(body, dict) or body.get("path") not in names:
       return failure(400, "Unknown config file.", "invalid_request_error")
