@@ -109,6 +109,13 @@ def check_repo_file() -> None:
   kept = catalog.select(cloudflare, found)
   assert set(free) <= set(kept), kept
   assert not set(author_prefixed + paid) & set(kept), kept
+  groq = ["canopylabs/orpheus-v1-english", "whisper-large-v3", "openai/gpt-oss-20b"]
+  assert set(catalog.select(loaded["groq"], groq)) & set(groq) == {groq[2]}, "speech"
+  gemini = ["lyria-3.5", "gemini-3.8-flash"]
+  assert "lyria-3.5" not in catalog.select(loaded["gemini"], gemini), "music rows"
+  mistral = ["mistral-ocr-4", "mistral-moderation-2603", "mistral-small-2603"]
+  assert set(catalog.select(loaded["mistral"], mistral)) & set(mistral) == {mistral[2]}
+  assert router.candidates(loaded, "TIER-B", ["groq/qwen/qwen3.8-27b"]), "groq tier"
   qwen = ["cloudflare/@cf/qwen/qwen3-30b-a3b-fp8", "cloudflare/@cf/qwen/qwen3.8-27b"]
   assert router.candidates(loaded, "TIER-A", qwen) == qwen, "the org head must not hide"
 

@@ -34,6 +34,7 @@ gemini:
     - "*-image*"
     - "*-live*"
     - "*-tts*"
+    - lyria-*
   tier:
     TIER-A:
       - gemini-3.8-flash
@@ -61,13 +62,14 @@ groq:
   api_key: os.environ/GROQ_API_KEY
   rpm: 30
   exclude:
-    - "orpheus*"
+    - "*orpheus*"
+    - whisper-*
     - "*prompt-guard*"
     - "*safeguard*"
     - compound*
   tier:
     TIER-B:
-      - qwen3.8-27b
+      - qwen/qwen3.8-27b
   models:
     openai/gpt-oss-120b: { max_input_tokens: 7000 }
     openai/gpt-oss-20b: { max_input_tokens: 7000, tpm: 8000 }
@@ -91,6 +93,8 @@ mistral:
   api_key: os.environ/MISTRAL_API_KEY
   exclude:
     - "voxtral*"
+    - "*ocr*"
+    - "*moderation*"
     - codestral-latest
     - mistral-code-latest
     - mistral-code-fim-latest
