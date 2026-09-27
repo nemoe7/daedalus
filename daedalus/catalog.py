@@ -12,7 +12,6 @@ from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 import httpx
 
-from daedalus import keys
 from daedalus.config import STATE_DIR, get_config
 from daedalus.providers import PROVIDERS, OpenAIProvider, settings
 
@@ -45,6 +44,8 @@ COLUMNS = (
   "supports_audio_output",
   "supports_web_search",
 )
+# Tables that a store rebuild keeps: the local key, the model weights and the pins.
+KEPT_TABLES = frozenset({"api_key", "weights", "pins"})
 TEXT_COLUMNS = frozenset({"mode", "reasoning_effort"})
 # Rows that enter the chat chains. No catalog match gives no mode.
 ROUTABLE_MODES = (None, "chat")
@@ -427,13 +428,26 @@ def write_models_tsv(
   return target
 
 
+def keep_tables(database: sqlite3.Connection, old: Path) -> None:
+  """Copy the key, weight and pin tables of the old store into a new store."""
+  database.execute("ATTACH DATABASE ? AS old", (str(old),))
+  found = database.execute(
+    "SELECT name, sql FROM old.sqlite_master WHERE type = 'table'"
+  ).fetchall()
+  for name, sql in found:
+    if name in KEPT_TABLES:
+      database.execute(sql)
+      database.execute(f"INSERT INTO {name} SELECT * FROM old.{name}")
+  database.commit()
+  database.execute("DETACH DATABASE old")
+
+
 def write_store(rows: Iterable[dict[str, Any]], path: Path | str | None = None) -> Path:
   """Replace the model table in one transaction-safe file swap."""
   target = Path(path or MODELS_DB)
   target.parent.mkdir(parents=True, exist_ok=True)
   temporary = target.with_suffix(".tmp")
   temporary.unlink(missing_ok=True)
-  key_hash = keys.stored_hash(target)
   columns = ", ".join(
     f"{key} {'TEXT' if key in TEXT_COLUMNS else 'NUMERIC'}" for key in COLUMNS
   )
@@ -441,6 +455,8 @@ def write_store(rows: Iterable[dict[str, Any]], path: Path | str | None = None) 
     database.execute(
       f"CREATE TABLE models (id TEXT PRIMARY KEY, provider TEXT, slug TEXT, {columns})"
     )
+    if target.exists():
+      keep_tables(database, target)
     names = ("id", "provider", "slug", *COLUMNS)
     values = []
     for row in rows:
@@ -451,8 +467,6 @@ def write_store(rows: Iterable[dict[str, Any]], path: Path | str | None = None) 
       f"INSERT INTO models ({', '.join(names)}) VALUES ({marks})", values
     )
   database.close()
-  if key_hash:
-    keys.save_hash(temporary, key_hash)
   temporary.replace(target)
   return target
 

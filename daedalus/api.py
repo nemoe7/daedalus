@@ -12,7 +12,7 @@ import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import affinity, catalog, keys, providers, router
+from daedalus import catalog, keys, penalties, providers, router
 from daedalus.config import get_config
 from daedalus.providers.base import error_text
 
@@ -158,49 +158,53 @@ async def models(request: Request) -> Response:
 
 def chain(
   model: str, body: dict[str, Any], config: dict[str, Any]
-) -> tuple[list[str], str | None] | None:
-  """The models to try and the pin slot for one request, or None for an unknown name."""
+) -> tuple[list[list[str]], str | None] | None:
+  """The tier groups to try and the pin slot for one request, or None for an unknown name."""
   if model == router.PRAKTOS or (model == router.RESERVED_MODEL and body.get("tools")):
-    models = router.route_praktos(config, catalog.read_models(tools_only=True))
-    if models:
-      return models, router.PRAKTOS
+    lines = catalog.read_models(tools_only=True)
+    groups = router.chain_groups(config, lines, router.PRAKTOS_TIERS)
+    if any(groups):
+      return groups, router.PRAKTOS
     logger.warning("praktos has no member; using the daedalus/auto chain")
     model = router.RESERVED_MODEL
   if model in router.POOLS:
-    return router.route_pool(model, config, catalog.read_models()), model
+    order = router.fallback_order(router.POOLS[model])
+    return router.chain_groups(config, catalog.read_models(), order), model
   if model == router.RESERVED_MODEL:
     tier = router.required_tier(last_user_text(body["messages"]))
-    models = router.chain_models(
-      config, catalog.read_models(), router.fallback_order(tier)
-    )
-    return models, f"{model}:{router.TIER_NAMES[tier]}"
+    order = router.fallback_order(tier)
+    groups = router.chain_groups(config, catalog.read_models(), order)
+    return groups, f"{model}:{router.TIER_NAMES[tier]}"
   if model.partition("/")[0] in config:
-    return [model], None
+    return [[model]], None
   return None
 
 
-PINS = affinity.Pins()
+PENALTIES = penalties.Penalties(lambda: catalog.MODELS_DB)
 
 
-class Affinity:
-  """The pin slot of one request, keyed by the hash of its API key."""
+class Tracker:
+  """Weights and the pin of one request, keyed by the hash of its API key."""
 
   def __init__(self, token: str, slot: str | None) -> None:
     self.key, self.slot = keys.digest(token) if token else "", slot
     self.dropped = False
 
-  def order(self, models: list[str]) -> list[str]:
-    return PINS.order(self.key, self.slot, models) if self.slot else models
+  def order(self, groups: list[list[str]]) -> list[str]:
+    return PENALTIES.order(groups, self.key, self.slot)
 
   def answered(self, model: str) -> str | None:
-    """Pin the model. A pin that failed in this request shows as `moved`."""
+    """Raise the weight and pin the model. A pin that failed in this request shows as `moved`."""
+    PENALTIES.record(model, success=True)
     if not self.slot:
       return None
-    state = PINS.answered(self.key, self.slot, model)
+    state = PENALTIES.pin(self.key, self.slot, model)
     return "moved" if self.dropped else state
 
   def failed(self, model: str) -> None:
-    if self.slot and PINS.failed(self.key, self.slot, model):
+    """Lower the weight, and remove the pin when it names this model."""
+    PENALTIES.record(model, success=False)
+    if self.slot and PENALTIES.unpin(self.key, self.slot, model):
       self.dropped = True
 
 
@@ -233,7 +237,7 @@ async def chat(request: Request) -> Response:
   found = chain(model, body, config)
   if found is None:
     return error_response(400, "Unknown provider or pool", "invalid_request_error")
-  pin = Affinity(bearer(request), found[1])
+  pin = Tracker(bearer(request), found[1])
   models = pin.order(found[0])
   include_usage = bool((body.get("stream_options") or {}).get("include_usage"))
   failure = error_response(502, "No model answered the request", "upstream_error")
@@ -343,7 +347,7 @@ async def relay(
   config: dict[str, Any],
   include_usage: bool,
   model: str,
-  pin: Affinity,
+  pin: Tracker,
 ) -> AsyncIterator[bytes]:
   """Stream one answer, and continue from the sent text on a failure."""
   identifier, sent, tool = None, [], False
