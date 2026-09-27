@@ -1,5 +1,6 @@
 """Runnable check for the model catalog. Run: python tests/test_catalog.py"""
 
+import json
 import sys
 import tempfile
 from pathlib import Path
@@ -255,6 +256,25 @@ def check_build_catalog() -> None:
   assert len(skipped) == 3, skipped
 
 
+def check_dump() -> None:
+  with tempfile.TemporaryDirectory() as folder:
+    stale = Path(folder) / "broken.json"
+    stale.write_text("{}", encoding="utf-8")
+    paths = catalog.dump(CONFIG, make_fetch(PAYOUT), folder)
+    names = sorted(path.name for path in paths)
+    assert names == [
+      "cloudflare.json",
+      "gemini.json",
+      "openrouter.json",
+      "z-ai.json",
+    ], names
+    assert not stale.exists(), "a failed provider keeps no old dump"
+    cloudflare = json.loads((Path(folder) / "cloudflare.json").read_text("utf-8"))
+    slugs = catalog.extract_slugs(cloudflare)
+    assert "@cf/zai-org/glm-5.3" in slugs, "the dump keeps excluded rows"
+    assert "@cf/openai/gpt-oss-120b" in slugs, "the dump merges every page"
+
+
 def check_merge_pages() -> None:
   one = catalog.merge_pages([{"data": [{"id": "a"}], "object": "list"}])
   assert one == {"data": [{"id": "a"}], "object": "list"}, one
@@ -369,6 +389,7 @@ def main() -> int:
   check_discover_provider()
   check_build_catalog()
   check_merge_pages()
+  check_dump()
   check_writers()
   check_non_text()
   print(f"ok: catalog checks passed, {len(SEEN)} stub pages fetched")
