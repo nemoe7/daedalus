@@ -21,13 +21,25 @@ const state = { models: [], tier: "All", files: [], file: 0, saved: [], timers: 
 
 class LoggedOut extends Error {}
 
+// The session value also goes in a header: some frames, such as a preview, block cookies.
+const SESSION = "daedalus-session";
+const session = () => sessionStorage.getItem(SESSION) || localStorage.getItem(SESSION);
+function keepSession(value, remember) {
+  sessionStorage.removeItem(SESSION);
+  localStorage.removeItem(SESSION);
+  if (value) (remember ? localStorage : sessionStorage).setItem(SESSION, value);
+}
+
 async function call(path, options = {}) {
   const response = await fetch("ui/api/" + path, {
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(session() ? { "X-Daedalus-Session": session() } : {}) },
     ...options,
   });
-  if (response.status === 401 && path !== "login") throw new LoggedOut();
+  if (response.status === 401 && path !== "login") {
+    keepSession(null);
+    throw new LoggedOut();
+  }
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.error?.message || `HTTP ${response.status}`);
   return body;
@@ -192,7 +204,7 @@ $("login").addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.target;
   try {
-    await call("login", {
+    const answer = await call("login", {
       method: "POST",
       body: JSON.stringify({
         username: form.username.value,
@@ -200,6 +212,7 @@ $("login").addEventListener("submit", async (event) => {
         remember: form.remember.checked,
       }),
     });
+    keepSession(answer.session, form.remember.checked);
     form.password.value = "";
     await guarded(start);
   } catch (error) {
@@ -209,6 +222,7 @@ $("login").addEventListener("submit", async (event) => {
 
 $("logout").addEventListener("click", async () => {
   await call("logout", { method: "POST" }).catch(() => {});
+  keepSession(null);
   showLogin();
 });
 
