@@ -67,7 +67,7 @@ Each top-level key is 1 provider. A value `os.environ/NAME` reads the environmen
 groq:
   api_key: os.environ/GROQ_API_KEY
   exclude:
-    - "*orpheus*"
+    - "*prompt-guard*"
   tier:
     TIER-A:
       - openai/gpt-oss-120b
@@ -75,6 +75,7 @@ groq:
       - openai/gpt-oss-20b
   models:
     openai/gpt-oss-20b: { max_input_tokens: 7000, tpm: 8000 }
+    "whisper-*": { mode: audio_transcription }
 ```
 
 | Key | Use |
@@ -87,6 +88,8 @@ groq:
 | `exclude` | Patterns of models that never go into the catalog |
 | `tier` | Patterns for each tier key: `TIER-A`, `TIER-B`, `TIER-C`, `TIER-D` |
 | `models` | Values for each model, for example `max_input_tokens`. These have priority over discovery and LiteLLM. |
+
+A model with a `mode` other than `chat` never goes into a chat chain. Use `embedding`, `audio_transcription`, `audio_speech` or `image_generation`. A model with no mode goes into the chat chains.
 
 Pattern types:
 
