@@ -123,7 +123,7 @@ async def models(request: Request) -> Response:
   denied = check_local_key(request)
   if denied is not None:
     return denied
-  names = [router.RESERVED_MODEL, *router.POOLS, *catalog.read_models_txt()]
+  names = [router.RESERVED_MODEL, *router.POOLS, *catalog.read_models()]
   data = [{"id": name, "object": "model", "owned_by": "daedalus"} for name in names]
   return JSONResponse({"object": "list", "data": data})
 
@@ -154,10 +154,10 @@ async def chat(request: Request) -> Response:
     )
   config = get_config()
   if model in router.POOLS:
-    models = router.route_pool(model, config, catalog.read_models_txt())
+    models = router.route_pool(model, config, catalog.read_models())
   elif model == router.RESERVED_MODEL:
     models = router.route(
-      last_user_text(body["messages"]), config, catalog.read_models_txt()
+      last_user_text(body["messages"]), config, catalog.read_models()
     )
   elif model.partition("/")[0] in config:
     models = [model]

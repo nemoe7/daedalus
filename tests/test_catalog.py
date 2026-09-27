@@ -271,8 +271,12 @@ def check_merge_pages() -> None:
 def check_writers() -> None:
   with tempfile.TemporaryDirectory() as directory:
     target = Path(directory) / "models.txt"
-    catalog.write_models_txt(["groq/a", "gemini/b"], target)
-    assert target.read_bytes() == b"groq/a\ngemini/b\n", "LF only, on every platform"
+    catalog.write_models_txt([{"id": "groq/a"}, {"id": "gemini/b"}], target)
+    lines = target.read_bytes().split(b"\n")
+    assert b"\r" not in target.read_bytes(), "LF only, on every platform"
+    assert lines[1].startswith(b"groq/a\t") and lines[2].startswith(b"gemini/b\t"), (
+      lines
+    )
 
 
 def check_declared_kept() -> None:
@@ -281,7 +285,10 @@ def check_declared_kept() -> None:
   slugs = ["glm-4.5", "glm-4.6", "glm-4.7-flash"]
   assert catalog.select(provider, slugs) == ["glm-4.7-flash"]
 
-  globbed = {"exclude": ["openai/*"], "models": {"*gpt-oss-120b": {"max_in_tok": 7000}}}
+  globbed = {
+    "exclude": ["openai/*"],
+    "models": {"*gpt-oss-120b": {"max_input_tokens": 7000}},
+  }
   assert catalog.select(globbed, ["openai/gpt-oss-120b", "openai/gpt-6-sol"]) == [
     "openai/gpt-oss-120b"
   ]

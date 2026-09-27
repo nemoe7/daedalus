@@ -7,15 +7,16 @@ from daedalus import catalog
 def main() -> None:
   root = Path(__file__).resolve().parent.parent / ".daedalus-state"
   assert catalog.MODELS_TXT == root / "models.txt"
+  assert catalog.MODELS_DB == root / "models.sqlite3"
   with tempfile.TemporaryDirectory() as directory:
-    target = Path(directory) / ".daedalus-state" / "models.txt"
-    catalog.write_models_txt(["provider/model"], target)
-    original = catalog.MODELS_TXT
-    catalog.MODELS_TXT = target
+    target = Path(directory) / ".daedalus-state" / "models.sqlite3"
+    catalog.write_store([{"id": "provider/model"}], target)
+    original = catalog.MODELS_DB
+    catalog.MODELS_DB = target
     try:
-      assert catalog.read_models_txt() == ["provider/model"]
+      assert catalog.read_models() == ["provider/model"]
     finally:
-      catalog.MODELS_TXT = original
+      catalog.MODELS_DB = original
   print("ok: application state paths")
 
 
