@@ -180,7 +180,7 @@ def check_pools() -> None:
 
 
 def check_praktos() -> None:
-  """ADR 3: praktos holds TIER-A members first, then TIER-B, and no lower tier."""
+  """ADR 2: praktos holds TIER-A members first, then TIER-B, and no lower tier."""
   assert router.PRAKTOS == "daedalus/praktos"
   config = {
     "gemini": {"tier": {"TIER-B": ["gemini-3.5-flash"], "TIER-C": ["gemma-*"]}},
