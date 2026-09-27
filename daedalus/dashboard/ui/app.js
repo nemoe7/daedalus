@@ -225,8 +225,8 @@ const yesNo = (on) => (on ? '<span class="yes">Yes</span>' : '<span class="muted
 function weightColor(weight) {
   const high = weight >= 0.5;
   const share = Math.round((high ? (weight - 0.5) * 2 : weight * 2) * 100);
-  return high ? `color-mix(in oklab, var(--accent) ${share}%, var(--orange))`
-    : `color-mix(in oklab, var(--orange) ${share}%, var(--red))`;
+  return high ? `color-mix(in oklch, var(--accent) ${share}%, var(--orange))`
+    : `color-mix(in oklch, var(--orange) ${share}%, var(--red))`;
 }
 const weightBar = (weight) => `<div class="track"><div class="fill"
   style="width:${Math.round(weight * 100)}%;background:${weightColor(weight)}"></div></div>`;
