@@ -69,30 +69,31 @@ async def log_request(request: Request, call_next):
   return response
 
 
-def user_text(messages: object, last: bool = True) -> str:
-  """The text of the last or first user turn, whatever shape its content takes."""
+def user_turns(messages: object) -> list[str]:
+  """The text of each user turn, oldest first, whatever shape its content takes."""
   if not isinstance(messages, list):
-    return ""
-  for message in reversed(messages) if last else messages:
+    return []
+  texts = []
+  for message in messages:
     if not isinstance(message, dict) or message.get("role") != "user":
       continue
     content = message.get("content")
-    if isinstance(content, str):
-      return content
     if isinstance(content, list):
       parts = [part.get("text", "") for part in content if isinstance(part, dict)]
-      return "\n".join(part for part in parts if part)
-  return ""
+      content = "\n".join(part for part in parts if isinstance(part, str) and part)
+    if isinstance(content, str):
+      texts.append(content)
+  return texts
 
 
-def last_user_text(messages: object) -> str:
-  """The text of the last user turn."""
-  return user_text(messages)
+def first_user_text(messages: object) -> str:
+  texts = user_turns(messages)
+  return texts[0] if texts else ""
 
 
 def session_key(token: str, messages: object) -> str:
   """The conversation key: the hash of the bearer token and the first user message."""
-  return keys.digest(f"{token}\n{user_text(messages, last=False)}")
+  return keys.digest(f"{token}\n{first_user_text(messages)}")
 
 
 @app.get("/health")
@@ -115,13 +116,16 @@ async def models(request: Request) -> Response:
 
 
 def chain(
-  model: str, body: dict[str, Any], config: dict[str, Any]
+  model: str, body: dict[str, Any], config: dict[str, Any], key: str = ""
 ) -> tuple[list[list[str]], str | None] | None:
   """The tier groups to try and the pin slot for one request, or None for an unknown name."""
   if model in router.POOLS:
     order, slot = router.fallback_order(router.POOLS[model]), model
   elif model == router.RESERVED_MODEL:
-    tier = router.required_tier(last_user_text(body["messages"]))
+    tier = router.required_tier("\n".join(user_turns(body["messages"])))
+    if key and AFFINITY:
+      # A conversation keeps the highest tier that it got, so a short "continue" stays up.
+      tier = PENALTIES.highest(key, tier)
     order, slot = router.fallback_order(tier), f"{model}:{router.TIER_NAMES[tier]}"
   elif model.partition("/")[0] in config:
     return [[model]], None
@@ -226,14 +230,15 @@ async def chat(request: Request) -> Response:
       400, "stream_options must be an object", "invalid_request_error"
     )
   config = get_config()
-  found = chain(model, body, config)
+  key = session_key(access.bearer(request), body["messages"])
+  found = chain(model, body, config, key)
   if found is None:
     return upstream.error_response(
       400, "Unknown provider or pool", "invalid_request_error"
     )
   if model == router.RESERVED_MODEL and found[1]:
     request.state.pool = routed_pool(found[1])
-  pin = Tracker(session_key(access.bearer(request), body["messages"]), found[1])
+  pin = Tracker(key, found[1])
   tokens, limits = context.input_tokens(body), store.input_limits()
   attempts: list[dict[str, Any]] = []
   request.state.attempts = attempts
