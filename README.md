@@ -1,8 +1,8 @@
 # Daedalus
 
-> Q: In 1 or 2 sentences, what is Daedalus, and what problem does it solve for you?
+One of them is bound to hit. Aggregates personal API keys and utilizes a classifier to select a model that suits the task.
 
-> Q: Why the name Daedalus?
+I got the name "Daedalus" since I wanted something that had the same impact as "Odyssey" [link to odyssey-dev]. It has to be Greek and recognizable. I took inspiration from the Terraria weapon "Daedalus Stormbow" and thought of each arrow being a request sent to a provider that just keeps trying to hit until one lands.
 
 ## Features
 
@@ -16,7 +16,7 @@
 - A dashboard for pools, requests, models, API keys, providers and settings.
 - Docker Compose, with optional Open WebUI, Headroom and Tailscale.
 
-> Q: Who is Daedalus for? For example: only you, a small team, or anyone with free provider keys.
+Daedalus is meant for personal use only. It is not meant to be shared to other users due to providers' terms of service.
 
 ## Quick start
 

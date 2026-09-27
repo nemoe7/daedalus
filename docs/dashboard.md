@@ -8,7 +8,7 @@ Open `http://HOST:3357/`.
 | Password | `DAEDALUS_MASTER_KEY` |
 | Remember me | 30 days. Else the session stops when the browser closes, or after 12 h. |
 
-> Q: Who uses the dashboard, and what do they look at first?
+The dashboard is mainly a utility for monitoring the application state and fine-tuning the settings.
 
 ## Pages
 
@@ -34,4 +34,5 @@ The Requests page shows "koinos from moros" when a `daedalus/auto` request start
 | Access | `/v1` only. Not the dashboard. |
 | Log | `key=NAME` |
 
-> Q: Do you give 1 key to each client, or 1 key to each person?
+I recommend using different keys for different applications. Easier to delete a single key incase of a leak.
+Note: DO NOT share this service to other people. Providers' TOS may forbid it so only use it for personal work.
