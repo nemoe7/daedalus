@@ -63,6 +63,20 @@ async function guarded(task) {
   }
 }
 
+// Hour and minute, with the weekday when the time is not today.
+function shortTime(seconds) {
+  const date = new Date(seconds * 1000);
+  const today = date.toDateString() === new Date().toDateString();
+  const options = { hour: "2-digit", minute: "2-digit", ...(today ? {} : { weekday: "short" }) };
+  return date.toLocaleString([], options);
+}
+
+function catalogChip({ built, next }) {
+  const last = built ? shortTime(built) : "never";
+  const following = next ? ` &middot; next <b>${esc(shortTime(next))}</b>` : " &middot; no schedule";
+  return `<span class="chip">Catalog <b>${esc(last)}</b>${following}</span>`;
+}
+
 function renderStatus(status) {
   const chips = [
     `<span class="chip"><span class="dot${status.healthy ? "" : " off"}"></span>` +
@@ -70,6 +84,7 @@ function renderStatus(status) {
     `<span class="chip"><b>${status.models}</b> models</span>`,
     `<span class="chip">Local key <b>${status.key ? "on" : "off"}</b></span>`,
     `<span class="chip"><b>${status.sessions}</b> sessions</span>`,
+    catalogChip(status.catalog),
   ];
   $("status").outerHTML = `<span id="status" class="chips">${chips.join("")}</span>`;
 }

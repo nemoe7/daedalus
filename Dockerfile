@@ -7,7 +7,10 @@ COPY pyproject.toml ./
 COPY daedalus ./daedalus
 COPY config ./config
 # Editable install: the store path follows the source folder, so state goes to /app/.daedalus-state.
-RUN pip install -e . \
+# tzdata: the TZ env var sets the local clock of the catalog schedule.
+RUN apt-get update && apt-get install -y --no-install-recommends tzdata \
+  && rm -rf /var/lib/apt/lists/* \
+  && pip install -e . \
   && useradd --uid 1000 --create-home daedalus \
   && mkdir .daedalus-state \
   && chown daedalus .daedalus-state
