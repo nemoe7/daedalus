@@ -8,8 +8,8 @@ import httpx
 from fastapi.responses import JSONResponse
 
 from daedalus import providers
-from daedalus.logs import elapsed
 from daedalus.providers.base import error_text
+from daedalus.server.logs import elapsed
 
 logger = logging.getLogger("daedalus")
 

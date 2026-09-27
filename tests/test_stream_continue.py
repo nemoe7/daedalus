@@ -6,8 +6,9 @@ from pathlib import Path
 
 import httpx
 
-from daedalus import api, config, dashboard, store
-from daedalus.upstream import set_client
+from daedalus import config, dashboard, store
+from daedalus.server import api
+from daedalus.server.upstream import set_client
 
 MASTER = "test-master-key-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}

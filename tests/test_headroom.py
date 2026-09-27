@@ -10,7 +10,8 @@ from pathlib import Path
 import httpx
 from fastapi.testclient import TestClient
 
-from daedalus import api, headroom, store, upstream
+from daedalus import store
+from daedalus.server import api, headroom, upstream
 
 MASTER = "test-master-key-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}

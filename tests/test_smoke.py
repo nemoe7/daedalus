@@ -11,7 +11,9 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import api, config, keys, store, upstream
+from daedalus import config, store
+from daedalus.server import api, upstream
+from daedalus.store import keys
 
 MASTER = "test-master-key-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}

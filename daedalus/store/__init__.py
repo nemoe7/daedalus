@@ -6,8 +6,8 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from daedalus import keys
 from daedalus.config import STATE_DIR
+from daedalus.store import keys
 
 MODELS_DB = STATE_DIR / "models.sqlite3"
 # Metadata columns, in table order. Config values win over the catalog.

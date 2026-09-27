@@ -1,4 +1,4 @@
-from daedalus import discovery
+from daedalus.catalog import discovery
 
 
 def check_cloudflare() -> None:
