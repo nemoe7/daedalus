@@ -27,7 +27,7 @@ services:
     container_name: daedalus-webui
     environment:
       OPENAI_API_BASE_URL: http://daedalus:3357/v1
-      OPENAI_API_KEY: ${OPENWEBUI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENWEBUI_API_KEY:-${DAEDALUS_MASTER_KEY:-}}
       ENABLE_OLLAMA_API: "false"
     ports:
       - "3000:8080"
