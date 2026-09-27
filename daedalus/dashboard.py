@@ -18,7 +18,7 @@ from daedalus.penalties import Penalties
 
 # The chat requests that the dashboard shows. A restart clears them.
 RECENT: deque[dict[str, Any]] = deque(maxlen=50)
-FIELDS = ("model", "pool", "via", "ttft", "fallbacks")
+FIELDS = ("model", "pool", "via", "ttft", "fallbacks", "attempts")
 AUTO_TIERS = (4, 3, 2, 1)
 MASTER_ENV = "DAEDALUS_MASTER_KEY"
 USERNAME = "admin"

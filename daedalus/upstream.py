@@ -22,6 +22,8 @@ TIMEOUT_SECONDS = 600.0
 WAIT_SECONDS = 60.0
 
 
+# Characters of a provider error body that the dashboard keeps.
+DETAIL_LIMIT = 4000
 _client: httpx.AsyncClient | None = None
 
 
@@ -62,9 +64,25 @@ def failure_text(exc: Exception) -> str:
 
 
 class UpstreamStatus(Exception):
-  def __init__(self, status: int) -> None:
+  def __init__(self, status: int, detail: str = "") -> None:
     super().__init__(status)
     self.status = status
+    self.detail = detail
+
+
+def note(
+  model: str, result: str, started: float | None = None, error: str = ""
+) -> dict[str, Any]:
+  """One attempt of a request, for the dashboard."""
+  seconds = None if started is None else round(time.perf_counter() - started, 3)
+  return {"model": model, "result": result, "seconds": seconds, "error": error}
+
+
+def failure_note(model: str, started: float, exc: Exception) -> dict[str, Any]:
+  """One failed attempt, with the full provider error text when there is one."""
+  if isinstance(exc, UpstreamStatus):
+    return note(model, f"HTTP {exc.status}", started, exc.detail)
+  return note(model, "failed", started, failure_text(exc))
 
 
 async def attempt(
@@ -84,4 +102,4 @@ async def attempt(
   logger.warning(
     "upstream %s %d %s: %s", candidate, status, elapsed(started), error_text(raw)
   )
-  raise UpstreamStatus(status)
+  raise UpstreamStatus(status, raw.decode("utf-8", "replace")[:DETAIL_LIMIT])

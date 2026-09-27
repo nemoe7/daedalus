@@ -6,7 +6,7 @@ from pathlib import Path
 import httpx
 from fastapi.testclient import TestClient
 
-from daedalus import api, context, store, upstream
+from daedalus import api, context, dashboard, store, upstream
 
 MASTER = "test-master-key-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}
@@ -23,6 +23,8 @@ class Lines(logging.Handler):
 
 
 def answer(request: httpx.Request) -> httpx.Response:
+  if request.url.host == "c.test":
+    return httpx.Response(429, json={"error": {"message": "Rate limit for c"}})
   message = {"role": "assistant", "content": request.url.host}
   choice = {"index": 0, "message": message, "finish_reason": "stop"}
   return httpx.Response(200, json={"id": "x", "model": "m", "choices": [choice]})
@@ -78,7 +80,21 @@ def check_requests() -> None:
       lines.lines
     )
     assert api.PENALTIES.weights(["a/1"])["a/1"] == 1.0, "a skip is not a fault"
+    steps = dashboard.RECENT[0]["attempts"]
+    assert [(s["model"], s["result"]) for s in steps] == [
+      ("a/1", "skipped"),
+      ("b/1", "answered"),
+    ], steps
+    assert steps[0]["error"] == "input ~101 tokens > limit 10", steps[0]
+    api.chain = lambda model, body, config: ([["c/1", "b/1"]], None)
     small = {**large, "messages": [{"role": "user", "content": "x"}]}
+    assert client.post("/v1/chat/completions", json=small).status_code == 200
+    failed = dashboard.RECENT[0]["attempts"][0]
+    assert failed["result"] == "HTTP 429" and "Rate limit for c" in failed["error"], (
+      failed
+    )
+    assert isinstance(failed["seconds"], float), failed
+    api.chain = lambda model, body, config: ([["a/1", "b/1"]], None)
     response = client.post("/v1/chat/completions", json=small)
     assert response.json()["choices"][0]["message"]["content"] == "a.test"
     api.chain = lambda model, body, config: ([["a/1"]], None)
