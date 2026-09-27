@@ -117,7 +117,6 @@ async def models(request: Request) -> Response:
   names = [
     router.RESERVED_MODEL,
     *router.POOLS,
-    router.PRAKTOS,
     *store.read_models(),
   ]
   data = [{"id": name, "object": "model", "owned_by": "daedalus"} for name in names]
@@ -128,30 +127,22 @@ def chain(
   model: str, body: dict[str, Any], config: dict[str, Any]
 ) -> tuple[list[list[str]], str | None] | None:
   """The tier groups to try and the pin slot for one request, or None for an unknown name."""
-  if model == router.PRAKTOS or (model == router.RESERVED_MODEL and body.get("tools")):
-    lines = store.read_models(tools_only=True)
-    groups = router.chain_groups(config, lines, router.PRAKTOS_TIERS)
-    if any(groups):
-      return groups, router.PRAKTOS
-    logger.warning("praktos has no member; using the daedalus/auto chain")
-    model = router.RESERVED_MODEL
   if model in router.POOLS:
-    order = router.fallback_order(router.POOLS[model])
-    return router.chain_groups(config, store.read_models(), order), model
-  if model == router.RESERVED_MODEL:
+    order, slot = router.fallback_order(router.POOLS[model]), model
+  elif model == router.RESERVED_MODEL:
     tier = router.required_tier(last_user_text(body["messages"]))
-    order = router.fallback_order(tier)
-    groups = router.chain_groups(config, store.read_models(), order)
-    return groups, f"{model}:{router.TIER_NAMES[tier]}"
-  if model.partition("/")[0] in config:
+    order, slot = router.fallback_order(tier), f"{model}:{router.TIER_NAMES[tier]}"
+  elif model.partition("/")[0] in config:
     return [[model]], None
-  return None
+  else:
+    return None
+  # A request with tools skips the models that cannot call tools, and no log shows it.
+  lines = store.read_models(tools_only=bool(body.get("tools")))
+  return router.chain_groups(config, lines, order), slot
 
 
 def routed_pool(slot: str) -> str:
   """The short name of the pool that serves a `daedalus/auto` slot."""
-  if slot == router.PRAKTOS:
-    return slot.rpartition("/")[2]
   names = {router.TIER_NAMES[tier]: name for name, tier in router.POOLS.items()}
   return names[slot.rpartition(":")[2]].rpartition("/")[2]
 
