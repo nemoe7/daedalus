@@ -119,11 +119,10 @@ async def models(request: Request) -> Response:
   denied = access.check_api_key(request)
   if denied is not None:
     return denied
-  names = [
-    router.RESERVED_MODEL,
-    *router.POOLS,
-    *store.read_models(),
-  ]
+  chat = store.read_models()
+  known = set(chat)
+  others = [m for m in store.read_models(routable_only=False) if m not in known]
+  names = [router.RESERVED_MODEL, *router.POOLS, *chat, *others]
   data = [{"id": name, "object": "model", "owned_by": "daedalus"} for name in names]
   return JSONResponse({"object": "list", "data": data})
 
