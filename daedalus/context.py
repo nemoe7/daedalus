@@ -1,11 +1,8 @@
 """Input size estimates and the context window skip."""
 
-import logging
 from typing import Any
 
 from fastapi.responses import JSONResponse
-
-logger = logging.getLogger("daedalus")
 
 # Parts that hold binary data. Their text does not count as input tokens.
 BINARY_KEYS = frozenset({"image_url", "input_audio", "file"})
@@ -31,12 +28,9 @@ def input_tokens(body: dict[str, Any]) -> int:
 
 
 def too_large(candidate: str, tokens: int, limits: dict[str, int]) -> bool:
-  """Tell if the input does not fit the model, and log the skip."""
+  """Tell if the input does not fit the model."""
   limit = limits.get(candidate)
-  if limit is None or tokens <= limit:
-    return False
-  logger.warning("skip %s: input ~%d tokens > limit %d", candidate, tokens, limit)
-  return True
+  return limit is not None and tokens > limit
 
 
 def too_long(tokens: int) -> JSONResponse:

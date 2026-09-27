@@ -58,7 +58,7 @@ def check_limits(database: Path) -> None:
 
 def check_requests() -> None:
   config = {
-    name: {"api_key": "k", "api_base": f"https://{name}.test/v1"} for name in "abc"
+    name: {"api_key": "k", "api_base": f"https://{name}.test/v1"} for name in "abcd"
   }
   original = api.get_config, api.chain
   api.get_config = lambda: config
@@ -66,6 +66,8 @@ def check_requests() -> None:
   api.PENALTIES.clear()
   lines = Lines()
   api.logger.addHandler(lines)
+  level = api.logger.level
+  api.logger.setLevel(logging.INFO)
   client = TestClient(api.app, headers=AUTH)
   large = {
     "model": "daedalus/deinos",
@@ -76,16 +78,11 @@ def check_requests() -> None:
     response = client.post("/v1/chat/completions", json=large)
     assert response.status_code == 200, response.text
     assert response.json()["choices"][0]["message"]["content"] == "b.test"
-    assert any(line.startswith("skip a/1: input ~") for line in lines.lines), (
-      lines.lines
-    )
+    assert not any(line.startswith("skip") for line in lines.lines), "no skip line"
     assert api.PENALTIES.weights(["a/1"])["a/1"] == 1.0, "a skip is not a fault"
-    steps = dashboard.RECENT[0]["attempts"]
-    assert [(s["model"], s["result"]) for s in steps] == [
-      ("a/1", "skipped"),
-      ("b/1", "answered"),
-    ], steps
-    assert steps[0]["error"] == "input ~101 tokens > limit 10", steps[0]
+    steps = [(s["model"], s["result"]) for s in dashboard.RECENT[0]["attempts"]]
+    assert steps == [("b/1", "answered")], "a skip is silent"
+    assert "fallbacks=0" in lines.lines[-1], lines.lines[-1]
     api.chain = lambda model, body, config: ([["c/1", "b/1"]], None)
     small = {**large, "messages": [{"role": "user", "content": "x"}]}
     assert client.post("/v1/chat/completions", json=small).status_code == 200
@@ -104,10 +101,23 @@ def check_requests() -> None:
     api.chain = lambda model, body, config: ([[]], None)
     response = client.post("/v1/chat/completions", json=large)
     assert response.status_code == 502, "an empty chain is not a context error"
+    api.PENALTIES.clear()
+    key = api.session_key(MASTER, large["messages"])
+    api.PENALTIES.pin(key, "deinos", "a/1")
+    api.PENALTIES.record("b/1", 0.5)
+    api.chain = lambda model, body, config: ([["a/1", "b/1", "d/1"]], "deinos")
+    response = client.post("/v1/chat/completions", json=large)
+    assert response.json()["choices"][0]["message"]["content"] == "b.test", (
+      "the draw skips a too-small pinned model"
+    )
+    steps = [(s["model"], s["result"]) for s in dashboard.RECENT[0]["attempts"]]
+    assert steps == [("b/1", "answered")], "a skip is silent"
+    assert api.PENALTIES.pinned(key, "deinos") == "b/1", "the pin moves"
   finally:
     api.get_config, api.chain = original
     upstream.set_client(None)
     api.logger.removeHandler(lines)
+    api.logger.setLevel(level)
 
 
 def main() -> None:
