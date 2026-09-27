@@ -7,9 +7,27 @@ cloudflare:
     - "*llama-3.2-11b-vision*"
   tier:
     TIER-A:
-      - "*qwen3*"
-      - "*deepseek-r1*"
+      - "*qwen3.*"
       - "*nemotron-3-120b-a12b*"
+      - "@cf/openai/gpt-oss-120b"
+    TIER-B:
+      - "*qwen3-30b-a3b*"
+      - "*deepseek-r1*"
+      - "@cf/openai/gpt-oss-20b"
+      - "@cf/zai-org/glm-4.7-flash"
+      - "@cf/google/gemma-4-*"
+      - "@cf/qwen/qwq-32b"
+    TIER-C:
+      - "@cf/meta/llama-3.3-70b-*"
+      - "@cf/meta/llama-4-scout-*"
+      - "@cf/mistralai/mistral-small-*"
+      - "@cf/qwen/qwen2.5-coder-*"
+      - "@cf/aisingapore/*"
+    TIER-D:
+      - "@cf/meta/llama-3.1-8b-*"
+      - "@cf/meta/llama-3.2-*"
+      - "@cf/ibm-granite/*"
+      - "*-lora"
 
   models:
     "@cf/qwen/qwq-32b": { max_input_tokens: 20000, max_output_tokens: 4000 }
@@ -42,6 +60,7 @@ gemini:
     TIER-B:
       - gemini-3.5-flash
       - gemini-3.6-flash
+      - gemma-4-*
     TIER-C:
       - gemini-3.1-flash*
       - gemini-3.5-flash-lite*
@@ -68,8 +87,13 @@ groq:
     - "*safeguard*"
     - compound*
   tier:
+    TIER-A:
+      - openai/gpt-oss-120b
     TIER-B:
       - qwen/qwen3.8-27b
+      - openai/gpt-oss-20b
+    TIER-D:
+      - allam-2-7b
   models:
     openai/gpt-oss-120b: { max_input_tokens: 7000 }
     openai/gpt-oss-20b: { max_input_tokens: 7000, tpm: 8000 }
@@ -109,9 +133,16 @@ mistral:
   tier:
     TIER-A:
       - "magistral-medium*"
+    TIER-B:
+      - "magistral-small*"
     TIER-C:
       - "codestral*"
-      - "leanstral*"
+      - "*leanstral*"
+      - "mistral-small-2*"
+      - "ministral-14b-*"
+    TIER-D:
+      - "ministral-8b-*"
+      - "ministral-3b-*"
 
 openrouter:
   api_key: os.environ/OPENROUTER_API_KEY
