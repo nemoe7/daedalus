@@ -21,18 +21,33 @@
 <div id="app" hidden>
   <header>
     <div class="brand">daedalus<span>.</span></div>
+    <nav class="tabs" id="nav">
+      <a href="#/" data-page="overview">Overview</a>
+      <a href="#/pools" data-page="pools">Pools</a>
+      <a href="#/requests" data-page="requests">Requests</a>
+      <a href="#/models" data-page="models">Models</a>
+      <a href="#/keys" data-page="keys">API keys</a>
+      <a href="#/config" data-page="config">Config</a>
+    </nav>
     <div class="chips">
       <span id="status"></span>
       <button class="ghost" id="logout" type="button">Log out</button>
     </div>
   </header>
   <main>
-    <section>
-      <h2>Pools</h2>
+    <section data-page="overview" hidden>
+      <div class="overview">
+        <a class="card snippet" href="#/pools"><h3>Pools</h3><div id="ov-pools"></div></a>
+        <a class="card snippet" href="#/requests"><h3>Requests</h3><div id="ov-requests"></div></a>
+        <a class="card snippet" href="#/models"><h3>Models</h3><div id="ov-models"></div></a>
+        <a class="card snippet" href="#/keys"><h3>API keys</h3><div id="ov-keys"></div></a>
+        <a class="card snippet" href="#/config"><h3>Config</h3><div id="ov-config"></div></a>
+      </div>
+    </section>
+    <section data-page="pools" hidden>
       <div class="pools" id="pools"></div>
     </section>
-    <section>
-      <h2>Recent requests</h2>
+    <section data-page="requests" hidden>
       <div class="panel">
         <table>
           <thead><tr>
@@ -43,8 +58,7 @@
         </table>
       </div>
     </section>
-    <section>
-      <h2>Models</h2>
+    <section data-page="models" hidden>
       <div class="panel">
         <div class="toolbar">
           <input type="search" id="search" placeholder="Filter by provider or slug">
@@ -58,8 +72,7 @@
         </table>
       </div>
     </section>
-    <section>
-      <h2>API keys</h2>
+    <section data-page="keys" hidden>
       <div class="panel">
         <form class="toolbar" id="new-key">
           <input id="key-name" maxlength="40" placeholder="Name of the new key" required>
@@ -80,8 +93,7 @@
         </table>
       </div>
     </section>
-    <section>
-      <h2>Config</h2>
+    <section data-page="config" hidden>
       <div class="panel">
         <div class="toolbar" id="files"></div>
         <textarea id="editor" spellcheck="false" aria-label="Config file"></textarea>

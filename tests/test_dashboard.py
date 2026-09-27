@@ -75,6 +75,8 @@ def check_page(client: TestClient) -> None:
   page = client.get("/")
   assert page.status_code == 200 and "text/html" in page.headers["content-type"]
   assert 'src="ui/app.js"' in page.text, "relative asset paths for the preview proxy"
+  for name in ("overview", "pools", "requests", "models", "keys", "config"):
+    assert f'<section data-page="{name}"' in page.text, f"the {name} page"
   script = client.get("/ui/app.js")
   assert script.status_code == 200 and "javascript" in script.headers["content-type"]
   assert client.get("/ui/style.css").status_code == 200
