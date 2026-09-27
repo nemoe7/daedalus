@@ -107,7 +107,7 @@ def check_repo_file() -> None:
   rows = [{"name": name} for name in [*author_prefixed, *free]]
   rows += [{"name": name, "properties": flag} for name in paid]
   cloudflare = loaded["cloudflare"]
-  found = discovery.extract_slugs({"result": rows}, cloudflare["discovery_match"])
+  found = list(discovery.extract_rows({"result": rows}, cloudflare["discovery_match"]))
   kept = discovery.select(cloudflare, found)
   assert set(free) <= set(kept), kept
   assert not set(author_prefixed + paid) & set(kept), kept
