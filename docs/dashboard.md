@@ -15,12 +15,12 @@ The dashboard is mainly a utility for monitoring the application state and fine-
 | Page | Contents |
 | --- | --- |
 | Overview | Status, pools and the last requests |
-| Pools | The models of each pool, in chain order |
+| Pools | The models of each pool, the highest weight first. "+N more" opens the Models page with the filters of the pool. |
 | Requests | Each request: model, pool, the model that answered, time to first token, fallbacks and each attempt. Errors have a copy button. |
-| Models | The catalog, with column sort, a reasoning column and weight bars |
+| Models | All catalog models, with a type filter, a tier filter, column sort, a reasoning column and weight bars |
 | API keys | Make and remove API keys |
 | Providers | YAML editor for `config/providers/free.yml`. It keeps the comments. |
-| Settings | Form for `config/daedalus.yml` |
+| Settings | Form for `config/daedalus.yml`. The mouse wheel changes the last decimal digit of a decimal field. |
 
 The Requests page shows "koinos from moros" when a `daedalus/auto` request starts in moros and a koinos model answers.
 
