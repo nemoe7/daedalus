@@ -8,7 +8,7 @@ import yaml
 DEFAULT_PATH = Path("config/daedalus.yml")
 DEFAULTS: dict[str, dict[str, Any]] = {
   "timeouts": {"request": 600.0, "wait": 60.0, "slow": None},
-  "session_affinity": {"enabled": True, "idle": 3600.0, "others": 0.05},
+  "session_affinity": {"enabled": True, "idle": 3600.0, "stay": 0.85},
   "weights": {
     "enabled": True,
     "success": 1.5,
@@ -32,6 +32,8 @@ def check(group: str, key: str, value: Any) -> Any:
     return value
   if isinstance(value, bool) or not isinstance(value, int | float) or value <= 0:
     raise SettingsError(f"{name} must be a number above 0")
+  if key == "stay" and value >= 1:
+    raise SettingsError(f"{name} must be below 1")
   return float(value)
 
 

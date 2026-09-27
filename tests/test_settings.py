@@ -36,6 +36,7 @@ def check_load(folder: Path) -> None:
   expect_error(folder, "weights:\n  enabled: 1\n", "true or false")
   expect_error(folder, "timeouts:\n  wait: true\n", "above 0")
   expect_error(folder, "timeouts:\n  wait: 0\n", "above 0")
+  expect_error(folder, "session_affinity:\n  stay: 1\n", "below 1")
   expect_error(folder, "- a\n", "groups of keys")
 
 
