@@ -126,13 +126,6 @@ def extract_rows(
   return rows
 
 
-def extract_slugs(
-  payload: dict[str, Any], match: dict[str, Any] | None = None
-) -> list[str]:
-  """Take the slug from each row of one payload that `match` keeps."""
-  return list(extract_rows(payload, match))
-
-
 def merge_pages(pages: list[dict[str, Any]]) -> dict[str, Any]:
   """Merge paged rows into one payload. Keeps the first page's other fields."""
   if not pages:
@@ -240,16 +233,6 @@ def read_pages(
   return merge_pages(pages)
 
 
-def discover_provider(
-  provider_name: str,
-  provider: dict[str, Any],
-  fetch: Fetch = fetch_json,
-) -> list[str]:
-  """Read every page of one provider, and return its kept slugs."""
-  payload = read_pages(provider_name, provider, fetch)
-  return select(provider, list(provider_rows(provider_name, provider, payload)))
-
-
 def provider_rows(
   provider_name: str, provider: dict[str, Any], payload: dict[str, Any]
 ) -> dict[str, dict[str, Any]]:
@@ -313,15 +296,6 @@ def build_rows(
         provider_name, rows.get(slug, {})
       )
   return lines, skipped
-
-
-def build_catalog(
-  config: dict[str, Any] | None = None,
-  fetch: Fetch = fetch_json,
-) -> tuple[list[str], list[str]]:
-  """Build the catalog, and return its lines with one reason per skipped provider."""
-  lines, skipped = build_rows(config, fetch)
-  return list(lines), skipped
 
 
 def dump(
