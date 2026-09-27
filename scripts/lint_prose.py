@@ -2,6 +2,7 @@
 
 import ast
 import io
+import re
 import subprocess
 import sys
 import tokenize
@@ -9,6 +10,7 @@ from pathlib import Path
 
 LINTER = Path(".agents/skills/asd-ste100/scripts/ste-lint.py")
 TARGETS = ("daedalus", "tests", "scripts")
+ADR_REFERENCE = re.compile(r"\bADR[- ]?\d|docs/adr")
 
 
 def prose(path: Path) -> str:
@@ -41,6 +43,9 @@ def main() -> int:
       text = prose(path)
       if not text:
         continue
+      if ADR_REFERENCE.search(text):
+        failures += 1
+        print(f"--- {path}\nA comment or docstring refers to an ADR.")
       run = subprocess.run(
         [sys.executable, str(LINTER)],
         input=text,
