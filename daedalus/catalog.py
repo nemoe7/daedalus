@@ -492,6 +492,30 @@ def read_models(routable_only: bool = True, tools_only: bool = False) -> list[st
     database.close()
 
 
+def input_limits() -> dict[str, int]:
+  """The `max_input_tokens` of each stored model that has one."""
+  if not Path(MODELS_DB).exists():
+    return {}
+  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
+  try:
+    rows = database.execute(
+      "SELECT id, max_input_tokens FROM models WHERE max_input_tokens IS NOT NULL"
+    ).fetchall()
+  except sqlite3.OperationalError:
+    return {}
+  finally:
+    database.close()
+  limits = {}
+  for key, value in rows:
+    try:
+      limit = int(float(value))
+    except (TypeError, ValueError):
+      continue
+    if limit > 0:
+      limits[key] = limit
+  return limits
+
+
 def has_store() -> bool:
   """Tell if the store file exists and has the model table."""
   if not Path(MODELS_DB).exists():
