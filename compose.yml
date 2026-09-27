@@ -39,9 +39,8 @@ services:
 
   headroom:
     profiles: [headroom]
-    image: ghcr.io/chopratejas/headroom:latest
+    image: ghcr.io/headroomlabs-ai/headroom:latest
     container_name: daedalus-headroom
-    entrypoint: ["headroom", "proxy"]
     command: ["--host", "0.0.0.0", "--port", "8787"]
     environment:
       HEADROOM_COMPRESS_ALLOW_REMOTE: "1" # else Headroom answers the Daedalus container with 404
