@@ -2,6 +2,7 @@ services:
   daedalus:
     build: .
     image: daedalus:local
+    container_name: daedalus
     user: "${DAEDALUS_UID:-1000}:${DAEDALUS_GID:-1000}"
     environment:
       DAEDALUS_HOST: 0.0.0.0
