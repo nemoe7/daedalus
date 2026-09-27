@@ -61,7 +61,7 @@ def check_apply(folder: Path) -> None:
 
 
 def check_cli(folder: Path) -> None:
-  command = [sys.executable, "-c", "from daedalus.api import run; run()"]
+  command = [sys.executable, "-c", "from daedalus.cli import run; run()"]
   (folder / "config").mkdir()
   (folder / "config" / "daedalus.yml").write_text(
     "weights:\n  x: 1\n", encoding="utf-8"
