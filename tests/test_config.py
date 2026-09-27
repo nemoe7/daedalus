@@ -18,7 +18,7 @@ cloudflare:
     TIER-B:
       - "*"
   models:
-    "@cf/qwen/qwq-32b": { max_in_tok: 20000, max_out_tok: 4000 }
+    "@cf/qwen/qwq-32b": { max_input_tokens: 20000, max_output_tokens: 4000 }
 
 gemini:
   api_key: os.environ/GEMINI_API_KEY
@@ -48,7 +48,7 @@ def check_load() -> None:
   assert cloudflare["exclude"] == ["llama-guard*"], cloudflare["exclude"]
   assert cloudflare["tier"]["TIER-B"] == ["*"], cloudflare["tier"]
   limits = cloudflare["models"]["@cf/qwen/qwq-32b"]
-  assert limits == {"max_in_tok": 20000, "max_out_tok": 4000}, limits
+  assert limits == {"max_input_tokens": 20000, "max_output_tokens": 4000}, limits
 
   gemini_model = loaded["gemini"]["models"]["gemini-3.5-flash"]
   assert gemini_model["reasoning_effort"] == "medium", gemini_model

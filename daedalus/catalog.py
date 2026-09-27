@@ -1,8 +1,9 @@
-"""Discover the models each provider serves and write them to models.txt."""
+"""Discover provider models, add LiteLLM catalog metadata, and store them."""
 
 import argparse
 import logging
 import re
+import sqlite3
 from collections.abc import Callable, Iterable
 from fnmatch import fnmatchcase
 from pathlib import Path
@@ -17,6 +18,39 @@ from daedalus.providers import settings
 logger = logging.getLogger("daedalus.catalog")
 
 MODELS_TXT = STATE_DIR / "models.txt"
+MODELS_DB = STATE_DIR / "models.sqlite3"
+LITELLM_CATALOG = "https://api.litellm.ai/model_catalog"
+LITELLM_PAGE_SIZE = 500
+# Provider names that differ in the LiteLLM catalog. Kilo serves OpenRouter slugs.
+LITELLM_PROVIDER = {"z-ai": "zai", "kilo": "openrouter"}
+# Metadata columns, in table and models.txt order. Config values win over the catalog.
+COLUMNS = (
+  "mode",
+  "max_input_tokens",
+  "max_output_tokens",
+  "max_tokens",
+  "input_cost_per_token",
+  "output_cost_per_token",
+  "cache_read_input_token_cost",
+  "rpm",
+  "tpm",
+  "reasoning_effort",
+  "supports_function_calling",
+  "supports_tool_choice",
+  "supports_parallel_function_calling",
+  "supports_response_schema",
+  "supports_reasoning",
+  "supports_vision",
+  "supports_pdf_input",
+  "supports_audio_input",
+  "supports_audio_output",
+  "supports_prompt_caching",
+  "supports_web_search",
+  "supports_system_messages",
+  "deprecation_date",
+  "source",
+)
+TEXT_COLUMNS = frozenset({"mode", "reasoning_effort", "deprecation_date", "source"})
 TIMEOUT_SECONDS = 60.0
 MAX_PAGES = 50
 
@@ -224,31 +258,132 @@ def build_catalog(
   return lines, skipped
 
 
-def read_models_txt() -> list[str]:
-  """The lines the last catalog run wrote, or an empty list before the first run."""
-  if not MODELS_TXT.exists():
-    return []
-  return [line for line in MODELS_TXT.read_text(encoding="utf-8").splitlines() if line]
+def litellm_entries(
+  provider_name: str, fetch: Fetch = fetch_json
+) -> dict[str, dict[str, Any]]:
+  """Read one provider from the LiteLLM catalog, page by page, keyed by slug."""
+  name = LITELLM_PROVIDER.get(provider_name, provider_name)
+  url = with_param(
+    with_param(LITELLM_CATALOG, "provider", name), "page_size", LITELLM_PAGE_SIZE
+  )
+  entries: dict[str, dict[str, Any]] = {}
+  for page in range(1, MAX_PAGES + 1):
+    payload = fetch(with_param(url, "page", page), {})
+    for entry in payload.get("data") or []:
+      if isinstance(entry, dict) and isinstance(entry.get("id"), str):
+        entries[entry["id"].removeprefix(f"{name}/")] = entry
+    if payload.get("has_more") is not True:
+      break
+  return entries
 
 
-def write_models_txt(lines: Iterable[str], path: Path | str = MODELS_TXT) -> Path:
-  """Write one `provider/slug` per line."""
+def config_params(provider: dict[str, Any], slug: str) -> dict[str, Any]:
+  """Provider-level values, then every matching `models` entry, in config order."""
+  found = {key: provider[key] for key in COLUMNS if provider.get(key) is not None}
+  for pattern, values in (provider.get("models") or {}).items():
+    if isinstance(values, dict) and matches(str(pattern), slug):
+      found.update({key: values[key] for key in COLUMNS if values.get(key) is not None})
+  return found
+
+
+def enrich(
+  lines: Iterable[str], config: dict[str, Any], fetch: Fetch = fetch_json
+) -> tuple[list[dict[str, Any]], list[str]]:
+  """Add catalog metadata and config values to each line, config first."""
+  cache: dict[str, dict[str, dict[str, Any]]] = {}
+  rows, problems = [], []
+  for line in lines:
+    provider_name, _, slug = line.partition("/")
+    if provider_name not in cache:
+      try:
+        cache[provider_name] = litellm_entries(provider_name, fetch)
+      except (httpx.HTTPError, ValueError) as error:
+        problems.append(f"{provider_name}: LiteLLM catalog failed: {error}")
+        cache[provider_name] = {}
+    entry = cache[provider_name].get(slug) or {}
+    row: dict[str, Any] = {"id": line, "provider": provider_name, "slug": slug}
+    row.update({key: entry.get(key) for key in COLUMNS})
+    provider = config.get(provider_name)
+    row.update(config_params(provider if isinstance(provider, dict) else {}, slug))
+    rows.append(row)
+  return rows, problems
+
+
+def text(value: Any) -> str:
+  if value is None:
+    return ""
+  if isinstance(value, bool):
+    return "true" if value else "false"
+  return str(value).replace("\t", " ").replace("\n", " ")
+
+
+def write_models_txt(
+  rows: Iterable[dict[str, Any]], path: Path | str = MODELS_TXT
+) -> Path:
+  """Write a tab-separated table with a header row."""
   target = Path(path)
   target.parent.mkdir(parents=True, exist_ok=True)
+  header = ("id", *COLUMNS)
+  lines = ["\t".join(header)]
+  lines.extend("\t".join(text(row.get(key)) for key in header) for row in rows)
   with target.open("w", encoding="utf-8", newline="\n") as handle:
     handle.write("".join(f"{line}\n" for line in lines))
   return target
 
 
+def write_store(rows: Iterable[dict[str, Any]], path: Path | str | None = None) -> Path:
+  """Replace the model table in one transaction-safe file swap."""
+  target = Path(path or MODELS_DB)
+  target.parent.mkdir(parents=True, exist_ok=True)
+  temporary = target.with_suffix(".tmp")
+  temporary.unlink(missing_ok=True)
+  columns = ", ".join(
+    f"{key} {'TEXT' if key in TEXT_COLUMNS else 'NUMERIC'}" for key in COLUMNS
+  )
+  with sqlite3.connect(temporary) as database:
+    database.execute(
+      f"CREATE TABLE models (id TEXT PRIMARY KEY, provider TEXT, slug TEXT, {columns})"
+    )
+    names = ("id", "provider", "slug", *COLUMNS)
+    values = []
+    for row in rows:
+      provider, _, slug = row["id"].partition("/")
+      values.append((row["id"], provider, slug, *(row.get(key) for key in COLUMNS)))
+    marks = ", ".join("?" * len(names))
+    database.executemany(
+      f"INSERT INTO models ({', '.join(names)}) VALUES ({marks})", values
+    )
+  database.close()
+  temporary.replace(target)
+  return target
+
+
+def read_models(routable_only: bool = True) -> list[str]:
+  """The stored model ids, chat or unmatched rows only by default."""
+  if not Path(MODELS_DB).exists():
+    return []
+  query = "SELECT id FROM models"
+  if routable_only:
+    query += " WHERE mode IS NULL OR mode = 'chat'"
+  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
+  try:
+    return [row[0] for row in database.execute(query + " ORDER BY rowid")]
+  finally:
+    database.close()
+
+
 def main() -> int:
   argparse.ArgumentParser(
     prog="python -m daedalus.catalog",
-    description="Discover provider models and write them to .daedalus-state/models.txt.",
+    description="Discover provider models and store them in .daedalus-state.",
   ).parse_args()
   logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
-  lines, skipped = build_catalog()
-  target = write_models_txt(lines)
-  for reason in skipped:
+  config = get_config()
+  lines, skipped = build_catalog(config)
+  rows, problems = enrich(lines, config)
+  write_store(rows)
+  target = write_models_txt(rows)
+  for reason in [*skipped, *problems]:
     logger.warning("skipped %s", reason)
   providers = len({line.split("/", 1)[0] for line in lines})
   logger.info("wrote %d models from %d providers to %s", len(lines), providers, target)

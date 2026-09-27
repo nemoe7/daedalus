@@ -206,9 +206,11 @@ async def main() -> None:
       assert '"tool_calls"' in response.text
       mode = "text"
       with tempfile.TemporaryDirectory() as directory:
-        original = catalog.MODELS_TXT
-        catalog.MODELS_TXT = Path(directory) / "models.txt"
-        catalog.MODELS_TXT.write_text("gemini/test\ninteractions/test\nfailed/test\n")
+        original = catalog.MODELS_DB
+        catalog.MODELS_DB = Path(directory) / "models.sqlite3"
+        catalog.write_store(
+          [{"id": "gemini/test"}, {"id": "interactions/test"}, {"id": "failed/test"}]
+        )
         try:
           for mode in ("read-error", "invalid-json", "stream-error"):
             response = await send("daedalus/moros", stream=mode == "stream-error")
@@ -232,10 +234,10 @@ async def main() -> None:
           assert response.status_code == 200
           assert seen[-1][0].url.host == "interactions.test"
           configured["gemini"]["api_key"] = "gemini-key"
-          catalog.MODELS_TXT.write_text("failed/test\n")
+          catalog.write_store([{"id": "failed/test"}])
           assert (await send("daedalus/moros")).status_code == 429
         finally:
-          catalog.MODELS_TXT = original
+          catalog.MODELS_DB = original
       assert (await send("unknown/test")).status_code == 400
       assert (await send("daedalus/unknown")).status_code == 400
       for invalid in ([], {}, {"model": "gemini/test", "messages": "hi"}):
