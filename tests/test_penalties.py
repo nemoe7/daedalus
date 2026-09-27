@@ -8,7 +8,7 @@ import httpx
 from fastapi.testclient import TestClient
 
 from daedalus import store as model_store
-from daedalus.routing import penalties
+from daedalus.routing import penalties, router
 from daedalus.server import api, stream, upstream
 from daedalus.store import keys
 
@@ -154,7 +154,10 @@ def check_requests() -> None:
   }
   original = api.get_config, api.chain
   api.get_config = lambda: config
-  api.chain = lambda model, body, config: ([["a/1", "b/1"], ["c/1"]], "daedalus/deinos")
+  api.chain = lambda model, body, config, key="": (
+    [["a/1", "b/1"], ["c/1"]],
+    "daedalus/deinos",
+  )
   upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
   api.PENALTIES.clear()
   client = TestClient(api.app, headers=AUTH)
@@ -198,7 +201,7 @@ def check_ttft() -> None:
   config = {"a": {"api_key": "k", "api_base": "https://a.test/v1"}}
   original = api.get_config, api.chain, api.SLOW_SECONDS
   api.get_config = lambda: config
-  api.chain = lambda model, body, config: ([["a/1"]], "daedalus/deinos")
+  api.chain = lambda model, body, config, key="": ([["a/1"]], "daedalus/deinos")
   frames = [role, text, "[DONE]"]
   sse = "".join(
     f"data: {json.dumps(item) if item != '[DONE]' else item}\n\n" for item in frames
@@ -231,17 +234,60 @@ def check_ttft() -> None:
     api.PENALTIES.clear()
 
 
+def check_highest(folder: Path) -> None:
+  now = [0.0]
+  store = penalties.Penalties(lambda: folder / "t.sqlite3", clock=lambda: now[0])
+  assert store.highest("k", 3) == 3 and store.highest("k", 1) == 3, "no way down"
+  assert store.highest("k", 4) == 4 and store.highest("other", 1) == 1, "per key"
+  now[0] = 3599.0
+  assert store.highest("k", 1) == 4, "each request resets the idle time"
+  now[0] = 7200.0
+  assert store.highest("k", 2) == 2, "an idle conversation starts again"
+  store.clear()
+  assert store.highest("other", 1) == 1, "clear removes the tiers"
+
+
+def check_session_tier() -> None:
+  seen: list[str] = []
+  tiers = [3, 1, 1, 1]
+  original = router.required_tier, router.chain_groups, model_store.read_models
+  router.required_tier = lambda text: seen.append(text) or tiers.pop(0)
+  router.chain_groups = lambda config, lines, order: [[str(tier)] for tier in order]
+  model_store.read_models = lambda tools_only=False: []
+  api.PENALTIES.clear()
+  messages = [
+    {"role": "system", "content": "rules"},
+    {"role": "user", "content": "first"},
+    {"role": "assistant", "content": "x"},
+    {"role": "user", "content": [{"type": "text", "text": "continue"}]},
+  ]
+  body = {"model": router.RESERVED_MODEL, "messages": messages}
+  try:
+    groups, slot = api.chain(router.RESERVED_MODEL, body, {}, "k")
+    assert seen == ["first\ncontinue"], "all user turns, and no system prompt"
+    assert groups[0] == ["3"] and slot == "daedalus/auto:TIER-B", (groups, slot)
+    groups, slot = api.chain(router.RESERVED_MODEL, body, {}, "k")
+    assert groups[0] == ["3"] and slot == "daedalus/auto:TIER-B", "the tier stays up"
+    assert api.chain(router.RESERVED_MODEL, body, {}, "new")[0][0] == ["1"], "per key"
+    assert api.chain(router.RESERVED_MODEL, body, {}, "")[0][0] == ["1"], "no key"
+  finally:
+    router.required_tier, router.chain_groups, model_store.read_models = original
+    api.PENALTIES.clear()
+
+
 def main() -> None:
   with tempfile.TemporaryDirectory() as name:
     folder = Path(name)
     check_weights(folder)
     check_pins(folder)
     check_rebuild(folder)
+    check_highest(folder)
     model_store.MODELS_DB = folder / "models.sqlite3"
     check_session_key()
     check_slots()
     check_requests()
     check_ttft()
+    check_session_tier()
   print("ok: penalties and session affinity")
 
 
