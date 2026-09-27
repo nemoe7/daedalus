@@ -148,7 +148,7 @@ def read_models(routable_only: bool = True, tools_only: bool = False) -> list[st
 
 
 def model_rows() -> list[dict[str, Any]]:
-  """The routable rows, with the input limit, the tool flag and the reasoning flag."""
+  """All rows, with the mode, the input limit, the tool flag and the reasoning flag."""
   if not Path(MODELS_DB).exists():
     return []
   database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
@@ -165,12 +165,12 @@ def model_rows() -> list[dict[str, Any]]:
   return [
     {
       "id": key,
+      "mode": mode or "chat",
       "max_input_tokens": limit,
       "tools": bool(tools),
       "reasoning": bool(thinks),
     }
     for key, mode, limit, tools, thinks in rows
-    if mode in ROUTABLE_MODES
   ]
 
 

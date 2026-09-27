@@ -56,7 +56,7 @@ Daedalus skips each provider that has no key.
 | `weights.slow` | `0.75` | Factor for a slow success |
 | `weights.hourly` | `1.212` | Recovery factor for each hour |
 | `catalog.every` | `6` | Hours between catalog rebuilds. `0` stops them. |
-| `catalog.anchor` | `6` | Local hour that the rebuild times start from |
+| `catalog.anchor` | `6` | Local hour that the rebuild times start from. A whole hour from 0 to 23. |
 | `headroom.timeout` | `5` | Seconds for Headroom. Then the original messages go to the provider. |
 
 ## Provider files

@@ -64,15 +64,27 @@
       <div class="panel">
         <div class="toolbar">
           <input type="search" id="search" placeholder="Filter by provider or slug">
+          <select id="mode" aria-label="Model type">
+            <option value="all">All types</option>
+            <option value="chat">Chat</option>
+            <option value="embedding">Embedding</option>
+            <option value="audio_transcription">Transcription</option>
+            <option value="audio_speech">Speech</option>
+            <option value="image_generation">Image</option>
+          </select>
           <div id="tiers"></div>
         </div>
-        <table>
+        <table class="models">
+          <colgroup>
+            <col><col class="c-type"><col class="c-tier"><col class="c-num hide-sm"><col class="c-flag"><col class="c-flag"><col class="c-weight">
+          </colgroup>
           <thead><tr id="model-head">
             <th data-sort="id"><button type="button" class="sort">Model</button></th>
-            <th data-sort="tier"><button type="button" class="sort">Tier</button></th>
+            <th data-sort="mode"><button type="button" class="sort">Type</button></th>
+            <th data-sort="tier" class="mid"><button type="button" class="sort">Tier</button></th>
             <th data-sort="context" class="hide-sm"><button type="button" class="sort">Context</button></th>
-            <th data-sort="tools"><button type="button" class="sort">Tools</button></th>
-            <th data-sort="reasoning"><button type="button" class="sort">Reasoning</button></th>
+            <th data-sort="tools" class="mid"><button type="button" class="sort">Tools</button></th>
+            <th data-sort="reasoning" class="mid"><button type="button" class="sort">Reasoning</button></th>
             <th data-sort="weight"><button type="button" class="sort">Weight</button></th>
           </tr></thead>
           <tbody id="models"></tbody>
@@ -112,12 +124,12 @@
       </div>
     </section>
     <section data-page="settings" hidden>
-      <div class="settings" id="settings"></div>
       <div class="panel editbar">
         <button class="primary" id="settings-save" type="button" disabled>Save</button>
         <span class="message" id="settings-message"></span>
         <span class="hint" id="settings-path">Ctrl+S saves and reloads</span>
       </div>
+      <div class="settings" id="settings"></div>
     </section>
   </main>
 </div>

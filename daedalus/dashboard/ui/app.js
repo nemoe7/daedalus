@@ -17,7 +17,7 @@ const clock = (seconds) => new Date(seconds * 1000).toLocaleTimeString(
   [], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
 const state = {
-  models: [], tier: "All", sort: { key: "", dir: 1 }, files: [], file: 0, saved: [], timers: [],
+  models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, saved: [], timers: [],
   pools: [], requests: [], keys: [], catalog: {}, settings: null,
 };
 
@@ -126,15 +126,24 @@ function renderStatus(status) {
   $("status").outerHTML = `<span id="status" class="chips">${chips.join("")}</span>`;
 }
 
+// The tier filter of the Models tab for each pool.
+const POOL_TIERS = {
+  "daedalus/auto": "All", "daedalus/sophos": "A", "daedalus/deinos": "B",
+  "daedalus/koinos": "C", "daedalus/moros": "D",
+};
+
 function renderPools(pools) {
   $("pools").innerHTML = pools.map((pool) => {
-    const members = pool.members;
+    // The highest weight first. A tie keeps the chain order.
+    const members = [...pool.members].sort((a, b) => b.weight - a.weight);
     const shown = members.slice(0, SHOWN).map((m) => `
       <div class="member" title="${esc(m.id)} (${esc(m.tier)})">
         <div class="name">${esc(m.id)}</div><div class="w">${m.weight.toFixed(2)}</div>
         ${weightBar(m.weight)}
       </div>`).join("");
-    const rest = members.length > SHOWN ? `<div class="more">+${members.length - SHOWN} more</div>` : "";
+    const filters = `tier=${POOL_TIERS[pool.name] || "All"}&mode=chat&sort=weight`;
+    const rest = members.length > SHOWN
+      ? `<a class="more" href="#/models?${filters}">+${members.length - SHOWN} more</a>` : "";
     return `<div class="card"><h3>${esc(pool.name)}</h3>
       <div class="sub">${esc(POOL_NOTES[pool.name] || "")} &middot; ${members.length} models</div>
       ${shown || '<div class="more">No models</div>'}${rest}</div>`;
@@ -187,20 +196,28 @@ function renderRequests(rows) {
     : '<tr><td colspan="7" class="empty">No chat requests since the start</td></tr>';
 }
 
+// The label of each catalog mode.
+const MODES = {
+  chat: "Chat", embedding: "Embedding", audio_transcription: "Transcription",
+  audio_speech: "Speech", image_generation: "Image",
+};
+
 function renderTiers() {
   $("tiers").innerHTML = ["All", "A", "B", "C", "D"].map((t) =>
     `<button type="button" class="filter${t === state.tier ? " on" : ""}" data-tier="${t}">${t}</button>`,
   ).join(" ");
+  $("mode").value = state.mode;
 }
 
 // The sort value of each column. Null goes last in both directions.
 const sortValue = {
   id: (m) => m.id.toLowerCase(),
+  mode: (m) => MODES[m.mode] || m.mode,
   tier: (m) => (tierLetter(m.tier) === "-" ? null : tierLetter(m.tier)),
   context: (m) => m.max_input_tokens ?? null,
-  tools: (m) => (m.tools ? 1 : 0),
-  reasoning: (m) => (m.reasoning ? 1 : 0),
-  weight: (m) => m.weight,
+  tools: (m) => (m.mode !== "chat" ? null : m.tools ? 1 : 0),
+  reasoning: (m) => (m.mode !== "chat" ? null : m.reasoning ? 1 : 0),
+  weight: (m) => m.weight ?? null,
 };
 
 const yesNo = (on) => (on ? '<span class="yes">Yes</span>' : '<span class="muted">No</span>');
@@ -226,20 +243,25 @@ function renderSortHeads() {
   });
 }
 
+const dash = '<span class="muted">-</span>';
+
 function renderModels() {
   const query = $("search").value.trim().toLowerCase();
   const rows = sortModels(state.models.filter((m) =>
-    (state.tier === "All" || tierLetter(m.tier) === state.tier) && m.id.toLowerCase().includes(query)));
+    (state.tier === "All" || tierLetter(m.tier) === state.tier)
+    && (state.mode === "all" || m.mode === state.mode) && m.id.toLowerCase().includes(query)));
   const empty = state.models.length ? "No models match" : "No models. Run daedalus catalog.";
   $("models").innerHTML = rows.length ? rows.map((m) => `
     <tr>
       <td>${esc(m.id)}</td>
-      <td><span class="tier">${esc(tierLetter(m.tier))}</span></td>
+      <td class="muted">${esc(MODES[m.mode] || m.mode)}</td>
+      <td class="mid">${m.tier ? `<span class="tier">${esc(tierLetter(m.tier))}</span>` : dash}</td>
       <td class="hide-sm num muted">${tokens(m.max_input_tokens)}</td>
-      <td>${yesNo(m.tools)}</td>
-      <td>${yesNo(m.reasoning)}</td>
-      <td><div class="weight">${weightBar(m.weight)}<span class="num">${m.weight.toFixed(2)}</span></div></td>
-    </tr>`).join("") : `<tr><td colspan="6" class="empty">${empty}</td></tr>`;
+      <td class="mid">${m.mode === "chat" ? yesNo(m.tools) : dash}</td>
+      <td class="mid">${m.mode === "chat" ? yesNo(m.reasoning) : dash}</td>
+      <td>${m.weight == null ? dash
+        : `<div class="weight">${weightBar(m.weight)}<span class="num">${m.weight.toFixed(2)}</span></div>`}</td>
+    </tr>`).join("") : `<tr><td colspan="7" class="empty">${empty}</td></tr>`;
 }
 
 const dateTime = (seconds) => new Date(seconds * 1000).toLocaleString(
@@ -334,9 +356,26 @@ const SETTINGS = [
 // The Settings cards of each column, from top to bottom.
 const SETTINGS_COLUMNS = [["timeouts", "catalog"], ["session_affinity", "headroom"], ["weights"]];
 
+// The fields that take decimals. The other fields take whole numbers.
+const DECIMALS = new Set([
+  "session_affinity.stay", "weights.success", "weights.fault", "weights.slow", "weights.hourly",
+]);
+// The highest value of a field, when it has one.
+const MAXIMA = { "catalog.anchor": 23 };
+
 // The value in the file, or null when the file does not set it.
 const fileValue = (group, key) => state.settings.file?.[group]?.[key] ?? null;
 const setting = (group, key) => fileValue(group, key) ?? state.settings.defaults[group][key];
+
+// The value after 1 wheel step. A decimal field steps its last decimal digit.
+function wheelStep(input, direction) {
+  const text = input.value || input.placeholder;
+  const places = input.step === "any" ? Math.max((text.split(".")[1] || "").length, 1) : 0;
+  const size = 10 ** -places;
+  const max = input.max === "" ? Infinity : Number(input.max);
+  const next = Math.min(max, Math.max(0, (Number(text) || 0) + direction * size));
+  return next.toFixed(places);
+}
 
 function renderSettings() {
   $("settings-path").textContent = `${fileName(state.settings.path)} · Ctrl+S saves and reloads`;
@@ -350,7 +389,8 @@ function renderSettings() {
       const fallback = state.settings.defaults[group][key];
       const value = fileValue(group, key);
       return `<label class="field" for="${id}"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
-        <span class="input"><input type="number" step="any" min="0" id="${id}" value="${value ?? ""}"
+        <span class="input"><input type="number" min="0" id="${id}" value="${value ?? ""}"
+          step="${DECIMALS.has(`${group}.${key}`) ? "any" : "1"}" ${MAXIMA[`${group}.${key}`] ? `max="${MAXIMA[`${group}.${key}`]}"` : ""}
           placeholder="${fallback ?? "half of Wait"}"><i>${esc(unit)}</i></span></label>`;
     }).join("")}</div>`;
   const cards = Object.fromEntries(SETTINGS.map((item) => [item[0], card(item)]));
@@ -539,8 +579,23 @@ $("reveal-close").addEventListener("click", () => {
 });
 const PAGES = ["overview", "pools", "requests", "models", "keys", "providers", "settings"];
 
+// A Models link such as #/models?tier=C&mode=chat&sort=weight sets the filters.
+function applyModelFilters(query) {
+  const params = new URLSearchParams(query);
+  state.tier = ["All", "A", "B", "C", "D"].includes(params.get("tier")) ? params.get("tier") : "All";
+  state.mode = MODES[params.get("mode")] ? params.get("mode") : "all";
+  state.sort = sortValue[params.get("sort")] ? { key: params.get("sort"), dir: -1 } : { key: "", dir: 1 };
+  $("search").value = "";
+  renderTiers();
+  renderSortHeads();
+  if (state.models.length) renderModels();
+  history.replaceState(null, "", "#/models");
+}
+
 function showPage() {
-  const asked = location.hash.replace("#/", "").replace(/^config$/, "providers");
+  const [path, query] = location.hash.split("?");
+  const asked = path.replace("#/", "").replace(/^config$/, "providers");
+  if (asked === "models" && query !== undefined) applyModelFilters(query);
   const page = PAGES.includes(asked) ? asked : PAGES[0];
   document.querySelectorAll("section[data-page]").forEach((section) => {
     section.hidden = section.dataset.page !== page;
@@ -564,6 +619,10 @@ $("model-head").addEventListener("click", (event) => {
   renderSortHeads();
   renderModels();
 });
+$("mode").addEventListener("change", () => {
+  state.mode = $("mode").value;
+  renderModels();
+});
 $("tiers").addEventListener("click", (event) => {
   const button = event.target.closest("[data-tier]");
   if (!button) return;
@@ -582,6 +641,13 @@ $("settings").addEventListener("input", () => {
   renderSettingsSave();
 });
 $("settings-save").addEventListener("click", saveSettings);
+$("settings").addEventListener("wheel", (event) => {
+  const input = event.target.closest("input[type=number]");
+  if (!input || input !== document.activeElement) return;
+  event.preventDefault();
+  input.value = wheelStep(input, event.deltaY < 0 ? 1 : -1);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}, { passive: false });
 document.addEventListener("keydown", (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
     event.preventDefault();
