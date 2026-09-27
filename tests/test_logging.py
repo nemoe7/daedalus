@@ -4,6 +4,7 @@ import httpx
 from fastapi.testclient import TestClient
 
 from daedalus import api
+from daedalus.providers.base import error_text
 
 
 class Lines(logging.Handler):
@@ -23,6 +24,20 @@ def answer(request: httpx.Request) -> httpx.Response:
   return httpx.Response(200, json={"id": "x", "model": "m", "choices": [choice]})
 
 
+def check_error_text() -> None:
+  cases = {
+    b'{"error": {"message": "Rate  limit", "code": 429}}': "Rate limit",
+    b'{"errors": [{"code": 7000, "message": "No route"}], "success": false}': "No route",
+    b'[{"error": {"code": 400, "message": "API key not valid"}}]': "API key not valid",
+    b'{"error": "model not found"}': "model not found",
+    b"<html>Bad gateway</html>": "<html>Bad gateway</html>",
+    b"": "no message",
+  }
+  for raw, expected in cases.items():
+    assert error_text(raw) == expected, (raw, error_text(raw))
+  assert len(error_text("x" * 1000)) == 300, "a long body is cut"
+
+
 def main() -> None:
   api.setup_logging()
   assert logging.getLogger("httpx").level == logging.WARNING, "no httpx request lines"
@@ -34,10 +49,11 @@ def main() -> None:
   config = {
     "first": {"api_key": "k", "api_base": "https://rejects.test/v1"},
     "second": {"api_key": "k", "api_base": "https://answers.test/v1"},
+    "keyless": {"api_base": "https://answers.test/v1"},
   }
   original = api.get_config, api.chain
   api.get_config = lambda: config
-  api.chain = lambda model, body, config: ["first/a", "second/b"]
+  api.chain = lambda model, body, config: ["keyless/c", "first/a", "second/b"]
   api.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
   try:
     body = {"model": "daedalus/auto", "messages": [{"role": "user", "content": "hi"}]}
@@ -48,12 +64,16 @@ def main() -> None:
   assert response.status_code == 200, response.text
   shown = [" ".join(line.split()[:4]) for line in lines.lines]
   assert shown == [
+    "WARN daedalus upstream keyless/c",
     "WARN daedalus upstream first/a",
     "INFO daedalus upstream second/b",
     "INFO daedalus POST /v1/chat/completions",
   ], lines.lines
-  assert lines.lines[0].split()[4] == "429", lines.lines
-  assert lines.lines[2].endswith("model=daedalus/auto via=second/b"), lines.lines
+  assert lines.lines[0].endswith("ProviderError: Missing api_key for keyless")
+  assert lines.lines[1].split()[4] == "429", lines.lines
+  assert lines.lines[1].endswith("ms: slow"), "the provider message"
+  assert lines.lines[3].endswith("model=daedalus/auto via=second/b"), lines.lines
+  check_error_text()
   print("ok: log lines")
 
 

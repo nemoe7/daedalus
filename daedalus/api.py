@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from daedalus import catalog, keys, providers, router
 from daedalus.config import get_config
+from daedalus.providers.base import error_text
 
 HOST = "0.0.0.0"
 PORT = 3357
@@ -209,7 +210,7 @@ async def chat(request: Request) -> Response:
         await response.aclose()
         answer = json.loads(raw)
         if not isinstance(answer, dict) or answer.get("error"):
-          raise providers.ProviderError("Invalid upstream answer")
+          raise providers.ProviderError(f"Invalid upstream answer: {error_text(raw)}")
         request.state.via = candidate
         return JSONResponse(provider.completion(answer, candidate))
       events = sse_data(provider.stream(response, candidate, include_usage))
@@ -220,7 +221,7 @@ async def chat(request: Request) -> Response:
       )
       continue
     except ATTEMPT_ERRORS as exc:
-      logger.warning("upstream %s failed: %s", candidate, type(exc).__name__)
+      logger.warning("upstream %s failed: %s", candidate, failure_text(exc))
       failure = error_response(
         502, "Upstream provider attempt failed", "upstream_error"
       )
@@ -232,6 +233,12 @@ async def chat(request: Request) -> Response:
       media_type="text/event-stream",
     )
   return failure
+
+
+def failure_text(exc: Exception) -> str:
+  """The error type and its message, for one log line."""
+  detail = error_text(str(exc)) if str(exc) else ""
+  return f"{type(exc).__name__}: {detail}" if detail else type(exc).__name__
 
 
 class UpstreamStatus(Exception):
@@ -261,15 +268,16 @@ async def attempt(
   upstream = get_client().build_request("POST", url, json=payload, headers=headers)
   started = time.perf_counter()
   response = await get_client().send(upstream, stream=True)
-  level = logging.WARNING if response.status_code >= 400 else logging.INFO
-  logger.log(
-    level, "upstream %s %d %s", candidate, response.status_code, elapsed(started)
+  status = response.status_code
+  if status < 400:
+    logger.info("upstream %s %d %s", candidate, status, elapsed(started))
+    return provider, response
+  raw = await response.aread()
+  await response.aclose()
+  logger.warning(
+    "upstream %s %d %s: %s", candidate, status, elapsed(started), error_text(raw)
   )
-  if response.status_code >= 400:
-    await response.aread()
-    await response.aclose()
-    raise UpstreamStatus(response.status_code)
-  return provider, response
+  raise UpstreamStatus(status)
 
 
 async def sse_data(chunks: AsyncIterator[bytes]) -> AsyncIterator[str]:
@@ -309,7 +317,7 @@ async def relay(
           return
         chunk = json.loads(data)
         if not isinstance(chunk, dict) or chunk.get("error"):
-          raise providers.ProviderError("Upstream stream error")
+          raise providers.ProviderError(f"Upstream stream error: {error_text(chunk)}")
         identifier = identifier or chunk.get("id")
         if identifier:
           chunk["id"] = identifier
@@ -322,7 +330,7 @@ async def relay(
     except StopAsyncIteration:
       logger.warning("upstream stream ended without [DONE]")
     except STREAM_ERRORS as exc:
-      logger.warning("upstream stream failed: %s", type(exc).__name__)
+      logger.warning("upstream stream failed: %s", failure_text(exc))
     await events.aclose()
     if tool:
       yield STREAM_FAILED
@@ -338,7 +346,7 @@ async def relay(
         break
       except (UpstreamStatus, *ATTEMPT_ERRORS) as exc:
         logger.warning(
-          "upstream %s continuation failed: %s", candidate, type(exc).__name__
+          "upstream %s continuation failed: %s", candidate, failure_text(exc)
         )
     else:
       yield STREAM_FAILED
