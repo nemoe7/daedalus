@@ -153,10 +153,15 @@ def check_ttft() -> None:
     for limit, expected in ((60.0, 1.0), (0.0, 0.75)):
       api.PENALTIES.clear()
       api.SLOW_SECONDS = limit
+      api.PENALTIES.pin("", "daedalus/deinos", "a/1")
       response = client.post("/v1/chat/completions", json=body)
       assert response.status_code == 200 and '"hi"' in response.text, response.text
       weight = api.PENALTIES.weights(["a/1"])["a/1"]
       assert abs(weight - expected) < 1e-3, (limit, weight)
+      pinned = api.PENALTIES.pinned("", "daedalus/deinos")
+      assert pinned == (None if limit == 0.0 else "a/1"), (
+        "a slow success removes the pin"
+      )
   finally:
     api.get_config, api.chain, api.SLOW_SECONDS = original
     api.set_client(None)
