@@ -1,6 +1,8 @@
-"""The OpenAI endpoints for models that do not chat, each for one model with no fallback."""
+"""The OpenAI endpoints for models that do not chat, for one model or a media pool."""
 
 import base64
+import hashlib
+import json
 import re
 import struct
 import time
@@ -11,15 +13,21 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse
 from starlette.datastructures import UploadFile
 
-from daedalus import providers
+from daedalus import providers, store
 from daedalus.config import get_config
-from daedalus.routing import router
+from daedalus.routing import penalties, retries, router
 from daedalus.server import access, stream, upstream
+from daedalus.store import keys
 
 routes = APIRouter()
 TRANSCRIPT_FORMATS = ("json", "text", "srt", "verbose_json", "vtt")
 SPEECH_FORMATS = ("mp3", "opus", "aac", "flac", "wav", "pcm")
 SIZE = re.compile(r"auto|[1-9][0-9]*x[1-9][0-9]*")
+# The server sets the shared weights at start.
+PENALTIES: penalties.Penalties | None = None
+REPEATS = retries.Retries()
+TRANSCRIPTION_POOL, IMAGE_POOL = router.MEDIA_POOLS
+Call = Callable[[providers.OpenAIProvider, str, str], Awaitable[Any]]
 
 
 def invalid(message: str) -> JSONResponse:
@@ -38,38 +46,84 @@ async def json_body(request: Request) -> dict | Response:
   return body
 
 
-def provider_for(model: str) -> tuple[providers.OpenAIProvider, str] | Response:
-  """The provider and the slug of a `provider/slug` model, or the error answer."""
-  if model == router.RESERVED_MODEL or model in router.POOLS:
-    return invalid("This endpoint needs a provider/slug model")
-  try:
-    return providers.provider_for(model, get_config())
-  except providers.ProviderError as exc:
-    return invalid(str(exc))
+def models_for(
+  request: Request, model: str, pool: str | None, content: bytes
+) -> list[str] | Response:
+  """The models to try: the one model, or the pool models by weight after the models that answered this content."""
+  if model != pool:
+    if (
+      model == router.RESERVED_MODEL
+      or model in router.POOLS
+      or model in router.MEDIA_POOLS
+    ):
+      return invalid(
+        f"This endpoint needs a provider/slug model{f' or {pool}' if pool else ''}"
+      )
+    return [model]
+  members = store.mode_models(router.MEDIA_POOLS[pool])
+  if not members:
+    return invalid(f"{pool} has no models")
+  turn = REPEATS.start_digest(
+    keys.digest(access.bearer(request) + pool), hashlib.sha256(content).hexdigest()
+  )
+  request.state.turn = turn
+  if turn.count:
+    request.state.retry = str(turn.count)
+    members = retries.fresh_models(turn, members)
+  return PENALTIES.order([members]) if PENALTIES else members
+
+
+def failed(status: int) -> JSONResponse:
+  """The error answer after the last attempt failed."""
+  if status:
+    return upstream.error_response(
+      status, "Upstream provider rejected the request", "upstream_error"
+    )
+  return upstream.error_response(
+    502, "Upstream provider attempt failed", "upstream_error"
+  )
 
 
 async def attempt(
-  request: Request, model: str, call: Callable[[], Awaitable[Any]]
+  request: Request, model: str, pool: str | None, content: bytes, call: Call
 ) -> Any:
-  """Run the one upstream call, and record it for the dashboard."""
+  """Try the models in turn, record each attempt for the dashboard, and update the pool weights."""
+  models = models_for(request, model, pool, content)
+  if isinstance(models, Response):
+    return models
+  pooled = model == pool
   attempts: list[dict[str, Any]] = []
-  request.state.attempts, request.state.fallbacks = attempts, "0"
-  started = time.perf_counter()
-  try:
-    answer = await call()
-  except upstream.UpstreamStatus as exc:
-    attempts.append(upstream.failure_note(model, started, exc))
-    return upstream.error_response(
-      exc.status, "Upstream provider rejected the request", "upstream_error"
-    )
-  except stream.ATTEMPT_ERRORS as exc:
-    attempts.append(upstream.failure_note(model, started, exc))
-    return upstream.error_response(
-      502, "Upstream provider attempt failed", "upstream_error"
-    )
-  request.state.via = model
-  attempts.append(upstream.note(model, "answered", started))
-  return answer
+  request.state.attempts, status = attempts, 0
+  for index, candidate in enumerate(models):
+    request.state.fallbacks = str(index)
+    started = time.perf_counter()
+    try:
+      provider, slug = providers.provider_for(candidate, get_config())
+      pending = call(provider, slug, candidate)
+    except providers.ProviderError as exc:
+      if not pooled:
+        return invalid(str(exc))
+      # A pool model that cannot take this request is not a fault.
+      attempts.append(upstream.note(candidate, "skipped", None, str(exc)))
+      continue
+    try:
+      answer = await pending
+    except (upstream.UpstreamStatus, *stream.ATTEMPT_ERRORS) as exc:
+      attempts.append(upstream.failure_note(candidate, started, exc))
+      status = exc.status if isinstance(exc, upstream.UpstreamStatus) else 0
+      if pooled and PENALTIES:
+        PENALTIES.record(candidate, PENALTIES.fault)
+      continue
+    request.state.via = candidate
+    attempts.append(upstream.note(candidate, "answered", started))
+    if pooled:
+      if PENALTIES:
+        PENALTIES.record(candidate, PENALTIES.success)
+      retries.record(request.state.turn, None, candidate)
+    return answer
+  if not attempts:
+    return invalid(f"No model of {pool} can take this request")
+  return failed(status)
 
 
 def packed(vector: list[float]) -> str:
@@ -105,21 +159,19 @@ async def embeddings(request: Request) -> Response:
   encoding = body.get("encoding_format", "float")
   if encoding not in ("float", "base64"):
     return invalid("encoding_format must be float or base64")
-  model = body["model"]
-  found = provider_for(model)
-  if isinstance(found, Response):
-    return found
-  provider, slug = found
-  try:
+
+  def call(
+    provider: providers.OpenAIProvider, slug: str, model: str
+  ) -> Awaitable[dict]:
     url, payload, headers = provider.embed_request(slug, body)
-  except providers.ProviderError as exc:
-    return invalid(str(exc))
 
-  async def call() -> dict:
-    response = await upstream.post(model, url, headers, json=payload)
-    return provider.embeddings(response.json(), model)
+    async def send() -> dict:
+      response = await upstream.post(model, url, headers, json=payload)
+      return provider.embeddings(response.json(), model)
 
-  result = await attempt(request, model, call)
+    return send()
+
+  result = await attempt(request, body["model"], None, b"", call)
   if isinstance(result, Response):
     return result
   if encoding == "base64":
@@ -150,22 +202,22 @@ async def transcriptions(request: Request) -> Response:
   }
   if fields.get("response_format", "json") not in TRANSCRIPT_FORMATS:
     return invalid("response_format must be json, text, srt, verbose_json or vtt")
-  found = provider_for(model)
-  if isinstance(found, Response):
-    return found
-  provider, slug = found
   media = upload.content_type or "application/octet-stream"
   audio = (upload.filename or "audio", await upload.read(), media)
-  try:
+
+  def call(
+    provider: providers.OpenAIProvider, slug: str, candidate: str
+  ) -> Awaitable[tuple[bytes, str]]:
     url, content, headers = provider.transcribe_request(slug, fields, audio)
-  except providers.ProviderError as exc:
-    return invalid(str(exc))
 
-  async def call() -> tuple[bytes, str]:
-    response = await upstream.post(model, url, headers, **content)
-    return provider.transcription(response, fields)
+    async def send() -> tuple[bytes, str]:
+      response = await upstream.post(candidate, url, headers, **content)
+      return provider.transcription(response, fields)
 
-  result = await attempt(request, model, call)
+    return send()
+
+  seen = audio[1] + json.dumps(fields, sort_keys=True).encode()
+  result = await attempt(request, model, TRANSCRIPTION_POOL, seen, call)
   if isinstance(result, Response):
     return result
   body, media_type = result
@@ -184,21 +236,19 @@ async def speech(request: Request) -> Response:
     return invalid("input must be a string")
   if body.get("response_format", "mp3") not in SPEECH_FORMATS:
     return invalid("response_format must be mp3, opus, aac, flac, wav or pcm")
-  model = body["model"]
-  found = provider_for(model)
-  if isinstance(found, Response):
-    return found
-  provider, slug = found
-  try:
+
+  def call(
+    provider: providers.OpenAIProvider, slug: str, model: str
+  ) -> Awaitable[tuple[bytes, str]]:
     url, content, headers = provider.speech_request(slug, body)
-  except providers.ProviderError as exc:
-    return invalid(str(exc))
 
-  async def call() -> tuple[bytes, str]:
-    response = await upstream.post(model, url, headers, **content)
-    return provider.speech(response, body)
+    async def send() -> tuple[bytes, str]:
+      response = await upstream.post(model, url, headers, **content)
+      return provider.speech(response, body)
 
-  result = await attempt(request, model, call)
+    return send()
+
+  result = await attempt(request, body["model"], None, b"", call)
   if isinstance(result, Response):
     return result
   audio, media_type = result
@@ -231,19 +281,18 @@ async def images(request: Request) -> Response:
   problem = image_error(body)
   if problem:
     return invalid(problem)
-  model = body["model"]
-  found = provider_for(model)
-  if isinstance(found, Response):
-    return found
-  provider, slug = found
-  try:
+
+  def call(
+    provider: providers.OpenAIProvider, slug: str, model: str
+  ) -> Awaitable[dict]:
     url, content, headers = provider.image_request(slug, body)
-  except providers.ProviderError as exc:
-    return invalid(str(exc))
 
-  async def call() -> dict:
-    response = await upstream.post(model, url, headers, **content)
-    return provider.images(response, body)
+    async def send() -> dict:
+      response = await upstream.post(model, url, headers, **content)
+      return provider.images(response, body)
 
-  result = await attempt(request, model, call)
+    return send()
+
+  seen = json.dumps({k: v for k, v in body.items() if k != "model"}, sort_keys=True)
+  result = await attempt(request, body["model"], IMAGE_POOL, seen.encode(), call)
   return result if isinstance(result, Response) else JSONResponse(result)
