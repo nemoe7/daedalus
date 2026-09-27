@@ -256,6 +256,24 @@ def check_build_catalog() -> None:
   assert len(skipped) == 3, skipped
 
 
+def check_discovery_match() -> None:
+  payload = {
+    "result": [
+      {"name": "@cf/a/free"},
+      {"name": "@cf/a/paid", "properties": [{"property_id": "paid", "value": "true"}]},
+      {"name": "@cf/a/open", "properties": [{"property_id": "paid", "value": "false"}]},
+      {"name": "@cf/a/top", "paid": True},
+    ]
+  }
+  match = {"paid": False}
+  slugs = catalog.extract_slugs(payload, match)
+  assert slugs == ["@cf/a/free", "@cf/a/open"], slugs
+  assert len(catalog.extract_slugs(payload)) == 4, "no match keeps every row"
+  provider = {"discovery_url": "https://m.test/s", "discovery_match": match}
+  kept = catalog.discover_provider("m", provider, lambda *_: payload)
+  assert kept == ["@cf/a/free", "@cf/a/open"], kept
+
+
 def check_dump() -> None:
   with tempfile.TemporaryDirectory() as folder:
     stale = Path(folder) / "broken.json"
@@ -390,6 +408,7 @@ def main() -> int:
   check_build_catalog()
   check_merge_pages()
   check_dump()
+  check_discovery_match()
   check_writers()
   check_non_text()
   print(f"ok: catalog checks passed, {len(SEEN)} stub pages fetched")
