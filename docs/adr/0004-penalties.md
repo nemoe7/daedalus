@@ -14,13 +14,13 @@ conversation can also move between models from one turn to the next.
 
 ### Weights
 
-Each model has a weight from 0 to 1. All models start at 1.
+Each model has a weight from 0.01 to 1. All models start at 1. The floor of 0.01 lets a model with many faults recover: from 0.01 to 0.5 in about 22 hours.
 
 | Event | New weight |
 | --- | --- |
 | Success | weight x 1.5, 1 at most |
-| Fault | weight x 0.5 |
-| Slow success: the first token comes after half the wait limit | weight x 0.75 |
+| Fault | weight x 0.5, 0.01 at least |
+| Slow success: the first token comes after half the wait limit | weight x 0.75, 0.01 at least |
 | Each hour | weight x 1.2, 1 at most, as a continuous rate |
 
 A fault is each failure that ADR 3 reroutes: no connection, HTTP 400 or higher, a bad answer,
