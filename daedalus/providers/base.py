@@ -12,6 +12,30 @@ class ProviderError(ValueError):
   pass
 
 
+ERROR_TEXT_LIMIT = 300
+
+
+def error_text(payload: Any) -> str:
+  """The provider's error message from a body or an event, short and on one line."""
+  if isinstance(payload, bytes):
+    payload = payload.decode("utf-8", "replace")
+  if isinstance(payload, str):
+    try:
+      payload = json.loads(payload)
+    except ValueError:
+      pass
+  found = payload
+  for key in ("error", "errors", "message", 0):
+    if isinstance(found, list) and found:
+      found = found[0]
+    if isinstance(found, dict) and key in found:
+      found = found[key]
+  if isinstance(found, dict | list):
+    found = json.dumps(found, ensure_ascii=False)
+  text = " ".join(str(found).split())
+  return text[:ERROR_TEXT_LIMIT] or "no message"
+
+
 def count(value: Any) -> int | None:
   """Read a positive token count from a number or a digit string."""
   if isinstance(value, bool) or not isinstance(value, (int, str)):
