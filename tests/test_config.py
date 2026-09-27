@@ -5,7 +5,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from daedalus import config, providers
+from daedalus import catalog, config, providers
 
 SAMPLE = """\
 cloudflare:
@@ -86,6 +86,16 @@ def check_repo_file() -> None:
     assert "api_key" in provider, name
   assert loaded["z-ai"]["exclude"] == ["*"], loaded["z-ai"]["exclude"]
   assert loaded["groq"]["rpm"] == 30, loaded["groq"]["rpm"]
+  author_prefixed = [
+    "@cf/meta/llama-guard-3-8b",
+    "@cf/meta/llama-3.2-11b-vision-instruct",
+    "@cf/zai-org/glm-5.2",
+    "@cf/zai-org/glm-5.3-flash",
+    "@cf/openai/gpt-oss-120b",
+  ]
+  kept = catalog.select(loaded["cloudflare"], author_prefixed)
+  assert "@cf/openai/gpt-oss-120b" in kept, kept
+  assert not set(author_prefixed[:4]) & set(kept), kept
 
 
 def walk(node: object) -> list[str]:
