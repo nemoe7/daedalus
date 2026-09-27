@@ -59,6 +59,7 @@ def enrich(
   config: dict[str, Any],
   fetch: Fetch = fetch_json,
   native: dict[str, dict[str, Any]] | None = None,
+  failed: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
   """Add metadata to each line: config, then provider columns, then the LiteLLM catalog."""
   cache: dict[str, dict[str, dict[str, Any]]] = {}
@@ -70,6 +71,8 @@ def enrich(
         cache[provider_name] = litellm_entries(provider_name, fetch)
       except (httpx.HTTPError, ValueError) as error:
         problems.append(f"{provider_name}: LiteLLM catalog failed: {error}")
+        if failed is not None:
+          failed.append(provider_name)
         cache[provider_name] = {}
     entry = cache[provider_name].get(slug) or {}
     row: dict[str, Any] = {"id": line, "provider": provider_name, "slug": slug}

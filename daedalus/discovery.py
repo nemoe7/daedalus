@@ -240,7 +240,9 @@ def discover_provider(
 
 
 def read_providers(
-  config: dict[str, Any] | None = None, fetch: Fetch = fetch_json
+  config: dict[str, Any] | None = None,
+  fetch: Fetch = fetch_json,
+  failed: list[str] | None = None,
 ) -> tuple[list[tuple[str, dict[str, Any], dict[str, Any]]], list[str]]:
   """Read each provider, and return its settings and payload, with one reason per skip."""
   providers = get_config() if config is None else config
@@ -254,10 +256,15 @@ def read_providers(
     if not (provider.get("api_key") or ""):
       skipped.append(f"{provider_name}: no api_key")
       continue
+    if not provider.get("discovery_url"):
+      skipped.append(f"{provider_name}: no discovery_url")
+      continue
     try:
       payload = read_pages(provider_name, provider, fetch)
     except (httpx.HTTPError, ValueError) as error:
       skipped.append(f"{provider_name}: {error}")
+      if failed is not None:
+        failed.append(provider_name)
       continue
     found.append((provider_name, provider, payload))
   return found, skipped
@@ -274,9 +281,10 @@ def native_columns(provider_name: str, row: dict[str, Any]) -> dict[str, Any]:
 def build_rows(
   config: dict[str, Any] | None = None,
   fetch: Fetch = fetch_json,
+  failed: list[str] | None = None,
 ) -> tuple[dict[str, dict[str, Any]], list[str]]:
   """Map each kept catalog line to its provider columns, with one reason per skip."""
-  found, skipped = read_providers(config, fetch)
+  found, skipped = read_providers(config, fetch, failed)
   lines: dict[str, dict[str, Any]] = {}
   for provider_name, provider, payload in found:
     rows = extract_rows(payload, provider.get("discovery_match"))
