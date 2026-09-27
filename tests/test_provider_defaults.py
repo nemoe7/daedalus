@@ -38,7 +38,7 @@ def main() -> None:
 
   setup = {
     "gemini": {"api_key": "k"},
-    "interactions": {"api_key": "k", "api_type": "interactions"},
+    "custom": {"api_key": "k"},
     "groq": {"api_key": "k"},
   }
   provider, url, _, headers = providers.prepare("gemini/m", MESSAGE, setup)
@@ -48,14 +48,18 @@ def main() -> None:
   )
   assert headers["x-goog-api-key"] == "k"
   setup["gemini"]["api_type"] = "interactions"
-  provider, url, _, _ = providers.prepare("gemini/m", MESSAGE, setup)
-  assert type(provider).__name__ == "InteractionsProvider"
-  assert url == "https://generativelanguage.googleapis.com/v1beta/interactions", url
+  try:
+    providers.prepare("gemini/m", MESSAGE, setup)
+  except providers.ProviderError:
+    pass
+  else:
+    raise AssertionError("interactions is not an api_type")
+  del setup["gemini"]["api_type"]
   provider, url, _, _ = providers.prepare("groq/m", MESSAGE, setup)
   assert type(provider).__name__ == "GroqProvider"
   assert url == "https://api.groq.com/openai/v1/chat/completions", url
   try:
-    providers.prepare("interactions/m", MESSAGE, setup)
+    providers.prepare("custom/m", MESSAGE, setup)
   except providers.ProviderError:
     pass
   else:
