@@ -8,8 +8,8 @@ from pathlib import Path
 
 # A pin with no request for this long expires.
 IDLE_SECONDS = 3600.0
-# In a session, each model other than the session model uses its weight times this.
-OTHERS = 0.05
+# In a session, the share of first-tier draws for the session model.
+STAY = 0.85
 SUCCESS, FAULT, SLOW, HOURLY = 1.5, 0.5, 0.75, 1.2
 TABLES = (
   (
@@ -33,7 +33,7 @@ class Penalties:
     pick: Callable[[], float] = random.random,
   ) -> None:
     self.path, self.clock, self.pick = path, clock, pick
-    self.enabled, self.idle, self.others = True, IDLE_SECONDS, OTHERS
+    self.enabled, self.idle, self.stay = True, IDLE_SECONDS, STAY
     self.success, self.fault, self.slow, self.hourly = SUCCESS, FAULT, SLOW, HOURLY
 
   def connect(self) -> sqlite3.Connection:
@@ -125,13 +125,20 @@ class Penalties:
     groups = [[m for m in group if not (m in seen or seen.add(m))] for group in groups]
     weights = self.weights(list(seen))
     session = self.pinned(key, slot) if slot else None
-    if session in seen:
-      weights = {m: w if m == session else w * self.others for m, w in weights.items()}
-    ranked = [m for group in groups for m in sorted(group, key=lambda m: -weights[m])]
+    ranked = [
+      m
+      for group in groups
+      for m in sorted(group, key=lambda m: (m != session, -weights[m]))
+    ]
     if not self.enabled:
       first = session if session in seen else None
     else:
-      first = self.choose(next((group for group in groups if group), []), weights)
+      tier = next((group for group in groups if group), [])
+      draw, rest = dict(weights), sum(weights[m] for m in tier if m != session)
+      if session in tier and rest:
+        # The session weight that gives it the `stay` share of this tier.
+        draw[session] = rest * self.stay / (1 - self.stay)
+      first = self.choose(tier, draw)
     if first is None:
       return ranked
     return [first, *(m for m in ranked if m != first)]

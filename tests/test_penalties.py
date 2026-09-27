@@ -61,14 +61,26 @@ def check_pins(folder: Path) -> None:
   order = store.order(groups, "k", "pool")
   assert order == ["a/1", "b/1", "c/1"], "a lower-tier session model does not go first"
   store.pin("k", "pool", "b/1")
-  store.pick = lambda: 0.1
+  store.pick = lambda: 0.2
   assert store.order(groups, "k", "pool") == ["b/1", "a/1", "c/1"], "the session model"
   assert store.order(groups, "other", "pool")[0] == "a/1", (
     "each key has its own session"
   )
   assert store.order(groups, "k", "other")[0] == "a/1", "each slot has its own session"
-  store.pick = lambda: 0.03
-  assert store.order(groups, "k", "pool")[0] == "a/1", "a/1 keeps 0.05 of its weight"
+  store.pick = lambda: 0.14
+  assert store.order(groups, "k", "pool")[0] == "a/1", "a/1 gets 15% of the draws"
+  assert store.order([["x/1"], ["a/1", "b/1"]], "k", "pool") == ["x/1", "b/1", "a/1"], (
+    "after the first model, the session model goes first in its tier"
+  )
+  store.pin("k", "pool", "a/1")
+  for tier in (["a/1", "b/1"], ["a/1", "b/1", "d/1", "e/1", "f/1"]):
+    store.pick = lambda: 0.84
+    assert store.order([tier], "k", "pool")[0] == "a/1", "85% for the session model"
+    store.pick = lambda: 0.86
+    assert store.order([tier], "k", "pool")[0] == "b/1", (
+      "the share ignores the tier size"
+    )
+  store.pin("k", "pool", "b/1")
   store.enabled = False
   assert store.order(groups, "k", "pool")[0] == "b/1", "no draw without weights"
   store.enabled = True
