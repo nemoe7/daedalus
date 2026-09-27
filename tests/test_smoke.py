@@ -143,7 +143,11 @@ async def check_routed_model(client: httpx.AsyncClient) -> None:
         "api_base": UPSTREAM_BASE + "/v1",
         "api_key": UPSTREAM_KEY,
         "api_type": "openai",
-        "tier": {"TIER-C": ["gemini-3.5-flash"], "TIER-A": ["gemini-3.5-pro"]},
+        "tier": {
+          "TIER-C": ["gemini-3.5-flash"],
+          "TIER-B": ["gemini-3.6-flash"],
+          "TIER-A": ["gemini-3.5-pro"],
+        },
       }
     }
   )
@@ -172,6 +176,26 @@ async def check_routed_model(client: httpx.AsyncClient) -> None:
       )
       assert pooled.status_code == 200, pooled.text
       assert SEEN[-1]["model"] == "gemini-3.5-pro", SEEN[-1]
+      # ADR 3: a tool request goes to praktos, and an empty praktos falls back.
+      tool = {"type": "function", "function": {"name": "f", "parameters": {}}}
+      for model in ("daedalus/praktos", "daedalus/auto"):
+        empty = await client.post(
+          "/v1/chat/completions", json=chat_body(model=model, tools=[tool])
+        )
+        assert empty.status_code == 200, empty.text
+      catalog.write_store(
+        [
+          {"id": "gemini/gemini-3.5-flash", "supports_function_calling": True},
+          {"id": "gemini/gemini-3.5-pro"},
+          {"id": "gemini/gemini-3.6-flash", "supports_function_calling": True},
+        ]
+      )
+      for model in ("daedalus/praktos", "daedalus/auto"):
+        tooled = await client.post(
+          "/v1/chat/completions", json=chat_body(model=model, tools=[tool])
+        )
+        assert tooled.status_code == 200, tooled.text
+        assert SEEN[-1]["model"] == "gemini-3.6-flash", (model, SEEN[-1])
   finally:
     catalog.MODELS_DB = saved
     use_config()
@@ -248,6 +272,7 @@ async def check_models(client: httpx.AsyncClient) -> None:
     "daedalus/koinos",
     "daedalus/deinos",
     "daedalus/sophos",
+    "daedalus/praktos",
     "stub/gpt-test",
   ], names
 

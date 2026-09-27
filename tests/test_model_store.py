@@ -51,7 +51,7 @@ def main() -> None:
       "rpm": 60,
       "models": {"glm-5": {"max_input_tokens": 131072}, "glm-*": {"tpm": 8000}},
     },
-    "kilo": {},
+    "kilo": {"tools": True, "models": {"google/*": {"tools": False}}},
     "broken": {},
   }
   lines = [
@@ -71,6 +71,10 @@ def main() -> None:
   assert glm["supports_function_calling"] is True, glm
   assert rows[1]["mode"] == "embedding", rows[1]
   assert rows[2]["mode"] == "chat", rows[2]
+  assert rows[2]["supports_function_calling"] is False, (
+    "a models entry wins over the provider"
+  )
+  assert rows[3]["supports_function_calling"] is None, rows[3]
   assert rows[3]["mode"] is None and rows[3]["id"] == "broken/x", rows[3]
 
   with tempfile.TemporaryDirectory() as folder:
@@ -83,6 +87,9 @@ def main() -> None:
       routable = ["z-ai/glm-5", "kilo/google/gemma-4-31b-it:free", "broken/x"]
       assert catalog.read_models() == routable, catalog.read_models()
       assert catalog.read_models(routable_only=False) == lines
+      assert catalog.read_models(tools_only=True) == ["z-ai/glm-5"], (
+        "config and catalog"
+      )
     finally:
       catalog.MODELS_DB = original
     with sqlite3.connect(database) as connection:
