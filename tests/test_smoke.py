@@ -1,3 +1,5 @@
+import os
+
 """Runnable check for the proxy. Run: python tests/test_smoke.py"""
 
 import asyncio
@@ -10,6 +12,10 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from daedalus import api, config, keys, store
+
+MASTER = "test-master-key-0001"
+AUTH = {"Authorization": f"Bearer {MASTER}"}
+os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 
 UPSTREAM_BASE = "http://upstream.test"
 UPSTREAM_KEY = "upstream-secret"
@@ -101,6 +107,7 @@ def make_client() -> httpx.AsyncClient:
   return httpx.AsyncClient(
     transport=httpx.ASGITransport(app=api.app),
     base_url="http://testserver",
+    headers=AUTH,
   )
 
 
@@ -124,7 +131,7 @@ async def check_non_stream(client: httpx.AsyncClient) -> None:
   response = await client.post(
     "/v1/chat/completions",
     json=chat_body(),
-    headers={"Authorization": "Bearer client-secret", "User-Agent": "daedalus-test"},
+    headers={"Authorization": f"Bearer {MASTER}", "User-Agent": "daedalus-test"},
   )
   assert response.status_code == 200, response.text
   body = response.json()
@@ -312,8 +319,16 @@ async def check_local_key() -> None:
     )
     assert wrong.status_code == 401, wrong.text
     assert wrong.json()["error"]["type"] == "authentication_error", wrong.text
-    missing = await client.post("/v1/chat/completions", json=chat_body())
+    missing = await client.post(
+      "/v1/chat/completions", json=chat_body(), headers={"Authorization": ""}
+    )
     assert missing.status_code == 401, missing.text
+    master = await client.post("/v1/chat/completions", json=chat_body())
+    assert master.status_code == 200, "the master key opens /v1 next to the local key"
+    del os.environ["DAEDALUS_MASTER_KEY"]
+    closed = await client.post("/v1/chat/completions", json=chat_body())
+    os.environ["DAEDALUS_MASTER_KEY"] = MASTER
+    assert closed.status_code == 401, "no master key in the env opens nothing"
     allowed = await client.post(
       "/v1/chat/completions",
       json=chat_body(),

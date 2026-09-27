@@ -1,4 +1,5 @@
 import logging
+import os
 import tempfile
 from pathlib import Path
 
@@ -6,6 +7,10 @@ import httpx
 from fastapi.testclient import TestClient
 
 from daedalus import api, store
+
+MASTER = "test-master-key-0001"
+AUTH = {"Authorization": f"Bearer {MASTER}"}
+os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 
 
 class Lines(logging.Handler):
@@ -57,7 +62,7 @@ def check_requests() -> None:
   api.PENALTIES.clear()
   lines = Lines()
   api.logger.addHandler(lines)
-  client = TestClient(api.app)
+  client = TestClient(api.app, headers=AUTH)
   large = {
     "model": "daedalus/deinos",
     "messages": [{"role": "user", "content": "x" * 400}],

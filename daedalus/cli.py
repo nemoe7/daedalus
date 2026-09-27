@@ -5,7 +5,7 @@ import logging
 
 import yaml
 
-from daedalus import api, catalog, keys, settings, store
+from daedalus import api, catalog, dashboard, keys, settings, store
 
 logger = logging.getLogger("daedalus")
 KEY_OFF = "off"
@@ -71,6 +71,11 @@ def run(argv: list[str] | None = None) -> None:
   elif args.command == "catalog":
     catalog.refresh()
   else:
+    if dashboard.master() is None:
+      parser.exit(
+        2,
+        f"daedalus: set {dashboard.MASTER_ENV}: {keys.MIN_LENGTH} or more characters, no spaces\n",
+      )
     try:
       api.apply_settings(settings.load())
     except (settings.SettingsError, yaml.YAMLError) as exc:

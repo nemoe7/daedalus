@@ -27,4 +27,4 @@ build-backend = "setuptools.build_meta"
 packages = ["daedalus", "daedalus.providers"]
 
 [tool.setuptools.package-data]
-daedalus = ["artifacts/*.json", "artifacts/*-LICENSE.txt"]
+daedalus = ["artifacts/*.json", "artifacts/*-LICENSE.txt", "ui/*"]
