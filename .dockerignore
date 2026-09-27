@@ -1,0 +1,12 @@
+.git
+.venv
+.agents
+.daedalus-state
+.ruff_cache
+arena-state
+docs
+scripts
+tests
+**/__pycache__
+*.log
+.env
