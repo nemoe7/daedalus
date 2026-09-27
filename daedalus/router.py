@@ -28,6 +28,9 @@ POOLS: Final[Mapping[str, int]] = {
   "daedalus/deinos": 3,
   "daedalus/sophos": 4,
 }
+# The pool for tool calls. It has no tier and holds TIER-A, then TIER-B members. ADR 3.
+PRAKTOS: Final = "daedalus/praktos"
+PRAKTOS_TIERS: Final = (4, 3)
 TIERS: Final = (1, 2, 3, 4)
 # litellm numbers its tiers 1 to 4 as SIMPLE, MEDIUM, COMPLEX, REASONING, and the config
 # names them TIER-D to TIER-A, so the map is explicit. Sorting the names inverts it.
@@ -384,3 +387,8 @@ def route_pool(
   if tier is None:
     return []
   return chain_models(config, lines, fallback_order(tier))
+
+
+def route_praktos(config: Mapping[str, Any], lines: list[str]) -> list[str]:
+  """The tool-capable models, TIER-A first, then TIER-B."""
+  return chain_models(config, lines, PRAKTOS_TIERS)
