@@ -2,7 +2,9 @@
 
 Daedalus serves the OpenAI API on `http://HOST:3357/v1`.
 
-> Q: Which OpenAI SDK or client do you test with?
+I use the API with Kilo Code and Open WebUI.
+Kilo Code - So far, it has been the best agentic harness for me: fine-grained tool access, a plugin system, and more.
+Open WebUI - I use it as my general chat interface. Could possibly make my own and strip some features I don't need but so far I'm happy with it.
 
 ## Access
 
@@ -95,4 +97,4 @@ Errors use the OpenAI shape:
 
 The dashboard **Requests** page shows the full provider error of each attempt. Daedalus removes the prompt text from provider errors.
 
-> Q: What should a client do when it gets a 502?
+When the client receives a 502, there's nothing we can do to fix it. All providers have answered wth either an error or a 429 and you will have to wait for your usage quota resets.

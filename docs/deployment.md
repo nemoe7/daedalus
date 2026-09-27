@@ -1,6 +1,6 @@
 # Deployment
 
-> Q: Where do you run Daedalus? For example: a home server, a VPS, or your laptop.
+I run Daedalus on a Raspberry Pi 4B with 8GB RAM. Made sure to use the `slim` variants for Docker images to save space.
 
 ## Docker Compose
 
@@ -60,7 +60,7 @@ flowchart LR
 | Failure | Daedalus sends the original messages. |
 | Log | `saved=N` shows the saved tokens. |
 
-> Q: When is Headroom worth it for you?
+Headroom is worth it for long agentic tasks. Keeps your token usgae lower than without with the same model performance, at least so far.
 
 ### Tailscale
 
