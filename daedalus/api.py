@@ -7,6 +7,7 @@ import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from secrets import compare_digest
+from typing import Any
 
 import httpx
 from fastapi import FastAPI, Request, Response
@@ -162,22 +163,11 @@ async def chat(request: Request) -> Response:
     models = [model]
   else:
     return error_response(400, "Unknown provider or pool", "invalid_request_error")
+  include_usage = bool((body.get("stream_options") or {}).get("include_usage"))
   failure = error_response(502, "No model answered the request", "upstream_error")
-  for candidate in models:
-    response = None
+  for index, candidate in enumerate(models):
     try:
-      provider, url, payload, headers = providers.prepare(candidate, body, config)
-      upstream = get_client().build_request("POST", url, json=payload, headers=headers)
-      response = await get_client().send(upstream, stream=True)
-      if response.status_code >= 400:
-        await response.aread()
-        failure = error_response(
-          response.status_code,
-          "Upstream provider rejected the request",
-          "upstream_error",
-        )
-        await response.aclose()
-        continue
+      provider, response = await attempt(candidate, body, config)
       if not body.get("stream"):
         raw = await response.aread()
         await response.aclose()
@@ -185,49 +175,131 @@ async def chat(request: Request) -> Response:
         if not isinstance(answer, dict) or answer.get("error"):
           raise providers.ProviderError("Invalid upstream answer")
         return JSONResponse(provider.completion(answer, candidate))
-      include_usage = bool((body.get("stream_options") or {}).get("include_usage"))
-      iterator = provider.stream(response, candidate, include_usage)
-      first = await anext(iterator)
-      return StreamingResponse(
-        client_stream(iterator, first), media_type="text/event-stream"
+      events = sse_data(provider.stream(response, candidate, include_usage))
+      first = await anext(events)
+    except UpstreamStatus as exc:
+      failure = error_response(
+        exc.status, "Upstream provider rejected the request", "upstream_error"
       )
-    except (
-      httpx.HTTPError,
-      ValueError,
-      KeyError,
-      TypeError,
-      StopAsyncIteration,
-    ) as exc:
-      if response is not None:
-        await response.aclose()
+      continue
+    except ATTEMPT_ERRORS as exc:
       logger.warning(
         "provider attempt failed for %s: %s", candidate, type(exc).__name__
       )
       failure = error_response(
         502, "Upstream provider attempt failed", "upstream_error"
       )
+      continue
+    rest = models[index + 1 :]
+    return StreamingResponse(
+      relay(first, events, rest, body, config, include_usage),
+      media_type="text/event-stream",
+    )
   return failure
 
 
-async def client_stream(
-  iterator: AsyncIterator[bytes], first: bytes
-) -> AsyncIterator[bytes]:
+class UpstreamStatus(Exception):
+  def __init__(self, status: int) -> None:
+    super().__init__(status)
+    self.status = status
+
+
+STREAM_ERRORS = (httpx.HTTPError, ValueError, KeyError, TypeError)
+ATTEMPT_ERRORS = (*STREAM_ERRORS, StopAsyncIteration)
+STREAM_FAILED = providers.frame(
+  {
+    "error": {
+      "message": "Upstream stream failed",
+      "type": "upstream_error",
+      "code": 502,
+    }
+  }
+)
+
+
+async def attempt(
+  candidate: str, body: dict[str, Any], config: dict[str, Any]
+) -> tuple[providers.OpenAIProvider, httpx.Response]:
+  """Send one candidate request, and fail on an upstream error status."""
+  provider, url, payload, headers = providers.prepare(candidate, body, config)
+  upstream = get_client().build_request("POST", url, json=payload, headers=headers)
+  response = await get_client().send(upstream, stream=True)
+  if response.status_code >= 400:
+    await response.aread()
+    await response.aclose()
+    raise UpstreamStatus(response.status_code)
+  return provider, response
+
+
+async def sse_data(chunks: AsyncIterator[bytes]) -> AsyncIterator[str]:
+  """Split an SSE byte stream into the payloads of its `data:` lines."""
+  buffer = b""
   try:
-    yield first
-    async for piece in iterator:
-      yield piece
-  except (httpx.HTTPError, ValueError, KeyError, TypeError):
-    yield providers.frame(
-      {
-        "error": {
-          "message": "Upstream stream failed",
-          "type": "upstream_error",
-          "code": 502,
-        }
-      }
-    )
+    async for piece in chunks:
+      buffer += piece.replace(b"\r\n", b"\n")
+      while b"\n\n" in buffer:
+        block, buffer = buffer.split(b"\n\n", 1)
+        lines = [
+          line[5:].strip() for line in block.split(b"\n") if line.startswith(b"data:")
+        ]
+        if lines:
+          yield b"\n".join(lines).decode()
   finally:
-    await iterator.aclose()
+    await chunks.aclose()
+
+
+async def relay(
+  first: str,
+  events: AsyncIterator[str],
+  rest: list[str],
+  body: dict[str, Any],
+  config: dict[str, Any],
+  include_usage: bool,
+) -> AsyncIterator[bytes]:
+  """Stream one answer, and continue from the sent text on a failure (ADR 2)."""
+  identifier, sent, tool = None, [], False
+  pending: list[str] = [first]
+  while True:
+    try:
+      while True:
+        data = pending.pop(0) if pending else await anext(events)
+        if data == "[DONE]":
+          yield b"data: [DONE]\n\n"
+          return
+        chunk = json.loads(data)
+        if not isinstance(chunk, dict) or chunk.get("error"):
+          raise providers.ProviderError("Upstream stream error")
+        identifier = identifier or chunk.get("id")
+        if identifier:
+          chunk["id"] = identifier
+        for choice in chunk.get("choices") or []:
+          delta = choice.get("delta") or {}
+          tool = tool or bool(delta.get("tool_calls"))
+          if isinstance(delta.get("content"), str):
+            sent.append(delta["content"])
+        yield providers.frame(chunk)
+    except StopAsyncIteration:
+      logger.warning("upstream stream ended without [DONE]")
+    except STREAM_ERRORS as exc:
+      logger.warning("upstream stream failed: %s", type(exc).__name__)
+    await events.aclose()
+    if tool:
+      yield STREAM_FAILED
+      return
+    prefix = {"role": "assistant", "content": "".join(sent)}
+    continued = {**body, "messages": [*body["messages"], prefix]} if sent else body
+    while rest:
+      candidate = rest.pop(0)
+      try:
+        provider, response = await attempt(candidate, continued, config)
+        events = sse_data(provider.stream(response, candidate, include_usage))
+        pending = [await anext(events)]
+        break
+      except (UpstreamStatus, *ATTEMPT_ERRORS) as exc:
+        logger.warning("continuation failed for %s: %s", candidate, type(exc).__name__)
+    else:
+      yield STREAM_FAILED
+      return
 
 
 def run() -> None:
