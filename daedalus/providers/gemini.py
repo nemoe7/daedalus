@@ -46,15 +46,16 @@ GEMINI_HOSTED_TOOLS = {
 GEMINI_SEARCH_TOOLS = {"googleSearch", "urlContext"}
 
 
-def without(node: Any, key: str, only_false: bool = False) -> Any:
+def without_strict(node: Any, names: bool = False) -> Any:
+  """Drop `strict` keywords, but keep schema properties that use that name."""
   if isinstance(node, list):
-    return [without(item, key, only_false) for item in node]
+    return [without_strict(item) for item in node]
   if not isinstance(node, dict):
     return node
   return {
-    name: without(value, key, only_false)
-    for name, value in node.items()
-    if name != key or (only_false and value is not False)
+    key: without_strict(value, key in {"properties", "$defs", "definitions"})
+    for key, value in node.items()
+    if names or key != "strict"
   }
 
 
@@ -110,20 +111,19 @@ def thinking_param(value: dict, model: str) -> dict:
 
 def gemini_tools(value: list) -> list[dict]:
   declarations, hosted = [], []
-  for tool in without(without(value, "additionalProperties", True), "strict"):
+  for tool in without_strict(value):
     if not isinstance(tool, dict):
       raise ProviderError("Invalid tool")
     if isinstance(tool.get("function"), dict) or (
       "name" in tool and "type" not in tool
     ):
       function = tool.get("function", tool)
-      declarations.append(
-        {
-          key: function[key]
-          for key in ("name", "description", "parameters")
-          if key in function
-        }
-      )
+      declaration = {
+        key: function[key] for key in ("name", "description") if key in function
+      }
+      if function.get("parameters") is not None:
+        declaration["parametersJsonSchema"] = function["parameters"]
+      declarations.append(declaration)
     elif tool.get("type") in {"web_search", "web_search_preview"}:
       hosted.append({"googleSearch": {}})
     else:
@@ -147,7 +147,7 @@ def tool_config(choice: str | dict) -> dict:
 
 
 def response_format(value: dict, generation: dict) -> None:
-  value = without(value, "strict")
+  value = without_strict(value)
   if value.get("type") == "json_object":
     generation["responseMimeType"] = "application/json"
   elif value.get("type") == "text":
