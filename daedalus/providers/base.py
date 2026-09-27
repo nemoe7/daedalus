@@ -222,11 +222,21 @@ class Chunks:
     return tail + b"data: [DONE]\n\n"
 
 
+def known_fields(message: Any, fields: Mapping[str, frozenset[str]]) -> Any:
+  """The message with only the fields that its role allows. Other roles stay as they are."""
+  allowed = fields.get(message.get("role")) if isinstance(message, dict) else None
+  if allowed is None:
+    return message
+  return {key: value for key, value in message.items() if key in allowed}
+
+
 class OpenAIProvider:
   """A provider that serves the OpenAI Chat Completions API."""
 
   unsupported: tuple[str, ...] = ()
   defaults: ClassVar[Mapping[str, str]] = {"api_type": "openai"}
+  # The message fields for each role, for a provider that rejects other fields. Empty: all fields.
+  message_fields: ClassVar[Mapping[str, frozenset[str]]] = {}
 
   def __init__(self, name: str, config: Mapping) -> None:
     base = str(config.get("api_base") or "").rstrip("/")
@@ -262,7 +272,10 @@ class OpenAIProvider:
     return self.base + "/chat/completions"
 
   def body(self, slug: str, payload: dict) -> dict:
-    return {**payload, "model": slug}
+    if not self.message_fields:
+      return {**payload, "model": slug}
+    messages = [known_fields(m, self.message_fields) for m in payload["messages"]]
+    return {**payload, "model": slug, "messages": messages}
 
   def request(self, slug: str, payload: dict) -> tuple[str, dict, dict[str, str]]:
     if not isinstance(payload.get("messages"), list):

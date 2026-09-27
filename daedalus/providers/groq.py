@@ -12,6 +12,13 @@ class GroqProvider(OpenAIProvider):
     "api_base": "https://api.groq.com/openai/v1",
     "discovery_url": "https://api.groq.com/openai/v1/models",
   }
+  # Groq rejects all other message fields, for example reasoning_content.
+  message_fields: ClassVar[Mapping[str, frozenset[str]]] = {
+    "system": frozenset({"role", "content", "name"}),
+    "user": frozenset({"role", "content", "name"}),
+    "assistant": frozenset({"role", "content", "name", "tool_calls"}),
+    "tool": frozenset({"role", "content", "tool_call_id"}),
+  }
 
   @staticmethod
   def columns(row: dict) -> dict[str, Any]:
