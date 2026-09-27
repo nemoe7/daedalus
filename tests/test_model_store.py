@@ -5,7 +5,8 @@ from urllib.parse import parse_qs, urlsplit
 
 import httpx
 
-from daedalus import enrichment, store
+from daedalus import store
+from daedalus.catalog import enrichment
 
 PAGES = {
   ("zai", "1"): {

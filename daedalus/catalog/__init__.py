@@ -3,9 +3,9 @@
 import logging
 from pathlib import Path
 
+from daedalus.catalog.discovery import build_rows
+from daedalus.catalog.enrichment import enrich
 from daedalus.config import get_config
-from daedalus.discovery import build_rows
-from daedalus.enrichment import enrich
 from daedalus.store import write_store
 
 logger = logging.getLogger("daedalus.catalog")

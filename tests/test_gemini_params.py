@@ -5,7 +5,8 @@ from pathlib import Path
 
 import httpx
 
-from daedalus import providers, signatures, store
+from daedalus import providers, store
+from daedalus.providers import signatures
 
 GEMINI = providers.GeminiProvider(
   "gemini", {"api_base": "https://gemini.test", "api_key": "k"}

@@ -5,7 +5,11 @@ import logging
 
 import yaml
 
-from daedalus import api, catalog, dashboard, discovery, keys, logs, settings, store
+from daedalus import catalog, dashboard, store
+from daedalus.catalog import discovery
+from daedalus.config import settings
+from daedalus.server import api, logs
+from daedalus.store import keys
 
 logger = logging.getLogger("daedalus")
 

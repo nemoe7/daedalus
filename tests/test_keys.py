@@ -3,7 +3,8 @@ import tempfile
 import time
 from pathlib import Path
 
-from daedalus import keys, store
+from daedalus import store
+from daedalus.store import keys
 
 
 def check_keys(database: Path) -> None:

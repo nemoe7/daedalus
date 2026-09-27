@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 
-from daedalus.discovery import MAX_PAGES, Fetch, fetch_json, matches, with_param
+from daedalus.catalog.discovery import MAX_PAGES, Fetch, fetch_json, matches, with_param
 from daedalus.store import COLUMNS
 
 LITELLM_CATALOG = "https://api.litellm.ai/model_catalog"

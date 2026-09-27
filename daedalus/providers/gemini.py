@@ -6,7 +6,7 @@ from urllib.parse import quote
 
 import httpx
 
-from daedalus import signatures
+from daedalus.providers import signatures
 from daedalus.providers.base import (
   Chunks,
   OpenAIProvider,
