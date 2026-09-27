@@ -217,9 +217,15 @@ async def main() -> None:
           mode = "late-error"
           count = len(seen)
           response = await send("daedalus/moros", stream=True)
-          assert "partial" in response.text and "upstream_error" in response.text
-          assert "[DONE]" not in response.text
-          assert len(seen) == count + 1
+          assert "partial" in response.text and "upstream_error" not in response.text
+          assert response.text.rstrip().endswith("data: [DONE]")
+          assert len(seen) == count + 2
+          request, sent = seen[-1]
+          assert request.url.host == "interactions.test"
+          assert sent["input"][-1] == {
+            "type": "model_output",
+            "content": [{"type": "text", "text": "partial"}],
+          }, sent
           mode = "text"
           configured["gemini"]["api_key"] = ""
           response = await send("daedalus/moros")
