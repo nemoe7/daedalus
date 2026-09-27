@@ -8,7 +8,7 @@ from pathlib import Path
 
 # A pin with no request for this long expires.
 IDLE_SECONDS = 3600.0
-SUCCESS, FAULT, HOURLY = 1.5, 0.5, 1.2
+SUCCESS, FAULT, SLOW, HOURLY = 1.5, 0.5, 0.75, 1.2
 TABLES = (
   (
     "CREATE TABLE IF NOT EXISTS weights"
@@ -64,9 +64,9 @@ class Penalties:
     finally:
       database.close()
 
-  def record(self, model: str, success: bool) -> float:
-    """Multiply the weight by 1.5 on a success or by 0.5 on a fault, 1 at most."""
-    weight = min(1.0, self.weights([model])[model] * (SUCCESS if success else FAULT))
+  def record(self, model: str, factor: float) -> float:
+    """Multiply the weight by the factor of one event, 1 at most."""
+    weight = min(1.0, self.weights([model])[model] * factor)
     database = self.connect()
     with database:
       database.execute(
