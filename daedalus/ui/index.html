@@ -65,8 +65,12 @@
           <div id="tiers"></div>
         </div>
         <table>
-          <thead><tr>
-            <th>Model</th><th>Tier</th><th class="hide-sm">Context</th><th>Tools</th><th>Weight</th>
+          <thead><tr id="model-head">
+            <th data-sort="id"><button type="button" class="sort">Model</button></th>
+            <th data-sort="tier"><button type="button" class="sort">Tier</button></th>
+            <th data-sort="context" class="hide-sm"><button type="button" class="sort">Context</button></th>
+            <th data-sort="tools"><button type="button" class="sort">Tools</button></th>
+            <th data-sort="weight"><button type="button" class="sort">Weight</button></th>
           </tr></thead>
           <tbody id="models"></tbody>
         </table>

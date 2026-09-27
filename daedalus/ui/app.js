@@ -18,7 +18,7 @@ const clock = (seconds) => new Date(seconds * 1000).toLocaleTimeString(
   [], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
 const state = {
-  models: [], tier: "All", files: [], file: 0, saved: [], timers: [],
+  models: [], tier: "All", sort: { key: "", dir: 1 }, files: [], file: 0, saved: [], timers: [],
   pools: [], requests: [], keys: [], catalog: {},
 };
 
@@ -188,10 +188,38 @@ function renderTiers() {
   ).join(" ");
 }
 
+// The sort value of each column. Null goes last in both directions.
+const sortValue = {
+  id: (m) => m.id.toLowerCase(),
+  tier: (m) => (tierLetter(m.tier) === "-" ? null : tierLetter(m.tier)),
+  context: (m) => m.max_input_tokens ?? null,
+  tools: (m) => (m.tools ? 1 : 0),
+  weight: (m) => m.weight,
+};
+
+function sortModels(rows) {
+  const { key, dir } = state.sort;
+  if (!sortValue[key]) return rows;
+  return [...rows].sort((a, b) => {
+    const x = sortValue[key](a), y = sortValue[key](b);
+    if (x === y) return a.id.localeCompare(b.id);
+    if (x === null) return 1;
+    if (y === null) return -1;
+    return (x < y ? -1 : 1) * dir;
+  });
+}
+
+function renderSortHeads() {
+  document.querySelectorAll("#model-head th").forEach((th) => {
+    const on = th.dataset.sort === state.sort.key;
+    th.setAttribute("aria-sort", on ? (state.sort.dir > 0 ? "ascending" : "descending") : "none");
+  });
+}
+
 function renderModels() {
   const query = $("search").value.trim().toLowerCase();
-  const rows = state.models.filter((m) =>
-    (state.tier === "All" || tierLetter(m.tier) === state.tier) && m.id.toLowerCase().includes(query));
+  const rows = sortModels(state.models.filter((m) =>
+    (state.tier === "All" || tierLetter(m.tier) === state.tier) && m.id.toLowerCase().includes(query)));
   const empty = state.models.length ? "No models match" : "No models. Run daedalus catalog.";
   $("models").innerHTML = rows.length ? rows.map((m) => `
     <tr>
@@ -408,6 +436,14 @@ function showPage() {
 window.addEventListener("hashchange", showPage);
 showPage();
 $("search").addEventListener("input", renderModels);
+$("model-head").addEventListener("click", (event) => {
+  const th = event.target.closest("th[data-sort]");
+  if (!th) return;
+  const key = th.dataset.sort;
+  state.sort = { key, dir: state.sort.key === key ? -state.sort.dir : 1 };
+  renderSortHeads();
+  renderModels();
+});
 $("tiers").addEventListener("click", (event) => {
   const button = event.target.closest("[data-tier]");
   if (!button) return;
