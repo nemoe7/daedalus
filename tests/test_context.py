@@ -2,6 +2,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 
 import httpx
 from fastapi.testclient import TestClient
@@ -122,6 +123,20 @@ def check_requests() -> None:
     api.logger.setLevel(level)
 
 
+def check_served() -> None:
+  config = {"p": {"tier": {"TIER-C": ["x"], "TIER-D": ["y"]}}}
+  request = SimpleNamespace(state=SimpleNamespace(pool="moros"))
+  api.served(request, config, "p/y")
+  assert request.state.pool == "moros" and not hasattr(request.state, "routed")
+  api.served(request, config, "p/x")
+  assert (request.state.pool, request.state.routed) == ("koinos", "moros"), "the ladder"
+  plain = SimpleNamespace(state=SimpleNamespace())
+  api.served(plain, config, "p/x")
+  assert not hasattr(plain.state, "pool"), "only daedalus/auto has a pool"
+  api.served(request, config, "other/z")
+  assert request.state.pool == "koinos", "a model without a tier keeps the pool"
+
+
 def main() -> None:
   with tempfile.TemporaryDirectory() as name:
     store.MODELS_DB = Path(name) / "models.sqlite3"
@@ -129,6 +144,7 @@ def main() -> None:
     check_estimate()
     check_limits(store.MODELS_DB)
     check_requests()
+    check_served()
   print("ok: context windows")
 
 

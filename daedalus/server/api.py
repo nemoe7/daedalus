@@ -131,10 +131,27 @@ def chain(
   return router.chain_groups(config, lines, order), slot
 
 
+# The short pool name of each tier name, for example moros for TIER-D.
+POOL_NAMES = {
+  router.TIER_NAMES[tier]: name.rpartition("/")[2]
+  for name, tier in router.POOLS.items()
+}
+
+
 def routed_pool(slot: str) -> str:
   """The short name of the pool that serves a `daedalus/auto` slot."""
-  names = {router.TIER_NAMES[tier]: name for name, tier in router.POOLS.items()}
-  return names[slot.rpartition(":")[2]].rpartition("/")[2]
+  return POOL_NAMES[slot.rpartition(":")[2]]
+
+
+def served(request: Request, config: dict[str, Any], candidate: str) -> None:
+  """Show the pool of the model that answers, and keep the first pool when it differs."""
+  first = getattr(request.state, "pool", None)
+  provider_name, _, slug = candidate.partition("/")
+  provider = config.get(provider_name)
+  tier = router.claiming_tier(provider, slug) if isinstance(provider, dict) else None
+  if first is None or POOL_NAMES.get(tier, first) == first:
+    return
+  request.state.pool, request.state.routed = POOL_NAMES[tier], first
 
 
 PENALTIES = penalties.Penalties(lambda: store.MODELS_DB)
@@ -249,6 +266,7 @@ async def chat(request: Request) -> Response:
         ttft = time.perf_counter() - started
         request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
         request.state.ttft = logs.seconds_text(ttft)
+        served(request, config, candidate)
         attempts.append(upstream.note(candidate, "answered", started))
         return JSONResponse(completion)
       events = stream.sse_data(provider.stream(response, candidate, include_usage))
@@ -272,6 +290,7 @@ async def chat(request: Request) -> Response:
     rest = models[index + 1 :]
     request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
     request.state.ttft = logs.seconds_text(ttft)
+    served(request, config, candidate)
     attempts.append(upstream.note(candidate, "answered", started))
     return StreamingResponse(
       stream.relay(
