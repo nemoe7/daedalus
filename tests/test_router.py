@@ -145,7 +145,7 @@ def check_route() -> None:
 
 
 def check_pools() -> None:
-  """ADR 1: four pools, and the fallback chain each one walks."""
+  """Four pools, and the fallback chain each one walks."""
   assert router.POOLS == {
     "daedalus/moros": 1,
     "daedalus/koinos": 2,
@@ -180,7 +180,7 @@ def check_pools() -> None:
 
 
 def check_praktos() -> None:
-  """ADR 2: praktos holds TIER-A members first, then TIER-B, and no lower tier."""
+  """Praktos holds TIER-A members first, then TIER-B, and no lower tier."""
   assert router.PRAKTOS == "daedalus/praktos"
   config = {
     "gemini": {"tier": {"TIER-B": ["gemini-3.5-flash"], "TIER-C": ["gemma-*"]}},

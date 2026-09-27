@@ -19,7 +19,7 @@ from daedalus.providers.base import error_text
 HOST = "0.0.0.0"
 PORT = 3357
 TIMEOUT_SECONDS = 600.0
-# ADR 3: the wait for one answer. A provider that sends bytes resets it, so a slow
+# The wait for one answer. A provider that sends bytes resets it, so a slow
 # stream is not cut off.
 WAIT_SECONDS = 60.0
 
@@ -345,7 +345,7 @@ async def relay(
   model: str,
   pin: Affinity,
 ) -> AsyncIterator[bytes]:
-  """Stream one answer, and continue from the sent text on a failure (ADR 3)."""
+  """Stream one answer, and continue from the sent text on a failure."""
   identifier, sent, tool = None, [], False
   pending: list[str] = [first]
   while True:
