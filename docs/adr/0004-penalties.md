@@ -21,15 +21,48 @@ Each model has a weight from 0.01 to 1. All models start at 1. The floor of 0.01
 | Success | weight x 1.5, 1 at most |
 | Fault | weight x 0.5, 0.01 at least |
 | Slow success: the first token comes after half the wait limit | weight x 0.75, 0.01 at least |
+| Rate limit: HTTP 429 | weight x 0.75, 0.01 at least, and a cooldown |
 | Each hour | weight x 1.212, 1 at most, as a continuous rate |
 
-A fault is each failure that ADR 3 reroutes: no connection, HTTP 400 or higher, a bad answer,
-or a failed stream. One weight applies to all clients.
+A fault is each failure that ADR 3 reroutes, except HTTP 429. Faults are: no connection,
+HTTP 400 or higher, a bad answer, or a failed stream. One weight applies to all clients.
 
 TTFT is the time from the send to the first chunk with text or a tool call. Chunks without
 content, for example a role chunk or a keep-alive comment, do not stop the clock. Without a
 stream, TTFT is the time to the full answer. A successful request logs `ttft=N.NNNs`, in
 seconds with 3 decimals.
+
+### Rate limits
+
+A rate limit is an HTTP 429 answer. A model in a cooldown drops out of each chain, as a model
+that is too small for the input does. A session model in a cooldown loses its pin.
+
+The cooldown end comes from the first rule that applies:
+
+1. The provider tells a daily limit. A Gemini `quotaId` with `PerDay` ends at the next
+   midnight Pacific time. Cloudflare error 4006 ends at the next 00:00 UTC. It applies to all
+   Cloudflare models, because they share the daily neurons.
+2. The provider gives a reset time: the `retry-after` header, the `X-RateLimit-Reset` header,
+   or the Gemini `RetryInfo.retryDelay`.
+3. No reset time: the first 429 of the model gives 1 minute. Each next 429 gives 2 times the
+   last cooldown, 6 hours at most. A success sets it back to 1 minute.
+
+Rule 1 comes first, because a Gemini daily 429 can have a `retryDelay` of only 1 second. A
+daily cooldown can be longer than 6 hours. When a cooldown starts, the log shows 1 line, for
+example `cooldown groq/llama-4-scout 120.000s reason=backoff`. The reason is `daily`, `reset`
+or `backoff`.
+
+A `provider/slug` request to a model in a cooldown gets HTTP 429 `rate_limit_exceeded` at
+once, with no upstream request. When all models of a chain are in a cooldown, the client also
+gets HTTP 429 `rate_limit_exceeded`. The `Retry-After` header is the seconds to the first
+cooldown end.
+
+### Pacing
+
+A model with `rpm` or `tpm` in its provider yml drops out of the chains when its requests in
+the last 60 seconds reach that limit. The token count is the input estimate of the context
+check: characters / 4. A pacing skip is silent and does not change the weight. The counts stay
+in memory only.
 
 ### Order
 
@@ -60,13 +93,13 @@ the session model removes it, and the next model that answers in time becomes th
 model. A slow success does not become the session model. A session model expires after 1 hour
 without a request.
 
-Weights and session models stay in `models.sqlite3`. A restart keeps them, and `daedalus catalog` keeps them
+Weights, cooldowns and session models stay in `models.sqlite3`. A restart keeps them, and `daedalus catalog` keeps them
 when it rebuilds the model table.
 
 ### Settings
 
 The numbers in this ADR are the defaults. `config/daedalus.yml` can change them, and it can
-turn off the weights or the session affinity.
+turn off the weights, the session affinity or the pacing.
 
 ## Consequences
 
@@ -75,3 +108,6 @@ turn off the weights or the session affinity.
 - One conversation stays on its session model for most turns. The other models of the first
   tier still get some turns, so a bad session model does not hold a conversation for ever.
 - The request log shows `pin=new`, `pin=hit`, `pin=moved` or `pin=slow`.
+- A per-minute limit costs 1 request and about 1 minute, not hours at a low weight.
+- A daily limit costs 1 request for each model until the reset.
+- The Models page shows the end of each cooldown.
