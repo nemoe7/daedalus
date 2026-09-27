@@ -39,9 +39,14 @@ def check(group: str, key: str, value: Any) -> Any:
 
 def load(path: Path | str = DEFAULT_PATH) -> dict[str, dict[str, Any]]:
   """The settings: each value in the file replaces its default."""
-  merged = {group: dict(values) for group, values in DEFAULTS.items()}
   target = Path(path)
-  raw = yaml.safe_load(target.read_text(encoding="utf-8")) if target.exists() else None
+  return parse(target.read_text(encoding="utf-8") if target.exists() else "", target)
+
+
+def parse(text: str, target: Path | str = DEFAULT_PATH) -> dict[str, dict[str, Any]]:
+  """The settings from YAML text, over the defaults."""
+  merged = {group: dict(values) for group, values in DEFAULTS.items()}
+  raw = yaml.safe_load(text)
   if raw is None:
     raw = {}
   if not isinstance(raw, dict):

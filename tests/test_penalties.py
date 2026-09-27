@@ -1,12 +1,18 @@
 import json
+import os
 import tempfile
 from pathlib import Path
 
 import httpx
 from fastapi.testclient import TestClient
 
-from daedalus import api, penalties, stream
+from daedalus import api, keys, penalties, stream
 from daedalus import store as model_store
+
+MASTER = "test-master-key-0001"
+AUTH = {"Authorization": f"Bearer {MASTER}"}
+os.environ["DAEDALUS_MASTER_KEY"] = MASTER
+LOCAL = "test-local-key-0002"
 
 FAILING: set[str] = set()
 
@@ -139,9 +145,11 @@ def check_requests() -> None:
   api.chain = lambda model, body, config: ([["a/1", "b/1"], ["c/1"]], "daedalus/deinos")
   api.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
   api.PENALTIES.clear()
-  client = TestClient(api.app)
+  client = TestClient(api.app, headers=AUTH)
 
-  def ask(token: str = "key-one", pick: float = 0.5) -> str:
+  keys.save_hash(model_store.MODELS_DB, keys.digest(LOCAL))
+
+  def ask(token: str = MASTER, pick: float = 0.5) -> str:
     api.PENALTIES.pick = lambda: pick
     body = {"model": "daedalus/deinos", "messages": [{"role": "user", "content": "x"}]}
     headers = {"Authorization": f"Bearer {token}"}
@@ -155,7 +163,7 @@ def check_requests() -> None:
     assert api.PENALTIES.weights(["a/1"])["a/1"] < 0.51, "a fault lowers the weight"
     FAILING.clear()
     assert ask() == "b.test", "the session model keeps the turn"
-    assert ask("key-two", pick=0.4) == "b.test", "a/1 has a lower weight for all keys"
+    assert ask(LOCAL, pick=0.4) == "b.test", "a/1 has a lower weight for all keys"
     FAILING.add("b.test")
     assert ask() == "a.test", "a failed session model moves to the next model"
     FAILING.clear()
@@ -185,13 +193,13 @@ def check_ttft() -> None:
   )
   transport = httpx.MockTransport(lambda request: httpx.Response(200, text=sse))
   api.set_client(httpx.AsyncClient(transport=transport))
-  client = TestClient(api.app)
+  client = TestClient(api.app, headers=AUTH)
   body = {
     "model": "daedalus/deinos",
     "stream": True,
     "messages": [{"role": "user", "content": "x"}],
   }
-  key = api.session_key("", body["messages"])
+  key = api.session_key(MASTER, body["messages"])
   try:
     for limit, expected in ((60.0, 1.0), (0.0, 0.75)):
       api.PENALTIES.clear()

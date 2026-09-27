@@ -1,5 +1,6 @@
 """OpenAI-compatible local router for the configured providers."""
 
+import hmac
 import json
 import logging
 import os
@@ -109,12 +110,15 @@ def bearer(request: Request) -> str:
 
 
 def check_local_key(request: Request) -> JSONResponse | None:
-  """Reject the request when a local key exists and the bearer token does not match it."""
-  if keys.matches(store.MODELS_DB, bearer(request)) is not False:
+  """Reject the request unless the bearer token is the master key or the local key."""
+  token, master = bearer(request), dashboard.master()
+  if master is not None and hmac.compare_digest(token.encode(), master.encode()):
+    return None
+  if keys.matches(store.MODELS_DB, token) is True:
     return None
   return error_response(
     401,
-    "Invalid local API key. Send 'Authorization: Bearer <key>'. Set it with daedalus key.",
+    "Send the master key or the local API key as 'Authorization: Bearer <key>'.",
     "authentication_error",
   )
 
@@ -131,7 +135,10 @@ async def log_request(request: Request, call_next):
   line = " ".join(
     [request.method, request.url.path, str(response.status_code), elapsed(started)]
   )
-  logger.info(" ".join([line, *models]))
+  # The dashboard polls every few seconds, so its reads go to the debug log.
+  quiet = request.method == "GET" and response.status_code < 400
+  quiet = quiet and (request.url.path == "/" or request.url.path.startswith("/ui/"))
+  logger.log(logging.DEBUG if quiet else logging.INFO, " ".join([line, *models]))
   if request.url.path == "/v1/chat/completions":
     dashboard.record(request, response.status_code, time.perf_counter() - started)
   return response
@@ -248,7 +255,12 @@ def routed_pool(slot: str) -> str:
 
 
 PENALTIES = penalties.Penalties(lambda: store.MODELS_DB)
-app.include_router(dashboard.routes(PENALTIES, lambda: get_config()))
+app.include_router(dashboard.page())
+app.include_router(
+  dashboard.routes(
+    PENALTIES, lambda: get_config(), lambda values: apply_settings(values)
+  )
+)
 
 
 class Tracker:
