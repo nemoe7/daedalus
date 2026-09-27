@@ -9,7 +9,7 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import api, catalog, config
+from daedalus import api, catalog, config, keys
 
 UPSTREAM_BASE = "http://upstream.test"
 UPSTREAM_KEY = "upstream-secret"
@@ -86,7 +86,7 @@ def use_config(api_key: str = UPSTREAM_KEY) -> None:
 def use_upstream(api_key: str = UPSTREAM_KEY, local_key: str = "") -> None:
   """Point the app at the stub upstream."""
   use_config(api_key)
-  api.LOCAL_API_KEY = local_key
+  keys.save_hash(catalog.MODELS_DB, keys.digest(local_key) if local_key else None)
   api.set_client(
     httpx.AsyncClient(
       transport=httpx.ASGITransport(app=make_upstream()),
@@ -366,7 +366,9 @@ async def run_client_checks() -> None:
 
 
 def main() -> None:
-  asyncio.run(run_checks())
+  with tempfile.TemporaryDirectory() as folder:
+    catalog.MODELS_DB = pathlib.Path(folder) / "models.sqlite3"
+    asyncio.run(run_checks())
   print(f"ok: {len(SEEN)} upstream requests, all checks passed")
 
 
