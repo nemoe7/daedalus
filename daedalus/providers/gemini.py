@@ -13,6 +13,7 @@ from daedalus.providers.base import (
   data_url,
   events,
   function_call,
+  limits,
   system_text,
   tool_call,
 )
@@ -283,6 +284,17 @@ class GeminiProvider(OpenAIProvider):
     "api_base": "https://generativelanguage.googleapis.com/v1beta",
     "discovery_url": "https://generativelanguage.googleapis.com/v1beta/models",
   }
+
+  @staticmethod
+  def columns(row: dict) -> dict[str, Any]:
+    """Store columns from one Gemini row. It shows `thinking` only when true."""
+    methods = row.get("supportedGenerationMethods") or []
+    mode = "embedding" if "embedContent" in methods else None
+    return {
+      "mode": "chat" if "generateContent" in methods else mode,
+      **limits(row.get("inputTokenLimit"), row.get("outputTokenLimit")),
+      "supports_reasoning": row.get("thinking") is True or None,
+    }
 
   def headers(self) -> dict[str, str]:
     return {"content-type": "application/json", "x-goog-api-key": self.key}
