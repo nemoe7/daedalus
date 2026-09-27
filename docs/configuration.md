@@ -89,7 +89,7 @@ groq:
 | `tier` | Patterns for each tier key: `TIER-A`, `TIER-B`, `TIER-C`, `TIER-D` |
 | `models` | Values for each model, for example `max_input_tokens`. These have priority over discovery and LiteLLM. |
 
-A model with a `mode` other than `chat` never goes into a chat chain. Use `embedding`, `audio_transcription`, `audio_speech` or `image_generation`. A model with no mode goes into the chat chains.
+A model with a `mode` other than `chat` never goes into a chat chain. Use `embedding`, `audio_transcription`, `audio_speech` or `image_generation`. A model with no mode goes into the chat chains. The `audio_transcription` models make the `daedalus/graphos` pool, and the `image_generation` models make the `daedalus/photos` pool.
 
 Pattern types:
 

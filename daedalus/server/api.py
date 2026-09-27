@@ -139,7 +139,10 @@ async def models(request: Request) -> Response:
     members = router.candidates(config, router.TIER_NAMES[tier], chat)
     fields[name] = pool_info([fields[m] for m in members])
   fields[router.RESERVED_MODEL] = fields["daedalus/sophos"]
-  names = [router.RESERVED_MODEL, *router.POOLS, *chat, *others]
+  media_pools = [
+    name for name, mode in router.MEDIA_POOLS.items() if store.mode_models(mode)
+  ]
+  names = [router.RESERVED_MODEL, *router.POOLS, *chat, *media_pools, *others]
   data = [
     {"id": name, "object": "model", "owned_by": "daedalus", **fields.get(name, {})}
     for name in names
@@ -223,6 +226,7 @@ def served(request: Request, config: dict[str, Any], candidate: str) -> None:
 
 PENALTIES = penalties.Penalties(lambda: store.MODELS_DB)
 RETRIES = retries.Retries()
+media.PENALTIES = PENALTIES
 app.include_router(dashboard.page())
 app.include_router(
   dashboard.routes(
@@ -394,7 +398,7 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   )
   SLOW_SECONDS, AFFINITY = timeouts["slow"], affinity["enabled"]
   PENALTIES.idle, PENALTIES.enabled = affinity["idle"], weights["enabled"]
-  signatures.IDLE_SECONDS = RETRIES.idle = affinity["idle"]
+  signatures.IDLE_SECONDS = RETRIES.idle = media.REPEATS.idle = affinity["idle"]
   PENALTIES.stay = affinity["stay"]
   headroom.TIMEOUT_SECONDS = values["headroom"]["timeout"]
   schedule.EVERY, schedule.ANCHOR = (

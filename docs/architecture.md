@@ -162,4 +162,26 @@ A try again in Open WebUI on `daedalus/auto` moves the repeated message 1 tier u
 | Weights | No change for the earlier answer |
 | Log | `retry=N`. The Requests page shows "try again N". |
 | Expiry | 1 h with no request, in memory only |
-| Other clients, pools, `provider/slug` | No change |
+| Other clients, chat pools, `provider/slug` | No change |
+
+## Media pools
+
+| Pool | Endpoint | Models |
+| --- | --- | --- |
+| `daedalus/graphos` | `POST /v1/audio/transcriptions` | All catalog models with the mode `audio_transcription` |
+| `daedalus/photos` | `POST /v1/images/generations` | All catalog models with the mode `image_generation` |
+
+| Item | Value |
+| --- | --- |
+| Order | A weighted draw, then the weight order |
+| Weights | The same weights as the chat models |
+| Skip | A model that cannot do the request leaves the list, for example Flux 1 with `n` above 1. A skip is not a fault. |
+| Try again | The same key and the same content as the last request to that pool. For graphos, the content is the audio and the form fields. For photos, the content is the JSON body. |
+| Models of a try again | The models that answered this content leave the list. After all models, the list starts again. |
+| Log | `retry=N` |
+| Expiry | 1 h with no request, in memory only |
+| Embeddings and speech | No pool. `provider/slug` only. |
+
+By default, Open WebUI writes a new image prompt for each try. So a try again in Open WebUI chat is a new weighted draw, not a repeat.
+
+> Q: Why do transcription and images get a pool, and embeddings and speech not?

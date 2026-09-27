@@ -1,4 +1,4 @@
-"""Find an Open WebUI try again for `daedalus/auto`, and keep what each chat message used."""
+"""Find a try again, and keep the models that answered each message or content."""
 
 import json
 import time
@@ -41,11 +41,15 @@ class Retries:
     self.turns: dict[str, Turn] = {}
 
   def start(self, chat: str, messages: list[dict]) -> Turn:
-    """The turn of one request. A repeat of an answered message counts 1 more retry."""
+    """The turn of one chat request. A repeat of an answered message counts 1 more retry."""
+    return self.start_digest(chat, digest(messages))
+
+  def start_digest(self, chat: str, value: str) -> Turn:
+    """The turn of one request with a ready digest."""
     now = self.clock()
     self.turns = {k: t for k, t in self.turns.items() if t.used >= now - self.idle}
-    found, value = self.turns.get(chat), digest(messages)
-    if found is not None and found.digest == value and found.tier is not None:
+    found = self.turns.get(chat)
+    if found is not None and found.digest == value and found.model is not None:
       found.count, found.used = found.count + 1, now
       return found
     self.turns[chat] = Turn(value, now)
@@ -71,7 +75,8 @@ def fresh_models(turn: Turn, group: list[str]) -> list[str]:
 
 
 def record(turn: Turn, tier: int | None, model: str) -> None:
-  """Keep the tier and the model that answered this message."""
+  """Keep the tier and the model that answered. A new tier starts a new list of answered models."""
+  if tier != turn.tier:
+    turn.answered = set()
   turn.tier, turn.model = tier, model
-  if tier == TOP_TIER:
-    turn.answered.add(model)
+  turn.answered.add(model)
