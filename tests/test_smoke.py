@@ -92,7 +92,10 @@ def use_config(api_key: str = UPSTREAM_KEY) -> None:
 def use_upstream(api_key: str = UPSTREAM_KEY, local_key: str = "") -> None:
   """Point the app at the stub upstream."""
   use_config(api_key)
-  keys.save_hash(store.MODELS_DB, keys.digest(local_key) if local_key else None)
+  for item in keys.listing(store.MODELS_DB):
+    keys.delete(store.MODELS_DB, item["name"])
+  if local_key:
+    keys.add(store.MODELS_DB, "local", local_key)
   api.PENALTIES.clear()
   api.PENALTIES.pick = lambda: 0.0
   api.set_client(

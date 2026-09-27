@@ -42,7 +42,7 @@ def record(request: Request, status: int, seconds: float) -> None:
 
 
 def master() -> str | None:
-  """The master key from the environment, when it follows the local key rule."""
+  """The master key from the environment, when it has 16 or more characters and no spaces."""
   key = os.environ.get(MASTER_ENV, "")
   return key if keys.valid(key) else None
 
@@ -207,7 +207,6 @@ def routes(
       {
         "healthy": True,
         "models": len(store.read_models()),
-        "key": keys.stored_hash(store.MODELS_DB) is not None,
         "sessions": penalties.sessions(),
         "catalog": {"built": store.built(), "next": schedule.upcoming(time.time())},
       }
@@ -262,6 +261,33 @@ def routes(
     if not allowed(request):
       return denied()
     return JSONResponse(list(RECENT))
+
+  @api.get("/keys")
+  async def key_list(request: Request) -> JSONResponse:
+    if not allowed(request):
+      return denied()
+    return JSONResponse(keys.listing(store.MODELS_DB))
+
+  @api.post("/keys")
+  async def key_add(request: Request) -> JSONResponse:
+    if not allowed(request):
+      return denied()
+    body = await json_body(request)
+    try:
+      key = keys.add(
+        store.MODELS_DB, body.get("name") if isinstance(body, dict) else None
+      )
+    except keys.KeyNameError as exc:
+      return failure(400, str(exc), "invalid_request_error")
+    return JSONResponse({"name": body["name"].strip(), "key": key}, status_code=201)
+
+  @api.delete("/keys/{name:path}")
+  async def key_delete(request: Request, name: str) -> Response:
+    if not allowed(request):
+      return denied()
+    if not keys.delete(store.MODELS_DB, name):
+      return failure(404, f"No key has the name {name!r}.", "invalid_request_error")
+    return Response(status_code=204)
 
   @api.get("/files")
   async def files(request: Request) -> JSONResponse:

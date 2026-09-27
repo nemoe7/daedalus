@@ -86,6 +86,16 @@ input[type=search] { flex: 1; min-width: 180px; }
   background: var(--bar); color: var(--tier); font-size: 12px; font-weight: 600;
 }
 .yes { color: var(--accent); }
+.reveal {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 16px;
+  border-bottom: 1px solid var(--line); background: var(--bar);
+}
+.reveal code {
+  font: 13px var(--mono); padding: 4px 8px; border-radius: 6px; background: var(--panel);
+  user-select: all; overflow-wrap: anywhere;
+}
+.danger:hover { color: var(--bad); border-color: var(--bad); }
+td.end { text-align: right; }
 .empty { padding: 24px 16px; color: var(--muted); text-align: center; }
 .primary {
   padding: 8px 18px; border-radius: 8px; border: 0; background: var(--accent); color: #fff;

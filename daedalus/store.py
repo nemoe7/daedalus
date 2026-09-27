@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+from daedalus import keys
 from daedalus.config import STATE_DIR
 
 MODELS_DB = STATE_DIR / "models.sqlite3"
@@ -29,11 +30,35 @@ COLUMNS = (
   "supports_audio_output",
   "supports_web_search",
 )
-# Tables that a store rebuild keeps: the local key, the model weights and the pins.
-KEPT_TABLES = frozenset({"api_key", "weights", "pins", "signatures"})
+# Tables that a store rebuild keeps: the API keys, the model weights, the pins and the signatures.
+KEPT_TABLES = frozenset({keys.TABLE, "weights", "pins", "signatures"})
+# Each step of `migrate` raises the file version by 1.
+SCHEMA_VERSION = 1
 TEXT_COLUMNS = frozenset({"mode", "reasoning_effort"})
 # Rows that enter the chat chains. No catalog match gives no mode.
 ROUTABLE_MODES = (None, "chat")
+
+
+def migrate(path: Path | str | None = None) -> None:
+  """Bring an older store file to the current table layout, one version step at a time."""
+  target = Path(path or MODELS_DB)
+  if not target.exists():
+    return
+  with sqlite3.connect(target) as database:
+    version = database.execute("PRAGMA user_version").fetchone()[0]
+    if version < 1:
+      # Version 1: named API keys. The one old local key gets the name "default".
+      tables = {row[0] for row in database.execute("SELECT name FROM sqlite_master")}
+      if "api_key" in tables:
+        database.execute(keys.SCHEMA)
+        for (value,) in database.execute("SELECT hash FROM api_key").fetchall():
+          database.execute(
+            f"INSERT OR IGNORE INTO {keys.TABLE} (name, hash, start, created) VALUES (?, ?, ?, ?)",
+            ("default", value, "", time.time()),
+          )
+        database.execute("DROP TABLE api_key")
+      database.execute("PRAGMA user_version = 1")
+  database.close()
 
 
 def keep_tables(database: sqlite3.Connection, old: Path) -> None:
@@ -63,7 +88,9 @@ def write_store(rows: Iterable[dict[str, Any]], path: Path | str | None = None) 
     database.execute(
       f"CREATE TABLE models (id TEXT PRIMARY KEY, provider TEXT, slug TEXT, {columns})"
     )
+    database.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     if target.exists():
+      migrate(target)
       keep_tables(database, target)
     names = ("id", "provider", "slug", *COLUMNS)
     values = []

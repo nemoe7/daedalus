@@ -82,7 +82,6 @@ function renderStatus(status) {
     `<span class="chip"><span class="dot${status.healthy ? "" : " off"}"></span>` +
       `<b>${status.healthy ? "Healthy" : "Down"}</b></span>`,
     `<span class="chip"><b>${status.models}</b> models</span>`,
-    `<span class="chip">Local key <b>${status.key ? "on" : "off"}</b></span>`,
     `<span class="chip"><b>${status.sessions}</b> sessions</span>`,
     catalogChip(status.catalog),
   ];
@@ -139,6 +138,24 @@ function renderModels() {
     </tr>`).join("") : `<tr><td colspan="5" class="empty">${empty}</td></tr>`;
 }
 
+const dateTime = (seconds) => new Date(seconds * 1000).toLocaleString(
+  [], { dateStyle: "medium", timeStyle: "short" });
+
+function renderKeys(rows) {
+  $("keys").innerHTML = rows.length ? rows.map((k) => `
+    <tr>
+      <td>${esc(k.name)}</td>
+      <td class="num muted">${k.start ? esc(k.start) + "&hellip;" : "-"}</td>
+      <td class="hide-sm muted">${dateTime(k.created)}</td>
+      <td class="muted">${k.used ? dateTime(k.used) : "never"}</td>
+      <td class="end"><button type="button" class="ghost danger" data-key="${esc(k.name)}">Delete</button></td>
+    </tr>`).join("") : '<tr><td colspan="5" class="empty">No API keys. The master key opens /v1.</td></tr>';
+}
+
+async function refreshKeys() {
+  renderKeys(await call("keys"));
+}
+
 function dirty() {
   return state.files.length > 0 && $("editor").value !== state.saved[state.file];
 }
@@ -187,7 +204,7 @@ async function refreshFast() {
 }
 
 async function refreshSlow() {
-  const [pools, models] = await Promise.all([call("pools"), call("models")]);
+  const [pools, models] = await Promise.all([call("pools"), call("models"), refreshKeys()]);
   renderPools(pools);
   state.models = models;
   renderModels();
@@ -241,6 +258,46 @@ $("logout").addEventListener("click", async () => {
   showLogin();
 });
 
+$("new-key").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const message = $("key-message");
+  message.textContent = "";
+  try {
+    const made = await call("keys", { method: "POST", body: JSON.stringify({ name: $("key-name").value }) });
+    $("key-name").value = "";
+    $("reveal-name").textContent = made.name;
+    $("reveal-key").textContent = made.key;
+    $("reveal").hidden = false;
+    guarded(refreshKeys);
+  } catch (error) {
+    if (error instanceof LoggedOut) return showLogin();
+    message.textContent = error.message;
+  }
+});
+$("keys").addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-key]");
+  if (!button) return;
+  const name = button.dataset.key;
+  if (!confirm(`Delete the key "${name}"? Clients with it get 401 at once.`)) return;
+  await guarded(async () => {
+    await call("keys/" + encodeURIComponent(name), { method: "DELETE" });
+    await refreshKeys();
+  });
+});
+$("copy").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText($("reveal-key").textContent);
+    $("copy").textContent = "Copied";
+  } catch {
+    getSelection().selectAllChildren($("reveal-key"));
+    $("copy").textContent = "Press Ctrl+C";
+  }
+});
+$("reveal-close").addEventListener("click", () => {
+  $("reveal").hidden = true;
+  $("reveal-key").textContent = "";
+  $("copy").textContent = "Copy";
+});
 $("search").addEventListener("input", renderModels);
 $("tiers").addEventListener("click", (event) => {
   const button = event.target.closest("[data-tier]");

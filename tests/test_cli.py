@@ -20,7 +20,7 @@ def check_help() -> None:
   )
   assert shown.returncode == 0, shown.stderr
   assert shown.stdout.startswith("usage:"), shown.stdout
-  for command in ("serve", "catalog", "dump", "key"):
+  for command in ("serve", "catalog", "dump"):
     assert f"\n    {command} " in shown.stdout, shown.stdout
   assert "--init" not in shown.stdout and "-c," not in shown.stdout, "no flags"
   wrong = subprocess.run(
@@ -106,30 +106,12 @@ def check_master() -> None:
 
 
 def check_key(calls: list[str]) -> None:
-  database = store.MODELS_DB
-  shown = io.StringIO()
-  with contextlib.redirect_stdout(shown):
-    cli.run(["key"])
-  key = shown.getvalue().strip()
-  assert key.startswith("sk-") and len(key) == 46, key
-  assert keys.matches(database, key) is True, "the store keeps the hash"
-  assert key not in database.read_bytes().decode("latin-1"), "no plain key"
-  store.write_store([], database)
-  assert keys.matches(database, key) is True, "a rebuild keeps the key"
-  calls.clear()
-  cli.run(["key", "my-custom-key-0001"])
-  assert calls == [], "key does not start the router"
-  assert keys.matches(database, "my-custom-key-0001") is True
-  assert keys.matches(database, key) is False, "a new key replaces the old key"
-  cli.run(["key", "off"])
-  assert keys.matches(database, key) is None, "off removes the key"
-  for bad in ("short-key", "has a space in it!"):
-    wrong = subprocess.run(
-      [*DAEDALUS, "key", bad], capture_output=True, text=True, check=False
-    )
-    assert wrong.returncode == 2 and "16 or more" in wrong.stderr, wrong.stderr
-  database.unlink()
-  cli.run(["key"])
+  wrong = subprocess.run(
+    [*DAEDALUS, "key"], capture_output=True, text=True, check=False
+  )
+  assert wrong.returncode == 2, "the dashboard manages the API keys"
+  store.MODELS_DB.unlink()
+  keys.add(store.MODELS_DB, "ci")
   calls.clear()
   cli.run(["serve"])
   assert calls == ["catalog", "listen:3357"], "a key-only store is not a model store"
