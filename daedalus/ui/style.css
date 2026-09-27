@@ -135,6 +135,9 @@ tr.request.open td { border-bottom: 0; }
 }
 tr.open .caret { transform: rotate(45deg); }
 tr.chain td { background: var(--field); padding-top: 4px; }
+/* Zero width with a full minimum: the chain fills the row but does not set the column widths. */
+.chain-body { width: 0; min-width: 100%; }
+.step b { overflow-wrap: anywhere; }
 .chain-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
 .chain ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
 .step { font-size: 13px; }

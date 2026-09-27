@@ -156,11 +156,11 @@ function chainRows(r) {
       <span class="result">${esc(a.result)}</span> <span class="muted num">${seconds(a.seconds)}</span>
       ${a.error ? `<pre>${esc(a.error)}</pre>` : ""}
     </li>`).join("");
-  return `<tr class="chain"><td colspan="7">
+  return `<tr class="chain"><td colspan="7"><div class="chain-body">
     <div class="chain-head"><span class="muted">Fallback chain</span>
       <button class="ghost copy-chain" type="button" data-at="${r.at}">Copy</button></div>
     ${steps ? `<ol>${steps}</ol>` : '<p class="muted">No attempt data for this request.</p>'}
-  </td></tr>`;
+  </div></td></tr>`;
 }
 
 function renderRequests(rows) {
