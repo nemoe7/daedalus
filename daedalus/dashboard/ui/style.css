@@ -209,3 +209,4 @@ section[data-page="settings"] > .editbar { position: sticky; bottom: 16px; }
   th, td { padding: 10px; }
   .hide-sm { display: none; }
 }
+.from { font-size: 12px; opacity: .8; white-space: nowrap; }
