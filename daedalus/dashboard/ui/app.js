@@ -254,11 +254,11 @@ function renderModels() {
   $("models").innerHTML = rows.length ? rows.map((m) => `
     <tr>
       <td>${esc(m.id)}</td>
-      <td class="muted">${esc(MODES[m.mode] || m.mode)}</td>
+      <td class="hide-sm muted">${esc(MODES[m.mode] || m.mode)}</td>
       <td class="mid">${m.tier ? `<span class="tier">${esc(tierLetter(m.tier))}</span>` : dash}</td>
       <td class="hide-sm num muted">${tokens(m.max_input_tokens)}</td>
       <td class="mid">${m.mode === "chat" ? yesNo(m.tools) : dash}</td>
-      <td class="mid">${m.mode === "chat" ? yesNo(m.reasoning) : dash}</td>
+      <td class="hide-sm mid">${m.mode === "chat" ? yesNo(m.reasoning) : dash}</td>
       <td>${m.weight == null ? dash
         : `<div class="weight">${weightBar(m.weight)}<span class="num">${m.weight.toFixed(2)}</span></div>`}</td>
     </tr>`).join("") : `<tr><td colspan="7" class="empty">${empty}</td></tr>`;
