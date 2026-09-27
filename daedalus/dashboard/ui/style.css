@@ -1,7 +1,7 @@
 /* Palette from the owner's bow image. */
 :root {
   --bg: #f3f3f5; --panel: #ffffff; --text: #212121; --muted: #616161; --line: #cfcfcf;
-  --accent: #304ffe; --ok: #283593; --warn: #a3386c; --bad: #781f4c; --bar: #e3e8fd; --amber: #c77800;
+  --accent: #304ffe; --ok: #283593; --warn: #a3386c; --bad: #781f4c; --bar: #e3e8fd; --orange: #ef6c00; --red: #d32f2f;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23616161' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --tier: #212c70; --tag: #5c388c; --field: #f7f7f9; --radius: 12px;
   --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
@@ -10,7 +10,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #1c1c1c; --panel: #262626; --text: #e6e6e6; --muted: #adadad; --line: #424242;
-    --accent: #536dfe; --ok: #90caf9; --warn: #e1bee7; --bad: #d4608f; --bar: #212c70; --amber: #f0a35e;
+    --accent: #536dfe; --ok: #90caf9; --warn: #e1bee7; --bad: #d4608f; --bar: #212c70; --orange: #ffa040; --red: #ef5350;
     --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23adadad' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     --tier: #90caf9; --tag: #e1bee7; --field: #1f1f1f;
   }
@@ -77,7 +77,7 @@ main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
 .member .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .member .w { text-align: right; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .track { grid-column: 1 / -1; height: 4px; border-radius: 4px; background: var(--bar); }
-.fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--bad), var(--amber) 50%, var(--accent)); }
+.fill { height: 100%; border-radius: 4px; background: var(--accent); }
 .more, .muted { color: var(--muted); }
 .more { font-size: 12px; }
 table { width: 100%; border-collapse: collapse; }
