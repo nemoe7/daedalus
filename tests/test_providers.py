@@ -144,7 +144,8 @@ async def main() -> None:
     ) as client:
 
       async def send(model, **extra):
-        api.PINS.pins.clear()
+        api.PENALTIES.clear()
+        api.PENALTIES.pick = lambda: 0.0
         return await client.post(
           "/v1/chat/completions",
           json={
@@ -303,5 +304,11 @@ async def main() -> None:
   print("ok: provider routing, native requests, responses, streams, and fallback")
 
 
+def run() -> None:
+  with tempfile.TemporaryDirectory() as folder:
+    catalog.MODELS_DB = Path(folder) / "models.sqlite3"
+    asyncio.run(main())
+
+
 if __name__ == "__main__":
-  asyncio.run(main())
+  run()

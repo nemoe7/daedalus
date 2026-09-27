@@ -87,6 +87,8 @@ def use_upstream(api_key: str = UPSTREAM_KEY, local_key: str = "") -> None:
   """Point the app at the stub upstream."""
   use_config(api_key)
   keys.save_hash(catalog.MODELS_DB, keys.digest(local_key) if local_key else None)
+  api.PENALTIES.clear()
+  api.PENALTIES.pick = lambda: 0.0
   api.set_client(
     httpx.AsyncClient(
       transport=httpx.ASGITransport(app=make_upstream()),
