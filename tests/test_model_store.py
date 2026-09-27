@@ -5,7 +5,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import httpx
 
-from daedalus import catalog, store
+from daedalus import catalog, enrichment, store
 
 PAGES = {
   ("zai", "1"): {
@@ -40,7 +40,7 @@ def main() -> None:
   def fetch(url: str, headers: dict) -> dict:
     query = parse_qs(urlsplit(url).query)
     seen.append(query)
-    assert url.startswith(catalog.LITELLM_CATALOG), url
+    assert url.startswith(enrichment.LITELLM_CATALOG), url
     assert query["page_size"] == ["500"], query
     if query["provider"] == ["broken"]:
       raise httpx.ConnectError("down")
@@ -61,7 +61,7 @@ def main() -> None:
     "broken/x",
   ]
   native = {"z-ai/glm-5": {"max_input_tokens": 1, "max_output_tokens": 64000}}
-  rows, problems = catalog.enrich(lines, config, fetch, native)
+  rows, problems = enrichment.enrich(lines, config, fetch, native)
   assert [query["page"] for query in seen[:2]] == [["1"], ["2"]], seen
   assert len(seen) == 4, seen
   assert problems == ["broken: LiteLLM catalog failed: down"], problems

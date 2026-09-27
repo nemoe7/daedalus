@@ -1,7 +1,6 @@
 """OpenAI-compatible local router for the configured providers."""
 
 import asyncio
-import hmac
 import json
 import logging
 import os
@@ -10,13 +9,15 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Any
 
-import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from daedalus import (
+  access,
+  context,
   dashboard,
   keys,
+  logs,
   penalties,
   providers,
   router,
@@ -24,115 +25,35 @@ from daedalus import (
   signatures,
   store,
   stream,
+  upstream,
 )
 from daedalus.config import get_config
 from daedalus.providers.base import error_text
 
 HOST = os.environ.get("DAEDALUS_HOST") or "0.0.0.0"
 PORT = int(os.environ.get("DAEDALUS_PORT") or 3357)
-TIMEOUT_SECONDS = 600.0
-# The wait for one answer. A provider that sends bytes resets it, so a slow
-# stream is not cut off.
-WAIT_SECONDS = 60.0
-SLOW_SECONDS = WAIT_SECONDS / 2
+SLOW_SECONDS = upstream.WAIT_SECONDS / 2
 AFFINITY = True
 
 logger = logging.getLogger("daedalus")
-LOG_FORMAT = "%(asctime)s %(levelname)-5s %(name)s %(message)s"
-
-
-def setup_logging() -> None:
-  """Write every log line in one format, without Uvicorn access or httpx request lines."""
-  logging.addLevelName(logging.WARNING, "WARN")
-  logging.basicConfig(
-    level=logging.INFO, format=LOG_FORMAT, datefmt="%Y-%m-%d %H:%M:%S", force=True
-  )
-  logging.getLogger("httpx").setLevel(logging.WARNING)
-  for handler in logging.getLogger().handlers:
-    handler.addFilter(short_name)
-
-
-def short_name(record: logging.LogRecord) -> bool:
-  """Show Uvicorn server lines as `uvicorn`, not as `uvicorn.error`."""
-  if record.name == "uvicorn.error":
-    record.name = "uvicorn"
-  return True
-
-
-def seconds_text(seconds: float) -> str:
-  """A duration as log text, in seconds with 3 decimals."""
-  return f"{seconds:.3f}s"
-
-
-def elapsed(started: float) -> str:
-  """The time since `started`, as log text."""
-  return seconds_text(time.perf_counter() - started)
 
 
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
   """Set up logging and the catalog schedule, then stop both parts on shutdown."""
-  setup_logging()
+  logs.setup_logging()
   rebuilds = (
     asyncio.create_task(schedule.run(CATALOG_REFRESH)) if CATALOG_REFRESH else None
   )
   yield
   if rebuilds is not None:
     rebuilds.cancel()
-  if _client is not None:
-    await _client.aclose()
-    set_client(None)
+  await upstream.close()
 
 
 # The catalog rebuild for the schedule. `daedalus serve` sets it, and tests leave it off.
 CATALOG_REFRESH: Callable[[], object] | None = None
 app = FastAPI(title="daedalus", version="0.1.0", lifespan=lifespan)
-
-_client: httpx.AsyncClient | None = None
-
-
-def get_client() -> httpx.AsyncClient:
-  global _client
-  if _client is None:
-    _client = httpx.AsyncClient(
-      timeout=httpx.Timeout(TIMEOUT_SECONDS, read=WAIT_SECONDS)
-    )
-  return _client
-
-
-def set_client(client: httpx.AsyncClient | None) -> None:
-  """Replace the upstream client. Test seam."""
-  global _client
-  _client = client
-
-
-def error_response(status: int, message: str, error_type: str) -> JSONResponse:
-  """Answer in the OpenAI error shape."""
-  return JSONResponse(
-    status_code=status,
-    content={"error": {"message": message, "type": error_type, "code": status}},
-  )
-
-
-def bearer(request: Request) -> str:
-  return keys.bearer(request.headers.get("authorization", ""))
-
-
-def check_api_key(request: Request) -> JSONResponse | None:
-  """Reject the request unless the bearer token is the master key or an API key."""
-  token, master = bearer(request), dashboard.master()
-  if master is not None and hmac.compare_digest(token.encode(), master.encode()):
-    request.state.key = "master"
-    return None
-  name = keys.find(store.MODELS_DB, token)
-  if name is not None:
-    request.state.key = name
-    return None
-  return error_response(
-    401,
-    "Send the master key or an API key as 'Authorization: Bearer <key>'.",
-    "authentication_error",
-  )
 
 
 @app.middleware("http")
@@ -145,7 +66,7 @@ async def log_request(request: Request, call_next):
     if getattr(request.state, key, None)
   ]
   line = " ".join(
-    [request.method, request.url.path, str(response.status_code), elapsed(started)]
+    [request.method, request.url.path, str(response.status_code), logs.elapsed(started)]
   )
   # The dashboard polls every few seconds, so its reads go to the debug log.
   quiet = request.method == "GET" and response.status_code < 400
@@ -189,7 +110,7 @@ async def health() -> dict[str, str]:
 
 @app.get("/v1/models")
 async def models(request: Request) -> Response:
-  denied = check_api_key(request)
+  denied = access.check_api_key(request)
   if denied is not None:
     return denied
   names = [
@@ -224,38 +145,6 @@ def chain(
   if model.partition("/")[0] in config:
     return [[model]], None
   return None
-
-
-# Parts that hold binary data. Their text does not count as input tokens.
-BINARY_KEYS = frozenset({"image_url", "input_audio", "file"})
-
-
-def text_length(node: object) -> int:
-  """The characters of all strings in a message tree, without binary parts."""
-  if isinstance(node, str):
-    return len(node)
-  if isinstance(node, list):
-    return sum(text_length(item) for item in node)
-  if isinstance(node, dict):
-    return sum(
-      text_length(value) for key, value in node.items() if key not in BINARY_KEYS
-    )
-  return 0
-
-
-def input_tokens(body: dict[str, Any]) -> int:
-  """An estimate of the input tokens: the characters of the messages and tools, divided by 4."""
-  characters = text_length(body.get("messages")) + text_length(body.get("tools"))
-  return -(-characters // 4)
-
-
-def too_large(candidate: str, tokens: int, limits: dict[str, int]) -> bool:
-  """Tell if the input does not fit the model, and log the skip."""
-  limit = limits.get(candidate)
-  if limit is None or tokens <= limit:
-    return False
-  logger.warning("skip %s: input ~%d tokens > limit %d", candidate, tokens, limit)
-  return True
 
 
 def routed_pool(slot: str) -> str:
@@ -307,48 +196,58 @@ class Tracker:
 
 @app.post("/v1/chat/completions")
 async def chat(request: Request) -> Response:
-  denied = check_api_key(request)
+  denied = access.check_api_key(request)
   if denied is not None:
     return denied
   try:
     body = await request.json()
   except ValueError:
-    return error_response(400, "Invalid JSON", "invalid_request_error")
+    return upstream.error_response(400, "Invalid JSON", "invalid_request_error")
   if not isinstance(body, dict) or not isinstance(body.get("model"), str):
-    return error_response(400, "A model is required", "invalid_request_error")
+    return upstream.error_response(400, "A model is required", "invalid_request_error")
   model = body["model"]
   request.state.model = model
   if not isinstance(body.get("messages"), list):
-    return error_response(400, "messages must be a list", "invalid_request_error")
+    return upstream.error_response(
+      400, "messages must be a list", "invalid_request_error"
+    )
   if not model or any(not isinstance(message, dict) for message in body["messages"]):
-    return error_response(400, "Invalid model or messages", "invalid_request_error")
+    return upstream.error_response(
+      400, "Invalid model or messages", "invalid_request_error"
+    )
   if "stream" in body and not isinstance(body["stream"], bool):
-    return error_response(400, "stream must be boolean", "invalid_request_error")
+    return upstream.error_response(
+      400, "stream must be boolean", "invalid_request_error"
+    )
   if body.get("stream_options") is not None and not isinstance(
     body["stream_options"], dict
   ):
-    return error_response(
+    return upstream.error_response(
       400, "stream_options must be an object", "invalid_request_error"
     )
   config = get_config()
   found = chain(model, body, config)
   if found is None:
-    return error_response(400, "Unknown provider or pool", "invalid_request_error")
+    return upstream.error_response(
+      400, "Unknown provider or pool", "invalid_request_error"
+    )
   if model == router.RESERVED_MODEL and found[1]:
     request.state.pool = routed_pool(found[1])
-  pin = Tracker(session_key(bearer(request), body["messages"]), found[1])
+  pin = Tracker(session_key(access.bearer(request), body["messages"]), found[1])
   models = pin.order(found[0])
   include_usage = bool((body.get("stream_options") or {}).get("include_usage"))
-  failure = error_response(502, "No model answered the request", "upstream_error")
-  tokens, limits, tried = input_tokens(body), store.input_limits(), False
+  failure = upstream.error_response(
+    502, "No model answered the request", "upstream_error"
+  )
+  tokens, limits, tried = context.input_tokens(body), store.input_limits(), False
   for index, candidate in enumerate(models):
     request.state.fallbacks = str(index)
-    if too_large(candidate, tokens, limits):
+    if context.too_large(candidate, tokens, limits):
       continue
     tried = True
     started = time.perf_counter()
     try:
-      provider, response = await attempt(candidate, body, config)
+      provider, response = await upstream.attempt(candidate, body, config)
       if not body.get("stream"):
         raw = await response.aread()
         await response.aclose()
@@ -358,92 +257,48 @@ async def chat(request: Request) -> Response:
         completion = provider.completion(answer, candidate)
         ttft = time.perf_counter() - started
         request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
-        request.state.ttft = seconds_text(ttft)
+        request.state.ttft = logs.seconds_text(ttft)
         return JSONResponse(completion)
       events = stream.sse_data(provider.stream(response, candidate, include_usage))
       pending = await stream.first_content(events)
       ttft = time.perf_counter() - started
-    except UpstreamStatus as exc:
+    except upstream.UpstreamStatus as exc:
       pin.failed(candidate)
-      failure = error_response(
+      failure = upstream.error_response(
         exc.status, "Upstream provider rejected the request", "upstream_error"
       )
       continue
     except stream.ATTEMPT_ERRORS as exc:
-      logger.warning("upstream %s failed: %s", candidate, failure_text(exc))
+      logger.warning("upstream %s failed: %s", candidate, upstream.failure_text(exc))
       pin.failed(candidate)
-      failure = error_response(
+      failure = upstream.error_response(
         502, "Upstream provider attempt failed", "upstream_error"
       )
       continue
-    rest = [m for m in models[index + 1 :] if not too_large(m, tokens, limits)]
+    rest = [m for m in models[index + 1 :] if not context.too_large(m, tokens, limits)]
     request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
-    request.state.ttft = seconds_text(ttft)
+    request.state.ttft = logs.seconds_text(ttft)
     return StreamingResponse(
       stream.relay(pending, events, rest, body, config, include_usage, candidate, pin),
       media_type="text/event-stream",
     )
   if models and not tried:
-    return too_long(tokens)
+    return context.too_long(tokens)
   return failure
-
-
-def too_long(tokens: int) -> JSONResponse:
-  """The OpenAI error for an input that no model in the chain can take."""
-  message = (
-    f"The input (~{tokens} tokens) is larger than the context window of each model"
-  )
-  body = {
-    "error": {
-      "message": message,
-      "type": "invalid_request_error",
-      "code": "context_length_exceeded",
-    }
-  }
-  return JSONResponse(body, status_code=400)
-
-
-def failure_text(exc: Exception) -> str:
-  """The error type and its message, for one log line."""
-  detail = error_text(str(exc)) if str(exc) else ""
-  return f"{type(exc).__name__}: {detail}" if detail else type(exc).__name__
-
-
-class UpstreamStatus(Exception):
-  def __init__(self, status: int) -> None:
-    super().__init__(status)
-    self.status = status
-
-
-async def attempt(
-  candidate: str, body: dict[str, Any], config: dict[str, Any]
-) -> tuple[providers.OpenAIProvider, httpx.Response]:
-  """Send one candidate request, and fail on an upstream error status."""
-  provider, url, payload, headers = providers.prepare(candidate, body, config)
-  upstream = get_client().build_request("POST", url, json=payload, headers=headers)
-  started = time.perf_counter()
-  response = await get_client().send(upstream, stream=True)
-  status = response.status_code
-  if status < 400:
-    logger.info("upstream %s %d %s", candidate, status, elapsed(started))
-    return provider, response
-  raw = await response.aread()
-  await response.aclose()
-  logger.warning(
-    "upstream %s %d %s: %s", candidate, status, elapsed(started), error_text(raw)
-  )
-  raise UpstreamStatus(status)
 
 
 def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   """Use the timeouts, session affinity, and weights of `config/daedalus.yml`."""
-  global TIMEOUT_SECONDS, WAIT_SECONDS, SLOW_SECONDS, AFFINITY
+  global SLOW_SECONDS, AFFINITY
   timeouts, affinity, weights = (
     values["timeouts"],
     values["session_affinity"],
     values["weights"],
   )
-  TIMEOUT_SECONDS, WAIT_SECONDS = timeouts["request"], timeouts["wait"]
+  upstream.TIMEOUT_SECONDS, upstream.WAIT_SECONDS = (
+    timeouts["request"],
+    timeouts["wait"],
+  )
   SLOW_SECONDS, AFFINITY = timeouts["slow"], affinity["enabled"]
   PENALTIES.idle, PENALTIES.enabled = affinity["idle"], weights["enabled"]
   signatures.IDLE_SECONDS = affinity["idle"]
@@ -454,4 +309,4 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   )
   for name in ("success", "fault", "slow", "hourly"):
     setattr(PENALTIES, name, weights[name])
-  set_client(None)
+  upstream.set_client(None)
