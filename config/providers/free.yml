@@ -38,20 +38,17 @@ gemini:
     - aqa
     - nano-banana*
     - veo*
-    - "*transcribe*"
     - "*robotics*"
     - antigravity*
     - "*-latest"
-    - gemini-2.5-pro
+    - gemini-2.5-*
     - gemini-3.1-pro-preview*
     - gemini-pro-latest
     - deep-research*
     - "*computer-use*"
     - "*omni*"
-    - "gemini-2.5-flash*"
     - "*-image*"
     - "*-live*"
-    - "*-tts*"
     - lyria-*
   tier:
     TIER-A:
@@ -76,6 +73,8 @@ gemini:
     gemini-3.8-flash: { rpm: 5, tpm: 250000, reasoning_effort: medium }
     gemma-4-26b-a4b-it: { rpm: 30, tpm: 16000 }
     gemma-4-31b-it: { rpm: 30, tpm: 16000 }
+    "gemini-3*-tts*": { mode: audio_speech, rpm: 3 }
+    "gemini-3*-transcribe": { mode: audio_transcription, rpm: 3 }
 
 groq:
   api_key: os.environ/GROQ_API_KEY

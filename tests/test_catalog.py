@@ -370,24 +370,29 @@ def check_free_only() -> None:
 
 
 def check_non_text() -> None:
-  """The committed config drops Gemini image, live and speech rows, and sets other modes."""
+  """The committed config drops Gemini image, live and 2.5 rows, and sets other modes."""
   providers = config.load_config()
   gemini = [
     "gemini-3.1-flash-image",
     "gemini-3.1-flash-image-preview",
     "gemini-3.1-flash-lite-image",
     "gemini-3.1-flash-live-preview",
-    "gemini-3.1-flash-tts-preview",
+    "gemini-3.5-transcribe-live",
+    "gemini-2.5-flash-preview-tts",
+    "gemini-2.5-flash",
     "gemini-3.1-flash-lite",
   ]
   kept = discovery.select(providers["gemini"], gemini)
   assert "gemini-3.1-flash-lite" in kept, kept
-  assert not set(gemini[:5]) & set(kept), kept
+  assert not set(gemini[:-1]) & set(kept), kept
   modes = {
     ("mistral", "codestral-embed-2505"): "embedding",
     ("mistral", "voxtral-mini-latest"): "audio_transcription",
     ("groq", "whisper-large-v3"): "audio_transcription",
     ("groq", "canopylabs/orpheus-v1-english"): "audio_speech",
+    ("gemini", "gemini-3.8-flash-tts"): "audio_speech",
+    ("gemini", "gemini-3.1-flash-tts-preview"): "audio_speech",
+    ("gemini", "gemini-3.5-transcribe"): "audio_transcription",
     ("mistral", "codestral-2508"): None,
   }
   for (name, slug), mode in modes.items():
