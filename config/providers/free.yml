@@ -1,5 +1,5 @@
 cloudflare:
-  api_key: os.environ/CLOUDFLARE_API_TOKEN
+  api_key: os.environ/CLOUDFLARE_API_KEY
   discovery_match:
     require_workers_paid: false
   exclude:
