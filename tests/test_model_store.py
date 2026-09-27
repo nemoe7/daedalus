@@ -5,7 +5,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import httpx
 
-from daedalus import catalog, enrichment, store
+from daedalus import enrichment, store
 
 PAGES = {
   ("zai", "1"): {
@@ -99,18 +99,38 @@ def main() -> None:
     connection.close()
     assert stored == ("z-ai", "glm-5", 131072, 1), stored
 
-    table = Path(folder) / "models.tsv"
-    catalog.write_models_tsv(rows, table)
-    header, first, *rest = table.read_text(encoding="utf-8").splitlines()
-    shown = [line.split("\t")[0] for line in (first, *rest)]
-    assert shown == routable, shown
-    assert header.split("\t") == ["id", *store.COLUMNS], header
-    cells = dict(zip(header.split("\t"), first.split("\t"), strict=True))
-    assert cells["id"] == "z-ai/glm-5" and cells["mode"] == "chat", cells
-    assert cells["supports_function_calling"] == "true", cells
-    dropped = {"input_cost_per_token", "deprecation_date", "source"}
-    assert not dropped & set(cells), cells
+  check_in_place()
   print("ok: model store")
+
+
+def check_in_place() -> None:
+  with tempfile.TemporaryDirectory() as folder:
+    database = Path(folder) / "models.sqlite3"
+    first = [
+      {"id": "a/1", "max_input_tokens": 1000},
+      {"id": "a/2"},
+      {"id": "b/1", "max_input_tokens": 2000},
+    ]
+    store.write_store(first, database)
+    with sqlite3.connect(database) as connection:
+      connection.execute("CREATE TABLE weights (model TEXT, weight REAL)")
+      connection.execute("INSERT INTO weights VALUES ('a/1', 0.5)")
+    connection.close()
+    second = [{"id": "a/1", "max_input_tokens": None}, {"id": "c/1"}]
+    store.write_store(second, database, keep=["b"], fill=["a"])
+    with sqlite3.connect(database) as connection:
+      rows = connection.execute(
+        "SELECT id, max_input_tokens FROM models ORDER BY id"
+      ).fetchall()
+      weights = connection.execute("SELECT * FROM weights").fetchall()
+    connection.close()
+    assert rows == [("a/1", 1000), ("b/1", 2000), ("c/1", None)], rows
+    assert weights == [("a/1", 0.5)], "other tables stay"
+    store.write_store([{"id": "a/1", "max_input_tokens": None}], database)
+    with sqlite3.connect(database) as connection:
+      rows = connection.execute("SELECT id, max_input_tokens FROM models").fetchall()
+    connection.close()
+    assert rows == [("a/1", None)], rows
 
 
 if __name__ == "__main__":

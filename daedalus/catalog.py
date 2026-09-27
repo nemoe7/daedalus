@@ -1,48 +1,31 @@
 """Discover provider models, add LiteLLM catalog metadata, and write the store."""
 
 import logging
-from collections.abc import Iterable
 from pathlib import Path
-from typing import Any
 
-from daedalus.config import STATE_DIR, get_config
-from daedalus.discovery import build_rows, text
+from daedalus.config import get_config
+from daedalus.discovery import build_rows
 from daedalus.enrichment import enrich
-from daedalus.store import COLUMNS, ROUTABLE_MODES, write_store
+from daedalus.store import write_store
 
 logger = logging.getLogger("daedalus.catalog")
 
-MODELS_TSV = STATE_DIR / "models.tsv"
-
-
-def write_models_tsv(
-  rows: Iterable[dict[str, Any]], path: Path | str = MODELS_TSV
-) -> Path:
-  """Write the routable rows as a tab-separated table with a header row."""
-  target = Path(path)
-  target.parent.mkdir(parents=True, exist_ok=True)
-  header = ("id", *COLUMNS)
-  lines = ["\t".join(header)]
-  lines.extend(
-    "\t".join(text(row.get(key)) for key in header)
-    for row in rows
-    if row.get("mode") in ROUTABLE_MODES
-  )
-  with target.open("w", encoding="utf-8", newline="\n") as handle:
-    handle.write("".join(f"{line}\n" for line in lines))
-  return target
-
 
 def refresh() -> Path:
-  """Discover the provider models, and rewrite the SQLite store and models.tsv."""
+  """Discover the provider models, and update the SQLite store."""
   config = get_config()
-  native, skipped = build_rows(config)
+  failed: list[str] = []
+  native, skipped = build_rows(config, failed=failed)
   lines = list(native)
-  rows, problems = enrich(lines, config, native=native)
-  write_store(rows)
-  target = write_models_tsv(rows)
+  unenriched: list[str] = []
+  rows, problems = enrich(lines, config, native=native, failed=unenriched)
+  target = write_store(rows, keep=failed, fill=unenriched)
   for reason in [*skipped, *problems]:
     logger.warning("skipped %s", reason)
+  for provider_name in failed:
+    logger.warning(
+      "kept the old rows of %s: its model list fetch failed", provider_name
+    )
   providers = len({line.split("/", 1)[0] for line in lines})
   logger.info("wrote %d models from %d providers to %s", len(lines), providers, target)
   return target
