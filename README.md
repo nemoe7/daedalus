@@ -2,7 +2,7 @@
 
 One of them is bound to hit. Daedalus puts your personal API keys behind 1 endpoint and uses a classifier to select a model for each task.
 
-I wanted a name with the same impact as [Odysseus](https://odysseusai.dev/). It has to be Greek and easy to recognize. The idea comes from the Terraria weapon "Daedalus Stormbow". Each arrow is a request to a provider, and the bow shoots until 1 arrow hits.
+The name must have the same impact as [Odysseus](https://odysseusai.dev/). It must be Greek and easy to recognize. The idea comes from the Terraria weapon "Daedalus Stormbow". Each arrow is a request to a provider, and the bow shoots until 1 arrow hits.
 
 ## Features
 
