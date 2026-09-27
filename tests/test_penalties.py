@@ -1,5 +1,6 @@
 import json
 import os
+import sqlite3
 import tempfile
 from pathlib import Path
 
@@ -40,6 +41,15 @@ def check_weights(folder: Path) -> None:
   assert abs(store.weights(["a"])["a"] - 0.45) < 1e-9, "x1.2 after 1 hour"
   now[0] = 3600 * 30
   assert store.weights(["a"])["a"] == 1.0, "back to 1"
+  for _ in range(2000):
+    store.record("f", penalties.FAULT)
+  assert store.weights(["f"])["f"] == penalties.FLOOR, "the floor"
+  database = sqlite3.connect(folder / "w.sqlite3")
+  with database:
+    database.execute("UPDATE weights SET weight = 0 WHERE model = 'f'")
+  database.close()
+  assert store.weights(["f"])["f"] == penalties.FLOOR, "an old weight of 0"
+  assert store.record("f", penalties.SUCCESS) == penalties.FLOOR * 1.5, "it recovers"
   now[0] = 0
   store.clear()
   store.record("a", penalties.FAULT)
