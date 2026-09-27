@@ -77,6 +77,7 @@ def check_page(client: TestClient) -> None:
   script = client.get("/ui/app.js")
   assert script.status_code == 200 and "javascript" in script.headers["content-type"]
   assert client.get("/ui/style.css").status_code == 200
+  assert script.headers["cache-control"] == "no-cache", "an update applies at once"
   assert client.get("/ui/index.html").status_code == 404, "listed assets only"
 
 

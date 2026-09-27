@@ -29,6 +29,8 @@ SESSION_SECONDS = 12 * 3600
 REMEMBER_SECONDS = 30 * 86400
 UI_DIR = Path(__file__).parent / "ui"
 UI_FILES = {"app.js": "text/javascript", "style.css": "text/css"}
+# The browser asks again each time, so a new version of the page applies at once.
+FRESH = {"Cache-Control": "no-cache"}
 # The files that the editor shows, in tab order.
 FILES = (settings.DEFAULT_PATH, config.DEFAULT_PATH)
 
@@ -128,13 +130,13 @@ def page() -> APIRouter:
 
   @pages.get("/", include_in_schema=False)
   async def index() -> FileResponse:
-    return FileResponse(UI_DIR / "index.html", media_type="text/html")
+    return FileResponse(UI_DIR / "index.html", media_type="text/html", headers=FRESH)
 
   @pages.get("/ui/{name}", include_in_schema=False)
   async def asset(name: str) -> Response:
     if name not in UI_FILES:
       return failure(404, "Not found.", "invalid_request_error")
-    return FileResponse(UI_DIR / name, media_type=UI_FILES[name])
+    return FileResponse(UI_DIR / name, media_type=UI_FILES[name], headers=FRESH)
 
   return pages
 
