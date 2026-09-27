@@ -41,6 +41,9 @@ gemini:
     - "*computer-use*"
     - "*omni*"
     - "gemini-2.5-flash*"
+    - "*-image*"
+    - "*-live*"
+    - "*-tts*"
   tier:
     TIER-A:
       - gemini-3.8-flash
@@ -108,6 +111,7 @@ mistral:
     - magistral-medium-latest
     - "mistral-medium*"
     - "mistral-vibe-cli-*"
+    - "*embed*"
   tier:
     TIER-A:
       - "magistral-medium*"
