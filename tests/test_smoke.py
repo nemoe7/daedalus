@@ -176,7 +176,7 @@ async def check_routed_model(client: httpx.AsyncClient) -> None:
       )
       assert pooled.status_code == 200, pooled.text
       assert SEEN[-1]["model"] == "gemini-3.5-pro", SEEN[-1]
-      # ADR 3: a tool request goes to praktos, and an empty praktos falls back.
+      # ADR 2: a tool request goes to praktos, and an empty praktos falls back.
       tool = {"type": "function", "function": {"name": "f", "parameters": {}}}
       for model in ("daedalus/praktos", "daedalus/auto"):
         empty = await client.post(

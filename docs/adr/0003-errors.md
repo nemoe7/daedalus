@@ -1,4 +1,4 @@
-# 2. Errors reroute to the next fallback
+# 3. Errors reroute to the next fallback
 
 ## Status
 

@@ -1,4 +1,4 @@
-# 3. Praktos is the pool for tool calls
+# 2. Praktos is the pool for tool calls
 
 ## Status
 
