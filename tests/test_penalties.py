@@ -40,7 +40,7 @@ def check_weights(folder: Path) -> None:
   assert store.record("b", penalties.SUCCESS) == 1.0, "1 at most"
   assert store.record("b", penalties.SLOW) == 0.75, "a slow success"
   now[0] = 3600
-  assert abs(store.weights(["a"])["a"] - 0.45) < 1e-9, "x1.2 after 1 hour"
+  assert abs(store.weights(["a"])["a"] - 0.4545) < 1e-9, "x1.212 after 1 hour"
   now[0] = 3600 * 30
   assert store.weights(["a"])["a"] == 1.0, "back to 1"
   for _ in range(2000):
