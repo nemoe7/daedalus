@@ -38,7 +38,7 @@ flowchart LR
 | Provider | Embeddings | Transcriptions | Speech | Images |
 | --- | --- | --- | --- | --- |
 | Cloudflare | Yes | Whisper, native API | MeloTTS and Aura, native API | Flux and SDXL-type models, native API |
-| Gemini | Yes, native API | 400 | 400 | 400 |
+| Gemini | Yes, native API | `gemini-3.5-transcribe`, native API | 3.x TTS models, native API | 400 |
 | Groq | - | Yes | Yes | - |
 | Mistral | Yes | `language` and `temperature` only | - | - |
 
@@ -53,5 +53,21 @@ Limits of the native Cloudflare API:
 | Transcriptions | `response_format` is `json`, `text` or `vtt` |
 | Speech | MeloTTS answers in MP3 only |
 | Images | 1 image for each request. Flux 1 ignores `size`. |
+
+Limits of the native Gemini API:
+
+| Endpoint | Limit |
+| --- | --- |
+| Transcriptions | `response_format` is `json` or `text`. Daedalus adds `language` and `prompt` to the instruction. |
+| Speech | `response_format` is `wav` (the default) or `pcm`. `voice` is a Gemini voice name, for example `Kore`. Gemini ignores `speed`. |
+
+The Gemini exclude list keeps these models out:
+
+| Models | Reason |
+| --- | --- |
+| The 2.5 family, TTS included | Only past users can use them. |
+| Live models | They use only the Live API, a websocket. Daedalus does not support it. |
+| Models with a 0/0 free quota | Images, Omni, Lyria, Veo, 3.1 Pro, Deep Research, Computer Use |
+| Robotics ER, Antigravity | They are for robot vision and for agents. |
 
 > Q: Which of these endpoints do you use, and with which client?

@@ -1,5 +1,10 @@
+import base64
+import io
+import json
+import re
 import time
 import uuid
+import wave
 from collections.abc import AsyncIterator, Mapping
 from typing import Any, ClassVar
 from urllib.parse import quote
@@ -296,6 +301,26 @@ def parts(content: Any) -> list[dict]:
   return found
 
 
+def answer_parts(answer: Any) -> list[dict]:
+  """The parts of the first candidate of a generateContent answer."""
+  candidates = answer.get("candidates") if isinstance(answer, dict) else None
+  if not candidates or not isinstance(candidates[0], dict):
+    raise ProviderError("Invalid Gemini answer")
+  parts = (candidates[0].get("content") or {}).get("parts") or []
+  return [part for part in parts if isinstance(part, dict)]
+
+
+def wav_file(pcm: bytes, rate: int) -> bytes:
+  """A mono 16-bit WAV file around raw PCM data."""
+  buffer = io.BytesIO()
+  with wave.open(buffer, "wb") as out:
+    out.setnchannels(1)
+    out.setsampwidth(2)
+    out.setframerate(rate)
+    out.writeframes(pcm)
+  return buffer.getvalue()
+
+
 class GeminiProvider(OpenAIProvider):
   """Gemini generateContent, with LiteLLM's OpenAI parameter mapping."""
 
@@ -383,15 +408,65 @@ class GeminiProvider(OpenAIProvider):
     url = f"{self.base}/models/{quote(slug, safe='')}:batchEmbedContents"
     return url, {"requests": requests}, self.headers()
 
+  def generate_url(self, slug: str) -> str:
+    return f"{self.base}/models/{quote(slug, safe='')}:generateContent"
+
   def transcribe_request(
     self, slug: str, fields: dict[str, Any], audio: tuple[str, bytes, str]
   ) -> tuple[str, dict[str, Any], dict[str, str]]:
-    raise ProviderError("Gemini has no transcription endpoint")
+    """A generateContent request with the audio and a transcription instruction."""
+    if (fields.get("response_format") or "json") not in ("json", "text"):
+      raise ProviderError("Gemini transcriptions support json and text only")
+    _, content, media = audio
+    ask = "Transcribe this audio. Answer with the transcript only."
+    if fields.get("language"):
+      ask += f" The language is {fields['language']}."
+    if fields.get("prompt"):
+      ask += f" Context: {fields['prompt']}"
+    data = base64.b64encode(content).decode()
+    parts = [{"inlineData": {"mimeType": media, "data": data}}, {"text": ask}]
+    body = {"contents": [{"role": "user", "parts": parts}]}
+    return self.generate_url(slug), {"json": body}, self.headers()
+
+  def transcription(
+    self, response: httpx.Response, fields: dict[str, Any]
+  ) -> tuple[bytes, str]:
+    """The text parts of the first candidate, in the requested format."""
+    text = "".join(part.get("text", "") for part in answer_parts(response.json()))
+    if fields.get("response_format") == "text":
+      return text.encode(), "text/plain; charset=utf-8"
+    return json.dumps({"text": text}).encode(), "application/json"
 
   def speech_request(
     self, slug: str, payload: dict
   ) -> tuple[str, dict[str, Any], dict[str, str]]:
-    raise ProviderError("Gemini has no speech endpoint")
+    """A generateContent request for audio, with a Gemini voice name as the voice."""
+    if (payload.get("response_format") or "wav") not in ("wav", "pcm"):
+      raise ProviderError("Gemini speech answers in wav or pcm only")
+    text = payload["input"]
+    if payload.get("instructions"):
+      text = f"{payload['instructions']}: {text}"
+    config: dict[str, Any] = {"responseModalities": ["AUDIO"]}
+    if payload.get("voice"):
+      voice = {"prebuiltVoiceConfig": {"voiceName": payload["voice"]}}
+      config["speechConfig"] = {"voiceConfig": voice}
+    body = {"contents": [{"parts": [{"text": text}]}], "generationConfig": config}
+    return self.generate_url(slug), {"json": body}, self.headers()
+
+  def speech(self, response: httpx.Response, payload: dict) -> tuple[bytes, str]:
+    """The PCM audio of the answer, in a WAV file unless the client wants raw PCM."""
+    found = [
+      part["inlineData"]
+      for part in answer_parts(response.json())
+      if "inlineData" in part
+    ]
+    if not found or not isinstance(found[0].get("data"), str):
+      raise ProviderError("Invalid speech answer")
+    pcm = base64.b64decode(found[0]["data"])
+    if payload.get("response_format") == "pcm":
+      return pcm, "audio/pcm"
+    rate = re.search(r"rate=(\d+)", found[0].get("mimeType", ""))
+    return wav_file(pcm, int(rate.group(1)) if rate else 24000), "audio/wav"
 
   def image_request(
     self, slug: str, payload: dict
