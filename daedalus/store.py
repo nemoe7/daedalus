@@ -29,14 +29,14 @@ COLUMNS = (
   "supports_web_search",
 )
 # Tables that a store rebuild keeps: the local key, the model weights and the pins.
-KEPT_TABLES = frozenset({"api_key", "weights", "pins"})
+KEPT_TABLES = frozenset({"api_key", "weights", "pins", "signatures"})
 TEXT_COLUMNS = frozenset({"mode", "reasoning_effort"})
 # Rows that enter the chat chains. No catalog match gives no mode.
 ROUTABLE_MODES = (None, "chat")
 
 
 def keep_tables(database: sqlite3.Connection, old: Path) -> None:
-  """Copy the key, weight and pin tables of the old store into a new store."""
+  """Copy the key, weight, pin and signature tables of the old store into a new store."""
   database.execute("ATTACH DATABASE ? AS old", (str(old),))
   found = database.execute(
     "SELECT name, sql FROM old.sqlite_master WHERE type = 'table'"
