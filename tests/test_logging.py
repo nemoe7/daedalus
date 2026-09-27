@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 import tempfile
 from pathlib import Path
@@ -8,6 +9,10 @@ from fastapi.testclient import TestClient
 
 from daedalus import api, store
 from daedalus.providers.base import error_text
+
+MASTER = "test-master-key-0001"
+AUTH = {"Authorization": f"Bearer {MASTER}"}
+os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 
 
 class Lines(logging.Handler):
@@ -67,7 +72,7 @@ def check_lines() -> None:
   api.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
   try:
     body = {"model": "daedalus/auto", "messages": [{"role": "user", "content": "hi"}]}
-    response = TestClient(api.app).post("/v1/chat/completions", json=body)
+    response = TestClient(api.app, headers=AUTH).post("/v1/chat/completions", json=body)
   finally:
     api.get_config, api.chain = original
     api.set_client(None)
@@ -85,6 +90,14 @@ def check_lines() -> None:
   assert re.search(
     r"model=daedalus/auto pool=deinos via=second/b pin=new ttft=\d+\.\d{3}s fallbacks=2$",
     lines.lines[3],
+  )
+  lines.lines.clear()
+  client = TestClient(api.app)
+  client.get("/")
+  client.get("/ui/api/status")
+  shown = [" ".join(line.split()[:5]) for line in lines.lines]
+  assert shown == ["INFO daedalus GET /ui/api/status 401"], (
+    "dashboard reads go to debug"
   )
   check_error_text()
   print("ok: log lines")

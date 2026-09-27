@@ -1,11 +1,16 @@
 import asyncio
 import json
+import os
 import tempfile
 from pathlib import Path
 
 import httpx
 
 from daedalus import api, config, store
+
+MASTER = "test-master-key-0001"
+AUTH = {"Authorization": f"Bearer {MASTER}"}
+os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 
 TIER = {"TIER-D": ["x"]}
 SEEN: list[tuple[str, dict]] = []
@@ -76,7 +81,9 @@ async def main() -> None:
     async with httpx.AsyncClient(transport=transport) as upstream_client:
       api.set_client(upstream_client)
       app = httpx.ASGITransport(app=api.app)
-      async with httpx.AsyncClient(transport=app, base_url="http://t") as client:
+      async with httpx.AsyncClient(
+        transport=app, base_url="http://t", headers=AUTH
+      ) as client:
         PLAN.update(
           a=("drop", [text("a1", "Hel"), text("a1", "lo")]),
           b=("status", 429),
