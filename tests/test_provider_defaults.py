@@ -1,7 +1,9 @@
+import json
 import os
 
 from daedalus import config, providers
 from daedalus.catalog import discovery
+from daedalus.providers import base
 
 FIELDS = ("api_base", "api_type", "discovery_url")
 MESSAGE = {"model": "m", "messages": [{"role": "user", "content": "hi"}]}
@@ -75,7 +77,51 @@ def main() -> None:
   lines, skipped = discovery.build_catalog({"mistral": {"api_key": "k"}}, fetch)
   assert seen == ["https://api.mistral.ai/v1/models"], seen
   assert lines == ["mistral/model"] and skipped == [], (lines, skipped)
+  check_mistral_fields()
+  check_hidden_inputs()
   print("ok: provider defaults")
+
+
+def check_mistral_fields() -> None:
+  call = {"id": "c1", "type": "function", "function": {"name": "f", "arguments": "{}"}}
+  history = [
+    {"role": "system", "content": "s", "name": "x"},
+    {"role": "user", "content": "hi"},
+    {
+      "role": "assistant",
+      "content": "",
+      "reasoning_content": "secret thoughts",
+      "reasoning": "more",
+      "tool_calls": [call],
+    },
+    {"role": "tool", "content": "42", "tool_call_id": "c1", "name": "f", "extra": 1},
+  ]
+  body = {"model": "m", "messages": history}
+  _, _, sent, _ = providers.prepare("mistral/m", body, {"mistral": {"api_key": "k"}})
+  assert sent["messages"] == [
+    {"role": "system", "content": "s"},
+    {"role": "user", "content": "hi"},
+    {"role": "assistant", "content": "", "tool_calls": [call]},
+    {"role": "tool", "content": "42", "tool_call_id": "c1", "name": "f"},
+  ], sent["messages"]
+  assert history[2]["reasoning_content"] == "secret thoughts", "the client body stays"
+  _, _, sent, _ = providers.prepare("groq/m", body, {"groq": {"api_key": "k"}})
+  assert sent["messages"][2]["reasoning_content"], "only Mistral drops fields"
+
+
+def check_hidden_inputs() -> None:
+  detail = {
+    "type": "extra_forbidden",
+    "loc": ["body"],
+    "msg": "Extra",
+    "input": "PROMPT",
+  }
+  raw = json.dumps({"detail": [detail, {**detail, "input": {"deep": "PROMPT"}}]})
+  text = base.error_text(raw.encode())
+  assert "PROMPT" not in text and "extra_forbidden" in text, text
+  shown = base.error_detail(raw.encode(), 4000)
+  assert "PROMPT" not in shown and '"msg": "Extra"' in shown, shown
+  assert base.error_detail(b"plain text", 5) == "plain", "not JSON: cut only"
 
 
 if __name__ == "__main__":
