@@ -61,6 +61,17 @@ def matches(pattern: str, slug: str) -> bool:
   return slug == pattern
 
 
+def specificity(pattern: str) -> tuple[int, int]:
+  """Rank a pattern: exact names first, then globs, then regexes, then negations."""
+  if pattern.startswith("!"):
+    return (0, 0)
+  if pattern.startswith("^"):
+    return (1, len(pattern))
+  if "*" in pattern or "?" in pattern:
+    return (2, len(pattern.replace("*", "").replace("?", "")))
+  return (3, len(pattern))
+
+
 def any_match(patterns: Iterable[str], slug: str) -> bool:
   return any(matches(pattern, slug) for pattern in patterns)
 
