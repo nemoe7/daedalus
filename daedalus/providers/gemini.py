@@ -6,6 +6,7 @@ from urllib.parse import quote
 
 import httpx
 
+from daedalus import signatures
 from daedalus.providers.base import (
   Chunks,
   OpenAIProvider,
@@ -266,6 +267,14 @@ def thought_signature(call: dict) -> str | None:
   )
 
 
+def keep_signatures(message: dict, model: str) -> None:
+  """Store the signature of each tool call, for clients that drop `extra_content`."""
+  for call in message.get("tool_calls") or []:
+    signature = thought_signature(call)
+    if signature:
+      signatures.save(call["id"], model, signature)
+
+
 def parts(content: Any) -> list[dict]:
   if content is None:
     return []
@@ -341,7 +350,9 @@ class GeminiProvider(OpenAIProvider):
         identifier, name, arguments = function_call(call)
         names[identifier] = name
         part = {"functionCall": {"name": name, "args": arguments}}
-        signature = thought_signature(call)
+        signature = thought_signature(call) or signatures.find(
+          identifier, f"{self.name}/{slug}"
+        )
         if not signature and number == 0 and "gemini-3" in slug.lower():
           signature = DUMMY_SIGNATURE
         if signature:
@@ -366,6 +377,7 @@ class GeminiProvider(OpenAIProvider):
     choices = []
     for index, candidate in enumerate(candidates):
       message, reason = candidate_message(candidate)
+      keep_signatures(message, model)
       choices.append({"index": index, "message": message, "finish_reason": reason})
     return {
       "id": answer.get("responseId") or "chatcmpl-" + uuid.uuid4().hex,
@@ -391,6 +403,7 @@ class GeminiProvider(OpenAIProvider):
             raise ProviderError("Invalid Gemini candidate")
           choice = candidate.get("index", position)
           message, mapped = candidate_message(candidate)
+          keep_signatures(message, model)
           delta = {
             key: message[key]
             for key in ("content", "reasoning_content")

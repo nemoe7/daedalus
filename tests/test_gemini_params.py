@@ -1,4 +1,11 @@
-from daedalus import providers
+import asyncio
+import json
+import tempfile
+from pathlib import Path
+
+import httpx
+
+from daedalus import providers, signatures, store
 
 GEMINI = providers.GeminiProvider(
   "gemini", {"api_base": "https://gemini.test", "api_key": "k"}
@@ -152,7 +159,10 @@ def main() -> None:
   }
   assert second["index"] == 1
   assert second["finish_reason"] == "length"
-  check_signatures()
+  with tempfile.TemporaryDirectory() as folder:
+    store.MODELS_DB = Path(folder) / "models.sqlite3"
+    check_signatures()
+    check_stored_signatures()
   print("ok: gemini parameter mapping")
 
 
@@ -183,6 +193,52 @@ def check_signatures() -> None:
   assert second[0]["thoughtSignature"] == "real", "the Google form of extra_content"
   older = GEMINI.body("gemini-2.5-flash", {"messages": messages})["contents"]
   assert "thoughtSignature" not in older[1]["parts"][0], "Gemini 2.5 needs no signature"
+
+
+def check_stored_signatures() -> None:
+  def answer(identifier: str) -> dict:
+    call = {"name": "f", "args": {}, "id": identifier}
+    part = {"functionCall": call, "thoughtSignature": "sig-" + identifier}
+    return {"candidates": [{"content": {"parts": [part]}, "finishReason": "STOP"}]}
+
+  def history(identifier: str) -> list[dict]:
+    call = {
+      "id": identifier,
+      "type": "function",
+      "function": {"name": "f", "arguments": "{}"},
+    }
+    return [
+      {"role": "user", "content": "hi"},
+      {"role": "assistant", "content": None, "tool_calls": [call]},
+      {"role": "tool", "tool_call_id": identifier, "content": "1"},
+    ]
+
+  def signature(slug: str, identifier: str) -> str:
+    sent = GEMINI.body(slug, {"messages": history(identifier)})["contents"]
+    return sent[1]["parts"][0]["thoughtSignature"]
+
+  message = GEMINI.completion(answer("c1"), "gemini/gemini-3.7-flash")["choices"][0]
+  assert message["message"]["tool_calls"][0]["id"] == "c1"
+  assert signature("gemini-3.7-flash", "c1") == "sig-c1", "the stored signature returns"
+  assert signature("gemini-3.8-flash", "c1") == "skip_thought_signature_validator", (
+    "another model gets the dummy"
+  )
+
+  async def streamed() -> None:
+    body = "data: " + json.dumps(answer("c2")) + "\n\n"
+    response = httpx.Response(200, content=body.encode())
+    async for _ in GEMINI.stream(response, "gemini/gemini-3.7-flash", False):
+      pass
+
+  asyncio.run(streamed())
+  assert signature("gemini-3.7-flash", "c2") == "sig-c2", "a stream stores it too"
+  signatures.IDLE_SECONDS = -1.0
+  try:
+    assert signature("gemini-3.7-flash", "c2") == "skip_thought_signature_validator", (
+      "an expired signature is not used"
+    )
+  finally:
+    signatures.IDLE_SECONDS = 3600.0
 
 
 if __name__ == "__main__":

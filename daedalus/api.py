@@ -12,7 +12,7 @@ import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import keys, penalties, providers, router, store, stream
+from daedalus import keys, penalties, providers, router, signatures, store, stream
 from daedalus.config import get_config
 from daedalus.providers.base import error_text
 
@@ -411,6 +411,7 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   TIMEOUT_SECONDS, WAIT_SECONDS = timeouts["request"], timeouts["wait"]
   SLOW_SECONDS, AFFINITY = timeouts["slow"], affinity["enabled"]
   PENALTIES.idle, PENALTIES.enabled = affinity["idle"], weights["enabled"]
+  signatures.IDLE_SECONDS = affinity["idle"]
   PENALTIES.stay = affinity["stay"]
   for name in ("success", "fault", "slow", "hourly"):
     setattr(PENALTIES, name, weights[name])
