@@ -133,8 +133,7 @@ function renderPools(pools) {
     const shown = members.slice(0, SHOWN).map((m) => `
       <div class="member" title="${esc(m.id)} (${esc(m.tier)})">
         <div class="name">${esc(m.id)}</div><div class="w">${m.weight.toFixed(2)}</div>
-        <div class="track"><div class="fill${m.weight < 0.5 ? " low" : ""}"
-          style="width:${Math.round(m.weight * 100)}%"></div></div>
+        ${weightBar(m.weight)}
       </div>`).join("");
     const rest = members.length > SHOWN ? `<div class="more">+${members.length - SHOWN} more</div>` : "";
     return `<div class="card"><h3>${esc(pool.name)}</h3>
@@ -201,8 +200,13 @@ const sortValue = {
   tier: (m) => (tierLetter(m.tier) === "-" ? null : tierLetter(m.tier)),
   context: (m) => m.max_input_tokens ?? null,
   tools: (m) => (m.tools ? 1 : 0),
+  reasoning: (m) => (m.reasoning ? 1 : 0),
   weight: (m) => m.weight,
 };
+
+const yesNo = (on) => (on ? '<span class="yes">Yes</span>' : '<span class="muted">No</span>');
+const weightBar = (weight) => `<div class="track"><div class="fill${weight < 0.5 ? " low" : ""}"
+  style="width:${Math.round(weight * 100)}%"></div></div>`;
 
 function sortModels(rows) {
   const { key, dir } = state.sort;
@@ -233,9 +237,10 @@ function renderModels() {
       <td>${esc(m.id)}</td>
       <td><span class="tier">${esc(tierLetter(m.tier))}</span></td>
       <td class="hide-sm num muted">${tokens(m.max_input_tokens)}</td>
-      <td>${m.tools ? '<span class="yes">Yes</span>' : '<span class="muted">No</span>'}</td>
-      <td class="num">${m.weight.toFixed(2)}</td>
-    </tr>`).join("") : `<tr><td colspan="5" class="empty">${empty}</td></tr>`;
+      <td>${yesNo(m.tools)}</td>
+      <td>${yesNo(m.reasoning)}</td>
+      <td><div class="weight">${weightBar(m.weight)}<span class="num">${m.weight.toFixed(2)}</span></div></td>
+    </tr>`).join("") : `<tr><td colspan="6" class="empty">${empty}</td></tr>`;
 }
 
 const dateTime = (seconds) => new Date(seconds * 1000).toLocaleString(
