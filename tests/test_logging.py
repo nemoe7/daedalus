@@ -63,7 +63,7 @@ def check_lines() -> None:
   original = api.get_config, api.chain
   api.get_config = lambda: config
   groups = [["keyless/c"], ["first/a"], ["second/b"]]
-  api.chain = lambda model, body, config: (groups, None)
+  api.chain = lambda model, body, config: (groups, "daedalus/auto:TIER-B")
   api.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
   try:
     body = {"model": "daedalus/auto", "messages": [{"role": "user", "content": "hi"}]}
@@ -82,7 +82,9 @@ def check_lines() -> None:
   assert lines.lines[0].endswith("ProviderError: Missing api_key for keyless")
   assert lines.lines[1].split()[4] == "429", lines.lines
   assert lines.lines[1].endswith("ms: slow"), "the provider message"
-  assert re.search(r"model=daedalus/auto via=second/b ttft=\d+ms$", lines.lines[3])
+  assert re.search(
+    r"model=daedalus/auto pool=deinos via=second/b pin=new ttft=\d+ms$", lines.lines[3]
+  )
   check_error_text()
   print("ok: log lines")
 
