@@ -99,7 +99,24 @@ async def attempt(
     return provider, response
   raw = await response.aread()
   await response.aclose()
+  raise rejected(candidate, status, started, raw)
+
+
+def rejected(candidate: str, status: int, started: float, raw: bytes) -> UpstreamStatus:
+  """Log an upstream error status, and return the error to raise."""
   logger.warning(
     "upstream %s %d %s: %s", candidate, status, elapsed(started), error_text(raw)
   )
-  raise UpstreamStatus(status, error_detail(raw, DETAIL_LIMIT))
+  return UpstreamStatus(status, error_detail(raw, DETAIL_LIMIT))
+
+
+async def post(
+  candidate: str, url: str, headers: dict[str, str], **content: Any
+) -> Any:
+  """Send one request without a stream, and return its JSON answer."""
+  started = time.perf_counter()
+  response = await get_client().post(url, headers=headers, **content)
+  if response.status_code >= 400:
+    raise rejected(candidate, response.status_code, started, response.content)
+  logger.info("upstream %s %d %s", candidate, response.status_code, elapsed(started))
+  return response.json()

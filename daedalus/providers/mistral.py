@@ -20,6 +20,7 @@ class MistralProvider(OpenAIProvider):
     "assistant": frozenset({"role", "content", "tool_calls", "prefix"}),
     "tool": frozenset({"role", "content", "tool_call_id", "name"}),
   }
+  dimensions_field: ClassVar[str] = "output_dimension"
 
   @staticmethod
   def columns(row: dict) -> dict[str, Any]:

@@ -368,6 +368,33 @@ class GeminiProvider(OpenAIProvider):
     body.update(gemini_options(payload, slug))
     return body
 
+  def embed_request(self, slug: str, payload: dict) -> tuple[str, dict, dict[str, str]]:
+    """A native batch request with one text part for each input."""
+    texts = payload["input"]
+    texts = [texts] if isinstance(texts, str) else texts
+    if not all(isinstance(text, str) for text in texts):
+      raise ProviderError("Gemini embeddings need text input")
+    size = payload.get("dimensions")
+    extra = {} if size is None else {"outputDimensionality": size}
+    name = f"models/{slug}"
+    requests = [
+      {"model": name, "content": {"parts": [{"text": text}]}, **extra} for text in texts
+    ]
+    url = f"{self.base}/models/{quote(slug, safe='')}:batchEmbedContents"
+    return url, {"requests": requests}, self.headers()
+
+  def embeddings(self, answer: dict, model: str) -> dict:
+    """The OpenAI shape of a native batch answer, which has no token counts."""
+    found = answer.get("embeddings")
+    if not isinstance(found, list):
+      raise ProviderError("Invalid embeddings answer")
+    data = [
+      {"object": "embedding", "index": index, "embedding": item["values"]}
+      for index, item in enumerate(found)
+    ]
+    usage = {"prompt_tokens": 0, "total_tokens": 0}
+    return {"object": "list", "data": data, "model": model, "usage": usage}
+
   def completion(self, answer: dict, model: str) -> dict:
     candidates = [
       item for item in answer.get("candidates") or [] if isinstance(item, dict)

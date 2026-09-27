@@ -237,6 +237,8 @@ class OpenAIProvider:
   defaults: ClassVar[Mapping[str, str]] = {"api_type": "openai"}
   # The message fields for each role, for a provider that rejects other fields. Empty: all fields.
   message_fields: ClassVar[Mapping[str, frozenset[str]]] = {}
+  # The name of the embeddings field that sets the vector size.
+  dimensions_field: ClassVar[str] = "dimensions"
 
   def __init__(self, name: str, config: Mapping) -> None:
     base = str(config.get("api_base") or "").rstrip("/")
@@ -287,6 +289,19 @@ class OpenAIProvider:
 
   def completion(self, answer: dict, model: str) -> dict:
     return answer
+
+  def embed_request(self, slug: str, payload: dict) -> tuple[str, dict, dict[str, str]]:
+    """The upstream embeddings request, which always asks for float vectors."""
+    body = {"model": slug, "input": payload["input"]}
+    if payload.get("dimensions") is not None:
+      body[self.dimensions_field] = payload["dimensions"]
+    return self.base + "/embeddings", body, self.headers()
+
+  def embeddings(self, answer: dict, model: str) -> dict:
+    """The OpenAI embeddings answer, with the Daedalus model name."""
+    if not isinstance(answer.get("data"), list):
+      raise ProviderError("Invalid embeddings answer")
+    return {**answer, "model": model}
 
   async def stream(
     self, response: httpx.Response, model: str, include_usage: bool
