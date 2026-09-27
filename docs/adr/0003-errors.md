@@ -14,6 +14,10 @@ for an answer should not see that error while another model in the chain can sti
 On any upstream error, the proxy logs the error internally and reroutes the request to the
 next fallback in the chain. The client sees an error only after the last fallback fails.
 
+The proxy does not send a request that is too large for a model. When the input tokens are
+more than the input limit of a model, the proxy skips that model and goes to the next
+fallback. A model without a known limit gets the request.
+
 A stream can fail after the client received text. The proxy then sends the received text to
 the next fallback as an assistant prefix, and streams only the continuation. The client
 receives one stream with one status.
