@@ -1,7 +1,7 @@
 import time
 import uuid
-from collections.abc import AsyncIterator
-from typing import Any
+from collections.abc import AsyncIterator, Mapping
+from typing import Any, ClassVar
 from urllib.parse import quote
 
 import httpx
@@ -278,6 +278,11 @@ class GeminiProvider(OpenAIProvider):
   """Gemini generateContent, with LiteLLM's OpenAI parameter mapping."""
 
   unsupported = ("logit_bias", "audio", "function_call")
+  defaults: ClassVar[Mapping[str, str]] = {
+    "api_type": "gemini",
+    "api_base": "https://generativelanguage.googleapis.com/v1beta",
+    "discovery_url": "https://generativelanguage.googleapis.com/v1beta/models",
+  }
 
   def headers(self) -> dict[str, str]:
     return {"content-type": "application/json", "x-goog-api-key": self.key}
