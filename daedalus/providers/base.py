@@ -247,6 +247,14 @@ class OpenAIProvider:
     "temperature",
     "timestamp_granularities[]",
   )
+  # The speech request fields that the provider accepts, apart from model.
+  speech_fields: ClassVar[tuple[str, ...]] = (
+    "input",
+    "voice",
+    "instructions",
+    "response_format",
+    "speed",
+  )
 
   def __init__(self, name: str, config: Mapping) -> None:
     base = str(config.get("api_base") or "").rstrip("/")
@@ -320,6 +328,21 @@ class OpenAIProvider:
   ) -> tuple[bytes, str]:
     """The answer body and its media type, as the provider sends them."""
     return response.content, response.headers.get("content-type", "application/json")
+
+  def speech_request(
+    self, slug: str, payload: dict
+  ) -> tuple[str, dict[str, Any], dict[str, str]]:
+    """The upstream speech request, with only the fields that the provider accepts."""
+    body = {key: value for key, value in payload.items() if key in self.speech_fields}
+    return (
+      self.base + "/audio/speech",
+      {"json": {**body, "model": slug}},
+      self.headers(),
+    )
+
+  def speech(self, response: httpx.Response, payload: dict) -> tuple[bytes, str]:
+    """The audio and its media type, as the provider sends them."""
+    return response.content, response.headers.get("content-type", "audio/mpeg")
 
   def embeddings(self, answer: dict, model: str) -> dict:
     """The OpenAI embeddings answer, with the Daedalus model name."""

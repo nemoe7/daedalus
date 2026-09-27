@@ -17,6 +17,7 @@ from daedalus.server import access, stream, upstream
 
 routes = APIRouter()
 TRANSCRIPT_FORMATS = ("json", "text", "srt", "verbose_json", "vtt")
+SPEECH_FORMATS = ("mp3", "opus", "aac", "flac", "wav", "pcm")
 
 
 def invalid(message: str) -> JSONResponse:
@@ -167,3 +168,36 @@ async def transcriptions(request: Request) -> Response:
     return result
   body, media_type = result
   return Response(body, media_type=media_type)
+
+
+@routes.post("/v1/audio/speech")
+async def speech(request: Request) -> Response:
+  denied = access.check_api_key(request)
+  if denied is not None:
+    return denied
+  body = await json_body(request)
+  if isinstance(body, Response):
+    return body
+  if not isinstance(body.get("input"), str) or not body["input"]:
+    return invalid("input must be a string")
+  if body.get("response_format", "mp3") not in SPEECH_FORMATS:
+    return invalid("response_format must be mp3, opus, aac, flac, wav or pcm")
+  model = body["model"]
+  found = provider_for(model)
+  if isinstance(found, Response):
+    return found
+  provider, slug = found
+  try:
+    url, content, headers = provider.speech_request(slug, body)
+  except providers.ProviderError as exc:
+    return invalid(str(exc))
+
+  async def call() -> tuple[bytes, str]:
+    response = await upstream.post(model, url, headers, **content)
+    return provider.speech(response, body)
+
+  result = await attempt(request, model, call)
+  if isinstance(result, Response):
+    return result
+  audio, media_type = result
+  return Response(audio, media_type=media_type)
