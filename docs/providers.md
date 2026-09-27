@@ -1,6 +1,6 @@
 # Providers
 
-These are the only providers that I have personally confirmed are genuinely free.
+These are the only providers that tests confirmed as really free.
 
 | Provider key | Provider | API | Notes |
 | --- | --- | --- | --- |

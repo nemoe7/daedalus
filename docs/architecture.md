@@ -146,4 +146,4 @@ sequenceDiagram
 | Expiry | 1 h with no request |
 | Storage | `.daedalus-state/models.sqlite3`, kept after a restart |
 
-Session affinity is important for clients to maintain a response style and to make use of prompt caching (not guaranteed but worth it if available). Without session affinity, the client would see different styles clashing between each other (tested this myself and it looks like a mess).
+Session affinity keeps 1 response style in a conversation. It also lets the conversation use the prompt cache of the provider. The cache is not guaranteed, but it helps when the provider has one. Without session affinity, the styles of different models mix in 1 conversation. Tests showed that the result is a mess.
