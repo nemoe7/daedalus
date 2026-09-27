@@ -36,6 +36,13 @@ class Upstream:
       return httpx.Response(
         200, json={"embeddings": [{"values": [0.5, 1.0]} for _ in texts]}
       )
+    if request.url.path.endswith("/melotts"):
+      audio = base64.b64encode(b"MP3").decode()
+      return httpx.Response(200, json={"result": {"audio": audio}, "success": True})
+    if request.url.path.endswith("/aura-2-en"):
+      return httpx.Response(200, content=b"OGG", headers={"content-type": "audio/ogg"})
+    if request.url.path.endswith("/audio/speech"):
+      return httpx.Response(200, content=b"WAV", headers={"content-type": "audio/wav"})
     if request.url.host == "cf.test" and "/run/" in request.url.path:
       result = {"text": "hello", "vtt": "WEBVTT\n\nhello"}
       return httpx.Response(200, json={"result": result, "success": True})
@@ -190,6 +197,63 @@ def check_cloudflare_audio(fake: Upstream, client: TestClient) -> None:
   assert len(fake.sent) == count, "no upstream call for a bad request"
 
 
+def check_speech(fake: Upstream, client: TestClient) -> None:
+  body = {
+    "model": "groq/canopylabs/orpheus-v1-english",
+    "input": "Hi",
+    "voice": "tara",
+    "response_format": "wav",
+    "stream_format": "sse",
+  }
+  response = client.post("/v1/audio/speech", json=body)
+  assert response.status_code == 200 and response.content == b"WAV", response.text
+  assert response.headers["content-type"] == "audio/wav", response.headers
+  sent = fake.sent[-1]
+  assert str(sent.url) == "https://groq.test/openai/v1/audio/speech", sent.url
+  expected = {
+    "model": "canopylabs/orpheus-v1-english",
+    "input": "Hi",
+    "voice": "tara",
+    "response_format": "wav",
+  }
+  assert json.loads(sent.content) == expected, "only the known fields go upstream"
+  body = {"model": "cloudflare/@cf/myshell-ai/melotts", "input": "Hi"}
+  response = client.post("/v1/audio/speech", json=body)
+  assert response.content == b"MP3" and response.headers["content-type"] == "audio/mpeg"
+  assert json.loads(fake.sent[-1].content) == {"prompt": "Hi"}, fake.sent[-1].content
+  body = {
+    "model": "cloudflare/@cf/deepgram/aura-2-en",
+    "input": "Hi",
+    "voice": "luna",
+    "response_format": "opus",
+  }
+  response = client.post("/v1/audio/speech", json=body)
+  assert response.content == b"OGG", response.text
+  sent = json.loads(fake.sent[-1].content)
+  assert sent == {
+    "text": "Hi",
+    "encoding": "opus",
+    "container": "ogg",
+    "speaker": "luna",
+  }
+  count = len(fake.sent)
+  for body in (
+    {
+      "model": "cloudflare/@cf/myshell-ai/melotts",
+      "input": "Hi",
+      "response_format": "wav",
+    },
+    {"model": "cloudflare/@cf/other/tts", "input": "Hi"},
+    {"model": "gemini/gemini-2.5-flash-preview-tts", "input": "Hi"},
+    {"model": "groq/x", "input": ""},
+    {"model": "groq/x", "input": "Hi", "response_format": "ogg"},
+    {"model": "daedalus/auto", "input": "Hi"},
+  ):
+    response = client.post("/v1/audio/speech", json=body)
+    assert response.status_code == 400, (body, response.text)
+  assert len(fake.sent) == count, "no upstream call for a bad request"
+
+
 def main() -> None:
   fake = Upstream()
   upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(fake)))
@@ -202,10 +266,11 @@ def main() -> None:
     check_errors(fake, client)
     check_transcriptions(fake, client)
     check_cloudflare_audio(fake, client)
+    check_speech(fake, client)
   finally:
     media.get_config = original
     upstream.set_client(None)
-  print("ok: embeddings and transcriptions")
+  print("ok: embeddings, transcriptions and speech")
 
 
 if __name__ == "__main__":
