@@ -11,7 +11,7 @@ from typing import Any
 
 import yaml
 from fastapi import APIRouter, Request
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 
 from daedalus import config, keys, router, schedule, settings, store
 from daedalus.penalties import Penalties
@@ -124,13 +124,22 @@ def tier_map(config: Mapping[str, Any], lines: list[str]) -> dict[str, str]:
   return found
 
 
+def versioned_index() -> str:
+  """The page with a content hash on each asset link, so no cache serves an old file."""
+  text = (UI_DIR / "index.html").read_text(encoding="utf-8")
+  for name in UI_FILES:
+    tag = hashlib.sha256((UI_DIR / name).read_bytes()).hexdigest()[:12]
+    text = text.replace(f'"ui/{name}"', f'"ui/{name}?v={tag}"')
+  return text
+
+
 def page() -> APIRouter:
   """The dashboard page and its script and style. They hold no data."""
   pages = APIRouter()
 
   @pages.get("/", include_in_schema=False)
-  async def index() -> FileResponse:
-    return FileResponse(UI_DIR / "index.html", media_type="text/html", headers=FRESH)
+  async def index() -> HTMLResponse:
+    return HTMLResponse(versioned_index(), headers=FRESH)
 
   @pages.get("/ui/{name}", include_in_schema=False)
   async def asset(name: str) -> Response:
