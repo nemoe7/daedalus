@@ -10,6 +10,7 @@ import yaml
 ENV_PREFIX = "os.environ/"
 ENV_PATTERN = re.compile(r"os\.environ/([A-Za-z_][A-Za-z0-9_]*)")
 DEFAULT_PATH = Path("config/providers/free.yml")
+STATE_DIR = Path(__file__).resolve().parent.parent / ".daedalus-state"
 
 _config: dict[str, Any] | None = None
 

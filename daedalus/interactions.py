@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from daedalus import gemini
+from daedalus.config import STATE_DIR as APPLICATION_STATE_DIR
 
 logger = logging.getLogger("daedalus")
 
@@ -23,7 +24,7 @@ LOCAL_ID = "int_local"
 
 # The turns live on disk, so a restart keeps them. The id must stay inside this
 # directory, so it takes no dots and no slashes.
-STATE_DIR = Path(__file__).resolve().parent.parent / "state"
+STATE_DIR = APPLICATION_STATE_DIR / "interactions"
 ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 
 
