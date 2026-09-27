@@ -13,7 +13,7 @@ import yaml
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 
-from daedalus import config, keys, router, settings, store
+from daedalus import config, keys, router, schedule, settings, store
 from daedalus.penalties import Penalties
 
 # The chat requests that the dashboard shows. A restart clears them.
@@ -209,6 +209,7 @@ def routes(
         "models": len(store.read_models()),
         "key": keys.stored_hash(store.MODELS_DB) is not None,
         "sessions": penalties.sessions(),
+        "catalog": {"built": store.built(), "next": schedule.upcoming(time.time())},
       }
     )
 

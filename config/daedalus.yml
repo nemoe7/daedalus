@@ -14,3 +14,6 @@ weights:
   fault: 0.5
   slow: 0.75
   hourly: 1.2
+catalog:
+  every: 6 # hours between rebuilds of the model catalog; 0 stops them
+  anchor: 6 # local hour (TZ env var) that the rebuild times start from: 00, 06, 12 and 18

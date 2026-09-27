@@ -59,7 +59,9 @@ def check_data(client: TestClient) -> None:
     "models": 2,
     "key": False,
     "sessions": 0,
+    "catalog": status["catalog"],
   }, status
+  assert status["catalog"]["built"] <= time.time() < status["catalog"]["next"], status
   body = {"model": "daedalus/sophos", "messages": [{"role": "user", "content": "x"}]}
   assert client.post("/v1/chat/completions", json=body).status_code == 200
   assert client.get("/ui/api/status").json()["sessions"] == 1, "the new session model"
