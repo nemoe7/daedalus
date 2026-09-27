@@ -17,7 +17,39 @@ const tokens = (n) => !n ? "-" : n >= 1e6 ? +(n / 1e6).toFixed(1) + "M" : Math.r
 const clock = (seconds) => new Date(seconds * 1000).toLocaleTimeString(
   [], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-const state = { models: [], tier: "All", files: [], file: 0, saved: [], timers: [] };
+const state = {
+  models: [], tier: "All", files: [], file: 0, saved: [], timers: [],
+  pools: [], requests: [], keys: [], catalog: {},
+};
+
+const line = (left, right) => `<div class="line"><span>${left}</span><span>${right}</span></div>`;
+const count = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const none = (text) => `<div class="more">${text}</div>`;
+
+// One card for each page, from the data that the pages already read.
+function renderOverview() {
+  $("ov-pools").innerHTML = state.pools.map((pool) => line(
+    esc(pool.name.replace("daedalus/", "")), count(pool.members.length, "model"),
+  )).join("") || none("No pools");
+  $("ov-requests").innerHTML = state.requests.slice(0, 5).map((r) => line(
+    `<span class="status s${String(r.status)[0]}">${r.status}</span> ${esc(r.via || r.model || "-")}`,
+    clock(r.at),
+  )).join("") || none("No chat requests since the start");
+  const tiers = ["A", "B", "C", "D"].map((t) => [t, state.models.filter((m) => tierLetter(m.tier) === t).length]);
+  const tools = state.models.filter((m) => m.tools).length;
+  $("ov-models").innerHTML = state.models.length
+    ? tiers.map(([t, n]) => line(`<span class="tier">${t}</span> Tier ${t}`, count(n, "model"))).join("")
+      + line("Tool calls", `${tools} of ${state.models.length}`)
+    : none("No models. Run daedalus catalog.");
+  const used = state.keys.filter((k) => k.used).sort((a, b) => b.used - a.used)[0];
+  $("ov-keys").innerHTML = state.keys.length
+    ? line("Keys", count(state.keys.length, "key")) + line("Last used", used ? `${esc(used.name)} &middot; ${dateTime(used.used)}` : "never")
+    : none("No API keys. The master key opens /v1.");
+  const { built, next } = state.catalog;
+  $("ov-config").innerHTML = state.files.map((f) => line(esc(f.path.split(/[\\/]/).pop()), "YAML")).join("")
+    + line("Catalog built", built ? shortTime(built) : "never")
+    + line("Next rebuild", next ? shortTime(next) : "no schedule");
+}
 
 class LoggedOut extends Error {}
 
@@ -153,7 +185,9 @@ function renderKeys(rows) {
 }
 
 async function refreshKeys() {
-  renderKeys(await call("keys"));
+  state.keys = await call("keys");
+  renderKeys(state.keys);
+  renderOverview();
 }
 
 function dirty() {
@@ -201,13 +235,18 @@ async function refreshFast() {
   const [status, requests] = await Promise.all([call("status"), call("requests")]);
   renderStatus(status);
   renderRequests(requests);
+  state.requests = requests;
+  state.catalog = status.catalog || {};
+  renderOverview();
 }
 
 async function refreshSlow() {
   const [pools, models] = await Promise.all([call("pools"), call("models"), refreshKeys()]);
   renderPools(pools);
+  state.pools = pools;
   state.models = models;
   renderModels();
+  renderOverview();
 }
 
 function refresh() {
@@ -224,6 +263,7 @@ async function start() {
   $("editor").value = state.files[0]?.text ?? "";
   renderFiles();
   renderTiers();
+  renderOverview();
   $("login").hidden = true;
   $("app").hidden = false;
   state.timers = [
@@ -298,6 +338,22 @@ $("reveal-close").addEventListener("click", () => {
   $("reveal-key").textContent = "";
   $("copy").textContent = "Copy";
 });
+const PAGES = ["overview", "pools", "requests", "models", "keys", "config"];
+
+function showPage() {
+  const asked = location.hash.replace("#/", "");
+  const page = PAGES.includes(asked) ? asked : PAGES[0];
+  document.querySelectorAll("section[data-page]").forEach((section) => {
+    section.hidden = section.dataset.page !== page;
+  });
+  document.querySelectorAll("#nav a").forEach((link) => {
+    link.classList.toggle("on", link.dataset.page === page);
+  });
+  document.title = `Daedalus · ${document.querySelector(`#nav a[data-page="${page}"]`).textContent}`;
+}
+
+window.addEventListener("hashchange", showPage);
+showPage();
 $("search").addEventListener("input", renderModels);
 $("tiers").addEventListener("click", (event) => {
   const button = event.target.closest("[data-tier]");
