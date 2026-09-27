@@ -81,8 +81,6 @@ groq:
   api_key: os.environ/GROQ_API_KEY
   rpm: 30
   exclude:
-    - "*orpheus*"
-    - whisper-*
     - "*prompt-guard*"
     - "*safeguard*"
     - compound*
@@ -99,6 +97,8 @@ groq:
     openai/gpt-oss-20b: { max_input_tokens: 7000, tpm: 8000 }
     qwen/qwen3.8-27b: { max_input_tokens: 7000, max_output_tokens: 16384 }
     allam-2-7b: { tpm: 6000 }
+    "whisper-*": { mode: audio_transcription }
+    "*orpheus*": { mode: audio_speech }
 
 kilo:
   api_key: os.environ/KILO_API_KEY
@@ -126,7 +126,6 @@ kilo:
 mistral:
   api_key: os.environ/MISTRAL_API_KEY
   exclude:
-    - "voxtral*"
     - "*ocr*"
     - "*moderation*"
     - codestral-latest
@@ -139,7 +138,6 @@ mistral:
     - magistral-medium-latest
     - "mistral-medium*"
     - "mistral-vibe-cli-*"
-    - "*embed*"
   tier:
     TIER-A:
       - "magistral-medium*"
@@ -153,6 +151,9 @@ mistral:
     TIER-D:
       - "ministral-8b-*"
       - "ministral-3b-*"
+  models:
+    "voxtral*": { mode: audio_transcription }
+    "*embed*": { mode: embedding }
 
 openrouter:
   api_key: os.environ/OPENROUTER_API_KEY
