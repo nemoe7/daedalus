@@ -13,8 +13,12 @@ import yaml
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 
-from daedalus import config, keys, router, schedule, settings, store
-from daedalus.penalties import Penalties
+from daedalus import config, store
+from daedalus.catalog import schedule
+from daedalus.config import settings
+from daedalus.routing import router
+from daedalus.routing.penalties import Penalties
+from daedalus.store import keys
 
 # The chat requests that the dashboard shows. A restart clears them.
 RECENT: deque[dict[str, Any]] = deque(maxlen=50)

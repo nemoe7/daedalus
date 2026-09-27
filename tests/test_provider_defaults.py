@@ -1,6 +1,7 @@
 import os
 
-from daedalus import config, discovery, providers
+from daedalus import config, providers
+from daedalus.catalog import discovery
 
 FIELDS = ("api_base", "api_type", "discovery_url")
 MESSAGE = {"model": "m", "messages": [{"role": "user", "content": "hi"}]}

@@ -5,7 +5,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-from daedalus import config, discovery, providers, router
+from daedalus import config, providers
+from daedalus.catalog import discovery
+from daedalus.routing import router
 
 SAMPLE = """\
 cloudflare:

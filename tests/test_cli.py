@@ -7,7 +7,10 @@ import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
-from daedalus import api, catalog, cli, discovery, keys, store
+from daedalus import catalog, cli, store
+from daedalus.catalog import discovery
+from daedalus.server import api
+from daedalus.store import keys
 
 os.environ["DAEDALUS_MASTER_KEY"] = "test-master-key-0001"
 

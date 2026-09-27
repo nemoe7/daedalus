@@ -5,8 +5,9 @@ import hmac
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from daedalus import dashboard, keys, store
-from daedalus.upstream import error_response
+from daedalus import dashboard, store
+from daedalus.server.upstream import error_response
+from daedalus.store import keys
 
 
 def bearer(request: Request) -> str:

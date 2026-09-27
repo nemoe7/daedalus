@@ -4,7 +4,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-from daedalus import api, penalties, settings
+from daedalus.config import settings
+from daedalus.routing import penalties
+from daedalus.server import api
 
 os.environ["DAEDALUS_MASTER_KEY"] = "test-master-key-0001"
 

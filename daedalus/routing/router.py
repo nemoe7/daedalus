@@ -5,8 +5,14 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, Final
 
-from daedalus.classifier import TIER_NAMES, TIERS, Artifact, load_artifact, predict
-from daedalus.discovery import matches, specificity
+from daedalus.catalog.discovery import matches, specificity
+from daedalus.routing.classifier import (
+  TIER_NAMES,
+  TIERS,
+  Artifact,
+  load_artifact,
+  predict,
+)
 
 __all__ = ["TIERS", "TIER_NAMES"]
 

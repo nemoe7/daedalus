@@ -6,7 +6,7 @@ from typing import Any
 
 import httpx
 
-from daedalus import upstream
+from daedalus.server import upstream
 
 URL_ENV = "HEADROOM_URL"
 MODE = "lossy_inline"
