@@ -239,6 +239,14 @@ class OpenAIProvider:
   message_fields: ClassVar[Mapping[str, frozenset[str]]] = {}
   # The name of the embeddings field that sets the vector size.
   dimensions_field: ClassVar[str] = "dimensions"
+  # The transcription form fields that the provider accepts, apart from model and file.
+  transcribe_fields: ClassVar[tuple[str, ...]] = (
+    "language",
+    "prompt",
+    "response_format",
+    "temperature",
+    "timestamp_granularities[]",
+  )
 
   def __init__(self, name: str, config: Mapping) -> None:
     base = str(config.get("api_base") or "").rstrip("/")
@@ -296,6 +304,22 @@ class OpenAIProvider:
     if payload.get("dimensions") is not None:
       body[self.dimensions_field] = payload["dimensions"]
     return self.base + "/embeddings", body, self.headers()
+
+  def transcribe_request(
+    self, slug: str, fields: dict[str, Any], audio: tuple[str, bytes, str]
+  ) -> tuple[str, dict[str, Any], dict[str, str]]:
+    """The upstream multipart request, with only the fields that the provider accepts."""
+    data = {
+      key: value for key, value in fields.items() if key in self.transcribe_fields
+    }
+    content = {"data": {**data, "model": slug}, "files": {"file": audio}}
+    return self.base + "/audio/transcriptions", content, self.auth(self.key)
+
+  def transcription(
+    self, response: httpx.Response, fields: dict[str, Any]
+  ) -> tuple[bytes, str]:
+    """The answer body and its media type, as the provider sends them."""
+    return response.content, response.headers.get("content-type", "application/json")
 
   def embeddings(self, answer: dict, model: str) -> dict:
     """The OpenAI embeddings answer, with the Daedalus model name."""

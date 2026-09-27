@@ -21,6 +21,7 @@ class MistralProvider(OpenAIProvider):
     "tool": frozenset({"role", "content", "tool_call_id", "name"}),
   }
   dimensions_field: ClassVar[str] = "output_dimension"
+  transcribe_fields: ClassVar[tuple[str, ...]] = ("language", "temperature")
 
   @staticmethod
   def columns(row: dict) -> dict[str, Any]:

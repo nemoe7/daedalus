@@ -8,6 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse
+from starlette.datastructures import UploadFile
 
 from daedalus import providers
 from daedalus.config import get_config
@@ -15,6 +16,7 @@ from daedalus.routing import router
 from daedalus.server import access, stream, upstream
 
 routes = APIRouter()
+TRANSCRIPT_FORMATS = ("json", "text", "srt", "verbose_json", "vtt")
 
 
 def invalid(message: str) -> JSONResponse:
@@ -111,8 +113,8 @@ async def embeddings(request: Request) -> Response:
     return invalid(str(exc))
 
   async def call() -> dict:
-    answer = await upstream.post(model, url, headers, json=payload)
-    return provider.embeddings(answer, model)
+    response = await upstream.post(model, url, headers, json=payload)
+    return provider.embeddings(response.json(), model)
 
   result = await attempt(request, model, call)
   if isinstance(result, Response):
@@ -121,3 +123,47 @@ async def embeddings(request: Request) -> Response:
     for item in result["data"]:
       item["embedding"] = packed(item["embedding"])
   return JSONResponse(result)
+
+
+@routes.post("/v1/audio/transcriptions")
+async def transcriptions(request: Request) -> Response:
+  denied = access.check_api_key(request)
+  if denied is not None:
+    return denied
+  try:
+    form = await request.form()
+  except (AssertionError, ValueError):
+    return invalid("A multipart form is required")
+  model, upload = form.get("model"), form.get("file")
+  if not isinstance(model, str) or not model:
+    return invalid("A model is required")
+  request.state.model = model
+  if not isinstance(upload, UploadFile):
+    return invalid("A file is required")
+  fields: dict[str, Any] = {
+    key: form.getlist(key) if key.endswith("[]") else form[key]
+    for key in form
+    if key not in ("model", "file") and isinstance(form[key], str)
+  }
+  if fields.get("response_format", "json") not in TRANSCRIPT_FORMATS:
+    return invalid("response_format must be json, text, srt, verbose_json or vtt")
+  found = provider_for(model)
+  if isinstance(found, Response):
+    return found
+  provider, slug = found
+  media = upload.content_type or "application/octet-stream"
+  audio = (upload.filename or "audio", await upload.read(), media)
+  try:
+    url, content, headers = provider.transcribe_request(slug, fields, audio)
+  except providers.ProviderError as exc:
+    return invalid(str(exc))
+
+  async def call() -> tuple[bytes, str]:
+    response = await upstream.post(model, url, headers, **content)
+    return provider.transcription(response, fields)
+
+  result = await attempt(request, model, call)
+  if isinstance(result, Response):
+    return result
+  body, media_type = result
+  return Response(body, media_type=media_type)

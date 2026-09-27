@@ -17,7 +17,9 @@ CONFIG = {
   "mistral": {"api_key": "k", "api_base": "https://mistral.test/v1"},
   "gemini": {"api_key": "g", "api_base": "https://gemini.test/v1beta"},
   "cloudflare": {"api_key": "c", "api_base": "https://cf.test/ai/v1"},
+  "groq": {"api_key": "q", "api_base": "https://groq.test/openai/v1"},
 }
+AUDIO = {"file": ("a.wav", b"RIFF-audio", "audio/wav")}
 
 
 class Upstream:
@@ -34,8 +36,13 @@ class Upstream:
       return httpx.Response(
         200, json={"embeddings": [{"values": [0.5, 1.0]} for _ in texts]}
       )
+    if request.url.host == "cf.test" and "/run/" in request.url.path:
+      result = {"text": "hello", "vtt": "WEBVTT\n\nhello"}
+      return httpx.Response(200, json={"result": result, "success": True})
     if request.url.host == "cf.test":
       return httpx.Response(400, json={"error": "bad model"})
+    if request.url.path.endswith("/audio/transcriptions"):
+      return httpx.Response(200, text="hello", headers={"content-type": "text/plain"})
     item = {"object": "embedding", "index": 0, "embedding": [0.25, -1.0]}
     return httpx.Response(200, json={"object": "list", "data": [item], "model": "x"})
 
@@ -109,6 +116,80 @@ def check_errors(fake: Upstream, client: TestClient) -> None:
   assert denied.status_code == 401, denied.text
 
 
+def form_fields(request: httpx.Request) -> dict[str, list[str]]:
+  """The text fields of a multipart request."""
+  fields: dict[str, list[str]] = {}
+  for part in request.content.split(
+    b"--" + request.headers["content-type"].split("=")[1].encode()
+  ):
+    head, _, value = part.partition(b"\r\n\r\n")
+    if b"filename=" in head or b'name="' not in head:
+      continue
+    name = head.split(b'name="')[1].split(b'"')[0].decode()
+    fields.setdefault(name, []).append(value.rstrip(b"\r\n").decode())
+  return fields
+
+
+def check_transcriptions(fake: Upstream, client: TestClient) -> None:
+  data = {
+    "model": "groq/whisper-large-v3",
+    "response_format": "text",
+    "prompt": "names",
+    "timestamp_granularities[]": ["word", "segment"],
+    "extra": "x",
+  }
+  response = client.post("/v1/audio/transcriptions", data=data, files=AUDIO)
+  assert response.status_code == 200 and response.text == "hello", response.text
+  assert response.headers["content-type"].startswith("text/plain"), response.headers
+  sent = fake.sent[-1]
+  assert str(sent.url) == "https://groq.test/openai/v1/audio/transcriptions", sent.url
+  assert sent.headers["authorization"] == "Bearer q", "the key, and no JSON type"
+  assert form_fields(sent) == {
+    "response_format": ["text"],
+    "prompt": ["names"],
+    "timestamp_granularities[]": ["word", "segment"],
+    "model": ["whisper-large-v3"],
+  }, form_fields(sent)
+  assert b"RIFF-audio" in sent.content, "the file goes upstream"
+  data = {"model": "mistral/voxtral-mini-latest", "prompt": "names", "language": "en"}
+  client.post("/v1/audio/transcriptions", data=data, files=AUDIO)
+  fields = form_fields(fake.sent[-1])
+  assert fields == {"language": ["en"], "model": ["voxtral-mini-latest"]}, fields
+
+
+def check_cloudflare_audio(fake: Upstream, client: TestClient) -> None:
+  data = {"model": "cloudflare/@cf/openai/whisper", "response_format": "vtt"}
+  response = client.post("/v1/audio/transcriptions", data=data, files=AUDIO)
+  assert response.status_code == 200 and response.text.startswith("WEBVTT"), (
+    response.text
+  )
+  sent = fake.sent[-1]
+  assert sent.url.path == "/ai/run/@cf/openai/whisper", sent.url
+  assert sent.content == b"RIFF-audio" and sent.headers["content-type"] == "audio/wav"
+  data = {"model": "cloudflare/@cf/openai/whisper-large-v3-turbo", "prompt": "names"}
+  response = client.post("/v1/audio/transcriptions", data=data, files=AUDIO)
+  assert response.json() == {"text": "hello"}, response.text
+  expected = {
+    "audio": base64.b64encode(b"RIFF-audio").decode(),
+    "initial_prompt": "names",
+  }
+  assert json.loads(fake.sent[-1].content) == expected, fake.sent[-1].content
+  count = len(fake.sent)
+  for data, files in (
+    ({"model": "cloudflare/@cf/openai/whisper", "response_format": "srt"}, AUDIO),
+    ({"model": "gemini/gemini-2.5-flash"}, AUDIO),
+    ({"model": "groq/whisper-large-v3", "response_format": "mp3"}, AUDIO),
+    ({"model": "groq/whisper-large-v3"}, None),
+    ({"model": "koinos"}, AUDIO),
+  ):
+    response = client.post("/v1/audio/transcriptions", data=data, files=files)
+    assert response.status_code == 400, (data, response.text)
+  headers = {"content-type": "multipart/form-data; boundary=x"}
+  response = client.post("/v1/audio/transcriptions", content=b"broken", headers=headers)
+  assert response.status_code == 400, response.text
+  assert len(fake.sent) == count, "no upstream call for a bad request"
+
+
 def main() -> None:
   fake = Upstream()
   upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(fake)))
@@ -119,10 +200,12 @@ def main() -> None:
     check_embeddings(fake, client)
     check_gemini(fake, client)
     check_errors(fake, client)
+    check_transcriptions(fake, client)
+    check_cloudflare_audio(fake, client)
   finally:
     media.get_config = original
     upstream.set_client(None)
-  print("ok: embeddings for OpenAI-compatible and Gemini providers")
+  print("ok: embeddings and transcriptions")
 
 
 if __name__ == "__main__":
