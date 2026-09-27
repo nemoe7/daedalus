@@ -119,7 +119,10 @@ def check_repo_file() -> None:
   }
   assert router.candidates(loaded, "TIER-B", ["groq/qwen/qwen3.8-27b"]), "groq tier"
   qwen = ["cloudflare/@cf/qwen/qwen3-30b-a3b-fp8", "cloudflare/@cf/qwen/qwen3.8-27b"]
-  assert router.candidates(loaded, "TIER-A", qwen) == qwen, "the org head must not hide"
+  assert router.candidates(loaded, "TIER-A", qwen) == qwen[1:], (
+    "the org head must not hide"
+  )
+  assert router.candidates(loaded, "TIER-B", qwen) == qwen[:1], "a weaker thinker"
 
 
 def walk(node: object) -> list[str]:
