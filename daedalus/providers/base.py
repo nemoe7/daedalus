@@ -15,6 +15,25 @@ class ProviderError(ValueError):
 ERROR_TEXT_LIMIT = 300
 
 
+def hide_inputs(node: Any) -> Any:
+  """The error body without `input` keys, where validation errors echo the prompt."""
+  if isinstance(node, dict):
+    return {key: hide_inputs(value) for key, value in node.items() if key != "input"}
+  if isinstance(node, list):
+    return [hide_inputs(value) for value in node]
+  return node
+
+
+def error_detail(raw: bytes, limit: int) -> str:
+  """The full error body for the dashboard, without echoed prompt text."""
+  text = raw.decode("utf-8", "replace")
+  try:
+    text = json.dumps(hide_inputs(json.loads(text)), ensure_ascii=False)
+  except ValueError:
+    pass
+  return text[:limit]
+
+
 def error_text(payload: Any) -> str:
   """The provider's error message from a body or an event, short and on one line."""
   if isinstance(payload, bytes):
@@ -24,6 +43,7 @@ def error_text(payload: Any) -> str:
       payload = json.loads(payload)
     except ValueError:
       pass
+  payload = hide_inputs(payload)
   found = payload
   for key in ("error", "errors", "message", 0):
     if isinstance(found, list) and found:
