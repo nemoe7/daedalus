@@ -34,5 +34,6 @@ The Requests page shows "koinos from moros" when a `daedalus/auto` request start
 | Access | `/v1` only. Not the dashboard. |
 | Log | `key=NAME` |
 
-I recommend using different keys for different applications. Easier to delete a single key incase of a leak.
-Note: DO NOT share this service to other people. Providers' TOS may forbid it so only use it for personal work.
+Give each application its own key. Then you can remove 1 key after a leak, and the other applications continue to work.
+
+Note: do not share Daedalus with other people. The provider terms of service can forbid it. Use it for your own work only.
