@@ -6,7 +6,7 @@ from pathlib import Path
 import httpx
 from fastapi.testclient import TestClient
 
-from daedalus import api, store
+from daedalus import api, context, store, upstream
 
 MASTER = "test-master-key-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}
@@ -35,10 +35,12 @@ def check_estimate() -> None:
   }
   text = {"type": "text", "text": "abcd" * 10}
   body = {"messages": [{"role": "user", "content": [text, image]}]}
-  assert api.input_tokens(body) == 15, "57 characters; the image data does not count"
+  assert context.input_tokens(body) == 15, (
+    "57 characters; the image data does not count"
+  )
   tools = [{"type": "function", "function": {"name": "abc"}}]
-  assert api.input_tokens({"messages": [], "tools": tools}) == 3, "tools count"
-  assert api.input_tokens({"messages": [{"content": "abcde"}]}) == 2, "round up"
+  assert context.input_tokens({"messages": [], "tools": tools}) == 3, "tools count"
+  assert context.input_tokens({"messages": [{"content": "abcde"}]}) == 2, "round up"
 
 
 def check_limits(database: Path) -> None:
@@ -58,7 +60,7 @@ def check_requests() -> None:
   }
   original = api.get_config, api.chain
   api.get_config = lambda: config
-  api.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
+  upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
   api.PENALTIES.clear()
   lines = Lines()
   api.logger.addHandler(lines)
@@ -88,7 +90,7 @@ def check_requests() -> None:
     assert response.status_code == 502, "an empty chain is not a context error"
   finally:
     api.get_config, api.chain = original
-    api.set_client(None)
+    upstream.set_client(None)
     api.logger.removeHandler(lines)
 
 

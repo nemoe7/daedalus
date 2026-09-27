@@ -1,14 +1,20 @@
 """Server-sent event parsing, and the relay that continues a failed stream."""
 
 import json
+import logging
 import time
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from daedalus import api, providers, store
+from daedalus import context, providers, store, upstream
 from daedalus.providers.base import error_text
+
+if TYPE_CHECKING:
+  from daedalus.api import Tracker
+
+logger = logging.getLogger("daedalus")
 
 STREAM_ERRORS = (httpx.HTTPError, ValueError, KeyError, TypeError)
 ATTEMPT_ERRORS = (*STREAM_ERRORS, StopAsyncIteration)
@@ -71,7 +77,7 @@ async def relay(
   config: dict[str, Any],
   include_usage: bool,
   model: str,
-  pin: "api.Tracker",
+  pin: "Tracker",
 ) -> AsyncIterator[bytes]:
   """Stream one answer, and continue from the sent text on a failure."""
   identifier, sent, tool = None, [], False
@@ -95,9 +101,9 @@ async def relay(
             sent.append(delta["content"])
         yield providers.frame(chunk)
     except StopAsyncIteration:
-      api.logger.warning("upstream stream ended without [DONE]")
+      logger.warning("upstream stream ended without [DONE]")
     except STREAM_ERRORS as exc:
-      api.logger.warning("upstream stream failed: %s", api.failure_text(exc))
+      logger.warning("upstream stream failed: %s", upstream.failure_text(exc))
     await events.aclose()
     pin.failed(model)
     if tool:
@@ -105,22 +111,22 @@ async def relay(
       return
     prefix = {"role": "assistant", "content": "".join(sent)}
     continued = {**body, "messages": [*body["messages"], prefix]} if sent else body
-    tokens, limits = api.input_tokens(continued), store.input_limits()
+    tokens, limits = context.input_tokens(continued), store.input_limits()
     while rest:
       candidate = rest.pop(0)
-      if api.too_large(candidate, tokens, limits):
+      if context.too_large(candidate, tokens, limits):
         continue
       started = time.perf_counter()
       try:
-        provider, response = await api.attempt(candidate, continued, config)
+        provider, response = await upstream.attempt(candidate, continued, config)
         events = sse_data(provider.stream(response, candidate, include_usage))
         pending = await first_content(events)
         model = candidate
         pin.answered(model, time.perf_counter() - started)
         break
-      except (api.UpstreamStatus, *ATTEMPT_ERRORS) as exc:
-        api.logger.warning(
-          "upstream %s continuation failed: %s", candidate, api.failure_text(exc)
+      except (upstream.UpstreamStatus, *ATTEMPT_ERRORS) as exc:
+        logger.warning(
+          "upstream %s continuation failed: %s", candidate, upstream.failure_text(exc)
         )
     else:
       yield STREAM_FAILED

@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 
-from daedalus import catalog, config
+from daedalus import catalog, config, discovery
 
 CONFIG: dict[str, Any] = {
   "cloudflare": {
@@ -109,75 +109,75 @@ PAYOUT: dict[str, dict[str, Any]] = {
 
 
 def check_matches() -> None:
-  assert catalog.matches("glm-4.5", "glm-4.5")
-  assert not catalog.matches("glm-4.5", "glm-4.5-air"), "exact must not prefix-match"
-  assert catalog.matches("*kimi-k2.6", "@cf/moonshotai/kimi-k2.6"), "star glob"
-  assert catalog.matches("*content-safety*", "nvidia/nemotron-3.5-content-safety")
-  assert catalog.matches("gemini-3.?-flash", "gemini-3.5-flash"), "question mark glob"
-  assert not catalog.matches("gemini-3.?-flash", "gemini-3.15-flash")
-  assert catalog.matches("^glm-4\\.[67]$", "glm-4.6"), "regex head"
-  assert not catalog.matches("^glm-4\\.[67]$", "glm-4.5"), "regex must anchor"
-  assert not catalog.matches("llama-guard*", "@cf/meta/llama-guard-3-8b"), (
+  assert discovery.matches("glm-4.5", "glm-4.5")
+  assert not discovery.matches("glm-4.5", "glm-4.5-air"), "exact must not prefix-match"
+  assert discovery.matches("*kimi-k2.6", "@cf/moonshotai/kimi-k2.6"), "star glob"
+  assert discovery.matches("*content-safety*", "nvidia/nemotron-3.5-content-safety")
+  assert discovery.matches("gemini-3.?-flash", "gemini-3.5-flash"), "question mark glob"
+  assert not discovery.matches("gemini-3.?-flash", "gemini-3.15-flash")
+  assert discovery.matches("^glm-4\\.[67]$", "glm-4.6"), "regex head"
+  assert not discovery.matches("^glm-4\\.[67]$", "glm-4.5"), "regex must anchor"
+  assert not discovery.matches("llama-guard*", "@cf/meta/llama-guard-3-8b"), (
     "an anchored pattern does not reach past an org head"
   )
-  assert catalog.matches("!*:free", "openai/gpt-6-sol"), "negation drops a paid row"
-  assert not catalog.matches("!*:free", "google/gemma-4-31b-it:free")
-  assert catalog.matches("!^glm-4\\.[67]$", "glm-4.5"), "negation inverts regex too"
-  assert not catalog.matches("!^glm-4\\.[67]$", "glm-4.6")
+  assert discovery.matches("!*:free", "openai/gpt-6-sol"), "negation drops a paid row"
+  assert not discovery.matches("!*:free", "google/gemma-4-31b-it:free")
+  assert discovery.matches("!^glm-4\\.[67]$", "glm-4.5"), "negation inverts regex too"
+  assert not discovery.matches("!^glm-4\\.[67]$", "glm-4.6")
 
 
 def check_extract_slugs() -> None:
-  data = catalog.extract_slugs({"data": [{"id": "a"}, {"id": "b"}]})
+  data = discovery.extract_slugs({"data": [{"id": "a"}, {"id": "b"}]})
   assert data == ["a", "b"], data
-  gemini = catalog.extract_slugs({"models": [{"name": "models/gemini-3.5-flash"}]})
+  gemini = discovery.extract_slugs({"models": [{"name": "models/gemini-3.5-flash"}]})
   assert gemini == ["gemini-3.5-flash"], gemini
-  cloudflare = catalog.extract_slugs(
+  cloudflare = discovery.extract_slugs(
     {"result": [{"id": "fe8904cf-e20e", "name": "@cf/qwen/qwq-32b"}]}
   )
   assert cloudflare == ["@cf/qwen/qwq-32b"], cloudflare
-  junk = catalog.extract_slugs({"data": ["x", {"no_id": 1}, {"id": ""}]})
+  junk = discovery.extract_slugs({"data": ["x", {"no_id": 1}, {"id": ""}]})
   assert junk == [], junk
-  assert catalog.extract_slugs({"result": None, "success": False}) == []
+  assert discovery.extract_slugs({"result": None, "success": False}) == []
 
 
 def check_next_page_url() -> None:
-  token = catalog.next_page_url("https://gem.test/models", {"nextPageToken": "p2"})
+  token = discovery.next_page_url("https://gem.test/models", {"nextPageToken": "p2"})
   assert token == "https://gem.test/models?pageToken=p2", token
-  links = catalog.next_page_url(
+  links = discovery.next_page_url(
     "https://or.test/models",
     {"links": {"next": "https://or.test/models?page=2"}},
   )
   assert links == "https://or.test/models?page=2", links
-  assert catalog.next_page_url("https://or.test/m", {"links": {"next": None}}) is None
+  assert discovery.next_page_url("https://or.test/m", {"links": {"next": None}}) is None
   # Cloudflare names a row total, not a page total.
-  rows = catalog.next_page_url(
+  rows = discovery.next_page_url(
     "https://cf.test/search?per_page=100",
     {"result_info": {"count": 100, "page": 1, "per_page": 100, "total_count": 313}},
   )
   assert rows == "https://cf.test/search?per_page=100&page=2", rows
-  spaced = catalog.with_param("https://cf.test/s?task=Text%20Generation", "page", 2)
+  spaced = discovery.with_param("https://cf.test/s?task=Text%20Generation", "page", 2)
   assert spaced == "https://cf.test/s?task=Text%20Generation&page=2", spaced
-  last = catalog.next_page_url(
+  last = discovery.next_page_url(
     "https://cf.test/search?per_page=100&page=4",
     {"result_info": {"count": 13, "page": 4, "per_page": 100, "total_count": 313}},
   )
   assert last is None, last
-  pages = catalog.next_page_url(
+  pages = discovery.next_page_url(
     "https://x.test/s",
     {"result_info": {"page": 1, "total_pages": 3}},
   )
   assert pages == "https://x.test/s?page=2", pages
-  assert catalog.next_page_url("https://x.test/m", {"data": []}) is None
+  assert discovery.next_page_url("https://x.test/m", {"data": []}) is None
 
 
 def check_failure() -> None:
-  assert catalog.failure({"success": True, "result": []}) is None
-  assert catalog.failure({"data": []}) is None
-  denied = catalog.failure(
+  assert discovery.failure({"success": True, "result": []}) is None
+  assert discovery.failure({"data": []}) is None
+  denied = discovery.failure(
     {"success": False, "errors": [{"code": 7000, "message": "No route for that URI"}]}
   )
   assert denied == "No route for that URI", denied
-  assert catalog.failure({"success": False}) == "the upstream reported a failure"
+  assert discovery.failure({"success": False}) == "the upstream reported a failure"
 
 
 def check_select() -> None:
@@ -188,15 +188,15 @@ def check_select() -> None:
     "@cf/zai-org/glm-5.3",
     "@cf/moonshotai/kimi-k2.6",
   ]
-  kept = catalog.select(provider, slugs)
+  kept = discovery.select(provider, slugs)
   assert kept == ["@cf/meta/llama-guard-3-8b", "@cf/qwen/qwq-32b"], kept
 
   # An excluded slug stays excluded: a tier pattern does not claim it back.
-  assert catalog.select(CONFIG["z-ai"], ["glm-4.5", "glm-4.6"]) == []
+  assert discovery.select(CONFIG["z-ai"], ["glm-4.5", "glm-4.6"]) == []
 
   # A pattern that names its own provider is a slug pattern, not a head to strip:
   # `openrouter/*` reaches `openrouter/auto`, and only that.
-  routers = catalog.select(
+  routers = discovery.select(
     {"exclude": ["openrouter/*"]},
     ["openrouter/auto", "openai/gpt-6-sol", "qwen/qwen3.8-27b:free"],
   )
@@ -204,19 +204,21 @@ def check_select() -> None:
 
 
 def check_auth_headers() -> None:
-  assert catalog.auth_headers("groq", {"api_key": "g"}) == {"Authorization": "Bearer g"}
-  assert catalog.auth_headers("gemini", {"api_key": "m"}) == {"x-goog-api-key": "m"}
-  assert catalog.auth_headers("groq", {"api_key": ""}) == {}
+  assert discovery.auth_headers("groq", {"api_key": "g"}) == {
+    "Authorization": "Bearer g"
+  }
+  assert discovery.auth_headers("gemini", {"api_key": "m"}) == {"x-goog-api-key": "m"}
+  assert discovery.auth_headers("groq", {"api_key": ""}) == {}
 
 
 def check_discover_provider() -> None:
   fetch = make_fetch(PAYOUT)
-  gemini = catalog.discover_provider("gemini", CONFIG["gemini"], fetch)
+  gemini = discovery.discover_provider("gemini", CONFIG["gemini"], fetch)
   assert gemini == ["gemini-3.5-flash", "gemini-3.6-flash"], gemini
   assert SEEN["https://gem.test/v1beta/models"][0] == {"x-goog-api-key": "gem-token"}
 
   # Cloudflare pages on its row total, and takes `name`, not the UUID `id`.
-  cloudflare = catalog.discover_provider("cloudflare", CONFIG["cloudflare"], fetch)
+  cloudflare = discovery.discover_provider("cloudflare", CONFIG["cloudflare"], fetch)
   assert "@cf/openai/gpt-oss-120b" in cloudflare, cloudflare
   assert "@cf/qwen/qwq-32b" in cloudflare, cloudflare
   assert "@cf/zai-org/glm-5.3" not in cloudflare, cloudflare
@@ -227,12 +229,12 @@ def check_discover_provider() -> None:
   assert "https://cf.test/accounts/x/ai/models/search?per_page=100&page=2" in SEEN
 
   # A single page, and no row survives `exclude: ["*"]`.
-  openrouter = catalog.discover_provider("openrouter", CONFIG["openrouter"], fetch)
+  openrouter = discovery.discover_provider("openrouter", CONFIG["openrouter"], fetch)
   assert openrouter == ["google/gemma-4-26b-a4b-it:free"], openrouter
-  assert catalog.discover_provider("z-ai", CONFIG["z-ai"], fetch) == []
+  assert discovery.discover_provider("z-ai", CONFIG["z-ai"], fetch) == []
 
   try:
-    catalog.discover_provider("denied", CONFIG["denied"], fetch)
+    discovery.discover_provider("denied", CONFIG["denied"], fetch)
   except ValueError as error:
     assert str(error) == "No route for that URI", error
   else:
@@ -240,7 +242,7 @@ def check_discover_provider() -> None:
 
 
 def check_build_catalog() -> None:
-  lines, skipped = catalog.build_catalog(CONFIG, make_fetch(PAYOUT))
+  lines, skipped = discovery.build_catalog(CONFIG, make_fetch(PAYOUT))
   assert lines == [
     "cloudflare/@cf/deepseek-ai/deepseek-r1-distill-llama-8b",
     "cloudflare/@cf/meta/llama-guard-3-8b",
@@ -266,11 +268,11 @@ def check_discovery_match() -> None:
     ]
   }
   match = {"paid": False}
-  slugs = catalog.extract_slugs(payload, match)
+  slugs = discovery.extract_slugs(payload, match)
   assert slugs == ["@cf/a/free", "@cf/a/open"], slugs
-  assert len(catalog.extract_slugs(payload)) == 4, "no match keeps every row"
+  assert len(discovery.extract_slugs(payload)) == 4, "no match keeps every row"
   provider = {"discovery_url": "https://m.test/s", "discovery_match": match}
-  kept = catalog.discover_provider("m", provider, lambda *_: payload)
+  kept = discovery.discover_provider("m", provider, lambda *_: payload)
   assert kept == ["@cf/a/free", "@cf/a/open"], kept
 
 
@@ -278,7 +280,7 @@ def check_dump() -> None:
   with tempfile.TemporaryDirectory() as folder:
     stale = Path(folder) / "broken.json"
     stale.write_text("{}", encoding="utf-8")
-    paths = catalog.dump(CONFIG, make_fetch(PAYOUT), folder)
+    paths = discovery.dump(CONFIG, make_fetch(PAYOUT), folder)
     names = sorted(path.name for path in paths)
     assert names == [
       "cloudflare.json",
@@ -288,15 +290,15 @@ def check_dump() -> None:
     ], names
     assert not stale.exists(), "a failed provider keeps no old dump"
     cloudflare = json.loads((Path(folder) / "cloudflare.json").read_text("utf-8"))
-    slugs = catalog.extract_slugs(cloudflare)
+    slugs = discovery.extract_slugs(cloudflare)
     assert "@cf/zai-org/glm-5.3" in slugs, "the dump keeps excluded rows"
     assert "@cf/openai/gpt-oss-120b" in slugs, "the dump merges every page"
 
 
 def check_merge_pages() -> None:
-  one = catalog.merge_pages([{"data": [{"id": "a"}], "object": "list"}])
+  one = discovery.merge_pages([{"data": [{"id": "a"}], "object": "list"}])
   assert one == {"data": [{"id": "a"}], "object": "list"}, one
-  two = catalog.merge_pages(
+  two = discovery.merge_pages(
     [
       {"data": [{"id": "a"}], "object": "list", "nextPageToken": "p2"},
       {"data": [{"id": "b"}], "object": "list"},
@@ -305,7 +307,7 @@ def check_merge_pages() -> None:
   assert two["data"] == [{"id": "a"}, {"id": "b"}], two
   assert two["object"] == "list", two
   assert "nextPageToken" not in two, two
-  assert catalog.merge_pages([]) == {}
+  assert discovery.merge_pages([]) == {}
 
 
 def check_writers() -> None:
@@ -323,26 +325,26 @@ def check_declared_kept() -> None:
   """A slug a `models:` key names is kept even when `exclude` drops it."""
   provider = {"exclude": ["*"], "models": {"glm-4.7-flash": {"tpm": 8000}}}
   slugs = ["glm-4.5", "glm-4.6", "glm-4.7-flash"]
-  assert catalog.select(provider, slugs) == ["glm-4.7-flash"]
+  assert discovery.select(provider, slugs) == ["glm-4.7-flash"]
 
   globbed = {
     "exclude": ["openai/*"],
     "models": {"*gpt-oss-120b": {"max_input_tokens": 7000}},
   }
-  assert catalog.select(globbed, ["openai/gpt-oss-120b", "openai/gpt-6-sol"]) == [
+  assert discovery.select(globbed, ["openai/gpt-oss-120b", "openai/gpt-6-sol"]) == [
     "openai/gpt-oss-120b"
   ]
 
   # An exact `models:` key is written even when discovery does not return it.
   absent = {"exclude": ["*"], "models": {"glm-4.5-flash": {"rpm": 60}}}
-  assert catalog.select(absent, ["glm-4.5", "glm-5"]) == ["glm-4.5-flash"]
+  assert discovery.select(absent, ["glm-4.5", "glm-5"]) == ["glm-4.5-flash"]
 
   # A pattern key is a matcher, not an id, so it never becomes a slug of its own.
   pattern_only = {"exclude": ["*"], "models": {"*gemma-4-31b-it:free": {"rpm": 5}}}
-  assert catalog.select(pattern_only, ["google/gemma-4-31b-it:free"]) == [
+  assert discovery.select(pattern_only, ["google/gemma-4-31b-it:free"]) == [
     "google/gemma-4-31b-it:free"
   ]
-  assert catalog.select(pattern_only, []) == []
+  assert discovery.select(pattern_only, []) == []
 
 
 def check_free_only() -> None:
@@ -354,7 +356,7 @@ def check_free_only() -> None:
     "anthropic/claude-opus-5.5",
     "nvidia/nemotron-3.5-content-safety",
   ]
-  openrouter = catalog.select(
+  openrouter = discovery.select(
     "openrouter",
     providers["openrouter"],
     rows
@@ -366,7 +368,7 @@ def check_free_only() -> None:
   )
   assert openrouter == ["google/gemma-4-31b-it:free"], openrouter
 
-  kilo = catalog.select(
+  kilo = discovery.select(
     "kilo",
     providers["kilo"],
     rows
@@ -390,11 +392,11 @@ def check_non_text() -> None:
     "gemini-3.1-flash-tts-preview",
     "gemini-3.1-flash-lite",
   ]
-  kept = catalog.select(providers["gemini"], gemini)
+  kept = discovery.select(providers["gemini"], gemini)
   assert "gemini-3.1-flash-lite" in kept, kept
   assert not set(gemini[:5]) & set(kept), kept
   mistral = ["codestral-embed", "codestral-embed-2505", "codestral-2508"]
-  assert catalog.select(providers["mistral"], mistral) == ["codestral-2508"]
+  assert discovery.select(providers["mistral"], mistral) == ["codestral-2508"]
 
 
 def main() -> int:

@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
-from daedalus import api, catalog, cli, keys, store
+from daedalus import api, catalog, cli, discovery, keys, store
 
 os.environ["DAEDALUS_MASTER_KEY"] = "test-master-key-0001"
 
@@ -35,11 +35,11 @@ def check_commands() -> None:
   original = (
     store.MODELS_DB,
     catalog.refresh,
-    catalog.dump,
+    discovery.dump,
     sys.modules.get("uvicorn"),
   )
   catalog.refresh = lambda: calls.append("catalog")
-  catalog.dump = lambda: calls.append("dump")
+  discovery.dump = lambda: calls.append("dump")
   sys.modules["uvicorn"] = SimpleNamespace(
     run=lambda *_, port, **__: calls.append(f"listen:{port}")
   )
@@ -78,7 +78,7 @@ def check_commands() -> None:
       assert calls == ["listen:9000"], calls
       check_key(calls)
   finally:
-    store.MODELS_DB, catalog.refresh, catalog.dump, uvicorn = original
+    store.MODELS_DB, catalog.refresh, discovery.dump, uvicorn = original
     api.CATALOG_REFRESH = None
     if uvicorn is None:
       sys.modules.pop("uvicorn", None)

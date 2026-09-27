@@ -1,0 +1,87 @@
+"""The upstream HTTP client, one candidate request, and the OpenAI error shape."""
+
+import logging
+import time
+from typing import Any
+
+import httpx
+from fastapi.responses import JSONResponse
+
+from daedalus import providers
+from daedalus.logs import elapsed
+from daedalus.providers.base import error_text
+
+logger = logging.getLogger("daedalus")
+
+
+TIMEOUT_SECONDS = 600.0
+
+
+# The wait for one answer. A provider that sends bytes resets it, so a slow
+# stream is not cut off.
+WAIT_SECONDS = 60.0
+
+
+_client: httpx.AsyncClient | None = None
+
+
+def get_client() -> httpx.AsyncClient:
+  global _client
+  if _client is None:
+    _client = httpx.AsyncClient(
+      timeout=httpx.Timeout(TIMEOUT_SECONDS, read=WAIT_SECONDS)
+    )
+  return _client
+
+
+def set_client(client: httpx.AsyncClient | None) -> None:
+  """Replace the upstream client. Test seam."""
+  global _client
+  _client = client
+
+
+async def close() -> None:
+  """Close the upstream client on shutdown."""
+  if _client is not None:
+    await _client.aclose()
+    set_client(None)
+
+
+def error_response(status: int, message: str, error_type: str) -> JSONResponse:
+  """Answer in the OpenAI error shape."""
+  return JSONResponse(
+    status_code=status,
+    content={"error": {"message": message, "type": error_type, "code": status}},
+  )
+
+
+def failure_text(exc: Exception) -> str:
+  """The error type and its message, for one log line."""
+  detail = error_text(str(exc)) if str(exc) else ""
+  return f"{type(exc).__name__}: {detail}" if detail else type(exc).__name__
+
+
+class UpstreamStatus(Exception):
+  def __init__(self, status: int) -> None:
+    super().__init__(status)
+    self.status = status
+
+
+async def attempt(
+  candidate: str, body: dict[str, Any], config: dict[str, Any]
+) -> tuple[providers.OpenAIProvider, httpx.Response]:
+  """Send one candidate request, and fail on an upstream error status."""
+  provider, url, payload, headers = providers.prepare(candidate, body, config)
+  upstream = get_client().build_request("POST", url, json=payload, headers=headers)
+  started = time.perf_counter()
+  response = await get_client().send(upstream, stream=True)
+  status = response.status_code
+  if status < 400:
+    logger.info("upstream %s %d %s", candidate, status, elapsed(started))
+    return provider, response
+  raw = await response.aread()
+  await response.aclose()
+  logger.warning(
+    "upstream %s %d %s: %s", candidate, status, elapsed(started), error_text(raw)
+  )
+  raise UpstreamStatus(status)

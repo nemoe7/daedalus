@@ -5,7 +5,7 @@ import logging
 
 import yaml
 
-from daedalus import api, catalog, dashboard, keys, settings, store
+from daedalus import api, catalog, dashboard, discovery, keys, logs, settings, store
 
 logger = logging.getLogger("daedalus")
 
@@ -40,9 +40,9 @@ def run(argv: list[str] | None = None) -> None:
   if args.command is None:
     parser.print_help()
     return
-  api.setup_logging()
+  logs.setup_logging()
   if args.command == "dump":
-    catalog.dump()
+    discovery.dump()
   elif args.command == "catalog":
     catalog.refresh()
   else:
