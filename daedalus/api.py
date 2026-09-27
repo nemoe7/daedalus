@@ -322,14 +322,23 @@ def run(argv: list[str] | None = None) -> None:
     action="store_true",
     help="discover provider models and rebuild the model store",
   )
+  parser.add_argument(
+    "-d",
+    "--dump",
+    action="store_true",
+    help="write the raw model list of each provider to .daedalus-state/dump",
+  )
   args = parser.parse_args(argv)
-  if args.init is None and not args.catalog:
+  serve = args.init is not None
+  if not (serve or args.catalog or args.dump):
     parser.print_help()
     return
   logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
-  if args.catalog or not catalog.MODELS_DB.exists():
+  if args.dump:
+    catalog.dump()
+  if args.catalog or (serve and not catalog.MODELS_DB.exists()):
     catalog.refresh()
-  if args.init is None:
+  if not serve:
     return
   import uvicorn
 
