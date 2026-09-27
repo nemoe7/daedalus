@@ -9,7 +9,7 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import api, catalog, config, interactions
+from daedalus import api, catalog, config
 
 UPSTREAM_BASE = "http://upstream.test"
 UPSTREAM_KEY = "upstream-secret"
@@ -34,7 +34,7 @@ def make_upstream() -> FastAPI:
         "user_agent": request.headers.get("user-agent", ""),
       }
     )
-    if payload.get("model") == "gemini/bad":
+    if payload.get("model") == "bad":
       return JSONResponse({"error": {"message": "slow down"}}, status_code=429)
     if payload.get("stream"):
 
@@ -70,10 +70,22 @@ def make_upstream() -> FastAPI:
   return stub
 
 
+def use_config(api_key: str = UPSTREAM_KEY) -> None:
+  """Route `stub/*` models to the stub upstream."""
+  config.set_config(
+    {
+      "stub": {
+        "api_base": UPSTREAM_BASE + "/v1",
+        "api_key": api_key,
+        "api_type": "openai",
+      }
+    }
+  )
+
+
 def use_upstream(api_key: str = UPSTREAM_KEY, local_key: str = "") -> None:
   """Point the app at the stub upstream."""
-  api.UPSTREAM_BASE_URL = UPSTREAM_BASE
-  api.API_KEY = api_key
+  use_config(api_key)
   api.LOCAL_API_KEY = local_key
   api.set_client(
     httpx.AsyncClient(
@@ -91,7 +103,11 @@ def make_client() -> httpx.AsyncClient:
 
 
 def chat_body(**extra: object) -> dict:
-  return {"model": "gpt-test", "messages": [{"role": "user", "content": "hi"}], **extra}
+  return {
+    "model": "stub/gpt-test",
+    "messages": [{"role": "user", "content": "hi"}],
+    **extra,
+  }
 
 
 async def check_health(client: httpx.AsyncClient) -> None:
@@ -99,7 +115,7 @@ async def check_health(client: httpx.AsyncClient) -> None:
   assert response.status_code == 200, response.text
   body = response.json()
   assert body["status"] == "ok", body
-  assert body["upstream"] == UPSTREAM_BASE, body
+  assert body == {"status": "ok"}, body
 
 
 async def check_non_stream(client: httpx.AsyncClient) -> None:
@@ -115,14 +131,21 @@ async def check_non_stream(client: httpx.AsyncClient) -> None:
   last = SEEN[-1]
   assert last["path"] == "/v1/chat/completions", last
   assert last["authorization"] == f"Bearer {UPSTREAM_KEY}", last
-  assert last["user_agent"] == "daedalus-test", last
+  assert last["user_agent"] != "daedalus-test", last
   assert last["model"] == "gpt-test", last
 
 
 async def check_routed_model(client: httpx.AsyncClient) -> None:
   """A reserved name resolves to a provider model, and any other name passes on."""
   config.set_config(
-    {"gemini": {"tier": {"TIER-C": ["gemini-3.5-flash"], "TIER-A": ["gemini-3.5-pro"]}}}
+    {
+      "gemini": {
+        "api_base": UPSTREAM_BASE + "/v1",
+        "api_key": UPSTREAM_KEY,
+        "api_type": "openai",
+        "tier": {"TIER-C": ["gemini-3.5-flash"], "TIER-A": ["gemini-3.5-pro"]},
+      }
+    }
   )
   saved = catalog.MODELS_TXT
   try:
@@ -141,22 +164,31 @@ async def check_routed_model(client: httpx.AsyncClient) -> None:
         ),
       )
       assert response.status_code == 200, response.text
-      assert SEEN[-1]["model"] == "gemini/gemini-3.5-flash", SEEN[-1]
+      assert SEEN[-1]["model"] == "gemini-3.5-flash", SEEN[-1]
       # A pool skips the classifier and goes to its own tier.
       pooled = await client.post(
         "/v1/chat/completions",
         json=chat_body(model="daedalus/sophos"),
       )
       assert pooled.status_code == 200, pooled.text
-      assert SEEN[-1]["model"] == "gemini/gemini-3.5-pro", SEEN[-1]
+      assert SEEN[-1]["model"] == "gemini-3.5-pro", SEEN[-1]
   finally:
     catalog.MODELS_TXT = saved
-    config.set_config(None)
+    use_config()
 
 
 async def check_reroute(client: httpx.AsyncClient) -> None:
   """A failed model logs internally, and the next model in the chain answers."""
-  config.set_config({"gemini": {"tier": {"TIER-B": ["bad", "gemini-3.5-flash"]}}})
+  config.set_config(
+    {
+      "gemini": {
+        "api_base": UPSTREAM_BASE + "/v1",
+        "api_key": UPSTREAM_KEY,
+        "api_type": "openai",
+        "tier": {"TIER-B": ["bad", "gemini-3.5-flash"]},
+      }
+    }
+  )
   saved = catalog.MODELS_TXT
   try:
     with tempfile.TemporaryDirectory() as folder:
@@ -168,11 +200,20 @@ async def check_reroute(client: httpx.AsyncClient) -> None:
         "/v1/chat/completions", json=chat_body(model="daedalus/sophos")
       )
       assert response.status_code == 200, response.text
-      assert SEEN[-2]["model"] == "gemini/bad", SEEN[-2]
-      assert SEEN[-1]["model"] == "gemini/gemini-3.5-flash", SEEN[-1]
+      assert SEEN[-2]["model"] == "bad", SEEN[-2]
+      assert SEEN[-1]["model"] == "gemini-3.5-flash", SEEN[-1]
 
       # When the last model in the chain fails, the client sees that error.
-      config.set_config({"gemini": {"tier": {"TIER-B": ["bad"]}}})
+      config.set_config(
+        {
+          "gemini": {
+            "api_base": UPSTREAM_BASE + "/v1",
+            "api_key": UPSTREAM_KEY,
+            "api_type": "openai",
+            "tier": {"TIER-B": ["bad"]},
+          }
+        }
+      )
       catalog.MODELS_TXT.write_text("gemini/bad\n", encoding="utf-8")
       doomed = await client.post(
         "/v1/chat/completions", json=chat_body(model="daedalus/sophos")
@@ -180,7 +221,7 @@ async def check_reroute(client: httpx.AsyncClient) -> None:
       assert doomed.status_code == 429, doomed.text
   finally:
     catalog.MODELS_TXT = saved
-    config.set_config(None)
+    use_config()
 
 
 def check_wait_cap() -> None:
@@ -192,9 +233,25 @@ def check_wait_cap() -> None:
   api.set_client(None)
 
 
-async def check_query_string(client: httpx.AsyncClient) -> None:
-  await client.post("/v1/chat/completions?beta=true", json=chat_body())
-  assert SEEN[-1]["query"] == "beta=true", SEEN[-1]
+async def check_models(client: httpx.AsyncClient) -> None:
+  saved = catalog.MODELS_TXT
+  try:
+    with tempfile.TemporaryDirectory() as folder:
+      catalog.MODELS_TXT = pathlib.Path(folder) / "models.txt"
+      catalog.MODELS_TXT.write_text("stub/gpt-test\n", encoding="utf-8")
+      response = await client.get("/v1/models")
+  finally:
+    catalog.MODELS_TXT = saved
+  assert response.status_code == 200, response.text
+  names = [row["id"] for row in response.json()["data"]]
+  assert names == [
+    "daedalus/auto",
+    "daedalus/moros",
+    "daedalus/koinos",
+    "daedalus/deinos",
+    "daedalus/sophos",
+    "stub/gpt-test",
+  ], names
 
 
 async def check_stream(client: httpx.AsyncClient) -> None:
@@ -211,10 +268,13 @@ async def check_stream(client: httpx.AsyncClient) -> None:
   assert "[DONE]" in text, text
 
 
-async def check_upstream_error_passthrough(client: httpx.AsyncClient) -> None:
-  response = await client.post("/v1/models", json={})
-  assert response.status_code == 429, response.text
-  assert response.json()["error"]["type"] == "rate_limit_error", response.text
+async def check_unknown_models(client: httpx.AsyncClient) -> None:
+  count = len(SEEN)
+  for model in ("gpt-test", "unknown/gpt-test", "daedalus/unknown"):
+    response = await client.post("/v1/chat/completions", json=chat_body(model=model))
+    assert response.status_code == 400, response.text
+  assert (await client.post("/v1/embeddings", json={})).status_code == 404
+  assert len(SEEN) == count, SEEN
 
 
 async def check_local_key() -> None:
@@ -251,160 +311,35 @@ async def check_upstream_unreachable() -> None:
   assert response.json()["error"]["type"] == "upstream_error", response.text
 
 
-def gemini_body() -> dict:
-  return {
-    "system_instruction": {"parts": [{"text": "Answer in one line."}]},
-    "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
-    "generation_config": {"maxOutputTokens": 16},
-  }
-
-
-async def check_gemini_route(client: httpx.AsyncClient) -> None:
-  """A Gemini request reaches the upstream as OpenAI, and comes back as Gemini."""
-  response = await client.post(
-    "/v1beta/models/gemini-2.5-flash:generateContent", json=gemini_body()
-  )
-  assert response.status_code == 200, response.text
-  body = response.json()
-  assert body["candidates"][0]["content"]["parts"] == [{"text": "hi"}], body
-  assert body["candidates"][0]["finishReason"] == "STOP", body
-  last = SEEN[-1]
-  assert last["model"] == "gemini-2.5-flash", last
-  assert last["messages"] == [
-    {"role": "system", "content": "Answer in one line."},
-    {"role": "user", "content": "hi"},
-  ], last
-
-
-async def check_gemini_stream(client: httpx.AsyncClient) -> None:
-  """A Gemini stream request comes back as Gemini SSE frames."""
-  response = await client.post(
-    "/v1beta/models/gemini-2.5-flash:streamGenerateContent", json=gemini_body()
-  )
-  assert response.status_code == 200, response.text
-  assert response.headers["content-type"].startswith("text/event-stream"), (
-    response.headers
-  )
-  frames = [
-    line[5:].strip() for line in response.text.splitlines() if line.startswith("data:")
-  ]
-  assert frames[-1] == "[DONE]", frames
-  first = json.loads(frames[0])
-  assert first["candidates"][0]["content"]["parts"] == [{"text": "Hel"}], first
-  assert SEEN[-1]["model"] == "gemini-2.5-flash", SEEN[-1]
-
-
-async def check_gemini_bad_action(client: httpx.AsyncClient) -> None:
-  """An unknown Gemini action is refused."""
-  response = await client.post("/v1beta/models/gemini-2.5-flash:countTokens", json={})
-  assert response.status_code == 404, response.text
-  assert response.json()["error"]["type"] == "invalid_request_error", response.text
-
-
-async def check_interactions_route(client: httpx.AsyncClient) -> None:
-  """An interactions request reaches the upstream as OpenAI, and comes back as steps."""
-  response = await client.post(
-    "/v1beta/interactions", json={"model": "gemini-3.5-flash", "input": "hi"}
-  )
-  assert response.status_code == 200, response.text
-  body = response.json()
-  assert body["object"] == "interaction", body
-  assert body["status"] == "completed", body
-  assert body["steps"][0]["type"] == "user_input", body
-  assert body["steps"][1]["content"] == [{"type": "text", "text": "hi"}], body
-  last = SEEN[-1]
-  assert last["model"] == "gemini-3.5-flash", last
-  assert last["messages"] == [{"role": "user", "content": "hi"}], last
-
-
-async def check_interactions_stream(client: httpx.AsyncClient) -> None:
-  """A streamed interaction carries the documented event names."""
-  response = await client.post(
+async def check_removed_routes(client: httpx.AsyncClient) -> None:
+  for path in (
+    "/v1beta/models/test:generateContent",
+    "/v1beta/models/test:streamGenerateContent",
+    "/v1beta/models/test:countTokens",
     "/v1beta/interactions",
-    json={"model": "gemini-3.5-flash", "input": "hi", "stream": True},
-  )
-  assert response.status_code == 200, response.text
-  names = [
-    line[7:] for line in response.text.splitlines() if line.startswith("event: ")
-  ]
-  assert names == [
-    "interaction.created",
-    "interaction.in_progress",
-    "step.start",
-    "step.delta",
-    "step.delta",
-    "step.stop",
-    "interaction.completed",
-  ], names
-
-
-async def check_interactions_needs_model(client: httpx.AsyncClient) -> None:
-  """An interaction with no model is refused."""
-  response = await client.post("/v1beta/interactions", json={"input": "hi"})
-  assert response.status_code == 400, response.text
-  assert response.json()["error"]["type"] == "invalid_request_error", response.text
-
-
-async def check_interactions_replay(client: httpx.AsyncClient) -> None:
-  """A second turn replays the first from disk."""
-  first = await client.post(
-    "/v1beta/interactions", json={"model": "m", "input": "I have 2 dogs."}
-  )
-  assert first.status_code == 200, first.text
-  body = first.json()
-  interaction_id = body["id"]
-  assert len(body["steps"]) == 2, body
-
-  second = await client.post(
-    "/v1beta/interactions",
-    json={
-      "model": "m",
-      "input": "How many paws?",
-      "previous_interaction_id": interaction_id,
-    },
-  )
-  assert second.status_code == 200, second.text
-  body = second.json()
-  assert body["id"] == interaction_id, body
-  assert len(body["steps"]) == 4, body
-  assert SEEN[-1]["messages"] == [
-    {"role": "user", "content": "I have 2 dogs."},
-    {"role": "assistant", "content": "hi"},
-    {"role": "user", "content": "How many paws?"},
-  ], SEEN[-1]
+  ):
+    response = await client.post(path, json={})
+    assert response.status_code == 404, response.text
 
 
 async def run_checks() -> None:
   use_upstream()
-  with tempfile.TemporaryDirectory() as folder:
-    original = interactions.STATE_DIR
-    interactions.STATE_DIR = pathlib.Path(folder)
-    try:
-      await run_client_checks()
-    finally:
-      interactions.STATE_DIR = original
+  await run_client_checks()
   check_wait_cap()
   await check_local_key()
   await check_upstream_unreachable()
 
 
 async def run_client_checks() -> None:
-  """Every check that talks to the app, with the state in a temp folder."""
   async with make_client() as client:
     await check_health(client)
     await check_non_stream(client)
     await check_routed_model(client)
     await check_reroute(client)
-    await check_query_string(client)
+    await check_models(client)
     await check_stream(client)
-    await check_gemini_route(client)
-    await check_gemini_stream(client)
-    await check_gemini_bad_action(client)
-    await check_interactions_route(client)
-    await check_interactions_stream(client)
-    await check_interactions_replay(client)
-    await check_interactions_needs_model(client)
-    await check_upstream_error_passthrough(client)
+    await check_removed_routes(client)
+    await check_unknown_models(client)
 
 
 def main() -> None:

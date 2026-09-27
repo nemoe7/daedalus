@@ -27,6 +27,8 @@ cloudflare:
     "@cf/qwen/qwq-32b": { max_in_tok: 20000, max_out_tok: 4000 }
 
 gemini:
+  api_type: gemini
+  api_base: https://generativelanguage.googleapis.com/v1beta
   api_key: os.environ/GEMINI_API_KEY
   discovery_url: https://generativelanguage.googleapis.com/v1beta/models
   exclude:
@@ -68,6 +70,8 @@ gemini:
     gemma-4-31b-it: { rpm: 30, tpm: 16000 }
 
 groq:
+  api_type: openai
+  api_base: https://api.groq.com/openai/v1
   api_key: os.environ/GROQ_API_KEY
   discovery_url: https://api.groq.com/openai/v1/models
   rpm: 30
@@ -101,6 +105,8 @@ kilo:
       - "*"
 
 mistral:
+  api_type: openai
+  api_base: https://api.mistral.ai/v1
   api_key: os.environ/MISTRAL_API_KEY
   discovery_url: https://api.mistral.ai/v1/models
   exclude:
@@ -123,6 +129,8 @@ mistral:
       - "leanstral*"
 
 openrouter:
+  api_type: openai
+  api_base: https://openrouter.ai/api/v1
   api_key: os.environ/OPENROUTER_API_KEY
   discovery_url: https://openrouter.ai/api/v1/models
   exclude:
@@ -138,6 +146,8 @@ openrouter:
     "*gemma-4-31b-it:free": { reasoning_effort: low }
 
 z-ai:
+  api_type: openai
+  api_base: https://api.z.ai/api/paas/v4
   api_key: os.environ/ZAI_API_KEY
   discovery_url: https://api.z.ai/api/paas/v4/models
   exclude:
