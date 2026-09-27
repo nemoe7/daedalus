@@ -22,7 +22,7 @@ cloudflare:
       - "*deepseek-v4-pro*"
 
   models:
-    "@cf/qwen/qwq-32b": { max_in_tok: 20000, max_out_tok: 4000 }
+    "@cf/qwen/qwq-32b": { max_input_tokens: 20000, max_output_tokens: 4000 }
 
 gemini:
   api_key: os.environ/GEMINI_API_KEY
@@ -79,9 +79,9 @@ groq:
     TIER-B:
       - qwen3.8-27b
   models:
-    openai/gpt-oss-120b: { max_in_tok: 7000 }
-    openai/gpt-oss-20b: { max_in_tok: 7000, tpm: 8000 }
-    qwen/qwen3.8-27b: { max_in_tok: 7000, max_out_tok: 16384 }
+    openai/gpt-oss-120b: { max_input_tokens: 7000 }
+    openai/gpt-oss-20b: { max_input_tokens: 7000, tpm: 8000 }
+    qwen/qwen3.8-27b: { max_input_tokens: 7000, max_output_tokens: 16384 }
     allam-2-7b: { tpm: 6000 }
 
 kilo:
@@ -154,6 +154,6 @@ z-ai:
       - glm-5-turbo
       - glm-5.3-flash
   models:
-    glm-4.5-flash: { max_in_tok: 131072, max_out_tok: 98304, rpm: 60, tpm: 8000 }
-    glm-4.6v-flash: { max_in_tok: 131072, max_out_tok: 98304, rpm: 60, tpm: 8000 }
-    glm-4.7-flash: { max_in_tok: 131072, max_out_tok: 131072, rpm: 60, tpm: 8000 }
+    glm-4.5-flash: { max_input_tokens: 131072, max_output_tokens: 98304, rpm: 60, tpm: 8000 }
+    glm-4.6v-flash: { max_input_tokens: 131072, max_output_tokens: 98304, rpm: 60, tpm: 8000 }
+    glm-4.7-flash: { max_input_tokens: 131072, max_output_tokens: 131072, rpm: 60, tpm: 8000 }
