@@ -100,14 +100,30 @@ def row_shape(payload: dict[str, Any]) -> str | None:
   return None
 
 
-def extract_slugs(payload: dict[str, Any]) -> list[str]:
-  """Take the slug from each row of one payload."""
+def row_matches(row: dict[str, Any], match: dict[str, Any]) -> bool:
+  """Test one discovered row against `discovery_match`. A missing property matches."""
+  properties = {
+    item.get("property_id"): item.get("value")
+    for item in row.get("properties") or []
+    if isinstance(item, dict)
+  }
+  for key, expected in match.items():
+    value = row.get(key, properties.get(key))
+    if value is not None and text(value).lower() != text(expected).lower():
+      return False
+  return True
+
+
+def extract_slugs(
+  payload: dict[str, Any], match: dict[str, Any] | None = None
+) -> list[str]:
+  """Take the slug from each row of one payload that `match` keeps."""
   shape = row_shape(payload)
   if shape is None:
     return []
   slugs: list[str] = []
   for row in payload[shape]:
-    if not isinstance(row, dict):
+    if not isinstance(row, dict) or not row_matches(row, match or {}):
       continue
     for key in ROW_KEYS[shape]:
       value = row.get(key)
@@ -232,7 +248,8 @@ def discover_provider(
   fetch: Fetch = fetch_json,
 ) -> list[str]:
   """Read every page of one provider, and return its kept slugs."""
-  return select(provider, extract_slugs(read_pages(provider_name, provider, fetch)))
+  payload = read_pages(provider_name, provider, fetch)
+  return select(provider, extract_slugs(payload, provider.get("discovery_match")))
 
 
 def read_providers(
@@ -268,7 +285,9 @@ def build_catalog(
   lines = [
     f"{provider_name}/{slug}"
     for provider_name, provider, payload in found
-    for slug in select(provider, extract_slugs(payload))
+    for slug in select(
+      provider, extract_slugs(payload, provider.get("discovery_match"))
+    )
   ]
   return lines, skipped
 
