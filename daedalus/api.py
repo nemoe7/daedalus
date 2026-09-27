@@ -12,7 +12,7 @@ import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import keys, penalties, providers, router, store
+from daedalus import keys, penalties, providers, router, store, stream
 from daedalus.config import get_config
 from daedalus.providers.base import error_text
 
@@ -315,8 +315,8 @@ async def chat(request: Request) -> Response:
         request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
         request.state.ttft = seconds_text(ttft)
         return JSONResponse(completion)
-      events = sse_data(provider.stream(response, candidate, include_usage))
-      pending = await first_content(events)
+      events = stream.sse_data(provider.stream(response, candidate, include_usage))
+      pending = await stream.first_content(events)
       ttft = time.perf_counter() - started
     except UpstreamStatus as exc:
       pin.failed(candidate)
@@ -324,7 +324,7 @@ async def chat(request: Request) -> Response:
         exc.status, "Upstream provider rejected the request", "upstream_error"
       )
       continue
-    except ATTEMPT_ERRORS as exc:
+    except stream.ATTEMPT_ERRORS as exc:
       logger.warning("upstream %s failed: %s", candidate, failure_text(exc))
       pin.failed(candidate)
       failure = error_response(
@@ -335,7 +335,7 @@ async def chat(request: Request) -> Response:
     request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
     request.state.ttft = seconds_text(ttft)
     return StreamingResponse(
-      relay(pending, events, rest, body, config, include_usage, candidate, pin),
+      stream.relay(pending, events, rest, body, config, include_usage, candidate, pin),
       media_type="text/event-stream",
     )
   if not tried:
@@ -370,19 +370,6 @@ class UpstreamStatus(Exception):
     self.status = status
 
 
-STREAM_ERRORS = (httpx.HTTPError, ValueError, KeyError, TypeError)
-ATTEMPT_ERRORS = (*STREAM_ERRORS, StopAsyncIteration)
-STREAM_FAILED = providers.frame(
-  {
-    "error": {
-      "message": "Upstream stream failed",
-      "type": "upstream_error",
-      "code": 502,
-    }
-  }
-)
-
-
 async def attempt(
   candidate: str, body: dict[str, Any], config: dict[str, Any]
 ) -> tuple[providers.OpenAIProvider, httpx.Response]:
@@ -401,110 +388,6 @@ async def attempt(
     "upstream %s %d %s: %s", candidate, status, elapsed(started), error_text(raw)
   )
   raise UpstreamStatus(status)
-
-
-async def sse_data(chunks: AsyncIterator[bytes]) -> AsyncIterator[str]:
-  """Split an SSE byte stream into the payloads of its `data:` lines."""
-  buffer = b""
-  try:
-    async for piece in chunks:
-      buffer += piece.replace(b"\r\n", b"\n")
-      while b"\n\n" in buffer:
-        block, buffer = buffer.split(b"\n\n", 1)
-        lines = [
-          line[5:].strip() for line in block.split(b"\n") if line.startswith(b"data:")
-        ]
-        if lines:
-          yield b"\n".join(lines).decode()
-  finally:
-    await chunks.aclose()
-
-
-def has_content(data: str) -> bool:
-  """True for `[DONE]`, and for a chunk with text, a tool call, or a finish reason."""
-  if data == "[DONE]":
-    return True
-  chunk = json.loads(data)
-  if not isinstance(chunk, dict) or chunk.get("error"):
-    raise providers.ProviderError(f"Upstream stream error: {error_text(chunk)}")
-  for choice in chunk.get("choices") or []:
-    delta = choice.get("delta") or {}
-    text = [delta.get(key) for key in ("content", "reasoning_content", "reasoning")]
-    if any(text) or delta.get("tool_calls") or choice.get("finish_reason"):
-      return True
-  return False
-
-
-async def first_content(events: AsyncIterator[str]) -> list[str]:
-  """The events up to the first one with content."""
-  pending = [await anext(events)]
-  while not has_content(pending[-1]):
-    pending.append(await anext(events))
-  return pending
-
-
-async def relay(
-  pending: list[str],
-  events: AsyncIterator[str],
-  rest: list[str],
-  body: dict[str, Any],
-  config: dict[str, Any],
-  include_usage: bool,
-  model: str,
-  pin: Tracker,
-) -> AsyncIterator[bytes]:
-  """Stream one answer, and continue from the sent text on a failure."""
-  identifier, sent, tool = None, [], False
-  while True:
-    try:
-      while True:
-        data = pending.pop(0) if pending else await anext(events)
-        if data == "[DONE]":
-          yield b"data: [DONE]\n\n"
-          return
-        chunk = json.loads(data)
-        if not isinstance(chunk, dict) or chunk.get("error"):
-          raise providers.ProviderError(f"Upstream stream error: {error_text(chunk)}")
-        identifier = identifier or chunk.get("id")
-        if identifier:
-          chunk["id"] = identifier
-        for choice in chunk.get("choices") or []:
-          delta = choice.get("delta") or {}
-          tool = tool or bool(delta.get("tool_calls"))
-          if isinstance(delta.get("content"), str):
-            sent.append(delta["content"])
-        yield providers.frame(chunk)
-    except StopAsyncIteration:
-      logger.warning("upstream stream ended without [DONE]")
-    except STREAM_ERRORS as exc:
-      logger.warning("upstream stream failed: %s", failure_text(exc))
-    await events.aclose()
-    pin.failed(model)
-    if tool:
-      yield STREAM_FAILED
-      return
-    prefix = {"role": "assistant", "content": "".join(sent)}
-    continued = {**body, "messages": [*body["messages"], prefix]} if sent else body
-    tokens, limits = input_tokens(continued), store.input_limits()
-    while rest:
-      candidate = rest.pop(0)
-      if too_large(candidate, tokens, limits):
-        continue
-      started = time.perf_counter()
-      try:
-        provider, response = await attempt(candidate, continued, config)
-        events = sse_data(provider.stream(response, candidate, include_usage))
-        pending = await first_content(events)
-        model = candidate
-        pin.answered(model, time.perf_counter() - started)
-        break
-      except (UpstreamStatus, *ATTEMPT_ERRORS) as exc:
-        logger.warning(
-          "upstream %s continuation failed: %s", candidate, failure_text(exc)
-        )
-    else:
-      yield STREAM_FAILED
-      return
 
 
 def apply_settings(values: dict[str, dict[str, Any]]) -> None:
