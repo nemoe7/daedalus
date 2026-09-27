@@ -6,7 +6,7 @@ from daedalus import catalog
 
 def main() -> None:
   root = Path(__file__).resolve().parent.parent / ".daedalus-state"
-  assert catalog.MODELS_TXT == root / "models.txt"
+  assert catalog.MODELS_TSV == root / "models.tsv"
   assert catalog.MODELS_DB == root / "models.sqlite3"
   with tempfile.TemporaryDirectory() as directory:
     target = Path(directory) / ".daedalus-state" / "models.sqlite3"
