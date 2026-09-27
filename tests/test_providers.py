@@ -144,6 +144,7 @@ async def main() -> None:
     ) as client:
 
       async def send(model, **extra):
+        api.PINS.pins.clear()
         return await client.post(
           "/v1/chat/completions",
           json={
