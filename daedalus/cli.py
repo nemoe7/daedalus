@@ -1,4 +1,4 @@
-"""The `daedalus` command: serve, catalog, dump and key."""
+"""The `daedalus` command: serve, catalog and dump."""
 
 import argparse
 import logging
@@ -8,20 +8,6 @@ import yaml
 from daedalus import api, catalog, dashboard, keys, settings, store
 
 logger = logging.getLogger("daedalus")
-KEY_OFF = "off"
-
-
-def set_key(value: str) -> None:
-  """Store a new, custom, or no local API key. Show a new key once."""
-  if value == KEY_OFF:
-    keys.save_hash(store.MODELS_DB, None)
-    logger.info("removed the local API key; the router accepts all requests")
-    return
-  key = value or keys.generate()
-  keys.save_hash(store.MODELS_DB, keys.digest(key))
-  if not value:
-    print(key)
-  logger.info("stored the local API key hash in %s", store.MODELS_DB)
 
 
 def run(argv: list[str] | None = None) -> None:
@@ -50,23 +36,12 @@ def run(argv: list[str] | None = None) -> None:
   commands.add_parser(
     "dump", help="write the raw model list of each provider to .daedalus-state/dump"
   )
-  key = commands.add_parser(
-    "key",
-    help=f"set the local API key: a new key without KEY, your KEY, or '{KEY_OFF}' to remove it",
-  )
-  key.add_argument("key", nargs="?", default="", metavar="KEY")
   args = parser.parse_args(argv)
   if args.command is None:
     parser.print_help()
     return
-  if (
-    args.command == "key" and args.key not in ("", KEY_OFF) and not keys.valid(args.key)
-  ):
-    key.error(f"a custom key needs {keys.MIN_LENGTH} or more characters and no spaces")
   api.setup_logging()
-  if args.command == "key":
-    set_key(args.key)
-  elif args.command == "dump":
+  if args.command == "dump":
     catalog.dump()
   elif args.command == "catalog":
     catalog.refresh()
@@ -76,6 +51,7 @@ def run(argv: list[str] | None = None) -> None:
         2,
         f"daedalus: set {dashboard.MASTER_ENV}: {keys.MIN_LENGTH} or more characters, no spaces\n",
       )
+    store.migrate()
     try:
       api.apply_settings(settings.load())
     except (settings.SettingsError, yaml.YAMLError) as exc:
