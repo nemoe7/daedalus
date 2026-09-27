@@ -81,9 +81,10 @@ def check_lines() -> None:
   ], lines.lines
   assert lines.lines[0].endswith("ProviderError: Missing api_key for keyless")
   assert lines.lines[1].split()[4] == "429", lines.lines
-  assert lines.lines[1].endswith("ms: slow"), "the provider message"
+  assert lines.lines[1].endswith("s: slow"), "the provider message"
   assert re.search(
-    r"model=daedalus/auto pool=deinos via=second/b pin=new ttft=\d+ms$", lines.lines[3]
+    r"model=daedalus/auto pool=deinos via=second/b pin=new ttft=\d+\.\d{3}s fallbacks=2$",
+    lines.lines[3],
   )
   check_error_text()
   print("ok: log lines")

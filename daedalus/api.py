@@ -49,14 +49,14 @@ def short_name(record: logging.LogRecord) -> bool:
   return True
 
 
-def milliseconds(seconds: float) -> str:
-  """A duration as log text."""
-  return f"{seconds * 1000:.0f}ms"
+def seconds_text(seconds: float) -> str:
+  """A duration as log text, in seconds with 3 decimals."""
+  return f"{seconds:.3f}s"
 
 
 def elapsed(started: float) -> str:
-  """The milliseconds since `started`, as log text."""
-  return milliseconds(time.perf_counter() - started)
+  """The time since `started`, as log text."""
+  return seconds_text(time.perf_counter() - started)
 
 
 @asynccontextmanager
@@ -119,7 +119,7 @@ async def log_request(request: Request, call_next):
   response = await call_next(request)
   models = [
     f"{key}={getattr(request.state, key)}"
-    for key in ("model", "pool", "via", "pin", "ttft")
+    for key in ("model", "pool", "via", "pin", "ttft", "fallbacks")
     if getattr(request.state, key, None)
   ]
   line = " ".join(
@@ -266,6 +266,7 @@ async def chat(request: Request) -> Response:
   include_usage = bool((body.get("stream_options") or {}).get("include_usage"))
   failure = error_response(502, "No model answered the request", "upstream_error")
   for index, candidate in enumerate(models):
+    request.state.fallbacks = str(index)
     started = time.perf_counter()
     try:
       provider, response = await attempt(candidate, body, config)
@@ -278,7 +279,7 @@ async def chat(request: Request) -> Response:
         completion = provider.completion(answer, candidate)
         ttft = time.perf_counter() - started
         request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
-        request.state.ttft = milliseconds(ttft)
+        request.state.ttft = seconds_text(ttft)
         return JSONResponse(completion)
       events = sse_data(provider.stream(response, candidate, include_usage))
       pending = await first_content(events)
@@ -298,7 +299,7 @@ async def chat(request: Request) -> Response:
       continue
     rest = models[index + 1 :]
     request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
-    request.state.ttft = milliseconds(ttft)
+    request.state.ttft = seconds_text(ttft)
     return StreamingResponse(
       relay(pending, events, rest, body, config, include_usage, candidate, pin),
       media_type="text/event-stream",
