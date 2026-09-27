@@ -31,6 +31,8 @@ class Penalties:
     pick: Callable[[], float] = random.random,
   ) -> None:
     self.path, self.clock, self.pick = path, clock, pick
+    self.enabled, self.idle = True, IDLE_SECONDS
+    self.success, self.fault, self.slow, self.hourly = SUCCESS, FAULT, SLOW, HOURLY
 
   def connect(self) -> sqlite3.Connection:
     target = Path(self.path())
@@ -50,6 +52,8 @@ class Penalties:
 
   def weights(self, models: list[str]) -> dict[str, float]:
     """The weight of each model now, with the hourly recovery."""
+    if not self.enabled:
+      return dict.fromkeys(models, 1.0)
     now = self.clock()
     database = self.connect()
     try:
@@ -59,13 +63,15 @@ class Penalties:
       ):
         if model in rows:
           hours = max(now - updated, 0.0) / 3600
-          rows[model] = min(1.0, weight * HOURLY**hours)
+          rows[model] = min(1.0, weight * self.hourly**hours)
       return rows
     finally:
       database.close()
 
   def record(self, model: str, factor: float) -> float:
     """Multiply the weight by the factor of one event, 1 at most."""
+    if not self.enabled:
+      return 1.0
     weight = min(1.0, self.weights([model])[model] * factor)
     database = self.connect()
     with database:
@@ -80,9 +86,7 @@ class Penalties:
     """The live pin for one pair, after it drops the pins that idled too long."""
     database = self.connect()
     with database:
-      database.execute(
-        "DELETE FROM pins WHERE used < ?", (self.clock() - IDLE_SECONDS,)
-      )
+      database.execute("DELETE FROM pins WHERE used < ?", (self.clock() - self.idle,))
       row = database.execute(
         "SELECT model FROM pins WHERE key = ? AND slot = ?", (key, slot)
       ).fetchone()
@@ -120,10 +124,10 @@ class Penalties:
     weights = self.weights(list(seen))
     ranked = [m for group in groups for m in sorted(group, key=lambda m: -weights[m])]
     first = self.pinned(key, slot) if slot else None
-    if first not in seen:
+    if first not in seen and self.enabled:
       top = next((group for group in groups if group), [])
       first = self.choose(top, weights)
-    if first is None:
+    if first not in seen:
       return ranked
     return [first, *(m for m in ranked if m != first)]
 
