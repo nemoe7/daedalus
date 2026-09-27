@@ -112,11 +112,13 @@ def rejected(candidate: str, status: int, started: float, raw: bytes) -> Upstrea
 
 async def post(
   candidate: str, url: str, headers: dict[str, str], **content: Any
-) -> Any:
-  """Send one request without a stream, and return its JSON answer."""
+) -> httpx.Response:
+  """Send one request without a stream, and fail on an upstream error status."""
   started = time.perf_counter()
-  response = await get_client().post(url, headers=headers, **content)
+  # A whole answer can take longer than the wait for one stream chunk.
+  timeout = httpx.Timeout(TIMEOUT_SECONDS)
+  response = await get_client().post(url, headers=headers, timeout=timeout, **content)
   if response.status_code >= 400:
     raise rejected(candidate, response.status_code, started, response.content)
   logger.info("upstream %s %d %s", candidate, response.status_code, elapsed(started))
-  return response.json()
+  return response
