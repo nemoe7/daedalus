@@ -82,6 +82,16 @@ table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--line); }
 td { overflow-wrap: anywhere; }
 th { font-size: 12px; font-weight: 500; color: var(--muted); }
+.sort {
+  padding: 0; border: 0; background: none; color: inherit; font: inherit;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.sort:hover, th[aria-sort="ascending"] .sort, th[aria-sort="descending"] .sort { color: var(--text); }
+th[aria-sort="ascending"] .sort::after, th[aria-sort="descending"] .sort::after {
+  content: ""; width: 5px; height: 5px; border: solid currentColor; border-width: 0 1.5px 1.5px 0;
+}
+th[aria-sort="ascending"] .sort::after { transform: translateY(2px) rotate(-135deg); }
+th[aria-sort="descending"] .sort::after { transform: translateY(-2px) rotate(45deg); }
 tr:last-child td { border-bottom: 0; }
 .num { font-variant-numeric: tabular-nums; }
 .status { font-weight: 600; font-variant-numeric: tabular-nums; }
