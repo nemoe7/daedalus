@@ -16,6 +16,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "slow": 0.75,
     "hourly": 1.2,
   },
+  "catalog": {"every": 6.0, "anchor": 6.0},
 }
 
 
@@ -26,6 +27,8 @@ class SettingsError(ValueError):
 def check(group: str, key: str, value: Any) -> Any:
   """The value when its type fits the default, else a `SettingsError`."""
   name = f"{group}.{key}"
+  if group == "catalog":
+    return schedule_value(name, key, value)
   if key == "enabled":
     if not isinstance(value, bool):
       raise SettingsError(f"{name} must be true or false")
@@ -34,6 +37,17 @@ def check(group: str, key: str, value: Any) -> Any:
     raise SettingsError(f"{name} must be a number above 0")
   if key == "stay" and value >= 1:
     raise SettingsError(f"{name} must be below 1")
+  return float(value)
+
+
+def schedule_value(name: str, key: str, value: Any) -> float:
+  """A catalog hour value: `every` is 0 or a part of 24, and `anchor` is an hour of the day."""
+  if isinstance(value, bool) or not isinstance(value, int | float) or value < 0:
+    raise SettingsError(f"{name} must be a number of hours, 0 or more")
+  if key == "anchor" and value >= 24:
+    raise SettingsError(f"{name} must be below 24")
+  if key == "every" and value and abs(24 / value - round(24 / value)) > 1e-9:
+    raise SettingsError(f"{name} must divide 24 hours, or be 0 to stop the rebuilds")
   return float(value)
 
 

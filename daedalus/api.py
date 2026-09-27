@@ -1,11 +1,12 @@
 """OpenAI-compatible local router for the configured providers."""
 
+import asyncio
 import hmac
 import json
 import logging
 import os
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -19,6 +20,7 @@ from daedalus import (
   penalties,
   providers,
   router,
+  schedule,
   signatures,
   store,
   stream,
@@ -69,14 +71,21 @@ def elapsed(started: float) -> str:
 
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
-  """Set up logging, then close the upstream client on shutdown."""
+  """Set up logging and the catalog schedule, then stop both parts on shutdown."""
   setup_logging()
+  rebuilds = (
+    asyncio.create_task(schedule.run(CATALOG_REFRESH)) if CATALOG_REFRESH else None
+  )
   yield
+  if rebuilds is not None:
+    rebuilds.cancel()
   if _client is not None:
     await _client.aclose()
     set_client(None)
 
 
+# The catalog rebuild for the schedule. `daedalus serve` sets it, and tests leave it off.
+CATALOG_REFRESH: Callable[[], object] | None = None
 app = FastAPI(title="daedalus", version="0.1.0", lifespan=lifespan)
 
 _client: httpx.AsyncClient | None = None
@@ -436,6 +445,10 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   PENALTIES.idle, PENALTIES.enabled = affinity["idle"], weights["enabled"]
   signatures.IDLE_SECONDS = affinity["idle"]
   PENALTIES.stay = affinity["stay"]
+  schedule.EVERY, schedule.ANCHOR = (
+    values["catalog"]["every"],
+    values["catalog"]["anchor"],
+  )
   for name in ("success", "fault", "slow", "hourly"):
     setattr(PENALTIES, name, weights[name])
   set_client(None)
