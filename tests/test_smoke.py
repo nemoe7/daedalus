@@ -11,7 +11,7 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import api, config, keys, store
+from daedalus import api, config, keys, store, upstream
 
 MASTER = "test-master-key-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}
@@ -98,7 +98,7 @@ def use_upstream(api_key: str = UPSTREAM_KEY, local_key: str = "") -> None:
     keys.add(store.MODELS_DB, "local", local_key)
   api.PENALTIES.clear()
   api.PENALTIES.pick = lambda: 0.0
-  api.set_client(
+  upstream.set_client(
     httpx.AsyncClient(
       transport=httpx.ASGITransport(app=make_upstream()),
       timeout=30.0,
@@ -260,11 +260,11 @@ async def check_reroute(client: httpx.AsyncClient) -> None:
 
 def check_wait_cap() -> None:
   """The wait for one answer is capped, and the other timeouts are not."""
-  api.set_client(None)
-  client = api.get_client()
-  assert client.timeout.read == api.WAIT_SECONDS, client.timeout
-  assert client.timeout.connect == api.TIMEOUT_SECONDS, client.timeout
-  api.set_client(None)
+  upstream.set_client(None)
+  client = upstream.get_client()
+  assert client.timeout.read == upstream.WAIT_SECONDS, client.timeout
+  assert client.timeout.connect == upstream.TIMEOUT_SECONDS, client.timeout
+  upstream.set_client(None)
 
 
 async def check_models(client: httpx.AsyncClient) -> None:
@@ -347,7 +347,9 @@ def broken(request: httpx.Request) -> httpx.Response:
 
 async def check_upstream_unreachable() -> None:
   use_upstream()
-  api.set_client(httpx.AsyncClient(transport=httpx.MockTransport(broken), timeout=5.0))
+  upstream.set_client(
+    httpx.AsyncClient(transport=httpx.MockTransport(broken), timeout=5.0)
+  )
   async with make_client() as client:
     response = await client.post("/v1/chat/completions", json=chat_body())
   assert response.status_code == 502, response.text

@@ -1,6 +1,6 @@
 import os
 
-from daedalus import catalog, config, providers
+from daedalus import config, discovery, providers
 
 FIELDS = ("api_base", "api_type", "discovery_url")
 MESSAGE = {"model": "m", "messages": [{"role": "user", "content": "hi"}]}
@@ -65,7 +65,7 @@ def main() -> None:
     seen.append(url)
     return {"data": [{"id": "model"}]}
 
-  lines, skipped = catalog.build_catalog({"mistral": {"api_key": "k"}}, fetch)
+  lines, skipped = discovery.build_catalog({"mistral": {"api_key": "k"}}, fetch)
   assert seen == ["https://api.mistral.ai/v1/models"], seen
   assert lines == ["mistral/model"] and skipped == [], (lines, skipped)
   print("ok: provider defaults")

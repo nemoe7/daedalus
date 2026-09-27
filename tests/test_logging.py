@@ -7,7 +7,7 @@ from pathlib import Path
 import httpx
 from fastapi.testclient import TestClient
 
-from daedalus import api, store
+from daedalus import api, logs, store, upstream
 from daedalus.providers.base import error_text
 
 MASTER = "test-master-key-0001"
@@ -53,10 +53,10 @@ def main() -> None:
 
 
 def check_lines() -> None:
-  api.setup_logging()
+  logs.setup_logging()
   assert logging.getLogger("httpx").level == logging.WARNING, "no httpx request lines"
   record = logging.LogRecord("uvicorn.error", logging.INFO, "", 0, "up", None, None)
-  api.short_name(record)
+  logs.short_name(record)
   assert record.name == "uvicorn", record.name
   lines = Lines()
   logging.getLogger("daedalus").addHandler(lines)
@@ -69,13 +69,13 @@ def check_lines() -> None:
   api.get_config = lambda: config
   groups = [["keyless/c"], ["first/a"], ["second/b"]]
   api.chain = lambda model, body, config: (groups, "daedalus/auto:TIER-B")
-  api.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
+  upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
   try:
     body = {"model": "daedalus/auto", "messages": [{"role": "user", "content": "hi"}]}
     response = TestClient(api.app, headers=AUTH).post("/v1/chat/completions", json=body)
   finally:
     api.get_config, api.chain = original
-    api.set_client(None)
+    upstream.set_client(None)
   assert response.status_code == 200, response.text
   shown = [" ".join(line.split()[:4]) for line in lines.lines]
   assert shown == [

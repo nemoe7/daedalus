@@ -6,7 +6,7 @@ from pathlib import Path
 import httpx
 from fastapi.testclient import TestClient
 
-from daedalus import api, keys, penalties, stream
+from daedalus import api, keys, penalties, stream, upstream
 from daedalus import store as model_store
 
 MASTER = "test-master-key-0001"
@@ -143,7 +143,7 @@ def check_requests() -> None:
   original = api.get_config, api.chain
   api.get_config = lambda: config
   api.chain = lambda model, body, config: ([["a/1", "b/1"], ["c/1"]], "daedalus/deinos")
-  api.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
+  upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
   api.PENALTIES.clear()
   client = TestClient(api.app, headers=AUTH)
 
@@ -170,7 +170,7 @@ def check_requests() -> None:
     assert ask() == "a.test", "the new session model"
   finally:
     api.get_config, api.chain = original
-    api.set_client(None)
+    upstream.set_client(None)
     api.PENALTIES.clear()
 
 
@@ -192,7 +192,7 @@ def check_ttft() -> None:
     f"data: {json.dumps(item) if item != '[DONE]' else item}\n\n" for item in frames
   )
   transport = httpx.MockTransport(lambda request: httpx.Response(200, text=sse))
-  api.set_client(httpx.AsyncClient(transport=transport))
+  upstream.set_client(httpx.AsyncClient(transport=transport))
   client = TestClient(api.app, headers=AUTH)
   body = {
     "model": "daedalus/deinos",
@@ -215,7 +215,7 @@ def check_ttft() -> None:
       )
   finally:
     api.get_config, api.chain, api.SLOW_SECONDS = original
-    api.set_client(None)
+    upstream.set_client(None)
     api.PENALTIES.clear()
 
 
