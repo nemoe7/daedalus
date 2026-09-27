@@ -42,9 +42,10 @@ def answer(request: httpx.Request) -> httpx.Response:
 
 def check_data(client: TestClient) -> None:
   models = client.get("/ui/api/models").json()
-  assert [row["id"] for row in models] == ["p/big", "p/small"], "routable rows only"
+  assert [row["id"] for row in models] == ["p/big", "p/small", "p/embed"], "all rows"
   assert models[0] == {
     "id": "p/big",
+    "mode": "chat",
     "max_input_tokens": 1000,
     "tools": True,
     "reasoning": True,
@@ -53,6 +54,10 @@ def check_data(client: TestClient) -> None:
   }, models[0]
   assert models[1]["tier"] == "TIER-C" and models[1]["tools"] is False
   assert models[1]["reasoning"] is False, models[1]
+  embed = models[2]
+  assert (embed["mode"], embed["tier"], embed["weight"]) == ("embedding", None, None), (
+    embed
+  )
   pools = {pool["name"]: pool["members"] for pool in client.get("/ui/api/pools").json()}
   assert [m["id"] for m in pools["daedalus/auto"]] == ["p/big", "p/small"]
   assert "daedalus/praktos" not in pools

@@ -46,8 +46,8 @@ def schedule_value(name: str, key: str, value: Any) -> float:
   """A catalog hour value: `every` is 0 or a part of 24, and `anchor` is an hour of the day."""
   if isinstance(value, bool) or not isinstance(value, int | float) or value < 0:
     raise SettingsError(f"{name} must be a number of hours, 0 or more")
-  if key == "anchor" and value >= 24:
-    raise SettingsError(f"{name} must be below 24")
+  if key == "anchor" and (value >= 24 or value != int(value)):
+    raise SettingsError(f"{name} must be a whole hour from 0 to 23")
   if key == "every" and value and abs(24 / value - round(24 / value)) > 1e-9:
     raise SettingsError(f"{name} must divide 24 hours, or be 0 to stop the rebuilds")
   return float(value)
