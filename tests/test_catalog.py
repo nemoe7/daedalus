@@ -9,7 +9,7 @@ from typing import Any
 import httpx
 
 from daedalus import config
-from daedalus.catalog import discovery
+from daedalus.catalog import discovery, enrichment
 
 CONFIG: dict[str, Any] = {
   "cloudflare": {
@@ -347,7 +347,6 @@ def check_free_only() -> None:
     "nvidia/nemotron-3.5-content-safety",
   ]
   openrouter = discovery.select(
-    "openrouter",
     providers["openrouter"],
     rows
     + [
@@ -359,7 +358,6 @@ def check_free_only() -> None:
   assert openrouter == ["google/gemma-4-31b-it:free"], openrouter
 
   kilo = discovery.select(
-    "kilo",
     providers["kilo"],
     rows
     + [
@@ -372,7 +370,7 @@ def check_free_only() -> None:
 
 
 def check_non_text() -> None:
-  """The committed config drops image, live, speech, and embedding rows."""
+  """The committed config drops Gemini image, live and speech rows, and sets other modes."""
   providers = config.load_config()
   gemini = [
     "gemini-3.1-flash-image",
@@ -385,8 +383,17 @@ def check_non_text() -> None:
   kept = discovery.select(providers["gemini"], gemini)
   assert "gemini-3.1-flash-lite" in kept, kept
   assert not set(gemini[:5]) & set(kept), kept
-  mistral = ["codestral-embed", "codestral-embed-2505", "codestral-2508"]
-  assert discovery.select(providers["mistral"], mistral) == ["codestral-2508"]
+  modes = {
+    ("mistral", "codestral-embed-2505"): "embedding",
+    ("mistral", "voxtral-mini-latest"): "audio_transcription",
+    ("groq", "whisper-large-v3"): "audio_transcription",
+    ("groq", "canopylabs/orpheus-v1-english"): "audio_speech",
+    ("mistral", "codestral-2508"): None,
+  }
+  for (name, slug), mode in modes.items():
+    assert slug in discovery.select(providers[name], [slug]), slug
+    found = enrichment.config_params(providers[name], slug).get("mode")
+    assert found == mode, (slug, found, "a mode keeps the row out of the chat chains")
 
 
 def check_failed_providers() -> None:
@@ -423,6 +430,7 @@ def main() -> int:
   check_dump()
   check_discovery_match()
   check_non_text()
+  check_free_only()
   check_failed_providers()
   print(f"ok: catalog checks passed, {len(SEEN)} stub pages fetched")
   return 0

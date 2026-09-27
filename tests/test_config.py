@@ -112,7 +112,11 @@ def check_repo_file() -> None:
   assert set(free) <= set(kept), kept
   assert not set(author_prefixed + paid) & set(kept), kept
   groq = ["canopylabs/orpheus-v1-english", "whisper-large-v3", "openai/gpt-oss-20b"]
-  assert set(discovery.select(loaded["groq"], groq)) & set(groq) == {groq[2]}, "speech"
+  assert set(groq) <= set(discovery.select(loaded["groq"], groq)), "audio rows stay"
+  audio = [f"groq/{slug}" for slug in groq[:2]]
+  assert not any(
+    router.candidates(loaded, tier, audio) for tier in router.TIER_NAMES.values()
+  ), "no tier for audio rows"
   gemini = ["lyria-3.5", "gemini-3.8-flash"]
   assert "lyria-3.5" not in discovery.select(loaded["gemini"], gemini), "music rows"
   mistral = ["mistral-ocr-4", "mistral-moderation-2603", "mistral-small-2603"]
