@@ -230,8 +230,13 @@ class OpenAIProvider:
     """Store columns from one discovery row. The base class reads none."""
     return {}
 
+  @staticmethod
+  def auth(key: str) -> dict[str, str]:
+    """The header that carries the API key."""
+    return {"Authorization": f"Bearer {key}"}
+
   def headers(self) -> dict[str, str]:
-    return {"content-type": "application/json", "authorization": f"Bearer {self.key}"}
+    return {"content-type": "application/json", **self.auth(self.key)}
 
   def url(self, slug: str, payload: dict) -> str:
     return self.base + "/chat/completions"
