@@ -270,8 +270,8 @@ def check_merge_pages() -> None:
 
 def check_writers() -> None:
   with tempfile.TemporaryDirectory() as directory:
-    target = Path(directory) / "models.txt"
-    catalog.write_models_txt([{"id": "groq/a"}, {"id": "gemini/b"}], target)
+    target = Path(directory) / "models.tsv"
+    catalog.write_models_tsv([{"id": "groq/a"}, {"id": "gemini/b"}], target)
     lines = target.read_bytes().split(b"\n")
     assert b"\r" not in target.read_bytes(), "LF only, on every platform"
     assert lines[1].startswith(b"groq/a\t") and lines[2].startswith(b"gemini/b\t"), (
