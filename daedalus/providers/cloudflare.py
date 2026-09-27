@@ -10,5 +10,6 @@ class CloudflareProvider(OpenAIProvider):
   defaults: ClassVar[Mapping[str, str]] = {
     "api_type": "openai",
     "api_base": "os.environ/CLOUDFLARE_API_BASE",
+    # Discovery gets text-generation models only. Remove the task filter when Daedalus supports multimodal input.
     "discovery_url": "https://api.cloudflare.com/client/v4/accounts/os.environ/CLOUDFLARE_ACCOUNT_ID/ai/models/search?per_page=100&task=Text%20Generation",
   }
