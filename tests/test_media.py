@@ -1,10 +1,12 @@
 """Runnable check for the endpoints of models that do not chat. Run: python tests/test_media.py"""
 
 import base64
+import io
 import json
 import os
 import struct
 import tempfile
+import wave
 from pathlib import Path
 
 import httpx
@@ -25,12 +27,24 @@ AUDIO = {"file": ("a.wav", b"RIFF-audio", "audio/wav")}
 PNG = b"\x89PNG\r\n"
 
 
+def gemini_answer(body: dict) -> httpx.Response:
+  """A generateContent answer with PCM audio for speech, or with text."""
+  if body.get("generationConfig", {}).get("responseModalities") == ["AUDIO"]:
+    data = base64.b64encode(b"\x01\x00" * 4).decode()
+    part = {"inlineData": {"mimeType": "audio/L16;codec=pcm;rate=16000", "data": data}}
+  else:
+    part = {"text": "hello"}
+  return httpx.Response(200, json={"candidates": [{"content": {"parts": [part]}}]})
+
+
 class Upstream:
   def __init__(self) -> None:
     self.sent: list[httpx.Request] = []
 
   def __call__(self, request: httpx.Request) -> httpx.Response:
     self.sent.append(request)
+    if request.url.path.endswith(":generateContent"):
+      return gemini_answer(json.loads(request.content))
     if request.url.host == "gemini.test":
       texts = [
         r["content"]["parts"][0]["text"]
@@ -197,7 +211,7 @@ def check_cloudflare_audio(fake: Upstream, client: TestClient) -> None:
   count = len(fake.sent)
   for data, files in (
     ({"model": "cloudflare/@cf/openai/whisper", "response_format": "srt"}, AUDIO),
-    ({"model": "gemini/gemini-2.5-flash"}, AUDIO),
+    ({"model": "gemini/gemini-3.5-transcribe", "response_format": "vtt"}, AUDIO),
     ({"model": "groq/whisper-large-v3", "response_format": "mp3"}, AUDIO),
     ({"model": "groq/whisper-large-v3"}, None),
     ({"model": "koinos"}, AUDIO),
@@ -257,7 +271,7 @@ def check_speech(fake: Upstream, client: TestClient) -> None:
       "response_format": "wav",
     },
     {"model": "cloudflare/@cf/other/tts", "input": "Hi"},
-    {"model": "gemini/gemini-2.5-flash-preview-tts", "input": "Hi"},
+    {"model": "gemini/gemini-3.8-flash-tts", "input": "Hi", "response_format": "mp3"},
     {"model": "groq/x", "input": ""},
     {"model": "groq/x", "input": "Hi", "response_format": "ogg"},
     {"model": "daedalus/auto", "input": "Hi"},
@@ -307,6 +321,47 @@ def check_images(fake: Upstream, client: TestClient) -> None:
   assert len(fake.sent) == count, "no upstream call for a bad request"
 
 
+def check_gemini_audio(fake: Upstream, client: TestClient) -> None:
+  body = {"model": "gemini/gemini-3.8-flash-tts", "input": "Hi", "voice": "Kore"}
+  body["instructions"] = "Say calmly"
+  response = client.post("/v1/audio/speech", json=body)
+  assert response.status_code == 200, response.text
+  assert response.headers["content-type"] == "audio/wav", response.headers
+  with wave.open(io.BytesIO(response.content)) as audio:
+    assert (audio.getframerate(), audio.getnframes()) == (16000, 4), (
+      "rate from the MIME type"
+    )
+  sent = fake.sent[-1]
+  assert sent.url.path == "/v1beta/models/gemini-3.8-flash-tts:generateContent"
+  sent_body = json.loads(sent.content)
+  assert sent_body["contents"][0]["parts"][0]["text"] == "Say calmly: Hi", sent_body
+  voice = sent_body["generationConfig"]["speechConfig"]["voiceConfig"]
+  assert voice == {"prebuiltVoiceConfig": {"voiceName": "Kore"}}, voice
+  body = {
+    "model": "gemini/gemini-3.8-flash-tts",
+    "input": "Hi",
+    "response_format": "pcm",
+  }
+  response = client.post("/v1/audio/speech", json=body)
+  assert response.content == b"\x01\x00" * 4, "raw PCM"
+  assert "speechConfig" not in json.loads(fake.sent[-1].content)["generationConfig"]
+  body["response_format"] = "mp3"
+  assert client.post("/v1/audio/speech", json=body).status_code == 400
+  model = "gemini/gemini-3.5-transcribe"
+  fields = {"model": model, "language": "en", "response_format": "text"}
+  response = client.post("/v1/audio/transcriptions", data=fields, files=AUDIO)
+  assert response.status_code == 200 and response.text == "hello", response.text
+  parts = json.loads(fake.sent[-1].content)["contents"][0]["parts"]
+  inline = {"mimeType": "audio/wav", "data": base64.b64encode(b"RIFF-audio").decode()}
+  assert parts[0] == {"inlineData": inline}, parts
+  assert "The language is en." in parts[1]["text"], parts
+  response = client.post("/v1/audio/transcriptions", data={"model": model}, files=AUDIO)
+  assert response.json() == {"text": "hello"}, response.text
+  fields = {"model": model, "response_format": "srt"}
+  response = client.post("/v1/audio/transcriptions", data=fields, files=AUDIO)
+  assert response.status_code == 400, response.text
+
+
 def check_model_list(client: TestClient) -> None:
   rows = [
     {"id": "groq/whisper-large-v3", "mode": "audio_transcription"},
@@ -340,6 +395,7 @@ def main() -> None:
     check_cloudflare_audio(fake, client)
     check_speech(fake, client)
     check_images(fake, client)
+    check_gemini_audio(fake, client)
     check_model_list(client)
   finally:
     media.get_config = original
