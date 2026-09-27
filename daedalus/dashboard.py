@@ -23,6 +23,8 @@ AUTO_TIERS = (4, 3, 2, 1)
 MASTER_ENV = "DAEDALUS_MASTER_KEY"
 USERNAME = "admin"
 COOKIE = "daedalus_session"
+# The same session value in a header, for a page in a frame that blocks cookies.
+HEADER = "x-daedalus-session"
 SESSION_SECONDS = 12 * 3600
 REMEMBER_SECONDS = 30 * 86400
 UI_DIR = Path(__file__).parent / "ui"
@@ -54,10 +56,15 @@ def cookie(key: str, now: float, seconds: int = SESSION_SECONDS) -> str:
 
 
 def allowed(request: Request) -> bool:
-  """Accept a request with a live session cookie that the current master key signed."""
+  """Accept a request with a live session value, as cookie or header, from the master key."""
   key = master()
-  expires, _, signed = request.cookies.get(COOKIE, "").partition(".")
-  if key is None or not expires.isdigit() or int(expires) < time.time():
+  values = (request.cookies.get(COOKIE, ""), request.headers.get(HEADER, ""))
+  return key is not None and any(live(key, value) for value in values)
+
+
+def live(key: str, value: str) -> bool:
+  expires, _, signed = value.partition(".")
+  if not expires.isdigit() or int(expires) < time.time():
     return False
   return hmac.compare_digest(signed, signature(key, int(expires)))
 
@@ -157,10 +164,11 @@ def routes(
     # Without "remember", the browser drops the cookie on close and the value ends after 12 h.
     remember = body.get("remember") is True
     seconds = REMEMBER_SECONDS if remember else SESSION_SECONDS
-    response = JSONResponse({"ok": True})
+    session = cookie(key, time.time(), seconds)
+    response = JSONResponse({"ok": True, "session": session})
     response.set_cookie(
       COOKIE,
-      cookie(key, time.time(), seconds),
+      session,
       max_age=seconds if remember else None,
       httponly=True,
       # Over https, the cookie also works in a frame on another site, such as a preview.
