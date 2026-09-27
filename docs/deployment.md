@@ -1,6 +1,6 @@
 # Deployment
 
-I run Daedalus on a Raspberry Pi 4B with 8 GB of RAM. I use the `slim` Docker images to save space.
+The reference deployment is a Raspberry Pi 4B with 8 GB of RAM. The compose file uses `slim` Docker images where they exist, to save space.
 
 ## Docker Compose
 
