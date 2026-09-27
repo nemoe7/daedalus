@@ -40,7 +40,7 @@ FILES = (config.DEFAULT_PATH,)
 
 
 def record(request: Request, status: int, seconds: float) -> None:
-  """Keep one chat request for the dashboard."""
+  """Keep one API request for the dashboard."""
   found = {key: getattr(request.state, key, None) for key in FIELDS}
   RECENT.appendleft({"at": time.time(), "status": status, "seconds": seconds, **found})
 
