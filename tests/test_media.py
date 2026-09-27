@@ -365,17 +365,44 @@ def check_gemini_audio(fake: Upstream, client: TestClient) -> None:
 def check_model_list(client: TestClient) -> None:
   rows = [
     {"id": "groq/whisper-large-v3", "mode": "audio_transcription"},
-    {"id": "groq/llama", "mode": "chat"},
-    {"id": "mistral/mistral-embed", "mode": "embedding"},
-    {"id": "kilo/new"},
+    {
+      "id": "groq/llama",
+      "mode": "chat",
+      "max_input_tokens": 128000,
+      "max_output_tokens": 32768,
+      "supports_function_calling": 1,
+      "supports_reasoning": 0,
+    },
+    {"id": "mistral/mistral-embed", "mode": "embedding", "max_input_tokens": 8192},
+    {"id": "kilo/new", "max_input_tokens": 262144, "supports_reasoning": 1},
   ]
+  tiers = {"tier": {"TIER-A": ["*"]}}
   with tempfile.TemporaryDirectory() as name:
     original, store.MODELS_DB = store.MODELS_DB, Path(name) / "models.sqlite3"
+    config, api.get_config = api.get_config, lambda: {"groq": tiers, "kilo": tiers}
     try:
       store.write_store(rows)
-      names = [row["id"] for row in client.get("/v1/models").json()["data"]]
+      data = client.get("/v1/models").json()["data"]
     finally:
-      store.MODELS_DB = original
+      store.MODELS_DB, api.get_config = original, config
+  names = [row["id"] for row in data]
+  found = {row["id"]: row for row in data}
+  sophos = {
+    "id": "daedalus/sophos",
+    "object": "model",
+    "owned_by": "daedalus",
+    "max_input_tokens": 262144,
+    "max_output_tokens": 32768,
+    "supports_function_calling": True,
+    "supports_reasoning": True,
+  }
+  assert found["daedalus/sophos"] == sophos, found["daedalus/sophos"]
+  assert found["daedalus/auto"] == {**sophos, "id": "daedalus/auto"}, (
+    "auto copies sophos"
+  )
+  assert set(found["daedalus/moros"]) == {"id", "object", "owned_by"}, "no members"
+  assert found["groq/llama"]["supports_reasoning"] is False, found["groq/llama"]
+  assert "max_input_tokens" not in found["mistral/mistral-embed"], "chat models only"
   assert names[:5] == ["daedalus/auto", *api.router.POOLS], names
   assert names[5:7] == ["groq/llama", "kilo/new"], "chat models first"
   assert sorted(names[7:]) == ["groq/whisper-large-v3", "mistral/mistral-embed"], names
