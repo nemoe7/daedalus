@@ -1,11 +1,16 @@
 import asyncio
 import json
+import os
 import tempfile
 from pathlib import Path
 
 import httpx
 
 from daedalus import api, config, providers, store
+
+MASTER = "test-master-key-0001"
+AUTH = {"Authorization": f"Bearer {MASTER}"}
+os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 
 
 async def main() -> None:
@@ -140,7 +145,7 @@ async def main() -> None:
   ) as upstream_client:
     api.set_client(upstream_client)
     async with httpx.AsyncClient(
-      transport=httpx.ASGITransport(app=api.app), base_url="http://test"
+      transport=httpx.ASGITransport(app=api.app), base_url="http://test", headers=AUTH
     ) as client:
 
       async def send(model, **extra):
@@ -154,7 +159,7 @@ async def main() -> None:
             **extra,
           },
           headers={
-            "Authorization": "Bearer client-key",
+            "Authorization": f"Bearer {MASTER}",
             "x-goog-api-key": "client-google-key",
           },
         )

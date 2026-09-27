@@ -6,6 +6,8 @@ from pathlib import Path
 
 from daedalus import api, penalties, settings
 
+os.environ["DAEDALUS_MASTER_KEY"] = "test-master-key-0001"
+
 
 def expect_error(folder: Path, text: str, message: str) -> None:
   path = folder / "bad.yml"

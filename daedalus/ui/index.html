@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daedalus</title>
+<link rel="stylesheet" href="ui/style.css">
+</head>
+<body>
+<form class="card login" id="login" hidden>
+  <h1>daedalus<span class="yes">.</span></h1>
+  <label>Username <input name="username" value="admin" autocomplete="username" required></label>
+  <label>Master key
+    <input name="password" type="password" autocomplete="current-password" required>
+  </label>
+  <label class="check"><input name="remember" type="checkbox"> Remember me for 30 days</label>
+  <button class="primary" type="submit">Log in</button>
+  <div class="message bad" id="login-message"></div>
+</form>
+
+<div id="app" hidden>
+  <header>
+    <div class="brand">daedalus<span>.</span></div>
+    <div class="chips">
+      <span id="status"></span>
+      <button class="ghost" id="logout" type="button">Log out</button>
+    </div>
+  </header>
+  <main>
+    <section>
+      <h2>Pools</h2>
+      <div class="pools" id="pools"></div>
+    </section>
+    <section>
+      <h2>Recent requests</h2>
+      <div class="panel">
+        <table>
+          <thead><tr>
+            <th>Time</th><th>Model</th><th class="hide-sm">Pool</th><th>Served by</th>
+            <th>Status</th><th class="hide-sm">TTFT</th><th class="hide-sm">Fallbacks</th>
+          </tr></thead>
+          <tbody id="requests"></tbody>
+        </table>
+      </div>
+    </section>
+    <section>
+      <h2>Models</h2>
+      <div class="panel">
+        <div class="toolbar">
+          <input type="search" id="search" placeholder="Filter by provider or slug">
+          <div id="tiers"></div>
+        </div>
+        <table>
+          <thead><tr>
+            <th>Model</th><th>Tier</th><th class="hide-sm">Context</th><th>Tools</th><th>Weight</th>
+          </tr></thead>
+          <tbody id="models"></tbody>
+        </table>
+      </div>
+    </section>
+    <section>
+      <h2>Config</h2>
+      <div class="panel">
+        <div class="toolbar" id="files"></div>
+        <textarea id="editor" spellcheck="false" aria-label="Config file"></textarea>
+        <div class="editbar">
+          <button class="primary" id="save" type="button" disabled>Save</button>
+          <span class="message" id="save-message"></span>
+          <span class="hint">Ctrl+S saves and reloads</span>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="ui/app.js"></script>
+</body>
+</html>

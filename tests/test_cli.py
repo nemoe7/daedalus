@@ -1,5 +1,6 @@
 import contextlib
 import io
+import os
 import subprocess
 import sys
 import tempfile
@@ -7,6 +8,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from daedalus import catalog, cli, keys, store
+
+os.environ["DAEDALUS_MASTER_KEY"] = "test-master-key-0001"
 
 DAEDALUS = [sys.executable, "-c", "from daedalus.cli import run; run()"]
 
@@ -81,6 +84,25 @@ def check_commands() -> None:
       sys.modules["uvicorn"] = uvicorn
 
 
+def check_master() -> None:
+  env = {
+    key: value for key, value in os.environ.items() if key != "DAEDALUS_MASTER_KEY"
+  }
+  for value in (None, "short"):
+    if value is not None:
+      env["DAEDALUS_MASTER_KEY"] = value
+    stopped = subprocess.run(
+      [*DAEDALUS, "serve"],
+      capture_output=True,
+      text=True,
+      check=False,
+      env=env,
+      timeout=30,
+    )
+    assert stopped.returncode == 2, stopped.stderr
+    assert "set DAEDALUS_MASTER_KEY" in stopped.stderr, stopped.stderr
+
+
 def check_key(calls: list[str]) -> None:
   database = store.MODELS_DB
   shown = io.StringIO()
@@ -113,6 +135,7 @@ def check_key(calls: list[str]) -> None:
 
 def main() -> None:
   check_help()
+  check_master()
   check_commands()
   print("ok: cli subcommands")
 
