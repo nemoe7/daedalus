@@ -7,13 +7,7 @@ __pycache__/
 .ruff_cache/
 build/
 
-# Old catalog versions wrote this file
-models.txt
-
 # Local proxy state
 .daedalus-state/
 *.log
 .env
-
-# Interaction turns, replayed on previous_interaction_id
-state/

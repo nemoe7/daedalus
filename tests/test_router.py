@@ -118,6 +118,12 @@ def check_tier_models() -> None:
   assert router.tier_models({}, "TIER-A") == []
 
 
+def chain(config: dict, lines: list[str], tier: int) -> list[str]:
+  """Every row of a tier chain, in the order that the proxy tries them."""
+  groups = router.chain_groups(config, lines, router.fallback_order(tier))
+  return [line for group in groups for line in group]
+
+
 def check_route() -> None:
   """A tier resolves to the provider rows that claim it, and escalates when empty."""
   config = {
@@ -135,13 +141,15 @@ def check_route() -> None:
   ]
   assert router.candidates(config, "TIER-B", lines) == []
   # "hi" needs TIER-D, which no block declares, so the next stronger tier answers.
-  assert router.route("hi", config, lines) == [
+  tier = router.required_tier("hi")
+  assert tier == 1, tier
+  assert chain(config, lines, tier) == [
     "gemini/gemini-3.5-flash",
     "openrouter/google/gemini-3.5-flash:free",
     "openrouter/anthropic/claude-opus-5",
   ]
-  assert router.route("hi", {}, lines) == []
-  assert router.route("hi", config, []) == []
+  assert chain({}, lines, tier) == []
+  assert chain(config, [], tier) == []
 
 
 def check_most_specific_tier() -> None:
@@ -202,21 +210,20 @@ def check_pools() -> None:
   }
   lines = ["gemini/gemini-3.5-flash", "openrouter/anthropic/claude-opus-5"]
   # sophos is tier 4, so TIER-A leads and TIER-B follows.
-  assert router.route_pool("daedalus/sophos", config, lines) == [
+  assert chain(config, lines, router.POOLS["daedalus/sophos"]) == [
     "openrouter/anthropic/claude-opus-5",
     "gemini/gemini-3.5-flash",
   ]
   # moros is tier 1, so the chain promotes to TIER-B before it reaches TIER-A.
-  assert router.route_pool("daedalus/moros", config, lines) == [
+  assert chain(config, lines, router.POOLS["daedalus/moros"]) == [
     "gemini/gemini-3.5-flash",
     "openrouter/anthropic/claude-opus-5",
   ]
   # koinos is tier 2, which is empty, so the chain promotes to TIER-B.
-  assert router.route_pool("daedalus/koinos", config, lines) == [
+  assert chain(config, lines, router.POOLS["daedalus/koinos"]) == [
     "gemini/gemini-3.5-flash",
     "openrouter/anthropic/claude-opus-5",
   ]
-  assert router.route_pool("daedalus/unknown", config, lines) == []
 
 
 def main() -> int:

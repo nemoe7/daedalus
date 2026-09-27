@@ -30,7 +30,7 @@ logger = logging.getLogger("daedalus")
 
 
 @asynccontextmanager
-async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+async def lifespan(_application: FastAPI) -> AsyncIterator[None]:
   """Set up logging and the catalog schedule, then stop both parts on shutdown."""
   logs.setup_logging()
   rebuilds = (
