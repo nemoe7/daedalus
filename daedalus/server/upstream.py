@@ -8,7 +8,7 @@ import httpx
 from fastapi.responses import JSONResponse
 
 from daedalus import providers
-from daedalus.providers.base import error_text
+from daedalus.providers.base import error_detail, error_text
 from daedalus.server.logs import elapsed
 
 logger = logging.getLogger("daedalus")
@@ -102,4 +102,4 @@ async def attempt(
   logger.warning(
     "upstream %s %d %s: %s", candidate, status, elapsed(started), error_text(raw)
   )
-  raise UpstreamStatus(status, raw.decode("utf-8", "replace")[:DETAIL_LIMIT])
+  raise UpstreamStatus(status, error_detail(raw, DETAIL_LIMIT))
