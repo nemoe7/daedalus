@@ -12,7 +12,7 @@ import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import catalog, keys, providers, router
+from daedalus import affinity, catalog, keys, providers, router
 from daedalus.config import get_config
 from daedalus.providers.base import error_text
 
@@ -88,11 +88,14 @@ def error_response(status: int, message: str, error_type: str) -> JSONResponse:
   )
 
 
+def bearer(request: Request) -> str:
+  header = request.headers.get("authorization", "")
+  return header[7:].strip() if header.lower().startswith("bearer ") else ""
+
+
 def check_local_key(request: Request) -> JSONResponse | None:
   """Reject the request when a local key is set and not matched."""
-  header = request.headers.get("authorization", "")
-  token = header[7:].strip() if header.lower().startswith("bearer ") else ""
-  if keys.matches(catalog.MODELS_DB, token) is not False:
+  if keys.matches(catalog.MODELS_DB, bearer(request)) is not False:
     return None
   return error_response(
     401,
@@ -107,7 +110,7 @@ async def log_request(request: Request, call_next):
   response = await call_next(request)
   models = [
     f"{key}={getattr(request.state, key)}"
-    for key in ("model", "via")
+    for key in ("model", "via", "pin")
     if getattr(request.state, key, None)
   ]
   line = " ".join(
@@ -153,22 +156,52 @@ async def models(request: Request) -> Response:
   return JSONResponse({"object": "list", "data": data})
 
 
-def chain(model: str, body: dict[str, Any], config: dict[str, Any]) -> list[str] | None:
-  """The models to try for one request, or None for an unknown name."""
+def chain(
+  model: str, body: dict[str, Any], config: dict[str, Any]
+) -> tuple[list[str], str | None] | None:
+  """The models to try and the pin slot for one request, or None for an unknown name."""
   if model == router.PRAKTOS or (model == router.RESERVED_MODEL and body.get("tools")):
     models = router.route_praktos(config, catalog.read_models(tools_only=True))
     if models:
-      return models
+      return models, router.PRAKTOS
     logger.warning("praktos has no member; using the daedalus/auto chain")
     model = router.RESERVED_MODEL
   if model in router.POOLS:
-    return router.route_pool(model, config, catalog.read_models())
+    return router.route_pool(model, config, catalog.read_models()), model
   if model == router.RESERVED_MODEL:
-    prompt = last_user_text(body["messages"])
-    return router.route(prompt, config, catalog.read_models())
+    tier = router.required_tier(last_user_text(body["messages"]))
+    models = router.chain_models(
+      config, catalog.read_models(), router.fallback_order(tier)
+    )
+    return models, f"{model}:{router.TIER_NAMES[tier]}"
   if model.partition("/")[0] in config:
-    return [model]
+    return [model], None
   return None
+
+
+PINS = affinity.Pins()
+
+
+class Affinity:
+  """The pin slot of one request, keyed by the hash of its API key."""
+
+  def __init__(self, token: str, slot: str | None) -> None:
+    self.key, self.slot = keys.digest(token) if token else "", slot
+    self.dropped = False
+
+  def order(self, models: list[str]) -> list[str]:
+    return PINS.order(self.key, self.slot, models) if self.slot else models
+
+  def answered(self, model: str) -> str | None:
+    """Pin the model. A pin that failed in this request shows as `moved`."""
+    if not self.slot:
+      return None
+    state = PINS.answered(self.key, self.slot, model)
+    return "moved" if self.dropped else state
+
+  def failed(self, model: str) -> None:
+    if self.slot and PINS.failed(self.key, self.slot, model):
+      self.dropped = True
 
 
 @app.post("/v1/chat/completions")
@@ -197,9 +230,11 @@ async def chat(request: Request) -> Response:
       400, "stream_options must be an object", "invalid_request_error"
     )
   config = get_config()
-  models = chain(model, body, config)
-  if models is None:
+  found = chain(model, body, config)
+  if found is None:
     return error_response(400, "Unknown provider or pool", "invalid_request_error")
+  pin = Affinity(bearer(request), found[1])
+  models = pin.order(found[0])
   include_usage = bool((body.get("stream_options") or {}).get("include_usage"))
   failure = error_response(502, "No model answered the request", "upstream_error")
   for index, candidate in enumerate(models):
@@ -211,25 +246,28 @@ async def chat(request: Request) -> Response:
         answer = json.loads(raw)
         if not isinstance(answer, dict) or answer.get("error"):
           raise providers.ProviderError(f"Invalid upstream answer: {error_text(raw)}")
-        request.state.via = candidate
-        return JSONResponse(provider.completion(answer, candidate))
+        completion = provider.completion(answer, candidate)
+        request.state.via, request.state.pin = candidate, pin.answered(candidate)
+        return JSONResponse(completion)
       events = sse_data(provider.stream(response, candidate, include_usage))
       first = await anext(events)
     except UpstreamStatus as exc:
+      pin.failed(candidate)
       failure = error_response(
         exc.status, "Upstream provider rejected the request", "upstream_error"
       )
       continue
     except ATTEMPT_ERRORS as exc:
       logger.warning("upstream %s failed: %s", candidate, failure_text(exc))
+      pin.failed(candidate)
       failure = error_response(
         502, "Upstream provider attempt failed", "upstream_error"
       )
       continue
     rest = models[index + 1 :]
-    request.state.via = candidate
+    request.state.via, request.state.pin = candidate, pin.answered(candidate)
     return StreamingResponse(
-      relay(first, events, rest, body, config, include_usage),
+      relay(first, events, rest, body, config, include_usage, candidate, pin),
       media_type="text/event-stream",
     )
   return failure
@@ -304,6 +342,8 @@ async def relay(
   body: dict[str, Any],
   config: dict[str, Any],
   include_usage: bool,
+  model: str,
+  pin: Affinity,
 ) -> AsyncIterator[bytes]:
   """Stream one answer, and continue from the sent text on a failure (ADR 2)."""
   identifier, sent, tool = None, [], False
@@ -332,6 +372,7 @@ async def relay(
     except STREAM_ERRORS as exc:
       logger.warning("upstream stream failed: %s", failure_text(exc))
     await events.aclose()
+    pin.failed(model)
     if tool:
       yield STREAM_FAILED
       return
@@ -343,6 +384,8 @@ async def relay(
         provider, response = await attempt(candidate, continued, config)
         events = sse_data(provider.stream(response, candidate, include_usage))
         pending = [await anext(events)]
+        model = candidate
+        pin.answered(model)
         break
       except (UpstreamStatus, *ATTEMPT_ERRORS) as exc:
         logger.warning(

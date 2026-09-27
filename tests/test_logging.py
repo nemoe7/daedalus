@@ -53,7 +53,7 @@ def main() -> None:
   }
   original = api.get_config, api.chain
   api.get_config = lambda: config
-  api.chain = lambda model, body, config: ["keyless/c", "first/a", "second/b"]
+  api.chain = lambda model, body, config: (["keyless/c", "first/a", "second/b"], None)
   api.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
   try:
     body = {"model": "daedalus/auto", "messages": [{"role": "user", "content": "hi"}]}
