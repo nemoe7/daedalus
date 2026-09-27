@@ -332,6 +332,24 @@ def check_free_only() -> None:
   assert kilo == ["google/gemma-4-31b-it:free", "poolside/laguna-s-2.1:free"], kilo
 
 
+def check_non_text() -> None:
+  """The committed config drops image, live, speech, and embedding rows."""
+  providers = config.load_config()
+  gemini = [
+    "gemini-3.1-flash-image",
+    "gemini-3.1-flash-image-preview",
+    "gemini-3.1-flash-lite-image",
+    "gemini-3.1-flash-live-preview",
+    "gemini-3.1-flash-tts-preview",
+    "gemini-3.1-flash-lite",
+  ]
+  kept = catalog.select(providers["gemini"], gemini)
+  assert "gemini-3.1-flash-lite" in kept, kept
+  assert not set(gemini[:5]) & set(kept), kept
+  mistral = ["codestral-embed", "codestral-embed-2505", "codestral-2508"]
+  assert catalog.select(providers["mistral"], mistral) == ["codestral-2508"]
+
+
 def main() -> int:
   check_matches()
   check_extract_slugs()
@@ -343,6 +361,7 @@ def main() -> int:
   check_build_catalog()
   check_merge_pages()
   check_writers()
+  check_non_text()
   print(f"ok: catalog checks passed, {len(SEEN)} stub pages fetched")
   return 0
 
