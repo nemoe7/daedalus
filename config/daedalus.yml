@@ -6,7 +6,8 @@ timeouts:
   slow: 30 # a first token after this is slow; half of wait when missing
 session_affinity:
   enabled: true
-  idle: 3600 # seconds without a request, then the pin expires
+  idle: 3600 # seconds without a request, then the session model expires
+  others: 0.05 # in a session, the weight factor of each other model
 weights:
   enabled: true # false: all weights stay at 1 and the chain keeps the usual order
   success: 1.5
