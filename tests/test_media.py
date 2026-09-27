@@ -20,6 +20,7 @@ CONFIG = {
   "groq": {"api_key": "q", "api_base": "https://groq.test/openai/v1"},
 }
 AUDIO = {"file": ("a.wav", b"RIFF-audio", "audio/wav")}
+PNG = b"\x89PNG\r\n"
 
 
 class Upstream:
@@ -35,6 +36,16 @@ class Upstream:
       ]
       return httpx.Response(
         200, json={"embeddings": [{"values": [0.5, 1.0]} for _ in texts]}
+      )
+    if request.url.path.endswith("/flux-1-schnell"):
+      return httpx.Response(
+        200, json={"result": {"image": "/9j/jpeg"}, "success": True}
+      )
+    if request.url.path.endswith("/stable-diffusion-xl-base-1.0"):
+      return httpx.Response(200, content=PNG, headers={"content-type": "image/png"})
+    if request.url.path.endswith("/images/generations"):
+      return httpx.Response(
+        200, json={"created": 1, "data": [{"url": "https://i.test/1"}]}
       )
     if request.url.path.endswith("/melotts"):
       audio = base64.b64encode(b"MP3").decode()
@@ -254,6 +265,46 @@ def check_speech(fake: Upstream, client: TestClient) -> None:
   assert len(fake.sent) == count, "no upstream call for a bad request"
 
 
+def check_images(fake: Upstream, client: TestClient) -> None:
+  body = {"model": "groq/img", "prompt": "a cat", "n": 2, "size": "512x512", "seed": 3}
+  response = client.post("/v1/images/generations", json=body)
+  assert response.json()["data"] == [{"url": "https://i.test/1"}], response.text
+  sent = fake.sent[-1]
+  assert str(sent.url) == "https://groq.test/openai/v1/images/generations", sent.url
+  expected = {"model": "img", "prompt": "a cat", "n": 2, "size": "512x512"}
+  assert json.loads(sent.content) == expected, "only the known fields go upstream"
+  flux = "cloudflare/@cf/black-forest-labs/flux-1-schnell"
+  body = {"model": flux, "prompt": "a cat", "size": "512x512"}
+  response = client.post("/v1/images/generations", json=body)
+  assert response.json()["data"] == [{"url": "data:image/jpeg;base64,/9j/jpeg"}]
+  assert json.loads(fake.sent[-1].content) == {"prompt": "a cat"}, "Flux 1: no size"
+  sdxl = "cloudflare/@cf/stabilityai/stable-diffusion-xl-base-1.0"
+  body = {
+    "model": sdxl,
+    "prompt": "a cat",
+    "size": "512x768",
+    "response_format": "b64_json",
+  }
+  response = client.post("/v1/images/generations", json=body)
+  assert response.json()["data"] == [{"b64_json": base64.b64encode(PNG).decode()}]
+  sent = json.loads(fake.sent[-1].content)
+  assert sent == {"prompt": "a cat", "width": 512, "height": 768}, sent
+  count = len(fake.sent)
+  for body in (
+    {"model": flux, "prompt": "a cat", "n": 2},
+    {"model": "gemini/gemini-2.5-flash-image", "prompt": "a cat"},
+    {"model": "groq/img", "prompt": ""},
+    {"model": "groq/img", "prompt": "a cat", "n": 0},
+    {"model": "groq/img", "prompt": "a cat", "n": True},
+    {"model": "groq/img", "prompt": "a cat", "size": "big"},
+    {"model": "groq/img", "prompt": "a cat", "response_format": "png"},
+    {"model": "sophos", "prompt": "a cat"},
+  ):
+    response = client.post("/v1/images/generations", json=body)
+    assert response.status_code == 400, (body, response.text)
+  assert len(fake.sent) == count, "no upstream call for a bad request"
+
+
 def main() -> None:
   fake = Upstream()
   upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(fake)))
@@ -267,10 +318,11 @@ def main() -> None:
     check_transcriptions(fake, client)
     check_cloudflare_audio(fake, client)
     check_speech(fake, client)
+    check_images(fake, client)
   finally:
     media.get_config = original
     upstream.set_client(None)
-  print("ok: embeddings, transcriptions and speech")
+  print("ok: embeddings, transcriptions, speech and images")
 
 
 if __name__ == "__main__":

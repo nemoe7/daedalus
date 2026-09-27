@@ -1,5 +1,6 @@
 import base64
 import json
+import time
 from collections.abc import Mapping
 from typing import Any, ClassVar
 
@@ -119,6 +120,34 @@ class CloudflareProvider(OpenAIProvider):
     if not isinstance(audio, str):
       raise ProviderError("Invalid speech answer")
     return base64.b64decode(audio), "audio/mpeg"
+
+  def image_request(
+    self, slug: str, payload: dict
+  ) -> tuple[str, dict[str, Any], dict[str, str]]:
+    """A native run request for one image. Flux 1 takes the prompt only."""
+    if (payload.get("n") or 1) != 1:
+      raise ProviderError("Cloudflare makes one image for each request")
+    body: dict[str, Any] = {"prompt": payload["prompt"]}
+    size = payload.get("size")
+    if "flux-1" not in slug and size and size != "auto":
+      width, height = size.split("x")
+      body.update(width=int(width), height=int(height))
+    return f"{self.base.removesuffix('/v1')}/run/{slug}", {"json": body}, self.headers()
+
+  def images(self, response: httpx.Response, payload: dict) -> dict:
+    """The OpenAI answer, with a data URL when the client wants a URL."""
+    if response.headers.get("content-type", "").startswith("application/json"):
+      encoded = (response.json().get("result") or {}).get("image")
+      if not isinstance(encoded, str):
+        raise ProviderError("Invalid images answer")
+    else:
+      encoded = base64.b64encode(response.content).decode()
+    if payload.get("response_format") == "b64_json":
+      item = {"b64_json": encoded}
+    else:
+      media = "image/png" if encoded.startswith("iVBOR") else "image/jpeg"
+      item = {"url": f"data:{media};base64,{encoded}"}
+    return {"created": int(time.time()), "data": [item]}
 
   @staticmethod
   def columns(row: dict) -> dict[str, Any]:
