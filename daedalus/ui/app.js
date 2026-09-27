@@ -136,17 +136,50 @@ function renderPools(pools) {
   }).join("");
 }
 
+const opened = new Set();
+let shownRequests = "";
+
+const seconds = (value) => value == null ? "" : `${value.toFixed(3)}s`;
+
+function chainText(r) {
+  const head = [clock(r.at), r.model, r.status, r.pool && `pool=${r.pool}`,
+    `fallbacks=${r.fallbacks ?? 0}`].filter(Boolean).join(" ");
+  const steps = (r.attempts || []).map((a, i) =>
+    `${i + 1}. ${a.model} ${a.result} ${seconds(a.seconds)}`.trim() + (a.error ? `\n   ${a.error}` : ""));
+  return [head, ...steps].join("\n");
+}
+
+function chainRows(r) {
+  const steps = (r.attempts || []).map((a, i) => `
+    <li class="step ${a.result === "answered" ? "good" : a.result === "skipped" ? "" : "bad"}">
+      <span class="num">${i + 1}.</span> <b>${esc(a.model)}</b>
+      <span class="result">${esc(a.result)}</span> <span class="muted num">${seconds(a.seconds)}</span>
+      ${a.error ? `<pre>${esc(a.error)}</pre>` : ""}
+    </li>`).join("");
+  return `<tr class="chain"><td colspan="7">
+    <div class="chain-head"><span class="muted">Fallback chain</span>
+      <button class="ghost copy-chain" type="button" data-at="${r.at}">Copy</button></div>
+    ${steps ? `<ol>${steps}</ol>` : '<p class="muted">No attempt data for this request.</p>'}
+  </td></tr>`;
+}
+
 function renderRequests(rows) {
+  const text = JSON.stringify(rows);
+  const selected = getSelection();
+  if (text === shownRequests) return;
+  if (!selected.isCollapsed && $("requests").contains(selected.anchorNode)) return;
+  shownRequests = text;
   $("requests").innerHTML = rows.length ? rows.map((r) => `
-    <tr>
-      <td class="num muted">${clock(r.at)}</td>
+    <tr class="request${opened.has(String(r.at)) ? " open" : ""}" data-at="${r.at}" title="Show the fallback chain">
+      <td class="num muted"><span class="caret"></span>${clock(r.at)}</td>
       <td>${esc(r.model || "-")}</td>
       <td class="hide-sm muted">${esc(r.pool || "-")}</td>
       <td>${r.via ? esc(r.via) : '<span class="muted">none</span>'}</td>
       <td class="status s${String(r.status)[0]}">${r.status}</td>
       <td class="hide-sm num">${esc(r.ttft || "-")}</td>
       <td class="hide-sm num">${esc(r.fallbacks ?? "-")}</td>
-    </tr>`).join("") : '<tr><td colspan="7" class="empty">No chat requests since the start</td></tr>';
+    </tr>${opened.has(String(r.at)) ? chainRows(r) : ""}`).join("")
+    : '<tr><td colspan="7" class="empty">No chat requests since the start</td></tr>';
 }
 
 function renderTiers() {
@@ -234,8 +267,8 @@ async function save() {
 async function refreshFast() {
   const [status, requests] = await Promise.all([call("status"), call("requests")]);
   renderStatus(status);
-  renderRequests(requests);
   state.requests = requests;
+  renderRequests(requests);
   state.catalog = status.catalog || {};
   renderOverview();
 }
@@ -323,6 +356,26 @@ $("keys").addEventListener("click", async (event) => {
     await call("keys/" + encodeURIComponent(name), { method: "DELETE" });
     await refreshKeys();
   });
+});
+$("requests").addEventListener("click", async (event) => {
+  const button = event.target.closest(".copy-chain");
+  if (button) {
+    const found = state.requests.find((r) => String(r.at) === button.dataset.at);
+    try {
+      await navigator.clipboard.writeText(chainText(found));
+      button.textContent = "Copied";
+    } catch {
+      getSelection().selectAllChildren(button.closest("td"));
+      button.textContent = "Press Ctrl+C";
+    }
+    return;
+  }
+  const row = event.target.closest("tr.request");
+  if (!row || !getSelection().isCollapsed) return;
+  const at = row.dataset.at;
+  opened.has(at) ? opened.delete(at) : opened.add(at);
+  shownRequests = "";
+  renderRequests(state.requests);
 });
 $("copy").addEventListener("click", async () => {
   try {
