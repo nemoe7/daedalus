@@ -44,6 +44,8 @@ COLUMNS = (
   "supports_web_search",
 )
 TEXT_COLUMNS = frozenset({"mode", "reasoning_effort"})
+# Rows that enter the chat chains. No catalog match gives no mode.
+ROUTABLE_MODES = (None, "chat")
 TIMEOUT_SECONDS = 60.0
 MAX_PAGES = 50
 
@@ -313,12 +315,16 @@ def text(value: Any) -> str:
 def write_models_tsv(
   rows: Iterable[dict[str, Any]], path: Path | str = MODELS_TSV
 ) -> Path:
-  """Write a tab-separated table with a header row."""
+  """Write the routable rows as a tab-separated table with a header row."""
   target = Path(path)
   target.parent.mkdir(parents=True, exist_ok=True)
   header = ("id", *COLUMNS)
   lines = ["\t".join(header)]
-  lines.extend("\t".join(text(row.get(key)) for key in header) for row in rows)
+  lines.extend(
+    "\t".join(text(row.get(key)) for key in header)
+    for row in rows
+    if row.get("mode") in ROUTABLE_MODES
+  )
   with target.open("w", encoding="utf-8", newline="\n") as handle:
     handle.write("".join(f"{line}\n" for line in lines))
   return target
@@ -355,12 +361,10 @@ def read_models(routable_only: bool = True) -> list[str]:
   """The stored model ids, chat or unmatched rows only by default."""
   if not Path(MODELS_DB).exists():
     return []
-  query = "SELECT id FROM models"
-  if routable_only:
-    query += " WHERE mode IS NULL OR mode = 'chat'"
   database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
   try:
-    return [row[0] for row in database.execute(query + " ORDER BY rowid")]
+    rows = database.execute("SELECT id, mode FROM models ORDER BY rowid")
+    return [key for key, mode in rows if not routable_only or mode in ROUTABLE_MODES]
   finally:
     database.close()
 
