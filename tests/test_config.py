@@ -9,7 +9,7 @@ from daedalus import catalog, config, providers, router
 
 SAMPLE = """\
 cloudflare:
-  api_key: os.environ/CLOUDFLARE_API_TOKEN
+  api_key: os.environ/CLOUDFLARE_API_KEY
   api_base: os.environ/CLOUDFLARE_API_BASE
   discovery_url: https://api.cloudflare.com/client/v4/ai/models/search
   exclude:
@@ -31,7 +31,7 @@ gemini:
 
 
 def check_load() -> None:
-  os.environ["CLOUDFLARE_API_TOKEN"] = "cf-token"
+  os.environ["CLOUDFLARE_API_KEY"] = "cf-token"
   os.environ.pop("CLOUDFLARE_API_BASE", None)
   with tempfile.TemporaryDirectory() as directory:
     path = Path(directory) / "config.yml"
