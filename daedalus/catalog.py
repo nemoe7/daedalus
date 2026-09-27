@@ -29,9 +29,6 @@ COLUMNS = (
   "max_input_tokens",
   "max_output_tokens",
   "max_tokens",
-  "input_cost_per_token",
-  "output_cost_per_token",
-  "cache_read_input_token_cost",
   "rpm",
   "tpm",
   "reasoning_effort",
@@ -44,13 +41,9 @@ COLUMNS = (
   "supports_pdf_input",
   "supports_audio_input",
   "supports_audio_output",
-  "supports_prompt_caching",
   "supports_web_search",
-  "supports_system_messages",
-  "deprecation_date",
-  "source",
 )
-TEXT_COLUMNS = frozenset({"mode", "reasoning_effort", "deprecation_date", "source"})
+TEXT_COLUMNS = frozenset({"mode", "reasoning_effort"})
 TIMEOUT_SECONDS = 60.0
 MAX_PAGES = 50
 
