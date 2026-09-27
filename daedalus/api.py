@@ -308,11 +308,13 @@ def run(argv: list[str] | None = None) -> None:
     prog="daedalus", description="OpenAI-compatible router for the providers."
   )
   parser.add_argument(
+    "-i",
     "--init",
     action="store_true",
     help=f"start the router on {HOST}:{PORT}; build a missing model store first",
   )
   parser.add_argument(
+    "-c",
     "--catalog",
     action="store_true",
     help="discover provider models and rebuild the model store",
