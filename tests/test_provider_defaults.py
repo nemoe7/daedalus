@@ -28,9 +28,11 @@ def main() -> None:
   assert custom == {"api_type": "openai", "api_base": "https://custom.test"}, custom
 
   os.environ["CLOUDFLARE_ACCOUNT_ID"] = "account"
-  os.environ["CLOUDFLARE_API_BASE"] = "https://cloudflare.test/v1"
   cloudflare = providers.settings("cloudflare", {})
-  assert cloudflare["api_base"] == "https://cloudflare.test/v1", cloudflare
+  base = "https://api.cloudflare.com/client/v4/accounts/account/ai/v1"
+  assert cloudflare["api_base"] == base, cloudflare
+  gateway = providers.settings("cloudflare", {"api_base": "https://gateway.test/v1"})
+  assert gateway["api_base"] == "https://gateway.test/v1", "the yml wins"
   assert "/accounts/account/" in cloudflare["discovery_url"], cloudflare
   assert "task=Text%20Generation" in cloudflare["discovery_url"], cloudflare
 
