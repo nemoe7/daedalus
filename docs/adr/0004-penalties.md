@@ -60,10 +60,15 @@ request.
 Weights and pins stay in `models.sqlite3`. A restart keeps them, and `daedalus catalog` keeps them
 when it rebuilds the model table.
 
+### Settings
+
+The numbers in this ADR are the defaults. `config/daedalus.yml` can change them, and it can
+turn off the weights or the session affinity.
+
 ## Consequences
 
 - A model that fails often gets fewer first attempts, but it is not removed.
 - A model with a low weight comes back over time: from 0.5 to 1 in about 4 hours.
 - One client stays on one model for each slot until that model fails.
 - A pin can be in a lower tier than the other models, because it goes first.
-- The request log shows `pin=new`, `pin=hit` or `pin=moved`.
+- The request log shows `pin=new`, `pin=hit`, `pin=moved` or `pin=slow`.
