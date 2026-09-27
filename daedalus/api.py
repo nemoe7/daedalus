@@ -6,18 +6,14 @@ import logging
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from secrets import compare_digest
 from typing import Any
 
 import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import catalog, providers, router
+from daedalus import catalog, keys, providers, router
 from daedalus.config import get_config
-
-# When set, clients must send "Authorization: Bearer <LOCAL_API_KEY>".
-LOCAL_API_KEY = ""
 
 HOST = "0.0.0.0"
 PORT = 3357
@@ -93,15 +89,13 @@ def error_response(status: int, message: str, error_type: str) -> JSONResponse:
 
 def check_local_key(request: Request) -> JSONResponse | None:
   """Reject the request when a local key is set and not matched."""
-  if not LOCAL_API_KEY:
-    return None
   header = request.headers.get("authorization", "")
   token = header[7:].strip() if header.lower().startswith("bearer ") else ""
-  if compare_digest(token, LOCAL_API_KEY):
+  if keys.matches(catalog.MODELS_DB, token) is not False:
     return None
   return error_response(
     401,
-    "Invalid local API key. Send 'Authorization: Bearer <LOCAL_API_KEY>'.",
+    "Invalid local API key. Send 'Authorization: Bearer <key>'. Set it with daedalus -k.",
     "authentication_error",
   )
 
@@ -351,6 +345,22 @@ async def relay(
       return
 
 
+KEY_OFF = "off"
+
+
+def set_key(value: str) -> None:
+  """Store a new, custom, or no local API key. Show a new key once."""
+  if value == KEY_OFF:
+    keys.save_hash(catalog.MODELS_DB, None)
+    logger.info("removed the local API key; the router accepts all requests")
+    return
+  key = value or keys.generate()
+  keys.save_hash(catalog.MODELS_DB, keys.digest(key))
+  if not value:
+    print(key)
+  logger.info("stored the local API key hash in %s", catalog.MODELS_DB)
+
+
 def run(argv: list[str] | None = None) -> None:
   """Entry point for `daedalus`."""
   parser = argparse.ArgumentParser(
@@ -377,15 +387,29 @@ def run(argv: list[str] | None = None) -> None:
     action="store_true",
     help="write the raw model list of each provider to .daedalus-state/dump",
   )
+  parser.add_argument(
+    "-k",
+    "--key",
+    nargs="?",
+    const="",
+    metavar="KEY",
+    help=f"set the local API key: a new key without KEY, your KEY, or '{KEY_OFF}' to remove it",
+  )
   args = parser.parse_args(argv)
   serve = args.init is not None
-  if not (serve or args.catalog or args.dump):
+  if args.key not in (None, "", KEY_OFF) and not keys.valid(args.key):
+    parser.error(
+      f"a custom key needs {keys.MIN_LENGTH} or more characters and no spaces"
+    )
+  if not (serve or args.catalog or args.dump or args.key is not None):
     parser.print_help()
     return
   setup_logging()
+  if args.key is not None:
+    set_key(args.key)
   if args.dump:
     catalog.dump()
-  if args.catalog or (serve and not catalog.MODELS_DB.exists()):
+  if args.catalog or (serve and not catalog.has_store()):
     catalog.refresh()
   if not serve:
     return

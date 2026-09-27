@@ -12,6 +12,7 @@ from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 import httpx
 
+from daedalus import keys
 from daedalus.config import STATE_DIR, get_config
 from daedalus.providers import PROVIDERS, OpenAIProvider, settings
 
@@ -432,6 +433,7 @@ def write_store(rows: Iterable[dict[str, Any]], path: Path | str | None = None) 
   target.parent.mkdir(parents=True, exist_ok=True)
   temporary = target.with_suffix(".tmp")
   temporary.unlink(missing_ok=True)
+  key_hash = keys.stored_hash(target)
   columns = ", ".join(
     f"{key} {'TEXT' if key in TEXT_COLUMNS else 'NUMERIC'}" for key in COLUMNS
   )
@@ -449,6 +451,8 @@ def write_store(rows: Iterable[dict[str, Any]], path: Path | str | None = None) 
       f"INSERT INTO models ({', '.join(names)}) VALUES ({marks})", values
     )
   database.close()
+  if key_hash:
+    keys.save_hash(temporary, key_hash)
   temporary.replace(target)
   return target
 
@@ -459,9 +463,12 @@ def read_models(routable_only: bool = True, tools_only: bool = False) -> list[st
     return []
   database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
   try:
-    rows = database.execute(
-      "SELECT id, mode, supports_function_calling FROM models ORDER BY rowid"
-    )
+    try:
+      rows = database.execute(
+        "SELECT id, mode, supports_function_calling FROM models ORDER BY rowid"
+      )
+    except sqlite3.OperationalError:
+      return []
     return [
       key
       for key, mode, tools in rows
@@ -469,6 +476,20 @@ def read_models(routable_only: bool = True, tools_only: bool = False) -> list[st
     ]
   finally:
     database.close()
+
+
+def has_store() -> bool:
+  """Tell if the store file exists and has the model table."""
+  if not Path(MODELS_DB).exists():
+    return False
+  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
+  try:
+    found = database.execute(
+      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'models'"
+    ).fetchone()
+  finally:
+    database.close()
+  return found is not None
 
 
 def refresh() -> Path:
