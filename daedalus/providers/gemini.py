@@ -383,6 +383,11 @@ class GeminiProvider(OpenAIProvider):
     url = f"{self.base}/models/{quote(slug, safe='')}:batchEmbedContents"
     return url, {"requests": requests}, self.headers()
 
+  def transcribe_request(
+    self, slug: str, fields: dict[str, Any], audio: tuple[str, bytes, str]
+  ) -> tuple[str, dict[str, Any], dict[str, str]]:
+    raise ProviderError("Gemini has no transcription endpoint")
+
   def embeddings(self, answer: dict, model: str) -> dict:
     """The OpenAI shape of a native batch answer, which has no token counts."""
     found = answer.get("embeddings")

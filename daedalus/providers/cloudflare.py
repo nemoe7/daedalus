@@ -1,7 +1,13 @@
+import base64
+import json
 from collections.abc import Mapping
 from typing import Any, ClassVar
 
-from daedalus.providers.base import OpenAIProvider, limits
+import httpx
+
+from daedalus.providers.base import OpenAIProvider, ProviderError, limits
+
+TRANSCRIPT_FORMATS = ("json", "text", "vtt")
 
 
 def text_only(message: Any) -> Any:
@@ -38,6 +44,42 @@ class CloudflareProvider(OpenAIProvider):
       "model": slug,
       "messages": [text_only(m) for m in payload["messages"]],
     }
+
+  def transcribe_request(
+    self, slug: str, fields: dict[str, Any], audio: tuple[str, bytes, str]
+  ) -> tuple[str, dict[str, Any], dict[str, str]]:
+    """A native run request, because the OpenAI-compatible API has no audio endpoint."""
+    if (fields.get("response_format") or "json") not in TRANSCRIPT_FORMATS:
+      raise ProviderError("Cloudflare transcriptions support json, text and vtt only")
+    url = f"{self.base.removesuffix('/v1')}/run/{slug}"
+    _, content, media = audio
+    if "large-v3" not in slug:
+      headers = {
+        **self.auth(self.key),
+        "content-type": media or "application/octet-stream",
+      }
+      return url, {"content": content}, headers
+    body = {"audio": base64.b64encode(content).decode()}
+    for field, native in (("language", "language"), ("prompt", "initial_prompt")):
+      if fields.get(field):
+        body[native] = fields[field]
+    return url, {"json": body}, self.headers()
+
+  def transcription(
+    self, response: httpx.Response, fields: dict[str, Any]
+  ) -> tuple[bytes, str]:
+    """The OpenAI answer from the native result, in the requested format."""
+    result = response.json().get("result") or {}
+    text, form = result.get("text"), fields.get("response_format") or "json"
+    if not isinstance(text, str) or (
+      form == "vtt" and not isinstance(result.get("vtt"), str)
+    ):
+      raise ProviderError("Invalid transcription answer")
+    if form == "text":
+      return text.encode(), "text/plain; charset=utf-8"
+    if form == "vtt":
+      return result["vtt"].encode(), "text/vtt; charset=utf-8"
+    return json.dumps({"text": text}).encode(), "application/json"
 
   @staticmethod
   def columns(row: dict) -> dict[str, Any]:
