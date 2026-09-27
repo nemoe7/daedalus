@@ -76,7 +76,15 @@ def check_page(client: TestClient) -> None:
   assert page.status_code == 200 and "text/html" in page.headers["content-type"]
   assert 'src="ui/app.js?v=' in page.text, "relative asset paths with a content hash"
   assert 'href="ui/style.css?v=' in page.text, "the style link has a content hash"
-  for name in ("overview", "pools", "requests", "models", "keys", "config"):
+  for name in (
+    "overview",
+    "pools",
+    "requests",
+    "models",
+    "keys",
+    "providers",
+    "settings",
+  ):
     assert f'<section data-page="{name}"' in page.text, f"the {name} page"
   script = client.get("/ui/app.js")
   assert script.status_code == 200 and "javascript" in script.headers["content-type"]
@@ -172,20 +180,37 @@ def check_files(client: TestClient, folder: Path) -> None:
   names = [item["path"] for item in client.get("/ui/api/files").json()]
   assert names == [str(path) for path in dashboard.FILES], names
   path = str(settings.DEFAULT_PATH)
-  bad = client.put(
-    "/ui/api/files", json={"path": path, "text": "weights:\n  fault: 0\n"}
-  )
-  assert bad.status_code == 422 and "above 0" in bad.text, bad.text
-  assert "slow: 30" in settings.DEFAULT_PATH.read_text(), (
-    "an invalid text is not written"
-  )
-  text = settings.DEFAULT_PATH.read_text().replace("slow: 30", "slow: 12")
   assert (
-    client.put("/ui/api/files", json={"path": path, "text": text}).status_code == 200
-  )
-  assert "slow: 12" in settings.DEFAULT_PATH.read_text(), "the comments stay"
-  assert "# Router settings" in settings.DEFAULT_PATH.read_text()
+    client.put("/ui/api/files", json={"path": path, "text": ""}).status_code == 400
+  ), "the Settings page owns the settings file"
+  shown = client.get("/ui/api/settings").json()
+  assert shown["file"]["timeouts"]["slow"] == 30, shown
+  assert shown["defaults"]["weights"]["fault"] == 0.5, shown
+  bad = client.put("/ui/api/settings", json={"changes": {"weights": {"fault": 0}}})
+  assert bad.status_code == 422 and "above 0" in bad.text, bad.text
+  assert "slow: 30" in settings.DEFAULT_PATH.read_text(), "a bad value is not written"
+  unknown = client.put("/ui/api/settings", json={"changes": {"x": {"y": 1}}})
+  assert unknown.status_code == 422, unknown.text
+  assert client.put("/ui/api/settings", json={"changes": 1}).status_code == 400
+  changes = {"timeouts": {"slow": 12}, "catalog": {"every": 0}}
+  saved = client.put("/ui/api/settings", json={"changes": changes})
+  assert saved.status_code == 200, saved.text
+  text = settings.DEFAULT_PATH.read_text()
+  assert "  slow: 12 # a first token after this is slow" in text, "the comments stay"
+  assert "# Router settings" in text and "every: 0 #" in text, text
   assert api.SLOW_SECONDS == 12.0, "the save applies the settings"
+  cleared = client.put(
+    "/ui/api/settings", json={"changes": {"timeouts": {"slow": None}}}
+  )
+  assert (
+    cleared.status_code == 200 and "slow: 12" not in settings.DEFAULT_PATH.read_text()
+  )
+  assert api.SLOW_SECONDS == 30.0, "half of wait"
+  reset = client.put("/ui/api/settings", json={"changes": {"catalog": {"every": None}}})
+  assert reset.status_code == 200, reset.text
+  assert "  every: 6 # hours between" in settings.DEFAULT_PATH.read_text(), (
+    "an empty field writes the default and keeps the comment"
+  )
   providers = str(config.DEFAULT_PATH)
   broken = client.put("/ui/api/files", json={"path": providers, "text": "a: ["})
   assert broken.status_code == 422, "a YAML error"
@@ -205,7 +230,9 @@ def check_files(client: TestClient, folder: Path) -> None:
   assert (
     client.put("/ui/api/files", json={"path": outside, "text": ""}).status_code == 400
   )
-  assert client.put("/ui/api/files", json={"path": path, "text": 1}).status_code == 400
+  assert (
+    client.put("/ui/api/files", json={"path": providers, "text": 1}).status_code == 400
+  )
 
 
 def main() -> None:
@@ -220,7 +247,7 @@ def main() -> None:
     )
     settings.DEFAULT_PATH = Path(shutil.copy("config/daedalus.yml", folder))
     config.DEFAULT_PATH = Path(shutil.copy("config/providers/free.yml", folder))
-    dashboard.FILES = (settings.DEFAULT_PATH, config.DEFAULT_PATH)
+    dashboard.FILES = (config.DEFAULT_PATH,)
     api.get_config = lambda: CONFIG
     upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
     api.PENALTIES.clear()
