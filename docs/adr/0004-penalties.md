@@ -20,10 +20,15 @@ Each model has a weight from 0 to 1. All models start at 1.
 | --- | --- |
 | Success | weight x 1.5, 1 at most |
 | Fault | weight x 0.5 |
+| Slow success: the first token comes after half the wait limit | weight x 0.75 |
 | Each hour | weight x 1.2, 1 at most, as a continuous rate |
 
 A fault is each failure that ADR 3 reroutes: no connection, HTTP 400 or higher, a bad answer,
 or a failed stream. One weight applies to all clients.
+
+TTFT is the time from the send to the first chunk with text or a tool call. Chunks without
+content, for example a role chunk or a keep-alive comment, do not stop the clock. Without a
+stream, TTFT is the time to the full answer. A successful request logs `ttft=Nms`.
 
 ### Order
 
