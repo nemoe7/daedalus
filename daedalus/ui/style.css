@@ -82,6 +82,9 @@ table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--line); }
 td { overflow-wrap: anywhere; }
 th { font-size: 12px; font-weight: 500; color: var(--muted); }
+.weight { display: flex; align-items: center; gap: 10px; min-width: 120px; }
+.weight .track { flex: 1; }
+.weight .num { width: 32px; text-align: right; }
 .sort {
   padding: 0; border: 0; background: none; color: inherit; font: inherit;
   display: inline-flex; align-items: center; gap: 6px;

@@ -25,6 +25,7 @@ ROWS = [
     "mode": "chat",
     "max_input_tokens": 1000,
     "supports_function_calling": True,
+    "supports_reasoning": True,
   },
   {"id": "p/small", "mode": "chat"},
   {"id": "p/embed", "mode": "embedding"},
@@ -44,10 +45,12 @@ def check_data(client: TestClient) -> None:
     "id": "p/big",
     "max_input_tokens": 1000,
     "tools": True,
+    "reasoning": True,
     "tier": "TIER-A",
     "weight": 1.0,
   }, models[0]
   assert models[1]["tier"] == "TIER-C" and models[1]["tools"] is False
+  assert models[1]["reasoning"] is False, models[1]
   pools = {pool["name"]: pool["members"] for pool in client.get("/ui/api/pools").json()}
   assert [m["id"] for m in pools["daedalus/auto"]] == ["p/big", "p/small"]
   assert [m["id"] for m in pools["daedalus/praktos"]] == ["p/big"], "tool models only"

@@ -148,13 +148,14 @@ def read_models(routable_only: bool = True, tools_only: bool = False) -> list[st
 
 
 def model_rows() -> list[dict[str, Any]]:
-  """The routable rows, with the input limit and the tool flag."""
+  """The routable rows, with the input limit, the tool flag and the reasoning flag."""
   if not Path(MODELS_DB).exists():
     return []
   database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
   try:
     rows = database.execute(
-      "SELECT id, mode, max_input_tokens, supports_function_calling FROM models"
+      "SELECT id, mode, max_input_tokens, supports_function_calling, supports_reasoning"
+      " FROM models"
       " ORDER BY rowid"
     ).fetchall()
   except sqlite3.OperationalError:
@@ -162,8 +163,13 @@ def model_rows() -> list[dict[str, Any]]:
   finally:
     database.close()
   return [
-    {"id": key, "max_input_tokens": limit, "tools": bool(tools)}
-    for key, mode, limit, tools in rows
+    {
+      "id": key,
+      "max_input_tokens": limit,
+      "tools": bool(tools),
+      "reasoning": bool(thinks),
+    }
+    for key, mode, limit, tools, thinks in rows
     if mode in ROUTABLE_MODES
   ]
 
