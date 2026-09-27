@@ -314,7 +314,8 @@ async def check_unknown_models(client: httpx.AsyncClient) -> None:
   for model in ("gpt-test", "unknown/gpt-test", "daedalus/unknown"):
     response = await client.post("/v1/chat/completions", json=chat_body(model=model))
     assert response.status_code == 400, response.text
-  assert (await client.post("/v1/embeddings", json={})).status_code == 404
+  assert (await client.post("/v1/embeddings", json={})).status_code == 400
+  assert (await client.post("/v1/moderations", json={})).status_code == 404
   assert len(SEEN) == count, SEEN
 
 

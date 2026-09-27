@@ -18,7 +18,7 @@ from daedalus.config import get_config
 from daedalus.providers import signatures
 from daedalus.providers.base import error_text
 from daedalus.routing import context, penalties, router
-from daedalus.server import access, headroom, logs, stream, upstream
+from daedalus.server import access, headroom, logs, media, stream, upstream
 from daedalus.store import keys
 
 HOST = os.environ.get("DAEDALUS_HOST") or "0.0.0.0"
@@ -45,6 +45,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 # The catalog rebuild for the schedule. `daedalus serve` sets it, and tests leave it off.
 CATALOG_REFRESH: Callable[[], object] | None = None
 app = FastAPI(title="daedalus", version="0.1.0", lifespan=lifespan)
+app.include_router(media.routes)
 
 
 @app.middleware("http")
@@ -63,7 +64,7 @@ async def log_request(request: Request, call_next):
   quiet = request.method == "GET" and response.status_code < 400
   quiet = quiet and (request.url.path == "/" or request.url.path.startswith("/ui/"))
   logger.log(logging.DEBUG if quiet else logging.INFO, " ".join([line, *models]))
-  if request.url.path == "/v1/chat/completions":
+  if request.method == "POST" and request.url.path.startswith("/v1/"):
     dashboard.record(request, response.status_code, time.perf_counter() - started)
   return response
 

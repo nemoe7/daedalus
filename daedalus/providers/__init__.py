@@ -49,6 +49,12 @@ def prepare(
   model: str, payload: dict, config: Mapping
 ) -> tuple[OpenAIProvider, str, dict, dict[str, str]]:
   """Build the provider and the upstream request for one `provider/slug` model."""
+  provider, slug = provider_for(model, config)
+  return (provider, *provider.request(slug, payload))
+
+
+def provider_for(model: str, config: Mapping) -> tuple[OpenAIProvider, str]:
+  """Build the provider and the slug for one `provider/slug` model."""
   name, separator, slug = model.partition("/")
   raw = config.get(name)
   if not separator or not slug or not isinstance(raw, dict):
@@ -60,5 +66,4 @@ def prepare(
   kind = PROVIDERS.get(name, OpenAIProvider)
   if api_type != kind.defaults.get("api_type"):
     kind = API_TYPES[api_type]
-  provider = kind(name, merged)
-  return (provider, *provider.request(slug, payload))
+  return kind(name, merged), slug
