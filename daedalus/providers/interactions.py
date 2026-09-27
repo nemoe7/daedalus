@@ -136,8 +136,10 @@ class InteractionsProvider(OpenAIProvider):
     "service_tier",
   )
 
-  def headers(self) -> dict[str, str]:
-    return {"content-type": "application/json", "x-goog-api-key": self.key}
+  @staticmethod
+  def auth(key: str) -> dict[str, str]:
+    """The header that carries the API key."""
+    return {"x-goog-api-key": key}
 
   def url(self, slug: str, payload: dict) -> str:
     return self.base + "/interactions"

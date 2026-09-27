@@ -62,8 +62,6 @@ ROW_KEYS = {
 # Gemini names its rows `models/{slug}`.
 STRIPPED_SHAPE = "models"
 
-# Providers that do not take a bearer key.
-AUTH_HEADER = {"gemini": "x-goog-api-key"}
 
 Fetch = Callable[[str, dict[str, str]], dict[str, Any]]
 
@@ -88,10 +86,7 @@ def auth_headers(provider_name: str, provider: dict[str, Any]) -> dict[str, str]
   api_key = provider.get("api_key") or ""
   if not api_key:
     return {}
-  header = AUTH_HEADER.get(provider_name)
-  if header is not None:
-    return {header: api_key}
-  return {"Authorization": f"Bearer {api_key}"}
+  return PROVIDERS.get(provider_name, OpenAIProvider).auth(api_key)
 
 
 def row_shape(payload: dict[str, Any]) -> str | None:
