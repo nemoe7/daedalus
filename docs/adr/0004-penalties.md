@@ -52,7 +52,6 @@ SHA-256 hash of the bearer token and the first user message.
 | Request | Slot |
 | --- | --- |
 | A tier pool | The pool name |
-| `daedalus/praktos`, or `daedalus/auto` with `tools` | `daedalus/praktos` |
 | `daedalus/auto` | `daedalus/auto` and the required tier |
 | `provider/slug` | None |
 
