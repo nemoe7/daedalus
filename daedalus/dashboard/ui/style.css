@@ -2,6 +2,7 @@
 :root {
   --bg: #f3f3f5; --panel: #ffffff; --text: #212121; --muted: #616161; --line: #cfcfcf;
   --accent: #304ffe; --ok: #283593; --warn: #a3386c; --bad: #781f4c; --bar: #e3e8fd; --amber: #c77800;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23616161' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --tier: #212c70; --tag: #5c388c; --field: #f7f7f9; --radius: 12px;
   --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
   color-scheme: light dark; scrollbar-color: var(--line) transparent;
@@ -10,10 +11,12 @@
   :root {
     --bg: #1c1c1c; --panel: #262626; --text: #e6e6e6; --muted: #adadad; --line: #424242;
     --accent: #536dfe; --ok: #90caf9; --warn: #e1bee7; --bad: #d4608f; --bar: #212c70; --amber: #f0a35e;
+    --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23adadad' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     --tier: #90caf9; --tag: #e1bee7; --field: #1f1f1f;
   }
 }
 * { box-sizing: border-box; }
+html { scrollbar-gutter: stable; }
 [hidden] { display: none !important; }
 body {
   margin: 0; background: var(--bg); color: var(--text);
@@ -108,8 +111,9 @@ input {
 }
 input[type=search] { flex: 1; min-width: 180px; }
 select {
-  padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line);
-  background: var(--field); color: var(--text); font: inherit;
+  appearance: none; padding: 7px 32px 7px 10px; border-radius: 8px; border: 1px solid var(--line);
+  color: var(--text); font: inherit; cursor: pointer;
+  background: var(--field) var(--chevron) no-repeat right 12px center;
 }
 .models th:not(:first-child), .models td:not(:first-child) { padding-left: 8px; padding-right: 8px; }
 .models th:not(:first-child):not(:last-child), .models td:not(:first-child):not(:last-child) {
