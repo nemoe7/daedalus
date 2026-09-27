@@ -50,8 +50,10 @@ the next tier to TIER-D:
 
 The first tier in the chain that holds a model answers.
 
-`daedalus/auto` stays. It scores the prompt, takes the tier the prompt needs, and then
-follows the same chain from that tier.
+`daedalus/auto` stays. It scores the text of all user messages in the conversation, without
+the system prompt. It takes the tier that this text needs. After the first tool call in the
+conversation, the tier is TIER-C or higher. A conversation keeps the highest tier that it
+got, until its session expires. Then `daedalus/auto` follows the same chain from that tier.
 
 ## Consequences
 
