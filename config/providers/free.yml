@@ -3,23 +3,18 @@ cloudflare:
   exclude:
     - "*llama-guard*"
     - "*llama-3.2-11b-vision*"
-    - "@cf/zai-org/glm-5.3"
-    - "*kimi-k2.7-code*"
-    - "*kimi-k2.6"
     - "*deepseek-v4-flash-0731"
     - "*deepseek-v4-pro-0813"
     - "*glm-5.2"
+    - "*glm-5.3"
     - "*glm-5.3-flash"
+    - "*kimi-k2.6"
+    - "*kimi-k2.7-code"
   tier:
     TIER-A:
       - "qwen3*"
       - "*deepseek-r1*"
-      - "*glm-5.2*"
-      - "*glm-5.3*"
       - "*nemotron-3-120b-a12b*"
-    TIER-B:
-      - "*deepseek-v4-flash*"
-      - "*deepseek-v4-pro*"
 
   models:
     "@cf/qwen/qwq-32b": { max_input_tokens: 20000, max_output_tokens: 4000 }
