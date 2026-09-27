@@ -8,6 +8,15 @@ import httpx
 from daedalus.providers.base import OpenAIProvider, ProviderError, limits
 
 TRANSCRIPT_FORMATS = ("json", "text", "vtt")
+# The Aura encoding and container for each OpenAI speech format.
+AURA_FORMATS = {
+  "mp3": ("mp3", None),
+  "opus": ("opus", "ogg"),
+  "aac": ("aac", None),
+  "flac": ("flac", None),
+  "wav": ("linear16", "wav"),
+  "pcm": ("linear16", "none"),
+}
 
 
 def text_only(message: Any) -> Any:
@@ -80,6 +89,36 @@ class CloudflareProvider(OpenAIProvider):
     if form == "vtt":
       return result["vtt"].encode(), "text/vtt; charset=utf-8"
     return json.dumps({"text": text}).encode(), "application/json"
+
+  def speech_request(
+    self, slug: str, payload: dict
+  ) -> tuple[str, dict[str, Any], dict[str, str]]:
+    """A native run request for a MeloTTS or an Aura model."""
+    url = f"{self.base.removesuffix('/v1')}/run/{slug}"
+    form = payload.get("response_format") or "mp3"
+    if "melotts" in slug:
+      if form != "mp3":
+        raise ProviderError("MeloTTS answers in mp3 only")
+      return url, {"json": {"prompt": payload["input"]}}, self.headers()
+    if "aura" not in slug:
+      raise ProviderError("Cloudflare speech supports MeloTTS and Aura models only")
+    encoding, container = AURA_FORMATS[form]
+    body = {"text": payload["input"], "encoding": encoding}
+    if container:
+      body["container"] = container
+    if payload.get("voice"):
+      body["speaker"] = payload["voice"]
+    return url, {"json": body}, self.headers()
+
+  def speech(self, response: httpx.Response, payload: dict) -> tuple[bytes, str]:
+    """The audio, from base64 JSON or from the raw answer."""
+    media = response.headers.get("content-type", "audio/mpeg")
+    if not media.startswith("application/json"):
+      return response.content, media
+    audio = (response.json().get("result") or {}).get("audio")
+    if not isinstance(audio, str):
+      raise ProviderError("Invalid speech answer")
+    return base64.b64decode(audio), "audio/mpeg"
 
   @staticmethod
   def columns(row: dict) -> dict[str, Any]:
