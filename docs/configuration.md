@@ -105,5 +105,4 @@ When patterns of 2 tiers match 1 model, the most specific pattern sets the tier.
 
 Order of the model values: provider file, then discovery, then LiteLLM.
 
-Models are classified by their size, capabilities, and ranking across established and anecdotal evidence.
-Kilo and OpenRouter models are usually sent to `TIER-B` since their free catalog is usually for agentic tasks already.
+I select the tier from the model size, the model capabilities, and rankings from benchmarks and from other users. Kilo and OpenRouter models go to `TIER-B` through the `"*"` pattern, because their free models are usually for agentic tasks.

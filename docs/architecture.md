@@ -61,7 +61,7 @@ flowchart TD
 | Tool call | After the first tool call, the tier is koinos or higher. |
 | Conversation | The tier does not go down until the session expires (1 h idle). |
 
-The classified used is vendored in from LiteLLM heuristics v2. It is not perfect, but it is a good start.
+The classifier is a copy of the LiteLLM heuristic v2. It is not perfect, but it is a good start.
 
 ## Pools and the fallback ladder
 
@@ -94,7 +94,7 @@ flowchart LR
   end
 ```
 
-The chain goes up first to "escalate" the request to a higher tier and model since the next highest tier is normally capable of handling the same request. The chain goes down to the next tier only if going up hits the ceiling. It is not guaranteed that going down will result in a successful request and will often fail due to insufficient capabilities.
+The chain goes up first. The next tier up can usually do the same request. The chain goes down only after it gets to the highest tier. A lower tier often fails, because its models can do less.
 
 ## Weights
 

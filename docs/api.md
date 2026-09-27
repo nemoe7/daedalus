@@ -3,8 +3,9 @@
 Daedalus serves the OpenAI API on `http://HOST:3357/v1`.
 
 I use the API with Kilo Code and Open WebUI.
-Kilo Code - So far, it has been the best agentic harness for me: fine-grained tool access, a plugin system, and more.
-Open WebUI - I use it as my general chat interface. Could possibly make my own and strip some features I don't need but so far I'm happy with it.
+Kilo Code: so far, it is the best agentic harness for me. It has fine-grained tool access, a plugin system, and more.
+
+Open WebUI: I use it as my general chat interface. I can make my own interface without the features that I do not need. But so far, I am happy with Open WebUI.
 
 ## Access
 
@@ -97,4 +98,4 @@ Errors use the OpenAI shape:
 
 The dashboard **Requests** page shows the full provider error of each attempt. Daedalus removes the prompt text from provider errors.
 
-When the client receives a 502, there's nothing we can do to fix it. All providers have answered wth either an error or a 429 and you will have to wait for your usage quota resets.
+A 502 means that the last model in the chain failed with a network error or a timeout. The client can only send the request again later. When the last model answers with a status such as 429, the client gets that status. Then wait until your provider quotas reset.

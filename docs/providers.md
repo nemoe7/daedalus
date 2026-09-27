@@ -12,7 +12,7 @@ These are the only providers that I have personally confirmed are genuinely free
 | `openrouter` | OpenRouter | OpenAI-compatible | |
 | `z-ai` | Z.ai | OpenAI-compatible | |
 
-Kilo and Openrouter are established gateway providers that have rotating free models. Google Gemini has a more generous free tier than the rest.
+Kilo and OpenRouter are large, known gateways with free models that change over time. Google Gemini has a more generous free tier than the other providers.
 
 ## Catalog
 

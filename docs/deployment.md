@@ -1,6 +1,6 @@
 # Deployment
 
-I run Daedalus on a Raspberry Pi 4B with 8GB RAM. Made sure to use the `slim` variants for Docker images to save space.
+I run Daedalus on a Raspberry Pi 4B with 8 GB of RAM. I use the `slim` Docker images to save space.
 
 ## Docker Compose
 
@@ -60,7 +60,7 @@ flowchart LR
 | Failure | Daedalus sends the original messages. |
 | Log | `saved=N` shows the saved tokens. |
 
-Headroom is worth it for long agentic tasks. Keeps your token usgae lower than without with the same model performance, at least so far.
+Headroom is worth it for long agentic tasks. So far, it keeps token use lower with the same model quality.
 
 ### Tailscale
 
