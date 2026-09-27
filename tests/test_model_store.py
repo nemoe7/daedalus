@@ -91,8 +91,8 @@ def main() -> None:
     connection.close()
     assert stored == ("z-ai", "glm-5", 131072, 1), stored
 
-    table = Path(folder) / "models.txt"
-    catalog.write_models_txt(rows, table)
+    table = Path(folder) / "models.tsv"
+    catalog.write_models_tsv(rows, table)
     header, first, *_ = table.read_text(encoding="utf-8").splitlines()
     assert header.split("\t") == ["id", *catalog.COLUMNS], header
     cells = dict(zip(header.split("\t"), first.split("\t"), strict=True))

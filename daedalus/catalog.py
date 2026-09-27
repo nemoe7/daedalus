@@ -17,13 +17,13 @@ from daedalus.providers import settings
 
 logger = logging.getLogger("daedalus.catalog")
 
-MODELS_TXT = STATE_DIR / "models.txt"
+MODELS_TSV = STATE_DIR / "models.tsv"
 MODELS_DB = STATE_DIR / "models.sqlite3"
 LITELLM_CATALOG = "https://api.litellm.ai/model_catalog"
 LITELLM_PAGE_SIZE = 500
 # Provider names that differ in the LiteLLM catalog. Kilo serves OpenRouter slugs.
 LITELLM_PROVIDER = {"z-ai": "zai", "kilo": "openrouter"}
-# Metadata columns, in table and models.txt order. Config values win over the catalog.
+# Metadata columns, in table and models.tsv order. Config values win over the catalog.
 COLUMNS = (
   "mode",
   "max_input_tokens",
@@ -317,8 +317,8 @@ def text(value: Any) -> str:
   return str(value).replace("\t", " ").replace("\n", " ")
 
 
-def write_models_txt(
-  rows: Iterable[dict[str, Any]], path: Path | str = MODELS_TXT
+def write_models_tsv(
+  rows: Iterable[dict[str, Any]], path: Path | str = MODELS_TSV
 ) -> Path:
   """Write a tab-separated table with a header row."""
   target = Path(path)
@@ -382,7 +382,7 @@ def main() -> int:
   lines, skipped = build_catalog(config)
   rows, problems = enrich(lines, config)
   write_store(rows)
-  target = write_models_txt(rows)
+  target = write_models_tsv(rows)
   for reason in [*skipped, *problems]:
     logger.warning("skipped %s", reason)
   providers = len({line.split("/", 1)[0] for line in lines})
