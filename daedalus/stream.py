@@ -123,12 +123,6 @@ async def relay(
     while rest:
       candidate = rest.pop(0)
       if context.too_large(candidate, tokens, limits):
-        limit = limits[candidate]
-        attempts.append(
-          upstream.note(
-            candidate, "skipped", None, f"input ~{tokens} tokens > limit {limit}"
-          )
-        )
         continue
       started = time.perf_counter()
       try:
