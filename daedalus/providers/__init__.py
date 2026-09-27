@@ -8,7 +8,6 @@ from daedalus.providers.base import OpenAIProvider, ProviderError, frame
 from daedalus.providers.cloudflare import CloudflareProvider
 from daedalus.providers.gemini import GeminiProvider
 from daedalus.providers.groq import GroqProvider
-from daedalus.providers.interactions import InteractionsProvider
 from daedalus.providers.kilo import KiloProvider
 from daedalus.providers.mistral import MistralProvider
 from daedalus.providers.openrouter import OpenRouterProvider
@@ -17,7 +16,6 @@ from daedalus.providers.zai import ZAiProvider
 API_TYPES: dict[str, type[OpenAIProvider]] = {
   "openai": OpenAIProvider,
   "gemini": GeminiProvider,
-  "interactions": InteractionsProvider,
 }
 PROVIDERS: dict[str, type[OpenAIProvider]] = {
   "cloudflare": CloudflareProvider,
