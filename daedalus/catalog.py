@@ -1,6 +1,5 @@
 """Discover provider models, add LiteLLM catalog metadata, and store them."""
 
-import argparse
 import logging
 import re
 import sqlite3
@@ -369,12 +368,8 @@ def read_models(routable_only: bool = True) -> list[str]:
     database.close()
 
 
-def main() -> int:
-  argparse.ArgumentParser(
-    prog="python -m daedalus.catalog",
-    description="Discover provider models and store them in .daedalus-state.",
-  ).parse_args()
-  logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+def refresh() -> Path:
+  """Discover the provider models, and rewrite the SQLite store and models.tsv."""
   config = get_config()
   lines, skipped = build_catalog(config)
   rows, problems = enrich(lines, config)
@@ -384,8 +379,4 @@ def main() -> int:
     logger.warning("skipped %s", reason)
   providers = len({line.split("/", 1)[0] for line in lines})
   logger.info("wrote %d models from %d providers to %s", len(lines), providers, target)
-  return 0
-
-
-if __name__ == "__main__":
-  raise SystemExit(main())
+  return target

@@ -302,12 +302,30 @@ async def relay(
       return
 
 
-def run() -> None:
-  """Entry point for `daedalus` and `uvicorn daedalus.api:app`."""
-  argparse.ArgumentParser(
-    prog="daedalus",
-    description=f"Start the OpenAI-compatible router on {HOST}:{PORT}.",
-  ).parse_args()
+def run(argv: list[str] | None = None) -> None:
+  """Entry point for `daedalus`."""
+  parser = argparse.ArgumentParser(
+    prog="daedalus", description="OpenAI-compatible router for the providers."
+  )
+  parser.add_argument(
+    "--init",
+    action="store_true",
+    help=f"start the router on {HOST}:{PORT}; build a missing model store first",
+  )
+  parser.add_argument(
+    "--catalog",
+    action="store_true",
+    help="discover provider models and rebuild the model store",
+  )
+  args = parser.parse_args(argv)
+  if not (args.init or args.catalog):
+    parser.print_help()
+    return
+  logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+  if args.catalog or not catalog.MODELS_DB.exists():
+    catalog.refresh()
+  if not args.init:
+    return
   import uvicorn
 
   uvicorn.run(app, host=HOST, port=PORT)
