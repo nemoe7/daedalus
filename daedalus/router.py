@@ -372,9 +372,13 @@ def route(
   artifact: Artifact | None = None,
 ) -> list[str]:
   """The models for a prompt, in the order the proxy tries them."""
+  return chain_models(config, lines, fallback_order(required_tier(prompt, artifact)))
+
+
+def required_tier(prompt: str, artifact: Artifact | None = None) -> int:
+  """The cheapest tier that will do for one prompt."""
   table: Final = load_artifact() if artifact is None else artifact
-  required: Final = predict(prompt, table).required_tier
-  return chain_models(config, lines, fallback_order(required))
+  return predict(prompt, table).required_tier
 
 
 def route_pool(
