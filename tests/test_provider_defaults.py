@@ -32,6 +32,7 @@ def main() -> None:
   cloudflare = providers.settings("cloudflare", {})
   assert cloudflare["api_base"] == "https://cloudflare.test/v1", cloudflare
   assert "/accounts/account/" in cloudflare["discovery_url"], cloudflare
+  assert "task=Text%20Generation" in cloudflare["discovery_url"], cloudflare
 
   setup = {
     "gemini": {"api_key": "k"},

@@ -154,6 +154,8 @@ def check_next_page_url() -> None:
     {"result_info": {"count": 100, "page": 1, "per_page": 100, "total_count": 313}},
   )
   assert rows == "https://cf.test/search?per_page=100&page=2", rows
+  spaced = catalog.with_param("https://cf.test/s?task=Text%20Generation", "page", 2)
+  assert spaced == "https://cf.test/s?task=Text%20Generation&page=2", spaced
   last = catalog.next_page_url(
     "https://cf.test/search?per_page=100&page=4",
     {"result_info": {"count": 13, "page": 4, "per_page": 100, "total_count": 313}},

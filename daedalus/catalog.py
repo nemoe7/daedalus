@@ -8,7 +8,7 @@ from collections.abc import Callable, Iterable
 from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 import httpx
 
@@ -178,7 +178,7 @@ def with_param(url: str, key: str, value: str | int) -> str:
   parts = urlsplit(url)
   params = [(name, text) for name, text in parse_qsl(parts.query) if name != key]
   params.append((key, str(value)))
-  query = urlencode(params, safe="=")
+  query = urlencode(params, safe="=", quote_via=quote)
   return urlunsplit((parts.scheme, parts.netloc, parts.path, query, ""))
 
 
