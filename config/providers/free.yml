@@ -89,8 +89,8 @@ groq:
   tier:
     TIER-A:
       - openai/gpt-oss-120b
-    TIER-B:
       - qwen/qwen3.8-27b
+    TIER-B:
       - openai/gpt-oss-20b
     TIER-D:
       - allam-2-7b
@@ -110,8 +110,18 @@ kilo:
   tier:
     TIER-A:
       - "glm-5*"
+      - "dots-studio/dots-3-*"
+      - "inclusionai/ling-3.0-flash*"
+      - "nvidia/nemotron-3-super-*"
+      - "nvidia/nemotron-3-ultra-*"
+      - "poolside/laguna-s-*"
+      - "qwen/qwen3.8-27b*"
+      - "stepfun/step-3.7-flash*"
+      - "thinkingmachines/inkling*"
     TIER-B:
-      - "*"
+      - "*" # every other model; a more specific pattern wins
+    TIER-D:
+      - "liquid/lfm-2.5-2.6b*"
 
 mistral:
   api_key: os.environ/MISTRAL_API_KEY
@@ -152,8 +162,19 @@ openrouter:
     - openrouter/*
     - "!*:free"
   tier:
+    TIER-A:
+      - "dots-studio/dots-3-*"
+      - "inclusionai/ling-3.0-flash*"
+      - "nvidia/nemotron-3-super-*"
+      - "nvidia/nemotron-3-ultra-*"
+      - "poolside/laguna-s-*"
+      - "qwen/qwen3.8-27b*"
+      - "stepfun/step-3.7-flash*"
+      - "thinkingmachines/inkling*"
     TIER-B:
-      - "*"
+      - "*" # every other model; a more specific pattern wins
+    TIER-D:
+      - "liquid/lfm-2.5-2.6b*"
   models:
     "*gemma-4-26b-a4b-it:free": { reasoning_effort: low }
     "*gemma-4-31b-it:free": { reasoning_effort: low }
@@ -174,10 +195,11 @@ z-ai:
     TIER-B:
       - glm-4.5-air
       - glm-4.5-flash
-      - glm-4.6v-flash
       - glm-4.7-flash
       - glm-5-turbo
       - glm-5.3-flash
+    TIER-D:
+      - glm-4.6v-flash
   models:
     glm-4.5-flash: { max_input_tokens: 131072, max_output_tokens: 98304, rpm: 60, tpm: 8000 }
     glm-4.6v-flash: { max_input_tokens: 131072, max_output_tokens: 98304, rpm: 60, tpm: 8000 }
