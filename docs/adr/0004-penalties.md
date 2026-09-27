@@ -40,7 +40,9 @@ The tier order of ADR 1 and ADR 2 stays. The weights sort the models only inside
 2. All other models follow by weight, high first, tier by tier. Equal weights keep the usual
    order.
 
-In a session, each model other than the session model uses its weight x 0.05.
+In a session, the session model gets 85% of the draws in the first tier. The other models of
+that tier share the remaining 15% by weight. After the first model, the session model goes
+first in its tier.
 
 ### Session affinity
 
