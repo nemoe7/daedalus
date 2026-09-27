@@ -11,6 +11,8 @@ IDLE_SECONDS = 3600.0
 # In a session, the share of first-tier draws for the session model.
 STAY = 0.85
 SUCCESS, FAULT, SLOW, HOURLY = 1.5, 0.5, 0.75, 1.2
+# The lowest weight, so that a model with many faults can recover.
+FLOOR = 0.01
 TABLES = (
   (
     "CREATE TABLE IF NOT EXISTS weights"
@@ -65,16 +67,16 @@ class Penalties:
       ):
         if model in rows:
           hours = max(now - updated, 0.0) / 3600
-          rows[model] = min(1.0, weight * self.hourly**hours)
+          rows[model] = min(1.0, max(FLOOR, weight * self.hourly**hours))
       return rows
     finally:
       database.close()
 
   def record(self, model: str, factor: float) -> float:
-    """Multiply the weight by the factor of one event, 1 at most."""
+    """Multiply the weight by the factor of one event, from the floor to 1."""
     if not self.enabled:
       return 1.0
-    weight = min(1.0, self.weights([model])[model] * factor)
+    weight = min(1.0, max(FLOOR, self.weights([model])[model] * factor))
     database = self.connect()
     with database:
       database.execute(
