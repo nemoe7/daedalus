@@ -5,7 +5,8 @@ from pathlib import Path
 import httpx
 from fastapi.testclient import TestClient
 
-from daedalus import api, catalog, penalties
+from daedalus import api, penalties
+from daedalus import store as model_store
 
 FAILING: set[str] = set()
 
@@ -73,10 +74,10 @@ def check_pins(folder: Path) -> None:
 def check_rebuild(folder: Path) -> None:
   database = folder / "models.sqlite3"
   store = penalties.Penalties(lambda: database)
-  catalog.write_store([], database)
+  model_store.write_store([], database)
   store.record("a", penalties.FAULT)
   store.pin("k", "pool", "a")
-  catalog.write_store([{"id": "p/x"}], database)
+  model_store.write_store([{"id": "p/x"}], database)
   assert store.weights(["a"])["a"] < 1 and store.pinned("k", "pool") == "a", "kept"
 
 
@@ -177,7 +178,7 @@ def main() -> None:
     check_weights(folder)
     check_pins(folder)
     check_rebuild(folder)
-    catalog.MODELS_DB = folder / "models.sqlite3"
+    model_store.MODELS_DB = folder / "models.sqlite3"
     check_slots()
     check_requests()
     check_ttft()

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import httpx
 
-from daedalus import api, catalog, config, providers
+from daedalus import api, config, providers, store
 
 
 async def main() -> None:
@@ -208,9 +208,9 @@ async def main() -> None:
       assert '"tool_calls"' in response.text
       mode = "text"
       with tempfile.TemporaryDirectory() as directory:
-        original = catalog.MODELS_DB
-        catalog.MODELS_DB = Path(directory) / "models.sqlite3"
-        catalog.write_store(
+        original = store.MODELS_DB
+        store.MODELS_DB = Path(directory) / "models.sqlite3"
+        store.write_store(
           [{"id": "gemini/test"}, {"id": "interactions/test"}, {"id": "failed/test"}]
         )
         try:
@@ -236,10 +236,10 @@ async def main() -> None:
           assert response.status_code == 200
           assert seen[-1][0].url.host == "interactions.test"
           configured["gemini"]["api_key"] = "gemini-key"
-          catalog.write_store([{"id": "failed/test"}])
+          store.write_store([{"id": "failed/test"}])
           assert (await send("daedalus/moros")).status_code == 429
         finally:
-          catalog.MODELS_DB = original
+          store.MODELS_DB = original
       assert (await send("unknown/test")).status_code == 400
       assert (await send("daedalus/unknown")).status_code == 400
       for invalid in ([], {}, {"model": "gemini/test", "messages": "hi"}):
@@ -306,7 +306,7 @@ async def main() -> None:
 
 def run() -> None:
   with tempfile.TemporaryDirectory() as folder:
-    catalog.MODELS_DB = Path(folder) / "models.sqlite3"
+    store.MODELS_DB = Path(folder) / "models.sqlite3"
     asyncio.run(main())
 
 

@@ -5,7 +5,7 @@ from pathlib import Path
 import httpx
 from fastapi.testclient import TestClient
 
-from daedalus import api, catalog
+from daedalus import api, store
 
 
 class Lines(logging.Handler):
@@ -43,8 +43,8 @@ def check_limits(database: Path) -> None:
     {"id": "c/1", "max_input_tokens": "1000"},
     {"id": "d/1", "max_input_tokens": 0},
   ]
-  catalog.write_store(rows, database)
-  assert catalog.input_limits() == {"a/1": 10, "c/1": 1000}, catalog.input_limits()
+  store.write_store(rows, database)
+  assert store.input_limits() == {"a/1": 10, "c/1": 1000}, store.input_limits()
 
 
 def check_requests() -> None:
@@ -86,10 +86,10 @@ def check_requests() -> None:
 
 def main() -> None:
   with tempfile.TemporaryDirectory() as name:
-    catalog.MODELS_DB = Path(name) / "models.sqlite3"
+    store.MODELS_DB = Path(name) / "models.sqlite3"
     api.PENALTIES.pick = lambda: 0.0
     check_estimate()
-    check_limits(catalog.MODELS_DB)
+    check_limits(store.MODELS_DB)
     check_requests()
   print("ok: context windows")
 

@@ -5,7 +5,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import httpx
 
-from daedalus import catalog
+from daedalus import catalog, store
 
 PAGES = {
   ("zai", "1"): {
@@ -80,19 +80,17 @@ def main() -> None:
 
   with tempfile.TemporaryDirectory() as folder:
     database = Path(folder) / "models.sqlite3"
-    catalog.write_store(rows, database)
-    catalog.write_store(rows, database)
-    original = catalog.MODELS_DB
-    catalog.MODELS_DB = database
+    store.write_store(rows, database)
+    store.write_store(rows, database)
+    original = store.MODELS_DB
+    store.MODELS_DB = database
     try:
       routable = ["z-ai/glm-5", "kilo/google/gemma-4-31b-it:free", "broken/x"]
-      assert catalog.read_models() == routable, catalog.read_models()
-      assert catalog.read_models(routable_only=False) == lines
-      assert catalog.read_models(tools_only=True) == ["z-ai/glm-5"], (
-        "config and catalog"
-      )
+      assert store.read_models() == routable, store.read_models()
+      assert store.read_models(routable_only=False) == lines
+      assert store.read_models(tools_only=True) == ["z-ai/glm-5"], "config and catalog"
     finally:
-      catalog.MODELS_DB = original
+      store.MODELS_DB = original
     with sqlite3.connect(database) as connection:
       stored = connection.execute(
         "SELECT provider, slug, max_input_tokens, supports_function_calling "
@@ -106,7 +104,7 @@ def main() -> None:
     header, first, *rest = table.read_text(encoding="utf-8").splitlines()
     shown = [line.split("\t")[0] for line in (first, *rest)]
     assert shown == routable, shown
-    assert header.split("\t") == ["id", *catalog.COLUMNS], header
+    assert header.split("\t") == ["id", *store.COLUMNS], header
     cells = dict(zip(header.split("\t"), first.split("\t"), strict=True))
     assert cells["id"] == "z-ai/glm-5" and cells["mode"] == "chat", cells
     assert cells["supports_function_calling"] == "true", cells

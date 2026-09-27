@@ -5,7 +5,7 @@ from pathlib import Path
 
 import httpx
 
-from daedalus import api, catalog, config
+from daedalus import api, config, store
 
 TIER = {"TIER-D": ["x"]}
 SEEN: list[tuple[str, dict]] = []
@@ -68,10 +68,10 @@ async def main() -> None:
       for name in names
     }
   )
-  saved = catalog.MODELS_DB
+  saved = store.MODELS_DB
   with tempfile.TemporaryDirectory() as folder:
-    catalog.MODELS_DB = Path(folder) / "models.sqlite3"
-    catalog.write_store([{"id": f"{name}/x"} for name in names])
+    store.MODELS_DB = Path(folder) / "models.sqlite3"
+    store.write_store([{"id": f"{name}/x"} for name in names])
     transport = httpx.MockTransport(upstream)
     async with httpx.AsyncClient(transport=transport) as upstream_client:
       api.set_client(upstream_client)
@@ -123,7 +123,7 @@ async def main() -> None:
         lines = await send(client)
         assert lines[-1] == "[DONE]", lines
         assert [host for host, _ in SEEN] == ["a.test", "b.test"], SEEN
-  catalog.MODELS_DB = saved
+  store.MODELS_DB = saved
   api.set_client(None)
   config.set_config(None)
   print("ok: stream continuation")
