@@ -235,7 +235,16 @@ async def chat(request: Request) -> Response:
   if model == router.RESERVED_MODEL and found[1]:
     request.state.pool = routed_pool(found[1])
   pin = Tracker(session_key(access.bearer(request), body["messages"]), found[1])
-  models = pin.order(found[0])
+  tokens, limits = context.input_tokens(body), store.input_limits()
+  attempts: list[dict[str, Any]] = []
+  request.state.attempts = attempts
+  # Too-small models leave the tiers before the draw, so they cannot be drawn or pinned.
+  groups = [
+    [m for m in group if not context.too_large(m, tokens, limits)] for group in found[0]
+  ]
+  models = pin.order(groups)
+  if not models and any(found[0]):
+    return context.too_long(tokens)
   if models:
     body, saved = await headroom.compress(body, models[0])
     if saved is not None:
@@ -244,20 +253,8 @@ async def chat(request: Request) -> Response:
   failure = upstream.error_response(
     502, "No model answered the request", "upstream_error"
   )
-  tokens, limits, tried = context.input_tokens(body), store.input_limits(), False
-  attempts: list[dict[str, Any]] = []
-  request.state.attempts = attempts
   for index, candidate in enumerate(models):
     request.state.fallbacks = str(index)
-    if context.too_large(candidate, tokens, limits):
-      limit = limits[candidate]
-      attempts.append(
-        upstream.note(
-          candidate, "skipped", None, f"input ~{tokens} tokens > limit {limit}"
-        )
-      )
-      continue
-    tried = True
     started = time.perf_counter()
     try:
       provider, response = await upstream.attempt(candidate, body, config)
@@ -291,7 +288,7 @@ async def chat(request: Request) -> Response:
         502, "Upstream provider attempt failed", "upstream_error"
       )
       continue
-    rest = [m for m in models[index + 1 :] if not context.too_large(m, tokens, limits)]
+    rest = models[index + 1 :]
     request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
     request.state.ttft = logs.seconds_text(ttft)
     attempts.append(upstream.note(candidate, "answered", started))
@@ -301,8 +298,6 @@ async def chat(request: Request) -> Response:
       ),
       media_type="text/event-stream",
     )
-  if models and not tried:
-    return context.too_long(tokens)
   return failure
 
 

@@ -151,7 +151,7 @@ function chainText(r) {
 
 function chainRows(r) {
   const steps = (r.attempts || []).map((a, i) => `
-    <li class="step ${a.result === "answered" ? "good" : a.result === "skipped" ? "" : "bad"}">
+    <li class="step ${a.result === "answered" ? "good" : "bad"}">
       <span class="num">${i + 1}.</span> <b>${esc(a.model)}</b>
       <span class="result">${esc(a.result)}</span> <span class="muted num">${seconds(a.seconds)}</span>
       ${a.error ? `<pre>${esc(a.error)}</pre>` : ""}
