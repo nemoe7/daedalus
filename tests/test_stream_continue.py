@@ -66,10 +66,10 @@ async def main() -> None:
       for name in names
     }
   )
-  saved = catalog.MODELS_TXT
+  saved = catalog.MODELS_DB
   with tempfile.TemporaryDirectory() as folder:
-    catalog.MODELS_TXT = Path(folder) / "models.txt"
-    catalog.MODELS_TXT.write_text("".join(f"{name}/x\n" for name in names))
+    catalog.MODELS_DB = Path(folder) / "models.sqlite3"
+    catalog.write_store([{"id": f"{name}/x"} for name in names])
     transport = httpx.MockTransport(upstream)
     async with httpx.AsyncClient(transport=transport) as upstream_client:
       api.set_client(upstream_client)
@@ -121,7 +121,7 @@ async def main() -> None:
         lines = await send(client)
         assert lines[-1] == "[DONE]", lines
         assert [host for host, _ in SEEN] == ["a.test", "b.test"], SEEN
-  catalog.MODELS_TXT = saved
+  catalog.MODELS_DB = saved
   api.set_client(None)
   config.set_config(None)
   print("ok: stream continuation")

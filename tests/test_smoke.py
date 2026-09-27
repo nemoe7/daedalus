@@ -147,12 +147,12 @@ async def check_routed_model(client: httpx.AsyncClient) -> None:
       }
     }
   )
-  saved = catalog.MODELS_TXT
+  saved = catalog.MODELS_DB
   try:
     with tempfile.TemporaryDirectory() as folder:
-      catalog.MODELS_TXT = pathlib.Path(folder) / "models.txt"
-      catalog.MODELS_TXT.write_text(
-        "gemini/gemini-3.5-flash\ngemini/gemini-3.5-pro\n", encoding="utf-8"
+      catalog.MODELS_DB = pathlib.Path(folder) / "models.sqlite3"
+      catalog.write_store(
+        [{"id": "gemini/gemini-3.5-flash"}, {"id": "gemini/gemini-3.5-pro"}]
       )
       response = await client.post(
         "/v1/chat/completions",
@@ -173,7 +173,7 @@ async def check_routed_model(client: httpx.AsyncClient) -> None:
       assert pooled.status_code == 200, pooled.text
       assert SEEN[-1]["model"] == "gemini-3.5-pro", SEEN[-1]
   finally:
-    catalog.MODELS_TXT = saved
+    catalog.MODELS_DB = saved
     use_config()
 
 
@@ -189,13 +189,11 @@ async def check_reroute(client: httpx.AsyncClient) -> None:
       }
     }
   )
-  saved = catalog.MODELS_TXT
+  saved = catalog.MODELS_DB
   try:
     with tempfile.TemporaryDirectory() as folder:
-      catalog.MODELS_TXT = pathlib.Path(folder) / "models.txt"
-      catalog.MODELS_TXT.write_text(
-        "gemini/bad\ngemini/gemini-3.5-flash\n", encoding="utf-8"
-      )
+      catalog.MODELS_DB = pathlib.Path(folder) / "models.sqlite3"
+      catalog.write_store([{"id": "gemini/bad"}, {"id": "gemini/gemini-3.5-flash"}])
       response = await client.post(
         "/v1/chat/completions", json=chat_body(model="daedalus/sophos")
       )
@@ -214,13 +212,13 @@ async def check_reroute(client: httpx.AsyncClient) -> None:
           }
         }
       )
-      catalog.MODELS_TXT.write_text("gemini/bad\n", encoding="utf-8")
+      catalog.write_store([{"id": "gemini/bad"}])
       doomed = await client.post(
         "/v1/chat/completions", json=chat_body(model="daedalus/sophos")
       )
       assert doomed.status_code == 429, doomed.text
   finally:
-    catalog.MODELS_TXT = saved
+    catalog.MODELS_DB = saved
     use_config()
 
 
@@ -234,14 +232,14 @@ def check_wait_cap() -> None:
 
 
 async def check_models(client: httpx.AsyncClient) -> None:
-  saved = catalog.MODELS_TXT
+  saved = catalog.MODELS_DB
   try:
     with tempfile.TemporaryDirectory() as folder:
-      catalog.MODELS_TXT = pathlib.Path(folder) / "models.txt"
-      catalog.MODELS_TXT.write_text("stub/gpt-test\n", encoding="utf-8")
+      catalog.MODELS_DB = pathlib.Path(folder) / "models.sqlite3"
+      catalog.write_store([{"id": "stub/gpt-test"}])
       response = await client.get("/v1/models")
   finally:
-    catalog.MODELS_TXT = saved
+    catalog.MODELS_DB = saved
   assert response.status_code == 200, response.text
   names = [row["id"] for row in response.json()["data"]]
   assert names == [
