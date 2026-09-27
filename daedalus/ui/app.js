@@ -2,7 +2,6 @@
 
 const POOL_NOTES = {
   "daedalus/auto": "Picks a pool from the prompt",
-  "daedalus/praktos": "Tool-capable, tier A then B",
   "daedalus/sophos": "Tier A",
   "daedalus/deinos": "Tier B",
   "daedalus/koinos": "Tier C",

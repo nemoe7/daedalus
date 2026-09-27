@@ -231,15 +231,6 @@ def routes(
         "name": router.RESERVED_MODEL,
         "members": members(router.chain_groups(config, lines, AUTO_TIERS), AUTO_TIERS),
       },
-      {
-        "name": router.PRAKTOS,
-        "members": members(
-          router.chain_groups(
-            config, store.read_models(tools_only=True), router.PRAKTOS_TIERS
-          ),
-          router.PRAKTOS_TIERS,
-        ),
-      },
     ]
     for name, tier in sorted(router.POOLS.items(), key=lambda item: -item[1]):
       order = (tier,)
