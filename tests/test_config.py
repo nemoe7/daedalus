@@ -91,11 +91,21 @@ def check_repo_file() -> None:
     "@cf/meta/llama-3.2-11b-vision-instruct",
     "@cf/zai-org/glm-5.2",
     "@cf/zai-org/glm-5.3-flash",
-    "@cf/openai/gpt-oss-120b",
   ]
-  kept = catalog.select(loaded["cloudflare"], author_prefixed)
-  assert "@cf/openai/gpt-oss-120b" in kept, kept
-  assert not set(author_prefixed[:4]) & set(kept), kept
+  # Cloudflare marks these `require_workers_paid` in its model search API.
+  paid = [
+    "@cf/deepseek-ai/deepseek-v4-flash-0731",
+    "@cf/deepseek-ai/deepseek-v4-pro-0813",
+    "@cf/moonshotai/kimi-k2.6",
+    "@cf/moonshotai/kimi-k2.7-code",
+    "@cf/zai-org/glm-5.2",
+    "@cf/zai-org/glm-5.3",
+    "@cf/zai-org/glm-5.3-flash",
+  ]
+  free = ["@cf/openai/gpt-oss-120b", "@cf/zai-org/glm-4.7-flash"]
+  kept = catalog.select(loaded["cloudflare"], [*author_prefixed, *paid, *free])
+  assert set(free) <= set(kept), kept
+  assert not set(author_prefixed + paid) & set(kept), kept
 
 
 def walk(node: object) -> list[str]:
