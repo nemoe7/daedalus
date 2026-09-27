@@ -28,7 +28,7 @@ POOLS: Final[Mapping[str, int]] = {
   "daedalus/deinos": 3,
   "daedalus/sophos": 4,
 }
-# The pool for tool calls. It has no tier and holds TIER-A, then TIER-B members. ADR 3.
+# The pool for tool calls. It has no tier and holds TIER-A, then TIER-B members. ADR 2.
 PRAKTOS: Final = "daedalus/praktos"
 PRAKTOS_TIERS: Final = (4, 3)
 TIERS: Final = (1, 2, 3, 4)
