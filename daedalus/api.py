@@ -1,5 +1,6 @@
 """OpenAI-compatible local router for the configured providers."""
 
+import argparse
 import json
 import logging
 import time
@@ -255,6 +256,10 @@ def stream_from(upstream_response: httpx.Response) -> AsyncIterator[bytes]:
 
 def run() -> None:
   """Entry point for `daedalus` and `uvicorn daedalus.api:app`."""
+  argparse.ArgumentParser(
+    prog="daedalus",
+    description=f"Start the OpenAI-compatible router on {HOST}:{PORT}.",
+  ).parse_args()
   import uvicorn
 
   uvicorn.run(app, host=HOST, port=PORT)
