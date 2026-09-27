@@ -89,8 +89,6 @@ def check_repo_file() -> None:
   author_prefixed = [
     "@cf/meta/llama-guard-3-8b",
     "@cf/meta/llama-3.2-11b-vision-instruct",
-    "@cf/zai-org/glm-5.2",
-    "@cf/zai-org/glm-5.3-flash",
   ]
   # Cloudflare marks these `require_workers_paid` in its model search API.
   paid = [
@@ -103,7 +101,12 @@ def check_repo_file() -> None:
     "@cf/zai-org/glm-5.3-flash",
   ]
   free = ["@cf/openai/gpt-oss-120b", "@cf/zai-org/glm-4.7-flash"]
-  kept = catalog.select(loaded["cloudflare"], [*author_prefixed, *paid, *free])
+  flag = [{"property_id": "require_workers_paid", "value": "true"}]
+  rows = [{"name": name} for name in [*author_prefixed, *free]]
+  rows += [{"name": name, "properties": flag} for name in paid]
+  cloudflare = loaded["cloudflare"]
+  found = catalog.extract_slugs({"result": rows}, cloudflare["discovery_match"])
+  kept = catalog.select(cloudflare, found)
   assert set(free) <= set(kept), kept
   assert not set(author_prefixed + paid) & set(kept), kept
   qwen = ["cloudflare/@cf/qwen/qwen3-30b-a3b-fp8", "cloudflare/@cf/qwen/qwen3.8-27b"]
