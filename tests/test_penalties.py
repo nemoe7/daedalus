@@ -1,3 +1,4 @@
+import json
 import tempfile
 from pathlib import Path
 
@@ -23,19 +24,20 @@ def check_weights(folder: Path) -> None:
     lambda: folder / "w.sqlite3", clock=lambda: now[0], pick=lambda: picks[0]
   )
   assert store.weights(["a"]) == {"a": 1.0}, "all models start at 1"
-  assert store.record("a", success=False) == 0.5
-  assert store.record("a", success=False) == 0.25
-  assert store.record("a", success=True) == 0.375
-  assert store.record("b", success=True) == 1.0, "1 at most"
+  assert store.record("a", penalties.FAULT) == 0.5
+  assert store.record("a", penalties.FAULT) == 0.25
+  assert store.record("a", penalties.SUCCESS) == 0.375
+  assert store.record("b", penalties.SUCCESS) == 1.0, "1 at most"
+  assert store.record("b", penalties.SLOW) == 0.75, "a slow success"
   now[0] = 3600
   assert abs(store.weights(["a"])["a"] - 0.45) < 1e-9, "x1.2 after 1 hour"
   now[0] = 3600 * 30
   assert store.weights(["a"])["a"] == 1.0, "back to 1"
   now[0] = 0
   store.clear()
-  store.record("a", success=False)
+  store.record("a", penalties.FAULT)
   groups = [["a", "b", "c"], ["d", "e"]]
-  store.record("d", success=False)
+  store.record("d", penalties.FAULT)
   assert store.order(groups) == ["a", "b", "c", "e", "d"], (
     "a draw at 0 takes the first model"
   )
@@ -72,7 +74,7 @@ def check_rebuild(folder: Path) -> None:
   database = folder / "models.sqlite3"
   store = penalties.Penalties(lambda: database)
   catalog.write_store([], database)
-  store.record("a", success=False)
+  store.record("a", penalties.FAULT)
   store.pin("k", "pool", "a")
   catalog.write_store([{"id": "p/x"}], database)
   assert store.weights(["a"])["a"] < 1 and store.pinned("k", "pool") == "a", "kept"
@@ -124,6 +126,43 @@ def check_requests() -> None:
     api.PENALTIES.clear()
 
 
+def check_ttft() -> None:
+  role = {"choices": [{"index": 0, "delta": {"role": "assistant"}}]}
+  text = {"choices": [{"index": 0, "delta": {"content": "hi"}}]}
+  tool = {"choices": [{"index": 0, "delta": {"tool_calls": [{"index": 0}]}}]}
+  assert not api.has_content(json.dumps(role)), "a role chunk does not stop the clock"
+  assert api.has_content(json.dumps(text)) and api.has_content(json.dumps(tool))
+  assert api.has_content("[DONE]")
+  config = {"a": {"api_key": "k", "api_base": "https://a.test/v1"}}
+  original = api.get_config, api.chain, api.SLOW_SECONDS
+  api.get_config = lambda: config
+  api.chain = lambda model, body, config: ([["a/1"]], "daedalus/deinos")
+  frames = [role, text, "[DONE]"]
+  stream = "".join(
+    f"data: {json.dumps(item) if item != '[DONE]' else item}\n\n" for item in frames
+  )
+  transport = httpx.MockTransport(lambda request: httpx.Response(200, text=stream))
+  api.set_client(httpx.AsyncClient(transport=transport))
+  client = TestClient(api.app)
+  body = {
+    "model": "daedalus/deinos",
+    "stream": True,
+    "messages": [{"role": "user", "content": "x"}],
+  }
+  try:
+    for limit, expected in ((60.0, 1.0), (0.0, 0.75)):
+      api.PENALTIES.clear()
+      api.SLOW_SECONDS = limit
+      response = client.post("/v1/chat/completions", json=body)
+      assert response.status_code == 200 and '"hi"' in response.text, response.text
+      weight = api.PENALTIES.weights(["a/1"])["a/1"]
+      assert abs(weight - expected) < 1e-3, (limit, weight)
+  finally:
+    api.get_config, api.chain, api.SLOW_SECONDS = original
+    api.set_client(None)
+    api.PENALTIES.clear()
+
+
 def main() -> None:
   with tempfile.TemporaryDirectory() as name:
     folder = Path(name)
@@ -133,6 +172,7 @@ def main() -> None:
     catalog.MODELS_DB = folder / "models.sqlite3"
     check_slots()
     check_requests()
+    check_ttft()
   print("ok: penalties and session affinity")
 
 
