@@ -331,13 +331,16 @@ const SETTINGS = [
   ]],
 ];
 
+// The Settings cards of each column, from top to bottom.
+const SETTINGS_COLUMNS = [["timeouts", "catalog"], ["session_affinity", "headroom"], ["weights"]];
+
 // The value in the file, or null when the file does not set it.
 const fileValue = (group, key) => state.settings.file?.[group]?.[key] ?? null;
 const setting = (group, key) => fileValue(group, key) ?? state.settings.defaults[group][key];
 
 function renderSettings() {
   $("settings-path").textContent = `${fileName(state.settings.path)} · Ctrl+S saves and reloads`;
-  $("settings").innerHTML = SETTINGS.map(([group, title, fields]) => `
+  const card = ([group, title, fields]) => `
     <div class="card"><h3>${esc(title)}</h3>${fields.map(([key, label, unit, hint]) => {
       const id = `set-${group}-${key}`;
       if (key === "enabled") {
@@ -349,7 +352,11 @@ function renderSettings() {
       return `<label class="field" for="${id}"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
         <span class="input"><input type="number" step="any" min="0" id="${id}" value="${value ?? ""}"
           placeholder="${fallback ?? "half of Wait"}"><i>${esc(unit)}</i></span></label>`;
-    }).join("")}</div>`).join("");
+    }).join("")}</div>`;
+  const cards = Object.fromEntries(SETTINGS.map((item) => [item[0], card(item)]));
+  $("settings").innerHTML = SETTINGS_COLUMNS
+    .map((groups) => `<div class="column">${groups.map((group) => cards[group]).join("")}</div>`)
+    .join("");
   renderSettingsSave();
 }
 
