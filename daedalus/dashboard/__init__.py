@@ -251,11 +251,11 @@ def routes(
     if not allowed(request):
       return denied()
     rows = store.model_rows()
-    tiers = tier_map(get_config(), [row["id"] for row in rows])
-    weights = penalties.weights([row["id"] for row in rows])
+    chat = [row["id"] for row in rows if row["mode"] == "chat"]
+    tiers, weights = tier_map(get_config(), chat), penalties.weights(chat)
     return JSONResponse(
       [
-        {**row, "tier": tiers.get(row["id"]), "weight": weights[row["id"]]}
+        {**row, "tier": tiers.get(row["id"]), "weight": weights.get(row["id"])}
         for row in rows
       ]
     )
