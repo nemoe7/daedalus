@@ -8,7 +8,7 @@ import yaml
 DEFAULT_PATH = Path("config/daedalus.yml")
 DEFAULTS: dict[str, dict[str, Any]] = {
   "timeouts": {"request": 600.0, "wait": 60.0, "slow": None},
-  "session_affinity": {"enabled": True, "idle": 3600.0},
+  "session_affinity": {"enabled": True, "idle": 3600.0, "others": 0.05},
   "weights": {
     "enabled": True,
     "success": 1.5,

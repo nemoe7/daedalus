@@ -127,11 +127,11 @@ async def log_request(request: Request, call_next):
   return response
 
 
-def last_user_text(messages: object) -> str:
-  """The text of the last user turn, whatever shape its content takes."""
+def user_text(messages: object, last: bool = True) -> str:
+  """The text of the last or first user turn, whatever shape its content takes."""
   if not isinstance(messages, list):
     return ""
-  for message in reversed(messages):
+  for message in reversed(messages) if last else messages:
     if not isinstance(message, dict) or message.get("role") != "user":
       continue
     content = message.get("content")
@@ -141,6 +141,16 @@ def last_user_text(messages: object) -> str:
       parts = [part.get("text", "") for part in content if isinstance(part, dict)]
       return "\n".join(part for part in parts if part)
   return ""
+
+
+def last_user_text(messages: object) -> str:
+  """The text of the last user turn."""
+  return user_text(messages)
+
+
+def session_key(token: str, messages: object) -> str:
+  """The conversation key: the hash of the bearer token and the first user message."""
+  return keys.digest(f"{token}\n{user_text(messages, last=False)}")
 
 
 @app.get("/health")
@@ -231,10 +241,10 @@ PENALTIES = penalties.Penalties(lambda: store.MODELS_DB)
 
 
 class Tracker:
-  """Weights and the pin of one request, keyed by the hash of its API key."""
+  """Weights and the session model of one request, keyed by its conversation."""
 
-  def __init__(self, token: str, slot: str | None) -> None:
-    self.key = keys.digest(token) if token else ""
+  def __init__(self, key: str, slot: str | None) -> None:
+    self.key = key
     self.slot = slot if AFFINITY else None
     self.dropped = False
 
@@ -291,7 +301,7 @@ async def chat(request: Request) -> Response:
     return error_response(400, "Unknown provider or pool", "invalid_request_error")
   if model == router.RESERVED_MODEL and found[1]:
     request.state.pool = routed_pool(found[1])
-  pin = Tracker(bearer(request), found[1])
+  pin = Tracker(session_key(bearer(request), body["messages"]), found[1])
   models = pin.order(found[0])
   include_usage = bool((body.get("stream_options") or {}).get("include_usage"))
   failure = error_response(502, "No model answered the request", "upstream_error")
@@ -401,6 +411,7 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   TIMEOUT_SECONDS, WAIT_SECONDS = timeouts["request"], timeouts["wait"]
   SLOW_SECONDS, AFFINITY = timeouts["slow"], affinity["enabled"]
   PENALTIES.idle, PENALTIES.enabled = affinity["idle"], weights["enabled"]
+  PENALTIES.others = affinity["others"]
   for name in ("success", "fault", "slow", "hourly"):
     setattr(PENALTIES, name, weights[name])
   set_client(None)

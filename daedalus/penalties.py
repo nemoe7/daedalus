@@ -1,4 +1,4 @@
-"""Model weights and session pins, kept in the model store."""
+"""Model weights and session models (pins), kept in the model store."""
 
 import random
 import sqlite3
@@ -8,6 +8,8 @@ from pathlib import Path
 
 # A pin with no request for this long expires.
 IDLE_SECONDS = 3600.0
+# In a session, each model other than the session model uses its weight times this.
+OTHERS = 0.05
 SUCCESS, FAULT, SLOW, HOURLY = 1.5, 0.5, 0.75, 1.2
 TABLES = (
   (
@@ -22,7 +24,7 @@ TABLES = (
 
 
 class Penalties:
-  """Weights for each model and one pin for each (API key, slot) pair."""
+  """Weights for each model and one session model (pin) for each (conversation, slot) pair."""
 
   def __init__(
     self,
@@ -31,7 +33,7 @@ class Penalties:
     pick: Callable[[], float] = random.random,
   ) -> None:
     self.path, self.clock, self.pick = path, clock, pick
-    self.enabled, self.idle = True, IDLE_SECONDS
+    self.enabled, self.idle, self.others = True, IDLE_SECONDS, OTHERS
     self.success, self.fault, self.slow, self.hourly = SUCCESS, FAULT, SLOW, HOURLY
 
   def connect(self) -> sqlite3.Connection:
@@ -118,16 +120,19 @@ class Penalties:
   def order(
     self, groups: list[list[str]], key: str = "", slot: str | None = None
   ) -> list[str]:
-    """The chain: the pin, else a weighted random model of the first tier, then by weight."""
+    """The chain: a weighted random model of the first tier, then by weight in each tier."""
     seen: set[str] = set()
     groups = [[m for m in group if not (m in seen or seen.add(m))] for group in groups]
     weights = self.weights(list(seen))
+    session = self.pinned(key, slot) if slot else None
+    if session in seen:
+      weights = {m: w if m == session else w * self.others for m, w in weights.items()}
     ranked = [m for group in groups for m in sorted(group, key=lambda m: -weights[m])]
-    first = self.pinned(key, slot) if slot else None
-    if first not in seen and self.enabled:
-      top = next((group for group in groups if group), [])
-      first = self.choose(top, weights)
-    if first not in seen:
+    if not self.enabled:
+      first = session if session in seen else None
+    else:
+      first = self.choose(next((group for group in groups if group), []), weights)
+    if first is None:
       return ranked
     return [first, *(m for m in ranked if m != first)]
 
