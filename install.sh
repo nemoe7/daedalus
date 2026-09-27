@@ -18,4 +18,4 @@ if [ "$(uname -s)" = "Linux" ] && ! grep -qs '^DAEDALUS_UID=' .env; then
 fi
 docker compose up -d --build
 echo "Daedalus runs on http://localhost:3357/v1"
-echo "Set a local API key: docker compose exec daedalus daedalus -k"
+echo "Set a local API key: docker compose exec daedalus daedalus key"

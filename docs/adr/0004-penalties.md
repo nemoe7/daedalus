@@ -56,7 +56,7 @@ The first model that answers becomes the pin. A fault of the pinned model remove
 and the next model that answers becomes the new pin. A pin expires after 1 hour without a
 request.
 
-Weights and pins stay in `models.sqlite3`. A restart keeps them, and `daedalus -c` keeps them
+Weights and pins stay in `models.sqlite3`. A restart keeps them, and `daedalus catalog` keeps them
 when it rebuilds the model table.
 
 ## Consequences

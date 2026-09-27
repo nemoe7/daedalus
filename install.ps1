@@ -14,4 +14,4 @@ if (-not (Test-Path -LiteralPath '.env')) {
 docker compose up -d --build
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Host 'Daedalus runs on http://localhost:3357/v1'
-Write-Host 'Set a local API key: docker compose exec daedalus daedalus -k'
+Write-Host 'Set a local API key: docker compose exec daedalus daedalus key'

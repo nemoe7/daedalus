@@ -105,7 +105,7 @@ def check_local_key(request: Request) -> JSONResponse | None:
     return None
   return error_response(
     401,
-    "Invalid local API key. Send 'Authorization: Bearer <key>'. Set it with daedalus -k.",
+    "Invalid local API key. Send 'Authorization: Bearer <key>'. Set it with daedalus key.",
     "authentication_error",
   )
 
@@ -456,53 +456,44 @@ def run(argv: list[str] | None = None) -> None:
   parser = argparse.ArgumentParser(
     prog="daedalus", description="OpenAI-compatible router for the providers."
   )
-  parser.add_argument(
-    "-i",
-    "--init",
-    nargs="?",
-    const=PORT,
-    type=int,
-    metavar="PORT",
-    help=f"start the router on {HOST}:PORT (default {PORT}); build a missing model store first",
+  commands = parser.add_subparsers(dest="command", metavar="COMMAND")
+  serve = commands.add_parser(
+    "serve",
+    help=f"start the router on {HOST}:PORT; build a missing model store first",
   )
-  parser.add_argument(
-    "-c",
-    "--catalog",
-    action="store_true",
-    help="discover provider models and rebuild the model store",
+  serve.add_argument("port", nargs="?", default=PORT, type=int, help=f"default {PORT}")
+  serve.add_argument(
+    "--catalog", action="store_true", help="rebuild the model store first"
   )
-  parser.add_argument(
-    "-d",
-    "--dump",
-    action="store_true",
-    help="write the raw model list of each provider to .daedalus-state/dump",
+  commands.add_parser(
+    "catalog", help="discover provider models and rebuild the model store"
   )
-  parser.add_argument(
-    "-k",
-    "--key",
-    nargs="?",
-    const="",
-    metavar="KEY",
+  commands.add_parser(
+    "dump", help="write the raw model list of each provider to .daedalus-state/dump"
+  )
+  key = commands.add_parser(
+    "key",
     help=f"set the local API key: a new key without KEY, your KEY, or '{KEY_OFF}' to remove it",
   )
+  key.add_argument("key", nargs="?", default="", metavar="KEY")
   args = parser.parse_args(argv)
-  serve = args.init is not None
-  if args.key not in (None, "", KEY_OFF) and not keys.valid(args.key):
-    parser.error(
-      f"a custom key needs {keys.MIN_LENGTH} or more characters and no spaces"
-    )
-  if not (serve or args.catalog or args.dump or args.key is not None):
+  if args.command is None:
     parser.print_help()
     return
+  if (
+    args.command == "key" and args.key not in ("", KEY_OFF) and not keys.valid(args.key)
+  ):
+    key.error(f"a custom key needs {keys.MIN_LENGTH} or more characters and no spaces")
   setup_logging()
-  if args.key is not None:
+  if args.command == "key":
     set_key(args.key)
-  if args.dump:
+  elif args.command == "dump":
     catalog.dump()
-  if args.catalog or (serve and not catalog.has_store()):
+  elif args.command == "catalog":
     catalog.refresh()
-  if not serve:
-    return
-  import uvicorn
+  else:
+    if args.catalog or not catalog.has_store():
+      catalog.refresh()
+    import uvicorn
 
-  uvicorn.run(app, host=HOST, port=args.init, log_config=None, access_log=False)
+    uvicorn.run(app, host=HOST, port=args.port, log_config=None, access_log=False)
