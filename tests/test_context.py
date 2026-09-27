@@ -78,6 +78,9 @@ def check_requests() -> None:
     response = client.post("/v1/chat/completions", json=large)
     assert response.status_code == 400, response.text
     assert response.json()["error"]["code"] == "context_length_exceeded"
+    api.chain = lambda model, body, config: ([[]], None)
+    response = client.post("/v1/chat/completions", json=large)
+    assert response.status_code == 502, "an empty chain is not a context error"
   finally:
     api.get_config, api.chain = original
     api.set_client(None)
