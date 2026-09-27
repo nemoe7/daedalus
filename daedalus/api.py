@@ -348,7 +348,7 @@ async def chat(request: Request) -> Response:
       stream.relay(pending, events, rest, body, config, include_usage, candidate, pin),
       media_type="text/event-stream",
     )
-  if not tried:
+  if models and not tried:
     return too_long(tokens)
   return failure
 
