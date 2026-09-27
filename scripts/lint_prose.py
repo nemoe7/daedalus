@@ -37,7 +37,7 @@ def main() -> int:
   """Lint every target file, and fail when the linter fails."""
   failures = 0
   for folder in TARGETS:
-    for path in sorted(Path(folder).glob("*.py")):
+    for path in sorted(Path(folder).rglob("*.py")):
       text = prose(path)
       if not text:
         continue
