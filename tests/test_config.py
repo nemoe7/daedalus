@@ -149,7 +149,7 @@ def check_url_substitution() -> None:
   url = providers.settings("cloudflare", loaded["cloudflare"])["discovery_url"]
   assert url == (
     "https://api.cloudflare.com/client/v4/accounts/acct-123"
-    "/ai/models/search?per_page=100&task=Text%20Generation"
+    "/ai/models/search?per_page=100"
   ), url
   left = [text for text in walk(loaded) if "os.environ/" in text]
   assert left == [], left

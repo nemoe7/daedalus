@@ -292,6 +292,11 @@ class OpenAIProvider:
     return {}
 
   @staticmethod
+  def discoverable(row: dict) -> bool:
+    """Whether one discovery row can go into the catalog. The base class keeps all rows."""
+    return True
+
+  @staticmethod
   def auth(key: str) -> dict[str, str]:
     """The header that carries the API key."""
     return {"Authorization": f"Bearer {key}"}

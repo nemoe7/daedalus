@@ -20,6 +20,33 @@ def check_cloudflare() -> None:
   }, found
 
 
+def check_cloudflare_tasks() -> None:
+  tasks = {
+    "@cf/chat": "Text Generation",
+    "@cf/whisper": "Automatic Speech Recognition",
+    "@cf/melotts": "Text-to-Speech",
+    "@cf/flux": "Text-to-Image",
+    "@cf/bge": "Text Embeddings",
+    "@cf/resnet": "Image Classification",
+    "@cf/paid": "Text-to-Image",
+  }
+  rows = [{"name": name, "task": {"name": task}} for name, task in tasks.items()]
+  rows[-1]["properties"] = [{"property_id": "require_workers_paid", "value": "true"}]
+  rows.append({"name": "@cf/none"})
+  provider = {"discovery_match": {"require_workers_paid": False}}
+  kept = discovery.provider_rows("cloudflare", provider, {"result": rows})
+  assert list(kept) == list(tasks)[:5], kept
+  modes = [discovery.native_columns("cloudflare", row)["mode"] for row in kept.values()]
+  assert modes == [
+    "chat",
+    "audio_transcription",
+    "audio_speech",
+    "image_generation",
+    "embedding",
+  ], modes
+  assert list(discovery.provider_rows("groq", {}, {"data": [{"id": "x"}]})) == ["x"]
+
+
 def check_gemini() -> None:
   row = {
     "supportedGenerationMethods": ["generateContent"],
@@ -107,6 +134,7 @@ def check_build_rows() -> None:
 
 def main() -> None:
   check_cloudflare()
+  check_cloudflare_tasks()
   check_gemini()
   check_groq()
   check_openrouter_shape()

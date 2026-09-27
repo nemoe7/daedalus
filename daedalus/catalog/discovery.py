@@ -247,7 +247,16 @@ def discover_provider(
 ) -> list[str]:
   """Read every page of one provider, and return its kept slugs."""
   payload = read_pages(provider_name, provider, fetch)
-  return select(provider, extract_slugs(payload, provider.get("discovery_match")))
+  return select(provider, list(provider_rows(provider_name, provider, payload)))
+
+
+def provider_rows(
+  provider_name: str, provider: dict[str, Any], payload: dict[str, Any]
+) -> dict[str, dict[str, Any]]:
+  """The rows of one payload that `discovery_match` and the provider class keep."""
+  rows = extract_rows(payload, provider.get("discovery_match"))
+  kind = PROVIDERS.get(provider_name, OpenAIProvider)
+  return {slug: row for slug, row in rows.items() if kind.discoverable(row)}
 
 
 def read_providers(
@@ -298,7 +307,7 @@ def build_rows(
   found, skipped = read_providers(config, fetch, failed)
   lines: dict[str, dict[str, Any]] = {}
   for provider_name, provider, payload in found:
-    rows = extract_rows(payload, provider.get("discovery_match"))
+    rows = provider_rows(provider_name, provider, payload)
     for slug in select(provider, list(rows)):
       lines[f"{provider_name}/{slug}"] = native_columns(
         provider_name, rows.get(slug, {})
