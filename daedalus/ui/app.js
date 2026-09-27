@@ -551,7 +551,9 @@ $("model-head").addEventListener("click", (event) => {
   const th = event.target.closest("th[data-sort]");
   if (!th) return;
   const key = th.dataset.sort;
-  state.sort = { key, dir: state.sort.key === key ? -state.sort.dir : 1 };
+  // Up, then down, then back to the default order.
+  const same = state.sort.key === key;
+  state.sort = !same ? { key, dir: 1 } : state.sort.dir > 0 ? { key, dir: -1 } : { key: "", dir: 1 };
   renderSortHeads();
   renderModels();
 });
