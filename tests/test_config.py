@@ -5,7 +5,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from daedalus import catalog, config, providers
+from daedalus import catalog, config, providers, router
 
 SAMPLE = """\
 cloudflare:
@@ -106,6 +106,8 @@ def check_repo_file() -> None:
   kept = catalog.select(loaded["cloudflare"], [*author_prefixed, *paid, *free])
   assert set(free) <= set(kept), kept
   assert not set(author_prefixed + paid) & set(kept), kept
+  qwen = ["cloudflare/@cf/qwen/qwen3-30b-a3b-fp8", "cloudflare/@cf/qwen/qwen3.8-27b"]
+  assert router.candidates(loaded, "TIER-A", qwen) == qwen, "the org head must not hide"
 
 
 def walk(node: object) -> list[str]:
