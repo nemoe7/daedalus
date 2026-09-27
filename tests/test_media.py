@@ -4,11 +4,13 @@ import base64
 import json
 import os
 import struct
+import tempfile
+from pathlib import Path
 
 import httpx
 from fastapi.testclient import TestClient
 
-from daedalus import dashboard
+from daedalus import dashboard, store
 from daedalus.server import api, media, upstream
 
 MASTER = "test-master-key-0001"
@@ -305,6 +307,25 @@ def check_images(fake: Upstream, client: TestClient) -> None:
   assert len(fake.sent) == count, "no upstream call for a bad request"
 
 
+def check_model_list(client: TestClient) -> None:
+  rows = [
+    {"id": "groq/whisper-large-v3", "mode": "audio_transcription"},
+    {"id": "groq/llama", "mode": "chat"},
+    {"id": "mistral/mistral-embed", "mode": "embedding"},
+    {"id": "kilo/new"},
+  ]
+  with tempfile.TemporaryDirectory() as name:
+    original, store.MODELS_DB = store.MODELS_DB, Path(name) / "models.sqlite3"
+    try:
+      store.write_store(rows)
+      names = [row["id"] for row in client.get("/v1/models").json()["data"]]
+    finally:
+      store.MODELS_DB = original
+  assert names[:5] == ["daedalus/auto", *api.router.POOLS], names
+  assert names[5:7] == ["groq/llama", "kilo/new"], "chat models first"
+  assert sorted(names[7:]) == ["groq/whisper-large-v3", "mistral/mistral-embed"], names
+
+
 def main() -> None:
   fake = Upstream()
   upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(fake)))
@@ -319,6 +340,7 @@ def main() -> None:
     check_cloudflare_audio(fake, client)
     check_speech(fake, client)
     check_images(fake, client)
+    check_model_list(client)
   finally:
     media.get_config = original
     upstream.set_client(None)
