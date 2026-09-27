@@ -147,3 +147,19 @@ sequenceDiagram
 | Storage | `.daedalus-state/models.sqlite3`, kept after a restart |
 
 Session affinity keeps 1 response style in a conversation. It also lets the conversation use the prompt cache of the provider. The cache is not guaranteed, but it helps when the provider has one. Without session affinity, the styles of different models mix in 1 conversation. Tests showed that the result is a mess.
+
+## Try again
+
+A try again in Open WebUI on `daedalus/auto` moves the repeated message 1 tier up.
+
+| Item | Value |
+| --- | --- |
+| Found by | The same `X-OpenWebUI-Chat-Id` and the same messages as the last request of that chat. System messages do not count. |
+| Tier | 1 above the pool that answered the last attempt |
+| At tier A | A tier A model that did not answer this message. After all tier A models, the list starts again. |
+| Next new message | The classifier and the session tier, as before |
+| Session model | The model that answers becomes the session model of its tier slot |
+| Weights | No change for the earlier answer |
+| Log | `retry=N`. The Requests page shows "try again N". |
+| Expiry | 1 h with no request, in memory only |
+| Other clients, pools, `provider/slug` | No change |
