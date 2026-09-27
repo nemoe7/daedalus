@@ -31,8 +31,8 @@ UI_DIR = Path(__file__).parent / "ui"
 UI_FILES = {"app.js": "text/javascript", "style.css": "text/css"}
 # The browser asks again each time, so a new version of the page applies at once.
 FRESH = {"Cache-Control": "no-cache"}
-# The files that the editor shows, in tab order.
-FILES = (settings.DEFAULT_PATH, config.DEFAULT_PATH)
+# The files that the Providers editor shows, in tab order. The Settings page has its own form.
+FILES = (config.DEFAULT_PATH,)
 
 
 def record(request: Request, status: int, seconds: float) -> None:
@@ -333,6 +333,43 @@ def routes(
       config.load_config(path)
     else:
       apply(values)
+    return JSONResponse({"ok": True})
+
+  @api.get("/settings")
+  async def settings_values(request: Request) -> JSONResponse:
+    if not allowed(request):
+      return denied()
+    path = settings.DEFAULT_PATH
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    raw = yaml.safe_load(text)
+    return JSONResponse(
+      {
+        "path": str(path),
+        "defaults": settings.DEFAULTS,
+        "file": raw if isinstance(raw, dict) else {},
+      }
+    )
+
+  @api.put("/settings")
+  async def settings_save(request: Request) -> JSONResponse:
+    if not allowed(request):
+      return denied()
+    body = await json_body(request)
+    changes = body.get("changes") if isinstance(body, dict) else None
+    if not isinstance(changes, dict):
+      return failure(400, "The changes must be an object.", "invalid_request_error")
+    path = settings.DEFAULT_PATH
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    try:
+      text = settings.update_text(text, changes)
+      values = settings.parse(text, path)
+    except (settings.SettingsError, yaml.YAMLError) as exc:
+      return failure(422, str(exc), "invalid_request_error")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(text, encoding="utf-8")
+    temporary.replace(path)
+    apply(values)
     return JSONResponse({"ok": True})
 
   return api
