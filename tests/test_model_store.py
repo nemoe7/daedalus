@@ -95,7 +95,9 @@ def main() -> None:
 
     table = Path(folder) / "models.tsv"
     catalog.write_models_tsv(rows, table)
-    header, first, *_ = table.read_text(encoding="utf-8").splitlines()
+    header, first, *rest = table.read_text(encoding="utf-8").splitlines()
+    shown = [line.split("\t")[0] for line in (first, *rest)]
+    assert shown == routable, shown
     assert header.split("\t") == ["id", *catalog.COLUMNS], header
     cells = dict(zip(header.split("\t"), first.split("\t"), strict=True))
     assert cells["id"] == "z-ai/glm-5" and cells["mode"] == "chat", cells
