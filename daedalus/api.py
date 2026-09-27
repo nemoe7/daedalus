@@ -27,12 +27,36 @@ TIMEOUT_SECONDS = 600.0
 WAIT_SECONDS = 60.0
 
 logger = logging.getLogger("daedalus")
+LOG_FORMAT = "%(asctime)s %(levelname)-5s %(name)s %(message)s"
+
+
+def setup_logging() -> None:
+  """Write every log line in one format, without Uvicorn access or httpx request lines."""
+  logging.addLevelName(logging.WARNING, "WARN")
+  logging.basicConfig(
+    level=logging.INFO, format=LOG_FORMAT, datefmt="%Y-%m-%d %H:%M:%S", force=True
+  )
+  logging.getLogger("httpx").setLevel(logging.WARNING)
+  for handler in logging.getLogger().handlers:
+    handler.addFilter(short_name)
+
+
+def short_name(record: logging.LogRecord) -> bool:
+  """Show Uvicorn server lines as `uvicorn`, not as `uvicorn.error`."""
+  if record.name == "uvicorn.error":
+    record.name = "uvicorn"
+  return True
+
+
+def elapsed(started: float) -> str:
+  """The milliseconds since `started`, as log text."""
+  return f"{(time.perf_counter() - started) * 1000:.0f}ms"
 
 
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
   """Set up logging, then close the upstream client on shutdown."""
-  logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+  setup_logging()
   yield
   if _client is not None:
     await _client.aclose()
@@ -86,14 +110,15 @@ def check_local_key(request: Request) -> JSONResponse | None:
 async def log_request(request: Request, call_next):
   started = time.perf_counter()
   response = await call_next(request)
-  elapsed_ms = (time.perf_counter() - started) * 1000
-  logger.info(
-    "%s %s %s %.1fms",
-    request.method,
-    request.url.path,
-    response.status_code,
-    elapsed_ms,
+  models = [
+    f"{key}={getattr(request.state, key)}"
+    for key in ("model", "via")
+    if getattr(request.state, key, None)
+  ]
+  line = " ".join(
+    [request.method, request.url.path, str(response.status_code), elapsed(started)]
   )
+  logger.info(" ".join([line, *models]))
   return response
 
 
@@ -163,6 +188,7 @@ async def chat(request: Request) -> Response:
   if not isinstance(body, dict) or not isinstance(body.get("model"), str):
     return error_response(400, "A model is required", "invalid_request_error")
   model = body["model"]
+  request.state.model = model
   if not isinstance(body.get("messages"), list):
     return error_response(400, "messages must be a list", "invalid_request_error")
   if not model or any(not isinstance(message, dict) for message in body["messages"]):
@@ -190,6 +216,7 @@ async def chat(request: Request) -> Response:
         answer = json.loads(raw)
         if not isinstance(answer, dict) or answer.get("error"):
           raise providers.ProviderError("Invalid upstream answer")
+        request.state.via = candidate
         return JSONResponse(provider.completion(answer, candidate))
       events = sse_data(provider.stream(response, candidate, include_usage))
       first = await anext(events)
@@ -199,14 +226,13 @@ async def chat(request: Request) -> Response:
       )
       continue
     except ATTEMPT_ERRORS as exc:
-      logger.warning(
-        "provider attempt failed for %s: %s", candidate, type(exc).__name__
-      )
+      logger.warning("upstream %s failed: %s", candidate, type(exc).__name__)
       failure = error_response(
         502, "Upstream provider attempt failed", "upstream_error"
       )
       continue
     rest = models[index + 1 :]
+    request.state.via = candidate
     return StreamingResponse(
       relay(first, events, rest, body, config, include_usage),
       media_type="text/event-stream",
@@ -239,7 +265,12 @@ async def attempt(
   """Send one candidate request, and fail on an upstream error status."""
   provider, url, payload, headers = providers.prepare(candidate, body, config)
   upstream = get_client().build_request("POST", url, json=payload, headers=headers)
+  started = time.perf_counter()
   response = await get_client().send(upstream, stream=True)
+  level = logging.WARNING if response.status_code >= 400 else logging.INFO
+  logger.log(
+    level, "upstream %s %d %s", candidate, response.status_code, elapsed(started)
+  )
   if response.status_code >= 400:
     await response.aread()
     await response.aclose()
@@ -312,7 +343,9 @@ async def relay(
         pending = [await anext(events)]
         break
       except (UpstreamStatus, *ATTEMPT_ERRORS) as exc:
-        logger.warning("continuation failed for %s: %s", candidate, type(exc).__name__)
+        logger.warning(
+          "upstream %s continuation failed: %s", candidate, type(exc).__name__
+        )
     else:
       yield STREAM_FAILED
       return
@@ -349,7 +382,7 @@ def run(argv: list[str] | None = None) -> None:
   if not (serve or args.catalog or args.dump):
     parser.print_help()
     return
-  logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+  setup_logging()
   if args.dump:
     catalog.dump()
   if args.catalog or (serve and not catalog.MODELS_DB.exists()):
@@ -358,4 +391,4 @@ def run(argv: list[str] | None = None) -> None:
     return
   import uvicorn
 
-  uvicorn.run(app, host=HOST, port=args.init)
+  uvicorn.run(app, host=HOST, port=args.init, log_config=None, access_log=False)
