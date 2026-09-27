@@ -200,11 +200,14 @@ class Tracker:
     return PENALTIES.order(groups, self.key, self.slot)
 
   def answered(self, model: str, ttft: float) -> str | None:
-    """Update the weight and pin the model. A pin that failed in this request shows as `moved`."""
+    """Update the weight and pin the model. A slow success removes the pin instead."""
     slow = ttft >= SLOW_SECONDS
     PENALTIES.record(model, penalties.SLOW if slow else penalties.SUCCESS)
     if not self.slot:
       return None
+    if slow:
+      PENALTIES.unpin(self.key, self.slot, model)
+      return "slow"
     state = PENALTIES.pin(self.key, self.slot, model)
     return "moved" if self.dropped else state
 
