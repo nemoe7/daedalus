@@ -118,6 +118,17 @@ def check_login(client: TestClient) -> None:
   framed = client.post("/ui/api/login", json=login, headers=https).headers["set-cookie"]
   assert "samesite=none" in framed.lower() and "secure" in framed.lower(), framed
   assert "partitioned" in framed.lower(), "the cookie works in a preview frame"
+  value = client.post("/ui/api/login", json=login).json()["session"]
+  client.cookies.clear()
+  header = {dashboard.HEADER: value}
+  assert client.get("/ui/api/status", headers=header).status_code == 200, (
+    "a frame without cookies"
+  )
+  assert (
+    client.get("/ui/api/status", headers={dashboard.HEADER: "1.x"}).status_code == 401
+  )
+  stale = {dashboard.COOKIE: "1.x"}
+  assert client.get("/ui/api/status", headers=header, cookies=stale).status_code == 200
   remember = client.post("/ui/api/login", json={**login, "remember": True})
   assert (
     f"max-age={dashboard.REMEMBER_SECONDS}" in remember.headers["set-cookie"].lower()
