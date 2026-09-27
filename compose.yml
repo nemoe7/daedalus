@@ -39,16 +39,16 @@ services:
 
   headroom:
     profiles: [headroom]
-    image: ghcr.io/headroomlabs-ai/headroom:latest
+    image: ghcr.io/headroomlabs-ai/headroom:0.39.1-slim # distroless: no shell
     container_name: daedalus-headroom
     command: ["--host", "0.0.0.0", "--port", "8787"]
     environment:
       HEADROOM_COMPRESS_ALLOW_REMOTE: "1" # else Headroom answers the Daedalus container with 404
       HEADROOM_TELEMETRY: "off"
-      HOME: /data
-      HEADROOM_WORKSPACE_DIR: /data/.headroom
+      HOME: /home/nonroot
+      HEADROOM_WORKSPACE_DIR: /home/nonroot/.headroom
     volumes:
-      - headroom:/data
+      - headroom:/home/nonroot # the image user owns this folder, so the new volume is writable
     restart: unless-stopped # no port: only Daedalus connects to it
 
   tailscale:
