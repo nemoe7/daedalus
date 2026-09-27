@@ -7,7 +7,7 @@ timeouts:
 session_affinity:
   enabled: true
   idle: 3600 # seconds without a request, then the session model expires
-  others: 0.05 # in a session, the weight factor of each other model
+  stay: 0.85 # in a session, the share of first-tier draws for the session model
 weights:
   enabled: true # false: all weights stay at 1 and the chain keeps the usual order
   success: 1.5
