@@ -270,6 +270,14 @@ def check_session_tier() -> None:
     assert groups[0] == ["3"] and slot == "daedalus/auto:TIER-B", "the tier stays up"
     assert api.chain(router.RESERVED_MODEL, body, {}, "new")[0][0] == ["1"], "per key"
     assert api.chain(router.RESERVED_MODEL, body, {}, "")[0][0] == ["1"], "no key"
+    call = {"role": "assistant", "content": None, "tool_calls": [{"id": "c"}]}
+    for extra in (call, {"role": "tool", "tool_call_id": "c", "content": "42"}):
+      tiers.append(1)
+      found = api.chain(router.RESERVED_MODEL, {"messages": [*messages, extra]}, {}, "")
+      assert found[0][0] == ["2"], "koinos or higher after a tool call"
+    tiers.append(4)
+    found = api.chain(router.RESERVED_MODEL, {"messages": [*messages, call]}, {}, "")
+    assert found[0][0] == ["4"], "a higher tier stays"
   finally:
     router.required_tier, router.chain_groups, model_store.read_models = original
     api.PENALTIES.clear()
