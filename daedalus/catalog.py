@@ -13,7 +13,7 @@ from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 import httpx
 
 from daedalus.config import STATE_DIR, get_config
-from daedalus.providers import settings
+from daedalus.providers import PROVIDERS, OpenAIProvider, settings
 
 logger = logging.getLogger("daedalus.catalog")
 
@@ -114,25 +114,31 @@ def row_matches(row: dict[str, Any], match: dict[str, Any]) -> bool:
   return True
 
 
-def extract_slugs(
+def extract_rows(
   payload: dict[str, Any], match: dict[str, Any] | None = None
-) -> list[str]:
-  """Take the slug from each row of one payload that `match` keeps."""
+) -> dict[str, dict[str, Any]]:
+  """Map the slug of each row that `match` keeps to that row."""
   shape = row_shape(payload)
   if shape is None:
-    return []
-  slugs: list[str] = []
+    return {}
+  rows: dict[str, dict[str, Any]] = {}
   for row in payload[shape]:
     if not isinstance(row, dict) or not row_matches(row, match or {}):
       continue
     for key in ROW_KEYS[shape]:
       value = row.get(key)
       if isinstance(value, str) and value:
-        slugs.append(
-          value.removeprefix("models/") if shape == STRIPPED_SHAPE else value
-        )
+        slug = value.removeprefix("models/") if shape == STRIPPED_SHAPE else value
+        rows.setdefault(slug, row)
         break
-  return slugs
+  return rows
+
+
+def extract_slugs(
+  payload: dict[str, Any], match: dict[str, Any] | None = None
+) -> list[str]:
+  """Take the slug from each row of one payload that `match` keeps."""
+  return list(extract_rows(payload, match))
 
 
 def merge_pages(pages: list[dict[str, Any]]) -> dict[str, Any]:
@@ -276,20 +282,37 @@ def read_providers(
   return found, skipped
 
 
+def native_columns(provider_name: str, row: dict[str, Any]) -> dict[str, Any]:
+  """The known, non-empty store columns that one provider row gives."""
+  values = PROVIDERS.get(provider_name, OpenAIProvider).columns(row)
+  return {
+    key: value for key, value in values.items() if key in COLUMNS and value is not None
+  }
+
+
+def build_rows(
+  config: dict[str, Any] | None = None,
+  fetch: Fetch = fetch_json,
+) -> tuple[dict[str, dict[str, Any]], list[str]]:
+  """Map each kept catalog line to its provider columns, with one reason per skip."""
+  found, skipped = read_providers(config, fetch)
+  lines: dict[str, dict[str, Any]] = {}
+  for provider_name, provider, payload in found:
+    rows = extract_rows(payload, provider.get("discovery_match"))
+    for slug in select(provider, list(rows)):
+      lines[f"{provider_name}/{slug}"] = native_columns(
+        provider_name, rows.get(slug, {})
+      )
+  return lines, skipped
+
+
 def build_catalog(
   config: dict[str, Any] | None = None,
   fetch: Fetch = fetch_json,
 ) -> tuple[list[str], list[str]]:
   """Build the catalog, and return its lines with one reason per skipped provider."""
-  found, skipped = read_providers(config, fetch)
-  lines = [
-    f"{provider_name}/{slug}"
-    for provider_name, provider, payload in found
-    for slug in select(
-      provider, extract_slugs(payload, provider.get("discovery_match"))
-    )
-  ]
-  return lines, skipped
+  lines, skipped = build_rows(config, fetch)
+  return list(lines), skipped
 
 
 def dump(
@@ -351,9 +374,12 @@ def config_params(provider: dict[str, Any], slug: str) -> dict[str, Any]:
 
 
 def enrich(
-  lines: Iterable[str], config: dict[str, Any], fetch: Fetch = fetch_json
+  lines: Iterable[str],
+  config: dict[str, Any],
+  fetch: Fetch = fetch_json,
+  native: dict[str, dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
-  """Add catalog metadata and config values to each line, config first."""
+  """Add metadata to each line: config, then provider columns, then the LiteLLM catalog."""
   cache: dict[str, dict[str, dict[str, Any]]] = {}
   rows, problems = [], []
   for line in lines:
@@ -367,6 +393,7 @@ def enrich(
     entry = cache[provider_name].get(slug) or {}
     row: dict[str, Any] = {"id": line, "provider": provider_name, "slug": slug}
     row.update({key: entry.get(key) for key in COLUMNS})
+    row.update((native or {}).get(line, {}))
     provider = config.get(provider_name)
     row.update(config_params(provider if isinstance(provider, dict) else {}, slug))
     rows.append(row)
@@ -447,8 +474,9 @@ def read_models(routable_only: bool = True, tools_only: bool = False) -> list[st
 def refresh() -> Path:
   """Discover the provider models, and rewrite the SQLite store and models.tsv."""
   config = get_config()
-  lines, skipped = build_catalog(config)
-  rows, problems = enrich(lines, config)
+  native, skipped = build_rows(config)
+  lines = list(native)
+  rows, problems = enrich(lines, config, native=native)
   write_store(rows)
   target = write_models_tsv(rows)
   for reason in [*skipped, *problems]:
