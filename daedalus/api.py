@@ -1,23 +1,18 @@
-"""OpenAI-compatible local proxy with the upstream key set below, never committed."""
+"""OpenAI-compatible local router for the configured providers."""
 
 import json
 import logging
 import time
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from secrets import compare_digest
-from typing import Any
 
 import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import catalog, gemini, interactions, router
+from daedalus import catalog, providers, router
 from daedalus.config import get_config
-
-# Hardcoded for now. Edit here, not through environment variables.
-UPSTREAM_BASE_URL = "https://api.openai.com"
-API_KEY = ""
 
 # When set, clients must send "Authorization: Bearer <LOCAL_API_KEY>".
 LOCAL_API_KEY = ""
@@ -28,20 +23,6 @@ TIMEOUT_SECONDS = 600.0
 # ADR 2: the wait for one answer. A provider that sends bytes resets it, so a slow
 # stream is not cut off.
 WAIT_SECONDS = 60.0
-
-# Headers that must not cross a proxy hop.
-HOP_BY_HOP = frozenset(
-  {
-    "connection",
-    "keep-alive",
-    "proxy-authenticate",
-    "proxy-authorization",
-    "te",
-    "trailer",
-    "transfer-encoding",
-    "upgrade",
-  }
-)
 
 logger = logging.getLogger("daedalus")
 
@@ -74,23 +55,6 @@ def set_client(client: httpx.AsyncClient | None) -> None:
   """Replace the upstream client. Test seam."""
   global _client
   _client = client
-
-
-def build_upstream_url(path_and_query: str) -> str:
-  """Join the upstream origin with the incoming path and query."""
-  return UPSTREAM_BASE_URL.rstrip("/") + path_and_query
-
-
-def build_upstream_headers(request_headers: Mapping[str, str]) -> dict[str, str]:
-  """Pass client headers through, without hop-by-hop headers and the client key."""
-  headers: dict[str, str] = {}
-  for name, value in request_headers.items():
-    if name.lower() in HOP_BY_HOP or name.lower() in {"host", "authorization"}:
-      continue
-    headers[name] = value
-  if API_KEY:
-    headers["Authorization"] = f"Bearer {API_KEY}"
-  return headers
 
 
 def error_response(status: int, message: str, error_type: str) -> JSONResponse:
@@ -147,91 +111,132 @@ def last_user_text(messages: object) -> str:
   return ""
 
 
-def routed_models(body: bytes) -> tuple[dict[str, Any] | None, list[str]]:
-  """Split a request into its JSON body and the models to try, in order."""
-  empty: tuple[dict[str, Any] | None, list[str]] = (None, [])
-  if "daedalus/" not in body.decode("utf-8", "ignore"):
-    return empty
-  try:
-    payload = json.loads(body)
-  except ValueError:
-    return empty
-  if not isinstance(payload, dict):
-    return empty
-  name = payload.get("model")
-  if not isinstance(name, str) or not name.startswith("daedalus/"):
-    return empty
-  if name in router.POOLS:
-    models = router.route_pool(name, get_config(), catalog.read_models_txt())
-  elif name == router.RESERVED_MODEL:
-    prompt = last_user_text(payload.get("messages"))
-    models = router.route(prompt, get_config(), catalog.read_models_txt())
-  else:
-    return empty
-  if not models:
-    logger.warning("no model in any tier for %s", name)
-  logger.info("routed %s to %d models", name, len(models))
-  return payload, models
-
-
-def body_for(payload: dict[str, Any], model: str) -> bytes:
-  """Encode one attempt of a routed request."""
-  return json.dumps({**payload, "model": model}).encode("utf-8")
-
-
 @app.get("/health")
 async def health() -> dict[str, str]:
-  return {"status": "ok", "upstream": UPSTREAM_BASE_URL}
+  return {"status": "ok"}
 
 
-@app.api_route("/v1/{rest_of_path:path}", methods=["GET", "POST"])
-async def proxy(request: Request, rest_of_path: str) -> Response:
+@app.get("/v1/models")
+async def models(request: Request) -> Response:
   denied = check_local_key(request)
   if denied is not None:
     return denied
+  names = [router.RESERVED_MODEL, *router.POOLS, *catalog.read_models_txt()]
+  data = [{"id": name, "object": "model", "owned_by": "daedalus"} for name in names]
+  return JSONResponse({"object": "list", "data": data})
 
-  query = f"?{request.url.query}" if request.url.query else ""
-  await_body = await request.body()
-  url = build_upstream_url(request.url.path + query)
-  payload, models = routed_models(await_body)
-  attempts = [body_for(payload, model) for model in models] if payload else [await_body]
-  client = get_client()
-  headers = build_upstream_headers(request.headers)
-  failure: Response | None = None
 
-  for content in attempts:
-    upstream_request = client.build_request(
-      request.method, url, content=content, headers=headers
+@app.post("/v1/chat/completions")
+async def chat(request: Request) -> Response:
+  denied = check_local_key(request)
+  if denied is not None:
+    return denied
+  try:
+    body = await request.json()
+  except ValueError:
+    return error_response(400, "Invalid JSON", "invalid_request_error")
+  if not isinstance(body, dict) or not isinstance(body.get("model"), str):
+    return error_response(400, "A model is required", "invalid_request_error")
+  model = body["model"]
+  if not isinstance(body.get("messages"), list):
+    return error_response(400, "messages must be a list", "invalid_request_error")
+  if not model or any(not isinstance(message, dict) for message in body["messages"]):
+    return error_response(400, "Invalid model or messages", "invalid_request_error")
+  if "stream" in body and not isinstance(body["stream"], bool):
+    return error_response(400, "stream must be boolean", "invalid_request_error")
+  if body.get("stream_options") is not None and not isinstance(
+    body["stream_options"], dict
+  ):
+    return error_response(
+      400, "stream_options must be an object", "invalid_request_error"
     )
+  config = get_config()
+  if model in router.POOLS:
+    models = router.route_pool(model, config, catalog.read_models_txt())
+  elif model == router.RESERVED_MODEL:
+    models = router.route(
+      last_user_text(body["messages"]), config, catalog.read_models_txt()
+    )
+  elif model.partition("/")[0] in config:
+    models = [model]
+  else:
+    return error_response(400, "Unknown provider or pool", "invalid_request_error")
+  failure = error_response(502, "No model answered the request", "upstream_error")
+  for candidate in models:
+    response = None
     try:
-      upstream_response = await client.send(upstream_request, stream=True)
-    except httpx.HTTPError as exc:
-      logger.warning("upstream request failed: %s", exc)
-      failure = error_response(502, f"Upstream request failed: {exc}", "upstream_error")
-      continue
-
-    if upstream_response.status_code >= 400:
-      detail = await upstream_response.aread()
-      await upstream_response.aclose()
+      url, payload, headers, kind = providers.prepare(candidate, body, config)
+      upstream = get_client().build_request("POST", url, json=payload, headers=headers)
+      response = await get_client().send(upstream, stream=True)
+      if response.status_code >= 400:
+        await response.aread()
+        failure = error_response(
+          response.status_code,
+          "Upstream provider rejected the request",
+          "upstream_error",
+        )
+        await response.aclose()
+        continue
+      if not body.get("stream"):
+        raw = await response.aread()
+        await response.aclose()
+        answer = json.loads(raw)
+        if not isinstance(answer, dict) or answer.get("error"):
+          raise providers.ProviderError("Invalid upstream answer")
+        if kind != "openai":
+          answer = providers.completion(answer, kind, candidate)
+        return JSONResponse(answer)
+      iterator = (
+        stream_from(response)
+        if kind == "openai"
+        else providers.stream(
+          response,
+          kind,
+          candidate,
+          bool((body.get("stream_options") or {}).get("include_usage")),
+        )
+      )
+      first = await anext(iterator)
+      return StreamingResponse(
+        client_stream(iterator, first), media_type="text/event-stream"
+      )
+    except (
+      httpx.HTTPError,
+      ValueError,
+      KeyError,
+      TypeError,
+      StopAsyncIteration,
+    ) as exc:
+      if response is not None:
+        await response.aclose()
       logger.warning(
-        "upstream answered %s, so the next model tries", upstream_response.status_code
+        "provider attempt failed for %s: %s", candidate, type(exc).__name__
       )
-      failure = Response(
-        content=detail,
-        status_code=upstream_response.status_code,
-        media_type=upstream_response.headers.get("content-type", "application/json"),
+      failure = error_response(
+        502, "Upstream provider attempt failed", "upstream_error"
       )
-      continue
+  return failure
 
-    return StreamingResponse(
-      stream_from(upstream_response),
-      status_code=upstream_response.status_code,
-      media_type=upstream_response.headers.get("content-type", "application/json"),
+
+async def client_stream(
+  iterator: AsyncIterator[bytes], first: bytes
+) -> AsyncIterator[bytes]:
+  try:
+    yield first
+    async for piece in iterator:
+      yield piece
+  except (httpx.HTTPError, ValueError, KeyError, TypeError):
+    yield providers.frame(
+      {
+        "error": {
+          "message": "Upstream stream failed",
+          "type": "upstream_error",
+          "code": 502,
+        }
+      }
     )
-
-  if failure is not None:
-    return failure
-  return error_response(502, "No model answered the request", "upstream_error")
+  finally:
+    await iterator.aclose()
 
 
 def stream_from(upstream_response: httpx.Response) -> AsyncIterator[bytes]:
@@ -239,276 +244,13 @@ def stream_from(upstream_response: httpx.Response) -> AsyncIterator[bytes]:
 
   async def stream() -> AsyncIterator[bytes]:
     try:
-      async for chunk in upstream_response.aiter_raw():
+      async for chunk in upstream_response.aiter_bytes():
         if chunk:
           yield chunk
     finally:
       await upstream_response.aclose()
 
   return stream()
-
-
-async def gemini_frames(
-  upstream_response: httpx.Response, model: str
-) -> AsyncIterator[bytes]:
-  """Translate an OpenAI SSE answer into Gemini SSE frames."""
-  buffer = b""
-  calls = gemini.StreamCalls()
-  try:
-    async for piece in upstream_response.aiter_bytes():
-      buffer += piece
-      while b"\n\n" in buffer:
-        frame, buffer = buffer.split(b"\n\n", 1)
-        for line in frame.split(b"\n"):
-          if not line.startswith(b"data:"):
-            continue
-          payload = line[5:].strip()
-          if payload == b"[DONE]":
-            yield b"data: [DONE]\n\n"
-            continue
-          try:
-            chunk = json.loads(payload)
-          except ValueError:
-            continue
-          out = json.dumps(gemini.chunk_to_gemini(chunk, model, calls)).encode("utf-8")
-          yield b"data: " + out + b"\n\n"
-  finally:
-    await upstream_response.aclose()
-
-
-@app.post("/v1beta/models/{target:path}")
-async def gemini_proxy(request: Request, target: str) -> Response:
-  """Take a Gemini generateContent request and answer in the Gemini shape."""
-  denied = check_local_key(request)
-  if denied is not None:
-    return denied
-
-  model, _, action = target.rpartition(":")
-  if not model or action not in {"generateContent", "streamGenerateContent"}:
-    return error_response(
-      404, f"Unknown Gemini action: {target}", "invalid_request_error"
-    )
-  try:
-    body = json.loads(await request.body())
-  except ValueError:
-    return error_response(
-      400, "Request body is not valid JSON", "invalid_request_error"
-    )
-  if not isinstance(body, dict):
-    return error_response(
-      400, "Request body is not a JSON object", "invalid_request_error"
-    )
-
-  streaming = action == "streamGenerateContent"
-  payload = gemini.to_openai(model, body)
-  if streaming:
-    payload["stream"] = True
-  logger.info("gemini %s to %s, stream=%s", action, model, streaming)
-
-  client = get_client()
-  upstream_request = client.build_request(
-    "POST",
-    build_upstream_url("/v1/chat/completions"),
-    content=json.dumps(payload).encode("utf-8"),
-    headers=build_upstream_headers(request.headers),
-  )
-  try:
-    upstream_response = await client.send(upstream_request, stream=True)
-  except httpx.HTTPError as exc:
-    logger.warning("upstream request failed: %s", exc)
-    return error_response(502, f"Upstream request failed: {exc}", "upstream_error")
-
-  if upstream_response.status_code >= 400:
-    detail = await upstream_response.aread()
-    await upstream_response.aclose()
-    return Response(
-      content=detail,
-      status_code=upstream_response.status_code,
-      media_type=upstream_response.headers.get("content-type", "application/json"),
-    )
-
-  if streaming:
-    return StreamingResponse(
-      gemini_frames(upstream_response, model), media_type="text/event-stream"
-    )
-
-  raw = await upstream_response.aread()
-  await upstream_response.aclose()
-  try:
-    answer = json.loads(raw)
-  except ValueError:
-    return Response(content=raw, status_code=200, media_type="application/json")
-  return JSONResponse(gemini.to_gemini(answer, model))
-
-
-async def send_upstream(
-  url: str, content: bytes, headers: Mapping[str, str]
-) -> httpx.Response:
-  """Send one upstream request, ready to stream."""
-  client = get_client()
-  request = client.build_request("POST", url, content=content, headers=headers)
-  return await client.send(request, stream=True)
-
-
-@app.post("/v1beta/interactions")
-async def interactions_proxy(request: Request) -> Response:
-  """Take an interactions request and answer in the interactions shape."""
-  denied = check_local_key(request)
-  if denied is not None:
-    return denied
-
-  try:
-    body = json.loads(await request.body())
-  except ValueError:
-    return error_response(
-      400, "Request body is not valid JSON", "invalid_request_error"
-    )
-  if not isinstance(body, dict):
-    return error_response(
-      400, "Request body is not a JSON object", "invalid_request_error"
-    )
-
-  model = interactions.model_of(body)
-  if not model:
-    return error_response(400, "The request names no model", "invalid_request_error")
-  streaming = bool(body.get("stream")) or "alt=sse" in request.url.query
-  prior_id = str(
-    body.get("previous_interaction_id") or body.get("previousInteractionId") or ""
-  )
-  record = interactions.load(prior_id) if prior_id else {}
-  interaction_id = interactions.safe_id(prior_id) or interactions.new_id()
-  prior_steps = interactions.steps_in(record)
-  payload = interactions.to_openai(body)
-  payload["messages"] = [*interactions.history_of(record), *payload["messages"]]
-  if streaming:
-    payload["stream"] = True
-  logger.info("interaction %s for %s, stream=%s", interaction_id, model, streaming)
-
-  try:
-    upstream_response = await send_upstream(
-      build_upstream_url("/v1/chat/completions"),
-      json.dumps(payload).encode("utf-8"),
-      build_upstream_headers(request.headers),
-    )
-  except httpx.HTTPError as exc:
-    logger.warning("upstream request failed: %s", exc)
-    return error_response(502, f"Upstream request failed: {exc}", "upstream_error")
-
-  if upstream_response.status_code >= 400:
-    detail = await upstream_response.aread()
-    await upstream_response.aclose()
-    return Response(
-      content=detail,
-      status_code=upstream_response.status_code,
-      media_type=upstream_response.headers.get("content-type", "application/json"),
-    )
-
-  if streaming:
-
-    def on_finish(text: str, usage: dict[str, Any]) -> None:
-      store_turn(
-        interaction_id, model, payload["messages"], prior_steps, body, text, usage
-      )
-
-    return StreamingResponse(
-      interaction_frames(
-        upstream_response, interactions.Stream(model, interaction_id), on_finish
-      ),
-      media_type="text/event-stream",
-    )
-
-  raw = await upstream_response.aread()
-  await upstream_response.aclose()
-  try:
-    answer = json.loads(raw)
-  except ValueError:
-    return Response(content=raw, status_code=200, media_type="application/json")
-  store_turn(
-    interaction_id,
-    model,
-    payload["messages"],
-    prior_steps,
-    body,
-    answer_text(answer),
-    (answer.get("usage") or {}) if isinstance(answer, dict) else {},
-  )
-  return JSONResponse(
-    interactions.to_interaction(answer, body, model, interaction_id, prior_steps)
-  )
-
-
-def answer_text(answer: dict[str, Any]) -> str:
-  """The text of one upstream answer."""
-  message = gemini.first(answer.get("choices")).get("message") or {}
-  text = message.get("content")
-  return text if isinstance(text, str) else ""
-
-
-def store_turn(
-  interaction_id: str,
-  model: str,
-  messages: list[dict[str, Any]],
-  prior_steps: list[dict[str, Any]],
-  body: dict[str, Any],
-  text: str,
-  usage: dict[str, Any],
-) -> None:
-  """Add one finished turn to the stored interaction."""
-  answer: dict[str, Any] = {
-    "choices": [
-      {
-        "index": 0,
-        "message": {"role": "assistant", "content": text},
-        "finish_reason": "stop",
-      }
-    ],
-    "usage": usage,
-  }
-  interactions.save(
-    interaction_id,
-    {
-      "model": model,
-      "messages": [*messages, *interactions.assistant_messages(answer)],
-      "steps": [*prior_steps, *interactions.steps_of(body, answer)],
-    },
-  )
-
-
-async def interaction_frames(
-  upstream_response: httpx.Response,
-  stream: interactions.Stream,
-  on_finish,
-) -> AsyncIterator[bytes]:
-  """Translate an OpenAI SSE answer into interactions SSE events."""
-  buffer = b""
-  last: dict[str, Any] = {}
-  pieces: list[str] = []
-  try:
-    async for piece in upstream_response.aiter_bytes():
-      buffer += piece
-      while b"\n\n" in buffer:
-        block, buffer = buffer.split(b"\n\n", 1)
-        for line in block.split(b"\n"):
-          if not line.startswith(b"data:"):
-            continue
-          payload = line[5:].strip()
-          if payload == b"[DONE]":
-            on_finish("".join(pieces), last.get("usage") or {})
-            yield interactions.frame(stream.close(last))
-            return
-          try:
-            chunk = json.loads(payload)
-          except ValueError:
-            continue
-          if isinstance(chunk, dict) and chunk:
-            last = chunk
-          delta = gemini.first(chunk.get("choices")).get("delta") or {}
-          text = delta.get("content")
-          if isinstance(text, str):
-            pieces.append(text)
-            yield interactions.frame(stream.delta(text))
-  finally:
-    await upstream_response.aclose()
 
 
 def run() -> None:
