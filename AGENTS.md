@@ -31,6 +31,17 @@ An ADR holds one decision and the reason for it.
 - Use lists and tables. A human reads the text, not a model.
 - Write at most four sentences in a paragraph, and keep only the core idea.
 
+## Docs workflow
+
+- Write only facts that the code or a source shows.
+- For each point that needs the owner's words or decision, add a `> Q:` line with the
+  question. The owner writes the answer. Keep the question until the owner answers it.
+- Use a neutral voice. Do not add a claim, an opinion or a promise that the owner did not
+  make.
+- Lint each changed file with `.agents/skills/asd-ste100/scripts/ste-lint.py`. The run must
+  report 0 violations.
+- Show each command for cmd, PowerShell and bash. Use Mermaid for diagrams.
+
 ## Code comments
 
 - Write a comment only where the function is extremely complex.
