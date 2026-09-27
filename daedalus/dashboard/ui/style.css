@@ -117,6 +117,7 @@ select {
 }
 .models th:not(:first-child), .models td:not(:first-child) { padding-left: 8px; padding-right: 8px; }
 .models th:not(:first-child), .models td:not(:first-child) { width: 1%; white-space: nowrap; }
+.models th:last-child, .models td:last-child { padding-right: 16px; }
 .models .weight { width: 150px; }
 .models .mid { text-align: center; }
 .models th.mid .sort { margin: 0 auto; }
