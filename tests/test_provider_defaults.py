@@ -74,9 +74,9 @@ def main() -> None:
     seen.append(url)
     return {"data": [{"id": "model"}]}
 
-  lines, skipped = discovery.build_catalog({"mistral": {"api_key": "k"}}, fetch)
+  lines, skipped = discovery.build_rows({"mistral": {"api_key": "k"}}, fetch)
   assert seen == ["https://api.mistral.ai/v1/models"], seen
-  assert lines == ["mistral/model"] and skipped == [], (lines, skipped)
+  assert list(lines) == ["mistral/model"] and skipped == [], (lines, skipped)
   check_mistral_fields()
   check_hidden_inputs()
   print("ok: provider defaults")

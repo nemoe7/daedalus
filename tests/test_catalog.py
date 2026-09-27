@@ -134,18 +134,28 @@ def check_matches() -> None:
   assert not discovery.matches("!^glm-4\\.[67]$", "glm-4.6")
 
 
-def check_extract_slugs() -> None:
-  data = discovery.extract_slugs({"data": [{"id": "a"}, {"id": "b"}]})
+def row_slugs(payload: dict, match: dict | None = None) -> list[str]:
+  return list(discovery.extract_rows(payload, match))
+
+
+def discover(name: str, fetch) -> tuple[list[str], list[str]]:
+  """The kept slugs and skip reasons of 1 provider, through the catalog build."""
+  lines, skipped = discovery.build_rows({name: CONFIG[name]}, fetch)
+  return [line.split("/", 1)[1] for line in lines], skipped
+
+
+def check_extract_row_slugs() -> None:
+  data = row_slugs({"data": [{"id": "a"}, {"id": "b"}]})
   assert data == ["a", "b"], data
-  gemini = discovery.extract_slugs({"models": [{"name": "models/gemini-3.5-flash"}]})
+  gemini = row_slugs({"models": [{"name": "models/gemini-3.5-flash"}]})
   assert gemini == ["gemini-3.5-flash"], gemini
-  cloudflare = discovery.extract_slugs(
+  cloudflare = row_slugs(
     {"result": [{"id": "fe8904cf-e20e", "name": "@cf/qwen/qwq-32b"}]}
   )
   assert cloudflare == ["@cf/qwen/qwq-32b"], cloudflare
-  junk = discovery.extract_slugs({"data": ["x", {"no_id": 1}, {"id": ""}]})
+  junk = row_slugs({"data": ["x", {"no_id": 1}, {"id": ""}]})
   assert junk == [], junk
-  assert discovery.extract_slugs({"result": None, "success": False}) == []
+  assert row_slugs({"result": None, "success": False}) == []
 
 
 def check_next_page_url() -> None:
@@ -219,14 +229,14 @@ def check_auth_headers() -> None:
   assert discovery.auth_headers("groq", {"api_key": ""}) == {}
 
 
-def check_discover_provider() -> None:
+def check_discover() -> None:
   fetch = make_fetch(PAYOUT)
-  gemini = discovery.discover_provider("gemini", CONFIG["gemini"], fetch)
+  gemini, _ = discover("gemini", fetch)
   assert gemini == ["gemini-3.5-flash", "gemini-3.6-flash"], gemini
   assert SEEN["https://gem.test/v1beta/models"][0] == {"x-goog-api-key": "gem-token"}
 
   # Cloudflare pages on its row total, and takes `name`, not the UUID `id`.
-  cloudflare = discovery.discover_provider("cloudflare", CONFIG["cloudflare"], fetch)
+  cloudflare, _ = discover("cloudflare", fetch)
   assert "@cf/openai/gpt-oss-120b" in cloudflare, cloudflare
   assert "@cf/qwen/qwq-32b" in cloudflare, cloudflare
   assert "@cf/zai-org/glm-5.3" not in cloudflare, cloudflare
@@ -237,21 +247,16 @@ def check_discover_provider() -> None:
   assert "https://cf.test/accounts/x/ai/models/search?per_page=100&page=2" in SEEN
 
   # A single page, and no row survives `exclude: ["*"]`.
-  openrouter = discovery.discover_provider("openrouter", CONFIG["openrouter"], fetch)
+  openrouter, _ = discover("openrouter", fetch)
   assert openrouter == ["google/gemma-4-26b-a4b-it:free"], openrouter
-  assert discovery.discover_provider("z-ai", CONFIG["z-ai"], fetch) == []
-
-  try:
-    discovery.discover_provider("denied", CONFIG["denied"], fetch)
-  except ValueError as error:
-    assert str(error) == "No route for that URI", error
-  else:
-    raise AssertionError("a failed envelope must raise")
+  assert discover("z-ai", fetch) == ([], []), "no row survives the star exclude"
+  denied = discover("denied", fetch)
+  assert denied == ([], ["denied: No route for that URI"]), denied
 
 
-def check_build_catalog() -> None:
-  lines, skipped = discovery.build_catalog(CONFIG, make_fetch(PAYOUT))
-  assert lines == [
+def check_build_rows() -> None:
+  lines, skipped = discovery.build_rows(CONFIG, make_fetch(PAYOUT))
+  assert list(lines) == [
     "cloudflare/@cf/deepseek-ai/deepseek-r1-distill-llama-8b",
     "cloudflare/@cf/meta/llama-guard-3-8b",
     "cloudflare/@cf/openai/gpt-oss-120b",
@@ -276,12 +281,16 @@ def check_discovery_match() -> None:
     ]
   }
   match = {"paid": False}
-  slugs = discovery.extract_slugs(payload, match)
+  slugs = row_slugs(payload, match)
   assert slugs == ["@cf/a/free", "@cf/a/open"], slugs
-  assert len(discovery.extract_slugs(payload)) == 4, "no match keeps every row"
-  provider = {"discovery_url": "https://m.test/s", "discovery_match": match}
-  kept = discovery.discover_provider("m", provider, lambda *_: payload)
-  assert kept == ["@cf/a/free", "@cf/a/open"], kept
+  assert len(row_slugs(payload)) == 4, "no match keeps every row"
+  provider = {
+    "api_key": "k",
+    "discovery_url": "https://m.test/s",
+    "discovery_match": match,
+  }
+  lines, _ = discovery.build_rows({"m": provider}, lambda *_: payload)
+  assert list(lines) == ["m/@cf/a/free", "m/@cf/a/open"], lines
 
 
 def check_dump() -> None:
@@ -298,7 +307,7 @@ def check_dump() -> None:
     ], names
     assert not stale.exists(), "a failed provider keeps no old dump"
     cloudflare = json.loads((Path(folder) / "cloudflare.json").read_text("utf-8"))
-    slugs = discovery.extract_slugs(cloudflare)
+    slugs = row_slugs(cloudflare)
     assert "@cf/zai-org/glm-5.3" in slugs, "the dump keeps excluded rows"
     assert "@cf/openai/gpt-oss-120b" in slugs, "the dump merges every page"
 
@@ -431,13 +440,13 @@ def check_failed_providers() -> None:
 
 def main() -> int:
   check_matches()
-  check_extract_slugs()
+  check_extract_row_slugs()
   check_next_page_url()
   check_failure()
   check_select()
   check_auth_headers()
-  check_discover_provider()
-  check_build_catalog()
+  check_discover()
+  check_build_rows()
   check_merge_pages()
   check_dump()
   check_discovery_match()

@@ -75,15 +75,6 @@ def fallback_order(tier: int) -> tuple[int, ...]:
   return above + below
 
 
-def chain_models(
-  config: Mapping[str, Any],
-  lines: list[str],
-  order: tuple[int, ...],
-) -> list[str]:
-  """Every `provider/slug` in a tier chain, in the order the proxy tries them."""
-  return [line for group in chain_groups(config, lines, order) for line in group]
-
-
 def chain_groups(
   config: Mapping[str, Any],
   lines: list[str],
@@ -93,29 +84,7 @@ def chain_groups(
   return [candidates(config, TIER_NAMES[tier], lines) for tier in order]
 
 
-def route(
-  prompt: str,
-  config: Mapping[str, Any],
-  lines: list[str],
-  artifact: Artifact | None = None,
-) -> list[str]:
-  """The models for a prompt, in the order the proxy tries them."""
-  return chain_models(config, lines, fallback_order(required_tier(prompt, artifact)))
-
-
 def required_tier(prompt: str, artifact: Artifact | None = None) -> int:
   """The cheapest tier that will do for one prompt."""
   table: Final = load_artifact() if artifact is None else artifact
   return predict(prompt, table).required_tier
-
-
-def route_pool(
-  pool: str,
-  config: Mapping[str, Any],
-  lines: list[str],
-) -> list[str]:
-  """The models for a named pool, with no classifier call."""
-  tier = POOLS.get(pool)
-  if tier is None:
-    return []
-  return chain_models(config, lines, fallback_order(tier))
