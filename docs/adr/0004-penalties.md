@@ -28,7 +28,7 @@ or a failed stream. One weight applies to all clients.
 
 TTFT is the time from the send to the first chunk with text or a tool call. Chunks without
 content, for example a role chunk or a keep-alive comment, do not stop the clock. Without a
-stream, TTFT is the time to the full answer. A successful request logs `ttft=Nms`.
+stream, TTFT is the time to the full answer. A successful request logs `ttft=N.NNNs`, in seconds with 3 decimals.
 
 ### Order
 
