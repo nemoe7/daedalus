@@ -116,7 +116,7 @@ async def log_request(request: Request, call_next):
   response = await call_next(request)
   models = [
     f"{key}={getattr(request.state, key)}"
-    for key in ("model", "via", "pin", "ttft")
+    for key in ("model", "pool", "via", "pin", "ttft")
     if getattr(request.state, key, None)
   ]
   line = " ".join(
@@ -186,6 +186,14 @@ def chain(
   return None
 
 
+def routed_pool(slot: str) -> str:
+  """The short name of the pool that serves a `daedalus/auto` slot."""
+  if slot == router.PRAKTOS:
+    return slot.rpartition("/")[2]
+  names = {router.TIER_NAMES[tier]: name for name, tier in router.POOLS.items()}
+  return names[slot.rpartition(":")[2]].rpartition("/")[2]
+
+
 PENALTIES = penalties.Penalties(lambda: catalog.MODELS_DB)
 
 
@@ -247,6 +255,8 @@ async def chat(request: Request) -> Response:
   found = chain(model, body, config)
   if found is None:
     return error_response(400, "Unknown provider or pool", "invalid_request_error")
+  if model == router.RESERVED_MODEL and found[1]:
+    request.state.pool = routed_pool(found[1])
   pin = Tracker(bearer(request), found[1])
   models = pin.order(found[0])
   include_usage = bool((body.get("stream_options") or {}).get("include_usage"))
