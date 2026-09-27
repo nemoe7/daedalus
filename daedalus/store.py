@@ -99,6 +99,27 @@ def read_models(routable_only: bool = True, tools_only: bool = False) -> list[st
     database.close()
 
 
+def model_rows() -> list[dict[str, Any]]:
+  """The routable rows, with the input limit and the tool flag."""
+  if not Path(MODELS_DB).exists():
+    return []
+  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
+  try:
+    rows = database.execute(
+      "SELECT id, mode, max_input_tokens, supports_function_calling FROM models"
+      " ORDER BY rowid"
+    ).fetchall()
+  except sqlite3.OperationalError:
+    return []
+  finally:
+    database.close()
+  return [
+    {"id": key, "max_input_tokens": limit, "tools": bool(tools)}
+    for key, mode, limit, tools in rows
+    if mode in ROUTABLE_MODES
+  ]
+
+
 def input_limits() -> dict[str, int]:
   """The `max_input_tokens` of each stored model that has one."""
   if not Path(MODELS_DB).exists():

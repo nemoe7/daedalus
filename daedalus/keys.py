@@ -19,6 +19,11 @@ def valid(key: str) -> bool:
   return len(key) >= MIN_LENGTH and not any(char.isspace() for char in key)
 
 
+def bearer(header: str) -> str:
+  """The token of an `Authorization: Bearer` header, or an empty string."""
+  return header[7:].strip() if header.lower().startswith("bearer ") else ""
+
+
 def digest(key: str) -> str:
   return hashlib.sha256(key.encode()).hexdigest()
 
