@@ -1,9 +1,13 @@
 from daedalus import providers
 
+GEMINI = providers.GeminiProvider(
+  "gemini", {"api_base": "https://gemini.test", "api_key": "k"}
+)
+
 
 def body(model: str, **extra: object) -> dict:
   payload = {"model": model, "messages": [{"role": "user", "content": "hi"}], **extra}
-  return providers.native_request(payload, "gemini", model)
+  return GEMINI.body(model, payload)
 
 
 def main() -> None:
@@ -135,7 +139,7 @@ def main() -> None:
       {"content": {"parts": [{"text": "two"}]}, "finishReason": "MAX_TOKENS"},
     ]
   }
-  result = providers.completion(answer, "gemini", "gemini/m")
+  result = GEMINI.completion(answer, "gemini/m")
   first, second = result["choices"]
   assert first["message"] == {
     "role": "assistant",

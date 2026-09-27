@@ -166,7 +166,7 @@ async def chat(request: Request) -> Response:
   for candidate in models:
     response = None
     try:
-      url, payload, headers, kind = providers.prepare(candidate, body, config)
+      provider, url, payload, headers = providers.prepare(candidate, body, config)
       upstream = get_client().build_request("POST", url, json=payload, headers=headers)
       response = await get_client().send(upstream, stream=True)
       if response.status_code >= 400:
@@ -184,19 +184,9 @@ async def chat(request: Request) -> Response:
         answer = json.loads(raw)
         if not isinstance(answer, dict) or answer.get("error"):
           raise providers.ProviderError("Invalid upstream answer")
-        if kind != "openai":
-          answer = providers.completion(answer, kind, candidate)
-        return JSONResponse(answer)
-      iterator = (
-        stream_from(response)
-        if kind == "openai"
-        else providers.stream(
-          response,
-          kind,
-          candidate,
-          bool((body.get("stream_options") or {}).get("include_usage")),
-        )
-      )
+        return JSONResponse(provider.completion(answer, candidate))
+      include_usage = bool((body.get("stream_options") or {}).get("include_usage"))
+      iterator = provider.stream(response, candidate, include_usage)
       first = await anext(iterator)
       return StreamingResponse(
         client_stream(iterator, first), media_type="text/event-stream"
@@ -238,20 +228,6 @@ async def client_stream(
     )
   finally:
     await iterator.aclose()
-
-
-def stream_from(upstream_response: httpx.Response) -> AsyncIterator[bytes]:
-  """Pass one upstream answer through, unbuffered."""
-
-  async def stream() -> AsyncIterator[bytes]:
-    try:
-      async for chunk in upstream_response.aiter_bytes():
-        if chunk:
-          yield chunk
-    finally:
-      await upstream_response.aclose()
-
-  return stream()
 
 
 def run() -> None:
