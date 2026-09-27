@@ -17,4 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends tzdata \
 
 USER daedalus
 EXPOSE 3357
+# The first start can build the catalog before the server listens, so the start period is long.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
+  CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('DAEDALUS_PORT', '3357') + '/health', timeout=4)"
 CMD ["daedalus", "serve"]
