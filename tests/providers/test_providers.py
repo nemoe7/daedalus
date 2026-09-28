@@ -1,6 +1,4 @@
-import asyncio
 import json
-import os
 import tempfile
 from pathlib import Path
 
@@ -12,10 +10,9 @@ from daedalus.server.upstream import set_client
 
 MASTER = "test-master-key-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}
-os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 
 
-async def main() -> None:
+async def test_providers() -> None:
   seen = []
   mode = "text"
   native = {
@@ -250,14 +247,3 @@ async def main() -> None:
           assert sent["generationConfig"]["responseJsonSchema"] == {"type": "object"}
   set_client(None)
   config.set_config(None)
-  print("ok: provider routing, native requests, responses, streams, and fallback")
-
-
-def run() -> None:
-  with tempfile.TemporaryDirectory() as folder:
-    store.MODELS_DB = Path(folder) / "models.sqlite3"
-    asyncio.run(main())
-
-
-if __name__ == "__main__":
-  run()

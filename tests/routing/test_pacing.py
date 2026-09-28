@@ -1,8 +1,4 @@
-"""Runnable check of the rpm and tpm pacing. Run: python tests/routing/test_pacing.py"""
-
-import os
-import tempfile
-from pathlib import Path
+"""Tests of the rpm and tpm pacing."""
 
 import httpx
 from fastapi.testclient import TestClient
@@ -12,10 +8,9 @@ from daedalus.routing import pacing
 from daedalus.server import api, upstream
 
 MASTER = "test-master-key-0001"
-os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 
 
-def check_window() -> None:
+def test_window() -> None:
   clock = {"now": 1000.0}
   paced = pacing.Pacing(lambda: clock["now"])
   limits = {"a/1": (2.0, None), "b/1": (None, 100.0)}
@@ -39,7 +34,7 @@ def check_window() -> None:
   assert not paced.recent("c/1"), "no counts when off"
 
 
-def check_limits() -> None:
+def test_limits() -> None:
   rows = [
     {"id": "first/a", "rpm": 1},
     {"id": "second/b", "tpm": "500"},
@@ -51,7 +46,7 @@ def check_limits() -> None:
   assert limits == {"first/a": (1.0, None), "second/b": (None, 500.0)}, limits
 
 
-def check_requests() -> None:
+def test_requests() -> None:
   config = {
     "first": {"api_key": "k", "api_base": "https://one.test/v1"},
     "second": {"api_key": "k", "api_base": "https://two.test/v1"},
@@ -98,19 +93,3 @@ def check_requests() -> None:
     api.PACING.enabled = True
     api.PACING.clear()
     upstream.set_client(None)
-
-
-def main() -> None:
-  with tempfile.TemporaryDirectory() as folder:
-    original, store.MODELS_DB = store.MODELS_DB, Path(folder) / "models.sqlite3"
-    try:
-      check_window()
-      check_limits()
-      check_requests()
-    finally:
-      store.MODELS_DB = original
-  print("ok: rpm and tpm pacing")
-
-
-if __name__ == "__main__":
-  main()

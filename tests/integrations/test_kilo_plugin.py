@@ -4,10 +4,11 @@ import json
 import os
 import shutil
 import subprocess
-import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+
+import pytest
 
 PLUGIN = Path(__file__).resolve().parents[2] / "integrations" / "kilo" / "daedalus.js"
 KEY = "sk-test"
@@ -81,7 +82,7 @@ def run(config: dict, data: str, env_key: str = "") -> tuple[dict, str]:
   return json.loads(done.stdout)["provider"], done.stderr
 
 
-def check_patch(base: str, data: str) -> None:
+def test_patch(base: str, data: str) -> None:
   found, log = run(provider(base, {"apiKey": KEY}), data)
   models = found["daedalus"]["models"]
   assert models["daedalus/auto"] == {
@@ -100,7 +101,7 @@ def check_patch(base: str, data: str) -> None:
   assert "patched 2 models" in log, log
 
 
-def check_keys(base: str, data: str) -> None:
+def test_keys(base: str, data: str) -> None:
   kilo = Path(data) / "kilo"
   kilo.mkdir()
   (kilo / "auth.json").write_text(json.dumps({"daedalus": {"type": "api", "key": KEY}}))
@@ -111,29 +112,23 @@ def check_keys(base: str, data: str) -> None:
   assert "limit" in found["daedalus"]["models"]["gemini/gemini-3.7-flash"], "variable"
 
 
-def check_fail_open(base: str, data: str) -> None:
+def test_fail_open(base: str, data: str) -> None:
   config = provider(base, {"apiKey": "sk-wrong"})
   found, log = run(config, data)
   assert found == config["provider"], "no change on an error"
   assert "fail open GET" in log and "HTTP 401" in log, log
 
 
-def main() -> None:
+@pytest.fixture(scope="module")
+def base():
   if shutil.which("node") is None:
-    print("skip: kilo plugin, no node")
-    return
+    pytest.skip("no node")
   server = ThreadingHTTPServer(("127.0.0.1", 0), Stub)
   threading.Thread(target=server.serve_forever, daemon=True).start()
-  base = f"http://127.0.0.1:{server.server_address[1]}/v1"
-  try:
-    with tempfile.TemporaryDirectory() as data:
-      check_patch(base, data)
-      check_keys(base, data)
-      check_fail_open(base, data)
-  finally:
-    server.shutdown()
-  print("ok: kilo plugin")
+  yield f"http://127.0.0.1:{server.server_address[1]}/v1"
+  server.shutdown()
 
 
-if __name__ == "__main__":
-  main()
+@pytest.fixture(scope="module")
+def data(tmp_path_factory: pytest.TempPathFactory) -> str:
+  return str(tmp_path_factory.mktemp("kilo"))

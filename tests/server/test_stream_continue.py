@@ -1,6 +1,4 @@
-import asyncio
 import json
-import os
 import tempfile
 from pathlib import Path
 
@@ -12,7 +10,6 @@ from daedalus.server.upstream import set_client
 
 MASTER = "test-master-key-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}
-os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 
 TIER = {"TIER-D": ["x"]}
 SEEN: list[tuple[str, dict]] = []
@@ -67,7 +64,7 @@ async def send(client: httpx.AsyncClient) -> list[str]:
   return output(response.text)
 
 
-async def main() -> None:
+async def test_stream_continue() -> None:
   names = ("a", "b", "c")
   config.set_config(
     {
@@ -150,8 +147,3 @@ async def main() -> None:
   store.MODELS_DB = saved
   set_client(None)
   config.set_config(None)
-  print("ok: stream continuation")
-
-
-if __name__ == "__main__":
-  asyncio.run(main())

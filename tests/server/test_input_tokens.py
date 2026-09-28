@@ -1,6 +1,4 @@
-import asyncio
 import json
-import os
 import tempfile
 from pathlib import Path
 
@@ -13,7 +11,6 @@ from daedalus.server.upstream import set_client
 
 MASTER = "test-master-key-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}
-os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 
 SEEN: list[dict] = []
 MESSAGES = [{"role": "user", "content": "hello there"}]
@@ -55,7 +52,7 @@ def last_tokens() -> dict:
   return dashboard.HISTORY.latest(1)[0]["tokens"]
 
 
-async def main() -> None:
+async def test_input_tokens() -> None:
   config.set_config(
     {
       name: {"api_base": f"https://{name}.test/v1", "api_key": "k"}
@@ -93,8 +90,3 @@ async def main() -> None:
   store.MODELS_DB = saved
   set_client(None)
   config.set_config(None)
-  print("ok: input tokens")
-
-
-if __name__ == "__main__":
-  asyncio.run(main())

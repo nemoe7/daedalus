@@ -1,11 +1,9 @@
 """An Open WebUI try again on daedalus/auto moves up 1 tier, and at tier A it moves to another model."""
 
 import json
-import os
-import tempfile
-from pathlib import Path
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from daedalus import dashboard
@@ -14,7 +12,6 @@ from daedalus.routing import retries, router
 from daedalus.server import api, upstream
 
 MASTER = "test-master-key-0001"
-os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 CHAT = {"X-OpenWebUI-Chat-Id": "chat-1"}
 CONFIG = {
   name: {
@@ -42,7 +39,7 @@ def ask(client: TestClient, messages: list[dict], headers: dict | None = None) -
   return response.json()["choices"][0]["message"]["content"]
 
 
-def check_steps(client: TestClient) -> None:
+def test_steps(client: TestClient) -> None:
   assert ask(client, FIRST, CHAT) == "c/1", "the classifier tier"
   assert dashboard.HISTORY.latest(1)[0]["retry"] is None, (
     "a first attempt is not a retry"
@@ -63,7 +60,7 @@ def check_steps(client: TestClient) -> None:
   assert dashboard.HISTORY.latest(1)[0]["retry"] == "5", dashboard.HISTORY.latest(1)[0]
 
 
-def check_new_message(client: TestClient) -> None:
+def test_new_message(client: TestClient) -> None:
   later = [
     *FIRST,
     {"role": "assistant", "content": "a/1"},
@@ -73,7 +70,7 @@ def check_new_message(client: TestClient) -> None:
   assert ask(client, later, CHAT) == "b/1", "a try again of the new message"
 
 
-def check_task_between(client: TestClient) -> None:
+def test_task_between(client: TestClient) -> None:
   message = [{"role": "user", "content": "task between"}]
   task = [{"role": "user", "content": "### Task: suggest follow-ups"}]
   assert ask(client, message, CHAT) == "c/1"
@@ -81,7 +78,7 @@ def check_task_between(client: TestClient) -> None:
   assert ask(client, message, CHAT) == "b/1", "a task request does not end the retry"
 
 
-def check_other_requests(client: TestClient) -> None:
+def test_other_requests(client: TestClient) -> None:
   alone = [{"role": "user", "content": "no header"}]
   assert ask(client, alone) == ask(client, alone) == "c/1", "no chat id, no retry"
   body = {"model": "daedalus/koinos", "messages": FIRST}
@@ -95,7 +92,7 @@ def check_other_requests(client: TestClient) -> None:
   assert ask(client, timed, other) == "b/1", "a system message change is still a retry"
 
 
-def check_expiry() -> None:
+def test_expiry() -> None:
   now = [0.0]
   found = retries.Retries(idle=60, clock=lambda: now[0])
   retries.record(found.start("x", FIRST), 2, "c/1")
@@ -104,29 +101,13 @@ def check_expiry() -> None:
   assert found.start("x", FIRST).count == 0, "an idle chat expires"
 
 
-def main() -> None:
-  original = api.get_config, router.required_tier, model_store.MODELS_DB
-  with tempfile.TemporaryDirectory() as name:
-    model_store.MODELS_DB = Path(name) / "models.sqlite3"
-    api.get_config, router.required_tier = (lambda: CONFIG), (lambda text: 2)
+@pytest.fixture(scope="module")
+def client():
+  with pytest.MonkeyPatch.context() as patch:
+    patch.setattr(api, "get_config", lambda: CONFIG)
+    patch.setattr(router, "required_tier", lambda text: 2)
+    patch.setattr(api.PENALTIES, "pick", lambda: 0.0)
     model_store.write_store(ROWS)
     upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
-    api.PENALTIES.clear()
-    api.PENALTIES.pick = lambda: 0.0
-    api.RETRIES.clear()
-    client = TestClient(api.app, headers={"Authorization": f"Bearer {MASTER}"})
-    try:
-      check_steps(client)
-      check_new_message(client)
-      check_task_between(client)
-      check_other_requests(client)
-      check_expiry()
-    finally:
-      api.PENALTIES.clear()
-      api.get_config, router.required_tier, model_store.MODELS_DB = original
-      upstream.set_client(None)
-  print("ok: try again escalation")
-
-
-if __name__ == "__main__":
-  main()
+    yield TestClient(api.app, headers={"Authorization": f"Bearer {MASTER}"})
+  upstream.set_client(None)

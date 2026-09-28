@@ -1,10 +1,9 @@
 import logging
-import os
-import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from daedalus import dashboard, store
@@ -13,7 +12,6 @@ from daedalus.server import api, upstream
 
 MASTER = "test-master-key-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}
-os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 
 
 class Lines(logging.Handler):
@@ -33,7 +31,7 @@ def answer(request: httpx.Request) -> httpx.Response:
   return httpx.Response(200, json={"id": "x", "model": "m", "choices": [choice]})
 
 
-def check_estimate() -> None:
+def test_estimate() -> None:
   image = {
     "type": "image_url",
     "image_url": {"url": "data:image/png;base64," + "A" * 9000},
@@ -48,7 +46,7 @@ def check_estimate() -> None:
   assert context.input_tokens({"messages": [{"content": "abcde"}]}) == 2, "round up"
 
 
-def check_limits(database: Path) -> None:
+def test_limits(database: Path) -> None:
   rows = [
     {"id": "a/1", "max_input_tokens": 10},
     {"id": "b/1"},
@@ -59,7 +57,7 @@ def check_limits(database: Path) -> None:
   assert store.input_limits() == {"a/1": 10, "c/1": 1000}, store.input_limits()
 
 
-def check_requests() -> None:
+def test_requests() -> None:
   config = {
     name: {"api_key": "k", "api_base": f"https://{name}.test/v1"} for name in "abcd"
   }
@@ -127,7 +125,7 @@ def check_requests() -> None:
     api.logger.setLevel(level)
 
 
-def check_served() -> None:
+def test_served() -> None:
   config = {"p": {"tier": {"TIER-C": ["x"], "TIER-D": ["y"]}}}
   request = SimpleNamespace(state=SimpleNamespace(pool="moros"))
   api.served(request, config, "p/y")
@@ -141,16 +139,13 @@ def check_served() -> None:
   assert request.state.pool == "koinos", "a model without a tier keeps the pool"
 
 
-def main() -> None:
-  with tempfile.TemporaryDirectory() as name:
-    store.MODELS_DB = Path(name) / "models.sqlite3"
-    api.PENALTIES.pick = lambda: 0.0
-    check_estimate()
-    check_limits(store.MODELS_DB)
-    check_requests()
-    check_served()
-  print("ok: context windows")
+@pytest.fixture(scope="module", autouse=True)
+def first_pick():
+  with pytest.MonkeyPatch.context() as patch:
+    patch.setattr(api.PENALTIES, "pick", lambda: 0.0)
+    yield
 
 
-if __name__ == "__main__":
-  main()
+@pytest.fixture
+def database() -> Path:
+  return store.MODELS_DB

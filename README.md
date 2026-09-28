@@ -104,6 +104,19 @@ Put `uv run` before each command in the table. After `git pull`, run `uv sync` a
 | `daedalus catalog` | Discovers the provider models and rebuilds the model store. |
 | `daedalus dump` | Writes the raw model list of each provider to `.daedalus-state/dump`. |
 
+## Development
+
+`uv sync` also installs the development tools: pytest, pytest-xdist and Ruff. CI runs these commands for each code change:
+
+```sh
+uv run pytest
+uv run ruff check
+uv run ruff format --check
+```
+
+- `uv run pytest` runs the test files in parallel, with 1 worker for each CPU. `uv run pytest -n 0` runs them in 1 process.
+- Each test file gets a temporary state folder. The tests do not change `.daedalus-state`.
+
 ## Documentation
 
 | Page | Contents |

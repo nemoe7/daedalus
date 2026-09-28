@@ -2,20 +2,16 @@
 
 import asyncio
 import json
-import os
-import random
-import tempfile
 import time
 from collections.abc import AsyncIterator
-from pathlib import Path
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from daedalus import dashboard, store
 from daedalus.server import api, media, upstream
 
-os.environ["DAEDALUS_MASTER_KEY"] = "test-master-key-0001"
 AUTH = {"Authorization": "Bearer test-master-key-0001"}
 CONFIG = {
   "p": {"api_key": "k", "api_base": "https://p.test/v1", "tier": {"TIER-B": ["*"]}}
@@ -62,7 +58,7 @@ def ask(client: TestClient, stream: bool) -> httpx.Response:
   return client.post("/v1/chat/completions", json=body)
 
 
-def check_limit(client: TestClient) -> None:
+def test_limit(client: TestClient) -> None:
   ANSWERS.clear()
   upstream.TIMEOUT_SECONDS = 0.5
   for stream in (False, True):
@@ -76,7 +72,7 @@ def check_limit(client: TestClient) -> None:
     assert not dashboard.LIVE.rows, "the live row ends"
 
 
-def check_media(client: TestClient) -> None:
+def test_media(client: TestClient) -> None:
   upstream.TIMEOUT_SECONDS = 0.3
   started = time.perf_counter()
   result = client.post("/v1/images/generations", json={"model": "p/img", "prompt": "a"})
@@ -86,7 +82,7 @@ def check_media(client: TestClient) -> None:
   assert "No answer in 0.3s" in attempts[-1]["error"], attempts
 
 
-def check_wait(client: TestClient) -> None:
+def test_wait(client: TestClient) -> None:
   ANSWERS.add("two")
   upstream.TIMEOUT_SECONDS, upstream.WAIT_SECONDS = 30.0, 0.2
   api.PENALTIES.pick = lambda: 0.0
@@ -111,28 +107,14 @@ def check_wait(client: TestClient) -> None:
     dashboard.LIVE.send = send
 
 
-def main() -> None:
-  original = api.get_config, upstream.TIMEOUT_SECONDS, upstream.WAIT_SECONDS
-  state, shown = store.MODELS_DB, media.get_config
-  with tempfile.TemporaryDirectory() as directory:
-    store.MODELS_DB = Path(directory) / "models.sqlite3"
-    store.write_store([{"id": "p/one"}, {"id": "p/two"}])
-    api.get_config = media.get_config = lambda: CONFIG
+@pytest.fixture(scope="module")
+def client():
+  store.write_store([{"id": "p/one"}, {"id": "p/two"}])
+  with pytest.MonkeyPatch.context() as patch:
+    patch.setattr(api, "get_config", lambda: CONFIG)
+    patch.setattr(media, "get_config", lambda: CONFIG)
+    patch.setattr(upstream, "TIMEOUT_SECONDS", upstream.TIMEOUT_SECONDS)
+    patch.setattr(upstream, "WAIT_SECONDS", upstream.WAIT_SECONDS)
     upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
-    try:
-      client = TestClient(api.app, headers=AUTH)
-      check_limit(client)
-      check_media(client)
-      check_wait(client)
-    finally:
-      api.PENALTIES.clear()
-      api.PACING.clear()
-      api.get_config, upstream.TIMEOUT_SECONDS, upstream.WAIT_SECONDS = original
-      store.MODELS_DB, media.get_config = state, shown
-      api.PENALTIES.pick = random.random
-      upstream.set_client(None)
-  print("ok: keep-alive bytes end at the wait and at the request limit")
-
-
-if __name__ == "__main__":
-  main()
+    yield TestClient(api.app, headers=AUTH)
+  upstream.set_client(None)

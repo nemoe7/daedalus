@@ -1,4 +1,4 @@
-"""Runnable check of the upstream error classes. Run: python tests/server/test_errors.py"""
+"""Tests of the upstream error classes."""
 
 import asyncio
 import tempfile
@@ -33,7 +33,7 @@ def raised(call) -> upstream.UpstreamStatus:
   raise AssertionError("no upstream error")
 
 
-def main() -> None:
+def test_errors() -> None:
   status = {"code": 200}
 
   def answer(request: httpx.Request) -> httpx.Response:
@@ -57,8 +57,3 @@ def main() -> None:
     upstream.set_client(None)
     store.MODELS_DB = original
     folder.cleanup()
-  print("ok: upstream error classes")
-
-
-if __name__ == "__main__":
-  main()

@@ -1,11 +1,11 @@
 import json
 import os
 import shutil
-import tempfile
 import time
 from pathlib import Path
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from daedalus import config, dashboard, store
@@ -45,7 +45,99 @@ def answer(request: httpx.Request) -> httpx.Response:
   return httpx.Response(200, json={"id": "x", "model": "m", "choices": [choice]})
 
 
-def check_data(client: TestClient) -> None:
+def test_page(client: TestClient) -> None:
+  page = client.get("/")
+  assert page.status_code == 200 and "text/html" in page.headers["content-type"]
+  assert 'src="ui/app.js?v=' in page.text, "relative asset paths with a content hash"
+  assert 'href="ui/style.css?v=' in page.text, "the style link has a content hash"
+  for name in (
+    "overview",
+    "pools",
+    "requests",
+    "models",
+    "keys",
+    "providers",
+    "settings",
+  ):
+    assert f'<section data-page="{name}"' in page.text, f"the {name} page"
+  script = client.get("/ui/app.js")
+  assert script.status_code == 200 and "javascript" in script.headers["content-type"]
+  assert client.get("/ui/style.css").status_code == 200
+  assert script.headers["cache-control"] == "no-cache", "an update applies at once"
+  assert client.get("/ui/index.html").status_code == 404, "listed assets only"
+
+
+def test_login(client: TestClient) -> None:
+  os.environ.pop(dashboard.MASTER_ENV, None)
+  login = {"username": "admin", "password": MASTER}
+  assert client.post("/ui/api/login", json=login).status_code == 503, "no master key"
+  os.environ[dashboard.MASTER_ENV] = "short"
+  assert client.post("/ui/api/login", json=login).status_code == 503, "a short key"
+  os.environ[dashboard.MASTER_ENV] = MASTER
+  assert client.get("/ui/api/status").status_code == 401, "no session"
+  wrong = {"username": "admin", "password": MASTER + "x"}
+  assert client.post("/ui/api/login", json=wrong).status_code == 401
+  other = {"username": "root", "password": MASTER}
+  assert client.post("/ui/api/login", json=other).status_code == 401
+  assert client.post("/ui/api/login", content=b"[").status_code == 400
+  answer = client.post("/ui/api/login", json=login)
+  assert answer.status_code == 200, answer.text
+  header = answer.headers["set-cookie"].lower()
+  assert "httponly" in header and "samesite=strict" in header, header
+  assert "max-age" not in header, "a browser-session cookie without remember me"
+  assert client.get("/ui/api/status").status_code == 200, "the session cookie"
+  value = client.cookies.get(dashboard.COOKIE)
+  expires, _, signed = value.partition(".")
+  forged = f"{int(expires) + 60}.{signed}"
+  assert (
+    client.get("/ui/api/status", cookies={dashboard.COOKIE: forged}).status_code == 401
+  )
+  old = dashboard.cookie(MASTER, time.time() - dashboard.SESSION_SECONDS - 1)
+  assert (
+    client.get("/ui/api/status", cookies={dashboard.COOKIE: old}).status_code == 401
+  )
+  os.environ[dashboard.MASTER_ENV] = MASTER + "-new"
+  assert client.get("/ui/api/status").status_code == 401, "a new master key ends it"
+  os.environ[dashboard.MASTER_ENV] = MASTER
+  client.post("/ui/api/logout")
+  assert client.get("/ui/api/status").status_code == 401, "logout ends the session"
+  https = {"Origin": "https://3357-box.example.app"}
+  framed = client.post("/ui/api/login", json=login, headers=https).headers["set-cookie"]
+  assert "samesite=none" in framed.lower() and "secure" in framed.lower(), framed
+  assert "partitioned" in framed.lower(), "the cookie works in a preview frame"
+  value = client.post("/ui/api/login", json=login).json()["session"]
+  client.cookies.clear()
+  header = {dashboard.HEADER: value}
+  assert client.get("/ui/api/status", headers=header).status_code == 200, (
+    "a frame without cookies"
+  )
+  assert (
+    client.get("/ui/api/status", headers={dashboard.HEADER: "1.x"}).status_code == 401
+  )
+  stale = {dashboard.COOKIE: "1.x"}
+  assert client.get("/ui/api/status", headers=header, cookies=stale).status_code == 200
+  remember = client.post("/ui/api/login", json={**login, "remember": True})
+  assert (
+    f"max-age={dashboard.REMEMBER_SECONDS}" in remember.headers["set-cookie"].lower()
+  )
+  expires = int(client.cookies.get(dashboard.COOKIE).partition(".")[0])
+  assert expires > time.time() + dashboard.REMEMBER_SECONDS - 60, "a 30-day session"
+
+
+def test_defaults(client: TestClient) -> None:
+  """The provider defaults for the form placeholders, with no values from the environment."""
+  found = client.get("/ui/api/provider-defaults").json()
+  assert found["groq"]["api_base"] == "https://api.groq.com/openai/v1", found
+  assert found["gemini"]["api_type"] == "gemini" and found["*"] == {
+    "api_type": "openai"
+  }
+  assert "os.environ/CLOUDFLARE_ACCOUNT_ID" in found["cloudflare"]["api_base"], (
+    "a token"
+  )
+  assert TestClient(api.app).get("/ui/api/provider-defaults").status_code == 401
+
+
+def test_data(client: TestClient) -> None:
   models = client.get("/ui/api/models").json()
   assert [row["id"] for row in models] == ["p/big", "p/small", "p/embed"], "all rows"
   assert models[0] == {
@@ -106,99 +198,29 @@ def check_data(client: TestClient) -> None:
   assert len(client.get("/ui/api/requests").json()) == 1, "chat requests only"
 
 
-def check_defaults(client: TestClient) -> None:
-  """The provider defaults for the form placeholders, with no values from the environment."""
-  found = client.get("/ui/api/provider-defaults").json()
-  assert found["groq"]["api_base"] == "https://api.groq.com/openai/v1", found
-  assert found["gemini"]["api_type"] == "gemini" and found["*"] == {
-    "api_type": "openai"
-  }
-  assert "os.environ/CLOUDFLARE_ACCOUNT_ID" in found["cloudflare"]["api_base"], (
-    "a token"
+def test_history(client: TestClient) -> None:
+  restarted = History(lambda: store.MODELS_DB, keep=3)
+  assert restarted.latest(1)[0]["model"] == dashboard.HISTORY.latest(1)[0]["model"], (
+    "a new history object reads the rows of the file, as after a restart"
   )
-  assert TestClient(api.app).get("/ui/api/provider-defaults").status_code == 401
+  restarted.clear()
+  for number in range(5):
+    restarted.add({"at": number, "model": f"m/{number}"})
+  kept = [row["model"] for row in restarted.latest(10)]
+  assert kept == ["m/4", "m/3", "m/2"], "the newest rows first, at most keep"
+  database = restarted.connect()
+  count = database.execute("SELECT COUNT(*) FROM requests").fetchone()[0]
+  database.close()
+  assert count == 3, "the file drops the older rows"
+  for number in range(60):
+    dashboard.HISTORY.add({"at": number, "model": "m/x"})
+  assert len(client.get("/ui/api/requests").json()) == 50, "50 rows by default"
+  assert len(client.get("/ui/api/requests?limit=55").json()) == 55
+  assert len(client.get("/ui/api/requests?limit=x").json()) == 50, "a bad limit"
+  dashboard.HISTORY.clear()
 
 
-def check_page(client: TestClient) -> None:
-  page = client.get("/")
-  assert page.status_code == 200 and "text/html" in page.headers["content-type"]
-  assert 'src="ui/app.js?v=' in page.text, "relative asset paths with a content hash"
-  assert 'href="ui/style.css?v=' in page.text, "the style link has a content hash"
-  for name in (
-    "overview",
-    "pools",
-    "requests",
-    "models",
-    "keys",
-    "providers",
-    "settings",
-  ):
-    assert f'<section data-page="{name}"' in page.text, f"the {name} page"
-  script = client.get("/ui/app.js")
-  assert script.status_code == 200 and "javascript" in script.headers["content-type"]
-  assert client.get("/ui/style.css").status_code == 200
-  assert script.headers["cache-control"] == "no-cache", "an update applies at once"
-  assert client.get("/ui/index.html").status_code == 404, "listed assets only"
-
-
-def check_login(client: TestClient) -> None:
-  os.environ.pop(dashboard.MASTER_ENV, None)
-  login = {"username": "admin", "password": MASTER}
-  assert client.post("/ui/api/login", json=login).status_code == 503, "no master key"
-  os.environ[dashboard.MASTER_ENV] = "short"
-  assert client.post("/ui/api/login", json=login).status_code == 503, "a short key"
-  os.environ[dashboard.MASTER_ENV] = MASTER
-  assert client.get("/ui/api/status").status_code == 401, "no session"
-  wrong = {"username": "admin", "password": MASTER + "x"}
-  assert client.post("/ui/api/login", json=wrong).status_code == 401
-  other = {"username": "root", "password": MASTER}
-  assert client.post("/ui/api/login", json=other).status_code == 401
-  assert client.post("/ui/api/login", content=b"[").status_code == 400
-  answer = client.post("/ui/api/login", json=login)
-  assert answer.status_code == 200, answer.text
-  header = answer.headers["set-cookie"].lower()
-  assert "httponly" in header and "samesite=strict" in header, header
-  assert "max-age" not in header, "a browser-session cookie without remember me"
-  assert client.get("/ui/api/status").status_code == 200, "the session cookie"
-  value = client.cookies.get(dashboard.COOKIE)
-  expires, _, signed = value.partition(".")
-  forged = f"{int(expires) + 60}.{signed}"
-  assert (
-    client.get("/ui/api/status", cookies={dashboard.COOKIE: forged}).status_code == 401
-  )
-  old = dashboard.cookie(MASTER, time.time() - dashboard.SESSION_SECONDS - 1)
-  assert (
-    client.get("/ui/api/status", cookies={dashboard.COOKIE: old}).status_code == 401
-  )
-  os.environ[dashboard.MASTER_ENV] = MASTER + "-new"
-  assert client.get("/ui/api/status").status_code == 401, "a new master key ends it"
-  os.environ[dashboard.MASTER_ENV] = MASTER
-  client.post("/ui/api/logout")
-  assert client.get("/ui/api/status").status_code == 401, "logout ends the session"
-  https = {"Origin": "https://3357-box.example.app"}
-  framed = client.post("/ui/api/login", json=login, headers=https).headers["set-cookie"]
-  assert "samesite=none" in framed.lower() and "secure" in framed.lower(), framed
-  assert "partitioned" in framed.lower(), "the cookie works in a preview frame"
-  value = client.post("/ui/api/login", json=login).json()["session"]
-  client.cookies.clear()
-  header = {dashboard.HEADER: value}
-  assert client.get("/ui/api/status", headers=header).status_code == 200, (
-    "a frame without cookies"
-  )
-  assert (
-    client.get("/ui/api/status", headers={dashboard.HEADER: "1.x"}).status_code == 401
-  )
-  stale = {dashboard.COOKIE: "1.x"}
-  assert client.get("/ui/api/status", headers=header, cookies=stale).status_code == 200
-  remember = client.post("/ui/api/login", json={**login, "remember": True})
-  assert (
-    f"max-age={dashboard.REMEMBER_SECONDS}" in remember.headers["set-cookie"].lower()
-  )
-  expires = int(client.cookies.get(dashboard.COOKIE).partition(".")[0])
-  assert expires > time.time() + dashboard.REMEMBER_SECONDS - 60, "a 30-day session"
-
-
-def check_keys(client: TestClient) -> None:
+def test_keys(client: TestClient) -> None:
   assert client.get("/ui/api/keys").json() == []
   made = client.post("/ui/api/keys", json={"name": " laptop "})
   assert made.status_code == 201 and made.json()["name"] == "laptop", made.text
@@ -224,33 +246,7 @@ def check_keys(client: TestClient) -> None:
   )
 
 
-def check_reset(client: TestClient) -> None:
-  api.PENALTIES.record("p/big", 0.1)
-  api.COOLDOWNS.begin("p/big", {}, b"")
-  api.PENALTIES.pin("chat", "koinos", "p/big")
-  assert api.PENALTIES.weights(["p/big"])["p/big"] < 1 and api.COOLDOWNS.ends()
-  assert client.post("/ui/api/reset").status_code == 200
-  assert api.PENALTIES.weights(["p/big"]) == {"p/big": 1.0}, "the weights go back to 1"
-  assert api.COOLDOWNS.ends() == {}, "the cooldowns end"
-  assert api.PENALTIES.pinned("chat", "koinos") == "p/big", "the pins stay"
-  assert TestClient(api.app).post("/ui/api/reset").status_code == 401
-
-
-def check_catalog(client: TestClient) -> None:
-  assert client.post("/ui/api/catalog").status_code == 503, "no rebuild in tests"
-  api.CATALOG_REFRESH = lambda: None
-  try:
-    schedule.BUSY = True
-    assert client.get("/ui/api/status").json()["catalog"]["rebuilding"] is True
-    assert client.post("/ui/api/catalog").status_code == 409, "1 rebuild at a time"
-    schedule.BUSY = False
-    assert client.post("/ui/api/catalog").status_code == 202
-  finally:
-    api.CATALOG_REFRESH, schedule.BUSY = None, False
-  assert TestClient(api.app).post("/ui/api/catalog").status_code == 401
-
-
-def check_files(client: TestClient, folder: Path) -> None:
+def test_files(client: TestClient, folder: Path) -> None:
   names = [item["path"] for item in client.get("/ui/api/files").json()]
   assert names == [str(path) for path in dashboard.FILES], names
   path = str(settings.DEFAULT_PATH)
@@ -381,7 +377,7 @@ def check_files(client: TestClient, folder: Path) -> None:
   assert "_file" not in config.get_config().get("openrouter", {}), "the reload drops it"
 
 
-def check_broken_file(client: TestClient, folder: Path) -> None:
+def test_broken_file(client: TestClient, folder: Path) -> None:
   broken = folder / "groq.yml"
   for text in ("api_key: k\nmodels: [\n", "api_key: k\napi_key: j\n"):
     broken.write_text(text)
@@ -403,67 +399,50 @@ def check_broken_file(client: TestClient, folder: Path) -> None:
   assert gone.status_code == 200, gone.text
 
 
-def check_history(client: TestClient) -> None:
-  restarted = History(lambda: store.MODELS_DB, keep=3)
-  assert restarted.latest(1)[0]["model"] == dashboard.HISTORY.latest(1)[0]["model"], (
-    "a new history object reads the rows of the file, as after a restart"
-  )
-  restarted.clear()
-  for number in range(5):
-    restarted.add({"at": number, "model": f"m/{number}"})
-  kept = [row["model"] for row in restarted.latest(10)]
-  assert kept == ["m/4", "m/3", "m/2"], "the newest rows first, at most keep"
-  database = restarted.connect()
-  count = database.execute("SELECT COUNT(*) FROM requests").fetchone()[0]
-  database.close()
-  assert count == 3, "the file drops the older rows"
-  for number in range(60):
-    dashboard.HISTORY.add({"at": number, "model": "m/x"})
-  assert len(client.get("/ui/api/requests").json()) == 50, "50 rows by default"
-  assert len(client.get("/ui/api/requests?limit=55").json()) == 55
-  assert len(client.get("/ui/api/requests?limit=x").json()) == 50, "a bad limit"
-  dashboard.HISTORY.clear()
+def test_catalog(client: TestClient) -> None:
+  assert client.post("/ui/api/catalog").status_code == 503, "no rebuild in tests"
+  api.CATALOG_REFRESH = lambda: None
+  try:
+    schedule.BUSY = True
+    assert client.get("/ui/api/status").json()["catalog"]["rebuilding"] is True
+    assert client.post("/ui/api/catalog").status_code == 409, "1 rebuild at a time"
+    schedule.BUSY = False
+    assert client.post("/ui/api/catalog").status_code == 202
+  finally:
+    api.CATALOG_REFRESH, schedule.BUSY = None, False
+  assert TestClient(api.app).post("/ui/api/catalog").status_code == 401
 
 
-def main() -> None:
-  with tempfile.TemporaryDirectory() as folder:
-    store.MODELS_DB = Path(folder) / "models.sqlite3"
-    store.write_store(ROWS)
-    original = (
-      api.get_config,
-      settings.DEFAULT_PATH,
-      config.DEFAULT_PATH,
-      dashboard.FILES,
+def test_reset(client: TestClient) -> None:
+  api.PENALTIES.record("p/big", 0.1)
+  api.COOLDOWNS.begin("p/big", {}, b"")
+  api.PENALTIES.pin("chat", "koinos", "p/big")
+  assert api.PENALTIES.weights(["p/big"])["p/big"] < 1 and api.COOLDOWNS.ends()
+  assert client.post("/ui/api/reset").status_code == 200
+  assert api.PENALTIES.weights(["p/big"]) == {"p/big": 1.0}, "the weights go back to 1"
+  assert api.COOLDOWNS.ends() == {}, "the cooldowns end"
+  assert api.PENALTIES.pinned("chat", "koinos") == "p/big", "the pins stay"
+  assert TestClient(api.app).post("/ui/api/reset").status_code == 401
+
+
+@pytest.fixture(scope="module")
+def folder(state_folder: Path) -> Path:
+  return state_folder
+
+
+@pytest.fixture(scope="module")
+def client(folder: Path):
+  store.write_store(ROWS)
+  with pytest.MonkeyPatch.context() as patch:
+    patch.setattr(
+      settings, "DEFAULT_PATH", Path(shutil.copy("config/daedalus.yml", folder))
     )
-    settings.DEFAULT_PATH = Path(shutil.copy("config/daedalus.yml", folder))
-    config.DEFAULT_PATH = Path(shutil.copy("config/providers/free.yml", folder))
-    dashboard.FILES = (config.DEFAULT_PATH,)
-    api.get_config = lambda: CONFIG
+    patch.setattr(
+      config, "DEFAULT_PATH", Path(shutil.copy("config/providers/free.yml", folder))
+    )
+    patch.setattr(dashboard, "FILES", (config.DEFAULT_PATH,))
+    patch.setattr(api, "get_config", lambda: CONFIG)
     upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
-    api.PENALTIES.clear()
-    dashboard.HISTORY.clear()
-    try:
-      client = TestClient(api.app, headers=AUTH)
-      check_page(client)
-      check_login(client)
-      check_defaults(client)
-      check_data(client)
-      check_history(client)
-      check_keys(client)
-      check_files(client, Path(folder))
-      check_broken_file(client, Path(folder))
-      check_catalog(client)
-      check_reset(client)
-    finally:
-      api.get_config, settings.DEFAULT_PATH, config.DEFAULT_PATH, dashboard.FILES = (
-        original
-      )
-      upstream.set_client(None)
-      config.set_config(None)
-      api.apply_settings(settings.load())
-      os.environ.pop(dashboard.MASTER_ENV, None)
-  print("ok: dashboard login, data and config files")
-
-
-if __name__ == "__main__":
-  main()
+    yield TestClient(api.app, headers=AUTH)
+  upstream.set_client(None)
+  config.set_config(None)
