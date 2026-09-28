@@ -325,6 +325,16 @@ def check_keyword_tier() -> None:
     assert first(*turn, key="s") == "3", "the session keeps deinos"
     assert first(*turn, result, "ultrathink", key="s") == "4", "deinos to sophos"
     assert first(*turn, result, "ultrathink", key="s") == "4", "the cap is sophos"
+    scans: list[int] = []
+    scan = api.used_tools
+    api.used_tools = lambda messages: scans.append(1) or scan(messages)
+    try:
+      assert first("go", call, key="t") == "2" and len(scans) == 1, "1 scan"
+      assert first("go", call, result, "go", key="t") == "2", "the session keeps koinos"
+      assert len(scans) == 1, "a session at koinos skips the scan"
+      assert first("go", call) == "2" and len(scans) == 2, "no key: a scan each time"
+    finally:
+      api.used_tools = scan
   finally:
     router.required_tier, router.chain_groups, model_store.read_models = original
     api.KEYWORDS = None
