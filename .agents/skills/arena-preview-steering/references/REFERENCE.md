@@ -29,7 +29,7 @@ Use this only after the owner selects the external channel. The owner supplies a
 
 ## Read cadence
 
-Read the inbox at turn start, each reasoning boundary, before and after every tool-call block, before expensive or irreversible work, and before turn end. When ending a turn or a report form awaits answers, run `poll`. Co-issue a read inside each parallel block and read again after it returns; a block is the cadence unit. A count that changes inside a block is a read now, not at the next boundary: the reminder prints only a count, so a higher count means notes nobody has read. End every bash call with a poll, so no call, chained or not, starves the inbox. A blocking-only call needs its read after return. Initial discovery may precede the first read; startup MUST.
+Read the inbox at turn start, each reasoning boundary, before and after every tool-call block, before expensive or irreversible work, and before turn end. When ending a turn or a report form awaits answers, run `poll`. Co-issue a read inside each parallel block and read again after it returns; a block is the cadence unit. A count that changes inside a block is a read now, not at the next boundary: the reminder prints only a count, so a higher count means notes nobody has read. ALWAYS run `poll` on the bash call that ends the turn, chained or not. Between two reads, NEVER run a fourth bash call; a read MUST come before it. A blocking-only call needs its read after return. Initial discovery may precede the first read; startup MUST.
 
 ## Tasks
 
@@ -48,7 +48,7 @@ Task IDs have 1–64 lowercase letters, digits or hyphens and start with a lette
 
 ## Publish reports
 
-A report source is UTF-8 `.md`, at most 2,000,000 bytes. IDs have 1–80 letters, digits, hyphens or underscores; titles have 1–200 characters. Source edits do not update a published report: call `publish` again. A report that has answers refuses republishing under the same ID; publish its update under a new ID. Delete a report the owner no longer needs with `unpublish <id>` or the tab's ✕ button, which asks for a second click. The delete touches the tab row alone: sent answers stay in the inbox, the `.md` source under the state directory stays for republishing, and a republish under that ID still fails while answers exist. Verify the rendered report before telling the owner it is available. If an answer is rejected after an update, ask the owner to preserve the draft, reload and review the current report.
+A report source is UTF-8 `.md`, at most 2,000,000 bytes. IDs have 1–80 letters, digits, hyphens or underscores; titles have 1–200 characters. Source edits do not update a published report: call `publish` again. A report that has answers refuses republishing under the same ID; publish its update under a new ID. Delete a report the owner no longer needs with `unpublish <id>`. The delete touches the tab row alone: sent answers stay in the inbox, the `.md` source under the state directory stays for republishing, and a republish under that ID still fails while answers exist. Verify the rendered report before telling the owner it is available. If an answer is rejected after an update, ask the owner to preserve the draft, reload and review the current report.
 
 ## Report fields
 
@@ -63,9 +63,9 @@ Pair each option group with a labeled custom-response field. The nearest non-emp
 
 ## Uploaded notes and Downloads
 
-One composed note can include up to five files, each 1–50,000,000 bytes. `read` returns the note with an `attachments[]` list; read each record's `path` before acknowledging the single note ID. `present: false` means the record remains but the bytes do not. The note's receipt shows the original filenames.
+Each file on a composed note is 1–50MB. `read` returns the note with an `attachments[]` list; read each record's `path` before acknowledging the single note ID. `present: false` means the record remains but the bytes do not.
 
-The owner enters one HTTPS URL per job in Downloads. An agent asks with `download-request <url>`. That queues a pending job. The owner approves or denies it before the browser fetches the URL. Add `--allow-proxy` only for that URL. Keep their browser open for the fetch. Direct access is the default. Proxy fallback needs a separate opt-in for each URL; AllOrigins and then CodeTabs see that URL. Credentials in URLs are rejected. A download is at most 102,400,000 bytes. That cap is not measured. Each completed job sends one inbox note with the saved path. Retry failures in Downloads; report CORS, network and size failures. A restore may keep a job record but lose the file. The NDJSON backup does not restore jobs or file bytes.
+An agent asks with `download-request <url>`. That queues a pending job. The owner approves or denies it before the browser fetches the URL. Add `--allow-proxy` only for that URL. Credentials in URLs are rejected. Each completed job sends one inbox note with the saved path. Retry failures in Downloads; report CORS, network and size failures. A restore may keep a job record but lose the file. The NDJSON backup does not restore jobs or file bytes.
 
 ## Restore
 

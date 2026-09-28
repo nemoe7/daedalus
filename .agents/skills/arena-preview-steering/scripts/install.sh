@@ -12,11 +12,13 @@ GLOBAL_IGNORE="$HOME/.gitignore_global"
 HOOK="$HOME/.arena-preview-hook.sh"
 PROFILE="$HOME/.bash_profile"
 MARKER="# arena-preview-hook"
+PATH_MARKER="# arena-preview-path"
 
 fail(){ echo "arena-preview installer: $*" >&2; exit 1; }
 
 # 1. Verify the skill in this repository checkout.
 [ -f "$SKILL_REL/scripts/preview.py" ] || fail "missing $SKILL_REL/scripts/preview.py; run this installer from the repository root"
+[ -x "$SKILL_REL/scripts/arena-preview" ] || fail "missing $SKILL_REL/scripts/arena-preview; update the installed skill and rerun this installer"
 
 # 2. Persistent venv for the hook's interpreter.
 if [ ! -x "$VENV/bin/python" ]; then
@@ -58,4 +60,23 @@ esac
 EOF
 fi
 
-echo "arena-preview installer: ok; state: $REPO_ROOT/$STATE_REL, ignored through $GLOBAL_IGNORE"
+# 7. Add this repository's skill scripts to PATH in new Bash shells.
+if ! grep -qF "$PATH_MARKER" "$PROFILE"; then
+  cat >> "$PROFILE" <<'EOF' || fail "cannot append to $PROFILE"
+
+# arena-preview-path
+_arena_preview_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -n "$_arena_preview_root" ]; then
+  _arena_preview_scripts="$_arena_preview_root/.agents/skills/arena-preview-steering/scripts"
+  if [ -x "$_arena_preview_scripts/arena-preview" ]; then
+    case ":$PATH:" in
+      *":$_arena_preview_scripts:"*) ;;
+      *) export PATH="$_arena_preview_scripts:$PATH" ;;
+    esac
+  fi
+fi
+unset _arena_preview_root _arena_preview_scripts
+EOF
+fi
+
+echo "arena-preview installer: ok; state: $REPO_ROOT/$STATE_REL, ignored through $GLOBAL_IGNORE; command: arena-preview in new Bash shells"
