@@ -84,11 +84,40 @@ async def check_output_limit(client: httpx.AsyncClient) -> None:
   assert SEEN[0][1]["max_tokens"] == 9000, "no stored limit, no change"
 
 
+def check_vision() -> None:
+  """An image request skips the models with a false or no vision value. A text request keeps them."""
+  config_now = config.get_config()
+  text = {"messages": [{"role": "user", "content": "hi"}]}
+  image = {
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {"type": "text", "text": "what is this?"},
+          {"type": "image_url", "image_url": {"url": "data:image/png;base64,AA=="}},
+        ],
+      },
+      {"role": "assistant", "content": "a cat"},
+      {"role": "user", "content": "and now?"},
+    ]
+  }
+  every = ["v/eye", "v/blind", "v/unknown"]
+  assert api.chain("daedalus/koinos", text, config_now)[0][0] == every
+  first = api.chain("daedalus/koinos", image, config_now)[0][0]
+  assert first == ["v/eye"], ("an image in an older turn", first)
+  assert api.chain("v/blind", image, config_now)[0] == [["v/blind"]], "a direct request"
+
+
 async def main() -> None:
   config.set_config(
     {
       "a": {"api_base": "https://a.test/v1", "api_key": "k", "tier": TIER},
       "b": {"api_base": "https://b.test/v1", "api_key": "", "tier": TIER},
+      "v": {
+        "api_base": "https://v.test/v1",
+        "api_key": "k",
+        "tier": {"TIER-C": ["eye", "blind", "unknown"]},
+      },
     }
   )
   saved = store.MODELS_DB
@@ -105,6 +134,9 @@ async def main() -> None:
           "max_output_tokens": 4000,
         },
         {"id": "a/plain", "supports_reasoning": False, "reasoning_effort": "high"},
+        {"id": "v/eye", "supports_vision": True},
+        {"id": "v/blind", "supports_vision": False},
+        {"id": "v/unknown"},
       ]
     )
     async with httpx.AsyncClient(transport=httpx.MockTransport(upstream)) as outside:
@@ -116,6 +148,7 @@ async def main() -> None:
         await check_missing_key(client)
         await check_default_effort(client)
         await check_output_limit(client)
+        check_vision()
   store.MODELS_DB = saved
   set_client(None)
   config.set_config(None)

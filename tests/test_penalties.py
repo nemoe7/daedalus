@@ -258,7 +258,7 @@ def check_session_tier() -> None:
   original = router.required_tier, router.chain_groups, model_store.read_models
   router.required_tier = lambda text: seen.append(text) or tiers.pop(0)
   router.chain_groups = lambda config, lines, order: [[str(tier)] for tier in order]
-  model_store.read_models = lambda tools_only=False: []
+  model_store.read_models = lambda **_: []
   api.PENALTIES.clear()
   messages = [
     {"role": "system", "content": "rules"},
@@ -294,7 +294,7 @@ def check_keyword_tier() -> None:
   original = router.required_tier, router.chain_groups, model_store.read_models
   router.required_tier = lambda text: tiers.pop(0)
   router.chain_groups = lambda config, lines, order: [[str(tier)] for tier in order]
-  model_store.read_models = lambda tools_only=False: []
+  model_store.read_models = lambda **_: []
   call = {"role": "assistant", "content": None, "tool_calls": [{"id": "c"}]}
   result = {"role": "tool", "tool_call_id": "c", "content": "42"}
 
