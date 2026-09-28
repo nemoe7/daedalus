@@ -156,11 +156,12 @@ Errors use the OpenAI shape:
 
 | Status | Cause |
 | --- | --- |
-| 400 | Invalid request, unknown model, or `context_length_exceeded` |
+| 400 | Invalid request, unknown model, `context_length_exceeded`, or a direct request to a provider with no `api_key` |
 | 401 | Missing or wrong key |
 | 429 `rate_limit_exceeded` | The model, or each model of the chain, is in a cooldown or at its `rpm` or `tpm`. `Retry-After` gives the seconds. See [Architecture](architecture.md#cooldowns) and [Pacing](architecture.md#pacing). |
 | 4xx or 5xx from the provider | The last model failed with this status |
 | 502 | No model answered, or the provider answer was not valid |
+| 504 | A direct `provider/slug` request to a model with a `timeout` value got no answer until `timeouts.request`. See [Configuration](configuration.md#provider-files). |
 
 The dashboard **Requests** page shows the full provider error of each attempt. Daedalus removes the prompt text from provider errors.
 
