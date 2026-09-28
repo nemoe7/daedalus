@@ -26,3 +26,11 @@ catalog:
   anchor: 6 # local hour (TZ env var) that the rebuild times start from: 00, 06, 12 and 18
 headroom:
   timeout: 5 # seconds for Headroom; after this, the original messages go to the provider
+escalation:
+  # Whole words or phrases in any case. A match in the user messages moves the daedalus/auto tier 1 step up.
+  keywords:
+    - ultrathink
+    - think hard
+    - think harder
+    - think deeply
+    - think longer

@@ -27,6 +27,8 @@ def check_load(folder: Path) -> None:
   assert values["timeouts"] == {"request": 600.0, "wait": 60.0, "slow": 30.0}
   assert values["weights"]["fault"] == penalties.FAULT
   shipped = settings.load(Path(__file__).parent.parent / "config" / "daedalus.yml")
+  keywords = shipped.pop("escalation")["keywords"]
+  assert "think hard" in keywords and values.pop("escalation") == {"keywords": []}
   assert shipped == values, "the shipped file holds the defaults"
   path = folder / "daedalus.yml"
   path.write_text("timeouts:\n  wait: 120\nweights:\n  fault: 0.25\n", encoding="utf-8")
@@ -42,6 +44,14 @@ def check_load(folder: Path) -> None:
   expect_error(folder, "timeouts:\n  wait: 0\n", "above 0")
   expect_error(folder, "session_affinity:\n  stay: 1\n", "below 1")
   expect_error(folder, "- a\n", "groups of keys")
+  expect_error(folder, "escalation:\n  keywords: think\n", "list of words or phrases")
+  expect_error(folder, "escalation:\n  keywords: [1]\n", "list of words or phrases")
+  expect_error(folder, "escalation:\n  keywords: [' ']\n", "list of words or phrases")
+  path.write_text(
+    "escalation:\n  keywords: [ultrathink, ' think hard ']\n", encoding="utf-8"
+  )
+  keywords = settings.load(path)["escalation"]["keywords"]
+  assert keywords == ["ultrathink", "think hard"], keywords
 
 
 def check_apply(folder: Path) -> None:
