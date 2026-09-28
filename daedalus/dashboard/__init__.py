@@ -502,6 +502,7 @@ def routes(
       values = check_file(path, text)
     except (settings.SettingsError, yaml.YAMLError) as exc:
       return failure(422, str(exc), "invalid_request_error")
+    path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
     temporary.write_text(text, encoding="utf-8")
     temporary.replace(path)
@@ -556,6 +557,7 @@ def routes(
         "path": str(path),
         "defaults": settings.DEFAULTS,
         "file": raw if isinstance(raw, dict) else {},
+        "text": text,
       }
     )
 
@@ -564,21 +566,19 @@ def routes(
     if not allowed(request):
       return denied()
     body = await json_body(request)
-    changes = body.get("changes") if isinstance(body, dict) else None
+    body = body if isinstance(body, dict) else {}
+    path = settings.DEFAULT_PATH
+    # The YAML view sends the file text. The form sends the changed values.
+    if isinstance(body.get("text"), str):
+      return write_config(path, body["text"])
+    changes = body.get("changes")
     if not isinstance(changes, dict):
       return failure(400, "The changes must be an object.", "invalid_request_error")
-    path = settings.DEFAULT_PATH
     text = path.read_text(encoding="utf-8") if path.exists() else ""
     try:
       text = settings.update_text(text, changes)
-      values = settings.parse(text, path)
-    except (settings.SettingsError, yaml.YAMLError) as exc:
+    except settings.SettingsError as exc:
       return failure(422, str(exc), "invalid_request_error")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(text, encoding="utf-8")
-    temporary.replace(path)
-    apply(values)
-    return JSONResponse({"ok": True})
+    return write_config(path, text)
 
   return api
