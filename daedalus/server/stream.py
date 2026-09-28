@@ -132,17 +132,19 @@ async def relay(
         if PACING.full(candidate, paces):
           continue
         PACING.record(candidate, tokens)
-      started = time.perf_counter()
+      started, effort = time.perf_counter(), {}
       try:
-        provider, response = await upstream.attempt(candidate, continued, config)
+        provider, response = await upstream.attempt(
+          candidate, continued, config, effort
+        )
         events = sse_data(provider.stream(response, candidate, include_usage))
         pending = await first_content(events)
         model = candidate
         pin.answered(model, time.perf_counter() - started)
-        attempts.append(upstream.note(candidate, "answered", started))
+        attempts.append(upstream.note(candidate, "answered", started) | effort)
         break
       except (upstream.UpstreamStatus, *ATTEMPT_ERRORS) as exc:
-        attempts.append(upstream.failure_note(candidate, started, exc))
+        attempts.append(upstream.failure_note(candidate, started, exc) | effort)
         if isinstance(exc, upstream.RateLimitError):
           attempts[-1]["cooldown"] = pin.failed(candidate, exc)
         logger.warning(

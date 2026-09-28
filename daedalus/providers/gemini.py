@@ -70,6 +70,10 @@ def without_strict(node: Any, names: bool = False) -> Any:
   }
 
 
+# The fields of a native thinking config that the dashboard shows.
+THINKING_KEYS = ("thinkingLevel", "thinkingBudget")
+
+
 def thinking_level(effort: str, model: str) -> dict:
   name = model.lower()
   flash = "flash" in name and "gemini-3" in name
@@ -352,6 +356,12 @@ class GeminiProvider(OpenAIProvider):
       "streamGenerateContent?alt=sse" if payload.get("stream") else "generateContent"
     )
     return f"{self.base}/models/{quote(slug, safe='')}:{action}"
+
+  def effort(self, payload: dict) -> str | None:
+    """The thinking level or budget in a native body."""
+    thinking = (payload.get("generationConfig") or {}).get("thinkingConfig") or {}
+    found = [f"{key}={thinking[key]}" for key in THINKING_KEYS if key in thinking]
+    return " ".join(found) or None
 
   def body(self, slug: str, payload: dict) -> dict:
     contents, systems, names = [], [], {}

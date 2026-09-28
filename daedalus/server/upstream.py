@@ -158,11 +158,21 @@ def without_reasoning(candidate: str, body: dict[str, Any]) -> dict[str, Any]:
 
 
 async def attempt(
-  candidate: str, body: dict[str, Any], config: dict[str, Any]
+  candidate: str,
+  body: dict[str, Any],
+  config: dict[str, Any],
+  sent: dict[str, Any] | None = None,
 ) -> tuple[providers.OpenAIProvider, httpx.Response]:
-  """Send one candidate request, and fail on an upstream error status."""
+  """Send one candidate request, and fail on an upstream error status.
+
+  When `sent` is a dict, it gets the reasoning effort that went upstream.
+  """
+  asked = "reasoning_effort" in body
   body = without_reasoning(candidate, body)
   provider, url, payload, headers = providers.prepare(candidate, body, config)
+  effort = provider.effort(payload)
+  if sent is not None and (asked or effort is not None):
+    sent["effort"] = effort
   wait = router.model_wait(config, candidate, WAIT_SECONDS)
   timeout = httpx.Timeout(TIMEOUT_SECONDS, read=wait)
   upstream = get_client().build_request(
