@@ -56,7 +56,7 @@ Cloudflare tasks in the catalog:
 
 Models of other tasks stay out of the catalog.
 
-OpenRouter output types in the catalog. The same rule applies to each Kilo row with output types.
+OpenRouter output types in the catalog. Kilo keeps only the models that make text: its gateway accepts only `/chat/completions`.
 
 | Output type | Mode |
 | --- | --- |
