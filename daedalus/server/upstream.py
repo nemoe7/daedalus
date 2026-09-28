@@ -150,6 +150,14 @@ def failure_note(model: str, started: float, exc: Exception) -> dict[str, Any]:
   return note(model, "failed", started, failure_text(exc))
 
 
+def with_defaults(candidate: str, body: dict[str, Any]) -> dict[str, Any]:
+  """The body with the stored reasoning effort of the model when the request has none."""
+  effort = store.model_limits(candidate).get("reasoning_effort")
+  if effort is None or "reasoning_effort" in body:
+    return body
+  return {**body, "reasoning_effort": effort}
+
+
 def without_reasoning(candidate: str, body: dict[str, Any]) -> dict[str, Any]:
   """The body without `reasoning_effort` for a stored model that does not reason."""
   if "reasoning_effort" not in body or store.reasoning_flags().get(candidate, True):
@@ -168,7 +176,7 @@ async def attempt(
   When `sent` is a dict, it gets the reasoning effort that went upstream.
   """
   asked = "reasoning_effort" in body
-  body = without_reasoning(candidate, body)
+  body = without_reasoning(candidate, with_defaults(candidate, body))
   provider, url, payload, headers = providers.prepare(candidate, body, config)
   effort = provider.effort(payload)
   if payload.get("stream") and provider.stream_usage:
