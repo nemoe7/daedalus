@@ -24,6 +24,7 @@ const clock = (seconds) => new Date(seconds * 1000).toLocaleTimeString(
 const state = {
   models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, saved: [], timers: [],
   pools: [], requests: [], requestLimit: REQUESTS_STEP, keys: [], catalog: {}, settings: null,
+  live: new Map(), source: null,
 };
 
 const fileName = (path) => path.split(/[\\/]/).pop();
@@ -92,6 +93,7 @@ async function call(path, options = {}) {
 function showLogin(message = "") {
   state.timers.forEach(clearInterval);
   state.timers = [];
+  closeLive();
   $("app").hidden = true;
   $("login").hidden = false;
   $("login-message").textContent = message;
@@ -206,11 +208,83 @@ function chainRows(r) {
       ${a.cooldown ? `<span class="from">${esc(coolText(a.cooldown))}</span>` : ""}
       ${a.error ? `<pre>${esc(a.error)}</pre>` : ""}
     </li>`).join("");
-  return `<tr class="chain"><td colspan="8"><div class="chain-body">
+  return `<tr class="chain"><td colspan="9"><div class="chain-body">
     <div class="chain-head"><span class="muted">Fallback chain</span>
       <button class="ghost copy-chain" type="button" data-at="${r.at}">Copy</button></div>
     ${steps ? `<ol>${steps}</ol>` : '<p class="muted">No attempt data for this request.</p>'}
   </div></td></tr>`;
+}
+
+// The stream time of a finished request: after the first token, or the total time without a stream.
+function streamCell(r) {
+  if (r.seconds == null) return "-";
+  if (!r.stream) return seconds(r.seconds);
+  return r.ttft ? seconds(Math.max(0, r.seconds - parseFloat(r.ttft))) : "-";
+}
+
+// A live request with local times, because the server sends ages and not clock times.
+function liveRow(r) {
+  const since = Date.now() - r.age * 1000;
+  return { ...r, since, first: r.ttft == null ? null : since + r.ttft * 1000 };
+}
+
+// The requests in flight, from the dashboard event stream.
+function openLive() {
+  closeLive();
+  const value = session();
+  const source = new EventSource(`ui/api/requests/live${value ? `?session=${encodeURIComponent(value)}` : ""}`);
+  const put = (event) => {
+    const r = JSON.parse(event.data);
+    state.live.set(r.id, liveRow(r));
+    renderLive();
+  };
+  source.addEventListener("live", (event) => {
+    state.live = new Map(JSON.parse(event.data).map((r) => [r.id, liveRow(r)]));
+    renderLive();
+  });
+  ["start", "update", "first"].forEach((kind) => source.addEventListener(kind, put));
+  source.addEventListener("end", (event) => {
+    state.live.delete(JSON.parse(event.data).id);
+    renderLive();
+    guarded(refreshFast);
+  });
+  state.source = source;
+}
+
+function closeLive() {
+  state.source?.close();
+  state.source = null;
+  state.live = new Map();
+}
+
+function renderLive() {
+  const rows = [...state.live.values()].sort((a, b) => b.since - a.since);
+  $("live").innerHTML = rows.map((r) => `
+    <tr class="live-row" data-live="${r.id}">
+      <td class="num muted"><span class="pulse"></span>${clock(r.since / 1000)}</td>
+      <td>${esc(r.model || r.path)}</td>
+      <td class="hide-sm">${esc(r.effort || "-")}</td>
+      <td class="hide-sm muted">${esc(r.pool || "-")}</td>
+      <td>${r.via ? esc(r.via) : '<span class="muted">waiting</span>'}</td>
+      <td class="status muted">live</td>
+      <td class="hide-sm num" data-clock="ttft"></td>
+      <td class="hide-sm num" data-clock="stream"></td>
+      <td class="hide-sm num muted">-</td>
+    </tr>`).join("");
+  tickLive();
+}
+
+// The live clocks: TTFT until the first token, then the stream time. Without a stream, both count the total.
+function tickLive() {
+  const now = Date.now();
+  for (const row of $("live").children) {
+    const r = state.live.get(Number(row.dataset.live));
+    if (!r) continue;
+    const ttft = ((r.first ?? now) - r.since) / 1000;
+    const stream = !r.stream ? (now - r.since) / 1000 : r.first == null ? null : (now - r.first) / 1000;
+    row.querySelector('[data-clock="ttft"]').textContent = `${ttft.toFixed(1)}s`;
+    row.querySelector('[data-clock="stream"]').textContent = stream == null ? "-" : `${stream.toFixed(1)}s`;
+  }
 }
 
 function renderRequests(rows) {
@@ -228,9 +302,10 @@ function renderRequests(rows) {
       <td>${r.via ? esc(r.via) : '<span class="muted">none</span>'}</td>
       <td class="status s${String(r.status)[0]}">${r.status}</td>
       <td class="hide-sm num">${esc(r.ttft || "-")}</td>
+      <td class="hide-sm num">${streamCell(r)}</td>
       <td class="hide-sm num">${esc(r.fallbacks ?? "-")}</td>
     </tr>${opened.has(String(r.at)) ? chainRows(r) : ""}`).join("")
-    : '<tr><td colspan="8" class="empty">No requests</td></tr>';
+    : '<tr><td colspan="9" class="empty">No requests</td></tr>';
 }
 
 // The label of each catalog mode.
@@ -576,7 +651,9 @@ async function start() {
     setInterval(() => guarded(refreshFast), 5000),
     setInterval(() => guarded(refreshSlow), 15000),
     setInterval(tickCooldowns, 1000),
+    setInterval(tickLive, 100),
   ];
+  openLive();
 }
 
 $("login").addEventListener("submit", async (event) => {
