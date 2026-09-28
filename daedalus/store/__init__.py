@@ -226,6 +226,20 @@ def model_info() -> dict[str, dict[str, int | bool]]:
   return info
 
 
+def reasoning_flags() -> dict[str, bool]:
+  """The reasoning flag of each stored model. No catalog value counts as false."""
+  if not Path(MODELS_DB).exists():
+    return {}
+  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
+  try:
+    rows = database.execute("SELECT id, supports_reasoning FROM models").fetchall()
+  except sqlite3.OperationalError:
+    return {}
+  finally:
+    database.close()
+  return {key: bool(value) for key, value in rows}
+
+
 def input_limits() -> dict[str, int]:
   """The `max_input_tokens` of each stored model that has one."""
   if not Path(MODELS_DB).exists():
