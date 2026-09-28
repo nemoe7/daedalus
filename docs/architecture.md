@@ -122,6 +122,7 @@ stateDiagram-v2
 | --- | --- |
 | Success | x1.5, 1 at most |
 | Fault (the next model got the request) | x0.5 |
+| [Loop](#loops) (tool, thinking or answer) | x0.5, as a fault |
 | Slow success (first token after 30 s) | x0.75 |
 | Rate limit (HTTP 429) | x0.75, and a cooldown |
 | Recovery | x1.212 for each hour |
@@ -204,6 +205,17 @@ A try again in Open WebUI on `daedalus/auto` moves the repeated message 1 tier u
 | Log | `retry=N`. The Requests page shows "try again N". |
 | Expiry | 1 h with no repeat of the message, in memory only |
 | Other clients, chat pools, `provider/slug` | No change |
+
+## Loops
+
+A loop is a fault of the model that made it. See [ADR 4](adr/0004-penalties.md#loops).
+
+| Loop | Found by | Next step |
+| --- | --- | --- |
+| Tool | 3 calls with the same tool and arguments since the last user message, the last one in the last assistant message | The model that made the call is the last fallback |
+| Thinking | A passage of 20 to 2,000 characters, 4 times in a row | Stream: the next model continues. No stream: the next model gets the request. |
+| Answer | The same, in the answer text | As thinking. The next model continues after the first copy of the passage. |
+| Log | Tool: `loop=N`, and "tool loop N" on the Requests page. Thinking and answer: an attempt with the result `loop`. | |
 
 ## Media pools
 
