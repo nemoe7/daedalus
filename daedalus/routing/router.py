@@ -77,6 +77,43 @@ def pooled(config: Mapping[str, Any], model: str) -> bool:
   return keyed(config, model) and model_setting(config, model, "pool") is not False
 
 
+def model_order(config: Mapping[str, Any], model: str) -> int:
+  """The `order` of a model: its `models` entry, then its provider block, then 1."""
+  value = model_setting(config, model, "order")
+  if value is None:
+    name, _, slug = model.partition("/")
+    block = block_for(config, name, slug)
+    value = block.get("order") if block else None
+  if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+    return 1
+  return value
+
+
+# The order of each model for the config in `_ORDER_CONFIG`.
+_ORDER_CACHE: dict[str, int] = {}
+_ORDER_CONFIG: list[Mapping[str, Any] | None] = [None]
+
+
+def by_order(config: Mapping[str, Any], groups: list[list[str]]) -> list[list[str]]:
+  """Each group split by the model order, the lowest order first."""
+  if _ORDER_CONFIG[0] is not config:
+    _ORDER_CACHE.clear()
+    _ORDER_CONFIG[0] = config
+  split: list[list[str]] = []
+  for group in groups:
+    orders = [
+      _ORDER_CACHE[m]
+      if m in _ORDER_CACHE
+      else _ORDER_CACHE.setdefault(m, model_order(config, m))
+      for m in group
+    ]
+    for level in sorted(set(orders)):
+      split.append(
+        [m for m, found in zip(group, orders, strict=True) if found == level]
+      )
+  return split
+
+
 def model_wait(config: Mapping[str, Any], model: str, default: float) -> float:
   """The seconds with no data from the provider: the `timeout` of the model, or the default."""
   value = model_setting(config, model, "timeout")

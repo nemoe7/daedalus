@@ -116,6 +116,7 @@ groq:
 | `exclude` | Patterns of models that never go into the catalog. For the Kilo and OpenRouter exception, see [stealth models](providers.md#catalog). |
 | `tier` | Patterns for each tier key: `TIER-A`, `TIER-B`, `TIER-C`, `TIER-D` |
 | `models` | Values for each model, for example `max_input_tokens`. These have priority over discovery and LiteLLM. |
+| `order` | Optional. A whole number, 1 or more. Empty or not set: 1. A model of a higher order gets a request only when no model of a lower order in its tier answers. The `order` of a `models` entry has priority. See [Order](architecture.md#order). |
 
 `rpm` and `tpm` limit the requests and the input tokens of a model in 60 s. At a limit, the model leaves the chains. See [Pacing](architecture.md#pacing).
 

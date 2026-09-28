@@ -1,5 +1,7 @@
 cloudflare:
   api_key: os.environ/CLOUDFLARE_API_KEY
+  # After the order 1 models: the daily Neurons go to images and transcription first.
+  order: 2
   discovery_match:
     require_workers_paid: false
   exclude:
@@ -179,12 +181,17 @@ openrouter:
 
 pollinations:
   api_key: os.environ/POLLINATIONS_API_KEY
+  # The order of Cloudflare: no image model has order 1, so both share daedalus/photos.
+  order: 2
   # Each other model spends Pollen faster, and most need a paid balance.
   exclude:
     - "*"
+  # The Pollen for each image, from the free Quest Pollen.
   models:
-    # 0.004 Pollen for each image, from the free Pollen grant.
-    tongyi-mai/z-image-turbo: { mode: image_generation, rpm: 60 }
+    lykon/dreamshaper-8-lcm: { mode: image_generation, rpm: 300 } # 0.0001
+    black-forest-labs/flux.1-schnell: { mode: image_generation, rpm: 60 } # 0.002
+    tongyi-mai/z-image-turbo: { mode: image_generation, rpm: 60 } # 0.004
+    black-forest-labs/flux.2-klein-4b: { mode: image_generation, rpm: 60 } # 0.005
 
 z-ai:
   api_key: os.environ/ZAI_API_KEY
