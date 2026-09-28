@@ -6,7 +6,7 @@ The name must have the same impact as [Odysseus](https://odysseusai.dev/). It mu
 
 ## Features
 
-- 1 OpenAI-compatible endpoint for 7 providers: Cloudflare, Gemini, Groq, Kilo, Mistral, OpenRouter and Z.ai.
+- 1 OpenAI-compatible endpoint for 8 providers: Cloudflare, Gemini, Groq, Kilo, Mistral, OpenRouter, Pollinations and Z.ai.
 - Each provider gets its native API. Gemini gets the native Gemini API.
 - 4 pools (tiers) and `daedalus/auto`, which selects a tier from the prompt. A keyword, such as "think hard", moves the tier 1 step up.
 - A fallback ladder: when a model fails, the next model gets the request.

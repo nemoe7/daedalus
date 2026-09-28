@@ -17,6 +17,7 @@ from daedalus.providers.groq import GroqProvider
 from daedalus.providers.kilo import KiloProvider
 from daedalus.providers.mistral import MistralProvider
 from daedalus.providers.openrouter import OpenRouterProvider
+from daedalus.providers.pollinations import PollinationsProvider
 from daedalus.providers.zai import ZAiProvider
 
 API_TYPES: dict[str, type[OpenAIProvider]] = {
@@ -30,6 +31,7 @@ PROVIDERS: dict[str, type[OpenAIProvider]] = {
   "kilo": KiloProvider,
   "mistral": MistralProvider,
   "openrouter": OpenRouterProvider,
+  "pollinations": PollinationsProvider,
   "z-ai": ZAiProvider,
 }
 
