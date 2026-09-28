@@ -333,6 +333,8 @@ function renderFiles() {
       data-file="${index}" title="${esc(file.path)}">${esc(fileName(file.path))}${mark}</button>`;
   }).join(" ");
   $("save").disabled = !dirty();
+  // The main provider file stays: only a {provider}.yml file can go.
+  $("drop-provider").hidden = state.files[state.file]?.main !== false;
 }
 
 function openFile(index) {
@@ -680,6 +682,42 @@ $("tiers").addEventListener("click", (event) => {
 $("files").addEventListener("click", (event) => {
   const button = event.target.closest("[data-file]");
   if (button) openFile(Number(button.dataset.file));
+});
+async function reloadFiles(keep) {
+  state.files = await call("files");
+  state.saved = state.files.map((file) => file.text);
+  const index = Math.max(0, state.files.findIndex((file) => file.path === keep));
+  state.file = index;
+  $("editor").value = state.files[index]?.text ?? "";
+  $("save-message").textContent = "";
+  renderFiles();
+}
+
+$("new-provider").addEventListener("click", async () => {
+  const message = $("save-message");
+  message.textContent = "";
+  const name = prompt("Provider name: lowercase letters, digits and dashes.");
+  if (!name) return;
+  try {
+    const made = await call("files", { method: "POST", body: JSON.stringify({ name }) });
+    await reloadFiles(made.path);
+  } catch (error) {
+    if (error instanceof LoggedOut) return showLogin();
+    message.textContent = error.message;
+  }
+});
+$("drop-provider").addEventListener("click", async () => {
+  const message = $("save-message");
+  message.textContent = "";
+  const file = state.files[state.file];
+  if (!file || !confirm(`Delete ${file.path}?`)) return;
+  try {
+    await call("files", { method: "DELETE", body: JSON.stringify({ path: file.path }) });
+    await reloadFiles(null);
+  } catch (error) {
+    if (error instanceof LoggedOut) return showLogin();
+    message.textContent = error.message;
+  }
 });
 $("editor").addEventListener("input", renderFiles);
 $("save").addEventListener("click", save);

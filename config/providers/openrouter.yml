@@ -1,0 +1,14 @@
+api_key: os.environ/OPENROUTER_API_KEY
+tier:
+  TIER-A:
+    - "z-ai/glm-5.3-flash"
+models:
+  z-ai/glm-5.3-flash:
+    # A short wait: flash answers fast or not at all.
+    timeout: 15
+    rpm: 15000
+    tpm: 1200000
+    max_input_tokens: 1310720
+    max_output_tokens: 131072
+    # Direct requests only: this model stays out of each pool and daedalus/auto.
+    pool: false

@@ -3,7 +3,7 @@
 from collections.abc import Mapping
 from typing import Any
 
-from daedalus.config import expand
+from daedalus.config import block_for, expand
 from daedalus.providers.base import OpenAIProvider, ProviderError, frame
 from daedalus.providers.cloudflare import CloudflareProvider
 from daedalus.providers.gemini import GeminiProvider
@@ -56,8 +56,8 @@ def prepare(
 def provider_for(model: str, config: Mapping) -> tuple[OpenAIProvider, str]:
   """Build the provider and the slug for one `provider/slug` model."""
   name, separator, slug = model.partition("/")
-  raw = config.get(name)
-  if not separator or not slug or not isinstance(raw, dict):
+  raw = block_for(config, name, slug) if separator else None
+  if not separator or not slug or raw is None:
     raise ProviderError(f"Unknown provider model: {model}")
   merged = settings(name, raw)
   api_type = merged.get("api_type", "openai")

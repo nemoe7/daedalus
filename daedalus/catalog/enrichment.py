@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 
 from daedalus.catalog.discovery import MAX_PAGES, Fetch, fetch_json, matches, with_param
+from daedalus.config import block_for
 from daedalus.store import COLUMNS
 
 LITELLM_CATALOG = "https://api.litellm.ai/model_catalog"
@@ -46,7 +47,7 @@ def column_values(values: dict[str, Any]) -> dict[str, Any]:
 
 
 def config_params(provider: dict[str, Any], slug: str) -> dict[str, Any]:
-  """Provider-level values, then every matching `models` entry, in config order."""
+  """The provider-level values, then every matching `models` entry, in file order."""
   found = column_values(provider)
   for pattern, values in (provider.get("models") or {}).items():
     if isinstance(values, dict) and matches(str(pattern), slug):
@@ -78,7 +79,7 @@ def enrich(
     row: dict[str, Any] = {"id": line, "provider": provider_name, "slug": slug}
     row.update({key: entry.get(key) for key in COLUMNS})
     row.update((native or {}).get(line, {}))
-    provider = config.get(provider_name)
-    row.update(config_params(provider if isinstance(provider, dict) else {}, slug))
+    block = block_for(config, provider_name, slug) or {}
+    row.update(config_params(block, slug))
     rows.append(row)
   return rows, problems
