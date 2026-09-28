@@ -2,6 +2,7 @@
 
 import logging
 import time
+from collections.abc import Mapping
 from typing import Any
 
 import httpx
@@ -64,10 +65,58 @@ def failure_text(exc: Exception) -> str:
 
 
 class UpstreamStatus(Exception):
-  def __init__(self, status: int, detail: str = "") -> None:
+  """An upstream error status, with the short error text, the headers and the full body."""
+
+  def __init__(
+    self,
+    status: int,
+    detail: str = "",
+    headers: Mapping[str, str] | None = None,
+    body: bytes = b"",
+  ) -> None:
     super().__init__(status)
     self.status = status
     self.detail = detail
+    self.headers = httpx.Headers(headers or {})
+    self.body = body
+
+
+class BadRequestError(UpstreamStatus):
+  """HTTP 400 or 422: the provider does not accept the request."""
+
+
+class AuthenticationError(UpstreamStatus):
+  """HTTP 401 or 403: the provider does not accept the key."""
+
+
+class NotFoundError(UpstreamStatus):
+  """HTTP 404: the provider does not know the model or the path."""
+
+
+class RateLimitError(UpstreamStatus):
+  """HTTP 429: the provider rate limit."""
+
+
+class ServerError(UpstreamStatus):
+  """HTTP 500 or higher: a provider fault."""
+
+
+STATUS_ERRORS: dict[int, type[UpstreamStatus]] = {
+  400: BadRequestError,
+  401: AuthenticationError,
+  403: AuthenticationError,
+  404: NotFoundError,
+  422: BadRequestError,
+  429: RateLimitError,
+}
+
+
+def status_error(
+  status: int, detail: str, headers: Mapping[str, str], body: bytes
+) -> UpstreamStatus:
+  """The error class of one upstream status."""
+  kind = STATUS_ERRORS.get(status, ServerError if status >= 500 else UpstreamStatus)
+  return kind(status, detail, headers, body)
 
 
 def note(
@@ -107,15 +156,18 @@ async def attempt(
     return provider, response
   raw = await response.aread()
   await response.aclose()
-  raise rejected(candidate, status, started, raw)
+  raise rejected(candidate, response, started, raw)
 
 
-def rejected(candidate: str, status: int, started: float, raw: bytes) -> UpstreamStatus:
+def rejected(
+  candidate: str, response: httpx.Response, started: float, raw: bytes
+) -> UpstreamStatus:
   """Log an upstream error status, and return the error to raise."""
+  status = response.status_code
   logger.warning(
     "upstream %s %d %s: %s", candidate, status, elapsed(started), error_text(raw)
   )
-  return UpstreamStatus(status, error_detail(raw, DETAIL_LIMIT))
+  return status_error(status, error_detail(raw, DETAIL_LIMIT), response.headers, raw)
 
 
 async def post(
@@ -127,6 +179,6 @@ async def post(
   timeout = httpx.Timeout(TIMEOUT_SECONDS)
   response = await get_client().post(url, headers=headers, timeout=timeout, **content)
   if response.status_code >= 400:
-    raise rejected(candidate, response.status_code, started, response.content)
+    raise rejected(candidate, response, started, response.content)
   logger.info("upstream %s %d %s", candidate, response.status_code, elapsed(started))
   return response
