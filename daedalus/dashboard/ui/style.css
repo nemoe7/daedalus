@@ -16,7 +16,6 @@
   }
 }
 * { box-sizing: border-box; }
-html { scrollbar-gutter: stable; }
 [hidden] { display: none !important; }
 body {
   margin: 0; background: var(--bg); color: var(--text);
@@ -201,12 +200,17 @@ textarea {
   border: 0; border-bottom: 1px solid var(--line); background: var(--field); color: var(--text);
   font: 13px/1.6 var(--mono); tab-size: 2; outline: none;
 }
-#app { display: flex; flex-direction: column; min-height: 100dvh; }
-#app > main { width: 100%; flex: 1; }
+/* Only the main area scrolls, so the header stays in place and spans the full width. */
+#app { display: flex; flex-direction: column; height: 100dvh; }
+#app > header { flex: none; }
+#app > main {
+  width: 100%; max-width: none; flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable;
+  padding-inline: max(32px, calc((100% - 1116px) / 2));
+}
 main:has(> section[data-page="providers"]:not([hidden])),
 main:has(> section[data-page="settings"]:not([hidden])) { display: flex; flex-direction: column; padding-bottom: 28px; }
 section[data-page="providers"], section[data-page="settings"], #yaml-view, #settings-yaml {
-  flex: 1; display: flex; flex-direction: column; min-height: 0;
+  flex: 1 0 auto; display: flex; flex-direction: column;
 }
 #editor, #settings-editor { flex: 1; min-height: 240px; resize: none; border-bottom: 0; border-radius: var(--radius); }
 .views { display: flex; gap: 6px; }
@@ -271,7 +275,7 @@ section[data-page="settings"] > .editbar, section[data-page="pools"] > .editbar 
   .tabs a { min-height: 38px; }
 }
 @media (max-width: 720px) {
-  header, main { padding-left: 16px; padding-right: 16px; }
+  header, #app > main { padding-left: 16px; padding-right: 16px; }
   header { grid-template-columns: 1fr; grid-template-areas: "brand" "chips" "tabs"; }
   .brand { padding-top: 10px; }
   .chips { justify-content: flex-start; padding: 6px 0 0; }
