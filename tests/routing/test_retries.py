@@ -73,6 +73,14 @@ def check_new_message(client: TestClient) -> None:
   assert ask(client, later, CHAT) == "b/1", "a try again of the new message"
 
 
+def check_task_between(client: TestClient) -> None:
+  message = [{"role": "user", "content": "task between"}]
+  task = [{"role": "user", "content": "### Task: suggest follow-ups"}]
+  assert ask(client, message, CHAT) == "c/1"
+  ask(client, task, CHAT)
+  assert ask(client, message, CHAT) == "b/1", "a task request does not end the retry"
+
+
 def check_other_requests(client: TestClient) -> None:
   alone = [{"role": "user", "content": "no header"}]
   assert ask(client, alone) == ask(client, alone) == "c/1", "no chat id, no retry"
@@ -110,6 +118,7 @@ def main() -> None:
     try:
       check_steps(client)
       check_new_message(client)
+      check_task_between(client)
       check_other_requests(client)
       check_expiry()
     finally:
