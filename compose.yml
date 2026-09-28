@@ -39,13 +39,43 @@ services:
       AUDIO_STT_MODEL: daedalus/graphos
       ENABLE_IMAGE_GENERATION: "true"
       IMAGE_GENERATION_MODEL: daedalus/photos
+      # Files and memory: main-slim has no local embedding model and supports only pgvector.
+      VECTOR_DB: pgvector
+      PGVECTOR_DB_URL: postgresql://openwebui:${OPENWEBUI_DB_PASSWORD:-openwebui}@webui-db:5432/openwebui
+      PGVECTOR_INITIALIZE_MAX_VECTOR_LENGTH: "1024" # the size of a mistral-embed vector
+      RAG_EMBEDDING_ENGINE: openai
+      RAG_OPENAI_API_BASE_URL: http://daedalus:3357/v1
+      RAG_OPENAI_API_KEY: ${OPENWEBUI_API_KEY:-${DAEDALUS_MASTER_KEY:-}}
+      RAG_EMBEDDING_MODEL: mistral/mistral-embed
+      RAG_EMBEDDING_BATCH_SIZE: "32" # chunks per request, below the free Mistral limits
+      ENABLE_ASYNC_EMBEDDING: "false" # 1 request at a time, so fewer 429 errors
     ports:
       - "3000:8080"
     volumes:
       - open-webui:/app/backend/data
     depends_on:
-      - daedalus
+      daedalus:
+        condition: service_started
+      webui-db:
+        condition: service_healthy
     restart: unless-stopped
+
+  webui-db:
+    profiles: [webui]
+    image: pgvector/pgvector:0.8.6-pg18-trixie
+    container_name: daedalus-webui-db
+    environment:
+      POSTGRES_USER: openwebui
+      POSTGRES_PASSWORD: ${OPENWEBUI_DB_PASSWORD:-openwebui}
+      POSTGRES_DB: openwebui
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "openwebui", "-d", "openwebui"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - webui-db:/var/lib/postgresql # PostgreSQL 18 keeps its data below this folder
+    restart: unless-stopped # no port: only Open WebUI connects to it
 
   headroom:
     profiles: [headroom]
@@ -90,5 +120,6 @@ services:
 
 volumes:
   open-webui:
+  webui-db:
   headroom:
   tailscale:

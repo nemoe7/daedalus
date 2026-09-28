@@ -40,6 +40,7 @@ A key that shows 2 times in 1 map of a config file stops the start. The error gi
 | `HEADROOM_URL` | `http://headroom:8787` in Compose | Headroom compression. An empty value stops it. |
 | `COMPOSE_PROFILES` | Empty | Optional services: `webui`, `headroom`, `tailscale` |
 | `OPENWEBUI_API_KEY` | `DAEDALUS_MASTER_KEY` | The key that Open WebUI sends to Daedalus |
+| `OPENWEBUI_DB_PASSWORD` | `openwebui` | The password of the Open WebUI vector database. The database has no host port. |
 | `TS_AUTHKEY`, `TS_HOSTNAME` | Empty, `daedalus` | Tailscale auth key and device name |
 
 Provider keys:
