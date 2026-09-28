@@ -90,7 +90,7 @@ Limits of the native Cloudflare API:
 | --- | --- |
 | Transcriptions | `response_format` is `json`, `text` or `vtt` |
 | Speech | MeloTTS answers in MP3 only |
-| Images | 1 image for each request. Flux 1 ignores `size`. |
+| Images | 1 image for each request. Flux 1 ignores `size`. FLUX.2 takes only multipart input, so Daedalus sends a multipart form to FLUX.2 models. |
 
 Limits of the native Gemini API:
 
