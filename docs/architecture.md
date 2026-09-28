@@ -15,7 +15,8 @@ flowchart TD
   CL --> L[Fallback ladder]
   P --> L
   L --> F[Remove models without tools, for a tool request]
-  F --> S[Remove models with a too-small context window]
+  F --> V[Remove models without vision, for an image request]
+  V --> S[Remove models with a too-small context window]
   S --> O[Order: weights and session model]
   D --> H
   O --> H[Headroom compression, when on]
@@ -29,6 +30,7 @@ flowchart TD
 | --- | --- |
 | Access | `/v1` needs the master key or an API key from the dashboard. |
 | Tool filter | A request with `tools` skips the models that cannot call tools. |
+| Vision filter | A request with an `image_url` part skips the models with no true `supports_vision` value. See [API](api.md#chat-completions). |
 | Context filter | Tokens = characters / 4, input only. A model with a smaller context window leaves the list. No log line shows it. |
 | No model fits | The client gets 400 `context_length_exceeded`. |
 | Error | The next model gets the request. The client sees only the last error. |
@@ -59,7 +61,7 @@ flowchart TD
 
 | Input | Effect |
 | --- | --- |
-| Request type | 1 of 7 types, from the first rule that matches. |
+| Request type | 1 of 7 types, from the first rule that matches. With no match, the type is `general`. |
 | Length | More than 2000 characters moves the text to a higher tier. |
 | Conversation | The tier does not go down until the session expires (1 h idle). |
 | Tool call | After the first tool call, the tier is koinos or higher. A conversation at koinos or higher skips the search for tool calls. |
