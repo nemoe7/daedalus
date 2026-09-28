@@ -4,7 +4,13 @@ from collections.abc import Mapping
 from typing import Any
 
 from daedalus.config import block_for, expand
-from daedalus.providers.base import OpenAIProvider, ProviderError, effort_text, frame
+from daedalus.providers.base import (
+  OpenAIProvider,
+  ProviderError,
+  check_wait,
+  effort_text,
+  frame,
+)
 from daedalus.providers.cloudflare import CloudflareProvider
 from daedalus.providers.gemini import GeminiProvider
 from daedalus.providers.groq import GroqProvider
@@ -32,6 +38,7 @@ __all__ = [
   "PROVIDERS",
   "OpenAIProvider",
   "ProviderError",
+  "check_wait",
   "effort_text",
   "frame",
   "prepare",
