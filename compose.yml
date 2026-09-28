@@ -49,6 +49,9 @@ services:
       RAG_EMBEDDING_MODEL: mistral/mistral-embed
       RAG_EMBEDDING_BATCH_SIZE: "32" # chunks per request, below the free Mistral limits
       ENABLE_ASYNC_EMBEDDING: "false" # 1 request at a time, so fewer 429 errors
+      # main-slim reads only plain text. Tika reads PDF and Office files, with OCR for scanned pages.
+      CONTENT_EXTRACTION_ENGINE: tika
+      TIKA_SERVER_URL: http://tika:9998
       # Web search goes to SearXNG in the search profile.
       ENABLE_WEB_SEARCH: "true"
       WEB_SEARCH_ENGINE: searxng
@@ -62,6 +65,8 @@ services:
         condition: service_started
       webui-db:
         condition: service_healthy
+      tika:
+        condition: service_started
     restart: unless-stopped
 
   webui-db:
@@ -79,6 +84,16 @@ services:
       retries: 5
     volumes:
       - webui-db:/var/lib/postgresql # PostgreSQL 18 keeps its data below this folder
+    restart: unless-stopped # no port: only Open WebUI connects to it
+
+  tika:
+    profiles: [webui]
+    image: apache/tika:3.3.0.0-full
+    container_name: daedalus-tika
+    command: ["-noFork"] # 1 Java process instead of a watchdog and a parser
+    environment:
+      # When a file uses all the heap, Java stops and Docker starts Tika again.
+      JAVA_TOOL_OPTIONS: -Xmx512m -XX:+ExitOnOutOfMemoryError
     restart: unless-stopped # no port: only Open WebUI connects to it
 
   searxng:
