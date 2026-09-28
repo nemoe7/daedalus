@@ -93,6 +93,8 @@ def check_wait(client: TestClient) -> None:
       attempts = dashboard.HISTORY.latest(1)[0]["attempts"]
       assert attempts[0]["model"] == "p/one", attempts
       assert "Only keep-alive bytes for 0.2s" in attempts[0]["error"], attempts
+      shown = [(d.get("trying"), d.get("fallbacks")) for k, d in sent if k == "update"]
+      assert ("p/one", 0) in shown and ("p/two", 1) in shown, shown
   finally:
     dashboard.LIVE.send = send
 
