@@ -124,6 +124,7 @@ flowchart LR
 | --- | --- | --- |
 | Cloudflare | 2 | The daily Neurons go to images and transcription first |
 | Pollinations | 2 | No image model has order 1, so Cloudflare and Pollinations share `daedalus/photos` by weight |
+| OpenRouter `recraft/recraft-v3:free` | 2 | It shares `daedalus/photos`, and the free requests of OpenRouter share 1 daily limit with chat |
 | Other providers | 1 | The default |
 
 ## Weights
