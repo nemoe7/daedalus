@@ -347,6 +347,7 @@ def routes(
       return denied()
     config, lines = get_config(), store.read_models()
     ends = cooldowns.ends() if cooldowns else {}
+    limits = {row["id"]: row.get("max_input_tokens") for row in store.model_rows()}
     found = [
       {
         "name": router.RESERVED_MODEL,
@@ -368,6 +369,9 @@ def routes(
       found.append(
         {"name": name, "mode": mode, "members": members([media], (None,), ends)}
       )
+    for pool in found:
+      sizes = [limits.get(member["id"]) or 0 for member in pool["members"]]
+      pool["context"] = max(sizes, default=0) or None
     return JSONResponse(found)
 
   @api.get("/models")

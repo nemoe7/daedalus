@@ -176,7 +176,9 @@ function renderPools(pools) {
     const health = poolHealth(members);
     const bar = health === null ? "" : `<div class="health" title="Mean weight. A model in a cooldown counts as 0.">
       ${weightBar(health)}<span class="num">${health.toFixed(2)}</span></div>`;
-    return `<div class="card"><h3>${esc(pool.name)}</h3>${bar}
+    const context = pool.context
+      ? ` <span class="ctx" title="The largest context of a pool model">${tokens(pool.context)}</span>` : "";
+    return `<div class="card"><h3>${esc(pool.name)}${context}</h3>${bar}
       <div class="sub">${esc(POOL_NOTES[pool.name] || "")} &middot; ${members.length} models</div>
       ${shown || '<div class="more">No models</div>'}${rest}</div>`;
   }).join("");

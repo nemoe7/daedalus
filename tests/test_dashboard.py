@@ -75,6 +75,13 @@ def check_data(client: TestClient) -> None:
   assert "daedalus/praktos" not in pools
   assert [m["id"] for m in pools["daedalus/koinos"]] == ["p/small"]
   assert pools["daedalus/moros"] == [], "a pool with no member"
+  context = {
+    pool["name"]: pool["context"] for pool in client.get("/ui/api/pools").json()
+  }
+  assert context["daedalus/auto"] == 1000, "the largest context of the members"
+  assert context["daedalus/koinos"] is None and context["daedalus/moros"] is None, (
+    context
+  )
   assert pools["daedalus/koinos"][0]["cooldown"] is None, "no cooldown"
   api.COOLDOWNS.start("p/small", {"retry-after": "90"}, b"")
   pools = {pool["name"]: pool["members"] for pool in client.get("/ui/api/pools").json()}
