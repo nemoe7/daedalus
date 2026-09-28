@@ -126,22 +126,27 @@ def write_store(
   return target
 
 
-def read_models(routable_only: bool = True, tools_only: bool = False) -> list[str]:
-  """The stored model ids, chat or unmatched rows by default, and tool rows on request."""
+def read_models(
+  routable_only: bool = True, tools_only: bool = False, vision_only: bool = False
+) -> list[str]:
+  """The stored model ids, chat or unmatched rows by default, and tool or image rows on request."""
   if not Path(MODELS_DB).exists():
     return []
   database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
   try:
     try:
       rows = database.execute(
-        "SELECT id, mode, supports_function_calling FROM models ORDER BY rowid"
+        "SELECT id, mode, supports_function_calling, supports_vision"
+        " FROM models ORDER BY rowid"
       )
     except sqlite3.OperationalError:
       return []
     return [
       key
-      for key, mode, tools in rows
-      if (not routable_only or mode in ROUTABLE_MODES) and (not tools_only or tools)
+      for key, mode, tools, vision in rows
+      if (not routable_only or mode in ROUTABLE_MODES)
+      and (not tools_only or tools)
+      and (not vision_only or vision)
     ]
   finally:
     database.close()
