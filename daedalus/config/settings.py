@@ -110,6 +110,20 @@ def scalar(value: Any) -> str:
   return str(value)
 
 
+def item(value: Any) -> str:
+  """One list item as YAML text, with quotes only when YAML needs them."""
+  return yaml.safe_dump(value, default_flow_style=True, width=10**6).splitlines()[0]
+
+
+def entry(indent: str, key: str, value: Any, comment: str = "") -> list[str]:
+  """The YAML lines of one key. A list becomes 1 line for each item."""
+  if not isinstance(value, list):
+    return [f"{indent}{key}: {scalar(value)}{comment}"]
+  if not value:
+    return [f"{indent}{key}: []{comment}"]
+  return [f"{indent}{key}:{comment}", *(f"{indent}  - {item(v)}" for v in value)]
+
+
 def update_text(text: str, changes: dict[str, dict[str, Any]]) -> str:
   """The YAML text with new values, and its comments kept. None sets the default."""
   for group, values in changes.items():
@@ -126,14 +140,22 @@ def update_text(text: str, changes: dict[str, dict[str, Any]]) -> str:
   }
   output: list[str] = []
   group = None
+  # The indent of a replaced key. Its old list items go away.
+  replaced: str | None = None
 
   def close(name: str | None) -> None:
     # Keys that the group did not have go after its last line.
     for key, value in pending.pop(name, {}).items():
       if value is not None:
-        output.append(f"  {key}: {scalar(value)}")
+        output.extend(entry("  ", key, value))
 
   for line in lines:
+    if replaced is not None:
+      depth = len(line) - len(line.lstrip())
+      old_item = line.strip().startswith("-") and depth >= len(replaced)
+      if line.strip() and (depth > len(replaced) or old_item):
+        continue
+      replaced = None
     heading = GROUP_LINE.match(line)
     if heading:
       close(group)
@@ -143,9 +165,10 @@ def update_text(text: str, changes: dict[str, dict[str, Any]]) -> str:
     found = KEY_LINE.match(line)
     if found and group in pending and found.group(2) in pending[group]:
       value = pending[group].pop(found.group(2))
+      indent, key, comment = found.group(1), found.group(2), found.group(4) or ""
+      replaced = indent
       if value is not None:
-        indent, key, comment = found.group(1), found.group(2), found.group(4) or ""
-        output.append(f"{indent}{key}: {scalar(value)}{comment}")
+        output.extend(entry(indent, key, value, comment))
       continue
     output.append(line)
   close(group)
