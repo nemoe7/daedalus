@@ -130,8 +130,10 @@ async def check_requests() -> None:
           response = await client.post("/v1/chat/completions", json=body)
           assert response.status_code == 200, response.text
           events = drained(queue)
-          assert [kind for kind, _ in events] == ["start", "update", "first", "end"]
-          update, first, end = (data for _, data in events[1:])
+          kinds = [kind for kind, _ in events]
+          assert kinds == ["start", "update", "update", "first", "end"], kinds
+          update, trying, first, end = (data for _, data in events[1:])
+          assert trying["trying"] == "groq/x" and trying["fallbacks"] == 0, trying
           assert update["model"] == "groq/x" and update["stream"] is stream, update
           assert update["effort"] == "low", update
           assert first["via"] == "groq/x" and first["ttft"] is not None, first

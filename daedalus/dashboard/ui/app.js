@@ -297,12 +297,12 @@ function renderLive() {
       <td>${esc(r.model || r.path)}</td>
       <td class="hide-sm">${esc(r.effort || "-")}</td>
       <td class="hide-sm muted">${esc(r.pool || "-")}</td>
-      <td>${r.via ? esc(r.via) : '<span class="muted">waiting</span>'}</td>
+      <td>${r.via ? esc(r.via) : `<span class="muted">${r.trying ? `trying ${esc(r.trying)}` : "waiting"}</span>`}</td>
       <td class="status muted">live</td>
       <td class="hide-sm num muted">-</td>
       <td class="hide-sm num" data-clock="ttft"></td>
       <td class="hide-sm num" data-clock="stream"></td>
-      <td class="hide-sm num muted">-</td>
+      <td class="hide-sm num muted">${r.fallbacks ?? "-"}</td>
     </tr>`).join("");
   tickLive();
 }
