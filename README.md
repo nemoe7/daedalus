@@ -14,7 +14,7 @@ The name must have the same impact as [Odysseus](https://odysseusai.dev/). It mu
 - A model catalog from provider discovery and LiteLLM data, rebuilt on a schedule.
 - Endpoints for embeddings, transcriptions, speech and images.
 - A dashboard for pools, requests, models, API keys, providers and settings.
-- Docker Compose, with optional Open WebUI, Headroom and Tailscale.
+- Docker Compose, with optional Open WebUI, SearXNG, Headroom and Tailscale.
 
 Daedalus is for personal use only. Do not share it with other users, because the provider terms of service can forbid it.
 
