@@ -62,6 +62,13 @@ services:
       ENABLE_WEB_SEARCH: "true"
       WEB_SEARCH_ENGINE: searxng
       SEARXNG_QUERY_URL: http://searxng:8080/search?q=<query>
+      # New chats start with Web Search and Code Interpreter on, and the model decides when to use them.
+      # The other capabilities are the Open WebUI defaults.
+      DEFAULT_MODEL_METADATA: >-
+        {"capabilities": {"file_context": true, "vision": true, "file_upload": true,
+        "web_search": true, "image_generation": true, "code_interpreter": true, "terminal": true,
+        "citations": true, "status_updates": true, "memory": true, "builtin_tools": true},
+        "defaultFeatureIds": ["web_search", "code_interpreter"]}
     ports:
       - "3000:8080"
     volumes:

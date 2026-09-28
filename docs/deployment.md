@@ -65,6 +65,7 @@ flowchart LR
 | `RAG_EMBEDDING_ENGINE`, `RAG_EMBEDDING_MODEL` | `openai` and `mistral/mistral-embed` through Daedalus. `main-slim` has no local embedding model. A new embedding model needs a new index of all files. |
 | `CONTENT_EXTRACTION_ENGINE` | `tika`. Plain text files do not go to Tika. Without the `tika` profile, PDF and Office files fail. |
 | `ENABLE_WEB_SEARCH`, `WEB_SEARCH_ENGINE` | `true` and `searxng`. Without the `search` profile, a web search fails. |
+| `DEFAULT_MODEL_METADATA` | **Web Search** and **Code Interpreter** are on in each new chat, and the model decides when to use them. The capabilities are the Open WebUI defaults. On an existing install, set them in **Admin Settings → Models → Defaults**. |
 | MCP servers | See [MCP](https://docs.openwebui.com/features/extensibility/mcp/) in the Open WebUI docs. MCP tools need **Native** function calling. A tool request skips the models that cannot call tools. See [API](api.md#chat-completions). |
 | Spoken replies | The browser voice. Each user picks Web API or Kokoro.js in **Settings → Audio**. Open WebUI sends 1 speech request for each sentence, and the free Gemini TTS allows 3 requests per minute. |
 | `RAG_EMBEDDING_BATCH_SIZE`, `ENABLE_ASYNC_EMBEDDING` | `32` and `false`: 32 chunks in each request, 1 request at a time, to stay below the free Mistral limits |
@@ -82,9 +83,9 @@ To check the services and settings:
 
 | Feature | Tools for the model | Condition |
 | --- | --- | --- |
-| Web search | `search_web`, `fetch_url` | **Web Search** is on in the chat |
+| Web search | `search_web`, `fetch_url` | **Web Search** is on in the chat. It is on at the start of each chat. |
 | Files | none | Tika reads the file at upload. Open WebUI adds the matching parts to the prompt. |
-| Code | `execute_code` | **Code Interpreter** is on in the chat. The code runs in the browser (Pyodide). |
+| Code | `execute_code` | **Code Interpreter** is on in the chat. It is on at the start of each chat. The code runs in the browser (Pyodide). |
 
 Keep **Function Calling** on **Native**, the Open WebUI default since v0.10.0. Native sends the tools in `tools`, and Daedalus skips the models that cannot call tools. Legacy puts the tools in the prompt and calls tools only 1 time, before the answer.
 
