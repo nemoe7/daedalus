@@ -76,8 +76,24 @@ async def log_request(request: Request, call_next):
   quiet = quiet and (request.url.path == "/" or request.url.path.startswith("/ui/"))
   logger.log(logging.DEBUG if quiet else logging.INFO, " ".join([line, *models]))
   if request.method == "POST" and request.url.path.startswith("/v1/"):
-    dashboard.record(request, response.status_code, time.perf_counter() - started)
+    response.body_iterator = recorded(
+      request,
+      response.status_code,
+      response.body_iterator,
+      time.perf_counter() - started,
+    )
   return response
+
+
+async def recorded(
+  request: Request, status: int, body: AsyncIterator[bytes], seconds: float
+) -> AsyncIterator[bytes]:
+  """Pass the body on, and keep the request for the dashboard after the last chunk."""
+  try:
+    async for chunk in body:
+      yield chunk
+  finally:
+    dashboard.record(request, status, seconds)
 
 
 def user_turns(messages: object) -> list[str]:

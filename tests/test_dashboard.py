@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from daedalus import config, dashboard, store
 from daedalus.config import settings
+from daedalus.dashboard.history import History
 from daedalus.server import api, upstream
 
 CONFIG = {
@@ -274,6 +275,28 @@ def check_files(client: TestClient, folder: Path) -> None:
   assert "_file" not in config.get_config().get("openrouter", {}), "the reload drops it"
 
 
+def check_history(client: TestClient) -> None:
+  restarted = History(lambda: store.MODELS_DB, keep=3)
+  assert restarted.latest(1)[0]["model"] == dashboard.HISTORY.latest(1)[0]["model"], (
+    "a new history object reads the rows of the file, as after a restart"
+  )
+  restarted.clear()
+  for number in range(5):
+    restarted.add({"at": number, "model": f"m/{number}"})
+  kept = [row["model"] for row in restarted.latest(10)]
+  assert kept == ["m/4", "m/3", "m/2"], "the newest rows first, at most keep"
+  database = restarted.connect()
+  count = database.execute("SELECT COUNT(*) FROM requests").fetchone()[0]
+  database.close()
+  assert count == 3, "the file drops the older rows"
+  for number in range(60):
+    dashboard.HISTORY.add({"at": number, "model": "m/x"})
+  assert len(client.get("/ui/api/requests").json()) == 50, "50 rows by default"
+  assert len(client.get("/ui/api/requests?limit=55").json()) == 55
+  assert len(client.get("/ui/api/requests?limit=x").json()) == 50, "a bad limit"
+  dashboard.HISTORY.clear()
+
+
 def main() -> None:
   with tempfile.TemporaryDirectory() as folder:
     store.MODELS_DB = Path(folder) / "models.sqlite3"
@@ -290,12 +313,13 @@ def main() -> None:
     api.get_config = lambda: CONFIG
     upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
     api.PENALTIES.clear()
-    dashboard.RECENT.clear()
+    dashboard.HISTORY.clear()
     try:
       client = TestClient(api.app, headers=AUTH)
       check_page(client)
       check_login(client)
       check_data(client)
+      check_history(client)
       check_keys(client)
       check_files(client, Path(folder))
     finally:
