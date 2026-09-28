@@ -2,7 +2,7 @@
 
 import os
 import re
-from collections.abc import Mapping
+from collections.abc import Hashable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -47,10 +47,35 @@ def expand(node: Any) -> Any:
   return node
 
 
+class _UniqueKeys(yaml.SafeLoader):
+  """A safe loader that refuses a key that a mapping already holds."""
+
+  def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict:
+    seen: dict[Any, yaml.Node] = {}
+    for key_node, _ in node.value:
+      key = self.construct_object(key_node, deep=deep)
+      if not isinstance(key, Hashable):
+        continue
+      if key in seen:
+        raise yaml.constructor.ConstructorError(
+          f"while reading a mapping, first {key!r}",
+          seen[key].start_mark,
+          f"duplicate key {key!r}",
+          key_node.start_mark,
+        )
+      seen[key] = key_node
+    return super().construct_mapping(node, deep)
+
+
+def load_yaml(text: Any) -> Any:
+  """The content of one YAML text or stream. A duplicate key raises a `yaml.YAMLError`."""
+  return yaml.load(text, _UniqueKeys)
+
+
 def read_yaml(path: Path) -> dict[str, Any]:
   """One YAML mapping, with `os.environ/` values resolved. Other content gives an empty mapping."""
   with path.open(encoding="utf-8") as handle:
-    raw = yaml.safe_load(handle)
+    raw = load_yaml(handle)
   return expand(raw) if isinstance(raw, dict) else {}
 
 
