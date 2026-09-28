@@ -65,6 +65,25 @@ async def check_default_effort(client: httpx.AsyncClient) -> None:
   assert "reasoning_effort" not in SEEN[0][1], "a model that does not reason"
 
 
+async def check_output_limit(client: httpx.AsyncClient) -> None:
+  """An output limit above the limit of the model drops to that limit."""
+  for field in ("max_tokens", "max_completion_tokens"):
+    for asked, sent in ((9000, 4000), (100, 100)):
+      SEEN.clear()
+      body = {
+        "model": "a/thinks",
+        "messages": [{"role": "user", "content": "hi"}],
+        field: asked,
+      }
+      response = await client.post("/v1/chat/completions", json=body)
+      assert response.status_code == 200, response.text
+      assert SEEN[0][1][field] == sent, (field, SEEN)
+  SEEN.clear()
+  body = {"model": "a/x", "messages": [{"role": "user", "content": "hi"}]}
+  await client.post("/v1/chat/completions", json={**body, "max_tokens": 9000})
+  assert SEEN[0][1]["max_tokens"] == 9000, "no stored limit, no change"
+
+
 async def main() -> None:
   config.set_config(
     {
@@ -79,7 +98,12 @@ async def main() -> None:
       [
         {"id": "a/x"},
         {"id": "b/x"},
-        {"id": "a/thinks", "supports_reasoning": True, "reasoning_effort": "high"},
+        {
+          "id": "a/thinks",
+          "supports_reasoning": True,
+          "reasoning_effort": "high",
+          "max_output_tokens": 4000,
+        },
         {"id": "a/plain", "supports_reasoning": False, "reasoning_effort": "high"},
       ]
     )
@@ -91,6 +115,7 @@ async def main() -> None:
       ) as client:
         await check_missing_key(client)
         await check_default_effort(client)
+        await check_output_limit(client)
   store.MODELS_DB = saved
   set_client(None)
   config.set_config(None)
