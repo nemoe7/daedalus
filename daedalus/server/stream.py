@@ -10,7 +10,7 @@ import httpx
 
 from daedalus import providers, store
 from daedalus.providers.base import error_text
-from daedalus.routing import context, pacing, router
+from daedalus.routing import context, loops, pacing, router
 from daedalus.server import upstream
 
 if TYPE_CHECKING:
@@ -100,6 +100,8 @@ async def relay(
   identifier, sent, tool = None, [], False
   attempts = [] if attempts is None else attempts
   while True:
+    # Each model gets new loop checks. The answer text so far stays in `sent`.
+    thinking, answer = loops.Repeats(), loops.Repeats()
     try:
       while True:
         data = pending.pop(0) if pending else await anext(events)
@@ -123,9 +125,28 @@ async def relay(
         for choice in chunk.get("choices") or []:
           delta = choice.get("delta") or {}
           tool = tool or bool(delta.get("tool_calls"))
+          loops.save(
+            [
+              call["id"]
+              for call in delta.get("tool_calls") or []
+              if isinstance(call, dict) and isinstance(call.get("id"), str)
+            ],
+            model,
+          )
+          reasoning = delta.get("reasoning_content") or delta.get("reasoning")
+          if isinstance(reasoning, str) and thinking.feed(reasoning) is not None:
+            raise loops.LoopError("thinking")
           if isinstance(delta.get("content"), str):
+            if (period := answer.feed(delta["content"])) is not None:
+              text = "".join(sent) + delta["content"]
+              raise loops.LoopError("answer", loops.kept(text, period))
             sent.append(delta["content"])
         yield providers.frame(chunk)
+    except loops.LoopError as exc:
+      logger.warning("upstream %s stopped: %s", model, exc)
+      attempts.append(upstream.note(model, "loop", None, str(exc)))
+      if exc.kept is not None:
+        sent = [exc.kept]
     except StopAsyncIteration:
       logger.warning("upstream stream ended without [DONE]")
       attempts.append(
