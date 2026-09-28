@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from daedalus.store.database import open_db
+
 FIRST, LONGEST = 60.0, 21600.0
 PACIFIC = ZoneInfo("America/Los_Angeles")
 # Cloudflare error 4006: the daily free neurons of the account are used up.
@@ -130,11 +132,7 @@ class Cooldowns:
     self.first, self.longest = FIRST, LONGEST
 
   def connect(self) -> sqlite3.Connection:
-    target = Path(self.path())
-    target.parent.mkdir(parents=True, exist_ok=True)
-    database = sqlite3.connect(target, timeout=5)
-    database.execute(TABLE)
-    return database
+    return open_db(self.path(), (TABLE,))
 
   def clear(self) -> None:
     database = self.connect()

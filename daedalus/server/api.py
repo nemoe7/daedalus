@@ -52,56 +52,74 @@ app = FastAPI(title="daedalus", version="0.1.0", lifespan=lifespan)
 app.include_router(media.routes)
 
 
-@app.middleware("http")
-async def log_request(request: Request, call_next):
-  started = time.perf_counter()
-  api_post = request.method == "POST" and request.url.path.startswith("/v1/")
-  if api_post:
-    request.state.live = dashboard.LIVE.start(request.url.path)
-  try:
-    response = await call_next(request)
-  except Exception:
+REQUEST_FIELDS = (
+  "key",
+  "model",
+  "pool",
+  "via",
+  "pin",
+  "ttft",
+  "fallbacks",
+  "retry",
+  "saved",
+)
+
+
+class RequestLog:
+  """Log each request, and keep each API request for the dashboard after its last byte.
+
+  A plain ASGI class passes the stream chunks on with no extra queue.
+  """
+
+  def __init__(self, inner: Any) -> None:
+    self.inner = inner
+
+  async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
+    if scope["type"] != "http":
+      await self.inner(scope, receive, send)
+      return
+    started = time.perf_counter()
+    request = Request(scope)
+    api_post = request.method == "POST" and request.url.path.startswith("/v1/")
     if api_post:
-      dashboard.LIVE.end(request.state.live, None)
-    raise
+      request.state.live = dashboard.LIVE.start(request.url.path)
+    status: int | None = None
+
+    async def sending(message: dict) -> None:
+      nonlocal status
+      if message["type"] == "http.response.start":
+        status = message["status"]
+        log_line(request, status, started)
+      await send(message)
+
+    try:
+      await self.inner(scope, receive, sending)
+    except Exception:
+      if api_post and status is None:
+        dashboard.LIVE.end(request.state.live, None)
+      raise
+    finally:
+      if api_post and status is not None:
+        dashboard.record(request, status, time.perf_counter() - started)
+
+
+def log_line(request: Request, status: int, started: float) -> None:
+  """Write the log line of one request when its answer starts."""
   models = [
     f"{key}={getattr(request.state, key)}"
-    for key in (
-      "key",
-      "model",
-      "pool",
-      "via",
-      "pin",
-      "ttft",
-      "fallbacks",
-      "retry",
-      "saved",
-    )
+    for key in REQUEST_FIELDS
     if getattr(request.state, key, None)
   ]
   line = " ".join(
-    [request.method, request.url.path, str(response.status_code), logs.elapsed(started)]
+    [request.method, request.url.path, str(status), logs.elapsed(started)]
   )
   # The dashboard polls every few seconds, so its reads go to the debug log.
-  quiet = request.method == "GET" and response.status_code < 400
+  quiet = request.method == "GET" and status < 400
   quiet = quiet and (request.url.path == "/" or request.url.path.startswith("/ui/"))
   logger.log(logging.DEBUG if quiet else logging.INFO, " ".join([line, *models]))
-  if api_post:
-    response.body_iterator = recorded(
-      request, response.status_code, response.body_iterator, started
-    )
-  return response
 
 
-async def recorded(
-  request: Request, status: int, body: AsyncIterator[bytes], started: float
-) -> AsyncIterator[bytes]:
-  """Pass the body on, and keep the request with its total time after the last chunk."""
-  try:
-    async for chunk in body:
-      yield chunk
-  finally:
-    dashboard.record(request, status, time.perf_counter() - started)
+app.add_middleware(RequestLog)
 
 
 def user_turns(messages: object) -> list[str]:

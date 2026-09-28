@@ -6,6 +6,8 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
+from daedalus.store.database import open_db
+
 # A pin with no request for this long expires.
 IDLE_SECONDS = 3600.0
 # In a session, the share of first-tier draws for the session model.
@@ -44,12 +46,7 @@ class Penalties:
     self.rate_limit = RATE_LIMIT
 
   def connect(self) -> sqlite3.Connection:
-    target = Path(self.path())
-    target.parent.mkdir(parents=True, exist_ok=True)
-    database = sqlite3.connect(target, timeout=5)
-    for statement in TABLES:
-      database.execute(statement)
-    return database
+    return open_db(self.path(), tuple(TABLES))
 
   def clear(self) -> None:
     """Remove all weights and pins."""
