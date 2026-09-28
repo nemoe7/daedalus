@@ -49,8 +49,15 @@ flowchart LR
 | API key | `OPENWEBUI_API_KEY`, else `DAEDALUS_MASTER_KEY` |
 | First user | Becomes the Open WebUI admin |
 | `ENABLE_FORWARD_USER_INFO_HEADERS` | `true`. Sends the chat id for [try again](architecture.md#try-again). It also sends the user name, id, e-mail and role. |
+| `WEBUI_SECRET_KEY` | From `.env`. Without it, each new container makes a new key, and all logins end. |
+| `AIOHTTP_CLIENT_TIMEOUT` | `600`, the same as `timeouts.request`. The Open WebUI default is 300 s. |
+| `TASK_MODEL_EXTERNAL` | `daedalus/auto`, for titles, tags and follow-ups |
+| `AUDIO_STT_ENGINE`, `AUDIO_STT_MODEL` | `openai` and `daedalus/graphos`. Speech to text goes to Daedalus, not to a local Whisper. |
+| `ENABLE_IMAGE_GENERATION`, `IMAGE_GENERATION_MODEL` | `true` and `daedalus/photos` |
 
-> Q: Which Open WebUI settings do you recommend with Daedalus? For example: the task model, or the function calling mode.
+Open WebUI reads most of these settings only on the first start with a new data volume. After that, the values in **Admin Settings** apply. On an existing install, set them there.
+
+> Q: Which function calling mode do you recommend with Daedalus?
 
 ### Headroom
 
@@ -60,6 +67,8 @@ flowchart LR
 | Timeout | 5 s. Then the original messages go to the provider. |
 | Failure | Daedalus sends the original messages. |
 | Log | `saved=N` shows the saved tokens. |
+| `HEADROOM_BEACON` | `off`. The anonymous upload of compression stats, on by default. |
+| `HEADROOM_UPDATE_CHECK` | `off`. Compose pins the image version. |
 
 Headroom is worth it for long agentic tasks. So far, it keeps token use lower with the same model quality.
 
@@ -71,3 +80,5 @@ Headroom is worth it for long agentic tasks. So far, it keeps token use lower wi
 | Device name | `TS_HOSTNAME`, default `daedalus` |
 | Address | `https://NAME.TAILNET.ts.net` |
 | Funnel | Off: only your tailnet can connect. |
+| `TS_AUTH_ONCE` | `true`. The state volume keeps the login, so a used or old auth key does not stop a restart. |
+| Health | `/healthz` on `127.0.0.1:9002`. `docker ps` shows "unhealthy" when the device has no tailnet address. |
