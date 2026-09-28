@@ -138,6 +138,13 @@ const POOL_TIERS = {
   "daedalus/koinos": "C", "daedalus/moros": "D",
 };
 
+// The mean weight of a pool. A model in a cooldown counts as 0.
+function poolHealth(members) {
+  if (!members.length) return null;
+  const now = Date.now() / 1000;
+  return members.reduce((sum, m) => sum + (m.cooldown > now ? 0 : m.weight), 0) / members.length;
+}
+
 function renderPools(pools) {
   $("pools").innerHTML = pools.map((pool) => {
     // The highest weight first. A tie keeps the chain order.
@@ -150,7 +157,10 @@ function renderPools(pools) {
     const filters = `tier=${POOL_TIERS[pool.name] || "All"}&mode=${pool.mode || "chat"}&sort=weight`;
     const rest = members.length > SHOWN
       ? `<a class="more" href="#/models?${filters}">+${members.length - SHOWN} more</a>` : "";
-    return `<div class="card"><h3>${esc(pool.name)}</h3>
+    const health = poolHealth(members);
+    const bar = health === null ? "" : `<div class="health" title="Mean weight. A model in a cooldown counts as 0.">
+      ${weightBar(health)}<span class="num">${health.toFixed(2)}</span></div>`;
+    return `<div class="card"><h3>${esc(pool.name)}</h3>${bar}
       <div class="sub">${esc(POOL_NOTES[pool.name] || "")} &middot; ${members.length} models</div>
       ${shown || '<div class="more">No models</div>'}${rest}</div>`;
   }).join("");
