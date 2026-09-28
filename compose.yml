@@ -49,6 +49,10 @@ services:
       RAG_EMBEDDING_MODEL: mistral/mistral-embed
       RAG_EMBEDDING_BATCH_SIZE: "32" # chunks per request, below the free Mistral limits
       ENABLE_ASYNC_EMBEDDING: "false" # 1 request at a time, so fewer 429 errors
+      # Web search goes to SearXNG in the search profile.
+      ENABLE_WEB_SEARCH: "true"
+      WEB_SEARCH_ENGINE: searxng
+      SEARXNG_QUERY_URL: http://searxng:8080/search?q=<query>
     ports:
       - "3000:8080"
     volumes:
@@ -75,6 +79,18 @@ services:
       retries: 5
     volumes:
       - webui-db:/var/lib/postgresql # PostgreSQL 18 keeps its data below this folder
+    restart: unless-stopped # no port: only Open WebUI connects to it
+
+  searxng:
+    profiles: [search]
+    image: searxng/searxng:2026.9.25-12f8b6515
+    container_name: daedalus-searxng
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-}
+      FORCE_OWNERSHIP: "false" # the settings file is read-only
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+      - searxng:/var/cache/searxng
     restart: unless-stopped # no port: only Open WebUI connects to it
 
   headroom:
@@ -121,5 +137,6 @@ services:
 volumes:
   open-webui:
   webui-db:
+  searxng:
   headroom:
   tailscale:
