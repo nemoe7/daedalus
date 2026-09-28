@@ -7,6 +7,7 @@ from pathlib import Path
 
 from daedalus import config, providers
 from daedalus.catalog import discovery
+from daedalus.catalog.enrichment import config_params
 from daedalus.routing import router
 
 SAMPLE = """\
@@ -129,6 +130,9 @@ def check_repo_file() -> None:
     "the org head must not hide"
   )
   assert router.candidates(loaded, "TIER-B", qwen) == qwen[:1], "a weaker thinker"
+  for slug in ("gemini-3.8-flash", "gemma-4-31b-it", "gemini-9-flash"):
+    effort = config_params(loaded["gemini"], slug).get("reasoning_effort")
+    assert effort == "medium", (slug, effort)
 
 
 def walk(node: object) -> list[str]:
