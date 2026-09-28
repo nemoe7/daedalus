@@ -238,4 +238,3 @@ Daedalus is small enough for a Raspberry Pi that also runs other containers.
 | State files | SQLite WAL mode. The files `models.sqlite3-wal` and `models.sqlite3-shm` are part of the store. |
 | Weights, pins, cooldowns, request history | A write does not wait for the disk. After a power loss, the last writes can go, but the file stays correct. |
 | API keys | A write waits for the disk. |
-

@@ -13,7 +13,7 @@ Daedalus reads 3 sources:
 
 A key that shows 2 times in 1 map of a config file stops the start. The error gives the key and the 2 line numbers.
 
-### Provider files
+## Files per provider
 
 `free.yml` holds each provider. A second file, `{provider}.yml`, holds 1 provider with its own settings. `openrouter.yml` and the `openrouter` block of `free.yml` are independent: the tiers, the excludes and the models of 1 file do not apply to the other. When the 2 files have the same `discovery_url` and API key, the catalog reads the model list 1 time.
 
