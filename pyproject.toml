@@ -16,6 +16,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+  "httpx2>=2.13",
   "ruff==0.16.6",
 ]
 
