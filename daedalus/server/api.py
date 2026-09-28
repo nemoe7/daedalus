@@ -568,7 +568,7 @@ async def chat(request: Request) -> Response:
         remember(request, turn, candidate)
         attempts.append(upstream.note(candidate, "answered", started) | sent)
         return JSONResponse(completion)
-      events = stream.sse_data(provider.stream(response, candidate, True), wait)
+      events = stream.sse_data(provider.stream(response, candidate, True, wait), wait)
       pending = await in_time(stream.first_content(events), deadline)
       ttft = time.perf_counter() - started
     except asyncio.TimeoutError:
