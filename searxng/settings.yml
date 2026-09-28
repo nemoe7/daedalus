@@ -1,0 +1,11 @@
+# SearXNG for Open WebUI. Each key that is not here keeps the SearXNG default.
+use_default_settings: true
+
+server:
+  limiter: false # the limiter needs Valkey, and Open WebUI is the only client
+  image_proxy: false
+
+search:
+  formats:
+    - html
+    - json # Open WebUI reads JSON. Without it, SearXNG answers 403.
