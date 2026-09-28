@@ -1,15 +1,22 @@
 {
   "TCP": {
-    "443": { "HTTPS": true }
+    "443": { "HTTPS": true },
+    "8443": { "HTTPS": true }
   },
   "Web": {
     "${TS_CERT_DOMAIN}:443": {
       "Handlers": {
         "/": { "Proxy": "http://daedalus:3357" }
       }
+    },
+    "${TS_CERT_DOMAIN}:8443": {
+      "Handlers": {
+        "/": { "Proxy": "http://open-webui:8080" }
+      }
     }
   },
   "AllowFunnel": {
-    "${TS_CERT_DOMAIN}:443": false
+    "${TS_CERT_DOMAIN}:443": false,
+    "${TS_CERT_DOMAIN}:8443": false
   }
 }
