@@ -17,7 +17,7 @@ The dashboard is mainly a utility for monitoring the application state and fine-
 | Overview | Status, pools and the last requests |
 | Pools | The models of each pool, the media pools included, the highest weight first. "+N more" opens the Models page with the filters of the pool. The bar under the pool name shows the mean weight of the pool. A model in a cooldown counts as 0. |
 | Requests | Each request: model, pool, the model that answered, time to first token, fallbacks and each attempt. A cooldown mark shows when an attempt started a cooldown. Errors have a copy button. The last 500 requests stay in `.daedalus-state/models.sqlite3` after a restart. The page shows 50, and "Show more" adds 50. |
-| Models | All catalog models, with a type filter, a tier filter, column sort, a reasoning column, the time left of each cooldown and weight bars. With no column chosen, the rows sort by type, then by model name. |
+| Models | All catalog models, with a type filter, a tier filter, column sort, a reasoning column, the time left of each cooldown and weight bars. The reasoning column also shows the default effort from the catalog. With no column chosen, the rows sort by type, then by model name. |
 | API keys | Make and delete API keys |
 | Providers | 1 card for each provider file, with its keys, its base and its tiers. The YAML editor keeps the comments. **New provider** makes a `{provider}.yml` file, and the Delete button deletes 1, with a confirmation. |
 | Settings | Form for `config/daedalus.yml`. The mouse wheel changes the last decimal digit of a decimal field. |
