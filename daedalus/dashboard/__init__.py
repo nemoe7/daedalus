@@ -123,11 +123,14 @@ def check_file(path: Path, text: str) -> dict[str, Any] | None:
 
 
 def tier_map(config: Mapping[str, Any], lines: list[str]) -> dict[str, str]:
-  """The highest tier that claims each model."""
+  """The tier that claims each model, also for a model that stays out of the pools."""
   found: dict[str, str] = {}
-  for tier in AUTO_TIERS:
-    for line in router.candidates(config, router.TIER_NAMES[tier], lines):
-      found.setdefault(line, router.TIER_NAMES[tier])
+  for line in lines:
+    name, _, slug = line.partition("/")
+    provider = config.get(name)
+    tier = router.claiming_tier(provider, slug) if isinstance(provider, dict) else None
+    if tier:
+      found[line] = tier
   return found
 
 
