@@ -43,6 +43,11 @@ def check_weights(folder: Path) -> None:
   assert abs(store.weights(["a"])["a"] - 0.4545) < 1e-9, "x1.212 after 1 hour"
   now[0] = 3600 * 30
   assert store.weights(["a"])["a"] == 1.0, "back to 1"
+  # A restart: a new store on the same file counts the hours of the downtime.
+  store.record("down", penalties.FAULT)
+  now[0] += 3 * 3600
+  restarted = penalties.Penalties(lambda: folder / "w.sqlite3", clock=lambda: now[0])
+  assert abs(restarted.weights(["down"])["down"] - 0.5 * 1.212**3) < 1e-9, "catch up"
   for _ in range(2000):
     store.record("f", penalties.FAULT)
   assert store.weights(["f"])["f"] == penalties.FLOOR, "the floor"
