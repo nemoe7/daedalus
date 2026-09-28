@@ -83,13 +83,15 @@ def check_requests() -> None:
     assert response.json()["choices"][0]["message"]["content"] == "b.test"
     assert not any(line.startswith("skip") for line in lines.lines), "no skip line"
     assert api.PENALTIES.weights(["a/1"])["a/1"] == 1.0, "a skip is not a fault"
-    steps = [(s["model"], s["result"]) for s in dashboard.RECENT[0]["attempts"]]
+    steps = [
+      (s["model"], s["result"]) for s in dashboard.HISTORY.latest(1)[0]["attempts"]
+    ]
     assert steps == [("b/1", "answered")], "a skip is silent"
     assert "fallbacks=0" in lines.lines[-1], lines.lines[-1]
     api.chain = lambda model, body, config, key="": ([["c/1", "b/1"]], None)
     small = {**large, "messages": [{"role": "user", "content": "x"}]}
     assert client.post("/v1/chat/completions", json=small).status_code == 200
-    failed = dashboard.RECENT[0]["attempts"][0]
+    failed = dashboard.HISTORY.latest(1)[0]["attempts"][0]
     assert failed["result"] == "HTTP 429" and "Rate limit for c" in failed["error"], (
       failed
     )
@@ -113,7 +115,9 @@ def check_requests() -> None:
     assert response.json()["choices"][0]["message"]["content"] == "b.test", (
       "the draw skips a too-small pinned model"
     )
-    steps = [(s["model"], s["result"]) for s in dashboard.RECENT[0]["attempts"]]
+    steps = [
+      (s["model"], s["result"]) for s in dashboard.HISTORY.latest(1)[0]["attempts"]
+    ]
     assert steps == [("b/1", "answered")], "a skip is silent"
     assert api.PENALTIES.pinned(key, "deinos") == "b/1", "the pin moves"
   finally:

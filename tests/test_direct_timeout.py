@@ -54,7 +54,7 @@ def main() -> None:
       client = TestClient(api.app, headers=AUTH)
       result = client.post("/v1/chat/completions", json=BODY)
       assert result.status_code == 200 and len(sent) == 3, (result.text, len(sent))
-      assert len(api.dashboard.RECENT[0]["attempts"]) == 3
+      assert len(api.dashboard.HISTORY.latest(1)[0]["attempts"]) == 3
       sent.clear()
       fail["left"] = 1000
       upstream.TIMEOUT_SECONDS = 0.12
