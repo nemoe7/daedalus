@@ -51,8 +51,6 @@ curl http://localhost:3357/v1/models -H "Authorization: Bearer $DAEDALUS_KEY"
 
 Embeddings and speech have no pool and no fallback. Vectors and voices from 2 models are different. See [Architecture](architecture.md#media-pools) for the media pools.
 
-> Q: Do you plan more endpoints, for example `/v1/responses`?
-
 ## Model names
 
 | Name | Result |
