@@ -46,7 +46,9 @@ header {
   border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 13px;
 }
 .chip b { color: var(--text); font-weight: 600; }
-.chip.flag { padding: 0 7px; margin-left: 4px; font-size: 11px; line-height: 18px; }
+.types { display: flex; gap: 4px; }
+.chip.flag { padding: 0 7px; font-size: 11px; line-height: 18px; }
+.chip.mode { color: var(--text); }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
 .dot.off { background: var(--bad); }
 .ghost {
