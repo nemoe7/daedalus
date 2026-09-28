@@ -368,6 +368,28 @@ def check_files(client: TestClient, folder: Path) -> None:
   assert "_file" not in config.get_config().get("openrouter", {}), "the reload drops it"
 
 
+def check_broken_file(client: TestClient, folder: Path) -> None:
+  broken = folder / "groq.yml"
+  for text in ("api_key: k\nmodels: [\n", "api_key: k\napi_key: j\n"):
+    broken.write_text(text)
+    listed = client.get("/ui/api/files")
+    assert listed.status_code == 200, listed.text
+    found = next(f for f in listed.json() if f["path"] == str(broken))
+    assert found["blocks"] is None and "line" in found["error"], found
+    assert found["text"] == text, "the YAML view gets the file as it is"
+  fixed = client.put(
+    "/ui/api/files",
+    json={"path": str(broken), "text": 'api_key: k\nmodels:\n  "*": {}\n'},
+  )
+  assert fixed.status_code == 200, fixed.text
+  found = next(
+    f for f in client.get("/ui/api/files").json() if f["path"] == str(broken)
+  )
+  assert found["error"] is None and "groq" in found["blocks"], found
+  gone = client.request("DELETE", "/ui/api/files", json={"path": str(broken)})
+  assert gone.status_code == 200, gone.text
+
+
 def check_history(client: TestClient) -> None:
   restarted = History(lambda: store.MODELS_DB, keep=3)
   assert restarted.latest(1)[0]["model"] == dashboard.HISTORY.latest(1)[0]["model"], (
@@ -416,6 +438,7 @@ def main() -> None:
       check_history(client)
       check_keys(client)
       check_files(client, Path(folder))
+      check_broken_file(client, Path(folder))
       check_catalog(client)
       check_reset(client)
     finally:
