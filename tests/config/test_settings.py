@@ -28,7 +28,7 @@ def check_load(folder: Path) -> None:
   values = settings.load(folder / "missing.yml")
   assert values["timeouts"] == {"request": 600.0, "wait": 60.0, "slow": 30.0}
   assert values["weights"]["fault"] == penalties.FAULT
-  shipped = settings.load(Path(__file__).parent.parent / "config" / "daedalus.yml")
+  shipped = settings.load(Path(__file__).parents[2] / "config" / "daedalus.yml")
   keywords = shipped.pop("escalation")["keywords"]
   assert "think hard" in keywords and values.pop("escalation") == {"keywords": []}
   assert shipped == values, "the shipped file holds the defaults"

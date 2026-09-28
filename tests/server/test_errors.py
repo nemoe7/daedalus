@@ -1,4 +1,4 @@
-"""Runnable check of the upstream error classes. Run: python tests/test_errors.py"""
+"""Runnable check of the upstream error classes. Run: python tests/server/test_errors.py"""
 
 import asyncio
 

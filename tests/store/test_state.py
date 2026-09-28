@@ -5,7 +5,7 @@ from daedalus import store
 
 
 def main() -> None:
-  root = Path(__file__).resolve().parent.parent / ".daedalus-state"
+  root = Path(__file__).resolve().parents[2] / ".daedalus-state"
   assert store.MODELS_DB == root / "models.sqlite3"
   with tempfile.TemporaryDirectory() as directory:
     target = Path(directory) / ".daedalus-state" / "models.sqlite3"

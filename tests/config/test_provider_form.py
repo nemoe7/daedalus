@@ -1,4 +1,4 @@
-"""Runnable check of the Providers form save. Run: python tests/test_provider_form.py"""
+"""Runnable check of the Providers form save. Run: python tests/config/test_provider_form.py"""
 
 import os
 import shutil

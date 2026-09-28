@@ -1,4 +1,4 @@
-"""Runnable check for the vendored tier router. Run: python tests/test_router.py"""
+"""Runnable check for the vendored tier router. Run: python tests/routing/test_router.py"""
 
 import asyncio
 import json
