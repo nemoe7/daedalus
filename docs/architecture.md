@@ -225,7 +225,7 @@ A try again in Open WebUI on `daedalus/auto` moves the repeated message 1 tier u
 
 By default, Open WebUI writes a new image prompt for each try. So a try again in Open WebUI chat is a new weighted draw, not a repeat.
 
-> Q: Why do transcription and images get a pool, and embeddings and speech not?
+Transcription and images get a pool, because the answer of another model is still usable: the same text, or an image of the same prompt. Embeddings and speech have no pool. Vectors from 2 embedding models have different sizes and meanings, so a fallback breaks a stored index. 2 speech models have different voices.
 
 ## Performance
 
