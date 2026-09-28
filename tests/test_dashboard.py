@@ -9,6 +9,7 @@ import httpx
 from fastapi.testclient import TestClient
 
 from daedalus import config, dashboard, store
+from daedalus.catalog import schedule
 from daedalus.config import settings
 from daedalus.dashboard.history import History
 from daedalus.server import api, upstream
@@ -203,6 +204,20 @@ def check_keys(client: TestClient) -> None:
   )
 
 
+def check_catalog(client: TestClient) -> None:
+  assert client.post("/ui/api/catalog").status_code == 503, "no rebuild in tests"
+  api.CATALOG_REFRESH = lambda: None
+  try:
+    schedule.BUSY = True
+    assert client.get("/ui/api/status").json()["catalog"]["rebuilding"] is True
+    assert client.post("/ui/api/catalog").status_code == 409, "1 rebuild at a time"
+    schedule.BUSY = False
+    assert client.post("/ui/api/catalog").status_code == 202
+  finally:
+    api.CATALOG_REFRESH, schedule.BUSY = None, False
+  assert TestClient(api.app).post("/ui/api/catalog").status_code == 401
+
+
 def check_files(client: TestClient, folder: Path) -> None:
   names = [item["path"] for item in client.get("/ui/api/files").json()]
   assert names == [str(path) for path in dashboard.FILES], names
@@ -333,6 +348,7 @@ def main() -> None:
       check_history(client)
       check_keys(client)
       check_files(client, Path(folder))
+      check_catalog(client)
     finally:
       api.get_config, settings.DEFAULT_PATH, config.DEFAULT_PATH, dashboard.FILES = (
         original
