@@ -1,4 +1,4 @@
-"""Runnable check that the dashboard keeps the asked and the sent reasoning effort. Run: python tests/test_effort_history.py"""
+"""Runnable check that the dashboard keeps the asked and the sent reasoning effort. Run: python tests/dashboard/test_effort_history.py"""
 
 import asyncio
 import json

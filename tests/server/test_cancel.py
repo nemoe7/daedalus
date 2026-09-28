@@ -1,4 +1,4 @@
-"""Runnable check of a request that the client cancels. Run: python tests/test_cancel.py"""
+"""Runnable check of a request that the client cancels. Run: python tests/server/test_cancel.py"""
 
 import asyncio
 import json

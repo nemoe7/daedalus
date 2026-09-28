@@ -1,4 +1,4 @@
-"""Runnable check of the state file connections. Run: python tests/test_database.py"""
+"""Runnable check of the state file connections. Run: python tests/store/test_database.py"""
 
 import tempfile
 from pathlib import Path

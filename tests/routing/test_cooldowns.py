@@ -1,4 +1,4 @@
-"""Runnable check of the rate-limit cooldowns. Run: python tests/test_cooldowns.py"""
+"""Runnable check of the rate-limit cooldowns. Run: python tests/routing/test_cooldowns.py"""
 
 import json
 import os

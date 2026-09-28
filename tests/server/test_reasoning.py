@@ -1,4 +1,4 @@
-"""Runnable check that `reasoning_effort` goes only to models that reason. Run: python tests/test_reasoning.py"""
+"""Runnable check that `reasoning_effort` goes only to models that reason. Run: python tests/server/test_reasoning.py"""
 
 import asyncio
 import json

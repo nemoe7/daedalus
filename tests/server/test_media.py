@@ -1,4 +1,4 @@
-"""Runnable check for the endpoints of models that do not chat. Run: python tests/test_media.py"""
+"""Runnable check for the endpoints of models that do not chat. Run: python tests/server/test_media.py"""
 
 import base64
 import io
