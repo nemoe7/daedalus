@@ -178,15 +178,15 @@ def new_file_text(name: str) -> str:
   return NEW_FILE + NEW_KEY.format(env=env) + ("" if known else NEW_BASE) + NEW_MODELS
 
 
-def form_blocks(path: Path, text: str) -> dict[str, Any] | None:
-  """The provider blocks of a file by provider name, or None when the YAML is not valid."""
+def form_blocks(path: Path, text: str) -> tuple[dict[str, Any] | None, str | None]:
+  """The provider blocks of a file by provider name and no error, or None and the error line when the YAML is not valid."""
   try:
     found = config.load_yaml(text) if text.strip() else {}
-  except yaml.YAMLError:
-    return None
+  except yaml.YAMLError as exc:
+    return None, config.error_text(exc)
   if not isinstance(found, dict):
-    return None
-  return found if path == FILES[0] else {path.stem: found}
+    return None, f"{path.name} must hold provider blocks"
+  return (found if path == FILES[0] else {path.stem: found}), None
 
 
 def override_keys() -> list[str]:
@@ -469,7 +469,7 @@ def routes(
       for path in config_files()
     ]
     for file in found:
-      file["blocks"] = form_blocks(Path(file["path"]), file["text"])
+      file["blocks"], file["error"] = form_blocks(Path(file["path"]), file["text"])
     return JSONResponse(found)
 
   @api.get("/provider-keys")

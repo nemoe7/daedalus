@@ -63,6 +63,8 @@ A change to the other view asks for a confirmation when the file holds unsaved c
 
 A save of a file that is not valid YAML, or that has a key 2 times in 1 map, gets an error message. The file does not change. This rule applies to the Providers page and the Settings page.
 
+A provider file on disk that is not valid YAML still gets its tab. It opens in the YAML view, with the error line next to the Save button. Fix the text there and save it.
+
 ## API keys
 
 | Rule | Value |
