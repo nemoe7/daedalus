@@ -157,11 +157,15 @@ let shownRequests = "";
 
 const seconds = (value) => value == null ? "" : `${value.toFixed(3)}s`;
 
+// A cooldown that an attempt started, such as "cooldown 60s backoff".
+const coolText = (c) => `cooldown ${timeLeft(Date.now() / 1000 + c.seconds) || "0s"} ${c.reason}`;
+
 function chainText(r) {
   const head = [clock(r.at), r.model, r.status, r.pool && `pool=${r.pool}`, r.routed && `from=${r.routed}`,
     `fallbacks=${r.fallbacks ?? 0}`, r.retry && `retry=${r.retry}`].filter(Boolean).join(" ");
   const steps = (r.attempts || []).map((a, i) =>
-    `${i + 1}. ${a.model} ${a.result} ${seconds(a.seconds)}`.trim() + (a.error ? `\n   ${a.error}` : ""));
+    `${i + 1}. ${a.model} ${a.result} ${seconds(a.seconds)}`.trim() + (a.cooldown ? ` ${coolText(a.cooldown)}` : "")
+      + (a.error ? `\n   ${a.error}` : ""));
   return [head, ...steps].join("\n");
 }
 
@@ -170,6 +174,7 @@ function chainRows(r) {
     <li class="step ${a.result === "answered" ? "good" : "bad"}">
       <span class="num">${i + 1}.</span> <b>${esc(a.model)}</b>
       <span class="result">${esc(a.result)}</span> <span class="muted num">${seconds(a.seconds)}</span>
+      ${a.cooldown ? `<span class="from">${esc(coolText(a.cooldown))}</span>` : ""}
       ${a.error ? `<pre>${esc(a.error)}</pre>` : ""}
     </li>`).join("");
   return `<tr class="chain"><td colspan="7"><div class="chain-body">
@@ -191,7 +196,7 @@ function renderRequests(rows) {
       <td>${esc(r.model || "-")}</td>
       <td class="hide-sm muted">${esc(r.pool || "-")}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${r.retry ? ` <span class="from">try again ${esc(r.retry)}</span>` : ""}</td>
       <td>${r.via ? esc(r.via) : '<span class="muted">none</span>'}</td>
-      <td class="status s${String(r.status)[0]}">${r.status}</td>
+      <td class="status s${String(r.status)[0]}">${r.status}${(r.attempts || []).some((a) => a.cooldown) ? ' <span class="from">cooldown</span>' : ""}</td>
       <td class="hide-sm num">${esc(r.ttft || "-")}</td>
       <td class="hide-sm num">${esc(r.fallbacks ?? "-")}</td>
     </tr>${opened.has(String(r.at)) ? chainRows(r) : ""}`).join("")
@@ -220,6 +225,7 @@ const sortValue = {
   tools: (m) => (m.mode !== "chat" ? null : m.tools ? 1 : 0),
   reasoning: (m) => (m.mode !== "chat" ? null : m.reasoning ? 1 : 0),
   weight: (m) => m.weight ?? null,
+  cooldown: (m) => (m.cooldown && m.cooldown > Date.now() / 1000 ? m.cooldown : null),
 };
 
 const yesNo = (on) => (on ? '<span class="yes">Yes</span>' : '<span class="muted">No</span>');
@@ -268,9 +274,31 @@ function renderModels() {
       <td class="hide-sm num muted">${tokens(m.max_input_tokens)}</td>
       <td class="mid">${m.mode === "chat" ? yesNo(m.tools) : dash}</td>
       <td class="hide-sm mid">${m.mode === "chat" ? yesNo(m.reasoning) : dash}</td>
+      <td class="num">${coolCell(m.cooldown)}</td>
       <td>${m.weight == null ? dash
         : `<div class="weight">${weightBar(m.weight)}<span class="num">${m.weight.toFixed(2)}</span></div>`}</td>
-    </tr>`).join("") : `<tr><td colspan="7" class="empty">${empty}</td></tr>`;
+    </tr>`).join("") : `<tr><td colspan="8" class="empty">${empty}</td></tr>`;
+}
+
+// The time left of a cooldown, such as 59s, 4m 05s or 3h 12m.
+function timeLeft(until) {
+  const left = Math.ceil(until - Date.now() / 1000);
+  if (left <= 0) return null;
+  const h = Math.floor(left / 3600), m = Math.floor((left % 3600) / 60), s = left % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+  return h ? `${h}h ${pad(m)}m` : m ? `${m}m ${pad(s)}s` : `${s}s`;
+}
+const coolCell = (until) => {
+  const left = until ? timeLeft(until) : null;
+  return left ? `<span class="cool" data-until="${until}" title="Until ${esc(dateTime(until))}">${left}</span>` : dash;
+};
+// The live clock of each cooldown cell.
+function tickCooldowns() {
+  for (const cell of document.querySelectorAll(".cool[data-until]")) {
+    const left = timeLeft(Number(cell.dataset.until));
+    if (left) cell.textContent = left;
+    else cell.outerHTML = dash;
+  }
 }
 
 const dateTime = (seconds) => new Date(seconds * 1000).toLocaleString(
@@ -352,6 +380,11 @@ const SETTINGS = [
     ["fault", "Fault", "x", "The weight factor for a fault."],
     ["slow", "Slow success", "x", "The weight factor for a slow first token."],
     ["hourly", "Hourly recovery", "x", "The weight factor for each hour."],
+    ["rate_limit", "Rate limit", "x", "The weight factor for an HTTP 429."],
+  ]],
+  ["cooldown", "Cooldown", [
+    ["first", "First backoff", "s", "The cooldown of a first 429 with no reset time."],
+    ["longest", "Longest backoff", "s", "Each next 429 doubles the cooldown, up to this time."],
   ]],
   ["catalog", "Catalog", [
     ["every", "Rebuild interval", "h", "The hours between rebuilds. 0 stops them."],
@@ -363,11 +396,11 @@ const SETTINGS = [
 ];
 
 // The Settings cards of each column, from top to bottom.
-const SETTINGS_COLUMNS = [["timeouts", "catalog"], ["session_affinity", "headroom"], ["weights"]];
+const SETTINGS_COLUMNS = [["timeouts", "catalog"], ["session_affinity", "headroom", "cooldown"], ["weights"]];
 
 // The fields that take decimals. The other fields take whole numbers.
 const DECIMALS = new Set([
-  "session_affinity.stay", "weights.success", "weights.fault", "weights.slow", "weights.hourly",
+  "session_affinity.stay", "weights.success", "weights.fault", "weights.slow", "weights.hourly", "weights.rate_limit",
 ]);
 // The highest value of a field, when it has one.
 const MAXIMA = { "catalog.anchor": 23 };
@@ -497,6 +530,7 @@ async function start() {
   state.timers = [
     setInterval(() => guarded(refreshFast), 5000),
     setInterval(() => guarded(refreshSlow), 15000),
+    setInterval(tickCooldowns, 1000),
   ];
 }
 

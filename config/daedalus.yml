@@ -15,6 +15,10 @@ weights:
   fault: 0.5
   slow: 0.75
   hourly: 1.212
+  rate_limit: 0.75 # the weight factor for an HTTP 429
+cooldown:
+  first: 60 # seconds of the first cooldown of a 429 with no reset time
+  longest: 21600 # each next 429 doubles the cooldown, up to this many seconds
 catalog:
   every: 6 # hours between rebuilds of the model catalog; 0 stops them
   anchor: 6 # local hour (TZ env var) that the rebuild times start from: 00, 06, 12 and 18

@@ -107,6 +107,7 @@ stateDiagram-v2
   W --> W: success x1.5, 1 at most
   W --> W: fault x0.5
   W --> W: slow success x0.75
+  W --> W: rate limit x0.75
   W --> W: each hour x1.212, 1 at most
 ```
 
@@ -115,8 +116,28 @@ stateDiagram-v2
 | Success | x1.5, 1 at most |
 | Fault (the next model got the request) | x0.5 |
 | Slow success (first token after 30 s) | x0.75 |
+| Rate limit (HTTP 429) | x0.75, and a cooldown |
 | Recovery | x1.212 for each hour |
 | Lowest weight | 0.01 |
+
+## Cooldowns
+
+A model in a cooldown leaves each chain and each media pool. A session model in a cooldown loses its pin. The first rule that applies sets the cooldown end:
+
+| Rule | Cause | Cooldown end | Reason in the log |
+| --- | --- | --- | --- |
+| 1 | Gemini 429 with a `quotaId` that has `PerDay` | Next 00:00 Pacific time | `daily` |
+| 1 | Cloudflare error 4006. The cooldown covers all Cloudflare models. | Next 00:00 UTC | `daily` |
+| 2 | `retry-after` or `x-ratelimit-reset` header, or Gemini `RetryInfo.retryDelay` | That time | `reset` |
+| 3 | No reset time | 60 s, then 2 times the last backoff, 6 h at most. A success sets it back to 60 s. | `backoff` |
+
+| Item | Value |
+| --- | --- |
+| Log line | `cooldown groq/llama-4-scout 120.000s reason=backoff` |
+| `provider/slug` request to a model in a cooldown | HTTP 429 `rate_limit_exceeded`, with no upstream request |
+| Each model of a chain in a cooldown | HTTP 429 `rate_limit_exceeded`. `Retry-After` is the seconds to the first cooldown end. |
+| Storage | `.daedalus-state/models.sqlite3`, kept after a restart |
+| Dashboard | The Models page shows the time left of each cooldown. The Requests page marks each request with an attempt that started a cooldown. |
 
 ## Session affinity
 

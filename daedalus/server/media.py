@@ -15,7 +15,7 @@ from starlette.datastructures import UploadFile
 
 from daedalus import providers, store
 from daedalus.config import get_config
-from daedalus.routing import penalties, retries, router
+from daedalus.routing import cooldowns, penalties, retries, router
 from daedalus.server import access, stream, upstream
 from daedalus.store import keys
 
@@ -23,8 +23,9 @@ routes = APIRouter()
 TRANSCRIPT_FORMATS = ("json", "text", "srt", "verbose_json", "vtt")
 SPEECH_FORMATS = ("mp3", "opus", "aac", "flac", "wav", "pcm")
 SIZE = re.compile(r"auto|[1-9][0-9]*x[1-9][0-9]*")
-# The server sets the shared weights at start.
+# The server sets the shared weights and cooldowns at start.
 PENALTIES: penalties.Penalties | None = None
+COOLDOWNS: cooldowns.Cooldowns | None = None
 REPEATS = retries.Retries()
 TRANSCRIPTION_POOL, IMAGE_POOL = router.MEDIA_POOLS
 Call = Callable[[providers.OpenAIProvider, str, str], Awaitable[Any]]
@@ -91,6 +92,12 @@ async def attempt(
   models = models_for(request, model, pool, content)
   if isinstance(models, Response):
     return models
+  if COOLDOWNS:
+    ends = COOLDOWNS.ends()
+    cooling = {m: COOLDOWNS.until(m, ends) for m in models}
+    if models and all(cooling.values()):
+      return upstream.cooling_response(min(cooling.values()) - time.time())
+    models = [m for m in models if not cooling[m]]
   pooled = model == pool
   attempts: list[dict[str, Any]] = []
   request.state.attempts, status = attempts, 0
@@ -111,11 +118,18 @@ async def attempt(
     except (upstream.UpstreamStatus, *stream.ATTEMPT_ERRORS) as exc:
       attempts.append(upstream.failure_note(candidate, started, exc))
       status = exc.status if isinstance(exc, upstream.UpstreamStatus) else 0
+      limited = isinstance(exc, upstream.RateLimitError)
       if pooled and PENALTIES:
-        PENALTIES.record(candidate, PENALTIES.fault)
+        PENALTIES.record(
+          candidate, PENALTIES.rate_limit if limited else PENALTIES.fault
+        )
+      if limited and COOLDOWNS:
+        attempts[-1]["cooldown"] = COOLDOWNS.start(candidate, exc.headers, exc.body)
       continue
     request.state.via = candidate
     attempts.append(upstream.note(candidate, "answered", started))
+    if COOLDOWNS:
+      COOLDOWNS.succeeded(candidate)
     if pooled:
       if PENALTIES:
         PENALTIES.record(candidate, PENALTIES.success)

@@ -108,6 +108,12 @@ async def main() -> None:
           ("b/x", "HTTP 429"),
           ("c/x", "answered"),
         ], steps
+        cooled = dashboard.RECENT[0]["attempts"][2]["cooldown"]
+        assert cooled == {"seconds": 60.0, "reason": "backoff"}, cooled
+        assert "b/x" in api.COOLDOWNS.ends(), (
+          "a 429 in a continuation starts a cooldown"
+        )
+        api.COOLDOWNS.clear()
 
         SEEN.clear()
         call = {"index": 0, "id": "call_1", "function": {"name": "f", "arguments": "{"}}

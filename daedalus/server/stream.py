@@ -137,6 +137,8 @@ async def relay(
         break
       except (upstream.UpstreamStatus, *ATTEMPT_ERRORS) as exc:
         attempts.append(upstream.failure_note(candidate, started, exc))
+        if isinstance(exc, upstream.RateLimitError):
+          attempts[-1]["cooldown"] = pin.failed(candidate, exc)
         logger.warning(
           "upstream %s continuation failed: %s", candidate, upstream.failure_text(exc)
         )
