@@ -10,6 +10,7 @@ dependencies = [
   "python-multipart>=0.0.18",
   "pyyaml>=6.0",
   "ruamel.yaml>=0.18",
+  "tzdata>=2024.1; sys_platform == 'win32'",
   "uvicorn[standard]>=0.30",
 ]
 
