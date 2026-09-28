@@ -20,8 +20,8 @@ logger = logging.getLogger("daedalus")
 TIMEOUT_SECONDS = 600.0
 
 
-# The wait for one answer. A provider that sends bytes resets it, so a slow
-# stream is not cut off.
+# The wait for data from the provider. Each data event starts it again, so a slow
+# stream is not cut off. Keep-alive bytes do not start it again.
 WAIT_SECONDS = 60.0
 
 
@@ -214,6 +214,21 @@ async def attempt(
   raw = await response.aread()
   await response.aclose()
   raise rejected(candidate, response, started, raw)
+
+
+async def read_body(response: httpx.Response, wait: float) -> bytes:
+  """The whole body, or a ReadTimeout after `wait` seconds of only blank bytes."""
+  parts, heard = [], time.perf_counter()
+  try:
+    async for chunk in response.aiter_bytes():
+      parts.append(chunk)
+      if chunk.strip():
+        heard = time.perf_counter()
+      elif time.perf_counter() - heard > wait:
+        raise httpx.ReadTimeout(f"Only keep-alive bytes for {wait:g}s")
+  finally:
+    await response.aclose()
+  return b"".join(parts)
 
 
 def rejected(
