@@ -1,0 +1,9 @@
+{
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD060": true
+  },
+  "gitignore": true,
+  "ignores": [".agents/**", "ARENA.md"]
+}
