@@ -216,7 +216,7 @@ function statusClass(r) {
 function chainText(r) {
   const head = [clock(r.at), r.model, statusText(r), r.effort && `effort=${r.effort}`, r.pool && `pool=${r.pool}`,
     r.routed && `from=${r.routed}`,
-    `fallbacks=${r.fallbacks ?? 0}`, r.retry && `retry=${r.retry}`].filter(Boolean).join(" ");
+    `fallbacks=${r.fallbacks ?? 0}`, r.retry && `retry=${r.retry}`, r.loop && `loop=${r.loop}`].filter(Boolean).join(" ");
   const steps = (r.attempts || []).map((a, i) =>
     `${i + 1}. ${a.model} ${a.result} ${seconds(a.seconds)}`.trim() + ("effort" in a ? ` effort=${sentText(a)}` : "")
       + (a.cooldown ? ` ${coolText(a.cooldown)}` : "")
@@ -331,7 +331,7 @@ function renderRequests(rows) {
       <td class="num muted"><span class="caret"></span>${clock(r.at)}</td>
       <td>${esc(r.model || "-")}</td>
       <td class="hide-sm">${effortCell(r)}</td>
-      <td class="hide-sm muted">${esc(r.pool || "-")}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${r.retry ? ` <span class="from">try again ${esc(r.retry)}</span>` : ""}</td>
+      <td class="hide-sm muted">${esc(r.pool || "-")}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${r.retry ? ` <span class="from">try again ${esc(r.retry)}</span>` : ""}${r.loop ? ` <span class="from">tool loop ${esc(r.loop)}</span>` : ""}</td>
       <td>${r.via ? esc(r.via) : '<span class="muted">none</span>'}</td>
       <td class="status ${statusClass(r)}">${statusText(r)}</td>
       <td class="hide-sm num">${inputCell(r)}</td>

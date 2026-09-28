@@ -8,6 +8,7 @@ import pytest
 from daedalus import config, dashboard, store
 from daedalus.catalog import discovery, schedule
 from daedalus.providers import signatures
+from daedalus.routing import loops
 from daedalus.server import api, headroom, media, upstream
 
 # The master key of a test file without its own MASTER value.
@@ -33,6 +34,7 @@ SETTINGS = (
   (media.REPEATS, "idle"),
   (api.PACING, "enabled"),
   (signatures, "IDLE_SECONDS"),
+  (loops, "IDLE_SECONDS"),
   (headroom, "TIMEOUT_SECONDS"),
   *((schedule, name) for name in ("EVERY", "ANCHOR")),
 )
@@ -60,6 +62,7 @@ def state_folder(
       api.PACING,
       media.REPEATS,
       dashboard.HISTORY,
+      loops,
     ):
       kept.clear()
     dashboard.LIVE.rows.clear()
