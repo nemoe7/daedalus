@@ -224,8 +224,8 @@ async def read_body(response: httpx.Response, wait: float) -> bytes:
       parts.append(chunk)
       if chunk.strip():
         heard = time.perf_counter()
-      elif time.perf_counter() - heard > wait:
-        raise httpx.ReadTimeout(f"Only keep-alive bytes for {wait:g}s")
+      else:
+        providers.check_wait(heard, wait)
   finally:
     await response.aclose()
   return b"".join(parts)
