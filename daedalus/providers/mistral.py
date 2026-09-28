@@ -38,6 +38,24 @@ def plain(message: Any) -> Any:
   return found
 
 
+def chunked(message: Any) -> Any:
+  """An assistant message with its `reasoning_content` as a thinking chunk before the text."""
+  if not isinstance(message, dict) or message.get("role") != "assistant":
+    return message
+  thinking = message.get("reasoning_content")
+  if not isinstance(thinking, str) or not thinking:
+    return message
+  content = message.get("content")
+  if isinstance(content, list):
+    rest = content
+  elif isinstance(content, str) and content:
+    rest = [{"type": "text", "text": content}]
+  else:
+    rest = []
+  chunk = {"type": "thinking", "thinking": [{"type": "text", "text": thinking}]}
+  return {**message, "content": [chunk, *rest]}
+
+
 def plain_choices(answer: dict, key: str) -> dict:
   """The answer with each choice message or delta made plain."""
   choices = answer.get("choices")
@@ -71,7 +89,8 @@ class MistralProvider(OpenAIProvider):
   transcribe_fields: ClassVar[tuple[str, ...]] = ("language", "temperature")
 
   def body(self, slug: str, payload: dict) -> dict:
-    found = super().body(slug, payload)
+    messages = [chunked(message) for message in payload["messages"]]
+    found = super().body(slug, {**payload, "messages": messages})
     effort = found.get("reasoning_effort")
     if isinstance(effort, str) and effort in EFFORTS:
       found["reasoning_effort"] = EFFORTS[effort]

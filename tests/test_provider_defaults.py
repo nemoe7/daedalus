@@ -95,6 +95,13 @@ def main() -> None:
   print("ok: provider defaults")
 
 
+# Mistral gets the reasoning_content of an old assistant message back as a thinking chunk.
+THOUGHT = {
+  "type": "thinking",
+  "thinking": [{"type": "text", "text": "secret thoughts"}],
+}
+
+
 def check_mistral_fields() -> None:
   call = {"id": "c1", "type": "function", "function": {"name": "f", "arguments": "{}"}}
   history = [
@@ -114,7 +121,7 @@ def check_mistral_fields() -> None:
   assert sent["messages"] == [
     {"role": "system", "content": "s"},
     {"role": "user", "content": "hi"},
-    {"role": "assistant", "content": "", "tool_calls": [call]},
+    {"role": "assistant", "content": [THOUGHT], "tool_calls": [call]},
     {"role": "tool", "content": "42", "tool_call_id": "c1", "name": "f"},
   ], sent["messages"]
   assert history[2]["reasoning_content"] == "secret thoughts", "the client body stays"

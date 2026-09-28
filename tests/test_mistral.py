@@ -93,12 +93,44 @@ def check_modes() -> None:
     assert config_params(mistral, slug).get("mode") == mode, slug
 
 
+def check_history() -> None:
+  thinking = {"type": "thinking", "thinking": [{"type": "text", "text": "hmm"}]}
+  call = {"id": "c", "type": "function", "function": {"name": "f", "arguments": "{}"}}
+  messages = [
+    {"role": "user", "content": "hi", "reasoning_content": "kept out"},
+    {"role": "assistant", "content": "391", "reasoning_content": "hmm"},
+    {
+      "role": "assistant",
+      "content": None,
+      "tool_calls": [call],
+      "reasoning_content": "hmm",
+    },
+    {
+      "role": "assistant",
+      "content": [{"type": "text", "text": "a"}],
+      "reasoning_content": "hmm",
+    },
+    {"role": "assistant", "content": "plain", "reasoning_content": ""},
+  ]
+  sent = PROVIDER.request("m", {"messages": messages})[1]["messages"]
+  assert sent[0] == {"role": "user", "content": "hi"}, "only assistant messages change"
+  assert sent[1]["content"] == [thinking, {"type": "text", "text": "391"}], sent[1]
+  assert sent[2]["content"] == [thinking] and sent[2]["tool_calls"] == [call], sent[2]
+  assert sent[3]["content"] == [thinking, {"type": "text", "text": "a"}], sent[3]
+  assert sent[4] == {"role": "assistant", "content": "plain"}, (
+    "empty thinking adds no chunk"
+  )
+  assert all("reasoning_content" not in m for m in sent), sent
+  assert messages[1]["content"] == "391", "the client body does not change"
+
+
 def main() -> None:
   check_efforts()
+  check_history()
   check_completion()
   check_stream()
   check_modes()
-  print("ok: Mistral effort, thinking chunks and voxtral modes")
+  print("ok: Mistral effort, thinking chunks both ways and voxtral modes")
 
 
 if __name__ == "__main__":
