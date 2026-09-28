@@ -16,6 +16,7 @@ from daedalus.providers.base import (
   Chunks,
   OpenAIProvider,
   ProviderError,
+  Upload,
   data_url,
   error_text,
   events,
@@ -480,6 +481,11 @@ class GeminiProvider(OpenAIProvider):
 
   def image_request(
     self, slug: str, payload: dict
+  ) -> tuple[str, dict[str, Any], dict[str, str]]:
+    raise ProviderError("Gemini has no image endpoint")
+
+  def edit_request(
+    self, slug: str, fields: dict[str, Any], images: list[Upload], mask: Upload | None
   ) -> tuple[str, dict[str, Any], dict[str, str]]:
     raise ProviderError("Gemini has no image endpoint")
 

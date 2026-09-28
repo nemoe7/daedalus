@@ -106,3 +106,18 @@ def test_image_request(monkeypatch: pytest.MonkeyPatch) -> None:
     "model": "some/image",
   }, options
   assert headers["Authorization"] == "Bearer sk-or-test", headers
+
+
+def test_edit_request(monkeypatch: pytest.MonkeyPatch) -> None:
+  """An edit goes to the Image API, with each input image as a data URL."""
+  monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+  loaded = config.load_config(Path("config/providers/free.yml"))
+  provider, slug = providers.provider_for("openrouter/some/image", loaded)
+  images = [("a.png", b"PNG", "image/png")]
+  url, options, _ = provider.edit_request(slug, {"prompt": "blue"}, images, None)
+  assert url == "https://openrouter.ai/api/v1/images", url
+  assert options["json"]["input_references"] == [
+    {"type": "image_url", "image_url": {"url": "data:image/png;base64,UE5H"}}
+  ], options
+  with pytest.raises(providers.ProviderError):
+    provider.edit_request(slug, {"prompt": "blue"}, images, images[0])

@@ -152,14 +152,15 @@ def read_models(
     database.close()
 
 
-def mode_models(mode: str) -> list[str]:
-  """The stored models of one catalog mode, in table order."""
+def mode_models(mode: str, vision_only: bool = False) -> list[str]:
+  """The stored models of one catalog mode in table order, only image input models on request."""
   if not Path(MODELS_DB).exists():
     return []
   database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
   try:
     rows = database.execute(
-      "SELECT id FROM models WHERE mode = ? ORDER BY rowid", (mode,)
+      "SELECT id FROM models WHERE mode = ? AND (? OR supports_vision) ORDER BY rowid",
+      (mode, not vision_only),
     ).fetchall()
   except sqlite3.OperationalError:
     return []
