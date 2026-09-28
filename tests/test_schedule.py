@@ -90,6 +90,31 @@ async def check_run() -> None:
   assert schedule.due(time.time()) is False
 
 
+async def check_manual() -> None:
+  release, calls = asyncio.Event(), []
+
+  def refresh() -> None:
+    calls.append(1)
+    asyncio.run_coroutine_threadsafe(release.wait(), loop).result()
+
+  loop = asyncio.get_running_loop()
+  try:
+    assert schedule.start(refresh), "a manual rebuild starts"
+    assert schedule.BUSY and not schedule.start(refresh), "only 1 rebuild at a time"
+    await asyncio.sleep(0.05)
+  finally:
+    release.set()
+  await asyncio.gather(*schedule.TASKS)
+  assert calls == [1] and not schedule.BUSY, "the busy mark clears at the end"
+
+  def broken() -> None:
+    raise RuntimeError("down")
+
+  assert schedule.start(broken)
+  await asyncio.gather(*schedule.TASKS)
+  assert not schedule.BUSY, "a failure clears the busy mark too"
+
+
 def check_settings() -> None:
   values = settings.parse("catalog:\n  every: 12\n  anchor: 0\n")
   assert values["catalog"] == {"every": 12.0, "anchor": 0.0}, values
@@ -123,6 +148,7 @@ def main() -> None:
       check_due()
       store.MODELS_DB.unlink()
       asyncio.run(check_run())
+      asyncio.run(check_manual())
     finally:
       store.MODELS_DB = original
   print("ok: catalog schedule")

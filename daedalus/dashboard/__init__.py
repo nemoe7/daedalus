@@ -239,6 +239,7 @@ def routes(
   get_config: Callable[[], Mapping[str, Any]],
   apply: Callable[[dict[str, Any]], None],
   cooldowns: Cooldowns | None = None,
+  refresh: Callable[[], Callable[[], object] | None] = lambda: None,
 ) -> APIRouter:
   """The dashboard endpoints. All except login need a session."""
   api = APIRouter(prefix="/ui/api")
@@ -309,9 +310,24 @@ def routes(
         "healthy": True,
         "models": len(store.read_models()),
         "sessions": penalties.sessions(),
-        "catalog": {"built": store.built(), "next": schedule.upcoming(time.time())},
+        "catalog": {
+          "built": store.built(),
+          "next": schedule.upcoming(time.time()),
+          "rebuilding": schedule.BUSY,
+        },
       }
     )
+
+  @api.post("/catalog")
+  async def rebuild_catalog(request: Request) -> JSONResponse:
+    if not allowed(request):
+      return denied()
+    task = refresh()
+    if task is None:
+      return failure(503, "This process has no catalog rebuild.", "server_error")
+    if not schedule.start(task):
+      return failure(409, "A catalog rebuild runs now.", "invalid_request_error")
+    return JSONResponse({"ok": True}, status_code=202)
 
   @api.get("/pools")
   async def pools(request: Request) -> JSONResponse:
