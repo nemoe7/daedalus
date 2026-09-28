@@ -289,38 +289,46 @@ def check_session_tier() -> None:
 
 
 def check_keyword_tier() -> None:
-  """A keyword in any user turn raises the classifier tier by 1, before the tool rule."""
+  """A keyword in the last user message moves the tier 1 step above the session tier."""
   tiers: list[int] = []
   original = router.required_tier, router.chain_groups, model_store.read_models
   router.required_tier = lambda text: tiers.pop(0)
   router.chain_groups = lambda config, lines, order: [[str(tier)] for tier in order]
   model_store.read_models = lambda tools_only=False: []
+  call = {"role": "assistant", "content": None, "tool_calls": [{"id": "c"}]}
+  result = {"role": "tool", "tool_call_id": "c", "content": "42"}
 
-  def first(*turns: str, system: str = "", tools: bool = False) -> str:
+  def first(*turns: str | dict, system: str = "", key: str = "") -> str:
     messages = [{"role": "system", "content": system}]
-    messages += [{"role": "user", "content": turn} for turn in turns]
-    if tools:
-      messages.append(
-        {"role": "assistant", "content": None, "tool_calls": [{"id": "c"}]}
-      )
-    return api.chain(router.RESERVED_MODEL, {"messages": messages}, {}, "")[0][0][0]
-
-  try:
+    messages += [
+      turn if isinstance(turn, dict) else {"role": "user", "content": turn}
+      for turn in turns
+    ]
     tiers.append(1)
+    return api.chain(router.RESERVED_MODEL, {"messages": messages}, {}, key)[0][0][0]
+
+  api.PENALTIES.clear()
+  try:
     assert first("Think hard about it") == "1", "no keywords, no change"
     api.KEYWORDS = api.keyword_pattern(["think hard", "ultrathink"])
-    tiers.extend([1, 1, 1, 1, 4, 1])
-    assert first("Please THINK\n hard.", "continue") == "2", "an earlier turn, any case"
-    assert first("rethink hardware", system="think hard") == "1", (
-      "whole words, user turns"
-    )
+    assert first("Please THINK\n hard.") == "2", "any case"
+    assert first("think hard", "continue") == "1", "only the last user message"
+    assert first("rethink hardware", system="think hard") == "1", "whole words"
     assert first("ultrathink and think hard") == "2", "2 keywords give +1"
     assert first("hello") == "1", "no match"
-    assert first("ultrathink") == "4", "the tier stops at sophos"
-    assert first("ultrathink", tools=True) == "2", "the tool rule does not add 1"
+    assert first("ultrathink", call) == "2", "a tool call of the same turn: no bump"
+    assert first("ultrathink", call, result) == "2", "a tool result: no bump"
+    assert first("go", call, result, "ultrathink") == "3", "tool rule, then +1"
+    assert first("go", call, key="s") == "2", "the session is at koinos"
+    assert first("go", call, result, "ultrathink", key="s") == "3", "koinos to deinos"
+    turn = ("go", call, result, "ultrathink", call)
+    assert first(*turn, key="s") == "3", "the session keeps deinos"
+    assert first(*turn, result, "ultrathink", key="s") == "4", "deinos to sophos"
+    assert first(*turn, result, "ultrathink", key="s") == "4", "the cap is sophos"
   finally:
     router.required_tier, router.chain_groups, model_store.read_models = original
     api.KEYWORDS = None
+    api.PENALTIES.clear()
 
 
 def main() -> None:
