@@ -164,14 +164,14 @@ def mode_models(mode: str) -> list[str]:
 
 
 def model_rows() -> list[dict[str, Any]]:
-  """All rows, with the mode, the input limit, the tool flag and the reasoning flag."""
+  """All rows, with the mode, the input limit, the tool flag, the reasoning flag and the default effort."""
   if not Path(MODELS_DB).exists():
     return []
   database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
   try:
     rows = database.execute(
-      "SELECT id, mode, max_input_tokens, supports_function_calling, supports_reasoning"
-      " FROM models"
+      "SELECT id, mode, max_input_tokens, supports_function_calling, supports_reasoning,"
+      " reasoning_effort FROM models"
       " ORDER BY rowid"
     ).fetchall()
   except sqlite3.OperationalError:
@@ -185,8 +185,9 @@ def model_rows() -> list[dict[str, Any]]:
       "max_input_tokens": limit,
       "tools": bool(tools),
       "reasoning": bool(thinks),
+      "effort": effort or None,
     }
-    for key, mode, limit, tools, thinks in rows
+    for key, mode, limit, tools, thinks, effort in rows
   ]
 
 
