@@ -552,11 +552,18 @@ async function takeFile(index) {
   if (index === state.file) $("editor").value = fresh.text;
 }
 
+// A file with YAML that is not valid opens in the YAML view, with the error line.
+function showFileError(index) {
+  const error = state.files[index]?.error;
+  $("save-message").textContent = error ? `Not valid YAML: ${error}` : "";
+  if (error) state.view = "yaml";
+}
+
 function openFile(index) {
   if (state.files.length) state.files[state.file].text = $("editor").value;
   state.file = index;
   $("editor").value = state.files[index].text;
-  $("save-message").textContent = "";
+  showFileError(index);
   renderFiles();
   renderForm();
 }
@@ -627,6 +634,7 @@ function renderForm() {
   if (!state.files.length) return (host.innerHTML = "");
   if (blocks == null) {
     host.innerHTML = `<div class="column"><div class="card"><h3>The YAML is not valid</h3>
+      <p class="sub">${esc(state.files[state.file].error ?? "")}</p>
       <p class="sub">Fix the file in the YAML view. Then the form opens it.</p></div></div>`;
     return;
   }
@@ -997,6 +1005,7 @@ async function start() {
   [state.overrideKeys, state.providerDefaults] = await Promise.all([call("provider-keys"), call("provider-defaults")]);
   state.file = 0;
   $("editor").value = state.files[0]?.text ?? "";
+  showFileError(0);
   renderFiles();
   await loadSettings();
   renderTiers();
@@ -1186,7 +1195,7 @@ async function reloadFiles(keep) {
   const index = Math.max(0, state.files.findIndex((file) => file.path === keep));
   state.file = index;
   $("editor").value = state.files[index]?.text ?? "";
-  $("save-message").textContent = "";
+  showFileError(index);
   renderFiles();
   renderForm();
 }

@@ -93,21 +93,25 @@ def read_yaml(path: Path) -> dict[str, Any]:
 def provider_blocks(
   path: Path | str = DEFAULT_PATH,
 ) -> list[tuple[Path, dict[str, Any]]]:
-  """The `{provider}.yml` files next to the main file, in name order, with their content."""
+  """The `{provider}.yml` files next to the main file, in name order, with their content. Not valid YAML raises."""
+  return [(file, read_yaml(file)) for file in provider_files(path)]
+
+
+def provider_files(path: Path | str = DEFAULT_PATH) -> list[Path]:
+  """The paths of the `{provider}.yml` files next to the main provider file, also the files with YAML that is not valid."""
   main = Path(path)
   found = []
   for file in sorted(main.parent.glob("*.yml")):
     if file.name == main.name:
       continue
-    content = read_yaml(file)
+    try:
+      content = read_yaml(file)
+    except yaml.YAMLError:
+      found.append(file)
+      continue
     if any(key in content for key in PROVIDER_KEYS):
-      found.append((file, content))
+      found.append(file)
   return found
-
-
-def provider_files(path: Path | str = DEFAULT_PATH) -> list[Path]:
-  """The paths of the `{provider}.yml` files next to the main provider file."""
-  return [file for file, _ in provider_blocks(path)]
 
 
 def load_config(path: Path | str = DEFAULT_PATH) -> dict[str, Any]:
