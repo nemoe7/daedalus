@@ -22,6 +22,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
   "pacing": {"enabled": True},
   "catalog": {"every": 6.0, "anchor": 6.0},
   "headroom": {"timeout": 5.0},
+  "escalation": {"keywords": []},
 }
 
 
@@ -32,6 +33,8 @@ class SettingsError(ValueError):
 def check(group: str, key: str, value: Any) -> Any:
   """The value when its type fits the default, else a `SettingsError`."""
   name = f"{group}.{key}"
+  if group == "escalation":
+    return keyword_list(name, value)
   if group == "catalog":
     return schedule_value(name, key, value)
   if key == "enabled":
@@ -43,6 +46,15 @@ def check(group: str, key: str, value: Any) -> Any:
   if key == "stay" and value >= 1:
     raise SettingsError(f"{name} must be below 1")
   return float(value)
+
+
+def keyword_list(name: str, value: Any) -> list[str]:
+  """A list of keywords, each a word or phrase with text."""
+  if not isinstance(value, list) or not all(
+    isinstance(item, str) and item.strip() for item in value
+  ):
+    raise SettingsError(f"{name} must be a list of words or phrases")
+  return [item.strip() for item in value]
 
 
 def schedule_value(name: str, key: str, value: Any) -> float:

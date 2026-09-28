@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import time
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
@@ -26,6 +27,8 @@ HOST = os.environ.get("DAEDALUS_HOST") or "0.0.0.0"
 PORT = int(os.environ.get("DAEDALUS_PORT") or 3357)
 SLOW_SECONDS = upstream.WAIT_SECONDS / 2
 AFFINITY = True
+# The keywords of `escalation.keywords` as 1 pattern, or None when the list is empty.
+KEYWORDS: re.Pattern[str] | None = None
 
 logger = logging.getLogger("daedalus")
 
@@ -190,7 +193,10 @@ def chain(
   if model in router.POOLS:
     order, slot = router.fallback_order(router.POOLS[model]), model
   elif model == router.RESERVED_MODEL:
-    tier = router.required_tier("\n".join(user_turns(body["messages"])))
+    prompt = "\n".join(user_turns(body["messages"]))
+    tier = router.required_tier(prompt)
+    if KEYWORDS and KEYWORDS.search(prompt):
+      tier = min(tier + 1, max(router.POOLS.values()))
     if used_tools(body["messages"]):
       tier = max(tier, router.POOLS["daedalus/koinos"])
     if key and AFFINITY:
@@ -479,9 +485,21 @@ async def chat(request: Request) -> Response:
   return failure
 
 
+def keyword_pattern(keywords: list[str]) -> re.Pattern[str] | None:
+  """One pattern that finds any keyword as a whole word or phrase, in any case."""
+  if not keywords:
+    return None
+  # A space in a phrase also matches more spaces or a line break.
+  words = "|".join(
+    re.escape(word).replace(r"\ ", r"\s+")
+    for word in sorted(keywords, key=len, reverse=True)
+  )
+  return re.compile(rf"(?<!\w)(?:{words})(?!\w)", re.IGNORECASE)
+
+
 def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   """Use the values of `config/daedalus.yml`."""
-  global SLOW_SECONDS, AFFINITY
+  global SLOW_SECONDS, AFFINITY, KEYWORDS
   timeouts, affinity, weights = (
     values["timeouts"],
     values["session_affinity"],
@@ -503,6 +521,7 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   for name in ("success", "fault", "slow", "hourly", "rate_limit"):
     setattr(PENALTIES, name, weights[name])
   PACING.enabled = values["pacing"]["enabled"]
+  KEYWORDS = keyword_pattern(values["escalation"]["keywords"])
   COOLDOWNS.first, COOLDOWNS.longest = (
     values["cooldown"]["first"],
     values["cooldown"]["longest"],
