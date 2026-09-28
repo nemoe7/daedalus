@@ -1,6 +1,5 @@
 """Check that a direct model retries a short wait until the request deadline."""
 
-import os
 import tempfile
 from pathlib import Path
 
@@ -10,7 +9,6 @@ from fastapi.testclient import TestClient
 from daedalus import store
 from daedalus.server import api, upstream
 
-os.environ["DAEDALUS_MASTER_KEY"] = "test-master-key-0001"
 AUTH = {"Authorization": "Bearer test-master-key-0001"}
 BODY = {"model": "p/fast", "messages": [{"role": "user", "content": "hi"}]}
 CONFIG = {
@@ -22,7 +20,7 @@ CONFIG = {
 }
 
 
-def main() -> None:
+def test_direct_timeout() -> None:
   sent = []
   fail = {"left": 2}
 
@@ -64,8 +62,3 @@ def main() -> None:
       api.get_config, upstream.TIMEOUT_SECONDS, store.MODELS_DB = original
       upstream.set_client(None)
       api.PACING.clear()
-  print("ok: direct model retries until the request deadline")
-
-
-if __name__ == "__main__":
-  main()

@@ -1,9 +1,7 @@
 import asyncio
 import os
 import sqlite3
-import tempfile
 import time
-from pathlib import Path
 
 from daedalus import store
 from daedalus.catalog import schedule
@@ -14,7 +12,7 @@ def local(text: str) -> float:
   return time.mktime(time.strptime(text, "%Y-%m-%d %H:%M"))
 
 
-def check_times() -> None:
+def test_times() -> None:
   now = local("2026-09-27 15:30")
   assert schedule.last(now) == local("2026-09-27 12:00")
   assert schedule.upcoming(now) == local("2026-09-27 18:00")
@@ -35,7 +33,7 @@ def check_times() -> None:
   schedule.EVERY, schedule.ANCHOR = 6.0, 6.0
 
 
-def check_timezone() -> None:
+def test_timezone() -> None:
   """The TZ env var sets the clock."""
   if not hasattr(time, "tzset"):
     return
@@ -58,7 +56,7 @@ def check_timezone() -> None:
     time.tzset()
 
 
-def check_due() -> None:
+def test_due() -> None:
   assert store.built() is None and schedule.due(time.time()), "no store"
   store.write_store([])
   assert schedule.due(time.time()) is False, "a new store"
@@ -73,7 +71,8 @@ def check_due() -> None:
   assert store.built() is None and schedule.due(time.time()), "a store without the time"
 
 
-async def check_run() -> None:
+async def test_run() -> None:
+  store.MODELS_DB.unlink(missing_ok=True)
   calls: list[str] = []
 
   def rebuild() -> None:
@@ -90,7 +89,7 @@ async def check_run() -> None:
   assert schedule.due(time.time()) is False
 
 
-async def check_manual() -> None:
+async def test_manual() -> None:
   release, calls = asyncio.Event(), []
 
   def refresh() -> None:
@@ -115,7 +114,7 @@ async def check_manual() -> None:
   assert not schedule.BUSY, "a failure clears the busy mark too"
 
 
-def check_settings() -> None:
+def test_settings() -> None:
   values = settings.parse("catalog:\n  every: 12\n  anchor: 0\n")
   assert values["catalog"] == {"every": 12.0, "anchor": 0.0}, values
   assert settings.parse("")["catalog"] == {"every": 6.0, "anchor": 6.0}, "the defaults"
@@ -135,24 +134,3 @@ def check_settings() -> None:
       assert message in str(exc), exc
     else:
       raise AssertionError(text)
-
-
-def main() -> None:
-  check_times()
-  check_timezone()
-  check_settings()
-  original = store.MODELS_DB
-  with tempfile.TemporaryDirectory() as folder:
-    store.MODELS_DB = Path(folder) / "models.sqlite3"
-    try:
-      check_due()
-      store.MODELS_DB.unlink()
-      asyncio.run(check_run())
-      asyncio.run(check_manual())
-    finally:
-      store.MODELS_DB = original
-  print("ok: catalog schedule")
-
-
-if __name__ == "__main__":
-  main()

@@ -1,4 +1,4 @@
-"""Runnable check that `reasoning_effort` goes only to models that reason. Run: python tests/server/test_reasoning.py"""
+"""Check that `reasoning_effort` goes only to models that reason."""
 
 import asyncio
 import json
@@ -25,7 +25,7 @@ def sent_body(sent: list[httpx.Request], model: str) -> dict:
   return json.loads(sent[-1].content)
 
 
-def main() -> None:
+def test_reasoning() -> None:
   sent: list[httpx.Request] = []
 
   def answer(request: httpx.Request) -> httpx.Response:
@@ -46,8 +46,3 @@ def main() -> None:
     finally:
       store.MODELS_DB = original
       upstream.set_client(None)
-  print("ok: reasoning_effort only for models that reason")
-
-
-if __name__ == "__main__":
-  main()

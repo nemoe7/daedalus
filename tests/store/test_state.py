@@ -1,12 +1,12 @@
 import tempfile
 from pathlib import Path
 
-from daedalus import store
+from daedalus import config, store
 
 
-def main() -> None:
+def test_state_paths() -> None:
   root = Path(__file__).resolve().parents[2] / ".daedalus-state"
-  assert store.MODELS_DB == root / "models.sqlite3"
+  assert config.STATE_DIR / "models.sqlite3" == root / "models.sqlite3"
   with tempfile.TemporaryDirectory() as directory:
     target = Path(directory) / ".daedalus-state" / "models.sqlite3"
     store.write_store([{"id": "provider/model"}], target)
@@ -16,8 +16,3 @@ def main() -> None:
       assert store.read_models() == ["provider/model"]
     finally:
       store.MODELS_DB = original
-  print("ok: application state paths")
-
-
-if __name__ == "__main__":
-  main()

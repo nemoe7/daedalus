@@ -1,19 +1,18 @@
-"""Runnable check for the vendored tier router. Run: python tests/routing/test_router.py"""
+"""Tests for the vendored tier router."""
 
 import asyncio
 import json
-import sys
 import tempfile
 from pathlib import Path
 
 import httpx
 
-from daedalus import config, store
+from daedalus import config
 from daedalus.routing import classifier, router
 from daedalus.server import upstream
 
 
-def check_classify() -> None:
+def test_classify() -> None:
   """The ported rules name what a prompt asks for."""
   cases = {
     "write a python function to parse a csv file": classifier.RequestType.CODE_GENERATION,
@@ -30,7 +29,7 @@ def check_classify() -> None:
     assert classifier.classify_prompt(prompt) is expected, prompt
 
 
-def check_cohort() -> None:
+def test_cohort() -> None:
   """The cohort key is the request type plus five shape flags."""
   assert classifier.similarity_cohort("hi", classifier.RequestType.GENERAL) == (
     "general|short|code=0|math=0|mc=0|intl=0"
@@ -46,7 +45,7 @@ def check_cohort() -> None:
   ).startswith("general|very_long|")
 
 
-def check_artifact() -> None:
+def test_artifact() -> None:
   """The vendored table holds every tier, once, with its calibration."""
   artifact = classifier.load_artifact()
   assert sorted(artifact.global_stats) == [1, 2, 3, 4]
@@ -58,7 +57,7 @@ def check_artifact() -> None:
   assert artifact.global_stats[4].observations > 0
 
 
-def check_artifact_rejects_a_broken_table() -> None:
+def test_artifact_rejects_a_broken_table() -> None:
   """A table that loses a tier fails at load, not at route time."""
   payload = json.loads(classifier.ARTIFACT_PATH.read_text(encoding="utf-8"))
   payload["global_statistics"] = [
@@ -76,7 +75,7 @@ def check_artifact_rejects_a_broken_table() -> None:
       raise AssertionError(msg)
 
 
-def check_predict() -> None:
+def test_predict() -> None:
   """Odds rise with the tier, and the first tier over the bar wins."""
   artifact = classifier.load_artifact()
   prompts = [
@@ -106,7 +105,7 @@ def check_predict() -> None:
   assert round(coding.probabilities[2], 4) == 0.8645, coding.probabilities[2]
 
 
-def check_tier_names() -> None:
+def test_tier_names() -> None:
   """Tier 1 is the weakest, and the config letters run the other way."""
   assert router.TIER_NAMES == {1: "TIER-D", 2: "TIER-C", 3: "TIER-B", 4: "TIER-A"}
   assert sorted(router.TIER_NAMES.values()) != [
@@ -114,7 +113,7 @@ def check_tier_names() -> None:
   ]
 
 
-def check_tier_models() -> None:
+def test_tier_models() -> None:
   """A provider block answers with the models it lists under a tier."""
   provider = {"api_key": "k", "tier": {"TIER-A": ["glm-5.3", None], "TIER-C": []}}
   assert router.tier_models(provider, "TIER-A") == ["glm-5.3"]
@@ -129,7 +128,7 @@ def chain(config: dict, lines: list[str], tier: int) -> list[str]:
   return [line for group in groups for line in group]
 
 
-def check_route() -> None:
+def test_route() -> None:
   """A tier resolves to the provider rows that claim it, and escalates when empty."""
   config = {
     "gemini": {"api_key": "k", "tier": {"TIER-C": ["gemini-3.5-flash"]}},
@@ -160,7 +159,7 @@ def check_route() -> None:
   assert chain(config, [], tier) == []
 
 
-def check_direct_only() -> None:
+def test_direct_only() -> None:
   """A model with `pool: false` stays out of each tier, and the last matching entry wins."""
   models = {
     "*": {"pool": False},
@@ -178,7 +177,7 @@ def check_direct_only() -> None:
   assert router.pooled(keyless, "openrouter/a/keep") is False, "no key, no pools"
 
 
-def check_provider_files() -> None:
+def test_provider_files() -> None:
   """A {provider}.yml takes its own models, and its values win over the main file."""
   main = {
     "api_key": "k",
@@ -213,7 +212,7 @@ def check_provider_files() -> None:
   assert router.candidates(blocks, "TIER-B", lines) == [], "a * key takes each model"
 
 
-def check_tier_cache() -> None:
+def test_tier_cache() -> None:
   """The tier rows come from a cache until the config object or the lines change."""
   blocks = {"p": {"api_key": "k", "tier": {"TIER-A": ["a*"], "TIER-D": ["d*"]}}}
   lines = ["p/a1", "p/d1"]
@@ -226,7 +225,7 @@ def check_tier_cache() -> None:
   assert router.candidates(changed, "TIER-A", lines) == ["p/d1"], "a new config"
 
 
-def check_model_wait() -> None:
+def test_model_wait() -> None:
   """The `timeout` of a model replaces the wait, and the upstream request carries it."""
   models = {"*": {"timeout": 15}, "slow": {"timeout": True}, "off": {"timeout": 0}}
   config = {"p": {"api_key": "k", "api_base": "https://p.test/v1", "models": models}}
@@ -251,7 +250,7 @@ def check_model_wait() -> None:
   assert [t["read"] for t in seen] == [15.0, upstream.WAIT_SECONDS], seen
 
 
-def check_most_specific_tier() -> None:
+def test_most_specific_tier() -> None:
   """A slug that 2 tiers claim goes only to the tier with the most specific pattern."""
   config = {
     "kilo": {
@@ -292,7 +291,7 @@ def check_most_specific_tier() -> None:
   assert router.candidates(tie, "TIER-B", ["groq/gpt-oss"]) == []
 
 
-def check_pools() -> None:
+def test_pools() -> None:
   """Four pools, and the fallback chain each one walks."""
   assert router.POOLS == {
     "daedalus/moros": 1,
@@ -324,33 +323,3 @@ def check_pools() -> None:
     "gemini/gemini-3.5-flash",
     "openrouter/anthropic/claude-opus-5",
   ]
-
-
-def main() -> int:
-  """Run every check."""
-  check_classify()
-  check_cohort()
-  check_artifact()
-  check_artifact_rejects_a_broken_table()
-  check_predict()
-  check_tier_names()
-  check_tier_models()
-  check_route()
-  check_direct_only()
-  check_provider_files()
-  check_tier_cache()
-  original = store.MODELS_DB
-  with tempfile.TemporaryDirectory() as folder:
-    store.MODELS_DB = Path(folder) / "models.sqlite3"
-    try:
-      check_model_wait()
-    finally:
-      store.MODELS_DB = original
-  check_most_specific_tier()
-  check_pools()
-  print("ok: router checks passed")
-  return 0
-
-
-if __name__ == "__main__":
-  sys.exit(main())

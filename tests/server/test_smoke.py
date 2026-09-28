@@ -1,8 +1,9 @@
 import os
 
-"""Runnable check for the proxy. Run: python tests/server/test_smoke.py"""
+import pytest
 
-import asyncio
+"""Tests for the proxy."""
+
 import json
 import pathlib
 import tempfile
@@ -17,7 +18,6 @@ from daedalus.store import keys
 
 MASTER = "test-master-key-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}
-os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 
 UPSTREAM_BASE = "http://upstream.test"
 UPSTREAM_KEY = "upstream-secret"
@@ -124,7 +124,7 @@ def chat_body(**extra: object) -> dict:
   }
 
 
-async def check_health(client: httpx.AsyncClient) -> None:
+async def test_health(client: httpx.AsyncClient) -> None:
   response = await client.get("/health")
   assert response.status_code == 200, response.text
   body = response.json()
@@ -132,7 +132,7 @@ async def check_health(client: httpx.AsyncClient) -> None:
   assert body == {"status": "ok"}, body
 
 
-async def check_non_stream(client: httpx.AsyncClient) -> None:
+async def test_non_stream(client: httpx.AsyncClient) -> None:
   response = await client.post(
     "/v1/chat/completions",
     json=chat_body(),
@@ -149,7 +149,7 @@ async def check_non_stream(client: httpx.AsyncClient) -> None:
   assert last["model"] == "gpt-test", last
 
 
-async def check_routed_model(client: httpx.AsyncClient) -> None:
+async def test_routed_model(client: httpx.AsyncClient) -> None:
   """A reserved name resolves to a provider model, and any other name passes on."""
   config.set_config(
     {
@@ -220,7 +220,7 @@ async def check_routed_model(client: httpx.AsyncClient) -> None:
     use_config()
 
 
-async def check_reroute(client: httpx.AsyncClient) -> None:
+async def test_reroute(client: httpx.AsyncClient) -> None:
   """A failed model logs internally, and the next model in the chain answers."""
   config.set_config(
     {
@@ -265,7 +265,7 @@ async def check_reroute(client: httpx.AsyncClient) -> None:
     use_config()
 
 
-def check_wait_cap() -> None:
+def test_wait_cap() -> None:
   """The wait for one answer is capped, and the other timeouts are not."""
   upstream.set_client(None)
   client = upstream.get_client()
@@ -274,7 +274,7 @@ def check_wait_cap() -> None:
   upstream.set_client(None)
 
 
-async def check_models(client: httpx.AsyncClient) -> None:
+async def test_models(client: httpx.AsyncClient) -> None:
   saved = store.MODELS_DB
   try:
     with tempfile.TemporaryDirectory() as folder:
@@ -295,7 +295,7 @@ async def check_models(client: httpx.AsyncClient) -> None:
   ], names
 
 
-async def check_stream(client: httpx.AsyncClient) -> None:
+async def test_stream(client: httpx.AsyncClient) -> None:
   async with client.stream(
     "POST",
     "/v1/chat/completions",
@@ -309,7 +309,7 @@ async def check_stream(client: httpx.AsyncClient) -> None:
   assert "[DONE]" in text, text
 
 
-async def check_unknown_models(client: httpx.AsyncClient) -> None:
+async def test_unknown_models(client: httpx.AsyncClient) -> None:
   count = len(SEEN)
   for model in ("gpt-test", "unknown/gpt-test", "daedalus/unknown"):
     response = await client.post("/v1/chat/completions", json=chat_body(model=model))
@@ -319,7 +319,7 @@ async def check_unknown_models(client: httpx.AsyncClient) -> None:
   assert len(SEEN) == count, SEEN
 
 
-async def check_local_key() -> None:
+async def test_local_key() -> None:
   use_upstream(local_key=LOCAL_KEY)
   async with make_client() as client:
     wrong = await client.post(
@@ -352,7 +352,7 @@ def broken(request: httpx.Request) -> httpx.Response:
   raise httpx.ConnectError("no route to upstream", request=request)
 
 
-async def check_upstream_unreachable() -> None:
+async def test_upstream_unreachable() -> None:
   use_upstream()
   upstream.set_client(
     httpx.AsyncClient(transport=httpx.MockTransport(broken), timeout=5.0)
@@ -363,7 +363,7 @@ async def check_upstream_unreachable() -> None:
   assert response.json()["error"]["type"] == "upstream_error", response.text
 
 
-async def check_removed_routes(client: httpx.AsyncClient) -> None:
+async def test_removed_routes(client: httpx.AsyncClient) -> None:
   for path in (
     "/v1beta/models/test:generateContent",
     "/v1beta/models/test:streamGenerateContent",
@@ -374,32 +374,8 @@ async def check_removed_routes(client: httpx.AsyncClient) -> None:
     assert response.status_code == 404, response.text
 
 
-async def run_checks() -> None:
+@pytest.fixture
+async def client():
   use_upstream()
-  await run_client_checks()
-  check_wait_cap()
-  await check_local_key()
-  await check_upstream_unreachable()
-
-
-async def run_client_checks() -> None:
   async with make_client() as client:
-    await check_health(client)
-    await check_non_stream(client)
-    await check_routed_model(client)
-    await check_reroute(client)
-    await check_models(client)
-    await check_stream(client)
-    await check_removed_routes(client)
-    await check_unknown_models(client)
-
-
-def main() -> None:
-  with tempfile.TemporaryDirectory() as folder:
-    store.MODELS_DB = pathlib.Path(folder) / "models.sqlite3"
-    asyncio.run(run_checks())
-  print(f"ok: {len(SEEN)} upstream requests, all checks passed")
-
-
-if __name__ == "__main__":
-  main()
+    yield client

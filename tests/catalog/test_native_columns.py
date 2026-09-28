@@ -1,7 +1,7 @@
 from daedalus.catalog import discovery
 
 
-def check_cloudflare() -> None:
+def test_cloudflare() -> None:
   row = {
     "name": "@cf/a/b",
     "task": {"name": "Text Generation"},
@@ -20,7 +20,7 @@ def check_cloudflare() -> None:
   }, found
 
 
-def check_cloudflare_tasks() -> None:
+def test_cloudflare_tasks() -> None:
   tasks = {
     "@cf/chat": "Text Generation",
     "@cf/whisper": "Automatic Speech Recognition",
@@ -47,7 +47,7 @@ def check_cloudflare_tasks() -> None:
   assert list(discovery.provider_rows("groq", {}, {"data": [{"id": "x"}]})) == ["x"]
 
 
-def check_gemini() -> None:
+def test_gemini() -> None:
   row = {
     "supportedGenerationMethods": ["generateContent"],
     "inputTokenLimit": 1048576,
@@ -66,7 +66,7 @@ def check_gemini() -> None:
   assert embed == {"mode": "embedding"}, embed
 
 
-def check_groq() -> None:
+def test_groq() -> None:
   row = {
     "context_window": 131072,
     "max_completion_tokens": 16384,
@@ -82,7 +82,7 @@ def check_groq() -> None:
   assert bare == {"max_input_tokens": 512}, "no list gives no flags"
 
 
-def check_openrouter_shape() -> None:
+def test_openrouter_shape() -> None:
   row = {
     "context_length": 1000,
     "top_provider": {"context_length": 2000, "max_completion_tokens": 500},
@@ -101,7 +101,7 @@ def check_openrouter_shape() -> None:
     assert found["supports_pdf_input"] is True and found["reasoning_effort"] == "high"
 
 
-def check_mistral() -> None:
+def test_mistral() -> None:
   row = {
     "max_context_length": 256000,
     "capabilities": {
@@ -119,30 +119,14 @@ def check_mistral() -> None:
   }, found
 
 
-def check_unknown() -> None:
+def test_unknown() -> None:
   assert discovery.native_columns("z-ai", {"context_length": 5}) == {}
   assert discovery.native_columns("groq", {"context_window": "12k"}) == {}
 
 
-def check_build_rows() -> None:
+def test_build_rows() -> None:
   payload = {"data": [{"id": "m1", "context_window": 8192}, {"id": "m2"}]}
   config = {"groq": {"api_key": "k", "exclude": ["m2"]}}
   lines, skipped = discovery.build_rows(config, lambda *_: payload)
   assert skipped == [], skipped
   assert lines == {"groq/m1": {"max_input_tokens": 8192}}, lines
-
-
-def main() -> None:
-  check_cloudflare()
-  check_cloudflare_tasks()
-  check_gemini()
-  check_groq()
-  check_openrouter_shape()
-  check_mistral()
-  check_unknown()
-  check_build_rows()
-  print("ok: provider columns")
-
-
-if __name__ == "__main__":
-  main()

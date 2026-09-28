@@ -12,8 +12,6 @@ from daedalus.catalog import discovery
 from daedalus.server import api
 from daedalus.store import keys
 
-os.environ["DAEDALUS_MASTER_KEY"] = "test-master-key-0001"
-
 # The CLI runs with a temporary state folder, so it never touches .daedalus-state.
 CLI = """
 import tempfile
@@ -29,7 +27,7 @@ with tempfile.TemporaryDirectory() as folder:
 DAEDALUS = [sys.executable, "-c", CLI]
 
 
-def check_help() -> None:
+def test_help() -> None:
   shown = subprocess.run(
     [*DAEDALUS, "--help"], capture_output=True, text=True, timeout=10, check=False
   )
@@ -45,7 +43,7 @@ def check_help() -> None:
   assert not hasattr(catalog, "main"), "python -m daedalus.catalog has no entry point"
 
 
-def check_commands() -> None:
+def test_commands() -> None:
   calls: list[str] = []
   original = (
     store.MODELS_DB,
@@ -91,7 +89,7 @@ def check_commands() -> None:
       calls.clear()
       cli.run(["serve", "9000"])
       assert calls == ["listen:9000"], calls
-      check_key(calls)
+      assert_key_command(calls)
   finally:
     store.MODELS_DB, catalog.refresh, discovery.dump, uvicorn = original
     api.CATALOG_REFRESH = None
@@ -101,7 +99,7 @@ def check_commands() -> None:
       sys.modules["uvicorn"] = uvicorn
 
 
-def check_master() -> None:
+def test_master() -> None:
   env = {
     key: value for key, value in os.environ.items() if key != "DAEDALUS_MASTER_KEY"
   }
@@ -120,7 +118,7 @@ def check_master() -> None:
     assert "set DAEDALUS_MASTER_KEY" in stopped.stderr, stopped.stderr
 
 
-def check_key(calls: list[str]) -> None:
+def assert_key_command(calls: list[str]) -> None:
   wrong = subprocess.run(
     [*DAEDALUS, "key"], capture_output=True, text=True, check=False
   )
@@ -130,14 +128,3 @@ def check_key(calls: list[str]) -> None:
   calls.clear()
   cli.run(["serve"])
   assert calls == ["catalog", "listen:3357"], "a key-only store is not a model store"
-
-
-def main() -> None:
-  check_help()
-  check_master()
-  check_commands()
-  print("ok: cli subcommands")
-
-
-if __name__ == "__main__":
-  main()

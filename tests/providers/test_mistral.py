@@ -1,4 +1,4 @@
-"""Runnable check for the Mistral reasoning changes. Run: python tests/providers/test_mistral.py"""
+"""Tests for the Mistral reasoning changes."""
 
 import asyncio
 import json
@@ -27,7 +27,7 @@ def sent_effort(effort: object) -> object:
   return PROVIDER.request("labs-leanstral-1-5", payload)[1]["reasoning_effort"]
 
 
-def check_efforts() -> None:
+def test_efforts() -> None:
   for effort, expected in (
     ("none", "none"),
     ("minimal", "none"),
@@ -42,7 +42,7 @@ def check_efforts() -> None:
   assert "reasoning_effort" not in PROVIDER.request("m", payload)[1], "no effort added"
 
 
-def check_completion() -> None:
+def test_completion() -> None:
   answer = {
     "choices": [{"index": 0, "message": {"role": "assistant", "content": THINKING}}]
   }
@@ -66,7 +66,7 @@ async def streamed(lines: list[str]) -> list[str]:
   return [block[6:] for block in out.decode().split("\n\n") if block]
 
 
-def check_stream() -> None:
+def test_stream() -> None:
   delta = {"choices": [{"index": 0, "delta": {"content": THINKING[:1]}}]}
   text = {"choices": [{"index": 0, "delta": {"content": "391"}}]}
   found = asyncio.run(
@@ -82,7 +82,7 @@ def check_stream() -> None:
   assert "[DONE]" not in cut, "no [DONE] when Mistral sends none"
 
 
-def check_modes() -> None:
+def test_modes() -> None:
   with open("config/providers/free.yml", encoding="utf-8") as handle:
     mistral = yaml.safe_load(handle)["mistral"]
   for slug, mode in (
@@ -93,7 +93,7 @@ def check_modes() -> None:
     assert config_params(mistral, slug).get("mode") == mode, slug
 
 
-def check_history() -> None:
+def test_history() -> None:
   thinking = {"type": "thinking", "thinking": [{"type": "text", "text": "hmm"}]}
   call = {"id": "c", "type": "function", "function": {"name": "f", "arguments": "{}"}}
   messages = [
@@ -122,16 +122,3 @@ def check_history() -> None:
   )
   assert all("reasoning_content" not in m for m in sent), sent
   assert messages[1]["content"] == "391", "the client body does not change"
-
-
-def main() -> None:
-  check_efforts()
-  check_history()
-  check_completion()
-  check_stream()
-  check_modes()
-  print("ok: Mistral effort, thinking chunks both ways and voxtral modes")
-
-
-if __name__ == "__main__":
-  main()

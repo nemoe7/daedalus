@@ -1,11 +1,9 @@
 import asyncio
 import json
-import tempfile
-from pathlib import Path
 
 import httpx
 
-from daedalus import providers, store
+from daedalus import providers
 from daedalus.providers import signatures
 
 GEMINI = providers.GeminiProvider(
@@ -18,7 +16,7 @@ def body(model: str, **extra: object) -> dict:
   return GEMINI.body(model, payload)
 
 
-def main() -> None:
+def test_gemini_params() -> None:
   sent = body(
     "gemini-2.5-flash",
     temperature=0.2,
@@ -160,14 +158,9 @@ def main() -> None:
   }
   assert second["index"] == 1
   assert second["finish_reason"] == "length"
-  with tempfile.TemporaryDirectory() as folder:
-    store.MODELS_DB = Path(folder) / "models.sqlite3"
-    check_signatures()
-    check_stored_signatures()
-  print("ok: gemini parameter mapping")
 
 
-def check_signatures() -> None:
+def test_signatures() -> None:
   def call(name: str, extra: dict | None = None) -> dict:
     found = {
       "id": name,
@@ -196,7 +189,7 @@ def check_signatures() -> None:
   assert "thoughtSignature" not in older[1]["parts"][0], "Gemini 2.5 needs no signature"
 
 
-def check_stored_signatures() -> None:
+def test_stored_signatures() -> None:
   def answer(identifier: str) -> dict:
     call = {"name": "f", "args": {}, "id": identifier}
     part = {"functionCall": call, "thoughtSignature": "sig-" + identifier}
@@ -240,7 +233,3 @@ def check_stored_signatures() -> None:
     )
   finally:
     signatures.IDLE_SECONDS = 3600.0
-
-
-if __name__ == "__main__":
-  main()
