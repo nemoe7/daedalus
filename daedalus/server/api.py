@@ -147,6 +147,25 @@ def asked_harder(messages: list) -> bool:
   return any(KEYWORDS.search(text) for text in user_turns([last]))
 
 
+def has_image(messages: object) -> bool:
+  """Tell if a message of the conversation holds an image."""
+  if not isinstance(messages, list):
+    return False
+  return any(
+    isinstance(part, dict) and part.get("type") == "image_url"
+    for message in messages
+    if isinstance(message, dict) and isinstance(message.get("content"), list)
+    for part in message["content"]
+  )
+
+
+def request_lines(body: dict[str, Any]) -> list[str]:
+  """The chat models for one request. Tool and image requests skip the models without that feature."""
+  return store.read_models(
+    tools_only=bool(body.get("tools")), vision_only=has_image(body.get("messages"))
+  )
+
+
 def used_tools(messages: list) -> bool:
   """Tell if the conversation already has a tool call or a tool result."""
   return any(
@@ -239,8 +258,7 @@ def chain(
   else:
     return None
   # A request with tools skips the models that cannot call tools, and no log shows it.
-  lines = store.read_models(tools_only=bool(body.get("tools")))
-  return router.chain_groups(config, lines, order), slot
+  return router.chain_groups(config, request_lines(body), order), slot
 
 
 def retry_chain(
@@ -248,7 +266,7 @@ def retry_chain(
 ) -> tuple[list[list[str]], str]:
   """The chain of a try again: 1 tier above the last answer, without the tier A models that answered."""
   tier = retries.next_tier(turn)
-  lines = store.read_models(tools_only=bool(body.get("tools")))
+  lines = request_lines(body)
   groups = router.chain_groups(config, lines, router.fallback_order(tier))
   groups[0] = retries.fresh_models(turn, groups[0])
   return groups, f"{router.RESERVED_MODEL}:{router.TIER_NAMES[tier]}"

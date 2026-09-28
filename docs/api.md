@@ -130,6 +130,7 @@ Kilo cannot show the routed model for a custom provider. The **Requests** page a
 | `stream` | Boolean. |
 | `stream_options` | Object. `include_usage` adds a usage chunk. Daedalus asks Groq and OpenRouter for the usage chunk in each stream, and removes it when the client did not ask for it. |
 | `tools` | Models that cannot call tools leave the chain. |
+| `messages` with an `image_url` part | Models with `supports_vision` false or with no value leave the chain of a pool or `daedalus/auto`. A provider file can set `supports_vision: true` for a model. An image in an older message also counts. A direct `provider/slug` request does not change. |
 | `max_tokens`, `max_completion_tokens` | A value above the `max_output_tokens` of the model in the catalog drops to that value. |
 | `reasoning_effort` | Goes only to a model with a true `supports_reasoning` value in the catalog. A model that is not in the catalog also gets it. When a request has no value, a model with a `reasoning_effort` in the catalog gets that value. |
 | Other fields | Go to the provider. Mistral and Groq get only the message fields that they accept. |
