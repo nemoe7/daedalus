@@ -9,6 +9,7 @@ dependencies = [
   "httpx>=0.27",
   "python-multipart>=0.0.18",
   "pyyaml>=6.0",
+  "ruamel.yaml>=0.18",
   "uvicorn[standard]>=0.30",
 ]
 
