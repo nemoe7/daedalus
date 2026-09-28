@@ -3,6 +3,7 @@
 import hashlib
 import hmac
 import os
+import re
 import time
 from collections import deque
 from collections.abc import Callable, Mapping
@@ -13,9 +14,9 @@ import yaml
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 
-from daedalus import config, store
+from daedalus import config, providers, store
 from daedalus.catalog import schedule
-from daedalus.config import settings
+from daedalus.config import block_for, settings
 from daedalus.routing import router
 from daedalus.routing.cooldowns import Cooldowns
 from daedalus.routing.penalties import Penalties
@@ -113,6 +114,27 @@ def partition(response: Response) -> None:
     response.raw_headers[-1] = (name, value + b"; Partitioned")
 
 
+# A new provider file: the name rule, and the text of the file.
+NAME = re.compile(r"^[a-z][a-z0-9-]{0,38}$")
+NEW_FILE = "# A new provider file: fill in the tier patterns and the model values.\n"
+NEW_KEY = "api_key: os.environ/{env}_API_KEY\n"
+NEW_MODELS = 'models:\n  "*": {}\n'
+NEW_BASE = 'api_base: "" # Daedalus does not know this provider; set the OpenAI-compatible base\n'
+
+
+def config_files() -> tuple[Path, ...]:
+  """The provider files that the Providers tab shows: the main file, then each `{provider}.yml`."""
+  main = FILES[0]
+  return (main, *config.provider_files(main))
+
+
+def new_file_text(name: str) -> str:
+  """The text of a new `{provider}.yml` file for one provider name."""
+  env = name.upper().replace("-", "_")
+  known = name in providers.PROVIDERS
+  return NEW_FILE + NEW_KEY.format(env=env) + ("" if known else NEW_BASE) + NEW_MODELS
+
+
 def check_file(path: Path, text: str) -> dict[str, Any] | None:
   """Validate the text of one config file. Returns settings values for the settings file."""
   if path == settings.DEFAULT_PATH:
@@ -127,8 +149,8 @@ def tier_map(config: Mapping[str, Any], lines: list[str]) -> dict[str, str]:
   found: dict[str, str] = {}
   for line in lines:
     name, _, slug = line.partition("/")
-    provider = config.get(name)
-    tier = router.claiming_tier(provider, slug) if isinstance(provider, dict) else None
+    block = block_for(config, name, slug)
+    tier = router.claiming_tier(block, slug) if block else None
     if tier:
       found[line] = tier
   return found
@@ -252,7 +274,7 @@ def routes(
         }
       )
     for name, mode in router.MEDIA_POOLS.items():
-      media = store.mode_models(mode)
+      media = [m for m in store.mode_models(mode) if router.pooled(config, m)]
       weights = penalties.weights(media)
       found.append(
         {
@@ -321,12 +343,14 @@ def routes(
   async def files(request: Request) -> JSONResponse:
     if not allowed(request):
       return denied()
+    main = FILES[0]
     found = [
       {
         "path": str(path),
         "text": path.read_text(encoding="utf-8") if path.exists() else "",
+        "main": path == main,
       }
-      for path in FILES
+      for path in config_files()
     ]
     return JSONResponse(found)
 
@@ -335,7 +359,7 @@ def routes(
     if not allowed(request):
       return denied()
     body = await json_body(request)
-    names = {str(path): path for path in FILES}
+    names = {str(path): path for path in config_files()}
     if not isinstance(body, dict) or body.get("path") not in names:
       return failure(400, "Unknown config file.", "invalid_request_error")
     path, text = names[body["path"]], body.get("text")
@@ -352,6 +376,39 @@ def routes(
       config.load_config(path)
     else:
       apply(values)
+    return JSONResponse({"ok": True})
+
+  @api.post("/files")
+  async def make_file(request: Request) -> JSONResponse:
+    if not allowed(request):
+      return denied()
+    body = await json_body(request)
+    name = body.get("name") if isinstance(body, dict) else None
+    if not isinstance(name, str) or not NAME.match(name):
+      return failure(
+        400,
+        "The provider name must use lowercase letters, digits and dashes.",
+        "invalid_request_error",
+      )
+    path = FILES[0].parent / f"{name}.yml"
+    if path in config_files():
+      return failure(400, f"{path} exists.", "invalid_request_error")
+    text = new_file_text(name)
+    path.write_text(text, encoding="utf-8")
+    config.load_config(FILES[0])
+    return JSONResponse({"path": str(path), "text": text})
+
+  @api.delete("/files")
+  async def drop_file(request: Request) -> JSONResponse:
+    if not allowed(request):
+      return denied()
+    body = await json_body(request)
+    name = body.get("path") if isinstance(body, dict) else None
+    found = {str(Path(p)): Path(p) for p in config.provider_files(FILES[0])}
+    if not isinstance(name, str) or name not in found:
+      return failure(400, "Only a {provider}.yml file can go.", "invalid_request_error")
+    found[name].unlink()
+    config.load_config(FILES[0])
     return JSONResponse({"ok": True})
 
   @api.get("/settings")

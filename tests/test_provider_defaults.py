@@ -10,8 +10,21 @@ MESSAGE = {"model": "m", "messages": [{"role": "user", "content": "hi"}]}
 
 
 def main() -> None:
+  os.environ["OPENROUTER_API_KEY"] = "test-openrouter-key"
   loaded = config.load_config()
   assert set(providers.PROVIDERS) == set(loaded), loaded.keys()
+  name = "openrouter"
+  main = loaded[name]
+  file = main[config.FILE_KEY]
+  assert main["api_key"] == file["api_key"], "the same env token in both files"
+  main["api_base"] = "https://main.test/v1"
+  file["api_base"] = "https://file.test/v1"
+  provider, slug = providers.provider_for("openrouter/z-ai/glm-5.3-flash", loaded)
+  assert provider.base == "https://file.test/v1", "the file owns it"
+  assert slug == "z-ai/glm-5.3-flash"
+  provider, _ = providers.provider_for("openrouter/other/model:free", loaded)
+  assert provider.base == "https://main.test/v1", "the main file owns it"
+  del main["api_base"], file["api_base"]
   for name, settings in loaded.items():
     assert not set(FIELDS) & set(settings), name
     merged = providers.settings(name, settings)

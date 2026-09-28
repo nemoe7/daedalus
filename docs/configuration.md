@@ -7,8 +7,22 @@ Daedalus reads 3 sources:
 | `.env` | Keys and container settings | No |
 | `config/daedalus.yml` | Router settings | Yes, on the **Settings** page |
 | `config/providers/free.yml` | Providers, tiers and model limits | Yes, on the **Providers** page |
+| `config/providers/{provider}.yml` | 1 provider, on its own | Yes, on the **Providers** page |
 
 `daedalus.yml` contains the main settings for the router and its jobs. `config/providers/` contains the provider configurations (tiers, models, limits, etc).
+
+### Provider files
+
+`free.yml` holds each provider. A second file, `{provider}.yml`, holds 1 provider with its own settings. `openrouter.yml` and the `openrouter` block of `free.yml` are independent: the tiers, the excludes and the models of 1 file do not apply to the other.
+
+| Item | Rule |
+| --- | --- |
+| Name | The file name is the provider name: `openrouter.yml` holds `openrouter`. |
+| Provider key | A file with no provider key (`api_key`, `api_base`, `tier`, `models`, `exclude`, `discovery_url`, `discovery_match`, `api_type`) is not a provider file. |
+| Discovery | Each file discovers the models of its provider with its own settings. |
+| Models | A file keeps only the models that match a key of its `models` block. A key of `"*"` keeps each model of that provider. |
+| Values | For a model that a file keeps, only that file sets the values. The `free.yml` block does not apply to it. |
+| New file | The **Providers** page makes a file, and a name that Daedalus does not know also gets an empty `api_base`. |
 
 ## Environment variables
 
@@ -100,7 +114,7 @@ Other keys of a `models` entry:
 | Key | Use |
 | --- | --- |
 | `pool` | `false` keeps the model out of the pools and `daedalus/auto`. Only a direct `provider/slug` request uses it. |
-| `timeout` | Seconds with no bytes from the provider. For this model, it replaces `timeouts.wait`. |
+| `timeout` | Seconds with no bytes from the provider. For this model, it replaces `timeouts.wait`. A direct request tries the same model again after this time, until `timeouts.request`, and then the client gets HTTP 504. |
 
 When 2 entries match 1 model, the last entry in the file sets the key.
 

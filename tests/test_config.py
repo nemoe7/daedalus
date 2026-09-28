@@ -155,8 +155,38 @@ def check_url_substitution() -> None:
   assert left == [], left
 
 
+def check_provider_file() -> None:
+  """A {provider}.yml file stays separate from its provider block in the main file."""
+  with tempfile.TemporaryDirectory() as folder:
+    main = Path(folder) / "free.yml"
+    main.write_text(
+      "p:\n  api_key: main\n  tier:\n    TIER-B: ['*']\n  models:\n    '*': {rpm: 1}\n",
+      encoding="utf-8",
+    )
+    separate = Path(folder) / "p.yml"
+    separate.write_text(
+      "api_key: file\ntier:\n  TIER-A: ['special']\nmodels:\n  special: {pool: false}\n",
+      encoding="utf-8",
+    )
+    (Path(folder) / "daedalus.yml").write_text("weights: {enabled: true}\n")
+    loaded = config.load_config(main)
+    assert config.provider_files(main) == [separate], config.provider_files(main)
+    assert loaded["p"]["api_key"] == "main"
+    assert loaded["p"][config.FILE_KEY]["api_key"] == "file"
+    assert config.block_for(loaded, "p", "special")["api_key"] == "file"
+    assert config.block_for(loaded, "p", "regular")["api_key"] == "main"
+    assert router.candidates(loaded, "TIER-A", ["p/special"]) == [], "pool false"
+    assert router.candidates(loaded, "TIER-B", ["p/special", "p/regular"]) == [
+      "p/regular"
+    ], "the main tier does not apply to the file model"
+    separate.unlink()
+    assert config.get_config()["p"][config.FILE_KEY]["api_key"] == "file"
+    assert config.load_config(main)["p"].get(config.FILE_KEY) is None, "reload drops it"
+
+
 def main() -> int:
   check_load()
+  check_provider_file()
   check_url_substitution()
   check_repo_file()
   check_missing_file()
