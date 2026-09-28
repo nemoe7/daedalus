@@ -51,6 +51,11 @@ def task_name(row: dict) -> Any:
   return task.get("name") if isinstance(task, dict) else None
 
 
+def multipart(slug: str) -> bool:
+  """Whether a Workers AI image model takes only multipart input: the FLUX.2 models."""
+  return "flux-2" in slug
+
+
 class CloudflareProvider(OpenAIProvider):
   """Cloudflare Workers AI through its OpenAI-compatible API."""
 
@@ -137,7 +142,7 @@ class CloudflareProvider(OpenAIProvider):
   def image_request(
     self, slug: str, payload: dict
   ) -> tuple[str, dict[str, Any], dict[str, str]]:
-    """A native run request for one image. Flux 1 takes the prompt only."""
+    """A native run request for one image. Flux 1 takes the prompt only, and FLUX.2 takes only multipart."""
     if (payload.get("n") or 1) != 1:
       raise ProviderError("Cloudflare makes one image for each request")
     body: dict[str, Any] = {"prompt": payload["prompt"]}
@@ -145,7 +150,11 @@ class CloudflareProvider(OpenAIProvider):
     if "flux-1" not in slug and size and size != "auto":
       width, height = size.split("x")
       body.update(width=int(width), height=int(height))
-    return f"{self.base.removesuffix('/v1')}/run/{slug}", {"json": body}, self.headers()
+    url = f"{self.base.removesuffix('/v1')}/run/{slug}"
+    if multipart(slug):
+      fields = {key: (None, str(value)) for key, value in body.items()}
+      return url, {"files": fields}, self.auth(self.key)
+    return url, {"json": body}, self.headers()
 
   def images(self, response: httpx.Response, payload: dict) -> dict:
     """The OpenAI answer, with a data URL when the client wants a URL."""

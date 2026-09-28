@@ -1,3 +1,5 @@
+import httpx
+
 from daedalus import providers
 
 CLOUDFLARE = providers.CloudflareProvider(
@@ -35,3 +37,21 @@ def test_cloudflare() -> None:
   text = [{"type": "text", "text": "a"}, {"type": "text", "text": "b"}]
   joined = CLOUDFLARE.body("@cf/m", {"messages": [{"role": "user", "content": text}]})
   assert joined["messages"][0]["content"] == "a\nb", "text parts join with a new line"
+
+
+def test_flux2_multipart() -> None:
+  """A FLUX.2 image request is multipart, also with a prompt only. Other models get JSON."""
+  payload = {"prompt": "a cat", "size": "1024x768"}
+  slug = "@cf/black-forest-labs/flux-2-klein-4b"
+  url, options, headers = CLOUDFLARE.image_request(slug, payload)
+  assert url == f"https://cloudflare.test/run/{slug}", url
+  assert "content-type" not in {key.lower() for key in headers}, headers
+  sent = httpx.Request("POST", url, headers=headers, **options)
+  assert sent.headers["content-type"].startswith("multipart/form-data"), sent.headers
+  body = sent.read().decode()
+  for name, value in (("prompt", "a cat"), ("width", "1024"), ("height", "768")):
+    assert f'name="{name}"\r\n\r\n{value}\r\n' in body, (name, body)
+  _, options, headers = CLOUDFLARE.image_request(
+    "@cf/black-forest-labs/flux-1-schnell", payload
+  )
+  assert options == {"json": {"prompt": "a cat"}}, options
