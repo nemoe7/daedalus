@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+from collections import OrderedDict
 from collections.abc import Mapping
 from typing import Any, Final
 
@@ -83,13 +85,16 @@ def model_wait(config: Mapping[str, Any], model: str, default: float) -> float:
   return float(value)
 
 
-def candidates(
-  config: Mapping[str, Any],
-  tier_name: str,
-  lines: list[str],
-) -> list[str]:
-  """Return the provider/slug rows that one tier claims."""
-  wanted: list[str] = []
+# The tier rows of the last config, for each model list. A new config object clears it.
+_TIER_CACHE: dict[tuple[str, ...], dict[str, list[str]]] = {}
+_CACHED_CONFIG: list[Mapping[str, Any] | None] = [None]
+# The model lists that the cache keeps, for example with and without the tool filter.
+CACHE_SIZE: Final = 8
+
+
+def sorted_lines(config: Mapping[str, Any], lines: list[str]) -> dict[str, list[str]]:
+  """The pooled provider/slug rows of each tier name, in provider order, then line order."""
+  found: dict[str, list[str]] = {}
   for provider_name, provider in config.items():
     if not isinstance(provider, dict):
       continue
@@ -100,11 +105,33 @@ def candidates(
       slug = line[len(head) :]
       # The block that owns the model also sets its tier.
       block = block_for(config, provider_name, slug)
-      if block is None or claiming_tier(block, slug) != tier_name:
-        continue
-      if pooled(config, line):
-        wanted.append(line)
-  return wanted
+      tier = None if block is None else claiming_tier(block, slug)
+      if tier is not None and pooled(config, line):
+        found.setdefault(tier, []).append(line)
+  return found
+
+
+def tier_lines(config: Mapping[str, Any], lines: list[str]) -> dict[str, list[str]]:
+  """The pooled rows of each tier name, from the cache when the config and lines are the same."""
+  if _CACHED_CONFIG[0] is not config:
+    _TIER_CACHE.clear()
+    _CACHED_CONFIG[0] = config
+  key = tuple(lines)
+  found = _TIER_CACHE.get(key)
+  if found is None:
+    if len(_TIER_CACHE) >= CACHE_SIZE:
+      _TIER_CACHE.clear()
+    found = _TIER_CACHE[key] = sorted_lines(config, lines)
+  return found
+
+
+def candidates(
+  config: Mapping[str, Any],
+  tier_name: str,
+  lines: list[str],
+) -> list[str]:
+  """Return the provider/slug rows that one tier claims."""
+  return list(tier_lines(config, lines).get(tier_name, ()))
 
 
 def fallback_order(tier: int) -> tuple[int, ...]:
@@ -123,7 +150,25 @@ def chain_groups(
   return [candidates(config, TIER_NAMES[tier], lines) for tier in order]
 
 
+# The tier table, loaded on the first request. The file does not change at run time.
+_ARTIFACT: list[Artifact] = []
+# The tiers of the last prompts, by digest. The requests of 1 tool loop repeat the prompt.
+_TIER_OF: OrderedDict[bytes, int] = OrderedDict()
+PROMPTS_KEPT: Final = 64
+
+
 def required_tier(prompt: str, artifact: Artifact | None = None) -> int:
   """The cheapest tier that will do for one prompt."""
-  table: Final = load_artifact() if artifact is None else artifact
-  return predict(prompt, table).required_tier
+  if artifact is not None:
+    return predict(prompt, artifact).required_tier
+  digest = hashlib.blake2b(prompt.encode("utf-8", "surrogatepass"), digest_size=16)
+  key = digest.digest()
+  if key in _TIER_OF:
+    _TIER_OF.move_to_end(key)
+    return _TIER_OF[key]
+  if not _ARTIFACT:
+    _ARTIFACT.append(load_artifact())
+  tier = _TIER_OF[key] = predict(prompt, _ARTIFACT[0]).required_tier
+  if len(_TIER_OF) > PROMPTS_KEPT:
+    _TIER_OF.popitem(last=False)
+  return tier

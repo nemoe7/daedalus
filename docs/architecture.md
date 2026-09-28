@@ -223,3 +223,16 @@ A try again in Open WebUI on `daedalus/auto` moves the repeated message 1 tier u
 By default, Open WebUI writes a new image prompt for each try. So a try again in Open WebUI chat is a new weighted draw, not a repeat.
 
 > Q: Why do transcription and images get a pool, and embeddings and speech not?
+
+## Performance
+
+Daedalus is small enough for a Raspberry Pi that also runs other containers.
+
+| Item | Value |
+| --- | --- |
+| Tier rows of the pools | Daedalus sorts the catalog models into tiers 1 time for each config and model list. A config reload or a catalog change sorts them again. |
+| Classifier | 1 result for each prompt, for the last 64 prompts. The requests of 1 tool loop have the same user messages, so only the first request runs the classifier. |
+| State files | SQLite WAL mode. The files `models.sqlite3-wal` and `models.sqlite3-shm` are part of the store. |
+| Weights, pins, cooldowns, request history | A write does not wait for the disk. After a power loss, the last writes can go, but the file stays correct. |
+| API keys | A write waits for the disk. |
+

@@ -209,7 +209,21 @@ def check_provider_files() -> None:
   assert router.block_for(blocks, "openrouter", "other/model") == main
   assert router.block_for({}, "openrouter", "z-ai/glm") is None
   file["models"]["*"] = {}
+  blocks = {**blocks}
   assert router.candidates(blocks, "TIER-B", lines) == [], "a * key takes each model"
+
+
+def check_tier_cache() -> None:
+  """The tier rows come from a cache until the config object or the lines change."""
+  blocks = {"p": {"api_key": "k", "tier": {"TIER-A": ["a*"], "TIER-D": ["d*"]}}}
+  lines = ["p/a1", "p/d1"]
+  assert router.candidates(blocks, "TIER-A", lines) == ["p/a1"]
+  found = router.candidates(blocks, "TIER-A", lines)
+  found.append("x")
+  assert router.candidates(blocks, "TIER-A", lines) == ["p/a1"], "a copy"
+  assert router.candidates(blocks, "TIER-A", [*lines, "p/a2"]) == ["p/a1", "p/a2"]
+  changed = {"p": {**blocks["p"], "tier": {"TIER-A": ["d*"]}}}
+  assert router.candidates(changed, "TIER-A", lines) == ["p/d1"], "a new config"
 
 
 def check_model_wait() -> None:
@@ -324,6 +338,7 @@ def main() -> int:
   check_route()
   check_direct_only()
   check_provider_files()
+  check_tier_cache()
   check_model_wait()
   check_most_specific_tier()
   check_pools()
