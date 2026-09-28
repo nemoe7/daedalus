@@ -6,6 +6,8 @@ from typing import Any
 
 import yaml
 
+from daedalus.config import load_yaml
+
 DEFAULT_PATH = Path("config/daedalus.yml")
 DEFAULTS: dict[str, dict[str, Any]] = {
   "timeouts": {"request": 600.0, "wait": 60.0, "slow": None},
@@ -77,7 +79,7 @@ def load(path: Path | str = DEFAULT_PATH) -> dict[str, dict[str, Any]]:
 def parse(text: str, target: Path | str = DEFAULT_PATH) -> dict[str, dict[str, Any]]:
   """The settings from YAML text, over the defaults."""
   merged = {group: dict(values) for group, values in DEFAULTS.items()}
-  raw = yaml.safe_load(text)
+  raw = load_yaml(text)
   if raw is None:
     raw = {}
   if not isinstance(raw, dict):

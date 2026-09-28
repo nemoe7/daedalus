@@ -177,7 +177,7 @@ def new_file_text(name: str) -> str:
 def form_blocks(path: Path, text: str) -> dict[str, Any] | None:
   """The provider blocks of a file by provider name, or None when the YAML is not valid."""
   try:
-    found = yaml.safe_load(text) if text.strip() else {}
+    found = config.load_yaml(text) if text.strip() else {}
   except yaml.YAMLError:
     return None
   if not isinstance(found, dict):
@@ -201,7 +201,7 @@ def check_file(path: Path, text: str) -> dict[str, Any] | None:
   """Validate the text of one config file. Returns settings values for the settings file."""
   if path == settings.DEFAULT_PATH:
     return settings.parse(text, path)
-  if not isinstance(yaml.safe_load(text), dict):
+  if not isinstance(config.load_yaml(text), dict):
     raise settings.SettingsError(f"{path} must hold provider blocks")
   return None
 
