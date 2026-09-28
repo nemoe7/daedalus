@@ -71,6 +71,18 @@ Open WebUI reads most of these settings only on the first start with a new data 
 
 Keep **Function Calling** on **Native**, the Open WebUI default since v0.10.0. Native sends the tools in `tools`, and Daedalus skips the models that cannot call tools. Legacy puts the tools in the prompt and calls tools only 1 time, before the answer.
 
+### Open WebUI database
+
+The `webui` profile starts `webui-db` with Open WebUI.
+
+| Setting | Value |
+| --- | --- |
+| Image | `pgvector/pgvector:0.8.6-pg18-trixie` |
+| Content | The vectors of files, knowledge and memory. The chats stay in the `open-webui` volume. |
+| Password | `OPENWEBUI_DB_PASSWORD`, default `openwebui`. No port on the host. |
+| Vector size | 1024, the size of a `mistral/mistral-embed` vector. A new embedding model needs a new index of all files. |
+| Volume | `webui-db` |
+
 ### Tika
 
 | Setting | Value |
