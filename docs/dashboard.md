@@ -27,7 +27,7 @@ The header stays at the top of the window. Only the page below it scrolls. A hid
 
 The Catalog chip in the header shows the time of the last catalog rebuild and the next scheduled rebuild. Click the chip to rebuild the catalog now, after a confirmation. The chip shows "rebuilding" until the rebuild ends. Only 1 rebuild runs at a time.
 
-The Requests page shows "koinos from moros" when a `daedalus/auto` request starts in moros and a koinos model answers. It shows "try again N" for a [try again](architecture.md#try-again) in Open WebUI.
+The Requests page shows "koinos from moros" when a `daedalus/auto` request starts in moros and a koinos model answers. It shows "tool loop N" for a [tool loop](architecture.md#loops). It shows "try again N" for a [try again](architecture.md#try-again) in Open WebUI.
 
 ## Providers
 

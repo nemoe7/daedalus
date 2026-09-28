@@ -96,6 +96,26 @@ without a request.
 Weights, cooldowns and session models stay in `models.sqlite3`. A restart keeps them, and `daedalus catalog` keeps them
 when it rebuilds the model table.
 
+### Loops
+
+A loop is a fault of the model that made it.
+
+| Loop | Found by | Next step |
+| --- | --- | --- |
+| Tool loop | A tool call in the last assistant message has the same tool and arguments as 2 or more calls since the last user message | The model that made the call is the last fallback of this request |
+| Thinking loop | A passage repeats 4 times in a row in the thinking text | In a stream, the next model continues, as after a failed stream (ADR 3). Without a stream, the next model gets the request. |
+| Answer loop | A passage repeats 4 times in a row in the answer text | As a thinking loop. The next model gets the answer text up to the end of the first copy of the passage. |
+
+A passage has 20 to 2,000 characters. A passage made of a shorter part that repeats, for
+example a line of `=`, is not a loop. The arguments of 2 calls are the same when their JSON
+values are the same, in any key order.
+
+Daedalus keeps the model that made each tool call, by tool call id, in `models.sqlite3`. A
+call id expires after the session idle time. When the id is not known, the tool loop gives no
+fault. The request log shows `loop=N`, where N is the number of the same calls. A thinking or
+answer loop shows as an attempt with the result `loop`. `config/daedalus.yml` cannot
+change the loop numbers.
+
 ### Settings
 
 The numbers in this ADR are the defaults. `config/daedalus.yml` can change them, and it can
@@ -111,3 +131,5 @@ turn off the weights, the session affinity or the pacing.
 - A per-minute limit costs 1 request and about 1 minute, not hours at a low weight.
 - A daily limit costs 1 request for each model until the reset.
 - The Models page shows the end of each cooldown.
+- A model that repeats a tool call or a passage loses weight as a failed model does. The loop
+  stops long before the client limit, for example 256 tool rounds in Open WebUI.
