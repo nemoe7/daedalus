@@ -1,16 +1,14 @@
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
+import pytest
 import yaml
 
 from daedalus.config import settings
 from daedalus.routing import penalties
 from daedalus.server import api
-
-os.environ["DAEDALUS_MASTER_KEY"] = "test-master-key-0001"
 
 
 def expect_error(folder: Path, text: str, message: str) -> None:
@@ -24,7 +22,7 @@ def expect_error(folder: Path, text: str, message: str) -> None:
     raise AssertionError(f"no error for {text!r}")
 
 
-def check_load(folder: Path) -> None:
+def test_load(folder: Path) -> None:
   values = settings.load(folder / "missing.yml")
   assert values["timeouts"] == {"request": 600.0, "wait": 60.0, "slow": 30.0}
   assert values["weights"]["fault"] == penalties.FAULT
@@ -69,7 +67,7 @@ def check_load(folder: Path) -> None:
   assert keywords == ["ultrathink", "think hard"], keywords
 
 
-def check_apply(folder: Path) -> None:
+def test_apply(folder: Path) -> None:
   path = folder / "off.yml"
   path.write_text(
     "session_affinity:\n  enabled: false\nweights:\n  enabled: false\n",
@@ -104,7 +102,7 @@ with tempfile.TemporaryDirectory() as folder:
 """
 
 
-def check_cli(folder: Path) -> None:
+def test_cli(folder: Path) -> None:
   command = [sys.executable, "-c", CLI]
   (folder / "config").mkdir()
   (folder / "config" / "daedalus.yml").write_text(
@@ -134,14 +132,6 @@ def check_cli(folder: Path) -> None:
   assert "default 9100" in shown.stdout, shown.stdout
 
 
-def main() -> None:
-  with tempfile.TemporaryDirectory() as name:
-    folder = Path(name)
-    check_load(folder)
-    check_apply(folder)
-    check_cli(folder)
-  print("ok: settings")
-
-
-if __name__ == "__main__":
-  main()
+@pytest.fixture(scope="module")
+def folder(tmp_path_factory: pytest.TempPathFactory) -> Path:
+  return tmp_path_factory.mktemp("settings")

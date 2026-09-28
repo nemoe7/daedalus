@@ -1,8 +1,7 @@
-"""Runnable check of the live request list and its event stream. Run: python tests/dashboard/test_live.py"""
+"""Tests of the live request list and its event stream."""
 
 import asyncio
 import json
-import os
 import tempfile
 import time
 from pathlib import Path
@@ -17,7 +16,6 @@ from daedalus.server.upstream import set_client
 
 MASTER = "test-master-key-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}
-os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 
 STREAM = (
   b'data: {"id":"a","choices":[{"index":0,"delta":{"content":"hi"}}]}\n\n'
@@ -45,7 +43,7 @@ def upstream(request: httpx.Request) -> httpx.Response:
   return httpx.Response(200, json=ANSWER)
 
 
-def check_live() -> None:
+def test_live() -> None:
   live = Live()
   queue: asyncio.Queue = asyncio.Queue()
   live.queues.add(queue)
@@ -71,7 +69,7 @@ def check_live() -> None:
   assert full not in small.queues, "a stream that falls behind stops"
 
 
-async def check_events() -> None:
+async def test_events() -> None:
   live = Live()
   live.start("/v1/x")
   calls = 0
@@ -92,7 +90,7 @@ async def check_events() -> None:
   assert not live.queues, "a closed stream leaves no queue"
 
 
-def check_url_session() -> None:
+def test_url_session() -> None:
   session = dashboard.cookie(MASTER, time.time())
 
   def request(query: str) -> Request:
@@ -104,7 +102,7 @@ def check_url_session() -> None:
   assert not dashboard.allowed(request("session=1.bad"), query=True)
 
 
-async def check_requests() -> None:
+async def test_requests() -> None:
   config.set_config({"groq": {"api_base": "https://groq.test/v1", "api_key": "k"}})
   saved = store.MODELS_DB
   queue: asyncio.Queue = asyncio.Queue()
@@ -146,15 +144,3 @@ async def check_requests() -> None:
       dashboard.LIVE.queues.discard(queue)
       set_client(None)
     store.MODELS_DB = saved
-
-
-def main() -> None:
-  check_live()
-  asyncio.run(check_events())
-  check_url_session()
-  asyncio.run(check_requests())
-  print("ok: live requests, their events and the stream session")
-
-
-if __name__ == "__main__":
-  main()

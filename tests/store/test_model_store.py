@@ -35,7 +35,7 @@ PAGES = {
 }
 
 
-def main() -> None:
+def test_model_store() -> None:
   seen = []
 
   def fetch(url: str, headers: dict) -> dict:
@@ -100,11 +100,8 @@ def main() -> None:
     connection.close()
     assert stored == ("z-ai", "glm-5", 131072, 1), stored
 
-  check_in_place()
-  print("ok: model store")
 
-
-def check_in_place() -> None:
+def test_in_place() -> None:
   with tempfile.TemporaryDirectory() as folder:
     database = Path(folder) / "models.sqlite3"
     first = [
@@ -132,7 +129,3 @@ def check_in_place() -> None:
       rows = connection.execute("SELECT id, max_input_tokens FROM models").fetchall()
     connection.close()
     assert rows == [("a/1", None)], rows
-
-
-if __name__ == "__main__":
-  main()

@@ -17,6 +17,8 @@ dependencies = [
 [dependency-groups]
 dev = [
   "httpx2>=2.13",
+  "pytest>=9.1",
+  "pytest-xdist>=3.8",
   "ruff==0.16.6",
 ]
 
@@ -42,3 +44,8 @@ packages = [
 [tool.setuptools.package-data]
 "daedalus.dashboard" = ["ui/*"]
 "daedalus.routing" = ["artifacts/*.json", "artifacts/*-LICENSE.txt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# loadfile: the tests of 1 file run in 1 worker, in file order, with its module fixtures.
+addopts = "-n auto --dist loadfile -p no:cacheprovider"

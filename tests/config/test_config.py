@@ -1,7 +1,6 @@
-"""Runnable check for the YAML config loader. Run: python tests/config/test_config.py"""
+"""Tests for the YAML config loader."""
 
 import os
-import sys
 import tempfile
 from pathlib import Path
 
@@ -33,7 +32,7 @@ gemini:
 """
 
 
-def check_load() -> None:
+def test_load() -> None:
   os.environ["CLOUDFLARE_API_KEY"] = "cf-token"
   os.environ.pop("CLOUDFLARE_API_BASE", None)
   with tempfile.TemporaryDirectory() as directory:
@@ -60,7 +59,7 @@ def check_load() -> None:
   assert config.get_config() is loaded, "get_config reloaded the file"
 
 
-def check_missing_file() -> None:
+def test_missing_file() -> None:
   config.set_config(None)
   try:
     config.load_config(Path("no-such-config.yml"))
@@ -70,7 +69,7 @@ def check_missing_file() -> None:
     raise AssertionError("a missing file must raise FileNotFoundError")
 
 
-def check_repo_file() -> None:
+def test_repo_file() -> None:
   """The committed provider file parses, and its top-level keys are alphabetical."""
   for name in ("CLOUDFLARE", "GEMINI", "GROQ", "KILO", "MISTRAL", "OPENROUTER", "ZAI"):
     os.environ.setdefault(f"{name}_API_KEY", "k")
@@ -148,7 +147,7 @@ def walk(node: object) -> list[str]:
   return []
 
 
-def check_url_substitution() -> None:
+def test_url_substitution() -> None:
   """A URL carries `os.environ/NAME` inside it, not as a whole value."""
   os.environ["CLOUDFLARE_ACCOUNT_ID"] = "acct-123"
   loaded = config.load_config(Path("config/providers/free.yml"))
@@ -161,7 +160,7 @@ def check_url_substitution() -> None:
   assert left == [], left
 
 
-def check_provider_file() -> None:
+def test_provider_file() -> None:
   """A {provider}.yml file stays separate from its provider block in the main file."""
   with tempfile.TemporaryDirectory() as folder:
     main = Path(folder) / "free.yml"
@@ -188,18 +187,3 @@ def check_provider_file() -> None:
     separate.unlink()
     assert config.get_config()["p"][config.FILE_KEY]["api_key"] == "file"
     assert config.load_config(main)["p"].get(config.FILE_KEY) is None, "reload drops it"
-
-
-def main() -> int:
-  check_load()
-  check_provider_file()
-  check_url_substitution()
-  check_repo_file()
-  check_missing_file()
-  config.set_config(None)
-  print("ok: config loader checks passed")
-  return 0
-
-
-if __name__ == "__main__":
-  sys.exit(main())

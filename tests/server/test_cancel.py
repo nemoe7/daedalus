@@ -1,8 +1,7 @@
-"""Runnable check of a request that the client cancels. Run: python tests/server/test_cancel.py"""
+"""Tests of a request that the client cancels."""
 
 import asyncio
 import json
-import os
 import tempfile
 from pathlib import Path
 
@@ -13,7 +12,6 @@ from daedalus.server import api
 from daedalus.server.upstream import set_client
 
 MASTER = "test-master-key-0001"
-os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 FIRST = b'data: {"id":"a","choices":[{"index":0,"delta":{"content":"hi"}}]}\n\n'
 
 
@@ -82,7 +80,7 @@ async def cancelled_call(stream: bool) -> tuple[list[dict], list[str]]:
   return sent, calls
 
 
-async def check_cancel() -> None:
+async def test_cancel() -> None:
   config.set_config(
     {
       "groq": {
@@ -119,12 +117,3 @@ async def check_cancel() -> None:
     api.Tracker.failed = original
     store.MODELS_DB = saved
     config.set_config(None)
-
-
-def main() -> None:
-  asyncio.run(check_cancel())
-  print("ok: a cancelled request keeps a row, with no fault")
-
-
-if __name__ == "__main__":
-  main()

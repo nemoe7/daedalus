@@ -9,7 +9,7 @@ FIELDS = ("api_base", "api_type", "discovery_url")
 MESSAGE = {"model": "m", "messages": [{"role": "user", "content": "hi"}]}
 
 
-def main() -> None:
+def test_provider_defaults() -> None:
   os.environ["OPENROUTER_API_KEY"] = "test-openrouter-key"
   loaded = config.load_config()
   assert set(providers.PROVIDERS) == set(loaded), loaded.keys()
@@ -90,9 +90,6 @@ def main() -> None:
   lines, skipped = discovery.build_rows({"mistral": {"api_key": "k"}}, fetch)
   assert seen == ["https://api.mistral.ai/v1/models"], seen
   assert list(lines) == ["mistral/model"] and skipped == [], (lines, skipped)
-  check_mistral_fields()
-  check_hidden_inputs()
-  print("ok: provider defaults")
 
 
 # Mistral gets the reasoning_content of an old assistant message back as a thinking chunk.
@@ -102,7 +99,7 @@ THOUGHT = {
 }
 
 
-def check_mistral_fields() -> None:
+def test_mistral_fields() -> None:
   call = {"id": "c1", "type": "function", "function": {"name": "f", "arguments": "{}"}}
   history = [
     {"role": "system", "content": "s", "name": "x"},
@@ -137,7 +134,7 @@ def check_mistral_fields() -> None:
   assert sent["messages"] == history, "OpenRouter keeps all fields"
 
 
-def check_hidden_inputs() -> None:
+def test_hidden_inputs() -> None:
   detail = {
     "type": "extra_forbidden",
     "loc": ["body"],
@@ -150,7 +147,3 @@ def check_hidden_inputs() -> None:
   shown = base.error_detail(raw.encode(), 4000)
   assert "PROMPT" not in shown and '"msg": "Extra"' in shown, shown
   assert base.error_detail(b"plain text", 5) == "plain", "not JSON: cut only"
-
-
-if __name__ == "__main__":
-  main()

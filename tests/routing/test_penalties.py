@@ -1,10 +1,9 @@
 import json
-import os
 import sqlite3
-import tempfile
 from pathlib import Path
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from daedalus import store as model_store
@@ -14,7 +13,6 @@ from daedalus.store import keys
 
 MASTER = "test-master-key-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}
-os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 LOCAL = "test-local-key-0002"
 
 FAILING: set[str] = set()
@@ -28,7 +26,7 @@ def answer(request: httpx.Request) -> httpx.Response:
   return httpx.Response(200, json={"id": "x", "model": "m", "choices": [choice]})
 
 
-def check_weights(folder: Path) -> None:
+def test_weights(folder: Path) -> None:
   now, picks = [0.0], [0.0]
   store = penalties.Penalties(
     lambda: folder / "w.sqlite3", clock=lambda: now[0], pick=lambda: picks[0]
@@ -75,7 +73,7 @@ def check_weights(folder: Path) -> None:
   assert store.order([[], ["z"]]) == ["z"], "an empty tier"
 
 
-def check_pins(folder: Path) -> None:
+def test_pins(folder: Path) -> None:
   now = [0.0]
   store = penalties.Penalties(lambda: folder / "p.sqlite3", clock=lambda: now[0])
   store.pick = lambda: 0.0
@@ -118,7 +116,7 @@ def check_pins(folder: Path) -> None:
   assert store.pinned("k", "pool") is None, "a pin expires after the idle time"
 
 
-def check_rebuild(folder: Path) -> None:
+def test_rebuild(folder: Path) -> None:
   database = folder / "models.sqlite3"
   store = penalties.Penalties(lambda: database)
   model_store.write_store([], database)
@@ -128,7 +126,20 @@ def check_rebuild(folder: Path) -> None:
   assert store.weights(["a"])["a"] < 1 and store.pinned("k", "pool") == "a", "kept"
 
 
-def check_session_key() -> None:
+def test_highest(folder: Path) -> None:
+  now = [0.0]
+  store = penalties.Penalties(lambda: folder / "t.sqlite3", clock=lambda: now[0])
+  assert store.highest("k", 3) == 3 and store.highest("k", 1) == 3, "no way down"
+  assert store.highest("k", 4) == 4 and store.highest("other", 1) == 1, "per key"
+  now[0] = 3599.0
+  assert store.highest("k", 1) == 4, "each request resets the idle time"
+  now[0] = 7200.0
+  assert store.highest("k", 2) == 2, "an idle conversation starts again"
+  store.clear()
+  assert store.highest("other", 1) == 1, "clear removes the tiers"
+
+
+def test_session_key() -> None:
   first = [{"role": "system", "content": "s"}, {"role": "user", "content": "a"}]
   later = [
     *first,
@@ -142,7 +153,7 @@ def check_session_key() -> None:
   assert key != api.session_key("u", first), "each token has its own key"
 
 
-def check_slots() -> None:
+def test_slots() -> None:
   body = {"messages": [{"role": "user", "content": "hi"}]}
   _, slot = api.chain("daedalus/auto", body, {})
   assert slot.startswith("daedalus/auto:TIER-"), "auto pins per tier"
@@ -153,7 +164,7 @@ def check_slots() -> None:
   assert api.chain("x/y", body, {"x": {}}) == ([["x/y"]], None), "no pin for one model"
 
 
-def check_requests() -> None:
+def test_requests() -> None:
   config = {
     name: {"api_key": "k", "api_base": f"https://{name}.test/v1"} for name in "abc"
   }
@@ -194,7 +205,7 @@ def check_requests() -> None:
     api.PENALTIES.clear()
 
 
-def check_ttft() -> None:
+def test_ttft() -> None:
   role = {"choices": [{"index": 0, "delta": {"role": "assistant"}}]}
   text = {"choices": [{"index": 0, "delta": {"content": "hi"}}]}
   tool = {"choices": [{"index": 0, "delta": {"tool_calls": [{"index": 0}]}}]}
@@ -239,20 +250,7 @@ def check_ttft() -> None:
     api.PENALTIES.clear()
 
 
-def check_highest(folder: Path) -> None:
-  now = [0.0]
-  store = penalties.Penalties(lambda: folder / "t.sqlite3", clock=lambda: now[0])
-  assert store.highest("k", 3) == 3 and store.highest("k", 1) == 3, "no way down"
-  assert store.highest("k", 4) == 4 and store.highest("other", 1) == 1, "per key"
-  now[0] = 3599.0
-  assert store.highest("k", 1) == 4, "each request resets the idle time"
-  now[0] = 7200.0
-  assert store.highest("k", 2) == 2, "an idle conversation starts again"
-  store.clear()
-  assert store.highest("other", 1) == 1, "clear removes the tiers"
-
-
-def check_session_tier() -> None:
+def test_session_tier() -> None:
   seen: list[str] = []
   tiers = [3, 1, 1, 1]
   original = router.required_tier, router.chain_groups, model_store.read_models
@@ -288,7 +286,7 @@ def check_session_tier() -> None:
     api.PENALTIES.clear()
 
 
-def check_keyword_tier() -> None:
+def test_keyword_tier() -> None:
   """A keyword in the last user message moves the tier 1 step above the session tier."""
   tiers: list[int] = []
   original = router.required_tier, router.chain_groups, model_store.read_models
@@ -341,22 +339,6 @@ def check_keyword_tier() -> None:
     api.PENALTIES.clear()
 
 
-def main() -> None:
-  with tempfile.TemporaryDirectory() as name:
-    folder = Path(name)
-    check_weights(folder)
-    check_pins(folder)
-    check_rebuild(folder)
-    check_highest(folder)
-    model_store.MODELS_DB = folder / "models.sqlite3"
-    check_session_key()
-    check_slots()
-    check_requests()
-    check_ttft()
-    check_session_tier()
-    check_keyword_tier()
-  print("ok: penalties and session affinity")
-
-
-if __name__ == "__main__":
-  main()
+@pytest.fixture(scope="module")
+def folder(state_folder: Path) -> Path:
+  return state_folder

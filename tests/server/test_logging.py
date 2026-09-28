@@ -1,19 +1,14 @@
 import logging
-import os
 import re
-import tempfile
-from pathlib import Path
 
 import httpx
 from fastapi.testclient import TestClient
 
-from daedalus import store
 from daedalus.providers.base import error_text
 from daedalus.server import api, logs, upstream
 
 MASTER = "test-master-key-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}
-os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 
 
 class Lines(logging.Handler):
@@ -33,7 +28,7 @@ def answer(request: httpx.Request) -> httpx.Response:
   return httpx.Response(200, json={"id": "x", "model": "m", "choices": [choice]})
 
 
-def check_error_text() -> None:
+def test_error_text() -> None:
   cases = {
     b'{"error": {"message": "Rate  limit", "code": 429}}': "Rate limit",
     b'{"errors": [{"code": 7000, "message": "No route"}], "success": false}': "No route",
@@ -47,13 +42,7 @@ def check_error_text() -> None:
   assert len(error_text("x" * 1000)) == 300, "a long body is cut"
 
 
-def main() -> None:
-  with tempfile.TemporaryDirectory() as folder:
-    store.MODELS_DB = Path(folder) / "models.sqlite3"
-    check_lines()
-
-
-def check_lines() -> None:
+def test_lines() -> None:
   logs.setup_logging()
   assert logging.getLogger("httpx").level == logging.WARNING, "no httpx request lines"
   record = logging.LogRecord("uvicorn.error", logging.INFO, "", 0, "up", None, None)
@@ -102,9 +91,3 @@ def check_lines() -> None:
   assert shown == ["INFO daedalus GET /ui/api/status 401"], (
     "dashboard reads go to debug"
   )
-  check_error_text()
-  print("ok: log lines")
-
-
-if __name__ == "__main__":
-  main()

@@ -1,11 +1,10 @@
-"""Runnable check of the Providers form save. Run: python tests/config/test_provider_form.py"""
+"""Tests of the Providers form save."""
 
-import os
 import shutil
-import tempfile
 import time
 from pathlib import Path
 
+import pytest
 import yaml
 from fastapi.testclient import TestClient
 
@@ -14,7 +13,6 @@ from daedalus.config.provider_edit import merge_text
 from daedalus.server import api
 
 MASTER = "master-key-0123456789"
-os.environ[dashboard.MASTER_ENV] = MASTER
 
 MAIN = """\
 # Free providers.
@@ -41,7 +39,7 @@ models:
 """
 
 
-def check_merge() -> None:
+def test_merge() -> None:
   for path in Path("config/providers").glob("*.yml"):
     text = path.read_text()
     assert merge_text(text, yaml.safe_load(text)) == text, f"{path} changes on a no-op"
@@ -80,7 +78,7 @@ def check_merge() -> None:
   assert "models:\n    a*: { rpm: 1 }" in fresh, fresh
 
 
-def check_endpoints(folder: Path) -> None:
+def test_endpoints(folder: Path) -> None:
   session = dashboard.cookie(MASTER, time.time())
   client = TestClient(api.app, headers={"X-Daedalus-Session": session})
   main = config.DEFAULT_PATH
@@ -119,21 +117,13 @@ def check_endpoints(folder: Path) -> None:
   assert TestClient(api.app).get("/ui/api/provider-keys").status_code == 401
 
 
-def main() -> None:
-  check_merge()
+@pytest.fixture(scope="module")
+def folder(tmp_path_factory: pytest.TempPathFactory):
   original = config.DEFAULT_PATH, dashboard.FILES
-  with tempfile.TemporaryDirectory() as name:
-    folder = Path(name)
-    config.DEFAULT_PATH = Path(shutil.copy("config/providers/free.yml", folder))
-    config.DEFAULT_PATH.write_text(MAIN)
-    dashboard.FILES = (config.DEFAULT_PATH,)
-    try:
-      check_endpoints(folder)
-    finally:
-      config.DEFAULT_PATH, dashboard.FILES = original
-      config.set_config(None)
-  print("ok: Providers form save keeps comments, styles and file shapes")
-
-
-if __name__ == "__main__":
-  main()
+  folder = tmp_path_factory.mktemp("config")
+  config.DEFAULT_PATH = Path(shutil.copy("config/providers/free.yml", folder))
+  config.DEFAULT_PATH.write_text(MAIN)
+  dashboard.FILES = (config.DEFAULT_PATH,)
+  yield folder
+  config.DEFAULT_PATH, dashboard.FILES = original
+  config.set_config(None)

@@ -40,13 +40,8 @@ async def read(name: str, data: dict) -> tuple[int, float, str]:
   return count, time.perf_counter() - started, ""
 
 
-def main() -> None:
+def test_readers_stop_after_the_wait() -> None:
   for name, data in (("mistral", DATA), ("gemini", GEMINI_DATA)):
     count, seconds, error = asyncio.run(asyncio.wait_for(read(name, data), 5))
     assert error == "Only keep-alive bytes for 0.2s", (name, error)
     assert count >= 1 and seconds < 2, (name, count, seconds)
-  print("ok: the Gemini and Mistral readers stop after the wait")
-
-
-if __name__ == "__main__":
-  main()
