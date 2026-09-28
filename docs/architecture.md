@@ -47,23 +47,23 @@ flowchart TD
   R --> AR[Calibrated table from LiteLLM]
   K --> AR
   AR --> T1[Cheapest tier over the threshold]
-  T1 --> KW{Keyword in the user messages?}
-  KW -->|yes| UP[1 tier up, to sophos at most]
-  KW -->|no| TF
-  UP --> TF{Tool call in the conversation?}
+  T1 --> TF{Tool call in the conversation?}
   TF -->|yes| KF[koinos or higher]
   TF -->|no| HT
   KF --> HT[Highest tier of the conversation so far]
-  HT --> T[Tier for this request]
+  HT --> KW{Last message is a user message with a keyword?}
+  KW -->|yes| UP[1 tier up, to sophos at most. The conversation keeps it.]
+  KW -->|no| T
+  UP --> T[Tier for this request]
 ```
 
 | Input | Effect |
 | --- | --- |
 | Request type | 1 of 7 types, from the first rule that matches. |
 | Length | More than 2000 characters moves the text to a higher tier. |
-| Keyword | A word or phrase from `escalation.keywords` moves the tier 1 step up. 2 keywords also give 1 step. |
 | Tool call | After the first tool call, the tier is koinos or higher. |
 | Conversation | The tier does not go down until the session expires (1 h idle). |
+| Keyword | A word or phrase from `escalation.keywords` in the last message moves the tier 1 step above the conversation tier. Only a request whose last message is a user message gets this step. Thus the tool calls of the same turn do not add more steps. 2 keywords also give 1 step. |
 
 The classifier is a copy of the LiteLLM heuristic v2. It is not perfect, but it is a good start.
 

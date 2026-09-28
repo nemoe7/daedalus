@@ -121,6 +121,14 @@ def user_turns(messages: object) -> list[str]:
   return texts
 
 
+def asked_harder(messages: list) -> bool:
+  """Tell if the last message is a user turn with an escalation keyword."""
+  last = messages[-1] if messages else None
+  if KEYWORDS is None or not isinstance(last, dict) or last.get("role") != "user":
+    return False
+  return any(KEYWORDS.search(text) for text in user_turns([last]))
+
+
 def used_tools(messages: list) -> bool:
   """Tell if the conversation already has a tool call or a tool result."""
   return any(
@@ -195,13 +203,15 @@ def chain(
   elif model == router.RESERVED_MODEL:
     prompt = "\n".join(user_turns(body["messages"]))
     tier = router.required_tier(prompt)
-    if KEYWORDS and KEYWORDS.search(prompt):
-      tier = min(tier + 1, max(router.POOLS.values()))
     if used_tools(body["messages"]):
       tier = max(tier, router.POOLS["daedalus/koinos"])
     if key and AFFINITY:
       # A conversation keeps the highest tier that it got, so a short "continue" stays up.
       tier = PENALTIES.highest(key, tier)
+    if asked_harder(body["messages"]):
+      tier = min(tier + 1, max(router.POOLS.values()))
+      if key and AFFINITY:
+        PENALTIES.highest(key, tier)
     order, slot = router.fallback_order(tier), f"{model}:{router.TIER_NAMES[tier]}"
   elif model.partition("/")[0] in config:
     return [[model]], None
