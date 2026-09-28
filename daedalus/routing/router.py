@@ -62,9 +62,17 @@ def model_setting(config: Mapping[str, Any], model: str, key: str) -> Any:
   return found
 
 
+def keyed(config: Mapping[str, Any], model: str) -> bool:
+  """Tell if the block that owns the model has an API key."""
+  name, _, slug = model.partition("/")
+  block = block_for(config, name, slug)
+  key = block.get("api_key") if block else None
+  return isinstance(key, str) and bool(key)
+
+
 def pooled(config: Mapping[str, Any], model: str) -> bool:
-  """Tell if the model can go into the pools: `pool: false` allows only direct requests."""
-  return model_setting(config, model, "pool") is not False
+  """Tell if the model can go into the pools: it needs an API key, and `pool: false` allows only direct requests."""
+  return keyed(config, model) and model_setting(config, model, "pool") is not False
 
 
 def model_wait(config: Mapping[str, Any], model: str, default: float) -> float:

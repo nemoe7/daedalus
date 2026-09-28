@@ -373,6 +373,11 @@ async def chat(request: Request) -> Response:
     return upstream.error_response(
       400, "Unknown provider or pool", "invalid_request_error"
     )
+  name = model.partition("/")[0]
+  if name in config and not router.keyed(config, model):
+    return upstream.error_response(
+      400, f"Missing api_key for {name}", "invalid_request_error"
+    )
   if model == router.RESERVED_MODEL and found[1]:
     request.state.pool = routed_pool(found[1])
   pin = Tracker(key, found[1])
