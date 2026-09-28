@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths: &code
+      - "daedalus/**"
+      - "tests/**"
+      - "config/**"
+      - "scripts/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    paths: *code
+
+# A new push stops the older run of the same branch or PR.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.12.19"
+          python-version: "3.12"
+      - run: uv sync --locked
+      - run: uv run --no-sync ruff check
+      - run: uv run --no-sync ruff format --check
+      # Each test file is a script. The files run in parallel, and a failed file prints its output.
+      - name: Tests
+        run: |
+          ls tests/test_*.py tests/*/test_*.py | xargs -P "$(nproc)" -I{} sh -c \
+            'out=$(.venv/bin/python "$1" 2>&1) || { printf "FAIL %s\n%s\n" "$1" "$out"; exit 1; }' _ {}
