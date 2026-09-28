@@ -541,6 +541,7 @@ async def chat(request: Request) -> Response:
   while index < len(models):
     candidate = models[index]
     request.state.fallbacks = str(index)
+    dashboard.live_update(request, trying=candidate, fallbacks=index)
     started, sent = time.perf_counter(), {}
     PACING.record(candidate, tokens)
     response = None
