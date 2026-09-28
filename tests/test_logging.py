@@ -82,15 +82,17 @@ def check_lines() -> None:
   assert shown == [
     "WARN daedalus upstream keyless/c",
     "WARN daedalus upstream first/a",
+    "INFO daedalus cooldown first/a",
     "INFO daedalus upstream second/b",
     "INFO daedalus POST /v1/chat/completions",
   ], lines.lines
   assert lines.lines[0].endswith("ProviderError: Missing api_key for keyless")
   assert lines.lines[1].split()[4] == "429", lines.lines
   assert lines.lines[1].endswith("s: slow"), "the provider message"
+  assert lines.lines[2].endswith("cooldown first/a 60.000s reason=backoff"), lines.lines
   assert re.search(
     r"key=master model=daedalus/auto pool=deinos via=second/b pin=new ttft=\d+\.\d{3}s fallbacks=2$",
-    lines.lines[3],
+    lines.lines[4],
   )
   lines.lines.clear()
   client = TestClient(api.app)

@@ -1,6 +1,7 @@
 """The upstream HTTP client, one candidate request, and the OpenAI error shape."""
 
 import logging
+import math
 import time
 from collections.abc import Mapping
 from typing import Any
@@ -50,11 +51,25 @@ async def close() -> None:
     set_client(None)
 
 
-def error_response(status: int, message: str, error_type: str) -> JSONResponse:
+def error_response(
+  status: int, message: str, error_type: str, headers: dict[str, str] | None = None
+) -> JSONResponse:
   """Answer in the OpenAI error shape."""
   return JSONResponse(
     status_code=status,
     content={"error": {"message": message, "type": error_type, "code": status}},
+    headers=headers,
+  )
+
+
+def cooling_response(seconds: float) -> JSONResponse:
+  """The 429 answer when each model of the request is in a cooldown."""
+  wait = max(1, math.ceil(seconds))
+  return error_response(
+    429,
+    f"Each model of this request is rate limited. Retry in {wait}s.",
+    "rate_limit_exceeded",
+    {"Retry-After": str(wait)},
   )
 
 

@@ -41,11 +41,14 @@ class Upstream:
   def __init__(self) -> None:
     self.sent: list[httpx.Request] = []
     self.down: set[str] = set()
+    self.limited: set[str] = set()
 
   def __call__(self, request: httpx.Request) -> httpx.Response:
     self.sent.append(request)
     if request.url.host in self.down:
       return httpx.Response(503, json={"error": "down"})
+    if request.url.host in self.limited:
+      return httpx.Response(429, json={"error": "slow"}, headers={"retry-after": "60"})
     if request.url.path.endswith(":generateContent"):
       return gemini_answer(json.loads(request.content))
     if request.url.host == "gemini.test":
@@ -468,6 +471,7 @@ def check_pools(fake: Upstream, client: TestClient) -> None:
     assert isinstance(voxtral["weight"], float), "media pool models have weights"
   finally:
     api.PENALTIES.pick = pick
+  check_media_cooldown(fake, client)
   count = len(fake.sent)
   for path, body in (
     ("/v1/images/generations", {"model": "daedalus/graphos", "prompt": "a cat"}),
@@ -476,6 +480,24 @@ def check_pools(fake: Upstream, client: TestClient) -> None:
     response = client.post(path, json=body)
     assert response.status_code == 400, (body, response.text)
   assert len(fake.sent) == count, "a pool of another endpoint is not sent"
+
+
+def check_media_cooldown(fake: Upstream, client: TestClient) -> None:
+  form = {"model": "mistral/voxtral", "response_format": "text"}
+  files = {"file": ("a.wav", b"RIFF-five", "audio/wav")}
+  fake.limited.add("mistral.test")
+  response = client.post("/v1/audio/transcriptions", data=form, files=files)
+  fake.limited.clear()
+  assert response.status_code == 429, response.text
+  cooled = dashboard.RECENT[0]["attempts"][0]["cooldown"]
+  assert cooled == {"seconds": 60, "reason": "reset"}, cooled
+  count = len(fake.sent)
+  response = client.post("/v1/audio/transcriptions", data=form, files=files)
+  assert response.status_code == 429 and len(fake.sent) == count, "no upstream call"
+  assert response.json()["error"]["type"] == "rate_limit_exceeded", response.text
+  row = transcribe(client, b"RIFF-six")
+  assert [a["model"] for a in row["attempts"]] == ["groq/whisper"], row
+  api.COOLDOWNS.clear()
 
 
 def check_empty_pool(client: TestClient) -> None:
