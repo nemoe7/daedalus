@@ -4,6 +4,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import yaml
+
 from daedalus.config import settings
 from daedalus.routing import penalties
 from daedalus.server import api
@@ -44,6 +46,13 @@ def check_load(folder: Path) -> None:
   expect_error(folder, "timeouts:\n  wait: 0\n", "above 0")
   expect_error(folder, "session_affinity:\n  stay: 1\n", "below 1")
   expect_error(folder, "- a\n", "groups of keys")
+  (folder / "twice.yml").write_text("weights:\n  fault: 0.5\n  fault: 0.25\n")
+  try:
+    settings.load(folder / "twice.yml")
+  except yaml.YAMLError as exc:
+    assert "duplicate key 'fault'" in str(exc) and "line 3" in str(exc), exc
+  else:
+    raise AssertionError("no error for a duplicate key")
   expect_error(folder, "escalation:\n  keywords: think\n", "list of words or phrases")
   expect_error(folder, "escalation:\n  keywords: [1]\n", "list of words or phrases")
   expect_error(folder, "escalation:\n  keywords: [' ']\n", "list of words or phrases")
@@ -85,6 +94,15 @@ def check_cli(folder: Path) -> None:
     [*command, "serve"], cwd=folder, capture_output=True, text=True, check=False
   )
   assert wrong.returncode == 2 and "weights.x" in wrong.stderr, wrong.stderr
+  (folder / "config" / "daedalus.yml").write_text("weights:\n  fault: 0.5\n")
+  (folder / "config" / "providers").mkdir()
+  (folder / "config" / "providers" / "free.yml").write_text(
+    "groq:\n  api_key: a\ngroq:\n  api_key: b\n", encoding="utf-8"
+  )
+  twice = subprocess.run(
+    [*command, "serve"], cwd=folder, capture_output=True, text=True, check=False
+  )
+  assert twice.returncode == 2 and "duplicate key 'groq'" in twice.stderr, twice.stderr
   environment = {**os.environ, "DAEDALUS_PORT": "9100"}
   shown = subprocess.run(
     [*command, "serve", "--help"],
