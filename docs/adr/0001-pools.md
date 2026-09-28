@@ -50,6 +50,14 @@ the next tier to TIER-D:
 
 The first tier in the chain that holds a model answers.
 
+A provider block or file, and each entry under `models:`, can set `order`, a whole number.
+Empty or not set gives 1. The value of the model has priority over the value of the block.
+Inside each tier, the models of order 1 go first, as LiteLLM does. A model of order 2 gets a
+request only when no model of order 1 in the tier answers. The weights and the session model
+choose a model inside 1 order, so a session model of order 2 does not go before order 1. The
+media pools use the order too. Cloudflare and Pollinations have order 2, so they share
+`daedalus/photos`, and Cloudflare text models wait for the other chat providers.
+
 `daedalus/auto` stays. It scores the text of all user messages in the conversation, without
 the system prompt. It takes the tier that this text needs. After the first tool call in the
 conversation, the tier is TIER-C or higher. A conversation keeps the highest tier that it
@@ -63,3 +71,5 @@ got, until its session expires. Then `daedalus/auto` follows the same chain from
 - The proxy reserves the four pool names. No provider model may use them.
 - A retry inside a pool comes before the chain moves on.
 - `"*"` under a tier key puts all other models of that provider in that tier.
+- A provider with a small daily quota can wait behind the other providers of its tier, and
+  still answer when they fail.

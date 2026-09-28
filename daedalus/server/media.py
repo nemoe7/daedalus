@@ -79,7 +79,10 @@ def models_for(
   if turn.count:
     request.state.retry = str(turn.count)
     members = retries.fresh_models(turn, members)
-  return PENALTIES.order([members]) if PENALTIES else members
+  groups = router.by_order(config, [members])
+  return (
+    PENALTIES.order(groups) if PENALTIES else [m for group in groups for m in group]
+  )
 
 
 def failed(status: int) -> JSONResponse:
