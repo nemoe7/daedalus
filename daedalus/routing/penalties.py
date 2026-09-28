@@ -60,6 +60,13 @@ class Penalties:
       database.execute("DELETE FROM tiers")
     database.close()
 
+  def reset_weights(self) -> None:
+    """Set all weights back to 1. The pins stay."""
+    database = self.connect()
+    with database:
+      database.execute("DELETE FROM weights")
+    database.close()
+
   def weights(self, models: list[str]) -> dict[str, float]:
     """The weight of each model now, with the hourly recovery."""
     if not self.enabled:
