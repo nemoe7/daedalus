@@ -34,3 +34,9 @@ escalation:
     - think harder
     - think deeply
     - think longer
+    - root cause
+    - race condition
+    - memory leak
+    - deadlock
+    - security review
+    - performance regression
