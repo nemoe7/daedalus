@@ -39,7 +39,7 @@ function renderOverview() {
     esc(pool.name.replace("daedalus/", "")), count(pool.members.length, "model"),
   )).join("") || none("No pools");
   $("ov-requests").innerHTML = state.requests.slice(0, 10).map((r) => line(
-    `<span class="status s${String(r.status)[0]}">${r.status}</span> ${esc(r.via || r.model || "-")}`,
+    `<span class="status ${statusClass(r)}">${statusText(r)}</span> ${esc(r.via || r.model || "-")}`,
     clock(r.at),
   )).join("") || none("No requests");
   const tiers = ["A", "B", "C", "D"].map((t) => [t, state.models.filter((m) => tierLetter(m.tier) === t).length]);
@@ -204,8 +204,17 @@ function effortCell(r) {
   return `${esc(r.effort || "-")} <span class="from">to ${esc(sent)}</span>`;
 }
 
+// A request that the client closed shows "cancelled" in place of its status.
+function statusText(r) {
+  return r.cancelled ? "cancelled" : r.status;
+}
+
+function statusClass(r) {
+  return r.cancelled ? "muted" : `s${String(r.status)[0]}`;
+}
+
 function chainText(r) {
-  const head = [clock(r.at), r.model, r.status, r.effort && `effort=${r.effort}`, r.pool && `pool=${r.pool}`,
+  const head = [clock(r.at), r.model, statusText(r), r.effort && `effort=${r.effort}`, r.pool && `pool=${r.pool}`,
     r.routed && `from=${r.routed}`,
     `fallbacks=${r.fallbacks ?? 0}`, r.retry && `retry=${r.retry}`].filter(Boolean).join(" ");
   const steps = (r.attempts || []).map((a, i) =>
@@ -324,7 +333,7 @@ function renderRequests(rows) {
       <td class="hide-sm">${effortCell(r)}</td>
       <td class="hide-sm muted">${esc(r.pool || "-")}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${r.retry ? ` <span class="from">try again ${esc(r.retry)}</span>` : ""}</td>
       <td>${r.via ? esc(r.via) : '<span class="muted">none</span>'}</td>
-      <td class="status s${String(r.status)[0]}">${r.status}</td>
+      <td class="status ${statusClass(r)}">${statusText(r)}</td>
       <td class="hide-sm num">${inputCell(r)}</td>
       <td class="hide-sm num">${esc(r.ttft || "-")}</td>
       <td class="hide-sm num">${streamCell(r)}</td>
