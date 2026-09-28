@@ -69,6 +69,12 @@ def check_data(client: TestClient) -> None:
   assert "daedalus/praktos" not in pools
   assert [m["id"] for m in pools["daedalus/koinos"]] == ["p/small"]
   assert pools["daedalus/moros"] == [], "a pool with no member"
+  assert pools["daedalus/koinos"][0]["cooldown"] is None, "no cooldown"
+  api.COOLDOWNS.start("p/small", {"retry-after": "90"}, b"")
+  pools = {pool["name"]: pool["members"] for pool in client.get("/ui/api/pools").json()}
+  api.COOLDOWNS.clear()
+  cooled = pools["daedalus/koinos"][0]["cooldown"]
+  assert cooled and cooled > time.time(), "a pool member shows its cooldown end"
   status = client.get("/ui/api/status").json()
   assert status == {
     "healthy": True,
