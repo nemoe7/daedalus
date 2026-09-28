@@ -46,6 +46,9 @@ header {
   border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 13px;
 }
 .chip b { color: var(--text); font-weight: 600; }
+button.chip { background: transparent; font: inherit; font-size: 13px; cursor: pointer; }
+button.chip:hover:not(:disabled) { border-color: var(--accent); }
+button.chip:disabled { cursor: progress; }
 .types { display: flex; gap: 4px; }
 .chip.flag { padding: 0 7px; font-size: 11px; line-height: 18px; }
 .chip.mode { color: var(--text); }

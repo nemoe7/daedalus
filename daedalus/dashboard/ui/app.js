@@ -118,10 +118,23 @@ function shortTime(seconds) {
   return date.toLocaleString([], options);
 }
 
-function catalogChip({ built, next }) {
-  const last = built ? shortTime(built) : "never";
+// The catalog chip. A click starts a rebuild.
+function catalogChip({ built, next, rebuilding }) {
+  const last = rebuilding ? "rebuilding" : built ? shortTime(built) : "never";
   const following = next ? ` &middot; next <b>${esc(shortTime(next))}</b>` : " &middot; no schedule";
-  return `<span class="chip">Catalog <b>${esc(last)}</b>${following}</span>`;
+  return `<button type="button" class="chip rebuild" id="catalog-rebuild" ${rebuilding ? "disabled" : ""}
+    title="${rebuilding ? "A catalog rebuild runs now" : "Rebuild the catalog now"}">Catalog <b>${esc(last)}</b>${following}</button>`;
+}
+
+async function rebuildCatalog() {
+  if (!confirm("Rebuild the catalog now? Daedalus gets the model list of each provider again.")) return;
+  try {
+    await call("catalog", { method: "POST" });
+  } catch (error) {
+    if (error instanceof LoggedOut) return showLogin();
+    alert(error.message);
+  }
+  guarded(refreshFast);
 }
 
 function renderStatus(status) {
@@ -889,6 +902,8 @@ async function refreshFast() {
   state.requests = requests;
   renderRequests(requests);
   $("more-requests").hidden = requests.length < state.requestLimit || state.requestLimit >= REQUESTS_KEPT;
+  // After a rebuild, the pools and models change too.
+  if (state.catalog.rebuilding && !status.catalog?.rebuilding) guarded(refreshSlow);
   state.catalog = status.catalog || {};
   renderOverview();
 }
@@ -950,6 +965,9 @@ $("login").addEventListener("submit", async (event) => {
   }
 });
 
+document.addEventListener("click", (event) => {
+  if (event.target.closest("#catalog-rebuild")) rebuildCatalog();
+});
 $("logout").addEventListener("click", async () => {
   await call("logout", { method: "POST" }).catch(() => {});
   keepSession(null);

@@ -257,7 +257,11 @@ media.PACING = stream.PACING = PACING
 app.include_router(dashboard.page())
 app.include_router(
   dashboard.routes(
-    PENALTIES, lambda: get_config(), lambda values: apply_settings(values), COOLDOWNS
+    PENALTIES,
+    lambda: get_config(),
+    lambda values: apply_settings(values),
+    COOLDOWNS,
+    lambda: CATALOG_REFRESH,
   )
 )
 
