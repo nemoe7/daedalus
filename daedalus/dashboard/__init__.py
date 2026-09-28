@@ -17,6 +17,7 @@ from daedalus import config, store
 from daedalus.catalog import schedule
 from daedalus.config import settings
 from daedalus.routing import router
+from daedalus.routing.cooldowns import Cooldowns
 from daedalus.routing.penalties import Penalties
 from daedalus.store import keys
 
@@ -160,6 +161,7 @@ def routes(
   penalties: Penalties,
   get_config: Callable[[], Mapping[str, Any]],
   apply: Callable[[dict[str, Any]], None],
+  cooldowns: Cooldowns | None = None,
 ) -> APIRouter:
   """The dashboard endpoints. All except login need a session."""
   api = APIRouter(prefix="/ui/api")
@@ -266,9 +268,15 @@ def routes(
     chat = [row["id"] for row in rows if row["mode"] == "chat"]
     weighted = [row["id"] for row in rows if row["mode"] in WEIGHTED_MODES]
     tiers, weights = tier_map(get_config(), chat), penalties.weights(weighted)
+    ends = cooldowns.ends() if cooldowns else {}
     return JSONResponse(
       [
-        {**row, "tier": tiers.get(row["id"]), "weight": weights.get(row["id"])}
+        {
+          **row,
+          "tier": tiers.get(row["id"]),
+          "weight": weights.get(row["id"]),
+          "cooldown": Cooldowns.until(row["id"], ends),
+        }
         for row in rows
       ]
     )

@@ -162,6 +162,7 @@ tr.chain td { background: var(--field); padding-top: 4px; }
 .step .result { font-weight: 600; margin-left: 6px; }
 .step.good .result { color: var(--ok); }
 .step.bad .result { color: var(--bad); }
+.cool { color: var(--orange); }
 .step pre {
   margin: 4px 0 0 20px; padding: 8px 10px; border-radius: 8px; background: var(--panel);
   border: 1px solid var(--line); font: 12px/1.5 var(--mono); white-space: pre-wrap;
