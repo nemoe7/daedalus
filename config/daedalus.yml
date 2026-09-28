@@ -2,7 +2,7 @@
 # DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.
 # HEADROOM_URL turns on message compression through a Headroom sidecar.
 timeouts:
-  request: 600 # seconds for one full request
+  request: 600 # seconds to wait for an answer, for all attempts
   wait: 60 # seconds without bytes from the provider
   slow: 30 # a first token after this is slow; half of wait when missing
 session_affinity:

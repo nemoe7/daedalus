@@ -6,7 +6,7 @@ import logging
 import os
 import re
 import time
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -423,6 +423,11 @@ def without_cooling(
   return left, first - time.time()
 
 
+async def in_time(work: Awaitable[Any], deadline: float) -> Any:
+  """The result of `work`, or TimeoutError at the deadline."""
+  return await asyncio.wait_for(work, max(0.0, deadline - time.perf_counter()))
+
+
 @app.post("/v1/chat/completions")
 async def chat(request: Request) -> Response:
   denied = access.check_api_key(request)
@@ -522,10 +527,14 @@ async def chat(request: Request) -> Response:
     request.state.fallbacks = str(index)
     started, sent = time.perf_counter(), {}
     PACING.record(candidate, tokens)
+    response = None
     try:
-      provider, response = await upstream.attempt(candidate, body, config, sent)
+      # Keep-alive bytes reset the wait, so the request limit caps the wait for an answer.
+      provider, response = await in_time(
+        upstream.attempt(candidate, body, config, sent), deadline
+      )
       if not body.get("stream"):
-        raw = await response.aread()
+        raw = await in_time(response.aread(), deadline)
         await response.aclose()
         answer = json.loads(raw)
         if not isinstance(answer, dict) or answer.get("error"):
@@ -543,8 +552,19 @@ async def chat(request: Request) -> Response:
         attempts.append(upstream.note(candidate, "answered", started) | sent)
         return JSONResponse(completion)
       events = stream.sse_data(provider.stream(response, candidate, True))
-      pending = await stream.first_content(events)
+      pending = await in_time(stream.first_content(events), deadline)
       ttft = time.perf_counter() - started
+    except asyncio.TimeoutError:
+      exc = TimeoutError(f"No answer in {upstream.TIMEOUT_SECONDS:g}s")
+      logger.warning("upstream %s failed: %s", candidate, upstream.failure_text(exc))
+      attempts.append(upstream.failure_note(candidate, started, exc) | sent)
+      pin.failed(candidate)
+      if response is not None:
+        await response.aclose()
+      failure = upstream.error_response(
+        504, "Upstream provider timed out", "upstream_error"
+      )
+      break
     except httpx.ReadTimeout as exc:
       if direct_wait and time.perf_counter() < deadline:
         attempts.append(upstream.failure_note(candidate, started, exc) | sent)
