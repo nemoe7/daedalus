@@ -1,4 +1,4 @@
-"""Runnable check of the live request list and its event stream. Run: python tests/test_live.py"""
+"""Runnable check of the live request list and its event stream. Run: python tests/dashboard/test_live.py"""
 
 import asyncio
 import json

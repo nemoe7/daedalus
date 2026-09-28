@@ -9,7 +9,7 @@ No rationale. No check output. No tables. No run commands. Analysis goes to a re
 
 ```markdown
 - `daedalus/server/api.py` - OpenAI-compatible proxy: `/health`, `/v1/{path}`, SSE pass-through.
-- `tests/test_smoke.py`, `tests/test_config.py`.
+- `tests/server/test_smoke.py`, `tests/config/test_config.py`.
 ```
 
 ## ADRs

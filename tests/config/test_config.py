@@ -1,4 +1,4 @@
-"""Runnable check for the YAML config loader. Run: python tests/test_config.py"""
+"""Runnable check for the YAML config loader. Run: python tests/config/test_config.py"""
 
 import os
 import sys

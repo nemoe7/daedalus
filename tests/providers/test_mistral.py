@@ -1,4 +1,4 @@
-"""Runnable check for the Mistral reasoning changes. Run: python tests/test_mistral.py"""
+"""Runnable check for the Mistral reasoning changes. Run: python tests/providers/test_mistral.py"""
 
 import asyncio
 import json

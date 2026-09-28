@@ -1,4 +1,4 @@
-"""Runnable check of the rpm and tpm pacing. Run: python tests/test_pacing.py"""
+"""Runnable check of the rpm and tpm pacing. Run: python tests/routing/test_pacing.py"""
 
 import os
 import tempfile

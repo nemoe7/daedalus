@@ -1,4 +1,4 @@
-"""Runnable check for Headroom compression. Run: python tests/test_headroom.py"""
+"""Runnable check for Headroom compression. Run: python tests/server/test_headroom.py"""
 
 import asyncio
 import json

@@ -1,6 +1,6 @@
 import os
 
-"""Runnable check for the proxy. Run: python tests/test_smoke.py"""
+"""Runnable check for the proxy. Run: python tests/server/test_smoke.py"""
 
 import asyncio
 import json
