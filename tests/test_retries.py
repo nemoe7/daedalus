@@ -44,9 +44,11 @@ def ask(client: TestClient, messages: list[dict], headers: dict | None = None) -
 
 def check_steps(client: TestClient) -> None:
   assert ask(client, FIRST, CHAT) == "c/1", "the classifier tier"
-  assert dashboard.RECENT[0]["retry"] is None, "a first attempt is not a retry"
+  assert dashboard.HISTORY.latest(1)[0]["retry"] is None, (
+    "a first attempt is not a retry"
+  )
   assert ask(client, FIRST, CHAT) == "b/1", "1 tier up"
-  assert dashboard.RECENT[0]["retry"] == "1", dashboard.RECENT[0]
+  assert dashboard.HISTORY.latest(1)[0]["retry"] == "1", dashboard.HISTORY.latest(1)[0]
   first = ask(client, FIRST, CHAT)
   assert first.startswith("a/"), "tier A"
   key = api.session_key(MASTER, FIRST)
@@ -58,7 +60,7 @@ def check_steps(client: TestClient) -> None:
   assert len({first, second, third}) == 3, "each tier A model once"
   again = ask(client, FIRST, CHAT)
   assert again.startswith("a/") and again != third, "the list starts again"
-  assert dashboard.RECENT[0]["retry"] == "5", dashboard.RECENT[0]
+  assert dashboard.HISTORY.latest(1)[0]["retry"] == "5", dashboard.HISTORY.latest(1)[0]
 
 
 def check_new_message(client: TestClient) -> None:
@@ -77,7 +79,7 @@ def check_other_requests(client: TestClient) -> None:
   body = {"model": "daedalus/koinos", "messages": FIRST}
   for _ in range(2):
     client.post("/v1/chat/completions", json=body, headers={"X-OpenWebUI-Chat-Id": "p"})
-    assert dashboard.RECENT[0]["retry"] is None, "pools do not count"
+    assert dashboard.HISTORY.latest(1)[0]["retry"] is None, "pools do not count"
   timed = [{"role": "system", "content": "10:00"}, {"role": "user", "content": "time"}]
   other = {"X-OpenWebUI-Chat-Id": "chat-2"}
   assert ask(client, timed, other) == "c/1"

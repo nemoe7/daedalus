@@ -10,6 +10,9 @@ const POOL_NOTES = {
   "daedalus/photos": "Image",
 };
 const SHOWN = 4;
+// The Requests page loads 50 rows, and each "Show more" adds 50, up to the 500 that the server keeps.
+const REQUESTS_STEP = 50;
+const REQUESTS_KEPT = 500;
 const $ = (id) => document.getElementById(id);
 const esc = (text) => String(text ?? "").replace(/[&<>"']/g, (c) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -20,7 +23,7 @@ const clock = (seconds) => new Date(seconds * 1000).toLocaleTimeString(
 
 const state = {
   models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, saved: [], timers: [],
-  pools: [], requests: [], keys: [], catalog: {}, settings: null,
+  pools: [], requests: [], requestLimit: REQUESTS_STEP, keys: [], catalog: {}, settings: null,
 };
 
 const fileName = (path) => path.split(/[\\/]/).pop();
@@ -36,7 +39,7 @@ function renderOverview() {
   $("ov-requests").innerHTML = state.requests.slice(0, 10).map((r) => line(
     `<span class="status s${String(r.status)[0]}">${r.status}</span> ${esc(r.via || r.model || "-")}`,
     clock(r.at),
-  )).join("") || none("No chat requests since the start");
+  )).join("") || none("No requests");
   const tiers = ["A", "B", "C", "D"].map((t) => [t, state.models.filter((m) => tierLetter(m.tier) === t).length]);
   const tools = state.models.filter((m) => m.tools).length;
   $("ov-models").innerHTML = state.models.length
@@ -201,7 +204,7 @@ function renderRequests(rows) {
       <td class="hide-sm num">${esc(r.ttft || "-")}</td>
       <td class="hide-sm num">${esc(r.fallbacks ?? "-")}</td>
     </tr>${opened.has(String(r.at)) ? chainRows(r) : ""}`).join("")
-    : '<tr><td colspan="7" class="empty">No chat requests since the start</td></tr>';
+    : '<tr><td colspan="7" class="empty">No requests</td></tr>';
 }
 
 // The label of each catalog mode.
@@ -499,10 +502,11 @@ async function saveSettings() {
 }
 
 async function refreshFast() {
-  const [status, requests] = await Promise.all([call("status"), call("requests")]);
+  const [status, requests] = await Promise.all([call("status"), call(`requests?limit=${state.requestLimit}`)]);
   renderStatus(status);
   state.requests = requests;
   renderRequests(requests);
+  $("more-requests").hidden = requests.length < state.requestLimit || state.requestLimit >= REQUESTS_KEPT;
   state.catalog = status.catalog || {};
   renderOverview();
 }
@@ -593,6 +597,11 @@ $("keys").addEventListener("click", async (event) => {
     await refreshKeys();
   });
 });
+$("more-requests").addEventListener("click", () => {
+  state.requestLimit = Math.min(state.requestLimit + REQUESTS_STEP, REQUESTS_KEPT);
+  guarded(refreshFast);
+});
+
 $("requests").addEventListener("click", async (event) => {
   const button = event.target.closest(".copy-chain");
   if (button) {

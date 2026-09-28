@@ -101,14 +101,16 @@ async def main() -> None:
         prefix = {"role": "assistant", "content": "Hello"}
         assert SEEN[1][1]["messages"][-1] == prefix, SEEN[1]
         assert SEEN[2][1]["messages"] == [{"role": "user", "content": "hi"}, prefix]
-        steps = [(s["model"], s["result"]) for s in dashboard.RECENT[0]["attempts"]]
+        steps = [
+          (s["model"], s["result"]) for s in dashboard.HISTORY.latest(1)[0]["attempts"]
+        ]
         assert steps == [
           ("a/x", "answered"),
           ("a/x", "stream failed"),
           ("b/x", "HTTP 429"),
           ("c/x", "answered"),
         ], steps
-        cooled = dashboard.RECENT[0]["attempts"][2]["cooldown"]
+        cooled = dashboard.HISTORY.latest(1)[0]["attempts"][2]["cooldown"]
         assert cooled == {"seconds": 60.0, "reason": "backoff"}, cooled
         assert "b/x" in api.COOLDOWNS.ends(), (
           "a 429 in a continuation starts a cooldown"

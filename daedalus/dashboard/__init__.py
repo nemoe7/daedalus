@@ -5,7 +5,6 @@ import hmac
 import os
 import re
 import time
-from collections import deque
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
@@ -17,13 +16,13 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from daedalus import config, providers, store
 from daedalus.catalog import schedule
 from daedalus.config import block_for, settings
+from daedalus.dashboard.history import SHOWN, History
 from daedalus.routing import router
 from daedalus.routing.cooldowns import Cooldowns
 from daedalus.routing.penalties import Penalties
 from daedalus.store import keys
 
-# The chat requests that the dashboard shows. A restart clears them.
-RECENT: deque[dict[str, Any]] = deque(maxlen=50)
+HISTORY = History(lambda: store.MODELS_DB)
 FIELDS = ("model", "pool", "routed", "retry", "via", "ttft", "fallbacks", "attempts")
 AUTO_TIERS = (4, 3, 2, 1)
 # The modes whose models have weights: chat, and the modes of the media pools.
@@ -46,7 +45,7 @@ FILES = (config.DEFAULT_PATH,)
 def record(request: Request, status: int, seconds: float) -> None:
   """Keep one API request for the dashboard."""
   found = {key: getattr(request.state, key, None) for key in FIELDS}
-  RECENT.appendleft({"at": time.time(), "status": status, "seconds": seconds, **found})
+  HISTORY.add({"at": time.time(), "status": status, "seconds": seconds, **found})
 
 
 def master() -> str | None:
@@ -310,7 +309,11 @@ def routes(
   async def requests(request: Request) -> JSONResponse:
     if not allowed(request):
       return denied()
-    return JSONResponse(list(RECENT))
+    try:
+      limit = int(request.query_params.get("limit", SHOWN))
+    except ValueError:
+      limit = SHOWN
+    return JSONResponse(HISTORY.latest(limit))
 
   @api.get("/keys")
   async def key_list(request: Request) -> JSONResponse:
