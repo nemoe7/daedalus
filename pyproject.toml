@@ -14,7 +14,7 @@ dependencies = [
   "uvicorn[standard]>=0.30",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
   "ruff==0.16.6",
 ]
