@@ -23,7 +23,7 @@ const clock = (seconds) => new Date(seconds * 1000).toLocaleTimeString(
 
 const state = {
   models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, saved: [], timers: [],
-  view: "form", forms: [], formSaved: [], overrideKeys: [],
+  view: "form", forms: [], formSaved: [], overrideKeys: [], settingsView: "form",
   pools: [], requests: [], requestLimit: REQUESTS_STEP, keys: [], catalog: {}, settings: null,
   live: new Map(), source: null,
 };
@@ -867,23 +867,42 @@ function settingsChanges() {
   return changes;
 }
 
-const settingsDirty = () => Object.keys(settingsChanges()).length > 0;
+function settingsDirty() {
+  if (!state.settings) return false;
+  if (state.settingsView === "yaml") return $("settings-editor").value !== state.settings.text;
+  return Object.keys(settingsChanges()).length > 0;
+}
 
 function renderSettingsSave() {
   $("settings-save").disabled = !settingsDirty();
+  document.querySelectorAll("#settings-views [data-view]")
+    .forEach((tab) => tab.classList.toggle("on", tab.dataset.view === state.settingsView));
+  $("settings").hidden = state.settingsView !== "form";
+  $("settings-yaml").hidden = state.settingsView !== "yaml";
 }
 
 async function loadSettings() {
   state.settings = await call("settings");
+  $("settings-editor").value = state.settings.text;
+  renderSettings();
+}
+
+// The other view shows the saved file. Unsaved changes go after a confirmation.
+function switchSettingsView(view) {
+  if (view === state.settingsView) return;
+  if (settingsDirty() && !confirm("Discard the unsaved settings changes?")) return;
+  state.settingsView = view;
+  $("settings-editor").value = state.settings.text;
+  $("settings-message").textContent = "";
   renderSettings();
 }
 
 async function saveSettings() {
-  const changes = settingsChanges();
-  if (!Object.keys(changes).length) return;
+  if (!settingsDirty()) return;
+  const body = state.settingsView === "yaml" ? { text: $("settings-editor").value } : { changes: settingsChanges() };
   const message = $("settings-message");
   try {
-    await call("settings", { method: "PUT", body: JSON.stringify({ changes }) });
+    await call("settings", { method: "PUT", body: JSON.stringify(body) });
     await loadSettings();
     message.className = "message ok";
     message.textContent = "Saved and reloaded";
@@ -1178,6 +1197,14 @@ $("settings").addEventListener("input", () => {
   renderSettingsSave();
 });
 $("settings-save").addEventListener("click", saveSettings);
+$("settings-views").addEventListener("click", (event) => {
+  const tab = event.target.closest("[data-view]");
+  if (tab) switchSettingsView(tab.dataset.view);
+});
+$("settings-editor").addEventListener("input", () => {
+  $("settings-message").textContent = "";
+  renderSettingsSave();
+});
 $("settings").addEventListener("wheel", (event) => {
   const input = event.target.closest("input[type=number]");
   if (!input || input !== document.activeElement) return;

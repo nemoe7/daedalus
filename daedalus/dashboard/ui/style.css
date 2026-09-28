@@ -199,9 +199,12 @@ textarea {
 }
 #app { display: flex; flex-direction: column; min-height: 100dvh; }
 #app > main { width: 100%; flex: 1; }
-main:has(> section[data-page="providers"]:not([hidden])) { display: flex; flex-direction: column; padding-bottom: 28px; }
-section[data-page="providers"], #yaml-view { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-#editor { flex: 1; min-height: 240px; resize: none; border-bottom: 0; border-radius: var(--radius); }
+main:has(> section[data-page="providers"]:not([hidden])),
+main:has(> section[data-page="settings"]:not([hidden])) { display: flex; flex-direction: column; padding-bottom: 28px; }
+section[data-page="providers"], section[data-page="settings"], #yaml-view, #settings-yaml {
+  flex: 1; display: flex; flex-direction: column; min-height: 0;
+}
+#editor, #settings-editor { flex: 1; min-height: 240px; resize: none; border-bottom: 0; border-radius: var(--radius); }
 .views { display: flex; gap: 6px; }
 .files { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
 .provider .field.stack { flex-direction: column; align-items: stretch; gap: 8px; }

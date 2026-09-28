@@ -20,7 +20,7 @@ The dashboard is mainly a utility for monitoring the application state and fine-
 | Models | All catalog models, with a type filter, a tier filter, column sort, a reasoning column, the time left of each cooldown and weight bars. The reasoning column also shows the default effort from the catalog. The type column shows a chip for the mode and a chip for each media flag: Image in, PDF in, Audio in and Audio out. The type filter also finds models by these chips. With no column chosen, the rows sort by type, then by model name. |
 | API keys | Make and delete API keys |
 | Providers | A tab for each provider file. The Form view shows 1 card for each provider of the file. The YAML view shows the file text. See [Providers](#providers). |
-| Settings | Form for `config/daedalus.yml`. The mouse wheel changes the last decimal digit of a decimal field. |
+| Settings | Form and YAML views for `config/daedalus.yml`. The mouse wheel changes the last decimal digit of a decimal field. The YAML view edits the file text, comments included. A save checks each value, then reloads the settings. A change to the other view asks for a confirmation when the file holds unsaved changes. |
 
 The Catalog chip in the header shows the time of the last catalog rebuild and the next scheduled rebuild. Click the chip to rebuild the catalog now, after a confirmation. The chip shows "rebuilding" until the rebuild ends. Only 1 rebuild runs at a time.
 
