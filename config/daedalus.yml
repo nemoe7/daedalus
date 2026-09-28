@@ -50,3 +50,7 @@ escalation:
     - debug
     - design
     - architecture
+switch:
+  # Whole words or phrases in any case. A match in the last user message gives the pool session another model of the same tier.
+  keywords:
+    - clanker
