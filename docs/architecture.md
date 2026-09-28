@@ -103,6 +103,29 @@ flowchart LR
 
 The chain goes up first. The next tier up can usually do the same request. The chain goes down only after it gets to the highest tier. A lower tier often fails, because its models can do less.
 
+### Order
+
+Inside each tier, the models of order 1 go first, then the models of order 2, and so on. The weights and the session model choose a model inside 1 order. A session model of order 2 goes first only when its tier has no model of order 1 left. The media pools use the order too. The chain skips an order with no model.
+
+```mermaid
+flowchart LR
+  subgraph B[Tier B]
+    direction LR
+    b1[Order 1] --> b2[Order 2] --> b3[Order 3]
+  end
+  subgraph A[Tier A]
+    direction LR
+    a1[Order 1] --> a2[Order 2] --> a3[Order 3]
+  end
+  B --> A
+```
+
+| Provider | Order | Why |
+| --- | --- | --- |
+| Cloudflare | 2 | The daily Neurons go to images and transcription first |
+| Pollinations | 2 | No image model has order 1, so Cloudflare and Pollinations share `daedalus/photos` by weight |
+| Other providers | 1 | The default |
+
 ## Weights
 
 Each model has 1 weight for all pools. The first tier uses a weighted draw. The next tiers use the weight order.

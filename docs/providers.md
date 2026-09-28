@@ -4,13 +4,13 @@ These are the only providers that tests confirmed as really free.
 
 | Provider key | Provider | API | Notes |
 | --- | --- | --- | --- |
-| `cloudflare` | Cloudflare Workers AI | OpenAI-compatible, plus the native run API for audio and images | A message with only text parts goes as 1 string. Paid models stay out of the catalog. The catalog gets 5 tasks only (see below). |
+| `cloudflare` | Cloudflare Workers AI | OpenAI-compatible, plus the native run API for audio and images | A message with only text parts goes as 1 string. Paid models stay out of the catalog. The catalog gets 5 tasks only (see below). Order 2. |
 | `gemini` | Google Gemini | Native Gemini API | Daedalus maps OpenAI requests to Gemini and back, with thought signatures. The `gemini` block of `free.yml` sets `reasoning_effort: high` for each model. |
 | `groq` | Groq | OpenAI-compatible | Gets only the message fields that it accepts. |
 | `kilo` | Kilo Gateway | OpenAI-compatible | Only `:free` models, and `stealth/` models with price 0 in each price field. |
 | `mistral` | Mistral | OpenAI-compatible | Gets only the message fields that it accepts. `reasoning_effort` `none` and `minimal` become `none`, and `low` to `xhigh` become `high`. The thinking chunks of an answer go to `reasoning_content`. An old assistant message with `reasoning_content` goes back as a thinking chunk before its text. |
 | `openrouter` | OpenRouter | OpenAI-compatible | Only `:free` models, and `stealth/` models with price 0 in each price field. |
-| `pollinations` | Pollinations | OpenAI-compatible | Only `tongyi-mai/z-image-turbo`, an image model for `daedalus/photos`, at 0.004 Pollen for each image and 60 requests each minute. |
+| `pollinations` | Pollinations | OpenAI-compatible | Only 4 image models for `daedalus/photos`, at 0.0001 to 0.005 Pollen for each image: `lykon/dreamshaper-8-lcm`, `black-forest-labs/flux.1-schnell`, `tongyi-mai/z-image-turbo` and `black-forest-labs/flux.2-klein-4b`. Order 2, as Cloudflare. |
 | `z-ai` | Z.ai | OpenAI-compatible | Only the 3 free models under `models:`: `glm-4.5-flash`, `glm-4.7-flash` and `glm-4.6v-flash`. |
 
 Kilo and OpenRouter are large, known gateways with free models that change over time. Google Gemini has a more generous free tier than the other providers.
@@ -19,10 +19,10 @@ Kilo and OpenRouter are large, known gateways with free models that change over 
 | --- | --- |
 | Cloudflare, Gemini, Groq, Mistral | Use an account on the free plan, with no payment method. |
 | Kilo, OpenRouter | The `!*:free` exclude pattern. A price of 0 is not a guarantee: Lyria models show price 0 and cost money for each song. |
-| Pollinations | The `"*"` exclude pattern, and only `tongyi-mai/z-image-turbo` under `models:`. The account gets a free Pollen grant, with no payment method and no quests. |
+| Pollinations | The `"*"` exclude pattern, and only the 4 image models under `models:`. The account spends only its free Quest Pollen, with no payment method. |
 | Z.ai | The `"*"` exclude pattern, and only the free models under `models:`. |
 
-> Q: Tests did not confirm the size of the free Pollen grant. Reports from 2026 give about 0.01 Pollen each hour, or about 60 images each day. The account page at <https://enter.pollinations.ai> shows the balance.
+> Q: The Pollinations API docs name the free balance Quest Pollen. Quests give it, and the docs describe no refill with time. In 2025, the free tier gave 1 Pollen each day, with no carry over. `GET https://gen.pollinations.ai/account/balance` shows the balance.
 
 ## Catalog
 

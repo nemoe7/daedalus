@@ -89,7 +89,7 @@ def test_endpoints(folder: Path) -> None:
   assert forms["free.yml"] == yaml.safe_load(MAIN), forms
   assert forms["openrouter.yml"] == {"openrouter": yaml.safe_load(SINGLE)}, forms
   keys = client.get("/ui/api/provider-keys").json()
-  assert {"pool", "timeout", "rpm", "mode"} <= set(keys), keys
+  assert {"order", "pool", "timeout", "rpm", "mode"} <= set(keys), keys
 
   blocks = forms["free.yml"]
   blocks["groq"]["exclude"].append("*tts*")

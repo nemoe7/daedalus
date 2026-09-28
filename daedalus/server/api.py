@@ -401,7 +401,8 @@ class Tracker:
     return model
 
   def order(self, groups: list[list[str]]) -> list[str]:
-    return PENALTIES.order(groups, self.key, self.slot)
+    """The chain: the order groups of each tier, then the weights and the session model."""
+    return PENALTIES.order(router.by_order(get_config(), groups), self.key, self.slot)
 
   def answered(self, model: str, ttft: float) -> str | None:
     """Update the weight and pin the model. A slow success removes the pin instead."""
