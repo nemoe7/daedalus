@@ -107,7 +107,7 @@ turn off the weights, the session affinity or the pacing.
 - A model with a low weight comes back over time: from 0.5 to 1 in about 4 hours.
 - One conversation stays on its session model for most turns. The other models of the first
   tier still get some turns, so a bad session model does not hold a conversation for ever.
-- The request log shows `pin=new`, `pin=hit`, `pin=moved` or `pin=slow`.
+- The request log shows `pin=new`, `pin=hit`, `pin=moved`, `pin=switched` or `pin=slow`.
 - A per-minute limit costs 1 request and about 1 minute, not hours at a low weight.
 - A daily limit costs 1 request for each model until the reset.
 - The Models page shows the end of each cooldown.
