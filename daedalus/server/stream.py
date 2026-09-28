@@ -10,7 +10,7 @@ import httpx
 
 from daedalus import providers, store
 from daedalus.providers.base import error_text
-from daedalus.routing import context
+from daedalus.routing import context, pacing
 from daedalus.server import upstream
 
 if TYPE_CHECKING:
@@ -20,6 +20,7 @@ logger = logging.getLogger("daedalus")
 
 STREAM_ERRORS = (httpx.HTTPError, ValueError, KeyError, TypeError)
 ATTEMPT_ERRORS = (*STREAM_ERRORS, StopAsyncIteration)
+PACING: pacing.Pacing | None = None
 STREAM_FAILED = providers.frame(
   {
     "error": {
@@ -122,10 +123,15 @@ async def relay(
     prefix = {"role": "assistant", "content": "".join(sent)}
     continued = {**body, "messages": [*body["messages"], prefix]} if sent else body
     tokens, limits = context.input_tokens(continued), store.input_limits()
+    paces = store.pace_limits()
     while rest:
       candidate = rest.pop(0)
       if context.too_large(candidate, tokens, limits):
         continue
+      if PACING:
+        if PACING.full(candidate, paces):
+          continue
+        PACING.record(candidate, tokens)
       started = time.perf_counter()
       try:
         provider, response = await upstream.attempt(candidate, continued, config)

@@ -15,7 +15,7 @@ from starlette.datastructures import UploadFile
 
 from daedalus import providers, store
 from daedalus.config import get_config
-from daedalus.routing import cooldowns, penalties, retries, router
+from daedalus.routing import cooldowns, pacing, penalties, retries, router
 from daedalus.server import access, stream, upstream
 from daedalus.store import keys
 
@@ -23,9 +23,10 @@ routes = APIRouter()
 TRANSCRIPT_FORMATS = ("json", "text", "srt", "verbose_json", "vtt")
 SPEECH_FORMATS = ("mp3", "opus", "aac", "flac", "wav", "pcm")
 SIZE = re.compile(r"auto|[1-9][0-9]*x[1-9][0-9]*")
-# The server sets the shared weights and cooldowns at start.
+# The server sets the shared weights, cooldowns and pacing at start.
 PENALTIES: penalties.Penalties | None = None
 COOLDOWNS: cooldowns.Cooldowns | None = None
+PACING: pacing.Pacing | None = None
 REPEATS = retries.Retries()
 TRANSCRIPTION_POOL, IMAGE_POOL = router.MEDIA_POOLS
 Call = Callable[[providers.OpenAIProvider, str, str], Awaitable[Any]]
@@ -98,6 +99,12 @@ async def attempt(
     if models and all(cooling.values()):
       return upstream.cooling_response(min(cooling.values()) - time.time())
     models = [m for m in models if not cooling[m]]
+  if PACING:
+    paces = store.pace_limits()
+    left = [m for m in models if not PACING.full(m, paces)]
+    if models and not left:
+      return upstream.cooling_response(PACING.wait(models))
+    models = left
   pooled = model == pool
   attempts: list[dict[str, Any]] = []
   request.state.attempts, status = attempts, 0
@@ -113,6 +120,8 @@ async def attempt(
       # A pool model that cannot take this request is not a fault.
       attempts.append(upstream.note(candidate, "skipped", None, str(exc)))
       continue
+    if PACING:
+      PACING.record(candidate)
     try:
       answer = await pending
     except (upstream.UpstreamStatus, *stream.ATTEMPT_ERRORS) as exc:

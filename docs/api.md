@@ -156,7 +156,7 @@ Errors use the OpenAI shape:
 | --- | --- |
 | 400 | Invalid request, unknown model, or `context_length_exceeded` |
 | 401 | Missing or wrong key |
-| 429 `rate_limit_exceeded` | The model, or each model of the chain, is in a cooldown. `Retry-After` gives the seconds. See [Architecture](architecture.md#cooldowns). |
+| 429 `rate_limit_exceeded` | The model, or each model of the chain, is in a cooldown or at its `rpm` or `tpm`. `Retry-After` gives the seconds. See [Architecture](architecture.md#cooldowns) and [Pacing](architecture.md#pacing). |
 | 4xx or 5xx from the provider | The last model failed with this status |
 | 502 | No model answered, or the provider answer was not valid |
 

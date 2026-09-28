@@ -19,6 +19,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "rate_limit": 0.75,
   },
   "cooldown": {"first": 60.0, "longest": 21600.0},
+  "pacing": {"enabled": True},
   "catalog": {"every": 6.0, "anchor": 6.0},
   "headroom": {"timeout": 5.0},
 }

@@ -55,6 +55,7 @@ function renderOverview() {
     const on = (group) => (setting(group, "enabled") ? "On" : "Off");
     $("ov-settings").innerHTML = line("Session affinity", on("session_affinity"))
       + line("Weights", on("weights"))
+      + line("Pacing", on("pacing"))
       + line("Request timeout", `${setting("timeouts", "request")} s`);
   }
 }
@@ -386,6 +387,9 @@ const SETTINGS = [
     ["first", "First backoff", "s", "The cooldown of a first 429 with no reset time."],
     ["longest", "Longest backoff", "s", "Each next 429 doubles the cooldown, up to this time."],
   ]],
+  ["pacing", "Pacing", [
+    ["enabled", "On", "", "A model at its rpm or tpm for the last minute leaves the chains."],
+  ]],
   ["catalog", "Catalog", [
     ["every", "Rebuild interval", "h", "The hours between rebuilds. 0 stops them."],
     ["anchor", "Anchor hour", "h", "The local hour (TZ) that the rebuild times start from."],
@@ -396,7 +400,7 @@ const SETTINGS = [
 ];
 
 // The Settings cards of each column, from top to bottom.
-const SETTINGS_COLUMNS = [["timeouts", "catalog"], ["session_affinity", "headroom", "cooldown"], ["weights"]];
+const SETTINGS_COLUMNS = [["timeouts", "catalog", "pacing"], ["session_affinity", "headroom", "cooldown"], ["weights"]];
 
 // The fields that take decimals. The other fields take whole numbers.
 const DECIMALS = new Set([
