@@ -5,7 +5,7 @@ import logging
 
 import yaml
 
-from daedalus import catalog, dashboard, store
+from daedalus import catalog, config, dashboard, store
 from daedalus.catalog import discovery
 from daedalus.config import settings
 from daedalus.server import api, logs
@@ -58,6 +58,8 @@ def run(argv: list[str] | None = None) -> None:
     store.migrate()
     try:
       api.apply_settings(settings.load())
+      if config.DEFAULT_PATH.exists():
+        config.load_config()
     except (settings.SettingsError, yaml.YAMLError) as exc:
       parser.exit(2, f"daedalus: {exc}\n")
     if args.catalog or not store.has_store():

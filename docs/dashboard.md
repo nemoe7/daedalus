@@ -61,6 +61,8 @@ A save from the Form view keeps the comments, the key order, the quotes and the 
 
 A change to the other view asks for a confirmation when the file holds unsaved changes. The other view shows the saved file.
 
+A save of a file that is not valid YAML, or that has a key 2 times in 1 map, gets an error message. The file does not change. This rule applies to the Providers page and the Settings page.
+
 ## API keys
 
 | Rule | Value |

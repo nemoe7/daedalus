@@ -312,6 +312,17 @@ def check_files(client: TestClient, folder: Path) -> None:
   assert broken.status_code == 422, "a YAML error"
   listed = client.put("/ui/api/files", json={"path": providers, "text": "- a\n"})
   assert listed.status_code == 422, "provider blocks only"
+  twice = "q:\n  api_key: k\nq:\n  api_key: j\n"
+  doubled = client.put("/ui/api/files", json={"path": providers, "text": twice})
+  assert doubled.status_code == 422 and "duplicate key 'q'" in doubled.text, (
+    doubled.text
+  )
+  doubled = client.put(
+    "/ui/api/settings", json={"text": "weights:\n  fault: 0.5\n  fault: 0.25\n"}
+  )
+  assert doubled.status_code == 422 and "duplicate key 'fault'" in doubled.text, (
+    doubled.text
+  )
   new = "q:\n  api_key: k\n"
   assert (
     client.put("/ui/api/files", json={"path": providers, "text": new}).status_code
