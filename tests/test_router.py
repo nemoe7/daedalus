@@ -116,7 +116,7 @@ def check_tier_names() -> None:
 
 def check_tier_models() -> None:
   """A provider block answers with the models it lists under a tier."""
-  provider = {"tier": {"TIER-A": ["glm-5.3", None], "TIER-C": []}}
+  provider = {"api_key": "k", "tier": {"TIER-A": ["glm-5.3", None], "TIER-C": []}}
   assert router.tier_models(provider, "TIER-A") == ["glm-5.3"]
   assert router.tier_models(provider, "TIER-C") == []
   assert router.tier_models(provider, "TIER-B") == []
@@ -132,8 +132,11 @@ def chain(config: dict, lines: list[str], tier: int) -> list[str]:
 def check_route() -> None:
   """A tier resolves to the provider rows that claim it, and escalates when empty."""
   config = {
-    "gemini": {"tier": {"TIER-C": ["gemini-3.5-flash"]}},
-    "openrouter": {"tier": {"TIER-C": ["*:free"], "TIER-A": ["anthropic/*"]}},
+    "gemini": {"api_key": "k", "tier": {"TIER-C": ["gemini-3.5-flash"]}},
+    "openrouter": {
+      "api_key": "k",
+      "tier": {"TIER-C": ["*:free"], "TIER-A": ["anthropic/*"]},
+    },
   }
   lines = [
     "gemini/gemini-3.5-flash",
@@ -164,21 +167,26 @@ def check_direct_only() -> None:
     "z-ai/*": {"reasoning_effort": "low"},
     "a/keep": {"pool": True},
   }
-  config = {"openrouter": {"tier": {"TIER-A": ["*"]}, "models": models}}
+  config = {"openrouter": {"api_key": "k", "tier": {"TIER-A": ["*"]}, "models": models}}
   lines = ["openrouter/z-ai/glm", "openrouter/a/keep"]
   assert router.candidates(config, "TIER-A", lines) == ["openrouter/a/keep"]
   assert router.claiming_tier(config["openrouter"], "z-ai/glm") == "TIER-A"
   assert router.pooled(config, "openrouter/z-ai/glm") is False, "pool: false"
   assert router.pooled(config, "openrouter/a/keep") is True, "only false turns it off"
+  keyless = {"openrouter": {**config["openrouter"], "api_key": ""}}
+  assert router.keyed(keyless, "openrouter/a/keep") is False, "an empty key"
+  assert router.pooled(keyless, "openrouter/a/keep") is False, "no key, no pools"
 
 
 def check_provider_files() -> None:
   """A {provider}.yml takes its own models, and its values win over the main file."""
   main = {
+    "api_key": "k",
     "tier": {"TIER-B": ["*"]},
     "models": {"*": {"reasoning_effort": "low", "timeout": 60}},
   }
   file = {
+    "api_key": "k",
     "tier": {"TIER-A": ["z-ai/*"]},
     "models": {"z-ai/glm": {"reasoning_effort": "high", "pool": False}},
   }
@@ -233,6 +241,7 @@ def check_most_specific_tier() -> None:
   """A slug that 2 tiers claim goes only to the tier with the most specific pattern."""
   config = {
     "kilo": {
+      "api_key": "k",
       "tier": {
         "TIER-A": ["nvidia/nemotron-3-ultra-*", "^qwen/"],
         "TIER-B": ["*", "qwen/qwen3-32b"],
@@ -264,7 +273,7 @@ def check_most_specific_tier() -> None:
   ]
   assert router.candidates(config, "TIER-D", lines) == ["kilo/liquid/lfm:free"]
   # Equal patterns go to the higher tier.
-  tie = {"groq": {"tier": {"TIER-A": ["gpt-*"], "TIER-B": ["gpt-*"]}}}
+  tie = {"groq": {"api_key": "k", "tier": {"TIER-A": ["gpt-*"], "TIER-B": ["gpt-*"]}}}
   assert router.candidates(tie, "TIER-A", ["groq/gpt-oss"]) == ["groq/gpt-oss"]
   assert router.candidates(tie, "TIER-B", ["groq/gpt-oss"]) == []
 
@@ -282,8 +291,8 @@ def check_pools() -> None:
     assert router.fallback_order(tier) == expected, tier
 
   config = {
-    "gemini": {"tier": {"TIER-B": ["gemini-3.5-flash"]}},
-    "openrouter": {"tier": {"TIER-A": ["anthropic/*"]}},
+    "gemini": {"api_key": "k", "tier": {"TIER-B": ["gemini-3.5-flash"]}},
+    "openrouter": {"api_key": "k", "tier": {"TIER-A": ["anthropic/*"]}},
   }
   lines = ["gemini/gemini-3.5-flash", "openrouter/anthropic/claude-opus-5"]
   # sophos is tier 4, so TIER-A leads and TIER-B follows.
