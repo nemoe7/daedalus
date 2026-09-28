@@ -132,7 +132,7 @@ def check_repo_file() -> None:
   assert router.candidates(loaded, "TIER-B", qwen) == qwen[:1], "a weaker thinker"
   for slug in ("gemini-3.8-flash", "gemma-4-31b-it", "gemini-9-flash"):
     effort = config_params(loaded["gemini"], slug).get("reasoning_effort")
-    assert effort == "medium", (slug, effort)
+    assert effort == "high", (slug, effort)
 
 
 def walk(node: object) -> list[str]:
