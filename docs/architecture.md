@@ -1,6 +1,6 @@
 # Architecture
 
-> Q: What is the main idea of the design, in your words?
+Daedalus provides an OpenAI endpoint. It routes requests to a free model of the correct size and capability. If the model fails, it moves on to the next suitable option.
 
 ## Request flow
 
