@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 
 import httpx
 import pytest
@@ -71,6 +72,38 @@ def test_compress(sidecar: Sidecar, lines: Lines) -> None:
   sidecar.status = 200
   asyncio.run(headroom.compress(body, "a/1"))
   assert "headroom answers again" in lines.lines, lines.lines
+
+
+class Trickle(httpx.AsyncByteStream):
+  """A body that never ends."""
+
+  async def __aiter__(self):
+    while True:
+      yield b" "
+      await asyncio.sleep(0.02)
+
+
+def test_total_limit(
+  sidecar: Sidecar, lines: Lines, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A sidecar that keeps sending bytes gets the timeout in total, then the original messages go."""
+  body = {"model": "m", "messages": [{"role": "user", "content": "long"}]}
+  trickle = httpx.MockTransport(lambda request: httpx.Response(200, stream=Trickle()))
+  kept = upstream.get_client()
+  monkeypatch.setenv(headroom.URL_ENV, "http://headroom:8787")
+  monkeypatch.setattr(headroom, "TIMEOUT_SECONDS", 0.3)
+  monkeypatch.setattr(headroom, "_down", False)
+  upstream.set_client(httpx.AsyncClient(transport=trickle))
+  lines.lines.clear()
+  try:
+    started = time.perf_counter()
+    assert asyncio.run(headroom.compress(body, "a/1")) == (body, None)
+    assert time.perf_counter() - started < 2, "the limit is for the whole answer"
+    assert lines.lines == [
+      "headroom failed, sending the original messages: no answer in 0.3s"
+    ], lines.lines
+  finally:
+    upstream.set_client(kept)
 
 
 def test_request(sidecar: Sidecar, lines: Lines) -> None:

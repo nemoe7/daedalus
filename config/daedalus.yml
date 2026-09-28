@@ -25,7 +25,7 @@ catalog:
   every: 6 # hours between rebuilds of the model catalog; 0 stops them
   anchor: 6 # local hour (TZ env var) that the rebuild times start from: 00, 06, 12 and 18
 headroom:
-  timeout: 5 # seconds for Headroom; after this, the original messages go to the provider
+  timeout: 5 # seconds for the full Headroom answer; after this, the original messages go to the provider
 escalation:
   # Whole words or phrases in any case. A match in the last user message moves the daedalus/auto session tier 1 step up.
   keywords:
