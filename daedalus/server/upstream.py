@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 
 from daedalus import providers, store
 from daedalus.providers.base import error_detail, error_text
-from daedalus.routing import router
+from daedalus.routing import loops, router
 from daedalus.server.logs import elapsed
 
 logger = logging.getLogger("daedalus")
@@ -148,6 +148,8 @@ def failure_note(model: str, started: float, exc: Exception) -> dict[str, Any]:
   """One failed attempt, with the full provider error text when there is one."""
   if isinstance(exc, UpstreamStatus):
     return note(model, f"HTTP {exc.status}", started, exc.detail)
+  if isinstance(exc, loops.LoopError):
+    return note(model, "loop", started, str(exc))
   return note(model, "failed", started, failure_text(exc))
 
 

@@ -19,7 +19,15 @@ from daedalus.catalog import schedule
 from daedalus.config import block_for, get_config
 from daedalus.providers import signatures
 from daedalus.providers.base import error_text
-from daedalus.routing import context, cooldowns, pacing, penalties, retries, router
+from daedalus.routing import (
+  context,
+  cooldowns,
+  loops,
+  pacing,
+  penalties,
+  retries,
+  router,
+)
 from daedalus.server import access, headroom, logs, media, stream, upstream
 from daedalus.store import keys
 
@@ -63,6 +71,7 @@ REQUEST_FIELDS = (
   "ttft",
   "fallbacks",
   "retry",
+  "loop",
   "saved",
 )
 
@@ -424,6 +433,18 @@ class Tracker:
       self.dropped = PENALTIES.unpin(self.key, self.slot, model)
 
 
+def tool_loop(request: Request, messages: list, pin: Tracker) -> str | None:
+  """Find a tool loop, give a fault to the model that made the repeated call, and return that model."""
+  found = loops.repeated_call(messages)
+  if found is None:
+    return None
+  request.state.loop = str(found[1])
+  model = loops.maker(found[0])
+  if model:
+    pin.failed(model)
+  return model
+
+
 def without_cooling(
   groups: list[list[str]], ends: dict[str, float]
 ) -> tuple[list[list[str]], float | None]:
@@ -495,6 +516,7 @@ async def chat(request: Request) -> Response:
     request.state.pool = routed_pool(found[1])
   pin = Tracker(key, found[1])
   old = pin.switch() if said(SWITCH, body["messages"]) else None
+  looping = tool_loop(request, body["messages"], pin)
   tokens, limits = context.input_tokens(body), store.input_limits()
   request.state.tokens = {"input": tokens, "estimate": True}
   attempts: list[dict[str, Any]] = []
@@ -518,6 +540,9 @@ async def chat(request: Request) -> Response:
   if old in models:
     # A switch keyword gives the session another model. The old model is the last fallback.
     models = [m for m in models if m != old] + [old]
+  if looping in models:
+    # The model with the tool loop is the last fallback of this request.
+    models = [m for m in models if m != looping] + [looping]
   if models:
     body, saved = await headroom.compress(body, models[0])
     if saved is not None:
@@ -552,6 +577,9 @@ async def chat(request: Request) -> Response:
         if not isinstance(answer, dict) or answer.get("error"):
           raise providers.ProviderError(f"Invalid upstream answer: {error_text(raw)}")
         completion = provider.completion(answer, candidate)
+        if (channel := loops.answer_loop(completion)) is not None:
+          raise loops.LoopError(channel)
+        loops.save(loops.answer_calls(completion), candidate)
         request.state.tokens.update(
           stream.provider_count(completion.get("usage")) or {}
         )
@@ -661,6 +689,7 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   SLOW_SECONDS, AFFINITY = timeouts["slow"], affinity["enabled"]
   PENALTIES.idle, PENALTIES.enabled = affinity["idle"], weights["enabled"]
   signatures.IDLE_SECONDS = RETRIES.idle = media.REPEATS.idle = affinity["idle"]
+  loops.IDLE_SECONDS = affinity["idle"]
   PENALTIES.stay = affinity["stay"]
   headroom.TIMEOUT_SECONDS = values["headroom"]["timeout"]
   schedule.EVERY, schedule.ANCHOR = (

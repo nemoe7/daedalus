@@ -38,6 +38,7 @@ FIELDS = (
   "pool",
   "routed",
   "retry",
+  "loop",
   "via",
   "ttft",
   "stream",
