@@ -60,6 +60,7 @@ flowchart LR
 | `TASK_MODEL_EXTERNAL` | `daedalus/auto`, for titles, tags and follow-ups |
 | `AUDIO_STT_ENGINE`, `AUDIO_STT_MODEL` | `openai` and `daedalus/graphos`. Speech to text goes to Daedalus, not to a local Whisper. |
 | `ENABLE_IMAGE_GENERATION`, `IMAGE_GENERATION_MODEL` | `true` and `daedalus/photos` |
+| `AUDIO_STT_OPENAI_API_*`, `IMAGES_OPENAI_API_*` | The Daedalus API base and key. Without them, speech to text and images go to `https://api.openai.com/v1`. Image edits stay off: Daedalus has no edit endpoint. |
 | `VECTOR_DB`, `PGVECTOR_DB_URL` | `pgvector` in `webui-db`, for files, knowledge and memory. `main-slim` supports no other vector store. |
 | `RAG_EMBEDDING_ENGINE`, `RAG_EMBEDDING_MODEL` | `openai` and `mistral/mistral-embed` through Daedalus. `main-slim` has no local embedding model. A new embedding model needs a new index of all files. |
 | `CONTENT_EXTRACTION_ENGINE` | `tika`. Plain text files do not go to Tika. Without the `tika` profile, PDF and Office files fail. |
