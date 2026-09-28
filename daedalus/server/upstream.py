@@ -171,6 +171,14 @@ async def attempt(
   body = without_reasoning(candidate, body)
   provider, url, payload, headers = providers.prepare(candidate, body, config)
   effort = provider.effort(payload)
+  if payload.get("stream") and provider.stream_usage:
+    payload = {
+      **payload,
+      "stream_options": {
+        **(payload.get("stream_options") or {}),
+        "include_usage": True,
+      },
+    }
   if sent is not None and (asked or effort is not None):
     sent["effort"] = effort
   wait = router.model_wait(config, candidate, WAIT_SECONDS)
