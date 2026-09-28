@@ -126,16 +126,21 @@
       </div>
     </section>
     <section data-page="providers" hidden>
-      <div class="panel">
-        <div class="toolbar" id="files"></div>
-        <textarea id="editor" spellcheck="false" aria-label="Config file"></textarea>
-        <div class="editbar">
-          <button class="primary" id="save" type="button" disabled>Save</button>
-          <button class="ghost" id="new-provider" type="button">New provider</button>
-          <button class="ghost danger" id="drop-provider" type="button" hidden>Delete file</button>
-          <span class="message" id="save-message"></span>
-          <span class="hint">Ctrl+S saves and reloads</span>
+      <div class="panel editbar">
+        <button class="primary" id="save" type="button" disabled>Save</button>
+        <button class="ghost" id="new-provider" type="button">New provider</button>
+        <button class="ghost danger" id="drop-provider" type="button" hidden>Delete file</button>
+        <span class="message" id="save-message"></span>
+        <span class="hint">Ctrl+S saves and reloads</span>
+        <div class="views" id="views">
+          <button class="tab on" type="button" data-view="form">Form</button>
+          <button class="tab" type="button" data-view="yaml">YAML</button>
         </div>
+      </div>
+      <div class="files" id="files"></div>
+      <div class="settings" id="provider-form"></div>
+      <div class="panel" id="yaml-view" hidden>
+        <textarea id="editor" spellcheck="false" aria-label="Config file"></textarea>
       </div>
     </section>
     <section data-page="settings" hidden>
