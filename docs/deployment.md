@@ -89,6 +89,15 @@ To check the services and settings:
 
 Keep **Function Calling** on **Native**, the Open WebUI default since v0.10.0. Native sends the tools in `tools`, and Daedalus skips the models that cannot call tools. Legacy puts the tools in the prompt and calls tools only 1 time, before the answer.
 
+#### Deep research skill
+
+`integrations/openwebui/deep-research.md` is an Open WebUI skill: plain instructions, no code. The model plans, searches in 3 to 5 rounds with `search_web`, reads pages with `fetch_url`, and writes a report with numbered sources. Each step is a normal chat request, so Daedalus failover and loop checks apply.
+
+1. **Workspace → Skills**, the arrow next to **Create**, **Import JSON**. Select `deep-research.md`, then **Save**.
+2. **Access** on the skill: make it public, or give read access to each user. A user without read access does not get the skill.
+3. **Workspace → Models**, **Create**: base model `daedalus/sophos`, name `Deep Research`. In **Skills**, select `deep-research`. **Save**.
+4. In a chat with `Deep Research`, keep **Web Search** on. Use `$deep-research` in a chat with another model.
+
 ### Open WebUI database
 
 The `webui` profile starts `webui-db` with Open WebUI.
