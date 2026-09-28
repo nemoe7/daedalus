@@ -65,6 +65,41 @@ REQUEST_FIELDS = (
 )
 
 
+# The status of a request that the client closed before the answer started, as in nginx.
+CANCELLED = 499
+
+
+class Watch:
+  """The receive side of 1 API request, which cancels the handler when the client goes early."""
+
+  def __init__(self, receive: Any) -> None:
+    self.receive = receive
+    self.read, self.gone = asyncio.Event(), asyncio.Event()
+    self.done = self.cancelled = False
+
+  async def inner(self, *_: Any) -> dict:
+    """The receive of the handler. After the body, only `watch` reads from the client."""
+    if self.read.is_set():
+      await self.gone.wait()
+      return {"type": "http.disconnect"}
+    message = await self.receive()
+    if not message.get("more_body"):
+      self.read.set()
+    if message["type"] == "http.disconnect":
+      self.gone.set()
+    return message
+
+  async def watch(self, task: asyncio.Task) -> None:
+    """Cancel the handler when the client disconnects before the last byte of the answer."""
+    await self.read.wait()
+    while not self.gone.is_set():
+      if (await self.receive())["type"] == "http.disconnect":
+        self.gone.set()
+    if not self.done:
+      self.cancelled = True
+      task.cancel()
+
+
 class RequestLog:
   """Log each request, and keep each API request for the dashboard after its last byte.
 
@@ -84,23 +119,40 @@ class RequestLog:
     if api_post:
       request.state.live = dashboard.LIVE.start(request.url.path)
     status: int | None = None
+    watch = Watch(receive)
 
     async def sending(message: dict) -> None:
       nonlocal status
       if message["type"] == "http.response.start":
         status = message["status"]
         log_line(request, status, started)
+      elif message["type"] == "http.response.body" and not message.get("more_body"):
+        watch.done = True
       await send(message)
 
-    try:
+    if not api_post:
       await self.inner(scope, receive, sending)
+      return
+    task = asyncio.create_task(self.inner(scope, watch.inner, sending))
+    watcher = asyncio.create_task(watch.watch(task))
+    try:
+      await task
+    except asyncio.CancelledError:
+      if not watch.cancelled:
+        raise
     except Exception:
-      if api_post and status is None:
+      if status is None:
         dashboard.LIVE.end(request.state.live, None)
       raise
     finally:
-      if api_post and status is not None:
-        dashboard.record(request, status, time.perf_counter() - started)
+      watcher.cancel()
+      seconds = time.perf_counter() - started
+      if watch.cancelled:
+        if status is None:
+          log_line(request, CANCELLED, started)
+        dashboard.record(request, status or CANCELLED, seconds, cancelled=True)
+      elif status is not None:
+        dashboard.record(request, status, seconds)
 
 
 def log_line(request: Request, status: int, started: float) -> None:
