@@ -62,7 +62,12 @@ def models_for(
         f"This endpoint needs a provider/slug model{f' or {pool}' if pool else ''}"
       )
     return [model]
-  members = store.mode_models(router.MEDIA_POOLS[pool])
+  config = get_config()
+  members = [
+    name
+    for name in store.mode_models(router.MEDIA_POOLS[pool])
+    if router.pooled(config, name)
+  ]
   if not members:
     return invalid(f"{pool} has no models")
   turn = REPEATS.start_digest(

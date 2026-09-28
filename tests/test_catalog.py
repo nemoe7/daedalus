@@ -271,6 +271,45 @@ def check_build_rows() -> None:
   assert len(skipped) == 3, skipped
 
 
+def check_provider_file_override() -> None:
+  """A file takes only its models, with values that do not mix with the main block."""
+  main = {
+    "api_key": "old",
+    "discovery_url": "https://or.test/api/v1/models",
+    "exclude": ["!*:free"],
+    "models": {"*gemma*:free": {"rpm": 1}},
+  }
+  file = {
+    "api_key": "new",
+    "discovery_url": "https://or.test/api/v1/models",
+    "tier": {"TIER-A": ["openai/gpt-6-sol"]},
+    "models": {"openai/gpt-6-sol": {"rpm": 100, "pool": False}},
+  }
+  config.set_config({"openrouter": {**main, config.FILE_KEY: file}})
+  try:
+    blocks = config.get_config()
+    lines, skipped = discovery.build_rows(blocks, make_fetch(PAYOUT))
+    assert not skipped, skipped
+    assert list(lines) == [
+      "openrouter/google/gemma-4-26b-a4b-it:free",
+      "openrouter/openai/gpt-6-sol",
+    ], lines
+    rows, problems = enrichment.enrich(
+      lines, blocks, fetch=lambda *_: {"data": []}, native=lines
+    )
+    assert not problems, problems
+    info = {row["id"]: row for row in rows}
+    assert info["openrouter/openai/gpt-6-sol"]["rpm"] == 100
+    assert info["openrouter/google/gemma-4-26b-a4b-it:free"]["rpm"] == 1
+    found, _ = discovery.read_providers(blocks, make_fetch(PAYOUT))
+    assert [is_file for _, _, _, is_file in found] == [False, True], found
+    with tempfile.TemporaryDirectory() as folder:
+      paths = discovery.dump(blocks, make_fetch(PAYOUT), folder)
+      assert [p.name for p in paths] == ["openrouter.json", "openrouter-file.json"]
+  finally:
+    config.set_config(None)
+
+
 def check_discovery_match() -> None:
   payload = {
     "result": [
@@ -447,6 +486,7 @@ def main() -> int:
   check_auth_headers()
   check_discover()
   check_build_rows()
+  check_provider_file_override()
   check_merge_pages()
   check_dump()
   check_discovery_match()

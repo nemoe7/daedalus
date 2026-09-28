@@ -248,6 +248,30 @@ def check_files(client: TestClient, folder: Path) -> None:
   assert (
     client.put("/ui/api/files", json={"path": providers, "text": 1}).status_code == 400
   )
+  # The main file stays. A {provider}.yml file comes and goes.
+  listed = client.get("/ui/api/files").json()
+  assert [(f["path"], f["main"]) for f in listed] == [(providers, True)], listed
+  made = client.post("/ui/api/files", json={"name": "openrouter"})
+  assert made.status_code == 200, made.text
+  assert "OPENROUTER_API_KEY" in made.json()["text"], made.json()
+  assert config.provider_files(config.DEFAULT_PATH) == [Path(made.json()["path"])]
+  loaded = config.get_config()
+  assert loaded["openrouter"]["_file"]["models"] == {"*": {}}, loaded["openrouter"]
+  assert client.post("/ui/api/files", json={"name": "openrouter"}).status_code == 400
+  assert client.post("/ui/api/files", json={"name": "Open Router"}).status_code == 400
+  assert client.post("/ui/api/files", json={"name": "../x"}).status_code == 400
+  assert (
+    client.request("DELETE", "/ui/api/files", json={"path": providers}).status_code
+    == 400
+  )
+  assert (
+    client.request("DELETE", "/ui/api/files", json={"path": str(folder)}).status_code
+    == 400
+  )
+  gone = client.request("DELETE", "/ui/api/files", json={"path": made.json()["path"]})
+  assert gone.status_code == 200, gone.text
+  assert config.provider_files(config.DEFAULT_PATH) == [], "the file went"
+  assert "_file" not in config.get_config().get("openrouter", {}), "the reload drops it"
 
 
 def main() -> None:

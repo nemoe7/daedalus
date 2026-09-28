@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from typing import Any, Final
 
 from daedalus.catalog.discovery import matches, specificity
+from daedalus.config import block_for
 from daedalus.routing.classifier import (
   TIER_NAMES,
   TIERS,
@@ -50,27 +51,25 @@ def claiming_tier(provider: Mapping[str, Any], slug: str) -> str | None:
   return None if best is None else best[1]
 
 
-def model_setting(provider: Mapping[str, Any], slug: str, key: str) -> Any:
-  """The value of a key in the last `models` entry that matches the slug and has it."""
+def model_setting(config: Mapping[str, Any], model: str, key: str) -> Any:
+  """The value of a key in the last `models` entry that matches the model and has it."""
+  name, _, slug = model.partition("/")
+  block = block_for(config, name, slug)
   found = None
-  for pattern, values in (provider.get("models") or {}).items():
+  for pattern, values in (block.get("models") or {}).items() if block else ():
     if isinstance(values, dict) and key in values and matches(str(pattern), slug):
       found = values[key]
   return found
 
 
-def pooled(provider: Mapping[str, Any], slug: str) -> bool:
+def pooled(config: Mapping[str, Any], model: str) -> bool:
   """Tell if the model can go into the pools: `pool: false` allows only direct requests."""
-  return model_setting(provider, slug, "pool") is not False
+  return model_setting(config, model, "pool") is not False
 
 
 def model_wait(config: Mapping[str, Any], model: str, default: float) -> float:
   """The seconds with no bytes from the provider: the `timeout` of the model, or the default."""
-  name, _, slug = model.partition("/")
-  provider = config.get(name)
-  value = (
-    model_setting(provider, slug, "timeout") if isinstance(provider, dict) else None
-  )
+  value = model_setting(config, model, "timeout")
   if isinstance(value, bool) or not isinstance(value, int | float) or value <= 0:
     return default
   return float(value)
@@ -86,16 +85,16 @@ def candidates(
   for provider_name, provider in config.items():
     if not isinstance(provider, dict):
       continue
-    patterns = tier_models(provider, tier_name)
-    if not patterns:
-      continue
     head = f"{provider_name}/"
     for line in lines:
-      if (
-        line.startswith(head)
-        and claiming_tier(provider, line[len(head) :]) == tier_name
-        and pooled(provider, line[len(head) :])
-      ):
+      if not line.startswith(head):
+        continue
+      slug = line[len(head) :]
+      # The block that owns the model also sets its tier.
+      block = block_for(config, provider_name, slug)
+      if block is None or claiming_tier(block, slug) != tier_name:
+        continue
+      if pooled(config, line):
         wanted.append(line)
   return wanted
 

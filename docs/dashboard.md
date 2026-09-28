@@ -18,8 +18,8 @@ The dashboard is mainly a utility for monitoring the application state and fine-
 | Pools | The models of each pool, the media pools included, the highest weight first. "+N more" opens the Models page with the filters of the pool. |
 | Requests | Each request: model, pool, the model that answered, time to first token, fallbacks and each attempt. A cooldown mark shows when an attempt started a cooldown. Errors have a copy button. |
 | Models | All catalog models, with a type filter, a tier filter, column sort, a reasoning column, the time left of each cooldown and weight bars |
-| API keys | Make and remove API keys |
-| Providers | YAML editor for `config/providers/free.yml`. It keeps the comments. |
+| API keys | Make and delete API keys |
+| Providers | 1 card for each provider file, with its keys, its base and its tiers. The YAML editor keeps the comments. **New provider** makes a `{provider}.yml` file, and the Delete button deletes 1, with a confirmation. |
 | Settings | Form for `config/daedalus.yml`. The mouse wheel changes the last decimal digit of a decimal field. |
 
 The Requests page shows "koinos from moros" when a `daedalus/auto` request starts in moros and a koinos model answers. It shows "try again N" for a [try again](architecture.md#try-again) in Open WebUI.
@@ -34,6 +34,6 @@ The Requests page shows "koinos from moros" when a `daedalus/auto` request start
 | Access | `/v1` only. Not the dashboard. |
 | Log | `key=NAME` |
 
-Give each application its own key. Then you can remove 1 key after a leak, and the other applications continue to work.
+Give each application its own key. Then you can delete 1 key after a leak, and the other applications continue to work.
 
 Note: do not share Daedalus with other people. The provider terms of service can forbid it. Use it for your own work only.

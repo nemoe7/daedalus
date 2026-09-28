@@ -9,12 +9,13 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Any
 
+import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from daedalus import dashboard, providers, store
 from daedalus.catalog import schedule
-from daedalus.config import get_config
+from daedalus.config import block_for, get_config
 from daedalus.providers import signatures
 from daedalus.providers.base import error_text
 from daedalus.routing import context, cooldowns, pacing, penalties, retries, router
@@ -140,7 +141,9 @@ async def models(request: Request) -> Response:
     fields[name] = pool_info([fields[m] for m in members])
   fields[router.RESERVED_MODEL] = fields["daedalus/sophos"]
   media_pools = [
-    name for name, mode in router.MEDIA_POOLS.items() if store.mode_models(mode)
+    name
+    for name, mode in router.MEDIA_POOLS.items()
+    if any(router.pooled(config, m) for m in store.mode_models(mode))
   ]
   names = [router.RESERVED_MODEL, *router.POOLS, *chat, *media_pools, *others]
   data = [
@@ -217,8 +220,8 @@ def served(request: Request, config: dict[str, Any], candidate: str) -> None:
   """Show the pool of the model that answers, and keep the first pool when it differs."""
   first = getattr(request.state, "pool", None)
   provider_name, _, slug = candidate.partition("/")
-  provider = config.get(provider_name)
-  tier = router.claiming_tier(provider, slug) if isinstance(provider, dict) else None
+  block = block_for(config, provider_name, slug)
+  tier = router.claiming_tier(block, slug) if block else None
   if first is None or POOL_NAMES.get(tier, first) == first:
     return
   request.state.pool, request.state.routed = POOL_NAMES[tier], first
@@ -364,7 +367,15 @@ async def chat(request: Request) -> Response:
   failure = upstream.error_response(
     502, "No model answered the request", "upstream_error"
   )
-  for index, candidate in enumerate(models):
+  deadline = time.perf_counter() + upstream.TIMEOUT_SECONDS
+  direct_wait = (
+    model not in router.POOLS
+    and model != router.RESERVED_MODEL
+    and (router.model_setting(config, model, "timeout") is not None)
+  )
+  index = 0
+  while index < len(models):
+    candidate = models[index]
     request.state.fallbacks = str(index)
     started = time.perf_counter()
     PACING.record(candidate, tokens)
@@ -387,6 +398,22 @@ async def chat(request: Request) -> Response:
       events = stream.sse_data(provider.stream(response, candidate, include_usage))
       pending = await stream.first_content(events)
       ttft = time.perf_counter() - started
+    except httpx.ReadTimeout as exc:
+      if direct_wait and time.perf_counter() < deadline:
+        attempts.append(upstream.failure_note(candidate, started, exc))
+        await asyncio.sleep(min(0.1, max(0, deadline - time.perf_counter())))
+        continue
+      attempts.append(upstream.failure_note(candidate, started, exc))
+      pin.failed(candidate)
+      failure = upstream.error_response(
+        504 if direct_wait else 502,
+        "Upstream provider timed out"
+        if direct_wait
+        else "Upstream provider attempt failed",
+        "upstream_error",
+      )
+      index += 1
+      continue
     except upstream.UpstreamStatus as exc:
       attempts.append(upstream.failure_note(candidate, started, exc))
       if started_cooldown := pin.failed(candidate, exc):
@@ -394,6 +421,7 @@ async def chat(request: Request) -> Response:
       failure = upstream.error_response(
         exc.status, "Upstream provider rejected the request", "upstream_error"
       )
+      index += 1
       continue
     except stream.ATTEMPT_ERRORS as exc:
       logger.warning("upstream %s failed: %s", candidate, upstream.failure_text(exc))
@@ -402,6 +430,7 @@ async def chat(request: Request) -> Response:
       failure = upstream.error_response(
         502, "Upstream provider attempt failed", "upstream_error"
       )
+      index += 1
       continue
     rest = models[index + 1 :]
     request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
