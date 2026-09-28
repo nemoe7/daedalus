@@ -30,6 +30,7 @@ Set `COMPOSE_PROFILES` in `.env`, for example `COMPOSE_PROFILES=webui,headroom`.
 flowchart LR
   C[Clients] -->|3357| D[daedalus]
   W[open-webui :3000] --> D
+  W --> V[webui-db, internal]
   D -->|messages| H[headroom :8787, internal]
   T[tailscale] -->|HTTPS :443 in the tailnet| D
   T -->|HTTPS :8443 in the tailnet| W
@@ -38,7 +39,7 @@ flowchart LR
 
 | Profile | Service | What it does |
 | --- | --- | --- |
-| `webui` | `open-webui` | Chat UI on `http://localhost:3000`, and on port 8443 with the `tailscale` profile. It uses Daedalus as its OpenAI API. |
+| `webui` | `open-webui` | Chat UI on `http://localhost:3000`, and on port 8443 with the `tailscale` profile. It uses Daedalus as its OpenAI API. Its vector database `webui-db` (PostgreSQL with pgvector) has no host port. |
 | `headroom` | `headroom` | Compresses the messages before Daedalus sends them. No port on the host. |
 | `tailscale` | `tailscale` | Publishes Daedalus and Open WebUI to your tailnet over HTTPS. |
 
@@ -55,6 +56,9 @@ flowchart LR
 | `TASK_MODEL_EXTERNAL` | `daedalus/auto`, for titles, tags and follow-ups |
 | `AUDIO_STT_ENGINE`, `AUDIO_STT_MODEL` | `openai` and `daedalus/graphos`. Speech to text goes to Daedalus, not to a local Whisper. |
 | `ENABLE_IMAGE_GENERATION`, `IMAGE_GENERATION_MODEL` | `true` and `daedalus/photos` |
+| `VECTOR_DB`, `PGVECTOR_DB_URL` | `pgvector` in `webui-db`, for files, knowledge and memory. `main-slim` supports no other vector store. |
+| `RAG_EMBEDDING_ENGINE`, `RAG_EMBEDDING_MODEL` | `openai` and `mistral/mistral-embed` through Daedalus. `main-slim` has no local embedding model. A new embedding model needs a new index of all files. |
+| `RAG_EMBEDDING_BATCH_SIZE`, `ENABLE_ASYNC_EMBEDDING` | `32` and `false`: 32 chunks in each request, 1 request at a time, to stay below the free Mistral limits |
 
 Open WebUI reads most of these settings only on the first start with a new data volume. After that, the values in **Admin Settings** apply. On an existing install, set them there.
 
