@@ -93,6 +93,25 @@ def modalities(inputs: Any, outputs: Any) -> dict[str, bool]:
   return found
 
 
+def free_price(row: dict) -> bool:
+  """Whether each price field of one gateway row is 0."""
+  pricing = row.get("pricing")
+  if not isinstance(pricing, dict) or not pricing:
+    return False
+  for value in pricing.values():
+    try:
+      if float(value) != 0:
+        return False
+    except (TypeError, ValueError):
+      return False
+  return True
+
+
+def free_stealth(slug: str, row: dict) -> bool:
+  """Whether one gateway row is a stealth model with price 0 in each price field."""
+  return slug.startswith("stealth/") and free_price(row)
+
+
 def openrouter_columns(row: dict) -> dict[str, Any]:
   """Store columns from one OpenRouter-shaped discovery row."""
   top = row.get("top_provider") or {}
@@ -302,6 +321,11 @@ class OpenAIProvider:
   def discoverable(row: dict) -> bool:
     """Whether one discovery row can go into the catalog. The base class keeps all rows."""
     return True
+
+  @staticmethod
+  def exclude_exempt(slug: str, row: dict) -> bool:
+    """Whether one discovery row passes `exclude`. The base class exempts no row."""
+    return False
 
   @staticmethod
   def auth(key: str) -> dict[str, str]:

@@ -32,6 +32,7 @@ flowchart LR
 | Schedule | Each 6 h from 06:00 in `TZ`. `catalog.every: 0` stops it. |
 | Provider error | Daedalus keeps the old rows of that provider only. |
 | Chat chains | Only chat rows, and rows with no mode, go into the chains. |
+| Stealth models | On Kilo and OpenRouter, a `stealth/` model with price 0 in each price field passes `exclude`. A stealth model with a price stays out. |
 
 Cloudflare tasks in the catalog:
 

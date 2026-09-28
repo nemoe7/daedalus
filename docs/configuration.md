@@ -103,7 +103,7 @@ groq:
 | `api_type` | Optional. `openai` or `gemini`. |
 | `discovery_url` | Optional. The model list URL. Each provider has a default. |
 | `discovery_match` | Discovery properties that a model must have. A missing property is a match. |
-| `exclude` | Patterns of models that never go into the catalog |
+| `exclude` | Patterns of models that never go into the catalog. For the Kilo and OpenRouter exception, see [stealth models](providers.md#catalog). |
 | `tier` | Patterns for each tier key: `TIER-A`, `TIER-B`, `TIER-C`, `TIER-D` |
 | `models` | Values for each model, for example `max_input_tokens`. These have priority over discovery and LiteLLM. |
 
