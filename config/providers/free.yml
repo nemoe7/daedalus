@@ -152,6 +152,7 @@ mistral:
       - "ministral-3b-*"
   models:
     "voxtral*": { mode: audio_transcription }
+    "voxtral*-tts*": { mode: audio_speech } # the TTS models speak, they do not transcribe
     "*embed*": { mode: embedding }
 
 openrouter:

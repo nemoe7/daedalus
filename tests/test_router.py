@@ -8,6 +8,7 @@ from pathlib import Path
 
 import httpx
 
+from daedalus import config
 from daedalus.routing import classifier, router
 from daedalus.server import upstream
 
@@ -167,7 +168,40 @@ def check_direct_only() -> None:
   lines = ["openrouter/z-ai/glm", "openrouter/a/keep"]
   assert router.candidates(config, "TIER-A", lines) == ["openrouter/a/keep"]
   assert router.claiming_tier(config["openrouter"], "z-ai/glm") == "TIER-A"
-  assert router.pooled({"models": {"x": {"pool": 0}}}, "x"), "only false turns it off"
+  assert router.pooled(config, "openrouter/z-ai/glm") is False, "pool: false"
+  assert router.pooled(config, "openrouter/a/keep") is True, "only false turns it off"
+
+
+def check_provider_files() -> None:
+  """A {provider}.yml takes its own models, and its values win over the main file."""
+  main = {
+    "tier": {"TIER-B": ["*"]},
+    "models": {"*": {"reasoning_effort": "low", "timeout": 60}},
+  }
+  file = {
+    "tier": {"TIER-A": ["z-ai/*"]},
+    "models": {"z-ai/glm": {"reasoning_effort": "high", "pool": False}},
+  }
+  blocks = {"openrouter": {**main, config.FILE_KEY: file}}
+  lines = ["openrouter/z-ai/glm", "openrouter/other/model"]
+  assert router.candidates(blocks, "TIER-A", lines) == [], (
+    "the file takes it, pool false"
+  )
+  assert router.candidates(blocks, "TIER-B", lines) == ["openrouter/other/model"]
+  where = router.model_setting(blocks, "openrouter/z-ai/glm", "reasoning_effort")
+  assert where == "high", where
+  other = router.model_setting(blocks, "openrouter/other/model", "reasoning_effort")
+  assert other == "low", other
+  assert router.model_wait(blocks, "openrouter/z-ai/glm", 5.0) == 5.0, (
+    "the main file does not apply"
+  )
+  file["models"]["z-ai/glm"]["timeout"] = 15
+  assert router.model_wait(blocks, "openrouter/z-ai/glm", 5.0) == 15.0, "the file wins"
+  assert router.block_for(blocks, "openrouter", "z-ai/glm") is file
+  assert router.block_for(blocks, "openrouter", "other/model") == main
+  assert router.block_for({}, "openrouter", "z-ai/glm") is None
+  file["models"]["*"] = {}
+  assert router.candidates(blocks, "TIER-B", lines) == [], "a * key takes each model"
 
 
 def check_model_wait() -> None:
@@ -280,6 +314,7 @@ def main() -> int:
   check_tier_models()
   check_route()
   check_direct_only()
+  check_provider_files()
   check_model_wait()
   check_most_specific_tier()
   check_pools()

@@ -11,7 +11,7 @@ from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 import httpx
 
-from daedalus.config import STATE_DIR, get_config
+from daedalus.config import STATE_DIR, file_block, file_takes, get_config, main_block
 from daedalus.providers import PROVIDERS, OpenAIProvider, settings
 from daedalus.store import COLUMNS
 
@@ -246,30 +246,35 @@ def read_providers(
   config: dict[str, Any] | None = None,
   fetch: Fetch = fetch_json,
   failed: list[str] | None = None,
-) -> tuple[list[tuple[str, dict[str, Any], dict[str, Any]]], list[str]]:
+) -> tuple[list[tuple[str, dict[str, Any], dict[str, Any], bool]], list[str]]:
   """Read each provider, and return its settings and payload, with one reason per skip."""
   providers = get_config() if config is None else config
-  found: list[tuple[str, dict[str, Any], dict[str, Any]]] = []
+  found: list[tuple[str, dict[str, Any], dict[str, Any], bool]] = []
   skipped: list[str] = []
-  for provider_name, provider in providers.items():
-    if not isinstance(provider, dict):
+  for provider_name, raw in providers.items():
+    if not isinstance(raw, dict):
       skipped.append(f"{provider_name}: not a mapping")
       continue
-    provider = settings(provider_name, provider)
-    if not (provider.get("api_key") or ""):
-      skipped.append(f"{provider_name}: no api_key")
-      continue
-    if not provider.get("discovery_url"):
-      skipped.append(f"{provider_name}: no discovery_url")
-      continue
-    try:
-      payload = read_pages(provider_name, provider, fetch)
-    except (httpx.HTTPError, ValueError) as error:
-      skipped.append(f"{provider_name}: {error}")
-      if failed is not None:
-        failed.append(provider_name)
-      continue
-    found.append((provider_name, provider, payload))
+    blocks = [(settings(provider_name, main_block(raw) or {}), False)]
+    file = file_block(raw)
+    if file is not None:
+      # A provider file discovers with its own settings, and takes its own models.
+      blocks.append((settings(provider_name, file), True))
+    for provider, is_file in blocks:
+      if not (provider.get("api_key") or ""):
+        skipped.append(f"{provider_name}: no api_key")
+        continue
+      if not provider.get("discovery_url"):
+        skipped.append(f"{provider_name}: no discovery_url")
+        continue
+      try:
+        payload = read_pages(provider_name, provider, fetch)
+      except (httpx.HTTPError, ValueError) as error:
+        skipped.append(f"{provider_name}: {error}")
+        if failed is not None:
+          failed.append(provider_name)
+        continue
+      found.append((provider_name, provider, payload, is_file))
   return found, skipped
 
 
@@ -289,9 +294,14 @@ def build_rows(
   """Map each kept catalog line to its provider columns, with one reason per skip."""
   found, skipped = read_providers(config, fetch, failed)
   lines: dict[str, dict[str, Any]] = {}
-  for provider_name, provider, payload in found:
+  for provider_name, provider, payload, is_file in found:
     rows = provider_rows(provider_name, provider, payload)
-    for slug in select(provider, list(rows)):
+    slugs = (
+      [slug for slug in select(provider, list(rows)) if file_takes(provider, slug)]
+      if is_file
+      else select(provider, list(rows))
+    )
+    for slug in slugs:
       lines[f"{provider_name}/{slug}"] = native_columns(
         provider_name, rows.get(slug, {})
       )
@@ -310,8 +320,8 @@ def dump(
     old.unlink()
   found, skipped = read_providers(config, fetch)
   paths = []
-  for provider_name, _, payload in found:
-    path = target / f"{provider_name}.json"
+  for provider_name, _, payload, is_file in found:
+    path = target / f"{provider_name}{'-file' if is_file else ''}.json"
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", "utf-8")
     paths.append(path)
   for reason in skipped:
