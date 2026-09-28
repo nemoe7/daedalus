@@ -33,7 +33,7 @@ function renderOverview() {
   $("ov-pools").innerHTML = state.pools.map((pool) => line(
     esc(pool.name.replace("daedalus/", "")), count(pool.members.length, "model"),
   )).join("") || none("No pools");
-  $("ov-requests").innerHTML = state.requests.slice(0, 5).map((r) => line(
+  $("ov-requests").innerHTML = state.requests.slice(0, 10).map((r) => line(
     `<span class="status s${String(r.status)[0]}">${r.status}</span> ${esc(r.via || r.model || "-")}`,
     clock(r.at),
   )).join("") || none("No chat requests since the start");
