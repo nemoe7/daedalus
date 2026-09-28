@@ -118,6 +118,8 @@ Other keys of a `models` entry:
 | `timeout` | Seconds with no bytes from the provider. For this model, it replaces `timeouts.wait`. A direct request tries the same model again after this time, until `timeouts.request`, and then the client gets HTTP 504. |
 | `reasoning_effort` | The effort for a request with no `reasoning_effort`. Only a model that reasons gets it. |
 | `max_output_tokens` | The output limit of the model. A larger `max_tokens` or `max_completion_tokens` drops to this value. |
+| `supports_function_calling`, or its short name `tools` | `true` or `false`. A tool request from a pool or `daedalus/auto` skips each model without a true value. |
+| `supports_vision` | `true` or `false`. An image request from a pool or `daedalus/auto` skips each model without a true value. |
 
 When 2 entries match 1 model, the last entry in the file sets the key. A model key at the provider level, for example `reasoning_effort: high` next to `api_key`, sets the value for each model of the provider.
 
