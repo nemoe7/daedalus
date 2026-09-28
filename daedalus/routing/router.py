@@ -50,6 +50,32 @@ def claiming_tier(provider: Mapping[str, Any], slug: str) -> str | None:
   return None if best is None else best[1]
 
 
+def model_setting(provider: Mapping[str, Any], slug: str, key: str) -> Any:
+  """The value of a key in the last `models` entry that matches the slug and has it."""
+  found = None
+  for pattern, values in (provider.get("models") or {}).items():
+    if isinstance(values, dict) and key in values and matches(str(pattern), slug):
+      found = values[key]
+  return found
+
+
+def pooled(provider: Mapping[str, Any], slug: str) -> bool:
+  """Tell if the model can go into the pools: `pool: false` allows only direct requests."""
+  return model_setting(provider, slug, "pool") is not False
+
+
+def model_wait(config: Mapping[str, Any], model: str, default: float) -> float:
+  """The seconds with no bytes from the provider: the `timeout` of the model, or the default."""
+  name, _, slug = model.partition("/")
+  provider = config.get(name)
+  value = (
+    model_setting(provider, slug, "timeout") if isinstance(provider, dict) else None
+  )
+  if isinstance(value, bool) or not isinstance(value, int | float) or value <= 0:
+    return default
+  return float(value)
+
+
 def candidates(
   config: Mapping[str, Any],
   tier_name: str,
@@ -68,6 +94,7 @@ def candidates(
       if (
         line.startswith(head)
         and claiming_tier(provider, line[len(head) :]) == tier_name
+        and pooled(provider, line[len(head) :])
       ):
         wanted.append(line)
   return wanted

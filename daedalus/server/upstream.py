@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 
 from daedalus import providers, store
 from daedalus.providers.base import error_detail, error_text
+from daedalus.routing import router
 from daedalus.server.logs import elapsed
 
 logger = logging.getLogger("daedalus")
@@ -162,7 +163,11 @@ async def attempt(
   """Send one candidate request, and fail on an upstream error status."""
   body = without_reasoning(candidate, body)
   provider, url, payload, headers = providers.prepare(candidate, body, config)
-  upstream = get_client().build_request("POST", url, json=payload, headers=headers)
+  wait = router.model_wait(config, candidate, WAIT_SECONDS)
+  timeout = httpx.Timeout(TIMEOUT_SECONDS, read=wait)
+  upstream = get_client().build_request(
+    "POST", url, json=payload, headers=headers, timeout=timeout
+  )
   started = time.perf_counter()
   response = await get_client().send(upstream, stream=True)
   status = response.status_code

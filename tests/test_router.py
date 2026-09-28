@@ -1,11 +1,15 @@
 """Runnable check for the vendored tier router. Run: python tests/test_router.py"""
 
+import asyncio
 import json
 import sys
 import tempfile
 from pathlib import Path
 
+import httpx
+
 from daedalus.routing import classifier, router
+from daedalus.server import upstream
 
 
 def check_classify() -> None:
@@ -152,6 +156,45 @@ def check_route() -> None:
   assert chain(config, [], tier) == []
 
 
+def check_direct_only() -> None:
+  """A model with `pool: false` stays out of each tier, and the last matching entry wins."""
+  models = {
+    "*": {"pool": False},
+    "z-ai/*": {"reasoning_effort": "low"},
+    "a/keep": {"pool": True},
+  }
+  config = {"openrouter": {"tier": {"TIER-A": ["*"]}, "models": models}}
+  lines = ["openrouter/z-ai/glm", "openrouter/a/keep"]
+  assert router.candidates(config, "TIER-A", lines) == ["openrouter/a/keep"]
+  assert router.claiming_tier(config["openrouter"], "z-ai/glm") == "TIER-A"
+  assert router.pooled({"models": {"x": {"pool": 0}}}, "x"), "only false turns it off"
+
+
+def check_model_wait() -> None:
+  """The `timeout` of a model replaces the wait, and the upstream request carries it."""
+  models = {"*": {"timeout": 15}, "slow": {"timeout": True}, "off": {"timeout": 0}}
+  config = {"p": {"api_key": "k", "api_base": "https://p.test/v1", "models": models}}
+  assert router.model_wait(config, "p/fast", 60.0) == 15.0
+  assert router.model_wait(config, "p/slow", 60.0) == 60.0, "a bool is not seconds"
+  assert router.model_wait(config, "p/off", 60.0) == 60.0
+  assert router.model_wait(config, "q/other", 60.0) == 60.0
+  seen: list[dict] = []
+
+  def answer(request: httpx.Request) -> httpx.Response:
+    seen.append(request.extensions["timeout"])
+    return httpx.Response(200, json={"choices": []})
+
+  upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
+  try:
+    body = {"model": "x", "messages": [{"role": "user", "content": "hi"}]}
+    for model in ("p/fast", "p/off"):
+      _, response = asyncio.run(upstream.attempt(model, body, config))
+      asyncio.run(response.aclose())
+  finally:
+    upstream.set_client(None)
+  assert [t["read"] for t in seen] == [15.0, upstream.WAIT_SECONDS], seen
+
+
 def check_most_specific_tier() -> None:
   """A slug that 2 tiers claim goes only to the tier with the most specific pattern."""
   config = {
@@ -236,6 +279,8 @@ def main() -> int:
   check_tier_names()
   check_tier_models()
   check_route()
+  check_direct_only()
+  check_model_wait()
   check_most_specific_tier()
   check_pools()
   print("ok: router checks passed")
