@@ -35,6 +35,7 @@ flowchart TD
 | No model fits | The client gets 400 `context_length_exceeded`. |
 | Error | The next model gets the request. The client sees only the last error. |
 | Stream | When a stream stops, the next model continues the answer. |
+| Client cancel | When the client closes the connection before the last byte, Daedalus stops the request. No model gets a fault, and no next model gets the request. The Requests page shows "cancelled". When no answer started, the log shows status 499. |
 
 The end client only sees the last error to provide a cleaner transition between models in the fallback ladder.
 

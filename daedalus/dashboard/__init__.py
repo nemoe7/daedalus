@@ -64,10 +64,14 @@ FILES = (config.DEFAULT_PATH,)
 logger = logging.getLogger("daedalus")
 
 
-def record(request: Request, status: int, seconds: float) -> None:
+def record(
+  request: Request, status: int, seconds: float, cancelled: bool = False
+) -> None:
   """Keep one API request for the dashboard, and end it on the live list."""
   found = {key: getattr(request.state, key, None) for key in FIELDS}
   row = {"at": time.time(), "status": status, "seconds": round(seconds, 3), **found}
+  if cancelled:
+    row["cancelled"] = True
   HISTORY.add(row)
   if (key := getattr(request.state, "live", None)) is not None:
     LIVE.end(key, row)
