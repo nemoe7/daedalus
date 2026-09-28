@@ -139,6 +139,19 @@ A model in a cooldown leaves each chain and each media pool. A session model in 
 | Storage | `.daedalus-state/models.sqlite3`, kept after a restart |
 | Dashboard | The Models page shows the time left of each cooldown. The Requests page marks each request with an attempt that started a cooldown. |
 
+## Pacing
+
+A model with `rpm` or `tpm` in its provider file leaves the chains and the media pools at that limit.
+
+| Item | Value |
+| --- | --- |
+| Window | The last 60 s |
+| Requests | Each request that Daedalus sent to the model, fallbacks included |
+| Tokens | The input estimate of the context check: characters / 4. Media requests count 0 tokens. |
+| Skip | Silent. The weight does not change, and the log has no line. |
+| Each model skipped | HTTP 429 `rate_limit_exceeded`. `Retry-After` is the time until the oldest request leaves the window. |
+| Storage | Memory only. A restart sets the counts to 0. |
+
 ## Session affinity
 
 A conversation keeps its model (the session model) in each slot.

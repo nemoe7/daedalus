@@ -58,6 +58,7 @@ Daedalus skips each provider that has no key.
 | `weights.rate_limit` | `0.75` | Factor for an HTTP 429 |
 | `cooldown.first` | `60` | Seconds of the first cooldown of a 429 with no reset time |
 | `cooldown.longest` | `21600` | Each next 429 doubles the cooldown, up to these seconds |
+| `pacing.enabled` | `true` | `false`: the `rpm` and `tpm` of the provider files do not skip models |
 | `catalog.every` | `6` | Hours between catalog rebuilds. `0` stops them. |
 | `catalog.anchor` | `6` | Local hour that the rebuild times start from. A whole hour from 0 to 23. |
 | `headroom.timeout` | `5` | Seconds for Headroom. Then the original messages go to the provider. |
@@ -91,6 +92,8 @@ groq:
 | `exclude` | Patterns of models that never go into the catalog |
 | `tier` | Patterns for each tier key: `TIER-A`, `TIER-B`, `TIER-C`, `TIER-D` |
 | `models` | Values for each model, for example `max_input_tokens`. These have priority over discovery and LiteLLM. |
+
+`rpm` and `tpm` limit the requests and the input tokens of a model in 60 s. At a limit, the model leaves the chains. See [Pacing](architecture.md#pacing).
 
 A model with a `mode` other than `chat` never goes into a chat chain. Use `embedding`, `audio_transcription`, `audio_speech` or `image_generation`. A model with no mode goes into the chat chains. The `audio_transcription` models make the `daedalus/graphos` pool, and the `image_generation` models make the `daedalus/photos` pool.
 
