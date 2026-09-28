@@ -13,7 +13,7 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse
 from starlette.datastructures import UploadFile
 
-from daedalus import providers, store
+from daedalus import dashboard, providers, store
 from daedalus.config import get_config
 from daedalus.routing import cooldowns, pacing, penalties, retries, router
 from daedalus.server import access, stream, upstream
@@ -45,6 +45,7 @@ async def json_body(request: Request) -> dict | Response:
   if not isinstance(body, dict) or not isinstance(body.get("model"), str):
     return invalid("A model is required")
   request.state.model = body["model"]
+  dashboard.live_update(request, model=body["model"])
   return body
 
 
@@ -141,6 +142,7 @@ async def attempt(
         attempts[-1]["cooldown"] = COOLDOWNS.start(candidate, exc.headers, exc.body)
       continue
     request.state.via = candidate
+    dashboard.live_first(request)
     attempts.append(upstream.note(candidate, "answered", started))
     if COOLDOWNS:
       COOLDOWNS.succeeded(candidate)
@@ -221,6 +223,7 @@ async def transcriptions(request: Request) -> Response:
   if not isinstance(model, str) or not model:
     return invalid("A model is required")
   request.state.model = model
+  dashboard.live_update(request, model=model)
   if not isinstance(upload, UploadFile):
     return invalid("A file is required")
   fields: dict[str, Any] = {

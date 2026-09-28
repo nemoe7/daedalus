@@ -52,7 +52,15 @@ app.include_router(media.routes)
 @app.middleware("http")
 async def log_request(request: Request, call_next):
   started = time.perf_counter()
-  response = await call_next(request)
+  api_post = request.method == "POST" and request.url.path.startswith("/v1/")
+  if api_post:
+    request.state.live = dashboard.LIVE.start(request.url.path)
+  try:
+    response = await call_next(request)
+  except Exception:
+    if api_post:
+      dashboard.LIVE.end(request.state.live, None)
+    raise
   models = [
     f"{key}={getattr(request.state, key)}"
     for key in (
@@ -75,25 +83,22 @@ async def log_request(request: Request, call_next):
   quiet = request.method == "GET" and response.status_code < 400
   quiet = quiet and (request.url.path == "/" or request.url.path.startswith("/ui/"))
   logger.log(logging.DEBUG if quiet else logging.INFO, " ".join([line, *models]))
-  if request.method == "POST" and request.url.path.startswith("/v1/"):
+  if api_post:
     response.body_iterator = recorded(
-      request,
-      response.status_code,
-      response.body_iterator,
-      time.perf_counter() - started,
+      request, response.status_code, response.body_iterator, started
     )
   return response
 
 
 async def recorded(
-  request: Request, status: int, body: AsyncIterator[bytes], seconds: float
+  request: Request, status: int, body: AsyncIterator[bytes], started: float
 ) -> AsyncIterator[bytes]:
-  """Pass the body on, and keep the request for the dashboard after the last chunk."""
+  """Pass the body on, and keep the request with its total time after the last chunk."""
   try:
     async for chunk in body:
       yield chunk
   finally:
-    dashboard.record(request, status, seconds)
+    dashboard.record(request, status, time.perf_counter() - started)
 
 
 def user_turns(messages: object) -> list[str]:
@@ -321,6 +326,10 @@ async def chat(request: Request) -> Response:
   model = body["model"]
   request.state.model = model
   request.state.effort = providers.effort_text(body.get("reasoning_effort"))
+  request.state.stream = body.get("stream") is True
+  dashboard.live_update(
+    request, model=model, effort=request.state.effort, stream=request.state.stream
+  )
   if not isinstance(body.get("messages"), list):
     return upstream.error_response(
       400, "messages must be a list", "invalid_request_error"
@@ -409,6 +418,7 @@ async def chat(request: Request) -> Response:
         request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
         request.state.ttft = logs.seconds_text(ttft)
         served(request, config, candidate)
+        dashboard.live_first(request)
         remember(request, turn, candidate)
         attempts.append(upstream.note(candidate, "answered", started) | sent)
         return JSONResponse(completion)
@@ -453,6 +463,7 @@ async def chat(request: Request) -> Response:
     request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
     request.state.ttft = logs.seconds_text(ttft)
     served(request, config, candidate)
+    dashboard.live_first(request)
     remember(request, turn, candidate)
     attempts.append(upstream.note(candidate, "answered", started) | sent)
     return StreamingResponse(

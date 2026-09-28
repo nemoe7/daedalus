@@ -11,18 +11,26 @@ from typing import Any
 
 import yaml
 from fastapi import APIRouter, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from fastapi.responses import (
+  FileResponse,
+  HTMLResponse,
+  JSONResponse,
+  Response,
+  StreamingResponse,
+)
 
 from daedalus import config, providers, store
 from daedalus.catalog import schedule
 from daedalus.config import block_for, settings
 from daedalus.dashboard.history import SHOWN, History
+from daedalus.dashboard.live import Live
 from daedalus.routing import router
 from daedalus.routing.cooldowns import Cooldowns
 from daedalus.routing.penalties import Penalties
 from daedalus.store import keys
 
 HISTORY = History(lambda: store.MODELS_DB)
+LIVE = Live()
 FIELDS = (
   "model",
   "effort",
@@ -31,6 +39,7 @@ FIELDS = (
   "retry",
   "via",
   "ttft",
+  "stream",
   "fallbacks",
   "attempts",
 )
@@ -53,9 +62,25 @@ FILES = (config.DEFAULT_PATH,)
 
 
 def record(request: Request, status: int, seconds: float) -> None:
-  """Keep one API request for the dashboard."""
+  """Keep one API request for the dashboard, and end it on the live list."""
   found = {key: getattr(request.state, key, None) for key in FIELDS}
-  HISTORY.add({"at": time.time(), "status": status, "seconds": seconds, **found})
+  row = {"at": time.time(), "status": status, "seconds": round(seconds, 3), **found}
+  HISTORY.add(row)
+  if (key := getattr(request.state, "live", None)) is not None:
+    LIVE.end(key, row)
+
+
+def live_update(request: Request, **fields: Any) -> None:
+  """Add fields, such as the model, to the live row of a request."""
+  if (key := getattr(request.state, "live", None)) is not None:
+    LIVE.update(key, **fields)
+
+
+def live_first(request: Request) -> None:
+  """Mark the first token of a request, with the model and the pool that answered."""
+  if (key := getattr(request.state, "live", None)) is not None:
+    state = request.state
+    LIVE.first(key, via=state.via, pool=getattr(state, "pool", None))
 
 
 def master() -> str | None:
@@ -74,10 +99,12 @@ def cookie(key: str, now: float, seconds: int = SESSION_SECONDS) -> str:
   return f"{expires}.{signature(key, expires)}"
 
 
-def allowed(request: Request) -> bool:
-  """Accept a request with a live session value, as cookie or header, from the master key."""
+def allowed(request: Request, query: bool = False) -> bool:
+  """Accept a live session value from the master key, as cookie or header, or in the URL when `query` is true."""
   key = master()
   values = (request.cookies.get(COOKIE, ""), request.headers.get(HEADER, ""))
+  if query:
+    values += (request.query_params.get("session", ""),)
   return key is not None and any(live(key, value) for value in values)
 
 
@@ -329,6 +356,17 @@ def routes(
     except ValueError:
       limit = SHOWN
     return JSONResponse(HISTORY.latest(limit))
+
+  @api.get("/requests/live")
+  async def live(request: Request) -> Response:
+    # `EventSource` cannot send headers, so a frame without cookies sends the session in the URL.
+    if not allowed(request, query=True):
+      return denied()
+    return StreamingResponse(
+      LIVE.events(request.is_disconnected),
+      media_type="text/event-stream",
+      headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
   @api.get("/keys")
   async def key_list(request: Request) -> JSONResponse:
