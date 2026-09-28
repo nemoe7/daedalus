@@ -1,4 +1,4 @@
-"""Tests for the OpenRouter image model and the OpenRouter Image API."""
+"""Tests for the OpenRouter image and embedding models."""
 
 from pathlib import Path
 
@@ -50,3 +50,19 @@ def test_image_request(monkeypatch: pytest.MonkeyPatch) -> None:
     "model": "recraft/recraft-v3:free",
   }, options
   assert headers["Authorization"] == "Bearer sk-or-test", headers
+
+
+def test_embedding_models(monkeypatch: pytest.MonkeyPatch) -> None:
+  """The catalog keeps the declared free embedding models, with the embedding mode."""
+  monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+  loaded = config.load_config(Path("config/providers/free.yml"))
+  shipped = {"openrouter": loaded["openrouter"]}
+  rows, _ = discovery.build_rows(shipped, listing)
+  names = [
+    "openrouter/liquid/lfm-2.5-embedding-350m:free",
+    "openrouter/nvidia/nemotron-3-embed-1b:free",
+    "openrouter/nvidia/llama-nemotron-embed-vl-1b-v2:free",
+  ]
+  assert set(names) <= set(rows), rows
+  found, _ = enrichment.enrich(names, shipped, fetch=lambda url, headers: {})
+  assert {row["mode"] for row in found} == {"embedding"}, found

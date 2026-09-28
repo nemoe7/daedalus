@@ -439,13 +439,15 @@ def test_free_stealth() -> None:
     block.update(api_key="k", discovery_url="https://gateway.test/models")
     lines, skipped = discovery.build_rows({name: block}, lambda *_: payload)
     assert not skipped, skipped
-    # The openrouter block declares its image model, so the catalog keeps it too.
-    image = [f"{name}/recraft/recraft-v3:free"] if name == "openrouter" else []
-    assert list(lines) == [
-      f"{name}/google/gemma-4-31b-it:free",
-      *image,
-      f"{name}/stealth/space-bunny-alpha",
-    ], lines
+    # The catalog also keeps each model id that the block names exactly.
+    declared = [f"{name}/{slug}" for slug in discovery.declared_ids(block)]
+    assert sorted(lines) == sorted(
+      [
+        f"{name}/google/gemma-4-31b-it:free",
+        f"{name}/stealth/space-bunny-alpha",
+        *declared,
+      ]
+    ), lines
   groq = {
     "api_key": "k",
     "discovery_url": "https://groq.test/models",
@@ -473,9 +475,8 @@ def test_free_only() -> None:
       "openrouter/pareto-code",
     ],
   )
-  assert openrouter == ["google/gemma-4-31b-it:free", "recraft/recraft-v3:free"], (
-    openrouter
-  )
+  declared = discovery.declared_ids(providers["openrouter"])
+  assert openrouter == sorted(["google/gemma-4-31b-it:free", *declared]), openrouter
 
   kilo = discovery.select(
     providers["kilo"],

@@ -98,7 +98,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Image | `pgvector/pgvector:0.8.6-pg18-trixie` |
 | Content | The vectors of files, knowledge and memory. The chats stay in the `open-webui` volume. |
 | Password | `OPENWEBUI_DB_PASSWORD`, default `openwebui`. No port on the host. |
-| Vector size | 1024, the size of a `mistral/mistral-embed` vector. A new embedding model needs a new index of all files. |
+| Vector size | 1024, the size of a `mistral/mistral-embed` vector. A new embedding model needs a new index of all files. The free OpenRouter embedding models share 1 daily limit with chat, so 1 large file can use all of it. |
 | Volume | `webui-db` |
 
 ### Tika
