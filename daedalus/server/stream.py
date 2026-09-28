@@ -49,6 +49,13 @@ async def sse_data(chunks: AsyncIterator[bytes]) -> AsyncIterator[str]:
     await chunks.aclose()
 
 
+def provider_count(usage: object) -> dict[str, Any] | None:
+  """The input tokens of an OpenAI `usage` object, marked as a provider count."""
+  if isinstance(usage, dict) and isinstance(usage.get("prompt_tokens"), int):
+    return {"input": usage["prompt_tokens"], "estimate": False}
+  return None
+
+
 def has_content(data: str) -> bool:
   """True for `[DONE]`, and for a chunk with text, a tool call, or a finish reason."""
   if data == "[DONE]":
@@ -82,8 +89,9 @@ async def relay(
   model: str,
   pin: "Tracker",
   attempts: list[dict[str, Any]] | None = None,
+  counts: dict[str, Any] | None = None,
 ) -> AsyncIterator[bytes]:
-  """Stream one answer, and continue from the sent text on a failure."""
+  """Stream one answer, continue from the sent text on a failure, and keep the provider input count in `counts`."""
   identifier, sent, tool = None, [], False
   attempts = [] if attempts is None else attempts
   while True:
@@ -96,6 +104,14 @@ async def relay(
         chunk = json.loads(data)
         if not isinstance(chunk, dict) or chunk.get("error"):
           raise providers.ProviderError(f"Upstream stream error: {error_text(chunk)}")
+        if counts is not None:
+          counts.update(provider_count(chunk.get("usage")) or {})
+        if not include_usage and "usage" in chunk:
+          # The client did not ask for the count, so a chunk with only the count stays out.
+          if not chunk.get("choices"):
+            continue
+          if chunk["usage"] is None:
+            del chunk["usage"]
         identifier = identifier or chunk.get("id")
         if identifier:
           chunk["id"] = identifier
@@ -137,7 +153,7 @@ async def relay(
         provider, response = await upstream.attempt(
           candidate, continued, config, effort
         )
-        events = sse_data(provider.stream(response, candidate, include_usage))
+        events = sse_data(provider.stream(response, candidate, True))
         pending = await first_content(events)
         model = candidate
         pin.answered(model, time.perf_counter() - started)

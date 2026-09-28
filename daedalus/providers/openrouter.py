@@ -12,6 +12,7 @@ class OpenRouterProvider(OpenAIProvider):
     "api_base": "https://openrouter.ai/api/v1",
     "discovery_url": "https://openrouter.ai/api/v1/models",
   }
+  stream_usage: ClassVar[bool] = True
 
   columns = staticmethod(openrouter_columns)
   exclude_exempt = staticmethod(free_stealth)

@@ -260,6 +260,8 @@ class OpenAIProvider:
   """A provider that serves the OpenAI Chat Completions API."""
 
   unsupported: tuple[str, ...] = ()
+  # True when the provider documents `stream_options.include_usage`, so Daedalus asks for the count.
+  stream_usage: ClassVar[bool] = False
   defaults: ClassVar[Mapping[str, str]] = {"api_type": "openai"}
   # The message fields for each role, for a provider that rejects other fields. Empty: all fields.
   message_fields: ClassVar[Mapping[str, frozenset[str]]] = {}

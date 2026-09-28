@@ -377,6 +377,7 @@ async def chat(request: Request) -> Response:
     request.state.pool = routed_pool(found[1])
   pin = Tracker(key, found[1])
   tokens, limits = context.input_tokens(body), store.input_limits()
+  request.state.tokens = {"input": tokens, "estimate": True}
   attempts: list[dict[str, Any]] = []
   request.state.attempts = attempts
   # Too-small models leave the tiers before the draw, so they cannot be drawn or pinned.
@@ -424,6 +425,9 @@ async def chat(request: Request) -> Response:
         if not isinstance(answer, dict) or answer.get("error"):
           raise providers.ProviderError(f"Invalid upstream answer: {error_text(raw)}")
         completion = provider.completion(answer, candidate)
+        request.state.tokens.update(
+          stream.provider_count(completion.get("usage")) or {}
+        )
         ttft = time.perf_counter() - started
         request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
         request.state.ttft = logs.seconds_text(ttft)
@@ -432,7 +436,7 @@ async def chat(request: Request) -> Response:
         remember(request, turn, candidate)
         attempts.append(upstream.note(candidate, "answered", started) | sent)
         return JSONResponse(completion)
-      events = stream.sse_data(provider.stream(response, candidate, include_usage))
+      events = stream.sse_data(provider.stream(response, candidate, True))
       pending = await stream.first_content(events)
       ttft = time.perf_counter() - started
     except httpx.ReadTimeout as exc:
@@ -478,7 +482,16 @@ async def chat(request: Request) -> Response:
     attempts.append(upstream.note(candidate, "answered", started) | sent)
     return StreamingResponse(
       stream.relay(
-        pending, events, rest, body, config, include_usage, candidate, pin, attempts
+        pending,
+        events,
+        rest,
+        body,
+        config,
+        include_usage,
+        candidate,
+        pin,
+        attempts,
+        request.state.tokens,
       ),
       media_type="text/event-stream",
     )
