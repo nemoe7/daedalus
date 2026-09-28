@@ -160,6 +160,7 @@ openrouter:
   exclude:
     - "*content-safety*"
     - openrouter/*
+    - recraft/* # image generation needs a credit balance, also for the :free ids
     - "!*:free"
   tier:
     TIER-A:
@@ -176,12 +177,6 @@ openrouter:
     TIER-C:
       - "liquid/lfm-2.5-2.6b*"
   models:
-    # The Image API. The order of Cloudflare: free requests share 1 daily limit with chat.
-    "recraft/recraft-v3:free": { mode: image_generation, order: 2 }
-    # Embeddings, direct only. The models list of OpenRouter shows only text models by default.
-    "liquid/lfm-2.5-embedding-350m:free": { mode: embedding } # 1024 dimensions, 512 tokens
-    "nvidia/nemotron-3-embed-1b:free": { mode: embedding }
-    "nvidia/llama-nemotron-embed-vl-1b-v2:free": { mode: embedding }
     "*gemma-4-26b-a4b-it:free": { reasoning_effort: low }
     "*gemma-4-31b-it:free": { reasoning_effort: low }
 

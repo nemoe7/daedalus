@@ -9,7 +9,7 @@ These are the only providers that tests confirmed as really free.
 | `groq` | Groq | OpenAI-compatible | Gets only the message fields that it accepts. |
 | `kilo` | Kilo Gateway | OpenAI-compatible | Only `:free` models, and `stealth/` models with price 0 in each price field. |
 | `mistral` | Mistral | OpenAI-compatible | Gets only the message fields that it accepts. `reasoning_effort` `none` and `minimal` become `none`, and `low` to `xhigh` become `high`. The thinking chunks of an answer go to `reasoning_content`. An old assistant message with `reasoning_content` goes back as a thinking chunk before its text. |
-| `openrouter` | OpenRouter | OpenAI-compatible, plus the OpenRouter Image API (`/images`) | Only `:free` models, and `stealth/` models with price 0 in each price field. The image model `recraft/recraft-v3:free` goes to `daedalus/photos` at order 2: the free requests of OpenRouter share 1 daily limit. The 3 free embedding models are direct models, for example `openrouter/nvidia/nemotron-3-embed-1b:free`. |
+| `openrouter` | OpenRouter | OpenAI-compatible, plus the OpenRouter Image API (`/images`). Speech is mp3, unless the client asks for pcm. | Only `:free` models, and `stealth/` models with price 0 in each price field. Discovery lists each output type, and the output type sets the mode: for example, the free embedding and speech models are direct models. No image model: image generation needs a credit balance. |
 | `pollinations` | Pollinations | OpenAI-compatible | Only 4 image models for `daedalus/photos`, at 0.0001 to 0.005 Pollen for each image: `lykon/dreamshaper-8-lcm`, `black-forest-labs/flux.1-schnell`, `tongyi-mai/z-image-turbo` and `black-forest-labs/flux.2-klein-4b`. Order 2, as Cloudflare. |
 | `z-ai` | Z.ai | OpenAI-compatible | Only the 3 free models under `models:`: `glm-4.5-flash`, `glm-4.7-flash` and `glm-4.6v-flash`. |
 
@@ -56,6 +56,19 @@ Cloudflare tasks in the catalog:
 
 Models of other tasks stay out of the catalog.
 
+OpenRouter output types in the catalog. The same rule applies to each Kilo row with output types.
+
+| Output type | Mode |
+| --- | --- |
+| Text, also with other types | `chat` |
+| Speech | `audio_speech` |
+| Image | `image_generation` |
+| Embeddings | `embedding` |
+| Video | `video_generation` |
+| Another type | The name of the type |
+
+A mode that Daedalus does not know keeps the model out of each chain and pool.
+
 ## Endpoints for models that do not chat
 
 | Provider | Embeddings | Transcriptions | Speech | Images |
@@ -64,6 +77,8 @@ Models of other tasks stay out of the catalog.
 | Gemini | Yes, native API | `gemini-3.5-transcribe`, native API | 3.x TTS models, native API | 400 |
 | Groq | - | Yes | Yes | - |
 | Mistral | Yes | `language` and `temperature` only | - | - |
+| OpenRouter | Yes | - | Yes, mp3 or pcm | Image API, needs a credit balance |
+| Pollinations | - | - | - | Yes, with Pollen |
 
 - "Yes": the provider has free models for this endpoint.
 - "-": we know of no free model. Daedalus sends the request to the OpenAI-compatible API of the provider.

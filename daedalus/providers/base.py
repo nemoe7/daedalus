@@ -93,6 +93,25 @@ def modalities(inputs: Any, outputs: Any) -> dict[str, bool]:
   return found
 
 
+# The mode of a model that makes no text, by its first known output modality.
+OUTPUT_MODES = {
+  "speech": "audio_speech",
+  "image": "image_generation",
+  "embeddings": "embedding",
+  "video": "video_generation",
+}
+
+
+def output_mode(outputs: Any) -> dict[str, str]:
+  """The mode column from a full output modality list: none for a text model."""
+  if not isinstance(outputs, list) or not outputs or "text" in outputs:
+    return {}
+  for name in outputs:
+    if name in OUTPUT_MODES:
+      return {"mode": OUTPUT_MODES[name]}
+  return {"mode": str(outputs[0])}
+
+
 def free_price(row: dict) -> bool:
   """Whether each price field of one gateway row is 0."""
   pricing = row.get("pricing")
@@ -136,6 +155,7 @@ def openrouter_columns(row: dict) -> dict[str, Any]:
     **modalities(
       architecture.get("input_modalities"), architecture.get("output_modalities")
     ),
+    **output_mode(architecture.get("output_modalities")),
     "reasoning_effort": reasoning.get("default_effort")
     if isinstance(reasoning, dict)
     else None,
