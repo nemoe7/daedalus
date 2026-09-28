@@ -846,10 +846,25 @@ const SETTINGS = [
   ["switch", "Switch", [
     ["keywords", "Keywords", "list", "1 word or phrase on each line. A match in the last user message gives the pool session another model of the same tier."],
   ]],
+  ["dashboard", "Dashboard", [
+    ["theme", "Theme", "choice", "System follows the light or dark setting of the device."],
+  ]],
 ];
 
 // The Settings cards of each column, from top to bottom.
-const SETTINGS_COLUMNS = [["timeouts", "catalog", "pacing"], ["session_affinity", "headroom", "cooldown"], ["weights", "escalation", "switch"]];
+const SETTINGS_COLUMNS = [["timeouts", "catalog", "pacing"], ["session_affinity", "headroom", "cooldown", "dashboard"], ["weights", "escalation", "switch"]];
+const THEMES = [["system", "System"], ["light", "Light"], ["dark", "Dark"]];
+
+// The theme of the page. System follows the device, also before the login.
+const darkDevice = matchMedia("(prefers-color-scheme: dark)");
+let theme = "system";
+function applyTheme(value = theme) {
+  theme = value;
+  const dark = theme === "dark" || (theme === "system" && darkDevice.matches);
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+}
+darkDevice.addEventListener("change", () => applyTheme());
+applyTheme();
 
 // The fields that take decimals. The other fields take whole numbers.
 const DECIMALS = new Set([
@@ -880,6 +895,10 @@ function renderSettings() {
       if (key === "enabled") {
         return `<label class="field check" for="${id}"><input type="checkbox" id="${id}"
           ${setting(group, key) ? "checked" : ""}><span><b>${esc(label)}</b><small>${esc(hint)}</small></span></label>`;
+      }
+      if (unit === "choice") {
+        return `<label class="field" for="${id}"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
+          <select id="${id}">${THEMES.map(([name, text]) => `<option value="${name}"${setting(group, key) === name ? " selected" : ""}>${text}</option>`).join("")}</select></label>`;
       }
       if (unit === "list") {
         return `<label class="field stack" for="${id}"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
@@ -914,6 +933,9 @@ function settingsChanges() {
       if (key === "enabled") {
         value = input.checked;
         before = setting(group, key);
+      } else if (unit === "choice") {
+        value = input.value;
+        before = setting(group, key);
       } else {
         value = input.value.trim() === "" ? null : Number(input.value);
         before = fileValue(group, key);
@@ -940,6 +962,7 @@ function renderSettingsSave() {
 
 async function loadSettings() {
   state.settings = await call("settings");
+  applyTheme(setting("dashboard", "theme"));
   $("settings-editor").value = state.settings.text;
   renderSettings();
 }
