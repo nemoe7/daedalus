@@ -226,7 +226,7 @@ function renderRequests(rows) {
       <td class="hide-sm">${effortCell(r)}</td>
       <td class="hide-sm muted">${esc(r.pool || "-")}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${r.retry ? ` <span class="from">try again ${esc(r.retry)}</span>` : ""}</td>
       <td>${r.via ? esc(r.via) : '<span class="muted">none</span>'}</td>
-      <td class="status s${String(r.status)[0]}">${r.status}${(r.attempts || []).some((a) => a.cooldown) ? ' <span class="from">cooldown</span>' : ""}</td>
+      <td class="status s${String(r.status)[0]}">${r.status}</td>
       <td class="hide-sm num">${esc(r.ttft || "-")}</td>
       <td class="hide-sm num">${esc(r.fallbacks ?? "-")}</td>
     </tr>${opened.has(String(r.at)) ? chainRows(r) : ""}`).join("")
