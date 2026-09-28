@@ -1,9 +1,12 @@
 """Runnable check of the upstream error classes. Run: python tests/server/test_errors.py"""
 
 import asyncio
+import tempfile
+from pathlib import Path
 
 import httpx
 
+from daedalus import store
 from daedalus.server import upstream
 
 CONFIG = {"groq": {"api_key": "q", "api_base": "https://groq.test/openai/v1"}}
@@ -38,6 +41,9 @@ def main() -> None:
     return httpx.Response(status["code"], json={"error": "no"}, headers=headers)
 
   upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
+  original = store.MODELS_DB
+  folder = tempfile.TemporaryDirectory()
+  store.MODELS_DB = Path(folder.name) / "models.sqlite3"
   try:
     for code, kind in EXPECTED.items():
       status["code"] = code
@@ -49,6 +55,8 @@ def main() -> None:
         assert exc.body == b'{"error":"no"}', exc.body
   finally:
     upstream.set_client(None)
+    store.MODELS_DB = original
+    folder.cleanup()
   print("ok: upstream error classes")
 
 

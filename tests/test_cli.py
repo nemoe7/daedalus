@@ -14,7 +14,19 @@ from daedalus.store import keys
 
 os.environ["DAEDALUS_MASTER_KEY"] = "test-master-key-0001"
 
-DAEDALUS = [sys.executable, "-c", "from daedalus.cli import run; run()"]
+# The CLI runs with a temporary state folder, so it never touches .daedalus-state.
+CLI = """
+import tempfile
+from pathlib import Path
+from daedalus import store
+from daedalus.catalog import discovery
+from daedalus.cli import run
+with tempfile.TemporaryDirectory() as folder:
+  store.MODELS_DB = Path(folder) / "models.sqlite3"
+  discovery.DUMP_DIR = Path(folder) / "dump"
+  run()
+"""
+DAEDALUS = [sys.executable, "-c", CLI]
 
 
 def check_help() -> None:
