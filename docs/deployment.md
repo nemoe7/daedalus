@@ -13,7 +13,7 @@ The commands below are the same in cmd, PowerShell and bash.
 | Start or update | `docker compose up -d --build` |
 | Stop | `docker compose down` |
 | Log | `docker compose logs -f daedalus` |
-| Rebuild the catalog now | `docker compose exec daedalus daedalus catalog` |
+| Rebuild the catalog now | Click the Catalog chip in the dashboard header, or run `docker compose exec daedalus daedalus catalog` |
 
 | Item | Value |
 | --- | --- |

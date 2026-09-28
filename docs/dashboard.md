@@ -22,6 +22,8 @@ The dashboard is mainly a utility for monitoring the application state and fine-
 | Providers | A tab for each provider file. The Form view shows 1 card for each provider of the file. The YAML view shows the file text. See [Providers](#providers). |
 | Settings | Form for `config/daedalus.yml`. The mouse wheel changes the last decimal digit of a decimal field. |
 
+The Catalog chip in the header shows the time of the last catalog rebuild and the next scheduled rebuild. Click the chip to rebuild the catalog now, after a confirmation. The chip shows "rebuilding" until the rebuild ends. Only 1 rebuild runs at a time.
+
 The Requests page shows "koinos from moros" when a `daedalus/auto` request starts in moros and a koinos model answers. It shows "try again N" for a [try again](architecture.md#try-again) in Open WebUI.
 
 ## Providers
