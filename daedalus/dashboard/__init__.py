@@ -519,7 +519,7 @@ def routes(
     try:
       values = check_file(path, text)
     except (settings.SettingsError, yaml.YAMLError) as exc:
-      return failure(422, str(exc), "invalid_request_error")
+      return failure(422, config.error_text(exc), "invalid_request_error")
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
     temporary.write_text(text, encoding="utf-8")
