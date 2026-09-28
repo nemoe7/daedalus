@@ -34,7 +34,7 @@ cloudflare:
 
 gemini:
   api_key: os.environ/GEMINI_API_KEY
-  reasoning_effort: medium
+  reasoning_effort: high
   exclude:
     - aqa
     - nano-banana*
