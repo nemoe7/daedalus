@@ -288,6 +288,41 @@ def check_session_tier() -> None:
     api.PENALTIES.clear()
 
 
+def check_keyword_tier() -> None:
+  """A keyword in any user turn raises the classifier tier by 1, before the tool rule."""
+  tiers: list[int] = []
+  original = router.required_tier, router.chain_groups, model_store.read_models
+  router.required_tier = lambda text: tiers.pop(0)
+  router.chain_groups = lambda config, lines, order: [[str(tier)] for tier in order]
+  model_store.read_models = lambda tools_only=False: []
+
+  def first(*turns: str, system: str = "", tools: bool = False) -> str:
+    messages = [{"role": "system", "content": system}]
+    messages += [{"role": "user", "content": turn} for turn in turns]
+    if tools:
+      messages.append(
+        {"role": "assistant", "content": None, "tool_calls": [{"id": "c"}]}
+      )
+    return api.chain(router.RESERVED_MODEL, {"messages": messages}, {}, "")[0][0][0]
+
+  try:
+    tiers.append(1)
+    assert first("Think hard about it") == "1", "no keywords, no change"
+    api.KEYWORDS = api.keyword_pattern(["think hard", "ultrathink"])
+    tiers.extend([1, 1, 1, 1, 4, 1])
+    assert first("Please THINK\n hard.", "continue") == "2", "an earlier turn, any case"
+    assert first("rethink hardware", system="think hard") == "1", (
+      "whole words, user turns"
+    )
+    assert first("ultrathink and think hard") == "2", "2 keywords give +1"
+    assert first("hello") == "1", "no match"
+    assert first("ultrathink") == "4", "the tier stops at sophos"
+    assert first("ultrathink", tools=True) == "2", "the tool rule does not add 1"
+  finally:
+    router.required_tier, router.chain_groups, model_store.read_models = original
+    api.KEYWORDS = None
+
+
 def main() -> None:
   with tempfile.TemporaryDirectory() as name:
     folder = Path(name)
@@ -301,6 +336,7 @@ def main() -> None:
     check_requests()
     check_ttft()
     check_session_tier()
+    check_keyword_tier()
   print("ok: penalties and session affinity")
 
 
