@@ -15,3 +15,8 @@ class KiloProvider(OpenAIProvider):
 
   columns = staticmethod(openrouter_columns)
   exclude_exempt = staticmethod(free_stealth)
+
+  @staticmethod
+  def discoverable(row: dict) -> bool:
+    """Only models that make text: the gateway accepts only `/chat/completions`."""
+    return "mode" not in openrouter_columns(row)
