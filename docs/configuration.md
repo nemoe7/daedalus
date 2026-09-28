@@ -38,7 +38,7 @@ A key that shows 2 times in 1 map of a config file stops the start. The error gi
 | `TZ` | UTC | Clock for the catalog schedule, for example `Asia/Manila` |
 | `DAEDALUS_UID`, `DAEDALUS_GID` | `1000` | Container user and group |
 | `HEADROOM_URL` | `http://headroom:8787` in Compose | Headroom compression. An empty value stops it. |
-| `COMPOSE_PROFILES` | Empty | Optional services: `webui`, `search`, `headroom`, `tailscale` |
+| `COMPOSE_PROFILES` | Empty | Optional services: `webui`, `tika`, `search`, `headroom`, `tailscale` |
 | `OPENWEBUI_API_KEY` | `DAEDALUS_MASTER_KEY` | The key that Open WebUI sends to Daedalus |
 | `OPENWEBUI_DB_PASSWORD` | `openwebui` | The password of the Open WebUI vector database. The database has no host port. |
 | `SEARXNG_SECRET` | Empty | The SearXNG secret. SearXNG has no host port. |

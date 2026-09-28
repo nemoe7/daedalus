@@ -49,7 +49,8 @@ services:
       RAG_EMBEDDING_MODEL: mistral/mistral-embed
       RAG_EMBEDDING_BATCH_SIZE: "32" # chunks per request, below the free Mistral limits
       ENABLE_ASYNC_EMBEDDING: "false" # 1 request at a time, so fewer 429 errors
-      # main-slim reads only plain text. Tika reads PDF and Office files, with OCR for scanned pages.
+      # Tika in the tika profile reads PDF and Office files, with OCR for scanned pages.
+      # Without it, plain text files still work.
       CONTENT_EXTRACTION_ENGINE: tika
       TIKA_SERVER_URL: http://tika:9998
       # Web search goes to SearXNG in the search profile.
@@ -67,6 +68,7 @@ services:
         condition: service_healthy
       tika:
         condition: service_started
+        required: false # the tika profile is optional
     restart: unless-stopped
 
   webui-db:
@@ -87,7 +89,7 @@ services:
     restart: unless-stopped # no port: only Open WebUI connects to it
 
   tika:
-    profiles: [webui]
+    profiles: [tika]
     image: apache/tika:3.3.0.0-full
     container_name: daedalus-tika
     command: ["-noFork"] # 1 Java process instead of a watchdog and a parser
