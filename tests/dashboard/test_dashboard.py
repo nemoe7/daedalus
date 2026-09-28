@@ -92,13 +92,29 @@ def test_login(client: TestClient) -> None:
   assert (
     client.get("/ui/api/status", cookies={dashboard.COOKIE: forged}).status_code == 401
   )
-  old = dashboard.cookie(MASTER, time.time() - dashboard.SESSION_SECONDS - 1)
+  old = dashboard.cookie(
+    dashboard.secret(), time.time() - dashboard.SESSION_SECONDS - 1
+  )
   assert (
     client.get("/ui/api/status", cookies={dashboard.COOKIE: old}).status_code == 401
   )
   os.environ[dashboard.MASTER_ENV] = MASTER + "-new"
   assert client.get("/ui/api/status").status_code == 401, "a new master key ends it"
   os.environ[dashboard.MASTER_ENV] = MASTER
+  assert client.post("/ui/api/login", json=login).status_code == 200
+  os.environ[dashboard.USER_ENV] = "owner"
+  os.environ[dashboard.PASSWORD_ENV] = "ui password"
+  assert client.get("/ui/api/status").status_code == 401, (
+    "a new login ends the sessions"
+  )
+  assert client.post("/ui/api/login", json=login).status_code == 401, "no admin login"
+  mine = {"username": "owner", "password": "ui password"}
+  assert client.post("/ui/api/login", json=mine).status_code == 200
+  assert client.get("/ui/api/status").status_code == 200, "the env login"
+  models = client.get("/v1/models", headers={"Authorization": "Bearer ui password"})
+  assert models.status_code == 401, "the password is for the dashboard only"
+  assert client.get("/v1/models").status_code == 200, "the master key stays the /v1 key"
+  del os.environ[dashboard.USER_ENV], os.environ[dashboard.PASSWORD_ENV]
   client.post("/ui/api/logout")
   assert client.get("/ui/api/status").status_code == 401, "logout ends the session"
   https = {"Origin": "https://3357-box.example.app"}
