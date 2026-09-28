@@ -1,0 +1,56 @@
+"""Runnable check of the upstream error classes. Run: python tests/test_errors.py"""
+
+import asyncio
+
+import httpx
+
+from daedalus.server import upstream
+
+CONFIG = {"groq": {"api_key": "q", "api_base": "https://groq.test/openai/v1"}}
+BODY = {"messages": [{"role": "user", "content": "hi"}]}
+EXPECTED = {
+  400: upstream.BadRequestError,
+  401: upstream.AuthenticationError,
+  403: upstream.AuthenticationError,
+  404: upstream.NotFoundError,
+  409: upstream.UpstreamStatus,
+  422: upstream.BadRequestError,
+  429: upstream.RateLimitError,
+  500: upstream.ServerError,
+  503: upstream.ServerError,
+}
+
+
+def raised(call) -> upstream.UpstreamStatus:
+  """The upstream error that one call raises."""
+  try:
+    asyncio.run(call())
+  except upstream.UpstreamStatus as exc:
+    return exc
+  raise AssertionError("no upstream error")
+
+
+def main() -> None:
+  status = {"code": 200}
+
+  def answer(request: httpx.Request) -> httpx.Response:
+    headers = {"retry-after": "7"}
+    return httpx.Response(status["code"], json={"error": "no"}, headers=headers)
+
+  upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
+  try:
+    for code, kind in EXPECTED.items():
+      status["code"] = code
+      streamed = raised(lambda: upstream.attempt("groq/m", BODY, CONFIG))
+      direct = raised(lambda: upstream.post("groq/m", "https://groq.test/x", {}))
+      for exc in (streamed, direct):
+        assert type(exc) is kind, (code, type(exc))
+        assert exc.status == code and exc.headers["Retry-After"] == "7", exc.headers
+        assert exc.body == b'{"error":"no"}', exc.body
+  finally:
+    upstream.set_client(None)
+  print("ok: upstream error classes")
+
+
+if __name__ == "__main__":
+  main()
