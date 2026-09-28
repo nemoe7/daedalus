@@ -13,6 +13,8 @@ class ProviderError(ValueError):
 
 
 ERROR_TEXT_LIMIT = 300
+# One uploaded file: the file name, the bytes and the media type.
+Upload = tuple[str, bytes, str]
 
 
 def hide_inputs(node: Any) -> Any:
@@ -437,6 +439,18 @@ class OpenAIProvider:
     body = {key: value for key, value in payload.items() if key in self.image_fields}
     url = self.base + "/images/generations"
     return url, {"json": {**body, "model": slug}}, self.headers()
+
+  def edit_request(
+    self, slug: str, fields: dict[str, Any], images: list[Upload], mask: Upload | None
+  ) -> tuple[str, dict[str, Any], dict[str, str]]:
+    """The upstream multipart edit request, with only the fields that the provider accepts."""
+    data = {key: value for key, value in fields.items() if key in self.image_fields}
+    name = "image[]" if len(images) > 1 else "image"
+    files = [(name, image) for image in images]
+    if mask is not None:
+      files.append(("mask", mask))
+    content = {"data": {**data, "model": slug}, "files": files}
+    return self.base + "/images/edits", content, self.auth(self.key)
 
   def images(self, response: httpx.Response, payload: dict) -> dict:
     """The OpenAI images answer, as the provider sends it."""
