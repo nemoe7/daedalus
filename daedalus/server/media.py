@@ -1,5 +1,6 @@
 """The OpenAI endpoints for models that do not chat, for one model or a media pool."""
 
+import asyncio
 import base64
 import hashlib
 import json
@@ -114,8 +115,10 @@ async def attempt(
   pooled = model == pool
   attempts: list[dict[str, Any]] = []
   request.state.attempts, status = attempts, 0
+  deadline = time.perf_counter() + upstream.TIMEOUT_SECONDS
   for index, candidate in enumerate(models):
     request.state.fallbacks = str(index)
+    dashboard.live_update(request, trying=candidate, fallbacks=index)
     started = time.perf_counter()
     try:
       provider, slug = providers.provider_for(candidate, get_config())
@@ -129,7 +132,14 @@ async def attempt(
     if PACING:
       PACING.record(candidate)
     try:
-      answer = await pending
+      answer = await upstream.in_time(pending, deadline)
+    except asyncio.TimeoutError:
+      attempts.append(upstream.late_note(candidate, started))
+      if pooled and PENALTIES:
+        PENALTIES.record(candidate, PENALTIES.fault)
+      return upstream.error_response(
+        504, "Upstream provider timed out", "upstream_error"
+      )
     except (upstream.UpstreamStatus, *stream.ATTEMPT_ERRORS) as exc:
       attempts.append(upstream.failure_note(candidate, started, exc))
       status = exc.status if isinstance(exc, upstream.UpstreamStatus) else 0
