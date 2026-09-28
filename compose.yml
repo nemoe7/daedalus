@@ -31,6 +31,14 @@ services:
       ENABLE_OLLAMA_API: "false"
       # Sends X-OpenWebUI-Chat-Id, so a try again on daedalus/auto moves up 1 tier.
       ENABLE_FORWARD_USER_INFO_HEADERS: "true"
+      # Keeps the logins after an image update. Empty: a new key in each new container.
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:-}
+      AIOHTTP_CLIENT_TIMEOUT: "600" # keep at or above timeouts.request
+      TASK_MODEL_EXTERNAL: daedalus/auto
+      AUDIO_STT_ENGINE: openai
+      AUDIO_STT_MODEL: daedalus/graphos
+      ENABLE_IMAGE_GENERATION: "true"
+      IMAGE_GENERATION_MODEL: daedalus/photos
     ports:
       - "3000:8080"
     volumes:
@@ -47,6 +55,8 @@ services:
     environment:
       HEADROOM_COMPRESS_ALLOW_REMOTE: "1" # else Headroom answers the Daedalus container with 404
       HEADROOM_TELEMETRY: "off"
+      HEADROOM_BEACON: "off" # the anonymous upload, on by default
+      HEADROOM_UPDATE_CHECK: "off"
       HOME: /home/nonroot
       HEADROOM_WORKSPACE_DIR: /home/nonroot/.headroom
     volumes:
@@ -63,6 +73,14 @@ services:
       TS_HOSTNAME: ${TS_HOSTNAME:-daedalus}
       TS_STATE_DIR: /var/lib/tailscale
       TS_SERVE_CONFIG: /config/serve.json # https://NAME.TAILNET.ts.net to Daedalus, tailnet only
+      TS_AUTH_ONCE: "true" # log in with TS_AUTHKEY only when the state has no login
+      TS_ENABLE_HEALTH_CHECK: "true"
+      TS_LOCAL_ADDR_PORT: 127.0.0.1:9002
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9002/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     volumes:
       - tailscale:/var/lib/tailscale
       - ./tailscale:/config:ro
