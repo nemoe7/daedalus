@@ -310,6 +310,30 @@ def check_provider_file_override() -> None:
     config.set_config(None)
 
 
+def check_shared_download() -> None:
+  """A file with the same URL and key as its main block reads the list 1 time."""
+  block = {"api_key": "same", "discovery_url": "https://or.test/api/v1/models"}
+  file = {**block, "models": {"openai/gpt-6-sol": {"pool": False}}}
+  config.set_config({"openrouter": {**block, config.FILE_KEY: file}})
+  calls: list[str] = []
+
+  def fetch(url: str, headers: dict[str, str]) -> dict[str, Any]:
+    calls.append(url)
+    return make_fetch(PAYOUT)(url, headers)
+
+  try:
+    blocks = config.get_config()
+    found, skipped = discovery.read_providers(blocks, fetch)
+    assert not skipped, skipped
+    assert [is_file for _, _, _, is_file in found] == [False, True], found
+    assert len(calls) == 1, calls
+    with tempfile.TemporaryDirectory() as folder:
+      paths = discovery.dump(blocks, fetch, folder)
+      assert [p.name for p in paths] == ["openrouter.json"], paths
+  finally:
+    config.set_config(None)
+
+
 def check_discovery_match() -> None:
   payload = {
     "result": [
@@ -487,6 +511,7 @@ def main() -> int:
   check_discover()
   check_build_rows()
   check_provider_file_override()
+  check_shared_download()
   check_merge_pages()
   check_dump()
   check_discovery_match()
