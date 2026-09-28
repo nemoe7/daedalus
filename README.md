@@ -75,23 +75,28 @@ Daedalus is for personal use only. Do not share it with other users, because the
 
 ## Run without Docker
 
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/).
+
 cmd or PowerShell:
 
 ```cmd
-py -m pip install -e .
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
 bash:
 
 ```bash
-python3 -m pip install -e .
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Then start the router. The command is the same in all 3 shells:
+Install Daedalus with the versions in `uv.lock`, then start the router. The commands are the same in all 3 shells:
 
 ```sh
-daedalus serve
+uv sync
+uv run daedalus serve
 ```
+
+Put `uv run` before each command in the table. After `git pull`, run `uv sync` again.
 
 | Command | What it does |
 | --- | --- |
