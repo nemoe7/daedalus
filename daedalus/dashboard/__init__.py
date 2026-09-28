@@ -190,6 +190,13 @@ def override_keys() -> list[str]:
   return sorted({*store.COLUMNS, "pool", "timeout"})
 
 
+def provider_defaults() -> dict[str, dict[str, str]]:
+  """The `api_type`, `api_base` and `discovery_url` defaults of each known provider, with no values from the environment."""
+  found = {name: dict(kind.defaults) for name, kind in providers.PROVIDERS.items()}
+  found["*"] = dict(providers.OpenAIProvider.defaults)
+  return found
+
+
 def check_file(path: Path, text: str) -> dict[str, Any] | None:
   """Validate the text of one config file. Returns settings values for the settings file."""
   if path == settings.DEFAULT_PATH:
@@ -466,6 +473,12 @@ def routes(
     if not allowed(request):
       return denied()
     return JSONResponse(override_keys())
+
+  @api.get("/provider-defaults")
+  async def defaults(request: Request) -> JSONResponse:
+    if not allowed(request):
+      return denied()
+    return JSONResponse(provider_defaults())
 
   @api.put("/providers")
   async def save_form(request: Request) -> JSONResponse:

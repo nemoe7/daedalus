@@ -106,6 +106,19 @@ def check_data(client: TestClient) -> None:
   assert len(client.get("/ui/api/requests").json()) == 1, "chat requests only"
 
 
+def check_defaults(client: TestClient) -> None:
+  """The provider defaults for the form placeholders, with no values from the environment."""
+  found = client.get("/ui/api/provider-defaults").json()
+  assert found["groq"]["api_base"] == "https://api.groq.com/openai/v1", found
+  assert found["gemini"]["api_type"] == "gemini" and found["*"] == {
+    "api_type": "openai"
+  }
+  assert "os.environ/CLOUDFLARE_ACCOUNT_ID" in found["cloudflare"]["api_base"], (
+    "a token"
+  )
+  assert TestClient(api.app).get("/ui/api/provider-defaults").status_code == 401
+
+
 def check_page(client: TestClient) -> None:
   page = client.get("/")
   assert page.status_code == 200 and "text/html" in page.headers["content-type"]
@@ -385,6 +398,7 @@ def main() -> None:
       client = TestClient(api.app, headers=AUTH)
       check_page(client)
       check_login(client)
+      check_defaults(client)
       check_data(client)
       check_history(client)
       check_keys(client)

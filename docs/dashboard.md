@@ -35,9 +35,9 @@ The cards of the Form view stack in columns. Each card goes to the shortest colu
 | Field | YAML key | Input |
 | --- | --- | --- |
 | API key | `api_key` | Text field. `os.environ/NAME` reads an environment variable. |
-| API base | `api_base` | Text field. Empty: the default of the provider. |
-| API type | `api_type` | Text field, `openai` or `gemini`. Empty: the default of the provider. |
-| Discovery URL | `discovery_url` | Text field. Empty: the default of the provider. |
+| API base | `api_base` | Text field. Empty: the gray placeholder shows the default of the provider. |
+| API type | `api_type` | Text field, `openai` or `gemini`. Empty: the gray placeholder shows the default of the provider. |
+| Discovery URL | `discovery_url` | Text field. Empty: the gray placeholder shows the default of the provider. |
 | Discovery match | `discovery_match` | `key = value` chips |
 | Exclude | `exclude` | Pattern chips |
 | Tiers | `tier.TIER-A` to `tier.TIER-D` | 1 chip list for each tier |
