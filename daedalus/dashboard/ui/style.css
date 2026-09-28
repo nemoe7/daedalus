@@ -60,6 +60,7 @@ main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
 .card, .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
 .card { padding: 18px 20px; }
 .panel { overflow-x: auto; }
+#more-requests { margin: 8px 16px; }
 .card h3 { margin: 0; font-size: 15px; font-weight: 600; }
 .card .sub { color: var(--muted); font-size: 12px; margin: 2px 0 14px; }
 .overview { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }

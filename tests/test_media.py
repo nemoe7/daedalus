@@ -146,7 +146,7 @@ def check_errors(fake: Upstream, client: TestClient) -> None:
   )
   assert response.status_code == 400, "the upstream status, with no fallback"
   assert len(fake.sent) == count + 1, "one attempt only"
-  row = dashboard.RECENT[0]
+  row = dashboard.HISTORY.latest(1)[0]
   assert (
     row["model"] == "cloudflare/@cf/x" and row["attempts"][0]["result"] == "HTTP 400"
   )
@@ -432,7 +432,7 @@ def transcribe(client: TestClient, audio: bytes) -> dict:
     files=files,
   )
   assert response.status_code == 200, response.text
-  return dashboard.RECENT[0]
+  return dashboard.HISTORY.latest(1)[0]
 
 
 def check_pools(fake: Upstream, client: TestClient) -> None:
@@ -457,7 +457,7 @@ def check_pools(fake: Upstream, client: TestClient) -> None:
     body = {"model": "daedalus/photos", "prompt": "a cat", "n": 2}
     response = client.post("/v1/images/generations", json=body)
     assert response.json()["data"] == [{"url": "https://i.test/1"}], response.text
-    results = [a["result"] for a in dashboard.RECENT[0]["attempts"]]
+    results = [a["result"] for a in dashboard.HISTORY.latest(1)[0]["attempts"]]
     assert results == ["skipped", "answered"], "Flux 1 makes 1 image only"
     login = {"username": "admin", "password": MASTER}
     assert client.post("/ui/api/login", json=login).status_code == 200
@@ -490,7 +490,7 @@ def check_media_cooldown(fake: Upstream, client: TestClient) -> None:
   response = client.post("/v1/audio/transcriptions", data=form, files=files)
   fake.limited.clear()
   assert response.status_code == 429, response.text
-  cooled = dashboard.RECENT[0]["attempts"][0]["cooldown"]
+  cooled = dashboard.HISTORY.latest(1)[0]["attempts"][0]["cooldown"]
   assert cooled == {"seconds": 60, "reason": "reset"}, cooled
   count = len(fake.sent)
   response = client.post("/v1/audio/transcriptions", data=form, files=files)
