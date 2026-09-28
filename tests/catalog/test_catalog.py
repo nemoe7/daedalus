@@ -1,4 +1,4 @@
-"""Runnable check for the model catalog. Run: python tests/test_catalog.py"""
+"""Runnable check for the model catalog. Run: python tests/catalog/test_catalog.py"""
 
 import json
 import sys

@@ -9,7 +9,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-PLUGIN = Path(__file__).resolve().parents[1] / "integrations" / "kilo" / "daedalus.js"
+PLUGIN = Path(__file__).resolve().parents[2] / "integrations" / "kilo" / "daedalus.js"
 KEY = "sk-test"
 ROWS = [
   {
