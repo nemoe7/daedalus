@@ -352,8 +352,15 @@ const sortValue = {
   cooldown: (m) => (m.cooldown && m.cooldown > Date.now() / 1000 ? m.cooldown : null),
 };
 
-// The default reasoning effort of a model, when the catalog has one.
-const effortText = (effort) => (effort ? ` <span class="muted">${esc(effort)}</span>` : "");
+// The label of each reasoning effort. The chip color grows with the effort.
+const EFFORTS = { none: "None", minimal: "Minimal", low: "Low", medium: "Medium", high: "High", xhigh: "X-High", max: "Max" };
+// A reasoning model shows its default effort from the catalog, else Yes.
+function reasoningCell(m) {
+  if (!m.reasoning || !m.effort) return yesNo(m.reasoning);
+  const known = m.effort in EFFORTS;
+  const label = known ? EFFORTS[m.effort] : m.effort.charAt(0).toUpperCase() + m.effort.slice(1);
+  return `<span class="chip flag effort${known ? ` e-${m.effort}` : ""}" title="Default reasoning effort">${esc(label)}</span>`;
+}
 const yesNo = (on) => (on ? '<span class="yes">Yes</span>' : '<span class="muted">No</span>');
 // Red at 0, orange at 0.5 and blue at 1, mixed in between.
 function weightColor(weight) {
@@ -401,7 +408,7 @@ function renderModels() {
       <td class="mid">${m.tier ? `<span class="tier">${esc(tierLetter(m.tier))}</span>` : dash}</td>
       <td class="hide-sm num muted">${tokens(m.max_input_tokens)}</td>
       <td class="mid">${m.mode === "chat" ? yesNo(m.tools) : dash}</td>
-      <td class="hide-sm mid">${m.mode === "chat" ? yesNo(m.reasoning) + effortText(m.effort) : dash}</td>
+      <td class="hide-sm mid">${m.mode === "chat" ? reasoningCell(m) : dash}</td>
       <td class="num">${coolCell(m.cooldown)}</td>
       <td>${m.weight == null ? dash
         : `<div class="weight">${weightBar(m.weight)}<span class="num">${m.weight.toFixed(2)}</span></div>`}</td>
