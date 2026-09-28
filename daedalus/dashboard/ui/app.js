@@ -224,7 +224,9 @@ const MODES = {
 };
 // The label of each media flag chip.
 const FLAGS = { vision: "Image in", pdf_input: "PDF in", audio_input: "Audio in", audio_output: "Audio out" };
-const flagChips = (flags) => flags.map((f) => ` <span class="chip flag">${esc(FLAGS[f] || f)}</span>`).join("");
+// The Type cell: a chip for the mode, then a chip for each media flag.
+const typeChips = (m) => `<span class="chip flag mode">${esc(MODES[m.mode] || m.mode)}</span>`
+  + m.flags.map((f) => `<span class="chip flag">${esc(FLAGS[f] || f)}</span>`).join("");
 
 function renderTiers() {
   $("tiers").innerHTML = ["All", "A", "B", "C", "D"].map((t) =>
@@ -290,7 +292,7 @@ function renderModels() {
   $("models").innerHTML = rows.length ? rows.map((m) => `
     <tr>
       <td>${esc(m.id)}</td>
-      <td class="hide-sm muted">${esc(MODES[m.mode] || m.mode)}${flagChips(m.flags)}</td>
+      <td class="hide-sm"><div class="types">${typeChips(m)}</div></td>
       <td class="mid">${m.tier ? `<span class="tier">${esc(tierLetter(m.tier))}</span>` : dash}</td>
       <td class="hide-sm num muted">${tokens(m.max_input_tokens)}</td>
       <td class="mid">${m.mode === "chat" ? yesNo(m.tools) : dash}</td>
