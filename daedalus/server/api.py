@@ -6,7 +6,7 @@ import logging
 import os
 import re
 import time
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -435,11 +435,6 @@ def without_cooling(
   return left, first - time.time()
 
 
-async def in_time(work: Awaitable[Any], deadline: float) -> Any:
-  """The result of `work`, or TimeoutError at the deadline."""
-  return await asyncio.wait_for(work, max(0.0, deadline - time.perf_counter()))
-
-
 @app.post("/v1/chat/completions")
 async def chat(request: Request) -> Response:
   denied = access.check_api_key(request)
@@ -547,12 +542,12 @@ async def chat(request: Request) -> Response:
     response = None
     try:
       # The request limit caps the wait for an answer, for all attempts.
-      provider, response = await in_time(
+      provider, response = await upstream.in_time(
         upstream.attempt(candidate, body, config, sent), deadline
       )
       wait = router.model_wait(config, candidate, upstream.WAIT_SECONDS)
       if not body.get("stream"):
-        raw = await in_time(upstream.read_body(response, wait), deadline)
+        raw = await upstream.in_time(upstream.read_body(response, wait), deadline)
         answer = json.loads(raw)
         if not isinstance(answer, dict) or answer.get("error"):
           raise providers.ProviderError(f"Invalid upstream answer: {error_text(raw)}")
@@ -569,12 +564,10 @@ async def chat(request: Request) -> Response:
         attempts.append(upstream.note(candidate, "answered", started) | sent)
         return JSONResponse(completion)
       events = stream.sse_data(provider.stream(response, candidate, True, wait), wait)
-      pending = await in_time(stream.first_content(events), deadline)
+      pending = await upstream.in_time(stream.first_content(events), deadline)
       ttft = time.perf_counter() - started
     except asyncio.TimeoutError:
-      exc = TimeoutError(f"No answer in {upstream.TIMEOUT_SECONDS:g}s")
-      logger.warning("upstream %s failed: %s", candidate, upstream.failure_text(exc))
-      attempts.append(upstream.failure_note(candidate, started, exc) | sent)
+      attempts.append(upstream.late_note(candidate, started) | sent)
       pin.failed(candidate)
       if response is not None:
         await response.aclose()
