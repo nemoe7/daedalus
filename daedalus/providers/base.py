@@ -188,11 +188,20 @@ def system_text(parts: list[dict]) -> list[str]:
   return [part["text"] for part in parts]
 
 
-async def events(response: httpx.Response) -> AsyncIterator[dict]:
-  lines = []
+def check_wait(heard: float, wait: float | None) -> None:
+  """Raise a ReadTimeout when `wait` seconds passed since the last data, with only keep-alive bytes."""
+  if wait is not None and time.perf_counter() - heard > wait:
+    raise httpx.ReadTimeout(f"Only keep-alive bytes for {wait:g}s")
+
+
+async def events(
+  response: httpx.Response, wait: float | None = None
+) -> AsyncIterator[dict]:
+  lines, heard = [], time.perf_counter()
   async for line in response.aiter_lines():
     if line.startswith("data:"):
       lines.append(line[5:].lstrip())
+      heard = time.perf_counter()
     elif not line and lines:
       raw = "\n".join(lines)
       lines = []
@@ -202,6 +211,8 @@ async def events(response: httpx.Response) -> AsyncIterator[dict]:
       if not isinstance(event, dict):
         raise ProviderError("Invalid upstream stream event")
       yield event
+    else:
+      check_wait(heard, wait)
   if lines:
     raise ProviderError("Incomplete upstream stream event")
 
@@ -421,8 +432,13 @@ class OpenAIProvider:
     return {**answer, "model": model}
 
   async def stream(
-    self, response: httpx.Response, model: str, include_usage: bool
+    self,
+    response: httpx.Response,
+    model: str,
+    include_usage: bool,
+    wait: float | None = None,
   ) -> AsyncIterator[bytes]:
+    """The raw SSE bytes. `sse_data` applies the wait, because it sees the comments."""
     try:
       async for chunk in response.aiter_bytes():
         if chunk:

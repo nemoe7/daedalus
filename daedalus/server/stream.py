@@ -48,8 +48,8 @@ async def sse_data(
         if lines:
           heard = time.perf_counter()
           yield b"\n".join(lines).decode()
-        elif wait is not None and time.perf_counter() - heard > wait:
-          raise httpx.ReadTimeout(f"Only keep-alive bytes for {wait:g}s")
+        else:
+          providers.check_wait(heard, wait)
   finally:
     await chunks.aclose()
 
@@ -159,7 +159,7 @@ async def relay(
           candidate, continued, config, effort
         )
         wait = router.model_wait(config, candidate, upstream.WAIT_SECONDS)
-        events = sse_data(provider.stream(response, candidate, True), wait)
+        events = sse_data(provider.stream(response, candidate, True, wait), wait)
         pending = await first_content(events)
         model = candidate
         pin.answered(model, time.perf_counter() - started)

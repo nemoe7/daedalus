@@ -1,10 +1,11 @@
 import json
+import time
 from collections.abc import AsyncIterator, Mapping
 from typing import Any, ClassVar
 
 import httpx
 
-from daedalus.providers.base import OpenAIProvider, frame, limits
+from daedalus.providers.base import OpenAIProvider, check_wait, frame, limits
 
 # Mistral takes only high or none. The other OpenAI values map to the nearest of the 2.
 EFFORTS: Mapping[str, str] = {
@@ -100,12 +101,19 @@ class MistralProvider(OpenAIProvider):
     return plain_choices(answer, "message")
 
   async def stream(
-    self, response: httpx.Response, model: str, include_usage: bool
+    self,
+    response: httpx.Response,
+    model: str,
+    include_usage: bool,
+    wait: float | None = None,
   ) -> AsyncIterator[bytes]:
+    heard = time.perf_counter()
     try:
       async for line in response.aiter_lines():
         if not line.startswith("data:"):
+          check_wait(heard, wait)
           continue
+        heard = time.perf_counter()
         raw = line[5:].strip()
         if raw == "[DONE]":
           yield b"data: [DONE]\n\n"

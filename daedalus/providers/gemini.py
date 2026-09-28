@@ -516,11 +516,15 @@ class GeminiProvider(OpenAIProvider):
     }
 
   async def stream(
-    self, response: httpx.Response, model: str, include_usage: bool
+    self,
+    response: httpx.Response,
+    model: str,
+    include_usage: bool,
+    wait: float | None = None,
   ) -> AsyncIterator[bytes]:
     chunks, calls, ended, counts = Chunks(model), {}, set(), None
     try:
-      async for event in events(response):
+      async for event in events(response, wait):
         if event.get("error"):
           raise ProviderError(f"Upstream stream error: {error_text(event)}")
         if event.get("usageMetadata"):
