@@ -174,11 +174,25 @@ const seconds = (value) => value == null ? "" : `${value.toFixed(3)}s`;
 // A cooldown that an attempt started, such as "cooldown 60s backoff".
 const coolText = (c) => `cooldown ${timeLeft(Date.now() / 1000 + c.seconds) || "0s"} ${c.reason}`;
 
+// The effort that went to one model, where null means that Daedalus dropped it.
+const sentText = (a) => (a.effort == null ? "not sent" : a.effort);
+
+// The effort that the client asked for, then the effort that went to the model that answered.
+function effortCell(r) {
+  const served = (r.attempts || []).filter((a) => a.result === "answered" && "effort" in a).pop();
+  if (!served) return esc(r.effort || "-");
+  const sent = sentText(served);
+  if (sent === r.effort) return esc(sent);
+  return `${esc(r.effort || "-")} <span class="from">to ${esc(sent)}</span>`;
+}
+
 function chainText(r) {
-  const head = [clock(r.at), r.model, r.status, r.pool && `pool=${r.pool}`, r.routed && `from=${r.routed}`,
+  const head = [clock(r.at), r.model, r.status, r.effort && `effort=${r.effort}`, r.pool && `pool=${r.pool}`,
+    r.routed && `from=${r.routed}`,
     `fallbacks=${r.fallbacks ?? 0}`, r.retry && `retry=${r.retry}`].filter(Boolean).join(" ");
   const steps = (r.attempts || []).map((a, i) =>
-    `${i + 1}. ${a.model} ${a.result} ${seconds(a.seconds)}`.trim() + (a.cooldown ? ` ${coolText(a.cooldown)}` : "")
+    `${i + 1}. ${a.model} ${a.result} ${seconds(a.seconds)}`.trim() + ("effort" in a ? ` effort=${sentText(a)}` : "")
+      + (a.cooldown ? ` ${coolText(a.cooldown)}` : "")
       + (a.error ? `\n   ${a.error}` : ""));
   return [head, ...steps].join("\n");
 }
@@ -188,10 +202,11 @@ function chainRows(r) {
     <li class="step ${a.result === "answered" ? "good" : "bad"}">
       <span class="num">${i + 1}.</span> <b>${esc(a.model)}</b>
       <span class="result">${esc(a.result)}</span> <span class="muted num">${seconds(a.seconds)}</span>
+      ${"effort" in a ? `<span class="from">effort ${esc(sentText(a))}</span>` : ""}
       ${a.cooldown ? `<span class="from">${esc(coolText(a.cooldown))}</span>` : ""}
       ${a.error ? `<pre>${esc(a.error)}</pre>` : ""}
     </li>`).join("");
-  return `<tr class="chain"><td colspan="7"><div class="chain-body">
+  return `<tr class="chain"><td colspan="8"><div class="chain-body">
     <div class="chain-head"><span class="muted">Fallback chain</span>
       <button class="ghost copy-chain" type="button" data-at="${r.at}">Copy</button></div>
     ${steps ? `<ol>${steps}</ol>` : '<p class="muted">No attempt data for this request.</p>'}
@@ -208,13 +223,14 @@ function renderRequests(rows) {
     <tr class="request${opened.has(String(r.at)) ? " open" : ""}" data-at="${r.at}" title="Show the fallback chain">
       <td class="num muted"><span class="caret"></span>${clock(r.at)}</td>
       <td>${esc(r.model || "-")}</td>
+      <td class="hide-sm">${effortCell(r)}</td>
       <td class="hide-sm muted">${esc(r.pool || "-")}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${r.retry ? ` <span class="from">try again ${esc(r.retry)}</span>` : ""}</td>
       <td>${r.via ? esc(r.via) : '<span class="muted">none</span>'}</td>
       <td class="status s${String(r.status)[0]}">${r.status}${(r.attempts || []).some((a) => a.cooldown) ? ' <span class="from">cooldown</span>' : ""}</td>
       <td class="hide-sm num">${esc(r.ttft || "-")}</td>
       <td class="hide-sm num">${esc(r.fallbacks ?? "-")}</td>
     </tr>${opened.has(String(r.at)) ? chainRows(r) : ""}`).join("")
-    : '<tr><td colspan="7" class="empty">No requests</td></tr>';
+    : '<tr><td colspan="8" class="empty">No requests</td></tr>';
 }
 
 // The label of each catalog mode.
