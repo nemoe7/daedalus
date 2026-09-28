@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from typing import ClassVar
 
-from daedalus.providers.base import OpenAIProvider, openrouter_columns
+from daedalus.providers.base import OpenAIProvider, free_stealth, openrouter_columns
 
 
 class OpenRouterProvider(OpenAIProvider):
@@ -14,3 +14,4 @@ class OpenRouterProvider(OpenAIProvider):
   }
 
   columns = staticmethod(openrouter_columns)
+  exclude_exempt = staticmethod(free_stealth)

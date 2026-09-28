@@ -303,10 +303,14 @@ def build_rows(
   lines: dict[str, dict[str, Any]] = {}
   for provider_name, provider, payload, is_file in found:
     rows = provider_rows(provider_name, provider, payload)
+    kind = PROVIDERS.get(provider_name, OpenAIProvider)
     slugs = (
       [slug for slug in select(provider, list(rows)) if file_takes(provider, slug)]
       if is_file
-      else select(provider, list(rows))
+      else sorted(
+        set(select(provider, list(rows)))
+        | {slug for slug, row in rows.items() if kind.exclude_exempt(slug, row)}
+      )
     )
     for slug in slugs:
       lines[f"{provider_name}/{slug}"] = native_columns(
