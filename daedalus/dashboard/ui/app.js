@@ -992,8 +992,9 @@ async function start() {
   $("app").hidden = false;
   if (!document.querySelector(`section[data-page="providers"]`).hidden) renderForm();
   state.timers = [
-    setInterval(() => guarded(refreshFast), 5000),
-    setInterval(() => guarded(refreshSlow), 15000),
+    // A hidden tab asks the server for nothing. It refreshes when it shows again.
+    setInterval(() => document.hidden || guarded(refreshFast), 5000),
+    setInterval(() => document.hidden || guarded(refreshSlow), 15000),
     setInterval(tickCooldowns, 1000),
     setInterval(tickLive, 100),
   ];
@@ -1254,6 +1255,9 @@ document.addEventListener("keydown", (event) => {
     if (location.hash === "#/settings") saveSettings();
     else save();
   }
+});
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && state.timers?.length) refresh();
 });
 window.addEventListener("beforeunload", (event) => {
   if (dirty() || settingsDirty()) event.preventDefault();

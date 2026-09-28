@@ -192,7 +192,11 @@ def similarity_cohort(prompt: str, request_type: RequestType) -> str:
   code: Final = int(bool(_CODE_PATTERN.search(prompt)))
   math: Final = int(bool(_MATH_PATTERN.search(prompt)))
   choice: Final = int(bool(_MULTIPLE_CHOICE_PATTERN.search(prompt)))
-  foreign: Final = int(sum(ord(c) > 127 for c in prompt) / max(1, length) > 0.1)
+  # The ASCII encoding drops each character above 127, so the length difference counts them.
+  wide: Final = (
+    0 if prompt.isascii() else length - len(prompt.encode("ascii", "ignore"))
+  )
+  foreign: Final = int(wide / max(1, length) > 0.1)
   return (
     f"{request_type.value}|{bucket}|code={code}|math={math}|mc={choice}|intl={foreign}"
   )

@@ -2,24 +2,23 @@
 
 import sqlite3
 import time
-from pathlib import Path
 
 from daedalus import store
+from daedalus.store.database import open_db
 
 TABLE = "signatures"
 # A signature with no use for this long expires. The session idle setting replaces it.
 IDLE_SECONDS = 3600.0
 
 
+SCHEMA = (
+  f"CREATE TABLE IF NOT EXISTS {TABLE} (call TEXT NOT NULL, model TEXT NOT NULL,"
+  " signature TEXT NOT NULL, used REAL NOT NULL, PRIMARY KEY (call, model))"
+)
+
+
 def connect() -> sqlite3.Connection:
-  target = Path(store.MODELS_DB)
-  target.parent.mkdir(parents=True, exist_ok=True)
-  database = sqlite3.connect(target, timeout=5)
-  database.execute(
-    f"CREATE TABLE IF NOT EXISTS {TABLE} (call TEXT NOT NULL, model TEXT NOT NULL,"
-    " signature TEXT NOT NULL, used REAL NOT NULL, PRIMARY KEY (call, model))"
-  )
-  return database
+  return open_db(store.MODELS_DB, (SCHEMA,))
 
 
 def save(call: str, model: str, signature: str) -> None:
