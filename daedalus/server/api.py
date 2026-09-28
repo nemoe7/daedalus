@@ -29,6 +29,8 @@ SLOW_SECONDS = upstream.WAIT_SECONDS / 2
 AFFINITY = True
 # The keywords of `escalation.keywords` as 1 pattern, or None when the list is empty.
 KEYWORDS: re.Pattern[str] | None = None
+# The keywords of `switch.keywords` as 1 pattern, or None when the list is empty.
+SWITCH: re.Pattern[str] | None = None
 
 logger = logging.getLogger("daedalus")
 
@@ -191,12 +193,12 @@ def user_turns(messages: object) -> list[str]:
   return texts
 
 
-def asked_harder(messages: list) -> bool:
-  """Tell if the last message is a user turn with an escalation keyword."""
+def said(pattern: re.Pattern[str] | None, messages: list) -> bool:
+  """Tell if the last message is a user turn with a keyword of `pattern`."""
   last = messages[-1] if messages else None
-  if KEYWORDS is None or not isinstance(last, dict) or last.get("role") != "user":
+  if pattern is None or not isinstance(last, dict) or last.get("role") != "user":
     return False
-  return any(KEYWORDS.search(text) for text in user_turns([last]))
+  return any(pattern.search(text) for text in user_turns([last]))
 
 
 def has_image(messages: object) -> bool:
@@ -300,7 +302,7 @@ def chain(
       tier = floor
       if key and AFFINITY:
         PENALTIES.highest(key, tier)
-    if asked_harder(body["messages"]):
+    if said(KEYWORDS, body["messages"]):
       tier = min(tier + 1, max(router.POOLS.values()))
       if key and AFFINITY:
         PENALTIES.highest(key, tier)
@@ -380,6 +382,14 @@ class Tracker:
     self.key = key
     self.slot = slot if AFFINITY else None
     self.dropped = False
+    self.switched = False
+
+  def switch(self) -> str | None:
+    """Remove the session model, and return it."""
+    model = PENALTIES.pinned(self.key, self.slot) if self.slot else None
+    if model:
+      self.switched = PENALTIES.unpin(self.key, self.slot, model)
+    return model
 
   def order(self, groups: list[list[str]]) -> list[str]:
     return PENALTIES.order(groups, self.key, self.slot)
@@ -395,6 +405,8 @@ class Tracker:
       PENALTIES.unpin(self.key, self.slot, model)
       return "slow"
     state = PENALTIES.pin(self.key, self.slot, model)
+    if self.switched:
+      return "switched"
     return "moved" if self.dropped else state
 
   def failed(self, model: str, exc: Exception | None = None) -> dict[str, Any] | None:
@@ -487,6 +499,7 @@ async def chat(request: Request) -> Response:
   if model == router.RESERVED_MODEL and found[1]:
     request.state.pool = routed_pool(found[1])
   pin = Tracker(key, found[1])
+  old = pin.switch() if said(SWITCH, body["messages"]) else None
   tokens, limits = context.input_tokens(body), store.input_limits()
   request.state.tokens = {"input": tokens, "estimate": True}
   attempts: list[dict[str, Any]] = []
@@ -507,6 +520,9 @@ async def chat(request: Request) -> Response:
   if any(groups) and not any(paced):
     return upstream.cooling_response(PACING.wait(m for group in groups for m in group))
   models = pin.order(paced)
+  if old in models:
+    # A switch keyword gives the session another model. The old model is the last fallback.
+    models = [m for m in models if m != old] + [old]
   if models:
     body, saved = await headroom.compress(body, models[0])
     if saved is not None:
@@ -638,7 +654,7 @@ def keyword_pattern(keywords: list[str]) -> re.Pattern[str] | None:
 
 def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   """Use the values of `config/daedalus.yml`."""
-  global SLOW_SECONDS, AFFINITY, KEYWORDS
+  global SLOW_SECONDS, AFFINITY, KEYWORDS, SWITCH
   timeouts, affinity, weights = (
     values["timeouts"],
     values["session_affinity"],
@@ -661,6 +677,7 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
     setattr(PENALTIES, name, weights[name])
   PACING.enabled = values["pacing"]["enabled"]
   KEYWORDS = keyword_pattern(values["escalation"]["keywords"])
+  SWITCH = keyword_pattern(values["switch"]["keywords"])
   COOLDOWNS.first, COOLDOWNS.longest = (
     values["cooldown"]["first"],
     values["cooldown"]["longest"],

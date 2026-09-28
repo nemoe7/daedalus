@@ -183,7 +183,7 @@ sequenceDiagram
 | Conversation key | SHA-256 of the bearer token and the first user message |
 | Slot | The pool name, or `daedalus/auto` plus the tier |
 | Share of first-tier draws | 85% |
-| Pin removed by | A fault or a slow success |
+| Pin removed by | A fault, a slow success or a `switch.keywords` match |
 | Expiry | 1 h with no request |
 | Storage | `.daedalus-state/models.sqlite3`, kept after a restart |
 

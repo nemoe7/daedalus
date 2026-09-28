@@ -31,6 +31,8 @@ def check_load(folder: Path) -> None:
   shipped = settings.load(Path(__file__).parents[2] / "config" / "daedalus.yml")
   keywords = shipped.pop("escalation")["keywords"]
   assert "think hard" in keywords and values.pop("escalation") == {"keywords": []}
+  assert shipped.pop("switch") == {"keywords": ["clanker"]}
+  assert values.pop("switch") == {"keywords": []}
   assert shipped == values, "the shipped file holds the defaults"
   path = folder / "daedalus.yml"
   path.write_text("timeouts:\n  wait: 120\nweights:\n  fault: 0.25\n", encoding="utf-8")
@@ -55,6 +57,7 @@ def check_load(folder: Path) -> None:
     raise AssertionError("no error for a duplicate key")
   expect_error(folder, "escalation:\n  keywords: think\n", "list of words or phrases")
   expect_error(folder, "escalation:\n  keywords: [1]\n", "list of words or phrases")
+  expect_error(folder, "switch:\n  keywords: clanker\n", "list of words or phrases")
   expect_error(folder, "escalation:\n  keywords: [' ']\n", "list of words or phrases")
   path.write_text(
     "escalation:\n  keywords: [ultrathink, ' think hard ']\n", encoding="utf-8"
