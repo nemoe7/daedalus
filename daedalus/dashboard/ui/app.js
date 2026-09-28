@@ -222,6 +222,9 @@ const MODES = {
   chat: "Chat", embedding: "Embedding", audio_transcription: "Transcription",
   audio_speech: "Speech", image_generation: "Image",
 };
+// The label of each media flag chip.
+const FLAGS = { vision: "Image in", pdf_input: "PDF in", audio_input: "Audio in", audio_output: "Audio out" };
+const flagChips = (flags) => flags.map((f) => ` <span class="chip flag">${esc(FLAGS[f] || f)}</span>`).join("");
 
 function renderTiers() {
   $("tiers").innerHTML = ["All", "A", "B", "C", "D"].map((t) =>
@@ -281,12 +284,13 @@ function renderModels() {
   const query = $("search").value.trim().toLowerCase();
   const rows = sortModels(state.models.filter((m) =>
     (state.tier === "All" || tierLetter(m.tier) === state.tier)
-    && (state.mode === "all" || m.mode === state.mode) && m.id.toLowerCase().includes(query)));
+    && (state.mode === "all" || m.mode === state.mode || m.flags.includes(state.mode))
+    && m.id.toLowerCase().includes(query)));
   const empty = state.models.length ? "No models match" : "No models. Run daedalus catalog.";
   $("models").innerHTML = rows.length ? rows.map((m) => `
     <tr>
       <td>${esc(m.id)}</td>
-      <td class="hide-sm muted">${esc(MODES[m.mode] || m.mode)}</td>
+      <td class="hide-sm muted">${esc(MODES[m.mode] || m.mode)}${flagChips(m.flags)}</td>
       <td class="mid">${m.tier ? `<span class="tier">${esc(tierLetter(m.tier))}</span>` : dash}</td>
       <td class="hide-sm num muted">${tokens(m.max_input_tokens)}</td>
       <td class="mid">${m.mode === "chat" ? yesNo(m.tools) : dash}</td>
@@ -654,7 +658,7 @@ const PAGES = ["overview", "pools", "requests", "models", "keys", "providers", "
 function applyModelFilters(query) {
   const params = new URLSearchParams(query);
   state.tier = ["All", "A", "B", "C", "D"].includes(params.get("tier")) ? params.get("tier") : "All";
-  state.mode = MODES[params.get("mode")] ? params.get("mode") : "all";
+  state.mode = MODES[params.get("mode")] || FLAGS[params.get("mode")] ? params.get("mode") : "all";
   state.sort = sortValue[params.get("sort")] ? { key: params.get("sort"), dir: -1 } : { key: "", dir: 1 };
   $("search").value = "";
   renderTiers();
