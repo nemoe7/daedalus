@@ -71,7 +71,16 @@ def test_missing_file() -> None:
 
 def test_repo_file() -> None:
   """The committed provider file parses, and its top-level keys are alphabetical."""
-  for name in ("CLOUDFLARE", "GEMINI", "GROQ", "KILO", "MISTRAL", "OPENROUTER", "ZAI"):
+  for name in (
+    "CLOUDFLARE",
+    "GEMINI",
+    "GROQ",
+    "KILO",
+    "MISTRAL",
+    "OPENROUTER",
+    "POLLINATIONS",
+    "ZAI",
+  ):
     os.environ.setdefault(f"{name}_API_KEY", "k")
   loaded = config.load_config(Path("config/providers/free.yml"))
   assert sorted(loaded) == list(loaded), list(loaded)
@@ -82,6 +91,7 @@ def test_repo_file() -> None:
     "kilo",
     "mistral",
     "openrouter",
+    "pollinations",
     "z-ai",
   ], list(loaded)
   for name, provider in loaded.items():
