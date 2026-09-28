@@ -4,7 +4,7 @@ These are the only providers that tests confirmed as really free.
 
 | Provider key | Provider | API | Notes |
 | --- | --- | --- | --- |
-| `cloudflare` | Cloudflare Workers AI | OpenAI-compatible, plus the native run API for audio and images | Text content only. Paid models stay out of the catalog. The catalog gets 5 tasks only (see below). |
+| `cloudflare` | Cloudflare Workers AI | OpenAI-compatible, plus the native run API for audio and images | A message with only text parts goes as 1 string. Paid models stay out of the catalog. The catalog gets 5 tasks only (see below). |
 | `gemini` | Google Gemini | Native Gemini API | Daedalus maps OpenAI requests to Gemini and back, with thought signatures. |
 | `groq` | Groq | OpenAI-compatible | Gets only the message fields that it accepts. |
 | `kilo` | Kilo Gateway | OpenAI-compatible | Only `:free` models, and `stealth/` models with price 0 in each price field. |
