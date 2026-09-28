@@ -20,7 +20,7 @@ The dashboard is mainly a utility for monitoring the application state and fine-
 | Models | All catalog models, with a type filter, a tier filter, column sort, a reasoning column, the time left of each cooldown and weight bars. The reasoning column shows the default effort from the catalog as a chip, for example Max. The chip color grows with the effort: gray for None and Minimal, then blue, orange and red. A reasoning model with no default effort shows Yes. The type column shows a chip for the mode and a chip for each media flag: Image in, PDF in, Audio in and Audio out. The type filter also finds models by these chips. With no column chosen, the rows sort by type, then by model name. |
 | API keys | Make and delete API keys |
 | Providers | A tab for each provider file. The Form view shows 1 card for each provider of the file. The YAML view shows the file text. See [Providers](#providers). |
-| Settings | Form and YAML views for `config/daedalus.yml`. The mouse wheel changes the last decimal digit of a decimal field. The YAML view edits the file text, comments included. A save checks each value, then reloads the settings. A change to the other view asks for a confirmation when the file holds unsaved changes. The form has no field for `escalation.keywords`: use the YAML view. |
+| Settings | Form and YAML views for `config/daedalus.yml`. The mouse wheel changes the last decimal digit of a decimal field. The YAML view edits the file text, comments included. A save checks each value, then reloads the settings. A change to the other view asks for a confirmation when the file holds unsaved changes. The Escalation card takes the keywords, 1 on each line. |
 
 The header stays at the top of the window. Only the page below it scrolls.
 
@@ -35,18 +35,20 @@ The cards of the Form view stack in columns. Each card goes to the shortest colu
 | Field | YAML key | Input |
 | --- | --- | --- |
 | API key | `api_key` | Text field. `os.environ/NAME` reads an environment variable. |
-| API base | `api_base` | Text field. Only when the block has the key. |
+| API base | `api_base` | Text field. Empty: the default of the provider. |
+| API type | `api_type` | Text field, `openai` or `gemini`. Empty: the default of the provider. |
+| Discovery URL | `discovery_url` | Text field. Empty: the default of the provider. |
 | Discovery match | `discovery_match` | `key = value` chips |
 | Exclude | `exclude` | Pattern chips |
 | Tiers | `tier.TIER-A` to `tier.TIER-D` | 1 chip list for each tier |
 | Model overrides | `models` | 1 row for each pattern, with `key: value` chips |
-| YAML only | Other keys | The names only. The YAML view edits these keys. |
+| Provider values | Catalog columns at the provider level, for example `reasoning_effort` or `rpm` | `key: value` chips. A model override has priority. |
 
 | Action | Result |
 | --- | --- |
 | × on a chip | Deletes the value |
 | **+ Add** | Opens an input. Enter adds the value. Escape stops. |
-| **+ key** | Opens a key list and a value input. The keys are the catalog columns, `pool` and `timeout`. |
+| **+ key** | Opens a key list and a value input. A model override takes the catalog columns, `pool` and `timeout`. Provider values take only the catalog columns. |
 | **+ Pattern** | Adds a pattern row with no overrides |
 | Change of a pattern | Renames the pattern. The row keeps its position. |
 | **Save** or Ctrl+S | Writes the file, then reloads the configuration |
