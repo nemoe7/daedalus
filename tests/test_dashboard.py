@@ -314,9 +314,11 @@ def check_files(client: TestClient, folder: Path) -> None:
   assert listed.status_code == 422, "provider blocks only"
   twice = "q:\n  api_key: k\nq:\n  api_key: j\n"
   doubled = client.put("/ui/api/files", json={"path": providers, "text": twice})
-  assert doubled.status_code == 422 and "duplicate key 'q'" in doubled.text, (
-    doubled.text
-  )
+  assert doubled.status_code == 422 and doubled.json()["error"]["message"] == (
+    "duplicate key 'q' at line 3, column 1 (first at line 1)"
+  ), doubled.text
+  broken = client.put("/ui/api/files", json={"path": providers, "text": "a: [\n"})
+  assert "<unicode string>" not in broken.text and "line 2" in broken.text, broken.text
   doubled = client.put(
     "/ui/api/settings", json={"text": "weights:\n  fault: 0.5\n  fault: 0.25\n"}
   )

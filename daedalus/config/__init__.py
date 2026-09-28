@@ -58,7 +58,7 @@ class _UniqueKeys(yaml.SafeLoader):
         continue
       if key in seen:
         raise yaml.constructor.ConstructorError(
-          f"while reading a mapping, first {key!r}",
+          "first",
           seen[key].start_mark,
           f"duplicate key {key!r}",
           key_node.start_mark,
@@ -70,6 +70,17 @@ class _UniqueKeys(yaml.SafeLoader):
 def load_yaml(text: Any) -> Any:
   """The content of one YAML text or stream. A duplicate key raises a `yaml.YAMLError`."""
   return yaml.load(text, _UniqueKeys)
+
+
+def error_text(exc: Exception) -> str:
+  """One line for a config error, with the line numbers of a YAML error and no stream name."""
+  mark = getattr(exc, "problem_mark", None)
+  if not isinstance(exc, yaml.MarkedYAMLError) or mark is None:
+    return " ".join(str(exc).split())
+  text = f"{exc.problem} at line {mark.line + 1}, column {mark.column + 1}"
+  if exc.context and exc.context_mark:
+    text += f" ({exc.context} at line {exc.context_mark.line + 1})"
+  return text
 
 
 def read_yaml(path: Path) -> dict[str, Any]:
