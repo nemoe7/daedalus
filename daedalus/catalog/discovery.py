@@ -251,6 +251,7 @@ def read_providers(
   providers = get_config() if config is None else config
   found: list[tuple[str, dict[str, Any], dict[str, Any], bool]] = []
   skipped: list[str] = []
+  downloads: dict[tuple[str, tuple[tuple[str, str], ...]], dict[str, Any]] = {}
   for provider_name, raw in providers.items():
     if not isinstance(raw, dict):
       skipped.append(f"{provider_name}: not a mapping")
@@ -267,13 +268,19 @@ def read_providers(
       if not provider.get("discovery_url"):
         skipped.append(f"{provider_name}: no discovery_url")
         continue
+      # A provider file with the same URL and key as its main block reads the list 1 time.
+      source = (
+        provider["discovery_url"],
+        tuple(sorted(auth_headers(provider_name, provider).items())),
+      )
       try:
-        payload = read_pages(provider_name, provider, fetch)
+        payload = downloads.get(source) or read_pages(provider_name, provider, fetch)
       except (httpx.HTTPError, ValueError) as error:
         skipped.append(f"{provider_name}: {error}")
         if failed is not None:
           failed.append(provider_name)
         continue
+      downloads[source] = payload
       found.append((provider_name, provider, payload, is_file))
   return found, skipped
 
@@ -320,7 +327,11 @@ def dump(
     old.unlink()
   found, skipped = read_providers(config, fetch)
   paths = []
+  written: list[dict[str, Any]] = []
   for provider_name, _, payload, is_file in found:
+    if any(payload is seen for seen in written):
+      continue
+    written.append(payload)
     path = target / f"{provider_name}{'-file' if is_file else ''}.json"
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", "utf-8")
     paths.append(path)
