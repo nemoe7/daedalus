@@ -71,6 +71,21 @@ flowchart LR
 
 Open WebUI reads most of these settings only on the first start with a new data volume. After that, the values in **Admin Settings** apply. On an existing install, set them there.
 
+To check the services and settings:
+
+1. `docker compose exec open-webui curl -s "http://searxng:8080/search?q=test&format=json" | head -c 200` shows JSON.
+2. `docker compose exec open-webui curl -s http://tika:9998/version` shows the Tika version.
+3. **Admin Settings → Documents** shows Tika at `http://tika:9998`, and embeddings `OpenAI` with `mistral/mistral-embed`.
+4. **Admin Settings → Web Search** shows `searxng`. **Code Execution** shows the code interpreter on, with `pyodide`.
+5. **Admin Settings → Audio** and **Images** show `http://daedalus:3357/v1`.
+6. Upload a PDF in a chat. The Daedalus log shows `/v1/embeddings` requests.
+
+| Feature | Tools for the model | Condition |
+| --- | --- | --- |
+| Web search | `search_web`, `fetch_url` | **Web Search** is on in the chat |
+| Files | none | Tika reads the file at upload. Open WebUI adds the matching parts to the prompt. |
+| Code | `execute_code` | **Code Interpreter** is on in the chat. The code runs in the browser (Pyodide). |
+
 Keep **Function Calling** on **Native**, the Open WebUI default since v0.10.0. Native sends the tools in `tools`, and Daedalus skips the models that cannot call tools. Legacy puts the tools in the prompt and calls tools only 1 time, before the answer.
 
 ### Open WebUI database
