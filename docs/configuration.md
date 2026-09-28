@@ -95,6 +95,15 @@ groq:
 
 `rpm` and `tpm` limit the requests and the input tokens of a model in 60 s. At a limit, the model leaves the chains. See [Pacing](architecture.md#pacing).
 
+Other keys of a `models` entry:
+
+| Key | Use |
+| --- | --- |
+| `pool` | `false` keeps the model out of the pools and `daedalus/auto`. Only a direct `provider/slug` request uses it. |
+| `timeout` | Seconds with no bytes from the provider. For this model, it replaces `timeouts.wait`. |
+
+When 2 entries match 1 model, the last entry in the file sets the key.
+
 A model with a `mode` other than `chat` never goes into a chat chain. Use `embedding`, `audio_transcription`, `audio_speech` or `image_generation`. A model with no mode goes into the chat chains. The `audio_transcription` models make the `daedalus/graphos` pool, and the `image_generation` models make the `daedalus/photos` pool.
 
 Pattern types:
