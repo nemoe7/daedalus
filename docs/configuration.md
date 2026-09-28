@@ -13,7 +13,7 @@ Daedalus reads 3 sources:
 
 ### Provider files
 
-`free.yml` holds each provider. A second file, `{provider}.yml`, holds 1 provider with its own settings. `openrouter.yml` and the `openrouter` block of `free.yml` are independent: the tiers, the excludes and the models of 1 file do not apply to the other.
+`free.yml` holds each provider. A second file, `{provider}.yml`, holds 1 provider with its own settings. `openrouter.yml` and the `openrouter` block of `free.yml` are independent: the tiers, the excludes and the models of 1 file do not apply to the other. When the 2 files have the same `discovery_url` and API key, the catalog reads the model list 1 time.
 
 | Item | Rule |
 | --- | --- |
@@ -76,7 +76,7 @@ Daedalus skips each provider that has no key.
 | `catalog.every` | `6` | Hours between catalog rebuilds. `0` stops them. |
 | `catalog.anchor` | `6` | Local hour that the rebuild times start from. A whole hour from 0 to 23. |
 | `headroom.timeout` | `5` | Seconds for Headroom. Then the original messages go to the provider. |
-| `escalation.keywords` | `[]` | Words or phrases. A match in the user messages moves the `daedalus/auto` tier 1 step up. A match is a whole word or phrase, in uppercase or lowercase. The message does not change. |
+| `escalation.keywords` | `[]` | Words or phrases. A match in the user messages moves the `daedalus/auto` tier 1 step up. A match is a whole word or phrase, in uppercase or lowercase. The message does not change. The shipped file has a list. |
 
 ## Provider files
 
