@@ -8,7 +8,7 @@ These are the only providers that tests confirmed as really free.
 | `gemini` | Google Gemini | Native Gemini API | Daedalus maps OpenAI requests to Gemini and back, with thought signatures. |
 | `groq` | Groq | OpenAI-compatible | Gets only the message fields that it accepts. |
 | `kilo` | Kilo Gateway | OpenAI-compatible | |
-| `mistral` | Mistral | OpenAI-compatible | Gets only the message fields that it accepts. |
+| `mistral` | Mistral | OpenAI-compatible | Gets only the message fields that it accepts. `reasoning_effort` `none` and `minimal` become `none`, and `low` to `xhigh` become `high`. The thinking chunks of an answer go to `reasoning_content`. |
 | `openrouter` | OpenRouter | OpenAI-compatible | |
 | `z-ai` | Z.ai | OpenAI-compatible | |
 
