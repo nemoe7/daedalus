@@ -80,6 +80,7 @@ Daedalus skips each provider that has no key.
 | `headroom.timeout` | `5` | Seconds for Headroom. Then the original messages go to the provider. |
 | `escalation.keywords` | `[]` | Words or phrases. A match in the last user message moves the `daedalus/auto` tier 1 step above the session tier, and the session keeps it. A match is a whole word or phrase, in uppercase or lowercase. The message does not change. The shipped file has a list. |
 | `switch.keywords` | `[]` | Words or phrases. A match in the last user message removes the session model of the pool. Another model of the same tier answers, and it becomes the session model. The old model is the last fallback. A match is a whole word or phrase, in uppercase or lowercase. The shipped file has `clanker`. |
+| `dashboard.theme` | `system` | `system`, `light` or `dark`. `system` follows the device. The Settings page has a Theme field. The login page always follows the device. |
 
 ## Provider files
 

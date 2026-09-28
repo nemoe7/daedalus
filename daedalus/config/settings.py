@@ -26,7 +26,9 @@ DEFAULTS: dict[str, dict[str, Any]] = {
   "headroom": {"timeout": 5.0},
   "escalation": {"keywords": []},
   "switch": {"keywords": []},
+  "dashboard": {"theme": "system"},
 }
+THEMES = ("system", "light", "dark")
 
 
 class SettingsError(ValueError):
@@ -40,6 +42,10 @@ def check(group: str, key: str, value: Any) -> Any:
     return keyword_list(name, value)
   if group == "catalog":
     return schedule_value(name, key, value)
+  if key == "theme":
+    if value not in THEMES:
+      raise SettingsError(f"{name} must be system, light or dark")
+    return value
   if key == "enabled":
     if not isinstance(value, bool):
       raise SettingsError(f"{name} must be true or false")

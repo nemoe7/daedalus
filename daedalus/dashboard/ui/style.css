@@ -5,15 +5,15 @@
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23616161' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --tier: #212c70; --tag: #5c388c; --field: #f7f7f9; --radius: 12px;
   --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
-  color-scheme: light dark; scrollbar-color: var(--line) transparent;
+  color-scheme: light; scrollbar-color: var(--line) transparent;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1c1c1c; --panel: #262626; --text: #e6e6e6; --muted: #adadad; --line: #424242;
-    --accent: #536dfe; --ok: #90caf9; --warn: #e1bee7; --bad: #d4608f; --bar: #212c70; --orange: #ffa040; --red: #ef5350;
-    --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23adadad' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    --tier: #90caf9; --tag: #e1bee7; --field: #1f1f1f;
-  }
+/* app.js sets data-theme from the theme setting, or from the device when the setting is system. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1c1c1c; --panel: #262626; --text: #e6e6e6; --muted: #adadad; --line: #424242;
+  --accent: #536dfe; --ok: #90caf9; --warn: #e1bee7; --bad: #d4608f; --bar: #212c70; --orange: #ffa040; --red: #ef5350;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23adadad' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --tier: #90caf9; --tag: #e1bee7; --field: #1f1f1f;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
