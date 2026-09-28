@@ -472,6 +472,7 @@ def check_pools(fake: Upstream, client: TestClient) -> None:
   finally:
     api.PENALTIES.pick = pick
   check_media_cooldown(fake, client)
+  check_media_pacing(fake, client)
   count = len(fake.sent)
   for path, body in (
     ("/v1/images/generations", {"model": "daedalus/graphos", "prompt": "a cat"}),
@@ -498,6 +499,25 @@ def check_media_cooldown(fake: Upstream, client: TestClient) -> None:
   row = transcribe(client, b"RIFF-six")
   assert [a["model"] for a in row["attempts"]] == ["groq/whisper"], row
   api.COOLDOWNS.clear()
+
+
+def check_media_pacing(fake: Upstream, client: TestClient) -> None:
+  form = {"model": "mistral/voxtral", "response_format": "text"}
+  files = {"file": ("a.wav", b"RIFF-seven", "audio/wav")}
+  original = store.pace_limits
+  store.pace_limits = lambda: {"mistral/voxtral": (1.0, None)}
+  api.PACING.clear()
+  try:
+    response = client.post("/v1/audio/transcriptions", data=form, files=files)
+    assert response.status_code == 200, response.text
+    count = len(fake.sent)
+    response = client.post("/v1/audio/transcriptions", data=form, files=files)
+    assert response.status_code == 429 and len(fake.sent) == count, "rpm 1 reached"
+    row = transcribe(client, b"RIFF-eight")
+    assert [a["model"] for a in row["attempts"]] == ["groq/whisper"], row
+  finally:
+    store.pace_limits = original
+    api.PACING.clear()
 
 
 def check_empty_pool(client: TestClient) -> None:

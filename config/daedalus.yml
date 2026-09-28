@@ -19,6 +19,8 @@ weights:
 cooldown:
   first: 60 # seconds of the first cooldown of a 429 with no reset time
   longest: 21600 # each next 429 doubles the cooldown, up to this many seconds
+pacing:
+  enabled: true # false: the rpm and tpm of the provider files do not skip models
 catalog:
   every: 6 # hours between rebuilds of the model catalog; 0 stops them
   anchor: 6 # local hour (TZ env var) that the rebuild times start from: 00, 06, 12 and 18

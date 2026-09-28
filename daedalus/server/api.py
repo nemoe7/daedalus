@@ -17,7 +17,7 @@ from daedalus.catalog import schedule
 from daedalus.config import get_config
 from daedalus.providers import signatures
 from daedalus.providers.base import error_text
-from daedalus.routing import context, cooldowns, penalties, retries, router
+from daedalus.routing import context, cooldowns, pacing, penalties, retries, router
 from daedalus.server import access, headroom, logs, media, stream, upstream
 from daedalus.store import keys
 
@@ -227,7 +227,9 @@ def served(request: Request, config: dict[str, Any], candidate: str) -> None:
 PENALTIES = penalties.Penalties(lambda: store.MODELS_DB)
 RETRIES = retries.Retries()
 COOLDOWNS = cooldowns.Cooldowns(lambda: store.MODELS_DB)
+PACING = pacing.Pacing()
 media.PENALTIES, media.COOLDOWNS = PENALTIES, COOLDOWNS
+media.PACING = stream.PACING = PACING
 app.include_router(dashboard.page())
 app.include_router(
   dashboard.routes(
@@ -349,7 +351,11 @@ async def chat(request: Request) -> Response:
   if wait is not None:
     return upstream.cooling_response(wait)
   pin.cooled(ends)
-  models = pin.order(groups)
+  paces = store.pace_limits()
+  paced = [[m for m in group if not PACING.full(m, paces)] for group in groups]
+  if any(groups) and not any(paced):
+    return upstream.cooling_response(PACING.wait(m for group in groups for m in group))
+  models = pin.order(paced)
   if models:
     body, saved = await headroom.compress(body, models[0])
     if saved is not None:
@@ -361,6 +367,7 @@ async def chat(request: Request) -> Response:
   for index, candidate in enumerate(models):
     request.state.fallbacks = str(index)
     started = time.perf_counter()
+    PACING.record(candidate, tokens)
     try:
       provider, response = await upstream.attempt(candidate, body, config)
       if not body.get("stream"):
@@ -434,6 +441,7 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   )
   for name in ("success", "fault", "slow", "hourly", "rate_limit"):
     setattr(PENALTIES, name, weights[name])
+  PACING.enabled = values["pacing"]["enabled"]
   COOLDOWNS.first, COOLDOWNS.longest = (
     values["cooldown"]["first"],
     values["cooldown"]["longest"],
