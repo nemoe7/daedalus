@@ -58,6 +58,9 @@ def check_load(folder: Path) -> None:
   expect_error(folder, "escalation:\n  keywords: think\n", "list of words or phrases")
   expect_error(folder, "escalation:\n  keywords: [1]\n", "list of words or phrases")
   expect_error(folder, "switch:\n  keywords: clanker\n", "list of words or phrases")
+  expect_error(folder, "dashboard:\n  theme: blue\n", "system, light or dark")
+  path.write_text("dashboard:\n  theme: dark\n", encoding="utf-8")
+  assert settings.load(path)["dashboard"]["theme"] == "dark"
   expect_error(folder, "escalation:\n  keywords: [' ']\n", "list of words or phrases")
   path.write_text(
     "escalation:\n  keywords: [ultrathink, ' think hard ']\n", encoding="utf-8"

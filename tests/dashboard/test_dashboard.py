@@ -297,6 +297,19 @@ def check_files(client: TestClient, folder: Path) -> None:
   words = {"escalation": {"keywords": None}}
   assert client.put("/ui/api/settings", json={"changes": words}).status_code == 200
   assert "keywords: []" in settings.DEFAULT_PATH.read_text() and api.KEYWORDS is None
+  dark = {"dashboard": {"theme": "dark"}}
+  assert client.put("/ui/api/settings", json={"changes": dark}).status_code == 200
+  assert client.get("/ui/api/settings").json()["file"]["dashboard"]["theme"] == "dark"
+  blue = client.put(
+    "/ui/api/settings", json={"changes": {"dashboard": {"theme": "blue"}}}
+  )
+  assert blue.status_code == 422 and "system, light or dark" in blue.text, blue.text
+  assert (
+    client.put(
+      "/ui/api/settings", json={"changes": {"dashboard": {"theme": None}}}
+    ).status_code
+    == 200
+  )
   # The YAML view reads and writes the file text.
   text = client.get("/ui/api/settings").json()["text"]
   assert text == settings.DEFAULT_PATH.read_text(), "the text of the file"
