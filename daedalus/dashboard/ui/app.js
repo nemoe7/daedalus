@@ -242,6 +242,8 @@ const sortValue = {
   cooldown: (m) => (m.cooldown && m.cooldown > Date.now() / 1000 ? m.cooldown : null),
 };
 
+// The default reasoning effort of a model, when the catalog has one.
+const effortText = (effort) => (effort ? ` <span class="muted">${esc(effort)}</span>` : "");
 const yesNo = (on) => (on ? '<span class="yes">Yes</span>' : '<span class="muted">No</span>');
 // Red at 0, orange at 0.5 and blue at 1, mixed in between.
 function weightColor(weight) {
@@ -288,7 +290,7 @@ function renderModels() {
       <td class="mid">${m.tier ? `<span class="tier">${esc(tierLetter(m.tier))}</span>` : dash}</td>
       <td class="hide-sm num muted">${tokens(m.max_input_tokens)}</td>
       <td class="mid">${m.mode === "chat" ? yesNo(m.tools) : dash}</td>
-      <td class="hide-sm mid">${m.mode === "chat" ? yesNo(m.reasoning) : dash}</td>
+      <td class="hide-sm mid">${m.mode === "chat" ? yesNo(m.reasoning) + effortText(m.effort) : dash}</td>
       <td class="num">${coolCell(m.cooldown)}</td>
       <td>${m.weight == null ? dash
         : `<div class="weight">${weightBar(m.weight)}<span class="num">${m.weight.toFixed(2)}</span></div>`}</td>
