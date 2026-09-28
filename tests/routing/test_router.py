@@ -8,7 +8,7 @@ from pathlib import Path
 
 import httpx
 
-from daedalus import config
+from daedalus import config, store
 from daedalus.routing import classifier, router
 from daedalus.server import upstream
 
@@ -339,7 +339,13 @@ def main() -> int:
   check_direct_only()
   check_provider_files()
   check_tier_cache()
-  check_model_wait()
+  original = store.MODELS_DB
+  with tempfile.TemporaryDirectory() as folder:
+    store.MODELS_DB = Path(folder) / "models.sqlite3"
+    try:
+      check_model_wait()
+    finally:
+      store.MODELS_DB = original
   check_most_specific_tier()
   check_pools()
   print("ok: router checks passed")
