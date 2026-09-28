@@ -234,6 +234,34 @@ def model_info() -> dict[str, dict[str, int | bool]]:
   return info
 
 
+def model_limits(model: str) -> dict[str, Any]:
+  """The stored `reasoning_effort` and `max_output_tokens` of one model, without empty values."""
+  if not Path(MODELS_DB).exists():
+    return {}
+  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
+  try:
+    row = database.execute(
+      "SELECT reasoning_effort, max_output_tokens FROM models WHERE id = ?", (model,)
+    ).fetchone()
+  except sqlite3.OperationalError:
+    return {}
+  finally:
+    database.close()
+  if row is None:
+    return {}
+  effort, output = row
+  found: dict[str, Any] = {}
+  if isinstance(effort, str) and effort:
+    found["reasoning_effort"] = effort
+  try:
+    number = int(float(output))
+  except (TypeError, ValueError):
+    number = 0
+  if number > 0:
+    found["max_output_tokens"] = number
+  return found
+
+
 def reasoning_flags() -> dict[str, bool]:
   """The reasoning flag of each stored model. No catalog value counts as false."""
   if not Path(MODELS_DB).exists():
