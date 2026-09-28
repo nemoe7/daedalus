@@ -320,6 +320,7 @@ async def chat(request: Request) -> Response:
     return upstream.error_response(400, "A model is required", "invalid_request_error")
   model = body["model"]
   request.state.model = model
+  request.state.effort = providers.effort_text(body.get("reasoning_effort"))
   if not isinstance(body.get("messages"), list):
     return upstream.error_response(
       400, "messages must be a list", "invalid_request_error"
@@ -393,10 +394,10 @@ async def chat(request: Request) -> Response:
   while index < len(models):
     candidate = models[index]
     request.state.fallbacks = str(index)
-    started = time.perf_counter()
+    started, sent = time.perf_counter(), {}
     PACING.record(candidate, tokens)
     try:
-      provider, response = await upstream.attempt(candidate, body, config)
+      provider, response = await upstream.attempt(candidate, body, config, sent)
       if not body.get("stream"):
         raw = await response.aread()
         await response.aclose()
@@ -409,17 +410,17 @@ async def chat(request: Request) -> Response:
         request.state.ttft = logs.seconds_text(ttft)
         served(request, config, candidate)
         remember(request, turn, candidate)
-        attempts.append(upstream.note(candidate, "answered", started))
+        attempts.append(upstream.note(candidate, "answered", started) | sent)
         return JSONResponse(completion)
       events = stream.sse_data(provider.stream(response, candidate, include_usage))
       pending = await stream.first_content(events)
       ttft = time.perf_counter() - started
     except httpx.ReadTimeout as exc:
       if direct_wait and time.perf_counter() < deadline:
-        attempts.append(upstream.failure_note(candidate, started, exc))
+        attempts.append(upstream.failure_note(candidate, started, exc) | sent)
         await asyncio.sleep(min(0.1, max(0, deadline - time.perf_counter())))
         continue
-      attempts.append(upstream.failure_note(candidate, started, exc))
+      attempts.append(upstream.failure_note(candidate, started, exc) | sent)
       pin.failed(candidate)
       failure = upstream.error_response(
         504 if direct_wait else 502,
@@ -431,7 +432,7 @@ async def chat(request: Request) -> Response:
       index += 1
       continue
     except upstream.UpstreamStatus as exc:
-      attempts.append(upstream.failure_note(candidate, started, exc))
+      attempts.append(upstream.failure_note(candidate, started, exc) | sent)
       if started_cooldown := pin.failed(candidate, exc):
         attempts[-1]["cooldown"] = started_cooldown
       failure = upstream.error_response(
@@ -441,7 +442,7 @@ async def chat(request: Request) -> Response:
       continue
     except stream.ATTEMPT_ERRORS as exc:
       logger.warning("upstream %s failed: %s", candidate, upstream.failure_text(exc))
-      attempts.append(upstream.failure_note(candidate, started, exc))
+      attempts.append(upstream.failure_note(candidate, started, exc) | sent)
       pin.failed(candidate)
       failure = upstream.error_response(
         502, "Upstream provider attempt failed", "upstream_error"
@@ -453,7 +454,7 @@ async def chat(request: Request) -> Response:
     request.state.ttft = logs.seconds_text(ttft)
     served(request, config, candidate)
     remember(request, turn, candidate)
-    attempts.append(upstream.note(candidate, "answered", started))
+    attempts.append(upstream.note(candidate, "answered", started) | sent)
     return StreamingResponse(
       stream.relay(
         pending, events, rest, body, config, include_usage, candidate, pin, attempts

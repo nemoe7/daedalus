@@ -23,7 +23,17 @@ from daedalus.routing.penalties import Penalties
 from daedalus.store import keys
 
 HISTORY = History(lambda: store.MODELS_DB)
-FIELDS = ("model", "pool", "routed", "retry", "via", "ttft", "fallbacks", "attempts")
+FIELDS = (
+  "model",
+  "effort",
+  "pool",
+  "routed",
+  "retry",
+  "via",
+  "ttft",
+  "fallbacks",
+  "attempts",
+)
 AUTO_TIERS = (4, 3, 2, 1)
 # The modes whose models have weights: chat, and the modes of the media pools.
 WEIGHTED_MODES = frozenset({"chat", *router.MEDIA_POOLS.values()})
