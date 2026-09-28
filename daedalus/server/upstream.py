@@ -150,12 +150,23 @@ def failure_note(model: str, started: float, exc: Exception) -> dict[str, Any]:
   return note(model, "failed", started, failure_text(exc))
 
 
+# The request fields that limit the output tokens.
+OUTPUT_FIELDS = ("max_tokens", "max_completion_tokens")
+
+
 def with_defaults(candidate: str, body: dict[str, Any]) -> dict[str, Any]:
-  """The body with the stored reasoning effort of the model when the request has none."""
-  effort = store.model_limits(candidate).get("reasoning_effort")
-  if effort is None or "reasoning_effort" in body:
-    return body
-  return {**body, "reasoning_effort": effort}
+  """The body with the stored effort when it has none, and output limits cut to the model."""
+  found = store.model_limits(candidate)
+  changed = dict(body)
+  if "reasoning_effort" in found and "reasoning_effort" not in body:
+    changed["reasoning_effort"] = found["reasoning_effort"]
+  limit = found.get("max_output_tokens")
+  for field in OUTPUT_FIELDS:
+    asked = body.get(field)
+    if limit is None or isinstance(asked, bool) or not isinstance(asked, int):
+      continue
+    changed[field] = min(asked, limit)
+  return changed
 
 
 def without_reasoning(candidate: str, body: dict[str, Any]) -> dict[str, Any]:
