@@ -61,7 +61,7 @@ Daedalus skips each provider that has no key.
 | Key | Default | Use |
 | --- | --- | --- |
 | `timeouts.request` | `600` | Seconds to wait for an answer, for all attempts. A stream that started does not stop at this limit. |
-| `timeouts.wait` | `60` | Seconds with no data from the provider. Keep-alive bytes do not count: SSE comments and blank lines. After this time, the next model starts. |
+| `timeouts.wait` | `60` | Seconds with no data from the provider. Keep-alive bytes do not count: SSE comments and blank lines. After this time, the next model starts. Media requests have no wait limit, only `timeouts.request`. |
 | `timeouts.slow` | Half of `timeouts.wait` | A first token after this time is slow |
 | `session_affinity.enabled` | `true` | Session models and the highest tier of a conversation |
 | `session_affinity.idle` | `3600` | Seconds with no request, then the session expires |
