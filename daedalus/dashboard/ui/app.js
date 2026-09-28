@@ -240,9 +240,10 @@ function weightColor(weight) {
 const weightBar = (weight) => `<div class="track"><div class="fill"
   style="width:${Math.round(weight * 100)}%;background:${weightColor(weight)}"></div></div>`;
 
+// With no column chosen, the rows sort by type, then by model name.
 function sortModels(rows) {
-  const { key, dir } = state.sort;
-  if (!sortValue[key]) return rows;
+  const { dir } = state.sort;
+  const key = sortValue[state.sort.key] ? state.sort.key : "mode";
   return [...rows].sort((a, b) => {
     const x = sortValue[key](a), y = sortValue[key](b);
     if (x === y) return a.id.localeCompare(b.id);
