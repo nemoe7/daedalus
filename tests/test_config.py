@@ -72,6 +72,8 @@ def check_missing_file() -> None:
 
 def check_repo_file() -> None:
   """The committed provider file parses, and its top-level keys are alphabetical."""
+  for name in ("CLOUDFLARE", "GEMINI", "GROQ", "KILO", "MISTRAL", "OPENROUTER", "ZAI"):
+    os.environ.setdefault(f"{name}_API_KEY", "k")
   loaded = config.load_config(Path("config/providers/free.yml"))
   assert sorted(loaded) == list(loaded), list(loaded)
   assert list(loaded) == [
