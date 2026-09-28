@@ -31,6 +31,7 @@ flowchart LR
   C[Clients] -->|3357| D[daedalus]
   W[open-webui :3000] --> D
   W --> V[webui-db, internal]
+  W -->|files| K[tika, internal]
   W -->|web search| S[searxng, internal]
   D -->|messages| H[headroom :8787, internal]
   T[tailscale] -->|HTTPS :443 in the tailnet| D
@@ -40,7 +41,7 @@ flowchart LR
 
 | Profile | Service | What it does |
 | --- | --- | --- |
-| `webui` | `open-webui` | Chat UI on `http://localhost:3000`, and on port 8443 with the `tailscale` profile. It uses Daedalus as its OpenAI API. Its vector database `webui-db` (PostgreSQL with pgvector) has no host port. |
+| `webui` | `open-webui` | Chat UI on `http://localhost:3000`, and on port 8443 with the `tailscale` profile. It uses Daedalus as its OpenAI API. Its vector database `webui-db` (PostgreSQL with pgvector) and its file reader `tika` have no host port. |
 | `search` | `searxng` | Web search for Open WebUI. No port on the host, no key. |
 | `headroom` | `headroom` | Compresses the messages before Daedalus sends them. No port on the host. |
 | `tailscale` | `tailscale` | Publishes Daedalus and Open WebUI to your tailnet over HTTPS. |
@@ -60,6 +61,7 @@ flowchart LR
 | `ENABLE_IMAGE_GENERATION`, `IMAGE_GENERATION_MODEL` | `true` and `daedalus/photos` |
 | `VECTOR_DB`, `PGVECTOR_DB_URL` | `pgvector` in `webui-db`, for files, knowledge and memory. `main-slim` supports no other vector store. |
 | `RAG_EMBEDDING_ENGINE`, `RAG_EMBEDDING_MODEL` | `openai` and `mistral/mistral-embed` through Daedalus. `main-slim` has no local embedding model. A new embedding model needs a new index of all files. |
+| `CONTENT_EXTRACTION_ENGINE` | `tika`: Apache Tika 3.3 reads PDF and Office files. Pages with almost no text go to Tesseract OCR. `main-slim` alone reads only plain text. |
 | `ENABLE_WEB_SEARCH`, `WEB_SEARCH_ENGINE` | `true` and `searxng`. Without the `search` profile, a web search fails. |
 | Spoken replies | The browser voice. Each user picks Web API or Kokoro.js in **Settings → Audio**. Open WebUI sends 1 speech request for each sentence, and the free Gemini TTS allows 3 requests per minute. |
 | `RAG_EMBEDDING_BATCH_SIZE`, `ENABLE_ASYNC_EMBEDDING` | `32` and `false`: 32 chunks in each request, 1 request at a time, to stay below the free Mistral limits |
@@ -67,6 +69,15 @@ flowchart LR
 Open WebUI reads most of these settings only on the first start with a new data volume. After that, the values in **Admin Settings** apply. On an existing install, set them there.
 
 Keep **Function Calling** on **Native**, the Open WebUI default since v0.10.0. Native sends the tools in `tools`, and Daedalus skips the models that cannot call tools. Legacy puts the tools in the prompt and calls tools only 1 time, before the answer.
+
+### Tika
+
+| Setting | Value |
+| --- | --- |
+| Image | `apache/tika:3.3.0.0-full`, with Tesseract OCR |
+| Process | 1 Java process (`-noFork`) with a 512 MB heap |
+| Out of memory | Java stops, and Docker starts Tika again |
+| OCR | Tesseract on the Pi CPU. 1 scanned page can take many seconds. |
 
 ### SearXNG
 
