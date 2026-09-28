@@ -60,7 +60,7 @@ Daedalus skips each provider that has no key.
 
 | Key | Default | Use |
 | --- | --- | --- |
-| `timeouts.request` | `600` | Seconds for 1 full request |
+| `timeouts.request` | `600` | Seconds to wait for an answer, for all attempts. A stream that started does not stop at this limit. |
 | `timeouts.wait` | `60` | Seconds with no bytes from the provider |
 | `timeouts.slow` | Half of `timeouts.wait` | A first token after this time is slow |
 | `session_affinity.enabled` | `true` | Session models and the highest tier of a conversation |

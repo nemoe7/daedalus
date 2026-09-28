@@ -801,7 +801,7 @@ function switchView(view) {
 // The Settings form: [group, title, [[key, label, unit, hint], ...]].
 const SETTINGS = [
   ["timeouts", "Timeouts", [
-    ["request", "Request", "s", "The time for one full request."],
+    ["request", "Request", "s", "The time to wait for an answer, for all attempts. A stream that started does not stop at this limit."],
     ["wait", "Wait", "s", "The time without bytes from the provider."],
     ["slow", "Slow first token", "s", "A first token after this time is slow. Empty: half of Wait."],
   ]],
