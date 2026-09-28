@@ -71,7 +71,7 @@ Daedalus is for personal use only. Do not share it with other users, because the
 | API key | A key from the **API keys** page |
 | Model | `daedalus/auto`, a pool name, or `provider/slug` |
 
-> Q: Which clients do you use with Daedalus, and do you want a setup example for each?
+The tested clients are Kilo Code and Open WebUI.
 
 ## Run without Docker
 
@@ -131,6 +131,6 @@ uv run ruff format --check
 
 ## License
 
-> Q: Which license does Daedalus use?
+Daedalus has no license for now.
 
 The classifier data comes from LiteLLM. Its license is in `daedalus/routing/artifacts/LITELLM-LICENSE.txt`.
