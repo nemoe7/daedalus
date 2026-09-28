@@ -231,11 +231,18 @@ def routes(
       partition(response)
     return response
 
-  def members(groups: list[list[str]], order: tuple[int, ...]) -> list[dict]:
+  def members(
+    groups: list[list[str]], order: tuple[int | None, ...], ends: Mapping[str, float]
+  ) -> list[dict]:
     lines = [line for group in groups for line in group]
     weights = penalties.weights(lines)
     return [
-      {"id": line, "tier": router.TIER_NAMES[tier], "weight": weights[line]}
+      {
+        "id": line,
+        "tier": router.TIER_NAMES[tier] if tier else None,
+        "weight": weights[line],
+        "cooldown": Cooldowns.until(line, ends),
+      }
       for tier, group in zip(order, groups, strict=True)
       for line in group
     ]
@@ -258,10 +265,13 @@ def routes(
     if not allowed(request):
       return denied()
     config, lines = get_config(), store.read_models()
+    ends = cooldowns.ends() if cooldowns else {}
     found = [
       {
         "name": router.RESERVED_MODEL,
-        "members": members(router.chain_groups(config, lines, AUTO_TIERS), AUTO_TIERS),
+        "members": members(
+          router.chain_groups(config, lines, AUTO_TIERS), AUTO_TIERS, ends
+        ),
       },
     ]
     for name, tier in sorted(router.POOLS.items(), key=lambda item: -item[1]):
@@ -269,18 +279,13 @@ def routes(
       found.append(
         {
           "name": name,
-          "members": members(router.chain_groups(config, lines, order), order),
+          "members": members(router.chain_groups(config, lines, order), order, ends),
         }
       )
     for name, mode in router.MEDIA_POOLS.items():
       media = [m for m in store.mode_models(mode) if router.pooled(config, m)]
-      weights = penalties.weights(media)
       found.append(
-        {
-          "name": name,
-          "mode": mode,
-          "members": [{"id": m, "tier": None, "weight": weights[m]} for m in media],
-        }
+        {"name": name, "mode": mode, "members": members([media], (None,), ends)}
       )
     return JSONResponse(found)
 
