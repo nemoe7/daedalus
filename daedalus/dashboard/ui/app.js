@@ -23,7 +23,7 @@ const clock = (seconds) => new Date(seconds * 1000).toLocaleTimeString(
 
 const state = {
   models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, saved: [], timers: [],
-  view: "form", forms: [], formSaved: [], overrideKeys: [], settingsView: "form",
+  view: "form", forms: [], formSaved: [], overrideKeys: [], providerDefaults: {}, settingsView: "form",
   pools: [], requests: [], requestLimit: REQUESTS_STEP, keys: [], catalog: {}, settings: null,
   live: new Map(), source: null,
 };
@@ -581,8 +581,9 @@ function providerCard(name, block) {
     return `<div class="card provider" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
       <p class="sub">This block is not a map. Edit it in the YAML view.</p></div>`;
   }
+  const defaults = state.providerDefaults[name] || state.providerDefaults["*"] || {};
   const text = (key, label, hint) => field(label, hint, `<input class="text" type="text" spellcheck="false"
-    data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(block[key] ?? "")}">`);
+    data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(block[key] ?? "")}" placeholder="${esc(defaults[key] ?? "")}">`);
   const tiers = TIERS.map((tier) => `<div class="tier-row"><span class="tier">${tier.slice(-1)}</span>
     ${listField(tier, block.tier?.[tier], [...path, "tier", tier])}</div>`).join("");
   const models = block.models && typeof block.models === "object" ? block.models : {};
@@ -597,9 +598,9 @@ function providerCard(name, block) {
   const values = others.map((key) => pill(`${key}: ${shown(block[key])}`, path, key)).join("") + adder(path, "column", "+ key");
   return `<div class="card provider" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
     ${text("api_key", "API key", "os.environ/NAME reads an environment variable")}
-    ${text("api_base", "API base", "Empty: the default of the provider")}
-    ${text("api_type", "API type", "openai or gemini. Empty: the default of the provider")}
-    ${text("discovery_url", "Discovery URL", "The model list URL. Empty: the default of the provider")}
+    ${text("api_base", "API base", "Empty: the default, in gray")}
+    ${text("api_type", "API type", "openai or gemini. Empty: the default, in gray")}
+    ${text("discovery_url", "Discovery URL", "The model list URL. Empty: the default, in gray")}
     ${field("Discovery match", "The catalog keeps a model when each key matches", `<div class="pills">${mapPills(block.discovery_match, [...path, "discovery_match"], "match", " = ")}</div>`)}
     ${field("Exclude", "Model patterns that never route", listField("exclude", block.exclude, [...path, "exclude"]))}
     ${field("Tiers", "Model patterns for each tier", tiers)}
@@ -981,7 +982,7 @@ async function start() {
   await refreshFast();
   await refreshSlow();
   takeFiles(await call("files"));
-  state.overrideKeys = await call("provider-keys");
+  [state.overrideKeys, state.providerDefaults] = await Promise.all([call("provider-keys"), call("provider-defaults")]);
   state.file = 0;
   $("editor").value = state.files[0]?.text ?? "";
   renderFiles();
