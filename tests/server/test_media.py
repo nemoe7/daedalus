@@ -530,9 +530,12 @@ def check_empty_pool(client: TestClient) -> None:
 def main() -> None:
   fake = Upstream()
   upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(fake)))
-  original, shown = media.get_config, api.get_config
+  original, shown, state = media.get_config, api.get_config, store.MODELS_DB
   media.get_config = api.get_config = lambda: CONFIG
   client = TestClient(api.app, headers={"Authorization": f"Bearer {MASTER}"})
+  folder = tempfile.TemporaryDirectory()
+  # The request history goes to a temporary store, not to .daedalus-state.
+  store.MODELS_DB = Path(folder.name) / "models.sqlite3"
   try:
     check_embeddings(fake, client)
     check_gemini(fake, client)
@@ -544,16 +547,13 @@ def main() -> None:
     check_gemini_audio(fake, client)
     check_model_list(client)
     check_empty_pool(client)
-    with tempfile.TemporaryDirectory() as name:
-      original, store.MODELS_DB = store.MODELS_DB, Path(name) / "models.sqlite3"
-      try:
-        store.write_store(POOL_ROWS)
-        check_pools(fake, client)
-      finally:
-        store.MODELS_DB = original
+    store.MODELS_DB = Path(folder.name) / "pools.sqlite3"
+    store.write_store(POOL_ROWS)
+    check_pools(fake, client)
   finally:
-    media.get_config, api.get_config = original, shown
+    media.get_config, api.get_config, store.MODELS_DB = original, shown, state
     upstream.set_client(None)
+    folder.cleanup()
   print("ok: embeddings, transcriptions, speech, images and media pools")
 
 

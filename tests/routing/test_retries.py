@@ -113,9 +113,9 @@ def main() -> None:
       check_other_requests(client)
       check_expiry()
     finally:
+      api.PENALTIES.clear()
       api.get_config, router.required_tier, model_store.MODELS_DB = original
       upstream.set_client(None)
-      api.PENALTIES.clear()
   print("ok: try again escalation")
 
 
