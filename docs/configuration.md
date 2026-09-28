@@ -30,7 +30,9 @@ A key that shows 2 times in 1 map of a config file stops the start. The error gi
 
 | Name | Default | Use |
 | --- | --- | --- |
-| `DAEDALUS_MASTER_KEY` | None. Necessary. | Dashboard password and `/v1` key. 16 or more characters, no spaces. |
+| `DAEDALUS_MASTER_KEY` | None. Necessary. | `/v1` key. 16 or more characters, no spaces. |
+| `DAEDALUS_USERNAME` | `admin` | Dashboard user |
+| `DAEDALUS_PASSWORD` | `DAEDALUS_MASTER_KEY` | Dashboard password. It does not open `/v1`. |
 | `DAEDALUS_HOST` | `0.0.0.0` | Address of the server |
 | `DAEDALUS_PORT` | `3357` | Port of the server. `daedalus serve PORT` has priority. |
 | `TZ` | UTC | Clock for the catalog schedule, for example `Asia/Manila` |

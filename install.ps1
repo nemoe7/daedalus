@@ -18,5 +18,5 @@ if (-not (Select-String -Path '.env' -Pattern '^DAEDALUS_MASTER_KEY=\S{16,}$' -Q
 docker compose up -d --build
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Host 'Daedalus runs on http://localhost:3357/v1'
-Write-Host 'Dashboard: http://localhost:3357/ (user admin, password DAEDALUS_MASTER_KEY)'
+Write-Host 'Dashboard: http://localhost:3357/ (user DAEDALUS_USERNAME or admin, password DAEDALUS_PASSWORD or DAEDALUS_MASTER_KEY)'
 Write-Host 'Make API keys for your clients in the dashboard.'
