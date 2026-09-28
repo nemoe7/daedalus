@@ -468,7 +468,9 @@ async function refreshKeys() {
 }
 
 // The block keys that the form edits. The YAML view edits the other keys.
-const FORM_KEYS = ["api_key", "api_base", "discovery_match", "exclude", "tier", "models"];
+const FORM_KEYS = ["api_key", "api_base", "api_type", "discovery_url", "discovery_match", "exclude", "tier", "models"];
+// The keys that a model override sets but the provider level does not.
+const MODEL_ONLY = ["pool", "timeout"];
 const TIERS = ["TIER-A", "TIER-B", "TIER-C", "TIER-D"];
 // The width of 1 column of provider cards.
 const CARD_WIDTH = 460;
@@ -592,14 +594,17 @@ function providerCard(name, block) {
         data-drop='${esc(JSON.stringify([...path, "models", pattern]))}'>&times;</button>
     </div>`).join("");
   const others = Object.keys(block).filter((key) => !FORM_KEYS.includes(key) && key !== "_file");
+  const values = others.map((key) => pill(`${key}: ${shown(block[key])}`, path, key)).join("") + adder(path, "column", "+ key");
   return `<div class="card provider" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
     ${text("api_key", "API key", "os.environ/NAME reads an environment variable")}
-    ${"api_base" in block ? text("api_base", "API base", "") : ""}
+    ${text("api_base", "API base", "Empty: the default of the provider")}
+    ${text("api_type", "API type", "openai or gemini. Empty: the default of the provider")}
+    ${text("discovery_url", "Discovery URL", "The model list URL. Empty: the default of the provider")}
     ${field("Discovery match", "The catalog keeps a model when each key matches", `<div class="pills">${mapPills(block.discovery_match, [...path, "discovery_match"], "match", " = ")}</div>`)}
     ${field("Exclude", "Model patterns that never route", listField("exclude", block.exclude, [...path, "exclude"]))}
     ${field("Tiers", "Model patterns for each tier", tiers)}
     ${field("Model overrides", "A pattern and the catalog values that it sets", `${overrides}<div class="pills">${adder([...path, "models"], "pattern", "+ Pattern")}</div>`)}
-    ${others.length ? field("YAML only", "The YAML view edits these keys", `<div class="pills">${others.map((key) => `<span class="chip">${esc(key)}</span>`).join("")}</div>`) : ""}
+    ${field("Provider values", "Catalog values for each model of the provider. A model override has priority.", `<div class="pills">${values}</div>`)}
   </div>`;
 }
 
@@ -657,9 +662,10 @@ function showAdder(button) {
   const kind = button.dataset.kind;
   const box = document.createElement("span");
   box.className = "adder";
-  const keys = state.overrideKeys.map((key) => `<option>${esc(key)}</option>`).join("");
-  const placeholder = { list: "pattern", match: "key = value", pattern: "model pattern", override: "value" }[kind];
-  box.innerHTML = `${kind === "override" ? `<select aria-label="Key">${keys}</select>` : ""}
+  const choices = kind === "column" ? state.overrideKeys.filter((key) => !MODEL_ONLY.includes(key)) : state.overrideKeys;
+  const keys = choices.map((key) => `<option>${esc(key)}</option>`).join("");
+  const placeholder = { list: "pattern", match: "key = value", pattern: "model pattern", override: "value", column: "value" }[kind];
+  box.innerHTML = `${kind === "override" || kind === "column" ? `<select aria-label="Key">${keys}</select>` : ""}
     <input type="text" spellcheck="false" placeholder="${placeholder}">`;
   button.replaceWith(box);
   const input = box.querySelector("input");
@@ -816,10 +822,13 @@ const SETTINGS = [
   ["headroom", "Headroom", [
     ["timeout", "Timeout", "s", "After this time, the original messages go to the provider."],
   ]],
+  ["escalation", "Escalation", [
+    ["keywords", "Keywords", "list", "1 word or phrase on each line. A match in the last user message moves the daedalus/auto session tier 1 step up."],
+  ]],
 ];
 
 // The Settings cards of each column, from top to bottom.
-const SETTINGS_COLUMNS = [["timeouts", "catalog", "pacing"], ["session_affinity", "headroom", "cooldown"], ["weights"]];
+const SETTINGS_COLUMNS = [["timeouts", "catalog", "pacing"], ["session_affinity", "headroom", "cooldown"], ["weights", "escalation"]];
 
 // The fields that take decimals. The other fields take whole numbers.
 const DECIMALS = new Set([
@@ -851,6 +860,10 @@ function renderSettings() {
         return `<label class="field check" for="${id}"><input type="checkbox" id="${id}"
           ${setting(group, key) ? "checked" : ""}><span><b>${esc(label)}</b><small>${esc(hint)}</small></span></label>`;
       }
+      if (unit === "list") {
+        return `<label class="field stack" for="${id}"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
+          <textarea id="${id}" rows="8" spellcheck="false" placeholder="No keywords">${esc(setting(group, key).join("\n"))}</textarea></label>`;
+      }
       const fallback = state.settings.defaults[group][key];
       const value = fileValue(group, key);
       return `<label class="field" for="${id}"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
@@ -869,9 +882,14 @@ function settingsChanges() {
   if (!state.settings) return {};
   const changes = {};
   for (const [group, , fields] of SETTINGS) {
-    for (const [key] of fields) {
+    for (const [key, , unit] of fields) {
       const input = $(`set-${group}-${key}`);
       let value, before;
+      if (unit === "list") {
+        value = input.value.split("\n").map((text) => text.trim()).filter(Boolean);
+        if (JSON.stringify(value) !== JSON.stringify(setting(group, key))) (changes[group] ||= {})[key] = value;
+        continue;
+      }
       if (key === "enabled") {
         value = input.checked;
         before = setting(group, key);
