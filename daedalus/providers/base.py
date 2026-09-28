@@ -230,6 +230,13 @@ def known_fields(message: Any, fields: Mapping[str, frozenset[str]]) -> Any:
   return {key: value for key, value in message.items() if key in allowed}
 
 
+def effort_text(value: object) -> str | None:
+  """The effort of a `reasoning_effort` value, which can be a string or an object."""
+  if isinstance(value, dict):
+    value = value.get("effort")
+  return value if isinstance(value, str) else None
+
+
 class OpenAIProvider:
   """A provider that serves the OpenAI Chat Completions API."""
 
@@ -323,6 +330,10 @@ class OpenAIProvider:
 
   def completion(self, answer: dict, model: str) -> dict:
     return answer
+
+  def effort(self, payload: dict) -> str | None:
+    """The reasoning effort in an upstream body, as text for the dashboard."""
+    return effort_text(payload.get("reasoning_effort"))
 
   def embed_request(self, slug: str, payload: dict) -> tuple[str, dict, dict[str, str]]:
     """The upstream embeddings request, which always asks for float vectors."""
