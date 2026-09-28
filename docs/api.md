@@ -128,7 +128,7 @@ Kilo cannot show the routed model for a custom provider. The **Requests** page a
 | --- | --- |
 | `messages` | Necessary. A list of objects. |
 | `stream` | Boolean. |
-| `stream_options` | Object. `include_usage` adds a usage chunk. |
+| `stream_options` | Object. `include_usage` adds a usage chunk. Daedalus asks Groq and OpenRouter for the usage chunk in each stream, and removes it when the client did not ask for it. |
 | `tools` | Models that cannot call tools leave the chain. |
 | `reasoning_effort` | Goes only to a model with a true `supports_reasoning` value in the catalog. A model that is not in the catalog also gets it. |
 | Other fields | Go to the provider. Mistral and Groq get only the message fields that they accept. |

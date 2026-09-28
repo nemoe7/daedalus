@@ -12,6 +12,7 @@ class GroqProvider(OpenAIProvider):
     "api_base": "https://api.groq.com/openai/v1",
     "discovery_url": "https://api.groq.com/openai/v1/models",
   }
+  stream_usage: ClassVar[bool] = True
   # Groq rejects all other message fields, for example reasoning_content.
   message_fields: ClassVar[Mapping[str, frozenset[str]]] = {
     "system": frozenset({"role", "content", "name"}),

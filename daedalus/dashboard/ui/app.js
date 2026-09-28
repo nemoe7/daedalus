@@ -224,11 +224,18 @@ function chainRows(r) {
       ${a.cooldown ? `<span class="from">${esc(coolText(a.cooldown))}</span>` : ""}
       ${a.error ? `<pre>${esc(a.error)}</pre>` : ""}
     </li>`).join("");
-  return `<tr class="chain"><td colspan="9"><div class="chain-body">
+  return `<tr class="chain"><td colspan="10"><div class="chain-body">
     <div class="chain-head"><span class="muted">Fallback chain</span>
       <button class="ghost copy-chain" type="button" data-at="${r.at}">Copy</button></div>
     ${steps ? `<ol>${steps}</ol>` : '<p class="muted">No attempt data for this request.</p>'}
   </div></td></tr>`;
+}
+
+// The input tokens: the provider count, or the Daedalus estimate with a ~ mark.
+function inputCell(r) {
+  const input = r.tokens?.input;
+  if (typeof input !== "number") return "-";
+  return `${r.tokens.estimate ? "~" : ""}${input.toLocaleString()}`;
 }
 
 // The stream time of a finished request: after the first token, or the total time without a stream.
@@ -283,6 +290,7 @@ function renderLive() {
       <td class="hide-sm muted">${esc(r.pool || "-")}</td>
       <td>${r.via ? esc(r.via) : '<span class="muted">waiting</span>'}</td>
       <td class="status muted">live</td>
+      <td class="hide-sm num muted">-</td>
       <td class="hide-sm num" data-clock="ttft"></td>
       <td class="hide-sm num" data-clock="stream"></td>
       <td class="hide-sm num muted">-</td>
@@ -317,11 +325,12 @@ function renderRequests(rows) {
       <td class="hide-sm muted">${esc(r.pool || "-")}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${r.retry ? ` <span class="from">try again ${esc(r.retry)}</span>` : ""}</td>
       <td>${r.via ? esc(r.via) : '<span class="muted">none</span>'}</td>
       <td class="status s${String(r.status)[0]}">${r.status}</td>
+      <td class="hide-sm num">${inputCell(r)}</td>
       <td class="hide-sm num">${esc(r.ttft || "-")}</td>
       <td class="hide-sm num">${streamCell(r)}</td>
       <td class="hide-sm num">${esc(r.fallbacks ?? "-")}</td>
     </tr>${opened.has(String(r.at)) ? chainRows(r) : ""}`).join("")
-    : '<tr><td colspan="9" class="empty">No requests</td></tr>';
+    : '<tr><td colspan="10" class="empty">No requests</td></tr>';
 }
 
 // The label of each catalog mode.

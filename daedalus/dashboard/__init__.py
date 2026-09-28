@@ -43,6 +43,7 @@ FIELDS = (
   "stream",
   "fallbacks",
   "attempts",
+  "tokens",
 )
 AUTO_TIERS = (4, 3, 2, 1)
 # The modes whose models have weights: chat, and the modes of the media pools.
