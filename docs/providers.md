@@ -9,7 +9,7 @@ These are the only providers that tests confirmed as really free.
 | `groq` | Groq | OpenAI-compatible | Gets only the message fields that it accepts. |
 | `kilo` | Kilo Gateway | OpenAI-compatible | Only `:free` models, and `stealth/` models with price 0 in each price field. |
 | `mistral` | Mistral | OpenAI-compatible | Gets only the message fields that it accepts. `reasoning_effort` `none` and `minimal` become `none`, and `low` to `xhigh` become `high`. The thinking chunks of an answer go to `reasoning_content`. An old assistant message with `reasoning_content` goes back as a thinking chunk before its text. |
-| `openrouter` | OpenRouter | OpenAI-compatible | Only `:free` models, and `stealth/` models with price 0 in each price field. |
+| `openrouter` | OpenRouter | OpenAI-compatible, plus the OpenRouter Image API (`/images`) | Only `:free` models, and `stealth/` models with price 0 in each price field. The image model `recraft/recraft-v3:free` goes to `daedalus/photos` at order 2: the free requests of OpenRouter share 1 daily limit. |
 | `pollinations` | Pollinations | OpenAI-compatible | Only 4 image models for `daedalus/photos`, at 0.0001 to 0.005 Pollen for each image: `lykon/dreamshaper-8-lcm`, `black-forest-labs/flux.1-schnell`, `tongyi-mai/z-image-turbo` and `black-forest-labs/flux.2-klein-4b`. Order 2, as Cloudflare. |
 | `z-ai` | Z.ai | OpenAI-compatible | Only the 3 free models under `models:`: `glm-4.5-flash`, `glm-4.7-flash` and `glm-4.6v-flash`. |
 
