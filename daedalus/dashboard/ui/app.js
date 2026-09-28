@@ -835,10 +835,13 @@ const SETTINGS = [
   ["escalation", "Escalation", [
     ["keywords", "Keywords", "list", "1 word or phrase on each line. A match in the last user message moves the daedalus/auto session tier 1 step up."],
   ]],
+  ["switch", "Switch", [
+    ["keywords", "Keywords", "list", "1 word or phrase on each line. A match in the last user message gives the pool session another model of the same tier."],
+  ]],
 ];
 
 // The Settings cards of each column, from top to bottom.
-const SETTINGS_COLUMNS = [["timeouts", "catalog", "pacing"], ["session_affinity", "headroom", "cooldown"], ["weights", "escalation"]];
+const SETTINGS_COLUMNS = [["timeouts", "catalog", "pacing"], ["session_affinity", "headroom", "cooldown"], ["weights", "escalation", "switch"]];
 
 // The fields that take decimals. The other fields take whole numbers.
 const DECIMALS = new Set([

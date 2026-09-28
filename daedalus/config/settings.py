@@ -25,6 +25,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
   "catalog": {"every": 6.0, "anchor": 6.0},
   "headroom": {"timeout": 5.0},
   "escalation": {"keywords": []},
+  "switch": {"keywords": []},
 }
 
 
@@ -35,7 +36,7 @@ class SettingsError(ValueError):
 def check(group: str, key: str, value: Any) -> Any:
   """The value when its type fits the default, else a `SettingsError`."""
   name = f"{group}.{key}"
-  if group == "escalation":
+  if group in ("escalation", "switch"):
     return keyword_list(name, value)
   if group == "catalog":
     return schedule_value(name, key, value)
