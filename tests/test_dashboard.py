@@ -272,6 +272,18 @@ def check_files(client: TestClient, folder: Path) -> None:
   assert "  every: 6 # hours between" in settings.DEFAULT_PATH.read_text(), (
     "an empty field writes the default and keeps the comment"
   )
+  words = {"escalation": {"keywords": ["ultrathink", "yes", "think hard"]}}
+  assert client.put("/ui/api/settings", json={"changes": words}).status_code == 200
+  text = settings.DEFAULT_PATH.read_text()
+  assert "keywords:\n    - ultrathink\n    - 'yes'\n    - think hard\n" in text, text
+  assert api.KEYWORDS and api.KEYWORDS.search("please ultrathink"), "the save applies"
+  words = {"escalation": {"keywords": ["audit"]}}
+  assert client.put("/ui/api/settings", json={"changes": words}).status_code == 200
+  text = settings.DEFAULT_PATH.read_text()
+  assert "keywords:\n    - audit\n" in text and "ultrathink" not in text, text
+  words = {"escalation": {"keywords": None}}
+  assert client.put("/ui/api/settings", json={"changes": words}).status_code == 200
+  assert "keywords: []" in settings.DEFAULT_PATH.read_text() and api.KEYWORDS is None
   # The YAML view reads and writes the file text.
   text = client.get("/ui/api/settings").json()["text"]
   assert text == settings.DEFAULT_PATH.read_text(), "the text of the file"
