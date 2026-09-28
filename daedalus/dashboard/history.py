@@ -6,6 +6,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from daedalus.store.database import open_db
+
 KEEP = 500
 SHOWN = 50
 TABLE = (
@@ -20,11 +22,7 @@ class History:
     self.path, self.keep = path, keep
 
   def connect(self) -> sqlite3.Connection:
-    target = Path(self.path())
-    target.parent.mkdir(parents=True, exist_ok=True)
-    database = sqlite3.connect(target, timeout=5)
-    database.execute(TABLE)
-    return database
+    return open_db(self.path(), (TABLE,))
 
   def add(self, row: dict[str, Any]) -> None:
     """Keep one request, and drop the rows older than the last `keep` rows."""
