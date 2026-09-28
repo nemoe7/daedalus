@@ -71,14 +71,14 @@ A mode that Daedalus does not know keeps the model out of each chain and pool.
 
 ## Endpoints for models that do not chat
 
-| Provider | Embeddings | Transcriptions | Speech | Images |
-| --- | --- | --- | --- | --- |
-| Cloudflare | Yes | Whisper, native API | MeloTTS and Aura, native API | Flux and SDXL-type models, native API |
-| Gemini | Yes, native API | `gemini-3.5-transcribe`, native API | 3.x TTS models, native API | 400 |
-| Groq | - | Yes | Yes | - |
-| Mistral | Yes | `language` and `temperature` only | - | - |
-| OpenRouter | Yes | - | Yes, mp3 or pcm | Image API, needs a credit balance |
-| Pollinations | - | - | - | Yes, with Pollen |
+| Provider | Embeddings | Transcriptions | Speech | Images | Image edits |
+| --- | --- | --- | --- | --- | --- |
+| Cloudflare | Yes | Whisper, native API | MeloTTS and Aura, native API | Flux and SDXL-type models, native API | FLUX.2, native API |
+| Gemini | Yes, native API | `gemini-3.5-transcribe`, native API | 3.x TTS models, native API | 400 | 400 |
+| Groq | - | Yes | Yes | - | - |
+| Mistral | Yes | `language` and `temperature` only | - | - | - |
+| OpenRouter | Yes | - | Yes, mp3 or pcm | Image API, needs a credit balance | Image API, `input_references` |
+| Pollinations | - | - | - | Yes, with Pollen | `flux.2-klein-4b`, with Pollen |
 
 - "Yes": the provider has free models for this endpoint.
 - "-": we know of no free model. Daedalus sends the request to the OpenAI-compatible API of the provider.
@@ -91,6 +91,7 @@ Limits of the native Cloudflare API:
 | Transcriptions | `response_format` is `json`, `text` or `vtt` |
 | Speech | MeloTTS answers in MP3 only |
 | Images | 1 image for each request. Flux 1 ignores `size`. FLUX.2 takes only multipart input, so Daedalus sends a multipart form to FLUX.2 models. |
+| Image edits | FLUX.2 only, up to 4 input images, no mask. Each input image must be smaller than 512x512, so Daedalus sends a PNG copy with the long side at 511 pixels. |
 
 Limits of the native Gemini API:
 

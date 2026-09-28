@@ -1,7 +1,14 @@
+import base64
 from collections.abc import Mapping
 from typing import Any, ClassVar
 
-from daedalus.providers.base import OpenAIProvider, free_stealth, openrouter_columns
+from daedalus.providers.base import (
+  OpenAIProvider,
+  ProviderError,
+  Upload,
+  free_stealth,
+  openrouter_columns,
+)
 
 
 class OpenRouterProvider(OpenAIProvider):
@@ -43,4 +50,20 @@ class OpenRouterProvider(OpenAIProvider):
     url, options, headers = super().speech_request(slug, payload)
     if options["json"].get("response_format") != "pcm":
       options["json"]["response_format"] = "mp3"
+    return url, options, headers
+
+  def edit_request(
+    self, slug: str, fields: dict[str, Any], images: list[Upload], mask: Upload | None
+  ) -> tuple[str, dict[str, Any], dict[str, str]]:
+    """The OpenRouter Image API request, with the input images as data URLs."""
+    if mask is not None:
+      raise ProviderError("OpenRouter takes no mask")
+    url, options, headers = self.image_request(slug, fields)
+    options["json"]["input_references"] = [
+      {
+        "type": "image_url",
+        "image_url": {"url": f"data:{media};base64,{base64.b64encode(data).decode()}"},
+      }
+      for _, data, media in images
+    ]
     return url, options, headers
