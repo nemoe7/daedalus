@@ -204,6 +204,18 @@ def check_keys(client: TestClient) -> None:
   )
 
 
+def check_reset(client: TestClient) -> None:
+  api.PENALTIES.record("p/big", 0.1)
+  api.COOLDOWNS.begin("p/big", {}, b"")
+  api.PENALTIES.pin("chat", "koinos", "p/big")
+  assert api.PENALTIES.weights(["p/big"])["p/big"] < 1 and api.COOLDOWNS.ends()
+  assert client.post("/ui/api/reset").status_code == 200
+  assert api.PENALTIES.weights(["p/big"]) == {"p/big": 1.0}, "the weights go back to 1"
+  assert api.COOLDOWNS.ends() == {}, "the cooldowns end"
+  assert api.PENALTIES.pinned("chat", "koinos") == "p/big", "the pins stay"
+  assert TestClient(api.app).post("/ui/api/reset").status_code == 401
+
+
 def check_catalog(client: TestClient) -> None:
   assert client.post("/ui/api/catalog").status_code == 503, "no rebuild in tests"
   api.CATALOG_REFRESH = lambda: None
@@ -349,6 +361,7 @@ def main() -> None:
       check_keys(client)
       check_files(client, Path(folder))
       check_catalog(client)
+      check_reset(client)
     finally:
       api.get_config, settings.DEFAULT_PATH, config.DEFAULT_PATH, dashboard.FILES = (
         original
