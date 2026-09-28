@@ -10,7 +10,8 @@ class OpenRouterProvider(OpenAIProvider):
   defaults: ClassVar[Mapping[str, str]] = {
     "api_type": "openai",
     "api_base": "https://openrouter.ai/api/v1",
-    "discovery_url": "https://openrouter.ai/api/v1/models",
+    # Without the filter, the list shows only the models that make text.
+    "discovery_url": "https://openrouter.ai/api/v1/models?output_modalities=all",
   }
   stream_usage: ClassVar[bool] = True
 
@@ -34,3 +35,12 @@ class OpenRouterProvider(OpenAIProvider):
     """The OpenRouter Image API request, at `/images`."""
     _, options, headers = super().image_request(slug, payload)
     return self.base + "/images", options, headers
+
+  def speech_request(
+    self, slug: str, payload: dict
+  ) -> tuple[str, dict[str, Any], dict[str, str]]:
+    """The speech request, in mp3 unless the client asks for pcm: the upstream default is pcm."""
+    url, options, headers = super().speech_request(slug, payload)
+    if options["json"].get("response_format") != "pcm":
+      options["json"]["response_format"] = "mp3"
+    return url, options, headers
