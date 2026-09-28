@@ -1,9 +1,10 @@
 """The upstream HTTP client, one candidate request, and the OpenAI error shape."""
 
+import asyncio
 import logging
 import math
 import time
-from collections.abc import Mapping
+from collections.abc import Awaitable, Mapping
 from typing import Any
 
 import httpx
@@ -214,6 +215,18 @@ async def attempt(
   raw = await response.aread()
   await response.aclose()
   raise rejected(candidate, response, started, raw)
+
+
+async def in_time(work: Awaitable[Any], deadline: float) -> Any:
+  """The result of `work`, or TimeoutError at the deadline."""
+  return await asyncio.wait_for(work, max(0.0, deadline - time.perf_counter()))
+
+
+def late_note(model: str, started: float) -> dict[str, Any]:
+  """The attempt that reached the request limit, logged as a failure."""
+  exc = TimeoutError(f"No answer in {TIMEOUT_SECONDS:g}s")
+  logger.warning("upstream %s failed: %s", model, failure_text(exc))
+  return failure_note(model, started, exc)
 
 
 async def read_body(response: httpx.Response, wait: float) -> bytes:

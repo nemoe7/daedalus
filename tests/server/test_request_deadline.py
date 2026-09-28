@@ -13,7 +13,7 @@ import httpx
 from fastapi.testclient import TestClient
 
 from daedalus import dashboard, store
-from daedalus.server import api, upstream
+from daedalus.server import api, media, upstream
 
 os.environ["DAEDALUS_MASTER_KEY"] = "test-master-key-0001"
 AUTH = {"Authorization": "Bearer test-master-key-0001"}
@@ -34,7 +34,9 @@ class KeepAlive(httpx.AsyncByteStream):
       await asyncio.sleep(0.02)
 
 
-def answer(request: httpx.Request) -> httpx.Response:
+async def answer(request: httpx.Request) -> httpx.Response:
+  if request.url.path.endswith("/images/generations"):
+    await asyncio.sleep(30)
   body = json.loads(request.content)
   if body["model"] == "one" or not ANSWERS:
     return httpx.Response(200, stream=KeepAlive(bool(body.get("stream"))))
@@ -74,6 +76,16 @@ def check_limit(client: TestClient) -> None:
     assert not dashboard.LIVE.rows, "the live row ends"
 
 
+def check_media(client: TestClient) -> None:
+  upstream.TIMEOUT_SECONDS = 0.3
+  started = time.perf_counter()
+  result = client.post("/v1/images/generations", json={"model": "p/img", "prompt": "a"})
+  took = time.perf_counter() - started
+  assert result.status_code == 504 and took < 5, (result.text, took)
+  attempts = dashboard.HISTORY.latest(1)[0]["attempts"]
+  assert "No answer in 0.3s" in attempts[-1]["error"], attempts
+
+
 def check_wait(client: TestClient) -> None:
   ANSWERS.add("two")
   upstream.TIMEOUT_SECONDS, upstream.WAIT_SECONDS = 30.0, 0.2
@@ -101,21 +113,22 @@ def check_wait(client: TestClient) -> None:
 
 def main() -> None:
   original = api.get_config, upstream.TIMEOUT_SECONDS, upstream.WAIT_SECONDS
-  state = store.MODELS_DB
+  state, shown = store.MODELS_DB, media.get_config
   with tempfile.TemporaryDirectory() as directory:
     store.MODELS_DB = Path(directory) / "models.sqlite3"
     store.write_store([{"id": "p/one"}, {"id": "p/two"}])
-    api.get_config = lambda: CONFIG
+    api.get_config = media.get_config = lambda: CONFIG
     upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
     try:
       client = TestClient(api.app, headers=AUTH)
       check_limit(client)
+      check_media(client)
       check_wait(client)
     finally:
       api.PENALTIES.clear()
       api.PACING.clear()
       api.get_config, upstream.TIMEOUT_SECONDS, upstream.WAIT_SECONDS = original
-      store.MODELS_DB = state
+      store.MODELS_DB, media.get_config = state, shown
       api.PENALTIES.pick = random.random
       upstream.set_client(None)
   print("ok: keep-alive bytes end at the wait and at the request limit")
