@@ -2,6 +2,7 @@
 
 import hashlib
 import hmac
+import logging
 import os
 import re
 import time
@@ -59,6 +60,7 @@ UI_FILES = {"app.js": "text/javascript", "style.css": "text/css"}
 FRESH = {"Cache-Control": "no-cache"}
 # The files that the Providers editor shows, in tab order. The Settings page has its own form.
 FILES = (config.DEFAULT_PATH,)
+logger = logging.getLogger("daedalus")
 
 
 def record(request: Request, status: int, seconds: float) -> None:
@@ -317,6 +319,16 @@ def routes(
         },
       }
     )
+
+  @api.post("/reset")
+  async def reset(request: Request) -> JSONResponse:
+    if not allowed(request):
+      return denied()
+    penalties.reset_weights()
+    if cooldowns is not None:
+      cooldowns.clear()
+    logger.info("reset: all weights and cooldowns")
+    return JSONResponse({"ok": True})
 
   @api.post("/catalog")
   async def rebuild_catalog(request: Request) -> JSONResponse:

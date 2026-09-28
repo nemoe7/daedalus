@@ -968,6 +968,21 @@ $("login").addEventListener("submit", async (event) => {
 document.addEventListener("click", (event) => {
   if (event.target.closest("#catalog-rebuild")) rebuildCatalog();
 });
+$("reset-weights").addEventListener("click", async () => {
+  const message = $("reset-message");
+  message.textContent = "";
+  if (!confirm("Set all weights back to 1 and end all cooldowns?")) return;
+  try {
+    await call("reset", { method: "POST" });
+    message.className = "message ok";
+    message.textContent = "All weights are 1. No cooldowns.";
+    refresh();
+  } catch (error) {
+    if (error instanceof LoggedOut) return showLogin();
+    message.className = "message bad";
+    message.textContent = error.message;
+  }
+});
 $("logout").addEventListener("click", async () => {
   await call("logout", { method: "POST" }).catch(() => {});
   keepSession(null);
