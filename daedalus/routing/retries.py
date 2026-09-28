@@ -14,9 +14,8 @@ TOP_TIER = 4
 
 @dataclass
 class Turn:
-  """One chat message: its digest, the tier and model of the last answer, and the retry count."""
+  """One chat message: the tier and model of the last answer, and the retry count."""
 
-  digest: str
   used: float
   tier: int | None = None
   model: str | None = None
@@ -31,14 +30,14 @@ def digest(messages: list[dict]) -> str:
 
 
 class Retries:
-  """The last message of each chat. Idle chats expire."""
+  """The messages of each chat. Idle messages expire."""
 
   def __init__(
     self, idle: float = 3600, clock: Callable[[], float] = time.time
   ) -> None:
     self.idle = idle
     self.clock = clock
-    self.turns: dict[str, Turn] = {}
+    self.turns: dict[tuple[str, str], Turn] = {}
 
   def start(self, chat: str, messages: list[dict]) -> Turn:
     """The turn of one chat request. A repeat of an answered message counts 1 more retry."""
@@ -48,12 +47,12 @@ class Retries:
     """The turn of one request with a ready digest."""
     now = self.clock()
     self.turns = {k: t for k, t in self.turns.items() if t.used >= now - self.idle}
-    found = self.turns.get(chat)
-    if found is not None and found.digest == value and found.model is not None:
+    found = self.turns.get((chat, value))
+    if found is not None and found.model is not None:
       found.count, found.used = found.count + 1, now
       return found
-    self.turns[chat] = Turn(value, now)
-    return self.turns[chat]
+    self.turns[(chat, value)] = Turn(now)
+    return self.turns[(chat, value)]
 
   def clear(self) -> None:
     self.turns.clear()
