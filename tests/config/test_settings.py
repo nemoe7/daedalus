@@ -87,8 +87,22 @@ def check_apply(folder: Path) -> None:
   assert api.AFFINITY is True and store.enabled is True and api.SLOW_SECONDS == 30.0
 
 
+# The CLI runs with a temporary state folder, so it never touches .daedalus-state.
+CLI = """
+import tempfile
+from pathlib import Path
+from daedalus import store
+from daedalus.catalog import discovery
+from daedalus.cli import run
+with tempfile.TemporaryDirectory() as folder:
+  store.MODELS_DB = Path(folder) / "models.sqlite3"
+  discovery.DUMP_DIR = Path(folder) / "dump"
+  run()
+"""
+
+
 def check_cli(folder: Path) -> None:
-  command = [sys.executable, "-c", "from daedalus.cli import run; run()"]
+  command = [sys.executable, "-c", CLI]
   (folder / "config").mkdir()
   (folder / "config" / "daedalus.yml").write_text(
     "weights:\n  x: 1\n", encoding="utf-8"
