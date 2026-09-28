@@ -23,6 +23,7 @@ const clock = (seconds) => new Date(seconds * 1000).toLocaleTimeString(
 
 const state = {
   models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, saved: [], timers: [],
+  view: "form", forms: [], formSaved: [], overrideKeys: [],
   pools: [], requests: [], requestLimit: REQUESTS_STEP, keys: [], catalog: {}, settings: null,
   live: new Map(), source: null,
 };
@@ -435,19 +436,78 @@ async function refreshKeys() {
   renderOverview();
 }
 
-function dirty() {
-  return state.files.length > 0 && $("editor").value !== state.saved[state.file];
+// The block keys that the form edits. The YAML view edits the other keys.
+const FORM_KEYS = ["api_key", "api_base", "discovery_match", "exclude", "tier", "models"];
+const TIERS = ["TIER-A", "TIER-B", "TIER-C", "TIER-D"];
+// The width of 1 column of provider cards.
+const CARD_WIDTH = 460;
+
+const clone = (value) => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)));
+const shown = (value) => (value !== null && typeof value === "object" ? JSON.stringify(value) : String(value));
+
+// A typed value from the text of a chip: true, false, a number or a string.
+function parsed(text) {
+  const value = text.trim();
+  if (value === "true" || value === "false") return value === "true";
+  if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value);
+  return value.replace(/^(["'])(.*)\1$/, "$2");
 }
+
+// The blocks without the empty lists and maps that the form leaves. An empty override stays.
+function pruned(blocks) {
+  const out = clone(blocks);
+  const empty = (value) => value == null || (typeof value === "object" && !Object.keys(value).length);
+  for (const block of Object.values(out || {})) {
+    if (!block || typeof block !== "object" || Array.isArray(block)) continue;
+    if (block.tier && typeof block.tier === "object") {
+      for (const tier of Object.keys(block.tier)) if (empty(block.tier[tier])) delete block.tier[tier];
+    }
+    for (const key of ["discovery_match", "exclude", "tier", "models"]) if (key in block && empty(block[key])) delete block[key];
+  }
+  return out;
+}
+
+const formText = (index) => JSON.stringify(pruned(state.forms[index]));
+
+function fileDirty(index) {
+  if (state.view === "form") return state.forms[index] != null && formText(index) !== state.formSaved[index];
+  const text = index === state.file ? $("editor").value : state.files[index].text;
+  return text !== state.saved[index];
+}
+
+const dirty = () => state.files.length > 0 && fileDirty(state.file);
 
 function renderFiles() {
   $("files").innerHTML = state.files.map((file, index) => {
-    const mark = index === state.file && dirty() ? " &bull;" : "";
+    const mark = fileDirty(index) ? " &bull;" : "";
     return `<button type="button" class="tab${index === state.file ? " on" : ""}"
       data-file="${index}" title="${esc(file.path)}">${esc(fileName(file.path))}${mark}</button>`;
   }).join(" ");
   $("save").disabled = !dirty();
   // The main provider file stays: only a {provider}.yml file can go.
   $("drop-provider").hidden = state.files[state.file]?.main !== false;
+  document.querySelectorAll("#views [data-view]").forEach((tab) => tab.classList.toggle("on", tab.dataset.view === state.view));
+  $("provider-form").hidden = state.view !== "form";
+  $("yaml-view").hidden = state.view !== "yaml";
+}
+
+// The files, the form copies and the saved copies, from the API.
+function takeFiles(files) {
+  state.files = files;
+  state.saved = files.map((file) => file.text);
+  state.forms = files.map((file) => clone(file.blocks));
+  state.formSaved = files.map((file, index) => formText(index));
+}
+
+// 1 file again from the API, after a save. The other files keep their changes.
+async function takeFile(index) {
+  const fresh = (await call("files")).find((file) => file.path === state.files[index].path);
+  if (!fresh) return;
+  state.files[index] = fresh;
+  state.saved[index] = fresh.text;
+  state.forms[index] = clone(fresh.blocks);
+  state.formSaved[index] = formText(index);
+  if (index === state.file) $("editor").value = fresh.text;
 }
 
 function openFile(index) {
@@ -456,17 +516,215 @@ function openFile(index) {
   $("editor").value = state.files[index].text;
   $("save-message").textContent = "";
   renderFiles();
+  renderForm();
 }
 
-async function save() {
+// A chip for 1 value. The × button deletes the list item or the map key.
+const pill = (text, path, key) => `<span class="pill">${esc(text)}<button type="button" title="Delete"
+  data-drop='${esc(JSON.stringify([...path, key]))}'>&times;</button></span>`;
+
+// The "+ Add" button. A click puts an inline input in its place.
+const adder = (path, kind, label = "+ Add") => `<button type="button" class="add"
+  data-add='${esc(JSON.stringify(path))}' data-kind="${kind}">${esc(label)}</button>`;
+
+function listField(name, values, path) {
+  const list = Array.isArray(values) ? values : [];
+  return `<div class="pills">${list.map((value, index) => pill(shown(value), path, index)).join("")}${adder(path, "list")}</div>`;
+}
+
+function mapPills(values, path, kind, separator) {
+  const map = values && typeof values === "object" ? values : {};
+  return Object.entries(map).map(([key, value]) => pill(`${key}${separator}${shown(value)}`, path, key)).join("")
+    + adder(path, kind, kind === "override" ? "+ key" : "+ Add");
+}
+
+function field(label, hint, body) {
+  return `<div class="field stack"><span><b>${esc(label)}</b>${hint ? `<small>${esc(hint)}</small>` : ""}</span>${body}</div>`;
+}
+
+function providerCard(name, block) {
+  const path = [name];
+  if (!block || typeof block !== "object" || Array.isArray(block)) {
+    return `<div class="card provider" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
+      <p class="sub">This block is not a map. Edit it in the YAML view.</p></div>`;
+  }
+  const text = (key, label, hint) => field(label, hint, `<input class="text" type="text" spellcheck="false"
+    data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(block[key] ?? "")}">`);
+  const tiers = TIERS.map((tier) => `<div class="tier-row"><span class="tier">${tier.slice(-1)}</span>
+    ${listField(tier, block.tier?.[tier], [...path, "tier", tier])}</div>`).join("");
+  const models = block.models && typeof block.models === "object" ? block.models : {};
+  const overrides = Object.entries(models).map(([pattern, values]) => `<div class="override">
+      <input class="text" type="text" spellcheck="false" value="${esc(pattern)}" aria-label="Model pattern"
+        data-pattern='${esc(JSON.stringify([...path, "models"]))}' data-key="${esc(pattern)}">
+      <div class="pills">${mapPills(values, [...path, "models", pattern], "override", ": ")}</div>
+      <button type="button" class="ghost" title="Delete the pattern"
+        data-drop='${esc(JSON.stringify([...path, "models", pattern]))}'>&times;</button>
+    </div>`).join("");
+  const others = Object.keys(block).filter((key) => !FORM_KEYS.includes(key) && key !== "_file");
+  return `<div class="card provider" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
+    ${text("api_key", "API key", "os.environ/NAME reads an environment variable")}
+    ${"api_base" in block ? text("api_base", "API base", "") : ""}
+    ${field("Discovery match", "The catalog keeps a model when each key matches", `<div class="pills">${mapPills(block.discovery_match, [...path, "discovery_match"], "match", " = ")}</div>`)}
+    ${field("Exclude", "Model patterns that never route", listField("exclude", block.exclude, [...path, "exclude"]))}
+    ${field("Tiers", "Model patterns for each tier", tiers)}
+    ${field("Model overrides", "A pattern and the catalog values that it sets", `${overrides}<div class="pills">${adder([...path, "models"], "pattern", "+ Pattern")}</div>`)}
+    ${others.length ? field("YAML only", "The YAML view edits these keys", `<div class="pills">${others.map((key) => `<span class="chip">${esc(key)}</span>`).join("")}</div>`) : ""}
+  </div>`;
+}
+
+const formColumns = () => Math.max(1, Math.floor($("provider-form").clientWidth / CARD_WIDTH));
+
+// The cards in snug columns: each card goes to the shortest column.
+function renderForm() {
+  const host = $("provider-form");
+  const blocks = state.forms[state.file];
+  if (!state.files.length) return (host.innerHTML = "");
+  if (blocks == null) {
+    host.innerHTML = `<div class="column"><div class="card"><h3>The YAML is not valid</h3>
+      <p class="sub">Fix the file in the YAML view. Then the form opens it.</p></div></div>`;
+    return;
+  }
+  const names = Object.keys(blocks);
+  const count = Math.min(formColumns(), Math.max(names.length, 1));
+  host.dataset.columns = count;
+  host.innerHTML = Array.from({ length: count }, () => `<div class="column"></div>`).join("");
+  const columns = [...host.children];
+  for (const name of names) {
+    const shortest = columns.reduce((best, column) => (column.offsetHeight < best.offsetHeight ? column : best));
+    shortest.insertAdjacentHTML("beforeend", providerCard(name, blocks[name]));
+  }
+}
+
+// 1 card again after an edit, in the same place, so that the columns stay.
+function renderCard(name) {
+  const card = [...document.querySelectorAll("#provider-form [data-provider]")].find((item) => item.dataset.provider === name);
+  if (card) card.outerHTML = providerCard(name, state.forms[state.file][name]);
+  renderFiles();
+}
+
+// The parent object of a path, with the empty maps and lists that it needs.
+function parentOf(path, leaf) {
+  let node = state.forms[state.file];
+  path.slice(0, -1).forEach((key, index) => {
+    const next = index === path.length - 2 ? leaf : {};
+    if (node[key] == null || typeof node[key] !== "object") node[key] = next;
+    node = node[key];
+  });
+  return node;
+}
+
+function dropAt(path) {
+  const parent = path.slice(0, -1).reduce((node, key) => node?.[key], state.forms[state.file]);
+  const key = path[path.length - 1];
+  if (Array.isArray(parent)) parent.splice(key, 1);
+  else if (parent) delete parent[key];
+  renderCard(path[0]);
+}
+
+function showAdder(button) {
+  const path = JSON.parse(button.dataset.add);
+  const kind = button.dataset.kind;
+  const box = document.createElement("span");
+  box.className = "adder";
+  const keys = state.overrideKeys.map((key) => `<option>${esc(key)}</option>`).join("");
+  const placeholder = { list: "pattern", match: "key = value", pattern: "model pattern", override: "value" }[kind];
+  box.innerHTML = `${kind === "override" ? `<select aria-label="Key">${keys}</select>` : ""}
+    <input type="text" spellcheck="false" placeholder="${placeholder}">`;
+  button.replaceWith(box);
+  const input = box.querySelector("input");
+  (box.querySelector("select") || input).focus();
+  const done = (keep) => {
+    const text = input.value.trim();
+    if (keep && text) addValue(path, kind, text, box.querySelector("select")?.value);
+    else renderCard(path[0]);
+  };
+  box.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && event.target.tagName === "SELECT") return input.focus();
+    if (event.key === "Enter") done(true);
+    if (event.key === "Escape") done(false);
+  });
+  box.addEventListener("focusout", () => setTimeout(() => {
+    if (box.isConnected && !box.contains(document.activeElement)) done(true);
+  }));
+}
+
+function addValue(path, kind, text, key) {
+  const message = $("save-message");
+  message.textContent = "";
+  if (kind === "list") {
+    parentOf([...path, 0], []).push(parsed(text));
+  } else if (kind === "pattern") {
+    const models = parentOf([...path, text], {});
+    if (text in models) {
+      message.className = "message bad";
+      message.textContent = `The pattern ${text} is already there.`;
+    } else models[text] = {};
+  } else {
+    const [name, value] = kind === "match" ? text.split(/\s*=\s*(.*)/s) : [key, text];
+    if (!name || value === undefined) {
+      message.className = "message bad";
+      message.textContent = "Write the value as key = value.";
+    } else parentOf([...path, name], {})[name] = parsed(value);
+  }
+  renderCard(path[0]);
+}
+
+function renamePattern(input) {
+  const path = JSON.parse(input.dataset.pattern);
+  const models = path.reduce((node, key) => node[key], state.forms[state.file]);
+  const before = input.dataset.key;
+  const after = input.value.trim();
+  if (after === before) return;
+  if (!after || after in models) {
+    input.value = before;
+    const message = $("save-message");
+    message.className = "message bad";
+    message.textContent = after ? `The pattern ${after} is already there.` : "A pattern cannot be empty.";
+    return;
+  }
+  const renamed = Object.fromEntries(Object.entries(models).map(([key, value]) => [key === before ? after : key, value]));
+  parentOf(path, {})[path[path.length - 1]] = renamed;
+  renderCard(path[0]);
+}
+
+function setText(input) {
+  const path = JSON.parse(input.dataset.set);
+  const parent = parentOf(path, {});
+  const key = path[path.length - 1];
+  if (input.value.trim()) parent[key] = input.value.trim();
+  else delete parent[key];
+  renderFiles();
+}
+
+async function saveForm() {
   if (!dirty()) return;
-  const file = state.files[state.file];
+  const index = state.file;
+  const file = state.files[index];
+  const message = $("save-message");
+  try {
+    await call("providers", { method: "PUT", body: JSON.stringify({ path: file.path, blocks: pruned(state.forms[index]) }) });
+    await takeFile(index);
+    message.className = "message ok";
+    message.textContent = "Saved and reloaded";
+    renderForm();
+    refresh();
+  } catch (error) {
+    if (error instanceof LoggedOut) return showLogin("The session ended. Log in to save again.");
+    message.className = "message bad";
+    message.textContent = error.message;
+  }
+  renderFiles();
+}
+
+async function saveYaml() {
+  if (!dirty()) return;
+  const index = state.file;
+  const file = state.files[index];
   const text = $("editor").value;
   const message = $("save-message");
   try {
     await call("files", { method: "PUT", body: JSON.stringify({ path: file.path, text }) });
-    file.text = text;
-    state.saved[state.file] = text;
+    await takeFile(index);
     message.className = "message ok";
     message.textContent = "Saved and reloaded";
     refresh();
@@ -476,6 +734,21 @@ async function save() {
     message.textContent = error.message;
   }
   renderFiles();
+}
+
+const save = () => (state.view === "form" ? saveForm() : saveYaml());
+
+// The other view shows the saved file. Unsaved changes go after a confirmation.
+function switchView(view) {
+  if (view === state.view) return;
+  if (dirty() && !confirm("Discard the unsaved changes of this file?")) return;
+  const index = state.file;
+  state.forms[index] = clone(state.files[index].blocks);
+  $("editor").value = state.files[index].text = state.saved[index];
+  state.view = view;
+  $("save-message").textContent = "";
+  renderFiles();
+  if (view === "form") renderForm();
 }
 
 // The Settings form: [group, title, [[key, label, unit, hint], ...]].
@@ -637,8 +910,8 @@ function refresh() {
 async function start() {
   await refreshFast();
   await refreshSlow();
-  state.files = await call("files");
-  state.saved = state.files.map((file) => file.text);
+  takeFiles(await call("files"));
+  state.overrideKeys = await call("provider-keys");
   state.file = 0;
   $("editor").value = state.files[0]?.text ?? "";
   renderFiles();
@@ -647,6 +920,7 @@ async function start() {
   renderOverview();
   $("login").hidden = true;
   $("app").hidden = false;
+  if (!document.querySelector(`section[data-page="providers"]`).hidden) renderForm();
   state.timers = [
     setInterval(() => guarded(refreshFast), 5000),
     setInterval(() => guarded(refreshSlow), 15000),
@@ -774,6 +1048,7 @@ function showPage() {
     link.classList.toggle("on", link.dataset.page === page);
   });
   document.title = `Daedalus · ${document.querySelector(`#nav a[data-page="${page}"]`).textContent}`;
+  if (page === "providers" && state.view === "form") renderForm();
 }
 
 window.addEventListener("hashchange", showPage);
@@ -805,13 +1080,13 @@ $("files").addEventListener("click", (event) => {
   if (button) openFile(Number(button.dataset.file));
 });
 async function reloadFiles(keep) {
-  state.files = await call("files");
-  state.saved = state.files.map((file) => file.text);
+  takeFiles(await call("files"));
   const index = Math.max(0, state.files.findIndex((file) => file.path === keep));
   state.file = index;
   $("editor").value = state.files[index]?.text ?? "";
   $("save-message").textContent = "";
   renderFiles();
+  renderForm();
 }
 
 $("new-provider").addEventListener("click", async () => {
@@ -842,6 +1117,29 @@ $("drop-provider").addEventListener("click", async () => {
 });
 $("editor").addEventListener("input", renderFiles);
 $("save").addEventListener("click", save);
+$("views").addEventListener("click", (event) => {
+  const tab = event.target.closest("[data-view]");
+  if (tab) switchView(tab.dataset.view);
+});
+$("provider-form").addEventListener("click", (event) => {
+  const drop = event.target.closest("[data-drop]");
+  if (drop) return dropAt(JSON.parse(drop.dataset.drop));
+  const add = event.target.closest("[data-add]");
+  if (add) showAdder(add);
+});
+$("provider-form").addEventListener("input", (event) => {
+  if (event.target.dataset.set) setText(event.target);
+});
+$("provider-form").addEventListener("change", (event) => {
+  if (event.target.dataset.pattern) renamePattern(event.target);
+});
+$("provider-form").addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && event.target.dataset.pattern) event.target.blur();
+});
+window.addEventListener("resize", () => {
+  const host = $("provider-form");
+  if (!host.hidden && host.clientWidth && Number(host.dataset.columns) !== formColumns()) renderForm();
+});
 $("settings").addEventListener("input", () => {
   $("settings-message").textContent = "";
   renderSettingsSave();

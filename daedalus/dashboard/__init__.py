@@ -21,7 +21,7 @@ from fastapi.responses import (
 
 from daedalus import config, providers, store
 from daedalus.catalog import schedule
-from daedalus.config import block_for, settings
+from daedalus.config import block_for, provider_edit, settings
 from daedalus.dashboard.history import SHOWN, History
 from daedalus.dashboard.live import Live
 from daedalus.routing import router
@@ -169,6 +169,22 @@ def new_file_text(name: str) -> str:
   env = name.upper().replace("-", "_")
   known = name in providers.PROVIDERS
   return NEW_FILE + NEW_KEY.format(env=env) + ("" if known else NEW_BASE) + NEW_MODELS
+
+
+def form_blocks(path: Path, text: str) -> dict[str, Any] | None:
+  """The provider blocks of a file by provider name, or None when the YAML is not valid."""
+  try:
+    found = yaml.safe_load(text) if text.strip() else {}
+  except yaml.YAMLError:
+    return None
+  if not isinstance(found, dict):
+    return None
+  return found if path == FILES[0] else {path.stem: found}
+
+
+def override_keys() -> list[str]:
+  """The keys that a model override can set: the catalog columns, `pool` and `timeout`."""
+  return sorted({*store.COLUMNS, "pool", "timeout"})
 
 
 def check_file(path: Path, text: str) -> dict[str, Any] | None:
@@ -408,7 +424,36 @@ def routes(
       }
       for path in config_files()
     ]
+    for file in found:
+      file["blocks"] = form_blocks(Path(file["path"]), file["text"])
     return JSONResponse(found)
+
+  @api.get("/provider-keys")
+  async def provider_keys(request: Request) -> JSONResponse:
+    if not allowed(request):
+      return denied()
+    return JSONResponse(override_keys())
+
+  @api.put("/providers")
+  async def save_form(request: Request) -> JSONResponse:
+    if not allowed(request):
+      return denied()
+    body = await json_body(request)
+    names = {str(path): path for path in config_files()}
+    if not isinstance(body, dict) or body.get("path") not in names:
+      return failure(400, "Unknown config file.", "invalid_request_error")
+    path, blocks = names[body["path"]], body.get("blocks")
+    if not isinstance(blocks, dict) or not all(
+      isinstance(b, dict) for b in blocks.values()
+    ):
+      return failure(400, "Each provider block must be a map.", "invalid_request_error")
+    document = blocks if path == FILES[0] else blocks.get(path.stem)
+    if not isinstance(document, dict):
+      return failure(
+        400, f"{path} needs the block {path.stem}.", "invalid_request_error"
+      )
+    old = path.read_text(encoding="utf-8") if path.exists() else ""
+    return write_config(path, provider_edit.merge_text(old, document))
 
   @api.put("/files")
   async def save(request: Request) -> JSONResponse:
@@ -421,6 +466,10 @@ def routes(
     path, text = names[body["path"]], body.get("text")
     if not isinstance(text, str):
       return failure(400, "The file text must be a string.", "invalid_request_error")
+    return write_config(path, text)
+
+  def write_config(path: Path, text: str) -> JSONResponse:
+    """Write a valid text in 1 step, reload it, and send it back."""
     try:
       values = check_file(path, text)
     except (settings.SettingsError, yaml.YAMLError) as exc:
@@ -432,7 +481,7 @@ def routes(
       config.load_config(path)
     else:
       apply(values)
-    return JSONResponse({"ok": True})
+    return JSONResponse({"ok": True, "text": text})
 
   @api.post("/files")
   async def make_file(request: Request) -> JSONResponse:
