@@ -10,7 +10,7 @@ import httpx
 
 from daedalus import providers, store
 from daedalus.providers.base import error_text
-from daedalus.routing import context, pacing
+from daedalus.routing import context, pacing, router
 from daedalus.server import upstream
 
 if TYPE_CHECKING:
@@ -32,9 +32,11 @@ STREAM_FAILED = providers.frame(
 )
 
 
-async def sse_data(chunks: AsyncIterator[bytes]) -> AsyncIterator[str]:
-  """Split an SSE byte stream into the payloads of its `data:` lines."""
-  buffer = b""
+async def sse_data(
+  chunks: AsyncIterator[bytes], wait: float | None = None
+) -> AsyncIterator[str]:
+  """Split an SSE byte stream into the payloads of its `data:` lines, and stop after `wait` seconds of only comments."""
+  buffer, heard = b"", time.perf_counter()
   try:
     async for piece in chunks:
       buffer += piece.replace(b"\r\n", b"\n")
@@ -44,7 +46,10 @@ async def sse_data(chunks: AsyncIterator[bytes]) -> AsyncIterator[str]:
           line[5:].strip() for line in block.split(b"\n") if line.startswith(b"data:")
         ]
         if lines:
+          heard = time.perf_counter()
           yield b"\n".join(lines).decode()
+        elif wait is not None and time.perf_counter() - heard > wait:
+          raise httpx.ReadTimeout(f"Only keep-alive bytes for {wait:g}s")
   finally:
     await chunks.aclose()
 
@@ -153,7 +158,8 @@ async def relay(
         provider, response = await upstream.attempt(
           candidate, continued, config, effort
         )
-        events = sse_data(provider.stream(response, candidate, True))
+        wait = router.model_wait(config, candidate, upstream.WAIT_SECONDS)
+        events = sse_data(provider.stream(response, candidate, True), wait)
         pending = await first_content(events)
         model = candidate
         pin.answered(model, time.perf_counter() - started)
