@@ -163,15 +163,21 @@ def mode_models(mode: str) -> list[str]:
   return [key for (key,) in rows]
 
 
+# The input and output flags that the Models page shows as chips.
+MEDIA_FLAGS = ("vision", "pdf_input", "audio_input", "audio_output")
+
+
 def model_rows() -> list[dict[str, Any]]:
-  """All rows, with the mode, the input limit, the tool flag, the reasoning flag and the default effort."""
+  """All rows, with the mode, the limits, the tool and reasoning flags, the effort and the media flags."""
   if not Path(MODELS_DB).exists():
     return []
   database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
   try:
     rows = database.execute(
       "SELECT id, mode, max_input_tokens, supports_function_calling, supports_reasoning,"
-      " reasoning_effort FROM models"
+      " reasoning_effort, "
+      + ", ".join(f"supports_{flag}" for flag in MEDIA_FLAGS)
+      + " FROM models"
       " ORDER BY rowid"
     ).fetchall()
   except sqlite3.OperationalError:
@@ -186,8 +192,9 @@ def model_rows() -> list[dict[str, Any]]:
       "tools": bool(tools),
       "reasoning": bool(thinks),
       "effort": effort or None,
+      "flags": [flag for flag, on in zip(MEDIA_FLAGS, media, strict=True) if on],
     }
-    for key, mode, limit, tools, thinks, effort in rows
+    for key, mode, limit, tools, thinks, effort, *media in rows
   ]
 
 
