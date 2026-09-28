@@ -55,6 +55,9 @@ Daedalus skips each provider that has no key.
 | `weights.fault` | `0.5` | Factor for a fault |
 | `weights.slow` | `0.75` | Factor for a slow success |
 | `weights.hourly` | `1.212` | Recovery factor for each hour |
+| `weights.rate_limit` | `0.75` | Factor for an HTTP 429 |
+| `cooldown.first` | `60` | Seconds of the first cooldown of a 429 with no reset time |
+| `cooldown.longest` | `21600` | Each next 429 doubles the cooldown, up to these seconds |
 | `catalog.every` | `6` | Hours between catalog rebuilds. `0` stops them. |
 | `catalog.anchor` | `6` | Local hour that the rebuild times start from. A whole hour from 0 to 23. |
 | `headroom.timeout` | `5` | Seconds for Headroom. Then the original messages go to the provider. |

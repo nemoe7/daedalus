@@ -16,7 +16,9 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "fault": 0.5,
     "slow": 0.75,
     "hourly": 1.212,
+    "rate_limit": 0.75,
   },
+  "cooldown": {"first": 60.0, "longest": 21600.0},
   "catalog": {"every": 6.0, "anchor": 6.0},
   "headroom": {"timeout": 5.0},
 }

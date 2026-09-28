@@ -10,7 +10,7 @@ from pathlib import Path
 IDLE_SECONDS = 3600.0
 # In a session, the share of first-tier draws for the session model.
 STAY = 0.85
-SUCCESS, FAULT, SLOW, HOURLY = 1.5, 0.5, 0.75, 1.212
+SUCCESS, FAULT, SLOW, HOURLY, RATE_LIMIT = 1.5, 0.5, 0.75, 1.212, 0.75
 # The lowest weight, so that a model with many faults can recover.
 FLOOR = 0.01
 TABLES = (
@@ -41,6 +41,7 @@ class Penalties:
     self.path, self.clock, self.pick = path, clock, pick
     self.enabled, self.idle, self.stay = True, IDLE_SECONDS, STAY
     self.success, self.fault, self.slow, self.hourly = SUCCESS, FAULT, SLOW, HOURLY
+    self.rate_limit = RATE_LIMIT
 
   def connect(self) -> sqlite3.Connection:
     target = Path(self.path())

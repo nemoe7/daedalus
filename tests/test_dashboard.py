@@ -51,7 +51,12 @@ def check_data(client: TestClient) -> None:
     "reasoning": True,
     "tier": "TIER-A",
     "weight": 1.0,
+    "cooldown": None,
   }, models[0]
+  api.COOLDOWNS.start("p/small", {"retry-after": "90"}, b"")
+  until = client.get("/ui/api/models").json()[1]["cooldown"]
+  api.COOLDOWNS.clear()
+  assert 80 < until - time.time() <= 90, "the cooldown end of each model"
   assert models[1]["tier"] == "TIER-C" and models[1]["tools"] is False
   assert models[1]["reasoning"] is False, models[1]
   embed = models[2]

@@ -17,7 +17,7 @@ from daedalus.catalog import schedule
 from daedalus.config import get_config
 from daedalus.providers import signatures
 from daedalus.providers.base import error_text
-from daedalus.routing import context, penalties, retries, router
+from daedalus.routing import context, cooldowns, penalties, retries, router
 from daedalus.server import access, headroom, logs, media, stream, upstream
 from daedalus.store import keys
 
@@ -226,11 +226,12 @@ def served(request: Request, config: dict[str, Any], candidate: str) -> None:
 
 PENALTIES = penalties.Penalties(lambda: store.MODELS_DB)
 RETRIES = retries.Retries()
-media.PENALTIES = PENALTIES
+COOLDOWNS = cooldowns.Cooldowns(lambda: store.MODELS_DB)
+media.PENALTIES, media.COOLDOWNS = PENALTIES, COOLDOWNS
 app.include_router(dashboard.page())
 app.include_router(
   dashboard.routes(
-    PENALTIES, lambda: get_config(), lambda values: apply_settings(values)
+    PENALTIES, lambda: get_config(), lambda values: apply_settings(values), COOLDOWNS
   )
 )
 
@@ -250,6 +251,7 @@ class Tracker:
     """Update the weight and pin the model. A slow success removes the pin instead."""
     slow = ttft >= SLOW_SECONDS
     PENALTIES.record(model, PENALTIES.slow if slow else PENALTIES.success)
+    COOLDOWNS.succeeded(model)
     if not self.slot:
       return None
     if slow:
@@ -258,11 +260,30 @@ class Tracker:
     state = PENALTIES.pin(self.key, self.slot, model)
     return "moved" if self.dropped else state
 
-  def failed(self, model: str) -> None:
-    """Lower the weight, and remove the pin when it names this model."""
-    PENALTIES.record(model, PENALTIES.fault)
+  def failed(self, model: str, exc: Exception | None = None) -> dict[str, Any] | None:
+    """Lower the weight, and remove the pin when it names this model. A rate limit also starts a cooldown."""
+    limited = isinstance(exc, upstream.RateLimitError)
+    PENALTIES.record(model, PENALTIES.rate_limit if limited else PENALTIES.fault)
     if self.slot and PENALTIES.unpin(self.key, self.slot, model):
       self.dropped = True
+    return COOLDOWNS.start(model, exc.headers, exc.body) if limited else None
+
+  def cooled(self, ends: dict[str, float]) -> None:
+    """Remove the session model when it is in a cooldown."""
+    model = PENALTIES.pinned(self.key, self.slot) if self.slot else None
+    if model and COOLDOWNS.until(model, ends) is not None:
+      self.dropped = PENALTIES.unpin(self.key, self.slot, model)
+
+
+def without_cooling(
+  groups: list[list[str]], ends: dict[str, float]
+) -> tuple[list[list[str]], float | None]:
+  """The groups without the models in a cooldown, and the seconds to the first end when none is left."""
+  left = [[m for m in group if COOLDOWNS.until(m, ends) is None] for group in groups]
+  if any(left) or not any(groups):
+    return left, None
+  first = min(COOLDOWNS.until(m, ends) or 0.0 for group in groups for m in group)
+  return left, first - time.time()
 
 
 @app.post("/v1/chat/completions")
@@ -321,9 +342,14 @@ async def chat(request: Request) -> Response:
   groups = [
     [m for m in group if not context.too_large(m, tokens, limits)] for group in found[0]
   ]
-  models = pin.order(groups)
-  if not models and any(found[0]):
+  if any(found[0]) and not any(groups):
     return context.too_long(tokens)
+  ends = COOLDOWNS.ends()
+  groups, wait = without_cooling(groups, ends)
+  if wait is not None:
+    return upstream.cooling_response(wait)
+  pin.cooled(ends)
+  models = pin.order(groups)
   if models:
     body, saved = await headroom.compress(body, models[0])
     if saved is not None:
@@ -356,7 +382,8 @@ async def chat(request: Request) -> Response:
       ttft = time.perf_counter() - started
     except upstream.UpstreamStatus as exc:
       attempts.append(upstream.failure_note(candidate, started, exc))
-      pin.failed(candidate)
+      if started_cooldown := pin.failed(candidate, exc):
+        attempts[-1]["cooldown"] = started_cooldown
       failure = upstream.error_response(
         exc.status, "Upstream provider rejected the request", "upstream_error"
       )
@@ -405,6 +432,10 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
     values["catalog"]["every"],
     values["catalog"]["anchor"],
   )
-  for name in ("success", "fault", "slow", "hourly"):
+  for name in ("success", "fault", "slow", "hourly", "rate_limit"):
     setattr(PENALTIES, name, weights[name])
+  COOLDOWNS.first, COOLDOWNS.longest = (
+    values["cooldown"]["first"],
+    values["cooldown"]["longest"],
+  )
   upstream.set_client(None)
