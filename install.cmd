@@ -18,5 +18,5 @@ if errorlevel 1 (
 docker compose up -d --build
 if errorlevel 1 exit /b 1
 echo Daedalus runs on http://localhost:3357/v1
-echo Dashboard: http://localhost:3357/ (user admin, password DAEDALUS_MASTER_KEY)
+echo Dashboard: http://localhost:3357/ (user DAEDALUS_USERNAME or admin, password DAEDALUS_PASSWORD or DAEDALUS_MASTER_KEY)
 echo Make API keys for your clients in the dashboard.

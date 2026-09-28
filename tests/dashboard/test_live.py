@@ -91,7 +91,7 @@ async def test_events() -> None:
 
 
 def test_url_session() -> None:
-  session = dashboard.cookie(MASTER, time.time())
+  session = dashboard.cookie(dashboard.secret(), time.time())
 
   def request(query: str) -> Request:
     scope = {"type": "http", "headers": [], "query_string": query.encode()}

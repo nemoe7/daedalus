@@ -79,7 +79,7 @@ def test_merge() -> None:
 
 
 def test_endpoints(folder: Path) -> None:
-  session = dashboard.cookie(MASTER, time.time())
+  session = dashboard.cookie(dashboard.secret(), time.time())
   client = TestClient(api.app, headers={"X-Daedalus-Session": session})
   main = config.DEFAULT_PATH
   single = main.parent / "openrouter.yml"

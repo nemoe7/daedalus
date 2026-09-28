@@ -12,7 +12,8 @@ Open WebUI: a general chat interface. A custom interface without the unused feat
 
 | Key | Opens |
 | --- | --- |
-| `DAEDALUS_MASTER_KEY` | `/v1` and the dashboard |
+| `DAEDALUS_MASTER_KEY` | `/v1`, and the dashboard when `DAEDALUS_PASSWORD` is empty |
+| `DAEDALUS_PASSWORD` | The dashboard only |
 | API key from the dashboard (`sk-` and 43 characters) | `/v1` only |
 
 Send the key as `Authorization: Bearer KEY`. The log shows `key=NAME` or `key=master`.

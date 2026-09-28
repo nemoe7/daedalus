@@ -49,6 +49,8 @@ AUTO_TIERS = (4, 3, 2, 1)
 # The modes whose models have weights: chat, and the modes of the media pools.
 WEIGHTED_MODES = frozenset({"chat", *router.MEDIA_POOLS.values()})
 MASTER_ENV = "DAEDALUS_MASTER_KEY"
+USER_ENV = "DAEDALUS_USERNAME"
+PASSWORD_ENV = "DAEDALUS_PASSWORD"
 USERNAME = "admin"
 COOKIE = "daedalus_session"
 # The same session value in a header, for a page in a frame that blocks cookies.
@@ -96,19 +98,31 @@ def master() -> str | None:
   return key if keys.valid(key) else None
 
 
+def login() -> tuple[str, str]:
+  """The dashboard username and password from the environment, else `admin` and the master key."""
+  username = os.environ.get(USER_ENV) or USERNAME
+  return username, os.environ.get(PASSWORD_ENV) or master() or ""
+
+
+def secret() -> str | None:
+  """The session signing key: a new master key, username or password ends all sessions."""
+  key = master()
+  return None if key is None else "\n".join((key, *login()))
+
+
 def signature(key: str, expires: int) -> str:
   return hmac.new(key.encode(), str(expires).encode(), hashlib.sha256).hexdigest()
 
 
 def cookie(key: str, now: float, seconds: int = SESSION_SECONDS) -> str:
-  """A session value: its expiry time and the master key signature of that time."""
+  """A session value: its expiry time and the signature of that time."""
   expires = int(now + seconds)
   return f"{expires}.{signature(key, expires)}"
 
 
 def allowed(request: Request, query: bool = False) -> bool:
-  """Accept a live session value from the master key, as cookie or header, or in the URL when `query` is true."""
-  key = master()
+  """Accept a live session value, as cookie or header, or in the URL when `query` is true."""
+  key = secret()
   values = (request.cookies.get(COOKIE, ""), request.headers.get(HEADER, ""))
   if query:
     values += (request.query_params.get("session", ""),)
@@ -260,17 +274,20 @@ def routes(
 
   @api.post("/login")
   async def log_in(request: Request) -> JSONResponse:
-    key = master()
+    key = secret()
     if key is None:
       return failure(503, f"Set {MASTER_ENV}: 16 or more characters.", "server_error")
+    username, password = login()
     body = await json_body(request)
     if not isinstance(body, dict):
       return failure(400, "Send a username and a password.", "invalid_request_error")
     user = hmac.compare_digest(
-      str(body.get("username", "")).encode(), USERNAME.encode()
+      str(body.get("username", "")).encode(), username.encode()
     )
-    password = hmac.compare_digest(str(body.get("password", "")).encode(), key.encode())
-    if not (user and password):
+    known = hmac.compare_digest(
+      str(body.get("password", "")).encode(), password.encode()
+    )
+    if not (user and known):
       return failure(401, "Wrong username or password.", "authentication_error")
     # Without "remember", the browser drops the cookie on close and the value ends after 12 h.
     remember = body.get("remember") is True
