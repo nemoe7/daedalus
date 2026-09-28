@@ -48,6 +48,23 @@ async def check_missing_key(client: httpx.AsyncClient) -> None:
   assert SEEN == [], "no upstream call"
 
 
+async def check_default_effort(client: httpx.AsyncClient) -> None:
+  """A request with no effort gets the stored effort of the model."""
+  response = await send(client, "a/thinks")
+  assert response.status_code == 200, response.text
+  assert SEEN[0][1]["reasoning_effort"] == "high", SEEN
+  SEEN.clear()
+  body = {
+    "model": "a/thinks",
+    "messages": [{"role": "user", "content": "hi"}],
+    "reasoning_effort": "low",
+  }
+  response = await client.post("/v1/chat/completions", json=body)
+  assert SEEN[0][1]["reasoning_effort"] == "low", "the request value wins"
+  await send(client, "a/plain")
+  assert "reasoning_effort" not in SEEN[0][1], "a model that does not reason"
+
+
 async def main() -> None:
   config.set_config(
     {
@@ -58,7 +75,14 @@ async def main() -> None:
   saved = store.MODELS_DB
   with tempfile.TemporaryDirectory() as folder:
     store.MODELS_DB = Path(folder) / "models.sqlite3"
-    store.write_store([{"id": "a/x"}, {"id": "b/x"}])
+    store.write_store(
+      [
+        {"id": "a/x"},
+        {"id": "b/x"},
+        {"id": "a/thinks", "supports_reasoning": True, "reasoning_effort": "high"},
+        {"id": "a/plain", "supports_reasoning": False, "reasoning_effort": "high"},
+      ]
+    )
     async with httpx.AsyncClient(transport=httpx.MockTransport(upstream)) as outside:
       set_client(outside)
       app = httpx.ASGITransport(app=api.app)
@@ -66,6 +90,7 @@ async def main() -> None:
         transport=app, base_url="http://t", headers=AUTH
       ) as client:
         await check_missing_key(client)
+        await check_default_effort(client)
   store.MODELS_DB = saved
   set_client(None)
   config.set_config(None)
