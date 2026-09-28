@@ -91,4 +91,4 @@ The Gemini exclude list keeps these models out:
 | `aqa` | It answers from given sources only. |
 | `*-latest` aliases | The model behind each alias changes over time. |
 
-> Q: Which of these endpoints do you use, and with which client?
+No client used these endpoints in a test yet.
