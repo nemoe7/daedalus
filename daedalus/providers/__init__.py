@@ -7,6 +7,7 @@ from daedalus.config import block_for, expand
 from daedalus.providers.base import (
   OpenAIProvider,
   ProviderError,
+  Upload,
   check_wait,
   effort_text,
   frame,
@@ -40,6 +41,7 @@ __all__ = [
   "PROVIDERS",
   "OpenAIProvider",
   "ProviderError",
+  "Upload",
   "check_wait",
   "effort_text",
   "frame",

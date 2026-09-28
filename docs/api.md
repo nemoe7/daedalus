@@ -49,6 +49,7 @@ curl http://localhost:3357/v1/models -H "Authorization: Bearer $DAEDALUS_KEY"
 | `POST /v1/audio/transcriptions` | `daedalus/graphos` or `provider/slug` | Yes, for `daedalus/graphos` |
 | `POST /v1/audio/speech` | `provider/slug` | No |
 | `POST /v1/images/generations` | `daedalus/photos` or `provider/slug` | Yes, for `daedalus/photos` |
+| `POST /v1/images/edits` | `daedalus/photos` or `provider/slug` | Yes, for `daedalus/photos`: only the models with image input |
 
 Embeddings and speech have no pool and no fallback. Vectors and voices from 2 models are different. See [Architecture](architecture.md#media-pools) for the media pools.
 
@@ -59,7 +60,7 @@ Embeddings and speech have no pool and no fallback. Vectors and voices from 2 mo
 | `daedalus/auto` | The classifier selects the tier. See [Architecture](architecture.md#classification). |
 | `daedalus/moros`, `daedalus/koinos`, `daedalus/deinos`, `daedalus/sophos` | The fallback ladder from that tier |
 | `daedalus/graphos` | The transcription pool, for `POST /v1/audio/transcriptions` only |
-| `daedalus/photos` | The image pool, for `POST /v1/images/generations` only |
+| `daedalus/photos` | The image pool, for `POST /v1/images/generations` and `POST /v1/images/edits` only |
 | `provider/slug`, for example `groq/llama-3.3-70b-versatile` | That model only |
 
 ## Model list fields

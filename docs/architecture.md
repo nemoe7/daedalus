@@ -246,13 +246,14 @@ A loop is a fault of the model that made it. See [ADR 4](adr/0004-penalties.md#l
 | --- | --- | --- |
 | `daedalus/graphos` | `POST /v1/audio/transcriptions` | All catalog models with the mode `audio_transcription` |
 | `daedalus/photos` | `POST /v1/images/generations` | All catalog models with the mode `image_generation` |
+| `daedalus/photos` | `POST /v1/images/edits` | The models with the mode `image_generation` and `supports_vision` |
 
 | Item | Value |
 | --- | --- |
 | Order | A weighted draw, then the weight order |
 | Weights | The same weights as the chat models |
 | Skip | A model that cannot do the request leaves the list, for example Flux 1 with `n` above 1. A skip is not a fault. |
-| Try again | The same key and the same content as an earlier answered request to that pool. For graphos, the content is the audio and the form fields. For photos, the content is the JSON body. |
+| Try again | The same key and the same content as an earlier answered request to that pool. For graphos, the content is the audio and the form fields. For photos, the content is the JSON body, or the images and the form fields of an edit. |
 | Models of a try again | The models that answered this content leave the list. After all models, the list starts again. |
 | Log | `retry=N` |
 | Expiry | 1 h with no repeat of the message, in memory only |

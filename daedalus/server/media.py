@@ -51,7 +51,7 @@ async def json_body(request: Request) -> dict | Response:
 
 
 def models_for(
-  request: Request, model: str, pool: str | None, content: bytes
+  request: Request, model: str, pool: str | None, content: bytes, vision: bool = False
 ) -> list[str] | Response:
   """The models to try: the one model, or the pool models by weight after the models that answered this content."""
   if model != pool:
@@ -67,7 +67,7 @@ def models_for(
   config = get_config()
   members = [
     name
-    for name in store.mode_models(router.MEDIA_POOLS[pool])
+    for name in store.mode_models(router.MEDIA_POOLS[pool], vision_only=vision)
     if router.pooled(config, name)
   ]
   if not members:
@@ -97,10 +97,15 @@ def failed(status: int) -> JSONResponse:
 
 
 async def attempt(
-  request: Request, model: str, pool: str | None, content: bytes, call: Call
+  request: Request,
+  model: str,
+  pool: str | None,
+  content: bytes,
+  call: Call,
+  vision: bool = False,
 ) -> Any:
-  """Try the models in turn, record each attempt for the dashboard, and update the pool weights."""
-  models = models_for(request, model, pool, content)
+  """Try the models in turn, record each attempt for the dashboard, and update the pool weights. Vision: only image input models."""
+  models = models_for(request, model, pool, content, vision)
   if isinstance(models, Response):
     return models
   if COOLDOWNS:
@@ -339,4 +344,64 @@ async def images(request: Request) -> Response:
 
   seen = json.dumps({k: v for k, v in body.items() if k != "model"}, sort_keys=True)
   result = await attempt(request, body["model"], IMAGE_POOL, seen.encode(), call)
+  return result if isinstance(result, Response) else JSONResponse(result)
+
+
+async def upload(item: UploadFile) -> providers.Upload:
+  """The file name, the bytes and the media type of one uploaded file."""
+  media = item.content_type or "application/octet-stream"
+  return item.filename or "image", await item.read(), media
+
+
+@routes.post("/v1/images/edits")
+async def edits(request: Request) -> Response:
+  denied = access.check_api_key(request)
+  if denied is not None:
+    return denied
+  try:
+    form = await request.form()
+  except (AssertionError, ValueError):
+    return invalid("A multipart form is required")
+  model = form.get("model")
+  if not isinstance(model, str) or not model:
+    return invalid("A model is required")
+  request.state.model = model
+  dashboard.live_update(request, model=model)
+  files = [
+    item
+    for key in ("image", "image[]")
+    for item in form.getlist(key)
+    if isinstance(item, UploadFile)
+  ]
+  if not files:
+    return invalid("An image file is required")
+  body: dict[str, Any] = {
+    key: form[key]
+    for key in form
+    if key not in ("model", "image", "image[]", "mask") and isinstance(form[key], str)
+  }
+  if isinstance(body.get("n"), str) and body["n"].isdecimal():
+    body["n"] = int(body["n"])
+  problem = image_error(body)
+  if problem:
+    return invalid(problem)
+  images = [await upload(item) for item in files]
+  mask = form.get("mask")
+  mask_file = await upload(mask) if isinstance(mask, UploadFile) else None
+
+  def call(
+    provider: providers.OpenAIProvider, slug: str, candidate: str
+  ) -> Awaitable[dict]:
+    url, content, headers = provider.edit_request(slug, body, images, mask_file)
+
+    async def send() -> dict:
+      response = await upstream.post(candidate, url, headers, **content)
+      return provider.images(response, body)
+
+    return send()
+
+  seen = (
+    b"".join(data for _, data, _ in images) + json.dumps(body, sort_keys=True).encode()
+  )
+  result = await attempt(request, model, IMAGE_POOL, seen, call, vision=True)
   return result if isinstance(result, Response) else JSONResponse(result)

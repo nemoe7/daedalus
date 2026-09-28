@@ -1,12 +1,14 @@
 import base64
+import io
 import json
 import time
 from collections.abc import Mapping
 from typing import Any, ClassVar
 
 import httpx
+from PIL import Image, ImageOps, UnidentifiedImageError
 
-from daedalus.providers.base import OpenAIProvider, ProviderError, limits
+from daedalus.providers.base import OpenAIProvider, ProviderError, Upload, limits
 
 TRANSCRIPT_FORMATS = ("json", "text", "vtt")
 # The Aura encoding and container for each OpenAI speech format.
@@ -51,9 +53,32 @@ def task_name(row: dict) -> Any:
   return task.get("name") if isinstance(task, dict) else None
 
 
+# FLUX.2 on Workers AI takes up to 4 input images, each smaller than 512x512.
+EDIT_INPUTS = 4
+EDIT_SIDE = 511
+
+
 def multipart(slug: str) -> bool:
   """Whether a Workers AI image model takes only multipart input: the FLUX.2 models."""
   return "flux-2" in slug
+
+
+def smaller(upload: Upload) -> Upload:
+  """The image as it is, or a PNG copy with the long side at 511 pixels."""
+  name, data, _ = upload
+  try:
+    with Image.open(io.BytesIO(data)) as image:
+      if max(image.size) <= EDIT_SIDE:
+        return upload
+      # A JPEG decodes at a lower scale first, which is much faster on a small CPU.
+      image.draft("RGB", (EDIT_SIDE, EDIT_SIDE))
+      copy = ImageOps.exif_transpose(image)
+      copy.thumbnail((EDIT_SIDE, EDIT_SIDE))
+      output = io.BytesIO()
+      copy.save(output, format="PNG")
+  except (UnidentifiedImageError, OSError, ValueError) as exc:
+    raise ProviderError("Cloudflare cannot read the input image") from exc
+  return f"{name.rsplit('.', 1)[0]}.png", output.getvalue(), "image/png"
 
 
 class CloudflareProvider(OpenAIProvider):
@@ -155,6 +180,21 @@ class CloudflareProvider(OpenAIProvider):
       fields = {key: (None, str(value)) for key, value in body.items()}
       return url, {"files": fields}, self.auth(self.key)
     return url, {"json": body}, self.headers()
+
+  def edit_request(
+    self, slug: str, fields: dict[str, Any], images: list[Upload], mask: Upload | None
+  ) -> tuple[str, dict[str, Any], dict[str, str]]:
+    """A native multipart run request for one edit, with small copies of the input images."""
+    if not multipart(slug):
+      raise ProviderError("This Cloudflare model cannot edit images")
+    if mask is not None:
+      raise ProviderError("Cloudflare takes no mask")
+    if len(images) > EDIT_INPUTS:
+      raise ProviderError(f"Cloudflare takes up to {EDIT_INPUTS} input images")
+    url, content, headers = self.image_request(slug, fields)
+    for index, image in enumerate(images):
+      content["files"][f"input_image_{index}"] = smaller(image)
+    return url, content, headers
 
   def images(self, response: httpx.Response, payload: dict) -> dict:
     """The OpenAI answer, with a data URL when the client wants a URL."""
