@@ -1,5 +1,6 @@
 """Message compression through an optional Headroom sidecar, before the routing."""
 
+import asyncio
 import logging
 import os
 from typing import Any
@@ -30,10 +31,14 @@ async def compress(
   if not base:
     return body, None
   try:
-    response = await upstream.get_client().post(
-      f"{base}/v1/compress",
-      json={"messages": body["messages"], "model": model, "config": {"mode": MODE}},
-      timeout=TIMEOUT_SECONDS,
+    # The httpx timeout is for each read, so a sidecar that keeps sending bytes needs the total limit.
+    response = await asyncio.wait_for(
+      upstream.get_client().post(
+        f"{base}/v1/compress",
+        json={"messages": body["messages"], "model": model, "config": {"mode": MODE}},
+        timeout=TIMEOUT_SECONDS,
+      ),
+      TIMEOUT_SECONDS,
     )
     response.raise_for_status()
     answer = response.json()
@@ -41,13 +46,20 @@ async def compress(
     if not isinstance(messages, list) or not all(isinstance(m, dict) for m in messages):
       raise ValueError("messages must be a list of objects")
     saved = int(answer.get("tokens_saved") or 0)
-  except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+  except (
+    httpx.HTTPError,
+    ValueError,
+    KeyError,
+    TypeError,
+    asyncio.TimeoutError,
+  ) as exc:
     if not _down:
-      detail = (
-        f"HTTP {exc.response.status_code}"
-        if isinstance(exc, httpx.HTTPStatusError)
-        else upstream.failure_text(exc)
-      )
+      if isinstance(exc, asyncio.TimeoutError):
+        detail = f"no answer in {TIMEOUT_SECONDS:g}s"
+      elif isinstance(exc, httpx.HTTPStatusError):
+        detail = f"HTTP {exc.response.status_code}"
+      else:
+        detail = upstream.failure_text(exc)
       logger.warning("headroom failed, sending the original messages: %s", detail)
     _down = True
     return body, None
