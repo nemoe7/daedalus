@@ -264,6 +264,32 @@ def input_limits() -> dict[str, int]:
   return limits
 
 
+def positive(value: object) -> float | None:
+  """The number of a stored value, or None when it is not above 0."""
+  try:
+    number = float(value)  # type: ignore[arg-type]
+  except (TypeError, ValueError):
+    return None
+  return number if number > 0 else None
+
+
+def pace_limits() -> dict[str, tuple[float | None, float | None]]:
+  """The `rpm` and `tpm` of each stored model that has one of them."""
+  if not Path(MODELS_DB).exists():
+    return {}
+  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
+  try:
+    rows = database.execute(
+      "SELECT id, rpm, tpm FROM models WHERE rpm IS NOT NULL OR tpm IS NOT NULL"
+    ).fetchall()
+  except sqlite3.OperationalError:
+    return {}
+  finally:
+    database.close()
+  found = {key: (positive(rpm), positive(tpm)) for key, rpm, tpm in rows}
+  return {key: pair for key, pair in found.items() if pair != (None, None)}
+
+
 def built() -> float | None:
   """The time of the last catalog rebuild. None without a store or an older store."""
   if not Path(MODELS_DB).exists():
