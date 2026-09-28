@@ -257,7 +257,7 @@ def chain(
     return [[model]], None
   else:
     return None
-  # A request with tools skips the models that cannot call tools, and no log shows it.
+  # A request with tools or images skips the models that cannot take it, and no log shows it.
   return router.chain_groups(config, request_lines(body), order), slot
 
 
