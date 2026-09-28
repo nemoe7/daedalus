@@ -545,13 +545,13 @@ async def chat(request: Request) -> Response:
     PACING.record(candidate, tokens)
     response = None
     try:
-      # Keep-alive bytes reset the wait, so the request limit caps the wait for an answer.
+      # The request limit caps the wait for an answer, for all attempts.
       provider, response = await in_time(
         upstream.attempt(candidate, body, config, sent), deadline
       )
+      wait = router.model_wait(config, candidate, upstream.WAIT_SECONDS)
       if not body.get("stream"):
-        raw = await in_time(response.aread(), deadline)
-        await response.aclose()
+        raw = await in_time(upstream.read_body(response, wait), deadline)
         answer = json.loads(raw)
         if not isinstance(answer, dict) or answer.get("error"):
           raise providers.ProviderError(f"Invalid upstream answer: {error_text(raw)}")
@@ -567,7 +567,7 @@ async def chat(request: Request) -> Response:
         remember(request, turn, candidate)
         attempts.append(upstream.note(candidate, "answered", started) | sent)
         return JSONResponse(completion)
-      events = stream.sse_data(provider.stream(response, candidate, True))
+      events = stream.sse_data(provider.stream(response, candidate, True), wait)
       pending = await in_time(stream.first_content(events), deadline)
       ttft = time.perf_counter() - started
     except asyncio.TimeoutError:

@@ -61,7 +61,7 @@ Daedalus skips each provider that has no key.
 | Key | Default | Use |
 | --- | --- | --- |
 | `timeouts.request` | `600` | Seconds to wait for an answer, for all attempts. A stream that started does not stop at this limit. |
-| `timeouts.wait` | `60` | Seconds with no bytes from the provider |
+| `timeouts.wait` | `60` | Seconds with no data from the provider. Keep-alive bytes do not count: SSE comments and blank lines. After this time, the next model starts. |
 | `timeouts.slow` | Half of `timeouts.wait` | A first token after this time is slow |
 | `session_affinity.enabled` | `true` | Session models and the highest tier of a conversation |
 | `session_affinity.idle` | `3600` | Seconds with no request, then the session expires |
@@ -118,7 +118,7 @@ Other keys of a `models` entry:
 | Key | Use |
 | --- | --- |
 | `pool` | `false` keeps the model out of the pools and `daedalus/auto`. Only a direct `provider/slug` request uses it. |
-| `timeout` | Seconds with no bytes from the provider. For this model, it replaces `timeouts.wait`. A direct request tries the same model again after this time, until `timeouts.request`, and then the client gets HTTP 504. |
+| `timeout` | Seconds with no data from the provider. For this model, it replaces `timeouts.wait`. A direct request tries the same model again after this time, until `timeouts.request`, and then the client gets HTTP 504. |
 | `reasoning_effort` | The effort for a request with no `reasoning_effort`. Only a model that reasons gets it. |
 | `max_output_tokens` | The output limit of the model. A larger `max_tokens` or `max_completion_tokens` drops to this value. |
 | `supports_function_calling`, or its short name `tools` | `true` or `false`. A tool request from a pool or `daedalus/auto` skips each model without a true value. |

@@ -78,7 +78,7 @@ def pooled(config: Mapping[str, Any], model: str) -> bool:
 
 
 def model_wait(config: Mapping[str, Any], model: str, default: float) -> float:
-  """The seconds with no bytes from the provider: the `timeout` of the model, or the default."""
+  """The seconds with no data from the provider: the `timeout` of the model, or the default."""
   value = model_setting(config, model, "timeout")
   if isinstance(value, bool) or not isinstance(value, int | float) or value <= 0:
     return default

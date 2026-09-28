@@ -3,7 +3,7 @@
 # HEADROOM_URL turns on message compression through a Headroom sidecar.
 timeouts:
   request: 600 # seconds to wait for an answer, for all attempts
-  wait: 60 # seconds without bytes from the provider
+  wait: 60 # seconds without data from the provider, keep-alive bytes excluded
   slow: 30 # a first token after this is slow; half of wait when missing
 session_affinity:
   enabled: true

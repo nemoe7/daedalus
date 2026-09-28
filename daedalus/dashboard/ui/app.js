@@ -802,7 +802,7 @@ function switchView(view) {
 const SETTINGS = [
   ["timeouts", "Timeouts", [
     ["request", "Request", "s", "The time to wait for an answer, for all attempts. A stream that started does not stop at this limit."],
-    ["wait", "Wait", "s", "The time without bytes from the provider."],
+    ["wait", "Wait", "s", "The time without data from the provider. Keep-alive bytes do not count."],
     ["slow", "Slow first token", "s", "A first token after this time is slow. Empty: half of Wait."],
   ]],
   ["session_affinity", "Session affinity", [

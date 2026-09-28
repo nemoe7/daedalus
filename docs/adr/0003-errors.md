@@ -25,14 +25,16 @@ receives one stream with one status.
 A partial tool call cannot continue. When a stream fails inside a tool call, the proxy sends
 one error chunk and ends the stream.
 
-The proxy caps the wait for an answer at 60 seconds. A provider that is sending bytes is not
+The proxy caps the wait for an answer at 60 seconds. A provider that is sending data is not
 waiting, so a stream that is producing output sits outside the cap. It may be preparing an
-answer.
+answer. Keep-alive bytes are not data: after 60 seconds of only keep-alive bytes, the next
+model starts.
 
 ## Consequences
 
 - A client sees one answer or one error, never the failures in between.
 - The internal log is the only record of the fallbacks it tried.
-- A slow provider that keeps sending bytes can hold a request longer than 60 seconds.
+- A slow provider that keeps sending data can hold a request longer than 60 seconds.
+- A slow model that sends only keep-alive bytes while it reads a long input loses its turn.
 - A continued answer can change style or facts at the join, because two models wrote it.
 - A stream that fails inside a tool call ends with an error chunk.
