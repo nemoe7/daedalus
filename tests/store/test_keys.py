@@ -1,13 +1,14 @@
 import sqlite3
-import tempfile
 import time
 from pathlib import Path
+
+import pytest
 
 from daedalus import store
 from daedalus.store import keys
 
 
-def check_keys(database: Path) -> None:
+def test_keys(database: Path) -> None:
   assert keys.listing(database) == [] and keys.find(database, "x") is None, "no store"
   first = keys.add(database, "  laptop ")
   assert first.startswith("sk-") and len(first) == 46, first
@@ -37,7 +38,7 @@ def check_keys(database: Path) -> None:
   assert keys.delete(database, "ci") is False, "no key with that name"
 
 
-def check_migrate(database: Path) -> None:
+def test_migrate(database: Path) -> None:
   with sqlite3.connect(database) as old:
     old.execute("CREATE TABLE api_key (hash TEXT NOT NULL)")
     old.execute("INSERT INTO api_key VALUES (?)", (keys.digest("old-local-key-0001"),))
@@ -55,12 +56,6 @@ def check_migrate(database: Path) -> None:
   assert [row["name"] for row in keys.listing(database)] == ["default"], "a second run"
 
 
-def main() -> None:
-  with tempfile.TemporaryDirectory() as folder:
-    check_keys(Path(folder) / "models.sqlite3")
-    check_migrate(Path(folder) / "old.sqlite3")
-  print("ok: named API keys")
-
-
-if __name__ == "__main__":
-  main()
+@pytest.fixture
+def database(tmp_path: Path) -> Path:
+  return tmp_path / "models.sqlite3"

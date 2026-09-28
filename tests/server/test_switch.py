@@ -2,18 +2,15 @@
 
 import json
 import logging
-import os
-import tempfile
-from pathlib import Path
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from daedalus import store
 from daedalus.server import api, upstream
 
 MASTER = "test-master-key-0001"
-os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 CONFIG = {
   "b": {"api_key": "k", "api_base": "https://b.test/v1", "tier": {"TIER-B": ["*"]}}
 }
@@ -57,7 +54,7 @@ def ask(
   return response.json()["choices"][0]["message"]["content"]
 
 
-def check_switch(client: TestClient) -> None:
+def test_switch(client: TestClient) -> None:
   first = ask(client)
   assert ask(client, "go on") == first, "the session keeps its model"
   second = ask(client, "You CLANKER, again")
@@ -68,39 +65,26 @@ def check_switch(client: TestClient) -> None:
   assert ask(client, "clanker", "b/1") == "b/1", "a direct model does not change"
 
 
-def check_last_fallback(client: TestClient) -> None:
+def test_last_fallback(client: TestClient) -> None:
   api.PENALTIES.clear()
   store.write_store([{"id": "b/1"}])
   first = ask(client)
   assert ask(client, "clanker") == first, "a tier of 1 model keeps that model"
 
 
-def main() -> None:
-  original = api.get_config, api.SWITCH, api.AFFINITY, store.MODELS_DB
-  with tempfile.TemporaryDirectory() as name:
-    store.MODELS_DB = Path(name) / "models.sqlite3"
-    store.write_store(ROWS)
-    api.get_config, api.AFFINITY = (lambda: CONFIG), True
-    api.SWITCH = api.keyword_pattern(["clanker"])
+@pytest.fixture(scope="module")
+def client():
+  store.write_store(ROWS)
+  logger = logging.getLogger("daedalus")
+  with pytest.MonkeyPatch.context() as patch:
+    patch.setattr(api, "get_config", lambda: CONFIG)
+    patch.setattr(api, "AFFINITY", True)
+    patch.setattr(api, "SWITCH", api.keyword_pattern(["clanker"]))
+    patch.setattr(api.PENALTIES, "pick", lambda: 0.5)
+    patch.setattr(logger, "level", logger.level)
     upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
-    api.PENALTIES.clear()
-    api.PENALTIES.pick = lambda: 0.5
-    client = TestClient(api.app, headers={"Authorization": f"Bearer {MASTER}"})
-    logger = logging.getLogger("daedalus")
-    level = logger.level
     logger.addHandler(LINES)
     logger.setLevel(logging.INFO)
-    try:
-      check_switch(client)
-      check_last_fallback(client)
-    finally:
-      logger.removeHandler(LINES)
-      logger.setLevel(level)
-      api.PENALTIES.clear()
-      api.get_config, api.SWITCH, api.AFFINITY, store.MODELS_DB = original
-      upstream.set_client(None)
-  print("ok: switch keywords")
-
-
-if __name__ == "__main__":
-  main()
+    yield TestClient(api.app, headers={"Authorization": f"Bearer {MASTER}"})
+    logger.removeHandler(LINES)
+  upstream.set_client(None)

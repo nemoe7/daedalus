@@ -1,10 +1,7 @@
-import asyncio
 import json
-import os
-import tempfile
-from pathlib import Path
 
 import httpx
+import pytest
 
 from daedalus import config, dashboard, store
 from daedalus.server import api
@@ -12,7 +9,6 @@ from daedalus.server.upstream import set_client
 
 MASTER = "test-master-key-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}
-os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 
 TIER = {"TIER-D": ["x"]}
 SEEN: list[tuple[str, dict]] = []
@@ -33,7 +29,7 @@ async def send(client: httpx.AsyncClient, model: str) -> httpx.Response:
   return await client.post("/v1/chat/completions", json=body)
 
 
-async def check_missing_key(client: httpx.AsyncClient) -> None:
+async def test_missing_key(client: httpx.AsyncClient) -> None:
   """A provider with no API key leaves every chain, with no attempt and no fault."""
   api.PENALTIES.clear()
   response = await send(client, "daedalus/moros")
@@ -48,7 +44,7 @@ async def check_missing_key(client: httpx.AsyncClient) -> None:
   assert SEEN == [], "no upstream call"
 
 
-async def check_default_effort(client: httpx.AsyncClient) -> None:
+async def test_default_effort(client: httpx.AsyncClient) -> None:
   """A request with no effort gets the stored effort of the model."""
   response = await send(client, "a/thinks")
   assert response.status_code == 200, response.text
@@ -65,7 +61,7 @@ async def check_default_effort(client: httpx.AsyncClient) -> None:
   assert "reasoning_effort" not in SEEN[0][1], "a model that does not reason"
 
 
-async def check_output_limit(client: httpx.AsyncClient) -> None:
+async def test_output_limit(client: httpx.AsyncClient) -> None:
   """An output limit above the limit of the model drops to that limit."""
   for field in ("max_tokens", "max_completion_tokens"):
     for asked, sent in ((9000, 4000), (100, 100)):
@@ -84,7 +80,7 @@ async def check_output_limit(client: httpx.AsyncClient) -> None:
   assert SEEN[0][1]["max_tokens"] == 9000, "no stored limit, no change"
 
 
-def check_vision() -> None:
+def test_vision() -> None:
   """An image request skips the models with a false or no vision value. A text request keeps them."""
   config_now = config.get_config()
   text = {"messages": [{"role": "user", "content": "hi"}]}
@@ -108,7 +104,8 @@ def check_vision() -> None:
   assert api.chain("v/blind", image, config_now)[0] == [["v/blind"]], "a direct request"
 
 
-async def main() -> None:
+@pytest.fixture(scope="module", autouse=True)
+def catalog():
   config.set_config(
     {
       "a": {"api_base": "https://a.test/v1", "api_key": "k", "tier": TIER},
@@ -120,40 +117,33 @@ async def main() -> None:
       },
     }
   )
-  saved = store.MODELS_DB
-  with tempfile.TemporaryDirectory() as folder:
-    store.MODELS_DB = Path(folder) / "models.sqlite3"
-    store.write_store(
-      [
-        {"id": "a/x"},
-        {"id": "b/x"},
-        {
-          "id": "a/thinks",
-          "supports_reasoning": True,
-          "reasoning_effort": "high",
-          "max_output_tokens": 4000,
-        },
-        {"id": "a/plain", "supports_reasoning": False, "reasoning_effort": "high"},
-        {"id": "v/eye", "supports_vision": True},
-        {"id": "v/blind", "supports_vision": False},
-        {"id": "v/unknown"},
-      ]
-    )
-    async with httpx.AsyncClient(transport=httpx.MockTransport(upstream)) as outside:
-      set_client(outside)
-      app = httpx.ASGITransport(app=api.app)
-      async with httpx.AsyncClient(
-        transport=app, base_url="http://t", headers=AUTH
-      ) as client:
-        await check_missing_key(client)
-        await check_default_effort(client)
-        await check_output_limit(client)
-        check_vision()
-  store.MODELS_DB = saved
-  set_client(None)
+  store.write_store(
+    [
+      {"id": "a/x"},
+      {"id": "b/x"},
+      {
+        "id": "a/thinks",
+        "supports_reasoning": True,
+        "reasoning_effort": "high",
+        "max_output_tokens": 4000,
+      },
+      {"id": "a/plain", "supports_reasoning": False, "reasoning_effort": "high"},
+      {"id": "v/eye", "supports_vision": True},
+      {"id": "v/blind", "supports_vision": False},
+      {"id": "v/unknown"},
+    ]
+  )
+  yield
   config.set_config(None)
-  print("ok: request rules")
 
 
-if __name__ == "__main__":
-  asyncio.run(main())
+@pytest.fixture
+async def client():
+  async with httpx.AsyncClient(transport=httpx.MockTransport(upstream)) as outside:
+    set_client(outside)
+    app = httpx.ASGITransport(app=api.app)
+    async with httpx.AsyncClient(
+      transport=app, base_url="http://t", headers=AUTH
+    ) as client:
+      yield client
+  set_client(None)

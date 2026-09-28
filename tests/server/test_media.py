@@ -1,22 +1,21 @@
-"""Runnable check for the endpoints of models that do not chat. Run: python tests/server/test_media.py"""
+"""Tests for the endpoints of models that do not chat."""
 
 import base64
 import io
 import json
-import os
 import struct
 import tempfile
 import wave
 from pathlib import Path
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from daedalus import dashboard, store
 from daedalus.server import api, media, upstream
 
 MASTER = "test-master-key-0001"
-os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 CONFIG = {
   "mistral": {"api_key": "k", "api_base": "https://mistral.test/v1"},
   "gemini": {"api_key": "g", "api_base": "https://gemini.test/v1beta"},
@@ -87,7 +86,7 @@ class Upstream:
     return httpx.Response(200, json={"object": "list", "data": [item], "model": "x"})
 
 
-def check_embeddings(fake: Upstream, client: TestClient) -> None:
+def test_embeddings(fake: Upstream, client: TestClient) -> None:
   body = {"model": "mistral/mistral-embed", "input": "hi", "dimensions": 8, "user": "u"}
   response = client.post("/v1/embeddings", json=body)
   assert response.status_code == 200, response.text
@@ -106,7 +105,7 @@ def check_embeddings(fake: Upstream, client: TestClient) -> None:
   assert "encoding_format" not in json.loads(fake.sent[-1].content), "floats upstream"
 
 
-def check_gemini(fake: Upstream, client: TestClient) -> None:
+def test_gemini(fake: Upstream, client: TestClient) -> None:
   body = {"model": "gemini/gemini-embedding-001", "input": ["a", "b"], "dimensions": 2}
   response = client.post("/v1/embeddings", json=body)
   assert response.status_code == 200, response.text
@@ -129,7 +128,7 @@ def check_gemini(fake: Upstream, client: TestClient) -> None:
   assert response.status_code == 400, "Gemini takes no tokens"
 
 
-def check_errors(fake: Upstream, client: TestClient) -> None:
+def test_errors(fake: Upstream, client: TestClient) -> None:
   count = len(fake.sent)
   for body, status in (
     ({"model": "daedalus/auto", "input": "hi"}, 400),
@@ -156,21 +155,7 @@ def check_errors(fake: Upstream, client: TestClient) -> None:
   assert denied.status_code == 401, denied.text
 
 
-def form_fields(request: httpx.Request) -> dict[str, list[str]]:
-  """The text fields of a multipart request."""
-  fields: dict[str, list[str]] = {}
-  for part in request.content.split(
-    b"--" + request.headers["content-type"].split("=")[1].encode()
-  ):
-    head, _, value = part.partition(b"\r\n\r\n")
-    if b"filename=" in head or b'name="' not in head:
-      continue
-    name = head.split(b'name="')[1].split(b'"')[0].decode()
-    fields.setdefault(name, []).append(value.rstrip(b"\r\n").decode())
-  return fields
-
-
-def check_transcriptions(fake: Upstream, client: TestClient) -> None:
+def test_transcriptions(fake: Upstream, client: TestClient) -> None:
   data = {
     "model": "groq/whisper-large-v3",
     "response_format": "text",
@@ -197,7 +182,7 @@ def check_transcriptions(fake: Upstream, client: TestClient) -> None:
   assert fields == {"language": ["en"], "model": ["voxtral-mini-latest"]}, fields
 
 
-def check_cloudflare_audio(fake: Upstream, client: TestClient) -> None:
+def test_cloudflare_audio(fake: Upstream, client: TestClient) -> None:
   data = {"model": "cloudflare/@cf/openai/whisper", "response_format": "vtt"}
   response = client.post("/v1/audio/transcriptions", data=data, files=AUDIO)
   assert response.status_code == 200 and response.text.startswith("WEBVTT"), (
@@ -230,7 +215,7 @@ def check_cloudflare_audio(fake: Upstream, client: TestClient) -> None:
   assert len(fake.sent) == count, "no upstream call for a bad request"
 
 
-def check_speech(fake: Upstream, client: TestClient) -> None:
+def test_speech(fake: Upstream, client: TestClient) -> None:
   body = {
     "model": "groq/canopylabs/orpheus-v1-english",
     "input": "Hi",
@@ -287,7 +272,7 @@ def check_speech(fake: Upstream, client: TestClient) -> None:
   assert len(fake.sent) == count, "no upstream call for a bad request"
 
 
-def check_images(fake: Upstream, client: TestClient) -> None:
+def test_images(fake: Upstream, client: TestClient) -> None:
   body = {"model": "groq/img", "prompt": "a cat", "n": 2, "size": "512x512", "seed": 3}
   response = client.post("/v1/images/generations", json=body)
   assert response.json()["data"] == [{"url": "https://i.test/1"}], response.text
@@ -327,7 +312,7 @@ def check_images(fake: Upstream, client: TestClient) -> None:
   assert len(fake.sent) == count, "no upstream call for a bad request"
 
 
-def check_gemini_audio(fake: Upstream, client: TestClient) -> None:
+def test_gemini_audio(fake: Upstream, client: TestClient) -> None:
   body = {"model": "gemini/gemini-3.8-flash-tts", "input": "Hi", "voice": "Kore"}
   body["instructions"] = "Say calmly"
   response = client.post("/v1/audio/speech", json=body)
@@ -368,7 +353,7 @@ def check_gemini_audio(fake: Upstream, client: TestClient) -> None:
   assert response.status_code == 400, response.text
 
 
-def check_model_list(client: TestClient) -> None:
+def test_model_list(client: TestClient) -> None:
   rows = [
     {"id": "groq/whisper-large-v3", "mode": "audio_transcription"},
     {
@@ -415,27 +400,15 @@ def check_model_list(client: TestClient) -> None:
   assert sorted(names[8:]) == ["groq/whisper-large-v3", "mistral/mistral-embed"], names
 
 
-POOL_ROWS = [
-  {"id": "mistral/voxtral", "mode": "audio_transcription"},
-  {"id": "groq/whisper", "mode": "audio_transcription"},
-  {"id": "cloudflare/@cf/black-forest-labs/flux-1-schnell", "mode": "image_generation"},
-  {"id": "groq/img", "mode": "image_generation"},
-]
+def test_empty_pool(client: TestClient) -> None:
+  body = {"model": "daedalus/photos", "prompt": "a cat"}
+  response = client.post("/v1/images/generations", json=body)
+  assert response.status_code == 400, response.text
+  assert "has no models" in response.text, response.text
 
 
-def transcribe(client: TestClient, audio: bytes) -> dict:
-  """Send one graphos request, and return its dashboard row."""
-  files = {"file": ("a.wav", audio, "audio/wav")}
-  response = client.post(
-    "/v1/audio/transcriptions",
-    data={"model": "daedalus/graphos", "response_format": "text"},
-    files=files,
-  )
-  assert response.status_code == 200, response.text
-  return dashboard.HISTORY.latest(1)[0]
-
-
-def check_pools(fake: Upstream, client: TestClient) -> None:
+def test_pools(fake: Upstream, client: TestClient) -> None:
+  store.write_store(POOL_ROWS)
   pick, api.PENALTIES.pick = api.PENALTIES.pick, lambda: 0.0
   try:
     row = transcribe(client, b"RIFF-one")
@@ -471,8 +444,8 @@ def check_pools(fake: Upstream, client: TestClient) -> None:
     assert isinstance(voxtral["weight"], float), "media pool models have weights"
   finally:
     api.PENALTIES.pick = pick
-  check_media_cooldown(fake, client)
-  check_media_pacing(fake, client)
+  assert_media_cooldown(fake, client)
+  assert_media_pacing(fake, client)
   count = len(fake.sent)
   for path, body in (
     ("/v1/images/generations", {"model": "daedalus/graphos", "prompt": "a cat"}),
@@ -483,7 +456,41 @@ def check_pools(fake: Upstream, client: TestClient) -> None:
   assert len(fake.sent) == count, "a pool of another endpoint is not sent"
 
 
-def check_media_cooldown(fake: Upstream, client: TestClient) -> None:
+def form_fields(request: httpx.Request) -> dict[str, list[str]]:
+  """The text fields of a multipart request."""
+  fields: dict[str, list[str]] = {}
+  for part in request.content.split(
+    b"--" + request.headers["content-type"].split("=")[1].encode()
+  ):
+    head, _, value = part.partition(b"\r\n\r\n")
+    if b"filename=" in head or b'name="' not in head:
+      continue
+    name = head.split(b'name="')[1].split(b'"')[0].decode()
+    fields.setdefault(name, []).append(value.rstrip(b"\r\n").decode())
+  return fields
+
+
+POOL_ROWS = [
+  {"id": "mistral/voxtral", "mode": "audio_transcription"},
+  {"id": "groq/whisper", "mode": "audio_transcription"},
+  {"id": "cloudflare/@cf/black-forest-labs/flux-1-schnell", "mode": "image_generation"},
+  {"id": "groq/img", "mode": "image_generation"},
+]
+
+
+def transcribe(client: TestClient, audio: bytes) -> dict:
+  """Send one graphos request, and return its dashboard row."""
+  files = {"file": ("a.wav", audio, "audio/wav")}
+  response = client.post(
+    "/v1/audio/transcriptions",
+    data={"model": "daedalus/graphos", "response_format": "text"},
+    files=files,
+  )
+  assert response.status_code == 200, response.text
+  return dashboard.HISTORY.latest(1)[0]
+
+
+def assert_media_cooldown(fake: Upstream, client: TestClient) -> None:
   form = {"model": "mistral/voxtral", "response_format": "text"}
   files = {"file": ("a.wav", b"RIFF-five", "audio/wav")}
   fake.limited.add("mistral.test")
@@ -501,7 +508,7 @@ def check_media_cooldown(fake: Upstream, client: TestClient) -> None:
   api.COOLDOWNS.clear()
 
 
-def check_media_pacing(fake: Upstream, client: TestClient) -> None:
+def assert_media_pacing(fake: Upstream, client: TestClient) -> None:
   form = {"model": "mistral/voxtral", "response_format": "text"}
   files = {"file": ("a.wav", b"RIFF-seven", "audio/wav")}
   original = store.pace_limits
@@ -520,42 +527,17 @@ def check_media_pacing(fake: Upstream, client: TestClient) -> None:
     api.PACING.clear()
 
 
-def check_empty_pool(client: TestClient) -> None:
-  body = {"model": "daedalus/photos", "prompt": "a cat"}
-  response = client.post("/v1/images/generations", json=body)
-  assert response.status_code == 400, response.text
-  assert "has no models" in response.text, response.text
-
-
-def main() -> None:
+@pytest.fixture(scope="module")
+def fake():
   fake = Upstream()
   upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(fake)))
-  original, shown, state = media.get_config, api.get_config, store.MODELS_DB
-  media.get_config = api.get_config = lambda: CONFIG
-  client = TestClient(api.app, headers={"Authorization": f"Bearer {MASTER}"})
-  folder = tempfile.TemporaryDirectory()
-  # The request history goes to a temporary store, not to .daedalus-state.
-  store.MODELS_DB = Path(folder.name) / "models.sqlite3"
-  try:
-    check_embeddings(fake, client)
-    check_gemini(fake, client)
-    check_errors(fake, client)
-    check_transcriptions(fake, client)
-    check_cloudflare_audio(fake, client)
-    check_speech(fake, client)
-    check_images(fake, client)
-    check_gemini_audio(fake, client)
-    check_model_list(client)
-    check_empty_pool(client)
-    store.MODELS_DB = Path(folder.name) / "pools.sqlite3"
-    store.write_store(POOL_ROWS)
-    check_pools(fake, client)
-  finally:
-    media.get_config, api.get_config, store.MODELS_DB = original, shown, state
-    upstream.set_client(None)
-    folder.cleanup()
-  print("ok: embeddings, transcriptions, speech, images and media pools")
+  yield fake
+  upstream.set_client(None)
 
 
-if __name__ == "__main__":
-  main()
+@pytest.fixture(scope="module")
+def client(fake: Upstream):
+  with pytest.MonkeyPatch.context() as patch:
+    patch.setattr(media, "get_config", lambda: CONFIG)
+    patch.setattr(api, "get_config", lambda: CONFIG)
+    yield TestClient(api.app, headers={"Authorization": f"Bearer {MASTER}"})

@@ -1,21 +1,18 @@
-"""Runnable check for Headroom compression. Run: python tests/server/test_headroom.py"""
+"""Tests for Headroom compression."""
 
 import asyncio
 import json
 import logging
 import os
-import tempfile
-from pathlib import Path
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
-from daedalus import store
 from daedalus.server import api, headroom, upstream
 
 MASTER = "test-master-key-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}
-os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 SHORT = [{"role": "user", "content": "short"}]
 
 
@@ -46,7 +43,7 @@ class Sidecar:
     return httpx.Response(200, json={"id": "x", "model": "m", "choices": [choice]})
 
 
-def check_compress(sidecar: Sidecar, lines: Lines) -> None:
+def test_compress(sidecar: Sidecar, lines: Lines) -> None:
   body = {"model": "daedalus/auto", "messages": [{"role": "user", "content": "long"}]}
   os.environ.pop(headroom.URL_ENV, None)
   assert asyncio.run(headroom.compress(body, "a/1")) == (body, None), (
@@ -76,7 +73,7 @@ def check_compress(sidecar: Sidecar, lines: Lines) -> None:
   assert "headroom answers again" in lines.lines, lines.lines
 
 
-def check_request(sidecar: Sidecar, lines: Lines) -> None:
+def test_request(sidecar: Sidecar, lines: Lines) -> None:
   config = {"a": {"api_key": "k", "api_base": "https://a.test/v1"}}
   original = api.get_config, api.chain
   api.get_config = lambda: config
@@ -98,23 +95,18 @@ def check_request(sidecar: Sidecar, lines: Lines) -> None:
     sidecar.status = 200
 
 
-def main() -> None:
-  sidecar = Sidecar()
+@pytest.fixture(scope="module")
+def lines():
   lines = Lines()
   api.logger.addHandler(lines)
   api.logger.setLevel(logging.INFO)
+  yield lines
+  api.logger.removeHandler(lines)
+
+
+@pytest.fixture(scope="module")
+def sidecar():
+  sidecar = Sidecar()
   upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(sidecar)))
-  try:
-    with tempfile.TemporaryDirectory() as name:
-      store.MODELS_DB = Path(name) / "models.sqlite3"
-      check_compress(sidecar, lines)
-      check_request(sidecar, lines)
-  finally:
-    upstream.set_client(None)
-    api.logger.removeHandler(lines)
-    os.environ.pop(headroom.URL_ENV, None)
-  print("ok: Headroom compression, fail open, and the saved field")
-
-
-if __name__ == "__main__":
-  main()
+  yield sidecar
+  upstream.set_client(None)

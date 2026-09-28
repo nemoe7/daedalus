@@ -1,7 +1,8 @@
-"""Runnable check of the state file connections. Run: python tests/store/test_database.py"""
+"""Tests of the state file connections."""
 
-import tempfile
 from pathlib import Path
+
+import pytest
 
 from daedalus.routing import router
 from daedalus.store import database
@@ -9,7 +10,7 @@ from daedalus.store import database
 TABLE = ("CREATE TABLE IF NOT EXISTS t (a INTEGER)",)
 
 
-def check_open(folder: Path) -> None:
+def test_open(folder: Path) -> None:
   """WAL mode, a fast commit by default, and the setup again for a new file."""
   path = folder / "sub" / "state.sqlite3"
   first = database.open_db(path, TABLE)
@@ -30,7 +31,7 @@ def check_open(folder: Path) -> None:
   again.close()
 
 
-def check_prompt_cache() -> None:
+def test_prompt_cache() -> None:
   """The same prompt runs the classifier 1 time."""
   runs: list[str] = []
   original = router.predict
@@ -45,12 +46,6 @@ def check_prompt_cache() -> None:
     router.predict = original
 
 
-def main() -> None:
-  with tempfile.TemporaryDirectory() as name:
-    check_open(Path(name))
-  check_prompt_cache()
-  print("ok: state files and the prompt cache")
-
-
-if __name__ == "__main__":
-  main()
+@pytest.fixture
+def folder(tmp_path: Path) -> Path:
+  return tmp_path

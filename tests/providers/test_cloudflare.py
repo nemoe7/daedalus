@@ -5,7 +5,7 @@ CLOUDFLARE = providers.CloudflareProvider(
 )
 
 
-def main() -> None:
+def test_cloudflare() -> None:
   image = {"type": "image_url", "image_url": {"url": "data:image/png;base64,YQ=="}}
   messages = [
     {"role": "system", "content": [{"type": "text", "text": "Be terse."}]},
@@ -35,8 +35,3 @@ def main() -> None:
   text = [{"type": "text", "text": "a"}, {"type": "text", "text": "b"}]
   joined = CLOUDFLARE.body("@cf/m", {"messages": [{"role": "user", "content": text}]})
   assert joined["messages"][0]["content"] == "a\nb", "text parts join with a new line"
-  print("ok: cloudflare message content")
-
-
-if __name__ == "__main__":
-  main()

@@ -1,11 +1,8 @@
-"""Runnable check of the rate-limit cooldowns. Run: python tests/routing/test_cooldowns.py"""
+"""Tests of the rate-limit cooldowns."""
 
 import json
-import os
-import tempfile
 from datetime import UTC, datetime
 from email.utils import format_datetime
-from pathlib import Path
 
 import httpx
 from fastapi.testclient import TestClient
@@ -15,7 +12,6 @@ from daedalus.routing import cooldowns
 from daedalus.server import api, upstream
 
 MASTER = "test-master-key-0001"
-os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 # 2026-09-28 04:00 UTC, which is 2026-09-27 21:00 in Los Angeles (PDT).
 NOW = datetime(2026, 9, 28, 4, 0, tzinfo=UTC).timestamp()
 GEMINI_DAILY = {
@@ -46,7 +42,7 @@ GEMINI_MINUTE = {
 CLOUDFLARE_DAILY = {"errors": [{"message": "daily free allocation", "code": 4006}]}
 
 
-def check_rules() -> None:
+def test_rules() -> None:
   assert cooldowns.duration("38s") == 38 and cooldowns.duration("250ms") == 0.25
   assert cooldowns.duration("2m59.5s") == 179.5 and cooldowns.duration("1h") == 3600
   assert cooldowns.duration("soon") is None and cooldowns.duration("5sx") is None
@@ -68,7 +64,7 @@ def check_rules() -> None:
   assert cooldowns.reset_seconds({"retry-after": "0"}, {}, NOW) is None
 
 
-def check_store() -> None:
+def test_store() -> None:
   clock = {"now": NOW}
   cool = cooldowns.Cooldowns(lambda: store.MODELS_DB, lambda: clock["now"])
   daily = json.dumps(GEMINI_DAILY).encode()
@@ -101,7 +97,7 @@ def answer(request: httpx.Request) -> httpx.Response:
   return httpx.Response(200, json={"id": "x", "model": "m", "choices": [choice]})
 
 
-def check_requests() -> None:
+def test_requests() -> None:
   config = {
     "first": {"api_key": "k", "api_base": "https://limited.test/v1"},
     "second": {"api_key": "k", "api_base": "https://answers.test/v1"},
@@ -149,7 +145,7 @@ def check_requests() -> None:
     api.COOLDOWNS.clear()
 
 
-def check_pin() -> None:
+def test_pin() -> None:
   api.PENALTIES.pin("k", "daedalus/koinos", "second/b")
   api.COOLDOWNS.start("second/b", {"retry-after": "600"}, b"")
   pin = api.Tracker("k", "daedalus/koinos")
@@ -157,20 +153,3 @@ def check_pin() -> None:
   assert api.PENALTIES.pinned("k", "daedalus/koinos") is None, "the pin leaves"
   assert pin.dropped, "the next answer logs pin=moved"
   api.COOLDOWNS.clear()
-
-
-def main() -> None:
-  with tempfile.TemporaryDirectory() as folder:
-    original, store.MODELS_DB = store.MODELS_DB, Path(folder) / "models.sqlite3"
-    try:
-      check_rules()
-      check_store()
-      check_requests()
-      check_pin()
-    finally:
-      store.MODELS_DB = original
-  print("ok: rate-limit cooldowns")
-
-
-if __name__ == "__main__":
-  main()

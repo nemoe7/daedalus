@@ -1,7 +1,6 @@
-"""Runnable check for the model catalog. Run: python tests/catalog/test_catalog.py"""
+"""Tests for the model catalog."""
 
 import json
-import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -116,7 +115,7 @@ PAYOUT: dict[str, dict[str, Any]] = {
 }
 
 
-def check_matches() -> None:
+def test_matches() -> None:
   assert discovery.matches("glm-4.5", "glm-4.5")
   assert not discovery.matches("glm-4.5", "glm-4.5-air"), "exact must not prefix-match"
   assert discovery.matches("*kimi-k2.6", "@cf/moonshotai/kimi-k2.6"), "star glob"
@@ -144,7 +143,7 @@ def discover(name: str, fetch) -> tuple[list[str], list[str]]:
   return [line.split("/", 1)[1] for line in lines], skipped
 
 
-def check_extract_row_slugs() -> None:
+def test_extract_row_slugs() -> None:
   data = row_slugs({"data": [{"id": "a"}, {"id": "b"}]})
   assert data == ["a", "b"], data
   gemini = row_slugs({"models": [{"name": "models/gemini-3.5-flash"}]})
@@ -158,7 +157,7 @@ def check_extract_row_slugs() -> None:
   assert row_slugs({"result": None, "success": False}) == []
 
 
-def check_next_page_url() -> None:
+def test_next_page_url() -> None:
   token = discovery.next_page_url("https://gem.test/models", {"nextPageToken": "p2"})
   assert token == "https://gem.test/models?pageToken=p2", token
   links = discovery.next_page_url(
@@ -188,7 +187,7 @@ def check_next_page_url() -> None:
   assert discovery.next_page_url("https://x.test/m", {"data": []}) is None
 
 
-def check_failure() -> None:
+def test_failure() -> None:
   assert discovery.failure({"success": True, "result": []}) is None
   assert discovery.failure({"data": []}) is None
   denied = discovery.failure(
@@ -198,7 +197,7 @@ def check_failure() -> None:
   assert discovery.failure({"success": False}) == "the upstream reported a failure"
 
 
-def check_select() -> None:
+def test_select() -> None:
   provider = CONFIG["cloudflare"]
   slugs = [
     "@cf/qwen/qwq-32b",
@@ -221,7 +220,7 @@ def check_select() -> None:
   assert routers == ["openai/gpt-6-sol", "qwen/qwen3.8-27b:free"], routers
 
 
-def check_auth_headers() -> None:
+def test_auth_headers() -> None:
   assert discovery.auth_headers("groq", {"api_key": "g"}) == {
     "Authorization": "Bearer g"
   }
@@ -229,7 +228,7 @@ def check_auth_headers() -> None:
   assert discovery.auth_headers("groq", {"api_key": ""}) == {}
 
 
-def check_discover() -> None:
+def test_discover() -> None:
   fetch = make_fetch(PAYOUT)
   gemini, _ = discover("gemini", fetch)
   assert gemini == ["gemini-3.5-flash", "gemini-3.6-flash"], gemini
@@ -254,7 +253,7 @@ def check_discover() -> None:
   assert denied == ([], ["denied: No route for that URI"]), denied
 
 
-def check_build_rows() -> None:
+def test_build_rows() -> None:
   lines, skipped = discovery.build_rows(CONFIG, make_fetch(PAYOUT))
   assert list(lines) == [
     "cloudflare/@cf/deepseek-ai/deepseek-r1-distill-llama-8b",
@@ -271,7 +270,7 @@ def check_build_rows() -> None:
   assert len(skipped) == 3, skipped
 
 
-def check_provider_file_override() -> None:
+def test_provider_file_override() -> None:
   """A file takes only its models, with values that do not mix with the main block."""
   main = {
     "api_key": "old",
@@ -310,7 +309,7 @@ def check_provider_file_override() -> None:
     config.set_config(None)
 
 
-def check_shared_download() -> None:
+def test_shared_download() -> None:
   """A file with the same URL and key as its main block reads the list 1 time."""
   block = {"api_key": "same", "discovery_url": "https://or.test/api/v1/models"}
   file = {**block, "models": {"openai/gpt-6-sol": {"pool": False}}}
@@ -334,7 +333,7 @@ def check_shared_download() -> None:
     config.set_config(None)
 
 
-def check_discovery_match() -> None:
+def test_discovery_match() -> None:
   payload = {
     "result": [
       {"name": "@cf/a/free"},
@@ -356,7 +355,7 @@ def check_discovery_match() -> None:
   assert list(lines) == ["m/@cf/a/free", "m/@cf/a/open"], lines
 
 
-def check_dump() -> None:
+def test_dump() -> None:
   with tempfile.TemporaryDirectory() as folder:
     stale = Path(folder) / "broken.json"
     stale.write_text("{}", encoding="utf-8")
@@ -375,7 +374,7 @@ def check_dump() -> None:
     assert "@cf/openai/gpt-oss-120b" in slugs, "the dump merges every page"
 
 
-def check_merge_pages() -> None:
+def test_merge_pages() -> None:
   one = discovery.merge_pages([{"data": [{"id": "a"}], "object": "list"}])
   assert one == {"data": [{"id": "a"}], "object": "list"}, one
   two = discovery.merge_pages(
@@ -390,7 +389,7 @@ def check_merge_pages() -> None:
   assert discovery.merge_pages([]) == {}
 
 
-def check_declared_kept() -> None:
+def test_declared_kept() -> None:
   """A slug a `models:` key names is kept even when `exclude` drops it."""
   provider = {"exclude": ["*"], "models": {"glm-4.7-flash": {"tpm": 8000}}}
   slugs = ["glm-4.5", "glm-4.6", "glm-4.7-flash"]
@@ -416,7 +415,7 @@ def check_declared_kept() -> None:
   assert discovery.select(pattern_only, []) == []
 
 
-def check_free_stealth() -> None:
+def test_free_stealth() -> None:
   """A stealth row passes the kilo and openrouter excludes only with price 0 in each field."""
   free = {"prompt": "0", "completion": "0"}
   payload = {
@@ -453,7 +452,7 @@ def check_free_stealth() -> None:
   assert "groq/stealth/space-bunny-alpha" not in lines, lines
 
 
-def check_free_only() -> None:
+def test_free_only() -> None:
   """The committed config keeps only :free rows for kilo and openrouter."""
   providers = config.load_config()
   rows = [
@@ -485,7 +484,7 @@ def check_free_only() -> None:
   assert kilo == ["google/gemma-4-31b-it:free", "poolside/laguna-s-2.1:free"], kilo
 
 
-def check_non_text() -> None:
+def test_non_text() -> None:
   """The committed config drops Gemini image, live and 2.5 rows, and sets other modes."""
   providers = config.load_config()
   gemini = [
@@ -517,7 +516,7 @@ def check_non_text() -> None:
     assert found == mode, (slug, found, "a mode keeps the row out of the chat chains")
 
 
-def check_failed_providers() -> None:
+def test_failed_providers() -> None:
   """Only a model list fetch that fails puts the provider on the failed list."""
   providers = {
     "up": {"api_key": "k", "discovery_url": "https://up.test/models"},
@@ -536,29 +535,3 @@ def check_failed_providers() -> None:
   assert list(lines) == ["up/m"], lines
   assert failed == ["down"], failed
   assert len(skipped) == 3, skipped
-
-
-def main() -> int:
-  check_matches()
-  check_extract_row_slugs()
-  check_next_page_url()
-  check_failure()
-  check_select()
-  check_auth_headers()
-  check_discover()
-  check_build_rows()
-  check_provider_file_override()
-  check_shared_download()
-  check_merge_pages()
-  check_dump()
-  check_discovery_match()
-  check_non_text()
-  check_free_only()
-  check_free_stealth()
-  check_failed_providers()
-  print(f"ok: catalog checks passed, {len(SEEN)} stub pages fetched")
-  return 0
-
-
-if __name__ == "__main__":
-  sys.exit(main())

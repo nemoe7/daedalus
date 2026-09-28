@@ -1,8 +1,6 @@
-"""Runnable check that the dashboard keeps the asked and the sent reasoning effort. Run: python tests/dashboard/test_effort_history.py"""
+"""Check that the dashboard keeps the asked and the sent reasoning effort."""
 
-import asyncio
 import json
-import os
 import tempfile
 from pathlib import Path
 
@@ -14,7 +12,6 @@ from daedalus.server.upstream import set_client
 
 MASTER = "test-master-key-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}
-os.environ["DAEDALUS_MASTER_KEY"] = MASTER
 
 ANSWER = {"choices": [{"message": {"role": "assistant", "content": "ok"}}]}
 ROWS = [
@@ -39,7 +36,7 @@ async def last_row(client: httpx.AsyncClient, model: str, effort: str | None) ->
   return dashboard.HISTORY.latest(1)[0]
 
 
-async def main() -> None:
+async def test_effort_history() -> None:
   config.set_config(
     {
       "mistral": {"api_base": "https://mistral.test/v1", "api_key": "k"},
@@ -76,8 +73,3 @@ async def main() -> None:
   assert provider.effort(payload) == "thinkingLevel=low", payload
   provider, _, payload, _ = providers.prepare("gemini/gemini-2.5-flash", body, gemini)
   assert provider.effort(payload) == "thinkingBudget=1024", payload
-  print("ok: asked and sent reasoning effort in the dashboard rows")
-
-
-if __name__ == "__main__":
-  asyncio.run(main())
