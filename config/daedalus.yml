@@ -40,3 +40,13 @@ escalation:
     - deadlock
     - security review
     - performance regression
+    - audit
+    - refactor
+    - investigate
+    - diagnose
+    - code review
+    - system design
+    - optimize
+    - debug
+    - design
+    - architecture
