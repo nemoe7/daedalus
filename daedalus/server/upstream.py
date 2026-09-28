@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 from fastapi.responses import JSONResponse
 
-from daedalus import providers
+from daedalus import providers, store
 from daedalus.providers.base import error_detail, error_text
 from daedalus.server.logs import elapsed
 
@@ -85,10 +85,18 @@ def failure_note(model: str, started: float, exc: Exception) -> dict[str, Any]:
   return note(model, "failed", started, failure_text(exc))
 
 
+def without_reasoning(candidate: str, body: dict[str, Any]) -> dict[str, Any]:
+  """The body without `reasoning_effort` for a stored model that does not reason."""
+  if "reasoning_effort" not in body or store.reasoning_flags().get(candidate, True):
+    return body
+  return {key: value for key, value in body.items() if key != "reasoning_effort"}
+
+
 async def attempt(
   candidate: str, body: dict[str, Any], config: dict[str, Any]
 ) -> tuple[providers.OpenAIProvider, httpx.Response]:
   """Send one candidate request, and fail on an upstream error status."""
+  body = without_reasoning(candidate, body)
   provider, url, payload, headers = providers.prepare(candidate, body, config)
   upstream = get_client().build_request("POST", url, json=payload, headers=headers)
   started = time.perf_counter()

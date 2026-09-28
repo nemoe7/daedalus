@@ -130,6 +130,7 @@ Kilo cannot show the routed model for a custom provider. The **Requests** page a
 | `stream` | Boolean. |
 | `stream_options` | Object. `include_usage` adds a usage chunk. |
 | `tools` | Models that cannot call tools leave the chain. |
+| `reasoning_effort` | Goes only to a model with a true `supports_reasoning` value in the catalog. A model that is not in the catalog also gets it. |
 | Other fields | Go to the provider. Mistral and Groq get only the message fields that they accept. |
 
 ## Endpoints for models that do not chat
