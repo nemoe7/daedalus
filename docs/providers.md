@@ -7,12 +7,18 @@ These are the only providers that tests confirmed as really free.
 | `cloudflare` | Cloudflare Workers AI | OpenAI-compatible, plus the native run API for audio and images | Text content only. Paid models stay out of the catalog. The catalog gets 5 tasks only (see below). |
 | `gemini` | Google Gemini | Native Gemini API | Daedalus maps OpenAI requests to Gemini and back, with thought signatures. |
 | `groq` | Groq | OpenAI-compatible | Gets only the message fields that it accepts. |
-| `kilo` | Kilo Gateway | OpenAI-compatible | |
+| `kilo` | Kilo Gateway | OpenAI-compatible | Only `:free` models, and `stealth/` models with price 0 in each price field. |
 | `mistral` | Mistral | OpenAI-compatible | Gets only the message fields that it accepts. `reasoning_effort` `none` and `minimal` become `none`, and `low` to `xhigh` become `high`. The thinking chunks of an answer go to `reasoning_content`. An old assistant message with `reasoning_content` goes back as a thinking chunk before its text. |
-| `openrouter` | OpenRouter | OpenAI-compatible | |
-| `z-ai` | Z.ai | OpenAI-compatible | |
+| `openrouter` | OpenRouter | OpenAI-compatible | Only `:free` models, and `stealth/` models with price 0 in each price field. |
+| `z-ai` | Z.ai | OpenAI-compatible | Only the 3 free models under `models:`: `glm-4.5-flash`, `glm-4.7-flash` and `glm-4.6v-flash`. |
 
 Kilo and OpenRouter are large, known gateways with free models that change over time. Google Gemini has a more generous free tier than the other providers.
+
+| Provider | How Daedalus keeps it free |
+| --- | --- |
+| Cloudflare, Gemini, Groq, Mistral | Use an account on the free plan, with no payment method. |
+| Kilo, OpenRouter | The `!*:free` exclude pattern. A price of 0 is not a guarantee: Lyria models show price 0 and cost money for each song. |
+| Z.ai | The `"*"` exclude pattern, and only the free models under `models:`. |
 
 ## Catalog
 
@@ -82,5 +88,7 @@ The Gemini exclude list keeps these models out:
 | Live models | They use only the Live API, a websocket. Daedalus does not support it. |
 | Models with a 0/0 free quota | Images, Omni, Lyria, Veo, 3.1 Pro, Deep Research, Computer Use |
 | Robotics ER, Antigravity | They are for robot vision and for agents. |
+| `aqa` | It answers from given sources only. |
+| `*-latest` aliases | The model behind each alias changes over time. |
 
 > Q: Which of these endpoints do you use, and with which client?

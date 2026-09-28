@@ -8,7 +8,7 @@ The name must have the same impact as [Odysseus](https://odysseusai.dev/). It mu
 
 - 1 OpenAI-compatible endpoint for 7 providers: Cloudflare, Gemini, Groq, Kilo, Mistral, OpenRouter and Z.ai.
 - Each provider gets its native API. Gemini gets the native Gemini API.
-- 4 pools (tiers) and `daedalus/auto`, which selects a tier from the prompt.
+- 4 pools (tiers) and `daedalus/auto`, which selects a tier from the prompt. A keyword, such as "think hard", moves the tier 1 step up.
 - A fallback ladder: when a model fails, the next model gets the request.
 - Model weights, session affinity and a time-to-first-token penalty.
 - A model catalog from provider discovery and LiteLLM data, rebuilt on a schedule.
@@ -96,7 +96,7 @@ uv sync
 uv run daedalus serve
 ```
 
-Put `uv run` before each command in the table. After `git pull`, run `uv sync` again.
+Put `uv run` before each command in the table. After `git pull`, run `uv sync` again. After a dependency change in `pyproject.toml`, run `uv lock`.
 
 | Command | What it does |
 | --- | --- |
