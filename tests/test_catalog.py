@@ -416,6 +416,43 @@ def check_declared_kept() -> None:
   assert discovery.select(pattern_only, []) == []
 
 
+def check_free_stealth() -> None:
+  """A stealth row passes the kilo and openrouter excludes only with price 0 in each field."""
+  free = {"prompt": "0", "completion": "0"}
+  payload = {
+    "data": [
+      {"id": "google/gemma-4-31b-it:free", "pricing": free},
+      {"id": "stealth/space-bunny-alpha", "pricing": {**free, "discount": 0}},
+      {
+        "id": "stealth/claude-opus-4.8",
+        "pricing": {"prompt": "0.000004", "completion": "0"},
+      },
+      {"id": "stealth/router", "pricing": {"prompt": "-1", "completion": "-1"}},
+      {"id": "stealth/unknown"},
+      {"id": "google/lyria-3-pro-preview", "pricing": free},
+    ]
+  }
+  providers = config.load_config()
+  for name in ("openrouter", "kilo"):
+    block = {
+      key: value for key, value in providers[name].items() if key != config.FILE_KEY
+    }
+    block.update(api_key="k", discovery_url="https://gateway.test/models")
+    lines, skipped = discovery.build_rows({name: block}, lambda *_: payload)
+    assert not skipped, skipped
+    assert list(lines) == [
+      f"{name}/google/gemma-4-31b-it:free",
+      f"{name}/stealth/space-bunny-alpha",
+    ], lines
+  groq = {
+    "api_key": "k",
+    "discovery_url": "https://groq.test/models",
+    "exclude": ["stealth/*"],
+  }
+  lines, _ = discovery.build_rows({"groq": groq}, lambda *_: payload)
+  assert "groq/stealth/space-bunny-alpha" not in lines, lines
+
+
 def check_free_only() -> None:
   """The committed config keeps only :free rows for kilo and openrouter."""
   providers = config.load_config()
@@ -517,6 +554,7 @@ def main() -> int:
   check_discovery_match()
   check_non_text()
   check_free_only()
+  check_free_stealth()
   check_failed_providers()
   print(f"ok: catalog checks passed, {len(SEEN)} stub pages fetched")
   return 0
