@@ -99,7 +99,7 @@ groq:
 
 | Key | Use |
 | --- | --- |
-| `api_key` | Necessary |
+| `api_key` | Necessary. With no key, the models of the provider leave each chain and pool, and a direct request gets HTTP 400. |
 | `api_base` | Optional. Each provider has a default. |
 | `api_type` | Optional. `openai` or `gemini`. |
 | `discovery_url` | Optional. The model list URL. Each provider has a default. |

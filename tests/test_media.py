@@ -382,7 +382,7 @@ def check_model_list(client: TestClient) -> None:
     {"id": "mistral/mistral-embed", "mode": "embedding", "max_input_tokens": 8192},
     {"id": "kilo/new", "max_input_tokens": 262144, "supports_reasoning": 1},
   ]
-  tiers = {"tier": {"TIER-A": ["*"]}}
+  tiers = {"api_key": "k", "tier": {"TIER-A": ["*"]}}
   with tempfile.TemporaryDirectory() as name:
     original, store.MODELS_DB = store.MODELS_DB, Path(name) / "models.sqlite3"
     config, api.get_config = api.get_config, lambda: {"groq": tiers, "kilo": tiers}
@@ -530,8 +530,8 @@ def check_empty_pool(client: TestClient) -> None:
 def main() -> None:
   fake = Upstream()
   upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(fake)))
-  original = media.get_config
-  media.get_config = lambda: CONFIG
+  original, shown = media.get_config, api.get_config
+  media.get_config = api.get_config = lambda: CONFIG
   client = TestClient(api.app, headers={"Authorization": f"Bearer {MASTER}"})
   try:
     check_embeddings(fake, client)
@@ -552,7 +552,7 @@ def main() -> None:
       finally:
         store.MODELS_DB = original
   finally:
-    media.get_config = original
+    media.get_config, api.get_config = original, shown
     upstream.set_client(None)
   print("ok: embeddings, transcriptions, speech, images and media pools")
 
