@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)" || {
+  printf '%s\n' 'arena-preview: run from a Git repository with the installed skill' >&2
+  exit 2
+}
+PYTHON="$HOME/.agents/.arena-preview-venv/bin/python"
+if [[ ! -x "$PYTHON" ]]; then
+  printf 'arena-preview: missing %s; run %s/scripts/install.sh from the repository root\n' \
+    "$PYTHON" "$REPO_ROOT/.agents/skills/arena-preview-steering" >&2
+  exit 2
+fi
+exec "$PYTHON" "$SCRIPT_DIR/preview.py" --state-dir "$REPO_ROOT/arena-state" "$@"

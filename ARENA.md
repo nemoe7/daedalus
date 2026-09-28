@@ -4,7 +4,7 @@
 
 - Arena agent: these rules cover every chat, task, and this repository's first message, prompt or not.
 - Initial file/skill reads may precede the first reply.
-- Each turn this file's full text is absent from context (summary/truncation included), read it end-to-end again before the first tool call.
+- Any context summary MUST preserve ARENA.md verbatim. If it omits or changes it, MUST reread ARENA.md end-to-end before any non-read tool call.
 - Before the first non-read tool call: 10-4 line, steering preview start, visibility question.
 - The first reply opens `10-4: ARENA.md loaded`; finding it later opens the next reply `10-4: ARENA.md loaded late (turn N)`.
 - Name the started preview; claim visibility only after user confirmation.
@@ -25,7 +25,7 @@
 
 ## General
 
-- Read the inbox via `scripts/preview.py --state-dir <directory> read` at turn start, each reasoning boundary, before/after each tool block, before expensive/irreversible work and before turn end. Block mechanics: skill reference, Read cadence.
+- Read the inbox via `arena-preview read` at turn start, each reasoning boundary, before/after each tool block, before expensive/irreversible work and before turn end. Block mechanics: skill reference, Read cadence.
 - Missing/failed reads are errors, not empty inboxes; before the first start there is no inbox.
 - Ack every delivered note with `ack <ids> --reply <markdown>` (rendered in the log) or `--note <text>`, one text per call, only those IDs, NEVER all pending blindly.
 - Receipt is not completion. Ack in the same tool block as the read that surfaced the note, before implementation it announces; work outliving the block is receipted as in progress.
@@ -40,7 +40,7 @@
 - Documentation: no storyline or narrative unless asked.
 - Batch independent tool calls where the surface permits.
 - ALWAYS take the smallest open task next; a user-stated priority outranks size. Re-sort on arrivals; NEVER use arrival order.
-- Work while tasks remain. End when verified and stopped; no surface reports the remaining token budget, so NEVER name it as the reason. After each push, poll PR checks with backoff: at once, then 10s, 20s, 30s, then every 30s to a conclusion; NEVER sleep longer. Before turn end with a pushed branch, check and report open PR CI; failed checks are unfinished work.
+- Work while tasks remain. End when verified and stopped; no surface reports the remaining token budget, so NEVER name it as the reason. After each push, poll PR checks with backoff: at once, then 10s, 20s, 30s, then every 30s to a conclusion. Before turn end with a pushed branch, check and report open PR CI; failed checks are unfinished work.
 - Skills specialize defaults and NEVER weaken a requirement or convention; use one only for its domain.
 
 ## Scope
@@ -75,7 +75,9 @@
 
 ## Verification
 
-- Work in several passes; label questions Q1, Q2, …, state the batch total first, restating it before adding one; end every turn reading the steering channel.
+- Before the final reply, MUST run task-list; if an upcoming task is not blocked by an unanswered report, MUST continue it and NEVER end the turn while it remains.
+- Work in several passes; label Q1,Q2,…, state batch total first, restating before adding one; ALWAYS end every turn with `arena-preview poll` on final Bash call; MUST NOT substitute sleep; NEVER treat bounded no-result poll as successful wait.
+- Run `arena-preview poll` with bash timeout 1800s.
 - Confirm a duplicated, garbled, or disowned message in one line before acting, keeping its edit reversible until then; the Arena client resends, truncates, and returns empty results from tools that ran, so treat a repeat as a resend: answer what is pending, restate finished work in one line, NEVER redo or widen scope.
 - Debug: reproduce, isolate, hypothesize, verify, fix the root cause not the symptom, cover, recheck; grep every caller first, keep hypotheses falsifiable, one variable at a time, NEVER guess, use a fallback, or hide a failure, and revise disproven assumptions.
 - Test: red first when one fits, then the smallest green change, a behavior-preserving refactor, recheck; cover public interfaces and integration boundaries, reuse the project's frameworks, fixtures, helpers, conventions, and NEVER weaken or drop a test to pass.
@@ -85,8 +87,7 @@
 
 ## Style
 
-- `nemoe7` repos: 2-space indent overrides formatter defaults; Markdown is markdownlint defaults + MD060, MD013 off; Python is Ruff defaults, from the project's `ruff.toml` or one created exactly with `indent-width = 2`, `[lint] ignore = ["BLE001", "S110"]`, `extend-safe-fixes = ["C408", "PERF102", "RUF059"]`, `required-version = "0.16.6"`; gates are `ruff check` and `ruff format`, no CLI overrides.
-- Reports MUST allow lines up to 120 characters (MD013 at 120).
+- `nemoe7` repos: 2-space indent overrides formatter defaults; Markdown is markdownlint defaults + MD060, MD013 off; Python is Ruff defaults, from the project's `ruff.toml` or one created exactly with `indent-width = 2`, `[lint] ignore = ["BLE001", "S110"]`, `extend-safe-fixes = ["C408", "PERF102", "RUF059"]`, `required-version = "0.16.6"`; gates: `ruff check`, `ruff format`, no CLI overrides.
 - Add code/config comments ONLY when method complexity needs them.
 
 ## Git
@@ -100,7 +101,6 @@
 - Longer reports use `arena-preview-steering`, not diff-viewer commits. Update one Markdown source per subject in place, mark dispositions, republish its stable ID; several may coexist. Verify delivery; clean Git status proves nothing. Short reports stay in chat, without artifacts/pipeline.
 - `GH_TOKEN` can die mid-turn with no repo change: `gh auth status` calls it invalid, pushes fail, `gh auth setup-git` does not help.
 - Retry once, NEVER loop or ask for credentials — then ask through `ask_user` for a GitHub reconnect in Arena and a reply in chat; do not end silently.
-- Use `ask_user` only under the question-route exceptions above.
 - Prove recovery with `git ls-remote origin <branch>` before pushing again.
 - `gh pr edit` may fail on older repos; update title/body via REST with JSON on stdin: `jq -n --rawfile body <workspace-file> --arg title <title> '{body: $body, title: $title}' | gh api repos/<owner>/<repo>/pulls/<n> -X PATCH --input -`.
 - **NEVER `-f body=@path`** — `-f` posts the literal string; stage PR text in the workspace, NEVER /tmp. A PR PATCH 200 proves nothing: re-fetch title/body, diff against the staged file, keep both current.
@@ -115,8 +115,7 @@
 
 ## Deliverables
 
-- Save/open the main deliverable; for longer reports, name the Reports tab/title and verify rendering.
-- Keep Markdown sources; deliver in Reports, other formats request-only. On preview failure, report and agree on a replacement; a local commit is not an automatic fallback.
+- Save/open the main deliverable. Other formats remain request-only. If preview delivery fails, report it and agree on a replacement; a local commit is not an automatic fallback.
 - Previews have no network: inline CSS, embedded SVG/data URIs, no CDNs, remote fonts, or stylesheets.
 - Servers bind 0.0.0.0; browser URLs stay relative via the dev-server proxy, NEVER localhost/127.0.0.1.
 - Regenerate doc sections with their committed script after source data changes; NEVER hand-edit one.
@@ -125,7 +124,6 @@
 
 - Report changes/findings, checks/results, files/decisions, open issues, assumptions, limitations; open with the result, skip restating the task, prefer numbered lists, and report skipped work with its add-when trigger in at most three short lines.
 - Short chat reports: concise on phone and vertical monitors; limit prose; no essays unless strictly necessary.
-- MUST ASD-STE100.
 - NEVER mermaid in chat; repository docs use mermaid for pipelines, diagrams, and flows.
 - User-run commands: print the Windows Command Prompt (`cmd`) form by default, plus bash when the Pi or bash is asked for.
 - Report changes at a high level in the final response ("X now does Y"), especially after long tasks; not required during execution, and a final report turn ends by reading the steering channel, not by asking an open question.
