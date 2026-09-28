@@ -72,7 +72,7 @@ services:
       TS_AUTHKEY: ${TS_AUTHKEY:-}
       TS_HOSTNAME: ${TS_HOSTNAME:-daedalus}
       TS_STATE_DIR: /var/lib/tailscale
-      TS_SERVE_CONFIG: /config/serve.json # https://NAME.TAILNET.ts.net to Daedalus, tailnet only
+      TS_SERVE_CONFIG: /config/serve.json # tailnet only: :443 to Daedalus, :8443 to Open WebUI
       TS_AUTH_ONCE: "true" # log in with TS_AUTHKEY only when the state has no login
       TS_ENABLE_HEALTH_CHECK: "true"
       TS_LOCAL_ADDR_PORT: 127.0.0.1:9002

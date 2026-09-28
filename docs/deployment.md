@@ -31,15 +31,16 @@ flowchart LR
   C[Clients] -->|3357| D[daedalus]
   W[open-webui :3000] --> D
   D -->|messages| H[headroom :8787, internal]
-  T[tailscale] -->|HTTPS in the tailnet| D
+  T[tailscale] -->|HTTPS :443 in the tailnet| D
+  T -->|HTTPS :8443 in the tailnet| W
   D --> P[Providers]
 ```
 
 | Profile | Service | What it does |
 | --- | --- | --- |
-| `webui` | `open-webui` | Chat UI on `http://localhost:3000`. It uses Daedalus as its OpenAI API. |
+| `webui` | `open-webui` | Chat UI on `http://localhost:3000`, and on port 8443 with the `tailscale` profile. It uses Daedalus as its OpenAI API. |
 | `headroom` | `headroom` | Compresses the messages before Daedalus sends them. No port on the host. |
-| `tailscale` | `tailscale` | Publishes only Daedalus to your tailnet over HTTPS. |
+| `tailscale` | `tailscale` | Publishes Daedalus and Open WebUI to your tailnet over HTTPS. |
 
 ### Open WebUI
 
@@ -78,7 +79,8 @@ Headroom is worth it for long agentic tasks. So far, it keeps token use lower wi
 | --- | --- |
 | Auth key | `TS_AUTHKEY` |
 | Device name | `TS_HOSTNAME`, default `daedalus` |
-| Address | `https://NAME.TAILNET.ts.net` |
+| Daedalus | `https://NAME.TAILNET.ts.net` |
+| Open WebUI | `https://NAME.TAILNET.ts.net:8443`, when the `webui` profile runs. Browsers give the microphone only to HTTPS pages, so voice input on a phone needs this address. |
 | Funnel | Off: only your tailnet can connect. |
 | `TS_AUTH_ONCE` | `true`. The state volume keeps the login, so a used or old auth key does not stop a restart. |
 | Health | `/healthz` on `127.0.0.1:9002`. `docker ps` shows "unhealthy" when the device has no tailnet address. |
