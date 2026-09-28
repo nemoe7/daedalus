@@ -177,6 +177,15 @@ openrouter:
     "*gemma-4-26b-a4b-it:free": { reasoning_effort: low }
     "*gemma-4-31b-it:free": { reasoning_effort: low }
 
+pollinations:
+  api_key: os.environ/POLLINATIONS_API_KEY
+  # Each other model spends Pollen faster, and most need a paid balance.
+  exclude:
+    - "*"
+  models:
+    # 0.004 Pollen for each image, from the free Pollen grant.
+    tongyi-mai/z-image-turbo: { mode: image_generation, rpm: 60 }
+
 z-ai:
   api_key: os.environ/ZAI_API_KEY
   exclude:
