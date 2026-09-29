@@ -97,7 +97,7 @@ def test_neurons() -> None:
     "data": {"viewer": {"accounts": [{"aiInferenceAdaptiveGroups": []}]}},
     "errors": None,
   }
-  assert limits.neuron_items(empty) == [("Neurons today", "0 of 10,000")]
+  assert limits.neuron_items(empty) == [("Neurons today", "0 of 10,000", 1.0)]
   small = {
     "data": {
       "viewer": {
@@ -105,7 +105,9 @@ def test_neurons() -> None:
       }
     }
   }
-  assert limits.neuron_items(small) == [("Neurons today", "0.86 of 10,000")]
+  assert limits.neuron_items(small) == [
+    ("Neurons today", "0.86 of 10,000", pytest.approx(0.99991, abs=1e-5))
+  ]
   refused = {"data": None, "errors": [{"message": "not authorized for that account"}]}
   assert limits.neuron_items(refused) == []
   assert limits.neuron_items({"data": {"viewer": {"accounts": []}}}) == []
@@ -131,12 +133,14 @@ async def test_check(cooldowns: Cooldowns) -> None:
   shown = {item["name"]: item["items"] for item in found.view()["providers"]}
   assert shown == {
     "openrouter": [
-      ["Credit left", "$7.50 of $10.00"],
-      ["Used today", "$0.25"],
-      ["Free requests today", "0 of 50 left"],
+      ["Credit left", "$7.50 of $10.00", 0.75],
+      ["Used today", "$0.25", None],
+      ["Free requests today", "0 of 50 left", 0.0],
     ],
-    "kilo": [["Balance", "$1.20"]],
-    "cloudflare": [["Neurons today", "1,234 of 10,000"]],
+    "kilo": [["Balance", "$1.20", None]],
+    "cloudflare": [
+      ["Neurons today", "1,234 of 10,000", pytest.approx(0.87657, abs=1e-5)]
+    ],
   }, shown
   ends = cooldowns.ends()
   midnight = datetime(2026, 9, 30, tzinfo=UTC).timestamp()
