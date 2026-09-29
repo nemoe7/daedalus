@@ -82,6 +82,7 @@ def test_repo_file() -> None:
     "ZAI",
   ):
     os.environ.setdefault(f"{name}_API_KEY", "k")
+  os.environ.setdefault("CLOUDFLARE_ACCOUNT_ID", "test-account")
   loaded = config.load_config(Path("config/providers/free.yml"))
   main = [name for name, provider in loaded.items() if config.main_block(provider)]
   assert sorted(main) == main, main
@@ -157,16 +158,23 @@ def walk(node: object) -> list[str]:
 
 
 def test_url_substitution() -> None:
-  """A URL carries `os.environ/NAME` inside it, not as a whole value."""
+  """A URL carries `env:NAME` inside it, not as a whole value."""
   os.environ["CLOUDFLARE_ACCOUNT_ID"] = "acct-123"
+  config.SAVED.pop("CLOUDFLARE_ACCOUNT_ID", None)
   loaded = config.load_config(Path("config/providers/free.yml"))
   url = providers.settings("cloudflare", loaded["cloudflare"])["discovery_url"]
   assert url == (
     "https://api.cloudflare.com/client/v4/accounts/acct-123"
     "/ai/models/search?per_page=100"
   ), url
-  left = [text for text in walk(loaded) if "os.environ/" in text]
+  left = [
+    text
+    for text in walk(loaded)
+    if "os.environ/" in text or "env:" in text or "db:" in text
+  ]
   assert left == [], left
+  os.environ.pop("CLOUDFLARE_ACCOUNT_ID", None)
+  config.SAVED.pop("CLOUDFLARE_ACCOUNT_ID", None)
 
 
 def test_provider_file() -> None:

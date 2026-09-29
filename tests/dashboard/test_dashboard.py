@@ -203,9 +203,7 @@ def test_defaults(client: TestClient) -> None:
   assert found["gemini"]["api_type"] == "gemini" and found["*"] == {
     "api_type": "openai"
   }
-  assert "os.environ/CLOUDFLARE_ACCOUNT_ID" in found["cloudflare"]["api_base"], (
-    "a token"
-  )
+  assert "env:CLOUDFLARE_ACCOUNT_ID" in found["cloudflare"]["account_id"], "a token"
   assert TestClient(api.app).get("/ui/api/provider-defaults").status_code == 401
 
 
