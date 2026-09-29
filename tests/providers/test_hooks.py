@@ -103,3 +103,45 @@ def test_failures(caplog: pytest.LogCaptureFixture) -> None:
   assert "must be a list" in caplog.text
   with pytest.raises(ValueError):
     hooks.run("unknown", setup, "p/m", body)
+
+
+def test_levels() -> None:
+  """Like `order`: a models entry wins, then the block that owns the model. An empty list turns hooks off."""
+  mark = write(
+    "mark.py",
+    "def on_answer(answer, model):\n  answer.setdefault('by', []).append('main')\n",
+  )
+  own = write(
+    "own.py",
+    "def on_answer(answer, model):\n  answer.setdefault('by', []).append('file')\n",
+  )
+  entry = write(
+    "entry.py",
+    "def on_answer(answer, model):\n  answer.setdefault('by', []).append('model')\n",
+  )
+  setup = {
+    "p": {
+      "api_key": "k",
+      "hooks": [{"on-answer": mark}],
+      "models": {
+        "plain": {},
+        "off": {"hooks": []},
+        "one*": {"hooks": [{"on-answer": entry}]},
+      },
+      "_file": {
+        "hooks": [{"on-answer": own}],
+        "models": {"filed": {}, "filed-model": {"hooks": [{"on-answer": entry}]}},
+      },
+    }
+  }
+  found = {
+    slug: hooks.run("on-answer", setup, f"p/{slug}", {}).get("by")
+    for slug in ("plain", "off", "one-a", "filed", "filed-model")
+  }
+  assert found == {
+    "plain": ["main"],
+    "off": None,
+    "one-a": ["model"],
+    "filed": ["file"],
+    "filed-model": ["model"],
+  }
