@@ -10,7 +10,7 @@ Tests confirmed each provider as really free, but Pollinations.
 | `kilo` | Kilo Gateway | OpenAI-compatible | Only `:free` models, and `stealth/` models with price 0 in each price field. |
 | `mistral` | Mistral | OpenAI-compatible | Gets only the message fields that it accepts. `reasoning_effort` `none` and `minimal` become `none`, and `low` to `xhigh` become `high`. The thinking chunks of an answer go to `reasoning_content`. An old assistant message with `reasoning_content` goes back as a thinking chunk before its text. |
 | `openrouter` | OpenRouter | OpenAI-compatible, plus the OpenRouter Image API (`/images`). Speech is mp3, unless the client asks for pcm. | Only `:free` models, and `stealth/` models with price 0 in each price field. Discovery lists each output type, and the output type sets the mode: for example, the free embedding and speech models are direct models. No image model: image generation needs a credit balance. |
-| `pollinations` | Pollinations | OpenAI-compatible | In `pollinations.yml`, not `free.yml`: its Pollen does not refill. Only 4 image models for `daedalus/photos`, at 0.0001 to 0.005 Pollen for each image: `lykon/dreamshaper-8-lcm`, `black-forest-labs/flux.1-schnell`, `tongyi-mai/z-image-turbo` and `black-forest-labs/flux.2-klein-4b`. Order 2, as Cloudflare. |
+| `pollinations` | Pollinations | OpenAI-compatible | In `pollinations.yml`, not `free.yml`: its Pollen does not refill ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)). Only 4 image models for `daedalus/photos`, at 0.0001 to 0.005 Pollen for each image: `lykon/dreamshaper-8-lcm`, `black-forest-labs/flux.1-schnell`, `tongyi-mai/z-image-turbo` and `black-forest-labs/flux.2-klein-4b`. Order 2, as Cloudflare. |
 | `z-ai` | Z.ai | OpenAI-compatible | Only the 3 free models under `models:`: `glm-4.5-flash`, `glm-4.7-flash` and `glm-4.6v-flash`. |
 
 Kilo and OpenRouter are large, known gateways with free models that change over time. Google Gemini has a more generous free tier than the other providers.
@@ -19,10 +19,10 @@ Kilo and OpenRouter are large, known gateways with free models that change over 
 | --- | --- |
 | Cloudflare, Gemini, Groq, Mistral | Use an account on the free plan, with no payment method. |
 | Kilo, OpenRouter | The `!*:free` exclude pattern. A price of 0 is not a guarantee: Lyria models show price 0 and cost money for each song. |
-| Pollinations | Not free. The `"*"` exclude pattern, and only the 4 image models under `models:`. The account spends its Pollen balance, with no payment method. |
+| Pollinations | Not free ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)). The `"*"` exclude pattern, and only the 4 image models under `models:`. The account spends its Pollen balance, with no payment method. |
 | Z.ai | The `"*"` exclude pattern, and only the free models under `models:`. |
 
-The Pollen balance does not refill with time. `GET https://gen.pollinations.ai/account/balance` shows the balance. At 0 Pollen, the Pollinations models fail and get a cooldown, and `daedalus/photos` uses Cloudflare.
+The Pollen balance does not refill with time. Since 22 June 2026, each tier gives a one-time Pollen bonus in place of an hourly refill ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)). `GET https://gen.pollinations.ai/account/balance` shows the balance. At 0 Pollen, the Pollinations models fail and get a cooldown, and `daedalus/photos` uses Cloudflare.
 
 ## Catalog
 
