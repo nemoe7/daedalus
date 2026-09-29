@@ -26,9 +26,9 @@ CLOUDFLARE_FREE = 10_000
 CLOUDFLARE_GRAPHQL = "https://api.cloudflare.com/client/v4/graphql"
 ACCOUNT = re.compile(r"/accounts/([^/]+)/")
 NEURONS = (
-  "query ($account: String!, $start: Time!, $end: Time!) { viewer {"
-  " accounts(filter: {accountTag: $account}) { aiInferenceAdaptiveGroups(limit: 1,"
-  " filter: {datetime_geq: $start, datetime_leq: $end}) { sum { totalNeurons } } } } }"
+  "query ($account: string!, $start: Time!) { viewer {"
+  " accounts(filter: {accountTag: $account}) { aiInferenceAdaptiveGroups(limit: 100,"
+  " filter: {datetimeHour_geq: $start}) { sum { totalNeurons } } } } }"
 )
 logger = logging.getLogger("daedalus")
 
@@ -141,11 +141,7 @@ async def cloudflare(client: httpx.AsyncClient, base: str, key: str) -> Any:
     return None
   now = datetime.now(UTC)
   start = datetime(now.year, now.month, now.day, tzinfo=UTC)
-  variables = {
-    "account": account[1],
-    "start": start.isoformat().replace("+00:00", "Z"),
-    "end": now.isoformat(timespec="seconds").replace("+00:00", "Z"),
-  }
+  variables = {"account": account[1], "start": start.isoformat().replace("+00:00", "Z")}
   body = {"query": NEURONS, "variables": variables}
   return await get_json(client, "POST", CLOUDFLARE_GRAPHQL, key, json=body)
 
@@ -179,16 +175,17 @@ def balance_items(
 
 
 def neuron_items(data: Any) -> list[tuple[str, str]]:
-  """The neurons used today. An empty group list with no errors means 0 neurons."""
+  """The sum of the neurons of all the groups today. No group and no errors means 0."""
   accounts = ((data.get("data") or {}).get("viewer") or {}).get("accounts")
   if data.get("errors") or not accounts:
     return []
   groups = accounts[0].get("aiInferenceAdaptiveGroups")
   if not isinstance(groups, list):
     return []
-  used = number((groups[0].get("sum") or {}).get("totalNeurons")) if groups else 0.0
-  if used is None:
+  values = [number((group.get("sum") or {}).get("totalNeurons")) for group in groups]
+  if None in values:
     return []
+  used = sum(value for value in values if value is not None)
   return [("Neurons today", f"{used:,.0f} of {CLOUDFLARE_FREE:,}")]
 
 

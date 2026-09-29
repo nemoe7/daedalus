@@ -81,9 +81,11 @@ def answer(request: httpx.Request) -> httpx.Response:
   if request.url.path == "/account/balance":
     return httpx.Response(403, json={"error": "account:usage"})
   if request.url.path == "/client/v4/graphql":
-    variables = json.loads(request.content)["variables"]
-    assert variables["account"] == "acc", variables
-    groups = [{"sum": {"totalNeurons": 1234.4}}]
+    body = json.loads(request.content)
+    assert "datetimeHour_geq: $start" in body["query"], body
+    assert body["variables"]["account"] == "acc", body
+    assert body["variables"]["start"].endswith("T00:00:00Z"), body
+    groups = [{"sum": {"totalNeurons": 1000.4}}, {"sum": {"totalNeurons": 234}}]
     data = {"viewer": {"accounts": [{"aiInferenceAdaptiveGroups": groups}]}}
     return httpx.Response(200, json={"data": data, "errors": None})
   return httpx.Response(404)
