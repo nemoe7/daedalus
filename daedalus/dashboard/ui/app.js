@@ -39,7 +39,7 @@ function renderOverview() {
     esc(pool.name.replace("daedalus/", "")), count(pool.members.length, "model"),
   )).join("") || none("No pools");
   $("ov-requests").innerHTML = state.requests.slice(0, 10).map((r) => line(
-    `<span class="status ${statusClass(r)}">${statusText(r)}</span> ${esc(r.via || r.model || "-")}`,
+    `<span class="status ${statusClass(r)}">${statusCell(r)}</span> ${esc(r.via || r.model || "-")}`,
     clock(r.at),
   )).join("") || none("No requests");
   const tiers = ["A", "B", "C", "D"].map((t) => [t, state.models.filter((m) => tierLetter(m.tier) === t).length]);
@@ -211,6 +211,11 @@ function statusText(r) {
   return r.cancelled ? "cancelled" : r.status;
 }
 
+// The status on the page: a stop square for a request that the client closed.
+function statusCell(r) {
+  return r.cancelled ? '<span class="stop" role="img" title="Cancelled" aria-label="Cancelled"></span>' : esc(r.status);
+}
+
 function statusClass(r) {
   return r.cancelled ? "muted" : `s${String(r.status)[0]}`;
 }
@@ -344,7 +349,7 @@ function renderRequests(rows) {
       <td class="hide-sm">${effortCell(r)}</td>
       <td class="hide-sm muted">${esc(r.pool || "-")}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${r.retry ? ` <span class="from">try again ${esc(r.retry)}</span>` : ""}${r.loop ? ` <span class="from">tool loop ${esc(r.loop)}</span>` : ""}</td>
       <td>${r.via ? esc(r.via) : '<span class="muted">none</span>'}</td>
-      <td class="status ${statusClass(r)}">${statusText(r)}</td>
+      <td class="status ${statusClass(r)}">${statusCell(r)}</td>
       ${tokenCell(r.tokens?.input, r.tokens?.estimate ? "~" : "")}
       ${tokenCell(r.tokens?.output)}
       <td class="hide-sm num">${esc(r.ttft || "-")}</td>
