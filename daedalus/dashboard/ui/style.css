@@ -274,6 +274,15 @@ section[data-page="settings"] > .editbar, section[data-page="pools"] > .editbar 
 }
 .login h1 { margin: 0 0 4px; font-size: 20px; }
 .login label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.secret { position: relative; display: grid; }
+.secret input { padding-right: 36px; }
+.eye {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  display: grid; place-items: center; padding: 4px; border: 0; background: none; color: var(--muted);
+}
+.eye:hover { color: var(--text); }
+.eye .slash { display: none; }
+.eye[aria-pressed="true"] .slash { display: inline; }
 .login .check { display: flex; align-items: center; gap: 8px; }
 .login .check input { accent-color: var(--accent); }
 @media (max-width: 1320px) {

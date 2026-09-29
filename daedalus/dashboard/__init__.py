@@ -310,6 +310,16 @@ def routes(
       partition(response)
     return response
 
+  @api.get("/login")
+  async def login_form() -> JSONResponse:
+    """The login form hints, with no session: the username to fill in, and if the password is the master key."""
+    return JSONResponse(
+      {
+        "username": None if os.environ.get(USER_ENV) else USERNAME,
+        "master": not os.environ.get(PASSWORD_ENV),
+      }
+    )
+
   @api.post("/logout")
   async def log_out(request: Request) -> JSONResponse:
     response = JSONResponse({"ok": True})
