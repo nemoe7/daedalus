@@ -76,6 +76,28 @@ def test_page(client: TestClient) -> None:
   )
 
 
+def test_pages_not_nested(client: TestClient) -> None:
+  """No page section is inside another, because a hidden parent hides the child."""
+  from html.parser import HTMLParser
+
+  found: list[tuple[str, int]] = []
+
+  class Sections(HTMLParser):
+    depth = 0
+
+    def handle_starttag(self, tag: str, attrs: list) -> None:
+      if tag == "section":
+        found.append((dict(attrs).get("data-page") or "", self.depth))
+        self.depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+      if tag == "section":
+        self.depth -= 1
+
+  Sections().feed(client.get("/").text)
+  assert len(found) == 7 and all(depth == 0 for _, depth in found), found
+
+
 def test_login_form(client: TestClient) -> None:
   """The login form fills in admin and shows the master key hint only for values not in the environment."""
   env = {dashboard.USER_ENV: "owner", dashboard.PASSWORD_ENV: "secret"}
