@@ -4,6 +4,7 @@ order: 2
 # Each other model spends Pollen faster, and most need a paid balance.
 exclude:
   - "*"
+# Not in free.yml: the Pollen does not refill, see https://github.com/pollinations/pollinations/issues/11580
 # The Pollen for each image.
 models:
   lykon/dreamshaper-8-lcm: { mode: image_generation, rpm: 300 } # 0.0001
