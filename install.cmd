@@ -15,7 +15,7 @@ if errorlevel 1 (
   echo Add DAEDALUS_MASTER_KEY to .env: 16 or more characters, no spaces. 1>&2
   exit /b 1
 )
-docker compose up -d --build
+docker compose up -d
 if errorlevel 1 exit /b 1
 echo Daedalus runs on http://localhost:3357/v1
 echo Dashboard: http://localhost:3357/ (user DAEDALUS_USERNAME or admin, password DAEDALUS_PASSWORD or DAEDALUS_MASTER_KEY)
