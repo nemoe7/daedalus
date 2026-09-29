@@ -34,8 +34,6 @@ A pushed `v*` tag starts `.github/workflows/image.yml`. The workflow publishes `
 | Release | `git tag v0.1.0`, then `git push origin v0.1.0` |
 | Use 1 release | Set `image:` of `daedalus` in `compose.yml` to `ghcr.io/nemoe7/daedalus:v0.1.0` |
 
-> Q: A new GHCR package can start as private. Then set it to public in the package settings, or run `docker login ghcr.io` on the Pi.
-
 ## Optional services
 
 Set `COMPOSE_PROFILES` in `.env`, for example `COMPOSE_PROFILES=webui,headroom`. Then `docker compose up -d` starts them.
