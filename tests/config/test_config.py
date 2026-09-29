@@ -134,10 +134,6 @@ def test_repo_file() -> None:
   ), "no tier for audio rows"
   gemini = ["lyria-3.5", "gemini-3.8-flash"]
   assert "lyria-3.5" not in discovery.select(loaded["gemini"], gemini), "music rows"
-  mistral = ["mistral-ocr-4", "mistral-moderation-2603", "mistral-small-2603"]
-  assert set(discovery.select(loaded["mistral"], mistral)) & set(mistral) == {
-    mistral[2]
-  }
   assert router.candidates(loaded, "TIER-A", ["groq/qwen/qwen3.8-27b"]), "groq tier"
   qwen = ["cloudflare/@cf/qwen/qwen3-30b-a3b-fp8", "cloudflare/@cf/qwen/qwen3.8-27b"]
   assert router.candidates(loaded, "TIER-A", qwen) == qwen[1:], (

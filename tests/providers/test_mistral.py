@@ -82,6 +82,31 @@ def test_stream() -> None:
   assert "[DONE]" not in cut, "no [DONE] when Mistral sends none"
 
 
+def test_discoverable() -> None:
+  """Alias rows and the models of OCR, moderation and realtime audio stay out."""
+  chat = {"completion_chat": True}
+  rows = {
+    "mistral-medium-latest": ("mistral-medium-latest", chat),
+    "mistral-medium-2604": ("mistral-medium-latest", chat),
+    "mistral-vibe-cli-latest": ("mistral-medium-latest", chat),
+    "mistral-ocr-2512": ("mistral-ocr-2512", {"ocr": True}),
+    "mistral-moderation-2603": ("mistral-moderation-2603", {"moderation": True}),
+    "voxtral-mini-realtime-2602": (
+      "voxtral-mini-realtime-2602",
+      {"audio_transcription_realtime": True},
+    ),
+    "codestral-embed": ("codestral-embed", {}),
+  }
+  kept = [
+    slug
+    for slug, (name, capabilities) in rows.items()
+    if MistralProvider.discoverable(
+      {"id": slug, "name": name, "capabilities": capabilities}
+    )
+  ]
+  assert kept == ["mistral-medium-latest", "codestral-embed"], kept
+
+
 def test_modes() -> None:
   with open("config/providers/free.yml", encoding="utf-8") as handle:
     mistral = yaml.safe_load(handle)["mistral"]
