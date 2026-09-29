@@ -132,7 +132,6 @@ def history(target, base):
         "--no-ext-diff",
         "--no-textconv",
         "--no-color",
-        "--binary",
         "--full-index",
         "--no-commit-id",
         "-r",
