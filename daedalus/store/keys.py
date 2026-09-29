@@ -71,8 +71,9 @@ def add(path: Path | str, name: object, key: str | None = None) -> str:
   """Keep a new named key and return it. Without `key`, Daedalus makes one."""
   name, key = check_name(name), key or generate()
   Path(path).parent.mkdir(parents=True, exist_ok=True)
+  database = sqlite3.connect(path)
   try:
-    with sqlite3.connect(path) as database:
+    with database:
       database.execute(SCHEMA)
       database.execute(
         f"INSERT INTO {TABLE} (name, hash, start, created) VALUES (?, ?, ?, ?)",
