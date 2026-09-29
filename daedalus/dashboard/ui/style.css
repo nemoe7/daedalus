@@ -26,7 +26,7 @@ header {
   display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "brand tabs chips";
   column-gap: 32px; padding: 0 32px; border-bottom: 1px solid var(--line); background: var(--panel);
 }
-.brand { grid-area: brand; align-self: center; font-weight: 650; font-size: 18px; letter-spacing: .2px; }
+.brand { grid-area: brand; align-self: center; display: flex; align-items: center; gap: 8px; font-weight: 650; font-size: 18px; letter-spacing: .2px; }
 .brand span { color: var(--accent); }
 .brand small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; letter-spacing: 0; }
 .tabs { grid-area: tabs; display: flex; gap: 24px; overflow-x: auto; scrollbar-width: none; }
@@ -292,7 +292,7 @@ section[data-page="limits"] > .editbar { margin-bottom: 16px; }
 .login {
   max-width: 340px; margin: 12vh auto 0; padding: 28px; display: grid; gap: 14px;
 }
-.login h1 { margin: 0 0 4px; font-size: 20px; }
+.login h1 { margin: 0 0 4px; font-size: 20px; display: flex; align-items: center; gap: 10px; }
 .login label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
 .secret { position: relative; display: grid; }
 .secret input { padding-right: 36px; }
