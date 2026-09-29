@@ -85,7 +85,7 @@ td.time { white-space: nowrap; }
 .health .num { font-size: 12px; font-variant-numeric: tabular-nums; }
 /* The default page layout: a wide column with the table, and columns of cards. Narrow screens stack them. */
 .flow { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
-.flow > .column { flex: 1 1 min(300px, 100%); display: grid; gap: 16px; min-width: 0; }
+.flow > .column { flex: 1 1 min(300px, 100%); display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
 .flow > .wide { flex: 2 1 min(460px, 100%); }
 .snippet { color: inherit; text-decoration: none; display: block; }
 .snippet:hover { border-color: var(--accent); }
@@ -167,8 +167,9 @@ a.more:hover { color: var(--accent); }
 td.end { text-align: right; }
 .empty { padding: 24px 16px; color: var(--muted); text-align: center; }
 tr.request { cursor: pointer; }
-/* Only the model names wrap, so the short cells keep 1 line. */
-.requests tr:not(.chain) > td:not(:nth-child(3)):not(:nth-child(6)) { white-space: nowrap; }
+/* Each cell keeps 1 line. A long model name ends in an ellipsis. */
+.requests tr:not(.chain) > td { white-space: nowrap; }
+.requests td.name { max-width: 16rem; overflow: hidden; text-overflow: ellipsis; }
 .requests th:not(:first-child), .requests td:not(:first-child) { padding-left: 8px; padding-right: 8px; }
 tr.live-row td { background: var(--field); }
 .pulse {
