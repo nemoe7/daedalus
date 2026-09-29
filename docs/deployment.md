@@ -68,7 +68,7 @@ flowchart LR
 | API base | `http://daedalus:3357/v1` |
 | API key | `OPENWEBUI_API_KEY`, else `DAEDALUS_MASTER_KEY` |
 | First user | Becomes the Open WebUI admin |
-| `ENABLE_FORWARD_USER_INFO_HEADERS` | `true`. Sends the chat id for [try again](architecture.md#try-again). It also sends the user name, id, e-mail and role. |
+| `ENABLE_FORWARD_USER_INFO_HEADERS` | `true`. Sends the chat id for [try again](architecture.md#try-again). It also sends the user name, id, e-mail and role. These stay in Daedalus. See [client headers](architecture.md#client-headers). |
 | `WEBUI_SECRET_KEY` | From `.env`. Without it, each new container makes a new key, and all logins end. |
 | `AIOHTTP_CLIENT_TIMEOUT` | `600`, the same as `timeouts.request`. The Open WebUI default is 300 s. |
 | `TASK_MODEL_EXTERNAL` | `daedalus/auto`, for titles, tags and follow-ups |
