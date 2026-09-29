@@ -1,5 +1,4 @@
 FROM python:3.12-slim
-COPY --from=ghcr.io/astral-sh/uv:0.12.19 /uv /uvx /bin/
 
 # uv installs into /app/.venv with the image Python, without the dev group and without a cache.
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
@@ -11,7 +10,9 @@ COPY daedalus ./daedalus
 COPY config ./config
 # Editable install: the store path follows the source folder, so state goes to /app/.daedalus-state.
 # tzdata: the TZ env var sets the local clock of the catalog schedule.
-RUN apt-get update && apt-get install -y --no-install-recommends tzdata \
+# uv comes from a build mount, so it is not in the image.
+RUN --mount=from=ghcr.io/astral-sh/uv:0.12.19,source=/uv,target=/bin/uv \
+  apt-get update && apt-get install -y --no-install-recommends tzdata \
   && rm -rf /var/lib/apt/lists/* \
   && uv sync --locked \
   && useradd --uid 1000 --create-home daedalus \
