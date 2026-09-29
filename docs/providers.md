@@ -112,3 +112,13 @@ The Gemini exclude list keeps these models out:
 | `*-latest` aliases | The model behind each alias changes over time. |
 
 No client used these endpoints in a test yet.
+
+The Mistral exclude list keeps these models out:
+
+| Models | Reason |
+| --- | --- |
+| OCR and moderation | They do not chat. Without a capability, Mistral models get the chat mode. |
+| `*-latest` aliases | Each alias is a copy of a dated id. The `models` block keeps `voxtral-mini-latest`. |
+| `mistral-vibe-cli-*` | The models of the Vibe command line. |
+
+> Q: Is `mistral-vibe-cli-*` still necessary?
