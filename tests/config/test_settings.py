@@ -59,6 +59,10 @@ def test_load(folder: Path) -> None:
   expect_error(folder, "dashboard:\n  theme: blue\n", "system, light or dark")
   path.write_text("dashboard:\n  theme: dark\n", encoding="utf-8")
   assert settings.load(path)["dashboard"]["theme"] == "dark"
+  assert settings.load(path)["dashboard"]["time_format"] == "24h", "24h by default"
+  expect_error(folder, "dashboard:\n  time_format: 25h\n", "24h or 12h")
+  path.write_text("dashboard:\n  time_format: 12h\n", encoding="utf-8")
+  assert settings.load(path)["dashboard"]["time_format"] == "12h"
   expect_error(folder, "escalation:\n  keywords: [' ']\n", "list of words or phrases")
   path.write_text(
     "escalation:\n  keywords: [ultrathink, ' think hard ']\n", encoding="utf-8"

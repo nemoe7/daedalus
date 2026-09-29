@@ -18,8 +18,10 @@ const esc = (text) => String(text ?? "").replace(/[&<>"']/g, (c) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const tierLetter = (name) => (name || "").replace("TIER-", "") || "-";
 const tokens = (n) => !n ? "-" : n >= 1e6 ? +(n / 1e6).toFixed(1) + "M" : Math.round(n / 1024) + "k";
+// The hour cycle of each shown time, from dashboard.time_format: h23 for 24h, h12 for 12h.
+let hourCycle = "h23";
 const clock = (seconds) => new Date(seconds * 1000).toLocaleTimeString(
-  [], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  [], { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle });
 
 const state = {
   models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, saved: [], timers: [],
@@ -134,7 +136,7 @@ async function guarded(task) {
 function shortTime(seconds) {
   const date = new Date(seconds * 1000);
   const today = date.toDateString() === new Date().toDateString();
-  const options = { hour: "2-digit", minute: "2-digit", ...(today ? {} : { weekday: "short" }) };
+  const options = { hour: "2-digit", minute: "2-digit", hourCycle, ...(today ? {} : { weekday: "short" }) };
   return date.toLocaleString([], options);
 }
 
@@ -503,7 +505,7 @@ function tickCooldowns() {
 }
 
 const dateTime = (seconds) => new Date(seconds * 1000).toLocaleString(
-  [], { dateStyle: "medium", timeStyle: "short" });
+  [], { dateStyle: "medium", timeStyle: "short", hourCycle });
 
 function renderKeys(rows) {
   $("keys").innerHTML = rows.length ? rows.map((k) => `
@@ -895,6 +897,7 @@ const SETTINGS = [
   ]],
   ["dashboard", "Dashboard", [
     ["theme", "Theme", "choice", "System follows the light or dark setting of the device."],
+    ["time_format", "Time format", "choice", "The clock of each time on the dashboard."],
   ]],
   ["pools", "Pool names", [
     ["moros", "Tier D", "name", "The client name of the tier D pool. The old name gets HTTP 400."],
@@ -908,7 +911,11 @@ const SETTINGS = [
 
 // The Settings cards of each column, from top to bottom.
 const SETTINGS_COLUMNS = [["timeouts", "catalog", "pacing", "pools"], ["session_affinity", "headroom", "cooldown", "dashboard"], ["weights", "escalation", "switch"]];
-const THEMES = [["system", "System"], ["light", "Light"], ["dark", "Dark"]];
+// The options of each choice field.
+const CHOICES = {
+  theme: [["system", "System"], ["light", "Light"], ["dark", "Dark"]],
+  time_format: [["24h", "24 h"], ["12h", "12 h"]],
+};
 
 // The theme of the page. System follows the device, also before the login.
 const darkDevice = matchMedia("(prefers-color-scheme: dark)");
@@ -953,7 +960,7 @@ function renderSettings() {
       }
       if (unit === "choice") {
         return `<label class="field" for="${id}"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
-          <select id="${id}">${THEMES.map(([name, text]) => `<option value="${name}"${setting(group, key) === name ? " selected" : ""}>${text}</option>`).join("")}</select></label>`;
+          <select id="${id}">${CHOICES[key].map(([name, text]) => `<option value="${name}"${setting(group, key) === name ? " selected" : ""}>${text}</option>`).join("")}</select></label>`;
       }
       if (unit === "name") {
         return `<label class="field" for="${id}"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
@@ -1026,6 +1033,7 @@ function renderSettingsSave() {
 async function loadSettings() {
   state.settings = await call("settings");
   applyTheme(setting("dashboard", "theme"));
+  hourCycle = setting("dashboard", "time_format") === "12h" ? "h12" : "h23";
   $("settings-editor").value = state.settings.text;
   renderSettings();
 }
@@ -1109,6 +1117,8 @@ function refresh() {
 }
 
 async function start() {
+  // The settings come first, so that the first tables use the time format.
+  await loadSettings();
   await refreshFast();
   await refreshSlow();
   takeFiles(await call("files"));
@@ -1117,7 +1127,6 @@ async function start() {
   $("editor").value = state.files[0]?.text ?? "";
   showFileError(0);
   renderFiles();
-  await loadSettings();
   renderTiers();
   renderOverview();
   $("login").hidden = true;
