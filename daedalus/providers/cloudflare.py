@@ -86,9 +86,23 @@ class CloudflareProvider(OpenAIProvider):
 
   defaults: ClassVar[Mapping[str, str]] = {
     "api_type": "openai",
-    "api_base": "https://api.cloudflare.com/client/v4/accounts/os.environ/CLOUDFLARE_ACCOUNT_ID/ai/v1",
-    "discovery_url": "https://api.cloudflare.com/client/v4/accounts/os.environ/CLOUDFLARE_ACCOUNT_ID/ai/models/search?per_page=100",
+    "account_id": "env:CLOUDFLARE_ACCOUNT_ID",
   }
+
+  def __init__(self, name: str, config: Mapping) -> None:
+    account_id = str(config.get("account_id") or "").strip()
+    api_base = str(config.get("api_base") or "").strip()
+    discovery_url = str(config.get("discovery_url") or "").strip()
+    if account_id and not api_base:
+      api_base = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1"
+    if account_id and not discovery_url:
+      discovery_url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/models/search?per_page=100"
+    merged = dict(config)
+    if api_base:
+      merged["api_base"] = api_base
+    if discovery_url:
+      merged["discovery_url"] = discovery_url
+    super().__init__(name, merged)
 
   def body(self, slug: str, payload: dict) -> dict:
     """The OpenAI body, with string content where Workers AI models need it."""
