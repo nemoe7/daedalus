@@ -11,7 +11,9 @@ models:
     max_input_tokens: 1310720
     max_output_tokens: 131072
     reasoning_effort: low
-    # Try the OpenRouter endpoints with the cheapest output price first. Each catalog build gets the prices again.
-    cheapest_output: true
+    # OpenRouter tries the endpoints with the cheapest output price first.
+    hooks:
+      - on-catalog: hooks/cheapest_output.py
+      - on-upstream: hooks/cheapest_output.py
     # Direct requests only: this model stays out of each pool and daedalus/auto.
     pool: false

@@ -125,7 +125,7 @@ uv run ruff format --check
 | [Providers](docs/providers.md) | Supported providers and what each one can do |
 | [Deployment](docs/deployment.md) | Docker Compose, profiles, Open WebUI, Tika, SearXNG, Headroom and Tailscale |
 | [Dashboard](docs/dashboard.md) | Pages and API keys |
-| [Hooks](docs/hooks.md) | Python files that change the chat requests and answers of 1 provider |
+| [Hooks](docs/hooks.md) | Python files that change the catalog rows, chat requests and answers of a provider or a model |
 | [Decisions](docs/adr/) | Architecture decision records |
 
 ## License
