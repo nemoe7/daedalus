@@ -883,9 +883,9 @@ async function saveForm() {
     await takeFile(index);
     message.className = "message ok";
     message.textContent = hadRaw ? "Saved — key moved to database" : "Saved and reloaded";
+    await refreshEnv();
     renderForm();
     refresh();
-    guarded(refreshEnv);
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin("The session ended. Log in to save again.");
     message.className = "message bad";

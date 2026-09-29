@@ -256,7 +256,7 @@ def env_rows() -> list[dict[str, Any]]:
   for name, places in env_names().items():
     saved = config.SAVED.get(name)
     state = "saved" if saved else "env" if os.environ.get(name) else "missing"
-    end = saved[-4:] if saved and len(saved) >= 12 else None
+    end = saved[-4:] if saved and len(saved) >= 4 else None
     rows.append({"name": name, "state": state, "end": end, "used": places})
   return rows
 
