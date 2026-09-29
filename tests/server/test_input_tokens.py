@@ -75,7 +75,9 @@ async def test_input_tokens() -> None:
         assert SEEN[0]["stream_options"] == {"include_usage": True}, SEEN
         assert not any('"usage"' in line for line in lines), "the client did not ask"
         assert lines[-1] == "[DONE]", lines
-        assert last_tokens() == {"input": 42, "estimate": False}, last_tokens()
+        assert last_tokens() == {"input": 42, "output": 1, "estimate": False}, (
+          last_tokens()
+        )
 
         options = {"include_usage": True}
         lines = await send(client, "groq/x", stream=True, stream_options=options)
@@ -86,7 +88,9 @@ async def test_input_tokens() -> None:
         assert last_tokens() == {"input": estimate, "estimate": True}, last_tokens()
 
         await send(client, "plain/x")
-        assert last_tokens() == {"input": 7, "estimate": False}, last_tokens()
+        assert last_tokens() == {"input": 7, "output": 1, "estimate": False}, (
+          last_tokens()
+        )
   store.MODELS_DB = saved
   set_client(None)
   config.set_config(None)
