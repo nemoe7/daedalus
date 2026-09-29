@@ -5,6 +5,7 @@ import logging
 import math
 import time
 from collections.abc import Awaitable, Mapping
+from contextvars import ContextVar
 from typing import Any
 
 import httpx
@@ -28,6 +29,37 @@ WAIT_SECONDS = 60.0
 
 # Characters of a provider error body that the dashboard keeps.
 DETAIL_LIMIT = 4000
+
+# Client headers that Daedalus owns: credentials, transport and proxy headers.
+KEPT_BACK = frozenset(
+  {
+    "authorization",
+    "cookie",
+    "x-api-key",
+    "api-key",
+    "x-goog-api-key",
+    "host",
+    "accept",
+    "accept-encoding",
+    "content-type",
+    "content-length",
+    "content-encoding",
+    "transfer-encoding",
+    "connection",
+    "keep-alive",
+    "te",
+    "trailer",
+    "upgrade",
+    "expect",
+    "forwarded",
+    "via",
+    "x-real-ip",
+  }
+)
+# Open WebUI sends the name, e-mail, id and role of its user in `x-openwebui-user-*`.
+KEPT_BACK_PREFIXES = ("proxy-", "x-forwarded-", "tailscale-", "x-openwebui-user-")
+# The client headers of the current request that go on to each provider.
+_forwarded: ContextVar[httpx.Headers] = ContextVar("forwarded")
 _client: httpx.AsyncClient | None = None
 
 
@@ -179,6 +211,27 @@ def without_reasoning(candidate: str, body: dict[str, Any]) -> dict[str, Any]:
   return {key: value for key, value in body.items() if key != "reasoning_effort"}
 
 
+def forward(headers: Mapping[str, str]) -> None:
+  """Keep the client headers of the current request that go on to each provider."""
+  _forwarded.set(
+    httpx.Headers(
+      {
+        name: value
+        for name, value in headers.items()
+        if name.lower() not in KEPT_BACK
+        and not name.lower().startswith(KEPT_BACK_PREFIXES)
+      }
+    )
+  )
+
+
+def with_client(headers: Mapping[str, str]) -> httpx.Headers:
+  """The client headers of the current request, with the provider headers on top."""
+  merged = httpx.Headers(_forwarded.get(httpx.Headers()))
+  merged.update(headers)
+  return merged
+
+
 async def attempt(
   candidate: str,
   body: dict[str, Any],
@@ -207,7 +260,7 @@ async def attempt(
   wait = router.model_wait(config, candidate, WAIT_SECONDS)
   timeout = httpx.Timeout(TIMEOUT_SECONDS, read=wait)
   upstream = get_client().build_request(
-    "POST", url, json=payload, headers=headers, timeout=timeout
+    "POST", url, json=payload, headers=with_client(headers), timeout=timeout
   )
   started = time.perf_counter()
   response = await get_client().send(upstream, stream=True)
@@ -265,7 +318,9 @@ async def post(
   started = time.perf_counter()
   # A whole answer can take longer than the wait for one stream chunk.
   timeout = httpx.Timeout(TIMEOUT_SECONDS)
-  response = await get_client().post(url, headers=headers, timeout=timeout, **content)
+  response = await get_client().post(
+    url, headers=with_client(headers), timeout=timeout, **content
+  )
   if response.status_code >= 400:
     raise rejected(candidate, response, started, response.content)
   logger.info("upstream %s %d %s", candidate, response.status_code, elapsed(started))

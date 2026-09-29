@@ -39,6 +39,17 @@ flowchart TD
 
 The end client only sees the last error to provide a cleaner transition between models in the fallback ladder.
 
+### Client headers
+
+Each provider request carries the headers of the client request, for example `HTTP-Referer` and `X-Title`. OpenRouter uses these 2 headers to show the app, for example Kilo Code. The provider headers, for example the provider key, replace a client header with the same name.
+
+| Kept back | Headers |
+| --- | --- |
+| Credentials | `Authorization`, `Cookie`, `X-Api-Key`, `Api-Key`, `X-Goog-Api-Key` |
+| Transport | `Host`, `Accept`, `Accept-Encoding`, `Content-Type`, `Content-Length`, `Content-Encoding`, `Transfer-Encoding`, `Connection`, `Keep-Alive`, `TE`, `Trailer`, `Upgrade`, `Expect` |
+| Proxy | `Forwarded`, `Via`, `X-Real-IP`, `Proxy-*`, `X-Forwarded-*`, `Tailscale-*` |
+| Open WebUI user | `X-OpenWebUI-User-*`: the name, e-mail, id and role of the user |
+
 ## Classification
 
 Only `daedalus/auto` uses the classifier. A pool name or a `provider/slug` name skips it.
