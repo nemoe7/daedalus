@@ -56,11 +56,10 @@ daedalus is for personal use only. Do not share it with other users, because the
 
    On Windows, winget installs Docker Desktop. Restart Windows, start Docker Desktop once, then run the command again. On Linux, the official script `get.docker.com` installs Docker.
 
-2. Add the provider keys that you have to `.env` in the `daedalus` folder. Then run the install script in that folder again: `install.cmd`, `.\install.ps1` or `./install.sh`.
-
    In a git checkout, the install scripts use the checkout folder. To build the image from the source, add `--dev`, for example `install.cmd --dev`. The script then uses `compose.dev.yml`.
 
-3. Open the dashboard at `http://localhost:3357/`. The user is `DAEDALUS_USERNAME`, else `admin`. The password is `DAEDALUS_PASSWORD`, else `DAEDALUS_MASTER_KEY`.
+2. Open the dashboard at `http://localhost:3357/`. The user is `DAEDALUS_USERNAME`, else `admin`. The password is `DAEDALUS_PASSWORD`, else `DAEDALUS_MASTER_KEY`.
+3. On **Providers**, paste each provider key into its **API key** field and save. For Cloudflare, add the Account ID too. Click the Catalog chip to rebuild the model list. The dashboard saves pasted values in state. The shipped `config/providers/free.yml` keeps `env:NAME` references for `.env` values. See [Configuration](docs/configuration.md).
 4. On the **API keys** page, make a key for each client.
 
 | Client setting | Value |
