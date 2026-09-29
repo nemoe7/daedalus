@@ -373,10 +373,6 @@ class OpenAIProvider:
   def url(self, slug: str, payload: dict) -> str:
     return self.base + "/chat/completions"
 
-  def endpoints_url(self, slug: str) -> str | None:
-    """The URL of the upstream endpoint list of one model, for `cheapest_output`. None: the provider has no list."""
-    return None
-
   def body(self, slug: str, payload: dict) -> dict:
     if not self.message_fields:
       return {**payload, "model": slug}

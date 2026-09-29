@@ -17,7 +17,11 @@ logger = logging.getLogger("daedalus.hooks")
 # The hook files must be in this folder. The paths in `hooks` start here.
 CONFIG_DIR = Path("config")
 # Each hook point, and the function that its file defines.
-POINTS = {"on-upstream": "on_upstream", "on-answer": "on_answer"}
+POINTS = {
+  "on-catalog": "on_catalog",
+  "on-upstream": "on_upstream",
+  "on-answer": "on_answer",
+}
 
 # The loaded module of each file, with the file time. A new file time loads the file again.
 _loaded: dict[Path, tuple[float, ModuleType | None]] = {}
@@ -45,11 +49,21 @@ def resolve(value: Any) -> Path | None:
   return path
 
 
+def entries_for(config: Mapping[str, Any], model: str) -> Any:
+  """The `hooks` of a model, like `order`: its `models` entry, then the block that owns the model."""
+  from daedalus.routing.router import model_setting
+
+  found = model_setting(config, model, "hooks")
+  if found is None:
+    name, _, slug = model.partition("/")
+    found = (block_for(config, name, slug) or {}).get("hooks")
+  return found
+
+
 def files(config: Mapping[str, Any], model: str, point: str) -> list[Path]:
-  """The files of one hook point for the provider of `model`, in list order."""
-  name, _, slug = model.partition("/")
-  block = block_for(config, name, slug) or {}
-  entries = block.get("hooks")
+  """The files of one hook point for `model`, in list order."""
+  name = model.partition("/")[0]
+  entries = entries_for(config, model)
   if entries is None:
     return []
   if not isinstance(entries, list):
