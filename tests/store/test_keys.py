@@ -59,3 +59,9 @@ def test_migrate(database: Path) -> None:
 @pytest.fixture
 def database(tmp_path: Path) -> Path:
   return tmp_path / "models.sqlite3"
+
+
+def test_add_error(tmp_path: Path) -> None:
+  """A database file that does not open raises the sqlite error."""
+  with pytest.raises(sqlite3.OperationalError):
+    keys.add(tmp_path, "main")
