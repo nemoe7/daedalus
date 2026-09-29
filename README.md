@@ -9,6 +9,19 @@ Daedalus puts your personal API keys behind 1 endpoint and uses a classifier to 
 
 The name must have the same impact as [Odysseus](https://odysseusai.dev/). It must be Greek and easy to recognize. The idea comes from the Terraria weapon [Daedalus Stormbow](https://terraria.wiki.gg/wiki/Daedalus_Stormbow). Each arrow is a request to a provider, and the bow shoots until 1 arrow hits.
 
+## Why Daedalus
+
+[LiteLLM](https://github.com/BerriAI/litellm) is a good router, but it is heavy for a Raspberry Pi, and it has many features that 1 user does not need. Personal API keys are not for sharing, so Daedalus is for 1 user. Daedalus keeps the LiteLLM classifier and model data, and adds these routing features:
+
+- [Loop fallback](docs/architecture.md#loops): a model that sends the same tool call 3 times gets a fault. The same thinking passage 4 times also gives a fault. Then the next model continues.
+- A [fallback ladder](docs/architecture.md#pools-and-the-fallback-ladder) through the tiers: up first, then down.
+- [Weights](docs/architecture.md#weights) that change after each request. A weight goes up after an answer and down after a fault, a slow answer or a rate limit. It also goes up with time.
+- [Session affinity](docs/architecture.md#session-affinity): a conversation keeps its model, and a failure removes the pin.
+- A conversation tier that does not go down, and keywords, such as "think hard", that move it 1 tier up.
+- A [try again](docs/architecture.md#try-again) in Open WebUI moves the message 1 tier up.
+- Before a request, Daedalus skips the models without tools, without vision or with a too-small context window.
+- A model catalog from provider discovery, rebuilt on a schedule, in place of a hand-written model list.
+
 ## Features
 
 - 1 OpenAI-compatible endpoint for 8 providers: Cloudflare, Gemini, Groq, Kilo, Mistral, OpenRouter, Pollinations and Z.ai.
