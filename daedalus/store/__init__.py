@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any
 
 from daedalus.config import STATE_DIR
-from daedalus.store import keys
 
 MODELS_DB = STATE_DIR / "models.sqlite3"
 # Metadata columns, in table order. Config values win over the catalog.
@@ -30,33 +29,31 @@ COLUMNS = (
   "supports_audio_output",
   "supports_web_search",
 )
-# Each step of `migrate` raises the file version by 1.
-SCHEMA_VERSION = 1
+# The Alembic steps: env.py, and 1 file in versions/ for each layout change.
+MIGRATIONS = Path(__file__).with_name("migrations")
 TEXT_COLUMNS = frozenset({"mode", "reasoning_effort"})
 # Rows that enter the chat chains. No catalog match gives no mode.
 ROUTABLE_MODES = (None, "chat")
 
 
-def migrate(path: Path | str | None = None) -> None:
-  """Bring an older store file to the current table layout, one version step at a time."""
+def migrate(path: Path | str | None = None, revision: str = "head") -> None:
+  """Bring the state file to the newest table layout, or to 1 step, with the Alembic steps."""
+  # SQLAlchemy and Alembic load only here, at the start, so the requests do not load them.
+  from alembic import command
+  from alembic.config import Config
+  from sqlalchemy import create_engine, pool
+
   target = Path(path or MODELS_DB)
-  if not target.exists():
-    return
-  with sqlite3.connect(target) as database:
-    version = database.execute("PRAGMA user_version").fetchone()[0]
-    if version < 1:
-      # Version 1: named API keys. The one old local key gets the name "default".
-      tables = {row[0] for row in database.execute("SELECT name FROM sqlite_master")}
-      if "api_key" in tables:
-        database.execute(keys.SCHEMA)
-        for (value,) in database.execute("SELECT hash FROM api_key").fetchall():
-          database.execute(
-            f"INSERT OR IGNORE INTO {keys.TABLE} (name, hash, start, created) VALUES (?, ?, ?, ?)",
-            ("default", value, "", time.time()),
-          )
-        database.execute("DROP TABLE api_key")
-      database.execute("PRAGMA user_version = 1")
-  database.close()
+  target.parent.mkdir(parents=True, exist_ok=True)
+  setup = Config()
+  setup.set_main_option("script_location", str(MIGRATIONS))
+  engine = create_engine(f"sqlite:///{target}", poolclass=pool.NullPool)
+  try:
+    with engine.begin() as connection:
+      setup.attributes["connection"] = connection
+      command.upgrade(setup, revision)
+  finally:
+    engine.dispose()
 
 
 def write_store(
@@ -68,7 +65,6 @@ def write_store(
   """Update the model rows in place in 1 transaction, and delete the stale rows."""
   target = Path(path or MODELS_DB)
   target.parent.mkdir(parents=True, exist_ok=True)
-  migrate(target)
   kept, filled = set(keep), set(fill)
   names = ("id", "provider", "slug", *COLUMNS)
   database = sqlite3.connect(target, isolation_level=None, timeout=10)
@@ -80,11 +76,6 @@ def write_store(
     database.execute(
       f"CREATE TABLE IF NOT EXISTS models (id TEXT PRIMARY KEY, provider TEXT, slug TEXT, {columns})"
     )
-    present = {row[1] for row in database.execute("PRAGMA table_info(models)")}
-    for key in names[1:]:
-      if key not in present:
-        kind = "TEXT" if key in {"provider", "slug", *TEXT_COLUMNS} else "NUMERIC"
-        database.execute(f"ALTER TABLE models ADD COLUMN {key} {kind}")
     database.row_factory = sqlite3.Row
     old = {row["id"]: dict(row) for row in database.execute("SELECT * FROM models")}
     database.row_factory = None
@@ -115,7 +106,6 @@ def write_store(
     database.execute("CREATE TABLE IF NOT EXISTS catalog (built REAL)")
     database.execute("DELETE FROM catalog")
     database.execute("INSERT INTO catalog VALUES (?)", (time.time(),))
-    database.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     database.execute("COMMIT")
   except BaseException:
     if database.in_transaction:
@@ -347,14 +337,16 @@ def built() -> float | None:
 
 
 def has_store() -> bool:
-  """Tell if the store file exists and has the model table."""
+  """Tell if a catalog build wrote the store, because the Alembic steps make only empty tables."""
   if not Path(MODELS_DB).exists():
     return False
   database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
   try:
     found = database.execute(
-      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'models'"
-    ).fetchone()
+      "SELECT EXISTS (SELECT 1 FROM catalog) OR EXISTS (SELECT 1 FROM models)"
+    ).fetchone()[0]
+  except sqlite3.OperationalError:
+    found = False
   finally:
     database.close()
-  return found is not None
+  return bool(found)

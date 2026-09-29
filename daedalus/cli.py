@@ -49,6 +49,7 @@ def run(argv: list[str] | None = None) -> None:
   if args.command == "dump":
     discovery.dump()
   elif args.command == "catalog":
+    store.migrate()
     catalog.refresh()
   else:
     if dashboard.master() is None:

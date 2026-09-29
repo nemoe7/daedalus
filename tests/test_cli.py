@@ -1,6 +1,7 @@
 import contextlib
 import io
 import os
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -88,6 +89,16 @@ def test_commands() -> None:
       calls.clear()
       cli.run(["serve"])
       assert calls == ["catalog", "listen:3357"], "a file without the model table"
+      layout = sqlite3.connect(store.MODELS_DB)
+      tables = {row[0] for row in layout.execute("SELECT name FROM sqlite_master")}
+      layout.close()
+      assert {"alembic_version", "models"} <= tables, "serve runs the Alembic steps"
+      store.MODELS_DB.unlink()
+      cli.run(["catalog"])
+      assert store.MODELS_DB.exists(), "catalog runs the Alembic steps"
+      calls.clear()
+      cli.run(["serve"])
+      assert calls == ["catalog", "listen:3357"], "empty tables are not a built store"
       store.write_store([], store.MODELS_DB)
       calls.clear()
       cli.run(["serve"])
