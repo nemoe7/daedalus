@@ -1,4 +1,4 @@
-api_key: os.environ/OPENROUTER_API_KEY
+api_key: env:OPENROUTER_API_KEY
 tier:
   TIER-A:
     - "z-ai/glm-5.3-flash"
