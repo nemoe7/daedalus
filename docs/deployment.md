@@ -4,7 +4,7 @@ The reference deployment is a Raspberry Pi 4B with 8 GB of RAM. The compose file
 
 ## Docker Compose
 
-The install scripts do a check of Docker and `.env`, then start the container. Compose pulls the Daedalus image. When the pull fails, Compose builds the image from the source. See the [README](../README.md#quick-start).
+The install scripts do a check of Docker and `.env`, then pull the Daedalus image and start the container. See the [README](../README.md#quick-start).
 
 The commands below are the same in cmd, PowerShell and bash.
 
@@ -12,7 +12,7 @@ The commands below are the same in cmd, PowerShell and bash.
 | --- | --- |
 | Start | `docker compose up -d` |
 | Update | `git pull`, then `docker compose pull`, then `docker compose up -d` |
-| Build from the source | `docker compose up -d --build` |
+| Build from the source | `docker compose -f compose.yml -f compose.dev.yml up -d`. `compose.dev.yml` builds `daedalus:dev` from the source at each start. |
 | Stop | `docker compose down` |
 | Log | `docker compose logs -f daedalus` |
 | Rebuild the catalog now | Click the Catalog chip in the dashboard header, or run `docker compose exec daedalus daedalus catalog` |

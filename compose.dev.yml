@@ -1,0 +1,6 @@
+# Builds Daedalus from the source: docker compose -f compose.yml -f compose.dev.yml up -d
+services:
+  daedalus:
+    image: daedalus:dev
+    build: .
+    pull_policy: build
