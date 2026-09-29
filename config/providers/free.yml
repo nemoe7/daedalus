@@ -106,7 +106,6 @@ kilo:
   api_key: os.environ/KILO_API_KEY
   exclude:
     - "*content-safety*"
-    - kilo-auto/*
     - "!*:free"
   tier:
     TIER-A:
@@ -129,15 +128,7 @@ mistral:
   exclude:
     - "*ocr*"
     - "*moderation*"
-    - codestral-latest
-    - mistral-code-latest
-    - mistral-code-fim-latest
-    - ministral-3b-latest
-    - ministral-8b-latest
-    - ministral-14b-latest
-    - mistral-small-latest
-    - magistral-medium-latest
-    - "mistral-medium*"
+    - "*-latest" # aliases of the dated ids; the models block keeps voxtral-mini-latest
     - "mistral-vibe-cli-*"
   tier:
     TIER-A:
@@ -161,7 +152,6 @@ openrouter:
   api_key: os.environ/OPENROUTER_API_KEY
   exclude:
     - "*content-safety*"
-    - openrouter/*
     - recraft/* # image generation needs a credit balance, also for the :free ids
     - "!*:free"
   tier:
