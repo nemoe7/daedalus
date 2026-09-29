@@ -292,7 +292,9 @@ section[data-page="limits"] > .editbar { margin-bottom: 16px; }
 .login {
   max-width: 340px; margin: 12vh auto 0; padding: 28px; display: grid; gap: 14px;
 }
-.login h1 { margin: 0 0 4px; font-size: 20px; display: flex; align-items: center; gap: 10px; }
+.login-head { display: grid; justify-items: center; gap: 2px; margin-bottom: 6px; }
+.login h1 { margin: 6px 0 0; font-size: 22px; line-height: 1.2; }
+.login-head small { color: var(--muted); font-size: 12px; }
 .login label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
 .secret { position: relative; display: grid; }
 .secret input { padding-right: 36px; }
