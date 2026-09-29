@@ -111,6 +111,7 @@ async function loginHints() {
   const form = $("login");
   if (!form.username.value && hints.username) form.username.value = hints.username;
   $("login-hint").hidden = !hints.master;
+  $("login-version").textContent = hints.version || "";
   form[form.username.value ? "password" : "username"].focus();
 }
 
