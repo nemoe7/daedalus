@@ -480,7 +480,7 @@ function renderModels() {
   const empty = state.models.length ? "No models match" : "No models. Run daedalus catalog.";
   $("models").innerHTML = rows.length ? rows.map((m) => `
     <tr>
-      <td>${esc(m.id)}</td>
+      ${nameCell(m.id)}
       <td class="hide-sm"><div class="types">${typeChips(m)}</div></td>
       <td class="mid">${m.tier ? `<span class="tier">${esc(tierLetter(m.tier))}</span>` : dash}</td>
       <td class="hide-sm mid num${m.order > 1 ? "" : " muted"}">${m.order ?? dash}</td>
