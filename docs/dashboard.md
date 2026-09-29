@@ -27,7 +27,7 @@ The logo shows in the header, on the login page and as the tab icon. The page ha
 
 The Catalog chip in the header shows the time of the last catalog rebuild and the next scheduled rebuild. Click the chip to rebuild the catalog now, after a confirmation. The chip shows "rebuilding" until the rebuild ends. Only 1 rebuild runs at a time.
 
-The Requests page shows "koinos from moros" when a `daedalus/auto` request starts in moros and a koinos model answers. It shows "tool loop N" for a [tool loop](architecture.md#loops). It shows "try again N" for a [try again](architecture.md#try-again) in Open WebUI.
+When a `daedalus/auto` request goes up 1 or more tiers, the Requests page shows the pool that answers, then "from" and the start pool. It shows "tool loop N" for a [tool loop](architecture.md#loops). It shows "try again N" for a [try again](architecture.md#try-again) in Open WebUI.
 
 ## Providers
 

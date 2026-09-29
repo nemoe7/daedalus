@@ -161,7 +161,7 @@ To set up 2 clients:
 3. Add `client_keys` to the provider file, or add it in the **Client keys** field of the Providers page.
 4. Run `docker compose up -d`. It makes the container again with the new `.env` values. `docker compose restart` keeps the old values.
 
-A model with a `mode` other than `chat` never goes into a chat chain. Use `embedding`, `audio_transcription`, `audio_speech` or `image_generation`. A model with no mode goes into the chat chains. The `audio_transcription` models make the `daedalus/graphos` pool, and the `image_generation` models make the `daedalus/photos` pool. Set `supports_vision: true` on an `image_generation` model that edits images: only these models take `POST /v1/images/edits`.
+A model with a `mode` other than `chat` never goes into a chat chain. Use `embedding`, `audio_transcription`, `audio_speech` or `image_generation`. A model with no mode goes into the chat chains. The `audio_transcription` models make the transcription pool, and the `image_generation` models make the image pool. Set `supports_vision: true` on an `image_generation` model that edits images: only these models take `POST /v1/images/edits`.
 
 Pattern types:
 
