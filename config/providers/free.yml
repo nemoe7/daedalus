@@ -182,21 +182,6 @@ openrouter:
     "*gemma-4-26b-a4b-it:free": { reasoning_effort: low }
     "*gemma-4-31b-it:free": { reasoning_effort: low }
 
-pollinations:
-  api_key: os.environ/POLLINATIONS_API_KEY
-  # The order of Cloudflare: no image model has order 1, so both share daedalus/photos.
-  order: 2
-  # Each other model spends Pollen faster, and most need a paid balance.
-  exclude:
-    - "*"
-  # The Pollen for each image, from the free Quest Pollen.
-  models:
-    lykon/dreamshaper-8-lcm: { mode: image_generation, rpm: 300 } # 0.0001
-    black-forest-labs/flux.1-schnell: { mode: image_generation, rpm: 60 } # 0.002
-    tongyi-mai/z-image-turbo: { mode: image_generation, rpm: 60 } # 0.004
-    # Image input: edits with up to 10 input images.
-    black-forest-labs/flux.2-klein-4b: { mode: image_generation, rpm: 60, supports_vision: true } # 0.005
-
 z-ai:
   api_key: os.environ/ZAI_API_KEY
   exclude:
