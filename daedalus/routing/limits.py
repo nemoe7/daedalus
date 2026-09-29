@@ -179,10 +179,15 @@ def balance_items(
 
 
 def neuron_items(data: Any) -> list[tuple[str, str]]:
-  accounts = ((data.get("data") or {}).get("viewer") or {}).get("accounts") or [{}]
-  groups = accounts[0].get("aiInferenceAdaptiveGroups") or []
-  used = number((groups[0].get("sum") or {}).get("totalNeurons")) if groups else None
-  if data.get("errors") or used is None:
+  """The neurons used today. An empty group list with no errors means 0 neurons."""
+  accounts = ((data.get("data") or {}).get("viewer") or {}).get("accounts")
+  if data.get("errors") or not accounts:
+    return []
+  groups = accounts[0].get("aiInferenceAdaptiveGroups")
+  if not isinstance(groups, list):
+    return []
+  used = number((groups[0].get("sum") or {}).get("totalNeurons")) if groups else 0.0
+  if used is None:
     return []
   return [("Neurons today", f"{used:,.0f} of {CLOUDFLARE_FREE:,}")]
 
