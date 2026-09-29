@@ -186,7 +186,8 @@ def neuron_items(data: Any) -> list[tuple[str, str]]:
   if None in values:
     return []
   used = sum(value for value in values if value is not None)
-  return [("Neurons today", f"{used:,.0f} of {CLOUDFLARE_FREE:,}")]
+  shown = f"{used:.2f}" if 0 < used < 10 else f"{used:,.0f}"
+  return [("Neurons today", f"{shown} of {CLOUDFLARE_FREE:,}")]
 
 
 Reader = Callable[[httpx.AsyncClient, str, str], Awaitable[Any]]

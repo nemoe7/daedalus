@@ -98,6 +98,14 @@ def test_neurons() -> None:
     "errors": None,
   }
   assert limits.neuron_items(empty) == [("Neurons today", "0 of 10,000")]
+  small = {
+    "data": {
+      "viewer": {
+        "accounts": [{"aiInferenceAdaptiveGroups": [{"sum": {"totalNeurons": 0.8553}}]}]
+      }
+    }
+  }
+  assert limits.neuron_items(small) == [("Neurons today", "0.86 of 10,000")]
   refused = {"data": None, "errors": [{"message": "not authorized for that account"}]}
   assert limits.neuron_items(refused) == []
   assert limits.neuron_items({"data": {"viewer": {"accounts": []}}}) == []
