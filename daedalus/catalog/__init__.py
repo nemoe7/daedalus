@@ -4,9 +4,10 @@ import logging
 from pathlib import Path
 
 from daedalus.catalog.discovery import build_rows
+from daedalus.catalog.endpoints import endpoint_orders
 from daedalus.catalog.enrichment import enrich
 from daedalus.config import get_config
-from daedalus.store import write_store
+from daedalus.store import write_orders, write_store
 
 logger = logging.getLogger("daedalus.catalog")
 
@@ -20,6 +21,8 @@ def refresh() -> Path:
   unenriched: list[str] = []
   rows, problems = enrich(lines, config, native=native, failed=unenriched)
   target = write_store(rows, keep=failed, fill=unenriched)
+  orders, missed = endpoint_orders(config, lines)
+  write_orders(orders, keep=missed, path=target)
   for reason in [*skipped, *problems]:
     logger.warning("skipped %s", reason)
   for provider_name in failed:
