@@ -31,6 +31,8 @@ NEURONS = (
   " filter: {datetimeHour_geq: $start}) { sum { totalNeurons } } } } }"
 )
 logger = logging.getLogger("daedalus")
+# A label, a value, and the part of the limit that is left for a bar, or None.
+Item = tuple[str, str, float | None]
 
 
 def number(value: Any) -> float | None:
@@ -146,35 +148,43 @@ async def cloudflare(client: httpx.AsyncClient, base: str, key: str) -> Any:
   return await get_json(client, "POST", CLOUDFLARE_GRAPHQL, key, json=body)
 
 
-def openrouter_items(data: Any) -> list[tuple[str, str]]:
-  items: list[tuple[str, str]] = []
+def share(left: float, limit: float) -> float | None:
+  """The part of a limit that is left, from 0 to 1, or None without a limit."""
+  return max(0.0, min(1.0, left / limit)) if limit > 0 else None
+
+
+def openrouter_items(data: Any) -> list[Item]:
+  items: list[Item] = []
   left, limit = number(data.get("limit_remaining")), number(data.get("limit"))
   if left is not None and limit is not None:
-    items.append(("Credit left", f"{money(left)} of {money(limit)}"))
+    items.append(
+      ("Credit left", f"{money(left)} of {money(limit)}", share(left, limit))
+    )
   used = number(data.get("usage_daily"))
   if used:
-    items.append(("Used today", money(used)))
+    items.append(("Used today", money(used), None))
   free = data.get("free_model_daily_requests")
   free = free if isinstance(free, dict) else {}
   left, limit = number(free.get("remaining")), number(free.get("limit"))
   if left is not None and limit is not None:
-    items.append(("Free requests today", f"{left:,.0f} of {limit:,.0f} left"))
+    text = f"{left:,.0f} of {limit:,.0f} left"
+    items.append(("Free requests today", text, share(left, limit)))
   return items
 
 
 def balance_items(
   name: str, text: Callable[[float], str]
-) -> Callable[[Any], list[tuple[str, str]]]:
+) -> Callable[[Any], list[Item]]:
   """The values of a `balance` answer, with 1 label and 1 number format."""
 
-  def items(data: Any) -> list[tuple[str, str]]:
+  def items(data: Any) -> list[Item]:
     found = number(data.get("balance"))
-    return [] if found is None else [(name, text(found))]
+    return [] if found is None else [(name, text(found), None)]
 
   return items
 
 
-def neuron_items(data: Any) -> list[tuple[str, str]]:
+def neuron_items(data: Any) -> list[Item]:
   """The sum of the neurons of all the groups today. No group and no errors means 0."""
   accounts = ((data.get("data") or {}).get("viewer") or {}).get("accounts")
   if data.get("errors") or not accounts:
@@ -187,12 +197,13 @@ def neuron_items(data: Any) -> list[tuple[str, str]]:
     return []
   used = sum(value for value in values if value is not None)
   shown = f"{used:.2f}" if 0 < used < 10 else f"{used:,.0f}"
-  return [("Neurons today", f"{shown} of {CLOUDFLARE_FREE:,}")]
+  left = share(CLOUDFLARE_FREE - used, CLOUDFLARE_FREE)
+  return [("Neurons today", f"{shown} of {CLOUDFLARE_FREE:,}", left)]
 
 
 Reader = Callable[[httpx.AsyncClient, str, str], Awaitable[Any]]
 # The balance reader of each provider, and the values it shows.
-READERS: dict[str, tuple[Reader, Callable[[Any], list[tuple[str, str]]]]] = {
+READERS: dict[str, tuple[Reader, Callable[[Any], list[Item]]]] = {
   "openrouter": (openrouter, openrouter_items),
   "kilo": (kilo, balance_items("Balance", money)),
   "pollinations": (pollinations, balance_items("Pollen", "{:,.2f}".format)),
@@ -217,7 +228,7 @@ class Limits:
       clock,
     )
     self.lanes: dict[str, dict[str, Any]] = {}
-    self.balances: dict[str, list[tuple[str, str]]] = {}
+    self.balances: dict[str, list[Item]] = {}
     self.checked: float | None = None
 
   def clear(self) -> None:

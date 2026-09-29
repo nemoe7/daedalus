@@ -1071,18 +1071,25 @@ async function refreshFast() {
 }
 
 // The Limits page: the balances of the provider keys, and the last rate-limit headers of each model.
+// Counts from 100,000 show short, for example 998.8M, so the bar keeps its room.
+const COMPACT = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
+const shortCount = (n) => (Math.abs(n) >= 100000 ? COMPACT.format(n) : n.toLocaleString());
+
 function renderLimits(data) {
   $("limits-checked").textContent = data.checked ? `Checked ${shortTime(data.checked)} · each hour` : "Not checked yet";
   $("balances").hidden = !data.providers.length;
   $("balances").innerHTML = data.providers.map((p) => `<div class="card"><h3>${esc(p.name)}</h3>
-    ${p.items.map(([label, value]) => line(esc(label), esc(value))).join("")}</div>`).join("");
+    ${p.items.map(([label, value, left]) => `<div class="balance">${line(esc(label), esc(value))}
+      ${left == null ? "" : weightBar(left)}</div>`).join("")}</div>`).join("");
   const rows = data.lanes.flatMap((lane) => lane.rows.map((row) => ({ ...row, model: lane.model, client: lane.client, at: lane.at })));
   $("limit-rows").innerHTML = rows.length ? rows.map((r) => `<tr>
       <td>${esc(r.model)}${r.client ? ` <span class="muted">${esc(r.client)}</span>` : ""}</td>
       <td>${esc(r.kind)}${r.span ? ` per ${esc(r.span)}` : ""}</td>
-      <td class="num${r.remaining > 0 ? "" : " out"}">${r.remaining.toLocaleString()} of ${r.limit.toLocaleString()}</td>
-      <td class="hide-sm muted">${r.reset ? shortTime(r.reset) : "-"}</td>
-      <td class="hide-sm muted">${shortTime(r.at)}</td>
+      <td><div class="weight left" title="${r.remaining.toLocaleString()} of ${r.limit.toLocaleString()}">
+        ${weightBar(r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0)}
+        <span class="num${r.remaining > 0 ? "" : " out"}">${shortCount(r.remaining)} of ${shortCount(r.limit)}</span></div></td>
+      <td class="hide-sm muted time">${r.reset ? shortTime(r.reset) : "-"}</td>
+      <td class="hide-sm muted time">${shortTime(r.at)}</td>
     </tr>`).join("") : '<tr><td colspan="5" class="empty">No rate-limit headers yet. Groq and Mistral send them with each answer.</td></tr>';
 }
 

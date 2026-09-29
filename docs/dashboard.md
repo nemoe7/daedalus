@@ -80,7 +80,7 @@ Daedalus reads the balances when it starts, then each hour. **Check now** reads 
 | Cloudflare | Neurons used since 00:00 UTC, of the free 10,000. With no use today, it shows 0. | GraphQL `aiInferenceAdaptiveGroups` |
 | Groq, Mistral | The limit and the count left of each window, for each model, and the reset time | The `x-ratelimit-*` headers of the last answer |
 
-The header rows stay in memory only, so they are empty after a restart until the next answer. A client with its own provider key has its own rows. A count of 0 shows in red. Each balance comes from the main key of the provider, not from `client_keys`.
+The header rows stay in memory only, so they are empty after a restart until the next answer. A client with its own provider key has its own rows. A bar like the weight bar shows the rest of each limit: header rows, OpenRouter credit and free requests, and Cloudflare neurons. A count of 0 shows in red. From 100,000, a count shows short, for example 998.8M. Hover it to see the exact number. Each balance comes from the main key of the provider, not from `client_keys`.
 
 To show the Cloudflare neurons, give the Cloudflare token the analytics permission:
 
