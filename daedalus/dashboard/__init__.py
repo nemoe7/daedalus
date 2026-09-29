@@ -20,7 +20,7 @@ from fastapi.responses import (
   StreamingResponse,
 )
 
-from daedalus import config, providers, store
+from daedalus import __version__, config, providers, store
 from daedalus.catalog import schedule
 from daedalus.config import block_for, provider_edit, settings
 from daedalus.dashboard.history import SHOWN, History
@@ -359,6 +359,7 @@ def routes(
     return JSONResponse(
       {
         "healthy": True,
+        "version": __version__,
         "models": len(store.read_models()),
         "sessions": penalties.sessions(),
         "catalog": {

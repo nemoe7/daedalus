@@ -19,6 +19,9 @@ RUN --mount=from=ghcr.io/astral-sh/uv:0.12.19,source=/uv,target=/bin/uv \
   && mkdir .daedalus-state \
   && chown daedalus .daedalus-state
 
+# The version under the logo: the v* tag, or dev-COMMIT from install --dev.
+ARG VERSION=dev
+ENV DAEDALUS_VERSION=$VERSION
 USER daedalus
 EXPOSE 3357
 # The first start can build the catalog before the server listens, so the start period is long.
