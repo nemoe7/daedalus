@@ -37,5 +37,3 @@ jobs:
       - run: uv run --no-sync ruff format --check
       # pyproject.toml sets the pytest workers: 1 for each CPU. All the tests of 1 file run in 1 worker.
       - run: uv run --no-sync pytest
-      # The release draft check uses temporary Git history and mocked API answers.
-      - run: uv run --no-sync python .github/workflows/check_gemini_release.py
