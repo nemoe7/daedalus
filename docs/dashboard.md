@@ -35,8 +35,9 @@ The cards of the Form view stack in columns. Each card goes to the shortest colu
 
 | Field | YAML key | Input |
 | --- | --- | --- |
-| API key | `api_key` | Text field with `os.environ/NAME`. A pasted key moves to **Keys and values**, and the field gets `os.environ/PROVIDER_API_KEY`. |
-| Client keys | `client_keys` | `name = key` chips. The name is a daedalus key name, for example `kilo = os.environ/GEMINI_API_KEY_KILO`. A pasted key moves to **Keys and values**. |
+| API key | `api_key` | `env:NAME` reads the environment. Paste a key to save it in **Keys and values** as `db:PROVIDER_API_KEY`. |
+| Account ID | `account_id` | Cloudflare only. `env:NAME` reads the environment. Paste an ID to save it as `db:CLOUDFLARE_ACCOUNT_ID`. |
+| Client keys | `client_keys` | `name = value` chips. Use `env:NAME` for an environment value. Pasted keys use `db:PROVIDER_API_KEY_CLIENT`. |
 | API base | `api_base` | Text field. Empty: the gray placeholder shows the default of the provider. |
 | API type | `api_type` | Text field, `openai` or `gemini`. Empty: the gray placeholder shows the default of the provider. |
 | Discovery URL | `discovery_url` | Text field. Empty: the gray placeholder shows the default of the provider. |
@@ -48,15 +49,17 @@ The cards of the Form view stack in columns. Each card goes to the shortest colu
 
 ### Keys and values
 
-The panel under the form lists each `os.environ/NAME` of the provider files, and of the defaults of the providers in use, for example `CLOUDFLARE_ACCOUNT_ID`.
+The panel under the form lists the names used by `env:NAME`, `db:NAME`, and legacy `os.environ/NAME` values in provider files and provider defaults.
 
 | Item | Value |
 | --- | --- |
-| Order | The saved value, then the environment variable |
+| `env:NAME` | Reads the environment variable. |
+| `db:NAME` | Reads the saved value. |
+| Legacy `os.environ/NAME` | Reads the saved value, then the environment variable. |
 | Storage | The `saved_env` table of `.daedalus-state/models.sqlite3`. Not in the YAML or git. |
 | Shown | The state: saved, from the environment, or missing. A saved value of 12 or more characters shows its last 4 characters. |
 | Save | Takes effect at once, with no restart. A new provider key needs a catalog rebuild. |
-| Clear | Deletes the saved value. daedalus then reads the environment variable. |
+| Clear | Deletes the saved value. A `db:NAME` value then resolves empty. `env:NAME` still reads the environment. |
 
 | Action | Result |
 | --- | --- |

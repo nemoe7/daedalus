@@ -89,13 +89,25 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 | `dashboard.time_format` | `24h` | `24h` or `12h`. The clock of each time on the dashboard. The Settings page has a Time format field. |
 | `pools.moros`, `pools.koinos`, `pools.deinos`, `pools.sophos`, `pools.graphos`, `pools.photos` | The key | The name after `daedalus/` that clients use for the pool. 1 to 40 letters, digits, dots, dashes or underscores, but not `auto`. Each pool has its own name. After a change, the old name gets HTTP 400 `Unknown provider or pool`. `daedalus/auto` does not change. `/v1/models` and the dashboard show the new names. |
 
+## Provider key values
+
+The shipped provider files use `env:NAME` values. They read environment variables. The dashboard saves pasted values in state and writes `db:NAME` to the provider file.
+
+| Value | Source |
+| --- | --- |
+| `env:NAME` | Environment variable `NAME` |
+| `db:NAME` | Value saved in the dashboard |
+| `os.environ/NAME` | Saved value first, then environment variable. This is the legacy format. |
+
+Keep the `env:NAME` values in `config/providers/free.yml` to use provider keys from `.env`. Paste a key into **Providers** to save it in the dashboard instead. See [Keys and values](dashboard.md#keys-and-values).
+
 ## Provider files
 
-Each top-level key is 1 provider. A value `os.environ/NAME` reads the value saved on the dashboard, else the environment variable `NAME`. See [Keys and values](dashboard.md#keys-and-values).
+Each top-level key is 1 provider.
 
 ```yaml
 groq:
-  api_key: os.environ/GROQ_API_KEY
+  api_key: env:GROQ_API_KEY
   exclude:
     - "*prompt-guard*"
   tier:
@@ -112,6 +124,7 @@ groq:
 | --- | --- |
 | `api_key` | Necessary. With no key, the models of the provider leave each chain and pool, and a direct request gets HTTP 400. |
 | `client_keys` | Optional. A provider key for each daedalus key name. See [Client keys](#client-keys). |
+| `account_id` | Optional. The Cloudflare account ID. The shipped provider file reads `CLOUDFLARE_ACCOUNT_ID`. |
 | `api_base` | Optional. Each provider has a default. |
 | `api_type` | Optional. `openai` or `gemini`. |
 | `discovery_url` | Optional. The model list URL. Each provider has a default. |
@@ -144,10 +157,10 @@ When 2 entries match 1 model, the last entry in the file sets the key. A model k
 
 ```yaml
 gemini:
-  api_key: os.environ/GEMINI_API_KEY # discovery, the master key and the other clients
+  api_key: env:GEMINI_API_KEY # discovery, the master key and the other clients
   client_keys:
-    kilo: os.environ/GEMINI_API_KEY_KILO
-    owui: os.environ/GEMINI_API_KEY_OWUI
+    kilo: env:GEMINI_API_KEY_KILO
+    owui: env:GEMINI_API_KEY_OWUI
 ```
 
 | Item | Value |
