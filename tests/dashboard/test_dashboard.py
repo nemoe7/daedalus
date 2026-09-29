@@ -58,6 +58,7 @@ def test_page(client: TestClient) -> None:
     "models",
     "keys",
     "providers",
+    "limits",
     "settings",
   ):
     assert f'<section data-page="{name}"' in page.text, f"the {name} page"

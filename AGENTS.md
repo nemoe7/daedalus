@@ -44,6 +44,11 @@ An ADR holds one decision and the reason for it.
   report 0 violations.
 - Show each command for cmd, PowerShell and bash. Use Mermaid for diagrams.
 
+## Dashboard pages
+
+- A new page uses the `.flow` layout of `style.css`: the table in a `.column.wide`, and the cards in a `.column` beside it.
+- Do not put cards in a row above a table.
+
 ## Code comments
 
 - Write a comment only where the function is extremely complex.
