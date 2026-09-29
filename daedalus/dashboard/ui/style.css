@@ -254,6 +254,8 @@ section[data-page="providers"], section[data-page="settings"], #yaml-view, #sett
 .field small { color: var(--muted); font-size: 12px; }
 .field .input { display: flex; align-items: center; gap: 6px; flex: none; }
 .field .input i { font-style: normal; color: var(--muted); font-size: 12px; width: 10px; }
+.field .input i.prefix { width: auto; }
+.field input[type=text] { width: 110px; padding: 6px 8px; }
 .field input[type=number] { width: 72px; padding: 6px 8px; text-align: right; appearance: textfield; -moz-appearance: textfield; }
 .field input[type=number]::-webkit-inner-spin-button,
 .field input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }

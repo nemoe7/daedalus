@@ -34,6 +34,31 @@ MEDIA_POOLS: Final[Mapping[str, str]] = {
   "daedalus/graphos": "audio_transcription",
   "daedalus/photos": "image_generation",
 }
+# The pool names that clients use, from the `pools` settings. Only renamed pools are here.
+RENAMED: Mapping[str, str] = {}
+
+
+def set_pool_names(names: Mapping[str, str]) -> None:
+  """Use the settings pool names: each key is a built-in name after `daedalus/`, each value its client name."""
+  global RENAMED
+  RENAMED = {
+    f"daedalus/{old}": f"daedalus/{new}" for old, new in names.items() if old != new
+  }
+
+
+def pool_name(name: str) -> str:
+  """The client name of a built-in pool name. A name without `daedalus/`, such as koinos, gives a name without it."""
+  if "/" in name:
+    return RENAMED.get(name, name)
+  return RENAMED.get(f"daedalus/{name}", name).removeprefix("daedalus/")
+
+
+def built_in(name: str) -> str | None:
+  """The built-in name of a model name from a client, or None for a pool name that the settings replaced."""
+  for old, new in RENAMED.items():
+    if name == new:
+      return old
+  return None if name in RENAMED else name
 
 
 def tier_models(provider: Mapping[str, Any], tier_name: str) -> list[str]:

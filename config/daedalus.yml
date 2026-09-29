@@ -56,3 +56,11 @@ switch:
     - clanker
 dashboard:
   theme: system # system follows the device; light or dark fixes it
+pools:
+  # The name after daedalus/ that clients use for each pool. After a change, the old name gets HTTP 400.
+  moros: moros
+  koinos: koinos
+  deinos: deinos
+  sophos: sophos
+  graphos: graphos
+  photos: photos
