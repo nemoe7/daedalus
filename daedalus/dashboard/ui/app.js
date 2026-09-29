@@ -1327,7 +1327,7 @@ function showPage() {
   document.querySelectorAll("#nav a").forEach((link) => {
     link.classList.toggle("on", link.dataset.page === page);
   });
-  document.title = `Daedalus · ${document.querySelector(`#nav a[data-page="${page}"]`).textContent}`;
+  document.title = `Daedalus · ${document.querySelector(`#nav a[data-page="${page}"]`).firstChild.textContent}`;
   if (page === "providers" && state.view === "form") renderForm();
 }
 
