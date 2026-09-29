@@ -72,6 +72,7 @@ def state_folder(
     for owner, name in SETTINGS:
       patch.setattr(owner, name, getattr(owner, name))
     config.set_config(None)
+    config.SAVED.clear()
     upstream.set_client(None)
     yield folder
   os.environ.clear()

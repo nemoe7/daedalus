@@ -29,7 +29,7 @@ from daedalus.routing import router
 from daedalus.routing.cooldowns import Cooldowns
 from daedalus.routing.limits import Limits
 from daedalus.routing.penalties import Penalties
-from daedalus.store import keys
+from daedalus.store import keys, saved_env
 
 HISTORY = History(lambda: store.MODELS_DB)
 LIVE = Live()
@@ -203,9 +203,89 @@ def config_files() -> tuple[Path, ...]:
   return (main, *config.provider_files(main))
 
 
+# The longest value that the dashboard saves for 1 os.environ/NAME.
+MAX_VALUE = 4096
+
+
+def env_name(provider: str, client: str | None = None) -> str:
+  """The default environment name of the key of a provider, or of the key of 1 client."""
+  name = f"{provider}_API_KEY" + (f"_{client}" if client else "")
+  return re.sub(r"[^A-Z0-9_]", "_", name.upper())
+
+
+def env_tokens(node: Any) -> list[str]:
+  """The names of the os.environ/NAME tokens in the values of a YAML tree."""
+  if isinstance(node, str):
+    return config.ENV_PATTERN.findall(node)
+  if isinstance(node, dict):
+    return [name for value in node.values() for name in env_tokens(value)]
+  if isinstance(node, list):
+    return [name for value in node for name in env_tokens(value)]
+  return []
+
+
+def env_names() -> dict[str, list[str]]:
+  """Each os.environ/NAME of the provider files and of the defaults of the providers in use, with the places that use it."""
+  found: dict[str, list[str]] = {}
+
+  def add(name: str, place: str) -> None:
+    places = found.setdefault(name, [])
+    if place not in places:
+      places.append(place)
+
+  used: set[str] = set()
+  for path in config_files():
+    try:
+      content = config.load_yaml(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+      continue
+    if not isinstance(content, dict):
+      continue
+    used |= {str(key) for key in content} if path == FILES[0] else {path.stem}
+    for name in env_tokens(content):
+      add(name, path.name)
+  for provider in sorted(used & set(providers.PROVIDERS)):
+    for name in env_tokens(providers.PROVIDERS[provider].defaults):
+      add(name, f"{provider} defaults")
+  return dict(sorted(found.items()))
+
+
+def env_rows() -> list[dict[str, Any]]:
+  """The state of each name for the dashboard (saved, env or missing), with only the end of a long saved value."""
+  rows = []
+  for name, places in env_names().items():
+    saved = config.SAVED.get(name)
+    state = "saved" if saved else "env" if os.environ.get(name) else "missing"
+    end = saved[-4:] if saved and len(saved) >= 12 else None
+    rows.append({"name": name, "state": state, "end": end, "used": places})
+  return rows
+
+
+def raw_value(value: Any) -> bool:
+  """Tell if a key field holds a key itself, not an os.environ/NAME token."""
+  return (
+    isinstance(value, str) and bool(value.strip()) and config.ENV_PREFIX not in value
+  )
+
+
+def park_keys(provider: str, block: dict[str, Any]) -> None:
+  """Move the keys in the key fields of a form block to the saved values, and put their os.environ/NAME in the block."""
+  if raw_value(block.get("api_key")):
+    name = env_name(provider)
+    saved_env.save(store.MODELS_DB, name, block["api_key"].strip())
+    block["api_key"] = config.ENV_PREFIX + name
+  clients = block.get("client_keys")
+  if isinstance(clients, dict):
+    for client, value in clients.items():
+      if raw_value(value):
+        name = env_name(provider, str(client))
+        saved_env.save(store.MODELS_DB, name, value.strip())
+        clients[client] = config.ENV_PREFIX + name
+
+
 def new_file_text(name: str) -> str:
   """The text of a new `{provider}.yml` file for one provider name."""
-  env = name.upper().replace("-", "_")
+  env = env_name(name).removesuffix("_API_KEY")
   known = name in providers.PROVIDERS
   return NEW_FILE + NEW_KEY.format(env=env) + ("" if known else NEW_BASE) + NEW_MODELS
 
@@ -570,8 +650,52 @@ def routes(
       return failure(
         400, f"{path} needs the block {path.stem}.", "invalid_request_error"
       )
+    if path == FILES[0]:
+      for provider, block in document.items():
+        park_keys(str(provider), block)
+    else:
+      park_keys(path.stem, document)
     old = path.read_text(encoding="utf-8") if path.exists() else ""
     return write_config(path, provider_edit.merge_text(old, document))
+
+  @api.get("/env")
+  async def env_list(request: Request) -> JSONResponse:
+    if not allowed(request):
+      return denied()
+    return JSONResponse(env_rows())
+
+  @api.put("/env")
+  async def env_save(request: Request) -> JSONResponse:
+    if not allowed(request):
+      return denied()
+    body = await json_body(request)
+    name = body.get("name") if isinstance(body, dict) else None
+    value = body.get("value") if isinstance(body, dict) else None
+    if name not in env_names():
+      return failure(
+        400,
+        "No provider file uses os.environ/ with this name.",
+        "invalid_request_error",
+      )
+    value = value.strip() if isinstance(value, str) else ""
+    if not value or len(value) > MAX_VALUE or any(c.isspace() for c in value):
+      return failure(
+        400, "The value must be 1 word with no spaces.", "invalid_request_error"
+      )
+    saved_env.save(store.MODELS_DB, name, value)
+    config.load_config(FILES[0])
+    return JSONResponse(env_rows())
+
+  @api.delete("/env")
+  async def env_clear(request: Request) -> JSONResponse:
+    if not allowed(request):
+      return denied()
+    body = await json_body(request)
+    name = body.get("name") if isinstance(body, dict) else None
+    if not isinstance(name, str) or not saved_env.clear(store.MODELS_DB, name):
+      return failure(400, "No saved value with this name.", "invalid_request_error")
+    config.load_config(FILES[0])
+    return JSONResponse(env_rows())
 
   @api.put("/files")
   async def save(request: Request) -> JSONResponse:
