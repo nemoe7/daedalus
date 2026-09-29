@@ -201,7 +201,7 @@ A client with its own key in [`client_keys`](configuration.md#client-keys) has i
 
 ## Pacing
 
-A model with `rpm` or `tpm` in its provider file leaves the chains and the media pools at that limit.
+A model with `rpm` or `tpm` in its provider file leaves the chains and the media pools at that limit. A provider with `hourly_requests` leaves them at that limit, with all its models.
 
 | Item | Value |
 | --- | --- |
@@ -209,7 +209,8 @@ A model with `rpm` or `tpm` in its provider file leaves the chains and the media
 | Requests | Each request that daedalus sent to the model, fallbacks included |
 | Tokens | The input estimate of the context check: characters / 4. Media requests count 0 tokens. |
 | Skip | Silent. The weight does not change, and the log has no line. |
-| Each model skipped | HTTP 429 `rate_limit_exceeded`. `Retry-After` is the time until the oldest request leaves the window. |
+| Provider hour | The requests to all models of the provider in the last hour, from each client. A 429 from the provider counts the rest of that hour as used. |
+| Each model skipped | HTTP 429 `rate_limit_exceeded`. `Retry-After` is the time until the first model can take a request again. |
 | Client with its own key | Its own counts, against the same `rpm` and `tpm`. See [Client lanes](#client-lanes). |
 | Storage | Memory only. A restart sets the counts to 0. |
 

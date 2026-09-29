@@ -238,6 +238,8 @@ class Limits:
     self.lanes: dict[str, dict[str, Any]] = {}
     self.balances: dict[str, list[Item]] = {}
     self.checked: float | None = None
+    # The rows that daedalus counts itself, such as `hourly_requests`, for a wall-clock time.
+    self.counted: Callable[[float], list[dict[str, Any]]] = lambda now: []
 
   def clear(self) -> None:
     self.lanes.clear()
@@ -308,6 +310,11 @@ class Limits:
     for lane, seen in sorted(self.lanes.items()):
       model, client = lanes.split(lane)
       rows.append({"model": model, "client": client or None, **seen})
+    now = self.clock()
+    for row in self.counted(now):
+      rows.append(
+        {"model": row.pop("provider"), "client": "counted", "at": now, "rows": [row]}
+      )
     shown = [
       {"name": name, "items": [list(item) for item in items]}
       for name, items in self.balances.items()
