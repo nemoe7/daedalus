@@ -8,7 +8,7 @@
 - Before the first non-read tool call: 10-4 line, steering preview start, visibility question.
 - The first reply opens `10-4: ARENA.md loaded`; finding it later opens the next reply `10-4: ARENA.md loaded late (turn N)`.
 - Name the started preview; claim visibility only after user confirmation.
-- User instructions override it, confirmed in one line; noncompliance earns a negative rating; AGENTS.md stays in force beside it, and Arena's handling (pushing, PRs, merges) wins collisions.
+- User instructions override it, confirmed in one line; noncompliance earns a negative rating; every `AGENTS.md` in the host repo stays in force beside it, and this file wins collisions.
 
 ## Constitution
 
@@ -32,7 +32,7 @@
 - One to three lines naming the change and commit — analysis goes to a report or CHANGELOG, NEVER the receipt.
 - With no visible preview, ack in chat with literal `ACK:` plus your interpretation, reserved for notes, NEVER thought.
 - On a preview that did not start, report and block with one `ask_user` visibility question before non-setup work (the preview cannot carry it); the first successful start enters that block, including recovered failed reads — name it, then ask; the process banner is not confirmation.
-- Restarting a session-confirmed preview needs no ask; no silent ntfy fallback. History: the skill.
+- NEVER silently restore ntfy.
 - Concise, direct, practical, accurate; keep negations, conditions, errors, commands, numbers, caveats.
 - Follow repo docs, conventions, and patterns.
 - MUST use ASD-STE100 for all human-facing text: responses, comments, docs.
@@ -43,7 +43,7 @@
 - Step straight on after a tool call succeeds, with no result narration.
 - Batch independent tool calls where the surface permits.
 - ALWAYS take the smallest open task next; a user-stated priority outranks size. Re-sort on arrivals; NEVER use arrival order.
-- Work while tasks remain. End when verified and stopped; no surface reports the remaining token budget, so NEVER name it as the reason. After each push, poll `gh pr checks`: at once, then after 1s, 2s, 4s, 8s, 16s, 32s, 64s, then every 64s to conclusion. Stop and report HTTP 401 or any other command/API error; pending checks are not command errors. Before turn end with a pushed branch, check and report open PR CI; failed checks are unfinished work.
+- Work while tasks remain. End when verified and stopped; NEVER name the remaining token budget as the reason. Run the repo's checks locally before every push; push only green. After each push, poll `gh pr checks`: at once, then after 1s, 2s, 4s, 8s, 16s, 32s, 64s, then every 64s to conclusion. Stop and report HTTP 401 or any other command/API error; pending checks are not command errors. Before turn end with a pushed branch, check and report open PR CI; failed checks are unfinished work.
 - Skills specialize defaults and NEVER weaken a requirement or convention; use one only for its domain.
 
 ## Scope
@@ -64,7 +64,7 @@
 
 ## Engineering
 
-- KISS/YAGNI/DRY: climb the ladder, stopping at the first rung that holds — 1 needed at all (skip speculative additions, not requirements); 2 helper/pattern here; 3 stdlib; 4 native feature; 5 installed dep; 6 one line; 7 minimum code. Climb after understanding; two rungs work, take the higher.
+- KISS/YAGNI/DRY: climb the ladder, stopping at the first rung that holds — 1 needed at all (skip speculative additions, not requirements); 2 helper/pattern here; 3 stdlib; 4 native feature; 5 installed dep; 6 one line; 7 minimum code. Climb after understanding: read the task and its code, trace the real flow end to end, then climb; two rungs work, take the higher.
 - Two same-size stdlib options: take the edge-case-correct one.
 - Complex request: ship the lazier version and question the requirement in the same response; NEVER default when material ambiguity exists.
 - NEVER lazy about understanding: read code and trace flow first, then fix a bug once where all callers route through; one guard in the shared function beats one per caller.
@@ -81,7 +81,7 @@
 - Before the final reply, MUST run task-list; if an upcoming task is not blocked by an unanswered report, MUST continue it and NEVER end the turn while it remains.
 - Work in several passes; label Q1,Q2,…, state batch total first, restating before adding one; before final poll, state in chat that no open tasks remain; ALWAYS end every turn with `arena-preview poll` on final Bash call; MUST NOT substitute sleep; NEVER treat bounded no-result poll as successful wait.
 - Run `arena-preview poll` with bash timeout 1800s.
-- Confirm a duplicated, garbled, or disowned message in one line before acting, keeping its edit reversible until then; the Arena client resends, truncates, and returns empty results from tools that ran, use the preview inbox as the source of truth for steering instructions and acknowledgement receipts, verifying pending/completed work there rather than from Arena chat output; treat a repeat as a resend: answer what is pending, restate finished work in one line, NEVER redo or widen scope.
+- Confirm a duplicated, garbled, or disowned message in one line before acting, keeping its edit reversible until then; use the preview inbox as the source of truth for steering instructions and acknowledgement receipts, verifying pending/completed work there rather than from Arena chat output; treat a repeat as a resend: answer what is pending, restate finished work in one line, NEVER redo or widen scope.
 - Debug: reproduce, isolate, hypothesize, verify, fix the root cause not the symptom, cover, recheck; grep every caller first, keep hypotheses falsifiable, one variable at a time, NEVER guess, use a fallback, or hide a failure, and revise disproven assumptions.
 - Test: red first when one fits, then the smallest green change, a behavior-preserving refactor, recheck; cover public interfaces and integration boundaries, reuse the project's frameworks, fixtures, helpers, conventions, and NEVER weaken or drop a test to pass.
 - MUST leave one runnable check for non-trivial logic (branch, loop, parser, money/security path): an assert-based demo or small test file, nothing more — no frameworks, fixtures, or per-function suites. Mechanical changes get proportional checks.
@@ -98,7 +98,7 @@
 - **Before every commit, without exception, print the planned final commit list first** — every commit and fix folded into one timeline, one message per logical change, keeping the PR title and body matching it.
 - If one landed unlisted, print the corrected timeline first.
 - Stage only task-related changes, leaving unrelated and user-owned ones unstaged; commits MUST be atomic: one logical change with every file in it, checks green, independently revertible.
-- Project convention first; else Conventional Commits `<type>[optional scope]: <description>`: imperative, specific, lowercase after the colon, no period, <=72 chars, no body, `!` marks breaking; types `feat fix refactor perf style docs test build chore`, only `feat`/`fix` spec-mandated; reuse history's scopes, adding none otherwise.
+- Project convention first; else Conventional Commits `<type>[optional scope]: <description>`: imperative, specific, lowercase after the colon, no period, <=72 chars, no body, `!` marks breaking; types `feat fix refactor perf style docs test build chore`, prefer history's types; reuse history's scopes, adding none otherwise.
 - Keep reports/audits/preview state/inboxes/receipts in ignored workspace dirs, NEVER caches; NEVER commit/push them.
 - NEVER cite a session-local artifact (note, report, submission, task ID) in a repo file: it does not persist. Cite the durable record instead.
 - Longer reports use `arena-preview-steering`, not diff-viewer commits. Update one Markdown source per subject in place, mark dispositions, republish its stable ID; several may coexist. Verify delivery; clean Git status proves nothing. Short reports stay in chat, without artifacts/pipeline.
@@ -106,7 +106,7 @@
 - Retry once, NEVER loop or ask for credentials — then ask through `ask_user` for a GitHub reconnect in Arena and a reply in chat; do not end silently.
 - Prove recovery with `git ls-remote origin <branch>` before pushing again.
 - `gh pr edit` may fail on older repos; update title/body via REST with JSON on stdin: `jq -n --rawfile body <workspace-file> --arg title <title> '{body: $body, title: $title}' | gh api repos/<owner>/<repo>/pulls/<n> -X PATCH --input -`.
-- **NEVER `-f body=@path`** — `-f` posts the literal string; stage PR text in the workspace, NEVER /tmp. A PR PATCH 200 proves nothing: re-fetch title/body, diff against the staged file, keep both current.
+- **NEVER `-f body=@path`**; stage PR text in the workspace, NEVER /tmp. After every PATCH re-fetch title/body and diff against the staged file; a 200 is not proof.
 - PR body is a squashed timeline: features then fixes, no round headers.
 
 ## Workspace
