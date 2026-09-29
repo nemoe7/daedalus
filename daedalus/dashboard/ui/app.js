@@ -1070,8 +1070,25 @@ async function refreshFast() {
   renderOverview();
 }
 
+// The Limits page: the balances of the provider keys, and the last rate-limit headers of each model.
+function renderLimits(data) {
+  $("limits-checked").textContent = data.checked ? `Checked ${shortTime(data.checked)} · each hour` : "Not checked yet";
+  $("balances").hidden = !data.providers.length;
+  $("balances").innerHTML = data.providers.map((p) => `<div class="card"><h3>${esc(p.name)}</h3>
+    ${p.items.map(([label, value]) => line(esc(label), esc(value))).join("")}</div>`).join("");
+  const rows = data.lanes.flatMap((lane) => lane.rows.map((row) => ({ ...row, model: lane.model, client: lane.client, at: lane.at })));
+  $("limit-rows").innerHTML = rows.length ? rows.map((r) => `<tr>
+      <td>${esc(r.model)}${r.client ? ` <span class="muted">${esc(r.client)}</span>` : ""}</td>
+      <td>${esc(r.kind)}${r.span ? ` per ${esc(r.span)}` : ""}</td>
+      <td class="num${r.remaining > 0 ? "" : " out"}">${r.remaining.toLocaleString()} of ${r.limit.toLocaleString()}</td>
+      <td class="hide-sm muted">${r.reset ? shortTime(r.reset) : "-"}</td>
+      <td class="hide-sm muted">${shortTime(r.at)}</td>
+    </tr>`).join("") : '<tr><td colspan="5" class="empty">No rate-limit headers yet. Groq and Mistral send them with each answer.</td></tr>';
+}
+
 async function refreshSlow() {
-  const [pools, models] = await Promise.all([call("pools"), call("models"), refreshKeys()]);
+  const [pools, models, limits] = await Promise.all([call("pools"), call("models"), call("limits"), refreshKeys()]);
+  renderLimits(limits);
   renderPools(pools);
   state.pools = pools;
   state.models = models;
@@ -1130,6 +1147,20 @@ $("login").addEventListener("submit", async (event) => {
   }
 });
 
+$("limits-check").addEventListener("click", async () => {
+  const button = $("limits-check");
+  button.disabled = true;
+  $("limits-message").textContent = "Checking";
+  try {
+    renderLimits(await call("limits", { method: "POST" }));
+    $("limits-message").textContent = "";
+  } catch (error) {
+    if (error instanceof LoggedOut) return showLogin();
+    $("limits-message").textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
 $("show-password").addEventListener("click", () => showPassword($("login").password.type === "password"));
 document.addEventListener("click", (event) => {
   if (event.target.closest("#catalog-rebuild")) rebuildCatalog();
@@ -1220,7 +1251,7 @@ $("reveal-close").addEventListener("click", () => {
   $("reveal-key").textContent = "";
   $("copy").textContent = "Copy";
 });
-const PAGES = ["overview", "pools", "requests", "models", "keys", "providers", "settings"];
+const PAGES = ["overview", "pools", "requests", "models", "keys", "providers", "limits", "settings"];
 
 // A Models link such as #/models?tier=C&mode=chat&sort=weight sets the filters.
 function applyModelFilters(query) {
