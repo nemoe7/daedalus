@@ -104,7 +104,7 @@ Put `uv run` before each command in the table. After `git pull`, run `uv sync` a
 | --- | --- |
 | `daedalus serve [PORT] [--catalog]` | Starts the router on `0.0.0.0:PORT` (default 3357). `--catalog` rebuilds the model store first. |
 | `daedalus catalog` | Discovers the provider models and rebuilds the model store. |
-| `daedalus dump` | Writes the raw model list of each provider to `.daedalus-state/dump`. |
+| `daedalus dump` | Writes the raw model list of each provider to `.daedalus-state/dump/PROVIDER.json`. |
 
 ## Development
 
