@@ -88,7 +88,10 @@ def check():
     all_units = release.history(target, "")
     text = "\n".join(value for _, value in units)
     assert (
-      "side marker" in text and "next marker" in text and "GIT binary patch" in text
+      "side marker" in text
+      and "next marker" in text
+      and "Binary files" in text
+      and "GIT binary patch" not in text
     )
     assert root + ":message" not in dict(units)
     assert root + ":message" in dict(all_units)
@@ -375,6 +378,9 @@ def check():
     .strip()
     .startswith("Classify the release impact of the supplied commit messages")
   )
+  workflow = (release.HERE / "gemini-release.yml").read_text()
+  assert "python .github/workflows/gemini_release.py" in workflow
+  assert "python github/workflows" not in workflow
   assert release.version_tag("v0.2.0", "0.2.1") == "v0.2.1"
   assert release.next_version("1.2.3", "major") == "2.0.0"
   assert release.next_version("1.2.3", "minor") == "1.3.0"
