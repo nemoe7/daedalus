@@ -310,9 +310,9 @@ def test_provider_file_override() -> None:
 
 
 def test_shared_download() -> None:
-  """A file with the same URL and key as its main block reads the list 1 time."""
-  block = {"api_key": "same", "discovery_url": "https://or.test/api/v1/models"}
-  file = {**block, "models": {"openai/gpt-6-sol": {"pool": False}}}
+  """A file with the same URL as its main block reads the list 1 time, also with another key."""
+  block = {"api_key": "main", "discovery_url": "https://or.test/api/v1/models"}
+  file = {**block, "api_key": "file", "models": {"openai/gpt-6-sol": {"pool": False}}}
   config.set_config({"openrouter": {**block, config.FILE_KEY: file}})
   calls: list[str] = []
 
@@ -329,8 +329,31 @@ def test_shared_download() -> None:
     with tempfile.TemporaryDirectory() as folder:
       paths = discovery.dump(blocks, fetch, folder)
       assert [p.name for p in paths] == ["openrouter.json"], paths
+
+    def broken(url: str, headers: dict[str, str]) -> dict[str, Any]:
+      calls.append(url)
+      raise httpx.ConnectError("down")
+
+    calls.clear()
+    failed: list[str] = []
+    found, skipped = discovery.read_providers(blocks, broken, failed)
+    assert (found, failed, len(calls)) == ([], ["openrouter"], 1), (skipped, calls)
   finally:
     config.set_config(None)
+
+
+def test_shared_litellm() -> None:
+  """Kilo and OpenRouter read the same LiteLLM catalog 1 time."""
+  calls: list[str] = []
+
+  def fetch(url: str, headers: dict[str, str]) -> dict[str, Any]:
+    calls.append(url)
+    return {"data": [{"id": "openrouter/a/b", "max_input_tokens": 9}]}
+
+  lines = ["kilo/a/b", "openrouter/a/b"]
+  rows, problems = enrichment.enrich(lines, {}, fetch)
+  assert (len(calls), problems) == (1, []), calls
+  assert [row["max_input_tokens"] for row in rows] == [9, 9], rows
 
 
 def test_discovery_match() -> None:

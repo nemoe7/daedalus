@@ -15,7 +15,7 @@ A key that shows 2 times in 1 map of a config file stops the start. The error gi
 
 ## Files per provider
 
-`free.yml` holds each provider. A second file, `{provider}.yml`, holds 1 provider with its own settings. `openrouter.yml` and the `openrouter` block of `free.yml` are independent: the tiers, the excludes and the models of 1 file do not apply to the other. When the 2 files have the same `discovery_url` and API key, the catalog reads the model list 1 time. `pollinations.yml` holds Pollinations, with no block in `free.yml`, because Pollinations spends a balance that does not refill ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)).
+`free.yml` holds each provider. A second file, `{provider}.yml`, holds 1 provider with its own settings. `openrouter.yml` and the `openrouter` block of `free.yml` are independent: the tiers, the excludes and the models of 1 file do not apply to the other. A catalog rebuild reads each `discovery_url` 1 time, also when the 2 files have different API keys. It reads each LiteLLM catalog 1 time: Kilo and OpenRouter share the OpenRouter one. `pollinations.yml` holds Pollinations, with no block in `free.yml`, because Pollinations spends a balance that does not refill ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)).
 
 | Item | Rule |
 | --- | --- |

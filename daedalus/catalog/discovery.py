@@ -251,7 +251,8 @@ def read_providers(
   providers = get_config() if config is None else config
   found: list[tuple[str, dict[str, Any], dict[str, Any], bool]] = []
   skipped: list[str] = []
-  downloads: dict[tuple[str, tuple[tuple[str, str], ...]], dict[str, Any]] = {}
+  # 1 read per discovery URL: the other blocks of a provider use the same payload or error.
+  downloads: dict[str, dict[str, Any] | str] = {}
   for provider_name, raw in providers.items():
     if not isinstance(raw, dict):
       skipped.append(f"{provider_name}: not a mapping")
@@ -271,20 +272,18 @@ def read_providers(
       if not provider.get("discovery_url"):
         skipped.append(f"{provider_name}: no discovery_url")
         continue
-      # A provider file with the same URL and key as its main block reads the list 1 time.
-      source = (
-        provider["discovery_url"],
-        tuple(sorted(auth_headers(provider_name, provider).items())),
-      )
-      try:
-        payload = downloads.get(source) or read_pages(provider_name, provider, fetch)
-      except (httpx.HTTPError, ValueError) as error:
-        skipped.append(f"{provider_name}: {error}")
-        if failed is not None:
-          failed.append(provider_name)
-        continue
-      downloads[source] = payload
-      found.append((provider_name, provider, payload, is_file))
+      source = provider["discovery_url"]
+      if source not in downloads:
+        try:
+          downloads[source] = read_pages(provider_name, provider, fetch)
+        except (httpx.HTTPError, ValueError) as error:
+          downloads[source] = str(error)
+          skipped.append(f"{provider_name}: {error}")
+          if failed is not None and provider_name not in failed:
+            failed.append(provider_name)
+      payload = downloads[source]
+      if isinstance(payload, dict):
+        found.append((provider_name, provider, payload, is_file))
   return found, skipped
 
 
