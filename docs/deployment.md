@@ -4,13 +4,15 @@ The reference deployment is a Raspberry Pi 4B with 8 GB of RAM. The compose file
 
 ## Docker Compose
 
-The install scripts do a check of Docker and `.env`, then build and start the container. See the [README](../README.md#quick-start).
+The install scripts do a check of Docker and `.env`, then start the container. Compose pulls the Daedalus image. When the pull fails, Compose builds the image from the source. See the [README](../README.md#quick-start).
 
 The commands below are the same in cmd, PowerShell and bash.
 
 | Task | Command |
 | --- | --- |
-| Start or update | `docker compose up -d --build` |
+| Start | `docker compose up -d` |
+| Update | `git pull`, then `docker compose pull`, then `docker compose up -d` |
+| Build from the source | `docker compose up -d --build` |
 | Stop | `docker compose down` |
 | Log | `docker compose logs -f daedalus` |
 | Rebuild the catalog now | Click the Catalog chip in the dashboard header, or run `docker compose exec daedalus daedalus catalog` |
@@ -18,9 +20,21 @@ The commands below are the same in cmd, PowerShell and bash.
 | Item | Value |
 | --- | --- |
 | Container | `daedalus`, with a health check on `/health` |
+| Image | `ghcr.io/nemoe7/daedalus:latest`, for `linux/amd64` and `linux/arm64` |
 | Port | `3357` |
 | State | `./.daedalus-state` (model store, API keys, weights, sessions) |
 | Config | `./config`, read-write. The dashboard edits these files. |
+
+## Image release
+
+A pushed `v*` tag starts `.github/workflows/image.yml`. The workflow publishes `ghcr.io/nemoe7/daedalus:TAG` and `ghcr.io/nemoe7/daedalus:latest`. Other pushes do not build an image.
+
+| Task | Command |
+| --- | --- |
+| Release | `git tag v0.1.0`, then `git push origin v0.1.0` |
+| Use 1 release | Set `image:` of `daedalus` in `compose.yml` to `ghcr.io/nemoe7/daedalus:v0.1.0` |
+
+> Q: A new GHCR package can start as private. Then set it to public in the package settings, or run `docker login ghcr.io` on the Pi.
 
 ## Optional services
 
