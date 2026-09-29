@@ -76,8 +76,8 @@ gemini:
     gemini-3.8-flash: { rpm: 5, tpm: 250000 }
     gemma-4-26b-a4b-it: { rpm: 30, tpm: 16000 }
     gemma-4-31b-it: { rpm: 30, tpm: 16000 }
-    "gemini-3*-tts*": { mode: audio_speech, rpm: 3 }
-    "gemini-3*-transcribe": { mode: audio_transcription, rpm: 3 }
+    "gemini-3*-tts*": { mode: audio_speech, rpm: 3, tpm: 10000 }
+    "gemini-3*-transcribe": { mode: audio_transcription, rpm: 3, tpm: 10000 }
 
 groq:
   api_key: os.environ/GROQ_API_KEY
