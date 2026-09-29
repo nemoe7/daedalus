@@ -1,10 +1,10 @@
 # API
 
-Daedalus serves the OpenAI API on `http://HOST:3357/v1`.
+daedalus serves the OpenAI API on `http://HOST:3357/v1`.
 
 The tested clients are Kilo Code and Open WebUI.
 
-Kilo Code: so far, the best agentic harness for Daedalus. It has fine-grained tool access, a plugin system, and more.
+Kilo Code: so far, the best agentic harness for daedalus. It has fine-grained tool access, a plugin system, and more.
 
 Open WebUI: a general chat interface. A custom interface without the unused features is possible, but Open WebUI works well so far.
 
@@ -97,7 +97,7 @@ The plugin changes each provider that has the id `daedalus` or a `daedalus/` mod
 2. The Kilo auth store: the key from the custom provider dialog
 3. The `DAEDALUS_API_KEY` variable
 
-When Daedalus does not answer in 3 s, the plugin logs `[daedalus] ... fail open` and changes nothing.
+When daedalus does not answer in 3 s, the plugin logs `[daedalus] ... fail open` and changes nothing.
 
 Install: copy the file into the Kilo plugin folder, then restart Kilo.
 
@@ -130,7 +130,7 @@ Kilo cannot show the routed model for a custom provider. The **Requests** page a
 | --- | --- |
 | `messages` | Necessary. A list of objects. |
 | `stream` | Boolean. |
-| `stream_options` | Object. `include_usage` adds a usage chunk. Daedalus asks Groq and OpenRouter for the usage chunk in each stream, and removes it when the client did not ask for it. |
+| `stream_options` | Object. `include_usage` adds a usage chunk. daedalus asks Groq and OpenRouter for the usage chunk in each stream, and removes it when the client did not ask for it. |
 | `tools` | Models that cannot call tools leave the chain. |
 | `messages` with an `image_url` part | Models with `supports_vision` false or with no value leave the chain of a pool or `daedalus/auto`. A provider file can set `supports_vision: true` for a model. An image in an older message also counts. A direct `provider/slug` request does not change. |
 | `max_tokens`, `max_completion_tokens` | A value above the `max_output_tokens` of the model in the catalog drops to that value. |
@@ -139,9 +139,9 @@ Kilo cannot show the routed model for a custom provider. The **Requests** page a
 
 ## Endpoints for models that do not chat
 
-| Endpoint | Input | What Daedalus changes |
+| Endpoint | Input | What daedalus changes |
 | --- | --- | --- |
-| Embeddings | JSON: `input`, `dimensions`, `encoding_format` | The provider always sends float vectors. Daedalus makes the base64 form. |
+| Embeddings | JSON: `input`, `dimensions`, `encoding_format` | The provider always sends float vectors. daedalus makes the base64 form. |
 | Transcriptions | Multipart form: `file`, `language`, `prompt`, `response_format`, `temperature`, `timestamp_granularities[]` | Each provider gets only the fields that it accepts. |
 | Speech | JSON: `input`, `voice`, `instructions`, `response_format`, `speed` | The audio comes back with the provider media type. |
 | Images | JSON: `prompt`, `n`, `size`, `quality`, `style`, `response_format` | A native provider image comes back as a `data:` URL, or as `b64_json`. |
@@ -165,6 +165,6 @@ Errors use the OpenAI shape:
 | 502 | No model answered, or the provider answer was not valid |
 | 504 | A direct `provider/slug` request to a model with a `timeout` value got no answer until `timeouts.request`. See [Configuration](configuration.md#provider-files). |
 
-The dashboard **Requests** page shows the full provider error of each attempt. Daedalus removes the prompt text from provider errors.
+The dashboard **Requests** page shows the full provider error of each attempt. daedalus removes the prompt text from provider errors.
 
 A 502 means that the last model in the chain failed with a network error or a timeout. The client can only send the request again later. When the last model answers with a status such as 429, the client gets that status. Then wait until your provider quotas reset.

@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -28 560 560" width="128" height="128">
-<title>Daedalus</title>
+<title>daedalus</title>
 <style>.bow{fill:#1a1f36}@media (prefers-color-scheme:dark){.bow{fill:#e8ebf7}}</style>
 <defs><mask id="gap"><rect x="-4" y="-28" width="560" height="560" fill="#fff"/><line x1="73.7" y1="207.8" x2="469.7" y2="94.2" stroke="#000" stroke-width="28"/><line x1="54.0" y1="256.0" x2="486.0" y2="256.0" stroke="#000" stroke-width="28"/><line x1="73.7" y1="304.2" x2="469.7" y2="417.8" stroke="#000" stroke-width="28"/></mask></defs>
 <line x1="150" y1="64" x2="150" y2="448" stroke="#3b5bfd" stroke-width="10"/>

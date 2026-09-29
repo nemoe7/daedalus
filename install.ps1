@@ -1,4 +1,4 @@
-# Set up Daedalus and start it with Docker Compose. Outside a checkout, it downloads the files to ~\daedalus first.
+# Set up daedalus and start it with Docker Compose. Outside a checkout, it downloads the files to ~\daedalus first.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
@@ -36,7 +36,7 @@ $needDocker = -not (Get-Command docker -ErrorAction SilentlyContinue)
 $needFiles = -not (Test-Path -LiteralPath (Join-Path $dir 'compose.yml'))
 $plan = @()
 if ($needDocker) { $plan += 'Docker Desktop, with winget (it asks for admin rights, then a restart)' }
-if ($needFiles) { $plan += "The Daedalus files, to $dir" }
+if ($needFiles) { $plan += "The daedalus files, to $dir" }
 if (-not (Test-Path -LiteralPath (Join-Path $dir '.env'))) { $plan += "The settings file $dir\.env, with a new master key" }
 
 if ($plan.Count -gt 0) {
@@ -116,7 +116,7 @@ if ($dev) {
 docker @compose up -d
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-Write-Host 'Daedalus runs on http://localhost:3357/v1'
+Write-Host 'daedalus runs on http://localhost:3357/v1'
 Write-Host 'Dashboard: http://localhost:3357/ (user DAEDALUS_USERNAME or admin, password DAEDALUS_PASSWORD or DAEDALUS_MASTER_KEY)'
 if ($key) { Write-Host "Your new master key, also the dashboard password: $key (it is in $envFile)" -ForegroundColor Yellow }
 Write-Host "Add your provider API keys to $envFile, then run this script again."

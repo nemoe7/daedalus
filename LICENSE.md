@@ -1,4 +1,4 @@
-# Daedalus Noncommercial License 1.0.0
+# daedalus Noncommercial License 1.0.0
 
 <https://github.com/nemoe7/daedalus/blob/main/LICENSE.md>
 
@@ -32,7 +32,7 @@ If you distribute the software with changes, or a new work based on the software
 
 ## Name and Logo
 
-These terms do not grant any right to the name "Daedalus" or the Daedalus logo as trademarks. A changed copy that you distribute can keep the name, but it must say that it is changed, and it must not suggest that the licensor endorses it.
+These terms do not grant any right to the name "daedalus" or the daedalus logo as trademarks. A changed copy that you distribute can keep the name, but it must say that it is changed, and it must not suggest that the licensor endorses it.
 
 ## Third-Party Parts
 
