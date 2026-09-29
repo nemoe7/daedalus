@@ -224,16 +224,19 @@ const seconds = (value) => value == null ? "" : `${value.toFixed(3)}s`;
 const coolText = (c) => `cooldown ${timeLeft(Date.now() / 1000 + c.seconds) || "0s"} ${c.reason}`;
 
 // The effort that went to one model, where null means that daedalus dropped it.
-const sentText = (a) => (a.effort == null ? "dropped" : a.effort);
+// A native value of the level that the client asked for, such as thinkingLevel=low for low, shows only the level.
+function sentText(a, asked) {
+  if (a.effort == null) return "dropped";
+  const level = String(a.effort).split("=").pop().toLowerCase();
+  return asked && level === String(asked).toLowerCase() ? asked : a.effort;
+}
 
 // The effort that the client asked for, then the effort that went to the model that answered.
-// A native value of the same level, such as thinkingLevel=low for low, shows only the level.
 function effortCell(r) {
   const served = (r.attempts || []).filter((a) => a.result === "answered" && "effort" in a).pop();
   if (!served) return esc(r.effort || "-");
-  const sent = sentText(served);
-  const level = String(sent).split("=").pop().toLowerCase();
-  if (sent === r.effort || level === String(r.effort).toLowerCase()) return esc(r.effort);
+  const sent = sentText(served, r.effort);
+  if (sent === r.effort) return esc(r.effort);
   return `${esc(r.effort || "-")} <span class="from">${esc(sent)}</span>`;
 }
 
@@ -256,7 +259,7 @@ function chainText(r) {
     r.routed && `from=${r.routed}`,
     `fallbacks=${r.fallbacks ?? 0}`, r.retry && `retry=${r.retry}`, r.loop && `loop=${r.loop}`].filter(Boolean).join(" ");
   const steps = (r.attempts || []).map((a, i) =>
-    `${i + 1}. ${a.model} ${a.result} ${seconds(a.seconds)}`.trim() + ("effort" in a ? ` effort=${sentText(a)}` : "")
+    `${i + 1}. ${a.model} ${a.result} ${seconds(a.seconds)}`.trim() + ("effort" in a ? ` effort=${sentText(a, r.effort)}` : "")
       + (a.cooldown ? ` ${coolText(a.cooldown)}` : "")
       + (a.error ? `\n   ${a.error}` : ""));
   return [head, ...steps].join("\n");
@@ -270,7 +273,7 @@ function chainRows(r) {
     <li class="step ${a.result === "answered" ? "good" : "bad"}">
       <span class="num">${i + 1}.</span> <b>${esc(a.model)}</b>
       <span class="result">${esc(a.result)}</span> <span class="muted num">${seconds(a.seconds)}</span>
-      ${"effort" in a ? `<span class="from">effort ${esc(sentText(a))}</span>` : ""}
+      ${"effort" in a ? `<span class="from">effort ${esc(sentText(a, r.effort))}</span>` : ""}
       ${a.cooldown ? `<span class="from">${esc(coolText(a.cooldown))}</span>` : ""}
       ${a.error ? `<pre>${esc(a.error)}</pre>` : ""}
     </li>`).join("");
