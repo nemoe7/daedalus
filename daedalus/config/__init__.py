@@ -1,4 +1,4 @@
-"""Load the provider config from YAML and resolve env:NAME, db:NAME and os.environ/NAME inside any string."""
+"""Load the provider config from YAML and resolve env:NAME and db:NAME inside any string (legacy os.environ/NAME still works)."""
 
 import os
 import re
@@ -33,7 +33,7 @@ PROVIDER_KEYS = (
 )
 
 _config: dict[str, Any] | None = None
-# The values that the dashboard saved for db:NAME, env:NAME or os.environ/NAME. Saved wins for os.environ for backward compat.
+# The values that the dashboard saved for db:NAME, env:NAME (and legacy os.environ/NAME). Saved wins for legacy for backward compat.
 SAVED: dict[str, str] = {}
 
 
@@ -78,7 +78,7 @@ def load_saved() -> dict[str, str]:
 
 
 def expand(node: Any) -> Any:
-  """Replace every `env:NAME`, `db:NAME` and `os.environ/NAME` string in the tree with its value."""
+  """Replace every `env:NAME` and `db:NAME` string in the tree with its value (legacy `os.environ/NAME` still supported)."""
   if isinstance(node, str):
     if SAVED_PREFIX in node:
       node = resolve_saved(node)
@@ -131,7 +131,7 @@ def error_text(exc: Exception) -> str:
 
 
 def read_yaml(path: Path) -> dict[str, Any]:
-  """One YAML mapping, with `os.environ/` values resolved. Other content gives an empty mapping."""
+  """One YAML mapping, with `env:` / `db:` values resolved. Other content gives an empty mapping."""
   with path.open(encoding="utf-8") as handle:
     raw = load_yaml(handle)
   return expand(raw) if isinstance(raw, dict) else {}

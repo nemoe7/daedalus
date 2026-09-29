@@ -545,7 +545,7 @@ function renderEnv(rows) {
         <button class="ghost" type="submit">Save</button>
       </form></td>
       <td class="end">${r.state === "saved" ? `<button type="button" class="ghost danger" data-env-clear="${esc(r.name)}">Clear</button>` : ""}</td>
-    </tr>`).join("") : '<tr><td colspan="5" class="empty">No provider file uses env:NAME, db:NAME or os.environ/NAME.</td></tr>';
+    </tr>`).join("") : '<tr><td colspan="5" class="empty">No provider file uses env:NAME or db:NAME.</td></tr>';
 }
 
 async function refreshEnv() {
@@ -807,7 +807,7 @@ function providerCard(name, block) {
   return `<div class="card provider" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
     ${text("api_key", "API key", "env:NAME reads the environment variables, pasting your key stores it in the database.")}
     ${accountField}
-    ${field("Client keys", "daedalus key name = env:NAME or db:NAME or os.environ/NAME. That client uses this key, with its own cooldowns and rpm counts. A pasted key is stored as db:NAME.", `<div class="pills">${mapPills(block.client_keys, [...path, "client_keys"], "match", " = ")}</div>`)}
+    ${field("Client keys", "env:NAME reads the environment variables, pasting your key stores it in the database.", `<div class="pills">${mapPills(block.client_keys, [...path, "client_keys"], "match", " = ")}</div>`)}
     ${text("api_base", "API base", "Empty: the default, in gray")}
     ${text("api_type", "API type", "openai or gemini. Empty: the default, in gray")}
     ${text("discovery_url", "Discovery URL", "The model list URL. Empty: the default, in gray")}
