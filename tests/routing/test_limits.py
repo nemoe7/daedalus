@@ -89,6 +89,18 @@ def answer(request: httpx.Request) -> httpx.Response:
   return httpx.Response(404)
 
 
+def test_neurons() -> None:
+  """An empty group list with no errors is 0 neurons. An error or no account shows nothing."""
+  empty = {
+    "data": {"viewer": {"accounts": [{"aiInferenceAdaptiveGroups": []}]}},
+    "errors": None,
+  }
+  assert limits.neuron_items(empty) == [("Neurons today", "0 of 10,000")]
+  refused = {"data": None, "errors": [{"message": "not authorized for that account"}]}
+  assert limits.neuron_items(refused) == []
+  assert limits.neuron_items({"data": {"viewer": {"accounts": []}}}) == []
+
+
 async def test_check(cooldowns: Cooldowns) -> None:
   """Each keyed provider with a balance endpoint shows its values. A refused read or no key shows nothing."""
   config = {
