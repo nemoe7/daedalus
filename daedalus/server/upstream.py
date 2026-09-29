@@ -184,14 +184,15 @@ async def attempt(
   body: dict[str, Any],
   config: dict[str, Any],
   sent: dict[str, Any] | None = None,
+  client: str | None = None,
 ) -> tuple[providers.OpenAIProvider, httpx.Response]:
   """Send one candidate request, and fail on an upstream error status.
 
-  When `sent` is a dict, it gets the reasoning effort that went upstream.
+  When `sent` is a dict, it gets the reasoning effort that went upstream. `client` picks its provider key.
   """
   asked = "reasoning_effort" in body
   body = without_reasoning(candidate, with_defaults(candidate, body))
-  provider, url, payload, headers = providers.prepare(candidate, body, config)
+  provider, url, payload, headers = providers.prepare(candidate, body, config, client)
   effort = provider.effort(payload)
   if payload.get("stream") and provider.stream_usage:
     payload = {

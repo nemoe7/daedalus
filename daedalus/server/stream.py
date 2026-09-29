@@ -171,13 +171,13 @@ async def relay(
       if context.too_large(candidate, tokens, limits):
         continue
       if PACING:
-        if PACING.full(candidate, paces):
+        if PACING.full(pin.lane(candidate), paces):
           continue
-        PACING.record(candidate, tokens)
+        PACING.record(pin.lane(candidate), tokens)
       started, effort = time.perf_counter(), {}
       try:
         provider, response = await upstream.attempt(
-          candidate, continued, config, effort
+          candidate, continued, config, effort, pin.client
         )
         wait = router.model_wait(config, candidate, upstream.WAIT_SECONDS)
         events = sse_data(provider.stream(response, candidate, True, wait), wait)

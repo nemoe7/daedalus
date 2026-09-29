@@ -429,7 +429,7 @@ function renderModels() {
       <td class="hide-sm num muted">${tokens(m.max_input_tokens)}</td>
       <td class="mid">${m.mode === "chat" ? yesNo(m.tools) : dash}</td>
       <td class="hide-sm mid">${m.mode === "chat" ? reasoningCell(m) : dash}</td>
-      <td class="num">${coolCell(m.cooldown)}</td>
+      <td class="num">${coolCells(m)}</td>
       <td>${m.weight == null ? dash
         : `<div class="weight">${weightBar(m.weight)}<span class="num">${m.weight.toFixed(2)}</span></div>`}</td>
     </tr>`).join("") : `<tr><td colspan="8" class="empty">${empty}</td></tr>`;
@@ -447,6 +447,13 @@ const coolCell = (until) => {
   const left = until ? timeLeft(until) : null;
   return left ? `<span class="cool" data-until="${until}" title="Until ${esc(dateTime(until))}">${left}</span>` : dash;
 };
+// The cooldown of the model, and of each client with its own provider key, such as "kilo 4m 05s".
+function coolCells(m) {
+  const clients = Object.entries(m.client_cooldowns || {}).filter(([, until]) => timeLeft(until))
+    .map(([client, until]) => `<div><small>${esc(client)}</small> ${coolCell(until)}</div>`);
+  if (!clients.length) return coolCell(m.cooldown);
+  return (timeLeft(m.cooldown || 0) ? `<div>${coolCell(m.cooldown)}</div>` : "") + clients.join("");
+}
 // The live clock of each cooldown cell.
 function tickCooldowns() {
   for (const cell of document.querySelectorAll(".cool[data-until]")) {
@@ -477,7 +484,7 @@ async function refreshKeys() {
 }
 
 // The block keys that the form edits. The YAML view edits the other keys.
-const FORM_KEYS = ["api_key", "api_base", "api_type", "discovery_url", "discovery_match", "exclude", "tier", "models"];
+const FORM_KEYS = ["api_key", "client_keys", "api_base", "api_type", "discovery_url", "discovery_match", "exclude", "tier", "models"];
 // The keys that a model override sets but the provider level does not.
 const MODEL_ONLY = ["pool", "timeout"];
 const TIERS = ["TIER-A", "TIER-B", "TIER-C", "TIER-D"];
@@ -504,7 +511,7 @@ function pruned(blocks) {
     if (block.tier && typeof block.tier === "object") {
       for (const tier of Object.keys(block.tier)) if (empty(block.tier[tier])) delete block.tier[tier];
     }
-    for (const key of ["discovery_match", "exclude", "tier", "models"]) if (key in block && empty(block[key])) delete block[key];
+    for (const key of ["client_keys", "discovery_match", "exclude", "tier", "models"]) if (key in block && empty(block[key])) delete block[key];
   }
   return out;
 }
@@ -614,6 +621,7 @@ function providerCard(name, block) {
   const values = others.map((key) => pill(`${key}: ${shown(block[key])}`, path, key)).join("") + adder(path, "column", "+ key");
   return `<div class="card provider" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
     ${text("api_key", "API key", "os.environ/NAME reads an environment variable")}
+    ${field("Client keys", "Daedalus key name = provider key. That client uses this key, with its own cooldowns and rpm counts.", `<div class="pills">${mapPills(block.client_keys, [...path, "client_keys"], "match", " = ")}</div>`)}
     ${text("api_base", "API base", "Empty: the default, in gray")}
     ${text("api_type", "API type", "openai or gemini. Empty: the default, in gray")}
     ${text("discovery_url", "Discovery URL", "The model list URL. Empty: the default, in gray")}

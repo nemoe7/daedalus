@@ -20,7 +20,7 @@ A key that shows 2 times in 1 map of a config file stops the start. The error gi
 | Item | Rule |
 | --- | --- |
 | Name | The file name is the provider name: `openrouter.yml` holds `openrouter`. |
-| Provider key | A file with no provider key (`api_key`, `api_base`, `tier`, `models`, `exclude`, `discovery_url`, `discovery_match`, `api_type`) is not a provider file. |
+| Provider key | A file with no provider key (`api_key`, `client_keys`, `api_base`, `tier`, `models`, `exclude`, `discovery_url`, `discovery_match`, `api_type`) is not a provider file. |
 | Discovery | Each file discovers the models of its provider with its own settings. |
 | Models | A file keeps only the models that match a key of its `models` block. A key of `"*"` keeps each model of that provider. |
 | Values | For a model that a file keeps, only that file sets the values. The `free.yml` block does not apply to it. |
@@ -57,7 +57,7 @@ Provider keys:
 | `POLLINATIONS_API_KEY` | Pollinations: the secret `sk_` key from <https://enter.pollinations.ai> |
 | `ZAI_API_KEY` | Z.ai |
 
-Daedalus skips each provider that has no key.
+Daedalus skips each provider that has no key. A `client_keys` value can read other names, for example `GEMINI_API_KEY_KILO`.
 
 ## Router settings
 
@@ -109,6 +109,7 @@ groq:
 | Key | Use |
 | --- | --- |
 | `api_key` | Necessary. With no key, the models of the provider leave each chain and pool, and a direct request gets HTTP 400. |
+| `client_keys` | Optional. A provider key for each Daedalus key name. See [Client keys](#client-keys). |
 | `api_base` | Optional. Each provider has a default. |
 | `api_type` | Optional. `openai` or `gemini`. |
 | `discovery_url` | Optional. The model list URL. Each provider has a default. |
@@ -132,6 +133,31 @@ Other keys of a `models` entry:
 | `supports_vision` | `true` or `false`. An image request from a pool or `daedalus/auto` skips each model without a true value. |
 
 When 2 entries match 1 model, the last entry in the file sets the key. A model key at the provider level, for example `reasoning_effort: high` next to `api_key`, sets the value for each model of the provider.
+
+### Client keys
+
+`client_keys` gives a client its own provider key, for example its own Gemini project. The map key is the name of a Daedalus key from the [API keys](dashboard.md#api-keys) page.
+
+```yaml
+gemini:
+  api_key: os.environ/GEMINI_API_KEY # discovery, the master key and the other clients
+  client_keys:
+    kilo: os.environ/GEMINI_API_KEY_KILO
+    owui: os.environ/GEMINI_API_KEY_OWUI
+```
+
+| Item | Value |
+| --- | --- |
+| Client in the map | Its requests to the provider use its key. It has its own cooldowns and its own `rpm` and `tpm` counts. See [Client lanes](architecture.md#client-lanes). |
+| Other clients | They use `api_key`, and they share 1 set of cooldowns and counts. |
+| Weights, pins, discovery | 1 set for all clients |
+
+To set up 2 clients:
+
+1. On the dashboard **API keys** page, make the keys `kilo` and `owui`. Give each client its key.
+2. In `.env`, set `GEMINI_API_KEY_KILO` and `GEMINI_API_KEY_OWUI`.
+3. Add `client_keys` to the provider file, or add it in the **Client keys** field of the Providers page.
+4. Run `docker compose up -d`. It makes the container again with the new `.env` values. `docker compose restart` keeps the old values.
 
 A model with a `mode` other than `chat` never goes into a chat chain. Use `embedding`, `audio_transcription`, `audio_speech` or `image_generation`. A model with no mode goes into the chat chains. The `audio_transcription` models make the `daedalus/graphos` pool, and the `image_generation` models make the `daedalus/photos` pool. Set `supports_vision: true` on an `image_generation` model that edits images: only these models take `POST /v1/images/edits`.
 

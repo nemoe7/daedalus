@@ -17,6 +17,7 @@ FILE_KEY = "_file"
 # A provider file names at least 1 of these keys. The settings file names none of them.
 PROVIDER_KEYS = (
   "api_key",
+  "client_keys",
   "api_base",
   "api_type",
   "discovery_url",
@@ -154,6 +155,13 @@ def block_for(config: Mapping[str, Any], name: str, slug: str) -> dict[str, Any]
   if found is not None and file_takes(found, slug):
     return found
   return main_block(provider)
+
+
+def client_key(block: Any, client: str | None) -> str | None:
+  """The provider key that the `client_keys` of a block give a client, or None."""
+  keys = block.get("client_keys") if isinstance(block, dict) and client else None
+  found = keys.get(client) if isinstance(keys, dict) else None
+  return found if isinstance(found, str) and found else None
 
 
 def get_config() -> dict[str, Any]:

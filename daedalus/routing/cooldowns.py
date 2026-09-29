@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from daedalus.routing import lanes
 from daedalus.store.database import open_db
 
 FIRST, LONGEST = 60.0, 21600.0
@@ -60,8 +61,9 @@ def gemini_details(body: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def daily_end(model: str, body: dict[str, Any], now: float) -> tuple[str, float] | None:
-  """Rule 1: the cooldown key and end of a daily limit, or None."""
+  """Rule 1: the cooldown key and end of a daily limit, or None. The model can be a lane."""
   provider = model.partition("/")[0]
+  client = lanes.split(model)[1]
   if provider == "gemini":
     for detail in gemini_details(body):
       for violation in detail.get("violations") or []:
@@ -77,7 +79,8 @@ def daily_end(model: str, body: dict[str, Any], now: float) -> tuple[str, float]
       else []
     )
     if CLOUDFLARE_DAILY in codes:
-      return "cloudflare/*", next_midnight(now, UTC)
+      whole = lanes.join("cloudflare/*", client) if client else "cloudflare/*"
+      return whole, next_midnight(now, UTC)
   return None
 
 
@@ -118,8 +121,10 @@ def reset_seconds(
 
 
 def key_of(model: str) -> list[str]:
-  """The cooldown keys that apply to one model."""
-  return [model, f"{model.partition('/')[0]}/*"]
+  """The cooldown keys that apply to one model or lane: its own key and its provider key."""
+  client = lanes.split(model)[1]
+  whole = f"{model.partition('/')[0]}/*"
+  return [model, lanes.join(whole, client) if client else whole]
 
 
 class Cooldowns:
@@ -156,6 +161,17 @@ class Cooldowns:
     """The cooldown end of one model, from its own row or its provider row."""
     found = [ends[key] for key in key_of(model) if key in ends]
     return max(found) if found else None
+
+  @staticmethod
+  def clients(model: str, ends: Mapping[str, float]) -> dict[str, float]:
+    """The cooldown end of each client lane of one model, from its own rows or its provider rows."""
+    whole = f"{model.partition('/')[0]}/*"
+    found: dict[str, float] = {}
+    for key, end in ends.items():
+      base, client = lanes.split(key)
+      if client and base in (model, whole):
+        found[client] = max(end, found.get(client, 0.0))
+    return found
 
   def start(
     self, model: str, headers: Mapping[str, str], body: bytes
