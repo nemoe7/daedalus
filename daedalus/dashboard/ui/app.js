@@ -712,6 +712,14 @@ function providerCard(name, block) {
     return `<small class="${row.state === "missing" ? "out" : row.state === "env" ? "muted" : ""}">${esc(label)}</small>`;
   };
   const text = (key, label, hint) => {
+    if (key === "api_key" && typeof block[key] === "string" && block[key].startsWith("os.environ/")) {
+      const envName = block[key].slice("os.environ/".length);
+      const row = state.env.find((r) => r.name === envName);
+      const ph = row?.end ? `•••• ${row.end}` : row?.state === "saved" ? "Saved — paste new key to change" : row?.state === "env" ? "From environment" : defaults[key] ?? "";
+      const extra = envHint();
+      return field(label, hint, `<input class="text" type="password" spellcheck="false" autocomplete="off"
+      data-set='${esc(JSON.stringify([...path, key]))}' value="" placeholder="${esc(ph)}">${extra}`);
+    }
     const extra = key === "api_key" ? envHint() : "";
     return field(label, hint, `<input class="text" type="text" spellcheck="false" autocomplete="off"
     data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(block[key] ?? "")}" placeholder="${esc(defaults[key] ?? "")}">${extra}`);
@@ -729,8 +737,8 @@ function providerCard(name, block) {
   const others = Object.keys(block).filter((key) => !FORM_KEYS.includes(key) && key !== "_file");
   const values = others.map((key) => pill(`${key}: ${shown(block[key])}`, path, key)).join("") + adder(path, "column", "+ key");
   return `<div class="card provider" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
-    ${text("api_key", "API key", "os.environ/NAME reads the saved value, else the environment variable. A pasted key moves to Keys and values.")}
-    ${field("Client keys", "daedalus key name = os.environ/NAME. That client uses this key, with its own cooldowns and rpm counts. A pasted key moves to Keys and values.", `<div class="pills">${mapPills(block.client_keys, [...path, "client_keys"], "match", " = ")}</div>`)}
+    ${text("api_key", "API key", "os.environ/NAME reads the saved value, else the environment variable. A pasted key is stored in the database.")}
+    ${field("Client keys", "daedalus key name = os.environ/NAME. That client uses this key, with its own cooldowns and rpm counts. A pasted key is stored in the database.", `<div class="pills">${mapPills(block.client_keys, [...path, "client_keys"], "match", " = ")}</div>`)}
     ${text("api_base", "API base", "Empty: the default, in gray")}
     ${text("api_type", "API type", "openai or gemini. Empty: the default, in gray")}
     ${text("discovery_url", "Discovery URL", "The model list URL. Empty: the default, in gray")}
@@ -863,8 +871,12 @@ function setText(input) {
   const path = JSON.parse(input.dataset.set);
   const parent = parentOf(path, {});
   const key = path[path.length - 1];
-  if (input.value.trim()) parent[key] = input.value.trim();
-  else delete parent[key];
+  const trimmed = input.value.trim();
+  if (trimmed) parent[key] = trimmed;
+  else {
+    if (key === "api_key" && typeof parent[key] === "string" && parent[key].startsWith("os.environ/")) return;
+    delete parent[key];
+  }
   renderFiles();
 }
 
