@@ -22,52 +22,28 @@ Daedalus is for personal use only. Do not share it with other users, because the
 
 ## Quick start
 
-1. Install Docker with Compose v2.
-2. Copy `.env.example` to `.env`.
+1. Run the install command. First, it shows what it installs or downloads and asks `[y/N]`. Then it installs Docker if Docker is missing. It downloads the Daedalus files to the `daedalus` folder in your home folder and makes `.env` with a new master key. Then it starts Daedalus and shows the master key.
 
-   cmd:
-
-   ```cmd
-   copy .env.example .env
-   ```
-
-   PowerShell:
-
-   ```powershell
-   Copy-Item .env.example .env
-   ```
-
-   bash:
-
-   ```bash
-   cp .env.example .env
-   ```
-
-3. In `.env`, set `DAEDALUS_MASTER_KEY` (16 or more characters, no spaces) and the provider keys that you have.
-4. Run the install script. It pulls the image and starts the container.
-
-   cmd:
+   cmd or PowerShell:
 
    ```cmd
-   install.cmd
+   powershell -NoProfile -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/nemoe7/daedalus/main/install.ps1 | iex"
    ```
 
-   PowerShell:
-
-   ```powershell
-   .\install.ps1
-   ```
-
-   bash:
+   bash (Linux or Raspberry Pi):
 
    ```bash
-   ./install.sh
+   curl -fsSL https://raw.githubusercontent.com/nemoe7/daedalus/main/install.sh | bash
    ```
 
-   To build the image from the source, add `--dev`, for example `install.cmd --dev`. The script then uses `compose.dev.yml`.
+   On Windows, winget installs Docker Desktop. Restart Windows, start Docker Desktop once, then run the command again. On Linux, the official script `get.docker.com` installs Docker.
 
-5. Open the dashboard at `http://localhost:3357/`. The user is `DAEDALUS_USERNAME`, else `admin`. The password is `DAEDALUS_PASSWORD`, else `DAEDALUS_MASTER_KEY`.
-6. On the **API keys** page, make a key for each client.
+2. Add the provider keys that you have to `.env` in the `daedalus` folder. Then run the install script in that folder again: `install.cmd`, `.\install.ps1` or `./install.sh`.
+
+   In a git checkout, the install scripts use the checkout folder. To build the image from the source, add `--dev`, for example `install.cmd --dev`. The script then uses `compose.dev.yml`.
+
+3. Open the dashboard at `http://localhost:3357/`. The user is `DAEDALUS_USERNAME`, else `admin`. The password is `DAEDALUS_PASSWORD`, else `DAEDALUS_MASTER_KEY`.
+4. On the **API keys** page, make a key for each client.
 
 | Client setting | Value |
 | --- | --- |
