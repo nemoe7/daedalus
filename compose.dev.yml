@@ -1,6 +1,179 @@
-# Builds Daedalus from the source: docker compose -f compose.yml -f compose.dev.yml up -d
+# A copy of compose.yml that builds Daedalus from the source. Keep the 2 files in step.
+# Start: docker compose -f compose.dev.yml up -d, or install --dev
 services:
   daedalus:
     image: daedalus:dev
     build: .
-    pull_policy: build
+    pull_policy: build # a new build at each start
+    container_name: daedalus
+    user: "${DAEDALUS_UID:-1000}:${DAEDALUS_GID:-1000}"
+    environment:
+      DAEDALUS_HOST: 0.0.0.0
+      DAEDALUS_PORT: 3357 # keep the container port below in step
+      # Daedalus sends the messages here first. When Headroom does not run, the original messages go on.
+      HEADROOM_URL: ${HEADROOM_URL-http://headroom:8787}
+    ports:
+      - "3357:3357"
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./.daedalus-state:/app/.daedalus-state
+      - ./config:/app/config # read-write: the dashboard edits and reloads these files
+    restart: unless-stopped
+
+  # Optional profiles. Set COMPOSE_PROFILES in .env, or use: docker compose --profile NAME up -d
+
+  open-webui:
+    profiles: [webui]
+    image: ghcr.io/open-webui/open-webui:main-slim
+    container_name: daedalus-webui
+    environment:
+      OPENAI_API_BASE_URL: http://daedalus:3357/v1
+      OPENAI_API_KEY: ${OPENWEBUI_API_KEY:-${DAEDALUS_MASTER_KEY:-}}
+      ENABLE_OLLAMA_API: "false"
+      # Sends X-OpenWebUI-Chat-Id, so a try again on daedalus/auto moves up 1 tier.
+      ENABLE_FORWARD_USER_INFO_HEADERS: "true"
+      # Keeps the logins after an image update. Empty: a new key in each new container.
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:-}
+      AIOHTTP_CLIENT_TIMEOUT: "600" # keep at or above timeouts.request
+      TASK_MODEL_EXTERNAL: daedalus/auto
+      # Audio and images use their own URL and key. Without them, they go to api.openai.com.
+      AUDIO_STT_ENGINE: openai
+      AUDIO_STT_OPENAI_API_BASE_URL: http://daedalus:3357/v1
+      AUDIO_STT_OPENAI_API_KEY: ${OPENWEBUI_API_KEY:-${DAEDALUS_MASTER_KEY:-}}
+      AUDIO_STT_MODEL: daedalus/graphos
+      ENABLE_IMAGE_GENERATION: "true"
+      IMAGES_OPENAI_API_BASE_URL: http://daedalus:3357/v1
+      IMAGES_OPENAI_API_KEY: ${OPENWEBUI_API_KEY:-${DAEDALUS_MASTER_KEY:-}}
+      IMAGE_GENERATION_MODEL: daedalus/photos
+      ENABLE_IMAGE_EDIT: "true"
+      IMAGE_EDIT_ENGINE: openai
+      IMAGES_EDIT_OPENAI_API_BASE_URL: http://daedalus:3357/v1
+      IMAGES_EDIT_OPENAI_API_KEY: ${OPENWEBUI_API_KEY:-${DAEDALUS_MASTER_KEY:-}}
+      IMAGE_EDIT_MODEL: daedalus/photos
+      # Files and memory: main-slim has no local embedding model and supports only pgvector.
+      VECTOR_DB: pgvector
+      PGVECTOR_DB_URL: postgresql://openwebui:${OPENWEBUI_DB_PASSWORD:-openwebui}@webui-db:5432/openwebui
+      PGVECTOR_INITIALIZE_MAX_VECTOR_LENGTH: "1024" # the size of a mistral-embed vector
+      RAG_EMBEDDING_ENGINE: openai
+      RAG_OPENAI_API_BASE_URL: http://daedalus:3357/v1
+      RAG_OPENAI_API_KEY: ${OPENWEBUI_API_KEY:-${DAEDALUS_MASTER_KEY:-}}
+      RAG_EMBEDDING_MODEL: mistral/mistral-embed
+      RAG_EMBEDDING_BATCH_SIZE: "32" # chunks per request, below the free Mistral limits
+      ENABLE_ASYNC_EMBEDDING: "false" # 1 request at a time, so fewer 429 errors
+      # Tika in the tika profile reads PDF and Office files, with OCR for scanned pages.
+      # Without it, plain text files still work.
+      CONTENT_EXTRACTION_ENGINE: tika
+      TIKA_SERVER_URL: http://tika:9998
+      # Web search goes to SearXNG in the search profile.
+      ENABLE_WEB_SEARCH: "true"
+      WEB_SEARCH_ENGINE: searxng
+      SEARXNG_QUERY_URL: http://searxng:8080/search?q=<query>
+      # New chats start with Web Search and Code Interpreter on, and the model decides when to use them.
+      # The other capabilities are the Open WebUI defaults.
+      DEFAULT_MODEL_METADATA: >-
+        {"capabilities": {"file_context": true, "vision": true, "file_upload": true,
+        "web_search": true, "image_generation": true, "code_interpreter": true, "terminal": true,
+        "citations": true, "status_updates": true, "memory": true, "builtin_tools": true},
+        "defaultFeatureIds": ["web_search", "code_interpreter"]}
+    ports:
+      - "3000:8080"
+    volumes:
+      - open-webui:/app/backend/data
+    depends_on:
+      daedalus:
+        condition: service_started
+      webui-db:
+        condition: service_healthy
+      tika:
+        condition: service_started
+        required: false # the tika profile is optional
+    restart: unless-stopped
+
+  webui-db:
+    profiles: [webui]
+    image: pgvector/pgvector:0.8.6-pg18-trixie
+    container_name: daedalus-webui-db
+    environment:
+      POSTGRES_USER: openwebui
+      POSTGRES_PASSWORD: ${OPENWEBUI_DB_PASSWORD:-openwebui}
+      POSTGRES_DB: openwebui
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "openwebui", "-d", "openwebui"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - webui-db:/var/lib/postgresql # PostgreSQL 18 keeps its data below this folder
+    restart: unless-stopped # no port: only Open WebUI connects to it
+
+  tika:
+    profiles: [tika]
+    image: apache/tika:3.3.0.0-full
+    container_name: daedalus-tika
+    command: ["-noFork"] # 1 Java process instead of a watchdog and a parser
+    environment:
+      # When a file uses all the heap, Java stops and Docker starts Tika again.
+      JAVA_TOOL_OPTIONS: -Xmx512m -XX:+ExitOnOutOfMemoryError
+    restart: unless-stopped # no port: only Open WebUI connects to it
+
+  searxng:
+    profiles: [search]
+    image: searxng/searxng:2026.9.25-12f8b6515
+    container_name: daedalus-searxng
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-}
+      FORCE_OWNERSHIP: "false" # the settings file is read-only
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+      - searxng:/var/cache/searxng
+    restart: unless-stopped # no port: only Open WebUI connects to it
+
+  headroom:
+    profiles: [headroom]
+    image: ghcr.io/headroomlabs-ai/headroom:0.39.1-slim # distroless: no shell
+    container_name: daedalus-headroom
+    command: ["--host", "0.0.0.0", "--port", "8787"]
+    environment:
+      HEADROOM_COMPRESS_ALLOW_REMOTE: "1" # else Headroom answers the Daedalus container with 404
+      HEADROOM_TELEMETRY: "off"
+      HEADROOM_BEACON: "off" # the anonymous upload, on by default
+      HEADROOM_UPDATE_CHECK: "off"
+      HOME: /home/nonroot
+      HEADROOM_WORKSPACE_DIR: /home/nonroot/.headroom
+    volumes:
+      - headroom:/home/nonroot # the image user owns this folder, so the new volume is writable
+    restart: unless-stopped # no port: only Daedalus connects to it
+
+  tailscale:
+    profiles: [tailscale]
+    image: tailscale/tailscale:latest
+    container_name: daedalus-tailscale
+    hostname: ${TS_HOSTNAME:-daedalus}
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_HOSTNAME: ${TS_HOSTNAME:-daedalus}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/serve.json # tailnet only: :443 to Daedalus, :8443 to Open WebUI
+      TS_AUTH_ONCE: "true" # log in with TS_AUTHKEY only when the state has no login
+      TS_ENABLE_HEALTH_CHECK: "true"
+      TS_LOCAL_ADDR_PORT: 127.0.0.1:9002
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9002/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - tailscale:/var/lib/tailscale
+      - ./tailscale:/config:ro
+    depends_on:
+      - daedalus
+    restart: unless-stopped
+
+volumes:
+  open-webui:
+  webui-db:
+  searxng:
+  headroom:
+  tailscale:
