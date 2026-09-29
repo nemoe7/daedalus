@@ -1,4 +1,4 @@
-"""The saved_env table: values for os.environ/NAME that the dashboard saves."""
+"""The saved_env table: values for db:NAME that the dashboard saves."""
 
 import sqlalchemy as sa
 from alembic import op

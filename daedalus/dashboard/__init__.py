@@ -203,7 +203,7 @@ def config_files() -> tuple[Path, ...]:
   return (main, *config.provider_files(main))
 
 
-# The longest value that the dashboard saves for 1 db:NAME or os.environ/NAME.
+# The longest value that the dashboard saves for 1 db:NAME or env:NAME.
 MAX_VALUE = 4096
 
 
@@ -214,7 +214,7 @@ def env_name(provider: str, client: str | None = None) -> str:
 
 
 def env_tokens(node: Any) -> list[str]:
-  """The names of the env:NAME, db:NAME and os.environ/NAME tokens in the values of a YAML tree."""
+  """The names of the env:NAME and db:NAME tokens in the values of a YAML tree (legacy os.environ/NAME included)."""
   if isinstance(node, str):
     return (
       config.ENV_PATTERN.findall(node)
@@ -229,7 +229,7 @@ def env_tokens(node: Any) -> list[str]:
 
 
 def env_names() -> dict[str, list[str]]:
-  """Each env:NAME, db:NAME and os.environ/NAME of the provider files and of the defaults of the providers in use, with the places that use it."""
+  """Each env:NAME and db:NAME of the provider files and of the defaults of the providers in use, with the places that use it."""
   found: dict[str, list[str]] = {}
 
   def add(name: str, place: str) -> None:
@@ -286,7 +286,7 @@ def env_rows() -> list[dict[str, Any]]:
 
 
 def raw_value(value: Any) -> bool:
-  """Tell if a key field holds a key itself, not an env:NAME, db:NAME or os.environ/NAME token."""
+  """Tell if a key field holds a key itself, not an env:NAME or db:NAME token."""
   return (
     isinstance(value, str)
     and bool(value.strip())
@@ -759,7 +759,7 @@ def routes(
     if name not in env_names():
       return failure(
         400,
-        "No provider file uses os.environ/ with this name.",
+        "No provider file uses this name.",
         "invalid_request_error",
       )
     value = value.strip() if isinstance(value, str) else ""
