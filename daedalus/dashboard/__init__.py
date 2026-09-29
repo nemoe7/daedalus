@@ -365,7 +365,11 @@ def new_file_text(name: str) -> str:
   """The text of a new `{provider}.yml` file for one provider name."""
   env = env_name(name).removesuffix("_API_KEY")
   known = name in providers.PROVIDERS
-  return NEW_FILE + NEW_KEY.format(env=env) + ("" if known else NEW_BASE) + NEW_MODELS
+  text = NEW_FILE + NEW_KEY.format(env=env)
+  if name == "cloudflare":
+    text += "account_id: env:CLOUDFLARE_ACCOUNT_ID\n"
+  text += ("" if known else NEW_BASE) + NEW_MODELS
+  return text
 
 
 def form_blocks(path: Path, text: str) -> tuple[dict[str, Any] | None, str | None]:

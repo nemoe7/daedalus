@@ -1,5 +1,6 @@
 cloudflare:
   api_key: env:CLOUDFLARE_API_KEY
+  account_id: env:CLOUDFLARE_ACCOUNT_ID
   # After the order 1 models: the daily Neurons go to images and transcription first.
   order: 2
   discovery_match:
