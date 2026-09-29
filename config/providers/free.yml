@@ -164,9 +164,6 @@ openrouter:
       - "*" # every other model; a more specific pattern wins
     TIER-C:
       - "liquid/lfm-2.5-2.6b*"
-  models:
-    "*gemma-4-26b-a4b-it:free": { reasoning_effort: low }
-    "*gemma-4-31b-it:free": { reasoning_effort: low }
 
 z-ai:
   api_key: os.environ/ZAI_API_KEY
