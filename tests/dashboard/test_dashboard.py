@@ -19,6 +19,7 @@ CONFIG = {
     "api_key": "k",
     "api_base": "https://p.test/v1",
     "tier": {"TIER-A": ["big"], "TIER-C": ["small"]},
+    "models": {"small": {"order": 3}},
   }
 }
 MASTER = "master-key-0123456789"
@@ -168,7 +169,9 @@ def test_data(client: TestClient) -> None:
     "weight": 1.0,
     "cooldown": None,
     "client_cooldowns": {},
+    "order": 1,
   }, models[0]
+  assert models[1]["order"] == 3, "the order of each model"
   api.COOLDOWNS.start("p/small", {"retry-after": "90"}, b"")
   api.COOLDOWNS.start("p/small#kilo", {"retry-after": "30"}, b"")
   row = client.get("/ui/api/models").json()[1]

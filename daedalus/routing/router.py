@@ -103,19 +103,21 @@ _ORDER_CACHE: dict[str, int] = {}
 _ORDER_CONFIG: list[Mapping[str, Any] | None] = [None]
 
 
-def by_order(config: Mapping[str, Any], groups: list[list[str]]) -> list[list[str]]:
-  """Each group split by the model order, the lowest order first."""
+def cached_order(config: Mapping[str, Any], model: str) -> int:
+  """The `order` of a model, from a cache that a new config clears."""
   if _ORDER_CONFIG[0] is not config:
     _ORDER_CACHE.clear()
     _ORDER_CONFIG[0] = config
+  if model not in _ORDER_CACHE:
+    _ORDER_CACHE[model] = model_order(config, model)
+  return _ORDER_CACHE[model]
+
+
+def by_order(config: Mapping[str, Any], groups: list[list[str]]) -> list[list[str]]:
+  """Each group split by the model order, the lowest order first."""
   split: list[list[str]] = []
   for group in groups:
-    orders = [
-      _ORDER_CACHE[m]
-      if m in _ORDER_CACHE
-      else _ORDER_CACHE.setdefault(m, model_order(config, m))
-      for m in group
-    ]
+    orders = [cached_order(config, m) for m in group]
     for level in sorted(set(orders)):
       split.append(
         [m for m, found in zip(group, orders, strict=True) if found == level]
