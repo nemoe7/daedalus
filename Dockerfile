@@ -1,7 +1,8 @@
 FROM python:3.12-slim
 
 # uv installs into /app/.venv with the image Python, without the dev group and without a cache.
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
+# uv compiles the bytecode of the packages 1 time, so a start does not compile them again.
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 UV_COMPILE_BYTECODE=1 \
   UV_NO_DEV=1 UV_NO_CACHE=1 UV_PYTHON_DOWNLOADS=never PATH="/app/.venv/bin:$PATH"
 WORKDIR /app
 
