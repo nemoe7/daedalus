@@ -256,8 +256,11 @@ def read_providers(
     if not isinstance(raw, dict):
       skipped.append(f"{provider_name}: not a mapping")
       continue
-    blocks = [(settings(provider_name, main_block(raw) or {}), False)]
-    file = file_block(raw)
+    main, file = main_block(raw), file_block(raw)
+    blocks = []
+    # A provider with only a provider file has no main block to discover.
+    if main is not None or file is None:
+      blocks.append((settings(provider_name, main or {}), False))
     if file is not None:
       # A provider file discovers with its own settings, and takes its own models.
       blocks.append((settings(provider_name, file), True))

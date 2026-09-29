@@ -38,6 +38,7 @@ def test_shipped_block(monkeypatch: pytest.MonkeyPatch) -> None:
   shipped = {"pollinations": loaded["pollinations"]}
   rows, skipped = discovery.build_rows(shipped, listing)
   assert list(rows) == list(IMAGES), (rows, skipped)
+  assert skipped == [], skipped
   found, problems = enrichment.enrich(rows, shipped, fetch=lambda url, headers: {})
   assert [(r["id"], r["mode"], r["rpm"]) for r in found] == [
     (name, "image_generation", rpm) for name, rpm in IMAGES.items()
