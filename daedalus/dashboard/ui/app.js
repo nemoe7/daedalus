@@ -549,7 +549,7 @@ const FORM_KEYS = ["api_key", "client_keys", "api_base", "api_type", "discovery_
 // The keys that a model override sets but the provider level does not.
 const MODEL_ONLY = ["pool", "timeout", "cheapest_output"];
 // The keys that the provider level sets but a model override does not.
-const PROVIDER_ONLY = ["hourly_requests"];
+const PROVIDER_ONLY = ["hooks", "hourly_requests"];
 const TIERS = ["TIER-A", "TIER-B", "TIER-C", "TIER-D"];
 // The width of 1 column of provider cards.
 const CARD_WIDTH = 460;
@@ -557,9 +557,16 @@ const CARD_WIDTH = 460;
 const clone = (value) => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)));
 const shown = (value) => (value !== null && typeof value === "object" ? JSON.stringify(value) : String(value));
 
-// A typed value from the text of a chip: true, false, a number or a string.
+// A typed value from the text of a chip: true, false, a number, JSON such as a hooks list, or a string.
 function parsed(text) {
   const value = text.trim();
+  if (/^[[{]/.test(value)) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      // Not JSON: the text stays a string.
+    }
+  }
   if (value === "true" || value === "false") return value === "true";
   if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value);
   return value.replace(/^(["'])(.*)\1$/, "$2");

@@ -1,4 +1,4 @@
-"""A chat request carries the stored endpoint order and passes through the hooks of its provider."""
+"""A chat request carries the stored endpoint order and passes through the hooks of its provider block."""
 
 import json
 
@@ -60,15 +60,21 @@ async def test_order(client: httpx.AsyncClient) -> None:
 
 
 async def test_hooks(client: httpx.AsyncClient) -> None:
-  """The request hook changes the body and headers, and the answer hook changes the answer."""
-  hooks.HOOKS_DIR.mkdir(parents=True, exist_ok=True)
-  (hooks.HOOKS_DIR / "p.py").write_text(
-    "def request(body, model, headers):\n"
+  """The on-upstream hook changes the body and headers, and the on-answer hook changes the answer."""
+  folder = hooks.CONFIG_DIR / "hooks"
+  folder.mkdir(parents=True, exist_ok=True)
+  (folder / "any-name.py").write_text(
+    "def on_upstream(body, model, headers):\n"
     "  body['provider']['allow_fallbacks'] = False\n"
     "  headers['x-hook'] = model\n"
-    "def answer(answer, model):\n"
+    "def on_answer(answer, model):\n"
     "  answer['choices'][0]['message']['content'] += '!'\n"
   )
+  block = config.get_config()["p"]
+  block["hooks"] = [
+    {"on-upstream": "hooks/any-name.py"},
+    {"on-answer": "hooks/any-name.py"},
+  ]
   response = await client.post("/v1/chat/completions", json=CHAT)
   assert response.json()["choices"][0]["message"]["content"] == "hi!"
   sent = json.loads(SEEN[-1].content)
