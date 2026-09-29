@@ -310,13 +310,22 @@ class Limits:
     for lane, seen in sorted(self.lanes.items()):
       model, client = lanes.split(lane)
       rows.append({"model": model, "client": client or None, **seen})
-    now = self.clock()
-    for row in self.counted(now):
-      rows.append(
-        {"model": row.pop("provider"), "client": "counted", "at": now, "rows": [row]}
-      )
     shown = [
       {"name": name, "items": [list(item) for item in items]}
       for name, items in self.balances.items()
     ]
+    # A counted limit goes into the card of its provider, below the balance.
+    for row in self.counted(self.clock()):
+      card = next((c for c in shown if c["name"] == row["provider"]), None)
+      if card is None:
+        card = {"name": row["provider"], "items": []}
+        shown.append(card)
+      left, limit = row["remaining"], row["limit"]
+      card["items"].append(
+        [
+          "Requests left this hour, counted",
+          f"{left:,} of {limit:,}",
+          share(left, limit),
+        ]
+      )
     return {"checked": self.checked, "providers": shown, "lanes": rows}
