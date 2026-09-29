@@ -27,6 +27,7 @@ from daedalus.dashboard.history import SHOWN, History
 from daedalus.dashboard.live import Live
 from daedalus.routing import router
 from daedalus.routing.cooldowns import Cooldowns
+from daedalus.routing.limits import Limits
 from daedalus.routing.penalties import Penalties
 from daedalus.store import keys
 
@@ -276,6 +277,7 @@ def routes(
   apply: Callable[[dict[str, Any]], None],
   cooldowns: Cooldowns | None = None,
   refresh: Callable[[], Callable[[], object] | None] = lambda: None,
+  limits: Limits | None = None,
 ) -> APIRouter:
   """The dashboard endpoints. All except login need a session."""
   api = APIRouter(prefix="/ui/api")
@@ -387,6 +389,22 @@ def routes(
     if not schedule.start(task):
       return failure(409, "A catalog rebuild runs now.", "invalid_request_error")
     return JSONResponse({"ok": True}, status_code=202)
+
+  # With no limits, the page shows an empty list.
+  seen = limits or Limits()
+
+  @api.get("/limits")
+  async def limit_view(request: Request) -> JSONResponse:
+    if not allowed(request):
+      return denied()
+    return JSONResponse(seen.view())
+
+  @api.post("/limits")
+  async def limit_check(request: Request) -> JSONResponse:
+    if not allowed(request):
+      return denied()
+    await seen.check()
+    return JSONResponse(seen.view())
 
   @api.get("/pools")
   async def pools(request: Request) -> JSONResponse:

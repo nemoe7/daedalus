@@ -21,6 +21,7 @@ The dashboard is mainly a utility for monitoring the application state and fine-
 | Models | All catalog models, with a type filter, a tier filter, column sort, a reasoning column, the time left of each cooldown and weight bars. A client with its own provider key shows its own cooldown under the client name. The order column shows the [order](architecture.md#order) of each model. Order 1 is gray. The reasoning column shows the default effort from the catalog as a chip, for example Max. The chip color grows with the effort: gray for None and Minimal, then blue, orange and red. A reasoning model with no default effort shows Yes. The type column shows a chip for the mode and a chip for each media flag: Image in, PDF in, Audio in and Audio out. The type filter also finds models by these chips. With no column chosen, the rows sort by type, then by model name. |
 | API keys | Make and delete API keys |
 | Providers | A tab for each provider file. The Form view shows 1 card for each provider of the file. The YAML view shows the file text. See [Providers](#providers). |
+| Limits | The balance of each provider key, and the last rate-limit headers of each model. See [Limits](#limits). |
 | Settings | Form and YAML views for `config/daedalus.yml`. The mouse wheel changes the last decimal digit of a decimal field. The YAML view edits the file text, comments included. A save checks each value, then reloads the settings. A change to the other view asks for a confirmation when the file holds unsaved changes. The Escalation and Switch cards take the keywords, 1 on each line. The Dashboard card sets the theme. The Pool names card sets the names after `daedalus/`. An empty field uses the built-in name. |
 
 The header stays at the top of the window. Only the page below it scrolls. A hidden browser tab sends no requests. It gets new data when it shows again.
@@ -66,6 +67,29 @@ A change to the other view asks for a confirmation when the file holds unsaved c
 A save of a file that is not valid YAML, or that has a key 2 times in 1 map, gets an error message. The file does not change. This rule applies to the Providers page and the Settings page.
 
 A provider file on disk that is not valid YAML still gets its tab. It opens in the YAML view, with the error line next to the Save button. Fix the text there and save it.
+
+## Limits
+
+Daedalus reads the balances when it starts, then each hour. **Check now** reads them at once. A provider without a key or without data does not show.
+
+| Provider | Values | Source |
+| --- | --- | --- |
+| OpenRouter | Credit left of the key limit, credit used today, free requests left today | `GET /api/v1/key` |
+| Kilo | Account balance | `GET https://api.kilo.ai/api/profile/balance` |
+| Pollinations | Pollen left. A key without a budget needs the `account:usage` scope. | `GET /account/balance` |
+| Cloudflare | Neurons used since 00:00 UTC, of the free 10,000 | GraphQL `aiInferenceAdaptiveGroups` |
+| Groq, Mistral | The limit and the count left of each window, for each model, and the reset time | The `x-ratelimit-*` headers of the last answer |
+
+The header rows stay in memory only, so they are empty after a restart until the next answer. A client with its own provider key has its own rows. A count of 0 shows in red. Each balance comes from the main key of the provider, not from `client_keys`.
+
+To show the Cloudflare neurons, give the Cloudflare token the analytics permission:
+
+1. In the Cloudflare dashboard, open **Manage account → Account API tokens**. For a user token, open **My Profile → API Tokens**.
+2. On the token in `CLOUDFLARE_API_KEY`, select **Edit**.
+3. Add a permission row: **Account**, **Account Analytics**, **Read**.
+4. Select **Continue to summary**, then **Update token**. The token value does not change.
+
+> Q: The neurons query is not tested with a real Cloudflare account.
 
 ## API keys
 

@@ -68,6 +68,8 @@ main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
 .card, .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
 .card { padding: 18px 20px; }
 .panel { overflow-x: auto; }
+#balances { margin-bottom: 16px; }
+td.out { color: var(--bad); }
 #more-requests { margin: 8px 16px; }
 .card h3 { margin: 0; font-size: 15px; font-weight: 600; }
 .card h3 .ctx { margin-left: 6px; padding: 1px 6px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 11px; font-weight: 500; vertical-align: 2px; }
@@ -265,7 +267,8 @@ section[data-page="providers"], section[data-page="settings"], #yaml-view, #sett
 .settings .field textarea {
   min-height: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px;
 }
-section[data-page="settings"] > .editbar, section[data-page="pools"] > .editbar { margin-bottom: 16px; }
+section[data-page="settings"] > .editbar, section[data-page="pools"] > .editbar,
+section[data-page="limits"] > .editbar { margin-bottom: 16px; }
 .editbar .views { margin-left: 8px; }
 .editbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; flex-wrap: wrap; }
 .message { font-size: 13px; color: var(--muted); }
