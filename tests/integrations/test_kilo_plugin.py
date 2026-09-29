@@ -1,4 +1,4 @@
-"""The Kilo Code plugin copies the Daedalus limits into the Kilo config."""
+"""The Kilo Code plugin copies the daedalus limits into the Kilo config."""
 
 import json
 import os
@@ -96,8 +96,8 @@ def test_patch(base: str, data: str) -> None:
     flash
   )
   assert flash["reasoning"] is False and flash["name"] == "Flash", flash
-  assert models["missing/model"] == {"name": "Kept"}, "a model Daedalus does not list"
-  assert found["other"]["models"] == {"daedalus-like": {}}, "not a Daedalus provider"
+  assert models["missing/model"] == {"name": "Kept"}, "a model daedalus does not list"
+  assert found["other"]["models"] == {"daedalus-like": {}}, "not a daedalus provider"
   assert "patched 2 models" in log, log
 
 

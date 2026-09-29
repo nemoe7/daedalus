@@ -82,7 +82,7 @@ function keepSession(value, remember) {
 async function call(path, options = {}) {
   const response = await fetch("ui/api/" + path, {
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...(session() ? { "X-Daedalus-Session": session() } : {}) },
+    headers: { "Content-Type": "application/json", ...(session() ? { "x-daedalus-session": session() } : {}) },
     ...options,
   });
   if (response.status === 401 && path !== "login") {

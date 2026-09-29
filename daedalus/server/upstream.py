@@ -30,7 +30,7 @@ WAIT_SECONDS = 60.0
 # Characters of a provider error body that the dashboard keeps.
 DETAIL_LIMIT = 4000
 
-# Client headers that Daedalus owns: credentials, transport and proxy headers.
+# Client headers that daedalus owns: credentials, transport and proxy headers.
 KEPT_BACK = frozenset(
   {
     "authorization",
