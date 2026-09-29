@@ -145,7 +145,7 @@ async def test_non_stream(client: httpx.AsyncClient) -> None:
   last = SEEN[-1]
   assert last["path"] == "/v1/chat/completions", last
   assert last["authorization"] == f"Bearer {UPSTREAM_KEY}", last
-  assert last["user_agent"] != "daedalus-test", last
+  assert last["user_agent"] == "daedalus-test", last
   assert last["model"] == "gpt-test", last
 
 
