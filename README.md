@@ -42,7 +42,7 @@ Daedalus is for personal use only. Do not share it with other users, because the
    ```
 
 3. In `.env`, set `DAEDALUS_MASTER_KEY` (16 or more characters, no spaces) and the provider keys that you have.
-4. Run the install script. It pulls the image, or builds it when the pull fails, and starts the container.
+4. Run the install script. It pulls the image and starts the container.
 
    cmd:
 
