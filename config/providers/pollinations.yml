@@ -1,4 +1,4 @@
-api_key: os.environ/POLLINATIONS_API_KEY
+api_key: env:POLLINATIONS_API_KEY
 # The order of Cloudflare: no image model has order 1, so both share daedalus/photos.
 order: 2
 # Each other model spends Pollen faster, and most need a paid balance.
