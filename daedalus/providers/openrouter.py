@@ -36,6 +36,10 @@ class OpenRouterProvider(OpenAIProvider):
   columns = staticmethod(openrouter_columns)
   exclude_exempt = staticmethod(free_stealth)
 
+  def endpoints_url(self, slug: str) -> str | None:
+    """The endpoints of one model, with the price of each after its discount."""
+    return f"{self.base}/models/{slug}/endpoints"
+
   def image_request(
     self, slug: str, payload: dict
   ) -> tuple[str, dict[str, Any], dict[str, str]]:
