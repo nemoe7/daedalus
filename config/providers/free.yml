@@ -94,13 +94,10 @@ groq:
       - qwen/qwen3.8-27b
     TIER-B:
       - openai/gpt-oss-20b
-    TIER-D:
-      - allam-2-7b
   models:
     openai/gpt-oss-120b: { max_input_tokens: 7000 }
     openai/gpt-oss-20b: { max_input_tokens: 7000 }
     qwen/qwen3.8-27b: { max_input_tokens: 7000, max_output_tokens: 16384 }
-    allam-2-7b: { tpm: 6000 }
     "whisper-*": { mode: audio_transcription, rpm: 20 }
     "*orpheus*": { mode: audio_speech, rpm: 10, tpm: 1200 }
 
@@ -134,13 +131,13 @@ mistral:
     - "mistral-vibe-cli-*"
   tier:
     TIER-A:
-      - "magistral-medium*"
+      - "mistral-medium-*"
     TIER-B:
-      - "magistral-small*"
+      - "mistral-small-2*"
     TIER-C:
+      - "mistral-large-*"
       - "codestral*"
       - "*leanstral*"
-      - "mistral-small-2*"
       - "ministral-14b-*"
     TIER-D:
       - "ministral-8b-*"

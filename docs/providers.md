@@ -121,6 +121,4 @@ The Mistral exclude list keeps these models out:
 | `*-latest` aliases | Each alias is a copy of a dated id. The `models` block keeps `voxtral-mini-latest`. |
 | `mistral-vibe-cli-*` | The models of the Vibe command line. |
 
-> Q: Is `mistral-vibe-cli-*` still necessary?
-
 The Groq `rpm` and `tpm` values come from the free limits in the [Groq docs](https://console.groq.com/docs/rate-limits).
