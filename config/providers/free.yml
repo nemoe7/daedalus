@@ -1,5 +1,5 @@
 cloudflare:
-  api_key: os.environ/CLOUDFLARE_API_KEY
+  api_key: env:CLOUDFLARE_API_KEY
   # After the order 1 models: the daily Neurons go to images and transcription first.
   order: 2
   discovery_match:
@@ -37,7 +37,7 @@ cloudflare:
     "*flux-2*": { supports_vision: true }
 
 gemini:
-  api_key: os.environ/GEMINI_API_KEY
+  api_key: env:GEMINI_API_KEY
   reasoning_effort: high
   exclude:
     - aqa
@@ -76,11 +76,11 @@ gemini:
     gemini-3.8-flash: { rpm: 5, tpm: 250000 }
     gemma-4-26b-a4b-it: { rpm: 30, tpm: 16000 }
     gemma-4-31b-it: { rpm: 30, tpm: 16000 }
-    "gemini-3*-tts*": { mode: audio_speech, rpm: 3 }
-    "gemini-3*-transcribe": { mode: audio_transcription, rpm: 3 }
+    "gemini-3*-tts*": { mode: audio_speech, rpm: 3, tpm: 10000 }
+    "gemini-3*-transcribe": { mode: audio_transcription, rpm: 3, tpm: 10000 }
 
 groq:
-  api_key: os.environ/GROQ_API_KEY
+  api_key: env:GROQ_API_KEY
   # The free limits of https://console.groq.com/docs/rate-limits
   rpm: 30
   tpm: 8000
@@ -103,7 +103,7 @@ groq:
     "*orpheus*": { mode: audio_speech, rpm: 10, tpm: 1200 }
 
 kilo:
-  api_key: os.environ/KILO_API_KEY
+  api_key: env:KILO_API_KEY
   # Free models: 200 requests per IP per hour, https://kilo.ai/docs/gateway/usage-and-billing
   hourly_requests: 200
   exclude:
@@ -126,7 +126,7 @@ kilo:
       - "liquid/lfm-2.5-2.6b*"
 
 mistral:
-  api_key: os.environ/MISTRAL_API_KEY
+  api_key: env:MISTRAL_API_KEY
   tier:
     TIER-A:
       - "mistral-medium-*"
@@ -147,7 +147,7 @@ mistral:
     "*embed*": { mode: embedding }
 
 openrouter:
-  api_key: os.environ/OPENROUTER_API_KEY
+  api_key: env:OPENROUTER_API_KEY
   exclude:
     - "*content-safety*"
     - recraft/* # image generation needs a credit balance, also for the :free ids
@@ -168,7 +168,7 @@ openrouter:
       - "liquid/lfm-2.5-2.6b*"
 
 z-ai:
-  api_key: os.environ/ZAI_API_KEY
+  api_key: env:ZAI_API_KEY
   exclude:
     - "*"
   tier:
