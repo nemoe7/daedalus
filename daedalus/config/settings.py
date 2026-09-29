@@ -26,13 +26,14 @@ DEFAULTS: dict[str, dict[str, Any]] = {
   "headroom": {"timeout": 5.0},
   "escalation": {"keywords": []},
   "switch": {"keywords": []},
-  "dashboard": {"theme": "system"},
+  "dashboard": {"theme": "system", "time_format": "24h"},
   # The name after `daedalus/` of each pool. The key is the built-in name.
   "pools": {
     name: name for name in ("moros", "koinos", "deinos", "sophos", "graphos", "photos")
   },
 }
 THEMES = ("system", "light", "dark")
+TIME_FORMATS = ("24h", "12h")
 POOL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,39}")
 
 
@@ -56,6 +57,10 @@ def check(group: str, key: str, value: Any) -> Any:
   if key == "theme":
     if value not in THEMES:
       raise SettingsError(f"{name} must be system, light or dark")
+    return value
+  if key == "time_format":
+    if value not in TIME_FORMATS:
+      raise SettingsError(f"{name} must be 24h or 12h")
     return value
   if key == "enabled":
     if not isinstance(value, bool):
