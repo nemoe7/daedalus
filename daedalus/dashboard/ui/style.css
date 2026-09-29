@@ -291,6 +291,9 @@ section[data-page="limits"] > .editbar { margin-bottom: 16px; }
 .message { font-size: 13px; color: var(--muted); }
 .message.ok { color: var(--ok); } .message.bad { color: var(--bad); }
 .hint { margin-left: auto; font-size: 12px; color: var(--muted); }
+.panel.env { margin-top: 16px; }
+.env-save { display: flex; gap: 8px; }
+.env-save input { min-width: 0; width: 16em; }
 .login {
   max-width: 340px; margin: 12vh auto 0; padding: 28px; display: grid; gap: 14px;
 }
