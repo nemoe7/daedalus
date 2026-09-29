@@ -179,6 +179,19 @@
       <div class="panel" id="yaml-view" hidden>
         <textarea id="editor" spellcheck="false" aria-label="Config file"></textarea>
       </div>
+      <div class="panel env">
+        <div class="toolbar">
+          <b>Keys and values</b>
+          <span class="message bad" id="env-message"></span>
+          <span class="hint">A saved value wins over the environment variable. A new provider key needs a catalog rebuild.</span>
+        </div>
+        <table>
+          <thead><tr>
+            <th>os.environ/NAME</th><th class="hide-sm">Used in</th><th>Value</th><th>New value</th><th></th>
+          </tr></thead>
+          <tbody id="env-rows"></tbody>
+        </table>
+      </div>
     </section>
     <section data-page="settings" hidden>
       <div class="panel editbar">

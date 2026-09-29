@@ -527,6 +527,31 @@ function tickCooldowns() {
 const dateTime = (seconds) => new Date(seconds * 1000).toLocaleString(
   [], { dateStyle: "medium", timeStyle: "short", hourCycle });
 
+// The value states of the Keys and values panel. Only the end of a long saved value shows.
+const ENV_STATES = {
+  saved: (row) => (row.end ? `saved, ends in ${row.end}` : "saved"),
+  env: () => "from the environment",
+  missing: () => "missing",
+};
+
+function renderEnv(rows) {
+  $("env-rows").innerHTML = rows.length ? rows.map((r) => `
+    <tr>
+      <td><code>${esc(r.name)}</code></td>
+      <td class="hide-sm muted">${esc(r.used.join(", "))}</td>
+      <td class="${r.state === "missing" ? "out" : r.state === "env" ? "muted" : ""}">${esc(ENV_STATES[r.state](r))}</td>
+      <td><form class="env-save" data-env="${esc(r.name)}">
+        <input type="password" autocomplete="off" placeholder="Paste a value" aria-label="New value of ${esc(r.name)}" required>
+        <button class="ghost" type="submit">Save</button>
+      </form></td>
+      <td class="end">${r.state === "saved" ? `<button type="button" class="ghost danger" data-env-clear="${esc(r.name)}">Clear</button>` : ""}</td>
+    </tr>`).join("") : '<tr><td colspan="5" class="empty">No provider file uses os.environ/NAME.</td></tr>';
+}
+
+async function refreshEnv() {
+  renderEnv(await call("env"));
+}
+
 function renderKeys(rows) {
   $("keys").innerHTML = rows.length ? rows.map((k) => `
     <tr>
@@ -690,8 +715,8 @@ function providerCard(name, block) {
   const others = Object.keys(block).filter((key) => !FORM_KEYS.includes(key) && key !== "_file");
   const values = others.map((key) => pill(`${key}: ${shown(block[key])}`, path, key)).join("") + adder(path, "column", "+ key");
   return `<div class="card provider" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
-    ${text("api_key", "API key", "os.environ/NAME reads an environment variable")}
-    ${field("Client keys", "daedalus key name = provider key. That client uses this key, with its own cooldowns and rpm counts.", `<div class="pills">${mapPills(block.client_keys, [...path, "client_keys"], "match", " = ")}</div>`)}
+    ${text("api_key", "API key", "os.environ/NAME reads the saved value, else the environment variable. A pasted key moves to Keys and values.")}
+    ${field("Client keys", "daedalus key name = os.environ/NAME. That client uses this key, with its own cooldowns and rpm counts. A pasted key moves to Keys and values.", `<div class="pills">${mapPills(block.client_keys, [...path, "client_keys"], "match", " = ")}</div>`)}
     ${text("api_base", "API base", "Empty: the default, in gray")}
     ${text("api_type", "API type", "openai or gemini. Empty: the default, in gray")}
     ${text("discovery_url", "Discovery URL", "The model list URL. Empty: the default, in gray")}
@@ -841,6 +866,7 @@ async function saveForm() {
     message.textContent = "Saved and reloaded";
     renderForm();
     refresh();
+    guarded(refreshEnv);
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin("The session ended. Log in to save again.");
     message.className = "message bad";
@@ -861,6 +887,7 @@ async function saveYaml() {
     message.className = "message ok";
     message.textContent = "Saved and reloaded";
     refresh();
+    guarded(refreshEnv);
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin("The session ended. Log in to save again.");
     message.className = "message bad";
@@ -1168,6 +1195,7 @@ async function start() {
   await refreshFast();
   await refreshSlow();
   takeFiles(await call("files"));
+  await refreshEnv();
   [state.overrideKeys, state.providerDefaults] = await Promise.all([call("provider-keys"), call("provider-defaults")]);
   state.file = 0;
   $("editor").value = state.files[0]?.text ?? "";
@@ -1273,6 +1301,34 @@ $("keys").addEventListener("click", async (event) => {
     await call("keys/" + encodeURIComponent(name), { method: "DELETE" });
     await refreshKeys();
   });
+});
+$("env-rows").addEventListener("submit", async (event) => {
+  const form = event.target.closest("[data-env]");
+  if (!form) return;
+  event.preventDefault();
+  const input = form.querySelector("input");
+  $("env-message").textContent = "";
+  try {
+    renderEnv(await call("env", { method: "PUT", body: JSON.stringify({ name: form.dataset.env, value: input.value }) }));
+    refresh();
+  } catch (error) {
+    if (error instanceof LoggedOut) return showLogin();
+    $("env-message").textContent = error.message;
+  }
+});
+$("env-rows").addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-env-clear]");
+  if (!button) return;
+  const name = button.dataset.envClear;
+  if (!confirm(`Clear the saved value of ${name}? daedalus then reads the environment variable.`)) return;
+  $("env-message").textContent = "";
+  try {
+    renderEnv(await call("env", { method: "DELETE", body: JSON.stringify({ name }) }));
+    refresh();
+  } catch (error) {
+    if (error instanceof LoggedOut) return showLogin();
+    $("env-message").textContent = error.message;
+  }
 });
 $("more-requests").addEventListener("click", () => {
   state.requestLimit = Math.min(state.requestLimit + REQUESTS_STEP, REQUESTS_KEPT);
@@ -1380,6 +1436,7 @@ async function reloadFiles(keep) {
   showFileError(index);
   renderFiles();
   renderForm();
+  guarded(refreshEnv);
 }
 
 $("new-provider").addEventListener("click", async () => {

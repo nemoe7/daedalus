@@ -35,8 +35,8 @@ The cards of the Form view stack in columns. Each card goes to the shortest colu
 
 | Field | YAML key | Input |
 | --- | --- | --- |
-| API key | `api_key` | Text field. `os.environ/NAME` reads an environment variable. |
-| Client keys | `client_keys` | `name = key` chips. The name is a daedalus key name, for example `kilo = os.environ/GEMINI_API_KEY_KILO`. |
+| API key | `api_key` | Text field with `os.environ/NAME`. A pasted key moves to **Keys and values**, and the field gets `os.environ/PROVIDER_API_KEY`. |
+| Client keys | `client_keys` | `name = key` chips. The name is a daedalus key name, for example `kilo = os.environ/GEMINI_API_KEY_KILO`. A pasted key moves to **Keys and values**. |
 | API base | `api_base` | Text field. Empty: the gray placeholder shows the default of the provider. |
 | API type | `api_type` | Text field, `openai` or `gemini`. Empty: the gray placeholder shows the default of the provider. |
 | Discovery URL | `discovery_url` | Text field. Empty: the gray placeholder shows the default of the provider. |
@@ -45,6 +45,18 @@ The cards of the Form view stack in columns. Each card goes to the shortest colu
 | Tiers | `tier.TIER-A` to `tier.TIER-D` | 1 chip list for each tier |
 | Model overrides | `models` | 1 row for each pattern, with `key: value` chips |
 | Provider values | Catalog columns at the provider level, for example `reasoning_effort` or `rpm` | `key: value` chips. A model override has priority. |
+
+### Keys and values
+
+The panel under the form lists each `os.environ/NAME` of the provider files, and of the defaults of the providers in use, for example `CLOUDFLARE_ACCOUNT_ID`.
+
+| Item | Value |
+| --- | --- |
+| Order | The saved value, then the environment variable |
+| Storage | The `saved_env` table of `.daedalus-state/models.sqlite3`. Not in the YAML or git. |
+| Shown | The state: saved, from the environment, or missing. A saved value of 12 or more characters shows its last 4 characters. |
+| Save | Takes effect at once, with no restart. A new provider key needs a catalog rebuild. |
+| Clear | Deletes the saved value. daedalus then reads the environment variable. |
 
 | Action | Result |
 | --- | --- |
