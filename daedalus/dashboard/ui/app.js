@@ -882,7 +882,7 @@ async function saveForm() {
     await call("providers", { method: "PUT", body: JSON.stringify({ path: file.path, blocks: pruned(state.forms[index]) }) });
     await takeFile(index);
     message.className = "message ok";
-    message.textContent = hadRaw ? "Saved — key moved to Keys and values" : "Saved and reloaded";
+    message.textContent = hadRaw ? "Saved — key moved to database" : "Saved and reloaded";
     renderForm();
     refresh();
     guarded(refreshEnv);
