@@ -6,6 +6,9 @@ $compose = @('compose')
 foreach ($arg in $args) {
   if ($arg -eq '--dev') {
     $compose = @('compose', '-f', 'compose.dev.yml')
+    # The version under the logo: dev and the commit.
+    try { $commit = git rev-parse --short HEAD 2>$null } catch { $commit = $null }
+    if ($commit) { $env:DAEDALUS_VERSION = "dev-$commit" }
   } else {
     Write-Error "Unknown option: $arg. The only option is --dev."
     exit 1

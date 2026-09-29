@@ -13,9 +13,10 @@ def test_dev_copy() -> None:
   dev = yaml.safe_load((ROOT / "compose.dev.yml").read_text())
   assert main["services"]["daedalus"].pop("image").startswith("ghcr.io/")
   built = dev["services"]["daedalus"]
+  build = {"context": ".", "args": {"VERSION": "${DAEDALUS_VERSION:-dev}"}}
   assert (built.pop("image"), built.pop("build"), built.pop("pull_policy")) == (
     "daedalus:dev",
-    ".",
+    build,
     "build",
   )
   assert dev == main

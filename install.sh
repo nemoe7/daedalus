@@ -6,7 +6,11 @@ cd "$(dirname "$0")"
 compose=(docker compose)
 for arg in "$@"; do
   case "$arg" in
-    --dev) compose=(docker compose -f compose.dev.yml) ;;
+    --dev)
+      compose=(docker compose -f compose.dev.yml)
+      # The version under the logo: dev and the commit.
+      if commit=$(git rev-parse --short HEAD 2>/dev/null); then export DAEDALUS_VERSION="dev-$commit"; fi
+      ;;
     *) echo "Unknown option: $arg. The only option is --dev." >&2; exit 1 ;;
   esac
 done

@@ -43,6 +43,21 @@ def test_help() -> None:
   assert not hasattr(catalog, "main"), "python -m daedalus.catalog has no entry point"
 
 
+def test_version() -> None:
+  """--version shows DAEDALUS_VERSION, or dev without it."""
+  for value, shown in (("v1.2.3", "daedalus v1.2.3"), ("", "daedalus dev")):
+    env = {**os.environ, "DAEDALUS_VERSION": value}
+    found = subprocess.run(
+      [*DAEDALUS, "--version"],
+      capture_output=True,
+      text=True,
+      timeout=10,
+      check=False,
+      env=env,
+    )
+    assert (found.returncode, found.stdout.strip()) == (0, shown), found.stderr
+
+
 def test_commands() -> None:
   calls: list[str] = []
   original = (
