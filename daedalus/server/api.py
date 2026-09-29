@@ -611,7 +611,7 @@ async def chat(request: Request) -> Response:
         if not isinstance(answer, dict) or answer.get("error"):
           raise providers.ProviderError(f"Invalid upstream answer: {error_text(raw)}")
         completion = hooks.run(
-          "answer", candidate, provider.completion(answer, candidate)
+          "on-answer", config, candidate, provider.completion(answer, candidate)
         )
         if (channel := loops.answer_loop(completion)) is not None:
           raise loops.LoopError(channel)
