@@ -11,6 +11,7 @@ MESSAGE = {"model": "m", "messages": [{"role": "user", "content": "hi"}]}
 
 def test_provider_defaults() -> None:
   os.environ["OPENROUTER_API_KEY"] = "test-openrouter-key"
+  os.environ["CLOUDFLARE_ACCOUNT_ID"] = "test-account"
   loaded = config.load_config()
   assert set(providers.PROVIDERS) == set(loaded), loaded.keys()
   name = "openrouter"
@@ -44,12 +45,16 @@ def test_provider_defaults() -> None:
   assert custom == {"api_type": "openai", "api_base": "https://custom.test"}, custom
 
   os.environ["CLOUDFLARE_ACCOUNT_ID"] = "account"
-  cloudflare = providers.settings("cloudflare", {})
-  base = "https://api.cloudflare.com/client/v4/accounts/account/ai/v1"
-  assert cloudflare["api_base"] == base, cloudflare
-  gateway = providers.settings("cloudflare", {"api_base": "https://gateway.test/v1"})
-  assert gateway["api_base"] == "https://gateway.test/v1", "the yml wins"
-  assert "/accounts/account/" in cloudflare["discovery_url"], cloudflare
+  try:
+    cloudflare = providers.settings("cloudflare", {})
+    base = "https://api.cloudflare.com/client/v4/accounts/account/ai/v1"
+    assert cloudflare["api_base"] == base, cloudflare
+    gateway = providers.settings("cloudflare", {"api_base": "https://gateway.test/v1"})
+    assert gateway["api_base"] == "https://gateway.test/v1", "the yml wins"
+    assert "/accounts/account/" in cloudflare["discovery_url"], cloudflare
+  finally:
+    os.environ.pop("CLOUDFLARE_ACCOUNT_ID", None)
+    os.environ["CLOUDFLARE_ACCOUNT_ID"] = "test-account"
   assert "task=" not in cloudflare["discovery_url"], "the provider class filters tasks"
 
   setup = {
@@ -80,6 +85,8 @@ def test_provider_defaults() -> None:
     pass
   else:
     raise AssertionError("an unlisted provider needs api_base")
+
+  os.environ.pop("CLOUDFLARE_ACCOUNT_ID", None)
 
   seen = []
 
