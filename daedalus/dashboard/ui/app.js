@@ -34,6 +34,8 @@ const fileName = (path) => path.split(/[\\/]/).pop();
 const line = (left, right) => `<div class="line"><span>${left}</span><span>${right}</span></div>`;
 const count = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const none = (text) => `<div class="more">${text}</div>`;
+// A model name cell that ends in an ellipsis when it is too long. The title shows the full name.
+const nameCell = (text, shown = esc(text)) => `<td class="name" title="${esc(text)}">${shown}</td>`;
 
 // One card for each page, from the data that the pages already read.
 function renderOverview() {
@@ -41,7 +43,7 @@ function renderOverview() {
     esc(pool.shown.replace("daedalus/", "")), count(pool.members.length, "model"),
   )).join("") || none("No pools");
   $("ov-requests").innerHTML = state.requests.slice(0, 10).map((r) => line(
-    `<span class="status ${statusClass(r)}">${statusCell(r)}</span> ${esc(r.via || r.model || "-")}`,
+    `<span class="status ${statusClass(r)}">${statusCell(r)}</span> <span title="${esc(r.via || r.model || "")}">${esc(r.via || r.model || "-")}</span>`,
     clock(r.at),
   )).join("") || none("No requests");
   const tiers = ["A", "B", "C", "D"].map((t) => [t, state.models.filter((m) => tierLetter(m.tier) === t).length]);
@@ -330,10 +332,10 @@ function renderLive() {
     <tr class="live-row" data-live="${r.id}">
       <td class="num muted"><span class="pulse"></span>${clock(r.since / 1000)}</td>
       ${appCell(r)}
-      <td>${esc(r.model || r.path)}</td>
+      ${nameCell(r.model || r.path)}
       <td class="hide-sm">${esc(r.effort || "-")}</td>
       <td class="hide-sm muted">${esc(r.pool || "-")}</td>
-      <td>${r.via ? esc(r.via) : `<span class="muted">${r.trying ? `trying ${esc(r.trying)}` : "waiting"}</span>`}</td>
+      ${nameCell(r.via || r.trying || "", r.via ? esc(r.via) : `<span class="muted">${r.trying ? `trying ${esc(r.trying)}` : "waiting"}</span>`)}
       <td class="status muted">live</td>
       <td class="hide-sm num muted">-</td>
       <td class="hide-sm num muted">-</td>
@@ -367,10 +369,10 @@ function renderRequests(rows) {
     ${hasChain(r) ? `<tr class="request${opened.has(String(r.at)) ? " open" : ""}" data-at="${r.at}" title="Show the fallback chain">` : "<tr>"}
       <td class="num muted"><span class="caret${hasChain(r) ? "" : " none"}"></span>${clock(r.at)}</td>
       ${appCell(r)}
-      <td>${esc(r.model || "-")}</td>
+      ${nameCell(r.model || "-")}
       <td class="hide-sm">${effortCell(r)}</td>
       <td class="hide-sm muted">${esc(r.pool || "-")}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${r.retry ? ` <span class="from">try again ${esc(r.retry)}</span>` : ""}${r.loop ? ` <span class="from">tool loop ${esc(r.loop)}</span>` : ""}</td>
-      <td>${r.via ? esc(r.via) : '<span class="muted">none</span>'}</td>
+      ${nameCell(r.via || "", r.via ? esc(r.via) : '<span class="muted">none</span>')}
       <td class="status ${statusClass(r)}">${statusCell(r)}</td>
       ${tokenCell(r.tokens?.input, r.tokens?.estimate ? "~" : "")}
       ${tokenCell(r.tokens?.output)}
