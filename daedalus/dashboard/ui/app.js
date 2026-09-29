@@ -9,7 +9,6 @@ const POOL_NOTES = {
   "daedalus/graphos": "Transcription",
   "daedalus/photos": "Image",
 };
-const SHOWN = 4;
 // The Requests page loads 50 rows, and each "Show more" adds 50, up to the 500 that the server keeps.
 const REQUESTS_STEP = 50;
 const REQUESTS_KEPT = 500;
@@ -39,19 +38,18 @@ const nameCell = (text, shown = esc(text)) => `<td class="name" title="${esc(tex
 
 // One card for each page, from the data that the pages already read.
 function renderOverview() {
-  $("ov-pools").innerHTML = state.pools.map((pool) => line(
-    esc(pool.shown.replace("daedalus/", "")), count(pool.members.length, "model"),
-  )).join("") || none("No pools");
   $("ov-requests").innerHTML = state.requests.slice(0, 10).map((r) => line(
     `<span class="status ${statusClass(r)}">${statusCell(r)}</span> <span title="${esc(r.via || r.model || "")}">${esc(r.via || r.model || "-")}</span>`,
     clock(r.at),
   )).join("") || none("No requests");
-  const tiers = ["A", "B", "C", "D"].map((t) => [t, state.models.filter((m) => tierLetter(m.tier) === t).length]);
-  const tools = state.models.filter((m) => m.tools).length;
-  $("ov-models").innerHTML = state.models.length
-    ? tiers.map(([t, n]) => line(`<span class="tier">${t}</span> Tier ${t}`, count(n, "model"))).join("")
-      + line("Tool calls", `${tools} of ${state.models.length}`)
-    : none("No models. Run daedalus catalog.");
+  $("ov-model-count").textContent = state.models.length || "";
+  // Each pool with its mean weight and the model of the highest weight.
+  $("ov-models").innerHTML = state.pools.map((pool) => {
+    const top = byWeight(pool.members)[0];
+    const health = poolHealth(pool.members);
+    return `<div class="pool-line"><div class="line"><span>${esc(pool.shown.replace("daedalus/", ""))}</span>
+      <span title="${esc(top?.id)}">${top ? esc(top.id) : "no models"}</span></div>${health === null ? "" : weightBar(health)}</div>`;
+  }).join("") || none(state.models.length ? "No pools" : "No models. Run daedalus catalog.");
   $("ov-limits").innerHTML = overviewLimits(state.limits) || none("No limits yet");
   const used = state.keys.filter((k) => k.used).sort((a, b) => b.used - a.used)[0];
   $("ov-keys").innerHTML = state.keys.length
@@ -174,7 +172,7 @@ function renderStatus(status) {
   $("version").textContent = status.version;
 }
 
-// The tier filter of the Models tab for each pool.
+// The tier filter of the Models tab for each pool. The other pools show all tiers.
 const POOL_TIERS = {
   "daedalus/auto": "All", "daedalus/sophos": "A", "daedalus/deinos": "B",
   "daedalus/koinos": "C", "daedalus/moros": "D",
@@ -187,27 +185,33 @@ function poolHealth(members) {
   return members.reduce((sum, m) => sum + (m.cooldown > now ? 0 : m.weight), 0) / members.length;
 }
 
+// The highest weight first. A tie keeps the chain order.
+const byWeight = (members) => [...members].sort((a, b) => b.weight - a.weight);
+
+// The Models tab filters of a pool.
+const poolFilter = (pool) => ({ tier: POOL_TIERS[pool.name] || "All", mode: pool.mode || "chat" });
+
+// A pool card links to its filters. The card of the active filters is on, and its link clears them.
+function markPools() {
+  document.querySelectorAll("#pools .pool").forEach((card) => {
+    const on = card.dataset.tier === state.tier && card.dataset.mode === state.mode;
+    card.classList.toggle("on", on);
+    card.href = on ? "#/models?tier=All&mode=all" : `#/models?tier=${card.dataset.tier}&mode=${card.dataset.mode}&sort=weight`;
+  });
+}
+
 function renderPools(pools) {
   $("pools").innerHTML = pools.map((pool) => {
-    // The highest weight first. A tie keeps the chain order.
-    const members = [...pool.members].sort((a, b) => b.weight - a.weight);
-    const shown = members.slice(0, SHOWN).map((m) => `
-      <div class="member" title="${esc(m.id)}${m.tier ? ` (${esc(m.tier)})` : ""}">
-        <div class="name">${esc(m.id)}</div><div class="w">${m.weight.toFixed(2)}</div>
-        ${weightBar(m.weight)}
-      </div>`).join("");
-    const filters = `tier=${POOL_TIERS[pool.name] || "All"}&mode=${pool.mode || "chat"}&sort=weight`;
-    const rest = members.length > SHOWN
-      ? `<a class="more" href="#/models?${filters}">+${members.length - SHOWN} more</a>` : "";
-    const health = poolHealth(members);
+    const { tier, mode } = poolFilter(pool);
+    const health = poolHealth(pool.members);
     const bar = health === null ? "" : `<div class="health" title="Mean weight. A model in a cooldown counts as 0.">
       ${weightBar(health)}<span class="num">${health.toFixed(2)}</span></div>`;
     const context = pool.context
       ? ` <span class="ctx" title="The largest context of a pool model">${tokens(pool.context)}</span>` : "";
-    return `<div class="card"><h3>${esc(pool.shown)}${context}</h3>${bar}
-      <div class="sub">${esc(POOL_NOTES[pool.name] || "")} &middot; ${members.length} models</div>
-      ${shown || '<div class="more">No models</div>'}${rest}</div>`;
+    return `<a class="card pool" data-tier="${tier}" data-mode="${esc(mode)}" title="${esc(pool.shown)}: ${esc(POOL_NOTES[pool.name] || "")}">
+      <h3>${esc(pool.shown.replace("daedalus/", ""))}${context}</h3>${bar}<div class="sub">${count(pool.members.length, "model")}</div></a>`;
   }).join("");
+  markPools();
 }
 
 const opened = new Set();
@@ -466,6 +470,7 @@ function renderSortHeads() {
 const dash = '<span class="muted">-</span>';
 
 function renderModels() {
+  markPools();
   const query = $("search").value.trim().toLowerCase();
   const rows = sortModels(state.models.filter((m) =>
     (state.tier === "All" || tierLetter(m.tier) === state.tier)
@@ -1295,7 +1300,7 @@ $("reveal-close").addEventListener("click", () => {
   $("reveal-key").textContent = "";
   $("copy").textContent = "Copy";
 });
-const PAGES = ["overview", "pools", "requests", "models", "keys", "providers", "limits", "settings"];
+const PAGES = ["overview", "requests", "models", "keys", "providers", "limits", "settings"];
 
 // A Models link such as #/models?tier=C&mode=chat&sort=weight sets the filters.
 function applyModelFilters(query) {
@@ -1306,13 +1311,14 @@ function applyModelFilters(query) {
   $("search").value = "";
   renderTiers();
   renderSortHeads();
+  markPools();
   if (state.models.length) renderModels();
   history.replaceState(null, "", "#/models");
 }
 
 function showPage() {
   const [path, query] = location.hash.split("?");
-  const asked = path.replace("#/", "").replace(/^config$/, "providers");
+  const asked = path.replace("#/", "").replace(/^config$/, "providers").replace(/^pools$/, "models");
   if (asked === "models" && query !== undefined) applyModelFilters(query);
   const page = PAGES.includes(asked) ? asked : PAGES[0];
   document.querySelectorAll("section[data-page]").forEach((section) => {

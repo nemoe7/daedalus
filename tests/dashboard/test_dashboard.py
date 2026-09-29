@@ -54,7 +54,6 @@ def test_page(client: TestClient) -> None:
   assert 'href="ui/style.css?v=' in page.text, "the style link has a content hash"
   for name in (
     "overview",
-    "pools",
     "requests",
     "models",
     "keys",

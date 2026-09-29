@@ -29,7 +29,6 @@
     <div class="brand">daedalus<span>.</span><small id="version"></small></div>
     <nav class="tabs" id="nav">
       <a href="#/" data-page="overview">Overview</a>
-      <a href="#/pools" data-page="pools">Pools</a>
       <a href="#/requests" data-page="requests">Requests</a>
       <a href="#/models" data-page="models">Models<span class="count" id="nav-models"></span></a>
       <a href="#/keys" data-page="keys">API keys</a>
@@ -50,8 +49,7 @@
           <a class="card snippet" href="#/limits"><h3>Limits</h3><div id="ov-limits"></div></a>
         </div>
         <div class="column">
-          <a class="card snippet" href="#/pools"><h3>Pools</h3><div id="ov-pools"></div></a>
-          <a class="card snippet" href="#/models"><h3>Models</h3><div id="ov-models"></div></a>
+          <a class="card snippet" href="#/models"><h3><span>Models<span class="count" id="ov-model-count"></span></span></h3><div id="ov-models"></div></a>
         </div>
         <div class="column">
           <a class="card snippet" href="#/providers"><h3>Providers</h3><div id="ov-providers"></div></a>
@@ -60,14 +58,13 @@
         </div>
       </div>
     </section>
-    <section data-page="pools" hidden>
+    <section data-page="models" hidden>
       <div class="panel editbar">
         <button class="ghost danger" id="reset-weights" type="button">Reset weights and cooldowns</button>
         <span class="message" id="reset-message"></span>
         <span class="hint">All weights go back to 1. All cooldowns end. Session models stay.</span>
       </div>
       <div class="pools" id="pools"></div>
-    </section>
     <section data-page="requests" hidden>
       <div class="panel">
         <table class="requests">
@@ -82,7 +79,6 @@
         <button class="ghost" id="more-requests" type="button" hidden>Show more</button>
       </div>
     </section>
-    <section data-page="models" hidden>
       <div class="panel">
         <div class="toolbar">
           <input type="search" id="search" placeholder="Filter by provider or slug">
