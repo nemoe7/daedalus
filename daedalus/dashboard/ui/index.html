@@ -65,13 +65,6 @@
         </div>
       </div>
     </section>
-    <section data-page="models" hidden>
-      <div class="panel editbar">
-        <button class="ghost danger" id="reset-weights" type="button">Reset weights and cooldowns</button>
-        <span class="message" id="reset-message"></span>
-        <span class="hint">All weights go back to 1. All cooldowns end. Session models stay.</span>
-      </div>
-      <div class="pools" id="pools"></div>
     <section data-page="requests" hidden>
       <div class="panel">
         <table class="requests">
@@ -86,6 +79,13 @@
         <button class="ghost" id="more-requests" type="button" hidden>Show more</button>
       </div>
     </section>
+    <section data-page="models" hidden>
+      <div class="panel editbar">
+        <button class="ghost danger" id="reset-weights" type="button">Reset weights and cooldowns</button>
+        <span class="message" id="reset-message"></span>
+        <span class="hint">All weights go back to 1. All cooldowns end. Session models stay.</span>
+      </div>
+      <div class="pools" id="pools"></div>
       <div class="panel">
         <div class="toolbar">
           <input type="search" id="search" placeholder="Filter by provider or slug">
