@@ -104,6 +104,8 @@ groq:
 
 kilo:
   api_key: os.environ/KILO_API_KEY
+  # Free models: 200 requests per IP per hour, https://kilo.ai/docs/gateway/usage-and-billing
+  hourly_requests: 200
   exclude:
     - "*content-safety*"
     - "!*:free"
