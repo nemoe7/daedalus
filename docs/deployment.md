@@ -12,7 +12,7 @@ The commands below are the same in cmd, PowerShell and bash.
 | --- | --- |
 | Start | `docker compose up -d` |
 | Update | `git pull`, then `docker compose pull`, then `docker compose up -d` |
-| Build from the source | `docker compose -f compose.yml -f compose.dev.yml up -d`. `compose.dev.yml` builds `daedalus:dev` from the source at each start. |
+| Build from the source | `docker compose -f compose.dev.yml up -d`. `compose.dev.yml` is a copy of `compose.yml` that builds `daedalus:dev` from the source at each start. Use `-f compose.dev.yml` with the other commands too. A test keeps the 2 files in step. |
 | Stop | `docker compose down` |
 | Log | `docker compose logs -f daedalus` |
 | Rebuild the catalog now | Click the Catalog chip in the dashboard header, or run `docker compose exec daedalus daedalus catalog` |
