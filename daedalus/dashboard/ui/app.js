@@ -365,6 +365,7 @@ const sortValue = {
   id: (m) => m.id.toLowerCase(),
   mode: (m) => MODES[m.mode] || m.mode,
   tier: (m) => (tierLetter(m.tier) === "-" ? null : tierLetter(m.tier)),
+  order: (m) => m.order ?? null,
   context: (m) => m.max_input_tokens ?? null,
   tools: (m) => (m.mode !== "chat" ? null : m.tools ? 1 : 0),
   reasoning: (m) => (m.mode !== "chat" ? null : m.reasoning ? 1 : 0),
@@ -426,13 +427,14 @@ function renderModels() {
       <td>${esc(m.id)}</td>
       <td class="hide-sm"><div class="types">${typeChips(m)}</div></td>
       <td class="mid">${m.tier ? `<span class="tier">${esc(tierLetter(m.tier))}</span>` : dash}</td>
+      <td class="hide-sm mid num${m.order > 1 ? "" : " muted"}">${m.order ?? dash}</td>
       <td class="hide-sm num muted">${tokens(m.max_input_tokens)}</td>
       <td class="mid">${m.mode === "chat" ? yesNo(m.tools) : dash}</td>
       <td class="hide-sm mid">${m.mode === "chat" ? reasoningCell(m) : dash}</td>
       <td class="num">${coolCells(m)}</td>
       <td>${m.weight == null ? dash
         : `<div class="weight">${weightBar(m.weight)}<span class="num">${m.weight.toFixed(2)}</span></div>`}</td>
-    </tr>`).join("") : `<tr><td colspan="8" class="empty">${empty}</td></tr>`;
+    </tr>`).join("") : `<tr><td colspan="9" class="empty">${empty}</td></tr>`;
 }
 
 // The time left of a cooldown, such as 59s, 4m 05s or 3h 12m.

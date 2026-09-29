@@ -411,7 +411,8 @@ def routes(
     rows = store.model_rows()
     chat = [row["id"] for row in rows if row["mode"] == "chat"]
     weighted = [row["id"] for row in rows if row["mode"] in WEIGHTED_MODES]
-    tiers, weights = tier_map(get_config(), chat), penalties.weights(weighted)
+    config = get_config()
+    tiers, weights = tier_map(config, chat), penalties.weights(weighted)
     ends = cooldowns.ends() if cooldowns else {}
     return JSONResponse(
       [
@@ -421,6 +422,7 @@ def routes(
           "weight": weights.get(row["id"]),
           "cooldown": Cooldowns.until(row["id"], ends),
           "client_cooldowns": Cooldowns.clients(row["id"], ends),
+          "order": router.cached_order(config, row["id"]),
         }
         for row in rows
       ]
