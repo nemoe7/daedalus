@@ -1,7 +1,8 @@
 services:
   daedalus:
+    # Compose pulls the image of the Image workflow. Without it, Compose builds from the source.
+    image: ghcr.io/nemoe7/daedalus:latest
     build: .
-    image: daedalus:local
     container_name: daedalus
     user: "${DAEDALUS_UID:-1000}:${DAEDALUS_GID:-1000}"
     environment:

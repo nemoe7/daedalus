@@ -15,7 +15,7 @@ if (-not (Select-String -Path '.env' -Pattern '^DAEDALUS_MASTER_KEY=\S{16,}$' -Q
   Write-Error 'Add DAEDALUS_MASTER_KEY to .env: 16 or more characters, no spaces.'
   exit 1
 }
-docker compose up -d --build
+docker compose up -d
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Host 'Daedalus runs on http://localhost:3357/v1'
 Write-Host 'Dashboard: http://localhost:3357/ (user DAEDALUS_USERNAME or admin, password DAEDALUS_PASSWORD or DAEDALUS_MASTER_KEY)'
