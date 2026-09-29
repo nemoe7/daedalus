@@ -224,6 +224,9 @@ function chainText(r) {
   return [head, ...steps].join("\n");
 }
 
+// A request opens its fallback chain only after a fallback, or when an attempt failed and has an error to show.
+const hasChain = (r) => (r.attempts || []).length > 1 || (r.attempts || []).some((a) => a.result !== "answered");
+
 function chainRows(r) {
   const steps = (r.attempts || []).map((a, i) => `
     <li class="step ${a.result === "answered" ? "good" : "bad"}">
@@ -240,7 +243,6 @@ function chainRows(r) {
   </div></td></tr>`;
 }
 
-// The input tokens: the provider count, or the Daedalus estimate with a ~ mark.
 // A token count in whole thousands from 1,000, such as 79K, with the exact count on hover.
 function tokenCell(count, mark = "") {
   if (typeof count !== "number") return '<td class="hide-sm num">-</td>';
@@ -333,8 +335,8 @@ function renderRequests(rows) {
   if (!selected.isCollapsed && $("requests").contains(selected.anchorNode)) return;
   shownRequests = text;
   $("requests").innerHTML = rows.length ? rows.map((r) => `
-    <tr class="request${opened.has(String(r.at)) ? " open" : ""}" data-at="${r.at}" title="Show the fallback chain">
-      <td class="num muted"><span class="caret"></span>${clock(r.at)}</td>
+    ${hasChain(r) ? `<tr class="request${opened.has(String(r.at)) ? " open" : ""}" data-at="${r.at}" title="Show the fallback chain">` : "<tr>"}
+      <td class="num muted"><span class="caret${hasChain(r) ? "" : " none"}"></span>${clock(r.at)}</td>
       ${appCell(r)}
       <td>${esc(r.model || "-")}</td>
       <td class="hide-sm">${effortCell(r)}</td>
@@ -346,7 +348,7 @@ function renderRequests(rows) {
       <td class="hide-sm num">${esc(r.ttft || "-")}</td>
       <td class="hide-sm num">${streamCell(r)}</td>
       <td class="hide-sm num">${esc(r.fallbacks ?? "-")}</td>
-    </tr>${opened.has(String(r.at)) ? chainRows(r) : ""}`).join("")
+    </tr>${hasChain(r) && opened.has(String(r.at)) ? chainRows(r) : ""}`).join("")
     : '<tr><td colspan="12" class="empty">No requests</td></tr>';
 }
 
