@@ -66,16 +66,14 @@ def test_limits_row() -> None:
   clock["now"] += 600
   seen = Limits(clock=lambda: 50_000.0)
   seen.counted = paced.hour_rows
-  row = seen.view()["lanes"][-1]
-  assert row["model"] == "kilo" and row["client"] == "counted"
-  assert row["rows"] == [
-    {
-      "kind": "requests",
-      "span": "hour",
-      "limit": 3,
-      "remaining": 2,
-      "reset": 50_000.0 + 3000,
-    }
-  ]
+  view = seen.view()
+  assert view["lanes"] == [], "the counted limit is not a header row"
+  assert view["providers"] == [
+    {"name": "kilo", "items": [["Requests left this hour, counted", "2 of 3", 2 / 3]]}
+  ], "without a balance, the counter makes the kilo card"
+  seen.balances = {"kilo": [("Balance", "$1.00", None)]}
+  items = seen.view()["providers"][0]["items"]
+  assert items[0][0] == "Balance" and items[1][1] == "2 of 3", "below the balance"
+  assert paced.hour_rows(50_000.0)[0]["reset"] == 50_000.0 + 3000
   paced.used_up("kilo/a")
   assert paced.hour_rows(50_000.0)[0]["remaining"] == 0, "a 429 leaves 0"
