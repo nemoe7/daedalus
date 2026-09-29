@@ -82,7 +82,9 @@ gemini:
 
 groq:
   api_key: os.environ/GROQ_API_KEY
+  # The free limits of https://console.groq.com/docs/rate-limits
   rpm: 30
+  tpm: 8000
   exclude:
     - "*prompt-guard*"
     - "*safeguard*"
@@ -96,11 +98,11 @@ groq:
       - allam-2-7b
   models:
     openai/gpt-oss-120b: { max_input_tokens: 7000 }
-    openai/gpt-oss-20b: { max_input_tokens: 7000, tpm: 8000 }
+    openai/gpt-oss-20b: { max_input_tokens: 7000 }
     qwen/qwen3.8-27b: { max_input_tokens: 7000, max_output_tokens: 16384 }
     allam-2-7b: { tpm: 6000 }
-    "whisper-*": { mode: audio_transcription }
-    "*orpheus*": { mode: audio_speech }
+    "whisper-*": { mode: audio_transcription, rpm: 20 }
+    "*orpheus*": { mode: audio_speech, rpm: 10, tpm: 1200 }
 
 kilo:
   api_key: os.environ/KILO_API_KEY
