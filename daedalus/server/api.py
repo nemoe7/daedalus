@@ -379,11 +379,13 @@ PENALTIES = penalties.Penalties(lambda: store.MODELS_DB)
 RETRIES = retries.Retries()
 COOLDOWNS = cooldowns.Cooldowns(lambda: store.MODELS_DB)
 PACING = pacing.Pacing()
+PACING.config = lambda: get_config()
 media.PENALTIES, media.COOLDOWNS = PENALTIES, COOLDOWNS
 media.PACING = stream.PACING = PACING
 LIMITS = upstream.LIMITS = limits.Limits(
   COOLDOWNS, lambda: get_config(), upstream.get_client
 )
+LIMITS.counted = PACING.hour_rows
 app.include_router(dashboard.page())
 app.include_router(
   dashboard.routes(
@@ -438,8 +440,10 @@ class Tracker:
     return "moved" if self.dropped else state
 
   def failed(self, model: str, exc: Exception | None = None) -> dict[str, Any] | None:
-    """Lower the weight, and remove the pin when it names this model. A rate limit also starts a cooldown."""
+    """Lower the weight, and remove the pin when it names this model. A rate limit also starts a cooldown and ends the counted hour."""
     limited = isinstance(exc, upstream.RateLimitError)
+    if limited:
+      PACING.used_up(model)
     PENALTIES.record(model, PENALTIES.rate_limit if limited else PENALTIES.fault)
     if self.slot and PENALTIES.unpin(self.key, self.slot, model):
       self.dropped = True
