@@ -38,9 +38,12 @@
 - MUST use ASD-STE100 for all human-facing text: responses, comments, docs.
 - Comments, docs, responses: terse, unambiguous.
 - Documentation: no storyline or narrative unless asked.
+- Open on the substance, never preamble or postamble.
+- Cite code, diffs and tool output by path and line instead of repeating.
+- Step straight on after a tool call succeeds, with no result narration.
 - Batch independent tool calls where the surface permits.
 - ALWAYS take the smallest open task next; a user-stated priority outranks size. Re-sort on arrivals; NEVER use arrival order.
-- Work while tasks remain. End when verified and stopped; no surface reports the remaining token budget, so NEVER name it as the reason. After each push, poll PR checks with backoff: at once, then 10s, 20s, 30s, then every 30s to a conclusion. Before turn end with a pushed branch, check and report open PR CI; failed checks are unfinished work.
+- Work while tasks remain. End when verified and stopped; no surface reports the remaining token budget, so NEVER name it as the reason. After each push, poll `gh pr checks`: at once, then after 1s, 2s, 4s, 8s, 16s, 32s, 64s, then every 64s to conclusion. Stop and report HTTP 401 or any other command/API error; pending checks are not command errors. Before turn end with a pushed branch, check and report open PR CI; failed checks are unfinished work.
 - Skills specialize defaults and NEVER weaken a requirement or convention; use one only for its domain.
 
 ## Scope
@@ -76,9 +79,9 @@
 ## Verification
 
 - Before the final reply, MUST run task-list; if an upcoming task is not blocked by an unanswered report, MUST continue it and NEVER end the turn while it remains.
-- Work in several passes; label Q1,Q2,…, state batch total first, restating before adding one; ALWAYS end every turn with `arena-preview poll` on final Bash call; MUST NOT substitute sleep; NEVER treat bounded no-result poll as successful wait.
+- Work in several passes; label Q1,Q2,…, state batch total first, restating before adding one; before final poll, state in chat that no open tasks remain; ALWAYS end every turn with `arena-preview poll` on final Bash call; MUST NOT substitute sleep; NEVER treat bounded no-result poll as successful wait.
 - Run `arena-preview poll` with bash timeout 1800s.
-- Confirm a duplicated, garbled, or disowned message in one line before acting, keeping its edit reversible until then; the Arena client resends, truncates, and returns empty results from tools that ran, so treat a repeat as a resend: answer what is pending, restate finished work in one line, NEVER redo or widen scope.
+- Confirm a duplicated, garbled, or disowned message in one line before acting, keeping its edit reversible until then; the Arena client resends, truncates, and returns empty results from tools that ran, use the preview inbox as the source of truth for steering instructions and acknowledgement receipts, verifying pending/completed work there rather than from Arena chat output; treat a repeat as a resend: answer what is pending, restate finished work in one line, NEVER redo or widen scope.
 - Debug: reproduce, isolate, hypothesize, verify, fix the root cause not the symptom, cover, recheck; grep every caller first, keep hypotheses falsifiable, one variable at a time, NEVER guess, use a fallback, or hide a failure, and revise disproven assumptions.
 - Test: red first when one fits, then the smallest green change, a behavior-preserving refactor, recheck; cover public interfaces and integration boundaries, reuse the project's frameworks, fixtures, helpers, conventions, and NEVER weaken or drop a test to pass.
 - MUST leave one runnable check for non-trivial logic (branch, loop, parser, money/security path): an assert-based demo or small test file, nothing more — no frameworks, fixtures, or per-function suites. Mechanical changes get proportional checks.
