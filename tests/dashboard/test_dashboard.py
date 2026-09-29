@@ -62,6 +62,7 @@ def test_page(client: TestClient) -> None:
     "settings",
   ):
     assert f'<section data-page="{name}"' in page.text, f"the {name} page"
+  assert 'name="remember" type="checkbox" checked' in page.text, "remember me starts on"
   script = client.get("/ui/app.js")
   assert script.status_code == 200 and "javascript" in script.headers["content-type"]
   assert client.get("/ui/style.css").status_code == 200

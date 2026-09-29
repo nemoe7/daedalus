@@ -323,3 +323,6 @@ section[data-page="limits"] > .editbar { margin-bottom: 16px; }
   .models .weight { width: 80px; min-width: 0; gap: 6px; }
 }
 .from { font-size: 12px; opacity: .8; white-space: nowrap; }
+/* A detail that shows only on hover or keyboard focus. It keeps its space. */
+.on-hover { visibility: hidden; }
+.check:hover .on-hover, .check:focus-within .on-hover { visibility: visible; }
