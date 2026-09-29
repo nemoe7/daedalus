@@ -74,6 +74,10 @@ def record(
 ) -> None:
   """Keep one API request for the dashboard, and end it on the live list."""
   found = {key: getattr(request.state, key, None) for key in FIELDS}
+  # The dashboard shows the pool names that clients use.
+  for key in ("pool", "routed"):
+    if found.get(key):
+      found[key] = router.pool_name(found[key])
   row = {"at": time.time(), "status": status, "seconds": round(seconds, 3), **found}
   if cancelled:
     row["cancelled"] = True
@@ -92,7 +96,8 @@ def live_first(request: Request) -> None:
   """Mark the first token of a request, with the model and the pool that answered."""
   if (key := getattr(request.state, "live", None)) is not None:
     state = request.state
-    LIVE.first(key, via=state.via, pool=getattr(state, "pool", None))
+    pool = getattr(state, "pool", None)
+    LIVE.first(key, via=state.via, pool=pool and router.pool_name(pool))
 
 
 def master() -> str | None:
@@ -412,6 +417,7 @@ def routes(
         {"name": name, "mode": mode, "members": members([media], (None,), ends)}
       )
     for pool in found:
+      pool["shown"] = router.pool_name(pool["name"])
       sizes = [limits.get(member["id"]) or 0 for member in pool["members"]]
       pool["context"] = max(sizes, default=0) or None
     return JSONResponse(found)
