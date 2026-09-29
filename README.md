@@ -13,7 +13,7 @@ The name must have the same impact as [Odysseus](https://odysseusai.dev/). It mu
 
 - 1 OpenAI-compatible endpoint for 8 providers: Cloudflare, Gemini, Groq, Kilo, Mistral, OpenRouter, Pollinations and Z.ai.
 - Each provider gets its native API. Gemini gets the native Gemini API.
-- 4 pools (tiers) and `daedalus/auto`, which selects a tier from the prompt. A keyword, such as "think hard", moves the tier 1 step up.
+- 4 pools (tiers) and `daedalus/auto`, which selects a tier from the prompt with the [LiteLLM](https://github.com/BerriAI/litellm) [AutoRouter heuristic v2](https://docs.litellm.ai/blog/heuristic-v2) classifier. A keyword, such as "think hard", moves the tier 1 step up.
 - A fallback ladder: when a model fails, the next model gets the request.
 - Weighted selection: each model has a weight that goes up when the model answers and down when it fails.
 - An [order](docs/architecture.md#order) for each provider or model. Inside a tier, the models of order 1 go first. A model of order 2 gets a request only when no model of order 1 answers.
@@ -118,4 +118,4 @@ uv run ruff format --check
 
 Daedalus has no license for now.
 
-The classifier data comes from LiteLLM. Its license is in `daedalus/routing/artifacts/LITELLM-LICENSE.txt`.
+The classifier and its data come from [LiteLLM](https://github.com/BerriAI/litellm) (MIT). Its license is in `daedalus/routing/artifacts/LITELLM-LICENSE.txt`.
