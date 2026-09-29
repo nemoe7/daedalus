@@ -70,6 +70,10 @@ def plain_choices(answer: dict, key: str) -> dict:
   }
 
 
+# The capabilities of the models that no Daedalus endpoint serves.
+SKIPPED = ("ocr", "moderation", "classification", "audio_transcription_realtime")
+
+
 class MistralProvider(OpenAIProvider):
   """Mistral through its OpenAI-compatible API."""
 
@@ -122,6 +126,14 @@ class MistralProvider(OpenAIProvider):
         yield frame(plain_choices(event, "delta") if isinstance(event, dict) else event)
     finally:
       await response.aclose()
+
+  @staticmethod
+  def discoverable(row: dict) -> bool:
+    """Only the main id of a model that Daedalus serves. An alias row has another `name`."""
+    found = row.get("capabilities") or {}
+    name = row.get("name")
+    alias = isinstance(name, str) and name != row.get("id")
+    return not alias and not any(found.get(key) is True for key in SKIPPED)
 
   @staticmethod
   def columns(row: dict) -> dict[str, Any]:
