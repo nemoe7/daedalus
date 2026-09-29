@@ -53,7 +53,7 @@ def state_folder(
   with pytest.MonkeyPatch.context() as patch:
     patch.setattr(store, "MODELS_DB", folder / "models.sqlite3")
     patch.setattr(discovery, "DUMP_DIR", folder / "dump")
-    patch.setattr(hooks, "HOOKS_DIR", folder / "hooks")
+    patch.setattr(hooks, "CONFIG_DIR", folder / "config")
     patch.setattr(api.PENALTIES, "pick", api.PENALTIES.pick)
     patch.setattr(headroom, "_down", False)
     # Each test file starts like a new process, with no router state.

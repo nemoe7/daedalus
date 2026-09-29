@@ -120,6 +120,7 @@ groq:
 | `tier` | Patterns for each tier key: `TIER-A`, `TIER-B`, `TIER-C`, `TIER-D` |
 | `models` | Values for each model, for example `max_input_tokens`. These have priority over discovery and LiteLLM. |
 | `order` | Optional. A whole number, 1 or more. Empty or not set: 1. A model of a higher order gets a request only when no model of a lower order in its tier answers. The `order` of a `models` entry has priority. See [Order](architecture.md#order). |
+| `hooks` | Optional. A list of Python files that change the chat requests and answers of the provider. Each item is a hook point and a file path in the `config` folder, for example `- on-upstream: hooks/x.py`. See [Hooks](hooks.md). |
 | `hourly_requests` | Optional. A whole number above 0: the requests to all models of the provider in 1 hour. daedalus counts them, because the provider has no API for the count. At the limit, the provider leaves the chains. See [Pacing](architecture.md#pacing). |
 
 `rpm` and `tpm` limit the requests and the input tokens of a model in 60 s. At a limit, the model leaves the chains. See [Pacing](architecture.md#pacing).

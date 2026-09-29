@@ -25,6 +25,7 @@ PROVIDER_KEYS = (
   "exclude",
   "tier",
   "models",
+  "hooks",
 )
 
 _config: dict[str, Any] | None = None

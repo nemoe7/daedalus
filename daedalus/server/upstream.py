@@ -270,7 +270,7 @@ async def attempt(
   if order and "provider" not in payload:
     payload = {**payload, "provider": {"order": order}}
   headers = dict(headers)
-  payload = hooks.run("request", candidate, payload, headers=headers)
+  payload = hooks.run("on-upstream", config, candidate, payload, headers=headers)
   effort = provider.effort(payload)
   if sent is not None and (asked or effort is not None):
     sent["effort"] = effort
