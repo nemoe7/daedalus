@@ -68,6 +68,24 @@ def test_page(client: TestClient) -> None:
   assert client.get("/ui/index.html").status_code == 404, "listed assets only"
 
 
+def test_login_form(client: TestClient) -> None:
+  """The login form fills in admin and shows the master key hint only for values not in the environment."""
+  env = {dashboard.USER_ENV: "owner", dashboard.PASSWORD_ENV: "secret"}
+  cases = [
+    ({}, "admin", True),
+    (env, None, False),
+    ({dashboard.USER_ENV: "owner"}, None, True),
+  ]
+  for values, username, master in cases:
+    for name in env:
+      os.environ.pop(name, None)
+    os.environ.update(values)
+    found = TestClient(api.app).get("/ui/api/login").json()
+    assert found == {"username": username, "master": master}, (values, found)
+  for name in env:
+    os.environ.pop(name, None)
+
+
 def test_login(client: TestClient) -> None:
   os.environ.pop(dashboard.MASTER_ENV, None)
   login = {"username": "admin", "password": MASTER}
