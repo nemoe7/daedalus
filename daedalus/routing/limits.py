@@ -167,9 +167,17 @@ def openrouter_items(data: Any) -> list[Item]:
   free = free if isinstance(free, dict) else {}
   left, limit = number(free.get("remaining")), number(free.get("limit"))
   if left is not None and limit is not None:
-    text = f"{left:,.0f} of {limit:,.0f} left"
+    text = f"{floored(left)} of {floored(limit)} left"
     items.append(("Free requests today", text, share(left, limit)))
   return items
+
+
+def floored(value: float) -> str:
+  """A count floored to K, M or B, for example 8K. Below 1,000 it stays whole."""
+  for size, mark in ((1_000_000_000, "B"), (1_000_000, "M"), (1_000, "K")):
+    if value >= size:
+      return f"{int(value // size)}{mark}"
+  return f"{value:,.0f}"
 
 
 def balance_items(
@@ -196,9 +204,9 @@ def neuron_items(data: Any) -> list[Item]:
   if None in values:
     return []
   used = sum(value for value in values if value is not None)
-  shown = f"{used:.2f}" if 0 < used < 10 else f"{used:,.0f}"
+  shown = f"{used:.2f}" if 0 < used < 10 else floored(used)
   left = share(CLOUDFLARE_FREE - used, CLOUDFLARE_FREE)
-  return [("Neurons today", f"{shown} of {CLOUDFLARE_FREE:,}", left)]
+  return [("Neurons today", f"{shown} of {floored(CLOUDFLARE_FREE)}", left)]
 
 
 Reader = Callable[[httpx.AsyncClient, str, str], Awaitable[Any]]
