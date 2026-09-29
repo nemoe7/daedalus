@@ -803,9 +803,10 @@ function providerCard(name, block) {
     </div>`).join("");
   const others = Object.keys(block).filter((key) => !FORM_KEYS.includes(key) && key !== "_file");
   const values = others.map((key) => pill(`${key}: ${shown(block[key])}`, path, key)).join("") + adder(path, "column", "+ key");
+  const accountField = name === "cloudflare" ? text("account_id", "Account ID", "For Cloudflare: env:NAME or db:NAME. Pasting your ID stores it in the database.") : "";
   return `<div class="card provider" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
     ${text("api_key", "API key", "env:NAME reads the environment variables, pasting your key stores it in the database.")}
-    ${text("account_id", "Account ID", "For Cloudflare: env:NAME or db:NAME. Pasting your ID stores it in the database.")}
+    ${accountField}
     ${field("Client keys", "daedalus key name = env:NAME or db:NAME or os.environ/NAME. That client uses this key, with its own cooldowns and rpm counts. A pasted key is stored as db:NAME.", `<div class="pills">${mapPills(block.client_keys, [...path, "client_keys"], "match", " = ")}</div>`)}
     ${text("api_base", "API base", "Empty: the default, in gray")}
     ${text("api_type", "API type", "openai or gemini. Empty: the default, in gray")}
