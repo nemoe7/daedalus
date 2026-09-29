@@ -6,11 +6,10 @@ Use `scripts/preview.py` relative to the actual installed steering skill. Put `-
 
 | Command | Use |
 | --- | --- |
-| `init` | Create a missing state database before restoring an NDJSON backup |
+| `init` | Create a missing state database without starting the server |
 | `serve --port 8000` | Start the shared preview with a long-lived process tool |
 | `read` | List every pending note and report answer; mark only delivered IDs Seen |
 | `poll` | Wait for a pending inbox item before ending a turn |
-| `seen <ids>` | Mark fully delivered IDs Seen without answering; never use on counts or truncated output |
 | `ack <id> --reply <markdown>` | Answer one delivered ID with a rendered reply |
 | `ack <id> --note <text>` | Answer one delivered ID with one plain line |
 | `task-list` | List tasks and their stored status, order and details |
@@ -24,7 +23,7 @@ Use complete IDs in CLI calls; cite their first seven characters in prose. `read
 
 Refer to a note in prose by the first seven characters of its ID, NEVER by its sequence number (`seq`) or list position. Use the full ID in CLI calls. Before sending a note reference, check it against the ID returned by `read`.
 
-When an acknowledgement refers to a report or task, use `ack --reply` and put its exact full ID in inline backticks instead of a generic label such as published report. This overrides seven-character prose shortening for these references. Use IDs unique across notes, reports and tasks so the client can link them.
+When an acknowledgement refers to a report or task, use `ack --reply` and put its exact full ID in inline backticks; the seven-character shortening applies to note IDs only. Use IDs unique across notes, reports and tasks so the client can link them; `publish` and `task` refuse an ID the other holds.
 
 ## External channel (ntfy)
 
@@ -36,7 +35,7 @@ Read the inbox at turn start, each reasoning boundary, before and after every to
 
 ## Tasks
 
-Task IDs have 1–64 lowercase letters, digits or hyphens and start with a letter or digit. Titles have at most 200 characters. A task has at most 40 details of 2000 characters each. Existing IDs update; omitted fields keep stored values.
+Task IDs have 1–64 lowercase letters, digits or hyphens and start with a letter or digit; use a short kebab-case title. Titles have at most 200 characters. A task has at most 40 details of 2000 characters each. Existing IDs update; omitted fields keep stored values.
 
 | Flag | Use |
 | --- | --- |
@@ -51,7 +50,7 @@ Task IDs have 1–64 lowercase letters, digits or hyphens and start with a lette
 
 ## Publish reports
 
-A report source is UTF-8 `.md`, at most 2,000,000 bytes. IDs have 1–80 letters, digits, hyphens or underscores; titles have 1–200 characters. Source edits do not update a published report: call `publish` again. A report that has answers refuses republishing under the same ID; publish its update under a new ID. Delete a report the owner no longer needs with `unpublish <id>`. The delete touches the tab row alone: sent answers stay in the inbox, the `.md` source under the state directory stays for republishing, and a republish under that ID still fails while answers exist. Verify the rendered report before telling the owner it is available. If an answer is rejected after an update, ask the owner to preserve the draft, reload and review the current report.
+A report source is UTF-8 `.md`, at most 2,000,000 bytes. IDs have 1–80 letters, digits, hyphens or underscores; titles have 1–200 characters. Source edits do not update a published report: call `publish` again. A report that has answers refuses republishing under the same ID; publish its update under a new ID. Delete a report the owner no longer needs with `unpublish <id>`; its sent answers and its `.md` source under the state directory stay.md` source under the state directory stays for republishing, and a republish under that ID still fails while answers exist. Verify the rendered report before telling the owner it is available. If an answer is rejected after an update, ask the owner to preserve the draft, reload and review the current report.
 
 ## Report fields
 
@@ -72,6 +71,6 @@ An agent asks with `download-request <url>`. That queues a pending job. The owne
 
 ## Restore
 
-Run `<skill>/scripts/install.sh` after a sandbox restore, before `git add`, to reinstate the venv, poll hook and ignore rule. Preserve the state directory and report source files. If the database is lost but `saved-state.ndjson` survives, run `init` on that state directory first. Then run `import-state <file>` there to restore notes, tasks and report answers together. Report sources must be republished if their snapshots are lost. Files and unfinished download jobs are not in the NDJSON backup.
+Run `<skill>/scripts/install.sh` after a sandbox restore, before `git add`, to reinstate the venv, poll hook and ignore rule. Preserve the state directory and report source files. If the database is lost but `saved-state.ndjson` survives, run `import-state <file>` on that state directory; it creates the database and restores notes, tasks and report answers together. Report sources must be republished if their snapshots are lost. Files and unfinished download jobs are not in the NDJSON backup.
 
 If a port is occupied, identify its owner or choose another port; do not stop another service. Verify a restore with `read`, `task-list` and rendered reports before discarding backups. Report failed reads or saves; never treat them as empty state or a confirmed save. If the preview stays unavailable, use `ask_user` to ask how to continue. Do not enable an external channel or local report commits without a new choice.
