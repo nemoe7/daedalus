@@ -19,6 +19,7 @@ ROWS = [
   },
   {"tag": "tie-b", "pricing": {"prompt": "0.00000015", "completion": "0.0000005"}},
   {"tag": "tie-a", "pricing": {"prompt": "0.000000025", "completion": "0.0000005"}},
+  {"tag": "tie-a/us", "pricing": {"prompt": "0.0000002", "completion": "0.00000075"}},
   {"tag": "no-price", "pricing": {}},
   {"tag": "cheap/fp4", "pricing": {"prompt": "0", "completion": "0.000002"}},
   {"pricing": {"completion": "0"}},
@@ -36,9 +37,9 @@ def cheapest():
 
 
 def test_cheapest_first(cheapest) -> None:
-  """Output price first, input price on a tie, no price last, each tag once."""
+  """Output price first, input price on a tie, no price last, each provider once, with no variant."""
   assert cheapest.cheapest_first(ROWS) == [
-    "cheap/fp4",
+    "cheap",
     "tie-a",
     "tie-b",
     "cloud",
@@ -66,7 +67,7 @@ def test_on_catalog(cheapest, monkeypatch: pytest.MonkeyPatch) -> None:
   assert asked == [(f"{base}/models/z-ai/glm-5.3-flash/endpoints", "Bearer k")]
   assert cheapest.orders_file().parent == Path(store.MODELS_DB).parent
   saved = json.loads(cheapest.orders_file().read_text())
-  assert saved == {GLM: ["cheap/fp4", "cloud"]}
+  assert saved == {GLM: ["cheap", "cloud"]}
   down = True
   cheapest.on_catalog({}, GLM, base, headers)
   assert cheapest.read_orders() == saved, "the old order stays"
@@ -74,10 +75,10 @@ def test_on_catalog(cheapest, monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_on_upstream(cheapest) -> None:
   """The saved order goes out as provider.order, and a client provider object has priority."""
-  cheapest.save_order(GLM, ["cheap/fp4", "cloud"])
+  cheapest.save_order(GLM, ["cheap", "cloud"])
   body: dict = {"messages": []}
   cheapest.on_upstream(body, GLM, {})
-  assert body["provider"] == {"order": ["cheap/fp4", "cloud"]}
+  assert body["provider"] == {"order": ["cheap", "cloud"]}
   own = {"provider": {"sort": "latency"}}
   cheapest.on_upstream(own, GLM, {})
   assert own == {"provider": {"sort": "latency"}}
