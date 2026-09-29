@@ -327,7 +327,7 @@ def dump(
   fetch: Fetch = fetch_json,
   folder: Path | str = DUMP_DIR,
 ) -> list[Path]:
-  """Write each provider's raw discovery payload to one JSON file, before `exclude`."""
+  """Write the raw discovery payload of each provider to `{provider}.json`, before `exclude`."""
   target = Path(folder)
   target.mkdir(parents=True, exist_ok=True)
   for old in target.glob("*.json"):
@@ -335,11 +335,11 @@ def dump(
   found, skipped = read_providers(config, fetch)
   paths = []
   written: list[dict[str, Any]] = []
-  for provider_name, _, payload, is_file in found:
-    if any(payload is seen for seen in written):
+  for provider_name, _, payload, _ in found:
+    path = target / f"{provider_name}.json"
+    if any(payload is seen for seen in written) or path in paths:
       continue
     written.append(payload)
-    path = target / f"{provider_name}{'-file' if is_file else ''}.json"
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", "utf-8")
     paths.append(path)
   for reason in skipped:
