@@ -19,6 +19,6 @@ def test_image_workflow_release_triggers_and_tag_flow():
     assert 'select(.name == "draft")' in content
     assert 'select(.name == "Approve Proposal")' in content
     assert "Approved proposal tag not found in job logs" in content
-    assert 'type=raw,value=${{ steps.release.outputs.tag }}' in content
-    assert 'ref: ${{ steps.release.outputs.tag }}' in content
-    assert 'build-args: VERSION=${{ steps.release.outputs.tag }}' in content
+    assert "type=raw,value=${{ steps.release.outputs.tag }}" in content
+    assert "ref: ${{ steps.release.outputs.tag }}" in content
+    assert "build-args: VERSION=${{ steps.release.outputs.tag }}" in content
