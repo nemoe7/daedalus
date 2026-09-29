@@ -52,6 +52,7 @@ function renderOverview() {
     ? tiers.map(([t, n]) => line(`<span class="tier">${t}</span> Tier ${t}`, count(n, "model"))).join("")
       + line("Tool calls", `${tools} of ${state.models.length}`)
     : none("No models. Run daedalus catalog.");
+  $("ov-limits").innerHTML = overviewLimits(state.limits) || none("No limits yet");
   const used = state.keys.filter((k) => k.used).sort((a, b) => b.used - a.used)[0];
   $("ov-keys").innerHTML = state.keys.length
     ? line("Keys", count(state.keys.length, "key")) + line("Last used", used ? `${esc(used.name)} &middot; ${dateTime(used.used)}` : "never")
@@ -1085,7 +1086,26 @@ async function refreshFast() {
 const COMPACT = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
 const shortCount = (n) => (Math.abs(n) >= 100000 ? COMPACT.format(n) : n.toLocaleString());
 
+// The short unit of a rate-limit row, for example tok/min.
+const SPANS = { minute: "min", hour: "h", day: "day", month: "mo" };
+const unit = (r) => `${r.kind === "tokens" ? "tok" : "req"}${r.span ? `/${SPANS[r.span] || r.span}` : ""}`;
+
+// The balances, then the 3 rate-limit rows with the least left.
+function overviewLimits(data) {
+  if (!data) return "";
+  const bar = (left) => (left == null ? "" : weightBar(left));
+  const balances = data.providers.flatMap((p) => p.items.map(([label, value, left]) =>
+    `<div class="balance">${line(`${esc(p.name)} &middot; ${esc(label)}`, esc(value))}${bar(left)}</div>`));
+  const share = (r) => (r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0);
+  const rows = data.lanes.flatMap((lane) => lane.rows.map((row) => ({ ...row, model: lane.model })))
+    .sort((a, b) => share(a) - share(b)).slice(0, 3)
+    .map((r) => `<div class="balance">${line(`<span title="${esc(r.model)}">${esc(r.model)}</span>`,
+      `${shortCount(r.remaining)} of ${shortCount(r.limit)} ${esc(unit(r))}`)}${bar(share(r))}</div>`);
+  return [...balances, ...rows].join("");
+}
+
 function renderLimits(data) {
+  state.limits = data;
   $("limits-checked").textContent = data.checked ? `Checked ${shortTime(data.checked)} · each hour` : "Not checked yet";
   $("balances").hidden = !data.providers.length;
   $("balances").innerHTML = data.providers.map((p) => `<div class="card"><h3>${esc(p.name)}</h3>
