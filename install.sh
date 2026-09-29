@@ -20,7 +20,7 @@ if [ "$(uname -s)" = "Linux" ] && ! grep -qs '^DAEDALUS_UID=' .env; then
   if [ -s .env ] && [ -n "$(tail -c1 .env)" ]; then echo >> .env; fi
   printf 'DAEDALUS_UID=%s\nDAEDALUS_GID=%s\n' "$(id -u)" "$(id -g)" >> .env
 fi
-docker compose up -d --build
+docker compose up -d
 echo "Daedalus runs on http://localhost:3357/v1"
 echo "Dashboard: http://localhost:3357/ (user DAEDALUS_USERNAME or admin, password DAEDALUS_PASSWORD or DAEDALUS_MASTER_KEY)"
 echo "Make API keys for your clients in the dashboard."
