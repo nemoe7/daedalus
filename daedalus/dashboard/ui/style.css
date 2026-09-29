@@ -159,7 +159,7 @@ td.end { text-align: right; }
 .empty { padding: 24px 16px; color: var(--muted); text-align: center; }
 tr.request { cursor: pointer; }
 /* Only the model names wrap, so the short cells keep 1 line. */
-.requests tr:not(.chain) > td:not(:nth-child(2)):not(:nth-child(5)) { white-space: nowrap; }
+.requests tr:not(.chain) > td:not(:nth-child(3)):not(:nth-child(6)) { white-space: nowrap; }
 .requests th:not(:first-child), .requests td:not(:first-child) { padding-left: 8px; padding-right: 8px; }
 tr.live-row td { background: var(--field); }
 .pulse {

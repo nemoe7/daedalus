@@ -233,7 +233,7 @@ function chainRows(r) {
       ${a.cooldown ? `<span class="from">${esc(coolText(a.cooldown))}</span>` : ""}
       ${a.error ? `<pre>${esc(a.error)}</pre>` : ""}
     </li>`).join("");
-  return `<tr class="chain"><td colspan="10"><div class="chain-body">
+  return `<tr class="chain"><td colspan="11"><div class="chain-body">
     <div class="chain-head"><span class="muted">Fallback chain</span>
       <button class="ghost copy-chain" type="button" data-at="${r.at}">Copy</button></div>
     ${steps ? `<ol>${steps}</ol>` : '<p class="muted">No attempt data for this request.</p>'}
@@ -253,6 +253,9 @@ function streamCell(r) {
   if (!r.stream) return seconds(r.seconds);
   return r.ttft ? seconds(Math.max(0, r.seconds - parseFloat(r.ttft))) : "-";
 }
+
+// The short app name from the client headers, with the API key name on hover.
+const appCell = (r) => `<td${r.key ? ` title="API key: ${esc(r.key)}"` : ""}>${r.app ? esc(r.app) : dash}</td>`;
 
 // A live request with local times, because the server sends ages and not clock times.
 function liveRow(r) {
@@ -294,6 +297,7 @@ function renderLive() {
   $("live").innerHTML = rows.map((r) => `
     <tr class="live-row" data-live="${r.id}">
       <td class="num muted"><span class="pulse"></span>${clock(r.since / 1000)}</td>
+      ${appCell(r)}
       <td>${esc(r.model || r.path)}</td>
       <td class="hide-sm">${esc(r.effort || "-")}</td>
       <td class="hide-sm muted">${esc(r.pool || "-")}</td>
@@ -329,6 +333,7 @@ function renderRequests(rows) {
   $("requests").innerHTML = rows.length ? rows.map((r) => `
     <tr class="request${opened.has(String(r.at)) ? " open" : ""}" data-at="${r.at}" title="Show the fallback chain">
       <td class="num muted"><span class="caret"></span>${clock(r.at)}</td>
+      ${appCell(r)}
       <td>${esc(r.model || "-")}</td>
       <td class="hide-sm">${effortCell(r)}</td>
       <td class="hide-sm muted">${esc(r.pool || "-")}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${r.retry ? ` <span class="from">try again ${esc(r.retry)}</span>` : ""}${r.loop ? ` <span class="from">tool loop ${esc(r.loop)}</span>` : ""}</td>
@@ -339,7 +344,7 @@ function renderRequests(rows) {
       <td class="hide-sm num">${streamCell(r)}</td>
       <td class="hide-sm num">${esc(r.fallbacks ?? "-")}</td>
     </tr>${opened.has(String(r.at)) ? chainRows(r) : ""}`).join("")
-    : '<tr><td colspan="10" class="empty">No requests</td></tr>';
+    : '<tr><td colspan="11" class="empty">No requests</td></tr>';
 }
 
 // The label of each catalog mode.
