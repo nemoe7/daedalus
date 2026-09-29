@@ -4,6 +4,8 @@ import os
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from daedalus import config, providers
 from daedalus.catalog import discovery
 from daedalus.catalog.enrichment import config_params
@@ -11,8 +13,8 @@ from daedalus.routing import router
 
 SAMPLE = """\
 cloudflare:
-  api_key: os.environ/CLOUDFLARE_API_KEY
-  api_base: os.environ/CLOUDFLARE_API_BASE
+  api_key: env:CLOUDFLARE_API_KEY
+  api_base: env:CLOUDFLARE_API_BASE
   discovery_url: https://api.cloudflare.com/client/v4/ai/models/search
   exclude:
     - "llama-guard*"
@@ -23,7 +25,7 @@ cloudflare:
     "@cf/qwen/qwq-32b": { max_input_tokens: 20000, max_output_tokens: 4000 }
 
 gemini:
-  api_key: os.environ/GEMINI_API_KEY
+  api_key: env:GEMINI_API_KEY
   discovery_url: https://generativelanguage.googleapis.com/v1beta/models
   exclude:
     - aqa
@@ -57,6 +59,13 @@ def test_load() -> None:
   assert gemini_model["tpm"] == 250000, gemini_model
 
   assert config.get_config() is loaded, "get_config reloaded the file"
+
+
+def test_legacy_token_is_not_resolved(monkeypatch: pytest.MonkeyPatch) -> None:
+  monkeypatch.setenv("LEGACY_API_KEY", "environment")
+  monkeypatch.setitem(config.SAVED, "LEGACY_API_KEY", "saved")
+  token = "os.environ/LEGACY_API_KEY"
+  assert config.expand(token) == token
 
 
 def test_missing_file() -> None:
@@ -167,11 +176,7 @@ def test_url_substitution() -> None:
     "https://api.cloudflare.com/client/v4/accounts/acct-123"
     "/ai/models/search?per_page=100"
   ), url
-  left = [
-    text
-    for text in walk(loaded)
-    if "os.environ/" in text or "env:" in text or "db:" in text
-  ]
+  left = [text for text in walk(loaded) if "env:" in text or "db:" in text]
   assert left == [], left
   os.environ.pop("CLOUDFLARE_ACCOUNT_ID", None)
   config.SAVED.pop("CLOUDFLARE_ACCOUNT_ID", None)

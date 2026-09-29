@@ -705,7 +705,6 @@ function providerCard(name, block) {
   const tokenInfo = (value) => {
     if (typeof value !== "string") return null;
     if (value.startsWith("env:")) return { type: "env", name: value.slice("env:".length), raw: value };
-    if (value.startsWith("os.environ/")) return { type: "env", name: value.slice("os.environ/".length), raw: value, legacy: true };
     if (value.startsWith("db:")) return { type: "db", name: value.slice("db:".length), raw: value };
     return null;
   };
@@ -717,17 +716,8 @@ function providerCard(name, block) {
     if (!row) return "missing";
     const hasSaved = row.has_saved ?? (row.state === "saved");
     const hasEnv = row.has_env ?? (row.state === "env");
-    if (info && info.type === "env" && !info.legacy) {
-      return hasEnv ? "env" : "missing";
-    }
-    if (info && info.type === "db") {
-      return hasSaved ? "saved" : "missing";
-    }
-    if (info && info.type === "env" && info.legacy) {
-      if (hasSaved) return "saved";
-      if (hasEnv) return "env";
-      return "missing";
-    }
+    if (info && info.type === "env") return hasEnv ? "env" : "missing";
+    if (info && info.type === "db") return hasSaved ? "saved" : "missing";
     return row.state;
   };
   const envHint = () => {
@@ -753,7 +743,7 @@ function providerCard(name, block) {
   };
   const placeholderFor = (info, row) => {
     if (!info) return "";
-    if (info.type === "env" && !info.legacy) {
+    if (info.type === "env") {
       const eff = effectiveState(info, row);
       if (eff === "env") return "From environment";
       if (eff === "missing") return "Missing — set env var";
@@ -779,7 +769,7 @@ function providerCard(name, block) {
         const ph = placeholderFor(info, row) || defaults[key] || "";
         const extra = "";
         if (info.type === "env") {
-          const shown = info.legacy ? info.name : info.raw;
+          const shown = info.raw;
           return field(label, hint, `<input class="text" type="text" spellcheck="false" autocomplete="off"
           data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(shown)}" placeholder="${esc(ph)}">${extra}`);
         }
@@ -945,7 +935,6 @@ function setText(input) {
   const curInfo = (() => {
     if (typeof cur !== "string") return null;
     if (cur.startsWith("env:")) return { type: "env", name: cur.slice("env:".length) };
-    if (cur.startsWith("os.environ/")) return { type: "env", name: cur.slice("os.environ/".length), legacy: true };
     if (cur.startsWith("db:")) return { type: "db", name: cur.slice("db:".length) };
     return null;
   })();
@@ -958,7 +947,7 @@ function setText(input) {
         } else {
           parent[key] = trimmed;
         }
-      } else if (trimmed.startsWith("db:") || trimmed.startsWith("os.environ/")) {
+      } else if (trimmed.startsWith("db:")) {
         parent[key] = trimmed;
       } else {
         parent[key] = trimmed;
@@ -978,7 +967,7 @@ async function saveForm() {
   const index = state.file;
   const file = state.files[index];
   const message = $("save-message");
-  const isToken = (v) => typeof v === "string" && (v.startsWith("env:") || v.includes("os.environ/") || v.startsWith("db:"));
+  const isToken = (v) => typeof v === "string" && (v.startsWith("env:") || v.startsWith("db:"));
   const hadRaw = Object.values(pruned(state.forms[index]) || {}).some((block) =>
     block && typeof block === "object" && (
       (typeof block.api_key === "string" && block.api_key.trim() && !isToken(block.api_key)) ||
