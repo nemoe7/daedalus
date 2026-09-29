@@ -1,4 +1,4 @@
-"""Load the provider config from YAML and resolve os.environ/NAME inside any string."""
+"""Load the provider config from YAML and resolve os.environ/NAME inside any string, saved values first."""
 
 import os
 import re
@@ -29,11 +29,28 @@ PROVIDER_KEYS = (
 )
 
 _config: dict[str, Any] | None = None
+# The values that the dashboard saved for os.environ/NAME. They win over the environment.
+SAVED: dict[str, str] = {}
+
+
+def env_value(name: str) -> str:
+  """The value of 1 name: the saved value, else the environment variable, else empty."""
+  return SAVED.get(name) or os.environ.get(name, "")
 
 
 def resolve_env(value: str) -> str:
-  """Read one environment variable that an os.environ/NAME token names."""
-  return ENV_PATTERN.sub(lambda found: os.environ.get(found.group(1), ""), value)
+  """Replace each os.environ/NAME token with its saved value or environment variable."""
+  return ENV_PATTERN.sub(lambda found: env_value(found.group(1)), value)
+
+
+def load_saved() -> dict[str, str]:
+  """Read the saved values from the state file into memory."""
+  from daedalus import store
+  from daedalus.store import saved_env
+
+  SAVED.clear()
+  SAVED.update(saved_env.read(store.MODELS_DB))
+  return SAVED
 
 
 def expand(node: Any) -> Any:
@@ -119,6 +136,7 @@ def provider_files(path: Path | str = DEFAULT_PATH) -> list[Path]:
 def load_config(path: Path | str = DEFAULT_PATH) -> dict[str, Any]:
   """Read the main provider file and each `{provider}.yml` file into memory."""
   global _config
+  load_saved()
   loaded = read_yaml(Path(path))
   for file, content in provider_blocks(path):
     block = loaded.setdefault(file.stem, {})

@@ -91,7 +91,7 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 
 ## Provider files
 
-Each top-level key is 1 provider. A value `os.environ/NAME` reads the environment variable `NAME`.
+Each top-level key is 1 provider. A value `os.environ/NAME` reads the value saved on the dashboard, else the environment variable `NAME`. See [Keys and values](dashboard.md#keys-and-values).
 
 ```yaml
 groq:
@@ -159,9 +159,9 @@ gemini:
 To set up 2 clients:
 
 1. On the dashboard **API keys** page, make the keys `kilo` and `owui`. Give each client its key.
-2. In `.env`, set `GEMINI_API_KEY_KILO` and `GEMINI_API_KEY_OWUI`.
+2. In `.env`, set `GEMINI_API_KEY_KILO` and `GEMINI_API_KEY_OWUI`. Or save them in **Keys and values** on the Providers page, after step 3.
 3. Add `client_keys` to the provider file, or add it in the **Client keys** field of the Providers page.
-4. Run `docker compose up -d`. It makes the container again with the new `.env` values. `docker compose restart` keeps the old values.
+4. After a `.env` change, run `docker compose up -d`. It makes the container again with the new `.env` values. `docker compose restart` keeps the old values. A saved value needs no restart.
 
 A model with a `mode` other than `chat` never goes into a chat chain. Use `embedding`, `audio_transcription`, `audio_speech` or `image_generation`. A model with no mode goes into the chat chains. The `audio_transcription` models make the transcription pool, and the `image_generation` models make the image pool. Set `supports_vision: true` on an `image_generation` model that edits images: only these models take `POST /v1/images/edits`.
 

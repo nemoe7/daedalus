@@ -75,3 +75,10 @@ Table(
   Column("tier", INTEGER, nullable=False),
   Column("used", REAL, nullable=False),
 )
+Table(
+  "saved_env",
+  METADATA,
+  Column("name", TEXT, primary_key=True),
+  Column("value", TEXT, nullable=False),
+  Column("updated", REAL, nullable=False),
+)

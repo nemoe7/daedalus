@@ -10,7 +10,7 @@ from daedalus import store
 from daedalus.dashboard import history
 from daedalus.providers import signatures
 from daedalus.routing import cooldowns, loops, penalties
-from daedalus.store import keys
+from daedalus.store import keys, saved_env
 from daedalus.store.database import open_db
 from daedalus.store.schema import METADATA
 
@@ -22,6 +22,7 @@ STATEMENTS = (
   loops.SCHEMA,
   *penalties.TABLES,
   keys.SCHEMA,
+  saved_env.SCHEMA,
 )
 
 
