@@ -77,7 +77,7 @@ Daedalus reads the balances when it starts, then each hour. **Check now** reads 
 | OpenRouter | Credit left of the key limit, credit used today, free requests left today | `GET /api/v1/key` |
 | Kilo | Account balance | `GET https://api.kilo.ai/api/profile/balance` |
 | Pollinations | Pollen left. A key without a budget needs the `account:usage` scope. | `GET /account/balance` |
-| Cloudflare | Neurons used since 00:00 UTC, of the free 10,000 | GraphQL `aiInferenceAdaptiveGroups` |
+| Cloudflare | Neurons used since 00:00 UTC, of the free 10,000. With no use today, it shows 0. | GraphQL `aiInferenceAdaptiveGroups` |
 | Groq, Mistral | The limit and the count left of each window, for each model, and the reset time | The `x-ratelimit-*` headers of the last answer |
 
 The header rows stay in memory only, so they are empty after a restart until the next answer. A client with its own provider key has its own rows. A count of 0 shows in red. Each balance comes from the main key of the provider, not from `client_keys`.
@@ -89,7 +89,7 @@ To show the Cloudflare neurons, give the Cloudflare token the analytics permissi
 3. Add a permission row: **Account**, **Account Analytics**, **Read**.
 4. Select **Continue to summary**, then **Update token**. The token value does not change.
 
-> Q: The neurons query is not tested with a real Cloudflare account.
+To test the token, send the query of `daedalus/routing/limits.py` with curl. Without the permission, the answer has an `errors` list.
 
 ## API keys
 
