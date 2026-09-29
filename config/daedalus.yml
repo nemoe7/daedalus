@@ -56,6 +56,7 @@ switch:
     - clanker
 dashboard:
   theme: system # system follows the device; light or dark fixes it
+  time_format: 24h # 24h or 12h, for each time on the dashboard
 pools:
   # The name after daedalus/ that clients use for each pool. After a change, the old name gets HTTP 400.
   moros: moros

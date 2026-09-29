@@ -22,7 +22,7 @@ The dashboard is mainly a utility for monitoring the application state and fine-
 | API keys | Make and delete API keys |
 | Providers | A tab for each provider file. The Form view shows 1 card for each provider of the file. The YAML view shows the file text. See [Providers](#providers). |
 | Limits | The last rate-limit headers of each model in a table, and a card with the balance of each provider key beside it. See [Limits](#limits). |
-| Settings | Form and YAML views for `config/daedalus.yml`. The mouse wheel changes the last decimal digit of a decimal field. The YAML view edits the file text, comments included. A save checks each value, then reloads the settings. A change to the other view asks for a confirmation when the file holds unsaved changes. The Escalation and Switch cards take the keywords, 1 on each line. The Dashboard card sets the theme. The Pool names card sets the names after `daedalus/`. An empty field uses the built-in name. |
+| Settings | Form and YAML views for `config/daedalus.yml`. The mouse wheel changes the last decimal digit of a decimal field. The YAML view edits the file text, comments included. A save checks each value, then reloads the settings. A change to the other view asks for a confirmation when the file holds unsaved changes. The Escalation and Switch cards take the keywords, 1 on each line. The Dashboard card sets the theme and the time format. The Pool names card sets the names after `daedalus/`. An empty field uses the built-in name. |
 
 The header stays at the top of the window. Only the page below it scrolls. A hidden browser tab sends no requests. It gets new data when it shows again.
 
