@@ -16,7 +16,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (text) => String(text ?? "").replace(/[&<>"']/g, (c) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const tierLetter = (name) => (name || "").replace("TIER-", "") || "-";
-const tokens = (n) => !n ? "-" : n >= 1e6 ? +(n / 1e6).toFixed(1) + "M" : Math.round(n / 1024) + "k";
+const tokens = (n) => !n ? "-" : n >= 1e6 ? +(n / 1e6).toFixed(1) + "M" : n < 1000 ? String(n) : Math.round(n / 1024) + "K";
 // The hour cycle of each shown time, from dashboard.time_format: h23 for 24h, h12 for 12h.
 let hourCycle = "h23";
 const clock = (seconds) => new Date(seconds * 1000).toLocaleTimeString(
