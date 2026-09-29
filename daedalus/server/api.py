@@ -387,11 +387,16 @@ app.include_router(
 class Tracker:
   """Weights and the session model of one request, keyed by its conversation."""
 
-  def __init__(self, key: str, slot: str | None) -> None:
+  def __init__(self, key: str, slot: str | None, client: str | None = None) -> None:
     self.key = key
+    self.client = client
     self.slot = slot if AFFINITY else None
     self.dropped = False
     self.switched = False
+
+  def lane(self, model: str) -> str:
+    """The cooldown and pacing key of the model for this client."""
+    return router.lane(get_config(), model, self.client)
 
   def switch(self) -> str | None:
     """Remove the session model, and return it."""
@@ -408,7 +413,7 @@ class Tracker:
     """Update the weight and pin the model. A slow success removes the pin instead."""
     slow = ttft >= SLOW_SECONDS
     PENALTIES.record(model, PENALTIES.slow if slow else PENALTIES.success)
-    COOLDOWNS.succeeded(model)
+    COOLDOWNS.succeeded(self.lane(model))
     if not self.slot:
       return None
     if slow:
@@ -425,12 +430,12 @@ class Tracker:
     PENALTIES.record(model, PENALTIES.rate_limit if limited else PENALTIES.fault)
     if self.slot and PENALTIES.unpin(self.key, self.slot, model):
       self.dropped = True
-    return COOLDOWNS.start(model, exc.headers, exc.body) if limited else None
+    return COOLDOWNS.start(self.lane(model), exc.headers, exc.body) if limited else None
 
   def cooled(self, ends: dict[str, float]) -> None:
     """Remove the session model when it is in a cooldown."""
     model = PENALTIES.pinned(self.key, self.slot) if self.slot else None
-    if model and COOLDOWNS.until(model, ends) is not None:
+    if model and COOLDOWNS.until(self.lane(model), ends) is not None:
       self.dropped = PENALTIES.unpin(self.key, self.slot, model)
 
 
@@ -447,13 +452,15 @@ def tool_loop(request: Request, messages: list, pin: Tracker) -> str | None:
 
 
 def without_cooling(
-  groups: list[list[str]], ends: dict[str, float]
+  groups: list[list[str]], ends: dict[str, float], lane: Callable[[str], str]
 ) -> tuple[list[list[str]], float | None]:
   """The groups without the models in a cooldown, and the seconds to the first end when none is left."""
-  left = [[m for m in group if COOLDOWNS.until(m, ends) is None] for group in groups]
+  left = [
+    [m for m in group if COOLDOWNS.until(lane(m), ends) is None] for group in groups
+  ]
   if any(left) or not any(groups):
     return left, None
-  first = min(COOLDOWNS.until(m, ends) or 0.0 for group in groups for m in group)
+  first = min(COOLDOWNS.until(lane(m), ends) or 0.0 for group in groups for m in group)
   return left, first - time.time()
 
 
@@ -515,7 +522,7 @@ async def chat(request: Request) -> Response:
     )
   if model == router.RESERVED_MODEL and found[1]:
     request.state.pool = routed_pool(found[1])
-  pin = Tracker(key, found[1])
+  pin = Tracker(key, found[1], getattr(request.state, "key", None))
   old = pin.switch() if said(SWITCH, body["messages"]) else None
   looping = tool_loop(request, body["messages"], pin)
   tokens, limits = context.input_tokens(body), store.input_limits()
@@ -529,14 +536,18 @@ async def chat(request: Request) -> Response:
   if any(found[0]) and not any(groups):
     return context.too_long(tokens)
   ends = COOLDOWNS.ends()
-  groups, wait = without_cooling(groups, ends)
+  groups, wait = without_cooling(groups, ends, pin.lane)
   if wait is not None:
     return upstream.cooling_response(wait)
   pin.cooled(ends)
   paces = store.pace_limits()
-  paced = [[m for m in group if not PACING.full(m, paces)] for group in groups]
+  paced = [
+    [m for m in group if not PACING.full(pin.lane(m), paces)] for group in groups
+  ]
   if any(groups) and not any(paced):
-    return upstream.cooling_response(PACING.wait(m for group in groups for m in group))
+    return upstream.cooling_response(
+      PACING.wait(pin.lane(m) for group in groups for m in group)
+    )
   models = pin.order(paced)
   if old in models:
     # A switch keyword gives the session another model. The old model is the last fallback.
@@ -564,12 +575,12 @@ async def chat(request: Request) -> Response:
     request.state.fallbacks = str(index)
     dashboard.live_update(request, trying=candidate, fallbacks=index)
     started, sent = time.perf_counter(), {}
-    PACING.record(candidate, tokens)
+    PACING.record(pin.lane(candidate), tokens)
     response = None
     try:
       # The request limit caps the wait for an answer, for all attempts.
       provider, response = await upstream.in_time(
-        upstream.attempt(candidate, body, config, sent), deadline
+        upstream.attempt(candidate, body, config, sent, pin.client), deadline
       )
       wait = router.model_wait(config, candidate, upstream.WAIT_SECONDS)
       if not body.get("stream"):
