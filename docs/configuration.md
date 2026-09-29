@@ -1,6 +1,6 @@
 # Configuration
 
-Daedalus reads 3 sources:
+daedalus reads 3 sources:
 
 | Source | Contents | Edit from the dashboard |
 | --- | --- | --- |
@@ -24,7 +24,7 @@ A key that shows 2 times in 1 map of a config file stops the start. The error gi
 | Discovery | Each file discovers the models of its provider with its own settings. |
 | Models | A file keeps only the models that match a key of its `models` block. A key of `"*"` keeps each model of that provider. |
 | Values | For a model that a file keeps, only that file sets the values. The `free.yml` block does not apply to it. |
-| New file | The **Providers** page makes a file, and a name that Daedalus does not know also gets an empty `api_base`. |
+| New file | The **Providers** page makes a file, and a name that daedalus does not know also gets an empty `api_base`. |
 
 ## Environment variables
 
@@ -39,7 +39,7 @@ A key that shows 2 times in 1 map of a config file stops the start. The error gi
 | `DAEDALUS_UID`, `DAEDALUS_GID` | `1000` | Container user and group |
 | `HEADROOM_URL` | `http://headroom:8787` in Compose | Headroom compression. An empty value stops it. |
 | `COMPOSE_PROFILES` | Empty | Optional services: `webui`, `tika`, `search`, `headroom`, `tailscale` |
-| `OPENWEBUI_API_KEY` | `DAEDALUS_MASTER_KEY` | The key that Open WebUI sends to Daedalus |
+| `OPENWEBUI_API_KEY` | `DAEDALUS_MASTER_KEY` | The key that Open WebUI sends to daedalus |
 | `OPENWEBUI_DB_PASSWORD` | `openwebui` | The password of the Open WebUI vector database. The database has no host port. |
 | `SEARXNG_SECRET` | Empty | The SearXNG secret. SearXNG has no host port. |
 | `TS_AUTHKEY`, `TS_HOSTNAME` | Empty, `daedalus` | Tailscale auth key and device name |
@@ -57,7 +57,7 @@ Provider keys:
 | `POLLINATIONS_API_KEY` | Pollinations: the secret `sk_` key from <https://enter.pollinations.ai> |
 | `ZAI_API_KEY` | Z.ai |
 
-Daedalus skips each provider that has no key. A `client_keys` value can read other names, for example `GEMINI_API_KEY_KILO`.
+daedalus skips each provider that has no key. A `client_keys` value can read other names, for example `GEMINI_API_KEY_KILO`.
 
 ## Router settings
 
@@ -111,7 +111,7 @@ groq:
 | Key | Use |
 | --- | --- |
 | `api_key` | Necessary. With no key, the models of the provider leave each chain and pool, and a direct request gets HTTP 400. |
-| `client_keys` | Optional. A provider key for each Daedalus key name. See [Client keys](#client-keys). |
+| `client_keys` | Optional. A provider key for each daedalus key name. See [Client keys](#client-keys). |
 | `api_base` | Optional. Each provider has a default. |
 | `api_type` | Optional. `openai` or `gemini`. |
 | `discovery_url` | Optional. The model list URL. Each provider has a default. |
@@ -138,7 +138,7 @@ When 2 entries match 1 model, the last entry in the file sets the key. A model k
 
 ### Client keys
 
-`client_keys` gives a client its own provider key, for example its own Gemini project. The map key is the name of a Daedalus key from the [API keys](dashboard.md#api-keys) page.
+`client_keys` gives a client its own provider key, for example its own Gemini project. The map key is the name of a daedalus key from the [API keys](dashboard.md#api-keys) page.
 
 ```yaml
 gemini:

@@ -151,7 +151,7 @@ function catalogChip({ built, next, rebuilding }) {
 }
 
 async function rebuildCatalog() {
-  if (!confirm("Rebuild the catalog now? Daedalus gets the model list of each provider again.")) return;
+  if (!confirm("Rebuild the catalog now? daedalus gets the model list of each provider again.")) return;
   try {
     await call("catalog", { method: "POST" });
   } catch (error) {
@@ -223,7 +223,7 @@ const seconds = (value) => value == null ? "" : `${value.toFixed(3)}s`;
 // A cooldown that an attempt started, such as "cooldown 60s backoff".
 const coolText = (c) => `cooldown ${timeLeft(Date.now() / 1000 + c.seconds) || "0s"} ${c.reason}`;
 
-// The effort that went to one model, where null means that Daedalus dropped it.
+// The effort that went to one model, where null means that daedalus dropped it.
 const sentText = (a) => (a.effort == null ? "dropped" : a.effort);
 
 // The effort that the client asked for, then the effort that went to the model that answered.
@@ -679,7 +679,7 @@ function providerCard(name, block) {
   const values = others.map((key) => pill(`${key}: ${shown(block[key])}`, path, key)).join("") + adder(path, "column", "+ key");
   return `<div class="card provider" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
     ${text("api_key", "API key", "os.environ/NAME reads an environment variable")}
-    ${field("Client keys", "Daedalus key name = provider key. That client uses this key, with its own cooldowns and rpm counts.", `<div class="pills">${mapPills(block.client_keys, [...path, "client_keys"], "match", " = ")}</div>`)}
+    ${field("Client keys", "daedalus key name = provider key. That client uses this key, with its own cooldowns and rpm counts.", `<div class="pills">${mapPills(block.client_keys, [...path, "client_keys"], "match", " = ")}</div>`)}
     ${text("api_base", "API base", "Empty: the default, in gray")}
     ${text("api_type", "API type", "openai or gemini. Empty: the default, in gray")}
     ${text("discovery_url", "Discovery URL", "The model list URL. Empty: the default, in gray")}
@@ -1328,7 +1328,7 @@ function showPage() {
   document.querySelectorAll("#nav a").forEach((link) => {
     link.classList.toggle("on", link.dataset.page === page);
   });
-  document.title = `Daedalus · ${document.querySelector(`#nav a[data-page="${page}"]`).firstChild.textContent}`;
+  document.title = `daedalus · ${document.querySelector(`#nav a[data-page="${page}"]`).firstChild.textContent}`;
   if (page === "providers" && state.view === "form") renderForm();
 }
 
