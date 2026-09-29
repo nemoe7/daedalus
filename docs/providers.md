@@ -106,19 +106,18 @@ The Gemini exclude list keeps these models out:
 | --- | --- |
 | The 2.5 family, TTS included | Only past users can use them. |
 | Live models | They use only the Live API, a websocket. Daedalus does not support it. |
-| Models with a 0/0 free quota | Images, Omni, Lyria, Veo, 3.1 Pro, Deep Research, Computer Use |
+| Models with a 0/0 free quota | Images, Omni, Lyria, Veo, 3.1 Pro, Deep Research |
 | Robotics ER, Antigravity | They are for robot vision and for agents. |
 | `aqa` | It answers from given sources only. |
 | `*-latest` aliases | The model behind each alias changes over time. |
 
 No client used these endpoints in a test yet.
 
-The Mistral exclude list keeps these models out:
+Mistral needs no exclude list. Discovery keeps out these Mistral rows:
 
-| Models | Reason |
+| Rows | Reason |
 | --- | --- |
-| OCR and moderation | They do not chat. Without a capability, Mistral models get the chat mode. |
-| `*-latest` aliases | Each alias is a copy of a dated id. The `models` block keeps `voxtral-mini-latest`. |
-| `mistral-vibe-cli-*` | The models of the Vibe command line. |
+| Aliases: a `name` that is not the `id` | Each alias is a copy of a main id, for example `mistral-vibe-cli-latest` of `mistral-medium-latest`. A client can still send an alias. |
+| The `ocr`, `moderation`, `classification` or `audio_transcription_realtime` capability | No Daedalus endpoint serves these models. |
 
 The Groq `rpm` and `tpm` values come from the free limits in the [Groq docs](https://console.groq.com/docs/rate-limits).
