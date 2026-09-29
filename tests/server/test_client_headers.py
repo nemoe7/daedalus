@@ -5,8 +5,8 @@ import json
 import httpx
 import pytest
 
-from daedalus import config, store
-from daedalus.server import api, media
+from daedalus import config, dashboard, store
+from daedalus.server import access, api, media
 from daedalus.server.upstream import set_client
 
 MASTER = "test-master-key-0001"
@@ -60,6 +60,7 @@ async def client():
   api.PENALTIES.clear()
   api.COOLDOWNS.clear()
   media.REPEATS.clear()
+  dashboard.HISTORY.clear()
   SEEN.clear()
   async with httpx.AsyncClient(transport=httpx.MockTransport(upstream)) as outer:
     set_client(outer)
@@ -107,3 +108,20 @@ async def test_client_headers(client: httpx.AsyncClient) -> None:
   assert len(SEEN) == 3, SEEN
   for headers in SEEN:
     check(headers)
+  rows = dashboard.HISTORY.latest()
+  assert [(row["app"], row["key"]) for row in rows] == [("Kilo", "master")] * 3, rows
+
+
+def test_app_name() -> None:
+  """The short app name comes from the header map, then from the title header."""
+  found = [
+    access.app_name(httpx.Headers(headers))
+    for headers in (
+      {"X-OpenWebUI-User-Name": "a", "User-Agent": "aiohttp"},
+      {"HTTP-Referer": "https://kilocode.ai", "X-Title": "Kilo Code"},
+      {"User-Agent": "Kilo-Code/7.0"},
+      {"X-Title": "Some App With A Very Long Name Indeed"},
+      {"User-Agent": "curl/8"},
+    )
+  ]
+  assert found == ["OWUI", "Kilo", "Kilo", "Some App With A Very Lon", None], found
