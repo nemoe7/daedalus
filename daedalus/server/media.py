@@ -61,7 +61,7 @@ def models_for(
       or model in router.MEDIA_POOLS
     ):
       return invalid(
-        f"This endpoint needs a provider/slug model{f' or {pool}' if pool else ''}"
+        f"This endpoint needs a provider/slug model{f' or {router.pool_name(pool)}' if pool else ''}"
       )
     return [model]
   config = get_config()
@@ -71,7 +71,7 @@ def models_for(
     if router.pooled(config, name)
   ]
   if not members:
-    return invalid(f"{pool} has no models")
+    return invalid(f"{router.pool_name(pool)} has no models")
   turn = REPEATS.start_digest(
     keys.digest(access.bearer(request) + pool), hashlib.sha256(content).hexdigest()
   )
@@ -105,6 +105,10 @@ async def attempt(
   vision: bool = False,
 ) -> Any:
   """Try the models in turn, record each attempt for the dashboard, and update the pool weights. Vision: only image input models."""
+  found = router.built_in(model)
+  if found is None:
+    return invalid("Unknown provider or pool")
+  model = found
   models = models_for(request, model, pool, content, vision)
   if isinstance(models, Response):
     return models

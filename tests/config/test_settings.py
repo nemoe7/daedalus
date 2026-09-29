@@ -135,3 +135,18 @@ def test_cli(folder: Path) -> None:
 @pytest.fixture(scope="module")
 def folder(tmp_path_factory: pytest.TempPathFactory) -> Path:
   return tmp_path_factory.mktemp("settings")
+
+
+def test_pool_names() -> None:
+  """Each pool name is a short name of its own, and a save keeps a name that looks like a number."""
+  assert settings.parse("")["pools"]["moros"] == "moros"
+  assert settings.parse("pools:\n  moros: fast\n")["pools"]["moros"] == "fast"
+  for bad in ("a/b", "auto", "''", "x" * 41, "[a]"):
+    with pytest.raises(settings.SettingsError):
+      settings.parse(f"pools:\n  moros: {bad}\n")
+  with pytest.raises(settings.SettingsError, match="own name"):
+    settings.parse("pools:\n  moros: koinos\n")
+  swapped = settings.parse("pools:\n  moros: koinos\n  koinos: moros\n")["pools"]
+  assert (swapped["moros"], swapped["koinos"]) == ("koinos", "moros"), swapped
+  text = settings.update_text("pools:\n  moros: moros\n", {"pools": {"moros": "123"}})
+  assert settings.parse(text)["pools"]["moros"] == "123", text

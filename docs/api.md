@@ -63,6 +63,8 @@ Embeddings and speech have no pool and no fallback. Vectors and voices from 2 mo
 | `daedalus/photos` | The image pool, for `POST /v1/images/generations` and `POST /v1/images/edits` only |
 | `provider/slug`, for example `groq/llama-3.3-70b-versatile` | That model only |
 
+The `pools` settings can replace the pool names after `daedalus/`. Then only the new names work. See [Configuration](configuration.md#router-settings).
+
 ## Model list fields
 
 Each chat model and pool model in `GET /v1/models` has these catalog fields, when the catalog has a value:

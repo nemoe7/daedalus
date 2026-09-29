@@ -86,6 +86,7 @@ Daedalus skips each provider that has no key. A `client_keys` value can read oth
 | `escalation.keywords` | `[]` | Words or phrases. A match in the last user message moves the `daedalus/auto` tier 1 step above the session tier, and the session keeps it. A match is a whole word or phrase, in uppercase or lowercase. The message does not change. The shipped file has a list. |
 | `switch.keywords` | `[]` | Words or phrases. A match in the last user message removes the session model of the pool. Another model of the same tier answers, and it becomes the session model. The old model is the last fallback. A match is a whole word or phrase, in uppercase or lowercase. The shipped file has `clanker`. |
 | `dashboard.theme` | `system` | `system`, `light` or `dark`. `system` follows the device. The Settings page has a Theme field. The login page always follows the device. |
+| `pools.moros`, `pools.koinos`, `pools.deinos`, `pools.sophos`, `pools.graphos`, `pools.photos` | The key | The name after `daedalus/` that clients use for the pool. 1 to 40 letters, digits, dots, dashes or underscores, but not `auto`. Each pool has its own name. After a change, the old name gets HTTP 400 `Unknown provider or pool`. `daedalus/auto` does not change. `/v1/models` and the dashboard show the new names. |
 
 ## Provider files
 

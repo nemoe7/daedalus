@@ -168,11 +168,10 @@ class RequestLog:
 
 def log_line(request: Request, status: int, started: float) -> None:
   """Write the log line of one request when its answer starts."""
-  models = [
-    f"{key}={getattr(request.state, key)}"
-    for key in REQUEST_FIELDS
-    if getattr(request.state, key, None)
-  ]
+  values = {key: getattr(request.state, key, None) for key in REQUEST_FIELDS}
+  if values.get("pool"):
+    values["pool"] = router.pool_name(values["pool"])
+  models = [f"{key}={value}" for key, value in values.items() if value]
   line = " ".join(
     [request.method, request.url.path, str(status), logs.elapsed(started)]
   )
@@ -279,7 +278,12 @@ async def models(request: Request) -> Response:
   ]
   names = [router.RESERVED_MODEL, *router.POOLS, *chat, *media_pools, *others]
   data = [
-    {"id": name, "object": "model", "owned_by": "daedalus", **fields.get(name, {})}
+    {
+      "id": router.pool_name(name),
+      "object": "model",
+      "owned_by": "daedalus",
+      **fields.get(name, {}),
+    }
     for name in names
   ]
   return JSONResponse({"object": "list", "data": data})
@@ -490,6 +494,11 @@ async def chat(request: Request) -> Response:
     return upstream.error_response(
       400, "Invalid model or messages", "invalid_request_error"
     )
+  model = router.built_in(model)
+  if model is None:
+    return upstream.error_response(
+      400, "Unknown provider or pool", "invalid_request_error"
+    )
   if "stream" in body and not isinstance(body["stream"], bool):
     return upstream.error_response(
       400, "stream must be boolean", "invalid_request_error"
@@ -689,6 +698,7 @@ def keyword_pattern(keywords: list[str]) -> re.Pattern[str] | None:
 def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   """Use the values of `config/daedalus.yml`."""
   global SLOW_SECONDS, AFFINITY, KEYWORDS, SWITCH
+  router.set_pool_names(values["pools"])
   timeouts, affinity, weights = (
     values["timeouts"],
     values["session_affinity"],
