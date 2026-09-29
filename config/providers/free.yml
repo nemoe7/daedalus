@@ -49,7 +49,6 @@ gemini:
     - gemini-2.5-*
     - gemini-3.1-pro-preview*
     - deep-research*
-    - "*computer-use*"
     - "*omni*"
     - "*-image*"
     - "*-live*"
@@ -124,11 +123,6 @@ kilo:
 
 mistral:
   api_key: os.environ/MISTRAL_API_KEY
-  exclude:
-    - "*ocr*"
-    - "*moderation*"
-    - "*-latest" # aliases of the dated ids; the models block keeps voxtral-mini-latest
-    - "mistral-vibe-cli-*"
   tier:
     TIER-A:
       - "mistral-medium-*"
