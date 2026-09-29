@@ -213,7 +213,7 @@ class CloudflareProvider(OpenAIProvider):
 
   @staticmethod
   def discoverable(row: dict) -> bool:
-    """Only the tasks that a Daedalus endpoint serves go into the catalog."""
+    """Only the tasks that a daedalus endpoint serves go into the catalog."""
     return task_name(row) in TASK_MODES
 
   @staticmethod

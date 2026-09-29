@@ -60,7 +60,7 @@ async def test_headers(client: httpx.AsyncClient) -> None:
   login = {"username": "admin", "password": MASTER}
   session = (await client.post("/ui/api/login", json=login)).json()["session"]
   view = (
-    await client.get("/ui/api/limits", headers={"X-Daedalus-Session": session})
+    await client.get("/ui/api/limits", headers={"x-daedalus-session": session})
   ).json()
   rows = {lane["model"]: lane["rows"][0] for lane in view["lanes"]}
   assert set(rows) == {"groq/x", "groq/img"}, rows

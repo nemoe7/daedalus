@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def test_dev_copy() -> None:
-  """compose.dev.yml is compose.yml with a Daedalus build in place of the image."""
+  """compose.dev.yml is compose.yml with a daedalus build in place of the image."""
   main = yaml.safe_load((ROOT / "compose.yml").read_text())
   dev = yaml.safe_load((ROOT / "compose.dev.yml").read_text())
   assert main["services"]["daedalus"].pop("image").startswith("ghcr.io/")
