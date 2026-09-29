@@ -35,6 +35,8 @@ header {
 }
 .tabs a:hover { color: var(--text); }
 .tabs a.on { color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+.tabs .count { margin-left: 6px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.tabs .count:empty { display: none; }
 .chips {
   grid-area: chips; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;
   align-items: center; align-self: center; padding: 8px 0;
