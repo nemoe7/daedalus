@@ -193,15 +193,17 @@ const seconds = (value) => value == null ? "" : `${value.toFixed(3)}s`;
 const coolText = (c) => `cooldown ${timeLeft(Date.now() / 1000 + c.seconds) || "0s"} ${c.reason}`;
 
 // The effort that went to one model, where null means that Daedalus dropped it.
-const sentText = (a) => (a.effort == null ? "not sent" : a.effort);
+const sentText = (a) => (a.effort == null ? "dropped" : a.effort);
 
 // The effort that the client asked for, then the effort that went to the model that answered.
+// A native value of the same level, such as thinkingLevel=low for low, shows only the level.
 function effortCell(r) {
   const served = (r.attempts || []).filter((a) => a.result === "answered" && "effort" in a).pop();
   if (!served) return esc(r.effort || "-");
   const sent = sentText(served);
-  if (sent === r.effort) return esc(sent);
-  return `${esc(r.effort || "-")} <span class="from">to ${esc(sent)}</span>`;
+  const level = String(sent).split("=").pop().toLowerCase();
+  if (sent === r.effort || level === String(r.effort).toLowerCase()) return esc(r.effort);
+  return `${esc(r.effort || "-")} <span class="from">${esc(sent)}</span>`;
 }
 
 // A request that the client closed shows "cancelled" in place of its status.
