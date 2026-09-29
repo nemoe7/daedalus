@@ -138,7 +138,7 @@ async def test_requests() -> None:
           row = end["row"]
           assert row["stream"] is stream and row["seconds"] >= 0, row
           assert row == dashboard.HISTORY.latest(1)[0], "the end row is the history row"
-        await client.get("/ui/api/requests", headers={"X-Daedalus-Session": "x"})
+        await client.get("/ui/api/requests", headers={"x-daedalus-session": "x"})
         assert queue.empty(), "only API posts go on the live list"
         assert not dashboard.LIVE.rows, "no request stays in flight"
       dashboard.LIVE.queues.discard(queue)
