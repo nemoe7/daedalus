@@ -98,7 +98,27 @@ function showLogin(message = "") {
   $("app").hidden = true;
   $("login").hidden = false;
   $("login-message").textContent = message;
-  $("login").password.focus();
+  showPassword(false);
+  loginHints();
+}
+
+// The username to fill in and the master key hint, for the values that the environment does not set.
+async function loginHints() {
+  const hints = await call("login").catch(() => ({}));
+  const form = $("login");
+  if (!form.username.value && hints.username) form.username.value = hints.username;
+  $("login-hint").hidden = !hints.master;
+  form[form.username.value ? "password" : "username"].focus();
+}
+
+// The eye button shows the password until the next click or login.
+function showPassword(on) {
+  const button = $("show-password");
+  const label = on ? "Hide the password" : "Show the password";
+  $("login").password.type = on ? "text" : "password";
+  button.setAttribute("aria-pressed", String(on));
+  button.setAttribute("aria-label", label);
+  button.title = label;
 }
 
 async function guarded(task) {
@@ -1087,12 +1107,14 @@ $("login").addEventListener("submit", async (event) => {
     });
     keepSession(answer.session, form.remember.checked);
     form.password.value = "";
+    showPassword(false);
     await guarded(start);
   } catch (error) {
     $("login-message").textContent = error.message;
   }
 });
 
+$("show-password").addEventListener("click", () => showPassword($("login").password.type === "password"));
 document.addEventListener("click", (event) => {
   if (event.target.closest("#catalog-rebuild")) rebuildCatalog();
 });
