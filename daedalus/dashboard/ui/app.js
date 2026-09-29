@@ -233,7 +233,7 @@ function chainRows(r) {
       ${a.cooldown ? `<span class="from">${esc(coolText(a.cooldown))}</span>` : ""}
       ${a.error ? `<pre>${esc(a.error)}</pre>` : ""}
     </li>`).join("");
-  return `<tr class="chain"><td colspan="11"><div class="chain-body">
+  return `<tr class="chain"><td colspan="12"><div class="chain-body">
     <div class="chain-head"><span class="muted">Fallback chain</span>
       <button class="ghost copy-chain" type="button" data-at="${r.at}">Copy</button></div>
     ${steps ? `<ol>${steps}</ol>` : '<p class="muted">No attempt data for this request.</p>'}
@@ -241,10 +241,11 @@ function chainRows(r) {
 }
 
 // The input tokens: the provider count, or the Daedalus estimate with a ~ mark.
-function inputCell(r) {
-  const input = r.tokens?.input;
-  if (typeof input !== "number") return "-";
-  return `${r.tokens.estimate ? "~" : ""}${input.toLocaleString()}`;
+// A token count in whole thousands from 1,000, such as 79K, with the exact count on hover.
+function tokenCell(count, mark = "") {
+  if (typeof count !== "number") return '<td class="hide-sm num">-</td>';
+  const shown = count >= 1000 ? `${Math.floor(count / 1000)}K` : String(count);
+  return `<td class="hide-sm num" title="${mark}${count.toLocaleString()}">${mark}${shown}</td>`;
 }
 
 // The stream time of a finished request: after the first token, or the total time without a stream.
@@ -304,6 +305,7 @@ function renderLive() {
       <td>${r.via ? esc(r.via) : `<span class="muted">${r.trying ? `trying ${esc(r.trying)}` : "waiting"}</span>`}</td>
       <td class="status muted">live</td>
       <td class="hide-sm num muted">-</td>
+      <td class="hide-sm num muted">-</td>
       <td class="hide-sm num" data-clock="ttft"></td>
       <td class="hide-sm num" data-clock="stream"></td>
       <td class="hide-sm num muted">${r.fallbacks ?? "-"}</td>
@@ -339,12 +341,13 @@ function renderRequests(rows) {
       <td class="hide-sm muted">${esc(r.pool || "-")}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${r.retry ? ` <span class="from">try again ${esc(r.retry)}</span>` : ""}${r.loop ? ` <span class="from">tool loop ${esc(r.loop)}</span>` : ""}</td>
       <td>${r.via ? esc(r.via) : '<span class="muted">none</span>'}</td>
       <td class="status ${statusClass(r)}">${statusText(r)}</td>
-      <td class="hide-sm num">${inputCell(r)}</td>
+      ${tokenCell(r.tokens?.input, r.tokens?.estimate ? "~" : "")}
+      ${tokenCell(r.tokens?.output)}
       <td class="hide-sm num">${esc(r.ttft || "-")}</td>
       <td class="hide-sm num">${streamCell(r)}</td>
       <td class="hide-sm num">${esc(r.fallbacks ?? "-")}</td>
     </tr>${opened.has(String(r.at)) ? chainRows(r) : ""}`).join("")
-    : '<tr><td colspan="11" class="empty">No requests</td></tr>';
+    : '<tr><td colspan="12" class="empty">No requests</td></tr>';
 }
 
 // The label of each catalog mode.

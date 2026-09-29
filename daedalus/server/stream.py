@@ -55,10 +55,13 @@ async def sse_data(
 
 
 def provider_count(usage: object) -> dict[str, Any] | None:
-  """The input tokens of an OpenAI `usage` object, marked as a provider count."""
-  if isinstance(usage, dict) and isinstance(usage.get("prompt_tokens"), int):
-    return {"input": usage["prompt_tokens"], "estimate": False}
-  return None
+  """The input and output tokens of an OpenAI `usage` object, marked as a provider count."""
+  if not isinstance(usage, dict) or not isinstance(usage.get("prompt_tokens"), int):
+    return None
+  found = {"input": usage["prompt_tokens"], "estimate": False}
+  if isinstance(usage.get("completion_tokens"), int):
+    found["output"] = usage["completion_tokens"]
+  return found
 
 
 def has_content(data: str) -> bool:
