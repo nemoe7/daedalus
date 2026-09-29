@@ -26,7 +26,7 @@ const state = {
   models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, saved: [], timers: [],
   view: "form", forms: [], formSaved: [], overrideKeys: [], providerDefaults: {}, settingsView: "form",
   pools: [], requests: [], requestLimit: REQUESTS_STEP, keys: [], catalog: {}, settings: null,
-  live: new Map(), source: null,
+  live: new Map(), source: null, env: [],
 };
 
 const fileName = (path) => path.split(/[\\/]/).pop();
@@ -549,7 +549,9 @@ function renderEnv(rows) {
 }
 
 async function refreshEnv() {
-  renderEnv(await call("env"));
+  state.env = await call("env");
+  renderEnv(state.env);
+  if (!document.querySelector('section[data-page="providers"]').hidden) renderForm();
 }
 
 function renderKeys(rows) {
@@ -700,8 +702,20 @@ function providerCard(name, block) {
       <p class="sub">This block is not a map. Edit it in the YAML view.</p></div>`;
   }
   const defaults = state.providerDefaults[name] || state.providerDefaults["*"] || {};
-  const text = (key, label, hint) => field(label, hint, `<input class="text" type="text" spellcheck="false" autocomplete="off"
-    data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(block[key] ?? "")}" placeholder="${esc(defaults[key] ?? "")}">`);
+  const envHint = () => {
+    const value = block.api_key;
+    if (typeof value !== "string" || !value.startsWith("os.environ/")) return "";
+    const envName = value.slice("os.environ/".length);
+    const row = state.env.find((r) => r.name === envName);
+    if (!row) return "";
+    const label = ENV_STATES[row.state](row);
+    return `<small class="${row.state === "missing" ? "out" : row.state === "env" ? "muted" : ""}">${esc(label)}</small>`;
+  };
+  const text = (key, label, hint) => {
+    const extra = key === "api_key" ? envHint() : "";
+    return field(label, hint, `<input class="text" type="text" spellcheck="false" autocomplete="off"
+    data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(block[key] ?? "")}" placeholder="${esc(defaults[key] ?? "")}">${extra}`);
+  };
   const tiers = TIERS.map((tier) => `<div class="tier-row"><span class="tier">${tier.slice(-1)}</span>
     ${listField(tier, block.tier?.[tier], [...path, "tier", tier])}</div>`).join("");
   const models = block.models && typeof block.models === "object" ? block.models : {};
