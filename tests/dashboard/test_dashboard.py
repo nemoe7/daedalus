@@ -67,6 +67,13 @@ def test_page(client: TestClient) -> None:
   assert client.get("/ui/style.css").status_code == 200
   assert script.headers["cache-control"] == "no-cache", "an update applies at once"
   assert client.get("/ui/index.html").status_code == 404, "listed assets only"
+  manifest = client.get("/ui/manifest.json")
+  assert manifest.headers["content-type"] == "application/manifest+json"
+  for icon in manifest.json()["icons"]:
+    assert client.get(f"/ui/{icon['src']}").status_code == 200, icon["src"]
+  assert (
+    'href="ui/manifest.json?v=' in page.text and 'href="ui/logo.svg?v=' in page.text
+  )
 
 
 def test_login_form(client: TestClient) -> None:

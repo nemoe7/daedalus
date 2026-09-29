@@ -62,7 +62,16 @@ HEADER = "x-daedalus-session"
 SESSION_SECONDS = 12 * 3600
 REMEMBER_SECONDS = 30 * 86400
 UI_DIR = Path(__file__).parent / "ui"
-UI_FILES = {"app.js": "text/javascript", "style.css": "text/css"}
+UI_FILES = {
+  "app.js": "text/javascript",
+  "style.css": "text/css",
+  "logo.svg": "image/svg+xml",
+  "icon-192.png": "image/png",
+  "icon-512.png": "image/png",
+  "icon-maskable-512.png": "image/png",
+  "apple-touch-icon.png": "image/png",
+  "manifest.json": "application/manifest+json",
+}
 # The browser asks again each time, so a new version of the page applies at once.
 FRESH = {"Cache-Control": "no-cache"}
 # The files that the Providers editor shows, in tab order. The Settings page has its own form.
