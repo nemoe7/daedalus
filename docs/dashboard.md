@@ -49,13 +49,12 @@ The cards of the Form view stack in columns. Each card goes to the shortest colu
 
 ### Keys and values
 
-The panel under the form lists the names used by `env:NAME`, `db:NAME`, and legacy `os.environ/NAME` values in provider files and provider defaults.
+The panel under the form lists the names used by `env:NAME` and `db:NAME` values in provider files and provider defaults.
 
 | Item | Value |
 | --- | --- |
 | `env:NAME` | Reads the environment variable. |
 | `db:NAME` | Reads the saved value. |
-| Legacy `os.environ/NAME` | Reads the saved value, then the environment variable. |
 | Storage | The `saved_env` table of `.daedalus-state/models.sqlite3`. Not in the YAML or git. |
 | Shown | The state: saved, from the environment, or missing. A saved value of 12 or more characters shows its last 4 characters. |
 | Save | Takes effect at once, with no restart. A new provider key needs a catalog rebuild. |

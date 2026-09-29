@@ -17,7 +17,7 @@ MASTER = "master-key-0123456789"
 MAIN = """\
 # Free providers.
 groq:
-  api_key: os.environ/GROQ_API_KEY
+  api_key: env:GROQ_API_KEY
   exclude:
     - "*guard*" # safety models
     - compound*
@@ -31,7 +31,7 @@ groq:
   pool: false
 """
 SINGLE = """\
-api_key: os.environ/OPENROUTER_API_KEY
+api_key: env:OPENROUTER_API_KEY
 models:
   z-ai/glm-5.3-flash:
     # A short wait.
