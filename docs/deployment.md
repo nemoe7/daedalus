@@ -27,13 +27,13 @@ The commands below are the same in cmd, PowerShell and bash.
 
 ## Image release
 
-A pushed `v*` tag starts `.github/workflows/image.yml`. The workflow publishes `ghcr.io/nemoe7/daedalus:TAG` and `ghcr.io/nemoe7/daedalus:latest`. Other pushes do not build an image.
+A successful **Gemini Release Draft** approval starts `.github/workflows/image.yml` with the approved `v*` tag. The workflow publishes `ghcr.io/nemoe7/daedalus:TAG` and `ghcr.io/nemoe7/daedalus:latest`. A proposal-only Gemini run does not build an image. A manual image build is also available from the Actions tab.
 
 | Task | Command |
 | --- | --- |
-| Release | `git tag v0.1.0`, then `git push origin v0.1.0` |
-| Use 1 release | Set `image:` of `daedalus` in `compose.yml` to `ghcr.io/nemoe7/daedalus:v0.1.0` |
-| Release notes draft | `gh workflow run gemini-release.yml -f tag=v0.1.0`, or run **Gemini Release Draft** in the Actions tab. It needs the `GEMINI_API_KEY` Actions secret, and makes a draft release. |
+| Release | Run **Gemini Release Draft** and approve the proposal. The approval creates the `v*` tag and starts the image build. |
+| Manual image build | Run **Image** in the Actions tab and enter an existing `v*` tag. |
+| Use 1 release | Set `image:` of `daedalus` in `compose.yml` to `ghcr.io/nemoe7/daedalus:v0.1.0`. |
 
 ## Optional services
 
