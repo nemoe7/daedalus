@@ -44,7 +44,7 @@
   </header>
   <main>
     <section data-page="overview" hidden>
-      <div class="overview">
+      <div class="flow">
         <div class="column wide">
           <a class="card snippet" href="#/requests"><h3>Requests</h3><div id="ov-requests"></div></a>
         </div>
@@ -144,14 +144,18 @@
         <span class="message" id="limits-message"></span>
         <span class="hint" id="limits-checked"></span>
       </div>
-      <div class="pools" id="balances"></div>
-      <div class="panel">
-        <table>
-          <thead><tr>
-            <th>Model</th><th>Limit</th><th>Left</th><th class="hide-sm">Reset</th><th class="hide-sm">Seen</th>
-          </tr></thead>
-          <tbody id="limit-rows"></tbody>
-        </table>
+      <div class="flow">
+        <div class="column wide">
+          <div class="panel">
+            <table>
+              <thead><tr>
+                <th>Model</th><th>Limit</th><th>Left</th><th class="hide-sm">Reset</th><th class="hide-sm">Seen</th>
+              </tr></thead>
+              <tbody id="limit-rows"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="column" id="balances"></div>
       </div>
     </section>
     <section data-page="providers" hidden>

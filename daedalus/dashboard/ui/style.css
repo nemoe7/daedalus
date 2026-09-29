@@ -68,7 +68,6 @@ main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
 .card, .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
 .card { padding: 18px 20px; }
 .panel { overflow-x: auto; }
-#balances { margin-bottom: 16px; }
 td.out { color: var(--bad); }
 #more-requests { margin: 8px 16px; }
 .card h3 { margin: 0; font-size: 15px; font-weight: 600; }
@@ -77,9 +76,10 @@ td.out { color: var(--bad); }
 .health { display: flex; align-items: center; gap: 8px; margin: 6px 0 2px; }
 .health .track { flex: 1; height: 6px; }
 .health .num { font-size: 12px; font-variant-numeric: tabular-nums; }
-.overview { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
-.overview > .column { flex: 1 1 min(300px, 100%); display: grid; gap: 16px; min-width: 0; }
-.overview > .wide { flex: 2 1 min(460px, 100%); }
+/* The default page layout: a wide column with the table, and columns of cards. Narrow screens stack them. */
+.flow { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.flow > .column { flex: 1 1 min(300px, 100%); display: grid; gap: 16px; min-width: 0; }
+.flow > .wide { flex: 2 1 min(460px, 100%); }
 .snippet { color: inherit; text-decoration: none; display: block; }
 .snippet:hover { border-color: var(--accent); }
 .snippet h3 { margin-bottom: 12px; display: flex; justify-content: space-between; }
