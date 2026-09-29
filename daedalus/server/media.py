@@ -108,17 +108,22 @@ async def attempt(
   models = models_for(request, model, pool, content, vision)
   if isinstance(models, Response):
     return models
+  config, client = get_config(), getattr(request.state, "key", None)
+
+  def lane(name: str) -> str:
+    return router.lane(config, name, client)
+
   if COOLDOWNS:
     ends = COOLDOWNS.ends()
-    cooling = {m: COOLDOWNS.until(m, ends) for m in models}
+    cooling = {m: COOLDOWNS.until(lane(m), ends) for m in models}
     if models and all(cooling.values()):
       return upstream.cooling_response(min(cooling.values()) - time.time())
     models = [m for m in models if not cooling[m]]
   if PACING:
     paces = store.pace_limits()
-    left = [m for m in models if not PACING.full(m, paces)]
+    left = [m for m in models if not PACING.full(lane(m), paces)]
     if models and not left:
-      return upstream.cooling_response(PACING.wait(models))
+      return upstream.cooling_response(PACING.wait(map(lane, models)))
     models = left
   pooled = model == pool
   attempts: list[dict[str, Any]] = []
@@ -129,7 +134,7 @@ async def attempt(
     dashboard.live_update(request, trying=candidate, fallbacks=index)
     started = time.perf_counter()
     try:
-      provider, slug = providers.provider_for(candidate, get_config())
+      provider, slug = providers.provider_for(candidate, config, client)
       pending = call(provider, slug, candidate)
     except providers.ProviderError as exc:
       if not pooled:
@@ -138,7 +143,7 @@ async def attempt(
       attempts.append(upstream.note(candidate, "skipped", None, str(exc)))
       continue
     if PACING:
-      PACING.record(candidate)
+      PACING.record(lane(candidate))
     try:
       answer = await upstream.in_time(pending, deadline)
     except asyncio.TimeoutError:
@@ -157,13 +162,15 @@ async def attempt(
           candidate, PENALTIES.rate_limit if limited else PENALTIES.fault
         )
       if limited and COOLDOWNS:
-        attempts[-1]["cooldown"] = COOLDOWNS.start(candidate, exc.headers, exc.body)
+        attempts[-1]["cooldown"] = COOLDOWNS.start(
+          lane(candidate), exc.headers, exc.body
+        )
       continue
     request.state.via = candidate
     dashboard.live_first(request)
     attempts.append(upstream.note(candidate, "answered", started))
     if COOLDOWNS:
-      COOLDOWNS.succeeded(candidate)
+      COOLDOWNS.succeeded(lane(candidate))
     if pooled:
       if PENALTIES:
         PENALTIES.record(candidate, PENALTIES.success)

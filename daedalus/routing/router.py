@@ -8,7 +8,8 @@ from collections.abc import Mapping
 from typing import Any, Final
 
 from daedalus.catalog.discovery import matches, specificity
-from daedalus.config import block_for
+from daedalus.config import block_for, client_key
+from daedalus.routing import lanes
 from daedalus.routing.classifier import (
   TIER_NAMES,
   TIERS,
@@ -70,6 +71,14 @@ def keyed(config: Mapping[str, Any], model: str) -> bool:
   block = block_for(config, name, slug)
   key = block.get("api_key") if block else None
   return isinstance(key, str) and bool(key)
+
+
+def lane(config: Mapping[str, Any], model: str, client: str | None) -> str:
+  """The cooldown and pacing key of a model: its own lane when the client has its own provider key."""
+  name, _, slug = model.partition("/")
+  if client and client_key(block_for(config, name, slug), client):
+    return lanes.join(model, client)
+  return model
 
 
 def pooled(config: Mapping[str, Any], model: str) -> bool:
