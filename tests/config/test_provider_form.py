@@ -100,12 +100,10 @@ def test_endpoints(folder: Path) -> None:
   assert "# speech to text" in main.read_text(), "the comments stay"
   assert "*tts*" in config.get_config()["groq"]["exclude"], "the save reloads"
 
-  moved = {"openrouter": {**yaml.safe_load(SINGLE), "api_key": "os.environ/OR_KEY"}}
+  moved = {"openrouter": {**yaml.safe_load(SINGLE), "api_key": "db:OR_KEY"}}
   saved = client.put("/ui/api/providers", json={"path": str(single), "blocks": moved})
   assert saved.status_code == 200, saved.text
-  assert single.read_text().startswith("api_key: os.environ/OR_KEY\n"), (
-    "no provider key"
-  )
+  assert single.read_text().startswith("api_key: db:OR_KEY\n"), "no provider key"
   assert "# A short wait." in single.read_text()
 
   for bad in (
