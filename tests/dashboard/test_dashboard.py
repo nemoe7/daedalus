@@ -8,6 +8,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+import daedalus
 from daedalus import config, dashboard, store
 from daedalus.catalog import schedule
 from daedalus.config import settings
@@ -105,7 +106,9 @@ def test_login(client: TestClient) -> None:
   header = answer.headers["set-cookie"].lower()
   assert "httponly" in header and "samesite=strict" in header, header
   assert "max-age" not in header, "a browser-session cookie without remember me"
-  assert client.get("/ui/api/status").status_code == 200, "the session cookie"
+  status = client.get("/ui/api/status")
+  assert status.status_code == 200, "the session cookie"
+  assert status.json()["version"] == daedalus.__version__, status.json()
   value = client.cookies.get(dashboard.COOKIE)
   expires, _, signed = value.partition(".")
   forged = f"{int(expires) + 60}.{signed}"
@@ -227,6 +230,7 @@ def test_data(client: TestClient) -> None:
   status = client.get("/ui/api/status").json()
   assert status == {
     "healthy": True,
+    "version": daedalus.__version__,
     "models": 2,
     "sessions": 0,
     "catalog": status["catalog"],
