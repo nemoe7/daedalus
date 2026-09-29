@@ -1,4 +1,4 @@
-// Kilo Code plugin: copies the Daedalus token limits and feature flags into the Kilo config.
+// Kilo Code plugin: copies the daedalus token limits and feature flags into the Kilo config.
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -25,7 +25,7 @@ async function apiKey(providerID, options) {
   return (await storedKey(providerID)) || process.env.DAEDALUS_API_KEY || "";
 }
 
-function isDaedalus(providerID, block) {
+function isRouterProvider(providerID, block) {
   if (!block || typeof block !== "object" || !block.models) return false;
   if (!block.options || typeof block.options.baseURL !== "string") return false;
   return providerID === "daedalus" || Object.keys(block.models).some((key) => key.startsWith("daedalus/"));
@@ -58,7 +58,7 @@ function patch(model, row) {
 
 async function apply(config) {
   for (const [providerID, block] of Object.entries(config.provider || {})) {
-    if (!isDaedalus(providerID, block)) continue;
+    if (!isRouterProvider(providerID, block)) continue;
     try {
       const rows = await readModels(block.options.baseURL, await apiKey(providerID, block.options));
       const patched = [];

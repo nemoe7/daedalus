@@ -68,7 +68,7 @@ def listing(path: Path | str) -> list[dict[str, Any]]:
 
 
 def add(path: Path | str, name: object, key: str | None = None) -> str:
-  """Keep a new named key and return it. Without `key`, Daedalus makes one."""
+  """Keep a new named key and return it. Without `key`, daedalus makes one."""
   name, key = check_name(name), key or generate()
   Path(path).parent.mkdir(parents=True, exist_ok=True)
   database = sqlite3.connect(path)

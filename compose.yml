@@ -7,7 +7,7 @@ services:
     environment:
       DAEDALUS_HOST: 0.0.0.0
       DAEDALUS_PORT: 3357 # keep the container port below in step
-      # Daedalus sends the messages here first. When Headroom does not run, the original messages go on.
+      # daedalus sends the messages here first. When Headroom does not run, the original messages go on.
       HEADROOM_URL: ${HEADROOM_URL-http://headroom:8787}
     ports:
       - "3357:3357"
@@ -133,7 +133,7 @@ services:
     container_name: daedalus-headroom
     command: ["--host", "0.0.0.0", "--port", "8787"]
     environment:
-      HEADROOM_COMPRESS_ALLOW_REMOTE: "1" # else Headroom answers the Daedalus container with 404
+      HEADROOM_COMPRESS_ALLOW_REMOTE: "1" # else Headroom answers the daedalus container with 404
       HEADROOM_TELEMETRY: "off"
       HEADROOM_BEACON: "off" # the anonymous upload, on by default
       HEADROOM_UPDATE_CHECK: "off"
@@ -141,7 +141,7 @@ services:
       HEADROOM_WORKSPACE_DIR: /home/nonroot/.headroom
     volumes:
       - headroom:/home/nonroot # the image user owns this folder, so the new volume is writable
-    restart: unless-stopped # no port: only Daedalus connects to it
+    restart: unless-stopped # no port: only daedalus connects to it
 
   tailscale:
     profiles: [tailscale]
@@ -152,7 +152,7 @@ services:
       TS_AUTHKEY: ${TS_AUTHKEY:-}
       TS_HOSTNAME: ${TS_HOSTNAME:-daedalus}
       TS_STATE_DIR: /var/lib/tailscale
-      TS_SERVE_CONFIG: /config/serve.json # tailnet only: :443 to Daedalus, :8443 to Open WebUI
+      TS_SERVE_CONFIG: /config/serve.json # tailnet only: :443 to daedalus, :8443 to Open WebUI
       TS_AUTH_ONCE: "true" # log in with TS_AUTHKEY only when the state has no login
       TS_ENABLE_HEALTH_CHECK: "true"
       TS_LOCAL_ADDR_PORT: 127.0.0.1:9002

@@ -293,7 +293,7 @@ class OpenAIProvider:
   """A provider that serves the OpenAI Chat Completions API."""
 
   unsupported: tuple[str, ...] = ()
-  # True when the provider documents `stream_options.include_usage`, so Daedalus asks for the count.
+  # True when the provider documents `stream_options.include_usage`, so daedalus asks for the count.
   stream_usage: ClassVar[bool] = False
   defaults: ClassVar[Mapping[str, str]] = {"api_type": "openai"}
   # The message fields for each role, for a provider that rejects other fields. Empty: all fields.
@@ -460,7 +460,7 @@ class OpenAIProvider:
     return answer
 
   def embeddings(self, answer: dict, model: str) -> dict:
-    """The OpenAI embeddings answer, with the Daedalus model name."""
+    """The OpenAI embeddings answer, with the daedalus model name."""
     if not isinstance(answer.get("data"), list):
       raise ProviderError("Invalid embeddings answer")
     return {**answer, "model": model}

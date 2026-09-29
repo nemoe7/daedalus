@@ -194,7 +194,7 @@ NAME = re.compile(r"^[a-z][a-z0-9-]{0,38}$")
 NEW_FILE = "# A new provider file: fill in the tier patterns and the model values.\n"
 NEW_KEY = "api_key: os.environ/{env}_API_KEY\n"
 NEW_MODELS = 'models:\n  "*": {}\n'
-NEW_BASE = 'api_base: "" # Daedalus does not know this provider; set the OpenAI-compatible base\n'
+NEW_BASE = 'api_base: "" # daedalus does not know this provider; set the OpenAI-compatible base\n'
 
 
 def config_files() -> tuple[Path, ...]:
