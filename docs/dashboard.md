@@ -6,7 +6,7 @@ Open `http://HOST:3357/`.
 | --- | --- |
 | User | `DAEDALUS_USERNAME`, else `admin`. The form fills in `admin` only when `DAEDALUS_USERNAME` is not set. |
 | Password | `DAEDALUS_PASSWORD`, else `DAEDALUS_MASTER_KEY`. Without `DAEDALUS_PASSWORD`, the form shows a master key hint. The eye button shows the password. |
-| Remember me | 30 days. Else the session stops when the browser closes, or after 12 h. |
+| Remember me | On at the start. 30 days, shown on hover. Else the session stops when the browser closes, or after 12 h. |
 | Change | A new master key, user or password stops all sessions. |
 
 The dashboard is mainly a utility for monitoring the application state and fine-tuning the settings.
