@@ -265,10 +265,6 @@ async def attempt(
         "include_usage": True,
       },
     }
-  # The endpoints of `cheapest_output`, unless the client sent its own provider routing.
-  order = store.provider_order(candidate)
-  if order and "provider" not in payload:
-    payload = {**payload, "provider": {"order": order}}
   headers = dict(headers)
   payload = hooks.run("on-upstream", config, candidate, payload, headers=headers)
   effort = provider.effort(payload)

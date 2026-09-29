@@ -1,6 +1,8 @@
-"""A chat request carries the stored endpoint order and passes through the hooks of its provider block."""
+"""A chat request passes through the hooks of its provider block, such as the cheapest output order."""
 
 import json
+import shutil
+from pathlib import Path
 
 import httpx
 import pytest
@@ -11,6 +13,7 @@ from daedalus.server import api
 from daedalus.server.upstream import set_client
 
 MASTER = "test-master-key-0001"
+REPO = Path(__file__).resolve().parents[2]
 SEEN: list[httpx.Request] = []
 
 
@@ -32,7 +35,6 @@ async def client():
   block = {"api_base": "https://p.test/v1", "api_key": "k", "tier": {"TIER-D": ["x"]}}
   config.set_config({"p": block})
   store.write_store([{"id": "p/x"}])
-  store.write_orders({"p/x": ["cheap/fp4", "cloud"]})
   api.PENALTIES.clear()
   SEEN.clear()
   async with httpx.AsyncClient(transport=httpx.MockTransport(upstream)) as outer:
@@ -51,7 +53,13 @@ CHAT = {"model": "p/x", "messages": [{"role": "user", "content": "hi"}]}
 
 
 async def test_order(client: httpx.AsyncClient) -> None:
-  """The stored order goes out as `provider.order`, and a client `provider` object wins."""
+  """With the cheapest output hook, the saved order goes out, and a client provider object wins."""
+  folder = hooks.CONFIG_DIR / "hooks"
+  folder.mkdir(parents=True, exist_ok=True)
+  shutil.copy(REPO / "config" / "hooks" / "cheapest_output.py", folder / "cheapest.py")
+  module = hooks.load((folder / "cheapest.py").resolve())
+  module.save_order("p/x", ["cheap/fp4", "cloud"])
+  config.get_config()["p"]["hooks"] = [{"on-upstream": "hooks/cheapest.py"}]
   assert (await client.post("/v1/chat/completions", json=CHAT)).status_code == 200
   assert json.loads(SEEN[-1].content)["provider"] == {"order": ["cheap/fp4", "cloud"]}
   own = {**CHAT, "provider": {"sort": "latency"}}
@@ -65,7 +73,7 @@ async def test_hooks(client: httpx.AsyncClient) -> None:
   folder.mkdir(parents=True, exist_ok=True)
   (folder / "any-name.py").write_text(
     "def on_upstream(body, model, headers):\n"
-    "  body['provider']['allow_fallbacks'] = False\n"
+    "  body['provider'] = {'order': ['a'], 'allow_fallbacks': False}\n"
     "  headers['x-hook'] = model\n"
     "def on_answer(answer, model):\n"
     "  answer['choices'][0]['message']['content'] += '!'\n"
@@ -78,5 +86,5 @@ async def test_hooks(client: httpx.AsyncClient) -> None:
   response = await client.post("/v1/chat/completions", json=CHAT)
   assert response.json()["choices"][0]["message"]["content"] == "hi!"
   sent = json.loads(SEEN[-1].content)
-  assert sent["provider"] == {"order": ["cheap/fp4", "cloud"], "allow_fallbacks": False}
+  assert sent["provider"] == {"order": ["a"], "allow_fallbacks": False}
   assert SEEN[-1].headers["x-hook"] == "p/x"

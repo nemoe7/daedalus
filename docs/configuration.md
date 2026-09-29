@@ -120,7 +120,7 @@ groq:
 | `tier` | Patterns for each tier key: `TIER-A`, `TIER-B`, `TIER-C`, `TIER-D` |
 | `models` | Values for each model, for example `max_input_tokens`. These have priority over discovery and LiteLLM. |
 | `order` | Optional. A whole number, 1 or more. Empty or not set: 1. A model of a higher order gets a request only when no model of a lower order in its tier answers. The `order` of a `models` entry has priority. See [Order](architecture.md#order). |
-| `hooks` | Optional. A list of Python files that change the chat requests and answers of the provider. Each item is a hook point and a file path in the `config` folder, for example `- on-upstream: hooks/x.py`. See [Hooks](hooks.md). |
+| `hooks` | Optional. A list of Python files that change the catalog rows, chat requests and answers of the provider. Each item is a hook point and a file path in the `config` folder, for example `- on-upstream: hooks/x.py`. A `models` entry can also set `hooks`, and it has priority. See [Hooks](hooks.md). |
 | `hourly_requests` | Optional. A whole number above 0: the requests to all models of the provider in 1 hour. daedalus counts them, because the provider has no API for the count. At the limit, the provider leaves the chains. See [Pacing](architecture.md#pacing). |
 
 `rpm` and `tpm` limit the requests and the input tokens of a model in 60 s. At a limit, the model leaves the chains. See [Pacing](architecture.md#pacing).
@@ -130,7 +130,6 @@ Other keys of a `models` entry:
 | Key | Use |
 | --- | --- |
 | `pool` | `false` keeps the model out of the pools and `daedalus/auto`. Only a direct `provider/slug` request uses it. |
-| `cheapest_output` | OpenRouter only. `true`: each catalog build reads the endpoint list of the model and sorts it by output price, after the discount. The input price breaks a tie. Each request then sends `provider.order` with that list, so OpenRouter tries the cheapest endpoints first. A client `provider` object has priority. If the list read fails, the old order stays. |
 | `timeout` | Seconds with no data from the provider. For this model, it replaces `timeouts.wait`. A direct request tries the same model again after this time, until `timeouts.request`, and then the client gets HTTP 504. |
 | `reasoning_effort` | The effort for a request with no `reasoning_effort`. Only a model that reasons gets it. |
 | `max_output_tokens` | The output limit of the model. A larger `max_tokens` or `max_completion_tokens` drops to this value. |

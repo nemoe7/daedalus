@@ -222,8 +222,8 @@ def form_blocks(path: Path, text: str) -> tuple[dict[str, Any] | None, str | Non
 
 
 def override_keys() -> list[str]:
-  """The keys that a model override can set: the catalog columns, `order`, `pool`, `timeout` and `cheapest_output`."""
-  return sorted({*store.COLUMNS, "order", "pool", "timeout", "cheapest_output"})
+  """The keys that a model override can set: the catalog columns, `order`, `pool`, `timeout` and `hooks`."""
+  return sorted({*store.COLUMNS, "order", "pool", "timeout", "hooks"})
 
 
 def provider_defaults() -> dict[str, dict[str, str]]:

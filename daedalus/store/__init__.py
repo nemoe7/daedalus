@@ -1,6 +1,5 @@
 """The SQLite model store: the model table, and the tables of the other modules."""
 
-import json
 import sqlite3
 import time
 from collections.abc import Iterable
@@ -331,53 +330,6 @@ def pace_limits() -> dict[str, tuple[float | None, float | None]]:
     database.close()
   found = {key: (positive(rpm), positive(tpm)) for key, rpm, tpm in rows}
   return {key: pair for key, pair in found.items() if pair != (None, None)}
-
-
-ORDERS_SCHEMA = (
-  "CREATE TABLE IF NOT EXISTS provider_orders (id TEXT PRIMARY KEY, endpoints TEXT)"
-)
-
-
-def write_orders(
-  orders: dict[str, list[str]], keep: Iterable[str] = (), path: Path | str | None = None
-) -> None:
-  """Replace the endpoint order of each model. A model in `keep` keeps its old order."""
-  target = Path(path or MODELS_DB)
-  target.parent.mkdir(parents=True, exist_ok=True)
-  kept = set(keep)
-  with sqlite3.connect(target, timeout=10) as database:
-    database.execute(ORDERS_SCHEMA)
-    old = [row[0] for row in database.execute("SELECT id FROM provider_orders")]
-    database.executemany(
-      "DELETE FROM provider_orders WHERE id = ?",
-      [(key,) for key in old if key not in orders and key not in kept],
-    )
-    database.executemany(
-      "INSERT INTO provider_orders VALUES (?, ?)"
-      " ON CONFLICT(id) DO UPDATE SET endpoints = excluded.endpoints",
-      [(key, json.dumps(value)) for key, value in orders.items()],
-    )
-  database.close()
-
-
-def provider_order(model: str) -> list[str]:
-  """The upstream endpoints of one model in the order to try, or an empty list."""
-  if not Path(MODELS_DB).exists():
-    return []
-  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
-  try:
-    row = database.execute(
-      "SELECT endpoints FROM provider_orders WHERE id = ?", (model,)
-    ).fetchone()
-  except sqlite3.OperationalError:
-    return []
-  finally:
-    database.close()
-  try:
-    found = json.loads(row[0]) if row else []
-  except (TypeError, ValueError):
-    return []
-  return [str(item) for item in found] if isinstance(found, list) else []
 
 
 def built() -> float | None:
