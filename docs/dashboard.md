@@ -78,6 +78,7 @@ daedalus reads the balances when it starts, then each hour. **Check now** reads 
 | Pollinations | Pollen left. A key without a budget needs the `account:usage` scope. | `GET /account/balance` |
 | Cloudflare | Neurons used since 00:00 UTC, of the free 10,000. With no use today, it shows 0. | GraphQL `aiInferenceAdaptiveGroups` |
 | Groq, Mistral | The limit and the count left of each window, for each model, and the reset time | The `x-ratelimit-*` headers of the last answer |
+| Kilo, and each provider with `hourly_requests` | The requests left in the last hour, marked `counted` | The daedalus count. A 429 from the provider sets it to 0. |
 
 The header rows stay in memory only, so they are empty after a restart until the next answer. A client with its own provider key has its own rows. A bar like the weight bar shows the rest of each limit: header rows, OpenRouter credit and free requests, and Cloudflare neurons. A count of 0 shows in red. From 1,000, a count shows floored to K, M or B, for example 998M of 1B. Hover a header row to see the exact number. Each balance comes from the main key of the provider, not from `client_keys`.
 

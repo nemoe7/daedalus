@@ -545,6 +545,8 @@ async function refreshKeys() {
 const FORM_KEYS = ["api_key", "client_keys", "api_base", "api_type", "discovery_url", "discovery_match", "exclude", "tier", "models"];
 // The keys that a model override sets but the provider level does not.
 const MODEL_ONLY = ["pool", "timeout"];
+// The keys that the provider level sets but a model override does not.
+const PROVIDER_ONLY = ["hourly_requests"];
 const TIERS = ["TIER-A", "TIER-B", "TIER-C", "TIER-D"];
 // The width of 1 column of provider cards.
 const CARD_WIDTH = 460;
@@ -746,7 +748,7 @@ function showAdder(button) {
   const kind = button.dataset.kind;
   const box = document.createElement("span");
   box.className = "adder";
-  const choices = kind === "column" ? state.overrideKeys.filter((key) => !MODEL_ONLY.includes(key)) : state.overrideKeys;
+  const choices = kind === "column" ? [...state.overrideKeys.filter((key) => !MODEL_ONLY.includes(key)), ...PROVIDER_ONLY].sort() : state.overrideKeys;
   const keys = choices.map((key) => `<option>${esc(key)}</option>`).join("");
   const placeholder = { list: "pattern", match: "key = value", pattern: "model pattern", override: "value", column: "value" }[kind];
   box.innerHTML = `${kind === "override" || kind === "column" ? `<select aria-label="Key">${keys}</select>` : ""}
