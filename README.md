@@ -15,7 +15,9 @@ The name must have the same impact as [Odysseus](https://odysseusai.dev/). It mu
 - Each provider gets its native API. Gemini gets the native Gemini API.
 - 4 pools (tiers) and `daedalus/auto`, which selects a tier from the prompt. A keyword, such as "think hard", moves the tier 1 step up.
 - A fallback ladder: when a model fails, the next model gets the request.
-- Model weights, session affinity, a time-to-first-token penalty and a loop penalty.
+- Weighted selection: each model has a weight that goes up when the model answers and down when it fails.
+- An [order](docs/architecture.md#order) for each provider or model. Inside a tier, the models of order 1 go first. A model of order 2 gets a request only when no model of order 1 answers.
+- Session affinity, a time-to-first-token penalty and a loop penalty.
 - A model catalog from provider discovery and LiteLLM data, rebuilt on a schedule.
 - Endpoints for embeddings, transcriptions, speech and images.
 - A dashboard for pools, requests, models, API keys, providers and settings.
