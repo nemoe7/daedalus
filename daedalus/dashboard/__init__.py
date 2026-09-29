@@ -192,7 +192,7 @@ def partition(response: Response) -> None:
 # A new provider file: the name rule, and the text of the file.
 NAME = re.compile(r"^[a-z][a-z0-9-]{0,38}$")
 NEW_FILE = "# A new provider file: fill in the tier patterns and the model values.\n"
-NEW_KEY = "api_key: os.environ/{env}_API_KEY\n"
+NEW_KEY = "api_key: env:{env}_API_KEY\n"
 NEW_MODELS = 'models:\n  "*": {}\n'
 NEW_BASE = 'api_base: "" # daedalus does not know this provider; set the OpenAI-compatible base\n'
 
@@ -203,7 +203,7 @@ def config_files() -> tuple[Path, ...]:
   return (main, *config.provider_files(main))
 
 
-# The longest value that the dashboard saves for 1 os.environ/NAME.
+# The longest value that the dashboard saves for 1 db:NAME or os.environ/NAME.
 MAX_VALUE = 4096
 
 
@@ -214,9 +214,13 @@ def env_name(provider: str, client: str | None = None) -> str:
 
 
 def env_tokens(node: Any) -> list[str]:
-  """The names of the os.environ/NAME tokens in the values of a YAML tree."""
+  """The names of the env:NAME, db:NAME and os.environ/NAME tokens in the values of a YAML tree."""
   if isinstance(node, str):
-    return config.ENV_PATTERN.findall(node)
+    return (
+      config.ENV_PATTERN.findall(node)
+      + config.SAVED_PATTERN.findall(node)
+      + config.LEGACY_ENV_PATTERN.findall(node)
+    )
   if isinstance(node, dict):
     return [name for value in node.values() for name in env_tokens(value)]
   if isinstance(node, list):
@@ -225,7 +229,7 @@ def env_tokens(node: Any) -> list[str]:
 
 
 def env_names() -> dict[str, list[str]]:
-  """Each os.environ/NAME of the provider files and of the defaults of the providers in use, with the places that use it."""
+  """Each env:NAME, db:NAME and os.environ/NAME of the provider files and of the defaults of the providers in use, with the places that use it."""
   found: dict[str, list[str]] = {}
 
   def add(name: str, place: str) -> None:
@@ -251,36 +255,110 @@ def env_names() -> dict[str, list[str]]:
 
 
 def env_rows() -> list[dict[str, Any]]:
-  """The state of each name for the dashboard (saved, env or missing), with only the end of a long saved value."""
+  """The state of each name for the dashboard (saved, env or missing), with masked start and length."""
   rows = []
   for name, places in env_names().items():
     saved = config.SAVED.get(name)
-    state = "saved" if saved else "env" if os.environ.get(name) else "missing"
-    end = saved[-4:] if saved and len(saved) >= 12 else None
-    rows.append({"name": name, "state": state, "end": end, "used": places})
+    has_saved = bool(saved)
+    has_env = bool(os.environ.get(name))
+    state = "saved" if has_saved else "env" if has_env else "missing"
+    if saved and len(saved) >= 8:
+      start = saved[:4]
+      length = len(saved)
+      end = saved[-4:] if len(saved) >= 12 else None
+    else:
+      start = None
+      length = len(saved) if saved else 0
+      end = saved[-4:] if saved and len(saved) >= 12 else None
+    rows.append(
+      {
+        "name": name,
+        "state": state,
+        "start": start,
+        "end": end,
+        "length": length,
+        "used": places,
+        "has_saved": has_saved,
+        "has_env": has_env,
+      }
+    )
   return rows
 
 
 def raw_value(value: Any) -> bool:
-  """Tell if a key field holds a key itself, not an os.environ/NAME token."""
+  """Tell if a key field holds a key itself, not an env:NAME, db:NAME or os.environ/NAME token."""
   return (
-    isinstance(value, str) and bool(value.strip()) and config.ENV_PREFIX not in value
+    isinstance(value, str)
+    and bool(value.strip())
+    and config.ENV_PREFIX not in value
+    and config.SAVED_PREFIX not in value
+    and config.LEGACY_ENV_PREFIX not in value
   )
 
 
 def park_keys(provider: str, block: dict[str, Any]) -> None:
-  """Move the keys in the key fields of a form block to the saved values, and put their os.environ/NAME in the block."""
-  if raw_value(block.get("api_key")):
-    name = env_name(provider)
-    saved_env.save(store.MODELS_DB, name, block["api_key"].strip())
+  """Move the keys in the key fields of a form block to the saved values, and put their db:NAME in the block, or keep env:NAME."""
+
+  def is_env_token(value: Any) -> str | None:
+    if not isinstance(value, str):
+      return None
+    for prefix, pattern in (
+      (config.ENV_PREFIX, config.ENV_PATTERN),
+      (config.LEGACY_ENV_PREFIX, config.LEGACY_ENV_PATTERN),
+    ):
+      if value.startswith(prefix):
+        found = pattern.findall(value)
+        if found:
+          return found[0]
+    return None
+
+  api_key = block.get("api_key")
+  if isinstance(api_key, str) and api_key.strip().startswith(config.ENV_PREFIX):
+    name = is_env_token(api_key.strip())
+    if not name:
+      raise ValueError("The env: value must be env:NAME with a valid name.")
     block["api_key"] = config.ENV_PREFIX + name
+  elif raw_value(api_key):
+    raw = api_key.strip()
+    if not raw or len(raw) > MAX_VALUE or any(c.isspace() for c in raw):
+      raise ValueError("The value must be 1 word with no spaces.")
+    name = env_name(provider)
+    saved_env.save(store.MODELS_DB, name, raw)
+    block["api_key"] = config.SAVED_PREFIX + name
+
+  account_id = block.get("account_id")
+  if isinstance(account_id, str) and account_id.strip().startswith(config.ENV_PREFIX):
+    name = is_env_token(account_id.strip())
+    if not name:
+      raise ValueError("The env: value must be env:NAME with a valid name.")
+    block["account_id"] = config.ENV_PREFIX + name
+  elif raw_value(account_id):
+    raw = account_id.strip()
+    if not raw or len(raw) > MAX_VALUE or any(c.isspace() for c in raw):
+      raise ValueError("The value must be 1 word with no spaces.")
+    # Use CLOUDFLARE_ACCOUNT_ID as default name for account_id, else provider-based
+    if provider == "cloudflare":
+      name = "CLOUDFLARE_ACCOUNT_ID"
+    else:
+      name = env_name(provider) + "_ACCOUNT_ID"
+    saved_env.save(store.MODELS_DB, name, raw)
+    block["account_id"] = config.SAVED_PREFIX + name
+
   clients = block.get("client_keys")
   if isinstance(clients, dict):
     for client, value in clients.items():
-      if raw_value(value):
-        name = env_name(provider, str(client))
-        saved_env.save(store.MODELS_DB, name, value.strip())
+      if isinstance(value, str) and value.strip().startswith(config.ENV_PREFIX):
+        name = is_env_token(value.strip())
+        if not name:
+          raise ValueError("The env: value must be env:NAME with a valid name.")
         clients[client] = config.ENV_PREFIX + name
+      elif raw_value(value):
+        raw = value.strip()
+        if not raw or len(raw) > MAX_VALUE or any(c.isspace() for c in raw):
+          raise ValueError("The value must be 1 word with no spaces.")
+        name = env_name(provider, str(client))
+        saved_env.save(store.MODELS_DB, name, raw)
+        clients[client] = config.SAVED_PREFIX + name
 
 
 def new_file_text(name: str) -> str:
@@ -650,11 +728,14 @@ def routes(
       return failure(
         400, f"{path} needs the block {path.stem}.", "invalid_request_error"
       )
-    if path == FILES[0]:
-      for provider, block in document.items():
-        park_keys(str(provider), block)
-    else:
-      park_keys(path.stem, document)
+    try:
+      if path == FILES[0]:
+        for provider, block in document.items():
+          park_keys(str(provider), block)
+      else:
+        park_keys(path.stem, document)
+    except ValueError as exc:
+      return failure(400, str(exc), "invalid_request_error")
     old = path.read_text(encoding="utf-8") if path.exists() else ""
     return write_config(path, provider_edit.merge_text(old, document))
 

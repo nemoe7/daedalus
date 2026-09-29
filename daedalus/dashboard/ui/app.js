@@ -26,7 +26,7 @@ const state = {
   models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, saved: [], timers: [],
   view: "form", forms: [], formSaved: [], overrideKeys: [], providerDefaults: {}, settingsView: "form",
   pools: [], requests: [], requestLimit: REQUESTS_STEP, keys: [], catalog: {}, settings: null,
-  live: new Map(), source: null,
+  live: new Map(), source: null, env: [],
 };
 
 const fileName = (path) => path.split(/[\\/]/).pop();
@@ -545,11 +545,13 @@ function renderEnv(rows) {
         <button class="ghost" type="submit">Save</button>
       </form></td>
       <td class="end">${r.state === "saved" ? `<button type="button" class="ghost danger" data-env-clear="${esc(r.name)}">Clear</button>` : ""}</td>
-    </tr>`).join("") : '<tr><td colspan="5" class="empty">No provider file uses os.environ/NAME.</td></tr>';
+    </tr>`).join("") : '<tr><td colspan="5" class="empty">No provider file uses env:NAME, db:NAME or os.environ/NAME.</td></tr>';
 }
 
 async function refreshEnv() {
-  renderEnv(await call("env"));
+  state.env = await call("env");
+  renderEnv(state.env);
+  if (!document.querySelector('section[data-page="providers"]').hidden) renderForm();
 }
 
 function renderKeys(rows) {
@@ -570,7 +572,7 @@ async function refreshKeys() {
 }
 
 // The block keys that the form edits. The YAML view edits the other keys.
-const FORM_KEYS = ["api_key", "client_keys", "api_base", "api_type", "discovery_url", "discovery_match", "exclude", "tier", "models"];
+const FORM_KEYS = ["api_key", "account_id", "client_keys", "api_base", "api_type", "discovery_url", "discovery_match", "exclude", "tier", "models"];
 // The keys that a model override sets but the provider level does not.
 const MODEL_ONLY = ["pool", "timeout"];
 // The keys that the provider level sets but a model override does not.
@@ -700,8 +702,95 @@ function providerCard(name, block) {
       <p class="sub">This block is not a map. Edit it in the YAML view.</p></div>`;
   }
   const defaults = state.providerDefaults[name] || state.providerDefaults["*"] || {};
-  const text = (key, label, hint) => field(label, hint, `<input class="text" type="text" spellcheck="false"
-    data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(block[key] ?? "")}" placeholder="${esc(defaults[key] ?? "")}">`);
+  const tokenInfo = (value) => {
+    if (typeof value !== "string") return null;
+    if (value.startsWith("env:")) return { type: "env", name: value.slice("env:".length), raw: value };
+    if (value.startsWith("os.environ/")) return { type: "env", name: value.slice("os.environ/".length), raw: value, legacy: true };
+    if (value.startsWith("db:")) return { type: "db", name: value.slice("db:".length), raw: value };
+    return null;
+  };
+  const tokenName = (value) => {
+    const info = tokenInfo(value);
+    return info ? info.name : null;
+  };
+  const effectiveState = (info, row) => {
+    if (!row) return "missing";
+    const hasSaved = row.has_saved ?? (row.state === "saved");
+    const hasEnv = row.has_env ?? (row.state === "env");
+    if (info && info.type === "env" && !info.legacy) {
+      return hasEnv ? "env" : "missing";
+    }
+    if (info && info.type === "db") {
+      return hasSaved ? "saved" : "missing";
+    }
+    if (info && info.type === "env" && info.legacy) {
+      if (hasSaved) return "saved";
+      if (hasEnv) return "env";
+      return "missing";
+    }
+    return row.state;
+  };
+  const envHint = () => {
+    const info = tokenInfo(block.api_key);
+    if (!info) return "";
+    const row = state.env.find((r) => r.name === info.name);
+    if (!row) return "";
+    const eff = effectiveState(info, row);
+    const label = ENV_STATES[eff](row);
+    return `<small class="${eff === "missing" ? "out" : eff === "env" ? "muted" : ""}">${esc(label)}</small>`;
+  };
+  const maskedPlaceholder = (row) => {
+    if (!row) return "";
+    const hasSaved = row.has_saved ?? (row.state === "saved");
+    if (hasSaved && row.start && row.length) {
+      const rest = Math.max(0, row.length - row.start.length);
+      return row.start + "•".repeat(rest);
+    }
+    if (hasSaved && row.end) return `${row.start || ""}••••`.slice(0, 4) + "•".repeat(Math.max(0, (row.length || 8) - 4));
+    if (hasSaved) return "From database";
+    if (row.state === "env" || row.has_env) return "From environment";
+    return "";
+  };
+  const placeholderFor = (info, row) => {
+    if (!info) return "";
+    if (info.type === "env" && !info.legacy) {
+      const eff = effectiveState(info, row);
+      if (eff === "env") return "From environment";
+      if (eff === "missing") return "Missing — set env var";
+      return "";
+    }
+    if (info.type === "db") {
+      if (!row) return "From database";
+      const hasSaved = row.has_saved ?? (row.state === "saved");
+      if (hasSaved && row.start && row.length) {
+        const rest = Math.max(0, row.length - row.start.length);
+        return row.start + "•".repeat(rest);
+      }
+      if (hasSaved) return "From database";
+      return "From database";
+    }
+    return maskedPlaceholder(row);
+  };
+  const text = (key, label, hint) => {
+    if (key === "api_key" || key === "account_id") {
+      const info = tokenInfo(block[key]);
+      if (info) {
+        const row = state.env.find((r) => r.name === info.name);
+        const ph = placeholderFor(info, row) || defaults[key] || "";
+        const extra = "";
+        if (info.type === "env") {
+          const shown = info.legacy ? info.name : info.raw;
+          return field(label, hint, `<input class="text" type="text" spellcheck="false" autocomplete="off"
+          data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(shown)}" placeholder="${esc(ph)}">${extra}`);
+        }
+        return field(label, hint, `<input class="text" type="password" spellcheck="false" autocomplete="off"
+        data-set='${esc(JSON.stringify([...path, key]))}' value="" placeholder="${esc(ph)}">${extra}`);
+      }
+    }
+    const extra = "";
+    return field(label, hint, `<input class="text" type="text" spellcheck="false" autocomplete="off"
+    data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(block[key] ?? "")}" placeholder="${esc(defaults[key] ?? "")}">${extra}`);
+  };
   const tiers = TIERS.map((tier) => `<div class="tier-row"><span class="tier">${tier.slice(-1)}</span>
     ${listField(tier, block.tier?.[tier], [...path, "tier", tier])}</div>`).join("");
   const models = block.models && typeof block.models === "object" ? block.models : {};
@@ -715,8 +804,9 @@ function providerCard(name, block) {
   const others = Object.keys(block).filter((key) => !FORM_KEYS.includes(key) && key !== "_file");
   const values = others.map((key) => pill(`${key}: ${shown(block[key])}`, path, key)).join("") + adder(path, "column", "+ key");
   return `<div class="card provider" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
-    ${text("api_key", "API key", "os.environ/NAME reads the saved value, else the environment variable. A pasted key moves to Keys and values.")}
-    ${field("Client keys", "daedalus key name = os.environ/NAME. That client uses this key, with its own cooldowns and rpm counts. A pasted key moves to Keys and values.", `<div class="pills">${mapPills(block.client_keys, [...path, "client_keys"], "match", " = ")}</div>`)}
+    ${text("api_key", "API key", "env:NAME reads the environment variables, pasting your key stores it in the database.")}
+    ${text("account_id", "Account ID", "For Cloudflare: env:NAME or db:NAME. Pasting your ID stores it in the database.")}
+    ${field("Client keys", "daedalus key name = env:NAME or db:NAME or os.environ/NAME. That client uses this key, with its own cooldowns and rpm counts. A pasted key is stored as db:NAME.", `<div class="pills">${mapPills(block.client_keys, [...path, "client_keys"], "match", " = ")}</div>`)}
     ${text("api_base", "API base", "Empty: the default, in gray")}
     ${text("api_type", "API type", "openai or gemini. Empty: the default, in gray")}
     ${text("discovery_url", "Discovery URL", "The model list URL. Empty: the default, in gray")}
@@ -849,8 +939,36 @@ function setText(input) {
   const path = JSON.parse(input.dataset.set);
   const parent = parentOf(path, {});
   const key = path[path.length - 1];
-  if (input.value.trim()) parent[key] = input.value.trim();
-  else delete parent[key];
+  const trimmed = input.value.trim();
+  const cur = parent[key];
+  const curInfo = (() => {
+    if (typeof cur !== "string") return null;
+    if (cur.startsWith("env:")) return { type: "env", name: cur.slice("env:".length) };
+    if (cur.startsWith("os.environ/")) return { type: "env", name: cur.slice("os.environ/".length), legacy: true };
+    if (cur.startsWith("db:")) return { type: "db", name: cur.slice("db:".length) };
+    return null;
+  })();
+  if (trimmed) {
+    if (key === "api_key") {
+      if (trimmed.startsWith("env:")) {
+        const name = trimmed.slice("env:".length).trim();
+        if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+          parent[key] = `env:${name}`;
+        } else {
+          parent[key] = trimmed;
+        }
+      } else if (trimmed.startsWith("db:") || trimmed.startsWith("os.environ/")) {
+        parent[key] = trimmed;
+      } else {
+        parent[key] = trimmed;
+      }
+    } else {
+      parent[key] = trimmed;
+    }
+  } else {
+    if (key === "api_key" && curInfo) return;
+    delete parent[key];
+  }
   renderFiles();
 }
 
@@ -859,14 +977,20 @@ async function saveForm() {
   const index = state.file;
   const file = state.files[index];
   const message = $("save-message");
+  const isToken = (v) => typeof v === "string" && (v.startsWith("env:") || v.includes("os.environ/") || v.startsWith("db:"));
+  const hadRaw = Object.values(pruned(state.forms[index]) || {}).some((block) =>
+    block && typeof block === "object" && (
+      (typeof block.api_key === "string" && block.api_key.trim() && !isToken(block.api_key)) ||
+      (block.client_keys && typeof block.client_keys === "object" && Object.values(block.client_keys).some((v) => typeof v === "string" && v.trim() && !isToken(v)))
+    ));
   try {
     await call("providers", { method: "PUT", body: JSON.stringify({ path: file.path, blocks: pruned(state.forms[index]) }) });
     await takeFile(index);
     message.className = "message ok";
-    message.textContent = "Saved and reloaded";
+    message.textContent = hadRaw ? "Saved — key moved to database" : "Saved and reloaded";
+    await refreshEnv();
     renderForm();
     refresh();
-    guarded(refreshEnv);
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin("The session ended. Log in to save again.");
     message.className = "message bad";
