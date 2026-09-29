@@ -1,9 +1,9 @@
 # Daedalus
 
-<!-- markdownlint-disable-next-line MD033 -->
+<!-- markdownlint-disable MD033 -->
 <p align="center"><img src="daedalus/dashboard/ui/logo.svg" alt="Daedalus: a D-shaped bow that shoots 3 arrows" width="176"></p>
-
-> One of them is bound to hit.
+<p align="center"><em>“One of them is bound to hit.”</em></p>
+<!-- markdownlint-enable MD033 -->
 
 Daedalus puts your personal API keys behind 1 endpoint and uses a classifier to select a model for each task.
 
