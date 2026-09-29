@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
-# Build the Daedalus image and start the service with Docker Compose.
+# Pull the Daedalus image, or build it from the source with --dev, and start Docker Compose.
 set -euo pipefail
 cd "$(dirname "$0")"
+
+compose=(docker compose)
+for arg in "$@"; do
+  case "$arg" in
+    --dev) compose=(docker compose -f compose.dev.yml) ;;
+    *) echo "Unknown option: $arg. The only option is --dev." >&2; exit 1 ;;
+  esac
+done
 
 if ! docker compose version >/dev/null 2>&1; then
   echo "Docker Compose v2 is necessary. Install Docker, then run this script again." >&2
@@ -20,7 +28,7 @@ if [ "$(uname -s)" = "Linux" ] && ! grep -qs '^DAEDALUS_UID=' .env; then
   if [ -s .env ] && [ -n "$(tail -c1 .env)" ]; then echo >> .env; fi
   printf 'DAEDALUS_UID=%s\nDAEDALUS_GID=%s\n' "$(id -u)" "$(id -g)" >> .env
 fi
-docker compose up -d
+"${compose[@]}" up -d
 echo "Daedalus runs on http://localhost:3357/v1"
 echo "Dashboard: http://localhost:3357/ (user DAEDALUS_USERNAME or admin, password DAEDALUS_PASSWORD or DAEDALUS_MASTER_KEY)"
 echo "Make API keys for your clients in the dashboard."

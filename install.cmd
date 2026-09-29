@@ -1,7 +1,15 @@
 @echo off
-rem Build the Daedalus image and start the service with Docker Compose.
+rem Pull the Daedalus image, or build it from the source with --dev, and start Docker Compose.
 setlocal
 cd /d "%~dp0"
+
+set "COMPOSE=docker compose"
+if /i "%~1"=="--dev" (
+  set "COMPOSE=docker compose -f compose.dev.yml"
+) else if not "%~1"=="" (
+  echo Unknown option: %~1. The only option is --dev. 1>&2
+  exit /b 1
+)
 
 docker compose version >nul 2>&1
 if errorlevel 1 (
@@ -15,7 +23,7 @@ if errorlevel 1 (
   echo Add DAEDALUS_MASTER_KEY to .env: 16 or more characters, no spaces. 1>&2
   exit /b 1
 )
-docker compose up -d
+%COMPOSE% up -d
 if errorlevel 1 exit /b 1
 echo Daedalus runs on http://localhost:3357/v1
 echo Dashboard: http://localhost:3357/ (user DAEDALUS_USERNAME or admin, password DAEDALUS_PASSWORD or DAEDALUS_MASTER_KEY)

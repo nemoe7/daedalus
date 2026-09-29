@@ -4,7 +4,7 @@ The reference deployment is a Raspberry Pi 4B with 8 GB of RAM. The compose file
 
 ## Docker Compose
 
-The install scripts do a check of Docker and `.env`, then pull the Daedalus image and start the container. See the [README](../README.md#quick-start).
+The install scripts do a check of Docker and `.env`, then pull the Daedalus image and start the containers. With `--dev`, they build the image from the source with `compose.dev.yml`. See the [README](../README.md#quick-start).
 
 The commands below are the same in cmd, PowerShell and bash.
 
