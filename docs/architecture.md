@@ -5,6 +5,7 @@ Daedalus provides an OpenAI endpoint. It routes requests to a free model of the 
 ## Request flow
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e3e8fd", "primaryBorderColor": "#3b5bfd", "primaryTextColor": "#1a1f36", "lineColor": "#3b5bfd", "textColor": "#3b5bfd", "secondaryColor": "#ede9fe", "tertiaryColor": "#f5f3ff", "clusterBkg": "#f5f3ff", "clusterBorder": "#8b5cf6", "titleColor": "#5c388c", "edgeLabelBackground": "#ffffff", "noteBkgColor": "#ede9fe", "noteBorderColor": "#8b5cf6"}}}%%
 flowchart TD
   C[Client] -->|POST /v1/chat/completions| A{Master key or API key?}
   A -->|no| E401[401]
@@ -24,6 +25,8 @@ flowchart TD
   T -->|answer| OK[Answer to the client]
   T -->|error| T
   T -->|no model left| E502[Last error to the client]
+  classDef bad fill:#fbe4ee,stroke:#781f4c,color:#781f4c
+  class E401,E502 bad
 ```
 
 | Step | Rule |
@@ -55,6 +58,7 @@ Each provider request carries the headers of the client request, for example `HT
 Only `daedalus/auto` uses the classifier. A pool name or a `provider/slug` name skips it.
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e3e8fd", "primaryBorderColor": "#3b5bfd", "primaryTextColor": "#1a1f36", "lineColor": "#3b5bfd", "textColor": "#3b5bfd", "secondaryColor": "#ede9fe", "tertiaryColor": "#f5f3ff", "clusterBkg": "#f5f3ff", "clusterBorder": "#8b5cf6", "titleColor": "#5c388c", "edgeLabelBackground": "#ffffff", "noteBkgColor": "#ede9fe", "noteBorderColor": "#8b5cf6"}}}%%
 flowchart TD
   U[All user messages, no system prompt] --> R[Rules: request type]
   U --> K[Shape: length, code, math, choices, language]
@@ -62,11 +66,11 @@ flowchart TD
   K --> AR
   AR --> T1[Cheapest tier over the threshold]
   T1 --> HT[Highest tier of the conversation so far]
-  HT --> TF{Below koinos and a tool call in the conversation?}
-  TF -->|yes| KF[koinos]
+  HT --> TF{Below tier C and a tool call in the conversation?}
+  TF -->|yes| KF[Tier C]
   TF -->|no| KW
   KF --> KW{Last message is a user message with a keyword?}
-  KW -->|yes| UP[1 tier up, to sophos at most. The conversation keeps it.]
+  KW -->|yes| UP[1 tier up, to tier A at most. The conversation keeps it.]
   KW -->|no| T
   UP --> T[Tier for this request]
 ```
@@ -76,10 +80,10 @@ flowchart TD
 | Request type | 1 of 7 types, from the first rule that matches. With no match, the type is `general`. |
 | Length | More than 2000 characters moves the text to a higher tier. |
 | Conversation | The tier does not go down until the session expires (1 h idle). |
-| Tool call | After the first tool call, the tier is koinos or higher. A conversation at koinos or higher skips the search for tool calls. |
+| Tool call | After the first tool call, the tier is C or higher. A conversation at tier C or higher skips the search for tool calls. |
 | Keyword | A word or phrase from `escalation.keywords` in the last message moves the tier 1 step above the conversation tier. Only a request whose last message is a user message gets this step. Thus the tool calls of the same turn do not add more steps. 2 keywords also give 1 step. |
 
-The classifier is a copy of the LiteLLM heuristic v2. It is not perfect, but it is a good start.
+The classifier is a copy of the [LiteLLM](https://github.com/BerriAI/litellm) [AutoRouter heuristic v2](https://docs.litellm.ai/blog/heuristic-v2). It is not perfect, but it is a good start.
 
 ## Pools and the fallback ladder
 
@@ -93,20 +97,21 @@ The classifier is a copy of the LiteLLM heuristic v2. It is not perfect, but it 
 When a tier has no model that answers, the chain goes up to tier A, then down from the start:
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e3e8fd", "primaryBorderColor": "#3b5bfd", "primaryTextColor": "#1a1f36", "lineColor": "#3b5bfd", "textColor": "#3b5bfd", "secondaryColor": "#ede9fe", "tertiaryColor": "#f5f3ff", "clusterBkg": "#f5f3ff", "clusterBorder": "#8b5cf6", "titleColor": "#5c388c", "edgeLabelBackground": "#ffffff", "noteBkgColor": "#ede9fe", "noteBorderColor": "#8b5cf6"}}}%%
 flowchart LR
-  subgraph moros
+  subgraph sD[Start at tier D]
     direction LR
     m1[D] --> m2[C] --> m3[B] --> m4[A]
   end
-  subgraph koinos
+  subgraph sC[Start at tier C]
     direction LR
     k1[C] --> k2[B] --> k3[A] --> k4[D]
   end
-  subgraph deinos
+  subgraph sB[Start at tier B]
     direction LR
     d1[B] --> d2[A] --> d3[C] --> d4[D]
   end
-  subgraph sophos
+  subgraph sA[Start at tier A]
     direction LR
     s1[A] --> s2[B] --> s3[C] --> s4[D]
   end
@@ -119,6 +124,7 @@ The chain goes up first. The next tier up can usually do the same request. The c
 Inside each tier, the models of order 1 go first, then the models of order 2, and so on. The weights and the session model choose a model inside 1 order. A session model of order 2 goes first only when its tier has no model of order 1 left. The media pools use the order too. The chain skips an order with no model.
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e3e8fd", "primaryBorderColor": "#3b5bfd", "primaryTextColor": "#1a1f36", "lineColor": "#3b5bfd", "textColor": "#3b5bfd", "secondaryColor": "#ede9fe", "tertiaryColor": "#f5f3ff", "clusterBkg": "#f5f3ff", "clusterBorder": "#8b5cf6", "titleColor": "#5c388c", "edgeLabelBackground": "#ffffff", "noteBkgColor": "#ede9fe", "noteBorderColor": "#8b5cf6"}}}%%
 flowchart LR
   subgraph B[Tier B]
     direction LR
@@ -134,7 +140,7 @@ flowchart LR
 | Provider | Order | Why |
 | --- | --- | --- |
 | Cloudflare | 2 | The daily Neurons go to images and transcription first |
-| Pollinations | 2 | No image model has order 1, so Cloudflare and Pollinations share `daedalus/photos` by weight |
+| Pollinations | 2 | No image model has order 1, so Cloudflare and Pollinations share the image pool by weight |
 | Other providers | 1 | The default |
 
 ## Weights
@@ -142,6 +148,7 @@ flowchart LR
 Each model has 1 weight for all pools. The first tier uses a weighted draw. The next tiers use the weight order.
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e3e8fd", "primaryBorderColor": "#3b5bfd", "primaryTextColor": "#1a1f36", "lineColor": "#3b5bfd", "textColor": "#3b5bfd", "secondaryColor": "#ede9fe", "tertiaryColor": "#f5f3ff", "clusterBkg": "#f5f3ff", "clusterBorder": "#8b5cf6", "titleColor": "#5c388c", "edgeLabelBackground": "#ffffff", "noteBkgColor": "#ede9fe", "noteBorderColor": "#8b5cf6"}}}%%
 stateDiagram-v2
   direction LR
   [*] --> W: weight 1
@@ -211,6 +218,7 @@ A model with `rpm` or `tpm` in its provider file leaves the chains and the media
 A conversation keeps its model (the session model) in each slot.
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e3e8fd", "primaryBorderColor": "#3b5bfd", "primaryTextColor": "#1a1f36", "lineColor": "#3b5bfd", "textColor": "#3b5bfd", "secondaryColor": "#ede9fe", "tertiaryColor": "#f5f3ff", "clusterBkg": "#f5f3ff", "clusterBorder": "#8b5cf6", "titleColor": "#5c388c", "edgeLabelBackground": "#ffffff", "noteBkgColor": "#ede9fe", "noteBorderColor": "#8b5cf6"}}}%%
 sequenceDiagram
   participant C as Client
   participant D as Daedalus
@@ -267,16 +275,16 @@ A loop is a fault of the model that made it. See [ADR 4](adr/0004-penalties.md#l
 
 | Pool | Endpoint | Models |
 | --- | --- | --- |
-| `daedalus/graphos` | `POST /v1/audio/transcriptions` | All catalog models with the mode `audio_transcription` |
-| `daedalus/photos` | `POST /v1/images/generations` | All catalog models with the mode `image_generation` |
-| `daedalus/photos` | `POST /v1/images/edits` | The models with the mode `image_generation` and `supports_vision` |
+| Transcription pool | `POST /v1/audio/transcriptions` | All catalog models with the mode `audio_transcription` |
+| Image pool | `POST /v1/images/generations` | All catalog models with the mode `image_generation` |
+| Image pool | `POST /v1/images/edits` | The models with the mode `image_generation` and `supports_vision` |
 
 | Item | Value |
 | --- | --- |
 | Order | A weighted draw, then the weight order |
 | Weights | The same weights as the chat models |
 | Skip | A model that cannot do the request leaves the list, for example Flux 1 with `n` above 1. A skip is not a fault. |
-| Try again | The same key and the same content as an earlier answered request to that pool. For graphos, the content is the audio and the form fields. For photos, the content is the JSON body, or the images and the form fields of an edit. |
+| Try again | The same key and the same content as an earlier answered request to that pool. For the transcription pool, the content is the audio and the form fields. For the image pool, the content is the JSON body, or the images and the form fields of an edit. |
 | Models of a try again | The models that answered this content leave the list. After all models, the list starts again. |
 | Log | `retry=N` |
 | Expiry | 1 h with no repeat of the message, in memory only |
