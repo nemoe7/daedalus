@@ -148,6 +148,8 @@ select {
 .models th:not(:first-child), .models td:not(:first-child) { width: 1%; white-space: nowrap; }
 .models th:last-child, .models td:last-child { padding-right: 16px; }
 .models .weight { width: 150px; }
+/* The name takes the free width. A longer name ends in an ellipsis. */
+.models td.name { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .models .mid { text-align: center; }
 .models th.mid .sort { margin: 0 auto; }
 a.more { display: inline-block; margin-top: 2px; color: var(--muted); text-decoration: none; }
