@@ -62,6 +62,8 @@ Daedalus is for personal use only. Do not share it with other users, because the
    ./install.sh
    ```
 
+   To build the image from the source, add `--dev`, for example `install.cmd --dev`. The script then uses `compose.dev.yml`.
+
 5. Open the dashboard at `http://localhost:3357/`. The user is `DAEDALUS_USERNAME`, else `admin`. The password is `DAEDALUS_PASSWORD`, else `DAEDALUS_MASTER_KEY`.
 6. On the **API keys** page, make a key for each client.
 
