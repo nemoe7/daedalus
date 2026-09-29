@@ -15,12 +15,12 @@ from daedalus.store import saved_env
 
 MAIN = """\
 groq:
-  api_key: os.environ/GROQ_API_KEY
+  api_key: db:GROQ_API_KEY
   client_keys:
-    kilo: os.environ/GROQ_API_KEY_KILO
-  # api_key: os.environ/OLD_KEY
+    kilo: db:GROQ_API_KEY_KILO
+  # api_key: db:OLD_KEY
 cloudflare:
-  api_key: os.environ/CLOUDFLARE_API_KEY
+  api_key: db:CLOUDFLARE_API_KEY
 """
 SECRET = "gsk-0123456789abcdef"
 
@@ -34,7 +34,7 @@ def rows(client: TestClient) -> dict[str, dict]:
 def test_values(client: TestClient) -> None:
   os.environ["CLOUDFLARE_API_KEY"] = "from-env"
   os.environ["GROQ_API_KEY"] = "gsk-env"
-  config.load_config()
+  config.load_config(config.DEFAULT_PATH)
   shown = rows(client)
   assert set(shown) == {
     "GROQ_API_KEY",
@@ -46,21 +46,25 @@ def test_values(client: TestClient) -> None:
   assert shown["GROQ_API_KEY"]["state"] == "env" and shown["GROQ_API_KEY_KILO"][
     "state"
   ] == ("missing")
-  assert config.get_config()["groq"]["api_key"] == "gsk-env", "the environment"
+  # db: is DB-only, no env fallback, so groq api_key is empty until saved
+  assert config.get_config()["groq"]["api_key"] == "", "db: is DB-only"
 
   saved = client.put(
     "/ui/api/env", json={"name": "GROQ_API_KEY", "value": f" {SECRET} "}
   )
   assert saved.status_code == 200, saved.text
   assert SECRET not in saved.text and SECRET not in client.get("/ui/api/env").text
-  assert rows(client)["GROQ_API_KEY"] | {"used": []} == {
-    "name": "GROQ_API_KEY",
-    "state": "saved",
-    "end": "cdef",
-    "used": [],
-  }
+  row = rows(client)["GROQ_API_KEY"]
+  assert row["name"] == "GROQ_API_KEY"
+  assert row["state"] == "saved"
+  assert row["end"] == "cdef"
+  assert row["has_saved"] is True
+  assert row["has_env"] is True
+  assert row["start"] == "gsk-"
+  assert row["length"] == len(SECRET)
   assert config.get_config()["groq"]["api_key"] == SECRET, "the saved value wins"
-  assert providers.settings("cloudflare", {})["api_base"].count("/accounts//") == 1
+  # cloudflare account_id is separate field, api_base constructed only when account_id set
+  assert "account" not in providers.settings("cloudflare", {}).get("api_base", "")
   client.put("/ui/api/env", json={"name": "CLOUDFLARE_ACCOUNT_ID", "value": "acct1"})
   assert "/accounts/acct1/" in providers.settings("cloudflare", {})["api_base"]
   assert rows(client)["CLOUDFLARE_ACCOUNT_ID"]["end"] is None, (
@@ -79,7 +83,7 @@ def test_values(client: TestClient) -> None:
 
   cleared = client.request("DELETE", "/ui/api/env", json={"name": "GROQ_API_KEY"})
   assert cleared.status_code == 200, cleared.text
-  assert config.get_config()["groq"]["api_key"] == "gsk-env", "back to the environment"
+  assert config.get_config()["groq"]["api_key"] == "", "db: is DB-only, back to empty"
   again = client.request("DELETE", "/ui/api/env", json={"name": "GROQ_API_KEY"})
   assert again.status_code == 400, "no saved value"
   assert TestClient(api.app).get("/ui/api/env").status_code == 401
@@ -95,15 +99,15 @@ def test_form_moves_keys(client: TestClient) -> None:
   assert saved.status_code == 200, saved.text
   text = config.DEFAULT_PATH.read_text()
   assert "gsk-pasted" not in text, "no key in the YAML"
-  assert "api_key: os.environ/GROQ_API_KEY\n" in text, text
-  assert "owui: os.environ/GROQ_API_KEY_OWUI" in text, text
+  assert "api_key: db:GROQ_API_KEY\n" in text, text
+  assert "owui: db:GROQ_API_KEY_OWUI" in text, text
   assert saved_env.read(store.MODELS_DB)["GROQ_API_KEY_OWUI"] == "gsk-pasted-0000000002"
   assert config.get_config()["groq"]["api_key"] == "gsk-pasted-0000000001"
   assert (
     config.client_key(config.get_config()["groq"], "owui") == "gsk-pasted-0000000002"
   )
   assert dashboard.env_name("my-llm", "a.b") == "MY_LLM_API_KEY_A_B"
-  assert dashboard.new_file_text("my-llm").count("os.environ/MY_LLM_API_KEY\n") == 1
+  assert dashboard.new_file_text("my-llm").count("env:MY_LLM_API_KEY\n") == 1
 
 
 @pytest.fixture(scope="module")
