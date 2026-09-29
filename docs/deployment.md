@@ -33,6 +33,7 @@ A pushed `v*` tag starts `.github/workflows/image.yml`. The workflow publishes `
 | --- | --- |
 | Release | `git tag v0.1.0`, then `git push origin v0.1.0` |
 | Use 1 release | Set `image:` of `daedalus` in `compose.yml` to `ghcr.io/nemoe7/daedalus:v0.1.0` |
+| Release notes draft | `gh workflow run gemini-release.yml -f tag=v0.1.0`, or run **Gemini Release Draft** in the Actions tab. It needs the `GEMINI_API_KEY` Actions secret, and makes a draft release. See [.github/workflows](../.github/workflows/README.md). |
 
 ## Optional services
 
