@@ -304,7 +304,7 @@ def test_provider_file_override() -> None:
     assert [is_file for _, _, _, is_file in found] == [False, True], found
     with tempfile.TemporaryDirectory() as folder:
       paths = discovery.dump(blocks, make_fetch(PAYOUT), folder)
-      assert [p.name for p in paths] == ["openrouter.json", "openrouter-file.json"]
+      assert [p.name for p in paths] == ["openrouter.json"], "1 file for each provider"
   finally:
     config.set_config(None)
 
