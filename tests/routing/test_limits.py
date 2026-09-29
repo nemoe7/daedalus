@@ -97,7 +97,7 @@ def test_neurons() -> None:
     "data": {"viewer": {"accounts": [{"aiInferenceAdaptiveGroups": []}]}},
     "errors": None,
   }
-  assert limits.neuron_items(empty) == [("Neurons today", "0 of 10,000", 1.0)]
+  assert limits.neuron_items(empty) == [("Neurons today", "0 of 10K", 1.0)]
   small = {
     "data": {
       "viewer": {
@@ -106,7 +106,7 @@ def test_neurons() -> None:
     }
   }
   assert limits.neuron_items(small) == [
-    ("Neurons today", "0.86 of 10,000", pytest.approx(0.99991, abs=1e-5))
+    ("Neurons today", "0.86 of 10K", pytest.approx(0.99991, abs=1e-5))
   ]
   refused = {"data": None, "errors": [{"message": "not authorized for that account"}]}
   assert limits.neuron_items(refused) == []
@@ -138,9 +138,7 @@ async def test_check(cooldowns: Cooldowns) -> None:
       ["Free requests today", "0 of 50 left", 0.0],
     ],
     "kilo": [["Balance", "$1.20", None]],
-    "cloudflare": [
-      ["Neurons today", "1,234 of 10,000", pytest.approx(0.87657, abs=1e-5)]
-    ],
+    "cloudflare": [["Neurons today", "1K of 10K", pytest.approx(0.87657, abs=1e-5)]],
   }, shown
   ends = cooldowns.ends()
   midnight = datetime(2026, 9, 30, tzinfo=UTC).timestamp()
@@ -148,3 +146,9 @@ async def test_check(cooldowns: Cooldowns) -> None:
     "0 free requests left cools the free models"
   )
   assert found.view()["checked"] == NOW
+
+
+def test_floored() -> None:
+  """Counts floor to K, M or B, and stay whole below 1,000."""
+  values = [0, 999, 1234, 998_765_432, 1_000_000_000]
+  assert [limits.floored(v) for v in values] == ["0", "999", "1K", "998M", "1B"]
