@@ -60,6 +60,24 @@ esac
 EOF
 fi
 
+# 6b. Idempotent DEBUG gate function in ~/.bash_profile: block bash past the call threshold with a pending inbox.
+GATE_MARKER="# arena-preview-gate"
+if ! grep -qF "$GATE_MARKER" "$PROFILE"; then
+  cat >> "$PROFILE" <<EOF || fail "cannot append to $PROFILE"
+
+# arena-preview-gate
+_arena_preview_gate() {
+  case "\$BASH_COMMAND" in *preview*|*profile*|*bashrc*|*arena-state*|gh*|sleep*|true*|:*|test*|"git status"*|"git diff"*|"git add"*|"git commit"*) return 0 ;; esac
+  case "\${_arena_preview_gate_checked:-}" in 1) return 0 ;; esac
+  _arena_preview_gate_checked=1
+  "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" --state-dir "$REPO_ROOT/$STATE_REL" gate 2>/dev/null
+  case \$? in
+    1) exit 130 ;;
+  esac
+}
+EOF
+fi
+
 # 7. Add this repository's skill scripts to PATH in new Bash shells.
 if ! grep -qF "$PATH_MARKER" "$PROFILE"; then
   cat >> "$PROFILE" <<'EOF' || fail "cannot append to $PROFILE"
@@ -80,3 +98,13 @@ EOF
 fi
 
 echo "arena-preview installer: ok; state: $REPO_ROOT/$STATE_REL, ignored through $GLOBAL_IGNORE; command: arena-preview in new Bash shells"
+
+# 8. Install the DEBUG gate trap last in ~/.bash_profile.
+GATE_TRAP_MARKER="# arena-preview-gate-trap"
+if ! grep -qF "$GATE_TRAP_MARKER" "$PROFILE"; then
+  cat >> "$PROFILE" <<'EOF' || fail "cannot append to $PROFILE"
+
+# arena-preview-gate-trap
+trap '_arena_preview_gate : # arena-preview-gate' DEBUG
+EOF
+fi
