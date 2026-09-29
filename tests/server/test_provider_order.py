@@ -58,10 +58,10 @@ async def test_order(client: httpx.AsyncClient) -> None:
   folder.mkdir(parents=True, exist_ok=True)
   shutil.copy(REPO / "config" / "hooks" / "cheapest_output.py", folder / "cheapest.py")
   module = hooks.load((folder / "cheapest.py").resolve())
-  module.save_order("p/x", ["cheap/fp4", "cloud"])
+  module.save_order("p/x", ["cheap", "cloud"])
   config.get_config()["p"]["hooks"] = [{"on-upstream": "hooks/cheapest.py"}]
   assert (await client.post("/v1/chat/completions", json=CHAT)).status_code == 200
-  assert json.loads(SEEN[-1].content)["provider"] == {"order": ["cheap/fp4", "cloud"]}
+  assert json.loads(SEEN[-1].content)["provider"] == {"order": ["cheap", "cloud"]}
   own = {**CHAT, "provider": {"sort": "latency"}}
   assert (await client.post("/v1/chat/completions", json=own)).status_code == 200
   assert json.loads(SEEN[-1].content)["provider"] == {"sort": "latency"}

@@ -60,14 +60,20 @@ def price(value: Any) -> float:
 
 
 def cheapest_first(rows: Any) -> list[str]:
-  """The endpoint tags, from the cheapest output price up. The input price breaks a tie."""
+  """The provider slugs, from the cheapest output price up. The input price breaks a tie.
+
+  A slug has no variant, such as /fp4. A base slug matches each endpoint of the provider,
+  and the provider keeps the place of its cheapest endpoint.
+  """
 
   def cost(row: dict) -> tuple[float, float]:
     pricing = row.get("pricing") or {}
     return price(pricing.get("completion")), price(pricing.get("prompt"))
 
   endpoints = [row for row in rows or [] if isinstance(row, dict) and row.get("tag")]
-  return list(dict.fromkeys(str(row["tag"]) for row in sorted(endpoints, key=cost)))
+  return list(
+    dict.fromkeys(str(row["tag"]).split("/")[0] for row in sorted(endpoints, key=cost))
+  )
 
 
 def on_catalog(row: dict, model: str, api_base: str, headers: dict) -> None:

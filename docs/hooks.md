@@ -41,6 +41,8 @@ A hook error does not stop the request. daedalus logs the error, and the value g
 
 daedalus reads a file again when its file time changes. A restart is not necessary.
 
+Hooks get no database access. An `on-catalog` hook changes only the row. daedalus writes only the known columns of the row, so a hook cannot change a table. A hook that keeps data uses its own file, such as `cheapest_output.json`.
+
 The dashboard can edit the `hooks` list, but not the hook files. Only a person with access to the `config` folder can add a file. A hook runs inside the daedalus process, with all its access.
 
 ## Hook files in config
@@ -48,7 +50,7 @@ The dashboard can edit the `hooks` list, but not the hook files. Only a person w
 | File | Use |
 | --- | --- |
 | `hooks/example.py` | A start for a new hook file. It has each function, with examples in comments, and it changes nothing. |
-| `hooks/cheapest_output.py` | OpenRouter tries the endpoints with the cheapest output price first. `on_catalog` reads the endpoint list of each model with the hook, at each catalog build. It sorts the list by output price after the discount, and the input price breaks a tie. The order stays in `.daedalus-state/cheapest_output.json`. `on_upstream` sends the order as `provider.order`. A client `provider` object has priority. If the list read fails, the old order stays. `openrouter.yml` names the file for `on-catalog` and `on-upstream` of `z-ai/glm-5.3-flash`. |
+| `hooks/cheapest_output.py` | OpenRouter tries the endpoints with the cheapest output price first. `on_catalog` reads the endpoint list of each model with the hook, at each catalog build. It sorts the list by output price after the discount, and the input price breaks a tie. The order has provider slugs with no variant, such as `deepinfra` for `deepinfra/fp4`. A provider keeps the place of its cheapest endpoint. The order stays in `.daedalus-state/cheapest_output.json`. `on_upstream` sends the order as `provider.order`. A client `provider` object has priority. If the list read fails, the old order stays. `openrouter.yml` names the file for `on-catalog` and `on-upstream` of `z-ai/glm-5.3-flash`. |
 
 ## Example
 
