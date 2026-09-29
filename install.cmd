@@ -6,6 +6,8 @@ cd /d "%~dp0"
 set "COMPOSE=docker compose"
 if /i "%~1"=="--dev" (
   set "COMPOSE=docker compose -f compose.dev.yml"
+  rem The version under the logo: dev and the commit.
+  for /f %%c in ('git rev-parse --short HEAD 2^>nul') do set "DAEDALUS_VERSION=dev-%%c"
 ) else if not "%~1"=="" (
   echo Unknown option: %~1. The only option is --dev. 1>&2
   exit /b 1

@@ -171,6 +171,7 @@ function renderStatus(status) {
   ];
   $("status").outerHTML = `<span id="status" class="chips">${chips.join("")}</span>`;
   $("nav-models").textContent = status.models;
+  $("version").textContent = status.version;
 }
 
 // The tier filter of the Models tab for each pool.

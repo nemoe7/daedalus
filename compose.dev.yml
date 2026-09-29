@@ -3,7 +3,10 @@
 services:
   daedalus:
     image: daedalus:dev
-    build: .
+    build:
+      context: .
+      args:
+        VERSION: ${DAEDALUS_VERSION:-dev} # install --dev sets dev-COMMIT
     pull_policy: build # a new build at each start
     container_name: daedalus
     user: "${DAEDALUS_UID:-1000}:${DAEDALUS_GID:-1000}"

@@ -5,7 +5,7 @@ import logging
 
 import yaml
 
-from daedalus import catalog, config, dashboard, store
+from daedalus import __version__, catalog, config, dashboard, store
 from daedalus.catalog import discovery
 from daedalus.config import settings
 from daedalus.server import api, logs
@@ -19,6 +19,7 @@ def run(argv: list[str] | None = None) -> None:
   parser = argparse.ArgumentParser(
     prog="daedalus", description="OpenAI-compatible router for the providers."
   )
+  parser.add_argument("--version", action="version", version=f"daedalus {__version__}")
   commands = parser.add_subparsers(dest="command", metavar="COMMAND")
   serve = commands.add_parser(
     "serve",
