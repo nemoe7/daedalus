@@ -173,6 +173,13 @@ A model in a cooldown leaves each chain and each media pool. A session model in 
 | 2 | `retry-after` or `x-ratelimit-reset` header, or Gemini `RetryInfo.retryDelay` | That time | `reset` |
 | 3 | No reset time | 60 s, then 2 times the last backoff, 6 h at most. A success sets it back to 60 s. | `backoff` |
 
+Some limits start a cooldown with no 429. A longer cooldown stays.
+
+| Cause | Cooldown end | Reason in the log |
+| --- | --- | --- |
+| An answer with 0 left of a day or a month in its `x-ratelimit-*` headers. Examples: the Groq requests of the day, the Mistral tokens of the month. The client still gets the answer. | The reset header time, else the next 00:00 UTC or the first day of the next month (UTC) | `limit` |
+| The hourly OpenRouter key check shows 0 free requests left of the day. The cooldown covers all `:free` OpenRouter models. | Next 00:00 UTC | `limit` |
+
 | Item | Value |
 | --- | --- |
 | Log line | `cooldown groq/llama-4-scout 120.000s reason=backoff` |

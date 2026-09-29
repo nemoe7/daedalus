@@ -22,6 +22,7 @@ from daedalus.providers.base import error_text
 from daedalus.routing import (
   context,
   cooldowns,
+  limits,
   loops,
   pacing,
   penalties,
@@ -50,14 +51,18 @@ async def lifespan(_application: FastAPI) -> AsyncIterator[None]:
   rebuilds = (
     asyncio.create_task(schedule.run(CATALOG_REFRESH)) if CATALOG_REFRESH else None
   )
+  checks = asyncio.create_task(LIMITS.run()) if LIMIT_CHECKS else None
   yield
-  if rebuilds is not None:
-    rebuilds.cancel()
+  for task in (rebuilds, checks):
+    if task is not None:
+      task.cancel()
   await upstream.close()
 
 
 # The catalog rebuild for the schedule. `daedalus serve` sets it, and tests leave it off.
 CATALOG_REFRESH: Callable[[], object] | None = None
+# The hourly balance checks of the Limits page. `daedalus serve` turns them on.
+LIMIT_CHECKS = False
 app = FastAPI(title="daedalus", version="0.1.0", lifespan=lifespan)
 app.include_router(media.routes)
 
@@ -376,6 +381,9 @@ COOLDOWNS = cooldowns.Cooldowns(lambda: store.MODELS_DB)
 PACING = pacing.Pacing()
 media.PENALTIES, media.COOLDOWNS = PENALTIES, COOLDOWNS
 media.PACING = stream.PACING = PACING
+LIMITS = upstream.LIMITS = limits.Limits(
+  COOLDOWNS, lambda: get_config(), upstream.get_client
+)
 app.include_router(dashboard.page())
 app.include_router(
   dashboard.routes(
@@ -384,6 +392,7 @@ app.include_router(
     lambda values: apply_settings(values),
     COOLDOWNS,
     lambda: CATALOG_REFRESH,
+    LIMITS,
   )
 )
 

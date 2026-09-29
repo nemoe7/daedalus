@@ -65,6 +65,7 @@ def run(argv: list[str] | None = None) -> None:
     if args.catalog or not store.has_store():
       catalog.refresh()
     api.CATALOG_REFRESH = catalog.refresh
+    api.LIMIT_CHECKS = True
     import uvicorn
 
     uvicorn.run(

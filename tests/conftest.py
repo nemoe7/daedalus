@@ -62,6 +62,7 @@ def state_folder(
       api.COOLDOWNS,
       api.PACING,
       media.REPEATS,
+      api.LIMITS,
       dashboard.HISTORY,
       loops,
     ):
