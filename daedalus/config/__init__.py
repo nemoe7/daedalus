@@ -1,4 +1,4 @@
-"""Load the provider config from YAML and resolve env:NAME and db:NAME inside any string (legacy os.environ/NAME still works)."""
+"""Load provider YAML and resolve env:NAME and db:NAME values."""
 
 import os
 import re
@@ -8,10 +8,8 @@ from typing import Any
 
 import yaml
 
-LEGACY_ENV_PREFIX = "os.environ/"
 ENV_PREFIX = "env:"
 SAVED_PREFIX = "db:"
-LEGACY_ENV_PATTERN = re.compile(r"os\.environ/([A-Za-z_][A-Za-z0-9_]*)")
 ENV_PATTERN = re.compile(r"env:([A-Za-z_][A-Za-z0-9_]*)")
 SAVED_PATTERN = re.compile(r"db:([A-Za-z_][A-Za-z0-9_]*)")
 DEFAULT_PATH = Path("config/providers/free.yml")
@@ -33,18 +31,12 @@ PROVIDER_KEYS = (
 )
 
 _config: dict[str, Any] | None = None
-# The values that the dashboard saved for db:NAME, env:NAME (and legacy os.environ/NAME). Saved wins for legacy for backward compat.
 SAVED: dict[str, str] = {}
 
 
 def env_value(name: str) -> str:
   """The value of 1 name: the environment variable, else empty. Used for env:NAME."""
   return os.environ.get(name, "")
-
-
-def legacy_env_value(name: str) -> str:
-  """The value of 1 name: the saved value (backward compat), else the environment variable, else empty. Used for os.environ/NAME."""
-  return SAVED.get(name) or os.environ.get(name, "")
 
 
 def saved_value(name: str) -> str:
@@ -57,13 +49,8 @@ def resolve_env(value: str) -> str:
   return ENV_PATTERN.sub(lambda found: env_value(found.group(1)), value)
 
 
-def resolve_legacy_env(value: str) -> str:
-  """Replace each os.environ/NAME token with its saved value (compat) or environment variable."""
-  return LEGACY_ENV_PATTERN.sub(lambda found: legacy_env_value(found.group(1)), value)
-
-
 def resolve_saved(value: str) -> str:
-  """Replace each db:NAME token with its saved value or environment variable."""
+  """Replace each db:NAME token with its saved value."""
   return SAVED_PATTERN.sub(lambda found: saved_value(found.group(1)), value)
 
 
@@ -78,14 +65,12 @@ def load_saved() -> dict[str, str]:
 
 
 def expand(node: Any) -> Any:
-  """Replace every `env:NAME` and `db:NAME` string in the tree with its value (legacy `os.environ/NAME` still supported)."""
+  """Replace every `env:NAME` and `db:NAME` string in the tree with its value."""
   if isinstance(node, str):
     if SAVED_PREFIX in node:
       node = resolve_saved(node)
     if ENV_PREFIX in node:
       node = resolve_env(node)
-    if LEGACY_ENV_PREFIX in node:
-      node = resolve_legacy_env(node)
     return node
   if isinstance(node, list):
     return [expand(item) for item in node]

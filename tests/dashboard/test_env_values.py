@@ -1,4 +1,4 @@
-"""Tests of the Keys and values panel: saved values for os.environ/NAME."""
+"""Tests of the Keys and values panel for env:NAME and db:NAME."""
 
 import os
 import shutil
@@ -21,6 +21,8 @@ groq:
   # api_key: db:OLD_KEY
 cloudflare:
   api_key: db:CLOUDFLARE_API_KEY
+legacy:
+  api_key: os.environ/LEGACY_API_KEY
 """
 SECRET = "gsk-0123456789abcdef"
 

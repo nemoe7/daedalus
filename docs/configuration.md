@@ -97,7 +97,6 @@ The shipped provider files use `env:NAME` values. They read environment variable
 | --- | --- |
 | `env:NAME` | Environment variable `NAME` |
 | `db:NAME` | Value saved in the dashboard |
-| `os.environ/NAME` | Saved value first, then environment variable. This is the legacy format. |
 
 Keep the `env:NAME` values in `config/providers/free.yml` to use provider keys from `.env`. Paste a key into **Providers** to save it in the dashboard instead. See [Keys and values](dashboard.md#keys-and-values).
 

@@ -214,13 +214,9 @@ def env_name(provider: str, client: str | None = None) -> str:
 
 
 def env_tokens(node: Any) -> list[str]:
-  """The names of the env:NAME and db:NAME tokens in the values of a YAML tree (legacy os.environ/NAME included)."""
+  """The names in the env:NAME and db:NAME tokens of a YAML tree."""
   if isinstance(node, str):
-    return (
-      config.ENV_PATTERN.findall(node)
-      + config.SAVED_PATTERN.findall(node)
-      + config.LEGACY_ENV_PATTERN.findall(node)
-    )
+    return config.ENV_PATTERN.findall(node) + config.SAVED_PATTERN.findall(node)
   if isinstance(node, dict):
     return [name for value in node.values() for name in env_tokens(value)]
   if isinstance(node, list):
@@ -292,7 +288,6 @@ def raw_value(value: Any) -> bool:
     and bool(value.strip())
     and config.ENV_PREFIX not in value
     and config.SAVED_PREFIX not in value
-    and config.LEGACY_ENV_PREFIX not in value
   )
 
 
@@ -300,17 +295,10 @@ def park_keys(provider: str, block: dict[str, Any]) -> None:
   """Move the keys in the key fields of a form block to the saved values, and put their db:NAME in the block, or keep env:NAME."""
 
   def is_env_token(value: Any) -> str | None:
-    if not isinstance(value, str):
+    if not isinstance(value, str) or not value.startswith(config.ENV_PREFIX):
       return None
-    for prefix, pattern in (
-      (config.ENV_PREFIX, config.ENV_PATTERN),
-      (config.LEGACY_ENV_PREFIX, config.LEGACY_ENV_PATTERN),
-    ):
-      if value.startswith(prefix):
-        found = pattern.findall(value)
-        if found:
-          return found[0]
-    return None
+    found = config.ENV_PATTERN.findall(value)
+    return found[0] if found else None
 
   api_key = block.get("api_key")
   if isinstance(api_key, str) and api_key.strip().startswith(config.ENV_PREFIX):

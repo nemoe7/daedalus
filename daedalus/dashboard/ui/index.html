@@ -21,7 +21,12 @@
     <span class="secret">
       <input name="password" type="password" autocomplete="current-password" required>
       <button type="button" class="eye" id="show-password" aria-pressed="false" aria-label="Show the password" title="Show the password">
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><line class="slash" x1="3" y1="3" x2="21" y2="21"/></svg>
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/>
+          <circle cx="12" cy="12" r="3"/>
+          <line class="slash" x1="3" y1="3" x2="21" y2="21"/>
+        </svg>
       </button>
     </span>
     <small id="login-hint" hidden>The password is the master key, DAEDALUS_MASTER_KEY.</small>
@@ -110,7 +115,7 @@
             <th data-sort="id"><button type="button" class="sort">Model</button></th>
             <th data-sort="mode" class="hide-sm"><button type="button" class="sort">Type</button></th>
             <th data-sort="tier" class="mid"><button type="button" class="sort">Tier</button></th>
-            <th data-sort="order" class="hide-sm mid" title="A model of a higher order gets a request only when no model of a lower order in its tier answers"><button type="button" class="sort">Order</button></th>
+            <th data-sort="order" class="hide-sm mid" title="Higher orders run only when lower orders do not answer"><button type="button" class="sort">Order</button></th>
             <th data-sort="context" class="hide-sm"><button type="button" class="sort">Context</button></th>
             <th data-sort="tools" class="mid"><button type="button" class="sort">Tools</button></th>
             <th data-sort="reasoning" class="hide-sm mid"><button type="button" class="sort">Reasoning</button></th>
@@ -183,11 +188,11 @@
         <div class="toolbar">
           <b>Keys and values</b>
           <span class="message bad" id="env-message"></span>
-          <span class="hint">A saved value wins over the environment variable. A new provider key needs a catalog rebuild.</span>
+          <span class="hint">env:NAME reads the environment. db:NAME reads a saved value. A new provider key needs a catalog rebuild.</span>
         </div>
         <table>
           <thead><tr>
-            <th>os.environ/NAME</th><th class="hide-sm">Used in</th><th>Value</th><th>New value</th><th></th>
+            <th>Name</th><th class="hide-sm">Used in</th><th>Value</th><th>New value</th><th></th>
           </tr></thead>
           <tbody id="env-rows"></tbody>
         </table>
