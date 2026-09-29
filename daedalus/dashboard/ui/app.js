@@ -700,7 +700,7 @@ function providerCard(name, block) {
       <p class="sub">This block is not a map. Edit it in the YAML view.</p></div>`;
   }
   const defaults = state.providerDefaults[name] || state.providerDefaults["*"] || {};
-  const text = (key, label, hint) => field(label, hint, `<input class="text" type="text" spellcheck="false"
+  const text = (key, label, hint) => field(label, hint, `<input class="text" type="text" spellcheck="false" autocomplete="off"
     data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(block[key] ?? "")}" placeholder="${esc(defaults[key] ?? "")}">`);
   const tiers = TIERS.map((tier) => `<div class="tier-row"><span class="tier">${tier.slice(-1)}</span>
     ${listField(tier, block.tier?.[tier], [...path, "tier", tier])}</div>`).join("");
@@ -859,11 +859,16 @@ async function saveForm() {
   const index = state.file;
   const file = state.files[index];
   const message = $("save-message");
+  const hadRaw = Object.values(pruned(state.forms[index]) || {}).some((block) =>
+    block && typeof block === "object" && (
+      (typeof block.api_key === "string" && block.api_key.trim() && !block.api_key.includes("os.environ/")) ||
+      (block.client_keys && typeof block.client_keys === "object" && Object.values(block.client_keys).some((v) => typeof v === "string" && v.trim() && !v.includes("os.environ/")))
+    ));
   try {
     await call("providers", { method: "PUT", body: JSON.stringify({ path: file.path, blocks: pruned(state.forms[index]) }) });
     await takeFile(index);
     message.className = "message ok";
-    message.textContent = "Saved and reloaded";
+    message.textContent = hadRaw ? "Saved — key moved to Keys and values" : "Saved and reloaded";
     renderForm();
     refresh();
     guarded(refreshEnv);

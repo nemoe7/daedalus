@@ -271,15 +271,21 @@ def raw_value(value: Any) -> bool:
 def park_keys(provider: str, block: dict[str, Any]) -> None:
   """Move the keys in the key fields of a form block to the saved values, and put their os.environ/NAME in the block."""
   if raw_value(block.get("api_key")):
+    raw = block["api_key"].strip()
+    if not raw or len(raw) > MAX_VALUE or any(c.isspace() for c in raw):
+      raise ValueError("The value must be 1 word with no spaces.")
     name = env_name(provider)
-    saved_env.save(store.MODELS_DB, name, block["api_key"].strip())
+    saved_env.save(store.MODELS_DB, name, raw)
     block["api_key"] = config.ENV_PREFIX + name
   clients = block.get("client_keys")
   if isinstance(clients, dict):
     for client, value in clients.items():
       if raw_value(value):
+        raw = value.strip()
+        if not raw or len(raw) > MAX_VALUE or any(c.isspace() for c in raw):
+          raise ValueError("The value must be 1 word with no spaces.")
         name = env_name(provider, str(client))
-        saved_env.save(store.MODELS_DB, name, value.strip())
+        saved_env.save(store.MODELS_DB, name, raw)
         clients[client] = config.ENV_PREFIX + name
 
 
@@ -650,11 +656,14 @@ def routes(
       return failure(
         400, f"{path} needs the block {path.stem}.", "invalid_request_error"
       )
-    if path == FILES[0]:
-      for provider, block in document.items():
-        park_keys(str(provider), block)
-    else:
-      park_keys(path.stem, document)
+    try:
+      if path == FILES[0]:
+        for provider, block in document.items():
+          park_keys(str(provider), block)
+      else:
+        park_keys(path.stem, document)
+    except ValueError as exc:
+      return failure(400, str(exc), "invalid_request_error")
     old = path.read_text(encoding="utf-8") if path.exists() else ""
     return write_config(path, provider_edit.merge_text(old, document))
 
