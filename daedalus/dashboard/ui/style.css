@@ -68,7 +68,12 @@ main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
 .card, .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
 .card { padding: 18px 20px; }
 .panel { overflow-x: auto; }
-td.out { color: var(--bad); }
+.out { color: var(--bad); }
+.balance + .balance { border-top: 1px solid var(--line); }
+.balance .track { margin-bottom: 6px; }
+.weight.left { min-width: 190px; }
+.weight.left .num { width: auto; min-width: 90px; white-space: nowrap; }
+td.time { white-space: nowrap; }
 #more-requests { margin: 8px 16px; }
 .card h3 { margin: 0; font-size: 15px; font-weight: 600; }
 .card h3 .ctx { margin-left: 6px; padding: 1px 6px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 11px; font-weight: 500; vertical-align: 2px; }
