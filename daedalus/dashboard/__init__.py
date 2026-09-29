@@ -420,6 +420,7 @@ def routes(
           "tier": tiers.get(row["id"]),
           "weight": weights.get(row["id"]),
           "cooldown": Cooldowns.until(row["id"], ends),
+          "client_cooldowns": Cooldowns.clients(row["id"], ends),
         }
         for row in rows
       ]

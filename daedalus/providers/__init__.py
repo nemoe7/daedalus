@@ -3,7 +3,7 @@
 from collections.abc import Mapping
 from typing import Any
 
-from daedalus.config import block_for, expand
+from daedalus.config import block_for, client_key, expand
 from daedalus.providers.base import (
   OpenAIProvider,
   ProviderError,
@@ -58,20 +58,25 @@ def settings(name: str, config: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def prepare(
-  model: str, payload: dict, config: Mapping
+  model: str, payload: dict, config: Mapping, client: str | None = None
 ) -> tuple[OpenAIProvider, str, dict, dict[str, str]]:
   """Build the provider and the upstream request for one `provider/slug` model."""
-  provider, slug = provider_for(model, config)
+  provider, slug = provider_for(model, config, client)
   return (provider, *provider.request(slug, payload))
 
 
-def provider_for(model: str, config: Mapping) -> tuple[OpenAIProvider, str]:
-  """Build the provider and the slug for one `provider/slug` model."""
+def provider_for(
+  model: str, config: Mapping, client: str | None = None
+) -> tuple[OpenAIProvider, str]:
+  """Build the provider and the slug for one `provider/slug` model, with the provider key of the client."""
   name, separator, slug = model.partition("/")
   raw = block_for(config, name, slug) if separator else None
   if not separator or not slug or raw is None:
     raise ProviderError(f"Unknown provider model: {model}")
   merged = settings(name, raw)
+  own = client_key(raw, client)
+  if own:
+    merged["api_key"] = own
   api_type = merged.get("api_type", "openai")
   if api_type not in API_TYPES:
     raise ProviderError(f"Unknown api_type for {name}: {api_type}")

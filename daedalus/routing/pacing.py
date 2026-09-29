@@ -4,6 +4,8 @@ import time
 from collections import deque
 from collections.abc import Callable, Iterable, Mapping
 
+from daedalus.routing import lanes
+
 WINDOW = 60.0
 
 Limits = Mapping[str, tuple[float | None, float | None]]
@@ -26,8 +28,8 @@ class Pacing:
     return found
 
   def full(self, model: str, limits: Limits) -> bool:
-    """Tell if the model reached its rpm or tpm."""
-    rpm, tpm = limits.get(model, (None, None))
+    """Tell if the model or lane reached the rpm or tpm of the model."""
+    rpm, tpm = limits.get(lanes.split(model)[0], (None, None))
     if not self.enabled or (rpm is None and tpm is None):
       return False
     found = self.recent(model)

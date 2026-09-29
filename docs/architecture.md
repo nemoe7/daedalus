@@ -168,7 +168,11 @@ A model in a cooldown leaves each chain and each media pool. A session model in 
 | `provider/slug` request to a model in a cooldown | HTTP 429 `rate_limit_exceeded`, with no upstream request |
 | Each model of a chain in a cooldown | HTTP 429 `rate_limit_exceeded`. `Retry-After` is the seconds to the first cooldown end. |
 | Storage | `.daedalus-state/models.sqlite3`, kept after a restart |
-| Dashboard | The Models page shows the time left of each cooldown. The Requests page marks each request with an attempt that started a cooldown. |
+| Dashboard | The Models page shows the time left of each cooldown, and of each client lane with its client name. The Requests page marks each request with an attempt that started a cooldown. |
+
+## Client lanes
+
+A client with its own key in [`client_keys`](configuration.md#client-keys) has its own lane on each model of that provider. The cooldowns and the pacing counts use the lane key `provider/slug#client`. The Cloudflare daily cooldown of that client uses `cloudflare/*#client`. A 429 on the key of 1 client does not stop the other clients.
 
 ## Pacing
 
@@ -181,6 +185,7 @@ A model with `rpm` or `tpm` in its provider file leaves the chains and the media
 | Tokens | The input estimate of the context check: characters / 4. Media requests count 0 tokens. |
 | Skip | Silent. The weight does not change, and the log has no line. |
 | Each model skipped | HTTP 429 `rate_limit_exceeded`. `Retry-After` is the time until the oldest request leaves the window. |
+| Client with its own key | Its own counts, against the same `rpm` and `tpm`. See [Client lanes](#client-lanes). |
 | Storage | Memory only. A restart sets the counts to 0. |
 
 ## Session affinity
