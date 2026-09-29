@@ -83,21 +83,24 @@ def test_repo_file() -> None:
   ):
     os.environ.setdefault(f"{name}_API_KEY", "k")
   loaded = config.load_config(Path("config/providers/free.yml"))
-  assert sorted(loaded) == list(loaded), list(loaded)
-  assert list(loaded) == [
+  main = [name for name, provider in loaded.items() if config.main_block(provider)]
+  assert sorted(main) == main, main
+  assert main == [
     "cloudflare",
     "gemini",
     "groq",
     "kilo",
     "mistral",
     "openrouter",
-    "pollinations",
     "z-ai",
-  ], list(loaded)
+  ], main
+  assert config.main_block(loaded["pollinations"]) is None, loaded["pollinations"]
   for name, provider in loaded.items():
     merged = providers.settings(name, provider)
     assert merged.get("discovery_url", "").startswith("https://"), name
-    assert "api_key" in provider, name
+    assert "api_key" in (config.main_block(provider) or config.file_block(provider)), (
+      name
+    )
   assert loaded["z-ai"]["exclude"] == ["*"], loaded["z-ai"]["exclude"]
   assert loaded["groq"]["rpm"] == 30, loaded["groq"]["rpm"]
   author_prefixed = [
