@@ -63,19 +63,27 @@ def enrich(
   failed: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
   """Add metadata to each line: config, then provider columns, then the LiteLLM catalog."""
-  cache: dict[str, dict[str, dict[str, Any]]] = {}
+  # 1 read per LiteLLM provider name, for example 1 for Kilo and OpenRouter.
+  cache: dict[str, dict[str, dict[str, Any]] | str] = {}
+  noted: set[str] = set()
   rows, problems = [], []
   for line in lines:
     provider_name, _, slug = line.partition("/")
-    if provider_name not in cache:
+    name = LITELLM_PROVIDER.get(provider_name, provider_name)
+    if name not in cache:
       try:
-        cache[provider_name] = litellm_entries(provider_name, fetch)
+        cache[name] = litellm_entries(provider_name, fetch)
       except (httpx.HTTPError, ValueError) as error:
-        problems.append(f"{provider_name}: LiteLLM catalog failed: {error}")
+        cache[name] = str(error)
+    entries = cache[name]
+    if isinstance(entries, str):
+      if provider_name not in noted:
+        noted.add(provider_name)
+        problems.append(f"{provider_name}: LiteLLM catalog failed: {entries}")
         if failed is not None:
           failed.append(provider_name)
-        cache[provider_name] = {}
-    entry = cache[provider_name].get(slug) or {}
+      entries = {}
+    entry = entries.get(slug) or {}
     row: dict[str, Any] = {"id": line, "provider": provider_name, "slug": slug}
     row.update({key: entry.get(key) for key in COLUMNS})
     row.update((native or {}).get(line, {}))
