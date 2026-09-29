@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Set up Daedalus and start it with Docker Compose. Outside a checkout, it downloads the files to ~/daedalus first.
+# Set up daedalus and start it with Docker Compose. Outside a checkout, it downloads the files to ~/daedalus first.
 set -euo pipefail
 
 repo=nemoe7/daedalus
@@ -32,7 +32,7 @@ if ! command -v docker >/dev/null 2>&1; then
   need_docker=1
   plan+=("Docker Engine and Docker Compose, with the official script https://get.docker.com (it asks for your password)")
 fi
-[ -f "$dir/compose.yml" ] || plan+=("The Daedalus files, to $dir")
+[ -f "$dir/compose.yml" ] || plan+=("The daedalus files, to $dir")
 [ -f "$dir/.env" ] || plan+=("The settings file $dir/.env, with a new master key")
 
 if [ "${#plan[@]}" -gt 0 ]; then
@@ -110,7 +110,7 @@ if ! "${docker[@]}" compose version >/dev/null 2>&1; then
 fi
 "${docker[@]}" "${compose[@]}" up -d
 
-echo "Daedalus runs on http://localhost:3357/v1"
+echo "daedalus runs on http://localhost:3357/v1"
 if [ "$(uname -s)" = Linux ] && address=$(hostname -I 2>/dev/null | awk '{print $1}') && [ -n "$address" ]; then
   echo "From another device: http://$address:3357/"
 fi

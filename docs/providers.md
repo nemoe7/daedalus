@@ -5,7 +5,7 @@ Tests confirmed each provider as really free, but Pollinations.
 | Provider key | Provider | API | Notes |
 | --- | --- | --- | --- |
 | `cloudflare` | Cloudflare Workers AI | OpenAI-compatible, plus the native run API for audio and images | A message with only text parts goes as 1 string. Paid models stay out of the catalog. The catalog gets 5 tasks only (see below). Order 2. |
-| `gemini` | Google Gemini | Native Gemini API | Daedalus maps OpenAI requests to Gemini and back, with thought signatures. The `gemini` block of `free.yml` sets `reasoning_effort: high` for each model. |
+| `gemini` | Google Gemini | Native Gemini API | daedalus maps OpenAI requests to Gemini and back, with thought signatures. The `gemini` block of `free.yml` sets `reasoning_effort: high` for each model. |
 | `groq` | Groq | OpenAI-compatible | Gets only the message fields that it accepts. |
 | `kilo` | Kilo Gateway | OpenAI-compatible | Only `:free` models, and `stealth/` models with price 0 in each price field. |
 | `mistral` | Mistral | OpenAI-compatible | Gets only the message fields that it accepts. `reasoning_effort` `none` and `minimal` become `none`, and `low` to `xhigh` become `high`. The thinking chunks of an answer go to `reasoning_content`. An old assistant message with `reasoning_content` goes back as a thinking chunk before its text. |
@@ -15,7 +15,7 @@ Tests confirmed each provider as really free, but Pollinations.
 
 Kilo and OpenRouter are large, known gateways with free models that change over time. Google Gemini has a more generous free tier than the other providers.
 
-| Provider | How Daedalus keeps it free |
+| Provider | How daedalus keeps it free |
 | --- | --- |
 | Cloudflare, Gemini, Groq, Mistral | Use an account on the free plan, with no payment method. |
 | Kilo, OpenRouter | The `!*:free` exclude pattern. A price of 0 is not a guarantee: Lyria models show price 0 and cost money for each song. |
@@ -41,7 +41,7 @@ flowchart LR
 | Rule | Value |
 | --- | --- |
 | Schedule | Each 6 h from 06:00 in `TZ`. `catalog.every: 0` stops it. |
-| Provider error | Daedalus keeps the old rows of that provider only. |
+| Provider error | daedalus keeps the old rows of that provider only. |
 | Chat chains | Only chat rows, and rows with no mode, go into the chains. |
 | Stealth models | On Kilo and OpenRouter, a `stealth/` model with price 0 in each price field passes `exclude`. A stealth model with a price stays out. |
 
@@ -68,7 +68,7 @@ OpenRouter output types in the catalog. Kilo keeps only the models that make tex
 | Video | `video_generation` |
 | Another type | The name of the type |
 
-A mode that Daedalus does not know keeps the model out of each chain and pool.
+A mode that daedalus does not know keeps the model out of each chain and pool.
 
 ## Endpoints for models that do not chat
 
@@ -82,8 +82,8 @@ A mode that Daedalus does not know keeps the model out of each chain and pool.
 | Pollinations | - | - | - | Yes, with Pollen | `flux.2-klein-4b`, with Pollen |
 
 - "Yes": the provider has free models for this endpoint.
-- "-": we know of no free model. Daedalus sends the request to the OpenAI-compatible API of the provider.
-- "400": Daedalus stops the request.
+- "-": we know of no free model. daedalus sends the request to the OpenAI-compatible API of the provider.
+- "400": daedalus stops the request.
 
 Limits of the native Cloudflare API:
 
@@ -91,14 +91,14 @@ Limits of the native Cloudflare API:
 | --- | --- |
 | Transcriptions | `response_format` is `json`, `text` or `vtt` |
 | Speech | MeloTTS answers in MP3 only |
-| Images | 1 image for each request. Flux 1 ignores `size`. FLUX.2 takes only multipart input, so Daedalus sends a multipart form to FLUX.2 models. |
-| Image edits | FLUX.2 only, up to 4 input images, no mask. Each input image must be smaller than 512x512, so Daedalus sends a PNG copy with the long side at 511 pixels. |
+| Images | 1 image for each request. Flux 1 ignores `size`. FLUX.2 takes only multipart input, so daedalus sends a multipart form to FLUX.2 models. |
+| Image edits | FLUX.2 only, up to 4 input images, no mask. Each input image must be smaller than 512x512, so daedalus sends a PNG copy with the long side at 511 pixels. |
 
 Limits of the native Gemini API:
 
 | Endpoint | Limit |
 | --- | --- |
-| Transcriptions | `response_format` is `json` or `text`. Daedalus adds `language` and `prompt` to the instruction. |
+| Transcriptions | `response_format` is `json` or `text`. daedalus adds `language` and `prompt` to the instruction. |
 | Speech | `response_format` is `wav` (the default) or `pcm`. `voice` is a Gemini voice name, for example `Kore`. Gemini ignores `speed`. |
 
 The Gemini exclude list keeps these models out:
@@ -106,7 +106,7 @@ The Gemini exclude list keeps these models out:
 | Models | Reason |
 | --- | --- |
 | The 2.5 family, TTS included | Only past users can use them. |
-| Live models | They use only the Live API, a websocket. Daedalus does not support it. |
+| Live models | They use only the Live API, a websocket. daedalus does not support it. |
 | Models with a 0/0 free quota | Images, Omni, Lyria, Veo, 3.1 Pro, Deep Research |
 | Robotics ER, Antigravity | They are for robot vision and for agents. |
 | `aqa` | It answers from given sources only. |
@@ -119,6 +119,6 @@ Mistral needs no exclude list. Discovery keeps out these Mistral rows:
 | Rows | Reason |
 | --- | --- |
 | Aliases: a `name` that is not the `id` | Each alias is a copy of a main id, for example `mistral-vibe-cli-latest` of `mistral-medium-latest`. A client can still send an alias. |
-| The `ocr`, `moderation`, `classification` or `audio_transcription_realtime` capability | No Daedalus endpoint serves these models. |
+| The `ocr`, `moderation`, `classification` or `audio_transcription_realtime` capability | No daedalus endpoint serves these models. |
 
 The Groq `rpm` and `tpm` values come from the free limits in the [Groq docs](https://console.groq.com/docs/rate-limits).

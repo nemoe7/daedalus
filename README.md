@@ -1,17 +1,17 @@
-# Daedalus
+# daedalus
 
 <!-- markdownlint-disable MD033 -->
-<p align="center"><img src="daedalus/dashboard/ui/logo.svg" alt="Daedalus: a D-shaped bow that shoots 3 arrows" width="176"></p>
+<p align="center"><img src="daedalus/dashboard/ui/logo.svg" alt="daedalus: a D-shaped bow that shoots 3 arrows" width="176"></p>
 <p align="center"><em>“One of them is bound to hit.”</em></p>
 <!-- markdownlint-enable MD033 -->
 
-Daedalus puts your personal API keys behind 1 endpoint and uses a classifier to select a model for each task.
+daedalus puts your personal API keys behind 1 endpoint and uses a classifier to select a model for each task.
 
 The name must have the same impact as [Odysseus](https://odysseusai.dev/). It must be Greek and easy to recognize. The idea comes from the Terraria weapon [Daedalus Stormbow](https://terraria.wiki.gg/wiki/Daedalus_Stormbow). Each arrow is a request to a provider, and the bow shoots until 1 arrow hits.
 
-## Why Daedalus
+## Why daedalus
 
-[LiteLLM](https://github.com/BerriAI/litellm) is a good router, but it is heavy for a Raspberry Pi, and it has many features that 1 user does not need. Personal API keys are not for sharing, so Daedalus is for 1 user. Daedalus keeps the LiteLLM classifier and model data, and adds these routing features:
+[LiteLLM](https://github.com/BerriAI/litellm) is a good router, but it is heavy for a Raspberry Pi, and it has many features that 1 user does not need. Personal API keys are not for sharing, so daedalus is for 1 user. daedalus keeps the LiteLLM classifier and model data, and adds these routing features:
 
 - [Loop fallback](docs/architecture.md#loops): a model that sends the same tool call 3 times gets a fault. The same thinking passage 4 times also gives a fault. Then the next model continues.
 - A [fallback ladder](docs/architecture.md#pools-and-the-fallback-ladder) through the tiers: up first, then down.
@@ -19,7 +19,7 @@ The name must have the same impact as [Odysseus](https://odysseusai.dev/). It mu
 - [Session affinity](docs/architecture.md#session-affinity): a conversation keeps its model, and a failure removes the pin.
 - A conversation tier that does not go down, and keywords, such as "think hard", that move it 1 tier up.
 - A [try again](docs/architecture.md#try-again) in Open WebUI moves the message 1 tier up.
-- Before a request, Daedalus skips the models without tools, without vision or with a too-small context window.
+- Before a request, daedalus skips the models without tools, without vision or with a too-small context window.
 - A model catalog from provider discovery, rebuilt on a schedule, in place of a hand-written model list.
 
 ## Features
@@ -36,11 +36,11 @@ The name must have the same impact as [Odysseus](https://odysseusai.dev/). It mu
 - A dashboard for pools, requests, models, API keys, providers and settings.
 - Docker Compose, with optional Open WebUI, Tika, SearXNG, Headroom and Tailscale.
 
-Daedalus is for personal use only. Do not share it with other users, because the provider terms of service can forbid it.
+daedalus is for personal use only. Do not share it with other users, because the provider terms of service can forbid it.
 
 ## Quick start
 
-1. Run the install command. First, it shows what it installs or downloads and asks `[y/N]`. Then it installs Docker if Docker is missing. It downloads the Daedalus files to the `daedalus` folder in your home folder and makes `.env` with a new master key. Then it starts Daedalus and shows the master key.
+1. Run the install command. First, it shows what it installs or downloads and asks `[y/N]`. Then it installs Docker if Docker is missing. It downloads the daedalus files to the `daedalus` folder in your home folder and makes `.env` with a new master key. Then it starts daedalus and shows the master key.
 
    cmd or PowerShell:
 
@@ -87,7 +87,7 @@ bash:
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Install Daedalus with the versions in `uv.lock`, then start the router. The commands are the same in all 3 shells:
+Install daedalus with the versions in `uv.lock`, then start the router. The commands are the same in all 3 shells:
 
 ```sh
 uv sync
@@ -129,6 +129,6 @@ uv run ruff format --check
 
 ## License
 
-Daedalus uses the [Daedalus Noncommercial License 1.0.0](LICENSE.md). You can use, change and share it for personal and other noncommercial purposes. Shared changes use the same terms and come with their source code. Commercial use needs a separate license from the owner.
+daedalus uses the [daedalus Noncommercial License 1.0.0](LICENSE.md). You can use, change and share it for personal and other noncommercial purposes. Shared changes use the same terms and come with their source code. Commercial use needs a separate license from the owner.
 
 The classifier and its data come from [LiteLLM](https://github.com/BerriAI/litellm) (MIT). Its license is in `daedalus/routing/artifacts/LITELLM-LICENSE.txt`.

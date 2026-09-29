@@ -1,6 +1,6 @@
 {
-  "name": "Daedalus",
-  "short_name": "Daedalus",
+  "name": "daedalus",
+  "short_name": "daedalus",
   "start_url": "../",
   "scope": "../",
   "display": "standalone",
