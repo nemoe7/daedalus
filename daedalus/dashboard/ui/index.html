@@ -11,7 +11,11 @@
 </head>
 <body>
 <form class="card login" id="login" hidden>
-  <h1><img src="ui/logo.svg" alt="" width="40" height="40"><span>daedalus<span class="yes">.</span></span></h1>
+  <div class="login-head">
+    <img src="ui/logo.svg" alt="" width="72" height="72">
+    <h1>daedalus<span class="yes">.</span></h1>
+    <small id="login-version"></small>
+  </div>
   <label>Username <input name="username" autocomplete="username" required></label>
   <label>Password
     <span class="secret">

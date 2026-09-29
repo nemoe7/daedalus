@@ -328,11 +328,12 @@ def routes(
 
   @api.get("/login")
   async def login_form() -> JSONResponse:
-    """The login form hints, with no session: the username to fill in, and if the password is the master key."""
+    """The login form hints, with no session: the username to fill in, if the password is the master key, and the version."""
     return JSONResponse(
       {
         "username": None if os.environ.get(USER_ENV) else USERNAME,
         "master": not os.environ.get(PASSWORD_ENV),
+        "version": __version__,
       }
     )
 

@@ -89,7 +89,11 @@ def test_login_form(client: TestClient) -> None:
       os.environ.pop(name, None)
     os.environ.update(values)
     found = TestClient(api.app).get("/ui/api/login").json()
-    assert found == {"username": username, "master": master}, (values, found)
+    assert found == {
+      "username": username,
+      "master": master,
+      "version": daedalus.__version__,
+    }, (values, found)
   for name in env:
     os.environ.pop(name, None)
 
