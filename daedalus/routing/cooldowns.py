@@ -217,6 +217,19 @@ class Cooldowns:
     finally:
       database.close()
 
+  def hold(self, model: str, until: float, reason: str) -> None:
+    """Write a cooldown with a known end, such as the reset of a daily limit. A longer cooldown stays."""
+    database = self.connect()
+    with database:
+      database.execute(
+        "INSERT INTO cooldowns (model, until, span, reason) VALUES (?, ?, 0, ?)"
+        " ON CONFLICT (model) DO UPDATE SET until = MAX(until, excluded.until),"
+        " reason = CASE WHEN excluded.until > until THEN excluded.reason ELSE reason END",
+        (model, until, reason),
+      )
+    database.close()
+    logger.info("cooldown %s %.3fs reason=%s", model, until - self.clock(), reason)
+
   def succeeded(self, model: str) -> None:
     """Set the backoff of a model back to the first span."""
     database = self.connect()

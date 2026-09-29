@@ -34,6 +34,7 @@
       <a href="#/models" data-page="models">Models</a>
       <a href="#/keys" data-page="keys">API keys</a>
       <a href="#/providers" data-page="providers">Providers</a>
+      <a href="#/limits" data-page="limits">Limits</a>
       <a href="#/settings" data-page="settings">Settings</a>
     </nav>
     <div class="chips">
@@ -134,6 +135,22 @@
             <th>Name</th><th>Key</th><th class="hide-sm">Created</th><th>Last used</th><th></th>
           </tr></thead>
           <tbody id="keys"></tbody>
+        </table>
+      </div>
+    </section>
+    <section data-page="limits" hidden>
+      <div class="panel editbar">
+        <button class="ghost" id="limits-check" type="button">Check now</button>
+        <span class="message" id="limits-message"></span>
+        <span class="hint" id="limits-checked"></span>
+      </div>
+      <div class="pools" id="balances"></div>
+      <div class="panel">
+        <table>
+          <thead><tr>
+            <th>Model</th><th>Limit</th><th>Left</th><th class="hide-sm">Reset</th><th class="hide-sm">Seen</th>
+          </tr></thead>
+          <tbody id="limit-rows"></tbody>
         </table>
       </div>
     </section>

@@ -148,6 +148,7 @@ async def attempt(
       continue
     if PACING:
       PACING.record(lane(candidate))
+    upstream.LANE.set(lane(candidate))
     try:
       answer = await upstream.in_time(pending, deadline)
     except asyncio.TimeoutError:

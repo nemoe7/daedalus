@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 
 from daedalus import providers, store
 from daedalus.providers.base import error_detail, error_text
-from daedalus.routing import loops, router
+from daedalus.routing import limits, loops, router
 from daedalus.server.logs import elapsed
 
 logger = logging.getLogger("daedalus")
@@ -61,6 +61,16 @@ KEPT_BACK_PREFIXES = ("proxy-", "x-forwarded-", "tailscale-", "x-openwebui-user-
 # The client headers of the current request that go on to each provider.
 _forwarded: ContextVar[httpx.Headers] = ContextVar("forwarded")
 _client: httpx.AsyncClient | None = None
+# The limits that keep the rate-limit headers of each answer. The API sets it.
+LIMITS: limits.Limits | None = None
+# The cooldown lane of the media attempt that runs now. Without it, the model is the lane.
+LANE: ContextVar[str | None] = ContextVar("lane", default=None)
+
+
+def observe(lane: str, headers: httpx.Headers) -> None:
+  """Give the headers of one answer to the limits."""
+  if LIMITS is not None:
+    LIMITS.observe(lane, headers)
 
 
 def get_client() -> httpx.AsyncClient:
@@ -267,6 +277,7 @@ async def attempt(
   status = response.status_code
   if status < 400:
     logger.info("upstream %s %d %s", candidate, status, elapsed(started))
+    observe(router.lane(config, candidate, client), response.headers)
     return provider, response
   raw = await response.aread()
   await response.aclose()
@@ -324,4 +335,5 @@ async def post(
   if response.status_code >= 400:
     raise rejected(candidate, response, started, response.content)
   logger.info("upstream %s %d %s", candidate, response.status_code, elapsed(started))
+  observe(LANE.get() or candidate, response.headers)
   return response
