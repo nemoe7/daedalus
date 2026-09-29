@@ -27,8 +27,13 @@ DEFAULTS: dict[str, dict[str, Any]] = {
   "escalation": {"keywords": []},
   "switch": {"keywords": []},
   "dashboard": {"theme": "system"},
+  # The name after `daedalus/` of each pool. The key is the built-in name.
+  "pools": {
+    name: name for name in ("moros", "koinos", "deinos", "sophos", "graphos", "photos")
+  },
 }
 THEMES = ("system", "light", "dark")
+POOL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,39}")
 
 
 class SettingsError(ValueError):
@@ -42,6 +47,12 @@ def check(group: str, key: str, value: Any) -> Any:
     return keyword_list(name, value)
   if group == "catalog":
     return schedule_value(name, key, value)
+  if group == "pools":
+    if not isinstance(value, str) or not POOL_NAME.fullmatch(value) or value == "auto":
+      raise SettingsError(
+        f"{name} must be 1 to 40 letters, digits, dots, dashes or underscores, and not auto"
+      )
+    return value
   if key == "theme":
     if value not in THEMES:
       raise SettingsError(f"{name} must be system, light or dark")
@@ -100,6 +111,8 @@ def parse(text: str, target: Path | str = DEFAULT_PATH) -> dict[str, dict[str, A
       if key not in DEFAULTS[group]:
         raise SettingsError(f"unknown key {group}.{key} in {target}")
       merged[group][key] = check(group, key, value)
+  if len(set(merged["pools"].values())) < len(merged["pools"]):
+    raise SettingsError("each pool in pools must have its own name")
   timeouts = merged["timeouts"]
   if timeouts["slow"] is None:
     timeouts["slow"] = timeouts["wait"] / 2
@@ -114,6 +127,8 @@ def scalar(value: Any) -> str:
   """One settings value as YAML text."""
   if isinstance(value, bool):
     return "true" if value else "false"
+  if isinstance(value, str):
+    return item(value)
   if isinstance(value, float) and value.is_integer():
     return str(int(value))
   return str(value)

@@ -36,7 +36,7 @@ const none = (text) => `<div class="more">${text}</div>`;
 // One card for each page, from the data that the pages already read.
 function renderOverview() {
   $("ov-pools").innerHTML = state.pools.map((pool) => line(
-    esc(pool.name.replace("daedalus/", "")), count(pool.members.length, "model"),
+    esc(pool.shown.replace("daedalus/", "")), count(pool.members.length, "model"),
   )).join("") || none("No pools");
   $("ov-requests").innerHTML = state.requests.slice(0, 10).map((r) => line(
     `<span class="status ${statusClass(r)}">${statusCell(r)}</span> ${esc(r.via || r.model || "-")}`,
@@ -198,7 +198,7 @@ function renderPools(pools) {
       ${weightBar(health)}<span class="num">${health.toFixed(2)}</span></div>`;
     const context = pool.context
       ? ` <span class="ctx" title="The largest context of a pool model">${tokens(pool.context)}</span>` : "";
-    return `<div class="card"><h3>${esc(pool.name)}${context}</h3>${bar}
+    return `<div class="card"><h3>${esc(pool.shown)}${context}</h3>${bar}
       <div class="sub">${esc(POOL_NOTES[pool.name] || "")} &middot; ${members.length} models</div>
       ${shown || '<div class="more">No models</div>'}${rest}</div>`;
   }).join("");
@@ -896,10 +896,18 @@ const SETTINGS = [
   ["dashboard", "Dashboard", [
     ["theme", "Theme", "choice", "System follows the light or dark setting of the device."],
   ]],
+  ["pools", "Pool names", [
+    ["moros", "Tier D", "name", "The client name of the tier D pool. The old name gets HTTP 400."],
+    ["koinos", "Tier C", "name", "The client name of the tier C pool."],
+    ["deinos", "Tier B", "name", "The client name of the tier B pool."],
+    ["sophos", "Tier A", "name", "The client name of the tier A pool."],
+    ["graphos", "Transcription", "name", "The client name of the transcription pool."],
+    ["photos", "Image", "name", "The client name of the image pool."],
+  ]],
 ];
 
 // The Settings cards of each column, from top to bottom.
-const SETTINGS_COLUMNS = [["timeouts", "catalog", "pacing"], ["session_affinity", "headroom", "cooldown", "dashboard"], ["weights", "escalation", "switch"]];
+const SETTINGS_COLUMNS = [["timeouts", "catalog", "pacing", "pools"], ["session_affinity", "headroom", "cooldown", "dashboard"], ["weights", "escalation", "switch"]];
 const THEMES = [["system", "System"], ["light", "Light"], ["dark", "Dark"]];
 
 // The theme of the page. System follows the device, also before the login.
@@ -947,6 +955,11 @@ function renderSettings() {
         return `<label class="field" for="${id}"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
           <select id="${id}">${THEMES.map(([name, text]) => `<option value="${name}"${setting(group, key) === name ? " selected" : ""}>${text}</option>`).join("")}</select></label>`;
       }
+      if (unit === "name") {
+        return `<label class="field" for="${id}"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
+          <span class="input"><i class="prefix">daedalus/</i><input type="text" id="${id}" maxlength="40" spellcheck="false"
+            value="${esc(fileValue(group, key) ?? "")}" placeholder="${esc(state.settings.defaults[group][key])}"></span></label>`;
+      }
       if (unit === "list") {
         return `<label class="field stack" for="${id}"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
           <textarea id="${id}" rows="8" spellcheck="false" placeholder="No keywords">${esc(setting(group, key).join("\n"))}</textarea></label>`;
@@ -983,6 +996,9 @@ function settingsChanges() {
       } else if (unit === "choice") {
         value = input.value;
         before = setting(group, key);
+      } else if (unit === "name") {
+        value = input.value.trim() || null;
+        before = fileValue(group, key);
       } else {
         value = input.value.trim() === "" ? null : Number(input.value);
         before = fileValue(group, key);
