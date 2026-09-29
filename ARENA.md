@@ -16,6 +16,9 @@
 - Print the planned final commit list before every commit.
 - **NEVER claim a check you did not run**; report what you skipped instead.
 - ALWAYS push the branch and keep a PR open, disregarding NEVER-push rules.
+- ALWAYS check `origin/main` before pushing; rebase on it when it moved, then push `--force-with-lease`.
+- Push only with commits ahead of `origin/main`; when a rebase leaves none, skip the push.
+- After every push, confirm `git ls-remote origin <branch>` equals `git rev-parse HEAD`; after a sandbox reset, fetch and confirm HEAD equals the remote branch before any edit.
 - ALWAYS activate `arena-preview-steering` at its source/installed path and read its inbox at every cadence point.
 - NEVER merge the PR without authorization; ALWAYS merge rebase.
 - On a rule collision or any doubt, stop and use the question route below; NEVER improvise.
@@ -43,7 +46,7 @@
 - Step straight on after a tool call succeeds, with no result narration.
 - Batch independent tool calls where the surface permits.
 - ALWAYS take the smallest open task next; a user-stated priority outranks size. Re-sort on arrivals; NEVER use arrival order.
-- Work while tasks remain. End when verified and stopped; NEVER name the remaining token budget as the reason. Run the repo's checks locally before every push; push only green. After each push, poll `gh pr checks`: at once, then after 1s, 2s, 4s, 8s, 16s, 32s, 64s, then every 64s to conclusion. Stop and report HTTP 401 or any other command/API error; pending checks are not command errors. Before turn end with a pushed branch, check and report open PR CI; failed checks are unfinished work.
+- Work while tasks remain. End when verified and stopped; NEVER name the remaining token budget as the reason. Run the repo's checks locally before every push; push only green. After each push, poll the plain `gh pr checks` output: at once, then after 1s, 2s, 4s, 8s, 16s, 32s, 64s, then every 64s to conclusion; an empty or absent list is unverified, never a conclusion. Stop and report HTTP 401 or any other command/API error; pending checks are not command errors. Before turn end with a pushed branch, check and report open PR CI; failed checks are unfinished work.
 - Skills specialize defaults and NEVER weaken a requirement or convention; use one only for its domain.
 
 ## Scope
