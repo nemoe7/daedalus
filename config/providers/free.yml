@@ -93,6 +93,8 @@ groq:
       - qwen/qwen3.8-27b
     TIER-B:
       - openai/gpt-oss-20b
+    TIER-D:
+      - allam-2-7b
   models:
     openai/gpt-oss-120b: { max_input_tokens: 7000 }
     openai/gpt-oss-20b: { max_input_tokens: 7000 }
@@ -133,6 +135,7 @@ mistral:
       - "codestral*"
       - "*leanstral*"
       - "ministral-14b-*"
+      - "voxtral-small-*"
     TIER-D:
       - "ministral-8b-*"
       - "ministral-3b-*"
