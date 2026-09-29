@@ -1,6 +1,6 @@
 # Architecture
 
-Daedalus provides an OpenAI endpoint. It routes requests to a free model of the correct size and capability. If the model fails, it moves on to the next suitable option.
+daedalus provides an OpenAI endpoint. It routes requests to a free model of the correct size and capability. If the model fails, it moves on to the next suitable option.
 
 ## Request flow
 
@@ -38,7 +38,7 @@ flowchart TD
 | No model fits | The client gets 400 `context_length_exceeded`. |
 | Error | The next model gets the request. The client sees only the last error. |
 | Stream | When a stream stops, the next model continues the answer. |
-| Client cancel | When the client closes the connection before the last byte, Daedalus stops the request. No model gets a fault, and no next model gets the request. The Requests page shows "cancelled". When no answer started, the log shows status 499. |
+| Client cancel | When the client closes the connection before the last byte, daedalus stops the request. No model gets a fault, and no next model gets the request. The Requests page shows "cancelled". When no answer started, the log shows status 499. |
 
 The end client only sees the last error to provide a cleaner transition between models in the fallback ladder.
 
@@ -206,7 +206,7 @@ A model with `rpm` or `tpm` in its provider file leaves the chains and the media
 | Item | Value |
 | --- | --- |
 | Window | The last 60 s |
-| Requests | Each request that Daedalus sent to the model, fallbacks included |
+| Requests | Each request that daedalus sent to the model, fallbacks included |
 | Tokens | The input estimate of the context check: characters / 4. Media requests count 0 tokens. |
 | Skip | Silent. The weight does not change, and the log has no line. |
 | Each model skipped | HTTP 429 `rate_limit_exceeded`. `Retry-After` is the time until the oldest request leaves the window. |
@@ -221,7 +221,7 @@ A conversation keeps its model (the session model) in each slot.
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e3e8fd", "primaryBorderColor": "#3b5bfd", "primaryTextColor": "#1a1f36", "lineColor": "#3b5bfd", "textColor": "#3b5bfd", "secondaryColor": "#ede9fe", "tertiaryColor": "#f5f3ff", "clusterBkg": "#f5f3ff", "clusterBorder": "#8b5cf6", "titleColor": "#5c388c", "edgeLabelBackground": "#ffffff", "noteBkgColor": "#ede9fe", "noteBorderColor": "#8b5cf6"}}}%%
 sequenceDiagram
   participant C as Client
-  participant D as Daedalus
+  participant D as daedalus
   participant M as Model
   C->>D: Request 1
   D->>M: Weighted draw in the first tier
@@ -296,11 +296,11 @@ Transcription and images get a pool, because the answer of another model is stil
 
 ## Performance
 
-Daedalus is small enough for a Raspberry Pi that also runs other containers.
+daedalus is small enough for a Raspberry Pi that also runs other containers.
 
 | Item | Value |
 | --- | --- |
-| Tier rows of the pools | Daedalus sorts the catalog models into tiers 1 time for each config and model list. A config reload or a catalog change sorts them again. |
+| Tier rows of the pools | daedalus sorts the catalog models into tiers 1 time for each config and model list. A config reload or a catalog change sorts them again. |
 | Classifier | 1 result for each prompt, for the last 64 prompts. The requests of 1 tool loop have the same user messages, so only the first request runs the classifier. |
 | State files | SQLite WAL mode. The files `models.sqlite3-wal` and `models.sqlite3-shm` are part of the store. |
 | Weights, pins, cooldowns, request history | A write does not wait for the disk. After a power loss, the last writes can go, but the file stays correct. |
