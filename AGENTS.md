@@ -49,6 +49,11 @@ An ADR holds one decision and the reason for it.
 - A new page uses the `.flow` layout of `style.css`: the table in a `.column.wide`, and the cards in a `.column` beside it.
 - Do not put cards in a row above a table.
 
+## State database
+
+- A table change needs an Alembic step. See the State database section of `docs/architecture.md`.
+- Never edit a step that is on `main`. Add a new step.
+
 ## Code comments
 
 - Write a comment only where the function is extremely complex.

@@ -295,6 +295,29 @@ By default, Open WebUI writes a new image prompt for each try. So a try again in
 
 Transcription and images get a pool, because the answer of another model is still usable: the same text, or an image of the same prompt. Embeddings and speech have no pool. Vectors from 2 embedding models have different sizes and meanings, so a fallback breaks a stored index. 2 speech models have different voices.
 
+## State database
+
+`.daedalus-state/models.sqlite3` holds the model store and the state of the other modules.
+
+| Item | Value |
+| --- | --- |
+| Layout | `daedalus/store/schema.py`, as SQLAlchemy Core tables |
+| Steps | Alembic, 1 file for each change in `daedalus/store/migrations/versions/`. The `alembic_version` table holds the step of the file. |
+| Upgrade | `daedalus serve` and `daedalus catalog` run the new steps before they start. |
+| Requests | The request code uses `sqlite3`. SQLAlchemy and Alembic load only for the upgrade. |
+
+A table change:
+
+1. Change the table in `daedalus/store/schema.py` and the `CREATE TABLE` statement of its module.
+2. Make the step. The command is the same in cmd, PowerShell and bash:
+
+   ```text
+   uv run alembic -c daedalus/store/alembic.ini upgrade head
+   uv run alembic -c daedalus/store/alembic.ini revision --autogenerate -m "add a column"
+   ```
+
+3. Read the new step, then run the tests. `tests/store/test_migrations.py` fails until the table, the statement and the steps agree.
+
 ## Performance
 
 daedalus is small enough for a Raspberry Pi that also runs other containers.

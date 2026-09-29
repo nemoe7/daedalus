@@ -38,24 +38,6 @@ def test_keys(database: Path) -> None:
   assert keys.delete(database, "ci") is False, "no key with that name"
 
 
-def test_migrate(database: Path) -> None:
-  with sqlite3.connect(database) as old:
-    old.execute("CREATE TABLE api_key (hash TEXT NOT NULL)")
-    old.execute("INSERT INTO api_key VALUES (?)", (keys.digest("old-local-key-0001"),))
-    old.execute("CREATE TABLE models (id TEXT PRIMARY KEY)")
-  old.close()
-  store.write_store([], database)
-  assert keys.find(database, "old-local-key-0001") == "default", "the old key stays"
-  assert keys.listing(database)[0]["start"] == "", "the old key start is not known"
-  with sqlite3.connect(database) as new:
-    version = new.execute("PRAGMA user_version").fetchone()[0]
-    tables = {row[0] for row in new.execute("SELECT name FROM sqlite_master")}
-  new.close()
-  assert version == store.SCHEMA_VERSION and "api_key" not in tables, tables
-  store.migrate(database)
-  assert [row["name"] for row in keys.listing(database)] == ["default"], "a second run"
-
-
 @pytest.fixture
 def database(tmp_path: Path) -> Path:
   return tmp_path / "models.sqlite3"
