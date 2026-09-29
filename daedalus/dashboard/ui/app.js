@@ -277,9 +277,16 @@ function chainRows(r) {
 }
 
 // A token count in whole thousands from 1,000, such as 79K, with the exact count on hover.
+// A count floored to K, M or B, for example 79K. Below 1,000 it stays whole.
+const FLOORS = [[1e9, "B"], [1e6, "M"], [1e3, "K"]];
+function floorCount(n) {
+  const [size, mark] = FLOORS.find(([step]) => n >= step) || [1, ""];
+  return `${Math.floor(n / size)}${mark}`;
+}
+
 function tokenCell(count, mark = "") {
   if (typeof count !== "number") return '<td class="hide-sm num">-</td>';
-  const shown = count >= 1000 ? `${Math.floor(count / 1000)}K` : String(count);
+  const shown = floorCount(count);
   return `<td class="hide-sm num" title="${mark}${count.toLocaleString()}">${mark}${shown}</td>`;
 }
 
@@ -1084,8 +1091,6 @@ async function refreshFast() {
 
 // The Limits page: the balances of the provider keys, and the last rate-limit headers of each model.
 // Counts from 100,000 show short, for example 998.8M, so the bar keeps its room.
-const COMPACT = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
-const shortCount = (n) => (Math.abs(n) >= 100000 ? COMPACT.format(n) : n.toLocaleString());
 
 // The short unit of a rate-limit row, for example tok/min.
 const SPANS = { minute: "min", hour: "h", day: "day", month: "mo" };
@@ -1101,7 +1106,7 @@ function overviewLimits(data) {
   const rows = data.lanes.flatMap((lane) => lane.rows.map((row) => ({ ...row, model: lane.model })))
     .sort((a, b) => share(a) - share(b)).slice(0, 3)
     .map((r) => `<div class="balance">${line(`<span title="${esc(r.model)}">${esc(r.model)}</span>`,
-      `${shortCount(r.remaining)} of ${shortCount(r.limit)} ${esc(unit(r))}`)}${bar(share(r))}</div>`);
+      `${floorCount(r.remaining)} of ${floorCount(r.limit)} ${esc(unit(r))}`)}${bar(share(r))}</div>`);
   return [...balances, ...rows].join("");
 }
 
@@ -1118,7 +1123,7 @@ function renderLimits(data) {
       <td>${esc(r.kind)}${r.span ? ` per ${esc(r.span)}` : ""}</td>
       <td><div class="weight left" title="${r.remaining.toLocaleString()} of ${r.limit.toLocaleString()}">
         ${weightBar(r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0)}
-        <span class="num${r.remaining > 0 ? "" : " out"}">${shortCount(r.remaining)} of ${shortCount(r.limit)}</span></div></td>
+        <span class="num${r.remaining > 0 ? "" : " out"}">${floorCount(r.remaining)} of ${floorCount(r.limit)}</span></div></td>
       <td class="hide-sm muted time">${r.reset ? shortTime(r.reset) : "-"}</td>
       <td class="hide-sm muted time">${shortTime(r.at)}</td>
     </tr>`).join("") : '<tr><td colspan="5" class="empty">No rate-limit headers yet. Groq and Mistral send them with each answer.</td></tr>';
