@@ -77,7 +77,7 @@ Each chat model and pool model in `GET /v1/models` has these catalog fields, whe
 | `supports_reasoning` | Catalog value | `true` if 1 model in the pool is `true` |
 | `supports_vision` | Catalog value | `true` if 1 model in the pool is `true` |
 
-`daedalus/auto` has the values of `daedalus/sophos`. A request that is too large for a model skips that model.
+`daedalus/auto` has the values of the tier A pool. A request that is too large for a model skips that model.
 
 ## Kilo Code plugin
 
