@@ -12,6 +12,7 @@ import httpx
 from fastapi.responses import JSONResponse
 
 from daedalus import providers, store
+from daedalus.providers import hooks
 from daedalus.providers.base import error_detail, error_text
 from daedalus.routing import limits, loops, router
 from daedalus.server.logs import elapsed
@@ -256,7 +257,6 @@ async def attempt(
   asked = "reasoning_effort" in body
   body = without_reasoning(candidate, with_defaults(candidate, body))
   provider, url, payload, headers = providers.prepare(candidate, body, config, client)
-  effort = provider.effort(payload)
   if payload.get("stream") and provider.stream_usage:
     payload = {
       **payload,
@@ -265,6 +265,13 @@ async def attempt(
         "include_usage": True,
       },
     }
+  # The endpoints of `cheapest_output`, unless the client sent its own provider routing.
+  order = store.provider_order(candidate)
+  if order and "provider" not in payload:
+    payload = {**payload, "provider": {"order": order}}
+  headers = dict(headers)
+  payload = hooks.run("request", candidate, payload, headers=headers)
+  effort = provider.effort(payload)
   if sent is not None and (asked or effort is not None):
     sent["effort"] = effort
   wait = router.model_wait(config, candidate, WAIT_SECONDS)

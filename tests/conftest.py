@@ -7,7 +7,7 @@ import pytest
 
 from daedalus import config, dashboard, store
 from daedalus.catalog import discovery, schedule
-from daedalus.providers import signatures
+from daedalus.providers import hooks, signatures
 from daedalus.routing import loops, router
 from daedalus.server import api, headroom, media, upstream
 
@@ -53,6 +53,7 @@ def state_folder(
   with pytest.MonkeyPatch.context() as patch:
     patch.setattr(store, "MODELS_DB", folder / "models.sqlite3")
     patch.setattr(discovery, "DUMP_DIR", folder / "dump")
+    patch.setattr(hooks, "HOOKS_DIR", folder / "hooks")
     patch.setattr(api.PENALTIES, "pick", api.PENALTIES.pick)
     patch.setattr(headroom, "_down", False)
     # Each test file starts like a new process, with no router state.

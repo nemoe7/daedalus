@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from daedalus import dashboard, providers, store
 from daedalus.catalog import schedule
 from daedalus.config import block_for, get_config
-from daedalus.providers import signatures
+from daedalus.providers import hooks, signatures
 from daedalus.providers.base import error_text
 from daedalus.routing import (
   context,
@@ -610,7 +610,9 @@ async def chat(request: Request) -> Response:
         answer = json.loads(raw)
         if not isinstance(answer, dict) or answer.get("error"):
           raise providers.ProviderError(f"Invalid upstream answer: {error_text(raw)}")
-        completion = provider.completion(answer, candidate)
+        completion = hooks.run(
+          "answer", candidate, provider.completion(answer, candidate)
+        )
         if (channel := loops.answer_loop(completion)) is not None:
           raise loops.LoopError(channel)
         loops.save(loops.answer_calls(completion), candidate)

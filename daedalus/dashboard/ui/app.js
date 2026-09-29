@@ -547,7 +547,7 @@ async function refreshKeys() {
 // The block keys that the form edits. The YAML view edits the other keys.
 const FORM_KEYS = ["api_key", "client_keys", "api_base", "api_type", "discovery_url", "discovery_match", "exclude", "tier", "models"];
 // The keys that a model override sets but the provider level does not.
-const MODEL_ONLY = ["pool", "timeout"];
+const MODEL_ONLY = ["pool", "timeout", "cheapest_output"];
 // The keys that the provider level sets but a model override does not.
 const PROVIDER_ONLY = ["hourly_requests"];
 const TIERS = ["TIER-A", "TIER-B", "TIER-C", "TIER-D"];
