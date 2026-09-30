@@ -28,14 +28,25 @@ class Live:
   def start(self, path: str) -> int:
     """Add a request that has just arrived, and return its id."""
     key = next(self.ids)
-    self.rows[key] = {"id": key, "path": path, "started": time.time(), "first": None}
+    now = time.time()
+    self.rows[key] = {
+      "id": key,
+      "path": path,
+      "started": now,
+      "attempt_started": now,
+      "first": None,
+    }
     self.send("start", self.view(key))
     return key
 
   def update(self, key: int, **fields: Any) -> None:
     """Add request fields, such as the model, to a request in flight."""
     if key in self.rows:
-      self.rows[key].update(fields)
+      row = self.rows[key]
+      if "trying" in fields and fields["trying"] != row.get("trying"):
+        row["attempt_started"] = time.time()
+        row["first"] = None
+      row.update(fields)
       self.send("update", self.view(key))
 
   def first(self, key: int, **fields: Any) -> None:
@@ -53,11 +64,14 @@ class Live:
     """A request as the page gets it, with ages in seconds instead of clock times."""
     row, now = self.rows[key], time.time()
     shown = {
-      name: value for name, value in row.items() if name not in {"started", "first"}
+      name: value
+      for name, value in row.items()
+      if name not in {"started", "attempt_started", "first"}
     }
     shown["age"] = round(now - row["started"], 3)
+    shown["attempt_age"] = round(now - row["attempt_started"], 3)
     shown["ttft"] = (
-      None if row["first"] is None else round(row["first"] - row["started"], 3)
+      None if row["first"] is None else round(row["first"] - row["attempt_started"], 3)
     )
     return shown
 

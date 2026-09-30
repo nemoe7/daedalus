@@ -312,8 +312,10 @@ const appCell = (r) => `<td${r.key ? ` title="API key: ${esc(r.key)}"` : ""}>${r
 
 // A live request with local times, because the server sends ages and not clock times.
 function liveRow(r) {
-  const since = Date.now() - r.age * 1000;
-  return { ...r, since, first: r.ttft == null ? null : since + r.ttft * 1000 };
+  const now = Date.now();
+  const since = now - r.age * 1000;
+  const attemptSince = now - r.attempt_age * 1000;
+  return { ...r, since, attemptSince, first: r.ttft == null ? null : attemptSince + r.ttft * 1000 };
 }
 
 // The requests in flight, from the dashboard event stream.
@@ -371,7 +373,7 @@ function tickLive() {
   for (const row of $("live").children) {
     const r = state.live.get(Number(row.dataset.live));
     if (!r) continue;
-    const ttft = ((r.first ?? now) - r.since) / 1000;
+    const ttft = ((r.first ?? now) - r.attemptSince) / 1000;
     const stream = !r.stream ? (now - r.since) / 1000 : r.first == null ? null : (now - r.first) / 1000;
     row.querySelector('[data-clock="ttft"]').textContent = `${ttft.toFixed(1)}s`;
     row.querySelector('[data-clock="stream"]').textContent = stream == null ? "-" : `${stream.toFixed(1)}s`;
