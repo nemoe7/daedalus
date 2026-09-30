@@ -123,7 +123,7 @@ services:
       SEARXNG_SECRET: ${SEARXNG_SECRET:-}
       FORCE_OWNERSHIP: "false" # the settings file is read-only
     volumes:
-      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+      - ./services/searxng/settings.yml:/etc/searxng/settings.yml:ro
       - searxng:/var/cache/searxng
     restart: unless-stopped # no port: only Open WebUI connects to it
 
@@ -163,7 +163,7 @@ services:
       retries: 3
     volumes:
       - tailscale:/var/lib/tailscale
-      - ./tailscale:/config:ro
+      - ./services/tailscale:/config:ro
     depends_on:
       - daedalus
     restart: unless-stopped

@@ -5,7 +5,7 @@ $ProgressPreference = 'SilentlyContinue'
 
 $repo = 'nemoe7/daedalus'
 # The files that compose.yml needs, and the install scripts for the next run.
-$files = 'compose.yml', 'compose.dev.yml', '.env.example', 'config', 'searxng', 'tailscale', 'install.ps1', 'install.cmd'
+$files = 'compose.yml', 'compose.dev.yml', '.env.example', 'config', 'services', 'install.ps1', 'install.cmd'
 
 function Stop-Install([string]$message) {
   Write-Host $message -ForegroundColor Red
