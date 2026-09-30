@@ -63,22 +63,67 @@ if ($dev) { New-Item -ItemType Directory -Force -Path $dir | Out-Null; New-Item 
 if ($prod) { Remove-Item -LiteralPath (Join-Path $dir '.daedalus-dev') -Force -ErrorAction SilentlyContinue; $dev = $false }
 
 # Files to pull: only pull compose.dev.yml when --dev or marker present
+# Ordered checks: compose -> .env -> profiles -> required service dirs
 if ($dev) {
-  $files = 'compose.yml', 'compose.dev.yml', '.env.example', 'config', 'services', 'install.ps1', 'install.cmd'
+  $baseFiles = 'compose.yml', 'compose.dev.yml', '.env.example', 'config', 'install.ps1', 'install.cmd'
 } else {
-  $files = 'compose.yml', '.env.example', 'config', 'services', 'install.ps1', 'install.cmd'
+  $baseFiles = 'compose.yml', '.env.example', 'config', 'install.ps1', 'install.cmd'
 }
+# Service mapping: search -> services/searxng, tailscale -> services/tailscale
 
 $needDocker = -not (Get-Command docker -ErrorAction SilentlyContinue)
-# Check if any required file is missing (not just compose.yml) so new files like services/ are pulled on update
+
+# Ordered check 1: compose?
+$missingCompose = $false
+foreach ($f in $baseFiles) {
+  if ($f -in 'compose.yml','compose.dev.yml') {
+    if (-not (Test-Path -LiteralPath (Join-Path $dir $f))) { $missingCompose = $true }
+  }
+}
+# Ordered check 2: .env?
+$missingEnv = -not (Test-Path -LiteralPath (Join-Path $dir '.env'))
+
+# Ordered check 3: read .env for COMPOSE_PROFILES
+$profiles = ""
+if (Test-Path -LiteralPath (Join-Path $dir '.env')) {
+  $envLine = Select-String -Path (Join-Path $dir '.env') -Pattern '^COMPOSE_PROFILES=' | Select-Object -Last 1
+  if ($envLine) {
+    $profiles = $envLine.Line.Split('=',2)[1].Trim('"').Trim("'")
+  }
+}
+$profilesSpaced = $profiles -replace ',', ' '
+
+$requiredServiceDirs = @()
+if (-not (Test-Path -LiteralPath (Join-Path $dir 'config'))) { $requiredServiceDirs += 'config' }
+if ($profilesSpaced -match '\bsearch\b') {
+  if (-not (Test-Path -LiteralPath (Join-Path $dir 'services/searxng'))) { $requiredServiceDirs += 'services/searxng' }
+}
+if ($profilesSpaced -match '\btailscale\b') {
+  if (-not (Test-Path -LiteralPath (Join-Path $dir 'services/tailscale'))) { $requiredServiceDirs += 'services/tailscale' }
+}
+
+# For update: if any base file missing or .env missing or required service dir missing, need files
 $needFiles = $false
-foreach ($f in $files) {
+if ($missingCompose) { $needFiles = $true }
+if ($missingEnv) { $needFiles = $true }
+foreach ($f in $baseFiles) {
   if (-not (Test-Path -LiteralPath (Join-Path $dir $f))) { $needFiles = $true; break }
 }
+if ($requiredServiceDirs.Count -gt 0) { $needFiles = $true }
+
+# Build final files list for copy: base + required service dirs
+$files = $baseFiles
+foreach ($d in $requiredServiceDirs) {
+  if ($files -notcontains $d) { $files += $d }
+}
+# Ensure services parent if any service dir required
+if ($requiredServiceDirs.Count -gt 0 -and $files -notcontains 'services') { $files += 'services' }
+
 $plan = @()
 if ($needDocker) { $plan += 'Docker Desktop, with winget (it asks for admin rights, then a restart)' }
-if ($needFiles) { $plan += "The daedalus files, to $dir" }
-if (-not (Test-Path -LiteralPath (Join-Path $dir '.env'))) { $plan += "The settings file $dir\.env, with a new master key" }
+if ($missingCompose) { $plan += "The daedalus files, to $dir" }
+elseif ($needFiles) { $plan += "The daedalus files, to $dir" }
+if ($missingEnv) { $plan += "The settings file $dir\.env, with a new master key" }
 
 if ($plan.Count -gt 0) {
   Write-Host 'This script installs or downloads:'
