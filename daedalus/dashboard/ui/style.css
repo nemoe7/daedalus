@@ -325,9 +325,8 @@ section[data-page="limits"] > .editbar { margin-bottom: 16px; }
   .hide-sm { display: none; }
   .models .weight { width: 80px; min-width: 0; gap: 6px; }
 }
-.from { font-size: 12px; opacity: .8; white-space: nowrap; }
+.from, .transition-code { font-size: 12px; opacity: .8; white-space: nowrap; }
 .transition { white-space: normal; }
-.transition-code { border: 1px solid currentColor; border-radius: 3px; cursor: help; padding: 0 3px; }
 /* A detail that shows only on hover or keyboard focus. It keeps its space. */
 .on-hover { visibility: hidden; }
 .check:hover .on-hover, .check:focus-within .on-hover { visibility: visible; }
