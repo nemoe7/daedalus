@@ -279,7 +279,7 @@ function chainRows(r) {
       ${a.cooldown ? `<span class="from">${esc(coolText(a.cooldown))}</span>` : ""}
       ${a.error ? `<pre>${esc(a.error)}</pre>` : ""}
     </li>`).join("");
-  return `<tr class="chain"><td colspan="12"><div class="chain-body">
+  return `<tr class="chain"><td colspan="13"><div class="chain-body">
     <div class="chain-head"><span class="muted">Fallback chain</span>
       <button class="ghost copy-chain" type="button" data-at="${r.at}">Copy</button></div>
     ${steps ? `<ol>${steps}</ol>` : '<p class="muted">No attempt data for this request.</p>'}
@@ -353,6 +353,7 @@ function renderLive() {
     <tr class="live-row" data-live="${r.id}">
       <td class="num muted"><span class="pulse"></span>${clock(r.since / 1000)}</td>
       ${appCell(r)}
+      <td class="hide-sm num">${esc(r.session || "-")}</td>
       ${nameCell(r.model || r.path)}
       <td class="hide-sm">${esc(r.effort || "-")}</td>
       <td class="hide-sm muted">${esc(r.pool || "-")}</td>
@@ -390,6 +391,7 @@ function renderRequests(rows) {
     ${hasChain(r) ? `<tr class="request${opened.has(String(r.at)) ? " open" : ""}" data-at="${r.at}" title="Show the fallback chain">` : "<tr>"}
       <td class="num muted"><span class="caret${hasChain(r) ? "" : " none"}"></span>${clock(r.at)}</td>
       ${appCell(r)}
+      <td class="hide-sm num">${esc(r.session || "-")}</td>
       ${nameCell(r.model || "-")}
       <td class="hide-sm">${effortCell(r)}</td>
       <td class="hide-sm muted">${esc(r.pool || "-")}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${r.retry ? ` <span class="from">try again ${esc(r.retry)}</span>` : ""}${r.loop ? ` <span class="from">tool loop ${esc(r.loop)}</span>` : ""}</td>
@@ -401,7 +403,7 @@ function renderRequests(rows) {
       <td class="hide-sm num">${streamCell(r)}</td>
       <td class="hide-sm num">${esc(r.fallbacks ?? "-")}</td>
     </tr>${hasChain(r) && opened.has(String(r.at)) ? chainRows(r) : ""}`).join("")
-    : '<tr><td colspan="12" class="empty">No requests</td></tr>';
+    : '<tr><td colspan="13" class="empty">No requests</td></tr>';
 }
 
 // The label of each catalog mode.

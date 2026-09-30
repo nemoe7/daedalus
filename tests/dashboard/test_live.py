@@ -143,11 +143,14 @@ async def test_requests() -> None:
           assert kinds == ["start", "update", "update", "first", "end"], kinds
           update, trying, first, end = (data for _, data in events[1:])
           assert trying["trying"] == "groq/x" and trying["fallbacks"] == 0, trying
+          expected_session = api.session_key(MASTER, body["messages"])[:7]
+          assert trying["session"] == expected_session, trying
           assert update["model"] == "groq/x" and update["stream"] is stream, update
           assert update["effort"] == "low", update
           assert first["via"] == "groq/x" and first["ttft"] is not None, first
           row = end["row"]
           assert row["stream"] is stream and row["seconds"] >= 0, row
+          assert row["session"] == expected_session, row
           assert row == dashboard.HISTORY.latest(1)[0], "the end row is the history row"
         await client.get("/ui/api/requests", headers={"x-daedalus-session": "x"})
         assert queue.empty(), "only API posts go on the live list"
