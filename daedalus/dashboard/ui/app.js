@@ -370,7 +370,7 @@ const TRANSITION_REASONS = {
 function transitionCell(t) {
   if (!t || !t.reason) return "";
   const label = TRANSITION_REASONS[t.reason] || t.reason;
-  return ` <span class="transition-code" title="${esc(label)}" aria-label="${esc(label)}" tabindex="0">${esc(t.reason)}</span>`;
+  return ` <span class="transition-code" title="${esc(label)}" aria-label="${esc(label)}">${esc(t.reason)}</span>`;
 }
 
 function renderLive() {
