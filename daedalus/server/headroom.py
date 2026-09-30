@@ -12,6 +12,7 @@ from daedalus.server import upstream
 URL_ENV = "HEADROOM_URL"
 MODE = "lossy_inline"
 TIMEOUT_SECONDS = 5.0
+HEALTH_TIMEOUT_SECONDS = 1.0
 
 logger = logging.getLogger("daedalus")
 _down = False
@@ -20,6 +21,28 @@ _down = False
 def base_url() -> str:
   """The Headroom address from the environment, or an empty string when it is off."""
   return os.environ.get(URL_ENV, "").strip().rstrip("/")
+
+
+async def available() -> bool:
+  """Whether the sidecar answers its health check as ready."""
+  base = base_url()
+  if not base:
+    return False
+  try:
+    response = await asyncio.wait_for(
+      upstream.get_client().get(f"{base}/health", timeout=HEALTH_TIMEOUT_SECONDS),
+      HEALTH_TIMEOUT_SECONDS,
+    )
+    if not response.is_success:
+      return False
+    health = response.json()
+  except (httpx.HTTPError, ValueError, TypeError, asyncio.TimeoutError):
+    return False
+  return (
+    isinstance(health, dict)
+    and health.get("status") == "healthy"
+    and health.get("ready", True) is not False
+  )
 
 
 async def compress(

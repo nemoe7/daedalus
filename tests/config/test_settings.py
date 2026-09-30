@@ -7,7 +7,7 @@ import pytest
 import yaml
 
 from daedalus.config import settings
-from daedalus.routing import penalties
+from daedalus.routing import loops, penalties
 from daedalus.server import api
 
 
@@ -39,6 +39,8 @@ def test_load(folder: Path) -> None:
   assert values["weights"]["fault"] == 0.25 and values["weights"]["success"] == 1.5
   path.write_text("", encoding="utf-8")
   assert settings.load(path)["session_affinity"]["enabled"] is True, "an empty file"
+  assert settings.load(path)["session_affinity"]["change_on_draw"] is True
+  expect_error(folder, "session_affinity:\n  change_on_draw: 1\n", "true or false")
   expect_error(folder, "server:\n  port: 1\n", "unknown group 'server'")
   expect_error(folder, "weights:\n  factor: 2\n", "unknown key weights.factor")
   expect_error(folder, "weights:\n  enabled: 1\n", "true or false")
@@ -71,10 +73,34 @@ def test_load(folder: Path) -> None:
   assert keywords == ["ultrathink", "think hard"], keywords
 
 
+def test_loop_settings() -> None:
+  assert settings.parse("")["loops"] == {
+    "calls": 3,
+    "repeats": 4,
+    "shortest": 20,
+    "longest": 2000,
+  }
+  assert settings.parse(
+    "loops:\n  calls: 100\n  repeats: 16\n  shortest: 1000\n  longest: 10000\n"
+  )["loops"] == {"calls": 100, "repeats": 16, "shortest": 1000, "longest": 10000}
+  for text, message in (
+    ("loops:\n  calls: true\n", "whole number"),
+    ("loops:\n  calls: 1\n", "between 2 and 100"),
+    ("loops:\n  repeats: 17\n", "between 2 and 16"),
+    ("loops:\n  shortest: 1001\n", "between 1 and 1000"),
+    ("loops:\n  longest: 10001\n", "between 1 and 10000"),
+    ("loops:\n  shortest: 21\n  longest: 20\n", "at most loops.longest"),
+  ):
+    with pytest.raises(settings.SettingsError, match=message):
+      settings.parse(text)
+
+
 def test_apply(folder: Path) -> None:
   path = folder / "off.yml"
   path.write_text(
-    "session_affinity:\n  enabled: false\nweights:\n  enabled: false\n",
+    "session_affinity:\n  enabled: false\n  change_on_draw: false\n"
+    "weights:\n  enabled: false\n"
+    "loops:\n  calls: 5\n  repeats: 6\n  shortest: 10\n  longest: 3000\n",
     encoding="utf-8",
   )
   store = api.PENALTIES
@@ -82,6 +108,29 @@ def test_apply(folder: Path) -> None:
   store.path = lambda: folder / "models.sqlite3"
   try:
     api.apply_settings(settings.load(path))
+    assert store.change_on_draw is False
+    assert (loops.CALLS, loops.REPEATS, loops.SHORTEST, loops.LONGEST) == (
+      5,
+      6,
+      10,
+      3000,
+    )
+    tool_calls = [
+      {
+        "role": "assistant",
+        "tool_calls": [
+          {"id": f"c{index}", "function": {"name": "run", "arguments": "{}"}}
+        ],
+      }
+      for index in range(5)
+    ]
+    assert loops.repeated_call([{"role": "user", "content": "go"}, *tool_calls]) == (
+      "c4",
+      5,
+    )
+    unit = "abcdefghij"
+    assert loops.text_loop(unit * 5) is None
+    assert loops.text_loop(unit * 6) == 10
     assert api.Tracker("key", "daedalus/deinos").slot is None, "no pins"
     store.pick = lambda: 0.99
     assert store.record("a", store.fault) == 1.0, "no weights"
@@ -89,7 +138,13 @@ def test_apply(folder: Path) -> None:
   finally:
     api.apply_settings(settings.load(folder / "missing.yml"))
     store.path = original
-  assert api.AFFINITY is True and store.enabled is True and api.SLOW_SECONDS == 30.0
+  assert (
+    api.AFFINITY is True
+    and store.enabled is True
+    and store.change_on_draw is True
+    and api.SLOW_SECONDS == 30.0
+  )
+  assert (loops.CALLS, loops.REPEATS, loops.SHORTEST, loops.LONGEST) == (3, 4, 20, 2000)
 
 
 # The CLI runs with a temporary state folder, so it never touches .daedalus-state.

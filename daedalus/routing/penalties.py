@@ -41,7 +41,12 @@ class Penalties:
     pick: Callable[[], float] = random.random,
   ) -> None:
     self.path, self.clock, self.pick = path, clock, pick
-    self.enabled, self.idle, self.stay = True, IDLE_SECONDS, STAY
+    self.enabled, self.idle, self.stay, self.change_on_draw = (
+      True,
+      IDLE_SECONDS,
+      STAY,
+      True,
+    )
     self.success, self.fault, self.slow, self.hourly = SUCCESS, FAULT, SLOW, HOURLY
     self.rate_limit = RATE_LIMIT
 
@@ -111,6 +116,19 @@ class Penalties:
       ).fetchone()
     database.close()
     return row[0] if row else None
+
+  def last_pin(self, key: str) -> tuple[str, str] | None:
+    """The most recently answered session slot and model for this conversation."""
+    now = self.clock()
+    database = self.connect()
+    with database:
+      database.execute("DELETE FROM pins WHERE used < ?", (now - self.idle,))
+      row = database.execute(
+        "SELECT slot, model FROM pins WHERE key = ? ORDER BY used DESC, rowid DESC LIMIT 1",
+        (key,),
+      ).fetchone()
+    database.close()
+    return tuple(row) if row else None
 
   def highest(self, key: str, tier: int) -> int:
     """The highest tier of one conversation, this request included. Idle entries expire."""

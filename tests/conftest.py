@@ -22,6 +22,7 @@ SETTINGS = (
     for name in (
       "idle",
       "enabled",
+      "change_on_draw",
       "stay",
       "success",
       "fault",
@@ -34,9 +35,12 @@ SETTINGS = (
   (media.REPEATS, "idle"),
   (api.PACING, "enabled"),
   (signatures, "IDLE_SECONDS"),
-  (loops, "IDLE_SECONDS"),
+  *(
+    (loops, name)
+    for name in ("IDLE_SECONDS", "CALLS", "REPEATS", "SHORTEST", "LONGEST")
+  ),
   (headroom, "TIMEOUT_SECONDS"),
-  *((schedule, name) for name in ("EVERY", "ANCHOR")),
+  *((schedule, name) for name in ("EVERY", "ANCHOR", "BUSY", "PENDING")),
   (router, "RENAMED"),
 )
 
@@ -71,6 +75,9 @@ def state_folder(
     dashboard.LIVE.rows.clear()
     for owner, name in SETTINGS:
       patch.setattr(owner, name, getattr(owner, name))
+    patch.setattr(api, "CATALOG_REFRESH", None)
+    patch.setattr(api, "CATALOG_REBUILD_CACHED", None)
+    schedule.BUSY, schedule.PENDING = False, None
     config.set_config(None)
     config.SAVED.clear()
     upstream.set_client(None)

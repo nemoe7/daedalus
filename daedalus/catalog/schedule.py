@@ -17,6 +17,8 @@ TICK_SECONDS = 60.0
 RETRY_SECONDS = 300.0
 # True while a rebuild runs, so that a manual rebuild and the schedule do not overlap.
 BUSY = False
+# The most recent config-save rebuild to run after a fetch already in progress.
+PENDING: Callable[[], object] | None = None
 # The manual rebuild tasks, so that the event loop keeps a reference to each.
 TASKS: set[asyncio.Task[None]] = set()
 
@@ -60,14 +62,17 @@ def due(now: float) -> bool:
 
 
 async def rebuild(refresh: Callable[[], object], reason: str) -> None:
-  """Run 1 rebuild in a worker thread, with the busy mark set."""
-  global BUSY
+  """Run 1 rebuild in a worker thread, then drain the latest queued config rebuild."""
+  global BUSY, PENDING
   BUSY = True
   logger.info("catalog rebuild: %s", reason)
   try:
     await asyncio.to_thread(refresh)
   finally:
     BUSY = False
+    pending, PENDING = PENDING, None
+    if pending is not None:
+      start(pending)
 
 
 def start(refresh: Callable[[], object]) -> bool:
@@ -88,6 +93,15 @@ def start(refresh: Callable[[], object]) -> bool:
   TASKS.add(task)
   task.add_done_callback(TASKS.discard)
   return True
+
+
+def request(refresh: Callable[[], object]) -> bool:
+  """Queue a config-save rebuild behind any fetch, replacing an older queued rebuild."""
+  global PENDING
+  if BUSY:
+    PENDING = refresh
+    return True
+  return start(refresh)
 
 
 async def run(refresh: Callable[[], object]) -> None:

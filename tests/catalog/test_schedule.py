@@ -114,6 +114,33 @@ async def test_manual() -> None:
   assert not schedule.BUSY, "a failure clears the busy mark too"
 
 
+async def test_queued_config_rebuild() -> None:
+  """A provider save rebuild runs after any network refresh finishes."""
+  release, finished = asyncio.Event(), asyncio.Event()
+  loop = asyncio.get_running_loop()
+  calls: list[str] = []
+
+  def refresh() -> None:
+    calls.append("refresh-start")
+    asyncio.run_coroutine_threadsafe(release.wait(), loop).result()
+    calls.append("refresh-end")
+
+  def cached() -> None:
+    calls.append("cached")
+    loop.call_soon_threadsafe(finished.set)
+
+  try:
+    assert schedule.start(refresh)
+    assert schedule.request(cached) and schedule.PENDING is cached
+    release.set()
+    await asyncio.wait_for(finished.wait(), 1)
+    await asyncio.gather(*schedule.TASKS)
+    assert calls == ["refresh-start", "refresh-end", "cached"], calls
+    assert not schedule.BUSY and schedule.PENDING is None
+  finally:
+    release.set()
+
+
 def test_settings() -> None:
   values = settings.parse("catalog:\n  every: 12\n  anchor: 0\n")
   assert values["catalog"] == {"every": 12.0, "anchor": 0.0}, values

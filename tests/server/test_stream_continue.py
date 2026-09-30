@@ -3,6 +3,7 @@ import tempfile
 from pathlib import Path
 
 import httpx
+import pytest
 
 from daedalus import config, dashboard, store
 from daedalus.server import api
@@ -55,7 +56,7 @@ async def send(client: httpx.AsyncClient) -> list[str]:
   api.PENALTIES.clear()
   api.PENALTIES.pick = lambda: 0.0
   body = {
-    "model": "daedalus/moros",
+    "model": "daedalus/auto",
     "stream": True,
     "messages": [{"role": "user", "content": "hi"}],
   }
@@ -64,7 +65,16 @@ async def send(client: httpx.AsyncClient) -> list[str]:
   return output(response.text)
 
 
-async def test_stream_continue() -> None:
+async def test_stream_continue(monkeypatch: pytest.MonkeyPatch) -> None:
+  transitions: list[dict] = []
+  live_update = dashboard.live_update
+
+  def capture(request, **fields):
+    if fields.get("transition"):
+      transitions.append(fields["transition"])
+    live_update(request, **fields)
+
+  monkeypatch.setattr(dashboard, "live_update", capture)
   names = ("a", "b", "c")
   config.set_config(
     {
@@ -90,6 +100,22 @@ async def test_stream_continue() -> None:
         )
         lines = await send(client)
         assert lines[-1] == "[DONE]" and lines.count("[DONE]") == 1, lines
+        assert transitions == [
+          {
+            "from_pool": "moros",
+            "from_model": "a/x",
+            "to_pool": "moros",
+            "to_model": "b/x",
+            "reason": "err",
+          },
+          {
+            "from_pool": "moros",
+            "from_model": "b/x",
+            "to_pool": "moros",
+            "to_model": "c/x",
+            "reason": "lmt",
+          },
+        ], transitions
         chunks = [json.loads(line) for line in lines[:-1]]
         joined = "".join(c["choices"][0]["delta"].get("content", "") for c in chunks)
         assert joined == "Hello world", joined
@@ -98,9 +124,9 @@ async def test_stream_continue() -> None:
         prefix = {"role": "assistant", "content": "Hello"}
         assert SEEN[1][1]["messages"][-1] == prefix, SEEN[1]
         assert SEEN[2][1]["messages"] == [{"role": "user", "content": "hi"}, prefix]
-        steps = [
-          (s["model"], s["result"]) for s in dashboard.HISTORY.latest(1)[0]["attempts"]
-        ]
+        history = dashboard.HISTORY.latest(1)[0]
+        assert history["transition"] == transitions[-1], history
+        steps = [(s["model"], s["result"]) for s in history["attempts"]]
         assert steps == [
           ("a/x", "answered"),
           ("a/x", "stream failed"),

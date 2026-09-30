@@ -1,6 +1,8 @@
 import json
+import re
 import sqlite3
 from pathlib import Path
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -82,6 +84,10 @@ def test_pins(folder: Path) -> None:
   order = store.order(groups, "k", "pool")
   assert order == ["a/1", "b/1", "c/1"], "a lower-tier session model does not go first"
   store.pin("k", "pool", "b/1")
+  assert store.last_pin("k") == ("pool", "b/1")
+  store.pin("k", "other-slot", "z/1")
+  assert store.last_pin("k") == ("other-slot", "z/1")
+  assert store.last_pin("other") is None
   store.pick = lambda: 0.2
   assert store.order(groups, "k", "pool") == ["b/1", "a/1", "c/1"], "the session model"
   assert store.order(groups, "other", "pool")[0] == "a/1", (
@@ -114,6 +120,69 @@ def test_pins(folder: Path) -> None:
   store.pin("k", "pool", "b/1")
   now[0] = penalties.IDLE_SECONDS + 1
   assert store.pinned("k", "pool") is None, "a pin expires after the idle time"
+
+
+def test_transition_reasons(monkeypatch: pytest.MonkeyPatch) -> None:
+  config = {
+    "p": {
+      "api_key": "k",
+      "tier": {
+        "TIER-A": ["a", "b"],
+        "TIER-B": ["c"],
+        "TIER-D": ["d"],
+      },
+    }
+  }
+  raw = [["p/a", "p/b"], ["p/c"], ["p/d"]]
+  previous = {"pool": "sophos", "model": "p/a"}
+  messages = [{"role": "user", "content": "hello"}]
+  monkeypatch.setattr(api.PENALTIES, "enabled", True)
+  monkeypatch.setattr(api, "KEYWORDS", None)
+  monkeypatch.setattr(api.router, "required_tier", lambda _: 1)
+
+  def reason(
+    candidate: str,
+    *,
+    old: dict[str, str] = previous,
+    turn: object = None,
+    user_messages: list = messages,
+    raw_groups: list[list[str]] = raw,
+    sized: list[list[str]] | None = None,
+    cooled: list[list[str]] | None = None,
+    paced: list[list[str]] | None = None,
+  ) -> str | None:
+    sized = raw_groups if sized is None else sized
+    cooled = sized if cooled is None else cooled
+    paced = cooled if paced is None else paced
+    return api.initial_transition_reason(
+      config,
+      old,
+      candidate,
+      turn,
+      user_messages,
+      raw_groups,
+      sized,
+      cooled,
+      paced,
+      False,
+    )
+
+  assert reason("p/b") == "rnd"
+  assert reason("p/b", sized=[["p/b"], ["p/c"], ["p/d"]]) == "ctx"
+  assert reason("p/b", cooled=[["p/b"], ["p/c"], ["p/d"]]) == "lmt"
+  assert reason("p/c", raw_groups=[["p/c"], ["p/d"]]) == "hlt"
+  low = {"pool": "moros", "model": "p/d"}
+  monkeypatch.setattr(api.router, "required_tier", lambda _: 3)
+  assert reason("p/c", old=low) == "cls"
+  monkeypatch.setattr(api, "KEYWORDS", re.compile("bigger"))
+  assert (
+    reason("p/c", old=low, user_messages=[{"role": "user", "content": "bigger"}])
+    == "esc"
+  )
+  assert reason("p/c", old=low, turn=SimpleNamespace(count=1)) == "try"
+  monkeypatch.setattr(api, "KEYWORDS", None)
+  monkeypatch.setattr(api.router, "required_tier", lambda _: 1)
+  assert reason("p/c", old=low) is None
 
 
 def test_rebuild(folder: Path) -> None:
@@ -169,6 +238,7 @@ def test_requests() -> None:
     name: {"api_key": "k", "api_base": f"https://{name}.test/v1"} for name in "abc"
   }
   original = api.get_config, api.chain
+  affinity = api.PENALTIES.enabled, api.PENALTIES.change_on_draw, api.PENALTIES.stay
   api.get_config = lambda: config
   api.chain = lambda model, body, config, key="": (
     [["a/1", "b/1"], ["c/1"]],
@@ -199,8 +269,23 @@ def test_requests() -> None:
     assert ask() == "a.test", "a failed session model moves to the next model"
     FAILING.clear()
     assert ask() == "a.test", "the new session model"
+
+    api.PENALTIES.clear()
+    api.PENALTIES.enabled = True
+    api.PENALTIES.stay = 0.0
+    api.PENALTIES.change_on_draw = False
+    assert ask(pick=0.0) == "a.test", "the initial pin"
+    key = api.session_key(MASTER, [{"role": "user", "content": "x"}])
+    slot = "daedalus/deinos"
+    assert api.PENALTIES.pinned(key, slot) == "a/1"
+    assert ask(pick=0.99) == "b.test", "a weighted draw still serves the new model"
+    assert api.PENALTIES.pinned(key, slot) == "a/1", "the old eligible pin stays"
+    api.PENALTIES.change_on_draw = True
+    assert ask(pick=0.99) == "b.test"
+    assert api.PENALTIES.pinned(key, slot) == "b/1", "the default replaces the pin"
   finally:
     api.get_config, api.chain = original
+    api.PENALTIES.enabled, api.PENALTIES.change_on_draw, api.PENALTIES.stay = affinity
     upstream.set_client(None)
     api.PENALTIES.clear()
 
