@@ -203,6 +203,12 @@ if ! grep -qsE '^DAEDALUS_MASTER_KEY=[^[:space:]]{16,}$' .env; then
   echo "Your .env was backed up to $dir/.env.bak if it existed" >&2
   exit 1
 fi
+# Generate WEBUI_SECRET_KEY for safety if empty (keeps Open WebUI logins after update)
+if grep -q '^WEBUI_SECRET_KEY=$' .env; then
+  webui_key=$(od -An -tx1 -N32 /dev/urandom | tr -d ' \n')
+  sed -i.bak "s/^WEBUI_SECRET_KEY=$/WEBUI_SECRET_KEY=$webui_key/" .env
+  rm -f .env.bak
+fi
 if [ "$(uname -s)" = Linux ] && ! grep -qs '^DAEDALUS_UID=' .env; then
   if [ -s .env ] && [ -n "$(tail -c1 .env)" ]; then echo >>.env; fi
   printf 'DAEDALUS_UID=%s\nDAEDALUS_GID=%s\n' "$(id -u)" "$(id -g)" >>.env

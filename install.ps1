@@ -183,6 +183,14 @@ if ($text -match '(?m)^DAEDALUS_MASTER_KEY=\r?$') {
 if ($text -notmatch '(?m)^DAEDALUS_MASTER_KEY=\S{16,}\r?$') {
   Stop-Install "Set DAEDALUS_MASTER_KEY in $envFile`: 16 or more characters, no spaces. Your .env was backed up to $dir\.env.bak if it existed"
 }
+# Generate WEBUI_SECRET_KEY for safety if empty (keeps Open WebUI logins after update)
+if ($text -match '(?m)^WEBUI_SECRET_KEY=\r?$') {
+  $bytes = New-Object byte[] 32
+  [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+  $webuiKey = -join ($bytes | ForEach-Object { $_.ToString('x2') })
+  $text = $text -replace '(?m)^WEBUI_SECRET_KEY=(\r?)$', ("WEBUI_SECRET_KEY=$webuiKey" + '$1')
+  [IO.File]::WriteAllText($envFile, $text)
+}
 New-Item -ItemType Directory -Force -Path '.daedalus-state' | Out-Null
 
 if ($needDocker) {
