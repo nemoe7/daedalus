@@ -29,6 +29,7 @@ from daedalus.routing import router
 from daedalus.routing.cooldowns import Cooldowns
 from daedalus.routing.limits import Limits
 from daedalus.routing.penalties import Penalties
+from daedalus.server import headroom
 from daedalus.store import keys, saved_env
 
 HISTORY = History(lambda: store.MODELS_DB)
@@ -41,6 +42,7 @@ FIELDS = (
   "effort",
   "pool",
   "routed",
+  "transition",
   "retry",
   "loop",
   "via",
@@ -394,9 +396,11 @@ def check_file(path: Path, text: str) -> dict[str, Any] | None:
 
 
 def tier_map(config: Mapping[str, Any], lines: list[str]) -> dict[str, str]:
-  """The tier that claims each model, also for a model that stays out of the pools."""
+  """The tier that claims each model eligible for the pools."""
   found: dict[str, str] = {}
   for line in lines:
+    if not router.pooled(config, line):
+      continue
     name, _, slug = line.partition("/")
     block = block_for(config, name, slug)
     tier = router.claiming_tier(block, slug) if block else None
@@ -438,9 +442,15 @@ def routes(
   cooldowns: Cooldowns | None = None,
   refresh: Callable[[], Callable[[], object] | None] = lambda: None,
   limits: Limits | None = None,
+  rebuild_cached: Callable[[], Callable[[], object] | None] = lambda: None,
 ) -> APIRouter:
   """The dashboard endpoints. All except login need a session."""
   api = APIRouter(prefix="/ui/api")
+
+  def request_cached_rebuild() -> None:
+    task = rebuild_cached()
+    if task is not None:
+      schedule.request(task)
 
   @api.post("/login")
   async def log_in(request: Request) -> JSONResponse:
@@ -758,6 +768,7 @@ def routes(
       )
     saved_env.save(store.MODELS_DB, name, value)
     config.load_config(FILES[0])
+    request_cached_rebuild()
     return JSONResponse(env_rows())
 
   @api.delete("/env")
@@ -769,6 +780,7 @@ def routes(
     if not isinstance(name, str) or not saved_env.clear(store.MODELS_DB, name):
       return failure(400, "No saved value with this name.", "invalid_request_error")
     config.load_config(FILES[0])
+    request_cached_rebuild()
     return JSONResponse(env_rows())
 
   @api.put("/files")
@@ -796,6 +808,7 @@ def routes(
     temporary.replace(path)
     if values is None:
       config.load_config(path)
+      request_cached_rebuild()
     else:
       apply(values)
     return JSONResponse({"ok": True, "text": text})
@@ -818,6 +831,7 @@ def routes(
     text = new_file_text(name)
     path.write_text(text, encoding="utf-8")
     config.load_config(FILES[0])
+    request_cached_rebuild()
     return JSONResponse({"path": str(path), "text": text})
 
   @api.delete("/files")
@@ -831,6 +845,7 @@ def routes(
       return failure(400, "Only a {provider}.yml file can go.", "invalid_request_error")
     found[name].unlink()
     config.load_config(FILES[0])
+    request_cached_rebuild()
     return JSONResponse({"ok": True})
 
   @api.get("/settings")
@@ -843,6 +858,7 @@ def routes(
     return JSONResponse(
       {
         "path": str(path),
+        "headroom_available": await headroom.available(),
         "defaults": settings.DEFAULTS,
         "file": raw if isinstance(raw, dict) else {},
         "text": text,

@@ -13,7 +13,8 @@ from daedalus import config, dashboard, store
 from daedalus.catalog import schedule
 from daedalus.config import settings
 from daedalus.dashboard.history import History
-from daedalus.server import api, upstream
+from daedalus.routing import loops
+from daedalus.server import api, headroom, upstream
 
 CONFIG = {
   "p": {
@@ -66,6 +67,13 @@ def test_page(client: TestClient) -> None:
   assert 'name="remember" type="checkbox" checked' in page.text, "remember me starts on"
   script = client.get("/ui/app.js")
   assert script.status_code == 200 and "javascript" in script.headers["content-type"]
+  for reason in ("ctx", "hlt", "lmt", "err", "rnd", "cls", "esc", "try"):
+    assert f'  {reason}: "' in script.text, reason
+  assert 'title="${esc(label)}"' in script.text, "reason codes have hover labels"
+  assert '["change_on_draw", "Change pin on draw"' in script.text
+  assert '["loops", "Loop detection"' in script.text, (
+    "the loop thresholds are in Settings"
+  )
   assert client.get("/ui/style.css").status_code == 200
   assert script.headers["cache-control"] == "no-cache", "an update applies at once"
   assert client.get("/ui/index.html").status_code == 404, "listed assets only"
@@ -209,7 +217,9 @@ def test_defaults(client: TestClient) -> None:
 
 
 def test_data(client: TestClient) -> None:
-  models = client.get("/ui/api/models").json()
+  response = client.get("/ui/api/models")
+  assert response.status_code == 200, response.text
+  models = response.json()
   assert [row["id"] for row in models] == ["p/big", "p/small", "p/embed"], "all rows"
   assert models[0] == {
     "id": "p/big",
@@ -226,6 +236,14 @@ def test_data(client: TestClient) -> None:
     "order": 1,
   }, models[0]
   assert models[1]["order"] == 3, "the order of each model"
+  previous = CONFIG["p"]["models"]
+  CONFIG["p"]["models"] = {**previous, "big": {"pool": False}}
+  try:
+    assert client.get("/ui/api/models").json()[0]["tier"] is None, (
+      "pool false hides an explicit provider tier"
+    )
+  finally:
+    CONFIG["p"]["models"] = previous
   api.COOLDOWNS.start("p/small", {"retry-after": "90"}, b"")
   api.COOLDOWNS.start("p/small#kilo", {"retry-after": "30"}, b"")
   row = client.get("/ui/api/models").json()[1]
@@ -326,7 +344,9 @@ def test_keys(client: TestClient) -> None:
   )
 
 
-def test_files(client: TestClient, folder: Path) -> None:
+def test_files(
+  client: TestClient, folder: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
   names = [item["path"] for item in client.get("/ui/api/files").json()]
   assert names == [str(path) for path in dashboard.FILES], names
   path = str(settings.DEFAULT_PATH)
@@ -336,19 +356,39 @@ def test_files(client: TestClient, folder: Path) -> None:
   shown = client.get("/ui/api/settings").json()
   assert shown["file"]["timeouts"]["slow"] == 30, shown
   assert shown["defaults"]["weights"]["fault"] == 0.5, shown
+  assert shown["defaults"]["loops"] == {
+    "calls": 3,
+    "repeats": 4,
+    "shortest": 20,
+    "longest": 2000,
+  }, shown
+  assert shown["headroom_available"] is False, shown
+
+  async def ready() -> bool:
+    return True
+
+  monkeypatch.setattr(headroom, "available", ready)
+  assert client.get("/ui/api/settings").json()["headroom_available"] is True
   bad = client.put("/ui/api/settings", json={"changes": {"weights": {"fault": 0}}})
   assert bad.status_code == 422 and "above 0" in bad.text, bad.text
+  bad = client.put("/ui/api/settings", json={"changes": {"loops": {"calls": 1}}})
+  assert bad.status_code == 422 and "between 2 and 100" in bad.text, bad.text
   assert "slow: 30" in settings.DEFAULT_PATH.read_text(), "a bad value is not written"
   unknown = client.put("/ui/api/settings", json={"changes": {"x": {"y": 1}}})
   assert unknown.status_code == 422, unknown.text
   assert client.put("/ui/api/settings", json={"changes": 1}).status_code == 400
-  changes = {"timeouts": {"slow": 12}, "catalog": {"every": 0}}
+  changes = {
+    "timeouts": {"slow": 12},
+    "catalog": {"every": 0},
+    "loops": {"calls": 5, "repeats": 6, "shortest": 10, "longest": 3000},
+  }
   saved = client.put("/ui/api/settings", json={"changes": changes})
   assert saved.status_code == 200, saved.text
   text = settings.DEFAULT_PATH.read_text()
   assert "  slow: 12 # a first token after this is slow" in text, "the comments stay"
   assert "# Router settings" in text and "every: 0 #" in text, text
   assert api.SLOW_SECONDS == 12.0, "the save applies the settings"
+  assert (loops.CALLS, loops.REPEATS, loops.SHORTEST, loops.LONGEST) == (5, 6, 10, 3000)
   cleared = client.put(
     "/ui/api/settings", json={"changes": {"timeouts": {"slow": None}}}
   )
@@ -455,6 +495,30 @@ def test_files(client: TestClient, folder: Path) -> None:
   assert gone.status_code == 200, gone.text
   assert config.provider_files(config.DEFAULT_PATH) == [], "the file went"
   assert "_file" not in config.get_config().get("openrouter", {}), "the reload drops it"
+
+
+def test_provider_edits_rebuild_from_cache(
+  client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  queued = []
+
+  def cached() -> None:
+    pass
+
+  monkeypatch.setattr(api, "CATALOG_REBUILD_CACHED", cached)
+  monkeypatch.setattr(schedule, "request", lambda task: queued.append(task) or True)
+
+  response = client.put(
+    "/ui/api/files",
+    json={"path": str(config.DEFAULT_PATH), "text": "q:\n  api_key: k\n"},
+  )
+  assert response.status_code == 200, response.text
+  assert queued == [cached], "a provider YAML save queues a cache-only rebuild"
+
+  text = settings.DEFAULT_PATH.read_text(encoding="utf-8")
+  response = client.put("/ui/api/settings", json={"text": text})
+  assert response.status_code == 200, response.text
+  assert queued == [cached], "settings saves do not rebuild the provider catalog"
 
 
 def test_broken_file(client: TestClient, folder: Path) -> None:
