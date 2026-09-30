@@ -67,6 +67,21 @@ Task: write release notes in Markdown from the supplied template and evidence.
 - Return only the release body.
 """
   ),
+  "repair": (
+    """\
+Task: repair a release draft after template validation fails.
+"""
+    + BOUNDARY
+    + """\
+- Use the prior draft as the only source for release claims; NEVER add facts or change their meaning.
+- Correct the reported template-validation errors.
+- Use the supplied template headings in their order and replace every placeholder.
+- ALWAYS keep the Summary section.
+- Omit any other section, heading included, that has no text.
+- Use the supplied comparison URL verbatim when the template has one.
+- Return only the corrected release body.
+"""
+  ),
   "version": (
     """\
 Task: classify the release impact of the supplied commit messages, diffs or evidence summaries under Semantic Versioning 2.0.0.
@@ -325,6 +340,7 @@ def gemini_call(model, action, payload):
   )
   try:
     with urllib.request.urlopen(request, timeout=180) as response:
+      summary(f"Gemini model {model} {action} HTTP {response.status}")
       return json.load(response)
   except urllib.error.HTTPError as exc:
     message = f"Gemini {action} failed: HTTP {exc.code}"
@@ -359,19 +375,28 @@ def model_ladder(value):
   return models
 
 
-def generate(context, evidence, model):
+def generate(context, evidence, model, on_success=None):
   """Generate with one model, or walk a ladder of models until one answers."""
   models = [model] if isinstance(model, str) else list(model)
   failures = []
-  for rung in models:
+  for index, rung in enumerate(models):
     try:
-      return generate_once(context, evidence, rung)
+      text = generate_once(context, evidence, rung)
     except RuntimeError as exc:
       if "token allowance" in str(exc):
         raise
-      failures.append(f"{rung}: {exc}")
-      if rung != models[-1]:
-        summary(f"Gemini model {rung} failed; trying {models[models.index(rung) + 1]}")
+      detail = redact(str(exc))
+      failures.append(f"{rung}: {detail}")
+      message = f"Gemini model {rung} failed: {detail}"
+      if index + 1 < len(models):
+        message += f"; trying {models[index + 1]}"
+      else:
+        message += "; no fallback models remain"
+      summary(message)
+      continue
+    if on_success is not None:
+      on_success(rung)
+    return text
   raise RuntimeError("Every Gemini model failed: " + "; ".join(failures))
 
 
@@ -404,7 +429,9 @@ def generate_once(context, evidence, model):
   return response_text(data)
 
 
-def release_body(units, context, model, generate_fn=generate, limit=INPUT_BYTES):
+def release_body(
+  units, context, model, generate_fn=generate, limit=INPUT_BYTES, on_success=None
+):
   items = pieces(units)
   if not items:
     raise RuntimeError("No commits in release range")
@@ -416,7 +443,9 @@ def release_body(units, context, model, generate_fn=generate, limit=INPUT_BYTES)
     if len(groups) == 1:
       if [identity for group in coverage for identity in group] != expected:
         raise RuntimeError("Summary coverage mismatch")
-      return generate_fn(context, groups[0], model)
+      if on_success is None:
+        return generate_fn(context, groups[0], model)
+      return generate_fn(context, groups[0], model, on_success)
     reduced, next_coverage = [], []
     offset = 0
     for i, group in enumerate(groups):
@@ -596,12 +625,38 @@ def check_body(body, context):
     raise RuntimeError("Generated release does not match the template")
 
 
+def validated_body(body, context, model, generate_fn=generate):
+  """Validate a body and give its producing model one format-repair attempt."""
+  template = context["template"]
+  body = omit_empty_sections(body, template)
+  try:
+    check_body(body, context)
+    return body
+  except RuntimeError as error:
+    if not model:
+      raise
+    validation_error = str(error)
+  summary(
+    f"Gemini model {model} draft failed validation: {validation_error}; "
+    "retrying same model once"
+  )
+  repair_context = {
+    key: value for key, value in context.items() if key != "previous_release_notes"
+  }
+  repair_context.update(
+    {"phase": "repair", "draft": body, "validation_error": validation_error}
+  )
+  repaired = omit_empty_sections(generate_fn(repair_context, [], model), template)
+  check_body(repaired, context)
+  return repaired
+
+
 def summary(message):
   path = os.getenv("GITHUB_STEP_SUMMARY")
   if path:
     with open(path, "a", encoding="utf-8") as output:
       output.write(message + "\n")
-  print(message)
+  print(message, flush=True)
 
 
 def propose(repo, branch):
@@ -652,8 +707,9 @@ def propose(repo, branch):
   context["target_tag"] = tag
   if baseline_release and baseline_release["body"]:
     context["previous_release_notes"] = baseline_release["body"]
-  body = omit_empty_sections(release_body(units, context, model), context["template"])
-  check_body(body, context)
+  selected_model = []
+  body = release_body(units, context, model, on_success=selected_model.append)
+  body = validated_body(body, context, selected_model[-1] if selected_model else None)
   check_remote_target(repo, branch, target)
   if current_base(repo, target) != (previous, base, baseline_release):
     raise RuntimeError("Published baseline changed during proposal")
