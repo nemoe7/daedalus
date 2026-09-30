@@ -222,6 +222,7 @@ const seconds = (value) => value == null ? "" : `${value.toFixed(3)}s`;
 
 // A cooldown that an attempt started, such as "cooldown 60s backoff".
 const coolText = (c) => `cooldown ${timeLeft(Date.now() / 1000 + c.seconds) || "0s"} ${c.reason}`;
+const weightText = (a) => `weight ${a.weight_change.from.toFixed(2)} → ${a.weight_change.to.toFixed(2)}`;
 
 function sentText(a, asked) {
   if (a.effort == null) return "dropped";
@@ -259,6 +260,7 @@ function chainText(r) {
     `fallbacks=${r.fallbacks ?? 0}`, r.retry && `retry=${r.retry}`, r.loop && `loop=${r.loop}`].filter(Boolean).join(" ");
   const steps = (r.attempts || []).map((a, i) =>
     `${i + 1}. ${a.model} ${a.result} ${seconds(a.seconds)}`.trim() + ("effort" in a ? ` effort=${sentText(a, r.effort)}` : "")
+      + (a.weight_change ? ` ${weightText(a)}` : "")
       + (a.cooldown ? ` ${coolText(a.cooldown)}` : "")
       + (a.error ? `\n   ${a.error}` : ""));
   return [head, ...steps].join("\n");
@@ -273,6 +275,7 @@ function chainRows(r) {
       <span class="num">${i + 1}.</span> <b>${esc(a.model)}</b>
       <span class="result">${esc(a.result)}</span> <span class="muted num">${seconds(a.seconds)}</span>
       ${"effort" in a ? `<span class="from">effort ${esc(sentText(a, r.effort))}</span>` : ""}
+      ${a.weight_change ? `<span class="from">${esc(weightText(a))}</span>` : ""}
       ${a.cooldown ? `<span class="from">${esc(coolText(a.cooldown))}</span>` : ""}
       ${a.error ? `<pre>${esc(a.error)}</pre>` : ""}
     </li>`).join("");

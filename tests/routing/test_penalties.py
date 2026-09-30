@@ -32,7 +32,7 @@ def test_weights(folder: Path) -> None:
     lambda: folder / "w.sqlite3", clock=lambda: now[0], pick=lambda: picks[0]
   )
   assert store.weights(["a"]) == {"a": 1.0}, "all models start at 1"
-  assert store.record("a", penalties.FAULT) == 0.5
+  assert store.record_change("a", penalties.FAULT) == (1.0, 0.5)
   assert store.record("a", penalties.FAULT) == 0.25
   assert store.record("a", penalties.SUCCESS) == 0.375
   assert store.record("b", penalties.SUCCESS) == 1.0, "1 at most"

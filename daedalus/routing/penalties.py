@@ -83,10 +83,15 @@ class Penalties:
       database.close()
 
   def record(self, model: str, factor: float) -> float:
-    """Multiply the weight by the factor of one event, from the floor to 1."""
+    """Apply one factor and return the new weight."""
+    return self.record_change(model, factor)[1]
+
+  def record_change(self, model: str, factor: float) -> tuple[float, float]:
+    """Apply one factor and return the previous and new weights."""
     if not self.enabled:
-      return 1.0
-    weight = min(1.0, max(FLOOR, self.weights([model])[model] * factor))
+      return 1.0, 1.0
+    previous = self.weights([model])[model]
+    weight = min(1.0, max(FLOOR, previous * factor))
     database = self.connect()
     with database:
       database.execute(
@@ -94,7 +99,7 @@ class Penalties:
         (model, weight, self.clock()),
       )
     database.close()
-    return weight
+    return previous, weight
 
   def pinned(self, key: str, slot: str) -> str | None:
     """The live pin for one pair, after it drops the pins that idled too long."""
