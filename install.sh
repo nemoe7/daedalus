@@ -4,7 +4,7 @@ set -euo pipefail
 
 repo=nemoe7/daedalus
 # The files that compose.yml needs, and this script for the next run.
-files=(compose.yml compose.dev.yml .env.example config searxng tailscale install.sh)
+files=(compose.yml compose.dev.yml .env.example config services install.sh)
 
 dev=0
 for arg in "$@"; do
