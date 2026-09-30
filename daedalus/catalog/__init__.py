@@ -40,11 +40,13 @@ def with_hooks(
   return found
 
 
-def refresh() -> Path:
-  """Discover the provider models, and update the SQLite store."""
+def _rebuild(cached: bool) -> Path:
+  """Build the model store from fetched provider lists or cached snapshots."""
   config = get_config()
   failed: list[str] = []
-  native, skipped = build_rows(config, failed=failed)
+  native, skipped = build_rows(
+    config, failed=failed, cached=cached, save_snapshots=not cached
+  )
   lines = list(native)
   unenriched: list[str] = []
   rows, problems = enrich(lines, config, native=native, failed=unenriched)
@@ -53,8 +55,18 @@ def refresh() -> Path:
     logger.warning("skipped %s", reason)
   for provider_name in failed:
     logger.warning(
-      "kept the old rows of %s: its model list fetch failed", provider_name
+      "kept the old rows of %s: its model list could not be loaded", provider_name
     )
   providers = len({line.split("/", 1)[0] for line in lines})
   logger.info("wrote %d models from %d providers to %s", len(lines), providers, target)
   return target
+
+
+def refresh() -> Path:
+  """Fetch provider lists, save their snapshots, and update the SQLite model store."""
+  return _rebuild(cached=False)
+
+
+def rebuild_cached() -> Path:
+  """Rebuild the SQLite model store without making provider requests."""
+  return _rebuild(cached=True)

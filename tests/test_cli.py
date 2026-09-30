@@ -1,5 +1,7 @@
 import contextlib
+import csv
 import io
+import json
 import os
 import sqlite3
 import subprocess
@@ -36,6 +38,16 @@ def test_help() -> None:
   assert shown.stdout.startswith("usage:"), shown.stdout
   for command in ("serve", "catalog", "dump"):
     assert f"\n    {command} " in shown.stdout, shown.stdout
+  dump_help = subprocess.run(
+    [*DAEDALUS, "dump", "--help"],
+    capture_output=True,
+    text=True,
+    timeout=10,
+    check=False,
+  )
+  assert dump_help.returncode == 0, dump_help.stderr
+  for option in ("catalog", "models", "all", "--format", "--fmt", "-f", "csv"):
+    assert option in dump_help.stdout, dump_help.stdout
   assert "--init" not in shown.stdout and "-c," not in shown.stdout, "no flags"
   wrong = subprocess.run(
     [*DAEDALUS, "--wrong"], capture_output=True, text=True, timeout=10, check=False
@@ -65,10 +77,12 @@ def test_commands() -> None:
     store.MODELS_DB,
     catalog.refresh,
     discovery.dump,
+    api.CATALOG_REFRESH,
+    api.CATALOG_REBUILD_CACHED,
     sys.modules.get("uvicorn"),
   )
   catalog.refresh = lambda: calls.append("catalog")
-  discovery.dump = lambda: calls.append("dump")
+  discovery.dump = lambda **_: calls.append("dump")
   sys.modules["uvicorn"] = SimpleNamespace(
     run=lambda *_, port, **__: calls.append(f"listen:{port}")
   )
@@ -85,6 +99,7 @@ def test_commands() -> None:
       cli.run(["serve"])
       assert calls == ["catalog", "listen:3357"], "serve builds a missing store"
       assert api.CATALOG_REFRESH is catalog.refresh, "serve starts the rebuild schedule"
+      assert api.CATALOG_REBUILD_CACHED is catalog.rebuild_cached
       store.MODELS_DB.touch()
       calls.clear()
       cli.run(["serve"])
@@ -117,12 +132,49 @@ def test_commands() -> None:
       assert calls == ["listen:9000"], calls
       assert_key_command(calls)
   finally:
-    store.MODELS_DB, catalog.refresh, discovery.dump, uvicorn = original
-    api.CATALOG_REFRESH = None
+    (
+      store.MODELS_DB,
+      catalog.refresh,
+      discovery.dump,
+      api.CATALOG_REFRESH,
+      api.CATALOG_REBUILD_CACHED,
+      uvicorn,
+    ) = original
     if uvicorn is None:
       sys.modules.pop("uvicorn", None)
     else:
       sys.modules["uvicorn"] = uvicorn
+
+
+def test_dump_modes(tmp_path: Path, monkeypatch) -> None:
+  calls: list[tuple[str, str] | str] = []
+  rows = [{"id": "p/a", "mode": "chat", "flags": ["vision"]}]
+  monkeypatch.setattr(discovery, "DUMP_DIR", tmp_path)
+  monkeypatch.setattr(
+    discovery, "dump", lambda *, file_format: calls.append(("catalog", file_format))
+  )
+  monkeypatch.setattr(store, "migrate", lambda: calls.append("migrate"))
+  monkeypatch.setattr(catalog, "refresh", lambda: calls.append("refresh"))
+  monkeypatch.setattr(store, "model_rows", lambda: rows)
+
+  cli.run(["dump", "catalog", "--fmt", "csv"])
+  assert calls == ["migrate", ("catalog", "csv")], calls
+  cli.run(["dump", "models", "--format", "json"])
+  assert calls == ["migrate", ("catalog", "csv"), "migrate"], calls
+  assert json.loads((tmp_path / "models.json").read_text("utf-8")) == rows
+  cli.run(["dump", "all", "-f", "csv"])
+  assert calls == [
+    "migrate",
+    ("catalog", "csv"),
+    "migrate",
+    "migrate",
+    ("catalog", "csv"),
+  ], calls
+  assert not (tmp_path / "models.json").exists(), "the old format is removed"
+  with (tmp_path / "models.csv").open(encoding="utf-8", newline="") as source:
+    assert list(csv.DictReader(source)) == [
+      {"id": "p/a", "flags": '["vision"]', "mode": "chat"}
+    ]
 
 
 def test_master() -> None:
