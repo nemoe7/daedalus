@@ -241,12 +241,21 @@ def with_param(url: str, key: str, value: str | int) -> str:
   return urlunsplit((parts.scheme, parts.netloc, parts.path, query, ""))
 
 
-def fetch_json(url: str, headers: dict[str, str]) -> dict[str, Any]:
-  """Read one discovery page."""
-  response = httpx.get(url, headers=headers, timeout=TIMEOUT_SECONDS)
-  response.raise_for_status()
-  payload = response.json()
-  return payload if isinstance(payload, dict) else {}
+def fetch_json(url: str, headers: dict[str, str], attempts: int = 2) -> dict[str, Any]:
+  """Read one discovery page with retry on network or server errors."""
+  for attempt in range(attempts):
+    try:
+      response = httpx.get(url, headers=headers, timeout=TIMEOUT_SECONDS)
+      response.raise_for_status()
+      payload = response.json()
+      return payload if isinstance(payload, dict) else {}
+    except (httpx.HTTPStatusError, httpx.RequestError) as exc:
+      if attempt + 1 >= attempts:
+        raise
+      if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code < 500:
+        raise
+      time.sleep(0.5 * (attempt + 1))
+  return {}
 
 
 def declared_ids(provider: dict[str, Any]) -> list[str]:
