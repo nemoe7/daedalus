@@ -9,5 +9,6 @@ build/
 
 # Local proxy state
 .daedalus-state/
+.daedalus-dev
 *.log
 .env

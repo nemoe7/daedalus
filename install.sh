@@ -3,23 +3,61 @@
 set -euo pipefail
 
 repo=nemoe7/daedalus
-# The files that compose.yml needs, and this script for the next run.
-files=(compose.yml compose.dev.yml .env.example config services install.sh)
 
 dev=0
-for arg in "$@"; do
+prod=0
+# Support: --dev, --dev=on/off, --dev on/off, --no-dev, --prod
+args=("$@")
+i=0
+while [ $i -lt ${#args[@]} ]; do
+  arg="${args[$i]}"
   case "$arg" in
-    --dev) dev=1 ;;
-    *) echo "Unknown option: $arg. The only option is --dev." >&2; exit 1 ;;
+    --dev)
+      nxt="${args[$((i+1))]:-}"
+      case "$nxt" in
+        off|0|false|no|prod) prod=1; i=$((i+1)) ;;
+        on|1|true|yes|dev) dev=1; i=$((i+1)) ;;
+        *) dev=1 ;;
+      esac
+      ;;
+    --dev=*)
+      val="${arg#--dev=}"
+      case "$val" in
+        off|0|false|no|prod) prod=1 ;;
+        on|1|true|yes|dev|"") dev=1 ;;
+        *) echo "Unknown --dev value: $val. Use --dev, --dev=off, --no-dev, or --prod." >&2; exit 1 ;;
+      esac
+      ;;
+    --no-dev|--prod) prod=1 ;;
+    *) echo "Unknown option: $arg. Options: --dev, --dev=off, --no-dev, --prod." >&2; exit 1 ;;
   esac
+  i=$((i+1))
 done
+# No args: keep dev=0 prod=0 initially, marker may set dev later
 
 # A checkout has compose.yml beside this script. With curl | bash, there is no script file.
 here=$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)
 if [ -f "$here/compose.yml" ]; then dir=$here; else dir=$HOME/daedalus; fi
+
+# Persistent dev flag: .daedalus-dev marker auto-selects dev unless --prod/--no-dev given.
+if [ -f "$dir/.daedalus-dev" ] && [ "$prod" = 0 ]; then dev=1; fi
+
+if [ "$dev" = 1 ] && [ "$prod" = 1 ]; then
+  echo "--dev and --prod/--no-dev cannot be used together." >&2; exit 1
+fi
 if [ "$dev" = 1 ] && { [ ! -f "$dir/compose.dev.yml" ] || [ ! -d "$dir/daedalus" ]; }; then
   echo "--dev builds the image from the source. Run it in a git checkout." >&2
   exit 1
+fi
+# Make --dev persistent: create marker; --prod/--no-dev/--dev=off removes it.
+if [ "$dev" = 1 ]; then mkdir -p "$dir"; touch "$dir/.daedalus-dev"; fi
+if [ "$prod" = 1 ]; then rm -f "$dir/.daedalus-dev"; dev=0; fi
+
+# Files to pull: only pull compose.dev.yml when --dev or marker present
+if [ "$dev" = 1 ]; then
+  files=(compose.yml compose.dev.yml .env.example config services install.sh)
+else
+  files=(compose.yml .env.example config services install.sh)
 fi
 
 need_docker=0
