@@ -54,11 +54,15 @@ if [ "$dev" = 1 ]; then mkdir -p "$dir"; touch "$dir/.daedalus-dev"; fi
 if [ "$prod" = 1 ]; then rm -f "$dir/.daedalus-dev"; dev=0; fi
 
 # Files to pull: only pull compose.dev.yml when --dev or marker present
+# Ordered checks: compose -> .env -> profiles -> required service dirs
 if [ "$dev" = 1 ]; then
-  files=(compose.yml compose.dev.yml .env.example config services install.sh)
+  base_files=(compose.yml compose.dev.yml .env.example config install.sh)
 else
-  files=(compose.yml .env.example config services install.sh)
+  base_files=(compose.yml .env.example config install.sh)
 fi
+# Service mapping: profile -> dir
+# search -> services/searxng, tailscale -> services/tailscale
+# Always include services parent dir check via its subdirs
 
 need_docker=0
 plan=()
@@ -70,13 +74,71 @@ if ! command -v docker >/dev/null 2>&1; then
   need_docker=1
   plan+=("Docker Engine and Docker Compose, with the official script https://get.docker.com (it asks for your password)")
 fi
-# Check if any required file is missing (not just compose.yml) so new files like services/ are pulled on update
+
+# Ordered check 1: compose?
+missing_compose=0
+for f in "${base_files[@]}"; do
+  case "$f" in
+    compose.yml|compose.dev.yml) [ -e "$dir/$f" ] || missing_compose=1 ;;
+  esac
+done
+[ $missing_compose -eq 0 ] || plan+=("The daedalus files, to $dir")
+
+# Ordered check 2: .env?
+[ -f "$dir/.env" ] || plan+=("The settings file $dir/.env, with a new master key")
+
+# Ordered check 3: read .env for COMPOSE_PROFILES to determine required service dirs
+profiles=""
+if [ -f "$dir/.env" ]; then
+  profiles=$(grep -E '^COMPOSE_PROFILES=' "$dir/.env" | tail -n1 | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
+fi
+# Normalize: comma -> space
+profiles_spaced=$(echo "$profiles" | tr ',' ' ')
+
+required_service_dirs=()
+# config always required
+[ -e "$dir/config" ] || required_service_dirs+=("config")
+# services/searxng if search profile enabled
+if echo "$profiles_spaced" | grep -qw "search"; then
+  [ -e "$dir/services/searxng" ] || required_service_dirs+=("services/searxng")
+fi
+# services/tailscale if tailscale profile enabled
+if echo "$profiles_spaced" | grep -qw "tailscale"; then
+  [ -e "$dir/services/tailscale" ] || required_service_dirs+=("services/tailscale")
+fi
+# If required service dirs missing, add to plan
+[ ${#required_service_dirs[@]} -eq 0 ] || plan+=("The daedalus files, to $dir (required service dirs: ${required_service_dirs[*]})")
+
+# For update case: if any base file missing, need download
 missing_files=0
-for f in "${files[@]}"; do
+[ $missing_compose -eq 1 ] && missing_files=1
+[ -f "$dir/.env" ] || missing_files=1
+for f in "${base_files[@]}"; do
   [ -e "$dir/$f" ] || { missing_files=1; break; }
 done
-[ $missing_files -eq 0 ] || plan+=("The daedalus files, to $dir")
-[ -f "$dir/.env" ] || plan+=("The settings file $dir/.env, with a new master key")
+# Also if any required service dir missing, need download
+[ ${#required_service_dirs[@]} -gt 0 ] && missing_files=1
+
+# For files list used in copy loop: base + required service dirs + services parent if needed
+files=("${base_files[@]}")
+# Add required service dirs to files list for copy
+for d in "${required_service_dirs[@]}"; do
+  # Avoid duplicate
+  skip=0
+  for existing in "${files[@]}"; do
+    [ "$existing" = "$d" ] && skip=1
+  done
+  [ $skip -eq 0 ] && files+=("$d")
+done
+# Also always include services parent if any service dir required, to ensure parent exists
+if [ ${#required_service_dirs[@]} -gt 0 ]; then
+  # Ensure services parent is in files if not already
+  has_services=0
+  for existing in "${files[@]}"; do
+    [ "$existing" = "services" ] && has_services=1
+  done
+  [ $has_services -eq 1 ] || files+=("services")
+fi
 
 if [ "${#plan[@]}" -gt 0 ]; then
   echo "This script installs or downloads:"
