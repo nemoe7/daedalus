@@ -145,3 +145,14 @@ def test_levels() -> None:
     "filed": ["file"],
     "filed-model": ["model"],
   }
+
+
+def test_broken_hook_retry() -> None:
+  """A hook file with an error does not cache None and reloads on fix."""
+  target = hooks.CONFIG_DIR / "flaky.py"
+  target.write_text("def on_answer(:\n")
+  assert hooks.load(target) is None
+  target.write_text("def on_answer(a, m):\n  return {'ok': True}\n")
+  loaded = hooks.load(target)
+  assert loaded is not None
+  assert loaded.on_answer({}, "m") == {"ok": True}
