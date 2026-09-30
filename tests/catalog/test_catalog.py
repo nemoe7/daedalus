@@ -7,7 +7,7 @@ from typing import Any
 
 import httpx
 
-from daedalus import config
+from daedalus import catalog, config, store
 from daedalus.catalog import discovery, enrichment
 
 TEXT = {"name": "Text Generation"}
@@ -287,7 +287,9 @@ def test_provider_file_override() -> None:
   config.set_config({"openrouter": {**main, config.FILE_KEY: file}})
   try:
     blocks = config.get_config()
-    lines, skipped = discovery.build_rows(blocks, make_fetch(PAYOUT))
+    lines, skipped = discovery.build_rows(
+      blocks, make_fetch(PAYOUT), save_snapshots=True
+    )
     assert not skipped, skipped
     assert list(lines) == [
       "openrouter/google/gemma-4-26b-a4b-it:free",
@@ -303,7 +305,7 @@ def test_provider_file_override() -> None:
     found, _ = discovery.read_providers(blocks, make_fetch(PAYOUT))
     assert [is_file for _, _, _, is_file in found] == [False, True], found
     with tempfile.TemporaryDirectory() as folder:
-      paths = discovery.dump(blocks, make_fetch(PAYOUT), folder)
+      paths = discovery.dump(blocks, folder=folder)
       assert [p.name for p in paths] == ["openrouter.json"], "1 file for each provider"
   finally:
     config.set_config(None)
@@ -322,12 +324,12 @@ def test_shared_download() -> None:
 
   try:
     blocks = config.get_config()
-    found, skipped = discovery.read_providers(blocks, fetch)
+    found, skipped = discovery.read_providers(blocks, fetch, save_snapshots=True)
     assert not skipped, skipped
     assert [is_file for _, _, _, is_file in found] == [False, True], found
     assert len(calls) == 1, calls
     with tempfile.TemporaryDirectory() as folder:
-      paths = discovery.dump(blocks, fetch, folder)
+      paths = discovery.dump(blocks, folder=folder)
       assert [p.name for p in paths] == ["openrouter.json"], paths
 
     def broken(url: str, headers: dict[str, str]) -> dict[str, Any]:
@@ -379,10 +381,11 @@ def test_discovery_match() -> None:
 
 
 def test_dump() -> None:
+  discovery.read_providers(CONFIG, make_fetch(PAYOUT), save_snapshots=True)
   with tempfile.TemporaryDirectory() as folder:
     stale = Path(folder) / "broken.json"
     stale.write_text("{}", encoding="utf-8")
-    paths = discovery.dump(CONFIG, make_fetch(PAYOUT), folder)
+    paths = discovery.dump(CONFIG, folder=folder)
     names = sorted(path.name for path in paths)
     assert names == [
       "cloudflare.json",
@@ -395,6 +398,63 @@ def test_dump() -> None:
     slugs = row_slugs(cloudflare)
     assert "@cf/zai-org/glm-5.3" in slugs, "the dump keeps excluded rows"
     assert "@cf/openai/gpt-oss-120b" in slugs, "the dump merges every page"
+    csv_paths = discovery.dump(CONFIG, folder=folder, file_format="csv")
+    assert sorted(path.name for path in csv_paths) == [
+      "cloudflare.csv",
+      "gemini.csv",
+      "openrouter.csv",
+      "z-ai.csv",
+    ]
+    assert not list(Path(folder).glob("*.json")), "the old catalog format goes"
+    cloudflare_csv = (Path(folder) / "cloudflare.csv").read_text("utf-8")
+    assert cloudflare_csv.startswith("id,") and "@cf/zai-org/glm-5.3" in cloudflare_csv
+
+
+def test_cached_snapshots() -> None:
+  """Cached rebuilds need no network and a changed URL preserves rows until refresh."""
+  url = "https://cache.test/v1/models"
+  config = {"cache": {"api_key": "k", "discovery_url": url}}
+  discovery.save_snapshot(url, {"data": [{"id": "alpha"}]})
+
+  def forbidden(*_: Any) -> dict[str, Any]:
+    raise AssertionError("cached discovery must not fetch")
+
+  found, skipped = discovery.read_providers(config, forbidden, cached=True)
+  assert not skipped and found[0][2] == {"data": [{"id": "alpha"}]}, (found, skipped)
+  lines, skipped = discovery.build_rows(config, forbidden, cached=True)
+  assert not skipped and list(lines) == ["cache/alpha"], (lines, skipped)
+  with tempfile.TemporaryDirectory() as folder:
+    paths = discovery.dump(
+      {"cache": {"api_key": "", "discovery_url": url}}, folder=folder
+    )
+    assert [path.name for path in paths] == ["cache.json"], paths
+
+  changed = {"cache": {"api_key": "k", "discovery_url": url + "?v=2"}}
+  failed: list[str] = []
+  found, skipped = discovery.read_providers(changed, forbidden, failed, cached=True)
+  assert not found and failed == ["cache"]
+  assert skipped == ["cache: no cached catalog snapshot"], skipped
+
+
+def test_rebuild_cached_updates_models(monkeypatch) -> None:
+  """A cached rebuild reapplies provider selection to the persisted snapshot."""
+  url = "https://rebuild-cache.test/models"
+  provider = {"api_key": "k", "discovery_url": url}
+  config.set_config({"cache": provider})
+  discovery.save_snapshot(url, {"data": [{"id": "alpha"}, {"id": "beta"}]})
+
+  def enrich_rows(lines, config, native=None, failed=None):
+    return ([{"id": line, **(native or {}).get(line, {})} for line in lines], [])
+
+  monkeypatch.setattr(enrichment, "enrich", enrich_rows)
+  try:
+    catalog.rebuild_cached()
+    assert store.read_models() == ["cache/alpha", "cache/beta"]
+    config.set_config({"cache": {**provider, "exclude": ["alpha"]}})
+    catalog.rebuild_cached()
+    assert store.read_models() == ["cache/beta"]
+  finally:
+    config.set_config(None)
 
 
 def test_merge_pages() -> None:

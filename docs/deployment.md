@@ -16,6 +16,9 @@ The commands below are the same in cmd, PowerShell and bash.
 | Stop | `docker compose down` |
 | Log | `docker compose logs -f daedalus` |
 | Rebuild the catalog now | Click the Catalog chip in the dashboard header, or run `docker compose exec daedalus daedalus catalog` |
+| Dump catalogs/models | `docker compose exec daedalus daedalus dump catalog`, `models`, or `all`; files go to `.daedalus-state/dump` |
+
+`dump` defaults to JSON. Add `-f csv` (also `--fmt` or `--format`) for CSV. Catalog refresh saves provider snapshots; every dump reads those snapshots and never fetches. Saving provider YAML in the dashboard rebuilds the model list from cache. After editing files outside the dashboard, click Catalog to fetch and rebuild.
 
 | Item | Value |
 | --- | --- |
