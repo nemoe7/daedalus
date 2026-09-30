@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import subprocess
 import time
 from pathlib import Path
 
@@ -89,6 +90,59 @@ def test_page(client: TestClient) -> None:
   assert (
     'href="ui/manifest.json?v=' in page.text and 'href="ui/logo.svg?v=' in page.text
   )
+
+
+def test_app_js_split_requests() -> None:
+  """The dashboard script splits requests with multiple answers and formats transition codes."""
+  code = """
+const fs = require('fs');
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8');
+const vm = require('vm');
+const sandbox = {
+  TRANSITION_REASONS: { err: 'Previous upstream attempt failed', lmt: 'Rate limit' },
+  esc: s => s,
+  seconds: s => s == null ? '' : s.toFixed(3) + 's',
+  matchMedia: () => ({ matches: false, addEventListener: () => {} }),
+  document: {
+    hidden: false,
+    documentElement: { dataset: {} },
+    getElementById: () => ({ innerHTML: '', addEventListener: () => {} }),
+    querySelector: () => ({ firstChild: { textContent: 'Models' } }),
+    querySelectorAll: () => [],
+    addEventListener: () => {},
+  },
+  navigator: {},
+  location: { hash: '' },
+  window: { addEventListener: () => {} },
+  getSelection: () => ({ isCollapsed: true }),
+  $: () => ({ innerHTML: '', addEventListener: () => {} }),
+};
+vm.createContext(sandbox);
+vm.runInContext(src, sandbox);
+const assert = require('assert');
+const cell = sandbox.transitionCell({ reason: 'err' });
+assert(cell.includes('transition-code'));
+assert(!cell.includes('previous'));
+assert(!cell.includes('next'));
+
+const r = {
+  at: 100,
+  status: 200,
+  attempts: [
+    { model: 'm1', result: 'answered', seconds: 1.0 },
+    { model: 'm1', result: 'loop' },
+    { model: 'm2', result: 'answered', seconds: 2.0 },
+  ],
+};
+const split = sandbox.splitRequest(r);
+assert.strictEqual(split.length, 2);
+assert.strictEqual(split[0].via, 'm2');
+assert.strictEqual(split[0].status, 200);
+assert.strictEqual(split[1].via, 'm1');
+assert.strictEqual(split[1].status, 'err');
+assert.strictEqual(sandbox.statusClass({ status: 'err' }), 's5');
+"""
+  subprocess.run(["node", "-e", code], check=True)
 
 
 def test_pages_not_nested(client: TestClient) -> None:
