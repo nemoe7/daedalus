@@ -1,6 +1,7 @@
 """The `daedalus` command: serve, catalog and dump."""
 
 import argparse
+import json
 import logging
 
 import yaml
@@ -12,6 +13,21 @@ from daedalus.server import api, logs
 from daedalus.store import keys
 
 logger = logging.getLogger("daedalus")
+
+
+def dump_models(file_format: str) -> None:
+  """Write the available model rows to `models.json` or `models.csv`."""
+  rows = store.model_rows()
+  folder = discovery.DUMP_DIR
+  folder.mkdir(parents=True, exist_ok=True)
+  for extension in ("json", "csv"):
+    (folder / f"models.{extension}").unlink(missing_ok=True)
+  path = folder / f"models.{file_format}"
+  if file_format == "json":
+    path.write_text(json.dumps(rows, indent=2, ensure_ascii=False) + "\n", "utf-8")
+  else:
+    discovery.write_csv(path, rows)
+  logger.info("wrote %d available models to %s", len(rows), path)
 
 
 def run(argv: list[str] | None = None) -> None:
@@ -38,8 +54,24 @@ def run(argv: list[str] | None = None) -> None:
   commands.add_parser(
     "catalog", help="discover provider models and rebuild the model store"
   )
-  commands.add_parser(
-    "dump", help="write the raw model list of each provider to .daedalus-state/dump"
+  dump = commands.add_parser(
+    "dump", help="write provider catalogs or available models to .daedalus-state/dump"
+  )
+  dump.add_argument(
+    "kind",
+    nargs="?",
+    choices=("catalog", "models", "all"),
+    default="catalog",
+    help="cached catalogs, stored models, or both (default: catalog)",
+  )
+  dump.add_argument(
+    "-f",
+    "--fmt",
+    "--format",
+    dest="format",
+    choices=("json", "csv"),
+    default="json",
+    help="file format (default: json)",
   )
   args = parser.parse_args(argv)
   if args.command is None:
@@ -47,7 +79,11 @@ def run(argv: list[str] | None = None) -> None:
     return
   logs.setup_logging()
   if args.command == "dump":
-    discovery.dump()
+    store.migrate()
+    if args.kind in ("catalog", "all"):
+      discovery.dump(file_format=args.format)
+    if args.kind in ("models", "all"):
+      dump_models(args.format)
   elif args.command == "catalog":
     store.migrate()
     catalog.refresh()
@@ -67,6 +103,7 @@ def run(argv: list[str] | None = None) -> None:
     if args.catalog or not store.has_store():
       catalog.refresh()
     api.CATALOG_REFRESH = catalog.refresh
+    api.CATALOG_REBUILD_CACHED = catalog.rebuild_cached
     api.LIMIT_CHECKS = True
     import uvicorn
 

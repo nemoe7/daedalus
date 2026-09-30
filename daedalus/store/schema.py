@@ -16,6 +16,13 @@ Table(
 )
 Table("catalog", METADATA, Column("built", REAL))
 Table(
+  "provider_snapshots",
+  METADATA,
+  Column("url_hash", TEXT, primary_key=True),
+  Column("payload", TEXT, nullable=False),
+  Column("updated", REAL, nullable=False),
+)
+Table(
   "api_keys",
   METADATA,
   Column("name", TEXT, primary_key=True),
