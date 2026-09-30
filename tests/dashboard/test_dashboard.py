@@ -70,6 +70,11 @@ def test_page(client: TestClient) -> None:
   for reason in ("ctx", "hlt", "lmt", "err", "rnd", "cls", "esc", "try"):
     assert f'  {reason}: "' in script.text, reason
   assert 'title="${esc(label)}"' in script.text, "reason codes have hover labels"
+  assert (
+    'const EFFORT_SHORT = { minimal: "min", low: "low", medium: "med", high: "hi", xhigh: "xhi" }'
+    in script.text
+  )
+  assert "shortEffort(sentText(a, r.effort))" in script.text
   assert '["change_on_draw", "Change pin on draw"' in script.text
   assert '["loops", "Loop detection"' in script.text, (
     "the loop thresholds are in Settings"
