@@ -176,21 +176,31 @@ if [ $missing_files -eq 1 ]; then
 fi
 cd "$dir"
 
+# .env handling: never overwrite existing .env, backup before any modification
 if [ ! -f .env ]; then
-  cp .env.example .env
+  if [ -f .env.example ]; then
+    cp .env.example .env
+  else
+    echo "Missing .env.example in $dir, cannot create .env" >&2; exit 1
+  fi
   # The container user must own the state mount on Linux.
   if [ "$(uname -s)" = Linux ]; then
     sed -i "s/^DAEDALUS_UID=.*/DAEDALUS_UID=$(id -u)/; s/^DAEDALUS_GID=.*/DAEDALUS_GID=$(id -g)/" .env
   fi
+else
+  # Backup existing .env before any in-place edit to prevent data loss
+  cp .env .env.bak 2>/dev/null || true
 fi
 key=
 if grep -q '^DAEDALUS_MASTER_KEY=$' .env; then
   key=$(od -An -tx1 -N20 /dev/urandom | tr -d ' \n')
-  sed -i.bak "s/^DAEDALUS_MASTER_KEY=\$/DAEDALUS_MASTER_KEY=$key/" .env
+  # Replace empty master key, preserve all other lines
+  sed -i.bak "s/^DAEDALUS_MASTER_KEY=$/DAEDALUS_MASTER_KEY=$key/" .env
   rm -f .env.bak
 fi
 if ! grep -qsE '^DAEDALUS_MASTER_KEY=[^[:space:]]{16,}$' .env; then
   echo "Set DAEDALUS_MASTER_KEY in $dir/.env: 16 or more characters, no spaces." >&2
+  echo "Your .env was backed up to $dir/.env.bak if it existed" >&2
   exit 1
 fi
 if [ "$(uname -s)" = Linux ] && ! grep -qs '^DAEDALUS_UID=' .env; then

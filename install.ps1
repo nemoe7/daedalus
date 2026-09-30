@@ -159,8 +159,18 @@ if ($needFiles) {
 }
 Set-Location -LiteralPath $dir
 
-if (-not (Test-Path -LiteralPath '.env')) { Copy-Item -LiteralPath '.env.example' -Destination '.env' }
+# .env handling: never overwrite existing .env, backup before any modification
 $envFile = Join-Path $dir '.env'
+if (-not (Test-Path -LiteralPath '.env')) {
+  if (Test-Path -LiteralPath '.env.example') {
+    Copy-Item -LiteralPath '.env.example' -Destination '.env'
+  } else {
+    Stop-Install "Missing .env.example in $dir, cannot create .env"
+  }
+} else {
+  # Backup existing .env before any in-place edit to prevent data loss
+  Copy-Item -LiteralPath '.env' -Destination '.env.bak' -Force -ErrorAction SilentlyContinue
+}
 $text = [IO.File]::ReadAllText($envFile)
 $key = $null
 if ($text -match '(?m)^DAEDALUS_MASTER_KEY=\r?$') {
@@ -171,7 +181,7 @@ if ($text -match '(?m)^DAEDALUS_MASTER_KEY=\r?$') {
   [IO.File]::WriteAllText($envFile, $text)
 }
 if ($text -notmatch '(?m)^DAEDALUS_MASTER_KEY=\S{16,}\r?$') {
-  Stop-Install "Set DAEDALUS_MASTER_KEY in $envFile`: 16 or more characters, no spaces."
+  Stop-Install "Set DAEDALUS_MASTER_KEY in $envFile`: 16 or more characters, no spaces. Your .env was backed up to $dir\.env.bak if it existed"
 }
 New-Item -ItemType Directory -Force -Path '.daedalus-state' | Out-Null
 
