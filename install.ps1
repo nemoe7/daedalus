@@ -101,6 +101,9 @@ if ($profilesSpaced -match '\bsearch\b') {
 if ($profilesSpaced -match '\btailscale\b') {
   if (-not (Test-Path -LiteralPath (Join-Path $dir 'services/tailscale'))) { $requiredServiceDirs += 'services/tailscale' }
 }
+if ($profilesSpaced -match '\bwebui\b') {
+  if (-not (Test-Path -LiteralPath (Join-Path $dir 'services/tailscale-openwebui'))) { $requiredServiceDirs += 'services/tailscale-openwebui' }
+}
 
 # For update: if any base file missing or .env missing or required service dir missing, need files
 $needFiles = $false
