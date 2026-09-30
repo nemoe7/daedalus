@@ -52,6 +52,7 @@ def test_page(client: TestClient) -> None:
   assert page.status_code == 200 and "text/html" in page.headers["content-type"]
   assert 'src="ui/app.js?v=' in page.text, "relative asset paths with a content hash"
   assert 'href="ui/style.css?v=' in page.text, "the style link has a content hash"
+  assert '<th class="hide-sm">Session</th>' in page.text, "the Requests session column"
   for name in (
     "overview",
     "requests",
