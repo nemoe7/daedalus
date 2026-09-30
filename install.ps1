@@ -70,7 +70,11 @@ if ($dev) {
 }
 
 $needDocker = -not (Get-Command docker -ErrorAction SilentlyContinue)
-$needFiles = -not (Test-Path -LiteralPath (Join-Path $dir 'compose.yml'))
+# Check if any required file is missing (not just compose.yml) so new files like services/ are pulled on update
+$needFiles = $false
+foreach ($f in $files) {
+  if (-not (Test-Path -LiteralPath (Join-Path $dir $f))) { $needFiles = $true; break }
+}
 $plan = @()
 if ($needDocker) { $plan += 'Docker Desktop, with winget (it asks for admin rights, then a restart)' }
 if ($needFiles) { $plan += "The daedalus files, to $dir" }
