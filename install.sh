@@ -70,7 +70,12 @@ if ! command -v docker >/dev/null 2>&1; then
   need_docker=1
   plan+=("Docker Engine and Docker Compose, with the official script https://get.docker.com (it asks for your password)")
 fi
-[ -f "$dir/compose.yml" ] || plan+=("The daedalus files, to $dir")
+# Check if any required file is missing (not just compose.yml) so new files like services/ are pulled on update
+missing_files=0
+for f in "${files[@]}"; do
+  [ -e "$dir/$f" ] || { missing_files=1; break; }
+done
+[ $missing_files -eq 0 ] || plan+=("The daedalus files, to $dir")
 [ -f "$dir/.env" ] || plan+=("The settings file $dir/.env, with a new master key")
 
 if [ "${#plan[@]}" -gt 0 ]; then
@@ -91,7 +96,7 @@ if [ "$need_docker" = 1 ]; then
   echo "Docker is installed. After your next login, docker works without sudo."
 fi
 
-if [ ! -f "$dir/compose.yml" ]; then
+if [ $missing_files -eq 1 ]; then
   # The newest v* tag, else main.
   tags=$(curl -fsSL "https://api.github.com/repos/$repo/tags")
   tag=$(printf '%s\n' "$tags" | grep -o '"name": *"v[0-9][^"]*"' | cut -d'"' -f4 | sort -V | tail -n 1 || true)
