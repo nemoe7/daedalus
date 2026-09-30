@@ -308,6 +308,14 @@ class OpenAIProvider:
     "temperature",
     "timestamp_granularities[]",
   )
+  # The transcription formats that the provider accepts.
+  transcript_formats: ClassVar[tuple[str, ...]] = (
+    "json",
+    "text",
+    "srt",
+    "verbose_json",
+    "vtt",
+  )
   # The speech request fields that the provider accepts, apart from model.
   speech_fields: ClassVar[tuple[str, ...]] = (
     "input",
