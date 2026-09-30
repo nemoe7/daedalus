@@ -11,7 +11,12 @@ from daedalus.config import load_yaml
 DEFAULT_PATH = Path("config/daedalus.yml")
 DEFAULTS: dict[str, dict[str, Any]] = {
   "timeouts": {"request": 600.0, "wait": 60.0, "slow": None},
-  "session_affinity": {"enabled": True, "idle": 3600.0, "stay": 0.85},
+  "session_affinity": {
+    "enabled": True,
+    "change_on_draw": True,
+    "idle": 3600.0,
+    "stay": 0.85,
+  },
   "weights": {
     "enabled": True,
     "success": 1.5,
@@ -21,6 +26,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "rate_limit": 0.75,
   },
   "cooldown": {"first": 60.0, "longest": 21600.0},
+  "loops": {"calls": 3, "repeats": 4, "shortest": 20, "longest": 2000},
   "pacing": {"enabled": True},
   "catalog": {"every": 6.0, "anchor": 6.0},
   "headroom": {"timeout": 5.0},
@@ -31,6 +37,12 @@ DEFAULTS: dict[str, dict[str, Any]] = {
   "pools": {
     name: name for name in ("moros", "koinos", "deinos", "sophos", "graphos", "photos")
   },
+}
+LOOP_LIMITS = {
+  "calls": (2, 100),
+  "repeats": (2, 16),
+  "shortest": (1, 1000),
+  "longest": (1, 10000),
 }
 THEMES = ("system", "light", "dark")
 TIME_FORMATS = ("24h", "12h")
@@ -46,6 +58,13 @@ def check(group: str, key: str, value: Any) -> Any:
   name = f"{group}.{key}"
   if group in ("escalation", "switch"):
     return keyword_list(name, value)
+  if group == "loops":
+    if isinstance(value, bool) or not isinstance(value, int):
+      raise SettingsError(f"{name} must be a whole number")
+    minimum, maximum = LOOP_LIMITS[key]
+    if not minimum <= value <= maximum:
+      raise SettingsError(f"{name} must be between {minimum} and {maximum}")
+    return value
   if group == "catalog":
     return schedule_value(name, key, value)
   if group == "pools":
@@ -62,7 +81,7 @@ def check(group: str, key: str, value: Any) -> Any:
     if value not in TIME_FORMATS:
       raise SettingsError(f"{name} must be 24h or 12h")
     return value
-  if key == "enabled":
+  if key in ("enabled", "change_on_draw"):
     if not isinstance(value, bool):
       raise SettingsError(f"{name} must be true or false")
     return value
@@ -118,6 +137,9 @@ def parse(text: str, target: Path | str = DEFAULT_PATH) -> dict[str, dict[str, A
       merged[group][key] = check(group, key, value)
   if len(set(merged["pools"].values())) < len(merged["pools"]):
     raise SettingsError("each pool in pools must have its own name")
+  loop_values = merged["loops"]
+  if loop_values["shortest"] > loop_values["longest"]:
+    raise SettingsError("loops.shortest must be at most loops.longest")
   timeouts = merged["timeouts"]
   if timeouts["slow"] is None:
     timeouts["slow"] = timeouts["wait"] / 2

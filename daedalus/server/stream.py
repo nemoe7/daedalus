@@ -3,7 +3,7 @@
 import json
 import logging
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -98,6 +98,7 @@ async def relay(
   pin: "Tracker",
   attempts: list[dict[str, Any]] | None = None,
   counts: dict[str, Any] | None = None,
+  on_transition: Callable[[str, str, str], None] | None = None,
 ) -> AsyncIterator[bytes]:
   """Stream one answer, continue from the sent text on a failure, and keep the provider input count in `counts`."""
   identifier, sent, tool = None, [], False
@@ -169,14 +170,19 @@ async def relay(
     continued = {**body, "messages": [*body["messages"], prefix]} if sent else body
     tokens, limits = context.input_tokens(continued), store.input_limits()
     paces = store.pace_limits()
+    transition_from, transition_reason = model, "err"
     while rest:
       candidate = rest.pop(0)
       if context.too_large(candidate, tokens, limits):
+        transition_reason = "ctx"
         continue
       if PACING:
         if PACING.full(pin.lane(candidate), paces):
+          transition_reason = "lmt"
           continue
         PACING.record(pin.lane(candidate), tokens)
+      if on_transition is not None:
+        on_transition(transition_from, candidate, transition_reason)
       started, effort = time.perf_counter(), {}
       try:
         provider, response = await upstream.attempt(
@@ -193,6 +199,10 @@ async def relay(
         attempts.append(upstream.failure_note(candidate, started, exc) | effort)
         if isinstance(exc, upstream.RateLimitError):
           attempts[-1]["cooldown"] = pin.failed(candidate, exc, attempts[-1])
+          transition_reason = "lmt"
+        else:
+          transition_reason = "err"
+        transition_from = candidate
         logger.warning(
           "upstream %s continuation failed: %s", candidate, upstream.failure_text(exc)
         )
