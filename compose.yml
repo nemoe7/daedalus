@@ -158,8 +158,8 @@ services:
       TS_AUTHKEY: ${TS_AUTHKEY:-}
       TS_HOSTNAME: ${TS_HOSTNAME:-daedalus}
       TS_STATE_DIR: /var/lib/tailscale
-      TS_SERVE_CONFIG: /config/serve.json # tailnet only: :443 to api, :8443 to Open WebUI
-      TS_AUTH_ONCE: "true" # log in with TS_AUTHKEY only when the state has no login
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_AUTH_ONCE: "true"
       TS_ENABLE_HEALTH_CHECK: "true"
       TS_LOCAL_ADDR_PORT: 127.0.0.1:9002
     healthcheck:
@@ -175,9 +175,36 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  tailscale-openwebui:
+    profiles: [webui]
+    image: tailscale/tailscale:latest
+    container_name: daedalus-tailscale-openwebui
+    hostname: ${TS_HOSTNAME_OPENWEBUI:-openwebui}
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY_OPENWEBUI:-${TS_AUTHKEY:-}}
+      TS_HOSTNAME: ${TS_HOSTNAME_OPENWEBUI:-openwebui}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_AUTH_ONCE: "true"
+      TS_ENABLE_HEALTH_CHECK: "true"
+      TS_LOCAL_ADDR_PORT: 127.0.0.1:9002
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9002/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - tailscale-openwebui:/var/lib/tailscale
+      - ./services/tailscale-openwebui:/config:ro
+    depends_on:
+      open-webui:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   open-webui:
   webui-db:
   searxng:
   headroom:
   tailscale:
+  tailscale-openwebui:

@@ -106,6 +106,10 @@ fi
 if echo "$profiles_spaced" | grep -qw "tailscale"; then
   [ -e "$dir/services/tailscale" ] || required_service_dirs+=("services/tailscale")
 fi
+# services/tailscale-openwebui if webui profile enabled (openwebui on its own tailscale instance)
+if echo "$profiles_spaced" | grep -qw "webui"; then
+  [ -e "$dir/services/tailscale-openwebui" ] || required_service_dirs+=("services/tailscale-openwebui")
+fi
 # If required service dirs missing, add to plan
 [ ${#required_service_dirs[@]} -eq 0 ] || plan+=("The daedalus files, to $dir (required service dirs: ${required_service_dirs[*]})")
 
