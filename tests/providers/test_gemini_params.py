@@ -18,7 +18,7 @@ def body(model: str, **extra: object) -> dict:
 
 def test_gemini_params() -> None:
   sent = body(
-    "gemini-2.5-flash",
+    "gemini-3.8-flash",
     temperature=0.2,
     top_p=0.9,
     top_k=40,
@@ -29,8 +29,6 @@ def test_gemini_params() -> None:
     seed=7,
     logprobs=True,
     top_logprobs=3,
-    frequency_penalty=0.1,
-    presence_penalty=0.2,
     parallel_tool_calls=False,
     reasoning_effort="minimal",
     modalities=["text", "image", "other"],
@@ -46,9 +44,7 @@ def test_gemini_params() -> None:
     "seed": 7,
     "responseLogprobs": True,
     "logprobs": 3,
-    "frequencyPenalty": 0.1,
-    "presencePenalty": 0.2,
-    "thinkingConfig": {"thinkingBudget": 1, "includeThoughts": True},
+    "thinkingConfig": {"thinkingLevel": "minimal"},
     "responseModalities": ["TEXT", "IMAGE", "MODALITY_UNSPECIFIED"],
   }, sent
   assert sent["serviceTier"] == "priority"
@@ -56,31 +52,35 @@ def test_gemini_params() -> None:
 
   gemini3 = body("gemini-3.5-flash", frequency_penalty=1, reasoning_effort="medium")
   assert gemini3["generationConfig"] == {
-    "thinkingConfig": {"thinkingLevel": "medium", "includeThoughts": True},
+    "thinkingConfig": {"thinkingLevel": "medium"},
     "temperature": 1.0,
   }, gemini3
   pro = body("gemini-3-pro", reasoning_effort={"effort": "none"})["generationConfig"]
-  assert pro["thinkingConfig"] == {"thinkingLevel": "low", "includeThoughts": False}
-  for effort, budget in (("low", 1024), ("medium", 2048), ("high", 4096), ("none", 0)):
-    config = body("gemini-2.5-pro", reasoning_effort=effort)["generationConfig"]
-    assert config["thinkingConfig"]["thinkingBudget"] == budget, config
-  assert (
-    body("gemini-2.5-pro", reasoning_effort="minimal")["generationConfig"][
-      "thinkingConfig"
-    ]["thinkingBudget"]
-    == 128
+  assert pro["thinkingConfig"] == {"thinkingLevel": "low"}
+  for model in ("gemma-4-26b-a4b-it", "gemma-4-31b-it"):
+    low = body(model, reasoning_effort="low")["generationConfig"]
+    assert low["thinkingConfig"] == {"thinkingLevel": "minimal"}, low
+    medium = body(model, reasoning_effort="medium")["generationConfig"]
+    assert medium["thinkingConfig"] == {"thinkingLevel": "high"}, medium
+    high = body(model, reasoning_effort="high")["generationConfig"]
+    assert high["thinkingConfig"] == {"thinkingLevel": "high"}, high
+    for effort in ("minimal", "none", "disable"):
+      disabled = body(model, reasoning_effort=effort)["generationConfig"]
+      assert disabled["thinkingConfig"] == {"thinkingLevel": "minimal"}, disabled
+    enabled = body(model, thinking={"type": "enabled", "budget_tokens": 0})
+    assert enabled["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "high"}, (
+      enabled
+    )
+    disabled = body(model, thinking={"type": "disabled", "budget_tokens": 1024})
+    assert disabled["generationConfig"]["thinkingConfig"] == {
+      "thinkingLevel": "minimal"
+    }, disabled
+  thinking = body("gemini-3.8-flash", thinking={"type": "enabled", "budget_tokens": 0})
+  assert thinking["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "high"}
+  disabled = body(
+    "gemini-3.8-flash", thinking={"type": "disabled", "budget_tokens": 99}
   )
-  assert (
-    body("gemini-2.5-flash-lite", reasoning_effort="minimal")["generationConfig"][
-      "thinkingConfig"
-    ]["thinkingBudget"]
-    == 512
-  )
-  thinking = body("gemini-2.5-pro", thinking={"type": "enabled", "budget_tokens": 99})
-  assert thinking["generationConfig"]["thinkingConfig"] == {
-    "includeThoughts": True,
-    "thinkingBudget": 99,
-  }
+  assert disabled["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "minimal"}
   try:
     body("m", reasoning_effort="extreme")
   except providers.ProviderError:

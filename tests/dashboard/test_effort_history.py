@@ -71,5 +71,8 @@ async def test_effort_history() -> None:
   gemini = {"gemini": {"api_key": "k"}}
   provider, _, payload, _ = providers.prepare("gemini/gemini-3.7-flash", body, gemini)
   assert provider.effort(payload) == "thinkingLevel=low", payload
-  provider, _, payload, _ = providers.prepare("gemini/gemini-2.5-flash", body, gemini)
-  assert provider.effort(payload) == "thinkingBudget=1024", payload
+  gemma = {**body, "reasoning_effort": "high"}
+  provider, _, payload, _ = providers.prepare(
+    "gemini/gemma-4-26b-a4b-it", gemma, gemini
+  )
+  assert provider.effort(payload) == "thinkingLevel=high", payload

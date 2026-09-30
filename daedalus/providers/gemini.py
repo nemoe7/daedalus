@@ -71,8 +71,8 @@ def without_strict(node: Any, names: bool = False) -> Any:
   }
 
 
-# The fields of a native thinking config that the dashboard shows.
-THINKING_KEYS = ("thinkingLevel", "thinkingBudget")
+# The native thinking level shown in the dashboard.
+THINKING_KEYS = ("thinkingLevel",)
 
 
 def thinking_level(effort: str, model: str) -> dict:
@@ -80,49 +80,40 @@ def thinking_level(effort: str, model: str) -> dict:
   flash = "flash" in name and "gemini-3" in name
   medium = flash or "gemini-3.1-pro-preview" in name
   levels = {
-    "minimal": ("minimal" if flash else "low", True),
-    "low": ("low", True),
-    "medium": ("medium" if medium else "high", True),
-    "high": ("high", True),
-    "disable": ("minimal" if flash else "low", False),
-    "none": ("minimal" if flash else "low", False),
+    "minimal": "minimal" if flash else "low",
+    "low": "low",
+    "medium": "medium" if medium else "high",
+    "high": "high",
+    "disable": "minimal" if flash else "low",
+    "none": "minimal" if flash else "low",
   }
   if effort not in levels:
     raise ProviderError(f"Unsupported reasoning_effort: {effort}")
-  level, include = levels[effort]
-  return {"thinkingLevel": level, "includeThoughts": include}
+  return {"thinkingLevel": levels[effort]}
 
 
-def thinking_budget(effort: str, model: str) -> dict:
-  name = model.lower()
-  minimal = 128
-  if "gemini-2.5-flash-lite" in name:
-    minimal = 512
-  elif "gemini-2.5-flash" in name:
-    minimal = 1
-  budgets = {
-    "minimal": (minimal, True),
-    "low": (1024, True),
-    "medium": (2048, True),
-    "high": (4096, True),
-    "disable": (0, False),
-    "none": (0, False),
+def gemma4_thinking(effort: str) -> dict:
+  levels = {
+    "minimal": "minimal",
+    "low": "minimal",
+    "medium": "high",
+    "high": "high",
+    "disable": "minimal",
+    "none": "minimal",
   }
-  if effort not in budgets:
+  if effort not in levels:
     raise ProviderError(f"Unsupported reasoning_effort: {effort}")
-  budget, include = budgets[effort]
-  return {"thinkingBudget": budget, "includeThoughts": include}
+  return {"thinkingLevel": levels[effort]}
 
 
 def thinking_param(value: dict, model: str) -> dict:
-  enabled = value.get("type") == "enabled"
-  budget = value.get("budget_tokens")
-  if "gemini-3" in model:
-    return {"includeThoughts": enabled and budget != 0}
-  config = {"includeThoughts": True} if enabled and budget not in (0, None) else {}
-  if isinstance(budget, int):
-    config["thinkingBudget"] = budget
-  return config
+  kind = value.get("type")
+  if kind not in ("enabled", "disabled"):
+    return {}
+  enabled = kind == "enabled"
+  if "gemma-4-" in model.lower():
+    return {"thinkingLevel": "high" if enabled else "minimal"}
+  return thinking_level("high" if enabled else "disable", model)
 
 
 def gemini_tools(value: list) -> list[dict]:
@@ -205,9 +196,12 @@ def gemini_options(payload: dict, model: str) -> dict:
     elif param == "reasoning_effort":
       effort = value.get("effort") if isinstance(value, dict) else value
       if isinstance(effort, str):
-        generation["thinkingConfig"] = (thinking_level if gemini3 else thinking_budget)(
-          effort, model
-        )
+        if "gemma-4-" in model.lower():
+          config = gemma4_thinking(effort)
+          if config:
+            generation["thinkingConfig"] = config
+        else:
+          generation["thinkingConfig"] = thinking_level(effort, model)
     elif param == "thinking" and isinstance(value, dict):
       generation["thinkingConfig"] = thinking_param(value, model)
     elif param == "modalities" and isinstance(value, list):
