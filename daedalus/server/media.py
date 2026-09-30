@@ -269,8 +269,19 @@ async def transcriptions(request: Request) -> Response:
     for key in form
     if key not in ("model", "file") and isinstance(form[key], str)
   }
-  if fields.get("response_format", "json") not in TRANSCRIPT_FORMATS:
+  form_format = fields.get("response_format", "json")
+  if form_format not in TRANSCRIPT_FORMATS:
     return invalid("response_format must be json, text, srt, verbose_json or vtt")
+  if model != TRANSCRIPTION_POOL:
+    try:
+      config = get_config()
+      client = getattr(request.state, "key", None)
+      provider, _ = providers.provider_for(model, config, client)
+      supported = getattr(provider, "transcript_formats", TRANSCRIPT_FORMATS)
+      if form_format not in supported:
+        return invalid(f"response_format must be {', '.join(supported)}")
+    except providers.ProviderError:
+      pass
   media = upload.content_type or "application/octet-stream"
   audio = (upload.filename or "audio", await upload.read(), media)
 

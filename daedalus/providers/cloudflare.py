@@ -88,6 +88,7 @@ class CloudflareProvider(OpenAIProvider):
     "api_type": "openai",
     "account_id": "env:CLOUDFLARE_ACCOUNT_ID",
   }
+  transcript_formats: ClassVar[tuple[str, ...]] = TRANSCRIPT_FORMATS
 
   def __init__(self, name: str, config: Mapping) -> None:
     account_id = str(config.get("account_id") or "").strip()
