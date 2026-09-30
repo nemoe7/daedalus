@@ -37,6 +37,85 @@ git config --global core.excludesFile "$GLOBAL_IGNORE" || fail "cannot set core.
 mkdir -p "$STATE_REL" || fail "cannot create $STATE_REL"
 git check-ignore -q "$STATE_REL/state.sqlite3" || echo "arena-preview installer: warning: $STATE_REL is not ignored, so state shows in git status until this installer runs again" >&2
 
+# 4b. Install a project commit-msg hook that enforces the spec without adding a trailer.
+GIT_DIR="$(git rev-parse --absolute-git-dir)" || fail "cannot locate the Git directory"
+GIT_HOOKS="$GIT_DIR/hooks"
+GIT_HOOK="$GIT_HOOKS/commit-msg"
+LOCAL_HOOKS="$(git config --local --get core.hooksPath 2>/dev/null || true)"
+if [ -n "$LOCAL_HOOKS" ] && [ "$LOCAL_HOOKS" != "$GIT_HOOKS" ]; then
+  fail "core.hooksPath is already set to $LOCAL_HOOKS; refusing to replace it"
+fi
+mkdir -p "$GIT_HOOKS" || fail "cannot create $GIT_HOOKS"
+cat > "$GIT_HOOK" <<'COMMIT_MSG_HOOK' || fail "cannot write $GIT_HOOK"
+#!/bin/sh
+set -eu
+if [ "$#" -ne 1 ]; then
+  echo "commit-msg hook: expected the commit message file" >&2
+  exit 1
+fi
+REPO_ROOT=$(git rev-parse --show-toplevel) || {
+  echo "commit-msg hook: cannot locate the repository root" >&2
+  exit 1
+}
+exec python3 - "$REPO_ROOT/rules/COMMIT-SPEC.txt" "$1" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+def reject(message):
+  print(f"commit-msg: {message}", file=sys.stderr)
+  raise SystemExit(1)
+
+try:
+  specification = Path(sys.argv[1]).read_text(encoding="utf-8")
+  message = Path(sys.argv[2]).read_text(encoding="utf-8")
+except OSError as error:
+  reject(f"cannot read commit rules or message: {error}")
+
+types_match = re.search(
+  r"\ballowed types: ([a-z]+(?:[ \t]+[a-z]+)*);",
+  specification,
+)
+length_match = re.search(r"<=\s*(\d+)\s+chars\b", specification)
+if not types_match or not length_match:
+  reject("cannot read allowed types or subject limit from rules/COMMIT-SPEC.txt")
+
+allowed_types = types_match.group(1).split()
+subject_limit = int(length_match.group(1))
+lines = [
+  line
+  for line in message.splitlines()
+  if line.strip() and not line.lstrip().startswith("#")
+]
+if len(lines) != 1:
+  reject("use one subject line and no body, as required by COMMIT-SPEC.txt")
+
+subject = lines[0]
+if subject != subject.strip():
+  reject("subject cannot start or end with whitespace")
+if len(subject) > subject_limit:
+  reject(f"subject must be at most {subject_limit} characters")
+
+types = "|".join(re.escape(commit_type) for commit_type in allowed_types)
+pattern = re.compile(
+  rf"^(?:{types})(?:\([^()\s]+\))?!?: (?P<description>.+)$"
+)
+match = pattern.fullmatch(subject)
+if not match:
+  reject(
+    "subject must match <type>[optional scope][!]: <description>; "
+    f"allowed types: {', '.join(allowed_types)}"
+  )
+if not match.group("description")[0].islower():
+  reject("description must start with a lowercase letter")
+if subject.endswith("."):
+  reject("subject must not end with a period")
+PY
+COMMIT_MSG_HOOK
+chmod 755 "$GIT_HOOK" || fail "cannot make $GIT_HOOK executable"
+git config --local core.hooksPath "$GIT_HOOKS" || fail "cannot set core.hooksPath"
+echo "arena-preview installer: commit-msg validation active at $GIT_HOOK"
+
 # 5. Hook script: save $?, print the unacked-count reminder on stderr, restore the exit code.
 cat > "$HOOK" <<EOF || fail "cannot write $HOOK"
 #!/bin/bash
