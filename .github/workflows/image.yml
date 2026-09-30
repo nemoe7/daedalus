@@ -70,7 +70,7 @@ jobs:
                   if [[ "$approval_conclusion" != "success" ]]; then
                     skip="true"
                   else
-                    approval_line="$(gh api "repos/$REPOSITORY/actions/jobs/$job_id/logs" | \
+                    approval_line="$(gh api --allow-escape-sequences "repos/$REPOSITORY/actions/jobs/$job_id/logs" | \
                       sed -nE 's/.*Tag [\x60](v[0-9]+\.[0-9]+\.[0-9]+)[\x60] points to [\x60]([0-9a-f]{40})[\x60]\..*/\1 \2/p' | \
                       tail -n 1)"
 
