@@ -48,16 +48,27 @@ def test_live() -> None:
   queue: asyncio.Queue = asyncio.Queue()
   live.queues.add(queue)
   key = live.start("/v1/chat/completions")
-  live.update(key, model="groq/x", stream=True)
+  live.update(key, model="groq/x", trying="groq/x", stream=True)
   live.rows[key]["started"] -= 2
+  live.rows[key]["attempt_started"] -= 2
   live.first(key, via="groq/x", pool=None)
   shown = live.view(key)
   assert 1.9 < shown["ttft"] <= shown["age"] < 3, shown
   assert "started" not in shown and "first" not in shown, shown
+  live.update(key, trying="fallback/x", fallbacks=1)
+  retry = live.view(key)
+  assert retry["ttft"] is None and retry["age"] >= shown["age"], retry
+  assert retry["attempt_age"] < 1, retry
+  live.rows[key]["attempt_started"] -= 2
+  live.first(key, via="fallback/x", pool=None)
+  fallback = live.view(key)
+  assert 1.9 < fallback["ttft"] <= fallback["attempt_age"], fallback
   live.end(key, {"status": 200})
   live.end(key, {"status": 200})
   kinds = [kind for kind, _ in drained(queue)]
-  assert kinds == ["start", "update", "first", "end"], "a 2nd end sends nothing"
+  assert kinds == ["start", "update", "first", "update", "first", "end"], (
+    "a 2nd end sends nothing"
+  )
   live.update(key, model="late")
   assert queue.empty() and not live.rows, "a finished request gets no update"
 
