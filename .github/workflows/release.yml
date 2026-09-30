@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows: ["Gemini Release Draft"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to set in pyproject.toml (e.g. 0.2.0)"
+        required: false
+        type: string
+
+concurrency:
+  group: release-version
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  sync-version:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - id: resolve
+        name: Resolve Release Version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          INPUT_VERSION: ${{ inputs.version }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version=""
+          skip="false"
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$INPUT_VERSION" ]]; then
+            version="${INPUT_VERSION#v}"
+          elif [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            if [[ "$RUN_CONCLUSION" != "success" ]]; then
+              skip="true"
+            else
+              job_id="$(gh api --paginate \
+                "repos/$REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" \
+                --jq '.jobs[] | select(.name == "draft") | .id' | tail -n 1)"
+
+              if [[ -z "$job_id" ]]; then
+                skip="true"
+              else
+                approval_conclusion="$(gh api \
+                  "repos/$REPOSITORY/actions/jobs/$job_id" \
+                  --jq '.steps[] | select(.name == "Approve Proposal") | .conclusion' | tail -n 1)"
+
+                if [[ "$approval_conclusion" != "success" ]]; then
+                  skip="true"
+                else
+                  approval_line="$(gh api "repos/$REPOSITORY/actions/jobs/$job_id/logs" | \
+                    sed -nE 's/.*Tag [\x60](v[0-9]+\.[0-9]+\.[0-9]+)[\x60] points to [\x60]([0-9a-f]{40})[\x60]\..*/\1 \2/p' | \
+                    tail -n 1)"
+
+                  if [[ -z "$approval_line" ]]; then
+                    skip="true"
+                  else
+                    read -r tag sha <<<"$approval_line"
+                    version="${tag#v}"
+                  fi
+                fi
+              fi
+            fi
+          fi
+
+          if [[ "$skip" == "true" || -z "$version" ]]; then
+            printf 'skip=true\n' >>"$GITHUB_OUTPUT"
+          else
+            printf 'skip=false\n' >>"$GITHUB_OUTPUT"
+            printf 'version=%s\n' "$version" >>"$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.resolve.outputs.skip != 'true'
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - if: steps.resolve.outputs.skip != 'true'
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.12.21"
+          enable-cache: true
+
+      - if: steps.resolve.outputs.skip != 'true'
+        name: Update pyproject.toml Version
+        env:
+          NEW_VERSION: ${{ steps.resolve.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          current="$(sed -nE 's/^version = "([^"]+)"/\1/p' pyproject.toml)"
+          if [[ "$current" == "$NEW_VERSION" ]]; then
+            echo "pyproject.toml version already matches $NEW_VERSION"
+            exit 0
+          fi
+
+          sed -i -E 's/^version = "[^"]+"/version = "'"$NEW_VERSION"'"/' pyproject.toml
+          uv lock
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml uv.lock
+          git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
+          git push origin "HEAD:${{ github.event.repository.default_branch }}"
