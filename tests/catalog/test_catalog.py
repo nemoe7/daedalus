@@ -2,10 +2,12 @@
 
 import json
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
 import httpx
+import pytest
 
 from daedalus import catalog, config, store
 from daedalus.catalog import discovery, enrichment
@@ -195,6 +197,25 @@ def test_failure() -> None:
   )
   assert denied == "No route for that URI", denied
   assert discovery.failure({"success": False}) == "the upstream reported a failure"
+
+
+def test_fetch_json_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+  """The fetch_json helper retries on a 500 status and succeeds."""
+  calls = 0
+
+  def mock_get(url: str, **kwargs: Any) -> httpx.Response:
+    nonlocal calls
+    calls += 1
+    request = httpx.Request("GET", url)
+    if calls == 1:
+      return httpx.Response(500, request=request)
+    return httpx.Response(200, json={"ok": True}, request=request)
+
+  monkeypatch.setattr(httpx, "get", mock_get)
+  monkeypatch.setattr(time, "sleep", lambda _: None)
+  data = discovery.fetch_json("https://api.test/models", {})
+  assert data == {"ok": True}
+  assert calls == 2
 
 
 def test_select() -> None:
