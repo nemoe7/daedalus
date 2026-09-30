@@ -23,6 +23,12 @@ services:
     volumes:
       - ./.daedalus-state:/app/.daedalus-state
       - ./config:/app/config # read-write: the dashboard edits and reloads these files
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3357/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     restart: unless-stopped
 
   # Optional profiles. Set COMPOSE_PROFILES in .env, or use: docker compose --profile NAME up -d
@@ -171,7 +177,8 @@ services:
       - tailscale:/var/lib/tailscale
       - ./services/tailscale:/config:ro
     depends_on:
-      - daedalus
+      daedalus:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
