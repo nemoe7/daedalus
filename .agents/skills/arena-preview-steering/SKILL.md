@@ -34,7 +34,7 @@ arena-preview read
 arena-preview poll
 ```
 
-When a pending count is nonzero, `read` now. It prints full pending notes and report answers; a failed or missing inbox is an error, not an empty inbox. `read` marks only fully delivered IDs Seen, not acknowledged. Do not mark count-only, truncated, or failed deliveries Seen. A pending item repeats until acknowledged. The hook checks counts after Arena bash calls; end the turn's last tool block with a bash call. When ending a turn or a form awaits answers, run `poll`.
+When a pending count is nonzero, `read` now. It prints full pending notes and report answers; a failed or missing inbox is an error, not an empty inbox. `read` marks only fully delivered IDs Seen, not acknowledged, and stamps the parent report read by the agent. Do not mark count-only, truncated, or failed deliveries Seen. A pending item repeats until acknowledged. The hook checks counts after Arena bash calls; end the turn's last tool block with a bash call. When ending a turn or a form awaits answers, run `poll`.
 
 Acknowledge each delivered ID separately where the owner reads it. Use `--reply <Markdown>` for rendered Markdown or `--note <text>` for one plain line. Never acknowledge all blindly or share one answer across notes. Use the full ID, not a sequence number. A second ack appends a reply below the first; it does not replace it. Receipt is not completion. Ack immediately; failure earns a negative rating. After acking a work note, add it via `task <id> ... --msg-id <full-id>`; `ack` reminds you.
 

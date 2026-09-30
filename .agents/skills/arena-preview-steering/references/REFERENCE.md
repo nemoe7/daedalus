@@ -8,7 +8,7 @@ Use `scripts/preview.py` relative to the actual installed steering skill. Put `-
 | --- | --- |
 | `init` | Create a missing state database without starting the server |
 | `serve --port 8000` | Start the shared preview with a long-lived process tool |
-| `read` | List every pending note and report answer; mark only delivered IDs Seen |
+| `read` | List every pending note and report answer; mark only delivered IDs Seen, and stamp the parent report read by the agent |
 | `poll` | Wait for a pending inbox item before ending a turn |
 | `ack <id> --reply <markdown>` | Answer one delivered ID with a rendered reply |
 | `ack <id> --note <text>` | Answer one delivered ID with one plain line |
