@@ -107,7 +107,13 @@ async def test_stream_continue() -> None:
           ("b/x", "HTTP 429"),
           ("c/x", "answered"),
         ], steps
-        cooled = dashboard.HISTORY.latest(1)[0]["attempts"][2]["cooldown"]
+        attempts = dashboard.HISTORY.latest(1)[0]["attempts"]
+        assert attempts[1]["weight_change"] == {"from": 1.0, "to": 0.5}, attempts
+        assert attempts[2]["weight_change"] == {"from": 1.0, "to": 0.75}, attempts
+        assert (
+          "weight_change" not in attempts[0] and "weight_change" not in attempts[3]
+        ), attempts
+        cooled = attempts[2]["cooldown"]
         assert cooled == {"seconds": 60.0, "reason": "backoff"}, cooled
         assert "b/x" in api.COOLDOWNS.ends(), (
           "a 429 in a continuation starts a cooldown"

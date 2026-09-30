@@ -33,6 +33,14 @@ TRANSCRIPTION_POOL, IMAGE_POOL = router.MEDIA_POOLS
 Call = Callable[[providers.OpenAIProvider, str, str], Awaitable[Any]]
 
 
+def _record_weight_change(attempt: dict, model: str, factor: float) -> None:
+  if PENALTIES is None:
+    return
+  previous, weight = PENALTIES.record_change(model, factor)
+  if previous != weight:
+    attempt["weight_change"] = {"from": previous, "to": weight}
+
+
 def invalid(message: str) -> JSONResponse:
   return upstream.error_response(400, message, "invalid_request_error")
 
@@ -154,7 +162,7 @@ async def attempt(
     except asyncio.TimeoutError:
       attempts.append(upstream.late_note(candidate, started))
       if pooled and PENALTIES:
-        PENALTIES.record(candidate, PENALTIES.fault)
+        _record_weight_change(attempts[-1], candidate, PENALTIES.fault)
       return upstream.error_response(
         504, "Upstream provider timed out", "upstream_error"
       )
@@ -163,8 +171,8 @@ async def attempt(
       status = exc.status if isinstance(exc, upstream.UpstreamStatus) else 0
       limited = isinstance(exc, upstream.RateLimitError)
       if pooled and PENALTIES:
-        PENALTIES.record(
-          candidate, PENALTIES.rate_limit if limited else PENALTIES.fault
+        _record_weight_change(
+          attempts[-1], candidate, PENALTIES.rate_limit if limited else PENALTIES.fault
         )
       if limited and COOLDOWNS:
         attempts[-1]["cooldown"] = COOLDOWNS.start(
@@ -176,9 +184,9 @@ async def attempt(
     attempts.append(upstream.note(candidate, "answered", started))
     if COOLDOWNS:
       COOLDOWNS.succeeded(lane(candidate))
+    if pooled and PENALTIES:
+      _record_weight_change(attempts[-1], candidate, PENALTIES.success)
     if pooled:
-      if PENALTIES:
-        PENALTIES.record(candidate, PENALTIES.success)
       retries.record(request.state.turn, None, candidate)
     return answer
   if not attempts:

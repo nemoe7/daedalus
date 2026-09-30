@@ -424,10 +424,17 @@ class Tracker:
     """The chain: the order groups of each tier, then the weights and the session model."""
     return PENALTIES.order(router.by_order(get_config(), groups), self.key, self.slot)
 
-  def answered(self, model: str, ttft: float) -> str | None:
+  def _weight(self, model: str, factor: float, attempt: dict[str, Any] | None) -> None:
+    previous, weight = PENALTIES.record_change(model, factor)
+    if attempt is not None and previous != weight:
+      attempt["weight_change"] = {"from": previous, "to": weight}
+
+  def answered(
+    self, model: str, ttft: float, attempt: dict[str, Any] | None = None
+  ) -> str | None:
     """Update the weight and pin the model. A slow success removes the pin instead."""
     slow = ttft >= SLOW_SECONDS
-    PENALTIES.record(model, PENALTIES.slow if slow else PENALTIES.success)
+    self._weight(model, PENALTIES.slow if slow else PENALTIES.success, attempt)
     COOLDOWNS.succeeded(self.lane(model))
     if not self.slot:
       return None
@@ -439,12 +446,17 @@ class Tracker:
       return "switched"
     return "moved" if self.dropped else state
 
-  def failed(self, model: str, exc: Exception | None = None) -> dict[str, Any] | None:
+  def failed(
+    self,
+    model: str,
+    exc: Exception | None = None,
+    attempt: dict[str, Any] | None = None,
+  ) -> dict[str, Any] | None:
     """Lower the weight, and remove the pin when it names this model. A rate limit also starts a cooldown and ends the counted hour."""
     limited = isinstance(exc, upstream.RateLimitError)
     if limited:
       PACING.used_up(model)
-    PENALTIES.record(model, PENALTIES.rate_limit if limited else PENALTIES.fault)
+    self._weight(model, PENALTIES.rate_limit if limited else PENALTIES.fault, attempt)
     if self.slot and PENALTIES.unpin(self.key, self.slot, model):
       self.dropped = True
     return COOLDOWNS.start(self.lane(model), exc.headers, exc.body) if limited else None
@@ -620,19 +632,22 @@ async def chat(request: Request) -> Response:
           stream.provider_count(completion.get("usage")) or {}
         )
         ttft = time.perf_counter() - started
-        request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
+        attempts.append(upstream.note(candidate, "answered", started) | sent)
+        request.state.via, request.state.pin = (
+          candidate,
+          pin.answered(candidate, ttft, attempts[-1]),
+        )
         request.state.ttft = logs.seconds_text(ttft)
         served(request, config, candidate)
         dashboard.live_first(request)
         remember(request, turn, candidate)
-        attempts.append(upstream.note(candidate, "answered", started) | sent)
         return JSONResponse(completion)
       events = stream.sse_data(provider.stream(response, candidate, True, wait), wait)
       pending = await upstream.in_time(stream.first_content(events), deadline)
       ttft = time.perf_counter() - started
     except asyncio.TimeoutError:
       attempts.append(upstream.late_note(candidate, started) | sent)
-      pin.failed(candidate)
+      pin.failed(candidate, attempt=attempts[-1])
       if response is not None:
         await response.aclose()
       failure = upstream.error_response(
@@ -645,7 +660,7 @@ async def chat(request: Request) -> Response:
         await asyncio.sleep(min(0.1, max(0, deadline - time.perf_counter())))
         continue
       attempts.append(upstream.failure_note(candidate, started, exc) | sent)
-      pin.failed(candidate)
+      pin.failed(candidate, attempt=attempts[-1])
       failure = upstream.error_response(
         504 if direct_wait else 502,
         "Upstream provider timed out"
@@ -657,7 +672,7 @@ async def chat(request: Request) -> Response:
       continue
     except upstream.UpstreamStatus as exc:
       attempts.append(upstream.failure_note(candidate, started, exc) | sent)
-      if started_cooldown := pin.failed(candidate, exc):
+      if started_cooldown := pin.failed(candidate, exc, attempts[-1]):
         attempts[-1]["cooldown"] = started_cooldown
       failure = upstream.error_response(
         exc.status, "Upstream provider rejected the request", "upstream_error"
@@ -667,19 +682,22 @@ async def chat(request: Request) -> Response:
     except stream.ATTEMPT_ERRORS as exc:
       logger.warning("upstream %s failed: %s", candidate, upstream.failure_text(exc))
       attempts.append(upstream.failure_note(candidate, started, exc) | sent)
-      pin.failed(candidate)
+      pin.failed(candidate, attempt=attempts[-1])
       failure = upstream.error_response(
         502, "Upstream provider attempt failed", "upstream_error"
       )
       index += 1
       continue
     rest = models[index + 1 :]
-    request.state.via, request.state.pin = candidate, pin.answered(candidate, ttft)
+    attempts.append(upstream.note(candidate, "answered", started) | sent)
+    request.state.via, request.state.pin = (
+      candidate,
+      pin.answered(candidate, ttft, attempts[-1]),
+    )
     request.state.ttft = logs.seconds_text(ttft)
     served(request, config, candidate)
     dashboard.live_first(request)
     remember(request, turn, candidate)
-    attempts.append(upstream.note(candidate, "answered", started) | sent)
     return StreamingResponse(
       stream.relay(
         pending,

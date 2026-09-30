@@ -421,6 +421,8 @@ def test_pools(fake: Upstream, client: TestClient) -> None:
     weights = api.PENALTIES.weights(["mistral/voxtral", "groq/whisper"])
     weights = {m: round(w, 3) for m, w in weights.items()}
     assert weights == {"mistral/voxtral": 0.5, "groq/whisper": 1.0}, weights
+    assert row["attempts"][0]["weight_change"] == {"from": 1.0, "to": 0.5}, row
+    assert "weight_change" not in row["attempts"][1], row
     row = transcribe(client, b"RIFF-two")
     assert (row["via"], row["retry"]) == ("mistral/voxtral", "1"), row
     row = transcribe(client, b"RIFF-two")

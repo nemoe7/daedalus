@@ -161,7 +161,7 @@ async def relay(
         upstream.note(model, "stream failed", None, upstream.failure_text(exc))
       )
     await events.aclose()
-    pin.failed(model)
+    pin.failed(model, attempt=attempts[-1])
     if tool:
       yield STREAM_FAILED
       return
@@ -186,13 +186,13 @@ async def relay(
         events = sse_data(provider.stream(response, candidate, True, wait), wait)
         pending = await first_content(events)
         model = candidate
-        pin.answered(model, time.perf_counter() - started)
         attempts.append(upstream.note(candidate, "answered", started) | effort)
+        pin.answered(model, time.perf_counter() - started, attempts[-1])
         break
       except (upstream.UpstreamStatus, *ATTEMPT_ERRORS) as exc:
         attempts.append(upstream.failure_note(candidate, started, exc) | effort)
         if isinstance(exc, upstream.RateLimitError):
-          attempts[-1]["cooldown"] = pin.failed(candidate, exc)
+          attempts[-1]["cooldown"] = pin.failed(candidate, exc, attempts[-1])
         logger.warning(
           "upstream %s continuation failed: %s", candidate, upstream.failure_text(exc)
         )
