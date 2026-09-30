@@ -153,7 +153,8 @@ services:
     profiles: [tailscale]
     image: tailscale/tailscale:latest
     container_name: daedalus-tailscale
-    hostname: ${TS_HOSTNAME:-daedalus}
+    # hostname intentionally not set to daedalus to avoid conflict with daedalus service DNS
+    # TS_HOSTNAME env var controls tailnet device name, not container hostname
     environment:
       TS_AUTHKEY: ${TS_AUTHKEY:-}
       TS_HOSTNAME: ${TS_HOSTNAME:-daedalus}
