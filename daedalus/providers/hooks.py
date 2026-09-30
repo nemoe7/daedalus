@@ -104,7 +104,7 @@ def load(path: Path) -> ModuleType | None:
       spec.loader.exec_module(found)
     except Exception:
       logger.exception("hook file %s did not load", path)
-      found = None
+      return None
   _loaded[path] = (stamp, found)
   return found
 
