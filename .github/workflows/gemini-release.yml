@@ -56,12 +56,12 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Check Out Trusted Workflow Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
       - name: Set Up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
       - name: Propose Release
@@ -85,7 +85,7 @@ jobs:
         run: python .github/workflows/gemini_release.py
       - name: Upload Proposal
         if: steps.propose.outputs.generated == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gemini-release-proposal
           path: ${{ runner.temp }}/gemini-proposal/proposal.json

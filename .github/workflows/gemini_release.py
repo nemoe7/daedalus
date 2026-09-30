@@ -53,11 +53,16 @@ Task: write release notes in Markdown from the supplied template and evidence.
 """
     + BOUNDARY
     + """\
+- Use previous release notes only as a style reference; NEVER use them as evidence for current changes.
 - Use the template headings in their order; replace every placeholder.
 - ALWAYS keep the Summary section.
+- Write the Summary as one or two sentences on the release headline; NEVER repeat an entry from another section.
 - Omit any other section, heading included, that the evidence does not support.
+- Report a change under Features or Fixes only when a user of the software sees or does it; NEVER list repository tooling, builds or workflow changes.
+- Name a change by what a user sees; NEVER use internal identifiers, table names or metric names unless a user must type them.
 - Summarize user-visible changes; do not list every commit.
 - Count a change once: merge diffs are labeled by parent and repeat changes.
+- In Upgrade notes, write `No action required` when the migration is automatic; list the required edits when it is not.
 - Use the supplied comparison URL verbatim when the template has one.
 - Return only the release body.
 """
@@ -525,7 +530,19 @@ def current_base(repo, target):
     raise RuntimeError("Published prerelease baseline needs a new decision")
   if previous and remote_tag_sha(repo, previous) != base:
     raise RuntimeError("Published baseline tag changed")
-  identity = {key: record[key] for key in ("id", "published_at")} if record else None
+  if record:
+    body = record.get("body")
+    if body is None:
+      body = ""
+    if not isinstance(body, str):
+      raise RuntimeError("Published release notes are invalid")
+    identity = {
+      "id": record["id"],
+      "published_at": record["published_at"],
+      "body": body,
+    }
+  else:
+    identity = None
   return previous, base, identity
 
 
@@ -540,16 +557,39 @@ def release_template(base):
   return TEMPLATE if base else INITIAL_TEMPLATE
 
 
+def omit_empty_sections(body, template):
+  headings = set(re.findall(r"^## .+$", template, re.MULTILINE))
+  sections = []
+  for section in re.split(r"(?=^## .+$)", body, flags=re.MULTILINE):
+    match = re.match(r"^(## .+)$", section, flags=re.MULTILINE)
+    if (
+      match
+      and match.group(1) in headings
+      and match.group(1) != "## Summary"
+      and not section[match.end() :].strip()
+    ):
+      continue
+    sections.append(section)
+  return "".join(sections)
+
+
 def check_body(body, context):
   """The body keeps Summary, keeps template heading order, and links the range when asked."""
   template = context["template"]
   headings = re.findall(r"^## .+$", template, re.MULTILINE)
   found = re.findall(r"^## .+$", body, re.MULTILINE)
   ordered = [h for h in headings if h in found]
+  empty_section = False
+  for section in re.split(r"(?=^## .+$)", body, flags=re.MULTILINE):
+    match = re.match(r"^(## .+)$", section, flags=re.MULTILINE)
+    if match and match.group(1) in headings and not section[match.end() :].strip():
+      empty_section = True
+      break
   if (
     found != ordered
     or len(set(found)) != len(found)
     or "## Summary" not in found
+    or empty_section
     or "{{" in body
     or ("{{comparison_url}}" in template) != (context["comparison_url"] in body)
   ):
@@ -610,7 +650,9 @@ def propose(repo, branch):
   if remote_ref(repo, tag) is not None:
     raise RuntimeError("Proposed tag already exists")
   context["target_tag"] = tag
-  body = release_body(units, context, model)
+  if baseline_release and baseline_release["body"]:
+    context["previous_release_notes"] = baseline_release["body"]
+  body = omit_empty_sections(release_body(units, context, model), context["template"])
   check_body(body, context)
   check_remote_target(repo, branch, target)
   if current_base(repo, target) != (previous, base, baseline_release):
