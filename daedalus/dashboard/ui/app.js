@@ -231,13 +231,20 @@ function sentText(a, asked) {
   return asked && level === String(asked).toLowerCase() ? asked : shown;
 }
 
+const EFFORT_SHORT = { minimal: "min", low: "low", medium: "med", high: "hi", xhigh: "xhi" };
+function shortEffort(value) {
+  const shown = String(value).replace(/^thinkingLevel=/, "");
+  const level = shown.split("=").pop().toLowerCase();
+  return EFFORT_SHORT[level] || shown;
+}
+
 // The effort that the client asked for, then the effort that went to the model that answered.
 function effortCell(r) {
   const served = (r.attempts || []).filter((a) => a.result === "answered" && "effort" in a).pop();
   if (!served) return esc(r.effort || "-");
   const sent = sentText(served, r.effort);
   if (sent === r.effort) return esc(r.effort);
-  return `${esc(r.effort || "-")} <span class="from">${esc(sent)}</span>`;
+  return `${esc(r.effort || "-")} <span class="from">${esc(shortEffort(sent))}</span>`;
 }
 
 // A request that the client closed shows "cancelled" in place of its status.
@@ -274,7 +281,7 @@ function chainRows(r) {
     <li class="step ${a.result === "answered" ? "good" : "bad"}">
       <span class="num">${i + 1}.</span> <b>${esc(a.model)}</b>
       <span class="result">${esc(a.result)}</span> <span class="muted num">${seconds(a.seconds)}</span>
-      ${"effort" in a ? `<span class="from">effort ${esc(sentText(a, r.effort))}</span>` : ""}
+      ${"effort" in a ? `<span class="from">effort ${esc(shortEffort(sentText(a, r.effort)))}</span>` : ""}
       ${a.weight_change ? `<span class="from">${esc(weightText(a))}</span>` : ""}
       ${a.cooldown ? `<span class="from">${esc(coolText(a.cooldown))}</span>` : ""}
       ${a.error ? `<pre>${esc(a.error)}</pre>` : ""}
