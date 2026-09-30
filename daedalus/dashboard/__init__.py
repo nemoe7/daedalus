@@ -35,6 +35,7 @@ HISTORY = History(lambda: store.MODELS_DB)
 LIVE = Live()
 FIELDS = (
   "app",
+  "session",
   "key",
   "model",
   "effort",

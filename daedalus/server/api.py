@@ -536,6 +536,7 @@ async def chat(request: Request) -> Response:
     )
   config = get_config()
   key = session_key(access.bearer(request), body["messages"])
+  request.state.session = key[:7]
   turn = None
   chat_id = request.headers.get(retries.CHAT_HEADER)
   if model == router.RESERVED_MODEL and chat_id:
@@ -607,7 +608,9 @@ async def chat(request: Request) -> Response:
   while index < len(models):
     candidate = models[index]
     request.state.fallbacks = str(index)
-    dashboard.live_update(request, trying=candidate, fallbacks=index)
+    dashboard.live_update(
+      request, trying=candidate, fallbacks=index, session=request.state.session
+    )
     started, sent = time.perf_counter(), {}
     PACING.record(pin.lane(candidate), tokens)
     response = None
