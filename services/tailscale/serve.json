@@ -6,7 +6,7 @@
   "Web": {
     "${TS_CERT_DOMAIN}:443": {
       "Handlers": {
-        "/": { "Proxy": "http://daedalus:3357" }
+        "/": { "Proxy": "http://api:3357" }
       }
     },
     "${TS_CERT_DOMAIN}:8443": {

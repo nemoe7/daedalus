@@ -1,8 +1,8 @@
 services:
-  daedalus:
+  api:
     # The image of the Image workflow. compose.dev.yml builds it from the source.
     image: ghcr.io/nemoe7/daedalus:latest
-    container_name: daedalus
+    container_name: daedalus-api
     user: "${DAEDALUS_UID:-1000}:${DAEDALUS_GID:-1000}"
     environment:
       DAEDALUS_HOST: 0.0.0.0
@@ -32,7 +32,7 @@ services:
     image: ghcr.io/open-webui/open-webui:main-slim
     container_name: daedalus-webui
     environment:
-      OPENAI_API_BASE_URL: http://daedalus:3357/v1
+      OPENAI_API_BASE_URL: http://api:3357/v1
       OPENAI_API_KEY: ${OPENWEBUI_API_KEY:-${DAEDALUS_MASTER_KEY:-}}
       ENABLE_OLLAMA_API: "false"
       # Sends X-OpenWebUI-Chat-Id, so a try again on daedalus/auto moves up 1 tier.
@@ -43,16 +43,16 @@ services:
       TASK_MODEL_EXTERNAL: daedalus/auto
       # Audio and images use their own URL and key. Without them, they go to api.openai.com.
       AUDIO_STT_ENGINE: openai
-      AUDIO_STT_OPENAI_API_BASE_URL: http://daedalus:3357/v1
+      AUDIO_STT_OPENAI_API_BASE_URL: http://api:3357/v1
       AUDIO_STT_OPENAI_API_KEY: ${OPENWEBUI_API_KEY:-${DAEDALUS_MASTER_KEY:-}}
       AUDIO_STT_MODEL: daedalus/graphos
       ENABLE_IMAGE_GENERATION: "true"
-      IMAGES_OPENAI_API_BASE_URL: http://daedalus:3357/v1
+      IMAGES_OPENAI_API_BASE_URL: http://api:3357/v1
       IMAGES_OPENAI_API_KEY: ${OPENWEBUI_API_KEY:-${DAEDALUS_MASTER_KEY:-}}
       IMAGE_GENERATION_MODEL: daedalus/photos
       ENABLE_IMAGE_EDIT: "true"
       IMAGE_EDIT_ENGINE: openai
-      IMAGES_EDIT_OPENAI_API_BASE_URL: http://daedalus:3357/v1
+      IMAGES_EDIT_OPENAI_API_BASE_URL: http://api:3357/v1
       IMAGES_EDIT_OPENAI_API_KEY: ${OPENWEBUI_API_KEY:-${DAEDALUS_MASTER_KEY:-}}
       IMAGE_EDIT_MODEL: daedalus/photos
       # Files and memory: main-slim has no local embedding model and supports only pgvector.
@@ -60,7 +60,7 @@ services:
       PGVECTOR_DB_URL: postgresql://openwebui:${OPENWEBUI_DB_PASSWORD:-openwebui}@webui-db:5432/openwebui
       PGVECTOR_INITIALIZE_MAX_VECTOR_LENGTH: "1024" # the size of a mistral-embed vector
       RAG_EMBEDDING_ENGINE: openai
-      RAG_OPENAI_API_BASE_URL: http://daedalus:3357/v1
+      RAG_OPENAI_API_BASE_URL: http://api:3357/v1
       RAG_OPENAI_API_KEY: ${OPENWEBUI_API_KEY:-${DAEDALUS_MASTER_KEY:-}}
       RAG_EMBEDDING_MODEL: mistral/mistral-embed
       RAG_EMBEDDING_BATCH_SIZE: "32" # chunks per request, below the free Mistral limits
@@ -85,7 +85,7 @@ services:
     volumes:
       - open-webui:/app/backend/data
     depends_on:
-      daedalus:
+      api:
         condition: service_started
       webui-db:
         condition: service_healthy
@@ -139,7 +139,7 @@ services:
     container_name: daedalus-headroom
     command: ["--host", "0.0.0.0", "--port", "8787"]
     environment:
-      HEADROOM_COMPRESS_ALLOW_REMOTE: "1" # else Headroom answers the daedalus container with 404
+      HEADROOM_COMPRESS_ALLOW_REMOTE: "1" # else Headroom answers the api container with 404
       HEADROOM_TELEMETRY: "off"
       HEADROOM_BEACON: "off" # the anonymous upload, on by default
       HEADROOM_UPDATE_CHECK: "off"
@@ -147,19 +147,18 @@ services:
       HEADROOM_WORKSPACE_DIR: /home/nonroot/.headroom
     volumes:
       - headroom:/home/nonroot # the image user owns this folder, so the new volume is writable
-    restart: unless-stopped # no port: only daedalus connects to it
+    restart: unless-stopped # no port: only api connects to it
 
   tailscale:
     profiles: [tailscale]
     image: tailscale/tailscale:latest
     container_name: daedalus-tailscale
-    # hostname intentionally not set to daedalus to avoid conflict with daedalus service DNS
-    # TS_HOSTNAME env var controls tailnet device name, not container hostname
+    hostname: ${TS_HOSTNAME:-daedalus}
     environment:
       TS_AUTHKEY: ${TS_AUTHKEY:-}
       TS_HOSTNAME: ${TS_HOSTNAME:-daedalus}
       TS_STATE_DIR: /var/lib/tailscale
-      TS_SERVE_CONFIG: /config/serve.json # tailnet only: :443 to daedalus, :8443 to Open WebUI
+      TS_SERVE_CONFIG: /config/serve.json # tailnet only: :443 to api, :8443 to Open WebUI
       TS_AUTH_ONCE: "true" # log in with TS_AUTHKEY only when the state has no login
       TS_ENABLE_HEALTH_CHECK: "true"
       TS_LOCAL_ADDR_PORT: 127.0.0.1:9002
@@ -172,7 +171,7 @@ services:
       - tailscale:/var/lib/tailscale
       - ./services/tailscale:/config:ro
     depends_on:
-      daedalus:
+      api:
         condition: service_healthy
     restart: unless-stopped
 
