@@ -5,7 +5,7 @@
   "Web": {
     "${TS_CERT_DOMAIN}:443": {
       "Handlers": {
-        "/": { "Proxy": "http://api:3357" }
+        "/": { "Proxy": "http://open-webui:8080" }
       }
     }
   },
