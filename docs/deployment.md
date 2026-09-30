@@ -145,7 +145,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Setting | Value |
 | --- | --- |
 | Image | `searxng/searxng:2026.9.25-12f8b6515` |
-| Settings | `searxng/settings.yml`: JSON results on, the limiter off, so no Valkey |
+| Settings | `services/searxng/settings.yml`: JSON results on, the limiter off, so no Valkey |
 | `SEARXNG_SECRET` | From `.env`. Empty by default: SearXNG has no host port, and the image proxy is off. |
 | When it searches | With Native function calling, the model decides. Tell it to search the web when it does not. |
 | Blocks | SearXNG sends each query to public search engines. They can block the Pi address or show a CAPTCHA. |
