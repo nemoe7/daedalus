@@ -223,12 +223,11 @@ const seconds = (value) => value == null ? "" : `${value.toFixed(3)}s`;
 // A cooldown that an attempt started, such as "cooldown 60s backoff".
 const coolText = (c) => `cooldown ${timeLeft(Date.now() / 1000 + c.seconds) || "0s"} ${c.reason}`;
 
-// The effort that went to one model, where null means that daedalus dropped it.
-// A native value of the level that the client asked for, such as thinkingLevel=low for low, shows only the level.
 function sentText(a, asked) {
   if (a.effort == null) return "dropped";
-  const level = String(a.effort).split("=").pop().toLowerCase();
-  return asked && level === String(asked).toLowerCase() ? asked : a.effort;
+  const shown = String(a.effort).replace(/^thinkingLevel=/, "");
+  const level = shown.split("=").pop().toLowerCase();
+  return asked && level === String(asked).toLowerCase() ? asked : shown;
 }
 
 // The effort that the client asked for, then the effort that went to the model that answered.
