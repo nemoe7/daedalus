@@ -258,7 +258,9 @@ function statusCell(r) {
 }
 
 function statusClass(r) {
-  return r.cancelled ? "muted" : `s${String(r.status)[0]}`;
+  if (r.cancelled) return "muted";
+  if (r.status === "err") return "s5";
+  return `s${String(r.status)[0]}`;
 }
 
 function chainText(r) {
@@ -365,15 +367,10 @@ const TRANSITION_REASONS = {
   try: "OpenWebUI retry changed the route",
 };
 
-function transitionCell(t, inflight = false) {
-  if (!t) return "";
-  const label = TRANSITION_REASONS[t.reason];
-  const reason = label
-    ? ` <span class="transition-code" title="${esc(label)}" aria-label="${esc(label)}" tabindex="0">${esc(t.reason)}</span>`
-    : "";
-  const from = `${esc(t.from_pool || "-")}/${esc(t.from_model || "-")}`;
-  const to = `${esc(t.to_pool || "-")}/${esc(t.to_model || "-")}`;
-  return `<br><span class="from transition">previous ${from} → next${inflight ? " (inflight)" : ""} ${to}${reason}</span>`;
+function transitionCell(t) {
+  if (!t || !t.reason) return "";
+  const label = TRANSITION_REASONS[t.reason] || t.reason;
+  return ` <span class="transition-code" title="${esc(label)}" aria-label="${esc(label)}" tabindex="0">${esc(t.reason)}</span>`;
 }
 
 function renderLive() {
@@ -410,13 +407,76 @@ function tickLive() {
   }
 }
 
+function splitRequest(r) {
+  const attempts = r.attempts || [];
+  const answered = [];
+  attempts.forEach((a, i) => {
+    if (a.result === "answered") answered.push(i);
+  });
+  if (answered.length <= 1) return [r];
+
+  const result = [];
+  let prevCut = 0;
+  for (let j = 0; j < answered.length; j++) {
+    const isLast = j === answered.length - 1;
+    let nextCut;
+    if (isLast) {
+      nextCut = attempts.length;
+    } else {
+      const ansIdx = answered[j];
+      const model = attempts[ansIdx].model;
+      let failIdx = ansIdx + 1;
+      while (failIdx < answered[j + 1] && attempts[failIdx].model === model && attempts[failIdx].result !== "answered") {
+        failIdx++;
+      }
+      nextCut = failIdx;
+    }
+
+    const slice = attempts.slice(prevCut, nextCut);
+    const ansAttempt = attempts[answered[j]];
+    const at = r.at + (j === 0 ? 0 : (attempts[answered[0]]?.seconds || 0.001) * j);
+
+    if (!isLast) {
+      result.push({
+        ...r,
+        at,
+        via: ansAttempt.model,
+        status: "err",
+        attempts: slice,
+        fallbacks: Math.max(0, slice.length - 1),
+        ttft: ansAttempt.seconds != null ? seconds(ansAttempt.seconds) : r.ttft,
+        seconds: ansAttempt.seconds ?? r.seconds,
+        tokens: r.tokens ? { input: r.tokens.input } : null,
+        transition: null,
+      });
+    } else {
+      result.push({
+        ...r,
+        at,
+        via: ansAttempt.model,
+        status: r.status,
+        attempts: slice,
+        fallbacks: Math.max(0, slice.length - 1),
+        ttft: ansAttempt.seconds != null ? seconds(ansAttempt.seconds) : r.ttft,
+        seconds: r.seconds,
+        transition: r.transition,
+      });
+    }
+    prevCut = nextCut;
+  }
+  return result.reverse();
+}
+
+const splitRequests = (requests) => (requests || []).flatMap(splitRequest);
+
 function renderRequests(rows) {
-  const text = JSON.stringify(rows);
+  const flatRows = splitRequests(rows);
+  const text = JSON.stringify(flatRows);
   const selected = getSelection();
   if (text === shownRequests) return;
   if (!selected.isCollapsed && $("requests").contains(selected.anchorNode)) return;
   shownRequests = text;
-  $("requests").innerHTML = rows.length ? rows.map((r) => `
+  $("requests").innerHTML = flatRows.length ? flatRows.map((r) => `
     ${hasChain(r) ? `<tr class="request${opened.has(String(r.at)) ? " open" : ""}" data-at="${r.at}" title="Show the fallback chain">` : "<tr>"}
       <td class="num muted"><span class="caret${hasChain(r) ? "" : " none"}"></span>${clock(r.at)}</td>
       ${appCell(r)}
@@ -1291,8 +1351,8 @@ async function saveSettings() {
 async function refreshFast() {
   const [status, requests] = await Promise.all([call("status"), call(`requests?limit=${state.requestLimit}`)]);
   renderStatus(status);
-  state.requests = requests;
-  renderRequests(requests);
+  state.requests = splitRequests(requests);
+  renderRequests(state.requests);
   $("more-requests").hidden = requests.length < state.requestLimit || state.requestLimit >= REQUESTS_KEPT;
   // After a rebuild, the pools and models change too.
   if (state.catalog.rebuilding && !status.catalog?.rebuilding) guarded(refreshSlow);
