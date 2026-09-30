@@ -186,10 +186,13 @@ def secure(request: Request) -> bool:
 
 
 def partition(response: Response) -> None:
-  """Mark the last cookie as partitioned. Starlette does this only on Python 3.14."""
-  name, value = response.raw_headers[-1]
-  if name == b"set-cookie":
-    response.raw_headers[-1] = (name, value + b"; Partitioned")
+  """Mark the set-cookie header as partitioned."""
+  for index in range(len(response.raw_headers) - 1, -1, -1):
+    name, value = response.raw_headers[index]
+    if name.lower() == b"set-cookie":
+      if b"; Partitioned" not in value and b"; partitioned" not in value:
+        response.raw_headers[index] = (name, value + b"; Partitioned")
+      break
 
 
 # A new provider file: the name rule, and the text of the file.
