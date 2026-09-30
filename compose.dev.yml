@@ -184,11 +184,11 @@ services:
   tailscale-openwebui:
     profiles: [webui]
     image: tailscale/tailscale:latest
-    container_name: daedalus-tailscale-openwebui
-    hostname: ${TS_HOSTNAME_OPENWEBUI:-openwebui}
+    container_name: daedalus-tailscale-owui
+    hostname: ${TS_HOSTNAME_OWUI:-owui}
     environment:
-      TS_AUTHKEY: ${TS_AUTHKEY_OPENWEBUI:-${TS_AUTHKEY:-}}
-      TS_HOSTNAME: ${TS_HOSTNAME_OPENWEBUI:-openwebui}
+      TS_AUTHKEY: ${TS_AUTHKEY_OWUI:-${TS_AUTHKEY:-}}
+      TS_HOSTNAME: ${TS_HOSTNAME_OWUI:-owui}
       TS_STATE_DIR: /var/lib/tailscale
       TS_SERVE_CONFIG: /config/serve.json
       TS_AUTH_ONCE: "true"
@@ -200,7 +200,7 @@ services:
       timeout: 5s
       retries: 3
     volumes:
-      - tailscale-openwebui:/var/lib/tailscale
+      - tailscale-owui:/var/lib/tailscale
       - ./services/tailscale-openwebui:/config:ro
     depends_on:
       open-webui:
@@ -213,4 +213,4 @@ volumes:
   searxng:
   headroom:
   tailscale:
-  tailscale-openwebui:
+  tailscale-owui:
