@@ -107,6 +107,5 @@ def run(argv: list[str] | None = None) -> None:
     api.LIMIT_CHECKS = True
     import uvicorn
 
-    uvicorn.run(
-      api.app, host=api.HOST, port=args.port, log_config=None, access_log=False
-    )
+    host = None if api.HOST in ("0.0.0.0", "::") else api.HOST
+    uvicorn.run(api.app, host=host, port=args.port, log_config=None, access_log=False)
