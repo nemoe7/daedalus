@@ -347,6 +347,28 @@ function closeLive() {
   state.live = new Map();
 }
 
+const TRANSITION_REASONS = {
+  ctx: "Previous model exceeded the context limit",
+  hlt: "No healthy deployments in the previous pool",
+  lmt: "Quota or cooldown blocked the previous pool",
+  err: "Previous upstream attempt failed",
+  rnd: "Weighted random draw selected another model",
+  cls: "Prompt classifier chose a different tier",
+  esc: "Escalation keyword raised the tier",
+  try: "OpenWebUI retry changed the route",
+};
+
+function transitionCell(t, inflight = false) {
+  if (!t) return "";
+  const label = TRANSITION_REASONS[t.reason];
+  const reason = label
+    ? ` <span class="transition-code" title="${esc(label)}" aria-label="${esc(label)}" tabindex="0">${esc(t.reason)}</span>`
+    : "";
+  const from = `${esc(t.from_pool || "-")}/${esc(t.from_model || "-")}`;
+  const to = `${esc(t.to_pool || "-")}/${esc(t.to_model || "-")}`;
+  return `<br><span class="from transition">previous ${from} → next${inflight ? " (inflight)" : ""} ${to}${reason}</span>`;
+}
+
 function renderLive() {
   const rows = [...state.live.values()].sort((a, b) => b.since - a.since);
   $("live").innerHTML = rows.map((r) => `
@@ -356,7 +378,7 @@ function renderLive() {
       <td class="hide-sm num">${esc(r.session || "-")}</td>
       ${nameCell(r.model || r.path)}
       <td class="hide-sm">${esc(r.effort || "-")}</td>
-      <td class="hide-sm muted">${esc(r.pool || "-")}</td>
+      <td class="hide-sm muted">${esc(r.pool || "-")}${transitionCell(r.transition, true)}</td>
       ${nameCell(r.via || r.trying || "", r.via ? esc(r.via) : `<span class="muted">${r.trying ? `trying ${esc(r.trying)}` : "waiting"}</span>`)}
       <td class="status muted">live</td>
       <td class="hide-sm num muted">-</td>
@@ -376,8 +398,8 @@ function tickLive() {
     if (!r) continue;
     const ttft = ((r.first ?? now) - r.attemptSince) / 1000;
     const stream = !r.stream ? (now - r.since) / 1000 : r.first == null ? null : (now - r.first) / 1000;
-    row.querySelector('[data-clock="ttft"]').textContent = `${ttft.toFixed(1)}s`;
-    row.querySelector('[data-clock="stream"]').textContent = stream == null ? "-" : `${stream.toFixed(1)}s`;
+    row.querySelector('[data-clock="ttft"]').textContent = seconds(ttft);
+    row.querySelector('[data-clock="stream"]').textContent = seconds(stream);
   }
 }
 
@@ -394,7 +416,7 @@ function renderRequests(rows) {
       <td class="hide-sm num">${esc(r.session || "-")}</td>
       ${nameCell(r.model || "-")}
       <td class="hide-sm">${effortCell(r)}</td>
-      <td class="hide-sm muted">${esc(r.pool || "-")}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${r.retry ? ` <span class="from">try again ${esc(r.retry)}</span>` : ""}${r.loop ? ` <span class="from">tool loop ${esc(r.loop)}</span>` : ""}</td>
+      <td class="hide-sm muted">${esc(r.pool || "-")}${transitionCell(r.transition)}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${r.retry ? ` <span class="from">try again ${esc(r.retry)}</span>` : ""}${r.loop ? ` <span class="from">tool loop ${esc(r.loop)}</span>` : ""}</td>
       ${nameCell(r.via || "", r.via ? esc(r.via) : '<span class="muted">none</span>')}
       <td class="status ${statusClass(r)}">${statusCell(r)}</td>
       ${tokenCell(r.tokens?.input, r.tokens?.estimate ? "~" : "")}
@@ -1040,6 +1062,7 @@ const SETTINGS = [
   ]],
   ["session_affinity", "Session affinity", [
     ["enabled", "On", "", "Each conversation stays on 1 model."],
+    ["change_on_draw", "Change pin on draw", "", "Off: keep the current pin while it remains eligible after a weighted draw."],
     ["idle", "Idle expiry", "s", "The session model expires after this time without a request."],
     ["stay", "Stay share", "", "The share of first-tier draws for the session model. Below 1."],
   ]],
@@ -1054,6 +1077,12 @@ const SETTINGS = [
   ["cooldown", "Cooldown", [
     ["first", "First backoff", "s", "The cooldown of a first 429 with no reset time."],
     ["longest", "Longest backoff", "s", "Each next 429 doubles the cooldown, up to this time."],
+  ]],
+  ["loops", "Loop detection", [
+    ["calls", "Tool calls", "", "Repeated identical calls since the last user message; 2–100."],
+    ["repeats", "Text repeats", "", "Consecutive copies of a text passage; 2–16."],
+    ["shortest", "Shortest passage", "", "Minimum period in characters; 1–1,000 and no greater than Longest."],
+    ["longest", "Longest passage", "", "Maximum period in characters; 1–10,000."],
   ]],
   ["pacing", "Pacing", [
     ["enabled", "On", "", "A model at its rpm or tpm for the last minute leaves the chains."],
@@ -1086,7 +1115,7 @@ const SETTINGS = [
 ];
 
 // The Settings cards of each column, from top to bottom.
-const SETTINGS_COLUMNS = [["timeouts", "catalog", "pacing", "pools"], ["session_affinity", "headroom", "cooldown", "dashboard"], ["weights", "escalation", "switch"]];
+const SETTINGS_COLUMNS = [["timeouts", "catalog", "pacing", "pools"], ["session_affinity", "headroom", "cooldown", "loops", "dashboard"], ["weights", "escalation", "switch"]];
 // The options of each choice field.
 const CHOICES = {
   theme: [["system", "System"], ["light", "Light"], ["dark", "Dark"]],
@@ -1108,8 +1137,15 @@ applyTheme();
 const DECIMALS = new Set([
   "session_affinity.stay", "weights.success", "weights.fault", "weights.slow", "weights.hourly", "weights.rate_limit",
 ]);
-// The highest value of a field, when it has one.
-const MAXIMA = { "catalog.anchor": 23 };
+// The input bounds. The server also checks them before saving.
+const MINIMA = { "loops.calls": 2, "loops.repeats": 2, "loops.shortest": 1, "loops.longest": 1 };
+const MAXIMA = {
+  "catalog.anchor": 23,
+  "loops.calls": 100,
+  "loops.repeats": 16,
+  "loops.shortest": 1000,
+  "loops.longest": 10000,
+};
 
 // The value in the file, or null when the file does not set it.
 const fileValue = (group, key) => state.settings.file?.[group]?.[key] ?? null;
@@ -1120,8 +1156,9 @@ function wheelStep(input, direction) {
   const text = input.value || input.placeholder;
   const places = input.step === "any" ? Math.max((text.split(".")[1] || "").length, 1) : 0;
   const size = 10 ** -places;
+  const min = input.min === "" ? 0 : Number(input.min);
   const max = input.max === "" ? Infinity : Number(input.max);
-  const next = Math.min(max, Math.max(0, (Number(text) || 0) + direction * size));
+  const next = Math.min(max, Math.max(min, (Number(text) || 0) + direction * size));
   return next.toFixed(places);
 }
 
@@ -1150,12 +1187,13 @@ function renderSettings() {
       const fallback = state.settings.defaults[group][key];
       const value = fileValue(group, key);
       return `<label class="field" for="${id}"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
-        <span class="input"><input type="number" min="0" id="${id}" value="${value ?? ""}"
+        <span class="input"><input type="number" min="${MINIMA[`${group}.${key}`] ?? 0}" id="${id}" value="${value ?? ""}"
           step="${DECIMALS.has(`${group}.${key}`) ? "any" : "1"}" ${MAXIMA[`${group}.${key}`] ? `max="${MAXIMA[`${group}.${key}`]}"` : ""}
           placeholder="${fallback ?? "half of Wait"}"><i>${esc(unit)}</i></span></label>`;
     }).join("")}</div>`;
   const cards = Object.fromEntries(SETTINGS.map((item) => [item[0], card(item)]));
   $("settings").innerHTML = SETTINGS_COLUMNS
+    .map((column) => column.filter((group) => group !== "headroom" || state.settings.headroom_available))
     .map((groups) => `<div class="column">${groups.map((group) => cards[group]).join("")}</div>`)
     .join("");
   renderSettingsSave();
@@ -1165,6 +1203,7 @@ function settingsChanges() {
   if (!state.settings) return {};
   const changes = {};
   for (const [group, , fields] of SETTINGS) {
+    if (group === "headroom" && !state.settings.headroom_available) continue;
     for (const [key, , unit] of fields) {
       const input = $(`set-${group}-${key}`);
       let value, before;

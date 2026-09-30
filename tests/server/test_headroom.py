@@ -29,11 +29,21 @@ class Lines(logging.Handler):
 class Sidecar:
   def __init__(self) -> None:
     self.status = 200
+    self.health: list[httpx.Request] = []
     self.compress: list[httpx.Request] = []
     self.provider: list[dict] = []
 
   def __call__(self, request: httpx.Request) -> httpx.Response:
     if request.url.host == "headroom":
+      if request.url.path == "/health":
+        self.health.append(request)
+        return httpx.Response(
+          self.status,
+          json={
+            "status": "healthy" if self.status == 200 else "unhealthy",
+            "ready": self.status == 200,
+          },
+        )
       self.compress.append(request)
       if self.status != 200:
         return httpx.Response(self.status, text="not here")
@@ -72,6 +82,18 @@ def test_compress(sidecar: Sidecar, lines: Lines) -> None:
   sidecar.status = 200
   asyncio.run(headroom.compress(body, "a/1"))
   assert "headroom answers again" in lines.lines, lines.lines
+
+
+def test_available(sidecar: Sidecar, monkeypatch: pytest.MonkeyPatch) -> None:
+  monkeypatch.delenv(headroom.URL_ENV, raising=False)
+  assert not asyncio.run(headroom.available()), "off without a URL"
+  monkeypatch.setenv(headroom.URL_ENV, "http://headroom:8787")
+  assert asyncio.run(headroom.available()), "a healthy sidecar answers /health"
+  sidecar.status = 503
+  assert not asyncio.run(headroom.available()), (
+    "a non-success health check is unavailable"
+  )
+  sidecar.status = 200
 
 
 class Trickle(httpx.AsyncByteStream):

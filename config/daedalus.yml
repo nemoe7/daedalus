@@ -7,6 +7,7 @@ timeouts:
   slow: 30 # a first token after this is slow; half of wait when missing
 session_affinity:
   enabled: true
+  change_on_draw: true # false: keep the current pin after a weighted first-tier draw
   idle: 3600 # seconds without a request, then the session model expires
   stay: 0.85 # in a session, the share of first-tier draws for the session model
 weights:
@@ -19,6 +20,11 @@ weights:
 cooldown:
   first: 60 # seconds of the first cooldown of a 429 with no reset time
   longest: 21600 # each next 429 doubles the cooldown, up to this many seconds
+loops:
+  calls: 3 # repeated identical tool calls since the last user message
+  repeats: 4 # consecutive copies of a repeated text passage
+  shortest: 20 # shortest passage period, in characters
+  longest: 2000 # longest passage period, in characters
 pacing:
   enabled: true # false: the rpm and tpm of the provider files do not skip models
 catalog:

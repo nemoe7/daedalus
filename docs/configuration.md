@@ -69,6 +69,7 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 | `timeouts.wait` | `60` | Seconds with no data from the provider. Keep-alive bytes do not count: SSE comments and blank lines. After this time, the next model starts. Media requests have no wait limit, only `timeouts.request`. |
 | `timeouts.slow` | Half of `timeouts.wait` | A first token after this time is slow |
 | `session_affinity.enabled` | `true` | Session models and the highest tier of a conversation |
+| `session_affinity.change_on_draw` | `true` | Replace an eligible session pin after a different weighted first-tier draw |
 | `session_affinity.idle` | `3600` | Seconds with no request, then the session expires |
 | `session_affinity.stay` | `0.85` | Share of first-tier draws for the session model |
 | `weights.enabled` | `true` | `false` keeps all weights at 1 |
@@ -79,6 +80,10 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 | `weights.rate_limit` | `0.75` | Factor for an HTTP 429 |
 | `cooldown.first` | `60` | Seconds of the first cooldown of a 429 with no reset time |
 | `cooldown.longest` | `21600` | Each next 429 doubles the cooldown, up to these seconds |
+| `loops.calls` | `3` | Repeated identical tool calls since the last user message. Integer from 2 to 100. |
+| `loops.repeats` | `4` | Consecutive copies of a repeated text passage. Integer from 2 to 16. |
+| `loops.shortest` | `20` | Shortest passage period, in characters. Integer from 1 to 1,000 and no greater than `loops.longest`. |
+| `loops.longest` | `2000` | Longest passage period, in characters. Integer from 1 to 10,000. |
 | `pacing.enabled` | `true` | `false`: the `rpm` and `tpm` of the provider files do not skip models |
 | `catalog.every` | `6` | Hours between catalog rebuilds. `0` stops them. |
 | `catalog.anchor` | `6` | Local hour that the rebuild times start from. A whole hour from 0 to 23. |

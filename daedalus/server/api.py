@@ -61,6 +61,8 @@ async def lifespan(_application: FastAPI) -> AsyncIterator[None]:
 
 # The catalog rebuild for the schedule. `daedalus serve` sets it, and tests leave it off.
 CATALOG_REFRESH: Callable[[], object] | None = None
+# A config-save rebuild uses cached provider snapshots only.
+CATALOG_REBUILD_CACHED: Callable[[], object] | None = None
 # The hourly balance checks of the Limits page. `daedalus serve` turns them on.
 LIMIT_CHECKS = False
 app = FastAPI(title="daedalus", version="0.1.0", lifespan=lifespan)
@@ -364,6 +366,122 @@ def routed_pool(slot: str) -> str:
   return POOL_NAMES[slot.rpartition(":")[2]]
 
 
+def tier_pool(tier: int | None) -> str | None:
+  """The current client-facing pool name of a tier."""
+  return next(
+    (
+      router.pool_name(name).removeprefix("daedalus/")
+      for name, value in router.POOLS.items()
+      if value == tier
+    ),
+    None,
+  )
+
+
+def pool_tier(pool: str) -> int | None:
+  """The tier that owns a current client-facing pool name."""
+  return next(
+    (
+      value
+      for name, value in router.POOLS.items()
+      if router.pool_name(name).removeprefix("daedalus/") == pool
+    ),
+    None,
+  )
+
+
+def model_pool(config: dict[str, Any], model: str) -> str | None:
+  """The pool that owns a provider model, or None when no pool claims it."""
+  name, _, slug = model.partition("/")
+  block = block_for(config, name, slug)
+  tier_name = router.claiming_tier(block, slug) if block else None
+  tier = next(
+    (value for value, name in router.TIER_NAMES.items() if name == tier_name), None
+  )
+  return tier_pool(tier)
+
+
+def previous_auto_pin(key: str, config: dict[str, Any]) -> dict[str, str] | None:
+  """The last successful model of a `daedalus/auto` session, if one exists."""
+  found = PENALTIES.last_pin(key)
+  if found is None:
+    return None
+  slot, model = found
+  if not slot.startswith(f"{router.RESERVED_MODEL}:"):
+    return None
+  tier_name = slot.rpartition(":")[2]
+  tier = next(
+    (value for value, name in router.TIER_NAMES.items() if name == tier_name), None
+  )
+  pool = tier_pool(tier) or model_pool(config, model)
+  return {"pool": pool or "", "model": model}
+
+
+def pool_models(config: dict[str, Any], groups: list[list[str]], pool: str) -> set[str]:
+  """The candidate models of one pool in a filtered tier chain."""
+  return {
+    model for group in groups for model in group if model_pool(config, model) == pool
+  }
+
+
+def initial_transition_reason(
+  config: dict[str, Any],
+  previous: dict[str, str],
+  candidate: str,
+  turn: Any,
+  messages: list,
+  raw: list[list[str]],
+  sized: list[list[str]],
+  cooled: list[list[str]],
+  paced: list[list[str]],
+  switched: bool,
+) -> str | None:
+  """The known cause of a changed first candidate, or None for an unlabelled policy change."""
+  pool, model = previous["pool"], previous["model"]
+  if not pool:
+    return None
+  raw_models = pool_models(config, raw, pool)
+  if model not in raw_models:
+    return "hlt" if not raw_models else None
+  if model not in pool_models(config, sized, pool):
+    return "ctx"
+  if model not in pool_models(config, cooled, pool) or model not in pool_models(
+    config, paced, pool
+  ):
+    return "lmt"
+  next_pool = model_pool(config, candidate)
+  if turn is not None and turn.count and next_pool != pool:
+    return "try"
+  tier = pool_tier(pool)
+  next_tier = pool_tier(next_pool) if next_pool is not None else None
+  higher_tier = tier is not None and next_tier is not None and next_tier > tier
+  if higher_tier and said(KEYWORDS, messages):
+    return "esc"
+  prompt_tier = router.required_tier("\n".join(user_turns(messages)))
+  if higher_tier and next_tier == prompt_tier:
+    return "cls"
+  if next_pool == pool and candidate != model and PENALTIES.enabled and not switched:
+    return "rnd"
+  return None
+
+
+def route_transition(
+  previous_pool: str,
+  previous_model: str,
+  next_pool: str | None,
+  next_model: str,
+  reason: str | None,
+) -> dict[str, str | None]:
+  """The previous and next auto model for the Requests live row."""
+  return {
+    "from_pool": previous_pool,
+    "from_model": previous_model,
+    "to_pool": next_pool,
+    "to_model": next_model,
+    "reason": reason,
+  }
+
+
 def served(request: Request, config: dict[str, Any], candidate: str) -> None:
   """Show the pool of the model that answers, and keep the first pool when it differs."""
   first = getattr(request.state, "pool", None)
@@ -395,6 +513,7 @@ app.include_router(
     COOLDOWNS,
     lambda: CATALOG_REFRESH,
     LIMITS,
+    lambda: CATALOG_REBUILD_CACHED,
   )
 )
 
@@ -406,6 +525,8 @@ class Tracker:
     self.key = key
     self.client = client
     self.slot = slot if AFFINITY else None
+    self.session_model = PENALTIES.pinned(key, self.slot) if self.slot else None
+    self.preserve_pin = False
     self.dropped = False
     self.switched = False
 
@@ -418,6 +539,7 @@ class Tracker:
     model = PENALTIES.pinned(self.key, self.slot) if self.slot else None
     if model:
       self.switched = PENALTIES.unpin(self.key, self.slot, model)
+      self.preserve_pin = False
     return model
 
   def order(self, groups: list[list[str]]) -> list[str]:
@@ -439,8 +561,11 @@ class Tracker:
     if not self.slot:
       return None
     if slow:
-      PENALTIES.unpin(self.key, self.slot, model)
+      if PENALTIES.unpin(self.key, self.slot, model):
+        self.preserve_pin = False
       return "slow"
+    if self.preserve_pin and model != self.session_model:
+      return None
     state = PENALTIES.pin(self.key, self.slot, model)
     if self.switched:
       return "switched"
@@ -459,6 +584,7 @@ class Tracker:
     self._weight(model, PENALTIES.rate_limit if limited else PENALTIES.fault, attempt)
     if self.slot and PENALTIES.unpin(self.key, self.slot, model):
       self.dropped = True
+      self.preserve_pin = False
     return COOLDOWNS.start(self.lane(model), exc.headers, exc.body) if limited else None
 
   def cooled(self, ends: dict[str, float]) -> None:
@@ -466,6 +592,8 @@ class Tracker:
     model = PENALTIES.pinned(self.key, self.slot) if self.slot else None
     if model and COOLDOWNS.until(self.lane(model), ends) is not None:
       self.dropped = PENALTIES.unpin(self.key, self.slot, model)
+      if self.dropped:
+        self.preserve_pin = False
 
 
 def tool_loop(request: Request, messages: list, pin: Tracker) -> str | None:
@@ -537,6 +665,11 @@ async def chat(request: Request) -> Response:
   config = get_config()
   key = session_key(access.bearer(request), body["messages"])
   request.state.session = key[:7]
+  previous = (
+    previous_auto_pin(key, config)
+    if model == router.RESERVED_MODEL and AFFINITY
+    else None
+  )
   turn = None
   chat_id = request.headers.get(retries.CHAT_HEADER)
   if model == router.RESERVED_MODEL and chat_id:
@@ -565,31 +698,65 @@ async def chat(request: Request) -> Response:
   attempts: list[dict[str, Any]] = []
   request.state.attempts = attempts
   # Too-small models leave the tiers before the draw, so they cannot be drawn or pinned.
-  groups = [
-    [m for m in group if not context.too_large(m, tokens, limits)] for group in found[0]
+  raw_groups = found[0]
+  sized_groups = [
+    [m for m in group if not context.too_large(m, tokens, limits)]
+    for group in raw_groups
   ]
-  if any(found[0]) and not any(groups):
+  if any(raw_groups) and not any(sized_groups):
     return context.too_long(tokens)
   ends = COOLDOWNS.ends()
-  groups, wait = without_cooling(groups, ends, pin.lane)
+  cooled_groups, wait = without_cooling(sized_groups, ends, pin.lane)
   if wait is not None:
     return upstream.cooling_response(wait)
   pin.cooled(ends)
   paces = store.pace_limits()
   paced = [
-    [m for m in group if not PACING.full(pin.lane(m), paces)] for group in groups
+    [m for m in group if not PACING.full(pin.lane(m), paces)] for group in cooled_groups
   ]
-  if any(groups) and not any(paced):
+  if any(cooled_groups) and not any(paced):
     return upstream.cooling_response(
-      PACING.wait(pin.lane(m) for group in groups for m in group)
+      PACING.wait(pin.lane(m) for group in cooled_groups for m in group)
     )
   models = pin.order(paced)
+  if (
+    not PENALTIES.change_on_draw
+    and PENALTIES.enabled
+    and pin.session_model
+    and not pin.dropped
+    and not pin.switched
+    and pin.session_model in {model for group in paced for model in group}
+    and models
+    and models[0] != pin.session_model
+  ):
+    pin.preserve_pin = True
   if old in models:
     # A switch keyword gives the session another model. The old model is the last fallback.
     models = [m for m in models if m != old] + [old]
   if looping in models:
     # The model with the tool loop is the last fallback of this request.
     models = [m for m in models if m != looping] + [looping]
+  first_transition = None
+  if previous and models:
+    candidate_pool = model_pool(config, models[0]) or getattr(
+      request.state, "pool", None
+    )
+    if models[0] != previous["model"] or candidate_pool != previous["pool"]:
+      reason = initial_transition_reason(
+        config,
+        previous,
+        models[0],
+        turn,
+        body["messages"],
+        raw_groups,
+        sized_groups,
+        cooled_groups,
+        paced,
+        pin.switched,
+      )
+      first_transition = route_transition(
+        previous["pool"], previous["model"], candidate_pool, models[0], reason
+      )
   if models:
     body, saved = await headroom.compress(body, models[0])
     if saved is not None:
@@ -605,11 +772,28 @@ async def chat(request: Request) -> Response:
     and (router.model_setting(config, model, "timeout") is not None)
   )
   index = 0
+  previous_attempt: tuple[str, str] | None = None
+  fallback_reason = "err"
   while index < len(models):
     candidate = models[index]
+    candidate_pool = model_pool(config, candidate) or getattr(request.state, "pool", "")
+    transition = first_transition if index == 0 else None
+    if index and previous_attempt:
+      transition = route_transition(
+        previous_attempt[1],
+        previous_attempt[0],
+        candidate_pool,
+        candidate,
+        fallback_reason,
+      )
+    request.state.transition = transition
     request.state.fallbacks = str(index)
     dashboard.live_update(
-      request, trying=candidate, fallbacks=index, session=request.state.session
+      request,
+      trying=candidate,
+      fallbacks=index,
+      session=request.state.session,
+      transition=transition,
     )
     started, sent = time.perf_counter(), {}
     PACING.record(pin.lane(candidate), tokens)
@@ -671,6 +855,8 @@ async def chat(request: Request) -> Response:
         else "Upstream provider attempt failed",
         "upstream_error",
       )
+      previous_attempt = (candidate, candidate_pool)
+      fallback_reason = "err"
       index += 1
       continue
     except upstream.UpstreamStatus as exc:
@@ -680,6 +866,8 @@ async def chat(request: Request) -> Response:
       failure = upstream.error_response(
         exc.status, "Upstream provider rejected the request", "upstream_error"
       )
+      previous_attempt = (candidate, candidate_pool)
+      fallback_reason = "lmt" if isinstance(exc, upstream.RateLimitError) else "err"
       index += 1
       continue
     except stream.ATTEMPT_ERRORS as exc:
@@ -689,6 +877,8 @@ async def chat(request: Request) -> Response:
       failure = upstream.error_response(
         502, "Upstream provider attempt failed", "upstream_error"
       )
+      previous_attempt = (candidate, candidate_pool)
+      fallback_reason = "err"
       index += 1
       continue
     rest = models[index + 1 :]
@@ -701,6 +891,23 @@ async def chat(request: Request) -> Response:
     served(request, config, candidate)
     dashboard.live_first(request)
     remember(request, turn, candidate)
+
+    def stream_transition(previous_model: str, next_model: str, reason: str) -> None:
+      previous_pool = model_pool(config, previous_model) or ""
+      next_pool = model_pool(config, next_model) or ""
+      transition = route_transition(
+        previous_pool, previous_model, next_pool, next_model, reason
+      )
+      fallbacks = len(attempts)
+      request.state.transition = transition
+      request.state.fallbacks = str(fallbacks)
+      dashboard.live_update(
+        request,
+        trying=next_model,
+        fallbacks=fallbacks,
+        transition=transition,
+      )
+
     return StreamingResponse(
       stream.relay(
         pending,
@@ -713,6 +920,7 @@ async def chat(request: Request) -> Response:
         pin,
         attempts,
         request.state.tokens,
+        stream_transition if model == router.RESERVED_MODEL else None,
       ),
       media_type="text/event-stream",
     )
@@ -746,8 +954,13 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   )
   SLOW_SECONDS, AFFINITY = timeouts["slow"], affinity["enabled"]
   PENALTIES.idle, PENALTIES.enabled = affinity["idle"], weights["enabled"]
+  PENALTIES.change_on_draw = affinity["change_on_draw"]
   signatures.IDLE_SECONDS = RETRIES.idle = media.REPEATS.idle = affinity["idle"]
   loops.IDLE_SECONDS = affinity["idle"]
+  loops.CALLS = values["loops"]["calls"]
+  loops.REPEATS = values["loops"]["repeats"]
+  loops.SHORTEST = values["loops"]["shortest"]
+  loops.LONGEST = values["loops"]["longest"]
   PENALTIES.stay = affinity["stay"]
   headroom.TIMEOUT_SECONDS = values["headroom"]["timeout"]
   schedule.EVERY, schedule.ANCHOR = (
