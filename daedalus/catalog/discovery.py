@@ -1,8 +1,12 @@
 """Read the model lists of the providers and keep the models that the config selects."""
 
+import csv
+import hashlib
 import json
 import logging
 import re
+import sqlite3
+import time
 from collections.abc import Callable, Iterable
 from fnmatch import fnmatchcase
 from pathlib import Path
@@ -11,6 +15,7 @@ from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 import httpx
 
+from daedalus import store
 from daedalus.config import STATE_DIR, file_block, file_takes, get_config, main_block
 from daedalus.providers import PROVIDERS, OpenAIProvider, settings
 from daedalus.store import COLUMNS
@@ -40,6 +45,57 @@ STRIPPED_SHAPE = "models"
 
 
 Fetch = Callable[[str, dict[str, str]], dict[str, Any]]
+SNAPSHOT_SCHEMA = (
+  "CREATE TABLE IF NOT EXISTS provider_snapshots "
+  "(url_hash TEXT PRIMARY KEY, payload TEXT NOT NULL, updated REAL NOT NULL)"
+)
+
+
+def snapshot_hash(url: str) -> str:
+  """Hash a discovery URL so query credentials are not stored in the snapshot table."""
+  return hashlib.sha256(url.encode("utf-8")).hexdigest()
+
+
+def save_snapshot(url: str, payload: dict[str, Any]) -> None:
+  """Replace the cached raw response for one discovery URL."""
+  target = Path(store.MODELS_DB)
+  target.parent.mkdir(parents=True, exist_ok=True)
+  with sqlite3.connect(target, timeout=10) as database:
+    database.execute(SNAPSHOT_SCHEMA)
+    database.execute(
+      "INSERT INTO provider_snapshots (url_hash, payload, updated) VALUES (?, ?, ?) "
+      "ON CONFLICT(url_hash) DO UPDATE SET "
+      "payload = excluded.payload, updated = excluded.updated",
+      (
+        snapshot_hash(url),
+        json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+        time.time(),
+      ),
+    )
+
+
+def cached_snapshot(url: str) -> dict[str, Any] | None:
+  """Return one cached raw response, or None when it is absent or unreadable."""
+  target = Path(store.MODELS_DB)
+  if not target.exists():
+    return None
+  try:
+    with sqlite3.connect(f"file:{target}?mode=ro", uri=True) as database:
+      row = database.execute(
+        "SELECT payload FROM provider_snapshots WHERE url_hash = ?",
+        (snapshot_hash(url),),
+      ).fetchone()
+  except sqlite3.Error as error:
+    logger.debug("no provider snapshot for %s: %s", snapshot_hash(url), error)
+    return None
+  if row is None:
+    return None
+  try:
+    payload = json.loads(row[0])
+  except (json.JSONDecodeError, TypeError):
+    logger.warning("ignored an invalid provider snapshot for %s", snapshot_hash(url))
+    return None
+  return payload if isinstance(payload, dict) else None
 
 
 def text(value: Any) -> str:
@@ -246,13 +302,18 @@ def read_providers(
   config: dict[str, Any] | None = None,
   fetch: Fetch = fetch_json,
   failed: list[str] | None = None,
+  *,
+  cached: bool = False,
+  save_snapshots: bool = False,
+  require_api_key: bool = True,
 ) -> tuple[list[tuple[str, dict[str, Any], dict[str, Any], bool]], list[str]]:
-  """Read each provider, and return its settings and payload, with one reason per skip."""
+  """Read provider lists from the network or snapshots, with one reason per skip."""
   providers = get_config() if config is None else config
   found: list[tuple[str, dict[str, Any], dict[str, Any], bool]] = []
   skipped: list[str] = []
-  # 1 read per discovery URL: the other blocks of a provider use the same payload or error.
+  # 1 read and snapshot per URL: every block with that URL shares the response.
   downloads: dict[str, dict[str, Any] | str] = {}
+  saved: set[str] = set()
   for provider_name, raw in providers.items():
     if not isinstance(raw, dict):
       skipped.append(f"{provider_name}: not a mapping")
@@ -266,24 +327,38 @@ def read_providers(
       # A provider file discovers with its own settings, and takes its own models.
       blocks.append((settings(provider_name, file), True))
     for provider, is_file in blocks:
-      if not (provider.get("api_key") or ""):
+      if require_api_key and not (provider.get("api_key") or ""):
         skipped.append(f"{provider_name}: no api_key")
         continue
-      if not provider.get("discovery_url"):
+      source = provider.get("discovery_url")
+      if not isinstance(source, str) or not source:
         skipped.append(f"{provider_name}: no discovery_url")
         continue
-      source = provider["discovery_url"]
       if source not in downloads:
-        try:
-          downloads[source] = read_pages(provider_name, provider, fetch)
-        except (httpx.HTTPError, ValueError) as error:
-          downloads[source] = str(error)
-          skipped.append(f"{provider_name}: {error}")
-          if failed is not None and provider_name not in failed:
-            failed.append(provider_name)
+        if cached:
+          payload = cached_snapshot(source)
+          if payload is None:
+            reason = "no cached catalog snapshot"
+            downloads[source] = reason
+            skipped.append(f"{provider_name}: {reason}")
+            if failed is not None and provider_name not in failed:
+              failed.append(provider_name)
+          else:
+            downloads[source] = payload
+        else:
+          try:
+            downloads[source] = read_pages(provider_name, provider, fetch)
+          except (httpx.HTTPError, ValueError) as error:
+            downloads[source] = str(error)
+            skipped.append(f"{provider_name}: {error}")
+            if failed is not None and provider_name not in failed:
+              failed.append(provider_name)
       payload = downloads[source]
       if isinstance(payload, dict):
         found.append((provider_name, provider, payload, is_file))
+        if save_snapshots and not cached and source not in saved:
+          save_snapshot(source, payload)
+          saved.add(source)
   return found, skipped
 
 
@@ -299,9 +374,14 @@ def build_rows(
   config: dict[str, Any] | None = None,
   fetch: Fetch = fetch_json,
   failed: list[str] | None = None,
+  *,
+  cached: bool = False,
+  save_snapshots: bool = False,
 ) -> tuple[dict[str, dict[str, Any]], list[str]]:
   """Map each kept catalog line to its provider columns, with one reason per skip."""
-  found, skipped = read_providers(config, fetch, failed)
+  found, skipped = read_providers(
+    config, fetch, failed, cached=cached, save_snapshots=save_snapshots
+  )
   lines: dict[str, dict[str, Any]] = {}
   for provider_name, provider, payload, is_file in found:
     rows = provider_rows(provider_name, provider, payload)
@@ -321,25 +401,49 @@ def build_rows(
   return lines, skipped
 
 
+def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
+  """Write model rows as CSV, keeping nested values as compact JSON cells."""
+  columns = ["id", *sorted({key for row in rows for key in row} - {"id"})]
+  with path.open("w", encoding="utf-8", newline="") as output:
+    writer = csv.DictWriter(output, fieldnames=columns)
+    writer.writeheader()
+    for row in rows:
+      writer.writerow(
+        {
+          key: json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+          if isinstance(value, (dict, list, tuple))
+          else value
+          for key, value in row.items()
+        }
+      )
+
+
 def dump(
   config: dict[str, Any] | None = None,
-  fetch: Fetch = fetch_json,
   folder: Path | str = DUMP_DIR,
+  file_format: str = "json",
 ) -> list[Path]:
-  """Write the raw discovery payload of each provider to `{provider}.json`, before `exclude`."""
+  """Write cached provider catalogs to `{provider}.json` or `{provider}.csv`."""
+  if file_format not in {"json", "csv"}:
+    raise ValueError("file_format must be json or csv")
   target = Path(folder)
   target.mkdir(parents=True, exist_ok=True)
-  for old in target.glob("*.json"):
-    old.unlink()
-  found, skipped = read_providers(config, fetch)
+  for old in target.iterdir():
+    if old.is_file() and old.suffix in {".json", ".csv"} and old.stem != "models":
+      old.unlink()
+  found, skipped = read_providers(config, cached=True, require_api_key=False)
   paths = []
   written: list[dict[str, Any]] = []
-  for provider_name, _, payload, _ in found:
-    path = target / f"{provider_name}.json"
+  for provider_name, provider, payload, _ in found:
+    path = target / f"{provider_name}.{file_format}"
     if any(payload is seen for seen in written) or path in paths:
       continue
     written.append(payload)
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", "utf-8")
+    if file_format == "json":
+      path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", "utf-8")
+    else:
+      rows = provider_rows(provider_name, provider, payload)
+      write_csv(path, [{"id": slug, **row} for slug, row in rows.items()])
     paths.append(path)
   for reason in skipped:
     logger.warning("skipped %s", reason)
