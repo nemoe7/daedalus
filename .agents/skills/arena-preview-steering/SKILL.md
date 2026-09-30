@@ -18,7 +18,7 @@ Use this guide and its Markdown references for workflow; read shipped scripts on
 
 1. Find this skill's actual path; installed and source paths differ. Report missing installed files; do not install or repair them without authorization.
 2. Use an ignored, persisted state directory, default `arena-state`. Verify `core.excludesFile` with `git check-ignore`; never add this directory to the repository `.gitignore`, put it in a cache/build folder, or commit/push its state and reports.
-3. Run `<skill>/scripts/install.sh` once per session. Use `arena-preview <command>` for CLI calls. Start the server with Arena's long-lived process tool, named `<repo> - Steering`, not a timed shell:
+3. Run `<skill>/scripts/install.sh` once per session. Use `arena-preview <command>` for CLI calls, never the script path. Start the server with Arena's long-lived process tool, named `<repo> - Steering`, not a timed shell:
 
    ```bash
    arena-preview serve --port 8000
