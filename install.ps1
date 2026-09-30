@@ -4,8 +4,6 @@ $ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
 $repo = 'nemoe7/daedalus'
-# The files that compose.yml needs, and the install scripts for the next run.
-$files = 'compose.yml', 'compose.dev.yml', '.env.example', 'config', 'services', 'install.ps1', 'install.cmd'
 
 function Stop-Install([string]$message) {
   Write-Host $message -ForegroundColor Red
@@ -18,8 +16,32 @@ function Test-Native([scriptblock]$command) {
 }
 
 $dev = $false
-foreach ($arg in $args) {
-  if ($arg -eq '--dev') { $dev = $true } else { Stop-Install "Unknown option: $arg. The only option is --dev." }
+$prod = $false
+# Support: --dev, --dev=on/off, --dev on/off, --no-dev, --prod
+$i = 0
+while ($i -lt $args.Count) {
+  $arg = $args[$i]
+  switch -Regex ($arg) {
+    '^--dev$' {
+      $nxt = if ($i + 1 -lt $args.Count) { $args[$i + 1] } else { $null }
+      switch ($nxt) {
+        { $_ -in 'off','0','false','no','prod' } { $prod = $true; $i++ }
+        { $_ -in 'on','1','true','yes','dev' } { $dev = $true; $i++ }
+        default { $dev = $true }
+      }
+    }
+    '^--dev=(.*)$' {
+      $val = $Matches[1].ToLower()
+      switch ($val) {
+        { $_ -in 'off','0','false','no','prod' } { $prod = $true }
+        { $_ -in 'on','1','true','yes','dev','' } { $dev = $true }
+        default { Stop-Install "Unknown --dev value: $val. Use --dev, --dev=off, --no-dev, or --prod." }
+      }
+    }
+    '^--no-dev$|^--prod$' { $prod = $true }
+    default { Stop-Install "Unknown option: $arg. Options: --dev, --dev=off, --no-dev, --prod." }
+  }
+  $i++
 }
 
 # A checkout has compose.yml beside this script. With irm | iex, there is no script file.
@@ -28,8 +50,23 @@ if ($PSScriptRoot -and (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'compose
 } else {
   $dir = Join-Path $HOME 'daedalus'
 }
+
+# Persistent dev flag: .daedalus-dev marker auto-selects dev unless --prod/--no-dev given.
+if ((Test-Path -LiteralPath (Join-Path $dir '.daedalus-dev')) -and -not $prod) { $dev = $true }
+
+if ($dev -and $prod) { Stop-Install '--dev and --prod/--no-dev cannot be used together.' }
 if ($dev -and -not (Test-Path -LiteralPath (Join-Path $dir 'daedalus'))) {
   Stop-Install '--dev builds the image from the source. Run it in a git checkout.'
+}
+# Make --dev persistent: create marker; --prod/--no-dev/--dev=off removes it.
+if ($dev) { New-Item -ItemType Directory -Force -Path $dir | Out-Null; New-Item -ItemType File -Force -Path (Join-Path $dir '.daedalus-dev') | Out-Null }
+if ($prod) { Remove-Item -LiteralPath (Join-Path $dir '.daedalus-dev') -Force -ErrorAction SilentlyContinue; $dev = $false }
+
+# Files to pull: only pull compose.dev.yml when --dev or marker present
+if ($dev) {
+  $files = 'compose.yml', 'compose.dev.yml', '.env.example', 'config', 'services', 'install.ps1', 'install.cmd'
+} else {
+  $files = 'compose.yml', '.env.example', 'config', 'services', 'install.ps1', 'install.cmd'
 }
 
 $needDocker = -not (Get-Command docker -ErrorAction SilentlyContinue)
