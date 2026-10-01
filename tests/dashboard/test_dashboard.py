@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -54,7 +55,9 @@ def test_page(client: TestClient) -> None:
   assert page.status_code == 200 and "text/html" in page.headers["content-type"]
   assert 'src="ui/app.js?v=' in page.text, "relative asset paths with a content hash"
   assert 'href="ui/style.css?v=' in page.text, "the style link has a content hash"
-  assert '<th class="hide-sm">Session</th>' in page.text, "the Requests session column"
+  assert (
+    '<th scope="col" class="hide-sm" role="columnheader">Session</th>' in page.text
+  ), "the Requests session column"
   for name in (
     "overview",
     "requests",
@@ -141,6 +144,151 @@ assert.strictEqual(split[0].status, 200);
 assert.strictEqual(split[1].via, 'm1');
 assert.strictEqual(split[1].status, 'err');
 assert.strictEqual(sandbox.statusClass({ status: 'err' }), 's5');
+"""
+  subprocess.run(["node", "-e", code], check=True)
+
+
+def test_app_js_request_cards() -> None:
+  """Each request cell names its column, so the card layout of a narrow screen shows every value."""
+  page = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/index.html"
+  ).read_text(encoding="utf-8")
+  header = re.search(
+    r'<table class="requests" aria-label="Requests" role="table">.*?<thead[^>]*>(.*?)</thead>',
+    page,
+    re.DOTALL,
+  )
+  assert header, "the Requests table header"
+  labels = [
+    re.sub(r"<[^>]+>", "", text).strip()
+    for text in re.findall(r"<th[^>]*>(.*?)</th>", header.group(1))
+  ]
+  assert len(labels) == 13, labels
+  row = {
+    "at": 100,
+    "app": "OWUI",
+    "session": "s1",
+    "model": "p/big",
+    "effort": "high",
+    "pool": "daedalus/deinos",
+    "via": "p/big",
+    "status": 200,
+    "tokens": {"input": 12, "output": 34},
+    "ttft": "0.500s",
+    "stream": True,
+    "seconds": 3,
+    "fallbacks": 1,
+    "attempts": [],
+  }
+  code = f"""
+const fs = require('fs');
+const vm = require('vm');
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{ renderRequests, renderLive, state }};";
+const nodes = new Map();
+const node = (id) => {{
+  if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', hidden: false, children: [], contains: () => false, addEventListener: () => {{}}, classList: {{ toggle: () => {{}} }} }});
+  return nodes.get(id);
+}};
+const sandbox = {{
+  esc: (text) => String(text ?? '').replace(/[&<>"']/g, (c) => ({{ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }})[c]),
+  seconds: (value) => value.toFixed(3) + 's',
+  floorCount: (value) => String(value),
+  matchMedia: () => ({{ matches: false, addEventListener: () => {{}} }}),
+  document: {{ hidden: false, documentElement: {{ dataset: {{}} }}, getElementById: node, querySelector: () => ({{ firstChild: {{ textContent: 'M' }} }}), querySelectorAll: () => [], addEventListener: () => {{}} }},
+  navigator: {{}}, location: {{ hash: '' }}, window: {{ addEventListener: () => {{}} }},
+  getSelection: () => ({{ isCollapsed: true }}), console: {{ error: () => {{}} }}, $: node,
+}};
+vm.createContext(sandbox);
+vm.runInContext(src, sandbox);
+const assert = require('assert');
+const probe = sandbox.__probe;
+probe.renderRequests([{json.dumps(row)}]);
+const html = node('requests').innerHTML;
+const cells = [...html.matchAll(/<td[^>]*>/g)].map((m) => m[0]);
+assert.strictEqual(cells.length, 13, 'every column of the row is a cell: ' + cells.length);
+assert(cells.every((td) => td.includes('role="cell"')), 'each request cell keeps its table role');
+assert.strictEqual((html.match(/class="cell-value"/g) || []).length, 13, 'each request cell keeps its value');
+const mobileLabels = (markup) => [...markup.matchAll(new RegExp('<span class="mobile-label" aria-hidden="true">([^<]*)</span>', 'g'))].map((m) => m[1]);
+assert.deepStrictEqual(mobileLabels(html), {json.dumps(labels)}, 'the cells show their column names in table order');
+probe.state.live.set(2, {{ id: 2, since: 100000, attemptSince: 100000, first: null, stream: false, session: 's2', app: 'OWUI', model: 'p/live', effort: 'medium', pool: 'free', via: 'p/live', fallbacks: 0 }});
+probe.renderLive();
+const liveHtml = node('live').innerHTML;
+const liveCells = [...liveHtml.matchAll(/<td[^>]*>/g)].map((m) => m[0]);
+assert.strictEqual(liveCells.length, 13, 'every live column is a cell');
+assert(liveCells.every((td) => td.includes('role="cell"')), 'each live request cell keeps its table role');
+assert.strictEqual((liveHtml.match(/class="cell-value"/g) || []).length, 13, 'each live request cell keeps its value');
+assert.deepStrictEqual(mobileLabels(liveHtml), {json.dumps(labels)}, 'live request cells show their column names');
+"""
+  subprocess.run(["node", "-e", code], check=True)
+
+
+def test_app_js_limit_units() -> None:
+  """A limit row names its model on 1 line and shows a short unit such as TPM."""
+  payload = {
+    "checked": 0,
+    "providers": [],
+    "lanes": [
+      {
+        "model": "mistral/mistral-embed",
+        "client": None,
+        "at": 0,
+        "rows": [
+          {
+            "kind": "tokens",
+            "span": "minute",
+            "remaining": 623000,
+            "limit": 625000,
+            "reset": 0,
+          },
+          {
+            "kind": "requests",
+            "span": "day",
+            "remaining": 999,
+            "limit": 1000,
+            "reset": 0,
+          },
+          {
+            "kind": "requests",
+            "span": "minute",
+            "remaining": 59,
+            "limit": 60,
+            "reset": 0,
+          },
+          {"kind": "requests", "span": None, "remaining": 5, "limit": 10, "reset": 0},
+        ],
+      }
+    ],
+  }
+  code = f"""
+const fs = require('fs');
+const vm = require('vm');
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{ renderLimits, state }};";
+const nodes = new Map();
+const node = (id) => {{
+  if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', hidden: false, addEventListener: () => {{}}, classList: {{ toggle: () => {{}} }} }});
+  return nodes.get(id);
+}};
+const sandbox = {{
+  esc: (text) => String(text ?? '').replace(/[&<>"']/g, (c) => ({{ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }})[c]),
+  seconds: (value) => value.toFixed(3) + 's',
+  floorCount: (value) => String(value),
+  toLocaleString: (value) => String(value),
+  matchMedia: () => ({{ matches: false, addEventListener: () => {{}} }}),
+  document: {{ hidden: false, documentElement: {{ dataset: {{}} }}, getElementById: node, querySelector: () => ({{ firstChild: {{ textContent: 'M' }} }}), querySelectorAll: () => [], addEventListener: () => {{}} }},
+  navigator: {{}}, location: {{ hash: '' }}, window: {{ addEventListener: () => {{}} }},
+  getSelection: () => ({{ isCollapsed: true }}), console: {{ error: () => {{}} }}, $: node,
+}};
+vm.createContext(sandbox);
+vm.runInContext(src, sandbox);
+const assert = require('assert');
+sandbox.__probe.renderLimits({json.dumps(payload)});
+const html = node('limit-rows').innerHTML;
+assert(html.includes('<td role="cell" class="name" title="mistral/mistral-embed">'), 'the model cell keeps 1 line');
+assert(html.includes('>TPM</td>'), 'tokens per minute');
+assert(html.includes('>RPM</td>'), 'requests per minute');
+assert(html.includes('>RPD</td>'), 'requests per day');
+assert(html.includes('>requests</td>'), 'a row without a window keeps its kind');
+assert(!html.includes(' per '), 'no long span text');
 """
   subprocess.run(["node", "-e", code], check=True)
 

@@ -72,14 +72,14 @@
     </section>
     <section data-page="requests" hidden>
       <div class="panel">
-        <table class="requests">
-          <thead><tr>
-            <th>Time</th><th title="The client app, from its request headers">App</th><th class="hide-sm">Session</th><th>Model</th><th class="hide-sm">Effort</th><th class="hide-sm">Pool</th><th>Served by</th>
-            <th>Status</th><th class="hide-sm" title="Input tokens. ~ marks an estimate.">Input</th><th class="hide-sm" title="Output tokens from the provider">Output</th><th class="hide-sm">TTFT</th><th class="hide-sm">Stream</th>
-            <th class="hide-sm">Fallbacks</th>
+        <table class="requests" aria-label="Requests" role="table">
+          <thead role="rowgroup"><tr role="row">
+            <th scope="col" role="columnheader">Time</th><th scope="col" role="columnheader" title="The client app, from its request headers">App</th><th scope="col" class="hide-sm" role="columnheader">Session</th><th scope="col" role="columnheader">Model</th><th scope="col" class="hide-sm" role="columnheader">Effort</th><th scope="col" class="hide-sm" role="columnheader">Pool</th><th scope="col" role="columnheader">Served by</th>
+            <th scope="col" role="columnheader">Status</th><th scope="col" class="hide-sm" role="columnheader" title="Input tokens. ~ marks an estimate.">Input</th><th scope="col" class="hide-sm" role="columnheader" title="Output tokens from the provider">Output</th><th scope="col" class="hide-sm" role="columnheader">TTFT</th><th scope="col" class="hide-sm" role="columnheader">Stream</th>
+            <th scope="col" class="hide-sm" role="columnheader">Fallbacks</th>
           </tr></thead>
-          <tbody id="live"></tbody>
-          <tbody id="requests"></tbody>
+          <tbody id="live" role="rowgroup"></tbody>
+          <tbody id="requests" role="rowgroup"></tbody>
         </table>
         <button class="ghost" id="more-requests" type="button" hidden>Show more</button>
       </div>
