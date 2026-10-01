@@ -4,7 +4,10 @@ The reference deployment is a Raspberry Pi 4B with 8 GB of RAM. The compose file
 
 ## Docker Compose
 
-The install scripts show what they install or download and ask `[y/N]` before a change. Then they install Docker if it is missing: Docker Desktop with winget on Windows, or `get.docker.com` on Linux. Outside a git checkout, they download the files of the newest `v*` tag, else `main`, to the `daedalus` folder in the home folder. They copy only missing files, so `.env` and `config/` stay. They make `.env` with a new master key, then pull the daedalus image and start the containers. With `--dev`, they build the image from the source with `compose.dev.yml`. See the [README](../README.md#quick-start).
+The install scripts show what they install or download and ask `[y/N]` before a change. Then they install Docker if it is missing: Docker Desktop with winget on Windows, or `get.docker.com` on Linux. Outside a git checkout, they download the files of the newest `v*` tag, else `main`, to the `daedalus` folder in the home folder. They copy only missing files, so `.env` and `config/` stay. They make `.env` with a new master key, then pull the daedalus image and start the containers.
+With `--dev`, they use `compose.dev.yml`: they build the image from the source when the source is in
+the folder, and they pull `ghcr.io/nemoe7/daedalus:dev` when it is not. See the
+[README](../README.md#quick-start).
 
 The commands below are the same in cmd, PowerShell and bash.
 
@@ -12,7 +15,8 @@ The commands below are the same in cmd, PowerShell and bash.
 | --- | --- |
 | Start | `docker compose up -d` |
 | Update | `git pull`, then `docker compose pull`, then `docker compose up -d` |
-| Build from the source | `compose.dev.yml` builds `daedalus:dev` from the source at each start, with each command. |
+| Build from the source | `compose.dev.yml` builds `daedalus:dev` from the source at each start, with each command. Needs the source in the folder. |
+| Run the dev image | `install --dev` outside a checkout pulls `ghcr.io/nemoe7/daedalus:dev` at each start. It downloads the files of `main`. |
 | Stop | `docker compose down` |
 | Log | `docker compose logs -f api` |
 | Rebuild the catalog now | The Catalog chip in the dashboard header, or `docker compose exec api daedalus catalog` |
@@ -37,6 +41,22 @@ A successful **Gemini Release Draft** approval starts `.github/workflows/image.y
 | Release | Run **Gemini Release Draft** and approve it. The approval tags `v*` and builds the image. |
 | Manual image build | Run **Image** in the Actions tab and enter an existing `v*` tag. |
 | Use 1 release | Set `image:` of `daedalus` in `compose.yml` to `ghcr.io/nemoe7/daedalus:v0.1.0`. |
+
+## Dev image
+
+A successful **CI** run on `main` starts `.github/workflows/dev-image.yml`. It publishes
+`ghcr.io/nemoe7/daedalus:dev` and `ghcr.io/nemoe7/daedalus:dev-COMMIT`, and it keeps the newest 10
+`dev-COMMIT` versions. It never publishes `latest`, and it never deletes a `v*` version. A push that
+changes no file under the CI paths starts no build.
+
+| Task | Command |
+| --- | --- |
+| Dev image | Push to `main`. CI passes, then **Dev Image** publishes `dev`. |
+| Manual dev image build | Run **Dev Image** in the Actions tab. |
+| Use the dev image | `install --dev` outside a git checkout, or `image: ghcr.io/nemoe7/daedalus:dev` in `compose.yml`. |
+
+The dev image tracks `main`. Its code has no review. Use it to test the newest commits, not to run a
+release.
 
 ## Optional services
 
