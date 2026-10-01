@@ -182,6 +182,7 @@ tr.request { cursor: pointer; }
 .requests th:not(:first-child), .requests td:not(:first-child) { padding-left: 8px; padding-right: 8px; }
 .mobile-label { display: none; }
 #limit-rows td.name { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#limit-rows td:nth-child(2) { white-space: nowrap; }
 tr.live-row td { background: var(--field); }
 .pulse {
   display: inline-block; width: 6px; height: 6px; margin: 0 10px 1px 0; border-radius: 50%;
@@ -326,6 +327,7 @@ section[data-page="limits"] > .editbar { margin-bottom: 16px; }
   th, td { padding: 10px; }
   .hide-sm { display: none; }
   .models .weight { width: 80px; min-width: 0; gap: 6px; }
+  #limit-rows .weight.left { min-width: 0; }
   .requests, .requests tbody, .requests tr { display: block; }
   .requests thead {
     position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
