@@ -15,7 +15,7 @@
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23adadad' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --tier: #90caf9; --tag: #e1bee7; --field: #1f1f1f;
 }
-* { box-sizing: border-box; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
 body {
   margin: 0; background: var(--bg); color: var(--text);
@@ -190,7 +190,11 @@ tr.live-row td { background: var(--field); }
   background: var(--accent); animation: pulse 1s ease-in-out infinite alternate;
 }
 @keyframes pulse { from { opacity: 1; } to { opacity: 0.25; } }
-tr.request.has-chain:hover td, tr.request.has-chain.open td { background: var(--field); }
+tr.request.has-chain.open td { background: var(--field); }
+/* A touch screen keeps the hover look after a tap, so the hover style needs a pointer. */
+@media (hover: hover) {
+  tr.request.has-chain:hover td { background: var(--field); }
+}
 tr.request.open td { border-bottom: 0; }
 .caret {
   display: inline-block; width: 6px; height: 6px; margin: 0 10px 1px 0;
