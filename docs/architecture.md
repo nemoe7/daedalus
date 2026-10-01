@@ -327,5 +327,6 @@ daedalus is small enough for a Raspberry Pi that also runs other containers.
 | Tier rows of the pools | daedalus sorts the catalog models into tiers 1 time for each config and model list. A config reload or a catalog change sorts them again. |
 | Classifier | 1 result for each prompt, for the last 64 prompts. The requests of 1 tool loop have the same user messages, so only the first request runs the classifier. |
 | State files | SQLite WAL mode. The files `models.sqlite3-wal` and `models.sqlite3-shm` are part of the store. |
+| Catalog reads | A catalog rebuild reads each `discovery_url` 1 time, also when the 2 files have different API keys. It reads each LiteLLM catalog 1 time: Kilo and OpenRouter share the OpenRouter one. |
 | Weights, pins, cooldowns, request history | A write does not wait for the disk. After a power loss, the last writes can go, but the file stays correct. |
 | API keys | A write waits for the disk. |
