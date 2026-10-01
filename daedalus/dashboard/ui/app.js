@@ -47,9 +47,11 @@ function renderOverview() {
     clock(r.at),
   )).join("") || none("No requests");
   $("ov-model-count").textContent = state.models.length || "";
-  // Each pool with its mean weight and the model of the highest weight.
+  // Each pool with its mean weight and the model that served it most.
+  const served = {};
+  for (const r of state.requests) served[r.via || r.model] = (served[r.via || r.model] || 0) + 1;
   $("ov-models").innerHTML = state.pools.map((pool) => {
-    const top = byWeight(pool.members)[0];
+    const top = topModel(pool.members, served);
     const health = poolHealth(pool.members);
     return `<div class="pool-line"><div class="line"><span>${esc(pool.shown.replace("daedalus/", ""))}</span>
       <span title="${esc(top?.id)}">${top ? esc(top.id) : "no models"}</span></div>${health === null ? "" : weightBar(health)}</div>`;
@@ -183,6 +185,14 @@ const POOL_TIERS = {
   "daedalus/auto": "All", "daedalus/sophos": "A", "daedalus/deinos": "B",
   "daedalus/koinos": "C", "daedalus/moros": "D",
 };
+
+// A pool row names the member that served the most requests the page holds.
+// A pool without those requests keeps its catalog first model.
+function topModel(members, served) {
+  const counts = members.map((member) => served[member.id] || 0);
+  const best = Math.max(...counts);
+  return best > 0 ? members[counts.indexOf(best)] : members[0];
+}
 
 // The mean weight of a pool. A model in a cooldown counts as 0.
 function poolHealth(members) {
