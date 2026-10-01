@@ -107,7 +107,7 @@ echo "arena-preview installer: commit-msg validation active at $GIT_HOOK"
 # 5. Hook script: save $?, print the unacked-count reminder on stderr, restore the exit code.
 cat > "$HOOK" <<EOF || fail "cannot write $HOOK"
 #!/bin/bash
-# arena-preview-hook: poll the steering inbox after every Arena bash call.
+# arena-preview-hook: poll the steering inbox after every agent call.
 rc=\$?
 "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" --reminder >&2
 exit "\$rc"
@@ -144,6 +144,20 @@ strip_block "$GATE_MARKER"
 
 # arena-preview-gate
 _arena_preview_gate() {
+  # Only an agent call shell is gated: Arena runs one as the shell binary with a
+  # command. It hosts every long-lived process in a login shell over a launcher
+  # script, and an exit in that shell takes the hosted process down.
+  case "\${0##*/}" in bash|sh|dash|ksh|zsh) ;; *) return 0 ;; esac
+  # Arena's own probe and bookkeeping shells must never meet the gate: an exit
+  # in one reads as a dead preview or sandbox while the server stays up. Mark
+  # such a shell once from its command line and leave the rest of it alone.
+  case "\${_arena_preview_platform:-}" in 1) return 0 ;; esac
+  case "\$(tr '\\0' ' ' < /proc/\$\$/cmdline 2>/dev/null)" in
+    *arena-workspace*|*"ss -ltn"*|*"netstat -ltn"*|*"source ~/.profile"*|*"mkdir -p '/home/user'"*)
+      _arena_preview_platform=1
+      return 0
+      ;;
+  esac
   case "\$BASH_COMMAND" in
     *"git commit"*|*"git push"*|*"gh pr checks"*)
       if [ -z "\${_arena_preview_reminded:-}" ]; then
@@ -152,8 +166,7 @@ _arena_preview_gate() {
       fi
       ;;
   esac
-  case "\$BASH_COMMAND" in *preview*) _arena_preview_gate_checked=1; return 0 ;; esac
-  case "\$BASH_COMMAND" in *profile*|*bashrc*|*arena-state*|gh*|sleep*|true*|:*|test*|"git status"*|"git diff"*|"git add"*|"git commit"*) return 0 ;; esac
+  case "\$BASH_COMMAND" in *preview*|*profile*|*bashrc*|*arena-state*|gh*|sleep*|true*|:*|test*|"git status"*|"git diff"*|"git add"*|"git commit"*|*arena-workspace*|*"ss -ltn"*|*"netstat -ltn"*) return 0 ;; esac
   case "\${_arena_preview_gate_checked:-}" in 1) return 0 ;; esac
   _arena_preview_gate_checked=1
   "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" gate 2>/dev/null
