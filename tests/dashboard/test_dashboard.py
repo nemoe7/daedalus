@@ -271,7 +271,7 @@ def test_app_js_request_cards() -> None:
     "seconds": 3,
     "fallbacks": 1,
     "routed": "p/old",
-    "retry": "try-2",
+    "retry": "2",
     "loop": "tool-3",
     "transition": {"reason": "err"},
     "attempts": [
@@ -311,7 +311,7 @@ const mobileLabels = (markup) => [...markup.matchAll(new RegExp('<span class="mo
 assert.deepStrictEqual(mobileLabels(html), {json.dumps(labels)}, 'the cells show their column names in table order');
 assert(html.includes('class="request has-chain"'), 'requests with fallbacks expose their chain');
 assert(html.includes('More · session, effort, pool · 1 fallback'), 'request details disclose their fallback count');
-for (const value of ['View fallback chain', 's1', 'high <span class="from">xhi</span>', 'rate limited', 'from p/old', 'try again try-2', 'tool loop tool-3']) assert(html.includes(value), 'mobile details keep ' + value);
+for (const value of ['View fallback chain', 's1', 'high <span class="from">xhi</span>', 'rate limited', 'from p/old', 'rt2', 'tool loop tool-3']) assert(html.includes(value), 'mobile details keep ' + value);
 const mobileSelectors = [];
 const mobileTap = {{ target: {{ closest: (selector) => {{ mobileSelectors.push(selector); return null; }} }} }};
 sandbox.window.matchMedia = () => ({{ matches: true }});
