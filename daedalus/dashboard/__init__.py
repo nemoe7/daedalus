@@ -206,9 +206,9 @@ FIELDS = (
 AUTO_TIERS = (4, 3, 2, 1)
 # The modes whose models have weights: chat, and the modes of the media pools.
 WEIGHTED_MODES = frozenset({"chat", *router.MEDIA_POOLS.values()})
-MASTER_ENV = "DAEDALUS_MASTER_KEY"
-USER_ENV = "DAEDALUS_USERNAME"
-PASSWORD_ENV = "DAEDALUS_PASSWORD"
+DAEDALUS_MASTER_KEY = "DAEDALUS_MASTER_KEY"
+DAEDALUS_USERNAME = "DAEDALUS_USERNAME"
+DAEDALUS_PASSWORD = "DAEDALUS_PASSWORD"
 USERNAME = "admin"
 COOKIE = "daedalus_session"
 # The same session value in a header, for a page in a frame that blocks cookies.
@@ -266,14 +266,14 @@ def live_first(request: Request) -> None:
 
 def master() -> str | None:
   """The master key from the environment, when it has 16 or more characters and no spaces."""
-  key = os.environ.get(MASTER_ENV, "")
+  key = os.environ.get(DAEDALUS_MASTER_KEY, "")
   return key if keys.valid(key) else None
 
 
 def login() -> tuple[str, str]:
   """The dashboard username and password from the environment, else `admin` and the master key."""
-  username = os.environ.get(USER_ENV) or USERNAME
-  return username, os.environ.get(PASSWORD_ENV) or master() or ""
+  username = os.environ.get(DAEDALUS_USERNAME) or USERNAME
+  return username, os.environ.get(DAEDALUS_PASSWORD) or master() or ""
 
 
 def secret() -> str | None:
@@ -610,7 +610,9 @@ def routes(
   async def log_in(request: Request) -> JSONResponse:
     key = secret()
     if key is None:
-      return failure(503, f"Set {MASTER_ENV}: 16 or more characters.", "server_error")
+      return failure(
+        503, f"Set {DAEDALUS_MASTER_KEY}: 16 or more characters.", "server_error"
+      )
     username, password = login()
     body = await json_body(request)
     if not isinstance(body, dict):
@@ -646,8 +648,8 @@ def routes(
     """The login form hints, with no session: the username to fill in, if the password is the master key, and the version."""
     return JSONResponse(
       {
-        "username": None if os.environ.get(USER_ENV) else USERNAME,
-        "master": not os.environ.get(PASSWORD_ENV),
+        "username": None if os.environ.get(DAEDALUS_USERNAME) else USERNAME,
+        "master": not os.environ.get(DAEDALUS_PASSWORD),
         "version": __version__,
       }
     )
