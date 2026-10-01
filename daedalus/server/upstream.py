@@ -31,6 +31,10 @@ WAIT_SECONDS = 60.0
 # Characters of a provider error body that the dashboard keeps.
 DETAIL_LIMIT = 4000
 
+# The pool of the shared client. One chat request races at most `parallel.count + 1`
+# models, and `parallel.count` stops at 10. Every connection stays warm.
+MAX_CONNECTIONS = 64
+
 # Client headers that daedalus owns: credentials, transport and proxy headers.
 KEPT_BACK = frozenset(
   {
@@ -74,12 +78,20 @@ def observe(lane: str, headers: httpx.Headers) -> None:
     LIMITS.observe(lane, headers)
 
 
+def new_client() -> httpx.AsyncClient:
+  """A client with the timeouts and the pool of the router."""
+  return httpx.AsyncClient(
+    timeout=httpx.Timeout(TIMEOUT_SECONDS, read=WAIT_SECONDS),
+    limits=httpx.Limits(
+      max_connections=MAX_CONNECTIONS, max_keepalive_connections=MAX_CONNECTIONS
+    ),
+  )
+
+
 def get_client() -> httpx.AsyncClient:
   global _client
   if _client is None:
-    _client = httpx.AsyncClient(
-      timeout=httpx.Timeout(TIMEOUT_SECONDS, read=WAIT_SECONDS)
-    )
+    _client = new_client()
   return _client
 
 
