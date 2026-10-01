@@ -1200,6 +1200,12 @@ const SETTINGS = [
     ["idle", "Idle expiry", "s", "The session model expires after this time without a request."],
     ["stay", "Stay share", "", "The share of first-tier draws for the session model. Below 1."],
   ]],
+  ["parallel", "Parallel queries", [
+    ["enabled", "On", "", "A second model of the chain races the first token, and the session model starts each request."],
+    ["chance", "Race chance", "", "The chance to start the second model with the first model. 0 to 1."],
+    ["slow", "Slow first token", "s", "Seconds with no content from the first model. Then the second model starts."],
+    ["penalty", "Loser factor", "x", "The weight factor for the model that loses the race. At most 1."],
+  ]],
   ["weights", "Weights", [
     ["enabled", "On", "", "Off: all weights stay at 1, and the chain keeps the usual order."],
     ["success", "Success", "x", "The weight factor for a success."],
@@ -1249,7 +1255,7 @@ const SETTINGS = [
 ];
 
 // The Settings cards of each column, from top to bottom.
-const SETTINGS_COLUMNS = [["timeouts", "catalog", "pacing", "pools"], ["session_affinity", "headroom", "cooldown", "loops", "dashboard"], ["weights", "escalation", "switch"]];
+const SETTINGS_COLUMNS = [["timeouts", "catalog", "pacing", "pools"], ["session_affinity", "headroom", "cooldown", "loops", "dashboard"], ["weights", "parallel", "escalation", "switch"]];
 // The options of each choice field.
 const CHOICES = {
   theme: [["system", "System"], ["light", "Light"], ["dark", "Dark"]],
@@ -1269,12 +1275,15 @@ applyTheme();
 
 // The fields that take decimals. The other fields take whole numbers.
 const DECIMALS = new Set([
-  "session_affinity.stay", "weights.success", "weights.fault", "weights.slow", "weights.hourly", "weights.rate_limit",
+  "session_affinity.stay", "parallel.chance", "parallel.penalty",
+  "weights.success", "weights.fault", "weights.slow", "weights.hourly", "weights.rate_limit",
 ]);
 // The input bounds. The server also checks them before saving.
 const MINIMA = { "loops.calls": 2, "loops.repeats": 2, "loops.shortest": 1, "loops.longest": 1 };
 const MAXIMA = {
   "catalog.anchor": 23,
+  "parallel.chance": 1,
+  "parallel.penalty": 1,
   "loops.calls": 100,
   "loops.repeats": 16,
   "loops.shortest": 1000,

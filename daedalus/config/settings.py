@@ -17,6 +17,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "idle": 3600.0,
     "stay": 0.85,
   },
+  "parallel": {"enabled": False, "chance": 0.05, "slow": 30.0, "penalty": 0.9},
   "weights": {
     "enabled": True,
     "success": 1.5,
@@ -85,10 +86,20 @@ def check(group: str, key: str, value: Any) -> Any:
     if not isinstance(value, bool):
       raise SettingsError(f"{name} must be true or false")
     return value
+  if key == "chance":
+    if (
+      isinstance(value, bool)
+      or not isinstance(value, int | float)
+      or not 0 <= value <= 1
+    ):
+      raise SettingsError(f"{name} must be a number from 0 to 1")
+    return float(value)
   if isinstance(value, bool) or not isinstance(value, int | float) or value <= 0:
     raise SettingsError(f"{name} must be a number above 0")
   if key == "stay" and value >= 1:
     raise SettingsError(f"{name} must be below 1")
+  if key == "penalty" and value > 1:
+    raise SettingsError(f"{name} must be at most 1")
   return float(value)
 
 

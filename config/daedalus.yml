@@ -10,6 +10,11 @@ session_affinity:
   change_on_draw: true # false: keep the current pin after a weighted first-tier draw
   idle: 3600 # seconds without a request, then the session model expires
   stay: 0.85 # in a session, the share of first-tier draws for the session model
+parallel:
+  enabled: false # true: a second model of the chain races the first token, and the session model starts each request
+  chance: 0.05 # the chance to start the second model with the first model, from 0 to 1
+  slow: 30 # seconds with no content from the first model, then the second model starts
+  penalty: 0.9 # the weight factor for the model that loses the race, at most 1
 weights:
   enabled: true # false: all weights stay at 1 and the chain keeps the usual order
   success: 1.5

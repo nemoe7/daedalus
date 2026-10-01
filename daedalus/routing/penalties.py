@@ -47,6 +47,8 @@ class Penalties:
       STAY,
       True,
     )
+    # The parallel race starts each request with the session model, so the draw does not move it.
+    self.race = False
     self.success, self.fault, self.slow, self.hourly = SUCCESS, FAULT, SLOW, HOURLY
     self.rate_limit = RATE_LIMIT
 
@@ -191,10 +193,12 @@ class Penalties:
       for group in groups
       for m in sorted(group, key=lambda m: (m != session, -weights[m]))
     ]
+    tier = next((group for group in groups if group), [])
     if not self.enabled:
       first = session if session in seen else None
+    elif self.race and session in tier:
+      first = session
     else:
-      tier = next((group for group in groups if group), [])
       draw, rest = dict(weights), sum(weights[m] for m in tier if m != session)
       if session in tier and rest:
         # The session weight that gives it the `stay` share of this tier.

@@ -238,12 +238,42 @@ sequenceDiagram
 | --- | --- |
 | Conversation key | SHA-256 of the bearer token and the first user message |
 | Slot | The pool name, or `daedalus/auto` plus the tier |
-| Share of first-tier draws | 85% |
+| Share of first-tier draws | 85%. With `parallel.enabled`, the session model starts each request. |
 | Pin removed by | A fault, a slow success or a `switch.keywords` match |
 | Expiry | 1 h with no request |
 | Storage | `.daedalus-state/models.sqlite3`, kept after a restart |
 
 Session affinity keeps 1 response style in a conversation. It also lets the conversation use the prompt cache of the provider. The cache is not guaranteed, but it helps when the provider has one. Without session affinity, the styles of different models mix in 1 conversation. Tests showed that the result is a mess.
+
+## Parallel queries
+
+With `parallel.enabled`, a stream request to `daedalus/auto` or to a tier pool can race the
+next model of its own chain.
+
+```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e3e8fd", "primaryBorderColor": "#3b5bfd", "primaryTextColor": "#1a1f36", "lineColor": "#3b5bfd", "textColor": "#3b5bfd", "secondaryColor": "#ede9fe", "tertiaryColor": "#f5f3ff", "clusterBkg": "#f5f3ff", "clusterBorder": "#8b5cf6", "titleColor": "#5c388c", "edgeLabelBackground": "#ffffff", "noteBkgColor": "#ede9fe", "noteBorderColor": "#8b5cf6"}}}%%
+sequenceDiagram
+  participant C as Client
+  participant D as daedalus
+  participant A as Model A
+  participant B as Model B
+  C->>D: Stream request
+  D->>A: Start the session model
+  D->>B: Start the next model on a chance draw, or at parallel.slow
+  B-->>D: First token
+  D->>A: Cancel
+  D->>D: Pin model B
+```
+
+| Item | Value |
+| --- | --- |
+| Scope | `daedalus/auto` and the tier pools, on a stream. Not `provider/slug` and not a request without a stream. |
+| Start of the second model | A draw below `parallel.chance`, or no content at `parallel.slow` |
+| Winner | The first model with content. A pair at the same time keeps the model that started first. |
+| Loser | daedalus cancels the call, and the weight takes `parallel.penalty`. No cooldown starts. |
+| Draw | The session model starts each request. The draw of [Session affinity](#session-affinity) stops. |
+| Log | The attempt of the loser shows `lost race` |
+| Client | No change: 1 answer, from the winner |
 
 ## Try again
 
