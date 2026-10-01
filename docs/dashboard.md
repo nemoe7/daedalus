@@ -29,33 +29,14 @@ The Catalog chip shows the time of the last catalog rebuild and the next schedul
 
 ## Requests
 
-| Topic | Fact |
-| --- | --- |
-| Row | Each row shows the app, session, model, reasoning effort, pool, answering model, input and output token counts, TTFT, stream time, fallbacks and attempts. |
-| Session | The Session column shows the first 7 characters of the chat session hash. Other requests show `-`. |
-| App | The app column shows a short name from the client headers: Kilo for a Kilo title, referer or user agent, and OWUI for an `X-OpenWebUI-*` header. Another app shows the first 24 characters of its `X-OpenRouter-Title` or `X-Title`. After the end of a request, hover the name to see the API key name. |
-| In flight | A request in flight shows at the top as soon as daedalus gets it. Until a model answers, it shows the model of the current attempt and the fallback count. Its TTFT clock counts until the first token, then its stream clock counts until the last chunk. Without a stream, the stream clock shows the total time. The page gets these rows from a server-sent event stream. |
-| Effort | The effort column shows the effort from the client. When the model that answered got a different effort, that effort follows in smaller text. A native value of the same level, for example `thinkingLevel=low` for `low`, shows as the level, also in the fallback chain. |
-| Attempts | A click on a request opens its attempts. Only a request with a fallback or a failed attempt has this list. Each attempt shows the effort that went to its model and any weight change. "dropped" means that daedalus deleted the effort for a model that does not reason. The attempt that started a cooldown shows a cooldown mark. Errors have a copy button. |
-| Kept rows | The last 500 requests stay in `.daedalus-state/models.sqlite3` after a restart. The page shows 50, and "Show more" adds 50. |
-| Tokens | The input column shows the input token count of the provider. When the provider sends no count, it shows the daedalus estimate (characters / 4) with a `~` mark. The output column shows the output token count of the provider. With no count, it shows `-`. From 1,000, both columns show whole thousands, rounded down, for example 79K. Hover a count to see the exact number. |
-| Cancelled | A request that the client closed before the last byte shows a gray square in the status column. Hover it to see "Cancelled". |
-| Transitions | When a `daedalus/auto` request goes up 1 or more tiers, the Requests page shows the pool that answers, then "from" and the start pool. It shows "tool loop N" for a [tool loop](architecture.md#loops). It shows "try again N" for a [try again](architecture.md#try-again) in Open WebUI. |
-| Long names | A long model name ends in an ellipsis. Point to it to see the full name. |
+The page lists the requests in flight at the top, then the last ones, 50 at
+a time and 500 at most. A click on a request opens its attempts, and a hover
+on a count or name shows the exact value.
 
 ## Models
 
-| Topic | Fact |
-| --- | --- |
-| Tab count | The Models tab shows the model count. |
-| Pool cards | A card for each pool, the media pools included, shows above the table. The chip beside the pool name shows the largest context of a pool model. The bar shows the mean weight of the pool. A model in a cooldown counts as 0. |
-| Pool filters | A click on a pool card sets the tier and type filters of the pool. A second click clears them. |
-| Reset | **Reset weights and cooldowns** sets all weights back to 1 and ends all cooldowns, after a confirmation. The session models stay. |
-| Table | The table shows all catalog models, with a type filter, a tier filter and column sort. It also shows a reasoning column, the time left of each cooldown and weight bars. A client with its own provider key shows its own cooldown under the client name. |
-| Order | The order column shows the [order](architecture.md#order) of each model. Order 1 is gray. |
-| Reasoning | The reasoning column shows the default effort from the catalog as a chip, for example Max. The chip color grows with the effort: gray for None and Minimal, then blue, orange and red. A reasoning model with no default effort shows Yes. |
-| Type | The type column shows a chip for the mode and a chip for each media flag: Image in, PDF in, Audio in and Audio out. The type filter also finds models by these chips. |
-| Sort | With no column chosen, the rows sort by type, then by model name. |
+A card for each pool shows above the table, and a click on a card sets the
+filters of that pool. The table sorts by column and filters by type and tier.
 
 ## Providers
 
