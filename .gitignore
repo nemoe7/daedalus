@@ -12,3 +12,4 @@ build/
 .daedalus-dev
 *.log
 .env
+.env.bak
