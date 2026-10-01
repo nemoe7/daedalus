@@ -22,6 +22,24 @@ Each provider except Pollinations has a tested free tier.
 
 The Pollen balance does not refill with time. Since 22 June 2026, each tier gives a one-time Pollen bonus in place of an hourly refill ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)). `GET https://gen.pollinations.ai/account/balance` shows the balance. At 0 Pollen, the Pollinations models fail and get a cooldown, and the image pool uses Cloudflare.
 
+## Get a key
+
+Make an account at the provider and copy the key. Paste it into **Providers**
+in the dashboard, or put it in `.env` under the name the config reads.
+
+| Provider | Key page | Steps |
+| --- | --- | --- |
+| Cloudflare | `dash.cloudflare.com`, Workers AI in the menu | Under "Use REST API", pick **Create Workers AI API Token**. Copy the token and the Account ID from the right sidebar. |
+| Gemini | `aistudio.google.com/apikey` | Pick **Create API key**. Copy the key. |
+| Groq | `console.groq.com/keys` | Pick **Create API Key**. Copy the key. |
+| Kilo | `app.kilo.ai` | Open the API key section of the dashboard. Copy the key. |
+| Mistral | `console.mistral.ai/api-keys/` | Pick **Create new key**. Copy the key. |
+| OpenRouter | `openrouter.ai/settings/keys` | Pick **Create Key**. Copy the key. |
+| Pollinations | `enter.pollinations.ai` | Sign up and generate a key. Copy the key. The balance is in Pollen, and Pollen does not refill. |
+| Z.ai | `z.ai/manage-apikey/apikey-list` | Sign in at `z.ai/model-api`. Create a key and copy it. |
+
+The env name of each key is in [Configuration](configuration.md).
+
 ## Catalog
 
 `daedalus catalog` makes the model store in `.daedalus-state/models.sqlite3`.
