@@ -1217,6 +1217,8 @@ const MAXIMA = {
 // The value in the file, or null when the file does not set it.
 const fileValue = (group, key) => state.settings.file?.[group]?.[key] ?? null;
 const setting = (group, key) => fileValue(group, key) ?? state.settings.defaults[group][key];
+// The boolean settings, such as `enabled` and `change_on_draw`, are checkboxes in the form.
+const isSwitch = (group, key) => typeof state.settings.defaults[group][key] === "boolean";
 
 // The value after 1 wheel step. A decimal field steps its last decimal digit.
 function wheelStep(input, direction) {
@@ -1234,7 +1236,7 @@ function renderSettings() {
   const card = ([group, title, fields]) => `
     <div class="card"><h3>${esc(title)}</h3>${fields.map(([key, label, unit, hint]) => {
       const id = `set-${group}-${key}`;
-      if (key === "enabled") {
+      if (isSwitch(group, key)) {
         return `<label class="field check" for="${id}"><input type="checkbox" id="${id}"
           ${setting(group, key) ? "checked" : ""}><span><b>${esc(label)}</b><small>${esc(hint)}</small></span></label>`;
       }
@@ -1279,7 +1281,7 @@ function settingsChanges() {
         if (JSON.stringify(value) !== JSON.stringify(setting(group, key))) (changes[group] ||= {})[key] = value;
         continue;
       }
-      if (key === "enabled") {
+      if (isSwitch(group, key)) {
         value = input.checked;
         before = setting(group, key);
       } else if (unit === "choice") {
