@@ -72,6 +72,10 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 | `session_affinity.change_on_draw` | `true` | Replace an eligible session pin after a different weighted first-tier draw |
 | `session_affinity.idle` | `3600` | Seconds with no request, then the session expires |
 | `session_affinity.stay` | `0.85` | Share of first-tier draws for the session model |
+| `parallel.enabled` | `false` | `true`: a second model of the chain races the first token, and the session model starts each request |
+| `parallel.chance` | `0.05` | Chance to start the second model with the first. Number from 0 to 1. |
+| `parallel.slow` | `30` | Seconds with no content from the first model. Then the second model starts. |
+| `parallel.penalty` | `0.9` | Weight factor for the model that loses the race. At most 1. |
 | `weights.enabled` | `true` | `false` keeps all weights at 1 |
 | `weights.success` | `1.5` | Factor for a success |
 | `weights.fault` | `0.5` | Factor for a fault |

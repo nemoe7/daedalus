@@ -16,13 +16,26 @@ MASTER = "test-master-key-0001"
 # The values that `api.apply_settings` sets. Each test file gets them back at the end.
 SETTINGS = (
   *((upstream, name) for name in ("TIMEOUT_SECONDS", "WAIT_SECONDS")),
-  *((api, name) for name in ("SLOW_SECONDS", "AFFINITY", "KEYWORDS", "SWITCH")),
+  *(
+    (api, name)
+    for name in (
+      "SLOW_SECONDS",
+      "AFFINITY",
+      "KEYWORDS",
+      "SWITCH",
+      "PARALLEL_ENABLED",
+      "PARALLEL_CHANCE",
+      "PARALLEL_SLOW",
+      "PARALLEL_PENALTY",
+    )
+  ),
   *(
     (api.PENALTIES, name)
     for name in (
       "idle",
       "enabled",
       "change_on_draw",
+      "race",
       "stay",
       "success",
       "fault",
