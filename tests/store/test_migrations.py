@@ -6,9 +6,8 @@ from alembic.migration import MigrationContext
 from sqlalchemy import create_engine
 
 import daedalus
-from daedalus import store
+from daedalus import dashboard, store
 from daedalus.catalog import discovery
-from daedalus.dashboard import history
 from daedalus.providers import signatures
 from daedalus.routing import cooldowns, loops, penalties
 from daedalus.store import keys, saved_env
@@ -18,7 +17,7 @@ from daedalus.store.schema import METADATA
 # The CREATE statements of the request code, which runs without Alembic.
 STATEMENTS = (
   discovery.SNAPSHOT_SCHEMA,
-  history.TABLE,
+  dashboard.TABLE,
   signatures.SCHEMA,
   cooldowns.TABLE,
   loops.SCHEMA,
