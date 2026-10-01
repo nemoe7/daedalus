@@ -385,3 +385,15 @@ def test_app_version_follows_the_build() -> None:
   """FastAPI reports the version of the build, not a fixed string."""
   assert api.app.version == __version__
 
+
+async def test_upstream_client_pool_covers_the_race() -> None:
+  """The client pool holds every connection that a race can open at once."""
+  client = upstream.new_client()
+  try:
+    pool = client._transport._pool
+    assert pool._max_connections == upstream.MAX_CONNECTIONS
+    assert pool._max_keepalive_connections == upstream.MAX_CONNECTIONS
+    # parallel.count stops at 10, and the original model runs beside them.
+    assert upstream.MAX_CONNECTIONS > 11
+  finally:
+    await client.aclose()
