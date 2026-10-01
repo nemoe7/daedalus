@@ -33,11 +33,11 @@ from daedalus.routing import (
 from daedalus.server import access, headroom, logs, media, stream, upstream
 from daedalus.store import keys
 
-HOST_ENV = "DAEDALUS_HOST"
-PORT_ENV = "DAEDALUS_PORT"
+DAEDALUS_HOST = "DAEDALUS_HOST"
+DAEDALUS_PORT = "DAEDALUS_PORT"
 
-HOST = os.environ.get(HOST_ENV) or "0.0.0.0"
-PORT = int(os.environ.get(PORT_ENV) or 3357)
+HOST = os.environ.get(DAEDALUS_HOST) or "0.0.0.0"
+PORT = int(os.environ.get(DAEDALUS_PORT) or 3357)
 SLOW_SECONDS = upstream.WAIT_SECONDS / 2
 AFFINITY = True
 # The keywords of `escalation.keywords` as 1 pattern, or None when the list is empty.
