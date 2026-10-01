@@ -350,9 +350,10 @@ section[data-page="limits"] > .editbar { margin-bottom: 16px; }
 }
 @media (max-width: 720px) {
   header, #app > main { padding-left: 16px; padding-right: 16px; }
-  header { grid-template-columns: 1fr; grid-template-areas: "brand" "tabs"; }
+  /* The header keeps the brand and Log out. The status chips move to the card below. */
+  header { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; }
   .brand { padding-top: 10px; }
-  header > .chips { display: none; }
+  #status { display: none; }
   /* The phone card: a health row, then 1 line for each value. It fills the width, with no chip row. */
   .status-card { display: block; padding: 12px 14px; margin-bottom: 16px; }
   .status-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
