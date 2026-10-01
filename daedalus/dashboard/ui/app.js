@@ -167,6 +167,19 @@ async function rebuildCatalog() {
   guarded(refreshFast);
 }
 
+// The status card of a phone: the health row, then 1 line for each value. The catalog line starts a rebuild.
+function renderStatusCard(status) {
+  const { built, next, rebuilding } = status.catalog || {};
+  const last = rebuilding ? "rebuilding" : built ? shortTime(built) : "never";
+  const following = next ? ` &middot; next ${esc(shortTime(next))}` : " &middot; no schedule";
+  const label = rebuilding ? "A catalog rebuild runs now" : "Rebuild the catalog now";
+  $("card-health").innerHTML =
+    `<span class="dot${status.healthy ? "" : " off"}"></span>${status.healthy ? "Healthy" : "Down"}`;
+  $("card-rows").innerHTML = line("Sessions", status.sessions)
+    + `<button class="line rebuild" type="button" title="${label}" ${rebuilding ? "disabled" : ""}>
+      <span>Catalog</span><span><b>${esc(last)}</b>${following}</span></button>`;
+}
+
 function renderStatus(status) {
   const chips = [
     `<span class="chip"><span class="dot${status.healthy ? "" : " off"}"></span>` +
@@ -175,6 +188,7 @@ function renderStatus(status) {
     catalogChip(status.catalog),
   ];
   document.querySelectorAll("[data-status]").forEach((host) => { host.innerHTML = chips.join(""); });
+  renderStatusCard(status);
   $("version").textContent = status.version;
   markNavFades();
 }
