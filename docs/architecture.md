@@ -33,12 +33,12 @@ flowchart TD
 | --- | --- |
 | Access | `/v1` needs the master key or an API key from the dashboard. |
 | Tool filter | A request with `tools` skips the models that cannot call tools. |
-| Vision filter | A request with an `image_url` part skips the models with no true `supports_vision` value. See [API](api.md#chat-completions). |
-| Context filter | Tokens = characters / 4, input only. A model with a smaller context window leaves the list. No log line shows it. |
+| Vision filter | A request with an `image_url` part skips the models without `supports_vision` true. See [API](api.md#chat-completions). |
+| Context filter | Tokens = characters / 4, input only. A smaller-context model leaves the list. |
 | No model fits | The client gets 400 `context_length_exceeded`. |
 | Error | The next model gets the request. The client sees only the last error. |
 | Stream | When a stream stops, the next model continues the answer. |
-| Client cancel | When the client closes the connection before the last byte, daedalus stops the request. No model gets a fault, and no next model gets the request. The Requests page shows "cancelled". When no answer started, the log shows status 499. |
+| Client cancel | A client close before the last byte stops the request. No fault, no next model. |
 
 The end client only sees the last error to provide a cleaner transition between models in the fallback ladder.
 
@@ -77,11 +77,11 @@ flowchart TD
 
 | Input | Effect |
 | --- | --- |
-| Request type | 1 of 7 types, from the first rule that matches. With no match, the type is `general`. |
+| Request type | 1 of 7 types, from the first rule that matches. No match: `general`. |
 | Length | More than 2000 characters moves the text to a higher tier. |
 | Conversation | The tier does not go down until the session expires (1 h idle). |
-| Tool call | After the first tool call, the tier is C or higher. A conversation at tier C or higher skips the search for tool calls. |
-| Keyword | A word or phrase from `escalation.keywords` in the last message moves the tier 1 step above the conversation tier. Only a request whose last message is a user message gets this step. Thus the tool calls of the same turn do not add more steps. 2 keywords also give 1 step. |
+| Tool call | After the first tool call, the tier is C or higher, and the search stops. |
+| Keyword | An `escalation.keywords` match in the last user message moves the tier 1 step up. |
 
 The classifier is a copy of the [LiteLLM](https://github.com/BerriAI/litellm) [AutoRouter heuristic v2](https://docs.litellm.ai/blog/heuristic-v2). It is not perfect, but it is a good start.
 
@@ -140,7 +140,7 @@ flowchart LR
 | Provider | Order | Why |
 | --- | --- | --- |
 | Cloudflare | 2 | The daily Neurons go to images and transcription first |
-| Pollinations | 2 | No image model has order 1, so Cloudflare and Pollinations share the image pool by weight |
+| Pollinations | 2 | No order-1 image model: Cloudflare and Pollinations share the image pool by weight |
 | Other providers | 1 | The default |
 
 ## Weights
@@ -178,14 +178,14 @@ A model in a cooldown leaves each chain and each media pool. A session model in 
 | 1 | Gemini 429 with a `quotaId` that has `PerDay` | Next 00:00 Pacific time | `daily` |
 | 1 | Cloudflare error 4006. The cooldown covers all Cloudflare models. | Next 00:00 UTC | `daily` |
 | 2 | `retry-after` or `x-ratelimit-reset` header, or Gemini `RetryInfo.retryDelay` | That time | `reset` |
-| 3 | No reset time | 60 s, then 2 times the last backoff, 6 h at most. A success sets it back to 60 s. | `backoff` |
+| 3 | No reset time | 60 s, then double each backoff, 6 h at most. A success: 60 s again. | `backoff` |
 
 Some limits start a cooldown with no 429. A longer cooldown stays.
 
 | Cause | Cooldown end | Reason in the log |
 | --- | --- | --- |
-| An answer with 0 left of a day or a month in its `x-ratelimit-*` headers. Examples: the Groq requests of the day, the Mistral tokens of the month. The client still gets the answer. | The reset header time, else the next 00:00 UTC or the first day of the next month (UTC) | `limit` |
-| The hourly OpenRouter key check shows 0 free requests left of the day. The cooldown covers all `:free` OpenRouter models. | Next 00:00 UTC | `limit` |
+| An answer with 0 left of a day or month in its `x-ratelimit-*`, still delivered. | The reset header time, else the next 00:00 UTC or the next month start | `limit` |
+| The hourly OpenRouter check: 0 free requests left. The cooldown covers all `:free` models. | Next 00:00 UTC | `limit` |
 
 | Item | Value |
 | --- | --- |
@@ -193,7 +193,7 @@ Some limits start a cooldown with no 429. A longer cooldown stays.
 | `provider/slug` request to a model in a cooldown | HTTP 429 `rate_limit_exceeded`, with no upstream request |
 | Each model of a chain in a cooldown | HTTP 429 `rate_limit_exceeded`. `Retry-After` is the seconds to the first cooldown end. |
 | Storage | `.daedalus-state/models.sqlite3`, kept after a restart |
-| Dashboard | The Models page shows the time left of each cooldown, and of each client lane with its client name. The Requests page marks each request with an attempt that started a cooldown. |
+| Dashboard | Models: the cooldowns and lanes with the time left. Requests: the starting requests. |
 
 ## Client lanes
 
@@ -209,8 +209,8 @@ A model with `rpm` or `tpm` in its provider file leaves the chains and the media
 | Requests | Each request that daedalus sent to the model, fallbacks included |
 | Tokens | The input estimate of the context check: characters / 4. Media requests count 0 tokens. |
 | Skip | Silent. The weight does not change, and the log has no line. |
-| Provider hour | The requests to all models of the provider in the last hour, from each client. A 429 from the provider counts the rest of that hour as used. |
-| Each model skipped | HTTP 429 `rate_limit_exceeded`. `Retry-After` is the time until the first model can take a request again. |
+| Provider hour | The last-hour requests to all provider models, per client. A 429 uses the hour rest. |
+| Each model skipped | HTTP 429 `rate_limit_exceeded`. `Retry-After`: the time until the first model takes requests again. |
 | Client with its own key | Its own counts, against the same `rpm` and `tpm`. See [Client lanes](#client-lanes). |
 | Storage | Memory only. A restart sets the counts to 0. |
 
@@ -251,9 +251,9 @@ A try again in Open WebUI on `daedalus/auto` moves the repeated message 1 tier u
 
 | Item | Value |
 | --- | --- |
-| Found by | The same `X-OpenWebUI-Chat-Id` and the same messages as an earlier answered request of that chat. System messages do not count. Other requests between the 2, for example Open WebUI title and follow-up requests, do not stop it. |
+| Found by | The same chat id and messages as an earlier answered request, system messages excluded. |
 | Tier | 1 above the pool that answered the last attempt |
-| At tier A | A tier A model that did not answer this message. After all tier A models, the list starts again. |
+| At tier A | A tier A model that did not answer this message. After all, the list restarts. |
 | Next new message | The classifier and the session tier, as before |
 | Session model | The model that answers becomes the session model of its tier slot |
 | Weights | No change for the earlier answer |
@@ -267,10 +267,10 @@ A loop is a fault of the model that made it. See [ADR 4](adr/0004-penalties.md#l
 
 | Loop | Found by | Next step |
 | --- | --- | --- |
-| Tool | 3 calls with the same tool and arguments since the last user message, the last one in the last assistant message | The model that made the call is the last fallback |
+| Tool | 3 same-tool-and-arguments calls since the last user message, the last in the last assistant message | The model that made the call is the last fallback |
 | Thinking | A passage of 20 to 2,000 characters, 4 times in a row | Stream: the next model continues. No stream: the next model gets the request. |
 | Answer | The same, in the answer text | As thinking. The next model continues after the first copy of the passage. |
-| Log | Tool: `loop=N`, and "tool loop N" on the Requests page. Thinking and answer: an attempt with the result `loop`. | |
+| Log | Tool: `loop=N` on the Requests page. Thinking and answer: the result `loop`. | |
 
 ## Media pools
 
@@ -284,9 +284,9 @@ A loop is a fault of the model that made it. See [ADR 4](adr/0004-penalties.md#l
 | --- | --- |
 | Order | A weighted draw, then the weight order |
 | Weights | The same weights as the chat models |
-| Skip | A model that cannot do the request leaves the list, for example Flux 1 with `n` above 1. A skip is not a fault. |
-| Try again | The same key and the same content as an earlier answered request to that pool. For the transcription pool, the content is the audio and the form fields. For the image pool, the content is the JSON body, or the images and the form fields of an edit. |
-| Models of a try again | The models that answered this content leave the list. After all models, the list starts again. |
+| Skip | A model that cannot do the request leaves it, with no fault. |
+| Try again | The same key and content as an earlier answered pool request. Transcription: audio and fields. |
+| Models of a try again | The models that answered this content leave. After all, the list restarts. |
 | Log | `retry=N` |
 | Expiry | 1 h with no repeat of the message, in memory only |
 | Embeddings and speech | No pool. `provider/slug` only. |
@@ -302,7 +302,7 @@ Transcription and images get a pool, because the answer of another model is stil
 | Item | Value |
 | --- | --- |
 | Layout | `daedalus/store/schema.py`, as SQLAlchemy Core tables |
-| Steps | Alembic, 1 file for each change in `daedalus/store/migrations/versions/`. The `alembic_version` table holds the step of the file. |
+| Steps | Alembic, 1 file for each change in `daedalus/store/migrations/versions/`. `alembic_version` holds the step. |
 | Upgrade | `daedalus serve` and `daedalus catalog` run the new steps before they start. |
 | Requests | The request code uses `sqlite3`. SQLAlchemy and Alembic load only for the upgrade. |
 
@@ -324,9 +324,9 @@ daedalus is small enough for a Raspberry Pi that also runs other containers.
 
 | Item | Value |
 | --- | --- |
-| Tier rows of the pools | daedalus sorts the catalog models into tiers 1 time for each config and model list. A config reload or a catalog change sorts them again. |
-| Classifier | 1 result for each prompt, for the last 64 prompts. The requests of 1 tool loop have the same user messages, so only the first request runs the classifier. |
+| Tier rows of the pools | The tier sort runs once per config and list. Reloads and changes sort again. |
+| Classifier | 1 result for each prompt, for the last 64. Tool loops: the first request only. |
 | State files | SQLite WAL mode. The files `models.sqlite3-wal` and `models.sqlite3-shm` are part of the store. |
-| Catalog reads | A catalog rebuild reads each `discovery_url` 1 time, also when the 2 files have different API keys. It reads each LiteLLM catalog 1 time: Kilo and OpenRouter share the OpenRouter one. |
-| Weights, pins, cooldowns, request history | A write does not wait for the disk. After a power loss, the last writes can go, but the file stays correct. |
+| Catalog reads | Each rebuild reads each `discovery_url` and LiteLLM catalog once, Kilo and OpenRouter shared. |
+| Weights, pins, cooldowns, request history | No disk wait. A power loss can lose the last writes, not the file. |
 | API keys | A write waits for the disk. |
