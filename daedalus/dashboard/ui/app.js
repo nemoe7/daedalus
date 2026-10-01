@@ -282,7 +282,7 @@ function chainText(r) {
 // A request opens its fallback chain only after a fallback, or when an attempt failed and has an error to show.
 const hasChain = (r) => (r.attempts || []).length > 1 || (r.attempts || []).some((a) => a.result !== "answered");
 
-function chainRows(r) {
+function chainSteps(r) {
   const steps = (r.attempts || []).map((a, i) => `
     <li class="step ${a.result === "answered" ? "good" : "bad"}">
       <span class="num">${i + 1}.</span> <b>${esc(a.model)}</b>
@@ -292,11 +292,53 @@ function chainRows(r) {
       ${a.cooldown ? `<span class="from">${esc(coolText(a.cooldown))}</span>` : ""}
       ${a.error ? `<pre>${esc(a.error)}</pre>` : ""}
     </li>`).join("");
+  return steps ? `<ol>${steps}</ol>` : '<p class="muted">No attempt data for this request.</p>';
+}
+
+function chainRows(r) {
   return `<tr role="row" class="chain"><td role="cell" colspan="13"><div class="chain-body">
     <div class="chain-head"><span class="muted">Fallback chain</span>
       <button class="ghost copy-chain" type="button" data-at="${r.at}">Copy</button></div>
-    ${steps ? `<ol>${steps}</ol>` : '<p class="muted">No attempt data for this request.</p>'}
+    ${chainSteps(r)}
   </div></td></tr>`;
+}
+
+function poolText(r) {
+  return `${esc(r.pool || "-")}${transitionCell(r.transition)}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${r.retry ? ` <span class="from">try again ${esc(r.retry)}</span>` : ""}${r.loop ? ` <span class="from">tool loop ${esc(r.loop)}</span>` : ""}`;
+}
+
+function mobileFallbackChain(r) {
+  return `<details class="mobile-fallback-chain">
+    <summary>View fallback chain</summary>
+    <div class="mobile-chain-head"><span class="muted">Fallback chain</span>
+      <button class="ghost copy-chain" type="button" data-at="${r.at}">Copy</button></div>
+    ${chainSteps(r)}
+  </details>`;
+}
+
+function mobileRequestDetails(r, live = false) {
+  const fallbacks = r.fallbacks ?? "-";
+  const count = r.fallbacks === undefined || r.fallbacks === null
+    ? ""
+    : ` · ${esc(r.fallbacks)} ${Number(r.fallbacks) === 1 ? "fallback" : "fallbacks"}`;
+  const chain = !live && hasChain(r) ? mobileFallbackChain(r) : "";
+  return `<details class="mobile-request-more">
+    <summary>More · session, effort, pool${count}</summary>
+    <dl class="mobile-request-meta">
+      <div><dt>Session</dt><dd>${esc(r.session || "-")}</dd></div>
+      <div><dt>Effort</dt><dd>${effortCell(r)}</dd></div>
+      <div><dt>Pool</dt><dd>${poolText(r)}</dd></div>
+      <div><dt>Fallbacks</dt><dd>${esc(fallbacks)}</dd></div>
+    </dl>
+    ${chain}
+  </details>`;
+}
+
+function fallbackCell(r, classes = "", live = false) {
+  return `<td role="cell" class="${classes} fallbacks-cell">
+    ${mobileLabel("Fallbacks")}<span class="cell-value">${esc(r.fallbacks ?? "-")}</span>
+    ${mobileRequestDetails(r, live)}
+  </td>`;
 }
 
 // A token count in whole thousands from 1,000, such as 79K, with the exact count on hover.
@@ -385,15 +427,15 @@ function renderLive() {
       ${appCell(r)}
       ${cell("Session", esc(r.session || "-"), "hide-sm num")}
       ${nameCell(r.model || r.path)}
-      ${cell("Effort", esc(r.effort || "-"), "hide-sm")}
-      ${cell("Pool", `${esc(r.pool || "-")}${transitionCell(r.transition, true)}`, "hide-sm muted")}
+      ${cell("Effort", effortCell(r), "hide-sm")}
+      ${cell("Pool", poolText(r), "hide-sm muted")}
       ${nameCell(r.via || r.trying || "", r.via ? esc(r.via) : `<span class="muted">${r.trying ? `trying ${esc(r.trying)}` : "waiting"}</span>`, "Served by")}
       ${cell("Status", "live", "status muted")}
       ${cell("Input", "-", "hide-sm num muted")}
       ${cell("Output", "-", "hide-sm num muted")}
       <td role="cell" class="hide-sm num">${mobileLabel("TTFT")}<span class="cell-value"><span data-clock="ttft"></span></span></td>
       <td role="cell" class="hide-sm num">${mobileLabel("Stream")}<span class="cell-value"><span data-clock="stream"></span></span></td>
-      ${cell("Fallbacks", esc(r.fallbacks ?? "-"), "hide-sm num muted")}
+      ${fallbackCell(r, "hide-sm num muted", true)}
     </tr>`).join("");
   tickLive();
 }
@@ -480,23 +522,26 @@ function renderRequests(rows) {
   if (text === shownRequests) return;
   if (!selected.isCollapsed && $("requests").contains(selected.anchorNode)) return;
   shownRequests = text;
-  $("requests").innerHTML = flatRows.length ? flatRows.map((r) => `
-    ${hasChain(r) ? `<tr role="row" class="request${opened.has(String(r.at)) ? " open" : ""}" data-at="${r.at}" title="Show the fallback chain">` : "<tr role=\"row\">"}
-      ${cell("Time", `<span class="caret${hasChain(r) ? "" : " none"}"></span>${clock(r.at)}`, "num muted")}
+  $("requests").innerHTML = flatRows.length ? flatRows.map((r) => {
+    const chain = hasChain(r);
+    const chainOpen = chain && opened.has(String(r.at));
+    return `
+    <tr role="row" class="request${chain ? " has-chain" : ""}${chainOpen ? " open" : ""}" data-at="${r.at}"${chain ? ' title="Show the fallback chain"' : ""}>
+      ${cell("Time", `<span class="caret${chain ? "" : " none"}"></span>${clock(r.at)}`, "num muted")}
       ${appCell(r)}
       ${cell("Session", esc(r.session || "-"), "hide-sm num")}
       ${nameCell(r.model || "-")}
       ${cell("Effort", effortCell(r), "hide-sm")}
-      ${cell("Pool", `${esc(r.pool || "-")}${transitionCell(r.transition)}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${r.retry ? ` <span class="from">try again ${esc(r.retry)}</span>` : ""}${r.loop ? ` <span class="from">tool loop ${esc(r.loop)}</span>` : ""}`, "hide-sm muted")}
+      ${cell("Pool", poolText(r), "hide-sm muted")}
       ${nameCell(r.via || "", r.via ? esc(r.via) : '<span class="muted">none</span>', "Served by")}
       ${cell("Status", statusCell(r), `status ${statusClass(r)}`)}
       ${tokenCell(r.tokens?.input, r.tokens?.estimate ? "~" : "", "Input")}
       ${tokenCell(r.tokens?.output, "", "Output")}
       ${cell("TTFT", esc(r.ttft || "-"), "hide-sm num")}
       ${cell("Stream", streamCell(r), "hide-sm num")}
-      ${cell("Fallbacks", esc(r.fallbacks ?? "-"), "hide-sm num")}
-    </tr>${hasChain(r) && opened.has(String(r.at)) ? chainRows(r) : ""}`).join("")
-    : '<tr role="row"><td role="cell" colspan="13" class="empty">No requests</td></tr>';
+      ${fallbackCell(r, "hide-sm num")}
+    </tr>${chainOpen ? chainRows(r) : ""}`;
+  }).join("") : '<tr role="row"><td role="cell" colspan="13" class="empty">No requests</td></tr>';
 }
 
 // The label of each catalog mode.
@@ -1585,8 +1630,9 @@ $("requests").addEventListener("click", async (event) => {
     }
     return;
   }
+  if (event.target.closest(".mobile-request-more") || window.matchMedia("(max-width: 720px)").matches) return;
   const row = event.target.closest("tr.request");
-  if (!row || !getSelection().isCollapsed) return;
+  if (!row || !row.classList.contains("has-chain") || !getSelection().isCollapsed) return;
   const at = row.dataset.at;
   opened.has(at) ? opened.delete(at) : opened.add(at);
   shownRequests = "";
