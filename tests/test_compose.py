@@ -20,3 +20,11 @@ def test_dev_copy() -> None:
     "build",
   )
   assert dev == main
+
+
+def test_tailscale_openwebui_has_its_own_profile() -> None:
+  """The Open WebUI Tailscale sidecar starts only under its own profile."""
+  compose = yaml.safe_load((ROOT / "compose.yml").read_text())
+  services = compose["services"]
+  assert services["open-webui"]["profiles"] == ["webui"]
+  assert services["tailscale-openwebui"]["profiles"] == ["tailscale-openwebui"]

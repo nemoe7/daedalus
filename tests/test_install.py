@@ -75,6 +75,27 @@ def test_new_key(tmp_path: Path) -> None:
   assert "master key" not in again.stdout
 
 
+def test_webui_profile_does_not_require_tailscale_service_dir(tmp_path: Path) -> None:
+  """The webui profile runs without the optional Open WebUI Tailscale config."""
+  env_text = f"DAEDALUS_MASTER_KEY={'k' * 20}\nCOMPOSE_PROFILES=webui\n"
+  folder, env = checkout(tmp_path, env_text)
+  result = run(folder, env)
+  assert result.returncode == 0, result.stderr + result.stdout
+  assert "required service dirs" not in result.stdout
+  assert "compose up -d" in (tmp_path / "docker.log").read_text()
+
+
+def test_tailscale_openwebui_profile_requires_service_dir(tmp_path: Path) -> None:
+  """The independent sidecar profile requests its own Tailscale config."""
+  env_text = f"DAEDALUS_MASTER_KEY={'k' * 20}\nCOMPOSE_PROFILES=tailscale-openwebui\n"
+  folder, env = checkout(tmp_path, env_text)
+  result = run(folder, env)
+  assert result.returncode == 1
+  assert "required service dirs: services/tailscale-openwebui)" in result.stdout
+  assert "Stopped. Nothing changed." in result.stdout
+  assert not (tmp_path / "docker.log").exists()
+
+
 def test_question(tmp_path: Path) -> None:
   """A missing .env asks first. With no answer, nothing changes."""
   folder, env = checkout(tmp_path, None)
