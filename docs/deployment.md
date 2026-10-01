@@ -26,7 +26,7 @@ The commands below are the same in cmd, PowerShell and bash.
 
 | Item | Value |
 | --- | --- |
-| Container | `daedalus`, with a health check on `/health` |
+| Container | `daedalus-api`. `/health` answers without a key |
 | Image | `ghcr.io/nemoe7/daedalus:latest`, for `linux/amd64` and `linux/arm64` |
 | Port | `3357` |
 | State | `./.daedalus-state` (model store, API keys, weights, sessions) |
