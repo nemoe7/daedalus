@@ -1582,6 +1582,7 @@ $("show-password").addEventListener("click", () => showPassword($("login").passw
 document.addEventListener("click", async (event) => {
   if (event.target.closest(".rebuild")) return rebuildCatalog();
   if (!event.target.closest(".logout")) return;
+  if (!confirm("Log out of the dashboard?")) return;
   await call("logout", { method: "POST" }).catch(() => {});
   keepSession(null);
   showLogin();

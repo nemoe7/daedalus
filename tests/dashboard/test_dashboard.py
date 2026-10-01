@@ -78,6 +78,7 @@ def test_page(client: TestClient) -> None:
     'const EFFORT_SHORT = { minimal: "min", low: "low", medium: "med", high: "hi", xhigh: "xhi" }'
     in script.text
   )
+  assert 'confirm("Log out of the dashboard?")' in script.text, "a logout asks first"
   assert "shortEffort(sentText(a, r.effort))" in script.text
   assert '["change_on_draw", "Change pin on draw"' in script.text
   assert '["loops", "Loop detection"' in script.text, (
