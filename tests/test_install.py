@@ -137,8 +137,10 @@ def test_new_key(tmp_path: Path) -> None:
   key = keys[0].partition("=")[2]
   secret_keys = [line for line in lines if line.startswith("WEBUI_SECRET_KEY=")]
   secret_key = secret_keys[0].partition("=")[2]
-  assert len(keys) == 1 and len(key) == 40 and key in result.stdout
-  assert len(secret_keys) == 1 and len(secret_key) == 64
+  assert len(keys) == 1 and len(key) == 43 and key.startswith("sk-")
+  assert key in result.stdout
+  assert len(secret_keys) == 1 and len(secret_key) == 67
+  assert secret_key.startswith("sk-")
   assert "Continue?" not in result.stdout
   assert "compose up -d" in (tmp_path / "docker.log").read_text()
   before_again = (folder / ".env").read_text()
