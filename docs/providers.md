@@ -1,6 +1,6 @@
 # Providers
 
-Tests confirmed each provider as really free, but Pollinations.
+Each provider except Pollinations has a tested free tier.
 
 | Provider key | Provider | API | Notes |
 | --- | --- | --- | --- |
@@ -12,8 +12,6 @@ Tests confirmed each provider as really free, but Pollinations.
 | `openrouter` | OpenRouter | OpenAI-compatible, plus the OpenRouter Image API (`/images`). Speech is mp3, unless the client asks for pcm. The `cheapest_output` [hook](hooks.md#hook-files-in-config) sends the endpoints with the cheapest output first. | Only `:free` models, and `stealth/` models with price 0 in each price field. Discovery lists each output type, and the output type sets the mode: for example, the free embedding and speech models are direct models. No image model: image generation needs a credit balance. |
 | `pollinations` | Pollinations | OpenAI-compatible | In `pollinations.yml`, not `free.yml`: its Pollen does not refill ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)). Only 4 image models for the image pool, at 0.0001 to 0.005 Pollen for each image: `lykon/dreamshaper-8-lcm`, `black-forest-labs/flux.1-schnell`, `tongyi-mai/z-image-turbo` and `black-forest-labs/flux.2-klein-4b`. Order 2, as Cloudflare. |
 | `z-ai` | Z.ai | OpenAI-compatible | Only the 3 free models under `models:`: `glm-4.5-flash`, `glm-4.7-flash` and `glm-4.6v-flash`. |
-
-Kilo and OpenRouter are large, known gateways with free models that change over time. Google Gemini has a more generous free tier than the other providers.
 
 | Provider | How daedalus keeps it free |
 | --- | --- |

@@ -7,11 +7,9 @@
 
 daedalus puts your personal API keys behind 1 endpoint and uses a classifier to select a model for each task.
 
-The name must have the same impact as [Odysseus](https://odysseusai.dev/). It must be Greek and easy to recognize. The idea comes from the Terraria weapon [Daedalus Stormbow](https://terraria.wiki.gg/wiki/Daedalus_Stormbow). Each arrow is a request to a provider, and the bow shoots until 1 arrow hits.
-
 ## Why daedalus
 
-[LiteLLM](https://github.com/BerriAI/litellm) is a good router, but it is heavy for a Raspberry Pi, and it has many features that 1 user does not need. Personal API keys are not for sharing, so daedalus is for 1 user. daedalus keeps the LiteLLM classifier and model data, and adds these routing features:
+daedalus keeps the LiteLLM classifier and model data of [LiteLLM](https://github.com/BerriAI/litellm), and adds these routing features:
 
 - [Loop fallback](docs/architecture.md#loops): a model that sends the same tool call 3 times gets a fault. The same thinking passage 4 times also gives a fault. Then the next model continues.
 - A [fallback ladder](docs/architecture.md#pools-and-the-fallback-ladder) through the tiers: up first, then down.
