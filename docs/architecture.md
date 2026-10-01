@@ -248,7 +248,7 @@ Session affinity keeps 1 response style in a conversation. It also lets the conv
 ## Parallel queries
 
 With `parallel.enabled`, a stream request to `daedalus/auto` or to a tier pool can race the
-next model of its own chain.
+next `parallel.count` models of its own chain.
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e3e8fd", "primaryBorderColor": "#3b5bfd", "primaryTextColor": "#1a1f36", "lineColor": "#3b5bfd", "textColor": "#3b5bfd", "secondaryColor": "#ede9fe", "tertiaryColor": "#f5f3ff", "clusterBkg": "#f5f3ff", "clusterBorder": "#8b5cf6", "titleColor": "#5c388c", "edgeLabelBackground": "#ffffff", "noteBkgColor": "#ede9fe", "noteBorderColor": "#8b5cf6"}}}%%
@@ -259,7 +259,7 @@ sequenceDiagram
   participant B as Model B
   C->>D: Stream request
   D->>A: Start the session model
-  D->>B: Start the next model on a chance draw, or at parallel.slow
+  D->>B: Start the next models on a chance draw, or at parallel.slow
   B-->>D: First token
   D->>A: Cancel
   D->>D: Pin model B
@@ -268,9 +268,10 @@ sequenceDiagram
 | Item | Value |
 | --- | --- |
 | Scope | `daedalus/auto` and the tier pools, on a stream. Not `provider/slug` and not a request without a stream. |
-| Start of the second model | A draw below `parallel.chance`, or no content at `parallel.slow` |
-| Winner | The first model with content. A pair at the same time keeps the model that started first. |
-| Loser | daedalus cancels the call, and the weight takes `parallel.penalty`. No cooldown starts. |
+| Racing models | The next `parallel.count` models of the chain, from 1 to 10 |
+| Start of the racing models | A draw below `parallel.chance`, or no content at `parallel.slow` |
+| Winner | The first model with content. Models at the same time keep the model that started first. |
+| Losers | daedalus cancels each call, and the weight takes `parallel.penalty`. No cooldown starts. |
 | Draw | The session model starts each request. The draw of [Session affinity](#session-affinity) stops. |
 | Log | The attempt of the loser shows `lost race` |
 | Client | No change: 1 answer, from the winner |

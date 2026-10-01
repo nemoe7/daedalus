@@ -41,8 +41,9 @@ AFFINITY = True
 KEYWORDS: re.Pattern[str] | None = None
 # The keywords of `switch.keywords` as 1 pattern, or None when the list is empty.
 SWITCH: re.Pattern[str] | None = None
-# The `parallel` settings: a second model races the first token of a stream request.
+# The `parallel` settings: the next models of the chain race the first token of a stream request.
 PARALLEL_ENABLED = False
+PARALLEL_COUNT = 1
 PARALLEL_CHANCE = 0.05
 PARALLEL_SLOW = 30.0
 PARALLEL_PENALTY = 0.9
@@ -800,11 +801,11 @@ async def chat(request: Request) -> Response:
     and model != router.RESERVED_MODEL
     and (router.model_setting(config, model, "timeout") is not None)
   )
-  # A stream request to a pool or to `daedalus/auto` can race the next model of its own chain.
-  runner = (
-    models[1]
+  # A stream request to a pool or to `daedalus/auto` can race the next models of its own chain.
+  runners = (
+    models[1 : 1 + PARALLEL_COUNT]
     if PARALLEL_ENABLED and found[1] and body.get("stream") and len(models) > 1
-    else None
+    else []
   )
 
   async def start_candidate(model: str, sent: dict[str, Any]) -> dict[str, Any]:
@@ -834,21 +835,22 @@ async def chat(request: Request) -> Response:
       raise
 
   async def race_models(
-    first: str, second: str, sent: dict[str, Any], started: float
+    first: str, others: list[str], sent: dict[str, Any], started: float
   ) -> Try:
-    """Race 2 models for the first content. The loser stops, with its own fault or with the race factor."""
-    PACING.record(pin.lane(second), tokens)
-    other: dict[str, Any] = {}
+    """Race the models for the first content. Each loser stops, with its own fault or with the race factor."""
     takes = [Try(first, sent, asyncio.create_task(start_candidate(first, sent)))]
     try:
-      # A draw starts the second model now. Without it, only a first model with no content starts it.
+      # A draw starts the other models now. Without it, only a first model with no content starts them.
       quick = bool(PARALLEL_CHANCE) and PENALTIES.pick() < PARALLEL_CHANCE
       if not quick:
         await asyncio.wait([takes[0].task], timeout=PARALLEL_SLOW)
       if quick or not takes[0].task.done():
-        takes.append(
-          Try(second, other, asyncio.create_task(start_candidate(second, other)))
-        )
+        for model in others:
+          PACING.record(pin.lane(model), tokens)
+          other: dict[str, Any] = {}
+          takes.append(
+            Try(model, other, asyncio.create_task(start_candidate(model, other)))
+          )
       winner = await first_winner(takes)
       for take in takes:
         if take is winner:
@@ -907,10 +909,10 @@ async def chat(request: Request) -> Response:
     PACING.record(pin.lane(candidate), tokens)
     try:
       # The request limit caps the wait for an answer, for all attempts.
-      if runner is None or index:
+      if not runners or index:
         content = await start_candidate(candidate, sent)
       else:
-        winner = await race_models(candidate, runner, sent, started)
+        winner = await race_models(candidate, runners, sent, started)
         candidate, sent = winner.model, winner.sent
         content = winner.task.result()
       wait = content["wait"]
@@ -1052,7 +1054,8 @@ def keyword_pattern(keywords: list[str]) -> re.Pattern[str] | None:
 def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   """Use the values of `config/daedalus.yml`."""
   global SLOW_SECONDS, AFFINITY, KEYWORDS, SWITCH
-  global PARALLEL_ENABLED, PARALLEL_CHANCE, PARALLEL_SLOW, PARALLEL_PENALTY
+  global PARALLEL_ENABLED, PARALLEL_COUNT, PARALLEL_CHANCE, PARALLEL_SLOW
+  global PARALLEL_PENALTY
   router.set_pool_names(values["pools"])
   timeouts, affinity, weights = (
     values["timeouts"],
@@ -1060,8 +1063,9 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
     values["weights"],
   )
   parallel = values["parallel"]
-  PARALLEL_ENABLED, PARALLEL_CHANCE, PARALLEL_SLOW, PARALLEL_PENALTY = (
+  PARALLEL_ENABLED, PARALLEL_COUNT, PARALLEL_CHANCE, PARALLEL_SLOW, PARALLEL_PENALTY = (
     parallel["enabled"],
+    parallel["count"],
     parallel["chance"],
     parallel["slow"],
     parallel["penalty"],

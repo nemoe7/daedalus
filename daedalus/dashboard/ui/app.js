@@ -1201,9 +1201,10 @@ const SETTINGS = [
     ["stay", "Stay share", "", "The share of first-tier draws for the session model. Below 1."],
   ]],
   ["parallel", "Parallel queries", [
-    ["enabled", "On", "", "A second model of the chain races the first token, and the session model starts each request."],
-    ["chance", "Race chance", "", "The chance to start the second model with the first model. 0 to 1."],
-    ["slow", "Slow first token", "s", "Seconds with no content from the first model. Then the second model starts."],
+    ["enabled", "On", "", "The next models of the chain race the first token, and the session model starts each request."],
+    ["count", "Racing models", "", "The models that race the original one. 1 to 10."],
+    ["chance", "Race chance", "", "The chance to start the racing models with the original one. 0 to 1."],
+    ["slow", "Slow first token", "s", "Seconds with no content from the first model. Then the racing models start."],
     ["penalty", "Loser factor", "x", "The weight factor for the model that loses the race. At most 1."],
   ]],
   ["weights", "Weights", [
@@ -1279,9 +1280,10 @@ const DECIMALS = new Set([
   "weights.success", "weights.fault", "weights.slow", "weights.hourly", "weights.rate_limit",
 ]);
 // The input bounds. The server also checks them before saving.
-const MINIMA = { "loops.calls": 2, "loops.repeats": 2, "loops.shortest": 1, "loops.longest": 1 };
+const MINIMA = { "loops.calls": 2, "loops.repeats": 2, "loops.shortest": 1, "loops.longest": 1, "parallel.count": 1 };
 const MAXIMA = {
   "catalog.anchor": 23,
+  "parallel.count": 10,
   "parallel.chance": 1,
   "parallel.penalty": 1,
   "loops.calls": 100,

@@ -16,7 +16,7 @@ MASTER = "test-master-key-0001"
 CONFIG = {
   "b": {"api_key": "k", "api_base": "https://b.test/v1", "tier": {"TIER-B": ["*"]}}
 }
-ROWS = [{"id": m} for m in ("b/1", "b/2")]
+ROWS = [{"id": m} for m in ("b/1", "b/2", "b/3")]
 FIRST = {"role": "user", "content": "hi"}
 # The seconds before the first content of each model, and the models that the client called.
 PLAN: dict[str, float] = {}
@@ -147,6 +147,26 @@ def test_chance_starts_the_second_model(client: TestClient) -> None:
     }, attempts()
   finally:
     api.PARALLEL_CHANCE = 0.0
+
+
+def test_count_races_that_many_models(client: TestClient) -> None:
+  """`parallel.count` 2 starts 2 models beside the original one."""
+  api.PARALLEL_COUNT = 2
+  try:
+    PLAN.update({"b/1": 0.5, "b/2": 0.5, "b/3": 0.0})
+    assert stream(client, "daedalus/deinos") == "b/3", "the first content wins"
+    assert CALLS == ["b/1", "b/2", "b/3"], CALLS
+    results = {(a["model"], a["result"]) for a in attempts()}
+    assert results == {
+      ("b/1", "lost race"),
+      ("b/2", "lost race"),
+      ("b/3", "answered"),
+    }, results
+    weights = api.PENALTIES.weights(["b/1", "b/2"])
+    assert weights["b/1"] == pytest.approx(0.9), weights
+    assert weights["b/2"] == pytest.approx(0.9), weights
+  finally:
+    api.PARALLEL_COUNT = 1
 
 
 def test_off_keeps_the_session_model(client: TestClient) -> None:
