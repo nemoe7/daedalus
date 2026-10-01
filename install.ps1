@@ -226,7 +226,8 @@ $key = $null
 if ($text -match '(?m)^DAEDALUS_MASTER_KEY=\r?$') {
   $bytes = New-Object byte[] 20
   [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-  $key = -join ($bytes | ForEach-Object { $_.ToString('x2') })
+  # The sk- prefix matches the API keys that daedalus makes in the dashboard.
+  $key = 'sk-' + (-join ($bytes | ForEach-Object { $_.ToString('x2') }))
   $text = $text -replace '(?m)^DAEDALUS_MASTER_KEY=(\r?)$', ("DAEDALUS_MASTER_KEY=$key" + '$1')
   [IO.File]::WriteAllText($envFile, $text)
 }
@@ -237,7 +238,7 @@ if ($text -notmatch '(?m)^DAEDALUS_MASTER_KEY=\S{16,}\r?$') {
 if ($text -match '(?m)^WEBUI_SECRET_KEY=\r?$') {
   $bytes = New-Object byte[] 32
   [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-  $webuiKey = -join ($bytes | ForEach-Object { $_.ToString('x2') })
+  $webuiKey = 'sk-' + (-join ($bytes | ForEach-Object { $_.ToString('x2') }))
   $text = $text -replace '(?m)^WEBUI_SECRET_KEY=(\r?)$', ("WEBUI_SECRET_KEY=$webuiKey" + '$1')
   [IO.File]::WriteAllText($envFile, $text)
 }
