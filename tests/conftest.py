@@ -26,7 +26,7 @@ SETTINGS = (
       "PARALLEL_ENABLED",
       "PARALLEL_COUNT",
       "PARALLEL_CHANCE",
-      "PARALLEL_SLOW",
+      "PARALLEL_SLOW_SECONDS",
       "PARALLEL_PENALTY",
     )
   ),
