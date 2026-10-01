@@ -255,7 +255,11 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
   narrow_css = css.split("@media (max-width: 360px) {", 1)[1].split("\n}", 1)[0]
   assert ".requests .mobile-request-more { display: none; }" in base_css
   assert "tr.request.has-chain { cursor: pointer; }" in base_css
-  assert "tr.request.has-chain:hover td, tr.request.has-chain.open td" in base_css
+  assert "tr.request.has-chain.open td { background: var(--field); }" in base_css
+  assert (
+    "@media (hover: hover) {\n  tr.request.has-chain:hover td "
+    "{ background: var(--field); }\n}" in base_css
+  ), "the row hover needs a pointer, a touch tap keeps no background"
   assert ".requests .mobile-request-more { display: block; width: 100%; }" in mobile_css
   assert ".requests tr.request, .requests tr.live-row {" in mobile_css
   assert "grid-template-columns: repeat(4, minmax(0, 1fr))" in mobile_css
