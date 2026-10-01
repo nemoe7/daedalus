@@ -257,7 +257,7 @@ A try again in Open WebUI on `daedalus/auto` moves the repeated message 1 tier u
 | Next new message | The classifier and the session tier, as before |
 | Session model | The model that answers becomes the session model of its tier slot |
 | Weights | No change for the earlier answer |
-| Log | `retry=N`. The Requests page shows "try again N". |
+| Log | `retry=N`. The Requests page shows `rtN`. |
 | Expiry | 1 h with no repeat of the message, in memory only |
 | Other clients, chat pools, `provider/slug` | No change |
 
