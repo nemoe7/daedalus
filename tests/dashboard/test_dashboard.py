@@ -162,13 +162,17 @@ const nav = {{
   classList: {{ toggle: (name, on) => (on ? classes.add(name) : classes.delete(name)) }},
   addEventListener: () => {{}},
 }};
-const el = () => ({{ innerHTML: '', textContent: '', addEventListener: () => {{}} }});
+const byId = new Map();
+const el = (id) => {{
+  if (!byId.has(id)) byId.set(id, {{ innerHTML: '', textContent: '', addEventListener: () => {{}} }});
+  return byId.get(id);
+}};
 const sandbox = {{
   matchMedia: () => ({{ matches: false, addEventListener: () => {{}} }}),
   document: {{
     hidden: false,
     documentElement: {{ dataset: {{}} }},
-    getElementById: (id) => (id === 'nav' ? nav : el()),
+    getElementById: (id) => (id === 'nav' ? nav : el(id)),
     querySelector: () => ({{ firstChild: {{ textContent: 'Models' }} }}),
     querySelectorAll: (sel) => (sel === '[data-status]' ? hosts : []),
     addEventListener: () => {{}},
@@ -177,7 +181,7 @@ const sandbox = {{
   location: {{ hash: '' }},
   window: {{ addEventListener: () => {{}} }},
   getSelection: () => ({{ isCollapsed: true }}),
-  $: (id) => (id === 'nav' ? nav : el()),
+  $: (id) => (id === 'nav' ? nav : el(id)),
 }};
 vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
@@ -221,6 +225,11 @@ assert.strictEqual(hosts[0].innerHTML, hosts[1].innerHTML);
 assert(hosts[0].innerHTML.includes('Healthy'));
 assert(hosts[0].innerHTML.includes('chip rebuild'));
 assert(!hosts[0].innerHTML.includes('catalog-rebuild'), 'no id the two hosts would share');
+assert(byId.get('card-health').innerHTML.includes('Healthy'), 'the phone card shows the health');
+const card = byId.get('card-rows').innerHTML;
+assert(card.includes('Sessions') && card.includes('>2<'), 'the phone card shows the sessions');
+assert(card.includes('Catalog') && card.includes('chip rebuild') === false, 'no chip in the card');
+assert(card.includes('class="line rebuild"'), 'the catalog line starts a rebuild');
 """
   )
   subprocess.run(["node", "-e", code], check=True)

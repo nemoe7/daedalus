@@ -353,11 +353,16 @@ section[data-page="limits"] > .editbar { margin-bottom: 16px; }
   header { grid-template-columns: 1fr; grid-template-areas: "brand" "tabs"; }
   .brand { padding-top: 10px; }
   header > .chips { display: none; }
-  .status-card {
-    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
-    gap: 8px 12px; padding: 12px 14px; margin-bottom: 16px;
+  /* The phone card: a health row, then 1 line for each value. It fills the width, with no chip row. */
+  .status-card { display: block; padding: 12px 14px; margin-bottom: 16px; }
+  .status-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .status-health { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+  .status-rows { margin-top: 8px; }
+  button.line {
+    width: 100%; border: 0; border-top: 1px solid var(--line); background: none;
+    color: inherit; font: inherit; text-align: left; cursor: pointer;
   }
-  .status-card .chips { justify-content: flex-start; padding: 0; }
+  .status-card .line b { color: var(--text); font-weight: 600; }
   .editbar { gap: 8px; padding: 8px 10px; }
   .editbar .primary, .editbar .ghost { padding: 5px 12px; }
   .editbar .views { margin-left: auto; }
