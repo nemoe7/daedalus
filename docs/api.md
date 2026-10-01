@@ -4,9 +4,7 @@ daedalus serves the OpenAI API on `http://HOST:3357/v1`.
 
 The tested clients are Kilo Code and Open WebUI.
 
-Kilo Code: so far, the best agentic harness for daedalus. It has fine-grained tool access, a plugin system, and more.
-
-Open WebUI: a general chat interface. A custom interface without the unused features is possible, but Open WebUI works well so far.
+Open WebUI: a general chat interface.
 
 ## Access
 
