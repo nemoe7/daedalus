@@ -293,6 +293,21 @@ assert(!html.includes(' per '), 'no long span text');
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_limit_columns_stay_compact() -> None:
+  """Limit model names ellipsize, while short unit labels stay on one line."""
+  css = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
+  ).read_text(encoding="utf-8")
+  model_cell = re.search(r"#limit-rows td\.name\s*\{([^}]*)\}", css)
+  limit_cell = re.search(r"#limit-rows td:nth-child\(2\)\s*\{([^}]*)\}", css)
+  mobile_css = css.split("@media (max-width: 720px) {", 1)[1]
+  mobile_weight = re.search(r"#limit-rows \.weight\.left\s*\{([^}]*)\}", mobile_css)
+  assert model_cell and "text-overflow: ellipsis" in model_cell.group(1)
+  assert model_cell and "white-space: nowrap" in model_cell.group(1)
+  assert limit_cell and "white-space: nowrap" in limit_cell.group(1)
+  assert mobile_weight and "min-width: 0" in mobile_weight.group(1)
+
+
 def test_app_js_settings_switches() -> None:
   """Every boolean setting renders as a checkbox, so a loaded file reports no change."""
   payload = json.dumps(
