@@ -23,8 +23,8 @@ For each point, the file defines 1 function with the name of the point.
 
 | Point | Function | When | Gets |
 | --- | --- | --- | --- |
-| `on-catalog` | `on_catalog(row, model, api_base, headers)` | At each catalog build, for each model with the hook, before the store write | `row`: the catalog row, with the model id and the catalog columns, such as `max_input_tokens`. The hook cannot change the id. `api_base` and `headers`: for calls to the provider API. A catalog build runs in a worker thread, so a slow call does not stop requests. |
-| `on-upstream` | `on_upstream(body, model, headers)` | Before each chat request goes to the provider, also for a stream and for each fallback | `body`: the upstream JSON body, after all daedalus changes. For a native API, such as Gemini, the body has the native format. `model`: `provider/slug`. `headers`: the provider headers, as a dict that the hook can change. |
+| `on-catalog` | `on_catalog(row, model, api_base, headers)` | At each catalog build, for each model with the hook, before the store write | `row`: a catalog row, the id cannot change. `api_base`, `headers`: for the provider API calls. |
+| `on-upstream` | `on_upstream(body, model, headers)` | Before each chat request to the provider, streams and fallbacks included | `body`: the upstream JSON body, native format for native APIs. `model`: `provider/slug`. `headers`: changeable. |
 | `on-answer` | `on_answer(answer, model)` | After a full chat answer comes back, before the client gets it | `answer`: the answer in the OpenAI format. A stream has no `on-answer` point. |
 
 A function gets a copy of the value. It can change the copy and return None, or it can return a new dict. The hooks of 1 point run in list order, and each hook gets the value of the hook before it.
@@ -49,8 +49,16 @@ The dashboard can edit the `hooks` list, but not the hook files. Only a person w
 
 | File | Use |
 | --- | --- |
-| `hooks/example.py` | A start for a new hook file. It has each function, with examples in comments, and it changes nothing. |
-| `hooks/cheapest_output.py` | OpenRouter tries the endpoints with the cheapest output price first. `on_catalog` reads the endpoint list of each model with the hook, at each catalog build. It sorts the list by output price after the discount, and the input price breaks a tie. The order has provider slugs with no variant, such as `deepinfra` for `deepinfra/fp4`. A provider keeps the place of its cheapest endpoint. The order stays in `.daedalus-state/cheapest_output.json`. `on_upstream` sends the order as `provider.order`. A client `provider` object has priority. If the list read fails, the old order stays. `openrouter.yml` names the file for `on-catalog` and `on-upstream` of `z-ai/glm-5.3-flash`. |
+| `hooks/example.py` | A start for a new hook file: each function, examples in comments, no changes. |
+| `hooks/cheapest_output.py` | Sorts the OpenRouter endpoints by the cheapest output price. The example follows the table. |
+
+The `cheapest_output` hook: `on_catalog` reads the endpoint list of each model at each
+catalog build. It sorts the list by the output price after the discount, and the input
+price breaks a tie. The order holds provider slugs with no variant, such as `deepinfra`
+for `deepinfra/fp4`, and each provider keeps the place of its cheapest endpoint. The
+order stays in `.daedalus-state/cheapest_output.json`. `on_upstream` sends the order as
+`provider.order`, and a client `provider` object has priority. If the list read fails,
+the old order stays. `openrouter.yml` names the file for `z-ai/glm-5.3-flash`.
 
 ## Example
 

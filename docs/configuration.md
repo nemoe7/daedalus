@@ -20,11 +20,11 @@ A key that shows 2 times in 1 map of a config file stops the start. The error gi
 | Item | Rule |
 | --- | --- |
 | Name | The file name is the provider name: `openrouter.yml` holds `openrouter`. |
-| Provider key | A file with no provider key (`api_key`, `client_keys`, `api_base`, `tier`, `models`, `exclude`, `discovery_url`, `discovery_match`, `api_type`) is not a provider file. |
+| Provider key | A file with no provider key, like `api_key` or `models`, is not a provider file. |
 | Discovery | Each file discovers the models of its provider with its own settings. |
-| Models | A file keeps only the models that match a key of its `models` block. A key of `"*"` keeps each model of that provider. |
-| Values | For a model that a file keeps, only that file sets the values. The `free.yml` block does not apply to it. |
-| New file | The **Providers** page makes a file, and a name that daedalus does not know also gets an empty `api_base`. |
+| Models | A file keeps only the models of its `models` keys. `"*"` keeps each model. |
+| Values | A kept model takes its values from its file only, not `free.yml`. |
+| New file | The **Providers** page makes a file. An unknown name also gets an empty `api_base`. |
 
 ## Environment variables
 
@@ -65,8 +65,8 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 
 | Key | Default | Use |
 | --- | --- | --- |
-| `timeouts.request` | `600` | Seconds to wait for an answer, for all attempts. A stream that started does not stop at this limit. |
-| `timeouts.wait` | `60` | Seconds with no data from the provider. Keep-alive bytes do not count: SSE comments and blank lines. After this time, the next model starts. Media requests have no wait limit, only `timeouts.request`. |
+| `timeouts.request` | `600` | Seconds to wait for an answer, for all attempts. A started stream does not stop. |
+| `timeouts.wait` | `60` | Seconds with no provider data, keep-alive bytes excluded. Then the next model starts. Media: none. |
 | `timeouts.slow` | Half of `timeouts.wait` | A first token after this time is slow |
 | `session_affinity.enabled` | `true` | Session models and the highest tier of a conversation |
 | `session_affinity.change_on_draw` | `true` | Replace an eligible session pin after a different weighted first-tier draw |
@@ -88,11 +88,11 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 | `catalog.every` | `6` | Hours between catalog rebuilds. `0` stops them. |
 | `catalog.anchor` | `6` | Local hour that the rebuild times start from. A whole hour from 0 to 23. |
 | `headroom.timeout` | `5` | Seconds for the full Headroom answer. Then the original messages go to the provider. |
-| `escalation.keywords` | `[]` | Words or phrases. A match in the last user message moves the `daedalus/auto` tier 1 step above the session tier, and the session keeps it. A match is a whole word or phrase, in uppercase or lowercase. The message does not change. The shipped file has a list. |
-| `switch.keywords` | `[]` | Words or phrases. A match in the last user message removes the session model of the pool. Another model of the same tier answers, and it becomes the session model. The old model is the last fallback. A match is a whole word or phrase, in uppercase or lowercase. The shipped file has `clanker`. |
-| `dashboard.theme` | `system` | `system`, `light` or `dark`. `system` follows the device. The Settings page has a Theme field. The login page always follows the device. |
-| `dashboard.time_format` | `24h` | `24h` or `12h`. The clock of each time on the dashboard. The Settings page has a Time format field. |
-| `pools.moros`, `pools.koinos`, `pools.deinos`, `pools.sophos`, `pools.graphos`, `pools.photos` | The key | The name after `daedalus/` that clients use for the pool. 1 to 40 letters, digits, dots, dashes or underscores, but not `auto`. Each pool has its own name. After a change, the old name gets HTTP 400 `Unknown provider or pool`. `daedalus/auto` does not change. `/v1/models` and the dashboard show the new names. |
+| `escalation.keywords` | `[]` | Whole words or phrases. A match moves the `daedalus/auto` tier 1 step up, session-kept. |
+| `switch.keywords` | `[]` | Words or phrases, `clanker` shipped. A match replaces the session model with a same-tier model. |
+| `dashboard.theme` | `system` | `system`, `light` or `dark`. The Settings page sets it. Login always follows the device. |
+| `dashboard.time_format` | `24h` | `24h` or `12h` for the dashboard clocks. The Settings page sets it. |
+| `pools.moros`, `pools.koinos`, `pools.deinos`, `pools.sophos`, `pools.graphos`, `pools.photos` | The key | The pool names after `daedalus/`: 1-40 characters, no `auto`. Old names break with HTTP 400. |
 
 ## Provider key values
 
@@ -126,19 +126,19 @@ groq:
 
 | Key | Use |
 | --- | --- |
-| `api_key` | Necessary. With no key, the models of the provider leave each chain and pool, and a direct request gets HTTP 400. |
+| `api_key` | Necessary. With no key, the provider models leave the chains and pools. |
 | `client_keys` | Optional. A provider key for each daedalus key name. See [Client keys](#client-keys). |
 | `account_id` | Optional. The Cloudflare account ID. The shipped provider file reads `CLOUDFLARE_ACCOUNT_ID`. |
 | `api_base` | Optional. Each provider has a default. |
 | `api_type` | Optional. `openai` or `gemini`. |
 | `discovery_url` | Optional. The model list URL. Each provider has a default. |
 | `discovery_match` | Discovery properties that a model must have. A missing property is a match. |
-| `exclude` | Patterns of models that never go into the catalog. For the Kilo and OpenRouter exception, see [stealth models](providers.md#catalog). |
+| `exclude` | Patterns of models that never enter the catalog. The stealth exception: [Catalog](providers.md#catalog). |
 | `tier` | Patterns for each tier key: `TIER-A`, `TIER-B`, `TIER-C`, `TIER-D` |
 | `models` | Values for each model, for example `max_input_tokens`. These have priority over discovery and LiteLLM. |
-| `order` | Optional. A whole number, 1 or more. Empty or not set: 1. A model of a higher order gets a request only when no model of a lower order in its tier answers. The `order` of a `models` entry has priority. See [Order](architecture.md#order). |
-| `hooks` | Optional. A list of Python files that change the catalog rows, chat requests and answers of the provider. Each item is a hook point and a file path in the `config` folder, for example `- on-upstream: hooks/x.py`. A `models` entry can also set `hooks`, and it has priority. See [Hooks](hooks.md). |
-| `hourly_requests` | Optional. A whole number above 0: the requests to all models of the provider in 1 hour. daedalus counts them, because the provider has no API for the count. At the limit, the provider leaves the chains. See [Pacing](architecture.md#pacing). |
+| `order` | Optional. 1 or more, default 1. Runs after the lower orders of its tier. |
+| `hooks` | Optional. Hook points and file paths in `config`, like `- on-upstream: hooks/x.py`. |
+| `hourly_requests` | Optional. The provider requests per hour. At the limit, the provider leaves the chains. |
 
 `rpm` and `tpm` limit the requests and the input tokens of a model in 60 s. At a limit, the model leaves the chains. See [Pacing](architecture.md#pacing).
 
@@ -146,12 +146,12 @@ Other keys of a `models` entry:
 
 | Key | Use |
 | --- | --- |
-| `pool` | `false` keeps the model out of the pools and `daedalus/auto`. Only a direct `provider/slug` request uses it. |
-| `timeout` | Seconds with no data from the provider. For this model, it replaces `timeouts.wait`. A direct request tries the same model again after this time, until `timeouts.request`, and then the client gets HTTP 504. |
+| `pool` | `false`: out of the pools and `daedalus/auto`. A direct `provider/slug` request still uses it. |
+| `timeout` | Seconds with no provider data, in place of `timeouts.wait`. Direct requests retry until `timeouts.request`. |
 | `reasoning_effort` | The effort for a request with no `reasoning_effort`. Only a model that reasons gets it. |
 | `max_output_tokens` | The output limit of the model. A larger `max_tokens` or `max_completion_tokens` drops to this value. |
-| `supports_function_calling`, or its short name `tools` | `true` or `false`. A tool request from a pool or `daedalus/auto` skips each model without a true value. |
-| `supports_vision` | `true` or `false`. An image request from a pool or `daedalus/auto` skips each model without a true value. |
+| `supports_function_calling`, or its short name `tools` | `true` or `false`. Pool and `daedalus/auto` tool requests skip a model without it. |
+| `supports_vision` | `true` or `false`. Pool and `daedalus/auto` image requests skip a model without it. |
 
 When 2 entries match 1 model, the last entry in the file sets the key. A model key at the provider level, for example `reasoning_effort: high` next to `api_key`, sets the value for each model of the provider.
 
@@ -169,7 +169,7 @@ gemini:
 
 | Item | Value |
 | --- | --- |
-| Client in the map | Its requests to the provider use its key. It has its own cooldowns and its own `rpm` and `tpm` counts. See [Client lanes](architecture.md#client-lanes). |
+| Client in the map | Its requests use its key, its cooldowns, `rpm` and `tpm`. See [Client lanes](architecture.md#client-lanes). |
 | Other clients | They use `api_key`, and they share 1 set of cooldowns and counts. |
 | Weights, pins, discovery | 1 set for all clients |
 

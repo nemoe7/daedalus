@@ -5,21 +5,21 @@ Open `http://HOST:3357/`.
 | Login | Value |
 | --- | --- |
 | User | `DAEDALUS_USERNAME`, else `admin`. The form fills in `admin` only when `DAEDALUS_USERNAME` is not set. |
-| Password | `DAEDALUS_PASSWORD`, else `DAEDALUS_MASTER_KEY`. Without `DAEDALUS_PASSWORD`, the form shows a master key hint. The eye button shows the password. |
-| Remember me | On at the start. 30 days, shown on hover. Else the session stops when the browser closes, or after 12 h. |
+| Password | Reads `DAEDALUS_PASSWORD`, else `DAEDALUS_MASTER_KEY`. Without a password, the form shows a master key hint. |
+| Remember me | On at the start: 30 days. Else the session ends after 12 h. |
 | Change | A new master key, user or password stops all sessions. |
 
 ## Pages
 
 | Page | Contents |
 | --- | --- |
-| Overview | Status, models, the last requests and the limits, in columns of the same width. The Models card shows the model count, then each pool with its mean weight. Each pool row names the model that served the most of the requests the page holds. A pool without those requests names its catalog first model. The Limits card shows the balances, then the 3 rate limits with the least left, for example 0 of 8K tok/min. A long model name ends in an ellipsis. Point to it to see the full name. A phone shows the status chips and the Log out button in a card above the columns. The header then holds the name and the tabs only. |
+| Overview | Status, models, last requests and limits in columns. Each pool row names its top model. |
 | Requests | The log of the last requests and the ones in flight. See [Requests](#requests). |
 | Models | The catalog table and a card for each pool. See [Models](#models). |
 | API keys | Make and delete API keys |
-| Providers | A tab for each provider file. The Form view shows 1 card for each provider of the file. The YAML view shows the file text. See [Providers](#providers). |
-| Limits | The last rate-limit headers of each model in a table, and a card with the balance of each provider key beside it. See [Limits](#limits). |
-| Settings | Form and YAML views for `config/daedalus.yml`. The mouse wheel changes the last decimal digit of a decimal field. The YAML view edits the file text, comments included. A save checks each value, then reloads the settings. A change to the other view asks for a confirmation when the file holds unsaved changes. The Escalation and Switch cards take the keywords, 1 on each line. The Dashboard card sets the theme and the time format. The Pool names card sets the names after `daedalus/`. An empty field uses the built-in name. A phone hides the Ctrl+S hint and tightens the save bar. |
+| Providers | A tab per provider file. Form: a card per provider. YAML: the file text. |
+| Limits | The last rate-limit headers of each model, and each provider key balance in a card. |
+| Settings | Form and YAML views of `config/daedalus.yml`. A save checks each value, then reloads the settings. |
 
 The logo shows in the header, on the login page and as the tab icon. The page has a web app manifest, so a browser can install the dashboard as an app. A browser installs it only over HTTPS or from localhost. The version shows under the name, also on the login page before a login: the image tag, for example v0.2.0, or dev-COMMIT after `install --dev`. `daedalus --version` shows the same value. The header stays at the top of the window. Only the page below it scrolls. A fade at an edge of the tab bar shows the tabs that wait off screen. A hidden browser tab sends no requests. It gets new data when it shows again.
 
@@ -42,7 +42,7 @@ The cards of the Form view stack in columns. A phone hides the Ctrl+S hint and t
 
 | Field | YAML key | Input |
 | --- | --- | --- |
-| API key | `api_key` | `env:NAME` reads the environment. Paste a key to save it in **Keys and values** as `db:PROVIDER_API_KEY`. |
+| API key | `api_key` | `env:NAME` reads the environment. The page saves a pasted key as `db:PROVIDER_API_KEY`. |
 | Account ID | `account_id` | Cloudflare only. `env:NAME` reads the environment. Paste an ID to save it as `db:CLOUDFLARE_ACCOUNT_ID`. |
 | Client keys | `client_keys` | `name = value` chips. Use `env:NAME` for an environment value. Pasted keys use `db:PROVIDER_API_KEY_CLIENT`. |
 | API base | `api_base` | Text field. Empty: the gray placeholder shows the default of the provider. |
@@ -63,7 +63,7 @@ The panel under the form lists the names used by `env:NAME` and `db:NAME` values
 | `env:NAME` | Reads the environment variable. |
 | `db:NAME` | Reads the saved value. |
 | Storage | The `saved_env` table of `.daedalus-state/models.sqlite3`. Not in the YAML or git. |
-| Shown | The state: saved, from the environment, or missing. A saved value of 12 or more characters shows its last 4 characters. |
+| Shown | Saved, from the environment, or missing. A long saved value shows its last 4 characters. |
 | Save | Takes effect at once, with no restart. A new provider key needs a catalog rebuild. |
 | Clear | Deletes the saved value. A `db:NAME` value then resolves empty. `env:NAME` still reads the environment. |
 
@@ -71,7 +71,7 @@ The panel under the form lists the names used by `env:NAME` and `db:NAME` values
 | --- | --- |
 | × on a chip | Deletes the value |
 | **+ Add** | Opens an input. Enter adds the value. Escape stops. |
-| **+ key** | Opens a key list and a value input. A model override takes the catalog columns, `pool` and `timeout`. Provider values take only the catalog columns. |
+| **+ key** | A key list and a value input. Model overrides also take `pool` and `timeout`. |
 | **+ Pattern** | Adds a pattern row with no overrides |
 | Change of a pattern | Renames the pattern. The row keeps its position. |
 | **Save** or Ctrl+S | Writes the file, then reloads the configuration |
@@ -97,8 +97,8 @@ daedalus reads the balances when it starts, then each hour. **Check now** reads 
 | OpenRouter | Credit left of the key limit, credit used today, free requests left today | `GET /api/v1/key` |
 | Kilo | Account balance | `GET https://api.kilo.ai/api/profile/balance` |
 | Pollinations | Pollen left. A key without a budget needs the `account:usage` scope. | `GET /account/balance` |
-| Cloudflare | Neurons used since 00:00 UTC, of the free 10,000. With no use today, it shows 0. | GraphQL `aiInferenceAdaptiveGroups` |
-| Groq, Mistral | The limit and the count left of each window, for each model, and the reset time | The `x-ratelimit-*` headers of the last answer |
+| Cloudflare | Neurons used since 00:00 UTC, of the free 10,000. | GraphQL `aiInferenceAdaptiveGroups` |
+| Groq, Mistral | The limit, the count left and the reset time of each window, for each model | The `x-ratelimit-*` headers of the last answer |
 | Kilo, and each provider with `hourly_requests` | In the card of the provider: the requests left in the last hour, marked counted | The daedalus count. A 429 from the provider sets it to 0. |
 
 The header rows stay in memory only, so they are empty after a restart until the next answer. A client with its own provider key has its own rows. A bar like the weight bar shows the rest of each limit: header rows, OpenRouter credit and free requests, and Cloudflare neurons. A count of 0 shows in red. From 1,000, a count shows floored to K, M or B, for example 998M of 1B. Hover a header row to see the exact number. Each balance comes from the main key of the provider, not from `client_keys`.
