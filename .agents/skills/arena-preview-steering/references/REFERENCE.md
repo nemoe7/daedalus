@@ -7,7 +7,7 @@ Use `scripts/preview.py` relative to the actual installed steering skill. The st
 | Command | Use |
 | --- | --- |
 | `init` | Create a missing state database without starting the server |
-| `serve --port 8000` | Start the shared preview with a long-lived process tool |
+| `serve --port 8000` | Start the shared preview with `start_process`, prefixed with `setsid` so no shell exit reaches it |
 | `read` | List every pending note and report answer; mark only delivered IDs Seen, and stamp the parent report read by the agent |
 | `poll` | Wait for a pending inbox item before ending a turn; return at once with the task list while an upcoming task is unblocked |
 | `ack <id> --reply <markdown>` | Answer one delivered ID with a rendered reply |
@@ -41,7 +41,7 @@ Task IDs have 1–64 lowercase letters, digits or hyphens and start with a lette
 | --- | --- |
 | `--status upcoming` or `--status finished` | Set status; new tasks start upcoming |
 | `--order N` | Set 1-based position in the task's status group |
-| `--task-id`, `--task-title`, repeatable `--task-details` | Set supplied fields; detail arguments replace stored details |
+| Repeatable `--task-details` | Set the detail lines; the arguments replace the stored details |
 | `--task-details ""` | Clear stored details |
 | `--msg-id <full-message-id>` | Link a note or report answer to its task; still call `ack` |
 | `--amend <previous-task-id>` | Rename a task without losing its details or order |
@@ -50,7 +50,7 @@ Task IDs have 1–64 lowercase letters, digits or hyphens and start with a lette
 
 ## Publish reports
 
-A report source is UTF-8 `.md`, at most 2,000,000 bytes. IDs have 1–80 letters, digits, hyphens or underscores; titles have 1–200 characters. Source edits do not update a published report: call `publish` again. A report that has answers refuses republishing under the same ID; publish its update under a new ID. Delete a report the owner no longer needs with `unpublish <id>`; its sent answers and its `.md` source under the state directory stay. Verify the rendered report before telling the owner it is available. If an answer is rejected after an update, ask the owner to preserve the draft, reload and review the current report.
+A report source is UTF-8 `.md`, at most 2,000,000 bytes. IDs have 1–80 letters, digits, hyphens or underscores; titles have 1–200 characters. Source edits do not update a published report: call `publish` again. A report that has answers refuses republishing under the same ID; publish its update under a new ID. Delete a report the owner no longer needs with `unpublish <id>`; its sent answers and its `.md` source under the state directory stay. Verify the rendered report before telling the owner it is available. An image renders from its URL. `![alt](src =320x200)` sets its size, and `=320x` scales the height. If an answer is rejected after an update, ask the owner to preserve the draft, reload and review the current report.
 
 ## Report fields
 

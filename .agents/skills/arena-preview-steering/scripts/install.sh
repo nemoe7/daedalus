@@ -156,6 +156,9 @@ strip_block "$GATE_MARKER"
 
 # arena-preview-gate
 _arena_preview_gate() {
+  # A shell that hosts the long-lived server must never exit: the preview dies
+  # with it. Its own command text names the server, so skip the gate there.
+  grep -qs serve -- "\$0" && return 0
   case "\$BASH_COMMAND" in
     *"git commit"*|*"git push"*|*"gh pr checks"*)
       if [ -z "\${_arena_preview_reminded:-}" ]; then
