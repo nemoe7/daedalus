@@ -150,7 +150,7 @@ function shortTime(seconds) {
 function catalogChip({ built, next, rebuilding }) {
   const last = rebuilding ? "rebuilding" : built ? shortTime(built) : "never";
   const following = next ? ` &middot; next <b>${esc(shortTime(next))}</b>` : " &middot; no schedule";
-  return `<button type="button" class="chip rebuild" id="catalog-rebuild" ${rebuilding ? "disabled" : ""}
+  return `<button type="button" class="chip rebuild" ${rebuilding ? "disabled" : ""}
     title="${rebuilding ? "A catalog rebuild runs now" : "Rebuild the catalog now"}">Catalog <b>${esc(last)}</b>${following}</button>`;
 }
 
@@ -172,7 +172,7 @@ function renderStatus(status) {
     `<span class="chip" title="Conversations with a session model and a request in the last hour"><b>${status.sessions}</b> sessions</span>`,
     catalogChip(status.catalog),
   ];
-  $("status").outerHTML = `<span id="status" class="chips">${chips.join("")}</span>`;
+  document.querySelectorAll("[data-status]").forEach((host) => { host.innerHTML = chips.join(""); });
   $("nav-models").textContent = status.models;
   $("version").textContent = status.version;
   markNavFades();
@@ -1535,8 +1535,12 @@ $("limits-check").addEventListener("click", async () => {
   }
 });
 $("show-password").addEventListener("click", () => showPassword($("login").password.type === "password"));
-document.addEventListener("click", (event) => {
-  if (event.target.closest("#catalog-rebuild")) rebuildCatalog();
+document.addEventListener("click", async (event) => {
+  if (event.target.closest(".rebuild")) return rebuildCatalog();
+  if (!event.target.closest(".logout")) return;
+  await call("logout", { method: "POST" }).catch(() => {});
+  keepSession(null);
+  showLogin();
 });
 $("reset-weights").addEventListener("click", async () => {
   const message = $("reset-message");
@@ -1552,11 +1556,6 @@ $("reset-weights").addEventListener("click", async () => {
     message.className = "message bad";
     message.textContent = error.message;
   }
-});
-$("logout").addEventListener("click", async () => {
-  await call("logout", { method: "POST" }).catch(() => {});
-  keepSession(null);
-  showLogin();
 });
 
 $("new-key").addEventListener("submit", async (event) => {
