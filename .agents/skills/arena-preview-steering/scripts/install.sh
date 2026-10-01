@@ -144,9 +144,6 @@ strip_block "$GATE_MARKER"
 
 # arena-preview-gate
 _arena_preview_gate() {
-  # A shell that hosts the long-lived server must never exit: the preview dies
-  # with it. Its own command text names the server, so skip the gate there.
-  grep -qs serve -- "\$0" && return 0
   case "\$BASH_COMMAND" in
     *"git commit"*|*"git push"*|*"gh pr checks"*)
       if [ -z "\${_arena_preview_reminded:-}" ]; then
@@ -155,7 +152,8 @@ _arena_preview_gate() {
       fi
       ;;
   esac
-  case "\$BASH_COMMAND" in *preview*|*profile*|*bashrc*|*arena-state*|gh*|sleep*|true*|:*|test*|"git status"*|"git diff"*|"git add"*|"git commit"*) return 0 ;; esac
+  case "\$BASH_COMMAND" in *preview*) _arena_preview_gate_checked=1; return 0 ;; esac
+  case "\$BASH_COMMAND" in *profile*|*bashrc*|*arena-state*|gh*|sleep*|true*|:*|test*|"git status"*|"git diff"*|"git add"*|"git commit"*) return 0 ;; esac
   case "\${_arena_preview_gate_checked:-}" in 1) return 0 ;; esac
   _arena_preview_gate_checked=1
   "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" gate 2>/dev/null
