@@ -226,6 +226,20 @@ assert(!hosts[0].innerHTML.includes('catalog-rebuild'), 'no id the two hosts wou
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_app_js_top_model() -> None:
+  """A pool row names the member that served most, else its catalog first model."""
+  code = _app_js_vm(
+    """
+const members = [{ id: 'p/a' }, { id: 'p/b' }];
+assert.strictEqual(sandbox.topModel(members, { 'p/b': 3, 'p/a': 1 }).id, 'p/b');
+assert.strictEqual(sandbox.topModel(members, { 'p/a': 2, 'p/b': 2 }).id, 'p/a');
+assert.strictEqual(sandbox.topModel(members, {}).id, 'p/a');
+assert.strictEqual(sandbox.topModel([], {}), undefined);
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_app_js_request_cards() -> None:
   """Each request cell names its column, so the card layout of a narrow screen shows every value."""
   page = (
