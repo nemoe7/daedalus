@@ -53,11 +53,7 @@ if [ "$#" -ne 1 ]; then
   echo "commit-msg hook: expected the commit message file" >&2
   exit 1
 fi
-REPO_ROOT=$(git rev-parse --show-toplevel) || {
-  echo "commit-msg hook: cannot locate the repository root" >&2
-  exit 1
-}
-exec python3 - "$REPO_ROOT/rules/COMMIT-SPEC.txt" "$1" <<'PY'
+exec python3 - "$1" <<'PY'
 from pathlib import Path
 import re
 import sys
@@ -66,29 +62,21 @@ def reject(message):
   print(f"commit-msg: {message}", file=sys.stderr)
   raise SystemExit(1)
 
+allowed_types = "feat fix refactor perf style docs test build chore ci revert".split()
+subject_limit = 72
+
 try:
-  specification = Path(sys.argv[1]).read_text(encoding="utf-8")
-  message = Path(sys.argv[2]).read_text(encoding="utf-8")
+  message = Path(sys.argv[1]).read_text(encoding="utf-8")
 except OSError as error:
-  reject(f"cannot read commit rules or message: {error}")
+  reject(f"cannot read commit message: {error}")
 
-types_match = re.search(
-  r"\ballowed types: ([a-z]+(?:[ \t]+[a-z]+)*);",
-  specification,
-)
-length_match = re.search(r"<=\s*(\d+)\s+chars\b", specification)
-if not types_match or not length_match:
-  reject("cannot read allowed types or subject limit from rules/COMMIT-SPEC.txt")
-
-allowed_types = types_match.group(1).split()
-subject_limit = int(length_match.group(1))
 lines = [
   line
   for line in message.splitlines()
   if line.strip() and not line.lstrip().startswith("#")
 ]
 if len(lines) != 1:
-  reject("use one subject line and no body, as required by COMMIT-SPEC.txt")
+  reject("use one subject line and no body")
 
 subject = lines[0]
 if subject != subject.strip():
