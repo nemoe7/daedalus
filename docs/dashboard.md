@@ -23,9 +23,9 @@ Open `http://HOST:3357/`.
 
 The logo shows in the header, on the login page and as the tab icon. The page has a web app manifest, so a browser can install the dashboard as an app. A browser installs it only over HTTPS or from localhost. The version shows under the name, also on the login page before a login: the image tag, for example v0.2.0, or dev-COMMIT after `install --dev`. `daedalus --version` shows the same value. The header stays at the top of the window. Only the page below it scrolls. A fade at an edge of the tab bar shows the tabs that wait off screen. A hidden browser tab sends no requests. It gets new data when it shows again.
 
-The Catalog chip shows the time of the last catalog rebuild and the next scheduled rebuild. A wide screen puts it in the header. A phone shows a status card at the top of the Overview page instead. The first line holds
-the health and Log out. Then 1 line holds the sessions and 1 line holds the catalog, each
-with its value at the right. Click the chip to rebuild the catalog now, after a confirmation. The chip shows "rebuilding" until the rebuild ends. Only 1 rebuild runs at a time.
+The Catalog chip shows the time of the last catalog rebuild and the next scheduled rebuild. A wide screen puts it in the header. A phone shows a status card at the top of the Overview page instead: the health line, then 1
+line for the sessions and 1 line for the catalog, each with its value at the right. The header
+keeps its Log out button on a phone. Log out asks for confirmation. Click the chip to rebuild the catalog now, after a confirmation. The chip shows "rebuilding" until the rebuild ends. Only 1 rebuild runs at a time.
 
 ## Requests
 
