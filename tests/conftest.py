@@ -24,6 +24,7 @@ SETTINGS = (
       "KEYWORDS",
       "SWITCH",
       "PARALLEL_ENABLED",
+      "PARALLEL_COUNT",
       "PARALLEL_CHANCE",
       "PARALLEL_SLOW",
       "PARALLEL_PENALTY",
