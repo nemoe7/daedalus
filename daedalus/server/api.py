@@ -33,8 +33,11 @@ from daedalus.routing import (
 from daedalus.server import access, headroom, logs, media, stream, upstream
 from daedalus.store import keys
 
-HOST = os.environ.get("DAEDALUS_HOST") or "0.0.0.0"
-PORT = int(os.environ.get("DAEDALUS_PORT") or 3357)
+HOST_ENV = "DAEDALUS_HOST"
+PORT_ENV = "DAEDALUS_PORT"
+
+HOST = os.environ.get(HOST_ENV) or "0.0.0.0"
+PORT = int(os.environ.get(PORT_ENV) or 3357)
 SLOW_SECONDS = upstream.WAIT_SECONDS / 2
 AFFINITY = True
 # The keywords of `escalation.keywords` as 1 pattern, or None when the list is empty.
@@ -45,7 +48,7 @@ SWITCH: re.Pattern[str] | None = None
 PARALLEL_ENABLED = False
 PARALLEL_COUNT = 1
 PARALLEL_CHANCE = 0.05
-PARALLEL_SLOW = 30.0
+PARALLEL_SLOW_SECONDS = 30.0
 PARALLEL_PENALTY = 0.9
 
 logger = logging.getLogger("daedalus")
@@ -843,7 +846,7 @@ async def chat(request: Request) -> Response:
       # A draw starts the other models now. Without it, only a first model with no content starts them.
       quick = bool(PARALLEL_CHANCE) and PENALTIES.pick() < PARALLEL_CHANCE
       if not quick:
-        await asyncio.wait([takes[0].task], timeout=PARALLEL_SLOW)
+        await asyncio.wait([takes[0].task], timeout=PARALLEL_SLOW_SECONDS)
       if quick or not takes[0].task.done():
         for model in others:
           PACING.record(pin.lane(model), tokens)
@@ -1054,7 +1057,7 @@ def keyword_pattern(keywords: list[str]) -> re.Pattern[str] | None:
 def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   """Use the values of `config/daedalus.yml`."""
   global SLOW_SECONDS, AFFINITY, KEYWORDS, SWITCH
-  global PARALLEL_ENABLED, PARALLEL_COUNT, PARALLEL_CHANCE, PARALLEL_SLOW
+  global PARALLEL_ENABLED, PARALLEL_COUNT, PARALLEL_CHANCE, PARALLEL_SLOW_SECONDS
   global PARALLEL_PENALTY
   router.set_pool_names(values["pools"])
   timeouts, affinity, weights = (
@@ -1063,7 +1066,13 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
     values["weights"],
   )
   parallel = values["parallel"]
-  PARALLEL_ENABLED, PARALLEL_COUNT, PARALLEL_CHANCE, PARALLEL_SLOW, PARALLEL_PENALTY = (
+  (
+    PARALLEL_ENABLED,
+    PARALLEL_COUNT,
+    PARALLEL_CHANCE,
+    PARALLEL_SLOW_SECONDS,
+    PARALLEL_PENALTY,
+  ) = (
     parallel["enabled"],
     parallel["count"],
     parallel["chance"],
