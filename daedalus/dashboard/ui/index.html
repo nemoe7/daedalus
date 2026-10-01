@@ -49,12 +49,16 @@
       <a href="#/settings" data-page="settings">Settings</a>
     </nav>
     <div class="chips">
-      <span id="status"></span>
-      <button class="ghost" id="logout" type="button">Log out</button>
+      <span id="status" class="chips" data-status></span>
+      <button class="ghost logout" id="logout" type="button">Log out</button>
     </div>
   </header>
   <main>
     <section data-page="overview" hidden>
+      <div class="card status-card">
+        <div class="chips" data-status></div>
+        <button class="ghost logout" type="button">Log out</button>
+      </div>
       <div class="flow">
         <div class="column">
           <a class="card snippet" href="#/requests"><h3>Requests</h3><div id="ov-requests"></div></a>

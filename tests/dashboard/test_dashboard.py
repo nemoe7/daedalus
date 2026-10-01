@@ -209,6 +209,23 @@ assert(!classes.has('fade-left') && !classes.has('fade-right'));
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_app_js_status_hosts() -> None:
+  """The status chips fill every host, and no id repeats across them."""
+  code = _app_js_vm(
+    """
+sandbox.renderStatus({
+  healthy: true, sessions: 2, models: 80, version: 'v1',
+  catalog: { built: 1, next: 2, rebuilding: false },
+});
+assert.strictEqual(hosts[0].innerHTML, hosts[1].innerHTML);
+assert(hosts[0].innerHTML.includes('Healthy'));
+assert(hosts[0].innerHTML.includes('chip rebuild'));
+assert(!hosts[0].innerHTML.includes('catalog-rebuild'), 'no id the two hosts would share');
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_app_js_request_cards() -> None:
   """Each request cell names its column, so the card layout of a narrow screen shows every value."""
   page = (
