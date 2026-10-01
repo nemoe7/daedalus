@@ -85,7 +85,11 @@ done
 [ $missing_compose -eq 0 ] || plan+=("The daedalus files, to $dir")
 
 # Ordered check 2: .env?
-[ -f "$dir/.env" ] || plan+=("The settings file $dir/.env, with a new master key")
+missing_env=0
+if [ ! -f "$dir/.env" ]; then
+  missing_env=1
+  plan+=("The settings file $dir/.env, with a new master key")
+fi
 
 # Ordered check 3: read .env for COMPOSE_PROFILES to determine required service dirs
 profiles=""
@@ -156,6 +160,57 @@ if [ "${#plan[@]}" -gt 0 ]; then
   esac
 fi
 
+# Ask only on the first install. Updates keep the profiles in .env.
+ask_profile() {
+  local profile="$1" label="$2" answer=
+  read -r -p "$label [y/N] " answer </dev/tty || true
+  case "$answer" in
+    y|Y|yes|Yes|YES) selected_profiles+=("$profile") ;;
+  esac
+}
+profile_list=
+if [ "$missing_env" = 1 ]; then
+  selected_profiles=()
+  ask_profile headroom "Install Headroom?"
+  ask_profile webui "Install Open WebUI?"
+  ask_profile tailscale "Install Tailscale for Daedalus?"
+  if [[ " ${selected_profiles[*]} " == *" webui "* ]]; then
+    ask_profile tika "Install Tika?"
+    ask_profile search "Enable SearXNG search?"
+    ask_profile tailscale-openwebui "Install Tailscale for Open WebUI?"
+  fi
+  profile_list=$(IFS=,; printf '%s' "${selected_profiles[*]}")
+  profile_service_dirs=()
+  if [[ " ${selected_profiles[*]} " == *" search "* ]]; then
+    profile_service_dirs+=("services/searxng")
+  fi
+  if [[ " ${selected_profiles[*]} " == *" tailscale "* ]]; then
+    profile_service_dirs+=("services/tailscale")
+  fi
+  if [[ " ${selected_profiles[*]} " == *" tailscale-openwebui "* ]]; then
+    profile_service_dirs+=("services/tailscale-openwebui")
+  fi
+  profile_dirs_missing=0
+  for d in "${profile_service_dirs[@]}"; do
+    if [ -e "$dir/$d" ]; then continue; fi
+    required_service_dirs+=("$d")
+    missing_files=1
+    profile_dirs_missing=1
+    found=0
+    for existing in "${files[@]}"; do
+      if [ "$existing" = "$d" ]; then found=1; break; fi
+    done
+    [ $found -eq 1 ] || files+=("$d")
+  done
+  if [ "$profile_dirs_missing" = 1 ]; then
+    found_services=0
+    for existing in "${files[@]}"; do
+      if [ "$existing" = "services" ]; then found_services=1; break; fi
+    done
+    [ $found_services -eq 1 ] || files+=("services")
+  fi
+fi
+
 if [ "$need_docker" = 1 ]; then
   curl -fsSL https://get.docker.com | sudo sh
   sudo usermod -aG docker "$USER"
@@ -193,14 +248,21 @@ if [ ! -f .env ]; then
   fi
 else
   # Backup existing .env before any in-place edit to prevent data loss
-  cp .env .env.bak 2>/dev/null || true
+  cp .env .env.bak
+fi
+if [ "$missing_env" = 1 ]; then
+  if grep -q '^COMPOSE_PROFILES=' .env; then
+    sed -i "s/^COMPOSE_PROFILES=.*/COMPOSE_PROFILES=$profile_list/" .env
+  else
+    if [ -s .env ] && [ -n "$(tail -c1 .env)" ]; then printf '\n' >>.env; fi
+    printf 'COMPOSE_PROFILES=%s\n' "$profile_list" >>.env
+  fi
 fi
 key=
 if grep -q '^DAEDALUS_MASTER_KEY=$' .env; then
   key=$(od -An -tx1 -N20 /dev/urandom | tr -d ' \n')
   # Replace empty master key, preserve all other lines
-  sed -i.bak "s/^DAEDALUS_MASTER_KEY=$/DAEDALUS_MASTER_KEY=$key/" .env
-  rm -f .env.bak
+  sed -i "s/^DAEDALUS_MASTER_KEY=$/DAEDALUS_MASTER_KEY=$key/" .env
 fi
 if ! grep -qsE '^DAEDALUS_MASTER_KEY=[^[:space:]]{16,}$' .env; then
   echo "Set DAEDALUS_MASTER_KEY in $dir/.env: 16 or more characters, no spaces." >&2
@@ -210,8 +272,7 @@ fi
 # Generate WEBUI_SECRET_KEY for safety if empty (keeps Open WebUI logins after update)
 if grep -q '^WEBUI_SECRET_KEY=$' .env; then
   webui_key=$(od -An -tx1 -N32 /dev/urandom | tr -d ' \n')
-  sed -i.bak "s/^WEBUI_SECRET_KEY=$/WEBUI_SECRET_KEY=$webui_key/" .env
-  rm -f .env.bak
+  sed -i "s/^WEBUI_SECRET_KEY=$/WEBUI_SECRET_KEY=$webui_key/" .env
 fi
 if [ "$(uname -s)" = Linux ] && ! grep -qs '^DAEDALUS_UID=' .env; then
   if [ -s .env ] && [ -n "$(tail -c1 .env)" ]; then echo >>.env; fi
