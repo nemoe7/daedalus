@@ -10,6 +10,11 @@ function Stop-Install([string]$message) {
   exit 1
 }
 
+function Confirm-Profile([string]$question) {
+  $answer = Read-Host "$question [y/N]"
+  return $answer -match '^(y|yes)$'
+}
+
 # True when a native command exits with 0. Windows PowerShell 5.1 can turn native stderr into an error.
 function Test-Native([scriptblock]$command) {
   try { & $command *> $null; return $LASTEXITCODE -eq 0 } catch { return $false }
@@ -135,6 +140,32 @@ if ($plan.Count -gt 0) {
   if ($answer -notmatch '^(y|yes)$') { Stop-Install 'Stopped. Nothing changed.' }
 }
 
+$profileList = ''
+if ($missingEnv) {
+  $selectedProfiles = @()
+  if (Confirm-Profile 'Install Headroom?') { $selectedProfiles += 'headroom' }
+  if (Confirm-Profile 'Install Open WebUI?') { $selectedProfiles += 'webui' }
+  if (Confirm-Profile 'Install Tailscale for Daedalus?') { $selectedProfiles += 'tailscale' }
+  if ($selectedProfiles -contains 'webui') {
+    if (Confirm-Profile 'Install Tika?') { $selectedProfiles += 'tika' }
+    if (Confirm-Profile 'Enable SearXNG search?') { $selectedProfiles += 'search' }
+    if (Confirm-Profile 'Install Tailscale for Open WebUI?') { $selectedProfiles += 'tailscale-openwebui' }
+  }
+  $profileList = $selectedProfiles -join ','
+  $profileServiceDirs = @()
+  if ($selectedProfiles -contains 'search') { $profileServiceDirs += 'services/searxng' }
+  if ($selectedProfiles -contains 'tailscale') { $profileServiceDirs += 'services/tailscale' }
+  if ($selectedProfiles -contains 'tailscale-openwebui') { $profileServiceDirs += 'services/tailscale-openwebui' }
+  foreach ($d in $profileServiceDirs) {
+    if (-not (Test-Path -LiteralPath (Join-Path $dir $d))) {
+      if ($requiredServiceDirs -notcontains $d) { $requiredServiceDirs += $d }
+      if ($files -notcontains $d) { $files += $d }
+      $needFiles = $true
+    }
+  }
+  if ($requiredServiceDirs.Count -gt 0 -and $files -notcontains 'services') { $files += 'services' }
+}
+
 if ($needFiles) {
   # The newest v* tag, else main.
   $tag = (Invoke-RestMethod "https://api.github.com/repos/$repo/tags").name |
@@ -172,7 +203,18 @@ if (-not (Test-Path -LiteralPath '.env')) {
   }
 } else {
   # Backup existing .env before any in-place edit to prevent data loss
-  Copy-Item -LiteralPath '.env' -Destination '.env.bak' -Force -ErrorAction SilentlyContinue
+  Copy-Item -LiteralPath '.env' -Destination '.env.bak' -Force
+}
+$text = [IO.File]::ReadAllText($envFile)
+if ($missingEnv) {
+  if ($text -match '(?m)^COMPOSE_PROFILES=') {
+    $text = [regex]::Replace($text, '(?m)^COMPOSE_PROFILES=[^\r\n]*', "COMPOSE_PROFILES=$profileList")
+  } else {
+    $newline = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
+    if ($text.Length -gt 0 -and -not $text.EndsWith("`n")) { $text += $newline }
+    $text += "COMPOSE_PROFILES=$profileList$newline"
+  }
+  [IO.File]::WriteAllText($envFile, $text)
 }
 $text = [IO.File]::ReadAllText($envFile)
 $key = $null

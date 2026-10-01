@@ -65,6 +65,8 @@ flowchart LR
 | `tailscale` | `tailscale` | Publishes daedalus to your tailnet over HTTPS. |
 | `tailscale-openwebui` | `tailscale-openwebui` | Publishes Open WebUI to its own Tailscale device over HTTPS. Enable this with `webui`; it depends on `open-webui`. |
 
+The installers ask for profiles only when `.env` is absent. If you decline Open WebUI, they skip Tika, SearXNG search, and Open WebUI Tailscale. Updates keep the existing `COMPOSE_PROFILES` value.
+
 ### Open WebUI
 
 | Setting | Value |
