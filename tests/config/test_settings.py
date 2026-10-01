@@ -99,10 +99,15 @@ def test_parallel_settings(folder: Path) -> None:
   """The race defaults, and the 2 bounds of its numbers."""
   assert settings.parse("")["parallel"] == {
     "enabled": False,
+    "count": 1,
     "chance": 0.05,
     "slow": 30.0,
     "penalty": 0.9,
   }
+  expect_error(folder, "parallel:\n  count: 0\n", "between 1 and 10")
+  expect_error(folder, "parallel:\n  count: 11\n", "between 1 and 10")
+  expect_error(folder, "parallel:\n  count: 1.5\n", "whole number")
+  assert settings.parse("parallel:\n  count: 3\n")["parallel"]["count"] == 3
   expect_error(folder, "parallel:\n  chance: 2\n", "from 0 to 1")
   expect_error(folder, "parallel:\n  chance: -0.1\n", "from 0 to 1")
   expect_error(folder, "parallel:\n  penalty: 2\n", "at most 1")

@@ -17,7 +17,13 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "idle": 3600.0,
     "stay": 0.85,
   },
-  "parallel": {"enabled": False, "chance": 0.05, "slow": 30.0, "penalty": 0.9},
+  "parallel": {
+    "enabled": False,
+    "count": 1,
+    "chance": 0.05,
+    "slow": 30.0,
+    "penalty": 0.9,
+  },
   "weights": {
     "enabled": True,
     "success": 1.5,
@@ -85,6 +91,12 @@ def check(group: str, key: str, value: Any) -> Any:
   if key in ("enabled", "change_on_draw"):
     if not isinstance(value, bool):
       raise SettingsError(f"{name} must be true or false")
+    return value
+  if key == "count":
+    if isinstance(value, bool) or not isinstance(value, int):
+      raise SettingsError(f"{name} must be a whole number")
+    if not 1 <= value <= 10:
+      raise SettingsError(f"{name} must be between 1 and 10")
     return value
   if key == "chance":
     if (
