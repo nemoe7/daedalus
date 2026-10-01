@@ -7,7 +7,8 @@ import os
 import re
 import time
 from collections.abc import AsyncIterator, Callable
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -40,6 +41,11 @@ AFFINITY = True
 KEYWORDS: re.Pattern[str] | None = None
 # The keywords of `switch.keywords` as 1 pattern, or None when the list is empty.
 SWITCH: re.Pattern[str] | None = None
+# The `parallel` settings: a second model races the first token of a stream request.
+PARALLEL_ENABLED = False
+PARALLEL_CHANCE = 0.05
+PARALLEL_SLOW = 30.0
+PARALLEL_PENALTY = 0.9
 
 logger = logging.getLogger("daedalus")
 
@@ -621,6 +627,29 @@ def without_cooling(
   return left, first - time.time()
 
 
+@dataclass
+class Try:
+  """One racing attempt of a request: its model, its upstream effort and its task."""
+
+  model: str
+  sent: dict[str, Any]
+  task: asyncio.Task
+
+
+async def first_winner(tries: list[Try]) -> Try | None:
+  """The first try with content, or None when all of them failed. A pair that lands together keeps the first try."""
+  waiting = [take.task for take in tries]
+  while waiting:
+    done, waiting = await asyncio.wait(waiting, return_when=asyncio.FIRST_COMPLETED)
+    winner = next(
+      (take for take in tries if take.task in done and take.task.exception() is None),
+      None,
+    )
+    if winner is not None:
+      return winner
+  return None
+
+
 @app.post("/v1/chat/completions")
 async def chat(request: Request) -> Response:
   denied = access.check_api_key(request)
@@ -771,6 +800,85 @@ async def chat(request: Request) -> Response:
     and model != router.RESERVED_MODEL
     and (router.model_setting(config, model, "timeout") is not None)
   )
+  # A stream request to a pool or to `daedalus/auto` can race the next model of its own chain.
+  runner = (
+    models[1]
+    if PARALLEL_ENABLED and found[1] and body.get("stream") and len(models) > 1
+    else None
+  )
+
+  async def start_candidate(model: str, sent: dict[str, Any]) -> dict[str, Any]:
+    """Start 1 model and wait for its first content, or for the whole answer without a stream."""
+    response = None
+    try:
+      provider, response = await upstream.in_time(
+        upstream.attempt(model, body, config, sent, pin.client), deadline
+      )
+      wait = router.model_wait(config, model, upstream.WAIT_SECONDS)
+      if not body.get("stream"):
+        raw = await upstream.in_time(upstream.read_body(response, wait), deadline)
+        return {"provider": provider, "response": response, "wait": wait, "raw": raw}
+      events = stream.sse_data(provider.stream(response, model, True, wait), wait)
+      pending = await upstream.in_time(stream.first_content(events), deadline)
+      return {
+        "provider": provider,
+        "response": response,
+        "wait": wait,
+        "events": events,
+        "pending": pending,
+      }
+    except BaseException:
+      # An attempt that ends early, a cancel included, gives its connection back.
+      if response is not None:
+        await response.aclose()
+      raise
+
+  async def race_models(
+    first: str, second: str, sent: dict[str, Any], started: float
+  ) -> Try:
+    """Race 2 models for the first content. The loser stops, with its own fault or with the race factor."""
+    PACING.record(pin.lane(second), tokens)
+    other: dict[str, Any] = {}
+    takes = [Try(first, sent, asyncio.create_task(start_candidate(first, sent)))]
+    try:
+      # A draw starts the second model now. Without it, only a first model with no content starts it.
+      quick = bool(PARALLEL_CHANCE) and PENALTIES.pick() < PARALLEL_CHANCE
+      if not quick:
+        await asyncio.wait([takes[0].task], timeout=PARALLEL_SLOW)
+      if quick or not takes[0].task.done():
+        takes.append(
+          Try(second, other, asyncio.create_task(start_candidate(second, other)))
+        )
+      winner = await first_winner(takes)
+      for take in takes:
+        if take is winner:
+          continue
+        if not take.task.done():
+          take.task.cancel()
+          with suppress(asyncio.CancelledError):
+            await take.task
+          exc = None
+        else:
+          exc = take.task.exception()
+          if exc is None:
+            await take.task.result()["events"].aclose()
+        if exc is not None:
+          if take.model != first:
+            # A racing model that failed takes its own fault, as a fallback does.
+            attempts.append(upstream.failure_note(take.model, started, exc) | take.sent)
+            pin.failed(take.model, exc, attempts[-1])
+          continue
+        attempts.append(upstream.note(take.model, "lost race", started) | take.sent)
+        PENALTIES.record(take.model, PARALLEL_PENALTY)
+        logger.info("parallel %s lost the race", take.model)
+      if winner is None:
+        raise takes[0].task.exception()
+      return winner
+    finally:
+      # The winner keeps its content. The other tasks are over.
+      for take in takes:
+        take.task.cancel()
+
   index = 0
   previous_attempt: tuple[str, str] | None = None
   fallback_reason = "err"
@@ -797,20 +905,25 @@ async def chat(request: Request) -> Response:
     )
     started, sent = time.perf_counter(), {}
     PACING.record(pin.lane(candidate), tokens)
-    response = None
     try:
       # The request limit caps the wait for an answer, for all attempts.
-      provider, response = await upstream.in_time(
-        upstream.attempt(candidate, body, config, sent, pin.client), deadline
-      )
-      wait = router.model_wait(config, candidate, upstream.WAIT_SECONDS)
+      if runner is None or index:
+        content = await start_candidate(candidate, sent)
+      else:
+        winner = await race_models(candidate, runner, sent, started)
+        candidate, sent = winner.model, winner.sent
+        content = winner.task.result()
+      wait = content["wait"]
       if not body.get("stream"):
-        raw = await upstream.in_time(upstream.read_body(response, wait), deadline)
+        raw = content["raw"]
         answer = json.loads(raw)
         if not isinstance(answer, dict) or answer.get("error"):
           raise providers.ProviderError(f"Invalid upstream answer: {error_text(raw)}")
         completion = hooks.run(
-          "on-answer", config, candidate, provider.completion(answer, candidate)
+          "on-answer",
+          config,
+          candidate,
+          content["provider"].completion(answer, candidate),
         )
         if (channel := loops.answer_loop(completion)) is not None:
           raise loops.LoopError(channel)
@@ -829,14 +942,11 @@ async def chat(request: Request) -> Response:
         dashboard.live_first(request)
         remember(request, turn, candidate)
         return JSONResponse(completion)
-      events = stream.sse_data(provider.stream(response, candidate, True, wait), wait)
-      pending = await upstream.in_time(stream.first_content(events), deadline)
+      events, pending = content["events"], content["pending"]
       ttft = time.perf_counter() - started
     except asyncio.TimeoutError:
       attempts.append(upstream.late_note(candidate, started) | sent)
       pin.failed(candidate, attempt=attempts[-1])
-      if response is not None:
-        await response.aclose()
       failure = upstream.error_response(
         504, "Upstream provider timed out", "upstream_error"
       )
@@ -881,7 +991,7 @@ async def chat(request: Request) -> Response:
       fallback_reason = "err"
       index += 1
       continue
-    rest = models[index + 1 :]
+    rest = [m for m in models[index + 1 :] if m != candidate]
     attempts.append(upstream.note(candidate, "answered", started) | sent)
     request.state.via, request.state.pin = (
       candidate,
@@ -942,12 +1052,21 @@ def keyword_pattern(keywords: list[str]) -> re.Pattern[str] | None:
 def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   """Use the values of `config/daedalus.yml`."""
   global SLOW_SECONDS, AFFINITY, KEYWORDS, SWITCH
+  global PARALLEL_ENABLED, PARALLEL_CHANCE, PARALLEL_SLOW, PARALLEL_PENALTY
   router.set_pool_names(values["pools"])
   timeouts, affinity, weights = (
     values["timeouts"],
     values["session_affinity"],
     values["weights"],
   )
+  parallel = values["parallel"]
+  PARALLEL_ENABLED, PARALLEL_CHANCE, PARALLEL_SLOW, PARALLEL_PENALTY = (
+    parallel["enabled"],
+    parallel["chance"],
+    parallel["slow"],
+    parallel["penalty"],
+  )
+  PENALTIES.race = PARALLEL_ENABLED
   upstream.TIMEOUT_SECONDS, upstream.WAIT_SECONDS = (
     timeouts["request"],
     timeouts["wait"],

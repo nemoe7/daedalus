@@ -95,6 +95,31 @@ def test_loop_settings() -> None:
       settings.parse(text)
 
 
+def test_parallel_settings(folder: Path) -> None:
+  """The race defaults, and the 2 bounds of its numbers."""
+  assert settings.parse("")["parallel"] == {
+    "enabled": False,
+    "chance": 0.05,
+    "slow": 30.0,
+    "penalty": 0.9,
+  }
+  expect_error(folder, "parallel:\n  chance: 2\n", "from 0 to 1")
+  expect_error(folder, "parallel:\n  chance: -0.1\n", "from 0 to 1")
+  expect_error(folder, "parallel:\n  penalty: 2\n", "at most 1")
+  expect_error(folder, "parallel:\n  penalty: 0\n", "above 0")
+  expect_error(folder, "parallel:\n  slow: 0\n", "above 0")
+  path = folder / "parallel.yml"
+  path.write_text("parallel:\n  enabled: true\n  chance: 0\n", encoding="utf-8")
+  values = settings.load(path)
+  assert values["parallel"]["enabled"] is True and values["parallel"]["chance"] == 0.0
+  api.apply_settings(values)
+  try:
+    assert api.PARALLEL_ENABLED is True and api.PENALTIES.race is True
+  finally:
+    api.apply_settings(settings.load(folder / "missing.yml"))
+  assert api.PARALLEL_ENABLED is False and api.PENALTIES.race is False
+
+
 def test_apply(folder: Path) -> None:
   path = folder / "off.yml"
   path.write_text(
