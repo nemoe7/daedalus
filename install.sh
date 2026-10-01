@@ -102,12 +102,12 @@ required_service_dirs=()
 if echo "$profiles_spaced" | grep -qw "search"; then
   [ -e "$dir/services/searxng" ] || required_service_dirs+=("services/searxng")
 fi
-# services/tailscale if tailscale profile enabled
-if echo "$profiles_spaced" | grep -qw "tailscale"; then
+# services/tailscale if its exact profile is enabled
+if [[ " $profiles_spaced " == *" tailscale "* ]]; then
   [ -e "$dir/services/tailscale" ] || required_service_dirs+=("services/tailscale")
 fi
-# services/tailscale-openwebui if webui profile enabled (openwebui on its own tailscale instance)
-if echo "$profiles_spaced" | grep -qw "webui"; then
+# services/tailscale-openwebui if its exact profile is enabled
+if [[ " $profiles_spaced " == *" tailscale-openwebui "* ]]; then
   [ -e "$dir/services/tailscale-openwebui" ] || required_service_dirs+=("services/tailscale-openwebui")
 fi
 # If required service dirs missing, add to plan
