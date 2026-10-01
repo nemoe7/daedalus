@@ -12,4 +12,4 @@ if [[ ! -x "$PYTHON" ]]; then
     "$PYTHON" "$REPO_ROOT/.agents/skills/arena-preview-steering" >&2
   exit 2
 fi
-exec "$PYTHON" "$SCRIPT_DIR/preview.py" --state-dir "$REPO_ROOT/arena-state" "$@"
+exec "$PYTHON" "$SCRIPT_DIR/preview.py" "$@"

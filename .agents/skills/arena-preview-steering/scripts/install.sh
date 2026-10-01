@@ -121,7 +121,7 @@ cat > "$HOOK" <<EOF || fail "cannot write $HOOK"
 #!/bin/bash
 # arena-preview-hook: poll the steering inbox after every Arena bash call.
 rc=\$?
-"$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" --state-dir "$REPO_ROOT/$STATE_REL" --reminder >&2
+"$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" --reminder >&2
 exit "\$rc"
 EOF
 chmod 755 "$HOOK"
@@ -146,10 +146,18 @@ if ! grep -qF "$GATE_MARKER" "$PROFILE"; then
 
 # arena-preview-gate
 _arena_preview_gate() {
+  case "\$BASH_COMMAND" in
+    *"git commit"*|*"git push"*|*"gh pr checks"*)
+      if [ -z "\${_arena_preview_reminded:-}" ]; then
+        _arena_preview_reminded=1
+        printf '%s\n' "Finished a task? Update your task-list with arena-preview task <id> --status finished." >&2
+      fi
+      ;;
+  esac
   case "\$BASH_COMMAND" in *preview*|*profile*|*bashrc*|*arena-state*|gh*|sleep*|true*|:*|test*|"git status"*|"git diff"*|"git add"*|"git commit"*) return 0 ;; esac
   case "\${_arena_preview_gate_checked:-}" in 1) return 0 ;; esac
   _arena_preview_gate_checked=1
-  "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" --state-dir "$REPO_ROOT/$STATE_REL" gate 2>/dev/null
+  "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" gate 2>/dev/null
   case \$? in
     1) exit 130 ;;
   esac
