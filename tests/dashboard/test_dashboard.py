@@ -178,7 +178,14 @@ def test_app_js_request_cards() -> None:
     "stream": True,
     "seconds": 3,
     "fallbacks": 1,
-    "attempts": [],
+    "routed": "p/old",
+    "retry": "try-2",
+    "loop": "tool-3",
+    "transition": {"reason": "err"},
+    "attempts": [
+      {"model": "p/first", "result": "error", "seconds": 0.4, "error": "rate limited"},
+      {"model": "p/big", "result": "answered", "seconds": 1.0, "effort": "xhigh"},
+    ],
   }
   code = f"""
 const fs = require('fs');
@@ -186,7 +193,7 @@ const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{ renderRequests, renderLive, state }};";
 const nodes = new Map();
 const node = (id) => {{
-  if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', hidden: false, children: [], contains: () => false, addEventListener: () => {{}}, classList: {{ toggle: () => {{}} }} }});
+  if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', hidden: false, children: [], listeners: {{}}, contains: () => false, addEventListener(type, handler) {{ this.listeners[type] = handler; }}, classList: {{ toggle: () => {{}} }} }});
   return nodes.get(id);
 }};
 const sandbox = {{
@@ -195,7 +202,7 @@ const sandbox = {{
   floorCount: (value) => String(value),
   matchMedia: () => ({{ matches: false, addEventListener: () => {{}} }}),
   document: {{ hidden: false, documentElement: {{ dataset: {{}} }}, getElementById: node, querySelector: () => ({{ firstChild: {{ textContent: 'M' }} }}), querySelectorAll: () => [], addEventListener: () => {{}} }},
-  navigator: {{}}, location: {{ hash: '' }}, window: {{ addEventListener: () => {{}} }},
+  navigator: {{}}, location: {{ hash: '' }}, window: {{ addEventListener: () => {{}}, matchMedia: () => ({{ matches: false }}) }},
   getSelection: () => ({{ isCollapsed: true }}), console: {{ error: () => {{}} }}, $: node,
 }};
 vm.createContext(sandbox);
@@ -210,6 +217,19 @@ assert(cells.every((td) => td.includes('role="cell"')), 'each request cell keeps
 assert.strictEqual((html.match(/class="cell-value"/g) || []).length, 13, 'each request cell keeps its value');
 const mobileLabels = (markup) => [...markup.matchAll(new RegExp('<span class="mobile-label" aria-hidden="true">([^<]*)</span>', 'g'))].map((m) => m[1]);
 assert.deepStrictEqual(mobileLabels(html), {json.dumps(labels)}, 'the cells show their column names in table order');
+assert(html.includes('class="request has-chain"'), 'requests with fallbacks expose their chain');
+assert(html.includes('More · session, effort, pool · 1 fallback'), 'request details disclose their fallback count');
+for (const value of ['View fallback chain', 's1', 'high <span class="from">xhi</span>', 'rate limited', 'from p/old', 'try again try-2', 'tool loop tool-3']) assert(html.includes(value), 'mobile details keep ' + value);
+const mobileSelectors = [];
+const mobileTap = {{ target: {{ closest: (selector) => {{ mobileSelectors.push(selector); return null; }} }} }};
+sandbox.window.matchMedia = () => ({{ matches: true }});
+node('requests').listeners.click(mobileTap);
+assert(!mobileSelectors.includes('tr.request'), 'a mobile row tap does not open a second chain');
+const detailSelectors = [];
+const detailTap = {{ target: {{ closest: (selector) => {{ detailSelectors.push(selector); return selector === '.mobile-request-more' ? {{}} : null; }} }} }};
+sandbox.window.matchMedia = () => ({{ matches: false }});
+node('requests').listeners.click(detailTap);
+assert(!detailSelectors.includes('tr.request'), 'a detail disclosure does not toggle the desktop chain');
 probe.state.live.set(2, {{ id: 2, since: 100000, attemptSince: 100000, first: null, stream: false, session: 's2', app: 'OWUI', model: 'p/live', effort: 'medium', pool: 'free', via: 'p/live', fallbacks: 0 }});
 probe.renderLive();
 const liveHtml = node('live').innerHTML;
@@ -218,8 +238,52 @@ assert.strictEqual(liveCells.length, 13, 'every live column is a cell');
 assert(liveCells.every((td) => td.includes('role="cell"')), 'each live request cell keeps its table role');
 assert.strictEqual((liveHtml.match(/class="cell-value"/g) || []).length, 13, 'each live request cell keeps its value');
 assert.deepStrictEqual(mobileLabels(liveHtml), {json.dumps(labels)}, 'live request cells show their column names');
+assert(liveHtml.includes('More · session, effort, pool · 0 fallbacks'), 'live row details stay compact');
+for (const value of ['s2', 'medium', 'free']) assert(liveHtml.includes(value), 'live details keep ' + value);
+assert(!liveHtml.includes('mobile-fallback-chain'), 'live rows do not show a fallback chain');
 """
   subprocess.run(["node", "-e", code], check=True)
+
+
+def test_mobile_request_cards_use_route_first_grid() -> None:
+  """Compact mobile cards keep route, metrics, and details on separate rows."""
+  css = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
+  ).read_text(encoding="utf-8")
+  base_css, mobile_css = css.split("@media (max-width: 720px) {", 1)
+  mobile_css = mobile_css.split("\n}", 1)[0]
+  narrow_css = css.split("@media (max-width: 360px) {", 1)[1].split("\n}", 1)[0]
+  assert ".requests .mobile-request-more { display: none; }" in base_css
+  assert "tr.request.has-chain { cursor: pointer; }" in base_css
+  assert "tr.request.has-chain:hover td, tr.request.has-chain.open td" in base_css
+  assert ".requests .mobile-request-more { display: block; width: 100%; }" in mobile_css
+  assert ".requests tr.request, .requests tr.live-row {" in mobile_css
+  assert "grid-template-columns: repeat(4, minmax(0, 1fr))" in mobile_css
+  assert (
+    ".requests tr.request > td:nth-child(4), .requests tr.live-row > td:nth-child(4) "
+    "{ grid-column: 1 / 3; grid-row: 2; }"
+  ) in mobile_css
+  assert "grid-column: 1 / -1; grid-row: 4;" in mobile_css
+  assert ".requests .mobile-request-meta" in mobile_css
+  assert (
+    ".requests .mobile-fallback-chain ol { list-style: none; margin: 5px 0 0; "
+    "padding: 0; }"
+  ) in mobile_css
+  assert ".requests tr.request .caret { display: none; }" in mobile_css
+  assert "font-size: 11px; white-space: nowrap;" in narrow_css
+  assert ".requests tr.live-row > td:nth-child(1) .pulse" in narrow_css
+  assert (
+    "td:nth-child(9), .requests tr.live-row > td:nth-child(9) "
+    "{ grid-column: 1 / 3; grid-row: 3; }"
+  ) in narrow_css
+  assert (
+    "td:nth-child(12), .requests tr.live-row > td:nth-child(12) "
+    "{ grid-column: 3 / 5; grid-row: 4; }"
+  ) in narrow_css
+  assert (
+    ".requests tr.request > td.fallbacks-cell, .requests tr.live-row > "
+    "td.fallbacks-cell { grid-row: 5; }"
+  ) in narrow_css
 
 
 def test_app_js_limit_units() -> None:
