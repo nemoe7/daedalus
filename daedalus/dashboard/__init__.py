@@ -183,6 +183,8 @@ class Live:
 
 HISTORY = History(lambda: store.MODELS_DB)
 LIVE = Live()
+# The parsed config files, by path and file time. A save changes the time.
+_FILES_CACHE: dict[str, tuple[int, dict[str, Any]]] = {}
 FIELDS = (
   "app",
   "session",
@@ -841,16 +843,19 @@ def routes(
     if not allowed(request):
       return denied()
     main = FILES[0]
-    found = [
-      {
-        "path": str(path),
-        "text": path.read_text(encoding="utf-8") if path.exists() else "",
-        "main": path == main,
-      }
-      for path in config_files()
-    ]
-    for file in found:
-      file["blocks"], file["error"] = form_blocks(Path(file["path"]), file["text"])
+    found = []
+    for path in config_files():
+      key = str(path)
+      stamp = path.stat().st_mtime_ns if path.exists() else -1
+      hit = _FILES_CACHE.get(key)
+      if hit is None or hit[0] != stamp:
+        text = path.read_text(encoding="utf-8") if path.exists() else ""
+        blocks, error = form_blocks(path, text)
+        hit = (stamp, {"path": key, "text": text, "blocks": blocks, "error": error})
+        _FILES_CACHE[key] = hit
+      entry = dict(hit[1])
+      entry["main"] = path == main
+      found.append(entry)
     return JSONResponse(found)
 
   @api.get("/provider-keys")
