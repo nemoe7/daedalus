@@ -29,7 +29,9 @@ The Catalog chip shows the time of the last catalog rebuild and the next schedul
 
 The page lists the requests in flight at the top, then the last ones, 50 at
 a time and 500 at most. A click on a request opens its attempts, and a hover
-on a count or name shows the exact value.
+on a count or name shows the exact value. The Pool column shows short codes,
+such as `lmt` and `rtN`, and the Code legend above the table gives the meaning
+of each code. The table head stays in view while the list scrolls.
 
 ## Models
 

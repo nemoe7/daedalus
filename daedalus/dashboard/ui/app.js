@@ -175,7 +175,6 @@ function renderStatus(status) {
     catalogChip(status.catalog),
   ];
   document.querySelectorAll("[data-status]").forEach((host) => { host.innerHTML = chips.join(""); });
-  $("nav-models").textContent = status.models;
   $("version").textContent = status.version;
   markNavFades();
 }
@@ -430,6 +429,18 @@ function transitionCell(t) {
   return ` <span class="transition-code" title="${esc(label)}" aria-label="${esc(label)}">${esc(t.reason)}</span>`;
 }
 
+// The code legend of the Requests page: each short code with its meaning.
+function renderLegend() {
+  const rows = [
+    ...Object.entries(TRANSITION_REASONS),
+    ["from X", "the pool of the previous model"],
+    ["tool loop N", "N equal tool calls stopped the chain"],
+    ["rtN", "OpenWebUI try again N: the count of the repeats"],
+  ];
+  $("legend-body").innerHTML = rows.map(([code, label]) =>
+    `<span><code>${esc(code)}</code>${esc(label)}</span>`).join("");
+}
+
 // The try again count of one message, as the 3-character code rtN.
 function retryCell(r) {
   if (!r.retry) return "";
@@ -637,6 +648,8 @@ const dash = '<span class="muted">-</span>';
 
 function renderModels() {
   markPools();
+  // The badge counts the rows of this page, not the routable models of the status answer.
+  $("nav-models").textContent = state.models.length || "";
   const query = $("search").value.trim().toLowerCase();
   const rows = sortModels(state.models.filter((m) =>
     (state.tier === "All" || tierLetter(m.tier) === state.tier)
@@ -1298,17 +1311,6 @@ const setting = (group, key) => fileValue(group, key) ?? state.settings.defaults
 // The boolean settings, such as `enabled` and `change_on_draw`, are checkboxes in the form.
 const isSwitch = (group, key) => typeof state.settings.defaults[group][key] === "boolean";
 
-// The value after 1 wheel step. A decimal field steps its last decimal digit.
-function wheelStep(input, direction) {
-  const text = input.value || input.placeholder;
-  const places = input.step === "any" ? Math.max((text.split(".")[1] || "").length, 1) : 0;
-  const size = 10 ** -places;
-  const min = input.min === "" ? 0 : Number(input.min);
-  const max = input.max === "" ? Infinity : Number(input.max);
-  const next = Math.min(max, Math.max(min, (Number(text) || 0) + direction * size));
-  return next.toFixed(places);
-}
-
 function renderSettings() {
   $("settings-path").textContent = `${fileName(state.settings.path)} · Ctrl+S saves and reloads`;
   const card = ([group, title, fields]) => `
@@ -1824,13 +1826,6 @@ $("settings-editor").addEventListener("input", () => {
   $("settings-message").textContent = "";
   renderSettingsSave();
 });
-$("settings").addEventListener("wheel", (event) => {
-  const input = event.target.closest("input[type=number]");
-  if (!input || input !== document.activeElement) return;
-  event.preventDefault();
-  input.value = wheelStep(input, event.deltaY < 0 ? 1 : -1);
-  input.dispatchEvent(new Event("input", { bubbles: true }));
-}, { passive: false });
 document.addEventListener("keydown", (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
     event.preventDefault();
@@ -1845,4 +1840,5 @@ window.addEventListener("beforeunload", (event) => {
   if (dirty() || settingsDirty()) event.preventDefault();
 });
 
+renderLegend();
 guarded(start);
