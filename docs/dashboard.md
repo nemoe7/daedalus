@@ -9,8 +9,6 @@ Open `http://HOST:3357/`.
 | Remember me | On at the start. 30 days, shown on hover. Else the session stops when the browser closes, or after 12 h. |
 | Change | A new master key, user or password stops all sessions. |
 
-The dashboard is mainly a utility for monitoring the application state and fine-tuning the settings.
-
 ## Pages
 
 | Page | Contents |
@@ -40,7 +38,7 @@ filters of that pool. The table sorts by column and filters by type and tier.
 
 ## Providers
 
-The cards of the Form view stack in columns. Each card goes to the shortest column. A phone hides the Ctrl+S hint and tightens the bar over the file tabs.
+The cards of the Form view stack in columns. A phone hides the Ctrl+S hint and tightens the bar over the file tabs.
 
 | Field | YAML key | Input |
 | --- | --- | --- |
