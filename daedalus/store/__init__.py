@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from daedalus.config import STATE_DIR
+from daedalus.store.database import connect_read
 
 MODELS_DB = STATE_DIR / "models.sqlite3"
 # Metadata columns, in table order. Config values win over the catalog.
@@ -122,7 +123,7 @@ def read_models(
   """The stored model ids, chat or unmatched rows by default, and tool or image rows on request."""
   if not Path(MODELS_DB).exists():
     return []
-  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
+  database = connect_read(MODELS_DB)
   try:
     try:
       rows = database.execute(
@@ -146,7 +147,7 @@ def mode_models(mode: str, vision_only: bool = False) -> list[str]:
   """The stored models of one catalog mode in table order, only image input models on request."""
   if not Path(MODELS_DB).exists():
     return []
-  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
+  database = connect_read(MODELS_DB)
   try:
     rows = database.execute(
       "SELECT id FROM models WHERE mode = ? AND (? OR supports_vision) ORDER BY rowid",
@@ -167,7 +168,7 @@ def model_rows() -> list[dict[str, Any]]:
   """All rows, with the mode, the limits, the tool and reasoning flags, the effort and the media flags."""
   if not Path(MODELS_DB).exists():
     return []
-  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
+  database = connect_read(MODELS_DB)
   try:
     rows = database.execute(
       "SELECT id, mode, max_input_tokens, supports_function_calling, supports_reasoning,"
@@ -204,7 +205,7 @@ def model_info() -> dict[str, dict[str, int | bool]]:
   if not Path(MODELS_DB).exists():
     return {}
   names = (*INFO_NUMBERS, *INFO_FLAGS)
-  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
+  database = connect_read(MODELS_DB)
   try:
     rows = database.execute(f"SELECT id, {', '.join(names)} FROM models").fetchall()
   except sqlite3.OperationalError:
@@ -234,7 +235,7 @@ def model_limits(model: str) -> dict[str, Any]:
   """The stored `reasoning_effort` and `max_output_tokens` of one model, without empty values."""
   if not Path(MODELS_DB).exists():
     return {}
-  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
+  database = connect_read(MODELS_DB)
   try:
     row = database.execute(
       "SELECT reasoning_effort, max_output_tokens FROM models WHERE id = ?", (model,)
@@ -262,7 +263,7 @@ def reasoning_flags() -> dict[str, bool]:
   """The reasoning flag of each stored model. No catalog value counts as false."""
   if not Path(MODELS_DB).exists():
     return {}
-  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
+  database = connect_read(MODELS_DB)
   try:
     rows = database.execute("SELECT id, supports_reasoning FROM models").fetchall()
   except sqlite3.OperationalError:
@@ -276,7 +277,7 @@ def input_limits() -> dict[str, int]:
   """The `max_input_tokens` of each stored model that has one."""
   if not Path(MODELS_DB).exists():
     return {}
-  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
+  database = connect_read(MODELS_DB)
   try:
     rows = database.execute(
       "SELECT id, max_input_tokens FROM models WHERE max_input_tokens IS NOT NULL"
@@ -309,7 +310,7 @@ def pace_limits() -> dict[str, tuple[float | None, float | None]]:
   """The `rpm` and `tpm` of each stored model that has one of them."""
   if not Path(MODELS_DB).exists():
     return {}
-  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
+  database = connect_read(MODELS_DB)
   try:
     rows = database.execute(
       "SELECT id, rpm, tpm FROM models WHERE rpm IS NOT NULL OR tpm IS NOT NULL"
@@ -326,7 +327,7 @@ def built() -> float | None:
   """The time of the last catalog rebuild. None without a store or an older store."""
   if not Path(MODELS_DB).exists():
     return None
-  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
+  database = connect_read(MODELS_DB)
   try:
     row = database.execute("SELECT built FROM catalog").fetchone()
   except sqlite3.OperationalError:
@@ -340,7 +341,7 @@ def has_store() -> bool:
   """Tell if a catalog build wrote the store, because the Alembic steps make only empty tables."""
   if not Path(MODELS_DB).exists():
     return False
-  database = sqlite3.connect(f"file:{MODELS_DB}?mode=ro", uri=True)
+  database = connect_read(MODELS_DB)
   try:
     found = database.execute(
       "SELECT EXISTS (SELECT 1 FROM catalog) OR EXISTS (SELECT 1 FROM models)"
