@@ -15,7 +15,7 @@ import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import dashboard, providers, store
+from daedalus import __version__, dashboard, providers, store
 from daedalus.catalog import schedule
 from daedalus.config import block_for, get_config
 from daedalus.providers import hooks, signatures
@@ -72,7 +72,7 @@ CATALOG_REFRESH: Callable[[], object] | None = None
 CATALOG_REBUILD_CACHED: Callable[[], object] | None = None
 # The hourly balance checks of the Limits page. `daedalus serve` turns them on.
 LIMIT_CHECKS = False
-app = FastAPI(title="daedalus", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="daedalus", version=__version__, lifespan=lifespan)
 app.include_router(media.routes)
 
 

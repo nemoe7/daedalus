@@ -12,7 +12,7 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import config, store
+from daedalus import __version__, config, store
 from daedalus.server import api, upstream
 from daedalus.store import keys
 
@@ -379,3 +379,9 @@ async def client():
   use_upstream()
   async with make_client() as client:
     yield client
+
+
+def test_app_version_follows_the_build() -> None:
+  """FastAPI reports the version of the build, not a fixed string."""
+  assert api.app.version == __version__
+
