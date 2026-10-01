@@ -170,7 +170,7 @@ services:
     restart: unless-stopped
 
   tailscale-openwebui:
-    profiles: [webui]
+    profiles: [tailscale-openwebui]
     image: tailscale/tailscale:latest
     container_name: daedalus-tailscale-owui
     hostname: ${TS_HOSTNAME_OWUI:-owui}

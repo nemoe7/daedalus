@@ -40,7 +40,7 @@ A successful **Gemini Release Draft** approval starts `.github/workflows/image.y
 
 ## Optional services
 
-Set `COMPOSE_PROFILES` in `.env`, for example `COMPOSE_PROFILES=webui,headroom`. Then `docker compose up -d` starts them.
+Set `COMPOSE_PROFILES` in `.env`. For example, `COMPOSE_PROFILES=webui,tailscale-openwebui,headroom` starts Open WebUI, its separate Tailscale service, and Headroom.
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e3e8fd", "primaryBorderColor": "#3b5bfd", "primaryTextColor": "#1a1f36", "lineColor": "#3b5bfd", "textColor": "#3b5bfd", "secondaryColor": "#ede9fe", "tertiaryColor": "#f5f3ff", "clusterBkg": "#f5f3ff", "clusterBorder": "#8b5cf6", "titleColor": "#5c388c", "edgeLabelBackground": "#ffffff", "noteBkgColor": "#ede9fe", "noteBorderColor": "#8b5cf6"}}}%%
@@ -52,17 +52,18 @@ flowchart LR
   W -->|web search| S[searxng, internal]
   D -->|messages| H[headroom :8787, internal]
   T[tailscale] -->|HTTPS :443 in the tailnet| D
-  T -->|HTTPS :8443 in the tailnet| W
+  O[tailscale-openwebui] -->|HTTPS :8443 in the tailnet| W
   D --> P[Providers]
 ```
 
 | Profile | Service | What it does |
 | --- | --- | --- |
-| `webui` | `open-webui` | Chat UI on `http://localhost:3000`, and on port 8443 with the `tailscale` profile. It uses daedalus as its OpenAI API. Its vector database `webui-db` (PostgreSQL with pgvector) has no host port. |
+| `webui` | `open-webui`, `webui-db` | Chat UI on `http://localhost:3000`. It uses daedalus as its OpenAI API. The vector database has no host port. |
 | `tika` | `tika` | Reads PDF and Office files for Open WebUI, with OCR. No port on the host. |
 | `search` | `searxng` | Web search for Open WebUI. No port on the host, no key. |
 | `headroom` | `headroom` | Compresses the messages before daedalus sends them. No port on the host. |
-| `tailscale` | `tailscale` | Publishes daedalus and Open WebUI to your tailnet over HTTPS. |
+| `tailscale` | `tailscale` | Publishes daedalus to your tailnet over HTTPS. |
+| `tailscale-openwebui` | `tailscale-openwebui` | Publishes Open WebUI to its own Tailscale device over HTTPS. Enable this with `webui`; it depends on `open-webui`. |
 
 ### Open WebUI
 
@@ -167,10 +168,10 @@ Headroom is worth it for long agentic tasks. So far, it keeps token use lower wi
 
 | Setting | Value |
 | --- | --- |
-| Auth key | `TS_AUTHKEY` |
-| Device name | `TS_HOSTNAME`, default `daedalus` |
-| daedalus | `https://NAME.TAILNET.ts.net` |
-| Open WebUI | `https://NAME.TAILNET.ts.net:8443`, when the `webui` profile runs. Browsers give the microphone only to HTTPS pages, so voice input on a phone needs this address. |
+| Auth key | `TS_AUTHKEY` for daedalus; `TS_AUTHKEY_OWUI` for Open WebUI, with a fallback to `TS_AUTHKEY`. |
+| Device name | `TS_HOSTNAME`, default `daedalus`; `TS_HOSTNAME_OWUI`, default `owui`. |
+| daedalus | `https://TS_HOSTNAME.TAILNET.ts.net` |
+| Open WebUI | `https://TS_HOSTNAME_OWUI.TAILNET.ts.net:8443`, when both the `webui` and `tailscale-openwebui` profiles run. Browsers give the microphone only to HTTPS pages, so voice input on a phone needs this address. |
 | Funnel | Off: only your tailnet can connect. |
 | `TS_AUTH_ONCE` | `true`. The state volume keeps the login, so a used or old auth key does not stop a restart. |
 | Health | `/healthz` on `127.0.0.1:9002`. `docker ps` shows "unhealthy" when the device has no tailnet address. |

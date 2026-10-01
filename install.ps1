@@ -98,10 +98,10 @@ if (-not (Test-Path -LiteralPath (Join-Path $dir 'config'))) { $requiredServiceD
 if ($profilesSpaced -match '\bsearch\b') {
   if (-not (Test-Path -LiteralPath (Join-Path $dir 'services/searxng'))) { $requiredServiceDirs += 'services/searxng' }
 }
-if ($profilesSpaced -match '\btailscale\b') {
+if ($profilesSpaced -match '(^|\s)tailscale(\s|$)') {
   if (-not (Test-Path -LiteralPath (Join-Path $dir 'services/tailscale'))) { $requiredServiceDirs += 'services/tailscale' }
 }
-if ($profilesSpaced -match '\bwebui\b') {
+if ($profilesSpaced -match '(^|\s)tailscale-openwebui(\s|$)') {
   if (-not (Test-Path -LiteralPath (Join-Path $dir 'services/tailscale-openwebui'))) { $requiredServiceDirs += 'services/tailscale-openwebui' }
 }
 
