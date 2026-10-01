@@ -13,13 +13,13 @@ import httpx
 
 from daedalus.providers import signatures
 from daedalus.providers.base import (
-  Chunks,
   OpenAIProvider,
   ProviderError,
   Upload,
   data_url,
   error_text,
   events,
+  frame,
   function_call,
   limits,
   system_text,
@@ -318,6 +318,41 @@ def wav_file(pcm: bytes, rate: int) -> bytes:
     out.setframerate(rate)
     out.writeframes(pcm)
   return buffer.getvalue()
+
+
+class Chunks:
+  """Build OpenAI chat completion chunks for one translated stream."""
+
+  def __init__(self, model: str) -> None:
+    self.identifier = "chatcmpl-" + uuid.uuid4().hex
+    self.created = int(time.time())
+    self.model = model
+
+  def chunk(self, delta: dict, reason: str | None = None, choice: int = 0) -> bytes:
+    return frame(
+      {
+        "id": self.identifier,
+        "object": "chat.completion.chunk",
+        "created": self.created,
+        "model": self.model,
+        "choices": [{"index": choice, "delta": delta, "finish_reason": reason}],
+      }
+    )
+
+  def end(self, counts: dict | None, include_usage: bool) -> bytes:
+    tail = b""
+    if include_usage and counts is not None:
+      tail = frame(
+        {
+          "id": self.identifier,
+          "object": "chat.completion.chunk",
+          "created": self.created,
+          "model": self.model,
+          "choices": [],
+          "usage": counts,
+        }
+      )
+    return tail + b"data: [DONE]\n\n"
 
 
 class GeminiProvider(OpenAIProvider):
