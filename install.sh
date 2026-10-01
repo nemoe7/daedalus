@@ -3,6 +3,8 @@
 set -euo pipefail
 
 repo=nemoe7/daedalus
+# The image that the Dev Image workflow builds from main. install --dev pulls it without the source.
+dev_image=ghcr.io/$repo:dev
 
 dev=0
 prod=0
@@ -45,8 +47,9 @@ if [ -f "$dir/.daedalus-dev" ] && [ "$prod" = 0 ]; then dev=1; fi
 if [ "$dev" = 1 ] && [ "$prod" = 1 ]; then
   echo "--dev and --prod/--no-dev cannot be used together." >&2; exit 1
 fi
-if [ "$dev" = 1 ] && { [ ! -f "$dir/compose.dev.yml" ] || [ ! -d "$dir/daedalus" ]; }; then
-  echo "--dev builds the image from the source. Run it in a git checkout." >&2
+# --dev with the source builds the image. Without the source, it pulls the dev image.
+if [ "$dev" = 1 ] && [ -d "$dir/daedalus" ] && [ ! -f "$dir/compose.dev.yml" ]; then
+  echo "--dev needs compose.dev.yml beside the source in $dir." >&2
   exit 1
 fi
 # Make --dev persistent: create marker; --prod/--no-dev/--dev=off removes it.
@@ -222,7 +225,9 @@ if [ $missing_files -eq 1 ]; then
   tags=$(curl -fsSL "https://api.github.com/repos/$repo/tags")
   tag=$(printf '%s\n' "$tags" | grep -o '"name": *"v[0-9][^"]*"' | cut -d'"' -f4 | sort -V | tail -n 1 || true)
   ref=refs/heads/main
-  [ -z "$tag" ] || ref=refs/tags/$tag
+  # dev tracks main: the Dev Image workflow builds the dev image from main.
+  if [ "$dev" = 0 ] && [ -n "$tag" ]; then ref=refs/tags/$tag; fi
+  [ "$dev" = 0 ] || tag=
   tmp=$(mktemp -d)
   trap 'rm -rf "$tmp"' EXIT
   curl -fsSL "https://github.com/$repo/archive/$ref.tar.gz" | tar -xz -C "$tmp" --strip-components=1
@@ -284,8 +289,13 @@ compose=(compose)
 version=()
 if [ "$dev" = 1 ]; then
   compose=(compose -f compose.dev.yml)
-  # The version under the logo: dev and the commit.
-  if commit=$(git rev-parse --short HEAD 2>/dev/null); then version=("DAEDALUS_VERSION=dev-$commit"); fi
+  if [ -d "$dir/daedalus" ]; then
+    # The version under the logo: dev and the commit.
+    if commit=$(git rev-parse --short HEAD 2>/dev/null); then version=("DAEDALUS_VERSION=dev-$commit"); fi
+  else
+    # No source in $dir: run the dev image of main instead of building.
+    version=("DAEDALUS_DEV_IMAGE=$dev_image" "DAEDALUS_DEV_PULL=always")
+  fi
 fi
 # Until the next login, a new member of the docker group must use sudo.
 docker=(env ${version[@]+"${version[@]}"} docker)

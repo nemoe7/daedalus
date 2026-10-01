@@ -4,6 +4,8 @@ $ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
 $repo = 'nemoe7/daedalus'
+# The image that the Dev Image workflow builds from main. install --dev pulls it without the source.
+$devImage = "ghcr.io/$repo:dev"
 
 function Stop-Install([string]$message) {
   Write-Host $message -ForegroundColor Red
@@ -60,8 +62,9 @@ if ($PSScriptRoot -and (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'compose
 if ((Test-Path -LiteralPath (Join-Path $dir '.daedalus-dev')) -and -not $prod) { $dev = $true }
 
 if ($dev -and $prod) { Stop-Install '--dev and --prod/--no-dev cannot be used together.' }
-if ($dev -and -not (Test-Path -LiteralPath (Join-Path $dir 'daedalus'))) {
-  Stop-Install '--dev builds the image from the source. Run it in a git checkout.'
+# --dev with the source builds the image. Without the source, it pulls the dev image.
+if ($dev -and (Test-Path -LiteralPath (Join-Path $dir 'daedalus')) -and -not (Test-Path -LiteralPath (Join-Path $dir 'compose.dev.yml'))) {
+  Stop-Install "--dev needs compose.dev.yml beside the source in $dir."
 }
 # Make --dev persistent: create marker; --prod/--no-dev/--dev=off removes it.
 if ($dev) { New-Item -ItemType Directory -Force -Path $dir | Out-Null; New-Item -ItemType File -Force -Path (Join-Path $dir '.daedalus-dev') | Out-Null }
@@ -172,6 +175,8 @@ if ($needFiles) {
     Where-Object { $_ -match '^v\d+(\.\d+)+$' } |
     Sort-Object { [version]$_.Substring(1) } |
     Select-Object -Last 1
+  # dev tracks main: the Dev Image workflow builds the dev image from main.
+  if ($dev) { $tag = $null }
   $ref = if ($tag) { "refs/tags/$tag" } else { 'refs/heads/main' }
   $tmp = Join-Path ([IO.Path]::GetTempPath()) ([IO.Path]::GetRandomFileName())
   New-Item -ItemType Directory -Path $tmp | Out-Null
@@ -258,9 +263,15 @@ if (-not (Test-Native { docker info })) {
 $compose = @('compose')
 if ($dev) {
   $compose = @('compose', '-f', 'compose.dev.yml')
-  # The version under the logo: dev and the commit.
-  try { $commit = git rev-parse --short HEAD 2>$null } catch { $commit = $null }
-  if ($commit) { $env:DAEDALUS_VERSION = "dev-$commit" }
+  if (Test-Path -LiteralPath (Join-Path $dir 'daedalus')) {
+    # The version under the logo: dev and the commit.
+    try { $commit = git rev-parse --short HEAD 2>$null } catch { $commit = $null }
+    if ($commit) { $env:DAEDALUS_VERSION = "dev-$commit" }
+  } else {
+    # No source in $dir: run the dev image of main instead of building.
+    $env:DAEDALUS_DEV_IMAGE = $devImage
+    $env:DAEDALUS_DEV_PULL = 'always'
+  }
 }
 docker @compose up -d
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
