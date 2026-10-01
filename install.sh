@@ -265,7 +265,8 @@ if [ "$missing_env" = 1 ]; then
 fi
 key=
 if grep -q '^DAEDALUS_MASTER_KEY=$' .env; then
-  key=$(od -An -tx1 -N20 /dev/urandom | tr -d ' \n')
+  # The sk- prefix matches the API keys that daedalus makes in the dashboard.
+  key=sk-$(od -An -tx1 -N20 /dev/urandom | tr -d ' \n')
   # Replace empty master key, preserve all other lines
   sed -i "s/^DAEDALUS_MASTER_KEY=$/DAEDALUS_MASTER_KEY=$key/" .env
 fi
@@ -276,7 +277,7 @@ if ! grep -qsE '^DAEDALUS_MASTER_KEY=[^[:space:]]{16,}$' .env; then
 fi
 # Generate WEBUI_SECRET_KEY for safety if empty (keeps Open WebUI logins after update)
 if grep -q '^WEBUI_SECRET_KEY=$' .env; then
-  webui_key=$(od -An -tx1 -N32 /dev/urandom | tr -d ' \n')
+  webui_key=sk-$(od -An -tx1 -N32 /dev/urandom | tr -d ' \n')
   sed -i "s/^WEBUI_SECRET_KEY=$/WEBUI_SECRET_KEY=$webui_key/" .env
 fi
 if [ "$(uname -s)" = Linux ] && ! grep -qs '^DAEDALUS_UID=' .env; then
