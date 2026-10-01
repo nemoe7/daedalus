@@ -315,7 +315,7 @@ function chainRows(r) {
 }
 
 function poolText(r) {
-  return `${esc(r.pool || "-")}${transitionCell(r.transition)}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${r.retry ? ` <span class="from">try again ${esc(r.retry)}</span>` : ""}${r.loop ? ` <span class="from">tool loop ${esc(r.loop)}</span>` : ""}`;
+  return `${esc(r.pool || "-")}${transitionCell(r.transition)}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${retryCell(r)}${r.loop ? ` <span class="from">tool loop ${esc(r.loop)}</span>` : ""}`;
 }
 
 function mobileFallbackChain(r) {
@@ -428,6 +428,13 @@ function transitionCell(t) {
   if (!t || !t.reason) return "";
   const label = TRANSITION_REASONS[t.reason] || t.reason;
   return ` <span class="transition-code" title="${esc(label)}" aria-label="${esc(label)}">${esc(t.reason)}</span>`;
+}
+
+// The try again count of one message, as the 3-character code rtN.
+function retryCell(r) {
+  if (!r.retry) return "";
+  const label = `OpenWebUI try again ${r.retry}`;
+  return ` <span class="transition-code" title="${esc(label)}" aria-label="${esc(label)}">rt${esc(r.retry)}</span>`;
 }
 
 function renderLive() {
