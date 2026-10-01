@@ -41,6 +41,7 @@
 - MUST use ASD-STE100 for all human-facing text: responses, comments, docs.
 - Comments, docs, responses: terse, unambiguous.
 - Documentation: no storyline or narrative unless asked.
+- Use [Keep a Changelog](https://keepachangelog.com/) unless the repo uses another changelog format.
 - Open on the substance, never preamble or postamble.
 - Cite code, diffs and tool output by path and line instead of repeating.
 - Step straight on after a tool call succeeds, with no result narration.
@@ -82,7 +83,7 @@
 ## Verification
 
 - Before the final reply, MUST run task-list; if an upcoming task is not blocked by an unanswered report, MUST continue it and NEVER end the turn while it remains.
-- Work in several passes; label Q1,Q2,…, state batch total first, restating before adding one; before final poll, state in chat that no open tasks remain; ALWAYS end every turn with `arena-preview poll` on final Bash call; MUST NOT substitute sleep; NEVER treat bounded no-result poll as successful wait.
+- Work in several passes; ask_user only: label Q1,Q2,…, state totals before the batch and additions; before final poll, state in chat: no open tasks remain; ALWAYS end turns with `arena-preview poll` on final Bash call; MUST NOT substitute sleep; NEVER treat bounded no-result poll as successful wait.
 - Run `arena-preview poll` with bash timeout 1800s.
 - Confirm a duplicated, garbled, or disowned message in one line before acting, keeping its edit reversible until then; use the preview inbox as the source of truth for steering instructions and acknowledgement receipts, verifying pending/completed work there rather than from Arena chat output; treat a repeat as a resend: answer what is pending, restate finished work in one line, NEVER redo or widen scope.
 - Debug: reproduce, isolate, hypothesize, verify, fix the root cause not the symptom, cover, recheck; grep every caller first, keep hypotheses falsifiable, one variable at a time, NEVER guess, use a fallback, or hide a failure, and revise disproven assumptions.

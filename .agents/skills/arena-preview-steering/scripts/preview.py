@@ -859,9 +859,9 @@ def handler(store):
 					try:
 						for item in state['notes']+[ack for report in state['reports']for ack in report['acknowledgements']]:
 							if'text'in item:item['html']=render(item['text'])
-							if item.get('ack_kind')=='reply'and item.get('ack_text'):item['ack_html']=render(item['ack_text'])
+							if item.get('ack_kind')=='reply'and item.get('ack_text'):item['ack_html']=render(item['ack_text'].replace('\\n','\n'))
 							for reply in item.get('replies')or[]:
-								if reply['kind']=='reply':reply['html']=render(reply['text'])
+								if reply['kind']=='reply':reply['html']=render(reply['text'].replace('\\n','\n'))
 					except RuntimeError as error:state['rendering_error']=str(error)
 					self.reply(200,json.dumps(state,ensure_ascii=False));return
 				if path=='/api/submissions':live={report['id']for report in store.state()['reports']};self.reply(200,json.dumps([saved_answer_line(record)for record in store.submissions()if record['report_id']in live],ensure_ascii=False),'application/json; charset=utf-8');return
