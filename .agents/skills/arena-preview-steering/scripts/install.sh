@@ -126,9 +126,20 @@ exit "\$rc"
 EOF
 chmod 755 "$HOOK"
 
-# 6. Idempotent EXIT trap in ~/.bash_profile.
+# Drop one marked block from $PROFILE so this run's copy always wins.
+strip_block() {
+  awk -v marker="$1" '
+    $0 == marker { skip = 1; if (n > 0 && out[n] == "") n--; next }
+    skip && /^# arena-preview-/ { skip = 0 }
+    !skip { out[++n] = $0 }
+    END { for (i = 1; i <= n; i++) print out[i] }
+  ' "$PROFILE" > "$PROFILE.new" || fail "cannot rewrite $PROFILE"
+  mv "$PROFILE.new" "$PROFILE"
+}
+
+# 6. Refreshing EXIT trap in ~/.bash_profile.
 touch "$PROFILE"
-if ! grep -qF "$MARKER" "$PROFILE"; then
+strip_block "$MARKER"
   cat >> "$PROFILE" <<'EOF' || fail "cannot append to $PROFILE"
 
 # arena-preview-hook
@@ -137,11 +148,10 @@ case "$(trap -p EXIT)" in
   *) trap 'rc=$?; "$HOME/.arena-preview-hook.sh"; exit "$rc"' EXIT ;;
 esac
 EOF
-fi
 
 # 6b. Idempotent DEBUG gate function in ~/.bash_profile: block bash past the call threshold with a pending inbox.
 GATE_MARKER="# arena-preview-gate"
-if ! grep -qF "$GATE_MARKER" "$PROFILE"; then
+strip_block "$GATE_MARKER"
   cat >> "$PROFILE" <<EOF || fail "cannot append to $PROFILE"
 
 # arena-preview-gate
@@ -163,10 +173,9 @@ _arena_preview_gate() {
   esac
 }
 EOF
-fi
 
 # 7. Add this repository's skill scripts to PATH in new Bash shells.
-if ! grep -qF "$PATH_MARKER" "$PROFILE"; then
+strip_block "$PATH_MARKER"
   cat >> "$PROFILE" <<'EOF' || fail "cannot append to $PROFILE"
 
 # arena-preview-path
@@ -182,16 +191,14 @@ if [ -n "$_arena_preview_root" ]; then
 fi
 unset _arena_preview_root _arena_preview_scripts
 EOF
-fi
 
 echo "arena-preview installer: ok; state: $REPO_ROOT/$STATE_REL, ignored through $GLOBAL_IGNORE; command: arena-preview in new Bash shells"
 
 # 8. Install the DEBUG gate trap last in ~/.bash_profile.
 GATE_TRAP_MARKER="# arena-preview-gate-trap"
-if ! grep -qF "$GATE_TRAP_MARKER" "$PROFILE"; then
+strip_block "$GATE_TRAP_MARKER"
   cat >> "$PROFILE" <<'EOF' || fail "cannot append to $PROFILE"
 
 # arena-preview-gate-trap
 trap '_arena_preview_gate : # arena-preview-gate' DEBUG
 EOF
-fi

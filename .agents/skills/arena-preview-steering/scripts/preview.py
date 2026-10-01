@@ -468,6 +468,7 @@ class Store:
 			if details is None:details=stored['details']if stored else[]
 			status=status or(stored['status']if stored else'upcoming')
 			if blocked is None:blocked=stored['blocked']if stored else False
+			if status=='finished'and blocked:raise ValueError(f"Task {task_id} is blocked; clear the mark with --unblocked first")
 			siblings=[task_row(item)for item in db.execute(f"SELECT {TASK_COLUMNS} FROM tasks WHERE status = ? AND id != ? ORDER BY position, id",(status,task_id)).fetchall()];record={'id':task_id,'title':title,'details':details,'status':status,'order':len(siblings)+1,'updated_at':stamp,'blocked':bool(blocked)}
 			if order is not None:index=max(0,min(order-1,len(siblings)))
 			elif stored and stored['status']==status:index=max(0,min(stored['order']-1,len(siblings)))
