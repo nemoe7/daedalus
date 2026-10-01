@@ -9,7 +9,7 @@ import httpx
 
 from daedalus.server import upstream
 
-URL_ENV = "HEADROOM_URL"
+HEADROOM_URL = "HEADROOM_URL"
 MODE = "lossy_inline"
 TIMEOUT_SECONDS = 5.0
 HEALTH_TIMEOUT_SECONDS = 1.0
@@ -20,7 +20,7 @@ _down = False
 
 def base_url() -> str:
   """The Headroom address from the environment, or an empty string when it is off."""
-  return os.environ.get(URL_ENV, "").strip().rstrip("/")
+  return os.environ.get(HEADROOM_URL, "").strip().rstrip("/")
 
 
 async def available() -> bool:

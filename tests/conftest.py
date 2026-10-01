@@ -66,8 +66,8 @@ def state_folder(
   """A temporary state folder and fresh router state for each test file. No test touches `.daedalus-state`."""
   folder = tmp_path_factory.mktemp("state")
   environ = dict(os.environ)
-  os.environ.pop(headroom.URL_ENV, None)
-  os.environ[dashboard.MASTER_ENV] = getattr(request.module, "MASTER", MASTER)
+  os.environ.pop(headroom.HEADROOM_URL, None)
+  os.environ[dashboard.DAEDALUS_MASTER_KEY] = getattr(request.module, "MASTER", MASTER)
   with pytest.MonkeyPatch.context() as patch:
     patch.setattr(store, "MODELS_DB", folder / "models.sqlite3")
     patch.setattr(discovery, "DUMP_DIR", folder / "dump")
