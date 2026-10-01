@@ -14,7 +14,7 @@ import daedalus
 from daedalus import config, dashboard, store
 from daedalus.catalog import schedule
 from daedalus.config import settings
-from daedalus.dashboard.history import History
+from daedalus.dashboard import History
 from daedalus.routing import loops
 from daedalus.server import api, headroom, upstream
 
