@@ -22,6 +22,11 @@ body {
   font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 button { font: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* A press shows at once, also on a touch screen without hover. */
+button:not(:disabled):active, .tabs a:active, .filter:active, .add:active, .card.pool:active { opacity: .7; }
+tr.request:active td { background: var(--field); }
+@media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
 header {
   display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "brand tabs chips";
   column-gap: 32px; padding: 0 32px; border-bottom: 1px solid var(--line); background: var(--panel);
@@ -61,7 +66,7 @@ button.chip { background: transparent; font: inherit; font-size: 13px; cursor: p
 button.chip:hover:not(:disabled) { border-color: var(--accent); }
 button.chip:disabled { cursor: progress; }
 .types { display: flex; gap: 4px; }
-.chip.flag { padding: 0 7px; font-size: 11px; line-height: 18px; }
+.chip.flag { padding: 0 7px; font-size: 12px; line-height: 20px; }
 .chip.mode { color: var(--text); }
 .effort { font-weight: 600; border-color: currentColor; }
 .e-none, .e-minimal { color: var(--muted); } .e-low { color: var(--ok); } .e-medium { color: var(--accent); }
@@ -184,6 +189,15 @@ a.more:hover { color: var(--accent); }
 .danger:hover { color: var(--bad); border-color: var(--bad); }
 td.end { text-align: right; }
 .empty { padding: 24px 16px; color: var(--muted); text-align: center; }
+/* The Requests table keeps its head in view. The panel does not clip it, so the head sticks to `main`. */
+.panel:has(table.requests) { overflow: visible; }
+.requests thead th { position: sticky; top: 0; background: var(--panel); z-index: 2; }
+/* The code legend of the Requests page, open on a click. */
+.legend { margin: 10px 16px 0; font-size: 12px; color: var(--muted); }
+.legend summary { width: fit-content; cursor: pointer; }
+.legend-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); gap: 4px 16px; margin-top: 8px; }
+.legend-body span { display: flex; gap: 8px; }
+.legend-body code { font: 12px var(--mono); color: var(--text); }
 tr.request.has-chain { cursor: pointer; }
 /* Each cell keeps 1 line. A long model name ends in an ellipsis. */
 .requests tr:not(.chain) > td { white-space: nowrap; }
@@ -261,12 +275,12 @@ section[data-page="providers"], section[data-page="settings"], #yaml-view, #sett
   border-radius: 999px; background: var(--field); font: 12px/20px var(--mono); overflow-wrap: anywhere;
 }
 .pill button, .override > .ghost {
-  border: 0; background: transparent; color: var(--muted); padding: 0 6px; font-size: 15px; line-height: 20px; cursor: pointer;
+  border: 0; background: transparent; color: var(--muted); padding: 0 8px; font-size: 15px; line-height: 24px; cursor: pointer;
 }
 .pill button:hover, .override > .ghost:hover { color: var(--bad); }
 .add {
-  padding: 1px 10px; border: 1px dashed var(--line); border-radius: 999px; background: transparent;
-  color: var(--muted); font-size: 12px; line-height: 20px; cursor: pointer;
+  padding: 3px 12px; border: 1px dashed var(--line); border-radius: 999px; background: transparent;
+  color: var(--muted); font-size: 12px; line-height: 22px; cursor: pointer;
 }
 .add:hover { color: var(--accent); border-color: var(--accent); }
 .adder { display: inline-flex; gap: 6px; }
@@ -320,10 +334,10 @@ section[data-page="limits"] > .editbar { margin-bottom: 16px; }
 .login-head small { color: var(--muted); font-size: 12px; }
 .login label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
 .secret { position: relative; display: grid; }
-.secret input { padding-right: 36px; }
+.secret input { padding-right: 44px; }
 .eye {
-  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
-  display: grid; place-items: center; padding: 4px; border: 0; background: none; color: var(--muted);
+  position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
+  display: grid; place-items: center; padding: 8px; border: 0; background: none; color: var(--muted);
 }
 .eye:hover { color: var(--text); }
 .eye .slash { display: none; }
@@ -332,7 +346,7 @@ section[data-page="limits"] > .editbar { margin-bottom: 16px; }
 .login .check input { accent-color: var(--accent); }
 @media (max-width: 1320px) {
   header { grid-template-columns: auto 1fr; grid-template-areas: "brand chips" "tabs tabs"; }
-  .tabs a { min-height: 38px; }
+  .tabs a { min-height: 44px; }
 }
 @media (max-width: 720px) {
   header, #app > main { padding-left: 16px; padding-right: 16px; }
@@ -393,7 +407,7 @@ section[data-page="limits"] > .editbar { margin-bottom: 16px; }
   .requests tr.request > td:nth-child(3), .requests tr.request > td:nth-child(5),
   .requests tr.request > td:nth-child(6), .requests tr.live-row > td:nth-child(3),
   .requests tr.live-row > td:nth-child(5), .requests tr.live-row > td:nth-child(6) { display: none; }
-  .requests .mobile-label { display: inline; flex: none; color: var(--muted); font-size: 10px; }
+  .requests .mobile-label { display: inline; flex: none; color: var(--muted); font-size: 11px; }
   .requests .cell-value { flex: 1; min-width: 0; text-align: left; overflow-wrap: anywhere; }
   .requests tr.request > td:nth-child(1) .mobile-label,
   .requests tr.request > td:nth-child(2) .mobile-label,
@@ -414,15 +428,15 @@ section[data-page="limits"] > .editbar { margin-bottom: 16px; }
     align-items: baseline; gap: 3px; padding: 2px 0; background: transparent;
   }
   .requests tr.request > td:nth-child(n+9):nth-child(-n+12) .mobile-label,
-  .requests tr.live-row > td:nth-child(n+9):nth-child(-n+12) .mobile-label { font-size: 9px; }
+  .requests tr.live-row > td:nth-child(n+9):nth-child(-n+12) .mobile-label { font-size: 11px; }
   .requests tr.request > td:nth-child(n+9):nth-child(-n+12) .cell-value,
   .requests tr.live-row > td:nth-child(n+9):nth-child(-n+12) .cell-value {
-    flex: none; font-size: 10px; white-space: nowrap;
+    flex: none; font-size: 11px; white-space: nowrap;
   }
   .requests .fallbacks-cell > .mobile-label, .requests .fallbacks-cell > .cell-value { display: none; }
   .requests .mobile-request-more { display: block; width: 100%; }
   .requests .mobile-request-more > summary, .requests .mobile-fallback-chain > summary {
-    width: fit-content; color: var(--accent); cursor: pointer; font-size: 11px; font-weight: 600;
+    width: fit-content; padding: 5px 0; color: var(--accent); cursor: pointer; font-size: 12px; font-weight: 600;
   }
   .requests .mobile-request-meta {
     display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 8px;
@@ -432,8 +446,8 @@ section[data-page="limits"] > .editbar { margin-bottom: 16px; }
     display: flex; min-width: 0; justify-content: space-between; gap: 6px;
     padding-top: 4px; border-top: 1px solid var(--line);
   }
-  .requests .mobile-request-meta dt { flex: none; color: var(--muted); font-size: 10px; }
-  .requests .mobile-request-meta dd { min-width: 0; margin: 0; overflow-wrap: anywhere; text-align: right; font-size: 10px; }
+  .requests .mobile-request-meta dt { flex: none; color: var(--muted); font-size: 11px; }
+  .requests .mobile-request-meta dd { min-width: 0; margin: 0; overflow-wrap: anywhere; text-align: right; font-size: 11px; }
   .requests .mobile-request-meta .from, .requests .mobile-request-meta .transition-code { white-space: normal; }
   .requests .mobile-fallback-chain { margin-top: 7px; }
   .requests .mobile-chain-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 5px; }
@@ -453,8 +467,5 @@ section[data-page="limits"] > .editbar { margin-bottom: 16px; }
   .requests tr.request > td:nth-child(12), .requests tr.live-row > td:nth-child(12) { grid-column: 3 / 5; grid-row: 4; }
   .requests tr.request > td.fallbacks-cell, .requests tr.live-row > td.fallbacks-cell { grid-row: 5; }
 }
-.from, .transition-code { font-size: 12px; opacity: .8; white-space: nowrap; }
+.from, .transition-code { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .transition { white-space: normal; }
-/* A detail that shows only on hover or keyboard focus. It keeps its space. */
-.on-hover { visibility: hidden; }
-.check:hover .on-hover, .check:focus-within .on-hover { visibility: visible; }
