@@ -180,6 +180,8 @@ tr.request { cursor: pointer; }
 .requests tr:not(.chain) > td { white-space: nowrap; }
 .requests td.name { max-width: 16rem; overflow: hidden; text-overflow: ellipsis; }
 .requests th:not(:first-child), .requests td:not(:first-child) { padding-left: 8px; padding-right: 8px; }
+.mobile-label { display: none; }
+#limit-rows td.name { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 tr.live-row td { background: var(--field); }
 .pulse {
   display: inline-block; width: 6px; height: 6px; margin: 0 10px 1px 0; border-radius: 50%;
@@ -324,6 +326,28 @@ section[data-page="limits"] > .editbar { margin-bottom: 16px; }
   th, td { padding: 10px; }
   .hide-sm { display: none; }
   .models .weight { width: 80px; min-width: 0; gap: 6px; }
+  .requests, .requests tbody, .requests tr { display: block; }
+  .requests thead {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+  .requests tr {
+    margin-bottom: 10px; padding: 4px 12px; border: 1px solid var(--line);
+    border-radius: var(--radius); background: var(--panel);
+  }
+  .requests tr.live-row { background: var(--field); }
+  .requests tr.request.open { border-bottom-left-radius: 0; border-bottom-right-radius: 0; margin-bottom: 0; }
+  .requests tr.chain {
+    margin-top: 0; border-top: 0; border-top-left-radius: 0; border-top-right-radius: 0;
+  }
+  .requests td, .requests td.hide-sm, .requests td:not(:first-child) {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    padding: 5px 0; border: 0; white-space: normal; max-width: none; overflow: visible;
+  }
+  .requests .mobile-label { display: block; flex: none; color: var(--muted); font-size: 12px; }
+  .requests .cell-value { flex: 1; min-width: 0; text-align: right; overflow-wrap: anywhere; }
+  .requests td.empty { display: block; text-align: center; }
+  .requests tr.chain td { padding-top: 0; }
 }
 .from, .transition-code { font-size: 12px; opacity: .8; white-space: nowrap; }
 .transition { white-space: normal; }

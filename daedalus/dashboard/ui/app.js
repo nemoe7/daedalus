@@ -34,7 +34,11 @@ const line = (left, right) => `<div class="line"><span>${left}</span><span>${rig
 const count = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const none = (text) => `<div class="more">${text}</div>`;
 // A model name cell that ends in an ellipsis when it is too long. The title shows the full name.
-const nameCell = (text, shown = esc(text)) => `<td class="name" title="${esc(text)}">${shown}</td>`;
+const mobileLabel = (text) => `<span class="mobile-label" aria-hidden="true">${esc(text)}</span>`;
+const nameCell = (text, shown = esc(text), label = "Model") =>
+  `<td role="cell" class="name" title="${esc(text)}">${mobileLabel(label)}<span class="cell-value">${shown}</span></td>`;
+const cell = (label, inner, cls = "") =>
+  `<td role="cell"${cls ? ` class="${cls}"` : ""}>${mobileLabel(label)}<span class="cell-value">${inner}</span></td>`;
 
 // One card for each page, from the data that the pages already read.
 function renderOverview() {
@@ -288,7 +292,7 @@ function chainRows(r) {
       ${a.cooldown ? `<span class="from">${esc(coolText(a.cooldown))}</span>` : ""}
       ${a.error ? `<pre>${esc(a.error)}</pre>` : ""}
     </li>`).join("");
-  return `<tr class="chain"><td colspan="13"><div class="chain-body">
+  return `<tr role="row" class="chain"><td role="cell" colspan="13"><div class="chain-body">
     <div class="chain-head"><span class="muted">Fallback chain</span>
       <button class="ghost copy-chain" type="button" data-at="${r.at}">Copy</button></div>
     ${steps ? `<ol>${steps}</ol>` : '<p class="muted">No attempt data for this request.</p>'}
@@ -303,10 +307,10 @@ function floorCount(n) {
   return `${Math.floor(n / size)}${mark}`;
 }
 
-function tokenCell(count, mark = "") {
-  if (typeof count !== "number") return '<td class="hide-sm num">-</td>';
+function tokenCell(count, mark = "", label = "Input") {
+  if (typeof count !== "number") return cell(label, "-", "hide-sm num");
   const shown = floorCount(count);
-  return `<td class="hide-sm num" title="${mark}${count.toLocaleString()}">${mark}${shown}</td>`;
+  return `<td role="cell" class="hide-sm num" title="${mark}${count.toLocaleString()}">${mobileLabel(label)}<span class="cell-value">${mark}${shown}</span></td>`;
 }
 
 // The stream time of a finished request: after the first token, or the total time without a stream.
@@ -317,7 +321,7 @@ function streamCell(r) {
 }
 
 // The short app name from the client headers, with the API key name on hover.
-const appCell = (r) => `<td${r.key ? ` title="API key: ${esc(r.key)}"` : ""}>${r.app ? esc(r.app) : dash}</td>`;
+const appCell = (r) => `<td role="cell"${r.key ? ` title="API key: ${esc(r.key)}"` : ""}>${mobileLabel("App")}<span class="cell-value">${r.app ? esc(r.app) : dash}</span></td>`;
 
 // A live request with local times, because the server sends ages and not clock times.
 function liveRow(r) {
@@ -376,20 +380,20 @@ function transitionCell(t) {
 function renderLive() {
   const rows = [...state.live.values()].sort((a, b) => b.since - a.since);
   $("live").innerHTML = rows.map((r) => `
-    <tr class="live-row" data-live="${r.id}">
-      <td class="num muted"><span class="pulse"></span>${clock(r.since / 1000)}</td>
+    <tr role="row" class="live-row" data-live="${r.id}">
+      ${cell("Time", `<span class="pulse"></span>${clock(r.since / 1000)}`, "num muted")}
       ${appCell(r)}
-      <td class="hide-sm num">${esc(r.session || "-")}</td>
+      ${cell("Session", esc(r.session || "-"), "hide-sm num")}
       ${nameCell(r.model || r.path)}
-      <td class="hide-sm">${esc(r.effort || "-")}</td>
-      <td class="hide-sm muted">${esc(r.pool || "-")}${transitionCell(r.transition, true)}</td>
-      ${nameCell(r.via || r.trying || "", r.via ? esc(r.via) : `<span class="muted">${r.trying ? `trying ${esc(r.trying)}` : "waiting"}</span>`)}
-      <td class="status muted">live</td>
-      <td class="hide-sm num muted">-</td>
-      <td class="hide-sm num muted">-</td>
-      <td class="hide-sm num" data-clock="ttft"></td>
-      <td class="hide-sm num" data-clock="stream"></td>
-      <td class="hide-sm num muted">${r.fallbacks ?? "-"}</td>
+      ${cell("Effort", esc(r.effort || "-"), "hide-sm")}
+      ${cell("Pool", `${esc(r.pool || "-")}${transitionCell(r.transition, true)}`, "hide-sm muted")}
+      ${nameCell(r.via || r.trying || "", r.via ? esc(r.via) : `<span class="muted">${r.trying ? `trying ${esc(r.trying)}` : "waiting"}</span>`, "Served by")}
+      ${cell("Status", "live", "status muted")}
+      ${cell("Input", "-", "hide-sm num muted")}
+      ${cell("Output", "-", "hide-sm num muted")}
+      <td role="cell" class="hide-sm num">${mobileLabel("TTFT")}<span class="cell-value"><span data-clock="ttft"></span></span></td>
+      <td role="cell" class="hide-sm num">${mobileLabel("Stream")}<span class="cell-value"><span data-clock="stream"></span></span></td>
+      ${cell("Fallbacks", esc(r.fallbacks ?? "-"), "hide-sm num muted")}
     </tr>`).join("");
   tickLive();
 }
@@ -477,22 +481,22 @@ function renderRequests(rows) {
   if (!selected.isCollapsed && $("requests").contains(selected.anchorNode)) return;
   shownRequests = text;
   $("requests").innerHTML = flatRows.length ? flatRows.map((r) => `
-    ${hasChain(r) ? `<tr class="request${opened.has(String(r.at)) ? " open" : ""}" data-at="${r.at}" title="Show the fallback chain">` : "<tr>"}
-      <td class="num muted"><span class="caret${hasChain(r) ? "" : " none"}"></span>${clock(r.at)}</td>
+    ${hasChain(r) ? `<tr role="row" class="request${opened.has(String(r.at)) ? " open" : ""}" data-at="${r.at}" title="Show the fallback chain">` : "<tr role=\"row\">"}
+      ${cell("Time", `<span class="caret${hasChain(r) ? "" : " none"}"></span>${clock(r.at)}`, "num muted")}
       ${appCell(r)}
-      <td class="hide-sm num">${esc(r.session || "-")}</td>
+      ${cell("Session", esc(r.session || "-"), "hide-sm num")}
       ${nameCell(r.model || "-")}
-      <td class="hide-sm">${effortCell(r)}</td>
-      <td class="hide-sm muted">${esc(r.pool || "-")}${transitionCell(r.transition)}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${r.retry ? ` <span class="from">try again ${esc(r.retry)}</span>` : ""}${r.loop ? ` <span class="from">tool loop ${esc(r.loop)}</span>` : ""}</td>
-      ${nameCell(r.via || "", r.via ? esc(r.via) : '<span class="muted">none</span>')}
-      <td class="status ${statusClass(r)}">${statusCell(r)}</td>
-      ${tokenCell(r.tokens?.input, r.tokens?.estimate ? "~" : "")}
-      ${tokenCell(r.tokens?.output)}
-      <td class="hide-sm num">${esc(r.ttft || "-")}</td>
-      <td class="hide-sm num">${streamCell(r)}</td>
-      <td class="hide-sm num">${esc(r.fallbacks ?? "-")}</td>
+      ${cell("Effort", effortCell(r), "hide-sm")}
+      ${cell("Pool", `${esc(r.pool || "-")}${transitionCell(r.transition)}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${r.retry ? ` <span class="from">try again ${esc(r.retry)}</span>` : ""}${r.loop ? ` <span class="from">tool loop ${esc(r.loop)}</span>` : ""}`, "hide-sm muted")}
+      ${nameCell(r.via || "", r.via ? esc(r.via) : '<span class="muted">none</span>', "Served by")}
+      ${cell("Status", statusCell(r), `status ${statusClass(r)}`)}
+      ${tokenCell(r.tokens?.input, r.tokens?.estimate ? "~" : "", "Input")}
+      ${tokenCell(r.tokens?.output, "", "Output")}
+      ${cell("TTFT", esc(r.ttft || "-"), "hide-sm num")}
+      ${cell("Stream", streamCell(r), "hide-sm num")}
+      ${cell("Fallbacks", esc(r.fallbacks ?? "-"), "hide-sm num")}
     </tr>${hasChain(r) && opened.has(String(r.at)) ? chainRows(r) : ""}`).join("")
-    : '<tr><td colspan="13" class="empty">No requests</td></tr>';
+    : '<tr role="row"><td role="cell" colspan="13" class="empty">No requests</td></tr>';
 }
 
 // The label of each catalog mode.
@@ -1368,6 +1372,11 @@ async function refreshFast() {
 // The short unit of a rate-limit row, for example tok/min.
 const SPANS = { minute: "min", hour: "h", day: "day", month: "mo" };
 const unit = (r) => `${r.kind === "tokens" ? "tok" : "req"}${r.span ? `/${SPANS[r.span] || r.span}` : ""}`;
+const SPAN_SHORT = { minute: "M", hour: "H", day: "D", month: "MO" };
+function limitUnit(r) {
+  if (!SPAN_SHORT[r.span]) return r.kind;
+  return `${r.kind === "tokens" ? "T" : "R"}P${SPAN_SHORT[r.span]}`;
+}
 
 // The balances, then the 3 rate-limit rows with the least left.
 function overviewLimits(data) {
@@ -1392,8 +1401,8 @@ function renderLimits(data) {
       ${left == null ? "" : weightBar(left)}</div>`).join("")}</div>`).join("");
   const rows = data.lanes.flatMap((lane) => lane.rows.map((row) => ({ ...row, model: lane.model, client: lane.client, at: lane.at })));
   $("limit-rows").innerHTML = rows.length ? rows.map((r) => `<tr>
-      <td>${esc(r.model)}${r.client ? ` <span class="muted">${esc(r.client)}</span>` : ""}</td>
-      <td>${esc(r.kind)}${r.span ? ` per ${esc(r.span)}` : ""}</td>
+      ${nameCell(r.model, `${esc(r.model)}${r.client ? ` <span class="muted">${esc(r.client)}</span>` : ""}`)}
+      <td>${esc(limitUnit(r))}</td>
       <td><div class="weight left" title="${r.remaining.toLocaleString()} of ${r.limit.toLocaleString()}">
         ${weightBar(r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0)}
         <span class="num${r.remaining > 0 ? "" : " out"}">${floorCount(r.remaining)} of ${floorCount(r.limit)}</span></div></td>
