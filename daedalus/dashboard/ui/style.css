@@ -36,6 +36,13 @@ header {
 }
 .tabs a:hover { color: var(--text); }
 .tabs a.on { color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+/* A fade at an edge of the tab bar shows the tabs that wait off screen. */
+.tabs.fade-left { -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px); mask-image: linear-gradient(90deg, transparent, #000 24px); }
+.tabs.fade-right { -webkit-mask-image: linear-gradient(270deg, transparent, #000 24px); mask-image: linear-gradient(270deg, transparent, #000 24px); }
+.tabs.fade-left.fade-right {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+}
 .count { margin-left: 6px; color: var(--muted); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .count:empty { display: none; }
 .chips {
