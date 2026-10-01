@@ -145,6 +145,62 @@ assert.strictEqual(sandbox.statusClass({ status: 'err' }), 's5');
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_app_js_settings_switches() -> None:
+  """Every boolean setting renders as a checkbox, so a loaded file reports no change."""
+  payload = json.dumps(
+    {
+      "path": "config/daedalus.yml",
+      "headroom_available": False,
+      "text": "",
+      "defaults": settings.DEFAULTS,
+      "file": {"session_affinity": {"change_on_draw": True}},
+    }
+  )
+  code = f"""
+const fs = require('fs');
+const vm = require('vm');
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{ state, renderSettings, settingsChanges }};";
+const nodes = new Map();
+const node = (id) => {{
+  if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', disabled: false, hidden: false, addEventListener: () => {{}}, classList: {{ toggle: () => {{}} }} }});
+  return nodes.get(id);
+}};
+const sandbox = {{
+  esc: (text) => String(text ?? ''),
+  matchMedia: () => ({{ matches: false, addEventListener: () => {{}} }}),
+  document: {{
+    hidden: false,
+    documentElement: {{ dataset: {{}} }},
+    getElementById: node,
+    querySelector: () => ({{ firstChild: {{ textContent: 'Models' }} }}),
+    querySelectorAll: () => [],
+    addEventListener: () => {{}},
+  }},
+  navigator: {{}},
+  location: {{ hash: '' }},
+  window: {{ addEventListener: () => {{}} }},
+  getSelection: () => ({{ isCollapsed: true }}),
+  console: {{ error: () => {{}} }},
+  $: node,
+}};
+vm.createContext(sandbox);
+vm.runInContext(src, sandbox);
+const assert = require('assert');
+const probe = sandbox.__probe;
+probe.state.settings = {payload};
+probe.renderSettings();
+const html = node('settings').innerHTML;
+const at = html.indexOf('id="set-session_affinity-change_on_draw"');
+assert(at > 0, 'the change_on_draw field is in the form');
+assert(html.slice(Math.max(0, at - 120), at).includes('type="checkbox"'), 'change_on_draw is a checkbox');
+for (const id of ['set-session_affinity-enabled', 'set-session_affinity-change_on_draw', 'set-weights-enabled', 'set-pacing-enabled']) node(id).checked = true;
+node('set-dashboard-theme').value = 'system';
+node('set-dashboard-time_format').value = '24h';
+assert.strictEqual(JSON.stringify(probe.settingsChanges()), '{{}}', 'a loaded file reports no change');
+"""
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_pages_not_nested(client: TestClient) -> None:
   """No page section is inside another, because a hidden parent hides the child."""
   from html.parser import HTMLParser
