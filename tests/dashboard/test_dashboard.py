@@ -558,11 +558,11 @@ def test_pages_not_nested(client: TestClient) -> None:
 
 def test_login_form(client: TestClient) -> None:
   """The login form fills in admin and shows the master key hint only for values not in the environment."""
-  env = {dashboard.USER_ENV: "owner", dashboard.PASSWORD_ENV: "secret"}
+  env = {dashboard.DAEDALUS_USERNAME: "owner", dashboard.DAEDALUS_PASSWORD: "secret"}
   cases = [
     ({}, "admin", True),
     (env, None, False),
-    ({dashboard.USER_ENV: "owner"}, None, True),
+    ({dashboard.DAEDALUS_USERNAME: "owner"}, None, True),
   ]
   for values, username, master in cases:
     for name in env:
@@ -579,12 +579,12 @@ def test_login_form(client: TestClient) -> None:
 
 
 def test_login(client: TestClient) -> None:
-  os.environ.pop(dashboard.MASTER_ENV, None)
+  os.environ.pop(dashboard.DAEDALUS_MASTER_KEY, None)
   login = {"username": "admin", "password": MASTER}
   assert client.post("/ui/api/login", json=login).status_code == 503, "no master key"
-  os.environ[dashboard.MASTER_ENV] = "short"
+  os.environ[dashboard.DAEDALUS_MASTER_KEY] = "short"
   assert client.post("/ui/api/login", json=login).status_code == 503, "a short key"
-  os.environ[dashboard.MASTER_ENV] = MASTER
+  os.environ[dashboard.DAEDALUS_MASTER_KEY] = MASTER
   assert client.get("/ui/api/status").status_code == 401, "no session"
   wrong = {"username": "admin", "password": MASTER + "x"}
   assert client.post("/ui/api/login", json=wrong).status_code == 401
@@ -611,12 +611,12 @@ def test_login(client: TestClient) -> None:
   assert (
     client.get("/ui/api/status", cookies={dashboard.COOKIE: old}).status_code == 401
   )
-  os.environ[dashboard.MASTER_ENV] = MASTER + "-new"
+  os.environ[dashboard.DAEDALUS_MASTER_KEY] = MASTER + "-new"
   assert client.get("/ui/api/status").status_code == 401, "a new master key ends it"
-  os.environ[dashboard.MASTER_ENV] = MASTER
+  os.environ[dashboard.DAEDALUS_MASTER_KEY] = MASTER
   assert client.post("/ui/api/login", json=login).status_code == 200
-  os.environ[dashboard.USER_ENV] = "owner"
-  os.environ[dashboard.PASSWORD_ENV] = "ui password"
+  os.environ[dashboard.DAEDALUS_USERNAME] = "owner"
+  os.environ[dashboard.DAEDALUS_PASSWORD] = "ui password"
   assert client.get("/ui/api/status").status_code == 401, (
     "a new login ends the sessions"
   )
@@ -627,7 +627,7 @@ def test_login(client: TestClient) -> None:
   models = client.get("/v1/models", headers={"Authorization": "Bearer ui password"})
   assert models.status_code == 401, "the password is for the dashboard only"
   assert client.get("/v1/models").status_code == 200, "the master key stays the /v1 key"
-  del os.environ[dashboard.USER_ENV], os.environ[dashboard.PASSWORD_ENV]
+  del os.environ[dashboard.DAEDALUS_USERNAME], os.environ[dashboard.DAEDALUS_PASSWORD]
   client.post("/ui/api/logout")
   assert client.get("/ui/api/status").status_code == 401, "logout ends the session"
   https = {"Origin": "https://3357-box.example.app"}

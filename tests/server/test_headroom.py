@@ -56,12 +56,12 @@ class Sidecar:
 
 def test_compress(sidecar: Sidecar, lines: Lines) -> None:
   body = {"model": "daedalus/auto", "messages": [{"role": "user", "content": "long"}]}
-  os.environ.pop(headroom.URL_ENV, None)
+  os.environ.pop(headroom.HEADROOM_URL, None)
   assert asyncio.run(headroom.compress(body, "a/1")) == (body, None), (
     "off without the URL"
   )
   assert not sidecar.compress, "no call when off"
-  os.environ[headroom.URL_ENV] = "http://headroom:8787/"
+  os.environ[headroom.HEADROOM_URL] = "http://headroom:8787/"
   result, saved = asyncio.run(headroom.compress(body, "a/1"))
   assert result == {**body, "messages": SHORT} and saved == 42, (result, saved)
   sent = sidecar.compress[-1]
@@ -85,9 +85,9 @@ def test_compress(sidecar: Sidecar, lines: Lines) -> None:
 
 
 def test_available(sidecar: Sidecar, monkeypatch: pytest.MonkeyPatch) -> None:
-  monkeypatch.delenv(headroom.URL_ENV, raising=False)
+  monkeypatch.delenv(headroom.HEADROOM_URL, raising=False)
   assert not asyncio.run(headroom.available()), "off without a URL"
-  monkeypatch.setenv(headroom.URL_ENV, "http://headroom:8787")
+  monkeypatch.setenv(headroom.HEADROOM_URL, "http://headroom:8787")
   assert asyncio.run(headroom.available()), "a healthy sidecar answers /health"
   sidecar.status = 503
   assert not asyncio.run(headroom.available()), (
@@ -112,7 +112,7 @@ def test_total_limit(
   body = {"model": "m", "messages": [{"role": "user", "content": "long"}]}
   trickle = httpx.MockTransport(lambda request: httpx.Response(200, stream=Trickle()))
   kept = upstream.get_client()
-  monkeypatch.setenv(headroom.URL_ENV, "http://headroom:8787")
+  monkeypatch.setenv(headroom.HEADROOM_URL, "http://headroom:8787")
   monkeypatch.setattr(headroom, "TIMEOUT_SECONDS", 0.3)
   monkeypatch.setattr(headroom, "_down", False)
   upstream.set_client(httpx.AsyncClient(transport=trickle))

@@ -91,7 +91,7 @@ def run(argv: list[str] | None = None) -> None:
     if dashboard.master() is None:
       parser.exit(
         2,
-        f"daedalus: set {dashboard.MASTER_ENV}: {keys.MIN_LENGTH} or more characters, no spaces\n",
+        f"daedalus: set {dashboard.DAEDALUS_MASTER_KEY}: {keys.MIN_LENGTH} or more characters, no spaces\n",
       )
     store.migrate()
     try:
