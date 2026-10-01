@@ -175,6 +175,7 @@ function renderStatus(status) {
   $("status").outerHTML = `<span id="status" class="chips">${chips.join("")}</span>`;
   $("nav-models").textContent = status.models;
   $("version").textContent = status.version;
+  markNavFades();
 }
 
 // The tier filter of the Models tab for each pool. The other pools show all tiers.
@@ -1668,6 +1669,15 @@ function applyModelFilters(query) {
   history.replaceState(null, "", "#/models");
 }
 
+// A fade at an edge of the tab bar shows the tabs that wait off screen.
+const nav = $("nav");
+function markNavFades() {
+  const end = nav.scrollWidth - nav.clientWidth;
+  nav.classList.toggle("fade-left", nav.scrollLeft > 2);
+  nav.classList.toggle("fade-right", nav.scrollLeft < end - 2);
+}
+nav.addEventListener("scroll", markNavFades, { passive: true });
+
 function showPage() {
   const [path, query] = location.hash.split("?");
   const asked = path.replace("#/", "").replace(/^config$/, "providers").replace(/^pools$/, "models");
@@ -1770,6 +1780,7 @@ $("provider-form").addEventListener("keydown", (event) => {
   if (event.key === "Enter" && event.target.dataset.pattern) event.target.blur();
 });
 window.addEventListener("resize", () => {
+  markNavFades();
   const host = $("provider-form");
   if (!host.hidden && host.clientWidth && Number(host.dataset.columns) !== formColumns()) renderForm();
 });
