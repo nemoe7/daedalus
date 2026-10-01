@@ -16,11 +16,13 @@ pytestmark = pytest.mark.skipif(
 
 
 def checkout(tmp_path: Path, env_text: str | None) -> tuple[Path, dict[str, str]]:
-  """A folder with install.sh and compose.yml, and a PATH with a docker that logs its arguments."""
+  """A folder with install.sh, compose.yml, .env.example and config/, and a PATH with a docker that logs its arguments."""
   folder = tmp_path / "daedalus"
   folder.mkdir()
   for name in ("install.sh", "compose.yml", ".env.example"):
     shutil.copy(ROOT / name, folder / name)
+  # The installer downloads a missing config/ dir, and a checkout always has one.
+  (folder / "config").mkdir()
   if env_text is not None:
     (folder / ".env").write_text(env_text)
   stub = tmp_path / "bin"
