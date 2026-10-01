@@ -121,7 +121,8 @@ def test_slow_first_token_starts_the_second_model(client: TestClient) -> None:
   assert CALLS == ["b/1", "b/2"], (
     "the draw starts b/1, and the slow first token starts b/2"
   )
-  assert api.PENALTIES.weights(["b/1"])["b/1"] == pytest.approx(0.9), (
+  # The hourly recovery moves the weight by a few parts per million, so the check is loose.
+  assert api.PENALTIES.weights(["b/1"])["b/1"] == pytest.approx(0.9, abs=1e-3), (
     "the loser takes the factor"
   )
   key = api.session_key(MASTER, [FIRST])
@@ -163,8 +164,8 @@ def test_count_races_that_many_models(client: TestClient) -> None:
       ("b/3", "answered"),
     }, results
     weights = api.PENALTIES.weights(["b/1", "b/2"])
-    assert weights["b/1"] == pytest.approx(0.9), weights
-    assert weights["b/2"] == pytest.approx(0.9), weights
+    assert weights["b/1"] == pytest.approx(0.9, abs=1e-3), weights
+    assert weights["b/2"] == pytest.approx(0.9, abs=1e-3), weights
   finally:
     api.PARALLEL_COUNT = 1
 
