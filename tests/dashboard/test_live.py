@@ -10,7 +10,7 @@ import httpx
 from starlette.requests import Request
 
 from daedalus import config, dashboard, store
-from daedalus.dashboard.live import Live
+from daedalus.dashboard import Live
 from daedalus.server import api
 from daedalus.server.upstream import set_client
 
