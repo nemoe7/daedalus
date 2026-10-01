@@ -7,6 +7,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from daedalus.store.database import connect_read
+
 TABLE = "api_keys"
 SCHEMA = (
   f"CREATE TABLE IF NOT EXISTS {TABLE} (name TEXT PRIMARY KEY, hash TEXT NOT NULL UNIQUE, "
@@ -53,7 +55,7 @@ def listing(path: Path | str) -> list[dict[str, Any]]:
   """The keys, oldest first, without their hashes."""
   if not Path(path).exists():
     return []
-  database = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+  database = connect_read(path)
   try:
     rows = database.execute(
       f"SELECT name, start, created, used FROM {TABLE} ORDER BY created"
