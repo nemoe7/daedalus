@@ -12,10 +12,10 @@ The commands below are the same in cmd, PowerShell and bash.
 | --- | --- |
 | Start | `docker compose up -d` |
 | Update | `git pull`, then `docker compose pull`, then `docker compose up -d` |
-| Build from the source | `docker compose -f compose.dev.yml up -d`. `compose.dev.yml` is a copy of `compose.yml` that builds `daedalus:dev` from the source at each start. Use `-f compose.dev.yml` with the other commands too. A test keeps the 2 files in step. |
+| Build from the source | `compose.dev.yml` builds `daedalus:dev` from the source at each start, with each command. |
 | Stop | `docker compose down` |
 | Log | `docker compose logs -f api` |
-| Rebuild the catalog now | Click the Catalog chip in the dashboard header, or run `docker compose exec api daedalus catalog` |
+| Rebuild the catalog now | The Catalog chip in the dashboard header, or `docker compose exec api daedalus catalog` |
 | Dump catalogs/models | `docker compose exec api daedalus dump catalog`, `models`, or `all`. Files go to `.daedalus-state/dump` |
 
 `dump` defaults to JSON. Add `-f csv` (also `--fmt` or `--format`) for CSV. Catalog refresh saves provider snapshots. Every dump reads those snapshots and never fetches. Saving provider YAML in the dashboard rebuilds the model list from cache. After editing files outside the dashboard, click Catalog to fetch and rebuild.
@@ -34,7 +34,7 @@ A successful **Gemini Release Draft** approval starts `.github/workflows/image.y
 
 | Task | Command |
 | --- | --- |
-| Release | Run **Gemini Release Draft** and approve the proposal. The approval creates the `v*` tag and starts the image build. |
+| Release | Run **Gemini Release Draft** and approve it. The approval tags `v*` and builds the image. |
 | Manual image build | Run **Image** in the Actions tab and enter an existing `v*` tag. |
 | Use 1 release | Set `image:` of `daedalus` in `compose.yml` to `ghcr.io/nemoe7/daedalus:v0.1.0`. |
 
@@ -58,12 +58,12 @@ flowchart LR
 
 | Profile | Service | What it does |
 | --- | --- | --- |
-| `webui` | `open-webui`, `webui-db` | Chat UI on `http://localhost:3000`. It uses daedalus as its OpenAI API. The vector database has no host port. |
+| `webui` | `open-webui`, `webui-db` | Chat UI on `http://localhost:3000`, with daedalus as its OpenAI API. |
 | `tika` | `tika` | Reads PDF and Office files for Open WebUI, with OCR. No port on the host. |
 | `search` | `searxng` | Web search for Open WebUI. No port on the host, no key. |
 | `headroom` | `headroom` | Compresses the messages before daedalus sends them. No port on the host. |
 | `tailscale` | `tailscale` | Publishes daedalus to your tailnet over HTTPS. |
-| `tailscale-openwebui` | `tailscale-openwebui` | Publishes Open WebUI to its own Tailscale device over HTTPS. Enable this with `webui`; it depends on `open-webui`. |
+| `tailscale-openwebui` | `tailscale-openwebui` | Publishes Open WebUI to its own Tailscale device over HTTPS. The `webui` profile enables it. |
 
 The installers ask for profiles only when `.env` is absent. If you decline Open WebUI, they skip Tika, SearXNG search, and Open WebUI Tailscale. Updates keep the existing `COMPOSE_PROFILES` value.
 
@@ -74,22 +74,22 @@ The installers ask for profiles only when `.env` is absent. If you decline Open 
 | API base | `http://api:3357/v1` |
 | API key | `OPENWEBUI_API_KEY`, else `DAEDALUS_MASTER_KEY` |
 | First user | Becomes the Open WebUI admin |
-| `ENABLE_FORWARD_USER_INFO_HEADERS` | `true`. Sends the chat id for [try again](architecture.md#try-again). It also sends the user name, id, e-mail and role. These stay in daedalus. See [client headers](architecture.md#client-headers). |
+| `ENABLE_FORWARD_USER_INFO_HEADERS` | `true`. It sends the chat id and the user facts for [try again](architecture.md#try-again). |
 | `WEBUI_SECRET_KEY` | From `.env`. Without it, each new container makes a new key, and all logins end. |
 | `AIOHTTP_CLIENT_TIMEOUT` | `600`, the same as `timeouts.request`. The Open WebUI default is 300 s. |
 | `TASK_MODEL_EXTERNAL` | `daedalus/auto`, for titles, tags and follow-ups |
 | `AUDIO_STT_ENGINE`, `AUDIO_STT_MODEL` | `openai` and `daedalus/graphos`. Speech to text goes to daedalus, not to a local Whisper. |
 | `ENABLE_IMAGE_GENERATION`, `IMAGE_GENERATION_MODEL` | `true` and `daedalus/photos` |
 | `ENABLE_IMAGE_EDIT`, `IMAGE_EDIT_ENGINE`, `IMAGE_EDIT_MODEL` | `true`, `openai` and `daedalus/photos`. Only the photos models with image input edit. |
-| `AUDIO_STT_OPENAI_API_*`, `IMAGES_OPENAI_API_*`, `IMAGES_EDIT_OPENAI_API_*` | The daedalus API base and key. Without them, speech to text and images go to `https://api.openai.com/v1`. |
+| `AUDIO_STT_OPENAI_API_*`, `IMAGES_OPENAI_API_*`, `IMAGES_EDIT_OPENAI_API_*` | The daedalus API base and key. Without them, speech and images go to OpenAI. |
 | `VECTOR_DB`, `PGVECTOR_DB_URL` | `pgvector` in `webui-db`, for files, knowledge and memory. `main-slim` supports no other vector store. |
-| `RAG_EMBEDDING_ENGINE`, `RAG_EMBEDDING_MODEL` | `openai` and `mistral/mistral-embed` through daedalus. `main-slim` has no local embedding model. A new embedding model needs a new index of all files. |
-| `CONTENT_EXTRACTION_ENGINE` | `tika`. Plain text files do not go to Tika. Without the `tika` profile, PDF and Office files fail. |
+| `RAG_EMBEDDING_ENGINE`, `RAG_EMBEDDING_MODEL` | `openai` and `mistral/mistral-embed` through daedalus. `main-slim` has no local embedding model. |
+| `CONTENT_EXTRACTION_ENGINE` | `tika`. Without the `tika` profile, PDF and Office files fail. Plain text skips it. |
 | `ENABLE_WEB_SEARCH`, `WEB_SEARCH_ENGINE` | `true` and `searxng`. Without the `search` profile, a web search fails. |
-| `DEFAULT_MODEL_METADATA` | **Web Search** and **Code Interpreter** are on in each new chat, and the model decides when to use them. The capabilities are the Open WebUI defaults. On an existing install, set them in **Admin Settings → Models → Defaults**. |
-| MCP servers | See [MCP](https://docs.openwebui.com/features/extensibility/mcp/) in the Open WebUI docs. MCP tools need **Native** function calling. A tool request skips the models that cannot call tools. See [API](api.md#chat-completions). |
-| Spoken replies | The browser voice. Each user picks Web API or Kokoro.js in **Settings → Audio**. Open WebUI sends 1 speech request for each sentence, and the free Gemini TTS allows 3 requests per minute. |
-| `RAG_EMBEDDING_BATCH_SIZE`, `ENABLE_ASYNC_EMBEDDING` | `32` and `false`: 32 chunks in each request, 1 request at a time, to stay below the free Mistral limits |
+| `DEFAULT_MODEL_METADATA` | On in each new chat. An existing install: **Admin Settings → Models → Defaults**. |
+| MCP servers | MCP tools need **Native** function calling. Tool requests skip the models without it. See [MCP](https://docs.openwebui.com/features/extensibility/mcp/). |
+| Spoken replies | **Settings → Audio**: Web API or Kokoro.js. Gemini TTS allows 3 requests per minute. |
+| `RAG_EMBEDDING_BATCH_SIZE`, `ENABLE_ASYNC_EMBEDDING` | `32` and `false`: 32 chunks in each request, serial, for the free Mistral limits |
 
 After a change of `pools.graphos` or `pools.photos` in `config/daedalus.yml`, change `daedalus/graphos` or `daedalus/photos` in `compose.yml` and in **Admin Settings**. Also change the pool names in the Kilo and Open WebUI model settings.
 
@@ -106,9 +106,9 @@ To check the services and settings:
 
 | Feature | Tools for the model | Condition |
 | --- | --- | --- |
-| Web search | `search_web`, `fetch_url` | **Web Search** is on in the chat. It is on at the start of each chat. |
+| Web search | `search_web`, `fetch_url` | **Web Search** is on at the start of each chat. |
 | Files | none | Tika reads the file at upload. Open WebUI adds the matching parts to the prompt. |
-| Code | `execute_code` | **Code Interpreter** is on in the chat. It is on at the start of each chat. The code runs in the browser (Pyodide). |
+| Code | `execute_code` | On at the start of each chat. The code runs in the browser (Pyodide). |
 
 Keep **Function Calling** on **Native**, the Open WebUI default since v0.10.0. Native sends the tools in `tools`, and daedalus skips the models that cannot call tools. Legacy puts the tools in the prompt and calls tools only 1 time, before the answer.
 
@@ -130,7 +130,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Image | `pgvector/pgvector:0.8.6-pg18-trixie` |
 | Content | The vectors of files, knowledge and memory. The chats stay in the `open-webui` volume. |
 | Password | `OPENWEBUI_DB_PASSWORD`, default `openwebui`. No port on the host. |
-| Vector size | 1024, the size of a `mistral/mistral-embed` vector. A new embedding model needs a new index of all files. The free OpenRouter embedding models share 1 daily limit with chat, so 1 large file can use all of it. |
+| Vector size | 1024, the size of a `mistral/mistral-embed` vector. A new model needs a new index. |
 | Volume | `webui-db` |
 
 ### Tika
@@ -140,8 +140,8 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Image | `apache/tika:3.3.0.0-full`, with Tesseract OCR. Open WebUI uses the Tika 3 API by default. |
 | Process | 1 Java process (`-noFork`) with a 512 MB heap |
 | Out of memory | Java stops, and Docker starts Tika again |
-| OCR | Pages with almost no text go to Tesseract, on the Pi CPU. 1 scanned page can take many seconds. |
-| Compose | `required: false` in the Open WebUI `depends_on`, so the `webui` profile starts without Tika. It needs Compose 2.20 or later. |
+| OCR | Tesseract reads the text-poor pages on the Pi CPU. 1 scanned page takes many seconds. |
+| Compose | `required: false` in the Open WebUI `depends_on`: `webui` starts without Tika. Compose 2.20 or later. |
 
 ### SearXNG
 
@@ -149,9 +149,9 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | --- | --- |
 | Image | `searxng/searxng:2026.9.25-12f8b6515` |
 | Settings | `services/searxng/settings.yml`: JSON results on, the limiter off, so no Valkey |
-| `SEARXNG_SECRET` | From `.env`. Empty by default: SearXNG has no host port, and the image proxy is off. |
-| When it searches | With Native function calling, the model decides. Tell it to search the web when it does not. |
-| Blocks | SearXNG sends each query to public search engines. They can block the Pi address or show a CAPTCHA. |
+| `SEARXNG_SECRET` | From `.env`. Empty by default: no SearXNG host port, the image proxy off. |
+| When it searches | With Native function calling, the model decides. Tell it to search when it does not. |
+| Blocks | SearXNG queries public search engines. They can block the Pi address or show a CAPTCHA. |
 
 ### Headroom
 
@@ -170,10 +170,10 @@ Headroom is worth it for long agentic tasks. So far, it keeps token use lower wi
 
 | Setting | Value |
 | --- | --- |
-| Auth key | `TS_AUTHKEY` for daedalus; `TS_AUTHKEY_OWUI` for Open WebUI, with a fallback to `TS_AUTHKEY`. |
-| Device name | `TS_HOSTNAME`, default `daedalus`; `TS_HOSTNAME_OWUI`, default `owui`. |
+| Auth key | `TS_AUTHKEY` for daedalus. `TS_AUTHKEY_OWUI` for Open WebUI, with a `TS_AUTHKEY` fallback. |
+| Device name | `TS_HOSTNAME`, default `daedalus`. `TS_HOSTNAME_OWUI`, default `owui`. |
 | daedalus | `https://TS_HOSTNAME.TAILNET.ts.net` |
-| Open WebUI | `https://TS_HOSTNAME_OWUI.TAILNET.ts.net:8443`, when both the `webui` and `tailscale-openwebui` profiles run. Browsers give the microphone only to HTTPS pages, so voice input on a phone needs this address. |
+| Open WebUI | `https://TS_HOSTNAME_OWUI.TAILNET.ts.net:8443`, with the `webui` and `tailscale-openwebui` profiles. A phone microphone needs the HTTPS. |
 | Funnel | Off: only your tailnet can connect. |
-| `TS_AUTH_ONCE` | `true`. The state volume keeps the login, so a used or old auth key does not stop a restart. |
+| `TS_AUTH_ONCE` | `true`. The state volume keeps the login across restarts, old auth keys included. |
 | Health | `/healthz` on `127.0.0.1:9002`. `docker ps` shows "unhealthy" when the device has no tailnet address. |

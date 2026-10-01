@@ -4,23 +4,23 @@ Each provider except Pollinations has a tested free tier.
 
 | Provider key | Provider | API | Notes |
 | --- | --- | --- | --- |
-| `cloudflare` | Cloudflare Workers AI | OpenAI-compatible, plus the native run API for audio and images | A message with only text parts goes as 1 string. Paid models stay out of the catalog. The catalog gets 5 tasks only (see below). Order 2. |
-| `gemini` | Google Gemini | Native Gemini API | daedalus maps OpenAI requests to Gemini and back, with thought signatures. The `gemini` block of `free.yml` sets `reasoning_effort: high` for each model. |
+| `cloudflare` | Cloudflare Workers AI | OpenAI-compatible, plus the native run API for audio and images | A text-only message goes as 1 string. Paid models stay out. Order 2. |
+| `gemini` | Google Gemini | Native Gemini API | daedalus maps OpenAI to Gemini and back, thought signatures included. `free.yml` sets `reasoning_effort: high`. |
 | `groq` | Groq | OpenAI-compatible | Gets only the message fields that it accepts. |
 | `kilo` | Kilo Gateway | OpenAI-compatible | Only `:free` models, and `stealth/` models with price 0 in each price field. |
-| `mistral` | Mistral | OpenAI-compatible | Gets only the message fields that it accepts. `reasoning_effort` `none` and `minimal` become `none`, and `low` to `xhigh` become `high`. The thinking chunks of an answer go to `reasoning_content`. An old assistant message with `reasoning_content` goes back as a thinking chunk before its text. |
-| `openrouter` | OpenRouter | OpenAI-compatible, plus the OpenRouter Image API (`/images`). Speech is mp3, unless the client asks for pcm. The `cheapest_output` [hook](hooks.md#hook-files-in-config) sends the endpoints with the cheapest output first. | Only `:free` models, and `stealth/` models with price 0 in each price field. Discovery lists each output type, and the output type sets the mode: for example, the free embedding and speech models are direct models. No image model: image generation needs a credit balance. |
-| `pollinations` | Pollinations | OpenAI-compatible | In `pollinations.yml`, not `free.yml`: its Pollen does not refill ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)). Only 4 image models for the image pool, at 0.0001 to 0.005 Pollen for each image: `lykon/dreamshaper-8-lcm`, `black-forest-labs/flux.1-schnell`, `tongyi-mai/z-image-turbo` and `black-forest-labs/flux.2-klein-4b`. Order 2, as Cloudflare. |
+| `mistral` | Mistral | OpenAI-compatible | Only the message fields that it accepts. `reasoning_effort`: `none` or `high`. Thinking chunks are `reasoning_content`. |
+| `openrouter` | OpenRouter | OpenAI-compatible, plus the OpenRouter Image API (`/images`). Speech is mp3, or pcm on ask. | Only `:free` and price-0 `stealth/` models. Output types set the modes. Images need credits. |
+| `pollinations` | Pollinations | OpenAI-compatible | In `pollinations.yml`, not `free.yml`: its Pollen does not refill ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)). Order 2, as Cloudflare. |
 | `z-ai` | Z.ai | OpenAI-compatible | Only the 3 free models under `models:`: `glm-4.5-flash`, `glm-4.7-flash` and `glm-4.6v-flash`. |
 
 | Provider | How daedalus keeps it free |
 | --- | --- |
 | Cloudflare, Gemini, Groq, Mistral | Use an account on the free plan, with no payment method. |
-| Kilo, OpenRouter | The `!*:free` exclude pattern. A price of 0 is not a guarantee: Lyria models show price 0 and cost money for each song. |
-| Pollinations | Not free ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)). The `"*"` exclude pattern, and only the 4 image models under `models:`. The account spends its Pollen balance, with no payment method. |
+| Kilo, OpenRouter | The `!*:free` exclude pattern. Lyria models show price 0 and cost money for each song. |
+| Pollinations | Not free ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)). The `"*"` exclude pattern, only the 4 image models under `models:`. |
 | Z.ai | The `"*"` exclude pattern, and only the free models under `models:`. |
 
-The Pollen balance does not refill with time. Since 22 June 2026, each tier gives a one-time Pollen bonus in place of an hourly refill ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)). `GET https://gen.pollinations.ai/account/balance` shows the balance. At 0 Pollen, the Pollinations models fail and get a cooldown, and the image pool uses Cloudflare.
+The Pollen balance does not refill with time. Since 22 June 2026, each tier gives a one-time Pollen bonus in place of an hourly refill ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)). `GET https://gen.pollinations.ai/account/balance` shows the balance. At 0 Pollen, the Pollinations models fail and get a cooldown, and the image pool uses Cloudflare. The image pool uses `lykon/dreamshaper-8-lcm`, `black-forest-labs/flux.1-schnell`, `tongyi-mai/z-image-turbo` and `black-forest-labs/flux.2-klein-4b`, at 0.0001 to 0.005 Pollen for each image.
 
 ## Get a key
 
@@ -103,7 +103,7 @@ flowchart LR
 | Schedule | Each 6 h from 06:00 in `TZ`. `catalog.every: 0` stops it. |
 | Provider error | daedalus keeps the old rows of that provider only. |
 | Chat chains | Only chat rows, and rows with no mode, go into the chains. |
-| Stealth models | On Kilo and OpenRouter, a `stealth/` model with price 0 in each price field passes `exclude`. A stealth model with a price stays out. |
+| Stealth models | On Kilo and OpenRouter, a price-0 `stealth/` model passes `exclude`. A priced one stays out. |
 
 Cloudflare tasks in the catalog:
 
@@ -151,15 +151,15 @@ Limits of the native Cloudflare API:
 | --- | --- |
 | Transcriptions | `response_format` is `json`, `text` or `vtt` |
 | Speech | MeloTTS answers in MP3 only |
-| Images | 1 image for each request. Flux 1 ignores `size`. FLUX.2 takes only multipart input, so daedalus sends a multipart form to FLUX.2 models. |
-| Image edits | FLUX.2 only, up to 4 input images, no mask. Each input image must be smaller than 512x512, so daedalus sends a PNG copy with the long side at 511 pixels. |
+| Images | 1 image for each request. Flux 1 ignores `size`. FLUX.2 gets a multipart form. |
+| Image edits | FLUX.2 only: up to 4 inputs under 512x512, no mask, resized to a 511-pixel PNG. |
 
 Limits of the native Gemini API:
 
 | Endpoint | Limit |
 | --- | --- |
 | Transcriptions | `response_format` is `json` or `text`. daedalus adds `language` and `prompt` to the instruction. |
-| Speech | `response_format` is `wav` (the default) or `pcm`. `voice` is a Gemini voice name, for example `Kore`. Gemini ignores `speed`. |
+| Speech | `response_format`: `wav` (default) or `pcm`. `voice`: a Gemini voice name, like `Kore`. `speed`: ignored. |
 
 The Gemini exclude list keeps these models out:
 
@@ -178,7 +178,7 @@ Mistral needs no exclude list. Discovery keeps out these Mistral rows:
 
 | Rows | Reason |
 | --- | --- |
-| Aliases: a `name` that is not the `id` | Each alias is a copy of a main id, for example `mistral-vibe-cli-latest` of `mistral-medium-latest`. A client can still send an alias. |
+| Aliases: a `name` that is not the `id` | Each alias copies a main id: `mistral-vibe-cli-latest` of `mistral-medium-latest`. A client can send it. |
 | The `ocr`, `moderation`, `classification` or `audio_transcription_realtime` capability | No daedalus endpoint serves these models. |
 
 The Groq `rpm` and `tpm` values come from the free limits in the [Groq docs](https://console.groq.com/docs/rate-limits).

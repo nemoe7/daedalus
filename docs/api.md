@@ -41,7 +41,7 @@ curl http://localhost:3357/v1/models -H "Authorization: Bearer $DAEDALUS_KEY"
 | Method and path | Models | Fallback |
 | --- | --- | --- |
 | `GET /health` | None. No key is necessary. | None |
-| `GET /v1/models` | `daedalus/auto`, the 4 pools, the chat models, the media pools that have models, then the other catalog models | None |
+| `GET /v1/models` | `daedalus/auto`, the 4 pools, chat models, media pools with models, then the rest. | None |
 | `POST /v1/chat/completions` | `daedalus/auto`, a pool, or `provider/slug` | Yes, for `daedalus/auto` and pools |
 | `POST /v1/embeddings` | `provider/slug` | No |
 | `POST /v1/audio/transcriptions` | `daedalus/graphos` or `provider/slug` | Yes, for `daedalus/graphos` |
@@ -128,11 +128,11 @@ Kilo cannot show the routed model for a custom provider. The **Requests** page a
 | --- | --- |
 | `messages` | Necessary. A list of objects. |
 | `stream` | Boolean. |
-| `stream_options` | Object. `include_usage` adds a usage chunk. daedalus asks Groq and OpenRouter for the usage chunk in each stream, and removes it when the client did not ask for it. |
+| `stream_options` | Object. `include_usage` adds a usage chunk. Groq and OpenRouter streams drop it when unasked. |
 | `tools` | Models that cannot call tools leave the chain. |
-| `messages` with an `image_url` part | Models with `supports_vision` false or with no value leave the chain of a pool or `daedalus/auto`. A provider file can set `supports_vision: true` for a model. An image in an older message also counts. A direct `provider/slug` request does not change. |
+| `messages` with an `image_url` part | Models without `supports_vision` leave the pool chains, older images included. Direct `provider/slug` requests stay. |
 | `max_tokens`, `max_completion_tokens` | A value above the `max_output_tokens` of the model in the catalog drops to that value. |
-| `reasoning_effort` | Goes only to a model with a true `supports_reasoning` value in the catalog. A model that is not in the catalog also gets it. When a request has no value, a model with a `reasoning_effort` in the catalog gets that value. |
+| `reasoning_effort` | Only models with `supports_reasoning` true or missing from the catalog. Unset takes the catalog `reasoning_effort`. |
 | Other fields | Go to the provider. Mistral and Groq get only the message fields that they accept. |
 
 ## Endpoints for models that do not chat
@@ -158,10 +158,10 @@ Errors use the OpenAI shape:
 | --- | --- |
 | 400 | Invalid request, unknown model, `context_length_exceeded`, or a direct request to a provider with no `api_key` |
 | 401 | Missing or wrong key |
-| 429 `rate_limit_exceeded` | The model, or each model of the chain, is in a cooldown or at its `rpm` or `tpm`. `Retry-After` gives the seconds. See [Architecture](architecture.md#cooldowns) and [Pacing](architecture.md#pacing). |
+| 429 `rate_limit_exceeded` | A cooldown, or the `rpm` or `tpm` limit. `Retry-After` gives the seconds. See [Pacing](architecture.md#pacing). |
 | 4xx or 5xx from the provider | The last model failed with this status |
 | 502 | No model answered, or the provider answer was not valid |
-| 504 | A direct `provider/slug` request to a model with a `timeout` value got no answer until `timeouts.request`. See [Configuration](configuration.md#provider-files). |
+| 504 | A direct `provider/slug` model with a `timeout` got no answer until `timeouts.request`. See [Configuration](configuration.md#provider-files). |
 
 The dashboard **Requests** page shows the full provider error of each attempt. daedalus removes the prompt text from provider errors.
 
