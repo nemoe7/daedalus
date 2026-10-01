@@ -239,41 +239,6 @@ async def events(
     raise ProviderError("Incomplete upstream stream event")
 
 
-class Chunks:
-  """Build OpenAI chat completion chunks for one translated stream."""
-
-  def __init__(self, model: str) -> None:
-    self.identifier = "chatcmpl-" + uuid.uuid4().hex
-    self.created = int(time.time())
-    self.model = model
-
-  def chunk(self, delta: dict, reason: str | None = None, choice: int = 0) -> bytes:
-    return frame(
-      {
-        "id": self.identifier,
-        "object": "chat.completion.chunk",
-        "created": self.created,
-        "model": self.model,
-        "choices": [{"index": choice, "delta": delta, "finish_reason": reason}],
-      }
-    )
-
-  def end(self, counts: dict | None, include_usage: bool) -> bytes:
-    tail = b""
-    if include_usage and counts is not None:
-      tail = frame(
-        {
-          "id": self.identifier,
-          "object": "chat.completion.chunk",
-          "created": self.created,
-          "model": self.model,
-          "choices": [],
-          "usage": counts,
-        }
-      )
-    return tail + b"data: [DONE]\n\n"
-
-
 def known_fields(message: Any, fields: Mapping[str, frozenset[str]]) -> Any:
   """The message with only the fields that its role allows. Other roles stay as they are."""
   allowed = fields.get(message.get("role")) if isinstance(message, dict) else None
