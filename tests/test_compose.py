@@ -8,16 +8,16 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def test_dev_copy() -> None:
-  """compose.dev.yml is compose.yml with a daedalus build in place of the image."""
+  """compose.dev.yml is compose.yml with a daedalus build and the 2 dev variables."""
   main = yaml.safe_load((ROOT / "compose.yml").read_text())
   dev = yaml.safe_load((ROOT / "compose.dev.yml").read_text())
   assert main["services"]["api"].pop("image").startswith("ghcr.io/")
   built = dev["services"]["api"]
   build = {"context": ".", "args": {"VERSION": "${DAEDALUS_VERSION:-dev}"}}
   assert (built.pop("image"), built.pop("build"), built.pop("pull_policy")) == (
-    "daedalus:dev",
+    "${DAEDALUS_DEV_IMAGE:-daedalus:dev}",
     build,
-    "build",
+    "${DAEDALUS_DEV_PULL:-build}",
   )
   assert dev == main
 

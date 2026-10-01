@@ -28,7 +28,12 @@ def checkout(tmp_path: Path, env_text: str | None) -> tuple[Path, dict[str, str]
   stub = tmp_path / "bin"
   stub.mkdir()
   docker = stub / "docker"
-  docker.write_text(f'#!/bin/sh\necho "$*" >> {tmp_path / "docker.log"}\n')
+  # The dev variables show which image a start builds or pulls.
+  docker.write_text(
+    "#!/bin/sh\n"
+    f'echo "$DAEDALUS_DEV_IMAGE|$DAEDALUS_DEV_PULL|$DAEDALUS_VERSION|$*"'
+    f" >> {tmp_path / 'docker.log'}\n"
+  )
   docker.chmod(0o755)
   curl = stub / "curl"
   curl.write_text(
@@ -36,7 +41,7 @@ def checkout(tmp_path: Path, env_text: str | None) -> tuple[Path, dict[str, str]
     'case "$*" in\n'
     "  *api.github.com*) printf '[]' ;;\n"
     '  *archive*) tar -czf - -C "$DAEDALUS_TEST_SOURCE" '
-    "--transform='s,^,daedalus/,' compose.yml .env.example config install.sh services ;;\n"
+    "--transform='s,^,daedalus/,' compose.yml compose.dev.yml .env.example config install.sh services ;;\n"
     '  *) echo "Unexpected curl request: $*" >&2; exit 1 ;;\n'
     "esac\n"
   )
@@ -250,8 +255,46 @@ def test_bad_key(tmp_path: Path) -> None:
   assert not (tmp_path / "docker.log").exists()
 
 
-def test_dev_needs_source(tmp_path: Path) -> None:
-  """--dev stops without the source folder."""
+def test_dev_in_checkout_needs_the_dev_compose(tmp_path: Path) -> None:
+  """--dev beside the source stops without compose.dev.yml."""
   folder, env = checkout(tmp_path, "DAEDALUS_MASTER_KEY=" + "k" * 20 + "\n")
+  (folder / "daedalus").mkdir()
   result = run(folder, env, "--dev")
-  assert result.returncode == 1 and "git checkout" in result.stderr
+  assert result.returncode == 1 and "compose.dev.yml" in result.stderr
+  assert not (tmp_path / "docker.log").exists()
+
+
+def test_dev_with_source_builds_the_image(tmp_path: Path) -> None:
+  """--dev with the source builds the image, with no dev image to pull."""
+  folder, env = checkout(tmp_path, "DAEDALUS_MASTER_KEY=" + "k" * 20 + "\n")
+  shutil.copy(ROOT / "compose.dev.yml", folder / "compose.dev.yml")
+  (folder / "daedalus").mkdir()
+  result = run(folder, env, "--dev")
+  assert result.returncode == 0, result.stderr + result.stdout
+  assert "|||compose -f compose.dev.yml up -d" in (tmp_path / "docker.log").read_text()
+
+
+def test_dev_without_source_pulls_the_dev_image(tmp_path: Path) -> None:
+  """--dev without the source pulls the dev image of main."""
+  folder, env = checkout(tmp_path, "DAEDALUS_MASTER_KEY=" + "k" * 20 + "\n")
+  shutil.copy(ROOT / "compose.dev.yml", folder / "compose.dev.yml")
+  result = run(folder, env, "--dev")
+  assert result.returncode == 0, result.stderr + result.stdout
+  assert (
+    "ghcr.io/nemoe7/daedalus:dev|always||compose -f compose.dev.yml up -d"
+    in (tmp_path / "docker.log").read_text()
+  )
+
+
+def test_dev_downloads_from_main_and_pulls(tmp_path: Path) -> None:
+  """The dev marker downloads the files of main, then pulls the dev image."""
+  folder, env = checkout(tmp_path, "DAEDALUS_MASTER_KEY=" + "k" * 20 + "\n")
+  (folder / ".daedalus-dev").write_text("")
+  result = run_interactive(folder, env, "y")
+  assert result.returncode == 0, result.stdout
+  assert "The files of main are in" in result.stdout
+  assert (folder / "compose.dev.yml").is_file()
+  assert (
+    "ghcr.io/nemoe7/daedalus:dev|always||compose -f compose.dev.yml up -d"
+    in (tmp_path / "docker.log").read_text()
+  )

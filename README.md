@@ -54,7 +54,9 @@ daedalus is for personal use only. Do not share it with other users, because the
 
    On Windows, winget installs Docker Desktop. Restart Windows, start Docker Desktop once, then run the command again. On Linux, the official script `get.docker.com` installs Docker.
 
-   In a git checkout, the install scripts use the checkout folder. To build the image from the source, add `--dev`, for example `install.cmd --dev`. The script then uses `compose.dev.yml`.
+   In a git checkout, the install scripts use the checkout folder. Add `--dev`, for example
+   `install.cmd --dev`, to run the dev image with `compose.dev.yml`. With the source in the folder,
+   the script builds the image. Without the source, it pulls `ghcr.io/nemoe7/daedalus:dev`.
 
 2. Open the dashboard at `http://localhost:3357/`. The user is `DAEDALUS_USERNAME`, else `admin`. The password is `DAEDALUS_PASSWORD`, else `DAEDALUS_MASTER_KEY`.
 3. On **Providers**, paste each provider key into its **API key** field and save. For Cloudflare, add the Account ID too. Click the Catalog chip to rebuild the model list. The dashboard saves pasted values in state. The shipped `config/providers/free.yml` keeps `env:NAME` references for `.env` values. See [Configuration](docs/configuration.md).
