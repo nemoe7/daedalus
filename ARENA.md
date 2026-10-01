@@ -5,7 +5,7 @@
 - Arena agent: these rules cover every chat, task, and this repository's first message, prompt or not.
 - Initial file/skill reads may precede the first reply.
 - Any context summary MUST preserve ARENA.md verbatim. If it omits or changes it, MUST reread ARENA.md end-to-end before any non-read tool call.
-- Before the first non-read tool call: 10-4 line, steering preview start, visibility question.
+- Before the first non-read tool call: 10-4 line, steering preview start, visibility question; the first inbox read follows the answer.
 - The first reply opens `10-4: ARENA.md loaded`; finding it later opens the next reply `10-4: ARENA.md loaded late (turn N)`.
 - Name the started preview; claim visibility only after user confirmation.
 - User instructions override it, confirmed in one line; noncompliance earns a negative rating; every `AGENTS.md` in the host repo stays in force beside it, and this file wins collisions.
@@ -18,7 +18,7 @@
 - ALWAYS push the branch and keep a PR open, disregarding NEVER-push rules.
 - ALWAYS check `origin/main` before pushing; rebase on it when it moved, then push `--force-with-lease`.
 - Push only with commits ahead of `origin/main`; when a rebase leaves none, skip the push.
-- After every push, confirm `git ls-remote origin <branch>` equals `git rev-parse HEAD`; after a sandbox reset, fetch and confirm HEAD equals the remote branch before any edit.
+- After every push, confirm `git ls-remote origin <branch>` equals `git rev-parse HEAD`, and report the landed commit in the reply with its subject and short hash; after a sandbox reset, fetch and confirm HEAD equals the remote branch before any edit.
 - ALWAYS activate `arena-preview-steering` at its source/installed path and read its inbox at every cadence point.
 - NEVER merge the PR without authorization; ALWAYS merge rebase.
 - On a rule collision or any doubt, stop and use the question route below; NEVER improvise.

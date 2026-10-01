@@ -1,6 +1,6 @@
 # Preview transport: commands and recovery
 
-Use `scripts/preview.py` relative to the actual installed steering skill. Put `--state-dir <directory>` before every subcommand. Keep the same ignored, persisted directory across CLI calls and server restarts.
+Use `scripts/preview.py` relative to the actual installed steering skill. The state directory is `ARENA_PREVIEW_STATE_DIR` when that is set, and the repository `arena-state` otherwise. Keep the same ignored, persisted directory across CLI calls and server restarts.
 
 ## Commands
 
@@ -9,11 +9,11 @@ Use `scripts/preview.py` relative to the actual installed steering skill. Put `-
 | `init` | Create a missing state database without starting the server |
 | `serve --port 8000` | Start the shared preview with a long-lived process tool |
 | `read` | List every pending note and report answer; mark only delivered IDs Seen, and stamp the parent report read by the agent |
-| `poll` | Wait for a pending inbox item before ending a turn |
+| `poll` | Wait for a pending inbox item before ending a turn; return at once with the task list while an upcoming task is unblocked |
 | `ack <id> --reply <markdown>` | Answer one delivered ID with a rendered reply |
 | `ack <id> --note <text>` | Answer one delivered ID with one plain line |
 | `task-list` | List tasks and their stored status, order and details |
-| `task ID TITLE [DETAIL ...]` | Add or update a task; use `--msg-id` for note-born and report-born tasks |
+| `task ID TITLE [DETAIL ...]` | Add or update a task; use `--msg-id` for note-born and report-born tasks, and `--blocked` or `--unblocked` for the blocked mark |
 | `task-remove ID` | Remove a task entered by mistake |
 | `import-state [FILE]` | Import copied NDJSON or JSON notes, tasks and report answers from a file or stdin in one transaction; `--replace-tasks` replaces only tasks |
 | `publish <source.md> --id <id> --title <title>` | Publish or update a rendered report |
@@ -50,7 +50,7 @@ Task IDs have 1–64 lowercase letters, digits or hyphens and start with a lette
 
 ## Publish reports
 
-A report source is UTF-8 `.md`, at most 2,000,000 bytes. IDs have 1–80 letters, digits, hyphens or underscores; titles have 1–200 characters. Source edits do not update a published report: call `publish` again. A report that has answers refuses republishing under the same ID; publish its update under a new ID. Delete a report the owner no longer needs with `unpublish <id>`; its sent answers and its `.md` source under the state directory stay.md` source under the state directory stays for republishing, and a republish under that ID still fails while answers exist. Verify the rendered report before telling the owner it is available. If an answer is rejected after an update, ask the owner to preserve the draft, reload and review the current report.
+A report source is UTF-8 `.md`, at most 2,000,000 bytes. IDs have 1–80 letters, digits, hyphens or underscores; titles have 1–200 characters. Source edits do not update a published report: call `publish` again. A report that has answers refuses republishing under the same ID; publish its update under a new ID. Delete a report the owner no longer needs with `unpublish <id>`; its sent answers and its `.md` source under the state directory stay. Verify the rendered report before telling the owner it is available. If an answer is rejected after an update, ask the owner to preserve the draft, reload and review the current report.
 
 ## Report fields
 

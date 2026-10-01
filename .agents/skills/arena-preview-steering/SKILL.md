@@ -25,7 +25,7 @@ Use this guide and its Markdown references for workflow; read shipped scripts on
    ```
 
    After a sandbox restart, rerun the installer. Reuse the same state directory. If the server dies, warn the owner before restarting. If another service owns the port, choose a free one without stopping it.
-4. Name the preview in chat. At first setup, when it starts, ask one `ask_user` visibility question: Yes, No, ntfy, or Continue without steering. Block non-setup work until answered. Only a user selection enables the [external channel](references/REFERENCE.md#external-channel-ntfy); never switch silently. Keep the preview inbox running and `read` it after the answer. Do not claim visibility before confirmation. If hidden, ask how to continue with `ask_user`. Reuse a confirmed visible preview without asking again. Keep ARENA.md's activation acknowledgement when applicable.
+4. Name the preview in chat. At first setup, when it starts, ask one `ask_user` visibility question: Yes, No, ntfy, or Continue without steering. Block non-setup work until answered. Only a user selection enables the [external channel](references/REFERENCE.md#external-channel-ntfy); never switch silently. Keep the preview inbox running; the first `read` follows the answer. Do not claim visibility before confirmation. If hidden, ask how to continue with `ask_user`. Reuse a confirmed visible preview without asking again. Keep ARENA.md's activation acknowledgement when applicable.
 
 ## Read, acknowledge, and track work
 
