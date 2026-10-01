@@ -14,11 +14,11 @@ The commands below are the same in cmd, PowerShell and bash.
 | Update | `git pull`, then `docker compose pull`, then `docker compose up -d` |
 | Build from the source | `docker compose -f compose.dev.yml up -d`. `compose.dev.yml` is a copy of `compose.yml` that builds `daedalus:dev` from the source at each start. Use `-f compose.dev.yml` with the other commands too. A test keeps the 2 files in step. |
 | Stop | `docker compose down` |
-| Log | `docker compose logs -f daedalus` |
-| Rebuild the catalog now | Click the Catalog chip in the dashboard header, or run `docker compose exec daedalus daedalus catalog` |
-| Dump catalogs/models | `docker compose exec daedalus daedalus dump catalog`, `models`, or `all`; files go to `.daedalus-state/dump` |
+| Log | `docker compose logs -f api` |
+| Rebuild the catalog now | Click the Catalog chip in the dashboard header, or run `docker compose exec api daedalus catalog` |
+| Dump catalogs/models | `docker compose exec api daedalus dump catalog`, `models`, or `all`. Files go to `.daedalus-state/dump` |
 
-`dump` defaults to JSON. Add `-f csv` (also `--fmt` or `--format`) for CSV. Catalog refresh saves provider snapshots; every dump reads those snapshots and never fetches. Saving provider YAML in the dashboard rebuilds the model list from cache. After editing files outside the dashboard, click Catalog to fetch and rebuild.
+`dump` defaults to JSON. Add `-f csv` (also `--fmt` or `--format`) for CSV. Catalog refresh saves provider snapshots. Every dump reads those snapshots and never fetches. Saving provider YAML in the dashboard rebuilds the model list from cache. After editing files outside the dashboard, click Catalog to fetch and rebuild.
 
 | Item | Value |
 | --- | --- |
@@ -68,7 +68,7 @@ flowchart LR
 
 | Setting | Value |
 | --- | --- |
-| API base | `http://daedalus:3357/v1` |
+| API base | `http://api:3357/v1` |
 | API key | `OPENWEBUI_API_KEY`, else `DAEDALUS_MASTER_KEY` |
 | First user | Becomes the Open WebUI admin |
 | `ENABLE_FORWARD_USER_INFO_HEADERS` | `true`. Sends the chat id for [try again](architecture.md#try-again). It also sends the user name, id, e-mail and role. These stay in daedalus. See [client headers](architecture.md#client-headers). |
@@ -98,7 +98,7 @@ To check the services and settings:
 2. `docker compose exec open-webui curl -s http://tika:9998/version` shows the Tika version.
 3. **Admin Settings → Documents** shows Tika at `http://tika:9998`, and embeddings `OpenAI` with `mistral/mistral-embed`.
 4. **Admin Settings → Web Search** shows `searxng`. **Code Execution** shows the code interpreter on, with `pyodide`.
-5. **Admin Settings → Audio** and **Images** show `http://daedalus:3357/v1`. **Images** shows **Image Edit** on, with `daedalus/photos`. An older database keeps its values: set them there.
+5. **Admin Settings → Audio** and **Images** show `http://api:3357/v1`. **Images** shows **Image Edit** on, with `daedalus/photos`. An older database keeps its values: set them there.
 6. Upload a PDF in a chat. The daedalus log shows `/v1/embeddings` requests.
 
 | Feature | Tools for the model | Condition |
@@ -114,7 +114,7 @@ Keep **Function Calling** on **Native**, the Open WebUI default since v0.10.0. N
 `integrations/openwebui/deep-research.md` is an Open WebUI skill: plain instructions, no code. The model plans, searches in 3 to 5 rounds with `search_web`, reads pages with `fetch_url`, and writes a report with numbered sources. Each step is a normal chat request, so daedalus failover and loop checks apply.
 
 1. **Workspace → Skills**, the arrow next to **Create**, **Import JSON**. Select `deep-research.md`, then **Save**.
-2. **Access** on the skill: make it public, or give read access to each user. A user without read access does not get the skill.
+2. **Access** on the skill: make it public, or give read access to each user. A user without read access does not receive the skill.
 3. **Workspace → Models**, **Create**: base model `daedalus/sophos`, name `Deep Research`. In **Skills**, select `deep-research`. **Save**.
 4. In a chat with `Deep Research`, keep **Web Search** on. Use `$deep-research` in a chat with another model.
 
