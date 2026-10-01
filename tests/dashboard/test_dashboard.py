@@ -148,6 +148,67 @@ assert.strictEqual(sandbox.statusClass({ status: 'err' }), 's5');
   subprocess.run(["node", "-e", code], check=True)
 
 
+def _app_js_vm(extra: str) -> str:
+  """The dashboard script in a node vm, with the DOM stubs the top level needs."""
+  return f"""
+const fs = require('fs');
+const vm = require('vm');
+const assert = require('assert');
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8');
+const hosts = [{{ innerHTML: '' }}, {{ innerHTML: '' }}];
+const classes = new Set();
+const nav = {{
+  scrollLeft: 30, clientWidth: 100, scrollWidth: 260,
+  classList: {{ toggle: (name, on) => (on ? classes.add(name) : classes.delete(name)) }},
+  addEventListener: () => {{}},
+}};
+const el = () => ({{ innerHTML: '', textContent: '', addEventListener: () => {{}} }});
+const sandbox = {{
+  matchMedia: () => ({{ matches: false, addEventListener: () => {{}} }}),
+  document: {{
+    hidden: false,
+    documentElement: {{ dataset: {{}} }},
+    getElementById: (id) => (id === 'nav' ? nav : el()),
+    querySelector: () => ({{ firstChild: {{ textContent: 'Models' }} }}),
+    querySelectorAll: (sel) => (sel === '[data-status]' ? hosts : []),
+    addEventListener: () => {{}},
+  }},
+  navigator: {{}},
+  location: {{ hash: '' }},
+  window: {{ addEventListener: () => {{}} }},
+  getSelection: () => ({{ isCollapsed: true }}),
+  $: (id) => (id === 'nav' ? nav : el()),
+}};
+vm.createContext(sandbox);
+vm.runInContext(src, sandbox);
+{extra}
+"""
+
+
+def test_app_js_tab_fades() -> None:
+  """The tab bar fades mark the scroll ends, so a cut tab still shows."""
+  code = _app_js_vm(
+    """
+sandbox.renderStatus({
+  healthy: true, sessions: 2, models: 80, version: 'v1',
+  catalog: { built: 1, next: 2, rebuilding: false },
+});
+assert(classes.has('fade-left') && classes.has('fade-right'));
+nav.scrollLeft = 0;
+sandbox.markNavFades();
+assert(!classes.has('fade-left') && classes.has('fade-right'));
+nav.scrollLeft = 160;
+sandbox.markNavFades();
+assert(classes.has('fade-left') && !classes.has('fade-right'));
+nav.scrollLeft = 0;
+nav.scrollWidth = 100;
+sandbox.markNavFades();
+assert(!classes.has('fade-left') && !classes.has('fade-right'));
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_app_js_request_cards() -> None:
   """Each request cell names its column, so the card layout of a narrow screen shows every value."""
   page = (
