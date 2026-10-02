@@ -28,6 +28,7 @@ SETTINGS = (
       "PARALLEL_CHANCE",
       "PARALLEL_SLOW_SECONDS",
       "PARALLEL_PENALTY",
+      "REQUEST_HOOKS",
     )
   ),
   *(

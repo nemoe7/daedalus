@@ -19,6 +19,7 @@ CONFIG_DIR = Path("config")
 # Each hook point, and the function that its file defines.
 POINTS = {
   "on-catalog": "on_catalog",
+  "on-request": "on_request",
   "on-upstream": "on_upstream",
   "on-answer": "on_answer",
 }
@@ -82,6 +83,18 @@ def files(config: Mapping[str, Any], model: str, point: str) -> list[Path]:
   return found
 
 
+def request_files(entries: Mapping[str, Any] | None, point: str) -> list[Path]:
+  """The files of one request-level point, from the `hooks` group of the settings file."""
+  value = entries.get(point) if isinstance(entries, Mapping) else None
+  if value is None or value == "":
+    return []
+  if not isinstance(value, str):
+    tell(f"request_hooks.{point} must be a file path")
+    return []
+  path = resolve(value)
+  return [] if path is None else [path]
+
+
 def load(path: Path) -> ModuleType | None:
   """The module of one hook file, or None when the file is not there or does not load."""
   try:
@@ -109,14 +122,10 @@ def load(path: Path) -> ModuleType | None:
   return found
 
 
-def run(
-  point: str,
-  config: Mapping[str, Any],
-  model: str,
-  value: dict[str, Any],
-  **context: Any,
+def run_files(
+  point: str, paths: list[Path], value: dict[str, Any], **context: Any
 ) -> dict[str, Any]:
-  """The value after each hook of one point, in list order.
+  """The value after each hook file of one point, in list order.
 
   Each hook gets a copy. It returns a new dict, or None to keep its changes to the copy.
   A hook that fails does not change the value.
@@ -124,7 +133,7 @@ def run(
   if point not in POINTS:
     raise ValueError(f"Unknown hook point: {point}")
   function = POINTS[point]
-  for path in files(config, model, point):
+  for path in paths:
     found = load(path)
     hook = getattr(found, function, None)
     if not callable(hook):
@@ -133,14 +142,38 @@ def run(
       continue
     work = copy.deepcopy(value)
     try:
-      result = hook(work, model=model, **context)
+      result = hook(work, **context)
     except Exception:
-      logger.exception("%s hook %s for %s failed", point, path, model)
+      logger.exception("%s hook %s for %s failed", point, path, context.get("model"))
       continue
     if result is None:
       value = work
     elif isinstance(result, dict):
       value = result
     else:
-      logger.warning("%s hook %s for %s returned no dict", point, path, model)
+      logger.warning(
+        "%s hook %s for %s returned no dict", point, path, context.get("model")
+      )
   return value
+
+
+def run(
+  point: str,
+  config: Mapping[str, Any],
+  model: str,
+  value: dict[str, Any],
+  **context: Any,
+) -> dict[str, Any]:
+  """The value after each model hook of one point, in list order."""
+  return run_files(point, files(config, model, point), value, model=model, **context)
+
+
+def run_request(
+  point: str,
+  entries: Mapping[str, Any] | None,
+  model: str,
+  value: dict[str, Any],
+  **context: Any,
+) -> dict[str, Any]:
+  """The value after each request hook of one point, from the settings file, in list order."""
+  return run_files(point, request_files(entries, point), value, model=model, **context)
