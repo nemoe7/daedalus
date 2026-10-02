@@ -57,7 +57,8 @@ def test_page(client: TestClient) -> None:
   assert 'src="ui/app.js?v=' in page.text, "relative asset paths with a content hash"
   assert 'href="ui/style.css?v=' in page.text, "the style link has a content hash"
   assert (
-    '<th scope="col" class="hide-sm" role="columnheader">Session</th>' in page.text
+    '<th scope="col" class="hide-sm hide-md" role="columnheader">Session</th>'
+    in page.text
   ), "the Requests session column"
   assert '<details class="card legend"' in page.text, (
     "the code legend is a card of its own beside the table"
@@ -120,7 +121,7 @@ const sandbox = {
   document: {
     hidden: false,
     documentElement: { dataset: {} },
-    getElementById: () => ({ innerHTML: '', addEventListener: () => {} }),
+    getElementById: () => ({ innerHTML: '', addEventListener: () => {}, classList: { toggle: () => {} } }),
     querySelector: () => ({ firstChild: { textContent: 'Models' } }),
     querySelectorAll: () => [],
     addEventListener: () => {},
@@ -220,6 +221,24 @@ nav.scrollLeft = 0;
 nav.scrollWidth = 100;
 sandbox.markNavFades();
 assert(!classes.has('fade-left') && !classes.has('fade-right'));
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
+def test_app_js_length_limit_message() -> None:
+  """A field that stops at its length tells the rule, so the cut is not silent."""
+  code = _app_js_vm(
+    """
+const field = sandbox.$('key-name');
+const message = sandbox.$('key-message');
+field.maxLength = 40;
+field.value = 'k'.repeat(39);
+sandbox.showLengthLimit(field, message);
+assert.strictEqual(message.textContent, '', '39 characters fit');
+field.value = 'k'.repeat(40);
+sandbox.showLengthLimit(field, message);
+assert(message.textContent.includes('40 characters at most'), message.textContent);
 """
   )
   subprocess.run(["node", "-e", code], check=True)
@@ -933,6 +952,11 @@ def test_files(
   assert bad.status_code == 422 and "above 0" in bad.text, bad.text
   bad = client.put("/ui/api/settings", json={"changes": {"loops": {"calls": 1}}})
   assert bad.status_code == 422 and "between 2 and 100" in bad.text, bad.text
+  huge = client.put(
+    "/ui/api/settings",
+    json={"changes": {"timeouts": {"request": 99999999999999999999}}},
+  )
+  assert huge.status_code == 422 and "at most 86400 seconds" in huge.text, huge.text
   assert settings.DEFAULT_PATH.read_text() == before, "a bad value is not written"
   unknown = client.put("/ui/api/settings", json={"changes": {"x": {"y": 1}}})
   assert unknown.status_code == 422, unknown.text
