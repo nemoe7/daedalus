@@ -30,12 +30,16 @@ cloudflare:
       - "@cf/meta/llama-3.1-8b-*"
       - "@cf/meta/llama-3.2-*"
       - "@cf/ibm-granite/*"
+      - "@cf/swiss-ai/*"
+      - "@cf/utter-project/*"
       - "*-lora"
 
   models:
     "@cf/qwen/qwq-32b": { max_input_tokens: 20000, max_output_tokens: 4000 }
     # Image input: FLUX.2 edits with up to 4 input images, in daedalus/photos.
     "*flux-2*": { supports_vision: true }
+    # Clef answers typed questions with probabilities, not chat text, although Workers AI lists it as text.
+    "@cf/cloudflare/clef*": { mode: decisions }
 
 gemini:
   api_key: env:GEMINI_API_KEY

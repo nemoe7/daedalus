@@ -594,7 +594,8 @@ function renderRequests(rows) {
 // The label of each catalog mode.
 const MODES = {
   chat: "Chat", embedding: "Embedding", audio_transcription: "Transcription",
-  audio_speech: "Speech", image_generation: "Image",
+  audio_speech: "Speech", image_generation: "Image", video_generation: "Video",
+  decisions: "Decisions", rerank: "Rerank",
 };
 // The label of each media flag chip.
 const FLAGS = { vision: "Image in", pdf_input: "PDF in", audio_input: "Audio in", audio_output: "Audio out" };

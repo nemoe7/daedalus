@@ -48,6 +48,7 @@ def test_output_mode() -> None:
     "embeddings": "embedding",
     "video": "video_generation",
     "decisions": "decisions",
+    "rerank": "rerank",
   }
   for output, mode in modes.items():
     assert openrouter_columns(row("a/b", [output]))["mode"] == mode, output
