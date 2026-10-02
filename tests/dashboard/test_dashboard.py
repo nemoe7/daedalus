@@ -61,6 +61,7 @@ def test_page(client: TestClient) -> None:
   assert '<details class="card legend"' in page.text, (
     "the code legend is a card of its own beside the table"
   )
+  assert '<dialog id="modal"' in page.text, "the confirmation modal"
   assert "<code>frX</code>" not in page.text, "the legend body is filled by app.js"
   for block in ("ov-providers", "ov-keys", "ov-settings"):
     assert block not in page.text, f"the Overview keeps state only: no {block} block"
@@ -84,7 +85,9 @@ def test_page(client: TestClient) -> None:
     'const EFFORT_SHORT = { minimal: "min", low: "low", medium: "med", high: "hi", xhigh: "xhi" }'
     in script.text
   )
-  assert 'confirm("Log out of the dashboard?")' in script.text, "a logout asks first"
+  assert (
+    'await ask("Log out", "The dashboard session ends.", "Log out")' in script.text
+  ), "a logout asks first, in the modal"
   assert "shortEffort(sentText(a, r.effort))" in script.text
   assert '["change_on_draw", "Change pin on draw"' in script.text
   assert '["loops", "Loop detection"' in script.text, (
@@ -286,7 +289,7 @@ def test_app_js_request_cards() -> None:
     "stream": True,
     "seconds": 3,
     "fallbacks": 1,
-    "routed": "sophos",
+    "routed": "deinos",
     "retry": "2",
     "loop": "3",
     "transition": {"reason": "err"},
@@ -298,7 +301,7 @@ def test_app_js_request_cards() -> None:
   code = f"""
 const fs = require('fs');
 const vm = require('vm');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{ renderRequests, renderLive, state }};";
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{ renderRequests, renderLive, poolTier, state }};";
 const nodes = new Map();
 const node = (id) => {{
   if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', hidden: false, children: [], listeners: {{}}, contains: () => false, addEventListener(type, handler) {{ this.listeners[type] = handler; }}, classList: {{ toggle: () => {{}} }} }});
@@ -317,8 +320,13 @@ vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
 const assert = require('assert');
 const probe = sandbox.__probe;
-// The pool cards give the tier letter of the `frX` code.
-probe.state.pools = [{{ shown: "daedalus/sophos", members: [{{ tier: "TIER-A" }}] }}];
+// The pool cards give the tier letter of the `frX` code. The built-in names cover the first paint.
+probe.state.pools = [];
+assert(probe.poolTier('deinos') === 'B', 'a built-in pool name gives its tier letter');
+probe.state.pools = [{{ shown: "daedalus/renamed", members: [{{ tier: "TIER-C" }}] }}];
+assert(probe.poolTier('renamed') === 'C', 'a renamed pool takes the tier of its cards');
+assert(probe.poolTier('opaque') === 'O', 'an unknown pool keeps a one-letter code');
+probe.state.pools = [{{ shown: "daedalus/deinos", members: [{{ tier: "TIER-A" }}] }}];
 probe.renderRequests([{json.dumps(row)}]);
 const html = node('requests').innerHTML;
 const cells = [...html.matchAll(/<td[^>]*>/g)].map((m) => m[0]);
@@ -399,6 +407,57 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
     ".requests tr.request > td.fallbacks-cell, .requests tr.live-row > "
     "td.fallbacks-cell { grid-row: 5; }"
   ) in narrow_css
+
+
+def test_app_js_modal() -> None:
+  """A confirmation opens the modal: Confirm resolves true, and any other close resolves false."""
+  source = Path("daedalus/dashboard/ui/app.js").read_text()
+  assert "confirm(" not in source, "the dashboard uses the modal, not window.confirm"
+  code = """
+const fs = require('fs');
+const vm = require('vm');
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { ask, state };";
+const nodes = new Map();
+const node = (id) => {
+  if (!nodes.has(id)) nodes.set(id, { innerHTML: '', textContent: '', value: '', hidden: false, returnValue: '',
+    shown: false, listeners: {},
+    addEventListener(type, handler) { this.listeners[type] = handler; },
+    showModal() { this.shown = true; },
+    classList: { toggle: () => {} } });
+  return nodes.get(id);
+};
+const sandbox = {
+  esc: (text) => String(text ?? ''), seconds: (value) => value.toFixed(3) + 's',
+  floorCount: (value) => String(value), toLocaleString: (value) => String(value),
+  matchMedia: () => ({ matches: false, addEventListener: () => {} }),
+  document: { hidden: false, documentElement: { dataset: {} }, getElementById: node, querySelector: () => ({ firstChild: { textContent: 'M' } }), querySelectorAll: () => [], addEventListener: () => {} },
+  navigator: {}, location: { hash: '' }, window: { addEventListener: () => {} },
+  getSelection: () => ({ isCollapsed: true }), console: { error: () => {} }, $: node,
+};
+vm.createContext(sandbox);
+vm.runInContext(src, sandbox);
+const assert = require('assert');
+const probe = sandbox.__probe;
+const modal = node('modal');
+const answer = probe.ask('Log out', 'The dashboard session ends.', 'Log out');
+assert(modal.shown, 'the modal opens');
+assert.strictEqual(node('modal-title').textContent, 'Log out');
+assert.strictEqual(node('modal-message').textContent, 'The dashboard session ends.');
+assert.strictEqual(node('modal-ok').textContent, 'Log out');
+modal.listeners.close({ target: { returnValue: 'ok' } });
+const refused = probe.ask('Delete key', 'Clients with the key get 401 at once.', 'Delete', true);
+modal.listeners.close({ target: { returnValue: 'cancel' } });
+answer.then((value) => {
+  assert.strictEqual(value, true, 'Confirm resolves true');
+  return refused;
+}).then((value) => {
+  assert.strictEqual(value, false, 'Cancel resolves false');
+  const third = probe.ask('Reset', 'All weights go back to 1.', 'Reset', true);
+  modal.listeners.close({ target: { returnValue: '' } });
+  return third;
+}).then((value) => assert.strictEqual(value, false, 'a close without a value resolves false'));
+"""
+  subprocess.run(["node", "-e", code], check=True)
 
 
 def test_app_js_limit_units() -> None:
