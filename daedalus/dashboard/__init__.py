@@ -226,6 +226,8 @@ UI_FILES = {
   "apple-touch-icon.png": "image/png",
   "manifest.json": "application/manifest+json",
 }
+# The path of each file of the page, so a request name never reaches the file system.
+UI_PATHS = {name: UI_DIR / name for name in UI_FILES}
 # The browser asks again each time, so a new version of the page applies at once.
 FRESH = {"Cache-Control": "no-cache"}
 # The files that the Providers editor shows, in tab order. The Settings page has its own form.
@@ -582,9 +584,9 @@ def page() -> APIRouter:
 
   @pages.get("/ui/{name}", include_in_schema=False)
   async def asset(name: str) -> Response:
-    if name not in UI_FILES:
+    if name not in UI_PATHS:
       return failure(404, "Not found.", "invalid_request_error")
-    return FileResponse(UI_DIR / name, media_type=UI_FILES[name], headers=FRESH)
+    return FileResponse(UI_PATHS[name], media_type=UI_FILES[name], headers=FRESH)
 
   return pages
 

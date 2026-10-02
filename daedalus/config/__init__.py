@@ -101,7 +101,11 @@ class _UniqueKeys(yaml.SafeLoader):
 
 def load_yaml(text: Any) -> Any:
   """The content of one YAML text or stream. A duplicate key raises a `yaml.YAMLError`."""
-  return yaml.load(text, _UniqueKeys)
+  loader = _UniqueKeys(text)
+  try:
+    return loader.get_single_data()
+  finally:
+    loader.dispose()
 
 
 def error_text(exc: Exception) -> str:

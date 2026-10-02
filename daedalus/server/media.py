@@ -4,7 +4,6 @@ import asyncio
 import base64
 import hashlib
 import json
-import re
 import struct
 import time
 from collections.abc import Awaitable, Callable
@@ -23,7 +22,6 @@ from daedalus.store import keys
 routes = APIRouter()
 TRANSCRIPT_FORMATS = ("json", "text", "srt", "verbose_json", "vtt")
 SPEECH_FORMATS = ("mp3", "opus", "aac", "flac", "wav", "pcm")
-SIZE = re.compile(r"auto|[1-9][0-9]*x[1-9][0-9]*")
 # The server sets the shared weights, cooldowns and pacing at start.
 PENALTIES: penalties.Penalties | None = None
 COOLDOWNS: cooldowns.Cooldowns | None = None
@@ -335,6 +333,17 @@ async def speech(request: Request) -> Response:
   return Response(audio, media_type=media_type)
 
 
+def digits(text: str) -> bool:
+  """True for 1 or more decimal digits and no leading zero."""
+  return text.isascii() and text.isdigit() and not text.startswith("0")
+
+
+def valid_size(size: str) -> bool:
+  """True for `auto` or `WIDTHxHEIGHT` with whole numbers above 0."""
+  width, found, height = size.partition("x")
+  return size == "auto" or (bool(found) and digits(width) and digits(height))
+
+
 def image_error(body: dict) -> str | None:
   """The problem with an image request, or None."""
   if not isinstance(body.get("prompt"), str) or not body["prompt"]:
@@ -343,7 +352,7 @@ def image_error(body: dict) -> str | None:
   if n is not None and (type(n) is not int or n < 1):
     return "n must be a positive integer"
   size = body.get("size")
-  if size is not None and not (isinstance(size, str) and SIZE.fullmatch(size)):
+  if size is not None and not (isinstance(size, str) and valid_size(size)):
     return "size must be auto or WIDTHxHEIGHT"
   if body.get("response_format", "url") not in ("url", "b64_json", None):
     return "response_format must be url or b64_json"

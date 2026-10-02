@@ -11,7 +11,10 @@ def test_dev_copy() -> None:
   """compose.dev.yml is compose.yml with a daedalus build and the 2 dev variables."""
   main = yaml.safe_load((ROOT / "compose.yml").read_text())
   dev = yaml.safe_load((ROOT / "compose.dev.yml").read_text())
-  assert main["services"]["api"].pop("image").startswith("ghcr.io/")
+  image = main["services"]["api"].pop("image")
+  assert image.partition("/")[0] == "ghcr.io", (
+    "the image comes from the project registry"
+  )
   built = dev["services"]["api"]
   build = {"context": ".", "args": {"VERSION": "${DAEDALUS_VERSION:-dev}"}}
   assert (built.pop("image"), built.pop("build"), built.pop("pull_policy")) == (
