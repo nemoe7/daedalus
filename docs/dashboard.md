@@ -13,7 +13,7 @@ Open `http://HOST:3357/`.
 
 | Page | Contents |
 | --- | --- |
-| Overview | Status, models, last requests and limits in columns. Each pool row names its top model. |
+| Overview | Status, models, last requests and limits in columns. Each pool row names its top model. The page shows state only: the Providers, API keys and Settings pages hold the configuration. |
 | Requests | The log of the last requests and the ones in flight. See [Requests](#requests). |
 | Models | The catalog table and a card for each pool. See [Models](#models). |
 | API keys | Make and delete API keys |
