@@ -1758,6 +1758,8 @@ function showPage() {
   document.querySelectorAll("#nav a").forEach((link) => {
     link.classList.toggle("on", link.dataset.page === page);
   });
+  // The first paint marks the fades too, so a cut tab shows before the first status answer.
+  markNavFades();
   document.title = `daedalus · ${document.querySelector(`#nav a[data-page="${page}"]`).firstChild.textContent}`;
   if (page === "providers" && state.view === "form") renderForm();
 }
