@@ -32,6 +32,10 @@ TIMEOUT_SECONDS = 60.0
 MAX_PAGES = 50
 
 
+# A provider slug above this length is not a model name, and no pattern sees it.
+SLUG_LIMIT = 200
+
+
 # Row list key per response shape, and the slug key order for that shape.
 ROW_KEYS = {
   "data": ("id", "name"),
@@ -111,7 +115,7 @@ def matches(pattern: str, slug: str) -> bool:
   if pattern.startswith("!"):
     return not matches(pattern[1:], slug)
   if pattern.startswith("^"):
-    return re.search(pattern, slug) is not None
+    return len(slug) <= SLUG_LIMIT and re.search(pattern, slug) is not None
   if "*" in pattern or "?" in pattern:
     return fnmatchcase(slug, pattern)
   return slug == pattern

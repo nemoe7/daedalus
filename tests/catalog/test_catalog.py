@@ -5,6 +5,7 @@ import tempfile
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 import pytest
@@ -51,7 +52,7 @@ def make_fetch(pages: dict[str, dict[str, Any]]):
 
   def fetch(url: str, headers: dict[str, str]) -> dict[str, Any]:
     SEEN.setdefault(url, []).append(headers)
-    if url.startswith("https://broken.test"):
+    if urlsplit(url).hostname == "broken.test":
       raise httpx.ConnectError("unreachable", request=httpx.Request("GET", url))
     return pages[url]
 
@@ -133,6 +134,10 @@ def test_matches() -> None:
   assert not discovery.matches("!*:free", "google/gemma-4-31b-it:free")
   assert discovery.matches("!^glm-4\\.[67]$", "glm-4.5"), "negation inverts regex too"
   assert not discovery.matches("!^glm-4\\.[67]$", "glm-4.6")
+  assert discovery.matches("^.*$", "a" * discovery.SLUG_LIMIT), "a slug at the limit"
+  assert not discovery.matches("^.*$", "a" * (discovery.SLUG_LIMIT + 1)), (
+    "a slug above it"
+  )
 
 
 def row_slugs(payload: dict, match: dict | None = None) -> list[str]:

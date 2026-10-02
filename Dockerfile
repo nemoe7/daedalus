@@ -11,10 +11,13 @@ COPY daedalus ./daedalus
 COPY config ./config
 # Editable install: the store path follows the source folder, so state goes to /app/.daedalus-state.
 # tzdata: the TZ env var sets the local clock of the catalog schedule.
+# libpcre2-8-0: the install takes the Debian revision with the fix, ahead of a base image refresh.
+# pip is pinned: the image ships an old one, and nothing at start installs with it.
 # uv comes from a build mount, so it is not in the image.
 RUN --mount=from=ghcr.io/astral-sh/uv:0.12.19,source=/uv,target=/bin/uv \
-  apt-get update && apt-get install -y --no-install-recommends tzdata \
+  apt-get update && apt-get install -y --no-install-recommends tzdata libpcre2-8-0 \
   && rm -rf /var/lib/apt/lists/* \
+  && python -m pip install --no-cache-dir "pip==26.2.1" \
   && uv sync --locked \
   && useradd --uid 1000 --create-home daedalus \
   && mkdir .daedalus-state \
