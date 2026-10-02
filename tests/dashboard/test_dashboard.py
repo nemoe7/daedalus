@@ -284,9 +284,9 @@ def test_app_js_request_cards() -> None:
     "stream": True,
     "seconds": 3,
     "fallbacks": 1,
-    "routed": "p/old",
+    "routed": "sophos",
     "retry": "2",
-    "loop": "tool-3",
+    "loop": "3",
     "transition": {"reason": "err"},
     "attempts": [
       {"model": "p/first", "result": "error", "seconds": 0.4, "error": "rate limited"},
@@ -315,6 +315,8 @@ vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
 const assert = require('assert');
 const probe = sandbox.__probe;
+// The pool cards give the tier letter of the `frX` code.
+probe.state.pools = [{{ shown: "daedalus/sophos", members: [{{ tier: "TIER-A" }}] }}];
 probe.renderRequests([{json.dumps(row)}]);
 const html = node('requests').innerHTML;
 const cells = [...html.matchAll(/<td[^>]*>/g)].map((m) => m[0]);
@@ -325,7 +327,8 @@ const mobileLabels = (markup) => [...markup.matchAll(new RegExp('<span class="mo
 assert.deepStrictEqual(mobileLabels(html), {json.dumps(labels)}, 'the cells show their column names in table order');
 assert(html.includes('class="request has-chain"'), 'requests with fallbacks expose their chain');
 assert(html.includes('More · session, effort, pool · 1 fallback'), 'request details disclose their fallback count');
-for (const value of ['View fallback chain', 's1', 'high <span class="from">xhi</span>', 'rate limited', 'from p/old', 'rt2', 'tool loop tool-3']) assert(html.includes(value), 'mobile details keep ' + value);
+for (const value of ['View fallback chain', 's1', 'high <span class="from">xhi</span>', 'rate limited', 'frA', 'tl3']) assert(html.includes(value), 'the details keep ' + value);
+assert(!html.includes('rt2') && !html.includes('tool loop'), 'the frX and tlN codes replace the long forms');
 const mobileSelectors = [];
 const mobileTap = {{ target: {{ closest: (selector) => {{ mobileSelectors.push(selector); return null; }} }} }};
 sandbox.window.matchMedia = () => ({{ matches: true }});
