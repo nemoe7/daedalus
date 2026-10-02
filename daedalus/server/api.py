@@ -505,6 +505,8 @@ def served(request: Request, config: dict[str, Any], candidate: str) -> None:
 
 PENALTIES = penalties.Penalties(lambda: store.MODELS_DB)
 RETRIES = retries.Retries()
+# The request-level hook files, by point, from the `hooks` group of `config/daedalus.yml`.
+REQUEST_HOOKS: dict[str, str] = {}
 COOLDOWNS = cooldowns.Cooldowns(lambda: store.MODELS_DB)
 PACING = pacing.Pacing()
 PACING.config = lambda: get_config()
@@ -704,9 +706,17 @@ async def chat(request: Request) -> Response:
     else None
   )
   turn = None
-  chat_id = request.headers.get(retries.CHAT_HEADER)
-  if model == router.RESERVED_MODEL and chat_id:
-    turn = RETRIES.start(chat_id, body["messages"])
+  if REQUEST_HOOKS.get("on-request"):
+    value = hooks.run_request(
+      "on-request",
+      REQUEST_HOOKS,
+      model,
+      {"key": None, "digest": retries.digest(body["messages"])},
+      headers=dict(request.headers),
+    )
+    found_key = value.get("key")
+    if isinstance(found_key, str) and found_key:
+      turn = RETRIES.turn(found_key)
   if turn is not None and turn.count:
     found = retry_chain(turn, body, config)
     request.state.retry = str(turn.count)
@@ -1058,8 +1068,9 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   """Use the values of `config/daedalus.yml`."""
   global SLOW_SECONDS, AFFINITY, KEYWORDS, SWITCH
   global PARALLEL_ENABLED, PARALLEL_COUNT, PARALLEL_CHANCE, PARALLEL_SLOW_SECONDS
-  global PARALLEL_PENALTY
+  global PARALLEL_PENALTY, REQUEST_HOOKS
   router.set_pool_names(values["pools"])
+  REQUEST_HOOKS = dict(values["request_hooks"])
   timeouts, affinity, weights = (
     values["timeouts"],
     values["session_affinity"],

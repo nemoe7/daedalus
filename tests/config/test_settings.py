@@ -31,6 +31,8 @@ def test_load(folder: Path) -> None:
   assert "think hard" in keywords and values.pop("escalation") == {"keywords": []}
   assert shipped.pop("switch") == {"keywords": ["clanker"]}
   assert values.pop("switch") == {"keywords": []}
+  assert shipped.pop("request_hooks") == {"on-request": "hooks/openwebui_retry.py"}
+  assert values.pop("request_hooks") == {"on-request": ""}
   assert shipped == values, "the shipped file holds the defaults"
   path = folder / "daedalus.yml"
   path.write_text("timeouts:\n  wait: 120\nweights:\n  fault: 0.25\n", encoding="utf-8")
@@ -43,6 +45,19 @@ def test_load(folder: Path) -> None:
   expect_error(folder, "session_affinity:\n  change_on_draw: 1\n", "true or false")
   expect_error(folder, "server:\n  port: 1\n", "unknown group 'server'")
   expect_error(folder, "weights:\n  factor: 2\n", "unknown key weights.factor")
+  expect_error(folder, "request_hooks:\n  on-request: 3\n", "must be a hook file path")
+  expect_error(
+    folder, "request_hooks:\n  on-later: a.py\n", "unknown key request_hooks.on-later"
+  )
+  hooks = settings.parse('request_hooks:\n  on-request: ""\n')["request_hooks"]
+  assert hooks == {"on-request": ""}
+  hooks = settings.parse("request_hooks:\n  on-request: hooks/x.py\n")["request_hooks"]
+  assert hooks == {"on-request": "hooks/x.py"}
+  text = settings.update_text(
+    "request_hooks:\n  on-request: hooks/a.py # keep\n",
+    {"request_hooks": {"on-request": "hooks/b.py"}},
+  )
+  assert text == "request_hooks:\n  on-request: hooks/b.py # keep\n", text
   expect_error(folder, "weights:\n  enabled: 1\n", "true or false")
   expect_error(folder, "timeouts:\n  wait: true\n", "above 0")
   expect_error(folder, "timeouts:\n  wait: 0\n", "above 0")

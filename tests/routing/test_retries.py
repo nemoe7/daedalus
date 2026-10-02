@@ -1,6 +1,7 @@
 """An Open WebUI try again on daedalus/auto moves up 1 tier, and at tier A it moves to another model."""
 
 import json
+from pathlib import Path
 
 import httpx
 import pytest
@@ -8,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from daedalus import dashboard
 from daedalus import store as model_store
+from daedalus.providers import hooks
 from daedalus.routing import retries, router
 from daedalus.server import api, upstream
 
@@ -92,6 +94,18 @@ def test_other_requests(client: TestClient) -> None:
   assert ask(client, timed, other) == "b/1", "a system message change is still a retry"
 
 
+def test_no_hook_no_retry(client: TestClient) -> None:
+  """Without a request hook, a repeated message is a new request."""
+  off = api.REQUEST_HOOKS
+  api.REQUEST_HOOKS = {}
+  try:
+    assert ask(client, FIRST, CHAT) == "c/1"
+    assert ask(client, FIRST, CHAT) == "c/1", "the hook owns the rule"
+    assert dashboard.HISTORY.latest(1)[0]["retry"] is None, "no try code"
+  finally:
+    api.REQUEST_HOOKS = off
+
+
 def test_expiry() -> None:
   now = [0.0]
   found = retries.Retries(idle=60, clock=lambda: now[0])
@@ -101,9 +115,19 @@ def test_expiry() -> None:
   assert found.start("x", FIRST).count == 0, "an idle chat expires"
 
 
+def shipped_hook() -> str:
+  """The shipped Open WebUI hook, copied into the config folder of the test."""
+  folder = hooks.CONFIG_DIR / "hooks"
+  folder.mkdir(parents=True, exist_ok=True)
+  target = folder / "openwebui_retry.py"
+  target.write_text(Path("config/hooks/openwebui_retry.py").read_text(encoding="utf-8"))
+  return "hooks/openwebui_retry.py"
+
+
 @pytest.fixture(scope="module")
 def client():
   with pytest.MonkeyPatch.context() as patch:
+    patch.setattr(api, "REQUEST_HOOKS", {"on-request": shipped_hook()})
     patch.setattr(api, "get_config", lambda: CONFIG)
     patch.setattr(router, "required_tier", lambda text: 2)
     patch.setattr(api.PENALTIES, "pick", lambda: 0.0)
