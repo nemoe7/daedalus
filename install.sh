@@ -3,7 +3,7 @@
 set -euo pipefail
 
 repo=nemoe7/daedalus
-# The image that the Dev Image workflow builds from main. install --dev pulls it without the source.
+# The image that the Docker workflow builds from main. install --dev pulls it without the source.
 dev_image=ghcr.io/$repo:dev
 
 dev=0
@@ -225,7 +225,7 @@ if [ $missing_files -eq 1 ]; then
   tags=$(curl -fsSL "https://api.github.com/repos/$repo/tags")
   tag=$(printf '%s\n' "$tags" | grep -o '"name": *"v[0-9][^"]*"' | cut -d'"' -f4 | sort -V | tail -n 1 || true)
   ref=refs/heads/main
-  # dev tracks main: the Dev Image workflow builds the dev image from main.
+  # dev tracks main: the Docker workflow builds the dev image from main.
   if [ "$dev" = 0 ] && [ -n "$tag" ]; then ref=refs/tags/$tag; fi
   [ "$dev" = 0 ] || tag=
   tmp=$(mktemp -d)
