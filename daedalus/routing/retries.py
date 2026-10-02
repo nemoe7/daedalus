@@ -7,8 +7,6 @@ from dataclasses import dataclass, field
 
 from daedalus.store import keys
 
-# Open WebUI sends it when `ENABLE_FORWARD_USER_INFO_HEADERS` is true.
-CHAT_HEADER = "x-openwebui-chat-id"
 TOP_TIER = 4
 
 
@@ -30,29 +28,33 @@ def digest(messages: list[dict]) -> str:
 
 
 class Retries:
-  """The messages of each chat. Idle messages expire."""
+  """The turns of each key. An idle turn expires."""
 
   def __init__(
     self, idle: float = 3600, clock: Callable[[], float] = time.time
   ) -> None:
     self.idle = idle
     self.clock = clock
-    self.turns: dict[tuple[str, str], Turn] = {}
+    self.turns: dict[str, Turn] = {}
+
+  def turn(self, key: str) -> Turn:
+    """The turn of one key. A repeat of an answered key counts 1 more retry."""
+    now = self.clock()
+    self.turns = {k: t for k, t in self.turns.items() if t.used >= now - self.idle}
+    found = self.turns.get(key)
+    if found is not None and found.model is not None:
+      found.count, found.used = found.count + 1, now
+      return found
+    self.turns[key] = Turn(now)
+    return self.turns[key]
 
   def start(self, chat: str, messages: list[dict]) -> Turn:
     """The turn of one chat request. A repeat of an answered message counts 1 more retry."""
     return self.start_digest(chat, digest(messages))
 
   def start_digest(self, chat: str, value: str) -> Turn:
-    """The turn of one request with a ready digest."""
-    now = self.clock()
-    self.turns = {k: t for k, t in self.turns.items() if t.used >= now - self.idle}
-    found = self.turns.get((chat, value))
-    if found is not None and found.model is not None:
-      found.count, found.used = found.count + 1, now
-      return found
-    self.turns[(chat, value)] = Turn(now)
-    return self.turns[(chat, value)]
+    """The turn of one request with a chat id and a ready digest."""
+    return self.turn(f"{chat}\x00{value}")
 
   def clear(self) -> None:
     self.turns.clear()

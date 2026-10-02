@@ -147,6 +147,29 @@ def test_levels() -> None:
   }
 
 
+def test_request_hooks() -> None:
+  """A request hook comes from the settings group, runs on a copy, and an empty value turns it off."""
+  first = write(
+    "req.py",
+    "def on_request(value, model, headers):\n"
+    "  value['key'] = headers['x-chat'] + ':' + value['digest']\n"
+    "  return value\n",
+  )
+  seen: dict = {"key": None, "digest": "d1"}
+  found = hooks.run_request(
+    "on-request", {"on-request": first}, "daedalus/auto", seen, headers={"x-chat": "c1"}
+  )
+  assert found == {"key": "c1:d1", "digest": "d1"}
+  assert seen == {"key": None, "digest": "d1"}, "the hook changes a copy"
+  assert hooks.request_files({"on-request": first}, "on-request") == [
+    hooks.CONFIG_DIR / "hooks" / "req.py"
+  ]
+  for entries in ({}, {"on-request": ""}, None, {"on-request": 5}):
+    assert hooks.request_files(entries, "on-request") == []
+  plain = {"key": None}
+  assert hooks.run_request("on-request", {}, "daedalus/auto", plain) is plain
+
+
 def test_broken_hook_retry() -> None:
   """A hook file with an error does not cache None and reloads on fix."""
   target = hooks.CONFIG_DIR / "flaky.py"

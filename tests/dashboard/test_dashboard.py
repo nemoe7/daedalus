@@ -877,7 +877,9 @@ def test_keys(client: TestClient) -> None:
 def test_files(
   client: TestClient, folder: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  names = [item["path"] for item in client.get("/ui/api/files").json()]
+  listing = client.get("/ui/api/files")
+  assert isinstance(listing.json(), list), listing.text[:400]
+  names = [item["path"] for item in listing.json()]
   assert names == [str(path) for path in dashboard.FILES], names
   path = str(settings.DEFAULT_PATH)
   assert (
@@ -943,6 +945,24 @@ def test_files(
   words = {"escalation": {"keywords": None}}
   assert client.put("/ui/api/settings", json={"changes": words}).status_code == 200
   assert "keywords: []" in settings.DEFAULT_PATH.read_text() and api.KEYWORDS is None
+  assert (
+    client.put(
+      "/ui/api/settings", json={"changes": {"request_hooks": {"on-request": 3}}}
+    ).status_code
+    == 422
+  ), "a hook path is a string"
+  hook = {"request_hooks": {"on-request": "hooks/openwebui_retry.py"}}
+  assert client.put("/ui/api/settings", json={"changes": hook}).status_code == 200
+  assert api.REQUEST_HOOKS == {"on-request": "hooks/openwebui_retry.py"}, (
+    "the save applies the request hook"
+  )
+  assert (
+    client.put(
+      "/ui/api/settings", json={"changes": {"request_hooks": {"on-request": ""}}}
+    ).status_code
+    == 200
+  )
+  assert api.REQUEST_HOOKS == {"on-request": ""}, "an empty value turns the hook off"
   dark = {"dashboard": {"theme": "dark"}}
   assert client.put("/ui/api/settings", json={"changes": dark}).status_code == 200
   assert client.get("/ui/api/settings").json()["file"]["dashboard"]["theme"] == "dark"

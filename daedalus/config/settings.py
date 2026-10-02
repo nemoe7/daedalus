@@ -40,6 +40,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
   "escalation": {"keywords": []},
   "switch": {"keywords": []},
   "dashboard": {"theme": "system", "time_format": "24h"},
+  # The request-level hook files. Each key is a hook point, and the value is a file path.
+  "request_hooks": {"on-request": ""},
   # The name after `daedalus/` of each pool. The key is the built-in name.
   "pools": {
     name: name for name in ("moros", "koinos", "deinos", "sophos", "graphos", "photos")
@@ -74,6 +76,8 @@ def check(group: str, key: str, value: Any) -> Any:
     return value
   if group == "catalog":
     return schedule_value(name, key, value)
+  if group == "request_hooks":
+    return hook_path(name, value)
   if group == "pools":
     if not isinstance(value, str) or not POOL_NAME.fullmatch(value) or value == "auto":
       raise SettingsError(
@@ -124,6 +128,15 @@ def keyword_list(name: str, value: Any) -> list[str]:
   return [item.strip() for item in value]
 
 
+def hook_path(name: str, value: Any) -> str:
+  """A hook file path inside the config folder, or an empty value for no hook."""
+  if value in (None, ""):
+    return ""
+  if not isinstance(value, str) or value != value.strip() or not value:
+    raise SettingsError(f"{name} must be a hook file path, or empty")
+  return value
+
+
 def schedule_value(name: str, key: str, value: Any) -> float:
   """A catalog hour value: `every` is 0 or a part of 24, and `anchor` is an hour of the day."""
   if isinstance(value, bool) or not isinstance(value, int | float) or value < 0:
@@ -170,7 +183,8 @@ def parse(text: str, target: Path | str = DEFAULT_PATH) -> dict[str, dict[str, A
 
 
 GROUP_LINE = re.compile(r"^(\w+):\s*(#.*)?$")
-KEY_LINE = re.compile(r"^(\s+)(\w+):[ \t]*([^#\n]*?)([ \t]*#.*)?$")
+# A key can hold a dash: the hook points do, for example `on-request`.
+KEY_LINE = re.compile(r"^(\s+)([\w-]+):[ \t]*([^#\n]*?)([ \t]*#.*)?$")
 
 
 def scalar(value: Any) -> str:
