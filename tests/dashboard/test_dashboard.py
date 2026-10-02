@@ -62,6 +62,8 @@ def test_page(client: TestClient) -> None:
     "the code legend is a card of its own beside the table"
   )
   assert "<code>frX</code>" not in page.text, "the legend body is filled by app.js"
+  for block in ("ov-providers", "ov-keys", "ov-settings"):
+    assert block not in page.text, f"the Overview keeps state only: no {block} block"
   for name in (
     "overview",
     "requests",
