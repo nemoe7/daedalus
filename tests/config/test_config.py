@@ -1,5 +1,6 @@
 """Tests for the YAML config loader."""
 
+import logging
 import os
 import tempfile
 from pathlib import Path
@@ -206,6 +207,38 @@ def test_provider_file() -> None:
     assert router.candidates(loaded, "TIER-B", ["p/special", "p/regular"]) == [
       "p/regular"
     ], "the main tier does not apply to the file model"
+    assert config.file_shadows(main) == {"p.yml": "free.yml"}, (
+      "the file that no main block shadows stays out"
+    )
     separate.unlink()
     assert config.get_config()["p"][config.FILE_KEY]["api_key"] == "file"
     assert config.load_config(main)["p"].get(config.FILE_KEY) is None, "reload drops it"
+    assert config.file_shadows(main) == {}
+
+
+def test_file_shadows_names_only_a_shared_block() -> None:
+  """A provider file with a block of its own is not shadowed, and the load logs each shadowed file."""
+  with tempfile.TemporaryDirectory() as folder:
+    main = Path(folder) / "free.yml"
+    main.write_text("p:\n  api_key: main\n", encoding="utf-8")
+    (Path(folder) / "p.yml").write_text(
+      "api_key: file\nmodels:\n  m: {}\n", encoding="utf-8"
+    )
+    (Path(folder) / "q.yml").write_text("api_key: q\n", encoding="utf-8")
+    assert config.file_shadows(main) == {"p.yml": "free.yml"}
+    records: list[logging.LogRecord] = []
+
+    class Keep(logging.Handler):
+      def emit(self, record: logging.LogRecord) -> None:
+        records.append(record)
+
+    logger = logging.getLogger("daedalus.config")
+    handler = Keep()
+    logger.addHandler(handler)
+    try:
+      config.load_config(main)
+    finally:
+      logger.removeHandler(handler)
+    messages = [record.getMessage() for record in records]
+    assert any("p.yml" in text and "free.yml" in text for text in messages), messages
+    assert not any("q.yml" in text for text in messages), messages

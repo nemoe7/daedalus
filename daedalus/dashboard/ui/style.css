@@ -69,6 +69,8 @@ button.chip { background: transparent; font: inherit; font-size: 13px; cursor: p
 button.chip:hover:not(:disabled) { border-color: var(--accent); }
 button.chip:disabled { cursor: progress; }
 .types { display: flex; gap: 4px; }
+/* A phone drops the Type column, so the chips of each model join its name. */
+.phone-types { display: none; }
 .chip.flag { padding: 0 7px; font-size: 12px; line-height: 20px; }
 .chip.mode { color: var(--text); }
 /* A state that the page cannot confirm reads in the bad color, so it cannot pass for healthy. */
@@ -306,6 +308,7 @@ section[data-page="providers"], section[data-page="settings"], #yaml-view, #sett
 #editor, #settings-editor { flex: 1; min-height: 240px; resize: none; border-bottom: 0; border-radius: var(--radius); }
 .views { display: flex; gap: 6px; }
 .files { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+.files + .message { margin: -8px 0 12px; }
 .provider .field.stack { flex-direction: column; align-items: stretch; gap: 8px; }
 .provider input.text { width: 100%; padding: 6px 10px; font: 13px var(--mono); }
 .pills { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -425,6 +428,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   th, td { padding: 10px; }
   /* A phone head cell keeps a 44 px tap area for its sort. */
   .models th { padding: 13px 8px; }
+  .phone-types { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 6px; }
   .hide-sm { display: none; }
   .models .weight { width: 80px; min-width: 0; gap: 6px; }
   #limit-rows .weight.left { min-width: 0; }
