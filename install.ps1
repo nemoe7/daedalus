@@ -4,7 +4,7 @@ $ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
 $repo = 'nemoe7/daedalus'
-# The image that the Dev Image workflow builds from main. install --dev pulls it without the source.
+# The image that the Docker workflow builds from main. install --dev pulls it without the source.
 $devImage = "ghcr.io/$repo:dev"
 
 function Stop-Install([string]$message) {
@@ -175,7 +175,7 @@ if ($needFiles) {
     Where-Object { $_ -match '^v\d+(\.\d+)+$' } |
     Sort-Object { [version]$_.Substring(1) } |
     Select-Object -Last 1
-  # dev tracks main: the Dev Image workflow builds the dev image from main.
+  # dev tracks main: the Docker workflow builds the dev image from main.
   if ($dev) { $tag = $null }
   $ref = if ($tag) { "refs/tags/$tag" } else { 'refs/heads/main' }
   $tmp = Join-Path ([IO.Path]::GetTempPath()) ([IO.Path]::GetRandomFileName())
