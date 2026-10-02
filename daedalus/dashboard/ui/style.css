@@ -428,7 +428,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   th, td { padding: 10px; }
   /* A phone head cell keeps a 44 px tap area for its sort. */
   .models th { padding: 13px 8px; }
-  .phone-types { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 6px; }
+  /* The dropped Type column shows under each model name, and the name keeps its ellipsis. */
+  .models td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .phone-types { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
   .hide-sm { display: none; }
   .models .weight { width: 80px; min-width: 0; gap: 6px; }
   #limit-rows .weight.left { min-width: 0; }
