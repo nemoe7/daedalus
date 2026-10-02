@@ -204,6 +204,7 @@ def test_app_js_tab_fades() -> None:
   """The tab bar fades mark the scroll ends, so a cut tab still shows."""
   code = _app_js_vm(
     """
+assert(classes.has('fade-left') && classes.has('fade-right'), 'the first paint marks the fades');
 sandbox.renderStatus({
   healthy: true, sessions: 2, models: 80, version: 'v1',
   catalog: { built: 1, next: 2, rebuilding: false },
@@ -222,6 +223,17 @@ assert(!classes.has('fade-left') && !classes.has('fade-right'));
 """
   )
   subprocess.run(["node", "-e", code], check=True)
+
+
+def test_phone_model_head_keeps_a_tap_area() -> None:
+  """A phone head cell is a 44 px sort target, and the whole cell reads as one."""
+  css = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
+  ).read_text(encoding="utf-8")
+  base_css, mobile_css = css.split("@media (max-width: 720px) {", 1)
+  mobile_css = mobile_css.split("\n}", 1)[0]
+  assert "th[data-sort] { cursor: pointer; }" in base_css
+  assert ".models th { padding: 13px 8px; }" in mobile_css
 
 
 def test_app_js_status_hosts() -> None:
