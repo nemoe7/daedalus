@@ -619,6 +619,8 @@ def test_non_text() -> None:
     ("gemini", "gemini-3.1-flash-tts-preview"): "audio_speech",
     ("gemini", "gemini-3.5-transcribe"): "audio_transcription",
     ("mistral", "codestral-2508"): None,
+    ("cloudflare", "@cf/cloudflare/clef"): "decisions",
+    ("cloudflare", "@cf/cloudflare/clef-flash"): "decisions",
   }
   for (name, slug), mode in modes.items():
     assert slug in discovery.select(providers[name], [slug]), slug

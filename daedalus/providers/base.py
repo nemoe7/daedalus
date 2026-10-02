@@ -101,6 +101,8 @@ OUTPUT_MODES = {
   "image": "image_generation",
   "embeddings": "embedding",
   "video": "video_generation",
+  "decisions": "decisions",
+  "rerank": "rerank",
 }
 
 
