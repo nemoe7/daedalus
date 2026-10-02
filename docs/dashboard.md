@@ -31,9 +31,9 @@ keeps its Log out button on a phone. Log out asks for confirmation. Click the ch
 
 The page lists the requests in flight at the top, then the last ones, 50 at
 a time and 500 at most. A click on a request opens its attempts, and a hover
-on a count or name shows the exact value. The Pool column shows short codes,
-such as `lmt` and `rtN`, and the Code legend card beside the table gives the
-meaning of each code. A wide screen keeps the table in its own
+on a count or name shows the exact value. The Pool column shows 3-character
+codes, such as `lmt`, `frX` and `tlN`, and the Code legend card beside the
+table gives the meaning of each code. A wide screen keeps the table in its own
 panel, so the head stays in view and the panel scrolls sideways: the page
 never scrolls sideways. A phone shows the page scroll and its card list.
 
