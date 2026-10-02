@@ -40,6 +40,21 @@ const nameCell = (text, shown = esc(text), label = "Model") =>
 const cell = (label, inner, cls = "") =>
   `<td role="cell"${cls ? ` class="${cls}"` : ""}>${mobileLabel(label)}<span class="cell-value">${inner}</span></td>`;
 
+// A confirmation modal in place of window.confirm. It resolves true on Confirm.
+let settle = null;
+function ask(title, message, confirm = "Confirm", danger = false) {
+  return new Promise((resolve) => {
+    settle = resolve;
+    $("modal-title").textContent = title;
+    $("modal-message").textContent = message;
+    const ok = $("modal-ok");
+    ok.textContent = confirm;
+    ok.classList.toggle("danger", danger);
+    $("modal").returnValue = "";
+    $("modal").showModal();
+  });
+}
+
 // One card for each page, from the data that the pages already read.
 function renderOverview() {
   $("ov-requests").innerHTML = state.requests.slice(0, 10).map((r) => line(
@@ -142,7 +157,8 @@ function catalogChip({ built, next, rebuilding }) {
 }
 
 async function rebuildCatalog() {
-  if (!confirm("Rebuild the catalog now? daedalus gets the model list of each provider again.")) return;
+  const go = await ask("Rebuild the catalog", "daedalus reads the model list of each provider again.", "Rebuild");
+  if (!go) return;
   try {
     await call("catalog", { method: "POST" });
   } catch (error) {
@@ -430,11 +446,13 @@ function transitionCell(t) {
   return ` <span class="transition-code" title="${esc(label)}" aria-label="${esc(label)}">${esc(t.reason)}</span>`;
 }
 
-// The tier letter of a pool short name, from the pool cards: sophos gives A.
+// The tier letter of a pool short name: sophos gives A. The pool cards give it, and the
+// built-in names cover the first paint, before the cards arrive.
+const BUILT_IN_TIERS = { sophos: "A", deinos: "B", koinos: "C", moros: "D" };
 function poolTier(name) {
   const pool = state.pools.find((p) => p.shown.replace("daedalus/", "") === name);
   const tier = pool?.members.find((m) => m.tier)?.tier;
-  return tier ? tierLetter(tier) : name;
+  return tier ? tierLetter(tier) : BUILT_IN_TIERS[name] || String(name).slice(0, 1).toUpperCase();
 }
 
 // The code legend of the Requests page: each short code with its meaning.
@@ -1188,9 +1206,9 @@ async function saveYaml() {
 const save = () => (state.view === "form" ? saveForm() : saveYaml());
 
 // The other view shows the saved file. Unsaved changes go after a confirmation.
-function switchView(view) {
+async function switchView(view) {
   if (view === state.view) return;
-  if (dirty() && !confirm("Discard the unsaved changes of this file?")) return;
+  if (dirty() && !(await ask("Discard changes", "The unsaved changes of this file go away.", "Discard", true))) return;
   const index = state.file;
   state.forms[index] = clone(state.files[index].blocks);
   $("editor").value = state.files[index].text = state.saved[index];
@@ -1403,9 +1421,9 @@ async function loadSettings() {
 }
 
 // The other view shows the saved file. Unsaved changes go after a confirmation.
-function switchSettingsView(view) {
+async function switchSettingsView(view) {
   if (view === state.settingsView) return;
-  if (settingsDirty() && !confirm("Discard the unsaved settings changes?")) return;
+  if (settingsDirty() && !(await ask("Discard changes", "The unsaved settings changes go away.", "Discard", true))) return;
   state.settingsView = view;
   $("settings-editor").value = state.settings.text;
   $("settings-message").textContent = "";
@@ -1574,7 +1592,7 @@ $("show-password").addEventListener("click", () => showPassword($("login").passw
 document.addEventListener("click", async (event) => {
   if (event.target.closest(".rebuild")) return rebuildCatalog();
   if (!event.target.closest(".logout")) return;
-  if (!confirm("Log out of the dashboard?")) return;
+  if (!(await ask("Log out", "The dashboard session ends.", "Log out"))) return;
   await call("logout", { method: "POST" }).catch(() => {});
   keepSession(null);
   showLogin();
@@ -1582,7 +1600,8 @@ document.addEventListener("click", async (event) => {
 $("reset-weights").addEventListener("click", async () => {
   const message = $("reset-message");
   message.textContent = "";
-  if (!confirm("Set all weights back to 1 and end all cooldowns?")) return;
+  const go = await ask("Reset weights and cooldowns", "All weights go back to 1. All cooldowns end. Session models stay.", "Reset", true);
+  if (!go) return;
   try {
     await call("reset", { method: "POST" });
     message.className = "message ok";
@@ -1615,7 +1634,7 @@ $("keys").addEventListener("click", async (event) => {
   const button = event.target.closest("[data-key]");
   if (!button) return;
   const name = button.dataset.key;
-  if (!confirm(`Delete the key "${name}"? Clients with it get 401 at once.`)) return;
+  if (!(await ask("Delete key", `Clients with the key "${name}" get 401 at once.`, "Delete", true))) return;
   await guarded(async () => {
     await call("keys/" + encodeURIComponent(name), { method: "DELETE" });
     await refreshKeys();
@@ -1639,7 +1658,7 @@ $("env-rows").addEventListener("click", async (event) => {
   const button = event.target.closest("[data-env-clear]");
   if (!button) return;
   const name = button.dataset.envClear;
-  if (!confirm(`Clear the saved value of ${name}? daedalus then reads the environment variable.`)) return;
+  if (!(await ask("Clear the saved value", `${name} then reads the environment variable.`, "Clear", true))) return;
   $("env-message").textContent = "";
   try {
     renderEnv(await call("env", { method: "DELETE", body: JSON.stringify({ name }) }));
@@ -1785,7 +1804,7 @@ $("drop-provider").addEventListener("click", async () => {
   const message = $("save-message");
   message.textContent = "";
   const file = state.files[state.file];
-  if (!file || !confirm(`Delete ${file.path}?`)) return;
+  if (!file || !(await ask("Delete file", `${file.path} goes away. The main file stays.`, "Delete", true))) return;
   try {
     await call("files", { method: "DELETE", body: JSON.stringify({ path: file.path }) });
     await reloadFiles(null);
@@ -1845,6 +1864,13 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("beforeunload", (event) => {
   if (dirty() || settingsDirty()) event.preventDefault();
+});
+
+// The dialog closes on Confirm, on Cancel, on Escape and on a backdrop click.
+$("modal").addEventListener("close", (event) => {
+  const done = settle;
+  settle = null;
+  done?.(event.target.returnValue === "ok");
 });
 
 renderLegend();

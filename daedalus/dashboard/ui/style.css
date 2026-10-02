@@ -187,6 +187,17 @@ a.more:hover { color: var(--accent); }
   user-select: all; overflow-wrap: anywhere;
 }
 .danger:hover { color: var(--bad); border-color: var(--bad); }
+/* The confirmation modal, in place of window.confirm. */
+.modal {
+  max-width: 420px; padding: 0; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--panel); color: var(--text);
+}
+.modal::backdrop { background: rgb(0 0 0 / 0.45); }
+.modal form { display: grid; gap: 8px; margin: 0; padding: 20px; }
+.modal h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.modal p { margin: 0; color: var(--muted); font-size: 13px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.modal .primary.danger { background: var(--bad); }
 td.end { text-align: right; }
 .empty { padding: 24px 16px; color: var(--muted); text-align: center; }
 /* The Requests list scrolls inside its panel, so the head stays in view and the page never scrolls sideways.

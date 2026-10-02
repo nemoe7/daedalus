@@ -36,6 +36,17 @@
   <div class="message bad" id="login-message" role="alert"></div>
 </form>
 
+<dialog id="modal" class="modal" aria-labelledby="modal-title">
+  <form method="dialog">
+    <h3 id="modal-title"></h3>
+    <p id="modal-message"></p>
+    <div class="modal-actions">
+      <button class="ghost" type="submit" value="cancel">Cancel</button>
+      <button class="primary" id="modal-ok" type="submit" value="ok">Confirm</button>
+    </div>
+  </form>
+</dialog>
+
 <div id="app" hidden>
   <header>
     <div class="brand"><img src="ui/logo.svg" alt="" width="34" height="34"><div>daedalus<span>.</span><small id="version"></small></div></div>
