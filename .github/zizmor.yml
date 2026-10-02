@@ -1,0 +1,17 @@
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        "*": ref-pin
+
+  # These base-only workflows inspect PR data. They do not execute PR code.
+  # Docker publishes only trusted main or release commits after its checks.
+  dangerous-triggers:
+    ignore:
+      - codeql.yml
+      - container-scan.yml
+      - dependency-review.yml
+      - docker.yml
+      - pr-check.yml
+      - secret-scan.yml
+      - workflow-security.yml

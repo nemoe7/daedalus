@@ -1,0 +1,6 @@
+# hadolint configuration. See https://github.com/hadolint/hadolint
+ignored:
+  # DL3008 asks for an exact version in apt-get install. tzdata comes from the Debian
+  # base image, so an exact pin breaks the build whenever python:3.12-slim ships a
+  # newer one. Every other rule still blocks the pull request.
+  - DL3008

@@ -1,0 +1,86 @@
+name: Container scan (Trivy)
+
+on:
+  pull_request:
+    paths:
+      - "Dockerfile"
+      - "compose.yml"
+      - "compose.dev.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/container-trivy.yml"
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - "compose.yml"
+      - "compose.dev.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/container-trivy.yml"
+  workflow_dispatch:
+
+# A new push to the same branch cancels the older scan.
+concurrency:
+  group: container-trivy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # A pull request reads the findings in the log and never fails on them.
+  advisory:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - name: Build the image
+        run: docker build --tag daedalus:scan .
+
+      - name: Scan the image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: daedalus:scan
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+          ignore-unfixed: true
+
+  # The trusted main job is the only one that writes code scanning results.
+  code-scanning:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - name: Build the image
+        run: docker build --tag daedalus:scan .
+
+      - name: Scan the image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: daedalus:scan
+          format: sarif
+          output: trivy.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+          ignore-unfixed: true
+
+      - name: Upload the SARIF report
+        uses: github/codeql-action/upload-sarif@v4.38.2
+        with:
+          sarif_file: trivy.sarif
+          category: trivy-container

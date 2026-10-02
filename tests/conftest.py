@@ -109,3 +109,10 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 @pytest.fixture
 def anyio_backend() -> str:
   return "asyncio"
+
+
+# The pull request and commit checks live in scripts/, which is not a package.
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "scripts"))
