@@ -93,8 +93,8 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 | `catalog.every` | `6` | Hours between catalog rebuilds. `0` stops them. |
 | `catalog.anchor` | `6` | Local hour that the rebuild times start from. A whole hour from 0 to 23. |
 | `headroom.timeout` | `5` | Seconds for the full Headroom answer. Then the original messages go to the provider. |
-| `escalation.keywords` | `[]` | Whole words or phrases. A match moves the `daedalus/auto` tier 1 step up, session-kept. |
-| `switch.keywords` | `[]` | Words or phrases, `clanker` shipped. A match replaces the session model with a same-tier model. |
+| `escalation.keywords` | `ultrathink`, `think hard`, `think harder`, `think deeply`, `think longer`, `root cause`, `race condition`, `memory leak`, `deadlock`, `security review`, `performance regression`, `audit`, `refactor`, `investigate`, `diagnose`, `code review`, `system design`, `optimize`, `debug`, `design`, `architecture` | Whole words or phrases. A match moves the `daedalus/auto` tier 1 step up, session-kept. |
+| `switch.keywords` | `clanker` | Words or phrases. A match gives the pool session another model of the same tier. |
 | `dashboard.theme` | `system` | `system`, `light` or `dark`. The Settings page sets it. Login always follows the device. |
 | `dashboard.time_format` | `24h` | `24h` or `12h` for the dashboard clocks. The Settings page sets it. |
 | `request_hooks.on-request` | `hooks/openwebui_retry.py` | The request hook file of the `config` folder. Empty: no hook. See [Hooks](hooks.md). |
