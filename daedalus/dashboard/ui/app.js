@@ -1464,9 +1464,15 @@ async function refreshFast() {
 const SPANS = { minute: "min", hour: "h", day: "day", month: "mo" };
 const unit = (r) => `${r.kind === "tokens" ? "tok" : "req"}${r.span ? `/${SPANS[r.span] || r.span}` : ""}`;
 const SPAN_SHORT = { minute: "M", hour: "H", day: "D", month: "MO" };
+const SPAN_WORD = { minute: "minute", hour: "hour", day: "day", month: "month" };
 function limitUnit(r) {
   if (!SPAN_SHORT[r.span]) return r.kind;
   return `${r.kind === "tokens" ? "T" : "R"}P${SPAN_SHORT[r.span]}`;
+}
+// The full name of a short unit, for the hover text of the Limit column, for example Requests per day.
+function limitTitle(r) {
+  const kind = r.kind === "tokens" ? "Tokens" : "Requests";
+  return r.span ? `${kind} per ${SPAN_WORD[r.span] || r.span}` : kind;
 }
 
 // The balances, then the 3 rate-limit rows with the least left.
@@ -1493,7 +1499,7 @@ function renderLimits(data) {
   const rows = data.lanes.flatMap((lane) => lane.rows.map((row) => ({ ...row, model: lane.model, client: lane.client, at: lane.at })));
   $("limit-rows").innerHTML = rows.length ? rows.map((r) => `<tr>
       ${nameCell(r.model, `${esc(r.model)}${r.client ? ` <span class="muted">${esc(r.client)}</span>` : ""}`)}
-      <td>${esc(limitUnit(r))}</td>
+      <td title="${esc(limitTitle(r))}">${esc(limitUnit(r))}</td>
       <td><div class="weight left" title="${r.remaining.toLocaleString()} of ${r.limit.toLocaleString()}">
         ${weightBar(r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0)}
         <span class="num${r.remaining > 0 ? "" : " out"}">${floorCount(r.remaining)} of ${floorCount(r.limit)}</span></div></td>

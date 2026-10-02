@@ -69,7 +69,7 @@ def test_limits_row() -> None:
   view = seen.view()
   assert view["lanes"] == [], "the counted limit is not a header row"
   assert view["providers"] == [
-    {"name": "kilo", "items": [["Requests left this hour, counted", "2 of 3", 2 / 3]]}
+    {"name": "kilo", "items": [["Requests left this hour", "2 of 3", 2 / 3]]}
   ], "without a balance, the counter makes the kilo card"
   seen.balances = {"kilo": [("Balance", "$1.00", None)]}
   items = seen.view()["providers"][0]["items"]
