@@ -24,7 +24,7 @@ cloudflare:
 legacy:
   api_key: os.environ/LEGACY_API_KEY
 """
-SECRET = "gsk-0123456789abcdef"
+SECRET = "test-secret-value"
 
 
 def rows(client: TestClient) -> dict[str, dict]:
@@ -59,10 +59,10 @@ def test_values(client: TestClient) -> None:
   row = rows(client)["GROQ_API_KEY"]
   assert row["name"] == "GROQ_API_KEY"
   assert row["state"] == "saved"
-  assert row["end"] == "cdef"
+  assert row["end"] == "alue"
   assert row["has_saved"] is True
   assert row["has_env"] is True
-  assert row["start"] == "gsk-"
+  assert row["start"] == "test"
   assert row["length"] == len(SECRET)
   assert config.get_config()["groq"]["api_key"] == SECRET, "the saved value wins"
   # cloudflare account_id is separate field, api_base constructed only when account_id set
