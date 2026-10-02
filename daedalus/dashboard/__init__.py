@@ -848,6 +848,7 @@ def routes(
     if not allowed(request):
       return denied()
     main = FILES[0]
+    shadows = config.file_shadows(main)
     found = []
     for path in config_files():
       key = str(path)
@@ -860,6 +861,8 @@ def routes(
         _FILES_CACHE[key] = hit
       entry = dict(hit[1])
       entry["main"] = path == main
+      # A block of the main file keeps its provider keys, so the tab names the winner.
+      entry["shadow"] = shadows.get(path.name)
       found.append(entry)
     return JSONResponse(found)
 
