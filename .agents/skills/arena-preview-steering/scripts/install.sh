@@ -167,6 +167,24 @@ _arena_preview_gate() {
       ;;
   esac
   case "\$BASH_COMMAND" in *preview*|*profile*|*bashrc*|*arena-state*|gh*|sleep*|true*|:*|test*|"git status"*|"git diff"*|"git add"*|"git commit"*|*arena-workspace*|*"ss -ltn"*|*"netstat -ltn"*) return 0 ;; esac
+  # A push is a checkpoint: an unread note can change what leaves the sandbox,
+  # so it waits for an ack whatever the call count.
+  case "\$BASH_COMMAND" in
+    *"git push"*)
+      "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" gate --push 2>/dev/null
+      case \$? in
+        1) exit 130 ;;
+      esac
+      ;;
+  esac
+  # A command line that reads or answers the inbox must reach its read: a chain with a cd
+  # before the read stays quiet for the count gate, while the push rule above still runs
+  # for every push in the same shell.
+  case "\$(tr '\\0' ' ' < /proc/\$\$/cmdline 2>/dev/null)" in
+    *"arena-preview read"*|*"arena-preview ack"*|*"arena-preview poll"*|*"arena-preview task"*|*"preview.py read"*|*"preview.py ack"*|*"preview.py poll"*|*"preview.py task"*)
+      return 0
+      ;;
+  esac
   case "\${_arena_preview_gate_checked:-}" in 1) return 0 ;; esac
   _arena_preview_gate_checked=1
   "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" gate 2>/dev/null
@@ -181,18 +199,18 @@ strip_block "$PATH_MARKER"
   cat >> "$PROFILE" <<'EOF' || fail "cannot append to $PROFILE"
 
 # arena-preview-path
-_arena_preview_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-if [ -n "$_arena_preview_root" ]; then
-  _arena_preview_scripts="$_arena_preview_root/.agents/skills/arena-preview-steering/scripts"
-  if [ -x "$_arena_preview_scripts/arena-preview" ]; then
-    case ":$PATH:" in
-      *":$_arena_preview_scripts:"*) ;;
-      *) export PATH="$_arena_preview_scripts:$PATH" ;;
-    esac
-  fi
+# The root is pinned at install time: a source-time lookup reads the cwd of the
+# sourcing shell, so a shell outside the checkout would miss the command.
+_arena_preview_scripts="__ARENA_PREVIEW_ROOT__/.agents/skills/arena-preview-steering/scripts"
+if [ -x "$_arena_preview_scripts/arena-preview" ]; then
+  case ":$PATH:" in
+    *":$_arena_preview_scripts:"*) ;;
+    *) export PATH="$_arena_preview_scripts:$PATH" ;;
+  esac
 fi
-unset _arena_preview_root _arena_preview_scripts
+unset _arena_preview_scripts
 EOF
+sed -i "s|__ARENA_PREVIEW_ROOT__|$REPO_ROOT|" "$PROFILE" || fail "cannot pin the PATH root in $PROFILE"
 
 echo "arena-preview installer: ok; state: $REPO_ROOT/$STATE_REL, ignored through $GLOBAL_IGNORE; command: arena-preview in new Bash shells"
 
