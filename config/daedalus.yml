@@ -1,10 +1,9 @@
-# Router settings. Each key is optional. A missing key uses the value shown here.
+# Router settings. Each key is optional. A missing key uses the built-in default.
 # DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.
 # HEADROOM_URL turns on message compression through a Headroom sidecar.
 timeouts:
   request: 600 # seconds to wait for an answer, for all attempts
   wait: 60 # seconds without data from the provider, keep-alive bytes excluded
-  slow: 30 # a first token after this is slow. Half of wait when missing.
 session_affinity:
   enabled: true
   change_on_draw: true # false: keep the current pin after a weighted first-tier draw
@@ -38,34 +37,6 @@ catalog:
   anchor: 6 # local hour (TZ env var) that the rebuild times start from: 00, 06, 12 and 18
 headroom:
   timeout: 5 # seconds for the full Headroom answer. After this, the original messages go to the provider.
-escalation:
-  # Whole words or phrases in any case. A match in the last user message moves the daedalus/auto session tier 1 step up.
-  keywords:
-    - ultrathink
-    - think hard
-    - think harder
-    - think deeply
-    - think longer
-    - root cause
-    - race condition
-    - memory leak
-    - deadlock
-    - security review
-    - performance regression
-    - audit
-    - refactor
-    - investigate
-    - diagnose
-    - code review
-    - system design
-    - optimize
-    - debug
-    - design
-    - architecture
-switch:
-  # Whole words or phrases in any case. A match in the last user message gives the pool session another model of the same tier.
-  keywords:
-    - clanker
 dashboard:
   theme: system # system follows the device. Light or dark fixes it.
   time_format: 24h # 24h or 12h, for each time on the dashboard

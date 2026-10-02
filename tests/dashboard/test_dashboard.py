@@ -611,6 +611,8 @@ assert(html.slice(Math.max(0, at - 120), at).includes('type="checkbox"'), 'chang
 for (const id of ['set-session_affinity-enabled', 'set-session_affinity-change_on_draw', 'set-weights-enabled', 'set-pacing-enabled']) node(id).checked = true;
 node('set-dashboard-theme').value = 'system';
 node('set-dashboard-time_format').value = '24h';
+node('set-escalation-keywords').value = probe.state.settings.defaults.escalation.keywords.join('\\n');
+node('set-switch-keywords').value = probe.state.settings.defaults.switch.keywords.join('\\n');
 assert.strictEqual(JSON.stringify(probe.settingsChanges()), '{{}}', 'a loaded file reports no change');
 """
   subprocess.run(["node", "-e", code], check=True)
@@ -886,7 +888,10 @@ def test_files(
     client.put("/ui/api/files", json={"path": path, "text": ""}).status_code == 400
   ), "the Settings page owns the settings file"
   shown = client.get("/ui/api/settings").json()
-  assert shown["file"]["timeouts"]["slow"] == 30, shown
+  assert "slow" not in shown["file"]["timeouts"], (
+    "a derived value stays out of the file"
+  )
+  assert shown["defaults"]["timeouts"]["slow"] is None, shown
   assert shown["defaults"]["weights"]["fault"] == 0.5, shown
   assert shown["defaults"]["loops"] == {
     "calls": 3,
@@ -901,11 +906,12 @@ def test_files(
 
   monkeypatch.setattr(headroom, "available", ready)
   assert client.get("/ui/api/settings").json()["headroom_available"] is True
+  before = settings.DEFAULT_PATH.read_text()
   bad = client.put("/ui/api/settings", json={"changes": {"weights": {"fault": 0}}})
   assert bad.status_code == 422 and "above 0" in bad.text, bad.text
   bad = client.put("/ui/api/settings", json={"changes": {"loops": {"calls": 1}}})
   assert bad.status_code == 422 and "between 2 and 100" in bad.text, bad.text
-  assert "slow: 30" in settings.DEFAULT_PATH.read_text(), "a bad value is not written"
+  assert settings.DEFAULT_PATH.read_text() == before, "a bad value is not written"
   unknown = client.put("/ui/api/settings", json={"changes": {"x": {"y": 1}}})
   assert unknown.status_code == 422, unknown.text
   assert client.put("/ui/api/settings", json={"changes": 1}).status_code == 400
@@ -917,7 +923,8 @@ def test_files(
   saved = client.put("/ui/api/settings", json={"changes": changes})
   assert saved.status_code == 200, saved.text
   text = settings.DEFAULT_PATH.read_text()
-  assert "  slow: 12 # a first token after this is slow" in text, "the comments stay"
+  assert "  slow: 12" in text, "the new value is written"
+  assert "# seconds without data from the provider" in text, "the comments stay"
   assert "# Router settings" in text and "every: 0 #" in text, text
   assert api.SLOW_SECONDS == 12.0, "the save applies the settings"
   assert (loops.CALLS, loops.REPEATS, loops.SHORTEST, loops.LONGEST) == (5, 6, 10, 3000)
@@ -944,7 +951,11 @@ def test_files(
   assert "keywords:\n    - audit\n" in text and "ultrathink" not in text, text
   words = {"escalation": {"keywords": None}}
   assert client.put("/ui/api/settings", json={"changes": words}).status_code == 200
-  assert "keywords: []" in settings.DEFAULT_PATH.read_text() and api.KEYWORDS is None
+  text = settings.DEFAULT_PATH.read_text()
+  assert "keywords:\n    - ultrathink\n" in text, text
+  assert api.KEYWORDS and api.KEYWORDS.search("ultrathink"), (
+    "an empty field writes the default"
+  )
   assert (
     client.put(
       "/ui/api/settings", json={"changes": {"request_hooks": {"on-request": 3}}}
