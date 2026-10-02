@@ -181,14 +181,37 @@ function renderStatusCard(status) {
       <span>Catalog</span><span><b>${esc(last)}</b>${following}</span></button>`;
 }
 
-function renderStatus(status) {
-  const chips = [
+// The last state answer. It stays in place when a later call fails, and the chip says so.
+let stateKnown = null;
+
+function stateChip() {
+  if (stateKnown === null) return '<span class="chip" id="state-loading">Loading the state</span>';
+  if (stateKnown) return "";
+  return '<span class="chip bad" id="state-unknown" title="The last state call failed. The page shows the last good answer.">State unknown</span>';
+}
+
+function renderChips() {
+  const status = state.status;
+  const chips = status ? [
     `<span class="chip"><span class="dot${status.healthy ? "" : " off"}"></span>` +
       `<b>${status.healthy ? "Healthy" : "Down"}</b></span>`,
     `<span class="chip" title="Conversations with a session model and a request in the last hour"><b>${status.sessions}</b> sessions</span>`,
     catalogChip(status.catalog),
-  ];
+  ] : [];
+  chips.push(stateChip());
   document.querySelectorAll("[data-status]").forEach((host) => { host.innerHTML = chips.join(""); });
+}
+
+function setStateKnown(value) {
+  stateKnown = value;
+  const app = $("app");
+  if (app?.dataset) app.dataset.loading = value === null ? "1" : "";
+  renderChips();
+}
+
+function renderStatus(status) {
+  state.status = status;
+  setStateKnown(true);
   renderStatusCard(status);
   $("version").textContent = status.version;
   markNavFades();
@@ -1467,14 +1490,27 @@ async function saveSettings() {
 }
 
 async function refreshFast() {
-  const [status, requests] = await Promise.all([call("status"), call(`requests?limit=${state.requestLimit}`)]);
-  renderStatus(status);
-  state.requests = splitRequests(requests);
-  renderRequests(state.requests);
-  $("more-requests").hidden = requests.length < state.requestLimit || state.requestLimit >= REQUESTS_KEPT;
-  // After a rebuild, the pools and models change too.
-  if (state.catalog.rebuilding && !status.catalog?.rebuilding) guarded(refreshSlow);
-  state.catalog = status.catalog || {};
+  // A failed call keeps the last values and marks the page, so the page never lies in silence.
+  const [answer, rows] = await Promise.allSettled([
+    call("status"),
+    call(`requests?limit=${state.requestLimit}`),
+  ]);
+  for (const part of [answer, rows]) {
+    if (part.status === "rejected" && part.reason instanceof LoggedOut) throw part.reason;
+  }
+  if (answer.status === "rejected") setStateKnown(false);
+  else {
+    const status = answer.value;
+    // After a rebuild, the pools and models change too.
+    if (state.catalog.rebuilding && !status.catalog?.rebuilding) guarded(refreshSlow);
+    state.catalog = status.catalog || {};
+    renderStatus(status);
+  }
+  if (rows.status === "fulfilled") {
+    state.requests = splitRequests(rows.value);
+    renderRequests(state.requests);
+    $("more-requests").hidden = rows.value.length < state.requestLimit || state.requestLimit >= REQUESTS_KEPT;
+  }
   renderOverview();
 }
 
@@ -1545,8 +1581,14 @@ function refresh() {
 }
 
 async function start() {
+  // With no stored session, 1 hint call says whether the cookie is live, so the start asks for no 401.
+  if (!session() && !(await call("login").catch(() => ({}))).session) return showLogin();
   // The settings come first, so that the first tables use the time format.
   await loadSettings();
+  // The page shows before the first state answer, so a slow answer paints the shape of the page.
+  $("login").hidden = true;
+  $("app").hidden = false;
+  setStateKnown(null);
   await refreshFast();
   await refreshSlow();
   takeFiles(await call("files"));
@@ -1558,8 +1600,6 @@ async function start() {
   renderFiles();
   renderTiers();
   renderOverview();
-  $("login").hidden = true;
-  $("app").hidden = false;
   if (!document.querySelector(`section[data-page="providers"]`).hidden) renderForm();
   state.timers = [
     // A hidden tab asks the server for nothing. It refreshes when it shows again.

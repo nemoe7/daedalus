@@ -646,13 +646,14 @@ def routes(
     return response
 
   @api.get("/login")
-  async def login_form() -> JSONResponse:
-    """The login form hints, with no session: the username to fill in, if the password is the master key, and the version."""
+  async def login_form(request: Request) -> JSONResponse:
+    """The login hints: the username, the master-key note, the version, and whether a session is live."""
     return JSONResponse(
       {
         "username": None if os.environ.get(DAEDALUS_USERNAME) else USERNAME,
         "master": not os.environ.get(DAEDALUS_PASSWORD),
         "version": __version__,
+        "session": allowed(request),
       }
     )
 
