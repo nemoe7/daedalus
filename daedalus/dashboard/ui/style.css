@@ -189,15 +189,28 @@ a.more:hover { color: var(--accent); }
 .danger:hover { color: var(--bad); border-color: var(--bad); }
 td.end { text-align: right; }
 .empty { padding: 24px 16px; color: var(--muted); text-align: center; }
-/* The Requests table keeps its head in view. The panel does not clip it, so the head sticks to `main`. */
-.panel:has(table.requests) { overflow: visible; }
+/* The Requests list scrolls inside its panel, so the head stays in view and the page never scrolls sideways.
+   A phone keeps the card list and the page scroll. */
+@media (min-width: 721px) {
+  main:has(> section[data-page="requests"]:not([hidden])) { display: flex; flex-direction: column; overflow: hidden; }
+  main:has(> section[data-page="requests"]:not([hidden])) > section[data-page="requests"] {
+    flex: 1; display: flex; flex-direction: column; min-height: 0;
+  }
+  /* nowrap keeps the height of the 2 columns at the height of the flow, so the table panel scrolls. */
+  section[data-page="requests"] > .flow { flex: 1; min-height: 0; align-items: stretch; flex-wrap: nowrap; }
+  section[data-page="requests"] > .flow > .column { display: flex; flex-direction: column; min-height: 0; }
+  section[data-page="requests"] > .flow > .column:not(.wide) { flex: 0 0 260px; }
+  section[data-page="requests"] > .flow > .column > .panel { flex: 1; min-height: 0; overflow: auto; }
+  section[data-page="requests"] .legend { align-self: flex-start; }
+}
 .requests thead th { position: sticky; top: 0; background: var(--panel); z-index: 2; }
-/* The code legend of the Requests page, open on a click. */
-.legend { margin: 10px 16px 0; font-size: 12px; color: var(--muted); }
+/* The code legend of the Requests page. A desktop puts it in the column beside the table. */
+.legend { font-size: 12px; color: var(--muted); padding: 14px 16px; }
 .legend summary { width: fit-content; cursor: pointer; }
 .legend-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); gap: 4px 16px; margin-top: 8px; }
 .legend-body span { display: flex; gap: 8px; }
-.legend-body code { font: 12px var(--mono); color: var(--text); }
+/* The legend codes use the font of the codes in the table. */
+.legend-body code { font-family: inherit; font-size: 12px; color: var(--text); }
 tr.request.has-chain { cursor: pointer; }
 /* Each cell keeps 1 line. A long model name ends in an ellipsis. */
 .requests tr:not(.chain) > td { white-space: nowrap; }
