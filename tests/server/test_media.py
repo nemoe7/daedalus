@@ -304,12 +304,23 @@ def test_images(fake: Upstream, client: TestClient) -> None:
     {"model": "groq/img", "prompt": "a cat", "n": 0},
     {"model": "groq/img", "prompt": "a cat", "n": True},
     {"model": "groq/img", "prompt": "a cat", "size": "big"},
+    {"model": "groq/img", "prompt": "a cat", "size": "512x512x512"},
+    {"model": "groq/img", "prompt": "a cat", "size": "0512x512"},
+    {"model": "groq/img", "prompt": "a cat", "size": "512X512"},
     {"model": "groq/img", "prompt": "a cat", "response_format": "png"},
     {"model": "sophos", "prompt": "a cat"},
   ):
     response = client.post("/v1/images/generations", json=body)
     assert response.status_code == 400, (body, response.text)
   assert len(fake.sent) == count, "no upstream call for a bad request"
+
+
+def test_valid_size() -> None:
+  """auto or WIDTHxHEIGHT with whole numbers above 0."""
+  for size in ("auto", "1x1", "512x512", "4096x4096"):
+    assert media.valid_size(size)
+  for size in ("", " auto", "512", "512x", "x512", "0x1", "1x0", "0512x512", "512X512"):
+    assert not media.valid_size(size)
 
 
 def test_gemini_audio(fake: Upstream, client: TestClient) -> None:
