@@ -328,7 +328,9 @@ function chainRows(r) {
 }
 
 function poolText(r) {
-  return `${esc(r.pool || "-")}${transitionCell(r.transition)}${r.routed ? ` <span class="from">from ${esc(r.routed)}</span>` : ""}${retryCell(r)}${r.loop ? ` <span class="from">tool loop ${esc(r.loop)}</span>` : ""}`;
+  const from = r.routed ? ` <span class="from" title="Tier ${esc(poolTier(r.routed))} of the previous model">fr${esc(poolTier(r.routed))}</span>` : "";
+  const loop = r.loop ? ` <span class="from" title="${esc(r.loop)} equal tool calls stopped the chain">tl${esc(r.loop)}</span>` : "";
+  return `${esc(r.pool || "-")}${transitionCell(r.transition)}${from}${loop}`;
 }
 
 function mobileFallbackChain(r) {
@@ -443,23 +445,22 @@ function transitionCell(t) {
   return ` <span class="transition-code" title="${esc(label)}" aria-label="${esc(label)}">${esc(t.reason)}</span>`;
 }
 
+// The tier letter of a pool short name, from the pool cards: sophos gives A.
+function poolTier(name) {
+  const pool = state.pools.find((p) => p.shown.replace("daedalus/", "") === name);
+  const tier = pool?.members.find((m) => m.tier)?.tier;
+  return tier ? tierLetter(tier) : name;
+}
+
 // The code legend of the Requests page: each short code with its meaning.
 function renderLegend() {
   const rows = [
     ...Object.entries(TRANSITION_REASONS),
-    ["from X", "the pool of the previous model"],
-    ["tool loop N", "N equal tool calls stopped the chain"],
-    ["rtN", "OpenWebUI try again N: the count of the repeats"],
+    ["frX", "the tier of the previous model"],
+    ["tlN", "N equal tool calls stopped the chain"],
   ];
   $("legend-body").innerHTML = rows.map(([code, label]) =>
     `<span><code>${esc(code)}</code>${esc(label)}</span>`).join("");
-}
-
-// The try again count of one message, as the 3-character code rtN.
-function retryCell(r) {
-  if (!r.retry) return "";
-  const label = `OpenWebUI try again ${r.retry}`;
-  return ` <span class="transition-code" title="${esc(label)}" aria-label="${esc(label)}">rt${esc(r.retry)}</span>`;
 }
 
 function renderLive() {
