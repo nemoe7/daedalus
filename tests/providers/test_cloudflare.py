@@ -1,6 +1,9 @@
 import httpx
+import yaml
 
 from daedalus import providers
+from daedalus.catalog.enrichment import config_params
+from daedalus.routing import router
 
 CLOUDFLARE = providers.CloudflareProvider(
   "cloudflare", {"api_base": "https://cloudflare.test", "api_key": "k"}
@@ -55,3 +58,16 @@ def test_flux2_multipart() -> None:
     "@cf/black-forest-labs/flux-1-schnell", payload
   )
   assert options == {"json": {"prompt": "a cat"}}, options
+
+
+def test_new_models() -> None:
+  """The 2 new instruct models join TIER-D, and the Clef models stay out of the chat mode."""
+  with open("config/providers/free.yml", encoding="utf-8") as handle:
+    cloudflare = yaml.safe_load(handle)["cloudflare"]
+  for slug in ("@cf/swiss-ai/apertus-v1.5-8b", "@cf/utter-project/eurollm-9b-it"):
+    assert router.claiming_tier(cloudflare, slug) == "TIER-D", slug
+  for slug in ("@cf/cloudflare/clef", "@cf/cloudflare/clef-flash"):
+    assert router.claiming_tier(cloudflare, slug) is None, (
+      "a decision model stays out of the pools"
+    )
+    assert config_params(cloudflare, slug).get("mode") == "decisions", slug

@@ -4,7 +4,7 @@ Each provider except Pollinations has a tested free tier.
 
 | Provider key | Provider | API | Notes |
 | --- | --- | --- | --- |
-| `cloudflare` | Cloudflare Workers AI | OpenAI-compatible, plus the native run API for audio and images | A text-only message goes as 1 string. Paid models stay out. Order 2. |
+| `cloudflare` | Cloudflare Workers AI | OpenAI-compatible, plus the native run API for audio and images | A text-only message goes as 1 string. Paid models stay out. Order 2. The Clef models carry the `decisions` mode, not `chat`. |
 | `gemini` | Google Gemini | Native Gemini API | daedalus maps OpenAI to Gemini and back, thought signatures included. `free.yml` sets `reasoning_effort: high`. |
 | `groq` | Groq | OpenAI-compatible | Gets only the message fields that it accepts. |
 | `kilo` | Kilo Gateway | OpenAI-compatible | Only `:free` models, and `stealth/` models with price 0 in each price field. |
