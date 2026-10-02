@@ -15,6 +15,7 @@ from daedalus import config, dashboard, store
 from daedalus.catalog import schedule
 from daedalus.config import settings
 from daedalus.dashboard import History
+from daedalus.providers import base
 from daedalus.routing import loops
 from daedalus.server import api, headroom, upstream
 
@@ -616,6 +617,15 @@ node('set-switch-keywords').value = probe.state.settings.defaults.switch.keyword
 assert.strictEqual(JSON.stringify(probe.settingsChanges()), '{{}}', 'a loaded file reports no change');
 """
   subprocess.run(["node", "-e", code], check=True)
+
+
+def test_mode_conventions() -> None:
+  """Each mode has a label in the Models table and an option in the Type filter."""
+  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  html = Path("daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  for mode in sorted({"chat", *base.OUTPUT_MODES.values()}):
+    assert re.search(rf"\b{mode}: \"", app), f"{mode} has no label"
+    assert f'value="{mode}"' in html, f"{mode} has no Type filter option"
 
 
 def test_pages_not_nested(client: TestClient) -> None:
