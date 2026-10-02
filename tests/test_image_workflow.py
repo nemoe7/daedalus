@@ -134,3 +134,14 @@ def test_docker_workflow_dev_job_waits_for_ci_on_main() -> None:
   assert "github.event.workflow_run.name == 'CI'" in dev
   assert "github.event.workflow_run.conclusion == 'success'" in dev
   assert "github.event.workflow_run.head_branch == 'main'" in dev
+
+
+DOCKERFILE = Path("Dockerfile")
+
+
+def test_dockerfile_removes_pip_from_the_image() -> None:
+  """The start runs the uv venv, so pip only adds its vendored packages to the scan."""
+  content = DOCKERFILE.read_text()
+
+  assert "pip uninstall -y pip setuptools" in content
+  assert "pip install" not in content
