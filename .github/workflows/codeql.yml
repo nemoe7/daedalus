@@ -1,0 +1,51 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request_target:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"
+
+concurrency:
+  group: codeql-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  SOURCE: ${{ github.event_name == 'pull_request_target' && 'pr-source' || '.' }}
+
+jobs:
+  analyze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, actions]
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - if: github.event_name == 'pull_request_target'
+        name: Read pinned PR files as data
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/pr_snapshot.py "$PR_NUMBER" "$PR_HEAD" --output pr-source
+      - uses: github/codeql-action/init@v4.38.2
+        with:
+          languages: ${{ matrix.language }}
+          source-root: ${{ env.SOURCE }}
+          build-mode: none
+      - uses: github/codeql-action/analyze@v4.38.2
+        with:
+          category: "/language:${{ matrix.language }}"
