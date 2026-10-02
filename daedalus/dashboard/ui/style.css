@@ -54,8 +54,11 @@ header {
   grid-area: chips; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;
   align-items: center; align-self: center; padding: 8px 0;
 }
-#status { padding: 0; }
-/* A phone drops the header chips. The Overview page shows them in their own card. */
+/* The header carries text, not chips: the state and Log out read like the page switcher. */
+#status { padding: 0; gap: 24px; }
+.chips .chip, .chips .ghost { padding: 0; border: 0; border-radius: 0; font-size: 14px; font-weight: 500; }
+.chips button.chip:hover:not(:disabled) { color: var(--text); }
+/* A phone drops the header state. The Overview page shows it in its own card. */
 .status-card { display: none; }
 .chip {
   display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
@@ -389,6 +392,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   header { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; }
   .brand { padding-top: 10px; }
   #status { display: none; }
+  .chips .ghost { min-height: 44px; }
   /* The phone card: a health row, then 1 line for each value. It fills the width, with no chip row. */
   .status-card { display: block; padding: 12px 14px; margin-bottom: 16px; }
   .status-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
