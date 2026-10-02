@@ -5,5 +5,5 @@
     "MD060": true
   },
   "gitignore": true,
-  "ignores": [".agents/**", "ARENA.md"]
+  "ignores": [".agents/**", "ARENA.md", ".github/PULL_REQUEST_TEMPLATE.md"]
 }

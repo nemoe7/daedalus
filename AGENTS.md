@@ -2,14 +2,32 @@
 
 ## Pull request body
 
-A plain list of the files the pull request adds. One line per file, or per small group of
-files, with a short name of what it is.
-
-No rationale. No check output. No tables. No run commands. Analysis goes to a report.
+- Use the H2 sections Summary, Changes, and Validation in that order.
+- Breaking Changes and Related follow in that order when present. Omit either section when empty.
+- Summary holds one paragraph, not a list.
+- Changes holds dash bullets with text.
+- Validation holds `- [x]` or `- [ ]` items, then one space and text. Check an item only after its check runs.
+- A present Breaking Changes or Related section holds dash bullets with text. Do not include `None` or empty headings.
+- If any commit uses `!`, Breaking Changes must list the breaking change.
+- Add no other H2 or H3 headings, HTML comments, preamble, or trailing content.
+- Permit angle brackets only inside fenced code blocks.
+- Use the trusted base copy of `scripts/check_pr.py` in CI, not the PR copy.
+- Put analysis in a report, not the PR body.
 
 ```markdown
-- `daedalus/server/api.py` - OpenAI-compatible proxy: `/health`, `/v1/{path}`, SSE pass-through.
-- `tests/server/test_smoke.py`, `tests/config/test_config.py`.
+## Summary
+
+State the change in one paragraph.
+
+## Changes
+
+- State a concrete change.
+
+## Validation
+
+- [x] State a check that ran.
+- [ ] State a check that did not run.
+
 ```
 
 ## ADRs

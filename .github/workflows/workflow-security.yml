@@ -1,0 +1,90 @@
+name: Workflow security
+
+on:
+  pull_request_target:
+    paths:
+      - ".github/workflows/**"
+      - ".github/actionlint.yaml"
+      - ".github/zizmor.yml"
+      - "scripts/pr_snapshot.py"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
+      - ".github/actionlint.yaml"
+      - ".github/zizmor.yml"
+      - "scripts/pr_snapshot.py"
+  workflow_dispatch:
+
+concurrency:
+  group: workflow-security-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  SOURCE: ${{ github.event_name == 'pull_request_target' && 'pr-source' || '.' }}
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - if: github.event_name == 'pull_request_target'
+        name: Read pinned PR files as data
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/pr_snapshot.py "$PR_NUMBER" "$PR_HEAD" --output pr-source
+      - uses: raven-actions/actionlint@v2.2.0
+        with:
+          shellcheck: true
+          cache: false
+          files: ${{ env.SOURCE }}/.github/workflows/*.yml
+          flags: -config-file .github/actionlint.yaml
+
+  zizmor:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - if: github.event_name == 'pull_request_target'
+        name: Read pinned PR files as data
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/pr_snapshot.py "$PR_NUMBER" "$PR_HEAD" --output pr-source
+      - uses: zizmorcore/zizmor-action@v0.6.4
+        with:
+          inputs: ${{ env.SOURCE }}
+          config: .github/zizmor.yml
+          advanced-security: false
+          annotations: true
+
+  zizmor-main:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@v0.6.4
+        with:
+          config: .github/zizmor.yml
+          advanced-security: true

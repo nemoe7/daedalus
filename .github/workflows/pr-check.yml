@@ -1,0 +1,72 @@
+name: PR title check
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize]
+
+concurrency:
+  group: pr-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  title:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Check the title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: python3 scripts/check_pr.py --pr-title "$PR_TITLE"
+
+  body:
+    name: Description structure and prose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Write the description
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: printf '%s' "$BODY" > pr-body.md
+      - name: Check the structure
+        run: python3 scripts/check_pr.py --body-file pr-body.md --no-ste
+      - name: Check the linter itself
+        run: python3 .agents/skills/asd-ste100/scripts/ste-lint.py --selftest
+      - name: Lint the description
+        run: python3 .agents/skills/asd-ste100/scripts/ste-lint.py pr-body.md
+
+  commits:
+    name: Commit subjects
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Read the pinned PR objects
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/pr_snapshot.py "$PR_NUMBER" "$PR_HEAD"
+      - name: Write the description
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: printf '%s' "$BODY" > pr-body.md
+      - name: Check every commit and its breaking marker
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/check_pr.py --range "$PR_BASE..$PR_HEAD" --body-file pr-body.md --no-ste
