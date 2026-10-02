@@ -1,0 +1,49 @@
+name: Container scan
+
+on:
+  pull_request_target:
+    paths:
+      - "Dockerfile"
+      - ".hadolint.yaml"
+      - ".github/workflows/container-scan.yml"
+      - "scripts/pr_snapshot.py"
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - ".hadolint.yaml"
+      - ".github/workflows/container-scan.yml"
+      - "scripts/pr_snapshot.py"
+  workflow_dispatch:
+
+concurrency:
+  group: container-scan-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  SOURCE: ${{ github.event_name == 'pull_request_target' && 'pr-source' || '.' }}
+
+jobs:
+  hadolint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - if: github.event_name == 'pull_request_target'
+        name: Read pinned PR files as data
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/pr_snapshot.py "$PR_NUMBER" "$PR_HEAD" --output pr-source
+      - uses: hadolint/hadolint-action@v3.5.0
+        with:
+          dockerfile: ${{ env.SOURCE }}/Dockerfile
+          config: .hadolint.yaml
+          failure-threshold: warning

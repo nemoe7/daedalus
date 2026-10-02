@@ -1,9 +1,0 @@
-# Commit subjects of this repository.
-One subject line and no body: imperative, specific, lowercase after the
-colon, no period, at most 72 chars. A `!` before the colon marks a breaking
-change.
-
-```text
-allowed types: feat fix refactor perf style docs test build chore;
-<= 72 chars
-```
