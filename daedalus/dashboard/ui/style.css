@@ -71,6 +71,8 @@ button.chip:disabled { cursor: progress; }
 .types { display: flex; gap: 4px; }
 .chip.flag { padding: 0 7px; font-size: 12px; line-height: 20px; }
 .chip.mode { color: var(--text); }
+/* A state that the page cannot confirm reads in the bad color, so it cannot pass for healthy. */
+.chip.bad { color: var(--bad); }
 .effort { font-weight: 600; border-color: currentColor; }
 .e-none, .e-minimal { color: var(--muted); } .e-low { color: var(--ok); } .e-medium { color: var(--accent); }
 .e-high { color: var(--orange); } .e-xhigh, .e-max { color: var(--red); }

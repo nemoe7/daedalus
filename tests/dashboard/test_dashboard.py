@@ -277,6 +277,28 @@ assert(card.includes('class="line rebuild"'), 'the catalog line starts a rebuild
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_app_js_state_chip() -> None:
+  """The header says when the state is loading or unknown, and clears the note after an answer."""
+  code = _app_js_vm(
+    """
+sandbox.setStateKnown(null);
+assert(hosts[0].innerHTML.includes('Loading the state'), hosts[0].innerHTML);
+assert(!hosts[0].innerHTML.includes('chip bad'), 'no alarm before the first answer');
+sandbox.setStateKnown(false);
+assert(hosts[0].innerHTML.includes('State unknown'), hosts[0].innerHTML);
+assert(hosts[0].innerHTML.includes('chip bad'), hosts[0].innerHTML);
+sandbox.renderStatus({
+  healthy: true, sessions: 2, models: 80, version: 'v1',
+  catalog: { built: 1, next: 2, rebuilding: false },
+});
+assert(hosts[0].innerHTML.includes('Healthy'), 'the good answer shows');
+assert(!hosts[0].innerHTML.includes('State unknown'), 'the good answer clears the note');
+assert(!hosts[0].innerHTML.includes('Loading the state'), 'the loading note goes away');
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_app_js_top_model() -> None:
   """A pool row names the member that served most, else its catalog first model."""
   code = _app_js_vm(
@@ -682,7 +704,7 @@ def test_pages_not_nested(client: TestClient) -> None:
 
 
 def test_login_form(client: TestClient) -> None:
-  """The login form fills in admin and shows the master key hint only for values not in the environment."""
+  """The login hints fill in admin, show the master key note, and say whether the cookie is live."""
   env = {dashboard.DAEDALUS_USERNAME: "owner", dashboard.DAEDALUS_PASSWORD: "secret"}
   cases = [
     ({}, "admin", True),
@@ -693,12 +715,26 @@ def test_login_form(client: TestClient) -> None:
     for name in env:
       os.environ.pop(name, None)
     os.environ.update(values)
-    found = TestClient(api.app).get("/ui/api/login").json()
+    hints = TestClient(api.app)
+    found = hints.get("/ui/api/login").json()
     assert found == {
       "username": username,
       "master": master,
       "version": daedalus.__version__,
+      "session": False,
     }, (values, found)
+    os.environ[dashboard.DAEDALUS_MASTER_KEY] = MASTER
+    login = {
+      "username": values.get(dashboard.DAEDALUS_USERNAME, "admin"),
+      "password": values.get(dashboard.DAEDALUS_PASSWORD, MASTER),
+    }
+    assert hints.post("/ui/api/login", json=login).status_code == 200, (
+      "the cookie is set"
+    )
+    assert hints.get("/ui/api/login").json()["session"] is True, (
+      "the hint sees the cookie"
+    )
+    os.environ.pop(dashboard.DAEDALUS_MASTER_KEY, None)
   for name in env:
     os.environ.pop(name, None)
 
