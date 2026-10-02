@@ -78,6 +78,8 @@ LOOP_LIMITS = {
   "shortest": (1, 1000),
   "longest": (1, 10000),
 }
+# The longest a timeout waits: 1 day. A longer wait never gives an answer.
+TIMEOUT_MAX = 86400.0
 THEMES = ("system", "light", "dark")
 TIME_FORMATS = ("24h", "12h")
 POOL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,39}")
@@ -137,6 +139,10 @@ def check(group: str, key: str, value: Any) -> Any:
     return float(value)
   if isinstance(value, bool) or not isinstance(value, int | float) or value <= 0:
     raise SettingsError(f"{name} must be a number above 0")
+  if (group == "timeouts" or (group, key) == ("headroom", "timeout")) and (
+    value > TIMEOUT_MAX
+  ):
+    raise SettingsError(f"{name} must be at most {int(TIMEOUT_MAX)} seconds")
   if key == "stay" and value >= 1:
     raise SettingsError(f"{name} must be below 1")
   if key == "penalty" and value > 1:
