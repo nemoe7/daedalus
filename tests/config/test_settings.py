@@ -243,6 +243,21 @@ def folder(tmp_path_factory: pytest.TempPathFactory) -> Path:
   return tmp_path_factory.mktemp("settings")
 
 
+def test_timeout_cap() -> None:
+  """A timeout stops at 1 day, in the file and in the form."""
+  assert settings.check("timeouts", "request", 86400) == 86400.0
+  assert settings.check("headroom", "timeout", 86400) == 86400.0
+  for group, key, value in (
+    ("timeouts", "request", 86401),
+    ("timeouts", "wait", 1e20),
+    ("headroom", "timeout", 86401),
+  ):
+    with pytest.raises(settings.SettingsError, match="at most 86400 seconds"):
+      settings.check(group, key, value)
+  with pytest.raises(settings.SettingsError, match="at most 86400 seconds"):
+    settings.parse("timeouts:\n  request: 90000\n")
+
+
 def test_pool_names() -> None:
   """Each pool name is a short name of its own, and a save keeps a name that looks like a number."""
   assert settings.parse("")["pools"]["moros"] == "moros"

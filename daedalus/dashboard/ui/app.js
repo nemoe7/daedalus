@@ -1318,6 +1318,10 @@ const DECIMALS = new Set([
 const MINIMA = { "loops.calls": 2, "loops.repeats": 2, "loops.shortest": 1, "loops.longest": 1, "parallel.count": 1 };
 const MAXIMA = {
   "catalog.anchor": 23,
+  "timeouts.request": 86400,
+  "timeouts.wait": 86400,
+  "timeouts.slow": 86400,
+  "headroom.timeout": 86400,
   "parallel.count": 10,
   "parallel.chance": 1,
   "parallel.penalty": 1,
@@ -1628,6 +1632,17 @@ $("reset-weights").addEventListener("click", async () => {
   }
 });
 
+// A field that stops at its length says the rule, so the cut is not silent.
+function showLengthLimit(input, message) {
+  if (input.maxLength > 0 && input.value.length >= input.maxLength) {
+    message.textContent = `${input.maxLength} characters at most`;
+  } else if (message.textContent.endsWith("characters at most")) {
+    message.textContent = "";
+  }
+}
+
+$("new-key").addEventListener("input", () => showLengthLimit($("key-name"), $("key-message")));
+
 $("new-key").addEventListener("submit", async (event) => {
   event.preventDefault();
   const message = $("key-message");
@@ -1855,8 +1870,9 @@ window.addEventListener("resize", () => {
   const host = $("provider-form");
   if (!host.hidden && host.clientWidth && Number(host.dataset.columns) !== formColumns()) renderForm();
 });
-$("settings").addEventListener("input", () => {
+$("settings").addEventListener("input", (event) => {
   $("settings-message").textContent = "";
+  showLengthLimit(event.target, $("settings-message"));
   renderSettingsSave();
 });
 $("settings-save").addEventListener("click", saveSettings);
