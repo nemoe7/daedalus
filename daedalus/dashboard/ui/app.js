@@ -700,7 +700,7 @@ function renderModels() {
   const empty = state.models.length ? "No models match" : "No models. Run daedalus catalog.";
   $("models").innerHTML = rows.length ? rows.map((m) => `
     <tr>
-      ${nameCell(m.id)}
+      ${nameCell(m.id, `${esc(m.id)}<span class="types phone-types">${typeChips(m)}</span>`)}
       <td class="hide-sm"><div class="types">${typeChips(m)}</div></td>
       <td class="mid">${m.tier ? `<span class="tier">${esc(tierLetter(m.tier))}</span>` : dash}</td>
       <td class="hide-sm mid num${m.order > 1 ? "" : " muted"}">${m.order ?? dash}</td>
@@ -843,12 +843,17 @@ const dirty = () => state.files.length > 0 && fileDirty(state.file);
 function renderFiles() {
   $("files").innerHTML = state.files.map((file, index) => {
     const mark = fileDirty(index) ? " &bull;" : "";
+    // The provider keys of a shadowed file do nothing, so the tab says which file wins.
+    const shadow = file.shadow ? ` (provider keys: ${esc(file.shadow)} wins)` : "";
     return `<button type="button" class="tab${index === state.file ? " on" : ""}"
-      data-file="${index}" title="${esc(file.path)}">${esc(fileName(file.path))}${mark}</button>`;
+      data-file="${index}" title="${esc(file.path)}${shadow}">${esc(fileName(file.path))}${mark}</button>`;
   }).join(" ");
   $("save").disabled = !dirty();
   // The main provider file stays: only a {provider}.yml file can go.
-  $("drop-provider").hidden = state.files[state.file]?.main !== false;
+  const current = state.files[state.file];
+  $("drop-provider").hidden = current?.main !== false;
+  $("file-note").textContent = current?.shadow
+    ? `${fileName(current.path)} sets no provider key: the ${fileName(current.shadow)} block wins. Its models still apply.` : "";
   document.querySelectorAll("#views [data-view]").forEach((tab) => tab.classList.toggle("on", tab.dataset.view === state.view));
   $("provider-form").hidden = state.view !== "form";
   $("yaml-view").hidden = state.view !== "yaml";

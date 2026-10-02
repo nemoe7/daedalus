@@ -277,6 +277,59 @@ assert(card.includes('class="line rebuild"'), 'the catalog line starts a rebuild
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_app_js_model_rows_keep_the_type_on_a_phone() -> None:
+  """A phone head drops the Type column, so each model row carries its type chips."""
+  code = """
+const fs = require('fs');
+const vm = require('vm');
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
+  + String.fromCharCode(10) + 'globalThis.__probe = { state, renderModels, $ };'
+const byId = new Map();
+const el = (id) => {
+  if (!byId.has(id)) {
+    const classes = new Set();
+    byId.set(id, {
+      innerHTML: '', textContent: '', value: '', addEventListener: () => {},
+      classList: { toggle: (name, on) => (on ? classes.add(name) : classes.delete(name)), contains: (n) => classes.has(n) },
+    });
+  }
+  return byId.get(id);
+};
+const sandbox = {
+  matchMedia: () => ({ matches: false, addEventListener: () => {} }),
+  document: {
+    hidden: false,
+    documentElement: { dataset: {} },
+    getElementById: (id) => el(id),
+    querySelector: () => ({ firstChild: { textContent: 'Models' } }),
+    querySelectorAll: () => [],
+    addEventListener: () => {},
+  },
+  navigator: {},
+  location: { hash: '' },
+  window: { addEventListener: () => {} },
+  getSelection: () => ({ isCollapsed: true }),
+  $: (id) => el(id),
+};
+vm.createContext(sandbox);
+vm.runInContext(src, sandbox);
+const assert = require('assert');
+const probe = sandbox.__probe;
+probe.state.models = [{
+  id: 'p/m', mode: 'chat', flags: ['vision'], tier: 'TIER-A', order: 1,
+  max_input_tokens: 1000, supports_function_calling: true, supports_reasoning: false,
+  weight: 1, cooldown: 0, client_cooldowns: {},
+}];
+probe.renderModels();
+const html = el('models').innerHTML;
+assert(html.includes('phone-types'), html);
+assert(html.includes('>Chat<'), 'the mode chip shows');
+assert(html.includes('>Image in<'), 'the media chip shows');
+assert(html.includes('<div class="types">'), 'the Type column stays for a desktop');
+"""
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_app_js_state_chip() -> None:
   """The header says when the state is loading or unknown, and clears the note after an answer."""
   code = _app_js_vm(
@@ -1133,6 +1186,20 @@ def test_files(
   assert (
     client.request("DELETE", "/ui/api/files", json={"path": str(folder)}).status_code
     == 400
+  )
+  listed = {f["path"]: f for f in client.get("/ui/api/files").json()}
+  assert listed[made.json()["path"]]["shadow"] is None, (
+    "no block of the main file shadows the new file"
+  )
+  assert (
+    client.put(
+      "/ui/api/files", json={"path": providers, "text": "openrouter:\n  api_key: k\n"}
+    ).status_code
+    == 200
+  )
+  listed = {f["path"]: f for f in client.get("/ui/api/files").json()}
+  assert listed[made.json()["path"]]["shadow"] == Path(providers).name, (
+    "the block of the main file wins the provider keys"
   )
   gone = client.request("DELETE", "/ui/api/files", json={"path": made.json()["path"]})
   assert gone.status_code == 200, gone.text

@@ -1,5 +1,6 @@
 """Load provider YAML and resolve env:NAME and db:NAME values."""
 
+import logging
 import os
 import re
 from collections.abc import Hashable, Mapping
@@ -7,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
+logger = logging.getLogger("daedalus.config")
 
 ENV_PREFIX = "env:"
 SAVED_PREFIX = "db:"
@@ -150,6 +153,17 @@ def provider_files(path: Path | str = DEFAULT_PATH) -> list[Path]:
   return found
 
 
+def file_shadows(path: Path | str = DEFAULT_PATH) -> dict[str, str]:
+  """Each `{provider}.yml` whose block the main file also sets, with the name of the main file."""
+  main = Path(path)
+  loaded = read_yaml(main)
+  return {
+    file.name: main.name
+    for file in provider_files(path)
+    if isinstance(loaded.get(file.stem), dict)
+  }
+
+
 def load_config(path: Path | str = DEFAULT_PATH) -> dict[str, Any]:
   """Read the main provider file and each `{provider}.yml` file into memory."""
   global _config
@@ -159,6 +173,13 @@ def load_config(path: Path | str = DEFAULT_PATH) -> dict[str, Any]:
     block = loaded.setdefault(file.stem, {})
     if isinstance(block, dict):
       block[FILE_KEY] = content
+  for name, owner in file_shadows(path).items():
+    logger.warning(
+      "%s: the %s block of %s also sets provider keys, and its keys win",
+      name,
+      Path(name).stem,
+      owner,
+    )
   _config = loaded
   return _config
 
