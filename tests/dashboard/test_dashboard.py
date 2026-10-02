@@ -465,7 +465,9 @@ assert(html.includes('>TPM</td>'), 'tokens per minute');
 assert(html.includes('>RPM</td>'), 'requests per minute');
 assert(html.includes('>RPD</td>'), 'requests per day');
 assert(html.includes('>requests</td>'), 'a row without a window keeps its kind');
-assert(!html.includes(' per '), 'no long span text');
+assert(html.includes('title="Tokens per minute"'), 'the hover text spells the unit out');
+assert(html.includes('title="Requests"'), 'a row without a window gets the kind alone');
+assert(!html.includes('>per '), 'the cell text stays short');
 """
   subprocess.run(["node", "-e", code], check=True)
 
