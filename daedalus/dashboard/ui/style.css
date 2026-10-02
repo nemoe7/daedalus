@@ -214,6 +214,10 @@ td.end { text-align: right; }
   section[data-page="requests"] > .flow { flex: 1; min-height: 0; align-items: stretch; flex-wrap: nowrap; }
   section[data-page="requests"] > .flow > .column { display: flex; flex-direction: column; min-height: 0; }
   section[data-page="requests"] > .flow > .column:not(.wide) { flex: 0 0 260px; }
+  /* The Requests table keeps its legend at the side, so the page takes the full width. */
+  #app > main:has(> section[data-page="requests"]:not([hidden])) {
+    padding-inline: max(32px, calc((100% - 1716px) / 2));
+  }
   section[data-page="requests"] > .flow > .column > .panel { flex: 1; min-height: 0; overflow: auto; }
   section[data-page="requests"] .legend { align-self: flex-start; }
 }
@@ -383,6 +387,11 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 .eye[aria-pressed="true"] .slash { display: inline; }
 .login .check { display: flex; align-items: center; gap: 8px; }
 .login .check input { accent-color: var(--accent); }
+/* A narrower desktop drops 4 low-value request columns, so the rest fits without a scroll. */
+@media (max-width: 1700px) {
+  .hide-md { display: none; }
+}
+
 @media (max-width: 1320px) {
   header { grid-template-columns: auto 1fr; grid-template-areas: "brand chips" "tabs tabs"; }
   .tabs a { min-height: 44px; }
