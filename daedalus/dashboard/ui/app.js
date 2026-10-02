@@ -57,21 +57,6 @@ function renderOverview() {
       <span title="${esc(top?.id)}">${top ? esc(top.id) : "no models"}</span></div>${health === null ? "" : weightBar(health)}</div>`;
   }).join("") || none(state.models.length ? "No pools" : "No models. Run daedalus catalog.");
   $("ov-limits").innerHTML = overviewLimits(state.limits) || none("No limits yet");
-  const used = state.keys.filter((k) => k.used).sort((a, b) => b.used - a.used)[0];
-  $("ov-keys").innerHTML = state.keys.length
-    ? line("Keys", count(state.keys.length, "key")) + line("Last used", used ? `${esc(used.name)} &middot; ${dateTime(used.used)}` : "never")
-    : none("No API keys. The master key opens /v1.");
-  const { built, next } = state.catalog;
-  $("ov-providers").innerHTML = state.files.map((f) => line(esc(fileName(f.path)), "YAML")).join("")
-    + line("Catalog built", built ? shortTime(built) : "never")
-    + line("Next rebuild", next ? shortTime(next) : "no schedule");
-  if (state.settings) {
-    const on = (group) => (setting(group, "enabled") ? "On" : "Off");
-    $("ov-settings").innerHTML = line("Session affinity", on("session_affinity"))
-      + line("Weights", on("weights"))
-      + line("Pacing", on("pacing"))
-      + line("Request timeout", `${setting("timeouts", "request")} s`);
-  }
 }
 
 class LoggedOut extends Error {}
