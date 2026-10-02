@@ -253,6 +253,9 @@ def test_phone_model_head_keeps_a_tap_area() -> None:
   mobile_css = mobile_css.split("\n}", 1)[0]
   assert "th[data-sort] { cursor: pointer; }" in base_css
   assert ".models th { padding: 13px 8px; }" in mobile_css
+  assert ".phone-types { display: flex; flex-wrap: wrap;" in mobile_css, (
+    "the chips of a dropped Type column wrap under the name"
+  )
 
 
 def test_app_js_status_hosts() -> None:
@@ -322,7 +325,7 @@ probe.state.models = [{
 }];
 probe.renderModels();
 const html = el('models').innerHTML;
-assert(html.includes('phone-types'), html);
+assert(html.includes('</span><span class="types phone-types">'), 'the chips sit outside the clipped name');
 assert(html.includes('>Chat<'), 'the mode chip shows');
 assert(html.includes('>Image in<'), 'the media chip shows');
 assert(html.includes('<div class="types">'), 'the Type column stays for a desktop');

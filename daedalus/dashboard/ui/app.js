@@ -35,8 +35,8 @@ const count = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const none = (text) => `<div class="more">${text}</div>`;
 // A model name cell that ends in an ellipsis when it is too long. The title shows the full name.
 const mobileLabel = (text) => `<span class="mobile-label" aria-hidden="true">${esc(text)}</span>`;
-const nameCell = (text, shown = esc(text), label = "Model") =>
-  `<td role="cell" class="name" title="${esc(text)}">${mobileLabel(label)}<span class="cell-value">${shown}</span></td>`;
+const nameCell = (text, shown = esc(text), label = "Model", extra = "") =>
+  `<td role="cell" class="name" title="${esc(text)}">${mobileLabel(label)}<span class="cell-value">${shown}</span>${extra}</td>`;
 const cell = (label, inner, cls = "") =>
   `<td role="cell"${cls ? ` class="${cls}"` : ""}>${mobileLabel(label)}<span class="cell-value">${inner}</span></td>`;
 
@@ -700,7 +700,7 @@ function renderModels() {
   const empty = state.models.length ? "No models match" : "No models. Run daedalus catalog.";
   $("models").innerHTML = rows.length ? rows.map((m) => `
     <tr>
-      ${nameCell(m.id, `${esc(m.id)}<span class="types phone-types">${typeChips(m)}</span>`)}
+      ${nameCell(m.id, esc(m.id), "Model", `<span class="types phone-types">${typeChips(m)}</span>`)}
       <td class="hide-sm"><div class="types">${typeChips(m)}</div></td>
       <td class="mid">${m.tier ? `<span class="tier">${esc(tierLetter(m.tier))}</span>` : dash}</td>
       <td class="hide-sm mid num${m.order > 1 ? "" : " muted"}">${m.order ?? dash}</td>
