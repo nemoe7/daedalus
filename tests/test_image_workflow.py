@@ -143,5 +143,7 @@ def test_dockerfile_removes_pip_from_the_image() -> None:
   """The start runs the uv venv, so pip only adds its vendored packages to the scan."""
   content = DOCKERFILE.read_text()
 
-  assert "pip uninstall -y pip setuptools" in content
+  # The uninstall needs the system Python: PATH puts the uv venv first and it has no pip.
+  assert "/usr/local/bin/python -m pip uninstall -y pip setuptools" in content
+  assert "\n  && python -m pip" not in content
   assert "pip install" not in content
