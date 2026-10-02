@@ -26,11 +26,13 @@ def test_load(folder: Path) -> None:
   values = settings.load(folder / "missing.yml")
   assert values["timeouts"] == {"request": 600.0, "wait": 60.0, "slow": 30.0}
   assert values["weights"]["fault"] == penalties.FAULT
-  shipped = settings.load(Path(__file__).parents[2] / "config" / "daedalus.yml")
-  keywords = shipped.pop("escalation")["keywords"]
-  assert "think hard" in keywords and values.pop("escalation") == {"keywords": []}
-  assert shipped.pop("switch") == {"keywords": ["clanker"]}
-  assert values.pop("switch") == {"keywords": []}
+  assert "think hard" in values["escalation"]["keywords"], "the default keywords"
+  assert values["switch"]["keywords"] == ["clanker"]
+  shipped_path = Path(__file__).parents[2] / "config" / "daedalus.yml"
+  raw = yaml.safe_load(shipped_path.read_text(encoding="utf-8"))
+  assert "slow" not in raw["timeouts"], "a derived value stays out of the file"
+  assert "escalation" not in raw and "switch" not in raw, "the keywords stay defaults"
+  shipped = settings.load(shipped_path)
   assert shipped.pop("request_hooks") == {"on-request": "hooks/openwebui_retry.py"}
   assert values.pop("request_hooks") == {"on-request": ""}
   assert shipped == values, "the shipped file holds the defaults"
@@ -85,7 +87,7 @@ def test_load(folder: Path) -> None:
     "escalation:\n  keywords: [ultrathink, ' think hard ']\n", encoding="utf-8"
   )
   keywords = settings.load(path)["escalation"]["keywords"]
-  assert keywords == ["ultrathink", "think hard"], keywords
+  assert keywords == ["ultrathink", "think hard"], "a config list replaces the default"
 
 
 def test_loop_settings() -> None:
