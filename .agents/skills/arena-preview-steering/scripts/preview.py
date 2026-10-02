@@ -352,8 +352,6 @@ def check_task(task_id,title,details):
 	for detail in details or():
 		if len(detail)>MAX_TASK_DETAIL:raise ValueError(f"A task detail must be {MAX_TASK_DETAIL} characters or fewer")
 SIZED_IMAGE=re.compile('!\\[([^\\]\\n]*)\\]\\((\\S+?)\\s+=(\\d+)x(\\d*)\\)')
-REPORT_LIST_TAG=re.compile('\\s*</?(?:ul|ol|li)>\\s*',re.IGNORECASE)
-REPORT_LIST_TAGS=re.compile('^(?:\\s*</?(?:ul|ol|li)>\\s*)+$',re.IGNORECASE)
 def hold_out(markdown,pattern,build,slug):
 	held=[]
 	def hold(match):
@@ -850,7 +848,7 @@ def handler(store):
 		def setup(self):super().setup();self.connection.settimeout(15)
 		def reply(self,status,body,content_type='application/json; charset=utf-8',filename=None):
 			data=body if isinstance(body,(bytes,bytearray))else body.encode('utf-8');self.send_response(status);self.send_header('Content-Type',content_type);self.send_header('Content-Length',str(len(data)));self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.send_header('Content-Security-Policy',"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; base-uri 'none'; form-action 'self'")
-			if filename:self.send_header('Content-Disposition',f'attachment; filename="{filename}"')
+			if filename:safe=re.sub('[\\r\\n"]','_',str(filename));self.send_header('Content-Disposition',f'attachment; filename="{safe}"')
 			self.end_headers();self.wfile.write(data)
 		def problem(self,status,error):self.reply(status,json.dumps({'error':str(error)}))
 		def do_GET(self):
