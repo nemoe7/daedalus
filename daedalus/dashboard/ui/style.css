@@ -97,8 +97,8 @@ main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
 .out { color: var(--bad); }
 .balance + .balance { border-top: 1px solid var(--line); }
 .balance .track { margin-bottom: 6px; }
-.weight.left { min-width: 190px; }
-.weight.left .num { width: auto; min-width: 90px; white-space: nowrap; }
+.weight.left { min-width: 140px; }
+.weight.left .num { width: auto; min-width: 78px; white-space: nowrap; }
 td.time { white-space: nowrap; }
 #more-requests { margin: 8px 16px; }
 .card h3 { margin: 0; font-size: 15px; font-weight: 600; }
@@ -220,6 +220,10 @@ tr.request.has-chain { cursor: pointer; }
 .mobile-label { display: none; }
 #limit-rows td.name { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #limit-rows td:nth-child(2) { white-space: nowrap; }
+/* The name takes the free width, as in the Models table. The other columns keep their content width. */
+#limit-rows th:not(:first-child), #limit-rows td:not(:first-child) { width: 1%; white-space: nowrap; }
+#limit-rows th:not(:first-child), #limit-rows td:not(:first-child) { padding-left: 8px; padding-right: 8px; }
+#limit-rows th:last-child, #limit-rows td:last-child { padding-right: 16px; }
 tr.live-row td { background: var(--field); }
 .pulse {
   display: inline-block; width: 6px; height: 6px; margin: 0 10px 1px 0; border-radius: 50%;
@@ -330,6 +334,13 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6
 }
 section[data-page="settings"] > .editbar, section[data-page="models"] > .editbar,
 section[data-page="limits"] > .editbar { margin-bottom: 16px; }
+/* The Limits bar holds 1 button and 1 line, so it stays short. */
+section[data-page="limits"] > .editbar { padding: 6px 10px; gap: 10px; }
+section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
+/* The provider cards hold short values, so the column stays narrow. The table takes the rest. */
+@media (min-width: 721px) { #balances { flex: 0 1 260px; } }
+/* A narrow card wraps a long label instead of cutting it. */
+.balance .line > :first-child { white-space: normal; }
 .editbar .views { margin-left: 8px; }
 .editbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; flex-wrap: wrap; }
 .message { font-size: 13px; color: var(--muted); }

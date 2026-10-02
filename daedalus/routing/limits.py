@@ -204,9 +204,15 @@ def neuron_items(data: Any) -> list[Item]:
   if None in values:
     return []
   used = sum(value for value in values if value is not None)
-  shown = f"{used:.2f}" if 0 < used < 10 else floored(used)
   left = share(CLOUDFLARE_FREE - used, CLOUDFLARE_FREE)
-  return [("Neurons today", f"{shown} of {floored(CLOUDFLARE_FREE)}", left)]
+  # The value and the bar show the same quantity: the neurons that are left today.
+  return [
+    (
+      "Neurons today",
+      f"{CLOUDFLARE_FREE - used:,.0f} of {floored(CLOUDFLARE_FREE)} left",
+      left,
+    )
+  ]
 
 
 Reader = Callable[[httpx.AsyncClient, str, str], Awaitable[Any]]
@@ -323,7 +329,7 @@ class Limits:
       left, limit = row["remaining"], row["limit"]
       card["items"].append(
         [
-          "Requests left this hour, counted",
+          "Requests left this hour",
           f"{left:,} of {limit:,}",
           share(left, limit),
         ]
