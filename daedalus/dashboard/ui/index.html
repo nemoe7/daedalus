@@ -77,21 +77,27 @@
       </div>
     </section>
     <section data-page="requests" hidden>
-      <div class="panel">
-        <details class="legend" id="requests-legend">
-          <summary>Code legend</summary>
-          <div class="legend-body" id="legend-body"></div>
-        </details>
-        <table class="requests" aria-label="Requests" role="table">
-          <thead role="rowgroup"><tr role="row">
-            <th scope="col" role="columnheader">Time</th><th scope="col" role="columnheader" title="The client app, from its request headers">App</th><th scope="col" class="hide-sm" role="columnheader">Session</th><th scope="col" role="columnheader">Model</th><th scope="col" class="hide-sm" role="columnheader">Effort</th><th scope="col" class="hide-sm" role="columnheader">Pool</th><th scope="col" role="columnheader">Served by</th>
-            <th scope="col" role="columnheader">Status</th><th scope="col" class="hide-sm" role="columnheader" title="Input tokens. ~ marks an estimate.">Input</th><th scope="col" class="hide-sm" role="columnheader" title="Output tokens from the provider">Output</th><th scope="col" class="hide-sm" role="columnheader">TTFT</th><th scope="col" class="hide-sm" role="columnheader">Stream</th>
-            <th scope="col" class="hide-sm" role="columnheader">Fallbacks</th>
-          </tr></thead>
-          <tbody id="live" role="rowgroup"></tbody>
-          <tbody id="requests" role="rowgroup"></tbody>
-        </table>
-        <button class="ghost" id="more-requests" type="button" hidden>Show more</button>
+      <div class="flow">
+        <div class="column wide">
+          <div class="panel">
+            <table class="requests" aria-label="Requests" role="table">
+              <thead role="rowgroup"><tr role="row">
+                <th scope="col" role="columnheader">Time</th><th scope="col" role="columnheader" title="The client app, from its request headers">App</th><th scope="col" class="hide-sm" role="columnheader">Session</th><th scope="col" role="columnheader">Model</th><th scope="col" class="hide-sm" role="columnheader">Effort</th><th scope="col" class="hide-sm" role="columnheader">Pool</th><th scope="col" role="columnheader">Served by</th>
+                <th scope="col" role="columnheader">Status</th><th scope="col" class="hide-sm" role="columnheader" title="Input tokens. ~ marks an estimate.">Input</th><th scope="col" class="hide-sm" role="columnheader" title="Output tokens from the provider">Output</th><th scope="col" class="hide-sm" role="columnheader">TTFT</th><th scope="col" class="hide-sm" role="columnheader">Stream</th>
+                <th scope="col" class="hide-sm" role="columnheader">Fallbacks</th>
+              </tr></thead>
+              <tbody id="live" role="rowgroup"></tbody>
+              <tbody id="requests" role="rowgroup"></tbody>
+            </table>
+            <button class="ghost" id="more-requests" type="button" hidden>Show more</button>
+          </div>
+        </div>
+        <div class="column">
+          <details class="card legend" id="requests-legend" open>
+            <summary>Code legend</summary>
+            <div class="legend-body" id="legend-body"></div>
+          </details>
+        </div>
       </div>
     </section>
     <section data-page="models" hidden>

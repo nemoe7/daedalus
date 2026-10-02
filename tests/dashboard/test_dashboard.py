@@ -58,6 +58,10 @@ def test_page(client: TestClient) -> None:
   assert (
     '<th scope="col" class="hide-sm" role="columnheader">Session</th>' in page.text
   ), "the Requests session column"
+  assert '<details class="card legend"' in page.text, (
+    "the code legend is a card of its own beside the table"
+  )
+  assert "<code>frX</code>" not in page.text, "the legend body is filled by app.js"
   for name in (
     "overview",
     "requests",
