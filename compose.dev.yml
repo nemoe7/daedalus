@@ -1,7 +1,7 @@
 # A copy of compose.yml that runs the dev image. Keep the 2 files in step.
 # Start: docker compose -f compose.dev.yml up -d, or install --dev
 # With the source, it builds at each start. Without the source, install --dev sets the
-# 2 dev variables to pull the image that the Dev Image workflow builds from main.
+# 2 dev variables to pull the image that the Docker workflow builds from main.
 services:
   api:
     image: ${DAEDALUS_DEV_IMAGE:-daedalus:dev}
