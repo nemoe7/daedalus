@@ -124,7 +124,9 @@ The `path` value stays relative to `api.github.com` and carries no scheme. The b
 6. Read the key from `docker compose logs proxy`. Every start makes a new key and prints it once.
 7. Rotate the key when the session ends, and keep the token scoped to one repository.
 
-The install detail, the container notes and the other exposure options live in [`INSTALL.md`](INSTALL.md).
+The install detail, the container notes and the other exposure options live in
+[`INSTALL.md`](https://github.com/nemoe7/clankers/blob/main/skills/arena-proxy/INSTALL.md)
+in this repository, beside the skill source.
 
 ## Failure modes
 
