@@ -972,7 +972,8 @@ def routes(
     temporary.write_text(text, encoding="utf-8")
     temporary.replace(path)
     if values is None:
-      config.load_config(path)
+      # A provider file is 1 block of the config: the main file is the one to load.
+      config.load_config(FILES[0])
       request_cached_rebuild()
     else:
       apply(values)
