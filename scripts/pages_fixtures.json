@@ -1,0 +1,1101 @@
+{
+  "env": [
+    {
+      "end": "6789",
+      "has_env": false,
+      "has_saved": true,
+      "length": 21,
+      "name": "DEMO_API_KEY",
+      "start": "demo",
+      "state": "saved",
+      "used": [
+        "free.yml",
+        "atlas.yml"
+      ]
+    }
+  ],
+  "files": [
+    {
+      "blocks": {
+        "atlas": {
+          "api_base": "https://demo.invalid/v1",
+          "api_key": "db:DEMO_API_KEY",
+          "models": {
+            "model-slug-with-a-fairly-long-name-2026": {
+              "max_input_tokens": 262144,
+              "max_output_tokens": 32768,
+              "tools": true
+            }
+          },
+          "tier": {
+            "TIER-A": [
+              "model-slug-with-a-fairly-long-name-2026"
+            ]
+          }
+        },
+        "demo": {
+          "api_base": "https://demo.invalid/v1",
+          "api_key": "db:DEMO_API_KEY",
+          "models": {
+            "atlas-1": {
+              "max_input_tokens": 131072,
+              "max_output_tokens": 16000,
+              "tools": true
+            },
+            "atlas-2": {
+              "max_input_tokens": 200000,
+              "max_output_tokens": 32000,
+              "supports_reasoning": true,
+              "tools": true
+            },
+            "atlas-2-ultra-long-context-experimental-2026-10": {
+              "max_input_tokens": 1048576,
+              "max_output_tokens": 64000,
+              "tools": true
+            },
+            "beacon-2": {
+              "max_input_tokens": 128000,
+              "max_output_tokens": 8000
+            },
+            "canvas-image": {
+              "mode": "image_generation"
+            },
+            "echo-mini": {
+              "max_input_tokens": 32000,
+              "max_output_tokens": 4000
+            },
+            "index-embed": {
+              "mode": "embedding"
+            },
+            "lumen-vision": {
+              "max_input_tokens": 128000,
+              "supports_vision": true,
+              "tools": true
+            },
+            "scribe-audio": {
+              "mode": "audio_transcription"
+            }
+          },
+          "tier": {
+            "TIER-A": [
+              "atlas-2",
+              "lumen-vision",
+              "atlas-2-ultra-long-context-experimental-2026-10"
+            ],
+            "TIER-B": [
+              "atlas-1"
+            ],
+            "TIER-C": [
+              "beacon-2"
+            ],
+            "TIER-D": [
+              "echo-mini"
+            ]
+          }
+        },
+        "demo-long-provider-name": {
+          "api_base": "https://demo.invalid/v1",
+          "api_key": "db:DEMO_API_KEY",
+          "models": {
+            "*": {}
+          }
+        }
+      },
+      "error": null,
+      "main": true,
+      "path": "config/providers/free.yml",
+      "shadow": null,
+      "text": "demo:\n  api_key: db:DEMO_API_KEY\n  api_base: https://demo.invalid/v1\n  tier:\n    TIER-A: ['atlas-2', 'lumen-vision', 'atlas-2-ultra-long-context-experimental-2026-10']\n    TIER-B: ['atlas-1']\n    TIER-C: ['beacon-2']\n    TIER-D: ['echo-mini']\n  models:\n    atlas-2:\n      max_input_tokens: 200000\n      max_output_tokens: 32000\n      tools: true\n      supports_reasoning: true\n    atlas-1:\n      max_input_tokens: 131072\n      max_output_tokens: 16000\n      tools: true\n    beacon-2:\n      max_input_tokens: 128000\n      max_output_tokens: 8000\n    echo-mini:\n      max_input_tokens: 32000\n      max_output_tokens: 4000\n    lumen-vision:\n      max_input_tokens: 128000\n      tools: true\n      supports_vision: true\n    atlas-2-ultra-long-context-experimental-2026-10:\n      max_input_tokens: 1048576\n      max_output_tokens: 64000\n      tools: true\n    scribe-audio:\n      mode: audio_transcription\n    canvas-image:\n      mode: image_generation\n    index-embed:\n      mode: embedding\natlas:\n  api_key: db:DEMO_API_KEY\n  api_base: https://demo.invalid/v1\n  tier:\n    TIER-A: ['model-slug-with-a-fairly-long-name-2026']\n  models:\n    model-slug-with-a-fairly-long-name-2026:\n      max_input_tokens: 262144\n      max_output_tokens: 32768\n      tools: true\ndemo-long-provider-name:\n  api_key: db:DEMO_API_KEY\n  api_base: https://demo.invalid/v1\n  models:\n    '*': {}\n"
+    },
+    {
+      "blocks": {
+        "atlas": {
+          "api_base": "https://demo.invalid/v1",
+          "api_key": "db:DEMO_API_KEY",
+          "tier": {
+            "TIER-A": [
+              "model-slug-with-a-fairly-long-name-2026"
+            ]
+          }
+        }
+      },
+      "error": null,
+      "main": false,
+      "path": "config/providers/atlas.yml",
+      "shadow": "free.yml",
+      "text": "api_key: db:DEMO_API_KEY\napi_base: https://demo.invalid/v1\ntier:\n  TIER-A: ['model-slug-with-a-fairly-long-name-2026']\n"
+    }
+  ],
+  "keys": [
+    {
+      "created": 1791033311.0232763,
+      "name": "demo-client",
+      "start": "sk-MvjR",
+      "used": null
+    },
+    {
+      "created": 1791033311.0242884,
+      "name": "demo-openwebui",
+      "start": "sk-d9W9",
+      "used": null
+    },
+    {
+      "created": 1791033311.0252278,
+      "name": "demo-integration-name-at-the-40-char-max",
+      "start": "sk-aJ9T",
+      "used": null
+    }
+  ],
+  "limits": {
+    "checked": null,
+    "lanes": [
+      {
+        "at": 1791033311.1132882,
+        "client": null,
+        "model": "atlas/model-slug-with-a-fairly-long-name-2026",
+        "rows": [
+          {
+            "kind": "requests",
+            "limit": 14400.0,
+            "remaining": 14312.0,
+            "reset": 1791033348.1132882,
+            "span": null
+          },
+          {
+            "kind": "tokens",
+            "limit": 4000000.0,
+            "remaining": 3980123.0,
+            "reset": 1791033323.1132882,
+            "span": null
+          }
+        ]
+      },
+      {
+        "at": 1791033311.125011,
+        "client": null,
+        "model": "demo/atlas-1",
+        "rows": [
+          {
+            "kind": "requests",
+            "limit": 14400.0,
+            "remaining": 14312.0,
+            "reset": 1791033348.125011,
+            "span": null
+          },
+          {
+            "kind": "tokens",
+            "limit": 4000000.0,
+            "remaining": 3980123.0,
+            "reset": 1791033323.125011,
+            "span": null
+          }
+        ]
+      },
+      {
+        "at": 1791033311.1169004,
+        "client": null,
+        "model": "demo/atlas-2",
+        "rows": [
+          {
+            "kind": "requests",
+            "limit": 14400.0,
+            "remaining": 14312.0,
+            "reset": 1791033348.1169004,
+            "span": null
+          },
+          {
+            "kind": "tokens",
+            "limit": 4000000.0,
+            "remaining": 3980123.0,
+            "reset": 1791033323.1169004,
+            "span": null
+          }
+        ]
+      },
+      {
+        "at": 1791033311.0989203,
+        "client": null,
+        "model": "demo/echo-mini",
+        "rows": [
+          {
+            "kind": "requests",
+            "limit": 14400.0,
+            "remaining": 14312.0,
+            "reset": 1791033348.0989203,
+            "span": null
+          },
+          {
+            "kind": "tokens",
+            "limit": 4000000.0,
+            "remaining": 3980123.0,
+            "reset": 1791033323.0989203,
+            "span": null
+          }
+        ]
+      },
+      {
+        "at": 1791033311.1307888,
+        "client": null,
+        "model": "demo/scribe-audio",
+        "rows": [
+          {
+            "kind": "requests",
+            "limit": 14400.0,
+            "remaining": 14312.0,
+            "reset": 1791033348.1307888,
+            "span": null
+          },
+          {
+            "kind": "tokens",
+            "limit": 4000000.0,
+            "remaining": 3980123.0,
+            "reset": 1791033323.1307888,
+            "span": null
+          }
+        ]
+      }
+    ],
+    "providers": []
+  },
+  "login": {
+    "master": true,
+    "session": true,
+    "username": "admin",
+    "version": "demo"
+  },
+  "models": [
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "flags": [],
+      "id": "demo/atlas-2",
+      "max_input_tokens": 200000,
+      "mode": "chat",
+      "order": 1,
+      "reasoning": true,
+      "tier": "TIER-A",
+      "tools": true,
+      "weight": 1.0
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "flags": [],
+      "id": "demo/atlas-2-ultra-long-context-experimental-2026-10",
+      "max_input_tokens": 1048576,
+      "mode": "chat",
+      "order": 1,
+      "reasoning": false,
+      "tier": "TIER-A",
+      "tools": true,
+      "weight": 1.0
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "flags": [],
+      "id": "demo/atlas-1",
+      "max_input_tokens": 131072,
+      "mode": "chat",
+      "order": 1,
+      "reasoning": false,
+      "tier": "TIER-B",
+      "tools": true,
+      "weight": 0.5000001395609764
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": 1791126911.1327453,
+      "effort": null,
+      "flags": [],
+      "id": "demo/beacon-2",
+      "max_input_tokens": 128000,
+      "mode": "chat",
+      "order": 1,
+      "reasoning": false,
+      "tier": "TIER-C",
+      "tools": false,
+      "weight": 0.75000120044803
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "flags": [],
+      "id": "demo/echo-mini",
+      "max_input_tokens": 32000,
+      "mode": "chat",
+      "order": 1,
+      "reasoning": false,
+      "tier": "TIER-D",
+      "tools": false,
+      "weight": 0.5000004530576021
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "flags": [
+        "vision"
+      ],
+      "id": "demo/lumen-vision",
+      "max_input_tokens": 128000,
+      "mode": "chat",
+      "order": 1,
+      "reasoning": false,
+      "tier": "TIER-A",
+      "tools": true,
+      "weight": 1.0
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "flags": [],
+      "id": "demo/scribe-audio",
+      "max_input_tokens": null,
+      "mode": "audio_transcription",
+      "order": 1,
+      "reasoning": false,
+      "tier": null,
+      "tools": false,
+      "weight": 1.0
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "flags": [],
+      "id": "demo/canvas-image",
+      "max_input_tokens": null,
+      "mode": "image_generation",
+      "order": 1,
+      "reasoning": false,
+      "tier": null,
+      "tools": false,
+      "weight": 1.0
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "flags": [],
+      "id": "demo/index-embed",
+      "max_input_tokens": null,
+      "mode": "embedding",
+      "order": 1,
+      "reasoning": false,
+      "tier": null,
+      "tools": false,
+      "weight": null
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "flags": [],
+      "id": "atlas/model-slug-with-a-fairly-long-name-2026",
+      "max_input_tokens": 262144,
+      "mode": "chat",
+      "order": 1,
+      "reasoning": false,
+      "tier": "TIER-A",
+      "tools": true,
+      "weight": 1.0
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "flags": [],
+      "id": "demo-long-provider-name/another-model-with-a-long-slug-2026",
+      "max_input_tokens": null,
+      "mode": "chat",
+      "order": 1,
+      "reasoning": false,
+      "tier": null,
+      "tools": false,
+      "weight": 1.0
+    }
+  ],
+  "pools": [
+    {
+      "context": 1048576,
+      "members": [
+        {
+          "cooldown": null,
+          "id": "demo/atlas-2",
+          "tier": "TIER-A",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "demo/atlas-2-ultra-long-context-experimental-2026-10",
+          "tier": "TIER-A",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "demo/lumen-vision",
+          "tier": "TIER-A",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "atlas/model-slug-with-a-fairly-long-name-2026",
+          "tier": "TIER-A",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "demo/atlas-1",
+          "tier": "TIER-B",
+          "weight": 0.5000002277925665
+        },
+        {
+          "cooldown": 1791126911.1327453,
+          "id": "demo/beacon-2",
+          "tier": "TIER-C",
+          "weight": 0.7500013327955899
+        },
+        {
+          "cooldown": null,
+          "id": "demo/echo-mini",
+          "tier": "TIER-D",
+          "weight": 0.5000005412892474
+        }
+      ],
+      "name": "daedalus/auto",
+      "shown": "daedalus/auto"
+    },
+    {
+      "context": 1048576,
+      "members": [
+        {
+          "cooldown": null,
+          "id": "demo/atlas-2",
+          "tier": "TIER-A",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "demo/atlas-2-ultra-long-context-experimental-2026-10",
+          "tier": "TIER-A",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "demo/lumen-vision",
+          "tier": "TIER-A",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "atlas/model-slug-with-a-fairly-long-name-2026",
+          "tier": "TIER-A",
+          "weight": 1.0
+        }
+      ],
+      "name": "daedalus/sophos",
+      "shown": "daedalus/sophos"
+    },
+    {
+      "context": 131072,
+      "members": [
+        {
+          "cooldown": null,
+          "id": "demo/atlas-1",
+          "tier": "TIER-B",
+          "weight": 0.5000002308613809
+        }
+      ],
+      "name": "daedalus/deinos",
+      "shown": "daedalus/deinos"
+    },
+    {
+      "context": 128000,
+      "members": [
+        {
+          "cooldown": 1791126911.1327453,
+          "id": "demo/beacon-2",
+          "tier": "TIER-C",
+          "weight": 0.7500013383920452
+        }
+      ],
+      "name": "daedalus/koinos",
+      "shown": "daedalus/koinos"
+    },
+    {
+      "context": 32000,
+      "members": [
+        {
+          "cooldown": null,
+          "id": "demo/echo-mini",
+          "tier": "TIER-D",
+          "weight": 0.5000005455932305
+        }
+      ],
+      "name": "daedalus/moros",
+      "shown": "daedalus/moros"
+    },
+    {
+      "context": null,
+      "members": [
+        {
+          "cooldown": null,
+          "id": "demo/scribe-audio",
+          "tier": null,
+          "weight": 1.0
+        }
+      ],
+      "mode": "audio_transcription",
+      "name": "daedalus/graphos",
+      "shown": "daedalus/graphos"
+    },
+    {
+      "context": null,
+      "members": [
+        {
+          "cooldown": null,
+          "id": "demo/canvas-image",
+          "tier": null,
+          "weight": 1.0
+        }
+      ],
+      "mode": "image_generation",
+      "name": "daedalus/photos",
+      "shown": "daedalus/photos"
+    }
+  ],
+  "provider-defaults": {
+    "*": {
+      "api_type": "openai"
+    },
+    "cloudflare": {
+      "account_id": "env:CLOUDFLARE_ACCOUNT_ID",
+      "api_type": "openai"
+    },
+    "gemini": {
+      "api_base": "https://generativelanguage.googleapis.com/v1beta",
+      "api_type": "gemini",
+      "discovery_url": "https://generativelanguage.googleapis.com/v1beta/models"
+    },
+    "groq": {
+      "api_base": "https://api.groq.com/openai/v1",
+      "api_type": "openai",
+      "discovery_url": "https://api.groq.com/openai/v1/models"
+    },
+    "kilo": {
+      "api_base": "https://api.kilo.ai/api/gateway",
+      "api_type": "openai",
+      "discovery_url": "https://api.kilo.ai/api/gateway/models"
+    },
+    "mistral": {
+      "api_base": "https://api.mistral.ai/v1",
+      "api_type": "openai",
+      "discovery_url": "https://api.mistral.ai/v1/models"
+    },
+    "openrouter": {
+      "api_base": "https://openrouter.ai/api/v1",
+      "api_type": "openai",
+      "discovery_url": "https://openrouter.ai/api/v1/models?output_modalities=all"
+    },
+    "pollinations": {
+      "api_base": "https://gen.pollinations.ai/v1",
+      "api_type": "openai",
+      "discovery_url": "https://gen.pollinations.ai/v1/models"
+    },
+    "z-ai": {
+      "api_base": "https://api.z.ai/api/paas/v4",
+      "api_type": "openai",
+      "discovery_url": "https://api.z.ai/api/paas/v4/models"
+    }
+  },
+  "provider-keys": [
+    "hooks",
+    "max_input_tokens",
+    "max_output_tokens",
+    "max_tokens",
+    "mode",
+    "order",
+    "pool",
+    "reasoning_effort",
+    "rpm",
+    "supports_audio_input",
+    "supports_audio_output",
+    "supports_function_calling",
+    "supports_parallel_function_calling",
+    "supports_pdf_input",
+    "supports_reasoning",
+    "supports_response_schema",
+    "supports_tool_choice",
+    "supports_vision",
+    "supports_web_search",
+    "timeout",
+    "tpm"
+  ],
+  "requests": [
+    {
+      "app": null,
+      "at": 1791033311.1311927,
+      "attempts": [
+        {
+          "error": "",
+          "model": "demo/scribe-audio",
+          "result": "answered",
+          "seconds": 0.001
+        }
+      ],
+      "effort": null,
+      "fallbacks": "0",
+      "key": "master",
+      "loop": null,
+      "model": "daedalus/graphos",
+      "pool": null,
+      "retry": null,
+      "routed": null,
+      "seconds": 0.003,
+      "session": null,
+      "status": 200,
+      "stream": null,
+      "tokens": null,
+      "transition": null,
+      "ttft": null,
+      "via": "demo/scribe-audio"
+    },
+    {
+      "app": null,
+      "at": 1791033311.125838,
+      "attempts": [
+        {
+          "error": "",
+          "model": "demo/atlas-1",
+          "result": "answered",
+          "seconds": 0.001
+        }
+      ],
+      "effort": null,
+      "fallbacks": "0",
+      "key": "master",
+      "loop": null,
+      "model": "daedalus/koinos",
+      "pool": null,
+      "retry": null,
+      "routed": null,
+      "seconds": 0.002,
+      "session": "5d7e3b6",
+      "status": 200,
+      "stream": true,
+      "tokens": {
+        "estimate": false,
+        "input": 14,
+        "output": 5
+      },
+      "transition": null,
+      "ttft": "0.001s",
+      "via": "demo/atlas-1"
+    },
+    {
+      "app": null,
+      "at": 1791033311.1218433,
+      "attempts": [
+        {
+          "error": "{\"error\": \"the deployment is down\"}",
+          "model": "demo/echo-mini",
+          "result": "HTTP 503",
+          "seconds": 0.001,
+          "weight_change": {
+            "from": 1.0,
+            "to": 0.5
+          }
+        },
+        {
+          "error": "",
+          "model": "demo/atlas-1",
+          "result": "answered",
+          "seconds": 0.001
+        }
+      ],
+      "effort": null,
+      "fallbacks": "1",
+      "key": "master",
+      "loop": null,
+      "model": "daedalus/moros",
+      "pool": null,
+      "retry": null,
+      "routed": null,
+      "seconds": 0.002,
+      "session": "a57a308",
+      "status": 200,
+      "stream": false,
+      "tokens": {
+        "estimate": false,
+        "input": 24,
+        "output": 9
+      },
+      "transition": {
+        "from_model": "demo/echo-mini",
+        "from_pool": "moros",
+        "reason": "err",
+        "to_model": "demo/atlas-1",
+        "to_pool": "deinos"
+      },
+      "ttft": "0.001s",
+      "via": "demo/atlas-1"
+    },
+    {
+      "app": null,
+      "at": 1791033311.1173747,
+      "attempts": [
+        {
+          "error": "",
+          "model": "demo/atlas-2",
+          "result": "answered",
+          "seconds": 0.001
+        }
+      ],
+      "effort": null,
+      "fallbacks": "0",
+      "key": "master",
+      "loop": null,
+      "model": "demo/atlas-2",
+      "pool": null,
+      "retry": null,
+      "routed": null,
+      "seconds": 0.002,
+      "session": "cebe6de",
+      "status": 200,
+      "stream": false,
+      "tokens": {
+        "estimate": false,
+        "input": 24,
+        "output": 9
+      },
+      "transition": null,
+      "ttft": "0.001s",
+      "via": "demo/atlas-2"
+    },
+    {
+      "app": null,
+      "at": 1791033311.1138086,
+      "attempts": [
+        {
+          "error": "",
+          "model": "atlas/model-slug-with-a-fairly-long-name-2026",
+          "result": "answered",
+          "seconds": 0.001
+        }
+      ],
+      "effort": null,
+      "fallbacks": "0",
+      "key": "master",
+      "loop": null,
+      "model": "daedalus/sophos",
+      "pool": null,
+      "retry": null,
+      "routed": null,
+      "seconds": 0.002,
+      "session": "79f3636",
+      "status": 200,
+      "stream": false,
+      "tokens": {
+        "estimate": false,
+        "input": 24,
+        "output": 9
+      },
+      "transition": null,
+      "ttft": "0.001s",
+      "via": "atlas/model-slug-with-a-fairly-long-name-2026"
+    },
+    {
+      "app": null,
+      "at": 1791033311.1094906,
+      "attempts": [
+        {
+          "cooldown": {
+            "reason": "reset",
+            "seconds": 1800.0
+          },
+          "error": "{\"error\": \"rate limited\"}",
+          "model": "demo/beacon-2",
+          "result": "HTTP 429",
+          "seconds": 0.001,
+          "weight_change": {
+            "from": 1.0,
+            "to": 0.75
+          }
+        },
+        {
+          "error": "",
+          "model": "demo/atlas-1",
+          "result": "answered",
+          "seconds": 0.001
+        }
+      ],
+      "effort": null,
+      "fallbacks": "1",
+      "key": "master",
+      "loop": null,
+      "model": "daedalus/koinos",
+      "pool": null,
+      "retry": null,
+      "routed": null,
+      "seconds": 0.003,
+      "session": "115f867",
+      "status": 200,
+      "stream": true,
+      "tokens": {
+        "estimate": false,
+        "input": 14,
+        "output": 5
+      },
+      "transition": {
+        "from_model": "demo/beacon-2",
+        "from_pool": "koinos",
+        "reason": "lmt",
+        "to_model": "demo/atlas-1",
+        "to_pool": "deinos"
+      },
+      "ttft": "0.001s",
+      "via": "demo/atlas-1"
+    },
+    {
+      "app": null,
+      "at": 1791033311.1041963,
+      "attempts": [
+        {
+          "error": "",
+          "model": "demo/atlas-1",
+          "result": "answered",
+          "seconds": 0.001
+        }
+      ],
+      "effort": null,
+      "fallbacks": "0",
+      "key": "master",
+      "loop": null,
+      "model": "daedalus/deinos",
+      "pool": null,
+      "retry": null,
+      "routed": null,
+      "seconds": 0.002,
+      "session": "4702aa7",
+      "status": 200,
+      "stream": false,
+      "tokens": {
+        "estimate": false,
+        "input": 24,
+        "output": 9
+      },
+      "transition": null,
+      "ttft": "0.001s",
+      "via": "demo/atlas-1"
+    },
+    {
+      "app": null,
+      "at": 1791033311.0995736,
+      "attempts": [
+        {
+          "error": "",
+          "model": "demo/echo-mini",
+          "result": "answered",
+          "seconds": 0.001
+        }
+      ],
+      "effort": null,
+      "fallbacks": "0",
+      "key": "master",
+      "loop": null,
+      "model": "daedalus/auto",
+      "pool": "moros",
+      "retry": null,
+      "routed": null,
+      "seconds": 0.012,
+      "session": "547df45",
+      "status": 200,
+      "stream": false,
+      "tokens": {
+        "estimate": false,
+        "input": 24,
+        "output": 9
+      },
+      "transition": null,
+      "ttft": "0.001s",
+      "via": "demo/echo-mini"
+    }
+  ],
+  "settings": {
+    "defaults": {
+      "catalog": {
+        "anchor": 6.0,
+        "every": 6.0
+      },
+      "cooldown": {
+        "first": 60.0,
+        "longest": 21600.0
+      },
+      "dashboard": {
+        "theme": "system",
+        "time_format": "24h"
+      },
+      "escalation": {
+        "keywords": [
+          "ultrathink",
+          "think hard",
+          "think harder",
+          "think deeply",
+          "think longer",
+          "root cause",
+          "race condition",
+          "memory leak",
+          "deadlock",
+          "security review",
+          "performance regression",
+          "audit",
+          "refactor",
+          "investigate",
+          "diagnose",
+          "code review",
+          "system design",
+          "optimize",
+          "debug",
+          "design",
+          "architecture"
+        ]
+      },
+      "headroom": {
+        "timeout": 5.0
+      },
+      "loops": {
+        "calls": 3,
+        "longest": 2000,
+        "repeats": 4,
+        "shortest": 20
+      },
+      "pacing": {
+        "enabled": true
+      },
+      "parallel": {
+        "chance": 0.05,
+        "count": 1,
+        "enabled": false,
+        "penalty": 0.9,
+        "slow": 30.0
+      },
+      "pools": {
+        "deinos": "deinos",
+        "graphos": "graphos",
+        "koinos": "koinos",
+        "moros": "moros",
+        "photos": "photos",
+        "sophos": "sophos"
+      },
+      "request_hooks": {
+        "on-request": ""
+      },
+      "session_affinity": {
+        "change_on_draw": true,
+        "enabled": true,
+        "idle": 3600.0,
+        "stay": 0.85
+      },
+      "switch": {
+        "keywords": [
+          "clanker"
+        ]
+      },
+      "timeouts": {
+        "request": 600.0,
+        "slow": null,
+        "wait": 60.0
+      },
+      "weights": {
+        "enabled": true,
+        "fault": 0.5,
+        "hourly": 1.212,
+        "rate_limit": 0.75,
+        "slow": 0.75,
+        "success": 1.5
+      }
+    },
+    "file": {
+      "catalog": {
+        "anchor": 6,
+        "every": 6
+      },
+      "cooldown": {
+        "first": 60,
+        "longest": 21600
+      },
+      "dashboard": {
+        "theme": "system",
+        "time_format": "24h"
+      },
+      "headroom": {
+        "timeout": 5
+      },
+      "loops": {
+        "calls": 3,
+        "longest": 2000,
+        "repeats": 4,
+        "shortest": 20
+      },
+      "pacing": {
+        "enabled": true
+      },
+      "parallel": {
+        "chance": 0.05,
+        "count": 1,
+        "enabled": false,
+        "penalty": 0.9,
+        "slow": 30
+      },
+      "pools": {
+        "deinos": "deinos",
+        "graphos": "graphos",
+        "koinos": "koinos",
+        "moros": "moros",
+        "photos": "photos",
+        "sophos": "sophos"
+      },
+      "request_hooks": {
+        "on-request": "hooks/openwebui_retry.py"
+      },
+      "session_affinity": {
+        "change_on_draw": true,
+        "enabled": true,
+        "idle": 3600,
+        "stay": 0.85
+      },
+      "timeouts": {
+        "request": 600,
+        "wait": 60
+      },
+      "weights": {
+        "enabled": true,
+        "fault": 0.5,
+        "hourly": 1.212,
+        "rate_limit": 0.75,
+        "slow": 0.75,
+        "success": 1.5
+      }
+    },
+    "headroom_available": false,
+    "path": "config/daedalus.yml",
+    "text": "# Router settings. Each key is optional. A missing key uses the built-in default.\n# DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.\n# HEADROOM_URL turns on message compression through a Headroom sidecar.\ntimeouts:\n  request: 600 # seconds to wait for an answer, for all attempts\n  wait: 60 # seconds without data from the provider, keep-alive bytes excluded\nsession_affinity:\n  enabled: true\n  change_on_draw: true # false: keep the current pin after a weighted first-tier draw\n  idle: 3600 # seconds without a request, then the session model expires\n  stay: 0.85 # in a session, the share of first-tier draws for the session model\nparallel:\n  enabled: false # true: the next models of the chain race the first token, and the session model starts each request\n  count: 1 # the models that race the original one, 1 to 10\n  chance: 0.05 # the chance to start the racing models with the original one, from 0 to 1\n  slow: 30 # seconds with no content from the first model, then the second model starts\n  penalty: 0.9 # the weight factor for the model that loses the race, at most 1\nweights:\n  enabled: true # false: all weights stay at 1 and the chain keeps the usual order\n  success: 1.5\n  fault: 0.5\n  slow: 0.75\n  hourly: 1.212\n  rate_limit: 0.75 # the weight factor for an HTTP 429\ncooldown:\n  first: 60 # seconds of the first cooldown of a 429 with no reset time\n  longest: 21600 # each next 429 doubles the cooldown, up to this many seconds\nloops:\n  calls: 3 # repeated identical tool calls since the last user message\n  repeats: 4 # consecutive copies of a repeated text passage\n  shortest: 20 # shortest passage period, in characters\n  longest: 2000 # longest passage period, in characters\npacing:\n  enabled: true # false: the rpm and tpm of the provider files do not skip models\ncatalog:\n  every: 6 # hours between rebuilds of the model catalog. 0 stops them.\n  anchor: 6 # local hour (TZ env var) that the rebuild times start from: 00, 06, 12 and 18\nheadroom:\n  timeout: 5 # seconds for the full Headroom answer. After this, the original messages go to the provider.\ndashboard:\n  theme: system # system follows the device. Light or dark fixes it.\n  time_format: 24h # 24h or 12h, for each time on the dashboard\nrequest_hooks:\n  # The request-level hook files of the config folder, 1 for each point. Empty: no hook.\n  # on-request sets the key of the turn. The shipped file applies the Open WebUI try-again rule.\n  on-request: hooks/openwebui_retry.py\npools:\n  # The name after daedalus/ that clients use for each pool. After a change, the old name gets HTTP 400.\n  moros: moros\n  koinos: koinos\n  deinos: deinos\n  sophos: sophos\n  graphos: graphos\n  photos: photos\n"
+  },
+  "status": {
+    "catalog": {
+      "built": 1791033311.01838,
+      "next": 1791050400.0,
+      "rebuilding": false
+    },
+    "healthy": true,
+    "models": 8,
+    "sessions": 6,
+    "version": "demo"
+  }
+}

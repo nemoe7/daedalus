@@ -27,6 +27,12 @@ The header shows the state of daedalus as text. The text uses the style of the p
 line for the sessions and 1 line for the catalog, each with its value at the right. The header
 keeps its Log out button on a phone. Log out asks in a modal. Click the catalog line to rebuild the catalog now, after a confirmation. The line shows "rebuilding" until the rebuild ends. Only 1 rebuild runs at a time. A confirmation of a dangerous action uses a modal of the dashboard, not the browser box.
 
+## Demo on GitHub Pages
+
+A static demo of this page runs at <https://nemoe7.github.io/daedalus/>. Set the Pages source of the repository to **GitHub Actions** 1 time, and the Pages demo workflow deploys each change to the page. No server runs there. `scripts/pages_demo.py` copies the page and adds `demo.js`. That script answers each `ui/api/` call from `scripts/pages_fixtures.json`, fills the Requests tab, and simulates the live requests. A save answers "This is a static demo. The change is not saved." The header shows the version `demo`.
+
+The Pages demo workflow builds the demo from `main` and deploys it after a change to the page, the script or the fixtures. After a change to an endpoint, run `python3 scripts/pages_demo.py --capture` and commit the new fixtures.
+
 ## Requests
 
 The page lists the requests in flight at the top, then the last ones, 50 at
