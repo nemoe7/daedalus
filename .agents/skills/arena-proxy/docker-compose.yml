@@ -1,0 +1,52 @@
+# Runs the published arena-proxy image behind a Tailscale sidecar.
+# Set TS_AUTHKEY and GITHUB_TOKEN in the environment, or in a .env file.
+# Every start makes a new agent key and prints it once in the log.
+# The sidecar applies tailscale-serve.json and publishes the funnel URL
+# https://arena-proxy.<tailnet>.ts.net to the public internet on port 443.
+services:
+  proxy:
+    image: ghcr.io/nemoe7/arena-proxy:latest
+    container_name: arena-proxy
+    restart: unless-stopped
+    # The Tailscale sidecar owns the network namespace, so the proxy takes no ports.
+    network_mode: service:tailscale
+    environment:
+      # A fine-grained, read-only token for the GitHub routes; leave it out to skip them.
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      ARENA_PROXY_REPO: ${ARENA_PROXY_REPO:-nemoe7/clankers}
+      # Set a master key to turn on the /v1/key route; leave it out to keep the route off.
+      ARENA_PROXY_MASTER_KEY: ${ARENA_PROXY_MASTER_KEY:-}
+      # The model endpoint, when the LLM route should work; leave the set empty to skip it.
+      ARENA_PROXY_LLM_BASE: ${ARENA_PROXY_LLM_BASE:-}
+      ARENA_PROXY_LLM_KEY: ${ARENA_PROXY_LLM_KEY:-}
+      ARENA_PROXY_LLM_MODEL: ${ARENA_PROXY_LLM_MODEL:-}
+    volumes:
+      - arena-proxy-state:/state
+    depends_on:
+      - tailscale
+
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: arena-proxy-tailscale
+    restart: unless-stopped
+    hostname: arena-proxy
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:?set TS_AUTHKEY}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/tailscale-serve.json
+      TS_USERSPACE: "false"
+      # A tagged auth key carries its tag to the node, so none is requested here.
+      # Add flags through TS_EXTRA_ARGS when you need them, for example --accept-routes.
+      TS_EXTRA_ARGS: ${TS_EXTRA_ARGS:-}
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+      - ./tailscale-serve.json:/config/tailscale-serve.json:ro
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - net_admin
+      - sys_module
+
+volumes:
+  arena-proxy-state:
+  tailscale-state:
