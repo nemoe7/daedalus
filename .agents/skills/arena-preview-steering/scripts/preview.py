@@ -60,6 +60,8 @@ REMINDERS='Refresh context with ARENA.md, SKILL.md, and REFERENCE.md.','Run `tas
 REMINDER_CURSOR='reminder_cursor'
 POLLS_SINCE_MESSAGE='polls_since_message'
 GATE_THRESHOLD=20
+AGENT_KEY_META='agent_key'
+AGENT_KEY_RE=re.compile('[A-Za-z0-9_-]{20,64}\\Z')
 def now():return datetime.now(timezone.utc).isoformat()
 def reset_poll_count(db):
 	unacked=db.execute('SELECT (SELECT count(*) FROM notes WHERE acknowledged_at IS NULL) + (SELECT count(*) FROM submissions WHERE acknowledged_at IS NULL)').fetchone()[0]
@@ -325,8 +327,8 @@ def poll_inbox(store,pretty=False,sleeper=None):
 	listing={'checked_at':None,'pending':[]};store.start_poll()
 	try:
 		for index in range(POLL_MAX_LOOPS):
-			listing=store.read()
-			if listing['pending']:print(cli_json(listing,pretty),flush=True);store.mark_seen([item['id']for item in listing['pending']]);store.mark_reports_agent_seen([item.get('report_id')for item in listing['pending']]);return 0
+			listing=store.read(include_quiet=False)
+			if listing['pending']:full=store.read();print(cli_json(full,pretty),flush=True);store.mark_seen([item['id']for item in full['pending']]);store.mark_reports_agent_seen([item.get('report_id')for item in full['pending']]);return 0
 			open_tasks=[item for item in store.list_tasks()if item['status']=='upcoming'and not item['blocked']]
 			if open_tasks:listing['tasks']=open_tasks;print(cli_json(listing,pretty),flush=True);return 0
 			if index+1<POLL_MAX_LOOPS:sleeper(POLL_INTERVAL);store.stamp_polling()
@@ -377,10 +379,11 @@ class Store:
 		if not create and not existed:raise FileNotFoundError(f"Inbox missing: {self.path}. The sandbox may have been reset, so follow the restore routine: run scripts/install.sh from the repository root, start `arena-preview serve --port 8000` with the start_process tool, then `arena-preview read`.")
 		if create and not existed:directory.mkdir(parents=True,exist_ok=True,mode=448)
 		with closing(self.connect())as db,db:
-			db.executescript("\n        CREATE TABLE IF NOT EXISTS notes (\n          seq INTEGER PRIMARY KEY, id TEXT UNIQUE NOT NULL,\n          text TEXT NOT NULL, at TEXT NOT NULL, acknowledged_at TEXT,\n          ack_kind TEXT, ack_text TEXT, seen_at TEXT, replies TEXT,\n          ack_edited_seen_count INTEGER NOT NULL DEFAULT 0\n        );\n        CREATE TABLE IF NOT EXISTS reports (\n          id TEXT PRIMARY KEY, title TEXT NOT NULL,\n          markdown TEXT NOT NULL, updated_at TEXT NOT NULL, published_at TEXT,\n          seq INTEGER, seen_at TEXT,\n          ever_seen INTEGER NOT NULL DEFAULT 0, agent_seen_at TEXT\n        );\n        CREATE TABLE IF NOT EXISTS submissions (\n          seq INTEGER PRIMARY KEY, id TEXT UNIQUE NOT NULL,\n          report_id TEXT NOT NULL, text TEXT NOT NULL, at TEXT NOT NULL,\n          acknowledged_at TEXT, ack_kind TEXT, ack_text TEXT, seen_at TEXT, replies TEXT,\n          ack_edited_seen_count INTEGER NOT NULL DEFAULT 0\n        );\n        CREATE TABLE IF NOT EXISTS uploads (\n          seq INTEGER PRIMARY KEY, id TEXT UNIQUE NOT NULL, note_id TEXT,\n          name TEXT NOT NULL, type TEXT NOT NULL, size INTEGER NOT NULL,\n          sha256 TEXT NOT NULL, file TEXT NOT NULL, at TEXT NOT NULL\n        );\n        CREATE TABLE IF NOT EXISTS fetch_jobs (\n          seq INTEGER PRIMARY KEY, id TEXT UNIQUE NOT NULL,\n          url TEXT NOT NULL, allow_proxy INTEGER NOT NULL CHECK (allow_proxy IN (0, 1)),\n          status TEXT NOT NULL CHECK (status IN ('queued', 'fetching', 'saved', 'failed')),\n          approval TEXT NOT NULL DEFAULT 'approved'\n            CHECK (approval IN ('pending', 'approved', 'denied')),\n          claim TEXT, lease_until TEXT, error TEXT, source TEXT,\n          name TEXT, type TEXT, size INTEGER, sha256 TEXT, file TEXT,\n          at TEXT NOT NULL, updated_at TEXT NOT NULL\n        );\n        CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);\n        CREATE TABLE IF NOT EXISTS tasks (\n          id TEXT PRIMARY KEY,\n          title TEXT NOT NULL,\n          details TEXT NOT NULL DEFAULT '[]',\n          status TEXT NOT NULL DEFAULT 'upcoming'\n            CHECK (status IN ('upcoming', 'finished')),\n          position INTEGER NOT NULL,\n          created_at TEXT NOT NULL,\n          updated_at TEXT NOT NULL,\n          blocked INTEGER NOT NULL DEFAULT 0\n        );\n      ");columns={row['name']for row in db.execute('PRAGMA table_info(notes)')}
+			db.executescript("\n        CREATE TABLE IF NOT EXISTS notes (\n          seq INTEGER PRIMARY KEY, id TEXT UNIQUE NOT NULL,\n          text TEXT NOT NULL, at TEXT NOT NULL, acknowledged_at TEXT,\n          ack_kind TEXT, ack_text TEXT, seen_at TEXT, replies TEXT,\n          ack_edited_seen_count INTEGER NOT NULL DEFAULT 0,\n          quiet INTEGER NOT NULL DEFAULT 0\n        );\n        CREATE TABLE IF NOT EXISTS reports (\n          id TEXT PRIMARY KEY, title TEXT NOT NULL,\n          markdown TEXT NOT NULL, updated_at TEXT NOT NULL, published_at TEXT,\n          seq INTEGER, seen_at TEXT,\n          ever_seen INTEGER NOT NULL DEFAULT 0, agent_seen_at TEXT\n        );\n        CREATE TABLE IF NOT EXISTS submissions (\n          seq INTEGER PRIMARY KEY, id TEXT UNIQUE NOT NULL,\n          report_id TEXT NOT NULL, text TEXT NOT NULL, at TEXT NOT NULL,\n          acknowledged_at TEXT, ack_kind TEXT, ack_text TEXT, seen_at TEXT, replies TEXT,\n          ack_edited_seen_count INTEGER NOT NULL DEFAULT 0\n        );\n        CREATE TABLE IF NOT EXISTS uploads (\n          seq INTEGER PRIMARY KEY, id TEXT UNIQUE NOT NULL, note_id TEXT,\n          name TEXT NOT NULL, type TEXT NOT NULL, size INTEGER NOT NULL,\n          sha256 TEXT NOT NULL, file TEXT NOT NULL, at TEXT NOT NULL\n        );\n        CREATE TABLE IF NOT EXISTS fetch_jobs (\n          seq INTEGER PRIMARY KEY, id TEXT UNIQUE NOT NULL,\n          url TEXT NOT NULL, allow_proxy INTEGER NOT NULL CHECK (allow_proxy IN (0, 1)),\n          status TEXT NOT NULL CHECK (status IN ('queued', 'fetching', 'saved', 'failed')),\n          approval TEXT NOT NULL DEFAULT 'approved'\n            CHECK (approval IN ('pending', 'approved', 'denied')),\n          claim TEXT, lease_until TEXT, error TEXT, source TEXT,\n          name TEXT, type TEXT, size INTEGER, sha256 TEXT, file TEXT,\n          at TEXT NOT NULL, updated_at TEXT NOT NULL\n        );\n        CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);\n        CREATE TABLE IF NOT EXISTS tasks (\n          id TEXT PRIMARY KEY,\n          title TEXT NOT NULL,\n          details TEXT NOT NULL DEFAULT '[]',\n          status TEXT NOT NULL DEFAULT 'upcoming'\n            CHECK (status IN ('upcoming', 'finished')),\n          position INTEGER NOT NULL,\n          created_at TEXT NOT NULL,\n          updated_at TEXT NOT NULL,\n          blocked INTEGER NOT NULL DEFAULT 0\n        );\n      ");columns={row['name']for row in db.execute('PRAGMA table_info(notes)')}
 			for column in('ack_kind','ack_text','ack_edited_at','seen_at','task_id','replies'):
 				if column not in columns:db.execute(f"ALTER TABLE notes ADD COLUMN {column} TEXT")
 			if'ack_edited_seen_count'not in columns:db.execute('ALTER TABLE notes ADD COLUMN ack_edited_seen_count INTEGER NOT NULL DEFAULT 0')
+			if'quiet'not in columns:db.execute('ALTER TABLE notes ADD COLUMN quiet INTEGER NOT NULL DEFAULT 0')
 			if'origin'in columns:db.execute('ALTER TABLE notes DROP COLUMN origin');columns.discard('origin')
 			if'seen_at'not in columns:db.execute('UPDATE notes SET seen_at = acknowledged_at WHERE seen_at IS NULL AND acknowledged_at IS NOT NULL')
 			columns={row['name']for row in db.execute('PRAGMA table_info(tasks)')}
@@ -406,7 +409,7 @@ class Store:
 			if'origin'not in columns:db.execute("ALTER TABLE fetch_jobs ADD COLUMN origin TEXT NOT NULL DEFAULT 'agent'")
 		if not existed:self.path.chmod(384)
 	def connect(self):db=sqlite3.connect(self.path,timeout=5);db.row_factory=sqlite3.Row;return db
-	def note(self,note_id,text,at=None,acknowledged_at=None,ack_kind=None,ack_text=None,seen_at=None,task_id=None,ack_edited_at=None,autosave=True,shared=None,replies=None,ack_edited_seen_count=None):
+	def note(self,note_id,text,at=None,acknowledged_at=None,ack_kind=None,ack_text=None,seen_at=None,task_id=None,ack_edited_at=None,autosave=True,shared=None,replies=None,ack_edited_seen_count=None,quiet=False):
 		identifier(note_id);owner_text(text);receipt=restore_receipt(acknowledged_at,ack_kind,ack_text,ack_edited_at);more=restore_replies(replies,receipt[0]);seen_reply_count=restore_reply_seen_count(ack_edited_seen_count,more);seen=when(seen_at)if seen_at is not None else None
 		with self.transaction(shared,autosave=autosave)as db:
 			if shared is None:db.execute('BEGIN IMMEDIATE')
@@ -414,7 +417,7 @@ class Store:
 			if existing:
 				if existing['text']!=text:raise ValueError('This message ID already belongs to different text')
 				return message_row(existing)
-			db.execute('INSERT INTO notes (id, text, at, acknowledged_at, ack_kind, ack_text, ack_edited_at, seen_at, task_id, replies, ack_edited_seen_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',(note_id,text,at or now(),*receipt,seen,task_id,more,seen_reply_count));reset_poll_count(db);return message_row(db.execute('SELECT * FROM notes WHERE id = ?',(note_id,)).fetchone())
+			db.execute('INSERT INTO notes (id, text, at, acknowledged_at, ack_kind, ack_text, ack_edited_at, seen_at, task_id, replies, ack_edited_seen_count, quiet) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',(note_id,text,at or now(),*receipt,seen,task_id,more,seen_reply_count,1 if quiet else 0));reset_poll_count(db);return message_row(db.execute('SELECT * FROM notes WHERE id = ?',(note_id,)).fetchone())
 	def submission(self,submission_id,report_id,text,at=None,acknowledged_at=None,ack_kind=None,ack_text=None,seen_at=None,task_id=None,ack_edited_at=None,shared=None,autosave=True,replies=None,ack_edited_seen_count=None):
 		identifier(submission_id);identifier(report_id);submission_text(text);receipt=restore_receipt(acknowledged_at,ack_kind,ack_text,ack_edited_at);more=restore_replies(replies,receipt[0]);seen_reply_count=restore_reply_seen_count(ack_edited_seen_count,more)
 		with self.transaction(shared,autosave=autosave)as db:
@@ -447,7 +450,7 @@ class Store:
 			if tasks is not None:
 				for item in tasks['finished']+tasks['upcoming']:item['updated_at']=clip_stamp(item['updated_at'])
 				tasks['updated_at']=clip_stamp(tasks['updated_at'])
-			return{'notes':notes,'reports':reports,'tasks':tasks,'uploads':uploads,'fetch_jobs':fetch_jobs,'workspace':workspace_usage(),'last_check':clip_stamp(meta.get('last_check')),'polling':self.polling(),'polling_since':clip_stamp(meta.get(POLL_SINCE_META))if self.polling()else None,'calls_since_message':meta_number(db,POLLS_SINCE_MESSAGE)}
+			return{'notes':notes,'reports':reports,'tasks':tasks,'uploads':uploads,'fetch_jobs':fetch_jobs,'workspace':workspace_usage(),'last_check':clip_stamp(meta.get('last_check')),'polling':self.polling(),'polling_since':clip_stamp(meta.get(POLL_SINCE_META))if self.polling()else None,'calls_since_message':meta_number(db,POLLS_SINCE_MESSAGE),'agent_key':self.agent_key()}
 	def tasks(self):
 		with closing(self.connect())as db:rows=db.execute(f"SELECT {TASK_COLUMNS} FROM tasks ORDER BY status DESC, position, id").fetchall()
 		records=[task_row(row)for row in rows]
@@ -683,18 +686,29 @@ class Store:
 	def polling(self):age=seconds_since(self.meta_value(POLLING_META));return age is not None and 0<=age<POLLING_FRESH_SECONDS
 	def set_meta(self,key,value):
 		with closing(self.connect())as db,db:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(key,str(value)))
+	def set_agent_key(self,key):self.set_meta(AGENT_KEY_META,json.dumps({'key':key,'at':now()},ensure_ascii=False))
+	def agent_key(self):
+		value=self.meta_value(AGENT_KEY_META)
+		if not value:return None
+		try:record=json.loads(value)
+		except json.JSONDecodeError:return None
+		if not isinstance(record,dict):return None
+		key=record.get('key')
+		if not isinstance(key,str)or not AGENT_KEY_RE.fullmatch(key):return None
+		return{'key':key,'at':clip_stamp(record.get('at'))}
 	def reminder(self,advance=False):
 		with closing(self.connect())as db,db:
 			uploads=db.execute('SELECT count(*) FROM notes JOIN uploads USING (id) WHERE acknowledged_at IS NULL').fetchone()[0];notes=db.execute('SELECT count(*) FROM notes WHERE acknowledged_at IS NULL').fetchone()[0]-uploads;reports=db.execute('SELECT count(*) FROM submissions WHERE acknowledged_at IS NULL').fetchone()[0];remaining=db.execute("SELECT count(*) FROM tasks WHERE status <> 'finished'").fetchone()[0];cursor=meta_number(db,REMINDER_CURSOR);polls=0 if advance and not notes+reports+uploads else meta_number(db,POLLS_SINCE_MESSAGE)+(1 if advance else 0);db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(REMINDER_CURSOR,str(cursor+1)))
 			if advance:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(POLLS_SINCE_MESSAGE,str(polls)))
 		counts=[f"{count} {kind}/s."for(count,kind)in((notes,'message'),(reports,'form answer'),(uploads,'upload'))if count];ack=['DO NOT IGNORE. ACK ASAP.']if counts else[];head=[f"{polls} call/s since user messaged."]if polls and counts else[];tail=reminder_tail(cursor,remaining);return' '.join([*head,*counts,*ack,tail])
 	def gate(self,threshold=GATE_THRESHOLD,pending_only=False):
-		with closing(self.connect())as db,db:pending=db.execute('SELECT (SELECT count(*) FROM notes WHERE acknowledged_at IS NULL) + (SELECT count(*) FROM submissions WHERE acknowledged_at IS NULL)').fetchone()[0];polls=meta_number(db,POLLS_SINCE_MESSAGE)
+		with closing(self.connect())as db,db:pending=db.execute('SELECT (SELECT count(*) FROM notes WHERE acknowledged_at IS NULL AND quiet = 0) + (SELECT count(*) FROM submissions WHERE acknowledged_at IS NULL)').fetchone()[0];polls=meta_number(db,POLLS_SINCE_MESSAGE)
 		if pending_only:return not pending
 		return not(pending and polls>=threshold)
-	def read(self):
+	def read(self,include_quiet=True):
+		quiet_filter=''if include_quiet else' AND quiet = 0'
 		with self.transaction()as db:
-			pending=[dict(row)|{'kind':'note'}for row in db.execute('SELECT * FROM notes WHERE acknowledged_at IS NULL ORDER BY seq')];pending+=[dict(row)|{'kind':'report'}for row in db.execute('SELECT * FROM submissions WHERE acknowledged_at IS NULL ORDER BY seq')];attachments={}
+			pending=[dict(row)|{'kind':'note'}for row in db.execute(f"SELECT * FROM notes WHERE acknowledged_at IS NULL{quiet_filter} ORDER BY seq")];pending+=[dict(row)|{'kind':'report'}for row in db.execute('SELECT * FROM submissions WHERE acknowledged_at IS NULL ORDER BY seq')];attachments={}
 			for row in db.execute('SELECT * FROM uploads ORDER BY seq'):record=upload_row(row,self.path.parent);attachments.setdefault(record['note_id'],[]).append(record)
 			for item in pending:
 				if item['kind']=='note':add_note_attachments(item,attachments.get(item['id'],[]))
@@ -889,8 +903,8 @@ def handler(store):
 			except FileNotFoundError as error:self.problem(404,error)
 			except(OSError,sqlite3.Error,RuntimeError)as error:self.problem(503,error)
 		def do_POST(self):
-			path=urlsplit(self.path).path;report_submit=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/submit',path);report_seen=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/seen',path);message_replies_seen=re.fullmatch('/api/messages/([a-zA-Z0-9_-]{1,80})/replies/seen',path);report_unpublish=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/unpublish',path);fetch_post=re.fullmatch('/api/fetch-jobs/([a-zA-Z0-9_-]{1,80})/(renew|result|fail|retry|approve|deny)',path);upload_post=path=='/api/uploads';note_upload=path=='/api/notes/with-file';probe=path=='/api/probe';fetch_result=bool(fetch_post and fetch_post.group(2)=='result')
-			if path not in{'/api/notes','/api/markdown','/api/fetch-jobs','/api/fetch-jobs/claim'}and not report_submit and not report_seen and not message_replies_seen and not report_unpublish and not upload_post and not note_upload and not fetch_post and not probe:self.problem(404,'Not found');return
+			path=urlsplit(self.path).path;report_submit=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/submit',path);report_seen=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/seen',path);message_replies_seen=re.fullmatch('/api/messages/([a-zA-Z0-9_-]{1,80})/replies/seen',path);report_unpublish=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/unpublish',path);fetch_post=re.fullmatch('/api/fetch-jobs/([a-zA-Z0-9_-]{1,80})/(renew|result|fail|retry|approve|deny)',path);upload_post=path=='/api/uploads';note_upload=path=='/api/notes/with-file';probe=path=='/api/probe';agent_key_post=path=='/api/key';fetch_result=bool(fetch_post and fetch_post.group(2)=='result')
+			if path not in{'/api/notes','/api/markdown','/api/fetch-jobs','/api/fetch-jobs/claim'}and not report_submit and not report_seen and not message_replies_seen and not report_unpublish and not upload_post and not note_upload and not fetch_post and not probe and not agent_key_post:self.problem(404,'Not found');return
 			if probe:
 				length=int(self.headers.get('Content-Length','0')or 0);raw=self.rfile.read(length)if length else b''
 				try:body=json.loads(raw.decode('utf-8'))if raw else{}
@@ -931,6 +945,10 @@ def handler(store):
 				if upload_post:name=parse_qs(urlsplit(self.path).query).get('name',[''])[0];record=store.save_upload(name,self.headers.get('Content-Type',''),data);record['at']=clip_stamp(record['at']);store.note(record['id'],f"Upload: {record['name']} ({record['size']} B, {record['type']or'unknown type'}) saved to {record['path']}");self.reply(201,json.dumps(record,ensure_ascii=False));return
 				payload=json.loads(data)
 				if not isinstance(payload,dict):self.problem(400,'Expected a JSON object');return
+				if agent_key_post:
+					candidate=payload.get('key')
+					if not isinstance(candidate,str)or not AGENT_KEY_RE.fullmatch(candidate):raise ValueError('key must be 20 to 64 letters, digits, dashes or underscores')
+					store.set_agent_key(candidate);self.reply(200,json.dumps(store.agent_key(),ensure_ascii=False));return
 				if path=='/api/fetch-jobs':record=store.enqueue_fetch(payload.get('url'),payload.get('allow_proxy',False));self.reply(201,json.dumps(record,ensure_ascii=False));return
 				if path=='/api/fetch-jobs/claim':self.reply(200,json.dumps({'job':store.claim_fetch()},ensure_ascii=False));return
 				if fetch_post:
@@ -951,7 +969,7 @@ def handler(store):
 					note=store.submit_report(report_submit.group(1),payload.get('id'),payload.get('answers'),payload.get('revision'))
 					for key in('at','acknowledged_at','ack_edited_at','seen_at'):note[key]=clip_stamp(note[key])
 					self.reply(201,json.dumps(note,ensure_ascii=False));return
-				note=store.note(payload.get('id'),payload.get('text'))
+				note=store.note(payload.get('id'),payload.get('text'),quiet=bool(payload.get('quiet')))
 				for key in('at','acknowledged_at','ack_edited_at','seen_at'):note[key]=clip_stamp(note[key])
 				self.reply(201,json.dumps(note,ensure_ascii=False))
 			except(ReportChanged,FetchChanged)as error:self.problem(409,error)
