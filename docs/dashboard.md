@@ -29,7 +29,7 @@ keeps its Log out button on a phone. Log out asks in a modal. Click the catalog 
 
 ## Demo on GitHub Pages
 
-A static demo of this page runs at <https://nemoe7.github.io/daedalus/>. Set the Pages source of the repository to **GitHub Actions** 1 time, and the Pages demo workflow deploys each change to the page. No server runs there. `scripts/pages_demo.py` copies the page and adds `demo.js`. That script answers each `ui/api/` call from `scripts/pages_fixtures.json`. The Requests tab starts empty, and the script streams the captured requests in, then keeps the table rotating. A save answers "This is a static demo. The change is not saved." The Catalog chip starts a rebuild in the page, and it finishes after about 26 seconds. The header shows the version `demo`.
+A static demo of this page runs at <https://nemoe7.github.io/daedalus/>. Set the Pages source of the repository to **GitHub Actions** 1 time, and the Pages demo workflow deploys each change to the page. No server runs there. `scripts/pages_demo.py` copies the page and adds `demo.js`. That script answers each `ui/api/` call from `scripts/pages_fixtures.json`. The Requests tab starts empty, and the script streams the captured requests in, then keeps the table rotating. A save lands in the page memory, so the page shows it until a reload brings the captured data back. The Catalog chip starts a rebuild in the page, and it finishes after about 26 seconds. The header shows the version `demo`.
 
 The Pages demo workflow builds the demo from `main` and deploys it after a change to the page, the script or the fixtures. After a change to an endpoint, run `python3 scripts/pages_demo.py --capture` and commit the new fixtures.
 
