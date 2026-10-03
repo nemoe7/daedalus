@@ -66,6 +66,7 @@ An ADR holds one decision and the reason for it.
 
 - A new page uses the `.flow` layout of `style.css`: the table in a `.column.wide`, and the cards in a `.column` beside it.
 - Do not put cards in a row above a table.
+- Update the pages simulation when code or UI changes: `scripts/pages_demo.py`, live at <https://nemoe7.github.io/daedalus/>.
 
 ## State database
 
