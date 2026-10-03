@@ -1,6 +1,7 @@
 """The GitHub Pages demo: the build, the fixtures, and the script that answers the page."""
 
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -349,22 +350,41 @@ def test_the_fixtures_carry_the_edge_cases() -> None:
 
 def test_the_build_copies_the_page_and_loads_the_demo_first(tmp_path: Path) -> None:
   """`--out` serves the real UI, with the demo script before it."""
-  out = pages_demo.build(tmp_path / "site")
+  out = pages_demo.build(tmp_path / "site", pages_demo.demo_version())
   page = (out / "index.html").read_text(encoding="utf-8")
   assert page.index("demo.js") < page.index("ui/app.js")
   assert 'src="demo.js"' in page
   for name in ("app.js", "index.html", "style.css", "manifest.json", "logo.svg"):
     assert (out / "ui" / name).exists() or (out / name).exists(), name
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
+  fixtures["login"]["version"] = pages_demo.demo_version()
+  fixtures["status"]["version"] = pages_demo.demo_version()
   assert json.dumps(fixtures) in (out / "demo.js").read_text(encoding="utf-8")
   assert 'const MARKER = "ui/api/";' in (out / "demo.js").read_text(encoding="utf-8"), (
     "the demo matches the call path"
   )
 
 
+def test_the_demo_carries_the_version_of_the_build(tmp_path: Path) -> None:
+  """A build stamps its version into the header, and every change bumps it."""
+  out = pages_demo.build(tmp_path / "site", "demo.7")
+  demo = (out / "demo.js").read_text(encoding="utf-8")
+  assert demo.count('"version": "demo.7"') == 2, (
+    "the header and the login hint carry it"
+  )
+  assert pages_demo.demo_version() != "", (
+    "an environment with no version keeps a fallback"
+  )
+  os.environ["DEMO_VERSION"] = "demo.99"
+  try:
+    assert pages_demo.demo_version() == "demo.99", "the environment wins"
+  finally:
+    del os.environ["DEMO_VERSION"]
+
+
 def test_the_demo_answers_the_page_without_a_server(tmp_path: Path) -> None:
   """The script in a JavaScript runtime: the fixtures, a refused write and a live request."""
-  out = pages_demo.build(tmp_path / "site")
+  out = pages_demo.build(tmp_path / "site", pages_demo.demo_version())
   built = subprocess.run(
     ["node", "-e", NODE_CHECK],
     cwd=out,
