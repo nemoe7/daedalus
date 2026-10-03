@@ -424,6 +424,57 @@ def test_keyword_tier() -> None:
     api.PENALTIES.clear()
 
 
+def test_pinned_never_writes_and_prune_drops_the_idle(
+  folder: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A request reads the pins: only `prune` writes, so a lock cannot fail a read."""
+  now = [0.0]
+  store = penalties.Penalties(lambda: folder / "r.sqlite3", clock=lambda: now[0])
+  store.pin("k", "pool", "m/1")
+  now[0] = penalties.IDLE_SECONDS + 1
+  database = sqlite3.connect(folder / "r.sqlite3")
+  before = database.execute("SELECT COUNT(*) FROM pins").fetchone()[0]
+  database.close()
+  assert store.pinned("k", "pool") is None, "an idle pin is invisible"
+  database = sqlite3.connect(folder / "r.sqlite3")
+  after = database.execute("SELECT COUNT(*) FROM pins").fetchone()[0]
+  database.close()
+  assert after == before == 1, "the read path leaves the row"
+  store.prune()
+  database = sqlite3.connect(folder / "r.sqlite3")
+  left = database.execute("SELECT COUNT(*) FROM pins").fetchone()[0]
+  database.close()
+  assert left == 0, "the timer drops it"
+
+
+def test_a_busy_store_answers_503(monkeypatch: pytest.MonkeyPatch) -> None:
+  """A lock on the state store gives a clear 503, in place of a raw 500."""
+  config = {"a": {"api_key": "k", "api_base": "https://a.test/v1"}}
+  original = api.get_config, api.chain
+  api.get_config = lambda: config
+  api.chain = lambda model, body, config, key="": (([["a/1"]]), "daedalus/deinos")
+  upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
+  client = TestClient(api.app, headers=AUTH)
+  body = {"model": "daedalus/deinos", "messages": [{"role": "user", "content": "x"}]}
+  broken = sqlite3.OperationalError("database is locked")
+  monkeypatch.setattr(api.PENALTIES, "pinned", lambda *_: (_ for _ in ()).throw(broken))
+  try:
+    sent = client.post("/v1/chat/completions", json=body, headers=AUTH)
+    assert sent.status_code == 503, sent.text
+    assert sent.json()["error"]["message"] == "The state store is busy. Try again."
+    corrupt = sqlite3.DatabaseError("file is not a database")
+    monkeypatch.setattr(api.COOLDOWNS, "ends", lambda: (_ for _ in ()).throw(corrupt))
+    monkeypatch.setattr(api.PENALTIES, "pinned", lambda *_: None)
+    sent = client.post("/v1/chat/completions", json=body, headers=AUTH)
+    assert sent.status_code == 503, sent.text
+    assert sent.json()["error"]["message"] == (
+      "The model store is not readable. Run `daedalus catalog`."
+    )
+  finally:
+    api.get_config, api.chain = original
+    upstream.set_client(None)
+
+
 @pytest.fixture(scope="module")
 def folder(state_folder: Path) -> Path:
   return state_folder

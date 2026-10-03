@@ -109,27 +109,37 @@ class Penalties:
     return previous, weight
 
   def pinned(self, key: str, slot: str) -> str | None:
-    """The live pin for one pair, after it drops the pins that idled too long."""
+    """The live pin for one pair. A request never writes: the prune timer drops the idle pins."""
+    database = self.connect()
+    try:
+      row = database.execute(
+        "SELECT model FROM pins WHERE key = ? AND slot = ? AND used >= ?",
+        (key, slot, self.clock() - self.idle),
+      ).fetchone()
+    finally:
+      database.close()
+    return row[0] if row else None
+
+  def prune(self) -> None:
+    """Drop the pins and tiers that idled, for the timer."""
+    now = self.clock() - self.idle
     database = self.connect()
     with database:
-      database.execute("DELETE FROM pins WHERE used < ?", (self.clock() - self.idle,))
-      row = database.execute(
-        "SELECT model FROM pins WHERE key = ? AND slot = ?", (key, slot)
-      ).fetchone()
+      database.execute("DELETE FROM pins WHERE used < ?", (now,))
+      database.execute("DELETE FROM tiers WHERE used < ?", (now,))
     database.close()
-    return row[0] if row else None
 
   def last_pin(self, key: str) -> tuple[str, str] | None:
     """The most recently answered session slot and model for this conversation."""
-    now = self.clock()
     database = self.connect()
-    with database:
-      database.execute("DELETE FROM pins WHERE used < ?", (now - self.idle,))
+    try:
       row = database.execute(
-        "SELECT slot, model FROM pins WHERE key = ? ORDER BY used DESC, rowid DESC LIMIT 1",
-        (key,),
+        "SELECT slot, model FROM pins WHERE key = ? AND used >= ?"
+        " ORDER BY used DESC, rowid DESC LIMIT 1",
+        (key, self.clock() - self.idle),
       ).fetchone()
-    database.close()
+    finally:
+      database.close()
     return tuple(row) if row else None
 
   def highest(self, key: str, tier: int) -> int:
@@ -137,8 +147,9 @@ class Penalties:
     now = self.clock()
     database = self.connect()
     with database:
-      database.execute("DELETE FROM tiers WHERE used < ?", (now - self.idle,))
-      row = database.execute("SELECT tier FROM tiers WHERE key = ?", (key,)).fetchone()
+      row = database.execute(
+        "SELECT tier FROM tiers WHERE key = ? AND used >= ?", (key, now - self.idle)
+      ).fetchone()
       top = max(tier, row[0]) if row else tier
       database.execute(
         "INSERT OR REPLACE INTO tiers (key, tier, used) VALUES (?, ?, ?)",
