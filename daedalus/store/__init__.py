@@ -337,6 +337,33 @@ def built() -> float | None:
   return row[0] if row else None
 
 
+def readable() -> bool:
+  """Tell if the model store can be read. A missing file is readable: it holds no rows."""
+  if not Path(MODELS_DB).exists():
+    return True
+  database = connect_read(MODELS_DB)
+  try:
+    database.execute("SELECT count(*) FROM models").fetchall()
+  except sqlite3.DatabaseError:
+    return False
+  finally:
+    database.close()
+  return True
+
+
+def set_aside() -> Path | None:
+  """Move an unreadable store out of the way, with its write-ahead files, for a new build."""
+  target = Path(MODELS_DB)
+  if not target.exists():
+    return None
+  broken = target.with_name(target.name + ".broken")
+  broken.unlink(missing_ok=True)
+  target.replace(broken)
+  for suffix in ("-wal", "-shm"):
+    Path(f"{target}{suffix}").unlink(missing_ok=True)
+  return broken
+
+
 def has_store() -> bool:
   """Tell if a catalog build wrote the store, because the Alembic steps make only empty tables."""
   if not Path(MODELS_DB).exists():

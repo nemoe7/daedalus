@@ -93,6 +93,9 @@ def run(argv: list[str] | None = None) -> None:
         2,
         f"daedalus: set {dashboard.DAEDALUS_MASTER_KEY}: {keys.MIN_LENGTH} or more characters, no spaces\n",
       )
+    if not store.readable():
+      logger.warning("the model store is not readable: it goes aside and is rebuilt")
+      store.set_aside()
     store.migrate()
     try:
       api.apply_settings(settings.load())

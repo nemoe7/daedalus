@@ -118,6 +118,15 @@ def test_commands() -> None:
       calls.clear()
       cli.run(["serve"])
       assert calls == ["listen:3357"], calls
+      store.MODELS_DB.write_text("not a database")
+      calls.clear()
+      cli.run(["serve"])
+      assert calls == ["catalog", "listen:3357"], "an unreadable store is rebuilt"
+      assert store.MODELS_DB.with_name("models.sqlite3.broken").exists(), (
+        "the bad file went aside"
+      )
+      # A built store again, for the checks below.
+      store.write_store([], store.MODELS_DB)
       calls.clear()
       cli.run(["catalog"])
       assert calls == ["catalog"], calls
