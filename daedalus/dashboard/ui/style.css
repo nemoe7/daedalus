@@ -355,6 +355,19 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6
 .field input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .field.check { justify-content: flex-start; cursor: pointer; }
 .field.check input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; flex: none; }
+/* A desktop hides the check hint behind the info icon. A phone shows the hint under the label. */
+.field.check > span { position: relative; grid-template-columns: auto auto; justify-content: start; align-items: center; column-gap: 6px; }
+.field.check .hint {
+  width: 16px; height: 16px; padding: 0; border: 1px solid var(--line); border-radius: 50%;
+  background: transparent; color: var(--muted); font: 11px/1 var(--mono);
+}
+.field.check .hint:hover, .field.check .hint:focus-visible { color: var(--text); border-color: var(--muted); }
+.field.check small { display: none; }
+.field.check .hint:hover ~ small, .field.check .hint:focus ~ small {
+  display: block; position: absolute; top: calc(100% + 4px); left: 0; z-index: 3;
+  width: max-content; max-width: 260px; padding: 6px 8px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--panel); color: var(--muted); font-size: 12px;
+}
 .settings .field.stack { flex-direction: column; align-items: stretch; gap: 8px; }
 .settings .field textarea {
   min-height: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px;
@@ -427,6 +440,10 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .editbar .tab { padding: 4px 10px; font-size: 13px; }
   section[data-page="providers"] .editbar .hint, section[data-page="settings"] .editbar .hint { display: none; }
   th, td { padding: 10px; }
+  /* A phone shows the check hint under its label, and drops the info icon. */
+  .field.check > span { grid-template-columns: minmax(0, 1fr); }
+  .field.check .hint { display: none; }
+  .field.check small { display: block; }
   /* The last row of a panel clears the panel edge and the screen bottom. */
   #app > main { padding-bottom: 76px; }
   .panel { padding-bottom: 8px; }

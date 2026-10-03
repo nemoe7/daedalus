@@ -796,6 +796,10 @@ const html = node('settings').innerHTML;
 const at = html.indexOf('id="set-session_affinity-change_on_draw"');
 assert(at > 0, 'the change_on_draw field is in the form');
 assert(html.slice(Math.max(0, at - 120), at).includes('type="checkbox"'), 'change_on_draw is a checkbox');
+// The hint of a check row sits behind the info icon on a desktop, and the icon names it for a reader.
+const hint = html.slice(at, at + 600);
+assert(hint.includes('class="hint"') && hint.includes('aria-describedby="set-session_affinity-change_on_draw-hint"'), 'the check row carries its hint icon');
+assert(hint.includes('role="tooltip"'), 'the hint text serves as the tooltip');
 for (const id of ['set-session_affinity-enabled', 'set-session_affinity-change_on_draw', 'set-weights-enabled', 'set-pacing-enabled']) node(id).checked = true;
 node('set-dashboard-theme').value = 'system';
 node('set-dashboard-time_format').value = '24h';
