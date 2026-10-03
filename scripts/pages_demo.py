@@ -356,7 +356,7 @@ DEMO_SHAPES = (
     ],
   },
   {
-    "app": "Home Assistant Panel 01",
+    "app": "Kilo",
     "effort": "low",
     "loop": "2",
     "pool": "sophos",
