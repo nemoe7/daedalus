@@ -1210,6 +1210,31 @@ def test_files(
   assert "_file" not in config.get_config().get("openrouter", {}), "the reload drops it"
 
 
+def test_provider_file_save_loads_the_main_config(client: TestClient) -> None:
+  """A save of 1 `{provider}.yml` file must not read that file as the main file."""
+  login = {"username": "admin", "password": MASTER}
+  assert client.post("/ui/api/login", json=login).status_code == 200
+  made = client.post("/ui/api/files", json={"name": "probe"})
+  assert made.status_code == 200, made.text
+  saved = client.put(
+    "/ui/api/files", json={"path": made.json()["path"], "text": "api_key: k\n"}
+  )
+  assert saved.status_code == 200, saved.text
+  loaded = config.get_config()
+  assert "api_key" not in loaded, "the keys of the file must not become providers"
+  main = config.load_yaml(config.DEFAULT_PATH.read_text(encoding="utf-8"))
+  assert {k: v for k, v in loaded.items() if k != "probe"} == main, (
+    "the main file keeps its blocks"
+  )
+  assert loaded["probe"]["_file"] == {"api_key": "k"}, loaded.get("probe")
+  assert (
+    client.request(
+      "DELETE", "/ui/api/files", json={"path": made.json()["path"]}
+    ).status_code
+    == 200
+  )
+
+
 def test_provider_edits_rebuild_from_cache(
   client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
