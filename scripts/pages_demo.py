@@ -343,7 +343,7 @@ DEMO_SHAPES = (
         "result": "error",
         "seconds": 0.412,
         "error": "the deployment is down",
-        "weight_change": 0.5,
+        "weight_change": {"from": 1.0, "to": 0.5},
       },
       {
         "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
@@ -351,7 +351,7 @@ DEMO_SHAPES = (
         "seconds": 0.884,
         "error": "",
         "cooldown": {"seconds": 1800, "reason": "retry-after"},
-        "weight_change": 0.9,
+        "weight_change": {"from": 0.5, "to": 0.75},
       },
     ],
   },
@@ -1029,9 +1029,10 @@ const DEMO_FIXTURES = __FIXTURES__;
       const row = { id, path, age: 0, attempt_age: 0, ttft: null };
       this.send("start", row);
       await wait(gap(250, 1100));
+      const stream = path === "/v1/chat/completions" ? true : template.stream === true;
       Object.assign(row, {
         app: pick(["OWUI", "Kilo"]), session: session(id), key: "master",
-        model: template.model, effort: template.effort, pool: template.pool, stream: template.stream,
+        model: template.model, effort: template.effort, pool: template.pool, stream,
         trying: served, via: null, attempts: [], tokens: null, fallbacks: "0",
         age: round(gap(0.3, 1.1)), attempt_age: round(gap(0.3, 1.1)),
       });
