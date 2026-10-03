@@ -858,6 +858,7 @@ def handler(store):
 			path=urlsplit(self.path).path
 			try:
 				if path=='/':page=(ASSETS/'index.html').read_text(encoding='utf-8');page=page.replace('__STYLE__',(ASSETS/'style.css').read_text(encoding='utf-8'));page=page.replace('__SCRIPT__',(ASSETS/'app.js').read_text(encoding='utf-8'));self.reply(200,page.replace('__TOKEN__',token),'text/html; charset=utf-8');return
+				if path=='/api/probe':self.reply(200,json.dumps({'ok':True,'route':'/api/probe','from':self.client_address[0],'at':datetime.now(timezone.utc).isoformat(timespec='seconds'),'hint':'POST a JSON body to echo it'},indent=2)+'\n');return
 				if path=='/api/state':
 					state=store.state();state['token']=token
 					try:
@@ -888,8 +889,13 @@ def handler(store):
 			except FileNotFoundError as error:self.problem(404,error)
 			except(OSError,sqlite3.Error,RuntimeError)as error:self.problem(503,error)
 		def do_POST(self):
-			path=urlsplit(self.path).path;report_submit=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/submit',path);report_seen=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/seen',path);message_replies_seen=re.fullmatch('/api/messages/([a-zA-Z0-9_-]{1,80})/replies/seen',path);report_unpublish=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/unpublish',path);fetch_post=re.fullmatch('/api/fetch-jobs/([a-zA-Z0-9_-]{1,80})/(renew|result|fail|retry|approve|deny)',path);upload_post=path=='/api/uploads';note_upload=path=='/api/notes/with-file';fetch_result=bool(fetch_post and fetch_post.group(2)=='result')
-			if path not in{'/api/notes','/api/markdown','/api/fetch-jobs','/api/fetch-jobs/claim'}and not report_submit and not report_seen and not message_replies_seen and not report_unpublish and not upload_post and not note_upload and not fetch_post:self.problem(404,'Not found');return
+			path=urlsplit(self.path).path;report_submit=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/submit',path);report_seen=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/seen',path);message_replies_seen=re.fullmatch('/api/messages/([a-zA-Z0-9_-]{1,80})/replies/seen',path);report_unpublish=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/unpublish',path);fetch_post=re.fullmatch('/api/fetch-jobs/([a-zA-Z0-9_-]{1,80})/(renew|result|fail|retry|approve|deny)',path);upload_post=path=='/api/uploads';note_upload=path=='/api/notes/with-file';probe=path=='/api/probe';fetch_result=bool(fetch_post and fetch_post.group(2)=='result')
+			if path not in{'/api/notes','/api/markdown','/api/fetch-jobs','/api/fetch-jobs/claim'}and not report_submit and not report_seen and not message_replies_seen and not report_unpublish and not upload_post and not note_upload and not fetch_post and not probe:self.problem(404,'Not found');return
+			if probe:
+				length=int(self.headers.get('Content-Length','0')or 0);raw=self.rfile.read(length)if length else b''
+				try:body=json.loads(raw.decode('utf-8'))if raw else{}
+				except(UnicodeDecodeError,json.JSONDecodeError):self.problem(400,'the probe body must be JSON');return
+				self.reply(200,json.dumps({'ok':True,'route':'/api/probe','from':self.client_address[0],'at':datetime.now(timezone.utc).isoformat(timespec='seconds'),'echo':body},indent=2)+'\n');return
 			content_type=self.headers.get('Content-Type','')
 			if note_upload:
 				if not content_type.lower().startswith('multipart/form-data;'):self.problem(415,'Expected multipart/form-data');return
