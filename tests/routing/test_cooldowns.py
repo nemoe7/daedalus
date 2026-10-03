@@ -42,7 +42,7 @@ GEMINI_MINUTE = {
 CLOUDFLARE_DAILY = {"errors": [{"message": "daily free allocation", "code": 4006}]}
 
 
-def test_rules() -> None:
+def test_rules(caplog) -> None:
   assert cooldowns.duration("38s") == 38 and cooldowns.duration("250ms") == 0.25
   assert cooldowns.duration("2m59.5s") == 179.5 and cooldowns.duration("1h") == 3600
   assert cooldowns.duration("soon") is None and cooldowns.duration("5sx") is None
@@ -62,6 +62,20 @@ def test_rules() -> None:
   assert cooldowns.reset_seconds({"retry-after": date}, {}, NOW) == 120
   assert cooldowns.reset_seconds({}, GEMINI_MINUTE, NOW) == 38
   assert cooldowns.reset_seconds({"retry-after": "0"}, {}, NOW) is None
+  with caplog.at_level("WARNING"):
+    assert (
+      cooldowns.reset_seconds({"retry-after": "1791000000000"}, {}, NOW) == 86400
+    ), "a millisecond time gives a day at most"
+  assert "is above the cap" in caplog.text, "the cut is logged"
+  caplog.clear()
+  # The cap is a module constant: a test can move it without the settings.
+  original, cooldowns.LONGEST_RESET = cooldowns.LONGEST_RESET, 100.0
+  try:
+    with caplog.at_level("WARNING"):
+      assert cooldowns.reset_seconds({"retry-after": "600"}, {}, NOW) == 100
+  finally:
+    cooldowns.LONGEST_RESET = original
+  assert "is above the cap" in caplog.text
 
 
 def test_store() -> None:
