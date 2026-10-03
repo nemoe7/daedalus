@@ -23,6 +23,7 @@ NAMES = {
   "secret-scan.yml": "Secret scan",
   "workflow-security.yml": "Workflow security",
   "pr-check.yml": "PR title check",
+  "pages.yml": "Pages demo",
 }
 
 # The workflows that must answer a pull request, and the ones that must answer main.
@@ -38,6 +39,7 @@ ON_PULL_REQUEST = (
 )
 ON_MAIN = (
   "ci.yml",
+  "pages.yml",
   "codeql.yml",
   "dependency-review.yml",
   "container-scan.yml",
@@ -47,6 +49,7 @@ ON_MAIN = (
 )
 ON_DISPATCH = (
   "docker.yml",
+  "pages.yml",
   "dependency-review.yml",
   "container-scan.yml",
   "container-trivy.yml",
@@ -305,3 +308,22 @@ def test_read_only_security_gates_keep_their_workflow_and_policy_trusted() -> No
   assert "gitleaks/gitleaks-action" not in gitleaks
   for name in ("ci.yml", "container-trivy.yml"):
     assert "pull_request_target" not in load(name)["on"]
+
+
+def test_the_pages_demo_builds_the_page_and_deploys_it() -> None:
+  """The demo goes to Pages from an artifact, and only main deploys it."""
+  data = load("pages.yml")
+  assert "pull_request" not in (triggers("pages.yml"), triggers("pages.yml"))
+  assert triggers("pages.yml")["push"]["paths"] == [
+    "daedalus/dashboard/ui/**",
+    "scripts/pages_demo.py",
+    "scripts/pages_fixtures.json",
+    ".github/workflows/pages.yml",
+  ]
+  build, deploy = data["jobs"]["build"], data["jobs"]["deploy"]
+  assert build["steps"][-1]["with"]["path"] == "_site"
+  assert "pages" not in build.get("permissions", {}), "the build does not deploy"
+  assert deploy["permissions"] == {"pages": "write", "id-token": "write"}
+  assert deploy["environment"]["name"] == "github-pages"
+  assert deploy["steps"][-1]["uses"].startswith("actions/deploy-pages@")
+  assert deploy["steps"][-1]["id"] == "deployment"
