@@ -407,6 +407,21 @@ const DEMO_FIXTURES = __FIXTURES__;
     const limit = +(new URL(url, location.origin).searchParams.get("limit") || 0);
     return limit > 0 ? DEMO_FIXTURES.requests.slice(0, limit) : DEMO_FIXTURES.requests;
   };
+  // A catalog rebuild is a page job in the demo. The chip reads rebuilding, and the
+  // wait matches the real run. No provider is read.
+  const REBUILD_MS = 26000;
+  const rebuild = () => {
+    if (DEMO_FIXTURES.status.catalog.rebuilding) {
+      const error = { message: "A catalog rebuild runs now.", type: "invalid_request_error", code: 409 };
+      return json({ error }, 409);
+    }
+    DEMO_FIXTURES.status.catalog.rebuilding = true;
+    setTimeout(() => {
+      DEMO_FIXTURES.status.catalog.rebuilding = false;
+      DEMO_FIXTURES.status.catalog.built = Date.now() / 1000;
+    }, REBUILD_MS);
+    return json({ ok: true }, 202);
+  };
   const MARKER = "ui/api/";
   const real = window.fetch.bind(window);
   window.fetch = (input, init = {}) => {
@@ -416,6 +431,8 @@ const DEMO_FIXTURES = __FIXTURES__;
     const found = url.slice(at + MARKER.length).split(/[?#]/)[0];
     const path = found.endsWith("/") ? found.slice(0, -1) : found;
     if ((init.method || "GET").toUpperCase() !== "GET") {
+      // The catalog rebuild is the 1 write that the demo answers on its own.
+      if (path === "catalog") return rebuild();
       return json({ error: { message: "This is a static demo. The change is not saved." } }, 403);
     }
     if (path === "requests") return json(slice(url));
