@@ -11,14 +11,14 @@ import pytest
 from daedalus import __version__ as DAEDALUS_VERSION
 
 APP_JS = Path("daedalus/dashboard/ui/app.js")
-# The 1 call that starts a page job: the demo simulates the catalog rebuild.
-SIMULATED = ("catalog",)
-# The calls that change state. The demo answers each of them with 403.
-WRITES = (
+# The calls that change state. The demo holds each of them in the page memory.
+SIMULATED = (
+  "catalog",
   "env",
   "files",
   "keys",
   "keys/",
+  "login",
   "logout",
   "providers",
   "reset",
@@ -73,9 +73,9 @@ const check = (ok, text) => {
   check(first.length === 0, "the Requests tab starts empty");
   const all = await (await context.fetch("ui/api/requests")).json();
   check(all.length === 0, "the Overview starts empty too");
-  const write = await context.fetch("ui/api/env", { method: "PUT" });
-  check(write.status === 403, "a write is refused");
-  check((await write.json()).error.message.includes("static demo"), "the write text");
+  const stray = await context.fetch("ui/api/nothing", { method: "PUT" });
+  check(stray.status === 403, "a write with no home is refused");
+  check((await stray.json()).error.message.includes("static demo"), "the write text");
   const missing = await context.fetch("ui/api/nothing");
   check(missing.status === 404, "an unknown call");
   const stateBefore = await (await context.fetch("ui/api/status")).json();
@@ -95,6 +95,53 @@ const check = (ok, text) => {
   context.addEventListener("click", () => {});
   check(!context.listeners.includes("beforeunload"), "the reload warning is dropped");
   check(context.listeners.includes("click"), "the other listeners still register");
+  // A simulated save lands in the page memory, and a reload brings the fixtures back.
+  const save = await context.fetch("ui/api/settings", {
+    method: "PUT",
+    body: JSON.stringify({ changes: { dashboard: { theme: "light" } } }),
+  });
+  check(save.status === 200, "a settings save lands");
+  const held = await (await context.fetch("ui/api/settings")).json();
+  check(held.file.dashboard.theme === "light", "the page shows the saved value");
+  check(held.text.includes("theme: light"), "the saved text holds it");
+  const env = await (await context.fetch("ui/api/env", {
+    method: "PUT",
+    body: JSON.stringify({ name: "CLOUDFLARE_ACCOUNT_ID", value: "abc12345" }),
+  })).json();
+  check(env.find((row) => row.name === "CLOUDFLARE_ACCOUNT_ID").state === "saved", "an env save lands");
+  const made = await context.fetch("ui/api/keys", {
+    method: "POST",
+    body: JSON.stringify({ name: "extra-client" }),
+  });
+  check(made.status === 201, "a key is made");
+  const key = await made.json();
+  check(key.name === "extra-client" && key.key.startsWith("sk-"), "the key text");
+  check((await (await context.fetch("ui/api/keys")).json()).some((row) => row.name === "extra-client"),
+    "the key list shows it");
+  check((await context.fetch("ui/api/keys/extra-client", { method: "DELETE" })).status === 204,
+    "a key is dropped");
+  check(!(await (await context.fetch("ui/api/keys")).json()).some((row) => row.name === "extra-client"),
+    "the key list drops it");
+  const file = await (await context.fetch("ui/api/files", {
+    method: "POST",
+    body: JSON.stringify({ name: "extra" }),
+  })).json();
+  check(file.path.endsWith("extra.yml") && file.text, "a file is made");
+  check((await (await context.fetch("ui/api/files")).json()).some((row) => row.path === file.path),
+    "the file list shows it");
+  check((await context.fetch("ui/api/files", {
+    method: "DELETE",
+    body: JSON.stringify({ path: file.path }),
+  })).status === 200, "a file is dropped");
+  const files = await (await context.fetch("ui/api/files")).json();
+  const main = files.find((row) => row.main);
+  check((await context.fetch("ui/api/providers", {
+    method: "PUT",
+    body: JSON.stringify({ path: main.path, blocks: main.blocks }),
+  })).status === 200, "a provider form lands");
+  check((await context.fetch("ui/api/reset", { method: "POST" })).status === 200, "a reset lands");
+  const cleared = await (await context.fetch("ui/api/models")).json();
+  check(cleared.every((row) => row.cooldown === null && row.weight === 1), "the reset clears the weights");
   const seen = [];
   const stream = new context.EventSource("ui/api/requests/live");
   ["live", "start", "update", "first", "end"].forEach((kind) =>
@@ -144,7 +191,7 @@ def test_the_fixtures_cover_each_call_of_the_page() -> None:
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
   assert sorted(fixtures) == sorted(READS), sorted(fixtures)
   calls = set(re.findall(r'call\("([a-z/_-]*)"', APP_JS.read_text(encoding="utf-8")))
-  unknown = calls - set(READS) - set(WRITES) - set(SIMULATED)
+  unknown = calls - set(READS) - set(SIMULATED)
   assert not unknown, unknown
 
 
