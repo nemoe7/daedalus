@@ -180,29 +180,29 @@
   ],
   "keys": [
     {
-      "created": 1791041981.3930013,
+      "created": 1791043108.0390615,
       "name": "openwebui",
-      "start": "sk-8KCl",
+      "start": "sk-wwdn",
       "used": null
     },
     {
-      "created": 1791041981.3938046,
+      "created": 1791043108.03979,
       "name": "kilo-code",
-      "start": "sk-fZLS",
+      "start": "sk-866R",
       "used": null
     },
     {
-      "created": 1791041981.3946233,
+      "created": 1791043108.0405424,
       "name": "openwebui-home-assistant-integration-001",
-      "start": "sk-87bu",
+      "start": "sk-gN6C",
       "used": null
     }
   ],
   "limits": {
-    "checked": 1791041981.5004919,
+    "checked": 1791043108.1638365,
     "lanes": [
       {
-        "at": 1791041981.46635,
+        "at": 1791043108.1209142,
         "client": null,
         "model": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
         "rows": [
@@ -210,20 +210,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791042018.46635,
+            "reset": 1791043145.1209142,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791041993.46635,
+            "reset": 1791043120.1209142,
             "span": null
           }
         ]
       },
       {
-        "at": 1791041981.4845061,
+        "at": 1791043108.1383116,
         "client": null,
         "model": "cloudflare/@cf/mistralai/mistral-small-3.2-24b-instruct",
         "rows": [
@@ -231,20 +231,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791042018.4845061,
+            "reset": 1791043145.1383116,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791041993.4845061,
+            "reset": 1791043120.1383116,
             "span": null
           }
         ]
       },
       {
-        "at": 1791041981.496774,
+        "at": 1791043108.1583214,
         "client": null,
         "model": "cloudflare/@cf/openai/whisper-large-v3-turbo",
         "rows": [
@@ -252,20 +252,41 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791042018.496774,
+            "reset": 1791043145.1583214,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791041993.496774,
+            "reset": 1791043120.1583214,
             "span": null
           }
         ]
       },
       {
-        "at": 1791041981.4917986,
+        "at": 1791043108.1255605,
+        "client": null,
+        "model": "cloudflare/@cf/qwen/qwq-32b",
+        "rows": [
+          {
+            "kind": "requests",
+            "limit": 14400.0,
+            "remaining": 14312.0,
+            "reset": 1791043145.1255605,
+            "span": null
+          },
+          {
+            "kind": "tokens",
+            "limit": 4000000.0,
+            "remaining": 3980123.0,
+            "reset": 1791043120.1255605,
+            "span": null
+          }
+        ]
+      },
+      {
+        "at": 1791043108.148199,
         "client": null,
         "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
         "rows": [
@@ -273,20 +294,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791042018.4917986,
+            "reset": 1791043145.148199,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791041993.4917986,
+            "reset": 1791043120.148199,
             "span": null
           }
         ]
       },
       {
-        "at": 1791041981.4884098,
+        "at": 1791043108.1422117,
         "client": null,
         "model": "openrouter/z-ai/glm-5.3-flash",
         "rows": [
@@ -294,14 +315,14 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791042018.4884098,
+            "reset": 1791043145.1422117,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791041993.4884098,
+            "reset": 1791043120.1422117,
             "span": null
           }
         ]
@@ -374,7 +395,7 @@
       "reasoning": false,
       "tier": "TIER-A",
       "tools": true,
-      "weight": 0.5000002212028924
+      "weight": 0.5000003629604892
     },
     {
       "client_cooldowns": {},
@@ -422,7 +443,7 @@
     },
     {
       "client_cooldowns": {},
-      "cooldown": 1791135581.498241,
+      "cooldown": 1791136708.1607094,
       "effort": null,
       "flags": [],
       "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
@@ -432,7 +453,7 @@
       "reasoning": false,
       "tier": "TIER-C",
       "tools": true,
-      "weight": 0.750001246146041
+      "weight": 0.7500017747819816
     },
     {
       "client_cooldowns": {},
@@ -446,7 +467,7 @@
       "reasoning": false,
       "tier": "TIER-D",
       "tools": false,
-      "weight": 0.5000010886339512
+      "weight": 0.5000014408288866
     },
     {
       "client_cooldowns": {},
@@ -513,7 +534,7 @@
           "cooldown": null,
           "id": "cloudflare/@cf/openai/gpt-oss-120b",
           "tier": "TIER-A",
-          "weight": 0.5000003088487479
+          "weight": 0.5000004954543765
         },
         {
           "cooldown": null,
@@ -540,16 +561,16 @@
           "weight": 1.0
         },
         {
-          "cooldown": 1791135581.498241,
+          "cooldown": 1791136708.1607094,
           "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
           "tier": "TIER-C",
-          "weight": 0.7500013776149845
+          "weight": 0.7500019735231385
         },
         {
           "cooldown": null,
           "id": "cloudflare/@cf/meta/llama-3.1-8b-instruct",
           "tier": "TIER-D",
-          "weight": 0.5000011762799588
+          "weight": 0.5000015733230595
         }
       ],
       "name": "daedalus/auto",
@@ -562,7 +583,7 @@
           "cooldown": null,
           "id": "cloudflare/@cf/openai/gpt-oss-120b",
           "tier": "TIER-A",
-          "weight": 0.5000003104595574
+          "weight": 0.5000004983194537
         },
         {
           "cooldown": null,
@@ -603,10 +624,10 @@
       "context": 128000,
       "members": [
         {
-          "cooldown": 1791135581.498241,
+          "cooldown": 1791136708.1607094,
           "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
           "tier": "TIER-C",
-          "weight": 0.7500013827434773
+          "weight": 0.7500019841907934
         }
       ],
       "name": "daedalus/koinos",
@@ -619,7 +640,7 @@
           "cooldown": null,
           "id": "cloudflare/@cf/meta/llama-3.1-8b-instruct",
           "tier": "TIER-D",
-          "weight": 0.5000011805839473
+          "weight": 0.5000015829051719
         }
       ],
       "name": "daedalus/moros",
@@ -724,7 +745,7 @@
   "requests": [
     {
       "app": "Home Assistant Panel 01",
-      "at": 1791041981.4990518,
+      "at": 1791043108.1614442,
       "attempts": [
         {
           "error": "",
@@ -741,7 +762,7 @@
       "pool": "sophos",
       "retry": null,
       "routed": null,
-      "seconds": 0.003,
+      "seconds": 0.006,
       "session": null,
       "status": 200,
       "stream": null,
@@ -756,14 +777,17 @@
     },
     {
       "app": "Kilo",
-      "at": 1791041981.4989905,
+      "at": 1791043108.161379,
       "attempts": [
         {
           "error": "the deployment is down",
           "model": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
           "result": "error",
           "seconds": 0.412,
-          "weight_change": 0.5
+          "weight_change": {
+            "from": 1.0,
+            "to": 0.5
+          }
         },
         {
           "cooldown": {
@@ -774,7 +798,10 @@
           "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
           "result": "answered",
           "seconds": 0.884,
-          "weight_change": 0.9
+          "weight_change": {
+            "from": 0.5,
+            "to": 0.75
+          }
         }
       ],
       "effort": null,
@@ -785,7 +812,7 @@
       "pool": null,
       "retry": "1",
       "routed": null,
-      "seconds": 0.003,
+      "seconds": 0.006,
       "session": null,
       "status": 200,
       "stream": null,
@@ -796,7 +823,7 @@
     },
     {
       "app": "OWUI",
-      "at": 1791041981.498894,
+      "at": 1791043108.1612816,
       "attempts": [
         {
           "error": "",
@@ -813,7 +840,7 @@
       "pool": "koinos",
       "retry": null,
       "routed": "moros",
-      "seconds": 0.003,
+      "seconds": 0.006,
       "session": null,
       "status": 200,
       "stream": null,
@@ -830,7 +857,7 @@
     },
     {
       "app": null,
-      "at": 1791041981.4971154,
+      "at": 1791043108.1592069,
       "attempts": [
         {
           "error": "",
@@ -847,7 +874,7 @@
       "pool": null,
       "retry": null,
       "routed": null,
-      "seconds": 0.003,
+      "seconds": 0.006,
       "session": null,
       "status": 200,
       "stream": null,
@@ -858,7 +885,7 @@
     },
     {
       "app": null,
-      "at": 1791041981.4926105,
+      "at": 1791043108.1499608,
       "attempts": [
         {
           "error": "",
@@ -875,7 +902,7 @@
       "pool": null,
       "retry": null,
       "routed": null,
-      "seconds": 0.002,
+      "seconds": 0.004,
       "session": "547df45",
       "status": 200,
       "stream": true,
@@ -890,7 +917,7 @@
     },
     {
       "app": null,
-      "at": 1791041981.4888744,
+      "at": 1791043108.1428668,
       "attempts": [
         {
           "error": "",
@@ -922,7 +949,7 @@
     },
     {
       "app": null,
-      "at": 1791041981.485104,
+      "at": 1791043108.1388211,
       "attempts": [
         {
           "error": "",
@@ -954,7 +981,7 @@
     },
     {
       "app": null,
-      "at": 1791041981.481383,
+      "at": 1791043108.1353807,
       "attempts": [
         {
           "error": "",
@@ -986,7 +1013,7 @@
     },
     {
       "app": null,
-      "at": 1791041981.4769142,
+      "at": 1791043108.1313653,
       "attempts": [
         {
           "cooldown": {
@@ -1017,7 +1044,7 @@
       "pool": null,
       "retry": null,
       "routed": null,
-      "seconds": 0.004,
+      "seconds": 0.003,
       "session": "115f867",
       "status": 200,
       "stream": true,
@@ -1038,11 +1065,11 @@
     },
     {
       "app": null,
-      "at": 1791041981.4715595,
+      "at": 1791043108.1261272,
       "attempts": [
         {
           "error": "",
-          "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
+          "model": "cloudflare/@cf/qwen/qwq-32b",
           "result": "answered",
           "seconds": 0.001
         }
@@ -1066,11 +1093,11 @@
       },
       "transition": null,
       "ttft": "0.001s",
-      "via": "cloudflare/@cf/zai-org/glm-4.7-flash"
+      "via": "cloudflare/@cf/qwen/qwq-32b"
     },
     {
       "app": null,
-      "at": 1791041981.4670036,
+      "at": 1791043108.1214948,
       "attempts": [
         {
           "error": "{\"error\": \"the deployment is down\"}",
@@ -1097,7 +1124,7 @@
       "pool": null,
       "retry": null,
       "routed": null,
-      "seconds": 0.013,
+      "seconds": 0.011,
       "session": "a57a308",
       "status": 200,
       "stream": false,
@@ -1279,7 +1306,7 @@
   },
   "status": {
     "catalog": {
-      "built": 1791041981.3880315,
+      "built": 1791043108.033974,
       "next": 1791050400.0,
       "rebuilding": false
     },
