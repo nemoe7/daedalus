@@ -82,8 +82,23 @@ const check = (ok, text) => {
   check(kinds.includes("start") && kinds.includes("end"), "a live request");
   const end = seen.find(([kind]) => kind === "end")[1];
   check(end.row.model && end.row.at, "the finished row");
+  const KEYS = ["app", "at", "attempts", "effort", "fallbacks", "key", "loop", "model",
+    "pool", "retry", "routed", "seconds", "session", "status", "stream", "tokens",
+    "transition", "ttft", "via"];
+  const stamp = (row) => row.ttft == null || (
+    typeof row.ttft === "string" && row.ttft.endsWith("s") && row.ttft.split(".")[1]?.length === 4
+  );
+  // The rows of the table carry the fields and the types of `dashboard.record`.
+  const shaped = (row) => KEYS.every((key) => key in row) && typeof row.status === "number"
+    && typeof row.fallbacks === "string" && stamp(row)
+    && (row.tokens == null || typeof row.tokens.estimate === "boolean")
+    && (row.attempts || []).every((a) => a.result && "error" in a);
+  check(shaped(end.row), "the finished row carries the fields of the server");
   const grown = await (await context.fetch("ui/api/requests?limit=500")).json();
   check(grown.length > all.length, "the finished row joins the table");
+  check(grown.every(shaped), "each row of the table carries the fields of the server");
+  const live = seen.find(([kind]) => kind === "start")[1];
+  check(live.id && live.path && live.ttft === null, "the start row of a live request");
   check(context.network.length === 0, "no call reaches the network");
 })().catch((error) => {
   console.error(error.message);

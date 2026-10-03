@@ -348,6 +348,11 @@ const DEMO_FIXTURES = __FIXTURES__;
   const KEPT = 500;
   const PREFILL = 60;
   const wait = (ms) => new Promise((done) => setTimeout(done, ms));
+  // The media pools answer on their own paths.
+  const MEDIA_PATH = {
+    "daedalus/graphos": "/v1/audio/transcriptions",
+    "daedalus/photos": "/v1/images/generations",
+  };
   const gap = (min, max) => min + Math.random() * (max - min);
   const pick = (rows) => rows[Math.floor(Math.random() * rows.length)];
   const spread = (rows) => {
@@ -358,8 +363,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       const source = rows[index % rows.length];
       const at = now - index * gap(24, 96);
       found.push({
-        ...source, at, id: `demo-${index}`,
-        session: index % 4 ? source.session : `demo-session-${index}`,
+        ...source, at, session: index % 4 ? source.session : `demo-session-${index}`,
         attempts: (source.attempts || []).map((a) => ({ ...a })),
       });
     }
@@ -426,33 +430,38 @@ const DEMO_FIXTURES = __FIXTURES__;
       }
     }
     async one(id) {
-      const model = pick(DEMO_FIXTURES.models);
-      const stream = Math.random() < 0.5;
-      const row = {
-        id, model: model.id, session: `demo-session-${id % 7}`, app: pick(["demo", "kilo", "owui"]),
-        pool: pick(["daedalus/deinos", "daedalus/koinos", "daedalus/sophos", null]),
-        stream, age: 0, attempt_age: 0, ttft: null, trying: model.id,
-      };
+      // A captured row is the template, so each field keeps the shape and the type of the server.
+      const template = pick(DEMO_FIXTURES.requests);
+      const served = template.via;
+      const round = (value) => Math.round(value * 1000) / 1000;
+      const path = MEDIA_PATH[template.model] || "/v1/chat/completions";
+      const row = { id, path, age: 0, attempt_age: 0, ttft: null };
       this.send("start", row);
       await wait(gap(250, 1100));
-      Object.assign(row, { age: gap(0.3, 1.1), attempt_age: gap(0.3, 1.1), via: model.id, trying: null });
+      Object.assign(row, {
+        app: pick(["demo", "kilo", "owui"]), session: `demo-session-${id % 7}`, key: null,
+        model: template.model, effort: template.effort, pool: template.pool, stream: template.stream,
+        trying: served, via: null, attempts: [], tokens: null, fallbacks: "0",
+        age: round(gap(0.3, 1.1)), attempt_age: round(gap(0.3, 1.1)),
+      });
       this.send("update", row);
       await wait(gap(200, 900));
-      row.ttft = gap(0.4, 2.4);
+      const ttft = round(gap(0.4, 2.4));
+      Object.assign(row, { trying: null, via: served, ttft });
       this.send("first", row);
       await wait(gap(150, 700));
-      const seconds = row.ttft + gap(0.2, 2.0);
-      const failed = Math.random() < 0.15;
-      this.send("end", { id, row: {
-        ...row, at: Date.now() / 1000, status: failed ? "err" : "ok", seconds,
-        fallbacks: 0, tokens: { input: 40 + id * 3, output: 12 + (id % 9) },
-        attempts: [{ model: model.id, result: failed ? "HTTP 500" : "answered", seconds }],
-      } });
-      keep({
-        ...row, at: Date.now() / 1000, status: failed ? "err" : "ok", seconds,
-        fallbacks: 0, tokens: { input: 40 + id * 3, output: 12 + (id % 9) },
-        attempts: [{ model: model.id, result: failed ? "HTTP 500" : "answered", seconds }],
-      });
+      // The finished row carries the fields of `dashboard.record`: the status code, the text
+      // times, and the answer.
+      const done = {
+        at: Date.now() / 1000, status: 200, seconds: round(ttft + gap(0.2, 2.0)),
+        app: row.app, session: row.session, key: row.key, model: row.model, effort: row.effort,
+        pool: row.pool, routed: null, transition: null, retry: null, loop: null,
+        via: served, ttft: `${ttft.toFixed(3)}s`, stream: row.stream, fallbacks: "0",
+        tokens: { estimate: false, input: 40 + id * 3, output: 12 + (id % 9) },
+        attempts: [{ model: served, result: "answered", seconds: ttft, error: "" }],
+      };
+      this.send("end", { id, row: done });
+      keep(done);
     }
   };
 })();
