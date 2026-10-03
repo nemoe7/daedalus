@@ -415,7 +415,18 @@ def test_empty_pool(client: TestClient) -> None:
   body = {"model": "daedalus/photos", "prompt": "a cat"}
   response = client.post("/v1/images/generations", json=body)
   assert response.status_code == 400, response.text
-  assert "has no models" in response.text, response.text
+  assert response.json()["error"]["message"] == "photos has no models", response.text
+  # The other media pool answers the same text, and a pool of the other endpoint gets the hint.
+  response = client.post(
+    "/v1/audio/transcriptions", data={"model": "daedalus/graphos"}, files=AUDIO
+  )
+  assert response.json()["error"]["message"] == "graphos has no models", response.text
+  response = client.post(
+    "/v1/images/generations", json={"model": "daedalus/graphos", "prompt": "a cat"}
+  )
+  assert response.json()["error"]["message"] == (
+    "This endpoint needs a provider/slug model or photos"
+  ), response.text
 
 
 def test_pools(fake: Upstream, client: TestClient) -> None:
