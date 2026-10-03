@@ -62,10 +62,10 @@ const check = (ok, text) => {
   const status = await context.fetch("ui/api/status");
   check(status.status === 200, "status");
   check((await status.json()).healthy === true, "status body");
-  const short = await (await context.fetch("ui/api/requests?limit=10")).json();
-  check(short.length === 10, "the limit of the request page");
+  const first = await (await context.fetch("ui/api/requests?limit=10")).json();
+  check(first.length === 0, "the Requests tab starts empty");
   const all = await (await context.fetch("ui/api/requests")).json();
-  check(all.length >= 60, "the filled Requests tab");
+  check(all.length === 0, "the Overview starts empty too");
   const write = await context.fetch("ui/api/env", { method: "PUT" });
   check(write.status === 403, "a write is refused");
   check((await write.json()).error.message.includes("static demo"), "the write text");
@@ -76,7 +76,7 @@ const check = (ok, text) => {
   ["live", "start", "update", "first", "end"].forEach((kind) =>
     stream.addEventListener(kind, (event) => seen.push([kind, JSON.parse(event.data)])),
   );
-  await new Promise((done) => setTimeout(done, 3600));
+  await new Promise((done) => setTimeout(done, 9000));
   stream.close();
   const kinds = seen.map(([kind]) => kind);
   check(kinds.includes("start") && kinds.includes("end"), "a live request");
@@ -97,8 +97,16 @@ const check = (ok, text) => {
   const grown = await (await context.fetch("ui/api/requests?limit=500")).json();
   check(grown.length > all.length, "the finished row joins the table");
   check(grown.every(shaped), "each row of the table carries the fields of the server");
+  check(grown.some((row) => Number(row.fallbacks) > 0), "a fallback chain arrives");
+  check(grown.some((row) => (row.attempts || []).some((a) => a.cooldown)), "a rate limit");
+  const seven = (value) => typeof value === "string" && /^[0-9a-f]{7}$/.test(value);
+  check(grown.filter((row) => row.session).every((row) => seven(row.session)),
+    "each session reads like the server sends it");
   const live = seen.find(([kind]) => kind === "start")[1];
   check(live.id && live.path && live.ttft === null, "the start row of a live request");
+  const updates = seen.filter(([kind]) => kind === "update");
+  const shown = updates[updates.length - 1][1];
+  check(shown.key === "master" && seven(shown.session), "the live row names a key and a session");
   check(context.network.length === 0, "no call reaches the network");
 })().catch((error) => {
   console.error(error.message);
@@ -144,6 +152,18 @@ def test_the_fixtures_carry_the_edge_cases() -> None:
   )
   assert any(file.get("shadow") for file in fixtures["files"]), "a shadowed file"
   assert fixtures["login"]["session"] is True, "the demo opens without a login"
+  sessions = {row["session"] for row in requests if row.get("session")}
+  assert sessions and all(re.fullmatch(r"[0-9a-f]{7}", value) for value in sessions), (
+    sessions
+  )
+  named = (
+    [row["id"] for row in rows]
+    + [row["model"] for row in requests]
+    + [key["name"] for key in fixtures["keys"]]
+  )
+  assert not [value for value in named if "demo" in value], (
+    "the values carry real names"
+  )
 
 
 def test_the_build_copies_the_page_and_loads_the_demo_first(tmp_path: Path) -> None:
