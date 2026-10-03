@@ -129,3 +129,17 @@ def test_in_place() -> None:
       rows = connection.execute("SELECT id, max_input_tokens FROM models").fetchall()
     connection.close()
     assert rows == [("a/1", None)], rows
+
+
+def test_readable_and_set_aside() -> None:
+  """An unreadable store is named, and a start moves it aside for a new build."""
+  with tempfile.TemporaryDirectory() as folder:
+    path = Path(folder) / "models.sqlite3"
+    store.MODELS_DB = path
+    assert store.readable(), "no file: nothing to read"
+    path.write_text("not a database")
+    assert not store.readable(), "a text file"
+    assert store.set_aside() == path.with_name("models.sqlite3.broken")
+    assert not path.exists() and path.with_name("models.sqlite3.broken").exists()
+    assert store.readable(), "the new file is missing, so a build starts clean"
+    assert store.set_aside() is None, "nothing to move"
