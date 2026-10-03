@@ -221,8 +221,33 @@ const check = (ok, text) => {
   const live = seen.find(([kind]) => kind === "start")[1];
   check(live.id && live.path && live.ttft === null, "the start row of a live request");
   const updates = seen.filter(([kind]) => kind === "update");
-  const shown = updates[updates.length - 1][1];
-  check(shown.key === "master" && seven(shown.session), "the live row names a key and a session");
+  check(updates.length > 0 && updates.every(([, data]) => data.key === "master"),
+    "the live row names a key");
+  check(updates.every(([, data]) => !data.session || seven(data.session)),
+    "the live session reads like the server sends it");
+  // The clocks of a row in flight: TTFT counts first, then it freezes at the first token and
+  // the stream clock counts from 0. A row holds the ages of the moment it sent them.
+  const byId = new Map();
+  for (const [kind, data] of seen) {
+    if (!data || data.id == null) continue;
+    if (!byId.has(data.id)) byId.set(data.id, []);
+    byId.get(data.id).push([kind, data]);
+  }
+  const traffic = [...byId.values()];
+  const aged = traffic.map((events) => events.filter(([, data]) => typeof data.age === "number"));
+  check(aged.every((events) => events.every(([, data], i) =>
+    data.age >= 0 && data.attempt_age >= 0 && data.attempt_age <= data.age + 0.001
+    && (i === 0 || data.age >= events[i - 1][1].age))), "the clocks of a request only grow");
+  const paired = traffic
+    .filter((events) => events.some(([kind]) => kind === "end"))
+    .map((events) => [
+      (events.find(([kind]) => kind === "first") || [])[1],
+      events.find(([kind]) => kind === "end")[1].row,
+    ]);
+  check(paired.length > 0 && paired.every(([token, row]) => token
+    && token.ttft === token.attempt_age && token.ttft > 0
+    && `${token.ttft.toFixed(3)}s` === row.ttft && row.seconds >= token.ttft),
+    "TTFT freezes at the first token, and the stream time follows it");
   check(context.network.length === 0, "no call reaches the network");
 })().catch((error) => {
   console.error(error.message);

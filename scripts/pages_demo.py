@@ -495,6 +495,21 @@ const DEMO_FIXTURES = __FIXTURES__;
   const session = (n) => ((n * 2654435761) % 0xfffffff).toString(16).padStart(7, "0");
   const gap = (min, max) => min + Math.random() * (max - min);
   const pick = (rows) => rows[Math.floor(Math.random() * rows.length)];
+  // The times of a row in flight, as `Live` keeps them: the request time and the attempt time.
+  const CLOCKS = new Map();
+  const began = (id) => {
+    const now = Date.now();
+    CLOCKS.set(id, { at: now, attempt: now });
+  };
+  const attempted = (id) => (CLOCKS.get(id).attempt = Date.now());
+  const ages = (id) => {
+    const clock = CLOCKS.get(id);
+    const now = Date.now();
+    return {
+      age: round((now - clock.at) / 1000),
+      attempt_age: round((now - clock.attempt) / 1000),
+    };
+  };
   // The Requests tab starts empty. The captured rows come back as live traffic, so the
   // fallback chain and the rate limit show, and the waves continue after them.
   const SEEDED = DEMO_FIXTURES.requests.map((row) => ({ ...row }));
@@ -996,29 +1011,37 @@ const DEMO_FIXTURES = __FIXTURES__;
         await wait(gap(1200, 6000));
       }
     }
-    // One captured row, as a request that just finished, with the fields unchanged.
+    // One captured row, with the fields of the server and the times of the page.
     async replay(row) {
       const id = ++this.next;
       const served = row.via || row.model;
+      began(id);
       const live = {
-        id, path: MEDIA_PATH[row.model] || "/v1/chat/completions",
-        age: 0, attempt_age: 0, ttft: null,
+        id, path: MEDIA_PATH[row.model] || "/v1/chat/completions", ...ages(id), ttft: null,
       };
       this.send("start", live);
-      await wait(gap(200, 700));
+      await wait(gap(60, 200));
+      // The attempt starts when the model is known, as `Live.update` restarts its clock.
+      attempted(id);
       Object.assign(live, {
         app: row.app, session: row.session, key: row.key, model: row.model, effort: row.effort,
         pool: row.pool, stream: row.stream, trying: served, via: null, attempts: [], tokens: null,
-        fallbacks: "0", age: round(gap(0.3, 1.1)), attempt_age: round(gap(0.3, 1.1)),
+        fallbacks: "0", ...ages(id),
       });
       this.send("update", live);
-      await wait(gap(150, 500));
-      const ttft = row.ttft ? parseFloat(row.ttft) : round(gap(0.4, 2.4));
-      Object.assign(live, { trying: null, via: served, ttft });
+      await wait(round(gap(0.4, 2.4)) * 1000);
+      // The first token: TTFT freezes at the wait, and the stream clock counts from 0.
+      const frozen = ages(id);
+      Object.assign(live, { trying: null, via: served, ttft: frozen.attempt_age, ...frozen });
       this.send("first", live);
-      await wait(gap(120, 400));
-      const done = { ...row, at: Date.now() / 1000 };
+      const streamed = round(gap(0.2, 1.4));
+      await wait(streamed * 1000);
+      const done = {
+        ...row, at: Date.now() / 1000, seconds: round(frozen.attempt_age + streamed),
+        ttft: `${frozen.attempt_age.toFixed(3)}s`,
+      };
       this.send("end", { id, row: done });
+      CLOCKS.delete(id);
       keep(done);
     }
     async one(id) {
@@ -1026,37 +1049,42 @@ const DEMO_FIXTURES = __FIXTURES__;
       const template = pick(SEEDED);
       const served = template.via;
       const path = MEDIA_PATH[template.model] || "/v1/chat/completions";
-      const row = { id, path, age: 0, attempt_age: 0, ttft: null };
+      began(id);
+      const row = { id, path, ...ages(id), ttft: null };
       this.send("start", row);
-      await wait(gap(250, 1100));
+      await wait(gap(60, 200));
+      // The attempt starts when the model is known, as `Live.update` restarts its clock.
+      attempted(id);
       const stream = path === "/v1/chat/completions" ? true : template.stream === true;
       Object.assign(row, {
         app: pick(["OWUI", "Kilo"]), session: session(id), key: "master",
         model: template.model, effort: template.effort, pool: template.pool, stream,
-        trying: served, via: null, attempts: [], tokens: null, fallbacks: "0",
-        age: round(gap(0.3, 1.1)), attempt_age: round(gap(0.3, 1.1)),
+        trying: served, via: null, attempts: [], tokens: null, fallbacks: "0", ...ages(id),
       });
       this.send("update", row);
-      await wait(gap(200, 900));
-      const ttft = round(gap(0.4, 2.4));
-      Object.assign(row, { trying: null, via: served, ttft });
+      await wait(round(gap(0.4, 2.4)) * 1000);
+      // The first token: TTFT freezes at the wait, and the stream clock counts from 0.
+      const frozen = ages(id);
+      Object.assign(row, { trying: null, via: served, ttft: frozen.attempt_age, ...frozen });
       this.send("first", row);
-      await wait(gap(150, 700));
+      const streamed = round(gap(0.2, 1.4));
+      await wait(streamed * 1000);
       // The finished row carries the fields of `dashboard.record`: the status code, the text
       // times, and the answer.
       const done = {
-        at: Date.now() / 1000, status: 200, seconds: round(ttft + gap(0.2, 2.0)),
+        at: Date.now() / 1000, status: 200, seconds: round(frozen.attempt_age + streamed),
         app: row.app, session: row.session, key: row.key, model: row.model, effort: row.effort,
         pool: row.pool, routed: template.routed || null, transition: template.transition || null,
         retry: template.retry || null, loop: template.loop || null,
-        via: served, ttft: `${ttft.toFixed(3)}s`, stream: row.stream,
+        via: served, ttft: `${frozen.attempt_age.toFixed(3)}s`, stream: row.stream,
         status: template.status || 200, fallbacks: template.fallbacks || "0",
         tokens: template.tokens ? { ...template.tokens } : null,
         attempts: (template.attempts || []).length
           ? template.attempts.map((item) => ({ ...item }))
-          : [{ model: served, result: "answered", seconds: ttft, error: "" }],
+          : [{ model: served, result: "answered", seconds: frozen.attempt_age, error: "" }],
       };
       this.send("end", { id, row: done });
+      CLOCKS.delete(id);
       keep(done);
     }
   };
