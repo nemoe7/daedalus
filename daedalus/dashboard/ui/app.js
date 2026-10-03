@@ -37,6 +37,9 @@ const none = (text) => `<div class="more">${text}</div>`;
 const mobileLabel = (text) => `<span class="mobile-label" aria-hidden="true">${esc(text)}</span>`;
 const nameCell = (text, shown = esc(text), label = "Model", extra = "") =>
   `<td role="cell" class="name" title="${esc(text)}">${mobileLabel(label)}<span class="cell-value">${shown}</span>${extra}</td>`;
+// A phone drops the provider prefix of a model id, so the rows of 1 provider differ.
+const modelShown = (id) =>
+  matchMedia("(max-width: 720px)").matches ? id.replace(/^[^/]+\//, "") : id;
 const cell = (label, inner, cls = "") =>
   `<td role="cell"${cls ? ` class="${cls}"` : ""}>${mobileLabel(label)}<span class="cell-value">${inner}</span></td>`;
 
@@ -701,7 +704,7 @@ function renderModels() {
   const empty = state.models.length ? "No models match" : "No models. Run daedalus catalog.";
   $("models").innerHTML = rows.length ? rows.map((m) => `
     <tr>
-      ${nameCell(m.id, esc(m.id), "Model", `<span class="types phone-types">${typeChips(m)}</span>`)}
+      ${nameCell(m.id, esc(modelShown(m.id)), "Model", `<span class="types phone-types">${typeChips(m)}</span>`)}
       <td class="hide-sm"><div class="types">${typeChips(m)}</div></td>
       <td class="mid">${m.tier ? `<span class="tier">${esc(tierLetter(m.tier))}</span>` : dash}</td>
       <td class="hide-sm mid num${m.order > 1 ? "" : " muted"}">${m.order ?? dash}</td>

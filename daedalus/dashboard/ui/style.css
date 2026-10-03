@@ -427,6 +427,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .editbar .tab { padding: 4px 10px; font-size: 13px; }
   section[data-page="providers"] .editbar .hint, section[data-page="settings"] .editbar .hint { display: none; }
   th, td { padding: 10px; }
+  /* The last row of a panel clears the panel edge and the screen bottom. */
+  #app > main { padding-bottom: 76px; }
+  .panel { padding-bottom: 8px; }
   /* A phone head cell keeps a 44 px tap area for its sort. */
   .models th { padding: 13px 8px; }
   /* The dropped Type column shows under each model name, and the name keeps its ellipsis. */
