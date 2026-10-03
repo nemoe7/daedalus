@@ -510,14 +510,15 @@ function renderLive() {
   tickLive();
 }
 
-// The live clocks: TTFT until the first token, then the stream time. Without a stream, both count the total.
+// The live clocks: TTFT until the first token. The stream clock starts at the first token,
+// and it counts the whole request when the answer does not stream.
 function tickLive() {
   const now = Date.now();
   for (const row of $("live").children) {
     const r = state.live.get(Number(row.dataset.live));
     if (!r) continue;
     const ttft = ((r.first ?? now) - r.attemptSince) / 1000;
-    const stream = !r.stream ? (now - r.since) / 1000 : r.first == null ? null : (now - r.first) / 1000;
+    const stream = r.first == null ? null : (r.stream ? now - r.first : now - r.since) / 1000;
     row.querySelector('[data-clock="ttft"]').textContent = seconds(ttft);
     row.querySelector('[data-clock="stream"]').textContent = seconds(stream);
   }
