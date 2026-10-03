@@ -174,7 +174,6 @@ th[data-sort] { cursor: pointer; }
 /* The name takes the free width. A longer name ends in an ellipsis. */
 .models td.name { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .models .mid { text-align: center; }
-.models th.mid .sort { margin: 0 auto; }
 a.more { display: inline-block; margin-top: 2px; color: var(--muted); text-decoration: none; }
 a.more:hover { color: var(--accent); }
 .filter, .tab {
