@@ -98,7 +98,7 @@ The `path` value stays relative to `api.github.com` and carries no scheme. The b
 
 - Always name `repo` in a call that takes one, `logs`, `diff` and `file` included. The backend default is a convenience, not a rule.
 - The backend refuses a malformed `owner/name`. It reports the upstream status when the context read fails.
-- The vision route is the point of `image`. The owner's model sees the picture and answers with text the session can read. Ask for a description, a transcription, or a judgement, not for the image back.
+- The owner's model sees the picture and answers with text the session can read. Ask for a description, a transcription, or a judgement, not for the image back.
 - Privacy: prompts, context and images leave the owner's machine for the endpoint they configured. Never put an agent key, a token, or a private file in a prompt.
 - Jobs live in memory and expire after one hour. A restart loses them, so resubmit instead of retrying an unknown id.
 
@@ -118,14 +118,6 @@ The `path` value stays relative to `api.github.com` and carries no scheme. The b
 - Prefer a workflow that writes alerts or logs into a pull request comment when a read must repeat many times.
 
 ## Owner setup
-
-1. Copy [`docker-compose.yml`](docker-compose.yml) and [`tailscale-serve.json`](tailscale-serve.json) into one directory, next to a `.env` file.
-2. Put a fine-grained, read-only token in `.env` as `GITHUB_TOKEN`.
-3. Set `ARENA_PROXY_LLM_BASE`, `ARENA_PROXY_LLM_KEY` and `ARENA_PROXY_LLM_MODEL` for the model route.
-4. Set `ARENA_PROXY_MASTER_KEY` to turn on the `/v1/key` route, which the userscript reads.
-5. Run `docker compose up -d`. The compose file pulls the published image and starts the sidecar.
-6. Read the key from `docker compose logs proxy`. Every start makes a new key and prints it once.
-7. Rotate the key when the session ends, and keep the token scoped to one repository.
 
 The install detail, the container notes and the other exposure options live in
 [`INSTALL.md`](https://github.com/nemoe7/clankers/blob/main/skills/arena-proxy/INSTALL.md)
