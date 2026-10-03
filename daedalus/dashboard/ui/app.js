@@ -1375,8 +1375,10 @@ function renderSettings() {
     <div class="card"><h3>${esc(title)}</h3>${fields.map(([key, label, unit, hint]) => {
       const id = `set-${group}-${key}`;
       if (isSwitch(group, key)) {
+        // A desktop hides the hint behind the info icon; a phone keeps it under the label.
         return `<label class="field check" for="${id}"><input type="checkbox" id="${id}"
-          ${setting(group, key) ? "checked" : ""}><span><b>${esc(label)}</b><small>${esc(hint)}</small></span></label>`;
+          ${setting(group, key) ? "checked" : ""}><span><b>${esc(label)}</b><button type="button" class="hint"
+          aria-describedby="${id}-hint" aria-label="Hint">i</button><small id="${id}-hint" role="tooltip">${esc(hint)}</small></span></label>`;
       }
       if (unit === "choice") {
         return `<label class="field" for="${id}"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
