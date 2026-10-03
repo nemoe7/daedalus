@@ -474,6 +474,55 @@ assert(!liveHtml.includes('mobile-fallback-chain'), 'live rows do not show a fal
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_app_js_live_clocks_wait_for_the_first_token() -> None:
+  """The stream clock stays empty until the first token, also on a request without a stream."""
+  code = """
+const fs = require('fs');
+const vm = require('vm');
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { tickLive, state };";
+const nodes = new Map();
+const node = (id) => {
+  if (!nodes.has(id)) nodes.set(id, { innerHTML: '', children: [], listeners: {}, classList: { toggle: () => {} }, addEventListener(type, handler) { this.listeners[type] = handler; } });
+  return nodes.get(id);
+};
+const ttft = { textContent: '' };
+const stream = { textContent: '' };
+const live = {
+  innerHTML: '', children: [{ dataset: { live: '2' }, querySelector: (selector) =>
+    selector.includes('ttft') ? ttft : stream }],
+};
+const liveNode = (id) => (id === 'live' ? live : node(id));
+const sandbox = {
+  esc: (text) => String(text ?? ''),
+  seconds: (value) => value.toFixed(3) + 's',
+  floorCount: (value) => String(value),
+  matchMedia: () => ({ matches: false, addEventListener: () => {} }),
+  document: { hidden: false, documentElement: { dataset: {} }, getElementById: liveNode, querySelector: () => ({ firstChild: { textContent: 'M' } }), querySelectorAll: () => [], addEventListener: () => {} },
+  navigator: {}, location: { hash: '' }, window: { addEventListener: () => {}, matchMedia: () => ({ matches: false }) },
+  getSelection: () => ({ isCollapsed: true }), console: { error: () => {} }, $: liveNode,
+};
+vm.createContext(sandbox);
+vm.runInContext(src, sandbox);
+const assert = require('assert');
+const probe = sandbox.__probe;
+const row = (fields) => ({ id: 2, since: Date.now(), attemptSince: Date.now(), first: null, stream: false, ...fields });
+probe.state.live.set(2, row({}));
+probe.tickLive();
+assert.strictEqual(stream.textContent, '', 'a plain request shows no stream time before the first token');
+assert(ttft.textContent.endsWith('s'), 'the TTFT clock counts while the first token is pending: ' + ttft.textContent);
+probe.state.live.set(2, row({ stream: true }));
+probe.tickLive();
+assert.strictEqual(stream.textContent, '', 'a streaming request waits the same way');
+probe.state.live.set(2, row({ first: Date.now() }));
+probe.tickLive();
+assert(stream.textContent.endsWith('s'), 'a plain request counts its whole time after the first token: ' + stream.textContent);
+probe.state.live.set(2, row({ first: Date.now(), stream: true }));
+probe.tickLive();
+assert(stream.textContent.endsWith('s'), 'a streaming request counts the time after the first token: ' + stream.textContent);
+"""
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_mobile_request_cards_use_route_first_grid() -> None:
   """Compact mobile cards keep route, metrics, and details on separate rows."""
   css = (
