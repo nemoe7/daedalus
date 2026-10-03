@@ -222,16 +222,16 @@ def answer(request: httpx.Request) -> httpx.Response:
   path = request.url.path
   host = request.url.host
   # The balance endpoints of the Limits page: the shape of each provider answer.
-  if host.endswith("openrouter.ai") and path.endswith("/key"):
+  if host == "openrouter.ai" and path.endswith("/key"):
     return httpx.Response(
       200,
       json={"data": {"free_model_daily_requests": {"remaining": 991, "limit": 1000}}},
     )
-  if host.endswith("kilo.ai"):
+  if host == "api.kilo.ai":
     return httpx.Response(200, json={"balance": 0.0})
-  if host.endswith("pollinations.ai"):
+  if host == "gen.pollinations.ai":
     return httpx.Response(200, json={"balance": 0.25})
-  if host.endswith("cloudflare.com") and path.endswith("/graphql"):
+  if host == "api.cloudflare.com" and path.endswith("/graphql"):
     return httpx.Response(
       200,
       json={
