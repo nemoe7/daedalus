@@ -110,11 +110,30 @@ def text(value: Any) -> str:
   return str(value).replace("\t", " ").replace("\n", " ")
 
 
+# A repeat of a group that holds a repeat can backtrack for minutes on a long slug.
+# The refused patterns: (a+)+, (\w+)*, ((a*)*). A pattern of this shape matches nothing.
+NESTED_REPEAT = re.compile(r"\([^)]*[*+][^)]*\)[*+]")
+_refused: set[str] = set()
+
+
+def refuse(pattern: str) -> None:
+  """Warn 1 time about a pattern that holds a repeat inside a repeat."""
+  if pattern not in _refused:
+    _refused.add(pattern)
+    logger.warning(
+      "pattern %s repeats a repeat, which can hang the catalog: it matches nothing",
+      pattern,
+    )
+
+
 def matches(pattern: str, slug: str) -> bool:
   """Test one slug against one pattern."""
   if pattern.startswith("!"):
     return not matches(pattern[1:], slug)
   if pattern.startswith("^"):
+    if NESTED_REPEAT.search(pattern):
+      refuse(pattern)
+      return False
     return len(slug) <= SLUG_LIMIT and re.search(pattern, slug) is not None
   if "*" in pattern or "?" in pattern:
     return fnmatchcase(slug, pattern)
