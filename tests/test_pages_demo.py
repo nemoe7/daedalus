@@ -277,6 +277,9 @@ def test_the_fixtures_carry_the_edge_cases() -> None:
           "a cooldown holds the seconds and the reason",
           cooldown,
         )
+  # The demo names only the 2 client apps that daedalus supports.
+  apps = {row["app"] for row in requests if row.get("app")}
+  assert apps <= {"OWUI", "Kilo"}, apps
   # The max shape: each column of the table carries a value in 1 row at least.
   for field in ("app", "effort", "pool", "routed", "retry", "loop", "transition"):
     assert any(row.get(field) for row in requests), field
