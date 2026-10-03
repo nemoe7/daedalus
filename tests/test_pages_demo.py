@@ -263,6 +263,17 @@ def test_the_fixtures_carry_the_edge_cases() -> None:
     attempt.get("cooldown") for row in requests for attempt in row.get("attempts") or []
   ), "a rate limit with a cooldown"
   assert any(row.get("stream") for row in requests), "a stream"
+  # The max shape: each column of the table carries a value in 1 row at least.
+  for field in ("app", "effort", "pool", "routed", "retry", "loop", "transition"):
+    assert any(row.get(field) for row in requests), field
+  assert any((row.get("tokens") or {}).get("estimate") for row in requests), (
+    "an estimate"
+  )
+  cards = fixtures["limits"]["providers"]
+  assert cards, "a provider balance card"
+  assert all(len(item) == 3 for card in cards for item in card["items"]), (
+    "the card items"
+  )
   assert any(len(key["name"]) == 40 for key in fixtures["keys"]), (
     "a key name at its limit"
   )

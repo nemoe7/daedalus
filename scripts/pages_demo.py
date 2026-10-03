@@ -282,6 +282,56 @@ def seed_saved() -> None:
     keys.add(store.MODELS_DB, name)
 
 
+# The rows that the mock provider cannot reach: the client app, the effort, a retry, a loop
+# and a routed pool. Each row starts from a real row of the capture, so every field keeps the
+# shape of `dashboard.record`.
+DEMO_SHAPES = (
+  {
+    "app": "OWUI",
+    "effort": "high",
+    "pool": "koinos",
+    "routed": "moros",
+    "transition": {
+      "from_model": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
+      "from_pool": "koinos",
+      "reason": "esc",
+      "to_model": "cloudflare/@cf/zai-org/glm-4.7-flash",
+      "to_pool": "deinos",
+    },
+  },
+  {
+    "app": "Kilo",
+    "retry": "1",
+    "fallbacks": "1",
+    "status": 200,
+    "attempts": [
+      {
+        "model": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
+        "result": "error",
+        "seconds": 0.412,
+        "error": "the deployment is down",
+        "weight_change": 0.5,
+      },
+      {
+        "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
+        "result": "answered",
+        "seconds": 0.884,
+        "error": "",
+        "cooldown": {"seconds": 1800, "reason": "retry-after"},
+        "weight_change": 0.9,
+      },
+    ],
+  },
+  {
+    "app": "Home Assistant Panel 01",
+    "effort": "low",
+    "loop": "2",
+    "pool": "sophos",
+    "tokens": {"estimate": True, "input": 1200, "output": 240},
+  },
+)
+
+
 def seed_state() -> None:
   """Set the states that the pages show, after the requests moved the weights."""
   penalties, cooldowns = api.PENALTIES, api.COOLDOWNS
@@ -293,6 +343,26 @@ def seed_state() -> None:
     cooldowns.clock() + 26 * 3600,
     "reset",
   )
+  # The balance cards of the Limits page. A capture with no provider key answers no balance,
+  # so the demo carries the card shapes of a Cloudflare neuron count and an OpenRouter credit.
+  api.LIMITS.balances = {
+    "cloudflare": [("Neurons today", "9,420 of 10,000 left", 0.942)],
+    "openrouter": [
+      ("Credit left", "$9.72 of $10.00", 0.972),
+      ("Used today", "$0.28", None),
+      ("Free model requests left", "812 of 1000", 0.812),
+    ],
+  }
+  api.LIMITS.checked = cooldowns.clock()
+  rows = dashboard.HISTORY.latest(1)
+  if not rows:
+    return
+  for shape in DEMO_SHAPES:
+    row = dict(rows[0])
+    row.update(shape)
+    row["at"] = cooldowns.clock()
+    row["seconds"] = round(row.get("seconds") or 1.0, 3)
+    dashboard.HISTORY.add(row)
 
 
 def seed_requests(client: TestClient, auth: dict[str, str]) -> None:
@@ -952,10 +1022,14 @@ const DEMO_FIXTURES = __FIXTURES__;
       const done = {
         at: Date.now() / 1000, status: 200, seconds: round(ttft + gap(0.2, 2.0)),
         app: row.app, session: row.session, key: row.key, model: row.model, effort: row.effort,
-        pool: row.pool, routed: null, transition: null, retry: null, loop: null,
-        via: served, ttft: `${ttft.toFixed(3)}s`, stream: row.stream, fallbacks: "0",
-        tokens: { estimate: false, input: 40 + id * 3, output: 12 + (id % 9) },
-        attempts: [{ model: served, result: "answered", seconds: ttft, error: "" }],
+        pool: row.pool, routed: template.routed || null, transition: template.transition || null,
+        retry: template.retry || null, loop: template.loop || null,
+        via: served, ttft: `${ttft.toFixed(3)}s`, stream: row.stream,
+        status: template.status || 200, fallbacks: template.fallbacks || "0",
+        tokens: template.tokens ? { ...template.tokens } : null,
+        attempts: (template.attempts || []).length
+          ? template.attempts.map((item) => ({ ...item }))
+          : [{ model: served, result: "answered", seconds: ttft, error: "" }],
       };
       this.send("end", { id, row: done });
       keep(done);
