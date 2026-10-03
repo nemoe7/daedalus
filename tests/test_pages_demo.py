@@ -46,9 +46,10 @@ const vm = require("vm");
 const context = {
   location: { origin: "https://demo.test", href: "https://demo.test/" },
   Response, URL, clearTimeout, console, Promise, Math, JSON, Object, Array,
-  network: [], timers: [],
+  network: [], listeners: [], timers: [],
 };
 context.window = context;
+context.addEventListener = (kind) => context.listeners.push(kind);
 // The rebuild waits 26 s. The test shortens only that timer.
 context.setTimeout = (fn, ms, ...rest) => {
   context.timers.push(ms);
@@ -90,6 +91,10 @@ const check = (ok, text) => {
   const stateAfter = await (await context.fetch("ui/api/status")).json();
   check(stateAfter.catalog.rebuilding === false, "the rebuild finishes");
   check(stateAfter.catalog.built !== stateBefore.catalog.built, "a fresh built time");
+  context.addEventListener("beforeunload", () => {});
+  context.addEventListener("click", () => {});
+  check(!context.listeners.includes("beforeunload"), "the reload warning is dropped");
+  check(context.listeners.includes("click"), "the other listeners still register");
   const seen = [];
   const stream = new context.EventSource("ui/api/requests/live");
   ["live", "start", "update", "first", "end"].forEach((kind) =>
