@@ -387,6 +387,8 @@ const DEMO_FIXTURES = __FIXTURES__;
     kind === "beforeunload" ? undefined : listen(kind, ...rest);
   // The server keeps 500 rows. The demo does the same, and drops the oldest.
   const KEPT = 500;
+  // The requests of this page, by model. The limits check reads the count.
+  const USED = new Map();
   const wait = (ms) => new Promise((done) => setTimeout(done, ms));
   const round = (value) => Math.round(value * 1000) / 1000;
   // The media models answer on their own paths.
@@ -427,7 +429,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     return json({ ok: true }, 202);
   };
   // A simulated save lands in the page memory: the page shows it, and a reload brings the
-  // captured fixtures back.
+  // captured fixtures back. Each answer carries the text and the code of the server.
   const body_of = (init) => {
     try {
       const value = JSON.parse(init.body || "null");
@@ -443,7 +445,117 @@ const DEMO_FIXTURES = __FIXTURES__;
     if (value === null || value === undefined) return "null";
     if (typeof value === "number" || typeof value === "boolean") return String(value);
     const text = String(value);
-    return /^[A-Za-z0-9_./@+-]+$/.test(text) ? text : JSON.stringify(text);
+    if (/^[A-Za-z0-9_./@+-]+$/.test(text)) return text;
+    // A colon inside a word is plain YAML: `db:OPENROUTER_API_KEY`.
+    return /^[A-Za-z0-9_./@+-]+:[^\\s]/.test(text) ? text : JSON.stringify(text);
+  };
+  const unscale = (raw) => {
+    const text = raw.trim();
+    if (!text || text === "null" || text === "~") return null;
+    if (text === "true") return true;
+    if (text === "false") return false;
+    if (/^-?\\d+$/.test(text)) return Number(text);
+    if (/^-?\\d*\\.\\d+$/.test(text)) return Number(text);
+    const quoted = text.match(/^(["'])(.*)\\1$/);
+    return quoted ? quoted[2] : text;
+  };
+  const DEFAULTS = DEMO_FIXTURES.settings.defaults || {};
+  const SETTINGS_PATH = DEMO_FIXTURES.settings.path;
+  const name_of = (path) => String(path).split("/").pop();
+  const stem_of = (path) => name_of(path).replace(/\\.yml$/, "");
+  const head_of = (path) => String(path).replace(/[^/]*$/, "");
+  // The values of the YAML subset of the config files: maps, lists and scalars.
+  const yaml_read = (text) => {
+    const box = { node: {} };
+    const stack = [{ indent: -1, node: box.node }];
+    const lines = text.split("\\n");
+    const next_body = (from, depth) => {
+      for (let at = from; at < lines.length; at += 1) {
+        const raw = lines[at];
+        if (!raw.trim() || raw.trim().startsWith("#")) continue;
+        const indent = raw.match(/^\\s*/)[0].length;
+        if (indent <= depth) return "";
+        return raw.trim();
+      }
+      return "";
+    };
+    for (let n = 0; n < lines.length; n += 1) {
+      const raw = lines[n];
+      if (!raw.trim() || raw.trim().startsWith("#")) continue;
+      const indent = raw.match(/^\\s*/)[0];
+      const column = indent.indexOf("\\t");
+      if (column >= 0)
+        return { error: `found character '\\t' that cannot start any token at line ${n + 1}, column ${column + 1}` };
+      const depth = indent.length;
+      const body = raw.trim().replace(/\\s+#.*$/, "");
+      while (stack.length > 1 && depth <= stack[stack.length - 1].indent) stack.pop();
+      const top = stack[stack.length - 1];
+      if (body.startsWith("- ")) {
+        // A top-level list is valid YAML. The caller says that a file needs blocks.
+        if (stack.length === 1) {
+          top.node = [];
+          box.node = top.node;
+        }
+        if (!Array.isArray(top.node))
+          return { error: `sequence entries are not allowed here at line ${n + 1}, column ${depth + 1}` };
+        top.node.push(unscale(body.slice(2)));
+        continue;
+      }
+      const at = body.indexOf(":");
+      if (at < 0)
+        return { error: `could not find expected ':' at line ${n + 1}, column ${depth + body.length}` };
+      const value = body.slice(at + 1).trim();
+      if (value.includes(": "))
+        return { error: `mapping values are not allowed here at line ${n + 1}, column ${depth + at + 3}` };
+      if (!top.node || typeof top.node !== "object" || Array.isArray(top.node))
+        return { error: `mapping values are not allowed here at line ${n + 1}, column ${depth + 1}` };
+      const key = body.slice(0, at).trim();
+      if (!value) {
+        const follows = next_body(n + 1, depth);
+        const child = follows.startsWith("- ") ? [] : {};
+        top.node[key] = child;
+        stack.push({ indent: depth, node: child });
+      } else {
+        top.node[key] = unscale(value);
+      }
+    }
+    return { value: box.node };
+  };
+  // `form_blocks` of the server: the block map of a file and its error line.
+  const form_blocks = (row) => {
+    const empty = !row.text.trim();
+    const read = empty ? { value: {} } : yaml_read(row.text);
+    if (read.error) {
+      row.blocks = null;
+      row.error = read.error;
+      return;
+    }
+    if (!read.value || typeof read.value !== "object" || Array.isArray(read.value)) {
+      row.blocks = null;
+      row.error = `${name_of(row.path)} must hold provider blocks`;
+      return;
+    }
+    row.blocks = row.main ? read.value : { [stem_of(row.path)]: read.value };
+    row.error = null;
+  };
+  // `settings.parse` of the server: the error line of a settings text, or an empty string.
+  const settings_error = (value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value))
+      return `${SETTINGS_PATH} must hold groups of keys`;
+    for (const [group, values] of Object.entries(value)) {
+      if (!(group in DEFAULTS)) return `unknown group '${group}' in ${SETTINGS_PATH}`;
+      if (!values || typeof values !== "object" || Array.isArray(values))
+        return `${group} must hold keys`;
+      for (const key of Object.keys(values)) {
+        if (!(key in DEFAULTS[group])) return `unknown key ${group}.${key} in ${SETTINGS_PATH}`;
+      }
+    }
+    const pools = { ...DEFAULTS.pools, ...(value.pools || {}) };
+    if (new Set(Object.values(pools)).size !== Object.keys(pools).length)
+      return "each pool in pools must have its own name";
+    const loops = { ...DEFAULTS.loops, ...(value.loops || {}) };
+    if (loops.shortest > loops.longest) return "loops.shortest must be at most loops.longest";
+    return "";
   };
   // The provider form sends parsed blocks. The files tab reads the text of a file.
   const yaml_of = (value, pad = "") => {
@@ -465,39 +577,86 @@ const DEMO_FIXTURES = __FIXTURES__;
         .join("");
     return `${pad}${scald(value)}\\n`;
   };
-  // A saved value replaces the line of its key, and the comment of the old line stays.
+  // The lines of a file as a tree, so a merged value keeps the comments of its line.
+  const line_tree = (text) => {
+    const root = { line: -1, indent: -1, children: [] };
+    const stack = [root];
+    text.split("\\n").forEach((raw, n) => {
+      if (!raw.trim() || raw.trim().startsWith("#")) return;
+      const body = raw.trim();
+      if (body.startsWith("- ") || !body.includes(":")) return;
+      const indent = raw.match(/^\\s*/)[0].length;
+      const node = { key: body.slice(0, body.indexOf(":")).trim(), line: n, indent, children: [] };
+      while (stack.length > 1 && indent <= stack[stack.length - 1].indent) stack.pop();
+      stack[stack.length - 1].children.push(node);
+      stack.push(node);
+    });
+    const ends = (node, last) => {
+      node.children.forEach((child, at) => {
+        ends(child, at + 1 < node.children.length ? node.children[at + 1].line : last);
+      });
+    };
+    ends(root, text.split("\\n").length);
+    return root;
+  };
+  const tail_of = (line) => (line.match(/\\s+#.*$/) || [""])[0];
+  // The line after the block of a key: the next line at its indent or above, blanks aside.
+  const node_end = (node, lines) => {
+    let at = node.line + 1;
+    while (at < lines.length) {
+      const raw = lines[at];
+      if (!raw.trim()) {
+        at += 1;
+        continue;
+      }
+      if (raw.match(/^\\s*/)[0].length <= node.indent) break;
+      at += 1;
+    }
+    while (at > node.line + 1 && !lines[at - 1].trim()) at -= 1;
+    return at;
+  };
+  const put_value = (lines, node, key, value) => {
+    const pad = " ".repeat(node.indent + 2);
+    const found = node.children.find((child) => child.key === key);
+    const at = found ? node_end(found, lines) : node_end(node, lines);
+    if (Array.isArray(value)) {
+      const block = [`${pad}${key}:`].concat(value.map((item) => `${pad}  - ${scald(item)}`));
+      return lines.slice(0, found ? found.line : at).concat(block, lines.slice(found ? at : at));
+    }
+    if (value && typeof value === "object") {
+      if (found) return put_map(lines, found, value, pad + "  ");
+      const block = [`${pad}${key}:`].concat(yaml_of(value, pad + "  ").split("\\n").filter(Boolean));
+      return lines.slice(0, at).concat(block, lines.slice(at));
+    }
+    if (found && !found.children.length) {
+      const text = `${" ".repeat(found.indent)}${key}: ${scald(value)}${tail_of(lines[found.line])}`;
+      return lines.slice(0, found.line).concat([text], lines.slice(at));
+    }
+    if (found) return lines.slice(0, found.line).concat([`${pad}${key}: ${scald(value)}`], lines.slice(at));
+    return lines.slice(0, at).concat([`${pad}${key}: ${scald(value)}`], lines.slice(at));
+  };
+  const put_map = (lines, node, document, pad) => {
+    for (const [key, value] of Object.entries(document)) lines = put_value(lines, node, key, value);
+    return lines;
+  };
+  const yaml_merge = (text, document) => {
+    const lines = text.length ? text.split("\\n") : [];
+    const tree = line_tree(text);
+    return put_map(lines, tree, document, "").join("\\n");
+  };
   const text_saved = (text, group, key, value) => {
     const lines = text.split("\\n");
-    const start = lines.findIndex((line) => line.startsWith(`${group}:`));
-    if (start < 0) return text;
-    let end = lines.length;
-    for (let at = start + 1; at < lines.length; at += 1) {
-      if (lines[at].trim() && !/^\\s/.test(lines[at])) {
-        end = at;
-        break;
-      }
-    }
-    const found = lines.findIndex(
-      (line, at) => at > start && at < end && line.trim().startsWith(`${key}:`)
-    );
-    const tail = found < 0 ? "" : (lines[found].match(/\\s#.*$/) || [""])[0];
-    const block = Array.isArray(value)
-      ? [`  ${key}:`].concat(value.map((item) => `    - ${scald(item)}`))
-      : [`  ${key}: ${value === null || value === undefined ? "null" : scald(value)}${tail}`];
-    if (found < 0) {
-      const at = end > start + 1 && lines[end - 1].trim() === "" ? end - 1 : end;
-      return lines.slice(0, at).concat(block, lines.slice(at)).join("\\n");
-    }
-    let stop = found + 1;
-    while (stop < end && (lines[stop].trim().startsWith("-") || /^\\s{4,}/.test(lines[stop]))) stop += 1;
-    return lines.slice(0, found).concat(block, lines.slice(stop)).join("\\n");
+    const tree = line_tree(text);
+    const node = tree.children.find((child) => child.key === group);
+    if (!node) return text;
+    return put_value(lines, node, key, value).join("\\n");
   };
   const env_saved = async (init) => {
     const { name, value } = await body_of(init);
     const row = DEMO_FIXTURES.env.find((item) => item.name === name);
     if (!row) return bad("No provider file uses this name.", 400);
     const secret = word(value);
-    if (!secret || secret.length > 400 || /\\s/.test(secret))
+    if (!secret || /[\\s]/.test(secret))
       return bad("The value must be 1 word with no spaces.", 400);
     Object.assign(row, {
       state: "saved", has_saved: true, length: secret.length,
@@ -514,42 +673,63 @@ const DEMO_FIXTURES = __FIXTURES__;
     });
     return json(DEMO_FIXTURES.env);
   };
+  // `keys.check_name` of the server: 1 to 40 characters, and a name that is free.
   const key_made = async (init) => {
-    const name = word((await body_of(init)).name);
-    if (!name) return bad("The key name is empty.", 400);
+    const raw = (await body_of(init)).name;
+    const name = typeof raw === "string" ? raw.trim() : "";
+    if (!name || name.length > 40) return bad("A key name has 1 to 40 characters.", 400);
+    if (DEMO_FIXTURES.keys.some((row) => row.name === name))
+      return bad(`The name '${name}' is in use.`, 400);
     const key = `sk-${noise(28)}`;
-    if (!DEMO_FIXTURES.keys.some((row) => row.name === name)) {
-      DEMO_FIXTURES.keys.push({ created: Date.now() / 1000, name, start: key.slice(0, 7), used: null });
-    }
+    DEMO_FIXTURES.keys.push({
+      created: Date.now() / 1000, name, start: key.slice(0, 7), used: null,
+    });
     return json({ name, key }, 201);
   };
   const key_dropped = (name) => {
     const at = DEMO_FIXTURES.keys.findIndex((row) => row.name === name);
-    if (at < 0) return bad(`No key has the name ${JSON.stringify(name)}.`, 404);
+    if (at < 0) return bad(`No key has the name '${name}'.`, 404);
     DEMO_FIXTURES.keys.splice(at, 1);
     return new Response(null, { status: 204 });
+  };
+  // The demo opens without a login. After a logout, `admin` and any password open it again.
+  const log_in = async (init) => {
+    const body = await body_of(init);
+    const user = word(body.username);
+    if (user !== DEMO_FIXTURES.login.username || !word(body.password))
+      return bad("Wrong username or password.", 401);
+    DEMO_FIXTURES.login.session = true;
+    return json({ ok: true, session: "demo" });
   };
   const file_row = (path) => DEMO_FIXTURES.files.find((row) => row.path === path);
   const file_text = async (init) => {
     const { path, text } = await body_of(init);
     const row = file_row(path);
     if (!row) return bad("Unknown config file.", 400);
-    row.text = typeof text === "string" ? text : "";
-    row.error = null;
-    return json({ ok: true, text: row.text });
+    if (typeof text !== "string") return bad("The file text must be a string.", 400);
+    const read = yaml_read(text);
+    if (read.error) return bad(read.error, 422);
+    if (path === SETTINGS_PATH) {
+      const error = settings_error(read.value);
+      if (error) return bad(error, 422);
+    } else if (!read.value || typeof read.value !== "object" || Array.isArray(read.value)) {
+      return bad(`${path} must hold provider blocks`, 422);
+    }
+    row.text = text;
+    form_blocks(row);
+    return json({ ok: true, text });
   };
   const file_made = async (init) => {
     const name = word((await body_of(init)).name);
     if (!/^[a-z0-9-]+$/.test(name))
       return bad("The provider name must use lowercase letters, digits and dashes.", 400);
     const main = DEMO_FIXTURES.files.find((row) => row.main) || DEMO_FIXTURES.files[0];
-    const path = String(main.path).replace(/[^/]*$/, "") + `${name}.yml`;
+    const path = head_of(main.path) + `${name}.yml`;
     if (file_row(path)) return bad(`${path} exists.`, 400);
     const text = `${name}:\\n  api_base: https://example.test/v1\\n`;
-    DEMO_FIXTURES.files.push({
-      path, text, blocks: { [name]: { api_base: "https://example.test/v1" } }, error: null,
-      main: false, shadow: null,
-    });
+    const made = { path, text, blocks: null, error: null, main: false, shadow: null };
+    form_blocks(made);
+    DEMO_FIXTURES.files.push(made);
     return json({ path, text });
   };
   const file_dropped = async (init) => {
@@ -559,28 +739,50 @@ const DEMO_FIXTURES = __FIXTURES__;
     DEMO_FIXTURES.files.splice(at, 1);
     return json({ ok: true });
   };
+  // `providers` PUT: the blocks of 1 file, merged into its text, with the comments kept.
   const providers_saved = async (init) => {
     const { path, blocks } = await body_of(init);
     const row = file_row(path);
-    if (!row || !blocks || typeof blocks !== "object") return bad("Unknown config file.", 400);
-    row.blocks = blocks;
-    row.text = yaml_of(blocks);
-    row.error = null;
+    if (!row) return bad("Unknown config file.", 400);
+    if (!blocks || typeof blocks !== "object" || Array.isArray(blocks))
+      return bad("Each provider block must be a map.", 400);
+    for (const value of Object.values(blocks)) {
+      if (!value || typeof value !== "object" || Array.isArray(value))
+        return bad("Each provider block must be a map.", 400);
+    }
+    const stem = stem_of(path);
+    const document = row.main ? blocks : blocks[stem];
+    if (!document || typeof document !== "object" || Array.isArray(document))
+      return bad(`${path} needs the block ${stem}.`, 400);
+    row.text = yaml_merge(row.text, document);
+    form_blocks(row);
     return json({ ok: true, text: row.text });
   };
   const settings_saved = async (init) => {
     const { text, changes } = await body_of(init);
     if (typeof text === "string") {
+      const read = yaml_read(text);
+      if (read.error) return bad(read.error, 422);
+      const error = settings_error(read.value);
+      if (error) return bad(error, 422);
       DEMO_FIXTURES.settings.text = text;
+      DEMO_FIXTURES.settings.file = read.value || {};
       return json({ ok: true, text });
     }
     if (!changes || typeof changes !== "object") return bad("The changes must be an object.", 400);
     for (const [group, values] of Object.entries(changes)) {
+      if (!(group in DEFAULTS)) return bad(`unknown group '${group}'`, 422);
+      if (!values || typeof values !== "object" || Array.isArray(values))
+        return bad(`${group} must hold keys`, 422);
+      for (const key of Object.keys(values)) {
+        if (!(key in DEFAULTS[group])) return bad(`unknown key ${group}.${key}`, 422);
+      }
+    }
+    for (const [group, values] of Object.entries(changes)) {
       const file = DEMO_FIXTURES.settings.file;
       file[group] ||= {};
       for (const [key, value] of Object.entries(values)) {
-        const fallback = DEMO_FIXTURES.settings.defaults?.[group]?.[key];
-        const next = value === null || value === undefined ? fallback : value;
+        const next = value === null || value === undefined ? DEFAULTS[group][key] : value;
         if (next === undefined || next === null) delete file[group][key];
         else file[group][key] = next;
         DEMO_FIXTURES.settings.text = text_saved(DEMO_FIXTURES.settings.text, group, key, value);
@@ -588,18 +790,33 @@ const DEMO_FIXTURES = __FIXTURES__;
     }
     return json({ ok: true, text: DEMO_FIXTURES.settings.text });
   };
+  // The limits check of the server reads each provider again. The demo shifts the captured
+  // clock to now and counts the requests that it served.
+  const check_limits = () => {
+    const now = Date.now() / 1000;
+    const seen = DEMO_FIXTURES.limits;
+    seen.checked = now;
+    for (const lane of seen.lanes) {
+      const waited = Math.max(0, (lane.rows[0]?.reset || now) - lane.at);
+      lane.at = now;
+      for (const item of lane.rows) {
+        const used = USED.get(lane.model) || 0;
+        if (item.kind === "requests") item.remaining = Math.max(0, item.remaining - used);
+        if (item.kind === "tokens") item.remaining = Math.max(0, item.remaining - used * 40);
+        item.reset = now + waited;
+      }
+    }
+    return json(seen);
+  };
   // A write with no home in the demo stays refused.
   const save = (path, method, init) => {
     if (path === "catalog" && method === "POST") return rebuild();
-    if (path === "limits" && method === "POST") return json(DEMO_FIXTURES.limits);
+    if (path === "limits" && method === "POST") return check_limits();
     if (path === "reset" && method === "POST") {
       DEMO_FIXTURES.models.forEach((row) => Object.assign(row, { weight: 1, cooldown: null }));
       return json({ ok: true });
     }
-    if (path === "login" && method === "POST") {
-      DEMO_FIXTURES.login.session = true;
-      return json({ ok: true, session: "demo" });
-    }
+    if (path === "login" && method === "POST") return log_in(init);
     if (path === "logout" && method === "POST") {
       DEMO_FIXTURES.login.session = false;
       return json({ ok: true });
@@ -642,6 +859,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     DEMO_FIXTURES.requests.unshift(row);
     DEMO_FIXTURES.requests.length = Math.min(DEMO_FIXTURES.requests.length, KEPT);
     DEMO_FIXTURES.status.sessions += 1;
+    USED.set(row.model, (USED.get(row.model) || 0) + 1);
   };
   // The live stream of a server: the demo sends the same events, in waves of 1 to 3 requests,
   // each with its own timings and a random gap before the next wave.
@@ -650,6 +868,8 @@ const DEMO_FIXTURES = __FIXTURES__;
       this.listeners = new Map();
       this.closed = false;
       this.next = 0;
+      // The server sends the requests in flight 1st, then each change.
+      this.running = new Map();
       this.loop();
     }
     addEventListener(kind, call) {
@@ -661,11 +881,15 @@ const DEMO_FIXTURES = __FIXTURES__;
     }
     send(kind, data) {
       if (this.closed) return;
+      // The rows in flight, as the server keeps them for the next page that connects.
+      if (kind === "start" || kind === "update" || kind === "first") this.running.set(data.id, data);
+      if (kind === "end") this.running.delete(data.id);
       for (const call of this.listeners.get(kind) || []) call({ data: JSON.stringify(data) });
     }
     async loop() {
-      await wait(gap(400, 900));
-      this.send("live", []);
+      // The page attaches its listeners 1st: the server answers on a later tick.
+      await wait(0);
+      this.send("live", [...this.running.values()]);
       for (const row of SEEDED) {
         if (this.closed) return;
         await this.replay(row);
