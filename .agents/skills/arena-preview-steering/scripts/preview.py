@@ -318,10 +318,11 @@ def print_read(store,pretty=False):listing=store.read();print(cli_json(listing,p
 POLL_INTERVAL=1
 POLL_MAX_LOOPS=900
 POLLING_META='polling_at'
+POLL_SINCE_META='polling_since'
 POLLING_FRESH_SECONDS=5.
 def poll_inbox(store,pretty=False,sleeper=None):
 	if sleeper is None:sleeper=time.sleep
-	listing={'checked_at':None,'pending':[]};store.stamp_polling()
+	listing={'checked_at':None,'pending':[]};store.start_poll()
 	try:
 		for index in range(POLL_MAX_LOOPS):
 			listing=store.read()
@@ -446,7 +447,7 @@ class Store:
 			if tasks is not None:
 				for item in tasks['finished']+tasks['upcoming']:item['updated_at']=clip_stamp(item['updated_at'])
 				tasks['updated_at']=clip_stamp(tasks['updated_at'])
-			return{'notes':notes,'reports':reports,'tasks':tasks,'uploads':uploads,'fetch_jobs':fetch_jobs,'workspace':workspace_usage(),'last_check':clip_stamp(meta.get('last_check')),'polling':self.polling(),'calls_since_message':meta_number(db,POLLS_SINCE_MESSAGE)}
+			return{'notes':notes,'reports':reports,'tasks':tasks,'uploads':uploads,'fetch_jobs':fetch_jobs,'workspace':workspace_usage(),'last_check':clip_stamp(meta.get('last_check')),'polling':self.polling(),'polling_since':clip_stamp(meta.get(POLL_SINCE_META))if self.polling()else None,'calls_since_message':meta_number(db,POLLS_SINCE_MESSAGE)}
 	def tasks(self):
 		with closing(self.connect())as db:rows=db.execute(f"SELECT {TASK_COLUMNS} FROM tasks ORDER BY status DESC, position, id").fetchall()
 		records=[task_row(row)for row in rows]
@@ -675,8 +676,10 @@ class Store:
 		with closing(self.connect())as db:row=db.execute('SELECT value FROM meta WHERE key = ?',(key,)).fetchone();return row[0]if row else None
 	def stamp_polling(self):
 		with closing(self.connect())as db,db:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(POLLING_META,now()))
+	def start_poll(self):
+		with closing(self.connect())as db,db:stamp=now();db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(POLLING_META,stamp));db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(POLL_SINCE_META,stamp))
 	def clear_polling(self):
-		with closing(self.connect())as db,db:db.execute('DELETE FROM meta WHERE key = ?',(POLLING_META,))
+		with closing(self.connect())as db,db:db.execute('DELETE FROM meta WHERE key IN (?, ?)',(POLLING_META,POLL_SINCE_META))
 	def polling(self):age=seconds_since(self.meta_value(POLLING_META));return age is not None and 0<=age<POLLING_FRESH_SECONDS
 	def set_meta(self,key,value):
 		with closing(self.connect())as db,db:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(key,str(value)))
