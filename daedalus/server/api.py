@@ -763,6 +763,11 @@ async def chat(request: Request) -> Response:
     return upstream.error_response(
       400, "Unknown provider or pool", "invalid_request_error"
     )
+  # The tools filter can empty a pool: say why, before the request reaches an upstream.
+  if body.get("tools") and found[1] and not any(found[0]):
+    return upstream.error_response(
+      400, "No model of this pool takes tools", "invalid_request_error"
+    )
   name = model.partition("/")[0]
   if name in config and not router.keyed(config, model):
     return upstream.error_response(

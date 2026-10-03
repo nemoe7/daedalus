@@ -56,6 +56,16 @@ async def json_body(request: Request) -> dict | Response:
   return body
 
 
+def pool_label(pool: str) -> str:
+  """The client name of a pool, without its `daedalus/` prefix."""
+  return router.pool_name(pool).removeprefix("daedalus/")
+
+
+def no_models(pool: str) -> str:
+  """The one text for a media pool without models, under its client name."""
+  return f"{pool_label(pool)} has no models"
+
+
 def models_for(
   request: Request, model: str, pool: str | None, content: bytes, vision: bool = False
 ) -> list[str] | Response:
@@ -66,9 +76,8 @@ def models_for(
       or model in router.POOLS
       or model in router.MEDIA_POOLS
     ):
-      return invalid(
-        f"This endpoint needs a provider/slug model{f' or {router.pool_name(pool)}' if pool else ''}"
-      )
+      hint = f" or {pool_label(pool)}" if pool else ""
+      return invalid(f"This endpoint needs a provider/slug model{hint}")
     return [model]
   config = get_config()
   members = [
@@ -77,7 +86,7 @@ def models_for(
     if router.pooled(config, name)
   ]
   if not members:
-    return invalid(f"{router.pool_name(pool)} has no models")
+    return invalid(no_models(pool))
   turn = REPEATS.start_digest(
     keys.digest(access.bearer(request) + pool), hashlib.sha256(content).hexdigest()
   )

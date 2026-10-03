@@ -215,6 +215,21 @@ async def test_routed_model(client: httpx.AsyncClient) -> None:
         "/v1/chat/completions", json=chat_body(model="daedalus/praktos", tools=[tool])
       )
       assert gone.status_code == 400, gone.text
+      # A pool where no model takes tools: a clear 400, and no upstream call.
+      store.write_store(
+        [
+          {"id": "gemini/gemini-3.5-flash"},
+          {"id": "gemini/gemini-3.5-pro"},
+          {"id": "gemini/gemini-3.6-flash"},
+        ]
+      )
+      sent = len(SEEN)
+      bare = await client.post(
+        "/v1/chat/completions", json=chat_body(model="daedalus/sophos", tools=[tool])
+      )
+      assert bare.status_code == 400, bare.text
+      assert bare.json()["error"]["message"] == "No model of this pool takes tools"
+      assert len(SEEN) == sent, "the upstream never sees it"
   finally:
     store.MODELS_DB = saved
     use_config()
