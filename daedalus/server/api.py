@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import sqlite3
 import time
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager, suppress
@@ -62,11 +63,27 @@ async def lifespan(_application: FastAPI) -> AsyncIterator[None]:
     asyncio.create_task(schedule.run(CATALOG_REFRESH)) if CATALOG_REFRESH else None
   )
   checks = asyncio.create_task(LIMITS.run()) if LIMIT_CHECKS else None
+  prunes = asyncio.create_task(prune_store())
   yield
-  for task in (rebuilds, checks):
+  for task in (rebuilds, checks, prunes):
     if task is not None:
       task.cancel()
   await upstream.close()
+
+
+# A request does not prune the pins and tiers that idled: a lock on the store must not
+# fail a chat. The timer does that work instead.
+PRUNE_SECONDS = 600.0
+
+
+async def prune_store() -> None:
+  """Drop the pins and tiers that idled, on a timer, off the request path."""
+  while True:
+    await asyncio.sleep(PRUNE_SECONDS)
+    try:
+      PENALTIES.prune()
+    except Exception:
+      logger.exception("the pin prune failed")
 
 
 # The catalog rebuild for the schedule. `daedalus serve` sets it, and tests leave it off.
@@ -77,6 +94,26 @@ CATALOG_REBUILD_CACHED: Callable[[], object] | None = None
 LIMIT_CHECKS = False
 app = FastAPI(title="daedalus", version=__version__, lifespan=lifespan)
 app.include_router(media.routes)
+
+
+@app.exception_handler(sqlite3.OperationalError)
+async def busy_store(_request: Request, exc: sqlite3.OperationalError) -> JSONResponse:
+  """Answer 503 for a lock on the state store, in place of a raw 500."""
+  logger.warning("the state store is busy: %s", exc)
+  return upstream.error_response(
+    503, "The state store is busy. Try again.", "server_error"
+  )
+
+
+@app.exception_handler(sqlite3.DatabaseError)
+async def unreadable_store(
+  _request: Request, exc: sqlite3.DatabaseError
+) -> JSONResponse:
+  """Answer 503 for a state store that is not a database, with the command that rebuilds it."""
+  logger.error("the state store is not readable: %s", exc)
+  return upstream.error_response(
+    503, "The model store is not readable. Run `daedalus catalog`.", "server_error"
+  )
 
 
 REQUEST_FIELDS = (
