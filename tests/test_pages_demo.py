@@ -263,6 +263,20 @@ def test_the_fixtures_carry_the_edge_cases() -> None:
     attempt.get("cooldown") for row in requests for attempt in row.get("attempts") or []
   ), "a rate limit with a cooldown"
   assert any(row.get("stream") for row in requests), "a stream"
+  # The attempt fields carry the shapes of the server, so the page can render each chain.
+  for row in requests:
+    for attempt in row.get("attempts") or []:
+      change = attempt.get("weight_change")
+      if change is not None:
+        assert isinstance(change.get("from"), (int, float)) and isinstance(
+          change.get("to"), (int, float)
+        ), ("a weight change is a pair of weights", change)
+      cooldown = attempt.get("cooldown")
+      if cooldown is not None:
+        assert isinstance(cooldown["seconds"], (int, float)) and cooldown["reason"], (
+          "a cooldown holds the seconds and the reason",
+          cooldown,
+        )
   # The max shape: each column of the table carries a value in 1 row at least.
   for field in ("app", "effort", "pool", "routed", "retry", "loop", "transition"):
     assert any(row.get(field) for row in requests), field
