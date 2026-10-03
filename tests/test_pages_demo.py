@@ -18,6 +18,7 @@ SIMULATED = (
   "files",
   "keys",
   "keys/",
+  "limits",
   "login",
   "logout",
   "providers",
@@ -142,6 +143,49 @@ const check = (ok, text) => {
   check((await context.fetch("ui/api/reset", { method: "POST" })).status === 200, "a reset lands");
   const cleared = await (await context.fetch("ui/api/models")).json();
   check(cleared.every((row) => row.cooldown === null && row.weight === 1), "the reset clears the weights");
+  // Each write carries the checks of the server: the YAML, the names and the session.
+  const refuse = async (path, body, status, text, method = "PUT") => {
+    const answer = await context.fetch("ui/api/" + path, { method, body: JSON.stringify(body) });
+    check(answer.status === status, `the refusal of ${path} (${status})`);
+    check((await answer.json()).error.message.includes(text), `the text of ${path}`);
+  };
+  const listed = await (await context.fetch("ui/api/files")).json();
+  const head = listed.find((row) => row.main);
+  const shadow = listed.find((row) => !row.main);
+  await refuse("settings", { changes: { dashboard: { grid: 1 } } }, 422, "unknown key");
+  await refuse("files", { path: head.path, text: "cloudflare:\\n\\tbad: 1\\n" }, 422, "cannot start any token");
+  await refuse("files", { path: head.path, text: "- a\\n- b\\n" }, 422, "must hold provider blocks");
+  await refuse("providers", { path: shadow.path, blocks: { other: { api_base: "https://x.test" } } }, 400, "needs the block");
+  await refuse("keys", { name: "x".repeat(41) }, 400, "1 to 40 characters", "POST");
+  await refuse("keys", { name: "openwebui" }, 400, "is in use", "POST");
+  const renamed = await context.fetch("ui/api/files", {
+    method: "PUT",
+    body: JSON.stringify({ path: head.path, text: head.text + "\\nextra:\\n  api_base: https://extra.test/v1\\n" }),
+  });
+  check(renamed.status === 200, "a good text is saved");
+  const texted = await (await context.fetch("ui/api/files")).json();
+  check("extra" in texted.find((row) => row.path === head.path).blocks, "the blocks follow the text");
+  const merged = await context.fetch("ui/api/providers", {
+    method: "PUT",
+    body: JSON.stringify({ path: head.path, blocks: texted.find((row) => row.path === head.path).blocks }),
+  });
+  check(merged.status === 200, "the provider form is saved");
+  const kept = await (await context.fetch("ui/api/files")).json();
+  check(kept.find((row) => row.path === head.path).error === null, "the merged file stays valid");
+  await context.fetch("ui/api/logout", { method: "POST" });
+  check((await (await context.fetch("ui/api/login")).json()).session === false, "a logout ends the session");
+  const wrong = await context.fetch("ui/api/login", {
+    method: "POST",
+    body: JSON.stringify({ username: "nobody", password: "x" }),
+  });
+  check(wrong.status === 401, "a wrong login is refused");
+  await context.fetch("ui/api/login", {
+    method: "POST",
+    body: JSON.stringify({ username: "admin", password: "master" }),
+  });
+  check((await (await context.fetch("ui/api/login")).json()).session === true, "the login opens the page again");
+  const fresh = await (await context.fetch("ui/api/limits", { method: "POST" })).json();
+  check(fresh.checked > 0 && fresh.lanes[0].at > 0, "the limits check reads a fresh time");
   const seen = [];
   const stream = new context.EventSource("ui/api/requests/live");
   ["live", "start", "update", "first", "end"].forEach((kind) =>
@@ -150,6 +194,7 @@ const check = (ok, text) => {
   await new Promise((done) => setTimeout(done, 9000));
   stream.close();
   const kinds = seen.map(([kind]) => kind);
+  check(kinds[0] === "live" && Array.isArray(seen[0][1]), "the stream starts with the live rows");
   check(kinds.includes("start") && kinds.includes("end"), "a live request");
   const end = seen.find(([kind]) => kind === "end")[1];
   check(end.row.model && end.row.at, "the finished row");
