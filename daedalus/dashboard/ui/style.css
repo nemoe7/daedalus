@@ -21,7 +21,7 @@ body {
   margin: 0; background: var(--bg); color: var(--text);
   font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
-button { font: inherit; cursor: pointer; }
+button { font: inherit; cursor: pointer; white-space: nowrap; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* A press shows at once, also on a touch screen without hover. */
 button:not(:disabled):active, .tabs a:active, .filter:active, .add:active, .card.pool:active { opacity: .7; }
@@ -248,6 +248,7 @@ tr.request.has-chain { cursor: pointer; }
 #limit-rows th:not(:first-child), #limit-rows td:not(:first-child) { width: 1%; white-space: nowrap; }
 #limit-rows th:not(:first-child), #limit-rows td:not(:first-child) { padding-left: 8px; padding-right: 8px; }
 #limit-rows th:last-child, #limit-rows td:last-child { padding-right: 16px; }
+.keys td:nth-child(2) { white-space: nowrap; }
 tr.live-row td { background: var(--field); }
 .pulse {
   display: inline-block; width: 6px; height: 6px; margin: 0 10px 1px 0; border-radius: 50%;

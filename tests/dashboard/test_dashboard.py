@@ -523,6 +523,20 @@ assert(stream.textContent.endsWith('s'), 'a streaming request counts the time af
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_keys_page_holds_its_labels_on_one_line() -> None:
+  """The keys table keeps the key value and the Delete label whole on a phone."""
+  root = Path(__file__).resolve().parent.parent.parent
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  assert '<table class="keys">' in page, "the keys table carries its class"
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert ".keys td:nth-child(2) { white-space: nowrap; }" in css, (
+    "the key value stays on one line"
+  )
+  assert "button { font: inherit; cursor: pointer; white-space: nowrap; }" in css, (
+    "a button label never wraps"
+  )
+
+
 def test_mobile_request_cards_use_route_first_grid() -> None:
   """Compact mobile cards keep route, metrics, and details on separate rows."""
   css = (
