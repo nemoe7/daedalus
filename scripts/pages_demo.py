@@ -426,6 +426,200 @@ const DEMO_FIXTURES = __FIXTURES__;
     }, REBUILD_MS);
     return json({ ok: true }, 202);
   };
+  // A simulated save lands in the page memory: the page shows it, and a reload brings the
+  // captured fixtures back.
+  const body_of = (init) => {
+    try {
+      const value = JSON.parse(init.body || "null");
+      return value && typeof value === "object" ? value : {};
+    } catch {
+      return {};
+    }
+  };
+  const bad = (message, code) => json({ error: { message, type: "invalid_request_error", code } }, code);
+  const word = (value) => String(value ?? "").trim();
+  const noise = (size) => Math.random().toString(36).slice(2, 2 + size);
+  const scald = (value) => {
+    if (value === null || value === undefined) return "null";
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    const text = String(value);
+    return /^[A-Za-z0-9_./@+-]+$/.test(text) ? text : JSON.stringify(text);
+  };
+  // The provider form sends parsed blocks. The files tab reads the text of a file.
+  const yaml_of = (value, pad = "") => {
+    if (Array.isArray(value))
+      return value
+        .map((item) =>
+          item && typeof item === "object"
+            ? `${pad}-\\n${yaml_of(item, pad + "  ")}`
+            : `${pad}- ${scald(item)}\\n`
+        )
+        .join("");
+    if (value && typeof value === "object")
+      return Object.entries(value)
+        .map(([key, item]) =>
+          item && typeof item === "object"
+            ? `${pad}${key}:\\n${yaml_of(item, pad + "  ")}`
+            : `${pad}${key}: ${scald(item)}\\n`
+        )
+        .join("");
+    return `${pad}${scald(value)}\\n`;
+  };
+  // A saved value replaces the line of its key, and the comment of the old line stays.
+  const text_saved = (text, group, key, value) => {
+    const lines = text.split("\\n");
+    const start = lines.findIndex((line) => line.startsWith(`${group}:`));
+    if (start < 0) return text;
+    let end = lines.length;
+    for (let at = start + 1; at < lines.length; at += 1) {
+      if (lines[at].trim() && !/^\\s/.test(lines[at])) {
+        end = at;
+        break;
+      }
+    }
+    const found = lines.findIndex(
+      (line, at) => at > start && at < end && line.trim().startsWith(`${key}:`)
+    );
+    const tail = found < 0 ? "" : (lines[found].match(/\\s#.*$/) || [""])[0];
+    const block = Array.isArray(value)
+      ? [`  ${key}:`].concat(value.map((item) => `    - ${scald(item)}`))
+      : [`  ${key}: ${value === null || value === undefined ? "null" : scald(value)}${tail}`];
+    if (found < 0) {
+      const at = end > start + 1 && lines[end - 1].trim() === "" ? end - 1 : end;
+      return lines.slice(0, at).concat(block, lines.slice(at)).join("\\n");
+    }
+    let stop = found + 1;
+    while (stop < end && (lines[stop].trim().startsWith("-") || /^\\s{4,}/.test(lines[stop]))) stop += 1;
+    return lines.slice(0, found).concat(block, lines.slice(stop)).join("\\n");
+  };
+  const env_saved = async (init) => {
+    const { name, value } = await body_of(init);
+    const row = DEMO_FIXTURES.env.find((item) => item.name === name);
+    if (!row) return bad("No provider file uses this name.", 400);
+    const secret = word(value);
+    if (!secret || secret.length > 400 || /\\s/.test(secret))
+      return bad("The value must be 1 word with no spaces.", 400);
+    Object.assign(row, {
+      state: "saved", has_saved: true, length: secret.length,
+      start: secret.slice(0, 4), end: secret.length >= 12 ? secret.slice(-4) : null,
+    });
+    return json(DEMO_FIXTURES.env);
+  };
+  const env_cleared = async (init) => {
+    const { name } = await body_of(init);
+    const row = DEMO_FIXTURES.env.find((item) => item.name === name);
+    if (!row || !row.has_saved) return bad("No saved value with this name.", 400);
+    Object.assign(row, {
+      state: row.has_env ? "env" : "missing", has_saved: false, length: 0, start: null, end: null,
+    });
+    return json(DEMO_FIXTURES.env);
+  };
+  const key_made = async (init) => {
+    const name = word((await body_of(init)).name);
+    if (!name) return bad("The key name is empty.", 400);
+    const key = `sk-${noise(28)}`;
+    if (!DEMO_FIXTURES.keys.some((row) => row.name === name)) {
+      DEMO_FIXTURES.keys.push({ created: Date.now() / 1000, name, start: key.slice(0, 7), used: null });
+    }
+    return json({ name, key }, 201);
+  };
+  const key_dropped = (name) => {
+    const at = DEMO_FIXTURES.keys.findIndex((row) => row.name === name);
+    if (at < 0) return bad(`No key has the name ${JSON.stringify(name)}.`, 404);
+    DEMO_FIXTURES.keys.splice(at, 1);
+    return new Response(null, { status: 204 });
+  };
+  const file_row = (path) => DEMO_FIXTURES.files.find((row) => row.path === path);
+  const file_text = async (init) => {
+    const { path, text } = await body_of(init);
+    const row = file_row(path);
+    if (!row) return bad("Unknown config file.", 400);
+    row.text = typeof text === "string" ? text : "";
+    row.error = null;
+    return json({ ok: true, text: row.text });
+  };
+  const file_made = async (init) => {
+    const name = word((await body_of(init)).name);
+    if (!/^[a-z0-9-]+$/.test(name))
+      return bad("The provider name must use lowercase letters, digits and dashes.", 400);
+    const main = DEMO_FIXTURES.files.find((row) => row.main) || DEMO_FIXTURES.files[0];
+    const path = String(main.path).replace(/[^/]*$/, "") + `${name}.yml`;
+    if (file_row(path)) return bad(`${path} exists.`, 400);
+    const text = `${name}:\\n  api_base: https://example.test/v1\\n`;
+    DEMO_FIXTURES.files.push({
+      path, text, blocks: { [name]: { api_base: "https://example.test/v1" } }, error: null,
+      main: false, shadow: null,
+    });
+    return json({ path, text });
+  };
+  const file_dropped = async (init) => {
+    const { path } = await body_of(init);
+    const at = DEMO_FIXTURES.files.findIndex((row) => row.path === path && !row.main);
+    if (at < 0) return bad("Only a {provider}.yml file can go.", 400);
+    DEMO_FIXTURES.files.splice(at, 1);
+    return json({ ok: true });
+  };
+  const providers_saved = async (init) => {
+    const { path, blocks } = await body_of(init);
+    const row = file_row(path);
+    if (!row || !blocks || typeof blocks !== "object") return bad("Unknown config file.", 400);
+    row.blocks = blocks;
+    row.text = yaml_of(blocks);
+    row.error = null;
+    return json({ ok: true, text: row.text });
+  };
+  const settings_saved = async (init) => {
+    const { text, changes } = await body_of(init);
+    if (typeof text === "string") {
+      DEMO_FIXTURES.settings.text = text;
+      return json({ ok: true, text });
+    }
+    if (!changes || typeof changes !== "object") return bad("The changes must be an object.", 400);
+    for (const [group, values] of Object.entries(changes)) {
+      const file = DEMO_FIXTURES.settings.file;
+      file[group] ||= {};
+      for (const [key, value] of Object.entries(values)) {
+        const fallback = DEMO_FIXTURES.settings.defaults?.[group]?.[key];
+        const next = value === null || value === undefined ? fallback : value;
+        if (next === undefined || next === null) delete file[group][key];
+        else file[group][key] = next;
+        DEMO_FIXTURES.settings.text = text_saved(DEMO_FIXTURES.settings.text, group, key, value);
+      }
+    }
+    return json({ ok: true, text: DEMO_FIXTURES.settings.text });
+  };
+  // A write with no home in the demo stays refused.
+  const save = (path, method, init) => {
+    if (path === "catalog" && method === "POST") return rebuild();
+    if (path === "limits" && method === "POST") return json(DEMO_FIXTURES.limits);
+    if (path === "reset" && method === "POST") {
+      DEMO_FIXTURES.models.forEach((row) => Object.assign(row, { weight: 1, cooldown: null }));
+      return json({ ok: true });
+    }
+    if (path === "login" && method === "POST") {
+      DEMO_FIXTURES.login.session = true;
+      return json({ ok: true, session: "demo" });
+    }
+    if (path === "logout" && method === "POST") {
+      DEMO_FIXTURES.login.session = false;
+      return json({ ok: true });
+    }
+    if (path === "env")
+      return method === "PUT" ? env_saved(init) : method === "DELETE" ? env_cleared(init) : null;
+    if (path === "keys" && method === "POST") return key_made(init);
+    if (path.startsWith("keys/") && method === "DELETE") return key_dropped(decodeURIComponent(path.slice(5)));
+    if (path === "files")
+      return method === "PUT"
+        ? file_text(init)
+        : method === "POST"
+          ? file_made(init)
+          : method === "DELETE"
+            ? file_dropped(init)
+            : null;
+    if (path === "providers" && method === "PUT") return providers_saved(init);
+    if (path === "settings" && method === "PUT") return settings_saved(init);
+    return null;
+  };
   const MARKER = "ui/api/";
   const real = window.fetch.bind(window);
   window.fetch = (input, init = {}) => {
@@ -434,9 +628,10 @@ const DEMO_FIXTURES = __FIXTURES__;
     if (at < 0) return real(input, init);
     const found = url.slice(at + MARKER.length).split(/[?#]/)[0];
     const path = found.endsWith("/") ? found.slice(0, -1) : found;
-    if ((init.method || "GET").toUpperCase() !== "GET") {
-      // The catalog rebuild is the 1 write that the demo answers on its own.
-      if (path === "catalog") return rebuild();
+    const method = (init.method || "GET").toUpperCase();
+    if (method !== "GET") {
+      const job = save(path, method, init);
+      if (job) return job;
       return json({ error: { message: "This is a static demo. The change is not saved." } }, 403);
     }
     if (path === "requests") return json(slice(url));
