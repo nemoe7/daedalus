@@ -140,6 +140,21 @@ def test_matches() -> None:
   )
 
 
+def test_nested_repeat_pattern_matches_nothing(
+  caplog: pytest.LogCaptureFixture,
+) -> None:
+  """A repeat inside a repeat can hang the catalog on a long slug: it is refused."""
+  slug = "a" * 40 + "b"
+  with caplog.at_level("WARNING", logger="daedalus.catalog"):
+    assert discovery.matches("^(a+)+$", slug) is False, "the shape matches nothing"
+    assert discovery.matches("^(a+)+$", slug) is False
+  told = [
+    r.getMessage() for r in caplog.records if "repeats a repeat" in r.getMessage()
+  ]
+  assert len(told) == 1, told
+  assert discovery.matches("^a+b$", slug), "a safe pattern still works"
+
+
 def row_slugs(payload: dict, match: dict | None = None) -> list[str]:
   return list(discovery.extract_rows(payload, match))
 
