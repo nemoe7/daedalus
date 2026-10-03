@@ -86,7 +86,7 @@ A key can also go into `.env` under the name that [Configuration](configuration.
 
 ## Catalog
 
-`daedalus catalog` makes the model store in `.daedalus-state/models.sqlite3`.
+`daedalus catalog` makes the model store in `.daedalus-state/models.sqlite3`. The command reads the config files again, so a hand edit of a file applies to the new store.
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e3e8fd", "primaryBorderColor": "#3b5bfd", "primaryTextColor": "#1a1f36", "lineColor": "#3b5bfd", "textColor": "#3b5bfd", "secondaryColor": "#ede9fe", "tertiaryColor": "#f5f3ff", "clusterBkg": "#f5f3ff", "clusterBorder": "#8b5cf6", "titleColor": "#5c388c", "edgeLabelBackground": "#ffffff", "noteBkgColor": "#ede9fe", "noteBorderColor": "#8b5cf6"}}}%%

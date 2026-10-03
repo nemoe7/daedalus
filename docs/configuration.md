@@ -13,6 +13,8 @@ daedalus reads 3 sources:
 
 A key that shows 2 times in 1 map of a config file stops the start. The error gives the key and the 2 line numbers.
 
+daedalus reads the files at the start and on each save from the dashboard. A hand edit of a file on disk needs a reload. A save from the dashboard reloads the file for the live server and rebuilds the catalog from it. With no save, run `daedalus catalog`: the command reads the files again for its store build. The next start of the server reads the edited file.
+
 ## Files per provider
 
 `free.yml` holds each provider. A second file, `{provider}.yml`, holds 1 provider with its own settings. `openrouter.yml` and the `openrouter` block of `free.yml` are independent: the tiers, the excludes and the models of 1 file do not apply to the other. `pollinations.yml` holds Pollinations, with no block in `free.yml`, because Pollinations spends a balance that does not refill ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)).
