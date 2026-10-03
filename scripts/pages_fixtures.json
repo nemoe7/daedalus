@@ -28,6 +28,18 @@
       "end": "0123",
       "has_env": false,
       "has_saved": true,
+      "length": 24,
+      "name": "KILO_API_KEY",
+      "start": "not-",
+      "state": "saved",
+      "used": [
+        "free.yml"
+      ]
+    },
+    {
+      "end": "0123",
+      "has_env": false,
+      "has_saved": true,
       "length": 30,
       "name": "OPENROUTER_API_KEY",
       "start": "not-",
@@ -35,6 +47,18 @@
       "used": [
         "free.yml",
         "openrouter.yml"
+      ]
+    },
+    {
+      "end": "0123",
+      "has_env": false,
+      "has_saved": true,
+      "length": 32,
+      "name": "POLLINATIONS_API_KEY",
+      "start": "not-",
+      "state": "saved",
+      "used": [
+        "free.yml"
       ]
     }
   ],
@@ -102,6 +126,11 @@
             ]
           }
         },
+        "kilo": {
+          "api_base": "https://api.kilo.ai/api/gateway",
+          "api_key": "db:KILO_API_KEY",
+          "hourly_requests": 200
+        },
         "openrouter": {
           "api_base": "https://openrouter.ai/api/v1",
           "api_key": "db:OPENROUTER_API_KEY",
@@ -118,13 +147,17 @@
               "z-ai/glm-5.3-flash"
             ]
           }
+        },
+        "pollinations": {
+          "api_base": "https://gen.pollinations.ai/v1",
+          "api_key": "db:POLLINATIONS_API_KEY"
         }
       },
       "error": null,
       "main": true,
       "path": "config/providers/free.yml",
       "shadow": null,
-      "text": "# The shipped provider names and model slugs, with demo keys and no upstream calls.\ncloudflare:\n  api_key: db:CLOUDFLARE_API_KEY\n  api_base: https://api.cloudflare.com/client/v4/accounts/00000000000000000000000000000000/ai/v1\n  tier:\n    TIER-A:\n      - \"@cf/openai/gpt-oss-120b\"\n      - \"@cf/mistralai/mistral-small-3.2-24b-instruct\"\n    TIER-B:\n      - \"@cf/zai-org/glm-4.7-flash\"\n      - \"@cf/qwen/qwq-32b\"\n    TIER-C:\n      - \"@cf/meta/llama-4-scout-17b-16e-instruct\"\n    TIER-D:\n      - \"@cf/meta/llama-3.1-8b-instruct\"\n  models:\n    \"@cf/openai/gpt-oss-120b\":\n      max_input_tokens: 128000\n      max_output_tokens: 16384\n      tools: true\n    \"@cf/mistralai/mistral-small-3.2-24b-instruct\":\n      max_input_tokens: 128000\n      max_output_tokens: 16384\n      tools: true\n      supports_vision: true\n    \"@cf/zai-org/glm-4.7-flash\":\n      max_input_tokens: 128000\n      max_output_tokens: 16384\n      tools: true\n    \"@cf/qwen/qwq-32b\":\n      max_input_tokens: 20000\n      max_output_tokens: 4000\n      tools: true\n    \"@cf/meta/llama-4-scout-17b-16e-instruct\":\n      max_input_tokens: 128000\n      max_output_tokens: 16384\n      tools: true\n    \"@cf/meta/llama-3.1-8b-instruct\":\n      max_input_tokens: 32000\n      max_output_tokens: 4000\n    \"@cf/openai/whisper-large-v3-turbo\":\n      mode: audio_transcription\n    \"@cf/black-forest-labs/flux-1-schnell\":\n      mode: image_generation\n    \"@cf/baai/bge-m3\":\n      mode: embedding\nopenrouter:\n  api_key: db:OPENROUTER_API_KEY\n  api_base: https://openrouter.ai/api/v1\n  tier:\n    TIER-A:\n      - \"z-ai/glm-5.3-flash\"\n  models:\n    \"z-ai/glm-5.3-flash\":\n      max_input_tokens: 1310720\n      max_output_tokens: 131072\n      reasoning_effort: low\n      tools: true\n"
+      "text": "# The shipped provider names and model slugs, with demo keys and no upstream calls.\ncloudflare:\n  api_key: db:CLOUDFLARE_API_KEY\n  api_base: https://api.cloudflare.com/client/v4/accounts/00000000000000000000000000000000/ai/v1\n  tier:\n    TIER-A:\n      - \"@cf/openai/gpt-oss-120b\"\n      - \"@cf/mistralai/mistral-small-3.2-24b-instruct\"\n    TIER-B:\n      - \"@cf/zai-org/glm-4.7-flash\"\n      - \"@cf/qwen/qwq-32b\"\n    TIER-C:\n      - \"@cf/meta/llama-4-scout-17b-16e-instruct\"\n    TIER-D:\n      - \"@cf/meta/llama-3.1-8b-instruct\"\n  models:\n    \"@cf/openai/gpt-oss-120b\":\n      max_input_tokens: 128000\n      max_output_tokens: 16384\n      tools: true\n    \"@cf/mistralai/mistral-small-3.2-24b-instruct\":\n      max_input_tokens: 128000\n      max_output_tokens: 16384\n      tools: true\n      supports_vision: true\n    \"@cf/zai-org/glm-4.7-flash\":\n      max_input_tokens: 128000\n      max_output_tokens: 16384\n      tools: true\n    \"@cf/qwen/qwq-32b\":\n      max_input_tokens: 20000\n      max_output_tokens: 4000\n      tools: true\n    \"@cf/meta/llama-4-scout-17b-16e-instruct\":\n      max_input_tokens: 128000\n      max_output_tokens: 16384\n      tools: true\n    \"@cf/meta/llama-3.1-8b-instruct\":\n      max_input_tokens: 32000\n      max_output_tokens: 4000\n    \"@cf/openai/whisper-large-v3-turbo\":\n      mode: audio_transcription\n    \"@cf/black-forest-labs/flux-1-schnell\":\n      mode: image_generation\n    \"@cf/baai/bge-m3\":\n      mode: embedding\nopenrouter:\n  api_key: db:OPENROUTER_API_KEY\n  api_base: https://openrouter.ai/api/v1\n  tier:\n    TIER-A:\n      - \"z-ai/glm-5.3-flash\"\n  models:\n    \"z-ai/glm-5.3-flash\":\n      max_input_tokens: 1310720\n      max_output_tokens: 131072\n      reasoning_effort: low\n      tools: true\n# The 2 providers of the balance cards, with the `hourly_requests` cap of the Limits page.\nkilo:\n  api_key: db:KILO_API_KEY\n  api_base: https://api.kilo.ai/api/gateway\n  hourly_requests: 200\npollinations:\n  api_key: db:POLLINATIONS_API_KEY\n  api_base: https://gen.pollinations.ai/v1\n"
     },
     {
       "blocks": {
@@ -147,29 +180,29 @@
   ],
   "keys": [
     {
-      "created": 1791041653.5829177,
+      "created": 1791041799.8559837,
       "name": "openwebui",
-      "start": "sk-Kdab",
+      "start": "sk-QFM7",
       "used": null
     },
     {
-      "created": 1791041653.5838602,
+      "created": 1791041799.8570898,
       "name": "kilo-code",
-      "start": "sk-FG9S",
+      "start": "sk-mc-x",
       "used": null
     },
     {
-      "created": 1791041653.584785,
+      "created": 1791041799.8582146,
       "name": "openwebui-home-assistant-integration-001",
-      "start": "sk-dvdo",
+      "start": "sk-2kOm",
       "used": null
     }
   ],
   "limits": {
-    "checked": 1791041653.7086499,
+    "checked": 1791041799.9936676,
     "lanes": [
       {
-        "at": 1791041653.6707456,
+        "at": 1791041799.9481976,
         "client": null,
         "model": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
         "rows": [
@@ -177,20 +210,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791041690.6707456,
+            "reset": 1791041836.9481976,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791041665.6707456,
+            "reset": 1791041811.9481976,
             "span": null
           }
         ]
       },
       {
-        "at": 1791041653.69127,
+        "at": 1791041799.9698966,
         "client": null,
         "model": "cloudflare/@cf/mistralai/mistral-small-3.2-24b-instruct",
         "rows": [
@@ -198,20 +231,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791041690.69127,
+            "reset": 1791041836.9698966,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791041665.69127,
+            "reset": 1791041811.9698966,
             "span": null
           }
         ]
       },
       {
-        "at": 1791041653.6864183,
+        "at": 1791041799.9661293,
         "client": null,
         "model": "cloudflare/@cf/openai/gpt-oss-120b",
         "rows": [
@@ -219,20 +252,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791041690.6864183,
+            "reset": 1791041836.9661293,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791041665.6864183,
+            "reset": 1791041811.9661293,
             "span": null
           }
         ]
       },
       {
-        "at": 1791041653.7063336,
+        "at": 1791041799.986131,
         "client": null,
         "model": "cloudflare/@cf/openai/whisper-large-v3-turbo",
         "rows": [
@@ -240,20 +273,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791041690.7063336,
+            "reset": 1791041836.986131,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791041665.7063336,
+            "reset": 1791041811.986131,
             "span": null
           }
         ]
       },
       {
-        "at": 1791041653.7004387,
+        "at": 1791041799.9789824,
         "client": null,
         "model": "cloudflare/@cf/qwen/qwq-32b",
         "rows": [
@@ -261,20 +294,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791041690.7004387,
+            "reset": 1791041836.9789824,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791041665.7004387,
+            "reset": 1791041811.9789824,
             "span": null
           }
         ]
       },
       {
-        "at": 1791041653.681543,
+        "at": 1791041799.96126,
         "client": null,
         "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
         "rows": [
@@ -282,20 +315,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791041690.681543,
+            "reset": 1791041836.96126,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791041665.681543,
+            "reset": 1791041811.96126,
             "span": null
           }
         ]
       },
       {
-        "at": 1791041653.6954644,
+        "at": 1791041799.9736676,
         "client": null,
         "model": "openrouter/z-ai/glm-5.3-flash",
         "rows": [
@@ -303,14 +336,14 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791041690.6954644,
+            "reset": 1791041836.9736676,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791041665.6954644,
+            "reset": 1791041811.9736676,
             "span": null
           }
         ]
@@ -320,32 +353,47 @@
       {
         "items": [
           [
-            "Neurons today",
-            "9,420 of 10,000 left",
-            0.942
+            "Free requests today",
+            "991 of 1K left",
+            0.991
           ]
         ],
-        "name": "cloudflare"
+        "name": "openrouter"
       },
       {
         "items": [
           [
-            "Credit left",
-            "$9.72 of $10.00",
-            0.972
-          ],
-          [
-            "Used today",
-            "$0.28",
+            "Balance",
+            "$0.00",
             null
           ],
           [
-            "Free model requests left",
-            "812 of 1000",
-            0.812
+            "Requests left this hour",
+            "200 of 200",
+            1.0
           ]
         ],
-        "name": "openrouter"
+        "name": "kilo"
+      },
+      {
+        "items": [
+          [
+            "Pollen",
+            "0.25",
+            null
+          ]
+        ],
+        "name": "pollinations"
+      },
+      {
+        "items": [
+          [
+            "Neurons today",
+            "10,000 of 10K left",
+            1.0
+          ]
+        ],
+        "name": "cloudflare"
       }
     ]
   },
@@ -368,7 +416,7 @@
       "reasoning": false,
       "tier": "TIER-A",
       "tools": true,
-      "weight": 0.5000002331025067
+      "weight": 0.5000004803777036
     },
     {
       "client_cooldowns": {},
@@ -416,7 +464,7 @@
     },
     {
       "client_cooldowns": {},
-      "cooldown": 1791135253.708298,
+      "cooldown": 1791135399.9888265,
       "effort": null,
       "flags": [],
       "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
@@ -426,7 +474,7 @@
       "reasoning": false,
       "tier": "TIER-C",
       "tools": true,
-      "weight": 0.7500014442089888
+      "weight": 0.7500018546795495
     },
     {
       "client_cooldowns": {},
@@ -440,7 +488,7 @@
       "reasoning": false,
       "tier": "TIER-D",
       "tools": false,
-      "weight": 0.5000012526439269
+      "weight": 0.5000015800273547
     },
     {
       "client_cooldowns": {},
@@ -507,7 +555,7 @@
           "cooldown": null,
           "id": "cloudflare/@cf/openai/gpt-oss-120b",
           "tier": "TIER-A",
-          "weight": 0.5000004176579855
+          "weight": 0.5000006398924908
         },
         {
           "cooldown": null,
@@ -534,16 +582,16 @@
           "weight": 1.0
         },
         {
-          "cooldown": 1791135253.708298,
+          "cooldown": 1791135399.9888265,
           "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
           "tier": "TIER-C",
-          "weight": 0.7500017210426109
+          "weight": 0.7500020939520919
         },
         {
           "cooldown": null,
           "id": "cloudflare/@cf/meta/llama-3.1-8b-instruct",
           "tier": "TIER-D",
-          "weight": 0.500001437199782
+          "weight": 0.5000017395424927
         }
       ],
       "name": "daedalus/auto",
@@ -556,7 +604,7 @@
           "cooldown": null,
           "id": "cloudflare/@cf/openai/gpt-oss-120b",
           "tier": "TIER-A",
-          "weight": 0.5000004197272077
+          "weight": 0.5000006423628247
         },
         {
           "cooldown": null,
@@ -597,10 +645,10 @@
       "context": 128000,
       "members": [
         {
-          "cooldown": 1791135253.708298,
+          "cooldown": 1791135399.9888265,
           "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
           "tier": "TIER-C",
-          "weight": 0.7500017271165828
+          "weight": 0.7500021058899353
         }
       ],
       "name": "daedalus/koinos",
@@ -613,7 +661,7 @@
           "cooldown": null,
           "id": "cloudflare/@cf/meta/llama-3.1-8b-instruct",
           "tier": "TIER-D",
-          "weight": 0.5000014419558192
+          "weight": 0.5000017486789284
         }
       ],
       "name": "daedalus/moros",
@@ -718,7 +766,7 @@
   "requests": [
     {
       "app": "Home Assistant Panel 01",
-      "at": 1791041653.709136,
+      "at": 1791041799.9903302,
       "attempts": [
         {
           "error": "",
@@ -750,7 +798,7 @@
     },
     {
       "app": "Kilo",
-      "at": 1791041653.7090745,
+      "at": 1791041799.9902167,
       "attempts": [
         {
           "error": "the deployment is down",
@@ -790,7 +838,7 @@
     },
     {
       "app": "OWUI",
-      "at": 1791041653.7089577,
+      "at": 1791041799.990031,
       "attempts": [
         {
           "error": "",
@@ -824,7 +872,7 @@
     },
     {
       "app": null,
-      "at": 1791041653.7068598,
+      "at": 1791041799.9866385,
       "attempts": [
         {
           "error": "",
@@ -852,7 +900,7 @@
     },
     {
       "app": null,
-      "at": 1791041653.7012763,
+      "at": 1791041799.9803615,
       "attempts": [
         {
           "error": "",
@@ -869,7 +917,7 @@
       "pool": null,
       "retry": null,
       "routed": null,
-      "seconds": 0.003,
+      "seconds": 0.004,
       "session": "547df45",
       "status": 200,
       "stream": true,
@@ -884,7 +932,7 @@
     },
     {
       "app": null,
-      "at": 1791041653.6960073,
+      "at": 1791041799.9741287,
       "attempts": [
         {
           "error": "",
@@ -916,7 +964,7 @@
     },
     {
       "app": null,
-      "at": 1791041653.691797,
+      "at": 1791041799.970304,
       "attempts": [
         {
           "error": "",
@@ -948,7 +996,7 @@
     },
     {
       "app": null,
-      "at": 1791041653.6872094,
+      "at": 1791041799.9666817,
       "attempts": [
         {
           "error": "",
@@ -980,7 +1028,7 @@
     },
     {
       "app": null,
-      "at": 1791041653.6824167,
+      "at": 1791041799.9621902,
       "attempts": [
         {
           "cooldown": {
@@ -1011,7 +1059,7 @@
       "pool": null,
       "retry": null,
       "routed": null,
-      "seconds": 0.004,
+      "seconds": 0.005,
       "session": "115f867",
       "status": 200,
       "stream": true,
@@ -1032,11 +1080,11 @@
     },
     {
       "app": null,
-      "at": 1791041653.676619,
+      "at": 1791041799.9552286,
       "attempts": [
         {
           "error": "",
-          "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
+          "model": "cloudflare/@cf/qwen/qwq-32b",
           "result": "answered",
           "seconds": 0.001
         }
@@ -1049,7 +1097,7 @@
       "pool": null,
       "retry": null,
       "routed": null,
-      "seconds": 0.002,
+      "seconds": 0.003,
       "session": "4702aa7",
       "status": 200,
       "stream": false,
@@ -1060,11 +1108,11 @@
       },
       "transition": null,
       "ttft": "0.001s",
-      "via": "cloudflare/@cf/zai-org/glm-4.7-flash"
+      "via": "cloudflare/@cf/qwen/qwq-32b"
     },
     {
       "app": null,
-      "at": 1791041653.6713617,
+      "at": 1791041799.9489615,
       "attempts": [
         {
           "error": "{\"error\": \"the deployment is down\"}",
@@ -1273,7 +1321,7 @@
   },
   "status": {
     "catalog": {
-      "built": 1791041653.5775232,
+      "built": 1791041799.8501842,
       "next": 1791050400.0,
       "rebuilding": false
     },

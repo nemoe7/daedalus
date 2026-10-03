@@ -104,6 +104,14 @@ openrouter:
       max_output_tokens: 131072
       reasoning_effort: low
       tools: true
+# The 2 providers of the balance cards, with the `hourly_requests` cap of the Limits page.
+kilo:
+  api_key: db:KILO_API_KEY
+  api_base: https://api.kilo.ai/api/gateway
+  hourly_requests: 200
+pollinations:
+  api_key: db:POLLINATIONS_API_KEY
+  api_base: https://gen.pollinations.ai/v1
 """
 # A file of a provider that the main file also sets, so the tab shows the shadow note.
 DEMO_ATLAS = """api_key: db:OPENROUTER_API_KEY
@@ -195,6 +203,8 @@ DEMO_KEYS = (
 DEMO_VALUES = (
   ("CLOUDFLARE_API_KEY", "not-a-real-cloudflare-key-0123"),
   ("OPENROUTER_API_KEY", "not-a-real-openrouter-key-0123"),
+  ("KILO_API_KEY", "not-a-real-kilo-key-0123"),
+  ("POLLINATIONS_API_KEY", "not-a-real-pollinations-key-0123"),
 )
 # The rate-limit headers of a provider answer: the Limits page reads them.
 DEMO_HEADERS = {
@@ -210,6 +220,29 @@ DEMO_HEADERS = {
 def answer(request: httpx.Request) -> httpx.Response:
   """Answer 1 upstream call as an OpenAI-compatible provider does, with its failures."""
   path = request.url.path
+  host = request.url.host
+  # The balance endpoints of the Limits page: the shape of each provider answer.
+  if host.endswith("openrouter.ai") and path.endswith("/key"):
+    return httpx.Response(
+      200,
+      json={"data": {"free_model_daily_requests": {"remaining": 991, "limit": 1000}}},
+    )
+  if host.endswith("kilo.ai"):
+    return httpx.Response(200, json={"balance": 0.0})
+  if host.endswith("pollinations.ai"):
+    return httpx.Response(200, json={"balance": 0.25})
+  if host.endswith("cloudflare.com") and path.endswith("/graphql"):
+    return httpx.Response(
+      200,
+      json={
+        "data": {
+          "viewer": {
+            "accounts": [{"aiInferenceAdaptiveGroups": [{"sum": {"totalNeurons": 0}}]}]
+          }
+        },
+        "errors": [],
+      },
+    )
   # Cloudflare transcribes on its native `run` endpoint, not on the OpenAI path.
   native = "/run/" in path
   if native or path.endswith("/audio/transcriptions"):
@@ -343,17 +376,6 @@ def seed_state() -> None:
     cooldowns.clock() + 26 * 3600,
     "reset",
   )
-  # The balance cards of the Limits page. A capture with no provider key answers no balance,
-  # so the demo carries the card shapes of a Cloudflare neuron count and an OpenRouter credit.
-  api.LIMITS.balances = {
-    "cloudflare": [("Neurons today", "9,420 of 10,000 left", 0.942)],
-    "openrouter": [
-      ("Credit left", "$9.72 of $10.00", 0.972),
-      ("Used today", "$0.28", None),
-      ("Free model requests left", "812 of 1000", 0.812),
-    ],
-  }
-  api.LIMITS.checked = cooldowns.clock()
   rows = dashboard.HISTORY.latest(1)
   if not rows:
     return
@@ -430,6 +452,8 @@ def capture() -> dict[str, Any]:
       ).raise_for_status()
       seed_requests(client, auth)
       seed_state()
+      # The Check now button of the Limits page: the balances and the checked time.
+      client.post("/ui/api/limits", headers=auth).raise_for_status()
       found = {
         name.split("?")[0]: client.get(f"/ui/api/{name}").json() for name in ENDPOINTS
       }

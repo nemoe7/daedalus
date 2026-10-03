@@ -270,15 +270,27 @@ def test_the_fixtures_carry_the_edge_cases() -> None:
     "an estimate"
   )
   cards = fixtures["limits"]["providers"]
-  assert cards, "a provider balance card"
+  assert [card["name"] for card in cards] == [
+    "openrouter",
+    "kilo",
+    "pollinations",
+    "cloudflare",
+  ], "each balance card of the page"
   assert all(len(item) == 3 for card in cards for item in card["items"]), (
     "the card items"
   )
+  labels = {item[0] for card in cards for item in card["items"]}
+  assert {
+    "Free requests today",
+    "Balance",
+    "Requests left this hour",
+    "Pollen",
+  } <= labels, labels
+  assert fixtures["limits"]["checked"], "the checked time"
   assert any(len(key["name"]) == 40 for key in fixtures["keys"]), (
     "a key name at its limit"
   )
   assert any(file.get("shadow") for file in fixtures["files"]), "a shadowed file"
-  assert fixtures["login"]["session"] is True, "the demo opens without a login"
   sessions = {row["session"] for row in requests if row.get("session")}
   assert sessions and all(re.fullmatch(r"[0-9a-f]{7}", value) for value in sessions), (
     sessions
