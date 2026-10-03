@@ -381,6 +381,10 @@ DEMO_JS = """\
 // The Requests tab starts empty, and the simulated live requests fill and rotate it.
 const DEMO_FIXTURES = __FIXTURES__;
 (() => {
+  // A demo cannot save, so the reload warning of the page never applies here.
+  const listen = window.addEventListener.bind(window);
+  window.addEventListener = (kind, ...rest) =>
+    kind === "beforeunload" ? undefined : listen(kind, ...rest);
   // The server keeps 500 rows. The demo does the same, and drops the oldest.
   const KEPT = 500;
   const wait = (ms) => new Promise((done) => setTimeout(done, ms));
