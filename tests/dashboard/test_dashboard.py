@@ -329,6 +329,12 @@ assert(html.includes('</span><span class="types phone-types">'), 'the chips sit 
 assert(html.includes('>Chat<'), 'the mode chip shows');
 assert(html.includes('>Image in<'), 'the media chip shows');
 assert(html.includes('<div class="types">'), 'the Type column stays for a desktop');
+assert(html.includes('<span class="cell-value">p/m</span>'), 'a desktop keeps the provider prefix');
+sandbox.matchMedia = () => ({ matches: true });
+probe.renderModels();
+const phone = el('models').innerHTML;
+assert(phone.includes('<span class="cell-value">m</span>'), 'a phone drops the provider prefix');
+assert(phone.includes('title="p/m"'), 'the title keeps the full id');
 """
   subprocess.run(["node", "-e", code], check=True)
 
@@ -521,6 +527,15 @@ probe.tickLive();
 assert(stream.textContent.endsWith('s'), 'a streaming request counts the time after the first token: ' + stream.textContent);
 """
   subprocess.run(["node", "-e", code], check=True)
+
+
+def test_phone_panels_clear_the_last_row() -> None:
+  """The bottom of a panel clears its last row on a phone."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  mobile = css.split("@media (max-width: 720px) {", 1)[1].split("\n}", 1)[0]
+  assert "#app > main { padding-bottom: 76px; }" in mobile, "the screen bottom clears"
+  assert ".panel { padding-bottom: 8px; }" in mobile, "the panel edge clears"
 
 
 def test_keys_page_holds_its_labels_on_one_line() -> None:
