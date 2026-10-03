@@ -552,6 +552,16 @@ def test_keys_page_holds_its_labels_on_one_line() -> None:
   )
 
 
+def test_model_heads_align_left() -> None:
+  """Every Models head aligns left, while its cells keep the center."""
+  root = Path(__file__).resolve().parent.parent.parent
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  head = page.split('<tr id="model-head">', 1)[1].split("</tr>", 1)[0]
+  assert "mid" not in head, "no Models head centers or right-aligns"
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert ".models .mid { text-align: center; }" in css, "the cells keep the center"
+
+
 def test_mobile_request_cards_use_route_first_grid() -> None:
   """Compact mobile cards keep route, metrics, and details on separate rows."""
   css = (
