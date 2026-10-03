@@ -79,7 +79,7 @@ def test_the_workflows_that_answer_a_pull_request_do() -> None:
   for name in ON_PULL_REQUEST:
     event = (
       "pull_request"
-      if name in ("ci.yml", "container-trivy.yml")
+      if name in ("ci.yml", "codeql.yml", "container-trivy.yml")
       else "pull_request_target"
     )
     assert event in triggers(name), name
@@ -120,8 +120,28 @@ def test_codeql_scans_python_and_the_workflows_only() -> None:
   )
 
 
-def test_only_the_main_jobs_write_code_scanning_results() -> None:
-  """security-events: write belongs to the jobs that run on main, and nowhere else."""
+def test_the_codeql_analysis_maps_to_the_pull_request() -> None:
+  """The PR run analyzes the merge commit, so the alerts show on the PR."""
+  data = load("codeql.yml")
+  assert "pull_request" in data["on"], (
+    "the clankers way: the analysis belongs to the PR"
+  )
+  assert "pull_request_target" not in data["on"]
+  assert data["on"]["pull_request"]["branches"] == ["main"]
+  content = (WORKFLOWS / "codeql.yml").read_text()
+  assert "pr-source" not in content, "the base checkout goes with the old trigger"
+  assert "uv sync" not in content
+  steps = data["jobs"]["analyze"]["steps"]
+  checkout = next(s for s in steps if s.get("uses", "").startswith("actions/checkout@"))
+  assert checkout["with"]["ref"] == "${{ github.sha }}"
+  assert checkout["with"]["persist-credentials"] is False
+  init = next(s for s in steps if "init@" in s.get("uses", ""))
+  assert init["with"]["build-mode"] == "none"
+  assert "source-root" not in init["with"], "the default root is the repository"
+
+
+def test_only_the_other_scan_jobs_write_code_scanning_results_on_main() -> None:
+  """Outside CodeQL, security-events: write belongs to the jobs that run on main."""
   for name in ("container-trivy.yml", "workflow-security.yml"):
     for job_id, job in load(name)["jobs"].items():
       if "permissions" not in job:
@@ -271,7 +291,6 @@ def test_the_pr_check_validates_the_body_prose_and_commits() -> None:
 def test_read_only_security_gates_keep_their_workflow_and_policy_trusted() -> None:
   """Security jobs read PR data with base commands and base policy."""
   for name in (
-    "codeql.yml",
     "container-scan.yml",
     "dependency-review.yml",
     "secret-scan.yml",
@@ -287,13 +306,6 @@ def test_read_only_security_gates_keep_their_workflow_and_policy_trusted() -> No
         if step.get("uses", "").startswith("actions/checkout@"):
           assert step["with"]["ref"] == "${{ github.sha }}", name
           assert step["with"]["persist-credentials"] is False, name
-  codeql = load("codeql.yml")
-  init = next(
-    s for s in codeql["jobs"]["analyze"]["steps"] if "init@" in s.get("uses", "")
-  )
-  assert init["with"]["build-mode"] == "none"
-  assert init["with"]["source-root"] == "${{ env.SOURCE }}"
-  assert "uv sync" not in (WORKFLOWS / "codeql.yml").read_text()
   hadolint = load("container-scan.yml")["jobs"]["hadolint"]["steps"][-1]
   assert hadolint["with"]["config"] == ".hadolint.yaml"
   steps = load("workflow-security.yml")["jobs"]
