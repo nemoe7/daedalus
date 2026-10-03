@@ -62,6 +62,7 @@ POLLS_SINCE_MESSAGE='polls_since_message'
 GATE_THRESHOLD=20
 AGENT_KEY_META='agent_key'
 AGENT_KEY_RE=re.compile('[A-Za-z0-9_-]{20,64}\\Z')
+AGENT_HOST_RE=re.compile('https://[A-Za-z0-9.-]+\\Z')
 def now():return datetime.now(timezone.utc).isoformat()
 def reset_poll_count(db):
 	unacked=db.execute('SELECT (SELECT count(*) FROM notes WHERE acknowledged_at IS NULL) + (SELECT count(*) FROM submissions WHERE acknowledged_at IS NULL)').fetchone()[0]
@@ -686,7 +687,7 @@ class Store:
 	def polling(self):age=seconds_since(self.meta_value(POLLING_META));return age is not None and 0<=age<POLLING_FRESH_SECONDS
 	def set_meta(self,key,value):
 		with closing(self.connect())as db,db:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(key,str(value)))
-	def set_agent_key(self,key):self.set_meta(AGENT_KEY_META,json.dumps({'key':key,'at':now()},ensure_ascii=False))
+	def set_agent_key(self,key,host=None):self.set_meta(AGENT_KEY_META,json.dumps({'key':key,'host':host,'at':now()},ensure_ascii=False))
 	def agent_key(self):
 		value=self.meta_value(AGENT_KEY_META)
 		if not value:return None
@@ -695,7 +696,9 @@ class Store:
 		if not isinstance(record,dict):return None
 		key=record.get('key')
 		if not isinstance(key,str)or not AGENT_KEY_RE.fullmatch(key):return None
-		return{'key':key,'at':clip_stamp(record.get('at'))}
+		host=record.get('host')
+		if not isinstance(host,str)or not AGENT_HOST_RE.fullmatch(host):host=None
+		return{'key':key,'host':host,'at':clip_stamp(record.get('at'))}
 	def reminder(self,advance=False):
 		with closing(self.connect())as db,db:
 			uploads=db.execute('SELECT count(*) FROM notes JOIN uploads USING (id) WHERE acknowledged_at IS NULL').fetchone()[0];notes=db.execute('SELECT count(*) FROM notes WHERE acknowledged_at IS NULL').fetchone()[0]-uploads;reports=db.execute('SELECT count(*) FROM submissions WHERE acknowledged_at IS NULL').fetchone()[0];remaining=db.execute("SELECT count(*) FROM tasks WHERE status <> 'finished'").fetchone()[0];cursor=meta_number(db,REMINDER_CURSOR);polls=0 if advance and not notes+reports+uploads else meta_number(db,POLLS_SINCE_MESSAGE)+(1 if advance else 0);db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(REMINDER_CURSOR,str(cursor+1)))
@@ -948,7 +951,9 @@ def handler(store):
 				if agent_key_post:
 					candidate=payload.get('key')
 					if not isinstance(candidate,str)or not AGENT_KEY_RE.fullmatch(candidate):raise ValueError('key must be 20 to 64 letters, digits, dashes or underscores')
-					store.set_agent_key(candidate);self.reply(200,json.dumps(store.agent_key(),ensure_ascii=False));return
+					host=payload.get('host')
+					if host is not None and(not isinstance(host,str)or not AGENT_HOST_RE.fullmatch(host)):raise ValueError('host must be one https origin, with no path')
+					store.set_agent_key(candidate,host);self.reply(200,json.dumps(store.agent_key(),ensure_ascii=False));return
 				if path=='/api/fetch-jobs':record=store.enqueue_fetch(payload.get('url'),payload.get('allow_proxy',False));self.reply(201,json.dumps(record,ensure_ascii=False));return
 				if path=='/api/fetch-jobs/claim':self.reply(200,json.dumps({'job':store.claim_fetch()},ensure_ascii=False));return
 				if fetch_post:
