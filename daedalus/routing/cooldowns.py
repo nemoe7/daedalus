@@ -16,6 +16,8 @@ from daedalus.routing import lanes
 from daedalus.store.database import open_db
 
 FIRST, LONGEST = 60.0, 21600.0
+# A provider reset time above 1 day is a bad header: a model must not leave for ever.
+LONGEST_RESET = 86400.0
 PACIFIC = ZoneInfo("America/Los_Angeles")
 # Cloudflare error 4006: the daily free neurons of the account are used up.
 CLOUDFLARE_DAILY = 4006
@@ -103,20 +105,32 @@ def header_seconds(value: str, now: float) -> float | None:
     return None
 
 
+def capped(seconds: float) -> float:
+  """Cut a provider reset time at the cap, and log the cut."""
+  if seconds > LONGEST_RESET:
+    logger.warning(
+      "the reset time %.0fs is above the cap of %.0fs: it is cut",
+      seconds,
+      LONGEST_RESET,
+    )
+    return LONGEST_RESET
+  return seconds
+
+
 def reset_seconds(
   headers: Mapping[str, str], body: dict[str, Any], now: float
 ) -> float | None:
-  """Rule 2: the seconds to the reset time that the provider gives, or None."""
+  """Rule 2: the seconds to the reset time that the provider gives, cut at the cap."""
   for name in ("retry-after", "x-ratelimit-reset"):
     if headers.get(name):
       seconds = header_seconds(headers[name], now)
       if seconds is not None and seconds > 0:
-        return seconds
+        return capped(seconds)
   for detail in gemini_details(body):
     if str(detail.get("@type", "")).endswith("RetryInfo"):
       seconds = duration(str(detail.get("retryDelay", "")))
       if seconds:
-        return seconds
+        return capped(seconds)
   return None
 
 
