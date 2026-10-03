@@ -1,103 +1,122 @@
 {
   "env": [
     {
-      "end": "6789",
+      "end": null,
+      "has_env": false,
+      "has_saved": false,
+      "length": 0,
+      "name": "CLOUDFLARE_ACCOUNT_ID",
+      "start": null,
+      "state": "missing",
+      "used": [
+        "cloudflare defaults"
+      ]
+    },
+    {
+      "end": "0123",
       "has_env": false,
       "has_saved": true,
-      "length": 21,
-      "name": "DEMO_API_KEY",
-      "start": "demo",
+      "length": 30,
+      "name": "CLOUDFLARE_API_KEY",
+      "start": "not-",
+      "state": "saved",
+      "used": [
+        "free.yml"
+      ]
+    },
+    {
+      "end": "0123",
+      "has_env": false,
+      "has_saved": true,
+      "length": 30,
+      "name": "OPENROUTER_API_KEY",
+      "start": "not-",
       "state": "saved",
       "used": [
         "free.yml",
-        "atlas.yml"
+        "openrouter.yml"
       ]
     }
   ],
   "files": [
     {
       "blocks": {
-        "atlas": {
-          "api_base": "https://demo.invalid/v1",
-          "api_key": "db:DEMO_API_KEY",
+        "cloudflare": {
+          "api_base": "https://api.cloudflare.com/client/v4/accounts/00000000000000000000000000000000/ai/v1",
+          "api_key": "db:CLOUDFLARE_API_KEY",
           "models": {
-            "model-slug-with-a-fairly-long-name-2026": {
-              "max_input_tokens": 262144,
-              "max_output_tokens": 32768,
-              "tools": true
-            }
-          },
-          "tier": {
-            "TIER-A": [
-              "model-slug-with-a-fairly-long-name-2026"
-            ]
-          }
-        },
-        "demo": {
-          "api_base": "https://demo.invalid/v1",
-          "api_key": "db:DEMO_API_KEY",
-          "models": {
-            "atlas-1": {
-              "max_input_tokens": 131072,
-              "max_output_tokens": 16000,
-              "tools": true
+            "@cf/baai/bge-m3": {
+              "mode": "embedding"
             },
-            "atlas-2": {
-              "max_input_tokens": 200000,
-              "max_output_tokens": 32000,
-              "supports_reasoning": true,
-              "tools": true
-            },
-            "atlas-2-ultra-long-context-experimental-2026-10": {
-              "max_input_tokens": 1048576,
-              "max_output_tokens": 64000,
-              "tools": true
-            },
-            "beacon-2": {
-              "max_input_tokens": 128000,
-              "max_output_tokens": 8000
-            },
-            "canvas-image": {
+            "@cf/black-forest-labs/flux-1-schnell": {
               "mode": "image_generation"
             },
-            "echo-mini": {
+            "@cf/meta/llama-3.1-8b-instruct": {
               "max_input_tokens": 32000,
               "max_output_tokens": 4000
             },
-            "index-embed": {
-              "mode": "embedding"
-            },
-            "lumen-vision": {
+            "@cf/meta/llama-4-scout-17b-16e-instruct": {
               "max_input_tokens": 128000,
+              "max_output_tokens": 16384,
+              "tools": true
+            },
+            "@cf/mistralai/mistral-small-3.2-24b-instruct": {
+              "max_input_tokens": 128000,
+              "max_output_tokens": 16384,
               "supports_vision": true,
               "tools": true
             },
-            "scribe-audio": {
+            "@cf/openai/gpt-oss-120b": {
+              "max_input_tokens": 128000,
+              "max_output_tokens": 16384,
+              "tools": true
+            },
+            "@cf/openai/whisper-large-v3-turbo": {
               "mode": "audio_transcription"
+            },
+            "@cf/qwen/qwq-32b": {
+              "max_input_tokens": 20000,
+              "max_output_tokens": 4000,
+              "tools": true
+            },
+            "@cf/zai-org/glm-4.7-flash": {
+              "max_input_tokens": 128000,
+              "max_output_tokens": 16384,
+              "tools": true
             }
           },
           "tier": {
             "TIER-A": [
-              "atlas-2",
-              "lumen-vision",
-              "atlas-2-ultra-long-context-experimental-2026-10"
+              "@cf/openai/gpt-oss-120b",
+              "@cf/mistralai/mistral-small-3.2-24b-instruct"
             ],
             "TIER-B": [
-              "atlas-1"
+              "@cf/zai-org/glm-4.7-flash",
+              "@cf/qwen/qwq-32b"
             ],
             "TIER-C": [
-              "beacon-2"
+              "@cf/meta/llama-4-scout-17b-16e-instruct"
             ],
             "TIER-D": [
-              "echo-mini"
+              "@cf/meta/llama-3.1-8b-instruct"
             ]
           }
         },
-        "demo-long-provider-name": {
-          "api_base": "https://demo.invalid/v1",
-          "api_key": "db:DEMO_API_KEY",
+        "openrouter": {
+          "api_base": "https://openrouter.ai/api/v1",
+          "api_key": "db:OPENROUTER_API_KEY",
           "models": {
-            "*": {}
+            "z-ai/glm-5.3-flash": {
+              "max_input_tokens": 1310720,
+              "max_output_tokens": 131072,
+              "reasoning_effort": "low",
+              "tools": true
+            }
+          },
+          "tier": {
+            "TIER-A": [
+              "z-ai/glm-5.3-flash"
+            ]
           }
         }
       },
@@ -105,44 +124,44 @@
       "main": true,
       "path": "config/providers/free.yml",
       "shadow": null,
-      "text": "demo:\n  api_key: db:DEMO_API_KEY\n  api_base: https://demo.invalid/v1\n  tier:\n    TIER-A: ['atlas-2', 'lumen-vision', 'atlas-2-ultra-long-context-experimental-2026-10']\n    TIER-B: ['atlas-1']\n    TIER-C: ['beacon-2']\n    TIER-D: ['echo-mini']\n  models:\n    atlas-2:\n      max_input_tokens: 200000\n      max_output_tokens: 32000\n      tools: true\n      supports_reasoning: true\n    atlas-1:\n      max_input_tokens: 131072\n      max_output_tokens: 16000\n      tools: true\n    beacon-2:\n      max_input_tokens: 128000\n      max_output_tokens: 8000\n    echo-mini:\n      max_input_tokens: 32000\n      max_output_tokens: 4000\n    lumen-vision:\n      max_input_tokens: 128000\n      tools: true\n      supports_vision: true\n    atlas-2-ultra-long-context-experimental-2026-10:\n      max_input_tokens: 1048576\n      max_output_tokens: 64000\n      tools: true\n    scribe-audio:\n      mode: audio_transcription\n    canvas-image:\n      mode: image_generation\n    index-embed:\n      mode: embedding\natlas:\n  api_key: db:DEMO_API_KEY\n  api_base: https://demo.invalid/v1\n  tier:\n    TIER-A: ['model-slug-with-a-fairly-long-name-2026']\n  models:\n    model-slug-with-a-fairly-long-name-2026:\n      max_input_tokens: 262144\n      max_output_tokens: 32768\n      tools: true\ndemo-long-provider-name:\n  api_key: db:DEMO_API_KEY\n  api_base: https://demo.invalid/v1\n  models:\n    '*': {}\n"
+      "text": "# The shipped provider names and model slugs, with demo keys and no upstream calls.\ncloudflare:\n  api_key: db:CLOUDFLARE_API_KEY\n  api_base: https://api.cloudflare.com/client/v4/accounts/00000000000000000000000000000000/ai/v1\n  tier:\n    TIER-A:\n      - \"@cf/openai/gpt-oss-120b\"\n      - \"@cf/mistralai/mistral-small-3.2-24b-instruct\"\n    TIER-B:\n      - \"@cf/zai-org/glm-4.7-flash\"\n      - \"@cf/qwen/qwq-32b\"\n    TIER-C:\n      - \"@cf/meta/llama-4-scout-17b-16e-instruct\"\n    TIER-D:\n      - \"@cf/meta/llama-3.1-8b-instruct\"\n  models:\n    \"@cf/openai/gpt-oss-120b\":\n      max_input_tokens: 128000\n      max_output_tokens: 16384\n      tools: true\n    \"@cf/mistralai/mistral-small-3.2-24b-instruct\":\n      max_input_tokens: 128000\n      max_output_tokens: 16384\n      tools: true\n      supports_vision: true\n    \"@cf/zai-org/glm-4.7-flash\":\n      max_input_tokens: 128000\n      max_output_tokens: 16384\n      tools: true\n    \"@cf/qwen/qwq-32b\":\n      max_input_tokens: 20000\n      max_output_tokens: 4000\n      tools: true\n    \"@cf/meta/llama-4-scout-17b-16e-instruct\":\n      max_input_tokens: 128000\n      max_output_tokens: 16384\n      tools: true\n    \"@cf/meta/llama-3.1-8b-instruct\":\n      max_input_tokens: 32000\n      max_output_tokens: 4000\n    \"@cf/openai/whisper-large-v3-turbo\":\n      mode: audio_transcription\n    \"@cf/black-forest-labs/flux-1-schnell\":\n      mode: image_generation\n    \"@cf/baai/bge-m3\":\n      mode: embedding\nopenrouter:\n  api_key: db:OPENROUTER_API_KEY\n  api_base: https://openrouter.ai/api/v1\n  tier:\n    TIER-A:\n      - \"z-ai/glm-5.3-flash\"\n  models:\n    \"z-ai/glm-5.3-flash\":\n      max_input_tokens: 1310720\n      max_output_tokens: 131072\n      reasoning_effort: low\n      tools: true\n"
     },
     {
       "blocks": {
-        "atlas": {
-          "api_base": "https://demo.invalid/v1",
-          "api_key": "db:DEMO_API_KEY",
+        "openrouter": {
+          "api_base": "https://openrouter.ai/api/v1",
+          "api_key": "db:OPENROUTER_API_KEY",
           "tier": {
             "TIER-A": [
-              "model-slug-with-a-fairly-long-name-2026"
+              "z-ai/glm-5.3-flash"
             ]
           }
         }
       },
       "error": null,
       "main": false,
-      "path": "config/providers/atlas.yml",
+      "path": "config/providers/openrouter.yml",
       "shadow": "free.yml",
-      "text": "api_key: db:DEMO_API_KEY\napi_base: https://demo.invalid/v1\ntier:\n  TIER-A: ['model-slug-with-a-fairly-long-name-2026']\n"
+      "text": "api_key: db:OPENROUTER_API_KEY\napi_base: https://openrouter.ai/api/v1\ntier:\n  TIER-A: ['z-ai/glm-5.3-flash']\n"
     }
   ],
   "keys": [
     {
-      "created": 1791033311.0232763,
-      "name": "demo-client",
-      "start": "sk-MvjR",
+      "created": 1791039885.1702871,
+      "name": "openwebui",
+      "start": "sk-9mWu",
       "used": null
     },
     {
-      "created": 1791033311.0242884,
-      "name": "demo-openwebui",
-      "start": "sk-d9W9",
+      "created": 1791039885.1710532,
+      "name": "kilo-code",
+      "start": "sk-uj2W",
       "used": null
     },
     {
-      "created": 1791033311.0252278,
-      "name": "demo-integration-name-at-the-40-char-max",
-      "start": "sk-aJ9T",
+      "created": 1791039885.1718726,
+      "name": "openwebui-home-assistant-integration-001",
+      "start": "sk-toqf",
       "used": null
     }
   ],
@@ -150,106 +169,106 @@
     "checked": null,
     "lanes": [
       {
-        "at": 1791033311.1132882,
+        "at": 1791039885.2294874,
         "client": null,
-        "model": "atlas/model-slug-with-a-fairly-long-name-2026",
+        "model": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
         "rows": [
           {
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791033348.1132882,
+            "reset": 1791039922.2294874,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791033323.1132882,
+            "reset": 1791039897.2294874,
             "span": null
           }
         ]
       },
       {
-        "at": 1791033311.125011,
+        "at": 1791039885.2448006,
         "client": null,
-        "model": "demo/atlas-1",
+        "model": "cloudflare/@cf/mistralai/mistral-small-3.2-24b-instruct",
         "rows": [
           {
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791033348.125011,
+            "reset": 1791039922.2448006,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791033323.125011,
+            "reset": 1791039897.2448006,
             "span": null
           }
         ]
       },
       {
-        "at": 1791033311.1169004,
+        "at": 1791039885.256015,
         "client": null,
-        "model": "demo/atlas-2",
+        "model": "cloudflare/@cf/openai/whisper-large-v3-turbo",
         "rows": [
           {
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791033348.1169004,
+            "reset": 1791039922.256015,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791033323.1169004,
+            "reset": 1791039897.256015,
             "span": null
           }
         ]
       },
       {
-        "at": 1791033311.0989203,
+        "at": 1791039885.251402,
         "client": null,
-        "model": "demo/echo-mini",
+        "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
         "rows": [
           {
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791033348.0989203,
+            "reset": 1791039922.251402,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791033323.0989203,
+            "reset": 1791039897.251402,
             "span": null
           }
         ]
       },
       {
-        "at": 1791033311.1307888,
+        "at": 1791039885.2480965,
         "client": null,
-        "model": "demo/scribe-audio",
+        "model": "openrouter/z-ai/glm-5.3-flash",
         "rows": [
           {
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791033348.1307888,
+            "reset": 1791039922.2480965,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791033323.1307888,
+            "reset": 1791039897.2480965,
             "span": null
           }
         ]
@@ -269,70 +288,14 @@
       "cooldown": null,
       "effort": null,
       "flags": [],
-      "id": "demo/atlas-2",
-      "max_input_tokens": 200000,
-      "mode": "chat",
-      "order": 1,
-      "reasoning": true,
-      "tier": "TIER-A",
-      "tools": true,
-      "weight": 1.0
-    },
-    {
-      "client_cooldowns": {},
-      "cooldown": null,
-      "effort": null,
-      "flags": [],
-      "id": "demo/atlas-2-ultra-long-context-experimental-2026-10",
-      "max_input_tokens": 1048576,
-      "mode": "chat",
-      "order": 1,
-      "reasoning": false,
-      "tier": "TIER-A",
-      "tools": true,
-      "weight": 1.0
-    },
-    {
-      "client_cooldowns": {},
-      "cooldown": null,
-      "effort": null,
-      "flags": [],
-      "id": "demo/atlas-1",
-      "max_input_tokens": 131072,
-      "mode": "chat",
-      "order": 1,
-      "reasoning": false,
-      "tier": "TIER-B",
-      "tools": true,
-      "weight": 0.5000001395609764
-    },
-    {
-      "client_cooldowns": {},
-      "cooldown": 1791126911.1327453,
-      "effort": null,
-      "flags": [],
-      "id": "demo/beacon-2",
+      "id": "cloudflare/@cf/openai/gpt-oss-120b",
       "max_input_tokens": 128000,
       "mode": "chat",
       "order": 1,
       "reasoning": false,
-      "tier": "TIER-C",
-      "tools": false,
-      "weight": 0.75000120044803
-    },
-    {
-      "client_cooldowns": {},
-      "cooldown": null,
-      "effort": null,
-      "flags": [],
-      "id": "demo/echo-mini",
-      "max_input_tokens": 32000,
-      "mode": "chat",
-      "order": 1,
-      "reasoning": false,
-      "tier": "TIER-D",
-      "tools": false,
-      "weight": 0.5000004530576021
+      "tier": "TIER-A",
+      "tools": true,
+      "weight": 0.5000001280242738
     },
     {
       "client_cooldowns": {},
@@ -341,7 +304,7 @@
       "flags": [
         "vision"
       ],
-      "id": "demo/lumen-vision",
+      "id": "cloudflare/@cf/mistralai/mistral-small-3.2-24b-instruct",
       "max_input_tokens": 128000,
       "mode": "chat",
       "order": 1,
@@ -355,7 +318,63 @@
       "cooldown": null,
       "effort": null,
       "flags": [],
-      "id": "demo/scribe-audio",
+      "id": "cloudflare/@cf/zai-org/glm-4.7-flash",
+      "max_input_tokens": 128000,
+      "mode": "chat",
+      "order": 1,
+      "reasoning": false,
+      "tier": "TIER-B",
+      "tools": true,
+      "weight": 1.0
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "flags": [],
+      "id": "cloudflare/@cf/qwen/qwq-32b",
+      "max_input_tokens": 20000,
+      "mode": "chat",
+      "order": 1,
+      "reasoning": false,
+      "tier": "TIER-B",
+      "tools": true,
+      "weight": 1.0
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": 1791133485.2575269,
+      "effort": null,
+      "flags": [],
+      "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
+      "max_input_tokens": 128000,
+      "mode": "chat",
+      "order": 1,
+      "reasoning": false,
+      "tier": "TIER-C",
+      "tools": true,
+      "weight": 0.750000998412238
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "flags": [],
+      "id": "cloudflare/@cf/meta/llama-3.1-8b-instruct",
+      "max_input_tokens": 32000,
+      "mode": "chat",
+      "order": 1,
+      "reasoning": false,
+      "tier": "TIER-D",
+      "tools": false,
+      "weight": 0.5000008888169012
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "flags": [],
+      "id": "cloudflare/@cf/openai/whisper-large-v3-turbo",
       "max_input_tokens": null,
       "mode": "audio_transcription",
       "order": 1,
@@ -369,7 +388,7 @@
       "cooldown": null,
       "effort": null,
       "flags": [],
-      "id": "demo/canvas-image",
+      "id": "cloudflare/@cf/black-forest-labs/flux-1-schnell",
       "max_input_tokens": null,
       "mode": "image_generation",
       "order": 1,
@@ -383,7 +402,7 @@
       "cooldown": null,
       "effort": null,
       "flags": [],
-      "id": "demo/index-embed",
+      "id": "cloudflare/@cf/baai/bge-m3",
       "max_input_tokens": null,
       "mode": "embedding",
       "order": 1,
@@ -397,104 +416,84 @@
       "cooldown": null,
       "effort": null,
       "flags": [],
-      "id": "atlas/model-slug-with-a-fairly-long-name-2026",
-      "max_input_tokens": 262144,
+      "id": "openrouter/z-ai/glm-5.3-flash",
+      "max_input_tokens": 1310720,
       "mode": "chat",
       "order": 1,
-      "reasoning": false,
+      "reasoning": true,
       "tier": "TIER-A",
       "tools": true,
-      "weight": 1.0
-    },
-    {
-      "client_cooldowns": {},
-      "cooldown": null,
-      "effort": null,
-      "flags": [],
-      "id": "demo-long-provider-name/another-model-with-a-long-slug-2026",
-      "max_input_tokens": null,
-      "mode": "chat",
-      "order": 1,
-      "reasoning": false,
-      "tier": null,
-      "tools": false,
       "weight": 1.0
     }
   ],
   "pools": [
     {
-      "context": 1048576,
+      "context": 1310720,
       "members": [
         {
           "cooldown": null,
-          "id": "demo/atlas-2",
+          "id": "cloudflare/@cf/openai/gpt-oss-120b",
+          "tier": "TIER-A",
+          "weight": 0.5000002045472528
+        },
+        {
+          "cooldown": null,
+          "id": "cloudflare/@cf/mistralai/mistral-small-3.2-24b-instruct",
           "tier": "TIER-A",
           "weight": 1.0
         },
         {
           "cooldown": null,
-          "id": "demo/atlas-2-ultra-long-context-experimental-2026-10",
+          "id": "openrouter/z-ai/glm-5.3-flash",
           "tier": "TIER-A",
           "weight": 1.0
         },
         {
           "cooldown": null,
-          "id": "demo/lumen-vision",
-          "tier": "TIER-A",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "atlas/model-slug-with-a-fairly-long-name-2026",
-          "tier": "TIER-A",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "demo/atlas-1",
+          "id": "cloudflare/@cf/zai-org/glm-4.7-flash",
           "tier": "TIER-B",
-          "weight": 0.5000002277925665
-        },
-        {
-          "cooldown": 1791126911.1327453,
-          "id": "demo/beacon-2",
-          "tier": "TIER-C",
-          "weight": 0.7500013327955899
+          "weight": 1.0
         },
         {
           "cooldown": null,
-          "id": "demo/echo-mini",
+          "id": "cloudflare/@cf/qwen/qwq-32b",
+          "tier": "TIER-B",
+          "weight": 1.0
+        },
+        {
+          "cooldown": 1791133485.2575269,
+          "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
+          "tier": "TIER-C",
+          "weight": 0.75000111319683
+        },
+        {
+          "cooldown": null,
+          "id": "cloudflare/@cf/meta/llama-3.1-8b-instruct",
           "tier": "TIER-D",
-          "weight": 0.5000005412892474
+          "weight": 0.5000009653399966
         }
       ],
       "name": "daedalus/auto",
       "shown": "daedalus/auto"
     },
     {
-      "context": 1048576,
+      "context": 1310720,
       "members": [
         {
           "cooldown": null,
-          "id": "demo/atlas-2",
+          "id": "cloudflare/@cf/openai/gpt-oss-120b",
+          "tier": "TIER-A",
+          "weight": 0.500000205890655
+        },
+        {
+          "cooldown": null,
+          "id": "cloudflare/@cf/mistralai/mistral-small-3.2-24b-instruct",
           "tier": "TIER-A",
           "weight": 1.0
         },
         {
           "cooldown": null,
-          "id": "demo/atlas-2-ultra-long-context-experimental-2026-10",
-          "tier": "TIER-A",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "demo/lumen-vision",
-          "tier": "TIER-A",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "atlas/model-slug-with-a-fairly-long-name-2026",
+          "id": "openrouter/z-ai/glm-5.3-flash",
           "tier": "TIER-A",
           "weight": 1.0
         }
@@ -503,13 +502,19 @@
       "shown": "daedalus/sophos"
     },
     {
-      "context": 131072,
+      "context": 128000,
       "members": [
         {
           "cooldown": null,
-          "id": "demo/atlas-1",
+          "id": "cloudflare/@cf/zai-org/glm-4.7-flash",
           "tier": "TIER-B",
-          "weight": 0.5000002308613809
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "cloudflare/@cf/qwen/qwq-32b",
+          "tier": "TIER-B",
+          "weight": 1.0
         }
       ],
       "name": "daedalus/deinos",
@@ -519,10 +524,10 @@
       "context": 128000,
       "members": [
         {
-          "cooldown": 1791126911.1327453,
-          "id": "demo/beacon-2",
+          "cooldown": 1791133485.2575269,
+          "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
           "tier": "TIER-C",
-          "weight": 0.7500013383920452
+          "weight": 0.7500011171888397
         }
       ],
       "name": "daedalus/koinos",
@@ -533,9 +538,9 @@
       "members": [
         {
           "cooldown": null,
-          "id": "demo/echo-mini",
+          "id": "cloudflare/@cf/meta/llama-3.1-8b-instruct",
           "tier": "TIER-D",
-          "weight": 0.5000005455932305
+          "weight": 0.5000009685361525
         }
       ],
       "name": "daedalus/moros",
@@ -546,7 +551,7 @@
       "members": [
         {
           "cooldown": null,
-          "id": "demo/scribe-audio",
+          "id": "cloudflare/@cf/openai/whisper-large-v3-turbo",
           "tier": null,
           "weight": 1.0
         }
@@ -560,7 +565,7 @@
       "members": [
         {
           "cooldown": null,
-          "id": "demo/canvas-image",
+          "id": "cloudflare/@cf/black-forest-labs/flux-1-schnell",
           "tier": null,
           "weight": 1.0
         }
@@ -640,13 +645,13 @@
   "requests": [
     {
       "app": null,
-      "at": 1791033311.1311927,
+      "at": 1791039885.2563152,
       "attempts": [
         {
           "error": "",
-          "model": "demo/scribe-audio",
+          "model": "cloudflare/@cf/openai/whisper-large-v3-turbo",
           "result": "answered",
-          "seconds": 0.001
+          "seconds": 0.0
         }
       ],
       "effort": null,
@@ -657,24 +662,24 @@
       "pool": null,
       "retry": null,
       "routed": null,
-      "seconds": 0.003,
+      "seconds": 0.002,
       "session": null,
       "status": 200,
       "stream": null,
       "tokens": null,
       "transition": null,
       "ttft": null,
-      "via": "demo/scribe-audio"
+      "via": "cloudflare/@cf/openai/whisper-large-v3-turbo"
     },
     {
       "app": null,
-      "at": 1791033311.125838,
+      "at": 1791039885.25214,
       "attempts": [
         {
           "error": "",
-          "model": "demo/atlas-1",
+          "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
           "result": "answered",
-          "seconds": 0.001
+          "seconds": 0.0
         }
       ],
       "effort": null,
@@ -686,7 +691,7 @@
       "retry": null,
       "routed": null,
       "seconds": 0.002,
-      "session": "5d7e3b6",
+      "session": "547df45",
       "status": 200,
       "stream": true,
       "tokens": {
@@ -695,64 +700,16 @@
         "output": 5
       },
       "transition": null,
-      "ttft": "0.001s",
-      "via": "demo/atlas-1"
+      "ttft": "0.000s",
+      "via": "cloudflare/@cf/zai-org/glm-4.7-flash"
     },
     {
       "app": null,
-      "at": 1791033311.1218433,
-      "attempts": [
-        {
-          "error": "{\"error\": \"the deployment is down\"}",
-          "model": "demo/echo-mini",
-          "result": "HTTP 503",
-          "seconds": 0.001,
-          "weight_change": {
-            "from": 1.0,
-            "to": 0.5
-          }
-        },
-        {
-          "error": "",
-          "model": "demo/atlas-1",
-          "result": "answered",
-          "seconds": 0.001
-        }
-      ],
-      "effort": null,
-      "fallbacks": "1",
-      "key": "master",
-      "loop": null,
-      "model": "daedalus/moros",
-      "pool": null,
-      "retry": null,
-      "routed": null,
-      "seconds": 0.002,
-      "session": "a57a308",
-      "status": 200,
-      "stream": false,
-      "tokens": {
-        "estimate": false,
-        "input": 24,
-        "output": 9
-      },
-      "transition": {
-        "from_model": "demo/echo-mini",
-        "from_pool": "moros",
-        "reason": "err",
-        "to_model": "demo/atlas-1",
-        "to_pool": "deinos"
-      },
-      "ttft": "0.001s",
-      "via": "demo/atlas-1"
-    },
-    {
-      "app": null,
-      "at": 1791033311.1173747,
+      "at": 1791039885.2484884,
       "attempts": [
         {
           "error": "",
-          "model": "demo/atlas-2",
+          "model": "openrouter/z-ai/glm-5.3-flash",
           "result": "answered",
           "seconds": 0.001
         }
@@ -761,11 +718,43 @@
       "fallbacks": "0",
       "key": "master",
       "loop": null,
-      "model": "demo/atlas-2",
+      "model": "openrouter/z-ai/glm-5.3-flash",
       "pool": null,
       "retry": null,
       "routed": null,
-      "seconds": 0.002,
+      "seconds": 0.001,
+      "session": "5d7e3b6",
+      "status": 200,
+      "stream": false,
+      "tokens": {
+        "estimate": false,
+        "input": 24,
+        "output": 9
+      },
+      "transition": null,
+      "ttft": "0.001s",
+      "via": "openrouter/z-ai/glm-5.3-flash"
+    },
+    {
+      "app": null,
+      "at": 1791039885.2451699,
+      "attempts": [
+        {
+          "error": "",
+          "model": "cloudflare/@cf/mistralai/mistral-small-3.2-24b-instruct",
+          "result": "answered",
+          "seconds": 0.001
+        }
+      ],
+      "effort": null,
+      "fallbacks": "0",
+      "key": "master",
+      "loop": null,
+      "model": "cloudflare/@cf/mistralai/mistral-small-3.2-24b-instruct",
+      "pool": null,
+      "retry": null,
+      "routed": null,
+      "seconds": 0.001,
       "session": "cebe6de",
       "status": 200,
       "stream": false,
@@ -776,15 +765,15 @@
       },
       "transition": null,
       "ttft": "0.001s",
-      "via": "demo/atlas-2"
+      "via": "cloudflare/@cf/mistralai/mistral-small-3.2-24b-instruct"
     },
     {
       "app": null,
-      "at": 1791033311.1138086,
+      "at": 1791039885.2422254,
       "attempts": [
         {
           "error": "",
-          "model": "atlas/model-slug-with-a-fairly-long-name-2026",
+          "model": "cloudflare/@cf/mistralai/mistral-small-3.2-24b-instruct",
           "result": "answered",
           "seconds": 0.001
         }
@@ -808,11 +797,11 @@
       },
       "transition": null,
       "ttft": "0.001s",
-      "via": "atlas/model-slug-with-a-fairly-long-name-2026"
+      "via": "cloudflare/@cf/mistralai/mistral-small-3.2-24b-instruct"
     },
     {
       "app": null,
-      "at": 1791033311.1094906,
+      "at": 1791039885.2387013,
       "attempts": [
         {
           "cooldown": {
@@ -820,7 +809,7 @@
             "seconds": 1800.0
           },
           "error": "{\"error\": \"rate limited\"}",
-          "model": "demo/beacon-2",
+          "model": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
           "result": "HTTP 429",
           "seconds": 0.001,
           "weight_change": {
@@ -830,7 +819,7 @@
         },
         {
           "error": "",
-          "model": "demo/atlas-1",
+          "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
           "result": "answered",
           "seconds": 0.001
         }
@@ -853,22 +842,22 @@
         "output": 5
       },
       "transition": {
-        "from_model": "demo/beacon-2",
+        "from_model": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
         "from_pool": "koinos",
         "reason": "lmt",
-        "to_model": "demo/atlas-1",
+        "to_model": "cloudflare/@cf/zai-org/glm-4.7-flash",
         "to_pool": "deinos"
       },
       "ttft": "0.001s",
-      "via": "demo/atlas-1"
+      "via": "cloudflare/@cf/zai-org/glm-4.7-flash"
     },
     {
       "app": null,
-      "at": 1791033311.1041963,
+      "at": 1791039885.233995,
       "attempts": [
         {
           "error": "",
-          "model": "demo/atlas-1",
+          "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
           "result": "answered",
           "seconds": 0.001
         }
@@ -892,29 +881,39 @@
       },
       "transition": null,
       "ttft": "0.001s",
-      "via": "demo/atlas-1"
+      "via": "cloudflare/@cf/zai-org/glm-4.7-flash"
     },
     {
       "app": null,
-      "at": 1791033311.0995736,
+      "at": 1791039885.2300684,
       "attempts": [
         {
+          "error": "{\"error\": \"the deployment is down\"}",
+          "model": "cloudflare/@cf/meta/llama-3.1-8b-instruct",
+          "result": "HTTP 503",
+          "seconds": 0.001,
+          "weight_change": {
+            "from": 1.0,
+            "to": 0.5
+          }
+        },
+        {
           "error": "",
-          "model": "demo/echo-mini",
+          "model": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
           "result": "answered",
           "seconds": 0.001
         }
       ],
       "effort": null,
-      "fallbacks": "0",
+      "fallbacks": "1",
       "key": "master",
       "loop": null,
-      "model": "daedalus/auto",
-      "pool": "moros",
+      "model": "daedalus/moros",
+      "pool": null,
       "retry": null,
       "routed": null,
-      "seconds": 0.012,
-      "session": "547df45",
+      "seconds": 0.009,
+      "session": "a57a308",
       "status": 200,
       "stream": false,
       "tokens": {
@@ -922,9 +921,15 @@
         "input": 24,
         "output": 9
       },
-      "transition": null,
+      "transition": {
+        "from_model": "cloudflare/@cf/meta/llama-3.1-8b-instruct",
+        "from_pool": "moros",
+        "reason": "err",
+        "to_model": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
+        "to_pool": "koinos"
+      },
       "ttft": "0.001s",
-      "via": "demo/echo-mini"
+      "via": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct"
     }
   ],
   "settings": {
@@ -1089,13 +1094,13 @@
   },
   "status": {
     "catalog": {
-      "built": 1791033311.01838,
+      "built": 1791039885.1660726,
       "next": 1791050400.0,
       "rebuilding": false
     },
     "healthy": true,
-    "models": 8,
-    "sessions": 6,
+    "models": 7,
+    "sessions": 5,
     "version": "demo"
   }
 }

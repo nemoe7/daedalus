@@ -46,105 +46,124 @@ ENDPOINTS = (
   "settings",
   "login",
 )
-DEMO_FREE = """demo:
-  api_key: db:DEMO_API_KEY
-  api_base: https://demo.invalid/v1
+DEMO_FREE = """# The shipped provider names and model slugs, with demo keys and no upstream calls.
+cloudflare:
+  api_key: db:CLOUDFLARE_API_KEY
+  api_base: https://api.cloudflare.com/client/v4/accounts/00000000000000000000000000000000/ai/v1
   tier:
-    TIER-A: ['atlas-2', 'lumen-vision', 'atlas-2-ultra-long-context-experimental-2026-10']
-    TIER-B: ['atlas-1']
-    TIER-C: ['beacon-2']
-    TIER-D: ['echo-mini']
+    TIER-A:
+      - "@cf/openai/gpt-oss-120b"
+      - "@cf/mistralai/mistral-small-3.2-24b-instruct"
+    TIER-B:
+      - "@cf/zai-org/glm-4.7-flash"
+      - "@cf/qwen/qwq-32b"
+    TIER-C:
+      - "@cf/meta/llama-4-scout-17b-16e-instruct"
+    TIER-D:
+      - "@cf/meta/llama-3.1-8b-instruct"
   models:
-    atlas-2:
-      max_input_tokens: 200000
-      max_output_tokens: 32000
-      tools: true
-      supports_reasoning: true
-    atlas-1:
-      max_input_tokens: 131072
-      max_output_tokens: 16000
-      tools: true
-    beacon-2:
+    "@cf/openai/gpt-oss-120b":
       max_input_tokens: 128000
-      max_output_tokens: 8000
-    echo-mini:
-      max_input_tokens: 32000
-      max_output_tokens: 4000
-    lumen-vision:
+      max_output_tokens: 16384
+      tools: true
+    "@cf/mistralai/mistral-small-3.2-24b-instruct":
       max_input_tokens: 128000
+      max_output_tokens: 16384
       tools: true
       supports_vision: true
-    atlas-2-ultra-long-context-experimental-2026-10:
-      max_input_tokens: 1048576
-      max_output_tokens: 64000
+    "@cf/zai-org/glm-4.7-flash":
+      max_input_tokens: 128000
+      max_output_tokens: 16384
       tools: true
-    scribe-audio:
+    "@cf/qwen/qwq-32b":
+      max_input_tokens: 20000
+      max_output_tokens: 4000
+      tools: true
+    "@cf/meta/llama-4-scout-17b-16e-instruct":
+      max_input_tokens: 128000
+      max_output_tokens: 16384
+      tools: true
+    "@cf/meta/llama-3.1-8b-instruct":
+      max_input_tokens: 32000
+      max_output_tokens: 4000
+    "@cf/openai/whisper-large-v3-turbo":
       mode: audio_transcription
-    canvas-image:
+    "@cf/black-forest-labs/flux-1-schnell":
       mode: image_generation
-    index-embed:
+    "@cf/baai/bge-m3":
       mode: embedding
-atlas:
-  api_key: db:DEMO_API_KEY
-  api_base: https://demo.invalid/v1
+openrouter:
+  api_key: db:OPENROUTER_API_KEY
+  api_base: https://openrouter.ai/api/v1
   tier:
-    TIER-A: ['model-slug-with-a-fairly-long-name-2026']
+    TIER-A:
+      - "z-ai/glm-5.3-flash"
   models:
-    model-slug-with-a-fairly-long-name-2026:
-      max_input_tokens: 262144
-      max_output_tokens: 32768
+    "z-ai/glm-5.3-flash":
+      max_input_tokens: 1310720
+      max_output_tokens: 131072
+      reasoning_effort: low
       tools: true
-demo-long-provider-name:
-  api_key: db:DEMO_API_KEY
-  api_base: https://demo.invalid/v1
-  models:
-    '*': {}
 """
 # A file of a provider that the main file also sets, so the tab shows the shadow note.
-DEMO_ATLAS = """api_key: db:DEMO_API_KEY
-api_base: https://demo.invalid/v1
+DEMO_ATLAS = """api_key: db:OPENROUTER_API_KEY
+api_base: https://openrouter.ai/api/v1
 tier:
-  TIER-A: ['model-slug-with-a-fairly-long-name-2026']
+  TIER-A: ['z-ai/glm-5.3-flash']
 """
 DEMO_ROWS: tuple[dict[str, Any], ...] = (
   {
-    "id": "demo/atlas-2",
-    "max_input_tokens": 200000,
-    "max_output_tokens": 32000,
-    "supports_function_calling": True,
-    "supports_reasoning": True,
-  },
-  {
-    "id": "demo/atlas-2-ultra-long-context-experimental-2026-10",
-    "max_input_tokens": 1048576,
-    "max_output_tokens": 64000,
-    "supports_function_calling": True,
-  },
-  {
-    "id": "demo/atlas-1",
-    "max_input_tokens": 131072,
-    "max_output_tokens": 16000,
-    "supports_function_calling": True,
-  },
-  {"id": "demo/beacon-2", "max_input_tokens": 128000, "max_output_tokens": 8000},
-  {"id": "demo/echo-mini", "max_input_tokens": 32000, "max_output_tokens": 4000},
-  {
-    "id": "demo/lumen-vision",
+    "id": "cloudflare/@cf/openai/gpt-oss-120b",
     "max_input_tokens": 128000,
+    "max_output_tokens": 16384,
+    "supports_function_calling": True,
+  },
+  {
+    "id": "cloudflare/@cf/mistralai/mistral-small-3.2-24b-instruct",
+    "max_input_tokens": 128000,
+    "max_output_tokens": 16384,
     "supports_function_calling": True,
     "supports_vision": True,
   },
-  {"id": "demo/scribe-audio", "mode": "audio_transcription"},
-  {"id": "demo/canvas-image", "mode": "image_generation"},
-  {"id": "demo/index-embed", "mode": "embedding"},
   {
-    "id": "atlas/model-slug-with-a-fairly-long-name-2026",
-    "max_input_tokens": 262144,
-    "max_output_tokens": 32768,
+    "id": "cloudflare/@cf/zai-org/glm-4.7-flash",
+    "max_input_tokens": 128000,
+    "max_output_tokens": 16384,
     "supports_function_calling": True,
   },
-  # A model that the config gives no tier: the table shows it, and no pool holds it.
-  {"id": "demo-long-provider-name/another-model-with-a-long-slug-2026"},
+  {
+    "id": "cloudflare/@cf/qwen/qwq-32b",
+    "max_input_tokens": 20000,
+    "max_output_tokens": 4000,
+    "supports_function_calling": True,
+  },
+  {
+    "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
+    "max_input_tokens": 128000,
+    "max_output_tokens": 16384,
+    "supports_function_calling": True,
+  },
+  {
+    "id": "cloudflare/@cf/meta/llama-3.1-8b-instruct",
+    "max_input_tokens": 32000,
+    "max_output_tokens": 4000,
+  },
+  {
+    "id": "cloudflare/@cf/openai/whisper-large-v3-turbo",
+    "mode": "audio_transcription",
+  },
+  {
+    "id": "cloudflare/@cf/black-forest-labs/flux-1-schnell",
+    "mode": "image_generation",
+  },
+  {"id": "cloudflare/@cf/baai/bge-m3", "mode": "embedding"},
+  {
+    "id": "openrouter/z-ai/glm-5.3-flash",
+    "max_input_tokens": 1310720,
+    "max_output_tokens": 131072,
+    "supports_function_calling": True,
+    "supports_reasoning": True,
+  },
 )
 TOOL = {"type": "function", "function": {"name": "get_weather", "parameters": {}}}
 # The models that the demo makes fail or rate limit, for 1 row each.
@@ -152,25 +171,31 @@ DOWN = set()
 LIMITED = set()
 # The prompts of the captured rows, in the order that the table shows them.
 DEMO_CALLS = (
-  ("daedalus/auto", "Draft a short release note for version 0.3."),
+  ("daedalus/moros", "Count to three."),
   ("daedalus/deinos", "Write a haiku about a slow deployment."),
   ("daedalus/koinos", "Name 5 fruit trees."),
   ("daedalus/sophos", "What is the weather in Manila?"),
-  ("demo/atlas-2", "Summarize this log line: upstream timeout after 30 s."),
-  ("daedalus/moros", "Count to three."),
-  ("daedalus/koinos", "Say hello in Japanese."),
+  (
+    "cloudflare/@cf/mistralai/mistral-small-3.2-24b-instruct",
+    "Summarize this log line: upstream timeout after 30 s.",
+  ),
+  ("openrouter/z-ai/glm-5.3-flash", "Say hello in Japanese."),
+  ("daedalus/koinos", "Draft a short release note for version 0.3."),
 )
 DEMO_STREAM = DEMO_CALLS[2][0]
 DEMO_TOOLS = DEMO_CALLS[3][0]
-DEMO_DOWN = DEMO_CALLS[5][0]
+DEMO_DOWN = DEMO_CALLS[0][0]
 DEMO_LIMITED = DEMO_CALLS[6][0]
 DEMO_KEYS = (
-  "demo-client",
-  "demo-openwebui",
-  "demo-integration-name-at-the-40-char-max",
+  "openwebui",
+  "kilo-code",
+  "openwebui-home-assistant-integration-001",
 )
 # The demo has no provider key. The page shows the value masked, as a saved value does.
-DEMO_VALUE = ("DEMO_API_KEY", "demo-value-0123456789")
+DEMO_VALUES = (
+  ("CLOUDFLARE_API_KEY", "not-a-real-cloudflare-key-0123"),
+  ("OPENROUTER_API_KEY", "not-a-real-openrouter-key-0123"),
+)
 # The rate-limit headers of a provider answer: the Limits page reads them.
 DEMO_HEADERS = {
   "x-ratelimit-limit-requests": "14400",
@@ -184,13 +209,20 @@ DEMO_HEADERS = {
 
 def answer(request: httpx.Request) -> httpx.Response:
   """Answer 1 upstream call as an OpenAI-compatible provider does, with its failures."""
-  if request.url.path.endswith("/audio/transcriptions"):
-    return httpx.Response(200, json={"text": "Demo transcript."}, headers=DEMO_HEADERS)
+  path = request.url.path
+  # Cloudflare transcribes on its native `run` endpoint, not on the OpenAI path.
+  native = "/run/" in path
+  if native or path.endswith("/audio/transcriptions"):
+    text = "A short transcript of the recording."
+    # The native answer wraps the text: the provider reads `result.text`.
+    if native or "cloudflare" in request.url.host:
+      return httpx.Response(200, json={"result": {"text": text}}, headers=DEMO_HEADERS)
+    return httpx.Response(200, json={"text": text}, headers=DEMO_HEADERS)
   try:
     body = json.loads(request.content)
   except ValueError:
     return httpx.Response(400, json={"error": "a JSON body is required"})
-  model = body.get("model", "demo/atlas-1")
+  model = body.get("model", "z-ai/glm-5.3-flash")
   # The upstream body carries the slug of the provider, not the full model id.
   slug = model.split("/")[-1]
   if model in DOWN or slug in DOWN:
@@ -235,16 +267,17 @@ def demo_files(folder: Path) -> tuple[Path, ...]:
   provider = folder / "config" / "providers" / "free.yml"
   provider.parent.mkdir(parents=True)
   provider.write_text(DEMO_FREE, encoding="utf-8")
-  atlas = provider.with_name("atlas.yml")
-  atlas.write_text(DEMO_ATLAS, encoding="utf-8")
+  shadowed = provider.with_name("openrouter.yml")
+  shadowed.write_text(DEMO_ATLAS, encoding="utf-8")
   settings_file = folder / "config" / "daedalus.yml"
   settings_file.write_text(settings.DEFAULT_PATH.read_text(encoding="utf-8"))
-  return provider, atlas
+  return provider, shadowed
 
 
 def seed_saved() -> None:
-  """Save the demo value before the config load, which resolves `db:DEMO_API_KEY`."""
-  saved_env.save(store.MODELS_DB, *DEMO_VALUE)
+  """Save the demo values before the config load, which resolves `db:` keys."""
+  for name, value in DEMO_VALUES:
+    saved_env.save(store.MODELS_DB, name, value)
   for name in DEMO_KEYS:
     keys.add(store.MODELS_DB, name)
 
@@ -252,10 +285,14 @@ def seed_saved() -> None:
 def seed_state() -> None:
   """Set the states that the pages show, after the requests moved the weights."""
   penalties, cooldowns = api.PENALTIES, api.COOLDOWNS
-  penalties.record_change("demo/atlas-1", penalties.fault)
-  penalties.highest("demo-conversation-1", 3)
-  penalties.highest("demo-conversation-2", 2)
-  cooldowns.hold("demo/beacon-2", cooldowns.clock() + 26 * 3600, "reset")
+  penalties.record_change("cloudflare/@cf/openai/gpt-oss-120b", penalties.fault)
+  penalties.highest("5d7e3b6", 3)
+  penalties.highest("a57a308", 2)
+  cooldowns.hold(
+    "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
+    cooldowns.clock() + 26 * 3600,
+    "reset",
+  )
 
 
 def seed_requests(client: TestClient, auth: dict[str, str]) -> None:
@@ -275,9 +312,9 @@ def seed_requests(client: TestClient, auth: dict[str, str]) -> None:
     if model == DEMO_TOOLS:
       body["tools"] = [TOOL]
     if model == DEMO_DOWN:
-      DOWN.add("echo-mini")
+      DOWN.add("@cf/meta/llama-3.1-8b-instruct")
     if model == DEMO_LIMITED:
-      LIMITED.add("beacon-2")
+      LIMITED.add("@cf/meta/llama-4-scout-17b-16e-instruct")
     client.post("/v1/chat/completions", json=body, headers=auth)
   DOWN.clear()
   LIMITED.clear()
@@ -341,35 +378,27 @@ DEMO_JS = """\
 "use strict";
 // The demo of the daedalus dashboard. The page is the file that the server serves;
 // this script answers each `ui/api/` call from the fixtures, with no server and no login.
-// It pre-fills the Requests tab, then keeps it rotating with simulated live requests.
+// The Requests tab starts empty, and the simulated live requests fill and rotate it.
 const DEMO_FIXTURES = __FIXTURES__;
 (() => {
   // The server keeps 500 rows. The demo does the same, and drops the oldest.
   const KEPT = 500;
-  const PREFILL = 60;
   const wait = (ms) => new Promise((done) => setTimeout(done, ms));
-  // The media pools answer on their own paths.
+  const round = (value) => Math.round(value * 1000) / 1000;
+  // The media models answer on their own paths.
   const MEDIA_PATH = {
-    "daedalus/graphos": "/v1/audio/transcriptions",
-    "daedalus/photos": "/v1/images/generations",
+    "cloudflare/@cf/openai/whisper-large-v3-turbo": "/v1/audio/transcriptions",
+    "cloudflare/@cf/black-forest-labs/flux-1-schnell": "/v1/images/generations",
+    "cloudflare/@cf/baai/bge-m3": "/v1/embeddings",
   };
+  // A session reads like the server sends it: the first 7 characters of the key hash.
+  const session = (n) => ((n * 2654435761) % 0xfffffff).toString(16).padStart(7, "0");
   const gap = (min, max) => min + Math.random() * (max - min);
   const pick = (rows) => rows[Math.floor(Math.random() * rows.length)];
-  const spread = (rows) => {
-    // The captured rows share 1 second: the demo gives them a timeline of the last hours.
-    const now = Date.now() / 1000;
-    const found = [];
-    for (let index = 0; found.length < PREFILL; index++) {
-      const source = rows[index % rows.length];
-      const at = now - index * gap(24, 96);
-      found.push({
-        ...source, at, session: index % 4 ? source.session : `demo-session-${index}`,
-        attempts: (source.attempts || []).map((a) => ({ ...a })),
-      });
-    }
-    return found;
-  };
-  DEMO_FIXTURES.requests = spread(DEMO_FIXTURES.requests);
+  // The Requests tab starts empty. The captured rows come back as live traffic, so the
+  // fallback chain and the rate limit show, and the waves continue after them.
+  const SEEDED = DEMO_FIXTURES.requests.map((row) => ({ ...row }));
+  DEMO_FIXTURES.requests = [];
   const json = (body, status = 200) =>
     Promise.resolve(new Response(JSON.stringify(body), {
       status, headers: { "Content-Type": "application/json" },
@@ -421,6 +450,10 @@ const DEMO_FIXTURES = __FIXTURES__;
     async loop() {
       await wait(gap(400, 900));
       this.send("live", []);
+      for (const row of SEEDED) {
+        if (this.closed) return;
+        await this.replay(row);
+      }
       while (!this.closed) {
         const wave = [];
         const count = 1 + Math.floor(Math.random() * 3);
@@ -429,17 +462,41 @@ const DEMO_FIXTURES = __FIXTURES__;
         await wait(gap(1200, 6000));
       }
     }
+    // One captured row, as a request that just finished, with the fields unchanged.
+    async replay(row) {
+      const id = ++this.next;
+      const served = row.via || row.model;
+      const live = {
+        id, path: MEDIA_PATH[row.model] || "/v1/chat/completions",
+        age: 0, attempt_age: 0, ttft: null,
+      };
+      this.send("start", live);
+      await wait(gap(200, 700));
+      Object.assign(live, {
+        app: row.app, session: row.session, key: row.key, model: row.model, effort: row.effort,
+        pool: row.pool, stream: row.stream, trying: served, via: null, attempts: [], tokens: null,
+        fallbacks: "0", age: round(gap(0.3, 1.1)), attempt_age: round(gap(0.3, 1.1)),
+      });
+      this.send("update", live);
+      await wait(gap(150, 500));
+      const ttft = row.ttft ? parseFloat(row.ttft) : round(gap(0.4, 2.4));
+      Object.assign(live, { trying: null, via: served, ttft });
+      this.send("first", live);
+      await wait(gap(120, 400));
+      const done = { ...row, at: Date.now() / 1000 };
+      this.send("end", { id, row: done });
+      keep(done);
+    }
     async one(id) {
       // A captured row is the template, so each field keeps the shape and the type of the server.
-      const template = pick(DEMO_FIXTURES.requests);
+      const template = pick(SEEDED);
       const served = template.via;
-      const round = (value) => Math.round(value * 1000) / 1000;
       const path = MEDIA_PATH[template.model] || "/v1/chat/completions";
       const row = { id, path, age: 0, attempt_age: 0, ttft: null };
       this.send("start", row);
       await wait(gap(250, 1100));
       Object.assign(row, {
-        app: pick(["demo", "kilo", "owui"]), session: `demo-session-${id % 7}`, key: null,
+        app: pick(["OWUI", "Kilo"]), session: session(id), key: "master",
         model: template.model, effort: template.effort, pool: template.pool, stream: template.stream,
         trying: served, via: null, attempts: [], tokens: null, fallbacks: "0",
         age: round(gap(0.3, 1.1)), attempt_age: round(gap(0.3, 1.1)),
