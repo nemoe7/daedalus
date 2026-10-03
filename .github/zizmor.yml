@@ -8,7 +8,6 @@ rules:
   # Docker publishes only trusted main or release commits after its checks.
   dangerous-triggers:
     ignore:
-      - codeql.yml
       - container-scan.yml
       - dependency-review.yml
       - docker.yml
