@@ -11,9 +11,10 @@ import pytest
 from daedalus import __version__ as DAEDALUS_VERSION
 
 APP_JS = Path("daedalus/dashboard/ui/app.js")
+# The 1 call that starts a page job: the demo simulates the catalog rebuild.
+SIMULATED = ("catalog",)
 # The calls that change state. The demo answers each of them with 403.
 WRITES = (
-  "catalog",
   "env",
   "files",
   "keys",
@@ -44,10 +45,15 @@ const fs = require("fs");
 const vm = require("vm");
 const context = {
   location: { origin: "https://demo.test", href: "https://demo.test/" },
-  Response, URL, setTimeout, clearTimeout, console, Promise, Math, JSON, Object, Array,
-  network: [],
+  Response, URL, clearTimeout, console, Promise, Math, JSON, Object, Array,
+  network: [], timers: [],
 };
 context.window = context;
+// The rebuild waits 26 s. The test shortens only that timer.
+context.setTimeout = (fn, ms, ...rest) => {
+  context.timers.push(ms);
+  return setTimeout(fn, ms === 26000 ? 30 : ms, ...rest);
+};
 context.fetch = (...args) => {
   context.network.push(args);
   throw new Error("the demo called the network");
@@ -71,6 +77,19 @@ const check = (ok, text) => {
   check((await write.json()).error.message.includes("static demo"), "the write text");
   const missing = await context.fetch("ui/api/nothing");
   check(missing.status === 404, "an unknown call");
+  const stateBefore = await (await context.fetch("ui/api/status")).json();
+  const start = await context.fetch("ui/api/catalog", { method: "POST" });
+  check(start.status === 202, "a rebuild starts");
+  const running = await (await context.fetch("ui/api/status")).json();
+  check(running.catalog.rebuilding === true, "the chip reads rebuilding");
+  const busy = await context.fetch("ui/api/catalog", { method: "POST" });
+  check(busy.status === 409, "a rebuild is refused while 1 runs");
+  check((await busy.json()).error.message.includes("rebuild runs now"), "the busy text");
+  check(context.timers.includes(26000), "the rebuild takes the real 26 s");
+  await new Promise((done) => setTimeout(done, 300));
+  const stateAfter = await (await context.fetch("ui/api/status")).json();
+  check(stateAfter.catalog.rebuilding === false, "the rebuild finishes");
+  check(stateAfter.catalog.built !== stateBefore.catalog.built, "a fresh built time");
   const seen = [];
   const stream = new context.EventSource("ui/api/requests/live");
   ["live", "start", "update", "first", "end"].forEach((kind) =>
@@ -120,7 +139,7 @@ def test_the_fixtures_cover_each_call_of_the_page() -> None:
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
   assert sorted(fixtures) == sorted(READS), sorted(fixtures)
   calls = set(re.findall(r'call\("([a-z/_-]*)"', APP_JS.read_text(encoding="utf-8")))
-  unknown = calls - set(READS) - set(WRITES)
+  unknown = calls - set(READS) - set(WRITES) - set(SIMULATED)
   assert not unknown, unknown
 
 
