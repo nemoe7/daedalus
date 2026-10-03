@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -1092,9 +1093,28 @@ const DEMO_FIXTURES = __FIXTURES__;
 """
 
 
-def build(out: Path) -> Path:
+def demo_version() -> str:
+  """The version of the build: `DEMO_VERSION`, else `demo.<commit count>`, else `demo`."""
+  if version := os.environ.get("DEMO_VERSION"):
+    return version
+  try:
+    count = subprocess.run(
+      ["git", "rev-list", "--count", "HEAD"],
+      capture_output=True,
+      text=True,
+      check=True,
+      cwd=Path(__file__).resolve().parent,
+    ).stdout.strip()
+  except (OSError, subprocess.SubprocessError):
+    count = ""
+  return f"demo.{count}" if count.isdigit() else "demo"
+
+
+def build(out: Path, version: str) -> Path:
   """Copy the UI into `out`, add the demo script, and load it before the page."""
   fixtures = json.loads(FIXTURES.read_text(encoding="utf-8"))
+  fixtures["login"]["version"] = version
+  fixtures["status"]["version"] = version
   if out.exists():
     shutil.rmtree(out)
   shutil.copytree(UI, out / "ui")
@@ -1117,14 +1137,18 @@ def main(argv: list[str] | None = None) -> int:
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument("--capture", action="store_true", help="write the fixtures again")
   parser.add_argument("--out", default="_site", help="folder of the built demo")
+  parser.add_argument(
+    "--version", help="the version in the demo header, else the build one"
+  )
   arguments = parser.parse_args(argv)
   if arguments.capture:
     FIXTURES.write_text(
       json.dumps(capture(), indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     print(f"wrote {FIXTURES}")
-  out = build(Path(arguments.out))
-  print(f"built {out}")
+  version = arguments.version or demo_version()
+  out = build(Path(arguments.out), version)
+  print(f"built {out} version {version}")
   return 0
 
 
