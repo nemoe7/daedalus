@@ -541,6 +541,7 @@ assert(cells.every((td) => td.includes('role="cell"')), 'each request cell keeps
 assert.strictEqual((html.match(/class="cell-value"/g) || []).length, 13, 'each request cell keeps its value');
 const mobileLabels = (markup) => [...markup.matchAll(new RegExp('<span class="mobile-label" aria-hidden="true">([^<]*)</span>', 'g'))].map((m) => m[1]);
 assert.deepStrictEqual(mobileLabels(html), {json.dumps(labels)}, 'the cells show their column names in table order');
+assert(html.includes('hide-sm hide-md num mono'), 'the session id reads in the mono font');
 assert(html.includes('class="request has-chain"'), 'requests with fallbacks expose their chain');
 assert(html.includes('More · session, effort, pool · 1 fallback'), 'request details disclose their fallback count');
 for (const value of ['View fallback chain', 's1', 'high <span class="from">xhi</span>', 'rate limited', 'frA', 'tl3']) assert(html.includes(value), 'the details keep ' + value);
@@ -640,6 +641,21 @@ def test_keys_page_holds_its_labels_on_one_line() -> None:
   assert "button { font: inherit; cursor: pointer; white-space: nowrap; }" in css, (
     "a button label never wraps"
   )
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert '<td class="num muted mono">' in app, "the key value reads in the mono font"
+
+
+def test_the_version_reads_in_the_mono_font() -> None:
+  """The version in the header and on the login screen uses the mono font."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert ".mono { font-family: var(--mono); }" in css, "the mono class exists"
+  brand = css.split(".brand small {", 1)[1].split("}", 1)[0]
+  assert "font-family: var(--mono);" in brand, "the header version"
+  assert (
+    "font-family: var(--mono);"
+    in css.split(".login-head small {", 1)[1].split("}", 1)[0]
+  ), "the login version"
 
 
 def test_model_heads_align_left() -> None:
