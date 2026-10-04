@@ -21,15 +21,28 @@ Open `http://HOST:3357/`.
 | Limits | The last rate-limit headers of each model, and each provider key balance in a card. |
 | Settings | Form and YAML views of `config/daedalus.yml`. A save checks each value, then reloads the settings. |
 
-The logo shows in the header, on the login page and as the tab icon. The page has a web app manifest, so a browser can install the dashboard as an app. A browser installs it only over HTTPS or from localhost. The version shows under the name, also on the login page before a login: the image tag, for example v0.2.0, or dev-COMMIT after `install --dev`. `daedalus --version` shows the same value. The header stays at the top of the window. Only the page below it scrolls. A fade at an edge of the tab bar shows the tabs that wait off screen. A hidden browser tab sends no requests. It gets new data when it shows again.
+The logo shows in the header, on the login page and as the tab icon. The page has a web app manifest, so a browser can install the dashboard as an app. A browser installs it only over HTTPS or from localhost. The version shows under the name, also on the login page before a login: the image tag, for example v0.2.0, or dev-COMMIT after `install --dev`.
 
-The header shows the state of daedalus as text. The text uses the style of the page switcher: a health dot, then the sessions, then the catalog line. The line gives the time of the last catalog rebuild. It also gives the next scheduled rebuild. A phone shows a status card at the top of the Overview page instead: the health line, then 1
+`daedalus --version` shows the same value. The header stays at the top of the window. Only the page below it scrolls. A fade at an edge of the tab bar shows the tabs that wait off screen.
+
+A hidden browser tab sends no requests. It gets new data when it shows again.
+
+The header shows the state of daedalus as text. The text uses the style of the page switcher: a health dot, then the sessions, then the catalog line. The line gives the time of the last catalog rebuild. It also gives the next scheduled rebuild.
+
+A phone shows a status card at the top of the Overview page instead: the health line, then 1
 line for the sessions and 1 line for the catalog, each with its value at the right. The header
-keeps its Log out button on a phone. Log out asks in a modal. Click the catalog line to rebuild the catalog now, after a confirmation. The line shows "rebuilding" until the rebuild ends. Only 1 rebuild runs at a time. A confirmation of a dangerous action uses a modal of the dashboard, not the browser box.
+
+keeps its Log out button on a phone. Log out asks in a modal. Click the catalog line to rebuild the catalog now, after a confirmation. The line shows "rebuilding" until the rebuild ends.
+
+Only 1 rebuild runs at a time. A confirmation of a dangerous action uses a modal of the dashboard, not the browser box.
 
 ## Demo on GitHub Pages
 
-A static demo of this page runs at <https://nemoe7.github.io/daedalus/>. Set the Pages source of the repository to **GitHub Actions** 1 time, and the Pages demo workflow deploys each change to the page. No server runs there. `scripts/pages_demo.py` copies the page and adds `demo.js`. That script answers each `ui/api/` call from `scripts/pages_fixtures.json`. The Requests tab starts empty, and the script streams the captured requests in, then keeps the table rotating. A save lands in the page memory, and it takes the checks of the server. Those checks cover the YAML of a file, the block of a provider name, and the rules of a key name. A reload brings the captured data back. The Catalog chip starts a rebuild in the page, and it finishes after about 26 seconds. The header shows the version `demo`.
+A static demo of this page runs at <https://nemoe7.github.io/daedalus/>. Set the Pages source of the repository to **GitHub Actions** 1 time, and the Pages demo workflow deploys each change to the page. No server runs there. `scripts/pages_demo.py` copies the page and adds `demo.js`.
+
+That script answers each `ui/api/` call from `scripts/pages_fixtures.json`. The Requests tab starts empty, and the script streams the captured requests in, then keeps the table rotating. A save lands in the page memory, and it takes the checks of the server. Those checks cover the YAML of a file, the block of a provider name, and the rules of a key name.
+
+A reload brings the captured data back. The Catalog chip starts a rebuild in the page, and it finishes after about 26 seconds. The header shows the version `demo`.
 
 The Pages demo workflow builds the demo from `main` and deploys it after a change to the page, the script or the fixtures. After a change to an endpoint, run `python3 scripts/pages_demo.py --capture` and commit the new fixtures.
 
@@ -114,7 +127,11 @@ daedalus reads the balances when it starts, then each hour. **Check now** reads 
 | Groq, Mistral | The limit, the count left and the reset time of each window, for each model | The `x-ratelimit-*` headers of the last answer |
 | Kilo, and each provider with `hourly_requests` | In the card of the provider: the requests left in the last hour | The daedalus count. A 429 from the provider sets it to 0. |
 
-The header rows stay in memory only, so they are empty after a restart until the next answer. A client with its own provider key has its own rows. A bar like the weight bar shows the rest of each limit: header rows, OpenRouter credit and free requests, and Cloudflare neurons. The number and the bar show the same quantity. The Limit column of a header row shows its short unit, such as `RPM` for requests per minute, and a hover spells it out. A count of 0 shows in red. From 1,000, a count shows floored to K, M or B, for example 998M of 1B. Hover a header row to see the exact number. Each balance comes from the main key of the provider, not from `client_keys`.
+The header rows stay in memory only, so they are empty after a restart until the next answer. A client with its own provider key has its own rows. A bar like the weight bar shows the rest of each limit: header rows, OpenRouter credit and free requests, and Cloudflare neurons. The number and the bar show the same quantity.
+
+The Limit column of a header row shows its short unit, such as `RPM` for requests per minute, and a hover spells it out. A count of 0 shows in red. From 1,000, a count shows floored to K, M or B, for example 998M of 1B. Hover a header row to see the exact number.
+
+Each balance comes from the main key of the provider, not from `client_keys`.
 
 To show the Cloudflare neurons, give the Cloudflare token the analytics permission:
 
