@@ -609,6 +609,7 @@ def routes(
   refresh: Callable[[], Callable[[], object] | None] = lambda: None,
   limits: Limits | None = None,
   rebuild_cached: Callable[[], Callable[[], object] | None] = lambda: None,
+  race: Callable[[], dict[str, Any]] = dict,
 ) -> APIRouter:
   """The dashboard endpoints. All except login need a session."""
   api = APIRouter(prefix="/ui/api")
@@ -702,6 +703,7 @@ def routes(
         "version": __version__,
         "models": len(store.read_models()),
         "sessions": penalties.sessions(),
+        "parallel": race(),
         "catalog": {
           "built": store.built(),
           "next": schedule.upcoming(time.time()),

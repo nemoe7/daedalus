@@ -563,6 +563,18 @@ LIMITS = upstream.LIMITS = limits.Limits(
   COOLDOWNS, lambda: get_config(), upstream.get_client
 )
 LIMITS.counted = PACING.hour_rows
+
+
+def parallel_state() -> dict[str, Any]:
+  """The applied race values, for the dashboard status."""
+  return {
+    "enabled": PARALLEL_ENABLED,
+    "count": PARALLEL_COUNT,
+    "chance": PARALLEL_CHANCE,
+    "slow": PARALLEL_SLOW_SECONDS,
+  }
+
+
 app.include_router(dashboard.page())
 app.include_router(
   dashboard.routes(
@@ -573,6 +585,7 @@ app.include_router(
     lambda: CATALOG_REFRESH,
     LIMITS,
     lambda: CATALOG_REBUILD_CACHED,
+    parallel_state,
   )
 )
 
