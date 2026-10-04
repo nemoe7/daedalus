@@ -231,7 +231,11 @@ function renderStatusCard(status) {
   const label = rebuilding ? "A catalog rebuild runs now" : "Rebuild the catalog now";
   $("card-health").innerHTML =
     `<span class="dot${status.healthy ? "" : " off"}"></span>${status.healthy ? "Healthy" : "Down"}`;
-  $("card-rows").innerHTML = line("Sessions", status.sessions)
+  const race = status.parallel;
+  const raceLine = race?.enabled
+    ? line("Parallel", `on &middot; ${race.count} &middot; ${Math.round(race.chance * 100)}% &middot; ${race.slow}s`)
+    : "";
+  $("card-rows").innerHTML = line("Sessions", status.sessions) + raceLine
     + `<button class="line rebuild" type="button" title="${label}" ${rebuilding ? "disabled" : ""}>
       <span>Catalog</span><span><b>${esc(last)}</b>${following}</span></button>`;
 }

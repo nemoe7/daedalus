@@ -727,6 +727,9 @@ def test_the_parallel_race_reads_on_the_page() -> None:
   assert 'a.race === "won"' in app and '<span class="from">won race</span>' in app, (
     "the winning step carries the mark"
   )
+  assert "race?.enabled" in app and 'line("Parallel"' in app, (
+    "the status card shows the applied race values"
+  )
 
 
 def test_the_requests_head_keeps_its_rule_while_it_sticks() -> None:
@@ -1356,7 +1359,9 @@ def test_data(client: TestClient) -> None:
     "models": 2,
     "sessions": 0,
     "catalog": status["catalog"],
+    "parallel": status["parallel"],
   }, status
+  assert set(status["parallel"]) == {"enabled", "count", "chance", "slow"}, status
   assert status["catalog"]["built"] <= time.time() < status["catalog"]["next"], status
   body = {"model": "daedalus/sophos", "messages": [{"role": "user", "content": "x"}]}
   assert client.post("/v1/chat/completions", json=body).status_code == 200
