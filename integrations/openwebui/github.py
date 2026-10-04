@@ -3,7 +3,7 @@ title: GitHub
 author: nemo
 description: GitHub access for Open WebUI. Reads run freely; every write passes a confirmation gate and a timeout, and nothing is sent when the gate cannot be shown. Stdlib only.
 required_open_webui_version: 0.10.0
-version: 2.1.0
+version: 2.2.0
 licence: MIT
 """
 
@@ -2352,6 +2352,160 @@ class Tools:
         "truncated": bool(data.get("truncated")) or len(entries) > limit,
       }
     )
+
+  async def code_scanning_alerts(
+    self,
+    repo_full_name: str,
+    alert_number: int | None = None,
+    state: str | None = "open",
+    tool_name: str | None = None,
+    ref: str | None = None,
+    severity: str | None = None,
+    sort: str = "created",
+    direction: str = "desc",
+    per_page: int = 30,
+    page: int = 1,
+  ) -> dict:
+    """List the code scanning alerts of a repository, or read 1 alert with its instances.
+
+    :param repo_full_name: owner/repo
+    :param alert_number: the alert number; set it to read that alert and its instances
+    :param state: open, dismissed or fixed
+    :param tool_name: the scanning tool, for example CodeQL
+    :param ref: a branch, tag or commit
+    :param severity: note, warning or error
+    :param sort: created or updated
+    :param direction: asc or desc
+    :param per_page: alerts per page
+    :param page: the page number
+    """
+    repo = self._repo(repo_full_name)
+    if alert_number is not None:
+      number = int(alert_number)
+      alert = await self._request("GET", f"{API}{repo}/code-scanning/alerts/{number}")
+      instances = await self._request(
+        "GET", f"{API}{repo}/code-scanning/alerts/{number}/instances"
+      )
+      return self._ok({"alert": alert, "instances": instances})
+    alerts = await self._request(
+      "GET",
+      f"{API}{repo}/code-scanning/alerts",
+      params={
+        "state": state,
+        "tool_name": tool_name,
+        "ref": ref,
+        "severity": severity,
+        "sort": sort,
+        "direction": direction,
+        "per_page": min(max(1, int(per_page)), 100),
+        "page": int(page),
+      },
+    )
+    return self._ok({"alerts": alerts})
+
+  async def secret_scanning_alerts(
+    self,
+    repo_full_name: str,
+    alert_number: int | None = None,
+    state: str | None = "open",
+    resolution: str | None = None,
+    secret_type: str | None = None,
+    validity: str | None = None,
+    sort: str = "created",
+    direction: str = "desc",
+    per_page: int = 30,
+    page: int = 1,
+  ) -> dict:
+    """List the secret scanning alerts of a repository, or read 1 alert with its locations.
+
+    :param repo_full_name: owner/repo
+    :param alert_number: the alert number; set it to read that alert and its locations
+    :param state: open or resolved
+    :param resolution: false_positive, wont_fix, revoked or used_in_tests
+    :param secret_type: the secret type slug, for example github_personal_access_token
+    :param validity: active, inactive or unknown
+    :param sort: created or updated
+    :param direction: asc or desc
+    :param per_page: alerts per page
+    :param page: the page number
+    """
+    repo = self._repo(repo_full_name)
+    if alert_number is not None:
+      number = int(alert_number)
+      alert = await self._request("GET", f"{API}{repo}/secret-scanning/alerts/{number}")
+      locations = await self._request(
+        "GET", f"{API}{repo}/secret-scanning/alerts/{number}/locations"
+      )
+      return self._ok({"alert": alert, "locations": locations})
+    alerts = await self._request(
+      "GET",
+      f"{API}{repo}/secret-scanning/alerts",
+      params={
+        "state": state,
+        "resolution": resolution,
+        "secret_type": secret_type,
+        "validity": validity,
+        "sort": sort,
+        "direction": direction,
+        "per_page": min(max(1, int(per_page)), 100),
+        "page": int(page),
+      },
+    )
+    return self._ok({"alerts": alerts})
+
+  async def dependabot_alerts(
+    self,
+    repo_full_name: str,
+    alert_number: int | None = None,
+    state: str | None = "open",
+    severity: str | None = None,
+    ecosystem: str | None = None,
+    package: str | None = None,
+    manifest: str | None = None,
+    scope: str | None = None,
+    sort: str = "created",
+    direction: str = "desc",
+    per_page: int = 30,
+    page: int = 1,
+  ) -> dict:
+    """List the Dependabot alerts of a repository, or read 1 alert.
+
+    :param repo_full_name: owner/repo
+    :param alert_number: the alert number; set it to read that alert
+    :param state: open, dismissed, fixed or auto_dismissed
+    :param severity: low, medium, high or critical
+    :param ecosystem: the package ecosystem, for example pip or npm
+    :param package: the package name
+    :param manifest: the manifest path
+    :param scope: development or runtime
+    :param sort: created or updated
+    :param direction: asc or desc
+    :param per_page: alerts per page
+    :param page: the page number
+    """
+    repo = self._repo(repo_full_name)
+    if alert_number is not None:
+      alert = await self._request(
+        "GET", f"{API}{repo}/dependabot/alerts/{int(alert_number)}"
+      )
+      return self._ok({"alert": alert})
+    alerts = await self._request(
+      "GET",
+      f"{API}{repo}/dependabot/alerts",
+      params={
+        "state": state,
+        "severity": severity,
+        "ecosystem": ecosystem,
+        "package": package,
+        "manifest": manifest,
+        "scope": scope,
+        "sort": sort,
+        "direction": direction,
+        "per_page": min(max(1, int(per_page)), 100),
+        "page": int(page),
+      },
+    )
+    return self._ok({"alerts": alerts})
 
   async def create_pr_with_files(
     self,
