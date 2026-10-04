@@ -1505,11 +1505,8 @@ const isSwitch = (group, key) => typeof state.settings.defaults[group][key] === 
 
 function renderSettings() {
   $("settings-path").textContent = `${fileName(state.settings.path)} · Ctrl+S saves and reloads`;
-  // A row with a mode list shows only under those modes: the race values wait for race, and the
-  // pin values wait for session or race. Only `mode` always shows.
-  const mode = setting("affinity", "mode");
   const card = ([group, title, fields]) => `
-    <div class="card"><h3>${esc(title)}</h3>${fields.filter(([, , , , show]) => !show || show.includes(mode)).map(([key, label, unit, hint]) => {
+    <div class="card"><h3>${esc(title)}</h3>${fields.map(([key, label, unit, hint]) => {
       const id = `set-${group}-${key}`;
       if (isSwitch(group, key)) {
         // A desktop hides the hint behind the info icon; a phone keeps it under the label.
@@ -1550,7 +1547,19 @@ function renderSettings() {
     .map((column) => column.filter((group) => group !== "headroom" || state.settings.headroom_available))
     .map((groups) => `<div class="column">${groups.map((group) => cards[group]).join("")}</div>`)
     .join("");
+  // The rendered file wins, and the shown rows follow its mode.
+  showAffinityRows(setting("affinity", "mode"));
   renderSettingsSave();
+}
+
+// A row with a mode list shows only under those modes: the race values wait for race, and the pin
+// values wait for session or race. Only `mode` always shows. The rows stay in the page, so a pick
+// keeps its value and the card moves rows only.
+function showAffinityRows(mode = $("set-affinity-mode")?.value) {
+  for (const [key, , , , show] of SETTINGS.find(([group]) => group === "affinity")[2]) {
+    const row = $(`set-affinity-${key}`)?.closest(".field");
+    if (row) row.hidden = Boolean(show && !show.includes(mode));
+  }
 }
 
 function settingsChanges() {
@@ -2042,8 +2051,11 @@ window.addEventListener("resize", () => {
 $("settings").addEventListener("input", (event) => {
   $("settings-message").textContent = "";
   showLengthLimit(event.target, $("settings-message"));
-  // The mode decides which rows of the affinity card show, so a new mode renders the card again.
-  if (event.target.id === "set-affinity-mode") return renderSettings();
+  // The mode decides which rows of the affinity card show. The pick stays, so only the rows move.
+  if (event.target.id === "set-affinity-mode") {
+    showAffinityRows();
+    return renderSettingsSave();
+  }
   renderSettingsSave();
 });
 $("settings").addEventListener("click", (event) => {

@@ -1084,7 +1084,12 @@ const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{{probe}}};";
 const nodes = new Map();
 const node = (id) => {{
-  if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', disabled: false, hidden: false, addEventListener: () => {{}}, classList: {{ toggle: () => {{}} }} }});
+  if (!nodes.has(id)) {{
+    const made = {{ id, innerHTML: '', value: '', checked: false, textContent: '', disabled: false, hidden: false, handlers: {{}},
+      addEventListener: (type, fn) => {{ (made.handlers[type] ||= []).push(fn); }},
+      classList: {{ toggle: () => {{}} }}, closest: () => made }};
+    nodes.set(id, made);
+  }}
   return nodes.get(id);
 }};
 const sandbox = {{
@@ -1175,21 +1180,37 @@ def test_app_js_affinity_modes_hide_their_rows() -> None:
     }
   )
   run_app_js(
-    "state, renderSettings",
+    "state, renderSettings, settingsChanges",
     f"""
 probe.state.settings = {payload};
 const ids = ['set-affinity-mode', 'set-affinity-idle', 'set-affinity-stay', 'set-affinity-change_on_draw', 'set-affinity-count', 'set-affinity-chance', 'set-affinity-slow', 'set-affinity-penalty'];
-const shown = () => {{
+const shown = () => ids.filter((id) => !node(id).hidden);
+const rendered = (mode) => {{
+  node('set-affinity-mode').value = mode;
+  probe.state.settings.file.affinity = {{ mode }};
   probe.renderSettings();
-  const html = node('settings').innerHTML;
-  return ids.filter((id) => html.includes(`id="${{id}}"`));
+  assert.deepStrictEqual(shown(), mode === 'none' ? ids.slice(0, 1) : mode === 'session' ? ids.slice(0, 4) : ids, mode + ' shows its own rows');
 }};
-probe.state.settings.file.affinity = {{ mode: 'none' }};
-assert.deepStrictEqual(shown(), ['set-affinity-mode'], 'none shows only the mode');
+rendered('none');
+rendered('session');
+rendered('race');
+// A new pick moves the rows of the card at once, and the file keeps its own mode.
 probe.state.settings.file.affinity = {{ mode: 'session' }};
-assert.deepStrictEqual(shown(), ids.slice(0, 4), 'session shows the pin rows');
-probe.state.settings.file.affinity = {{ mode: 'race' }};
-assert.deepStrictEqual(shown(), ids, 'race adds the race rows');
+for (const pick of ['none', 'race', 'session']) {{
+  const select = node('set-affinity-mode');
+  select.value = pick;
+  node('settings').handlers.input.forEach((fn) => fn({{ target: select }}));
+  assert.strictEqual(select.value, pick, 'the pick stays after a change to ' + pick);
+  assert.deepStrictEqual(shown(), pick === 'none' ? ids.slice(0, 1) : pick === 'session' ? ids.slice(0, 4) : ids, pick + ' moves the rows');
+  assert.strictEqual(probe.state.settings.file.affinity.mode, 'session', 'the file is not written back');
+}}
+// A pick that differs from the file turns the Save button on and reaches the payload.
+node('settings-save').disabled = true;
+const select = node('set-affinity-mode');
+select.value = 'race';
+node('settings').handlers.input.forEach((fn) => fn({{ target: select }}));
+assert.strictEqual(node('settings-save').disabled, false, 'the Save button wakes');
+assert.strictEqual(probe.settingsChanges().affinity.mode, 'race', 'the pick reaches the save payload');
 """,
   )
 
