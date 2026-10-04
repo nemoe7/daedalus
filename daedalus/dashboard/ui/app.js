@@ -421,7 +421,7 @@ function mobileRequestDetails(r, live = false) {
   return `<details class="mobile-request-more">
     <summary>More · session, effort, pool${count}</summary>
     <dl class="mobile-request-meta">
-      <div><dt>Session</dt><dd>${esc(r.session || "-")}</dd></div>
+      <div><dt>Session</dt><dd class="mono">${esc(r.session || "-")}</dd></div>
       <div><dt>Effort</dt><dd>${effortCell(r)}</dd></div>
       <div><dt>Pool</dt><dd>${poolText(r)}</dd></div>
       <div><dt>Fallbacks</dt><dd>${esc(fallbacks)}</dd></div>
@@ -559,7 +559,7 @@ function renderLive() {
     <tr role="row" class="live-row" data-live="${r.id}">
       ${cell("Time", `<span class="pulse"></span>${stamp(r.since / 1000)}`, "num muted")}
       ${appCell(r)}
-      ${cell("Session", esc(r.session || "-"), "hide-sm hide-md num")}
+      ${cell("Session", esc(r.session || "-"), "hide-sm hide-md num mono")}
       ${nameCell(r.model || r.path, modelName(r.model || r.path))}
       ${cell("Effort", effortCell(r), "hide-sm")}
       ${cell("Pool", poolText(r), "hide-sm muted")}
@@ -664,7 +664,7 @@ function renderRequests(rows) {
     <tr role="row" class="request${chain ? " has-chain" : ""}${chainOpen ? " open" : ""}" data-at="${r.at}"${chain ? ' title="Show the fallback chain"' : ""}>
       ${cell("Time", `<span class="caret${chain ? "" : " none"}"></span>${stamp(r.at)}`, "num muted")}
       ${appCell(r)}
-      ${cell("Session", esc(r.session || "-"), "hide-sm hide-md num")}
+      ${cell("Session", esc(r.session || "-"), "hide-sm hide-md num mono")}
       ${nameCell(r.model || "-", modelName(r.model || "-"))}
       ${cell("Effort", effortCell(r), "hide-sm")}
       ${cell("Pool", poolText(r), "hide-sm muted")}
@@ -816,7 +816,7 @@ function renderKeys(rows) {
   $("keys").innerHTML = rows.length ? rows.map((k) => `
     <tr>
       <td>${esc(k.name)}</td>
-      <td class="num muted">${k.start ? esc(k.start) + "&hellip;" : "-"}</td>
+      <td class="num muted mono">${k.start ? esc(k.start) + "&hellip;" : "-"}</td>
       <td class="hide-sm muted">${stamp(k.created)}</td>
       <td class="muted">${k.used ? stamp(k.used) : "never"}</td>
       <td class="end"><button type="button" class="ghost danger" data-key="${esc(k.name)}">Delete</button></td>
