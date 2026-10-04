@@ -126,6 +126,8 @@ td.time { white-space: nowrap; }
 .line + .line { border-top: 1px solid var(--line); }
 .line > :first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .line > :last-child { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* The catalog line of the phone status card is a button, so it answers the mouse. */
+button.line.rebuild:hover { color: var(--accent); }
 .track { grid-column: 1 / -1; height: 4px; border-radius: 4px; background: var(--bar); }
 .fill { height: 100%; border-radius: 4px; background: var(--accent); }
 .more, .muted { color: var(--muted); }
@@ -300,6 +302,7 @@ tr.chain td { background: var(--field); padding-top: 4px; }
   padding: 8px 18px; border-radius: 8px; border: 0; background: var(--accent); color: #fff;
   font-weight: 600;
 }
+.primary:hover:not(:disabled) { filter: brightness(1.12); }
 .primary:disabled { opacity: .5; cursor: default; }
 textarea {
   display: block; width: 100%; min-height: 380px; resize: vertical; margin: 0; padding: 16px;
@@ -537,6 +540,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .requests .mobile-request-more { display: block; width: 100%; }
   .requests .mobile-request-more > summary, .requests .mobile-fallback-chain > summary {
     width: fit-content; padding: 5px 0; color: var(--accent); cursor: pointer; font-size: 12px; font-weight: 600;
+  }
+  .requests .mobile-request-more > summary:hover, .requests .mobile-fallback-chain > summary:hover {
+    color: var(--text);
   }
   .requests .mobile-request-meta {
     display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 8px;
