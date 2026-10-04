@@ -915,12 +915,11 @@ const DEMO_FIXTURES = __FIXTURES__;
       const file = DEMO_FIXTURES.settings.file;
       file[group] ||= {};
       for (const [key, value] of Object.entries(values)) {
-        const next = value === null || value === undefined ? DEFAULTS[group][key] : value;
-        if (next === undefined || next === null) delete file[group][key];
-        else file[group][key] = next;
-        const kept = next === undefined || next === null ? null : next;
+        const cleared = value === null || value === undefined;
+        if (cleared) delete file[group][key];
+        else file[group][key] = value;
         DEMO_FIXTURES.settings.text = text_saved(
-          DEMO_FIXTURES.settings.text, group, key, kept,
+          DEMO_FIXTURES.settings.text, group, key, cleared ? null : value,
         );
       }
     }
