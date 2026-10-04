@@ -318,7 +318,7 @@ A loop is a fault of the model that made it. See [ADR 4](adr/0004-penalties.md#l
 | Order | A weighted draw, then the weight order |
 | Weights | The same weights as the chat models |
 | Skip | A model that cannot do the request leaves it, with no fault. |
-| Try again | The same key and content as an earlier answered pool request. Transcription: audio and fields. |
+| Try again | The same key and content as an earlier answered pool request. Transcription: audio and fields. Built in, with no hook. |
 | Models of a try again | The models that answered this content leave. After all, the list restarts. |
 | Log | `retry=N` |
 | Expiry | 1 h with no repeat of the message, in memory only |
