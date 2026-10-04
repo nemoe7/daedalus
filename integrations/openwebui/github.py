@@ -3,7 +3,7 @@ title: GitHub
 author: nemo
 description: GitHub access for Open WebUI. Reads run freely; every write passes a confirmation gate and a timeout, and nothing is sent when the gate cannot be shown. Stdlib only.
 required_open_webui_version: 0.10.0
-version: 2.4.0
+version: 3.0.0
 licence: MIT
 """
 
@@ -23,7 +23,6 @@ API = "https://api.github.com"
 GRAPHQL_URL = "https://api.github.com/graphql"
 USER_AGENT = "daedalus-openwebui-github"
 JSON_ACCEPT = "application/vnd.github+json"
-RAW_HOSTS = ("github.com", "raw.githubusercontent.com", "gist.githubusercontent.com")
 
 
 class GitHubError(Exception):
@@ -326,72 +325,6 @@ class Tools:
     )
     return self._ok({"issues": issues})
 
-  async def get_issue_comment_reactions(
-    self,
-    repo_full_name: str,
-    comment_id: int,
-    per_page: int | None = None,
-    page: int | None = None,
-  ) -> dict:
-    """Fetch the reactions of an issue comment.
-
-    :param repo_full_name: owner/repo
-    :param comment_id: the comment id
-    :param per_page: results per page
-    :param page: page number
-    """
-    repo = self._repo(repo_full_name)
-    reactions = await self._request(
-      "GET",
-      f"{API}{repo}/issues/comments/{int(comment_id)}/reactions",
-      params={"per_page": per_page, "page": page},
-    )
-    return self._ok({"reactions": reactions})
-
-  async def get_pr_reactions(
-    self,
-    repo_full_name: str,
-    pr_number: int,
-    per_page: int | None = None,
-    page: int | None = None,
-  ) -> dict:
-    """Fetch the reactions of a pull request.
-
-    :param repo_full_name: owner/repo
-    :param pr_number: the pull request number
-    :param per_page: results per page
-    :param page: page number
-    """
-    repo = self._repo(repo_full_name)
-    reactions = await self._request(
-      "GET",
-      f"{API}{repo}/issues/{int(pr_number)}/reactions",
-      params={"per_page": per_page, "page": page},
-    )
-    return self._ok({"reactions": reactions})
-
-  async def get_pr_review_comment_reactions(
-    self,
-    repo_full_name: str,
-    comment_id: int,
-    per_page: int | None = None,
-    page: int | None = None,
-  ) -> dict:
-    """Fetch the reactions of a review comment.
-
-    :param repo_full_name: owner/repo
-    :param comment_id: the review comment id
-    :param per_page: results per page
-    :param page: page number
-    """
-    repo = self._repo(repo_full_name)
-    reactions = await self._request(
-      "GET",
-      f"{API}{repo}/pulls/comments/{int(comment_id)}/reactions",
-      params={"per_page": per_page, "page": page},
-    )
-    return self._ok({"reactions": reactions})
-
   async def add_comment_to_issue(
     self,
     repo_full_name: str,
@@ -673,253 +606,6 @@ class Tools:
 
     return await self._write(
       f"remove the label '{label}' from issue #{issue_number} in {repository_full_name}",
-      "",
-      run,
-      __user__=__user__,
-      __event_call__=__event_call__,
-    )
-
-  async def lock_issue_conversation(
-    self,
-    repository_full_name: str,
-    issue_number: int,
-    lock_reason: str | None = None,
-    __user__: dict | None = None,
-    __event_call__: Callable | None = None,
-  ) -> dict:
-    """Lock an issue conversation.
-
-    :param repository_full_name: owner/repo
-    :param issue_number: the issue number
-    :param lock_reason: off-topic, too heated, resolved or spam
-    """
-    repo = self._repo(repository_full_name)
-
-    async def run():
-      await self._request(
-        "PUT",
-        f"{API}{repo}/issues/{int(issue_number)}/lock",
-        payload={"lock_reason": lock_reason},
-      )
-      return self._ok({"success": True})
-
-    return await self._write(
-      f"lock issue #{issue_number} in {repository_full_name}",
-      lock_reason or "",
-      run,
-      __user__=__user__,
-      __event_call__=__event_call__,
-    )
-
-  async def unlock_issue_conversation(
-    self,
-    repository_full_name: str,
-    issue_number: int,
-    __user__: dict | None = None,
-    __event_call__: Callable | None = None,
-  ) -> dict:
-    """Unlock an issue conversation.
-
-    :param repository_full_name: owner/repo
-    :param issue_number: the issue number
-    """
-    repo = self._repo(repository_full_name)
-
-    async def run():
-      await self._request("DELETE", f"{API}{repo}/issues/{int(issue_number)}/lock")
-      return self._ok({"success": True})
-
-    return await self._write(
-      f"unlock issue #{issue_number} in {repository_full_name}",
-      "",
-      run,
-      __user__=__user__,
-      __event_call__=__event_call__,
-    )
-
-  async def add_reaction_to_issue_comment(
-    self,
-    repo_full_name: str,
-    comment_id: int,
-    reaction: str,
-    __user__: dict | None = None,
-    __event_call__: Callable | None = None,
-  ) -> dict:
-    """React to an issue comment.
-
-    :param repo_full_name: owner/repo
-    :param comment_id: the comment id
-    :param reaction: +1, -1, laugh, confused, heart, hooray, rocket or eyes
-    """
-    repo = self._repo(repo_full_name)
-
-    async def run():
-      data = await self._request(
-        "POST",
-        f"{API}{repo}/issues/comments/{int(comment_id)}/reactions",
-        payload={"content": reaction},
-      )
-      return self._ok(data)
-
-    return await self._write(
-      f"react {reaction} to comment {comment_id} in {repo_full_name}",
-      "",
-      run,
-      __user__=__user__,
-      __event_call__=__event_call__,
-    )
-
-  async def remove_reaction_from_issue_comment(
-    self,
-    repo_full_name: str,
-    comment_id: int,
-    reaction_id: int,
-    __user__: dict | None = None,
-    __event_call__: Callable | None = None,
-  ) -> dict:
-    """Remove a reaction from an issue comment.
-
-    :param repo_full_name: owner/repo
-    :param comment_id: the comment id
-    :param reaction_id: the reaction id
-    """
-    repo = self._repo(repo_full_name)
-
-    async def run():
-      await self._request(
-        "DELETE",
-        f"{API}{repo}/issues/comments/{int(comment_id)}/reactions/{int(reaction_id)}",
-      )
-      return self._ok({"success": True})
-
-    return await self._write(
-      f"remove reaction {reaction_id} from comment {comment_id} in {repo_full_name}",
-      "",
-      run,
-      __user__=__user__,
-      __event_call__=__event_call__,
-    )
-
-  async def add_reaction_to_pr(
-    self,
-    repo_full_name: str,
-    pr_number: int,
-    reaction: str,
-    __user__: dict | None = None,
-    __event_call__: Callable | None = None,
-  ) -> dict:
-    """React to a pull request.
-
-    :param repo_full_name: owner/repo
-    :param pr_number: the pull request number
-    :param reaction: +1, -1, laugh, confused, heart, hooray, rocket or eyes
-    """
-    repo = self._repo(repo_full_name)
-
-    async def run():
-      data = await self._request(
-        "POST",
-        f"{API}{repo}/issues/{int(pr_number)}/reactions",
-        payload={"content": reaction},
-      )
-      return self._ok(data)
-
-    return await self._write(
-      f"react {reaction} to PR #{pr_number} in {repo_full_name}",
-      "",
-      run,
-      __user__=__user__,
-      __event_call__=__event_call__,
-    )
-
-  async def remove_reaction_from_pr(
-    self,
-    repo_full_name: str,
-    pr_number: int,
-    reaction_id: int,
-    __user__: dict | None = None,
-    __event_call__: Callable | None = None,
-  ) -> dict:
-    """Remove a reaction from a pull request.
-
-    :param repo_full_name: owner/repo
-    :param pr_number: the pull request number
-    :param reaction_id: the reaction id
-    """
-    repo = self._repo(repo_full_name)
-
-    async def run():
-      await self._request(
-        "DELETE",
-        f"{API}{repo}/issues/{int(pr_number)}/reactions/{int(reaction_id)}",
-      )
-      return self._ok({"success": True})
-
-    return await self._write(
-      f"remove reaction {reaction_id} from PR #{pr_number} in {repo_full_name}",
-      "",
-      run,
-      __user__=__user__,
-      __event_call__=__event_call__,
-    )
-
-  async def add_reaction_to_pr_review_comment(
-    self,
-    repo_full_name: str,
-    comment_id: int,
-    reaction: str,
-    __user__: dict | None = None,
-    __event_call__: Callable | None = None,
-  ) -> dict:
-    """React to a pull request review comment.
-
-    :param repo_full_name: owner/repo
-    :param comment_id: the review comment id
-    :param reaction: +1, -1, laugh, confused, heart, hooray, rocket or eyes
-    """
-    repo = self._repo(repo_full_name)
-
-    async def run():
-      data = await self._request(
-        "POST",
-        f"{API}{repo}/pulls/comments/{int(comment_id)}/reactions",
-        payload={"content": reaction},
-      )
-      return self._ok(data)
-
-    return await self._write(
-      f"react {reaction} to review comment {comment_id} in {repo_full_name}",
-      "",
-      run,
-      __user__=__user__,
-      __event_call__=__event_call__,
-    )
-
-  async def remove_reaction_from_pr_review_comment(
-    self,
-    repo_full_name: str,
-    comment_id: int,
-    reaction_id: int,
-    __user__: dict | None = None,
-    __event_call__: Callable | None = None,
-  ) -> dict:
-    """Remove a reaction from a pull request review comment.
-
-    :param repo_full_name: owner/repo
-    :param comment_id: the review comment id
-    :param reaction_id: the reaction id
-    """
-    repo = self._repo(repo_full_name)
-
-    async def run():
-      await self._request(
-        "DELETE",
-        f"{API}{repo}/pulls/comments/{int(comment_id)}/reactions/{int(reaction_id)}",
-      )
-      return self._ok({"success": True})
-
-    return await self._write(
-      f"remove reaction {reaction_id} from review comment {comment_id} in {repo_full_name}",
       "",
       run,
       __user__=__user__,
@@ -1255,40 +941,6 @@ class Tools:
 
     return await self._write(
       f"request reviewers {reviewers or team_reviewers} on PR #{pr_number}",
-      "",
-      run,
-      __user__=__user__,
-      __event_call__=__event_call__,
-    )
-
-  async def remove_pull_request_reviewers(
-    self,
-    repository_full_name: str,
-    pr_number: int,
-    reviewers: list[str] | None = None,
-    team_reviewers: list[str] | None = None,
-    __user__: dict | None = None,
-    __event_call__: Callable | None = None,
-  ) -> dict:
-    """Remove requested reviewers from a pull request.
-
-    :param repository_full_name: owner/repo
-    :param pr_number: the pull request number
-    :param reviewers: usernames
-    :param team_reviewers: team slugs
-    """
-    repo = self._repo(repository_full_name)
-
-    async def run():
-      data = await self._request(
-        "DELETE",
-        f"{API}{repo}/pulls/{int(pr_number)}/requested_reviewers",
-        payload={"reviewers": reviewers, "team_reviewers": team_reviewers},
-      )
-      return self._ok(data)
-
-    return await self._write(
-      f"remove reviewers {reviewers or team_reviewers} from PR #{pr_number}",
       "",
       run,
       __user__=__user__,
@@ -1670,44 +1322,6 @@ class Tools:
       __event_call__=__event_call__,
     )
 
-  async def enable_auto_merge(
-    self,
-    repository_full_name: str,
-    pr_number: int,
-    __user__: dict | None = None,
-    __event_call__: Callable | None = None,
-  ) -> dict:
-    """Enable auto merge on a pull request.
-
-    :param repository_full_name: owner/repo
-    :param pr_number: the pull request number
-    """
-
-    async def run():
-      node = await self._pr_node_id(repository_full_name, pr_number)
-      data = await self._graphql(
-        """
-                mutation($id: ID!) {
-                  enablePullRequestAutoMerge(input: {pullRequestId: $id}) {
-                    pullRequest { id autoMergeRequest { enabledAt } }
-                  }
-                }
-                """,
-        {"id": node},
-      )
-      pull = (data.get("enablePullRequestAutoMerge") or {}).get("pullRequest") or {}
-      return self._ok(
-        {"success": bool(pull.get("autoMergeRequest")), "pull_request": pull}
-      )
-
-    return await self._write(
-      f"enable auto merge on PR #{pr_number} in {repository_full_name}",
-      "",
-      run,
-      __user__=__user__,
-      __event_call__=__event_call__,
-    )
-
   async def label_pr(
     self,
     repository_full_name: str,
@@ -1961,110 +1575,6 @@ class Tools:
       )
     raise GitHubError(
       422, f"fetch does not read this github.com path yet: {parsed.path}.", "GET", url
-    )
-
-  async def create_blob(
-    self,
-    repository_full_name: str,
-    content: str,
-    encoding: str = "utf-8",
-    __user__: dict | None = None,
-    __event_call__: Callable | None = None,
-  ) -> dict:
-    """Create a blob and return its SHA.
-
-    :param repository_full_name: owner/repo
-    :param content: the blob content
-    :param encoding: utf-8 (sent as base64) or base64
-    """
-    repo = self._repo(repository_full_name)
-    payload_content = (
-      content if encoding == "base64" else base64.b64encode(content.encode()).decode()
-    )
-
-    async def run():
-      data = await self._request(
-        "POST",
-        f"{API}{repo}/git/blobs",
-        payload={"content": payload_content, "encoding": "base64"},
-      )
-      return self._ok({"sha": data.get("sha")})
-
-    return await self._write(
-      f"create a blob in {repository_full_name}",
-      f"{len(content)} bytes",
-      run,
-      __user__=__user__,
-      __event_call__=__event_call__,
-    )
-
-  async def create_tree(
-    self,
-    repository_full_name: str,
-    tree_elements: list[dict],
-    base_tree_sha: str | None = None,
-    __user__: dict | None = None,
-    __event_call__: Callable | None = None,
-  ) -> dict:
-    """Create a tree and return its SHA.
-
-    :param repository_full_name: owner/repo
-    :param tree_elements: entries with path, mode, type and content or sha
-    :param base_tree_sha: the tree to extend
-    """
-    repo = self._repo(repository_full_name)
-
-    async def run():
-      data = await self._request(
-        "POST",
-        f"{API}{repo}/git/trees",
-        payload={"tree": tree_elements, "base_tree": base_tree_sha},
-      )
-      return self._ok({"sha": data.get("sha")})
-
-    return await self._write(
-      f"create a tree of {len(tree_elements)} entries in {repository_full_name}",
-      "",
-      run,
-      __user__=__user__,
-      __event_call__=__event_call__,
-    )
-
-  async def create_commit(
-    self,
-    repository_full_name: str,
-    message: str,
-    tree_sha: str,
-    parent_sha: str,
-    additional_parent_shas: list[str] | None = None,
-    __user__: dict | None = None,
-    __event_call__: Callable | None = None,
-  ) -> dict:
-    """Create a commit and return its SHA.
-
-    :param repository_full_name: owner/repo
-    :param message: the commit message
-    :param tree_sha: the tree the commit points to
-    :param parent_sha: the first parent
-    :param additional_parent_shas: more parents, for a merge
-    """
-    repo = self._repo(repository_full_name)
-    parents = [parent_sha, *(additional_parent_shas or [])]
-
-    async def run():
-      data = await self._request(
-        "POST",
-        f"{API}{repo}/git/commits",
-        payload={"message": message, "tree": tree_sha, "parents": parents},
-      )
-      return self._ok({"sha": data.get("sha")})
-
-    return await self._write(
-      f"create a commit in {repository_full_name}",
-      message,
-      run,
-      __user__=__user__,
-      __event_call__=__event_call__,
     )
 
   async def create_branch(
@@ -2724,44 +2234,6 @@ class Tools:
     )
     return self._ok({"repositories": data})
 
-  async def list_repositories_by_affiliation(
-    self, affiliation: str, page_size: int = 100, page_offset: int = 0
-  ) -> dict:
-    """List repositories by affiliation: owner, collaborator or organization_member.
-
-    :param affiliation: owner, collaborator or organization_member
-    :param page_size: repositories per page
-    :param page_offset: how many to skip
-    """
-    size = min(max(1, int(page_size)), 100)
-    data = await self._request(
-      "GET",
-      f"{API}/user/repos",
-      params={
-        "affiliation": affiliation,
-        "per_page": size,
-        "page": int(page_offset) // size + 1,
-      },
-    )
-    return self._ok({"repositories": data})
-
-  async def list_repositories_by_installation(
-    self, installation_id: int, page_size: int = 20, page_offset: int = 0
-  ) -> dict:
-    """List the repositories of one app installation.
-
-    :param installation_id: the installation id
-    :param page_size: repositories per page
-    :param page_offset: how many to skip
-    """
-    size = min(max(1, int(page_size)), 100)
-    data = await self._request(
-      "GET",
-      f"{API}/user/installations/{int(installation_id)}/repositories",
-      params={"per_page": size, "page": int(page_offset) // size + 1},
-    )
-    return self._ok({"repositories": (data or {}).get("repositories") or []})
-
   async def search_repositories(
     self,
     query: str,
@@ -2795,67 +2267,6 @@ class Tools:
         "total_count": data.get("total_count"),
       }
     )
-
-  async def search_installed_repositories_v2(
-    self,
-    query: str,
-    limit: int = 10,
-    installation_ids: list[str] | None = None,
-    page: int = 1,
-    include_search_index_status: bool = False,
-    include_archived: bool = True,
-  ) -> dict:
-    """Search the repositories the app can read.
-
-    :param query: the search terms
-    :param limit: results wanted
-    :param installation_ids: accepted for the schema; the REST search ignores it
-    :param page: the page number
-    :param include_search_index_status: no effect on REST
-    :param include_archived: keep archived repositories
-    """
-    terms = [query] + ([] if include_archived else ["archived:false"])
-    data = await self._request(
-      "GET",
-      f"{API}/search/repositories",
-      params={
-        "q": " ".join(terms),
-        "per_page": min(max(1, int(limit)), 100),
-        "page": page,
-      },
-    )
-    items = data.get("items") or []
-    # ponytail: the REST search ignores installation_ids, add a GraphQL filter when it matters.
-    return self._ok(
-      {"repositories": items, "archive_filter_applied": not include_archived}
-    )
-
-  async def search_installed_repositories_streaming(
-    self,
-    query: str,
-    limit: int = 10,
-    next_token: str | None = None,
-    option_enrich_code_search_index_availability: bool = True,
-    option_enrich_code_search_index_request_concurrency_limit: int = 10,
-  ) -> dict:
-    """Search repositories and return one page plus the next token.
-
-    :param query: the search terms
-    :param limit: results wanted per page
-    :param next_token: the page number from the last call
-    :param option_enrich_code_search_index_availability: no effect on REST
-    :param option_enrich_code_search_index_request_concurrency_limit: no effect on REST
-    """
-    page = int(next_token) if next_token and str(next_token).isdigit() else 1
-    size = min(max(1, int(limit)), 100)
-    data = await self._request(
-      "GET",
-      f"{API}/search/repositories",
-      params={"q": query, "per_page": size, "page": page},
-    )
-    items = data.get("items") or []
-    token = str(page + 1) if len(items) == size and page * size < 1000 else None
-    return self._ok({"repositories": items, "next_token": token})
 
   async def get_repo_collaborator_permission(
     self, repository_full_name: str, username: str
@@ -3352,32 +2763,6 @@ class Tools:
       __event_call__=__event_call__,
     )
 
-  async def rerun_workflow_job(
-    self,
-    repo_full_name: str,
-    job_id: int,
-    __user__: dict | None = None,
-    __event_call__: Callable | None = None,
-  ) -> dict:
-    """Rerun one workflow job. Needs Actions write permission.
-
-    :param repo_full_name: owner/repo
-    :param job_id: the job id
-    """
-    repo = self._repo(repo_full_name)
-
-    async def run():
-      await self._request("POST", f"{API}{repo}/actions/jobs/{int(job_id)}/rerun")
-      return self._ok({"success": True})
-
-    return await self._write(
-      f"rerun job {job_id} in {repo_full_name}",
-      "",
-      run,
-      __user__=__user__,
-      __event_call__=__event_call__,
-    )
-
   # ═════════════════════════ identity and accounts ══════════════════════
 
   async def get_profile(self) -> dict:
@@ -3391,21 +2776,6 @@ class Tools:
         "nickname": data.get("login"),
         "picture": data.get("avatar_url"),
         "user": data,
-      }
-    )
-
-  async def get_user_login(self) -> dict:
-    """Fetch the signed-in user login and id."""
-    data = await self._request("GET", f"{API}/user")
-    return self._ok({"login": data.get("login"), "id": data.get("id"), "user": data})
-
-  async def list_user_org_memberships(self) -> dict:
-    """List the organizations the signed-in user belongs to."""
-    data = await self._request("GET", f"{API}/user/memberships/orgs")
-    return self._ok(
-      {
-        "orgs": [item.get("organization", {}).get("login") for item in data],
-        "memberships": data,
       }
     )
 
@@ -3433,102 +2803,6 @@ class Tools:
     return self._ok(
       {"installations": installations, "allow_all_repositories_for_testing": None}
     )
-
-  async def list_installed_accounts(self) -> dict:
-    """List the accounts of the app installations the signed-in user can reach."""
-    data = await self._request("GET", f"{API}/user/installations")
-    accounts = [
-      {"installation_id": item.get("id"), **(item.get("account") or {})}
-      for item in ((data or {}).get("installations") or [])
-    ]
-    return self._ok({"accounts": accounts})
-
-  def _enrich_pulls(
-    self, repo: str, pulls: list, include_diff: bool, include_comments: bool
-  ) -> list:
-    out = []
-    for index, pull in enumerate(pulls):
-      item = dict(pull)
-      number = pull.get("number")
-      if index < 5 and include_diff:
-        item["diff"] = self._http(
-          "GET",
-          f"{API}{repo}/pulls/{number}",
-          accept="application/vnd.github.diff",
-          raw=True,
-        )
-      if index < 5 and include_comments:
-        issue_comments = self._http(
-          "GET", f"{API}{repo}/issues/{number}/comments", params={"per_page": 100}
-        )
-        review_comments = self._http(
-          "GET", f"{API}{repo}/pulls/{number}/comments", params={"per_page": 100}
-        )
-        item["comments"] = [{"kind": "issue_comment", **c} for c in issue_comments] + [
-          {"kind": "review_comment", **c} for c in review_comments
-        ]
-      out.append(item)
-    return out
-
-  async def get_users_recent_prs_in_repo(
-    self,
-    repository_full_name: str,
-    limit: int = 20,
-    state: str = "all",
-    include_diff: bool = False,
-    include_comments: bool = False,
-  ) -> dict:
-    """List the signed-in user's recent pull requests in one repository.
-
-    :param repository_full_name: owner/repo
-    :param limit: how many pull requests
-    :param state: open, closed or all
-    :param include_diff: attach each diff, first 5 only
-    :param include_comments: attach each conversation, first 5 only
-    """
-    repo = self._repo(repository_full_name)
-    me = await self._request("GET", f"{API}/user")
-    login = me.get("login")
-    pulls = await self._request(
-      "GET",
-      f"{API}{repo}/pulls",
-      params={
-        "state": state,
-        "sort": "created",
-        "direction": "desc",
-        "per_page": min(max(1, int(limit)), 100),
-        "creator": login,
-      },
-    )
-    should_enrich = include_diff or include_comments
-    pulls = (
-      await asyncio.to_thread(
-        self._enrich_pulls, repo, pulls, include_diff, include_comments
-      )
-      if should_enrich
-      else pulls
-    )
-    return self._ok({"pull_requests": pulls})
-
-  async def download_user_content(self, url: str) -> dict:
-    """Fetch the text of a github.com or raw.githubusercontent.com URL.
-
-    :param url: the URL to read
-    """
-    parsed = urlparse(url)
-    if parsed.netloc not in RAW_HOSTS + ("api.github.com",):
-      raise GitHubError(
-        422, f"Only GitHub hosts are allowed, not {parsed.netloc}.", "GET", url
-      )
-    if parsed.netloc == "github.com" and "/blob/" in parsed.path:
-      owner, name, _, ref, *rest = parsed.path.lstrip("/").split("/")
-      url = f"https://raw.githubusercontent.com/{owner}/{name}/{ref}/{'/'.join(rest)}"
-    text = await self._request(
-      "GET", url, accept="application/vnd.github.raw", raw=True
-    )
-    if len(text) > 400000:
-      text = text[:400000] + "\n[truncated at 400000 characters]"
-    return self._ok({"content": text, "url": url})
 
   # ═════════════════════ releases, tags, packages, minutes ═══════════════
 
