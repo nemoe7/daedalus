@@ -777,6 +777,18 @@ answer.then((value) => {
   modal.listeners.close({ target: { returnValue: '' } });
   return third;
 }).then((value) => assert.strictEqual(value, false, 'a close without a value resolves false'));
+// A click on the backdrop closes the dialog, and a click on the box keeps it.
+modal.getBoundingClientRect = () => ({ left: 100, top: 100, right: 300, bottom: 200 });
+let closed = null;
+modal.close = (value) => { closed = value; modal.listeners.close({ target: { returnValue: value } }); };
+const inside = probe.ask('Reset', 'All weights go back to 1.', 'Reset', true);
+modal.listeners.click({ target: { tagName: 'FORM' }, currentTarget: modal, clientX: 10, clientY: 10 });
+assert.strictEqual(closed, null, 'a click on a child of the dialog does not close it');
+modal.listeners.click({ target: modal, currentTarget: modal, clientX: 200, clientY: 150 });
+assert.strictEqual(closed, null, 'a click on the box keeps the dialog');
+modal.listeners.click({ target: modal, currentTarget: modal, clientX: 10, clientY: 10 });
+assert.strictEqual(closed, 'cancel', 'a click on the backdrop closes the dialog');
+inside.then((value) => assert.strictEqual(value, false, 'a backdrop click resolves false'));
 """
   subprocess.run(["node", "-e", code], check=True)
 
