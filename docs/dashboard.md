@@ -42,6 +42,8 @@ A static demo of this page runs at <https://nemoe7.github.io/daedalus/>. Set the
 
 That script answers each `ui/api/` call from `scripts/pages_fixtures.json`. The Requests tab starts empty, and the script streams the captured requests in, then keeps the table rotating. A save lands in the page memory, and it takes the checks of the server. Those checks cover the YAML of a file, the block of a provider name, and the rules of a key name.
 
+One state holds the demo together. The provider files build the catalog and the pools. The requests move the weights, the cooldowns, the lane counters and the balance cards. A fake upstream answers each provider with its plan, so a save and a check now agree with the tables.
+
 A reload brings the captured data back. The Catalog chip starts a rebuild in the page, and it finishes after about 26 seconds. The header shows the version `demo`.
 
 The Pages demo workflow builds the demo from `main` and deploys it after a change to the page, the script or the fixtures. After a change to an endpoint, run `python3 scripts/pages_demo.py --capture` and commit the new fixtures.

@@ -151,6 +151,39 @@ const check = (ok, text) => {
     method: "PUT",
     body: JSON.stringify({ path: main.path, blocks: main.blocks }),
   })).status === 200, "a provider form lands");
+  // One state: the provider files build the catalog and the pools, the fake upstream
+  // answers the lanes and the cards, and a save moves them together.
+  const built = await (await context.fetch("ui/api/models")).json();
+  check(built.length === 10 && built.some((row) => row.id === "cloudflare/@cf/openai/gpt-oss-120b"),
+    "the catalog reads the provider files");
+  check((await (await context.fetch("ui/api/pools")).json())
+    .find((pool) => pool.name === "daedalus/sophos").members.length === 3, "a pool reads its tier");
+  const withModel = JSON.parse(JSON.stringify(main.blocks));
+  withModel.cloudflare.models["@cf/demo/new"] = { max_input_tokens: 4096, tools: true };
+  withModel.cloudflare.tier["TIER-A"].push("@cf/demo/new");
+  check((await context.fetch("ui/api/providers", {
+    method: "PUT",
+    body: JSON.stringify({ path: main.path, blocks: withModel }),
+  })).status === 200, "a provider save with a new model");
+  const added = await (await context.fetch("ui/api/models")).json();
+  check(added.length === 11 && added.find((row) => row.id === "cloudflare/@cf/demo/new").tier === "TIER-A",
+    "the model joins the catalog and its tier");
+  check((await (await context.fetch("ui/api/pools")).json())
+    .find((pool) => pool.name === "daedalus/sophos").members.length === 4, "the pool follows the save");
+  const lanes = await (await context.fetch("ui/api/limits", { method: "POST" })).json();
+  check(lanes.lanes.length === 7
+    && lanes.providers.find((card) => card.name === "openrouter").items[0][1] === "1000 of 1K left",
+    "the upstream answers the new lane and the cards");
+  const without = JSON.parse(JSON.stringify(withModel));
+  delete without.cloudflare.models["@cf/demo/new"];
+  without.cloudflare.tier["TIER-A"] = without.cloudflare.tier["TIER-A"].filter((id) => id !== "@cf/demo/new");
+  await context.fetch("ui/api/providers", {
+    method: "PUT",
+    body: JSON.stringify({ path: main.path, blocks: without }),
+  });
+  check((await (await context.fetch("ui/api/models")).json()).length === 10, "the model leaves the catalog");
+  check((await (await context.fetch("ui/api/limits", { method: "POST" })).json()).lanes.length === 6,
+    "the lane leaves with it");
   check((await context.fetch("ui/api/reset", { method: "POST" })).status === 200, "a reset lands");
   const cleared = await (await context.fetch("ui/api/models")).json();
   check(cleared.every((row) => row.cooldown === null && row.weight === 1), "the reset clears the weights");
@@ -223,6 +256,14 @@ const check = (ok, text) => {
   check(shaped(end.row), "the finished row carries the fields of the server");
   const grown = await (await context.fetch("ui/api/requests?limit=500")).json();
   check(grown.length > all.length, "the finished row joins the table");
+  // The status and the cards read the same state as the table.
+  const liveStatus = await (await context.fetch("ui/api/status")).json();
+  check(liveStatus.models === 10, "the status counts the catalog");
+  check(liveStatus.sessions === new Set(grown.map((row) => row.session).filter(Boolean)).size,
+    "the status counts the sessions of the table");
+  const liveLimits = await (await context.fetch("ui/api/limits", { method: "POST" })).json();
+  check(liveLimits.providers.find((card) => card.name === "cloudflare").items[0][1]
+    !== "10000 of 10K left", "the traffic moves the balance card");
   check(grown.every(shaped), "each row of the table carries the fields of the server");
   check(grown.some((row) => Number(row.fallbacks) > 0), "a fallback chain arrives");
   check(grown.some((row) => (row.attempts || []).some((a) => a.cooldown)), "a rate limit");
