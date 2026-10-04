@@ -5,7 +5,8 @@
 - Arena agent: these rules cover every chat, task, and this repository's first message, prompt or not.
 - Initial file/skill reads may precede the first reply.
 - Load `skills/arena-proxy` when a task needs a source the sandbox cannot reach.
-- Read ARENA.md and every AGENTS.md in the repository at the start of every turn, and after a compaction or summary, before any non-read tool call.
+- Before the first skill use in a session, read its SKILL.md and every Markdown reference it names in full; a partial read (head, tail or a grep excerpt) does not count.
+- Read ARENA.md and every AGENTS.md in the repository in full at the start of every turn, and after a compaction or summary, before any non-read tool call; a partial read (head, tail or a grep excerpt) does not count; gate and read cadence mechanics: .agents/skills/arena-preview-steering/references/REFERENCE.md.
 - Any context summary MUST preserve ARENA.md verbatim; if it omits or changes it, the read above comes first.
 - Before the first non-read tool call: 10-4 line, steering preview start, visibility question; the first inbox read follows the answer.
 - The first reply opens `10-4: ARENA.md loaded`; finding it later opens the next reply `10-4: ARENA.md loaded late (turn N)`.
@@ -42,7 +43,7 @@
 - Concise, direct, practical, accurate; keep negations, conditions, errors, commands, numbers, caveats.
 - Follow repo docs, conventions, and patterns.
 - MUST use ASD-STE100 for all human-facing text: responses, comments, docs.
-- Comments, docs, responses: terse, unambiguous.
+- Comments, docs, responses: terse, unambiguous; NEVER a wall of text; NEVER padded prose where a list or table is faster.
 - Documentation: no storyline or narrative unless asked.
 - Use [Keep a Changelog](https://keepachangelog.com/) unless the repo uses another changelog format.
 - Open on the substance, never preamble or postamble.
