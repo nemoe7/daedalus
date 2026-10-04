@@ -1,4 +1,4 @@
-"""Tests of the Keys and values panel for env:NAME and db:NAME."""
+"""Tests of the saved values of the provider keys: env:NAME and db:NAME."""
 
 import os
 import shutil
