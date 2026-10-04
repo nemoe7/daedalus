@@ -1,6 +1,6 @@
 # Configuration
 
-daedalus reads 3 sources:
+daedalus reads its settings from these sources:
 
 | Source | Contents | Edit from the dashboard |
 | --- | --- | --- |
@@ -71,7 +71,9 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 
 ## Router settings
 
-`config/daedalus.yml`. Each key is optional. A missing key uses the default. An unknown key stops the start. The 2 old groups, `session_affinity` and `parallel`, stop it too, and the error names the `affinity.mode` that replaces each one.
+`config/daedalus.yml`. Each key is optional. A missing key uses the default. An unknown key stops the start.
+
+The 2 old groups, `session_affinity` and `parallel`, stop it too. The error names the `affinity.mode` that replaces each one.
 
 The shipped file holds the changes from the defaults only. The **Settings** page writes the changed keys only. A cleared field loses its line, and the default applies. The table below lists each key, its default and its use.
 
