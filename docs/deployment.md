@@ -179,6 +179,29 @@ The confirmation travels over the socket of the chat tab. `WEBSOCKET_EVENT_CALLE
 
 `tests/integrations/test_owui_github_tool.py` holds the tool surface, the gate and the error path.
 
+#### Google tool
+
+`integrations/openwebui/google.py` is a second Workspace Tool: 1 file, standard library only, empty `requirements`. It holds Gmail, Calendar, Drive and Docs. Reads run at once. Each write asks for confirmation in the chat.
+
+1. In the Google Cloud console, make an OAuth client of the type Desktop app, and turn on the Gmail, Calendar, Drive and Docs APIs.
+2. Do the consent 1 time, with the scopes `gmail.readonly`, `gmail.send`, `calendar.readonly`, `calendar.events`, `drive.readonly` and `documents`. The reply holds the refresh token.
+3. **Valves**: set `google_client_id`, `google_client_secret` and `google_refresh_token`. Keep `default_mode` `ask`.
+
+| Valve | Default | Meaning |
+| --- | --- | --- |
+| `google_client_id` | empty | The OAuth client id. |
+| `google_client_secret` | empty | The OAuth client secret. |
+| `google_refresh_token` | empty | The refresh token of the 1-time consent. The tool trades it for an access token and caches that for an hour. |
+| `calendar_id` | `primary` | The calendar the agenda reads. |
+| `max_results` | `10` | The default page of a list read. |
+| `default_mode` | `ask` | `ask` gates each write, `allow` skips the dialog, `deny` refuses each write. |
+| `timeout_seconds` | `60` | The wait for the confirmation. A closed tab, no dialog, or a late answer reads as no. |
+| `http_timeout_seconds` | `30` | The Google HTTP timeout. |
+
+The 5 reads are `search_mail`, `read_thread`, `agenda`, `search_files` and `read_document`. The 3 gated writes are `send_mail`, `create_event` and `append_to_document`. `UserValves.mode` and `UserValves.timeout_seconds` work as they do on the GitHub tool.
+
+`tests/integrations/test_owui_google_tool.py` holds the surface, the gate, the token cache and the error path.
+
 ### Open WebUI database
 
 The `webui` profile starts `webui-db` with Open WebUI.
