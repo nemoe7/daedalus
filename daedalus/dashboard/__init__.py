@@ -195,6 +195,7 @@ FIELDS = (
   "pool",
   "routed",
   "transition",
+  "race",
   "retry",
   "loop",
   "via",
