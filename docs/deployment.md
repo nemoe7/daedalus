@@ -147,7 +147,7 @@ Keep **Function Calling** on **Native**, the Open WebUI default since v0.10.0. N
 
 #### GitHub tool
 
-`integrations/openwebui/github.py` is an Open WebUI Workspace Tool: one Python file, standard library only, empty `requirements`. It holds the GitHub surface of the reference connector. Reads run at once. Each write asks for confirmation in the chat.
+`integrations/openwebui/github.py` is an Open WebUI Workspace Tool: one Python file, standard library only, empty `requirements`. It holds the GitHub surface of the reference connector. Reads run at once. Each write asks for confirmation in the chat. 3 tools sit outside the connector list. `create_pr_with_files` writes a file list as 1 commit and opens or updates the pull request. `list_commits` reads the history of a path or a branch. `list_tree` reads the whole tree in 1 call.
 
 1. **Workspace → Tools**, **Create**, paste the file, **Save**.
 2. **Valves**: set `github_token`, or set the `GITHUB_TOKEN` environment value. Keep `default_mode` `ask`.
@@ -160,6 +160,8 @@ Keep **Function Calling** on **Native**, the Open WebUI default since v0.10.0. N
 | `timeout_seconds` | `60` | The wait for the confirmation. A closed tab, no dialog, or a late answer reads as no. |
 | `http_timeout_seconds` | `30` | The GitHub HTTP timeout. |
 | `api_version` | `2022-11-28` | The `X-GitHub-Api-Version` header. |
+| `max_files_per_commit` | `30` | The file limit of `create_pr_with_files`. |
+| `max_tree_entries` | `2000` | The entry limit of `list_tree`. |
 
 `UserValves.mode` gives each user `ask`, `allow`, `deny`, or `default` for the valve. `UserValves.timeout_seconds` gives each user their own confirmation wait. A value of `0` keeps the valve.
 
