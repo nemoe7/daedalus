@@ -277,7 +277,6 @@ tr.request.open td { border-bottom: 0; }
 }
 tr.open .caret { transform: rotate(45deg); }
 .caret.none { visibility: hidden; }
-.stop { display: inline-block; width: 9px; height: 9px; border-radius: 1px; background: currentColor; vertical-align: middle; }
 tr.chain td { background: var(--field); padding-top: 4px; }
 /* Zero width with a full minimum: the chain fills the row but does not set the column widths. */
 .chain-body { width: 0; min-width: 100%; }

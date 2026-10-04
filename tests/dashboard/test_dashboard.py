@@ -404,6 +404,21 @@ assert(sandbox.__probe.MARK_FILES.has('cloudflare') && sandbox.__probe.MARK_FILE
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_app_js_cancelled_status() -> None:
+  """A request the client closed shows 499, the nginx code for that case."""
+  code = _app_js_vm(
+    """
+const cell = sandbox.statusCell;
+const text = sandbox.statusText;
+assert.strictEqual(cell({ cancelled: true }), '<span title="Cancelled">499</span>', 'the code of a closed request');
+assert.strictEqual(cell({ cancelled: false, status: 200 }), '200', 'a normal code');
+assert.strictEqual(cell({ cancelled: false, status: 'err' }), 'err', 'a failed request');
+assert.strictEqual(text({ cancelled: true }), 'cancelled', 'the word in the chain text');
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_the_mark_files_match_the_icon_folder() -> None:
   """The app.js mark set holds each shipped SVG name, and no other name."""
   source = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")

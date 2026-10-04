@@ -57,7 +57,8 @@ text and the cell title keep the full `provider/slug`.
 
 The page lists the requests in flight at the top, then the last ones, 50 at
 a time and 500 at most. A click on a request opens its attempts, and a hover
-on a count or name shows the exact value. The Pool column shows 3-character
+on a count or name shows the exact value. A request that the client closed shows the code `499`.
+The Pool column shows 3-character
 codes, such as `lmt`, `rt1`, `frX` and `tlN`, and the Code legend card beside the
 table gives the meaning of each code. A hook file that defines `on_init` adds
 its rows below the base rows of that card. A wide screen keeps the table in its
