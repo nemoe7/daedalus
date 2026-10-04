@@ -418,7 +418,8 @@ function chainRows(r) {
 }
 
 // The routing codes of the model cell: a transition, a fallback tier, and a stopped loop.
-// Why the racers did or did not start: the short code with the full note, shown while the race is on.
+// Why the racers did or did not start: the code wears the same 3 letter shape as the routing
+// codes, and the title carries the full note. It shows while the race is on.
 const RACE_NOTES = {
   off: "Parallel is off in the settings",
   pool: "The request is not a pool or auto route",
@@ -428,8 +429,12 @@ const RACE_NOTES = {
   slow: "The racers started after the slow seconds",
   drawn: "The draw started the racers with the first model",
 };
+const RACE_CODES = {
+  off: "off", pool: "pol", stream: "str", single: "sgl",
+  fast: "fst", slow: "slw", drawn: "drw",
+};
 const raceCode = (r) => (state.status?.parallel?.enabled && RACE_NOTES[r.race]
-  ? ` <span class="from" title="${esc(RACE_NOTES[r.race])}">rc-${esc(r.race)}</span>` : "");
+  ? ` <span class="transition-code" title="${esc(RACE_NOTES[r.race])}">${esc(RACE_CODES[r.race])}</span>` : "");
 
 function routingCodes(r) {
   const from = r.routed ? ` <span class="from" title="Tier ${esc(poolTier(r.routed))} of the previous model">fr${esc(poolTier(r.routed))}</span>` : "";
