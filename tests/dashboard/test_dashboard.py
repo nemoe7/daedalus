@@ -719,6 +719,45 @@ assert.strictEqual(probe.relative(now - 3600), '1 hour ago');
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_app_js_retry_code() -> None:
+  """A try again shows its count as rtN, and the legend lists the same code."""
+  source = Path("daedalus/dashboard/ui/app.js").read_text()
+  assert 'code === "try" ? "rtN" : code' in source, (
+    "the cell and the legend share 1 code"
+  )
+  code = """
+const fs = require('fs');
+const vm = require('vm');
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { transitionCell };";
+const nodes = new Map();
+const node = (id) => {
+  if (!nodes.has(id)) nodes.set(id, { innerHTML: '', textContent: '', value: '', hidden: false, returnValue: '',
+    shown: false, listeners: {},
+    addEventListener(type, handler) { this.listeners[type] = handler; },
+    showModal() { this.shown = true; },
+    classList: { toggle: () => {} } });
+  return nodes.get(id);
+};
+const sandbox = {
+  esc: (text) => String(text ?? ''), seconds: (value) => value.toFixed(3) + 's',
+  floorCount: (value) => String(value), toLocaleString: (value) => String(value),
+  matchMedia: () => ({ matches: false, addEventListener: () => {} }),
+  document: { hidden: false, documentElement: { dataset: {} }, getElementById: node, querySelector: () => ({ firstChild: { textContent: 'M' } }), querySelectorAll: () => [], addEventListener: () => {} },
+  navigator: {}, location: { hash: '' }, window: { addEventListener: () => {} },
+  getSelection: () => ({ isCollapsed: true }), console: { error: () => {} }, $: node,
+};
+vm.createContext(sandbox);
+vm.runInContext(src, sandbox);
+const assert = require('assert');
+const cell = sandbox.__probe.transitionCell;
+assert.ok(cell({ reason: 'try' }, '2').includes('>rt2<'), 'the try code carries the count');
+assert.ok(cell({ reason: 'try' }, null).includes('>rt<'), 'a countless retry shows rt');
+assert.ok(cell({ reason: 'lmt' }, '2').includes('>lmt<'), 'another reason keeps its own code');
+assert.strictEqual(cell(null, '1'), '', 'no transition, no code');
+"""
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_app_js_limit_units() -> None:
   """A limit row names its model on 1 line and shows a short unit such as TPM."""
   payload = {

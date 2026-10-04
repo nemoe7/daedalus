@@ -372,7 +372,7 @@ function chainRows(r) {
 function poolText(r) {
   const from = r.routed ? ` <span class="from" title="Tier ${esc(poolTier(r.routed))} of the previous model">fr${esc(poolTier(r.routed))}</span>` : "";
   const loop = r.loop ? ` <span class="from" title="${esc(r.loop)} equal tool calls stopped the chain">tl${esc(r.loop)}</span>` : "";
-  return `${esc(r.pool || "-")}${transitionCell(r.transition)}${from}${loop}`;
+  return `${esc(r.pool || "-")}${transitionCell(r.transition, r.retry)}${from}${loop}`;
 }
 
 function mobileFallbackChain(r) {
@@ -478,13 +478,15 @@ const TRANSITION_REASONS = {
   rnd: "Weighted random draw selected another model",
   cls: "Prompt classifier chose a different tier",
   esc: "Escalation keyword raised the tier",
-  try: "OpenWebUI retry changed the route",
+  try: "OpenWebUI try again moved the tier up",
 };
 
-function transitionCell(t) {
+// The code of a transition. A try again carries its count: rt1, rt2.
+function transitionCell(t, retry) {
   if (!t || !t.reason) return "";
+  const code = t.reason === "try" ? `rt${retry ?? ""}` : t.reason;
   const label = TRANSITION_REASONS[t.reason] || t.reason;
-  return ` <span class="transition-code" title="${esc(label)}" aria-label="${esc(label)}">${esc(t.reason)}</span>`;
+  return ` <span class="transition-code" title="${esc(label)}" aria-label="${esc(label)}">${esc(code)}</span>`;
 }
 
 // The tier letter of a pool short name: sophos gives A. The pool cards give it, and the
@@ -499,7 +501,9 @@ function poolTier(name) {
 // The code legend of the Requests page: each short code with its meaning.
 function renderLegend() {
   const rows = [
-    ...Object.entries(TRANSITION_REASONS),
+    ...Object.entries(TRANSITION_REASONS).map(([code, label]) => [
+      code === "try" ? "rtN" : code, label,
+    ]),
     ["frX", "the tier of the previous model"],
     ["tlN", "N equal tool calls stopped the chain"],
   ];
