@@ -1,6 +1,6 @@
 # Preview transport: commands and recovery
 
-Use `scripts/preview.py` relative to the actual installed steering skill. The state directory is `ARENA_PREVIEW_STATE_DIR` when that is set, and the repository `arena-state` otherwise. Keep the same ignored, persisted directory across CLI calls and server restarts.
+Use `scripts/preview.py` relative to the actual installed steering skill. The state directory is `ARENA_PREVIEW_STATE_DIR` when that is set, and the repository `arena-state` otherwise. Keep the same ignored, persisted directory across CLI calls and server restarts. The installed wrapper finds the repository from its own path, so every CLI call works from any working directory and needs no `cd`.
 
 ## Commands
 
@@ -16,7 +16,7 @@ Use `scripts/preview.py` relative to the actual installed steering skill. The st
 | `task-list` | List tasks and their stored status, order and details |
 | `task ID TITLE [DETAIL ...]` | Add or update a task; use `--msg-id` for note-born and report-born tasks, and `--blocked` or `--unblocked` for the blocked mark |
 | `task-remove ID` | Remove a task entered by mistake |
-| `import-state [FILE]` | Import copied NDJSON or JSON notes, tasks and report answers from a file or stdin in one transaction; `--replace-tasks` replaces only tasks |
+| `import-state [FILE]` | Import copied NDJSON or JSON notes, tasks and report answers from a file or stdin in one transaction; `--replace-tasks` replaces only tasks; an import older than the live state is refused unless `--force` |
 | `publish <source.md> --id <id> --title <title>` | Publish or update a rendered report |
 | `unpublish <id>` | Remove a report from the tab; its answers and source survive |
 
@@ -49,7 +49,7 @@ Task IDs have 1–64 lowercase letters, digits or hyphens and start with a lette
 | `--msg-id <full-message-id>` | Link a note or report answer to its task; still call `ack` |
 | `--amend <previous-task-id>` | Rename a task without losing its details or order |
 
-`import-state` merges by ID and preserves existing message receipts. Use `--replace-tasks` only after checking the input. Never infer a finished task from a commit alone.
+`import-state` merges by ID and preserves existing message receipts. It refuses an import whose newest message is older than the newest message in the live state, and names both stamps. `--force` overrides the guard. Use `--replace-tasks` only after checking the input. Never infer a finished task from a commit alone.
 
 ## Publish reports
 
