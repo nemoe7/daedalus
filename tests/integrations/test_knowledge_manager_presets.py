@@ -159,7 +159,7 @@ class Tools(module.Tools):
 
 
 def test_the_tool_surface_holds() -> None:
-  """The 20 knowledge tools stay public, and the preset helpers stay private."""
+  """The 23 knowledge tools stay public, and the preset helpers stay private."""
   names = [name for name in dir(module.Tools) if not name.startswith("_")]
   assert sorted(
     name for name in names if callable(getattr(module.Tools, name))
