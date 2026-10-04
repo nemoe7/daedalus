@@ -3,16 +3,25 @@
 import inspect
 import os
 
+import httpx
 import pytest
 
 from daedalus import config, dashboard, store
 from daedalus.catalog import discovery, schedule
+from daedalus.config import defaults as defaults_module
 from daedalus.providers import hooks, signatures
 from daedalus.routing import loops, router
 from daedalus.server import api, headroom, media, upstream
 
 # The master key of a test file without its own MASTER value.
 MASTER = "test-master-key-0001"
+
+
+def no_network(*_args: object, **_kwargs: object) -> str:
+  """A test never reads the default provider file of the repository over the network."""
+  raise httpx.ConnectError("no network in a test")
+
+
 # The values that `api.apply_settings` sets. Each test file gets them back at the end.
 SETTINGS = (
   *((upstream, name) for name in ("TIMEOUT_SECONDS", "WAIT_SECONDS")),
@@ -71,6 +80,9 @@ def state_folder(
   os.environ[dashboard.DAEDALUS_MASTER_KEY] = getattr(request.module, "MASTER", MASTER)
   with pytest.MonkeyPatch.context() as patch:
     patch.setattr(store, "MODELS_DB", folder / "models.sqlite3")
+    # No test reads the default provider file of the repository over the network.
+    patch.setattr(defaults_module, "PATH", folder / "free.defaults.yml")
+    patch.setattr(defaults_module, "fetch", no_network)
     patch.setattr(discovery, "DUMP_DIR", folder / "dump")
     patch.setattr(hooks, "CONFIG_DIR", folder / "config")
     patch.setattr(api.PENALTIES, "pick", api.PENALTIES.pick)
