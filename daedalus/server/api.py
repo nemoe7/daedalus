@@ -45,14 +45,14 @@ AFFINITY = True
 KEYWORDS: re.Pattern[str] | None = None
 # The keywords of `switch.keywords` as 1 pattern, or None when the list is empty.
 SWITCH: re.Pattern[str] | None = None
-# The `parallel` settings: the next models of the chain race the first token of a stream request.
+# The `parallel` settings: the next models of the chain race the first content of a request.
 PARALLEL_ENABLED = False
-# The key that lets a non-stream request race under the same gate. Its loser pays its whole answer.
-PARALLEL_NON_STREAMS = False
 PARALLEL_COUNT = 1
 PARALLEL_CHANCE = 0.05
 PARALLEL_SLOW_SECONDS = 30.0
 PARALLEL_PENALTY = 0.9
+# The upstream statuses that never mean a stream refusal: the key and the rate limit.
+NOT_A_REFUSAL = (401, 403, 429)
 
 logger = logging.getLogger("daedalus")
 
@@ -900,21 +900,26 @@ async def chat(request: Request) -> Response:
     and model != router.RESERVED_MODEL
     and (router.model_setting(config, model, "timeout") is not None)
   )
-  # A stream request to a pool or to `daedalus/auto` can race the next models of its own chain.
+  # A request to a pool or to `daedalus/auto` can race the next models of its own chain. A
+  # non-stream client reads our own stream from each model that can send one, so its race
+  # needs no stream on the request. Only a flagged-off model holds the gate.
+  raceable = bool(body.get("stream")) or any(
+    router.streams_allowed(config, name) for name in models[: 1 + PARALLEL_COUNT]
+  )
   runners = (
     models[1 : 1 + PARALLEL_COUNT]
-    if PARALLEL_ENABLED
-    and found[1]
-    and (body.get("stream") or PARALLEL_NON_STREAMS)
-    and len(models) > 1
+    if PARALLEL_ENABLED and found[1] and raceable and len(models) > 1
     else []
   )
+  # A request that may race reads our own stream from each model, so a non-stream client gets 1
+  # buffered body and can race too. A request with no race keeps its plain whole body.
+  racing = bool(runners)
   # Why the racers did or did not start, for the row of the dashboard.
   if not PARALLEL_ENABLED:
     request.state.race = "off"
   elif not found[1]:
     request.state.race = "pool"
-  elif not body.get("stream") and not PARALLEL_NON_STREAMS:
+  elif not raceable:
     request.state.race = "stream"
   elif len(models) <= 1:
     request.state.race = "single"
@@ -922,12 +927,32 @@ async def chat(request: Request) -> Response:
   async def start_candidate(model: str, sent: dict[str, Any]) -> dict[str, Any]:
     """Start 1 model and wait for its first content, or for the whole answer without a stream."""
     response = None
+    began = time.perf_counter()
     try:
-      provider, response = await upstream.in_time(
-        upstream.attempt(model, body, config, sent, pin.client), deadline
+      # A non-stream client reads our own stream when this request may race, and buffers the
+      # answer into 1 body. A model that cannot send a stream answers its plain body.
+      buffered = (
+        not body.get("stream") and racing and router.streams_allowed(config, model)
       )
+      asked = {**body, "stream": True} if buffered else body
+      try:
+        provider, response = await upstream.in_time(
+          upstream.attempt(model, asked, config, sent, pin.client), deadline
+        )
+      except upstream.UpstreamStatus as exc:
+        # A status that names the request shape is a stream refusal. Try this model once
+        # without a stream, and buffer its whole body. The key, the rate limit and a provider
+        # fault keep their own paths.
+        if not buffered or exc.status in NOT_A_REFUSAL or exc.status >= 500:
+          raise
+        attempts.append(upstream.note(model, "stream refused", began, exc.detail))
+        logger.info("upstream %s refused the stream, retrying without one", model)
+        buffered, response = False, None
+        provider, response = await upstream.in_time(
+          upstream.attempt(model, body, config, sent, pin.client), deadline
+        )
       wait = router.model_wait(config, model, upstream.WAIT_SECONDS)
-      if not body.get("stream"):
+      if not buffered and not body.get("stream"):
         raw = await upstream.in_time(upstream.read_body(response, wait), deadline)
         return {"provider": provider, "response": response, "wait": wait, "raw": raw}
       events = stream.sse_data(provider.stream(response, model, True, wait), wait)
@@ -1044,16 +1069,19 @@ async def chat(request: Request) -> Response:
         content = winner.task.result()
       wait = content["wait"]
       if not body.get("stream"):
-        raw = content["raw"]
-        answer = json.loads(raw)
-        if not isinstance(answer, dict) or answer.get("error"):
-          raise providers.ProviderError(f"Invalid upstream answer: {error_text(raw)}")
-        completion = hooks.run(
-          "on-answer",
-          config,
-          candidate,
-          content["provider"].completion(answer, candidate),
-        )
+        events = content.get("events")
+        if events is None:
+          raw = content["raw"]
+          answer = json.loads(raw)
+          if not isinstance(answer, dict) or answer.get("error"):
+            raise providers.ProviderError(f"Invalid upstream answer: {error_text(raw)}")
+          answer = content["provider"].completion(answer, candidate)
+        else:
+          # A non-stream client behind our own stream: buffer the events into 1 answer.
+          answer = await upstream.in_time(
+            stream.cache(content["pending"], events, candidate), deadline
+          )
+        completion = hooks.run("on-answer", config, candidate, answer)
         if (channel := loops.answer_loop(completion)) is not None:
           raise loops.LoopError(channel)
         loops.save(loops.answer_calls(completion), candidate)
@@ -1182,7 +1210,7 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   """Use the values of `config/daedalus.yml`."""
   global SLOW_SECONDS, AFFINITY, KEYWORDS, SWITCH
   global PARALLEL_ENABLED, PARALLEL_COUNT, PARALLEL_CHANCE, PARALLEL_SLOW_SECONDS
-  global PARALLEL_PENALTY, PARALLEL_NON_STREAMS, REQUEST_HOOKS
+  global PARALLEL_PENALTY, REQUEST_HOOKS
   # The settings key each pool by its generic name. Its default value gives the built-in name.
   router.set_pool_names(
     {settings.DEFAULTS["pools"][key]: name for key, name in values["pools"].items()}
@@ -1196,14 +1224,12 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   parallel = values["parallel"]
   (
     PARALLEL_ENABLED,
-    PARALLEL_NON_STREAMS,
     PARALLEL_COUNT,
     PARALLEL_CHANCE,
     PARALLEL_SLOW_SECONDS,
     PARALLEL_PENALTY,
   ) = (
     parallel["enabled"],
-    parallel["non_streams"],
     parallel["count"],
     parallel["chance"],
     parallel["slow"],
