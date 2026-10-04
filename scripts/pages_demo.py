@@ -1,9 +1,10 @@
 """Build the static demo of the dashboard for GitHub Pages, and capture its fixtures.
 
 `--capture` runs the dashboard against a demo state, in this process, and writes the JSON
-fixtures. `--out` copies the UI, adds `demo.js` that answers each call from the fixtures,
-and patches the page to load it. The demo fills the Requests tab and simulates live
-requests, so the pages move as they do on a server.
+fixtures. `--out` copies the UI, adds `demo.js`, and patches the page to load it. The demo
+holds one state: the provider files build the catalog and the pools, a fake upstream
+answers the limits and the cards, and the simulated requests move the weights, the
+cooldowns and the counts. The pages move as they do on a server.
 """
 
 from __future__ import annotations
@@ -540,6 +541,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     setTimeout(() => {
       DEMO_FIXTURES.status.catalog.rebuilding = false;
       DEMO_FIXTURES.status.catalog.built = Date.now() / 1000;
+      state.models = catalog();
     }, REBUILD_MS);
     return json({ ok: true }, 202);
   };
@@ -624,7 +626,8 @@ const DEMO_FIXTURES = __FIXTURES__;
         return { error: `mapping values are not allowed here at line ${n + 1}, column ${depth + at + 3}` };
       if (!top.node || typeof top.node !== "object" || Array.isArray(top.node))
         return { error: `mapping values are not allowed here at line ${n + 1}, column ${depth + 1}` };
-      const key = body.slice(0, at).trim();
+      // A quoted key carries its quotes in the text only, as the server's reader does.
+      const key = body.slice(0, at).trim().replace(/^(["'])(.*)\\1$/, "$2");
       if (!value) {
         const follows = next_body(n + 1, depth);
         const child = follows.startsWith("- ") ? [] : {};
@@ -673,6 +676,8 @@ const DEMO_FIXTURES = __FIXTURES__;
     return "";
   };
   // The provider form sends parsed blocks. The files tab reads the text of a file.
+  // A plain YAML key starts with a letter, a digit or _. A slug such as @cf/... needs quotes.
+  const key_of = (key) => (/^[A-Za-z0-9_][A-Za-z0-9_./@+-]*$/.test(String(key)) ? key : JSON.stringify(String(key)));
   const yaml_of = (value, pad = "") => {
     if (Array.isArray(value))
       return value
@@ -686,8 +691,8 @@ const DEMO_FIXTURES = __FIXTURES__;
       return Object.entries(value)
         .map(([key, item]) =>
           item && typeof item === "object"
-            ? `${pad}${key}:\\n${yaml_of(item, pad + "  ")}`
-            : `${pad}${key}: ${scald(item)}\\n`
+            ? `${pad}${key_of(key)}:\\n${yaml_of(item, pad + "  ")}`
+            : `${pad}${key_of(key)}: ${scald(item)}\\n`
         )
         .join("");
     return `${pad}${scald(value)}\\n`;
@@ -753,11 +758,6 @@ const DEMO_FIXTURES = __FIXTURES__;
   const put_map = (lines, node, document, pad) => {
     for (const [key, value] of Object.entries(document)) lines = put_value(lines, node, key, value);
     return lines;
-  };
-  const yaml_merge = (text, document) => {
-    const lines = text.length ? text.split("\\n") : [];
-    const tree = line_tree(text);
-    return put_map(lines, tree, document, "").join("\\n");
   };
   const prune_groups = (lines) => {
     const kept = [];
@@ -892,7 +892,9 @@ const DEMO_FIXTURES = __FIXTURES__;
     const document = row.main ? blocks : blocks[stem];
     if (!document || typeof document !== "object" || Array.isArray(document))
       return bad(`${path} needs the block ${stem}.`, 400);
-    row.text = yaml_merge(row.text, document);
+    // The form writes the whole file with the demo writer, so the blocks stay the truth
+    // of the state and the catalog follows them.
+    row.text = yaml_of(row.main ? document : { [stem]: document }, "");
     form_blocks(row);
     return json({ ok: true, text: row.text });
   };
@@ -934,30 +936,223 @@ const DEMO_FIXTURES = __FIXTURES__;
     }
     return json({ ok: true, text: DEMO_FIXTURES.settings.text });
   };
-  // The limits check of the server reads each provider again. The demo shifts the captured
-  // clock to now and counts the requests that it served.
-  const check_limits = () => {
-    const now = Date.now() / 1000;
-    const seen = DEMO_FIXTURES.limits;
-    seen.checked = now;
-    for (const lane of seen.lanes) {
-      const waited = Math.max(0, (lane.rows[0]?.reset || now) - lane.at);
-      lane.at = now;
-      for (const item of lane.rows) {
-        const used = USED.get(lane.model) || 0;
-        if (item.kind === "requests") item.remaining = Math.max(0, item.remaining - used);
-        if (item.kind === "tokens") item.remaining = Math.max(0, item.remaining - used * 40);
-        item.reset = now + waited;
+  // The fake upstream of the demo: each provider answers with its plan, its caps and its
+  // balance. The capture keeps the values of a real plan, so the shapes stay true.
+  const PLAN = {
+    cloudflare: { requests: 14400, tokens: 4000000, neurons: 10000 },
+    kilo: { requests: 200, tokens: 1000000 },
+    openrouter: { requests: 1000, tokens: 4000000, free: 1000 },
+    pollinations: { requests: 600, tokens: 1000000 },
+  };
+  const plan_of = (provider, block) => {
+    const plan = { ...(PLAN[provider] || { requests: 1000, tokens: 1000000 }) };
+    if (block) {
+      // A block may set its own cap, as the hourly_requests key of kilo does.
+      if (block.hourly_requests) plan.requests = block.hourly_requests;
+      if (block.models && typeof block.models === "object") plan.token_cap = null;
+    }
+    return plan;
+  };
+  // The catalog of the server: each provider block of the config files gives its models,
+  // its tiers and its metadata. The capture keeps the weight, the order and the flags of a
+  // known model, and the traffic moves the weight and the cooldown of every model.
+  const MODEL_DEFAULTS = Object.fromEntries(
+    Object.entries(DEMO_FIXTURES.models[0]).map(([key, value]) => [key, value])
+  );
+  const weights = new Map();
+  const cooldowns = new Map();
+  // A shadow file merges over the block of its name, key by key, as the config does.
+  const merge = (into = {}, from = {}) => {
+    const out = { ...into };
+    for (const [key, value] of Object.entries(from)) {
+      const both = value && typeof value === "object" && !Array.isArray(value)
+        && into[key] && typeof into[key] === "object" && !Array.isArray(into[key]);
+      out[key] = both ? merge(into[key], value) : value;
+    }
+    return out;
+  };
+  const blocks = () => {
+    const out = new Map();
+    for (const file of DEMO_FIXTURES.files) {
+      if (!String(file.path).startsWith("config/providers/")) continue;
+      const names = file.main ? Object.keys(file.blocks || {}) : [stem_of(file.path)];
+      for (const name of names) {
+        const block = (file.blocks || {})[name];
+        if (!block || typeof block !== "object" || Array.isArray(block)) continue;
+        out.set(name, merge(out.get(name), block));
       }
     }
-    return json(seen);
+    return out;
   };
+  const catalog = () => {
+    const known = new Map(DEMO_FIXTURES.models.map((row) => [row.id, row]));
+    const rows = [];
+    for (const [name, block] of blocks()) {
+      const tiers = new Map();
+      for (const [tier, ids] of Object.entries(block.tier || {}))
+        if (Array.isArray(ids)) for (const id of ids) tiers.set(String(id), tier);
+      const slugs = new Set([...Object.keys(block.models || {}), ...tiers.keys()]);
+      for (const slug of slugs) {
+        const id = `${name}/${slug}`;
+        const meta = (block.models || {})[slug] || {};
+        const cap = known.get(id);
+        const row = {};
+        for (const key of Object.keys(MODEL_DEFAULTS))
+          row[key] = cap ? cap[key] : DEMO_FIXTURES.models[0][key];
+        row.id = id;
+        row.tier = tiers.get(slug) || (cap ? cap.tier : null);
+        row.mode = meta.mode || (cap ? cap.mode : "chat");
+        row.max_input_tokens = meta.max_input_tokens ?? (cap ? cap.max_input_tokens : null);
+        row.max_output_tokens = meta.max_output_tokens ?? (cap ? cap.max_output_tokens : null);
+        row.tools = meta.tools ?? (cap ? cap.tools : false);
+        row.reasoning = meta.supports_reasoning ?? (cap ? cap.reasoning : false);
+        row.effort = meta.reasoning_effort ?? (cap ? cap.effort : null);
+        row.flags = cap ? cap.flags : meta.supports_vision ? ["vision"] : [];
+        row.weight = weights.get(id) ?? (cap ? cap.weight : 1);
+        row.cooldown = cooldowns.get(id) ?? null;
+        row.client_cooldowns = cap ? cap.client_cooldowns : {};
+        rows.push(row);
+      }
+    }
+    return rows;
+  };
+  const state = { models: catalog() };
+  const model_of = (id) => state.models.find((row) => row.id === id);
+  // A finished request moves the weights and the cooldowns of its attempts, as the server does.
+  const apply = (row) => {
+    for (const attempt of row.attempts || []) {
+      const target = model_of(attempt.model);
+      if (!target) continue;
+      if (attempt.cooldown) {
+        const until = Date.now() / 1000 + (attempt.cooldown.seconds || 0);
+        cooldowns.set(target.id, until);
+        target.cooldown = until;
+      }
+      if (attempt.weight_change) {
+        weights.set(target.id, attempt.weight_change.to);
+        target.weight = attempt.weight_change.to;
+      }
+    }
+  };
+  // The pools of the server: the settings name each tier, and auto holds every chat model.
+  const pools = () => {
+    const file = DEMO_FIXTURES.settings.file.pools || {};
+    const names = { ...DEMO_FIXTURES.settings.defaults.pools, ...file };
+    const out = [];
+    const members = (rows) => rows.map((row) => ({
+      cooldown: row.cooldown, id: row.id, tier: row.tier, weight: row.weight,
+    }));
+    const entry = (name, rows, mode) => {
+      const contexts = rows.map((row) => row.max_input_tokens).filter((n) => typeof n === "number");
+      const pool = {
+        context: contexts.length ? Math.max(...contexts) : null,
+        members: members(rows),
+        name: `daedalus/${name}`,
+        shown: `daedalus/${name}`,
+      };
+      if (mode) pool.mode = mode;
+      return pool;
+    };
+    const tier_rows = (key) => {
+      const tier = key.toUpperCase();
+      return state.models.filter((row) => row.tier === tier);
+    };
+    const chat = state.models.filter((row) => row.mode === "chat");
+    if (chat.length) out.push(entry("auto", chat));
+    for (const key of Object.keys(names).filter((key) => key.startsWith("tier-")).sort()) {
+      const rows = tier_rows(key);
+      if (rows.length) out.push(entry(names[key], rows));
+    }
+    if (names.audio) {
+      const rows = state.models.filter((row) => row.mode === "audio_transcription");
+      if (rows.length) out.push(entry(names.audio, rows, "audio_transcription"));
+    }
+    if (names.images) {
+      const rows = state.models.filter((row) => row.mode === "image_generation");
+      if (rows.length) out.push(entry(names.images, rows, "image_generation"));
+    }
+    return out;
+  };
+  // The limits check of the server reads each provider again. The fake upstream answers
+  // with the plan of each provider, and the requests of this page move what it answered.
+  const served_by = (provider) =>
+    [...USED].filter(([id]) => String(id).startsWith(provider + "/"))
+      .reduce((sum, [, count]) => sum + count, 0);
+  const lane_of = (model, template, now) => {
+    const provider = String(model).split("/")[0];
+    const plan = plan_of(provider, blocks().get(provider));
+    const count = USED.get(model) || 0;
+    const waited = template ? Math.max(1, (template.rows[0]?.reset || now + 120) - template.at) : 120;
+    return {
+      at: now,
+      client: null,
+      model,
+      rows: [
+        {
+          kind: "requests", limit: plan.requests, span: null,
+          remaining: Math.max(0, plan.requests - count), reset: now + waited,
+        },
+        {
+          kind: "tokens", limit: plan.tokens, span: null,
+          remaining: Math.max(0, plan.tokens - count * 40), reset: now + waited,
+        },
+      ],
+    };
+  };
+  const cards = () => {
+    const out = [];
+    const seen = new Set();
+    for (const card of DEMO_FIXTURES.limits.providers) {
+      const provider = card.name;
+      const count = served_by(provider);
+      const plan = plan_of(provider, blocks().get(provider));
+      if (provider === "openrouter") {
+        const left = Math.max(0, plan.free - count);
+        out.push({ items: [["Free requests today", `${left} of 1K left`, left / plan.free]], name: provider });
+      } else if (provider === "kilo") {
+        const left = Math.max(0, plan.requests - count);
+        out.push({ items: [["Balance", "$0.00", null], ["Requests left this hour", `${left} of ${plan.requests}`, left / plan.requests]], name: provider });
+      } else if (provider === "pollinations") {
+        out.push({ items: [["Pollen", "0.25", null]], name: provider });
+      } else if (provider === "cloudflare") {
+        const left = Math.max(0, plan.neurons - count * 40);
+        out.push({ items: [["Neurons today", `${left} of 10K left`, left / plan.neurons]], name: provider });
+      }
+      seen.add(provider);
+    }
+    return out;
+  };
+  const check_limits = () => {
+    const now = Date.now() / 1000;
+    const lanes = [];
+    for (const lane of DEMO_FIXTURES.limits.lanes) {
+      if (!model_of(lane.model)) continue;
+      lanes.push(lane_of(lane.model, lane, now));
+    }
+    // A model that the capture never held is new: the upstream reports a lane for it.
+    const captured = new Set(DEMO_FIXTURES.models.map((row) => row.id));
+    for (const row of state.models) {
+      if (!captured.has(row.id) && row.mode === "chat") lanes.push(lane_of(row.id, null, now));
+    }
+    return json({ checked: now, lanes, providers: cards() });
+  };
+  // A provider write builds the catalog again, so the Models page, the pools and the
+  // Limits page follow the text at once.
+  const reload = (job) =>
+    job && job.then((answer) => {
+      if (answer.status === 200 || answer.status === 201) state.models = catalog();
+      return answer;
+    });
   // A write with no home in the demo stays refused.
   const save = (path, method, init) => {
     if (path === "catalog" && method === "POST") return rebuild();
     if (path === "limits" && method === "POST") return check_limits();
     if (path === "reset" && method === "POST") {
-      DEMO_FIXTURES.models.forEach((row) => Object.assign(row, { weight: 1, cooldown: null }));
+      for (const row of state.models) {
+        weights.delete(row.id);
+        cooldowns.delete(row.id);
+        Object.assign(row, { weight: 1, cooldown: null, client_cooldowns: {} });
+      }
       return json({ ok: true });
     }
     if (path === "login" && method === "POST") return log_in(init);
@@ -970,14 +1165,16 @@ const DEMO_FIXTURES = __FIXTURES__;
     if (path === "keys" && method === "POST") return key_made(init);
     if (path.startsWith("keys/") && method === "DELETE") return key_dropped(decodeURIComponent(path.slice(5)));
     if (path === "files")
-      return method === "PUT"
-        ? file_text(init)
-        : method === "POST"
-          ? file_made(init)
-          : method === "DELETE"
-            ? file_dropped(init)
-            : null;
-    if (path === "providers" && method === "PUT") return providers_saved(init);
+      return reload(
+        method === "PUT"
+          ? file_text(init)
+          : method === "POST"
+            ? file_made(init)
+            : method === "DELETE"
+              ? file_dropped(init)
+              : null
+      );
+    if (path === "providers" && method === "PUT") return reload(providers_saved(init));
     if (path === "settings" && method === "PUT") return settings_saved(init);
     return null;
   };
@@ -996,14 +1193,23 @@ const DEMO_FIXTURES = __FIXTURES__;
       return json({ error: { message: "This is a static demo. The change is not saved." } }, 403);
     }
     if (path === "requests") return json(slice(url));
+    // These reads come from the demo state: the provider files, the requests and the
+    // fake upstream, so a save moves them together.
+    if (path === "models") return json(state.models);
+    if (path === "pools") return json(pools());
+    if (path === "limits") return check_limits();
+    if (path === "status")
+      return json({ ...DEMO_FIXTURES.status, models: state.models.length,
+        sessions: new Set(DEMO_FIXTURES.requests.map((row) => row.session).filter(Boolean)).size });
     if (!(path in DEMO_FIXTURES)) return json({}, 404);
     return json(DEMO_FIXTURES[path]);
   };
   const keep = (row) => {
     DEMO_FIXTURES.requests.unshift(row);
     DEMO_FIXTURES.requests.length = Math.min(DEMO_FIXTURES.requests.length, KEPT);
-    DEMO_FIXTURES.status.sessions += 1;
-    USED.set(row.model, (USED.get(row.model) || 0) + 1);
+    const served = row.via || row.model;
+    USED.set(served, (USED.get(served) || 0) + 1);
+    apply(row);
   };
   // The live stream of a server: the demo sends the same events, in waves of 1 to 3 requests,
   // each with its own timings and a random gap before the next wave.
