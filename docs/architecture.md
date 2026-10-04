@@ -121,7 +121,9 @@ The chain goes up first. The next tier up can usually do the same request. The c
 
 ### Order
 
-Inside each tier, the models of order 1 go first, then the models of order 2, and so on. The weights and the session model choose a model inside 1 order. A session model of order 2 goes first only when its tier has no model of order 1 left. The media pools use the order too. The chain skips an order with no model.
+Inside each tier, the models of order 1 go first, then the models of order 2, and so on. The weights and the session model choose a model inside 1 order. A session model of order 2 goes first only when its tier has no model of order 1 left. The media pools use the order too.
+
+The chain skips an order with no model.
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e3e8fd", "primaryBorderColor": "#3b5bfd", "primaryTextColor": "#1a1f36", "lineColor": "#3b5bfd", "textColor": "#3b5bfd", "secondaryColor": "#ede9fe", "tertiaryColor": "#f5f3ff", "clusterBkg": "#f5f3ff", "clusterBorder": "#8b5cf6", "titleColor": "#5c388c", "edgeLabelBackground": "#ffffff", "noteBkgColor": "#ede9fe", "noteBorderColor": "#8b5cf6"}}}%%
@@ -243,7 +245,9 @@ sequenceDiagram
 | Expiry | 1 h with no request |
 | Storage | `.daedalus-state/models.sqlite3`, kept after a restart |
 
-Session affinity keeps 1 response style in a conversation. It also lets the conversation use the prompt cache of the provider. The cache is not guaranteed, but it helps when the provider has one. Without session affinity, the styles of different models mix in 1 conversation. Tests showed that the result is a mess.
+Session affinity keeps 1 response style in a conversation. It also lets the conversation use the prompt cache of the provider. The cache is not guaranteed, but it helps when the provider has one. Without session affinity, the styles of different models mix in 1 conversation.
+
+Tests showed that the result is a mess.
 
 ## Parallel queries
 

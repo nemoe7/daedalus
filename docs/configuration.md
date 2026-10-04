@@ -13,7 +13,9 @@ daedalus reads 3 sources:
 
 A key that shows 2 times in 1 map of a config file stops the start. The error gives the key and the 2 line numbers.
 
-daedalus reads the files at the start and on each save from the dashboard. A hand edit of a file on disk needs a reload. A save from the dashboard reloads the file for the live server and rebuilds the catalog from it. With no save, run `daedalus catalog`: the command reads the files again for its store build. The next start of the server reads the edited file.
+daedalus reads the files at the start and on each save from the dashboard. A hand edit of a file on disk needs a reload. A save from the dashboard reloads the file for the live server and rebuilds the catalog from it. With no save, run `daedalus catalog`: the command reads the files again for its store build.
+
+The next start of the server reads the edited file.
 
 ## Files per provider
 
@@ -63,7 +65,9 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 
 ## Router settings
 
-`config/daedalus.yml`. Each key is optional. A missing key uses the default. An unknown key stops the start. The shipped file holds the changes from the defaults only. The **Settings** page writes the changed keys only. A cleared field loses its line, and the default applies. The table below lists each key, its default and its use.
+`config/daedalus.yml`. Each key is optional. A missing key uses the default. An unknown key stops the start.
+
+The shipped file holds the changes from the defaults only. The **Settings** page writes the changed keys only. A cleared field loses its line, and the default applies. The table below lists each key, its default and its use.
 
 | Key | Default | Use |
 | --- | --- | --- |
@@ -186,9 +190,14 @@ To set up 2 clients:
 1. On the dashboard **API keys** page, make the keys `kilo` and `owui`. Give each client its key.
 2. In `.env`, set `GEMINI_API_KEY_KILO` and `GEMINI_API_KEY_OWUI`. Or save them in **Keys and values** on the Providers page, after step 3.
 3. Add `client_keys` to the provider file, or add it in the **Client keys** field of the Providers page.
-4. After a `.env` change, run `docker compose up -d`. It makes the container again with the new `.env` values. `docker compose restart` keeps the old values. A saved value needs no restart.
 
-A model with a `mode` other than `chat` never goes into a chat chain. Use `embedding`, `audio_transcription`, `audio_speech` or `image_generation`. A model with no mode goes into the chat chains. The `audio_transcription` models make the transcription pool, and the `image_generation` models make the image pool. Set `supports_vision: true` on an `image_generation` model that edits images: only these models take `POST /v1/images/edits`.
+4. After a `.env` change, run `docker compose up -d`. It makes the container again with the new `.env` values. `docker compose restart` keeps the old values.
+
+A saved value needs no restart.
+
+A model with a `mode` other than `chat` never goes into a chat chain. Use `embedding`, `audio_transcription`, `audio_speech` or `image_generation`. A model with no mode goes into the chat chains. The `audio_transcription` models make the transcription pool, and the `image_generation` models make the image pool.
+
+Set `supports_vision: true` on an `image_generation` model that edits images: only these models take `POST /v1/images/edits`.
 
 Pattern types:
 
