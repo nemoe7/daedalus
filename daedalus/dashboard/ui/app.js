@@ -54,9 +54,34 @@ const none = (text) => `<div class="more">${text}</div>`;
 const mobileLabel = (text) => `<span class="mobile-label" aria-hidden="true">${esc(text)}</span>`;
 const nameCell = (text, shown = esc(text), label = "Model", extra = "") =>
   `<td role="cell" class="name" title="${esc(text)}">${mobileLabel(label)}<span class="cell-value">${shown}</span>${extra}</td>`;
-// A phone drops the provider prefix of a model id, so the rows of 1 provider differ.
-const modelShown = (id) =>
-  matchMedia("(max-width: 720px)").matches ? id.replace(/^[^/]+\//, "") : id;
+// The marks beside a model name: the provider, then the developer, then the model part. The
+// provider mark drops when the developer carries the same name. The set names the SVG files that
+// ship under `ui/icons/`; every other name takes a letter chip with a hue of its own.
+const MARK_FILES = new Set();
+const hue = (name) => {
+  let value = 0;
+  for (const ch of name) value = (value * 31 + ch.codePointAt(0)) % 360;
+  return value;
+};
+const mark = (name) => MARK_FILES.has(name)
+  ? `<img class="mark" src="ui/icons/${esc(name)}.svg" alt="" aria-hidden="true">`
+  : `<span class="mark chip" style="--hue:${hue(name)}" aria-hidden="true">${esc(name[0].toUpperCase())}</span>`;
+// `provider/dev/model` and `provider/model` both land. The developer is the part before the model,
+// with a scope prefix such as `@cf/` dropped.
+const parts = (id) => {
+  const bits = String(id).split("/");
+  const provider = bits.shift();
+  const model = bits.length ? bits.pop() : null;
+  let dev = bits.length ? bits[bits.length - 1].replace(/^@[^/]+\//, "") : null;
+  if (dev && dev.toLowerCase() === provider.toLowerCase()) dev = null;
+  return { provider, dev, model };
+};
+const modelName = (id) => {
+  const { provider, dev, model } = parts(id);
+  if (model === null) return esc(id);
+  const shown = dev ? mark(provider) + mark(dev) : mark(provider);
+  return `${shown}<span class="model-part">${esc(model)}</span>`;
+};
 const cell = (label, inner, cls = "") =>
   `<td role="cell"${cls ? ` class="${cls}"` : ""}>${mobileLabel(label)}<span class="cell-value">${inner}</span></td>`;
 
@@ -84,7 +109,7 @@ function ask(title, message, confirm = "Confirm", danger = false, placeholder = 
 // One card for each page, from the data that the pages already read.
 function renderOverview() {
   $("ov-requests").innerHTML = state.requests.slice(0, 10).map((r) => line(
-    `<span class="status ${statusClass(r)}">${statusCell(r)}</span> <span title="${esc(r.via || r.model || "")}">${esc(r.via || r.model || "-")}</span>`,
+    `<span class="status ${statusClass(r)}">${statusCell(r)}</span> <span title="${esc(r.via || r.model || "")}">${r.via || r.model ? modelName(r.via || r.model) : "-"}</span>`,
     stamp(r.at),
   )).join("") || none("No requests");
   $("ov-model-count").textContent = state.models.length || "";
@@ -532,10 +557,10 @@ function renderLive() {
       ${cell("Time", `<span class="pulse"></span>${stamp(r.since / 1000)}`, "num muted")}
       ${appCell(r)}
       ${cell("Session", esc(r.session || "-"), "hide-sm hide-md num")}
-      ${nameCell(r.model || r.path)}
+      ${nameCell(r.model || r.path, modelName(r.model || r.path))}
       ${cell("Effort", effortCell(r), "hide-sm")}
       ${cell("Pool", poolText(r), "hide-sm muted")}
-      ${nameCell(r.via || r.trying || "", r.via ? esc(r.via) : `<span class="muted">${r.trying ? `trying ${esc(r.trying)}` : "waiting"}</span>`, "Served by")}
+      ${nameCell(r.via || r.trying || "", r.via ? modelName(r.via) : `<span class="muted">${r.trying ? `trying ${esc(r.trying)}` : "waiting"}</span>`, "Served by")}
       ${cell("Status", "live", "status muted")}
       ${cell("Input", "-", "hide-sm num muted")}
       ${cell("Output", "-", "hide-sm num muted")}
@@ -637,10 +662,10 @@ function renderRequests(rows) {
       ${cell("Time", `<span class="caret${chain ? "" : " none"}"></span>${stamp(r.at)}`, "num muted")}
       ${appCell(r)}
       ${cell("Session", esc(r.session || "-"), "hide-sm hide-md num")}
-      ${nameCell(r.model || "-")}
+      ${nameCell(r.model || "-", modelName(r.model || "-"))}
       ${cell("Effort", effortCell(r), "hide-sm")}
       ${cell("Pool", poolText(r), "hide-sm muted")}
-      ${nameCell(r.via || "", r.via ? esc(r.via) : '<span class="muted">none</span>', "Served by")}
+      ${nameCell(r.via || "", r.via ? modelName(r.via) : '<span class="muted">none</span>', "Served by")}
       ${cell("Status", statusCell(r), `status ${statusClass(r)}`)}
       ${tokenCell(r.tokens?.input, r.tokens?.estimate ? "~" : "", "Input")}
       ${tokenCell(r.tokens?.output, "", "Output")}
@@ -737,7 +762,7 @@ function renderModels() {
   const empty = state.models.length ? "No models match" : "No models. Run daedalus catalog.";
   $("models").innerHTML = rows.length ? rows.map((m) => `
     <tr>
-      ${nameCell(m.id, esc(modelShown(m.id)), "Model", `<span class="types phone-types">${typeChips(m)}</span>`)}
+      ${nameCell(m.id, modelName(m.id), "Model", `<span class="types phone-types">${typeChips(m)}</span>`)}
       <td class="hide-sm"><div class="types">${typeChips(m)}</div></td>
       <td class="mid">${m.tier ? `<span class="tier">${esc(tierLetter(m.tier))}</span>` : dash}</td>
       <td class="hide-sm mid num${m.order > 1 ? "" : " muted"}">${m.order ?? dash}</td>
@@ -1552,7 +1577,7 @@ function overviewLimits(data) {
   const share = (r) => (r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0);
   const rows = data.lanes.flatMap((lane) => lane.rows.map((row) => ({ ...row, model: lane.model })))
     .sort((a, b) => share(a) - share(b)).slice(0, 3)
-    .map((r) => `<div class="balance">${line(`<span title="${esc(r.model)}">${esc(r.model)}</span>`,
+    .map((r) => `<div class="balance">${line(`<span title="${esc(r.model)}">${modelName(r.model)}</span>`,
       `${floorCount(r.remaining)} of ${floorCount(r.limit)} ${esc(unit(r))}`)}${bar(share(r))}</div>`);
   return [...balances, ...rows].join("");
 }
@@ -1566,7 +1591,7 @@ function renderLimits(data) {
       ${left == null ? "" : weightBar(left)}</div>`).join("")}</div>`).join("");
   const rows = data.lanes.flatMap((lane) => lane.rows.map((row) => ({ ...row, model: lane.model, client: lane.client, at: lane.at })));
   $("limit-rows").innerHTML = rows.length ? rows.map((r) => `<tr>
-      ${nameCell(r.model, `${esc(r.model)}${r.client ? ` <span class="muted">${esc(r.client)}</span>` : ""}`)}
+      ${nameCell(r.model, `${modelName(r.model)}${r.client ? ` <span class="muted">${esc(r.client)}</span>` : ""}`)}
       <td title="${esc(limitTitle(r))}">${esc(limitUnit(r))}</td>
       <td><div class="weight left" title="${r.remaining.toLocaleString()} of ${r.limit.toLocaleString()}">
         ${weightBar(r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0)}
