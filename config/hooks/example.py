@@ -51,3 +51,15 @@ def on_answer(answer: dict, model: str) -> None:
   # Example: add a mark to the answer text.
   # message = answer["choices"][0]["message"]
   # message["content"] = (message.get("content") or "") + " (via daedalus)"
+
+
+def on_chunk(chunk: dict, model: str, context: dict) -> None:
+  """On each streamed chunk of a chat request, before the client gets it: 1 OpenAI chunk.
+
+  `model` is the requested name. `context` holds `previous`, the model of the last session
+  answer, empty on the first; `attempts`, the failures so far; `code`, the retry code; `pool`,
+  the landed pool; and `served`, the landed model.
+  """
+  # Example: mark the last chunk of the answer.
+  # if any(choice.get("finish_reason") for choice in chunk.get("choices") or []):
+  #   chunk["usage"] = {**(chunk.get("usage") or {}), "example": model}

@@ -1537,7 +1537,10 @@ def test_files(
   ), "the Settings page owns the settings file"
   shown = client.get("/ui/api/settings").json()
   assert shown["file"] == {
-    "request_hooks": {"on-request": "hooks/openwebui_retry.py"}
+    "request_hooks": {
+      "on-request": "hooks/openwebui_retry.py",
+      "on-chunk": "hooks/pick.py",
+    }
   }, "the shipped file holds the changes only"
   assert shown["defaults"]["timeouts"]["slow"] == 30.0, shown
   assert shown["defaults"]["weights"]["fault"] == 0.5, shown
@@ -1617,16 +1620,20 @@ def test_files(
   ), "a hook path is a string"
   hook = {"request_hooks": {"on-request": "hooks/openwebui_retry.py"}}
   assert client.put("/ui/api/settings", json={"changes": hook}).status_code == 200
-  assert api.REQUEST_HOOKS == {"on-request": "hooks/openwebui_retry.py"}, (
-    "the save applies the request hook"
-  )
+  assert api.REQUEST_HOOKS == {
+    "on-request": "hooks/openwebui_retry.py",
+    "on-chunk": "hooks/pick.py",
+  }, "the save applies the request hook"
   assert (
     client.put(
       "/ui/api/settings", json={"changes": {"request_hooks": {"on-request": ""}}}
     ).status_code
     == 200
   )
-  assert api.REQUEST_HOOKS == {"on-request": ""}, "an empty value turns the hook off"
+  assert api.REQUEST_HOOKS == {
+    "on-request": "",
+    "on-chunk": "hooks/pick.py",
+  }, "an empty value turns the hook off"
   dark = {"dashboard": {"theme": "dark"}}
   assert client.put("/ui/api/settings", json={"changes": dark}).status_code == 200
   assert client.get("/ui/api/settings").json()["file"]["dashboard"]["theme"] == "dark"

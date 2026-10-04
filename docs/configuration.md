@@ -109,6 +109,7 @@ The shipped file holds the changes from the defaults only. The **Settings** page
 | `dashboard.theme` | `system` | `system`, `light` or `dark`. The Settings page sets it. Login always follows the device. |
 | `dashboard.time_format` | `24h` | `24h` or `12h` for the hour of each shown time. Every time carries its date: `2026-10-04 12:30:46`. The Settings page sets it. |
 | `request_hooks.on-request` | `hooks/openwebui_retry.py` | The request hook file of the `config` folder. Empty: no hook. See [Hooks](hooks.md). |
+| `request_hooks.on-chunk` | `hooks/pick.py` | The stream chunk hook of the `config` folder, called on each streamed chunk of a chat request. Empty: no hook. See [Hooks](hooks.md). |
 | `pools.tier-a`, `pools.tier-b`, `pools.tier-c`, `pools.tier-d`, `pools.audio`, `pools.images` | `sophos`, `deinos`, `koinos`, `moros`, `graphos`, `photos` | The client name after `daedalus/`: 1-40 characters, no `auto`. A change renames that pool, and the old name breaks with HTTP 400. |
 
 ## Provider key values

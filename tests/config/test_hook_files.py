@@ -103,3 +103,56 @@ def test_example() -> None:
   assert (
     hooks.run("on-catalog", setup, "p/m", row, api_base="https://x", headers={}) == row
   )
+
+
+def test_pick_line() -> None:
+  """The pick line: the tier letter and the slug for `daedalus/auto`, the slug alone for a pool."""
+  module = hooks.load(FOLDER / "pick.py")
+  assert module is not None
+  context = {"pool": "sophos", "served": "kilo/poolside/laguna-s-2.1:free"}
+  auto = module.on_chunk(
+    {"choices": [{"finish_reason": "stop"}]}, "daedalus/auto", context
+  )
+  assert auto["usage"]["daedalus"] == {
+    "line": "A \u00b7 kilo/poolside/laguna-s-2.1:free",
+    "model": "kilo/poolside/laguna-s-2.1:free",
+    "pool": "sophos",
+  }
+  pool = module.on_chunk(
+    {"choices": [{"finish_reason": "stop"}]}, "daedalus/koinos", context
+  )
+  assert pool["usage"]["daedalus"]["line"] == "kilo/poolside/laguna-s-2.1:free"
+
+
+def test_pick_needs_a_change() -> None:
+  """The same session model draws nothing, the first answer draws, and a retry code draws."""
+  module = hooks.load(FOLDER / "pick.py")
+  assert module is not None
+  stop = {"choices": [{"finish_reason": "stop"}]}
+  assert "usage" not in module.on_chunk(
+    dict(stop), "daedalus/auto", {"previous": "kilo/x", "served": "kilo/x"}
+  )
+  assert "usage" not in module.on_chunk(
+    {"choices": [{"delta": {}}]}, "daedalus/auto", {"previous": "", "served": "kilo/x"}
+  )
+  first = module.on_chunk(
+    dict(stop), "daedalus/auto", {"previous": "", "served": "kilo/x", "pool": "koinos"}
+  )
+  assert first["usage"]["daedalus"]["line"] == "C \u00b7 kilo/x"
+  retry = module.on_chunk(
+    dict(stop),
+    "daedalus/auto",
+    {"previous": "kilo/x", "served": "kilo/x", "code": "rt1", "pool": "deinos"},
+  )
+  assert retry["usage"]["daedalus"]["line"] == "B \u00b7 kilo/x"
+
+
+def test_pick_named_on_the_pools() -> None:
+  """The shipped config names the pick for the pools and the reserved model, and for no other provider."""
+  text = (FOLDER.parent / "daedalus.yml").read_text()
+  assert "on-chunk: hooks/pick.py" in text
+  entries = {"on-request": "hooks/openwebui_retry.py", "on-chunk": "hooks/pick.py"}
+  found = hooks.request_files(entries, "on-chunk")
+  assert [path.name for path in found] == ["pick.py"]
+  assert hooks.request_files(entries, "on-answer") == []
+  assert hooks.request_files({"on-chunk": ""}, "on-chunk") == []
