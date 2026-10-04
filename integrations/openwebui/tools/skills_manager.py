@@ -2030,6 +2030,15 @@ class Tools:
 
           results.append(result)
 
+        new_ids = [
+          str(result.get("id") or "")
+          for result in results
+          if result.get("success") and result.get("action") in {"installed", "created"}
+        ]
+        presets_line = "preset_models: none"
+        if new_ids:
+          presets_line = await self._attach_skill_to_presets(new_ids, __request__)
+
         # Summary
         success_count = sum(1 for r in results if r.get("success"))
         error_count = len(results) - success_count
@@ -2051,6 +2060,7 @@ class Tools:
           "total": len(results),
           "succeeded": success_count,
           "failed": error_count,
+          "presets": presets_line,
           "results": results,
         }
       else:
@@ -2072,6 +2082,10 @@ class Tools:
           __event_emitter__=__event_emitter__,
           __event_call__=__event_call__,
         )
+        if result.get("success") and result.get("action") in {"installed", "created"}:
+          result["presets"] = await self._attach_skill_to_presets(
+            [result.get("id")], __request__
+          )
         return result
 
     except Exception as e:
@@ -2205,12 +2219,16 @@ class Tools:
         _t(lang, "status_create_done", name=skill_name),
         done=True,
       )
-      return {
+      result = {
         "success": True,
         "action": "created",
         "id": str(getattr(new_skill, "id", "") or ""),
         "name": skill_name,
       }
+      result["presets"] = await self._attach_skill_to_presets(
+        [result["id"]], __request__
+      )
+      return result
     except Exception as e:
       msg = (
         _t(lang, "err_unavailable") if str(e) == "skills_model_unavailable" else str(e)
@@ -2431,7 +2449,7 @@ class Tools:
       await _emit_status(self.valves, __event_emitter__, msg, done=True)
       return {"error": msg}
 
-  async def list_model_presets(
+  async def _list_model_presets(
     self,
     query: str = "",
     page: int = 1,
@@ -2495,7 +2513,47 @@ class Tools:
       await _emit_status(self.valves, __event_emitter__, msg, done=True)
       return {"error": msg}
 
-  async def update_model_preset(
+  async def _attach_skill_to_presets(self, skill_ids, __request__) -> str:
+    """Add skills to the skill list of every writable model preset."""
+    ids = [str(item) for item in skill_ids if item]
+    if not ids:
+      return "preset_models: none"
+    add = {"skillIds": ids}
+    base = self.valves.OWUI_API_BASE
+    updated = 0
+    skipped: list[str] = []
+    errors: list[str] = []
+    page = 1
+    while page <= 100:
+      data, error = await asyncio.to_thread(
+        _owui_api_call, __request__, "GET", base, "/models/list", {"page": page}
+      )
+      if error:
+        return f"preset_models: error: {error}"
+      items = (data or {}).get("items") or []
+      if not items:
+        break
+      for item in items:
+        model_id = str(item.get("id") or "")
+        if not item.get("write_access"):
+          skipped.append(model_id)
+          continue
+        result = await _write_model_preset(base, __request__, model_id, add, {})
+        if result.get("error"):
+          errors.append(str(result["error"]))
+        elif result.get("skipped"):
+          skipped.append(model_id)
+        elif result.get("changed"):
+          updated += 1
+      page += 1
+    text = f"preset_models: added to {updated}"
+    if skipped:
+      text += f". skipped: {', '.join(skipped)}"
+    if errors:
+      text += f". failed: {errors[0]}"
+    return text
+
+  async def _update_model_preset(
     self,
     model_id: str = "",
     add_knowledge_ids: str = "",
@@ -2575,7 +2633,7 @@ class Tools:
       await _emit_status(self.valves, __event_emitter__, msg, done=True)
       return {"error": msg}
 
-  async def update_all_model_presets(
+  async def _update_all_model_presets(
     self,
     add_knowledge_ids: str = "",
     add_tool_ids: str = "",

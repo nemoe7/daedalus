@@ -215,30 +215,28 @@ The 5 reads are `search_mail`, `read_thread`, `agenda`, `search_files` and `read
 
 #### Knowledge manager tool
 
-`integrations/openwebui/tools/knowledge_manager.py` is a third Workspace Tool: 1 file, no valves, and the caller token comes from the chat request. It holds the 20 knowledge tools and the 3 preset tools.
+`integrations/openwebui/tools/knowledge_manager.py` is a third Workspace Tool: 1 file, no valves, and the caller token comes from the chat request. It holds the 20 knowledge tools.
 
 The knowledge tools list, create, read, update, move and delete knowledge bases, folders and files. They also search the files and read 1 by path. A file creation waits until Open WebUI finishes the indexing.
 
-The preset tools attach knowledge bases, tools, skills, filters and actions to workspace model presets. `list_model_presets` shows each preset with its write access and the count of each attachment. `update_model_preset` changes 1 preset. `update_all_model_presets` walks every page.
+A new knowledge base attaches itself to the model presets in the same call. The tool reads each preset, merges `meta.knowledge` and posts the record back. It skips a preset without write access and names it. A knowledge item stays a reference object.
 
-Each update reads the whole record, merges the 5 attachment lists of `meta` and posts the record back. A knowledge item stays a reference object. The run skips a preset without write access.
-
-`/model/update` needs the owner, a write grant or an admin. The tool sends to `http://127.0.0.1:8080/api/v1`. Change `base_url` for another host.
+The preset helpers stay private, so Open WebUI builds no model tool spec for them. `/model/update` needs the owner, a write grant or an admin. The tool sends to `http://127.0.0.1:8080/api/v1`. Change `base_url` for another host.
 
 1. **Workspace → Tools**, **Create**, paste the file, **Save**.
 2. **Access** on the tool: make it public, or give read access to each user.
 
-`tests/integrations/test_knowledge_manager_presets.py` holds the merge, the full-record write, the read-only skip and the all-presets loop.
+`tests/integrations/test_knowledge_manager_presets.py` holds the merge, the full-record write, the read-only skip, the all-presets loop and the attach on create.
 
 #### Skills manager tool
 
-`integrations/openwebui/tools/skills_manager.py` is the Fu-Jie Skills Manager Tool 0.3.4: 1 file, and it manages the native Workspace Skills. The header keeps the author and the version. The local copy adds the 3 model preset tools.
+`integrations/openwebui/tools/skills_manager.py` is the Fu-Jie Skills Manager Tool 0.3.4: 1 file, and it manages the native Workspace Skills. The header keeps the author and the version. The local copy adds the preset attach.
 
 The 6 skill tools are `list_skills`, `show_skill`, `install_skill`, `create_skill`, `update_skill` and `delete_skill`. An install fetches a skill from a trusted domain. A destructive action asks for confirmation.
 
-The 3 preset tools attach knowledge bases, tools, skills, filters and actions to the workspace model presets. `list_model_presets` reads the pages with the counts. `update_model_preset` changes 1 preset. `update_all_model_presets` walks the pages.
+A new skill attaches itself to the model presets in the same call. `create_skill` and the install path of `install_skill` read each preset, merge `meta.skillIds` and post the record back. The run skips a preset without write access and names it.
 
-The preset calls use the OpenWebUI API with the caller token. The `OWUI_API_BASE` valve holds the base URL, by default `http://127.0.0.1:8080/api/v1`. Each update reads the whole record, merges the 5 attachment lists of `meta` and posts the record back. The run skips a preset without write access.
+The preset helpers stay private, so Open WebUI builds no model tool spec for them. The calls use the OpenWebUI API with the caller token. The `OWUI_API_BASE` valve holds the base URL, by default `http://127.0.0.1:8080/api/v1`.
 
 1. **Workspace → Tools**, **Create**, paste the file, **Save**.
 2. **Access** on the tool: make it public, or give read access to each user.
@@ -250,9 +248,9 @@ The preset calls use the OpenWebUI API with the caller token. The `OWUI_API_BASE
 | `ALLOW_OVERWRITE_ON_CREATE` | `true` | Let a create or an install replace a skill of the same name. |
 | `INSTALL_FETCH_TIMEOUT` | `12.0` | The URL fetch timeout of an install, in seconds. |
 | `TRUSTED_DOMAINS` | `github.com,huggingface.co,githubusercontent.com` | The domains an install may fetch from. |
-| `OWUI_API_BASE` | `http://127.0.0.1:8080/api/v1` | The OpenWebUI API base of the preset tools. |
+| `OWUI_API_BASE` | `http://127.0.0.1:8080/api/v1` | The OpenWebUI API base of the preset attach. |
 
-`tests/integrations/test_skills_manager_presets.py` holds the merge, the full-record write, the read-only skip and the all-presets loop.
+`tests/integrations/test_skills_manager_presets.py` holds the merge, the full-record write, the read-only skip, the all-presets loop and the attach on create.
 
 ### Open WebUI database
 
