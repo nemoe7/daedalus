@@ -179,10 +179,14 @@ _arena_preview_gate() {
   esac
   # A command line that reads or answers the inbox must reach its read: a chain with a cd
   # before the read stays quiet for the count gate, while the push rule above still runs
-  # for every push in the same shell.
-  case "\$(tr '\\0' ' ' < /proc/\$\$/cmdline 2>/dev/null)" in
+  # for every push in the same shell. The quiet line holds only when every command on it
+  # is an inbox call or an inert prefix, so a read beside work never exempts the work.
+  _arena_preview_line="\$(tr '\\0' ' ' < /proc/\$\$/cmdline 2>/dev/null)"
+  case "\$_arena_preview_line" in
     *"arena-preview read"*|*"arena-preview ack"*|*"arena-preview poll"*|*"arena-preview task"*|*"preview.py read"*|*"preview.py ack"*|*"preview.py poll"*|*"preview.py task"*)
-      return 0
+      if "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" inbox-line "\$_arena_preview_line" 2>/dev/null; then
+        return 0
+      fi
       ;;
   esac
   case "\${_arena_preview_gate_checked:-}" in 1) return 0 ;; esac
