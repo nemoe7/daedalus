@@ -211,6 +211,23 @@ The 5 reads are `search_mail`, `read_thread`, `agenda`, `search_files` and `read
 
 `tests/integrations/test_owui_google_tool.py` holds the surface, the gate, the token cache and the error path.
 
+#### Knowledge manager tool
+
+`integrations/openwebui/knowledge_manager.py` is a third Workspace Tool: 1 file, no valves, and the caller token comes from the chat request. It holds the 20 knowledge tools and the 3 preset tools.
+
+The knowledge tools list, create, read, update, move and delete knowledge bases, folders and files. They also search the files and read 1 by path. A file creation waits until Open WebUI finishes the indexing.
+
+The preset tools attach knowledge bases, tools, skills, filters and actions to workspace model presets. `list_model_presets` shows each preset with its write access and the count of each attachment. `update_model_preset` changes 1 preset. `update_all_model_presets` walks every page.
+
+Each update reads the whole record, merges the 5 attachment lists of `meta` and posts the record back. A knowledge item stays a reference object. The run skips a preset without write access.
+
+`/model/update` needs the owner, a write grant or an admin. The tool sends to `http://127.0.0.1:8080/api/v1`. Change `base_url` for another host.
+
+1. **Workspace → Tools**, **Create**, paste the file, **Save**.
+2. **Access** on the tool: make it public, or give read access to each user.
+
+`tests/integrations/test_knowledge_manager_presets.py` holds the merge, the full-record write, the read-only skip and the all-presets loop.
+
 ### Open WebUI database
 
 The `webui` profile starts `webui-db` with Open WebUI.
