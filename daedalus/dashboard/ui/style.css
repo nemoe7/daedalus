@@ -204,6 +204,8 @@ a.more:hover { color: var(--accent); }
 .modal form { display: grid; gap: 8px; margin: 0; padding: 20px; }
 .modal h3 { margin: 0; font-size: 15px; font-weight: 600; }
 .modal p { margin: 0; color: var(--muted); font-size: 13px; }
+.modal-field { display: block; }
+.modal-field input { width: 100%; box-sizing: border-box; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
 .modal .primary.danger { background: var(--bad); }
 td.end { text-align: right; }
