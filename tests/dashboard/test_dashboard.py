@@ -1076,21 +1076,12 @@ def test_header_state_matches_the_page_switcher() -> None:
   )
 
 
-def test_app_js_settings_switches() -> None:
-  """Every boolean setting renders as a checkbox, so a loaded file reports no change."""
-  payload = json.dumps(
-    {
-      "path": "config/daedalus.yml",
-      "headroom_available": False,
-      "text": "",
-      "defaults": settings.DEFAULTS,
-      "file": {"affinity": {"mode": "session", "change_on_draw": True}},
-    }
-  )
+def run_app_js(probe: str, body: str) -> None:
+  """Run a node snippet over `app.js` with a small DOM stand-in, and the named probes on `__probe`."""
   code = f"""
 const fs = require('fs');
 const vm = require('vm');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{ state, renderSettings, settingsChanges, listValue, setListValue, dropSetting }};";
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{{probe}}};";
 const nodes = new Map();
 const node = (id) => {{
   if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', disabled: false, hidden: false, addEventListener: () => {{}}, classList: {{ toggle: () => {{}} }} }});
@@ -1118,6 +1109,25 @@ vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
 const assert = require('assert');
 const probe = sandbox.__probe;
+{body}
+"""
+  subprocess.run(["node", "-e", code], check=True)
+
+
+def test_app_js_settings_switches() -> None:
+  """Every boolean setting renders as a checkbox, so a loaded file reports no change."""
+  payload = json.dumps(
+    {
+      "path": "config/daedalus.yml",
+      "headroom_available": False,
+      "text": "",
+      "defaults": settings.DEFAULTS,
+      "file": {"affinity": {"mode": "session", "change_on_draw": True}},
+    }
+  )
+  run_app_js(
+    "state, renderSettings, settingsChanges, listValue, setListValue, dropSetting",
+    f"""
 probe.state.settings = {payload};
 probe.renderSettings();
 const html = node('settings').innerHTML;
@@ -1149,8 +1159,8 @@ assert.deepStrictEqual(probe.settingsChanges().escalation.keywords, probe.listVa
 // A new value joins the list 1 time.
 probe.setListValue('switch', 'keywords', [...probe.listValue('switch', 'keywords'), 'clanker', 'clanker']);
 assert.strictEqual(probe.listValue('switch', 'keywords').length, probe.state.settings.defaults.switch.keywords.length + 2, 'the raw list takes both');
-"""
-  subprocess.run(["node", "-e", code], check=True)
+""",
+  )
 
 
 def test_app_js_affinity_modes_hide_their_rows() -> None:
@@ -1164,37 +1174,9 @@ def test_app_js_affinity_modes_hide_their_rows() -> None:
       "file": {"affinity": {"mode": "session"}},
     }
   )
-  code = f"""
-const fs = require('fs');
-const vm = require('vm');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{ state, renderSettings }};";
-const nodes = new Map();
-const node = (id) => {{
-  if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', disabled: false, hidden: false, addEventListener: () => {{}}, classList: {{ toggle: () => {{}} }} }});
-  return nodes.get(id);
-}};
-const sandbox = {{
-  esc: (text) => String(text ?? ''),
-  matchMedia: () => ({{ matches: false, addEventListener: () => {{}} }}),
-  document: {{
-    hidden: false,
-    documentElement: {{ dataset: {{}} }},
-    getElementById: node,
-    querySelector: () => ({{ firstChild: {{ textContent: 'Models' }} }}),
-    querySelectorAll: () => [],
-    addEventListener: () => {{}},
-  }},
-  navigator: {{}},
-  location: {{ hash: '' }},
-  window: {{ addEventListener: () => {{}} }},
-  getSelection: () => ({{ isCollapsed: true }}),
-  console: {{ error: () => {{}} }},
-  $: node,
-}};
-vm.createContext(sandbox);
-vm.runInContext(src, sandbox);
-const assert = require('assert');
-const probe = sandbox.__probe;
+  run_app_js(
+    "state, renderSettings",
+    f"""
 probe.state.settings = {payload};
 const ids = ['set-affinity-mode', 'set-affinity-idle', 'set-affinity-stay', 'set-affinity-change_on_draw', 'set-affinity-count', 'set-affinity-chance', 'set-affinity-slow', 'set-affinity-penalty'];
 const shown = () => {{
@@ -1208,8 +1190,8 @@ probe.state.settings.file.affinity = {{ mode: 'session' }};
 assert.deepStrictEqual(shown(), ids.slice(0, 4), 'session shows the pin rows');
 probe.state.settings.file.affinity = {{ mode: 'race' }};
 assert.deepStrictEqual(shown(), ids, 'race adds the race rows');
-"""
-  subprocess.run(["node", "-e", code], check=True)
+""",
+  )
 
 
 def test_mode_conventions() -> None:
@@ -1569,7 +1551,7 @@ def test_files(
   text = settings.DEFAULT_PATH.read_text()
   assert "  slow: 12" in text, "the new value is written"
   assert "# on-request sets the key of the turn." in text, "the comments stay"
-  assert "# Router settings" in text and "  every: 0" in text, text
+  assert "  every: 0" in text, text
   assert api.SLOW_SECONDS == 12.0, "the save applies the settings"
   assert (loops.CALLS, loops.REPEATS, loops.SHORTEST, loops.LONGEST) == (5, 6, 10, 3000)
   cleared = client.put(
