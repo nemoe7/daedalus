@@ -741,6 +741,9 @@ def test_the_parallel_race_reads_on_the_page() -> None:
   assert (
     "RACE_NOTES" in app and 'class="chain-race"' in app and "raceCode" not in app
   ), "the race decision reads inside the fallback chain, not in the model cell"
+  assert 'slow: "slow pin"' in app and 'drawn: "on draw"' in app, (
+    "the chain note reads as the short label"
+  )
 
 
 def test_the_requests_head_keeps_its_rule_while_it_sticks() -> None:
