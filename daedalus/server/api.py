@@ -476,6 +476,7 @@ def initial_transition_reason(
   previous: dict[str, str],
   candidate: str,
   turn: Any,
+  code: str | None,
   messages: list,
   raw: list[list[str]],
   sized: list[list[str]],
@@ -484,6 +485,8 @@ def initial_transition_reason(
   switched: bool,
 ) -> str | None:
   """The known cause of a changed first candidate, or None for an unlabelled policy change."""
+  if turn is not None and turn.count:
+    return code
   pool, model = previous["pool"], previous["model"]
   if not pool:
     return None
@@ -497,8 +500,6 @@ def initial_transition_reason(
   ):
     return "lmt"
   next_pool = model_pool(config, candidate)
-  if turn is not None and turn.count and next_pool != pool:
-    return "try"
   tier = pool_tier(pool)
   next_tier = pool_tier(next_pool) if next_pool is not None else None
   higher_tier = tier is not None and next_tier is not None and next_tier > tier
@@ -743,18 +744,28 @@ async def chat(request: Request) -> Response:
     else None
   )
   turn = None
+  code = None
   if REQUEST_HOOKS.get("on-request"):
     value = hooks.run_request(
       "on-request",
       REQUEST_HOOKS,
       model,
-      {"key": None, "digest": retries.digest(body["messages"])},
+      {"key": None, "digest": retries.digest(body["messages"]), "count": None},
       headers=dict(request.headers),
     )
     found_key = value.get("key")
     if isinstance(found_key, str) and found_key:
       turn = RETRIES.turn(found_key)
+      if turn.count:
+        # The hook writes the code of the row: it runs again with the count filled in.
+        value["count"] = turn.count
+        value = hooks.run_request(
+          "on-request", REQUEST_HOOKS, model, value, headers=dict(request.headers)
+        )
+        written = value.get("code")
+        code = written if isinstance(written, str) and written else None
   if turn is not None and turn.count:
+    request.state.code = code
     found = retry_chain(turn, body, config)
     request.state.retry = str(turn.count)
   else:
@@ -832,6 +843,7 @@ async def chat(request: Request) -> Response:
         previous,
         models[0],
         turn,
+        getattr(request.state, "code", None),
         body["messages"],
         raw_groups,
         sized_groups,

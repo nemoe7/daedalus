@@ -86,8 +86,12 @@ def test_page(client: TestClient) -> None:
   assert 'name="remember" type="checkbox" checked' in page.text, "remember me starts on"
   script = client.get("/ui/app.js")
   assert script.status_code == 200 and "javascript" in script.headers["content-type"]
-  for reason in ("ctx", "hlt", "lmt", "err", "rnd", "cls", "esc", "try"):
+  for reason in ("ctx", "hlt", "lmt", "err", "rnd", "cls", "esc"):
     assert f'  {reason}: "' in script.text, reason
+  assert "const REPEAT_CODE = " in script.text, "the repeat code family"
+  assert '["rtN", "A repeat picked another model, N times"]' in script.text, (
+    "the legend lists the repeat code"
+  )
   assert 'title="${esc(label)}"' in script.text, "reason codes have hover labels"
   assert (
     'const EFFORT_SHORT = { minimal: "min", low: "low", medium: "med", high: "hi", xhigh: "xhi" }'
@@ -720,10 +724,11 @@ assert.strictEqual(probe.relative(now - 3600), '1 hour ago');
 
 
 def test_app_js_retry_code() -> None:
-  """A try again shows its count as rtN, and the legend lists the same code."""
+  """The row shows the repeat code of the hook as given, and the legend lists rtN."""
   source = Path("daedalus/dashboard/ui/app.js").read_text()
-  assert 'code === "try" ? "rtN" : code' in source, (
-    "the cell and the legend share 1 code"
+  assert "const REPEAT_CODE = " in source, "the repeat code family"
+  assert '["rtN", "A repeat picked another model, N times"]' in source, (
+    "the legend lists rtN"
   )
   code = """
 const fs = require('fs');
@@ -750,10 +755,10 @@ vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
 const assert = require('assert');
 const cell = sandbox.__probe.transitionCell;
-assert.ok(cell({ reason: 'try' }, '2').includes('>rt2<'), 'the try code carries the count');
-assert.ok(cell({ reason: 'try' }, null).includes('>rt<'), 'a countless retry shows rt');
-assert.ok(cell({ reason: 'lmt' }, '2').includes('>lmt<'), 'another reason keeps its own code');
-assert.strictEqual(cell(null, '1'), '', 'no transition, no code');
+assert.ok(cell({ reason: 'rt2' }).includes('>rt2<'), 'the hook code shows as given');
+assert.ok(cell({ reason: 'rt2' }).includes('A repeat picked another model'), 'the tooltip is generic');
+assert.ok(cell({ reason: 'lmt' }).includes('>lmt<'), 'another reason keeps its own code');
+assert.strictEqual(cell(null), '', 'no transition, no code');
 """
   subprocess.run(["node", "-e", code], check=True)
 
