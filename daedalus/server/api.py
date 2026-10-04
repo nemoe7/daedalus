@@ -896,6 +896,15 @@ async def chat(request: Request) -> Response:
     if PARALLEL_ENABLED and found[1] and body.get("stream") and len(models) > 1
     else []
   )
+  # Why the racers did or did not start, for the row of the dashboard.
+  if not PARALLEL_ENABLED:
+    request.state.race = "off"
+  elif not found[1]:
+    request.state.race = "pool"
+  elif not body.get("stream"):
+    request.state.race = "stream"
+  elif len(models) <= 1:
+    request.state.race = "single"
 
   async def start_candidate(model: str, sent: dict[str, Any]) -> dict[str, Any]:
     """Start 1 model and wait for its first content, or for the whole answer without a stream."""
@@ -934,6 +943,7 @@ async def chat(request: Request) -> Response:
       if not quick:
         await asyncio.wait([takes[0].task], timeout=PARALLEL_SLOW_SECONDS)
       if quick or not takes[0].task.done():
+        request.state.race = "drawn" if quick else "slow"
         for model in others:
           PACING.record(pin.lane(model), tokens)
           other: dict[str, Any] = {}
@@ -964,6 +974,8 @@ async def chat(request: Request) -> Response:
         logger.info("parallel %s lost the race", take.model)
       if winner is None:
         raise takes[0].task.exception()
+      if len(takes) == 1:
+        request.state.race = "fast"
       # The row reads the race: the winner carries the mark, and a runner that wins takes the pin.
       winner.sent["race"] = "won"
       if winner.model != first:

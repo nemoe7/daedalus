@@ -73,10 +73,16 @@ CHAT = {"model": "daedalus/moros", "messages": [{"role": "user", "content": "hi"
 
 async def test_the_race_runs_and_the_row_shows_it(client: httpx.AsyncClient) -> None:
   """A stream to a pool starts the next model, and the loser lands in the ladder."""
+  await client.post("/v1/chat/completions", json=CHAT)
+  assert dashboard.HISTORY.latest()[0]["race"] == "stream", (
+    "a plain request names the gate"
+  )
+  SEEN.clear()
   response = await client.post("/v1/chat/completions", json={**CHAT, "stream": True})
   assert response.status_code == 200, response.text
   assert sorted(SEEN) == ["a", "b"], SEEN
   row = dashboard.HISTORY.latest()[0]
+  assert row["race"] == "drawn", row
   results = sorted(attempt["result"] for attempt in row["attempts"])
   assert results == ["answered", "lost race"], row["attempts"]
   assert [
@@ -91,6 +97,9 @@ async def test_a_runner_that_wins_takes_the_pin(client: httpx.AsyncClient) -> No
   api.PARALLEL_ENABLED = False
   await client.post("/v1/chat/completions", json=CHAT)
   first = dashboard.HISTORY.latest()[0]["via"]
+  assert dashboard.HISTORY.latest()[0]["race"] == "off", (
+    "a plain request names the gate"
+  )
   api.PARALLEL_ENABLED = True
   dashboard.HISTORY.clear()
   FAIL.add(first.partition("/")[2])
