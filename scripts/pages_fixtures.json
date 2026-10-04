@@ -1226,7 +1226,7 @@
       },
       "timeouts": {
         "request": 600.0,
-        "slow": null,
+        "slow": 30.0,
         "wait": 60.0
       },
       "weights": {

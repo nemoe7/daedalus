@@ -1116,7 +1116,7 @@ def test_files(
   assert shown["file"] == {
     "request_hooks": {"on-request": "hooks/openwebui_retry.py"}
   }, "the shipped file holds the changes only"
-  assert shown["defaults"]["timeouts"]["slow"] is None, shown
+  assert shown["defaults"]["timeouts"]["slow"] == 30.0, shown
   assert shown["defaults"]["weights"]["fault"] == 0.5, shown
   assert shown["defaults"]["loops"] == {
     "calls": 3,

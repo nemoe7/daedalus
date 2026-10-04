@@ -69,7 +69,7 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 | --- | --- | --- |
 | `timeouts.request` | `600` | Seconds to wait for an answer, for all attempts. A started stream does not stop. |
 | `timeouts.wait` | `60` | Seconds with no provider data, keep-alive bytes excluded. Then the next model starts. Media: none. |
-| `timeouts.slow` | Half of `timeouts.wait` | A first token after this time is slow |
+| `timeouts.slow` | `30` | A first token after this time is slow |
 | `session_affinity.enabled` | `true` | Session models and the highest tier of a conversation |
 | `session_affinity.change_on_draw` | `true` | Replace an eligible session pin after a different weighted first-tier draw |
 | `session_affinity.idle` | `3600` | Seconds with no request, then the session expires |
