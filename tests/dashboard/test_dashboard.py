@@ -977,7 +977,7 @@ def test_app_js_settings_switches() -> None:
   code = f"""
 const fs = require('fs');
 const vm = require('vm');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{ state, renderSettings, settingsChanges }};";
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{ state, renderSettings, settingsChanges, listValue, setListValue, dropSetting }};";
 const nodes = new Map();
 const node = (id) => {{
   if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', disabled: false, hidden: false, addEventListener: () => {{}}, classList: {{ toggle: () => {{}} }} }});
@@ -1018,9 +1018,23 @@ assert(hint.includes('role="tooltip"'), 'the hint text serves as the tooltip');
 for (const id of ['set-session_affinity-enabled', 'set-session_affinity-change_on_draw', 'set-weights-enabled', 'set-pacing-enabled']) node(id).checked = true;
 node('set-dashboard-theme').value = 'system';
 node('set-dashboard-time_format').value = '24h';
-node('set-escalation-keywords').value = probe.state.settings.defaults.escalation.keywords.join('\\n');
-node('set-switch-keywords').value = probe.state.settings.defaults.switch.keywords.join('\\n');
 assert.strictEqual(JSON.stringify(probe.settingsChanges()), '{{}}', 'a loaded file reports no change');
+// The keyword fields are chip lists with a + adder, not a text box.
+const list = html.slice(Math.max(0, html.indexOf('id="set-escalation-keywords"') - 40), html.indexOf('id="set-escalation-keywords"') + 2600);
+assert(list.includes('class="pills"'), 'the keyword field is a chip list');
+assert(list.includes('class="pill"'), 'each keyword is a chip');
+const adder = html.indexOf('data-setting-add=');
+assert(adder > 0, 'the + adder is in the form');
+assert(html.slice(adder, adder + 80).includes('escalation'), 'the + adder names its list');
+assert(!html.includes('<textarea id="set-escalation-keywords"'), 'no text box for the keywords');
+// A dropped chip leaves the list, and the change reaches the save payload.
+const first = probe.listValue('escalation', 'keywords')[0];
+probe.dropSetting(['escalation', 'keywords', 0]);
+assert(!probe.listValue('escalation', 'keywords').includes(first), 'the chip left the list');
+assert.deepStrictEqual(probe.settingsChanges().escalation.keywords, probe.listValue('escalation', 'keywords'), 'the change reaches the save payload');
+// A new value joins the list 1 time.
+probe.setListValue('switch', 'keywords', [...probe.listValue('switch', 'keywords'), 'clanker', 'clanker']);
+assert.strictEqual(probe.listValue('switch', 'keywords').length, probe.state.settings.defaults.switch.keywords.length + 2, 'the raw list takes both');
 """
   subprocess.run(["node", "-e", code], check=True)
 
