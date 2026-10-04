@@ -122,6 +122,7 @@ def test_parallel_settings(folder: Path) -> None:
   """The race defaults, and the 2 bounds of its numbers."""
   assert settings.parse("")["parallel"] == {
     "enabled": False,
+    "non_streams": False,
     "count": 1,
     "chance": 0.05,
     "slow": 30.0,

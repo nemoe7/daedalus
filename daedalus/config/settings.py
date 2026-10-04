@@ -19,6 +19,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
   },
   "parallel": {
     "enabled": False,
+    "non_streams": False,
     "count": 1,
     "chance": 0.05,
     "slow": 30.0,

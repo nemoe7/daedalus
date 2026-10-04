@@ -47,6 +47,8 @@ KEYWORDS: re.Pattern[str] | None = None
 SWITCH: re.Pattern[str] | None = None
 # The `parallel` settings: the next models of the chain race the first token of a stream request.
 PARALLEL_ENABLED = False
+# The key that lets a non-stream request race under the same gate. Its loser pays its whole answer.
+PARALLEL_NON_STREAMS = False
 PARALLEL_COUNT = 1
 PARALLEL_CHANCE = 0.05
 PARALLEL_SLOW_SECONDS = 30.0
@@ -901,7 +903,10 @@ async def chat(request: Request) -> Response:
   # A stream request to a pool or to `daedalus/auto` can race the next models of its own chain.
   runners = (
     models[1 : 1 + PARALLEL_COUNT]
-    if PARALLEL_ENABLED and found[1] and body.get("stream") and len(models) > 1
+    if PARALLEL_ENABLED
+    and found[1]
+    and (body.get("stream") or PARALLEL_NON_STREAMS)
+    and len(models) > 1
     else []
   )
   # Why the racers did or did not start, for the row of the dashboard.
@@ -909,7 +914,7 @@ async def chat(request: Request) -> Response:
     request.state.race = "off"
   elif not found[1]:
     request.state.race = "pool"
-  elif not body.get("stream"):
+  elif not body.get("stream") and not PARALLEL_NON_STREAMS:
     request.state.race = "stream"
   elif len(models) <= 1:
     request.state.race = "single"
@@ -970,7 +975,12 @@ async def chat(request: Request) -> Response:
         else:
           exc = take.task.exception()
           if exc is None:
-            await take.task.result()["events"].aclose()
+            content = take.task.result()
+            if "events" in content:
+              await content["events"].aclose()
+            else:
+              # A non-stream loser is already whole, and its body is dropped with its connection.
+              await content["response"].aclose()
         if exc is not None:
           if take.model != first:
             # A racing model that failed takes its own fault, as a fallback does.
@@ -1172,7 +1182,7 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   """Use the values of `config/daedalus.yml`."""
   global SLOW_SECONDS, AFFINITY, KEYWORDS, SWITCH
   global PARALLEL_ENABLED, PARALLEL_COUNT, PARALLEL_CHANCE, PARALLEL_SLOW_SECONDS
-  global PARALLEL_PENALTY, REQUEST_HOOKS
+  global PARALLEL_PENALTY, PARALLEL_NON_STREAMS, REQUEST_HOOKS
   # The settings key each pool by its generic name. Its default value gives the built-in name.
   router.set_pool_names(
     {settings.DEFAULTS["pools"][key]: name for key, name in values["pools"].items()}
@@ -1186,12 +1196,14 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   parallel = values["parallel"]
   (
     PARALLEL_ENABLED,
+    PARALLEL_NON_STREAMS,
     PARALLEL_COUNT,
     PARALLEL_CHANCE,
     PARALLEL_SLOW_SECONDS,
     PARALLEL_PENALTY,
   ) = (
     parallel["enabled"],
+    parallel["non_streams"],
     parallel["count"],
     parallel["chance"],
     parallel["slow"],

@@ -1399,6 +1399,7 @@ const SETTINGS = [
   ]],
   ["parallel", "Parallel queries", [
     ["enabled", "On", "", "The next models of the chain race the first token, and the session model starts each request."],
+    ["non_streams", "Non-stream race", "", "On: a non-stream request races under the same gate. Its loser pays its whole answer."],
     ["count", "Racing models", "", "The models that race the original one. 1 to 10."],
     ["chance", "Race chance", "", "The chance to start the racing models with the original one. 0 to 1."],
     ["slow", "Slow first token", "s", "Seconds with no content from the first model. Then the racing models start."],
