@@ -1256,7 +1256,7 @@ const SETTINGS = [
   ["timeouts", "Timeouts", [
     ["request", "Request", "s", "The time to wait for an answer, for all attempts. A stream that started does not stop at this limit."],
     ["wait", "Wait", "s", "The time without data from the provider. Keep-alive bytes do not count."],
-    ["slow", "Slow first token", "s", "A first token after this time is slow. Empty: half of Wait."],
+    ["slow", "Slow first token", "s", "A first token after this time is slow."],
   ]],
   ["session_affinity", "Session affinity", [
     ["enabled", "On", "", "Each conversation stays on 1 model."],
@@ -1404,7 +1404,7 @@ function renderSettings() {
       return `<label class="field" for="${id}"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
         <span class="input"><input type="number" min="${MINIMA[`${group}.${key}`] ?? 0}" id="${id}" value="${value ?? ""}"
           step="${DECIMALS.has(`${group}.${key}`) ? "any" : "1"}" ${MAXIMA[`${group}.${key}`] ? `max="${MAXIMA[`${group}.${key}`]}"` : ""}
-          placeholder="${fallback ?? "half of Wait"}"><i>${esc(unit)}</i></span></label>`;
+          placeholder="${fallback ?? ""}"><i>${esc(unit)}</i></span></label>`;
     }).join("")}</div>`;
   const cards = Object.fromEntries(SETTINGS.map((item) => [item[0], card(item)]));
   $("settings").innerHTML = SETTINGS_COLUMNS

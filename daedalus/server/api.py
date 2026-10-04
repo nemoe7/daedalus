@@ -39,7 +39,7 @@ DAEDALUS_PORT = "DAEDALUS_PORT"
 
 HOST = os.environ.get(DAEDALUS_HOST) or "0.0.0.0"
 PORT = int(os.environ.get(DAEDALUS_PORT) or 3357)
-SLOW_SECONDS = upstream.WAIT_SECONDS / 2
+SLOW_SECONDS = 30.0
 AFFINITY = True
 # The keywords of `escalation.keywords` as 1 pattern, or None when the list is empty.
 KEYWORDS: re.Pattern[str] | None = None
