@@ -497,6 +497,11 @@ const DEMO_FIXTURES = __FIXTURES__;
   const USED = new Map();
   const wait = (ms) => new Promise((done) => setTimeout(done, ms));
   const round = (value) => Math.round(value * 1000) / 1000;
+  // A count in the compact form that the server writes: floored to K, M or B.
+  const floored = (value) => (value >= 1e9 ? `${Math.floor(value / 1e9)}B`
+    : value >= 1e6 ? `${Math.floor(value / 1e6)}M`
+    : value >= 1e3 ? `${Math.floor(value / 1e3)}K`
+    : `${Math.floor(value)}`);
   // The media models answer on their own paths.
   const MEDIA_PATH = {
     "cloudflare/@cf/openai/whisper-large-v3-turbo": "/v1/audio/transcriptions",
@@ -1126,7 +1131,7 @@ const DEMO_FIXTURES = __FIXTURES__;
         out.push({ items: [["Pollen", "0.25", null]], name: provider });
       } else if (provider === "cloudflare") {
         const left = Math.max(0, plan.neurons - count * 40);
-        out.push({ items: [["Neurons today", `${left} of 10K left`, left / plan.neurons]], name: provider });
+        out.push({ items: [["Neurons today", `${floored(left)} of 10K left`, left / plan.neurons]], name: provider });
       }
       seen.add(provider);
     }
