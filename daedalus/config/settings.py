@@ -11,14 +11,12 @@ from daedalus.config import load_yaml
 DEFAULT_PATH = Path("config/daedalus.yml")
 DEFAULTS: dict[str, dict[str, Any]] = {
   "timeouts": {"request": 600.0, "wait": 60.0, "slow": 30.0},
-  "session_affinity": {
-    "enabled": True,
-    "change_on_draw": True,
+  # 1 mode names the session pin and the race: none is neither, session is the pin, race is both.
+  "affinity": {
+    "mode": "session",
     "idle": 3600.0,
     "stay": 0.85,
-  },
-  "parallel": {
-    "enabled": False,
+    "change_on_draw": True,
     "count": 1,
     "chance": 0.05,
     "slow": 30.0,
@@ -77,6 +75,9 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "images": "photos",
   },
 }
+# The modes of `affinity.mode`. The 2 old groups each map to 1 of them.
+MODES = ("none", "session", "race")
+MIGRATED = {"session_affinity": "session", "parallel": "race"}
 LOOP_LIMITS = {
   "calls": (2, 100),
   "repeats": (2, 16),
@@ -123,6 +124,10 @@ def check(group: str, key: str, value: Any) -> Any:
   if key == "time_format":
     if value not in TIME_FORMATS:
       raise SettingsError(f"{name} must be 24h or 12h")
+    return value
+  if key == "mode":
+    if value not in MODES:
+      raise SettingsError(f"{name} must be none, session or race")
     return value
   if key in ("enabled", "change_on_draw"):
     if not isinstance(value, bool):
@@ -199,6 +204,8 @@ def parse(text: str, target: Path | str = DEFAULT_PATH) -> dict[str, dict[str, A
   if not isinstance(raw, dict):
     raise SettingsError(f"{target} must hold groups of keys")
   for group, values in raw.items():
+    if group in MIGRATED:
+      raise SettingsError(f"{group} is gone. Use affinity.mode: {MIGRATED[group]}")
     if group not in DEFAULTS:
       raise SettingsError(f"unknown group {group!r} in {target}")
     if not isinstance(values, dict):
@@ -260,6 +267,8 @@ def prune_groups(lines: list[str]) -> list[str]:
 def update_text(text: str, changes: dict[str, dict[str, Any]]) -> str:
   """The YAML text with new values, and its comments kept. None removes the key."""
   for group, values in changes.items():
+    if group in MIGRATED:
+      raise SettingsError(f"{group} is gone. Use affinity.mode: {MIGRATED[group]}")
     if group not in DEFAULTS or not isinstance(values, dict):
       raise SettingsError(f"unknown group {group!r}")
     for key in values:

@@ -115,7 +115,7 @@ def fresh() -> None:
 
 
 def test_slow_first_token_starts_the_second_model(client: TestClient) -> None:
-  """A first model with no content at `parallel.slow` loses the race to the model that answers."""
+  """A first model with no content at `affinity.slow` loses the race to the model that answers."""
   PLAN.update({"b/1": 0.5, "b/2": 0.0})
   assert stream(client, "daedalus/deinos") == "b/2", "the first content wins"
   assert CALLS == ["b/1", "b/2"], (
@@ -136,7 +136,7 @@ def test_slow_first_token_starts_the_second_model(client: TestClient) -> None:
 
 
 def test_chance_starts_the_second_model(client: TestClient) -> None:
-  """A draw below `parallel.chance` starts the second model with the first one."""
+  """A draw below `affinity.chance` starts the second model with the first one."""
   api.PARALLEL_CHANCE = 1.0
   try:
     PLAN.update({"b/1": 0.5, "b/2": 0.0})
@@ -151,7 +151,7 @@ def test_chance_starts_the_second_model(client: TestClient) -> None:
 
 
 def test_count_races_that_many_models(client: TestClient) -> None:
-  """`parallel.count` 2 starts 2 models beside the original one."""
+  """`affinity.count` 2 starts 2 models beside the original one."""
   api.PARALLEL_COUNT = 2
   try:
     PLAN.update({"b/1": 0.5, "b/2": 0.5, "b/3": 0.0})
@@ -171,7 +171,7 @@ def test_count_races_that_many_models(client: TestClient) -> None:
 
 
 def test_off_keeps_the_session_model(client: TestClient) -> None:
-  """`parallel.enabled` false keeps the session model, and no second model starts."""
+  """`affinity.mode` session keeps the session model, and no second model starts."""
   api.PARALLEL_ENABLED = False
   api.PENALTIES.race = False
   try:

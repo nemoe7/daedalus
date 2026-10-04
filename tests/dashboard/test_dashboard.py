@@ -731,12 +731,12 @@ def test_the_parallel_race_reads_on_the_page() -> None:
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/app.js"
   ).read_text(encoding="utf-8")
   assert 'rce: "A racing model took the pin"' in app, "the race code"
-  assert 'code !== "rce" || parallelOn()' in app, "its legend row waits for the setting"
+  assert 'code !== "rce" || raceOn()' in app, "its legend row waits for the setting"
   assert 'a.race === "won"' in app and '<span class="from">won race</span>' in app, (
     "the winning step carries the mark"
   )
-  assert "race?.enabled" in app and 'line("Parallel"' in app, (
-    "the status card shows the applied race values"
+  assert "affinity?.mode" in app and 'line("Affinity"' in app, (
+    "the status card shows the applied affinity mode"
   )
   assert (
     "RACE_NOTES" in app and 'class="chain-race"' in app and "raceCode" not in app
@@ -1084,7 +1084,7 @@ def test_app_js_settings_switches() -> None:
       "headroom_available": False,
       "text": "",
       "defaults": settings.DEFAULTS,
-      "file": {"session_affinity": {"change_on_draw": True}},
+      "file": {"affinity": {"mode": "session", "change_on_draw": True}},
     }
   )
   code = f"""
@@ -1121,14 +1121,15 @@ const probe = sandbox.__probe;
 probe.state.settings = {payload};
 probe.renderSettings();
 const html = node('settings').innerHTML;
-const at = html.indexOf('id="set-session_affinity-change_on_draw"');
+const at = html.indexOf('id="set-affinity-change_on_draw"');
 assert(at > 0, 'the change_on_draw field is in the form');
 assert(html.slice(Math.max(0, at - 120), at).includes('type="checkbox"'), 'change_on_draw is a checkbox');
 // The hint of a check row sits behind the info icon on a desktop, and the icon names it for a reader.
 const hint = html.slice(at, at + 600);
-assert(hint.includes('class="hint"') && hint.includes('aria-describedby="set-session_affinity-change_on_draw-hint"'), 'the check row carries its hint icon');
+assert(hint.includes('class="hint"') && hint.includes('aria-describedby="set-affinity-change_on_draw-hint"'), 'the check row carries its hint icon');
 assert(hint.includes('role="tooltip"'), 'the hint text serves as the tooltip');
-for (const id of ['set-session_affinity-enabled', 'set-session_affinity-change_on_draw', 'set-weights-enabled', 'set-pacing-enabled']) node(id).checked = true;
+for (const id of ['set-affinity-change_on_draw', 'set-weights-enabled', 'set-pacing-enabled']) node(id).checked = true;
+node('set-affinity-mode').value = 'session';
 node('set-dashboard-theme').value = 'system';
 node('set-dashboard-time_format').value = '24h';
 assert.strictEqual(JSON.stringify(probe.settingsChanges()), '{{}}', 'a loaded file reports no change');
@@ -1148,6 +1149,65 @@ assert.deepStrictEqual(probe.settingsChanges().escalation.keywords, probe.listVa
 // A new value joins the list 1 time.
 probe.setListValue('switch', 'keywords', [...probe.listValue('switch', 'keywords'), 'clanker', 'clanker']);
 assert.strictEqual(probe.listValue('switch', 'keywords').length, probe.state.settings.defaults.switch.keywords.length + 2, 'the raw list takes both');
+"""
+  subprocess.run(["node", "-e", code], check=True)
+
+
+def test_app_js_affinity_modes_hide_their_rows() -> None:
+  """The affinity card shows the pin rows under session and race, and the race rows only under race."""
+  payload = json.dumps(
+    {
+      "path": "config/daedalus.yml",
+      "headroom_available": False,
+      "text": "",
+      "defaults": settings.DEFAULTS,
+      "file": {"affinity": {"mode": "session"}},
+    }
+  )
+  code = f"""
+const fs = require('fs');
+const vm = require('vm');
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{ state, renderSettings }};";
+const nodes = new Map();
+const node = (id) => {{
+  if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', disabled: false, hidden: false, addEventListener: () => {{}}, classList: {{ toggle: () => {{}} }} }});
+  return nodes.get(id);
+}};
+const sandbox = {{
+  esc: (text) => String(text ?? ''),
+  matchMedia: () => ({{ matches: false, addEventListener: () => {{}} }}),
+  document: {{
+    hidden: false,
+    documentElement: {{ dataset: {{}} }},
+    getElementById: node,
+    querySelector: () => ({{ firstChild: {{ textContent: 'Models' }} }}),
+    querySelectorAll: () => [],
+    addEventListener: () => {{}},
+  }},
+  navigator: {{}},
+  location: {{ hash: '' }},
+  window: {{ addEventListener: () => {{}} }},
+  getSelection: () => ({{ isCollapsed: true }}),
+  console: {{ error: () => {{}} }},
+  $: node,
+}};
+vm.createContext(sandbox);
+vm.runInContext(src, sandbox);
+const assert = require('assert');
+const probe = sandbox.__probe;
+probe.state.settings = {payload};
+const ids = ['set-affinity-mode', 'set-affinity-idle', 'set-affinity-stay', 'set-affinity-change_on_draw', 'set-affinity-count', 'set-affinity-chance', 'set-affinity-slow', 'set-affinity-penalty'];
+const shown = () => {{
+  probe.renderSettings();
+  const html = node('settings').innerHTML;
+  return ids.filter((id) => html.includes(`id="${{id}}"`));
+}};
+probe.state.settings.file.affinity = {{ mode: 'none' }};
+assert.deepStrictEqual(shown(), ['set-affinity-mode'], 'none shows only the mode');
+probe.state.settings.file.affinity = {{ mode: 'session' }};
+assert.deepStrictEqual(shown(), ids.slice(0, 4), 'session shows the pin rows');
+probe.state.settings.file.affinity = {{ mode: 'race' }};
+assert.deepStrictEqual(shown(), ids, 'race adds the race rows');
 """
   subprocess.run(["node", "-e", code], check=True)
 
@@ -1373,9 +1433,11 @@ def test_data(client: TestClient) -> None:
     "models": 2,
     "sessions": 0,
     "catalog": status["catalog"],
-    "parallel": status["parallel"],
+    "affinity": status["affinity"],
   }, status
-  assert set(status["parallel"]) == {"enabled", "count", "chance", "slow"}, status
+  assert set(status["affinity"]) == {"mode", "enabled", "count", "chance", "slow"}, (
+    status
+  )
   assert status["catalog"]["built"] <= time.time() < status["catalog"]["next"], status
   body = {"model": "daedalus/sophos", "messages": [{"role": "user", "content": "x"}]}
   assert client.post("/v1/chat/completions", json=body).status_code == 200
