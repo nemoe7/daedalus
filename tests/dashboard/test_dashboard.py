@@ -336,12 +336,52 @@ assert(html.includes('</span><span class="types phone-types">'), 'the chips sit 
 assert(html.includes('>Chat<'), 'the mode chip shows');
 assert(html.includes('>Image in<'), 'the media chip shows');
 assert(html.includes('<div class="types">'), 'the Type column stays for a desktop');
-assert(html.includes('<span class="cell-value">p/m</span>'), 'a desktop keeps the provider prefix');
+assert(html.includes('<span class="cell-value">'), 'the name cell keeps its value span');
+assert(html.includes('class="mark chip"'), 'the mark of a provider shows');
+assert(html.includes('<span class="model-part">m</span>'), 'the model part shows');
+assert(html.includes('title="p/m"'), 'the title keeps the full id');
 sandbox.matchMedia = () => ({ matches: true });
 probe.renderModels();
 const phone = el('models').innerHTML;
-assert(phone.includes('<span class="cell-value">m</span>'), 'a phone drops the provider prefix');
-assert(phone.includes('title="p/m"'), 'the title keeps the full id');
+assert(phone.includes('class="mark chip"'), 'a phone keeps the provider mark');
+assert(phone.includes('<span class="model-part">m</span>'), 'a phone keeps the model part');
+"""
+  subprocess.run(["node", "-e", code], check=True)
+
+
+def test_app_js_model_marks() -> None:
+  """A model name shows the provider mark, then the developer mark, then the model part."""
+  code = """
+const fs = require('fs');
+const vm = require('vm');
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
+  + String.fromCharCode(10) + 'globalThis.__probe = { modelName, MARK_FILES };';
+const byId = new Map();
+const el = (id) => {
+  if (!byId.has(id)) byId.set(id, { innerHTML: '', textContent: '', value: '', addEventListener: () => {}, classList: { toggle: () => {}, contains: () => false } });
+  return byId.get(id);
+};
+const sandbox = {
+  matchMedia: () => ({ matches: false, addEventListener: () => {} }),
+  document: { hidden: false, documentElement: { dataset: {} }, getElementById: el, querySelector: () => ({ firstChild: { textContent: 'Models' } }), querySelectorAll: () => [], addEventListener: () => {} },
+  navigator: {}, location: { hash: '' }, window: { addEventListener: () => {}, matchMedia: () => ({ matches: false }) },
+  getSelection: () => ({ isCollapsed: true }), console: { error: () => {} }, $: el,
+};
+vm.createContext(sandbox);
+vm.runInContext(src, sandbox);
+const assert = require('assert');
+const modelName = sandbox.__probe.modelName;
+const marks = (html) => (html.match(/class="mark/g) || []).length;
+assert.strictEqual(marks(modelName('openrouter/dots-studio/dots-3-note-preview:free')), 2, 'provider and developer');
+assert(modelName('openrouter/dots-studio/dots-3-note-preview:free').includes('<span class="model-part">dots-3-note-preview:free</span>'), 'the model part');
+assert.strictEqual(marks(modelName('cloudflare/@cf/cloudflare/clef')), 1, '1 icon when the provider is the developer');
+assert(modelName('cloudflare/@cf/cloudflare/clef').includes('<span class="model-part">clef</span>'), 'the model part of a scope');
+assert(modelName('cloudflare/@cf/openai/gpt-oss-120b').includes('<span class="model-part">gpt-oss-120b</span>'), 'a scope keeps the developer');
+assert.strictEqual(marks(modelName('p/m')), 1, 'a bare provider and model');
+assert.strictEqual(modelName('bare'), 'bare', 'a name with no slash stays text');
+assert(modelName('p/m').includes('class="mark chip"') && modelName('p/m').includes('>P<'), 'a letter chip stands in for a mark');
+assert(!modelName('p/m').includes('<img'), 'no file ships, so no image');
+assert.strictEqual(sandbox.__probe.MARK_FILES.size, 0, 'the shipped mark set is empty until the SVG files land');
 """
   subprocess.run(["node", "-e", code], check=True)
 
