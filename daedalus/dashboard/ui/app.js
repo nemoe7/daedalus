@@ -315,7 +315,7 @@ function renderPools(pools) {
     const bar = health === null ? "" : `<div class="health" title="Mean weight. A model in a cooldown counts as 0.">
       ${weightBar(health)}<span class="num">${health.toFixed(2)}</span></div>`;
     const context = pool.context
-      ? ` <span class="ctx" title="The largest context of a pool model">${tokens(pool.context)}</span>` : "";
+      ? ` <span class="ctx" title="The largest context of a pool model, ${pool.context.toLocaleString()} tokens">${tokens(pool.context)}</span>` : "";
     return `<a class="card pool" data-tier="${tier}" data-mode="${esc(mode)}" title="${esc(pool.shown)}: ${esc(POOL_NOTES[pool.name] || "")}">
       <h3>${esc(pool.shown.replace("daedalus/", ""))}${context}</h3>${bar}<div class="sub">${count(pool.members.length, "model")}</div></a>`;
   }).join("");
@@ -359,9 +359,14 @@ function statusText(r) {
   return r.cancelled ? "cancelled" : r.status;
 }
 
+// The meaning of each status, for the hover of the status cell.
+const STATUS_NOTES = { 200: "OK", 429: "Too many requests", 500: "Upstream error", err: "The attempt failed" };
+
 // The status on the page: 499, the nginx code of a request that the client closed.
 function statusCell(r) {
-  return r.cancelled ? '<span title="Cancelled">499</span>' : esc(r.status);
+  if (r.cancelled) return '<span title="Cancelled">499</span>';
+  const note = STATUS_NOTES[r.status];
+  return note ? `<span title="${esc(note)}">${esc(r.status)}</span>` : esc(r.status);
 }
 
 function statusClass(r) {
@@ -774,9 +779,9 @@ function renderModels() {
     <tr>
       ${nameCell(m.id, modelName(m.id), "Model", `<span class="types phone-types">${typeChips(m)}</span>`)}
       <td class="hide-sm"><div class="types">${typeChips(m)}</div></td>
-      <td class="mid">${m.tier ? `<span class="tier">${esc(tierLetter(m.tier))}</span>` : dash}</td>
+      <td class="mid">${m.tier ? `<span class="tier" title="${esc(m.tier)}">${esc(tierLetter(m.tier))}</span>` : dash}</td>
       <td class="hide-sm mid num${m.order > 1 ? "" : " muted"}">${m.order ?? dash}</td>
-      <td class="hide-sm num muted">${tokens(m.max_input_tokens)}</td>
+      <td class="hide-sm num muted"><span${m.max_input_tokens ? ` title="${m.max_input_tokens.toLocaleString()} tokens"` : ""}>${tokens(m.max_input_tokens)}</span></td>
       <td class="mid">${m.mode === "chat" ? yesNo(m.tools) : dash}</td>
       <td class="hide-sm mid">${m.mode === "chat" ? reasoningCell(m) : dash}</td>
       <td class="num">${coolCells(m)}</td>
@@ -823,7 +828,7 @@ function renderKeys(rows) {
   $("keys").innerHTML = rows.length ? rows.map((k) => `
     <tr>
       <td>${esc(k.name)}</td>
-      <td class="num muted mono">${k.start ? esc(k.start) + "&hellip;" : "-"}</td>
+      <td class="num muted mono"><span${k.start ? ` title="Only the start of a saved key is kept"` : ""}>${k.start ? esc(k.start) + "&hellip;" : "-"}</span></td>
       <td class="hide-sm muted">${stamp(k.created)}</td>
       <td class="muted">${k.used ? stamp(k.used) : "never"}</td>
       <td class="end"><button type="button" class="ghost danger" data-key="${esc(k.name)}">Delete</button></td>
@@ -1653,7 +1658,7 @@ function overviewLimits(data) {
   const rows = data.lanes.flatMap((lane) => lane.rows.map((row) => ({ ...row, model: lane.model })))
     .sort((a, b) => share(a) - share(b)).slice(0, 3)
     .map((r) => `<div class="balance">${line(`<span title="${esc(r.model)}">${modelName(r.model)}</span>`,
-      `${floorCount(r.remaining)} of ${floorCount(r.limit)} ${esc(unit(r))}`)}${bar(share(r))}</div>`);
+      `<span title="${r.remaining.toLocaleString()} of ${r.limit.toLocaleString()}">${floorCount(r.remaining)} of ${floorCount(r.limit)} ${esc(unit(r))}</span>`)}${bar(share(r))}</div>`);
   return [...balances, ...rows].join("");
 }
 

@@ -57,8 +57,8 @@ def test_page(client: TestClient) -> None:
   assert 'src="ui/app.js?v=' in page.text, "relative asset paths with a content hash"
   assert 'href="ui/style.css?v=' in page.text, "the style link has a content hash"
   assert (
-    '<th scope="col" class="hide-sm hide-md" role="columnheader">Session</th>'
-    in page.text
+    '<th scope="col" class="hide-sm hide-md" role="columnheader"'
+    ' title="The chat session that picked the model">Session</th>' in page.text
   ), "the Requests session column"
   assert '<div class="card legend" id="requests-legend">' in page.text, (
     "the code legend is a card of its own beside the table"
@@ -411,8 +411,10 @@ def test_app_js_cancelled_status() -> None:
 const cell = sandbox.statusCell;
 const text = sandbox.statusText;
 assert.strictEqual(cell({ cancelled: true }), '<span title="Cancelled">499</span>', 'the code of a closed request');
-assert.strictEqual(cell({ cancelled: false, status: 200 }), '200', 'a normal code');
-assert.strictEqual(cell({ cancelled: false, status: 'err' }), 'err', 'a failed request');
+assert.strictEqual(cell({ cancelled: false, status: 200 }), '<span title="OK">200</span>', 'a normal code');
+assert.strictEqual(cell({ cancelled: false, status: 429 }), '<span title="Too many requests">429</span>', 'a limited request');
+assert.strictEqual(cell({ cancelled: false, status: 'err' }), '<span title="The attempt failed">err</span>', 'a failed request');
+assert.strictEqual(cell({ cancelled: false, status: 302 }), '302', 'a code without a note stays plain');
 assert.strictEqual(text({ cancelled: true }), 'cancelled', 'the word in the chain text');
 """
   )
@@ -663,6 +665,56 @@ def test_the_version_reads_in_the_mono_font() -> None:
     "font-family: var(--mono);"
     in css.split(".login-head small {", 1)[1].split("}", 1)[0]
   ), "the login version"
+
+
+def test_the_short_values_carry_their_full_text() -> None:
+  """Every Requests head and each short value keeps its full text on hover."""
+  root = Path(__file__).resolve().parent.parent.parent
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  head = page.split('<table class="requests"', 1)[1].split("</thead>", 1)[0]
+  assert head.count('title="') == 12, "each Requests head carries a hover text"
+  for note in (
+    "When the request started",
+    "The client app, from its request headers",
+    "The chat session that picked the model",
+    "The model asked for; the pool rides in the slug of an auto route",
+    "The reasoning effort asked of the model",
+    "The model that answered, after any fallback",
+    "The status; 499 marks a request the client closed",
+    "Input tokens. ~ marks an estimate.",
+    "Output tokens from the provider",
+    "Time to the first token",
+    "The stream time after the first token",
+    "How many models the fallback chain tried",
+  ):
+    assert f'title="{note}"' in head, note
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert 'title="${m.max_input_tokens.toLocaleString()} tokens"' in app, (
+    "the context count"
+  )
+  assert 'title="${esc(m.tier)}"' in app, "the tier name"
+  assert (
+    "The largest context of a pool model, ${pool.context.toLocaleString()} tokens"
+    in app
+  ), "the pool context count"
+  assert 'title="Only the start of a saved key is kept"' in app, "the key start"
+  assert (
+    'const STATUS_NOTES = { 200: "OK", 429: "Too many requests", 500: "Upstream error", err: "The attempt failed" };'
+    in app
+  ), "the status meanings"
+  assert (
+    'title="${r.remaining.toLocaleString()} of ${r.limit.toLocaleString()}"' in app
+  ), "the exact rate-limit counts"
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert ".primary:hover:not(:disabled) { filter: brightness(1.12); }" in css, (
+    "the primary button answers the mouse"
+  )
+  assert "button.line.rebuild:hover { color: var(--accent); }" in css, (
+    "the phone catalog line answers the mouse"
+  )
+  assert ".mobile-fallback-chain > summary:hover" in css, (
+    "the phone chain summary answers the mouse"
+  )
 
 
 def test_the_requests_head_keeps_its_rule_while_it_sticks() -> None:
