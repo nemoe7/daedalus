@@ -111,6 +111,9 @@ jobs:
           platforms: linux/${{ matrix.arch }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: VERSION=${{ steps.dev.outputs.version }}
+          # A plain manifest for each platform: no attestation entry hides behind the digest.
+          provenance: false
+          sbom: false
           outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=dev-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=dev-${{ matrix.arch }}
@@ -186,11 +189,22 @@ jobs:
         run: |
           set -euo pipefail
 
-          mapfile -t tag_args < <(jq -r '.tags[] | "-t " + .' <<<"$DOCKER_METADATA_OUTPUT_JSON")
+          mapfile -t tag_args < <(jq -r '.tags[] | "-t " + .' <<<"${DOCKER_METADATA_OUTPUT_JSON:-{}}")
+          if ((${#tag_args[@]} == 0)); then
+            echo "The metadata output holds no tag" >&2
+            exit 1
+          fi
+          shopt -s nullglob
           digests=()
           for file in *; do
             digests+=("${IMAGE}@sha256:${file}")
           done
+          if ((${#digests[@]} == 0)); then
+            echo "No digest landed in /tmp/digests" >&2
+            exit 1
+          fi
+          printf 'tag %s\n' "${tag_args[@]}"
+          printf 'digest %s\n' "${digests[@]}"
           docker buildx imagetools create "${tag_args[@]}" "${digests[@]}"
 
       # The rolling dev tag moves, so each build leaves an old dev-COMMIT version behind.
@@ -373,6 +387,9 @@ jobs:
           platforms: linux/${{ matrix.arch }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: VERSION=${{ needs.release.outputs.tag }}
+          # A plain manifest for each platform: no attestation entry hides behind the digest.
+          provenance: false
+          sbom: false
           outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=release-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=release-${{ matrix.arch }}
@@ -432,9 +449,20 @@ jobs:
         run: |
           set -euo pipefail
 
-          mapfile -t tag_args < <(jq -r '.tags[] | "-t " + .' <<<"$DOCKER_METADATA_OUTPUT_JSON")
+          mapfile -t tag_args < <(jq -r '.tags[] | "-t " + .' <<<"${DOCKER_METADATA_OUTPUT_JSON:-{}}")
+          if ((${#tag_args[@]} == 0)); then
+            echo "The metadata output holds no tag" >&2
+            exit 1
+          fi
+          shopt -s nullglob
           digests=()
           for file in *; do
             digests+=("${IMAGE}@sha256:${file}")
           done
+          if ((${#digests[@]} == 0)); then
+            echo "No digest landed in /tmp/digests" >&2
+            exit 1
+          fi
+          printf 'tag %s\n' "${tag_args[@]}"
+          printf 'digest %s\n' "${digests[@]}"
           docker buildx imagetools create "${tag_args[@]}" "${digests[@]}"
