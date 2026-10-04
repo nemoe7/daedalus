@@ -46,6 +46,22 @@ def chat(model: str) -> dict:
   return {"model": model, "messages": [{"role": "user", "content": "hi"}]}
 
 
+async def test_auto_pool_shows_while_live(client: httpx.AsyncClient) -> None:
+  """The live row of a daedalus/auto request carries the pool of the model it tries."""
+  sent: list[tuple[str, dict]] = []
+  send = dashboard.LIVE.send
+  dashboard.LIVE.send = lambda kind, data: sent.append((kind, data))
+  try:
+    response = await client.post("/v1/chat/completions", json=chat("daedalus/auto"))
+    assert response.status_code == 200, response.text
+  finally:
+    dashboard.LIVE.send = send
+  updates = [data for kind, data in sent if kind == "update"]
+  assert any(row.get("trying") == "p/x" and row.get("pool") for row in updates), updates
+  row = dashboard.HISTORY.latest(1)[0]
+  assert any(live.get("pool") == row["pool"] for live in updates), (updates, row)
+
+
 async def test_generic_keys(client: httpx.AsyncClient) -> None:
   """A generic config key renames its pool, and the default value keeps the built-in name."""
   defaults = {
