@@ -147,6 +147,9 @@ def test_docker_workflow_builds_each_platform_on_a_native_runner() -> None:
   assert content.count("sbom: false") == 2
   assert content.count("The metadata output holds no tag") == 2
   assert content.count("No digest landed in /tmp/digests") == 2
+  # Each -t flag and its tag leave jq as 2 argv entries, or buildx reads a bad reference.
+  assert content.count('"-t", .') == 2
+  assert '"-t " + .' not in content
 
 
 def test_no_duplicate_docker_publishing_workflow_remains() -> None:
