@@ -145,6 +145,28 @@ Keep **Function Calling** on **Native**, the Open WebUI default since v0.10.0. N
 3. **Workspace → Models**, **Create**: base model `daedalus/sophos`, name `Deep Research`. In **Skills**, select `deep-research`. **Save**.
 4. In a chat with `Deep Research`, keep **Web Search** on. Use `$deep-research` in a chat with another model.
 
+#### GitHub tool
+
+`integrations/openwebui/github.py` is an Open WebUI Workspace Tool: one Python file, standard library only, empty `requirements`. It holds the GitHub surface of the reference connector. Reads run at once. Each write asks for confirmation in the chat.
+
+1. **Workspace → Tools**, **Create**, paste the file, **Save**.
+2. **Valves**: set `github_token`, or set the `GITHUB_TOKEN` environment value. Keep `default_mode` `ask`.
+3. **Access** on the tool: make it public, or give read access to each user. A user without read access does not see the tool.
+
+| Valve | Default | Meaning |
+| --- | --- | --- |
+| `github_token` | empty | The token. `GITHUB_TOKEN` is the fallback. |
+| `default_mode` | `ask` | `ask` gates each write, `allow` skips the dialog, `deny` refuses each write. |
+| `timeout_seconds` | `60` | The wait for the confirmation. A closed tab, no dialog, or a late answer reads as no. |
+| `http_timeout_seconds` | `30` | The GitHub HTTP timeout. |
+| `api_version` | `2022-11-28` | The `X-GitHub-Api-Version` header. |
+
+`UserValves.mode` gives each user `ask`, `allow`, `deny`, or `default` for the valve. `UserValves.timeout_seconds` gives each user their own confirmation wait. A value of `0` keeps the valve.
+
+The confirmation travels over the socket of the chat tab. `WEBSOCKET_EVENT_CALLER_TIMEOUT` is unset by default, so the Open WebUI server waits without a timeout when the browser does not answer. Only `timeout_seconds` ends that wait. A page refresh drops the dialog, the tool returns `denied: true`, and it sends nothing.
+
+`tests/integrations/test_owui_github_tool.py` holds the tool surface, the gate and the error path.
+
 ### Open WebUI database
 
 The `webui` profile starts `webui-db` with Open WebUI.
