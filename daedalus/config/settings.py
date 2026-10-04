@@ -10,7 +10,7 @@ from daedalus.config import load_yaml
 
 DEFAULT_PATH = Path("config/daedalus.yml")
 DEFAULTS: dict[str, dict[str, Any]] = {
-  "timeouts": {"request": 600.0, "wait": 60.0, "slow": None},
+  "timeouts": {"request": 600.0, "wait": 60.0, "slow": 30.0},
   "session_affinity": {
     "enabled": True,
     "change_on_draw": True,
@@ -207,9 +207,6 @@ def parse(text: str, target: Path | str = DEFAULT_PATH) -> dict[str, dict[str, A
   loop_values = merged["loops"]
   if loop_values["shortest"] > loop_values["longest"]:
     raise SettingsError("loops.shortest must be at most loops.longest")
-  timeouts = merged["timeouts"]
-  if timeouts["slow"] is None:
-    timeouts["slow"] = timeouts["wait"] / 2
   return merged
 
 

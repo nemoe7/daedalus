@@ -45,7 +45,7 @@ def test_load(folder: Path) -> None:
   path = folder / "daedalus.yml"
   path.write_text("timeouts:\n  wait: 120\nweights:\n  fault: 0.25\n", encoding="utf-8")
   values = settings.load(path)
-  assert values["timeouts"]["slow"] == 60.0, "slow is half of wait when missing"
+  assert values["timeouts"]["slow"] == 30.0, "slow keeps its own default"
   assert values["weights"]["fault"] == 0.25 and values["weights"]["success"] == 1.5
   path.write_text("", encoding="utf-8")
   assert settings.load(path)["session_affinity"]["enabled"] is True, "an empty file"
