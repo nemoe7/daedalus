@@ -51,7 +51,7 @@ packages = [
   "migrations/*.mako",
   "migrations/versions/*.py",
 ]
-"daedalus.dashboard" = ["ui/*"]
+"daedalus.dashboard" = ["ui/*", "ui/icons/*"]
 "daedalus.routing" = ["artifacts/*.json", "artifacts/*-LICENSE.txt"]
 
 [tool.pytest.ini_options]
