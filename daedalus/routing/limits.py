@@ -213,7 +213,7 @@ def neuron_items(data: Any) -> list[Item]:
   return [
     (
       "Neurons today",
-      f"{CLOUDFLARE_FREE - used:,.0f} of {floored(CLOUDFLARE_FREE)} left",
+      f"{floored(CLOUDFLARE_FREE - used)} of {floored(CLOUDFLARE_FREE)} left",
       left,
     )
   ]

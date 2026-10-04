@@ -97,7 +97,7 @@ def test_neurons() -> None:
     "data": {"viewer": {"accounts": [{"aiInferenceAdaptiveGroups": []}]}},
     "errors": None,
   }
-  assert limits.neuron_items(empty) == [("Neurons today", "10,000 of 10K left", 1.0)]
+  assert limits.neuron_items(empty) == [("Neurons today", "10K of 10K left", 1.0)]
   small = {
     "data": {
       "viewer": {
@@ -106,7 +106,7 @@ def test_neurons() -> None:
     }
   }
   assert limits.neuron_items(small) == [
-    ("Neurons today", "9,999 of 10K left", pytest.approx(0.99991, abs=1e-5))
+    ("Neurons today", "9K of 10K left", pytest.approx(0.99991, abs=1e-5))
   ], "the number and the bar show the neurons that are left"
   refused = {"data": None, "errors": [{"message": "not authorized for that account"}]}
   assert limits.neuron_items(refused) == []
@@ -139,7 +139,7 @@ async def test_check(cooldowns: Cooldowns) -> None:
     ],
     "kilo": [["Balance", "$1.20", None]],
     "cloudflare": [
-      ["Neurons today", "8,766 of 10K left", pytest.approx(0.87657, abs=1e-5)]
+      ["Neurons today", "8K of 10K left", pytest.approx(0.87657, abs=1e-5)]
     ],
   }, shown
   ends = cooldowns.ends()
