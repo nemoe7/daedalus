@@ -36,6 +36,7 @@ TOOLS = [
   "create_pull_request",
   "create_pr_with_files",
   "code_scanning_alerts",
+  "check_runs",
   "create_tree",
   "delete_file",
   "dependabot_alerts",
@@ -82,6 +83,7 @@ TOOLS = [
   "list_repositories_by_installation",
   "list_user_org_memberships",
   "list_tree",
+  "list_workflows",
   "list_user_orgs",
   "lock_issue_conversation",
   "mark_pull_request_ready_for_review",
@@ -182,7 +184,7 @@ def test_the_surface_holds_the_tool_list():
     and not node.name.startswith("_")
   ]
   assert sorted(found) == sorted(TOOLS)
-  assert len(TOOLS) == 95
+  assert len(TOOLS) == 97
 
 
 def test_the_gate_defaults_to_ask_with_sixty_seconds():
@@ -441,6 +443,50 @@ def test_dependabot_alerts_filter_and_read_one(monkeypatch):
   detail = asyncio.run(client().dependabot_alerts("o/r", alert_number=9))
   assert detail["result"]["alert"]["number"] == 9
   assert calls[1]["url"].endswith("/dependabot/alerts/9")
+
+
+def test_check_runs_list_and_annotations(monkeypatch):
+  calls = []
+  opener(
+    monkeypatch,
+    [
+      json.dumps(
+        {
+          "total_count": 1,
+          "check_runs": [{"id": 4, "name": "ci", "conclusion": "failure"}],
+        }
+      ),
+      json.dumps({"id": 4, "name": "ci"}),
+      json.dumps([{"path": "a.py", "annotation_level": "failure", "message": "boom"}]),
+    ],
+    calls,
+  )
+  out = asyncio.run(
+    client().check_runs("o/r", "1595387", check_name="ci", filter="latest")
+  )
+  assert out["result"]["check_runs"][0]["conclusion"] == "failure"
+  assert "check_name=ci" in calls[0]["url"]
+  assert "filter=latest" in calls[0]["url"]
+  assert calls[0]["url"].startswith(
+    "https://api.github.com/repos/o/r/commits/1595387/check-runs?"
+  )
+  detail = asyncio.run(client().check_runs("o/r", "1595387", check_run_id=4))
+  assert detail["result"]["annotations"][0]["message"] == "boom"
+  assert calls[1]["url"].endswith("/check-runs/4")
+  assert calls[2]["url"].endswith("/check-runs/4/annotations")
+
+
+def test_list_workflows(monkeypatch):
+  calls = []
+  opener(
+    monkeypatch,
+    json.dumps({"total_count": 2, "workflows": [{"id": 1}, {"id": 2}]}),
+    calls,
+  )
+  out = asyncio.run(client().list_workflows("o/r"))
+  assert out["result"]["total_count"] == 2
+  assert len(out["result"]["workflows"]) == 2
+  assert calls[0]["url"].endswith("/actions/workflows?per_page=30&page=1")
 
 
 def test_a_github_error_propagates(monkeypatch):
