@@ -418,10 +418,23 @@ function chainRows(r) {
 }
 
 // The routing codes of the model cell: a transition, a fallback tier, and a stopped loop.
+// Why the racers did or did not start: the short code with the full note, shown while the race is on.
+const RACE_NOTES = {
+  off: "Parallel is off in the settings",
+  pool: "The request is not a pool or auto route",
+  stream: "The request is not a stream",
+  single: "The pool holds 1 model",
+  fast: "The first model answered before the slow seconds",
+  slow: "The racers started after the slow seconds",
+  drawn: "The draw started the racers with the first model",
+};
+const raceCode = (r) => (state.status?.parallel?.enabled && RACE_NOTES[r.race]
+  ? ` <span class="from" title="${esc(RACE_NOTES[r.race])}">rc-${esc(r.race)}</span>` : "");
+
 function routingCodes(r) {
   const from = r.routed ? ` <span class="from" title="Tier ${esc(poolTier(r.routed))} of the previous model">fr${esc(poolTier(r.routed))}</span>` : "";
   const loop = r.loop ? ` <span class="from" title="${esc(r.loop)} equal tool calls stopped the chain">tl${esc(r.loop)}</span>` : "";
-  return transitionCell(r.transition) + from + loop;
+  return raceCode(r) + transitionCell(r.transition) + from + loop;
 }
 
 function mobileFallbackChain(r) {
