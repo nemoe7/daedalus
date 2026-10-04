@@ -30,9 +30,9 @@ A hidden browser tab sends no requests. It gets new data when it shows again.
 The header shows the state of daedalus as text. The text uses the style of the page switcher: a health dot, then the sessions, then the catalog line. The line gives the time of the last catalog rebuild. It also gives the next scheduled rebuild.
 
 A phone shows a status card at the top of the Overview page instead: the health line, then 1
-line for the sessions and 1 line for the catalog, each with its value at the right. The header
+line for the sessions and 1 line for the catalog, each with its value at the right.
 
-keeps its Log out button on a phone. Log out asks in a modal. Click the catalog line to rebuild the catalog now, after a confirmation. The line shows "rebuilding" until the rebuild ends.
+The header keeps its Log out button on a phone. Log out asks in a modal. Click the catalog line to rebuild the catalog now, after a confirmation. The line shows "rebuilding" until the rebuild ends.
 
 Only 1 rebuild runs at a time. A confirmation of a dangerous action uses a modal of the dashboard, not the browser box.
 
@@ -57,17 +57,11 @@ mark, and a name with no file shows its own text. The folder holds the marks of
 `lobehub/lobe-icons` (MIT), and 1 new file with the name in the model id adds a mark. The hover
 text and the cell title keep the full `provider/slug`.
 
-The page lists the requests in flight at the top, then the last ones, 50 at
-a time and 500 at most. A click on a request opens its attempts, and a hover
-on a count or name shows the exact value. A request that the client closed shows the code `499`.
-An exact string, such as a version, a session id or an API key, reads in the mono font.
-The pool of the auto model rides in the
-model name, such as `daedalus/auto/moros`. The routing codes beside a name, such
-as `lmt`, `frX` and `tlN`, are 3 characters, and the Code legend card beside the
-table gives the meaning of each code. A hook file that defines `on_init` adds
-its rows below the base rows of that card. A wide screen keeps the table in its
-own panel, so the head stays in view and the panel scrolls sideways: the page
-never scrolls sideways. A phone shows the page scroll and its card list.
+The page lists the requests in flight at the top, then the last ones, 50 at a time and 500 at most. A click on a request opens its attempts, and a hover on a count or name shows the exact value. A request that the client closed shows the code `499`. An exact string, such as a version, a session id or an API key, reads in the mono font.
+
+The pool of the auto model rides in the model name, such as `daedalus/auto/moros`. The routing codes beside a name, such as `lmt`, `frX` and `tlN`, are 3 characters. The Code legend card beside the table gives the meaning of each code. A hook file that defines `on_init` adds its rows below the base rows of that card.
+
+A wide screen keeps the table in its own panel, so the head stays in view. The panel scrolls sideways, so the page never scrolls sideways. A phone shows the page scroll and its card list.
 
 ## Models
 

@@ -51,6 +51,7 @@ A request-level point, such as `on-request`, takes its file from the `request_ho
 ```yaml
 request_hooks:
   on-request: hooks/openwebui_retry.py
+  on-chunk: hooks/pick.py
 ```
 
 An empty value turns that point off. The `on-init` point has no group of its own: the dashboard reads the `on_init` function of each file in `request_hooks`. The legend card shows those rows below the base rows, and a file with no `on_init` adds no row. A file that sets `value["key"]` counts the requests of that key: a repeat after an answer is a try again.

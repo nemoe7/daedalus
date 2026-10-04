@@ -147,13 +147,22 @@ Keep **Function Calling** on **Native**, the Open WebUI default since v0.10.0. N
 
 #### GitHub tool
 
-`integrations/openwebui/github.py` is an Open WebUI Workspace Tool: one Python file, standard library only, empty `requirements`. It holds the GitHub surface of the reference connector. Reads run at once. Each write asks for confirmation in the chat. 3 tools sit outside the connector list. `create_pr_with_files` writes a file list as 1 commit and opens or updates the pull request. `list_commits` reads the history of a path or a branch. `list_tree` reads the whole tree in 1 call.
+`integrations/openwebui/github.py` is an Open WebUI Workspace Tool: one Python file, standard library only, empty `requirements`. It holds the GitHub surface of the reference connector. Reads run at once. Each write asks for confirmation in the chat.
+
+3 tools sit outside the connector list. `create_pr_with_files` writes a file list as 1 commit and opens or updates the pull request. `list_commits` reads the history of a path or a branch. `list_tree` reads the whole tree in 1 call.
 
 3 security reads cover the alert lists: `code_scanning_alerts`, `secret_scanning_alerts` and `dependabot_alerts`. Each lists with filters, or reads 1 alert with its instances or locations. They need a token with the `security_events` scope, or the matching fine-grained read. Without it GitHub answers 403.
 
 2 CI reads cover the checks. `check_runs` lists the check runs of a ref with the name, the status and the filter, or reads 1 run with its annotations. `list_workflows` lists the Actions workflows.
 
-4 more reads ship. `actions_minutes` reads the Actions minutes of an org or a user. `releases` lists the releases, or reads 1 by id or tag. `tags` lists the tags. `packages` reads the packages of the signed-in user, a user or an org.
+4 more reads ship:
+
+| Read | Use |
+| --- | --- |
+| `actions_minutes` | The Actions minutes of an org or a user |
+| `releases` | The releases, or 1 by id or tag |
+| `tags` | The tags |
+| `packages` | The packages of the signed-in user, a user or an org |
 
 Gist management ships as 5 tools: `gists`, `fetch_gist`, and the gated writes `create_gist`, `update_gist` and `delete_gist`.
 

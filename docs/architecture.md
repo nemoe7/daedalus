@@ -307,7 +307,7 @@ A loop is a fault of the model that made it. See [ADR 4](adr/0004-penalties.md#l
 | Tool | 3 same-tool-and-arguments calls since the last user message, the last in the last assistant message | The model that made the call is the last fallback |
 | Thinking | A passage of 20 to 2,000 characters, 4 times in a row | Stream: the next model continues. No stream: the next model gets the request. |
 | Answer | The same, in the answer text | As thinking. The next model continues after the first copy of the passage. |
-| Log | Tool: `loop=N` on the Requests page. Thinking and answer: the result `loop`. | |
+| Log | Tool: `loop=N` on the Requests page. Thinking and answer: the result `loop`. | - |
 
 ## Media pools
 
