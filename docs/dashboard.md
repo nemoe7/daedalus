@@ -48,6 +48,11 @@ The Pages demo workflow builds the demo from `main` and deploys it after a chang
 
 ## Requests
 
+Each model name shows a mark of its provider, then a mark of its developer when the developer
+is another name, then the model part, such as `clef`. The mark of a provider with no shipped
+SVG file under `daedalus/dashboard/ui/icons/` is a letter chip in the color of that name. The
+hover text and the cell title keep the full `provider/slug`.
+
 The page lists the requests in flight at the top, then the last ones, 50 at
 a time and 500 at most. A click on a request opens its attempts, and a hover
 on a count or name shows the exact value. The Pool column shows 3-character
