@@ -674,6 +674,51 @@ answer.then((value) => {
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_app_js_time_stamps() -> None:
+  """Each absolute time carries its date, and the catalog times read relative."""
+  source = Path("daedalus/dashboard/ui/app.js").read_text()
+  assert "shortTime(" not in source and "dateTime(" not in source, (
+    "one helper stamps each time"
+  )
+  assert "&middot; Next <b>" in source, "the catalog label reads Next"
+  code = """
+const fs = require('fs');
+const vm = require('vm');
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { stamp, relative };";
+const nodes = new Map();
+const node = (id) => {
+  if (!nodes.has(id)) nodes.set(id, { innerHTML: '', textContent: '', value: '', hidden: false, returnValue: '',
+    shown: false, listeners: {},
+    addEventListener(type, handler) { this.listeners[type] = handler; },
+    showModal() { this.shown = true; },
+    classList: { toggle: () => {} } });
+  return nodes.get(id);
+};
+const sandbox = {
+  esc: (text) => String(text ?? ''), seconds: (value) => value.toFixed(3) + 's',
+  floorCount: (value) => String(value), toLocaleString: (value) => String(value),
+  matchMedia: () => ({ matches: false, addEventListener: () => {} }),
+  document: { hidden: false, documentElement: { dataset: {} }, getElementById: node, querySelector: () => ({ firstChild: { textContent: 'M' } }), querySelectorAll: () => [], addEventListener: () => {} },
+  navigator: {}, location: { hash: '' }, window: { addEventListener: () => {} },
+  getSelection: () => ({ isCollapsed: true }), console: { error: () => {} }, $: node,
+};
+vm.createContext(sandbox);
+vm.runInContext(src, sandbox);
+const assert = require('assert');
+const probe = sandbox.__probe;
+const when = new Date(2026, 9, 4, 12, 30, 46);
+assert.strictEqual(probe.stamp(when.getTime() / 1000), '2026-10-04 12:30:46', 'the stamp of an absolute time');
+const now = Math.floor(Date.now() / 1000);
+assert.strictEqual(probe.relative(now - 7200), '2 hours ago');
+assert.strictEqual(probe.relative(now + 7200), 'in 2 hours');
+assert.strictEqual(probe.relative(now - 600), '10 mins ago');
+assert.strictEqual(probe.relative(now + 600), 'in 10 mins');
+assert.strictEqual(probe.relative(now - 10), 'just now');
+assert.strictEqual(probe.relative(now - 3600), '1 hour ago');
+"""
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_app_js_limit_units() -> None:
   """A limit row names its model on 1 line and shows a short unit such as TPM."""
   payload = {

@@ -515,6 +515,11 @@ const DEMO_FIXTURES = __FIXTURES__;
   // fallback chain and the rate limit show, and the waves continue after them.
   const SEEDED = DEMO_FIXTURES.requests.map((row) => ({ ...row }));
   DEMO_FIXTURES.requests = [];
+  // The captured catalog clock shifts to the viewer once: the last build 10 minutes ago,
+  // and the next in 2 hours.
+  const opened = Date.now() / 1000;
+  DEMO_FIXTURES.status.catalog.built = opened - 600;
+  DEMO_FIXTURES.status.catalog.next = opened + 7200;
   const json = (body, status = 200) =>
     Promise.resolve(new Response(JSON.stringify(body), {
       status, headers: { "Content-Type": "application/json" },
