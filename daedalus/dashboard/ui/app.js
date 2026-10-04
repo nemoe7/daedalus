@@ -58,7 +58,8 @@ const nameCell = (text, shown = esc(text), label = "Model", extra = "") =>
 // developer carries the same name. The set names the SVG files that ship under `ui/icons/`; a name
 // with no file shows its own text in place of a mark.
 const MARK_FILES = new Set([
-  "anthropic", "baai", "black-forest-labs", "bytedance", "cloudflare", "cohere", "deepseek-ai",
+  "anthropic", "baai", "black-forest-labs", "bytedance", "cloudflare", "cohere", "daedalus",
+  "deepseek-ai",
   "dots-studio", "fish-audio", "gemini", "google", "groq", "ibm", "ibm-granite", "inception",
   "kilo", "liquid", "meta", "meta-llama", "microsoft", "mistral", "mistralai", "moonshotai",
   "myshell-ai", "nvidia", "openai", "openrouter", "pollinations", "poolside", "qwen", "runwayml",
@@ -79,11 +80,19 @@ const parts = (id) => {
 };
 // The separator of the parts, so the cell reads as the model id does.
 const sep = '<span class="mark-sep" aria-hidden="true">/</span>';
-const modelName = (id) => {
+const modelName = (id, pool = "") => {
   const { provider, dev, model } = parts(id);
   if (model === null) return esc(id);
   const heads = (dev ? [provider, dev] : [provider]).map(mark);
-  return heads.join(sep) + sep + `<span class="model-part">${esc(model)}</span>`;
+  const tail = pool ? sep + `<span class="model-part">${esc(pool)}</span>` : "";
+  return heads.join(sep) + sep + `<span class="model-part">${esc(model)}</span>` + tail;
+};
+
+// The pool rides in the slug of the auto model: daedalus/auto/moros. The field may carry the
+// full pool name, such as daedalus/moros, and the slug keeps the last part.
+const poolOf = (r) => {
+  const pool = String(r.pool || "").replace(/^daedalus\//, "");
+  return pool && String(r.model || "").startsWith("daedalus/auto") ? pool : "";
 };
 const cell = (label, inner, cls = "") =>
   `<td role="cell"${cls ? ` class="${cls}"` : ""}>${mobileLabel(label)}<span class="cell-value">${inner}</span></td>`;
@@ -397,10 +406,11 @@ function chainRows(r) {
   </div></td></tr>`;
 }
 
-function poolText(r) {
+// The routing codes of the model cell: a transition, a fallback tier, and a stopped loop.
+function routingCodes(r) {
   const from = r.routed ? ` <span class="from" title="Tier ${esc(poolTier(r.routed))} of the previous model">fr${esc(poolTier(r.routed))}</span>` : "";
   const loop = r.loop ? ` <span class="from" title="${esc(r.loop)} equal tool calls stopped the chain">tl${esc(r.loop)}</span>` : "";
-  return `${esc(r.pool || "-")}${transitionCell(r.transition)}${from}${loop}`;
+  return transitionCell(r.transition) + from + loop;
 }
 
 function mobileFallbackChain(r) {
@@ -419,11 +429,10 @@ function mobileRequestDetails(r, live = false) {
     : ` · ${esc(r.fallbacks)} ${Number(r.fallbacks) === 1 ? "fallback" : "fallbacks"}`;
   const chain = !live && hasChain(r) ? mobileFallbackChain(r) : "";
   return `<details class="mobile-request-more">
-    <summary>More · session, effort, pool${count}</summary>
+    <summary>More · session, effort${count}</summary>
     <dl class="mobile-request-meta">
       <div><dt>Session</dt><dd class="mono">${esc(r.session || "-")}</dd></div>
       <div><dt>Effort</dt><dd>${effortCell(r)}</dd></div>
-      <div><dt>Pool</dt><dd>${poolText(r)}</dd></div>
       <div><dt>Fallbacks</dt><dd>${esc(fallbacks)}</dd></div>
     </dl>
     ${chain}
@@ -560,9 +569,8 @@ function renderLive() {
       ${cell("Time", `<span class="pulse"></span>${stamp(r.since / 1000)}`, "num muted")}
       ${appCell(r)}
       ${cell("Session", esc(r.session || "-"), "hide-sm hide-md num mono")}
-      ${nameCell(r.model || r.path, modelName(r.model || r.path))}
+      ${nameCell(r.model || r.path, modelName(r.model || r.path, poolOf(r)) + routingCodes(r))}
       ${cell("Effort", effortCell(r), "hide-sm")}
-      ${cell("Pool", poolText(r), "hide-sm muted")}
       ${nameCell(r.via || r.trying || "", r.via ? modelName(r.via) : `<span class="muted">${r.trying ? `trying ${esc(r.trying)}` : "waiting"}</span>`, "Served by")}
       ${cell("Status", "live", "status muted")}
       ${cell("Input", "-", "hide-sm num muted")}
@@ -665,9 +673,8 @@ function renderRequests(rows) {
       ${cell("Time", `<span class="caret${chain ? "" : " none"}"></span>${stamp(r.at)}`, "num muted")}
       ${appCell(r)}
       ${cell("Session", esc(r.session || "-"), "hide-sm hide-md num mono")}
-      ${nameCell(r.model || "-", modelName(r.model || "-"))}
+      ${nameCell(r.model || "-", modelName(r.model || "-", poolOf(r)) + routingCodes(r))}
       ${cell("Effort", effortCell(r), "hide-sm")}
-      ${cell("Pool", poolText(r), "hide-sm muted")}
       ${nameCell(r.via || "", r.via ? modelName(r.via) : '<span class="muted">none</span>', "Served by")}
       ${cell("Status", statusCell(r), `status ${statusClass(r)}`)}
       ${tokenCell(r.tokens?.input, r.tokens?.estimate ? "~" : "", "Input")}
