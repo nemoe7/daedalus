@@ -63,7 +63,7 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 
 ## Router settings
 
-`config/daedalus.yml`. Each key is optional. A missing key uses the default. An unknown key stops the start. The shipped file holds the changes from the defaults only. The table below lists each key, its default and its use.
+`config/daedalus.yml`. Each key is optional. A missing key uses the default. An unknown key stops the start. The shipped file holds the changes from the defaults only. The **Settings** page writes the changed keys only. A cleared field loses its line, and the default applies. The table below lists each key, its default and its use.
 
 | Key | Default | Use |
 | --- | --- | --- |

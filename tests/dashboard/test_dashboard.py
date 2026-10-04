@@ -1162,13 +1162,13 @@ def test_files(
     "/ui/api/settings", json={"changes": {"timeouts": {"slow": None}}}
   )
   assert (
-    cleared.status_code == 200 and "slow: 12" not in settings.DEFAULT_PATH.read_text()
-  )
-  assert api.SLOW_SECONDS == 30.0, "half of wait"
+    cleared.status_code == 200 and "  slow:" not in settings.DEFAULT_PATH.read_text()
+  ), "a cleared key leaves the file"
+  assert api.SLOW_SECONDS == 30.0, "the default slow time"
   reset = client.put("/ui/api/settings", json={"changes": {"catalog": {"every": None}}})
   assert reset.status_code == 200, reset.text
-  assert "  every: 6" in settings.DEFAULT_PATH.read_text(), (
-    "an empty field writes the default"
+  assert "  every:" not in settings.DEFAULT_PATH.read_text(), (
+    "a cleared key leaves the file"
   )
   words = {"escalation": {"keywords": ["ultrathink", "yes", "think hard"]}}
   assert client.put("/ui/api/settings", json={"changes": words}).status_code == 200
@@ -1182,9 +1182,9 @@ def test_files(
   words = {"escalation": {"keywords": None}}
   assert client.put("/ui/api/settings", json={"changes": words}).status_code == 200
   text = settings.DEFAULT_PATH.read_text()
-  assert "keywords:\n    - ultrathink\n" in text, text
+  assert "  keywords:" not in text, "a cleared key leaves the file"
   assert api.KEYWORDS and api.KEYWORDS.search("ultrathink"), (
-    "an empty field writes the default"
+    "an empty field falls back to the code default"
   )
   assert (
     client.put(
