@@ -2039,6 +2039,17 @@ $("modal-input").addEventListener("keydown", (event) => {
   $("modal-ok").click();
 });
 
+// A click on the backdrop closes the dialog. A click on the box itself does not, so the check
+// tests the box. Escape closes a dialog on its own.
+$("modal").addEventListener("click", (event) => {
+  const dialog = event.currentTarget;
+  if (event.target !== dialog) return;
+  const box = dialog.getBoundingClientRect();
+  const outside = event.clientX < box.left || event.clientX > box.right
+    || event.clientY < box.top || event.clientY > box.bottom;
+  if (outside) dialog.close("cancel");
+});
+
 // The dialog closes on Confirm, on Cancel, on Escape and on a backdrop click.
 $("modal").addEventListener("close", (event) => {
   const done = settle;
