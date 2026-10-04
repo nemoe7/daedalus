@@ -278,19 +278,21 @@ sequenceDiagram
 
 ## Try again
 
-A try again in Open WebUI on `daedalus/auto` moves the repeated message 1 tier up.
+A try again in Open WebUI moves the repeated message 1 tier up on `daedalus/auto`, and it
+picks another model of the same pool on a named pool.
 
 | Item | Value |
 | --- | --- |
 | Found by | The same chat id and messages as an earlier answered request, system messages excluded. |
-| Tier | 1 above the pool that answered the last attempt |
+| Tier | On `daedalus/auto`, 1 above the pool that answered the last attempt |
 | At tier A | A tier A model that did not answer this message. After all, the list restarts. |
+| Named pool | The pool keeps its models, without the models that answered |
 | Next new message | The classifier and the session tier, as before |
 | Session model | The model that answers becomes the session model of its tier slot |
 | Weights | No change for the earlier answer |
 | Log | `retry=N`. The Requests row shows the `code` of the hook, such as `rt1`. |
 | Expiry | 1 h with no repeat of the message, in memory only |
-| Other clients, chat pools, `provider/slug` | No change |
+| Other clients, `provider/slug` | No change |
 
 ## Loops
 

@@ -145,6 +145,7 @@ def test_transition_reasons(monkeypatch: pytest.MonkeyPatch) -> None:
     *,
     old: dict[str, str] = previous,
     turn: object = None,
+    code: str | None = None,
     user_messages: list = messages,
     raw_groups: list[list[str]] = raw,
     sized: list[list[str]] | None = None,
@@ -159,6 +160,7 @@ def test_transition_reasons(monkeypatch: pytest.MonkeyPatch) -> None:
       old,
       candidate,
       turn,
+      code,
       user_messages,
       raw_groups,
       sized,
@@ -179,7 +181,8 @@ def test_transition_reasons(monkeypatch: pytest.MonkeyPatch) -> None:
     reason("p/c", old=low, user_messages=[{"role": "user", "content": "bigger"}])
     == "esc"
   )
-  assert reason("p/c", old=low, turn=SimpleNamespace(count=1)) == "try"
+  assert reason("p/c", old=low, turn=SimpleNamespace(count=1), code="rt1") == "rt1"
+  assert reason("p/c", old=low, turn=SimpleNamespace(count=1)) is None
   monkeypatch.setattr(api, "KEYWORDS", None)
   monkeypatch.setattr(api.router, "required_tier", lambda _: 1)
   assert reason("p/c", old=low) is None

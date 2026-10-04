@@ -83,10 +83,18 @@ def test_task_between(client: TestClient) -> None:
 def test_other_requests(client: TestClient) -> None:
   alone = [{"role": "user", "content": "no header"}]
   assert ask(client, alone) == ask(client, alone) == "c/1", "no chat id, no retry"
-  body = {"model": "daedalus/koinos", "messages": FIRST}
-  for _ in range(2):
-    client.post("/v1/chat/completions", json=body, headers={"X-OpenWebUI-Chat-Id": "p"})
-    assert dashboard.HISTORY.latest(1)[0]["retry"] is None, "pools do not count"
+  body = {"model": "daedalus/sophos", "messages": FIRST}
+  pool = {"X-OpenWebUI-Chat-Id": "p"}
+  first = client.post("/v1/chat/completions", json=body, headers=pool)
+  assert first.status_code == 200, first.text
+  row1 = dashboard.HISTORY.latest(1)[0]
+  second = client.post("/v1/chat/completions", json=body, headers=pool)
+  assert second.status_code == 200, second.text
+  row2 = dashboard.HISTORY.latest(1)[0]
+  assert row2["retry"] == "1", "a named pool counts on a repeat"
+  assert row2["via"] != row1["via"], "the pool picks another model"
+  change = row2["transition"]
+  assert (change["from_pool"], change["to_pool"]) == ("sophos", "sophos"), change
   timed = [{"role": "system", "content": "10:00"}, {"role": "user", "content": "time"}]
   other = {"X-OpenWebUI-Chat-Id": "chat-2"}
   assert ask(client, timed, other) == "c/1"

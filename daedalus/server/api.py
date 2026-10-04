@@ -383,14 +383,21 @@ def chain(
 
 
 def retry_chain(
-  turn: retries.Turn, body: dict[str, Any], config: dict[str, Any]
+  turn: retries.Turn, model: str, body: dict[str, Any], config: dict[str, Any]
 ) -> tuple[list[list[str]], str]:
-  """The chain of a try again: 1 tier above the last answer, without the tier A models that answered."""
-  tier = retries.next_tier(turn)
+  """The chain of a try again: the same pool for a pool request, and 1 tier up for `daedalus/auto`."""
   lines = request_lines(body)
-  groups = router.chain_groups(config, lines, router.fallback_order(tier))
+  if model in router.POOLS:
+    order, slot = router.fallback_order(router.POOLS[model]), model
+  else:
+    tier = retries.next_tier(turn)
+    order, slot = (
+      router.fallback_order(tier),
+      f"{router.RESERVED_MODEL}:{router.TIER_NAMES[tier]}",
+    )
+  groups = router.chain_groups(config, lines, order)
   groups[0] = retries.fresh_models(turn, groups[0])
-  return groups, f"{router.RESERVED_MODEL}:{router.TIER_NAMES[tier]}"
+  return groups, slot
 
 
 def remember(request: Request, turn: retries.Turn | None, candidate: str) -> None:
@@ -449,11 +456,13 @@ def model_pool(config: dict[str, Any], model: str) -> str | None:
 
 
 def previous_auto_pin(key: str, config: dict[str, Any]) -> dict[str, str] | None:
-  """The last successful model of a `daedalus/auto` session, if one exists."""
+  """The last successful model of a `daedalus/auto` or named-pool session, if one exists."""
   found = PENALTIES.last_pin(key)
   if found is None:
     return None
   slot, model = found
+  if slot in router.POOLS:
+    return {"pool": model_pool(config, model) or "", "model": model}
   if not slot.startswith(f"{router.RESERVED_MODEL}:"):
     return None
   tier_name = slot.rpartition(":")[2]
@@ -740,7 +749,7 @@ async def chat(request: Request) -> Response:
   request.state.session = key[:7]
   previous = (
     previous_auto_pin(key, config)
-    if model == router.RESERVED_MODEL and AFFINITY
+    if (model == router.RESERVED_MODEL or model in router.POOLS) and AFFINITY
     else None
   )
   turn = None
@@ -766,7 +775,7 @@ async def chat(request: Request) -> Response:
         code = written if isinstance(written, str) and written else None
   if turn is not None and turn.count:
     request.state.code = code
-    found = retry_chain(turn, body, config)
+    found = retry_chain(turn, model, body, config)
     request.state.retry = str(turn.count)
   else:
     found = chain(model, body, config, key)
