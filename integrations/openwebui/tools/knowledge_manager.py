@@ -302,7 +302,12 @@ class Tools:
       )
     if err:
       return err
-    return f"Knowledge base created successfully.\nname={data.get('name', name)}\nknowledge_id={data.get('id')}\ndescription={data.get('description', description)}"
+    attach = await self._attach_knowledge_to_presets([data.get("id")], __request__)
+    return (
+      f"Knowledge base created successfully.\nname={data.get('name', name)}\n"
+      f"knowledge_id={data.get('id')}\ndescription={data.get('description', description)}\n"
+      f"{attach}"
+    )
 
   async def update_knowledge_base(
     self,
@@ -1149,7 +1154,7 @@ class Tools:
       or f"Knowledge base permanently deleted successfully.\nknowledge_id={knowledge_id}\nname={meta.get('name', 'Unnamed')}"
     )
 
-  async def list_model_presets(
+  async def _list_model_presets(
     self,
     query: str = "",
     page: int = 1,
@@ -1288,7 +1293,45 @@ class Tools:
     }
     return add, remove
 
-  async def update_model_preset(
+  async def _attach_knowledge_to_presets(self, knowledge_ids, __request__):
+    """Add knowledge bases to the knowledge list of every writable model preset."""
+    ids = [str(item) for item in knowledge_ids if item]
+    if not ids:
+      return "preset_models: none"
+    add = {"knowledge": ids}
+    updated = 0
+    skipped = []
+    errors = []
+    async with await self._open_session(__request__) as session:
+      page = 1
+      while page <= 100:
+        data, err = await self._request(
+          session, "GET", "/models/list", params={"page": page}
+        )
+        if err:
+          return f"preset_models: error: {err}"
+        items = (data or {}).get("items") or []
+        if not items:
+          break
+        for item in items:
+          model_id = item.get("id")
+          if not item.get("write_access"):
+            skipped.append(str(model_id))
+            continue
+          line, err = await self._write_preset(session, model_id, add, {})
+          if err:
+            errors.append(str(err))
+          elif ": changed" in line:
+            updated += 1
+        page += 1
+    text = f"preset_models: added to {updated}"
+    if skipped:
+      text += f". skipped, no write access: {', '.join(skipped)}"
+    if errors:
+      text += f". failed: {errors[0]}"
+    return text
+
+  async def _update_model_preset(
     self,
     model_id: str = Field(
       ..., description="ID of the workspace model preset to change."
@@ -1334,7 +1377,7 @@ class Tools:
       line, err = await self._write_preset(s, model, add, remove)
     return err or line
 
-  async def update_all_model_presets(
+  async def _update_all_model_presets(
     self,
     add_knowledge_ids: str = "",
     add_tool_ids: str = "",
