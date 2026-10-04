@@ -756,6 +756,9 @@ def test_header_state_matches_the_page_switcher() -> None:
   assert "border-radius: 0" in rule.group(1) and "font-size: 14px" in rule.group(1)
   assert ".tabs { grid-area: tabs; display: flex; gap: 24px" in css
   assert "#status { padding: 0; gap: 24px; }" in css
+  assert "grid-area: chips; display: flex; gap: 32px" in css, (
+    "Log out stands a step apart from the status group"
+  )
 
 
 def test_app_js_settings_switches() -> None:
