@@ -13,7 +13,13 @@ from urllib.error import HTTPError
 
 import pytest
 
-TOOL = Path(__file__).resolve().parents[2] / "integrations" / "openwebui" / "github.py"
+TOOL = (
+  Path(__file__).resolve().parents[2]
+  / "integrations"
+  / "openwebui"
+  / "tools"
+  / "github.py"
+)
 SPEC = importlib.util.spec_from_file_location("owui_github_tool", TOOL)
 tool = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(tool)
