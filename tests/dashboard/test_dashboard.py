@@ -60,8 +60,11 @@ def test_page(client: TestClient) -> None:
     '<th scope="col" class="hide-sm hide-md" role="columnheader">Session</th>'
     in page.text
   ), "the Requests session column"
-  assert '<details class="card legend"' in page.text, (
+  assert '<div class="card legend" id="requests-legend">' in page.text, (
     "the code legend is a card of its own beside the table"
+  )
+  assert "<details" not in page.text and "<summary" not in page.text, (
+    "the legend keeps no expand button"
   )
   assert '<dialog id="modal"' in page.text, "the confirmation modal"
   assert "<code>frX</code>" not in page.text, "the legend body is filled by app.js"
