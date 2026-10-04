@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 from daedalus import providers, store
+from daedalus.providers import hooks
 from daedalus.providers.base import error_text
 from daedalus.routing import context, loops, pacing, router
 from daedalus.server import upstream
@@ -192,10 +193,15 @@ async def relay(
   attempts: list[dict[str, Any]] | None = None,
   counts: dict[str, Any] | None = None,
   on_transition: Callable[[str, str, str], None] | None = None,
+  requested: str = "",
+  stream_context: dict[str, Any] | None = None,
+  hook_files: list[Any] | None = None,
 ) -> AsyncIterator[bytes]:
   """Stream one answer, continue from the sent text on a failure, and keep the provider input count in `counts`."""
   identifier, sent, tool = None, [], False
   attempts = [] if attempts is None else attempts
+  chunk_hooks = hook_files or []
+  state = stream_context or {}
   while True:
     # Each model gets new loop checks. The answer text so far stays in `sent`.
     thinking, answer = loops.Repeats(), loops.Repeats()
@@ -238,6 +244,15 @@ async def relay(
               text = "".join(sent) + delta["content"]
               raise loops.LoopError("answer", loops.kept(text, period))
             sent.append(delta["content"])
+        if chunk_hooks:
+          failures = sum(1 for note in attempts if note.get("result") != "answered")
+          chunk = hooks.run_files(
+            "on-chunk",
+            chunk_hooks,
+            chunk,
+            model=requested,
+            context={**state, "attempts": failures, "served": model},
+          )
         yield providers.frame(chunk)
     except loops.LoopError as exc:
       logger.warning("upstream %s stopped: %s", model, exc)

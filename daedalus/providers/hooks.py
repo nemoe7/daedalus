@@ -22,6 +22,7 @@ POINTS = {
   "on-request": "on_request",
   "on-upstream": "on_upstream",
   "on-answer": "on_answer",
+  "on-chunk": "on_chunk",
 }
 # An optional extra function of a request hook file: the rows of the code legend.
 INIT = "on_init"

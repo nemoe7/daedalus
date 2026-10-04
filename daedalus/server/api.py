@@ -1190,6 +1190,13 @@ async def chat(request: Request) -> Response:
         attempts,
         request.state.tokens,
         stream_transition if model == router.RESERVED_MODEL else None,
+        requested=model,
+        stream_context={
+          "pool": getattr(request.state, "pool", "") or "",
+          "code": getattr(request.state, "code", "") or "",
+          "previous": (previous or {}).get("model", ""),
+        },
+        hook_files=hooks.request_files(REQUEST_HOOKS, "on-chunk"),
       ),
       media_type="text/event-stream",
     )
