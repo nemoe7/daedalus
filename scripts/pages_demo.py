@@ -25,6 +25,7 @@ from daedalus import config, dashboard, store
 from daedalus.catalog import discovery
 from daedalus.config import settings
 from daedalus.providers import hooks
+from daedalus.routing import router
 from daedalus.server import api, upstream
 from daedalus.store import keys, saved_env
 
@@ -40,6 +41,7 @@ ENDPOINTS = (
   "pools",
   "requests?limit=50",
   "limits",
+  "hooks",
   "keys",
   "files",
   "env",
@@ -191,6 +193,8 @@ DEMO_CALLS = (
   ),
   ("openrouter/z-ai/glm-5.3-flash", "Say hello in Japanese."),
   ("daedalus/koinos", "Draft a short release note for version 0.3."),
+  # The auto pool: the row carries the pool that the route picked.
+  ("daedalus/auto", "Sort these 3 words by length."),
 )
 DEMO_STREAM = DEMO_CALLS[2][0]
 DEMO_TOOLS = DEMO_CALLS[3][0]
@@ -306,6 +310,10 @@ def demo_files(folder: Path) -> tuple[Path, ...]:
   shadowed.write_text(DEMO_ATLAS, encoding="utf-8")
   settings_file = folder / "config" / "daedalus.yml"
   settings_file.write_text(settings.DEFAULT_PATH.read_text(encoding="utf-8"))
+  # The shipped hooks of the config folder: the legend rows of the page come from them.
+  shipped = ROOT / "config" / "hooks"
+  if shipped.is_dir():
+    shutil.copytree(shipped, folder / "config" / "hooks", dirs_exist_ok=True)
   return provider, shadowed
 
 
@@ -378,7 +386,9 @@ def seed_state() -> None:
     cooldowns.clock() + 26 * 3600,
     "reset",
   )
-  rows = dashboard.HISTORY.latest(1)
+  # The shapes carry chat-only fields, so they start from the newest chat row: a media
+  # row can never hold the app, the effort, the loop, the retry or the routed pool.
+  rows = [row for row in dashboard.HISTORY.latest(50) if row["model"] in router.POOLS]
   if not rows:
     return
   for shape in DEMO_SHAPES:
@@ -437,7 +447,7 @@ def capture() -> dict[str, Any]:
     try:
       store.MODELS_DB = folder / "state" / "models.sqlite3"
       discovery.DUMP_DIR = folder / "dump"
-      hooks.CONFIG_DIR = folder / "hooks"
+      hooks.CONFIG_DIR = folder / "config"
       dashboard.FILES = (provider,)
       config.DEFAULT_PATH = provider
       settings.DEFAULT_PATH = folder / "config" / "daedalus.yml"
