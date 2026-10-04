@@ -100,7 +100,7 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 | `dashboard.theme` | `system` | `system`, `light` or `dark`. The Settings page sets it. Login always follows the device. |
 | `dashboard.time_format` | `24h` | `24h` or `12h` for the dashboard clocks. The Settings page sets it. |
 | `request_hooks.on-request` | `hooks/openwebui_retry.py` | The request hook file of the `config` folder. Empty: no hook. See [Hooks](hooks.md). |
-| `pools.moros`, `pools.koinos`, `pools.deinos`, `pools.sophos`, `pools.graphos`, `pools.photos` | The key | The pool names after `daedalus/`: 1-40 characters, no `auto`. Old names break with HTTP 400. |
+| `pools.tier-a`, `pools.tier-b`, `pools.tier-c`, `pools.tier-d`, `pools.audio`, `pools.images` | `sophos`, `deinos`, `koinos`, `moros`, `graphos`, `photos` | The client name after `daedalus/`: 1-40 characters, no `auto`. A change renames that pool, and the old name breaks with HTTP 400. |
 
 ## Provider key values
 
