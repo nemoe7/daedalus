@@ -231,11 +231,13 @@ function renderStatusCard(status) {
   const label = rebuilding ? "A catalog rebuild runs now" : "Rebuild the catalog now";
   $("card-health").innerHTML =
     `<span class="dot${status.healthy ? "" : " off"}"></span>${status.healthy ? "Healthy" : "Down"}`;
-  const race = status.parallel;
-  const raceLine = race?.enabled
-    ? line("Parallel", `on &middot; ${race.count} &middot; ${Math.round(race.chance * 100)}% &middot; ${race.slow}s`)
+  const affinity = status.affinity;
+  const affinityLine = affinity?.mode && affinity.mode !== "none"
+    ? line("Affinity", affinity.mode === "race"
+        ? `race &middot; ${affinity.count} &middot; ${Math.round(affinity.chance * 100)}% &middot; ${affinity.slow}s`
+        : affinity.mode)
     : "";
-  $("card-rows").innerHTML = line("Sessions", status.sessions) + raceLine
+  $("card-rows").innerHTML = line("Sessions", status.sessions) + affinityLine
     + `<button class="line rebuild" type="button" title="${label}" ${rebuilding ? "disabled" : ""}>
       <span>Catalog</span><span><b>${esc(last)}</b>${following}</span></button>`;
 }
@@ -421,7 +423,7 @@ function chainRows(r) {
 // Why the racers did or did not start: the code wears the same 3 letter shape as the routing
 // codes, and the title carries the full note. It shows while the race is on.
 const RACE_NOTES = {
-  off: "No race: parallel is off in the settings",
+  off: "No race: the affinity mode is not race",
   pool: "No race: the request is not a pool or auto route",
   stream: "No race: the request is not a stream",
   single: "No race: the pool holds 1 model",
@@ -433,7 +435,7 @@ const RACE_CODES = {
   off: "race off", pool: "not a pool", stream: "not a stream", single: "one model",
   fast: "fast pin", slow: "slow pin", drawn: "on draw",
 };
-const raceNote = (r) => (state.status?.parallel?.enabled && RACE_CODES[r.race]
+const raceNote = (r) => (state.status?.affinity?.enabled && RACE_CODES[r.race]
   ? `<p class="chain-race" title="${esc(RACE_NOTES[r.race])}">${esc(RACE_CODES[r.race])}</p>` : "");
 
 function routingCodes(r) {
@@ -570,13 +572,13 @@ function poolTier(name) {
 
 // The code legend of the Requests page: each short code with its meaning.
 // The parallel row of the legend joins it only while the setting is on.
-const parallelOn = () => Boolean(
-  state.settings && (fileValue("parallel", "enabled") ?? state.settings.defaults.parallel.enabled) === true,
+const raceOn = () => Boolean(
+  state.settings && (fileValue("affinity", "mode") ?? state.settings.defaults.affinity.mode) === "race",
 );
 
 function renderLegend(extra = state.legendExtra) {
   const rows = [
-    ...Object.entries(TRANSITION_REASONS).filter(([code]) => code !== "rce" || parallelOn()),
+    ...Object.entries(TRANSITION_REASONS).filter(([code]) => code !== "rce" || raceOn()),
     ["frX", "the tier of the previous model"],
     ["tlN", "N equal tool calls stopped the chain"],
     ...extra,
@@ -1391,18 +1393,16 @@ const SETTINGS = [
     ["wait", "Wait", "s", "The time without data from the provider. Keep-alive bytes do not count."],
     ["slow", "Slow first token", "s", "A first token after this time is slow."],
   ]],
-  ["session_affinity", "Session affinity", [
-    ["enabled", "On", "", "Each conversation stays on 1 model."],
-    ["change_on_draw", "Change pin on draw", "", "Off: keep the current pin while it remains eligible after a weighted draw."],
-    ["idle", "Idle expiry", "s", "The session model expires after this time without a request."],
-    ["stay", "Stay share", "", "The share of first-tier draws for the session model. Below 1."],
-  ]],
-  ["parallel", "Parallel queries", [
-    ["enabled", "On", "", "The next models of the chain race the first content, and the session model starts each request."],
-    ["count", "Racing models", "", "The models that race the original one. 1 to 10."],
-    ["chance", "Race chance", "", "The chance to start the racing models with the original one. 0 to 1."],
-    ["slow", "Slow first token", "s", "Seconds with no content from the first model. Then the racing models start."],
-    ["penalty", "Loser factor", "x", "The weight factor for the model that loses the race. At most 1."],
+  // The 5th element of a row lists the modes that show it. Only `mode` always shows.
+  ["affinity", "Affinity", [
+    ["mode", "Mode", "choice", "none: no pin and no race. session: each conversation stays on 1 model. race: the next models also race the first content."],
+    ["change_on_draw", "Change pin on draw", "", "Off: keep the current pin while it remains eligible after a weighted draw.", ["session", "race"]],
+    ["idle", "Idle expiry", "s", "The session model expires after this time without a request.", ["session", "race"]],
+    ["stay", "Stay share", "", "The share of first-tier draws for the session model. Below 1.", ["session", "race"]],
+    ["count", "Racing models", "", "The models that race the original one. 1 to 10.", ["race"]],
+    ["chance", "Race chance", "", "The chance to start the racing models with the original one. 0 to 1.", ["race"]],
+    ["slow", "Race slow token", "s", "Seconds with no content from the first model. Then the racing models start.", ["race"]],
+    ["penalty", "Loser factor", "x", "The weight factor for the model that loses the race. At most 1.", ["race"]],
   ]],
   ["weights", "Weights", [
     ["enabled", "On", "", "Off: all weights stay at 1, and the chain keeps the usual order."],
@@ -1456,9 +1456,10 @@ const SETTINGS = [
 ];
 
 // The Settings cards of each column, from top to bottom.
-const SETTINGS_COLUMNS = [["timeouts", "catalog", "pacing", "pools"], ["session_affinity", "headroom", "cooldown", "loops", "dashboard"], ["weights", "parallel", "escalation", "switch", "request_hooks"]];
+const SETTINGS_COLUMNS = [["timeouts", "catalog", "pacing", "pools"], ["affinity", "headroom", "cooldown", "loops", "dashboard"], ["weights", "escalation", "switch", "request_hooks"]];
 // The options of each choice field.
 const CHOICES = {
+  mode: [["none", "None"], ["session", "Session"], ["race", "Race"]],
   theme: [["system", "System"], ["light", "Light"], ["dark", "Dark"]],
   time_format: [["24h", "24 h"], ["12h", "12 h"]],
 };
@@ -1476,20 +1477,20 @@ applyTheme();
 
 // The fields that take decimals. The other fields take whole numbers.
 const DECIMALS = new Set([
-  "session_affinity.stay", "parallel.chance", "parallel.penalty",
+  "affinity.stay", "affinity.chance", "affinity.penalty",
   "weights.success", "weights.fault", "weights.slow", "weights.hourly", "weights.rate_limit",
 ]);
 // The input bounds. The server also checks them before saving.
-const MINIMA = { "loops.calls": 2, "loops.repeats": 2, "loops.shortest": 1, "loops.longest": 1, "parallel.count": 1 };
+const MINIMA = { "loops.calls": 2, "loops.repeats": 2, "loops.shortest": 1, "loops.longest": 1, "affinity.count": 1 };
 const MAXIMA = {
   "catalog.anchor": 23,
   "timeouts.request": 86400,
   "timeouts.wait": 86400,
   "timeouts.slow": 86400,
   "headroom.timeout": 86400,
-  "parallel.count": 10,
-  "parallel.chance": 1,
-  "parallel.penalty": 1,
+  "affinity.count": 10,
+  "affinity.chance": 1,
+  "affinity.penalty": 1,
   "loops.calls": 100,
   "loops.repeats": 16,
   "loops.shortest": 1000,
@@ -1504,8 +1505,11 @@ const isSwitch = (group, key) => typeof state.settings.defaults[group][key] === 
 
 function renderSettings() {
   $("settings-path").textContent = `${fileName(state.settings.path)} · Ctrl+S saves and reloads`;
+  // A row with a mode list shows only under those modes: the race values wait for race, and the
+  // pin values wait for session or race. Only `mode` always shows.
+  const mode = setting("affinity", "mode");
   const card = ([group, title, fields]) => `
-    <div class="card"><h3>${esc(title)}</h3>${fields.map(([key, label, unit, hint]) => {
+    <div class="card"><h3>${esc(title)}</h3>${fields.filter(([, , , , show]) => !show || show.includes(mode)).map(([key, label, unit, hint]) => {
       const id = `set-${group}-${key}`;
       if (isSwitch(group, key)) {
         // A desktop hides the hint behind the info icon; a phone keeps it under the label.
@@ -2038,6 +2042,8 @@ window.addEventListener("resize", () => {
 $("settings").addEventListener("input", (event) => {
   $("settings-message").textContent = "";
   showLengthLimit(event.target, $("settings-message"));
+  // The mode decides which rows of the affinity card show, so a new mode renders the card again.
+  if (event.target.id === "set-affinity-mode") return renderSettings();
   renderSettingsSave();
 });
 $("settings").addEventListener("click", (event) => {
