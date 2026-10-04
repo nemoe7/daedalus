@@ -350,9 +350,9 @@ function statusText(r) {
   return r.cancelled ? "cancelled" : r.status;
 }
 
-// The status on the page: a stop square for a request that the client closed.
+// The status on the page: 499, the nginx code of a request that the client closed.
 function statusCell(r) {
-  return r.cancelled ? '<span class="stop" role="img" title="Cancelled" aria-label="Cancelled"></span>' : esc(r.status);
+  return r.cancelled ? '<span title="Cancelled">499</span>' : esc(r.status);
 }
 
 function statusClass(r) {
