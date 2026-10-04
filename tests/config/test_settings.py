@@ -265,18 +265,21 @@ def test_timeout_cap() -> None:
 
 
 def test_pool_names() -> None:
-  """Each pool name is a short name of its own, and a save keeps a name that looks like a number."""
-  assert settings.parse("")["pools"]["moros"] == "moros"
-  assert settings.parse("pools:\n  moros: fast\n")["pools"]["moros"] == "fast"
+  """The key of each pool is generic, its default is the built-in name, and a save keeps a number-like name."""
+  assert settings.parse("")["pools"]["tier-a"] == "sophos"
+  assert settings.parse("pools:\n  tier-a: fast\n")["pools"]["tier-a"] == "fast"
+  assert settings.parse("pools:\n  images: pics\n")["pools"]["images"] == "pics"
   for bad in ("a/b", "auto", "''", "x" * 41, "[a]"):
     with pytest.raises(settings.SettingsError):
-      settings.parse(f"pools:\n  moros: {bad}\n")
+      settings.parse(f"pools:\n  tier-a: {bad}\n")
   with pytest.raises(settings.SettingsError, match="own name"):
-    settings.parse("pools:\n  moros: koinos\n")
-  swapped = settings.parse("pools:\n  moros: koinos\n  koinos: moros\n")["pools"]
-  assert (swapped["moros"], swapped["koinos"]) == ("koinos", "moros"), swapped
-  text = settings.update_text("pools:\n  moros: moros\n", {"pools": {"moros": "123"}})
-  assert settings.parse(text)["pools"]["moros"] == "123", text
+    settings.parse("pools:\n  tier-a: koinos\n")
+  swapped = settings.parse("pools:\n  tier-a: koinos\n  tier-c: sophos\n")["pools"]
+  assert (swapped["tier-a"], swapped["tier-c"]) == ("koinos", "sophos"), swapped
+  text = settings.update_text(
+    "pools:\n  tier-a: sophos\n", {"pools": {"tier-a": "123"}}
+  )
+  assert settings.parse(text)["pools"]["tier-a"] == "123", text
 
 
 def test_update_text_drops_an_empty_group() -> None:

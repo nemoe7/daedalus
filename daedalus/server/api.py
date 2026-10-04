@@ -18,7 +18,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from daedalus import __version__, dashboard, providers, store
 from daedalus.catalog import schedule
-from daedalus.config import block_for, get_config
+from daedalus.config import block_for, get_config, settings
 from daedalus.providers import hooks, signatures
 from daedalus.providers.base import error_text
 from daedalus.routing import (
@@ -1111,7 +1111,10 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   global SLOW_SECONDS, AFFINITY, KEYWORDS, SWITCH
   global PARALLEL_ENABLED, PARALLEL_COUNT, PARALLEL_CHANCE, PARALLEL_SLOW_SECONDS
   global PARALLEL_PENALTY, REQUEST_HOOKS
-  router.set_pool_names(values["pools"])
+  # The settings key each pool by its generic name. Its default value gives the built-in name.
+  router.set_pool_names(
+    {settings.DEFAULTS["pools"][key]: name for key, name in values["pools"].items()}
+  )
   REQUEST_HOOKS = dict(values["request_hooks"])
   timeouts, affinity, weights = (
     values["timeouts"],

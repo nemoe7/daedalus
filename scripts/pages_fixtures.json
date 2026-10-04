@@ -1203,12 +1203,12 @@
         "slow": 30.0
       },
       "pools": {
-        "deinos": "deinos",
-        "graphos": "graphos",
-        "koinos": "koinos",
-        "moros": "moros",
-        "photos": "photos",
-        "sophos": "sophos"
+        "audio": "graphos",
+        "images": "photos",
+        "tier-a": "sophos",
+        "tier-b": "deinos",
+        "tier-c": "koinos",
+        "tier-d": "moros"
       },
       "request_hooks": {
         "on-request": ""

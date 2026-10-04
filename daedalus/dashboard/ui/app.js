@@ -1289,12 +1289,12 @@ const SETTINGS = [
     ["on-request", "On request", "path", "The Python file of the config folder that sets the key of a turn. Empty: no hook."],
   ]],
   ["pools", "Pool names", [
-    ["moros", "Tier D", "name", "The client name of the tier D pool. The old name gets HTTP 400."],
-    ["koinos", "Tier C", "name", "The client name of the tier C pool."],
-    ["deinos", "Tier B", "name", "The client name of the tier B pool."],
-    ["sophos", "Tier A", "name", "The client name of the tier A pool."],
-    ["graphos", "Transcription", "name", "The client name of the transcription pool."],
-    ["photos", "Image", "name", "The client name of the image pool."],
+    ["tier-a", "Tier A", "name", "The client name of the tier A pool: sophos by default."],
+    ["tier-b", "Tier B", "name", "The client name of the tier B pool: deinos by default."],
+    ["tier-c", "Tier C", "name", "The client name of the tier C pool: koinos by default."],
+    ["tier-d", "Tier D", "name", "The client name of the tier D pool: moros by default."],
+    ["audio", "Transcription", "name", "The client name of the transcription pool: graphos by default."],
+    ["images", "Image", "name", "The client name of the image pool: photos by default."],
   ]],
 ];
 
