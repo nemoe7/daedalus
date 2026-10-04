@@ -48,12 +48,12 @@ The Pages demo workflow builds the demo from `main` and deploys it after a chang
 
 ## Requests
 
-Each model name shows a mark of its provider, then a mark of its developer when the developer
-is another name, then the model part, such as `clef`. A name with a shipped SVG file under
-`daedalus/dashboard/ui/icons/` shows that mark, and every other name takes a chip with its name
-in the color of the name. The folder holds the marks of `lobehub/lobe-icons` (MIT), and 1 new file
-with the name in the model id adds a mark. The hover text and the cell title keep the full
-`provider/slug`.
+Each model name reads as the model id does: the mark of the provider, then the mark of the
+developer when the developer is another name, then the model part, such as `clef`, with a `/`
+between the parts. A name with a shipped SVG file under `daedalus/dashboard/ui/icons/` shows that
+mark, and a name with no file shows its own text. The folder holds the marks of
+`lobehub/lobe-icons` (MIT), and 1 new file with the name in the model id adds a mark. The hover
+text and the cell title keep the full `provider/slug`.
 
 The page lists the requests in flight at the top, then the last ones, 50 at
 a time and 500 at most. A click on a request opens its attempts, and a hover
