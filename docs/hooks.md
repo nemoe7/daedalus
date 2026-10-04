@@ -29,6 +29,20 @@ For each point, the file defines 1 function with the name of the point.
 | `on-answer` | `on_answer(answer, model)` | After a full chat answer comes back, before the client gets it | `answer`: the answer in the OpenAI format. A stream has no `on-answer` point. |
 | `on-init` | `on_init()` | At the dashboard load, for each enabled request hook file | No arguments. It returns the rows of the code legend of the dashboard, such as `[["rtN", "A repeat picked another model, N times"]]`. |
 
+```mermaid
+flowchart TD
+  A[Client request] --> B{{on-request}}
+  B --> C[Catalog pick and fallback chain]
+  C --> D{{on-upstream}}
+  D --> E[Provider API]
+  E --> F{{on-answer}}
+  F --> G[Client answer]
+  H[Catalog build] --> I{{on-catalog}}
+  I --> J[(Model store)]
+  K[Dashboard load] --> L{{on-init}}
+  L --> M[Code legend rows]
+```
+
 A request-level point, such as `on-request`, takes its file from the `request_hooks` group of `config/daedalus.yml`, because no provider owns the request yet:
 
 ```yaml
@@ -60,19 +74,39 @@ The dashboard can edit the `hooks` list, but not the hook files. Only a person w
 
 ## Hook files in config
 
-| File | Use |
-| --- | --- |
-| `hooks/example.py` | A start for a new hook file: each function, examples in comments, no changes. |
-| `hooks/cheapest_output.py` | Sorts the OpenRouter endpoints by the cheapest output price. The example follows the table. |
-| `hooks/openwebui_retry.py` | The request hook of Open WebUI: a repeated message with the same chat id is a try again. |
+### `hooks/openwebui_retry.py`
 
-The `cheapest_output` hook: `on_catalog` reads the endpoint list of each model at each
-catalog build. It sorts the list by the output price after the discount, and the input
-price breaks a tie. The order holds provider slugs with no variant, such as `deepinfra`
-for `deepinfra/fp4`, and each provider keeps the place of its cheapest endpoint. The
-order stays in `.daedalus-state/cheapest_output.json`. `on_upstream` sends the order as
-`provider.order`, and a client `provider` object has priority. If the list read fails,
-the old order stays. `openrouter.yml` names the file for `z-ai/glm-5.3-flash`.
+A repeat of the same message in 1 Open WebUI chat is a try again.
+
+| Item | Value |
+| --- | --- |
+| Runs | `on-request`, before the chain, and again on the repeat with the count |
+| Writes | `value["key"]`, the chat id and the digest, and `value["code"]`, such as `rt1` |
+| Named by | `request_hooks.on-request` in `config/daedalus.yml` |
+| Legend | `on_init` returns the `rtN` row |
+
+### `hooks/cheapest_output.py`
+
+The endpoint list of a model goes from the cheapest output price to the most expensive one.
+
+| Item | Value |
+| --- | --- |
+| Runs | `on-catalog` at each catalog build, and `on-upstream` before each provider call |
+| Writes | The order in `.daedalus-state/cheapest_output.json`, then `provider.order` in the body |
+| Named by | The `hooks` list of the model `z-ai/glm-5.3-flash` in `openrouter.yml` |
+| Notes | A client `provider` object has priority. If the list read fails, the old order stays. |
+
+The order holds provider slugs with no variant, such as `deepinfra` for `deepinfra/fp4`, and each provider keeps the place of its cheapest endpoint.
+
+### `hooks/example.py`
+
+A start for a new hook file: each function, with examples in the comments.
+
+| Item | Value |
+| --- | --- |
+| Runs | Nowhere. No config names it. |
+| Writes | Nothing. The examples stay in the comments. |
+| Named by | A copy of the file under a new name, named in a `hooks` list or in `request_hooks` |
 
 ## Example
 
