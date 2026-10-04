@@ -142,6 +142,11 @@ def test_docker_workflow_builds_each_platform_on_a_native_runner() -> None:
   assert content.count("merge-multiple: true") == 2
   assert "name: digests-dev-${{ matrix.arch }}" in content
   assert "name: digests-release-${{ matrix.arch }}" in content
+  # An attestation entry never hides behind a digest, and a bad input fails by name.
+  assert content.count("provenance: false") == 2
+  assert content.count("sbom: false") == 2
+  assert content.count("The metadata output holds no tag") == 2
+  assert content.count("No digest landed in /tmp/digests") == 2
 
 
 def test_no_duplicate_docker_publishing_workflow_remains() -> None:
