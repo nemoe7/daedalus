@@ -215,7 +215,7 @@ The 5 reads are `search_mail`, `read_thread`, `agenda`, `search_files` and `read
 
 #### Knowledge manager tool
 
-`integrations/openwebui/tools/knowledge_manager.py` is a third Workspace Tool: 1 file, no valves, and the caller token comes from the chat request. It holds the 20 knowledge tools.
+`integrations/openwebui/tools/knowledge_manager.py` is a third Workspace Tool: 1 file, no valves, and the caller token comes from the chat request. It holds the 23 knowledge tools.
 
 The knowledge tools list, create, read, update, move and delete knowledge bases, folders and files. They also search the files and read 1 by path. A file creation waits until Open WebUI finishes the indexing.
 

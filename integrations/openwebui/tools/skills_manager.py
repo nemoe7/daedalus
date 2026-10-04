@@ -1766,7 +1766,7 @@ class Tools:
     )
     OWUI_API_BASE: str = Field(
       default="http://127.0.0.1:8080/api/v1",
-      description="Base URL of the OpenWebUI API the model preset tools call.",
+      description="Base URL of the OpenWebUI API the preset attach calls.",
     )
 
   def __init__(self):
