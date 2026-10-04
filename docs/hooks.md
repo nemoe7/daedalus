@@ -35,7 +35,7 @@ request_hooks:
   on-request: hooks/openwebui_retry.py
 ```
 
-An empty value turns that point off. A file that sets `value["key"]` counts the requests of that key: a repeat after an answer is a try again. `daedalus` then steps the tier 1 step up, drops the models that answered the message, and shows the `try` code. Without a `key`, a repeat is a new request. `config/hooks/openwebui_retry.py` applies this rule to the `x-openwebui-chat-id` header of Open WebUI.
+An empty value turns that point off. A file that sets `value["key"]` counts the requests of that key: a repeat after an answer is a try again. `daedalus` then steps the tier 1 step up, drops the models that answered the message, and shows the `rtN` code, with N the count of try agains. Without a `key`, a repeat is a new request. `config/hooks/openwebui_retry.py` applies this rule to the `x-openwebui-chat-id` header of Open WebUI.
 
 A function gets a copy of the value. It can change the copy and return None, or it can return a new dict. The hooks of 1 point run in list order, and each hook gets the value of the hook before it.
 

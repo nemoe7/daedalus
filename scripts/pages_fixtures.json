@@ -1142,6 +1142,44 @@
       },
       "ttft": "0.001s",
       "via": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct"
+    },
+    {
+      "app": "OWUI",
+      "at": 1791043919.4,
+      "attempts": [
+        {
+          "error": "",
+          "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
+          "result": "answered",
+          "seconds": 0.884
+        }
+      ],
+      "effort": null,
+      "fallbacks": "1",
+      "key": "master",
+      "loop": null,
+      "model": "daedalus/auto",
+      "pool": "deinos",
+      "retry": "1",
+      "routed": null,
+      "seconds": 0.003,
+      "session": "3f9c1ad",
+      "status": 200,
+      "stream": true,
+      "tokens": {
+        "estimate": true,
+        "input": 2100,
+        "output": 420
+      },
+      "transition": {
+        "from_model": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
+        "from_pool": "koinos",
+        "reason": "try",
+        "to_model": "cloudflare/@cf/zai-org/glm-4.7-flash",
+        "to_pool": "deinos"
+      },
+      "ttft": "0.001s",
+      "via": "cloudflare/@cf/zai-org/glm-4.7-flash"
     }
   ],
   "settings": {
