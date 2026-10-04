@@ -1,8 +1,9 @@
-"""Server-sent event parsing, and the relay that continues a failed stream."""
+"""Server-sent event parsing, the relay that continues a failed stream, and the stream cache."""
 
 import json
 import logging
 import time
+import uuid
 from collections.abc import AsyncIterator, Callable
 from typing import TYPE_CHECKING, Any
 
@@ -85,6 +86,98 @@ async def first_content(events: AsyncIterator[str]) -> list[str]:
   while not has_content(pending[-1]):
     pending.append(await anext(events))
   return pending
+
+
+def merge_delta(message: dict[str, Any], delta: dict[str, Any]) -> None:
+  """Add 1 stream delta to the whole message of a buffered completion."""
+  if isinstance(delta.get("role"), str):
+    message["role"] = delta["role"]
+  for key in ("content", "reasoning_content", "reasoning"):
+    if isinstance(delta.get(key), str):
+      message[key] = (message.get(key) or "") + delta[key]
+  for call in delta.get("tool_calls") or []:
+    if not isinstance(call, dict):
+      continue
+    calls = message.setdefault("tool_calls", [])
+    index = call.get("index")
+    if not isinstance(index, int) or not 0 <= index < len(calls):
+      calls.append({})
+      index = len(calls) - 1
+    whole = calls[index]
+    if isinstance(call.get("id"), str):
+      whole["id"] = call["id"]
+    if isinstance(call.get("type"), str):
+      whole["type"] = call["type"]
+    task = call.get("function")
+    if isinstance(task, dict):
+      function = whole.setdefault("function", {})
+      if isinstance(task.get("name"), str):
+        function["name"] = task["name"]
+      if isinstance(task.get("arguments"), str):
+        function["arguments"] = (function.get("arguments") or "") + task["arguments"]
+
+
+async def cache(
+  pending: list[str], events: AsyncIterator[str], model: str
+) -> dict[str, Any]:
+  """The whole answer of a stream: 1 completion for a client that did not ask for a stream."""
+  found: dict[str, Any] = {}
+  choices: dict[int, dict[str, Any]] = {}
+  order: list[int] = []
+  done = False
+  try:
+    while True:
+      if pending:
+        data = pending.pop(0)
+      else:
+        try:
+          data = await anext(events)
+        except StopAsyncIteration:
+          raise providers.ProviderError(
+            "Upstream stream ended without [DONE]"
+          ) from None
+      if data == "[DONE]":
+        done = True
+        break
+      chunk = json.loads(data)
+      if not isinstance(chunk, dict) or chunk.get("error"):
+        raise providers.ProviderError(f"Upstream stream error: {error_text(chunk)}")
+      for key in ("id", "created", "model", "system_fingerprint"):
+        if found.get(key) is None and chunk.get(key) is not None:
+          found[key] = chunk[key]
+      if chunk.get("usage") is not None:
+        found["usage"] = chunk["usage"]
+      for choice in chunk.get("choices") or []:
+        if not isinstance(choice, dict):
+          continue
+        index = choice.get("index")
+        if not isinstance(index, int):
+          index = 0
+        if index not in choices:
+          choices[index] = {"index": index, "message": {}, "finish_reason": None}
+          order.append(index)
+        whole = choices[index]
+        if isinstance(choice.get("delta"), dict):
+          merge_delta(whole["message"], choice["delta"])
+        if choice.get("finish_reason") is not None:
+          whole["finish_reason"] = choice["finish_reason"]
+  finally:
+    await events.aclose()
+  # A stream without [DONE] stopped early, and the ladder continues with the next model.
+  if not done:
+    raise providers.ProviderError("Upstream stream ended without [DONE]")
+  answer: dict[str, Any] = {
+    "id": found.get("id") or "chatcmpl-" + uuid.uuid4().hex,
+    "object": "chat.completion",
+    "created": found.get("created") or int(time.time()),
+    "model": found.get("model") or model,
+    "choices": [choices[index] for index in order],
+  }
+  if found.get("usage") is not None:
+    answer["usage"] = found["usage"]
+  if found.get("system_fingerprint") is not None:
+    answer["system_fingerprint"] = found["system_fingerprint"]
+  return answer
 
 
 async def relay(

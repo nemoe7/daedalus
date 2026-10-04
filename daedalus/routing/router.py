@@ -90,6 +90,15 @@ def model_setting(config: Mapping[str, Any], model: str, key: str) -> Any:
   return found
 
 
+def streams_allowed(config: Mapping[str, Any], model: str) -> bool:
+  """Tell if a provider or a model may answer with a stream. A missing flag is true."""
+  name, _, slug = model.partition("/")
+  block = block_for(config, name, slug)
+  if isinstance(block, Mapping) and block.get("streams") is False:
+    return False
+  return model_setting(config, model, "streams") is not False
+
+
 def keyed(config: Mapping[str, Any], model: str) -> bool:
   """Tell if the block that owns the model has an API key."""
   name, _, slug = model.partition("/")

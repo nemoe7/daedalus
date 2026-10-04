@@ -11,16 +11,19 @@ from daedalus.server.upstream import set_client
 
 MASTER = "test-master-key-0001"
 SEEN: list[str] = []
+STREAMS: list[bool] = []
 FAIL: set[str] = set()
 
 
 def upstream(request: httpx.Request) -> httpx.Response:
   """One model answers with a stream, and a model in FAIL gives a 500."""
-  model = json.loads(request.content)["model"]
+  body = json.loads(request.content)
+  model = body["model"]
   SEEN.append(model)
+  STREAMS.append(bool(body.get("stream")))
   if model in FAIL:
     return httpx.Response(500, json={"error": {"message": "boom"}})
-  if not json.loads(request.content).get("stream"):
+  if not body.get("stream"):
     message = {"role": "assistant", "content": "hi"}
     return httpx.Response(
       200,
@@ -50,9 +53,9 @@ async def client():
   media.REPEATS.clear()
   dashboard.HISTORY.clear()
   SEEN.clear()
+  STREAMS.clear()
   FAIL.clear()
   api.PARALLEL_ENABLED = True
-  api.PARALLEL_NON_STREAMS = False
   api.PARALLEL_COUNT = 1
   api.PARALLEL_CHANCE = 1.0
   api.PENALTIES.race = True
@@ -75,8 +78,8 @@ CHAT = {"model": "daedalus/moros", "messages": [{"role": "user", "content": "hi"
 async def test_the_race_runs_and_the_row_shows_it(client: httpx.AsyncClient) -> None:
   """A stream to a pool starts the next model, and the loser lands in the ladder."""
   await client.post("/v1/chat/completions", json=CHAT)
-  assert dashboard.HISTORY.latest()[0]["race"] == "stream", (
-    "a plain request names the gate"
+  assert dashboard.HISTORY.latest()[0]["race"] == "drawn", (
+    "a non-stream request reads our own stream, so its race runs too"
   )
   SEEN.clear()
   response = await client.post("/v1/chat/completions", json={**CHAT, "stream": True})
@@ -93,19 +96,38 @@ async def test_the_race_runs_and_the_row_shows_it(client: httpx.AsyncClient) -> 
   ] == ["won"]
 
 
-async def test_non_streams_race_only_with_their_key(client: httpx.AsyncClient) -> None:
-  """The non-stream key is off by default, and on it races under the same gate."""
-  await client.post("/v1/chat/completions", json=CHAT)
-  assert dashboard.HISTORY.latest()[0]["race"] == "stream", "the key off keeps the gate"
-  SEEN.clear()
-  api.PARALLEL_NON_STREAMS = True
+async def test_a_non_stream_request_races_and_reads_our_stream(
+  client: httpx.AsyncClient,
+) -> None:
+  """A request with no stream reads our own stream, so the race runs for it too."""
   response = await client.post("/v1/chat/completions", json=CHAT)
   assert response.status_code == 200, response.text
   assert {"a", "b"} <= set(SEEN), SEEN
+  assert all(STREAMS), STREAMS
+  assert response.json()["choices"][0]["message"]["content"] == "hi"
   row = dashboard.HISTORY.latest()[0]
   assert row["race"] == "drawn", row
   results = sorted(attempt["result"] for attempt in row["attempts"])
   assert results == ["answered", "lost race"], row["attempts"]
+
+
+async def test_a_flagged_pool_holds_the_race(client: httpx.AsyncClient) -> None:
+  """With each model flagged `streams: false`, one whole body answers and the gate holds."""
+  config.set_config(
+    {
+      "p": {
+        "api_base": "https://p.test/v1",
+        "api_key": "provider-key",
+        "tier": {"TIER-D": ["a", "b"]},
+        "models": {"a": {"streams": False}, "b": {"streams": False}},
+      },
+    }
+  )
+  response = await client.post("/v1/chat/completions", json=CHAT)
+  assert response.status_code == 200, response.text
+  row = dashboard.HISTORY.latest()[0]
+  assert row["race"] == "stream", row
+  assert len(SEEN) == 1 and STREAMS == [False], (SEEN, STREAMS)
 
 
 async def test_a_runner_that_wins_takes_the_pin(client: httpx.AsyncClient) -> None:
