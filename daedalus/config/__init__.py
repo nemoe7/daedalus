@@ -180,6 +180,9 @@ def load_config(path: Path | str = DEFAULT_PATH) -> dict[str, Any]:
       Path(name).stem,
       owner,
     )
+  from daedalus.config import defaults
+
+  defaults.fill(loaded)
   _config = loaded
   return _config
 
