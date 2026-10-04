@@ -81,9 +81,9 @@ The shipped file holds the changes from the defaults only. The **Settings** page
 | `timeouts.wait` | `60` | Seconds with no provider data, keep-alive bytes excluded. Then the next model starts. Media: none. |
 | `timeouts.slow` | `30` | A first token after this time is slow |
 | `affinity.mode` | `session` | `none`: no pin and no race. `session`: each conversation stays on 1 model. `race`: the next models also race the first content |
-| `affinity.change_on_draw` | `true` | Replace an eligible session pin after a different weighted first-tier draw |
+| `affinity.change_on_draw` | `true` | Replace an eligible session pin after a different weighted first-tier draw. Under `race` the pinned model leads, so no draw happens |
 | `affinity.idle` | `3600` | Seconds with no request, then the session expires |
-| `affinity.stay` | `0.85` | Share of first-tier draws for the session model |
+| `affinity.stay` | `0.85` | Share of first-tier draws for the session model. Under `race` the pinned model leads the tier, so the share does not apply |
 | `affinity.count` | `1` | Models that race the original one. Integer from 1 to 10 |
 | `affinity.chance` | `0.05` | Chance to start the racing models with the original one. Number from 0 to 1 |
 | `affinity.slow` | `30` | Seconds with no content from the first model. Then the racing models start |

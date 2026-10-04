@@ -1183,13 +1183,19 @@ def test_app_js_affinity_modes_hide_their_rows() -> None:
     "state, renderSettings, settingsChanges",
     f"""
 probe.state.settings = {payload};
-const ids = ['set-affinity-mode', 'set-affinity-idle', 'set-affinity-stay', 'set-affinity-change_on_draw', 'set-affinity-count', 'set-affinity-chance', 'set-affinity-slow', 'set-affinity-penalty'];
+const ids = ['set-affinity-mode', 'set-affinity-change_on_draw', 'set-affinity-idle', 'set-affinity-stay', 'set-affinity-count', 'set-affinity-chance', 'set-affinity-slow', 'set-affinity-penalty'];
 const shown = () => ids.filter((id) => !node(id).hidden);
+// The 2 pin-draw values come with session only: under race the pinned model leads, so no draw runs.
+const expect = {{
+  none: ['set-affinity-mode'],
+  session: ['set-affinity-mode', 'set-affinity-change_on_draw', 'set-affinity-idle', 'set-affinity-stay'],
+  race: ['set-affinity-mode', 'set-affinity-idle', 'set-affinity-count', 'set-affinity-chance', 'set-affinity-slow', 'set-affinity-penalty'],
+}};
 const rendered = (mode) => {{
   node('set-affinity-mode').value = mode;
   probe.state.settings.file.affinity = {{ mode }};
   probe.renderSettings();
-  assert.deepStrictEqual(shown(), mode === 'none' ? ids.slice(0, 1) : mode === 'session' ? ids.slice(0, 4) : ids, mode + ' shows its own rows');
+  assert.deepStrictEqual(shown(), expect[mode], mode + ' shows its own rows');
 }};
 rendered('none');
 rendered('session');
@@ -1201,7 +1207,7 @@ for (const pick of ['none', 'race', 'session']) {{
   select.value = pick;
   node('settings').handlers.input.forEach((fn) => fn({{ target: select }}));
   assert.strictEqual(select.value, pick, 'the pick stays after a change to ' + pick);
-  assert.deepStrictEqual(shown(), pick === 'none' ? ids.slice(0, 1) : pick === 'session' ? ids.slice(0, 4) : ids, pick + ' moves the rows');
+  assert.deepStrictEqual(shown(), expect[pick], pick + ' moves the rows');
   assert.strictEqual(probe.state.settings.file.affinity.mode, 'session', 'the file is not written back');
 }}
 // A pick that differs from the file turns the Save button on and reaches the payload.
