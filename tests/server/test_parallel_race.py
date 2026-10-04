@@ -52,6 +52,7 @@ async def client():
   SEEN.clear()
   FAIL.clear()
   api.PARALLEL_ENABLED = True
+  api.PARALLEL_NON_STREAMS = False
   api.PARALLEL_COUNT = 1
   api.PARALLEL_CHANCE = 1.0
   api.PENALTIES.race = True
@@ -90,6 +91,21 @@ async def test_the_race_runs_and_the_row_shows_it(client: httpx.AsyncClient) -> 
     for attempt in row["attempts"]
     if attempt["result"] == "answered"
   ] == ["won"]
+
+
+async def test_non_streams_race_only_with_their_key(client: httpx.AsyncClient) -> None:
+  """The non-stream key is off by default, and on it races under the same gate."""
+  await client.post("/v1/chat/completions", json=CHAT)
+  assert dashboard.HISTORY.latest()[0]["race"] == "stream", "the key off keeps the gate"
+  SEEN.clear()
+  api.PARALLEL_NON_STREAMS = True
+  response = await client.post("/v1/chat/completions", json=CHAT)
+  assert response.status_code == 200, response.text
+  assert {"a", "b"} <= set(SEEN), SEEN
+  row = dashboard.HISTORY.latest()[0]
+  assert row["race"] == "drawn", row
+  results = sorted(attempt["result"] for attempt in row["attempts"])
+  assert results == ["answered", "lost race"], row["attempts"]
 
 
 async def test_a_runner_that_wins_takes_the_pin(client: httpx.AsyncClient) -> None:
