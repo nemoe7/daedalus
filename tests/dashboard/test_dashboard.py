@@ -665,6 +665,19 @@ def test_the_version_reads_in_the_mono_font() -> None:
   ), "the login version"
 
 
+def test_the_requests_head_keeps_its_rule_while_it_sticks() -> None:
+  """A collapsed border leaves a sticky head, so an inset shadow keeps the rule."""
+  css = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
+  ).read_text(encoding="utf-8")
+  rule = re.search(r"\.requests thead th \{([^}]*)\}", css)
+  assert rule and "position: sticky" in rule.group(1), "the head sticks"
+  assert "border-bottom: 0" in rule.group(1), "the collapsed border goes"
+  assert "box-shadow: inset 0 -1px 0 var(--line)" in rule.group(1), (
+    "the rule rides on the inset shadow"
+  )
+
+
 def test_model_heads_align_left() -> None:
   """Every Models head aligns left, while its cells keep the center."""
   root = Path(__file__).resolve().parent.parent.parent
