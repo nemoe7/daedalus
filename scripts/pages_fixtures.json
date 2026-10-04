@@ -1252,6 +1252,16 @@
   ],
   "settings": {
     "defaults": {
+      "affinity": {
+        "chance": 0.05,
+        "change_on_draw": true,
+        "count": 1,
+        "idle": 3600.0,
+        "mode": "session",
+        "penalty": 0.9,
+        "slow": 30.0,
+        "stay": 0.85
+      },
       "catalog": {
         "anchor": 6.0,
         "every": 6.0
@@ -1301,13 +1311,6 @@
       "pacing": {
         "enabled": true
       },
-      "parallel": {
-        "chance": 0.05,
-        "count": 1,
-        "enabled": false,
-        "penalty": 0.9,
-        "slow": 30.0
-      },
       "pools": {
         "audio": "graphos",
         "images": "photos",
@@ -1318,12 +1321,6 @@
       },
       "request_hooks": {
         "on-request": ""
-      },
-      "session_affinity": {
-        "change_on_draw": true,
-        "enabled": true,
-        "idle": 3600.0,
-        "stay": 0.85
       },
       "switch": {
         "keywords": [
@@ -1354,6 +1351,13 @@
     "text": "# Router settings. Each key is optional. A missing key uses the built-in default.\n# This file holds the changes from the defaults only. docs/configuration.md lists each key,\n# its default and its use.\n# DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.\n# HEADROOM_URL turns on message compression through a Headroom sidecar.\nrequest_hooks:\n  # The request-level hook files of the config folder, 1 for each point. Empty: no hook.\n  # on-request sets the key of the turn. The shipped file applies the Open WebUI try-again rule.\n  on-request: hooks/openwebui_retry.py\n"
   },
   "status": {
+    "affinity": {
+      "chance": 0.05,
+      "count": 1,
+      "enabled": false,
+      "mode": "session",
+      "slow": 30.0
+    },
     "catalog": {
       "built": 1791109159.7130947,
       "next": 1791115200.0,
@@ -1361,12 +1365,6 @@
     },
     "healthy": true,
     "models": 7,
-    "parallel": {
-      "chance": 0.05,
-      "count": 1,
-      "enabled": false,
-      "slow": 30.0
-    },
     "sessions": 6,
     "version": "dev"
   }

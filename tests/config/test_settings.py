@@ -48,9 +48,9 @@ def test_load(folder: Path) -> None:
   assert values["timeouts"]["slow"] == 30.0, "slow keeps its own default"
   assert values["weights"]["fault"] == 0.25 and values["weights"]["success"] == 1.5
   path.write_text("", encoding="utf-8")
-  assert settings.load(path)["session_affinity"]["enabled"] is True, "an empty file"
-  assert settings.load(path)["session_affinity"]["change_on_draw"] is True
-  expect_error(folder, "session_affinity:\n  change_on_draw: 1\n", "true or false")
+  assert settings.load(path)["affinity"]["mode"] == "session", "an empty file"
+  assert settings.load(path)["affinity"]["change_on_draw"] is True
+  expect_error(folder, "affinity:\n  change_on_draw: 1\n", "true or false")
   expect_error(folder, "server:\n  port: 1\n", "unknown group 'server'")
   expect_error(folder, "weights:\n  factor: 2\n", "unknown key weights.factor")
   expect_error(folder, "request_hooks:\n  on-request: 3\n", "must be a hook file path")
@@ -69,7 +69,7 @@ def test_load(folder: Path) -> None:
   expect_error(folder, "weights:\n  enabled: 1\n", "true or false")
   expect_error(folder, "timeouts:\n  wait: true\n", "above 0")
   expect_error(folder, "timeouts:\n  wait: 0\n", "above 0")
-  expect_error(folder, "session_affinity:\n  stay: 1\n", "below 1")
+  expect_error(folder, "affinity:\n  stay: 1\n", "below 1")
   expect_error(folder, "- a\n", "groups of keys")
   (folder / "twice.yml").write_text("weights:\n  fault: 0.5\n  fault: 0.25\n")
   try:
@@ -118,40 +118,55 @@ def test_loop_settings() -> None:
       settings.parse(text)
 
 
-def test_parallel_settings(folder: Path) -> None:
-  """The race defaults, and the 2 bounds of its numbers."""
-  assert settings.parse("")["parallel"] == {
-    "enabled": False,
+def test_affinity_settings(folder: Path) -> None:
+  """The affinity defaults, the 3 modes, and the 2 bounds of the race numbers."""
+  assert settings.parse("")["affinity"] == {
+    "mode": "session",
+    "idle": 3600.0,
+    "stay": 0.85,
+    "change_on_draw": True,
     "count": 1,
     "chance": 0.05,
     "slow": 30.0,
     "penalty": 0.9,
   }
-  expect_error(folder, "parallel:\n  count: 0\n", "between 1 and 10")
-  expect_error(folder, "parallel:\n  count: 11\n", "between 1 and 10")
-  expect_error(folder, "parallel:\n  count: 1.5\n", "whole number")
-  assert settings.parse("parallel:\n  count: 3\n")["parallel"]["count"] == 3
-  expect_error(folder, "parallel:\n  chance: 2\n", "from 0 to 1")
-  expect_error(folder, "parallel:\n  chance: -0.1\n", "from 0 to 1")
-  expect_error(folder, "parallel:\n  penalty: 2\n", "at most 1")
-  expect_error(folder, "parallel:\n  penalty: 0\n", "above 0")
-  expect_error(folder, "parallel:\n  slow: 0\n", "above 0")
-  path = folder / "parallel.yml"
-  path.write_text("parallel:\n  enabled: true\n  chance: 0\n", encoding="utf-8")
+  expect_error(folder, "affinity:\n  mode: fast\n", "none, session or race")
+  expect_error(folder, "affinity:\n  count: 0\n", "between 1 and 10")
+  expect_error(folder, "affinity:\n  count: 11\n", "between 1 and 10")
+  expect_error(folder, "affinity:\n  count: 1.5\n", "whole number")
+  assert settings.parse("affinity:\n  count: 3\n")["affinity"]["count"] == 3
+  expect_error(folder, "affinity:\n  chance: 2\n", "from 0 to 1")
+  expect_error(folder, "affinity:\n  chance: -0.1\n", "from 0 to 1")
+  expect_error(folder, "affinity:\n  penalty: 2\n", "at most 1")
+  expect_error(folder, "affinity:\n  penalty: 0\n", "above 0")
+  expect_error(folder, "affinity:\n  slow: 0\n", "above 0")
+  # The 2 groups of the old shape stop, and each names the mode that replaces it.
+  expect_error(folder, "session_affinity:\n  enabled: true\n", "affinity.mode: session")
+  expect_error(folder, "parallel:\n  enabled: true\n", "affinity.mode: race")
+  path = folder / "affinity.yml"
+  path.write_text("affinity:\n  mode: race\n  chance: 0\n", encoding="utf-8")
   values = settings.load(path)
-  assert values["parallel"]["enabled"] is True and values["parallel"]["chance"] == 0.0
+  assert values["affinity"]["mode"] == "race" and values["affinity"]["chance"] == 0.0
   api.apply_settings(values)
   try:
-    assert api.PARALLEL_ENABLED is True and api.PENALTIES.race is True
+    assert api.AFFINITY_MODE == "race" and api.PARALLEL_ENABLED is True
+    assert api.AFFINITY is True and api.PENALTIES.race is True
   finally:
     api.apply_settings(settings.load(folder / "missing.yml"))
   assert api.PARALLEL_ENABLED is False and api.PENALTIES.race is False
+  assert api.AFFINITY_MODE == "session" and api.AFFINITY is True
+  values = settings.parse("affinity:\n  mode: none\n")
+  api.apply_settings(values)
+  try:
+    assert api.AFFINITY is False and api.PARALLEL_ENABLED is False
+  finally:
+    api.apply_settings(settings.load(folder / "missing.yml"))
 
 
 def test_apply(folder: Path) -> None:
   path = folder / "off.yml"
   path.write_text(
-    "session_affinity:\n  enabled: false\n  change_on_draw: false\n"
+    "affinity:\n  mode: none\n  change_on_draw: false\n"
     "weights:\n  enabled: false\n"
     "loops:\n  calls: 5\n  repeats: 6\n  shortest: 10\n  longest: 3000\n",
     encoding="utf-8",

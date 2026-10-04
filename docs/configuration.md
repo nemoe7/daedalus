@@ -71,7 +71,7 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 
 ## Router settings
 
-`config/daedalus.yml`. Each key is optional. A missing key uses the default. An unknown key stops the start.
+`config/daedalus.yml`. Each key is optional. A missing key uses the default. An unknown key stops the start. The 2 old groups, `session_affinity` and `parallel`, stop it too, and the error names the `affinity.mode` that replaces each one.
 
 The shipped file holds the changes from the defaults only. The **Settings** page writes the changed keys only. A cleared field loses its line, and the default applies. The table below lists each key, its default and its use.
 
@@ -80,15 +80,14 @@ The shipped file holds the changes from the defaults only. The **Settings** page
 | `timeouts.request` | `600` | Seconds to wait for an answer, for all attempts. A started stream does not stop. |
 | `timeouts.wait` | `60` | Seconds with no provider data, keep-alive bytes excluded. Then the next model starts. Media: none. |
 | `timeouts.slow` | `30` | A first token after this time is slow |
-| `session_affinity.enabled` | `true` | Session models and the highest tier of a conversation |
-| `session_affinity.change_on_draw` | `true` | Replace an eligible session pin after a different weighted first-tier draw |
-| `session_affinity.idle` | `3600` | Seconds with no request, then the session expires |
-| `session_affinity.stay` | `0.85` | Share of first-tier draws for the session model |
-| `parallel.enabled` | `false` | `true`: the next models of the chain race the first content, and the session model starts each request |
-| `parallel.count` | `1` | Models that race the original one. Integer from 1 to 10. |
-| `parallel.chance` | `0.05` | Chance to start the racing models with the original one. Number from 0 to 1. |
-| `parallel.slow` | `30` | Seconds with no content from the first model. Then the second model starts. |
-| `parallel.penalty` | `0.9` | Weight factor for the model that loses the race. At most 1. |
+| `affinity.mode` | `session` | `none`: no pin and no race. `session`: each conversation stays on 1 model. `race`: the next models also race the first content |
+| `affinity.change_on_draw` | `true` | Replace an eligible session pin after a different weighted first-tier draw |
+| `affinity.idle` | `3600` | Seconds with no request, then the session expires |
+| `affinity.stay` | `0.85` | Share of first-tier draws for the session model |
+| `affinity.count` | `1` | Models that race the original one. Integer from 1 to 10 |
+| `affinity.chance` | `0.05` | Chance to start the racing models with the original one. Number from 0 to 1 |
+| `affinity.slow` | `30` | Seconds with no content from the first model. Then the racing models start |
+| `affinity.penalty` | `0.9` | Weight factor for the model that loses the race. At most 1 |
 | `weights.enabled` | `true` | `false` keeps all weights at 1 |
 | `weights.success` | `1.5` | Factor for a success |
 | `weights.fault` | `0.5` | Factor for a fault |

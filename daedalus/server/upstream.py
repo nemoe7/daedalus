@@ -31,8 +31,8 @@ WAIT_SECONDS = 60.0
 # Characters of a provider error body that the dashboard keeps.
 DETAIL_LIMIT = 4000
 
-# The pool of the shared client. One chat request races at most `parallel.count + 1`
-# models, and `parallel.count` stops at 10. Every connection stays warm.
+# The pool of the shared client. One chat request races at most `affinity.count + 1`
+# models, and `affinity.count` stops at 10. Every connection stays warm.
 MAX_CONNECTIONS = 64
 
 # Client headers that daedalus owns: credentials, transport and proxy headers.

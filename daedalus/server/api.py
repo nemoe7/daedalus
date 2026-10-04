@@ -45,7 +45,8 @@ AFFINITY = True
 KEYWORDS: re.Pattern[str] | None = None
 # The keywords of `switch.keywords` as 1 pattern, or None when the list is empty.
 SWITCH: re.Pattern[str] | None = None
-# The `parallel` settings: the next models of the chain race the first content of a request.
+# The `affinity` settings: the mode names the session pin and the race of the next models.
+AFFINITY_MODE = settings.DEFAULTS["affinity"]["mode"]
 PARALLEL_ENABLED = False
 PARALLEL_COUNT = 1
 PARALLEL_CHANCE = 0.05
@@ -575,9 +576,10 @@ LIMITS = upstream.LIMITS = limits.Limits(
 LIMITS.counted = PACING.hour_rows
 
 
-def parallel_state() -> dict[str, Any]:
-  """The applied race values, for the dashboard status."""
+def affinity_state() -> dict[str, Any]:
+  """The applied affinity values, for the dashboard status."""
   return {
+    "mode": AFFINITY_MODE,
     "enabled": PARALLEL_ENABLED,
     "count": PARALLEL_COUNT,
     "chance": PARALLEL_CHANCE,
@@ -595,7 +597,7 @@ app.include_router(
     lambda: CATALOG_REFRESH,
     LIMITS,
     lambda: CATALOG_REBUILD_CACHED,
-    parallel_state,
+    affinity_state,
   )
 )
 
@@ -1208,7 +1210,7 @@ def keyword_pattern(keywords: list[str]) -> re.Pattern[str] | None:
 
 def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   """Use the values of `config/daedalus.yml`."""
-  global SLOW_SECONDS, AFFINITY, KEYWORDS, SWITCH
+  global SLOW_SECONDS, AFFINITY, AFFINITY_MODE, KEYWORDS, SWITCH
   global PARALLEL_ENABLED, PARALLEL_COUNT, PARALLEL_CHANCE, PARALLEL_SLOW_SECONDS
   global PARALLEL_PENALTY, REQUEST_HOOKS
   # The settings key each pool by its generic name. Its default value gives the built-in name.
@@ -1218,29 +1220,30 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   REQUEST_HOOKS = dict(values["request_hooks"])
   timeouts, affinity, weights = (
     values["timeouts"],
-    values["session_affinity"],
+    values["affinity"],
     values["weights"],
   )
-  parallel = values["parallel"]
+  # 1 mode names the pin and the race: none is neither, session is the pin, race is both.
+  AFFINITY_MODE = affinity["mode"]
+  AFFINITY = AFFINITY_MODE != "none"
+  PARALLEL_ENABLED = AFFINITY_MODE == "race"
   (
-    PARALLEL_ENABLED,
     PARALLEL_COUNT,
     PARALLEL_CHANCE,
     PARALLEL_SLOW_SECONDS,
     PARALLEL_PENALTY,
   ) = (
-    parallel["enabled"],
-    parallel["count"],
-    parallel["chance"],
-    parallel["slow"],
-    parallel["penalty"],
+    affinity["count"],
+    affinity["chance"],
+    affinity["slow"],
+    affinity["penalty"],
   )
   PENALTIES.race = PARALLEL_ENABLED
   upstream.TIMEOUT_SECONDS, upstream.WAIT_SECONDS = (
     timeouts["request"],
     timeouts["wait"],
   )
-  SLOW_SECONDS, AFFINITY = timeouts["slow"], affinity["enabled"]
+  SLOW_SECONDS = timeouts["slow"]
   PENALTIES.idle, PENALTIES.enabled = affinity["idle"], weights["enabled"]
   PENALTIES.change_on_draw = affinity["change_on_draw"]
   signatures.IDLE_SECONDS = RETRIES.idle = media.REPEATS.idle = affinity["idle"]
