@@ -3,7 +3,7 @@ title: GitHub
 author: nemo
 description: GitHub access for Open WebUI. Reads run freely; every write passes a confirmation gate and a timeout, and nothing is sent when the gate cannot be shown. Stdlib only.
 required_open_webui_version: 0.10.0
-version: 2.3.0
+version: 2.4.0
 licence: MIT
 """
 
@@ -3529,3 +3529,350 @@ class Tools:
     if len(text) > 400000:
       text = text[:400000] + "\n[truncated at 400000 characters]"
     return self._ok({"content": text, "url": url})
+
+  # ═════════════════════ releases, tags, packages, minutes ═══════════════
+
+  async def actions_minutes(self, owner: str, owner_type: str = "org") -> dict:
+    """Read the Actions minutes used, for an organization or a user.
+
+    :param owner: the organization or the user login
+    :param owner_type: org reads /orgs/{owner}/settings/billing/actions, user reads /users/{owner}/settings/billing/actions
+    """
+    kind = (owner_type or "org").strip().lower()
+    if kind not in ("org", "user"):
+      raise GitHubError(422, "owner_type must be 'org' or 'user'.", "GET", "")
+    base = "orgs" if kind == "org" else "users"
+    data = await self._request(
+      "GET", f"{API}/{base}/{self._seg(owner)}/settings/billing/actions"
+    )
+    return self._ok({"minutes": data})
+
+  async def releases(
+    self,
+    repo_full_name: str,
+    release_id: int | None = None,
+    tag: str | None = None,
+    per_page: int = 30,
+    page: int = 1,
+  ) -> dict:
+    """List the releases of a repository, or read 1 release by id or by tag.
+
+    :param repo_full_name: owner/repo
+    :param release_id: the release id; it wins over tag
+    :param tag: the tag name of the release
+    :param per_page: releases per page
+    :param page: the page number
+    """
+    repo = self._repo(repo_full_name)
+    if release_id is not None:
+      data = await self._request("GET", f"{API}{repo}/releases/{int(release_id)}")
+      return self._ok({"release": data})
+    if tag:
+      data = await self._request("GET", f"{API}{repo}/releases/tags/{self._seg(tag)}")
+      return self._ok({"release": data})
+    data = await self._request(
+      "GET",
+      f"{API}{repo}/releases",
+      params={"per_page": min(max(1, int(per_page)), 100), "page": int(page)},
+    )
+    return self._ok({"releases": data})
+
+  async def tags(self, repo_full_name: str, per_page: int = 30, page: int = 1) -> dict:
+    """List the tags of a repository.
+
+    :param repo_full_name: owner/repo
+    :param per_page: tags per page
+    :param page: the page number
+    """
+    repo = self._repo(repo_full_name)
+    data = await self._request(
+      "GET",
+      f"{API}{repo}/tags",
+      params={"per_page": min(max(1, int(per_page)), 100), "page": int(page)},
+    )
+    return self._ok({"tags": data})
+
+  async def packages(
+    self,
+    package_type: str | None = None,
+    owner: str | None = None,
+    owner_type: str = "org",
+    package_name: str | None = None,
+    per_page: int = 30,
+    page: int = 1,
+  ) -> dict:
+    """List the packages of the signed-in user, a user or an organization, or read 1 package.
+
+    :param package_type: npm, maven, rubygems, docker, nuget, container or generic. Required with owner.
+    :param owner: the user or organization login; absent reads the packages of the signed-in user
+    :param owner_type: org reads /orgs/{owner}/packages, user reads /users/{owner}/packages
+    :param package_name: read 1 package with its versions
+    :param per_page: versions per page, on the read of 1 package
+    :param page: the page number, on the read of 1 package
+    """
+    kind = (owner_type or "org").strip().lower()
+    if kind not in ("org", "user"):
+      raise GitHubError(422, "owner_type must be 'org' or 'user'.", "GET", "")
+    if owner and not package_type:
+      raise GitHubError(422, "package_type is required with owner.", "GET", "")
+    if package_name and not package_type:
+      raise GitHubError(422, "package_type is required with package_name.", "GET", "")
+    base = f"/{kind}s/{self._seg(owner)}" if owner else "/user"
+    if package_name:
+      path = f"{API}{base}/packages/{self._seg(package_type)}/{self._seg(package_name)}"
+      info = await self._request("GET", path)
+      versions = await self._request(
+        "GET",
+        f"{path}/versions",
+        params={"per_page": min(max(1, int(per_page)), 100), "page": int(page)},
+      )
+      return self._ok({"package": info, "versions": versions})
+    data = await self._request(
+      "GET", f"{API}{base}/packages", params={"package_type": package_type}
+    )
+    return self._ok({"packages": data})
+
+  # ═════════════════════════════════ gists ═══════════════════════════════
+
+  async def gists(
+    self,
+    username: str | None = None,
+    per_page: int = 30,
+    page: int = 1,
+    since: str | None = None,
+  ) -> dict:
+    """List the gists of a user, or the gists of the signed-in user.
+
+    :param username: the user login; absent reads the gists of the signed-in user
+    :param per_page: gists per page
+    :param page: the page number
+    :param since: an ISO 8601 timestamp; only the gists updated after it
+    """
+    url = f"{API}/users/{self._seg(username)}/gists" if username else f"{API}/gists"
+    data = await self._request(
+      "GET",
+      url,
+      params={
+        "per_page": min(max(1, int(per_page)), 100),
+        "page": int(page),
+        "since": since,
+      },
+    )
+    return self._ok({"gists": data})
+
+  async def fetch_gist(self, gist_id: str) -> dict:
+    """Fetch one gist with its files.
+
+    :param gist_id: the gist id
+    """
+    data = await self._request("GET", f"{API}/gists/{self._seg(gist_id)}")
+    return self._ok({"gist": data})
+
+  async def create_gist(
+    self,
+    files: dict,
+    description: str | None = None,
+    public: bool = False,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
+    """Create a gist. The gate asks first.
+
+    :param files: the files, each {name: {"content": "..."}}
+    :param description: the gist description
+    :param public: true makes the gist public
+    """
+    if not files:
+      raise GitHubError(422, "Give at least 1 file.", "POST", "")
+
+    async def run():
+      data = await self._request(
+        "POST",
+        f"{API}/gists",
+        payload={"files": files, "description": description, "public": bool(public)},
+      )
+      return self._ok({"gist": data})
+
+    return await self._write(
+      f"create a {'public' if public else 'secret'} gist with {len(files)} file(s)",
+      ", ".join(list(files)[:10]),
+      run,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    )
+
+  async def update_gist(
+    self,
+    gist_id: str,
+    files: dict | None = None,
+    description: str | None = None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
+    """Edit a gist. The gate asks first.
+
+    :param gist_id: the gist id
+    :param files: the files to add or replace, each {name: {"content": "..."}}
+    :param description: the new description
+    """
+
+    async def run():
+      data = await self._request(
+        "PATCH",
+        f"{API}/gists/{self._seg(gist_id)}",
+        payload={"files": files, "description": description},
+      )
+      return self._ok({"gist": data})
+
+    return await self._write(
+      f"edit gist {gist_id}",
+      ", ".join(list(files or {})[:10]),
+      run,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    )
+
+  async def delete_gist(
+    self,
+    gist_id: str,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
+    """Delete a gist. The gate asks first.
+
+    :param gist_id: the gist id
+    """
+
+    async def run():
+      await self._request("DELETE", f"{API}/gists/{self._seg(gist_id)}")
+      return self._ok({"deleted": True, "gist_id": gist_id})
+
+    return await self._write(
+      f"delete gist {gist_id}",
+      gist_id,
+      run,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    )
+
+  # ═══════════════════════════ security alert writes ═════════════════════
+
+  async def update_code_scanning_alert(
+    self,
+    repo_full_name: str,
+    alert_number: int,
+    state: str = "dismissed",
+    reason: str | None = None,
+    comment: str | None = None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
+    """Dismiss or reopen a code scanning alert. The gate asks first.
+
+    :param repo_full_name: owner/repo
+    :param alert_number: the alert number
+    :param state: dismissed closes the alert, open reopens it
+    :param reason: false positive, won't fix or used in tests. Required when dismissed.
+    :param comment: the dismissal comment
+    """
+    repo = self._repo(repo_full_name)
+
+    async def run():
+      data = await self._request(
+        "PATCH",
+        f"{API}{repo}/code-scanning/alerts/{int(alert_number)}",
+        payload={
+          "state": state,
+          "dismissed_reason": reason,
+          "dismissed_comment": comment,
+        },
+      )
+      return self._ok({"alert": data})
+
+    return await self._write(
+      f"set code scanning alert {int(alert_number)} to {state} in {repo_full_name}",
+      f"reason: {reason or 'none'}",
+      run,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    )
+
+  async def update_secret_scanning_alert(
+    self,
+    repo_full_name: str,
+    alert_number: int,
+    state: str = "resolved",
+    resolution: str | None = None,
+    comment: str | None = None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
+    """Resolve or reopen a secret scanning alert. The gate asks first.
+
+    :param repo_full_name: owner/repo
+    :param alert_number: the alert number
+    :param state: resolved closes the alert, open reopens it
+    :param resolution: false_positive, wont_fix, revoked or used_in_tests. Required when resolved.
+    :param comment: the resolution comment
+    """
+    repo = self._repo(repo_full_name)
+
+    async def run():
+      data = await self._request(
+        "PATCH",
+        f"{API}{repo}/secret-scanning/alerts/{int(alert_number)}",
+        payload={
+          "state": state,
+          "resolution": resolution,
+          "resolution_comment": comment,
+        },
+      )
+      return self._ok({"alert": data})
+
+    return await self._write(
+      f"set secret scanning alert {int(alert_number)} to {state} in {repo_full_name}",
+      f"resolution: {resolution or 'none'}",
+      run,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    )
+
+  async def update_dependabot_alert(
+    self,
+    repo_full_name: str,
+    alert_number: int,
+    state: str = "dismissed",
+    reason: str | None = None,
+    comment: str | None = None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
+    """Dismiss or reopen a Dependabot alert. The gate asks first.
+
+    :param repo_full_name: owner/repo
+    :param alert_number: the alert number
+    :param state: dismissed closes the alert, open reopens it
+    :param reason: fix_started, inaccurate, no_bandwidth, not_used or tolerable_risk. Required when dismissed.
+    :param comment: the dismissal comment, at most 280 characters
+    """
+    repo = self._repo(repo_full_name)
+
+    async def run():
+      data = await self._request(
+        "PATCH",
+        f"{API}{repo}/dependabot/alerts/{int(alert_number)}",
+        payload={
+          "state": state,
+          "dismissed_reason": reason,
+          "dismissed_comment": comment,
+        },
+      )
+      return self._ok({"alert": data})
+
+    return await self._write(
+      f"set dependabot alert {int(alert_number)} to {state} in {repo_full_name}",
+      f"reason: {reason or 'none'}",
+      run,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    )
