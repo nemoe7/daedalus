@@ -421,16 +421,16 @@ function chainRows(r) {
 // Why the racers did or did not start: the code wears the same 3 letter shape as the routing
 // codes, and the title carries the full note. It shows while the race is on.
 const RACE_NOTES = {
-  off: "Parallel is off in the settings",
-  pool: "The request is not a pool or auto route",
-  stream: "The request is not a stream",
-  single: "The pool holds 1 model",
-  fast: "The first model answered before the slow seconds",
-  slow: "The racers started after the slow seconds",
-  drawn: "The draw started the racers with the first model",
+  off: "No race: parallel is off in the settings",
+  pool: "No race: the request is not a pool or auto route",
+  stream: "No race: the request is not a stream",
+  single: "No race: the pool holds 1 model",
+  fast: "No race: the first model answered before the slow seconds",
+  slow: "Raced the pin: the racers started after the slow seconds",
+  drawn: "Raced the pin: the draw started the racers with the first model",
 };
 const raceNote = (r) => (state.status?.parallel?.enabled && RACE_NOTES[r.race]
-  ? `<p class="chain-race">Race: ${esc(RACE_NOTES[r.race])}</p>` : "");
+  ? `<p class="chain-race">${esc(RACE_NOTES[r.race])}</p>` : "");
 
 function routingCodes(r) {
   const from = r.routed ? ` <span class="from" title="Tier ${esc(poolTier(r.routed))} of the previous model">fr${esc(poolTier(r.routed))}</span>` : "";

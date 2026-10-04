@@ -201,7 +201,9 @@ a.more:hover { color: var(--accent); }
   font: 13px var(--mono); padding: 4px 8px; border-radius: 6px; background: var(--panel);
   user-select: all; overflow-wrap: anywhere;
 }
-.danger:hover { color: var(--bad); border-color: var(--bad); }
+/* The ghost danger buttons read red on hover. A filled danger button keeps its label. */
+.ghost.danger:hover { color: var(--bad); border-color: var(--bad); }
+.modal .primary.danger:hover { filter: brightness(1.12); }
 /* The confirmation modal, in place of window.confirm. */
 .modal {
   max-width: 420px; padding: 0; border: 1px solid var(--line); border-radius: var(--radius);
