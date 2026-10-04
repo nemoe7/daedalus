@@ -34,6 +34,7 @@ TOOLS = [
   "create_file",
   "create_issue",
   "create_pull_request",
+  "create_pr_with_files",
   "create_tree",
   "delete_file",
   "dismiss_pull_request_review",
@@ -69,6 +70,7 @@ TOOLS = [
   "label_pr",
   "list_installations",
   "list_installed_accounts",
+  "list_commits",
   "list_pr_changed_filenames",
   "list_pull_request_review_threads",
   "list_pull_request_reviews",
@@ -77,6 +79,7 @@ TOOLS = [
   "list_repositories_by_affiliation",
   "list_repositories_by_installation",
   "list_user_org_memberships",
+  "list_tree",
   "list_user_orgs",
   "lock_issue_conversation",
   "mark_pull_request_ready_for_review",
@@ -128,9 +131,12 @@ class Answer:
 
 
 def opener(monkeypatch, body, calls=None, error=None):
-  """Patch module urlopen and record each request."""
+  """Patch module urlopen and record each request. A list body answers in order."""
+  replies = list(body) if isinstance(body, list) else None
+  served = 0
 
   def urlopen(request, timeout=None):
+    nonlocal served
     if calls is not None:
       calls.append(
         {
@@ -142,7 +148,11 @@ def opener(monkeypatch, body, calls=None, error=None):
       )
     if error is not None:
       raise error
-    return Answer(body)
+    if replies is None:
+      return Answer(body)
+    answer = replies[min(served, len(replies) - 1)]
+    served += 1
+    return Answer(answer)
 
   monkeypatch.setattr(tool, "urlopen", urlopen)
 
@@ -155,7 +165,7 @@ def client(token: str = "t0ken") -> "tool.Tools":
   return instance
 
 
-def test_the_surface_holds_the_eighty_nine_tools():
+def test_the_surface_holds_the_tool_list():
   tree = ast.parse(TOOL.read_text())
   cls = next(
     node
@@ -169,7 +179,7 @@ def test_the_surface_holds_the_eighty_nine_tools():
     and not node.name.startswith("_")
   ]
   assert sorted(found) == sorted(TOOLS)
-  assert len(TOOLS) == 89
+  assert len(TOOLS) == 92
 
 
 def test_the_gate_defaults_to_ask_with_sixty_seconds():
@@ -289,6 +299,102 @@ def test_file_reads_decode_and_search_hits_the_global_route(monkeypatch):
   assert calls[0]["url"].startswith("https://api.github.com/search/code?")
   assert "q=needle+repo%3Ao%2Fr" in calls[0]["url"]
   assert out["result"]["results"][0]["display_url"] == "u"
+
+
+def test_list_commits_filters_by_path(monkeypatch):
+  calls = []
+  opener(monkeypatch, json.dumps([{"sha": "abc", "commit": {"message": "x"}}]), calls)
+  out = asyncio.run(
+    client().list_commits("o/r", path="src/app.py", since="2026-01-01T00:00:00Z")
+  )
+  assert out["result"]["commits"][0]["sha"] == "abc"
+  assert "path=src%2Fapp.py" in calls[0]["url"]
+  assert "since=2026-01-01T00%3A00%3A00Z" in calls[0]["url"]
+
+
+def test_list_tree_is_recursive_and_filtered(monkeypatch):
+  calls = []
+  body = json.dumps(
+    {
+      "truncated": False,
+      "tree": [
+        {"path": "src/a.py", "type": "blob", "sha": "1"},
+        {"path": "docs/b.md", "type": "blob", "sha": "2"},
+      ],
+    }
+  )
+  opener(monkeypatch, body, calls)
+  out = asyncio.run(client().list_tree("o/r", ref="main", path_prefix="src/"))
+  assert [entry["path"] for entry in out["result"]["tree"]] == ["src/a.py"]
+  assert out["result"]["truncated"] is False
+  assert (
+    calls[0]["url"] == "https://api.github.com/repos/o/r/git/trees/main?recursive=1"
+  )
+
+
+def test_create_pr_with_files_moves_a_branch_in_one_gate(monkeypatch):
+  calls = []
+  opener(
+    monkeypatch,
+    [
+      json.dumps({"default_branch": "main"}),
+      json.dumps({"object": {"sha": "parent1"}}),
+      json.dumps({"tree": {"sha": "tree0"}}),
+      json.dumps({"sha": "blob1"}),
+      json.dumps({"sha": "tree1"}),
+      json.dumps({"sha": "commit1"}),
+      json.dumps({"ref": "refs/heads/feat/x"}),
+      json.dumps([{"number": 5, "html_url": "u", "title": "t"}]),
+    ],
+    calls,
+  )
+
+  async def answer(payload):
+    return payload["type"] == "confirmation"
+
+  out = asyncio.run(
+    client().create_pr_with_files(
+      "o/r",
+      [{"path": "a.py", "content": "print(1)\n"}, {"path": "b.md", "delete": True}],
+      "feat/x",
+      title="t",
+      __event_call__=answer,
+    )
+  )
+  assert out["result"]["commit_sha"] == "commit1"
+  assert out["result"]["updated"] is True
+  assert out["result"]["pull_request"]["number"] == 5
+  assert [call["method"] for call in calls] == [
+    "GET",
+    "GET",
+    "GET",
+    "POST",
+    "POST",
+    "POST",
+    "PATCH",
+    "GET",
+  ]
+  tree = json.loads(calls[4]["data"])
+  assert tree["base_tree"] == "tree0"
+  assert tree["tree"][0]["sha"] == "blob1"
+  assert tree["tree"][1] == {
+    "path": "b.md",
+    "mode": "100644",
+    "type": "blob",
+    "sha": None,
+  }
+
+
+def test_create_pr_with_files_without_a_dialog_sends_nothing(monkeypatch):
+  calls = []
+  opener(monkeypatch, "{}", calls)
+  out = asyncio.run(
+    client().create_pr_with_files(
+      "o/r", [{"path": "a.py", "content": "x"}], "feat/x", __event_call__=None
+    )
+  )
+  assert out["result"]["denied"] is True
+  assert calls == []
 
 
 def test_a_github_error_propagates(monkeypatch):
