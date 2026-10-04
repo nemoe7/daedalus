@@ -114,6 +114,13 @@ def test_no_hook_no_retry(client: TestClient) -> None:
     api.REQUEST_HOOKS = off
 
 
+def test_shipped_hook_legend(client: TestClient) -> None:
+  """The shipped hook names its row of the code legend."""
+  assert hooks.init_rows({"on-request": "hooks/openwebui_retry.py"}) == [
+    ["rtN", "A repeat picked another model, N times"]
+  ]
+
+
 def test_expiry() -> None:
   now = [0.0]
   found = retries.Retries(idle=60, clock=lambda: now[0])

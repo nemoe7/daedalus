@@ -23,6 +23,8 @@ POINTS = {
   "on-upstream": "on_upstream",
   "on-answer": "on_answer",
 }
+# An optional extra function of a request hook file: the rows of the code legend.
+INIT = "on_init"
 
 # The loaded module of each file, with the file time. A new file time loads the file again.
 _loaded: dict[Path, tuple[float, ModuleType | None]] = {}
@@ -93,6 +95,34 @@ def request_files(entries: Mapping[str, Any] | None, point: str) -> list[Path]:
     return []
   path = resolve(value)
   return [] if path is None else [path]
+
+
+def init_rows(entries: Mapping[str, Any] | None) -> list[list[str]]:
+  """The legend rows of each enabled request hook file that defines `on_init`, in file order."""
+  rows: list[list[str]] = []
+  if not isinstance(entries, Mapping):
+    return rows
+  seen: set[Path] = set()
+  for value in entries.values():
+    path = resolve(value) if isinstance(value, str) else None
+    if path is None or path in seen:
+      continue
+    seen.add(path)
+    hook = getattr(load(path), INIT, None)
+    if not callable(hook):
+      continue
+    try:
+      found = hook()
+    except Exception:
+      logger.exception("on-init hook %s failed", path)
+      continue
+    if isinstance(found, list):
+      rows.extend(
+        [str(row[0]), str(row[1])]
+        for row in found
+        if isinstance(row, (list, tuple)) and len(row) == 2
+      )
+  return rows
 
 
 def load(path: Path) -> ModuleType | None:

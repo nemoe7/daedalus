@@ -27,6 +27,7 @@ from fastapi.responses import (
 from daedalus import __version__, config, providers, store
 from daedalus.catalog import schedule
 from daedalus.config import block_for, provider_edit, settings
+from daedalus.providers import hooks
 from daedalus.routing import router
 from daedalus.routing.cooldowns import Cooldowns
 from daedalus.routing.limits import Limits
@@ -699,6 +700,14 @@ def routes(
         },
       }
     )
+
+  @api.get("/hooks")
+  async def hook_rows(request: Request) -> JSONResponse:
+    """The legend rows of the enabled request hook files."""
+    if not allowed(request):
+      return denied()
+    entries = settings.load().get("request_hooks")
+    return JSONResponse({"legend": hooks.init_rows(entries)})
 
   @api.post("/reset")
   async def reset(request: Request) -> JSONResponse:

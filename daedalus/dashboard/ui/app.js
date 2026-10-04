@@ -502,15 +502,27 @@ function poolTier(name) {
 }
 
 // The code legend of the Requests page: each short code with its meaning.
-function renderLegend() {
+function renderLegend(extra = []) {
   const rows = [
     ...Object.entries(TRANSITION_REASONS),
-    ["rtN", "A repeat picked another model, N times"],
     ["frX", "the tier of the previous model"],
     ["tlN", "N equal tool calls stopped the chain"],
+    ...extra,
   ];
   $("legend-body").innerHTML = rows.map(([code, label]) =>
     `<span><code>${esc(code)}</code>${esc(label)}</span>`).join("");
+}
+
+// The legend rows of the hook files. They show below the base rows, and a page with no hook keeps
+// the base rows.
+async function loadLegend() {
+  try {
+    const body = await call("hooks");
+    const extra = Array.isArray(body?.legend) ? body.legend : [];
+    if (extra.length) renderLegend(extra);
+  } catch {
+    // The base rows stand.
+  }
 }
 
 function renderLive() {
@@ -1584,6 +1596,7 @@ async function start() {
   if (!session() && !(await call("login").catch(() => ({}))).session) return showLogin();
   // The settings come first, so that the first tables use the time format.
   await loadSettings();
+  await loadLegend();
   // The page shows before the first state answer, so a slow answer paints the shape of the page.
   $("login").hidden = true;
   $("app").hidden = false;
