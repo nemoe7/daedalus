@@ -1295,5 +1295,13 @@
     "models": 7,
     "sessions": 5,
     "version": "demo"
+  },
+  "hooks": {
+    "legend": [
+      [
+        "rtN",
+        "A repeat picked another model, N times"
+      ]
+    ]
   }
 }

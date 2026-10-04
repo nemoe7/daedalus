@@ -170,6 +170,35 @@ def test_request_hooks() -> None:
   assert hooks.run_request("on-request", {}, "daedalus/auto", plain) is plain
 
 
+def test_init_rows() -> None:
+  """The legend rows come from each enabled file that defines on_init, and bad rows drop."""
+  first = write(
+    "legend-one.py",
+    "def on_init():\n  return [['rtN', 'A repeat picked another model, N times']]\n",
+  )
+  second = write(
+    "legend-two.py", "def on_request(value, model, headers):\n  return value\n"
+  )
+  third = write(
+    "legend-three.py",
+    "def on_init():\n"
+    "  return [['x', 'one'], 'junk', ['y', 'two', 'extra'], ['z'], 7]\n",
+  )
+  broken = write("legend-broken.py", "def on_init():\n  raise ValueError('no')\n")
+  entries = {
+    "on-request": first,
+    "on-init": third,
+    "on-answer": second,
+    "on-catalog": "",
+  }
+  assert hooks.init_rows(entries) == [
+    ["rtN", "A repeat picked another model, N times"],
+    ["x", "one"],
+  ], "a row of 2 entries lands, other rows drop"
+  assert hooks.init_rows({"on-request": broken}) == []
+  assert hooks.init_rows(None) == [] and hooks.init_rows({"on-request": 5}) == []
+
+
 def test_broken_hook_retry() -> None:
   """A hook file with an error does not cache None and reloads on fix."""
   target = hooks.CONFIG_DIR / "flaky.py"

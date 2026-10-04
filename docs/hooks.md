@@ -27,6 +27,7 @@ For each point, the file defines 1 function with the name of the point.
 | `on-catalog` | `on_catalog(row, model, api_base, headers)` | At each catalog build, for each model with the hook, before the store write | `row`: a catalog row, the id cannot change. `api_base`, `headers`: for the provider API calls. |
 | `on-upstream` | `on_upstream(body, model, headers)` | Before each chat request to the provider, streams and fallbacks included | `body`: the upstream JSON body, native format for native APIs. `model`: `provider/slug`. `headers`: changeable. |
 | `on-answer` | `on_answer(answer, model)` | After a full chat answer comes back, before the client gets it | `answer`: the answer in the OpenAI format. A stream has no `on-answer` point. |
+| `on-init` | `on_init()` | At the dashboard load, for each enabled request hook file | No arguments. It returns the rows of the code legend of the dashboard, such as `[["rtN", "A repeat picked another model, N times"]]`. |
 
 A request-level point, such as `on-request`, takes its file from the `request_hooks` group of `config/daedalus.yml`, because no provider owns the request yet:
 
@@ -35,7 +36,7 @@ request_hooks:
   on-request: hooks/openwebui_retry.py
 ```
 
-An empty value turns that point off. A file that sets `value["key"]` counts the requests of that key: a repeat after an answer is a try again. `daedalus` then drops the models that answered the message: `daedalus/auto` steps the tier 1 step up, and a named pool keeps its pool. The point runs again with `count` filled in. A file that writes `value["code"]` sets the code of the Requests row, such as `rt1`. Without a `key`, a repeat is a new request. Without a `code`, the row shows no code. `config/hooks/openwebui_retry.py` applies this rule to the `x-openwebui-chat-id` header of Open WebUI.
+An empty value turns that point off. The `on-init` point has no group of its own: the dashboard reads the `on_init` function of each file in `request_hooks`. The legend card shows those rows below the base rows, and a file with no `on_init` adds no row. A file that sets `value["key"]` counts the requests of that key: a repeat after an answer is a try again. `daedalus` then drops the models that answered the message: `daedalus/auto` steps the tier 1 step up, and a named pool keeps its pool. The point runs again with `count` filled in. A file that writes `value["code"]` sets the code of the Requests row, such as `rt1`. Without a `key`, a repeat is a new request. Without a `code`, the row shows no code. `config/hooks/openwebui_retry.py` applies this rule to the `x-openwebui-chat-id` header of Open WebUI.
 The media endpoints, transcription and images, count a repeat of the same content with no hook.
 That count is the one repeat path of the base app.
 
