@@ -954,6 +954,66 @@ function mapPills(values, path, kind, separator) {
     + adder(path, kind, kind === "override" ? "+ key" : "+ Add");
 }
 
+// The chip list of a Settings field. The edited values live in the page state, so a
+// re-render of 1 list never touches the other fields.
+function listValue(group, key) {
+  state.settings.lists ||= {};
+  return state.settings.lists[`${group}.${key}`] ?? setting(group, key);
+}
+
+function setListValue(group, key, values) {
+  state.settings.lists ||= {};
+  state.settings.lists[`${group}.${key}`] = values;
+}
+const settingPill = (group, key, value, index) => `<span class="pill">${esc(value)}<button type="button" title="Delete"
+  data-setting-drop='${esc(JSON.stringify([group, key, index]))}'>&times;</button></span>`;
+const settingAdder = (group, key) => `<button type="button" class="add"
+  data-setting-add='${esc(JSON.stringify([group, key]))}'>+ Add</button>`;
+
+function renderSettingList(group, key) {
+  const host = $(`set-${group}-${key}`);
+  if (!host) return;
+  host.innerHTML = listValue(group, key)
+    .map((value, index) => settingPill(group, key, value, index)).join("") + settingAdder(group, key);
+}
+
+// The inline input of a Settings chip list. Enter or a click away keeps the value.
+function showSettingAdder(button) {
+  const [group, key] = JSON.parse(button.dataset.settingAdd);
+  const box = document.createElement("span");
+  box.className = "adder";
+  box.innerHTML = '<input type="text" spellcheck="false" placeholder="word or phrase">';
+  button.replaceWith(box);
+  const input = box.querySelector("input");
+  input.focus();
+  const done = (keep) => {
+    const text = input.value.trim();
+    if (keep && text) {
+      const values = [...listValue(group, key)];
+      if (!values.includes(text)) values.push(text);
+      setListValue(group, key, values);
+    }
+    renderSettingList(group, key);
+    renderSettingsSave();
+  };
+  box.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") done(true);
+    if (event.key === "Escape") done(false);
+  });
+  box.addEventListener("focusout", () => setTimeout(() => {
+    if (box.isConnected && !box.contains(document.activeElement)) done(true);
+  }));
+}
+
+function dropSetting(path) {
+  const [group, key, index] = path;
+  const values = [...listValue(group, key)];
+  values.splice(index, 1);
+  setListValue(group, key, values);
+  renderSettingList(group, key);
+  renderSettingsSave();
+}
+
 function field(label, hint, body) {
   return `<div class="field stack"><span><b>${esc(label)}</b>${hint ? `<small>${esc(hint)}</small>` : ""}</span>${body}</div>`;
 }
@@ -1145,7 +1205,9 @@ function addValue(path, kind, text, key) {
   const message = $("save-message");
   message.textContent = "";
   if (kind === "list") {
-    parentOf([...path, 0], []).push(parsed(text));
+    const list = parentOf([...path, 0], []);
+    // A repeat is a no-op, so no double value lands in the list.
+    if (!list.some((value) => String(value) === text)) list.push(parsed(text));
   } else if (kind === "pattern") {
     const models = parentOf([...path, text], {});
     if (text in models) {
@@ -1328,10 +1390,10 @@ const SETTINGS = [
     ["timeout", "Timeout", "s", "After this time, the original messages go to the provider."],
   ]],
   ["escalation", "Escalation", [
-    ["keywords", "Keywords", "list", "1 word or phrase on each line. A match in the last user message moves the daedalus/auto session tier 1 step up."],
+    ["keywords", "Keywords", "list", "1 word or phrase per chip. A match in the last user message moves the daedalus/auto session tier 1 step up."],
   ]],
   ["switch", "Switch", [
-    ["keywords", "Keywords", "list", "1 word or phrase on each line. A match in the last user message gives the pool session another model of the same tier."],
+    ["keywords", "Keywords", "list", "1 word or phrase per chip. A match in the last user message gives the pool session another model of the same tier."],
   ]],
   ["dashboard", "Dashboard", [
     ["theme", "Theme", "choice", "System follows the light or dark setting of the device."],
@@ -1424,8 +1486,10 @@ function renderSettings() {
             placeholder="${esc(state.settings.defaults[group][key] || "No hook")}"></span></label>`;
       }
       if (unit === "list") {
-        return `<label class="field stack" for="${id}"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
-          <textarea id="${id}" rows="8" spellcheck="false" placeholder="No keywords">${esc(setting(group, key).join("\n"))}</textarea></label>`;
+        const values = listValue(group, key);
+        return `<div class="field stack"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
+          <div class="pills" id="${id}" aria-label="${esc(label)}">${values
+            .map((value, index) => settingPill(group, key, value, index)).join("")}${settingAdder(group, key)}</div></div>`;
       }
       const fallback = state.settings.defaults[group][key];
       const value = fileValue(group, key);
@@ -1452,7 +1516,7 @@ function settingsChanges() {
       if (!input) continue;
       let value, before;
       if (unit === "list") {
-        value = input.value.split("\n").map((text) => text.trim()).filter(Boolean);
+        value = listValue(group, key);
         if (JSON.stringify(value) !== JSON.stringify(setting(group, key))) (changes[group] ||= {})[key] = value;
         continue;
       }
@@ -1494,6 +1558,7 @@ function renderSettingsSave() {
 
 async function loadSettings() {
   state.settings = await call("settings");
+  state.settings.lists = {};
   applyTheme(setting("dashboard", "theme"));
   hourCycle = setting("dashboard", "time_format") === "12h" ? "h12" : "h23";
   $("settings-editor").value = state.settings.text;
@@ -1930,6 +1995,12 @@ $("settings").addEventListener("input", (event) => {
   $("settings-message").textContent = "";
   showLengthLimit(event.target, $("settings-message"));
   renderSettingsSave();
+});
+$("settings").addEventListener("click", (event) => {
+  const drop = event.target.closest("[data-setting-drop]");
+  if (drop) return dropSetting(JSON.parse(drop.dataset.settingDrop));
+  const add = event.target.closest("[data-setting-add]");
+  if (add) showSettingAdder(add);
 });
 $("settings-save").addEventListener("click", saveSettings);
 $("settings-views").addEventListener("click", (event) => {
