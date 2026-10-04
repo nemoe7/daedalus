@@ -754,12 +754,35 @@ const DEMO_FIXTURES = __FIXTURES__;
     const tree = line_tree(text);
     return put_map(lines, tree, document, "").join("\\n");
   };
+  const prune_groups = (lines) => {
+    const kept = [];
+    for (let at = 0; at < lines.length; at += 1) {
+      const line = lines[at];
+      const head = line.endsWith(":") && line[0] !== " " && line[0] !== "#";
+      const next = lines.slice(at + 1).find((item) => item.trim().length > 0);
+      if (head && (!next || next[0] !== " ")) continue;
+      kept.push(line);
+    }
+    return kept;
+  };
   const text_saved = (text, group, key, value) => {
-    const lines = text.split("\\n");
+    const lines = text.length ? text.split("\\n") : [];
     const tree = line_tree(text);
-    const node = tree.children.find((child) => child.key === group);
-    if (!node) return text;
-    return put_value(lines, node, key, value).join("\\n");
+    let node = tree.children.find((child) => child.key === group);
+    // The server appends a group that the file does not have yet.
+    if (!node) {
+      if (value === null || value === undefined) return text;
+      lines.push(`${group}:`);
+      node = { line: lines.length - 1, indent: 0, key: group, children: [] };
+    }
+    const found = node.children.find((child) => child.key === key);
+    // A key without a default goes away, and the last key of a group takes the group.
+    if (value === null || value === undefined) {
+      if (!found) return text;
+      const rest = lines.slice(node_end(found, lines));
+      return prune_groups(lines.slice(0, found.line).concat(rest)).join("\\n");
+    }
+    return prune_groups(put_value(lines, node, key, value)).join("\\n");
   };
   const env_saved = async (init) => {
     const { name, value } = await body_of(init);
@@ -895,8 +918,15 @@ const DEMO_FIXTURES = __FIXTURES__;
         const next = value === null || value === undefined ? DEFAULTS[group][key] : value;
         if (next === undefined || next === null) delete file[group][key];
         else file[group][key] = next;
-        DEMO_FIXTURES.settings.text = text_saved(DEMO_FIXTURES.settings.text, group, key, value);
+        const kept = next === undefined || next === null ? null : next;
+        DEMO_FIXTURES.settings.text = text_saved(
+          DEMO_FIXTURES.settings.text, group, key, kept,
+        );
       }
+    }
+    const file = DEMO_FIXTURES.settings.file;
+    for (const group of Object.keys(file)) {
+      if (!Object.keys(file[group]).length) delete file[group];
     }
     return json({ ok: true, text: DEMO_FIXTURES.settings.text });
   };

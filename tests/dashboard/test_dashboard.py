@@ -1113,9 +1113,9 @@ def test_files(
     client.put("/ui/api/files", json={"path": path, "text": ""}).status_code == 400
   ), "the Settings page owns the settings file"
   shown = client.get("/ui/api/settings").json()
-  assert "slow" not in shown["file"]["timeouts"], (
-    "a derived value stays out of the file"
-  )
+  assert shown["file"] == {
+    "request_hooks": {"on-request": "hooks/openwebui_retry.py"}
+  }, "the shipped file holds the changes only"
   assert shown["defaults"]["timeouts"]["slow"] is None, shown
   assert shown["defaults"]["weights"]["fault"] == 0.5, shown
   assert shown["defaults"]["loops"] == {
@@ -1154,8 +1154,8 @@ def test_files(
   assert saved.status_code == 200, saved.text
   text = settings.DEFAULT_PATH.read_text()
   assert "  slow: 12" in text, "the new value is written"
-  assert "# seconds without data from the provider" in text, "the comments stay"
-  assert "# Router settings" in text and "every: 0 #" in text, text
+  assert "# on-request sets the key of the turn." in text, "the comments stay"
+  assert "# Router settings" in text and "  every: 0" in text, text
   assert api.SLOW_SECONDS == 12.0, "the save applies the settings"
   assert (loops.CALLS, loops.REPEATS, loops.SHORTEST, loops.LONGEST) == (5, 6, 10, 3000)
   cleared = client.put(
@@ -1167,8 +1167,8 @@ def test_files(
   assert api.SLOW_SECONDS == 30.0, "half of wait"
   reset = client.put("/ui/api/settings", json={"changes": {"catalog": {"every": None}}})
   assert reset.status_code == 200, reset.text
-  assert "  every: 6 # hours between" in settings.DEFAULT_PATH.read_text(), (
-    "an empty field writes the default and keeps the comment"
+  assert "  every: 6" in settings.DEFAULT_PATH.read_text(), (
+    "an empty field writes the default"
   )
   words = {"escalation": {"keywords": ["ultrathink", "yes", "think hard"]}}
   assert client.put("/ui/api/settings", json={"changes": words}).status_code == 200
@@ -1223,7 +1223,7 @@ def test_files(
   broken = client.put("/ui/api/settings", json={"text": "weights:\n  fault: 0\n"})
   assert broken.status_code == 422 and "above 0" in broken.text, broken.text
   assert settings.DEFAULT_PATH.read_text() == text, "a bad text is not written"
-  edited = text.replace("timeouts:\n", "timeouts:\n  slow: 14 # edited\n", 1)
+  edited = text + "timeouts:\n  slow: 14 # edited\n"
   saved = client.put("/ui/api/settings", json={"text": edited})
   assert saved.status_code == 200 and saved.json()["text"] == edited, saved.text
   assert settings.DEFAULT_PATH.read_text() == edited and api.SLOW_SECONDS == 14.0
