@@ -98,7 +98,7 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 | `escalation.keywords` | `ultrathink`, `think hard`, `think harder`, `think deeply`, `think longer`, `root cause`, `race condition`, `memory leak`, `deadlock`, `security review`, `performance regression`, `audit`, `refactor`, `investigate`, `diagnose`, `code review`, `system design`, `optimize`, `debug`, `design`, `architecture` | Whole words or phrases. A match moves the `daedalus/auto` tier 1 step up, session-kept. |
 | `switch.keywords` | `clanker` | Words or phrases. A match gives the pool session another model of the same tier. |
 | `dashboard.theme` | `system` | `system`, `light` or `dark`. The Settings page sets it. Login always follows the device. |
-| `dashboard.time_format` | `24h` | `24h` or `12h` for the dashboard clocks. The Settings page sets it. |
+| `dashboard.time_format` | `24h` | `24h` or `12h` for the hour of each shown time. Every time carries its date: `2026-10-04 12:30:46`. The Settings page sets it. |
 | `request_hooks.on-request` | `hooks/openwebui_retry.py` | The request hook file of the `config` folder. Empty: no hook. See [Hooks](hooks.md). |
 | `pools.tier-a`, `pools.tier-b`, `pools.tier-c`, `pools.tier-d`, `pools.audio`, `pools.images` | `sophos`, `deinos`, `koinos`, `moros`, `graphos`, `photos` | The client name after `daedalus/`: 1-40 characters, no `auto`. A change renames that pool, and the old name breaks with HTTP 400. |
 

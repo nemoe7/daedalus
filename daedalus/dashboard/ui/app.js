@@ -19,8 +19,25 @@ const tierLetter = (name) => (name || "").replace("TIER-", "") || "-";
 const tokens = (n) => !n ? "-" : n >= 1e6 ? +(n / 1e6).toFixed(1) + "M" : n < 1000 ? String(n) : Math.round(n / 1024) + "K";
 // The hour cycle of each shown time, from dashboard.time_format: h23 for 24h, h12 for 12h.
 let hourCycle = "h23";
-const clock = (seconds) => new Date(seconds * 1000).toLocaleTimeString(
-  [], { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle });
+// The stamp of an absolute time: 2026-10-04 12:30:46.
+const stamp = (seconds) => {
+  const date = new Date(seconds * 1000);
+  const pad = (value) => String(value).padStart(2, "0");
+  const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const time = date.toLocaleTimeString([], {
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle,
+  });
+  return `${day} ${time}`;
+};
+// A relative time for the catalog: 2 hours ago, in 6 hours, 12 mins ago, in 3 mins.
+function relative(seconds) {
+  const minutes = (seconds * 1000 - Date.now()) / 60000;
+  const ago = minutes <= 0;
+  const size = ago ? Math.floor(-minutes) : Math.ceil(minutes);
+  if (ago && size === 0) return "just now";
+  const [count, unit] = size < 60 ? [size, "min"] : [ago ? Math.floor(size / 60) : Math.ceil(size / 60), "hour"];
+  return `${ago ? `${count} ${unit}${count === 1 ? "" : "s"} ago` : `in ${count} ${unit}${count === 1 ? "" : "s"}`}`;
+}
 
 const state = {
   models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, saved: [], timers: [],
@@ -68,7 +85,7 @@ function ask(title, message, confirm = "Confirm", danger = false, placeholder = 
 function renderOverview() {
   $("ov-requests").innerHTML = state.requests.slice(0, 10).map((r) => line(
     `<span class="status ${statusClass(r)}">${statusCell(r)}</span> <span title="${esc(r.via || r.model || "")}">${esc(r.via || r.model || "-")}</span>`,
-    clock(r.at),
+    stamp(r.at),
   )).join("") || none("No requests");
   $("ov-model-count").textContent = state.models.length || "";
   // Each pool with its mean weight and the model that served it most.
@@ -149,18 +166,10 @@ async function guarded(task) {
   }
 }
 
-// Hour and minute, with the weekday when the time is not today.
-function shortTime(seconds) {
-  const date = new Date(seconds * 1000);
-  const today = date.toDateString() === new Date().toDateString();
-  const options = { hour: "2-digit", minute: "2-digit", hourCycle, ...(today ? {} : { weekday: "short" }) };
-  return date.toLocaleString([], options);
-}
-
 // The catalog chip. A click starts a rebuild.
 function catalogChip({ built, next, rebuilding }) {
-  const last = rebuilding ? "rebuilding" : built ? shortTime(built) : "never";
-  const following = next ? ` &middot; next <b>${esc(shortTime(next))}</b>` : " &middot; no schedule";
+  const last = rebuilding ? "rebuilding" : built ? relative(built) : "never";
+  const following = next ? ` &middot; Next <b>${esc(relative(next))}</b>` : " &middot; no schedule";
   return `<button type="button" class="chip rebuild" ${rebuilding ? "disabled" : ""}
     title="${rebuilding ? "A catalog rebuild runs now" : "Rebuild the catalog now"}">Catalog <b>${esc(last)}</b>${following}</button>`;
 }
@@ -180,8 +189,8 @@ async function rebuildCatalog() {
 // The status card of a phone: the health row, then 1 line for each value. The catalog line starts a rebuild.
 function renderStatusCard(status) {
   const { built, next, rebuilding } = status.catalog || {};
-  const last = rebuilding ? "rebuilding" : built ? shortTime(built) : "never";
-  const following = next ? ` &middot; next ${esc(shortTime(next))}` : " &middot; no schedule";
+  const last = rebuilding ? "rebuilding" : built ? relative(built) : "never";
+  const following = next ? ` &middot; Next ${esc(relative(next))}` : " &middot; no schedule";
   const label = rebuilding ? "A catalog rebuild runs now" : "Rebuild the catalog now";
   $("card-health").innerHTML =
     `<span class="dot${status.healthy ? "" : " off"}"></span>${status.healthy ? "Healthy" : "Down"}`;
@@ -325,7 +334,7 @@ function statusClass(r) {
 }
 
 function chainText(r) {
-  const head = [clock(r.at), r.model, statusText(r), r.effort && `effort=${r.effort}`, r.pool && `pool=${r.pool}`,
+  const head = [stamp(r.at), r.model, statusText(r), r.effort && `effort=${r.effort}`, r.pool && `pool=${r.pool}`,
     r.routed && `from=${r.routed}`,
     `fallbacks=${r.fallbacks ?? 0}`, r.retry && `retry=${r.retry}`, r.loop && `loop=${r.loop}`].filter(Boolean).join(" ");
   const steps = (r.attempts || []).map((a, i) =>
@@ -502,7 +511,7 @@ function renderLive() {
   const rows = [...state.live.values()].sort((a, b) => b.since - a.since);
   $("live").innerHTML = rows.map((r) => `
     <tr role="row" class="live-row" data-live="${r.id}">
-      ${cell("Time", `<span class="pulse"></span>${clock(r.since / 1000)}`, "num muted")}
+      ${cell("Time", `<span class="pulse"></span>${stamp(r.since / 1000)}`, "num muted")}
       ${appCell(r)}
       ${cell("Session", esc(r.session || "-"), "hide-sm hide-md num")}
       ${nameCell(r.model || r.path)}
@@ -607,7 +616,7 @@ function renderRequests(rows) {
     const chainOpen = chain && opened.has(String(r.at));
     return `
     <tr role="row" class="request${chain ? " has-chain" : ""}${chainOpen ? " open" : ""}" data-at="${r.at}"${chain ? ' title="Show the fallback chain"' : ""}>
-      ${cell("Time", `<span class="caret${chain ? "" : " none"}"></span>${clock(r.at)}`, "num muted")}
+      ${cell("Time", `<span class="caret${chain ? "" : " none"}"></span>${stamp(r.at)}`, "num muted")}
       ${appCell(r)}
       ${cell("Session", esc(r.session || "-"), "hide-sm hide-md num")}
       ${nameCell(r.model || "-")}
@@ -733,7 +742,7 @@ function timeLeft(until) {
 }
 const coolCell = (until) => {
   const left = until ? timeLeft(until) : null;
-  return left ? `<span class="cool" data-until="${until}" title="Until ${esc(dateTime(until))}">${left}</span>` : dash;
+  return left ? `<span class="cool" data-until="${until}" title="Until ${esc(stamp(until))}">${left}</span>` : dash;
 };
 // The cooldown of the model, and of each client with its own provider key, such as "kilo 4m 05s".
 function coolCells(m) {
@@ -751,9 +760,6 @@ function tickCooldowns() {
   }
 }
 
-const dateTime = (seconds) => new Date(seconds * 1000).toLocaleString(
-  [], { dateStyle: "medium", timeStyle: "short", hourCycle });
-
 // The saved values of the provider keys. A key field shows the state: env:NAME or db:NAME.
 async function refreshEnv() {
   state.env = await call("env");
@@ -765,8 +771,8 @@ function renderKeys(rows) {
     <tr>
       <td>${esc(k.name)}</td>
       <td class="num muted">${k.start ? esc(k.start) + "&hellip;" : "-"}</td>
-      <td class="hide-sm muted">${dateTime(k.created)}</td>
-      <td class="muted">${k.used ? dateTime(k.used) : "never"}</td>
+      <td class="hide-sm muted">${stamp(k.created)}</td>
+      <td class="muted">${k.used ? stamp(k.used) : "never"}</td>
       <td class="end"><button type="button" class="ghost danger" data-key="${esc(k.name)}">Delete</button></td>
     </tr>`).join("") : '<tr><td colspan="5" class="empty">No API keys. The master key opens /v1.</td></tr>';
 }
@@ -1283,7 +1289,7 @@ const SETTINGS = [
   ]],
   ["dashboard", "Dashboard", [
     ["theme", "Theme", "choice", "System follows the light or dark setting of the device."],
-    ["time_format", "Time format", "choice", "The clock of each time on the dashboard."],
+    ["time_format", "Time format", "choice", "The hour of each shown time. Every time carries its date."],
   ]],
   ["request_hooks", "Request hooks", [
     ["on-request", "On request", "path", "The Python file of the config folder that sets the key of a turn. Empty: no hook."],
@@ -1535,7 +1541,7 @@ function overviewLimits(data) {
 
 function renderLimits(data) {
   state.limits = data;
-  $("limits-checked").textContent = data.checked ? `Checked ${shortTime(data.checked)} · each hour` : "Not checked yet";
+  $("limits-checked").textContent = data.checked ? `Checked ${stamp(data.checked)} · each hour` : "Not checked yet";
   $("balances").hidden = !data.providers.length;
   $("balances").innerHTML = data.providers.map((p) => `<div class="card"><h3>${esc(p.name)}</h3>
     ${p.items.map(([label, value, left]) => `<div class="balance">${line(esc(label), esc(value))}
@@ -1547,8 +1553,8 @@ function renderLimits(data) {
       <td><div class="weight left" title="${r.remaining.toLocaleString()} of ${r.limit.toLocaleString()}">
         ${weightBar(r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0)}
         <span class="num${r.remaining > 0 ? "" : " out"}">${floorCount(r.remaining)} of ${floorCount(r.limit)}</span></div></td>
-      <td class="hide-sm muted time">${r.reset ? shortTime(r.reset) : "-"}</td>
-      <td class="hide-sm muted time">${shortTime(r.at)}</td>
+      <td class="hide-sm muted time">${r.reset ? stamp(r.reset) : "-"}</td>
+      <td class="hide-sm muted time">${stamp(r.at)}</td>
     </tr>`).join("") : '<tr><td colspan="5" class="empty">No rate-limit headers yet. Groq and Mistral send them with each answer.</td></tr>';
 }
 
