@@ -151,6 +151,8 @@ Keep **Function Calling** on **Native**, the Open WebUI default since v0.10.0. N
 
 3 security reads cover the alert lists: `code_scanning_alerts`, `secret_scanning_alerts` and `dependabot_alerts`. Each lists with filters, or reads 1 alert with its instances or locations. They need a token with the `security_events` scope, or the matching fine-grained read. Without it GitHub answers 403.
 
+2 CI reads cover the checks. `check_runs` lists the check runs of a ref with the name, the status and the filter, or reads 1 run with its annotations. `list_workflows` lists the Actions workflows.
+
 1. **Workspace → Tools**, **Create**, paste the file, **Save**.
 2. **Valves**: set `github_token`, or set the `GITHUB_TOKEN` environment value. Keep `default_mode` `ask`.
 3. **Access** on the tool: make it public, or give read access to each user. A user without read access does not see the tool.

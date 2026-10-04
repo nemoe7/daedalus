@@ -3,7 +3,7 @@ title: GitHub
 author: nemo
 description: GitHub access for Open WebUI. Reads run freely; every write passes a confirmation gate and a timeout, and nothing is sent when the gate cannot be shown. Stdlib only.
 required_open_webui_version: 0.10.0
-version: 2.2.0
+version: 2.3.0
 licence: MIT
 """
 
@@ -3127,6 +3127,73 @@ class Tools:
     return self._ok(data)
 
   # ═════════════════════════ workspace actions ══════════════════════════
+
+  async def check_runs(
+    self,
+    repo_full_name: str,
+    ref: str,
+    check_name: str | None = None,
+    check_run_id: int | None = None,
+    status: str | None = None,
+    filter: str | None = None,
+    per_page: int = 30,
+    page: int = 1,
+  ) -> dict:
+    """List the check runs of a ref, or read 1 check run with its annotations.
+
+    :param repo_full_name: owner/repo
+    :param ref: the commit SHA, branch or tag
+    :param check_name: only the runs of this check name
+    :param check_run_id: the check run ID; set it to read that run and its annotations
+    :param status: queued, in_progress or completed
+    :param filter: latest keeps the newest run per name, all keeps every run
+    :param per_page: runs per page
+    :param page: the page number
+    """
+    repo = self._repo(repo_full_name)
+    if check_run_id is not None:
+      number = int(check_run_id)
+      run = await self._request("GET", f"{API}{repo}/check-runs/{number}")
+      annotations = await self._request(
+        "GET", f"{API}{repo}/check-runs/{number}/annotations"
+      )
+      return self._ok({"check_run": run, "annotations": annotations})
+    data = await self._request(
+      "GET",
+      f"{API}{repo}/commits/{self._seg(ref)}/check-runs",
+      params={
+        "check_name": check_name,
+        "status": status,
+        "filter": filter,
+        "per_page": min(max(1, int(per_page)), 100),
+        "page": int(page),
+      },
+    )
+    return self._ok(
+      {
+        "check_runs": data.get("check_runs") or [],
+        "total_count": data.get("total_count"),
+      }
+    )
+
+  async def list_workflows(
+    self, repo_full_name: str, per_page: int = 30, page: int = 1
+  ) -> dict:
+    """List the Actions workflows of a repository.
+
+    :param repo_full_name: owner/repo
+    :param per_page: workflows per page
+    :param page: the page number
+    """
+    repo = self._repo(repo_full_name)
+    data = await self._request(
+      "GET",
+      f"{API}{repo}/actions/workflows",
+      params={"per_page": min(max(1, int(per_page)), 100), "page": int(page)},
+    )
+    return self._ok(
+      {"workflows": data.get("workflows") or [], "total_count": data.get("total_count")}
+    )
 
   async def fetch_commit_workflow_runs(
     self, repo_full_name: str, commit_sha: str
