@@ -23,9 +23,11 @@ def test_docker_workflow_keeps_the_release_triggers_and_tag_flow() -> None:
   assert 'select(.name == "draft")' in content
   assert 'select(.name == "Approve Proposal")' in content
   assert "Approved proposal tag not found in job logs" in content
-  assert "type=raw,value=${{ steps.release.outputs.tag }}" in content
-  assert "ref: ${{ steps.release.outputs.tag }}" in content
-  assert "build-args: VERSION=${{ steps.release.outputs.tag }}" in content
+  # The release job reads the tag, and the build and merge jobs take it from its output.
+  assert "tag: ${{ steps.release.outputs.tag }}" in content
+  assert "type=raw,value=${{ needs.release.outputs.tag }}" in content
+  assert "ref: ${{ needs.release.outputs.tag }}" in content
+  assert "build-args: VERSION=${{ needs.release.outputs.tag }}" in content
 
 
 def test_docker_workflow_release_job_validates_the_tag_and_the_sha() -> None:
@@ -41,26 +43,31 @@ def test_docker_workflow_release_job_validates_the_tag_and_the_sha() -> None:
 
 
 def test_docker_workflow_release_job_keeps_its_own_queue() -> None:
-  """A release build never cancels another one, so latest ends on the newest tag."""
-  release = YAML(typ="safe").load(WORKFLOW.read_text())["jobs"]["release"]
-  assert release["concurrency"] == {
+  """A release merge never cancels another one, so latest ends on the newest tag."""
+  jobs = YAML(typ="safe").load(WORKFLOW.read_text())["jobs"]
+  assert jobs["release-merge"]["concurrency"] == {
     "group": "docker-release",
     "cancel-in-progress": False,
   }
-  assert release["timeout-minutes"] == 30
+  assert jobs["release-merge"]["timeout-minutes"] == 10
 
 
 def test_docker_workflow_keeps_least_privilege_at_the_top() -> None:
-  """The workflow reads. Each publishing job asks for packages: write for itself."""
+  """The workflow reads. Each job that publishes asks for packages: write itself."""
   data = YAML(typ="safe").load(WORKFLOW.read_text())
 
   assert data["permissions"] == {"contents": "read"}
-  for job in ("dev", "release"):
+  for job in ("dev", "dev-merge", "release-build", "release-merge"):
     assert data["jobs"][job]["permissions"] == {
       "actions": "read",
       "contents": "read",
       "packages": "write",
     }
+  # The release job only reads the approval, so it never asks for a publish scope.
+  assert data["jobs"]["release"]["permissions"] == {
+    "actions": "read",
+    "contents": "read",
+  }
 
 
 def test_docker_workflow_dev_job_publishes_dev_tags() -> None:
@@ -68,7 +75,10 @@ def test_docker_workflow_dev_job_publishes_dev_tags() -> None:
   data = YAML(typ="safe").load(WORKFLOW.read_text())
 
   dev = data["jobs"]["dev"]
-  assert dev["concurrency"] == {"group": "docker-dev", "cancel-in-progress": True}
+  assert dev["concurrency"] == {
+    "group": "docker-dev-${{ matrix.arch }}",
+    "cancel-in-progress": True,
+  }
 
   content = WORKFLOW.read_text()
   assert "github.event.workflow_run.name == 'CI'" in content
@@ -113,11 +123,25 @@ def test_docker_workflow_splits_the_two_jobs() -> None:
   assert "github.event.workflow_run.name == 'Gemini Release Draft'" in content
 
 
-def test_docker_workflow_builds_both_platforms() -> None:
-  """QEMU builds the arm64 image for the Raspberry Pi, in both jobs."""
+def test_docker_workflow_builds_each_platform_on_a_native_runner() -> None:
+  """Each platform builds on its own runner, so no leg emulates the other one."""
+  data = YAML(typ="safe").load(WORKFLOW.read_text())
   content = WORKFLOW.read_text()
-  assert content.count("platforms: linux/amd64,linux/arm64") == 2
-  assert content.count("uses: docker/setup-qemu-action@") == 2
+
+  for job in ("dev", "release-build"):
+    matrix = data["jobs"][job]["strategy"]["matrix"]["include"]
+    assert [entry["arch"] for entry in matrix] == ["amd64", "arm64"]
+    assert [entry["runner"] for entry in matrix] == ["ubuntu-24.04", "ubuntu-24.04-arm"]
+
+  # QEMU left with the emulated build. Each leg pushes a digest only.
+  assert "docker/setup-qemu-action" not in content
+  assert content.count("platforms: linux/${{ matrix.arch }}") == 2
+  assert content.count("push-by-digest=true") == 2
+  # A merge job puts the tags on the manifest list of the 2 digests.
+  assert content.count("docker buildx imagetools create") == 2
+  assert content.count("merge-multiple: true") == 2
+  assert "name: digests-dev-${{ matrix.arch }}" in content
+  assert "name: digests-release-${{ matrix.arch }}" in content
 
 
 def test_no_duplicate_docker_publishing_workflow_remains() -> None:
