@@ -429,8 +429,12 @@ const RACE_NOTES = {
   slow: "Raced the pin: the racers started after the slow seconds",
   drawn: "Raced the pin: the draw started the racers with the first model",
 };
-const raceNote = (r) => (state.status?.parallel?.enabled && RACE_NOTES[r.race]
-  ? `<p class="chain-race">${esc(RACE_NOTES[r.race])}</p>` : "");
+const RACE_CODES = {
+  off: "race off", pool: "not a pool", stream: "not a stream", single: "one model",
+  fast: "fast pin", slow: "slow pin", drawn: "on draw",
+};
+const raceNote = (r) => (state.status?.parallel?.enabled && RACE_CODES[r.race]
+  ? `<p class="chain-race" title="${esc(RACE_NOTES[r.race])}">${esc(RACE_CODES[r.race])}</p>` : "");
 
 function routingCodes(r) {
   const from = r.routed ? ` <span class="from" title="Tier ${esc(poolTier(r.routed))} of the previous model">fr${esc(poolTier(r.routed))}</span>` : "";
