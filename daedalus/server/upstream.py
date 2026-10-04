@@ -290,9 +290,9 @@ async def attempt(
   started = time.perf_counter()
   response = await get_client().send(upstream, stream=True)
   status = response.status_code
+  observe(router.lane(config, candidate, client), response.headers)
   if status < 400:
     logger.info("upstream %s %d %s", candidate, status, elapsed(started))
-    observe(router.lane(config, candidate, client), response.headers)
     return provider, response
   raw = await response.aread()
   await response.aclose()
@@ -347,8 +347,9 @@ async def post(
   response = await get_client().post(
     url, headers=with_client(headers), timeout=timeout, **content
   )
+  # The rate-limit headers of a 429 explain the limit, so they count before the error goes out.
+  observe(LANE.get() or candidate, response.headers)
   if response.status_code >= 400:
     raise rejected(candidate, response, started, response.content)
   logger.info("upstream %s %d %s", candidate, response.status_code, elapsed(started))
-  observe(LANE.get() or candidate, response.headers)
   return response

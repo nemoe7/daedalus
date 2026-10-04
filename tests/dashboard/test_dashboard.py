@@ -706,9 +706,9 @@ def test_the_short_values_carry_their_full_text() -> None:
     'title="${r.remaining.toLocaleString()} of ${r.limit.toLocaleString()}"' in app
   ), "the exact rate-limit counts"
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  assert ".ghost.danger:hover { color: var(--bad); border-color: var(--bad); }" in css, (
-    "a filled danger button keeps its label on hover"
-  )
+  assert (
+    ".ghost.danger:hover { color: var(--bad); border-color: var(--bad); }" in css
+  ), "a filled danger button keeps its label on hover"
   assert ".primary:hover:not(:disabled) { filter: brightness(1.2);" in css, (
     "the primary button answers the mouse"
   )
