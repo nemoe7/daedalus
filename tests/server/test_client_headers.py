@@ -125,3 +125,47 @@ def test_app_name() -> None:
     )
   ]
   assert found == ["OWUI", "Kilo", "Kilo", "Some App With A Very Lon", None], found
+
+
+HOOK = '''"""A test hook: the key of a turn, and the code of a repeat."""
+HEADER = "x-openwebui-chat-id"
+
+
+def on_request(value, model, headers):
+  chat = headers.get(HEADER)
+  if model != "daedalus/auto" or not chat:
+    return None
+  value["key"] = chat + "|" + value["digest"]
+  count = value.get("count")
+  if count:
+    value["code"] = f"rt{count}"
+  return value
+'''
+
+
+async def test_the_hook_writes_the_repeat_code(
+  client: httpx.AsyncClient, state_folder
+) -> None:
+  """A repeat runs the hook again with the count, and the row shows the code of the hook."""
+  path = state_folder / "config" / "hooks" / "retry.py"
+  path.parent.mkdir(parents=True, exist_ok=True)
+  path.write_text(HOOK)
+  api.REQUEST_HOOKS = {"on-request": "hooks/retry.py"}
+  config.set_config(
+    {
+      "p": {
+        "api_base": "https://p.test/v1",
+        "api_key": "provider-key",
+        "tier": {"TIER-A": ["*"]},
+      }
+    }
+  )
+  store.write_store([{"id": "p/x"}, {"id": "p/y"}])
+  body = {"model": "daedalus/auto", "messages": [{"role": "user", "content": "hi"}]}
+  first = await client.post("/v1/chat/completions", json=body)
+  assert first.status_code == 200, first.text
+  second = await client.post("/v1/chat/completions", json=body)
+  assert second.status_code == 200, second.text
+  row = dashboard.HISTORY.latest(1)[0]
+  assert row["transition"]["reason"] == "rt1", row
+  assert row["retry"] == "1", row

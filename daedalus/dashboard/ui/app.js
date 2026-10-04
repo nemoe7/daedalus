@@ -372,7 +372,7 @@ function chainRows(r) {
 function poolText(r) {
   const from = r.routed ? ` <span class="from" title="Tier ${esc(poolTier(r.routed))} of the previous model">fr${esc(poolTier(r.routed))}</span>` : "";
   const loop = r.loop ? ` <span class="from" title="${esc(r.loop)} equal tool calls stopped the chain">tl${esc(r.loop)}</span>` : "";
-  return `${esc(r.pool || "-")}${transitionCell(r.transition, r.retry)}${from}${loop}`;
+  return `${esc(r.pool || "-")}${transitionCell(r.transition)}${from}${loop}`;
 }
 
 function mobileFallbackChain(r) {
@@ -478,15 +478,18 @@ const TRANSITION_REASONS = {
   rnd: "Weighted random draw selected another model",
   cls: "Prompt classifier chose a different tier",
   esc: "Escalation keyword raised the tier",
-  try: "OpenWebUI try again moved the tier up",
 };
 
-// The code of a transition. A try again carries its count: rt1, rt2.
-function transitionCell(t, retry) {
+// A repeat carries the code of the hook, such as rt1. The row shows the code as given.
+const REPEAT_CODE = /^rt\d+$/;
+const REPEAT_LABEL = "A repeat picked another model";
+
+function transitionCell(t) {
   if (!t || !t.reason) return "";
-  const code = t.reason === "try" ? `rt${retry ?? ""}` : t.reason;
-  const label = TRANSITION_REASONS[t.reason] || t.reason;
-  return ` <span class="transition-code" title="${esc(label)}" aria-label="${esc(label)}">${esc(code)}</span>`;
+  const label = REPEAT_CODE.test(t.reason)
+    ? REPEAT_LABEL
+    : TRANSITION_REASONS[t.reason] || t.reason;
+  return ` <span class="transition-code" title="${esc(label)}" aria-label="${esc(label)}">${esc(t.reason)}</span>`;
 }
 
 // The tier letter of a pool short name: sophos gives A. The pool cards give it, and the
@@ -501,9 +504,8 @@ function poolTier(name) {
 // The code legend of the Requests page: each short code with its meaning.
 function renderLegend() {
   const rows = [
-    ...Object.entries(TRANSITION_REASONS).map(([code, label]) => [
-      code === "try" ? "rtN" : code, label,
-    ]),
+    ...Object.entries(TRANSITION_REASONS),
+    ["rtN", "A repeat picked another model, N times"],
     ["frX", "the tier of the previous model"],
     ["tlN", "N equal tool calls stopped the chain"],
   ];

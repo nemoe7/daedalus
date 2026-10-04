@@ -1174,7 +1174,7 @@
       "transition": {
         "from_model": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
         "from_pool": "koinos",
-        "reason": "try",
+        "reason": "rt1",
         "to_model": "cloudflare/@cf/zai-org/glm-4.7-flash",
         "to_pool": "deinos"
       },
