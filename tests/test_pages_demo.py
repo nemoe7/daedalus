@@ -265,7 +265,7 @@ const check = (ok, text) => {
     "the status counts the sessions of the table");
   const liveLimits = await (await context.fetch("ui/api/limits", { method: "POST" })).json();
   check(liveLimits.providers.find((card) => card.name === "cloudflare").items[0][1]
-    !== "10000 of 10K left", "the traffic moves the balance card");
+    !== "10K of 10K left", "the traffic moves the balance card");
   check(grown.every(shaped), "each row of the table carries the fields of the server");
   check(grown.some((row) => Number(row.fallbacks) > 0), "a fallback chain arrives");
   check(grown.some((row) => (row.attempts || []).some((a) => a.cooldown)), "a rate limit");
