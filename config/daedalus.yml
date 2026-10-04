@@ -1,54 +1,9 @@
 # Router settings. Each key is optional. A missing key uses the built-in default.
+# This file holds the changes from the defaults only. docs/configuration.md lists each key,
+# its default and its use.
 # DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.
 # HEADROOM_URL turns on message compression through a Headroom sidecar.
-timeouts:
-  request: 600 # seconds to wait for an answer, for all attempts
-  wait: 60 # seconds without data from the provider, keep-alive bytes excluded
-session_affinity:
-  enabled: true
-  change_on_draw: true # false: keep the current pin after a weighted first-tier draw
-  idle: 3600 # seconds without a request, then the session model expires
-  stay: 0.85 # in a session, the share of first-tier draws for the session model
-parallel:
-  enabled: false # true: the next models of the chain race the first token, and the session model starts each request
-  count: 1 # the models that race the original one, 1 to 10
-  chance: 0.05 # the chance to start the racing models with the original one, from 0 to 1
-  slow: 30 # seconds with no content from the first model, then the second model starts
-  penalty: 0.9 # the weight factor for the model that loses the race, at most 1
-weights:
-  enabled: true # false: all weights stay at 1 and the chain keeps the usual order
-  success: 1.5
-  fault: 0.5
-  slow: 0.75
-  hourly: 1.212
-  rate_limit: 0.75 # the weight factor for an HTTP 429
-cooldown:
-  first: 60 # seconds of the first cooldown of a 429 with no reset time
-  longest: 21600 # each next 429 doubles the cooldown, up to this many seconds
-loops:
-  calls: 3 # repeated identical tool calls since the last user message
-  repeats: 4 # consecutive copies of a repeated text passage
-  shortest: 20 # shortest passage period, in characters
-  longest: 2000 # longest passage period, in characters
-pacing:
-  enabled: true # false: the rpm and tpm of the provider files do not skip models
-catalog:
-  every: 6 # hours between rebuilds of the model catalog. 0 stops them.
-  anchor: 6 # local hour (TZ env var) that the rebuild times start from: 00, 06, 12 and 18
-headroom:
-  timeout: 5 # seconds for the full Headroom answer. After this, the original messages go to the provider.
-dashboard:
-  theme: system # system follows the device. Light or dark fixes it.
-  time_format: 24h # 24h or 12h, for each time on the dashboard
 request_hooks:
   # The request-level hook files of the config folder, 1 for each point. Empty: no hook.
   # on-request sets the key of the turn. The shipped file applies the Open WebUI try-again rule.
   on-request: hooks/openwebui_retry.py
-pools:
-  # The name after daedalus/ that clients use for each pool. After a change, the old name gets HTTP 400.
-  moros: moros
-  koinos: koinos
-  deinos: deinos
-  sophos: sophos
-  graphos: graphos
-  photos: photos

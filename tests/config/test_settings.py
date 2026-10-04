@@ -30,12 +30,18 @@ def test_load(folder: Path) -> None:
   assert values["switch"]["keywords"] == ["clanker"]
   shipped_path = Path(__file__).parents[2] / "config" / "daedalus.yml"
   raw = yaml.safe_load(shipped_path.read_text(encoding="utf-8"))
-  assert "slow" not in raw["timeouts"], "a derived value stays out of the file"
-  assert "escalation" not in raw and "switch" not in raw, "the keywords stay defaults"
+  assert "escalation" not in raw and "switch" not in raw, (
+    "the keyword lists stay defaults"
+  )
+  for group, entries in raw.items():
+    for key, value in entries.items():
+      assert value != settings.DEFAULTS[group][key], (
+        f"{group}.{key} copies the code default"
+      )
   shipped = settings.load(shipped_path)
   assert shipped.pop("request_hooks") == {"on-request": "hooks/openwebui_retry.py"}
   assert values.pop("request_hooks") == {"on-request": ""}
-  assert shipped == values, "the shipped file holds the defaults"
+  assert shipped == values, "the shipped file holds no default copy"
   path = folder / "daedalus.yml"
   path.write_text("timeouts:\n  wait: 120\nweights:\n  fault: 0.25\n", encoding="utf-8")
   values = settings.load(path)
@@ -271,3 +277,11 @@ def test_pool_names() -> None:
   assert (swapped["moros"], swapped["koinos"]) == ("koinos", "moros"), swapped
   text = settings.update_text("pools:\n  moros: moros\n", {"pools": {"moros": "123"}})
   assert settings.parse(text)["pools"]["moros"] == "123", text
+
+
+def test_update_text_drops_an_empty_group() -> None:
+  """The last key of a group takes the group with it."""
+  text = settings.update_text(
+    "timeouts:\n  slow: 30\ncatalog:\n  every: 6\n", {"timeouts": {"slow": None}}
+  )
+  assert text == "catalog:\n  every: 6\n", text

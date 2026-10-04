@@ -1239,70 +1239,13 @@
       }
     },
     "file": {
-      "catalog": {
-        "anchor": 6,
-        "every": 6
-      },
-      "cooldown": {
-        "first": 60,
-        "longest": 21600
-      },
-      "dashboard": {
-        "theme": "system",
-        "time_format": "24h"
-      },
-      "headroom": {
-        "timeout": 5
-      },
-      "loops": {
-        "calls": 3,
-        "longest": 2000,
-        "repeats": 4,
-        "shortest": 20
-      },
-      "pacing": {
-        "enabled": true
-      },
-      "parallel": {
-        "chance": 0.05,
-        "count": 1,
-        "enabled": false,
-        "penalty": 0.9,
-        "slow": 30
-      },
-      "pools": {
-        "deinos": "deinos",
-        "graphos": "graphos",
-        "koinos": "koinos",
-        "moros": "moros",
-        "photos": "photos",
-        "sophos": "sophos"
-      },
       "request_hooks": {
         "on-request": "hooks/openwebui_retry.py"
-      },
-      "session_affinity": {
-        "change_on_draw": true,
-        "enabled": true,
-        "idle": 3600,
-        "stay": 0.85
-      },
-      "timeouts": {
-        "request": 600,
-        "wait": 60
-      },
-      "weights": {
-        "enabled": true,
-        "fault": 0.5,
-        "hourly": 1.212,
-        "rate_limit": 0.75,
-        "slow": 0.75,
-        "success": 1.5
       }
     },
     "headroom_available": false,
     "path": "config/daedalus.yml",
-    "text": "# Router settings. Each key is optional. A missing key uses the built-in default.\n# DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.\n# HEADROOM_URL turns on message compression through a Headroom sidecar.\ntimeouts:\n  request: 600 # seconds to wait for an answer, for all attempts\n  wait: 60 # seconds without data from the provider, keep-alive bytes excluded\nsession_affinity:\n  enabled: true\n  change_on_draw: true # false: keep the current pin after a weighted first-tier draw\n  idle: 3600 # seconds without a request, then the session model expires\n  stay: 0.85 # in a session, the share of first-tier draws for the session model\nparallel:\n  enabled: false # true: the next models of the chain race the first token, and the session model starts each request\n  count: 1 # the models that race the original one, 1 to 10\n  chance: 0.05 # the chance to start the racing models with the original one, from 0 to 1\n  slow: 30 # seconds with no content from the first model, then the second model starts\n  penalty: 0.9 # the weight factor for the model that loses the race, at most 1\nweights:\n  enabled: true # false: all weights stay at 1 and the chain keeps the usual order\n  success: 1.5\n  fault: 0.5\n  slow: 0.75\n  hourly: 1.212\n  rate_limit: 0.75 # the weight factor for an HTTP 429\ncooldown:\n  first: 60 # seconds of the first cooldown of a 429 with no reset time\n  longest: 21600 # each next 429 doubles the cooldown, up to this many seconds\nloops:\n  calls: 3 # repeated identical tool calls since the last user message\n  repeats: 4 # consecutive copies of a repeated text passage\n  shortest: 20 # shortest passage period, in characters\n  longest: 2000 # longest passage period, in characters\npacing:\n  enabled: true # false: the rpm and tpm of the provider files do not skip models\ncatalog:\n  every: 6 # hours between rebuilds of the model catalog. 0 stops them.\n  anchor: 6 # local hour (TZ env var) that the rebuild times start from: 00, 06, 12 and 18\nheadroom:\n  timeout: 5 # seconds for the full Headroom answer. After this, the original messages go to the provider.\ndashboard:\n  theme: system # system follows the device. Light or dark fixes it.\n  time_format: 24h # 24h or 12h, for each time on the dashboard\nrequest_hooks:\n  # The request-level hook files of the config folder, 1 for each point. Empty: no hook.\n  # on-request sets the key of the turn. The shipped file applies the Open WebUI try-again rule.\n  on-request: hooks/openwebui_retry.py\npools:\n  # The name after daedalus/ that clients use for each pool. After a change, the old name gets HTTP 400.\n  moros: moros\n  koinos: koinos\n  deinos: deinos\n  sophos: sophos\n  graphos: graphos\n  photos: photos\n"
+    "text": "# Router settings. Each key is optional. A missing key uses the built-in default.\n# This file holds the changes from the defaults only. docs/configuration.md lists each key,\n# its default and its use.\n# DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.\n# HEADROOM_URL turns on message compression through a Headroom sidecar.\nrequest_hooks:\n  # The request-level hook files of the config folder, 1 for each point. Empty: no hook.\n  # on-request sets the key of the turn. The shipped file applies the Open WebUI try-again rule.\n  on-request: hooks/openwebui_retry.py\n"
   },
   "status": {
     "catalog": {

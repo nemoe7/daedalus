@@ -243,6 +243,18 @@ def entry(indent: str, key: str, value: Any, comment: str = "") -> list[str]:
   return [f"{indent}{key}:{comment}", *(f"{indent}  - {item(v)}" for v in value)]
 
 
+def prune_groups(lines: list[str]) -> list[str]:
+  """Drop each group header that holds no key, for example when its last key goes."""
+  kept: list[str] = []
+  for at, line in enumerate(lines):
+    if GROUP_LINE.match(line):
+      following = next((item for item in lines[at + 1 :] if item.strip()), "")
+      if not following[:1].isspace():
+        continue
+    kept.append(line)
+  return kept
+
+
 def update_text(text: str, changes: dict[str, dict[str, Any]]) -> str:
   """The YAML text with new values, and its comments kept. None sets the default."""
   for group, values in changes.items():
@@ -295,4 +307,4 @@ def update_text(text: str, changes: dict[str, dict[str, Any]]) -> str:
     if any(value is not None for value in pending[name].values()):
       output.append(f"{name}:")
       close(name)
-  return "\n".join(output) + "\n"
+  return "\n".join(prune_groups(output)) + "\n"

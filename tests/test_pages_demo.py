@@ -106,6 +106,15 @@ const check = (ok, text) => {
   const held = await (await context.fetch("ui/api/settings")).json();
   check(held.file.dashboard.theme === "light", "the page shows the saved value");
   check(held.text.includes("theme: light"), "the saved text holds it");
+  // An empty field writes the default, and the group stays whole.
+  const clearedTheme = await context.fetch("ui/api/settings", {
+    method: "PUT",
+    body: JSON.stringify({ changes: { dashboard: { theme: null } } }),
+  });
+  check(clearedTheme.status === 200, "a settings clear lands");
+  const afterClear = await (await context.fetch("ui/api/settings")).json();
+  check(afterClear.file.dashboard.theme === "system", "the default comes back");
+  check(afterClear.text.includes("theme: system"), "the cleared value writes the default");
   const env = await (await context.fetch("ui/api/env", {
     method: "PUT",
     body: JSON.stringify({ name: "CLOUDFLARE_ACCOUNT_ID", value: "abc12345" }),
