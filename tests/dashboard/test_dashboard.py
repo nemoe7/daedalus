@@ -480,7 +480,7 @@ def test_app_js_request_cards() -> None:
     re.sub(r"<[^>]+>", "", text).strip()
     for text in re.findall(r"<th[^>]*>(.*?)</th>", header.group(1))
   ]
-  assert len(labels) == 13, labels
+  assert len(labels) == 12, labels
   row = {
     "at": 100,
     "app": "OWUI",
@@ -507,7 +507,7 @@ def test_app_js_request_cards() -> None:
   code = f"""
 const fs = require('fs');
 const vm = require('vm');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{ renderRequests, renderLive, poolTier, state }};";
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{ renderRequests, renderLive, poolTier, state, modelName, poolOf, routingCodes }};";
 const nodes = new Map();
 const node = (id) => {{
   if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', hidden: false, children: [], listeners: {{}}, contains: () => false, addEventListener(type, handler) {{ this.listeners[type] = handler; }}, classList: {{ toggle: () => {{}} }} }});
@@ -536,14 +536,21 @@ probe.state.pools = [{{ shown: "daedalus/deinos", members: [{{ tier: "TIER-A" }}
 probe.renderRequests([{json.dumps(row)}]);
 const html = node('requests').innerHTML;
 const cells = [...html.matchAll(/<td[^>]*>/g)].map((m) => m[0]);
-assert.strictEqual(cells.length, 13, 'every column of the row is a cell: ' + cells.length);
+assert.strictEqual(cells.length, 12, 'every column of the row is a cell: ' + cells.length);
 assert(cells.every((td) => td.includes('role="cell"')), 'each request cell keeps its table role');
-assert.strictEqual((html.match(/class="cell-value"/g) || []).length, 13, 'each request cell keeps its value');
+assert.strictEqual((html.match(/class="cell-value"/g) || []).length, 12, 'each request cell keeps its value');
 const mobileLabels = (markup) => [...markup.matchAll(new RegExp('<span class="mobile-label" aria-hidden="true">([^<]*)</span>', 'g'))].map((m) => m[1]);
 assert.deepStrictEqual(mobileLabels(html), {json.dumps(labels)}, 'the cells show their column names in table order');
 assert(html.includes('hide-sm hide-md num mono'), 'the session id reads in the mono font');
 assert(html.includes('class="request has-chain"'), 'requests with fallbacks expose their chain');
-assert(html.includes('More · session, effort, pool · 1 fallback'), 'request details disclose their fallback count');
+assert(html.includes('More · session, effort · 1 fallback'), 'request details disclose their fallback count');
+// The pool of the auto model rides in the slug, and the daedalus head carries its own mark.
+const autoCell = probe.modelName('daedalus/auto', probe.poolOf({{ model: 'daedalus/auto', pool: 'moros' }}));
+assert.strictEqual(probe.poolOf({{ model: 'daedalus/auto', pool: 'moros' }}), 'moros', 'the auto pool joins the slug');
+assert(autoCell.includes('<span class="model-part">auto</span>') && autoCell.includes('<span class="model-part">moros</span>'), 'the slug reads daedalus/auto/moros');
+assert(autoCell.includes('ui/icons/daedalus.svg'), 'the daedalus head carries its own mark');
+assert.strictEqual(probe.poolOf({{ model: 'p/big', pool: 'daedalus/deinos' }}), '', 'a direct model keeps its own slug');
+assert.strictEqual(probe.routingCodes({{ routed: 'deinos' }}).includes('fr'), true, 'the fallback tier code stays');
 for (const value of ['View fallback chain', 's1', 'high <span class="from">xhi</span>', 'rate limited', 'frA', 'tl3']) assert(html.includes(value), 'the details keep ' + value);
 assert(!html.includes('rt2') && !html.includes('tool loop'), 'the frX and tlN codes replace the long forms');
 const mobileSelectors = [];
@@ -556,16 +563,16 @@ const detailTap = {{ target: {{ closest: (selector) => {{ detailSelectors.push(s
 sandbox.window.matchMedia = () => ({{ matches: false }});
 node('requests').listeners.click(detailTap);
 assert(!detailSelectors.includes('tr.request'), 'a detail disclosure does not toggle the desktop chain');
-probe.state.live.set(2, {{ id: 2, since: 100000, attemptSince: 100000, first: null, stream: false, session: 's2', app: 'OWUI', model: 'p/live', effort: 'medium', pool: 'free', via: 'p/live', fallbacks: 0 }});
+probe.state.live.set(2, {{ id: 2, since: 100000, attemptSince: 100000, first: null, stream: false, session: 's2', app: 'OWUI', model: 'daedalus/auto', effort: 'medium', pool: 'moros', via: 'p/live', fallbacks: 0 }});
 probe.renderLive();
 const liveHtml = node('live').innerHTML;
 const liveCells = [...liveHtml.matchAll(/<td[^>]*>/g)].map((m) => m[0]);
-assert.strictEqual(liveCells.length, 13, 'every live column is a cell');
+assert.strictEqual(liveCells.length, 12, 'every live column is a cell');
 assert(liveCells.every((td) => td.includes('role="cell"')), 'each live request cell keeps its table role');
-assert.strictEqual((liveHtml.match(/class="cell-value"/g) || []).length, 13, 'each live request cell keeps its value');
+assert.strictEqual((liveHtml.match(/class="cell-value"/g) || []).length, 12, 'each live request cell keeps its value');
 assert.deepStrictEqual(mobileLabels(liveHtml), {json.dumps(labels)}, 'live request cells show their column names');
-assert(liveHtml.includes('More · session, effort, pool · 0 fallbacks'), 'live row details stay compact');
-for (const value of ['s2', 'medium', 'free']) assert(liveHtml.includes(value), 'live details keep ' + value);
+assert(liveHtml.includes('More · session, effort · 0 fallbacks'), 'live row details stay compact');
+for (const value of ['s2', 'medium', '<span class="model-part">moros</span>']) assert(liveHtml.includes(value), 'live details keep ' + value);
 assert(!liveHtml.includes('mobile-fallback-chain'), 'live rows do not show a fallback chain');
 """
   subprocess.run(["node", "-e", code], check=True)
