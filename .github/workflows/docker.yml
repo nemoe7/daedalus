@@ -189,7 +189,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          mapfile -t tag_args < <(jq -r '.tags[] | "-t " + .' <<<"${DOCKER_METADATA_OUTPUT_JSON:-{}}")
+          # The flag and its tag ride as 2 argv entries, or buildx reads a bad reference.
+          mapfile -t tag_args < <(jq -r '.tags[] | "-t", .' <<<"${DOCKER_METADATA_OUTPUT_JSON:-{}}")
           if ((${#tag_args[@]} == 0)); then
             echo "The metadata output holds no tag" >&2
             exit 1
@@ -449,7 +450,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          mapfile -t tag_args < <(jq -r '.tags[] | "-t " + .' <<<"${DOCKER_METADATA_OUTPUT_JSON:-{}}")
+          # The flag and its tag ride as 2 argv entries, or buildx reads a bad reference.
+          mapfile -t tag_args < <(jq -r '.tags[] | "-t", .' <<<"${DOCKER_METADATA_OUTPUT_JSON:-{}}")
           if ((${#tag_args[@]} == 0)); then
             echo "The metadata output holds no tag" >&2
             exit 1
