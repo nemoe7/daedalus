@@ -717,6 +717,18 @@ def test_the_short_values_carry_their_full_text() -> None:
   )
 
 
+def test_the_parallel_race_reads_on_the_page() -> None:
+  """The race carries a code and a ladder mark, and its legend row waits for the setting."""
+  app = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/app.js"
+  ).read_text(encoding="utf-8")
+  assert 'rce: "A racing model took the pin"' in app, "the race code"
+  assert 'code !== "rce" || parallelOn()' in app, "its legend row waits for the setting"
+  assert 'a.race === "won"' in app and '<span class="from">won race</span>' in app, (
+    "the winning step carries the mark"
+  )
+
+
 def test_the_requests_head_keeps_its_rule_while_it_sticks() -> None:
   """A collapsed border leaves a sticky head, so an inset shadow keeps the rule."""
   css = (
@@ -907,8 +919,8 @@ def test_app_js_retry_code() -> None:
   """The row shows the repeat code of the hook as given, and the legend lists rtN."""
   source = Path("daedalus/dashboard/ui/app.js").read_text()
   assert "const REPEAT_CODE = " in source, "the repeat code family"
-  assert "function renderLegend(extra = []) {" in source, (
-    "the hook rows join the base rows"
+  assert "function renderLegend(extra = state.legendExtra) {" in source, (
+    "the hook rows join the base rows, and the race row waits for the setting"
   )
   assert "...extra," in source, "the hook rows show below the base rows"
   code = """
