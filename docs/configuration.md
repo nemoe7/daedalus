@@ -84,8 +84,7 @@ The shipped file holds the changes from the defaults only. The **Settings** page
 | `session_affinity.change_on_draw` | `true` | Replace an eligible session pin after a different weighted first-tier draw |
 | `session_affinity.idle` | `3600` | Seconds with no request, then the session expires |
 | `session_affinity.stay` | `0.85` | Share of first-tier draws for the session model |
-| `parallel.non_streams` | `false` | `true`: a non-stream request races under the same gate. Its loser pays its whole answer. |
-| `parallel.enabled` | `false` | `true`: the next models of the chain race the first token, and the session model starts each request |
+| `parallel.enabled` | `false` | `true`: the next models of the chain race the first content, and the session model starts each request |
 | `parallel.count` | `1` | Models that race the original one. Integer from 1 to 10. |
 | `parallel.chance` | `0.05` | Chance to start the racing models with the original one. Number from 0 to 1. |
 | `parallel.slow` | `30` | Seconds with no content from the first model. Then the second model starts. |
@@ -157,6 +156,7 @@ groq:
 | `models` | Values for each model, for example `max_input_tokens`. These have priority over discovery and LiteLLM. |
 | `order` | Optional. 1 or more, default 1. Runs after the lower orders of its tier. |
 | `hooks` | Optional. Hook points and file paths in `config`, like `- on-upstream: hooks/x.py`. |
+| `streams` | Optional. `false`: the block answers no stream. The client waits for the whole body. Absent: true. |
 | `hourly_requests` | Optional. The provider requests per hour. At the limit, the provider leaves the chains. |
 
 `rpm` and `tpm` limit the requests and the input tokens of a model in 60 s. At a limit, the model leaves the chains. See [Pacing](architecture.md#pacing).
@@ -171,6 +171,7 @@ Other keys of a `models` entry:
 | `max_output_tokens` | The output limit of the model. A larger `max_tokens` or `max_completion_tokens` drops to this value. |
 | `supports_function_calling`, or its short name `tools` | `true` or `false`. Pool and `daedalus/auto` tool requests skip a model without it. |
 | `supports_vision` | `true` or `false`. Pool and `daedalus/auto` image requests skip a model without it. |
+| `streams` | `false`: the model answers no stream. A request that wanted one retries without it. Absent: true. |
 
 When 2 entries match 1 model, the last entry in the file sets the key. A model key at the provider level, for example `reasoning_effort: high` next to `api_key`, sets the value for each model of the provider.
 

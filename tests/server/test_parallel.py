@@ -1,4 +1,4 @@
-"""Check the parallel race of a stream request: the first content wins and the loser stops."""
+"""Check the parallel race: the first content wins, and the loser stops."""
 
 import asyncio
 import json
@@ -199,16 +199,19 @@ def test_direct_model_does_not_race(client: TestClient) -> None:
   assert CALLS == ["b/1"], CALLS
 
 
-def test_no_stream_does_not_race(client: TestClient) -> None:
-  """A request without a stream starts 1 model only."""
+def test_no_stream_reads_our_stream_and_races(client: TestClient) -> None:
+  """A request without a stream races too, and its answer comes back as 1 whole body."""
   PLAN.update({"b/1": 0.5, "b/2": 0.0})
   body = {"model": "daedalus/deinos", "messages": [FIRST]}
   response = client.post(
     "/v1/chat/completions", json=body, headers={"Authorization": f"Bearer {MASTER}"}
   )
   assert response.status_code == 200, response.text
-  assert CALLS == ["b/1"], CALLS
-  assert response.json()["choices"][0]["message"]["content"] == "b/1"
+  assert CALLS == ["b/1", "b/2"], CALLS
+  answer = response.json()
+  assert answer["object"] == "chat.completion", answer
+  assert answer["choices"][0]["message"]["content"] == "b/2", answer
+  assert dashboard.HISTORY.latest(1)[0]["stream"] is False
 
 
 def test_tie_keeps_the_first_model() -> None:
