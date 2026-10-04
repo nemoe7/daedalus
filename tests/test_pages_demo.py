@@ -113,8 +113,8 @@ const check = (ok, text) => {
   });
   check(clearedTheme.status === 200, "a settings clear lands");
   const afterClear = await (await context.fetch("ui/api/settings")).json();
-  check(afterClear.file.dashboard.theme === "system", "the default comes back");
-  check(afterClear.text.includes("theme: system"), "the cleared value writes the default");
+  check(afterClear.file.dashboard === undefined, "the cleared key leaves the file");
+  check(!afterClear.text.includes("theme"), "the cleared line leaves the text");
   const env = await (await context.fetch("ui/api/env", {
     method: "PUT",
     body: JSON.stringify({ name: "CLOUDFLARE_ACCOUNT_ID", value: "abc12345" }),

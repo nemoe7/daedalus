@@ -256,7 +256,7 @@ def prune_groups(lines: list[str]) -> list[str]:
 
 
 def update_text(text: str, changes: dict[str, dict[str, Any]]) -> str:
-  """The YAML text with new values, and its comments kept. None sets the default."""
+  """The YAML text with new values, and its comments kept. None removes the key."""
   for group, values in changes.items():
     if group not in DEFAULTS or not isinstance(values, dict):
       raise SettingsError(f"unknown group {group!r}")
@@ -264,11 +264,8 @@ def update_text(text: str, changes: dict[str, dict[str, Any]]) -> str:
       if key not in DEFAULTS[group]:
         raise SettingsError(f"unknown key {group}.{key}")
   lines = text.splitlines()
-  # None writes the default, so the line keeps its comment. A key without a default goes away.
-  pending = {
-    group: {key: DEFAULTS[group][key] if v is None else v for key, v in values.items()}
-    for group, values in changes.items()
-  }
+  # None removes the key, so the file holds the changes only. The code default applies meanwhile.
+  pending = {group: dict(values) for group, values in changes.items()}
   output: list[str] = []
   group = None
   # The indent of a replaced key. Its old list items go away.
