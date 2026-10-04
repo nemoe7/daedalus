@@ -23,3 +23,8 @@ def on_request(value, model, headers):
   if count:
     value["code"] = f"rt{count}"
   return value
+
+
+def on_init():
+  """The legend row of this hook."""
+  return [["rtN", "A repeat picked another model, N times"]]

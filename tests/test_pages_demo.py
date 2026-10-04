@@ -30,6 +30,7 @@ SIMULATED = (
 READS = (
   "env",
   "files",
+  "hooks",
   "keys",
   "limits",
   "login",

@@ -89,9 +89,6 @@ def test_page(client: TestClient) -> None:
   for reason in ("ctx", "hlt", "lmt", "err", "rnd", "cls", "esc"):
     assert f'  {reason}: "' in script.text, reason
   assert "const REPEAT_CODE = " in script.text, "the repeat code family"
-  assert '["rtN", "A repeat picked another model, N times"]' in script.text, (
-    "the legend lists the repeat code"
-  )
   assert 'title="${esc(label)}"' in script.text, "reason codes have hover labels"
   assert (
     'const EFFORT_SHORT = { minimal: "min", low: "low", medium: "med", high: "hi", xhigh: "xhi" }'
@@ -727,9 +724,10 @@ def test_app_js_retry_code() -> None:
   """The row shows the repeat code of the hook as given, and the legend lists rtN."""
   source = Path("daedalus/dashboard/ui/app.js").read_text()
   assert "const REPEAT_CODE = " in source, "the repeat code family"
-  assert '["rtN", "A repeat picked another model, N times"]' in source, (
-    "the legend lists rtN"
+  assert "function renderLegend(extra = []) {" in source, (
+    "the hook rows join the base rows"
   )
+  assert "...extra," in source, "the hook rows show below the base rows"
   code = """
 const fs = require('fs');
 const vm = require('vm');
@@ -1207,6 +1205,24 @@ def test_keys(client: TestClient) -> None:
   assert (
     client.post("/v1/chat/completions", json=body, headers=bearer).status_code == 401
   )
+
+
+def test_hook_legend_rows(client: TestClient, state_folder: Path) -> None:
+  """The page reads the legend rows of the enabled hook files."""
+  login = client.post("/ui/api/login", json={"username": "admin", "password": MASTER})
+  assert login.status_code == 200, login.text
+  assert TestClient(api.app).get("/ui/api/hooks").status_code == 401, (
+    "a session is needed"
+  )
+  assert client.get("/ui/api/hooks").json() == {"legend": []}, "no hook file yet"
+  folder = state_folder / "config" / "hooks"
+  folder.mkdir(parents=True, exist_ok=True)
+  (folder / "openwebui_retry.py").write_text(
+    Path("config/hooks/openwebui_retry.py").read_text(encoding="utf-8"),
+    encoding="utf-8",
+  )
+  body = client.get("/ui/api/hooks").json()
+  assert body == {"legend": [["rtN", "A repeat picked another model, N times"]]}, body
 
 
 def test_files(

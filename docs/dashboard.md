@@ -39,8 +39,9 @@ The page lists the requests in flight at the top, then the last ones, 50 at
 a time and 500 at most. A click on a request opens its attempts, and a hover
 on a count or name shows the exact value. The Pool column shows 3-character
 codes, such as `lmt`, `rt1`, `frX` and `tlN`, and the Code legend card beside the
-table gives the meaning of each code. A wide screen keeps the table in its own
-panel, so the head stays in view and the panel scrolls sideways: the page
+table gives the meaning of each code. A hook file that defines `on_init` adds
+its rows below the base rows of that card. A wide screen keeps the table in its
+own panel, so the head stays in view and the panel scrolls sideways: the page
 never scrolls sideways. A phone shows the page scroll and its card list.
 
 ## Models
