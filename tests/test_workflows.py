@@ -184,7 +184,13 @@ def test_one_docker_workflow_publishes_every_image() -> None:
   """No second file publishes to GHCR. The dev and release jobs live in docker.yml."""
   assert not (WORKFLOWS / "dev-image.yml").exists()
   assert not (WORKFLOWS / "image.yml").exists()
-  assert sorted(load("docker.yml")["jobs"]) == ["dev", "release"]
+  assert sorted(load("docker.yml")["jobs"]) == [
+    "dev",
+    "dev-merge",
+    "release",
+    "release-build",
+    "release-merge",
+  ]
 
 
 def test_the_secret_scan_reads_the_whole_history() -> None:

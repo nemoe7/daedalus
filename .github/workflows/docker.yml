@@ -25,9 +25,13 @@ on:
 permissions:
   contents: read
 
+# 1 native runner for each platform, so no job emulates the arm64 build for the
+# Raspberry Pi. Each leg pushes a digest, and a merge job puts the tags on the
+# manifest list.
+#
+# A successful CI run on main publishes the rolling dev image. A new dev build
+# replaces an older one, so its group cancels.
 jobs:
-  # A successful CI run on main publishes the rolling dev image. A new dev build
-  # replaces an older one, so its group cancels.
   dev:
     if: >-
       (github.event_name == 'workflow_run'
@@ -35,7 +39,7 @@ jobs:
       && github.event.workflow_run.conclusion == 'success'
       && github.event.workflow_run.head_branch == 'main')
       || (github.event_name == 'workflow_dispatch' && inputs.mode == 'dev')
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     # Publishing to GHCR needs more than read, so the job asks for it here.
     permissions:
@@ -43,8 +47,16 @@ jobs:
       contents: read
       packages: write
     concurrency:
-      group: docker-dev
+      group: docker-dev-${{ matrix.arch }}
       cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
       # `main` is a fixed, trusted ref. The commit CI tested is compared, never
       # checked out, so no ref from the event reaches the checkout.
@@ -78,8 +90,6 @@ jobs:
           printf 'short=%s\n' "$short" >>"$GITHUB_OUTPUT"
           printf 'version=dev-%s\n' "$short" >>"$GITHUB_OUTPUT"
 
-      # QEMU builds the arm64 image for the Raspberry Pi.
-      - uses: docker/setup-qemu-action@v4.4.0
       - uses: docker/setup-buildx-action@v4.4.1
       - uses: docker/login-action@v4.6.0
         with:
@@ -93,16 +103,95 @@ jobs:
           tags: |
             type=raw,value=dev
             type=raw,value=${{ steps.dev.outputs.version }}
-      - uses: docker/build-push-action@v7.4.0
+      # A digest only: the merge job puts the dev tags on the manifest list.
+      - id: build
+        uses: docker/build-push-action@v7.4.0
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          build-args: VERSION=${{ steps.dev.outputs.version }}
+          platforms: linux/${{ matrix.arch }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          build-args: VERSION=${{ steps.dev.outputs.version }}
+          outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=dev-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=dev-${{ matrix.arch }}
+      - name: Export the Digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: digests-dev-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # The 2 digests land under 1 manifest list with the dev tags.
+  dev-merge:
+    needs: dev
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      packages: write
+    concurrency:
+      group: docker-dev
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          ref: main
+
+      - id: dev
+        name: Resolve Dev Version
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          short="$(git rev-parse --short "$SHA")"
+          printf 'short=%s\n' "$short" >>"$GITHUB_OUTPUT"
+          printf 'version=dev-%s\n' "$short" >>"$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: digests-dev-*
+          path: /tmp/digests
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v4.4.1
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=dev
+            type=raw,value=${{ steps.dev.outputs.version }}
+      - name: Create the Manifest
+        working-directory: /tmp/digests
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t tag_args < <(jq -r '.tags[] | "-t " + .' <<<"$DOCKER_METADATA_OUTPUT_JSON")
+          digests=()
+          for file in *; do
+            digests+=("${IMAGE}@sha256:${file}")
+          done
+          docker buildx imagetools create "${tag_args[@]}" "${digests[@]}"
 
       # The rolling dev tag moves, so each build leaves an old dev-COMMIT version behind.
       # Keep the newest 10. A release tag or latest never starts with dev-, so it stays.
@@ -143,15 +232,15 @@ jobs:
       && github.event.workflow_run.name == 'Gemini Release Draft')
       || (github.event_name == 'workflow_dispatch' && inputs.mode == 'release')
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    # Publishing to GHCR needs more than read, so the job asks for it here.
+    timeout-minutes: 10
+    # The approval and its log live in Actions, so the job reads them.
     permissions:
       actions: read
       contents: read
-      packages: write
-    concurrency:
-      group: docker-release
-      cancel-in-progress: false
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      expected_sha: ${{ steps.release.outputs.expected_sha }}
+      skip: ${{ steps.release.outputs.skip }}
     steps:
       - id: release
         name: Resolve Release Tag
@@ -222,17 +311,37 @@ jobs:
 
           printf 'skip=%s\n' "$skip" >>"$GITHUB_OUTPUT"
 
-      - if: steps.release.outputs.skip != 'true'
-        uses: actions/checkout@v7.0.1
+  release-build:
+    needs: release
+    if: needs.release.outputs.skip != 'true'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    # Publishing to GHCR needs more than read, so the job asks for it here.
+    permissions:
+      actions: read
+      contents: read
+      packages: write
+    concurrency:
+      group: docker-release-${{ matrix.arch }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ steps.release.outputs.tag }}
+          ref: ${{ needs.release.outputs.tag }}
 
-      - if: steps.release.outputs.skip != 'true'
-        name: Verify Release Commit
+      - name: Verify Release Commit
         env:
-          EXPECTED_SHA: ${{ steps.release.outputs.expected_sha }}
-          TAG: ${{ steps.release.outputs.tag }}
+          EXPECTED_SHA: ${{ needs.release.outputs.expected_sha }}
+          TAG: ${{ needs.release.outputs.tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -243,33 +352,89 @@ jobs:
             exit 1
           fi
 
-      # QEMU builds the arm64 image for the Raspberry Pi.
-      - if: steps.release.outputs.skip != 'true'
-        uses: docker/setup-qemu-action@v4.4.0
-      - if: steps.release.outputs.skip != 'true'
-        uses: docker/setup-buildx-action@v4.4.1
-      - if: steps.release.outputs.skip != 'true'
-        uses: docker/login-action@v4.6.0
+      - uses: docker/setup-buildx-action@v4.4.1
+      - uses: docker/login-action@v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - if: steps.release.outputs.skip != 'true'
-        id: meta
+      - id: meta
         uses: docker/metadata-action@v6.2.0
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=raw,value=${{ steps.release.outputs.tag }}
+            type=raw,value=${{ needs.release.outputs.tag }}
             type=raw,value=latest
-      - if: steps.release.outputs.skip != 'true'
+      # A digest only: the merge job puts the release tags on the manifest list.
+      - id: build
         uses: docker/build-push-action@v7.4.0
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          build-args: VERSION=${{ steps.release.outputs.tag }}
+          platforms: linux/${{ matrix.arch }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          build-args: VERSION=${{ needs.release.outputs.tag }}
+          outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=release-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=release-${{ matrix.arch }}
+      - name: Export the Digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: digests-release-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # The 2 digests land under 1 manifest list with the release tag and latest.
+  release-merge:
+    needs: [release, release-build]
+    if: needs.release.outputs.skip != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      packages: write
+    concurrency:
+      group: docker-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: digests-release-*
+          path: /tmp/digests
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v4.4.1
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ needs.release.outputs.tag }}
+            type=raw,value=latest
+      - name: Create the Manifest
+        working-directory: /tmp/digests
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t tag_args < <(jq -r '.tags[] | "-t " + .' <<<"$DOCKER_METADATA_OUTPUT_JSON")
+          digests=()
+          for file in *; do
+            digests+=("${IMAGE}@sha256:${file}")
+          done
+          docker buildx imagetools create "${tag_args[@]}" "${digests[@]}"
