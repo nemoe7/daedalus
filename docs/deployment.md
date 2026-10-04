@@ -136,9 +136,11 @@ To check the services and settings:
 
 Keep **Function Calling** on **Native**, the Open WebUI default since v0.10.0. Native sends the tools in `tools`, and daedalus skips the models that cannot call tools. Legacy puts the tools in the prompt and calls tools only 1 time, before the answer.
 
+The `integrations/openwebui` folder holds 1 directory for each Open WebUI plugin type: `skills/`, `functions/` for the filters and pipes, and `tools/` for the Workspace Tools.
+
 #### Deep research skill
 
-`integrations/openwebui/deep-research.md` is an Open WebUI skill: plain instructions, no code. The model plans, searches in 3 to 5 rounds with `search_web`, reads pages with `fetch_url`, and writes a report with numbered sources. Each step is a normal chat request, so daedalus failover and loop checks apply.
+`integrations/openwebui/skills/deep-research.md` is an Open WebUI skill: plain instructions, no code. The model plans, searches in 3 to 5 rounds with `search_web`, reads pages with `fetch_url`, and writes a report with numbered sources. Each step is a normal chat request, so daedalus failover and loop checks apply.
 
 1. **Workspace → Skills**, the arrow next to **Create**, **Import JSON**. Select `deep-research.md`, then **Save**.
 2. **Access** on the skill: make it public, or give read access to each user. A user without read access does not receive the skill.
@@ -147,7 +149,7 @@ Keep **Function Calling** on **Native**, the Open WebUI default since v0.10.0. N
 
 #### GitHub tool
 
-`integrations/openwebui/github.py` is an Open WebUI Workspace Tool: one Python file, standard library only, empty `requirements`. It holds the GitHub surface of the reference connector. Reads run at once. Each write asks for confirmation in the chat.
+`integrations/openwebui/tools/github.py` is an Open WebUI Workspace Tool: one Python file, standard library only, empty `requirements`. It holds the GitHub surface of the reference connector. Reads run at once. Each write asks for confirmation in the chat.
 
 3 tools sit outside the connector list. `create_pr_with_files` writes a file list as 1 commit and opens or updates the pull request. `list_commits` reads the history of a path or a branch. `list_tree` reads the whole tree in 1 call.
 
@@ -190,7 +192,7 @@ The confirmation travels over the socket of the chat tab. `WEBSOCKET_EVENT_CALLE
 
 #### Google tool
 
-`integrations/openwebui/google.py` is a second Workspace Tool: 1 file, standard library only, empty `requirements`. It holds Gmail, Calendar, Drive and Docs. Reads run at once. Each write asks for confirmation in the chat.
+`integrations/openwebui/tools/google.py` is a second Workspace Tool: 1 file, standard library only, empty `requirements`. It holds Gmail, Calendar, Drive and Docs. Reads run at once. Each write asks for confirmation in the chat.
 
 1. In the Google Cloud console, make an OAuth client of the type Desktop app, and turn on the Gmail, Calendar, Drive and Docs APIs.
 2. Do the consent 1 time, with the scopes `gmail.readonly`, `gmail.send`, `calendar.readonly`, `calendar.events`, `drive.readonly` and `documents`. The reply holds the refresh token.
@@ -213,7 +215,7 @@ The 5 reads are `search_mail`, `read_thread`, `agenda`, `search_files` and `read
 
 #### Knowledge manager tool
 
-`integrations/openwebui/knowledge_manager.py` is a third Workspace Tool: 1 file, no valves, and the caller token comes from the chat request. It holds the 20 knowledge tools and the 3 preset tools.
+`integrations/openwebui/tools/knowledge_manager.py` is a third Workspace Tool: 1 file, no valves, and the caller token comes from the chat request. It holds the 20 knowledge tools and the 3 preset tools.
 
 The knowledge tools list, create, read, update, move and delete knowledge bases, folders and files. They also search the files and read 1 by path. A file creation waits until Open WebUI finishes the indexing.
 

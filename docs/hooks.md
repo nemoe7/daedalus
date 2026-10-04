@@ -115,7 +115,7 @@ The model that served a chat pool request, in the final stream chunk, under `usa
 | Runs | `on-chunk`, on each streamed chunk of a `daedalus/auto` or pool request |
 | Writes | `chunk["usage"]["daedalus"]` holds 3 keys. `line`: the served model for the client. `model`: the served slug. `pool`: the landed pool |
 | Named by | `request_hooks.on-chunk` in `config/daedalus.yml`. The chat pools own no provider block, and the file itself passes every model that is not `daedalus/auto` or a chat pool |
-| Shows | On the first answer of a session. When the served model differs from the last one. When the ladder moved. On the retry code of `openwebui_retry.py`. A reader of the key draws it: the Open WebUI filter `integrations/openwebui/pick_status.py` |
+| Shows | On the first answer of a session. When the served model differs from the last one. When the ladder moved. On the retry code of `openwebui_retry.py`. A reader of the key draws it: the Open WebUI filter `integrations/openwebui/functions/pick_status.py` |
 
 The line is `{tier} · {slug}` for `daedalus/auto`, such as `A · kilo/poolside/laguna-s-2.1:free`, and the slug alone for a named pool.
 
