@@ -99,6 +99,27 @@ def test_model_store() -> None:
       ).fetchone()
     connection.close()
     assert stored == ("z-ai", "glm-5", 131072, 1), stored
+    store.MODELS_DB = database
+    try:
+      full = store.stored_rows()
+      assert [row["id"] for row in full] == lines, full
+      assert set(full[0]) == set(store.STORED_COLUMNS), (
+        "the dump carries every stored column"
+      )
+      assert full[0]["provider"] == "z-ai" and full[0]["slug"] == "glm-5", full[0]
+      assert full[0]["supports_function_calling"] is True, "a flag reads as a boolean"
+      compact = store.model_rows()
+      assert set(compact[0]) == {
+        "id",
+        "mode",
+        "max_input_tokens",
+        "tools",
+        "reasoning",
+        "effort",
+        "flags",
+      }, compact[0]
+    finally:
+      store.MODELS_DB = original
 
 
 def test_in_place() -> None:

@@ -164,18 +164,22 @@ def mode_models(mode: str, vision_only: bool = False) -> list[str]:
 MEDIA_FLAGS = ("vision", "pdf_input", "audio_input", "audio_output")
 
 
-def model_rows() -> list[dict[str, Any]]:
-  """All rows, with the mode, the limits, the tool and reasoning flags, the effort and the media flags."""
+# The names of a model row: its own key, the parts of it, and every stored column.
+STORED_COLUMNS = ("id", "provider", "slug", *COLUMNS)
+
+
+def stored_rows() -> list[dict[str, Any]]:
+  """Every stored model row, with every column of the models table.
+
+  The column names come from `STORED_COLUMNS`, so a new column appears here, and in
+  `daedalus dump models`, without another edit.
+  """
   if not Path(MODELS_DB).exists():
     return []
   database = connect_read(MODELS_DB)
   try:
     rows = database.execute(
-      "SELECT id, mode, max_input_tokens, supports_function_calling, supports_reasoning,"
-      " reasoning_effort, "
-      + ", ".join(f"supports_{flag}" for flag in MEDIA_FLAGS)
-      + " FROM models"
-      " ORDER BY rowid"
+      f"SELECT {', '.join(STORED_COLUMNS)} FROM models ORDER BY rowid"
     ).fetchall()
   except sqlite3.OperationalError:
     return []
@@ -183,15 +187,26 @@ def model_rows() -> list[dict[str, Any]]:
     database.close()
   return [
     {
-      "id": key,
-      "mode": mode or "chat",
-      "max_input_tokens": limit,
-      "tools": bool(tools),
-      "reasoning": bool(thinks),
-      "effort": effort or None,
-      "flags": [flag for flag, on in zip(MEDIA_FLAGS, media, strict=True) if on],
+      key: bool(value) if key.startswith("supports_") else value
+      for key, value in zip(STORED_COLUMNS, row, strict=True)
     }
-    for key, mode, limit, tools, thinks, effort, *media in rows
+    for row in rows
+  ]
+
+
+def model_rows() -> list[dict[str, Any]]:
+  """The pages' view of the rows: mode, the input limit, the tool and reasoning facts, the media flags."""
+  return [
+    {
+      "id": row["id"],
+      "mode": row["mode"] or "chat",
+      "max_input_tokens": row["max_input_tokens"],
+      "tools": row["supports_function_calling"],
+      "reasoning": row["supports_reasoning"],
+      "effort": row["reasoning_effort"] or None,
+      "flags": [flag for flag in MEDIA_FLAGS if row[f"supports_{flag}"]],
+    }
+    for row in stored_rows()
   ]
 
 
