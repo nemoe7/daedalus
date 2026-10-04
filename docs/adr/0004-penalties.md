@@ -75,7 +75,7 @@ The tier order of ADR 1 and ADR 2 stays. The weights sort the models only inside
 
 In a session, the session model gets 85% of the draws in the first tier. The other models of
 that tier share the remaining 15% by weight. After the first model, the session model goes
-first in its tier. With `parallel.enabled`, the session model starts each request instead,
+first in its tier. With `affinity.mode: race`, the session model starts each request instead,
 and the next model of the chain can race it (ADR 5).
 
 ### Session affinity
@@ -120,7 +120,8 @@ change the loop numbers.
 ### Settings
 
 The numbers in this ADR are the defaults. `config/daedalus.yml` can change them, and it can
-turn off the weights, the session affinity or the pacing.
+turn off the weights, the session affinity or the pacing. The `affinity` group holds the
+session and the race settings.
 
 ## Consequences
 
@@ -128,8 +129,8 @@ turn off the weights, the session affinity or the pacing.
 - A model with a low weight comes back over time: from 0.5 to 1 in about 4 hours.
 - One conversation stays on its session model for most turns. The other models of the first
   tier still get some turns, so a bad session model does not hold a conversation for ever.
-- With `parallel.enabled`, the draws stop and the session model keeps the conversation while
-  it answers first (ADR 5).
+- With `affinity.mode: race`, the draws stop and the session model keeps the conversation
+  while it answers first (ADR 5).
 - The request log shows `pin=new`, `pin=hit`, `pin=moved`, `pin=switched` or `pin=slow`.
 - A per-minute limit costs 1 request and about 1 minute, not hours at a low weight.
 - A daily limit costs 1 request for each model until the reset.
