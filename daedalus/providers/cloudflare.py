@@ -1,6 +1,7 @@
 import base64
 import io
 import json
+import os
 import time
 from collections.abc import Mapping
 from typing import Any, ClassVar
@@ -8,6 +9,7 @@ from typing import Any, ClassVar
 import httpx
 from PIL import Image, ImageOps, UnidentifiedImageError
 
+from daedalus.config import SAVED
 from daedalus.providers.base import OpenAIProvider, ProviderError, Upload, limits
 
 TRANSCRIPT_FORMATS = ("json", "text", "vtt")
@@ -90,20 +92,32 @@ class CloudflareProvider(OpenAIProvider):
   }
   transcript_formats: ClassVar[tuple[str, ...]] = TRANSCRIPT_FORMATS
 
-  def __init__(self, name: str, config: Mapping) -> None:
-    account_id = str(config.get("account_id") or "").strip()
-    api_base = str(config.get("api_base") or "").strip()
-    discovery_url = str(config.get("discovery_url") or "").strip()
-    if account_id and not api_base:
-      api_base = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1"
-    if account_id and not discovery_url:
-      discovery_url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/models/search?per_page=100"
+  @classmethod
+  def configure(cls, config: dict[str, Any]) -> dict[str, Any]:
+    """The config with the account id and its 2 URLs, from the config, the store or the env."""
     merged = dict(config)
-    if api_base:
-      merged["api_base"] = api_base
-    if discovery_url:
-      merged["discovery_url"] = discovery_url
-    super().__init__(name, merged)
+    account_id = str(merged.get("account_id") or "").strip()
+    if not account_id:
+      account_id = str(
+        SAVED.get("CLOUDFLARE_ACCOUNT_ID")
+        or os.environ.get("CLOUDFLARE_ACCOUNT_ID")
+        or ""
+      ).strip()
+      if account_id:
+        merged["account_id"] = account_id
+    if account_id:
+      merged.setdefault(
+        "api_base",
+        f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1",
+      )
+      merged.setdefault(
+        "discovery_url",
+        f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/models/search?per_page=100",
+      )
+    return merged
+
+  def __init__(self, name: str, config: Mapping) -> None:
+    super().__init__(name, type(self).configure(dict(config)))
 
   def body(self, slug: str, payload: dict) -> dict:
     """The OpenAI body, with string content where Workers AI models need it."""

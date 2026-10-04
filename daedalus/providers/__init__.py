@@ -52,33 +52,10 @@ __all__ = [
 
 def settings(name: str, config: Mapping[str, Any]) -> dict[str, Any]:
   """Merge one provider's non-empty config values over its class defaults."""
-  import os
-
-  from daedalus.config import SAVED
-
-  defaults = expand(dict(PROVIDERS.get(name, OpenAIProvider).defaults))
+  kind = PROVIDERS.get(name, OpenAIProvider)
+  defaults = expand(dict(kind.defaults))
   present = {key: value for key, value in config.items() if value not in (None, "")}
-  merged = {**defaults, **present}
-  if name == "cloudflare":
-    account_id = str(merged.get("account_id") or "").strip()
-    if not account_id:
-      account_id = str(
-        SAVED.get("CLOUDFLARE_ACCOUNT_ID")
-        or os.environ.get("CLOUDFLARE_ACCOUNT_ID")
-        or ""
-      ).strip()
-      if account_id:
-        merged["account_id"] = account_id
-    if account_id:
-      merged.setdefault(
-        "api_base",
-        f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1",
-      )
-      merged.setdefault(
-        "discovery_url",
-        f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/models/search?per_page=100",
-      )
-  return merged
+  return kind.configure({**defaults, **present})
 
 
 def prepare(
