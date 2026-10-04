@@ -706,9 +706,14 @@ def test_the_short_values_carry_their_full_text() -> None:
     'title="${r.remaining.toLocaleString()} of ${r.limit.toLocaleString()}"' in app
   ), "the exact rate-limit counts"
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  assert ".primary:hover:not(:disabled) { filter: brightness(1.12); }" in css, (
+  assert ".primary:hover:not(:disabled) { filter: brightness(1.2);" in css, (
     "the primary button answers the mouse"
   )
+  assert (
+    ".filter:hover, .tab:hover { color: var(--text); border-color: var(--muted); }"
+    in css
+  ), "the tier filters and the view tabs answer the mouse"
+  assert "text-decoration: underline; }" in css, "a sort head marks its own click"
   assert "button.line.rebuild:hover { color: var(--accent); }" in css, (
     "the phone catalog line answers the mouse"
   )
@@ -730,9 +735,9 @@ def test_the_parallel_race_reads_on_the_page() -> None:
   assert "race?.enabled" in app and 'line("Parallel"' in app, (
     "the status card shows the applied race values"
   )
-  assert "RACE_NOTES" in app and 'slow: "slw"' in app and "raceCode" in app, (
-    "each row names the race decision with a 3 letter code"
-  )
+  assert (
+    "RACE_NOTES" in app and 'class="chain-race"' in app and "raceCode" not in app
+  ), "the race decision reads inside the fallback chain, not in the model cell"
 
 
 def test_the_requests_head_keeps_its_rule_while_it_sticks() -> None:

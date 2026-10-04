@@ -413,7 +413,7 @@ function chainRows(r) {
   return `<tr role="row" class="chain"><td role="cell" colspan="13"><div class="chain-body">
     <div class="chain-head"><span class="muted">Fallback chain</span>
       <button class="ghost copy-chain" type="button" data-at="${r.at}">Copy</button></div>
-    ${chainSteps(r)}
+    ${raceNote(r)}${chainSteps(r)}
   </div></td></tr>`;
 }
 
@@ -429,17 +429,13 @@ const RACE_NOTES = {
   slow: "The racers started after the slow seconds",
   drawn: "The draw started the racers with the first model",
 };
-const RACE_CODES = {
-  off: "off", pool: "pol", stream: "str", single: "sgl",
-  fast: "fst", slow: "slw", drawn: "drw",
-};
-const raceCode = (r) => (state.status?.parallel?.enabled && RACE_NOTES[r.race]
-  ? ` <span class="transition-code" title="${esc(RACE_NOTES[r.race])}">${esc(RACE_CODES[r.race])}</span>` : "");
+const raceNote = (r) => (state.status?.parallel?.enabled && RACE_NOTES[r.race]
+  ? `<p class="chain-race">Race: ${esc(RACE_NOTES[r.race])}</p>` : "");
 
 function routingCodes(r) {
   const from = r.routed ? ` <span class="from" title="Tier ${esc(poolTier(r.routed))} of the previous model">fr${esc(poolTier(r.routed))}</span>` : "";
   const loop = r.loop ? ` <span class="from" title="${esc(r.loop)} equal tool calls stopped the chain">tl${esc(r.loop)}</span>` : "";
-  return raceCode(r) + transitionCell(r.transition) + from + loop;
+  return transitionCell(r.transition) + from + loop;
 }
 
 function mobileFallbackChain(r) {
@@ -447,7 +443,7 @@ function mobileFallbackChain(r) {
     <summary>View fallback chain</summary>
     <div class="mobile-chain-head"><span class="muted">Fallback chain</span>
       <button class="ghost copy-chain" type="button" data-at="${r.at}">Copy</button></div>
-    ${chainSteps(r)}
+    ${raceNote(r)}${chainSteps(r)}
   </details>`;
 }
 
