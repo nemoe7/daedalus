@@ -42,7 +42,12 @@ def with_hooks(
 
 def _rebuild(cached: bool) -> Path:
   """Build the model store from fetched provider lists or cached snapshots."""
+  # The default provider file of the repository fills the names that the live config lacks, so a
+  # new default provider lands here. The fetch never writes the local file of the operator.
+  from daedalus.config import defaults
+
   config = get_config()
+  defaults.fill(config, defaults.refresh())
   failed: list[str] = []
   native, skipped = build_rows(
     config, failed=failed, cached=cached, save_snapshots=not cached
