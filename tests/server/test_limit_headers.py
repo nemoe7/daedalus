@@ -10,9 +10,26 @@ from daedalus.server.upstream import set_client
 MASTER = "test-master-key-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}
 LEFT = {"requests": "3"}
+# A failed answer, for the rate-limit headers of a 429.
+FAIL = {"on": False}
 
 
 def upstream(request: httpx.Request) -> httpx.Response:
+  if FAIL["on"]:
+    # OpenRouter sends the bare names, and the error body repeats them.
+    bare = {
+      "x-ratelimit-limit": "1000",
+      "x-ratelimit-remaining": "0",
+      "x-ratelimit-reset": "1791158400000",
+    }
+    body = {
+      "error": {
+        "message": "Rate limit exceeded",
+        "code": 429,
+        "metadata": {"headers": {"X-RateLimit-Remaining": "0"}},
+      }
+    }
+    return httpx.Response(429, json=body, headers=bare)
   headers = {
     "x-ratelimit-limit-requests": "1000",
     "x-ratelimit-remaining-requests": LEFT["requests"],
@@ -48,6 +65,25 @@ async def client():
       yield inner
   set_client(None)
   config.set_config(None)
+
+
+async def test_a_429_keeps_its_headers(client: httpx.AsyncClient) -> None:
+  """The bare rate-limit headers of a 429 land on the Limits page, also when the answer fails."""
+  FAIL["on"] = True
+  try:
+    chat = {"model": "groq/x", "messages": [{"role": "user", "content": "hi"}]}
+    response = await client.post("/v1/chat/completions", json=chat)
+    assert response.status_code != 200, response.text
+  finally:
+    FAIL["on"] = False
+  login = {"username": "admin", "password": MASTER}
+  session = (await client.post("/ui/api/login", json=login)).json()["session"]
+  view = (
+    await client.get("/ui/api/limits", headers={"x-daedalus-session": session})
+  ).json()
+  rows = {lane["model"]: lane["rows"][0] for lane in view["lanes"]}
+  assert rows["groq/x"]["remaining"] == 0, rows
+  assert (rows["groq/x"]["kind"], rows["groq/x"]["span"]) == ("requests", "day"), rows
 
 
 async def test_headers(client: httpx.AsyncClient) -> None:

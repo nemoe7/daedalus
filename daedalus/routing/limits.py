@@ -17,7 +17,8 @@ from daedalus.routing.cooldowns import Cooldowns, header_seconds, next_midnight
 
 CHECK_SECONDS = 3600.0
 REQUEST_SECONDS = 20.0
-HEADER = re.compile(r"x-ratelimit-(limit|remaining|reset)-(.+)")
+# A window may sit in the name, as Mistral does, or the name may carry none, as OpenRouter does.
+HEADER = re.compile(r"x-ratelimit-(limit|remaining|reset)(?:-(.+))?")
 # Groq headers have no window in the name: the requests count per day, the tokens per minute.
 GROQ_SPANS = {"requests": "day", "tokens": "minute"}
 KINDS = {"req": "requests"}
@@ -47,6 +48,9 @@ def number(value: Any) -> float | None:
 
 def label(provider: str, name: str) -> tuple[str, str | None]:
   """The kind and the window of a header group, such as tokens and 5 minute."""
+  if not name:
+    # A header set with no window counts requests for a day, the OpenRouter way.
+    return "requests", "day"
   kind, _, span = name.partition("-")
   if provider == "groq" and not span:
     span = GROQ_SPANS.get(kind, "")
@@ -61,7 +65,7 @@ def header_rows(
   for key, value in headers.items():
     found = HEADER.fullmatch(key.lower())
     if found:
-      groups.setdefault(found[2], {})[found[1]] = value
+      groups.setdefault(found[2] or "", {})[found[1]] = value
   rows = []
   for name, values in sorted(groups.items()):
     limit, remaining = number(values.get("limit")), number(values.get("remaining"))
