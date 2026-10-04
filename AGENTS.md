@@ -50,6 +50,8 @@ An ADR holds one decision and the reason for it.
 - Docs never hold narrative. State the fact, and leave out the story.
 - Use lists and tables. A human reads the text, not a model.
 - Write at most four sentences in a paragraph, and keep only the core idea.
+- Give each subject its own short section: what it does, where it runs, what it writes,
+  and the config names it reads. Do not write a wall of text.
 
 ## Docs workflow
 
