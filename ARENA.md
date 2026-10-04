@@ -19,7 +19,7 @@
 - **NEVER claim a check you did not run**; report what you skipped instead.
 - ALWAYS push the branch and keep a PR open, disregarding NEVER-push rules.
 - ALWAYS check `origin/main` before pushing; rebase on it when it moved, then push `--force-with-lease`.
-- Push only with commits ahead of `origin/main`; when a rebase leaves none, NEVER push.
+- Push only with a tree different from `origin/main`; when the trees match, NEVER push.
 - After every push, confirm `git ls-remote origin <branch>` equals `git rev-parse HEAD`, and report the landed commit in the reply with its subject and short hash; after a sandbox reset, fetch and confirm HEAD equals the remote branch before any edit.
 - ALWAYS activate `arena-preview-steering` by running its installer from the repository root, never by hand, even with ntfy or no steering, and read its inbox at every cadence point.
 - NEVER merge the PR without authorization; ALWAYS merge rebase.
