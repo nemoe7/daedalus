@@ -20,6 +20,7 @@ TOOL = (
   Path(__file__).resolve().parents[2]
   / "integrations"
   / "openwebui"
+  / "tools"
   / "knowledge_manager.py"
 )
 SPEC = importlib.util.spec_from_file_location("owui_knowledge_manager", TOOL)

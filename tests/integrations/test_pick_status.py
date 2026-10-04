@@ -7,7 +7,11 @@ from pathlib import Path
 from typing import Any
 
 FILTER = (
-  Path(__file__).resolve().parents[2] / "integrations" / "openwebui" / "pick_status.py"
+  Path(__file__).resolve().parents[2]
+  / "integrations"
+  / "openwebui"
+  / "functions"
+  / "pick_status.py"
 )
 SPEC = importlib.util.spec_from_file_location("owui_pick_status", FILTER)
 assert SPEC is not None and SPEC.loader is not None
