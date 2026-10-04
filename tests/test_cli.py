@@ -164,7 +164,7 @@ def test_dump_modes(tmp_path: Path, monkeypatch) -> None:
   )
   monkeypatch.setattr(store, "migrate", lambda: calls.append("migrate"))
   monkeypatch.setattr(catalog, "refresh", lambda: calls.append("refresh"))
-  monkeypatch.setattr(store, "model_rows", lambda: rows)
+  monkeypatch.setattr(store, "stored_rows", lambda: rows)
 
   cli.run(["dump", "catalog", "--fmt", "csv"])
   assert calls == ["migrate", ("catalog", "csv")], calls

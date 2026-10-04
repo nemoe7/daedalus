@@ -16,8 +16,8 @@ logger = logging.getLogger("daedalus")
 
 
 def dump_models(file_format: str) -> None:
-  """Write the available model rows to `models.json` or `models.csv`."""
-  rows = store.model_rows()
+  """Write every stored model row to `models.json` or `models.csv`."""
+  rows = store.stored_rows()
   folder = discovery.DUMP_DIR
   folder.mkdir(parents=True, exist_ok=True)
   for extension in ("json", "csv"):
