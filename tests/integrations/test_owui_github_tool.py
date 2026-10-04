@@ -35,8 +35,10 @@ TOOLS = [
   "create_issue",
   "create_pull_request",
   "create_pr_with_files",
+  "code_scanning_alerts",
   "create_tree",
   "delete_file",
+  "dependabot_alerts",
   "dismiss_pull_request_review",
   "download_user_content",
   "download_workflow_artifact",
@@ -103,6 +105,7 @@ TOOLS = [
   "search_issues",
   "search_prs",
   "search_repositories",
+  "secret_scanning_alerts",
   "unlock_issue_conversation",
   "unresolve_review_thread",
   "update_file",
@@ -179,7 +182,7 @@ def test_the_surface_holds_the_tool_list():
     and not node.name.startswith("_")
   ]
   assert sorted(found) == sorted(TOOLS)
-  assert len(TOOLS) == 92
+  assert len(TOOLS) == 95
 
 
 def test_the_gate_defaults_to_ask_with_sixty_seconds():
@@ -395,6 +398,49 @@ def test_create_pr_with_files_without_a_dialog_sends_nothing(monkeypatch):
   )
   assert out["result"]["denied"] is True
   assert calls == []
+
+
+def test_code_scanning_alerts_filter_and_read_instances(monkeypatch):
+  calls = []
+  opener(
+    monkeypatch,
+    [json.dumps({"alerts": []}), json.dumps({"number": 7}), json.dumps([])],
+    calls,
+  )
+  out = asyncio.run(
+    client().code_scanning_alerts("o/r", tool_name="CodeQL", severity="error")
+  )
+  assert out["result"]["alerts"] == {"alerts": []}
+  assert "tool_name=CodeQL" in calls[0]["url"]
+  assert "severity=error" in calls[0]["url"]
+  assert "state=open" in calls[0]["url"]
+  detail = asyncio.run(client().code_scanning_alerts("o/r", alert_number=7))
+  assert detail["result"]["alert"]["number"] == 7
+  assert calls[1]["url"].endswith("/code-scanning/alerts/7")
+  assert calls[2]["url"].endswith("/code-scanning/alerts/7/instances")
+
+
+def test_secret_scanning_alerts_read_locations(monkeypatch):
+  calls = []
+  opener(
+    monkeypatch, [json.dumps({"number": 3}), json.dumps([{"path": "a.env"}])], calls
+  )
+  out = asyncio.run(client().secret_scanning_alerts("o/r", alert_number=3))
+  assert out["result"]["locations"][0]["path"] == "a.env"
+  assert calls[0]["url"].endswith("/secret-scanning/alerts/3")
+  assert calls[1]["url"].endswith("/secret-scanning/alerts/3/locations")
+
+
+def test_dependabot_alerts_filter_and_read_one(monkeypatch):
+  calls = []
+  opener(monkeypatch, [json.dumps([{"number": 1}]), json.dumps({"number": 9})], calls)
+  out = asyncio.run(client().dependabot_alerts("o/r", severity="high", ecosystem="pip"))
+  assert out["result"]["alerts"] == [{"number": 1}]
+  assert "severity=high" in calls[0]["url"]
+  assert "ecosystem=pip" in calls[0]["url"]
+  detail = asyncio.run(client().dependabot_alerts("o/r", alert_number=9))
+  assert detail["result"]["alert"]["number"] == 9
+  assert calls[1]["url"].endswith("/dependabot/alerts/9")
 
 
 def test_a_github_error_propagates(monkeypatch):
