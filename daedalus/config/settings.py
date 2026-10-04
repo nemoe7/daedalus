@@ -67,9 +67,14 @@ DEFAULTS: dict[str, dict[str, Any]] = {
   "dashboard": {"theme": "system", "time_format": "24h"},
   # The request-level hook files. Each key is a hook point, and the value is a file path.
   "request_hooks": {"on-request": ""},
-  # The name after `daedalus/` of each pool. The key is the built-in name.
+  # The generic key of each pool, and the client name after `daedalus/` as its default.
   "pools": {
-    name: name for name in ("moros", "koinos", "deinos", "sophos", "graphos", "photos")
+    "tier-a": "sophos",
+    "tier-b": "deinos",
+    "tier-c": "koinos",
+    "tier-d": "moros",
+    "audio": "graphos",
+    "images": "photos",
   },
 }
 LOOP_LIMITS = {
