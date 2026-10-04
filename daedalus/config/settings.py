@@ -68,7 +68,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
   "switch": {"keywords": ["clanker"]},
   "dashboard": {"theme": "system", "time_format": "24h"},
   # The request-level hook files. Each key is a hook point, and the value is a file path.
-  "request_hooks": {"on-request": ""},
+  "request_hooks": {"on-request": "", "on-chunk": ""},
   # The generic key of each pool, and the client name after `daedalus/` as its default.
   "pools": {
     "tier-a": "sophos",

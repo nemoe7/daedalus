@@ -27,6 +27,7 @@ For each point, the file defines 1 function with the name of the point.
 | `on-catalog` | `on_catalog(row, model, api_base, headers)` | At each catalog build, for each model with the hook, before the store write | `row`: a catalog row, the id cannot change. `api_base`, `headers`: for the provider API calls. |
 | `on-upstream` | `on_upstream(body, model, headers)` | Before each chat request to the provider, streams and fallbacks included | `body`: the upstream JSON body, native format for native APIs. `model`: `provider/slug`. `headers`: changeable. |
 | `on-answer` | `on_answer(answer, model)` | After a full chat answer comes back, before the client gets it | `answer`: the answer in the OpenAI format. A stream has no `on-answer` point. |
+| `on-chunk` | `on_chunk(chunk, model, context)` | On each streamed chunk of a chat request, before the client gets it | `chunk`: 1 OpenAI chunk. `model`: the requested model. `context`: `previous` is the model of the last answer of the session. It is empty on the first answer. `attempts`: the failures so far. `code`: the retry code. `pool`: the landed pool. `served`: the landed model. |
 | `on-init` | `on_init()` | At the dashboard load, for each enabled request hook file | No arguments. It returns the rows of the code legend of the dashboard, such as `[["rtN", "A repeat picked another model, N times"]]`. |
 
 ```mermaid
@@ -37,6 +38,8 @@ flowchart TD
   D --> E[Provider API]
   E --> F{{on-answer}}
   F --> G[Client answer]
+  E --> N{{on-chunk}}
+  N --> G
   H[Catalog build] --> I{{on-catalog}}
   I --> J[(Model store)]
   K[Dashboard load] --> L{{on-init}}
@@ -101,6 +104,19 @@ The endpoint list of a model goes from the cheapest output price to the most exp
 | Notes | A client `provider` object has priority. If the list read fails, the old order stays. |
 
 The order holds provider slugs with no variant, such as `deepinfra` for `deepinfra/fp4`, and each provider keeps the place of its cheapest endpoint.
+
+### `hooks/pick.py`
+
+The model that served a chat pool request, in the final stream chunk, under `usage.daedalus`.
+
+| Item | Value |
+| --- | --- |
+| Runs | `on-chunk`, on each streamed chunk of a `daedalus/auto` or pool request |
+| Writes | `chunk["usage"]["daedalus"]` holds 3 keys. `line`: the served model for the client. `model`: the served slug. `pool`: the landed pool |
+| Named by | `request_hooks.on-chunk` in `config/daedalus.yml`. The chat pools own no provider block, and the file itself passes every model that is not `daedalus/auto` or a chat pool |
+| Shows | On the first answer of a session. When the served model differs from the last one. When the ladder moved. On the retry code of `openwebui_retry.py`. A reader of the key draws it: the Open WebUI filter `integrations/openwebui/pick_status.py` |
+
+The line is `{tier} · {slug}` for `daedalus/auto`, such as `A · kilo/poolside/laguna-s-2.1:free`, and the slug alone for a named pool.
 
 ### `hooks/example.py`
 

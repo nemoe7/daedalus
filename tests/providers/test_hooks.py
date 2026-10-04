@@ -208,3 +208,17 @@ def test_broken_hook_retry() -> None:
   loaded = hooks.load(target)
   assert loaded is not None
   assert loaded.on_answer({}, "m") == {"ok": True}
+
+
+def test_chunk_hook_changes_the_copy() -> None:
+  """The on-chunk point runs with its context on each stream chunk, and the value that came in stays."""
+  path = write(
+    "mark.py",
+    "def on_chunk(chunk, model, context=None):\n"
+    "  chunk['seen'] = [model, context['attempts']]\n",
+  )
+  setup = config({"on-chunk": path})
+  chunk = {"choices": []}
+  found = hooks.run("on-chunk", setup, "p/m", chunk, context={"attempts": 2})
+  assert found == {"choices": [], "seen": ["p/m", 2]}
+  assert chunk == {"choices": []}, "the value that came in stays the same"

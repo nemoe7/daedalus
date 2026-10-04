@@ -7,3 +7,5 @@ request_hooks:
   # The request-level hook files of the config folder, 1 for each point. Empty: no hook.
   # on-request sets the key of the turn. The shipped file applies the Open WebUI try-again rule.
   on-request: hooks/openwebui_retry.py
+  # on-chunk sees each streamed chunk of a chat request. The shipped file draws the pool pick.
+  on-chunk: hooks/pick.py
