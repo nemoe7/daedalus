@@ -539,6 +539,14 @@ def route_transition(
   }
 
 
+def attempted_pool(config: dict[str, Any], candidate: str) -> str | None:
+  """The client pool of one model, for the live row of a `daedalus/auto` request."""
+  provider_name, _, slug = candidate.partition("/")
+  block = block_for(config, provider_name, slug)
+  tier = router.claiming_tier(block, slug) if block else None
+  return POOL_NAMES.get(tier) if tier is not None else None
+
+
 def served(request: Request, config: dict[str, Any], candidate: str) -> None:
   """Show the pool of the model that answers, and keep the first pool when it differs."""
   first = getattr(request.state, "pool", None)
@@ -1003,13 +1011,17 @@ async def chat(request: Request) -> Response:
       )
     request.state.transition = transition
     request.state.fallbacks = str(index)
-    dashboard.live_update(
-      request,
-      trying=candidate,
-      fallbacks=index,
-      session=request.state.session,
-      transition=transition,
-    )
+    # The pool of the tried model lands on the live row now, not at the first token.
+    shown: dict[str, Any] = {
+      "trying": candidate,
+      "fallbacks": index,
+      "session": request.state.session,
+      "transition": transition,
+    }
+    pool = getattr(request.state, "pool", None) or attempted_pool(config, candidate)
+    if pool:
+      shown["pool"] = router.pool_name(pool)
+    dashboard.live_update(request, **shown)
     started, sent = time.perf_counter(), {}
     PACING.record(pin.lane(candidate), tokens)
     try:
