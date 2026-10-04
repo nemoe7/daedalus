@@ -1,12 +1,16 @@
 """Router settings from `config/daedalus.yml`, over the built-in defaults."""
 
 import re
+from io import StringIO
 from pathlib import Path
 from typing import Any
 
 import yaml
+from ruamel.yaml.comments import CommentedMap
+from ruamel.yaml.scalarstring import SingleQuotedScalarString
 
-from daedalus.config import load_yaml
+from daedalus.config import error_text, load_yaml
+from daedalus.config.provider_edit import round_trip
 
 DEFAULT_PATH = Path("config/daedalus.yml")
 DEFAULTS: dict[str, dict[str, Any]] = {
@@ -222,46 +226,18 @@ def parse(text: str, target: Path | str = DEFAULT_PATH) -> dict[str, dict[str, A
   return merged
 
 
-GROUP_LINE = re.compile(r"^(\w+):\s*(#.*)?$")
-# A key can hold a dash: the hook points do, for example `on-request`.
-KEY_LINE = re.compile(r"^(\s+)([\w-]+):[ \t]*([^#\n]*?)([ \t]*#.*)?$")
-
-
-def scalar(value: Any) -> str:
-  """One settings value as YAML text."""
-  if isinstance(value, bool):
-    return "true" if value else "false"
-  if isinstance(value, str):
-    return item(value)
-  if isinstance(value, float) and value.is_integer():
-    return str(int(value))
-  return str(value)
-
-
-def item(value: Any) -> str:
-  """One list item as YAML text, with quotes only when YAML needs them."""
-  return yaml.safe_dump(value, default_flow_style=True, width=10**6).splitlines()[0]
-
-
-def entry(indent: str, key: str, value: Any, comment: str = "") -> list[str]:
-  """The YAML lines of one key. A list becomes 1 line for each item."""
-  if not isinstance(value, list):
-    return [f"{indent}{key}: {scalar(value)}{comment}"]
-  if not value:
-    return [f"{indent}{key}: []{comment}"]
-  return [f"{indent}{key}:{comment}", *(f"{indent}  - {item(v)}" for v in value)]
-
-
-def prune_groups(lines: list[str]) -> list[str]:
-  """Drop each group header that holds no key, for example when its last key goes."""
-  kept: list[str] = []
-  for at, line in enumerate(lines):
-    if GROUP_LINE.match(line):
-      following = next((item for item in lines[at + 1 :] if item.strip()), "")
-      if not following[:1].isspace():
-        continue
-    kept.append(line)
-  return kept
+def written(value: Any) -> Any:
+  """A new value, with a string that YAML could read as another type quoted."""
+  if isinstance(value, list):
+    return [written(item) for item in value]
+  if isinstance(value, dict):
+    node = CommentedMap()
+    for key, inner in value.items():
+      node[key] = written(inner)
+    return node
+  if isinstance(value, str) and yaml.safe_dump(value).startswith(("'", '"')):
+    return SingleQuotedScalarString(value)
+  return value
 
 
 def update_text(text: str, changes: dict[str, dict[str, Any]]) -> str:
@@ -274,45 +250,30 @@ def update_text(text: str, changes: dict[str, dict[str, Any]]) -> str:
     for key in values:
       if key not in DEFAULTS[group]:
         raise SettingsError(f"unknown key {group}.{key}")
-  lines = text.splitlines()
-  # None removes the key, so the file holds the changes only. The code default applies meanwhile.
-  pending = {group: dict(values) for group, values in changes.items()}
-  output: list[str] = []
-  group = None
-  # The indent of a replaced key. Its old list items go away.
-  replaced: str | None = None
-
-  def close(name: str | None) -> None:
-    # Keys that the group did not have go after its last line.
-    for key, value in pending.pop(name, {}).items():
-      if value is not None:
-        output.extend(entry("  ", key, value))
-
-  for line in lines:
-    if replaced is not None:
-      depth = len(line) - len(line.lstrip())
-      old_item = line.strip().startswith("-") and depth >= len(replaced)
-      if line.strip() and (depth > len(replaced) or old_item):
-        continue
-      replaced = None
-    heading = GROUP_LINE.match(line)
-    if heading:
-      close(group)
-      group = heading.group(1)
-      output.append(line)
-      continue
-    found = KEY_LINE.match(line)
-    if found and group in pending and found.group(2) in pending[group]:
-      value = pending[group].pop(found.group(2))
-      indent, key, comment = found.group(1), found.group(2), found.group(4) or ""
-      replaced = indent
-      if value is not None:
-        output.extend(entry(indent, key, value, comment))
-      continue
-    output.append(line)
-  close(group)
-  for name in list(pending):
-    if any(value is not None for value in pending[name].values()):
-      output.append(f"{name}:")
-      close(name)
-  return "\n".join(prune_groups(output)) + "\n"
+  writer = round_trip()
+  try:
+    document = writer.load(text) if text.strip() else None
+  except yaml.YAMLError as exc:
+    raise SettingsError(error_text(exc)) from exc
+  if not isinstance(document, CommentedMap):
+    if text.strip():
+      raise SettingsError("the settings file must hold groups of keys")
+    document = CommentedMap()
+  for group, values in changes.items():
+    block = document.get(group)
+    if block is None:
+      block = document[group] = CommentedMap()
+    elif not isinstance(block, CommentedMap):
+      raise SettingsError(f"{group} must hold keys")
+    for key, value in values.items():
+      if value is None:
+        block.pop(key, None)
+      else:
+        block[key] = written(value)
+    if not block:
+      del document[group]
+  if not document:
+    return ""
+  output = StringIO()
+  writer.dump(document, output)
+  return output.getvalue()
