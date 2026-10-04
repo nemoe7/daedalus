@@ -3,7 +3,7 @@ title: GitHub
 author: nemo
 description: GitHub access for Open WebUI. Reads run freely; every write passes a confirmation gate and a timeout, and nothing is sent when the gate cannot be shown. Stdlib only.
 required_open_webui_version: 0.10.0
-version: 2.0.0
+version: 2.1.0
 licence: MIT
 """
 
@@ -44,6 +44,8 @@ class Tools:
     timeout_seconds: int = 60
     http_timeout_seconds: int = 30
     api_version: str = "2022-11-28"
+    max_files_per_commit: int = 30
+    max_tree_entries: int = 2000
 
   class UserValves(BaseModel):
     mode: str = "default"
@@ -2271,6 +2273,233 @@ class Tools:
     return await self._write(
       f"delete {path} in {repository_full_name}",
       message,
+      run,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    )
+
+  async def list_commits(
+    self,
+    repository_full_name: str,
+    path: str | None = None,
+    sha: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    per_page: int = 30,
+    page: int = 1,
+  ) -> dict:
+    """List commits, newest first, with an optional path filter.
+
+    :param repository_full_name: owner/repo
+    :param path: only the commits that touch this path
+    :param sha: the branch, tag or commit to walk from
+    :param since: an ISO 8601 timestamp, for example 2026-01-01T00:00:00Z
+    :param until: an ISO 8601 timestamp
+    :param per_page: commits per page
+    :param page: the page number
+    """
+    repo = self._repo(repository_full_name)
+    data = await self._request(
+      "GET",
+      f"{API}{repo}/commits",
+      params={
+        "path": path,
+        "sha": sha,
+        "since": since,
+        "until": until,
+        "per_page": min(max(1, int(per_page)), 100),
+        "page": int(page),
+      },
+    )
+    return self._ok({"commits": data})
+
+  async def list_tree(
+    self,
+    repository_full_name: str,
+    ref: str | None = None,
+    tree_sha: str | None = None,
+    recursive: bool = True,
+    path_prefix: str | None = None,
+  ) -> dict:
+    """List the tree of a branch, tag or commit, recursive by default.
+
+    :param repository_full_name: owner/repo
+    :param ref: the branch or tag name, the default branch when absent
+    :param tree_sha: the tree SHA, in place of ref
+    :param recursive: read every level
+    :param path_prefix: keep the entries under this path
+    """
+    repo = self._repo(repository_full_name)
+    target = tree_sha or ref
+    if not target:
+      info = await self._request("GET", f"{API}{repo}")
+      target = info.get("default_branch") or "main"
+    data = await self._request(
+      "GET",
+      f"{API}{repo}/git/trees/{self._path(target)}",
+      params={"recursive": "1" if recursive else None},
+    )
+    entries = data.get("tree") or []
+    if path_prefix:
+      entries = [
+        item for item in entries if (item.get("path") or "").startswith(path_prefix)
+      ]
+    limit = min(max(1, int(self.valves.max_tree_entries)), 5000)
+    return self._ok(
+      {
+        "tree": entries[:limit],
+        "count": min(len(entries), limit),
+        "truncated": bool(data.get("truncated")) or len(entries) > limit,
+      }
+    )
+
+  async def create_pr_with_files(
+    self,
+    repository_full_name: str,
+    files: list[dict],
+    branch: str,
+    title: str | None = None,
+    body: str | None = None,
+    base: str | None = None,
+    commit_message: str | None = None,
+    draft: bool = False,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
+    """Open or update a pull request from a file list, in 1 confirmed call.
+
+    Each files entry holds path and content. An entry with delete true removes the file. The call
+    creates the blobs, the tree and the commit, then the branch and the pull request, or it moves
+    the branch when it already exists and returns its open pull request.
+
+    :param repository_full_name: owner/repo
+    :param files: the changes, each {path, content} or {path, delete: true}
+    :param branch: the branch to create or move
+    :param title: the pull request title, required when the pull request is new
+    :param body: the pull request body
+    :param base: the base branch, the default branch when absent
+    :param commit_message: the commit message, the title when absent
+    :param draft: open the pull request as a draft
+    """
+    repo = self._repo(repository_full_name)
+    if not files:
+      raise GitHubError(422, "Give at least 1 file.", "POST", "")
+    if len(files) > int(self.valves.max_files_per_commit):
+      raise GitHubError(
+        422, f"At most {self.valves.max_files_per_commit} files per call.", "POST", ""
+      )
+    paths = [str(item.get("path") or "") for item in files]
+    if not all(paths):
+      raise GitHubError(422, "Every file needs a path.", "POST", "")
+
+    async def run():
+      target = base
+      if not target:
+        info = await self._request("GET", f"{API}{repo}")
+        target = info.get("default_branch") or "main"
+      parent_sha = None
+      updated = False
+      try:
+        ref = await self._request(
+          "GET", f"{API}{repo}/git/ref/heads/{self._path(branch)}"
+        )
+        parent_sha = (ref.get("object") or {}).get("sha")
+        updated = True
+      except GitHubError as error:
+        if error.status != 404:
+          raise
+      if not parent_sha:
+        base_ref = await self._request(
+          "GET", f"{API}{repo}/git/ref/heads/{self._path(target)}"
+        )
+        parent_sha = (base_ref.get("object") or {}).get("sha")
+      parent = await self._request("GET", f"{API}{repo}/git/commits/{parent_sha}")
+      entries = []
+      for item in files:
+        if item.get("delete"):
+          entries.append(
+            {"path": item.get("path"), "mode": "100644", "type": "blob", "sha": None}
+          )
+          continue
+        blob = await self._request(
+          "POST",
+          f"{API}{repo}/git/blobs",
+          payload={
+            "content": base64.b64encode(
+              str(item.get("content") or "").encode()
+            ).decode(),
+            "encoding": "base64",
+          },
+        )
+        entries.append(
+          {
+            "path": item.get("path"),
+            "mode": "100644",
+            "type": "blob",
+            "sha": blob.get("sha"),
+          }
+        )
+      tree = await self._request(
+        "POST",
+        f"{API}{repo}/git/trees",
+        payload={"base_tree": (parent.get("tree") or {}).get("sha"), "tree": entries},
+      )
+      commit = await self._request(
+        "POST",
+        f"{API}{repo}/git/commits",
+        payload={
+          "message": commit_message or title or "Update files",
+          "tree": tree.get("sha"),
+          "parents": [parent_sha],
+        },
+      )
+      if updated:
+        await self._request(
+          "PATCH",
+          f"{API}{repo}/git/refs/heads/{self._path(branch)}",
+          payload={"sha": commit.get("sha")},
+        )
+        pulls = await self._request(
+          "GET",
+          f"{API}{repo}/pulls",
+          params={
+            "head": f"{repository_full_name.split('/')[0]}:{branch}",
+            "state": "open",
+          },
+        )
+        pull = pulls[0] if pulls else None
+      else:
+        await self._request(
+          "POST",
+          f"{API}{repo}/git/refs",
+          payload={"ref": f"refs/heads/{branch}", "sha": commit.get("sha")},
+        )
+        pull = await self._request(
+          "POST",
+          f"{API}{repo}/pulls",
+          payload={
+            "title": title or branch,
+            "body": body,
+            "head": branch,
+            "base": target,
+            "draft": draft,
+          },
+        )
+      return self._ok(
+        {
+          "pull_request": pull,
+          "branch": branch,
+          "base": target,
+          "commit_sha": commit.get("sha"),
+          "tree_sha": tree.get("sha"),
+          "updated": updated,
+          "files": paths,
+        }
+      )
+
+    return await self._write(
+      f"write {len(paths)} file(s) to {branch} in {repository_full_name}",
+      ", ".join(paths[:10]),
       run,
       __user__=__user__,
       __event_call__=__event_call__,
