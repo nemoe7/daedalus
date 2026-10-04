@@ -2,7 +2,7 @@
 
 The SVG files in this folder are the marks beside a model name. Each file holds the mark of 1
 provider or developer. The file name is the name in the model id, such as `openrouter` or
-`mistralai`. A name without a file takes a chip with its name.
+`mistralai`. A name without a file shows its own text in the text color.
 
 ## Source
 

@@ -347,20 +347,21 @@ assert(html.includes('>Chat<'), 'the mode chip shows');
 assert(html.includes('>Image in<'), 'the media chip shows');
 assert(html.includes('<div class="types">'), 'the Type column stays for a desktop');
 assert(html.includes('<span class="cell-value">'), 'the name cell keeps its value span');
-assert(html.includes('class="mark chip"'), 'the mark of a provider shows');
+assert(html.includes('class="mark slug"') && html.includes('>p<'), 'a name with no file shows its text');
+assert(html.includes('<span class="mark-sep" aria-hidden="true">/</span>'), 'the separator shows');
 assert(html.includes('<span class="model-part">m</span>'), 'the model part shows');
 assert(html.includes('title="p/m"'), 'the title keeps the full id');
 sandbox.matchMedia = () => ({ matches: true });
 probe.renderModels();
 const phone = el('models').innerHTML;
-assert(phone.includes('class="mark chip"'), 'a phone keeps the provider mark');
+assert(phone.includes('class="mark slug"'), 'a phone keeps the provider text');
 assert(phone.includes('<span class="model-part">m</span>'), 'a phone keeps the model part');
 """
   subprocess.run(["node", "-e", code], check=True)
 
 
 def test_app_js_model_marks() -> None:
-  """A model name shows the provider mark, then the developer mark, then the model part."""
+  """A model name reads `provider/dev/slug`: a mark for each head, then the model part."""
   code = """
 const fs = require('fs');
 const vm = require('vm');
@@ -381,17 +382,23 @@ vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
 const assert = require('assert');
 const modelName = sandbox.__probe.modelName;
-const marks = (html) => (html.match(/class="mark/g) || []).length;
-assert.strictEqual(marks(modelName('openrouter/dots-studio/dots-3-note-preview:free')), 2, 'provider and developer');
-assert(modelName('openrouter/dots-studio/dots-3-note-preview:free').includes('<span class="model-part">dots-3-note-preview:free</span>'), 'the model part');
+const marks = (html) => (html.match(/class="mark[ "]/g) || []).length;
+const seps = (html) => (html.match(/class="mark-sep"/g) || []).length;
+const full = modelName('openrouter/dots-studio/dots-3-note-preview:free');
+assert.strictEqual(marks(full), 2, 'provider and developer');
+assert.strictEqual(seps(full), 2, 'a slash between each part');
+assert(full.includes('<span class="model-part">dots-3-note-preview:free</span>'), 'the model part');
 assert.strictEqual(marks(modelName('cloudflare/@cf/cloudflare/clef')), 1, '1 icon when the provider is the developer');
+assert.strictEqual(seps(modelName('cloudflare/@cf/cloudflare/clef')), 1, '1 slash for 1 head');
 assert(modelName('cloudflare/@cf/cloudflare/clef').includes('<span class="model-part">clef</span>'), 'the model part of a scope');
 assert(modelName('cloudflare/@cf/openai/gpt-oss-120b').includes('<span class="model-part">gpt-oss-120b</span>'), 'a scope keeps the developer');
-assert.strictEqual(marks(modelName('p/m')), 1, 'a bare provider and model');
 assert.strictEqual(modelName('bare'), 'bare', 'a name with no slash stays text');
-assert(modelName('p/m').includes('class="mark chip"') && modelName('p/m').includes('>p<'), 'a chip with the name stands in for a mark');
+const bare = modelName('p/m');
+assert(bare.includes('class="mark slug"') && bare.includes('>p<'), 'the text of a name with no file stands in for a mark');
+assert.strictEqual(seps(bare), 1, 'the slash before the slug');
+assert(bare.includes('<span class="model-part">m</span>'), 'the slug of a bare name');
 assert(modelName('cloudflare/@cf/meta/llama-3.1-8b-instruct').includes('<img class="mark" src="ui/icons/cloudflare.svg"'), 'a shipped mark file');
-assert(modelName('cloudflare/@cf/inclusionai/ling-3.0-flash').includes('class="mark chip"'), 'a name with no file keeps the chip');
+assert(modelName('cloudflare/@cf/inclusionai/ling-3.0-flash').includes('class="mark slug">inclusionai<'), 'a name with no file shows its text');
 assert(sandbox.__probe.MARK_FILES.has('cloudflare') && sandbox.__probe.MARK_FILES.has('z-ai'), 'the shipped mark set');
 """
   subprocess.run(["node", "-e", code], check=True)
