@@ -1396,9 +1396,9 @@ const SETTINGS = [
   // The 5th element of a row lists the modes that show it. Only `mode` always shows.
   ["affinity", "Affinity", [
     ["mode", "Mode", "choice", "none: no pin and no race. session: each conversation stays on 1 model. race: the next models also race the first content."],
-    ["change_on_draw", "Change pin on draw", "", "Off: keep the current pin while it remains eligible after a weighted draw.", ["session", "race"]],
+    ["change_on_draw", "Change pin on draw", "", "Off: keep the current pin while it remains eligible after a weighted draw.", ["session"]],
     ["idle", "Idle expiry", "s", "The session model expires after this time without a request.", ["session", "race"]],
-    ["stay", "Stay share", "", "The share of first-tier draws for the session model. Below 1.", ["session", "race"]],
+    ["stay", "Stay share", "", "The share of first-tier draws for the session model. Below 1.", ["session"]],
     ["count", "Racing models", "", "The models that race the original one. 1 to 10.", ["race"]],
     ["chance", "Race chance", "", "The chance to start the racing models with the original one. 0 to 1.", ["race"]],
     ["slow", "Race slow token", "s", "Seconds with no content from the first model. Then the racing models start.", ["race"]],
