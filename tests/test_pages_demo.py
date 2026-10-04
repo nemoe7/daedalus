@@ -158,6 +158,8 @@ const check = (ok, text) => {
     "the catalog reads the provider files");
   check((await (await context.fetch("ui/api/pools")).json())
     .find((pool) => pool.name === "daedalus/sophos").members.length === 3, "a pool reads its tier");
+  // The save adds 1 chat model: the lanes of the upstream grow by exactly 1.
+  const lanesBefore = (await (await context.fetch("ui/api/limits")).json()).lanes.length;
   const withModel = JSON.parse(JSON.stringify(main.blocks));
   withModel.cloudflare.models["@cf/demo/new"] = { max_input_tokens: 4096, tools: true };
   withModel.cloudflare.tier["TIER-A"].push("@cf/demo/new");
@@ -171,7 +173,7 @@ const check = (ok, text) => {
   check((await (await context.fetch("ui/api/pools")).json())
     .find((pool) => pool.name === "daedalus/sophos").members.length === 4, "the pool follows the save");
   const lanes = await (await context.fetch("ui/api/limits", { method: "POST" })).json();
-  check(lanes.lanes.length === 7
+  check(lanes.lanes.length === lanesBefore + 1
     && lanes.providers.find((card) => card.name === "openrouter").items[0][1] === "1000 of 1K left",
     "the upstream answers the new lane and the cards");
   const without = JSON.parse(JSON.stringify(withModel));
@@ -182,7 +184,7 @@ const check = (ok, text) => {
     body: JSON.stringify({ path: main.path, blocks: without }),
   });
   check((await (await context.fetch("ui/api/models")).json()).length === 10, "the model leaves the catalog");
-  check((await (await context.fetch("ui/api/limits", { method: "POST" })).json()).lanes.length === 6,
+  check((await (await context.fetch("ui/api/limits", { method: "POST" })).json()).lanes.length === lanesBefore,
     "the lane leaves with it");
   check((await context.fetch("ui/api/reset", { method: "POST" })).status === 200, "a reset lands");
   const cleared = await (await context.fetch("ui/api/models")).json();
