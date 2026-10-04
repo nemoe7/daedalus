@@ -32,7 +32,9 @@ Use this only after the owner selects the external channel. The owner supplies a
 
 ## Read cadence
 
-Read the inbox at turn start, each reasoning boundary, before and after every tool-call block, before expensive or irreversible work, and before turn end. When ending a turn or a report form awaits answers, run `poll`. Co-issue a read inside each parallel block and read again after it returns; a block is the cadence unit. A count that changes inside a block is a read now, not at the next boundary: the reminder prints only a count, so a higher count means notes nobody has read. ALWAYS run `poll` on the bash call that ends the turn, chained or not. Between two reads, NEVER run a fourth bash call; a read MUST come before it. A blocking-only call needs its read after return. Initial discovery may precede the first read; startup MUST.
+Read the inbox at turn start, each reasoning boundary, before and after every tool-call block, before expensive or irreversible work, and before turn end. When ending a turn or a report form awaits answers, run `poll`. Co-issue a read inside each parallel block and read again after it returns; a block is the cadence unit. A count that changes inside a block is a read now, not at the next boundary: the reminder prints only a count, so a higher count means notes nobody has read. ALWAYS run `poll` on the bash call that ends the turn, chained or not. Between two reads, NEVER run a fourth bash call; a read MUST come before it. NEVER set or export `_arena_preview_platform`; a blocked gate is repaired, NEVER bypassed. A blocking-only call needs its read after return. Initial discovery may precede the first read; startup MUST.
+
+Every CLI call stamps `agent_seen_at`. The preview header turns amber with `No agent since <time>` after three quiet minutes, so a preview left open after a turn says no agent has spoken.
 
 ## Tasks
 
@@ -72,6 +74,6 @@ An agent asks with `download-request <url>`. That queues a pending job. The owne
 
 ## Restore
 
-Run `<skill>/scripts/install.sh` after a sandbox restore, before `git add`, to reinstate the venv, poll hook and ignore rule. Preserve the state directory and report source files. If the database is lost but `saved-state.ndjson` survives, run `import-state <file>` on that state directory; it creates the database and restores notes, tasks and report answers together. Report sources must be republished if their snapshots are lost. Files and unfinished download jobs are not in the NDJSON backup.
+Run `<skill>/scripts/install.sh` after a sandbox restore, before `git add`, to reinstate the venv, poll hook and ignore rule. Preserve the state directory and report source files. If the database is lost but `saved-state.ndjson` survives, run `import-state <file>` on that state directory; it creates the database and restores notes, tasks, report answers and report sources together. Files and unfinished download jobs are not in the NDJSON backup.
 
 If a port is occupied, identify its owner or choose another port; do not stop another service. Verify a restore with `read`, `task-list` and rendered reports before discarding backups. Report failed reads or saves; never treat them as empty state or a confirmed save. If the preview stays unavailable, use `ask_user` to ask how to continue. Do not enable an external channel or local report commits without a new choice.

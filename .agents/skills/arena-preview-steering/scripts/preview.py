@@ -60,8 +60,9 @@ def reminder_tail(cursor,remaining):
 REMINDERS='Refresh context with ARENA.md, SKILL.md, and REFERENCE.md.','Run `task-list` at turn start and update it as work changes.','Take the smallest open task next.','Always push.','`ask_user` on GH_TOKEN failure.','Keep docs terse but clear.','Ask questions ASAP through fielded reports; keep other work moving.',"Don't forget to publish your reports.",'Never end a turn with unblocked tasks.','Remove stale reports with unpublish.','End the turn with `poll` to wait for more work.','Grep-verify each edit landed.',TASK_REMINDER,'Rebase on `origin/main` before pushing.','No PR checks run? Rebase onto main first.',"Check the PR's CI before ending a pushed turn.",'Read the PR checks with `gh pr checks <PR> --watch`.',"Don't use the full path. Run `arena-preview` instead."
 REMINDER_CURSOR='reminder_cursor'
 POLLS_SINCE_MESSAGE='polls_since_message'
-GATE_THRESHOLD=20
+GATE_THRESHOLD=3
 AGENT_KEY_META='agent_key'
+AGENT_SEEN_META='agent_seen_at'
 AGENT_KEY_RE=re.compile('[A-Za-z0-9_-]{20,64}\\Z')
 AGENT_HOST_RE=re.compile('https://[A-Za-z0-9.-]+\\Z')
 def now():return datetime.now(timezone.utc).isoformat()
@@ -201,6 +202,7 @@ SAVED_STATE='saved-state.ndjson'
 NOTE_LINE_KEYS='id','text','at','acknowledged_at','ack_kind','ack_text','ack_edited_at','replies','ack_edited_seen_count','seen_at','task_id'
 TASK_LINE_KEYS='id','title','details','status','order'
 SUBMISSION_LINE_KEYS='id','report_id','text','at','acknowledged_at','ack_kind','ack_text','ack_edited_at','replies','ack_edited_seen_count','seen_at','task_id'
+REPORT_LINE_KEYS='id','title','markdown','published_at'
 def task_row(row):return{'id':row[0],'title':row[1],'details':json.loads(row[2]),'status':row[3],'order':row[4],'updated_at':row[5],'blocked':bool(row[6])if len(row)>6 else False}
 def echo_task(record,before=None,after=None):return{'id':record['id'],'title':record['title'],'status':record['status'],'order':record['order'],'prev':before,'next':after,'details':[detail[:ECHO_DETAIL]+('…'if len(detail)>ECHO_DETAIL else'')for detail in record['details']]}
 def saved_note_line(record):
@@ -209,6 +211,9 @@ def saved_note_line(record):
 def saved_answer_line(record):
 	if not isinstance(record,dict):raise TypeError('Every saved answer is an object')
 	return{key:record.get(key)for key in SUBMISSION_LINE_KEYS}
+def saved_report_line(record):
+	if not isinstance(record,dict):raise TypeError('Every saved report is an object')
+	return{key:record.get(key)for key in REPORT_LINE_KEYS}
 def saved_task_line(record):
 	if not isinstance(record,dict):raise TypeError('Every saved task is an object')
 	line={key:record.get(key)for key in TASK_LINE_KEYS};line['details']=[str(item)for item in record.get('details')or[]];return line
@@ -438,6 +443,8 @@ class Store:
 			db.execute('INSERT INTO submissions (id, report_id, text, at, acknowledged_at, ack_kind, ack_text, ack_edited_at, seen_at, task_id, replies, ack_edited_seen_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',(submission_id,report_id,text,at or now(),*receipt,when(seen_at)if seen_at is not None else None,task_id,more,seen_reply_count));reset_poll_count(db);return message_row(db.execute('SELECT * FROM submissions WHERE id = ?',(submission_id,)).fetchone())
 	def submissions(self):
 		with closing(self.connect())as db:return[message_row(row)for row in db.execute('SELECT * FROM submissions ORDER BY seq')]
+	def report_sources(self):
+		with closing(self.connect())as db:return[dict(row)for row in db.execute('SELECT id, title, markdown, published_at FROM reports ORDER BY seq, id')]
 	def state(self):
 		tasks=self.tasks()
 		with closing(self.connect())as db:
@@ -459,7 +466,7 @@ class Store:
 			if tasks is not None:
 				for item in tasks['finished']+tasks['upcoming']:item['updated_at']=clip_stamp(item['updated_at'])
 				tasks['updated_at']=clip_stamp(tasks['updated_at'])
-			return{'notes':notes,'reports':reports,'tasks':tasks,'uploads':uploads,'fetch_jobs':fetch_jobs,'workspace':workspace_usage(),'last_check':clip_stamp(meta.get('last_check')),'polling':self.polling(),'polling_since':clip_stamp(meta.get(POLL_SINCE_META))if self.polling()else None,'calls_since_message':meta_number(db,POLLS_SINCE_MESSAGE),'agent_key':self.agent_key()}
+			return{'notes':notes,'reports':reports,'tasks':tasks,'uploads':uploads,'fetch_jobs':fetch_jobs,'workspace':workspace_usage(),'last_check':clip_stamp(meta.get('last_check')),'polling':self.polling(),'polling_since':clip_stamp(meta.get(POLL_SINCE_META))if self.polling()else None,'calls_since_message':meta_number(db,POLLS_SINCE_MESSAGE),'agent_key':self.agent_key(),'agent_seen_at':clip_stamp(meta.get(AGENT_SEEN_META))}
 	def tasks(self):
 		with closing(self.connect())as db:rows=db.execute(f"SELECT {TASK_COLUMNS} FROM tasks ORDER BY status DESC, position, id").fetchall()
 		records=[task_row(row)for row in rows]
@@ -527,9 +534,9 @@ class Store:
 		lines=[saved_note_line(record)for record in notes]
 		for status in TASK_STATUSES:
 			for record in tasks.get(status)or[]:lines.append(saved_task_line(record))
-		answers=[saved_answer_line(record)for record in self.submissions()];lines.extend(answers);path=self.save_path
+		answers=[saved_answer_line(record)for record in self.submissions()];lines.extend(answers);reports=[saved_report_line(record)for record in self.report_sources()];lines.extend(reports);path=self.save_path
 		if path.parent!=Path('.'):path.parent.mkdir(parents=True,exist_ok=True)
-		path.write_text(''.join(json.dumps(line,ensure_ascii=False)+'\n'for line in lines),encoding='utf-8');return{'path':str(path),'notes':len(notes),'tasks':len(lines)-len(notes)-len(answers),'answers':len(answers)}
+		path.write_text(''.join(json.dumps(line,ensure_ascii=False)+'\n'for line in lines),encoding='utf-8');return{'path':str(path),'notes':len(notes),'tasks':len(lines)-len(notes)-len(answers)-len(reports),'answers':len(answers),'reports':len(reports)}
 	def uploads(self):
 		with closing(self.connect())as db:rows=db.execute('SELECT * FROM uploads ORDER BY seq').fetchall()
 		return[upload_row(row,self.path.parent)for row in rows]
@@ -655,15 +662,31 @@ class Store:
 			raise
 		self.autosave();return fetch_row(result,self.path.parent)
 	def import_state(self,text,replace_tasks=False):
-		records=parse_state_import(text);tasks=[r for r in records if'title'in r and'text'not in r];messages=[r for r in records if'title'not in r or'text'in r]
+		records=parse_state_import(text);reports=[r for r in records if'markdown'in r and'text'not in r];tasks=[r for r in records if'markdown'not in r and'title'in r and'text'not in r];messages=[r for r in records if'markdown'not in r and('title'not in r or'text'in r)]
 		with self.transaction(autosave=False)as db:
-			db.execute('BEGIN IMMEDIATE');self.import_tasks(tasks,replace_tasks,autosave=False,shared=db)
+			db.execute('BEGIN IMMEDIATE');self.import_reports(reports,shared=db);self.import_tasks(tasks,replace_tasks,autosave=False,shared=db)
 			for record in messages:
 				if'text'not in record or'title'in record:raise ValueError('Each record must be a note, task or report answer')
 				options={key:record.get(key)for key in('acknowledged_at','ack_kind','ack_text','ack_edited_at','seen_at','task_id','replies','ack_edited_seen_count')};args=[record['id']];writer=self.note
 				if'report_id'in record:writer=self.submission;args.append(record['report_id'])
 				writer(*args,record['text'],record.get('at'),shared=db,autosave=False,**options)
-		return{'notes':sum('report_id'not in r for r in messages),'answers':sum('report_id'in r for r in messages),'tasks':len(tasks)}
+		return{'notes':sum('report_id'not in r for r in messages),'answers':sum('report_id'in r for r in messages),'reports':len(reports),'tasks':len(tasks)}
+	def import_reports(self,records,shared=None):
+		if not isinstance(records,list):raise TypeError('Import a list of report objects')
+		prepared=[]
+		for record in records:
+			if not isinstance(record,dict):raise TypeError('Import a list of report objects')
+			report_id=record.get('id');identifier(report_id);title=record.get('title')
+			if not isinstance(title,str)or not title.strip()or len(title)>200:raise ValueError('Report title must contain 1–200 characters')
+			markdown=record.get('markdown')
+			if not isinstance(markdown,str)or not markdown.strip():raise ValueError('A saved report needs its markdown')
+			if len(markdown.encode('utf-8'))>MAX_REPORT:raise ValueError('Report exceeds the 2 MB limit; split it into reports')
+			published_at=record.get('published_at')
+			if published_at is not None and not isinstance(published_at,str):raise ValueError('A saved publish stamp is text')
+			prepared.append((report_id,title,markdown,published_at))
+		with self.transaction(shared)as db:
+			for(report_id,title,markdown,published_at)in prepared:highest=db.execute('SELECT COALESCE(MAX(seq), 0) FROM reports').fetchone()[0];db.execute('INSERT INTO reports (id, title, markdown, updated_at, published_at, seq)\n             VALUES (?, ?, ?, ?, ?, ?)\n             ON CONFLICT(id) DO UPDATE SET title = excluded.title,\n               markdown = excluded.markdown, updated_at = excluded.updated_at,\n               published_at = COALESCE(reports.published_at, excluded.published_at)',(report_id,title,markdown,now(),published_at,highest+1))
+		return len(prepared)
 	def import_tasks(self,records,replace=False,autosave=True,shared=None):
 		if not isinstance(records,list):raise TypeError('Import a list of task objects')
 		prepared=[]
@@ -695,6 +718,7 @@ class Store:
 	def polling(self):age=seconds_since(self.meta_value(POLLING_META));return age is not None and 0<=age<POLLING_FRESH_SECONDS
 	def set_meta(self,key,value):
 		with closing(self.connect())as db,db:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(key,str(value)))
+	def touch_agent(self):self.set_meta(AGENT_SEEN_META,now())
 	def set_agent_key(self,key,host=None):self.set_meta(AGENT_KEY_META,json.dumps({'key':key,'host':host,'at':now()},ensure_ascii=False))
 	def agent_key(self):
 		value=self.meta_value(AGENT_KEY_META)
@@ -1009,6 +1033,7 @@ def main():
 			if args.push and main_identical():print('HEAD content equals `origin/main`, so the push carries nothing. Start new work from `origin/main`.',flush=True);return 1
 			return 0
 		store=Store(state_dir,create=args.command in{'serve','init','import-state'});print(store.reminder(),file=sys.stderr,flush=True)
+		if args.command!='serve':store.touch_agent()
 		if args.command=='serve':
 			require_renderer()
 			with ThreadingHTTPServer(('0.0.0.0',args.port),handler(store))as server:store.set_meta('port',str(server.server_port));print(f"Preview listening on 0.0.0.0:{server.server_port}; state: {store.path}",flush=True);server.serve_forever()
