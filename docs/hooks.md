@@ -36,6 +36,8 @@ request_hooks:
 ```
 
 An empty value turns that point off. A file that sets `value["key"]` counts the requests of that key: a repeat after an answer is a try again. `daedalus` then drops the models that answered the message: `daedalus/auto` steps the tier 1 step up, and a named pool keeps its pool. The point runs again with `count` filled in. A file that writes `value["code"]` sets the code of the Requests row, such as `rt1`. Without a `key`, a repeat is a new request. Without a `code`, the row shows no code. `config/hooks/openwebui_retry.py` applies this rule to the `x-openwebui-chat-id` header of Open WebUI.
+The media endpoints, transcription and images, count a repeat of the same content with no hook.
+That count is the one repeat path of the base app.
 
 A function gets a copy of the value. It can change the copy and return None, or it can return a new dict. The hooks of 1 point run in list order, and each hook gets the value of the hook before it.
 
