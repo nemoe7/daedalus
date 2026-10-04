@@ -229,7 +229,7 @@ td.end { text-align: right; }
 .requests thead th { position: sticky; top: 0; background: var(--panel); z-index: 2; }
 /* The code legend of the Requests page. A desktop puts it in the column beside the table. */
 .legend { font-size: 12px; color: var(--muted); padding: 14px 16px; }
-.legend summary { width: fit-content; cursor: pointer; }
+.legend h3 { color: var(--text); }
 .legend-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); gap: 4px 16px; margin-top: 8px; }
 .legend-body span { display: flex; gap: 8px; }
 /* The legend codes use the font of the codes in the table. */
