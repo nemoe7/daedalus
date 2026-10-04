@@ -150,6 +150,22 @@ async def test_check(cooldowns: Cooldowns) -> None:
   assert found.view()["checked"] == NOW
 
 
+def test_bare_headers() -> None:
+  """A header set with no window in the name counts requests for a day, the OpenRouter way."""
+  bare = {
+    "x-ratelimit-limit": "1000",
+    "x-ratelimit-remaining": "0",
+    "x-ratelimit-reset": str(NOW + 3600),
+  }
+  rows = limits.header_rows("kilo", bare, NOW)
+  assert [(r["kind"], r["span"], r["limit"], r["remaining"]) for r in rows] == [
+    ("requests", "day", 1000.0, 0.0)
+  ]
+  assert limits.cooling_end(rows[0], NOW) == NOW + 3600, (
+    "0 left holds the lane to the reset"
+  )
+
+
 def test_floored() -> None:
   """Counts floor to K, M or B, and stay whole below 1,000."""
   values = [0, 999, 1234, 998_765_432, 1_000_000_000]
