@@ -153,6 +153,12 @@ Keep **Function Calling** on **Native**, the Open WebUI default since v0.10.0. N
 
 2 CI reads cover the checks. `check_runs` lists the check runs of a ref with the name, the status and the filter, or reads 1 run with its annotations. `list_workflows` lists the Actions workflows.
 
+4 more reads ship. `actions_minutes` reads the Actions minutes of an org or a user. `releases` lists the releases, or reads 1 by id or tag. `tags` lists the tags. `packages` reads the packages of the signed-in user, a user or an org.
+
+Gist management ships as 5 tools: `gists`, `fetch_gist`, and the gated writes `create_gist`, `update_gist` and `delete_gist`.
+
+The 3 alert reads take gated writes: `update_code_scanning_alert`, `update_secret_scanning_alert` and `update_dependabot_alert` dismiss, resolve or reopen an alert.
+
 1. **Workspace → Tools**, **Create**, paste the file, **Save**.
 2. **Valves**: set `github_token`, or set the `GITHUB_TOKEN` environment value. Keep `default_mode` `ask`.
 3. **Access** on the tool: make it public, or give read access to each user. A user without read access does not see the tool.

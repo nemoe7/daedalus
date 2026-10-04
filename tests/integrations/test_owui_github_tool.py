@@ -19,6 +19,7 @@ tool = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(tool)
 
 TOOLS = [
+  "actions_minutes",
   "add_comment_to_issue",
   "add_issue_assignees",
   "add_issue_labels",
@@ -32,6 +33,7 @@ TOOLS = [
   "create_branch",
   "create_commit",
   "create_file",
+  "create_gist",
   "create_issue",
   "create_pull_request",
   "create_pr_with_files",
@@ -39,6 +41,7 @@ TOOLS = [
   "check_runs",
   "create_tree",
   "delete_file",
+  "delete_gist",
   "dependabot_alerts",
   "dismiss_pull_request_review",
   "download_user_content",
@@ -49,6 +52,7 @@ TOOLS = [
   "fetch_commit",
   "fetch_commit_workflow_runs",
   "fetch_file",
+  "fetch_gist",
   "fetch_issue",
   "fetch_issue_comments",
   "fetch_pr",
@@ -60,6 +64,7 @@ TOOLS = [
   "fetch_workflow_run_artifacts",
   "fetch_workflow_run_jobs",
   "get_commit_combined_status",
+  "gists",
   "get_issue_comment_reactions",
   "get_pr_diff",
   "get_pr_info",
@@ -84,6 +89,7 @@ TOOLS = [
   "list_user_org_memberships",
   "list_tree",
   "list_workflows",
+  "packages",
   "list_user_orgs",
   "lock_issue_conversation",
   "mark_pull_request_ready_for_review",
@@ -94,6 +100,7 @@ TOOLS = [
   "remove_reaction_from_issue_comment",
   "remove_reaction_from_pr",
   "remove_reaction_from_pr_review_comment",
+  "releases",
   "reply_to_review_comment",
   "request_pull_request_reviewers",
   "rerun_failed_workflow_run_jobs",
@@ -106,14 +113,19 @@ TOOLS = [
   "search_installed_repositories_v2",
   "search_issues",
   "search_prs",
+  "tags",
   "search_repositories",
   "secret_scanning_alerts",
   "unlock_issue_conversation",
+  "update_code_scanning_alert",
   "unresolve_review_thread",
   "update_file",
+  "update_dependabot_alert",
   "update_issue",
+  "update_gist",
   "update_issue_comment",
   "update_pull_request",
+  "update_secret_scanning_alert",
   "update_ref",
   "update_review_comment",
 ]
@@ -184,7 +196,7 @@ def test_the_surface_holds_the_tool_list():
     and not node.name.startswith("_")
   ]
   assert sorted(found) == sorted(TOOLS)
-  assert len(TOOLS) == 97
+  assert len(TOOLS) == 109
 
 
 def test_the_gate_defaults_to_ask_with_sixty_seconds():
@@ -487,6 +499,173 @@ def test_list_workflows(monkeypatch):
   assert out["result"]["total_count"] == 2
   assert len(out["result"]["workflows"]) == 2
   assert calls[0]["url"].endswith("/actions/workflows?per_page=30&page=1")
+
+
+def test_actions_minutes_org_and_user(monkeypatch):
+  calls = []
+  opener(
+    monkeypatch,
+    [json.dumps({"total_minutes_used": 10}), json.dumps({"total_minutes_used": 2})],
+    calls,
+  )
+  out = asyncio.run(client().actions_minutes("acme"))
+  assert out["result"]["minutes"]["total_minutes_used"] == 10
+  assert calls[0]["url"] == "https://api.github.com/orgs/acme/settings/billing/actions"
+  out = asyncio.run(client().actions_minutes("nemo", owner_type="user"))
+  assert out["result"]["minutes"]["total_minutes_used"] == 2
+  assert calls[1]["url"] == "https://api.github.com/users/nemo/settings/billing/actions"
+
+
+def test_releases_list_tag_and_id(monkeypatch):
+  calls = []
+  opener(
+    monkeypatch,
+    [json.dumps([{"id": 1}]), json.dumps({"id": 2}), json.dumps({"id": 3})],
+    calls,
+  )
+  out = asyncio.run(client().releases("o/r"))
+  assert out["result"]["releases"][0]["id"] == 1
+  assert calls[0]["url"].endswith("/releases?per_page=30&page=1")
+  out = asyncio.run(client().releases("o/r", tag="v1.2.3"))
+  assert out["result"]["release"]["id"] == 2
+  assert calls[1]["url"].endswith("/releases/tags/v1.2.3")
+  out = asyncio.run(client().releases("o/r", release_id=3))
+  assert out["result"]["release"]["id"] == 3
+  assert calls[2]["url"].endswith("/releases/3")
+
+
+def test_tags_and_packages(monkeypatch):
+  calls = []
+  opener(
+    monkeypatch,
+    [
+      json.dumps([{"name": "v1"}]),
+      json.dumps([{"name": "left-pad"}]),
+      json.dumps({"name": "left-pad", "package_type": "npm"}),
+      json.dumps([{"name": "1.0.0"}]),
+    ],
+    calls,
+  )
+  out = asyncio.run(client().tags("o/r"))
+  assert out["result"]["tags"][0]["name"] == "v1"
+  assert calls[0]["url"].endswith("/tags?per_page=30&page=1")
+  out = asyncio.run(client().packages("npm"))
+  assert out["result"]["packages"][0]["name"] == "left-pad"
+  assert calls[1]["url"] == "https://api.github.com/user/packages?package_type=npm"
+  out = asyncio.run(client().packages("npm", owner="acme", package_name="left-pad"))
+  assert out["result"]["package"]["name"] == "left-pad"
+  assert out["result"]["versions"][0]["name"] == "1.0.0"
+  assert calls[2]["url"] == "https://api.github.com/orgs/acme/packages/npm/left-pad"
+  assert calls[3]["url"].endswith("/packages/npm/left-pad/versions?per_page=30&page=1")
+
+
+def test_gists_list_and_fetch(monkeypatch):
+  calls = []
+  opener(monkeypatch, [json.dumps([{"id": "abc"}]), json.dumps({"id": "abc"})], calls)
+  out = asyncio.run(client().gists())
+  assert out["result"]["gists"][0]["id"] == "abc"
+  assert calls[0]["url"].startswith("https://api.github.com/gists?")
+  out = asyncio.run(client().gists("nemo"))
+  assert calls[1]["url"].startswith("https://api.github.com/users/nemo/gists?")
+  out = asyncio.run(client().fetch_gist("abc"))
+  assert out["result"]["gist"]["id"] == "abc"
+  assert calls[2]["url"].endswith("/gists/abc")
+
+
+def test_gist_writes_are_gated(monkeypatch):
+  calls = []
+  opener(monkeypatch, [json.dumps({"id": "new"}), "", json.dumps({"id": "new"})], calls)
+  denied = asyncio.run(
+    client().create_gist({"a.txt": {"content": "x"}}, __event_call__=None)
+  )
+  assert denied["result"]["denied"] is True
+  assert calls == []
+
+  async def answer(payload):
+    return payload["type"] == "confirmation"
+
+  out = asyncio.run(
+    client().create_gist(
+      {"a.txt": {"content": "x"}}, description="d", __event_call__=answer
+    )
+  )
+  assert out["result"]["gist"]["id"] == "new"
+  body = json.loads(calls[0]["data"])
+  assert body["files"] == {"a.txt": {"content": "x"}}
+  assert body["public"] is False
+  out = asyncio.run(client().delete_gist("new", __event_call__=answer))
+  assert out["result"]["deleted"] is True
+  assert calls[1]["method"] == "DELETE"
+  assert calls[1]["url"].endswith("/gists/new")
+
+
+def test_gist_update_payload(monkeypatch):
+  calls = []
+  opener(monkeypatch, [json.dumps({"id": "abc"})], calls)
+
+  async def answer(payload):
+    return payload["type"] == "confirmation"
+
+  out = asyncio.run(
+    client().update_gist(
+      "abc", files={"a.txt": {"content": "y"}}, description="d", __event_call__=answer
+    )
+  )
+  assert out["result"]["gist"]["id"] == "abc"
+  body = json.loads(calls[0]["data"])
+  assert body == {"files": {"a.txt": {"content": "y"}}, "description": "d"}
+
+
+def test_alert_writes_patch_and_deny(monkeypatch):
+  calls = []
+  opener(
+    monkeypatch,
+    [json.dumps({"number": 7}), json.dumps({"number": 8}), json.dumps({"number": 9})],
+    calls,
+  )
+  denied = asyncio.run(client().update_dependabot_alert("o/r", 9, __event_call__=None))
+  assert denied["result"]["denied"] is True
+  assert calls == []
+
+  async def answer(payload):
+    return payload["type"] == "confirmation"
+
+  out = asyncio.run(
+    client().update_code_scanning_alert(
+      "o/r", 7, reason="won't fix", comment="c", __event_call__=answer
+    )
+  )
+  assert out["result"]["alert"]["number"] == 7
+  assert json.loads(calls[0]["data"]) == {
+    "state": "dismissed",
+    "dismissed_reason": "won't fix",
+    "dismissed_comment": "c",
+  }
+  assert calls[0]["method"] == "PATCH"
+  assert calls[0]["url"].endswith("/code-scanning/alerts/7")
+  out = asyncio.run(
+    client().update_secret_scanning_alert(
+      "o/r", 8, resolution="revoked", comment="c", __event_call__=answer
+    )
+  )
+  assert out["result"]["alert"]["number"] == 8
+  assert json.loads(calls[1]["data"]) == {
+    "state": "resolved",
+    "resolution": "revoked",
+    "resolution_comment": "c",
+  }
+  assert calls[1]["url"].endswith("/secret-scanning/alerts/8")
+  out = asyncio.run(
+    client().update_dependabot_alert(
+      "o/r", 9, reason="tolerable_risk", __event_call__=answer
+    )
+  )
+  assert out["result"]["alert"]["number"] == 9
+  assert json.loads(calls[2]["data"]) == {
+    "state": "dismissed",
+    "dismissed_reason": "tolerable_risk",
+  }
+  assert calls[2]["url"].endswith("/dependabot/alerts/9")
 
 
 def test_a_github_error_propagates(monkeypatch):
