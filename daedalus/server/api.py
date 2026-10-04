@@ -951,6 +951,10 @@ async def chat(request: Request) -> Response:
         logger.info("parallel %s lost the race", take.model)
       if winner is None:
         raise takes[0].task.exception()
+      # The row reads the race: the winner carries the mark, and a runner that wins takes the pin.
+      winner.sent["race"] = "won"
+      if winner.model != first:
+        request.state.transition = "rce"
       return winner
     finally:
       # The winner keeps its content. The other tasks are over.

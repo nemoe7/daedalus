@@ -42,7 +42,7 @@ function relative(seconds) {
 const state = {
   models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, saved: [], timers: [],
   view: "form", forms: [], formSaved: [], overrideKeys: [], providerDefaults: {}, settingsView: "form",
-  pools: [], requests: [], requestLimit: REQUESTS_STEP, keys: [], catalog: {}, settings: null,
+  pools: [], requests: [], requestLimit: REQUESTS_STEP, keys: [], catalog: {}, settings: null, legendExtra: [],
   live: new Map(), source: null, env: [],
 };
 
@@ -381,6 +381,7 @@ function chainText(r) {
     `fallbacks=${r.fallbacks ?? 0}`, r.retry && `retry=${r.retry}`, r.loop && `loop=${r.loop}`].filter(Boolean).join(" ");
   const steps = (r.attempts || []).map((a, i) =>
     `${i + 1}. ${a.model} ${a.result} ${seconds(a.seconds)}`.trim() + ("effort" in a ? ` effort=${sentText(a, r.effort)}` : "")
+      + (a.race === "won" ? " won race" : "")
       + (a.weight_change ? ` ${weightText(a)}` : "")
       + (a.cooldown ? ` ${coolText(a.cooldown)}` : "")
       + (a.error ? `\n   ${a.error}` : ""));
@@ -398,6 +399,7 @@ function chainSteps(r) {
       ${"effort" in a ? `<span class="from">effort ${esc(shortEffort(sentText(a, r.effort)))}</span>` : ""}
       ${a.weight_change ? `<span class="from">${esc(weightText(a))}</span>` : ""}
       ${a.cooldown ? `<span class="from">${esc(coolText(a.cooldown))}</span>` : ""}
+      ${a.race === "won" ? '<span class="from">won race</span>' : ""}
       ${a.error ? `<pre>${esc(a.error)}</pre>` : ""}
     </li>`).join("");
   return steps ? `<ol>${steps}</ol>` : '<p class="muted">No attempt data for this request.</p>';
@@ -520,6 +522,7 @@ const TRANSITION_REASONS = {
   rnd: "Weighted random draw selected another model",
   cls: "Prompt classifier chose a different tier",
   esc: "Escalation keyword raised the tier",
+  rce: "A racing model took the pin",
 };
 
 // A repeat carries the code of the hook, such as rt1. The row shows the code as given.
@@ -544,9 +547,14 @@ function poolTier(name) {
 }
 
 // The code legend of the Requests page: each short code with its meaning.
-function renderLegend(extra = []) {
+// The parallel row of the legend joins it only while the setting is on.
+const parallelOn = () => Boolean(
+  state.settings && (fileValue("parallel", "enabled") ?? state.settings.defaults.parallel.enabled) === true,
+);
+
+function renderLegend(extra = state.legendExtra) {
   const rows = [
-    ...Object.entries(TRANSITION_REASONS),
+    ...Object.entries(TRANSITION_REASONS).filter(([code]) => code !== "rce" || parallelOn()),
     ["frX", "the tier of the previous model"],
     ["tlN", "N equal tool calls stopped the chain"],
     ...extra,
@@ -561,7 +569,8 @@ async function loadLegend() {
   try {
     const body = await call("hooks");
     const extra = Array.isArray(body?.legend) ? body.legend : [];
-    if (extra.length) renderLegend(extra);
+    state.legendExtra = extra;
+    if (extra.length) renderLegend();
   } catch {
     // The base rows stand.
   }
@@ -1571,6 +1580,7 @@ function renderSettingsSave() {
 async function loadSettings() {
   state.settings = await call("settings");
   state.settings.lists = {};
+  renderLegend();
   applyTheme(setting("dashboard", "theme"));
   hourCycle = setting("dashboard", "time_format") === "12h" ? "h12" : "h23";
   $("settings-editor").value = state.settings.text;
