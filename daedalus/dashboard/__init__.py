@@ -229,6 +229,8 @@ UI_FILES = {
 }
 # The path of each file of the page, so a request name never reaches the file system.
 UI_PATHS = {name: UI_DIR / name for name in UI_FILES}
+# The path of each model mark, 1 file for each name in the app.js set.
+ICON_PATHS = {path.name: path for path in (UI_DIR / "icons").glob("*.svg")}
 # The browser asks again each time, so a new version of the page applies at once.
 FRESH = {"Cache-Control": "no-cache"}
 # The files that the Providers editor shows, in tab order. The Settings page has its own form.
@@ -576,7 +578,7 @@ def versioned_index() -> str:
 
 
 def page() -> APIRouter:
-  """The dashboard page and its script and style. They hold no data."""
+  """The dashboard page, its script and style, and the model marks. They hold no data."""
   pages = APIRouter()
 
   @pages.get("/", include_in_schema=False)
@@ -588,6 +590,13 @@ def page() -> APIRouter:
     if name not in UI_PATHS:
       return failure(404, "Not found.", "invalid_request_error")
     return FileResponse(UI_PATHS[name], media_type=UI_FILES[name], headers=FRESH)
+
+  @pages.get("/ui/icons/{name}", include_in_schema=False)
+  async def model_mark(name: str) -> Response:
+    path = ICON_PATHS.get(name)
+    if path is None:
+      return failure(404, "Not found.", "invalid_request_error")
+    return FileResponse(path, media_type="image/svg+xml", headers=FRESH)
 
   return pages
 
