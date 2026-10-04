@@ -748,30 +748,9 @@ function tickCooldowns() {
 const dateTime = (seconds) => new Date(seconds * 1000).toLocaleString(
   [], { dateStyle: "medium", timeStyle: "short", hourCycle });
 
-// The value states of the Keys and values panel. Only the end of a long saved value shows.
-const ENV_STATES = {
-  saved: (row) => (row.end ? `saved, ends in ${row.end}` : "saved"),
-  env: () => "from the environment",
-  missing: () => "missing",
-};
-
-function renderEnv(rows) {
-  $("env-rows").innerHTML = rows.length ? rows.map((r) => `
-    <tr>
-      <td><code>${esc(r.name)}</code></td>
-      <td class="hide-sm muted">${esc(r.used.join(", "))}</td>
-      <td class="${r.state === "missing" ? "out" : r.state === "env" ? "muted" : ""}">${esc(ENV_STATES[r.state](r))}</td>
-      <td><form class="env-save" data-env="${esc(r.name)}">
-        <input type="password" autocomplete="off" placeholder="Paste a value" aria-label="New value of ${esc(r.name)}" required>
-        <button class="ghost" type="submit">Save</button>
-      </form></td>
-      <td class="end">${r.state === "saved" ? `<button type="button" class="ghost danger" data-env-clear="${esc(r.name)}">Clear</button>` : ""}</td>
-    </tr>`).join("") : '<tr><td colspan="5" class="empty">No provider file uses env:NAME or db:NAME.</td></tr>';
-}
-
+// The saved values of the provider keys. A key field shows the state: env:NAME or db:NAME.
 async function refreshEnv() {
   state.env = await call("env");
-  renderEnv(state.env);
   if (!document.querySelector('section[data-page="providers"]').hidden) renderForm();
 }
 
@@ -945,15 +924,6 @@ function providerCard(name, block) {
     if (info && info.type === "env") return hasEnv ? "env" : "missing";
     if (info && info.type === "db") return hasSaved ? "saved" : "missing";
     return row.state;
-  };
-  const envHint = () => {
-    const info = tokenInfo(block.api_key);
-    if (!info) return "";
-    const row = state.env.find((r) => r.name === info.name);
-    if (!row) return "";
-    const eff = effectiveState(info, row);
-    const label = ENV_STATES[eff](row);
-    return `<small class="${eff === "missing" ? "out" : eff === "env" ? "muted" : ""}">${esc(label)}</small>`;
   };
   const maskedPlaceholder = (row) => {
     if (!row) return "";
@@ -1719,34 +1689,6 @@ $("keys").addEventListener("click", async (event) => {
     await call("keys/" + encodeURIComponent(name), { method: "DELETE" });
     await refreshKeys();
   });
-});
-$("env-rows").addEventListener("submit", async (event) => {
-  const form = event.target.closest("[data-env]");
-  if (!form) return;
-  event.preventDefault();
-  const input = form.querySelector("input");
-  $("env-message").textContent = "";
-  try {
-    renderEnv(await call("env", { method: "PUT", body: JSON.stringify({ name: form.dataset.env, value: input.value }) }));
-    refresh();
-  } catch (error) {
-    if (error instanceof LoggedOut) return showLogin();
-    $("env-message").textContent = error.message;
-  }
-});
-$("env-rows").addEventListener("click", async (event) => {
-  const button = event.target.closest("[data-env-clear]");
-  if (!button) return;
-  const name = button.dataset.envClear;
-  if (!(await ask("Clear the saved value", `${name} then reads the environment variable.`, "Clear", true))) return;
-  $("env-message").textContent = "";
-  try {
-    renderEnv(await call("env", { method: "DELETE", body: JSON.stringify({ name }) }));
-    refresh();
-  } catch (error) {
-    if (error instanceof LoggedOut) return showLogin();
-    $("env-message").textContent = error.message;
-  }
 });
 $("more-requests").addEventListener("click", () => {
   state.requestLimit = Math.min(state.requestLimit + REQUESTS_STEP, REQUESTS_KEPT);

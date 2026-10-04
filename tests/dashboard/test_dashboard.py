@@ -66,6 +66,9 @@ def test_page(client: TestClient) -> None:
   assert "<details" not in page.text and "<summary" not in page.text, (
     "the legend keeps no expand button"
   )
+  assert "Keys and values" not in page.text and "env-rows" not in page.text, (
+    "the provider block owns the keys: no Keys and values card"
+  )
   assert '<dialog id="modal"' in page.text, "the confirmation modal"
   assert "<code>frX</code>" not in page.text, "the legend body is filled by app.js"
   for block in ("ov-providers", "ov-keys", "ov-settings"):
