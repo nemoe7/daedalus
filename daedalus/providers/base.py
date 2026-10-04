@@ -305,6 +305,11 @@ class OpenAIProvider:
     "moderation",
   )
 
+  @classmethod
+  def configure(cls, config: Mapping[str, Any]) -> dict[str, Any]:
+    """The config with the values that this provider derives. The base class derives none."""
+    return dict(config)
+
   def __init__(self, name: str, config: Mapping) -> None:
     base = str(config.get("api_base") or "").rstrip("/")
     parsed = urlsplit(base)
