@@ -244,9 +244,11 @@ tr.request.has-chain { cursor: pointer; }
 .requests .mobile-request-more { display: none; }
 .mobile-label { display: none; }
 /* The mark of a provider or a developer beside a model name. A shipped SVG file replaces the
-letter chip of that name, and the chip covers every name that the catalog can add. */
+chip of that name, and the chip covers every name that the catalog can add. */
 .mark { display: inline-block; width: 16px; height: 16px; border-radius: 4px; margin-right: 4px; vertical-align: -3px; object-fit: contain; }
-.mark.chip { background: hsl(var(--hue) 52% 42%); color: #fff; font: 600 10px/16px var(--mono); text-align: center; }
+.mark.chip { width: auto; min-width: 8px; padding: 0 5px; border-radius: 8px; background: hsl(var(--hue) 52% 42%); color: #fff; font: 600 10px/16px var(--mono); text-align: center; }
+/* A dark theme inverts the monochrome mark files; the chip keeps its own colors. */
+:root[data-theme="dark"] img.mark { filter: invert(1); }
 .model-part { overflow: hidden; text-overflow: ellipsis; }
 #limit-rows td.name { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #limit-rows td:nth-child(2) { white-space: nowrap; }

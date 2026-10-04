@@ -56,8 +56,14 @@ const nameCell = (text, shown = esc(text), label = "Model", extra = "") =>
   `<td role="cell" class="name" title="${esc(text)}">${mobileLabel(label)}<span class="cell-value">${shown}</span>${extra}</td>`;
 // The marks beside a model name: the provider, then the developer, then the model part. The
 // provider mark drops when the developer carries the same name. The set names the SVG files that
-// ship under `ui/icons/`; every other name takes a letter chip with a hue of its own.
-const MARK_FILES = new Set();
+// ship under `ui/icons/`; every other name takes a chip with its own name and hue.
+const MARK_FILES = new Set([
+  "anthropic", "baai", "black-forest-labs", "bytedance", "cloudflare", "cohere", "deepseek-ai",
+  "dots-studio", "fish-audio", "gemini", "google", "groq", "ibm", "ibm-granite", "inception",
+  "kilo", "liquid", "meta", "meta-llama", "microsoft", "mistral", "mistralai", "moonshotai",
+  "myshell-ai", "nvidia", "openai", "openrouter", "pollinations", "poolside", "qwen", "runwayml",
+  "stabilityai", "stepfun", "z-ai", "zai-org",
+]);
 const hue = (name) => {
   let value = 0;
   for (const ch of name) value = (value * 31 + ch.codePointAt(0)) % 360;
@@ -65,7 +71,7 @@ const hue = (name) => {
 };
 const mark = (name) => MARK_FILES.has(name)
   ? `<img class="mark" src="ui/icons/${esc(name)}.svg" alt="" aria-hidden="true">`
-  : `<span class="mark chip" style="--hue:${hue(name)}" aria-hidden="true">${esc(name[0].toUpperCase())}</span>`;
+  : `<span class="mark chip" style="--hue:${hue(name)}" aria-hidden="true">${esc(name)}</span>`;
 // `provider/dev/model` and `provider/model` both land. The developer is the part before the model,
 // with a scope prefix such as `@cf/` dropped.
 const parts = (id) => {

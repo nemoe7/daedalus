@@ -114,6 +114,16 @@ def test_page(client: TestClient) -> None:
   )
 
 
+def test_model_marks(client: TestClient) -> None:
+  """The dashboard serves a chosen mark file, and no other name of the folder."""
+  mark = client.get("/ui/icons/cloudflare.svg")
+  assert mark.status_code == 200 and mark.headers["content-type"] == "image/svg+xml"
+  assert mark.headers["cache-control"] == "no-cache", "an update applies at once"
+  assert client.get("/ui/icons/nope.svg").status_code == 404, "a missing mark"
+  assert client.get("/ui/icons/logo.svg").status_code == 404, "the page files stay out"
+  assert client.get("/ui/icons/CLOUDFLARE.svg").status_code == 404, "the name is exact"
+
+
 def test_app_js_split_requests() -> None:
   """The dashboard script splits requests with multiple answers and formats transition codes."""
   code = """
@@ -379,11 +389,22 @@ assert(modelName('cloudflare/@cf/cloudflare/clef').includes('<span class="model-
 assert(modelName('cloudflare/@cf/openai/gpt-oss-120b').includes('<span class="model-part">gpt-oss-120b</span>'), 'a scope keeps the developer');
 assert.strictEqual(marks(modelName('p/m')), 1, 'a bare provider and model');
 assert.strictEqual(modelName('bare'), 'bare', 'a name with no slash stays text');
-assert(modelName('p/m').includes('class="mark chip"') && modelName('p/m').includes('>P<'), 'a letter chip stands in for a mark');
-assert(!modelName('p/m').includes('<img'), 'no file ships, so no image');
-assert.strictEqual(sandbox.__probe.MARK_FILES.size, 0, 'the shipped mark set is empty until the SVG files land');
+assert(modelName('p/m').includes('class="mark chip"') && modelName('p/m').includes('>p<'), 'a chip with the name stands in for a mark');
+assert(modelName('cloudflare/@cf/meta/llama-3.1-8b-instruct').includes('<img class="mark" src="ui/icons/cloudflare.svg"'), 'a shipped mark file');
+assert(modelName('cloudflare/@cf/inclusionai/ling-3.0-flash').includes('class="mark chip"'), 'a name with no file keeps the chip');
+assert(sandbox.__probe.MARK_FILES.has('cloudflare') && sandbox.__probe.MARK_FILES.has('z-ai'), 'the shipped mark set');
 """
   subprocess.run(["node", "-e", code], check=True)
+
+
+def test_the_mark_files_match_the_icon_folder() -> None:
+  """The app.js mark set holds each shipped SVG name, and no other name."""
+  source = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  block = source.partition("const MARK_FILES = new Set([")[2].partition("]);")[0]
+  assert block, "the mark set is a literal"
+  names = set(re.findall(r'"([a-z0-9-]+)"', block))
+  files = {path.stem for path in Path("daedalus/dashboard/ui/icons").glob("*.svg")}
+  assert files == names, "the set and the folder hold the same names"
 
 
 def test_app_js_state_chip() -> None:
