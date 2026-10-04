@@ -730,6 +730,9 @@ def test_the_parallel_race_reads_on_the_page() -> None:
   assert "race?.enabled" in app and 'line("Parallel"' in app, (
     "the status card shows the applied race values"
   )
+  assert "RACE_NOTES" in app and 'slow: "slw"' in app and "raceCode" in app, (
+    "each row names the race decision with a 3 letter code"
+  )
 
 
 def test_the_requests_head_keeps_its_rule_while_it_sticks() -> None:
