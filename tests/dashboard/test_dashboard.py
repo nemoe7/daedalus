@@ -617,6 +617,9 @@ def test_app_js_modal() -> None:
   """A confirmation opens the modal: Confirm resolves true, and any other close resolves false."""
   source = Path("daedalus/dashboard/ui/app.js").read_text()
   assert "confirm(" not in source, "the dashboard uses the modal, not window.confirm"
+  assert "prompt(" not in source, (
+    "the New provider flow uses the modal, not window.prompt"
+  )
   code = """
 const fs = require('fs');
 const vm = require('vm');
@@ -648,7 +651,14 @@ assert(modal.shown, 'the modal opens');
 assert.strictEqual(node('modal-title').textContent, 'Log out');
 assert.strictEqual(node('modal-message').textContent, 'The dashboard session ends.');
 assert.strictEqual(node('modal-ok').textContent, 'Log out');
+assert.strictEqual(node('modal-field').hidden, true, 'a confirmation hides the name field');
 modal.listeners.close({ target: { returnValue: 'ok' } });
+const asked = probe.ask('New provider', 'Lowercase letters, digits and dashes.', 'Create', false, 'Provider name');
+assert.strictEqual(node('modal-field').hidden, false, 'the name field shows');
+assert.strictEqual(node('modal-input').placeholder, 'Provider name');
+node('modal-input').value = 'acme';
+modal.listeners.close({ target: { returnValue: 'ok' } });
+asked.then((value) => assert.strictEqual(value, true, 'a name modal resolves true'));
 const refused = probe.ask('Delete key', 'Clients with the key get 401 at once.', 'Delete', true);
 modal.listeners.close({ target: { returnValue: 'cancel' } });
 answer.then((value) => {

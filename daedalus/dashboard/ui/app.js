@@ -44,17 +44,23 @@ const cell = (label, inner, cls = "") =>
   `<td role="cell"${cls ? ` class="${cls}"` : ""}>${mobileLabel(label)}<span class="cell-value">${inner}</span></td>`;
 
 // A confirmation modal in place of window.confirm. It resolves true on Confirm.
+// A placeholder shows the name field: the caller reads modal-input after a true.
 let settle = null;
-function ask(title, message, confirm = "Confirm", danger = false) {
+function ask(title, message, confirm = "Confirm", danger = false, placeholder = null) {
   return new Promise((resolve) => {
     settle = resolve;
     $("modal-title").textContent = title;
     $("modal-message").textContent = message;
+    $("modal-field").hidden = placeholder === null;
+    const box = $("modal-input");
+    box.value = "";
+    box.placeholder = placeholder ?? "";
     const ok = $("modal-ok");
     ok.textContent = confirm;
     ok.classList.toggle("danger", danger);
     $("modal").returnValue = "";
     $("modal").showModal();
+    if (placeholder !== null) box.focus?.();
   });
 }
 
@@ -1814,7 +1820,11 @@ async function reloadFiles(keep) {
 $("new-provider").addEventListener("click", async () => {
   const message = $("save-message");
   message.textContent = "";
-  const name = prompt("Provider name: lowercase letters, digits and dashes.");
+  const ok = await ask(
+    "New provider", "Lowercase letters, digits and dashes.", "Create", false, "Provider name",
+  );
+  if (!ok) return;
+  const name = $("modal-input").value.trim();
   if (!name) return;
   try {
     const made = await call("files", { method: "POST", body: JSON.stringify({ name }) });
@@ -1889,6 +1899,13 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("beforeunload", (event) => {
   if (dirty() || settingsDirty()) event.preventDefault();
+});
+
+// Enter in the name field confirms, as the first submit button is Cancel.
+$("modal-input").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  $("modal-ok").click();
 });
 
 // The dialog closes on Confirm, on Cancel, on Escape and on a backdrop click.
