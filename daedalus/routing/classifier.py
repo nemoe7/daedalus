@@ -307,3 +307,26 @@ def predict(
     TIERS[-1],
   )
   return Prediction(probabilities=probabilities, required_tier=required)
+
+
+# The artifact of the signal calls, loaded on the first use.
+_SIGNAL_ARTIFACT: list[Artifact] = []
+
+
+def signal(prompt: str) -> dict[str, Any]:
+  """The heuristics v2 read of 1 prompt: the tier, the odds per tier, the type and the cohort."""
+  kind = classify_prompt(prompt)
+  cohort = similarity_cohort(prompt, kind)
+  if not _SIGNAL_ARTIFACT:
+    _SIGNAL_ARTIFACT.append(load_artifact())
+  prediction = predict(prompt, _SIGNAL_ARTIFACT[0], kind)
+  return {
+    "required_tier": prediction.required_tier,
+    "tier_name": TIER_NAMES[prediction.required_tier],
+    "probabilities": {
+      TIER_NAMES[tier]: round(float(value), 4)
+      for tier, value in prediction.probabilities.items()
+    },
+    "request_type": kind.value,
+    "cohort": cohort,
+  }

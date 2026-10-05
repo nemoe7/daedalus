@@ -25,6 +25,7 @@ For each point, the file defines 1 function with the name of the point.
 | --- | --- | --- | --- |
 | `on-request` | `on_request(value, model, headers)` | Before the chain of a chat request, and again on a repeat with the count | `value`: `key` (`None`), `digest`, the hash of the messages without the system rows, and on the second run `count`. `model`: the requested model. `headers`: the client headers. |
 | `on-catalog` | `on_catalog(row, model, api_base, headers)` | At each catalog build, for each model with the hook, before the store write | `row`: a catalog row, the id cannot change. `api_base`, `headers`: for the provider API calls. |
+| `on-prompt` | `on_prompt(value, messages, prompt, model, tier, tier_name, slot, signal, reasoning, effort, body, config, key)` | Before the first attempt of a chat request, when the chain holds a reasoning model | `value`: `reasoning_effort`, the effort of the tier map. `signal`: the heuristics v2 read, `required_tier`, `tier_name`, `probabilities`, `request_type` and `cohort`. `reasoning`: the chain models that support reasoning. `effort`: the value of the client, `None` when it sent none. |
 | `on-upstream` | `on_upstream(body, model, headers)` | Before each chat request to the provider, streams and fallbacks included | `body`: the upstream JSON body, native format for native APIs. `model`: `provider/slug`. `headers`: changeable. |
 | `on-answer` | `on_answer(answer, model)` | After a full chat answer comes back, before the client gets it | `answer`: the answer in the OpenAI format. A stream has no `on-answer` point. |
 | `on-chunk` | `on_chunk(chunk, model, context)` | On each streamed chunk of a chat request, before the client gets it | `chunk`: 1 OpenAI chunk. `model`: the requested model. `context`: `previous` is the model of the last answer of the session. It is empty on the first answer. `attempts`: the failures so far. `code`: the retry code. `pool`: the landed pool. `served`: the landed model. |
@@ -34,7 +35,8 @@ For each point, the file defines 1 function with the name of the point.
 flowchart TD
   A[Client request] --> B{{on-request}}
   B --> C[Catalog pick and fallback chain]
-  C --> D{{on-upstream}}
+  C --> P{{on-prompt}}
+  P --> D{{on-upstream}}
   D --> E[Provider API]
   E --> F{{on-answer}}
   F --> G[Client answer]
@@ -51,10 +53,24 @@ A request-level point, such as `on-request`, takes its files from the `request_h
 ```yaml
 request_hooks:
   on-request: [hooks/openwebui_retry.py]
+  on-prompt: []
   on-chunk: [hooks/pick.py]
 ```
 
 Each key holds a list of files, and they run in list order. 1 path on its own works too. An empty list turns that point off. The `on-init` point has no group of its own: the dashboard reads the `on_init` function of each file in `request_hooks`. The legend card shows those rows below the base rows, and a file with no `on_init` adds no row. A file that sets `value["key"]` counts the requests of that key: a repeat after an answer is a try again.
+
+### The reasoning effort
+
+The `on-prompt` point sets `reasoning_effort` for the request. 4 levels decide, and the narrow one wins:
+
+| Level | Value |
+| --- | --- |
+| The client | A `reasoning_effort` of the request body |
+| A hook file | The value of `value["reasoning_effort"]` after the files of the point |
+| The catalog | The stored effort of the model, from discovery or the provider file |
+| The tier map | `TIER-D` none, `TIER-C` low, `TIER-B` medium, `TIER-A` high |
+
+The core map works with no hook file: `TIER-D` takes no thinking tokens, and `TIER-A` thinks at `high`. A chain with no reasoning model gets no call and no effort. `upstream.without_reasoning` drops the field for a model the catalog marks as no reasoner.
 
 `daedalus` then drops the models that answered the message: `daedalus/auto` steps the tier 1 step up, and a named pool keeps its pool. The point runs again with `count` filled in. A file that writes `value["code"]` sets the code of the Requests row, such as `rt1`. Without a `key`, a repeat is a new request.
 

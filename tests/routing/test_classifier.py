@@ -152,6 +152,16 @@ def test_posterior_mean_pulls_a_row_toward_the_tier_above() -> None:
   assert classifier._posterior_mean(stat, 200.0, 0.5) == pytest.approx(101.0 / 201.0)
 
 
+def test_signal_reports_the_heuristics_read() -> None:
+  """The signal names the tier, the odds per tier, the type and the cohort."""
+  found = classifier.signal(CODE)
+  assert found["tier_name"] == classifier.TIER_NAMES[found["required_tier"]]
+  assert found["request_type"] == classifier.RequestType.CODE_GENERATION.value
+  assert found["cohort"].startswith("code_generation|short|")
+  assert set(found["probabilities"]) == set(classifier.TIER_NAMES.values())
+  assert all(0 <= value <= 1 for value in found["probabilities"].values())
+
+
 def test_predict_gives_odds_that_never_fall() -> None:
   """The odds per tier are monotonic, so a higher tier is never worse."""
   found = classifier.predict(CODE, classifier.load_artifact())
