@@ -30,7 +30,7 @@ GLM = "openrouter/z-ai/glm-5.3-flash"
 
 @pytest.fixture
 def cheapest():
-  module = hooks.load(FOLDER / "cheapest_output.py")
+  module = hooks.load(FOLDER / "or_cheapest_output.py")
   assert module is not None
   module.orders_file().unlink(missing_ok=True)
   return module
@@ -107,7 +107,7 @@ def test_example() -> None:
 
 def test_pick_line() -> None:
   """The pick line: the tier letter and the slug for `daedalus/auto`, the slug alone for a pool."""
-  module = hooks.load(FOLDER / "pick.py")
+  module = hooks.load(FOLDER / "model_served.py")
   assert module is not None
   context = {"pool": "sophos", "served": "kilo/poolside/laguna-s-2.1:free"}
   auto = module.on_chunk(
@@ -126,7 +126,7 @@ def test_pick_line() -> None:
 
 def test_pick_needs_a_change() -> None:
   """The same session model draws nothing, the first answer draws, and a retry code draws."""
-  module = hooks.load(FOLDER / "pick.py")
+  module = hooks.load(FOLDER / "model_served.py")
   assert module is not None
   stop = {"choices": [{"finish_reason": "stop"}]}
   assert "usage" not in module.on_chunk(
@@ -150,12 +150,12 @@ def test_pick_needs_a_change() -> None:
 def test_pick_named_on_the_pools() -> None:
   """The shipped config names the pick for the pools and the reserved model, and for no other provider."""
   text = (FOLDER.parent / "daedalus.yml").read_text()
-  assert "on-chunk: [hooks/pick.py]" in text
-  entries = {"on-request": "hooks/openwebui_retry.py", "on-chunk": "hooks/pick.py"}
-  target = hooks.CONFIG_DIR / "hooks" / "pick.py"
+  assert "on-chunk: [hooks/model_served.py]" in text
+  entries = {"on-request": "hooks/owui_retry.py", "on-chunk": "hooks/model_served.py"}
+  target = hooks.CONFIG_DIR / "hooks" / "model_served.py"
   target.parent.mkdir(parents=True, exist_ok=True)
   target.write_text("", encoding="utf-8")
   found = hooks.request_files(entries, "on-chunk")
-  assert [path.name for path in found] == ["pick.py"]
+  assert [path.name for path in found] == ["model_served.py"]
   assert hooks.request_files(entries, "on-answer") == []
   assert hooks.request_files({"on-chunk": ""}, "on-chunk") == []

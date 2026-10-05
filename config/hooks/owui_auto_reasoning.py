@@ -3,7 +3,7 @@
 1 file holds the 2 intertwined surfaces of the ladder:
 
   on_prompt   the point `request_hooks.on-prompt`: the level of the message at hand
-  on_http     the route `POST /v1/hook/auto_reasoning`: the next rung, for a client
+  on_http     the route `POST /v1/hook/owui_auto_reasoning`: the next rung, for a client
 
 Both surfaces read the heuristics v2 tier of a prompt. The point reads the message at hand,
 so each message of a chat gets its own level, and it serves the client of `CLIENT` alone. The route starts from the rung of the last

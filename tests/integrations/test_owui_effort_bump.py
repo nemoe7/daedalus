@@ -122,7 +122,9 @@ def run(action, body=None, emitter=None):
 def test_the_surface_of_the_action():
   """The action holds the light-bulb icon, the 2 routes and the shipped valves."""
   assert MOD.icon_url.startswith("data:image/svg+xml;base64,")
-  assert MOD.LADDER == "/v1/hook/auto_reasoning" and MOD.CHAT == "/v1/chat/completions"
+  assert (
+    MOD.LADDER == "/v1/hook/owui_auto_reasoning" and MOD.CHAT == "/v1/chat/completions"
+  )
   valves = Action.Valves()
   assert valves.DAEDALUS_API_BASE == "http://127.0.0.1:3357"
   assert valves.DAEDALUS_API_KEY == "" and valves.timeout_seconds == 300
@@ -135,7 +137,7 @@ def test_one_press_bumps_then_answers_again():
   found = run(action)
   assert len(session.calls) == 2
   ladder, chat = session.calls
-  assert ladder["url"] == "http://127.0.0.1:3357/v1/hook/auto_reasoning"
+  assert ladder["url"] == "http://127.0.0.1:3357/v1/hook/owui_auto_reasoning"
   assert ladder["headers"]["Authorization"] == "Bearer test-key"
   assert ladder["json"] == {
     "messages": [
@@ -174,7 +176,7 @@ def test_the_base_url_loses_a_trailing_slash():
   action, session = make_action()
   action.valves.DAEDALUS_API_BASE = "http://host.test:1/"
   run(action)
-  assert session.calls[0]["url"] == "http://host.test:1/v1/hook/auto_reasoning"
+  assert session.calls[0]["url"] == "http://host.test:1/v1/hook/owui_auto_reasoning"
 
 
 def test_a_missing_key_stops_before_the_network():

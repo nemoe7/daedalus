@@ -733,7 +733,7 @@ async def first_winner(tries: list[Try]) -> Try | None:
 async def hook_call(request: Request, file: str) -> Response:
   """Run the `on_http` function of 1 hook file, and answer with the dict it returns.
 
-  The file sits under `config/hooks`, and its path names it, for example `auto_reasoning.py`.
+  The file sits under `config/hooks`, and its path names it, for example `owui_auto_reasoning.py`.
   Any valid key may call it, so treat a hook file as admin code.
   """
   denied = access.check_api_key(request)

@@ -153,15 +153,17 @@ def test_no_reasoning_model(
 def test_the_shipped_ladder_file_sets_the_effort(
   provider: Provider, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The shipped `auto_reasoning.py` sets the level from the heuristics read of the prompt."""
+  """The shipped `owui_auto_reasoning.py` sets the level from the heuristics read of the prompt."""
   shipped = (
-    Path(__file__).resolve().parents[2] / "config" / "hooks" / "auto_reasoning.py"
+    Path(__file__).resolve().parents[2] / "config" / "hooks" / "owui_auto_reasoning.py"
   )
-  target = hooks.CONFIG_DIR / "hooks" / "auto_reasoning.py"
+  target = hooks.CONFIG_DIR / "hooks" / "owui_auto_reasoning.py"
   target.parent.mkdir(parents=True, exist_ok=True)
   target.write_text(shipped.read_text(encoding="utf-8"), encoding="utf-8")
   hooks._loaded.pop(target.resolve(), None)
-  monkeypatch.setattr(api, "REQUEST_HOOKS", {"on-prompt": ["hooks/auto_reasoning.py"]})
+  monkeypatch.setattr(
+    api, "REQUEST_HOOKS", {"on-prompt": ["hooks/owui_auto_reasoning.py"]}
+  )
   monkeypatch.setattr(
     upstream.store, "model_limits", lambda candidate: {"reasoning_effort": "minimal"}
   )
@@ -176,15 +178,17 @@ def test_the_shipped_ladder_file_sets_the_effort(
 def test_the_shipped_ladder_file_skips_another_client(
   provider: Provider, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The shipped `auto_reasoning.py` leaves the effort of Kilo and of a generic client alone."""
+  """The shipped `owui_auto_reasoning.py` leaves the effort of Kilo and of a generic client alone."""
   shipped = (
-    Path(__file__).resolve().parents[2] / "config" / "hooks" / "auto_reasoning.py"
+    Path(__file__).resolve().parents[2] / "config" / "hooks" / "owui_auto_reasoning.py"
   )
-  target = hooks.CONFIG_DIR / "hooks" / "auto_reasoning.py"
+  target = hooks.CONFIG_DIR / "hooks" / "owui_auto_reasoning.py"
   target.parent.mkdir(parents=True, exist_ok=True)
   target.write_text(shipped.read_text(encoding="utf-8"), encoding="utf-8")
   hooks._loaded.pop(target.resolve(), None)
-  monkeypatch.setattr(api, "REQUEST_HOOKS", {"on-prompt": ["hooks/auto_reasoning.py"]})
+  monkeypatch.setattr(
+    api, "REQUEST_HOOKS", {"on-prompt": ["hooks/owui_auto_reasoning.py"]}
+  )
   monkeypatch.setattr(
     upstream.store, "model_limits", lambda candidate: {"reasoning_effort": "minimal"}
   )
@@ -196,7 +200,9 @@ def test_the_shipped_ladder_file_skips_another_client(
 
 def shipped_levels() -> dict[int, str]:
   """The level table of the shipped ladder file, read from the file itself."""
-  path = Path(__file__).resolve().parents[2] / "config" / "hooks" / "auto_reasoning.py"
+  path = (
+    Path(__file__).resolve().parents[2] / "config" / "hooks" / "owui_auto_reasoning.py"
+  )
   spec = importlib.util.spec_from_file_location("shipped_auto_reasoning", path)
   assert spec and spec.loader, path
   module = importlib.util.module_from_spec(spec)
