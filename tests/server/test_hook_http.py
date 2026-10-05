@@ -1,7 +1,5 @@
 """Tests for `POST /v1/hook/{file}`: the HTTP surface of the hook files."""
 
-from pathlib import Path
-
 from fastapi.testclient import TestClient
 
 from daedalus.providers import hooks
@@ -143,56 +141,3 @@ def test_hook_http_refuses_a_bad_body() -> None:
   client = TestClient(api.app, headers=AUTH)
   assert client.post(f"/v1/hook/{name}", content="[").status_code == 400
   assert client.post(f"/v1/hook/{name}", json=["a"]).status_code == 400
-
-
-def test_the_shipped_ladder_hook_steps_the_level() -> None:
-  """The shipped `owui_think_longer.py` steps the level of the last answer, on the same model."""
-  module = hooks.load(Path("config") / "hooks" / "owui_think_longer.py")
-  api.PENALTIES.record_level("chat-1", "low")
-  found = module.on_http(
-    {"model": "daedalus/auto"},
-    key="chat-1",
-    prompt="why is this slow",
-    headers={},
-    level=api.PENALTIES.last_level("chat-1"),
-  )
-  assert found["model"] == "daedalus/auto"
-  assert found["reasoning_effort"] == "medium"
-  assert found["tier_name"] == "TIER-B"
-  assert found["before"]["reasoning_effort"] == "low"
-  assert found["top"] is False
-
-
-def test_the_shipped_ladder_hook_reads_the_prompt_and_the_body() -> None:
-  """A chat with no level starts from the read of its prompt, or from the turns of its body."""
-  module = hooks.load(Path("config") / "hooks" / "owui_think_longer.py")
-  read = api.router.required_tier("why is this slow")
-  fresh = module.on_http({}, key="chat-3", prompt="why is this slow", headers={})
-  assert fresh["before"]["tier"] == read
-  assert fresh["tier"] == min(read + 1, 4)
-  turns = module.on_http(
-    {
-      "model": "daedalus/auto",
-      "messages": [{"role": "user", "content": "why is this slow"}],
-    },
-    key="chat-5",
-    headers={},
-  )
-  assert turns["before"]["tier"] == read
-  assert turns["model"] == "daedalus/auto"
-
-
-def test_the_shipped_ladder_hook_stops_at_the_top() -> None:
-  """`high` is the top of the ladder: the answer keeps it and `top` says so."""
-  module = hooks.load(Path("config") / "hooks" / "owui_think_longer.py")
-  api.PENALTIES.record_level("chat-4", "high")
-  found = module.on_http(
-    {"model": "daedalus/auto"},
-    key="chat-4",
-    prompt="hard",
-    headers={},
-    level=api.PENALTIES.last_level("chat-4"),
-  )
-  assert found["reasoning_effort"] == "high"
-  assert found["before"]["reasoning_effort"] == "high"
-  assert found["top"] is True

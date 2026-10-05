@@ -116,7 +116,7 @@ def test_no_hook_no_retry(client: TestClient) -> None:
 
 def test_shipped_hook_legend(client: TestClient) -> None:
   """The shipped hook names its row of the code legend."""
-  assert hooks.init_rows({"on-request": "hooks/owui_retry.py"}) == [
+  assert hooks.init_rows({"on-request": "hooks/owui_auto_reasoning_effort.py"}) == [
     ["rtN", "A repeat picked another model, N times"]
   ]
 
@@ -134,9 +134,11 @@ def shipped_hook() -> str:
   """The shipped Open WebUI hook, copied into the config folder of the test."""
   folder = hooks.CONFIG_DIR / "hooks"
   folder.mkdir(parents=True, exist_ok=True)
-  target = folder / "owui_retry.py"
-  target.write_text(Path("config/hooks/owui_retry.py").read_text(encoding="utf-8"))
-  return "hooks/owui_retry.py"
+  target = folder / "owui_auto_reasoning_effort.py"
+  target.write_text(
+    Path("config/hooks/owui_auto_reasoning_effort.py").read_text(encoding="utf-8")
+  )
+  return "hooks/owui_auto_reasoning_effort.py"
 
 
 @pytest.fixture(scope="module")

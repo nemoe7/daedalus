@@ -164,23 +164,26 @@ def test_no_reasoning_model(
 
 
 def ladder_file(monkeypatch: pytest.MonkeyPatch) -> None:
-  """Write the shipped ladder file into the hook folder, and name it in the prompt point."""
+  """Write the shipped hook into the hook folder, and name it in the prompt point."""
   shipped = (
-    Path(__file__).resolve().parents[2] / "config" / "hooks" / "owui_think_longer.py"
+    Path(__file__).resolve().parents[2]
+    / "config"
+    / "hooks"
+    / "owui_auto_reasoning_effort.py"
   )
-  target = hooks.CONFIG_DIR / "hooks" / "owui_think_longer.py"
+  target = hooks.CONFIG_DIR / "hooks" / "owui_auto_reasoning_effort.py"
   target.parent.mkdir(parents=True, exist_ok=True)
   target.write_text(shipped.read_text(encoding="utf-8"), encoding="utf-8")
   hooks._loaded.pop(target.resolve(), None)
   monkeypatch.setattr(
-    api, "REQUEST_HOOKS", {"on-prompt": ["hooks/owui_think_longer.py"]}
+    api, "REQUEST_HOOKS", {"on-prompt": ["hooks/owui_auto_reasoning_effort.py"]}
   )
 
 
 def test_the_shipped_ladder_file_sets_the_effort(
   provider: Provider, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The shipped `owui_think_longer.py` sets the level from the heuristics read of the prompt."""
+  """The shipped `owui_auto_reasoning_effort.py` sets the level from the heuristics read of the prompt."""
   ladder_file(monkeypatch)
   monkeypatch.setattr(
     upstream.store, "model_limits", lambda candidate: {"reasoning_effort": "minimal"}
@@ -196,7 +199,7 @@ def test_the_shipped_ladder_file_sets_the_effort(
 def test_the_shipped_ladder_file_skips_another_client(
   provider: Provider, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The shipped `owui_think_longer.py` leaves the effort of Kilo and of a generic client alone."""
+  """The shipped `owui_auto_reasoning_effort.py` leaves the effort of Kilo and of a generic client alone."""
   ladder_file(monkeypatch)
   monkeypatch.setattr(
     upstream.store, "model_limits", lambda candidate: {"reasoning_effort": "minimal"}
@@ -210,9 +213,12 @@ def test_the_shipped_ladder_file_skips_another_client(
 def shipped_levels() -> dict[int, str]:
   """The level table of the shipped ladder file, read from the file itself."""
   path = (
-    Path(__file__).resolve().parents[2] / "config" / "hooks" / "owui_think_longer.py"
+    Path(__file__).resolve().parents[2]
+    / "config"
+    / "hooks"
+    / "owui_auto_reasoning_effort.py"
   )
-  spec = importlib.util.spec_from_file_location("shipped_think_longer", path)
+  spec = importlib.util.spec_from_file_location("shipped_ladder", path)
   assert spec and spec.loader, path
   module = importlib.util.module_from_spec(spec)
   spec.loader.exec_module(module)
@@ -222,7 +228,10 @@ def shipped_levels() -> dict[int, str]:
 def shipped_module():
   """The shipped ladder file, loaded from the file itself."""
   path = (
-    Path(__file__).resolve().parents[2] / "config" / "hooks" / "owui_think_longer.py"
+    Path(__file__).resolve().parents[2]
+    / "config"
+    / "hooks"
+    / "owui_auto_reasoning_effort.py"
   )
   spec = importlib.util.spec_from_file_location("shipped_ladder", path)
   assert spec and spec.loader, path
@@ -231,7 +240,7 @@ def shipped_module():
   return module
 
 
-def test_the_shipped_ladder_file_steps_a_try_again() -> None:
+def test_the_shipped_hook_steps_a_try_again() -> None:
   """A try again steps the level of the last answer 1 up, and never past `high`."""
   module = shipped_module()
   value: dict = {}
@@ -241,73 +250,66 @@ def test_the_shipped_ladder_file_steps_a_try_again() -> None:
   module.on_prompt(value, prompt="why is this slow", app="OWUI", retry=1, level="high")
   assert value["reasoning_effort"] == "high", "the cap is high"
   value = {}
-  module.on_prompt(value, prompt="why is this slow", app="OWUI", retry=2, level=None)
-  read = int(api.router.required_tier("why is this slow"))
-  assert value["reasoning_effort"] == module.LEVELS[min(read + 1, 4)]
+  module.on_prompt(
+    value, prompt="why is this slow", app="OWUI", retry=7, level="medium"
+  )
+  assert value["reasoning_effort"] == "high"
+  value = {}
+  module.on_prompt(
+    value,
+    prompt="why is this slow",
+    effort="minimal",
+    app="OWUI",
+    retry=1,
+    level="none",
+  )
+  assert value["reasoning_effort"] == "low", (
+    "the step keeps the value of the client as a floor"
+  )
 
 
-def test_the_shipped_ladder_file_reads_the_field() -> None:
-  """A `think_longer` field asks for its count of steps above the level of the last answer."""
+def test_the_shipped_hook_takes_the_read_after_no_reasoned_answer() -> None:
+  """A try again after an answer with no level takes the read of the message, and no step."""
   module = shipped_module()
+  read = int(api.router.required_tier("why is this slow"))
   value: dict = {}
-  module.on_prompt(
-    value, prompt="why is this slow", body={"think_longer": 2}, level="none"
-  )
-  assert value["reasoning_effort"] == "medium"
+  module.on_prompt(value, prompt="why is this slow", app="OWUI", retry=1, level=None)
+  assert value["reasoning_effort"] == module.LEVELS[read]
   value = {}
-  module.on_prompt(value, prompt="why is this slow", body={"think_longer": True})
+  module.on_prompt(
+    value, prompt="why is this slow", effort="high", app="OWUI", retry=1, level=None
+  )
+  assert value["reasoning_effort"] == module.LEVELS[read], "no reasoned answer, no step"
+
+
+def test_the_shipped_hook_keeps_the_client_value_and_the_other_client() -> None:
+  """A new message keeps the value of the client and the read serves `OWUI` alone."""
+  module = shipped_module()
   read = int(api.router.required_tier("why is this slow"))
-  assert value["reasoning_effort"] == module.LEVELS[min(read + 1, 4)]
+  value: dict = {}
+  module.on_prompt(value, prompt="why is this slow", effort="minimal", app="OWUI")
+  assert value == {}, "a client value keeps the last word"
   value = {}
-  module.on_prompt(
-    value, prompt="why is this slow", body={"think_longer": 9}, level="low"
-  )
-  assert value["reasoning_effort"] == "high", "the field never passes the cap"
+  module.on_prompt(value, prompt="why is this slow", app="Kilo")
+  assert value == {}, "another client keeps its own effort"
   value = {}
-  module.on_prompt(
-    value, prompt="why is this slow", body={"think_longer": 0}, app="Kilo"
-  )
-  assert value == {}, "a zero field is no field, and another client keeps its effort"
-  read = int(api.router.required_tier("why is this slow"))
-  value = {}
-  module.on_prompt(
-    value, prompt="why is this slow", effort="minimal", body={"think_longer": 2}
-  )
-  assert value["reasoning_effort"] == module.LEVELS[min(read + 2, 4)], (
-    "a press wins over the value of the client"
-  )
+  module.on_prompt(value, prompt="why is this slow", app="OWUI")
+  assert value["reasoning_effort"] == module.LEVELS[read]
 
 
-def test_the_shipped_ladder_file_reads_the_field_over_the_route(
-  provider: Provider, monkeypatch: pytest.MonkeyPatch
-) -> None:
-  """A `think_longer` field steps the level over the route, and never goes upstream."""
-  api.PENALTIES.clear()
-  ladder_file(monkeypatch)
-  written = post(provider, "daedalus/auto:TIER-B", {**BODY, "think_longer": 1})
-  read = int(api.router.required_tier(BODY["messages"][0]["content"]))
-  assert written["reasoning_effort"] == shipped_levels()[min(read + 1, 4)]
-  assert "think_longer" not in written, "a daedalus field never goes upstream"
-
-
-def test_the_shipped_ladder_file_beats_a_client_effort(
-  provider: Provider, monkeypatch: pytest.MonkeyPatch
-) -> None:
-  """A `think_longer` field steps above the value of the client. Without it, the client keeps it."""
-  api.PENALTIES.clear()
-  ladder_file(monkeypatch)
-  read = int(api.router.required_tier(BODY["messages"][0]["content"]))
-  pressed = post(
-    provider,
-    "daedalus/auto:TIER-B",
-    {**BODY, "reasoning_effort": "minimal", "think_longer": 1},
+def test_the_shipped_hook_writes_the_retry_key_and_the_code() -> None:
+  """The try-again rule names the turn from the chat header, and writes `rtN` on a repeat."""
+  module = shipped_module()
+  value = {"digest": "d1"}
+  assert module.on_request(value, "daedalus/auto", {}) is None, "no header, no turn"
+  assert (
+    module.on_request(value, "daedalus/auto", {"x-openwebui-chat-id": "c1"}) == value
   )
-  assert pressed["reasoning_effort"] == shipped_levels()[min(read + 1, 4)]
-  assert pressed["reasoning_effort"] != "minimal"
-  plain = post(
-    provider, "daedalus/auto:TIER-B", {**BODY, "reasoning_effort": "minimal"}
-  )
-  assert plain["reasoning_effort"] == "minimal", "a client value keeps the last word"
+  assert value["key"] == "c1\x00d1"
+  value["count"] = 2
+  module.on_request(value, "daedalus/auto", {"x-openwebui-chat-id": "c1"})
+  assert value["code"] == "rt2"
+  assert module.on_init() == [["rtN", "A repeat picked another model, N times"]]
 
 
 def test_a_hook_file_wins_over_the_client(

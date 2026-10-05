@@ -285,11 +285,11 @@ sequenceDiagram
 
 A try again in Open WebUI moves the repeated message 1 tier up on `daedalus/auto`, and it
 picks another model of the same pool on a named pool. The rule needs a request hook. The
-shipped [`owui_retry`](hooks/owui_retry.md) file holds it. A repeat is a new request with no hook.
+shipped [`owui_auto_reasoning_effort`](hooks/owui_auto_reasoning_effort.md) file holds it. A repeat is a new request with no hook.
 
 | Item | Value |
 | --- | --- |
-| Needs | A request hook that writes the key of the turn, such as the shipped [`owui_retry`](hooks/owui_retry.md) file. |
+| Needs | A request hook that writes the key of the turn, such as the shipped [`owui_auto_reasoning_effort`](hooks/owui_auto_reasoning_effort.md) file. |
 | Found by | The same chat id and messages as an earlier answered request, system messages excluded. |
 | Tier | On `daedalus/auto`, 1 above the pool that answered the last attempt |
 | At tier A | A tier A model that did not answer this message. After all, the list restarts. |
