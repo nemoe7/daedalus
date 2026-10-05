@@ -1003,7 +1003,9 @@ function mapPills(values, path, kind, separator) {
 // re-render of 1 list never touches the other fields.
 function listValue(group, key) {
   state.settings.lists ||= {};
-  return state.settings.lists[`${group}.${key}`] ?? setting(group, key);
+  const found = state.settings.lists[`${group}.${key}`] ?? setting(group, key);
+  // An older file holds 1 path where the form holds a list.
+  return Array.isArray(found) ? found : found ? [found] : [];
 }
 
 function setListValue(group, key, values) {
@@ -1014,6 +1016,31 @@ const settingPill = (group, key, value, index) => `<span class="pill">${esc(valu
   data-setting-drop='${esc(JSON.stringify([group, key, index]))}'>&times;</button></span>`;
 const settingAdder = (group, key) => `<button type="button" class="add"
   data-setting-add='${esc(JSON.stringify([group, key]))}'>+ Add</button>`;
+
+// A hook row: 1 file of the hooks folder. The row picks from the files of that folder.
+const hookRow = (group, key, value, index) => {
+  const files = state.settings.hook_files || [];
+  const names = files.includes(value) || !value ? files : [...files, value];
+  const options = ['<option value="">- no file -</option>'].concat(names.map((name) =>
+    `<option value="${esc(name)}"${name === value ? " selected" : ""
+    }>${esc(name.replace(/^hooks\//, ""))}</option>`)).join("");
+  return `<span class="pill hook"><select data-hook-select='${esc(JSON.stringify([group, key, index]))}'
+    aria-label="Hook file">${options}</select><button type="button" title="Delete"
+    data-hook-drop='${esc(JSON.stringify([group, key, index]))}'>&times;</button></span>`;
+};
+
+const hookList = (group, key) => {
+  const rows = listValue(group, key)
+    .map((value, index) => hookRow(group, key, value, index)).join("") ||
+    '<em class="none">No hook file</em>';
+  return `${rows}<button type="button" class="add"
+    data-hook-add='${esc(JSON.stringify([group, key]))}'>+ Add file</button>`;
+};
+
+function renderHookList(group, key) {
+  const host = $(`set-${group}-${key}`);
+  if (host) host.innerHTML = hookList(group, key);
+}
 
 function renderSettingList(group, key) {
   const host = $(`set-${group}-${key}`);
@@ -1386,6 +1413,15 @@ async function switchView(view) {
   if (view === "form") renderForm();
 }
 
+// The request-level hook points, in the order of `daedalus/providers/hooks.py`.
+const HOOK_POINTS = [
+  ["on-catalog", "On catalog", "hooks", "At each catalog build, as the row goes to the store."],
+  ["on-request", "On request", "hooks", "Before the chain of a chat request, and on the repeat with the count. It sets the key of a turn."],
+  ["on-upstream", "On upstream", "hooks", "On the request body, before it goes to the provider."],
+  ["on-answer", "On answer", "hooks", "On the non-streamed answer of a provider."],
+  ["on-chunk", "On chunk", "hooks", "On each streamed chunk of a chat request."],
+];
+
 // The Settings form: [group, title, [[key, label, unit, hint], ...]].
 const SETTINGS = [
   ["timeouts", "Timeouts", [
@@ -1442,9 +1478,7 @@ const SETTINGS = [
     ["theme", "Theme", "choice", "System follows the light or dark setting of the device."],
     ["time_format", "Time format", "choice", "The hour of each shown time. Every time carries its date."],
   ]],
-  ["request_hooks", "Request hooks", [
-    ["on-request", "On request", "path", "The Python file of the config folder that sets the key of a turn. Empty: no hook."],
-  ]],
+  ["request_hooks", "Request hooks", HOOK_POINTS],
   ["pools", "Pool names", [
     ["tier-a", "Tier A", "name", "The client name of the tier A pool: sophos by default."],
     ["tier-b", "Tier B", "name", "The client name of the tier B pool: deinos by default."],
@@ -1500,6 +1534,11 @@ const MAXIMA = {
 // The value in the file, or null when the file does not set it.
 const fileValue = (group, key) => state.settings.file?.[group]?.[key] ?? null;
 const setting = (group, key) => fileValue(group, key) ?? state.settings.defaults[group][key];
+// A setting that holds a list of files: an older file holds 1 path.
+const settingList = (group, key) => {
+  const found = setting(group, key);
+  return Array.isArray(found) ? found : found ? [found] : [];
+};
 // The boolean settings, such as `enabled` and `change_on_draw`, are checkboxes in the form.
 const isSwitch = (group, key) => typeof state.settings.defaults[group][key] === "boolean";
 
@@ -1523,11 +1562,9 @@ function renderSettings() {
           <span class="input"><i class="prefix">daedalus/</i><input type="text" id="${id}" maxlength="40" spellcheck="false"
             value="${esc(fileValue(group, key) ?? "")}" placeholder="${esc(state.settings.defaults[group][key])}"></span></label>`;
       }
-      if (unit === "path") {
-        const value = fileValue(group, key);
-        return `<label class="field stack" for="${id}"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
-          <span class="input"><input type="text" id="${id}" spellcheck="false" value="${esc(value ?? "")}"
-            placeholder="${esc(state.settings.defaults[group][key] || "No hook")}"></span></label>`;
+      if (unit === "hooks") {
+        return `<div class="field stack"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
+          <div class="pills" id="${id}" aria-label="${esc(label)}">${hookList(group, key)}</div></div>`;
       }
       if (unit === "list") {
         const values = listValue(group, key);
@@ -1571,6 +1608,12 @@ function settingsChanges() {
       const input = $(`set-${group}-${key}`);
       if (!input) continue;
       let value, before;
+      if (unit === "hooks") {
+        value = listValue(group, key).filter(Boolean);
+        // An empty list removes the key, so the file keeps no copy of the default.
+        if (JSON.stringify(value) !== JSON.stringify(settingList(group, key))) (changes[group] ||= {})[key] = value.length ? value : null;
+        continue;
+      }
       if (unit === "list") {
         value = listValue(group, key);
         if (JSON.stringify(value) !== JSON.stringify(setting(group, key))) (changes[group] ||= {})[key] = value;
@@ -1585,9 +1628,6 @@ function settingsChanges() {
       } else if (unit === "name") {
         value = input.value.trim() || null;
         before = fileValue(group, key);
-      } else if (unit === "path") {
-        value = input.value.trim();
-        before = fileValue(group, key) ?? "";
       } else {
         value = input.value.trim() === "" ? null : Number(input.value);
         before = fileValue(group, key);
@@ -2058,11 +2098,37 @@ $("settings").addEventListener("input", (event) => {
   }
   renderSettingsSave();
 });
+$("settings").addEventListener("change", (event) => {
+  const pick = event.target.closest("[data-hook-select]");
+  if (!pick) return;
+  const [group, key, index] = JSON.parse(pick.dataset.hookSelect);
+  const values = [...listValue(group, key)];
+  values[index] = pick.value;
+  setListValue(group, key, values);
+  renderHookList(group, key);
+  renderSettingsSave();
+});
 $("settings").addEventListener("click", (event) => {
   const drop = event.target.closest("[data-setting-drop]");
   if (drop) return dropSetting(JSON.parse(drop.dataset.settingDrop));
   const add = event.target.closest("[data-setting-add]");
   if (add) showSettingAdder(add);
+  const hookAdd = event.target.closest("[data-hook-add]");
+  if (hookAdd) {
+    const [group, key] = JSON.parse(hookAdd.dataset.hookAdd);
+    setListValue(group, key, [...listValue(group, key), ""]);
+    renderHookList(group, key);
+    renderSettingsSave();
+  }
+  const hookDrop = event.target.closest("[data-hook-drop]");
+  if (hookDrop) {
+    const [group, key, index] = JSON.parse(hookDrop.dataset.hookDrop);
+    const values = [...listValue(group, key)];
+    values.splice(index, 1);
+    setListValue(group, key, values);
+    renderHookList(group, key);
+    renderSettingsSave();
+  }
 });
 $("settings-save").addEventListener("click", saveSettings);
 $("settings-views").addEventListener("click", (event) => {

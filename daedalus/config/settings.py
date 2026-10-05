@@ -67,8 +67,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
   },
   "switch": {"keywords": ["clanker"]},
   "dashboard": {"theme": "system", "time_format": "24h"},
-  # The request-level hook files. Each key is a hook point, and the value is a file path.
-  "request_hooks": {"on-request": "", "on-chunk": ""},
+  # The request-level hook files. Each key is a hook point, and the value is a list of file paths.
+  "request_hooks": {"on-request": [], "on-chunk": []},
   # The generic key of each pool, and the client name after `daedalus/` as its default.
   "pools": {
     "tier-a": "sophos",
@@ -114,7 +114,7 @@ def check(group: str, key: str, value: Any) -> Any:
   if group == "catalog":
     return schedule_value(name, key, value)
   if group == "request_hooks":
-    return hook_path(name, value)
+    return hook_paths(name, value)
   if group == "pools":
     if not isinstance(value, str) or not POOL_NAME.fullmatch(value) or value == "auto":
       raise SettingsError(
@@ -180,6 +180,17 @@ def hook_path(name: str, value: Any) -> str:
   if not isinstance(value, str) or value != value.strip() or not value:
     raise SettingsError(f"{name} must be a hook file path, or empty")
   return value
+
+
+def hook_paths(name: str, value: Any) -> list[str]:
+  """The hook files of 1 request point: 1 path, a list of paths, or empty for no hook."""
+  if value in (None, "", []):
+    return []
+  if isinstance(value, str):
+    return [hook_path(name, value)]
+  if not isinstance(value, list):
+    raise SettingsError(f"{name} must be a hook file path, or a list of them")
+  return [hook_path(name, item) for item in value]
 
 
 def schedule_value(name: str, key: str, value: Any) -> float:

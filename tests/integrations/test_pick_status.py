@@ -55,3 +55,17 @@ def test_a_chunk_without_the_key_draws_nothing() -> None:
   picked = {"usage": {"daedalus": {"line": "B \u00b7 kilo/y"}}}
   assert run(plugin.stream(picked, __event_emitter__=emit)) is picked
   assert seen == []
+
+
+def test_an_empty_line_draws_nothing() -> None:
+  """A pick with an empty or a non-string line draws no row, so the list has no empty entry."""
+  seen: list[dict[str, Any]] = []
+
+  async def emit(event: dict[str, Any]) -> None:
+    seen.append(event)
+
+  plugin = module.Filter()
+  for pick in ({"line": ""}, {"line": None}, {"line": 7}, {}):
+    chunk = {"usage": {"daedalus": pick}}
+    assert run(plugin.stream(chunk, __event_emitter__=emit)) is chunk
+  assert seen == []

@@ -8,7 +8,7 @@ Copy it, and name the copy in the hooks list of a model, provider or file:
 A request-level point, such as `on-request`, goes in the `request_hooks` group of `config/daedalus.yml`:
 
   request_hooks:
-    on-request: hooks/my_hook.py
+    on-request: [hooks/my_hook.py]
 
 Each function is optional. daedalus calls only the functions of the points in the list.
 A function gets a copy. It can change the copy and return None, or it can return a new dict.
