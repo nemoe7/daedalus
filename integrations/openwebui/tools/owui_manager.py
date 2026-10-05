@@ -4,7 +4,7 @@ author: nemo
 description: The Open WebUI workspace manager: knowledge bases, skills, the file library, Workspace Tools and Functions. Reads and new items run freely. Every overwrite, toggle and delete passes a confirmation gate. The preset attach stays private. Stdlib only.
 required_open_webui_version: 0.10.0
 version: 1.0.0
-licence: MIT
+licence: daedalus Noncommercial License 1.0.0
 """
 
 import asyncio
