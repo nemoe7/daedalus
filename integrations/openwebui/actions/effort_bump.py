@@ -1,7 +1,7 @@
 """
 title: Reasoning bump
 author: nemo
-description: The light-bulb action of the message toolbar. 1 press moves the chat 1 rung up the reasoning ladder of daedalus and answers the pressed turn again on that rung. The ladder is the hook file config/hooks/auto_reasoning.py.
+description: The light-bulb action of the message toolbar. 1 press moves the chat 1 rung up the reasoning ladder of daedalus and answers the pressed turn again on that rung. The ladder is the hook file config/hooks/owui_auto_reasoning.py.
 required_open_webui_version: 0.11.0
 version: 1.0.0
 licence: MIT
@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 icon_url = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTkgMThoNiIvPjxwYXRoIGQ9Ik0xMCAyMmg0Ii8+PHBhdGggZD0iTTEyIDJhNyA3IDAgMCAwLTQgMTIuN1YxOGg4di0zLjNBNyA3IDAgMCAwIDEyIDJ6Ii8+PC9zdmc+"
 
 # The hook file of the ladder, and the chat endpoint of daedalus.
-LADDER = "/v1/hook/auto_reasoning"
+LADDER = "/v1/hook/owui_auto_reasoning"
 CHAT = "/v1/chat/completions"
 
 

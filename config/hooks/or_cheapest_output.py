@@ -3,8 +3,8 @@
 Name this file 2 times in the hooks list of an OpenRouter model, provider or file:
 
   hooks:
-    - on-catalog: hooks/cheapest_output.py
-    - on-upstream: hooks/cheapest_output.py
+    - on-catalog: hooks/or_cheapest_output.py
+    - on-upstream: hooks/or_cheapest_output.py
 
 At each catalog build, on_catalog reads the endpoint list of each model with the hook.
 It sorts the list by output price after the discount, and the input price breaks a tie.

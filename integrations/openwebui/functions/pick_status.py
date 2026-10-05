@@ -1,7 +1,7 @@
 """Open WebUI Filter: the daedalus pick line, as a status above the answer body.
 
 Install this file as a Filter in the Admin Panel and turn it on. It reads `usage.daedalus`
-of the stream chunks, which `config/hooks/pick.py` writes on the chat pools, and draws the
+of the stream chunks, which `config/hooks/model_served.py` writes on the chat pools, and draws the
 line. The Filter itself starts nothing: no key, no line.
 """
 

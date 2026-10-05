@@ -13,7 +13,7 @@ models:
     reasoning_effort: low
     # OpenRouter tries the endpoints with the cheapest output price first.
     hooks:
-      - on-catalog: hooks/cheapest_output.py
-      - on-upstream: hooks/cheapest_output.py
+      - on-catalog: hooks/or_cheapest_output.py
+      - on-upstream: hooks/or_cheapest_output.py
     # Direct requests only: this model stays out of each pool and daedalus/auto.
     pool: false
