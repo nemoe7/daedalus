@@ -12,7 +12,7 @@ import base64
 import json
 import os
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, quote, urlencode, urlparse
 from urllib.request import Request, urlopen
@@ -39,7 +39,7 @@ class GitHubError(Exception):
 class Tools:
   class Valves(BaseModel):
     github_token: str = ""
-    default_mode: str = "ask"
+    permissions: Literal["Always ask", "Allow reads", "Always allow"] = "Always ask"
     timeout_seconds: int = 60
     http_timeout_seconds: int = 30
     api_version: str = "2022-11-28"
@@ -64,12 +64,16 @@ class Tools:
       value = valves.get(name)
     return value
 
-  def _effective_mode(self, __user__: dict | None = None) -> str:
-    """The mode: the user valve wins, then the tool valve."""
+  def _permissions(self, __user__: dict | None = None) -> str:
+    """The permission level: the user valve wins, then the tool valve.
+
+    Always ask holds every call, reads included. Allow reads frees the reads
+    and holds the gated calls. Always allow holds nothing.
+    """
     user_mode = self._user_valve(__user__, "mode")
     if user_mode and user_mode != "default":
-      return user_mode
-    return self.valves.default_mode
+      return str(user_mode)
+    return str(self.valves.permissions or "Always ask")
 
   def _wait_seconds(self, __user__: dict | None = None) -> int:
     """The confirmation wait: the user value wins, then the tool value. Zero keeps the tool value."""
@@ -109,6 +113,31 @@ class Tools:
       return False
     return answer is True
 
+  async def _read(
+    self,
+    action: str,
+    detail: str,
+    fn: Callable,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> Any:
+    """Run one read behind the read gate.
+
+    Always ask holds the read at the same confirmation as a write. Allow reads
+    and Always allow let it run.
+    """
+    if self._permissions(__user__) == "Always ask" and not await self._ask(
+      action, detail, __event_call__, __user__
+    ):
+      return {
+        "result": {
+          "denied": True,
+          "action": action,
+          "reason": "Not confirmed, so nothing was read.",
+        }
+      }
+    return await fn()
+
   async def _write(
     self,
     action: str,
@@ -119,12 +148,7 @@ class Tools:
     __event_call__: Callable | None = None,
   ) -> Any:
     """Run one write behind the gate. deny => never asked, timeout => never sent."""
-    mode = self._effective_mode(__user__)
-    if mode == "deny":
-      return {
-        "result": {"denied": True, "action": action, "reason": "Denied by policy."}
-      }
-    if mode != "allow" and not await self._ask(
+    if self._permissions(__user__) != "Always allow" and not await self._ask(
       action, detail, __event_call__, __user__
     ):
       return {
@@ -307,23 +331,38 @@ class Tools:
     )
     return self._ok({"comments": comments})
 
-  async def list_recent_issues(self, top_k: int = 20) -> dict:
+  async def list_recent_issues(
+    self,
+    top_k: int = 20,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """List the issues of the signed-in user, most recently updated first.
 
     :param top_k: how many to return
     """
-    issues = await self._request(
-      "GET",
-      f"{API}/issues",
-      params={
-        "filter": "all",
-        "state": "all",
-        "sort": "updated",
-        "direction": "desc",
-        "per_page": min(max(1, int(top_k)), 100),
-      },
+
+    async def run(top_k=top_k, __user__=__user__, __event_call__=__event_call__):
+      issues = await self._request(
+        "GET",
+        f"{API}/issues",
+        params={
+          "filter": "all",
+          "state": "all",
+          "sort": "updated",
+          "direction": "desc",
+          "per_page": min(max(1, int(top_k)), 100),
+        },
+      )
+      return self._ok({"issues": issues})
+
+    return await self._read(
+      "read list_recent_issues",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
-    return self._ok({"issues": issues})
 
   async def add_comment_to_issue(
     self,
@@ -637,69 +676,107 @@ class Tools:
     return node
 
   async def list_pull_request_reviews(
-    self, repo_full_name: str, pr_number: int
+    self,
+    repo_full_name: str,
+    pr_number: int,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """List the submitted reviews of a pull request.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
     """
-    owner, name = repo_full_name.strip().strip("/").split("/")
-    data = await self._graphql(
-      """
-            query($owner: String!, $name: String!, $number: Int!) {
-              repository(owner: $owner, name: $name) {
-                pullRequest(number: $number) {
-                  reviews(first: 100) {
-                    nodes { id state body submittedAt url author { login } }
+
+    async def run(
+      repo_full_name=repo_full_name,
+      pr_number=pr_number,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      owner, name = repo_full_name.strip().strip("/").split("/")
+      data = await self._graphql(
+        """
+              query($owner: String!, $name: String!, $number: Int!) {
+                repository(owner: $owner, name: $name) {
+                  pullRequest(number: $number) {
+                    reviews(first: 100) {
+                      nodes { id state body submittedAt url author { login } }
+                    }
                   }
                 }
               }
-            }
-            """,
-      {"owner": owner, "name": name, "number": int(pr_number)},
+              """,
+        {"owner": owner, "name": name, "number": int(pr_number)},
+      )
+      reviews = (
+        ((data.get("repository") or {}).get("pullRequest") or {}).get("reviews") or {}
+      ).get("nodes") or []
+      return self._ok({"reviews": reviews})
+
+    return await self._read(
+      "read list_pull_request_reviews",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
-    reviews = (
-      ((data.get("repository") or {}).get("pullRequest") or {}).get("reviews") or {}
-    ).get("nodes") or []
-    return self._ok({"reviews": reviews})
 
   async def list_pull_request_review_threads(
-    self, repo_full_name: str, pr_number: int
+    self,
+    repo_full_name: str,
+    pr_number: int,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """List the inline review threads of a pull request, with their resolution state.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
     """
-    owner, name = repo_full_name.strip().strip("/").split("/")
-    data = await self._graphql(
-      """
-            query($owner: String!, $name: String!, $number: Int!) {
-              repository(owner: $owner, name: $name) {
-                pullRequest(number: $number) {
-                  reviewThreads(first: 100) {
-                    nodes {
-                      id isResolved isOutdated path line
-                      comments(first: 100) {
-                        nodes {
-                          id databaseId body createdAt path line
-                          author { login }
+
+    async def run(
+      repo_full_name=repo_full_name,
+      pr_number=pr_number,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      owner, name = repo_full_name.strip().strip("/").split("/")
+      data = await self._graphql(
+        """
+              query($owner: String!, $name: String!, $number: Int!) {
+                repository(owner: $owner, name: $name) {
+                  pullRequest(number: $number) {
+                    reviewThreads(first: 100) {
+                      nodes {
+                        id isResolved isOutdated path line
+                        comments(first: 100) {
+                          nodes {
+                            id databaseId body createdAt path line
+                            author { login }
+                          }
                         }
                       }
                     }
                   }
                 }
               }
-            }
-            """,
-      {"owner": owner, "name": name, "number": int(pr_number)},
+              """,
+        {"owner": owner, "name": name, "number": int(pr_number)},
+      )
+      threads = (
+        ((data.get("repository") or {}).get("pullRequest") or {}).get("reviewThreads")
+        or {}
+      ).get("nodes") or []
+      return self._ok({"review_threads": threads})
+
+    return await self._read(
+      "read list_pull_request_review_threads",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
-    threads = (
-      ((data.get("repository") or {}).get("pullRequest") or {}).get("reviewThreads")
-      or {}
-    ).get("nodes") or []
-    return self._ok({"review_threads": threads})
 
   async def add_review_to_pr(
     self,
@@ -949,15 +1026,36 @@ class Tools:
 
   # ═════════════════════════ pull request info and diff ═════════════════
 
-  async def get_pr_info(self, repository_full_name: str, pr_number: int) -> dict:
+  async def get_pr_info(
+    self,
+    repository_full_name: str,
+    pr_number: int,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """Fetch pull request metadata, without the diff.
 
     :param repository_full_name: owner/repo
     :param pr_number: the pull request number
     """
-    repo = self._repo(repository_full_name)
-    pull = await self._request("GET", f"{API}{repo}/pulls/{int(pr_number)}")
-    return self._ok(pull)
+
+    async def run(
+      repository_full_name=repository_full_name,
+      pr_number=pr_number,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      repo = self._repo(repository_full_name)
+      pull = await self._request("GET", f"{API}{repo}/pulls/{int(pr_number)}")
+      return self._ok(pull)
+
+    return await self._read(
+      "read get_pr_info",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
+    )
 
   async def fetch_pr(self, repo_full_name: str, pr_number: int) -> dict:
     """Fetch a pull request with its title, url and unified diff.
@@ -1009,7 +1107,12 @@ class Tools:
     return self._ok({"comments": comments})
 
   async def get_pr_diff(
-    self, repo_full_name: str, pr_number: int, format: str = "diff"
+    self,
+    repo_full_name: str,
+    pr_number: int,
+    format: str = "diff",
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """Fetch only the diff or the patch of a pull request.
 
@@ -1017,16 +1120,32 @@ class Tools:
     :param pr_number: the pull request number
     :param format: diff or patch
     """
-    repo = self._repo(repo_full_name)
-    media = (
-      "application/vnd.github.patch"
-      if format == "patch"
-      else "application/vnd.github.diff"
+
+    async def run(
+      repo_full_name=repo_full_name,
+      pr_number=pr_number,
+      format=format,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      repo = self._repo(repo_full_name)
+      media = (
+        "application/vnd.github.patch"
+        if format == "patch"
+        else "application/vnd.github.diff"
+      )
+      diff = await self._request(
+        "GET", f"{API}{repo}/pulls/{int(pr_number)}", accept=media, raw=True
+      )
+      return self._ok({"diff": diff})
+
+    return await self._read(
+      "read get_pr_diff",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
-    diff = await self._request(
-      "GET", f"{API}{repo}/pulls/{int(pr_number)}", accept=media, raw=True
-    )
-    return self._ok({"diff": diff})
 
   async def fetch_pr_patch(self, repo_full_name: str, pr_number: int) -> dict:
     """Fetch the per-file patches of a pull request, first page.
@@ -1053,18 +1172,37 @@ class Tools:
     return self._ok({"patches": patches})
 
   async def list_pr_changed_filenames(
-    self, repo_full_name: str, pr_number: int
+    self,
+    repo_full_name: str,
+    pr_number: int,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """List the changed filenames of a pull request, first page.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
     """
-    repo = self._repo(repo_full_name)
-    files = await self._request(
-      "GET", f"{API}{repo}/pulls/{int(pr_number)}/files", params={"per_page": 100}
+
+    async def run(
+      repo_full_name=repo_full_name,
+      pr_number=pr_number,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      repo = self._repo(repo_full_name)
+      files = await self._request(
+        "GET", f"{API}{repo}/pulls/{int(pr_number)}/files", params={"per_page": 100}
+      )
+      return self._ok({"filenames": [f.get("filename") for f in files]})
+
+    return await self._read(
+      "read list_pr_changed_filenames",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
-    return self._ok({"filenames": [f.get("filename") for f in files]})
 
   async def fetch_pr_file_patch(
     self, repo_full_name: str, pr_number: int, path: str
@@ -1797,6 +1935,8 @@ class Tools:
     until: str | None = None,
     per_page: int = 30,
     page: int = 1,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """List commits, newest first, with an optional path filter.
 
@@ -1808,20 +1948,40 @@ class Tools:
     :param per_page: commits per page
     :param page: the page number
     """
-    repo = self._repo(repository_full_name)
-    data = await self._request(
-      "GET",
-      f"{API}{repo}/commits",
-      params={
-        "path": path,
-        "sha": sha,
-        "since": since,
-        "until": until,
-        "per_page": min(max(1, int(per_page)), 100),
-        "page": int(page),
-      },
+
+    async def run(
+      repository_full_name=repository_full_name,
+      path=path,
+      sha=sha,
+      since=since,
+      until=until,
+      per_page=per_page,
+      page=page,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      repo = self._repo(repository_full_name)
+      data = await self._request(
+        "GET",
+        f"{API}{repo}/commits",
+        params={
+          "path": path,
+          "sha": sha,
+          "since": since,
+          "until": until,
+          "per_page": min(max(1, int(per_page)), 100),
+          "page": int(page),
+        },
+      )
+      return self._ok({"commits": data})
+
+    return await self._read(
+      "read list_commits",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
-    return self._ok({"commits": data})
 
   async def list_tree(
     self,
@@ -1830,6 +1990,8 @@ class Tools:
     tree_sha: str | None = None,
     recursive: bool = True,
     path_prefix: str | None = None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """List the tree of a branch, tag or commit, recursive by default.
 
@@ -1839,28 +2001,46 @@ class Tools:
     :param recursive: read every level
     :param path_prefix: keep the entries under this path
     """
-    repo = self._repo(repository_full_name)
-    target = tree_sha or ref
-    if not target:
-      info = await self._request("GET", f"{API}{repo}")
-      target = info.get("default_branch") or "main"
-    data = await self._request(
-      "GET",
-      f"{API}{repo}/git/trees/{self._path(target)}",
-      params={"recursive": "1" if recursive else None},
-    )
-    entries = data.get("tree") or []
-    if path_prefix:
-      entries = [
-        item for item in entries if (item.get("path") or "").startswith(path_prefix)
-      ]
-    limit = min(max(1, int(self.valves.max_tree_entries)), 5000)
-    return self._ok(
-      {
-        "tree": entries[:limit],
-        "count": min(len(entries), limit),
-        "truncated": bool(data.get("truncated")) or len(entries) > limit,
-      }
+
+    async def run(
+      repository_full_name=repository_full_name,
+      ref=ref,
+      tree_sha=tree_sha,
+      recursive=recursive,
+      path_prefix=path_prefix,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      repo = self._repo(repository_full_name)
+      target = tree_sha or ref
+      if not target:
+        info = await self._request("GET", f"{API}{repo}")
+        target = info.get("default_branch") or "main"
+      data = await self._request(
+        "GET",
+        f"{API}{repo}/git/trees/{self._path(target)}",
+        params={"recursive": "1" if recursive else None},
+      )
+      entries = data.get("tree") or []
+      if path_prefix:
+        entries = [
+          item for item in entries if (item.get("path") or "").startswith(path_prefix)
+        ]
+      limit = min(max(1, int(self.valves.max_tree_entries)), 5000)
+      return self._ok(
+        {
+          "tree": entries[:limit],
+          "count": min(len(entries), limit),
+          "truncated": bool(data.get("truncated")) or len(entries) > limit,
+        }
+      )
+
+    return await self._read(
+      "read list_tree",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
 
   async def code_scanning_alerts(
@@ -2191,6 +2371,8 @@ class Tools:
     repository_full_name: str | None = None,
     repository_id: int | None = None,
     repository_url: str | None = None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """Fetch repository metadata. Normally exactly one selector.
 
@@ -2198,9 +2380,25 @@ class Tools:
     :param repository_id: the numeric repository id
     :param repository_url: the repository html or api url
     """
-    path = self._repo_of(repository_full_name, repository_id, repository_url)
-    data = await self._request("GET", f"{API}{path}")
-    return self._ok({**data, "repository_full_name": data.get("full_name")})
+
+    async def run(
+      repository_full_name=repository_full_name,
+      repository_id=repository_id,
+      repository_url=repository_url,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      path = self._repo_of(repository_full_name, repository_id, repository_url)
+      data = await self._request("GET", f"{API}{path}")
+      return self._ok({**data, "repository_full_name": data.get("full_name")})
+
+    return await self._read(
+      "read get_repo",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
+    )
 
   async def list_repositories(
     self,
@@ -2208,6 +2406,8 @@ class Tools:
     page_offset: int = 0,
     owner: str | None = None,
     include_search_index_status: bool = False,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """List the repositories of the signed-in user, or of one owner.
 
@@ -2216,23 +2416,40 @@ class Tools:
     :param owner: an org or user login
     :param include_search_index_status: no effect on REST
     """
-    size = min(max(1, int(page_size)), 100)
-    page = int(page_offset) // size + 1
-    if owner:
-      path = f"{API}/users/{self._seg(owner)}/repos"
-    else:
-      path = f"{API}/user/repos"
-    data = await self._request(
-      "GET",
-      path,
-      params={
-        "per_page": size,
-        "page": page,
-        "sort": "updated",
-        "affiliation": "owner,collaborator,organization_member",
-      },
+
+    async def run(
+      page_size=page_size,
+      page_offset=page_offset,
+      owner=owner,
+      include_search_index_status=include_search_index_status,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      size = min(max(1, int(page_size)), 100)
+      page = int(page_offset) // size + 1
+      if owner:
+        path = f"{API}/users/{self._seg(owner)}/repos"
+      else:
+        path = f"{API}/user/repos"
+      data = await self._request(
+        "GET",
+        path,
+        params={
+          "per_page": size,
+          "page": page,
+          "sort": "updated",
+          "affiliation": "owner,collaborator,organization_member",
+        },
+      )
+      return self._ok({"repositories": data})
+
+    return await self._read(
+      "read list_repositories",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
-    return self._ok({"repositories": data})
 
   async def search_repositories(
     self,
@@ -2241,6 +2458,8 @@ class Tools:
     page: int = 1,
     org: str | None = None,
     topn: int | None = None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """Search repositories by name, description or topic.
 
@@ -2250,37 +2469,74 @@ class Tools:
     :param org: restrict to one organization
     :param topn: results wanted, used when per_page is absent
     """
-    terms = [query] + ([f"org:{org}"] if org else [])
-    data = await self._request(
-      "GET",
-      f"{API}/search/repositories",
-      params={
-        "q": " ".join(terms),
-        "per_page": min(per_page or topn or 20, 100),
-        "page": page,
-      },
-    )
-    return self._ok(
-      {
-        "repositories": data.get("items") or [],
-        "archive_filter_applied": None,
-        "total_count": data.get("total_count"),
-      }
+
+    async def run(
+      query=query,
+      per_page=per_page,
+      page=page,
+      org=org,
+      topn=topn,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      terms = [query] + ([f"org:{org}"] if org else [])
+      data = await self._request(
+        "GET",
+        f"{API}/search/repositories",
+        params={
+          "q": " ".join(terms),
+          "per_page": min(per_page or topn or 20, 100),
+          "page": page,
+        },
+      )
+      return self._ok(
+        {
+          "repositories": data.get("items") or [],
+          "archive_filter_applied": None,
+          "total_count": data.get("total_count"),
+        }
+      )
+
+    return await self._read(
+      "read search_repositories",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
 
   async def get_repo_collaborator_permission(
-    self, repository_full_name: str, username: str
+    self,
+    repository_full_name: str,
+    username: str,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """Check the permission level of a collaborator.
 
     :param repository_full_name: owner/repo
     :param username: the GitHub login
     """
-    repo = self._repo(repository_full_name)
-    data = await self._request(
-      "GET", f"{API}{repo}/collaborators/{self._seg(username)}/permission"
+
+    async def run(
+      repository_full_name=repository_full_name,
+      username=username,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      repo = self._repo(repository_full_name)
+      data = await self._request(
+        "GET", f"{API}{repo}/collaborators/{self._seg(username)}/permission"
+      )
+      return self._ok({"permission": data.get("permission"), "user": data.get("user")})
+
+    return await self._read(
+      "read get_repo_collaborator_permission",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
-    return self._ok({"permission": data.get("permission"), "user": data.get("user")})
 
   # ═════════════════════════════════ search ═════════════════════════════
 
@@ -2329,6 +2585,8 @@ class Tools:
     query: str,
     page_size: int = 20,
     cursor: str | None = None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """Search the branches of one repository by name.
 
@@ -2338,20 +2596,38 @@ class Tools:
     :param page_size: branches per page
     :param cursor: the page number from the last call
     """
-    repo = self._repo(f"{owner}/{repo_name}")
-    page = int(cursor) if cursor and str(cursor).isdigit() else 1
-    size = min(max(1, int(page_size)), 100)
-    data = await self._request(
-      "GET", f"{API}{repo}/branches", params={"per_page": size, "page": page}
+
+    async def run(
+      owner=owner,
+      repo_name=repo_name,
+      query=query,
+      page_size=page_size,
+      cursor=cursor,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      repo = self._repo(f"{owner}/{repo_name}")
+      page = int(cursor) if cursor and str(cursor).isdigit() else 1
+      size = min(max(1, int(page_size)), 100)
+      data = await self._request(
+        "GET", f"{API}{repo}/branches", params={"per_page": size, "page": page}
+      )
+      needle = (query or "").lower()
+      branches = [
+        {"branch": item.get("name"), "sha": (item.get("commit") or {}).get("sha")}
+        for item in data
+        if needle in (item.get("name") or "").lower()
+      ]
+      token = str(page + 1) if len(data) == size else None
+      return self._ok({"branches": branches, "cursor": token})
+
+    return await self._read(
+      "read search_branches",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
-    needle = (query or "").lower()
-    branches = [
-      {"branch": item.get("name"), "sha": (item.get("commit") or {}).get("sha")}
-      for item in data
-      if needle in (item.get("name") or "").lower()
-    ]
-    token = str(page + 1) if len(data) == size else None
-    return self._ok({"branches": branches, "cursor": token})
 
   async def _search_issues(
     self,
@@ -2414,6 +2690,8 @@ class Tools:
     sort: str | None = None,
     order: str | None = None,
     state: str | None = None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """Search issues and pull requests together.
 
@@ -2426,17 +2704,38 @@ class Tools:
     :param order: desc or asc
     :param state: open, closed or all
     """
-    return await self._search_issues(
-      query,
-      "",
-      topn,
-      repository_full_name,
-      repository_id,
-      repository_url,
-      None,
-      sort,
-      order,
-      state,
+
+    async def run(
+      query=query,
+      repository_full_name=repository_full_name,
+      repository_id=repository_id,
+      repository_url=repository_url,
+      topn=topn,
+      sort=sort,
+      order=order,
+      state=state,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      return await self._search_issues(
+        query,
+        "",
+        topn,
+        repository_full_name,
+        repository_id,
+        repository_url,
+        None,
+        sort,
+        order,
+        state,
+      )
+
+    return await self._read(
+      "read search_issues",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
 
   async def search_prs(
@@ -2450,6 +2749,8 @@ class Tools:
     sort: str | None = None,
     order: str | None = None,
     state: str | None = None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """Search pull requests. The output field keeps its GitHub name, issues.
 
@@ -2463,17 +2764,39 @@ class Tools:
     :param order: desc or asc
     :param state: open, closed or all
     """
-    return await self._search_issues(
-      query,
-      "pr",
-      topn,
-      repository_full_name,
-      repository_id,
-      repository_url,
-      org,
-      sort,
-      order,
-      state,
+
+    async def run(
+      query=query,
+      repository_full_name=repository_full_name,
+      repository_id=repository_id,
+      repository_url=repository_url,
+      org=org,
+      topn=topn,
+      sort=sort,
+      order=order,
+      state=state,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      return await self._search_issues(
+        query,
+        "pr",
+        topn,
+        repository_full_name,
+        repository_id,
+        repository_url,
+        org,
+        sort,
+        order,
+        state,
+      )
+
+    return await self._read(
+      "read search_prs",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
 
   async def search_commits(
@@ -2486,6 +2809,8 @@ class Tools:
     topn: int = 20,
     sort: str | None = None,
     order: str | None = None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """Search commits.
 
@@ -2498,32 +2823,53 @@ class Tools:
     :param sort: best-match, author-date or committer-date
     :param order: desc or asc
     """
-    terms = [query]
-    for value in (repository_full_name, repository_url):
-      if value:
-        for item in value if isinstance(value, list) else [value]:
-          terms.append(f"repo:{str(item).removeprefix('https://github.com/')}")
-    if org:
-      terms.append(f"org:{org}")
-    sorts = {
-      "best-match": None,
-      "author-date": "author-date",
-      "committer-date": "committer-date",
-    }
-    data = await self._request(
-      "GET",
-      f"{API}/search/commits",
-      params={
-        "q": " ".join(terms),
-        "per_page": min(max(1, int(topn)), 100),
-        "sort": sorts.get(sort or "best-match"),
-        "order": order,
-      },
+
+    async def run(
+      query=query,
+      repository_full_name=repository_full_name,
+      repository_id=repository_id,
+      repository_url=repository_url,
+      org=org,
+      topn=topn,
+      sort=sort,
+      order=order,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      terms = [query]
+      for value in (repository_full_name, repository_url):
+        if value:
+          for item in value if isinstance(value, list) else [value]:
+            terms.append(f"repo:{str(item).removeprefix('https://github.com/')}")
+      if org:
+        terms.append(f"org:{org}")
+      sorts = {
+        "best-match": None,
+        "author-date": "author-date",
+        "committer-date": "committer-date",
+      }
+      data = await self._request(
+        "GET",
+        f"{API}/search/commits",
+        params={
+          "q": " ".join(terms),
+          "per_page": min(max(1, int(topn)), 100),
+          "sort": sorts.get(sort or "best-match"),
+          "order": order,
+        },
+      )
+      items = [
+        {**item, "html_url": item.get("html_url")} for item in (data.get("items") or [])
+      ]
+      return self._ok({"commits": items, "total_count": data.get("total_count")})
+
+    return await self._read(
+      "read search_commits",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
-    items = [
-      {**item, "html_url": item.get("html_url")} for item in (data.get("items") or [])
-    ]
-    return self._ok({"commits": items, "total_count": data.get("total_count")})
 
   # ═══════════════════════ commit read (draft extra) ════════════════════
 
@@ -2588,7 +2934,12 @@ class Tools:
     )
 
   async def list_workflows(
-    self, repo_full_name: str, per_page: int = 30, page: int = 1
+    self,
+    repo_full_name: str,
+    per_page: int = 30,
+    page: int = 1,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """List the Actions workflows of a repository.
 
@@ -2596,14 +2947,33 @@ class Tools:
     :param per_page: workflows per page
     :param page: the page number
     """
-    repo = self._repo(repo_full_name)
-    data = await self._request(
-      "GET",
-      f"{API}{repo}/actions/workflows",
-      params={"per_page": min(max(1, int(per_page)), 100), "page": int(page)},
-    )
-    return self._ok(
-      {"workflows": data.get("workflows") or [], "total_count": data.get("total_count")}
+
+    async def run(
+      repo_full_name=repo_full_name,
+      per_page=per_page,
+      page=page,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      repo = self._repo(repo_full_name)
+      data = await self._request(
+        "GET",
+        f"{API}{repo}/actions/workflows",
+        params={"per_page": min(max(1, int(per_page)), 100), "page": int(page)},
+      )
+      return self._ok(
+        {
+          "workflows": data.get("workflows") or [],
+          "total_count": data.get("total_count"),
+        }
+      )
+
+    return await self._read(
+      "read list_workflows",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
 
   async def fetch_commit_workflow_runs(
@@ -2685,7 +3055,12 @@ class Tools:
     return self._ok({"artifacts": artifacts})
 
   async def download_workflow_artifact(
-    self, repo_full_name: str, artifact_id: int, file_name: str | None = None
+    self,
+    repo_full_name: str,
+    artifact_id: int,
+    file_name: str | None = None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """Fetch an artifact's metadata and its download url. The archive needs the token.
 
@@ -2693,46 +3068,81 @@ class Tools:
     :param artifact_id: the artifact id
     :param file_name: a name to report for the archive
     """
-    repo = self._repo(repo_full_name)
-    data = await self._request(
-      "GET", f"{API}{repo}/actions/artifacts/{int(artifact_id)}"
-    )
-    name = file_name or f"{data.get('name') or 'artifact'}.zip"
-    return self._ok(
-      {
-        "file_uri": {
-          "download_url": data.get("archive_download_url"),
-          "file_id": str(data.get("id")),
-          "mime_type": "application/zip",
+
+    async def run(
+      repo_full_name=repo_full_name,
+      artifact_id=artifact_id,
+      file_name=file_name,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      repo = self._repo(repo_full_name)
+      data = await self._request(
+        "GET", f"{API}{repo}/actions/artifacts/{int(artifact_id)}"
+      )
+      name = file_name or f"{data.get('name') or 'artifact'}.zip"
+      return self._ok(
+        {
+          "file_uri": {
+            "download_url": data.get("archive_download_url"),
+            "file_id": str(data.get("id")),
+            "mime_type": "application/zip",
+            "file_name": name,
+          },
+          "artifact_id": int(artifact_id),
           "file_name": name,
-        },
-        "artifact_id": int(artifact_id),
-        "file_name": name,
-        "mime_type": "application/zip",
-        "size_in_bytes": data.get("size_in_bytes"),
-        "expired": data.get("expired"),
-        "artifact": data,
-      }
+          "mime_type": "application/zip",
+          "size_in_bytes": data.get("size_in_bytes"),
+          "expired": data.get("expired"),
+          "artifact": data,
+        }
+      )
+
+    return await self._read(
+      "read download_workflow_artifact",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
 
   async def get_commit_combined_status(
-    self, repo_full_name: str, commit_sha: str
+    self,
+    repo_full_name: str,
+    commit_sha: str,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """Fetch the combined status of a commit.
 
     :param repo_full_name: owner/repo
     :param commit_sha: the commit SHA
     """
-    repo = self._repo(repo_full_name)
-    data = await self._request(
-      "GET", f"{API}{repo}/commits/{self._seg(commit_sha)}/status"
-    )
-    return self._ok(
-      {
-        "statuses": data.get("statuses") or [],
-        "state": data.get("state"),
-        "total_count": data.get("total_count"),
-      }
+
+    async def run(
+      repo_full_name=repo_full_name,
+      commit_sha=commit_sha,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      repo = self._repo(repo_full_name)
+      data = await self._request(
+        "GET", f"{API}{repo}/commits/{self._seg(commit_sha)}/status"
+      )
+      return self._ok(
+        {
+          "statuses": data.get("statuses") or [],
+          "state": data.get("state"),
+          "total_count": data.get("total_count"),
+        }
+      )
+
+    return await self._read(
+      "read get_commit_combined_status",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
 
   async def rerun_failed_workflow_run_jobs(
@@ -2765,43 +3175,88 @@ class Tools:
 
   # ═════════════════════════ identity and accounts ══════════════════════
 
-  async def get_profile(self) -> dict:
+  async def get_profile(
+    self,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """Fetch the signed-in user profile."""
-    data = await self._request("GET", f"{API}/user")
-    return self._ok(
-      {
-        "id": str(data.get("id")) if data.get("id") is not None else None,
-        "name": data.get("name"),
-        "email": data.get("email"),
-        "nickname": data.get("login"),
-        "picture": data.get("avatar_url"),
-        "user": data,
-      }
+
+    async def run(__user__=__user__, __event_call__=__event_call__):
+      data = await self._request("GET", f"{API}/user")
+      return self._ok(
+        {
+          "id": str(data.get("id")) if data.get("id") is not None else None,
+          "name": data.get("name"),
+          "email": data.get("email"),
+          "nickname": data.get("login"),
+          "picture": data.get("avatar_url"),
+          "user": data,
+        }
+      )
+
+    return await self._read(
+      "read get_profile",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
 
-  async def list_user_orgs(self) -> dict:
+  async def list_user_orgs(
+    self,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """List the organizations of the signed-in user."""
-    data = await self._request("GET", f"{API}/user/orgs")
-    return self._ok(
-      {"orgs": [item.get("login") for item in data], "organizations": data}
+
+    async def run(__user__=__user__, __event_call__=__event_call__):
+      data = await self._request("GET", f"{API}/user/orgs")
+      return self._ok(
+        {"orgs": [item.get("login") for item in data], "organizations": data}
+      )
+
+    return await self._read(
+      "read list_user_orgs",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
 
-  async def list_installations(self, manageable_only: bool = False) -> dict:
+  async def list_installations(
+    self,
+    manageable_only: bool = False,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """List the app installations the signed-in user can reach.
 
     :param manageable_only: keep installs the user can manage, when REST says so
     """
-    data = await self._request("GET", f"{API}/user/installations")
-    installations = (data or {}).get("installations") or []
-    if manageable_only:
-      installations = [
-        i
-        for i in installations
-        if (i.get("permissions") or {}).get("administration") == "write"
-        or (i.get("repository_selection") or "") == "all"
-      ]
-    return self._ok(
-      {"installations": installations, "allow_all_repositories_for_testing": None}
+
+    async def run(
+      manageable_only=manageable_only, __user__=__user__, __event_call__=__event_call__
+    ):
+      data = await self._request("GET", f"{API}/user/installations")
+      installations = (data or {}).get("installations") or []
+      if manageable_only:
+        installations = [
+          i
+          for i in installations
+          if (i.get("permissions") or {}).get("administration") == "write"
+          or (i.get("repository_selection") or "") == "all"
+        ]
+      return self._ok(
+        {"installations": installations, "allow_all_repositories_for_testing": None}
+      )
+
+    return await self._read(
+      "read list_installations",
+      str(locals().get("name", "") or locals().get("path", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
 
   # ═════════════════════ releases, tags, packages, minutes ═══════════════

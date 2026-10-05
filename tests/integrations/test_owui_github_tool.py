@@ -159,6 +159,7 @@ def client(token: str = "t0ken") -> "tool.Tools":
 
   instance = tool.Tools()
   instance.valves.github_token = token
+  instance.valves.permissions = "Allow reads"
   return instance
 
 
@@ -179,12 +180,19 @@ def test_the_surface_holds_the_tool_list():
   assert len(TOOLS) == 83
 
 
-def test_the_gate_defaults_to_ask_with_sixty_seconds():
+def test_the_gate_defaults_to_always_ask_with_sixty_seconds():
   instance = tool.Tools()
-  assert instance.valves.default_mode == "ask"
+  assert instance.valves.permissions == "Always ask"
   assert instance.valves.timeout_seconds == 60
   assert tool.Tools.UserValves().mode == "default"
   assert tool.Tools.UserValves().timeout_seconds == 0
+
+
+def test_always_ask_holds_a_read_without_a_dialog():
+  instance = tool.Tools()
+  instance.valves.github_token = "t0ken"
+  out = asyncio.run(instance.list_commits("owner/repo"))
+  assert out["result"]["denied"] is True
 
 
 def test_every_write_goes_through_the_gate():
