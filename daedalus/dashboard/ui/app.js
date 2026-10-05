@@ -1022,16 +1022,28 @@ const settingPill = (group, key, value, index) => `<span class="pill">${esc(valu
 const settingAdder = (group, key) => `<button type="button" class="add"
   data-setting-add='${esc(JSON.stringify([group, key]))}'>+ Add</button>`;
 
-// A hook row: 1 file of the hooks folder. The row picks from the files of that folder.
+// The file list of a hook chip, drawn in the page. The closed chip holds the name alone, and the
+// list opens under it. The system menu of a select stays light on a light device, so a chip in the
+// dark theme would hold a light list with the light text of the page in it.
+let openHookPicker = null;
+
+// The name of a hook file as the chip shows it, without the folder of the config.
+const hookName = (name) => esc(name.replace(/^hooks\//, ""));
+
+// A hook row: 1 file of the hooks folder, as a keyword chip that opens the files of that folder.
 const hookRow = (group, key, value, index) => {
   const files = state.settings.hook_files || [];
   const names = files.includes(value) || !value ? files : [...files, value];
-  const options = ['<option value="">- no file -</option>'].concat(names.map((name) =>
-    `<option value="${esc(name)}"${name === value ? " selected" : ""
-    }>${esc(name.replace(/^hooks\//, ""))}</option>`)).join("");
-  return `<span class="pill hook"><select data-hook-select='${esc(JSON.stringify([group, key, index]))}'
-    aria-label="Hook file">${options}</select><button type="button" title="Delete"
-    data-hook-drop='${esc(JSON.stringify([group, key, index]))}'>&times;</button></span>`;
+  const path = [group, key, index];
+  const open = openHookPicker === `${group}.${key}.${index}`;
+  const choices = [""].concat(names).map((name) => `<button type="button" role="option"
+    aria-selected="${name === value}" data-hook-choice='${esc(JSON.stringify([...path, name]))}'
+    >${name ? hookName(name) : "No file"}</button>`).join("");
+  return `<span class="pill hook"><button type="button" class="pick"
+    data-hook-pick='${esc(JSON.stringify(path))}' aria-haspopup="listbox" aria-expanded="${open}"
+    title="Pick a hook file">${value ? hookName(value) : "No file"}</button><button type="button"
+    title="Delete" data-hook-drop='${esc(JSON.stringify(path))}'>&times;</button>${
+    open ? `<div class="menu" role="listbox" aria-label="Hook file">${choices}</div>` : ""}</span>`;
 };
 
 const hookList = (group, key) => {
@@ -1045,6 +1057,14 @@ const hookList = (group, key) => {
 function renderHookList(group, key) {
   const host = $(`set-${group}-${key}`);
   if (host) host.innerHTML = hookList(group, key);
+}
+
+// A pick or any other click closes the open list, which leaves the chip as it was.
+function closeHookPicker() {
+  if (!openHookPicker) return;
+  const [group, key] = openHookPicker.split(".");
+  openHookPicker = null;
+  renderHookList(group, key);
 }
 
 function renderSettingList(group, key) {
@@ -2125,17 +2145,35 @@ $("settings").addEventListener("input", (event) => {
   if (event.target.type === "checkbox") showSwitchRows();
   renderSettingsSave();
 });
-$("settings").addEventListener("change", (event) => {
-  const pick = event.target.closest("[data-hook-select]");
-  if (!pick) return;
-  const [group, key, index] = JSON.parse(pick.dataset.hookSelect);
-  const values = [...listValue(group, key)];
-  values[index] = pick.value;
-  setListValue(group, key, values);
-  renderHookList(group, key);
-  renderSettingsSave();
+// A click away from the settings closes the open hook list, and Esc does the same.
+document.addEventListener("click", (event) => {
+  if (!$("settings").contains(event.target)) closeHookPicker();
+});
+$("settings").addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeHookPicker();
 });
 $("settings").addEventListener("click", (event) => {
+  // A hook chip: the pick opens the file list, and a choice lands in the row at once.
+  const choice = event.target.closest("[data-hook-choice]");
+  if (choice) {
+    const [group, key, index, value] = JSON.parse(choice.dataset.hookChoice);
+    const values = [...listValue(group, key)];
+    values[index] = value;
+    setListValue(group, key, values);
+    openHookPicker = null;
+    renderHookList(group, key);
+    return renderSettingsSave();
+  }
+  const pick = event.target.closest("[data-hook-pick]");
+  if (pick) {
+    const [group, key, index] = JSON.parse(pick.dataset.hookPick);
+    const at = `${group}.${key}.${index}`;
+    const open = openHookPicker === at;
+    openHookPicker = open ? null : at;
+    return renderHookList(group, key);
+  }
+  // Any other click closes the open list before its own work.
+  if (openHookPicker) closeHookPicker();
   const drop = event.target.closest("[data-setting-drop]");
   if (drop) return dropSetting(JSON.parse(drop.dataset.settingDrop));
   const add = event.target.closest("[data-setting-add]");

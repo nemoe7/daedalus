@@ -1198,13 +1198,13 @@ def test_app_js_hook_rows() -> None:
       "text": "",
       "hook_files": [
         "hooks/owui_retry.py",
-        "hooks/model_served.py",
+        "hooks/served_model.py",
         "hooks/or_cheapest_output.py",
       ],
       "defaults": settings.DEFAULTS,
       "file": {
         "request_hooks": {
-          "on-request": ["hooks/owui_retry.py", "hooks/model_served.py"]
+          "on-request": ["hooks/owui_retry.py", "hooks/served_model.py"]
         }
       },
     }
@@ -1219,18 +1219,66 @@ assert(html.includes('>On request<') && html.includes('>On chunk<'), 'each point
 const at = html.indexOf('id="set-request_hooks-on-request"');
 assert(at > 0, 'the on-request row names its host');
 const box = html.slice(at, at + 1400);
-assert(box.includes('data-hook-select='), 'a row picks a file');
+assert(box.includes('data-hook-pick='), 'a row picks a file');
 assert(box.includes('data-hook-add='), 'the point takes another file');
-assert(box.includes('hooks/owui_retry.py') && box.includes('hooks/or_cheapest_output.py'), 'the picker lists the hook files');
-assert(box.includes('value="hooks/owui_retry.py" selected'), 'the saved file shows as picked');
-assert(!('request_hooks' in probe.settingsChanges()), 'a loaded hook file reports no change');
+assert(!box.includes('class="menu"'), 'the list stays shut until the pick');
+const clickOn = (selector, data) => {{
+  const target = {{ dataset: data, closest: (sel) => (sel === selector ? target : null) }};
+  node('settings').handlers.click.forEach((fn) => fn({{ target }}));
+}};
+// The pick opens the files of the hooks folder, and the saved one reads as picked.
+const pick = (index) => clickOn('[data-hook-pick]', {{ hookPick: '["request_hooks", "on-request", ' + index + ']' }});
+pick(0);
+const open = node('set-request_hooks-on-request').innerHTML;
+assert(open.includes('class="menu"') && open.includes('role="listbox"'), 'the list opens under the chip');
+assert(open.includes('>served_model.py<') && open.includes('>or_cheapest_output.py<'), 'the list holds the hook files');
+assert(open.includes('aria-selected="true"'), 'the saved file shows as picked');
+assert(open.includes('title="Pick a hook file">owui_retry.py</button>'), 'the chip drops the folder of the name');
+// A choice lands in the row, reaches the save payload, and closes the list.
+clickOn('[data-hook-choice]', {{ hookChoice: '["request_hooks", "on-request", 0, "hooks/served_model.py"]' }});
+assert(!node('set-request_hooks-on-request').innerHTML.includes('class="menu"'), 'the pick closes the list');
+// The pick builds the list inside the page, so the 2 rows compare as text.
+assert.strictEqual(JSON.stringify(probe.settingsChanges().request_hooks['on-request']), JSON.stringify(['hooks/served_model.py', 'hooks/served_model.py']), 'the pick reaches the save payload');
+// The same pick again closes the list, so 1 list shows at a time.
+pick(1);
+assert(node('set-request_hooks-on-request').innerHTML.includes('class="menu"'), 'the second pick opens');
+pick(1);
+assert(!node('set-request_hooks-on-request').innerHTML.includes('class="menu"'), 'the same pick shuts it');
 // A new row reaches the save payload, and an empty point clears the key.
-probe.setListValue('request_hooks', 'on-chunk', ['hooks/model_served.py']);
-assert.deepStrictEqual(probe.settingsChanges().request_hooks['on-chunk'], ['hooks/model_served.py'], 'the new row reaches the save payload');
+probe.setListValue('request_hooks', 'on-chunk', ['hooks/served_model.py']);
+assert.deepStrictEqual(probe.settingsChanges().request_hooks['on-chunk'], ['hooks/served_model.py'], 'the new row reaches the save payload');
 probe.setListValue('request_hooks', 'on-request', []);
 assert.strictEqual(probe.settingsChanges().request_hooks['on-request'], null, 'an empty point clears the key');
 """,
   )
+
+
+def test_hook_chip_matches_the_keyword_chips() -> None:
+  """A hook row uses the keyword pill, and its file list draws in the page, on the page theme."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  chip = re.search(r"\.pill\.hook \.pick \{([^}]*)\}", css)
+  assert chip and "border: 0" in chip.group(1)
+  assert "padding: 0" in chip.group(1) and "background: transparent" in chip.group(1)
+  assert "font: 12px/20px var(--mono)" in chip.group(1), "the keyword chip font"
+  ring = re.search(r"\.pill\.hook:focus-within \{([^}]*)\}", css)
+  assert ring and "border-color: var(--accent)" in ring.group(1), (
+    "the focus ring wraps the chip"
+  )
+  menu = re.search(r"\.pill\.hook \.menu \{([^}]*)\}", css)
+  assert menu and "background: var(--panel)" in menu.group(1), (
+    "the list follows the page theme"
+  )
+  assert "position: absolute" in menu.group(1), "the list hangs under the chip"
+  assert "border: 1px solid var(--line)" in menu.group(1)
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert 'const settingPill = (group, key, value, index) => `<span class="pill">' in app
+  markup = re.search(r'return `<span class="pill hook">.*?</span>`;', app, re.DOTALL)
+  assert markup, "the hook row builds 1 chip"
+  assert 'title="Pick a hook file"' in markup.group(0), "the chip names its picker"
+  assert 'role="listbox"' in markup.group(0), "the list names its role"
+  assert 'role="option"' in app and "aria-selected=" in app, "each choice is an option"
+  assert "data-hook-select" not in app, "no system menu on a chip"
 
 
 def test_app_js_affinity_modes_hide_their_rows() -> None:
@@ -1669,7 +1717,7 @@ def test_files(
     "request_hooks": {
       "on-request": ["hooks/owui_retry.py"],
       "on-prompt": ["hooks/owui_auto_reasoning.py"],
-      "on-chunk": ["hooks/model_served.py"],
+      "on-chunk": ["hooks/served_model.py"],
     }
   }, "the shipped file holds the changes only"
   root = folder / "config" / "hooks"
@@ -1761,7 +1809,7 @@ def test_files(
   assert api.REQUEST_HOOKS == {
     "on-request": ["hooks/owui_retry.py", "hooks/picked.py"],
     "on-prompt": ["hooks/owui_auto_reasoning.py"],
-    "on-chunk": ["hooks/model_served.py"],
+    "on-chunk": ["hooks/served_model.py"],
   }, "the save applies each request hook of the point"
   assert (
     client.put(
@@ -1772,7 +1820,7 @@ def test_files(
   assert api.REQUEST_HOOKS == {
     "on-request": [],
     "on-prompt": ["hooks/owui_auto_reasoning.py"],
-    "on-chunk": ["hooks/model_served.py"],
+    "on-chunk": ["hooks/served_model.py"],
   }, "an empty list turns the hook off"
   dark = {"dashboard": {"theme": "dark"}}
   assert client.put("/ui/api/settings", json={"changes": dark}).status_code == 200
