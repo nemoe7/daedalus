@@ -3,7 +3,7 @@ title: Think longer
 author: nemo
 description: The light-bulb action of the message toolbar. 1 press asks daedalus to think longer on the pressed turn, 1 reasoning level step up, and answers that turn again at that level. The action holds no daedalus key: it asks Open WebUI, which holds the key in its connection. The rule is the hook file config/hooks/owui_think_longer.py.
 required_open_webui_version: 0.11.0
-version: 1.0.0
+version: 1.0.1
 licence: daedalus Noncommercial License 1.0.0
 """
 
