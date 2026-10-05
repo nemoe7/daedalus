@@ -55,13 +55,6 @@ PARALLEL_SLOW_SECONDS = 30.0
 PARALLEL_PENALTY = 0.9
 # The upstream statuses that never mean a stream refusal: the key and the rate limit.
 NOT_A_REFUSAL = (401, 403, 429)
-# The reasoning effort of each tier of the ladder, below the client value and the catalog default.
-EFFORT_OF_TIER = {
-  router.TIER_NAMES[1]: "none",
-  router.TIER_NAMES[2]: "low",
-  router.TIER_NAMES[3]: "medium",
-  router.TIER_NAMES[4]: "high",
-}
 
 logger = logging.getLogger("daedalus")
 
@@ -875,9 +868,9 @@ async def chat(request: Request) -> Response:
     return upstream.error_response(
       400, f"Missing api_key for {name}", "invalid_request_error"
     )
-  # The prompt hook and the tier map set the reasoning effort of the attempt, below the client
-  # value and the catalog default. A chain with no reasoning model stays out of it.
-  effort_floor: str | None = None
+  # A hook file of the prompt point sets the reasoning effort of the attempt. The base sets
+  # none, so the client value and the catalog default decide. A chain with no reasoning model
+  # stays out of it.
   chain_models = [candidate for group in found[0] for candidate in group]
   flags = store.reasoning_flags()
   reasoners = [candidate for candidate in chain_models if flags.get(candidate, True)]
@@ -892,9 +885,7 @@ async def chat(request: Request) -> Response:
       (key for key, known in router.TIER_NAMES.items() if known == tier_name), None
     )
     paths = hooks.request_files(REQUEST_HOOKS, "on-prompt")
-    values: dict[str, str | None] = {
-      "reasoning_effort": EFFORT_OF_TIER.get(tier_name or "")
-    }
+    values: dict[str, str | None] = {}
     if paths:
       # The heuristics read costs time, so only a hook file pays for it.
       values = hooks.run_files(
@@ -916,12 +907,8 @@ async def chat(request: Request) -> Response:
       )
     chosen = providers.effort_text(values.get("reasoning_effort"))
     if chosen and providers.effort_text(body.get("reasoning_effort")) is None:
-      if paths and chosen != EFFORT_OF_TIER.get(tier_name or ""):
-        # A hook file that moved the value answers above the catalog default.
-        body = {**body, "reasoning_effort": chosen}
-      else:
-        # The tier map answers below it: the catalog value wins in the provider path.
-        effort_floor = chosen
+      # A hook file answers above the catalog default.
+      body = {**body, "reasoning_effort": chosen}
   if model == router.RESERVED_MODEL and found[1]:
     request.state.pool = routed_pool(found[1])
   pin = Tracker(key, found[1], getattr(request.state, "key", None))
@@ -1043,7 +1030,7 @@ async def chat(request: Request) -> Response:
       asked = {**body, "stream": True} if buffered else body
       try:
         provider, response = await upstream.in_time(
-          upstream.attempt(model, asked, config, sent, pin.client, floor=effort_floor),
+          upstream.attempt(model, asked, config, sent, pin.client),
           deadline,
         )
       except upstream.UpstreamStatus as exc:
@@ -1056,7 +1043,7 @@ async def chat(request: Request) -> Response:
         logger.info("upstream %s refused the stream, retrying without one", model)
         buffered, response = False, None
         provider, response = await upstream.in_time(
-          upstream.attempt(model, body, config, sent, pin.client, floor=effort_floor),
+          upstream.attempt(model, body, config, sent, pin.client),
           deadline,
         )
       wait = router.model_wait(config, model, upstream.WAIT_SECONDS)

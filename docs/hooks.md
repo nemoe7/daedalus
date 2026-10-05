@@ -25,7 +25,7 @@ For each point, the file defines 1 function with the name of the point.
 | --- | --- | --- | --- |
 | `on-request` | `on_request(value, model, headers)` | Before the chain of a chat request, and again on a repeat with the count | `value`: `key` (`None`), `digest`, the hash of the messages without the system rows, and on the second run `count`. `model`: the requested model. `headers`: the client headers. |
 | `on-catalog` | `on_catalog(row, model, api_base, headers)` | At each catalog build, for each model with the hook, before the store write | `row`: a catalog row, the id cannot change. `api_base`, `headers`: for the provider API calls. |
-| `on-prompt` | `on_prompt(value, messages, prompt, model, tier, tier_name, slot, reasoning, effort, body, config, key, app)` | Before the first attempt of a chat request, when the chain holds a reasoning model | `value`: `reasoning_effort`, the effort of the tier map. `reasoning`: the chain models that support reasoning. `effort`: the value of the client, `None` when it sent none. `app`: the client app of the request, `OWUI`, `Kilo` or another title, from its headers. |
+| `on-prompt` | `on_prompt(value, messages, prompt, model, tier, tier_name, slot, reasoning, effort, body, config, key, app)` | Before the first attempt of a chat request, when the chain holds a reasoning model | `value`: the dict the hook files change, empty at the start. `reasoning`: the chain models that support reasoning. `effort`: the value of the client, `None` when it sent none. `app`: the client app of the request, `OWUI`, `Kilo` or another title, from its headers. |
 | `on-upstream` | `on_upstream(body, model, headers)` | Before each chat request to the provider, streams and fallbacks included | `body`: the upstream JSON body, native format for native APIs. `model`: `provider/slug`. `headers`: changeable. |
 | `on-answer` | `on_answer(answer, model)` | After a full chat answer comes back, before the client gets it | `answer`: the answer in the OpenAI format. A stream has no `on-answer` point. |
 | `on-chunk` | `on_chunk(chunk, model, context)` | On each streamed chunk of a chat request, before the client gets it | `chunk`: 1 OpenAI chunk. `model`: the requested model. `context`: `previous` is the model of the last answer of the session. It is empty on the first answer. `attempts`: the failures so far. `code`: the retry code. `pool`: the landed pool. `served`: the landed model. |
@@ -62,21 +62,20 @@ Each key holds a list of files, and they run in list order. 1 path on its own wo
 
 ### The reasoning effort
 
-The `on-prompt` point sets `reasoning_effort` for the request. 4 levels decide, and the narrow one wins:
+The `on-prompt` point sets `reasoning_effort` for the request. 3 levels decide, and the narrow one wins:
 
 | Level | Value |
 | --- | --- |
 | The client | A `reasoning_effort` of the request body |
-| A hook file | The value of `value["reasoning_effort"]` after the files of the point, when it differs from the tier map |
+| A hook file | The value of `value["reasoning_effort"]` after the files of the point |
 | The catalog | The stored effort of the model, from discovery or the provider file |
-| The tier map | `TIER-D` none, `TIER-C` low, `TIER-B` medium, `TIER-A` high |
 
-The core map works with no hook file: `TIER-D` takes no thinking tokens, and `TIER-A` thinks at `high`.
+The base sets no effort of its own. With no hook file, a request keeps the client value and the catalog default.
 A hook file composes the tier read itself, with `router.required_tier(prompt)`.
 The shipped [`config/hooks/auto_reasoning.py`](../config/hooks/auto_reasoning.py) reads the heuristics v2
 tier of the message at hand, and it holds both surfaces of the ladder: the `on-prompt` point, and the
 `on_http` of the bump route. The point serves the client app of the `CLIENT` constant, so a Kilo
-request keeps its own effort. Name it in `request_hooks.on-prompt` to let a moved value answer above
+request keeps its own effort. Name it in `request_hooks.on-prompt` to set the effort of a request above
 the catalog default. A chain with no reasoning model gets no call and no effort. `upstream.without_reasoning` drops the field for a model the catalog marks as no reasoner.
 
 `daedalus` then drops the models that answered the message: `daedalus/auto` steps the tier 1 step up, and a named pool keeps its pool. The point runs again with `count` filled in. A file that writes `value["code"]` sets the code of the Requests row, such as `rt1`. Without a `key`, a repeat is a new request.

@@ -212,18 +212,12 @@ def failure_note(model: str, started: float, exc: Exception) -> dict[str, Any]:
 OUTPUT_FIELDS = ("max_tokens", "max_completion_tokens")
 
 
-def with_defaults(
-  candidate: str, body: dict[str, Any], floor: str | None = None
-) -> dict[str, Any]:
-  """The body with the stored effort when it has none, and output limits cut to the model.
-
-  `floor` is the effort of the tier map of this request. It fills the field only when neither
-  the client nor the catalog gives a value.
-  """
+def with_defaults(candidate: str, body: dict[str, Any]) -> dict[str, Any]:
+  """The body with the stored effort when it has none, and output limits cut to the model."""
   found = store.model_limits(candidate)
   changed = dict(body)
   if "reasoning_effort" not in body:
-    effort = found.get("reasoning_effort") or floor
+    effort = found.get("reasoning_effort")
     if effort is not None:
       changed["reasoning_effort"] = effort
   limit = found.get("max_output_tokens")
@@ -269,15 +263,14 @@ async def attempt(
   config: dict[str, Any],
   sent: dict[str, Any] | None = None,
   client: str | None = None,
-  floor: str | None = None,
 ) -> tuple[providers.OpenAIProvider, httpx.Response]:
   """Send one candidate request, and fail on an upstream error status.
 
   When `sent` is a dict, it gets the reasoning effort that went upstream. `client` picks its
-  provider key. `floor` is the effort of the tier map of this request.
+  provider key.
   """
   asked = "reasoning_effort" in body
-  body = without_reasoning(candidate, with_defaults(candidate, body, floor))
+  body = without_reasoning(candidate, with_defaults(candidate, body))
   provider, url, payload, headers = providers.prepare(candidate, body, config, client)
   if payload.get("stream") and provider.stream_usage:
     payload = {
