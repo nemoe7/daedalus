@@ -42,6 +42,25 @@ GEMINI_MINUTE = {
 CLOUDFLARE_DAILY = {"errors": [{"message": "daily free allocation", "code": 4006}]}
 
 
+def openrouter_daily(reset: float) -> dict:
+  """The 429 of an OpenRouter free model at its requests-per-day cap, with the reset in the body."""
+  return {
+    "error": {
+      "message": "Rate limit exceeded: limit_rpd/thinkingmachines/inkling-small-20260730/x."
+      " Daily limit reached for thinkingmachines/inkling-small:free via Thinking Machines.",
+      "code": 429,
+      "metadata": {
+        "limit_source": "openrouter_shared_capacity",
+        "headers": {
+          "X-RateLimit-Limit": "1000",
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": str(int(reset * 1000)),
+        },
+      },
+    }
+  }
+
+
 def test_rules(caplog) -> None:
   assert cooldowns.duration("38s") == 38 and cooldowns.duration("250ms") == 0.25
   assert cooldowns.duration("2m59.5s") == 179.5 and cooldowns.duration("1h") == 3600
@@ -62,6 +81,24 @@ def test_rules(caplog) -> None:
   assert cooldowns.reset_seconds({"retry-after": date}, {}, NOW) == 120
   assert cooldowns.reset_seconds({}, GEMINI_MINUTE, NOW) == 38
   assert cooldowns.reset_seconds({"retry-after": "0"}, {}, NOW) is None
+  # The daily cap of an OpenRouter free model: the reset rides in the error body in ms.
+  daily = openrouter_daily(NOW + 6 * 3600)
+  model = "kilo/thinkingmachines/inkling-small:free"
+  assert cooldowns.daily_end(model, daily, NOW) == (model, NOW + 6 * 3600)
+  assert cooldowns.reset_seconds({}, daily, NOW) == 6 * 3600
+  short = "kilo/thinkingmachines/inkling:free"
+  assert cooldowns.daily_end(short, daily, NOW) == (short, NOW + 6 * 3600), (
+    "the same rule holds the small variant and its larger sibling"
+  )
+  no_reset = openrouter_daily(NOW + 6 * 3600)
+  no_reset["error"]["metadata"]["headers"] = {}
+  utc = datetime(2026, 9, 29, 0, 0, tzinfo=UTC).timestamp()
+  assert cooldowns.daily_end(model, no_reset, NOW) == (model, utc), (
+    "with no reset header the cap holds until 00:00 UTC"
+  )
+  assert (
+    cooldowns.daily_end("kilo/other:free", {"error": {"message": "slow"}}, NOW) is None
+  )
   with caplog.at_level("WARNING"):
     assert (
       cooldowns.reset_seconds({"retry-after": "1791000000000"}, {}, NOW) == 86400
