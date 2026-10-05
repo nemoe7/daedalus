@@ -73,7 +73,7 @@ ACTION = (
   pathlib.Path(__file__).resolve().parents[2]
   / "integrations"
   / "openwebui"
-  / "actions"
+  / "functions"
   / "think_longer.py"
 )
 SPEC = importlib.util.spec_from_file_location("think_longer", ACTION)
