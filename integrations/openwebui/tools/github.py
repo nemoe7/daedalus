@@ -3,7 +3,7 @@ title: GitHub
 author: nemo
 description: GitHub access for Open WebUI. Reads run freely. Every write passes a confirmation gate and a timeout, and the tool sends nothing when it cannot show the gate. Stdlib only.
 required_open_webui_version: 0.10.0
-version: 3.0.0
+version: 3.0.1
 licence: daedalus Noncommercial License 1.0.0
 """
 
