@@ -810,12 +810,12 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
   assert "grid-template-columns: repeat(4, minmax(0, 1fr))" in mobile_css
   assert (
     ".requests tr.request > td:nth-child(4), .requests tr.live-row > td:nth-child(4) "
-    "{ grid-column: 1 / 3; grid-row: 2; }"
+    "{ grid-column: 1 / -1; grid-row: 2; }"
   ) in mobile_css
   assert (
     ".requests tr.request > td:nth-child(6), .requests tr.live-row > td:nth-child(6) "
-    "{ grid-column: 3 / 5; grid-row: 2; }"
-  ) in mobile_css, "the served model reads beside the model on the card"
+    "{ grid-column: 1 / -1; grid-row: 3; }"
+  ) in mobile_css, "the served model takes its own row under the model"
   assert (
     ".requests tr.request > td:nth-child(7), .requests tr.live-row > td:nth-child(7) {\n"
     "    grid-column: 4; grid-row: 1; justify-content: flex-end;\n"
@@ -823,9 +823,9 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
   ) in mobile_css, "the status is the badge of the first row"
   assert (
     ".requests tr.request > td:nth-child(8), .requests tr.live-row > td:nth-child(8) "
-    "{ grid-column: 1; grid-row: 3; }"
+    "{ grid-column: 1; grid-row: 4; }"
   ) in mobile_css, "the input count joins the other counts"
-  assert "grid-column: 1 / -1; grid-row: 4;" in mobile_css
+  assert "grid-column: 1 / -1; grid-row: 5;" in mobile_css
   assert (
     ".requests tr.request > td:nth-child(3), .requests tr.request > td:nth-child(5),\n"
     "  .requests tr.live-row > td:nth-child(3), .requests tr.live-row > td:nth-child(5) "
@@ -841,15 +841,15 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
   assert ".requests tr.live-row > td:nth-child(1) .pulse" in narrow_css
   assert (
     "td:nth-child(8), .requests tr.live-row > td:nth-child(8) "
-    "{ grid-column: 1 / 3; grid-row: 3; }"
+    "{ grid-column: 1 / 3; grid-row: 4; }"
   ) in narrow_css
   assert (
     "td:nth-child(11), .requests tr.live-row > td:nth-child(11) "
-    "{ grid-column: 3 / 5; grid-row: 4; }"
+    "{ grid-column: 3 / 5; grid-row: 5; }"
   ) in narrow_css
   assert (
     ".requests tr.request > td.fallbacks-cell, .requests tr.live-row > "
-    "td.fallbacks-cell { grid-column: 1 / -1; grid-row: 5; }"
+    "td.fallbacks-cell { grid-column: 1 / -1; grid-row: 6; }"
   ) in narrow_css, "the fallback row keeps the full width of a narrow card"
 
 
