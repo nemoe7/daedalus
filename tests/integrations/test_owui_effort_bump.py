@@ -141,7 +141,8 @@ def test_one_press_bumps_then_answers_again():
     "messages": [
       {"role": "user", "content": "why is this slow"},
       {"role": "assistant", "content": "the old answer"},
-    ]
+    ],
+    "model": "daedalus/auto",
   }, ladder["json"]
   assert chat["url"] == "http://127.0.0.1:3357/v1/chat/completions"
   assert chat["json"]["model"] == "daedalus/deinos"
