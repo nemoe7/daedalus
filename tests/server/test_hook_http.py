@@ -19,6 +19,10 @@ GOOD_PIN = """def on_http(body, key="", prompt="", headers=None, pin=None):
   return {"pin": pin}
 """
 
+GOOD_LEVEL = """def on_http(body, key="", prompt="", headers=None, level=None):
+  return {"level": level}
+"""
+
 BROKEN = """def on_http(body, key="", prompt="", headers=None):
   raise RuntimeError("boom")
 """
@@ -61,6 +65,17 @@ def test_hook_http_hands_the_pin_of_the_session() -> None:
   )
   assert response.status_code == 200, response.text
   assert response.json()["pin"] == ["daedalus/deinos", "kilo/x"]
+
+
+def test_hook_http_hands_the_level_of_the_session() -> None:
+  """The route passes the reasoning level of the last answer to a file that names `level`."""
+  name = written("probe_level.py", GOOD_LEVEL)
+  api.PENALTIES.record_level(api.session_key(MASTER, CHAT), "medium")
+  response = TestClient(api.app, headers=AUTH).post(
+    f"/v1/hook/{name}", json={"messages": CHAT}
+  )
+  assert response.status_code == 200, response.text
+  assert response.json()["level"] == "medium"
 
 
 def test_hook_http_takes_a_nested_path() -> None:
@@ -130,63 +145,54 @@ def test_hook_http_refuses_a_bad_body() -> None:
   assert client.post(f"/v1/hook/{name}", json=["a"]).status_code == 400
 
 
-def test_the_shipped_ladder_hook_steps_the_pin() -> None:
-  """The shipped `owui_auto_reasoning.py` moves 1 rung up the pin of the chat, and names its effort."""
-  module = hooks.load(Path("config") / "hooks" / "owui_auto_reasoning.py")
-  api.PENALTIES.pin("chat-1", "daedalus/auto:TIER-C", "kilo/poolside/laguna-s-2.1:free")
+def test_the_shipped_ladder_hook_steps_the_level() -> None:
+  """The shipped `owui_think_longer.py` steps the level of the last answer, on the same model."""
+  module = hooks.load(Path("config") / "hooks" / "owui_think_longer.py")
+  api.PENALTIES.record_level("chat-1", "low")
   found = module.on_http(
-    {},
+    {"model": "daedalus/auto"},
     key="chat-1",
     prompt="why is this slow",
     headers={},
-    pin=api.PENALTIES.last_pin("chat-1"),
+    level=api.PENALTIES.last_level("chat-1"),
   )
-  assert found["tier_name"] == "TIER-B"
-  assert found["model"] == "daedalus/deinos"
+  assert found["model"] == "daedalus/auto"
   assert found["reasoning_effort"] == "medium"
-  assert found["before"]["tier_name"] == "TIER-C"
+  assert found["tier_name"] == "TIER-B"
+  assert found["before"]["reasoning_effort"] == "low"
   assert found["top"] is False
 
 
-def test_the_shipped_ladder_hook_reads_a_pool_and_the_prompt() -> None:
-  """A pinned pool names its own rung, and a chat with no pin starts from its prompt."""
-  module = hooks.load(Path("config") / "hooks" / "owui_auto_reasoning.py")
-  api.PENALTIES.pin("chat-2", "daedalus/koinos", "kilo/poolside/laguna-s-2.1:free")
-  found = module.on_http(
-    {},
-    key="chat-2",
-    prompt="why is this slow",
-    headers={},
-    pin=api.PENALTIES.last_pin("chat-2"),
-  )
-  assert found["before"]["tier_name"] == "TIER-C" and found["tier_name"] == "TIER-B"
+def test_the_shipped_ladder_hook_reads_the_prompt_and_the_body() -> None:
+  """A chat with no level starts from the read of its prompt, or from the turns of its body."""
+  module = hooks.load(Path("config") / "hooks" / "owui_think_longer.py")
   read = api.router.required_tier("why is this slow")
   fresh = module.on_http({}, key="chat-3", prompt="why is this slow", headers={})
   assert fresh["before"]["tier"] == read
   assert fresh["tier"] == min(read + 1, 4)
-
-
-def test_the_shipped_ladder_hook_reads_a_pool_of_the_body() -> None:
-  """A chat with no pin starts from the pool its body names."""
-  module = hooks.load(Path("config") / "hooks" / "owui_auto_reasoning.py")
-  found = module.on_http(
-    {"model": "daedalus/koinos"}, key="chat-5", prompt="hi", headers={}
+  turns = module.on_http(
+    {
+      "model": "daedalus/auto",
+      "messages": [{"role": "user", "content": "why is this slow"}],
+    },
+    key="chat-5",
+    headers={},
   )
-  assert found["before"]["tier_name"] == "TIER-C"
-  assert found["tier_name"] == "TIER-B"
+  assert turns["before"]["tier"] == read
+  assert turns["model"] == "daedalus/auto"
 
 
 def test_the_shipped_ladder_hook_stops_at_the_top() -> None:
-  """`TIER-A` is the top rung: the answer keeps it and `top` says so."""
-  module = hooks.load(Path("config") / "hooks" / "owui_auto_reasoning.py")
-  api.PENALTIES.pin("chat-4", "daedalus/auto:TIER-A", "kilo/poolside/laguna-s-2.1:free")
+  """`high` is the top of the ladder: the answer keeps it and `top` says so."""
+  module = hooks.load(Path("config") / "hooks" / "owui_think_longer.py")
+  api.PENALTIES.record_level("chat-4", "high")
   found = module.on_http(
-    {},
+    {"model": "daedalus/auto"},
     key="chat-4",
     prompt="hard",
     headers={},
-    pin=api.PENALTIES.last_pin("chat-4"),
+    level=api.PENALTIES.last_level("chat-4"),
   )
-  assert found["tier_name"] == "TIER-A"
   assert found["reasoning_effort"] == "high"
+  assert found["before"]["reasoning_effort"] == "high"
   assert found["top"] is True

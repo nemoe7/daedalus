@@ -1,4 +1,4 @@
-"""Tests for the Open WebUI reasoning-bump action.
+"""Tests for the Open WebUI think-longer action.
 
 The action file is loaded by path, because Open WebUI plugins are standalone Python files and
 not part of the daedalus package. The HTTP layer is replaced with a stub, so no test reaches
@@ -74,23 +74,30 @@ ACTION = (
   / "integrations"
   / "openwebui"
   / "actions"
-  / "effort_bump.py"
+  / "think_longer.py"
 )
-SPEC = importlib.util.spec_from_file_location("effort_bump", ACTION)
+SPEC = importlib.util.spec_from_file_location("think_longer", ACTION)
 MOD = importlib.util.module_from_spec(SPEC)
-sys.modules["effort_bump"] = MOD
+sys.modules["think_longer"] = MOD
 SPEC.loader.exec_module(MOD)
 Action = MOD.Action
 
-PLAN = {
-  "model": "daedalus/deinos",
-  "pool": "deinos",
-  "tier": 3,
-  "tier_name": "TIER-B",
-  "reasoning_effort": "medium",
-  "before": {"tier": 2, "tier_name": "TIER-C", "reasoning_effort": "low"},
-  "top": False,
-}
+
+class FakeRequest:
+  """The call of the action, as Open WebUI hands it: the base URL and the caller headers."""
+
+  def __init__(self, base_url="http://webui.test:8080/", headers=None):
+    self.base_url = base_url
+    self.headers = (
+      headers
+      if headers is not None
+      else {
+        "authorization": "Bearer user-token",
+        "cookie": "owui=1",
+      }
+    )
+
+
 TURN = {"role": "user", "content": "why is this slow", "id": "m1"}
 PRESSED = {"role": "assistant", "content": "the old answer", "id": "m2"}
 BODY = {
@@ -105,8 +112,7 @@ ANSWER = {"choices": [{"message": {"role": "assistant", "content": "the new answ
 def make_action(answers=None):
   """An action whose HTTP layer is a stub, plus the stub session."""
   action = Action()
-  action.valves.DAEDALUS_API_KEY = "test-key"
-  session = FakeSession(answers or {MOD.LADDER: (200, PLAN), MOD.CHAT: (200, ANSWER)})
+  session = FakeSession(answers or {MOD.CHAT: (200, ANSWER)})
 
   async def fake_open():
     return session
@@ -115,42 +121,40 @@ def make_action(answers=None):
   return action, session
 
 
-def run(action, body=None, emitter=None):
-  return asyncio.run(action.action(body or BODY, __event_emitter__=emitter))
+def run(action, body=None, emitter=None, request=None):
+  return asyncio.run(
+    action.action(
+      body or BODY, __event_emitter__=emitter, __request__=request or FakeRequest()
+    )
+  )
 
 
 def test_the_surface_of_the_action():
-  """The action holds the light-bulb icon, the 2 routes and the shipped valves."""
+  """The action holds the light-bulb icon, the Open WebUI route, and no daedalus key."""
   assert MOD.icon_url.startswith("data:image/svg+xml;base64,")
-  assert (
-    MOD.LADDER == "/v1/hook/owui_auto_reasoning" and MOD.CHAT == "/v1/chat/completions"
-  )
+  assert MOD.CHAT == "/api/chat/completions" and MOD.FIELD == "think_longer"
+  assert MOD.STEPS == 1
   valves = Action.Valves()
-  assert valves.DAEDALUS_API_BASE == "http://127.0.0.1:3357"
-  assert valves.DAEDALUS_API_KEY == "" and valves.timeout_seconds == 300
+  assert valves.timeout_seconds == 300
   assert valves.SHOW_STATUS is True
+  assert not hasattr(valves, "DAEDALUS_API_KEY"), "the action holds no daedalus key"
 
 
-def test_one_press_bumps_then_answers_again():
-  """The ladder answers the pool, and the chat runs the pressed turn again on it."""
+def test_one_press_asks_to_think_longer_and_answers_again():
+  """The action asks Open WebUI for the pressed turn at the next level."""
   action, session = make_action()
   found = run(action)
-  assert len(session.calls) == 2
-  ladder, chat = session.calls
-  assert ladder["url"] == "http://127.0.0.1:3357/v1/hook/owui_auto_reasoning"
-  assert ladder["headers"]["Authorization"] == "Bearer test-key"
-  assert ladder["json"] == {
-    "messages": [
-      {"role": "user", "content": "why is this slow"},
-      {"role": "assistant", "content": "the old answer"},
-    ],
+  assert len(session.calls) == 1
+  chat = session.calls[0]
+  assert chat["url"] == "http://webui.test:8080/api/chat/completions"
+  assert chat["headers"]["Authorization"] == "Bearer user-token"
+  assert chat["headers"]["Cookie"] == "owui=1"
+  assert chat["json"] == {
     "model": "daedalus/auto",
-  }, ladder["json"]
-  assert chat["url"] == "http://127.0.0.1:3357/v1/chat/completions"
-  assert chat["json"]["model"] == "daedalus/deinos"
-  assert chat["json"]["reasoning_effort"] == "medium"
-  assert chat["json"]["stream"] is False
-  assert chat["json"]["messages"] == [{"role": "user", "content": "why is this slow"}]
+    "messages": [{"role": "user", "content": "why is this slow"}],
+    "think_longer": 1,
+    "stream": False,
+  }, chat["json"]
   assert found == {
     "messages": [{"role": "assistant", "id": "m2", "content": "the new answer"}]
   }, found
@@ -163,8 +167,15 @@ def test_the_context_keeps_every_turn_to_the_last_user_turn():
   one = {"role": "assistant", "content": "hello"}
   second = {"role": "user", "content": "and now?"}
   pressed = {"role": "assistant", "content": "the old answer", "id": "m4"}
-  run(action, {"messages": [first, one, second, pressed], "id": "m4"})
-  assert session.calls[1]["json"]["messages"] == [
+  run(
+    action,
+    {
+      "messages": [first, one, second, pressed],
+      "id": "m4",
+      "model": "daedalus/auto",
+    },
+  )
+  assert session.calls[0]["json"]["messages"] == [
     {"role": "user", "content": "hi"},
     {"role": "assistant", "content": "hello"},
     {"role": "user", "content": "and now?"},
@@ -172,19 +183,17 @@ def test_the_context_keeps_every_turn_to_the_last_user_turn():
 
 
 def test_the_base_url_loses_a_trailing_slash():
-  """The valve base URL joins the route with 1 slash."""
+  """The request base URL joins the route with 1 slash."""
   action, session = make_action()
-  action.valves.DAEDALUS_API_BASE = "http://host.test:1/"
-  run(action)
-  assert session.calls[0]["url"] == "http://host.test:1/v1/hook/owui_auto_reasoning"
+  run(action, request=FakeRequest(base_url="http://webui.test:8080"))
+  assert session.calls[0]["url"] == "http://webui.test:8080/api/chat/completions"
 
 
-def test_a_missing_key_stops_before_the_network():
-  """An empty key valve names itself, and no call leaves the action."""
+def test_a_call_with_no_request_fails():
+  """An action call with no request names the fault, and no call leaves the action."""
   action, session = make_action()
-  action.valves.DAEDALUS_API_KEY = ""
-  with pytest.raises(ValueError, match="DAEDALUS_API_KEY"):
-    run(action)
+  with pytest.raises(ValueError, match="no request"):
+    asyncio.run(action.action(BODY, __event_emitter__=None, __request__=None))
   assert session.calls == []
 
 
@@ -192,35 +201,45 @@ def test_a_call_with_no_messages_fails():
   """A call with no messages names the fault, and no call leaves the action."""
   action, session = make_action()
   with pytest.raises(ValueError, match="no messages"):
-    run(action, {"id": "m1"})
+    run(action, {"id": "m1", "model": "daedalus/auto"})
   assert session.calls == []
 
 
-def test_a_daedalus_error_names_the_route():
-  """A 500 of the ladder stops the press and names the status."""
-  action, session = make_action({MOD.LADDER: (500, {"detail": "boom"})})
+def test_a_call_with_no_model_fails():
+  """A call with no model names the fault, and no call leaves the action."""
+  action, session = make_action()
+  with pytest.raises(ValueError, match="no model"):
+    run(action, {"messages": [TURN, PRESSED], "id": "m2"})
+  assert session.calls == []
+
+
+def test_a_call_with_no_message_id_fails():
+  """A call with no pressed message id names the fault, and no call leaves the action."""
+  action, session = make_action()
+  with pytest.raises(ValueError, match="no message id"):
+    run(
+      action,
+      {"messages": [{"role": "user", "content": "hi"}], "model": "daedalus/auto"},
+    )
+  assert session.calls == []
+
+
+def test_an_error_of_open_webui_names_the_route():
+  """A 500 of the chat route stops the press and names the status."""
+  action, _ = make_action({MOD.CHAT: (500, {"detail": "boom"})})
   with pytest.raises(ValueError, match="500"):
     run(action)
-  assert len(session.calls) == 1
 
 
 def test_an_empty_answer_fails():
   """An answer with no text stops the press."""
-  action, _ = make_action({MOD.LADDER: (200, PLAN), MOD.CHAT: (200, {"choices": []})})
+  action, _ = make_action({MOD.CHAT: (200, {"choices": []})})
   with pytest.raises(ValueError, match="no answer text"):
     run(action)
 
 
-def test_a_plan_with_no_model_fails():
-  """The ladder must name a model, or the chat call never runs."""
-  action, session = make_action({MOD.LADDER: (200, {"reasoning_effort": "low"})})
-  with pytest.raises(ValueError, match="no model"):
-    run(action)
-  assert len(session.calls) == 1
-
-
-def test_the_status_line_names_the_plan():
-  """The status of a press names the pool and the effort."""
+def test_the_status_line_names_the_step():
+  """The status of a press names the model and the step that was asked."""
   action, _ = make_action()
   events = []
 
@@ -230,22 +249,7 @@ def test_the_status_line_names_the_plan():
   run(action, emitter=emit)
   assert len(events) == 1
   assert events[0]["type"] == "status" and events[0]["data"]["done"] is True
-  assert "daedalus/deinos" in events[0]["data"]["description"]
-  assert "medium" in events[0]["data"]["description"]
-
-
-def test_a_top_plan_marks_the_status():
-  """A chat on the top rung says so in the status."""
-  action, _ = make_action(
-    {MOD.LADDER: (200, {**PLAN, "top": True}), MOD.CHAT: (200, ANSWER)}
-  )
-  events = []
-
-  async def emit(event):
-    events.append(event)
-
-  run(action, emitter=emit)
-  assert events[0]["data"]["description"].endswith("· top")
+  assert events[0]["data"]["description"] == "daedalus/auto · think longer +1"
 
 
 def test_no_status_when_the_valve_is_off():
@@ -270,7 +274,9 @@ def test_the_pressed_message_keeps_its_id_and_drops_an_error():
     "id": "m2",
     "error": {"content": "x"},
   }
-  found = run(action, {"messages": [TURN, pressed], "id": "m2"})
+  found = run(
+    action, {"messages": [TURN, pressed], "id": "m2", "model": "daedalus/auto"}
+  )
   assert found["messages"][0]["id"] == "m2"
   assert "error" not in found["messages"][0]
   assert found["messages"][0]["content"] == "the new answer"

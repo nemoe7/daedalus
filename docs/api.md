@@ -55,10 +55,10 @@ Embeddings and speech have no pool and no fallback. Vectors and voices from 2 mo
 ## Hook files
 
 `POST /v1/hook/<file>` runs the `on_http` function of 1 hook file, and answers with the dict it
-returns. The path names the file, and the `.py` suffix is optional: `owui_auto_reasoning` finds
-`owui_auto_reasoning.py`. The shipped `config/hooks/owui_auto_reasoning.py` holds the reasoning ladder: it sets the level of a
-request through the `on-prompt` point, and this route answers the next rung, with its pool and
-its effort. See [Hooks](hooks.md#the-http-surface).
+returns. The path names the file, and the `.py` suffix is optional: `owui_think_longer` finds
+`owui_think_longer.py`. The shipped `config/hooks/owui_think_longer.py` holds the think-longer ladder: it sets the level of a
+request through the `on-prompt` point, and this route answers the next level, on the model of the
+chat. See [Hooks](hooks.md#the-http-surface).
 
 ## Model names
 

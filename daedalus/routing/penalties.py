@@ -1,4 +1,4 @@
-"""Model weights and session models (pins), kept in the model store."""
+"""Model weights, session models (pins) and the reasoning level of the last answer, in the model store."""
 
 import random
 import sqlite3
@@ -28,6 +28,10 @@ TABLES = (
     "CREATE TABLE IF NOT EXISTS tiers"
     " (key TEXT PRIMARY KEY, tier INTEGER NOT NULL, used REAL NOT NULL)"
   ),
+  (
+    "CREATE TABLE IF NOT EXISTS levels"
+    " (key TEXT PRIMARY KEY, effort TEXT NOT NULL, used REAL NOT NULL)"
+  ),
 )
 
 
@@ -56,12 +60,13 @@ class Penalties:
     return open_db(self.path(), tuple(TABLES))
 
   def clear(self) -> None:
-    """Remove all weights and pins."""
+    """Remove all weights, pins and levels."""
     database = self.connect()
     with database:
       database.execute("DELETE FROM weights")
       database.execute("DELETE FROM pins")
       database.execute("DELETE FROM tiers")
+      database.execute("DELETE FROM levels")
     database.close()
 
   def reset_weights(self) -> None:
@@ -121,13 +126,36 @@ class Penalties:
     return row[0] if row else None
 
   def prune(self) -> None:
-    """Drop the pins and tiers that idled, for the timer."""
+    """Drop the pins, tiers and levels that idled, for the timer."""
     now = self.clock() - self.idle
     database = self.connect()
     with database:
       database.execute("DELETE FROM pins WHERE used < ?", (now,))
       database.execute("DELETE FROM tiers WHERE used < ?", (now,))
+      database.execute("DELETE FROM levels WHERE used < ?", (now,))
     database.close()
+
+  def record_level(self, key: str, effort: str) -> None:
+    """Keep the reasoning level of the last answer of one conversation."""
+    database = self.connect()
+    with database:
+      database.execute(
+        "INSERT OR REPLACE INTO levels (key, effort, used) VALUES (?, ?, ?)",
+        (key, effort, self.clock()),
+      )
+    database.close()
+
+  def last_level(self, key: str) -> str | None:
+    """The reasoning level of the last answer of one conversation, or None."""
+    database = self.connect()
+    try:
+      row = database.execute(
+        "SELECT effort FROM levels WHERE key = ? AND used >= ?",
+        (key, self.clock() - self.idle),
+      ).fetchone()
+    finally:
+      database.close()
+    return row[0] if row else None
 
   def last_pin(self, key: str) -> tuple[str, str] | None:
     """The most recently answered session slot and model for this conversation."""
