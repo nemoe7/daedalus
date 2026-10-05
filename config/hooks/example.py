@@ -70,14 +70,19 @@ def on_prompt(
 
 
 def on_http(
-  body: dict, key: str = "", prompt: str = "", headers: dict | None = None
+  body: dict,
+  key: str = "",
+  prompt: str = "",
+  headers: dict | None = None,
+  pin: tuple[str, str] | None = None,
 ) -> dict:
   """On `POST /v1/hook/<file>`: the JSON body of the call, and the dict to answer with.
 
   The file sits under `config/hooks`, and its path names it. The route passes the JSON body,
   the session `key` of the chat (the bearer token and its first user turn), the first user
-  turn as `prompt`, and the request `headers`. Any valid key may call a hook file, so treat
-  it as admin code. The returned dict is the JSON answer.
+  turn as `prompt`, and the request `headers`. It also passes `pin`, the slot and the model
+  of the last answer of the chat, when the file names that argument. Any valid key may call a
+  hook file, so treat it as admin code. The returned dict is the JSON answer.
   """
   # Example: answer with the model and the time of the call.
   # return {"model": body.get("model"), "at": time.time()}

@@ -1,6 +1,7 @@
 """OpenAI-compatible local router for the configured providers."""
 
 import asyncio
+import inspect
 import json
 import logging
 import os
@@ -763,12 +764,18 @@ async def hook_call(request: Request, file: str) -> Response:
       400, f"{file} has no on_http function", "invalid_request_error"
     )
   messages = body.get("messages")
+  key = session_key(access.bearer(request), messages)
+  call: dict[str, Any] = {}
+  # A file that names `pin` gets the last pin of the chat: an older file keeps its 4 values.
+  if "pin" in inspect.signature(handler).parameters:
+    call["pin"] = PENALTIES.last_pin(key) if key else None
   try:
     answer = handler(
       body,
-      key=session_key(access.bearer(request), messages),
+      key=key,
       prompt=first_user_text(messages),
       headers=dict(request.headers),
+      **call,
     )
   except Exception as exc:
     logger.exception("on-http hook %s failed", path)
