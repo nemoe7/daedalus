@@ -1,7 +1,7 @@
 """
 title: Open WebUI Manager
 author: nemo
-description: The Open WebUI workspace manager: knowledge bases, skills, the file library, Workspace Tools and Functions. Reads and new items run freely; every overwrite, toggle and delete passes a confirmation gate. The preset attach stays private. Stdlib only.
+description: The Open WebUI workspace manager: knowledge bases, skills, the file library, Workspace Tools and Functions. Reads and new items run freely. Every overwrite, toggle and delete passes a confirmation gate. The preset attach stays private. Stdlib only.
 required_open_webui_version: 0.10.0
 version: 1.0.0
 licence: MIT
@@ -43,7 +43,7 @@ def _entry_key(item: Any) -> str:
 def _merge_ids(current: Any, add: list[Any], remove: list[str]) -> list[Any]:
   """Apply the add and remove lists to a current list, order kept.
 
-  Knowledge entries are reference objects; the other lists hold plain ids.
+  Knowledge entries are reference objects. The other lists hold plain ids.
   """
   gone = {str(item) for item in remove}
   merged = [item for item in (current or []) if _entry_key(item) not in gone]
@@ -61,7 +61,7 @@ class Tools:
 
   The file wins over the 2 old manager tools: the 23 knowledge tools keep
   their names, and the skills, the file library, the Workspace Tools and the
-  Functions join them. Reads and new items run freely; a mutation and a
+  Functions join them. Reads and new items run freely. A mutation and a
   toggle pass the gate. The preset attach is private, so Open WebUI builds no
   model tool spec for it.
   """
@@ -123,9 +123,8 @@ class Tools:
 
     The confirmation travels over the socket of the tab that started the chat.
     A page refresh drops the dialog and the server would wait forever, because
-    WEBSOCKET_EVENT_CALLER_TIMEOUT is unset by default; the wait_for below is
-    the only timeout that always exists, so a refresh costs one wait, then a
-    deny.
+    WEBSOCKET_EVENT_CALLER_TIMEOUT starts unset. The wait_for below is the only
+    timeout that always exists, so a refresh costs one wait, then a deny.
     """
     if not callable(__event_call__):
       return False
@@ -220,7 +219,7 @@ class Tools:
     return item.get("file", item) if isinstance(item, dict) else {}
 
   async def _directory_listing(self, session, knowledge_id, directory_id=""):
-    """Fetches all pages of a single directory's contents."""
+    """Read all pages of a single directory's contents."""
     page = 1
     all_items = []
     directories = []
@@ -293,7 +292,7 @@ class Tools:
   async def _knowledge_has_content(
     self, session, knowledge_id, directory_id="", visited=None
   ):
-    """Checks whether any files exist at any nesting level of the knowledge base."""
+    """Report whether any files exist at any nesting level of the knowledge base."""
     if visited is None:
       visited = set()
     key = directory_id or "ROOT"
@@ -374,6 +373,9 @@ class Tools:
 
     Returns directory IDs, file IDs and breadcrumbs so the model
     can navigate the knowledge base without creating duplicate folders.
+
+    :param knowledge_id: ID of the Open WebUI knowledge base
+    :param directory_id: the directory id to list, or the knowledge root when absent
     """
 
     async def run(
@@ -426,6 +428,9 @@ class Tools:
   ) -> str:
     """
     Create a new Open WebUI knowledge base for the current user.
+
+    :param name: name of the new Open WebUI knowledge base
+    :param description: the description of the new knowledge base
     """
 
     refusal = await self._guard(
@@ -478,6 +483,10 @@ class Tools:
 
     Empty new_name keeps the existing name.
     Empty new_description keeps the existing description.
+
+    :param knowledge_id: ID of the Open WebUI knowledge base
+    :param new_name: the new name, or empty to keep the current one
+    :param new_description: the new description, or empty to keep the current one
     """
 
     refusal = await self._guard(
@@ -523,6 +532,10 @@ class Tools:
     """
     Create a directory inside an Open WebUI knowledge base.
     Supports nested directories using parent_id.
+
+    :param knowledge_id: ID of the Open WebUI knowledge base
+    :param name: name of the directory to create
+    :param parent_id: the parent directory id, or empty for the knowledge root
     """
 
     refusal = await self._guard(
@@ -563,9 +576,11 @@ class Tools:
     """
     Ensure that a nested directory path exists inside a knowledge base.
 
-    Existing directories are reused.
-    Missing directories are created.
+    The tool reuses an existing directory and creates a missing one.
     Example: Servers/VPN/Notes
+
+    :param knowledge_id: ID of the Open WebUI knowledge base
+    :param path: directory path to create or reuse, for example Servers/VPN/Notes
     """
     parts, err = self._path_parts(path)
     if err:
@@ -649,6 +664,11 @@ class Tools:
     directory_id:
     - empty string = create in knowledge base root
     - directory ID = create directly inside that directory
+
+    :param knowledge_id: ID of the target Open WebUI knowledge base
+    :param filename: filename for the new Markdown document, for example server-notes.md
+    :param content: complete Markdown content to write into the new document
+    :param directory_id: the directory id to write into, or empty for the knowledge root
     """
 
     refusal = await self._guard(
@@ -696,9 +716,12 @@ class Tools:
     """
     Create a Markdown file at a nested path inside a knowledge base.
 
-    Existing directories are reused.
-    Missing directories are created automatically.
-    The file is created directly in the final directory.
+    The tool reuses an existing directory and creates a missing one.
+    The file goes directly into the final directory.
+
+    :param knowledge_id: ID of the target Open WebUI knowledge base
+    :param path: full path including filename, for example Projects/Servers/VPN/Notes/readme.md
+    :param content: complete Markdown content for the new file
     """
 
     refusal = await self._guard(
@@ -808,6 +831,9 @@ class Tools:
     """
     Replace the content of an existing Open WebUI knowledge file
     and reindex it for retrieval.
+
+    :param file_id: ID of the existing Open WebUI knowledge file
+    :param content: complete new Markdown/text content that will replace the existing file content
     """
 
     refusal = await self._guard(
@@ -843,6 +869,8 @@ class Tools:
     """
     Read the extracted/indexed text content of an Open WebUI knowledge file.
     Use this before editing an existing document.
+
+    :param file_id: ID of the Open WebUI knowledge file to read
     """
 
     async def run(
@@ -887,8 +915,12 @@ class Tools:
     Find an existing knowledge file by its exact path
     and replace its complete text content.
 
-    The file is reindexed automatically.
+    Open WebUI reindexes the file automatically.
     Does not create missing directories or files.
+
+    :param knowledge_id: ID of the Open WebUI knowledge base
+    :param path: full path to the existing file, for example Projects/Servers/VPN/Notes/readme.md
+    :param content: complete new content that will replace the existing file content
     """
 
     refusal = await self._guard(
@@ -917,6 +949,9 @@ class Tools:
     """
     Read an existing knowledge file by its exact path.
     Does not create or modify anything.
+
+    :param knowledge_id: ID of the Open WebUI knowledge base
+    :param path: exact file path, for example Projects/Servers/VPN/Notes/readme.md
     """
 
     async def run(
@@ -957,11 +992,15 @@ class Tools:
     """
     Create or update a Markdown file at an exact knowledge-base path.
 
-    - Existing directories are reused.
-    - Missing directories are created.
-    - Existing file is updated and reindexed.
-    - Missing file is created and indexed.
+    - The tool reuses an existing directory.
+    - The tool creates a missing directory.
+    - The tool updates and reindexes an existing file.
+    - The tool creates and indexes a missing file.
     - Ambiguous directory or file matches are never guessed.
+
+    :param knowledge_id: ID of the target Open WebUI knowledge base
+    :param path: full Markdown file path, for example Projects/Servers/VPN/Notes/readme.md
+    :param content: complete Markdown content to create or replace
     """
 
     refusal = await self._guard(
@@ -1023,6 +1062,9 @@ class Tools:
   ) -> str:
     """
     Rename an existing Open WebUI knowledge file.
+
+    :param file_id: ID of the Open WebUI knowledge file to rename
+    :param new_filename: new filename including extension, for example vpn-guide.md
     """
 
     refusal = await self._guard(
@@ -1064,6 +1106,10 @@ class Tools:
   ) -> str:
     """
     Rename a directory inside an Open WebUI knowledge base.
+
+    :param knowledge_id: ID of the Open WebUI knowledge base
+    :param directory_id: ID of the directory to rename
+    :param new_name: new directory name
     """
 
     refusal = await self._guard(
@@ -1105,6 +1151,10 @@ class Tools:
     Move a directory inside an Open WebUI knowledge base.
 
     Use an empty target_parent_id to move the directory to the root.
+
+    :param knowledge_id: ID of the Open WebUI knowledge base
+    :param directory_id: ID of the directory to move
+    :param target_parent_id: ID of the target parent directory. Use an empty string to move the directory to the knowledge base root
     """
 
     refusal = await self._guard(
@@ -1150,6 +1200,9 @@ class Tools:
     and its indexed embeddings.
 
     Use only when the user explicitly asks to delete the file.
+
+    :param file_id: ID of the Open WebUI file to permanently delete
+    :param confirm: Must be true. Set true only when the user explicitly requested permanent deletion of the file
     """
 
     refusal = await self._guard(
@@ -1184,9 +1237,13 @@ class Tools:
     Permanently delete an existing knowledge file by its exact path.
 
     Safety:
-    - confirm must be true;
-    - exact directory path and filename must resolve;
+    - confirm must be true.
+    - The exact directory path and filename must resolve.
     - ambiguous matches are never deleted.
+
+    :param knowledge_id: ID of the Open WebUI knowledge base
+    :param path: exact path of the file to permanently delete
+    :param confirm: Must be true. Use true only when the user explicitly requested permanent deletion of this file
     """
 
     refusal = await self._guard(
@@ -1232,8 +1289,11 @@ class Tools:
     """
     Delete a directory from an Open WebUI knowledge base.
 
-    Files inside the directory are moved to its parent directory
-    instead of being deleted.
+    The tool moves the files inside the directory to its parent,
+    and does not delete them.
+
+    :param knowledge_id: ID of the Open WebUI knowledge base
+    :param directory_id: ID of the directory to delete
     """
 
     refusal = await self._guard(
@@ -1277,10 +1337,15 @@ class Tools:
 
     By default searches metadata/filenames.
     Set include_content=true to return file content preview for found files.
-    max_content_items limits how many files will have their content fetched (default: 10).
+    max_content_items limits how many files come back with their content (default: 10).
 
     Note: Open WebUI search API searches by filename, not by file content.
     Full-text search within file content is not supported by the current API.
+
+    :param query: filename or text to search for across all accessible knowledge bases
+    :param include_content: true to search the file text too, false for filenames alone
+    :param page: the page of results, from 1
+    :param max_content_items: how many matching files carry their text
     """
 
     async def run(
@@ -1327,7 +1392,7 @@ class Tools:
 
           if include_content and file_id and i < max_content_items:
             # Some Open WebUI versions do not return the text in the search
-            # response. Therefore, with include_content we fetch it with
+            # response. Therefore, with include_content we read it with
             # a separate request.
             content_data, content_error = await self._request(
               s, "GET", f"/files/{file_id}/data/content"
@@ -1366,8 +1431,11 @@ class Tools:
     Find a file across all accessible Open WebUI knowledge bases
     and immediately return its full extracted/indexed text content.
 
-    If exact_filename is provided, prefer an exact filename match.
+    If the call names exact_filename, prefer an exact filename match.
     If several files still match, return their IDs instead of guessing.
+
+    :param query: filename or search text used to find the knowledge file
+    :param exact_filename: the exact filename to match
     """
 
     async def run(
@@ -1436,6 +1504,10 @@ class Tools:
 
     Includes directory IDs and file IDs.
     Traverses nested directories recursively.
+
+    :param knowledge_id: ID of the Open WebUI knowledge base
+    :param max_depth: how deep the tree goes, 1 or more
+    :param max_nodes: the most nodes to return
     """
 
     async def run(
@@ -1524,10 +1596,14 @@ class Tools:
     Permanently delete an Open WebUI knowledge base.
 
     Safety rules:
-    - confirm must be true;
-    - by default refuses to delete a knowledge base containing files;
-    - set allow_nonempty=true only when the user explicitly wants
+    - confirm must be true.
+    - The tool refuses to delete a knowledge base with files by default.
+    - Set allow_nonempty=true only when the user explicitly wants
       a non-empty knowledge base deleted.
+
+    :param knowledge_id: ID of the Open WebUI knowledge base to permanently delete
+    :param confirm: Must be true. Use true only when the user explicitly requested deletion of the knowledge base
+    :param allow_nonempty: true to delete a base that still holds files
     """
 
     refusal = await self._guard(
@@ -1617,7 +1693,7 @@ class Tools:
     return reference, None
 
   def _preset_payload(self, record, add, remove):
-    """Build the update body of one preset and the list of changed fields."""
+    """Build the update body of one preset and the list of fields the update touches."""
     meta = dict(record.get("meta") or {})
     changed = []
     for key in (
@@ -1727,7 +1803,7 @@ class Tools:
     """Add or remove ids in the meta list of each selected preset.
 
     One call per list: the caller names the meta key, such as skillIds or
-    toolIds. A preset without write access is skipped and named. The report
+    toolIds. The tool skips a preset without write access and names it. The report
     is `added to N[. skipped, no write access: ids][. failed: msg]`.
     """
     add = {
@@ -1804,7 +1880,7 @@ class Tools:
     on one workspace model preset.
 
     Each id list is a comma or newline separated string of Open WebUI ids.
-    The record is read first and written back whole, so the other fields
+    The tool reads the record first and writes it back whole, so the other fields
     and the other meta keys stay.
     """
     if __request__ is None:
@@ -1852,7 +1928,7 @@ class Tools:
     Apply the same attachments to every workspace model preset.
 
     Reads each page of /models/list, then updates each preset with the
-    model function. A preset without write access is skipped and named in
+    model function. The tool skips a preset without write access and names it in
     the result, unless only_writable is false. max_models caps the run.
     """
     if __request__ is None:
@@ -1947,7 +2023,11 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> str:
-    """List the files of the Open WebUI file library, with their ids and sizes."""
+    """
+    List the files of the Open WebUI file library, with their ids and sizes.
+
+    :param page: the page of results, from 1
+    """
 
     async def run(
       page=page,
@@ -1990,7 +2070,11 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> str:
-    """Search the file library by name. Wildcards such as *.md are allowed."""
+    """
+    Search the file library by name. Wildcards such as *.md work.
+
+    :param filename: the filename or part of it to search for
+    """
 
     async def run(
       filename=filename,
@@ -2031,7 +2115,11 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> str:
-    """Read the stored text content of one file of the library. A read runs free."""
+    """
+    Read the stored text content of one file of the library. A read runs free.
+
+    :param file_id: the id of the Open WebUI file to read
+    """
 
     async def run(
       file_id=file_id,
@@ -2066,7 +2154,12 @@ class Tools:
     __event_call__: Callable | None = None,
     __request__=None,
   ) -> str:
-    """Create one text file in the library. A new item runs free."""
+    """
+    Create one text file in the library. A new item runs free.
+
+    :param filename: the name of the new file, with its extension
+    :param content: the full content of the new file
+    """
 
     refusal = await self._guard(
       "upload a file",
@@ -2111,7 +2204,12 @@ class Tools:
     __event_call__: Callable | None = None,
     __request__=None,
   ) -> str:
-    """Rename one file. The rename is a mutation, so it passes the gate."""
+    """
+    Rename one file. The rename is a mutation, so it passes the gate.
+
+    :param file_id: the id of the file to rename
+    :param name: the new filename, with its extension
+    """
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     refusal = await self._guard(
@@ -2132,7 +2230,11 @@ class Tools:
     __event_call__: Callable | None = None,
     __request__=None,
   ) -> str:
-    """Delete one file of the library. The delete passes the gate."""
+    """
+    Delete one file of the library. The delete passes the gate.
+
+    :param file_id: the id of the file to delete
+    """
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     refusal = await self._guard("delete a file", str(file_id), __user__, __event_call__)
@@ -2185,7 +2287,11 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> str:
-    """Show one skill: its name, its state and its full source."""
+    """
+    Show one skill: its name, its state and its full source.
+
+    :param skill_id: the id of the skill to read
+    """
 
     async def run(
       skill_id=skill_id,
@@ -2225,7 +2331,14 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> str:
-    """Create one skill. A new item runs free, and it joins the preset models."""
+    """
+    Create one skill. A new item runs free, and it joins the preset models.
+
+    :param name: the name of the new skill
+    :param content: the full skill text
+    :param description: a short description, or empty
+    :param skill_id: an id to use, or empty to let Open WebUI build one
+    """
 
     refusal = await self._guard(
       "create a skill",
@@ -2267,7 +2380,11 @@ class Tools:
     __event_call__: Callable | None = None,
     __request__=None,
   ) -> str:
-    """Install one skill from a URL. The host must be a trusted domain."""
+    """
+    Install one skill from a URL. The host must be a trusted domain.
+
+    :param url: the URL of the skill file to load
+    """
 
     refusal = await self._guard(
       "install a skill",
@@ -2298,10 +2415,10 @@ class Tools:
         ) as response,
       ):
         if response.status != 200:
-          return f"Error: the fetch failed with status {response.status}."
+          return f"Error: the request failed with status {response.status}."
         text = await response.text()
     except (asyncio.TimeoutError, aiohttp.ClientError) as exc:
-      return f"Error: the fetch failed: {exc}"
+      return f"Error: the request failed: {exc}"
     name = ""
     for line in text.split("\n"):
       if line.startswith("# "):
@@ -2323,7 +2440,14 @@ class Tools:
     __event_call__: Callable | None = None,
     __request__=None,
   ) -> str:
-    """Replace one skill. The overwrite passes the gate."""
+    """
+    Replace one skill. The overwrite passes the gate.
+
+    :param skill_id: the id of the skill to change
+    :param name: the new name
+    :param content: the new full skill text
+    :param description: the new description, or empty
+    """
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     refusal = await self._guard(
@@ -2352,7 +2476,11 @@ class Tools:
     __event_call__: Callable | None = None,
     __request__=None,
   ) -> str:
-    """Switch one skill on or off. The toggle passes the gate."""
+    """
+    Switch one skill on or off. The toggle passes the gate.
+
+    :param skill_id: the id of the skill to turn on or off
+    """
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     refusal = await self._guard(
@@ -2373,7 +2501,11 @@ class Tools:
     __event_call__: Callable | None = None,
     __request__=None,
   ) -> str:
-    """Delete one skill. The delete passes the gate."""
+    """
+    Delete one skill. The delete passes the gate.
+
+    :param skill_id: the id of the skill to delete
+    """
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     refusal = await self._guard(
@@ -2426,7 +2558,11 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> str:
-    """Show one Workspace Tool: its name, its spec and its source."""
+    """
+    Show one Workspace Tool: its name, its spec and its source.
+
+    :param tool_id: the id of the tool to read
+    """
 
     async def run(
       tool_id=tool_id,
@@ -2467,7 +2603,14 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> str:
-    """Create one Workspace Tool. A new item runs free and joins the presets."""
+    """
+    Create one Workspace Tool. A new item runs free and joins the presets.
+
+    :param name: the name of the new tool
+    :param content: the full Python source of the tool
+    :param description: a short description, or empty
+    :param tool_id: an id to use, or empty to let Open WebUI build one
+    """
 
     refusal = await self._guard(
       "create a tool",
@@ -2510,7 +2653,14 @@ class Tools:
     __event_call__: Callable | None = None,
     __request__=None,
   ) -> str:
-    """Replace one Workspace Tool. The overwrite passes the gate."""
+    """
+    Replace one Workspace Tool. The overwrite passes the gate.
+
+    :param tool_id: the id of the tool to change
+    :param name: the new name
+    :param content: the new full Python source
+    :param description: the new description, or empty
+    """
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     refusal = await self._guard(
@@ -2535,11 +2685,14 @@ class Tools:
     __event_call__: Callable | None = None,
     __request__=None,
   ) -> str:
-    """Toggle one Workspace Tool on the preset models.
+    """
+    Toggle one Workspace Tool on the preset models.
 
     Open WebUI v0.11.4 has no per-tool on and off switch, so this toggles the
     tool id in the toolIds list of each preset the caller can write: a tool in
     every preset leaves them, and a tool in no preset joins them.
+
+    :param tool_id: the id of the tool to turn on or off
     """
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
@@ -2581,7 +2734,11 @@ class Tools:
     __event_call__: Callable | None = None,
     __request__=None,
   ) -> str:
-    """Delete one Workspace Tool. The delete passes the gate."""
+    """
+    Delete one Workspace Tool. The delete passes the gate.
+
+    :param tool_id: the id of the tool to delete
+    """
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     refusal = await self._guard("delete a tool", str(tool_id), __user__, __event_call__)
@@ -2635,7 +2792,11 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> str:
-    """Show one Function: its name, its state and its source."""
+    """
+    Show one Function: its name, its state and its source.
+
+    :param function_id: the id of the function to read
+    """
 
     async def run(
       function_id=function_id,
@@ -2677,7 +2838,14 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> str:
-    """Create one Function. A new item runs free and joins the presets."""
+    """
+    Create one Function. A new item runs free and joins the presets.
+
+    :param name: the name of the new function
+    :param content: the full Python source of the function
+    :param description: a short description, or empty
+    :param function_id: an id to use, or empty to let Open WebUI build one
+    """
 
     refusal = await self._guard(
       "create a function",
@@ -2720,7 +2888,14 @@ class Tools:
     __event_call__: Callable | None = None,
     __request__=None,
   ) -> str:
-    """Replace one Function. The overwrite passes the gate."""
+    """
+    Replace one Function. The overwrite passes the gate.
+
+    :param function_id: the id of the function to change
+    :param name: the new name
+    :param content: the new full Python source
+    :param description: the new description, or empty
+    """
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     refusal = await self._guard(
@@ -2747,7 +2922,11 @@ class Tools:
     __event_call__: Callable | None = None,
     __request__=None,
   ) -> str:
-    """Switch one Function on or off. The toggle passes the gate."""
+    """
+    Switch one Function on or off. The toggle passes the gate.
+
+    :param function_id: the id of the function to turn on or off
+    """
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     refusal = await self._guard(
@@ -2771,7 +2950,11 @@ class Tools:
     __event_call__: Callable | None = None,
     __request__=None,
   ) -> str:
-    """Delete one Function. The delete passes the gate."""
+    """
+    Delete one Function. The delete passes the gate.
+
+    :param function_id: the id of the function to delete
+    """
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     refusal = await self._guard(
