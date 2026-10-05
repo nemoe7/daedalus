@@ -10,6 +10,15 @@ import importlib.util
 import json
 import pathlib
 import sys
+import types
+
+# The tool imports aiohttp, which the daedalus venv does not hold. The stub satisfies it.
+fake = types.ModuleType("aiohttp")
+fake.ClientTimeout = lambda **kwargs: None
+fake.ClientSession = object
+fake.ClientError = Exception
+fake.ContentTypeError = Exception
+sys.modules.setdefault("aiohttp", fake)
 
 TOOL = (
   pathlib.Path(__file__).resolve().parents[2]
