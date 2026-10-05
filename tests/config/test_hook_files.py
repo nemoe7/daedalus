@@ -152,6 +152,9 @@ def test_pick_named_on_the_pools() -> None:
   text = (FOLDER.parent / "daedalus.yml").read_text()
   assert "on-chunk: [hooks/pick.py]" in text
   entries = {"on-request": "hooks/openwebui_retry.py", "on-chunk": "hooks/pick.py"}
+  target = hooks.CONFIG_DIR / "hooks" / "pick.py"
+  target.parent.mkdir(parents=True, exist_ok=True)
+  target.write_text("", encoding="utf-8")
   found = hooks.request_files(entries, "on-chunk")
   assert [path.name for path in found] == ["pick.py"]
   assert hooks.request_files(entries, "on-answer") == []

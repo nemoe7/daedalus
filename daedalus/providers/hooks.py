@@ -4,6 +4,7 @@ import copy
 import importlib.machinery
 import importlib.util
 import logging
+import posixpath
 import re
 from collections.abc import Mapping
 from pathlib import Path
@@ -43,16 +44,23 @@ def tell(problem: str) -> None:
 
 
 def resolve(value: Any) -> Path | None:
-  """The full path of one hook file, with any name, or None when it is not in the config folder."""
+  """The path of 1 hook file from the folder listing, or None when the folder holds no such name.
+
+  The name picks a file of the listing, so a name outside the folder finds nothing.
+  """
   if not isinstance(value, str) or not value.strip():
     tell(f"hook {value!r} is not a file path")
     return None
+  wanted = posixpath.normpath(value.replace("\\", "/")).strip("/")
   root = CONFIG_DIR.resolve()
-  path = (root / value).resolve()
-  if not path.is_relative_to(root):
-    tell(f"hook {value} is outside the config folder")
-    return None
-  return path
+  for found in (root / "hooks").rglob("*"):
+    path = found.resolve()
+    if not path.is_file() or not path.is_relative_to(root):
+      continue
+    if path.relative_to(root).as_posix() == wanted:
+      return path
+  tell(f"hook {value} is not a file of the config folder")
+  return None
 
 
 def hook_files() -> list[str]:
