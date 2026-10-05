@@ -74,6 +74,16 @@ def test_hook_http_takes_a_nested_path() -> None:
   assert response.status_code == 200, response.text
 
 
+def test_hook_http_takes_the_short_name() -> None:
+  """The route takes the file name of the docs with no suffix, `owui_auto_reasoning`."""
+  name = written("probe_short.py", GOOD)
+  response = TestClient(api.app, headers=AUTH).post(
+    f"/v1/hook/{name.removesuffix('.py')}", json={"messages": CHAT}
+  )
+  assert response.status_code == 200, response.text
+  assert response.json()["prompt"] == "why is this slow"
+
+
 def test_hook_http_refuses_a_missing_file() -> None:
   """A name with no file under `config/hooks` is a 404."""
   response = TestClient(api.app, headers=AUTH).post(

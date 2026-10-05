@@ -47,17 +47,21 @@ def resolve(value: Any) -> Path | None:
   """The path of 1 hook file from the folder listing, or None when the folder holds no such name.
 
   The name picks a file of the listing, so a name outside the folder finds nothing.
+  A name with no suffix names the `.py` file, as the docs and the OWUI action write it.
   """
   if not isinstance(value, str) or not value.strip():
     tell(f"hook {value!r} is not a file path")
     return None
   wanted = posixpath.normpath(value.replace("\\", "/")).strip("/")
+  names = [wanted] if wanted.endswith(".py") else [wanted, f"{wanted}.py"]
   root = CONFIG_DIR.resolve()
+  listing: dict[str, Path] = {}
   for found in (root / "hooks").rglob("*"):
     path = found.resolve()
-    if not path.is_file() or not path.is_relative_to(root):
-      continue
-    if path.relative_to(root).as_posix() == wanted:
+    if path.is_file() and path.is_relative_to(root):
+      listing.setdefault(path.relative_to(root).as_posix(), path)
+  for name in names:
+    if path := listing.get(name):
       return path
   tell(f"hook {value} is not a file of the config folder")
   return None
