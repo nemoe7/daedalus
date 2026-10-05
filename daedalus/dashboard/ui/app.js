@@ -732,9 +732,14 @@ const MODES = {
 };
 // The label of each media flag chip.
 const FLAGS = { vision: "Image in", pdf_input: "PDF in", audio_input: "Audio in", audio_output: "Audio out" };
-// The Type cell: a chip for the mode, then a chip for each media flag.
-const typeChips = (m) => `<span class="chip flag mode">${esc(MODES[m.mode] || m.mode)}</span>`
-  + m.flags.map((f) => `<span class="chip flag">${esc(FLAGS[f] || f)}</span>`).join("");
+// The mode already says what these media flags say: Speech is audio out, Transcription is audio in.
+const REDUNDANT = { audio_speech: "audio_output", audio_transcription: "audio_input" };
+// The Type cell: a chip for the mode, then a chip for each media flag the mode does not carry.
+function typeChips(m) {
+  return `<span class="chip flag mode">${esc(MODES[m.mode] || m.mode)}</span>`
+    + m.flags.filter((f) => f !== REDUNDANT[m.mode])
+      .map((f) => `<span class="chip flag">${esc(FLAGS[f] || f)}</span>`).join("");
+}
 
 function renderTiers() {
   $("tiers").innerHTML = ["All", "A", "B", "C", "D"].map((t) =>

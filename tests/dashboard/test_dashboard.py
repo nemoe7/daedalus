@@ -277,6 +277,25 @@ def test_phone_model_head_keeps_a_tap_area() -> None:
   )
 
 
+def test_app_js_type_chips_drop_the_redundant_media_flag() -> None:
+  """Speech already says audio out and Transcription says audio in, so that chip goes."""
+  code = _app_js_vm(
+    """
+const speech = sandbox.typeChips({ mode: 'audio_speech', flags: ['audio_output'] });
+assert(!speech.includes('Audio out'), speech);
+assert(speech.includes('Speech'), speech);
+const transcription = sandbox.typeChips({ mode: 'audio_transcription', flags: ['audio_input'] });
+assert(!transcription.includes('Audio in'), transcription);
+assert(transcription.includes('Transcription'), transcription);
+const chat = sandbox.typeChips({ mode: 'chat', flags: ['vision', 'audio_input', 'audio_output'] });
+assert(chat.includes('Image in') && chat.includes('Audio in') && chat.includes('Audio out'), chat);
+const mixed = sandbox.typeChips({ mode: 'audio_speech', flags: ['vision', 'audio_output'] });
+assert(mixed.includes('Image in') && !mixed.includes('Audio out'), mixed);
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_app_js_status_hosts() -> None:
   """The status chips fill every host, and no id repeats across them."""
   code = _app_js_vm(
