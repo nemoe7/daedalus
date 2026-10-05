@@ -8,7 +8,7 @@ Each file is 1 plugin: paste its content, or import the file.
 
 | Plugin | Type | What it does |
 | --- | --- | --- |
-| [`deep-research.md`](owui/deep_research.md) | Skill | A research plan over `search_web` and `fetch_url` |
+| [`deep-research.md`](owui/deep-research.md) | Skill | A research plan over `search_web` and `fetch_url` |
 | [`served_model.py`](owui/served_model.md) | Filter | Draws the daedalus served model line above the answer |
 | [`effort_bump.py`](owui/effort_bump.md) | Action | The light bulb of the message toolbar, 1 rung up per press |
 | [`github.py`](owui/github.md) | Tool | The GitHub reads and writes, behind the permission gate |
