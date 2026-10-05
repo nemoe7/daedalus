@@ -1,0 +1,27 @@
+# The served model line
+
+[`config/hooks/model_served.py`](../../config/hooks/model_served.py) reports the model that served a chat pool
+request, in the final stream chunk, under `usage.daedalus`.
+
+| Item | Value |
+| --- | --- |
+| Runs | `on-chunk`, on each streamed chunk of a `daedalus/auto` or pool request |
+| Writes | `chunk["usage"]["daedalus"]` holds 3 keys. `line`: the served model for the client. `model`: the served slug. `pool`: the landed pool |
+| Named by | `request_hooks.on-chunk` in [`config/daedalus.yml`](../../config/daedalus.yml), as `[hooks/model_served.py]` |
+| Shows | On the first answer of a session. When the served model differs from the last one. When the ladder moved. On the retry code of [`owui_retry.py`](owui_retry.md) |
+
+```mermaid
+flowchart TD
+  A[Streamed chunk] --> B{{on_chunk}}
+  B --> C{Pool request?}
+  C -- no --> D[No line]
+  C -- yes --> E{Served model changed, ladder moved, or a retry?}
+  E -- no --> D
+  E -- yes --> F[usage.daedalus of the final chunk]
+  F --> G[The Open WebUI filter draws the status]
+```
+
+The line is `{tier} · {slug}` for `daedalus/auto`, such as `A · kilo/poolside/laguna-s-2.1:free`, and
+the slug alone for a named pool. The [pick filter](../integrations/owui/pick_status.md) draws it.
+The chat pools own no provider block, so the `hooks` list of a provider cannot name this file.
+The file itself skips every model that is not `daedalus/auto` or a chat pool.

@@ -36,6 +36,20 @@ daedalus keeps the LiteLLM classifier and model data of [LiteLLM](https://github
 
 daedalus is for personal use only. Do not share it with other users, because the provider terms of service can forbid it.
 
+## Hooks
+
+A hook is 1 Python file in the [`config/hooks`](config/hooks) folder that changes a catalog row, a chat request or an answer. A config key or a model block names the file, and daedalus calls it at the point of the change. The base runs with no hook file, and the shipped files are examples.
+
+[`config/hooks/example.py`](config/hooks/example.py) is the start for a new hook file. It holds 1 stub for each point, with an example in the comments:
+
+```python
+def on_upstream(body, model, headers):
+  if "order" in body.get("provider", {}):
+    body["provider"]["allow_fallbacks"] = False
+```
+
+Copy the file under a new name, keep the functions you need, and name the copy in the `hooks` list of the model or the provider. The points, the errors and the `request_hooks` group are in [Hooks](docs/hooks.md). Each shipped file has its own page under [`docs/hooks`](docs/hooks).
+
 ## Quick start
 
 1. Run the install command. First, it shows what it installs or downloads and asks `[y/N]`. Then it installs Docker if Docker is missing. It downloads the daedalus files to the `daedalus` folder in your home folder and makes `.env` with a new master key. Then it starts daedalus and shows the master key.
@@ -125,7 +139,7 @@ uv run ruff format --check
 | [Deployment](docs/deployment.md) | Docker Compose, profiles, Open WebUI, Tika, SearXNG, Headroom and Tailscale |
 | [Open WebUI integration](docs/integrations/owui.md) | The skills, the filters and the tools of the [`integrations/openwebui`](integrations/openwebui) folder |
 | [Dashboard](docs/dashboard.md) | Pages and API keys |
-| [Hooks](docs/hooks.md) | Python files that change catalog rows, requests and answers |
+| [Hooks](docs/hooks.md) | Python files that change catalog rows, requests and answers. Each shipped file has its own page |
 | [Decisions](docs/adr/) | Architecture decision records |
 
 ## License

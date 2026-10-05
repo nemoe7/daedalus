@@ -9,8 +9,8 @@ openrouter:
   models:
     z-ai/glm-5.3-flash:
       hooks:
-        - on-catalog: hooks/cheapest_output.py
-        - on-upstream: hooks/cheapest_output.py
+        - on-catalog: hooks/or_cheapest_output.py
+        - on-upstream: hooks/or_cheapest_output.py
 ```
 
 The `hooks` key works like `order`. A `models` entry has priority. Then comes the provider block in the `{provider}.yml` file of the model, then the provider block in the main file. A model with `hooks: []` uses no hooks.
@@ -53,34 +53,22 @@ A request-level point, such as `on-request`, takes its files from the `request_h
 
 ```yaml
 request_hooks:
-  on-request: [hooks/openwebui_retry.py]
+  on-request: [hooks/owui_retry.py]
   on-prompt: []
-  on-chunk: [hooks/pick.py]
+  on-chunk: [hooks/model_served.py]
 ```
 
 Each key holds a list of files, and they run in list order. 1 path on its own works too. An empty list turns that point off. The `on-init` point has no group of its own: the dashboard reads the `on_init` function of each file in `request_hooks`. The legend card shows those rows below the base rows, and a file with no `on_init` adds no row. A file that sets `value["key"]` counts the requests of that key: a repeat after an answer is a try again.
 
 ### The reasoning effort
 
-The `on-prompt` point sets `reasoning_effort` for the request. 3 levels decide, and the narrow one wins:
-
-| Level | Value |
-| --- | --- |
-| The client | A `reasoning_effort` of the request body |
-| A hook file | The value of `value["reasoning_effort"]` after the files of the point |
-| The catalog | The stored effort of the model, from discovery or the provider file |
-
-The base sets no effort of its own. With no hook file, a request keeps the client value and the catalog default.
-A hook file composes the tier read itself, with `router.required_tier(prompt)`.
-The shipped [`config/hooks/auto_reasoning.py`](../config/hooks/auto_reasoning.py) reads the heuristics v2
-tier of the message at hand, and it holds both surfaces of the ladder: the `on-prompt` point, and the
-`on_http` of the bump route. The point serves the client app of the `CLIENT` constant, so a Kilo
-request keeps its own effort. Name it in `request_hooks.on-prompt` to set the effort of a request above
-the catalog default. A chain with no reasoning model gets no call and no effort. `upstream.without_reasoning` drops the field for a model the catalog marks as no reasoner.
+The `on-prompt` point hands each hook file the values of the request, and a hook file sets
+`reasoning_effort`. The client keeps the last word, and the base sets no effort of its own. The 3
+levels, the shipped ladder file and its route are on the [reasoning ladder](hooks/owui_auto_reasoning.md) page.
 
 `daedalus` then drops the models that answered the message: `daedalus/auto` steps the tier 1 step up, and a named pool keeps its pool. The point runs again with `count` filled in. A file that writes `value["code"]` sets the code of the Requests row, such as `rt1`. Without a `key`, a repeat is a new request.
 
-Without a `code`, the row shows no code. [`config/hooks/openwebui_retry.py`](../config/hooks/openwebui_retry.py) applies this rule to the `x-openwebui-chat-id` header of Open WebUI.
+Without a `code`, the row shows no code. [`config/hooks/owui_retry.py`](../config/hooks/owui_retry.py) applies this rule to the `x-openwebui-chat-id` header of Open WebUI.
 The media endpoints, transcription and images, count a repeat of the same content with no hook.
 That count is the one repeat path of the base app.
 
@@ -94,21 +82,21 @@ A hook file can answer an HTTP call. The path names the file, and the file must 
 cmd:
 
 ```cmd
-curl -X POST http://localhost:3357/v1/hook/auto_reasoning -H "Authorization: Bearer %DAEDALUS_KEY%" ^
+curl -X POST http://localhost:3357/v1/hook/owui_auto_reasoning -H "Authorization: Bearer %DAEDALUS_KEY%" ^
   -H "Content-Type: application/json" -d "{\"messages\": [{\"role\": \"user\", \"content\": \"why is this slow\"}]}"
 ```
 
 PowerShell:
 
 ```powershell
-curl.exe -X POST http://localhost:3357/v1/hook/auto_reasoning -H "Authorization: Bearer $env:DAEDALUS_KEY" `
+curl.exe -X POST http://localhost:3357/v1/hook/owui_auto_reasoning -H "Authorization: Bearer $env:DAEDALUS_KEY" `
   -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "why is this slow"}]}'
 ```
 
 bash:
 
 ```bash
-curl -X POST http://localhost:3357/v1/hook/auto_reasoning -H "Authorization: Bearer $DAEDALUS_KEY" \
+curl -X POST http://localhost:3357/v1/hook/owui_auto_reasoning -H "Authorization: Bearer $DAEDALUS_KEY" \
   -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "why is this slow"}]}'
 ```
 
@@ -116,7 +104,7 @@ The route loads the file, calls its `on_http`, and answers with the dict it retu
 inside the hook is a 500, and a missing file is a 404. Any valid key may call any hook file, so
 treat a hook file as admin code: it runs in the process of daedalus with full access.
 
-The shipped [`config/hooks/auto_reasoning.py`](../config/hooks/auto_reasoning.py) is the ladder file of 1 chat: it
+The shipped [`config/hooks/owui_auto_reasoning.py`](../config/hooks/owui_auto_reasoning.py) is the ladder file of 1 chat: it
 holds the `on-prompt` point and this route. The route carries the next rung, with the pool and the
 effort of that rung. A chat that already sits on `TIER-A` keeps that rung, and the answer marks
 it with `top`.
@@ -137,64 +125,17 @@ Hooks get no database access. An `on-catalog` hook changes only the row. daedalu
 
 The dashboard edits the `hooks` list of a model or a provider. The Request hooks card of the Settings page names the file of each request-level point. It writes no hook file: only a person with access to the [`config`](../config) folder adds one. A hook runs inside the daedalus process, with all its access.
 
-## Hook files in config
+## The shipped hook files
 
-### [`hooks/openwebui_retry.py`](../config/hooks/openwebui_retry.py)
-
-A repeat of the same message in 1 Open WebUI chat is a try again.
-
-| Item | Value |
+| File | What it does |
 | --- | --- |
-| Runs | `on-request`, before the chain, and again on the repeat with the count |
-| Writes | `value["key"]`, the chat id and the digest, and `value["code"]`, such as `rt1` |
-| Named by | `request_hooks.on-request` in [`config/daedalus.yml`](../config/daedalus.yml) |
-| Legend | `on_init` returns the `rtN` row |
+| [`hooks/owui_auto_reasoning.py`](../config/hooks/owui_auto_reasoning.py) | The [reasoning ladder](hooks/owui_auto_reasoning.md) of a chat |
+| [`hooks/owui_retry.py`](../config/hooks/owui_retry.py) | The [try-again rule](hooks/owui_retry.md) of an Open WebUI chat |
+| [`hooks/model_served.py`](../config/hooks/model_served.py) | The [served model line](hooks/model_served.md) of a chat pool request |
+| [`hooks/or_cheapest_output.py`](../config/hooks/or_cheapest_output.py) | The [OpenRouter endpoint order](hooks/or_cheapest_output.md) |
 
-### [`hooks/cheapest_output.py`](../config/hooks/cheapest_output.py)
-
-The endpoint list of a model goes from the cheapest output price to the most expensive one.
-
-| Item | Value |
-| --- | --- |
-| Runs | `on-catalog` at each catalog build, and `on-upstream` before each provider call |
-| Writes | The order in `.daedalus-state/cheapest_output.json`, then `provider.order` in the body |
-| Named by | The `hooks` list of the model `z-ai/glm-5.3-flash` in [`openrouter.yml`](../config/providers/openrouter.yml) |
-| Notes | A client `provider` object has priority. If the list read fails, the old order stays. |
-
-The order holds provider slugs with no variant, such as `deepinfra` for `deepinfra/fp4`, and each provider keeps the place of its cheapest endpoint.
-
-### [`hooks/pick.py`](../config/hooks/pick.py)
-
-The model that served a chat pool request, in the final stream chunk, under `usage.daedalus`.
-
-| Item | Value |
-| --- | --- |
-| Runs | `on-chunk`, on each streamed chunk of a `daedalus/auto` or pool request |
-| Writes | `chunk["usage"]["daedalus"]` holds 3 keys. `line`: the served model for the client. `model`: the served slug. `pool`: the landed pool |
-| Named by | `request_hooks.on-chunk` in [`config/daedalus.yml`](../config/daedalus.yml), as `[hooks/pick.py]`. The chat pools own no provider block, and the file itself passes every model that is not `daedalus/auto` or a chat pool |
-| Shows | On the first answer of a session. When the served model differs from the last one. When the ladder moved. On the retry code of [`openwebui_retry.py`](../config/hooks/openwebui_retry.py). A reader of the key draws it: the Open WebUI filter [`integrations/openwebui/functions/pick_status.py`](../integrations/openwebui/functions/pick_status.py) |
-
-The line is `{tier} · {slug}` for `daedalus/auto`, such as `A · kilo/poolside/laguna-s-2.1:free`, and the slug alone for a named pool.
-
-### [`hooks/example.py`](../config/hooks/example.py)
-
-A start for a new hook file: each function, with examples in the comments.
-
-| Item | Value |
-| --- | --- |
-| Runs | Nowhere. No config names it. |
-| Writes | Nothing. The examples stay in the comments. |
-| Named by | A copy of the file under a new name, named in a `hooks` list or in a `request_hooks` list |
-
-## Example
-
-This hook tells OpenRouter to use only the endpoints in `provider.order`, and to use no other endpoint:
-
-```python
-def on_upstream(body, model, headers):
-  if "order" in body.get("provider", {}):
-    body["provider"]["allow_fallbacks"] = False
-```
+[`hooks/example.py`](../config/hooks/example.py) is the start for a new hook file. The
+[README](../README.md#hooks) holds its description and 1 example.
 
 ## New hook points
 
