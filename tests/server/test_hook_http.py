@@ -129,6 +129,16 @@ def test_the_shipped_ladder_hook_reads_a_pool_and_the_prompt() -> None:
   assert fresh["tier"] == min(read + 1, 4)
 
 
+def test_the_shipped_ladder_hook_reads_a_pool_of_the_body() -> None:
+  """A chat with no pin starts from the pool its body names."""
+  module = hooks.load(Path("config") / "hooks" / "auto_reasoning.py")
+  found = module.on_http(
+    {"model": "daedalus/koinos"}, key="chat-5", prompt="hi", headers={}
+  )
+  assert found["before"]["tier_name"] == "TIER-C"
+  assert found["tier_name"] == "TIER-B"
+
+
 def test_the_shipped_ladder_hook_stops_at_the_top() -> None:
   """`TIER-A` is the top rung: the answer keeps it and `top` says so."""
   module = hooks.load(Path("config") / "hooks" / "auto_reasoning.py")

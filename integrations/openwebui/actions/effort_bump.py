@@ -130,7 +130,9 @@ class Action:
     if not pressed:
       raise ValueError("no message id in the call")
     async with await self._open_session() as session:
-      plan = await self._post(session, LADDER, {"messages": _wire(messages)})
+      plan = await self._post(
+        session, LADDER, {"messages": _wire(messages), "model": body.get("model")}
+      )
       if not plan.get("model"):
         raise ValueError("the ladder hook answered no model")
       answer = await self._post(
