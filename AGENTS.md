@@ -70,6 +70,18 @@ An ADR holds one decision and the reason for it.
 - Do not put cards in a row above a table.
 - Update the pages simulation when code or UI changes: `scripts/pages_demo.py`, live at <https://nemoe7.github.io/daedalus/>.
 
+## Hooks
+
+A hook file is an optional plugin under `config/hooks`, and the points live in
+`daedalus/providers/hooks.py`. The base runs with no hook file, and it loads no hook at import
+time. The shipped files are examples, not a dependency.
+
+- Keep the base free of a member that exists only for a hook. A helper, a constant or a config
+  key that one hook needs belongs in that hook file.
+- Keep a hook file portable. It uses the documented surface of its point and the public modules
+  of the base, so it runs against any daedalus version.
+- Treat a hook file as admin code: it runs in the server process with full access.
+
 ## State database
 
 - A table change needs an Alembic step. See the State database section of `docs/architecture.md`.
