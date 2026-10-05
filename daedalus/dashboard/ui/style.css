@@ -239,6 +239,12 @@ td.end { text-align: right; }
   }
   section[data-page="requests"] > .flow > .column > .panel { flex: 1; min-height: 0; overflow: auto; }
   section[data-page="requests"] .legend { align-self: flex-start; }
+  /* The time column holds 19 characters, so it keeps its own width, and the model column takes the
+     free width of the row, as in the Models table. The phone layout ignores these hints. */
+  .requests tr:not(.chain) > th, .requests tr:not(.chain) > td { width: 1%; }
+  .requests tr:not(.chain) > th:nth-child(4), .requests tr:not(.chain) > td:nth-child(4) {
+    width: auto; max-width: none;
+  }
 }
 /* A collapsed border scrolls away from a sticky head, so the rule rides on an inset shadow. */
 .requests thead th { position: sticky; top: 0; background: var(--panel); z-index: 2; border-bottom: 0; box-shadow: inset 0 -1px 0 var(--line); }

@@ -1082,6 +1082,28 @@ def test_limit_columns_stay_compact() -> None:
   assert mobile_weight and "min-width: 0" in mobile_weight.group(1)
 
 
+def test_requests_time_column_keeps_its_width() -> None:
+  """The time column holds its 19 characters, and the model column takes the free width."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  desktop = css.split("@media (min-width: 721px) {", 1)[1]
+  hint = re.search(
+    r"\.requests tr:not\(\.chain\) > th, \.requests tr:not\(\.chain\) > td \{ width: 1%; \}",
+    desktop,
+  )
+  assert hint, "the other columns keep the width of their content"
+  free = re.search(
+    r"\.requests tr:not\(\.chain\) > th:nth-child\(4\), \.requests tr:not\(\.chain\) > td:nth-child\(4\) \{\n\s+width: auto; max-width: none;",
+    css,
+  )
+  assert free, "the model column takes the free width"
+  phone = css.split("@media (max-width: 720px) {", 1)[1]
+  assert "display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));" in phone, (
+    "the phone row stays a grid"
+  )
+  assert "width: 1%" not in phone, "the phone cells keep their grid tracks"
+
+
 def test_header_state_matches_the_page_switcher() -> None:
   """The header holds plain text: no chip border, and the step of the page switcher."""
   css = (
