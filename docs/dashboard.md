@@ -19,7 +19,7 @@ Open `http://HOST:3357/`.
 | API keys | Make and delete API keys |
 | Providers | A tab per provider file. Form: a card per provider. YAML: the file text. |
 | Limits | The last rate-limit headers of each model, and each provider key balance in a card. |
-| Settings | Form and YAML views of `config/daedalus.yml`. A save checks each value, then reloads the settings. |
+| Settings | Form and YAML views of [`config/daedalus.yml`](../config/daedalus.yml). A save checks each value, then reloads the settings. |
 
 The logo shows in the header, on the login page and as the tab icon. The page has a web app manifest, so a browser can install the dashboard as an app. A browser installs it only over HTTPS or from localhost. The version shows under the name, also on the login page before a login: the image tag, for example v0.2.0, or dev-COMMIT after `install --dev`.
 
@@ -38,9 +38,9 @@ Only 1 rebuild runs at a time. A confirmation of a dangerous action uses a modal
 
 ## Demo on GitHub Pages
 
-A static demo of this page runs at <https://nemoe7.github.io/daedalus/>. Set the Pages source of the repository to **GitHub Actions** 1 time, and the Pages demo workflow deploys each change to the page. No server runs there. `scripts/pages_demo.py` copies the page and adds `demo.js`.
+A static demo of this page runs at <https://nemoe7.github.io/daedalus/>. Set the Pages source of the repository to **GitHub Actions** 1 time, and the Pages demo workflow deploys each change to the page. No server runs there. [`scripts/pages_demo.py`](../scripts/pages_demo.py) copies the page and adds `demo.js`.
 
-That script answers each `ui/api/` call from `scripts/pages_fixtures.json`. The Requests tab starts empty, and the script streams the captured requests in, then keeps the table rotating. A save lands in the page memory, and it takes the checks of the server. Those checks cover the YAML of a file, the block of a provider name, and the rules of a key name.
+That script answers each `ui/api/` call from [`scripts/pages_fixtures.json`](../scripts/pages_fixtures.json). The Requests tab starts empty, and the script streams the captured requests in, then keeps the table rotating. A save lands in the page memory, and it takes the checks of the server. Those checks cover the YAML of a file, the block of a provider name, and the rules of a key name.
 
 One state holds the demo together. The provider files build the catalog and the pools. The requests move the weights, the cooldowns, the lane counters and the balance cards. A fake upstream answers each provider with its plan, so a save and a check now agree with the tables.
 
@@ -52,7 +52,7 @@ The Pages demo workflow builds the demo from `main` and deploys it after a chang
 
 Each model name reads as the model id does: the mark of the provider, then the mark of the
 developer when the developer is another name, then the model part, such as `clef`, with a `/`
-between the parts. A name with a shipped SVG file under `daedalus/dashboard/ui/icons/` shows that
+between the parts. A name with a shipped SVG file under [`daedalus/dashboard/ui/icons/`](../daedalus/dashboard/ui/icons) shows that
 mark, and a name with no file shows its own text. The folder holds the marks of
 `lobehub/lobe-icons` (MIT), and 1 new file with the name in the model id adds a mark. The hover
 text and the cell title keep the full `provider/slug`.
@@ -146,7 +146,7 @@ To show the Cloudflare neurons, give the Cloudflare token the analytics permissi
 3. Add a permission row: **Account**, **Account Analytics**, **Read**.
 4. Select **Continue to summary**, then **Update token**. The token value does not change.
 
-To test the token, send the query of `daedalus/routing/limits.py` with curl. Without the permission, the answer has an `errors` list.
+To test the token, send the query of [`daedalus/routing/limits.py`](../daedalus/routing/limits.py) with curl. Without the permission, the answer has an `errors` list.
 
 ## API keys
 

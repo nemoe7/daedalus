@@ -4,10 +4,10 @@ The reference deployment is a Raspberry Pi 4B with 8 GB of RAM. The compose file
 
 ## Docker Compose
 
-The install scripts show what they install or download and ask `[y/N]` before a change. Then they install Docker if it is missing: Docker Desktop with winget on Windows, or `get.docker.com` on Linux. Outside a git checkout, they download the files of the newest `v*` tag, else `main`, to the `daedalus` folder in the home folder. They copy only missing files, so `.env` and `config/` stay.
+The install scripts show what they install or download and ask `[y/N]` before a change. Then they install Docker if it is missing: Docker Desktop with winget on Windows, or `get.docker.com` on Linux. Outside a git checkout, they download the files of the newest `v*` tag, else `main`, to the `daedalus` folder in the home folder. They copy only missing files, so `.env` and [`config/`](../config) stay.
 
 They make `.env` with a new master key, then pull the daedalus image and start the containers.
-With `--dev`, they use `compose.dev.yml`: they build the image from the source when the source is in
+With `--dev`, they use [`compose.dev.yml`](../compose.dev.yml): they build the image from the source when the source is in
 the folder, and they pull `ghcr.io/nemoe7/daedalus:dev` when it is not. See the
 [README](../README.md#quick-start).
 
@@ -17,7 +17,7 @@ The commands below are the same in cmd, PowerShell and bash.
 | --- | --- |
 | Start | `docker compose up -d` |
 | Update | `git pull`, then `docker compose pull`, then `docker compose up -d` |
-| Build from the source | `compose.dev.yml` builds `daedalus:dev` from the source at each start, with each command. Needs the source in the folder. |
+| Build from the source | [`compose.dev.yml`](../compose.dev.yml) builds `daedalus:dev` from the source at each start, with each command. Needs the source in the folder. |
 | Run the dev image | `install --dev` outside a checkout pulls `ghcr.io/nemoe7/daedalus:dev` at each start. It downloads the files of `main`. |
 | Stop | `docker compose down` |
 | Log | `docker compose logs -f api` |
@@ -38,17 +38,17 @@ Saving provider YAML in the dashboard rebuilds the model list from cache. After 
 
 ## Image release
 
-A successful **Gemini Release Draft** approval starts the `release` job of `.github/workflows/docker.yml` with the approved `v*` tag. The workflow publishes `ghcr.io/nemoe7/daedalus:TAG` and `ghcr.io/nemoe7/daedalus:latest`. A proposal-only Gemini run does not build an image. A manual image build is also available from the Actions tab.
+A successful **Gemini Release Draft** approval starts the `release` job of [`.github/workflows/docker.yml`](../.github/workflows/docker.yml) with the approved `v*` tag. The workflow publishes `ghcr.io/nemoe7/daedalus:TAG` and `ghcr.io/nemoe7/daedalus:latest`. A proposal-only Gemini run does not build an image. A manual image build is also available from the Actions tab.
 
 | Task | Command |
 | --- | --- |
 | Release | Run **Gemini Release Draft** and approve it. The approval tags `v*` and builds the image. |
 | Manual image build | Run **Docker** in the Actions tab, pick `release`, and enter an existing `v*` tag. |
-| Use 1 release | Set `image:` of `daedalus` in `compose.yml` to `ghcr.io/nemoe7/daedalus:v0.1.0`. |
+| Use 1 release | Set `image:` of `daedalus` in [`compose.yml`](../compose.yml) to `ghcr.io/nemoe7/daedalus:v0.1.0`. |
 
 ## Dev image
 
-A successful **CI** run on `main` starts the `dev` job of `.github/workflows/docker.yml`. It publishes
+A successful **CI** run on `main` starts the `dev` job of [`.github/workflows/docker.yml`](../.github/workflows/docker.yml). It publishes
 `ghcr.io/nemoe7/daedalus:dev` and `ghcr.io/nemoe7/daedalus:dev-COMMIT`, and it keeps the newest 10
 `dev-COMMIT` versions. It never publishes `latest`, and it never deletes a `v*` version. A push that
 changes no file under the CI paths starts no build.
@@ -57,7 +57,7 @@ changes no file under the CI paths starts no build.
 | --- | --- |
 | Dev image | Push to `main`. CI passes, then **Docker** publishes `dev`. |
 | Manual dev image build | Run **Docker** in the Actions tab and pick `dev`. |
-| Use the dev image | `install --dev` outside a git checkout, or `image: ghcr.io/nemoe7/daedalus:dev` in `compose.yml`. |
+| Use the dev image | `install --dev` outside a git checkout, or `image: ghcr.io/nemoe7/daedalus:dev` in [`compose.yml`](../compose.yml). |
 
 The dev image tracks `main`. Its code has no review. Use it to test the newest commits, not to run a
 release.
@@ -115,7 +115,7 @@ The installers ask for profiles only when `.env` is absent. If you decline Open 
 | Spoken replies | **Settings → Audio**: Web API or Kokoro.js. Gemini TTS allows 3 requests per minute. |
 | `RAG_EMBEDDING_BATCH_SIZE`, `ENABLE_ASYNC_EMBEDDING` | `32` and `false`: 32 chunks in each request, serial, for the free Mistral limits |
 
-After a change of `pools.audio` or `pools.images` in `config/daedalus.yml`, change `daedalus/graphos` or `daedalus/photos` in `compose.yml` and in **Admin Settings**. Also change the pool names in the Kilo and Open WebUI model settings.
+After a change of `pools.audio` or `pools.images` in [`config/daedalus.yml`](../config/daedalus.yml), change `daedalus/graphos` or `daedalus/photos` in [`compose.yml`](../compose.yml) and in **Admin Settings**. Also change the pool names in the Kilo and Open WebUI model settings.
 
 Open WebUI reads most of these settings only on the first start with a new data volume. After that, the values in **Admin Settings** apply. On an existing install, set them there.
 
@@ -136,7 +136,7 @@ To check the services and settings:
 
 Keep **Function Calling** on **Native**, the Open WebUI default since v0.10.0. Native sends the tools in `tools`, and daedalus skips the models that cannot call tools. Legacy puts the tools in the prompt and calls tools only 1 time, before the answer.
 
-The skills, filters and tools of the `integrations/openwebui` folder have their own page: [Open WebUI integration](integrations/owui.md).
+The skills, filters and tools of the [`integrations/openwebui`](../integrations/openwebui) folder have their own page: [Open WebUI integration](integrations/owui.md).
 
 ### Open WebUI database
 
@@ -165,7 +165,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Setting | Value |
 | --- | --- |
 | Image | `searxng/searxng:2026.9.25-12f8b6515` |
-| Settings | `services/searxng/settings.yml`: JSON results on, the limiter off, so no Valkey |
+| Settings | [`services/searxng/settings.yml`](../services/searxng/settings.yml): JSON results on, the limiter off, so no Valkey |
 | `SEARXNG_SECRET` | From `.env`. Empty by default: no SearXNG host port, the image proxy off. |
 | When it searches | With Native function calling, the model decides. Tell it to search when it does not. |
 | Blocks | SearXNG queries public search engines. They can block the Pi address or show a CAPTCHA. |

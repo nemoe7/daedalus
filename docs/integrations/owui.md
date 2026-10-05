@@ -1,12 +1,12 @@
 # Open WebUI integration
 
-The `integrations/openwebui` folder holds 1 directory for each Open WebUI plugin type: `skills/`, `functions/` for the filters and pipes, and `tools/` for the Workspace Tools.
+The [`integrations/openwebui`](../../integrations/openwebui) folder holds 1 directory for each Open WebUI plugin type: [`skills/`](../../integrations/openwebui/skills), [`functions/`](../../integrations/openwebui/functions) for the filters and pipes, and [`tools/`](../../integrations/openwebui/tools) for the Workspace Tools.
 
 Each file is 1 plugin: paste its content in **Workspace → Tools** or **Workspace → Skills**, or import the file. The sections below name the install steps and the valves of each plugin.
 
 ## Deep research skill
 
-`integrations/openwebui/skills/deep-research.md` is an Open WebUI skill: plain instructions, no code. The model plans, searches in 3 to 5 rounds with `search_web`, reads pages with `fetch_url`, and writes a report with numbered sources. Each step is a normal chat request, so daedalus failover and loop checks apply.
+[`integrations/openwebui/skills/deep-research.md`](../../integrations/openwebui/skills/deep-research.md) is an Open WebUI skill: plain instructions, no code. The model plans, searches in 3 to 5 rounds with `search_web`, reads pages with `fetch_url`, and writes a report with numbered sources. Each step is a normal chat request, so daedalus failover and loop checks apply.
 
 1. **Workspace → Skills**, the arrow next to **Create**, **Import JSON**. Select `deep-research.md`, then **Save**.
 2. **Access** on the skill: make it public, or give read access to each user. A user without read access does not receive the skill.
@@ -15,7 +15,7 @@ Each file is 1 plugin: paste its content in **Workspace → Tools** or **Workspa
 
 ## GitHub tool
 
-`integrations/openwebui/tools/github.py` is an Open WebUI Workspace Tool: one Python file, standard library only, empty `requirements`. It holds the GitHub surface of the reference connector. Reads run at once. Each write asks for confirmation in the chat.
+[`integrations/openwebui/tools/github.py`](../../integrations/openwebui/tools/github.py) is an Open WebUI Workspace Tool: one Python file, standard library only, empty `requirements`. It holds the GitHub surface of the reference connector. The `permissions` valve sets the gate. `Always ask`, the shipped default, holds every call, reads included. `Allow reads` frees the reads and holds the writes.
 
 3 tools sit outside the connector list. `create_pr_with_files` writes a file list as 1 commit and opens or updates the pull request. `list_commits` reads the history of a path or a branch. `list_tree` reads the whole tree in 1 call.
 
@@ -37,28 +37,30 @@ Gist management ships as 5 tools: `gists`, `fetch_gist`, and the gated writes `c
 The 3 alert reads take gated writes: `update_code_scanning_alert`, `update_secret_scanning_alert` and `update_dependabot_alert` dismiss, resolve or reopen an alert.
 
 1. **Workspace → Tools**, **Create**, paste the file, **Save**.
-2. **Valves**: set `github_token`, or set the `GITHUB_TOKEN` environment value. Keep `default_mode` `ask`.
+2. **Valves**: set `github_token`, or set the `GITHUB_TOKEN` environment value. Set `permissions`. `Always ask` is the shipped default.
 3. **Access** on the tool: make it public, or give read access to each user. A user without read access does not see the tool.
 
 | Valve | Default | Meaning |
 | --- | --- | --- |
 | `github_token` | empty | The token. `GITHUB_TOKEN` is the fallback. |
-| `default_mode` | `ask` | `ask` gates each write, `allow` skips the dialog, `deny` refuses each write. |
+| `permissions` | `Always ask` | `Always ask` gates every call, reads included. `Allow reads` frees the reads and holds the gated calls. `Always allow` holds nothing. |
 | `timeout_seconds` | `60` | The wait for the confirmation. A closed tab, no dialog, or a late answer reads as no. |
 | `http_timeout_seconds` | `30` | The GitHub HTTP timeout. |
 | `api_version` | `2022-11-28` | The `X-GitHub-Api-Version` header. |
 | `max_files_per_commit` | `30` | The file limit of `create_pr_with_files`. |
 | `max_tree_entries` | `2000` | The entry limit of `list_tree`. |
 
-`UserValves.mode` gives each user `ask`, `allow`, `deny`, or `default` for the valve. `UserValves.timeout_seconds` gives each user their own confirmation wait. A value of `0` keeps the valve.
+The 22 reads are the issue, pull request, commit, workflow and profile reads. Under `Always ask` each one waits for the click, so no repository line reaches the chat. `Allow reads` frees them.
+
+`UserValves.mode` gives each user the same 3 levels, and `default` follows the tool valve. `UserValves.timeout_seconds` gives each user their own confirmation wait. A value of `0` keeps the valve.
 
 The confirmation travels over the socket of the chat tab. `WEBSOCKET_EVENT_CALLER_TIMEOUT` is unset by default, so the Open WebUI server waits without a timeout when the browser does not answer. Only `timeout_seconds` ends that wait. A page refresh drops the dialog, the tool returns `denied: true`, and it sends nothing.
 
-`tests/integrations/test_owui_github_tool.py` holds the tool surface, the gate and the error path.
+[`tests/integrations/test_owui_github_tool.py`](../../tests/integrations/test_owui_github_tool.py) holds the tool surface, the gate and the error path.
 
 ## Google tool
 
-`integrations/openwebui/tools/google.py` is a second Workspace Tool: 1 file, standard library only, empty `requirements`. It holds Gmail, Calendar, Drive and Docs. Reads run at once. Each write asks for confirmation in the chat.
+[`integrations/openwebui/tools/google.py`](../../integrations/openwebui/tools/google.py) is a second Workspace Tool: 1 file, standard library only, empty `requirements`. It holds Gmail, Calendar, Drive and Docs. The `permissions` valve sets the gate. `Always ask`, the shipped default, holds every call, reads included. `Allow reads` frees the reads and holds the writes.
 
 1. In the Google Cloud console, make an OAuth client of the type Desktop app, and turn on the Gmail, Calendar, Drive and Docs APIs.
 2. Do the consent 1 time, with the scopes `gmail.readonly`, `gmail.send`, `calendar.readonly`, `calendar.events`, `drive.readonly` and `documents`. The reply holds the refresh token.
@@ -79,11 +81,11 @@ The 5 reads are `search_mail`, `read_thread`, `agenda`, `search_files` and `read
 
 The shipped `Always ask` holds every call, reads included, so no mail line and no one time code reaches the chat without a click. `Allow reads` frees the reads and keeps the gate on the 3 writes. `Always allow` runs everything. `UserValves.mode` carries the same 3 values for one user, and `default` follows the tool valve.
 
-`tests/integrations/test_owui_google_tool.py` holds the surface, the gate, the token cache and the error path.
+[`tests/integrations/test_owui_google_tool.py`](../../tests/integrations/test_owui_google_tool.py) holds the surface, the gate, the token cache and the error path.
 
 ## The manager tool
 
-`integrations/openwebui/tools/owui_manager.py` is 1 Workspace Tool over the whole workspace: knowledge bases, skills, the file library, the Workspace Tools and the Functions. The caller token comes from the chat request, and the `OWUI_API_BASE` valve holds the base URL.
+[`integrations/openwebui/tools/owui_manager.py`](../../integrations/openwebui/tools/owui_manager.py) is 1 Workspace Tool over the whole workspace: knowledge bases, skills, the file library, the Workspace Tools and the Functions. The caller token comes from the chat request, and the `OWUI_API_BASE` valve holds the base URL.
 
 | Group | Tools |
 | --- | --- |
@@ -114,4 +116,4 @@ The preset helpers stay private, so Open WebUI builds no model tool spec for the
 1. **Workspace → Tools**, **Create**, paste the file, **Save**.
 2. **Access** on the tool: make it public, or give read access to each user.
 
-`tests/integrations/test_owui_manager.py` holds the surface, the gate, the free reads and creates, the preset filter, the attach and the merge.
+[`tests/integrations/test_owui_manager.py`](../../tests/integrations/test_owui_manager.py) holds the surface, the gate, the free reads and creates, the preset filter, the attach and the merge.
