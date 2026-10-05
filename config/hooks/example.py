@@ -47,25 +47,41 @@ def on_prompt(
   tier: int | None,
   tier_name: str | None,
   slot: str | None,
-  signal: dict,
   reasoning: list,
   effort: str | None,
   body: dict,
   config: dict,
   key: str,
+  app: str | None,
 ) -> None:
   """Before the first attempt of a chat request that has a reasoning model in its chain.
 
   `value` holds `reasoning_effort`: the effort of the tier map, `TIER-D` none to `TIER-A` high.
   Change it to set the effort of the request. `messages` is the request list; `prompt` is the
   user turns joined. `tier` and `tier_name` name the ladder tier, `slot` the pool slot.
-  `signal` holds the heuristics v2 read: `required_tier`, `tier_name`, `probabilities`,
-  `request_type` and `cohort`. `reasoning` lists the chain models that support reasoning.
+  `reasoning` lists the chain models that support reasoning.
   `effort` is the value of the client, `None` when it sent none. A client value always wins.
+  `app` names the client app of the request: `OWUI`, `Kilo`, another title, or None.
   """
   # Example: think on a hard prompt only, and keep the rest quick.
-  # if signal["request_type"] == "analytical_reasoning" and effort is None:
+  # from daedalus.routing import router
+  # if router.required_tier(prompt) == 4 and effort is None:
   #   value["reasoning_effort"] = "high"
+
+
+def on_http(
+  body: dict, key: str = "", prompt: str = "", headers: dict | None = None
+) -> dict:
+  """On `POST /v1/hook/<file>`: the JSON body of the call, and the dict to answer with.
+
+  The file sits under `config/hooks`, and its path names it. The route passes the JSON body,
+  the session `key` of the chat (the bearer token and its first user turn), the first user
+  turn as `prompt`, and the request `headers`. Any valid key may call a hook file, so treat
+  it as admin code. The returned dict is the JSON answer.
+  """
+  # Example: answer with the model and the time of the call.
+  # return {"model": body.get("model"), "at": time.time()}
+  return {}
 
 
 def on_upstream(body: dict, model: str, headers: dict) -> None:
