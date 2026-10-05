@@ -188,29 +188,29 @@
   },
   "keys": [
     {
-      "created": 1791183331.2609303,
+      "created": 1791186259.8052971,
       "name": "openwebui",
-      "start": "sk-k5l_",
+      "start": "sk-_fo2",
       "used": null
     },
     {
-      "created": 1791183331.2617238,
+      "created": 1791186259.8059528,
       "name": "kilo-code",
-      "start": "sk-wPwR",
+      "start": "sk-qZm_",
       "used": null
     },
     {
-      "created": 1791183331.262356,
+      "created": 1791186259.8065946,
       "name": "openwebui-home-assistant-integration-001",
-      "start": "sk-kKh1",
+      "start": "sk-FIF8",
       "used": null
     }
   ],
   "limits": {
-    "checked": 1791183331.3357856,
+    "checked": 1791186259.8778012,
     "lanes": [
       {
-        "at": 1791183331.32775,
+        "at": 1791186259.8703349,
         "client": null,
         "model": "cloudflare/@cf/meta/llama-3.1-8b-instruct",
         "rows": [
@@ -218,20 +218,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791183368.32775,
+            "reset": 1791186296.8703349,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791183343.32775,
+            "reset": 1791186271.8703349,
             "span": null
           }
         ]
       },
       {
-        "at": 1791183331.2998521,
+        "at": 1791186259.842686,
         "client": null,
         "model": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
         "rows": [
@@ -239,20 +239,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791183368.2998521,
+            "reset": 1791186296.842686,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791183343.2998521,
+            "reset": 1791186271.842686,
             "span": null
           }
         ]
       },
       {
-        "at": 1791183331.3159707,
+        "at": 1791186259.8585832,
         "client": null,
         "model": "cloudflare/@cf/mistralai/mistral-small-3.2-24b-instruct",
         "rows": [
@@ -260,20 +260,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791183368.3159707,
+            "reset": 1791186296.8585832,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791183343.3159707,
+            "reset": 1791186271.8585832,
             "span": null
           }
         ]
       },
       {
-        "at": 1791183331.332124,
+        "at": 1791186259.8741825,
         "client": null,
         "model": "cloudflare/@cf/openai/whisper-large-v3-turbo",
         "rows": [
@@ -281,20 +281,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791183368.332124,
+            "reset": 1791186296.8741825,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791183343.332124,
+            "reset": 1791186271.8741825,
             "span": null
           }
         ]
       },
       {
-        "at": 1791183331.3224897,
+        "at": 1791186259.8648634,
         "client": null,
         "model": "cloudflare/@cf/qwen/qwq-32b",
         "rows": [
@@ -302,20 +302,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791183368.3224897,
+            "reset": 1791186296.8648634,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791183343.3224897,
+            "reset": 1791186271.8648634,
             "span": null
           }
         ]
       },
       {
-        "at": 1791183331.3087547,
+        "at": 1791186259.8515046,
         "client": null,
         "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
         "rows": [
@@ -323,20 +323,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791183368.3087547,
+            "reset": 1791186296.8515046,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791183343.3087547,
+            "reset": 1791186271.8515046,
             "span": null
           }
         ]
       },
       {
-        "at": 1791183331.3191671,
+        "at": 1791186259.8617766,
         "client": null,
         "model": "openrouter/z-ai/glm-5.3-flash",
         "rows": [
@@ -344,14 +344,14 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791183368.3191671,
+            "reset": 1791186296.8617766,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791183343.3191671,
+            "reset": 1791186271.8617766,
             "span": null
           }
         ]
@@ -424,7 +424,7 @@
       "reasoning": false,
       "tier": "TIER-A",
       "tools": true,
-      "weight": 0.5000002130278766
+      "weight": 0.5000002171472187
     },
     {
       "client_cooldowns": {},
@@ -472,7 +472,7 @@
     },
     {
       "client_cooldowns": {},
-      "cooldown": 1791276931.3336816,
+      "cooldown": 1791279859.875667,
       "effort": null,
       "flags": [],
       "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
@@ -482,7 +482,7 @@
       "reasoning": false,
       "tier": "TIER-C",
       "tools": true,
-      "weight": 0.7500013419733946
+      "weight": 0.7500013113838961
     },
     {
       "client_cooldowns": {},
@@ -496,7 +496,7 @@
       "reasoning": false,
       "tier": "TIER-D",
       "tools": false,
-      "weight": 0.7500017144051736
+      "weight": 0.750001663530888
     },
     {
       "client_cooldowns": {},
@@ -563,7 +563,7 @@
           "cooldown": null,
           "id": "cloudflare/@cf/openai/gpt-oss-120b",
           "tier": "TIER-A",
-          "weight": 0.5000002841645257
+          "weight": 0.5000002916073565
         },
         {
           "cooldown": null,
@@ -590,16 +590,16 @@
           "weight": 1.0
         },
         {
-          "cooldown": 1791276931.3336816,
+          "cooldown": 1791279859.875667,
           "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
           "tier": "TIER-C",
-          "weight": 0.7500014486785136
+          "weight": 0.7500014230742498
         },
         {
           "cooldown": null,
           "id": "cloudflare/@cf/meta/llama-3.1-8b-instruct",
           "tier": "TIER-D",
-          "weight": 0.7500018211103456
+          "weight": 0.7500017752212941
         }
       ],
       "name": "daedalus/auto",
@@ -612,7 +612,7 @@
           "cooldown": null,
           "id": "cloudflare/@cf/openai/gpt-oss-120b",
           "tier": "TIER-A",
-          "weight": 0.5000002854124255
+          "weight": 0.5000002929953267
         },
         {
           "cooldown": null,
@@ -653,10 +653,10 @@
       "context": 128000,
       "members": [
         {
-          "cooldown": 1791276931.3336816,
+          "cooldown": 1791279859.875667,
           "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
           "tier": "TIER-C",
-          "weight": 0.7500014524508689
+          "weight": 0.7500014270376103
         }
       ],
       "name": "daedalus/koinos",
@@ -669,7 +669,7 @@
           "cooldown": null,
           "id": "cloudflare/@cf/meta/llama-3.1-8b-instruct",
           "tier": "TIER-D",
-          "weight": 0.7500018257613277
+          "weight": 0.7500017800155299
         }
       ],
       "name": "daedalus/moros",
@@ -774,7 +774,7 @@
   "requests": [
     {
       "app": "Kilo",
-      "at": 1791183331.3343513,
+      "at": 1791186259.8763306,
       "attempts": [
         {
           "error": "",
@@ -807,7 +807,7 @@
     },
     {
       "app": "Kilo",
-      "at": 1791183331.334301,
+      "at": 1791186259.8762803,
       "attempts": [
         {
           "error": "the deployment is down",
@@ -858,7 +858,7 @@
     },
     {
       "app": "OWUI",
-      "at": 1791183331.3342254,
+      "at": 1791186259.8761988,
       "attempts": [
         {
           "error": "",
@@ -897,7 +897,7 @@
     },
     {
       "app": null,
-      "at": 1791183331.3324585,
+      "at": 1791186259.8744874,
       "attempts": [
         {
           "error": "",
@@ -926,16 +926,16 @@
     },
     {
       "app": null,
-      "at": 1791183331.3281596,
+      "at": 1791186259.8707123,
       "attempts": [
         {
           "error": "",
           "model": "cloudflare/@cf/meta/llama-3.1-8b-instruct",
           "result": "answered",
-          "seconds": 0.001,
+          "seconds": 0.0,
           "weight_change": {
-            "from": 0.5000007795873496,
-            "to": 0.7500011693810243
+            "from": 0.500000758041957,
+            "to": 0.7500011370629355
           }
         }
       ],
@@ -958,12 +958,12 @@
         "output": 9
       },
       "transition": null,
-      "ttft": "0.001s",
+      "ttft": "0.000s",
       "via": "cloudflare/@cf/meta/llama-3.1-8b-instruct"
     },
     {
       "app": null,
-      "at": 1791183331.3231905,
+      "at": 1791186259.8655865,
       "attempts": [
         {
           "error": "",
@@ -996,7 +996,7 @@
     },
     {
       "app": null,
-      "at": 1791183331.3196025,
+      "at": 1791186259.862153,
       "attempts": [
         {
           "error": "",
@@ -1014,7 +1014,7 @@
       "race": "off",
       "retry": null,
       "routed": null,
-      "seconds": 0.002,
+      "seconds": 0.001,
       "session": "5d7e3b6",
       "status": 200,
       "stream": false,
@@ -1029,7 +1029,7 @@
     },
     {
       "app": null,
-      "at": 1791183331.3163352,
+      "at": 1791186259.8590002,
       "attempts": [
         {
           "error": "",
@@ -1062,7 +1062,7 @@
     },
     {
       "app": null,
-      "at": 1791183331.3132167,
+      "at": 1791186259.8559074,
       "attempts": [
         {
           "error": "",
@@ -1095,7 +1095,7 @@
     },
     {
       "app": null,
-      "at": 1791183331.3095176,
+      "at": 1791186259.8522618,
       "attempts": [
         {
           "cooldown": {
@@ -1148,7 +1148,7 @@
     },
     {
       "app": null,
-      "at": 1791183331.304756,
+      "at": 1791186259.8474426,
       "attempts": [
         {
           "error": "",
@@ -1181,7 +1181,7 @@
     },
     {
       "app": null,
-      "at": 1791183331.3005524,
+      "at": 1791186259.8432682,
       "attempts": [
         {
           "error": "{\"error\": \"the deployment is down\"}",
@@ -1209,7 +1209,7 @@
       "race": "off",
       "retry": null,
       "routed": null,
-      "seconds": 0.012,
+      "seconds": 0.011,
       "session": "a57a308",
       "status": 200,
       "stream": false,
@@ -1326,26 +1326,26 @@
     "file": {
       "request_hooks": {
         "on-chunk": [
-          "hooks/pick.py"
+          "hooks/model_served.py"
         ],
         "on-prompt": [
-          "hooks/auto_reasoning.py"
+          "hooks/owui_auto_reasoning.py"
         ],
         "on-request": [
-          "hooks/openwebui_retry.py"
+          "hooks/owui_retry.py"
         ]
       }
     },
     "headroom_available": false,
     "hook_files": [
-      "hooks/auto_reasoning.py",
-      "hooks/cheapest_output.py",
       "hooks/example.py",
-      "hooks/openwebui_retry.py",
-      "hooks/pick.py"
+      "hooks/model_served.py",
+      "hooks/or_cheapest_output.py",
+      "hooks/owui_auto_reasoning.py",
+      "hooks/owui_retry.py"
     ],
     "path": "config/daedalus.yml",
-    "text": "# Router settings. Each key is optional. A missing key uses the built-in default.\n# This file holds the changes from the defaults only. docs/configuration.md lists each key,\n# its default and its use.\n# DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.\n# HEADROOM_URL turns on message compression through a Headroom sidecar.\n# `headroom: false` in a provider block or a model entry turns it off for that scope.\nrequest_hooks:\n  # The request-level hook files of the config folder, in list order. An empty list: no hook.\n  # on-request sets the key of the turn. The shipped file applies the Open WebUI try-again rule.\n  on-request: [hooks/openwebui_retry.py]\n  # on-prompt sets the reasoning level of a chat request. The shipped file reads the tier of\n  # the message, for an Open WebUI client, and the light-bulb action calls its HTTP hook.\n  on-prompt: [hooks/auto_reasoning.py]\n  # on-chunk sees each streamed chunk of a chat request. The shipped file draws the pool pick.\n  on-chunk: [hooks/pick.py]\n"
+    "text": "# Router settings. Each key is optional. A missing key uses the built-in default.\n# This file holds the changes from the defaults only. docs/configuration.md lists each key,\n# its default and its use.\n# DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.\n# HEADROOM_URL turns on message compression through a Headroom sidecar.\n# `headroom: false` in a provider block or a model entry turns it off for that scope.\nrequest_hooks:\n  # The request-level hook files of the config folder, in list order. An empty list: no hook.\n  # on-request sets the key of the turn. The shipped file applies the Open WebUI try-again rule.\n  on-request: [hooks/owui_retry.py]\n  # on-prompt sets the reasoning level of a chat request. The shipped file reads the tier of\n  # the message, for an Open WebUI client, and the light-bulb action calls its HTTP hook.\n  on-prompt: [hooks/owui_auto_reasoning.py]\n  # on-chunk sees each streamed chunk of a chat request. The shipped file draws the pool pick.\n  on-chunk: [hooks/model_served.py]\n"
   },
   "status": {
     "affinity": {
@@ -1356,7 +1356,7 @@
       "slow": 30.0
     },
     "catalog": {
-      "built": 1791183331.2557652,
+      "built": 1791186259.8004427,
       "next": 1791201600.0,
       "rebuilding": false
     },

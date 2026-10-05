@@ -121,8 +121,8 @@ def test_hook_http_refuses_a_bad_body() -> None:
 
 
 def test_the_shipped_ladder_hook_steps_the_pin() -> None:
-  """The shipped `auto_reasoning.py` moves 1 rung up the pin of the chat, and names its effort."""
-  module = hooks.load(Path("config") / "hooks" / "auto_reasoning.py")
+  """The shipped `owui_auto_reasoning.py` moves 1 rung up the pin of the chat, and names its effort."""
+  module = hooks.load(Path("config") / "hooks" / "owui_auto_reasoning.py")
   api.PENALTIES.pin("chat-1", "daedalus/auto:TIER-C", "kilo/poolside/laguna-s-2.1:free")
   found = module.on_http(
     {},
@@ -140,7 +140,7 @@ def test_the_shipped_ladder_hook_steps_the_pin() -> None:
 
 def test_the_shipped_ladder_hook_reads_a_pool_and_the_prompt() -> None:
   """A pinned pool names its own rung, and a chat with no pin starts from its prompt."""
-  module = hooks.load(Path("config") / "hooks" / "auto_reasoning.py")
+  module = hooks.load(Path("config") / "hooks" / "owui_auto_reasoning.py")
   api.PENALTIES.pin("chat-2", "daedalus/koinos", "kilo/poolside/laguna-s-2.1:free")
   found = module.on_http(
     {},
@@ -158,7 +158,7 @@ def test_the_shipped_ladder_hook_reads_a_pool_and_the_prompt() -> None:
 
 def test_the_shipped_ladder_hook_reads_a_pool_of_the_body() -> None:
   """A chat with no pin starts from the pool its body names."""
-  module = hooks.load(Path("config") / "hooks" / "auto_reasoning.py")
+  module = hooks.load(Path("config") / "hooks" / "owui_auto_reasoning.py")
   found = module.on_http(
     {"model": "daedalus/koinos"}, key="chat-5", prompt="hi", headers={}
   )
@@ -168,7 +168,7 @@ def test_the_shipped_ladder_hook_reads_a_pool_of_the_body() -> None:
 
 def test_the_shipped_ladder_hook_stops_at_the_top() -> None:
   """`TIER-A` is the top rung: the answer keeps it and `top` says so."""
-  module = hooks.load(Path("config") / "hooks" / "auto_reasoning.py")
+  module = hooks.load(Path("config") / "hooks" / "owui_auto_reasoning.py")
   api.PENALTIES.pin("chat-4", "daedalus/auto:TIER-A", "kilo/poolside/laguna-s-2.1:free")
   found = module.on_http(
     {},
