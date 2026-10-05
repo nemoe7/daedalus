@@ -1593,6 +1593,7 @@ function renderSettings() {
     .join("");
   // The rendered file wins, and the shown rows follow its mode.
   showAffinityRows(setting("affinity", "mode"));
+  showSwitchRows();
   renderSettingsSave();
 }
 
@@ -1603,6 +1604,23 @@ function showAffinityRows(mode = $("set-affinity-mode")?.value) {
   for (const [key, , , , show] of SETTINGS.find(([group]) => group === "affinity")[2]) {
     const row = $(`set-affinity-${key}`)?.closest(".field");
     if (row) row.hidden = Boolean(show && !show.includes(mode));
+  }
+}
+
+// A card whose first row is an On switch greys its other rows while the switch is off. The other
+// boolean rows, such as `change_on_draw` of Affinity, belong to their own card and grey nothing.
+function showSwitchRows() {
+  for (const [group, , fields] of SETTINGS) {
+    const [toggle] = fields[0];
+    if (!isSwitch(group, toggle)) continue;
+    const off = !$(`set-${group}-${toggle}`)?.checked;
+    for (const [key] of fields) {
+      if (key === toggle) continue;
+      const field = $(`set-${group}-${key}`)?.closest(".field");
+      if (!field) continue;
+      field.classList.toggle("off", off);
+      field.querySelectorAll("input, select, button").forEach((node) => { node.disabled = off; });
+    }
   }
 }
 
@@ -2103,6 +2121,8 @@ $("settings").addEventListener("input", (event) => {
     showAffinityRows();
     return renderSettingsSave();
   }
+  // A switch decides whether its card keeps its other rows usable.
+  if (event.target.type === "checkbox") showSwitchRows();
   renderSettingsSave();
 });
 $("settings").addEventListener("change", (event) => {

@@ -1108,7 +1108,7 @@ const node = (id) => {{
   if (!nodes.has(id)) {{
     const made = {{ id, innerHTML: '', value: '', checked: false, textContent: '', disabled: false, hidden: false, handlers: {{}},
       addEventListener: (type, fn) => {{ (made.handlers[type] ||= []).push(fn); }},
-      classList: {{ toggle: () => {{}} }}, closest: () => made }};
+      classList: {{ toggle: () => {{}} }}, closest: () => made, querySelectorAll: () => [] }};
     nodes.set(id, made);
   }}
   return nodes.get(id);
@@ -1282,6 +1282,70 @@ select.value = 'race';
 node('settings').handlers.input.forEach((fn) => fn({{ target: select }}));
 assert.strictEqual(node('settings-save').disabled, false, 'the Save button wakes');
 assert.strictEqual(probe.settingsChanges().affinity.mode, 'race', 'the pick reaches the save payload');
+""",
+  )
+
+
+def test_app_js_switch_rows_grey_the_card() -> None:
+  """A card whose first row is an On switch greys and disables its other rows while the switch is off."""
+  payload = json.dumps(
+    {
+      "path": "config/daedalus.yml",
+      "headroom_available": True,
+      "text": "",
+      "defaults": settings.DEFAULTS,
+      "file": {},
+    }
+  )
+  run_app_js(
+    "state, renderSettings, showSwitchRows",
+    f"""
+probe.state.settings = {payload};
+// The rows of the Weights and Headroom cards, with the controls that the grey keeps in step.
+const rows = ['set-weights-success', 'set-weights-fault', 'set-weights-slow', 'set-weights-hourly',
+  'set-weights-rate_limit', 'set-headroom-timeout'];
+for (const id of rows) {{
+  const made = node(id);
+  made.off = new Set();
+  made.controls = [{{ disabled: false }}, {{ disabled: false }}];
+  made.classList = {{ toggle: (name, on) => (on ? made.off.add(name) : made.off.delete(name)) }};
+  made.querySelectorAll = () => made.controls;
+}}
+const off = (id) => node(id).off.has('off');
+const disabled = (id) => node(id).controls.every((control) => control.disabled);
+// The first render greys the factors of an off Weights switch and leaves Headroom live.
+node('set-weights-enabled').checked = false;
+node('set-headroom-enabled').checked = true;
+probe.renderSettings();
+assert(rows.slice(0, 5).every(off), 'every weights factor greys');
+assert(rows.slice(0, 5).every(disabled), 'and every factor control goes disabled');
+assert(!off('set-headroom-timeout') && !disabled('set-headroom-timeout'), 'the other card stays live');
+// The switch keeps its own row live, so it can be turned back on.
+assert(!node('set-weights-enabled').disabled, 'the switch stays usable');
+// An on switch clears its card, and the off one greys only its own card.
+node('set-weights-enabled').checked = true;
+node('set-headroom-enabled').checked = false;
+probe.showSwitchRows();
+assert(!off('set-weights-success') && !disabled('set-weights-success'), 'the on switch clears the weights');
+assert(off('set-headroom-timeout') && disabled('set-headroom-timeout'), 'the headroom timeout greys');
+// The other boolean rows of a card, such as Affinity's Change pin on draw, grey nothing.
+const idle = node('set-affinity-idle');
+idle.off = new Set();
+idle.controls = [{{ disabled: false }}];
+idle.classList = {{ toggle: (name, on) => (on ? idle.off.add(name) : idle.off.delete(name)) }};
+idle.querySelectorAll = () => idle.controls;
+node('set-affinity-change_on_draw').checked = false;
+probe.showSwitchRows();
+assert(!off('set-affinity-idle') && !disabled('set-affinity-idle'), 'the affinity pin pick greys nothing');
+// The form listens for the flip, so the card greys on the click without a save.
+node('set-weights-enabled').checked = true;
+node('set-headroom-enabled').checked = true;
+probe.showSwitchRows();
+node('set-weights-enabled').checked = false;
+node('set-weights-enabled').type = 'checkbox';
+node('settings').handlers.input.forEach((fn) => fn({{ target: node('set-weights-enabled') }}));
+assert(off('set-weights-success'), 'the flip greys the card at once');
+assert(!off('set-headroom-timeout'), 'and leaves the other card alone');
 """,
   )
 
