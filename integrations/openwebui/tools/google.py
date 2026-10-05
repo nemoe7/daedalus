@@ -13,7 +13,7 @@ import json
 import time
 from collections.abc import Callable
 from email.message import EmailMessage
-from typing import Any
+from typing import Any, Literal
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -47,7 +47,7 @@ class Tools:
     google_refresh_token: str = ""
     calendar_id: str = "primary"
     max_results: int = 10
-    default_mode: str = "ask"
+    permissions: Literal["Always ask", "Allow reads", "Always allow"] = "Always ask"
     timeout_seconds: int = 60
     http_timeout_seconds: int = 30
 
@@ -71,12 +71,47 @@ class Tools:
       value = valves.get(name)
     return value
 
-  def _effective_mode(self, __user__: dict | None = None) -> str:
-    """The mode: the user valve wins, then the tool valve."""
+  def _permissions(self, __user__: dict | None = None) -> str:
+    """The permission level: the user valve wins, then the tool valve.
+
+    Always ask holds every call, reads included. Allow reads lets a read run
+    and holds the gated calls. Always allow holds nothing.
+    """
     user_mode = self._user_valve(__user__, "mode")
     if user_mode and user_mode != "default":
-      return user_mode
-    return self.valves.default_mode
+      return str(user_mode)
+    return str(self.valves.permissions or "Always ask")
+
+  async def _read(
+    self,
+    action: str,
+    detail: str,
+    fn: Callable,
+    *,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> Any:
+    """Run one read behind the read gate.
+
+    The read_mode valve is ask or allow. ask holds every read at the same
+    confirmation as a write, so a one time code or a private line cannot reach
+    the chat without a click. allow lets the read run at once.
+    """
+    if self._permissions(__user__) == "Always ask" and not await self._ask(
+      action, detail, __event_call__, __user__
+    ):
+      return {
+        "result": {
+          "denied": True,
+          "action": action,
+          "reason": (
+            "Not confirmed, so nothing was read. A missing dialog, a closed "
+            f"tab or an answer later than {self._wait_seconds(__user__)}s all "
+            "read as no."
+          ),
+        }
+      }
+    return await fn()
 
   def _wait_seconds(self, __user__: dict | None = None) -> int:
     """The confirmation wait: the user value wins, then the tool value. Zero keeps the tool value."""
@@ -126,12 +161,7 @@ class Tools:
     __event_call__: Callable | None = None,
   ) -> Any:
     """Run one write behind the gate. deny => never asked, timeout => never sent."""
-    mode = self._effective_mode(__user__)
-    if mode == "deny":
-      return {
-        "result": {"denied": True, "action": action, "reason": "Denied by policy."}
-      }
-    if mode != "allow" and not await self._ask(
+    if self._permissions(__user__) != "Always allow" and not await self._ask(
       action, detail, __event_call__, __user__
     ):
       return {
@@ -302,40 +332,71 @@ class Tools:
 
   # ---------------------------------------------------------------- mail
 
-  async def search_mail(self, query: str, max_results: int = 0) -> dict:
+  async def search_mail(
+    self,
+    query: str,
+    max_results: int = 0,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """Search Gmail and return the newest matches with their headers and snippets.
 
     :param query: the Gmail search, for example from:ana newer_than:7d or subject:invoice
     :param max_results: how many messages to read, up to 50. Zero uses the valve
     """
-    limit = self._limit(max_results)
-    found = await self._request(
-      "GET", f"{GMAIL}/messages", params={"q": query, "maxResults": limit}
-    )
-    out = []
-    for item in (found.get("messages") or [])[:limit]:
-      message = await self._request(
-        "GET",
-        f"{GMAIL}/messages/{item['id']}",
-        params={
-          "format": "metadata",
-          "metadataHeaders": ["From", "To", "Subject", "Date"],
-        },
-      )
-      out.append(self._message(message))
-    return self._ok({"messages": out, "count": len(out)})
 
-  async def read_thread(self, thread_id: str) -> dict:
+    async def run():
+      limit = self._limit(max_results)
+      found = await self._request(
+        "GET", f"{GMAIL}/messages", params={"q": query, "maxResults": limit}
+      )
+      out = []
+      for item in (found.get("messages") or [])[:limit]:
+        message = await self._request(
+          "GET",
+          f"{GMAIL}/messages/{item['id']}",
+          params={
+            "format": "metadata",
+            "metadataHeaders": ["From", "To", "Subject", "Date"],
+          },
+        )
+        out.append(self._message(message))
+      return self._ok({"messages": out, "count": len(out)})
+
+    return await self._read(
+      "read Gmail",
+      str(query),
+      run,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    )
+
+  async def read_thread(
+    self,
+    thread_id: str,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """Read one Gmail thread, every message in order, with the text of each.
 
     :param thread_id: the thread id from search_mail
     """
-    data = await self._request(
-      "GET", f"{GMAIL}/threads/{thread_id}", params={"format": "full"}
-    )
-    messages = [self._message(item) for item in data.get("messages") or []]
-    return self._ok(
-      {"thread_id": thread_id, "messages": messages, "count": len(messages)}
+
+    async def run():
+      data = await self._request(
+        "GET", f"{GMAIL}/threads/{thread_id}", params={"format": "full"}
+      )
+      messages = [self._message(item) for item in data.get("messages") or []]
+      return self._ok(
+        {"thread_id": thread_id, "messages": messages, "count": len(messages)}
+      )
+
+    return await self._read(
+      "read a Gmail thread",
+      str(thread_id),
+      run,
+      __user__=__user__,
+      __event_call__=__event_call__,
     )
 
   async def send_mail(
@@ -388,7 +449,12 @@ class Tools:
   # ------------------------------------------------------------ calendar
 
   async def agenda(
-    self, days: int = 7, calendar_id: str | None = None, max_results: int = 0
+    self,
+    days: int = 7,
+    calendar_id: str | None = None,
+    max_results: int = 0,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """Read the next events of a calendar, the primary one by default.
 
@@ -396,36 +462,48 @@ class Tools:
     :param calendar_id: the calendar id, primary when absent
     :param max_results: how many events, up to 50. Zero uses the valve
     """
-    span = min(max(1, int(days or 7)), 60)
-    now = time.time()
-    start = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
-    end = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now + span * 86400))
-    data = await self._request(
-      "GET",
-      f"{CALENDAR}/calendars/{calendar_id or self.valves.calendar_id or 'primary'}/events",
-      params={
-        "timeMin": start,
-        "timeMax": end,
-        "singleEvents": "true",
-        "orderBy": "startTime",
-        "maxResults": self._limit(max_results),
-      },
+
+    async def run():
+      span = min(max(1, int(days or 7)), 60)
+      now = time.time()
+      start = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
+      end = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now + span * 86400))
+      data = await self._request(
+        "GET",
+        f"{CALENDAR}/calendars/{calendar_id or self.valves.calendar_id or 'primary'}/events",
+        params={
+          "timeMin": start,
+          "timeMax": end,
+          "singleEvents": "true",
+          "orderBy": "startTime",
+          "maxResults": self._limit(max_results),
+        },
+      )
+      events = [
+        {
+          "id": item.get("id"),
+          "summary": item.get("summary"),
+          "start": (item.get("start") or {}).get("dateTime")
+          or (item.get("start") or {}).get("date"),
+          "end": (item.get("end") or {}).get("dateTime")
+          or (item.get("end") or {}).get("date"),
+          "location": item.get("location"),
+          "status": item.get("status"),
+          "link": item.get("htmlLink"),
+        }
+        for item in data.get("items") or []
+      ]
+      return self._ok(
+        {"events": events, "count": len(events), "from": start, "to": end}
+      )
+
+    return await self._read(
+      "read the calendar",
+      str(days),
+      run,
+      __user__=__user__,
+      __event_call__=__event_call__,
     )
-    events = [
-      {
-        "id": item.get("id"),
-        "summary": item.get("summary"),
-        "start": (item.get("start") or {}).get("dateTime")
-        or (item.get("start") or {}).get("date"),
-        "end": (item.get("end") or {}).get("dateTime")
-        or (item.get("end") or {}).get("date"),
-        "location": item.get("location"),
-        "status": item.get("status"),
-        "link": item.get("htmlLink"),
-      }
-      for item in data.get("items") or []
-    ]
-    return self._ok({"events": events, "count": len(events), "from": start, "to": end})
 
   async def create_event(
     self,
@@ -480,59 +558,91 @@ class Tools:
 
   # --------------------------------------------------------------- drive
 
-  async def search_files(self, query: str, max_results: int = 0) -> dict:
+  async def search_files(
+    self,
+    query: str,
+    max_results: int = 0,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """Search Drive and return the matching files.
 
     :param query: a Drive query, or plain words. Plain words search the full text
     :param max_results: how many files, up to 50. Zero uses the valve
     """
-    text = query or ""
-    if "contains" not in text and "=" not in text:
-      text = f"fullText contains '{text.replace(chr(39), chr(92) + chr(39))}'"
-    data = await self._request(
-      "GET",
-      f"{DRIVE}/files",
-      params={
-        "q": text,
-        "pageSize": self._limit(max_results),
-        "fields": "files(id,name,mimeType,modifiedTime,webViewLink,owners(displayName))",
-      },
-    )
-    return self._ok(
-      {"files": data.get("files") or [], "count": len(data.get("files") or [])}
+
+    async def run():
+      text = query or ""
+      if "contains" not in text and "=" not in text:
+        text = f"fullText contains '{text.replace(chr(39), chr(92) + chr(39))}'"
+      data = await self._request(
+        "GET",
+        f"{DRIVE}/files",
+        params={
+          "q": text,
+          "pageSize": self._limit(max_results),
+          "fields": "files(id,name,mimeType,modifiedTime,webViewLink,owners(displayName))",
+        },
+      )
+      return self._ok(
+        {"files": data.get("files") or [], "count": len(data.get("files") or [])}
+      )
+
+    return await self._read(
+      "search Drive",
+      str(query),
+      run,
+      __user__=__user__,
+      __event_call__=__event_call__,
     )
 
-  async def read_document(self, file_id: str, max_chars: int = 20000) -> dict:
+  async def read_document(
+    self,
+    file_id: str,
+    max_chars: int = 20000,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """Read the text of a Drive file. A Google Doc is exported, other files are downloaded.
 
     :param file_id: the file id from search_files
     :param max_chars: the text limit, up to 200000
     """
-    meta = await self._request(
-      "GET", f"{DRIVE}/files/{file_id}", params={"fields": "id,name,mimeType"}
-    )
-    kind = meta.get("mimeType") or ""
-    limit = min(max(1000, int(max_chars or 20000)), 200000)
-    if kind == "application/vnd.google-apps.document":
-      text = await self._request(
-        "GET",
-        f"{DRIVE}/files/{file_id}/export",
-        params={"mimeType": "text/plain"},
-        raw=True,
+
+    async def run():
+      meta = await self._request(
+        "GET", f"{DRIVE}/files/{file_id}", params={"fields": "id,name,mimeType"}
       )
-    else:
-      text = await self._request(
-        "GET", f"{DRIVE}/files/{file_id}", params={"alt": "media"}, raw=True
+      kind = meta.get("mimeType") or ""
+      limit = min(max(1000, int(max_chars or 20000)), 200000)
+      if kind == "application/vnd.google-apps.document":
+        text = await self._request(
+          "GET",
+          f"{DRIVE}/files/{file_id}/export",
+          params={"mimeType": "text/plain"},
+          raw=True,
+        )
+      else:
+        text = await self._request(
+          "GET", f"{DRIVE}/files/{file_id}", params={"alt": "media"}, raw=True
+        )
+      truncated = len(text) > limit
+      return self._ok(
+        {
+          "file_id": file_id,
+          "name": meta.get("name"),
+          "mime_type": kind,
+          "text": text[:limit],
+          "truncated": truncated,
+        }
       )
-    truncated = len(text) > limit
-    return self._ok(
-      {
-        "file_id": file_id,
-        "name": meta.get("name"),
-        "mime_type": kind,
-        "text": text[:limit],
-        "truncated": truncated,
-      }
+
+    return await self._read(
+      "read a Drive file",
+      str(file_id),
+      run,
+      __user__=__user__,
+      __event_call__=__event_call__,
     )
 
   async def append_to_document(
