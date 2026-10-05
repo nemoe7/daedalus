@@ -1326,7 +1326,7 @@
     "file": {
       "request_hooks": {
         "on-chunk": [
-          "hooks/model_served.py"
+          "hooks/served_model.py"
         ],
         "on-prompt": [
           "hooks/owui_auto_reasoning.py"
@@ -1339,13 +1339,13 @@
     "headroom_available": false,
     "hook_files": [
       "hooks/example.py",
-      "hooks/model_served.py",
+      "hooks/served_model.py",
       "hooks/or_cheapest_output.py",
       "hooks/owui_auto_reasoning.py",
       "hooks/owui_retry.py"
     ],
     "path": "config/daedalus.yml",
-    "text": "# Router settings. Each key is optional. A missing key uses the built-in default.\n# This file holds the changes from the defaults only. docs/configuration.md lists each key,\n# its default and its use.\n# DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.\n# HEADROOM_URL turns on message compression through a Headroom sidecar.\n# `headroom: false` in a provider block or a model entry turns it off for that scope.\nrequest_hooks:\n  # The request-level hook files of the config folder, in list order. An empty list: no hook.\n  # on-request sets the key of the turn. The shipped file applies the Open WebUI try-again rule.\n  on-request: [hooks/owui_retry.py]\n  # on-prompt sets the reasoning level of a chat request. The shipped file reads the tier of\n  # the message, for an Open WebUI client, and the light-bulb action calls its HTTP hook.\n  on-prompt: [hooks/owui_auto_reasoning.py]\n  # on-chunk sees each streamed chunk of a chat request. The shipped file draws the pool pick.\n  on-chunk: [hooks/model_served.py]\n"
+    "text": "# Router settings. Each key is optional. A missing key uses the built-in default.\n# This file holds the changes from the defaults only. docs/configuration.md lists each key,\n# its default and its use.\n# DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.\n# HEADROOM_URL turns on message compression through a Headroom sidecar.\n# `headroom: false` in a provider block or a model entry turns it off for that scope.\nrequest_hooks:\n  # The request-level hook files of the config folder, in list order. An empty list: no hook.\n  # on-request sets the key of the turn. The shipped file applies the Open WebUI try-again rule.\n  on-request: [hooks/owui_retry.py]\n  # on-prompt sets the reasoning level of a chat request. The shipped file reads the tier of\n  # the message, for an Open WebUI client, and the light-bulb action calls its HTTP hook.\n  on-prompt: [hooks/owui_auto_reasoning.py]\n  # on-chunk sees each streamed chunk of a chat request. The shipped file writes the served model\n  # line.\n  on-chunk: [hooks/served_model.py]\n"
   },
   "status": {
     "affinity": {

@@ -42,7 +42,7 @@ def test_load(folder: Path) -> None:
   assert shipped.pop("request_hooks") == {
     "on-request": ["hooks/owui_retry.py"],
     "on-prompt": ["hooks/owui_auto_reasoning.py"],
-    "on-chunk": ["hooks/model_served.py"],
+    "on-chunk": ["hooks/served_model.py"],
   }
   assert values.pop("request_hooks") == {
     "on-request": [],
