@@ -8,6 +8,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from daedalus import dashboard
 from daedalus.providers import hooks
 from daedalus.server import api, upstream
 
@@ -135,6 +136,16 @@ def test_hook_file_wins(
   assert dump["tier_name"] == "TIER-B" and dump["slot"] == "daedalus/auto:TIER-B"
   assert dump["reasoning"] == ["a/1"], dump["reasoning"]
   assert dump["effort"] is None, dump["effort"]
+
+
+def test_the_row_carries_the_hook_level(
+  provider: Provider, hook_file: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """The stored row carries the level the hook set, so the tab shows the effective level."""
+  monkeypatch.setattr(api, "REQUEST_HOOKS", {"on-prompt": [hook_file]})
+  post(provider, "daedalus/auto:TIER-B")
+  row = dashboard.HISTORY.latest(1)[0]
+  assert row["effort"] == "max", row
 
 
 def test_no_reasoning_model(
