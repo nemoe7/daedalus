@@ -161,8 +161,8 @@ class Tools:
             "denied": True,
             "action": action,
             "reason": (
-              f"Not confirmed within {self._wait_seconds(__user__)}s, so nothing "
-              "was sent."
+              f"You did not confirm within {self._wait_seconds(__user__)}s, so I "
+              "sent nothing."
             ),
           }
         }
@@ -886,7 +886,7 @@ class Tools:
       if e:
         return e
       c = (data or {}).get("content", "")
-      return c if c else "File exists, but no extracted text content was found."
+      return c if c else "The file exists, but it holds no extracted text."
 
     return await self._read(
       "read read_knowledge_file",
@@ -2008,7 +2008,7 @@ class Tools:
           "result": {
             "denied": True,
             "action": action,
-            "reason": "Not confirmed, so nothing was read.",
+            "reason": "You did not confirm, so I read nothing.",
           }
         }
       )

@@ -105,7 +105,7 @@ class Tools:
           "denied": True,
           "action": action,
           "reason": (
-            "Not confirmed, so nothing was read. A missing dialog, a closed "
+            "You did not confirm, so I read nothing. A missing dialog, a closed "
             f"tab or an answer later than {self._wait_seconds(__user__)}s all "
             "read as no."
           ),
@@ -169,7 +169,7 @@ class Tools:
           "denied": True,
           "action": action,
           "reason": (
-            "Not confirmed, so nothing was sent. A missing dialog, a closed tab "
+            "You did not confirm, so I sent nothing. A missing dialog, a closed tab "
             f"or an answer later than {self._wait_seconds(__user__)}s all read as no."
           ),
         }

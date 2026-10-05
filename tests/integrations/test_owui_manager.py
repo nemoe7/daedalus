@@ -167,7 +167,7 @@ def test_the_gate_denies_when_no_dialog_is_possible():
   tool, calls = make_tool()
   answer = json.loads(asyncio.run(tool.delete_file("f1", __request__=object())))
   assert answer["result"]["denied"] is True
-  assert "Not confirmed" in answer["result"]["reason"]
+  assert "did not confirm" in answer["result"]["reason"]
   assert calls == []
 
 
