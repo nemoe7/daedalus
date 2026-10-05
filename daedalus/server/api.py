@@ -876,8 +876,8 @@ async def chat(request: Request) -> Response:
       400, f"Missing api_key for {name}", "invalid_request_error"
     )
   # A hook file of the prompt point sets the reasoning effort of the attempt. The base sets
-  # none, so the client value and the catalog default decide. A chain with no reasoning model
-  # stays out of it.
+  # none, so the value of a hook file, the client value and the catalog default decide, in that
+  # order. A chain with no reasoning model stays out of it.
   chain_models = [candidate for group in found[0] for candidate in group]
   flags = store.reasoning_flags()
   reasoners = [candidate for candidate in chain_models if flags.get(candidate, True)]
@@ -916,8 +916,8 @@ async def chat(request: Request) -> Response:
         app=getattr(request.state, "app", None),
       )
     chosen = providers.effort_text(values.get("reasoning_effort"))
-    if chosen and providers.effort_text(body.get("reasoning_effort")) is None:
-      # A hook file answers above the catalog default.
+    if chosen:
+      # A hook file answers above the client value and above the catalog default.
       body = {**body, "reasoning_effort": chosen}
       # The row shows the level that the request runs with, so the hook sets the dashboard state.
       request.state.effort = chosen

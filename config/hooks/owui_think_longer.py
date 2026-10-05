@@ -79,11 +79,11 @@ def on_prompt(
   """Set the reasoning level of the call: the read of the prompt, the steps asked, the try again.
 
   A `think_longer` field of the body steps the level of the last answer by its count, for any
-  client. A try again steps the same level 1 up, so a repeat of a message reasons more than the
-  answer before it. With neither, the level is the read of the prompt, and only the client of
-  `CLIENT` gets it, so a Kilo request or a generic client keeps its own effort. A client value
-  keeps the last word. This call answers above the catalog default, which is what a hook file
-  does, so the read wins over a stored effort.
+  client, and it wins over a client value. A try again steps the same level 1 up, so a repeat of a
+  message reasons more than the answer before it. With neither, the level is the read of the
+  prompt, and only the client of `CLIENT` gets it, so a Kilo request or a generic client keeps its
+  own effort. A client value keeps the last word over the read of the prompt. This call answers
+  above the catalog default and above the client value, which is what a hook file does.
 
   :param value: the request values, holding `reasoning_effort`
   :param prompt: the user turns joined
@@ -94,11 +94,12 @@ def on_prompt(
   :param body: the body of the request, which may hold the `think_longer` field
   :param context: the other surfaces of the point
   """
-  if effort:
-    return
   steps = _bump(body)
   if steps:
-    chosen = LEVELS[min(_tier_of(level, prompt) + steps, TOP)]
+    # A press steps the level of the last answer. A value of the client is a floor, so a press
+    # never lowers the level of a chat.
+    before = max(_tier_of(level, prompt), TIER_OF.get(effort or "", 0))
+    chosen = LEVELS[min(before + steps, TOP)]
     logger.info(
       "think longer for %s: %s +%s step(s) -> %s",
       app or "-",

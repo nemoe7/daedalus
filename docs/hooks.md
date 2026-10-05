@@ -63,8 +63,10 @@ Each key holds a list of files, and they run in list order. 1 path on its own wo
 ### The reasoning effort
 
 The `on-prompt` point hands each hook file the values of the request, and a hook file sets
-`reasoning_effort`. The client keeps the last word, and the base sets no effort of its own. The 3
-levels, the shipped ladder file and its route are on the [think longer](hooks/owui_think_longer.md) page.
+`reasoning_effort`. The value of a hook file wins over the value of the client and over the catalog
+default, and the base sets no effort of its own. The shipped ladder file steps aside for a client
+value, so a client keeps the last word there. The levels, the shipped ladder file and its route are
+on the [think longer](hooks/owui_think_longer.md) page.
 
 `daedalus` then drops the models that answered the message: `daedalus/auto` steps the tier 1 step up, and a named pool keeps its pool. The point runs again with `count` filled in. A file that writes `value["code"]` sets the code of the Requests row, such as `rt1`. Without a `key`, a repeat is a new request.
 
