@@ -11,5 +11,6 @@ request_hooks:
   # on-prompt sets the reasoning level of a chat request. The shipped file reads the tier of
   # the message, for an Open WebUI client, and the light-bulb action calls its HTTP hook.
   on-prompt: [hooks/owui_auto_reasoning.py]
-  # on-chunk sees each streamed chunk of a chat request. The shipped file draws the pool pick.
-  on-chunk: [hooks/model_served.py]
+  # on-chunk sees each streamed chunk of a chat request. The shipped file writes the served model
+  # line.
+  on-chunk: [hooks/served_model.py]

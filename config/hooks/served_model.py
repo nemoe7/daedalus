@@ -1,4 +1,4 @@
-"""The pick: the model that served a pool answer, in the final chunk's `usage.daedalus`."""
+"""The served model: the model that served a pool answer, in the final chunk's `usage.daedalus`."""
 
 from typing import Any
 
@@ -29,7 +29,7 @@ def line_for(model: str, pool: str, served: str) -> str:
 def on_chunk(
   chunk: dict[str, Any], model: str, context: dict[str, Any] | None = None
 ) -> dict[str, Any]:
-  """Write the pick into the final chunk, when the session model changed or a retry ran.
+  """Write the served model line into the final chunk, when the session model changed or a retry ran.
 
   :param chunk: one OpenAI chunk on its way to the client
   :param model: the requested model, `daedalus/auto` or a pool

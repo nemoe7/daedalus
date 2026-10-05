@@ -1,4 +1,4 @@
-"""The Open WebUI pick Filter: it draws the line of the chunk that carries it, and passes every chunk on."""
+"""The Open WebUI served model Filter: it draws the line of the chunk that carries it, and passes every chunk on."""
 
 import asyncio
 import importlib.util
@@ -11,9 +11,9 @@ FILTER = (
   / "integrations"
   / "openwebui"
   / "functions"
-  / "pick_status.py"
+  / "served_model.py"
 )
-SPEC = importlib.util.spec_from_file_location("owui_pick_status", FILTER)
+SPEC = importlib.util.spec_from_file_location("owui_served_model", FILTER)
 assert SPEC is not None and SPEC.loader is not None
 module = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(module)
@@ -25,7 +25,7 @@ def run(coro: Coroutine[Any, Any, Any]) -> Any:
 
 
 def test_the_line_goes_out() -> None:
-  """A chunk with the pick emits one status, and the chunk itself comes back unchanged."""
+  """A chunk with the served model emits one status, and the chunk itself comes back unchanged."""
   seen: list[dict[str, Any]] = []
 
   async def emit(event: dict[str, Any]) -> None:
@@ -42,7 +42,7 @@ def test_the_line_goes_out() -> None:
 
 
 def test_a_chunk_without_the_key_draws_nothing() -> None:
-  """A chunk without the pick key, and a turned-off Valve, draw nothing and still pass the chunk on."""
+  """A chunk without the served model key, and a turned-off Valve, draw nothing and still pass the chunk on."""
   seen: list[dict[str, Any]] = []
 
   async def emit(event: dict[str, Any]) -> None:
@@ -58,7 +58,7 @@ def test_a_chunk_without_the_key_draws_nothing() -> None:
 
 
 def test_an_empty_line_draws_nothing() -> None:
-  """A pick with an empty or a non-string line draws no row, so the list has no empty entry."""
+  """A served model with an empty or a non-string line draws no row, so the list has no empty entry."""
   seen: list[dict[str, Any]] = []
 
   async def emit(event: dict[str, Any]) -> None:
