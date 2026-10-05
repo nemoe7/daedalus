@@ -184,6 +184,18 @@ def test_predict_falls_back_to_the_top_tier_when_nothing_clears() -> None:
   assert classifier.predict(GENERAL, hard).required_tier == classifier.TIERS[-1]
 
 
+def test_predict_takes_a_given_threshold() -> None:
+  """A given bar replaces the one of the artifact, and it moves the tier."""
+  artifact = classifier.load_artifact()
+  cheap = classifier.predict(GENERAL, artifact)
+  assert cheap.required_tier == 1
+  assert cheap.probabilities[1] < 0.93 <= cheap.probabilities[2]
+  assert classifier.predict(GENERAL, artifact, threshold=0.93).required_tier == 2
+  assert classifier.predict(GENERAL, artifact, threshold=0.99).required_tier == 4
+  assert classifier.predict(GENERAL, artifact, threshold=0.0).required_tier == 1
+  assert classifier.predict(GENERAL, artifact).required_tier == 1, "no given bar"
+
+
 def test_predict_uses_the_request_type_it_is_given(tmp_path: Path) -> None:
   """A given type picks its own domain row, and the rules never run."""
   found = artifact(

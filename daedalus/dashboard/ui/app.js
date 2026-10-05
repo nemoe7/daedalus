@@ -1504,6 +1504,9 @@ const SETTINGS = [
     ["enabled", "Enabled", "", "Off: the messages of every model go to the provider unchanged."],
     ["timeout", "Timeout", "s", "After this time, the original messages go to the provider."],
   ]],
+  ["routing", "Classifier", [
+    ["threshold", "Success threshold", "", "The odds a tier needs to take a request. 0.75 is the value of the shipped table."],
+  ]],
   ["escalation", "Escalation", [
     ["keywords", "Keywords", "list", "1 word or phrase per chip. A match in the last user message moves the daedalus/auto session tier 1 step up."],
   ]],
@@ -1526,7 +1529,7 @@ const SETTINGS = [
 ];
 
 // The Settings cards of each column, from top to bottom.
-const SETTINGS_COLUMNS = [["timeouts", "catalog", "pacing", "pools"], ["affinity", "headroom", "cooldown", "loops", "dashboard"], ["weights", "escalation", "switch", "request_hooks"]];
+const SETTINGS_COLUMNS = [["timeouts", "catalog", "pacing", "pools"], ["affinity", "headroom", "routing", "cooldown", "loops", "dashboard"], ["weights", "escalation", "switch", "request_hooks"]];
 // The options of each choice field.
 const CHOICES = {
   mode: [["none", "None"], ["session", "Session"], ["race", "Race"]],
@@ -1549,6 +1552,7 @@ applyTheme();
 const DECIMALS = new Set([
   "affinity.stay", "affinity.chance", "affinity.penalty",
   "weights.success", "weights.fault", "weights.slow", "weights.hourly", "weights.rate_limit",
+  "routing.threshold",
 ]);
 // The input bounds. The server also checks them before saving.
 const MINIMA = { "loops.calls": 2, "loops.repeats": 2, "loops.shortest": 1, "loops.longest": 1, "affinity.count": 1 };
@@ -1561,6 +1565,7 @@ const MAXIMA = {
   "affinity.count": 10,
   "affinity.chance": 1,
   "affinity.penalty": 1,
+  "routing.threshold": 1,
   "loops.calls": 100,
   "loops.repeats": 16,
   "loops.shortest": 1000,

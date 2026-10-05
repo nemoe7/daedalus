@@ -105,6 +105,17 @@ def test_predict() -> None:
   assert round(coding.probabilities[2], 4) == 0.8645, coding.probabilities[2]
 
 
+def test_threshold_moves_the_bar() -> None:
+  """The `routing.threshold` setting moves the tier of a prompt, cached or not."""
+  assert router.required_tier("hi") == 1, "the shipped bar"
+  try:
+    router.set_threshold(0.93)
+    assert router.required_tier("hi") == 2, "a higher bar, on a cached prompt"
+  finally:
+    router.set_threshold(None)
+  assert router.required_tier("hi") == 1, "the artifact bar returns"
+
+
 def test_tier_names() -> None:
   """Tier 1 is the weakest, and the config letters run the other way."""
   assert router.TIER_NAMES == {1: "TIER-D", 2: "TIER-C", 3: "TIER-B", 4: "TIER-A"}

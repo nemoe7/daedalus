@@ -104,6 +104,7 @@ def test_page(client: TestClient) -> None:
   assert '["loops", "Loop detection"' in script.text, (
     "the loop thresholds are in Settings"
   )
+  assert '["routing", "Classifier"' in script.text, "the Classifier card is in Settings"
   assert client.get("/ui/style.css").status_code == 200
   assert script.headers["cache-control"] == "no-cache", "an update applies at once"
   assert client.get("/ui/index.html").status_code == 404, "listed assets only"
