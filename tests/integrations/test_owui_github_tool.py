@@ -219,7 +219,7 @@ def test_an_unanswered_write_is_denied_and_sends_nothing(monkeypatch):
   opener(monkeypatch, "{}", calls)
   out = asyncio.run(client().label_pr("o/r", 1, "bug", __event_call__=None))
   assert out["result"]["denied"] is True
-  assert "nothing was sent" in out["result"]["reason"]
+  assert "I sent nothing" in out["result"]["reason"]
   assert calls == []
 
 
