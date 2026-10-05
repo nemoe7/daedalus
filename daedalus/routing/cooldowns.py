@@ -54,6 +54,22 @@ def parsed(body: bytes) -> dict[str, Any]:
   return found if isinstance(found, dict) else {}
 
 
+def error_message(body: dict[str, Any]) -> str:
+  """The message of the error body, or an empty text."""
+  error = body.get("error")
+  return str(error.get("message", "")) if isinstance(error, dict) else ""
+
+
+def error_headers(body: dict[str, Any]) -> dict[str, str]:
+  """The headers of the error body, such as the reset of an OpenRouter daily cap."""
+  error = body.get("error")
+  metadata = error.get("metadata") if isinstance(error, dict) else None
+  headers = metadata.get("headers") if isinstance(metadata, dict) else None
+  if not isinstance(headers, dict):
+    return {}
+  return {str(name).lower(): str(value) for name, value in headers.items()}
+
+
 def gemini_details(body: dict[str, Any]) -> list[dict[str, Any]]:
   error = body.get("error")
   details = error.get("details") if isinstance(error, dict) else None
@@ -83,6 +99,10 @@ def daily_end(model: str, body: dict[str, Any], now: float) -> tuple[str, float]
     if CLOUDFLARE_DAILY in codes:
       whole = lanes.join("cloudflare/*", client) if client else "cloudflare/*"
       return whole, next_midnight(now, UTC)
+  if "limit_rpd" in error_message(body):
+    # A requests-per-day cap holds the model to the reset of the body, or to 00:00 UTC.
+    seconds = reset_seconds({}, body, now)
+    return model, now + seconds if seconds else next_midnight(now, UTC)
   return None
 
 
@@ -94,7 +114,9 @@ def header_seconds(value: str, now: float) -> float | None:
   except ValueError:
     number = None
   if number is not None:
-    # A value this large is a Unix time, not a count of seconds.
+    # A value this large is a Unix time in ms, and the range below it is a Unix time in s.
+    if number > 1e12:
+      return number / 1000 - now
     return number - now if number > 1e9 else number
   found = duration(value)
   if found is not None:
@@ -121,11 +143,12 @@ def reset_seconds(
   headers: Mapping[str, str], body: dict[str, Any], now: float
 ) -> float | None:
   """Rule 2: the seconds to the reset time that the provider gives, cut at the cap."""
-  for name in ("retry-after", "x-ratelimit-reset"):
-    if headers.get(name):
-      seconds = header_seconds(headers[name], now)
-      if seconds is not None and seconds > 0:
-        return capped(seconds)
+  for source in (headers, error_headers(body)):
+    for name in ("retry-after", "x-ratelimit-reset"):
+      if source.get(name):
+        seconds = header_seconds(source[name], now)
+        if seconds is not None and seconds > 0:
+          return capped(seconds)
   for detail in gemini_details(body):
     if str(detail.get("@type", "")).endswith("RetryInfo"):
       seconds = duration(str(detail.get("retryDelay", "")))
