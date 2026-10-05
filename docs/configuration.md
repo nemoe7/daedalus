@@ -107,6 +107,7 @@ The shipped file holds the changes from the defaults only. The **Settings** page
 | `catalog.anchor` | `6` | Local hour that the rebuild times start from. A whole hour from 0 to 23. |
 | `headroom.enabled` | `true` | `false`: the messages of each model go to the provider unchanged. |
 | `headroom.timeout` | `5` | Seconds for the full Headroom answer. Then the original messages go to the provider. |
+| `routing.threshold` | `0.75` | The odds a tier needs to take a request. A higher value sends more requests to the stronger tiers. Number from 0 to 1. |
 | `escalation.keywords` | `ultrathink`, `think hard`, `think harder`, `think deeply`, `think longer`, `root cause`, `race condition`, `memory leak`, `deadlock`, `security review`, `performance regression`, `audit`, `refactor`, `investigate`, `diagnose`, `code review`, `system design`, `optimize`, `debug`, `design`, `architecture` | Whole words or phrases. A match moves the `daedalus/auto` tier 1 step up, session-kept. |
 | `switch.keywords` | `clanker` | Words or phrases. A match gives the pool session another model of the same tier. |
 | `dashboard.theme` | `system` | `system`, `light` or `dark`. The Settings page sets it. Login always follows the device. |

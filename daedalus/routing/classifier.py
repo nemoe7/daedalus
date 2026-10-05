@@ -294,16 +294,23 @@ def _probability(
 
 
 def predict(
-  prompt: str, artifact: Artifact, request_type: RequestType | None = None
+  prompt: str,
+  artifact: Artifact,
+  request_type: RequestType | None = None,
+  threshold: float | None = None,
 ) -> Prediction:
-  """Score a prompt against every tier, and name the cheapest tier that will do."""
+  """Score a prompt against every tier, and name the cheapest tier that will do.
+
+  A given threshold replaces the `routing_threshold` of the artifact.
+  """
   kind: Final = classify_prompt(prompt) if request_type is None else request_type
   cohort: Final = similarity_cohort(prompt, kind)
   raw: Final = tuple(_probability(artifact, tier, kind, cohort) for tier in TIERS)
   monotonic: Final = tuple(max(raw[:index]) for index in range(1, len(raw) + 1))
   probabilities: Final[dict[int, float]] = dict(zip(TIERS, monotonic, strict=True))
+  bar: Final = artifact.routing_threshold if threshold is None else threshold
   required: Final = next(
-    (tier for tier in TIERS if probabilities[tier] >= artifact.routing_threshold),
+    (tier for tier in TIERS if probabilities[tier] >= bar),
     TIERS[-1],
   )
   return Prediction(probabilities=probabilities, required_tier=required)
