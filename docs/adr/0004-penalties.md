@@ -114,12 +114,12 @@ values are the same, in any key order.
 daedalus keeps the model that made each tool call, by tool call id, in `models.sqlite3`. A
 call id expires after the session idle time. When the id is not known, the tool loop gives no
 fault. The request log shows `loop=N`, where N is the number of the same calls. A thinking or
-answer loop shows as an attempt with the result `loop`. `config/daedalus.yml` cannot
+answer loop shows as an attempt with the result `loop`. [`config/daedalus.yml`](../../config/daedalus.yml) cannot
 change the loop numbers.
 
 ### Settings
 
-The numbers in this ADR are the defaults. `config/daedalus.yml` can change them, and it can
+The numbers in this ADR are the defaults. [`config/daedalus.yml`](../../config/daedalus.yml) can change them, and it can
 turn off the weights, the session affinity or the pacing. The `affinity` group holds the
 session and the race settings.
 
