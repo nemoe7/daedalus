@@ -134,6 +134,29 @@ Hooks get no database access. An `on-catalog` hook changes only the row. daedalu
 
 The dashboard edits the `hooks` list of a model or a provider. The Request hooks card of the Settings page names the file of each request-level point. It writes no hook file: only a person with access to the [`config`](../config) folder adds one. A hook runs inside the daedalus process, with all its access.
 
+## Remote hook files
+
+A small machine, such as a Raspberry Pi, may run daedalus without a checkout of the repository. The
+`remote_hooks` group of [`config/daedalus.yml`](../config/daedalus.yml) brings a hook file from a
+URL, so no copy is manual:
+
+```yaml
+remote_hooks:
+  - url: https://example.com/my_hook.py
+    sha256: 9f2c...   # the sha256 of the file bytes
+    name: my_hook     # optional; the URL file name is the fallback
+```
+
+At each start, daedalus downloads an entry only when the copy in [`config/hooks`](../config/hooks)
+does not already hold the bytes of the pin, and it writes the file there. The
+`request_hooks` group then names the file as usual. The pin lives in the settings file, never in
+the downloaded file, because a file cannot vouch for itself.
+
+A download that fails, or a body that does not match the pin, writes 1 error line and leaves the last
+verified copy in place. So a start with no network keeps its hooks, and daedalus never runs a file
+that the pin did not pass. daedalus refuses a name that holds a path separator, so a URL never
+writes outside the folder.
+
 ## The shipped hook files
 
 | File | What it does |
