@@ -69,3 +69,45 @@ def test_an_empty_line_draws_nothing() -> None:
     chunk = {"usage": {"daedalus": pick}}
     assert run(plugin.stream(chunk, __event_emitter__=emit)) is chunk
   assert seen == []
+
+
+def test_the_on_change_valve_draws_only_a_move() -> None:
+  """With the `on change` Valve, the line goes out on a new served model, and a repeat stays quiet."""
+  seen: list[dict[str, Any]] = []
+
+  async def emit(event: dict[str, Any]) -> None:
+    seen.append(event)
+
+  plugin = module.Filter()
+  plugin.valves.when = "on change"
+  meta = {"chat_id": "c1"}
+  first = {"usage": {"daedalus": {"line": "A \u00b7 kilo/x", "model": "kilo/x"}}}
+  same = {"usage": {"daedalus": {"line": "A \u00b7 kilo/x", "model": "kilo/x"}}}
+  moved = {"usage": {"daedalus": {"line": "B \u00b7 kilo/y", "model": "kilo/y"}}}
+  other = {"usage": {"daedalus": {"line": "A \u00b7 kilo/x", "model": "kilo/x"}}}
+  assert run(plugin.stream(first, __event_emitter__=emit, __metadata__=meta)) is first
+  assert run(plugin.stream(same, __event_emitter__=emit, __metadata__=meta)) is same
+  assert run(plugin.stream(moved, __event_emitter__=emit, __metadata__=meta)) is moved
+  assert (
+    run(plugin.stream(other, __event_emitter__=emit, __metadata__={"chat_id": "c2"}))
+    is other
+  )
+  assert [event["data"]["description"] for event in seen] == [
+    "A \u00b7 kilo/x",
+    "B \u00b7 kilo/y",
+    "A \u00b7 kilo/x",
+  ], seen
+
+
+def test_the_always_valve_draws_every_line() -> None:
+  """The default `always` Valve draws each line, even a repeat of the same served model."""
+  seen: list[dict[str, Any]] = []
+
+  async def emit(event: dict[str, Any]) -> None:
+    seen.append(event)
+
+  plugin = module.Filter()
+  chunk = {"usage": {"daedalus": {"line": "A \u00b7 kilo/x", "model": "kilo/x"}}}
+  run(plugin.stream(chunk, __event_emitter__=emit, __metadata__={"chat_id": "c1"}))
+  run(plugin.stream(chunk, __event_emitter__=emit, __metadata__={"chat_id": "c1"}))
+  assert len(seen) == 2, seen
