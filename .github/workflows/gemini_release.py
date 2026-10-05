@@ -144,6 +144,9 @@ TEMPLATE = """\
 # per minute; chunks are packed to 230,000 so one model's allowance answers one.
 MAX_INPUT_TOKENS = 250_000
 CHUNK_TOKENS = 230_000
+# A chunk answer is a summary and stays short; the compact combine round is left
+# uncapped, because its payload is already small.
+MAX_OUTPUT_TOKENS = 8192
 # Every cooldown carries this safety margin on top of the wait the API reports.
 SAFETY_SECONDS = 5
 SUCCESS_COOLDOWN = 60
@@ -303,7 +306,11 @@ def history(target, base, evidence=EVIDENCE_KINDS[0]):
 
 
 def pieces(units):
-  return [{"id": identity, "text": text} for identity, text in units]
+  """Evidence items from (identity, text) pairs or from ready item dicts."""
+  return [
+    item if isinstance(item, dict) else {"id": item[0], "text": item[1]}
+    for item in units
+  ]
 
 
 def encoded(value):
@@ -342,12 +349,22 @@ def input_tokens(model, request):
   return int(count["totalTokens"])
 
 
+def payload_evidence(request):
+  """The evidence a counted request carries, so a count line names its payload."""
+  return json.loads(request["contents"][0]["parts"][0]["text"])["evidence"]
+
+
 def measured(model, request):
   """A count per payload, memoized: packing must not re-count the same request."""
   model = first_rung(model)
   key = (model, hashlib.sha256(encoded(request)).hexdigest())
   if key not in TOKEN_COUNTS:
     TOKEN_COUNTS[key] = input_tokens(model, request)
+    # The count is the packing's unit of work, so every one of them prints.
+    summary(
+      f"  countTokens {model}: {len(payload_evidence(request))} evidence item(s)"
+      f" -> {TOKEN_COUNTS[key]:,} tokens"
+    )
   return TOKEN_COUNTS[key]
 
 
@@ -357,6 +374,11 @@ def split_group(items, context, model, ceiling, cover):
     return [items]
   if len(items) > 1:
     middle = len(items) // 2
+    # The cut prints the ids it falls between, so a split reads as a step.
+    summary(
+      f"  split {len(items)} evidence item(s) between "
+      f"{items[middle - 1]['id']} and {items[middle]['id']}"
+    )
     return split_group(items[:middle], context, model, ceiling, cover) + split_group(
       items[middle:], context, model, ceiling, cover
     )
@@ -562,9 +584,14 @@ def generate(context, evidence, model, on_success=None):
 def generate_once(context, evidence, model):
   request = request_for(context, evidence)
   started = time.monotonic()
-  data = gemini_call(
-    model, "generateContent", {**request, "generationConfig": {"maxOutputTokens": 8192}}
+  # The chunk rounds cap their output; the final summarization reads a compact payload,
+  # so its output stays uncapped and a long combination cannot truncate.
+  config = (
+    {}
+    if context.get("phase") == "combine"
+    else {"generationConfig": {"maxOutputTokens": MAX_OUTPUT_TOKENS}}
   )
+  data = gemini_call(model, "generateContent", {**request, **config})
   text = response_text(data)
   usage = data.get("usageMetadata") or {}
   summary(
