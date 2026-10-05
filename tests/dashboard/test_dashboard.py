@@ -812,7 +812,25 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
     ".requests tr.request > td:nth-child(4), .requests tr.live-row > td:nth-child(4) "
     "{ grid-column: 1 / 3; grid-row: 2; }"
   ) in mobile_css
+  assert (
+    ".requests tr.request > td:nth-child(6), .requests tr.live-row > td:nth-child(6) "
+    "{ grid-column: 3 / 5; grid-row: 2; }"
+  ) in mobile_css, "the served model reads beside the model on the card"
+  assert (
+    ".requests tr.request > td:nth-child(7), .requests tr.live-row > td:nth-child(7) {\n"
+    "    grid-column: 4; grid-row: 1; justify-content: flex-end;\n"
+    "  }"
+  ) in mobile_css, "the status is the badge of the first row"
+  assert (
+    ".requests tr.request > td:nth-child(8), .requests tr.live-row > td:nth-child(8) "
+    "{ grid-column: 1; grid-row: 3; }"
+  ) in mobile_css, "the input count joins the other counts"
   assert "grid-column: 1 / -1; grid-row: 4;" in mobile_css
+  assert (
+    ".requests tr.request > td:nth-child(3), .requests tr.request > td:nth-child(5),\n"
+    "  .requests tr.live-row > td:nth-child(3), .requests tr.live-row > td:nth-child(5) "
+    "{ display: none; }"
+  ) in mobile_css, "only the session and the effort stay off the card"
   assert ".requests .mobile-request-meta" in mobile_css
   assert (
     ".requests .mobile-fallback-chain ol { list-style: none; margin: 5px 0 0; "
@@ -822,17 +840,37 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
   assert "font-size: 11px; white-space: nowrap;" in narrow_css
   assert ".requests tr.live-row > td:nth-child(1) .pulse" in narrow_css
   assert (
-    "td:nth-child(9), .requests tr.live-row > td:nth-child(9) "
+    "td:nth-child(8), .requests tr.live-row > td:nth-child(8) "
     "{ grid-column: 1 / 3; grid-row: 3; }"
   ) in narrow_css
   assert (
-    "td:nth-child(12), .requests tr.live-row > td:nth-child(12) "
+    "td:nth-child(11), .requests tr.live-row > td:nth-child(11) "
     "{ grid-column: 3 / 5; grid-row: 4; }"
   ) in narrow_css
   assert (
     ".requests tr.request > td.fallbacks-cell, .requests tr.live-row > "
-    "td.fallbacks-cell { grid-row: 5; }"
-  ) in narrow_css
+    "td.fallbacks-cell { grid-column: 1 / -1; grid-row: 5; }"
+  ) in narrow_css, "the fallback row keeps the full width of a narrow card"
+
+
+def test_requests_hover_rules_need_a_pointer() -> None:
+  """A tap on a phone keeps no hover look: each Requests hover rule waits for a pointer."""
+  css = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
+  ).read_text(encoding="utf-8")
+  gated = "\n".join(
+    re.findall(r"@media \(hover: hover\) \{\n(.*?)\n *\}", css, re.DOTALL)
+  )
+  bare = re.sub(r"@media \(hover: hover\) \{\n.*?\n *\}", "", css, flags=re.DOTALL)
+  rules = (
+    ".ghost:hover { color: var(--text); border-color: var(--muted); }",
+    "tr.request.has-chain:hover td { background: var(--field); }",
+    ".requests .mobile-request-more > summary:hover",
+    ".requests .mobile-fallback-chain > summary:hover",
+  )
+  for rule in rules:
+    assert rule in gated, f"{rule} needs a pointer device"
+    assert rule not in bare, f"{rule} stays outside the pointer gate"
 
 
 def test_app_js_modal() -> None:
