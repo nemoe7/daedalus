@@ -1,6 +1,7 @@
 """Tests for the `on-prompt` hook and the tier map of the reasoning effort."""
 
 import json
+from pathlib import Path
 
 import httpx
 import pytest
@@ -44,12 +45,14 @@ def post(
   provider: Provider,
   slot: str | None = "daedalus/auto:TIER-A",
   body: dict | None = None,
+  app: str | None = None,
 ) -> dict:
   """One chat request through a fake chain, and the body the provider received."""
   original = api.get_config, api.chain
   api.get_config = lambda: CONFIG
   api.chain = lambda model, body, config, key="": ([["a/1"]], slot)
-  client = TestClient(api.app, headers=AUTH)
+  marks = {"OWUI": {"x-openwebui-chat-id": "c1"}, "Kilo": {"x-title": "kilo"}}
+  client = TestClient(api.app, headers={**AUTH, **(marks.get(app or "", {}))})
   asked = body or {**BODY, "model": slot if slot in api.router.POOLS else BODY["model"]}
   try:
     response = client.post("/v1/chat/completions", json=asked)
@@ -71,7 +74,7 @@ def hook_file() -> str:
     "\n"
     "def on_prompt(value, **context):\n"
     f"  Path({str(dump)!r}).write_text(json.dumps({{'keys': sorted(context), "
-    "'signal': context['signal'], 'reasoning': context['reasoning'], "
+    "'reasoning': context['reasoning'], "
     "'effort': context['effort'], 'tier_name': context['tier_name'], "
     "'slot': context['slot']}))\n"
     "  value['reasoning_effort'] = 'max'\n",
@@ -121,24 +124,16 @@ def test_hook_file_wins(
     "tier",
     "tier_name",
     "slot",
-    "signal",
     "reasoning",
     "effort",
     "body",
     "config",
     "key",
+    "app",
   }, dump["keys"]
   assert dump["tier_name"] == "TIER-B" and dump["slot"] == "daedalus/auto:TIER-B"
   assert dump["reasoning"] == ["a/1"], dump["reasoning"]
   assert dump["effort"] is None, dump["effort"]
-  assert dump["signal"]["required_tier"] in (1, 2, 3, 4), dump["signal"]
-  assert set(dump["signal"]) == {
-    "required_tier",
-    "tier_name",
-    "probabilities",
-    "request_type",
-    "cohort",
-  }, dump["signal"]
 
 
 def test_no_reasoning_model(
@@ -152,6 +147,50 @@ def test_no_reasoning_model(
   assert not (hooks.CONFIG_DIR / "hooks" / "prompt_probe.json").exists(), (
     "the hook did not run"
   )
+
+
+def test_the_shipped_ladder_file_sets_the_effort(
+  provider: Provider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """The shipped `auto_reasoning.py` sets the level from the heuristics read of the prompt."""
+  shipped = (
+    Path(__file__).resolve().parents[2] / "config" / "hooks" / "auto_reasoning.py"
+  )
+  target = hooks.CONFIG_DIR / "hooks" / "auto_reasoning.py"
+  target.parent.mkdir(parents=True, exist_ok=True)
+  target.write_text(shipped.read_text(encoding="utf-8"), encoding="utf-8")
+  hooks._loaded.pop(target.resolve(), None)
+  monkeypatch.setattr(api, "REQUEST_HOOKS", {"on-prompt": ["hooks/auto_reasoning.py"]})
+  monkeypatch.setattr(
+    upstream.store, "model_limits", lambda candidate: {"reasoning_effort": "minimal"}
+  )
+  written = post(provider, "daedalus/auto:TIER-B", app="OWUI")
+  tier = int(api.router.required_tier(BODY["messages"][0]["content"]))
+  assert written["reasoning_effort"] == api.EFFORT_OF_TIER[api.router.TIER_NAMES[tier]]
+  assert written["reasoning_effort"] != "minimal", (
+    "the hook answers above the catalog default"
+  )
+
+
+def test_the_shipped_ladder_file_skips_another_client(
+  provider: Provider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """The shipped `auto_reasoning.py` leaves the effort of Kilo and of a generic client alone."""
+  shipped = (
+    Path(__file__).resolve().parents[2] / "config" / "hooks" / "auto_reasoning.py"
+  )
+  target = hooks.CONFIG_DIR / "hooks" / "auto_reasoning.py"
+  target.parent.mkdir(parents=True, exist_ok=True)
+  target.write_text(shipped.read_text(encoding="utf-8"), encoding="utf-8")
+  hooks._loaded.pop(target.resolve(), None)
+  monkeypatch.setattr(api, "REQUEST_HOOKS", {"on-prompt": ["hooks/auto_reasoning.py"]})
+  monkeypatch.setattr(
+    upstream.store, "model_limits", lambda candidate: {"reasoning_effort": "minimal"}
+  )
+  assert (
+    post(provider, "daedalus/auto:TIER-B", app="Kilo")["reasoning_effort"] == "minimal"
+  )
+  assert post(provider, "daedalus/auto:TIER-B")["reasoning_effort"] == "minimal"
 
 
 def test_with_defaults_floor(monkeypatch: pytest.MonkeyPatch) -> None:

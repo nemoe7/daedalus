@@ -25,10 +25,11 @@ For each point, the file defines 1 function with the name of the point.
 | --- | --- | --- | --- |
 | `on-request` | `on_request(value, model, headers)` | Before the chain of a chat request, and again on a repeat with the count | `value`: `key` (`None`), `digest`, the hash of the messages without the system rows, and on the second run `count`. `model`: the requested model. `headers`: the client headers. |
 | `on-catalog` | `on_catalog(row, model, api_base, headers)` | At each catalog build, for each model with the hook, before the store write | `row`: a catalog row, the id cannot change. `api_base`, `headers`: for the provider API calls. |
-| `on-prompt` | `on_prompt(value, messages, prompt, model, tier, tier_name, slot, signal, reasoning, effort, body, config, key)` | Before the first attempt of a chat request, when the chain holds a reasoning model | `value`: `reasoning_effort`, the effort of the tier map. `signal`: the heuristics v2 read, `required_tier`, `tier_name`, `probabilities`, `request_type` and `cohort`. `reasoning`: the chain models that support reasoning. `effort`: the value of the client, `None` when it sent none. |
+| `on-prompt` | `on_prompt(value, messages, prompt, model, tier, tier_name, slot, reasoning, effort, body, config, key, app)` | Before the first attempt of a chat request, when the chain holds a reasoning model | `value`: `reasoning_effort`, the effort of the tier map. `reasoning`: the chain models that support reasoning. `effort`: the value of the client, `None` when it sent none. `app`: the client app of the request, `OWUI`, `Kilo` or another title, from its headers. |
 | `on-upstream` | `on_upstream(body, model, headers)` | Before each chat request to the provider, streams and fallbacks included | `body`: the upstream JSON body, native format for native APIs. `model`: `provider/slug`. `headers`: changeable. |
 | `on-answer` | `on_answer(answer, model)` | After a full chat answer comes back, before the client gets it | `answer`: the answer in the OpenAI format. A stream has no `on-answer` point. |
 | `on-chunk` | `on_chunk(chunk, model, context)` | On each streamed chunk of a chat request, before the client gets it | `chunk`: 1 OpenAI chunk. `model`: the requested model. `context`: `previous` is the model of the last answer of the session. It is empty on the first answer. `attempts`: the failures so far. `code`: the retry code. `pool`: the landed pool. `served`: the landed model. |
+| `on-http` | `on_http(body, key, prompt, headers)` | On `POST /v1/hook/<file>`, for the file the path names | `body`: the JSON body of the call. `key`: the session key of the chat, from the bearer token and its first user turn. `prompt`: the first user turn. `headers`: the request headers. It returns the dict of the JSON answer. |
 | `on-init` | `on_init()` | At the dashboard load, for each enabled request hook file | No arguments. It returns the rows of the code legend of the dashboard, such as `[["rtN", "A repeat picked another model, N times"]]`. |
 
 ```mermaid
@@ -66,11 +67,17 @@ The `on-prompt` point sets `reasoning_effort` for the request. 4 levels decide, 
 | Level | Value |
 | --- | --- |
 | The client | A `reasoning_effort` of the request body |
-| A hook file | The value of `value["reasoning_effort"]` after the files of the point |
+| A hook file | The value of `value["reasoning_effort"]` after the files of the point, when it differs from the tier map |
 | The catalog | The stored effort of the model, from discovery or the provider file |
 | The tier map | `TIER-D` none, `TIER-C` low, `TIER-B` medium, `TIER-A` high |
 
-The core map works with no hook file: `TIER-D` takes no thinking tokens, and `TIER-A` thinks at `high`. A chain with no reasoning model gets no call and no effort. `upstream.without_reasoning` drops the field for a model the catalog marks as no reasoner.
+The core map works with no hook file: `TIER-D` takes no thinking tokens, and `TIER-A` thinks at `high`.
+A hook file composes the tier read itself, with `router.required_tier(prompt)`.
+The shipped [`config/hooks/auto_reasoning.py`](../config/hooks/auto_reasoning.py) reads the heuristics v2
+tier of the message at hand, and it holds both surfaces of the ladder: the `on-prompt` point, and the
+`on_http` of the bump route. The point serves the client app of the `CLIENT` constant, so a Kilo
+request keeps its own effort. Name it in `request_hooks.on-prompt` to let a moved value answer above
+the catalog default. A chain with no reasoning model gets no call and no effort. `upstream.without_reasoning` drops the field for a model the catalog marks as no reasoner.
 
 `daedalus` then drops the models that answered the message: `daedalus/auto` steps the tier 1 step up, and a named pool keeps its pool. The point runs again with `count` filled in. A file that writes `value["code"]` sets the code of the Requests row, such as `rt1`. Without a `key`, a repeat is a new request.
 
@@ -79,6 +86,25 @@ The media endpoints, transcription and images, count a repeat of the same conten
 That count is the one repeat path of the base app.
 
 A function gets a copy of the value. It can change the copy and return None, or it can return a new dict. The hooks of 1 point run in list order, and each hook gets the value of the hook before it.
+
+## The HTTP surface
+
+A hook file can answer an HTTP call. The path names the file, and the file must sit under
+`config/hooks`:
+
+```
+curl -X POST http://localhost:3357/v1/hook/auto_reasoning -H "Authorization: Bearer $DAEDALUS_KEY" \
+  -H "Content-Type: application/json" -d "{\"messages\": [{\"role\": \"user\", \"content\": \"why is this slow\"}]}"
+```
+
+The route loads the file, calls its `on_http`, and answers with the dict it returns. An error
+inside the hook is a 500, and a missing file is a 404. Any valid key may call any hook file, so
+treat a hook file as admin code: it runs in the process of daedalus with full access.
+
+The shipped [`config/hooks/auto_reasoning.py`](../config/hooks/auto_reasoning.py) is the ladder file of 1 chat: it
+holds the `on-prompt` point and this route. The route carries the next rung, with the pool and the
+effort of that rung. A chat that already sits on `TIER-A` keeps that rung, and the answer marks
+it with `top`.
 
 ## Errors
 

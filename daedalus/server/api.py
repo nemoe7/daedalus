@@ -22,7 +22,6 @@ from daedalus.config import block_for, get_config, settings
 from daedalus.providers import hooks, signatures
 from daedalus.providers.base import error_text
 from daedalus.routing import (
-  classifier,
   context,
   cooldowns,
   limits,
@@ -736,6 +735,49 @@ async def first_winner(tries: list[Try]) -> Try | None:
   return None
 
 
+@app.post("/v1/hook/{file:path}")
+async def hook_call(request: Request, file: str) -> Response:
+  """Run the `on_http` function of 1 hook file, and answer with the dict it returns.
+
+  The file sits under `config/hooks`, and its path names it, for example `auto_reasoning.py`.
+  Any valid key may call it, so treat a hook file as admin code.
+  """
+  denied = access.check_api_key(request)
+  if denied is not None:
+    return denied
+  try:
+    body = await request.json()
+  except ValueError:
+    return upstream.error_response(400, "Invalid JSON", "invalid_request_error")
+  if not isinstance(body, dict):
+    return upstream.error_response(
+      400, "The body must be an object", "invalid_request_error"
+    )
+  path = hooks.resolve(f"hooks/{file}")
+  if path is None or not path.is_file():
+    return upstream.error_response(404, f"No hook file {file}", "invalid_request_error")
+  found = hooks.load(path)
+  handler = getattr(found, hooks.POINTS["on-http"], None)
+  if not callable(handler):
+    return upstream.error_response(
+      400, f"{file} has no on_http function", "invalid_request_error"
+    )
+  messages = body.get("messages")
+  try:
+    answer = handler(
+      body,
+      key=session_key(access.bearer(request), messages),
+      prompt=first_user_text(messages),
+      headers=dict(request.headers),
+    )
+  except Exception as exc:
+    logger.exception("on-http hook %s failed", path)
+    return upstream.error_response(500, f"{file} failed: {exc}", "server_error")
+  if not isinstance(answer, dict):
+    return upstream.error_response(500, f"{file} returned no dict", "server_error")
+  return JSONResponse(answer)
+
+
 @app.post("/v1/chat/completions")
 async def chat(request: Request) -> Response:
   denied = access.check_api_key(request)
@@ -858,17 +900,17 @@ async def chat(request: Request) -> Response:
         tier=tier,
         tier_name=tier_name,
         slot=found[1],
-        signal=classifier.signal(prompt),
         reasoning=reasoners,
         effort=providers.effort_text(body.get("reasoning_effort")),
         body=body,
         config=config,
         key=key,
+        app=getattr(request.state, "app", None),
       )
     chosen = providers.effort_text(values.get("reasoning_effort"))
     if chosen and providers.effort_text(body.get("reasoning_effort")) is None:
-      if paths:
-        # A hook file answers above the catalog default.
+      if paths and chosen != EFFORT_OF_TIER.get(tier_name or ""):
+        # A hook file that moved the value answers above the catalog default.
         body = {**body, "reasoning_effort": chosen}
       else:
         # The tier map answers below it: the catalog value wins in the provider path.
