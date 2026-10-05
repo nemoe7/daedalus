@@ -1,10 +1,20 @@
+"""
+title: Open WebUI Manager
+author: nemo
+description: The Open WebUI workspace manager: knowledge bases, skills, the file library, Workspace Tools and Functions. Reads and new items run freely; every overwrite, toggle and delete passes a confirmation gate. The preset attach stays private. Stdlib only.
+required_open_webui_version: 0.10.0
+version: 1.0.0
+licence: MIT
+"""
+
 import asyncio
 import json
 import re
+from collections.abc import Callable
 from typing import Any
 
 import aiohttp
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 
 def _split_ids(value: Any) -> list[str]:
@@ -47,16 +57,118 @@ def _merge_ids(current: Any, add: list[Any], remove: list[str]) -> list[Any]:
 
 
 class Tools:
-  """Open WebUI knowledge base management tool.
+  """The one Open WebUI workspace manager tool.
 
-  File indexing remains synchronous: the file creation operation waits
-  until Open WebUI finishes processing and indexing.
+  The file wins over the 2 old manager tools: the 23 knowledge tools keep
+  their names, and the skills, the file library, the Workspace Tools and the
+  Functions join them. Reads and new items run freely; a mutation and a
+  toggle pass the gate. The preset attach is private, so Open WebUI builds no
+  model tool spec for it.
   """
 
+  class Valves(BaseModel):
+    OWUI_API_BASE: str = "http://127.0.0.1:8080/api/v1"
+    PRESET_MODELS: str = ""
+    default_mode: str = "ask"
+    timeout_seconds: int = 60
+    INSTALL_FETCH_TIMEOUT: float = 12.0
+    TRUSTED_DOMAINS: str = "github.com,huggingface.co,githubusercontent.com"
+    SHOW_STATUS: bool = True
+
+  class UserValves(BaseModel):
+    mode: str = "default"
+    timeout_seconds: int = 0
+
   def __init__(self):
-    self.base_url = "http://127.0.0.1:8080/api/v1"
+    self.valves = self.Valves()
     self._short_timeout = aiohttp.ClientTimeout(total=30)
     self._long_timeout = aiohttp.ClientTimeout(total=120)
+
+  # ---------------------------------------------------------------- the gate
+
+  @staticmethod
+  def _user_valve(__user__: dict | None, name: str) -> Any:
+    """Read one user valve, from the model or from a dict."""
+    valves = (__user__ or {}).get("valves") or {}
+    value = getattr(valves, name, None)
+    if value is None and isinstance(valves, dict):
+      value = valves.get(name)
+    return value
+
+  def _effective_mode(self, __user__: dict | None = None) -> str:
+    """The mode: the user valve wins, then the tool valve."""
+    user_mode = self._user_valve(__user__, "mode")
+    if user_mode and user_mode != "default":
+      return user_mode
+    return self.valves.default_mode
+
+  def _wait_seconds(self, __user__: dict | None = None) -> int:
+    """The confirmation wait: the user value wins, then the tool value."""
+    user_wait = self._user_valve(__user__, "timeout_seconds")
+    value = int(user_wait or 0) or int(self.valves.timeout_seconds or 0) or 60
+    return max(1, value)
+
+  async def _ask(
+    self,
+    action: str,
+    detail: str,
+    __event_call__: Callable | None = None,
+    __user__: dict | None = None,
+  ) -> bool:
+    """Ask the user to confirm one write. Returns False when it cannot be asked.
+
+    The confirmation travels over the socket of the tab that started the chat.
+    A page refresh drops the dialog and the server would wait forever, because
+    WEBSOCKET_EVENT_CALLER_TIMEOUT is unset by default; the wait_for below is
+    the only timeout that always exists, so a refresh costs one wait, then a
+    deny.
+    """
+    if not callable(__event_call__):
+      return False
+    try:
+      answer = await asyncio.wait_for(
+        __event_call__(
+          {
+            "type": "confirmation",
+            "data": {"title": f"Confirm: {action}", "message": detail},
+          }
+        ),
+        timeout=self._wait_seconds(__user__),
+      )
+    except asyncio.TimeoutError:
+      return False
+    except Exception:
+      return False
+    return answer is True
+
+  async def _guard(self, action, detail, __user__, __event_call__):
+    """Run the gate for one mutation. Returns a refusal text, or None to go on."""
+    mode = self._effective_mode(__user__)
+    if mode == "deny":
+      return json.dumps(
+        {"result": {"denied": True, "action": action, "reason": "Denied by policy."}}
+      )
+    if mode != "allow" and not await self._ask(
+      action, detail, __event_call__, __user__
+    ):
+      return json.dumps(
+        {
+          "result": {
+            "denied": True,
+            "action": action,
+            "reason": (
+              f"Not confirmed within {self._wait_seconds(__user__)}s, so nothing "
+              "was sent."
+            ),
+          }
+        }
+      )
+    return None
+
+  def _base(self) -> str:
+    """The Open WebUI API base, from the valve, with no trailing slash."""
+    base = (self.valves.OWUI_API_BASE or "").strip() or "http://127.0.0.1:8080/api/v1"
+    return base.rstrip("/")
 
   def _auth(self, request):
     if request is None:
@@ -74,15 +186,15 @@ class Tools:
     try:
       async with session.request(
         method,
-        f"{self.base_url}{path}",
+        f"{self._base()}{path}",
         timeout=timeout or self._short_timeout,
         **kwargs,
       ) as response:
         if response.status not in expected:
-          body = await response.text()
+          text = await response.text()
           return (
             None,
-            f"Open WebUI API error {response.status}: {body[:2000]}",
+            f"Open WebUI API error {response.status}: {text[:2000]}",
           )
         if response.status == 204:
           return {}, None
@@ -98,15 +210,6 @@ class Tools:
 
   def _error(self, message):
     return message
-
-  def _path_parts(self, path):
-    path = (path or "").strip().replace("\\", "/").strip("/")
-    if not path:
-      return None, "Error: path is empty."
-    parts = [p.strip() for p in path.split("/") if p.strip()]
-    if not parts or any(p in (".", "..") for p in parts):
-      return None, "Error: invalid path; '.' and '..' are not allowed."
-    return parts, None
 
   def _file_item(self, item):
     return item.get("file", item) if isinstance(item, dict) else {}
@@ -315,6 +418,8 @@ class Tools:
     new_name: str = "",
     new_description: str = "",
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Update the name and/or description of an Open WebUI knowledge base.
@@ -322,6 +427,15 @@ class Tools:
     Empty new_name keeps the existing name.
     Empty new_description keeps the existing description.
     """
+
+    refusal = await self._guard(
+      "overwrite a knowledge base",
+      f"{knowledge_id} -> {new_name}",
+      __user__,
+      __event_call__,
+    )
+    if refusal:
+      return refusal
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     async with await self._open_session(__request__) as session:
@@ -600,11 +714,22 @@ class Tools:
       description="Complete new Markdown/text content that will replace the existing file content.",
     ),
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Replace the content of an existing Open WebUI knowledge file
     and reindex it for retrieval.
     """
+
+    refusal = await self._guard(
+      "overwrite a knowledge file",
+      str(file_id),
+      __user__,
+      __event_call__,
+    )
+    if refusal:
+      return refusal
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     async with await self._open_session(__request__) as s:
@@ -650,6 +775,8 @@ class Tools:
       description="Complete new content that will replace the existing file content.",
     ),
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Find an existing knowledge file by its exact path
@@ -658,6 +785,15 @@ class Tools:
     The file is reindexed automatically.
     Does not create missing directories or files.
     """
+
+    refusal = await self._guard(
+      "overwrite a knowledge file",
+      f"{knowledge_id}:{path}",
+      __user__,
+      __event_call__,
+    )
+    if refusal:
+      return refusal
     return await self._read_or_update_path(
       knowledge_id, path, content, True, __request__
     )
@@ -690,6 +826,8 @@ class Tools:
       ..., description="Complete Markdown content to create or replace."
     ),
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Create or update a Markdown file at an exact knowledge-base path.
@@ -700,6 +838,15 @@ class Tools:
     - Missing file is created and indexed.
     - Ambiguous directory or file matches are never guessed.
     """
+
+    refusal = await self._guard(
+      "write a knowledge file",
+      f"{knowledge_id}:{path}",
+      __user__,
+      __event_call__,
+    )
+    if refusal:
+      return refusal
     parts, err = self._path_parts(path)
     if err:
       return err
@@ -746,10 +893,21 @@ class Tools:
       description="New filename including extension, for example vpn-guide.md.",
     ),
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Rename an existing Open WebUI knowledge file.
     """
+
+    refusal = await self._guard(
+      "rename a knowledge file",
+      f"{file_id} -> {new_filename}",
+      __user__,
+      __event_call__,
+    )
+    if refusal:
+      return refusal
     new_filename = new_filename.strip()
     if not new_filename:
       return "Error: new filename is empty."
@@ -776,10 +934,21 @@ class Tools:
     directory_id: str = Field(..., description="ID of the directory to rename."),
     new_name: str = Field(..., description="New directory name."),
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Rename a directory inside an Open WebUI knowledge base.
     """
+
+    refusal = await self._guard(
+      "rename a knowledge directory",
+      f"{directory_id} -> {new_name}",
+      __user__,
+      __event_call__,
+    )
+    if refusal:
+      return refusal
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     async with await self._open_session(__request__) as s:
@@ -804,12 +973,23 @@ class Tools:
       description="ID of the target parent directory. Use an empty string to move the directory to the knowledge base root.",
     ),
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Move a directory inside an Open WebUI knowledge base.
 
     Use an empty target_parent_id to move the directory to the root.
     """
+
+    refusal = await self._guard(
+      "move a knowledge directory",
+      f"{directory_id} -> {target_parent_id}",
+      __user__,
+      __event_call__,
+    )
+    if refusal:
+      return refusal
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     async with await self._open_session(__request__) as s:
@@ -835,6 +1015,8 @@ class Tools:
       description="Must be true. Set true only when the user explicitly requested permanent deletion of the file.",
     ),
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Permanently delete an Open WebUI knowledge file.
@@ -844,6 +1026,15 @@ class Tools:
 
     Use only when the user explicitly asks to delete the file.
     """
+
+    refusal = await self._guard(
+      "delete a knowledge file",
+      str(file_id),
+      __user__,
+      __event_call__,
+    )
+    if refusal:
+      return refusal
     if confirm is not True:
       return "Deletion cancelled: confirm must be true."
     if __request__ is None:
@@ -861,6 +1052,8 @@ class Tools:
       description="Must be true. Use true only when the user explicitly requested permanent deletion of this file.",
     ),
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Permanently delete an existing knowledge file by its exact path.
@@ -870,6 +1063,15 @@ class Tools:
     - exact directory path and filename must resolve;
     - ambiguous matches are never deleted.
     """
+
+    refusal = await self._guard(
+      "delete a knowledge file",
+      f"{knowledge_id}:{path}",
+      __user__,
+      __event_call__,
+    )
+    if refusal:
+      return refusal
     if confirm is not True:
       return "Deletion cancelled: confirm must be true."
     parts, err = self._path_parts(path)
@@ -899,6 +1101,8 @@ class Tools:
     knowledge_id: str = Field(..., description="ID of the Open WebUI knowledge base."),
     directory_id: str = Field(..., description="ID of the directory to delete."),
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Delete a directory from an Open WebUI knowledge base.
@@ -906,6 +1110,15 @@ class Tools:
     Files inside the directory are moved to its parent directory
     instead of being deleted.
     """
+
+    refusal = await self._guard(
+      "delete a knowledge directory",
+      str(directory_id),
+      __user__,
+      __event_call__,
+    )
+    if refusal:
+      return refusal
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     async with await self._open_session(__request__) as s:
@@ -1120,6 +1333,8 @@ class Tools:
     ),
     allow_nonempty: bool = False,
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Permanently delete an Open WebUI knowledge base.
@@ -1130,6 +1345,15 @@ class Tools:
     - set allow_nonempty=true only when the user explicitly wants
       a non-empty knowledge base deleted.
     """
+
+    refusal = await self._guard(
+      "delete a knowledge base",
+      str(knowledge_id),
+      __user__,
+      __event_call__,
+    )
+    if refusal:
+      return refusal
     if confirm is not True:
       return "Deletion cancelled: confirm must be true."
     if __request__ is None:
@@ -1212,7 +1436,14 @@ class Tools:
     """Build the update body of one preset and the list of changed fields."""
     meta = dict(record.get("meta") or {})
     changed = []
-    for key in ("knowledge", "toolIds", "skillIds", "filterIds", "actionIds"):
+    for key in (
+      "knowledge",
+      "toolIds",
+      "skillIds",
+      "filterIds",
+      "actionIds",
+      "functionIds",
+    ):
       before = list(meta.get(key) or [])
       after = _merge_ids(before, add.get(key, []), remove.get(key, []))
       if after != before:
@@ -1271,11 +1502,13 @@ class Tools:
     add_skill_ids="",
     add_filter_ids="",
     add_action_ids="",
+    add_function_ids="",
     remove_knowledge_ids="",
     remove_tool_ids="",
     remove_skill_ids="",
     remove_filter_ids="",
     remove_action_ids="",
+    remove_function_ids="",
   ):
     add = {
       "knowledge": _split_ids(add_knowledge_ids),
@@ -1283,6 +1516,7 @@ class Tools:
       "skillIds": _split_ids(add_skill_ids),
       "filterIds": _split_ids(add_filter_ids),
       "actionIds": _split_ids(add_action_ids),
+      "functionIds": _split_ids(add_function_ids),
     }
     remove = {
       "knowledge": _split_ids(remove_knowledge_ids),
@@ -1290,15 +1524,38 @@ class Tools:
       "skillIds": _split_ids(remove_skill_ids),
       "filterIds": _split_ids(remove_filter_ids),
       "actionIds": _split_ids(remove_action_ids),
+      "functionIds": _split_ids(remove_function_ids),
     }
     return add, remove
 
-  async def _attach_knowledge_to_presets(self, knowledge_ids, __request__):
-    """Add knowledge bases to the knowledge list of every writable model preset."""
-    ids = [str(item) for item in knowledge_ids if item]
-    if not ids:
+  def _preset_filter(self) -> list[str]:
+    """The PRESET_MODELS valve as an id or name list. Empty serves each preset."""
+    return _split_ids(self.valves.PRESET_MODELS)
+
+  def _preset_selected(self, item) -> bool:
+    """Tell whether PRESET_MODELS serves one preset. Empty serves each preset."""
+    wanted = self._preset_filter()
+    if not wanted:
+      return True
+    return str(item.get("id")) in wanted or str(item.get("name")) in wanted
+
+  async def _attach_to_presets(self, add: dict, __request__, remove=None) -> str:
+    """Add or remove ids in the meta list of each selected preset.
+
+    One call per list: the caller names the meta key, such as skillIds or
+    toolIds. A preset without write access is skipped and named. The report
+    is `added to N[. skipped, no write access: ids][. failed: msg]`.
+    """
+    add = {
+      key: [str(i) for i in value if i] for key, value in (add or {}).items() if value
+    }
+    remove = {
+      key: [str(i) for i in value if i]
+      for key, value in (remove or {}).items()
+      if value
+    }
+    if not add and not remove:
       return "preset_models: none"
-    add = {"knowledge": ids}
     updated = 0
     skipped = []
     errors = []
@@ -1314,11 +1571,13 @@ class Tools:
         if not items:
           break
         for item in items:
+          if not self._preset_selected(item):
+            continue
           model_id = item.get("id")
           if not item.get("write_access"):
             skipped.append(str(model_id))
             continue
-          line, err = await self._write_preset(session, model_id, add, {})
+          line, err = await self._write_preset(session, model_id, add, remove)
           if err:
             errors.append(str(err))
           elif ": changed" in line:
@@ -1331,6 +1590,12 @@ class Tools:
       text += f". failed: {errors[0]}"
     return text
 
+  async def _attach_knowledge_to_presets(self, knowledge_ids, __request__) -> str:
+    """Add knowledge bases to the knowledge list of the selected presets."""
+    return await self._attach_to_presets(
+      {"knowledge": list(knowledge_ids)}, __request__
+    )
+
   async def _update_model_preset(
     self,
     model_id: str = Field(
@@ -1341,11 +1606,13 @@ class Tools:
     add_skill_ids: str = "",
     add_filter_ids: str = "",
     add_action_ids: str = "",
+    add_function_ids: str = "",
     remove_knowledge_ids: str = "",
     remove_tool_ids: str = "",
     remove_skill_ids: str = "",
     remove_filter_ids: str = "",
     remove_action_ids: str = "",
+    remove_function_ids: str = "",
     __request__=None,
   ) -> str:
     """
@@ -1367,11 +1634,13 @@ class Tools:
       add_skill_ids,
       add_filter_ids,
       add_action_ids,
+      add_function_ids,
       remove_knowledge_ids,
       remove_tool_ids,
       remove_skill_ids,
       remove_filter_ids,
       remove_action_ids,
+      remove_function_ids,
     )
     async with await self._open_session(__request__) as s:
       line, err = await self._write_preset(s, model, add, remove)
@@ -1384,11 +1653,13 @@ class Tools:
     add_skill_ids: str = "",
     add_filter_ids: str = "",
     add_action_ids: str = "",
+    add_function_ids: str = "",
     remove_knowledge_ids: str = "",
     remove_tool_ids: str = "",
     remove_skill_ids: str = "",
     remove_filter_ids: str = "",
     remove_action_ids: str = "",
+    remove_function_ids: str = "",
     only_writable: bool = True,
     max_models: int = 200,
     __request__=None,
@@ -1408,11 +1679,13 @@ class Tools:
       add_skill_ids,
       add_filter_ids,
       add_action_ids,
+      add_function_ids,
       remove_knowledge_ids,
       remove_tool_ids,
       remove_skill_ids,
       remove_filter_ids,
       remove_action_ids,
+      remove_function_ids,
     )
     if not any(add.values()) and not any(remove.values()):
       return "Error: no ids given. Pass at least one add or remove list."
@@ -1453,3 +1726,602 @@ class Tools:
     if skipped:
       result.append(f"skipped, no write access: {', '.join(skipped)}")
     return "\n".join(result)
+
+  # ---------------------------------------------------------------- the files
+
+  async def list_files(self, page: int = 1, __request__=None) -> str:
+    """List the files of the Open WebUI file library, with their ids and sizes."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    async with await self._open_session(__request__) as s:
+      data, err = await self._request(
+        s, "GET", "/files/", params={"page": max(1, page)}
+      )
+    if err:
+      return err
+    items = (data or {}).get("items") or []
+    if not items:
+      return "No files found."
+    lines = [f"total={(data or {}).get('total')}"]
+    for item in items:
+      meta = item.get("meta") or {}
+      lines.append(
+        f"- {item.get('filename') or 'Unnamed'} (id={item.get('id')}, "
+        f"size={meta.get('size') or 0})"
+      )
+    return "\n".join(lines)
+
+  async def search_files(self, filename: str, __request__=None) -> str:
+    """Search the file library by name. Wildcards such as *.md are allowed."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    name = (filename or "").strip()
+    if not name:
+      return "Error: filename is empty."
+    async with await self._open_session(__request__) as s:
+      data, err = await self._request(
+        s, "GET", "/files/search", params={"filename": name}
+      )
+    if err:
+      return err
+    items = data if isinstance(data, list) else (data or {}).get("items") or []
+    if not items:
+      return "No files found."
+    return "\n".join(
+      f"- {item.get('filename') or 'Unnamed'} (id={item.get('id')})" for item in items
+    )
+
+  async def read_file_content(self, file_id: str, __request__=None) -> str:
+    """Read the stored text content of one file of the library. A read runs free."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    async with await self._open_session(__request__) as s:
+      data, err = await self._request(s, "GET", f"/files/{file_id}/data/content")
+    if err:
+      return err
+    content = (data or {}).get("content")
+    if content is None:
+      return "Error: the file has no stored text content."
+    return str(content)
+
+  async def upload_file(self, filename: str, content: str, __request__=None) -> str:
+    """Create one text file in the library. A new item runs free."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    name = (filename or "").strip() or "untitled.txt"
+    boundary = "daedalus-openwebui-manager"
+    body = (
+      f"--{boundary}\r\n"
+      f'Content-Disposition: form-data; name="file"; filename="{name}"\r\n'
+      "Content-Type: text/markdown\r\n\r\n"
+      f"{content}\r\n"
+      f"--{boundary}--\r\n"
+    ).encode()
+    async with await self._open_session(__request__) as s:
+      data, err = await self._request(
+        s,
+        "POST",
+        "/files/",
+        data=body,
+        headers={
+          "Content-Type": f"multipart/form-data; boundary={boundary}",
+        },
+        expected=(200, 201),
+      )
+    if err:
+      return err
+    return f"uploaded {name} (id={(data or {}).get('id')})"
+
+  async def rename_file(
+    self,
+    file_id: str,
+    name: str,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+    __request__=None,
+  ) -> str:
+    """Rename one file. The rename is a mutation, so it passes the gate."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    refusal = await self._guard(
+      "rename a file", f"{file_id} -> {name}", __user__, __event_call__
+    )
+    if refusal:
+      return refusal
+    async with await self._open_session(__request__) as s:
+      _, err = await self._request(
+        s, "POST", f"/files/{file_id}/rename", json={"filename": name}
+      )
+    return err or f"renamed file {file_id} to {name}"
+
+  async def delete_file(
+    self,
+    file_id: str,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+    __request__=None,
+  ) -> str:
+    """Delete one file of the library. The delete passes the gate."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    refusal = await self._guard("delete a file", str(file_id), __user__, __event_call__)
+    if refusal:
+      return refusal
+    async with await self._open_session(__request__) as s:
+      _, err = await self._request(s, "DELETE", f"/files/{file_id}")
+    return err or f"deleted file {file_id}"
+
+  # ---------------------------------------------------------------- the skills
+
+  async def list_skills(self, __request__=None) -> str:
+    """List the skills of the workspace, with their ids and their state."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    async with await self._open_session(__request__) as s:
+      data, err = await self._request(s, "GET", "/skills/")
+    if err:
+      return err
+    items = (data or {}).get("items") or []
+    if not items:
+      return "No skills found."
+    return "\n".join(
+      f"- {item.get('name') or 'Unnamed'} (id={item.get('id')}, "
+      f"active={item.get('is_active')})"
+      for item in items
+    )
+
+  async def show_skill(self, skill_id: str, __request__=None) -> str:
+    """Show one skill: its name, its state and its full source."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    async with await self._open_session(__request__) as s:
+      data, err = await self._request(s, "GET", f"/skills/id/{skill_id}")
+    if err:
+      return err
+    if not data:
+      return f"Error: skill not found: {skill_id}"
+    return (
+      f"name={data.get('name')} (id={data.get('id')}, "
+      f"active={data.get('is_active')}, description={data.get('description') or ''})\n"
+      f"\n{data.get('content') or ''}"
+    )
+
+  async def create_skill(
+    self,
+    name: str,
+    content: str,
+    description: str = "",
+    skill_id: str = "",
+    __request__=None,
+  ) -> str:
+    """Create one skill. A new item runs free, and it joins the preset models."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    identifier = (skill_id or "").strip() or re.sub(
+      r"[^a-z0-9]+", "-", (name or "").strip().lower()
+    ).strip("-")
+    if not identifier:
+      return "Error: name is empty, so no skill id can be built."
+    body = {
+      "id": identifier,
+      "name": name,
+      "description": description,
+      "content": content,
+      "meta": {},
+      "is_active": True,
+    }
+    async with await self._open_session(__request__) as s:
+      _data, err = await self._request(
+        s, "POST", "/skills/create", json=body, expected=(200, 201)
+      )
+      if err:
+        return err
+      attach = await self._attach_to_presets({"skillIds": [identifier]}, __request__)
+    return f"created skill {name} (id={identifier})\n{attach}"
+
+  async def install_skill(self, url: str, __request__=None) -> str:
+    """Install one skill from a URL. The host must be a trusted domain."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    target = (url or "").strip()
+    if not target.startswith("https://"):
+      return "Error: the URL must start with https://."
+    host = target.split("/")[2].lower() if "//" in target else ""
+    trusted = [d.strip().lower() for d in _split_ids(self.valves.TRUSTED_DOMAINS)]
+    if not any(host == d or host.endswith("." + d) for d in trusted):
+      return f"Error: {host} is not a trusted domain."
+    try:
+      async with (
+        aiohttp.ClientSession() as s,
+        s.get(
+          target,
+          timeout=aiohttp.ClientTimeout(
+            total=float(self.valves.INSTALL_FETCH_TIMEOUT or 12)
+          ),
+        ) as response,
+      ):
+        if response.status != 200:
+          return f"Error: the fetch failed with status {response.status}."
+        text = await response.text()
+    except (asyncio.TimeoutError, aiohttp.ClientError) as exc:
+      return f"Error: the fetch failed: {exc}"
+    name = ""
+    for line in text.split("\n"):
+      if line.startswith("# "):
+        name = line[2:].strip()
+        break
+    name = name or target.rstrip("/").split("/")[-1].replace(".md", "")
+    created = await self.create_skill(
+      name, text, f"Installed from {target}", "", __request__
+    )
+    return created
+
+  async def update_skill(
+    self,
+    skill_id: str,
+    name: str,
+    content: str,
+    description: str = "",
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+    __request__=None,
+  ) -> str:
+    """Replace one skill. The overwrite passes the gate."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    refusal = await self._guard(
+      "overwrite a skill", f"{name} (id={skill_id})", __user__, __event_call__
+    )
+    if refusal:
+      return refusal
+    body = {
+      "id": skill_id,
+      "name": name,
+      "description": description,
+      "content": content,
+      "meta": {},
+      "is_active": True,
+    }
+    async with await self._open_session(__request__) as s:
+      _, err = await self._request(
+        s, "POST", f"/skills/id/{skill_id}/update", json=body
+      )
+    return err or f"updated skill {skill_id}"
+
+  async def toggle_skill(
+    self,
+    skill_id: str,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+    __request__=None,
+  ) -> str:
+    """Switch one skill on or off. The toggle passes the gate."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    refusal = await self._guard(
+      "toggle a skill", str(skill_id), __user__, __event_call__
+    )
+    if refusal:
+      return refusal
+    async with await self._open_session(__request__) as s:
+      data, err = await self._request(s, "POST", f"/skills/id/{skill_id}/toggle")
+    if err:
+      return err
+    return f"toggled skill {skill_id} (active={(data or {}).get('is_active')})"
+
+  async def delete_skill(
+    self,
+    skill_id: str,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+    __request__=None,
+  ) -> str:
+    """Delete one skill. The delete passes the gate."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    refusal = await self._guard(
+      "delete a skill", str(skill_id), __user__, __event_call__
+    )
+    if refusal:
+      return refusal
+    async with await self._open_session(__request__) as s:
+      _, err = await self._request(s, "DELETE", f"/skills/id/{skill_id}/delete")
+    return err or f"deleted skill {skill_id}"
+
+  # ---------------------------------------------------------------- the tools
+
+  async def list_tools(self, __request__=None) -> str:
+    """List the Workspace Tools, with their ids."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    async with await self._open_session(__request__) as s:
+      data, err = await self._request(s, "GET", "/tools/")
+    if err:
+      return err
+    items = data if isinstance(data, list) else (data or {}).get("items") or []
+    if not items:
+      return "No tools found."
+    return "\n".join(
+      f"- {item.get('name') or 'Unnamed'} (id={item.get('id')})" for item in items
+    )
+
+  async def show_tool(self, tool_id: str, __request__=None) -> str:
+    """Show one Workspace Tool: its name, its spec and its source."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    async with await self._open_session(__request__) as s:
+      data, err = await self._request(s, "GET", f"/tools/id/{tool_id}")
+    if err:
+      return err
+    if not data:
+      return f"Error: tool not found: {tool_id}"
+    meta = data.get("meta") or {}
+    return (
+      f"name={data.get('name')} (id={data.get('id')}, "
+      f"description={meta.get('description') or ''})\n"
+      f"\n{data.get('content') or ''}"
+    )
+
+  async def create_tool(
+    self,
+    name: str,
+    content: str,
+    description: str = "",
+    tool_id: str = "",
+    __request__=None,
+  ) -> str:
+    """Create one Workspace Tool. A new item runs free and joins the presets."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    identifier = (tool_id or "").strip() or re.sub(
+      r"[^a-z0-9]+", "_", (name or "").strip().lower()
+    ).strip("_")
+    if not identifier:
+      return "Error: name is empty, so no tool id can be built."
+    body = {
+      "id": identifier,
+      "name": name,
+      "content": content,
+      "meta": {"description": description, "manifest": {}},
+    }
+    async with await self._open_session(__request__) as s:
+      _, err = await self._request(
+        s, "POST", "/tools/create", json=body, expected=(200, 201)
+      )
+      if err:
+        return err
+      attach = await self._attach_to_presets({"toolIds": [identifier]}, __request__)
+    return f"created tool {name} (id={identifier})\n{attach}"
+
+  async def update_tool(
+    self,
+    tool_id: str,
+    name: str,
+    content: str,
+    description: str = "",
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+    __request__=None,
+  ) -> str:
+    """Replace one Workspace Tool. The overwrite passes the gate."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    refusal = await self._guard(
+      "overwrite a tool", f"{name} (id={tool_id})", __user__, __event_call__
+    )
+    if refusal:
+      return refusal
+    body = {
+      "id": tool_id,
+      "name": name,
+      "content": content,
+      "meta": {"description": description, "manifest": {}},
+    }
+    async with await self._open_session(__request__) as s:
+      _, err = await self._request(s, "POST", f"/tools/id/{tool_id}/update", json=body)
+    return err or f"updated tool {tool_id}"
+
+  async def toggle_tool(
+    self,
+    tool_id: str,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+    __request__=None,
+  ) -> str:
+    """Toggle one Workspace Tool on the preset models.
+
+    Open WebUI v0.11.4 has no per-tool on and off switch, so this toggles the
+    tool id in the toolIds list of each preset the caller can write: a tool in
+    every preset leaves them, and a tool in no preset joins them.
+    """
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    refusal = await self._guard("toggle a tool", str(tool_id), __user__, __event_call__)
+    if refusal:
+      return refusal
+    present = 0
+    total = 0
+    async with await self._open_session(__request__) as s:
+      page = 1
+      while page <= 100:
+        data, err = await self._request(s, "GET", "/models/list", params={"page": page})
+        if err:
+          return err
+        items = (data or {}).get("items") or []
+        if not items:
+          break
+        for item in items:
+          if not self._preset_selected(item) or not item.get("write_access"):
+            continue
+          total += 1
+          if str(tool_id) in [
+            str(x) for x in (item.get("meta") or {}).get("toolIds") or []
+          ]:
+            present += 1
+        page += 1
+    if not total:
+      return "Error: no writable preset serves the tool toggle."
+    if present:
+      return await self._attach_to_presets(
+        {}, __request__, remove={"toolIds": [str(tool_id)]}
+      )
+    return await self._attach_to_presets({"toolIds": [str(tool_id)]}, __request__)
+
+  async def delete_tool(
+    self,
+    tool_id: str,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+    __request__=None,
+  ) -> str:
+    """Delete one Workspace Tool. The delete passes the gate."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    refusal = await self._guard("delete a tool", str(tool_id), __user__, __event_call__)
+    if refusal:
+      return refusal
+    async with await self._open_session(__request__) as s:
+      _, err = await self._request(s, "DELETE", f"/tools/id/{tool_id}/delete")
+    return err or f"deleted tool {tool_id}"
+
+  # ---------------------------------------------------------------- the functions
+
+  async def list_functions(self, __request__=None) -> str:
+    """List the Functions, with their ids and their types."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    async with await self._open_session(__request__) as s:
+      data, err = await self._request(s, "GET", "/functions/")
+    if err:
+      return err
+    items = data if isinstance(data, list) else (data or {}).get("items") or []
+    if not items:
+      return "No functions found."
+    return "\n".join(
+      f"- {item.get('name') or 'Unnamed'} (id={item.get('id')}, "
+      f"type={item.get('type')}, active={item.get('is_active')}, "
+      f"global={item.get('is_global')})"
+      for item in items
+    )
+
+  async def show_function(self, function_id: str, __request__=None) -> str:
+    """Show one Function: its name, its state and its source."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    async with await self._open_session(__request__) as s:
+      data, err = await self._request(s, "GET", f"/functions/id/{function_id}")
+    if err:
+      return err
+    if not data:
+      return f"Error: function not found: {function_id}"
+    meta = data.get("meta") or {}
+    return (
+      f"name={data.get('name')} (id={data.get('id')}, type={data.get('type')}, "
+      f"active={data.get('is_active')}, global={data.get('is_global')}, "
+      f"description={meta.get('description') or ''})\n"
+      f"\n{data.get('content') or ''}"
+    )
+
+  async def create_function(
+    self,
+    name: str,
+    content: str,
+    description: str = "",
+    function_id: str = "",
+    __request__=None,
+  ) -> str:
+    """Create one Function. A new item runs free and joins the presets."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    identifier = (function_id or "").strip() or re.sub(
+      r"[^a-z0-9]+", "_", (name or "").strip().lower()
+    ).strip("_")
+    if not identifier:
+      return "Error: name is empty, so no function id can be built."
+    body = {
+      "id": identifier,
+      "name": name,
+      "content": content,
+      "meta": {"description": description, "manifest": {}},
+    }
+    async with await self._open_session(__request__) as s:
+      _, err = await self._request(
+        s, "POST", "/functions/create", json=body, expected=(200, 201)
+      )
+      if err:
+        return err
+      attach = await self._attach_to_presets({"functionIds": [identifier]}, __request__)
+    return f"created function {name} (id={identifier})\n{attach}"
+
+  async def update_function(
+    self,
+    function_id: str,
+    name: str,
+    content: str,
+    description: str = "",
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+    __request__=None,
+  ) -> str:
+    """Replace one Function. The overwrite passes the gate."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    refusal = await self._guard(
+      "overwrite a function", f"{name} (id={function_id})", __user__, __event_call__
+    )
+    if refusal:
+      return refusal
+    body = {
+      "id": function_id,
+      "name": name,
+      "content": content,
+      "meta": {"description": description, "manifest": {}},
+    }
+    async with await self._open_session(__request__) as s:
+      _, err = await self._request(
+        s, "POST", f"/functions/id/{function_id}/update", json=body
+      )
+    return err or f"updated function {function_id}"
+
+  async def toggle_function(
+    self,
+    function_id: str,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+    __request__=None,
+  ) -> str:
+    """Switch one Function on or off. The toggle passes the gate."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    refusal = await self._guard(
+      "toggle a function", str(function_id), __user__, __event_call__
+    )
+    if refusal:
+      return refusal
+    async with await self._open_session(__request__) as s:
+      data, err = await self._request(s, "POST", f"/functions/id/{function_id}/toggle")
+    if err:
+      return err
+    return (
+      f"toggled function {function_id} "
+      f"(active={(data or {}).get('is_active')}, global={(data or {}).get('is_global')})"
+    )
+
+  async def delete_function(
+    self,
+    function_id: str,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+    __request__=None,
+  ) -> str:
+    """Delete one Function. The delete passes the gate."""
+    if __request__ is None:
+      return "Error: Open WebUI request context is unavailable."
+    refusal = await self._guard(
+      "delete a function", str(function_id), __user__, __event_call__
+    )
+    if refusal:
+      return refusal
+    async with await self._open_session(__request__) as s:
+      _, err = await self._request(s, "DELETE", f"/functions/id/{function_id}/delete")
+    return err or f"deleted function {function_id}"

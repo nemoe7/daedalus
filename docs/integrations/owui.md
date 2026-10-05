@@ -79,41 +79,37 @@ The 5 reads are `search_mail`, `read_thread`, `agenda`, `search_files` and `read
 
 `tests/integrations/test_owui_google_tool.py` holds the surface, the gate, the token cache and the error path.
 
-## Knowledge manager tool
+## The manager tool
 
-`integrations/openwebui/tools/knowledge_manager.py` is a third Workspace Tool: 1 file, no valves, and the caller token comes from the chat request. It holds the 23 knowledge tools.
+`integrations/openwebui/tools/owui_manager.py` is 1 Workspace Tool over the whole workspace: knowledge bases, skills, the file library, the Workspace Tools and the Functions. The caller token comes from the chat request, and the `OWUI_API_BASE` valve holds the base URL.
 
-The knowledge tools list, create, read, update, move and delete knowledge bases, folders and files. They also search the files and read 1 by path. A file creation waits until Open WebUI finishes the indexing.
+| Group | Tools |
+| --- | --- |
+| Knowledge | The 23 knowledge tools: bases, folders, files, search, tree. A file creation waits for the indexing |
+| Files | `list_files`, `search_files`, `upload_file`, `rename_file`, `read_file_content`, `delete_file` |
+| Skills | `list_skills`, `show_skill`, `install_skill`, `create_skill`, `update_skill`, `delete_skill` |
+| Tools | `list_tools`, `show_tool`, `create_tool`, `update_tool`, `toggle_tool`, `delete_tool` |
+| Functions | `list_functions`, `show_function`, `create_function`, `update_function`, `toggle_function`, `delete_function` |
 
-A new knowledge base attaches itself to the model presets in the same call. The tool reads each preset, merges `meta.knowledge` and posts the record back. It skips a preset without write access and names it. A knowledge item stays a reference object.
+Reads and new items run freely. An overwrite, a toggle and a delete pass the confirmation gate, and the item name rides in the question.
 
-The preset helpers stay private, so Open WebUI builds no model tool spec for them. `/model/update` needs the owner, a write grant or an admin. The tool sends to `http://127.0.0.1:8080/api/v1`. Change `base_url` for another host.
+A new knowledge base, skill, tool or function joins the model presets in the same call. The tool reads each preset, merges the matching `meta` list and posts the record back. It skips a preset without write access and names it. The `PRESET_MODELS` valve picks the presets by id or by name, and an empty list serves each preset.
 
-1. **Workspace → Tools**, **Create**, paste the file, **Save**.
-2. **Access** on the tool: make it public, or give read access to each user.
+The gate follows the GitHub tool. `default_mode` is `ask`, `allow` or `deny`, and `timeout_seconds` sets the wait. `UserValves.mode` and `UserValves.timeout_seconds` give each user their own gate, and `0` keeps the valve. Open WebUI v0.11.4 has no per-tool toggle route, so `toggle_tool` toggles the tool id in the preset `toolIds` lists.
 
-`tests/integrations/test_knowledge_manager_presets.py` holds the merge, the full-record write, the read-only skip, the all-presets loop and the attach on create.
-
-## Skills manager tool
-
-`integrations/openwebui/tools/skills_manager.py` is the Fu-Jie Skills Manager Tool 0.3.4: 1 file, and it manages the native Workspace Skills. The header keeps the author and the version. The local copy adds the preset attach.
-
-The 6 skill tools are `list_skills`, `show_skill`, `install_skill`, `create_skill`, `update_skill` and `delete_skill`. An install fetches a skill from a trusted domain. A destructive action asks for confirmation.
-
-A new skill attaches itself to the model presets in the same call. `create_skill` and the install path of `install_skill` read each preset, merge `meta.skillIds` and post the record back. The run skips a preset without write access and names it.
-
-The preset helpers stay private, so Open WebUI builds no model tool spec for them. The calls use the OpenWebUI API with the caller token. The `OWUI_API_BASE` valve holds the base URL, by default `http://127.0.0.1:8080/api/v1`.
-
-1. **Workspace → Tools**, **Create**, paste the file, **Save**.
-2. **Access** on the tool: make it public, or give read access to each user.
+The preset helpers stay private, so Open WebUI builds no model tool spec for them. `/model/update` needs the owner, a write grant or an admin.
 
 | Valve | Default | Meaning |
 | --- | --- | --- |
-| `SHOW_STATUS` | `true` | Draw the status line of each operation. |
-| `REQUIRE_CONFIRMATION` | `true` | Ask before an update, a delete or an overwrite. |
-| `ALLOW_OVERWRITE_ON_CREATE` | `true` | Let a create or an install replace a skill of the same name. |
-| `INSTALL_FETCH_TIMEOUT` | `12.0` | The URL fetch timeout of an install, in seconds. |
-| `TRUSTED_DOMAINS` | `github.com,huggingface.co,githubusercontent.com` | The domains an install may fetch from. |
-| `OWUI_API_BASE` | `http://127.0.0.1:8080/api/v1` | The OpenWebUI API base of the preset attach. |
+| `OWUI_API_BASE` | `http://127.0.0.1:8080/api/v1` | The Open WebUI API base |
+| `PRESET_MODELS` | empty | The ids or names of the presets that take an attach. Empty serves each preset |
+| `default_mode` | `ask` | `ask` gates a mutation and a toggle, `allow` runs them, `deny` refuses them |
+| `timeout_seconds` | `60` | The wait for a confirmation. `0` keeps the valve |
+| `INSTALL_FETCH_TIMEOUT` | `12.0` | The URL fetch timeout of a skill install |
+| `TRUSTED_DOMAINS` | `github.com,huggingface.co,githubusercontent.com` | The domains a skill install may fetch from |
+| `SHOW_STATUS` | `true` | Draw the status line of each operation |
 
-`tests/integrations/test_skills_manager_presets.py` holds the merge, the full-record write, the read-only skip, the all-presets loop and the attach on create.
+1. **Workspace → Tools**, **Create**, paste the file, **Save**.
+2. **Access** on the tool: make it public, or give read access to each user.
+
+`tests/integrations/test_owui_manager.py` holds the surface, the gate, the free reads and creates, the preset filter, the attach and the merge.
