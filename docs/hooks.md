@@ -92,9 +92,25 @@ A function gets a copy of the value. It can change the copy and return None, or 
 A hook file can answer an HTTP call. The path names the file, and the file must sit under
 `config/hooks`:
 
-```
-curl -X POST http://localhost:3357/v1/hook/auto_reasoning -H "Authorization: Bearer $DAEDALUS_KEY" \
+cmd:
+
+```cmd
+curl -X POST http://localhost:3357/v1/hook/auto_reasoning -H "Authorization: Bearer %DAEDALUS_KEY%" ^
   -H "Content-Type: application/json" -d "{\"messages\": [{\"role\": \"user\", \"content\": \"why is this slow\"}]}"
+```
+
+PowerShell:
+
+```powershell
+curl.exe -X POST http://localhost:3357/v1/hook/auto_reasoning -H "Authorization: Bearer $env:DAEDALUS_KEY" `
+  -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "why is this slow"}]}'
+```
+
+bash:
+
+```bash
+curl -X POST http://localhost:3357/v1/hook/auto_reasoning -H "Authorization: Bearer $DAEDALUS_KEY" \
+  -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "why is this slow"}]}'
 ```
 
 The route loads the file, calls its `on_http`, and answers with the dict it returns. An error
