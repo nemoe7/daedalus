@@ -55,11 +55,11 @@ daedalus is for personal use only. Do not share it with other users, because the
    On Windows, winget installs Docker Desktop. Restart Windows, start Docker Desktop once, then run the command again. On Linux, the official script `get.docker.com` installs Docker.
 
    In a git checkout, the install scripts use the checkout folder. Add `--dev`, for example
-   `install.cmd --dev`, to run the dev image with `compose.dev.yml`. With the source in the folder,
+   `install.cmd --dev`, to run the dev image with [`compose.dev.yml`](compose.dev.yml). With the source in the folder,
    the script builds the image. Without the source, it pulls `ghcr.io/nemoe7/daedalus:dev`.
 
 2. Open the dashboard at `http://localhost:3357/`. The user is `DAEDALUS_USERNAME`, else `admin`. The password is `DAEDALUS_PASSWORD`, else `DAEDALUS_MASTER_KEY`.
-3. On **Providers**, paste each provider key into its **API key** field and save. For Cloudflare, add the Account ID too. Click the Catalog chip to rebuild the model list. The dashboard saves pasted values in state. The shipped `config/providers/free.yml` keeps `env:NAME` references for `.env` values. See [Configuration](docs/configuration.md).
+3. On **Providers**, paste each provider key into its **API key** field and save. For Cloudflare, add the Account ID too. Click the Catalog chip to rebuild the model list. The dashboard saves pasted values in state. The shipped [`config/providers/free.yml`](config/providers/free.yml) keeps `env:NAME` references for `.env` values. See [Configuration](docs/configuration.md).
 4. On the **API keys** page, make a key for each client.
 
 | Client setting | Value |
@@ -86,14 +86,14 @@ bash:
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Install daedalus with the versions in `uv.lock`, then start the router. The commands are the same in all 3 shells:
+Install daedalus with the versions in [`uv.lock`](uv.lock), then start the router. The commands are the same in all 3 shells:
 
 ```sh
 uv sync
 uv run daedalus serve
 ```
 
-Put `uv run` before each command in the table. After `git pull`, run `uv sync` again. After a dependency change in `pyproject.toml`, run `uv lock`.
+Put `uv run` before each command in the table. After `git pull`, run `uv sync` again. After a dependency change in [`pyproject.toml`](pyproject.toml), run `uv lock`.
 
 | Command | What it does |
 | --- | --- |
@@ -120,10 +120,10 @@ uv run ruff format --check
 | --- | --- |
 | [Architecture](docs/architecture.md) | Request flow, classification, fallback ladder, weights, session affinity and loops |
 | [API](docs/api.md) | Endpoints, model names, access and errors |
-| [Configuration](docs/configuration.md) | Environment variables, `config/daedalus.yml` and provider files |
+| [Configuration](docs/configuration.md) | Environment variables, [`config/daedalus.yml`](config/daedalus.yml) and provider files |
 | [Providers](docs/providers.md) | Supported providers and what each one can do |
 | [Deployment](docs/deployment.md) | Docker Compose, profiles, Open WebUI, Tika, SearXNG, Headroom and Tailscale |
-| [Open WebUI integration](docs/integrations/owui.md) | The skills, the filters and the tools of the `integrations/openwebui` folder |
+| [Open WebUI integration](docs/integrations/owui.md) | The skills, the filters and the tools of the [`integrations/openwebui`](integrations/openwebui) folder |
 | [Dashboard](docs/dashboard.md) | Pages and API keys |
 | [Hooks](docs/hooks.md) | Python files that change catalog rows, requests and answers |
 | [Decisions](docs/adr/) | Architecture decision records |
@@ -132,4 +132,4 @@ uv run ruff format --check
 
 daedalus uses the [daedalus Noncommercial License 1.0.0](LICENSE.md). You can use, change and share it for personal and other noncommercial purposes. Shared changes use the same terms and come with their source code. Commercial use needs a separate license from the owner.
 
-The classifier and its data come from [LiteLLM](https://github.com/BerriAI/litellm) (MIT). Its license is in `daedalus/routing/artifacts/LITELLM-LICENSE.txt`.
+The classifier and its data come from [LiteLLM](https://github.com/BerriAI/litellm) (MIT). Its license is in [`daedalus/routing/artifacts/LITELLM-LICENSE.txt`](daedalus/routing/artifacts/LITELLM-LICENSE.txt).

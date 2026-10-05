@@ -15,7 +15,7 @@ openrouter:
 
 The `hooks` key works like `order`. A `models` entry has priority. Then comes the provider block in the `{provider}.yml` file of the model, then the provider block in the main file. A model with `hooks: []` uses no hooks.
 
-Each item has 1 hook point and 1 file path. The path starts in the `config` folder, and the file must stay in that folder. The file name can be any name.
+Each item has 1 hook point and 1 file path. The path starts in the [`config`](../config) folder, and the file must stay in that folder. The file name can be any name.
 
 ## Hook points
 
@@ -70,7 +70,7 @@ A hook error does not stop the request. daedalus logs the error, and the value g
 
 - An exception, or a return value that is not a dict or None
 - A file that is not there, does not load, or has no function for the point
-- A path outside the `config` folder, or an unknown point
+- A path outside the [`config`](../config) folder, or an unknown point
 
 ## Changes
 
@@ -78,7 +78,7 @@ daedalus reads a file again when its file time changes. A restart is not necessa
 
 Hooks get no database access. An `on-catalog` hook changes only the row. daedalus writes only the known columns of the row, so a hook cannot change a table. A hook that keeps data uses its own file, such as `cheapest_output.json`.
 
-The dashboard edits the `hooks` list of a model or a provider. The Request hooks card of the Settings page names the file of each request-level point. It writes no hook file: only a person with access to the `config` folder adds one. A hook runs inside the daedalus process, with all its access.
+The dashboard edits the `hooks` list of a model or a provider. The Request hooks card of the Settings page names the file of each request-level point. It writes no hook file: only a person with access to the [`config`](../config) folder adds one. A hook runs inside the daedalus process, with all its access.
 
 ## Hook files in config
 
