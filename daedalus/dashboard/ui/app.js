@@ -412,8 +412,9 @@ function chainSteps(r) {
 }
 
 function chainRows(r) {
+  const many = fallbackCount(r);
   return `<tr role="row" class="chain"><td role="cell" colspan="13"><div class="chain-body">
-    <div class="chain-head"><span class="muted">Fallback chain</span>
+    <div class="chain-head"><span class="muted">Fallback chain${many ? ` · ${many}` : ""}</span>
       <button class="ghost copy-chain" type="button" data-at="${r.at}">Copy</button></div>
     ${raceNote(r)}${chainSteps(r)}
   </div></td></tr>`;
@@ -444,37 +445,32 @@ function routingCodes(r) {
   return transitionCell(r.transition) + from + loop;
 }
 
-function mobileFallbackChain(r) {
+function mobileFallbackChain(r, tail = "") {
   return `<details class="mobile-fallback-chain">
-    <summary>View fallback chain</summary>
+    <summary>View fallback chain${tail}</summary>
     <div class="mobile-chain-head"><span class="muted">Fallback chain</span>
       <button class="ghost copy-chain" type="button" data-at="${r.at}">Copy</button></div>
     ${raceNote(r)}${chainSteps(r)}
   </details>`;
 }
 
-function mobileRequestDetails(r, live = false) {
-  const fallbacks = r.fallbacks ?? "-";
-  const count = r.fallbacks === undefined || r.fallbacks === null
+// The fallback count of a request: the table hides the column, so the details of the chain carry
+// the count, and a live row reads the count alone.
+function fallbackCount(r) {
+  return r.fallbacks === undefined || r.fallbacks === null
     ? ""
-    : ` · ${esc(r.fallbacks)} ${Number(r.fallbacks) === 1 ? "fallback" : "fallbacks"}`;
-  const chain = !live && hasChain(r) ? mobileFallbackChain(r) : "";
-  return `<details class="mobile-request-more">
-    <summary>More · session, effort${count}</summary>
-    <dl class="mobile-request-meta">
-      <div><dt>Session</dt><dd class="mono">${esc(r.session || "-")}</dd></div>
-      <div><dt>Effort</dt><dd>${effortCell(r)}</dd></div>
-      <div><dt>Fallbacks</dt><dd>${esc(fallbacks)}</dd></div>
-    </dl>
-    ${chain}
-  </details>`;
+    : `${esc(r.fallbacks)} ${Number(r.fallbacks) === 1 ? "fallback" : "fallbacks"}`;
+}
+
+function mobileRequestDetails(r, live = false) {
+  const many = fallbackCount(r);
+  if (live) return many ? `<span class="mobile-fallback-count">${many}</span>` : "";
+  return hasChain(r) ? mobileFallbackChain(r, many ? ` · ${many}` : "") : "";
 }
 
 function fallbackCell(r, classes = "", live = false) {
-  return `<td role="cell" class="${classes} fallbacks-cell">
-    ${mobileLabel("Fallbacks")}<span class="cell-value">${esc(r.fallbacks ?? "-")}</span>
-    ${mobileRequestDetails(r, live)}
-  </td>`;
+  const details = mobileRequestDetails(r, live);
+  return `<td role="cell" class="${classes} fallbacks-cell${details ? "" : " no-details"}">${details}</td>`;
 }
 
 // A token count in whole thousands from 1,000, such as 79K, with the exact count on hover.
@@ -1974,7 +1970,7 @@ $("requests").addEventListener("click", async (event) => {
     }
     return;
   }
-  if (event.target.closest(".mobile-request-more") || window.matchMedia("(max-width: 720px)").matches) return;
+  if (event.target.closest(".mobile-fallback-chain") || window.matchMedia("(max-width: 720px)").matches) return;
   const row = event.target.closest("tr.request");
   if (!row || !row.classList.contains("has-chain") || !getSelection().isCollapsed) return;
   const at = row.dataset.at;

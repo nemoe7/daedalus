@@ -263,7 +263,9 @@ tr.request.has-chain { cursor: pointer; }
 .requests tr:not(.chain) > td { white-space: nowrap; }
 .requests td.name { max-width: 16rem; overflow: hidden; text-overflow: ellipsis; }
 .requests th:not(:first-child), .requests td:not(:first-child) { padding-left: 8px; padding-right: 8px; }
-.requests .mobile-request-more { display: none; }
+/* The desktop table reads the fallback count in the chain of the row. The phone card keeps a cell
+for the details. */
+.requests td.fallbacks-cell { display: none; }
 .mobile-label { display: none; }
 /* The mark of a provider or a developer beside a model name, in the shape `provider/dev/slug`.
 A shipped SVG file shows the mark; a name with no file shows its own text in the text color.
@@ -520,7 +522,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
     border-radius: var(--radius); background: var(--panel);
   }
   .requests tr.request, .requests tr.live-row {
-    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px 8px;
+    display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto; gap: 5px 8px;
     align-items: center; margin-bottom: 10px; padding: 8px 10px;
     border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel);
   }
@@ -529,10 +531,18 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .requests tr.chain {
     margin-top: 0; border-top: 0; border-top-left-radius: 0; border-top-right-radius: 0;
   }
+  /* A press paints no background on a card: the cells hold their own colours, so a long press then
+     selects the text with no patch behind it. */
   .requests tr.request > td, .requests tr.live-row > td {
     display: flex; align-items: baseline; justify-content: flex-start; gap: 5px;
     min-width: 0; padding: 0; border: 0; white-space: normal; max-width: none; overflow: visible;
   }
+  .requests tr.request:active td, .requests tr.live-row:active td { background: transparent; }
+  .requests tr.request:active, .requests tr.live-row:active { background: var(--field); }
+  /* The stamp reads on 1 line at its own width, so the client tag and the status badge keep their
+     own room. */
+  .requests tr.request > td:nth-child(1) .cell-value,
+  .requests tr.live-row > td:nth-child(1) .cell-value { font-size: 11px; white-space: nowrap; }
   .requests tr.request > td:nth-child(1), .requests tr.live-row > td:nth-child(1) { grid-column: 1; grid-row: 1; }
   .requests tr.request > td:nth-child(2), .requests tr.live-row > td:nth-child(2) { grid-column: 2 / 4; grid-row: 1; }
   .requests tr.request > td:nth-child(7), .requests tr.live-row > td:nth-child(7) {
@@ -545,10 +555,12 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .requests tr.request > td:nth-child(10), .requests tr.live-row > td:nth-child(10) { grid-column: 3; grid-row: 4; }
   .requests tr.request > td:nth-child(11), .requests tr.live-row > td:nth-child(11) { grid-column: 4; grid-row: 4; }
   .requests tr.request > td.fallbacks-cell, .requests tr.live-row > td.fallbacks-cell {
-    display: block; grid-column: 1 / -1; grid-row: 5;
+    display: block; grid-column: 1 / -1; grid-row: 6;
   }
-  .requests tr.request > td:nth-child(3), .requests tr.request > td:nth-child(5),
-  .requests tr.live-row > td:nth-child(3), .requests tr.live-row > td:nth-child(5) { display: none; }
+  .requests tr.request > td.fallbacks-cell.no-details,
+  .requests tr.live-row > td.fallbacks-cell.no-details { display: none; }
+  .requests tr.request > td:nth-child(3), .requests tr.live-row > td:nth-child(3) { grid-column: 1; grid-row: 5; }
+  .requests tr.request > td:nth-child(5), .requests tr.live-row > td:nth-child(5) { grid-column: 2 / 4; grid-row: 5; }
   .requests .mobile-label { display: inline; flex: none; color: var(--muted); font-size: 11px; }
   .requests .cell-value { flex: 1; min-width: 0; text-align: left; overflow-wrap: anywhere; }
   .requests tr.request > td:nth-child(1) .mobile-label,
@@ -576,27 +588,14 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
     flex: none; font-size: 11px; white-space: nowrap;
   }
   .requests .fallbacks-cell > .mobile-label, .requests .fallbacks-cell > .cell-value { display: none; }
-  .requests .mobile-request-more { display: block; width: 100%; }
-  .requests .mobile-request-more > summary, .requests .mobile-fallback-chain > summary {
+  .requests .mobile-fallback-chain > summary {
     width: fit-content; padding: 5px 0; color: var(--accent); cursor: pointer; font-size: 12px; font-weight: 600;
   }
   @media (hover: hover) {
-    .requests .mobile-request-more > summary:hover, .requests .mobile-fallback-chain > summary:hover {
+    .requests .mobile-fallback-chain > summary:hover {
       color: var(--text);
     }
   }
-  .requests .mobile-request-meta {
-    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 8px;
-    margin: 7px 0 0; padding: 0;
-  }
-  .requests .mobile-request-meta > div {
-    display: flex; min-width: 0; justify-content: space-between; gap: 6px;
-    padding-top: 4px; border-top: 1px solid var(--line);
-  }
-  .requests .mobile-request-meta dt { flex: none; color: var(--muted); font-size: 11px; }
-  .requests .mobile-request-meta dd { min-width: 0; margin: 0; overflow-wrap: anywhere; text-align: right; font-size: 11px; }
-  .requests .mobile-request-meta .from, .requests .mobile-request-meta .transition-code { white-space: normal; }
-  .requests .mobile-fallback-chain { margin-top: 7px; }
   .requests .mobile-chain-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 5px; }
   .requests .mobile-fallback-chain ol { list-style: none; margin: 5px 0 0; padding: 0; }
   .requests .mobile-fallback-chain li { overflow-wrap: anywhere; white-space: normal; }
@@ -605,14 +604,14 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .requests tr.chain td { display: block; padding-top: 0; }
 }
 @media (max-width: 360px) {
-  .requests tr.request > td:nth-child(1) .cell-value,
-  .requests tr.live-row > td:nth-child(1) .cell-value { font-size: 11px; white-space: nowrap; }
   .requests tr.live-row > td:nth-child(1) .pulse { width: 4px; height: 4px; margin-right: 2px; }
   .requests tr.request > td:nth-child(8), .requests tr.live-row > td:nth-child(8) { grid-column: 1 / 3; grid-row: 4; }
   .requests tr.request > td:nth-child(9), .requests tr.live-row > td:nth-child(9) { grid-column: 3 / 5; grid-row: 4; }
   .requests tr.request > td:nth-child(10), .requests tr.live-row > td:nth-child(10) { grid-column: 1 / 3; grid-row: 5; }
   .requests tr.request > td:nth-child(11), .requests tr.live-row > td:nth-child(11) { grid-column: 3 / 5; grid-row: 5; }
-  .requests tr.request > td.fallbacks-cell, .requests tr.live-row > td.fallbacks-cell { grid-column: 1 / -1; grid-row: 6; }
+  .requests tr.request > td:nth-child(3), .requests tr.live-row > td:nth-child(3) { grid-column: 1 / 3; grid-row: 6; }
+  .requests tr.request > td:nth-child(5), .requests tr.live-row > td:nth-child(5) { grid-column: 3 / 5; grid-row: 6; }
+  .requests tr.request > td.fallbacks-cell, .requests tr.live-row > td.fallbacks-cell { grid-column: 1 / -1; grid-row: 7; }
 }
 .from, .transition-code { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .transition { white-space: normal; }
