@@ -23,7 +23,7 @@ flowchart TD
 | --- | --- |
 | Knowledge | The 23 knowledge tools: bases, folders, files, search, tree. A file creation waits for the indexing |
 | Files | `list_files`, `search_files`, `upload_file`, `rename_file`, `read_file_content`, `delete_file` |
-| Skills | `list_skills`, `show_skill`, `install_skill`, `create_skill`, `update_skill`, `delete_skill` |
+| Skills | `list_skills`, `show_skill`, `install_skill`, `create_skill`, `update_skill`, `toggle_skill`, `delete_skill` |
 | Tools | `list_tools`, `show_tool`, `create_tool`, `update_tool`, `toggle_tool`, `delete_tool` |
 | Functions | `list_functions`, `show_function`, `create_function`, `update_function`, `toggle_function`, `delete_function` |
 

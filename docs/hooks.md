@@ -54,7 +54,7 @@ A request-level point, such as `on-request`, takes its files from the `request_h
 ```yaml
 request_hooks:
   on-request: [hooks/owui_retry.py]
-  on-prompt: []
+  on-prompt: [hooks/owui_think_longer.py]
   on-chunk: [hooks/served_model.py]
 ```
 
