@@ -56,8 +56,7 @@ def on_prompt(
 ) -> None:
   """Before the first attempt of a chat request that has a reasoning model in its chain.
 
-  `value` holds `reasoning_effort`: the effort of the tier map, `TIER-D` none to `TIER-A` high.
-  Change it to set the effort of the request. `messages` is the request list. `prompt` holds the
+  `value` starts empty. Set `value["reasoning_effort"]` to a string to set the effort. `messages` is the request list. `prompt` holds the
   user turns joined. `tier` and `tier_name` name the ladder tier, `slot` the pool slot.
   `reasoning` lists the chain models that support reasoning.
   `effort` is the value of the client, `None` when it sent none. A client value always wins.

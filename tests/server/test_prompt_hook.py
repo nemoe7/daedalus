@@ -1,5 +1,6 @@
-"""Tests for the `on-prompt` hook and the tier map of the reasoning effort."""
+"""Tests for the `on-prompt` hook of the reasoning effort."""
 
+import importlib.util
 import json
 from pathlib import Path
 
@@ -88,21 +89,21 @@ def hook_file() -> str:
     hooks._loaded.pop(path.resolve(), None)
 
 
-def test_tier_map(provider: Provider) -> None:
-  """The tier of the chain sets the effort: `TIER-A` high, `TIER-D` none."""
-  assert post(provider, "daedalus/auto:TIER-A")["reasoning_effort"] == "high"
-  assert post(provider, "daedalus/auto:TIER-D")["reasoning_effort"] == "none"
-  assert post(provider, "daedalus/koinos")["reasoning_effort"] == "low"
+def test_no_hook_file_sets_no_effort(provider: Provider) -> None:
+  """With no hook file, the base sets no effort of its own."""
+  assert "reasoning_effort" not in post(provider, "daedalus/auto:TIER-A")
+  assert "reasoning_effort" not in post(provider, "daedalus/auto:TIER-D")
+  assert "reasoning_effort" not in post(provider, "daedalus/koinos")
 
 
 def test_client_wins(provider: Provider) -> None:
-  """A `reasoning_effort` of the client keeps the last word over the tier map."""
+  """A `reasoning_effort` of the client goes upstream unchanged."""
   body = {**BODY, "reasoning_effort": "minimal"}
   assert post(provider, "daedalus/auto:TIER-A", body)["reasoning_effort"] == "minimal"
 
 
 def test_catalog_wins(provider: Provider, monkeypatch: pytest.MonkeyPatch) -> None:
-  """A stored effort of the model wins over the tier map."""
+  """A stored effort of the model goes upstream."""
   monkeypatch.setattr(
     upstream.store, "model_limits", lambda candidate: {"reasoning_effort": "medium"}
   )
@@ -166,7 +167,7 @@ def test_the_shipped_ladder_file_sets_the_effort(
   )
   written = post(provider, "daedalus/auto:TIER-B", app="OWUI")
   tier = int(api.router.required_tier(BODY["messages"][0]["content"]))
-  assert written["reasoning_effort"] == api.EFFORT_OF_TIER[api.router.TIER_NAMES[tier]]
+  assert written["reasoning_effort"] == shipped_levels()[tier]
   assert written["reasoning_effort"] != "minimal", (
     "the hook answers above the catalog default"
   )
@@ -193,14 +194,11 @@ def test_the_shipped_ladder_file_skips_another_client(
   assert post(provider, "daedalus/auto:TIER-B")["reasoning_effort"] == "minimal"
 
 
-def test_with_defaults_floor(monkeypatch: pytest.MonkeyPatch) -> None:
-  """The floor fills the effort only when neither the client nor the catalog gives one."""
-  body = {"model": "m"}
-  assert upstream.with_defaults("a/1", body, "high")["reasoning_effort"] == "high"
-  assert upstream.with_defaults("a/1", body) == body, "no floor, no effort"
-  asked = {"model": "m", "reasoning_effort": "low"}
-  assert upstream.with_defaults("a/1", asked, "high")["reasoning_effort"] == "low"
-  monkeypatch.setattr(
-    upstream.store, "model_limits", lambda candidate: {"reasoning_effort": "medium"}
-  )
-  assert upstream.with_defaults("a/1", body, "high")["reasoning_effort"] == "medium"
+def shipped_levels() -> dict[int, str]:
+  """The level table of the shipped ladder file, read from the file itself."""
+  path = Path(__file__).resolve().parents[2] / "config" / "hooks" / "auto_reasoning.py"
+  spec = importlib.util.spec_from_file_location("shipped_auto_reasoning", path)
+  assert spec and spec.loader, path
+  module = importlib.util.module_from_spec(spec)
+  spec.loader.exec_module(module)
+  return module.LEVELS
