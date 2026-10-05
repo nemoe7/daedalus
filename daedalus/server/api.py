@@ -19,7 +19,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from daedalus import __version__, dashboard, providers, store
 from daedalus.catalog import schedule
-from daedalus.config import block_for, get_config, settings
+from daedalus.config import block_for, get_config, remote, settings
 from daedalus.providers import hooks, signatures
 from daedalus.providers.base import error_text
 from daedalus.routing import (
@@ -1345,6 +1345,7 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   REQUEST_HOOKS = dict(values["request_hooks"])
   router.set_headroom(values["headroom"]["enabled"])
   router.set_threshold(values["routing"]["threshold"])
+  remote.sync(values["remote_hooks"])
   timeouts, affinity, weights = (
     values["timeouts"],
     values["affinity"],
