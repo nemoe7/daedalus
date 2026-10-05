@@ -581,22 +581,35 @@ def round_requests(items, context, phase, model, cover, round_number):
   if tokens <= CHUNK_TOKENS:
     summary(f"  {phase} round {round_number}: {tokens:,} input tokens; one request")
     return whole, [items]
-  chunked = {**context, "phase": "chunk" if phase == "release" else phase}
+  # A packed first round summarizes the evidence; a packed later round combines the
+  # summaries, whatever phase the final request carries.
+  chunked = {**context, "phase": "chunk" if round_number == 1 else phase}
   groups = grouped(items, chunked, model, cover)
   summary(
-    f"  {phase} round {round_number}: {tokens:,} input tokens over the"
-    f" {CHUNK_TOKENS:,} ceiling; packed into {len(groups)} request(s)"
+    f"  {phase} round {round_number}: {len(items)} evidence item(s), {tokens:,} input"
+    f" tokens over the {CHUNK_TOKENS:,} ceiling; packed into {len(groups)} request(s)"
   )
+  # The plan prints each request's share before the requests run, so the packing
+  # reads as numbered steps of one plan.
+  for index, group in enumerate(groups, 1):
+    share = measured(model, request_for(chunked, group))
+    summary(
+      f"    chunk {index}/{len(groups)}: {len(group)} evidence item(s), {share:,} tokens"
+    )
   return chunked, groups
 
 
-def release_body(units, context, model, generate_fn=generate, on_success=None):
+def release_body(
+  units, context, model, generate_fn=generate, on_success=None, accept=None
+):
   items = pieces(units)
   if not items:
     raise RuntimeError("No commits in release range")
   expected = {p["id"] for p in items}
   cover = {p["id"]: [p["id"]] for p in items}
-  phase = "release"
+  final_phase = context.get("phase", "release")
+  attempts = len(model) if isinstance(model, (list, tuple)) else 1
+  phase = final_phase
   round_number = 1
   while True:
     context, groups = round_requests(items, context, phase, model, cover, round_number)
@@ -604,11 +617,24 @@ def release_body(units, context, model, generate_fn=generate, on_success=None):
       covered = {identity for piece in groups[0] for identity in cover[piece["id"]]}
       if covered != expected:
         raise RuntimeError("Summary coverage mismatch")
-      # The last request writes the release body, whichever round it lands on.
-      final = {**context, "phase": "release"}
-      if on_success is None:
-        return generate_fn(final, groups[0], model)
-      return generate_fn(final, groups[0], model, on_success)
+      # The last request writes the release body or the classification, whichever
+      # phase the caller named, and an answer the accept check refuses retries on
+      # the next rung, so one bad word does not stop the run.
+      final = {**context, "phase": final_phase}
+      for attempt in range(attempts):
+        answer = (
+          generate_fn(final, groups[0], model)
+          if on_success is None
+          else generate_fn(final, groups[0], model, on_success)
+        )
+        if accept is None or accept(answer):
+          return answer
+        RUN_STATS["failures"] += 1
+        if attempt + 1 < attempts:
+          summary(
+            f"  invalid {final_phase} answer {answer.strip()[:60]!r}; retrying on the next rung"
+          )
+      raise RuntimeError(f"Gemini returned an invalid {final_phase} classification")
     reduced, next_cover = [], {}
     for i, group in enumerate(groups):
       text = generate_fn(context, group, model)
@@ -742,9 +768,18 @@ def current_base(repo, target):
   return previous, base, identity
 
 
+IMPACTS = ("major", "minor", "patch", "none", "review")
+
+
 def classify(units, context, model):
-  text = release_body(units, {**context, "phase": "version"}, model).strip()
-  if text not in ("major", "minor", "patch", "none", "review"):
+  """One word of version impact; release_body retries a refused answer on the ladder."""
+  text = release_body(
+    units,
+    {**context, "phase": "version"},
+    model,
+    accept=lambda answer: answer.strip() in IMPACTS,
+  ).strip()
+  if text not in IMPACTS:
     raise RuntimeError("Gemini returned an invalid version classification")
   return text
 
