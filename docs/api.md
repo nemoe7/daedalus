@@ -79,7 +79,7 @@ Each chat model and pool model in `GET /v1/models` has these catalog fields, whe
 
 ## Kilo Code plugin
 
-Kilo Code reads token limits only from its config. The plugin `integrations/kilo/daedalus.js` copies the model list fields into the Kilo config in memory. It runs when Kilo starts and after each config change. The config file does not change.
+Kilo Code reads token limits only from its config. The plugin [`integrations/kilo/daedalus.js`](../integrations/kilo/daedalus.js) copies the model list fields into the Kilo config in memory. It runs when Kilo starts and after each config change. The config file does not change.
 
 | Kilo model field | Value |
 | --- | --- |
