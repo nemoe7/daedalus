@@ -368,6 +368,8 @@ section[data-page="providers"], section[data-page="settings"], #yaml-view, #sett
   padding: 10px 0; border-top: 1px solid var(--line);
 }
 .field:first-of-type { border-top: 0; }
+/* A card with an On switch greys its other rows while the switch is off. */
+.field.off { opacity: .5; }
 .field > span:first-child, .field.check > span { display: grid; gap: 2px; }
 .field b { font-weight: 500; }
 .field small { color: var(--muted); font-size: 12px; }
