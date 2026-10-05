@@ -40,6 +40,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
   "catalog": {"every": 6.0, "anchor": 6.0},
   # The message compression through Headroom. A block or a model entry turns it off for 1 model.
   "headroom": {"enabled": True, "timeout": 5.0},
+  # The bar of the classifier: the odds a tier needs to take a request.
+  "routing": {"threshold": 0.75},
   # The phrases that raise the tier of `daedalus/auto`, and the words that move the session model.
   "escalation": {
     "keywords": [
@@ -144,7 +146,7 @@ def check(group: str, key: str, value: Any) -> Any:
     if not 1 <= value <= 10:
       raise SettingsError(f"{name} must be between 1 and 10")
     return value
-  if key == "chance":
+  if key in ("chance", "threshold"):
     if (
       isinstance(value, bool)
       or not isinstance(value, int | float)

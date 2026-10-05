@@ -35,7 +35,9 @@ def test_prompt_cache() -> None:
   """The same prompt runs the classifier 1 time."""
   runs: list[str] = []
   original = router.predict
-  router.predict = lambda prompt, table: runs.append(prompt) or original(prompt, table)
+  router.predict = lambda prompt, table, **rest: (
+    runs.append(prompt) or original(prompt, table, **rest)
+  )
   try:
     prompt = "Write a proof that the square root of 2 is not rational."
     tier = router.required_tier(prompt)

@@ -1344,6 +1344,7 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   )
   REQUEST_HOOKS = dict(values["request_hooks"])
   router.set_headroom(values["headroom"]["enabled"])
+  router.set_threshold(values["routing"]["threshold"])
   timeouts, affinity, weights = (
     values["timeouts"],
     values["affinity"],

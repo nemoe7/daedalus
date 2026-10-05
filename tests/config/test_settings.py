@@ -322,6 +322,31 @@ def test_headroom_switch() -> None:
     settings.parse("headroom:\n  enabled: 1\n")
 
 
+def test_routing_threshold() -> None:
+  """The bar of the classifier is a number from 0 to 1, and its default is the shipped one."""
+  assert settings.parse("")["routing"]["threshold"] == 0.75
+  assert settings.parse("routing:\n  threshold: 0.95\n")["routing"]["threshold"] == 0.95
+  assert settings.parse("routing:\n  threshold: 0\n")["routing"]["threshold"] == 0.0
+  assert settings.parse("routing:\n  threshold: 1\n")["routing"]["threshold"] == 1.0
+  for bad in ("-0.1", "1.1", "true", "'high'", "[1]"):
+    with pytest.raises(settings.SettingsError, match="from 0 to 1"):
+      settings.parse(f"routing:\n  threshold: {bad}\n")
+  with pytest.raises(settings.SettingsError, match="unknown key"):
+    settings.parse("routing:\n  bar: 0.5\n")
+
+
+def test_apply_takes_the_threshold(folder: Path) -> None:
+  """A save moves the bar of the router, and the shipped default returns it."""
+  path = folder / "threshold.yml"
+  path.write_text("routing:\n  threshold: 0.91\n", encoding="utf-8")
+  try:
+    api.apply_settings(settings.load(path))
+    assert api.router.THRESHOLD == 0.91
+  finally:
+    api.apply_settings(settings.load(folder / "missing.yml"))
+  assert api.router.THRESHOLD == 0.75
+
+
 def test_pool_names() -> None:
   """The key of each pool is generic, its default is the built-in name, and a save keeps a number-like name."""
   assert settings.parse("")["pools"]["tier-a"] == "sophos"

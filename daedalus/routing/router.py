@@ -262,12 +262,23 @@ _ARTIFACT: list[Artifact] = []
 # The tiers of the last prompts, by digest. The requests of 1 tool loop repeat the prompt.
 _TIER_OF: OrderedDict[bytes, int] = OrderedDict()
 PROMPTS_KEPT: Final = 64
+# The bar of the `routing.threshold` setting. None keeps the value of the artifact.
+THRESHOLD: float | None = None
+
+
+def set_threshold(value: float | None) -> None:
+  """Use the bar of `routing.threshold` for the next reads. None keeps the artifact value."""
+  global THRESHOLD
+  if THRESHOLD != value:
+    # The cached tiers were read against the old bar.
+    _TIER_OF.clear()
+  THRESHOLD = value
 
 
 def required_tier(prompt: str, artifact: Artifact | None = None) -> int:
   """The cheapest tier that will do for one prompt."""
   if artifact is not None:
-    return predict(prompt, artifact).required_tier
+    return predict(prompt, artifact, threshold=THRESHOLD).required_tier
   digest = hashlib.blake2b(prompt.encode("utf-8", "surrogatepass"), digest_size=16)
   key = digest.digest()
   if key in _TIER_OF:
@@ -275,7 +286,9 @@ def required_tier(prompt: str, artifact: Artifact | None = None) -> int:
     return _TIER_OF[key]
   if not _ARTIFACT:
     _ARTIFACT.append(load_artifact())
-  tier = _TIER_OF[key] = predict(prompt, _ARTIFACT[0]).required_tier
+  tier = _TIER_OF[key] = predict(
+    prompt, _ARTIFACT[0], threshold=THRESHOLD
+  ).required_tier
   if len(_TIER_OF) > PROMPTS_KEPT:
     _TIER_OF.popitem(last=False)
   return tier
