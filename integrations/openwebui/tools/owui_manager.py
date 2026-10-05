@@ -11,7 +11,7 @@ import asyncio
 import json
 import re
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal
 
 import aiohttp
 from pydantic import BaseModel, Field
@@ -69,7 +69,7 @@ class Tools:
   class Valves(BaseModel):
     OWUI_API_BASE: str = "http://127.0.0.1:8080/api/v1"
     PRESET_MODELS: str = ""
-    default_mode: str = "ask"
+    permissions: Literal["Always ask", "Allow reads", "Always allow"] = "Always ask"
     timeout_seconds: int = 60
     INSTALL_FETCH_TIMEOUT: float = 12.0
     TRUSTED_DOMAINS: str = "github.com,huggingface.co,githubusercontent.com"
@@ -95,12 +95,16 @@ class Tools:
       value = valves.get(name)
     return value
 
-  def _effective_mode(self, __user__: dict | None = None) -> str:
-    """The mode: the user valve wins, then the tool valve."""
+  def _permissions(self, __user__: dict | None = None) -> str:
+    """The permission level: the user valve wins, then the tool valve.
+
+    Always ask holds every call, reads included. Allow reads lets a read run
+    and holds the mutations and the toggles. Always allow holds nothing.
+    """
     user_mode = self._user_valve(__user__, "mode")
     if user_mode and user_mode != "default":
-      return user_mode
-    return self.valves.default_mode
+      return str(user_mode)
+    return str(self.valves.permissions or "Always ask")
 
   def _wait_seconds(self, __user__: dict | None = None) -> int:
     """The confirmation wait: the user value wins, then the tool value."""
@@ -141,16 +145,17 @@ class Tools:
       return False
     return answer is True
 
-  async def _guard(self, action, detail, __user__, __event_call__):
-    """Run the gate for one mutation. Returns a refusal text, or None to go on."""
-    mode = self._effective_mode(__user__)
-    if mode == "deny":
-      return json.dumps(
-        {"result": {"denied": True, "action": action, "reason": "Denied by policy."}}
-      )
-    if mode != "allow" and not await self._ask(
-      action, detail, __event_call__, __user__
-    ):
+  async def _guard(
+    self, action, detail, __user__, __event_call__, sensitive: bool = True
+  ):
+    """Run the gate for one mutation. Returns a refusal text, or None to go on.
+
+    sensitive holds a mutation and a toggle: every level but Always allow asks.
+    A new item passes sensitive=False, so only Always ask holds it.
+    """
+    level = self._permissions(__user__)
+    asked = level != "Always allow" if sensitive else level == "Always ask"
+    if asked and not await self._ask(action, detail, __event_call__, __user__):
       return json.dumps(
         {
           "result": {
@@ -316,23 +321,40 @@ class Tools:
     headers, cookies = self._auth(request)
     return aiohttp.ClientSession(headers=headers, cookies=cookies)
 
-  async def list_knowledge_bases(self, __request__=None) -> str:
+  async def list_knowledge_bases(
+    self,
+    __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> str:
     """
     List knowledge bases available to the current Open WebUI user,
     including their IDs and write access.
     """
-    if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
-    async with await self._open_session(__request__) as session:
-      data, err = await self._request(session, "GET", "/knowledge/")
-    if err:
-      return err
-    items = (data or {}).get("items", [])
-    if not items:
-      return "No knowledge bases found."
-    return "\n".join(
-      f"- {x.get('name', 'Unnamed')} (id={x.get('id')}, write_access={x.get('write_access')})"
-      for x in items
+
+    async def run(
+      __request__=__request__, __user__=__user__, __event_call__=__event_call__
+    ):
+      if __request__ is None:
+        return "Error: Open WebUI request context is unavailable."
+      async with await self._open_session(__request__) as session:
+        data, err = await self._request(session, "GET", "/knowledge/")
+      if err:
+        return err
+      items = (data or {}).get("items", [])
+      if not items:
+        return "No knowledge bases found."
+      return "\n".join(
+        f"- {x.get('name', 'Unnamed')} (id={x.get('id')}, write_access={x.get('write_access')})"
+        for x in items
+      )
+
+    return await self._read(
+      "read list_knowledge_bases",
+      str(locals().get("page", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
 
   async def list_knowledge_files(
@@ -340,6 +362,8 @@ class Tools:
     knowledge_id: str = Field(..., description="ID of the Open WebUI knowledge base."),
     directory_id: str = "",
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     List files and directories inside an Open WebUI knowledge base.
@@ -351,40 +375,68 @@ class Tools:
     Returns directory IDs, file IDs and breadcrumbs so the model
     can navigate the knowledge base without creating duplicate folders.
     """
-    if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
-    async with await self._open_session(__request__) as session:
-      data, err = await self._directory_listing(session, knowledge_id, directory_id)
-    if err:
-      return err
-    out = []
-    if data["breadcrumbs"]:
-      out.append("PATH:")
+
+    async def run(
+      knowledge_id=knowledge_id,
+      directory_id=directory_id,
+      __request__=__request__,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      if __request__ is None:
+        return "Error: Open WebUI request context is unavailable."
+      async with await self._open_session(__request__) as session:
+        data, err = await self._directory_listing(session, knowledge_id, directory_id)
+      if err:
+        return err
+      out = []
+      if data["breadcrumbs"]:
+        out.append("PATH:")
+        out += [
+          f"- {x.get('name', 'Unnamed')} (directory_id={x.get('id')})"
+          for x in data["breadcrumbs"]
+        ]
+      out.append("\nDIRECTORIES:")
       out += [
-        f"- {x.get('name', 'Unnamed')} (directory_id={x.get('id')})"
-        for x in data["breadcrumbs"]
-      ]
-    out.append("\nDIRECTORIES:")
-    out += [
-      f"- {x.get('name', 'Unnamed')} (directory_id={x.get('id')}, parent_id={x.get('parent_id')})"
-      for x in data["directories"]
-    ] or ["- none"]
-    out.append("\nFILES:")
-    out += [
-      f"- {self._file_item(x).get('filename', 'Unnamed')} (file_id={self._file_item(x).get('id')})"
-      for x in data["items"]
-    ] or ["- none"]
-    return "\n".join(out)
+        f"- {x.get('name', 'Unnamed')} (directory_id={x.get('id')}, parent_id={x.get('parent_id')})"
+        for x in data["directories"]
+      ] or ["- none"]
+      out.append("\nFILES:")
+      out += [
+        f"- {self._file_item(x).get('filename', 'Unnamed')} (file_id={self._file_item(x).get('id')})"
+        for x in data["items"]
+      ] or ["- none"]
+      return "\n".join(out)
+
+    return await self._read(
+      "read list_knowledge_files",
+      str(locals().get("page", "") or ""),
+      run,
+      __user__,
+      __event_call__,
+    )
 
   async def create_knowledge_base(
     self,
     name: str = Field(..., description="Name of the new Open WebUI knowledge base."),
     description: str = "",
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Create a new Open WebUI knowledge base for the current user.
     """
+
+    refusal = await self._guard(
+      "create a knowledge base",
+      str(name),
+      __user__,
+      __event_call__,
+      sensitive=False,
+    )
+    if refusal:
+      return refusal
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     name = name.strip()
@@ -465,11 +517,23 @@ class Tools:
     name: str = Field(..., description="Name of the directory to create."),
     parent_id: str = "",
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Create a directory inside an Open WebUI knowledge base.
     Supports nested directories using parent_id.
     """
+
+    refusal = await self._guard(
+      "create a knowledge directory",
+      str(name),
+      __user__,
+      __event_call__,
+      sensitive=False,
+    )
+    if refusal:
+      return refusal
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     name = name.strip()
@@ -575,6 +639,8 @@ class Tools:
     ),
     directory_id: str = "",
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Create a new Markdown file in an Open WebUI knowledge base
@@ -584,6 +650,16 @@ class Tools:
     - empty string = create in knowledge base root
     - directory ID = create directly inside that directory
     """
+
+    refusal = await self._guard(
+      "create a knowledge file",
+      str(filename),
+      __user__,
+      __event_call__,
+      sensitive=False,
+    )
+    if refusal:
+      return refusal
     filename = filename.strip()
     if not filename:
       return "Error: filename is empty."
@@ -614,6 +690,8 @@ class Tools:
       ..., description="Complete Markdown content for the new file."
     ),
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Create a Markdown file at a nested path inside a knowledge base.
@@ -622,6 +700,16 @@ class Tools:
     Missing directories are created automatically.
     The file is created directly in the final directory.
     """
+
+    refusal = await self._guard(
+      "create a knowledge file",
+      f"{knowledge_id}:{path}",
+      __user__,
+      __event_call__,
+      sensitive=False,
+    )
+    if refusal:
+      return refusal
     parts, err = self._path_parts(path)
     if err:
       return err
@@ -749,19 +837,36 @@ class Tools:
       ..., description="ID of the Open WebUI knowledge file to read."
     ),
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Read the extracted/indexed text content of an Open WebUI knowledge file.
     Use this before editing an existing document.
     """
-    if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
-    async with await self._open_session(__request__) as s:
-      data, e = await self._request(s, "GET", f"/files/{file_id}/data/content")
-    if e:
-      return e
-    c = (data or {}).get("content", "")
-    return c if c else "File exists, but no extracted text content was found."
+
+    async def run(
+      file_id=file_id,
+      __request__=__request__,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      if __request__ is None:
+        return "Error: Open WebUI request context is unavailable."
+      async with await self._open_session(__request__) as s:
+        data, e = await self._request(s, "GET", f"/files/{file_id}/data/content")
+      if e:
+        return e
+      c = (data or {}).get("content", "")
+      return c if c else "File exists, but no extracted text content was found."
+
+    return await self._read(
+      "read read_knowledge_file",
+      str(locals().get("page", "") or ""),
+      run,
+      __user__,
+      __event_call__,
+    )
 
   async def update_knowledge_file_at_path(
     self,
@@ -806,12 +911,32 @@ class Tools:
       description="Exact file path, for example Projects/Servers/VPN/Notes/readme.md.",
     ),
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Read an existing knowledge file by its exact path.
     Does not create or modify anything.
     """
-    return await self._read_or_update_path(knowledge_id, path, None, False, __request__)
+
+    async def run(
+      knowledge_id=knowledge_id,
+      path=path,
+      __request__=__request__,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      return await self._read_or_update_path(
+        knowledge_id, path, None, False, __request__
+      )
+
+    return await self._read(
+      "read read_knowledge_file_at_path",
+      str(locals().get("page", "") or ""),
+      run,
+      __user__,
+      __event_call__,
+    )
 
   async def upsert_knowledge_markdown_at_path(
     self,
@@ -1143,6 +1268,8 @@ class Tools:
     page: int = 1,
     max_content_items: int = 10,
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Search files across all Open WebUI knowledge bases available
@@ -1155,57 +1282,75 @@ class Tools:
     Note: Open WebUI search API searches by filename, not by file content.
     Full-text search within file content is not supported by the current API.
     """
-    query = query.strip()
-    if not query:
-      return "Error: search query is empty."
-    if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
-    page = max(1, page)
-    max_content_items = max(1, min(max_content_items, 50))
 
-    async with await self._open_session(__request__) as s:
-      data, error = await self._request(
-        s,
-        "GET",
-        "/knowledge/search/files",
-        params={
-          "query": query,
-          "include_content": str(include_content).lower(),
-          "page": page,
-        },
-      )
-      if error:
-        return error
+    async def run(
+      query=query,
+      include_content=include_content,
+      page=page,
+      max_content_items=max_content_items,
+      __request__=__request__,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      query = query.strip()
+      if not query:
+        return "Error: search query is empty."
+      if __request__ is None:
+        return "Error: Open WebUI request context is unavailable."
+      page = max(1, page)
+      max_content_items = max(1, min(max_content_items, 50))
 
-      items = (data or {}).get("items", [])
-      if not items:
-        return f"No matching knowledge files found.\nquery={query}\npage={page}"
+      async with await self._open_session(__request__) as s:
+        data, error = await self._request(
+          s,
+          "GET",
+          "/knowledge/search/files",
+          params={
+            "query": query,
+            "include_content": str(include_content).lower(),
+            "page": page,
+          },
+        )
+        if error:
+          return error
 
-      result = [f"Search results for: {query}", f"page={page}", ""]
-      for i, item in enumerate(items):
-        file_data = self._file_item(item)
-        filename = file_data.get("filename", file_data.get("name", "Unnamed"))
-        file_id = file_data.get("id")
-        result.append(f"- {filename} (file_id={file_id})")
+        items = (data or {}).get("items", [])
+        if not items:
+          return f"No matching knowledge files found.\nquery={query}\npage={page}"
 
-        if include_content and file_id and i < max_content_items:
-          # Some Open WebUI versions do not return the text in the search
-          # response. Therefore, with include_content we fetch it with
-          # a separate request.
-          content_data, content_error = await self._request(
-            s, "GET", f"/files/{file_id}/data/content"
-          )
-          if content_error:
-            result.append(f"  content_preview_error={content_error}")
-          else:
-            content = (content_data or {}).get("content", "")
-            result.append(
-              f"  content_preview={content[:1000]}"
-              if content
-              else "  content_preview=<empty>"
+        result = [f"Search results for: {query}", f"page={page}", ""]
+        for i, item in enumerate(items):
+          file_data = self._file_item(item)
+          filename = file_data.get("filename", file_data.get("name", "Unnamed"))
+          file_id = file_data.get("id")
+          result.append(f"- {filename} (file_id={file_id})")
+
+          if include_content and file_id and i < max_content_items:
+            # Some Open WebUI versions do not return the text in the search
+            # response. Therefore, with include_content we fetch it with
+            # a separate request.
+            content_data, content_error = await self._request(
+              s, "GET", f"/files/{file_id}/data/content"
             )
+            if content_error:
+              result.append(f"  content_preview_error={content_error}")
+            else:
+              content = (content_data or {}).get("content", "")
+              result.append(
+                f"  content_preview={content[:1000]}"
+                if content
+                else "  content_preview=<empty>"
+              )
 
-    return "\n".join(result)
+      return "\n".join(result)
+
+    return await self._read(
+      "read search_knowledge_files",
+      str(locals().get("page", "") or ""),
+      run,
+      __user__,
+      __event_call__,
+    )
 
   async def find_and_read_knowledge_file(
     self,
@@ -1214,6 +1359,8 @@ class Tools:
     ),
     exact_filename: str = "",
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Find a file across all accessible Open WebUI knowledge bases
@@ -1222,41 +1369,57 @@ class Tools:
     If exact_filename is provided, prefer an exact filename match.
     If several files still match, return their IDs instead of guessing.
     """
-    if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
-    async with await self._open_session(__request__) as s:
-      d, e = await self._request(
-        s,
-        "GET",
-        "/knowledge/search/files",
-        params={
-          "query": query.strip(),
-          "include_content": "false",
-          "page": 1,
-        },
-      )
-      if e:
-        return e
-      items = (d or {}).get("items", [])
-      if exact_filename:
-        exact = [
-          x
-          for x in items
-          if x.get("filename", "").casefold() == exact_filename.strip().casefold()
-        ]
-        if exact:
-          items = exact
-      if not items:
-        return "No matching knowledge file found."
-      if len(items) > 1:
-        return "Multiple matching files found:\n" + "\n".join(
-          f"- {x.get('filename', 'Unnamed')} (file_id={x.get('id')})" for x in items
+
+    async def run(
+      query=query,
+      exact_filename=exact_filename,
+      __request__=__request__,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      if __request__ is None:
+        return "Error: Open WebUI request context is unavailable."
+      async with await self._open_session(__request__) as s:
+        d, e = await self._request(
+          s,
+          "GET",
+          "/knowledge/search/files",
+          params={
+            "query": query.strip(),
+            "include_content": "false",
+            "page": 1,
+          },
         )
-      x = items[0]
-      data, e = await self._request(s, "GET", f"/files/{x.get('id')}/data/content")
-    return (
-      e
-      or f"filename={x.get('filename', 'Unnamed')}\nfile_id={x.get('id')}\n\n{(data or {}).get('content', '')}"
+        if e:
+          return e
+        items = (d or {}).get("items", [])
+        if exact_filename:
+          exact = [
+            x
+            for x in items
+            if x.get("filename", "").casefold() == exact_filename.strip().casefold()
+          ]
+          if exact:
+            items = exact
+        if not items:
+          return "No matching knowledge file found."
+        if len(items) > 1:
+          return "Multiple matching files found:\n" + "\n".join(
+            f"- {x.get('filename', 'Unnamed')} (file_id={x.get('id')})" for x in items
+          )
+        x = items[0]
+        data, e = await self._request(s, "GET", f"/files/{x.get('id')}/data/content")
+      return (
+        e
+        or f"filename={x.get('filename', 'Unnamed')}\nfile_id={x.get('id')}\n\n{(data or {}).get('content', '')}"
+      )
+
+    return await self._read(
+      "read find_and_read_knowledge_file",
+      str(locals().get("page", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
 
   async def get_knowledge_tree(
@@ -1265,6 +1428,8 @@ class Tools:
     max_depth: int = 20,
     max_nodes: int = 1000,
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Return the complete directory/file tree of an Open WebUI knowledge base.
@@ -1272,54 +1437,73 @@ class Tools:
     Includes directory IDs and file IDs.
     Traverses nested directories recursively.
     """
-    if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
-    max_depth = max(1, min(max_depth, 50))
-    max_nodes = max(1, min(max_nodes, 5000))
-    lines = []
-    count = 0
-    visited = set()
-    async with await self._open_session(__request__) as s:
-      meta, e = await self._request(s, "GET", f"/knowledge/{knowledge_id}")
-      if e:
-        return e
-      lines.append(
-        f"{meta.get('name', 'Knowledge Base')} (knowledge_id={knowledge_id})"
-      )
 
-      async def walk(directory, depth):
-        nonlocal count
-        if count >= max_nodes or depth > max_depth:
-          return
-        key = directory or "ROOT"
-        if key in visited:
-          return
-        visited.add(key)
-        listing, e = await self._directory_listing(s, knowledge_id, directory)
+    async def run(
+      knowledge_id=knowledge_id,
+      max_depth=max_depth,
+      max_nodes=max_nodes,
+      __request__=__request__,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      if __request__ is None:
+        return "Error: Open WebUI request context is unavailable."
+      max_depth = max(1, min(max_depth, 50))
+      max_nodes = max(1, min(max_nodes, 5000))
+      lines = []
+      count = 0
+      visited = set()
+      async with await self._open_session(__request__) as s:
+        meta, e = await self._request(s, "GET", f"/knowledge/{knowledge_id}")
         if e:
-          lines.append("  " * depth + e)
-          return
-        for x in listing["items"]:
-          if count >= max_nodes:
-            return
-          count += 1
-          f = self._file_item(x)
-          lines.append(
-            "  " * depth + f"📄 {f.get('filename', 'Unnamed')} (file_id={f.get('id')})"
-          )
-        for x in listing["directories"]:
-          if count >= max_nodes:
-            return
-          count += 1
-          lines.append(
-            "  " * depth + f"📁 {x.get('name', 'Unnamed')} (directory_id={x.get('id')})"
-          )
-          await walk(x.get("id"), depth + 1)
+          return e
+        lines.append(
+          f"{meta.get('name', 'Knowledge Base')} (knowledge_id={knowledge_id})"
+        )
 
-      await walk("", 1)
-    if count >= max_nodes:
-      lines.append(f"\nTree truncated after {max_nodes} nodes.")
-    return "\n".join(lines)
+        async def walk(directory, depth):
+          nonlocal count
+          if count >= max_nodes or depth > max_depth:
+            return
+          key = directory or "ROOT"
+          if key in visited:
+            return
+          visited.add(key)
+          listing, e = await self._directory_listing(s, knowledge_id, directory)
+          if e:
+            lines.append("  " * depth + e)
+            return
+          for x in listing["items"]:
+            if count >= max_nodes:
+              return
+            count += 1
+            f = self._file_item(x)
+            lines.append(
+              "  " * depth
+              + f"📄 {f.get('filename', 'Unnamed')} (file_id={f.get('id')})"
+            )
+          for x in listing["directories"]:
+            if count >= max_nodes:
+              return
+            count += 1
+            lines.append(
+              "  " * depth
+              + f"📁 {x.get('name', 'Unnamed')} (directory_id={x.get('id')})"
+            )
+            await walk(x.get("id"), depth + 1)
+
+        await walk("", 1)
+      if count >= max_nodes:
+        lines.append(f"\nTree truncated after {max_nodes} nodes.")
+      return "\n".join(lines)
+
+    return await self._read(
+      "read get_knowledge_tree",
+      str(locals().get("page", "") or ""),
+      run,
+      __user__,
+      __event_call__,
+    )
 
   async def delete_knowledge_base(
     self,
@@ -1727,65 +1911,172 @@ class Tools:
       result.append(f"skipped, no write access: {', '.join(skipped)}")
     return "\n".join(result)
 
+  async def _read(
+    self,
+    action: str,
+    detail: str,
+    fn: Callable,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ):
+    """Run one read behind the read gate.
+
+    Always ask holds the read at the same confirmation as a mutation. Allow
+    reads and Always allow let it run.
+    """
+    if self._permissions(__user__) == "Always ask" and not await self._ask(
+      action, detail, __event_call__, __user__
+    ):
+      return json.dumps(
+        {
+          "result": {
+            "denied": True,
+            "action": action,
+            "reason": "Not confirmed, so nothing was read.",
+          }
+        }
+      )
+    return await fn()
+
   # ---------------------------------------------------------------- the files
 
-  async def list_files(self, page: int = 1, __request__=None) -> str:
+  async def list_files(
+    self,
+    page: int = 1,
+    __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> str:
     """List the files of the Open WebUI file library, with their ids and sizes."""
-    if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
-    async with await self._open_session(__request__) as s:
-      data, err = await self._request(
-        s, "GET", "/files/", params={"page": max(1, page)}
-      )
-    if err:
-      return err
-    items = (data or {}).get("items") or []
-    if not items:
-      return "No files found."
-    lines = [f"total={(data or {}).get('total')}"]
-    for item in items:
-      meta = item.get("meta") or {}
-      lines.append(
-        f"- {item.get('filename') or 'Unnamed'} (id={item.get('id')}, "
-        f"size={meta.get('size') or 0})"
-      )
-    return "\n".join(lines)
 
-  async def search_files(self, filename: str, __request__=None) -> str:
-    """Search the file library by name. Wildcards such as *.md are allowed."""
-    if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
-    name = (filename or "").strip()
-    if not name:
-      return "Error: filename is empty."
-    async with await self._open_session(__request__) as s:
-      data, err = await self._request(
-        s, "GET", "/files/search", params={"filename": name}
-      )
-    if err:
-      return err
-    items = data if isinstance(data, list) else (data or {}).get("items") or []
-    if not items:
-      return "No files found."
-    return "\n".join(
-      f"- {item.get('filename') or 'Unnamed'} (id={item.get('id')})" for item in items
+    async def run(
+      page=page,
+      __request__=__request__,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      if __request__ is None:
+        return "Error: Open WebUI request context is unavailable."
+      async with await self._open_session(__request__) as s:
+        data, err = await self._request(
+          s, "GET", "/files/", params={"page": max(1, page)}
+        )
+      if err:
+        return err
+      items = (data or {}).get("items") or []
+      if not items:
+        return "No files found."
+      lines = [f"total={(data or {}).get('total')}"]
+      for item in items:
+        meta = item.get("meta") or {}
+        lines.append(
+          f"- {item.get('filename') or 'Unnamed'} (id={item.get('id')}, "
+          f"size={meta.get('size') or 0})"
+        )
+      return "\n".join(lines)
+
+    return await self._read(
+      "read list_files",
+      str(locals().get("page", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
 
-  async def read_file_content(self, file_id: str, __request__=None) -> str:
-    """Read the stored text content of one file of the library. A read runs free."""
-    if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
-    async with await self._open_session(__request__) as s:
-      data, err = await self._request(s, "GET", f"/files/{file_id}/data/content")
-    if err:
-      return err
-    content = (data or {}).get("content")
-    if content is None:
-      return "Error: the file has no stored text content."
-    return str(content)
+  async def search_files(
+    self,
+    filename: str,
+    __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> str:
+    """Search the file library by name. Wildcards such as *.md are allowed."""
 
-  async def upload_file(self, filename: str, content: str, __request__=None) -> str:
+    async def run(
+      filename=filename,
+      __request__=__request__,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      if __request__ is None:
+        return "Error: Open WebUI request context is unavailable."
+      name = (filename or "").strip()
+      if not name:
+        return "Error: filename is empty."
+      async with await self._open_session(__request__) as s:
+        data, err = await self._request(
+          s, "GET", "/files/search", params={"filename": name}
+        )
+      if err:
+        return err
+      items = data if isinstance(data, list) else (data or {}).get("items") or []
+      if not items:
+        return "No files found."
+      return "\n".join(
+        f"- {item.get('filename') or 'Unnamed'} (id={item.get('id')})" for item in items
+      )
+
+    return await self._read(
+      "read search_files",
+      str(locals().get("page", "") or ""),
+      run,
+      __user__,
+      __event_call__,
+    )
+
+  async def read_file_content(
+    self,
+    file_id: str,
+    __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> str:
+    """Read the stored text content of one file of the library. A read runs free."""
+
+    async def run(
+      file_id=file_id,
+      __request__=__request__,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      if __request__ is None:
+        return "Error: Open WebUI request context is unavailable."
+      async with await self._open_session(__request__) as s:
+        data, err = await self._request(s, "GET", f"/files/{file_id}/data/content")
+      if err:
+        return err
+      content = (data or {}).get("content")
+      if content is None:
+        return "Error: the file has no stored text content."
+      return str(content)
+
+    return await self._read(
+      "read read_file_content",
+      str(locals().get("page", "") or ""),
+      run,
+      __user__,
+      __event_call__,
+    )
+
+  async def upload_file(
+    self,
+    filename: str,
+    content: str,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+    __request__=None,
+  ) -> str:
     """Create one text file in the library. A new item runs free."""
+
+    refusal = await self._guard(
+      "upload a file",
+      str(filename),
+      __user__,
+      __event_call__,
+      sensitive=False,
+    )
+    if refusal:
+      return refusal
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     name = (filename or "").strip() or "untitled.txt"
@@ -1853,37 +2144,75 @@ class Tools:
 
   # ---------------------------------------------------------------- the skills
 
-  async def list_skills(self, __request__=None) -> str:
+  async def list_skills(
+    self,
+    __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> str:
     """List the skills of the workspace, with their ids and their state."""
-    if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
-    async with await self._open_session(__request__) as s:
-      data, err = await self._request(s, "GET", "/skills/")
-    if err:
-      return err
-    items = (data or {}).get("items") or []
-    if not items:
-      return "No skills found."
-    return "\n".join(
-      f"- {item.get('name') or 'Unnamed'} (id={item.get('id')}, "
-      f"active={item.get('is_active')})"
-      for item in items
+
+    async def run(
+      __request__=__request__, __user__=__user__, __event_call__=__event_call__
+    ):
+      if __request__ is None:
+        return "Error: Open WebUI request context is unavailable."
+      async with await self._open_session(__request__) as s:
+        data, err = await self._request(s, "GET", "/skills/")
+      if err:
+        return err
+      items = (data or {}).get("items") or []
+      if not items:
+        return "No skills found."
+      return "\n".join(
+        f"- {item.get('name') or 'Unnamed'} (id={item.get('id')}, "
+        f"active={item.get('is_active')})"
+        for item in items
+      )
+
+    return await self._read(
+      "read list_skills",
+      str(locals().get("page", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
 
-  async def show_skill(self, skill_id: str, __request__=None) -> str:
+  async def show_skill(
+    self,
+    skill_id: str,
+    __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> str:
     """Show one skill: its name, its state and its full source."""
-    if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
-    async with await self._open_session(__request__) as s:
-      data, err = await self._request(s, "GET", f"/skills/id/{skill_id}")
-    if err:
-      return err
-    if not data:
-      return f"Error: skill not found: {skill_id}"
-    return (
-      f"name={data.get('name')} (id={data.get('id')}, "
-      f"active={data.get('is_active')}, description={data.get('description') or ''})\n"
-      f"\n{data.get('content') or ''}"
+
+    async def run(
+      skill_id=skill_id,
+      __request__=__request__,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      if __request__ is None:
+        return "Error: Open WebUI request context is unavailable."
+      async with await self._open_session(__request__) as s:
+        data, err = await self._request(s, "GET", f"/skills/id/{skill_id}")
+      if err:
+        return err
+      if not data:
+        return f"Error: skill not found: {skill_id}"
+      return (
+        f"name={data.get('name')} (id={data.get('id')}, "
+        f"active={data.get('is_active')}, description={data.get('description') or ''})\n"
+        f"\n{data.get('content') or ''}"
+      )
+
+    return await self._read(
+      "read show_skill",
+      str(locals().get("page", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
 
   async def create_skill(
@@ -1893,8 +2222,20 @@ class Tools:
     description: str = "",
     skill_id: str = "",
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """Create one skill. A new item runs free, and it joins the preset models."""
+
+    refusal = await self._guard(
+      "create a skill",
+      str(name),
+      __user__,
+      __event_call__,
+      sensitive=False,
+    )
+    if refusal:
+      return refusal
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     identifier = (skill_id or "").strip() or re.sub(
@@ -1919,8 +2260,24 @@ class Tools:
       attach = await self._attach_to_presets({"skillIds": [identifier]}, __request__)
     return f"created skill {name} (id={identifier})\n{attach}"
 
-  async def install_skill(self, url: str, __request__=None) -> str:
+  async def install_skill(
+    self,
+    url: str,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+    __request__=None,
+  ) -> str:
     """Install one skill from a URL. The host must be a trusted domain."""
+
+    refusal = await self._guard(
+      "install a skill",
+      str(url),
+      __user__,
+      __event_call__,
+      sensitive=False,
+    )
+    if refusal:
+      return refusal
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     target = (url or "").strip()
@@ -2030,36 +2387,74 @@ class Tools:
 
   # ---------------------------------------------------------------- the tools
 
-  async def list_tools(self, __request__=None) -> str:
+  async def list_tools(
+    self,
+    __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> str:
     """List the Workspace Tools, with their ids."""
-    if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
-    async with await self._open_session(__request__) as s:
-      data, err = await self._request(s, "GET", "/tools/")
-    if err:
-      return err
-    items = data if isinstance(data, list) else (data or {}).get("items") or []
-    if not items:
-      return "No tools found."
-    return "\n".join(
-      f"- {item.get('name') or 'Unnamed'} (id={item.get('id')})" for item in items
+
+    async def run(
+      __request__=__request__, __user__=__user__, __event_call__=__event_call__
+    ):
+      if __request__ is None:
+        return "Error: Open WebUI request context is unavailable."
+      async with await self._open_session(__request__) as s:
+        data, err = await self._request(s, "GET", "/tools/")
+      if err:
+        return err
+      items = data if isinstance(data, list) else (data or {}).get("items") or []
+      if not items:
+        return "No tools found."
+      return "\n".join(
+        f"- {item.get('name') or 'Unnamed'} (id={item.get('id')})" for item in items
+      )
+
+    return await self._read(
+      "read list_tools",
+      str(locals().get("page", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
 
-  async def show_tool(self, tool_id: str, __request__=None) -> str:
+  async def show_tool(
+    self,
+    tool_id: str,
+    __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> str:
     """Show one Workspace Tool: its name, its spec and its source."""
-    if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
-    async with await self._open_session(__request__) as s:
-      data, err = await self._request(s, "GET", f"/tools/id/{tool_id}")
-    if err:
-      return err
-    if not data:
-      return f"Error: tool not found: {tool_id}"
-    meta = data.get("meta") or {}
-    return (
-      f"name={data.get('name')} (id={data.get('id')}, "
-      f"description={meta.get('description') or ''})\n"
-      f"\n{data.get('content') or ''}"
+
+    async def run(
+      tool_id=tool_id,
+      __request__=__request__,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      if __request__ is None:
+        return "Error: Open WebUI request context is unavailable."
+      async with await self._open_session(__request__) as s:
+        data, err = await self._request(s, "GET", f"/tools/id/{tool_id}")
+      if err:
+        return err
+      if not data:
+        return f"Error: tool not found: {tool_id}"
+      meta = data.get("meta") or {}
+      return (
+        f"name={data.get('name')} (id={data.get('id')}, "
+        f"description={meta.get('description') or ''})\n"
+        f"\n{data.get('content') or ''}"
+      )
+
+    return await self._read(
+      "read show_tool",
+      str(locals().get("page", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
 
   async def create_tool(
@@ -2069,8 +2464,20 @@ class Tools:
     description: str = "",
     tool_id: str = "",
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """Create one Workspace Tool. A new item runs free and joins the presets."""
+
+    refusal = await self._guard(
+      "create a tool",
+      str(name),
+      __user__,
+      __event_call__,
+      sensitive=False,
+    )
+    if refusal:
+      return refusal
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     identifier = (tool_id or "").strip() or re.sub(
@@ -2186,40 +2593,78 @@ class Tools:
 
   # ---------------------------------------------------------------- the functions
 
-  async def list_functions(self, __request__=None) -> str:
+  async def list_functions(
+    self,
+    __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> str:
     """List the Functions, with their ids and their types."""
-    if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
-    async with await self._open_session(__request__) as s:
-      data, err = await self._request(s, "GET", "/functions/")
-    if err:
-      return err
-    items = data if isinstance(data, list) else (data or {}).get("items") or []
-    if not items:
-      return "No functions found."
-    return "\n".join(
-      f"- {item.get('name') or 'Unnamed'} (id={item.get('id')}, "
-      f"type={item.get('type')}, active={item.get('is_active')}, "
-      f"global={item.get('is_global')})"
-      for item in items
+
+    async def run(
+      __request__=__request__, __user__=__user__, __event_call__=__event_call__
+    ):
+      if __request__ is None:
+        return "Error: Open WebUI request context is unavailable."
+      async with await self._open_session(__request__) as s:
+        data, err = await self._request(s, "GET", "/functions/")
+      if err:
+        return err
+      items = data if isinstance(data, list) else (data or {}).get("items") or []
+      if not items:
+        return "No functions found."
+      return "\n".join(
+        f"- {item.get('name') or 'Unnamed'} (id={item.get('id')}, "
+        f"type={item.get('type')}, active={item.get('is_active')}, "
+        f"global={item.get('is_global')})"
+        for item in items
+      )
+
+    return await self._read(
+      "read list_functions",
+      str(locals().get("page", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
 
-  async def show_function(self, function_id: str, __request__=None) -> str:
+  async def show_function(
+    self,
+    function_id: str,
+    __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> str:
     """Show one Function: its name, its state and its source."""
-    if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
-    async with await self._open_session(__request__) as s:
-      data, err = await self._request(s, "GET", f"/functions/id/{function_id}")
-    if err:
-      return err
-    if not data:
-      return f"Error: function not found: {function_id}"
-    meta = data.get("meta") or {}
-    return (
-      f"name={data.get('name')} (id={data.get('id')}, type={data.get('type')}, "
-      f"active={data.get('is_active')}, global={data.get('is_global')}, "
-      f"description={meta.get('description') or ''})\n"
-      f"\n{data.get('content') or ''}"
+
+    async def run(
+      function_id=function_id,
+      __request__=__request__,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      if __request__ is None:
+        return "Error: Open WebUI request context is unavailable."
+      async with await self._open_session(__request__) as s:
+        data, err = await self._request(s, "GET", f"/functions/id/{function_id}")
+      if err:
+        return err
+      if not data:
+        return f"Error: function not found: {function_id}"
+      meta = data.get("meta") or {}
+      return (
+        f"name={data.get('name')} (id={data.get('id')}, type={data.get('type')}, "
+        f"active={data.get('is_active')}, global={data.get('is_global')}, "
+        f"description={meta.get('description') or ''})\n"
+        f"\n{data.get('content') or ''}"
+      )
+
+    return await self._read(
+      "read show_function",
+      str(locals().get("page", "") or ""),
+      run,
+      __user__,
+      __event_call__,
     )
 
   async def create_function(
@@ -2229,8 +2674,20 @@ class Tools:
     description: str = "",
     function_id: str = "",
     __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """Create one Function. A new item runs free and joins the presets."""
+
+    refusal = await self._guard(
+      "create a function",
+      str(name),
+      __user__,
+      __event_call__,
+      sensitive=False,
+    )
+    if refusal:
+      return refusal
     if __request__ is None:
       return "Error: Open WebUI request context is unavailable."
     identifier = (function_id or "").strip() or re.sub(

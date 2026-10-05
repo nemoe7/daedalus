@@ -62,7 +62,7 @@ The confirmation travels over the socket of the chat tab. `WEBSOCKET_EVENT_CALLE
 
 1. In the Google Cloud console, make an OAuth client of the type Desktop app, and turn on the Gmail, Calendar, Drive and Docs APIs.
 2. Do the consent 1 time, with the scopes `gmail.readonly`, `gmail.send`, `calendar.readonly`, `calendar.events`, `drive.readonly` and `documents`. The reply holds the refresh token.
-3. **Valves**: set `google_client_id`, `google_client_secret` and `google_refresh_token`. Keep `default_mode` `ask`.
+3. **Valves**: set `google_client_id`, `google_client_secret` and `google_refresh_token`. Set `permissions`. `Always ask` is the shipped default.
 
 | Valve | Default | Meaning |
 | --- | --- | --- |
@@ -71,11 +71,13 @@ The confirmation travels over the socket of the chat tab. `WEBSOCKET_EVENT_CALLE
 | `google_refresh_token` | empty | The refresh token of the 1-time consent. The tool trades it for an access token and caches that for an hour. |
 | `calendar_id` | `primary` | The calendar the agenda reads. |
 | `max_results` | `10` | The default page of a list read. |
-| `default_mode` | `ask` | `ask` gates each write, `allow` skips the dialog, `deny` refuses each write. |
+| `permissions` | `Always ask` | `Always ask` gates every call, reads included. `Allow reads` frees the reads and holds the gated calls. `Always allow` holds nothing. |
 | `timeout_seconds` | `60` | The wait for the confirmation. A closed tab, no dialog, or a late answer reads as no. |
 | `http_timeout_seconds` | `30` | The Google HTTP timeout. |
 
-The 5 reads are `search_mail`, `read_thread`, `agenda`, `search_files` and `read_document`. The 3 gated writes are `send_mail`, `create_event` and `append_to_document`. `UserValves.mode` and `UserValves.timeout_seconds` work as they do on the GitHub tool.
+The 5 reads are `search_mail`, `read_thread`, `agenda`, `search_files` and `read_document`. The 3 gated writes are `send_mail`, `create_event` and `append_to_document`.
+
+The shipped `Always ask` holds every call, reads included, so no mail line and no one time code reaches the chat without a click. `Allow reads` frees the reads and keeps the gate on the 3 writes. `Always allow` runs everything. `UserValves.mode` carries the same 3 values for one user, and `default` follows the tool valve.
 
 `tests/integrations/test_owui_google_tool.py` holds the surface, the gate, the token cache and the error path.
 
@@ -91,11 +93,11 @@ The 5 reads are `search_mail`, `read_thread`, `agenda`, `search_files` and `read
 | Tools | `list_tools`, `show_tool`, `create_tool`, `update_tool`, `toggle_tool`, `delete_tool` |
 | Functions | `list_functions`, `show_function`, `create_function`, `update_function`, `toggle_function`, `delete_function` |
 
-Reads and new items run freely. An overwrite, a toggle and a delete pass the confirmation gate, and the item name rides in the question.
+The `permissions` valve holds 3 levels. `Always ask` gates every call, reads included. `Allow reads` frees the reads and the new items, and holds the mutations and the toggles. `Always allow` holds nothing. The item name rides in the question.
 
 A new knowledge base, skill, tool or function joins the model presets in the same call. The tool reads each preset, merges the matching `meta` list and posts the record back. It skips a preset without write access and names it. The `PRESET_MODELS` valve picks the presets by id or by name, and an empty list serves each preset.
 
-The gate follows the GitHub tool. `default_mode` is `ask`, `allow` or `deny`, and `timeout_seconds` sets the wait. `UserValves.mode` and `UserValves.timeout_seconds` give each user their own gate, and `0` keeps the valve. Open WebUI v0.11.4 has no per-tool toggle route, so `toggle_tool` toggles the tool id in the preset `toolIds` lists.
+`timeout_seconds` sets the wait for the confirmation, and `UserValves.mode` plus `UserValves.timeout_seconds` give each user their own gate, where `0` keeps the valve. Open WebUI v0.11.4 has no per-tool toggle route, so `toggle_tool` toggles the tool id in the preset `toolIds` lists.
 
 The preset helpers stay private, so Open WebUI builds no model tool spec for them. `/model/update` needs the owner, a write grant or an admin.
 
@@ -103,7 +105,7 @@ The preset helpers stay private, so Open WebUI builds no model tool spec for the
 | --- | --- | --- |
 | `OWUI_API_BASE` | `http://127.0.0.1:8080/api/v1` | The Open WebUI API base |
 | `PRESET_MODELS` | empty | The ids or names of the presets that take an attach. Empty serves each preset |
-| `default_mode` | `ask` | `ask` gates a mutation and a toggle, `allow` runs them, `deny` refuses them |
+| `permissions` | `Always ask` | `Always ask` gates every call, reads included. `Allow reads` frees the reads and the new items. `Always allow` holds nothing |
 | `timeout_seconds` | `60` | The wait for a confirmation. `0` keeps the valve |
 | `INSTALL_FETCH_TIMEOUT` | `12.0` | The URL fetch timeout of a skill install |
 | `TRUSTED_DOMAINS` | `github.com,huggingface.co,githubusercontent.com` | The domains a skill install may fetch from |
