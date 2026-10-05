@@ -909,6 +909,9 @@ async def chat(request: Request) -> Response:
     if chosen and providers.effort_text(body.get("reasoning_effort")) is None:
       # A hook file answers above the catalog default.
       body = {**body, "reasoning_effort": chosen}
+      # The row shows the level that the request runs with, so the hook sets the dashboard state.
+      request.state.effort = chosen
+      dashboard.live_update(request, effort=chosen)
   if model == router.RESERVED_MODEL and found[1]:
     request.state.pool = routed_pool(found[1])
   pin = Tracker(key, found[1], getattr(request.state, "key", None))
