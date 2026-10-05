@@ -163,10 +163,8 @@ def test_no_reasoning_model(
   )
 
 
-def test_the_shipped_ladder_file_sets_the_effort(
-  provider: Provider, monkeypatch: pytest.MonkeyPatch
-) -> None:
-  """The shipped `owui_think_longer.py` sets the level from the heuristics read of the prompt."""
+def ladder_file(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Write the shipped ladder file into the hook folder, and name it in the prompt point."""
   shipped = (
     Path(__file__).resolve().parents[2] / "config" / "hooks" / "owui_think_longer.py"
   )
@@ -177,6 +175,13 @@ def test_the_shipped_ladder_file_sets_the_effort(
   monkeypatch.setattr(
     api, "REQUEST_HOOKS", {"on-prompt": ["hooks/owui_think_longer.py"]}
   )
+
+
+def test_the_shipped_ladder_file_sets_the_effort(
+  provider: Provider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """The shipped `owui_think_longer.py` sets the level from the heuristics read of the prompt."""
+  ladder_file(monkeypatch)
   monkeypatch.setattr(
     upstream.store, "model_limits", lambda candidate: {"reasoning_effort": "minimal"}
   )
@@ -192,16 +197,7 @@ def test_the_shipped_ladder_file_skips_another_client(
   provider: Provider, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """The shipped `owui_think_longer.py` leaves the effort of Kilo and of a generic client alone."""
-  shipped = (
-    Path(__file__).resolve().parents[2] / "config" / "hooks" / "owui_think_longer.py"
-  )
-  target = hooks.CONFIG_DIR / "hooks" / "owui_think_longer.py"
-  target.parent.mkdir(parents=True, exist_ok=True)
-  target.write_text(shipped.read_text(encoding="utf-8"), encoding="utf-8")
-  hooks._loaded.pop(target.resolve(), None)
-  monkeypatch.setattr(
-    api, "REQUEST_HOOKS", {"on-prompt": ["hooks/owui_think_longer.py"]}
-  )
+  ladder_file(monkeypatch)
   monkeypatch.setattr(
     upstream.store, "model_limits", lambda candidate: {"reasoning_effort": "minimal"}
   )
@@ -272,11 +268,14 @@ def test_the_shipped_ladder_file_reads_the_field() -> None:
     value, prompt="why is this slow", body={"think_longer": 0}, app="Kilo"
   )
   assert value == {}, "a zero field is no field, and another client keeps its effort"
+  read = int(api.router.required_tier("why is this slow"))
   value = {}
   module.on_prompt(
     value, prompt="why is this slow", effort="minimal", body={"think_longer": 2}
   )
-  assert value == {}, "a client value keeps the last word"
+  assert value["reasoning_effort"] == module.LEVELS[min(read + 2, 4)], (
+    "a press wins over the value of the client"
+  )
 
 
 def test_the_shipped_ladder_file_reads_the_field_over_the_route(
@@ -284,17 +283,39 @@ def test_the_shipped_ladder_file_reads_the_field_over_the_route(
 ) -> None:
   """A `think_longer` field steps the level over the route, and never goes upstream."""
   api.PENALTIES.clear()
-  shipped = (
-    Path(__file__).resolve().parents[2] / "config" / "hooks" / "owui_think_longer.py"
-  )
-  target = hooks.CONFIG_DIR / "hooks" / "owui_think_longer.py"
-  target.parent.mkdir(parents=True, exist_ok=True)
-  target.write_text(shipped.read_text(encoding="utf-8"), encoding="utf-8")
-  hooks._loaded.pop(target.resolve(), None)
-  monkeypatch.setattr(
-    api, "REQUEST_HOOKS", {"on-prompt": ["hooks/owui_think_longer.py"]}
-  )
+  ladder_file(monkeypatch)
   written = post(provider, "daedalus/auto:TIER-B", {**BODY, "think_longer": 1})
   read = int(api.router.required_tier(BODY["messages"][0]["content"]))
   assert written["reasoning_effort"] == shipped_levels()[min(read + 1, 4)]
   assert "think_longer" not in written, "a daedalus field never goes upstream"
+
+
+def test_the_shipped_ladder_file_beats_a_client_effort(
+  provider: Provider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A `think_longer` field steps above the value of the client. Without it, the client keeps it."""
+  api.PENALTIES.clear()
+  ladder_file(monkeypatch)
+  read = int(api.router.required_tier(BODY["messages"][0]["content"]))
+  pressed = post(
+    provider,
+    "daedalus/auto:TIER-B",
+    {**BODY, "reasoning_effort": "minimal", "think_longer": 1},
+  )
+  assert pressed["reasoning_effort"] == shipped_levels()[min(read + 1, 4)]
+  assert pressed["reasoning_effort"] != "minimal"
+  plain = post(
+    provider, "daedalus/auto:TIER-B", {**BODY, "reasoning_effort": "minimal"}
+  )
+  assert plain["reasoning_effort"] == "minimal", "a client value keeps the last word"
+
+
+def test_a_hook_file_wins_over_the_client(
+  provider: Provider, hook_file: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """The `reasoning_effort` of a hook file replaces the value of the client."""
+  monkeypatch.setattr(api, "REQUEST_HOOKS", {"on-prompt": [hook_file]})
+  written = post(
+    provider, "daedalus/auto:TIER-B", {**BODY, "reasoning_effort": "minimal"}
+  )
+  assert written["reasoning_effort"] == "max"

@@ -59,7 +59,7 @@ def on_prompt(
   `value` starts empty. Set `value["reasoning_effort"]` to a string to set the effort. `messages` is the request list. `prompt` holds the
   user turns joined. `tier` and `tier_name` name the ladder tier, `slot` the pool slot.
   `reasoning` lists the chain models that support reasoning.
-  `effort` is the value of the client, `None` when it sent none. A client value always wins.
+  `effort` is the value of the client, `None` when it sent none. The value that a hook sets wins.
   `app` names the client app of the request: `OWUI`, `Kilo`, another title, or None.
   """
   # Example: think on a hard prompt only, and keep the rest quick.
