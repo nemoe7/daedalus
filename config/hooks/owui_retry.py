@@ -10,6 +10,10 @@ and this file writes the code of the row, `rt1`, `rt2`.
 off, and a repeated message then takes the usual chain.
 """
 
+import logging
+
+logger = logging.getLogger("daedalus.hooks")
+
 HEADER = "x-openwebui-chat-id"
 
 
@@ -22,6 +26,7 @@ def on_request(value, model, headers):
   count = value.get("count")
   if count:
     value["code"] = f"rt{count}"
+    logger.info("try again %s of %s", count, model)
   return value
 
 

@@ -261,3 +261,21 @@ def test_chunk_hook_changes_the_copy() -> None:
   found = hooks.run("on-chunk", setup, "p/m", chunk, context={"attempts": 2})
   assert found == {"choices": [], "seen": ["p/m", 2]}
   assert chunk == {"choices": []}, "the value that came in stays the same"
+
+
+def test_a_run_writes_1_log_line(caplog: pytest.LogCaptureFixture) -> None:
+  """Each hook that runs writes 1 line. The chunk point waits for DEBUG."""
+  path = write(
+    "told.py",
+    "def on_answer(answer, model):\n  return {'v': 1}\n"
+    "def on_chunk(chunk, model, context=None):\n  chunk['seen'] = True\n",
+  )
+  setup = config({"on-answer": path}, {"on-chunk": path})
+  with caplog.at_level("INFO"):
+    hooks.run("on-answer", setup, "p/m", {})
+    hooks.run("on-chunk", setup, "p/m", {}, context={})
+  assert "on-answer hook told.py for p/m: a new value" in caplog.text
+  assert "on-chunk hook told.py for p/m" not in caplog.text
+  with caplog.at_level("DEBUG"):
+    hooks.run("on-chunk", setup, "p/m", {}, context={})
+  assert "on-chunk hook told.py for p/m: edits in place" in caplog.text

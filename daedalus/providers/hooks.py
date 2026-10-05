@@ -208,6 +208,16 @@ def run_files(
     except Exception:
       logger.exception("%s hook %s for %s failed", point, path, context.get("model"))
       continue
+    # The chunk point runs for each chunk of 1 answer, so its run line stays on DEBUG, and a hook
+    # file of that point writes the line of the answer.
+    logger.log(
+      logging.DEBUG if point == "on-chunk" else logging.INFO,
+      "%s hook %s for %s: %s",
+      point,
+      path.name,
+      context.get("model") or "-",
+      "a new value" if isinstance(result, dict) else "edits in place",
+    )
     if result is None:
       value = work
     elif isinstance(result, dict):
