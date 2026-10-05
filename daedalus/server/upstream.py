@@ -192,10 +192,15 @@ def status_error(
 
 
 def note(
-  model: str, result: str, started: float | None = None, error: str = ""
+  model: str,
+  result: str,
+  started: float | None = None,
+  error: str = "",
+  ended: float | None = None,
 ) -> dict[str, Any]:
-  """One attempt of a request, for the dashboard."""
-  seconds = None if started is None else round(time.perf_counter() - started, 3)
+  """One attempt of a request, for the dashboard. `ended` names its end, when that is not now."""
+  end = time.perf_counter() if ended is None else ended
+  seconds = None if started is None else round(end - started, 3)
   return {"model": model, "result": result, "seconds": seconds, "error": error}
 
 
