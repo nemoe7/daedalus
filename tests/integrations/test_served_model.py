@@ -111,3 +111,12 @@ def test_the_always_valve_draws_every_line() -> None:
   run(plugin.stream(chunk, __event_emitter__=emit, __metadata__={"chat_id": "c1"}))
   run(plugin.stream(chunk, __event_emitter__=emit, __metadata__={"chat_id": "c1"}))
   assert len(seen) == 2, seen
+
+
+def test_the_valves_draw_a_schema() -> None:
+  """Open WebUI builds the Valves panel from the schema of the Valves class."""
+  schema = module.Filter.Valves.model_json_schema()
+  assert set(schema["properties"]) == {"enabled", "prefix", "when"}
+  assert schema["properties"]["when"]["enum"] == ["always", "on change"]
+  assert schema["properties"]["enabled"]["description"] == "Draw the line."
+  assert module.Filter().valves.when == "always"
