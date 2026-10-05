@@ -15,6 +15,10 @@ GOOD = """def on_http(body, key="", prompt="", headers=None):
   return {"model": body.get("model"), "key": key, "prompt": prompt, "header": headers.get("x-probe")}
 """
 
+GOOD_PIN = """def on_http(body, key="", prompt="", headers=None, pin=None):
+  return {"pin": pin}
+"""
+
 BROKEN = """def on_http(body, key="", prompt="", headers=None):
   raise RuntimeError("boom")
 """
@@ -46,6 +50,17 @@ def test_hook_http_answers_with_the_dict() -> None:
   assert found["key"] == api.session_key(MASTER, CHAT), (
     "the route passes the session key of the chat"
   )
+
+
+def test_hook_http_hands_the_pin_of_the_session() -> None:
+  """The route passes the last pin of the session key to a file that names `pin`."""
+  name = written("probe_pin.py", GOOD_PIN)
+  api.PENALTIES.pin(api.session_key(MASTER, CHAT), "daedalus/deinos", "kilo/x")
+  response = TestClient(api.app, headers=AUTH).post(
+    f"/v1/hook/{name}", json={"messages": CHAT}
+  )
+  assert response.status_code == 200, response.text
+  assert response.json()["pin"] == ["daedalus/deinos", "kilo/x"]
 
 
 def test_hook_http_takes_a_nested_path() -> None:
@@ -109,7 +124,13 @@ def test_the_shipped_ladder_hook_steps_the_pin() -> None:
   """The shipped `auto_reasoning.py` moves 1 rung up the pin of the chat, and names its effort."""
   module = hooks.load(Path("config") / "hooks" / "auto_reasoning.py")
   api.PENALTIES.pin("chat-1", "daedalus/auto:TIER-C", "kilo/poolside/laguna-s-2.1:free")
-  found = module.on_http({}, key="chat-1", prompt="why is this slow", headers={})
+  found = module.on_http(
+    {},
+    key="chat-1",
+    prompt="why is this slow",
+    headers={},
+    pin=api.PENALTIES.last_pin("chat-1"),
+  )
   assert found["tier_name"] == "TIER-B"
   assert found["model"] == "daedalus/deinos"
   assert found["reasoning_effort"] == "medium"
@@ -121,7 +142,13 @@ def test_the_shipped_ladder_hook_reads_a_pool_and_the_prompt() -> None:
   """A pinned pool names its own rung, and a chat with no pin starts from its prompt."""
   module = hooks.load(Path("config") / "hooks" / "auto_reasoning.py")
   api.PENALTIES.pin("chat-2", "daedalus/koinos", "kilo/poolside/laguna-s-2.1:free")
-  found = module.on_http({}, key="chat-2", prompt="why is this slow", headers={})
+  found = module.on_http(
+    {},
+    key="chat-2",
+    prompt="why is this slow",
+    headers={},
+    pin=api.PENALTIES.last_pin("chat-2"),
+  )
   assert found["before"]["tier_name"] == "TIER-C" and found["tier_name"] == "TIER-B"
   read = api.router.required_tier("why is this slow")
   fresh = module.on_http({}, key="chat-3", prompt="why is this slow", headers={})
@@ -143,7 +170,13 @@ def test_the_shipped_ladder_hook_stops_at_the_top() -> None:
   """`TIER-A` is the top rung: the answer keeps it and `top` says so."""
   module = hooks.load(Path("config") / "hooks" / "auto_reasoning.py")
   api.PENALTIES.pin("chat-4", "daedalus/auto:TIER-A", "kilo/poolside/laguna-s-2.1:free")
-  found = module.on_http({}, key="chat-4", prompt="hard", headers={})
+  found = module.on_http(
+    {},
+    key="chat-4",
+    prompt="hard",
+    headers={},
+    pin=api.PENALTIES.last_pin("chat-4"),
+  )
   assert found["tier_name"] == "TIER-A"
   assert found["reasoning_effort"] == "high"
   assert found["top"] is True
