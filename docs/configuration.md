@@ -115,6 +115,7 @@ The shipped file holds the changes from the defaults only. The **Settings** page
 | `request_hooks.on-request` | `[hooks/owui_auto_reasoning_effort.py]` | The request hook files of the [`config`](../config) folder, in list order. An empty list: no hook. See [Hooks](hooks.md). |
 | `request_hooks.on-prompt` | `[hooks/owui_auto_reasoning_effort.py]` | The prompt hook files of the [`config`](../config) folder, called 1 time before the first attempt of a chat request. The call needs a prompt and a reasoning model in the chain. The value sets the reasoning effort of the request. See [Hooks](hooks.md). |
 | `request_hooks.on-chunk` | `[hooks/served_model.py]` | The stream chunk hook files of the [`config`](../config) folder, called on each streamed chunk of a chat request, in list order. An empty list: no hook. See [Hooks](hooks.md). |
+| `remote_hooks` | `[]` | The hook files that come from a URL, each with the `sha256` of its bytes and an optional `name`. See [Hooks](hooks.md#remote-hook-files). |
 | `pools.tier-a`, `pools.tier-b`, `pools.tier-c`, `pools.tier-d`, `pools.audio`, `pools.images` | `sophos`, `deinos`, `koinos`, `moros`, `graphos`, `photos` | The client name after `daedalus/`: 1-40 characters, no `auto`. A change renames that pool, and the old name breaks with HTTP 400. |
 
 ## Provider key values

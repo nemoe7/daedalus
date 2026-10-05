@@ -72,6 +72,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
   "dashboard": {"theme": "system", "time_format": "24h"},
   # The request-level hook files. Each key is a hook point, and the value is a list of file paths.
   "request_hooks": {"on-request": [], "on-prompt": [], "on-chunk": []},
+  # The hook files that come from a URL, each pinned to the sha256 of its bytes.
+  "remote_hooks": [],
   # The generic key of each pool, and the client name after `daedalus/` as its default.
   "pools": {
     "tier-a": "sophos",
@@ -118,6 +120,8 @@ def check(group: str, key: str, value: Any) -> Any:
     return schedule_value(name, key, value)
   if group == "request_hooks":
     return hook_paths(name, value)
+  if group == "remote_hooks":
+    return remote_list(group, value)
   if group == "pools":
     if not isinstance(value, str) or not POOL_NAME.fullmatch(value) or value == "auto":
       raise SettingsError(
@@ -176,6 +180,39 @@ def keyword_list(name: str, value: Any) -> list[str]:
   return [item.strip() for item in value]
 
 
+def remote_list(name: str, value: Any) -> list[dict[str, str]]:
+  """The remote hook files: each entry carries a URL, the sha256 of its bytes, and an optional name."""
+  if value in (None, ""):
+    return []
+  if not isinstance(value, list):
+    raise SettingsError(f"{name} must be a list of remote hook files")
+  found: list[dict[str, str]] = []
+  seen: set[str] = set()
+  for item in value:
+    if not isinstance(item, dict):
+      raise SettingsError(f"{name}: each item needs a url and a sha256")
+    for key in item:
+      if key not in ("url", "sha256", "name"):
+        raise SettingsError(f"{name}: unknown key {key!r}")
+    url = item.get("url")
+    pin = item.get("sha256")
+    if not isinstance(url, str) or not url.startswith(("http://", "https://")):
+      raise SettingsError(f"{name}: url must start with http:// or https://")
+    if not isinstance(pin, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", pin):
+      raise SettingsError(f"{name}: sha256 must be 64 hex characters")
+    name_value = item.get("name")
+    if name_value is not None and not isinstance(name_value, str):
+      raise SettingsError(f"{name}: name must be a file name")
+    entry = {"url": url, "sha256": pin.lower()}
+    if isinstance(name_value, str) and name_value.strip():
+      entry["name"] = name_value.strip()
+      if entry["name"] in seen:
+        raise SettingsError(f"{name}: each file needs its own name")
+      seen.add(entry["name"])
+    found.append(entry)
+  return found
+
+
 def hook_path(name: str, value: Any) -> str:
   """A hook file path inside the config folder, or an empty value for no hook."""
   if value in (None, ""):
@@ -215,7 +252,10 @@ def load(path: Path | str = DEFAULT_PATH) -> dict[str, dict[str, Any]]:
 
 def parse(text: str, target: Path | str = DEFAULT_PATH) -> dict[str, dict[str, Any]]:
   """The settings from YAML text, over the defaults."""
-  merged = {group: dict(values) for group, values in DEFAULTS.items()}
+  merged = {
+    group: dict(values) if isinstance(values, dict) else list(values)
+    for group, values in DEFAULTS.items()
+  }
   raw = load_yaml(text)
   if raw is None:
     raw = {}
@@ -226,6 +266,10 @@ def parse(text: str, target: Path | str = DEFAULT_PATH) -> dict[str, dict[str, A
       raise SettingsError(f"{group} is gone. Use affinity.mode: {MIGRATED[group]}")
     if group not in DEFAULTS:
       raise SettingsError(f"unknown group {group!r} in {target}")
+    if not isinstance(DEFAULTS[group], dict):
+      # A group that holds a list, such as the remote hook files, takes the list as its value.
+      merged[group] = check(group, group, values)
+      continue
     if not isinstance(values, dict):
       raise SettingsError(f"{group} must hold keys")
     for key, value in values.items():
