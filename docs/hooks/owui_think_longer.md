@@ -27,8 +27,8 @@ The `on-prompt` point sets `reasoning_effort` for the request. 4 values decide, 
 
 | Level | Value |
 | --- | --- |
+| A `think_longer` field | That count of steps above the level of the last answer, never below the client value |
 | A client `reasoning_effort` | The value of the request body |
-| A `think_longer` field | That count of steps above the level of the last answer |
 | A try again | 1 step above the level of the last answer |
 | The read of the prompt | The heuristics v2 tier of the message at hand |
 
@@ -36,8 +36,9 @@ The base sets no effort of its own. With no hook file, a request keeps the clien
 default. The point reads the heuristics v2 tier of the message at hand, so each message of a chat gets
 its own level, and the `LEVELS` table holds the level of each tier, from `TIER-D` `none` to `TIER-A`
 `high`. The point serves the client app of the `CLIENT` constant, so a Kilo request keeps its own effort.
-The `think_longer` field of the body asks for its count of steps, for any client, and the try-again
-count of the message asks for 1.
+The `think_longer` field of the body asks for its count of steps above the level of the last answer,
+for any client, and that level wins over the value of the client. Without the field, the value of the
+client wins over the read of the prompt. The try-again count of the message asks for 1 step.
 A chain with no reasoning model gets no call and no effort.
 `upstream.without_reasoning` drops the field for a model the catalog marks as no reasoner, and
 `upstream.without_own` keeps `think_longer` out of the upstream body.
