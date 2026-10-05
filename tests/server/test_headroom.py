@@ -150,6 +150,32 @@ def test_request(sidecar: Sidecar, lines: Lines) -> None:
     sidecar.status = 200
 
 
+def test_request_switch(sidecar: Sidecar, lines: Lines) -> None:
+  """A model entry with `headroom: false` turns the compression off for its own calls."""
+  config = {
+    "a": {
+      "api_key": "k",
+      "api_base": "https://a.test/v1",
+      "models": {"1": {"headroom": False}},
+    }
+  }
+  original = api.get_config, api.chain
+  api.get_config = lambda: config
+  api.chain = lambda model, body, config, key="": ([["a/1"]], None)
+  client = TestClient(api.app, headers=AUTH)
+  body = {"model": "daedalus/deinos", "messages": [{"role": "user", "content": "long"}]}
+  lines.lines.clear()
+  before = len(sidecar.compress)
+  try:
+    response = client.post("/v1/chat/completions", json=body)
+    assert response.status_code == 200, response.text
+    assert len(sidecar.compress) == before, "no call for a model with the switch off"
+    assert sidecar.provider[-1]["messages"] == body["messages"], "the original text"
+    assert not [line for line in lines.lines if "saved=" in line], lines.lines
+  finally:
+    api.get_config, api.chain = original
+
+
 @pytest.fixture(scope="module")
 def lines():
   lines = Lines()

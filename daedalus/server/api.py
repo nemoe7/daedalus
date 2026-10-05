@@ -888,7 +888,7 @@ async def chat(request: Request) -> Response:
       first_transition = route_transition(
         previous["pool"], previous["model"], candidate_pool, models[0], reason
       )
-  if models:
+  if models and router.headroom_allowed(config, models[0]):
     body, saved = await headroom.compress(body, models[0])
     if saved is not None:
       request.state.saved = str(saved)
@@ -1225,6 +1225,7 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
     {settings.DEFAULTS["pools"][key]: name for key, name in values["pools"].items()}
   )
   REQUEST_HOOKS = dict(values["request_hooks"])
+  router.set_headroom(values["headroom"]["enabled"])
   timeouts, affinity, weights = (
     values["timeouts"],
     values["affinity"],

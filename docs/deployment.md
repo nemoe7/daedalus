@@ -289,6 +289,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Setting | Value |
 | --- | --- |
 | Mode | `lossy_inline` |
+| Switch | `headroom.enabled`, or `headroom: false` in a provider block or a model entry. |
 | Timeout | 5 s. Then the original messages go to the provider. |
 | Failure | daedalus sends the original messages. |
 | Log | `saved=N` shows the saved tokens. |
