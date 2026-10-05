@@ -347,6 +347,12 @@ section[data-page="providers"], section[data-page="settings"], #yaml-view, #sett
 }
 .add:hover { color: var(--accent); border-color: var(--accent); }
 .adder { display: inline-flex; gap: 6px; }
+/* A hook row: the file name in a select, and the delete button of the pill. */
+.pill.hook select {
+  border: 0; background: transparent; color: inherit; font: 12px/20px var(--mono); cursor: pointer;
+  max-width: 30ch; text-overflow: ellipsis;
+}
+.pill.hook .none { color: var(--muted); }
 .adder input, .adder select { padding: 2px 8px; border-radius: 6px; font-size: 12px; }
 .adder select { padding-right: 28px; background-position: right 9px center; }
 .adder input { width: 150px; font-family: var(--mono); }

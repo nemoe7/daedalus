@@ -150,7 +150,7 @@ def test_pick_needs_a_change() -> None:
 def test_pick_named_on_the_pools() -> None:
   """The shipped config names the pick for the pools and the reserved model, and for no other provider."""
   text = (FOLDER.parent / "daedalus.yml").read_text()
-  assert "on-chunk: hooks/pick.py" in text
+  assert "on-chunk: [hooks/pick.py]" in text
   entries = {"on-request": "hooks/openwebui_retry.py", "on-chunk": "hooks/pick.py"}
   found = hooks.request_files(entries, "on-chunk")
   assert [path.name for path in found] == ["pick.py"]

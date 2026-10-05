@@ -1168,6 +1168,48 @@ assert.strictEqual(probe.listValue('switch', 'keywords').length, probe.state.set
   )
 
 
+def test_app_js_hook_rows() -> None:
+  """A request point holds 1 row per hook file, picked from the files of the config folder."""
+  payload = json.dumps(
+    {
+      "path": "config/daedalus.yml",
+      "headroom_available": False,
+      "text": "",
+      "hook_files": [
+        "hooks/openwebui_retry.py",
+        "hooks/pick.py",
+        "hooks/cheapest_output.py",
+      ],
+      "defaults": settings.DEFAULTS,
+      "file": {
+        "request_hooks": {"on-request": ["hooks/openwebui_retry.py", "hooks/pick.py"]}
+      },
+    }
+  )
+  run_app_js(
+    "state, renderSettings, settingsChanges, setListValue",
+    f"""
+probe.state.settings = {payload};
+probe.renderSettings();
+const html = node('settings').innerHTML;
+assert(html.includes('>On request<') && html.includes('>On chunk<'), 'each point has a row');
+const at = html.indexOf('id="set-request_hooks-on-request"');
+assert(at > 0, 'the on-request row names its host');
+const box = html.slice(at, at + 1400);
+assert(box.includes('data-hook-select='), 'a row picks a file');
+assert(box.includes('data-hook-add='), 'the point takes another file');
+assert(box.includes('hooks/openwebui_retry.py') && box.includes('hooks/cheapest_output.py'), 'the picker lists the hook files');
+assert(box.includes('value="hooks/openwebui_retry.py" selected'), 'the saved file shows as picked');
+assert(!('request_hooks' in probe.settingsChanges()), 'a loaded hook file reports no change');
+// A new row reaches the save payload, and an empty point clears the key.
+probe.setListValue('request_hooks', 'on-chunk', ['hooks/pick.py']);
+assert.deepStrictEqual(probe.settingsChanges().request_hooks['on-chunk'], ['hooks/pick.py'], 'the new row reaches the save payload');
+probe.setListValue('request_hooks', 'on-request', []);
+assert.strictEqual(probe.settingsChanges().request_hooks['on-request'], null, 'an empty point clears the key');
+""",
+  )
+
+
 def test_app_js_affinity_modes_hide_their_rows() -> None:
   """The affinity card shows the pin rows under session and race, and the race rows only under race."""
   payload = json.dumps(
@@ -1538,10 +1580,18 @@ def test_files(
   shown = client.get("/ui/api/settings").json()
   assert shown["file"] == {
     "request_hooks": {
-      "on-request": "hooks/openwebui_retry.py",
-      "on-chunk": "hooks/pick.py",
+      "on-request": ["hooks/openwebui_retry.py"],
+      "on-chunk": ["hooks/pick.py"],
     }
   }, "the shipped file holds the changes only"
+  root = folder / "config" / "hooks"
+  root.mkdir(parents=True, exist_ok=True)
+  (root / "picked.py").write_text(
+    "def on_answer(value, model, headers):\n  return value\n"
+  )
+  assert "hooks/picked.py" in client.get("/ui/api/settings").json()["hook_files"], (
+    "the settings page lists the hook files, so a row picks its own"
+  )
   assert shown["defaults"]["timeouts"]["slow"] == 30.0, shown
   assert shown["defaults"]["weights"]["fault"] == 0.5, shown
   assert shown["defaults"]["loops"] == {
@@ -1618,22 +1668,24 @@ def test_files(
     ).status_code
     == 422
   ), "a hook path is a string"
-  hook = {"request_hooks": {"on-request": "hooks/openwebui_retry.py"}}
+  hook = {
+    "request_hooks": {"on-request": ["hooks/openwebui_retry.py", "hooks/picked.py"]}
+  }
   assert client.put("/ui/api/settings", json={"changes": hook}).status_code == 200
   assert api.REQUEST_HOOKS == {
-    "on-request": "hooks/openwebui_retry.py",
-    "on-chunk": "hooks/pick.py",
-  }, "the save applies the request hook"
+    "on-request": ["hooks/openwebui_retry.py", "hooks/picked.py"],
+    "on-chunk": ["hooks/pick.py"],
+  }, "the save applies each request hook of the point"
   assert (
     client.put(
-      "/ui/api/settings", json={"changes": {"request_hooks": {"on-request": ""}}}
+      "/ui/api/settings", json={"changes": {"request_hooks": {"on-request": []}}}
     ).status_code
     == 200
   )
   assert api.REQUEST_HOOKS == {
-    "on-request": "",
-    "on-chunk": "hooks/pick.py",
-  }, "an empty value turns the hook off"
+    "on-request": [],
+    "on-chunk": ["hooks/pick.py"],
+  }, "an empty list turns the hook off"
   dark = {"dashboard": {"theme": "dark"}}
   assert client.put("/ui/api/settings", json={"changes": dark}).status_code == 200
   assert client.get("/ui/api/settings").json()["file"]["dashboard"]["theme"] == "dark"

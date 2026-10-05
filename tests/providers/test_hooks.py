@@ -164,8 +164,29 @@ def test_request_hooks() -> None:
   assert hooks.request_files({"on-request": first}, "on-request") == [
     hooks.CONFIG_DIR / "hooks" / "req.py"
   ]
-  for entries in ({}, {"on-request": ""}, None, {"on-request": 5}):
+  second = write(
+    "req2.py",
+    "def on_request(value, model, headers):\n"
+    "  value['key'] = value['key'] + '!'\n"
+    "  return value\n",
+  )
+  both = hooks.request_files({"on-request": [first, second]}, "on-request")
+  assert both == [
+    hooks.CONFIG_DIR / "hooks" / "req.py",
+    hooks.CONFIG_DIR / "hooks" / "req2.py",
+  ], "1 point takes many files"
+  assert hooks.run_request(
+    "on-request",
+    {"on-request": [first, second]},
+    "daedalus/auto",
+    seen,
+    headers={"x-chat": "c1"},
+  ) == {"key": "c1:d1!", "digest": "d1"}, "the files run in list order"
+  for entries in ({}, {"on-request": ""}, None, {"on-request": 5}, {"on-request": []}):
     assert hooks.request_files(entries, "on-request") == []
+  assert hooks.run_request(
+    "on-request", {"on-request": ["gone.py"]}, "daedalus/auto", {"key": None}
+  ) == {"key": None}, "a file that does not load changes nothing"
   plain = {"key": None}
   assert hooks.run_request("on-request", {}, "daedalus/auto", plain) is plain
 
@@ -186,9 +207,8 @@ def test_init_rows() -> None:
   )
   broken = write("legend-broken.py", "def on_init():\n  raise ValueError('no')\n")
   entries = {
-    "on-request": first,
+    "on-request": [second, first],
     "on-init": third,
-    "on-answer": second,
     "on-catalog": "",
   }
   assert hooks.init_rows(entries) == [
@@ -196,7 +216,27 @@ def test_init_rows() -> None:
     ["x", "one"],
   ], "a row of 2 entries lands, other rows drop"
   assert hooks.init_rows({"on-request": broken}) == []
+  assert hooks.init_rows({"on-answer": [second]}) == [], (
+    "a file with no on_init adds no row"
+  )
   assert hooks.init_rows(None) == [] and hooks.init_rows({"on-request": 5}) == []
+
+
+def test_hook_files() -> None:
+  """The picker lists the Python files of the hooks folder as config paths."""
+  root = hooks.CONFIG_DIR / "hooks"
+  root.mkdir(parents=True, exist_ok=True)
+  named = write("listed.py", "def on_answer(value, model, headers):\n  return value\n")
+  listed = root / "listed.py"
+  found = hooks.hook_files()
+  assert "hooks/listed.py" in found, found
+  assert found == sorted(found)
+  assert all(name.endswith(".py") for name in found)
+  (root / "notes.txt").write_text("not a hook\n", encoding="utf-8")
+  assert "hooks/notes.txt" not in hooks.hook_files()
+  assert named == "hooks/listed.py"
+  listed.unlink()
+  (root / "notes.txt").unlink()
 
 
 def test_broken_hook_retry() -> None:

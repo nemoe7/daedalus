@@ -188,29 +188,29 @@
   },
   "keys": [
     {
-      "created": 1791109159.7190435,
+      "created": 1791174953.261424,
       "name": "openwebui",
-      "start": "sk-x5jf",
+      "start": "sk-eVlP",
       "used": null
     },
     {
-      "created": 1791109159.7198708,
+      "created": 1791174953.2622209,
       "name": "kilo-code",
-      "start": "sk-DpMO",
+      "start": "sk-EXgt",
       "used": null
     },
     {
-      "created": 1791109159.7205973,
+      "created": 1791174953.2630348,
       "name": "openwebui-home-assistant-integration-001",
-      "start": "sk-vIZY",
+      "start": "sk-RA6n",
       "used": null
     }
   ],
   "limits": {
-    "checked": 1791109159.8272374,
+    "checked": 1791174953.3920918,
     "lanes": [
       {
-        "at": 1791109159.8181787,
+        "at": 1791174953.3818939,
         "client": null,
         "model": "cloudflare/@cf/meta/llama-3.1-8b-instruct",
         "rows": [
@@ -218,20 +218,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791109196.8181787,
+            "reset": 1791174990.3818939,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791109171.8181787,
+            "reset": 1791174965.3818939,
             "span": null
           }
         ]
       },
       {
-        "at": 1791109159.7877188,
+        "at": 1791174953.3493395,
         "client": null,
         "model": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
         "rows": [
@@ -239,20 +239,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791109196.7877188,
+            "reset": 1791174990.3493395,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791109171.7877188,
+            "reset": 1791174965.3493395,
             "span": null
           }
         ]
       },
       {
-        "at": 1791109159.8058288,
+        "at": 1791174953.3682632,
         "client": null,
         "model": "cloudflare/@cf/mistralai/mistral-small-3.2-24b-instruct",
         "rows": [
@@ -260,41 +260,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791109196.8058288,
+            "reset": 1791174990.3682632,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791109171.8058288,
+            "reset": 1791174965.3682632,
             "span": null
           }
         ]
       },
       {
-        "at": 1791109159.802111,
-        "client": null,
-        "model": "cloudflare/@cf/openai/gpt-oss-120b",
-        "rows": [
-          {
-            "kind": "requests",
-            "limit": 14400.0,
-            "remaining": 14312.0,
-            "reset": 1791109196.802111,
-            "span": null
-          },
-          {
-            "kind": "tokens",
-            "limit": 4000000.0,
-            "remaining": 3980123.0,
-            "reset": 1791109171.802111,
-            "span": null
-          }
-        ]
-      },
-      {
-        "at": 1791109159.82288,
+        "at": 1791174953.3875883,
         "client": null,
         "model": "cloudflare/@cf/openai/whisper-large-v3-turbo",
         "rows": [
@@ -302,20 +281,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791109196.82288,
+            "reset": 1791174990.3875883,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791109171.82288,
+            "reset": 1791174965.3875883,
             "span": null
           }
         ]
       },
       {
-        "at": 1791109159.8127577,
+        "at": 1791174953.354326,
         "client": null,
         "model": "cloudflare/@cf/qwen/qwq-32b",
         "rows": [
@@ -323,20 +302,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791109196.8127577,
+            "reset": 1791174990.354326,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791109171.8127577,
+            "reset": 1791174965.354326,
             "span": null
           }
         ]
       },
       {
-        "at": 1791109159.7976222,
+        "at": 1791174953.3758874,
         "client": null,
         "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
         "rows": [
@@ -344,20 +323,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791109196.7976222,
+            "reset": 1791174990.3758874,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791109171.7976222,
+            "reset": 1791174965.3758874,
             "span": null
           }
         ]
       },
       {
-        "at": 1791109159.8092532,
+        "at": 1791174953.3719015,
         "client": null,
         "model": "openrouter/z-ai/glm-5.3-flash",
         "rows": [
@@ -365,14 +344,14 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791109196.8092532,
+            "reset": 1791174990.3719015,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791109171.8092532,
+            "reset": 1791174965.3719015,
             "span": null
           }
         ]
@@ -445,7 +424,7 @@
       "reasoning": false,
       "tier": "TIER-A",
       "tools": true,
-      "weight": 0.5000002391000653
+      "weight": 0.5000002486694185
     },
     {
       "client_cooldowns": {},
@@ -493,7 +472,7 @@
     },
     {
       "client_cooldowns": {},
-      "cooldown": 1791202759.8246524,
+      "cooldown": 1791268553.3895826,
       "effort": null,
       "flags": [],
       "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
@@ -503,7 +482,7 @@
       "reasoning": false,
       "tier": "TIER-C",
       "tools": true,
-      "weight": 0.7500014630707652
+      "weight": 0.750001606362979
     },
     {
       "client_cooldowns": {},
@@ -517,7 +496,7 @@
       "reasoning": false,
       "tier": "TIER-D",
       "tools": false,
-      "weight": 0.7500018600850031
+      "weight": 0.750002006738989
     },
     {
       "client_cooldowns": {},
@@ -584,7 +563,7 @@
           "cooldown": null,
           "id": "cloudflare/@cf/openai/gpt-oss-120b",
           "tier": "TIER-A",
-          "weight": 0.5000003159605036
+          "weight": 0.500000341790758
         },
         {
           "cooldown": null,
@@ -611,16 +590,16 @@
           "weight": 1.0
         },
         {
-          "cooldown": 1791202759.8246524,
+          "cooldown": 1791268553.3895826,
           "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
           "tier": "TIER-C",
-          "weight": 0.7500015783615924
+          "weight": 0.750001746045218
         },
         {
           "cooldown": null,
           "id": "cloudflare/@cf/meta/llama-3.1-8b-instruct",
           "tier": "TIER-D",
-          "weight": 0.7500019753758914
+          "weight": 0.7500021464213025
         }
       ],
       "name": "daedalus/auto",
@@ -633,7 +612,7 @@
           "cooldown": null,
           "id": "cloudflare/@cf/openai/gpt-oss-120b",
           "tier": "TIER-A",
-          "weight": 0.5000003172911723
+          "weight": 0.5000003435289043
         },
         {
           "cooldown": null,
@@ -674,10 +653,10 @@
       "context": 128000,
       "members": [
         {
-          "cooldown": 1791202759.8246524,
+          "cooldown": 1791268553.3895826,
           "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
           "tier": "TIER-C",
-          "weight": 0.7500015823727051
+          "weight": 0.7500017524056979
         }
       ],
       "name": "daedalus/koinos",
@@ -690,7 +669,7 @@
           "cooldown": null,
           "id": "cloudflare/@cf/meta/llama-3.1-8b-instruct",
           "tier": "TIER-D",
-          "weight": 0.7500019801414777
+          "weight": 0.7500021538800674
         }
       ],
       "name": "daedalus/moros",
@@ -795,11 +774,11 @@
   "requests": [
     {
       "app": "Kilo",
-      "at": 1791109159.8256497,
+      "at": 1791174953.3904543,
       "attempts": [
         {
           "error": "",
-          "model": "cloudflare/@cf/qwen/qwq-32b",
+          "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
           "result": "answered",
           "seconds": 0.001
         }
@@ -824,11 +803,11 @@
       },
       "transition": null,
       "ttft": "0.001s",
-      "via": "cloudflare/@cf/qwen/qwq-32b"
+      "via": "cloudflare/@cf/zai-org/glm-4.7-flash"
     },
     {
       "app": "Kilo",
-      "at": 1791109159.825581,
+      "at": 1791174953.390386,
       "attempts": [
         {
           "error": "the deployment is down",
@@ -875,15 +854,15 @@
       },
       "transition": null,
       "ttft": "0.001s",
-      "via": "cloudflare/@cf/qwen/qwq-32b"
+      "via": "cloudflare/@cf/zai-org/glm-4.7-flash"
     },
     {
       "app": "OWUI",
-      "at": 1791109159.825414,
+      "at": 1791174953.3902798,
       "attempts": [
         {
           "error": "",
-          "model": "cloudflare/@cf/qwen/qwq-32b",
+          "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
           "result": "answered",
           "seconds": 0.001
         }
@@ -914,17 +893,17 @@
         "to_pool": "deinos"
       },
       "ttft": "0.001s",
-      "via": "cloudflare/@cf/qwen/qwq-32b"
+      "via": "cloudflare/@cf/zai-org/glm-4.7-flash"
     },
     {
       "app": null,
-      "at": 1791109159.8232696,
+      "at": 1791174953.3881521,
       "attempts": [
         {
           "error": "",
           "model": "cloudflare/@cf/openai/whisper-large-v3-turbo",
           "result": "answered",
-          "seconds": 0.0
+          "seconds": 0.001
         }
       ],
       "effort": null,
@@ -936,7 +915,7 @@
       "race": null,
       "retry": null,
       "routed": null,
-      "seconds": 0.003,
+      "seconds": 0.004,
       "session": null,
       "status": 200,
       "stream": null,
@@ -947,7 +926,7 @@
     },
     {
       "app": null,
-      "at": 1791109159.818642,
+      "at": 1791174953.3825567,
       "attempts": [
         {
           "error": "",
@@ -955,8 +934,8 @@
           "result": "answered",
           "seconds": 0.001,
           "weight_change": {
-            "from": 0.5000008383342033,
-            "to": 0.7500012575013049
+            "from": 0.5000008956421572,
+            "to": 0.7500013434632358
           }
         }
       ],
@@ -969,7 +948,7 @@
       "race": "off",
       "retry": null,
       "routed": null,
-      "seconds": 0.003,
+      "seconds": 0.004,
       "session": "9e4f2c5",
       "status": 200,
       "stream": false,
@@ -984,11 +963,11 @@
     },
     {
       "app": null,
-      "at": 1791109159.8135626,
+      "at": 1791174953.37673,
       "attempts": [
         {
           "error": "",
-          "model": "cloudflare/@cf/qwen/qwq-32b",
+          "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
           "result": "answered",
           "seconds": 0.001
         }
@@ -1013,11 +992,11 @@
       },
       "transition": null,
       "ttft": "0.001s",
-      "via": "cloudflare/@cf/qwen/qwq-32b"
+      "via": "cloudflare/@cf/zai-org/glm-4.7-flash"
     },
     {
       "app": null,
-      "at": 1791109159.8096647,
+      "at": 1791174953.3723698,
       "attempts": [
         {
           "error": "",
@@ -1050,7 +1029,7 @@
     },
     {
       "app": null,
-      "at": 1791109159.8063521,
+      "at": 1791174953.368692,
       "attempts": [
         {
           "error": "",
@@ -1083,11 +1062,11 @@
     },
     {
       "app": null,
-      "at": 1791109159.8025959,
+      "at": 1791174953.364825,
       "attempts": [
         {
           "error": "",
-          "model": "cloudflare/@cf/openai/gpt-oss-120b",
+          "model": "cloudflare/@cf/mistralai/mistral-small-3.2-24b-instruct",
           "result": "answered",
           "seconds": 0.001
         }
@@ -1112,11 +1091,11 @@
       },
       "transition": null,
       "ttft": "0.001s",
-      "via": "cloudflare/@cf/openai/gpt-oss-120b"
+      "via": "cloudflare/@cf/mistralai/mistral-small-3.2-24b-instruct"
     },
     {
       "app": null,
-      "at": 1791109159.79852,
+      "at": 1791174953.3604147,
       "attempts": [
         {
           "cooldown": {
@@ -1148,7 +1127,7 @@
       "race": "off",
       "retry": null,
       "routed": null,
-      "seconds": 0.003,
+      "seconds": 0.004,
       "session": "115f867",
       "status": 200,
       "stream": true,
@@ -1169,11 +1148,11 @@
     },
     {
       "app": null,
-      "at": 1791109159.793197,
+      "at": 1791174953.3549862,
       "attempts": [
         {
           "error": "",
-          "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
+          "model": "cloudflare/@cf/qwen/qwq-32b",
           "result": "answered",
           "seconds": 0.001
         }
@@ -1198,11 +1177,11 @@
       },
       "transition": null,
       "ttft": "0.001s",
-      "via": "cloudflare/@cf/zai-org/glm-4.7-flash"
+      "via": "cloudflare/@cf/qwen/qwq-32b"
     },
     {
       "app": null,
-      "at": 1791109159.7883403,
+      "at": 1791174953.3500006,
       "attempts": [
         {
           "error": "{\"error\": \"the deployment is down\"}",
@@ -1230,7 +1209,7 @@
       "race": "off",
       "retry": null,
       "routed": null,
-      "seconds": 0.012,
+      "seconds": 0.014,
       "session": "a57a308",
       "status": 200,
       "stream": false,
@@ -1320,7 +1299,8 @@
         "tier-d": "moros"
       },
       "request_hooks": {
-        "on-request": ""
+        "on-chunk": [],
+        "on-request": []
       },
       "switch": {
         "keywords": [
@@ -1343,12 +1323,23 @@
     },
     "file": {
       "request_hooks": {
-        "on-request": "hooks/openwebui_retry.py"
+        "on-chunk": [
+          "hooks/pick.py"
+        ],
+        "on-request": [
+          "hooks/openwebui_retry.py"
+        ]
       }
     },
     "headroom_available": false,
+    "hook_files": [
+      "hooks/cheapest_output.py",
+      "hooks/example.py",
+      "hooks/openwebui_retry.py",
+      "hooks/pick.py"
+    ],
     "path": "config/daedalus.yml",
-    "text": "# Router settings. Each key is optional. A missing key uses the built-in default.\n# This file holds the changes from the defaults only. docs/configuration.md lists each key,\n# its default and its use.\n# DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.\n# HEADROOM_URL turns on message compression through a Headroom sidecar.\nrequest_hooks:\n  # The request-level hook files of the config folder, 1 for each point. Empty: no hook.\n  # on-request sets the key of the turn. The shipped file applies the Open WebUI try-again rule.\n  on-request: hooks/openwebui_retry.py\n"
+    "text": "# Router settings. Each key is optional. A missing key uses the built-in default.\n# This file holds the changes from the defaults only. docs/configuration.md lists each key,\n# its default and its use.\n# DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.\n# HEADROOM_URL turns on message compression through a Headroom sidecar.\nrequest_hooks:\n  # The request-level hook files of the config folder, in list order. An empty list: no hook.\n  # on-request sets the key of the turn. The shipped file applies the Open WebUI try-again rule.\n  on-request: [hooks/openwebui_retry.py]\n  # on-chunk sees each streamed chunk of a chat request. The shipped file draws the pool pick.\n  on-chunk: [hooks/pick.py]\n"
   },
   "status": {
     "affinity": {
@@ -1359,8 +1350,8 @@
       "slow": 30.0
     },
     "catalog": {
-      "built": 1791109159.7130947,
-      "next": 1791115200.0,
+      "built": 1791174953.255762,
+      "next": 1791180000.0,
       "rebuilding": false
     },
     "healthy": true,

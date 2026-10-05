@@ -46,15 +46,15 @@ flowchart TD
   L --> M[Code legend rows]
 ```
 
-A request-level point, such as `on-request`, takes its file from the `request_hooks` group of `config/daedalus.yml`, because no provider owns the request yet:
+A request-level point, such as `on-request`, takes its files from the `request_hooks` group of `config/daedalus.yml`, because no provider owns the request yet:
 
 ```yaml
 request_hooks:
-  on-request: hooks/openwebui_retry.py
-  on-chunk: hooks/pick.py
+  on-request: [hooks/openwebui_retry.py]
+  on-chunk: [hooks/pick.py]
 ```
 
-An empty value turns that point off. The `on-init` point has no group of its own: the dashboard reads the `on_init` function of each file in `request_hooks`. The legend card shows those rows below the base rows, and a file with no `on_init` adds no row. A file that sets `value["key"]` counts the requests of that key: a repeat after an answer is a try again.
+Each key holds a list of files, and they run in list order. 1 path on its own works too. An empty list turns that point off. The `on-init` point has no group of its own: the dashboard reads the `on_init` function of each file in `request_hooks`. The legend card shows those rows below the base rows, and a file with no `on_init` adds no row. A file that sets `value["key"]` counts the requests of that key: a repeat after an answer is a try again.
 
 `daedalus` then drops the models that answered the message: `daedalus/auto` steps the tier 1 step up, and a named pool keeps its pool. The point runs again with `count` filled in. A file that writes `value["code"]` sets the code of the Requests row, such as `rt1`. Without a `key`, a repeat is a new request.
 
@@ -78,7 +78,7 @@ daedalus reads a file again when its file time changes. A restart is not necessa
 
 Hooks get no database access. An `on-catalog` hook changes only the row. daedalus writes only the known columns of the row, so a hook cannot change a table. A hook that keeps data uses its own file, such as `cheapest_output.json`.
 
-The dashboard can edit the `hooks` list, but not the hook files. Only a person with access to the `config` folder can add a file. A hook runs inside the daedalus process, with all its access.
+The dashboard edits the `hooks` list of a model or a provider. The Request hooks card of the Settings page names the file of each request-level point. It writes no hook file: only a person with access to the `config` folder adds one. A hook runs inside the daedalus process, with all its access.
 
 ## Hook files in config
 
@@ -114,7 +114,7 @@ The model that served a chat pool request, in the final stream chunk, under `usa
 | --- | --- |
 | Runs | `on-chunk`, on each streamed chunk of a `daedalus/auto` or pool request |
 | Writes | `chunk["usage"]["daedalus"]` holds 3 keys. `line`: the served model for the client. `model`: the served slug. `pool`: the landed pool |
-| Named by | `request_hooks.on-chunk` in `config/daedalus.yml`. The chat pools own no provider block, and the file itself passes every model that is not `daedalus/auto` or a chat pool |
+| Named by | `request_hooks.on-chunk` in `config/daedalus.yml`, as `[hooks/pick.py]`. The chat pools own no provider block, and the file itself passes every model that is not `daedalus/auto` or a chat pool |
 | Shows | On the first answer of a session. When the served model differs from the last one. When the ladder moved. On the retry code of `openwebui_retry.py`. A reader of the key draws it: the Open WebUI filter `integrations/openwebui/functions/pick_status.py` |
 
 The line is `{tier} · {slug}` for `daedalus/auto`, such as `A · kilo/poolside/laguna-s-2.1:free`, and the slug alone for a named pool.
@@ -127,7 +127,7 @@ A start for a new hook file: each function, with examples in the comments.
 | --- | --- |
 | Runs | Nowhere. No config names it. |
 | Writes | Nothing. The examples stay in the comments. |
-| Named by | A copy of the file under a new name, named in a `hooks` list or in `request_hooks` |
+| Named by | A copy of the file under a new name, named in a `hooks` list or in a `request_hooks` list |
 
 ## Example
 

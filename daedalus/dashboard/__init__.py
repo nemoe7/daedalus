@@ -1046,6 +1046,7 @@ def routes(
       {
         "path": str(path),
         "headroom_available": await headroom.available(),
+        "hook_files": hooks.hook_files(),
         "defaults": settings.DEFAULTS,
         "file": raw if isinstance(raw, dict) else {},
         "text": text,
