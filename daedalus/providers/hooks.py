@@ -53,6 +53,14 @@ def resolve(value: Any) -> Path | None:
   return path
 
 
+def hook_files() -> list[str]:
+  """The names of the hook files in the config folder, as paths for the settings group."""
+  root = CONFIG_DIR / "hooks"
+  if not root.is_dir():
+    return []
+  return sorted(f"hooks/{path.name}" for path in root.glob("*.py"))
+
+
 def entries_for(config: Mapping[str, Any], model: str) -> Any:
   """The `hooks` of a model, like `order`: its `models` entry, then the block that owns the model."""
   from daedalus.routing.router import model_setting
@@ -91,11 +99,16 @@ def request_files(entries: Mapping[str, Any] | None, point: str) -> list[Path]:
   value = entries.get(point) if isinstance(entries, Mapping) else None
   if value is None or value == "":
     return []
-  if not isinstance(value, str):
-    tell(f"request_hooks.{point} must be a file path")
+  items = [value] if isinstance(value, str) else value
+  if not isinstance(items, list):
+    tell(f"request_hooks.{point} must be a file path or a list of them")
     return []
-  path = resolve(value)
-  return [] if path is None else [path]
+  found = []
+  for item in items:
+    path = resolve(item)
+    if path is not None:
+      found.append(path)
+  return found
 
 
 def init_rows(entries: Mapping[str, Any] | None) -> list[list[str]]:
@@ -105,24 +118,28 @@ def init_rows(entries: Mapping[str, Any] | None) -> list[list[str]]:
     return rows
   seen: set[Path] = set()
   for value in entries.values():
-    path = resolve(value) if isinstance(value, str) else None
-    if path is None or path in seen:
+    items = [value] if isinstance(value, str) else value
+    if not isinstance(items, list):
       continue
-    seen.add(path)
-    hook = getattr(load(path), INIT, None)
-    if not callable(hook):
-      continue
-    try:
-      found = hook()
-    except Exception:
-      logger.exception("on-init hook %s failed", path)
-      continue
-    if isinstance(found, list):
-      rows.extend(
-        [str(row[0]), str(row[1])]
-        for row in found
-        if isinstance(row, (list, tuple)) and len(row) == 2
-      )
+    for item in items:
+      path = resolve(item)
+      if path is None or path in seen:
+        continue
+      seen.add(path)
+      hook = getattr(load(path), INIT, None)
+      if not callable(hook):
+        continue
+      try:
+        found = hook()
+      except Exception:
+        logger.exception("on-init hook %s failed", path)
+        continue
+      if isinstance(found, list):
+        rows.extend(
+          [str(row[0]), str(row[1])]
+          for row in found
+          if isinstance(row, (list, tuple)) and len(row) == 2
+        )
   return rows
 
 
