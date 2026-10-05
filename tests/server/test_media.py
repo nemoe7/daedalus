@@ -1,4 +1,4 @@
-"""Tests for the endpoints of models that do not chat."""
+"""Tests for the endpoints of non-chat models."""
 
 import base64
 import io

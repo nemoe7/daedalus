@@ -29,7 +29,7 @@ POOLS: Final[Mapping[str, int]] = {
   "daedalus/deinos": 3,
   "daedalus/sophos": 4,
 }
-# The pools of the endpoints that do not chat, and the catalog mode of their models.
+# The pools of the non-chat endpoints, and the catalog mode of their models.
 MEDIA_POOLS: Final[Mapping[str, str]] = {
   "daedalus/graphos": "audio_transcription",
   "daedalus/photos": "image_generation",

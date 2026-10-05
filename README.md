@@ -123,6 +123,7 @@ uv run ruff format --check
 | [Configuration](docs/configuration.md) | Environment variables, `config/daedalus.yml` and provider files |
 | [Providers](docs/providers.md) | Supported providers and what each one can do |
 | [Deployment](docs/deployment.md) | Docker Compose, profiles, Open WebUI, Tika, SearXNG, Headroom and Tailscale |
+| [Open WebUI integration](docs/integrations/owui.md) | The skills, the filters and the tools of the `integrations/openwebui` folder |
 | [Dashboard](docs/dashboard.md) | Pages and API keys |
 | [Hooks](docs/hooks.md) | Python files that change catalog rows, requests and answers |
 | [Decisions](docs/adr/) | Architecture decision records |
