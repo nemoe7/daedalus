@@ -2,7 +2,7 @@
 
 [Open WebUI integration](../owui.md)
 
-[`integrations/openwebui/actions/think_longer.py`](../../../integrations/openwebui/actions/think_longer.py)
+[`integrations/openwebui/functions/think_longer.py`](../../../integrations/openwebui/functions/think_longer.py)
 is an Open WebUI Action: 1 file, the light bulb of the message toolbar. 1 press asks daedalus to think
 longer on the pressed turn, 1 reasoning level step up, and answers that turn again at that level.
 The action holds no daedalus key: it asks Open WebUI with the caller session, and the daedalus
