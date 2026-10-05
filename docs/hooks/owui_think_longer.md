@@ -49,7 +49,7 @@ with no answer reads its prompt. The answer holds the next level, 1 step up, and
 The answer holds `model` (the model of the chat, so the level is the only lever), `reasoning_effort`,
 `tier`, `tier_name`, `before` and `top`. `top` is true when the chat sits on `high` already.
 
-The Action [`integrations/openwebui/actions/think_longer.py`](../../integrations/openwebui/actions/think_longer.py)
+The Action [`integrations/openwebui/functions/think_longer.py`](../../integrations/openwebui/functions/think_longer.py)
 asks the same level through the chat route of Open WebUI, without a key of its own, and replaces the
 pressed text. Open WebUI keeps the old text as `originalContent`. See the
 [think longer action page](../integrations/owui/think_longer.md).

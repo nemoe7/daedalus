@@ -1,6 +1,6 @@
 # Open WebUI integration
 
-The [`integrations/openwebui`](../../integrations/openwebui) folder holds 1 directory for each Open WebUI plugin type: [`skills/`](../../integrations/openwebui/skills), [`functions/`](../../integrations/openwebui/functions) for the filters and pipes, and [`tools/`](../../integrations/openwebui/tools) for the Workspace Tools. The message-toolbar actions sit in [`actions/`](../../integrations/openwebui/actions).
+The [`integrations/openwebui`](../../integrations/openwebui) folder holds 1 directory for each Open WebUI plugin type. [`functions/`](../../integrations/openwebui/functions) holds the filters, the pipes and the think longer action. [`tools/`](../../integrations/openwebui/tools) holds the Workspace Tools. [`skills/`](../../integrations/openwebui/skills) holds the skills.
 
 Each file is 1 plugin: paste its content in **Workspace → Tools** or **Workspace → Skills**, or import the file. The sections below name the install steps and the valves of each plugin.
 
