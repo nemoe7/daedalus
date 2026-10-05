@@ -5,18 +5,18 @@ daedalus reads its settings from these sources:
 | Source | Contents | Edit from the dashboard |
 | --- | --- | --- |
 | `.env` | Keys and container settings | No |
-| `config/daedalus.yml` | Router settings | Yes, on the **Settings** page |
-| `config/providers/free.yml` | Providers, tiers and model limits | Yes, on the **Providers** page |
+| [`config/daedalus.yml`](../config/daedalus.yml) | Router settings | Yes, on the **Settings** page |
+| [`config/providers/free.yml`](../config/providers/free.yml) | Providers, tiers and model limits | Yes, on the **Providers** page |
 | `config/providers/{provider}.yml` | 1 provider, on its own | Yes, on the **Providers** page |
 
-`daedalus.yml` contains the main settings for the router and its jobs. `config/providers/` contains the provider configurations (tiers, models, limits, etc).
+[`daedalus.yml`](../config/daedalus.yml) contains the main settings for the router and its jobs. [`config/providers/`](../config/providers) contains the provider configurations (tiers, models, limits, etc).
 
 A key that shows 2 times in 1 map of a config file stops the start. The error gives the key and the 2 line numbers.
 
 At each catalog rebuild, daedalus reads the default provider file of the repository,
-`config/providers/free.yml` on `main`, and adds each provider that the local file lacks. The
+[`config/providers/free.yml`](../config/providers/free.yml) on `main`, and adds each provider that the local file lacks. The
 local file wins whole, so a local provider block, a changed value and a removed provider stay.
-The read never writes `config/providers/free.yml`: the copy lands in `.daedalus-state/free.defaults.yml`.
+The read never writes [`config/providers/free.yml`](../config/providers/free.yml): the copy lands in `.daedalus-state/free.defaults.yml`.
 With no network or a bad file, the copy of the last good read stands, and daedalus logs 1 line.
 
 daedalus reads the files at the start and on each save from the dashboard. A hand edit of a file on disk needs a reload. A save from the dashboard reloads the file for the live server and rebuilds the catalog from it. With no save, run `daedalus catalog`: the command reads the files again for its store build.
@@ -25,15 +25,15 @@ The next start of the server reads the edited file.
 
 ## Files per provider
 
-`free.yml` holds each provider. A second file, `{provider}.yml`, holds 1 provider with its own settings. `openrouter.yml` and the `openrouter` block of `free.yml` are independent: the tiers, the excludes and the models of 1 file do not apply to the other. `pollinations.yml` holds Pollinations, with no block in `free.yml`, because Pollinations spends a balance that does not refill ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)).
+[`free.yml`](../config/providers/free.yml) holds each provider. A second file, `{provider}.yml`, holds 1 provider with its own settings. [`openrouter.yml`](../config/providers/openrouter.yml) and the `openrouter` block of [`free.yml`](../config/providers/free.yml) are independent: the tiers, the excludes and the models of 1 file do not apply to the other. [`pollinations.yml`](../config/providers/pollinations.yml) holds Pollinations, with no block in [`free.yml`](../config/providers/free.yml), because Pollinations spends a balance that does not refill ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)).
 
 | Item | Rule |
 | --- | --- |
-| Name | The file name is the provider name: `openrouter.yml` holds `openrouter`. |
+| Name | The file name is the provider name: [`openrouter.yml`](../config/providers/openrouter.yml) holds `openrouter`. |
 | Provider key | A file with no provider key, like `api_key` or `models`, is not a provider file. |
 | Discovery | Each file discovers the models of its provider with its own settings. |
 | Models | A file keeps only the models of its `models` keys. `"*"` keeps each model. |
-| Values | A kept model takes its values from its file only, not `free.yml`. |
+| Values | A kept model takes its values from its file only, not [`free.yml`](../config/providers/free.yml). |
 | New file | The **Providers** page makes a file. An unknown name also gets an empty `api_base`. |
 
 ## Environment variables
@@ -71,7 +71,7 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 
 ## Router settings
 
-`config/daedalus.yml`. Each key is optional. A missing key uses the default. An unknown key stops the start.
+[`config/daedalus.yml`](../config/daedalus.yml). Each key is optional. A missing key uses the default. An unknown key stops the start.
 
 The 2 old groups, `session_affinity` and `parallel`, stop it too. The error names the `affinity.mode` that replaces each one.
 
@@ -124,7 +124,7 @@ The shipped provider files use `env:NAME` values. They read environment variable
 | `env:NAME` | Environment variable `NAME` |
 | `db:NAME` | Value saved in the dashboard |
 
-Keep the `env:NAME` values in `config/providers/free.yml` to use provider keys from `.env`. Paste a key into **Providers** to save it in the dashboard instead. See [Keys and values](dashboard.md#keys-and-values).
+Keep the `env:NAME` values in [`config/providers/free.yml`](../config/providers/free.yml) to use provider keys from `.env`. Paste a key into **Providers** to save it in the dashboard instead. See [Keys and values](dashboard.md#keys-and-values).
 
 ## Provider files
 
