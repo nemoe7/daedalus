@@ -1167,7 +1167,7 @@ def test_the_overview_pool_rows_draw_the_marks_of_the_top_model() -> None:
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   row = re.search(
-    r'\$\("ov-models"\)\.innerHTML = state\.pools\.map\(\(pool\) => \{.*?'
+    r'draw\("ov-models", state\.pools\.map\(\(pool\) => \{.*?'
     r'top \? modelName\(top\.id\) : "no models"',
     app,
     re.DOTALL,
@@ -2159,3 +2159,25 @@ def client(folder: Path):
     yield TestClient(api.app, headers=AUTH)
   upstream.set_client(None)
   config.set_config(None)
+
+
+def test_app_js_redraw_needs_new_markup() -> None:
+  """The tables draw again only when the markup changed, so the find marks and the selection stay."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert re.search(
+    r"function draw\(id, markup\) \{\n  const host = \$\(id\);\n"
+    r"  if \(DRAWN\.get\(host\) === markup\) return;",
+    app,
+  ), "the draw helper keeps the DOM of an unchanged table"
+  for host in (
+    "ov-requests",
+    "ov-models",
+    "ov-limits",
+    "models",
+    "keys",
+    "balances",
+    "limit-rows",
+  ):
+    assert f'draw("{host}",' in app, host
+    assert f'$("{host}").innerHTML =' not in app, f"{host} still redraws every time"
