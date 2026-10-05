@@ -169,6 +169,9 @@ select {
   color: var(--text); font: inherit; cursor: pointer;
   background: var(--field) var(--chevron) no-repeat right 12px center;
 }
+/* The system draws the open list itself, and in the dark it keeps a light frame. The theme colors
+   sit on the rows, so the list stays readable on both themes. */
+select option { background: var(--panel); color: var(--text); }
 .models th:not(:first-child), .models td:not(:first-child) { padding-left: 8px; padding-right: 8px; }
 .models th:not(:first-child), .models td:not(:first-child) { width: 1%; white-space: nowrap; }
 .models th:last-child, .models td:last-child { padding-right: 16px; }
@@ -347,10 +350,25 @@ section[data-page="providers"], section[data-page="settings"], #yaml-view, #sett
 }
 .add:hover { color: var(--accent); border-color: var(--accent); }
 .adder { display: inline-flex; gap: 6px; }
-/* A hook row: the file name in a select, and the delete button of the pill. */
-.pill.hook select {
-  border: 0; background: transparent; color: inherit; font: 12px/20px var(--mono); cursor: pointer;
-  max-width: 30ch; text-overflow: ellipsis;
+/* A hook row: the file name in a chip that opens the list of the hooks folder. The chip holds the
+   same pill as a keyword chip, and the list draws in the page so it follows the page theme. */
+.pill.hook { position: relative; }
+.pill.hook:focus-within { border-color: var(--accent); }
+.pill.hook .pick {
+  border: 0; padding: 0; background: transparent; color: inherit; cursor: pointer;
+  font: 12px/20px var(--mono); max-width: 30ch; overflow: hidden; text-overflow: ellipsis;
+}
+.pill.hook .menu {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; min-width: 100%;
+  display: grid; gap: 2px; padding: 4px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel); box-shadow: 0 8px 20px rgb(0 0 0 / 20%);
+}
+.pill.hook .menu button {
+  border: 0; border-radius: 6px; background: transparent; color: var(--text); text-align: left;
+  padding: 4px 8px; font: 12px/20px var(--mono); white-space: nowrap;
+}
+.pill.hook .menu button:hover, .pill.hook .menu button[aria-selected="true"] {
+  background: var(--bar); color: var(--tier);
 }
 .pill.hook .none { color: var(--muted); }
 .adder input, .adder select { padding: 2px 8px; border-radius: 6px; font-size: 12px; }
