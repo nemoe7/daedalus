@@ -315,7 +315,7 @@ function markPools() {
 }
 
 function renderPools(pools) {
-  $("pools").innerHTML = pools.map((pool) => {
+  draw("pools", pools.map((pool) => {
     const { tier, mode } = poolFilter(pool);
     const health = poolHealth(pool.members);
     const bar = health === null ? "" : `<div class="health" title="Mean weight. A model in a cooldown counts as 0.">
@@ -324,7 +324,7 @@ function renderPools(pools) {
       ? ` <span class="ctx" title="The largest context of a pool model, ${pool.context.toLocaleString()} tokens">${tokens(pool.context)}</span>` : "";
     return `<a class="card pool" data-tier="${tier}" data-mode="${esc(mode)}" title="${esc(pool.shown)}: ${esc(POOL_NOTES[pool.name] || "")}">
       <h3>${esc(pool.shown.replace("daedalus/", ""))}${context}</h3>${bar}<div class="sub">${count(pool.members.length, "model")}</div></a>`;
-  }).join("");
+  }).join(""));
   markPools();
 }
 
@@ -800,11 +800,14 @@ function renderSortHeads() {
 const dash = '<span class="muted">-</span>';
 
 // A redraw that keeps the DOM when the markup did not change. The browser find marks and the text
-// selection of the page survive, because an identical table is not built again.
+// selection of the page survive, because an identical table is not built again. A live selection
+// holds the redraw of its own host back, as the Requests table does.
 const DRAWN = new Map();
 function draw(id, markup) {
   const host = $(id);
   if (DRAWN.get(host) === markup) return;
+  const selected = getSelection();
+  if (!selected.isCollapsed && host.contains(selected.anchorNode)) return;
   DRAWN.set(host, markup);
   host.innerHTML = markup;
 }
