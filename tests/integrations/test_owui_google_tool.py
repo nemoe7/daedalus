@@ -92,6 +92,13 @@ async def answer(payload):
   return payload["type"] == "confirmation"
 
 
+def reader() -> object:
+  """A client whose read valve is allow, so a read runs without a dialog."""
+  instance = client()
+  instance.valves.permissions = "Allow reads"
+  return instance
+
+
 def test_the_surface_holds_the_eight_functions():
   tree = ast.parse(TOOL.read_text())
   cls = next(
@@ -110,7 +117,7 @@ def test_the_surface_holds_the_eight_functions():
 
 def test_the_gate_defaults_to_ask_with_sixty_seconds():
   instance = tool.Tools()
-  assert instance.valves.default_mode == "ask"
+  assert instance.valves.permissions == "Always ask"
   assert instance.valves.timeout_seconds == 60
   assert instance.valves.calendar_id == "primary"
   assert tool.Tools.UserValves().mode == "default"
@@ -134,7 +141,15 @@ def test_every_write_goes_through_the_gate():
       assert "self._write(" in body, f"{node.name} mutates without the gate"
 
 
-def test_a_read_runs_without_a_dialog(monkeypatch):
+def test_the_shipped_permission_asks_on_a_read(monkeypatch):
+  calls = []
+  opener(monkeypatch, [token_body()], calls)
+  out = asyncio.run(client().search_mail("from:ana"))
+  assert out["result"]["denied"] is True
+  assert calls == []
+
+
+def test_allow_reads_runs_without_a_dialog(monkeypatch):
   calls = []
   opener(
     monkeypatch,
@@ -158,7 +173,7 @@ def test_a_read_runs_without_a_dialog(monkeypatch):
     ],
     calls,
   )
-  out = asyncio.run(client().search_mail("from:ana"))
+  out = asyncio.run(reader().search_mail("from:ana"))
   assert out["result"]["messages"][0]["subject"] == "Hi"
   assert calls[0]["url"] == "https://oauth2.googleapis.com/token"
   assert "q=from%3Aana" in calls[1]["url"]
@@ -177,7 +192,7 @@ def test_the_token_is_cached(monkeypatch):
     ],
     calls,
   )
-  instance = client()
+  instance = reader()
   asyncio.run(instance.search_mail("a"))
   asyncio.run(instance.search_mail("b"))
   tokens = [
@@ -232,7 +247,7 @@ def test_agenda_reads_the_window(monkeypatch):
     ],
     calls,
   )
-  out = asyncio.run(client().agenda(days=3))
+  out = asyncio.run(reader().agenda(days=3))
   assert out["result"]["events"][0]["summary"] == "Standup"
   assert "/calendars/primary/events?" in calls[1]["url"]
   assert "singleEvents=true" in calls[1]["url"]
@@ -271,7 +286,7 @@ def test_search_files_wraps_plain_words(monkeypatch):
     [token_body(), json.dumps({"files": [{"id": "f1", "name": "Notes"}]})],
     calls,
   )
-  out = asyncio.run(client().search_files("quarterly notes"))
+  out = asyncio.run(reader().search_files("quarterly notes"))
   assert out["result"]["files"][0]["name"] == "Notes"
   assert "fullText+contains" in calls[1]["url"]
 
@@ -289,7 +304,7 @@ def test_read_document_exports_a_google_doc(monkeypatch):
     ],
     calls,
   )
-  out = asyncio.run(client().read_document("d1", max_chars=1000))
+  out = asyncio.run(reader().read_document("d1", max_chars=1000))
   assert out["result"]["text"] == "the document text"
   assert out["result"]["truncated"] is False
   assert calls[1]["url"].endswith("/drive/v3/files/d1?fields=id%2Cname%2CmimeType")
@@ -319,7 +334,7 @@ def test_a_google_error_propagates(monkeypatch):
     error=HTTPError("https://gmail.googleapis.com/", 404, "Not Found", {}, None),
   )
   try:
-    asyncio.run(client().search_mail("x"))
+    asyncio.run(reader().search_mail("x"))
   except tool.GoogleError as error:
     assert error.status == 404
   else:

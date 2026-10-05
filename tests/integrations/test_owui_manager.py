@@ -135,26 +135,26 @@ def test_the_one_file_holds_the_five_groups():
   assert len(KNOWLEDGE) == 23
 
 
-def test_the_gate_takes_a_deny():
-  """A deny policy refuses a mutation before the network."""
+def test_the_shipped_permission_holds_a_mutation():
+  """Always ask refuses a mutation before the network, with no dialog."""
   tool, calls = make_tool()
-  tool.valves.default_mode = "deny"
+  assert tool.valves.permissions == "Always ask"
   answer = json.loads(asyncio.run(tool.delete_file("f1", __request__=object())))
   assert answer["result"]["denied"] is True
   assert calls == []
 
 
-def test_the_gate_takes_an_allow():
-  """An allow policy runs the mutation."""
+def test_always_allow_runs_the_mutation():
+  """Always allow runs the mutation."""
   tool, calls = make_tool({"DELETE /files/f1": {}})
-  tool.valves.default_mode = "allow"
+  tool.valves.permissions = "Always allow"
   answer = asyncio.run(tool.delete_file("f1", __request__=object()))
   assert "deleted file f1" in answer
   assert calls[0][0] == "DELETE"
 
 
 def test_the_gate_denies_when_no_dialog_is_possible():
-  """The shipped ask mode refuses when no event call reaches the tool."""
+  """The shipped permission refuses when no event call reaches the tool."""
   tool, calls = make_tool()
   answer = json.loads(asyncio.run(tool.delete_file("f1", __request__=object())))
   assert answer["result"]["denied"] is True
@@ -162,13 +162,15 @@ def test_the_gate_denies_when_no_dialog_is_possible():
   assert calls == []
 
 
-def test_a_read_runs_free():
-  """A read passes no gate."""
+def test_allow_reads_frees_a_read_and_holds_a_mutation():
+  """Allow reads lets a read run, and the gated calls still ask."""
   tool, calls = make_tool({"GET /files/": {}})
-  tool.valves.default_mode = "deny"
+  tool.valves.permissions = "Allow reads"
   answer = asyncio.run(tool.list_files(__request__=object()))
   assert "No files found" in answer
-  assert calls[0][0] == "GET"
+  denied = json.loads(asyncio.run(tool.delete_file("f1", __request__=object())))
+  assert denied["result"]["denied"] is True
+  assert [call[0] for call in calls] == ["GET"]
 
 
 def test_a_new_item_runs_free_and_joins_the_presets():
@@ -180,7 +182,7 @@ def test_a_new_item_runs_free_and_joins_the_presets():
     "total": 1,
   }
   tool, calls = make_tool()
-  tool.valves.default_mode = "deny"
+  tool.valves.permissions = "Allow reads"
 
   async def fake_request(session, method, path, **kwargs):
     calls.append((method, path, kwargs))
