@@ -70,6 +70,11 @@ An ADR holds one decision and the reason for it.
 - Do not put cards in a row above a table.
 - Update the pages simulation when code or UI changes: `scripts/pages_demo.py`, live at <https://nemoe7.github.io/daedalus/>.
 
+## Open WebUI plugins
+
+- Bump the `version:` line of a plugin file on every change to that file.
+- Read the version of the file on `main`. Increase its last number by 1, so a branch keeps 1 bump and not 1 for each commit.
+
 ## Hooks
 
 A hook file is an optional plugin under `config/hooks`, and the points live in
