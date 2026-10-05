@@ -21,6 +21,7 @@ POINTS = {
   "on-catalog": "on_catalog",
   "on-request": "on_request",
   "on-prompt": "on_prompt",
+  "on-http": "on_http",
   "on-upstream": "on_upstream",
   "on-answer": "on_answer",
   "on-chunk": "on_chunk",
