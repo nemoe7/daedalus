@@ -37,7 +37,7 @@ services:
       OPENAI_API_BASE_URL: http://api:3357/v1
       OPENAI_API_KEY: ${OPENWEBUI_API_KEY:-${DAEDALUS_MASTER_KEY:-}}
       ENABLE_OLLAMA_API: "false"
-      # Sends X-OpenWebUI-Chat-Id. The request hook hooks/owui_retry.py uses it.
+      # Sends X-OpenWebUI-Chat-Id. The request hook hooks/owui_auto_reasoning_effort.py uses it.
       ENABLE_FORWARD_USER_INFO_HEADERS: "true"
       # Keeps the logins after an image update. Empty: a new key in each new container.
       WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:-}

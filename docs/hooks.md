@@ -53,8 +53,8 @@ A request-level point, such as `on-request`, takes its files from the `request_h
 
 ```yaml
 request_hooks:
-  on-request: [hooks/owui_retry.py]
-  on-prompt: [hooks/owui_think_longer.py]
+  on-request: [hooks/owui_auto_reasoning_effort.py]
+  on-prompt: [hooks/owui_auto_reasoning_effort.py]
   on-chunk: [hooks/served_model.py]
 ```
 
@@ -64,13 +64,13 @@ Each key holds a list of files, and they run in list order. 1 path on its own wo
 
 The `on-prompt` point hands each hook file the values of the request, and a hook file sets
 `reasoning_effort`. The value of a hook file wins over the value of the client and over the catalog
-default, and the base sets no effort of its own. The shipped ladder file steps aside for a client
-value, so a client keeps the last word there. The levels, the shipped ladder file and its route are
-on the [think longer](hooks/owui_think_longer.md) page.
+default, and the base sets no effort of its own. The shipped file steps aside for a client value on a
+new message, so a client keeps the last word there. The levels and the shipped file are on the
+[auto reasoning effort](hooks/owui_auto_reasoning_effort.md) page.
 
 `daedalus` then drops the models that answered the message: `daedalus/auto` steps the tier 1 step up, and a named pool keeps its pool. The point runs again with `count` filled in. A file that writes `value["code"]` sets the code of the Requests row, such as `rt1`. Without a `key`, a repeat is a new request.
 
-Without a `code`, the row shows no code. [`config/hooks/owui_retry.py`](../config/hooks/owui_retry.py) applies this rule to the `x-openwebui-chat-id` header of Open WebUI.
+Without a `code`, the row shows no code. [`config/hooks/owui_auto_reasoning_effort.py`](../config/hooks/owui_auto_reasoning_effort.py) applies this rule to the `x-openwebui-chat-id` header of Open WebUI.
 The media endpoints, transcription and images, count a repeat of the same content with no hook.
 That count is the one repeat path of the base app.
 
@@ -84,21 +84,21 @@ A hook file can answer an HTTP call. The path names the file, and the file must 
 cmd:
 
 ```cmd
-curl -X POST http://localhost:3357/v1/hook/owui_think_longer -H "Authorization: Bearer %DAEDALUS_KEY%" ^
+curl -X POST http://localhost:3357/v1/hook/example -H "Authorization: Bearer %DAEDALUS_KEY%" ^
   -H "Content-Type: application/json" -d "{\"messages\": [{\"role\": \"user\", \"content\": \"why is this slow\"}]}"
 ```
 
 PowerShell:
 
 ```powershell
-curl.exe -X POST http://localhost:3357/v1/hook/owui_think_longer -H "Authorization: Bearer $env:DAEDALUS_KEY" `
+curl.exe -X POST http://localhost:3357/v1/hook/example -H "Authorization: Bearer $env:DAEDALUS_KEY" `
   -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "why is this slow"}]}'
 ```
 
 bash:
 
 ```bash
-curl -X POST http://localhost:3357/v1/hook/owui_think_longer -H "Authorization: Bearer $DAEDALUS_KEY" \
+curl -X POST http://localhost:3357/v1/hook/example -H "Authorization: Bearer $DAEDALUS_KEY" \
   -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "why is this slow"}]}'
 ```
 
@@ -106,11 +106,9 @@ The route loads the file, calls its `on_http`, and answers with the dict it retu
 inside the hook is a 500, and a missing file is a 404. Any valid key may call any hook file, so
 treat a hook file as admin code: it runs in the process of daedalus with full access.
 
-The shipped [`config/hooks/owui_think_longer.py`](../config/hooks/owui_think_longer.py) is the think-longer
-file of 1 chat: it holds the `on-prompt` point and this route. The point sets the level of a request
-from the read of its message, a `think_longer` field of the body, or a try again. The route carries
-the next level of the chat, on the model of the chat. A chat that already sits on `high` keeps it,
-and the answer marks it with `top`.
+The shipped [`config/hooks/owui_auto_reasoning_effort.py`](../config/hooks/owui_auto_reasoning_effort.py)
+names the turn of an Open WebUI chat, writes the `rtN` code of a repeat, and sets the reasoning level
+of the request. Its page is [auto reasoning effort](hooks/owui_auto_reasoning_effort.md).
 
 ## Errors
 
@@ -140,8 +138,7 @@ The dashboard edits the `hooks` list of a model or a provider. The Request hooks
 
 | File | What it does |
 | --- | --- |
-| [`hooks/owui_think_longer.py`](../config/hooks/owui_think_longer.py) | The [think longer](hooks/owui_think_longer.md) ladder of a chat |
-| [`hooks/owui_retry.py`](../config/hooks/owui_retry.py) | The [try-again rule](hooks/owui_retry.md) of an Open WebUI chat |
+| [`hooks/owui_auto_reasoning_effort.py`](../config/hooks/owui_auto_reasoning_effort.py) | The [auto reasoning level and try-again rule](hooks/owui_auto_reasoning_effort.md) of an Open WebUI chat |
 | [`hooks/served_model.py`](../config/hooks/served_model.py) | The [served model line](hooks/served_model.md) of a chat pool request |
 | [`hooks/or_cheapest_output.py`](../config/hooks/or_cheapest_output.py) | The [OpenRouter endpoint order](hooks/or_cheapest_output.md) |
 

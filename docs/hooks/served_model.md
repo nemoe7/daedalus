@@ -8,7 +8,7 @@ request, in the final stream chunk, under `usage.daedalus`.
 | Runs | `on-chunk`, on each streamed chunk of a `daedalus/auto` or pool request |
 | Writes | `chunk["usage"]["daedalus"]` holds 3 keys. `line`: the served model for the client. `model`: the served slug. `pool`: the landed pool |
 | Named by | `request_hooks.on-chunk` in [`config/daedalus.yml`](../../config/daedalus.yml), as `[hooks/served_model.py]` |
-| Shows | On the first answer of a session. When the served model differs from the last one. When the ladder moved. On the retry code of [`owui_retry.py`](owui_retry.md) |
+| Shows | On the first answer of a session. When the served model differs from the last one. When the ladder moved. On the retry code of [`owui_auto_reasoning_effort.py`](owui_auto_reasoning_effort.md) |
 
 ```mermaid
 flowchart TD

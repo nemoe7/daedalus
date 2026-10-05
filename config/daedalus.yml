@@ -7,11 +7,10 @@
 request_hooks:
   # The request-level hook files of the config folder, in list order. An empty list: no hook.
   # on-request sets the key of the turn. The shipped file applies the Open WebUI try-again rule.
-  on-request: [hooks/owui_retry.py]
-  # on-prompt sets the reasoning level of a chat request. The shipped file reads the tier of
-  # the message, for an Open WebUI client, steps the level for a `think_longer` body field and
-  # for a try again, and the light-bulb action calls its HTTP hook.
-  on-prompt: [hooks/owui_think_longer.py]
+  on-request: [hooks/owui_auto_reasoning_effort.py]
+  # on-prompt sets the reasoning level of a chat request. The shipped file reads the tier of the
+  # message and steps the level 1 up for a try again, for an Open WebUI client.
+  on-prompt: [hooks/owui_auto_reasoning_effort.py]
   # on-chunk sees each streamed chunk of a chat request. The shipped file writes the served model
   # line.
   on-chunk: [hooks/served_model.py]
