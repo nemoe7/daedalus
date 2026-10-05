@@ -17,22 +17,25 @@ flowchart TD
   B --> C[A repeat of an answered message]
   C --> D[key of the turn, rtN code]
   D --> E{{on_prompt}}
-  E --> F[Tier of the message, from the router]
+  E --> F[Tier of the newest turns, from the router]
   F --> G[The level of LEVELS]
   G --> H[reasoning_effort of the request]
 ```
 
 ## The level of a call
 
-The `on_prompt` point reads the heuristics v2 tier of the message at hand, so each message of a chat
-gets its own level. The `LEVELS` table holds the level of each tier, from `TIER-D` `none` to
-`TIER-A` `high`. A value of the client keeps the last word over that read.
+The `on_prompt` point reads the heuristics v2 tier of the newest user turn and the newest model
+turn, so each turn of a chat gets its own level. The model part is capped at `ANSWER_CHARS`, 500
+characters, because a long answer would bloat the read. The `LEVELS` table holds the level of each
+tier, from `TIER-D` `none` to `TIER-A` `high`. A value of the client keeps the last word over that
+read. The tier of the conversation stays with the routing of `daedalus/auto`, so this file sets the
+level alone.
 
 | Event | The level |
 | --- | --- |
-| A new message | The read of the message |
+| A new message | The read of the newest user turn and model turn |
 | A try again | 1 step above the level of the last answer, never below the value of the client |
-| A try again after a model without reasoning | The read of the message, with no step |
+| A try again after a model without reasoning | The read of the newest turns, with no step |
 | Any request, at the top | `high` |
 
 The base sets no effort of its own. The point serves the client of the `CLIENT` constant, so a Kilo

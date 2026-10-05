@@ -8,10 +8,11 @@
 Open WebUI sends `x-openwebui-chat-id` when `ENABLE_FORWARD_USER_INFO_HEADERS` is true. A repeat of
 a message that a model answered is a try again: daedalus steps 1 tier up for `daedalus/auto`, keeps
 a named pool, and drops the models that answered, then this file writes the code of the row, `rt1`,
-`rt2`. The prompt point reads the heuristics v2 tier of the message, which is the classified level
-of the message, so each message of a chat gets its own level. A try again steps the level of the
-last answer 1 up. A last answer with no level took no reasoning step, so that request takes the read
-of the message instead. The cap of the ladder is `high`.
+`rt2`. The prompt point reads the heuristics v2 tier of the newest user turn and the newest model
+turn, which is the classified level of the thread, so each turn of a chat gets its own level. A try again steps the
+level of the last answer 1 up. A last answer with no level took no reasoning step, so that request
+takes the read of the newest turn instead. The cap of the ladder is `high`. The tier of the
+conversation stays with the routing of `daedalus/auto`, so this file sets the level alone.
 
 `config/daedalus.yml` names this file in both groups. An empty value turns that point off.
 """
@@ -38,6 +39,50 @@ TIER_OF = {level: tier for tier, level in LEVELS.items()}
 # The top of the ladder, `TIER-A`.
 TOP = max(router.TIERS)
 
+# The characters of the model turn that join the read. A long answer would bloat the read.
+ANSWER_CHARS = 500
+
+
+def _text(content: Any) -> str:
+  """The text of one message content, which is a string or a list of parts."""
+  if isinstance(content, str):
+    return content
+  if isinstance(content, list):
+    return " ".join(
+      part.get("text", "")
+      for part in content
+      if isinstance(part, dict) and isinstance(part.get("text"), str)
+    )
+  return ""
+
+
+def _newest(messages: Any, prompt: str) -> str:
+  """The newest user turn and model turn in reading order, the model part capped, else the prompt.
+
+  :param messages: the messages of the request
+  :param prompt: the fallback when the messages carry no user turn
+  """
+  if not isinstance(messages, list):
+    return prompt or ""
+  found: dict[str, tuple[int, str]] = {}
+  for index in range(len(messages) - 1, -1, -1):
+    message = messages[index]
+    if not isinstance(message, dict):
+      continue
+    role = message.get("role")
+    if role in found or role not in ("user", "assistant"):
+      continue
+    text = _text(message.get("content"))
+    if role == "assistant":
+      text = text[-ANSWER_CHARS:]
+    if text:
+      found[role] = (index, text)
+    if len(found) == 2:
+      break
+  if "user" not in found:
+    return prompt or ""
+  return "\n".join(text for _, text in sorted(found.values()))
+
 
 def on_request(value: dict, model: str, headers: dict) -> dict | None:
   """The key of the turn, and on a repeat the code of the row.
@@ -60,22 +105,24 @@ def on_request(value: dict, model: str, headers: dict) -> dict | None:
 def on_prompt(
   value: dict,
   prompt: str = "",
+  messages: list | None = None,
   effort: str | None = None,
   app: str | None = None,
   retry: int = 0,
   level: str | None = None,
   **context: Any,
 ) -> None:
-  """Set the reasoning level of an Open WebUI request: the read of the message, or the step of a repeat.
+  """Set the reasoning level of an Open WebUI request: the read of the thread, or the step of a repeat.
 
-  A new message takes the level of the read of its prompt, and a value of the client keeps the last
-  word. A try again steps the level of the last answer 1 up, above the value of the client, because
-  the regenerate button carries the level. A last answer with no recorded level took no reasoning
-  step, so that request takes the read of the message and no step, while the tier still steps 1 up.
-  The cap of the ladder is `high`.
+  A new message takes the level of the read of its newest user turn and model turn, and a value of
+  the client keeps the last word. A try again steps the level of the last answer 1 up, above the
+  value of the client, because the regenerate button carries the level. A last answer with no
+  recorded level took no reasoning step, so that request takes the read and no step, while the tier
+  still steps 1 up. The cap of the ladder is `high`.
 
   :param value: the request values, holding `reasoning_effort`
-  :param prompt: the user turns joined
+  :param prompt: the user turns joined, the fallback when the messages do not come
+  :param messages: the messages of the request, for the newest user turn and model turn
   :param effort: the value of the client, `None` when it sent none
   :param app: the client app of the request, from its headers
   :param retry: the count of try agains of this message, 0 for its first answer
@@ -84,7 +131,7 @@ def on_prompt(
   """
   if app != CLIENT:
     return
-  read = int(router.required_tier(prompt or ""))
+  read = int(router.required_tier(_newest(messages, prompt)))
   if not retry:
     if effort:
       return

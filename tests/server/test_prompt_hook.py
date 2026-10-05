@@ -321,3 +321,55 @@ def test_a_hook_file_wins_over_the_client(
     provider, "daedalus/auto:TIER-B", {**BODY, "reasoning_effort": "minimal"}
   )
   assert written["reasoning_effort"] == "max"
+
+
+def test_the_shipped_hook_reads_the_newest_turn() -> None:
+  """The level comes from the newest user turn, not from the turns joined."""
+  module = shipped_module()
+  older = "Write a Python function that reverses a string."
+  newest = "thanks"
+  assert api.router.required_tier(older) != api.router.required_tier(newest), (
+    "the pair reads differently"
+  )
+  value: dict = {}
+  module.on_prompt(
+    value,
+    prompt=f"{older}\n{newest}",
+    messages=[
+      {"role": "user", "content": older},
+      {"role": "user", "content": newest},
+    ],
+    app="OWUI",
+  )
+  assert (
+    value["reasoning_effort"] == module.LEVELS[int(api.router.required_tier(newest))]
+  )
+
+
+def test_the_shipped_hook_reads_a_parted_content() -> None:
+  """A newest turn that carries a list of parts reads as its text."""
+  module = shipped_module()
+  value: dict = {}
+  parts = [{"type": "text", "text": "Write a Python function that reverses a string."}]
+  module.on_prompt(value, messages=[{"role": "user", "content": parts}], app="OWUI")
+  read = int(api.router.required_tier(parts[0]["text"]))
+  assert value["reasoning_effort"] == module.LEVELS[read]
+
+
+def test_the_shipped_hook_caps_the_model_turn() -> None:
+  """The read joins the model turn and the newest user turn, and the model part is capped."""
+  module = shipped_module()
+  answer, newest = "a" * 900, "thanks"
+  text = module._newest(
+    [
+      {"role": "user", "content": "Write a Python function that reverses a string."},
+      {"role": "assistant", "content": answer},
+      {"role": "user", "content": newest},
+    ],
+    "",
+  )
+  assert text == f"{answer[-module.ANSWER_CHARS :]}\n{newest}"
+  assert len(text) == module.ANSWER_CHARS + 1 + len(newest)
+  assert module._newest([], "the joined prompt") == "the joined prompt", (
+    "the prompt stays the fallback"
+  )
