@@ -83,6 +83,13 @@ Table(
   Column("used", REAL, nullable=False),
 )
 Table(
+  "levels",
+  METADATA,
+  Column("key", TEXT, primary_key=True),
+  Column("effort", TEXT, nullable=False),
+  Column("used", REAL, nullable=False),
+)
+Table(
   "saved_env",
   METADATA,
   Column("name", TEXT, primary_key=True),

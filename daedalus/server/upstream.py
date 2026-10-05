@@ -241,6 +241,17 @@ def without_reasoning(candidate: str, body: dict[str, Any]) -> dict[str, Any]:
   return {key: value for key, value in body.items() if key != "reasoning_effort"}
 
 
+# The body fields of daedalus itself. They never go upstream.
+OWN_FIELDS = ("think_longer",)
+
+
+def without_own(body: dict[str, Any]) -> dict[str, Any]:
+  """The body without the fields that daedalus reads itself."""
+  if not any(field in body for field in OWN_FIELDS):
+    return body
+  return {key: value for key, value in body.items() if key not in OWN_FIELDS}
+
+
 def forward(headers: Mapping[str, str]) -> None:
   """Keep the client headers of the current request that go on to each provider."""
   _forwarded.set(
@@ -275,7 +286,7 @@ async def attempt(
   provider key.
   """
   asked = "reasoning_effort" in body
-  body = without_reasoning(candidate, with_defaults(candidate, body))
+  body = without_own(without_reasoning(candidate, with_defaults(candidate, body)))
   provider, url, payload, headers = providers.prepare(candidate, body, config, client)
   if payload.get("stream") and provider.stream_usage:
     payload = {
