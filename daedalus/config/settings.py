@@ -38,7 +38,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
   "loops": {"calls": 3, "repeats": 4, "shortest": 20, "longest": 2000},
   "pacing": {"enabled": True},
   "catalog": {"every": 6.0, "anchor": 6.0},
-  "headroom": {"timeout": 5.0},
+  # The message compression through Headroom. A block or a model entry turns it off for 1 model.
+  "headroom": {"enabled": True, "timeout": 5.0},
   # The phrases that raise the tier of `daedalus/auto`, and the words that move the session model.
   "escalation": {
     "keywords": [

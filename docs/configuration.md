@@ -105,6 +105,7 @@ The shipped file holds the changes from the defaults only. The **Settings** page
 | `pacing.enabled` | `true` | `false`: the `rpm` and `tpm` of the provider files do not skip models |
 | `catalog.every` | `6` | Hours between catalog rebuilds. `0` stops them. |
 | `catalog.anchor` | `6` | Local hour that the rebuild times start from. A whole hour from 0 to 23. |
+| `headroom.enabled` | `true` | `false`: the messages of each model go to the provider unchanged. |
 | `headroom.timeout` | `5` | Seconds for the full Headroom answer. Then the original messages go to the provider. |
 | `escalation.keywords` | `ultrathink`, `think hard`, `think harder`, `think deeply`, `think longer`, `root cause`, `race condition`, `memory leak`, `deadlock`, `security review`, `performance regression`, `audit`, `refactor`, `investigate`, `diagnose`, `code review`, `system design`, `optimize`, `debug`, `design`, `architecture` | Whole words or phrases. A match moves the `daedalus/auto` tier 1 step up, session-kept. |
 | `switch.keywords` | `clanker` | Words or phrases. A match gives the pool session another model of the same tier. |
@@ -159,6 +160,7 @@ groq:
 | `order` | Optional. 1 or more, default 1. Runs after the lower orders of its tier. |
 | `hooks` | Optional. Hook points and file paths in `config`, like `- on-upstream: hooks/x.py`. |
 | `streams` | Optional. `false`: the block answers no stream. The client waits for the whole body. Absent: true. |
+| `headroom` | Optional. `false`: no Headroom compression for the models of the block. Absent: `headroom.enabled`. |
 | `hourly_requests` | Optional. The provider requests per hour. At the limit, the provider leaves the chains. |
 
 `rpm` and `tpm` limit the requests and the input tokens of a model in 60 s. At a limit, the model leaves the chains. See [Pacing](architecture.md#pacing).
@@ -174,6 +176,7 @@ Other keys of a `models` entry:
 | `supports_function_calling`, or its short name `tools` | `true` or `false`. Pool and `daedalus/auto` tool requests skip a model without it. |
 | `supports_vision` | `true` or `false`. Pool and `daedalus/auto` image requests skip a model without it. |
 | `streams` | `false`: the model answers no stream. A request that wanted one retries without it. Absent: true. |
+| `headroom` | `false`: the model keeps its messages. Absent: the value of the block, then `headroom.enabled`. |
 
 When 2 entries match 1 model, the last entry in the file sets the key. A model key at the provider level, for example `reasoning_effort: high` next to `api_key`, sets the value for each model of the provider.
 

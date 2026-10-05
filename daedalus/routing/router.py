@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from typing import Any, Final
 
 from daedalus.catalog.discovery import matches, specificity
-from daedalus.config import block_for, client_key
+from daedalus.config import block_for, client_key, file_block, main_block
 from daedalus.routing import lanes
 from daedalus.routing.classifier import (
   TIER_NAMES,
@@ -36,6 +36,14 @@ MEDIA_POOLS: Final[Mapping[str, str]] = {
 }
 # The pool names that clients use, from the `pools` settings. Only renamed pools are here.
 RENAMED: Mapping[str, str] = {}
+# The `headroom.enabled` setting. A block or a model entry alone turns the switch off for 1 model.
+HEADROOM: bool = True
+
+
+def set_headroom(enabled: bool) -> None:
+  """Use the `headroom.enabled` setting of the settings file."""
+  global HEADROOM
+  HEADROOM = enabled is not False
 
 
 def set_pool_names(names: Mapping[str, str]) -> None:
@@ -88,6 +96,23 @@ def model_setting(config: Mapping[str, Any], model: str, key: str) -> Any:
     if isinstance(values, dict) and key in values and matches(str(pattern), slug):
       found = values[key]
   return found
+
+
+def headroom_allowed(config: Mapping[str, Any], model: str) -> bool:
+  """Tell if the messages of a model take the Headroom compression.
+
+  The narrow level wins: a `models` entry, the file block of the provider, its block, the setting.
+  """
+  name, _, _slug = model.partition("/")
+  provider = config.get(name)
+  found = model_setting(config, model, "headroom")
+  if found is None:
+    found = (file_block(provider) or {}).get("headroom")
+  if found is None:
+    found = (main_block(provider) or {}).get("headroom")
+  if found is None:
+    return HEADROOM
+  return found is not False
 
 
 def streams_allowed(config: Mapping[str, Any], model: str) -> bool:
