@@ -18,8 +18,10 @@ CONFIG = {
 }
 ROWS = [{"id": m} for m in ("b/1", "b/2", "b/3")]
 FIRST = {"role": "user", "content": "hi"}
-# The seconds before the first content of each model, and the models that the client called.
+# The seconds before the first content of each model, the seconds before its end, and the
+# models that the client called.
 PLAN: dict[str, float] = {}
+TAIL: dict[str, float] = {}
 CALLS: list[str] = []
 
 
@@ -36,6 +38,7 @@ class Feed(httpx.AsyncByteStream):
       "choices": [{"index": 0, "delta": {"content": self.model}}],
     }
     yield b"data: " + json.dumps(chunk).encode() + b"\n\n"
+    await asyncio.sleep(TAIL.get(self.model, 0.0))
     yield b"data: [DONE]\n\n"
 
 
@@ -110,6 +113,7 @@ def fresh() -> None:
   api.PENALTIES.pick = lambda: 0.0
   dashboard.HISTORY.clear()
   PLAN.clear()
+  TAIL.clear()
   CALLS.clear()
   LINES.lines.clear()
 
@@ -146,6 +150,24 @@ def test_chance_starts_the_second_model(client: TestClient) -> None:
       ("b/1", "lost race"),
       ("b/2", "answered"),
     }, attempts()
+  finally:
+    api.PARALLEL_CHANCE = 0.0
+
+
+def test_a_lost_racer_reads_slower_than_the_winner(client: TestClient) -> None:
+  """The winner's row reads its first content, so a loser that stops later reads the larger time."""
+  api.PARALLEL_CHANCE = 1.0
+  try:
+    PLAN.update({"b/1": 1.0, "b/2": 0.0})
+    TAIL.update({"b/2": 0.05})
+    body = {"model": "daedalus/deinos", "messages": [FIRST]}
+    response = client.post(
+      "/v1/chat/completions", json=body, headers={"Authorization": f"Bearer {MASTER}"}
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["choices"][0]["message"]["content"] == "b/2", response.text
+    seconds = {attempt["result"]: attempt["seconds"] for attempt in attempts()}
+    assert seconds["lost race"] >= seconds["answered"], seconds
   finally:
     api.PARALLEL_CHANCE = 0.0
 
