@@ -177,6 +177,36 @@ def test_direct_only() -> None:
   assert router.pooled(keyless, "openrouter/a/keep") is False, "no key, no pools"
 
 
+def test_headroom_allowed() -> None:
+  """The Headroom compression turns off at 4 levels, and the narrow level wins."""
+  plain = {"p": {"api_key": "k"}}
+  assert router.headroom_allowed(plain, "p/x") is True, "on by default"
+  router.set_headroom(False)
+  assert router.headroom_allowed(plain, "p/x") is False, "the settings switch"
+  router.set_headroom(True)
+  block = {
+    "p": {"api_key": "k", "headroom": False, "models": {"x": {"headroom": True}}}
+  }
+  assert router.headroom_allowed(block, "p/x") is True, "the model entry wins"
+  assert router.headroom_allowed(block, "p/y") is False, "the provider block"
+  file_only = {"p": {"api_key": "k", config.FILE_KEY: {"headroom": False}}}
+  assert router.headroom_allowed(file_only, "p/x") is False, "the file block"
+  both = {
+    "p": {
+      "api_key": "k",
+      "headroom": True,
+      config.FILE_KEY: {"api_key": "k", "headroom": False},
+    }
+  }
+  assert router.headroom_allowed(both, "p/x") is False, "the file block beats the block"
+  router.set_headroom(False)
+  assert router.headroom_allowed(both, "p/x") is False, "only a true block returns true"
+  assert (
+    router.headroom_allowed({"p": {"api_key": "k", "headroom": True}}, "p/x") is True
+  )
+  router.set_headroom(True)
+
+
 def test_provider_files() -> None:
   """A {provider}.yml takes its own models, and its values win over the main file."""
   main = {

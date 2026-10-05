@@ -66,6 +66,7 @@ SETTINGS = (
   (headroom, "TIMEOUT_SECONDS"),
   *((schedule, name) for name in ("EVERY", "ANCHOR", "BUSY", "PENDING")),
   (router, "RENAMED"),
+  (router, "HEADROOM"),
 )
 
 

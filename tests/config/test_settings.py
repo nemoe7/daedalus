@@ -304,6 +304,15 @@ def test_timeout_cap() -> None:
     settings.parse("timeouts:\n  request: 90000\n")
 
 
+def test_headroom_switch() -> None:
+  """The Headroom switch is a boolean, in the settings file and in the form."""
+  assert settings.check("headroom", "enabled", True) is True
+  assert settings.check("headroom", "enabled", False) is False
+  assert settings.parse("headroom:\n  enabled: false\n")["headroom"]["enabled"] is False
+  with pytest.raises(settings.SettingsError, match="true or false"):
+    settings.parse("headroom:\n  enabled: 1\n")
+
+
 def test_pool_names() -> None:
   """The key of each pool is generic, its default is the built-in name, and a save keeps a number-like name."""
   assert settings.parse("")["pools"]["tier-a"] == "sophos"

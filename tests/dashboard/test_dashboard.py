@@ -99,6 +99,8 @@ def test_page(client: TestClient) -> None:
   ), "a logout asks first, in the modal"
   assert "shortEffort(sentText(a, r.effort))" in script.text
   assert '["change_on_draw", "Change pin on draw"' in script.text
+  assert '["headroom", "Headroom"' in script.text, "the Headroom card is in Settings"
+  assert '["enabled", "Enabled"' in script.text, "the Headroom switch is a checkbox"
   assert '["loops", "Loop detection"' in script.text, (
     "the loop thresholds are in Settings"
   )

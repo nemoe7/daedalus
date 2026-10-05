@@ -1466,6 +1466,7 @@ const SETTINGS = [
     ["anchor", "Anchor hour", "h", "The local hour (TZ) that the rebuild times start from."],
   ]],
   ["headroom", "Headroom", [
+    ["enabled", "Enabled", "", "Off: the messages of every model go to the provider unchanged."],
     ["timeout", "Timeout", "s", "After this time, the original messages go to the provider."],
   ]],
   ["escalation", "Escalation", [
