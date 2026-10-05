@@ -120,21 +120,21 @@ function ask(title, message, confirm = "Confirm", danger = false, placeholder = 
 
 // One card for each page, from the data that the pages already read.
 function renderOverview() {
-  $("ov-requests").innerHTML = state.requests.slice(0, 10).map((r) => line(
+  draw("ov-requests", state.requests.slice(0, 10).map((r) => line(
     `<span class="status ${statusClass(r)}">${statusCell(r)}</span> <span title="${esc(r.via || r.model || "")}">${r.via || r.model ? modelName(r.via || r.model) : "-"}</span>`,
     stamp(r.at),
-  )).join("") || none("No requests");
+  )).join("") || none("No requests"));
   $("ov-model-count").textContent = state.models.length || "";
   // Each pool with its mean weight and the model that served it most.
   const served = {};
   for (const r of state.requests) served[r.via || r.model] = (served[r.via || r.model] || 0) + 1;
-  $("ov-models").innerHTML = state.pools.map((pool) => {
+  draw("ov-models", state.pools.map((pool) => {
     const top = topModel(pool.members, served);
     const health = poolHealth(pool.members);
     return `<div class="pool-line"><div class="line"><span>${esc(pool.shown.replace("daedalus/", ""))}</span>
       <span title="${esc(top?.id)}">${top ? modelName(top.id) : "no models"}</span></div>${health === null ? "" : weightBar(health)}</div>`;
-  }).join("") || none(state.models.length ? "No pools" : "No models. Run daedalus catalog.");
-  $("ov-limits").innerHTML = overviewLimits(state.limits) || none("No limits yet");
+  }).join("") || none(state.models.length ? "No pools" : "No models. Run daedalus catalog."));
+  draw("ov-limits", overviewLimits(state.limits) || none("No limits yet"));
 }
 
 class LoggedOut extends Error {}
@@ -799,6 +799,16 @@ function renderSortHeads() {
 
 const dash = '<span class="muted">-</span>';
 
+// A redraw that keeps the DOM when the markup did not change. The browser find marks and the text
+// selection of the page survive, because an identical table is not built again.
+const DRAWN = new Map();
+function draw(id, markup) {
+  const host = $(id);
+  if (DRAWN.get(host) === markup) return;
+  DRAWN.set(host, markup);
+  host.innerHTML = markup;
+}
+
 function renderModels() {
   markPools();
   // The badge counts the rows of this page, not the routable models of the status answer.
@@ -809,7 +819,7 @@ function renderModels() {
     && (state.mode === "all" || m.mode === state.mode || m.flags.includes(state.mode))
     && m.id.toLowerCase().includes(query)));
   const empty = state.models.length ? "No models match" : "No models. Run daedalus catalog.";
-  $("models").innerHTML = rows.length ? rows.map((m) => `
+  draw("models", rows.length ? rows.map((m) => `
     <tr>
       ${nameCell(m.id, modelName(m.id), "Model", `<span class="types phone-types">${typeChips(m)}</span>`)}
       <td class="hide-sm"><div class="types">${typeChips(m)}</div></td>
@@ -821,7 +831,7 @@ function renderModels() {
       <td class="num">${coolCells(m)}</td>
       <td>${m.weight == null ? dash
         : `<div class="weight">${weightBar(m.weight)}<span class="num">${m.weight.toFixed(2)}</span></div>`}</td>
-    </tr>`).join("") : `<tr><td colspan="9" class="empty">${empty}</td></tr>`;
+    </tr>`).join("") : `<tr><td colspan="9" class="empty">${empty}</td></tr>`);
 }
 
 // The time left of a cooldown, such as 59s, 4m 05s or 3h 12m.
@@ -859,14 +869,14 @@ async function refreshEnv() {
 }
 
 function renderKeys(rows) {
-  $("keys").innerHTML = rows.length ? rows.map((k) => `
+  draw("keys", rows.length ? rows.map((k) => `
     <tr>
       <td>${esc(k.name)}</td>
       <td class="num muted mono"><span${k.start ? ` title="Only the start of a saved key is kept"` : ""}>${k.start ? esc(k.start) + "&hellip;" : "-"}</span></td>
       <td class="hide-sm muted">${stamp(k.created)}</td>
       <td class="muted">${k.used ? stamp(k.used) : "never"}</td>
       <td class="end"><button type="button" class="ghost danger" data-key="${esc(k.name)}">Delete</button></td>
-    </tr>`).join("") : '<tr><td colspan="5" class="empty">No API keys. The master key opens /v1.</td></tr>';
+    </tr>`).join("") : '<tr><td colspan="5" class="empty">No API keys. The master key opens /v1.</td></tr>');
 }
 
 async function refreshKeys() {
@@ -1792,11 +1802,11 @@ function renderLimits(data) {
   state.limits = data;
   $("limits-checked").textContent = data.checked ? `Checked ${stamp(data.checked)} · each hour` : "Not checked yet";
   $("balances").hidden = !data.providers.length;
-  $("balances").innerHTML = data.providers.map((p) => `<div class="card"><h3>${esc(p.name)}</h3>
+  draw("balances", data.providers.map((p) => `<div class="card"><h3>${esc(p.name)}</h3>
     ${p.items.map(([label, value, left]) => `<div class="balance">${line(esc(label), esc(value))}
-      ${left == null ? "" : weightBar(left)}</div>`).join("")}</div>`).join("");
+      ${left == null ? "" : weightBar(left)}</div>`).join("")}</div>`).join(""));
   const rows = data.lanes.flatMap((lane) => lane.rows.map((row) => ({ ...row, model: lane.model, client: lane.client, at: lane.at })));
-  $("limit-rows").innerHTML = rows.length ? rows.map((r) => `<tr>
+  draw("limit-rows", rows.length ? rows.map((r) => `<tr>
       ${nameCell(r.model, `${modelName(r.model)}${r.client ? ` <span class="muted">${esc(r.client)}</span>` : ""}`)}
       <td title="${esc(limitTitle(r))}">${esc(limitUnit(r))}</td>
       <td><div class="weight left" title="${r.remaining.toLocaleString()} of ${r.limit.toLocaleString()}">
@@ -1804,7 +1814,7 @@ function renderLimits(data) {
         <span class="num${r.remaining > 0 ? "" : " out"}">${floorCount(r.remaining)} of ${floorCount(r.limit)}</span></div></td>
       <td class="hide-sm muted time">${r.reset ? stamp(r.reset) : "-"}</td>
       <td class="hide-sm muted time">${stamp(r.at)}</td>
-    </tr>`).join("") : '<tr><td colspan="5" class="empty">No rate-limit headers yet. Groq and Mistral send them with each answer.</td></tr>';
+    </tr>`).join("") : '<tr><td colspan="5" class="empty">No rate-limit headers yet. Groq and Mistral send them with each answer.</td></tr>');
 }
 
 async function refreshSlow() {
