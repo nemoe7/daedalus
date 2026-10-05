@@ -1,8 +1,11 @@
 """The served model: the model that served a pool answer, in the final chunk's `usage.daedalus`."""
 
+import logging
 from typing import Any
 
 from daedalus.routing import router
+
+logger = logging.getLogger("daedalus.hooks")
 
 # The reserved model and the separator of the line: `A · kilo/poolside/laguna-s-2.1:free`.
 RESERVED = router.RESERVED_MODEL
@@ -55,4 +58,5 @@ def on_chunk(
   chunk["usage"] = (
     {**usage, "daedalus": pick} if isinstance(usage, dict) else {"daedalus": pick}
   )
+  logger.info("served model %s for %s", pick["line"], model)
   return chunk
