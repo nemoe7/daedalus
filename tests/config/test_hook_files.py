@@ -151,7 +151,10 @@ def test_pick_named_on_the_pools() -> None:
   """The shipped config names the served model hook for the pools and the reserved model, and for no other provider."""
   text = (FOLDER.parent / "daedalus.yml").read_text()
   assert "on-chunk: [hooks/served_model.py]" in text
-  entries = {"on-request": "hooks/owui_retry.py", "on-chunk": "hooks/served_model.py"}
+  entries = {
+    "on-request": "hooks/owui_auto_reasoning_effort.py",
+    "on-chunk": "hooks/served_model.py",
+  }
   target = hooks.CONFIG_DIR / "hooks" / "served_model.py"
   target.parent.mkdir(parents=True, exist_ok=True)
   target.write_text("", encoding="utf-8")

@@ -1314,14 +1314,14 @@ def test_app_js_hook_rows() -> None:
       "headroom_available": False,
       "text": "",
       "hook_files": [
-        "hooks/owui_retry.py",
+        "hooks/owui_auto_reasoning_effort.py",
         "hooks/served_model.py",
         "hooks/or_cheapest_output.py",
       ],
       "defaults": settings.DEFAULTS,
       "file": {
         "request_hooks": {
-          "on-request": ["hooks/owui_retry.py", "hooks/served_model.py"]
+          "on-request": ["hooks/owui_auto_reasoning_effort.py", "hooks/served_model.py"]
         }
       },
     }
@@ -1350,7 +1350,7 @@ const open = node('set-request_hooks-on-request').innerHTML;
 assert(open.includes('class="menu"') && open.includes('role="listbox"'), 'the list opens under the chip');
 assert(open.includes('>served_model.py<') && open.includes('>or_cheapest_output.py<'), 'the list holds the hook files');
 assert(open.includes('aria-selected="true"'), 'the saved file shows as picked');
-assert(open.includes('title="Pick a hook file">owui_retry.py</button>'), 'the chip drops the folder of the name');
+assert(open.includes('title="Pick a hook file">owui_auto_reasoning_effort.py</button>'), 'the chip drops the folder of the name');
 // A choice lands in the row, reaches the save payload, and closes the list.
 clickOn('[data-hook-choice]', {{ hookChoice: '["request_hooks", "on-request", 0, "hooks/served_model.py"]' }});
 assert(!node('set-request_hooks-on-request').innerHTML.includes('class="menu"'), 'the pick closes the list');
@@ -1810,8 +1810,8 @@ def test_hook_legend_rows(client: TestClient, state_folder: Path) -> None:
   assert client.get("/ui/api/hooks").json() == {"legend": []}, "no hook file yet"
   folder = state_folder / "config" / "hooks"
   folder.mkdir(parents=True, exist_ok=True)
-  (folder / "owui_retry.py").write_text(
-    Path("config/hooks/owui_retry.py").read_text(encoding="utf-8"),
+  (folder / "owui_auto_reasoning_effort.py").write_text(
+    Path("config/hooks/owui_auto_reasoning_effort.py").read_text(encoding="utf-8"),
     encoding="utf-8",
   )
   body = client.get("/ui/api/hooks").json()
@@ -1832,8 +1832,8 @@ def test_files(
   shown = client.get("/ui/api/settings").json()
   assert shown["file"] == {
     "request_hooks": {
-      "on-request": ["hooks/owui_retry.py"],
-      "on-prompt": ["hooks/owui_think_longer.py"],
+      "on-request": ["hooks/owui_auto_reasoning_effort.py"],
+      "on-prompt": ["hooks/owui_auto_reasoning_effort.py"],
       "on-chunk": ["hooks/served_model.py"],
     }
   }, "the shipped file holds the changes only"
@@ -1921,11 +1921,15 @@ def test_files(
     ).status_code
     == 422
   ), "a hook path is a string"
-  hook = {"request_hooks": {"on-request": ["hooks/owui_retry.py", "hooks/picked.py"]}}
+  hook = {
+    "request_hooks": {
+      "on-request": ["hooks/owui_auto_reasoning_effort.py", "hooks/picked.py"]
+    }
+  }
   assert client.put("/ui/api/settings", json={"changes": hook}).status_code == 200
   assert api.REQUEST_HOOKS == {
-    "on-request": ["hooks/owui_retry.py", "hooks/picked.py"],
-    "on-prompt": ["hooks/owui_think_longer.py"],
+    "on-request": ["hooks/owui_auto_reasoning_effort.py", "hooks/picked.py"],
+    "on-prompt": ["hooks/owui_auto_reasoning_effort.py"],
     "on-chunk": ["hooks/served_model.py"],
   }, "the save applies each request hook of the point"
   assert (
@@ -1936,7 +1940,7 @@ def test_files(
   )
   assert api.REQUEST_HOOKS == {
     "on-request": [],
-    "on-prompt": ["hooks/owui_think_longer.py"],
+    "on-prompt": ["hooks/owui_auto_reasoning_effort.py"],
     "on-chunk": ["hooks/served_model.py"],
   }, "an empty list turns the hook off"
   dark = {"dashboard": {"theme": "dark"}}

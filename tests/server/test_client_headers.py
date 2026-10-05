@@ -136,7 +136,7 @@ async def test_the_hook_writes_the_repeat_code(
   path = state_folder / "config" / "hooks" / "retry.py"
   path.parent.mkdir(parents=True, exist_ok=True)
   path.write_text(
-    Path("config/hooks/owui_retry.py").read_text(encoding="utf-8"),
+    Path("config/hooks/owui_auto_reasoning_effort.py").read_text(encoding="utf-8"),
     encoding="utf-8",
   )
   api.REQUEST_HOOKS = {"on-request": "hooks/retry.py"}
@@ -168,7 +168,7 @@ async def test_a_named_pool_repeat_picks_another_model(
   path = state_folder / "config" / "hooks" / "retry.py"
   path.parent.mkdir(parents=True, exist_ok=True)
   path.write_text(
-    Path("config/hooks/owui_retry.py").read_text(encoding="utf-8"),
+    Path("config/hooks/owui_auto_reasoning_effort.py").read_text(encoding="utf-8"),
     encoding="utf-8",
   )
   api.REQUEST_HOOKS = {"on-request": "hooks/retry.py"}
