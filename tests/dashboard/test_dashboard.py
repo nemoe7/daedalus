@@ -503,7 +503,7 @@ def test_app_js_request_cards() -> None:
     re.sub(r"<[^>]+>", "", text).strip()
     for text in re.findall(r"<th[^>]*>(.*?)</th>", header.group(1))
   ]
-  assert len(labels) == 12, labels
+  assert len(labels) == 11, labels
   row = {
     "at": 100,
     "app": "OWUI",
@@ -530,7 +530,7 @@ def test_app_js_request_cards() -> None:
   code = f"""
 const fs = require('fs');
 const vm = require('vm');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{ renderRequests, renderLive, poolTier, state, modelName, poolOf, routingCodes }};";
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{ renderRequests, renderLive, poolTier, state, modelName, poolOf, routingCodes, chainRows }};";
 const nodes = new Map();
 const node = (id) => {{
   if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', hidden: false, children: [], listeners: {{}}, contains: () => false, addEventListener(type, handler) {{ this.listeners[type] = handler; }}, classList: {{ toggle: () => {{}} }} }});
@@ -561,12 +561,15 @@ const html = node('requests').innerHTML;
 const cells = [...html.matchAll(/<td[^>]*>/g)].map((m) => m[0]);
 assert.strictEqual(cells.length, 12, 'every column of the row is a cell: ' + cells.length);
 assert(cells.every((td) => td.includes('role="cell"')), 'each request cell keeps its table role');
-assert.strictEqual((html.match(/class="cell-value"/g) || []).length, 12, 'each request cell keeps its value');
+assert.strictEqual((html.match(/class="cell-value"/g) || []).length, 11, 'every value cell keeps its value span');
 const mobileLabels = (markup) => [...markup.matchAll(new RegExp('<span class="mobile-label" aria-hidden="true">([^<]*)</span>', 'g'))].map((m) => m[1]);
 assert.deepStrictEqual(mobileLabels(html), {json.dumps(labels)}, 'the cells show their column names in table order');
 assert(html.includes('hide-sm hide-md num mono'), 'the session id reads in the mono font');
 assert(html.includes('class="request has-chain"'), 'requests with fallbacks expose their chain');
-assert(html.includes('More · session, effort · 1 fallback'), 'request details disclose their fallback count');
+assert(html.includes('View fallback chain · 1 fallback'), 'the chain details disclose the fallback count');
+assert(probe.chainRows({json.dumps(row)}).includes('Fallback chain · 1 fallback'), 'the desktop chain details carry the count');
+assert(probe.chainRows({json.dumps({**row, "fallbacks": 3})}).includes('Fallback chain · 3 fallbacks'), 'the count keeps its plural');
+assert(!probe.chainRows({json.dumps({**row, "fallbacks": None})}).includes('Fallback chain ·'), 'a row with no count keeps the plain head');
 // The pool of the auto model rides in the slug, and the daedalus head carries its own mark.
 const autoCell = probe.modelName('daedalus/auto', probe.poolOf({{ model: 'daedalus/auto', pool: 'moros' }}));
 assert.strictEqual(probe.poolOf({{ model: 'daedalus/auto', pool: 'moros' }}), 'moros', 'the auto pool joins the slug');
@@ -582,7 +585,7 @@ sandbox.window.matchMedia = () => ({{ matches: true }});
 node('requests').listeners.click(mobileTap);
 assert(!mobileSelectors.includes('tr.request'), 'a mobile row tap does not open a second chain');
 const detailSelectors = [];
-const detailTap = {{ target: {{ closest: (selector) => {{ detailSelectors.push(selector); return selector === '.mobile-request-more' ? {{}} : null; }} }} }};
+const detailTap = {{ target: {{ closest: (selector) => {{ detailSelectors.push(selector); return selector === '.mobile-fallback-chain' ? {{}} : null; }} }} }};
 sandbox.window.matchMedia = () => ({{ matches: false }});
 node('requests').listeners.click(detailTap);
 assert(!detailSelectors.includes('tr.request'), 'a detail disclosure does not toggle the desktop chain');
@@ -592,9 +595,9 @@ const liveHtml = node('live').innerHTML;
 const liveCells = [...liveHtml.matchAll(/<td[^>]*>/g)].map((m) => m[0]);
 assert.strictEqual(liveCells.length, 12, 'every live column is a cell');
 assert(liveCells.every((td) => td.includes('role="cell"')), 'each live request cell keeps its table role');
-assert.strictEqual((liveHtml.match(/class="cell-value"/g) || []).length, 12, 'each live request cell keeps its value');
+assert.strictEqual((liveHtml.match(/class="cell-value"/g) || []).length, 11, 'every live value cell keeps its value span');
 assert.deepStrictEqual(mobileLabels(liveHtml), {json.dumps(labels)}, 'live request cells show their column names');
-assert(liveHtml.includes('More · session, effort · 0 fallbacks'), 'live row details stay compact');
+assert(liveHtml.includes('<span class="mobile-fallback-count">0 fallbacks</span>'), 'the live row reads the fallback count alone');
 for (const value of ['s2', 'medium', '<span class="model-part">moros</span>']) assert(liveHtml.includes(value), 'live details keep ' + value);
 assert(!liveHtml.includes('mobile-fallback-chain'), 'live rows do not show a fallback chain');
 """
@@ -693,7 +696,7 @@ def test_the_short_values_carry_their_full_text() -> None:
   root = Path(__file__).resolve().parent.parent.parent
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   head = page.split('<table class="requests"', 1)[1].split("</thead>", 1)[0]
-  assert head.count('title="') == 12, "each Requests head carries a hover text"
+  assert head.count('title="') == 11, "each Requests head carries a hover text"
   for note in (
     "When the request started",
     "The client app, from its request headers",
@@ -706,7 +709,6 @@ def test_the_short_values_carry_their_full_text() -> None:
     "Output tokens from the provider",
     "Time to the first token",
     "The stream time after the first token",
-    "How many models the fallback chain tried",
   ):
     assert f'title="{note}"' in head, note
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -798,16 +800,21 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
   base_css, mobile_css = css.split("@media (max-width: 720px) {", 1)
   mobile_css = mobile_css.split("\n}", 1)[0]
   narrow_css = css.split("@media (max-width: 360px) {", 1)[1].split("\n}", 1)[0]
-  assert ".requests .mobile-request-more { display: none; }" in base_css
+  assert ".requests td.fallbacks-cell { display: none; }" in base_css, (
+    "the desktop table reads the fallback count in the chain of the row"
+  )
   assert "tr.request.has-chain { cursor: pointer; }" in base_css
   assert "tr.request.has-chain.open td { background: var(--field); }" in base_css
   assert (
     "@media (hover: hover) {\n  tr.request.has-chain:hover td "
     "{ background: var(--field); }\n}" in base_css
   ), "the row hover needs a pointer, a touch tap keeps no background"
-  assert ".requests .mobile-request-more { display: block; width: 100%; }" in mobile_css
   assert ".requests tr.request, .requests tr.live-row {" in mobile_css
-  assert "grid-template-columns: repeat(4, minmax(0, 1fr))" in mobile_css
+  assert (
+    "grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto" in mobile_css
+  ), (
+    "the stamp fits its text, the client tag fills the rest, the status badge fits its own width"
+  )
   assert (
     ".requests tr.request > td:nth-child(4), .requests tr.live-row > td:nth-child(4) "
     "{ grid-column: 1 / -1; grid-row: 2; }"
@@ -825,19 +832,47 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
     ".requests tr.request > td:nth-child(8), .requests tr.live-row > td:nth-child(8) "
     "{ grid-column: 1; grid-row: 4; }"
   ) in mobile_css, "the input count joins the other counts"
-  assert "grid-column: 1 / -1; grid-row: 5;" in mobile_css
   assert (
-    ".requests tr.request > td:nth-child(3), .requests tr.request > td:nth-child(5),\n"
-    "  .requests tr.live-row > td:nth-child(3), .requests tr.live-row > td:nth-child(5) "
-    "{ display: none; }"
-  ) in mobile_css, "only the session and the effort stay off the card"
-  assert ".requests .mobile-request-meta" in mobile_css
+    ".requests tr.request > td:nth-child(3), .requests tr.live-row > td:nth-child(3) "
+    "{ grid-column: 1; grid-row: 5; }"
+  ) in mobile_css, "the session id takes the first column of its own row"
+  assert (
+    ".requests tr.request > td:nth-child(5), .requests tr.live-row > td:nth-child(5) "
+    "{ grid-column: 2 / 4; grid-row: 5; }"
+  ) in mobile_css, "the effort follows the session"
+  assert (
+    ".requests tr.request > td.fallbacks-cell, .requests tr.live-row > td.fallbacks-cell {\n"
+    "    display: block; grid-column: 1 / -1; grid-row: 6;\n"
+    "  }"
+  ) in mobile_css, "the chain details take the last row"
+  assert (
+    ".requests tr.request > td.fallbacks-cell.no-details,\n"
+    "  .requests tr.live-row > td.fallbacks-cell.no-details { display: none; }"
+  ) in mobile_css, "a card with no details keeps no empty row"
+  assert (
+    ".requests tr.request:active td, .requests tr.live-row:active td "
+    "{ background: transparent; }"
+  ) in mobile_css, "a press paints no patch behind a selection"
+  assert (
+    ".requests tr.request:active, .requests tr.live-row:active { background: var(--field); }"
+  ) in mobile_css, "a press paints the field of the whole card"
+  assert (
+    ".requests tr.request > td:nth-child(1) .cell-value,\n"
+    "  .requests tr.live-row > td:nth-child(1) .cell-value "
+    "{ font-size: 11px; white-space: nowrap; }"
+  ) in mobile_css, "the stamp holds 1 line at its own width"
+  assert "user-select" not in mobile_css, "the phone card keeps the text selection"
   assert (
     ".requests .mobile-fallback-chain ol { list-style: none; margin: 5px 0 0; "
     "padding: 0; }"
   ) in mobile_css
   assert ".requests tr.request .caret { display: none; }" in mobile_css
-  assert "font-size: 11px; white-space: nowrap;" in narrow_css
+  assert ".requests .mobile-request-meta" not in mobile_css, (
+    "the details drop the 3 row list"
+  )
+  assert ".requests .mobile-request-more" not in mobile_css, (
+    "the more disclosure is gone"
+  )
   assert ".requests tr.live-row > td:nth-child(1) .pulse" in narrow_css
   assert (
     "td:nth-child(8), .requests tr.live-row > td:nth-child(8) "
@@ -848,8 +883,16 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
     "{ grid-column: 3 / 5; grid-row: 5; }"
   ) in narrow_css
   assert (
+    "td:nth-child(3), .requests tr.live-row > td:nth-child(3) "
+    "{ grid-column: 1 / 3; grid-row: 6; }"
+  ) in narrow_css, "a narrow card steps the session down 1 row"
+  assert (
+    "td:nth-child(5), .requests tr.live-row > td:nth-child(5) "
+    "{ grid-column: 3 / 5; grid-row: 6; }"
+  ) in narrow_css, "a narrow card steps the effort down 1 row"
+  assert (
     ".requests tr.request > td.fallbacks-cell, .requests tr.live-row > "
-    "td.fallbacks-cell { grid-column: 1 / -1; grid-row: 6; }"
+    "td.fallbacks-cell { grid-column: 1 / -1; grid-row: 7; }"
   ) in narrow_css, "the fallback row keeps the full width of a narrow card"
 
 
@@ -865,7 +908,6 @@ def test_requests_hover_rules_need_a_pointer() -> None:
   rules = (
     ".ghost:hover { color: var(--text); border-color: var(--muted); }",
     "tr.request.has-chain:hover td { background: var(--field); }",
-    ".requests .mobile-request-more > summary:hover",
     ".requests .mobile-fallback-chain > summary:hover",
   )
   for rule in rules:
@@ -1136,9 +1178,10 @@ def test_requests_time_column_keeps_its_width() -> None:
   )
   assert free, "the model column takes the free width"
   phone = css.split("@media (max-width: 720px) {", 1)[1]
-  assert "display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));" in phone, (
-    "the phone row stays a grid"
-  )
+  assert (
+    "display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto;"
+    in phone
+  ), "the phone row stays a grid"
   assert "width: 1%" not in phone, "the phone cells keep their grid tracks"
 
 
