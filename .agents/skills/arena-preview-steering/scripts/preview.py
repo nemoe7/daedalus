@@ -62,6 +62,8 @@ REMINDER_CURSOR='reminder_cursor'
 POLLS_SINCE_MESSAGE='polls_since_message'
 GATE_THRESHOLD=10
 AGENT_KEY_META='agent_key'
+AGENT_KEY_EXPIRY_SECONDS=1200
+AGENT_KEY_EXPIRY_META='agent_key_expired_at'
 AGENT_SEEN_META='agent_seen_at'
 AGENT_KEY_RE=re.compile('[A-Za-z0-9_-]{20,64}\\Z')
 AGENT_HOST_RE=re.compile('https://[A-Za-z0-9.-]+\\Z')
@@ -668,6 +670,18 @@ class Store:
 		message=str(error).strip()[:1000]or'The browser could not fetch this URL'
 		with self.transaction(autosave=False)as db:self.claimed_fetch(db,job_id,claim);db.execute("UPDATE fetch_jobs SET status = 'failed', error = ?, claim = NULL, lease_until = NULL, updated_at = ? WHERE id = ?",(message,now(),job_id));row=db.execute('SELECT * FROM fetch_jobs WHERE id = ?',(job_id,)).fetchone()
 		return fetch_row(row,self.path.parent)
+	def drop_fetch(self,job_id):
+		identifier(job_id)
+		with self.transaction(autosave=False)as db:
+			row=db.execute('SELECT * FROM fetch_jobs WHERE id = ?',(job_id,)).fetchone()
+			if row is None:raise FileNotFoundError('No download with that ID')
+			if row['status']in{'queued','fetching'}and row['claim']:raise FetchChanged('This download is active in a browser')
+			db.execute('DELETE FROM fetch_jobs WHERE id = ?',(job_id,))
+			if row['file']:
+				target=self.path.parent/'downloads'/row['file']
+				try:target.unlink()
+				except FileNotFoundError:pass
+		return{'dropped':job_id}
 	def retry_fetch(self,job_id):
 		identifier(job_id)
 		with self.transaction(autosave=False)as db:
@@ -758,6 +772,14 @@ class Store:
 		with closing(self.connect())as db,db:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(key,str(value)))
 	def touch_agent(self):self.set_meta(AGENT_SEEN_META,now())
 	def set_agent_key(self,key,host=None):self.set_meta(AGENT_KEY_META,json.dumps({'key':key,'host':host,'at':now()},ensure_ascii=False))
+	def notice_expired_key(self):
+		record=self.agent_key()
+		if not record:return None
+		stamp=import_stamp(record['at'])
+		if stamp is None:return None
+		if(datetime.now(timezone.utc)-stamp).total_seconds()<AGENT_KEY_EXPIRY_SECONDS:return None
+		if self.meta_value(AGENT_KEY_EXPIRY_META)==record['at']:return None
+		self.set_meta(AGENT_KEY_EXPIRY_META,record['at']);return self.note(new_id(),f"The recorded agent key expired (set {record['at']}). Run `arena-preview key` for the live key; a new post overwrites this record by itself.",quiet=True)
 	def agent_key(self):
 		value=self.meta_value(AGENT_KEY_META)
 		if not value:return None
@@ -854,7 +876,7 @@ class Store:
 			row=db.execute('SELECT title FROM reports WHERE id = ?',(report_id,)).fetchone()
 			if row is None:raise FileNotFoundError('Report not found')
 			db.execute('DELETE FROM reports WHERE id = ?',(report_id,))
-			if dismissed_by_owner:db.execute('INSERT INTO notes (id, text, at) VALUES (?, ?, ?)',(new_id(),f"The owner dismissed the report {report_id} ({row['title']}).",now()))
+			if dismissed_by_owner:db.execute('INSERT INTO notes (id, text, at, quiet) VALUES (?, ?, ?, 1)',(new_id(),f"The owner dismissed the report {report_id} ({row['title']}).",now()))
 	def mark_report_seen(self,report_id):
 		identifier(report_id)
 		with self.transaction()as db:
@@ -971,7 +993,7 @@ def handler(store):
 			except FileNotFoundError as error:self.problem(404,error)
 			except(OSError,sqlite3.Error,RuntimeError)as error:self.problem(503,error)
 		def do_POST(self):
-			path=urlsplit(self.path).path;report_submit=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/submit',path);report_seen=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/seen',path);message_replies_seen=re.fullmatch('/api/messages/([a-zA-Z0-9_-]{1,80})/replies/seen',path);report_unpublish=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/unpublish',path);fetch_post=re.fullmatch('/api/fetch-jobs/([a-zA-Z0-9_-]{1,80})/(renew|result|fail|retry|approve|deny)',path);note_upload=path=='/api/notes/with-file';agent_key_post=path=='/api/key';fetch_result=bool(fetch_post and fetch_post.group(2)=='result')
+			path=urlsplit(self.path).path;report_submit=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/submit',path);report_seen=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/seen',path);message_replies_seen=re.fullmatch('/api/messages/([a-zA-Z0-9_-]{1,80})/replies/seen',path);report_unpublish=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/unpublish',path);fetch_post=re.fullmatch('/api/fetch-jobs/([a-zA-Z0-9_-]{1,80})/(renew|result|fail|retry|approve|deny|drop)',path);note_upload=path=='/api/notes/with-file';agent_key_post=path=='/api/key';fetch_result=bool(fetch_post and fetch_post.group(2)=='result')
 			if path not in{'/api/notes','/api/markdown','/api/fetch-jobs','/api/fetch-jobs/claim'}and not report_submit and not report_seen and not message_replies_seen and not report_unpublish and not note_upload and not fetch_post and not agent_key_post:self.problem(404,'Not found');return
 			content_type=self.headers.get('Content-Type','')
 			if note_upload:
@@ -1020,6 +1042,7 @@ def handler(store):
 					if action=='renew':record=store.renew_fetch(job_id,self.headers.get('X-Fetch-Claim',''))
 					elif action=='fail':record=store.fail_fetch(job_id,self.headers.get('X-Fetch-Claim',''),payload.get('error',''))
 					elif action in{'approve','deny'}:record=store.decide_fetch(job_id,'approved'if action=='approve'else'denied')
+					elif action=='drop':record=store.drop_fetch(job_id)
 					else:record=store.retry_fetch(job_id)
 					self.reply(200,json.dumps(record,ensure_ascii=False));return
 				if path=='/api/markdown':self.reply(200,render(owner_text(payload.get('text')),breaks=True),'text/html; charset=utf-8');return
@@ -1057,7 +1080,7 @@ def main():
 			try:allowed=Store(state_dir).gate(pending_only=args.push)
 			except FileNotFoundError:allowed=True
 			except Exception:return 2
-			if not allowed:print('READ INBOX NOW. The only call that passes is a bare `arena-preview read`. Then ack every note with `arena-preview ack <id>`.',flush=True);return 1
+			if not allowed:print('READ INBOX NOW. The only call that passes is a bare `arena-preview read`. Then ack every note with a bare `arena-preview ack <id> --reply <markdown>` or `arena-preview ack <id> --note <text>` call, one call per note.',flush=True);return 1
 			if args.push and main_identical():print('HEAD content equals `origin/main`, so the push carries nothing. Start new work from `origin/main`.',flush=True);return 1
 			return 0
 		store=Store(state_dir,create=args.command in{'serve','init','import-state'});print(store.reminder(),file=sys.stderr,flush=True)
@@ -1065,12 +1088,12 @@ def main():
 		if args.command=='serve':
 			require_renderer()
 			with ThreadingHTTPServer(('0.0.0.0',args.port),handler(store))as server:store.set_meta('port',str(server.server_port));print(f"Preview listening on 0.0.0.0:{server.server_port}; state: {store.path}",flush=True);server.serve_forever()
-		elif args.command=='read':require_server(store);print_read(store)
+		elif args.command=='read':require_server(store);store.notice_expired_key();print_read(store)
 		elif args.command=='key':
 			record=store.agent_key()
 			if not record:print('No agent key recorded yet.',file=sys.stderr);return 1
 			print(cli_json(record))
-		elif args.command=='poll':require_server(store);return poll_inbox(store)
+		elif args.command=='poll':require_server(store);store.notice_expired_key();return poll_inbox(store)
 		elif args.command=='download-request':print(cli_json(store.enqueue_fetch(args.url,args.allow_proxy,pending=True)))
 		elif args.command=='ack':
 			if bool(args.reply)==bool(args.note):raise ValueError('Choose exactly one of --reply or --note')
