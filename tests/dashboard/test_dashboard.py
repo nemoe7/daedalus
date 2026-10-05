@@ -1162,6 +1162,20 @@ def test_limit_columns_stay_compact() -> None:
   assert mobile_weight and "min-width: 0" in mobile_weight.group(1)
 
 
+def test_the_overview_pool_rows_draw_the_marks_of_the_top_model() -> None:
+  """The Overview Models card draws the top model with the mark markup of the Requests table."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  row = re.search(
+    r'\$\("ov-models"\)\.innerHTML = state\.pools\.map\(\(pool\) => \{.*?'
+    r'top \? modelName\(top\.id\) : "no models"',
+    app,
+    re.DOTALL,
+  )
+  assert row, "the pool row draws the marks of the top model"
+  assert "top ? esc(top.id)" not in app, "no pool row keeps the plain model id"
+
+
 def test_requests_time_column_keeps_its_width() -> None:
   """The time column holds its 19 characters, and the model column takes the free width."""
   root = Path(__file__).resolve().parent.parent.parent

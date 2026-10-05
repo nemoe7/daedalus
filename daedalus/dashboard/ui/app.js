@@ -132,7 +132,7 @@ function renderOverview() {
     const top = topModel(pool.members, served);
     const health = poolHealth(pool.members);
     return `<div class="pool-line"><div class="line"><span>${esc(pool.shown.replace("daedalus/", ""))}</span>
-      <span title="${esc(top?.id)}">${top ? esc(top.id) : "no models"}</span></div>${health === null ? "" : weightBar(health)}</div>`;
+      <span title="${esc(top?.id)}">${top ? modelName(top.id) : "no models"}</span></div>${health === null ? "" : weightBar(health)}</div>`;
   }).join("") || none(state.models.length ? "No pools" : "No models. Run daedalus catalog.");
   $("ov-limits").innerHTML = overviewLimits(state.limits) || none("No limits yet");
 }
