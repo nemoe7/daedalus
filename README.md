@@ -16,7 +16,7 @@ daedalus keeps the LiteLLM classifier and model data of [LiteLLM](https://github
 - [Weights](docs/architecture.md#weights) that change after each request. A weight goes up after an answer and down after a fault, a slow answer or a rate limit. It also goes up with time.
 - [Session affinity](docs/architecture.md#session-affinity): a conversation keeps its model, and a failure removes the pin.
 - A conversation tier that does not go down, and keywords, such as "think hard", that move it 1 tier up.
-- A [try again](docs/architecture.md#try-again) in Open WebUI moves the message 1 tier up.
+- A [try again](docs/architecture.md#try-again) in Open WebUI moves the message 1 tier up. The rule needs the shipped [owui_retry](docs/hooks/owui_retry.md) hook. Without it, a repeat is a new request.
 - Before a request, daedalus skips the models without tools, without vision or with a too-small context window.
 - A model catalog from provider discovery, rebuilt on a schedule, in place of a hand-written model list.
 
@@ -28,7 +28,7 @@ daedalus keeps the LiteLLM classifier and model data of [LiteLLM](https://github
 - A fallback ladder: when a model fails, the next model gets the request.
 - Weighted selection: each model has a weight that goes up when the model answers and down when it fails.
 - An [order](docs/architecture.md#order) for each provider or model. Inside a tier, the models of order 1 go first. A model of order 2 gets a request only when no model of order 1 answers.
-- Session affinity, a time-to-first-token penalty and a loop penalty.
+- Session affinity in 3 modes (`none`, `session`, `race`), a time-to-first-token penalty and a loop penalty.
 - A model catalog from provider discovery and LiteLLM data, rebuilt on a schedule.
 - Endpoints for embeddings, transcriptions, speech and images.
 - A dashboard for pools, requests, models, API keys, providers and settings.
