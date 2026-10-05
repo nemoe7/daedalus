@@ -1,7 +1,7 @@
 """
 title: GitHub
 author: nemo
-description: GitHub access for Open WebUI. Reads run freely; every write passes a confirmation gate and a timeout, and nothing is sent when the gate cannot be shown. Stdlib only.
+description: GitHub access for Open WebUI. Reads run freely. Every write passes a confirmation gate and a timeout, and the tool sends nothing when it cannot show the gate. Stdlib only.
 required_open_webui_version: 0.10.0
 version: 3.0.0
 licence: MIT
@@ -92,8 +92,8 @@ class Tools:
 
     The confirmation travels over the socket of the tab that started the chat. A
     page refresh drops the dialog and the server would wait forever, because
-    WEBSOCKET_EVENT_CALLER_TIMEOUT is unset by default; the wait_for below is the
-    only timeout that always exists, so a refresh costs one wait, then a deny.
+    WEBSOCKET_EVENT_CALLER_TIMEOUT starts unset. The wait_for below is the only
+    timeout that always exists, so a refresh costs one wait, then a deny.
     """
     if not callable(__event_call__):
       return False
@@ -306,7 +306,7 @@ class Tools:
     repository_id: int | None = None,
     repository_url: str | None = None,
   ) -> dict:
-    """Fetch one issue. Exactly one repository selector.
+    """Read one issue. Exactly one repository selector.
 
     :param issue_number: the issue number
     :param repository_full_name: owner/repo
@@ -318,7 +318,7 @@ class Tools:
     return self._ok(self._issue_shape(issue))
 
   async def fetch_issue_comments(self, repo_full_name: str, issue_number: int) -> dict:
-    """Fetch an issue's comments, first page.
+    """Read an issue's comments, first page.
 
     :param repo_full_name: owner/repo
     :param issue_number: the issue number
@@ -1033,7 +1033,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Fetch pull request metadata, without the diff.
+    """Read pull request metadata, without the diff.
 
     :param repository_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1058,7 +1058,7 @@ class Tools:
     )
 
   async def fetch_pr(self, repo_full_name: str, pr_number: int) -> dict:
-    """Fetch a pull request with its title, url and unified diff.
+    """Read a pull request with its title, url and unified diff.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1083,7 +1083,7 @@ class Tools:
     )
 
   async def fetch_pr_comments(self, repo_full_name: str, pr_number: int) -> dict:
-    """Fetch a pull request discussion: issue comments, review comments and reviews.
+    """Read a pull request discussion: issue comments, review comments and reviews.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1114,7 +1114,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Fetch only the diff or the patch of a pull request.
+    """Read only the diff or the patch of a pull request.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1148,7 +1148,7 @@ class Tools:
     )
 
   async def fetch_pr_patch(self, repo_full_name: str, pr_number: int) -> dict:
-    """Fetch the per-file patches of a pull request, first page.
+    """Read the per-file patches of a pull request, first page.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1207,7 +1207,7 @@ class Tools:
   async def fetch_pr_file_patch(
     self, repo_full_name: str, pr_number: int, path: str
   ) -> dict:
-    """Fetch the patch of one changed file. The path comes from list_pr_changed_filenames.
+    """Read the patch of one changed file. The path comes from list_pr_changed_filenames.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1254,7 +1254,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Open a pull request. Title is required unless an issue is supplied.
+    """Open a pull request. The call needs a title unless it names an issue.
 
     :param repository_full_name: owner/repo
     :param title: the pull request title
@@ -1503,11 +1503,11 @@ class Tools:
     start_line: int | None = None,
     end_line: int | None = None,
   ) -> dict:
-    """Fetch a file, base64 decoded. A directory returns its listing as JSON text.
+    """Read a file, base64 decoded. A directory returns its listing as JSON text.
 
     :param repository_full_name: owner/repo
     :param path: the path inside the repository
-    :param ref: the branch, tag or commit; the default branch when absent
+    :param ref: the branch, tag or commit. The default branch when absent
     :param encoding: utf-8 (decoded) or base64 (raw)
     :param start_line: keep from this line, 1-based
     :param end_line: keep to this line, inclusive
@@ -1557,7 +1557,7 @@ class Tools:
     )
 
   async def fetch_blob(self, repository_full_name: str, blob_sha: str) -> dict:
-    """Fetch a blob by SHA, base64 decoded.
+    """Read a blob by SHA, base64 decoded.
 
     :param repository_full_name: owner/repo
     :param blob_sha: the blob SHA
@@ -2059,7 +2059,7 @@ class Tools:
     """List the code scanning alerts of a repository, or read 1 alert with its instances.
 
     :param repo_full_name: owner/repo
-    :param alert_number: the alert number; set it to read that alert and its instances
+    :param alert_number: the alert number. Set it to read that alert and its instances
     :param state: open, dismissed or fixed
     :param tool_name: the scanning tool, for example CodeQL
     :param ref: a branch, tag or commit
@@ -2109,7 +2109,7 @@ class Tools:
     """List the secret scanning alerts of a repository, or read 1 alert with its locations.
 
     :param repo_full_name: owner/repo
-    :param alert_number: the alert number; set it to read that alert and its locations
+    :param alert_number: the alert number. Set it to read that alert and its locations
     :param state: open or resolved
     :param resolution: false_positive, wont_fix, revoked or used_in_tests
     :param secret_type: the secret type slug, for example github_personal_access_token
@@ -2161,7 +2161,7 @@ class Tools:
     """List the Dependabot alerts of a repository, or read 1 alert.
 
     :param repo_full_name: owner/repo
-    :param alert_number: the alert number; set it to read that alert
+    :param alert_number: the alert number. Set it to read that alert
     :param state: open, dismissed, fixed or auto_dismissed
     :param severity: low, medium, high or critical
     :param ecosystem: the package ecosystem, for example pip or npm
@@ -2512,7 +2512,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Check the permission level of a collaborator.
+    """Report the permission level of a collaborator.
 
     :param repository_full_name: owner/repo
     :param username: the GitHub login
@@ -2901,7 +2901,7 @@ class Tools:
     :param repo_full_name: owner/repo
     :param ref: the commit SHA, branch or tag
     :param check_name: only the runs of this check name
-    :param check_run_id: the check run ID; set it to read that run and its annotations
+    :param check_run_id: the check run ID. Set it to read that run and its annotations
     :param status: queued, in_progress or completed
     :param filter: latest keeps the newest run per name, all keeps every run
     :param per_page: runs per page
@@ -3287,7 +3287,7 @@ class Tools:
     """List the releases of a repository, or read 1 release by id or by tag.
 
     :param repo_full_name: owner/repo
-    :param release_id: the release id; it wins over tag
+    :param release_id: the release id. It wins over tag
     :param tag: the tag name of the release
     :param per_page: releases per page
     :param page: the page number
@@ -3333,7 +3333,7 @@ class Tools:
     """List the packages of the signed-in user, a user or an organization, or read 1 package.
 
     :param package_type: npm, maven, rubygems, docker, nuget, container or generic. Required with owner.
-    :param owner: the user or organization login; absent reads the packages of the signed-in user
+    :param owner: the user or organization login. Absent reads the packages of the signed-in user
     :param owner_type: org reads /orgs/{owner}/packages, user reads /users/{owner}/packages
     :param package_name: read 1 package with its versions
     :param per_page: versions per page, on the read of 1 package
@@ -3372,10 +3372,10 @@ class Tools:
   ) -> dict:
     """List the gists of a user, or the gists of the signed-in user.
 
-    :param username: the user login; absent reads the gists of the signed-in user
+    :param username: the user login. Absent reads the gists of the signed-in user
     :param per_page: gists per page
     :param page: the page number
-    :param since: an ISO 8601 timestamp; only the gists updated after it
+    :param since: an ISO 8601 timestamp. Only the gists updated after it
     """
     url = f"{API}/users/{self._seg(username)}/gists" if username else f"{API}/gists"
     data = await self._request(

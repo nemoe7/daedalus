@@ -1,8 +1,10 @@
-"""Open WebUI Filter: the daedalus served model line, as a status above the answer body.
-
-Install this file as a Filter in the Admin Panel and turn it on. It reads `usage.daedalus`
-of the stream chunks, which `config/hooks/served_model.py` writes on the chat pools, and draws the
-line. The Filter itself starts nothing: no key, no line.
+"""
+title: Served model
+author: nemo
+description: The daedalus served model line, as a status above the answer body. It reads the usage of the stream chunks, and it needs no key.
+required_open_webui_version: 0.10.0
+version: 1.0.0
+licence: MIT
 """
 
 from typing import Any
@@ -23,7 +25,10 @@ class Filter:
   async def stream(
     self, event: dict[str, Any], __event_emitter__: Any = None
   ) -> dict[str, Any]:
-    """Read one stream chunk, draw the line when it carries the served model, and the chunk goes on."""
+    """Read one stream chunk, draw the line when it carries the served model, and the chunk goes on.
+
+    :param event: the stream chunk of the answer
+    """
     if getattr(self.valves, "enabled", True) and callable(__event_emitter__):
       usage = event.get("usage") if isinstance(event, dict) else None
       served = usage.get("daedalus") if isinstance(usage, dict) else None
