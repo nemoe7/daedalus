@@ -111,9 +111,9 @@ The shipped file holds the changes from the defaults only. The **Settings** page
 | `switch.keywords` | `clanker` | Words or phrases. A match gives the pool session another model of the same tier. |
 | `dashboard.theme` | `system` | `system`, `light` or `dark`. The Settings page sets it. Login always follows the device. |
 | `dashboard.time_format` | `24h` | `24h` or `12h` for the hour of each shown time. Every time carries its date: `2026-10-04 12:30:46`. The Settings page sets it. |
-| `request_hooks.on-request` | `[hooks/openwebui_retry.py]` | The request hook files of the [`config`](../config) folder, in list order. An empty list: no hook. See [Hooks](hooks.md). |
+| `request_hooks.on-request` | `[hooks/owui_retry.py]` | The request hook files of the [`config`](../config) folder, in list order. An empty list: no hook. See [Hooks](hooks.md). |
 | `request_hooks.on-prompt` | `[]` | The prompt hook files of the [`config`](../config) folder, called 1 time before the first attempt of a chat request. The call needs a prompt and a reasoning model in the chain. The value sets the reasoning effort of the request. See [Hooks](hooks.md). |
-| `request_hooks.on-chunk` | `[hooks/pick.py]` | The stream chunk hook files of the [`config`](../config) folder, called on each streamed chunk of a chat request, in list order. An empty list: no hook. See [Hooks](hooks.md). |
+| `request_hooks.on-chunk` | `[hooks/model_served.py]` | The stream chunk hook files of the [`config`](../config) folder, called on each streamed chunk of a chat request, in list order. An empty list: no hook. See [Hooks](hooks.md). |
 | `pools.tier-a`, `pools.tier-b`, `pools.tier-c`, `pools.tier-d`, `pools.audio`, `pools.images` | `sophos`, `deinos`, `koinos`, `moros`, `graphos`, `photos` | The client name after `daedalus/`: 1-40 characters, no `auto`. A change renames that pool, and the old name breaks with HTTP 400. |
 
 ## Provider key values

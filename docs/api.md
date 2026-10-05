@@ -55,7 +55,7 @@ Embeddings and speech have no pool and no fallback. Vectors and voices from 2 mo
 ## Hook files
 
 `POST /v1/hook/<file>` runs the `on_http` function of 1 hook file, and answers with the dict it
-returns. The shipped `config/hooks/auto_reasoning.py` holds the reasoning ladder: it sets the level of a
+returns. The shipped `config/hooks/owui_auto_reasoning.py` holds the reasoning ladder: it sets the level of a
 request through the `on-prompt` point, and this route answers the next rung, with its pool and
 its effort. See [Hooks](hooks.md#the-http-surface).
 
@@ -152,7 +152,7 @@ Kilo cannot show the routed model for a custom provider. The **Requests** page a
 | Speech | JSON: `input`, `voice`, `instructions`, `response_format`, `speed` | The audio comes back with the provider media type. |
 | Images | JSON: `prompt`, `n`, `size`, `quality`, `style`, `response_format` | A native provider image comes back as a `data:` URL, or as `b64_json`. |
 
-See [Providers](providers.md#endpoints-for-models-that-do-not-chat) for the providers of each endpoint.
+See [Providers](providers.md#endpoints-for-non-chat-models) for the providers of each endpoint.
 
 ## Errors
 
