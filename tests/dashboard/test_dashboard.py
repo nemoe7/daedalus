@@ -1602,6 +1602,7 @@ def test_files(
   assert shown["file"] == {
     "request_hooks": {
       "on-request": ["hooks/openwebui_retry.py"],
+      "on-prompt": ["hooks/auto_reasoning.py"],
       "on-chunk": ["hooks/pick.py"],
     }
   }, "the shipped file holds the changes only"
@@ -1695,7 +1696,7 @@ def test_files(
   assert client.put("/ui/api/settings", json={"changes": hook}).status_code == 200
   assert api.REQUEST_HOOKS == {
     "on-request": ["hooks/openwebui_retry.py", "hooks/picked.py"],
-    "on-prompt": [],
+    "on-prompt": ["hooks/auto_reasoning.py"],
     "on-chunk": ["hooks/pick.py"],
   }, "the save applies each request hook of the point"
   assert (
@@ -1706,7 +1707,7 @@ def test_files(
   )
   assert api.REQUEST_HOOKS == {
     "on-request": [],
-    "on-prompt": [],
+    "on-prompt": ["hooks/auto_reasoning.py"],
     "on-chunk": ["hooks/pick.py"],
   }, "an empty list turns the hook off"
   dark = {"dashboard": {"theme": "dark"}}
