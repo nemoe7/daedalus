@@ -122,6 +122,26 @@ def test_pins(folder: Path) -> None:
   assert store.pinned("k", "pool") is None, "a pin expires after the idle time"
 
 
+def test_levels(folder: Path) -> None:
+  """The reasoning level of the last answer: 1 value for each conversation, and it idles out."""
+  now = [0.0]
+  store = penalties.Penalties(lambda: folder / "l.sqlite3", clock=lambda: now[0])
+  assert store.last_level("k") is None, "a chat with no answer has no level"
+  store.record_level("k", "low")
+  assert store.last_level("k") == "low"
+  store.record_level("k", "medium")
+  assert store.last_level("k") == "medium", "the last answer wins"
+  assert store.last_level("other") is None, "each chat has its own level"
+  store.prune()
+  assert store.last_level("k") == "medium", "a live level stays"
+  now[0] = penalties.IDLE_SECONDS + 1
+  store.prune()
+  assert store.last_level("k") is None, "a level expires after the idle time"
+  store.record_level("k", "high")
+  store.clear()
+  assert store.last_level("k") is None, "a clear drops the levels too"
+
+
 def test_transition_reasons(monkeypatch: pytest.MonkeyPatch) -> None:
   config = {
     "p": {

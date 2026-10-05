@@ -128,6 +128,8 @@ def test_hook_file_wins(
     "slot",
     "reasoning",
     "effort",
+    "retry",
+    "level",
     "body",
     "config",
     "key",
@@ -164,16 +166,16 @@ def test_no_reasoning_model(
 def test_the_shipped_ladder_file_sets_the_effort(
   provider: Provider, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The shipped `owui_auto_reasoning.py` sets the level from the heuristics read of the prompt."""
+  """The shipped `owui_think_longer.py` sets the level from the heuristics read of the prompt."""
   shipped = (
-    Path(__file__).resolve().parents[2] / "config" / "hooks" / "owui_auto_reasoning.py"
+    Path(__file__).resolve().parents[2] / "config" / "hooks" / "owui_think_longer.py"
   )
-  target = hooks.CONFIG_DIR / "hooks" / "owui_auto_reasoning.py"
+  target = hooks.CONFIG_DIR / "hooks" / "owui_think_longer.py"
   target.parent.mkdir(parents=True, exist_ok=True)
   target.write_text(shipped.read_text(encoding="utf-8"), encoding="utf-8")
   hooks._loaded.pop(target.resolve(), None)
   monkeypatch.setattr(
-    api, "REQUEST_HOOKS", {"on-prompt": ["hooks/owui_auto_reasoning.py"]}
+    api, "REQUEST_HOOKS", {"on-prompt": ["hooks/owui_think_longer.py"]}
   )
   monkeypatch.setattr(
     upstream.store, "model_limits", lambda candidate: {"reasoning_effort": "minimal"}
@@ -189,16 +191,16 @@ def test_the_shipped_ladder_file_sets_the_effort(
 def test_the_shipped_ladder_file_skips_another_client(
   provider: Provider, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The shipped `owui_auto_reasoning.py` leaves the effort of Kilo and of a generic client alone."""
+  """The shipped `owui_think_longer.py` leaves the effort of Kilo and of a generic client alone."""
   shipped = (
-    Path(__file__).resolve().parents[2] / "config" / "hooks" / "owui_auto_reasoning.py"
+    Path(__file__).resolve().parents[2] / "config" / "hooks" / "owui_think_longer.py"
   )
-  target = hooks.CONFIG_DIR / "hooks" / "owui_auto_reasoning.py"
+  target = hooks.CONFIG_DIR / "hooks" / "owui_think_longer.py"
   target.parent.mkdir(parents=True, exist_ok=True)
   target.write_text(shipped.read_text(encoding="utf-8"), encoding="utf-8")
   hooks._loaded.pop(target.resolve(), None)
   monkeypatch.setattr(
-    api, "REQUEST_HOOKS", {"on-prompt": ["hooks/owui_auto_reasoning.py"]}
+    api, "REQUEST_HOOKS", {"on-prompt": ["hooks/owui_think_longer.py"]}
   )
   monkeypatch.setattr(
     upstream.store, "model_limits", lambda candidate: {"reasoning_effort": "minimal"}
@@ -212,10 +214,87 @@ def test_the_shipped_ladder_file_skips_another_client(
 def shipped_levels() -> dict[int, str]:
   """The level table of the shipped ladder file, read from the file itself."""
   path = (
-    Path(__file__).resolve().parents[2] / "config" / "hooks" / "owui_auto_reasoning.py"
+    Path(__file__).resolve().parents[2] / "config" / "hooks" / "owui_think_longer.py"
   )
-  spec = importlib.util.spec_from_file_location("shipped_auto_reasoning", path)
+  spec = importlib.util.spec_from_file_location("shipped_think_longer", path)
   assert spec and spec.loader, path
   module = importlib.util.module_from_spec(spec)
   spec.loader.exec_module(module)
   return module.LEVELS
+
+
+def shipped_module():
+  """The shipped ladder file, loaded from the file itself."""
+  path = (
+    Path(__file__).resolve().parents[2] / "config" / "hooks" / "owui_think_longer.py"
+  )
+  spec = importlib.util.spec_from_file_location("shipped_ladder", path)
+  assert spec and spec.loader, path
+  module = importlib.util.module_from_spec(spec)
+  spec.loader.exec_module(module)
+  return module
+
+
+def test_the_shipped_ladder_file_steps_a_try_again() -> None:
+  """A try again steps the level of the last answer 1 up, and never past `high`."""
+  module = shipped_module()
+  value: dict = {}
+  module.on_prompt(value, prompt="why is this slow", app="OWUI", retry=1, level="low")
+  assert value["reasoning_effort"] == "medium"
+  value = {}
+  module.on_prompt(value, prompt="why is this slow", app="OWUI", retry=1, level="high")
+  assert value["reasoning_effort"] == "high", "the cap is high"
+  value = {}
+  module.on_prompt(value, prompt="why is this slow", app="OWUI", retry=2, level=None)
+  read = int(api.router.required_tier("why is this slow"))
+  assert value["reasoning_effort"] == module.LEVELS[min(read + 1, 4)]
+
+
+def test_the_shipped_ladder_file_reads_the_field() -> None:
+  """A `think_longer` field asks for its count of steps above the level of the last answer."""
+  module = shipped_module()
+  value: dict = {}
+  module.on_prompt(
+    value, prompt="why is this slow", body={"think_longer": 2}, level="none"
+  )
+  assert value["reasoning_effort"] == "medium"
+  value = {}
+  module.on_prompt(value, prompt="why is this slow", body={"think_longer": True})
+  read = int(api.router.required_tier("why is this slow"))
+  assert value["reasoning_effort"] == module.LEVELS[min(read + 1, 4)]
+  value = {}
+  module.on_prompt(
+    value, prompt="why is this slow", body={"think_longer": 9}, level="low"
+  )
+  assert value["reasoning_effort"] == "high", "the field never passes the cap"
+  value = {}
+  module.on_prompt(
+    value, prompt="why is this slow", body={"think_longer": 0}, app="Kilo"
+  )
+  assert value == {}, "a zero field is no field, and another client keeps its effort"
+  value = {}
+  module.on_prompt(
+    value, prompt="why is this slow", effort="minimal", body={"think_longer": 2}
+  )
+  assert value == {}, "a client value keeps the last word"
+
+
+def test_the_shipped_ladder_file_reads_the_field_over_the_route(
+  provider: Provider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A `think_longer` field steps the level over the route, and never goes upstream."""
+  api.PENALTIES.clear()
+  shipped = (
+    Path(__file__).resolve().parents[2] / "config" / "hooks" / "owui_think_longer.py"
+  )
+  target = hooks.CONFIG_DIR / "hooks" / "owui_think_longer.py"
+  target.parent.mkdir(parents=True, exist_ok=True)
+  target.write_text(shipped.read_text(encoding="utf-8"), encoding="utf-8")
+  hooks._loaded.pop(target.resolve(), None)
+  monkeypatch.setattr(
+    api, "REQUEST_HOOKS", {"on-prompt": ["hooks/owui_think_longer.py"]}
+  )
+  written = post(provider, "daedalus/auto:TIER-B", {**BODY, "think_longer": 1})
+  read = int(api.router.required_tier(BODY["messages"][0]["content"]))
+  assert written["reasoning_effort"] == shipped_levels()[min(read + 1, 4)]
+  assert "think_longer" not in written, "a daedalus field never goes upstream"

@@ -614,6 +614,8 @@ class Tracker:
     self.preserve_pin = False
     self.dropped = False
     self.switched = False
+    # The reasoning level of this request, for the level of the last answer.
+    self.effort: str | None = None
 
   def lane(self, model: str) -> str:
     """The cooldown and pacing key of the model for this client."""
@@ -639,10 +641,12 @@ class Tracker:
   def answered(
     self, model: str, ttft: float, attempt: dict[str, Any] | None = None
   ) -> str | None:
-    """Update the weight and pin the model. A slow success removes the pin instead."""
+    """Update the weight, keep the reasoning level, and pin the model. A slow success removes the pin instead."""
     slow = ttft >= SLOW_SECONDS
     self._weight(model, PENALTIES.slow if slow else PENALTIES.success, attempt)
     COOLDOWNS.succeeded(self.lane(model))
+    if self.effort:
+      PENALTIES.record_level(self.key, self.effort)
     if not self.slot:
       return None
     if slow:
@@ -733,7 +737,7 @@ async def first_winner(tries: list[Try]) -> Try | None:
 async def hook_call(request: Request, file: str) -> Response:
   """Run the `on_http` function of 1 hook file, and answer with the dict it returns.
 
-  The file sits under `config/hooks`, and its path names it, for example `owui_auto_reasoning.py`.
+  The file sits under `config/hooks`, and its path names it, for example `owui_think_longer.py`.
   Any valid key may call it, so treat a hook file as admin code.
   """
   denied = access.check_api_key(request)
@@ -759,9 +763,12 @@ async def hook_call(request: Request, file: str) -> Response:
   messages = body.get("messages")
   key = session_key(access.bearer(request), messages)
   call: dict[str, Any] = {}
-  # A file that names `pin` gets the last pin of the chat: an older file keeps its 4 values.
+  # A file that names `pin` gets the last pin of the chat, and a file that names `level` gets
+  # the reasoning level of its last answer: an older file keeps its 4 values.
   if "pin" in inspect.signature(handler).parameters:
     call["pin"] = PENALTIES.last_pin(key) if key else None
+  if "level" in inspect.signature(handler).parameters:
+    call["level"] = PENALTIES.last_level(key) if key else None
   try:
     answer = handler(
       body,
@@ -900,6 +907,9 @@ async def chat(request: Request) -> Response:
         slot=found[1],
         reasoning=reasoners,
         effort=providers.effort_text(body.get("reasoning_effort")),
+        # `retry` counts the try agains of this message, and `level` is the level of its last answer.
+        retry=turn.count if turn else 0,
+        level=PENALTIES.last_level(key) if key else None,
         body=body,
         config=config,
         key=key,
@@ -915,6 +925,7 @@ async def chat(request: Request) -> Response:
   if model == router.RESERVED_MODEL and found[1]:
     request.state.pool = routed_pool(found[1])
   pin = Tracker(key, found[1], getattr(request.state, "key", None))
+  pin.effort = providers.effort_text(body.get("reasoning_effort"))
   old = pin.switch() if said(SWITCH, body["messages"]) else None
   looping = tool_loop(request, body["messages"], pin)
   tokens, limits = context.input_tokens(body), store.input_limits()

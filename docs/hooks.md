@@ -25,11 +25,11 @@ For each point, the file defines 1 function with the name of the point.
 | --- | --- | --- | --- |
 | `on-request` | `on_request(value, model, headers)` | Before the chain of a chat request, and again on a repeat with the count | `value`: `key` (`None`), `digest`, the hash of the messages without the system rows, and on the second run `count`. `model`: the requested model. `headers`: the client headers. |
 | `on-catalog` | `on_catalog(row, model, api_base, headers)` | At each catalog build, for each model with the hook, before the store write | `row`: a catalog row, the id cannot change. `api_base`, `headers`: for the provider API calls. |
-| `on-prompt` | `on_prompt(value, messages, prompt, model, tier, tier_name, slot, reasoning, effort, body, config, key, app)` | Before the first attempt of a chat request, when the chain holds a reasoning model | `value`: the dict the hook files change, empty at the start. `reasoning`: the chain models that support reasoning. `effort`: the value of the client, `None` when it sent none. `app`: the client app of the request, `OWUI`, `Kilo` or another title, from its headers. |
+| `on-prompt` | `on_prompt(value, messages, prompt, model, tier, tier_name, slot, reasoning, effort, retry, level, body, config, key, app)` | Before the first attempt of a chat request, when the chain holds a reasoning model | `value`: the dict the hook files change, empty at the start. `reasoning`: the chain models that support reasoning. `effort`: the value of the client, `None` when it sent none. `retry`: the count of try agains of this message, `0` for its first answer. `level`: the reasoning level of the last answer of the chat, `None` when the chat has none. `app`: the client app of the request, `OWUI`, `Kilo` or another title, from its headers. |
 | `on-upstream` | `on_upstream(body, model, headers)` | Before each chat request to the provider, streams and fallbacks included | `body`: the upstream JSON body, native format for native APIs. `model`: `provider/slug`. `headers`: changeable. |
 | `on-answer` | `on_answer(answer, model)` | After a full chat answer comes back, before the client gets it | `answer`: the answer in the OpenAI format. A stream has no `on-answer` point. |
 | `on-chunk` | `on_chunk(chunk, model, context)` | On each streamed chunk of a chat request, before the client gets it | `chunk`: 1 OpenAI chunk. `model`: the requested model. `context`: `previous` is the model of the last answer of the session. It is empty on the first answer. `attempts`: the failures so far. `code`: the retry code. `pool`: the landed pool. `served`: the landed model. |
-| `on-http` | `on_http(body, key, prompt, headers, pin)` | On `POST /v1/hook/<file>`, for the file the path names | `body`: the JSON body of the call. `key`: the session key of the chat, from the bearer token and its first user turn. `prompt`: the first user turn. `headers`: the request headers. `pin`: the slot and the model of the last answer of the chat. The route passes it when the file names the argument. It returns the dict of the JSON answer. |
+| `on-http` | `on_http(body, key, prompt, headers, pin, level)` | On `POST /v1/hook/<file>`, for the file the path names | `body`: the JSON body of the call. `key`: the session key of the chat, from the bearer token and its first user turn. `prompt`: the first user turn. `headers`: the request headers. `pin`: the slot and the model of the last answer of the chat. `level`: the reasoning level of that answer. The route passes each when the file names the argument. It returns the dict of the JSON answer. |
 | `on-init` | `on_init()` | At the dashboard load, for each enabled request hook file | No arguments. It returns the rows of the code legend of the dashboard, such as `[["rtN", "A repeat picked another model, N times"]]`. |
 
 ```mermaid
@@ -64,7 +64,7 @@ Each key holds a list of files, and they run in list order. 1 path on its own wo
 
 The `on-prompt` point hands each hook file the values of the request, and a hook file sets
 `reasoning_effort`. The client keeps the last word, and the base sets no effort of its own. The 3
-levels, the shipped ladder file and its route are on the [reasoning ladder](hooks/owui_auto_reasoning.md) page.
+levels, the shipped ladder file and its route are on the [think longer](hooks/owui_think_longer.md) page.
 
 `daedalus` then drops the models that answered the message: `daedalus/auto` steps the tier 1 step up, and a named pool keeps its pool. The point runs again with `count` filled in. A file that writes `value["code"]` sets the code of the Requests row, such as `rt1`. Without a `key`, a repeat is a new request.
 
@@ -82,21 +82,21 @@ A hook file can answer an HTTP call. The path names the file, and the file must 
 cmd:
 
 ```cmd
-curl -X POST http://localhost:3357/v1/hook/owui_auto_reasoning -H "Authorization: Bearer %DAEDALUS_KEY%" ^
+curl -X POST http://localhost:3357/v1/hook/owui_think_longer -H "Authorization: Bearer %DAEDALUS_KEY%" ^
   -H "Content-Type: application/json" -d "{\"messages\": [{\"role\": \"user\", \"content\": \"why is this slow\"}]}"
 ```
 
 PowerShell:
 
 ```powershell
-curl.exe -X POST http://localhost:3357/v1/hook/owui_auto_reasoning -H "Authorization: Bearer $env:DAEDALUS_KEY" `
+curl.exe -X POST http://localhost:3357/v1/hook/owui_think_longer -H "Authorization: Bearer $env:DAEDALUS_KEY" `
   -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "why is this slow"}]}'
 ```
 
 bash:
 
 ```bash
-curl -X POST http://localhost:3357/v1/hook/owui_auto_reasoning -H "Authorization: Bearer $DAEDALUS_KEY" \
+curl -X POST http://localhost:3357/v1/hook/owui_think_longer -H "Authorization: Bearer $DAEDALUS_KEY" \
   -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "why is this slow"}]}'
 ```
 
@@ -104,10 +104,11 @@ The route loads the file, calls its `on_http`, and answers with the dict it retu
 inside the hook is a 500, and a missing file is a 404. Any valid key may call any hook file, so
 treat a hook file as admin code: it runs in the process of daedalus with full access.
 
-The shipped [`config/hooks/owui_auto_reasoning.py`](../config/hooks/owui_auto_reasoning.py) is the ladder file of 1 chat: it
-holds the `on-prompt` point and this route. The route carries the next rung, with the pool and the
-effort of that rung. A chat that already sits on `TIER-A` keeps that rung, and the answer marks
-it with `top`.
+The shipped [`config/hooks/owui_think_longer.py`](../config/hooks/owui_think_longer.py) is the think-longer
+file of 1 chat: it holds the `on-prompt` point and this route. The point sets the level of a request
+from the read of its message, a `think_longer` field of the body, or a try again. The route carries
+the next level of the chat, on the model of the chat. A chat that already sits on `high` keeps it,
+and the answer marks it with `top`.
 
 ## Errors
 
@@ -129,7 +130,7 @@ The dashboard edits the `hooks` list of a model or a provider. The Request hooks
 
 | File | What it does |
 | --- | --- |
-| [`hooks/owui_auto_reasoning.py`](../config/hooks/owui_auto_reasoning.py) | The [reasoning ladder](hooks/owui_auto_reasoning.md) of a chat |
+| [`hooks/owui_think_longer.py`](../config/hooks/owui_think_longer.py) | The [think longer](hooks/owui_think_longer.md) ladder of a chat |
 | [`hooks/owui_retry.py`](../config/hooks/owui_retry.py) | The [try-again rule](hooks/owui_retry.md) of an Open WebUI chat |
 | [`hooks/served_model.py`](../config/hooks/served_model.py) | The [served model line](hooks/served_model.md) of a chat pool request |
 | [`hooks/or_cheapest_output.py`](../config/hooks/or_cheapest_output.py) | The [OpenRouter endpoint order](hooks/or_cheapest_output.md) |
