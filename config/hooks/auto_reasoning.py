@@ -15,11 +15,13 @@ when the chat has no answer yet. A chat that already sits on `TIER-A` keeps that
 from typing import Any
 
 from daedalus.routing import router
-from daedalus.server import api
 
 # The client the `on-prompt` point serves. The base names the app from its headers: `OWUI`,
 # `Kilo`, another title, or None. Set it to None to serve every client.
 CLIENT = "OWUI"
+
+# The level of each tier, from `TIER-D` none to `TIER-A` high.
+LEVELS = {1: "none", 2: "low", 3: "medium", 4: "high"}
 
 
 def _rung(slot: str | None, prompt: str, model: str | None = None) -> int:
@@ -63,11 +65,15 @@ def on_prompt(
   if effort or (CLIENT is not None and app != CLIENT):
     return
   tier = int(router.required_tier(prompt or ""))
-  value["reasoning_effort"] = api.EFFORT_OF_TIER[router.TIER_NAMES[tier]]
+  value["reasoning_effort"] = LEVELS[tier]
 
 
 def on_http(
-  body: dict[str, Any], key: str = "", prompt: str = "", headers: dict | None = None
+  body: dict[str, Any],
+  key: str = "",
+  prompt: str = "",
+  headers: dict | None = None,
+  pin: tuple[str, str] | None = None,
 ) -> dict[str, Any]:
   """The next rung of the ladder of the chat: pool, tier and effort.
 
@@ -75,9 +81,9 @@ def on_http(
   :param key: the session key of the chat, from the bearer token and its first user turn
   :param prompt: the first user turn of the chat
   :param headers: the request headers
+  :param pin: the slot and model of the last answer of the chat, else None
   """
-  found = api.PENALTIES.last_pin(key) if key else None
-  before = _rung(found[0] if found else None, prompt, body.get("model"))
+  before = _rung(pin[0] if pin else None, prompt, body.get("model"))
   tier = min(before + 1, max(router.TIERS))
   name = router.TIER_NAMES[tier]
   pool = next(
@@ -93,11 +99,11 @@ def on_http(
     "pool": pool,
     "tier": tier,
     "tier_name": name,
-    "reasoning_effort": api.EFFORT_OF_TIER[name],
+    "reasoning_effort": LEVELS[tier],
     "before": {
       "tier": before,
       "tier_name": router.TIER_NAMES[before],
-      "reasoning_effort": api.EFFORT_OF_TIER[router.TIER_NAMES[before]],
+      "reasoning_effort": LEVELS[before],
     },
     "top": tier == before,
   }
