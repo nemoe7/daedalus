@@ -64,7 +64,7 @@ A report source is UTF-8 `.md`, at most 2,000,000 bytes. IDs have 1–80 letters
 | `- ( ) Label: ___` or `- [ ] Label: ___` inside a group | A labeled free-text choice |
 | `Label: ___` or bare `___` | A text answer |
 
-Pair each option group with a labeled custom-response field. The nearest non-empty line before a group is its prompt; a labeled blank supplies its own prompt. Append `{#my-id}` to a prompt to keep the field ID stable. Markers inside fenced code blocks remain text. Limit a report to 50 fields, each prompt to 500 characters, and each group to 1–20 unique options of at most 200 characters. Fix invalid fields before publication. Each submission has its own pending ID; acknowledge every new answer, not just an earlier submission.
+Write an option group's custom slot inside the group, as `- ( ) custom: ___`. The nearest non-empty line before a group is its prompt; a labeled blank supplies its own prompt. Append `{#my-id}` to a prompt to keep the field ID stable. Markers inside fenced code blocks remain text. Limit a report to 50 fields, each prompt to 500 characters, and each group to 1–20 unique options of at most 200 characters. Fix invalid fields before publication. Each submission has its own pending ID; acknowledge every new answer, not just an earlier submission.
 
 ## Uploaded notes and Downloads
 

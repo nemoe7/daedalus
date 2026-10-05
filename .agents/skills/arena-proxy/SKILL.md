@@ -41,8 +41,7 @@ https://<backend-host>/v1/<route>?key=<agent-key>&<parameters>
 | `/v1/health` | none, no key | JSON liveness: `ok`, `version` |
 | `/v1/key` | `master`, no agent key | JSON with the live agent key, for the owner's userscript |
 | `/v1/ping` | `key` | JSON status: version, GitHub API base, default repo, token presence, route list, model state, caps |
-| `/v1/github` | `key`, `path`, plus any GitHub API query | The GitHub API response through the owner's token |
-| `/v1/logs` | `key`, `run`, `repo` | The text tail of one workflow run log |
+| `/v1/gh` | `key`, `path`, plus the path's own query | The GitHub API response through the owner's token, or the text tail for a run-log path |
 | `/v1/fetch` | `key`, `url`, `mode`, `encoding`, `gzip`, `stage`, `id`, `index` | Text, JSON with base64, or one staged chunk |
 | `/v1/llm` | `key`, `prompt`, `model`, `system`, `image`, `file`, `ref`, `diff`, `repo`, `max_tokens`, or `id` | JSON job id, then JSON status and text |
 
@@ -50,8 +49,8 @@ Examples:
 
 ```
 /v1/ping?key=KEY
-/v1/github?key=KEY&path=repos/OWNER/REPO/code-scanning/alerts&state=open&per_page=100
-/v1/logs?key=KEY&repo=OWNER%2FREPO&run=1234567890
+/v1/gh?key=KEY&path=repos/OWNER/REPO/code-scanning/alerts&state=open&per_page=100
+/v1/gh?key=KEY&path=repos/OWNER/REPO/actions/runs/1234567890/logs
 /v1/fetch?key=KEY&url=https%3A%2F%2Fexample.com%2Fdata.bin&mode=base64&gzip=1
 /v1/fetch?key=KEY&url=https%3A%2F%2Fexample.com%2Fbig.bin&stage=1
 /v1/fetch?key=KEY&id=ID&index=0
@@ -60,7 +59,7 @@ Examples:
 /v1/llm?key=KEY&id=JOB
 ```
 
-The `path` value stays relative to `api.github.com` and carries no scheme. The backend refuses an absolute URL.
+The `path` value stays relative to `api.github.com` and carries no scheme. The backend refuses an absolute URL. A path ending `/actions/runs/<id>/logs` answers the text tail, because the zip the API sends is not readable here.
 
 ## Transfers
 
@@ -127,6 +126,6 @@ in this repository, beside the skill source.
 
 - An HTML page instead of JSON means the tunnel or the proxy answered, not the backend. A cold tunnel needs a retry.
 - A 502 with an upstream error means the backend host lost its network path, or the token is malformed.
-- A 404 from GitHub through `/v1/github` usually means the owner's token lacks a scope for that endpoint.
+- A 404 from GitHub through `/v1/gh` usually means the owner's token lacks a scope for that endpoint.
 - An empty reply means the owner stopped the backend. `/v1/health` needs no key, so it separates a dead server from a rejected key.
 - A job that stays `running` for minutes means the model endpoint is slow or the poll is racing a restart. Check `/v1/ping` for the model state.
