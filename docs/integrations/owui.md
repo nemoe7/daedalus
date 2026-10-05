@@ -4,8 +4,6 @@ The [`integrations/openwebui`](../../integrations/openwebui) folder holds 1 dire
 
 Each file is 1 plugin: paste its content in **Workspace → Tools** or **Workspace → Skills**, or import the file. The sections below name the install steps and the valves of each plugin.
 
-Each file is 1 plugin: paste its content, or import the file.
-
 | Plugin | Type | What it does |
 | --- | --- | --- |
 | [`deep-research.md`](owui/deep-research.md) | Skill | A research plan over `search_web` and `fetch_url` |
