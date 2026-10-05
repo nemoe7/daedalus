@@ -599,17 +599,17 @@ def round_requests(items, context, phase, model, cover, round_number):
   return chunked, groups
 
 
-def release_body(
-  units, context, model, generate_fn=generate, on_success=None, accept=None
-):
+def prepared(units, context, model, generate_fn=generate, phase="chunk"):
+  """The evidence reduced to one request that covers every commit.
+
+  One reduction serves both the version classification and the release body, so a
+  big release is summarized once instead of once per phase.
+  """
   items = pieces(units)
   if not items:
     raise RuntimeError("No commits in release range")
   expected = {p["id"] for p in items}
   cover = {p["id"]: [p["id"]] for p in items}
-  final_phase = context.get("phase", "release")
-  attempts = len(model) if isinstance(model, (list, tuple)) else 1
-  phase = final_phase
   round_number = 1
   while True:
     context, groups = round_requests(items, context, phase, model, cover, round_number)
@@ -617,24 +617,7 @@ def release_body(
       covered = {identity for piece in groups[0] for identity in cover[piece["id"]]}
       if covered != expected:
         raise RuntimeError("Summary coverage mismatch")
-      # The last request writes the release body or the classification, whichever
-      # phase the caller named, and an answer the accept check refuses retries on
-      # the next rung, so one bad word does not stop the run.
-      final = {**context, "phase": final_phase}
-      for attempt in range(attempts):
-        answer = (
-          generate_fn(final, groups[0], model)
-          if on_success is None
-          else generate_fn(final, groups[0], model, on_success)
-        )
-        if accept is None or accept(answer):
-          return answer
-        RUN_STATS["failures"] += 1
-        if attempt + 1 < attempts:
-          summary(
-            f"  invalid {final_phase} answer {answer.strip()[:60]!r}; retrying on the next rung"
-          )
-      raise RuntimeError(f"Gemini returned an invalid {final_phase} classification")
+      return groups[0]
     reduced, next_cover = [], {}
     for i, group in enumerate(groups):
       text = generate_fn(context, group, model)
@@ -652,6 +635,32 @@ def release_body(
     items, cover = reduced, next_cover
     phase = "combine"
     round_number += 1
+
+
+def release_body(
+  units, context, model, generate_fn=generate, on_success=None, accept=None
+):
+  final_phase = context.get("phase", "release")
+  attempts = len(model) if isinstance(model, (list, tuple)) else 1
+  group = prepared(units, context, model, generate_fn, final_phase)
+  # The last request writes the release body or the classification, whichever
+  # phase the caller named, and an answer the accept check refuses retries on
+  # the next rung, so one bad word does not stop the run.
+  final = {**context, "phase": final_phase}
+  for attempt in range(attempts):
+    answer = (
+      generate_fn(final, group, model)
+      if on_success is None
+      else generate_fn(final, group, model, on_success)
+    )
+    if accept is None or accept(answer):
+      return answer
+    RUN_STATS["failures"] += 1
+    if attempt + 1 < attempts:
+      summary(
+        f"  invalid {final_phase} answer {answer.strip()[:60]!r}; retrying on the next rung"
+      )
+  raise RuntimeError(f"Gemini returned an invalid {final_phase} classification")
 
 
 def save_draft(repo, tag, body, target):
@@ -893,7 +902,18 @@ def propose(repo, branch):
     override = ""
   if override and override not in ("major", "minor", "patch", "none"):
     raise RuntimeError("Invalid impact override")
-  impact = override or classify(units, context, model)
+  # One reduction serves the classification and the release body; a run that needs
+  # neither pays nothing.
+  base_context = dict(context)
+  reduced = None
+
+  def summary_evidence():
+    nonlocal reduced
+    if reduced is None:
+      reduced = prepared(units, base_context, model)
+    return reduced
+
+  impact = override or classify(summary_evidence(), context, model)
   promotion_input = os.getenv("PROMOTE_TO_STABLE", "false")
   if promotion_input not in ("true", "false"):
     raise RuntimeError("Invalid promotion switch")
@@ -911,7 +931,9 @@ def propose(repo, branch):
   if baseline_release and baseline_release["body"]:
     context["previous_release_notes"] = baseline_release["body"]
   selected_model = []
-  body = release_body(units, context, model, on_success=selected_model.append)
+  body = release_body(
+    summary_evidence(), context, model, on_success=selected_model.append
+  )
   body = validated_body(body, context, selected_model[-1] if selected_model else None)
   check_remote_target(repo, branch, target)
   if current_base(repo, target) != (previous, base, baseline_release):
