@@ -3,23 +3,27 @@ title: Served model
 author: nemo
 description: The daedalus served model line, as a status above the answer body. It reads the usage of the stream chunks, and it needs no key.
 required_open_webui_version: 0.10.0
-version: 1.0.1
+version: 1.0.2
 licence: daedalus Noncommercial License 1.0.0
 """
 
-from typing import Any
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field
 
 
 class Filter:
   """One status line above the answer body, from the `daedalus` key of the final chunk."""
 
-  class Valves:
-    # Draw the line. A Valve, so the line can be silenced without uninstalling the Filter.
-    enabled: bool = True
-    # Text before the line, for example `served`. Empty by default.
-    prefix: str = ""
-    # When to draw the line: `always` on each answer, `on change` only when the served model moves.
-    when: str = "always"
+  class Valves(BaseModel):
+    enabled: bool = Field(default=True, description="Draw the line.")
+    prefix: str = Field(
+      default="", description="Text before the line, for example `served`."
+    )
+    when: Literal["always", "on change"] = Field(
+      default="always",
+      description="`always` draws each answer. `on change` draws a line only when the served model moves.",
+    )
 
   def __init__(self) -> None:
     self.valves = self.Valves()

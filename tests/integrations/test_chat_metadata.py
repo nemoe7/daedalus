@@ -158,3 +158,16 @@ def test_a_disabled_valve_leaves_the_body_alone(monkeypatch: Any) -> None:
   filt.valves.enabled = False
   body = {"messages": [{"role": "user", "content": "hi"}]}
   assert run(filt.inlet(body)) is body
+
+
+def test_the_valves_draw_a_schema() -> None:
+  """Open WebUI builds the Valves panel from the schema of the Valves class."""
+  schema = module.Filter.Valves.model_json_schema()
+  assert set(schema["properties"]) == {
+    "enabled",
+    "location",
+    "location_approximate",
+    "language",
+  }
+  assert schema["properties"]["enabled"]["description"] == "Draw the block."
+  assert module.Filter().valves.location_approximate is False

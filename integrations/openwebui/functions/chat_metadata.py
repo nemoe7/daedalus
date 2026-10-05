@@ -3,13 +3,15 @@ title: Chat metadata
 author: nemo
 description: Inject the date, the clock, the timezone, the place and the language into the chat as 1 system message at the top. It needs no key.
 required_open_webui_version: 0.10.0
-version: 1.0.0
+version: 1.0.1
 licence: daedalus Noncommercial License 1.0.0
 """
 
 import os
 from datetime import datetime
 from typing import Any
+
+from pydantic import BaseModel, Field
 
 # The marker of the block. The filter replaces its own block, so a repeat does not stack them.
 MARK = "[chat metadata]"
@@ -19,22 +21,27 @@ def _language(__request__: Any, fallback: str) -> str:
   """The language of the reader: the first value of `Accept-Language`, else the given fallback."""
   headers = getattr(__request__, "headers", None)
   header = headers.get("accept-language") if headers is not None else None
-  first = str(header or "").split(",")[0].split(";")[0].strip()
+  first = str(header or "").partition(",")[0].partition(";")[0].strip()
   return first or fallback
 
 
 class Filter:
   """1 system message at the top of the chat, drawn again on each turn so the clock stays fresh."""
 
-  class Valves:
-    # Draw the block. A Valve, so the block can be silenced without uninstalling the Filter.
-    enabled: bool = True
-    # The place, for example `Antipolo, Calabarzon, Philippines`. Empty draws no place line.
-    location: str = ""
-    # Say that the place is approximate, so the label reads `Approximate location`.
-    location_approximate: bool = False
-    # The language, for example `en-PH`. Empty reads the request header, then the server locale.
-    language: str = ""
+  class Valves(BaseModel):
+    enabled: bool = Field(default=True, description="Draw the block.")
+    location: str = Field(
+      default="",
+      description="The place, for example `Antipolo, Calabarzon, Philippines`. Empty draws no place line.",
+    )
+    location_approximate: bool = Field(
+      default=False,
+      description="Read the place as an IP lookup, so the label says `Approximate location`.",
+    )
+    language: str = Field(
+      default="",
+      description="The language, for example `en-PH`. Empty reads the request header.",
+    )
 
   def __init__(self) -> None:
     self.valves = self.Valves()
