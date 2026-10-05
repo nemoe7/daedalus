@@ -29,9 +29,11 @@ def prose(path: Path) -> str:
         and isinstance(first.value.value, str)
       ):
         lines.extend(first.value.value.strip().splitlines())
-  for token in tokenize.generate_tokens(io.StringIO(source).readline):
-    if token.type == tokenize.COMMENT:
-      lines.append(token.string.lstrip("# ").strip())
+  lines.extend(
+    token.string.lstrip("# ").strip()
+    for token in tokenize.generate_tokens(io.StringIO(source).readline)
+    if token.type == tokenize.COMMENT
+  )
   return "\n".join(line for line in lines if line)
 
 
