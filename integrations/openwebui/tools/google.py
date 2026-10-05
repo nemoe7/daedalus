@@ -1,7 +1,7 @@
 """
 title: Google
 author: nemo
-description: Gmail, Calendar, Drive and Docs for Open WebUI. Reads run freely; every write passes a confirmation gate and a timeout, and nothing is sent when the gate cannot be shown. Stdlib only.
+description: Gmail, Calendar, Drive and Docs for Open WebUI. Reads run freely. Every write passes a confirmation gate and a timeout, and the tool sends nothing when it cannot show the gate. Stdlib only.
 required_open_webui_version: 0.10.0
 version: 1.0.0
 licence: MIT
@@ -130,8 +130,8 @@ class Tools:
 
     The confirmation travels over the socket of the tab that started the chat. A
     page refresh drops the dialog and the server would wait forever, because
-    WEBSOCKET_EVENT_CALLER_TIMEOUT is unset by default; the wait_for below is the
-    only timeout that always exists, so a refresh costs one wait, then a deny.
+    WEBSOCKET_EVENT_CALLER_TIMEOUT starts unset. The wait_for below is the only
+    timeout that always exists, so a refresh costs one wait, then a deny.
     """
     if not callable(__event_call__):
       return False
@@ -603,7 +603,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Read the text of a Drive file. A Google Doc is exported, other files are downloaded.
+    """Read the text of a Drive file. The tool exports a Google Doc, and downloads any other file.
 
     :param file_id: the file id from search_files
     :param max_chars: the text limit, up to 200000

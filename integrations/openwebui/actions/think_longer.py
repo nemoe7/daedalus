@@ -14,8 +14,8 @@ from typing import Any
 import aiohttp
 from pydantic import BaseModel
 
-# The chat route of Open WebUI. The action asks Open WebUI for the answer, so no daedalus key
-# is needed here, and the daedalus connection of Open WebUI carries the call.
+# The chat route of Open WebUI. The action asks Open WebUI for the answer, so it needs no
+# daedalus key, and the daedalus connection of Open WebUI carries the call.
 CHAT = "/api/chat/completions"
 
 # The body field that asks daedalus for the next reasoning level.
@@ -80,7 +80,7 @@ class Action:
     return headers
 
   def _line(self, model: str) -> str:
-    """The status line of 1 press: the model, and the step that was asked."""
+    """The status line of 1 press: the model, and the step the press asked for."""
     return f"{model} · think longer +{STEPS}"
 
   async def _open_session(self) -> Any:
@@ -122,8 +122,6 @@ class Action:
     """Ask daedalus for the next reasoning level, and answer the pressed turn again.
 
     :param body: the call of Open WebUI: the messages of the chat and the pressed message id
-    :param __event_emitter__: the Open WebUI event emitter
-    :param __request__: the call of this action, which holds the base URL and the caller token
     """
     if __request__ is None:
       raise ValueError("Open WebUI sent no request")
