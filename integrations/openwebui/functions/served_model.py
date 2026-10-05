@@ -4,7 +4,7 @@ author: nemo
 description: The daedalus served model line, as a status above the answer body. It reads the usage of the stream chunks, and it needs no key.
 required_open_webui_version: 0.10.0
 version: 1.0.0
-licence: MIT
+licence: daedalus Noncommercial License 1.0.0
 """
 
 from typing import Any
