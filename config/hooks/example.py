@@ -57,7 +57,7 @@ def on_prompt(
   """Before the first attempt of a chat request that has a reasoning model in its chain.
 
   `value` holds `reasoning_effort`: the effort of the tier map, `TIER-D` none to `TIER-A` high.
-  Change it to set the effort of the request. `messages` is the request list; `prompt` is the
+  Change it to set the effort of the request. `messages` is the request list. `prompt` holds the
   user turns joined. `tier` and `tier_name` name the ladder tier, `slot` the pool slot.
   `reasoning` lists the chain models that support reasoning.
   `effort` is the value of the client, `None` when it sent none. A client value always wins.
@@ -101,9 +101,9 @@ def on_answer(answer: dict, model: str) -> None:
 def on_chunk(chunk: dict, model: str, context: dict) -> None:
   """On each streamed chunk of a chat request, before the client gets it: 1 OpenAI chunk.
 
-  `model` is the requested name. `context` holds `previous`, the model of the last session
-  answer, empty on the first; `attempts`, the failures so far; `code`, the retry code; `pool`,
-  the landed pool; and `served`, the landed model.
+  `model` is the requested name. `context` holds the fields of the call. `previous` is the model
+  of the last session answer, and it is empty on the first. `attempts` counts the failures so
+  far. `code` names the retry code, `pool` the landed pool and `served` the landed model.
   """
   # Example: mark the last chunk of the answer.
   # if any(choice.get("finish_reason") for choice in chunk.get("choices") or []):
