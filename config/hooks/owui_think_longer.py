@@ -13,9 +13,12 @@ and the level of its last answer 1 step up. The cap of the ladder is `high`, and
 the chat sits there.
 """
 
+import logging
 from typing import Any
 
 from daedalus.routing import router
+
+logger = logging.getLogger("daedalus.hooks")
 
 # The client the `on-prompt` point serves. The base names the app from its headers: `OWUI`,
 # `Kilo`, another title, or None. Set it to None to serve every client.
@@ -95,13 +98,24 @@ def on_prompt(
     return
   steps = _bump(body)
   if steps:
-    value["reasoning_effort"] = LEVELS[min(_tier_of(level, prompt) + steps, TOP)]
+    chosen = LEVELS[min(_tier_of(level, prompt) + steps, TOP)]
+    logger.info(
+      "think longer for %s: %s +%s step(s) -> %s",
+      app or "-",
+      level or "the prompt",
+      steps,
+      chosen,
+    )
+    value["reasoning_effort"] = chosen
     return
   if CLIENT is not None and app != CLIENT:
     return
   tier = int(router.required_tier(prompt or ""))
   if retry:
     tier = min(_tier_of(level, prompt) + 1, TOP)
+    logger.info("think longer for %s: a try again -> %s", app or "-", LEVELS[tier])
+  else:
+    logger.info("think longer for %s: the prompt reads %s", app or "-", LEVELS[tier])
   value["reasoning_effort"] = LEVELS[tier]
 
 

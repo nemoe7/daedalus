@@ -89,6 +89,7 @@ def on_catalog(row: dict, model: str, api_base: str, headers: dict) -> None:
   order = cheapest_first(data.get("endpoints") if isinstance(data, dict) else None)
   if order:
     save_order(model, order)
+    logger.info("the endpoint order of %s: %s", model, ", ".join(order))
 
 
 def on_upstream(body: dict, model: str, headers: dict) -> None:

@@ -118,6 +118,14 @@ A hook error does not stop the request. daedalus logs the error, and the value g
 - A file that is not there, does not load, or has no function for the point
 - A path outside the [`config`](../config) folder, or an unknown point
 
+## Logs
+
+The base writes 1 line for each hook that runs, at `INFO`. The line holds the point, the file,
+the model and the value that the hook gave back. The `on-chunk` point runs for each chunk of
+1 answer. Its run line stays at `DEBUG`, and a hook file of that point writes the line of the
+answer. The shipped files log their own decisions. A log line never changes the answer of a
+hook.
+
 ## Changes
 
 daedalus reads a file again when its file time changes. A restart is not necessary.
