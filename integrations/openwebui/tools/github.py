@@ -133,7 +133,7 @@ class Tools:
         "result": {
           "denied": True,
           "action": action,
-          "reason": "Not confirmed, so nothing was read.",
+          "reason": "You did not confirm, so I read nothing.",
         }
       }
     return await fn()
@@ -156,7 +156,7 @@ class Tools:
           "denied": True,
           "action": action,
           "reason": (
-            "Not confirmed, so nothing was sent. A missing dialog, a closed tab "
+            "You did not confirm, so I sent nothing. A missing dialog, a closed tab "
             f"or an answer later than {self._wait_seconds(__user__)}s all read as no."
           ),
         }
@@ -3343,9 +3343,9 @@ class Tools:
     if kind not in ("org", "user"):
       raise GitHubError(422, "owner_type must be 'org' or 'user'.", "GET", "")
     if owner and not package_type:
-      raise GitHubError(422, "package_type is required with owner.", "GET", "")
+      raise GitHubError(422, "Give package_type with owner.", "GET", "")
     if package_name and not package_type:
-      raise GitHubError(422, "package_type is required with package_name.", "GET", "")
+      raise GitHubError(422, "Give package_type with package_name.", "GET", "")
     base = f"/{kind}s/{self._seg(owner)}" if owner else "/user"
     if package_name:
       path = f"{API}{base}/packages/{self._seg(package_type)}/{self._seg(package_name)}"
