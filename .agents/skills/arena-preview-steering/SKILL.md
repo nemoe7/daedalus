@@ -44,6 +44,8 @@ arena-preview ack <id> --reply <markdown>
 
 If the preview is not visible, acknowledge a delivered note in chat with literal `ACK:` and your interpretation. Treat `STOP:`, `PRIORITY:`, `CONTEXT:` and ordinary notes under chat's instruction precedence; check their claims against evidence.
 
+When a call needs the recorded agent key, such as after a 401 or from an owner question, run arena-preview key; it prints the key, the host and the stamp and needs no server.
+
 Run `task-list` at turn start. Before implementation, add approved work with `task <kebab-title-id> "<title>" [details ...]`; put it first with `--order 1` and update status (`upcoming`/`finished` only)/details as work changes; backtick task IDs in acks so the log links them. For a task from a note or report answer, use `--msg-id <full-message-id>` and queue/ack it in the same tool block. The task marker does not replace `ack`. Mark it finished only after verification.
 
 ## Publish reports and forms
@@ -54,7 +56,7 @@ Short answers stay in chat. For a longer report, write UTF-8 Markdown to an igno
 arena-preview publish <source.md> --id <id> --title <title>
 ```
 
-Republish the same ID after each source update; if answers exist, use a new ID. A stale report leaves with `unpublish <id>`; answers and source survive for a new ID. Do not use Mermaid, raw HTML or remote report assets. [Field syntax and limits](references/REFERENCE.md#report-fields) apply when you write answerable reports. Pair every option set with a labeled custom-response field.
+Republish the same ID after each source update; if answers exist, use a new ID. A stale report leaves with `unpublish <id>`; answers and source survive for a new ID. Do not use Mermaid, raw HTML or remote report assets. [Field syntax and limits](references/REFERENCE.md#report-fields) apply when you write answerable reports. Write an option set's custom slot inside the group, as `- ( ) custom: ___`.
 
 `read` lists report submissions as `kind: report`. Acknowledge each submission ID separately, including newer answers to an already answered form. Publishing a report never acknowledges a submission.
 
