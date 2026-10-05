@@ -132,7 +132,7 @@ OpenRouter output types in the catalog. Kilo keeps only the models that make tex
 
 A mode that daedalus does not know keeps the model out of each chain and pool.
 
-## Endpoints for models that do not chat
+## Endpoints for non-chat models
 
 | Provider | Embeddings | Transcriptions | Speech | Images | Image edits |
 | --- | --- | --- | --- | --- | --- |
