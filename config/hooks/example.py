@@ -39,6 +39,35 @@ def on_request(value: dict, model: str, headers: dict) -> None:
   #   value["key"] = f"{chat}:{value['digest']}"
 
 
+def on_prompt(
+  value: dict,
+  messages: list,
+  prompt: str,
+  model: str,
+  tier: int | None,
+  tier_name: str | None,
+  slot: str | None,
+  signal: dict,
+  reasoning: list,
+  effort: str | None,
+  body: dict,
+  config: dict,
+  key: str,
+) -> None:
+  """Before the first attempt of a chat request that has a reasoning model in its chain.
+
+  `value` holds `reasoning_effort`: the effort of the tier map, `TIER-D` none to `TIER-A` high.
+  Change it to set the effort of the request. `messages` is the request list; `prompt` is the
+  user turns joined. `tier` and `tier_name` name the ladder tier, `slot` the pool slot.
+  `signal` holds the heuristics v2 read: `required_tier`, `tier_name`, `probabilities`,
+  `request_type` and `cohort`. `reasoning` lists the chain models that support reasoning.
+  `effort` is the value of the client, `None` when it sent none. A client value always wins.
+  """
+  # Example: think on a hard prompt only, and keep the rest quick.
+  # if signal["request_type"] == "analytical_reasoning" and effort is None:
+  #   value["reasoning_effort"] = "high"
+
+
 def on_upstream(body: dict, model: str, headers: dict) -> None:
   """Before each chat request goes to the provider: the upstream body and the provider headers."""
   # Example: add a header and a body field.

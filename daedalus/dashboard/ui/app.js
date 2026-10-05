@@ -1422,6 +1422,7 @@ async function switchView(view) {
 const HOOK_POINTS = [
   ["on-catalog", "On catalog", "hooks", "At each catalog build, as the row goes to the store."],
   ["on-request", "On request", "hooks", "Before the chain of a chat request, and on the repeat with the count. It sets the key of a turn."],
+  ["on-prompt", "On prompt", "hooks", "Before the first attempt, when the chain holds a reasoning model. It sets the reasoning effort."],
   ["on-upstream", "On upstream", "hooks", "On the request body, before it goes to the provider."],
   ["on-answer", "On answer", "hooks", "On the non-streamed answer of a provider."],
   ["on-chunk", "On chunk", "hooks", "On each streamed chunk of a chat request."],
