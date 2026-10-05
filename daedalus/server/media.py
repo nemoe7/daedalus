@@ -1,4 +1,4 @@
-"""The OpenAI endpoints for models that do not chat, for one model or a media pool."""
+"""The OpenAI endpoints for non-chat models, for one model or a media pool."""
 
 import asyncio
 import base64

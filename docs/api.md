@@ -135,7 +135,7 @@ Kilo cannot show the routed model for a custom provider. The **Requests** page a
 | `reasoning_effort` | Only models with `supports_reasoning` true or missing from the catalog. Unset takes the catalog `reasoning_effort`. |
 | Other fields | Go to the provider. Mistral and Groq get only the message fields that they accept. |
 
-## Endpoints for models that do not chat
+## Endpoints for non-chat models
 
 | Endpoint | Input | What daedalus changes |
 | --- | --- | --- |
