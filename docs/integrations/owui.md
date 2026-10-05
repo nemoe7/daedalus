@@ -13,7 +13,7 @@ Each file is 1 plugin: paste its content, or import the file.
 | [`think_longer.py`](owui/think_longer.md) | Action | The light bulb of the message toolbar, 1 reasoning level up per press |
 | [`github.py`](owui/github.md) | Tool | The GitHub reads and writes, behind the permission gate |
 | [`google.py`](owui/google.md) | Tool | Gmail, Calendar, Drive and Docs, behind the permission gate |
-| [`owui_manager.py`](owui/manager.md) | Tool | The workspace: knowledge, skills, files, tools and functions |
+| [`owui_manager.py`](owui/owui_manager.md) | Tool | The workspace: knowledge, skills, files, tools and functions |
 
 ```mermaid
 flowchart TD
