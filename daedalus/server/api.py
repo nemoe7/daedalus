@@ -1049,7 +1049,13 @@ async def chat(request: Request) -> Response:
       wait = router.model_wait(config, model, upstream.WAIT_SECONDS)
       if not buffered and not body.get("stream"):
         raw = await upstream.in_time(upstream.read_body(response, wait), deadline)
-        return {"provider": provider, "response": response, "wait": wait, "raw": raw}
+        return {
+          "provider": provider,
+          "response": response,
+          "wait": wait,
+          "raw": raw,
+          "at": time.perf_counter(),
+        }
       events = stream.sse_data(provider.stream(response, model, True, wait), wait)
       pending = await upstream.in_time(stream.first_content(events), deadline)
       return {
@@ -1058,6 +1064,7 @@ async def chat(request: Request) -> Response:
         "wait": wait,
         "events": events,
         "pending": pending,
+        "at": time.perf_counter(),
       }
     except BaseException:
       # An attempt that ends early, a cancel included, gives its connection back.
@@ -1184,7 +1191,9 @@ async def chat(request: Request) -> Response:
           stream.provider_count(completion.get("usage")) or {}
         )
         ttft = time.perf_counter() - started
-        attempts.append(upstream.note(candidate, "answered", started) | sent)
+        attempts.append(
+          upstream.note(candidate, "answered", started, ended=content["at"]) | sent
+        )
         request.state.via, request.state.pin = (
           candidate,
           pin.answered(candidate, ttft, attempts[-1]),
@@ -1244,7 +1253,9 @@ async def chat(request: Request) -> Response:
       index += 1
       continue
     rest = [m for m in models[index + 1 :] if m != candidate]
-    attempts.append(upstream.note(candidate, "answered", started) | sent)
+    attempts.append(
+      upstream.note(candidate, "answered", started, ended=content["at"]) | sent
+    )
     request.state.via, request.state.pin = (
       candidate,
       pin.answered(candidate, ttft, attempts[-1]),
