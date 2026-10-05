@@ -22,8 +22,8 @@ from daedalus.server import api
 CLIENT = "OWUI"
 
 
-def _rung(slot: str | None, prompt: str) -> int:
-  """The tier of the chat: its slot, else the tier read of its prompt."""
+def _rung(slot: str | None, prompt: str, model: str | None = None) -> int:
+  """The tier of the chat: its slot, the pool it names, else the read of its prompt."""
   if slot in router.POOLS:
     return router.POOLS[slot]
   if slot and slot.startswith(f"{router.RESERVED_MODEL}:"):
@@ -31,6 +31,11 @@ def _rung(slot: str | None, prompt: str) -> int:
     tier = next(
       (value for value, known in router.TIER_NAMES.items() if known == name), None
     )
+    if tier is not None:
+      return tier
+  if model:
+    named = model if model.startswith("daedalus/") else f"daedalus/{model}"
+    tier = router.POOLS.get(router.built_in(named) or named)
     if tier is not None:
       return tier
   return int(router.required_tier(prompt or ""))
@@ -66,13 +71,13 @@ def on_http(
 ) -> dict[str, Any]:
   """The next rung of the ladder of the chat: pool, tier and effort.
 
-  :param body: the JSON body of the call
+  :param body: the JSON body of the call, which may name the model of the chat
   :param key: the session key of the chat, from the bearer token and its first user turn
   :param prompt: the first user turn of the chat
   :param headers: the request headers
   """
   found = api.PENALTIES.last_pin(key) if key else None
-  before = _rung(found[0] if found else None, prompt)
+  before = _rung(found[0] if found else None, prompt, body.get("model"))
   tier = min(before + 1, max(router.TIERS))
   name = router.TIER_NAMES[tier]
   pool = next(
