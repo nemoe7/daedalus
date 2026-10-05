@@ -2167,9 +2167,13 @@ def test_app_js_redraw_needs_new_markup() -> None:
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert re.search(
     r"function draw\(id, markup\) \{\n  const host = \$\(id\);\n"
-    r"  if \(DRAWN\.get\(host\) === markup\) return;",
+    r"  if \(DRAWN\.get\(host\) === markup\) return;\n"
+    r"  const selected = getSelection\(\);\n"
+    r"  if \(!selected\.isCollapsed && host\.contains\(selected\.anchorNode\)\) return;",
     app,
-  ), "the draw helper keeps the DOM of an unchanged table"
+  ), (
+    "the draw helper keeps the DOM of an unchanged table, and waits for a live selection"
+  )
   for host in (
     "ov-requests",
     "ov-models",
@@ -2178,6 +2182,27 @@ def test_app_js_redraw_needs_new_markup() -> None:
     "keys",
     "balances",
     "limit-rows",
+    "pools",
   ):
     assert f'draw("{host}",' in app, host
     assert f'$("{host}").innerHTML =' not in app, f"{host} still redraws every time"
+
+
+def test_app_js_draw_waits_for_a_live_selection() -> None:
+  """A live selection inside a host holds its redraw back, so the text and the find marks stay."""
+  code = _app_js_vm(
+    """
+const host = sandbox.$('models');
+host.contains = () => true;
+host.innerHTML = 'old';
+sandbox.getSelection = () => ({ isCollapsed: false, anchorNode: 'node' });
+sandbox.draw('models', 'new');
+assert(host.innerHTML === 'old', 'a live selection holds the redraw back');
+sandbox.getSelection = () => ({ isCollapsed: true });
+sandbox.draw('models', 'new');
+assert(host.innerHTML === 'new', 'the redraw lands once the selection is gone');
+sandbox.draw('models', 'new');
+assert(host.innerHTML === 'new', 'an unchanged table is not built again');
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
