@@ -55,7 +55,7 @@ A request-level point, such as `on-request`, takes its files from the `request_h
 request_hooks:
   on-request: [hooks/owui_retry.py]
   on-prompt: []
-  on-chunk: [hooks/model_served.py]
+  on-chunk: [hooks/served_model.py]
 ```
 
 Each key holds a list of files, and they run in list order. 1 path on its own works too. An empty list turns that point off. The `on-init` point has no group of its own: the dashboard reads the `on_init` function of each file in `request_hooks`. The legend card shows those rows below the base rows, and a file with no `on_init` adds no row. A file that sets `value["key"]` counts the requests of that key: a repeat after an answer is a try again.
@@ -131,7 +131,7 @@ The dashboard edits the `hooks` list of a model or a provider. The Request hooks
 | --- | --- |
 | [`hooks/owui_auto_reasoning.py`](../config/hooks/owui_auto_reasoning.py) | The [reasoning ladder](hooks/owui_auto_reasoning.md) of a chat |
 | [`hooks/owui_retry.py`](../config/hooks/owui_retry.py) | The [try-again rule](hooks/owui_retry.md) of an Open WebUI chat |
-| [`hooks/model_served.py`](../config/hooks/model_served.py) | The [served model line](hooks/model_served.md) of a chat pool request |
+| [`hooks/served_model.py`](../config/hooks/served_model.py) | The [served model line](hooks/served_model.md) of a chat pool request |
 | [`hooks/or_cheapest_output.py`](../config/hooks/or_cheapest_output.py) | The [OpenRouter endpoint order](hooks/or_cheapest_output.md) |
 
 [`hooks/example.py`](../config/hooks/example.py) is the start for a new hook file. The

@@ -9,7 +9,7 @@ Each file is 1 plugin: paste its content, or import the file.
 | Plugin | Type | What it does |
 | --- | --- | --- |
 | [`deep-research.md`](owui/deep_research.md) | Skill | A research plan over `search_web` and `fetch_url` |
-| [`pick_status.py`](owui/pick_status.md) | Filter | Draws the daedalus pick line above the answer |
+| [`served_model.py`](owui/served_model.md) | Filter | Draws the daedalus served model line above the answer |
 | [`effort_bump.py`](owui/effort_bump.md) | Action | The light bulb of the message toolbar, 1 rung up per press |
 | [`github.py`](owui/github.md) | Tool | The GitHub reads and writes, behind the permission gate |
 | [`google.py`](owui/google.md) | Tool | Gmail, Calendar, Drive and Docs, behind the permission gate |
@@ -17,7 +17,7 @@ Each file is 1 plugin: paste its content, or import the file.
 
 ```mermaid
 flowchart TD
-  A[Open WebUI chat] --> B[Filter pick_status]
+  A[Open WebUI chat] --> B[Filter served_model]
   A --> C[Action effort_bump]
   A --> D[Tools github, google, owui_manager]
   A --> E[Skill deep-research]
