@@ -2568,7 +2568,7 @@ def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
     ".keys tr > td:nth-child(4) { grid-column: 1; grid-row: 2; }",
   ):
     assert rule in phone, rule
-  assert ".settings { display: block; column-count: 2;" in css, (
+  assert "#settings { display: block; column-count: 2;" in css, (
     "the settings cards flow into 2 columns"
   )
 
@@ -2583,7 +2583,11 @@ def test_the_providers_page_folds_the_long_groups() -> None:
   assert (
     "function fold(label, hint, body) {" in app and '<details class="fold">' in app
   ), "a closed group wraps its fields"
-  assert 'class="hint" aria-label="Hint"' in app, (
+  assert app.count('class="hint"') >= 2 and 'aria-label="Hint"' in app, (
     "the field hint rides behind the info icon"
   )
   assert 'role="tooltip"' in app, "the hint text serves as the tooltip"
+  style = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert ".settings > .column { flex: 1 1 min(340px, 100%);" in style, (
+    "the provider form keeps its own columns, so a card never splits across 1"
+  )
