@@ -11,13 +11,18 @@ reasoning level of the request.
 | Named by | `request_hooks.on-request` and `request_hooks.on-prompt` in [`config/daedalus.yml`](../../config/daedalus.yml) |
 | Serves | The Open WebUI client, from the `CLIENT` constant, and the `x-openwebui-chat-id` header |
 
+The first chart is the repeat key of `on_request`. The second is the level of `on_prompt`.
+
 ```mermaid
-flowchart TD
+flowchart LR
   A[Chat request] --> B{{on_request}}
   B --> C[A repeat of an answered message]
   C --> D[key of the turn, rtN code]
-  D --> E{{on_prompt}}
-  E --> F[Tier of the newest turns, from the router]
+```
+
+```mermaid
+flowchart LR
+  E{{on_prompt}} --> F[Tier of the newest turns, from the router]
   F --> G[The level of LEVELS]
   G --> H[reasoning_effort of the request]
 ```
