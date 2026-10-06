@@ -44,7 +44,7 @@ const state = {
   view: "form", forms: [], formSaved: [], overrideKeys: [], providerDefaults: {}, settingsView: "form",
   pools: [], requests: [], requestLimit: REQUESTS_STEP, requestFetched: 0, keys: [], catalog: {},
   settings: null, legendExtra: [],
-  requestSearch: "", requestStatus: "all", requestHours: 0,
+  requestSearch: "", requestStatus: "all", requestHours: 0, limitSearch: "",
   live: new Map(), livePaused: false, liveWaiting: new Set(), source: null, env: [],
 };
 
@@ -776,6 +776,7 @@ function renderRequestTable() {
   renderRequests(rows, state.requests.length && !rows.length
     ? "No requests match the filter, or the kept window holds no such request"
     : "No requests");
+  $("request-clear").hidden = !state.requestSearch && state.requestStatus === "all" && !state.requestHours;
   $("more-requests").hidden = state.requestFetched < state.requestLimit
     || state.requestLimit >= REQUESTS_KEPT;
   $("request-count").textContent = state.requests.length
@@ -1897,14 +1898,30 @@ function overviewLimits(data) {
   return [...balances, ...rows].join("");
 }
 
+// One row for each lane of each model, as the Limits table reads them.
+function limitRows() {
+  return (state.limits?.lanes || []).flatMap((lane) =>
+    lane.rows.map((row) => ({ ...row, model: lane.model, client: lane.client, at: lane.at })));
+}
+
+// The rows that the filter keeps: a text match over the model and the client.
+function shownLimits() {
+  return limitRows().filter((r) => !state.limitSearch
+    || `${r.model} ${r.client || ""}`.toLowerCase().includes(state.limitSearch));
+}
+
 function renderLimits(data) {
   state.limits = data;
+  limitsHash();
+  renderLimitRows(shownLimits());
   $("limits-checked").textContent = data.checked ? `Checked ${stamp(data.checked)} · each hour` : "Not checked yet";
   $("balances").hidden = !data.providers.length;
   draw("balances", data.providers.map((p) => `<div class="card"><h3>${esc(p.name)}</h3>
     ${p.items.map(([label, value, left]) => `<div class="balance">${line(esc(label), esc(value))}
       ${left == null ? "" : weightBar(left)}</div>`).join("")}</div>`).join(""));
-  const rows = data.lanes.flatMap((lane) => lane.rows.map((row) => ({ ...row, model: lane.model, client: lane.client, at: lane.at })));
+}
+
+function renderLimitRows(rows) {
   draw("limit-rows", rows.length ? rows.map((r) => `<tr>
       ${nameCell(r.model, `${modelName(r.model)}${r.client ? ` <span class="muted">${esc(r.client)}</span>` : ""}`)}
       <td title="${esc(limitTitle(r))}">${esc(limitUnit(r))}</td>
@@ -2093,6 +2110,30 @@ $("live-toggle").addEventListener("click", () => {
   renderLiveToggle();
 });
 
+$("request-clear").addEventListener("click", () => {
+  $("request-search").value = "";
+  $("request-status").value = "all";
+  $("request-hours").value = "0";
+  state.requestSearch = "";
+  state.requestStatus = "all";
+  state.requestHours = 0;
+  requestHash();
+  renderRequestTable();
+});
+
+$("limits-search").addEventListener("input", () => {
+  state.limitSearch = $("limits-search").value.trim().toLowerCase();
+  limitsHash();
+  renderLimitRows(shownLimits());
+});
+
+$("limits-clear").addEventListener("click", () => {
+  $("limits-search").value = "";
+  state.limitSearch = "";
+  limitsHash();
+  renderLimitRows(shownLimits());
+});
+
 $("notice-retry").addEventListener("click", () => {
   clearNotice();
   refresh();
@@ -2163,6 +2204,20 @@ function applyRequestFilters(query) {
   renderRequestTable();
 }
 
+// A Limits link such as #/limits?q=llama filters the table by model.
+function applyLimitFilters(query) {
+  const asked = new URLSearchParams(query).get("q") || "";
+  state.limitSearch = asked.trim().toLowerCase();
+  $("limits-search").value = asked;
+  renderLimitRows(shownLimits());
+}
+
+function limitsHash() {
+  const asked = $("limits-search").value.trim();
+  $("limits-clear").hidden = !asked;
+  history.replaceState(null, "", `#/limits${asked ? `?q=${encodeURIComponent(asked)}` : ""}`);
+}
+
 function requestHash() {
   const params = new URLSearchParams();
   if ($("request-search").value.trim()) params.set("q", $("request-search").value.trim());
@@ -2186,6 +2241,7 @@ function showPage() {
   const asked = path.replace("#/", "").replace(/^config$/, "providers").replace(/^pools$/, "models");
   if (asked === "models" && query !== undefined) applyModelFilters(query);
   if (asked === "requests" && query !== undefined) applyRequestFilters(query);
+  if (asked === "limits" && query !== undefined) applyLimitFilters(query);
   const page = PAGES.includes(asked) ? asked : PAGES[0];
   document.querySelectorAll("section[data-page]").forEach((section) => {
     section.hidden = section.dataset.page !== page;

@@ -405,7 +405,7 @@ const el = (id) => {
 const sandbox = {
   matchMedia: () => ({ matches: false, addEventListener: () => {} }),
   document: { hidden: false, documentElement: { dataset: {} }, getElementById: el, querySelector: () => ({ firstChild: { textContent: 'Models' } }), querySelectorAll: () => [], addEventListener: () => {} },
-  navigator: {}, location: { hash: '' }, window: { addEventListener: () => {}, matchMedia: () => ({ matches: false }) },
+  navigator: {}, location: { hash: '' }, history: { replaceState: () => {} }, window: { addEventListener: () => {}, matchMedia: () => ({ matches: false }) },
   getSelection: () => ({ isCollapsed: true }), console: { error: () => {} }, $: el,
 };
 vm.createContext(sandbox);
@@ -949,7 +949,7 @@ const sandbox = {
   floorCount: (value) => String(value), toLocaleString: (value) => String(value),
   matchMedia: () => ({ matches: false, addEventListener: () => {} }),
   document: { hidden: false, documentElement: { dataset: {} }, getElementById: node, querySelector: () => ({ firstChild: { textContent: 'M' } }), querySelectorAll: () => [], addEventListener: () => {} },
-  navigator: {}, location: { hash: '' }, window: { addEventListener: () => {} },
+  navigator: {}, location: { hash: '' }, history: { replaceState: () => {} }, window: { addEventListener: () => {} },
   getSelection: () => ({ isCollapsed: true }), console: { error: () => {} }, $: node,
 };
 vm.createContext(sandbox);
@@ -1068,7 +1068,7 @@ const sandbox = {
   floorCount: (value) => String(value), toLocaleString: (value) => String(value),
   matchMedia: () => ({ matches: false, addEventListener: () => {} }),
   document: { hidden: false, documentElement: { dataset: {} }, getElementById: node, querySelector: () => ({ firstChild: { textContent: 'M' } }), querySelectorAll: () => [], addEventListener: () => {} },
-  navigator: {}, location: { hash: '' }, window: { addEventListener: () => {} },
+  navigator: {}, location: { hash: '' }, history: { replaceState: () => {} }, window: { addEventListener: () => {} },
   getSelection: () => ({ isCollapsed: true }), console: { error: () => {} }, $: node,
 };
 vm.createContext(sandbox);
@@ -1136,7 +1136,7 @@ const sandbox = {{
   toLocaleString: (value) => String(value),
   matchMedia: () => ({{ matches: false, addEventListener: () => {{}} }}),
   document: {{ hidden: false, documentElement: {{ dataset: {{}} }}, getElementById: node, querySelector: () => ({{ firstChild: {{ textContent: 'M' }} }}), querySelectorAll: () => [], addEventListener: () => {{}} }},
-  navigator: {{}}, location: {{ hash: '' }}, window: {{ addEventListener: () => {{}} }},
+  navigator: {{}}, location: {{ hash: '' }}, history: {{ replaceState: () => {{}} }}, window: {{ addEventListener: () => {{}} }},
   getSelection: () => ({{ isCollapsed: true }}), console: {{ error: () => {{}} }}, $: node,
 }};
 vm.createContext(sandbox);
@@ -2452,6 +2452,30 @@ def test_the_requests_table_has_a_live_switch() -> None:
   )
 
 
+def test_the_limits_filter_rides_in_the_hash() -> None:
+  """`#/limits?q=llama` filters the table, and Clear filters empties the field and the hash."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  assert 'id="limits-search"' in page and 'id="limits-clear"' in page, page
+  assert 'id="request-clear"' in page, "the Requests bar holds a Clear filters button"
+  assert (
+    'if (asked === "limits" && query !== undefined) applyLimitFilters(query);' in app
+  )
+  assert re.search(
+    r"function limitsHash\(\) \{[\s\S]*?history\.replaceState\(null, \"\", `#/limits",
+    app,
+  ), "the Limits filter writes its own hash"
+  assert (
+    "function shownLimits()" in app
+    and app.count("renderLimitRows(shownLimits());") == 4
+  )
+  assert (
+    '$("request-clear").hidden = !state.requestSearch && state.requestStatus === "all" && !state.requestHours;'
+    in app
+  ), "the Clear filters button shows only with a live filter"
+
+
 def test_the_requests_filters_ride_in_the_hash() -> None:
   """`#/requests?status=bad&hours=24&q=timeout` sets the filters, and a change writes the hash."""
   root = Path(__file__).resolve().parent.parent.parent
@@ -2464,7 +2488,7 @@ def test_the_requests_filters_ride_in_the_hash() -> None:
     r"function requestHash\(\) \{[\s\S]*?history\.replaceState\(null, \"\", `#/requests",
     app,
   ), "the filters write their own hash"
-  assert app.count("  requestHash();\n") == 3, app.count("  requestHash();\n")
+  assert app.count("  requestHash();\n") == 4, app.count("  requestHash();\n")
 
 
 def test_a_wrong_shape_is_refused_at_save(client: TestClient) -> None:
