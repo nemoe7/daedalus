@@ -20,6 +20,7 @@ from fastapi.responses import (
   FileResponse,
   HTMLResponse,
   JSONResponse,
+  RedirectResponse,
   Response,
   StreamingResponse,
 )
@@ -585,6 +586,11 @@ def page() -> APIRouter:
   @pages.get("/", include_in_schema=False)
   async def index() -> HTMLResponse:
     return HTMLResponse(versioned_index(), headers=FRESH)
+
+  @pages.get("/ui", include_in_schema=False)
+  @pages.get("/ui/", include_in_schema=False)
+  async def ui_index() -> RedirectResponse:
+    return RedirectResponse("/", status_code=307)
 
   @pages.get("/ui/{name}", include_in_schema=False)
   async def asset(name: str) -> Response:
