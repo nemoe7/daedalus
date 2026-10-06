@@ -9,6 +9,16 @@ Open `http://HOST:3357/`.
 | Remember me | On at the start: 30 days. Else the session ends after 12 h. |
 | Change | A new master key, user or password stops all sessions. |
 
+## Contents
+
+- [Pages](#pages)
+- [Demo on GitHub Pages](#demo-on-github-pages)
+- [Requests](#requests)
+- [Models](#models)
+- [Providers](#providers)
+- [Limits](#limits)
+- [API keys](#api-keys)
+
 ## Pages
 
 | Page | Contents |
@@ -57,8 +67,8 @@ mark, and a name with no file shows its own text. The folder holds the marks of
 `lobehub/lobe-icons` (MIT), and 1 new file with the name in the model id adds a mark. The hover
 text and the cell title keep the full `provider/slug`.
 
-The bar above the table narrows the view: a text match over the model, the client and the session, a status
-filter (all, 2xx only, errors only) and a time range (all, the last hour, the last 24 hours). The count at
+The bar above the table narrows the view: a text match over the model, the served model, the client app, the
+session and the status, a status filter (all, 2xx only, errors only) and a time range (all, the last hour, the last 24 hours). The count at
 the right of the bar names the shown rows. The view narrows in the page, so no new call goes out.
 
 The page lists the requests in flight at the top, then the last ones, 50 at a time and 500 at most. A click on a request opens its attempts, and a hover on a count or name shows the exact value. A request that the client closed shows the code `499`. An exact string, such as a version, a session id or an API key, reads in the mono font.
@@ -69,8 +79,28 @@ A wide screen keeps the table in its own panel, so the head stays in view. The p
 
 ## Models
 
-A card for each pool shows above the table, and a click on a card sets the
-filters of that pool. The table sorts by column and filters by type and tier.
+A card for each pool shows above the table, with its top model and its mean weight. A click on a card sets the filters of that pool.
+
+| Control | Effect |
+| --- | --- |
+| Search | A text match over the provider and the slug |
+| Type | 1 model type: chat, embedding, transcription, speech, image, video, decisions or rerank. The Media entries cover image input, PDF input, audio input and audio output. |
+| Tier chips | `TIER-A` to `TIER-D` |
+| Column head | A sort by that column |
+
+| Column | Shows |
+| --- | --- |
+| Model | The provider mark, the developer mark and the model part, as on the Requests page |
+| Type | The catalog mode and its flags |
+| Tier | The tier letter, with the full `TIER-*` name on hover |
+| Order | The order of the model inside its tier. Muted at 1. |
+| Context | `max_input_tokens`, floored to K, M or B. The hover shows the exact number. |
+| Tools | `supports_function_calling`, for a chat model |
+| Reasoning | `supports_reasoning`, for a chat model |
+| Cooldown | The time left of the cooldown |
+| Weight | The weight bar and the value, 0.01 to 1 |
+
+**Reset weights and cooldowns** sets each weight back to 1 and ends each cooldown. Session models stay.
 
 ## Providers
 

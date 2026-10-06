@@ -2,6 +2,13 @@
 
 The reference deployment is a Raspberry Pi 4B with 8 GB of RAM. The compose file uses `slim` Docker images where they exist, to save space.
 
+## Contents
+
+- [Docker Compose](#docker-compose)
+- [Image release](#image-release)
+- [Dev image](#dev-image)
+- [Optional services](#optional-services)
+
 ## Docker Compose
 
 The install scripts show what they install or download and ask `[y/N]` before a change. Then they install Docker if it is missing: Docker Desktop with winget on Windows, or `get.docker.com` on Linux. Outside a git checkout, they download the files of the newest `v*` tag, else `main`, to the `daedalus` folder in the home folder. They copy only missing files, so `.env` and [`config/`](../config) stay.

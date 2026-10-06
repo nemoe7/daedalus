@@ -7,31 +7,19 @@
 
 daedalus puts your personal API keys behind 1 endpoint and uses a classifier to select a model for each task.
 
-## Why daedalus
-
-daedalus keeps the LiteLLM classifier and model data of [LiteLLM](https://github.com/BerriAI/litellm), and adds these routing features:
-
-- [Loop fallback](docs/architecture.md#loops): a model that sends the same tool call 3 times gets a fault. The same thinking passage 4 times also gives a fault. Then the next model continues.
-- A [fallback ladder](docs/architecture.md#pools-and-the-fallback-ladder) through the tiers: up first, then down.
-- [Weights](docs/architecture.md#weights) that change after each request. A weight goes up after an answer and down after a fault, a slow answer or a rate limit. It also goes up with time.
-- [Session affinity](docs/architecture.md#session-affinity): a conversation keeps its model, and a failure removes the pin.
-- A conversation tier that does not go down, and keywords, such as "think hard", that move it 1 tier up.
-- A [try again](docs/architecture.md#try-again) in Open WebUI moves the message 1 tier up. The rule needs the shipped [owui_auto_reasoning_effort](docs/hooks/owui_auto_reasoning_effort.md) hook. Without it, a repeat is a new request.
-- Before a request, daedalus skips the models without tools, without vision or with a too-small context window.
-- A model catalog from provider discovery, rebuilt on a schedule, in place of a hand-written model list.
-
 ## Features
 
-- 1 OpenAI-compatible endpoint for 8 providers: Cloudflare, Gemini, Groq, Kilo, Mistral, OpenRouter, Pollinations and Z.ai.
-- Each provider gets its native API. Gemini gets the native Gemini API.
-- 4 pools (tiers) and `daedalus/auto`, which selects a tier from the prompt with the [LiteLLM](https://github.com/BerriAI/litellm) [AutoRouter heuristic v2](https://docs.litellm.ai/blog/heuristic-v2) classifier. A keyword, such as "think hard", moves the tier 1 step up.
-- A fallback ladder: when a model fails, the next model gets the request.
-- Weighted selection: each model has a weight that goes up when the model answers and down when it fails.
-- An [order](docs/architecture.md#order) for each provider or model. Inside a tier, the models of order 1 go first. A model of order 2 gets a request only when no model of order 1 answers.
-- Session affinity in 3 modes (`none`, `session`, `race`), a time-to-first-token penalty and a loop penalty.
-- A model catalog from provider discovery and LiteLLM data, rebuilt on a schedule.
-- Endpoints for embeddings, transcriptions, speech and images.
-- A dashboard for pools, requests, models, API keys, providers and settings.
+- 1 OpenAI-compatible endpoint for 8 providers: Cloudflare, Gemini, Groq, Kilo, Mistral, OpenRouter, Pollinations and Z.ai. Each provider gets its native API, Gemini included.
+- 4 pools (tiers) and `daedalus/auto`, which selects a tier from the prompt with the [LiteLLM](https://github.com/BerriAI/litellm) [AutoRouter heuristic v2](https://docs.litellm.ai/blog/heuristic-v2) classifier.
+- A [fallback ladder](docs/architecture.md#pools-and-the-fallback-ladder): when a model fails, the next model gets the request. The chain walks up the tiers first, then down.
+- [Weights](docs/architecture.md#weights) that change after each request. A weight goes up on an answer and down on a fault, a slow answer or a rate limit. It also goes up with time.
+- [Session affinity](docs/architecture.md#session-affinity) in 3 modes (`none`, `session`, `race`), so a conversation keeps its model.
+- A conversation tier that does not go down, and keywords, such as "think hard", that move it 1 tier up.
+- [Loop fallback](docs/architecture.md#loops): a model that repeats a tool call 3 times or a thinking passage 4 times gets a fault. The next model continues.
+- A [try again](docs/architecture.md#try-again) in Open WebUI moves the message 1 tier up. The rule needs the shipped [owui_auto_reasoning_effort](docs/hooks/owui_auto_reasoning_effort.md) hook.
+- Before a request, daedalus skips the models without tools, without vision or with a too-small context window. Each provider or model can carry an [order](docs/architecture.md#order).
+- A model catalog from provider discovery and LiteLLM data, rebuilt on a schedule, in place of a hand-written model list.
+- Endpoints for embeddings, transcriptions, speech and images, and a dashboard for pools, requests, models, API keys, providers and settings.
 - Docker Compose, with optional Open WebUI, Tika, SearXNG, Headroom and Tailscale.
 
 daedalus is for personal use only. Do not share it with other users, because the provider terms of service can forbid it.
