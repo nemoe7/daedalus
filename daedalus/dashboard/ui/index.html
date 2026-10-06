@@ -104,6 +104,7 @@
               <option value="24">Last 24 hours</option>
             </select>
             <button class="ghost live-toggle" id="live-toggle" type="button" aria-pressed="false">Live</button>
+            <button class="ghost" id="request-clear" type="button" hidden>Clear filters</button>
             <span class="hint" id="request-count"></span>
           </div>
           <div class="panel">
@@ -195,6 +196,8 @@
     <section data-page="limits" hidden>
       <div class="panel editbar">
         <button class="ghost" id="limits-check" type="button">Check now</button>
+        <input type="search" id="limits-search" placeholder="Filter by model">
+        <button class="ghost" id="limits-clear" type="button" hidden>Clear filters</button>
         <span class="message" id="limits-message" role="status"></span>
         <span class="hint" id="limits-checked"></span>
       </div>
