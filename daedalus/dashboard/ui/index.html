@@ -66,6 +66,10 @@
     </div>
   </header>
   <main>
+    <div class="panel notice" id="notice" role="alert" hidden>
+      <span id="notice-text"></span>
+      <button class="ghost" id="notice-retry" type="button">Try again</button>
+    </div>
     <section data-page="overview" hidden>
       <div class="card kpis" id="ov-kpis"></div>
       <div class="card status-card">
@@ -99,6 +103,7 @@
               <option value="1">Last hour</option>
               <option value="24">Last 24 hours</option>
             </select>
+            <button class="ghost live-toggle" id="live-toggle" type="button" aria-pressed="false">Live</button>
             <span class="hint" id="request-count"></span>
           </div>
           <div class="panel">
@@ -124,7 +129,7 @@
     <section data-page="models" hidden>
       <div class="panel editbar">
         <button class="ghost danger" id="reset-weights" type="button">Reset weights and cooldowns</button>
-        <span class="message" id="reset-message"></span>
+        <span class="message" id="reset-message" role="status"></span>
         <span class="hint">All weights go back to 1. All cooldowns end. Session models stay.</span>
       </div>
       <div class="pools" id="pools"></div>
@@ -171,7 +176,7 @@
         <form class="toolbar" id="new-key">
           <input id="key-name" maxlength="40" placeholder="Name of the new key" required>
           <button class="primary" type="submit">New key</button>
-          <span class="message bad" id="key-message"></span>
+          <span class="message bad" id="key-message" role="alert"></span>
         </form>
         <div class="reveal" id="reveal" hidden>
           <span>Copy the key <b id="reveal-name"></b> now. daedalus shows it only this time.</span>
@@ -190,7 +195,7 @@
     <section data-page="limits" hidden>
       <div class="panel editbar">
         <button class="ghost" id="limits-check" type="button">Check now</button>
-        <span class="message" id="limits-message"></span>
+        <span class="message" id="limits-message" role="status"></span>
         <span class="hint" id="limits-checked"></span>
       </div>
       <div class="flow">
@@ -212,7 +217,7 @@
         <button class="primary" id="save" type="button" disabled>Save</button>
         <button class="ghost" id="new-provider" type="button">New provider</button>
         <button class="ghost danger" id="drop-provider" type="button" hidden>Delete file</button>
-        <span class="message" id="save-message"></span>
+        <span class="message" id="save-message" role="status"></span>
         <span class="hint">Ctrl+S saves and reloads</span>
         <div class="views" id="views">
           <button class="tab on" type="button" data-view="form">Form</button>

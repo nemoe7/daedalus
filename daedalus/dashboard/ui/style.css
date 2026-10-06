@@ -443,6 +443,11 @@ section[data-page="providers"] > .editbar, section[data-page="settings"] > .edit
 section[data-page="models"] > .editbar, section[data-page="limits"] > .editbar {
   margin-bottom: 16px;
 }
+/* A read failure: 1 line at the top of the page, with 1 button to ask again. */
+.notice { display: flex; flex: none; align-items: center; gap: 12px; margin-bottom: 16px; color: var(--bad); }
+.notice .ghost { margin-left: auto; }
+/* The Live switch shows its paused state, with the count of the requests that wait. */
+.live-toggle[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
 /* The Limits bar holds 1 button and 1 line, so it stays short. */
 section[data-page="limits"] > .editbar { padding: 6px 10px; gap: 10px; }
 section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }

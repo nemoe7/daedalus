@@ -45,7 +45,7 @@ const state = {
   pools: [], requests: [], requestLimit: REQUESTS_STEP, requestFetched: 0, keys: [], catalog: {},
   settings: null, legendExtra: [],
   requestSearch: "", requestStatus: "all", requestHours: 0,
-  live: new Map(), source: null, env: [],
+  live: new Map(), livePaused: false, liveWaiting: new Set(), source: null, env: [],
 };
 
 const fileName = (path) => path.split(/[\\/]/).pop();
@@ -96,8 +96,8 @@ const poolOf = (r) => {
   const pool = String(r.pool || "").replace(/^daedalus\//, "");
   return pool && String(r.model || "").startsWith("daedalus/auto") ? pool : "";
 };
-const cell = (label, inner, cls = "") =>
-  `<td role="cell"${cls ? ` class="${cls}"` : ""}>${mobileLabel(label)}<span class="cell-value">${inner}</span></td>`;
+const cell = (label, inner, cls = "", attrs = "") =>
+  `<td role="cell"${cls ? ` class="${cls}"` : ""}${attrs}>${mobileLabel(label)}<span class="cell-value">${inner}</span></td>`;
 
 // A confirmation modal in place of window.confirm. It resolves true on Confirm.
 // A placeholder shows the name field: the caller reads modal-input after a true.
@@ -211,12 +211,26 @@ function showPassword(on) {
   button.title = label;
 }
 
+// A read failure: 1 line in the page and 1 button to ask again. A later read of the server hides it.
+function showNotice(message) {
+  $("notice-text").textContent = message || "The dashboard cannot read the server.";
+  $("notice").hidden = false;
+}
+
+function clearNotice() {
+  $("notice").hidden = true;
+}
+
 async function guarded(task) {
   try {
     await task();
+    clearNotice();
   } catch (error) {
     if (error instanceof LoggedOut) showLogin();
-    else console.error(error);
+    else {
+      showNotice(error.message);
+      console.error(error);
+    }
   }
 }
 
@@ -235,7 +249,7 @@ async function rebuildCatalog() {
     await call("catalog", { method: "POST" });
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin();
-    alert(error.message);
+    showNotice(error.message);
   }
   guarded(refreshFast);
 }
@@ -522,6 +536,23 @@ function liveRow(r) {
   return { ...r, since, attemptSince, first: r.ttft == null ? null : attemptSince + r.ttft * 1000 };
 }
 
+// The Live switch: the paused table holds still, and the button counts the requests that wait.
+function renderLiveToggle() {
+  const button = $("live-toggle");
+  button.setAttribute("aria-pressed", String(state.livePaused));
+  button.textContent = state.livePaused
+    ? `Live: paused${state.liveWaiting.size ? ` · ${state.liveWaiting.size} new` : ""}`
+    : "Live";
+}
+
+// A change while the table is paused. It waits for the resume.
+function holdLive(id) {
+  if (!state.livePaused) return false;
+  state.liveWaiting.add(id);
+  renderLiveToggle();
+  return true;
+}
+
 // The requests in flight, from the dashboard event stream.
 function openLive() {
   closeLive();
@@ -529,20 +560,29 @@ function openLive() {
   const source = new EventSource(`ui/api/requests/live${value ? `?session=${encodeURIComponent(value)}` : ""}`);
   const put = (event) => {
     const r = JSON.parse(event.data);
+    if (holdLive(r.id)) return;
     state.live.set(r.id, liveRow(r));
     renderLive();
   };
   source.addEventListener("live", (event) => {
-    state.live = new Map(JSON.parse(event.data).map((r) => [r.id, liveRow(r)]));
+    const rows = JSON.parse(event.data);
+    if (state.livePaused) {
+      for (const r of rows) if (!state.live.has(r.id)) holdLive(r.id);
+      return;
+    }
+    state.live = new Map(rows.map((r) => [r.id, liveRow(r)]));
     renderLive();
   });
   ["start", "update", "first"].forEach((kind) => source.addEventListener(kind, put));
   source.addEventListener("end", (event) => {
-    state.live.delete(JSON.parse(event.data).id);
+    const id = JSON.parse(event.data).id;
+    if (holdLive(id)) return;
+    state.live.delete(id);
     renderLive();
     guarded(refreshFast);
   });
   state.source = source;
+  renderLiveToggle();
 }
 
 function closeLive() {
@@ -614,6 +654,7 @@ async function loadLegend() {
 }
 
 function renderLive() {
+  if (state.livePaused) return;
   const rows = [...state.live.values()].filter((r) => requestMatches(r, { live: true }))
     .sort((a, b) => b.since - a.since);
   $("live").innerHTML = rows.map((r) => `
@@ -637,6 +678,7 @@ function renderLive() {
 // The live clocks: TTFT until the first token. The stream clock starts at the first token,
 // and it counts the whole request when the answer does not stream.
 function tickLive() {
+  if (state.livePaused) return;
   const now = Date.now();
   for (const row of $("live").children) {
     const r = state.live.get(Number(row.dataset.live));
@@ -753,7 +795,7 @@ function renderRequests(rows, empty = "No requests") {
     const chainOpen = chain && opened.has(String(r.at));
     return `
     <tr role="row" class="request${chain ? " has-chain" : ""}${chainOpen ? " open" : ""}" data-at="${r.at}"${chain ? ' title="Show the fallback chain"' : ""}>
-      ${cell("Time", `<span class="caret${chain ? "" : " none"}"></span>${stamp(r.at)}`, "num muted")}
+      ${cell("Time", `<span class="caret${chain ? "" : " none"}"></span>${relative(r.at)}`, "num muted", ` title="${esc(stamp(r.at))}"`)}
       ${appCell(r)}
       ${cell("Session", esc(r.session || "-"), "hide-sm hide-md num mono")}
       ${nameCell(r.model || "-", modelName(r.model || "-", poolOf(r)) + routingCodes(r))}
@@ -2027,15 +2069,33 @@ $("more-requests").addEventListener("click", () => {
 // The Requests toolbar narrows the table at once, with no new call to the server.
 $("request-search").addEventListener("input", () => {
   state.requestSearch = $("request-search").value.trim().toLowerCase();
+  requestHash();
   renderRequestTable();
 });
 $("request-status").addEventListener("change", () => {
   state.requestStatus = $("request-status").value;
+  requestHash();
   renderRequestTable();
 });
 $("request-hours").addEventListener("change", () => {
   state.requestHours = Number($("request-hours").value) || 0;
+  requestHash();
   renderRequestTable();
+});
+
+$("live-toggle").addEventListener("click", () => {
+  state.livePaused = !state.livePaused;
+  if (!state.livePaused) {
+    state.liveWaiting.clear();
+    renderLive();
+    guarded(refreshFast);
+  }
+  renderLiveToggle();
+});
+
+$("notice-retry").addEventListener("click", () => {
+  clearNotice();
+  refresh();
 });
 
 $("requests").addEventListener("click", async (event) => {
@@ -2089,6 +2149,29 @@ function applyModelFilters(query) {
   history.replaceState(null, "", "#/models");
 }
 
+// A Requests link such as #/requests?status=bad&hours=24&q=timeout sets the filters. The hash keeps
+// them, so a shared link shows the same view.
+function applyRequestFilters(query) {
+  const params = new URLSearchParams(query);
+  const asked = params.get("q") || "";
+  state.requestSearch = asked.trim().toLowerCase();
+  state.requestStatus = ["all", "ok", "bad"].includes(params.get("status")) ? params.get("status") : "all";
+  state.requestHours = [0, 1, 24].includes(Number(params.get("hours"))) ? Number(params.get("hours")) : 0;
+  $("request-search").value = asked;
+  $("request-status").value = state.requestStatus;
+  $("request-hours").value = String(state.requestHours);
+  renderRequestTable();
+}
+
+function requestHash() {
+  const params = new URLSearchParams();
+  if ($("request-search").value.trim()) params.set("q", $("request-search").value.trim());
+  if (state.requestStatus !== "all") params.set("status", state.requestStatus);
+  if (state.requestHours) params.set("hours", String(state.requestHours));
+  const query = params.toString();
+  history.replaceState(null, "", `#/requests${query ? `?${query}` : ""}`);
+}
+
 // A fade at an edge of the tab bar shows the tabs that wait off screen.
 const nav = $("nav");
 function markNavFades() {
@@ -2102,6 +2185,7 @@ function showPage() {
   const [path, query] = location.hash.split("?");
   const asked = path.replace("#/", "").replace(/^config$/, "providers").replace(/^pools$/, "models");
   if (asked === "models" && query !== undefined) applyModelFilters(query);
+  if (asked === "requests" && query !== undefined) applyRequestFilters(query);
   const page = PAGES.includes(asked) ? asked : PAGES[0];
   document.querySelectorAll("section[data-page]").forEach((section) => {
     section.hidden = section.dataset.page !== page;
