@@ -31,7 +31,7 @@ Open `http://HOST:3357/`.
 | API keys | Make and delete API keys |
 | Providers | A tab per provider file. Form: a section per provider. YAML: the file text, as the last section. |
 | Limits | The last rate-limit headers of each model, and each provider key balance in a card. |
-| Settings | Form and YAML sections of [`config/daedalus.yml`](../config/daedalus.yml). A save checks each value, then reloads the settings. |
+| Settings | Form and YAML sections of [`config/daedalus.yml`](../config/daedalus.yml). A write checks the value, then reloads the settings. |
 
 The logo shows in the header, on the login page and as the tab icon. The page has a web app manifest, so a browser can install the dashboard as an app. A browser installs it only over HTTPS or from localhost. The version shows under the name, also on the login page before a login: the image tag, for example v0.2.0, or dev-COMMIT after `install --dev`.
 
@@ -119,8 +119,10 @@ hash, such as `#/limits?kind=tokens&q=kilo`, and **Clear filters** drops them.
 
 ## Providers
 
-The cards of the Form view stack in columns. The Save bar rides at the top of the form and scrolls with
-the page, so it hides no row of the form. A phone hides the Ctrl+S hint and tightens the bar over the file tabs.
+The cards of the Form view stack in columns. The page carries no Save bar: a row writes itself, and the
+status line above the file tabs names the write and holds 1 step of Undo. A value row shows its value as
+text, and a click opens the small editor of that 1 value. The close of that dialog writes it. A switch and
+a pick list hold 1 valid value, so the change writes at once.
 
 | Field | YAML key | Input |
 | --- | --- | --- |
@@ -156,19 +158,22 @@ The panel under the form lists the names used by `env:NAME` and `db:NAME` values
 | **+ key** | A key list and a value input. Model overrides also take `pool` and `timeout`. |
 | **+ Pattern** | Adds a pattern row with no overrides |
 | Change of a pattern | Renames the pattern. The row keeps its position. |
-| **Save** or Ctrl+S | Writes the file, then reloads the configuration |
+| A value row | Opens the small editor. **Save** writes that 1 value, then reloads the configuration. |
+| Ctrl+S | Writes the text of the YAML view, and does nothing in the Form view. |
 | **New provider** | Asks for the provider name, then makes `config/providers/{name}.yml` with 1 card |
 | **Delete file** | Deletes the `{provider}.yml` file after a confirmation. The main file stays. |
 
 A value of `true` or `false` becomes a boolean. A value with digits only becomes a number. Other values stay text.
 
-A save from the Form view keeps the comments, the key order, the quotes and the one-line maps of the file. It changes only the lines of the values that changed. An empty list or map leaves the file. An empty pattern row stays, because a pattern alone declares a model.
+A write from the Form view keeps the comments, the key order, the quotes and the one-line maps of the file. It changes only the lines of the values that changed. An empty list or map leaves the file. An empty pattern row stays, because a pattern alone declares a model.
 
 A change to the other view asks for a confirmation when the file holds unsaved changes. The other view shows the saved file.
 
-The YAML editor ends the section list of both pages. It is the fallback: a key or a block that the form cannot show still opens there. That card carries its own Save, and the bar Save hides while it shows.
+The Settings rows write the same way. A switch and a pick list write on the change. A text or a number row writes when its editor closes. A chip list writes on the add or the drop.
 
-A save of a file that is not valid YAML, or that has a key 2 times in 1 map, gets an error message. The file does not change. This rule applies to the Providers page and the Settings page.
+The YAML editor ends the section list of both pages. It is the fallback: a key or a block that the form cannot show still opens there. That card carries its own Save. Ctrl+S reaches it too.
+
+A write of a file that is not valid YAML, or that has a key 2 times in 1 map, gets an error message. The file does not change. This rule applies to the Providers page and the Settings page. A refused value stays in its row, and the next write of that row takes it again.
 
 A provider file on disk that is not valid YAML still gets its tab. It opens in the YAML view, with the error line next to the Save button. Fix the text there and save it.
 
