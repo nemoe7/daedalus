@@ -2207,3 +2207,164 @@ assert(host.innerHTML === 'new', 'an unchanged table is not built again');
 """
   )
   subprocess.run(["node", "-e", code], check=True)
+
+
+def test_app_js_nav_marks_the_current_page_for_a_screen_reader() -> None:
+  """The current tab carries `aria-current="page"`, so a screen reader names the page."""
+  app = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/app.js"
+  ).read_text(encoding="utf-8")
+  assert (
+    'if (on) link.setAttribute("aria-current", "page");\n'
+    '    else link.removeAttribute("aria-current");'
+  ) in app, "the page switcher marks the current tab"
+
+
+def test_app_js_requests_toolbar_narrows_the_table() -> None:
+  """The toolbar narrows by text, status and age, and the hint counts the shown rows."""
+  code = """
+const fs = require('fs');
+const vm = require('vm');
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
+  + "\\nglobalThis.__probe = { state, renderRequestTable, requestMatches };\\n";
+const nodes = new Map();
+const node = (id) => {
+  if (!nodes.has(id)) nodes.set(id, { innerHTML: '', value: '', textContent: '', hidden: false,
+    listeners: {}, contains: () => false, addEventListener(type, handler) { this.listeners[type] = handler; },
+    classList: { toggle: () => {} } });
+  return nodes.get(id);
+};
+const sandbox = {
+  matchMedia: () => ({ matches: false, addEventListener: () => {} }),
+  document: { hidden: false, documentElement: { dataset: {} }, getElementById: node,
+    querySelector: () => ({ firstChild: { textContent: 'R' } }), querySelectorAll: () => [],
+    addEventListener: () => {} },
+  navigator: {}, location: { hash: '' }, window: { addEventListener: () => {}, matchMedia: () => ({ matches: false }) },
+  getSelection: () => ({ isCollapsed: true }), console: { error: () => {} }, $: node,
+};
+vm.createContext(sandbox);
+vm.runInContext(src, sandbox);
+const assert = require('assert');
+const probe = sandbox.__probe;
+const now = Math.floor(Date.now() / 1000);
+probe.state.requests = [
+  { at: now, model: 'p/big', via: 'p/big', app: 'OWUI', session: 's1', status: 200 },
+  { at: now, model: 'p/small', via: 'p/small', app: 'Kilo', session: 's2', status: 500 },
+  { at: now - 7200, model: 'p/old', via: 'p/old', app: 'OWUI', session: 's3', status: 200 },
+];
+probe.state.requestFetched = 3;
+const rows = () => (node('requests').innerHTML.match(/class="request/g) || []).length;
+probe.renderRequestTable();
+assert.strictEqual(rows(), 3, 'no filter shows every kept row');
+assert.strictEqual(node('request-count').textContent, '3 requests of 3', 'the hint counts the shown rows');
+probe.state.requestSearch = 'kilo';
+probe.renderRequestTable();
+assert.strictEqual(rows(), 1, 'the text match reads the client');
+assert(node('requests').innerHTML.includes('p/small'), 'the match keeps its row');
+probe.state.requestSearch = '';
+probe.state.requestStatus = 'ok';
+probe.renderRequestTable();
+assert.strictEqual(rows(), 2, '2xx only drops the 500');
+probe.state.requestStatus = 'bad';
+probe.renderRequestTable();
+assert.strictEqual(rows(), 1, 'errors only keeps the 500');
+probe.state.requestStatus = 'all';
+probe.state.requestHours = 1;
+probe.renderRequestTable();
+assert.strictEqual(rows(), 2, 'the range drops the 2 hour old row');
+probe.state.requestSearch = 'nothing at all';
+probe.renderRequestTable();
+assert(node('requests').innerHTML.includes('No requests match the filter'), 'the empty table names the filter');
+assert.strictEqual(probe.requestMatches({ status: 200, at: now }, { live: true }), false, 'a live row follows the text too');
+probe.state.requestSearch = '';
+assert.strictEqual(probe.requestMatches({ status: 200, at: now }, { live: true }), true, 'a live row needs no status');
+"""
+  subprocess.run(["node", "-e", code], check=True)
+
+
+def test_app_js_overview_leads_with_4_numbers() -> None:
+  """The Overview draws 4 numbers, and its request card holds 5 rows."""
+  code = """
+const fs = require('fs');
+const vm = require('vm');
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
+  + "\\nglobalThis.__probe = { state, renderOverview };\\n";
+const nodes = new Map();
+const node = (id) => {
+  if (!nodes.has(id)) nodes.set(id, { innerHTML: '', value: '', textContent: '', hidden: false,
+    listeners: {}, contains: () => false, addEventListener(type, handler) { this.listeners[type] = handler; },
+    classList: { toggle: () => {} } });
+  return nodes.get(id);
+};
+const sandbox = {
+  matchMedia: () => ({ matches: false, addEventListener: () => {} }),
+  document: { hidden: false, documentElement: { dataset: {} }, getElementById: node,
+    querySelector: () => ({ firstChild: { textContent: 'O' } }), querySelectorAll: () => [],
+    addEventListener: () => {} },
+  navigator: {}, location: { hash: '' }, window: { addEventListener: () => {}, matchMedia: () => ({ matches: false }) },
+  getSelection: () => ({ isCollapsed: true }), console: { error: () => {} }, $: node,
+};
+vm.createContext(sandbox);
+vm.runInContext(src, sandbox);
+const assert = require('assert');
+const probe = sandbox.__probe;
+const now = Math.floor(Date.now() / 1000);
+probe.state.requests = [{ at: now, status: 200 }, { at: now, status: 500 },
+  { at: now, status: 200 }, { at: now, status: 200 }, { at: now, status: 200 },
+  { at: now, status: 200 }, { at: now, status: 200 }];
+probe.state.live = new Map([[1, { id: 1 }], [2, { id: 2 }]]);
+probe.state.models = [1, 2, 3];
+probe.state.pools = [];
+probe.state.limits = { providers: [], lanes: [{ rows: [{ limit: 100, remaining: 25 }] }] };
+probe.renderOverview();
+const kpis = node('ov-kpis').innerHTML;
+assert.strictEqual((kpis.match(/class="kpi"/g) || []).length, 4, 'the strip holds 4 numbers');
+assert(kpis.includes('<b>2</b><small>In flight now</small>'), 'the strip counts the live requests');
+assert(kpis.includes('Failed of 7 kept requests</small>'), 'the strip names the failed share');
+assert(kpis.includes('<b>14%</b>'), '1 failed of 7 reads 14 percent');
+assert(kpis.includes('<b>25%</b><small>Lowest limit left</small>'), 'the strip takes the lowest limit left');
+assert(kpis.includes('<b>3</b><small>Models in the catalog</small>'), 'the strip counts the catalog');
+const rows = (node('ov-requests').innerHTML.match(/class="line"/g) || []).length;
+assert.strictEqual(rows, 5, 'the request card holds 5 rows, not 10');
+probe.state.limits = null;
+probe.state.requests = [];
+probe.renderOverview();
+assert(node('ov-kpis').innerHTML.includes('<b>-</b>'), 'an unknown share reads as a dash');
+"""
+  subprocess.run(["node", "-e", code], check=True)
+
+
+def test_a_phone_keeps_the_tap_size_of_its_controls() -> None:
+  """Every filter control reaches 44px on a phone."""
+  css = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
+  ).read_text(encoding="utf-8")
+  assert (
+    ".toolbar input, .toolbar select, .requests-bar input, .requests-bar select,\n"
+    "  .filter, .tab { min-height: 44px; }"
+  ) in css, "the phone keeps the 44px target of the filter controls"
+
+
+def test_the_save_bars_stick_under_the_header() -> None:
+  """The Save bar of Settings and Providers holds its place while the fields scroll."""
+  css = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
+  ).read_text(encoding="utf-8")
+  assert (
+    'section[data-page="providers"] > .editbar, section[data-page="settings"] > .editbar {\n'
+    "  position: sticky; top: 0; z-index: 4; background: var(--panel);"
+  ) in css, "the Save bars stick"
+
+
+def test_the_requests_bar_keeps_its_own_height() -> None:
+  """Only the table panel of the Requests page scrolls, so the toolbar stays in view."""
+  css = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
+  ).read_text(encoding="utf-8")
+  assert (
+    'section[data-page="requests"] > .flow > .column > .panel:not(.editbar) '
+    "{ flex: 1; min-height: 0; overflow: auto; }"
+  ) in css, "the table panel keeps the free height"
+  assert (
+    'section[data-page="requests"] > .flow > .column > .requests-bar { flex: none; }'
+  ) in css, "the toolbar keeps its own height"
