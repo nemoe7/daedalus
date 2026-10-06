@@ -996,7 +996,6 @@ const MODEL_ONLY = ["pool", "timeout"];
 const PROVIDER_ONLY = ["hourly_requests"];
 const TIERS = ["TIER-A", "TIER-B", "TIER-C", "TIER-D"];
 // The width of 1 column of provider cards.
-const CARD_WIDTH = 460;
 
 const clone = (value) => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)));
 const shown = (value) => (value !== null && typeof value === "object" ? JSON.stringify(value) : String(value));
@@ -1233,6 +1232,34 @@ function field(label, hint, body) {
   return `<div class="field stack info">${labelSpan(label, hint)}${body}</div>`;
 }
 
+// The picked section of each list, and whether the phone shows that section or the list.
+const SECTION_STATE = { settings: { key: "", open: false }, providers: { key: "", open: false } };
+const sectionState = (host) => SECTION_STATE[host.id === "settings" ? "settings" : "providers"];
+
+// A section list: every section in a rail, and the pane shows the picked 1.
+function sectionList(id, items, active) {
+  const buttons = items.map(([key, label]) => `<button type="button" data-section="${esc(key)}"`
+    + `${key === active ? ' class="on" aria-current="true"' : ""}>${esc(label)}</button>`).join("");
+  return `<nav class="sections" aria-label="Sections">${buttons}</nav>`;
+}
+
+// The pick of a section: 1 button on, 1 card shown, and the phone leaves the list.
+function pickSection(host, key, open = sectionState(host).open) {
+  const state_ = sectionState(host);
+  state_.key = key;
+  state_.open = open;
+  host.dataset.detail = open ? "1" : "0";
+  for (const button of host.querySelectorAll(".sections button")) {
+    const on = button.dataset.section === key;
+    button.classList.toggle("on", on);
+    if (on) button.setAttribute("aria-current", "true");
+    else button.removeAttribute("aria-current");
+  }
+  for (const card of host.querySelectorAll(".section-pane > .card")) {
+    card.hidden = card.dataset.section !== key;
+  }
+}
+
 // A group of fields that starts closed, so a long card stays short.
 function fold(label, hint, body) {
   const id = `hint-${++HINT_COUNT}`;
@@ -1244,7 +1271,7 @@ function fold(label, hint, body) {
 function providerCard(name, block) {
   const path = [name];
   if (!block || typeof block !== "object" || Array.isArray(block)) {
-    return `<div class="card provider" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
+    return `<div class="card provider" data-section="${esc(name)}" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
       <p class="sub">This block is not a map. Edit it in the YAML view.</p></div>`;
   }
   const defaults = state.providerDefaults[name] || state.providerDefaults["*"] || {};
@@ -1331,7 +1358,7 @@ function providerCard(name, block) {
   const others = Object.keys(block).filter((key) => !FORM_KEYS.includes(key) && key !== "_file");
   const values = others.map((key) => pill(`${key}: ${shown(block[key])}`, path, key)).join("") + adder(path, "column", "+ key");
   const accountField = name === "cloudflare" ? text("account_id", "Account ID", "The Cloudflare account of the URL templates") : "";
-  return `<div class="card provider" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
+  return `<div class="card provider" data-section="${esc(name)}" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
     <p class="sub">env:NAME reads the environment variables. A pasted key goes to the database.</p>
     ${text("api_key", "API key")}
     ${accountField}
@@ -1347,34 +1374,32 @@ function providerCard(name, block) {
   </div>`;
 }
 
-const formColumns = () => Math.max(1, Math.floor($("provider-form").clientWidth / CARD_WIDTH));
-
-// The cards in snug columns: each card goes to the shortest column.
+// The section list of the current file: every provider of the file, and the picked card.
 function renderForm() {
   const host = $("provider-form");
   const blocks = state.forms[state.file];
   if (!state.files.length) return (host.innerHTML = "");
   if (blocks == null) {
-    host.innerHTML = `<div class="column"><div class="card"><h3>The YAML is not valid</h3>
+    host.innerHTML = `<div class="section-pane"><div class="card" data-section="error"><h3>The YAML is not valid</h3>
       <p class="sub">${esc(state.files[state.file].error ?? "")}</p>
       <p class="sub">Fix the file in the YAML view. Then the form opens it.</p></div></div>`;
     return;
   }
   const names = Object.keys(blocks);
-  const count = Math.min(formColumns(), Math.max(names.length, 1));
-  host.dataset.columns = count;
-  host.innerHTML = Array.from({ length: count }, () => `<div class="column"></div>`).join("");
-  const columns = [...host.children];
-  for (const name of names) {
-    const shortest = columns.reduce((best, column) => (column.offsetHeight < best.offsetHeight ? column : best));
-    shortest.insertAdjacentHTML("beforeend", providerCard(name, blocks[name]));
-  }
+  const picked = sectionState(host).key;
+  const active = names.includes(picked) ? picked : names[0];
+  host.innerHTML = sectionList("provider-form", names.map((name) => [name, name]), active)
+    + `<div class="section-pane"><button class="ghost back" type="button" data-back>&lsaquo; All providers</button>`
+    + names.map((name) => providerCard(name, blocks[name])).join("")
+    + "</div>";
+  pickSection(host, active);
 }
 
-// 1 card again after an edit, in the same place, so that the columns stay.
+// 1 card again after an edit, in the same place, and the pick stays.
 function renderCard(name) {
   const card = [...document.querySelectorAll("#provider-form [data-provider]")].find((item) => item.dataset.provider === name);
   if (card) card.outerHTML = providerCard(name, state.forms[state.file][name]);
+  pickSection($("provider-form"), sectionState($("provider-form")).key);
   renderFiles();
 }
 
@@ -1737,11 +1762,16 @@ function renderSettings() {
           step="${DECIMALS.has(`${group}.${key}`) ? "any" : "1"}" ${MAXIMA[`${group}.${key}`] ? `max="${MAXIMA[`${group}.${key}`]}"` : ""}
           placeholder="${fallback ?? ""}"><i>${esc(unit)}</i></span></label>`;
     }).join("")}</div>`;
-  // The cards flow into balanced columns, so no column runs far past another.
-  $("settings").innerHTML = SETTINGS
-    .filter(([group]) => group !== "headroom" || state.settings.headroom_available)
-    .map((item) => card(item))
-    .join("");
+  // The section list: the rail names every group, and the pane holds its card.
+  const items = SETTINGS.filter(([group]) => group !== "headroom" || state.settings.headroom_available);
+  const picked = sectionState($("settings")).key;
+  const active = items.some(([group]) => group === picked) ? picked : items[0][0];
+  $("settings").innerHTML = sectionList("settings", items.map(([group, title]) => [group, title]), active)
+    + `<div class="section-pane"><button class="ghost back" type="button" data-back>&lsaquo; All sections</button>`
+    + items.map(([group, title, fields]) => card([group, title, fields]).replace(
+      '<div class="card">', `<div class="card" data-section="${esc(group)}">`)).join("")
+    + "</div>";
+  pickSection($("settings"), active);
   // The rendered file wins, and the shown rows follow its mode.
   showAffinityRows(setting("affinity", "mode"));
   showSwitchRows();
@@ -2372,6 +2402,9 @@ $("views").addEventListener("click", (event) => {
   if (tab) switchView(tab.dataset.view);
 });
 $("provider-form").addEventListener("click", (event) => {
+  const section = event.target.closest("[data-section]");
+  if (section) return pickSection($("provider-form"), section.dataset.section, true);
+  if (event.target.closest("[data-back]")) return pickSection($("provider-form"), sectionState($("provider-form")).key, false);
   const drop = event.target.closest("[data-drop]");
   if (drop) return dropAt(JSON.parse(drop.dataset.drop));
   const add = event.target.closest("[data-add]");
@@ -2386,11 +2419,7 @@ $("provider-form").addEventListener("change", (event) => {
 $("provider-form").addEventListener("keydown", (event) => {
   if (event.key === "Enter" && event.target.dataset.pattern) event.target.blur();
 });
-window.addEventListener("resize", () => {
-  markNavSteps();
-  const host = $("provider-form");
-  if (!host.hidden && host.clientWidth && Number(host.dataset.columns) !== formColumns()) renderForm();
-});
+window.addEventListener("resize", markNavSteps);
 $("settings").addEventListener("input", (event) => {
   $("settings-message").textContent = "";
   showLengthLimit(event.target, $("settings-message"));
@@ -2411,6 +2440,9 @@ $("settings").addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeHookPicker();
 });
 $("settings").addEventListener("click", (event) => {
+  const section = event.target.closest("[data-section]");
+  if (section) return pickSection($("settings"), section.dataset.section, true);
+  if (event.target.closest("[data-back]")) return pickSection($("settings"), sectionState($("settings")).key, false);
   // A hook chip: the pick opens the file list, and a choice lands in the row at once.
   const choice = event.target.closest("[data-hook-choice]");
   if (choice) {
