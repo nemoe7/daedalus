@@ -42,7 +42,9 @@ function relative(seconds) {
 const state = {
   models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, saved: [], timers: [],
   view: "form", forms: [], formSaved: [], overrideKeys: [], providerDefaults: {}, settingsView: "form",
-  pools: [], requests: [], requestLimit: REQUESTS_STEP, keys: [], catalog: {}, settings: null, legendExtra: [],
+  pools: [], requests: [], requestLimit: REQUESTS_STEP, requestFetched: 0, keys: [], catalog: {},
+  settings: null, legendExtra: [],
+  requestSearch: "", requestStatus: "all", requestHours: 0,
   live: new Map(), source: null, env: [],
 };
 
@@ -118,9 +120,24 @@ function ask(title, message, confirm = "Confirm", danger = false, placeholder = 
   });
 }
 
+// A number of the Overview strip: the value on top, its name below.
+const kpi = (value, label) => `<div class="kpi"><b>${value}</b><small>${esc(label)}</small></div>`;
+
 // One card for each page, from the data that the pages already read.
 function renderOverview() {
-  draw("ov-requests", state.requests.slice(0, 10).map((r) => line(
+  const failed = state.requests.filter((r) => ["s4", "s5"].includes(statusClass(r))).length;
+  const share = state.requests.length ? `${Math.round((failed / state.requests.length) * 100)}%` : "-";
+  const lanes = state.limits ? state.limits.lanes.flatMap((lane) => lane.rows) : [];
+  const left = lanes.length
+    ? `${Math.round(Math.min(...lanes.map((r) => (r.limit > 0 ? r.remaining / r.limit : 1))) * 100)}%`
+    : "-";
+  draw("ov-kpis", [
+    kpi(state.live.size, "In flight now"),
+    kpi(share, `Failed of ${count(state.requests.length, "kept request")}`),
+    kpi(left, "Lowest limit left"),
+    kpi(state.models.length || 0, "Models in the catalog"),
+  ].join(""));
+  draw("ov-requests", state.requests.slice(0, 5).map((r) => line(
     `<span class="status ${statusClass(r)}">${statusCell(r)}</span> <span title="${esc(r.via || r.model || "")}">${r.via || r.model ? modelName(r.via || r.model) : "-"}</span>`,
     stamp(r.at),
   )).join("") || none("No requests"));
@@ -597,7 +614,8 @@ async function loadLegend() {
 }
 
 function renderLive() {
-  const rows = [...state.live.values()].sort((a, b) => b.since - a.since);
+  const rows = [...state.live.values()].filter((r) => requestMatches(r, { live: true }))
+    .sort((a, b) => b.since - a.since);
   $("live").innerHTML = rows.map((r) => `
     <tr role="row" class="live-row" data-live="${r.id}">
       ${cell("Time", `<span class="pulse"></span>${stamp(r.since / 1000)}`, "num muted")}
@@ -692,7 +710,38 @@ function splitRequest(r) {
 
 const splitRequests = (requests) => (requests || []).flatMap(splitRequest);
 
-function renderRequests(rows) {
+// The Requests toolbar: a text match over the model, the client and the session, a status class and
+// a time range. The kept rows are the window; a filter narrows the view of it.
+function requestMatches(r, { live = false } = {}) {
+  if (state.requestSearch) {
+    const hay = `${r.model || ""} ${r.via || ""} ${r.app || ""} ${r.session || ""} ${r.status || ""}`;
+    if (!hay.toLowerCase().includes(state.requestSearch)) return false;
+  }
+  if (live) return true; // a running request has no final status and no age
+  const cls = statusClass(r);
+  if (state.requestStatus === "ok" && cls !== "s2") return false;
+  if (state.requestStatus === "bad" && cls !== "s4" && cls !== "s5") return false;
+  if (state.requestHours) {
+    const at = Number(r.at) || 0;
+    if (!at || Date.now() / 1000 - at > state.requestHours * 3600) return false;
+  }
+  return true;
+}
+
+// The kept rows the toolbar shows, and the count beside the controls.
+function renderRequestTable() {
+  const rows = state.requests.filter((r) => requestMatches(r));
+  renderRequests(rows, state.requests.length && !rows.length
+    ? "No requests match the filter, or the kept window holds no such request"
+    : "No requests");
+  $("more-requests").hidden = state.requestFetched < state.requestLimit
+    || state.requestLimit >= REQUESTS_KEPT;
+  $("request-count").textContent = state.requests.length
+    ? `${count(rows.length, "request")} of ${state.requests.length}`
+    : "";
+}
+
+function renderRequests(rows, empty = "No requests") {
   const flatRows = splitRequests(rows);
   const text = JSON.stringify(flatRows);
   const selected = getSelection();
@@ -717,7 +766,7 @@ function renderRequests(rows) {
       ${cell("Stream", streamCell(r), "hide-sm hide-md num")}
       ${fallbackCell(r, "hide-sm hide-md num")}
     </tr>${chainOpen ? chainRows(r) : ""}`;
-  }).join("") : '<tr role="row"><td role="cell" colspan="13" class="empty">No requests</td></tr>';
+  }).join("") : `<tr role="row"><td role="cell" colspan="13" class="empty">${empty}</td></tr>`;
 }
 
 // The label of each catalog mode.
@@ -1768,8 +1817,8 @@ async function refreshFast() {
   }
   if (rows.status === "fulfilled") {
     state.requests = splitRequests(rows.value);
-    renderRequests(state.requests);
-    $("more-requests").hidden = rows.value.length < state.requestLimit || state.requestLimit >= REQUESTS_KEPT;
+    state.requestFetched = rows.value.length;
+    renderRequestTable();
   }
   renderOverview();
 }
@@ -1975,6 +2024,20 @@ $("more-requests").addEventListener("click", () => {
   guarded(refreshFast);
 });
 
+// The Requests toolbar narrows the table at once, with no new call to the server.
+$("request-search").addEventListener("input", () => {
+  state.requestSearch = $("request-search").value.trim().toLowerCase();
+  renderRequestTable();
+});
+$("request-status").addEventListener("change", () => {
+  state.requestStatus = $("request-status").value;
+  renderRequestTable();
+});
+$("request-hours").addEventListener("change", () => {
+  state.requestHours = Number($("request-hours").value) || 0;
+  renderRequestTable();
+});
+
 $("requests").addEventListener("click", async (event) => {
   const button = event.target.closest(".copy-chain");
   if (button) {
@@ -1994,7 +2057,7 @@ $("requests").addEventListener("click", async (event) => {
   const at = row.dataset.at;
   opened.has(at) ? opened.delete(at) : opened.add(at);
   shownRequests = "";
-  renderRequests(state.requests);
+  renderRequestTable();
 });
 $("copy").addEventListener("click", async () => {
   try {
@@ -2044,7 +2107,10 @@ function showPage() {
     section.hidden = section.dataset.page !== page;
   });
   document.querySelectorAll("#nav a").forEach((link) => {
-    link.classList.toggle("on", link.dataset.page === page);
+    const on = link.dataset.page === page;
+    link.classList.toggle("on", on);
+    if (on) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
   });
   // The first paint marks the fades too, so a cut tab shows before the first status answer.
   markNavFades();
