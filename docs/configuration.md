@@ -243,7 +243,7 @@ groq:
 | --- | --- |
 | `api_key` | The provider key. Without it, the provider models leave the chains and the pools. |
 | `client_keys` | Optional. A provider key for each daedalus key name. See [Client keys](#client-keys). |
-| `account_id` | Optional. The Cloudflare account ID. The shipped provider file reads `CLOUDFLARE_ACCOUNT_ID`. |
+| `account_id` | Optional. The Cloudflare account ID. The shipped provider file reads `CLOUDFLARE_ACCOUNT_ID`. The default `api_base` and `discovery_url` of Cloudflare hold the template `https://api.cloudflare.com/client/v4/accounts/{account_id}/…`, filled with this ID. |
 | `api_base` | Optional. Each provider has a default. |
 | `api_type` | Optional. `openai` or `gemini`. |
 | `discovery_url` | Optional. The model list URL. Each provider has a default. |
