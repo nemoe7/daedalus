@@ -639,7 +639,8 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   }
   .requests-bar input[type=search] { flex: 1 1 100%; min-width: 0; }
   .requests-bar select, .requests-bar .live-toggle { flex: 1 1 auto; }
-  .requests-bar .hint { flex: 1 1 100%; }
+  /* A phone drops the count line: the cards carry the state, and the line only pushes them down. */
+  .requests-bar .hint { display: none; }
   /* A phone turns the Models table into cards, as the Requests page does: the name takes its own
      line, then 1 small row of Tier, Tools, Cooldown and Weight. The sort rides in the toolbar. */
   .only-sm { display: block; }
