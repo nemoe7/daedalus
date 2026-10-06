@@ -582,6 +582,8 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   /* A phone row carries a chevron at its right edge, and a pick opens the section as its own page. */
   .sections button { min-height: 44px; }
   .sections button::after { content: "\203a"; color: var(--muted); font-size: 18px; line-height: 1; }
+  /* A pick opens the section as its own page, so the list carries no selected mark. */
+  .sections button.on { background: none; box-shadow: none; }
   .section-pane { display: none; }
   .settings[data-detail="1"] .sections { display: none; }
   .settings[data-detail="1"] .section-pane { display: grid; }
