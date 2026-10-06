@@ -2650,6 +2650,8 @@ def test_the_yaml_editor_ends_each_list_and_saves_itself() -> None:
     '$("settings-save").hidden = yaml;',
     'if (event.target.closest("#yaml-save")) return saveYaml();',
     'if (event.target.closest("#settings-yaml-save")) saveSettings();',
+    'const typed = state.view === "yaml" ? $("editor")?.value : undefined;',
+    'const typed = state.settingsView === "yaml" ? $("settings-editor")?.value : undefined;',
   ):
     assert needle in app, needle
   assert 'data-section="yaml"' in app and 'yamlCard("editor", "yaml-save"' in app, (

@@ -1426,6 +1426,8 @@ function providerCard(name, block) {
 function renderForm() {
   const host = $("provider-form");
   const blocks = state.forms[state.file];
+  // A render keeps the text of an edit in progress. The saved text shows otherwise.
+  const typed = state.view === "yaml" ? $("editor")?.value : undefined;
   if (!state.files.length) return (host.innerHTML = "");
   if (blocks == null) {
     host.innerHTML = sectionList("provider-form", [["yaml", "YAML"]], "yaml")
@@ -1434,7 +1436,7 @@ function renderForm() {
       <p class="sub">Fix the text in the YAML section. Then the form opens the file.</p></div>`
       + yamlCard("editor", "yaml-save", "The file text. A block that the form cannot show still opens here."));
     pickSection(host, "yaml");
-    $("editor").value = state.files[state.file].text;
+    $("editor").value = typed ?? state.files[state.file].text;
     renderFiles();
     return;
   }
@@ -1446,7 +1448,7 @@ function renderForm() {
     + sectionPane("Providers", names.map((name) => providerCard(name, blocks[name])).join("")
       + yamlCard("editor", "yaml-save", "The file text. A block that the form cannot show still opens here."));
   pickSection(host, active);
-  $("editor").value = state.files[state.file]?.text ?? "";
+  $("editor").value = typed ?? state.files[state.file]?.text ?? "";
   renderFiles();
 }
 
@@ -1786,6 +1788,8 @@ const settingList = (group, key) => {
 const isSwitch = (group, key) => typeof state.settings.defaults[group][key] === "boolean";
 
 function renderSettings() {
+  // A render keeps the text of an edit in progress. The saved text shows otherwise.
+  const typed = state.settingsView === "yaml" ? $("settings-editor")?.value : undefined;
   $("settings-path").textContent = `${fileName(state.settings.path)} · Ctrl+S saves and reloads`;
   const card = ([group, title, fields]) => `
     <div class="card"><h3>${esc(title)}</h3>${fields.map(([key, label, unit, hint]) => {
@@ -1832,7 +1836,7 @@ function renderSettings() {
       '<div class="card">', `<div class="card" data-section="${esc(group)}">`)).join("")
       + yamlCard("settings-editor", "settings-yaml-save", "The file text. A key that the form cannot show still opens here."));
   pickSection($("settings"), active);
-  $("settings-editor").value = state.settings.text;
+  $("settings-editor").value = typed ?? state.settings.text;
   // The rendered file wins, and the shown rows follow its mode.
   showAffinityRows(setting("affinity", "mode"));
   showSwitchRows();
