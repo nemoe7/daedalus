@@ -67,6 +67,7 @@
   </header>
   <main>
     <section data-page="overview" hidden>
+      <div class="card kpis" id="ov-kpis"></div>
       <div class="card status-card">
         <div class="status-head">
           <span class="status-health" id="card-health"></span>
@@ -86,6 +87,20 @@
     <section data-page="requests" hidden>
       <div class="flow">
         <div class="column wide">
+          <div class="panel editbar requests-bar">
+            <input type="search" id="request-search" placeholder="Filter by model, app or session">
+            <select id="request-status" aria-label="Status">
+              <option value="all">All statuses</option>
+              <option value="ok">2xx only</option>
+              <option value="bad">Errors only</option>
+            </select>
+            <select id="request-hours" aria-label="Time range">
+              <option value="0">All time</option>
+              <option value="1">Last hour</option>
+              <option value="24">Last 24 hours</option>
+            </select>
+            <span class="hint" id="request-count"></span>
+          </div>
           <div class="panel">
             <table class="requests" aria-label="Requests" role="table">
               <thead role="rowgroup"><tr role="row">

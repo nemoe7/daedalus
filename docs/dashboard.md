@@ -13,7 +13,7 @@ Open `http://HOST:3357/`.
 
 | Page | Contents |
 | --- | --- |
-| Overview | Status, models, last requests and limits in columns. Each pool row names its top model. The page shows state only: the Providers, API keys and Settings pages hold the configuration. |
+| Overview | 4 numbers on top (in flight, failed, lowest limit left, models), then the status, the last 5 requests, the limits and the pools in columns. Each pool row names its top model. The page shows state only: the Providers, API keys and Settings pages hold the configuration. |
 | Requests | The log of the last requests and the ones in flight. See [Requests](#requests). |
 | Models | The catalog table and a card for each pool. See [Models](#models). |
 | API keys | Make and delete API keys |
@@ -57,6 +57,10 @@ mark, and a name with no file shows its own text. The folder holds the marks of
 `lobehub/lobe-icons` (MIT), and 1 new file with the name in the model id adds a mark. The hover
 text and the cell title keep the full `provider/slug`.
 
+The bar above the table narrows the view: a text match over the model, the client and the session, a status
+filter (all, 2xx only, errors only) and a time range (all, the last hour, the last 24 hours). The count at
+the right of the bar names the shown rows. The view narrows in the page, so no new call goes out.
+
 The page lists the requests in flight at the top, then the last ones, 50 at a time and 500 at most. A click on a request opens its attempts, and a hover on a count or name shows the exact value. A request that the client closed shows the code `499`. An exact string, such as a version, a session id or an API key, reads in the mono font.
 
 The pool of the auto model rides in the model name, such as `daedalus/auto/moros`. The routing codes beside a name, such as `lmt`, `frX` and `tlN`, are 3 characters. The Code legend card beside the table gives the meaning of each code. A hook file that defines `on_init` adds its rows below the base rows of that card.
@@ -70,7 +74,8 @@ filters of that pool. The table sorts by column and filters by type and tier.
 
 ## Providers
 
-The cards of the Form view stack in columns. A phone hides the Ctrl+S hint and tightens the bar over the file tabs.
+The cards of the Form view stack in columns. The Save bar stays under the header while the fields scroll, so a
+field far down keeps its Save in reach. A phone hides the Ctrl+S hint and tightens the bar over the file tabs.
 
 | Field | YAML key | Input |
 | --- | --- | --- |

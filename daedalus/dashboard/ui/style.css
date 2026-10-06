@@ -60,6 +60,14 @@ header {
 .chips button.chip:hover:not(:disabled) { color: var(--text); }
 /* A phone drops the header state. The Overview page shows it in its own card. */
 .status-card { display: none; }
+/* The 4 numbers above the Overview cards: the value on top, its name below. */
+.kpis {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  gap: 14px 20px; padding: 14px 20px; margin-bottom: 16px;
+}
+.kpi { display: grid; gap: 2px; min-width: 0; }
+.kpi b { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.kpi small { color: var(--muted); font-size: 12px; }
 .chip {
   display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
   border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 13px;
@@ -240,7 +248,8 @@ td.end { text-align: right; }
   #app > main:has(> section[data-page="requests"]:not([hidden])) {
     padding-inline: max(32px, calc((100% - 1716px) / 2));
   }
-  section[data-page="requests"] > .flow > .column > .panel { flex: 1; min-height: 0; overflow: auto; }
+  section[data-page="requests"] > .flow > .column > .panel:not(.editbar) { flex: 1; min-height: 0; overflow: auto; }
+  section[data-page="requests"] > .flow > .column > .requests-bar { flex: none; }
   section[data-page="requests"] .legend { align-self: flex-start; }
   /* The time column holds 19 characters, so it keeps its own width, and the model column takes the
      free width of the row, as in the Models table. The phone layout ignores these hints. */
@@ -431,6 +440,11 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6
 }
 section[data-page="settings"] > .editbar, section[data-page="models"] > .editbar,
 section[data-page="limits"] > .editbar { margin-bottom: 16px; }
+/* The Save bar of the 2 editing pages stays under the header, so a field far down keeps its Save in
+   reach. The panel background covers the rows that scroll behind it. */
+section[data-page="providers"] > .editbar, section[data-page="settings"] > .editbar {
+  position: sticky; top: 0; z-index: 4; background: var(--panel);
+}
 /* The Limits bar holds 1 button and 1 line, so it stays short. */
 section[data-page="limits"] > .editbar { padding: 6px 10px; gap: 10px; }
 section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
@@ -481,7 +495,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .brand { padding-top: 10px; }
   #status { display: none; }
   .chips .ghost { min-height: 44px; }
-  /* The phone card: a health row, then 1 line for each value. It fills the width, with no chip row. */
+  /* The phone card: a health row, then 1 line for each value. It fills the width, with no chip row.
+     It carries the 4 numbers of the desktop strip, so the strip steps aside. */
+  .kpis { display: none; }
   .status-card { display: block; padding: 12px 14px; margin-bottom: 16px; }
   .status-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .status-health { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
@@ -493,6 +509,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .status-card .line b { color: var(--text); font-weight: 600; }
   .editbar { gap: 8px; padding: 8px 10px; }
   .editbar .primary, .editbar .ghost { padding: 5px 12px; }
+  /* A phone keeps every control at the 44px target size. */
+  .toolbar input, .toolbar select, .requests-bar input, .requests-bar select,
+  .filter, .tab { min-height: 44px; }
   .editbar .views { margin-left: auto; }
   .editbar .tab { padding: 4px 10px; font-size: 13px; }
   section[data-page="providers"] .editbar .hint, section[data-page="settings"] .editbar .hint { display: none; }
