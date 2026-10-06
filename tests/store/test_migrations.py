@@ -9,7 +9,7 @@ import daedalus
 from daedalus import dashboard, store
 from daedalus.catalog import discovery
 from daedalus.providers import signatures
-from daedalus.routing import cooldowns, loops, penalties
+from daedalus.routing import cooldowns, limits, loops, penalties
 from daedalus.store import keys, saved_env
 from daedalus.store.database import open_db
 from daedalus.store.schema import METADATA
@@ -20,6 +20,7 @@ STATEMENTS = (
   dashboard.TABLE,
   signatures.SCHEMA,
   cooldowns.TABLE,
+  limits.TABLE,
   loops.SCHEMA,
   *penalties.TABLES,
   keys.SCHEMA,

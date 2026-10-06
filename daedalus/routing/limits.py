@@ -1,11 +1,14 @@
 """Provider limits: the rate-limit headers of each answer, and the balances that the provider keys can read."""
 
 import asyncio
+import json
 import logging
 import re
+import sqlite3
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -14,9 +17,16 @@ from daedalus import providers, store
 from daedalus.config import file_block, main_block
 from daedalus.routing import lanes
 from daedalus.routing.cooldowns import Cooldowns, header_seconds, next_midnight
+from daedalus.store.database import open_db
 
 CHECK_SECONDS = 3600.0
 REQUEST_SECONDS = 20.0
+# The lane rows and the balance cards of the last look, so a restart keeps the Limits tab.
+SAVED = "view"
+TABLE = (
+  "CREATE TABLE IF NOT EXISTS limits (name TEXT PRIMARY KEY, payload TEXT NOT NULL,"
+  " updated REAL NOT NULL)"
+)
 # A window may sit in the name, as Mistral does, or the name may carry none, as OpenRouter does.
 HEADER = re.compile(r"x-ratelimit-(limit|remaining|reset)(?:-(.+))?")
 # Groq headers have no window in the name: the requests count per day, the tokens per minute.
@@ -229,6 +239,35 @@ READERS: dict[str, tuple[Reader, Callable[[Any], list[Item]]]] = {
 }
 
 
+def saved_lanes(found: Any) -> dict[str, dict[str, Any]]:
+  """The lane rows of a stored view: a lane with its time and its list of rows."""
+  if not isinstance(found, dict):
+    return {}
+  return {
+    str(lane): {
+      "at": seen["at"],
+      "rows": [row for row in seen["rows"] if isinstance(row, dict)],
+    }
+    for lane, seen in found.items()
+    if isinstance(seen, dict)
+    and isinstance(seen.get("at"), (int, float))
+    and isinstance(seen.get("rows"), list)
+  }
+
+
+def saved_balances(found: Any) -> dict[str, list[Item]]:
+  """The balance cards of a stored view: a name with its label, value and bar rows."""
+  if not isinstance(found, dict):
+    return {}
+  return {
+    str(name): [
+      tuple(item) for item in items if isinstance(item, list) and len(item) == 3
+    ]
+    for name, items in found.items()
+    if isinstance(items, list)
+  }
+
+
 class Limits:
   """The last rate-limit headers of each lane, and the provider balances of the last check."""
 
@@ -238,6 +277,7 @@ class Limits:
     config: Callable[[], Mapping[str, Any]] = dict,
     client: Callable[[], httpx.AsyncClient] | None = None,
     clock: Callable[[], float] = time.time,
+    path: Callable[[], Path] | None = None,
   ) -> None:
     self.cooldowns, self.config, self.client, self.clock = (
       cooldowns,
@@ -245,16 +285,64 @@ class Limits:
       client,
       clock,
     )
+    self.path: Callable[[], Path] = path or (lambda: store.MODELS_DB)
     self.lanes: dict[str, dict[str, Any]] = {}
     self.balances: dict[str, list[Item]] = {}
     self.checked: float | None = None
     # The rows that daedalus counts itself, such as `hourly_requests`, for a wall-clock time.
     self.counted: Callable[[float], list[dict[str, Any]]] = lambda now: []
 
+  def connect(self) -> sqlite3.Connection:
+    return open_db(self.path(), (TABLE,))
+
+  def save(self) -> None:
+    """Write the lane rows and the balance cards, so the next start shows the last look."""
+    payload = json.dumps(
+      {"lanes": self.lanes, "balances": self.balances, "checked": self.checked}
+    )
+    database = self.connect()
+    with database:
+      database.execute(
+        "INSERT INTO limits (name, payload, updated) VALUES (?, ?, ?)"
+        " ON CONFLICT(name) DO UPDATE SET payload = excluded.payload,"
+        " updated = excluded.updated",
+        (SAVED, payload, self.clock()),
+      )
+    database.close()
+
+  def restore(self) -> None:
+    """Load the lane rows and the balance cards of the last run. A bad row is dropped."""
+    if not self.path().exists():
+      return
+    database = self.connect()
+    try:
+      row = database.execute(
+        "SELECT payload FROM limits WHERE name = ?", (SAVED,)
+      ).fetchone()
+    except sqlite3.OperationalError:
+      return
+    finally:
+      database.close()
+    try:
+      found = json.loads(row[0]) if row else None
+    except (TypeError, ValueError):
+      return
+    if not isinstance(found, dict):
+      return
+    self.lanes = saved_lanes(found.get("lanes")) or self.lanes
+    self.balances = saved_balances(found.get("balances")) or self.balances
+    checked = found.get("checked")
+    if isinstance(checked, (int, float)) and not isinstance(checked, bool):
+      self.checked = float(checked)
+
   def clear(self) -> None:
     self.lanes.clear()
     self.balances.clear()
     self.checked = None
+    database = self.connect()
+    with database:
+      database.execute("DELETE FROM limits WHERE name = ?", (SAVED,))
+    database.close()
 
   def observe(self, lane: str, headers: Mapping[str, str]) -> None:
     """Keep the rate-limit headers of one answer. 0 left of a day or a month cools the lane down to the reset."""
@@ -266,12 +354,13 @@ class Limits:
     ends = [end for row in rows if (end := cooling_end(row, now))]
     if ends and self.cooldowns:
       self.cooldowns.hold(lane, max(ends), "limit")
+    self.save()
 
   async def check(self) -> None:
     """Read the balance of each provider key that has a balance endpoint."""
     if self.client is None:
       return
-    now, config, found = self.clock(), self.config(), {}
+    now, config, found, failed = self.clock(), self.config(), {}, set()
     for name, (read, items) in READERS.items():
       block = keyed_block(config.get(name))
       if block is None:
@@ -284,12 +373,17 @@ class Limits:
         shown = items(data) if isinstance(data, dict) else []
       except (httpx.HTTPError, ValueError, AttributeError, IndexError) as exc:
         logger.info("limits %s: %s", name, exc)
+        failed.add(name)
         continue
       if shown:
         found[name] = shown
       if name == "openrouter" and isinstance(data, dict):
         self.free_used_up(data, now)
-    self.balances, self.checked = found, now
+    # A read that fails now keeps the last card of that provider, the way a restart keeps
+    # the rows: a refused key must not empty the Limits tab.
+    kept = {name: items for name, items in self.balances.items() if name in failed}
+    self.balances, self.checked = {**kept, **found}, now
+    self.save()
 
   def free_used_up(self, data: Mapping[str, Any], now: float) -> None:
     """Cool down the OpenRouter free models to the next UTC day when no free request is left."""
