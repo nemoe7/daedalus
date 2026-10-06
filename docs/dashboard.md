@@ -90,6 +90,9 @@ A wide screen keeps the table in its own panel, so the head stays in view. The p
 
 A card for each pool shows above the table, with its top model and its mean weight. A click on a card sets the filters of that pool.
 
+A phone shows 1 card for each model: the name on its own line, then `Tier`, `Tools`, `Cooldown` and
+`Weight` as 1 small row. The `Sort` control in the toolbar takes the place of the column heads.
+
 | Control | Effect |
 | --- | --- |
 | Search | A text match over the provider and the slug |
@@ -110,6 +113,9 @@ A card for each pool shows above the table, with its top model and its mean weig
 | Weight | The weight bar and the value, 0.01 to 1 |
 
 **Reset weights and cooldowns** sets each weight back to 1 and ends each cooldown. Session models stay.
+
+The bar above the table narrows the rows: a text match, a kind and a model. The filters ride in the
+hash, such as `#/limits?kind=tokens&q=kilo`, and **Clear filters** drops them.
 
 ## Providers
 
@@ -164,6 +170,9 @@ A save of a file that is not valid YAML, or that has a key 2 times in 1 map, get
 
 A provider file on disk that is not valid YAML still gets its tab. It opens in the YAML view, with the error line next to the Save button. Fix the text there and save it.
 
+A field hint rides behind the info icon next to its label. The `Tiers`, `Model overrides` and
+`Provider values` groups start closed.
+
 ## Limits
 
 daedalus reads the balances when it starts, then each hour. **Check now** reads them at once. The filter above the
@@ -193,6 +202,12 @@ To show the Cloudflare neurons, give the Cloudflare token the analytics permissi
 4. Select **Continue to summary**, then **Update token**. The token value does not change.
 
 To test the token, send the query of [`daedalus/routing/limits.py`](../daedalus/routing/limits.py) with curl. Without the permission, the answer has an `errors` list.
+
+## A phone
+
+A phone keeps the 4 numbers of the Overview above the status card, in 2 rows of 2. The Models table
+and the API keys table become cards, as the Requests table does. A chevron at an end of the tab bar
+scrolls the tabs that wait off screen, and it goes at the end of the list.
 
 ## A failed read
 
