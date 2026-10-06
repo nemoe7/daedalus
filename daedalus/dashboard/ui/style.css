@@ -187,6 +187,8 @@ select {
 /* The system draws the open list itself, and in the dark it keeps a light frame. The theme colors
    sit on the rows, so the list stays readable on both themes. */
 select option { background: var(--panel); color: var(--text); }
+/* The table of models and the keys table start below their bar with a gap of their own. */
+.models, .keys { margin-top: 10px; }
 .models th:not(:first-child), .models td:not(:first-child) { padding-left: 8px; padding-right: 8px; }
 .models th:not(:first-child), .models td:not(:first-child) { width: 1%; white-space: nowrap; }
 .models th:last-child, .models td:last-child { padding-right: 16px; }
@@ -660,9 +662,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .models .cell-value { min-width: 0; text-align: left; }
   .models td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .models .weight { width: auto; }
-  /* The form row of the keys page sits above the cards on the same rail: the same inner padding
-     as a card, so the left edges agree. */
-  [data-page="keys"] .toolbar { padding: 12px 10px; }
+  /* The form row of the keys page sits above the cards on the same rail: the bottom padding alone,
+     so the row starts at the top edge and its left edge agrees with a card. */
+  [data-page="keys"] .toolbar { padding: 0 0 8px; }
   /* A phone turns the API keys table into cards: the name takes its own line, then Last used and
      Delete share the next row. */
   .keys thead { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
@@ -683,6 +685,8 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .panel { padding-bottom: 8px; }
   /* A phone head cell keeps a 44 px tap area for its sort. */
   .models th { padding: 13px 8px; }
+  /* The first card row keeps a gap from the bar above it. */
+  .models tbody, .keys tbody { display: block; margin-top: 10px; }
   /* The dropped Type column shows under each model name, and the name keeps its ellipsis. */
   .models td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .phone-types { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
