@@ -170,3 +170,84 @@ def test_floored() -> None:
   """Counts floor to K, M or B, and stay whole below 1,000."""
   values = [0, 999, 1234, 998_765_432, 1_000_000_000]
   assert [limits.floored(v) for v in values] == ["0", "999", "1K", "998M", "1B"]
+
+
+def test_rows_survive_a_restart(tmp_path: Path) -> None:
+  """The lane rows and the balances of the last run come back after a restart, and `clear` drops them."""
+  path = tmp_path / "models.sqlite3"
+  found = limits.Limits(clock=lambda: NOW, path=lambda: path)
+  found.restore()
+  assert not path.exists(), "a restore with no state file writes nothing"
+  found.observe("groq/llama", httpx.Headers(GROQ))
+  found.balances, found.checked = {"kilo": [("Balance", "$1.20", None)]}, NOW
+  found.save()
+  again = limits.Limits(clock=lambda: NOW, path=lambda: path)
+  again.restore()
+  assert [item["model"] for item in again.view()["lanes"]] == ["groq/llama"]
+  assert again.view()["providers"] == [
+    {"name": "kilo", "items": [["Balance", "$1.20", None]]}
+  ]
+  assert again.view()["checked"] == NOW
+  again.clear()
+  empty = limits.Limits(clock=lambda: NOW, path=lambda: path)
+  empty.restore()
+  assert empty.view() == {"checked": None, "providers": [], "lanes": []}
+
+
+def test_a_bad_saved_view_is_dropped(tmp_path: Path) -> None:
+  """A saved view with a bad lane, card or time keeps the parts that fit and drops the rest."""
+  path = tmp_path / "models.sqlite3"
+  found = limits.Limits(clock=lambda: NOW, path=lambda: path)
+  payload = json.dumps(
+    {
+      "lanes": {
+        "groq/llama": {"at": NOW, "rows": [{"kind": "requests"}, "junk"]},
+        "junk": 3,
+        "bad": {"at": "yesterday", "rows": []},
+      },
+      "balances": {"kilo": [["Balance", "$1.20", None], "junk"], "nope": 4},
+      "checked": "a while ago",
+    }
+  )
+  database = found.connect()
+  with database:
+    database.execute(
+      "INSERT INTO limits (name, payload, updated) VALUES (?, ?, ?)",
+      (limits.SAVED, payload, NOW),
+    )
+  database.close()
+  found.restore()
+  assert [item["model"] for item in found.view()["lanes"]] == ["groq/llama"]
+  assert found.view()["lanes"][0]["rows"] == [{"kind": "requests"}]
+  assert found.view()["providers"] == [
+    {"name": "kilo", "items": [["Balance", "$1.20", None]]}
+  ]
+  assert found.view()["checked"] is None
+  database = found.connect()
+  with database:
+    database.execute(
+      "UPDATE limits SET payload = ? WHERE name = ?", ("{", limits.SAVED)
+    )
+  database.close()
+  cut = limits.Limits(clock=lambda: NOW, path=lambda: path)
+  cut.restore()
+  assert cut.view() == {"checked": None, "providers": [], "lanes": []}
+
+
+async def test_check_keeps_a_failed_card(cooldowns: Cooldowns) -> None:
+  """A provider that refuses a read now keeps the card of the last good read."""
+  config = {"kilo": {"api_key": "k"}}
+  async with httpx.AsyncClient(transport=httpx.MockTransport(answer)) as client:
+    found = limits.Limits(cooldowns, lambda: config, lambda: client, clock=lambda: NOW)
+    await found.check()
+    assert [item["name"] for item in found.view()["providers"]] == ["kilo"]
+
+    def refused(_request: httpx.Request) -> httpx.Response:
+      return httpx.Response(500)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(refused)) as other:
+      found.client = lambda: other
+      await found.check()
+  assert [item["name"] for item in found.view()["providers"]] == ["kilo"], (
+    "the last good card stays"
+  )
