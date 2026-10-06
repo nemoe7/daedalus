@@ -1,5 +1,6 @@
 """The remote hook files: the fetch, the pin, and the last good copy."""
 
+import json
 from pathlib import Path
 
 import httpx
@@ -125,6 +126,82 @@ def test_the_group_takes_a_list_of_entries() -> None:
       "unknown key",
     ),
     (doubled, "own name"),
+  ):
+    with pytest.raises(settings.SettingsError, match=message):
+      settings.parse(text)
+
+
+def test_the_allowlist_gates_the_host() -> None:
+  """Only a listed host passes, a wildcard covers the subdomains, and an empty list passes all."""
+  assert remote.allowed("https://example.com/a.py", [])
+  assert remote.allowed("https://example.com/a.py", ["example.com"])
+  assert remote.allowed("https://EXAMPLE.com:8443/a.py", ["example.com."])
+  assert remote.allowed("https://raw.example.com/a.py", ["*.example.com"])
+  assert remote.allowed("https://example.com/a.py", ["*.example.com"])
+  assert not remote.allowed("https://evil.test/a.py", ["example.com"])
+  assert not remote.allowed("https://example.com.evil.test/a.py", ["*.example.com"])
+
+
+def test_a_refused_host_never_goes_to_the_network(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """An entry outside the allowlist keeps the last copy and fetches nothing."""
+  calls: list[str] = []
+
+  def count(url: str, timeout: float = remote.TIMEOUT) -> bytes:
+    calls.append(url)
+    return BODY
+
+  monkeypatch.setattr(remote, "fetch", count)
+  old = tmp_path / "my_hook.py"
+  old.write_bytes(b"old body\n")
+  assert remote.sync([matched()], tmp_path, hosts=["other.test"]) == []
+  assert calls == [], "no fetch"
+  assert old.read_bytes() == b"old body\n"
+
+
+def test_the_shape_check_warns_and_keeps_the_file(tmp_path: Path) -> None:
+  """A file that does not compile is named, and it stays on disk."""
+  (tmp_path / "broken.py").write_text("def broken(\n", encoding="utf-8")
+  (tmp_path / "good.py").write_text(
+    "def on_request(value):\n  return value\n", encoding="utf-8"
+  )
+  (tmp_path / "binary.py").write_bytes(b"\xff\xfe\x00")
+  bad = remote.compile_check(
+    [
+      {"url": URL, "sha256": PIN, "name": name}
+      for name in ("broken.py", "good.py", "binary.py", "gone.py")
+    ],
+    tmp_path,
+  )
+  assert bad == ["broken.py", "binary.py", "gone.py"]
+  assert (tmp_path / "broken.py").exists(), "the file stays"
+
+
+def test_the_lock_holds_the_digests(tmp_path: Path) -> None:
+  """`on_disk` skips a temporary name, and the lock file reads back what it wrote."""
+  (tmp_path / "one.py").write_bytes(BODY)
+  (tmp_path / ".one.py.part").write_bytes(b"half")
+  lock = tmp_path / "hooks.lock.json"
+  assert remote.on_disk(tmp_path) == {"one.py": remote.digest(BODY)}
+  remote.write_lock({"b.py": PIN, "a.py": "b" * 64}, lock)
+  assert list(json.loads(lock.read_text(encoding="utf-8"))) == ["a.py", "b.py"]
+  assert remote.read_lock(lock) == {"a.py": "b" * 64, "b.py": PIN}
+  lock.write_text("nonsense", encoding="utf-8")
+  assert remote.read_lock(lock) == {}
+  assert remote.read_lock(tmp_path / "not-there.json") == {}
+
+
+def test_the_group_takes_the_hosts() -> None:
+  """The allowlist checks each host, keeps the wildcard, and refuses anything else."""
+  text = "remote_hook_hosts:\n  - example.com.\n  - '*.GitHub.com'\n"
+  assert settings.parse(text)["remote_hook_hosts"] == ["example.com", "*.github.com"]
+  assert settings.parse("")["remote_hook_hosts"] == []
+  for text, message in (
+    ("remote_hook_hosts: nope\n", "must be a list"),
+    ("remote_hook_hosts:\n  - https://example.com\n", "is not a host"),
+    ("remote_hook_hosts:\n  - example.com/path\n", "is not a host"),
+    ("remote_hook_hosts:\n  - ''\n", "must be a list"),
   ):
     with pytest.raises(settings.SettingsError, match=message):
       settings.parse(text)

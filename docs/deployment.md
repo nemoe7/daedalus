@@ -23,6 +23,7 @@ The commands below are the same in cmd, PowerShell and bash.
 | Log | `docker compose logs -f api` |
 | Rebuild the catalog now | The Catalog chip in the dashboard header, or `docker compose exec api daedalus catalog` |
 | Dump catalogs/models | `docker compose exec api daedalus dump catalog`, `models`, or `all`. Files go to `.daedalus-state/dump` |
+| Pin the hook files | `docker compose exec api daedalus hooks pin` writes `config/hooks.lock.json`. `daedalus hooks verify` then reads the pins and loads each file. See [Hooks](hooks.md#remote-hook-files) |
 
 `dump` defaults to JSON. Add `-f csv` (also `--fmt` or `--format`) for CSV. Catalog refresh saves provider snapshots. Every dump reads those snapshots and never fetches.
 
