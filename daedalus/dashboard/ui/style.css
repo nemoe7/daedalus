@@ -433,6 +433,9 @@ section[data-page="providers"], section[data-page="settings"] {
 .field .input { display: flex; align-items: center; gap: 6px; flex: none; }
 .field .input i { font-style: normal; color: var(--muted); font-size: 12px; width: 10px; }
 .field .input i.prefix { width: auto; }
+/* A value row shows its value as text: a click opens the small editor of that 1 value. */
+.field input[readonly] { border-color: transparent; background: transparent; padding-left: 2px; padding-right: 2px; cursor: pointer; }
+.field input[readonly]:hover, .field input[readonly]:focus-visible { background: var(--field); }
 section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6px 8px; }
 .settings .field.stack input[type=text] { width: 100%; }
 .field input[type=number] { width: 72px; padding: 6px 8px; text-align: right; appearance: textfield; -moz-appearance: textfield; }
@@ -503,6 +506,8 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 .editbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; flex-wrap: wrap; }
 .message { font-size: 13px; color: var(--muted); }
 .message:empty { display: none; }
+/* The status line of a write, with its Undo. It stays out of the way until a write lands. */
+.write-note { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; }
 .message.ok { color: var(--ok); } .message.bad { color: var(--bad); }
 .hint { margin-left: auto; font-size: 12px; color: var(--muted); }
 .panel.env { margin-top: 16px; }
