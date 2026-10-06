@@ -676,7 +676,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .keys tr > td { display: flex; align-items: baseline; gap: 5px; min-width: 0; padding: 0; border: 0; }
   .keys tr > td.name { grid-column: 1; grid-row: 1; max-width: none; }
   .keys tr > td:nth-child(2) { grid-column: 2; grid-row: 1; justify-content: flex-end; }
-  .keys tr > td:nth-child(4) { grid-column: 1; grid-row: 2; }
+  .keys tr > td:nth-child(4) { grid-column: 1; grid-row: 2; align-items: center; }
   .keys tr > td.end { grid-column: 2; grid-row: 2; justify-content: flex-end; }
   .keys tr > td.hide-sm { display: none; }
   .keys .mobile-label { display: inline; flex: none; color: var(--muted); font-size: inherit; }
