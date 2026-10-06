@@ -401,12 +401,22 @@ section[data-page="providers"], section[data-page="settings"], #yaml-view, #sett
 .tier-row .tier { margin-top: 1px; }
 .override { display: grid; grid-template-columns: minmax(110px, 38%) 1fr auto; gap: 8px; align-items: start; }
 .override input.text { padding: 3px 8px; font-size: 12px; }
-/* The provider form and the Settings page share the container. The form fills its columns from
-   the script, and the Settings cards flow into 2 balanced columns. A column never breaks a card. */
+/* The provider form and the Settings page share the container: a section list, and the pane of
+   the picked section. A wide screen puts the rail beside the pane, and a phone shows 1 at a time. */
 .settings { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; align-items: flex-start; }
-.settings > .column { flex: 1 1 min(340px, 100%); display: grid; gap: 16px; min-width: 0; }
-#settings { display: block; column-count: 2; column-gap: 16px; }
-#settings > .card { break-inside: avoid; margin-bottom: 16px; }
+.sections {
+  flex: 0 1 240px; display: grid; align-content: start; overflow: hidden;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.sections button {
+  padding: 10px 14px; border: 0; border-bottom: 1px solid var(--line); background: none;
+  color: var(--text); font: inherit; font-weight: 500; text-align: left;
+}
+.sections button:last-child { border-bottom: 0; }
+.sections button.on { background: var(--field); box-shadow: inset 2px 0 0 var(--accent); }
+.section-pane { flex: 1 1 min(360px, 100%); display: grid; gap: 16px; min-width: 0; }
+.section-pane > .card { min-width: 0; }
+.section-pane .back { display: none; justify-self: start; }
 .settings h3 { margin-bottom: 8px; }
 .field {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -521,7 +531,13 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 }
 
 @media (max-width: 900px) {
-  #settings { column-count: 1; }
+  /* A phone shows the section list, then 1 section, with a way back to the list. */
+  .sections, .section-pane { flex: 1 1 100%; }
+  .sections button { min-height: 44px; }
+  .section-pane { display: none; }
+  .settings[data-detail="1"] .sections { display: none; }
+  .settings[data-detail="1"] .section-pane { display: grid; }
+  .section-pane .back { display: block; min-height: 44px; }
 }
 @media (max-width: 1320px) {
   header { grid-template-columns: auto 1fr; grid-template-areas: "brand chips" "tabs tabs"; }
