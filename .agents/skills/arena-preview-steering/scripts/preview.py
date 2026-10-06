@@ -333,7 +333,7 @@ def require_server(store):
 	raise ValueError(f"preview server is down; start it before polling: arena-preview serve --port {port}")
 def print_read(store):listing=store.read();print(cli_json(listing),flush=True);store.mark_seen([item['id']for item in listing['pending']]);store.mark_reports_agent_seen([item.get('report_id')for item in listing['pending']])
 POLL_INTERVAL=1
-POLL_MAX_LOOPS=900
+POLL_MAX_LOOPS=1800
 POLLING_META='polling_at'
 POLL_SINCE_META='polling_since'
 POLLING_FRESH_SECONDS=5.
@@ -562,6 +562,7 @@ class Store:
 		for status in TASK_STATUSES:
 			for record in tasks.get(status)or[]:lines.append(saved_task_line(record))
 		answers=[saved_answer_line(record)for record in self.submissions()];lines.extend(answers);reports=[saved_report_line(record)for record in self.report_sources()];lines.extend(reports);return lines,{'notes':len(notes),'tasks':len(lines)-len(notes)-len(answers)-len(reports),'answers':len(answers),'reports':len(reports)}
+	def newest_stamp(self,notes):stamps=[stamp for stamp in[import_stamp(record.get('at'))for record in notes]+[import_stamp(record.get('at'))for record in self.submissions()]if stamp];return max(stamps).isoformat()if stamps else None
 	def save_state(self,payload):
 		if not isinstance(payload,dict):raise TypeError('Save a state object')
 		notes=payload.get('notes');tasks=payload.get('tasks')
@@ -979,7 +980,7 @@ def handler(store):
 					except RuntimeError as error:state['rendering_error']=str(error)
 					self.reply(200,json.dumps(state,ensure_ascii=False));return
 				if path=='/api/submissions':live={report['id']for report in store.state()['reports']};self.reply(200,json.dumps([saved_answer_line(record)for record in store.submissions()if record['report_id']in live],ensure_ascii=False),'application/json; charset=utf-8');return
-				if path=='/api/copy-state':lines,counts=store.state_lines(store.state()['notes'],store.tasks()or{});self.reply(200,json.dumps({'text':state_ndjson(lines),'counts':counts},ensure_ascii=False),'application/json; charset=utf-8');return
+				if path=='/api/copy-state':notes=store.state()['notes'];lines,counts=store.state_lines(notes,store.tasks()or{});self.reply(200,json.dumps({'text':state_ndjson(lines),'counts':counts,'stamp':store.newest_stamp(notes)},ensure_ascii=False),'application/json; charset=utf-8');return
 				if path=='/api/report-sources':self.reply(200,json.dumps([saved_report_line(record)for record in store.report_sources()],ensure_ascii=False),'application/json; charset=utf-8');return
 				match=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/(html|source)',path)
 				if match:
