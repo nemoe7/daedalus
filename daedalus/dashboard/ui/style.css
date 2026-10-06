@@ -41,13 +41,14 @@ header {
 }
 .tabs a:hover { color: var(--text); }
 .tabs a.on { color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
-/* A fade at an edge of the tab bar shows the tabs that wait off screen. */
-.tabs.fade-left { -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px); mask-image: linear-gradient(90deg, transparent, #000 24px); }
-.tabs.fade-right { -webkit-mask-image: linear-gradient(270deg, transparent, #000 24px); mask-image: linear-gradient(270deg, transparent, #000 24px); }
-.tabs.fade-left.fade-right {
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+/* A chevron at an end of the tab bar shows the tabs that wait off screen, and scrolls to them. */
+.tab-bar { grid-area: tabs; display: flex; align-items: center; gap: 2px; min-width: 0; }
+.tabs { flex: 1; min-width: 0; }
+.tab-step {
+  flex: none; display: grid; place-items: center; width: 28px; height: 44px; padding: 0;
+  border: 0; background: transparent; color: var(--muted); font-size: 22px; line-height: 1;
 }
+.tab-step:hover { color: var(--text); }
 .count { margin-left: 6px; color: var(--muted); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .count:empty { display: none; }
 .chips {
@@ -276,6 +277,8 @@ tr.request.has-chain { cursor: pointer; }
 for the details. */
 .requests td.fallbacks-cell { display: none; }
 .mobile-label { display: none; }
+/* A control that only a phone shows, such as the sort of the card list. */
+.only-sm { display: none; }
 /* The mark of a provider or a developer beside a model name, in the shape `provider/dev/slug`.
 A shipped SVG file shows the mark; a name with no file shows its own text in the text color.
 A chip reads as noise, so the separator stays plain, and the icons keep the text line. */
@@ -398,8 +401,9 @@ section[data-page="providers"], section[data-page="settings"], #yaml-view, #sett
 .tier-row .tier { margin-top: 1px; }
 .override { display: grid; grid-template-columns: minmax(110px, 38%) 1fr auto; gap: 8px; align-items: start; }
 .override input.text { padding: 3px 8px; font-size: 12px; }
-.settings { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; align-items: flex-start; }
-.settings > .column { flex: 1 1 min(340px, 100%); display: grid; gap: 16px; min-width: 0; }
+/* The cards flow into balanced columns: 2 on a wide screen, 1 on a narrow one. */
+.settings { display: block; column-count: 2; column-gap: 16px; margin-bottom: 16px; }
+.settings > .card { break-inside: avoid; margin-bottom: 16px; }
 .settings h3 { margin-bottom: 8px; }
 .field {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -421,19 +425,33 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6
 .field input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .field.check { justify-content: flex-start; cursor: pointer; }
 .field.check input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; flex: none; }
-/* A desktop hides the check hint behind the info icon. A phone shows the hint under the label. */
-.field.check > span { position: relative; grid-template-columns: auto auto; justify-content: start; align-items: center; column-gap: 6px; }
-.field.check .hint {
+/* A desktop hides a field hint behind the info icon. A phone shows the hint under the label. */
+.field.check > span, .field.info > span { position: relative; grid-template-columns: auto auto; justify-content: start; align-items: center; column-gap: 6px; }
+.field.check .hint, .field.info .hint {
   width: 16px; height: 16px; padding: 0; border: 1px solid var(--line); border-radius: 50%;
   background: transparent; color: var(--muted); font: 11px/1 var(--mono);
 }
-.field.check .hint:hover, .field.check .hint:focus-visible { color: var(--text); border-color: var(--muted); }
-.field.check small { display: none; }
-.field.check .hint:hover ~ small, .field.check .hint:focus ~ small {
+.field.check .hint:hover, .field.check .hint:focus-visible,
+.field.info .hint:hover, .field.info .hint:focus-visible { color: var(--text); border-color: var(--muted); }
+.field.check small, .field.info small { display: none; }
+.field.check .hint:hover ~ small, .field.check .hint:focus ~ small,
+.field.info .hint:hover ~ small, .field.info .hint:focus ~ small {
   display: block; position: absolute; top: calc(100% + 4px); left: 0; z-index: 3;
   width: max-content; max-width: 260px; padding: 6px 8px; border: 1px solid var(--line);
   border-radius: 8px; background: var(--panel); color: var(--muted); font-size: 12px;
 }
+/* A closed group of fields: the summary is the row, and the body holds the fields. */
+.fold { border-top: 1px solid var(--line); }
+.fold summary {
+  display: flex; align-items: center; gap: 6px; padding: 10px 0; cursor: pointer;
+  list-style: none; font-weight: 500;
+}
+.fold summary::-webkit-details-marker { display: none; }
+.fold summary::after { content: "+"; margin-left: auto; color: var(--muted); font-family: var(--mono); }
+.fold[open] summary::after { content: "\2212"; }
+.fold summary small { display: none; }
+.fold summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fold-body { padding-bottom: 4px; }
 .settings .field.stack { flex-direction: column; align-items: stretch; gap: 8px; }
 .settings .field textarea {
   min-height: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px;
@@ -488,6 +506,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .hide-md { display: none; }
 }
 
+@media (max-width: 900px) {
+  .settings { column-count: 1; }
+}
 @media (max-width: 1320px) {
   header { grid-template-columns: auto 1fr; grid-template-areas: "brand chips" "tabs tabs"; }
   .tabs a { min-height: 44px; }
@@ -500,8 +521,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   #status { display: none; }
   .chips .ghost { min-height: 44px; }
   /* The phone card: a health row, then 1 line for each value. It fills the width, with no chip row.
-     It carries the 4 numbers of the desktop strip, so the strip steps aside. */
-  .kpis { display: none; }
+     The 4 numbers of the strip stay above it, in 2 rows of 2, so the health line never leaves the page. */
+  .kpis { grid-template-columns: 1fr 1fr; gap: 10px 14px; padding: 12px 14px; }
+  .kpi b { font-size: 18px; }
   .status-card { display: block; padding: 12px 14px; margin-bottom: 16px; }
   .status-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .status-health { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
@@ -520,10 +542,44 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .editbar .tab { padding: 4px 10px; font-size: 13px; }
   section[data-page="providers"] .editbar .hint, section[data-page="settings"] .editbar .hint { display: none; }
   th, td { padding: 10px; }
-  /* A phone shows the check hint under its label, and drops the info icon. */
-  .field.check > span { grid-template-columns: minmax(0, 1fr); }
-  .field.check .hint { display: none; }
-  .field.check small { display: block; }
+  /* A phone keeps the info icon of a field, so the hint stays behind 1 tap and the page stays short. */
+  .field.check > span, .field.info > span { grid-template-columns: auto auto; }
+  .field.check .hint, .field.info .hint { width: 22px; height: 22px; font-size: 12px; }
+  .field.check .hint, .field.info .hint { display: grid; place-items: center; }
+  .field.check small, .field.info small { display: none; }
+  /* The requests bar keeps 2 rows: the search takes the width, then the 3 controls share the next row. */
+  .requests-bar { flex-wrap: wrap; }
+  .requests-bar input[type=search] { flex: 1 1 100%; min-width: 0; }
+  .requests-bar select, .requests-bar .live-toggle { flex: 1 1 auto; }
+  .requests-bar .hint { flex: 1 1 100%; }
+  /* A phone turns the Models table into cards, as the Requests page does: the name takes its own
+     line, then 1 small row of Tier, Tools, Cooldown and Weight. The sort rides in the toolbar. */
+  .only-sm { display: block; }
+  .models thead { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
+  .models, .models tbody { display: block; }
+  .models tr { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 8px; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+  .models tr > td { display: flex; align-items: baseline; gap: 5px; min-width: 0; padding: 0; border: 0; white-space: normal; }
+  .models tr > td.name { grid-column: 1 / -1; max-width: none; }
+  /* A card hides the columns that a phone drops, as the table layout does. */
+  .models tr > td.hide-sm { display: none; }
+  .models .mobile-label { display: inline; flex: none; color: var(--muted); font-size: 11px; }
+  .models .cell-value { min-width: 0; text-align: left; }
+  .models td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .models .weight { width: auto; }
+  /* A phone turns the API keys table into cards: the name takes its own line, then Last used and
+     Delete share the next row. */
+  .keys thead { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
+  .keys, .keys tbody { display: block; }
+  .keys tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+  .keys tr > td { display: flex; align-items: baseline; gap: 5px; min-width: 0; padding: 0; border: 0; }
+  .keys tr > td.name { grid-column: 1; grid-row: 1; max-width: none; }
+  .keys tr > td:nth-child(2) { grid-column: 2; grid-row: 1; justify-content: flex-end; }
+  .keys tr > td:nth-child(4) { grid-column: 1; grid-row: 2; }
+  .keys tr > td.end { grid-column: 2; grid-row: 2; justify-content: flex-end; }
+  .keys tr > td.hide-sm { display: none; }
+  .keys .mobile-label { display: inline; flex: none; color: var(--muted); font-size: 11px; }
+  .keys .cell-value { min-width: 0; text-align: left; }
+  .keys td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* The last row of a panel clears the panel edge and the screen bottom. */
   #app > main { padding-bottom: 76px; }
   .panel { padding-bottom: 8px; }
