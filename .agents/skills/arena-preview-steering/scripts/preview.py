@@ -68,6 +68,7 @@ AGENT_SEEN_META='agent_seen_at'
 AGENT_KEY_RE=re.compile('[A-Za-z0-9_-]{20,64}\\Z')
 AGENT_HOST_RE=re.compile('https://[A-Za-z0-9.-]+\\Z')
 def now():return datetime.now(timezone.utc).isoformat()
+def clear_skip_poll(db):db.execute('DELETE FROM meta WHERE key = ?',(SKIP_POLL_META,))
 def reset_poll_count(db):
 	unacked=db.execute('SELECT (SELECT count(*) FROM notes WHERE acknowledged_at IS NULL) + (SELECT count(*) FROM submissions WHERE acknowledged_at IS NULL)').fetchone()[0]
 	if unacked==1:db.execute("INSERT OR REPLACE INTO meta VALUES (?, '0')",(POLLS_SINCE_MESSAGE,))
@@ -338,6 +339,7 @@ POLL_MAX_LOOPS=1800
 POLLING_META='polling_at'
 POLL_SINCE_META='polling_since'
 POLLING_FRESH_SECONDS=5.
+SKIP_POLL_META='skip_poll_at'
 INERT_COMMANDS='cd','export','set','unset','true',':','source','.','trap','shopt','umask'
 def unquote_commands(line):
 	kept=[];quote='';index=0;text=str(line or'').replace('\r','\n')
@@ -376,6 +378,7 @@ def poll_inbox(store,sleeper=None):
 			if listing['pending']:full=store.read();print(cli_json(full),flush=True);store.mark_seen([item['id']for item in full['pending']]);store.mark_reports_agent_seen([item.get('report_id')for item in full['pending']]);return 0
 			open_tasks=[item for item in store.list_tasks()if item['status']=='upcoming'and not item['blocked']]
 			if open_tasks:listing['tasks']=open_tasks;names=', '.join(item['id']for item in open_tasks);print(f"CONTINUE: unblocked task {names} waits. Do not end the turn.",file=sys.stderr,flush=True);print(cli_json(listing),flush=True);return 0
+			if store.skip_poll_requested():store.take_skip_poll();print('SKIP: the owner pressed Skip poll; end the turn without another poll.',file=sys.stderr,flush=True);print(cli_json(listing),flush=True);return 0
 			if index+1<POLL_MAX_LOOPS:sleeper(POLL_INTERVAL);store.stamp_polling()
 	finally:store.clear_polling()
 	print(cli_json(listing),flush=True);return 1
@@ -469,7 +472,7 @@ class Store:
 			if existing:
 				if existing['text']!=text:raise ValueError('This message ID already belongs to different text')
 				return message_row(existing)
-			db.execute('INSERT INTO notes (id, text, at, acknowledged_at, ack_kind, ack_text, ack_edited_at, seen_at, task_id, replies, ack_edited_seen_count, quiet) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',(note_id,text,at or now(),*receipt,seen,task_id,more,seen_reply_count,1 if quiet else 0));reset_poll_count(db);return message_row(db.execute('SELECT * FROM notes WHERE id = ?',(note_id,)).fetchone())
+			db.execute('INSERT INTO notes (id, text, at, acknowledged_at, ack_kind, ack_text, ack_edited_at, seen_at, task_id, replies, ack_edited_seen_count, quiet) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',(note_id,text,at or now(),*receipt,seen,task_id,more,seen_reply_count,1 if quiet else 0));reset_poll_count(db);clear_skip_poll(db);return message_row(db.execute('SELECT * FROM notes WHERE id = ?',(note_id,)).fetchone())
 	def submission(self,submission_id,report_id,text,at=None,acknowledged_at=None,ack_kind=None,ack_text=None,seen_at=None,task_id=None,ack_edited_at=None,shared=None,autosave=True,replies=None,ack_edited_seen_count=None):
 		identifier(submission_id);identifier(report_id);submission_text(text);receipt=restore_receipt(acknowledged_at,ack_kind,ack_text,ack_edited_at);more=restore_replies(replies,receipt[0]);seen_reply_count=restore_reply_seen_count(ack_edited_seen_count,more)
 		with self.transaction(shared,autosave=autosave)as db:
@@ -478,7 +481,7 @@ class Store:
 			if existing:
 				if existing['text']!=text:raise ValueError('This message ID already belongs to different text')
 				return message_row(existing)
-			db.execute('INSERT INTO submissions (id, report_id, text, at, acknowledged_at, ack_kind, ack_text, ack_edited_at, seen_at, task_id, replies, ack_edited_seen_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',(submission_id,report_id,text,at or now(),*receipt,when(seen_at)if seen_at is not None else None,task_id,more,seen_reply_count));reset_poll_count(db);return message_row(db.execute('SELECT * FROM submissions WHERE id = ?',(submission_id,)).fetchone())
+			db.execute('INSERT INTO submissions (id, report_id, text, at, acknowledged_at, ack_kind, ack_text, ack_edited_at, seen_at, task_id, replies, ack_edited_seen_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',(submission_id,report_id,text,at or now(),*receipt,when(seen_at)if seen_at is not None else None,task_id,more,seen_reply_count));reset_poll_count(db);clear_skip_poll(db);return message_row(db.execute('SELECT * FROM submissions WHERE id = ?',(submission_id,)).fetchone())
 	def submissions(self):
 		with closing(self.connect())as db:return[message_row(row)for row in db.execute('SELECT * FROM submissions ORDER BY seq')]
 	def report_sources(self):
@@ -504,7 +507,7 @@ class Store:
 			if tasks is not None:
 				for item in tasks['finished']+tasks['upcoming']:item['updated_at']=clip_stamp(item['updated_at'])
 				tasks['updated_at']=clip_stamp(tasks['updated_at'])
-			return{'notes':notes,'reports':reports,'tasks':tasks,'uploads':uploads,'fetch_jobs':fetch_jobs,'workspace':workspace_usage(),'last_check':clip_stamp(meta.get('last_check')),'polling':self.polling(),'polling_since':clip_stamp(meta.get(POLL_SINCE_META))if self.polling()else None,'calls_since_message':meta_number(db,POLLS_SINCE_MESSAGE),'agent_key':self.agent_key(),'agent_seen_at':clip_stamp(meta.get(AGENT_SEEN_META))}
+			return{'notes':notes,'reports':reports,'tasks':tasks,'uploads':uploads,'fetch_jobs':fetch_jobs,'workspace':workspace_usage(),'last_check':clip_stamp(meta.get('last_check')),'polling':self.polling(),'polling_since':clip_stamp(meta.get(POLL_SINCE_META))if self.polling()else None,'skip_poll':clip_stamp(meta.get(SKIP_POLL_META)),'calls_since_message':meta_number(db,POLLS_SINCE_MESSAGE),'agent_key':self.agent_key(),'agent_seen_at':clip_stamp(meta.get(AGENT_SEEN_META))}
 	def tasks(self):
 		with closing(self.connect())as db:rows=db.execute(f"SELECT {TASK_COLUMNS} FROM tasks ORDER BY status DESC, position, id").fetchall()
 		records=[task_row(row)for row in rows]
@@ -570,7 +573,15 @@ class Store:
 		for status in TASK_STATUSES:
 			for record in tasks.get(status)or[]:lines.append(saved_task_line(record))
 		answers=[saved_answer_line(record)for record in self.submissions()];lines.extend(answers);reports=[saved_report_line(record)for record in self.report_sources()];lines.extend(reports);return lines,{'notes':len(notes),'tasks':len(lines)-len(notes)-len(answers)-len(reports),'answers':len(answers),'reports':len(reports)}
-	def newest_stamp(self,notes):stamps=[stamp for stamp in[import_stamp(record.get('at'))for record in notes]+[import_stamp(record.get('at'))for record in self.submissions()]if stamp];return max(stamps).isoformat()if stamps else None
+	def newest_stamp(self):
+		tables=('notes',('at','acknowledged_at','ack_edited_at','seen_at')),('submissions',('at','acknowledged_at','seen_at')),('reports',('updated_at','published_at','seen_at','agent_seen_at')),('uploads',('at',)),('tasks',('updated_at',));stamps=[]
+		with closing(self.connect())as db:
+			for(table,names)in tables:
+				exprs=', '.join(f"MAX({name})"for name in names)
+				for value in db.execute(f"SELECT {exprs} FROM {table}").fetchone():
+					stamp=import_stamp(value)
+					if stamp:stamps.append(stamp)
+		return max(stamps).isoformat()if stamps else None
 	def save_state(self,payload):
 		if not isinstance(payload,dict):raise TypeError('Save a state object')
 		notes=payload.get('notes');tasks=payload.get('tasks')
@@ -777,6 +788,15 @@ class Store:
 	def clear_polling(self):
 		with closing(self.connect())as db,db:db.execute('DELETE FROM meta WHERE key IN (?, ?)',(POLLING_META,POLL_SINCE_META))
 	def polling(self):age=seconds_since(self.meta_value(POLLING_META));return age is not None and 0<=age<POLLING_FRESH_SECONDS
+	def request_skip_poll(self,armed=True):
+		if not armed:self.take_skip_poll();return{'skip_poll':None}
+		self.set_meta(SKIP_POLL_META,now());return{'skip_poll':clip_stamp(self.meta_value(SKIP_POLL_META))}
+	def skip_poll_requested(self):return self.meta_value(SKIP_POLL_META)is not None
+	def take_skip_poll(self):
+		stamp=self.meta_value(SKIP_POLL_META)
+		if stamp is None:return None
+		with closing(self.connect())as db,db:db.execute('DELETE FROM meta WHERE key = ?',(SKIP_POLL_META,))
+		return clip_stamp(stamp)
 	def set_meta(self,key,value):
 		with closing(self.connect())as db,db:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(key,str(value)))
 	def touch_agent(self):self.set_meta(AGENT_SEEN_META,now())
@@ -817,7 +837,7 @@ class Store:
 			for item in pending:
 				if item['kind']=='note':add_note_attachments(item,attachments.get(item['id'],[]))
 				for key in('at','acknowledged_at','ack_edited_at','seen_at'):item[key]=clip_stamp(item[key])
-			pending.sort(key=lambda item:item['at']);checked=now();db.execute("INSERT OR REPLACE INTO meta VALUES ('last_check', ?)",(checked,));return{'checked_at':clip_stamp(checked),'pending':pending}
+			pending.sort(key=lambda item:item['at']);checked=now();db.execute("INSERT OR REPLACE INTO meta VALUES ('last_check', ?)",(checked,));waiting=db.execute('SELECT value FROM meta WHERE key = ?',(SKIP_POLL_META,)).fetchone();return{'checked_at':clip_stamp(checked),'pending':pending,'skip_poll':clip_stamp(waiting[0])if waiting else None}
 	def mark_seen(self,ids):
 		stamp=now()
 		with self.transaction()as db:
@@ -988,7 +1008,7 @@ def handler(store):
 					except RuntimeError as error:state['rendering_error']=str(error)
 					self.reply(200,json.dumps(state,ensure_ascii=False));return
 				if path=='/api/submissions':live={report['id']for report in store.state()['reports']};self.reply(200,json.dumps([saved_answer_line(record)for record in store.submissions()if record['report_id']in live],ensure_ascii=False),'application/json; charset=utf-8');return
-				if path=='/api/copy-state':notes=store.state()['notes'];lines,counts=store.state_lines(notes,store.tasks()or{});self.reply(200,json.dumps({'text':state_ndjson(lines),'counts':counts,'stamp':store.newest_stamp(notes)},ensure_ascii=False),'application/json; charset=utf-8');return
+				if path=='/api/copy-state':notes=store.state()['notes'];lines,counts=store.state_lines(notes,store.tasks()or{});self.reply(200,json.dumps({'text':state_ndjson(lines),'counts':counts,'stamp':store.newest_stamp()},ensure_ascii=False),'application/json; charset=utf-8');return
 				if path=='/api/report-sources':self.reply(200,json.dumps([saved_report_line(record)for record in store.report_sources()],ensure_ascii=False),'application/json; charset=utf-8');return
 				match=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/(html|source)',path)
 				if match:
@@ -1002,8 +1022,8 @@ def handler(store):
 			except FileNotFoundError as error:self.problem(404,error)
 			except(OSError,sqlite3.Error,RuntimeError)as error:self.problem(503,error)
 		def do_POST(self):
-			path=urlsplit(self.path).path;report_submit=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/submit',path);report_seen=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/seen',path);message_replies_seen=re.fullmatch('/api/messages/([a-zA-Z0-9_-]{1,80})/replies/seen',path);report_unpublish=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/unpublish',path);fetch_post=re.fullmatch('/api/fetch-jobs/([a-zA-Z0-9_-]{1,80})/(renew|result|fail|retry|approve|deny|drop)',path);note_upload=path=='/api/notes/with-file';agent_key_post=path=='/api/key';fetch_result=bool(fetch_post and fetch_post.group(2)=='result')
-			if path not in{'/api/notes','/api/markdown','/api/fetch-jobs','/api/fetch-jobs/claim'}and not report_submit and not report_seen and not message_replies_seen and not report_unpublish and not note_upload and not fetch_post and not agent_key_post:self.problem(404,'Not found');return
+			path=urlsplit(self.path).path;report_submit=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/submit',path);report_seen=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/seen',path);message_replies_seen=re.fullmatch('/api/messages/([a-zA-Z0-9_-]{1,80})/replies/seen',path);report_unpublish=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/unpublish',path);fetch_post=re.fullmatch('/api/fetch-jobs/([a-zA-Z0-9_-]{1,80})/(renew|result|fail|retry|approve|deny|drop)',path);note_upload=path=='/api/notes/with-file';agent_key_post=path=='/api/key';skip_poll_post=path=='/api/skip-poll';fetch_result=bool(fetch_post and fetch_post.group(2)=='result')
+			if path not in{'/api/notes','/api/markdown','/api/fetch-jobs','/api/fetch-jobs/claim'}and not report_submit and not report_seen and not message_replies_seen and not report_unpublish and not note_upload and not fetch_post and not agent_key_post and not skip_poll_post:self.problem(404,'Not found');return
 			content_type=self.headers.get('Content-Type','')
 			if note_upload:
 				if not content_type.lower().startswith('multipart/form-data;'):self.problem(415,'Expected multipart/form-data');return
@@ -1044,6 +1064,10 @@ def handler(store):
 					host=payload.get('host')
 					if host is not None and(not isinstance(host,str)or not AGENT_HOST_RE.fullmatch(host)):raise ValueError('host must be one https origin, with no path')
 					store.set_agent_key(candidate,host);self.reply(200,json.dumps(store.agent_key(),ensure_ascii=False));return
+				if skip_poll_post:
+					armed=payload.get('skip',True)
+					if not isinstance(armed,bool):raise ValueError('skip must be true or false')
+					self.reply(200,json.dumps(store.request_skip_poll(armed),ensure_ascii=False));return
 				if path=='/api/fetch-jobs':record=store.enqueue_fetch(payload.get('url'),payload.get('allow_proxy',False));self.reply(201,json.dumps(record,ensure_ascii=False));return
 				if path=='/api/fetch-jobs/claim':self.reply(200,json.dumps({'job':store.claim_fetch()},ensure_ascii=False));return
 				if fetch_post:
