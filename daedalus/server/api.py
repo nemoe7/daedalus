@@ -347,6 +347,23 @@ async def models(request: Request) -> Response:
   return JSONResponse({"object": "list", "data": data})
 
 
+@app.post("/v1/catalog")
+async def rebuild_catalog(request: Request) -> Response:
+  """Rebuild the model store of this server, for the CLI of a host."""
+  denied = access.check_api_key(request)
+  if denied is not None:
+    return denied
+  if CATALOG_REFRESH is None:
+    return upstream.error_response(
+      503, "This process has no catalog rebuild.", "server_error"
+    )
+  if not schedule.start(CATALOG_REFRESH):
+    return upstream.error_response(
+      409, "A catalog rebuild runs now.", "invalid_request_error"
+    )
+  return JSONResponse({"ok": True}, status_code=202)
+
+
 def pool_info(members: list[dict[str, int | bool]]) -> dict[str, int | bool]:
   """The highest limit and any true flag among the members of one pool."""
   found: dict[str, int | bool] = {}

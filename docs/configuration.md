@@ -45,6 +45,7 @@ The next start of the server reads the edited file.
 | `DAEDALUS_PASSWORD` | `DAEDALUS_MASTER_KEY` | Dashboard password. It does not open `/v1`. |
 | `DAEDALUS_HOST` | `0.0.0.0` | Address of the server |
 | `DAEDALUS_PORT` | `3357` | Port of the server. `daedalus serve PORT` has priority. |
+| `DAEDALUS_URL` | Empty | The address of a live daedalus for the CLI. Empty uses `DAEDALUS_HOST` and `DAEDALUS_PORT`. |
 | `TZ` | UTC | Clock for the catalog schedule, for example `Asia/Manila` |
 | `DAEDALUS_UID`, `DAEDALUS_GID` | `1000` | Container user and group |
 | `HEADROOM_URL` | `http://headroom:8787` in Compose | Headroom compression. An empty value stops it. |

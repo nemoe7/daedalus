@@ -42,6 +42,7 @@ curl http://localhost:3357/v1/models -H "Authorization: Bearer $DAEDALUS_KEY"
 | --- | --- | --- |
 | `GET /health` | None. No key is necessary. | None |
 | `GET /v1/models` | `daedalus/auto`, the 4 pools, chat models, media pools with models, then the rest. | None |
+| `POST /v1/catalog` | None. It asks the running server to rebuild its model store. | None |
 | `POST /v1/chat/completions` | `daedalus/auto`, a pool, or `provider/slug` | Yes, for `daedalus/auto` and pools |
 | `POST /v1/embeddings` | `provider/slug` | No |
 | `POST /v1/audio/transcriptions` | `daedalus/graphos` or `provider/slug` | Yes, for `daedalus/graphos` |
