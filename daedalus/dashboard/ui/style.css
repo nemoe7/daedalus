@@ -409,6 +409,7 @@ section[data-page="providers"], section[data-page="settings"], #yaml-view, #sett
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
 }
 .sections button {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 10px 14px; border: 0; border-bottom: 1px solid var(--line); background: none;
   color: var(--text); font: inherit; font-weight: 500; text-align: left;
 }
@@ -533,11 +534,13 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 @media (max-width: 900px) {
   /* A phone shows the section list, then 1 section, with a way back to the list. */
   .sections, .section-pane { flex: 1 1 100%; }
+  /* A phone row carries a chevron at its right edge, and a pick opens the section as its own page. */
   .sections button { min-height: 44px; }
+  .sections button::after { content: "\203a"; color: var(--muted); font-size: 18px; line-height: 1; }
   .section-pane { display: none; }
   .settings[data-detail="1"] .sections { display: none; }
   .settings[data-detail="1"] .section-pane { display: grid; }
-  .section-pane .back { display: block; min-height: 44px; }
+  .section-pane .back { display: block; min-height: 44px; color: var(--accent); }
 }
 @media (max-width: 1320px) {
   header { grid-template-columns: auto 1fr; grid-template-areas: "brand chips" "tabs tabs"; }
