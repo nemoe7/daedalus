@@ -126,7 +126,7 @@ uv run ruff format --check
 
 | Page | Contents |
 | --- | --- |
-| [Docs index](docs/index.md) | Every page, in the order of a first read |
+| [Docs index](docs/README.md) | Every page, in the order of a first read |
 | [Architecture](docs/architecture.md) | Request flow, classification, fallback ladder, weights, session affinity and loops |
 | [API](docs/api.md) | Endpoints, model names, access and errors |
 | [Configuration](docs/configuration.md) | Environment variables, [`config/daedalus.yml`](config/daedalus.yml) and provider files |
