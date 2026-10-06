@@ -2,6 +2,23 @@
 
 daedalus provides an OpenAI endpoint. It routes requests to a free model of the correct size and capability. If the model fails, it moves on to the next suitable option.
 
+## Contents
+
+- [Request flow](#request-flow)
+- [Classification](#classification)
+- [Pools and the fallback ladder](#pools-and-the-fallback-ladder)
+- [Weights](#weights)
+- [Cooldowns](#cooldowns)
+- [Client lanes](#client-lanes)
+- [Pacing](#pacing)
+- [Session affinity](#session-affinity)
+- [Parallel queries](#parallel-queries)
+- [Try again](#try-again)
+- [Loops](#loops)
+- [Media pools](#media-pools)
+- [State database](#state-database)
+- [Performance](#performance)
+
 ## Request flow
 
 ```mermaid
@@ -74,7 +91,7 @@ flowchart TD
 | Input | Effect |
 | --- | --- |
 | Request type | 1 of 7 types, from the first rule that matches. No match: `general`. |
-| Length | More than 2000 characters moves the text to a higher tier. |
+| Length | 1 of 4 odds buckets: short, under 200 characters. medium, under 800. long, under 2000. very long. The type scan reads the first 2000 characters. |
 | Conversation | The tier does not go down until the session expires (1 h idle). |
 | Tool call | After the first tool call, the tier is C or higher, and the search stops. |
 | Keyword | An `escalation.keywords` match in the last user message moves the tier 1 step up. |
@@ -239,8 +256,6 @@ sequenceDiagram
 | Storage | `.daedalus-state/models.sqlite3`, kept after a restart |
 
 Session affinity keeps 1 response style in a conversation. It also lets the conversation use the prompt cache of the provider. The cache is not guaranteed, but it helps when the provider has one. Without session affinity, the styles of different models mix in 1 conversation.
-
-Tests showed that the result is a mess.
 
 ## Parallel queries
 

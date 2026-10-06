@@ -11,24 +11,24 @@ for an answer should not see that error while another model in the chain can sti
 
 ## Decision
 
-On any upstream error, the proxy logs the error internally and reroutes the request to the
+On any upstream error, daedalus logs the error internally and reroutes the request to the
 next fallback in the chain. The client sees an error only after the last fallback fails.
 
-The proxy does not send a request that is too large for a model. When the input tokens are
-more than the input limit of a model, the proxy skips that model and goes to the next
+daedalus does not send a request that is too large for a model. When the input tokens are
+more than the input limit of a model, it skips that model and goes to the next
 fallback. A model without a known limit gets the request.
 
-A stream can fail after the client received text. The proxy then sends the received text to
+A stream can fail after the client received text. daedalus then sends the received text to
 the next fallback as an assistant prefix, and streams only the continuation. The client
 receives one stream with one status.
 
-A partial tool call cannot continue. When a stream fails inside a tool call, the proxy sends
+A partial tool call cannot continue. When a stream fails inside a tool call, daedalus sends
 one error chunk and ends the stream.
 
-The proxy caps the wait for an answer at 60 seconds. A provider that is sending data is not
-waiting, so a stream that is producing output sits outside the cap. It may be preparing an
-answer. Keep-alive bytes are not data: after 60 seconds of only keep-alive bytes, the next
-model starts.
+`timeouts.wait` caps the gap between provider data at 60 seconds. A provider that sends data
+is not waiting, so a stream that produces output sits outside the cap. `timeouts.request`
+caps the whole request at 600 seconds. Keep-alive bytes are not data: after 60 seconds of
+only keep-alive bytes, the next model starts.
 
 ## Consequences
 

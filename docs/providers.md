@@ -24,58 +24,15 @@ The Pollen balance does not refill with time. Since 22 June 2026, each tier give
 
 The image pool uses `lykon/dreamshaper-8-lcm`, `black-forest-labs/flux.1-schnell`, `tongyi-mai/z-image-turbo` and `black-forest-labs/flux.2-klein-4b`, at 0.0001 to 0.005 Pollen for each image.
 
+## Contents
+
+- [Get a key](#get-a-key)
+- [Catalog](#catalog)
+- [Endpoints for non-chat models](#endpoints-for-non-chat-models)
+
 ## Get a key
 
-Copy each key right after you create it. Some pages show the key only once.
-
-### Cloudflare Workers AI
-
-1. Go to <https://dash.cloudflare.com> and sign in. A new account needs no payment method.
-2. In the left menu, pick **AI**, then **Workers AI**.
-3. Under **Use REST API**, pick **Create Workers AI API Token**.
-4. Copy the token and the **Account ID** in the right sidebar.
-
-### Google Gemini
-
-1. Go to <https://aistudio.google.com/apikey> with a Google account.
-2. Pick **Create API key**.
-3. Copy the key.
-
-### Groq
-
-1. Go to <https://console.groq.com/keys> and sign in, or create an account.
-2. Pick **Create API Key**.
-3. Copy the key.
-
-### Kilo
-
-1. Go to <https://app.kilo.ai> and sign in, or create an account.
-2. Open the **API Key** section at the bottom of the dashboard.
-3. Copy the key.
-
-### Mistral
-
-1. Go to <https://console.mistral.ai/api-keys/> and sign in, or create an account.
-2. Pick **Create new key**.
-3. Copy the key.
-
-### OpenRouter
-
-1. Go to <https://openrouter.ai/settings/keys> and sign in, or create an account.
-2. Pick **Create Key**.
-3. Copy the key. The `:free` models need no credit balance.
-
-### Pollinations
-
-1. Go to <https://enter.pollinations.ai> and sign up.
-2. Generate a key.
-3. Copy the key. Pollinations is not free: the account spends its Pollen balance, and Pollen does not refill.
-
-### Z.ai
-
-1. Go to <https://z.ai/model-api> and sign in, or create an account.
-2. Go to <https://z.ai/manage-apikey/apikey-list>.
-3. Create a key and copy it.
+The 8 providers each need a key: Cloudflare, Gemini, Groq, Kilo, Mistral, OpenRouter, Pollinations and Z.ai. See [Provider keys](provider-keys.md) for the steps of each one.
 
 ### Use the key
 
@@ -118,7 +75,7 @@ Cloudflare tasks in the catalog:
 
 Models of other tasks stay out of the catalog.
 
-OpenRouter output types in the catalog. Kilo keeps only the models that make text: its gateway accepts only `/chat/completions`.
+The output type of an OpenRouter model sets its mode. Kilo keeps only the models that make text: its gateway accepts only `/chat/completions`.
 
 | Output type | Mode |
 | --- | --- |
@@ -172,8 +129,6 @@ The Gemini exclude list keeps these models out:
 | Robotics ER, Antigravity | They are for robot vision and for agents. |
 | `aqa` | It answers from given sources only. |
 | `*-latest` aliases | The model behind each alias changes over time. |
-
-No client used these endpoints in a test yet.
 
 Mistral needs no exclude list. Discovery keeps out these Mistral rows:
 
