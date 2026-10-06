@@ -21,7 +21,15 @@ With no network or a bad file, the copy of the last good read stands, and daedal
 
 daedalus reads the files at the start and on each save from the dashboard. A hand edit of a file on disk needs a reload. A save from the dashboard reloads the file for the live server and rebuilds the catalog from it. With no save, run `daedalus catalog`: the command reads the files again for its store build.
 
-The next start of the server reads the edited file.
+A restart reads the edited file.
+
+## Contents
+
+- [Files per provider](#files-per-provider)
+- [Environment variables](#environment-variables)
+- [Router settings](#router-settings)
+- [Provider key values](#provider-key-values)
+- [Provider files](#provider-files)
 
 ## Files per provider
 
@@ -74,15 +82,22 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 
 [`config/daedalus.yml`](../config/daedalus.yml). Each key is optional. A missing key uses the default. An unknown key stops the start.
 
-The 2 old groups, `session_affinity` and `parallel`, stop it too. The error names the `affinity.mode` that replaces each one.
+The 2 old groups, `session_affinity` and `parallel`, stop the start too. The error names the `affinity.mode` that replaces each one.
 
 The shipped file holds the changes from the defaults only. The **Settings** page writes the changed keys only. A cleared field loses its line, and the default applies. The table below lists each key, its default and its use.
+
+### Timeouts
 
 | Key | Default | Use |
 | --- | --- | --- |
 | `timeouts.request` | `600` | Seconds to wait for an answer, for all attempts. A started stream does not stop. |
 | `timeouts.wait` | `60` | Seconds with no provider data, keep-alive bytes excluded. Then the next model starts. Media: none. |
 | `timeouts.slow` | `30` | A first token after this time is slow |
+
+### Affinity
+
+| Key | Default | Use |
+| --- | --- | --- |
 | `affinity.mode` | `session` | `none`: no pin and no race. `session`: each conversation stays on 1 model. `race`: the next models also race the first content |
 | `affinity.change_on_draw` | `true` | Replace an eligible session pin after a different weighted first-tier draw. Under `race` the pinned model leads, so no draw happens |
 | `affinity.idle` | `3600` | Seconds with no request, then the session expires |
@@ -91,33 +106,107 @@ The shipped file holds the changes from the defaults only. The **Settings** page
 | `affinity.chance` | `0.05` | Chance to start the racing models with the original one. Number from 0 to 1 |
 | `affinity.slow` | `30` | Seconds with no content from the first model. Then the racing models start |
 | `affinity.penalty` | `0.9` | Weight factor for the model that loses the race. At most 1 |
+
+### Weights
+
+| Key | Default | Use |
+| --- | --- | --- |
 | `weights.enabled` | `true` | `false` keeps all weights at 1 |
 | `weights.success` | `1.5` | Factor for a success |
 | `weights.fault` | `0.5` | Factor for a fault |
 | `weights.slow` | `0.75` | Factor for a slow success |
 | `weights.hourly` | `1.212` | Recovery factor for each hour |
 | `weights.rate_limit` | `0.75` | Factor for an HTTP 429 |
+
+### Cooldowns
+
+| Key | Default | Use |
+| --- | --- | --- |
 | `cooldown.first` | `60` | Seconds of the first cooldown of a 429 with no reset time |
 | `cooldown.longest` | `21600` | Each next 429 doubles the cooldown, up to these seconds |
+
+### Loops
+
+| Key | Default | Use |
+| --- | --- | --- |
 | `loops.calls` | `3` | Repeated identical tool calls since the last user message. Integer from 2 to 100. |
 | `loops.repeats` | `4` | Consecutive copies of a repeated text passage. Integer from 2 to 16. |
 | `loops.shortest` | `20` | Shortest passage period, in characters. Integer from 1 to 1,000 and no greater than `loops.longest`. |
 | `loops.longest` | `2000` | Longest passage period, in characters. Integer from 1 to 10,000. |
+
+### Pacing
+
+| Key | Default | Use |
+| --- | --- | --- |
 | `pacing.enabled` | `true` | `false`: the `rpm` and `tpm` of the provider files do not skip models |
+
+### Catalog
+
+| Key | Default | Use |
+| --- | --- | --- |
 | `catalog.every` | `6` | Hours between catalog rebuilds. `0` stops them. |
 | `catalog.anchor` | `6` | Local hour that the rebuild times start from. A whole hour from 0 to 23. |
+
+### Headroom
+
+| Key | Default | Use |
+| --- | --- | --- |
 | `headroom.enabled` | `true` | `false`: the messages of each model go to the provider unchanged. |
 | `headroom.timeout` | `5` | Seconds for the full Headroom answer. Then the original messages go to the provider. |
+
+### Routing
+
+| Key | Default | Use |
+| --- | --- | --- |
 | `routing.threshold` | `0.75` | The odds a tier needs to take a request. A higher value sends more requests to the stronger tiers. Number from 0 to 1. |
-| `escalation.keywords` | `ultrathink`, `think hard`, `think harder`, `think deeply`, `think longer`, `root cause`, `race condition`, `memory leak`, `deadlock`, `security review`, `performance regression`, `audit`, `refactor`, `investigate`, `diagnose`, `code review`, `system design`, `optimize`, `debug`, `design`, `architecture` | Whole words or phrases. A match moves the `daedalus/auto` tier 1 step up, session-kept. |
+| `escalation.keywords` | The list below | Whole words or phrases. A match moves the `daedalus/auto` tier 1 step up, and the conversation keeps it. |
 | `switch.keywords` | `clanker` | Words or phrases. A match gives the pool session another model of the same tier. |
+
+The shipped `escalation.keywords`:
+
+- `ultrathink`
+- `think hard`
+- `think harder`
+- `think deeply`
+- `think longer`
+- `root cause`
+- `race condition`
+- `memory leak`
+- `deadlock`
+- `security review`
+- `performance regression`
+- `audit`
+- `refactor`
+- `investigate`
+- `diagnose`
+- `code review`
+- `system design`
+- `optimize`
+- `debug`
+- `design`
+- `architecture`
+
+### Dashboard
+
+| Key | Default | Use |
+| --- | --- | --- |
 | `dashboard.theme` | `system` | `system`, `light` or `dark`. The Settings page sets it. Login always follows the device. |
 | `dashboard.time_format` | `24h` | `24h` or `12h` for the hour of each shown time. Every time carries its date: `2026-10-04 12:30:46`. The Settings page sets it. |
+
+### Hooks
+
+| Key | Default | Use |
+| --- | --- | --- |
 | `request_hooks.on-request` | `[hooks/owui_auto_reasoning_effort.py]` | The request hook files of the [`config`](../config) folder, in list order. An empty list: no hook. See [Hooks](hooks.md). |
 | `request_hooks.on-prompt` | `[hooks/owui_auto_reasoning_effort.py]` | The prompt hook files of the [`config`](../config) folder, called 1 time before the first attempt of a chat request. The call needs a prompt and a reasoning model in the chain. The value sets the reasoning effort of the request. See [Hooks](hooks.md). |
 | `request_hooks.on-chunk` | `[hooks/served_model.py]` | The stream chunk hook files of the [`config`](../config) folder, called on each streamed chunk of a chat request, in list order. An empty list: no hook. See [Hooks](hooks.md). |
 | `remote_hooks` | `[]` | The hook files that come from a URL, each with the `sha256` of its bytes and an optional `name`. `daedalus hooks pin` writes the pin of a URL. See [Hooks](hooks.md#remote-hook-files). |
 | `remote_hook_hosts` | `[]` | The hosts a `remote_hooks` URL may name, 1 host per entry. A `*.` entry also covers the subdomains. Empty: every host passes. |
+
+### Pools
+
+| Key | Default | Use |
+| --- | --- | --- |
 | `pools.tier-a`, `pools.tier-b`, `pools.tier-c`, `pools.tier-d`, `pools.audio`, `pools.images` | `sophos`, `deinos`, `koinos`, `moros`, `graphos`, `photos` | The client name after `daedalus/`: 1-40 characters, no `auto`. A change renames that pool, and the old name breaks with HTTP 400. |
 
 ## Provider key values
@@ -152,7 +241,7 @@ groq:
 
 | Key | Use |
 | --- | --- |
-| `api_key` | Necessary. With no key, the provider models leave the chains and pools. |
+| `api_key` | The provider key. Without it, the provider models leave the chains and the pools. |
 | `client_keys` | Optional. A provider key for each daedalus key name. See [Client keys](#client-keys). |
 | `account_id` | Optional. The Cloudflare account ID. The shipped provider file reads `CLOUDFLARE_ACCOUNT_ID`. |
 | `api_base` | Optional. Each provider has a default. |

@@ -17,20 +17,119 @@ The `hooks` key works like `order`. A `models` entry has priority. Then comes th
 
 Each item has 1 hook point and 1 file path. The path starts in the [`config`](../config) folder, and the file must stay in that folder. The file name can be any name.
 
+## Contents
+
+- [Hook points](#hook-points)
+- [The HTTP surface](#the-http-surface)
+- [Errors](#errors)
+- [Logs](#logs)
+- [Changes](#changes)
+- [Remote hook files](#remote-hook-files)
+- [The shipped hook files](#the-shipped-hook-files)
+- [New hook points](#new-hook-points)
+
 ## Hook points
 
 For each point, the file defines 1 function with the name of the point.
 
-| Point | Function | When | Gets |
-| --- | --- | --- | --- |
-| `on-request` | `on_request(value, model, headers)` | Before the chain of a chat request, and again on a repeat with the count | `value`: `key` (`None`), `digest`, the hash of the messages without the system rows, and on the second run `count`. `model`: the requested model. `headers`: the client headers. |
-| `on-catalog` | `on_catalog(row, model, api_base, headers)` | At each catalog build, for each model with the hook, before the store write | `row`: a catalog row, the id cannot change. `api_base`, `headers`: for the provider API calls. |
-| `on-prompt` | `on_prompt(value, messages, prompt, model, tier, tier_name, slot, reasoning, effort, retry, level, body, config, key, app)` | Before the first attempt of a chat request, when the chain holds a reasoning model | `value`: the dict the hook files change, empty at the start. `reasoning`: the chain models that support reasoning. `effort`: the value of the client, `None` when it sent none. `retry`: the count of try agains of this message, `0` for its first answer. `level`: the reasoning level of the last answer of the chat, `None` when the chat has none. `app`: the client app of the request, `OWUI`, `Kilo` or another title, from its headers. |
-| `on-upstream` | `on_upstream(body, model, headers)` | Before each chat request to the provider, streams and fallbacks included | `body`: the upstream JSON body, native format for native APIs. `model`: `provider/slug`. `headers`: changeable. |
-| `on-answer` | `on_answer(answer, model)` | After a full chat answer comes back, before the client gets it | `answer`: the answer in the OpenAI format. A stream has no `on-answer` point. |
-| `on-chunk` | `on_chunk(chunk, model, context)` | On each streamed chunk of a chat request, before the client gets it | `chunk`: 1 OpenAI chunk. `model`: the requested model. `context`: `previous` is the model of the last answer of the session. It is empty on the first answer. `attempts`: the failures so far. `code`: the retry code. `pool`: the landed pool. `served`: the landed model. |
-| `on-http` | `on_http(body, key, prompt, headers, pin, level)` | On `POST /v1/hook/<file>`, for the file the path names | `body`: the JSON body of the call. `key`: the session key of the chat, from the bearer token and its first user turn. `prompt`: the first user turn. `headers`: the request headers. `pin`: the slot and the model of the last answer of the chat. `level`: the reasoning level of that answer. The route passes each when the file names the argument. It returns the dict of the JSON answer. |
-| `on-init` | `on_init()` | At the dashboard load, for each enabled request hook file | No arguments. It returns the rows of the code legend of the dashboard, such as `[["rtN", "A repeat picked another model, N times"]]`. |
+### `on-request`
+
+Before the chain of a chat request, and again on a repeat with the count.
+
+`on_request(value, model, headers)`
+
+| Argument | Value |
+| --- | --- |
+| `value` | `key` (`None`), `digest`, the hash of the messages without the system rows, and on the second run `count` |
+| `model` | The requested model |
+| `headers` | The client headers |
+
+### `on-catalog`
+
+At each catalog build, for each model with the hook, before the store write.
+
+`on_catalog(row, model, api_base, headers)`
+
+| Argument | Value |
+| --- | --- |
+| `row` | A catalog row. The id cannot change |
+| `api_base`, `headers` | The values for the provider API calls |
+
+### `on-prompt`
+
+Before the first attempt of a chat request, when the chain holds a reasoning model.
+
+`on_prompt(value, messages, prompt, model, tier, tier_name, slot, reasoning, effort, retry, level, body, config, key, app)`
+
+| Argument | Value |
+| --- | --- |
+| `value` | The dict the hook files change, empty at the start |
+| `reasoning` | The chain models that support reasoning |
+| `effort` | The value of the client, `None` when it sent none |
+| `retry` | The count of try agains of this message, `0` for its first answer |
+| `level` | The reasoning level of the last answer of the chat, `None` when the chat has none |
+| `app` | The client app of the request, `OWUI`, `Kilo` or another title, from its headers |
+
+### `on-upstream`
+
+Before each chat request to the provider, streams and fallbacks included.
+
+`on_upstream(body, model, headers)`
+
+| Argument | Value |
+| --- | --- |
+| `body` | The upstream JSON body, native format for native APIs |
+| `model` | `provider/slug` |
+| `headers` | Changeable |
+
+### `on-answer`
+
+After a full chat answer comes back, before the client gets it.
+
+`on_answer(answer, model)`
+
+| Argument | Value |
+| --- | --- |
+| `answer` | The answer in the OpenAI format. A stream has no `on-answer` point |
+
+### `on-chunk`
+
+On each streamed chunk of a chat request, before the client gets it.
+
+`on_chunk(chunk, model, context)`
+
+| Argument | Value |
+| --- | --- |
+| `chunk` | 1 OpenAI chunk |
+| `model` | The requested model |
+| `context` | `previous` is the model of the last answer of the session. It is empty on the first answer |
+| `attempts` | The failures so far |
+| `code` | The retry code |
+| `pool` | The landed pool |
+| `served` | The landed model |
+
+### `on-http`
+
+On `POST /v1/hook/<file>`, for the file the path names.
+
+`on_http(body, key, prompt, headers, pin, level)`
+
+| Argument | Value |
+| --- | --- |
+| `body` | The JSON body of the call |
+| `key` | The session key of the chat, from the bearer token and its first user turn |
+| `prompt` | The first user turn |
+| `headers` | The request headers |
+| `pin` | The slot and the model of the last answer of the chat |
+| `level` | The reasoning level of that answer. The route passes each when the file names the argument. It returns the dict of the JSON answer |
+
+### `on-init`
+
+At the dashboard load, for each enabled request hook file.
+
+`on_init()`
+
+No arguments. It returns the rows of the code legend of the dashboard, such as `[["rtN", "A repeat picked another model, N times"]]`.
 
 ```mermaid
 flowchart TD

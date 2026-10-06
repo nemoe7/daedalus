@@ -20,7 +20,7 @@ Each model has a weight from 0.01 to 1. All models start at 1. The floor of 0.01
 | --- | --- |
 | Success | weight x 1.5, 1 at most |
 | Fault | weight x 0.5, 0.01 at least |
-| Slow success: the first token comes after half the wait limit | weight x 0.75, 0.01 at least |
+| Slow success: the first token comes after `timeouts.slow`, 30 s by default | weight x 0.75, 0.01 at least |
 | Rate limit: HTTP 429 | weight x 0.75, 0.01 at least, and a cooldown |
 | Each hour | weight x 1.212, 1 at most, as a continuous rate |
 
@@ -37,20 +37,11 @@ seconds with 3 decimals.
 A rate limit is an HTTP 429 answer. A model in a cooldown drops out of each chain, as a model
 that is too small for the input does. A session model in a cooldown loses its pin.
 
-The cooldown end comes from the first rule that applies:
-
-1. The provider tells a daily limit. A Gemini `quotaId` with `PerDay` ends at the next
-   midnight Pacific time. Cloudflare error 4006 ends at the next 00:00 UTC. It applies to all
-   Cloudflare models, because they share the daily neurons.
-2. The provider gives a reset time: the `retry-after` header, the `X-RateLimit-Reset` header,
-   or the Gemini `RetryInfo.retryDelay`.
-3. No reset time: the first 429 of the model gives 1 minute. Each next 429 gives 2 times the
-   last cooldown, 6 hours at most. A success sets it back to 1 minute.
-
-Rule 1 comes first, because a Gemini daily 429 can have a `retryDelay` of only 1 second. A
-daily cooldown can be longer than 6 hours. When a cooldown starts, the log shows 1 line, for
-example `cooldown groq/llama-4-scout 120.000s reason=backoff`. The reason is `daily`, `reset`
-or `backoff`.
+The cooldown end comes from the first rule that applies: a daily limit from the provider, a
+reset time from the provider, or a doubling backoff that starts at 1 minute. A success starts
+the backoff again. A daily limit comes first, because a Gemini daily 429 can carry a
+`retryDelay` of only 1 second. [Architecture](../architecture.md#cooldowns) holds the rules,
+the default numbers and the log line.
 
 A `provider/slug` request to a model in a cooldown gets HTTP 429 `rate_limit_exceeded` at
 once, with no upstream request. When all models of a chain are in a cooldown, the client also
@@ -60,9 +51,8 @@ cooldown end.
 ### Pacing
 
 A model with `rpm` or `tpm` in its provider yml drops out of the chains when its requests in
-the last 60 seconds reach that limit. The token count is the input estimate of the context
-check: characters / 4. A pacing skip is silent and does not change the weight. The counts stay
-in memory only.
+the last 60 seconds reach that limit. A pacing skip is silent and does not change the weight.
+The counts stay in memory only.
 
 ### Order
 
@@ -99,13 +89,9 @@ when it rebuilds the model table.
 
 ### Loops
 
-A loop is a fault of the model that made it.
-
-| Loop | Found by | Next step |
-| --- | --- | --- |
-| Tool loop | A tool call in the last assistant message has the same tool and arguments as 2 or more calls since the last user message | The model that made the call is the last fallback of this request |
-| Thinking loop | A passage repeats 4 times in a row in the thinking text | In a stream, the next model continues, as after a failed stream (ADR 3). Without a stream, the next model gets the request. |
-| Answer loop | A passage repeats 4 times in a row in the answer text | As a thinking loop. The next model gets the answer text up to the end of the first copy of the passage. |
+A loop is a fault of the model that made it: a repeated tool call, a repeated thinking
+passage, or a repeated answer passage. [Architecture](../architecture.md#loops) holds the
+counts and the next step of each one.
 
 A passage has 20 to 2,000 characters. A passage made of a shorter part that repeats, for
 example a line of `=`, is not a loop. The arguments of 2 calls are the same when their JSON

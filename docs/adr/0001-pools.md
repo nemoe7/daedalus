@@ -39,7 +39,7 @@ in -os.
 
 A request that names a pool goes to that tier. No classifier runs.
 
-A tier that holds no model falls back. The owner names the rule promote then demote. In
+A tier that holds no model falls back. The rule is promote then demote. In
 order, the chain starts at the pool's tier, walks up to TIER-A, and then walks down from
 the next tier to TIER-D:
 
@@ -70,7 +70,7 @@ got, until its session expires. Then `daedalus/auto` follows the same chain from
 - A client can pin a level and still get an answer when a provider lacks that tier.
 - Promotion comes before demotion, so a request can reach a stronger model before a
   weaker one.
-- The proxy reserves the four pool names. No provider model may use them.
+- daedalus reserves the four pool names. No provider model may use them.
 - A retry inside a pool comes before the chain moves on.
 - `"*"` under a tier key puts all other models of that provider in that tier.
 - A provider with a small daily quota can wait behind the other providers of its tier, and

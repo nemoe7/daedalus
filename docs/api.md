@@ -6,6 +6,18 @@ The tested clients are Kilo Code and Open WebUI.
 
 Open WebUI: a general chat interface.
 
+## Contents
+
+- [Access](#access)
+- [Endpoints](#endpoints)
+- [Hook files](#hook-files)
+- [Model names](#model-names)
+- [Model list fields](#model-list-fields)
+- [Kilo Code plugin](#kilo-code-plugin)
+- [Chat completions](#chat-completions)
+- [Endpoints for non-chat models](#endpoints-for-non-chat-models)
+- [Errors](#errors)
+
 ## Access
 
 | Key | Opens |
@@ -88,48 +100,7 @@ Each chat model and pool model in `GET /v1/models` has these catalog fields, whe
 
 ## Kilo Code plugin
 
-Kilo Code reads token limits only from its config. The plugin [`integrations/kilo/daedalus.js`](../integrations/kilo/daedalus.js) copies the model list fields into the Kilo config in memory. It runs when Kilo starts and after each config change. The config file does not change.
-
-| Kilo model field | Value |
-| --- | --- |
-| `limit.context` | `max_input_tokens` |
-| `limit.output` | `0`: Kilo uses its default |
-| `tool_call` | `supports_function_calling` |
-| `reasoning` | `supports_reasoning` |
-| `modalities.input`, `attachment` | `["text", "image"]` and `true`, when `supports_vision` is `true` |
-
-The plugin changes each provider that has the id `daedalus` or a `daedalus/` model. It uses the `baseURL` of the provider. The key comes from the first of these:
-
-1. `options.apiKey` of the provider
-2. The Kilo auth store: the key from the custom provider dialog
-3. The `DAEDALUS_API_KEY` variable
-
-When daedalus does not answer in 3 s, the plugin logs `[daedalus] ... fail open` and changes nothing.
-
-Install: copy the file into the Kilo plugin folder, then restart Kilo.
-
-cmd:
-
-```cmd
-mkdir "%USERPROFILE%\.config\kilo\plugin"
-copy integrations\kilo\daedalus.js "%USERPROFILE%\.config\kilo\plugin\"
-```
-
-PowerShell:
-
-```powershell
-New-Item -ItemType Directory -Force "$HOME\.config\kilo\plugin"
-Copy-Item integrations\kilo\daedalus.js "$HOME\.config\kilo\plugin\"
-```
-
-bash:
-
-```bash
-mkdir -p ~/.config/kilo/plugin
-cp integrations/kilo/daedalus.js ~/.config/kilo/plugin/
-```
-
-Kilo cannot show the routed model for a custom provider. The **Requests** page and the log show it.
+Kilo Code reads token limits only from its config, and it cannot show the routed model of a custom provider. The plugin [`integrations/kilo/daedalus.js`](../integrations/kilo/daedalus.js) copies the model list fields into the Kilo config in memory. See [Kilo Code integration](integrations/kilo.md) for the fields, the key order and the install steps.
 
 ## Chat completions
 
