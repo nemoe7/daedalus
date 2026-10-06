@@ -595,10 +595,6 @@ class Store:
 		lines,counts=self.state_lines(notes,tasks);path=self.save_path
 		if path.parent!=Path('.'):path.parent.mkdir(parents=True,exist_ok=True)
 		path.write_text(state_ndjson(lines),encoding='utf-8');return{'path':str(path),**counts}
-	def upload(self,upload_id):
-		identifier(upload_id)
-		with closing(self.connect())as db:row=db.execute('SELECT * FROM uploads WHERE id = ?',(upload_id,)).fetchone()
-		return None if row is None else upload_row(row,self.path.parent)
 	def uploads(self):
 		with closing(self.connect())as db:rows=db.execute('SELECT * FROM uploads ORDER BY seq').fetchall()
 		return[upload_row(row,self.path.parent)for row in rows]
