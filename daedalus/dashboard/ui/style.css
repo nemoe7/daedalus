@@ -358,7 +358,9 @@ section[data-page="providers"], section[data-page="settings"] {
 /* The YAML section of a list: the file text in its card, with the save under it. */
 .card.yaml-view textarea { min-height: 320px; margin: 4px 0 0; border: 1px solid var(--line); border-radius: 8px; }
 .yaml-save { display: flex; align-items: center; gap: 12px; padding-top: 12px; }
-.files { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+/* The file row of a provider rides on the page rail: the page padding above it is the only space
+   above the row, so the gap is not 1 layer of margin on top of 1 layer of padding. */
+.files { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
 .files + .message, .files + .write-note, .write-note + .message { margin: -8px 0 12px; }
 .provider .field.stack { flex-direction: column; align-items: stretch; gap: 8px; }
 .provider input.text { width: 100%; padding: 6px 10px; font: 13px var(--mono); }
@@ -431,7 +433,7 @@ section[data-page="providers"], section[data-page="settings"] {
 .field:first-of-type { border-top: 0; }
 /* A card with an On switch greys its other rows while the switch is off. */
 .field.off { opacity: .5; }
-.field > span:first-child, .field.check > span { display: grid; gap: 2px; }
+.field > span:first-child, .field.info > span { display: grid; gap: 2px; }
 .field b { font-weight: 500; }
 .field small { color: var(--muted); font-size: 12px; }
 .field .input { display: flex; align-items: center; gap: 6px; flex: none; }
@@ -445,18 +447,29 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6
 .field input[type=number] { width: 72px; padding: 6px 8px; text-align: right; appearance: textfield; -moz-appearance: textfield; }
 .field input[type=number]::-webkit-inner-spin-button,
 .field input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-.field.check { justify-content: flex-start; cursor: pointer; }
-.field.check input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; flex: none; }
+/* A boolean row draws an iOS style switch at the right edge of the row: a pill with a knob that
+   slides when the value changes. The label keeps the left of the row. */
+.field input.switch {
+  appearance: none; width: 44px; height: 26px; margin: 0; flex: none; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--field) no-repeat 3px 50%;
+  background-image: radial-gradient(circle, var(--muted) 0 9px, transparent 10px);
+  background-size: 20px 20px;
+  transition: background-color .15s ease, background-position .15s ease;
+}
+.field input.switch:checked {
+  border-color: var(--accent); background-color: var(--accent); background-position: 21px 50%;
+  background-image: radial-gradient(circle, #fff 0 9px, transparent 10px);
+}
+.field input.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* A desktop hides a field hint behind the info icon. A phone shows the hint under the label. */
-.field.check > span, .field.info > span { position: relative; grid-template-columns: auto auto; justify-content: start; align-items: center; column-gap: 6px; }
-.field.check .hint, .field.info .hint {
+.field.info > span { position: relative; grid-template-columns: auto auto; justify-content: start; align-items: center; column-gap: 6px; }
+.field.info .hint {
   width: 16px; height: 16px; padding: 0; border: 1px solid var(--line); border-radius: 50%;
   background: transparent; color: var(--muted); font-family: inherit; font-size: 11px; line-height: 1;
 }
-.field.check .hint:hover, .field.check .hint:focus-visible,
 .field.info .hint:hover, .field.info .hint:focus-visible { color: var(--text); border-color: var(--muted); }
-.field.check small, .field.info small { display: none; }
-.field.check .hint:hover ~ small, .field.check .hint:focus ~ small,
+.field.info small { display: none; }
 .field.info .hint:hover ~ small, .field.info .hint:focus ~ small {
   display: block; position: absolute; top: calc(100% + 4px); left: 0; z-index: 3;
   width: max-content; max-width: 260px; padding: 6px 8px; border: 1px solid var(--line);
@@ -518,7 +531,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   font-size: 14px; line-height: 1; color: var(--accent); border-color: var(--accent);
 }
 .undo-step:hover { color: var(--text); border-color: var(--muted); }
-.field > .undo-step { position: absolute; right: 0; top: 8px; }
+/* The row of a write holds the Undo at its left, so the row reads {undo} {field}. */
+.field > .undo-step { position: absolute; left: 0; top: 10px; }
+.field:has(> .undo-step) { padding-left: 34px; }
 /* The card holds the icon at its top right when the row itself went away. */
 .card { position: relative; }
 .card > .undo-step { position: absolute; right: 16px; top: 12px; }
@@ -603,13 +618,17 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   section[data-page="providers"] .editbar .hint, section[data-page="settings"] .editbar .hint { display: none; }
   th, td { padding: 10px; }
   /* A phone keeps the info icon of a field, so the hint stays behind 1 tap and the page stays short. */
-  .field.check > span, .field.info > span { grid-template-columns: auto auto; }
-  .field.check .hint, .field.info .hint { width: 22px; height: 22px; font-size: 12px; }
-  .field.check .hint, .field.info .hint { display: grid; place-items: center; }
+  .field.info > span { grid-template-columns: auto auto; }
+  .field.info .hint { width: 22px; height: 22px; font-size: 12px; }
+  .field.info .hint { display: grid; place-items: center; }
   .fold summary .hint { width: 22px; height: 22px; font-size: 12px; }
-  .field.check small, .field.info small { display: none; }
-  /* The requests bar keeps 2 rows: the search takes the width, then the 3 controls share the next row. */
-  .requests-bar { flex-wrap: wrap; }
+  .field.info small { display: none; }
+  /* The filter bar of the Requests page reads as a bar, not as 1 more request card: flat, with a
+     rule under it, so the log starts below the line. */
+  .requests-bar {
+    flex-wrap: wrap; background: transparent; border: 0; border-bottom: 1px solid var(--line);
+    border-radius: 0; padding-left: 0; padding-right: 0;
+  }
   .requests-bar input[type=search] { flex: 1 1 100%; min-width: 0; }
   .requests-bar select, .requests-bar .live-toggle { flex: 1 1 auto; }
   .requests-bar .hint { flex: 1 1 100%; }
@@ -618,18 +637,24 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .only-sm { display: block; }
   .models thead { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
   .models, .models tbody { display: block; }
-  .models tr { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 8px; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+  .models tr { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 8px; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); align-items: baseline; }
   .models tr > td { display: flex; align-items: baseline; gap: 5px; min-width: 0; padding: 0; border: 0; white-space: normal; }
   .models tr > td.name { grid-column: 1 / -1; max-width: none; }
   /* A card hides the columns that a phone drops, as the table layout does. */
   .models tr > td.hide-sm { display: none; }
   .models .mobile-label { display: inline; flex: none; color: var(--muted); font-size: 11px; }
-  /* A label and its value read as 1 line, so they share the small size. The name cell keeps
-     its own size. */
-  .models tr > td:not(.name) .cell-value { font-size: 11px; }
+  /* 1 font size per role: the name keeps its own size, then every value, label and chip of the
+     small row shares 1 size, so the tier badge and the mode chip read as the same text. */
+  .models .tier, .models .chip.flag { font-size: 11px; line-height: 16px; }
+  /* 1 value size per card: a value keeps the size it has in the desktop table, and only the
+     label is small. */
+  .models tr > td:not(.name) .cell-value { font-size: 14px; }
   .models .cell-value { min-width: 0; text-align: left; }
   .models td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .models .weight { width: auto; }
+  /* The form row of the keys page sits above the cards on the same rail: the same inner padding
+     as a card, so the left edges agree. */
+  [data-page="keys"] .toolbar { padding: 12px 10px; }
   /* A phone turns the API keys table into cards: the name takes its own line, then Last used and
      Delete share the next row. */
   .keys thead { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
@@ -642,7 +667,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .keys tr > td.end { grid-column: 2; grid-row: 2; justify-content: flex-end; }
   .keys tr > td.hide-sm { display: none; }
   .keys .mobile-label { display: inline; flex: none; color: var(--muted); font-size: 11px; }
-  .keys tr > td:not(.name) .cell-value { font-size: 11px; }
+  .keys tr > td:not(.name) .cell-value { font-size: 14px; }
   .keys .cell-value { min-width: 0; text-align: left; }
   .keys td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* The last row of a panel clears the panel edge and the screen bottom. */
@@ -702,7 +727,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   /* The stamp reads on 1 line at its own width, so the client tag and the status badge keep their
      own room. */
   .requests tr.request > td:nth-child(1) .cell-value,
-  .requests tr.live-row > td:nth-child(1) .cell-value { font-size: 11px; white-space: nowrap; }
+  .requests tr.live-row > td:nth-child(1) .cell-value { font-size: 14px; white-space: nowrap; }
   .requests tr.request > td:nth-child(1), .requests tr.live-row > td:nth-child(1) { grid-column: 1; grid-row: 1; }
   .requests tr.request > td:nth-child(2), .requests tr.live-row > td:nth-child(2) { grid-column: 2 / 4; grid-row: 1; }
   .requests tr.request > td:nth-child(7), .requests tr.live-row > td:nth-child(7) {
@@ -710,17 +735,21 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   }
   .requests tr.request > td:nth-child(4), .requests tr.live-row > td:nth-child(4) { grid-column: 1 / -1; grid-row: 2; }
   .requests tr.request > td:nth-child(6), .requests tr.live-row > td:nth-child(6) { grid-column: 1 / -1; grid-row: 3; }
-  .requests tr.request > td:nth-child(8), .requests tr.live-row > td:nth-child(8) { grid-column: 1; grid-row: 4; }
-  .requests tr.request > td:nth-child(9), .requests tr.live-row > td:nth-child(9) { grid-column: 2; grid-row: 4; }
-  .requests tr.request > td:nth-child(10), .requests tr.live-row > td:nth-child(10) { grid-column: 3; grid-row: 4; }
-  .requests tr.request > td:nth-child(11), .requests tr.live-row > td:nth-child(11) { grid-column: 4; grid-row: 4; }
+  /* The 4 token and time cells read as 2 rows of 2, so a label and its value never touch the
+     neighbour. */
+  .requests tr.request > td:nth-child(8), .requests tr.live-row > td:nth-child(8) { grid-column: 1 / 3; grid-row: 4; }
+  .requests tr.request > td:nth-child(9), .requests tr.live-row > td:nth-child(9) { grid-column: 3 / 5; grid-row: 4; }
+  .requests tr.request > td:nth-child(10), .requests tr.live-row > td:nth-child(10) { grid-column: 1 / 3; grid-row: 5; }
+  .requests tr.request > td:nth-child(11), .requests tr.live-row > td:nth-child(11) { grid-column: 3 / 5; grid-row: 5; }
   .requests tr.request > td.fallbacks-cell, .requests tr.live-row > td.fallbacks-cell {
-    display: block; grid-column: 1 / -1; grid-row: 6;
+    display: block; grid-column: 1 / -1; grid-row: 7;
   }
   .requests tr.request > td.fallbacks-cell.no-details,
   .requests tr.live-row > td.fallbacks-cell.no-details { display: none; }
-  .requests tr.request > td:nth-child(3), .requests tr.live-row > td:nth-child(3) { grid-column: 1; grid-row: 5; }
-  .requests tr.request > td:nth-child(5), .requests tr.live-row > td:nth-child(5) { grid-column: 2 / 4; grid-row: 5; }
+  /* Session and effort hold the last row under the 2 token rows: 1 pair per row, so the effort
+     label and value never touch the session value. */
+  .requests tr.request > td:nth-child(3), .requests tr.live-row > td:nth-child(3) { grid-column: 1 / 3; grid-row: 6; }
+  .requests tr.request > td:nth-child(5), .requests tr.live-row > td:nth-child(5) { grid-column: 3 / 5; grid-row: 6; }
   .requests .mobile-label { display: inline; flex: none; color: var(--muted); font-size: 11px; }
   .requests .cell-value { flex: 1; min-width: 0; text-align: left; overflow-wrap: anywhere; }
   .requests tr.request > td:nth-child(1) .mobile-label,
@@ -737,15 +766,18 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
     flex: none; padding: 2px 7px; border: 1px solid var(--line); border-radius: 999px;
     background: var(--field); font-size: 11px;
   }
+  /* The 4 token and time cells share the row, so the row wraps them in 2 pairs instead of
+     letting the values touch. */
   .requests tr.request > td:nth-child(n+8):nth-child(-n+11),
   .requests tr.live-row > td:nth-child(n+8):nth-child(-n+11) {
     align-items: baseline; gap: 3px; padding: 2px 0; background: transparent;
+    flex-wrap: wrap; column-gap: 10px;
   }
   .requests tr.request > td:nth-child(n+8):nth-child(-n+11) .mobile-label,
   .requests tr.live-row > td:nth-child(n+8):nth-child(-n+11) .mobile-label { font-size: 11px; }
   .requests tr.request > td:nth-child(n+8):nth-child(-n+11) .cell-value,
   .requests tr.live-row > td:nth-child(n+8):nth-child(-n+11) .cell-value {
-    flex: none; font-size: 11px; white-space: nowrap;
+    flex: none; font-size: 14px; white-space: nowrap;
   }
   .requests .fallbacks-cell > .mobile-label, .requests .fallbacks-cell > .cell-value { display: none; }
   .requests .mobile-fallback-chain > summary {
@@ -765,13 +797,6 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 }
 @media (max-width: 360px) {
   .requests tr.live-row > td:nth-child(1) .pulse { width: 4px; height: 4px; margin-right: 2px; }
-  .requests tr.request > td:nth-child(8), .requests tr.live-row > td:nth-child(8) { grid-column: 1 / 3; grid-row: 4; }
-  .requests tr.request > td:nth-child(9), .requests tr.live-row > td:nth-child(9) { grid-column: 3 / 5; grid-row: 4; }
-  .requests tr.request > td:nth-child(10), .requests tr.live-row > td:nth-child(10) { grid-column: 1 / 3; grid-row: 5; }
-  .requests tr.request > td:nth-child(11), .requests tr.live-row > td:nth-child(11) { grid-column: 3 / 5; grid-row: 5; }
-  .requests tr.request > td:nth-child(3), .requests tr.live-row > td:nth-child(3) { grid-column: 1 / 3; grid-row: 6; }
-  .requests tr.request > td:nth-child(5), .requests tr.live-row > td:nth-child(5) { grid-column: 3 / 5; grid-row: 6; }
-  .requests tr.request > td.fallbacks-cell, .requests tr.live-row > td.fallbacks-cell { grid-column: 1 / -1; grid-row: 7; }
 }
 .from, .transition-code { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .transition { white-space: normal; }

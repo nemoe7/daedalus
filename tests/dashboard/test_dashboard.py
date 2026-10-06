@@ -213,7 +213,7 @@ const sandbox = {{
     hidden: false,
     documentElement: {{ dataset: {{}} }},
     getElementById: (id) => (id === 'nav' ? nav : el(id)),
-    createElement: () => ({{ append: () => {{}}, setAttribute: () => {{}}, addEventListener: () => {{}}, remove: () => {{}} }}),
+    createElement: () => ({{ append: () => {{}}, prepend: () => {{}}, setAttribute: () => {{}}, addEventListener: () => {{}}, remove: () => {{}} }}),
     querySelector: () => ({{ firstChild: {{ textContent: 'Models' }} }}),
     querySelectorAll: (sel) => (sel === '[data-status]' ? hosts : []),
     addEventListener: () => {{}},
@@ -841,19 +841,27 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
   ) in mobile_css, "the status is the badge of the first row"
   assert (
     ".requests tr.request > td:nth-child(8), .requests tr.live-row > td:nth-child(8) "
-    "{ grid-column: 1; grid-row: 4; }"
-  ) in mobile_css, "the input count joins the other counts"
+    "{ grid-column: 1 / 3; grid-row: 4; }"
+  ) in mobile_css, "the input count pairs with the output count"
+  assert (
+    ".requests tr.request > td:nth-child(9), .requests tr.live-row > td:nth-child(9) "
+    "{ grid-column: 3 / 5; grid-row: 4; }"
+  ) in mobile_css, "the output count shares the row with the input count"
+  assert (
+    ".requests tr.request > td:nth-child(10), .requests tr.live-row > td:nth-child(10) "
+    "{ grid-column: 1 / 3; grid-row: 5; }"
+  ) in mobile_css, "the TTFT pairs with the stream time"
   assert (
     ".requests tr.request > td:nth-child(3), .requests tr.live-row > td:nth-child(3) "
-    "{ grid-column: 1; grid-row: 5; }"
+    "{ grid-column: 1 / 3; grid-row: 6; }"
   ) in mobile_css, "the session id takes the first column of its own row"
   assert (
     ".requests tr.request > td:nth-child(5), .requests tr.live-row > td:nth-child(5) "
-    "{ grid-column: 2 / 4; grid-row: 5; }"
+    "{ grid-column: 3 / 5; grid-row: 6; }"
   ) in mobile_css, "the effort follows the session"
   assert (
     ".requests tr.request > td.fallbacks-cell, .requests tr.live-row > td.fallbacks-cell {\n"
-    "    display: block; grid-column: 1 / -1; grid-row: 6;\n"
+    "    display: block; grid-column: 1 / -1; grid-row: 7;\n"
     "  }"
   ) in mobile_css, "the chain details take the last row"
   assert (
@@ -870,7 +878,7 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
   assert (
     ".requests tr.request > td:nth-child(1) .cell-value,\n"
     "  .requests tr.live-row > td:nth-child(1) .cell-value "
-    "{ font-size: 11px; white-space: nowrap; }"
+    "{ font-size: 14px; white-space: nowrap; }"
   ) in mobile_css, "the stamp holds 1 line at its own width"
   assert "user-select" not in mobile_css, "the phone card keeps the text selection"
   assert (
@@ -885,26 +893,9 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
     "the more disclosure is gone"
   )
   assert ".requests tr.live-row > td:nth-child(1) .pulse" in narrow_css
-  assert (
-    "td:nth-child(8), .requests tr.live-row > td:nth-child(8) "
-    "{ grid-column: 1 / 3; grid-row: 4; }"
-  ) in narrow_css
-  assert (
-    "td:nth-child(11), .requests tr.live-row > td:nth-child(11) "
-    "{ grid-column: 3 / 5; grid-row: 5; }"
-  ) in narrow_css
-  assert (
-    "td:nth-child(3), .requests tr.live-row > td:nth-child(3) "
-    "{ grid-column: 1 / 3; grid-row: 6; }"
-  ) in narrow_css, "a narrow card steps the session down 1 row"
-  assert (
-    "td:nth-child(5), .requests tr.live-row > td:nth-child(5) "
-    "{ grid-column: 3 / 5; grid-row: 6; }"
-  ) in narrow_css, "a narrow card steps the effort down 1 row"
-  assert (
-    ".requests tr.request > td.fallbacks-cell, .requests tr.live-row > "
-    "td.fallbacks-cell { grid-column: 1 / -1; grid-row: 7; }"
-  ) in narrow_css, "the fallback row keeps the full width of a narrow card"
+  assert "grid-column" not in narrow_css, (
+    "the pair rows already fit a narrow card, so no row steps down again"
+  )
 
 
 def test_requests_hover_rules_need_a_pointer() -> None:
@@ -1237,7 +1228,7 @@ const node = (id) => {{
     const made = {{ id, innerHTML: '', value: '', checked: false, textContent: '', disabled: false, hidden: false, dataset: {{}}, handlers: {{}},
       isConnected: true, title: '', type: '',
       addEventListener: (type, fn) => {{ (made.handlers[type] ||= []).push(fn); }},
-      remove: () => {{}}, append: () => {{}}, after: () => {{}}, setAttribute: () => {{}},
+      remove: () => {{}}, append: () => {{}}, prepend: () => {{}}, after: () => {{}}, setAttribute: () => {{}},
       classList: {{ toggle: () => {{}} }}, closest: (sel) => (sel === '[data-section]' ? null : made),
       querySelector: () => null, querySelectorAll: () => [] }};
     nodes.set(id, made);
@@ -1252,7 +1243,7 @@ const sandbox = {{
     documentElement: {{ dataset: {{}} }},
     getElementById: node,
     createElement: (tag) => node('made-' + tag),
-    querySelector: () => ({{ firstChild: {{ textContent: 'Models' }}, closest: () => null, querySelector: () => null, append: () => {{}}, remove: () => {{}} }}),
+    querySelector: () => ({{ firstChild: {{ textContent: 'Models' }}, closest: () => null, querySelector: () => null, append: () => {{}}, prepend: () => {{}}, remove: () => {{}} }}),
     querySelectorAll: () => ([]),
     addEventListener: () => {{}},
   }},
@@ -1273,7 +1264,7 @@ const probe = sandbox.__probe;
 
 
 def test_app_js_settings_switches() -> None:
-  """Every boolean setting renders as a checkbox, so a loaded file reports no change."""
+  """Every boolean setting renders as a switch, so a loaded file reports no change."""
   payload = json.dumps(
     {
       "path": "config/daedalus.yml",
@@ -1292,10 +1283,11 @@ const html = node('settings').innerHTML;
 const at = html.indexOf('id="set-affinity-change_on_draw"');
 assert(at > 0, 'the change_on_draw field is in the form');
 assert(html.slice(Math.max(0, at - 120), at).includes('type="checkbox"'), 'change_on_draw is a checkbox');
-// The hint of a check row sits behind the info icon on a desktop, and the icon names it for a reader.
-const hint = html.slice(at, at + 600);
-assert(hint.includes('class="hint"') && hint.includes('aria-describedby="set-affinity-change_on_draw-hint"'), 'the check row carries its hint icon');
-assert(hint.includes('role="tooltip"'), 'the hint text serves as the tooltip');
+assert(html.slice(Math.max(0, at - 120), at).includes('role="switch"'), 'the row draws a switch');
+// The label and its hint ride at the left of the row, before the switch.
+const row = html.slice(html.lastIndexOf('<label', at), at);
+assert(row.includes('class="hint"') && row.includes('aria-describedby="hint-'), 'the row carries its hint icon');
+assert(row.includes('role="tooltip"'), 'the hint text serves as the tooltip');
 for (const id of ['set-affinity-change_on_draw', 'set-weights-enabled', 'set-pacing-enabled']) node(id).checked = true;
 node('set-affinity-mode').value = 'session';
 node('set-dashboard-theme').value = 'system';
@@ -1355,7 +1347,7 @@ assert(box.includes('data-hook-pick='), 'a row picks a file');
 assert(box.includes('data-hook-add='), 'the point takes another file');
 assert(!box.includes('class="menu"'), 'the list stays shut until the pick');
 const clickOn = (selector, data) => {{
-  const target = {{ dataset: data, closest: (sel) => (sel === selector ? target : null) }};
+  const target = {{ dataset: data, closest: (sel) => (sel === selector ? target : null), prepend: () => {{}} }};
   node('settings').handlers.click.forEach((fn) => fn({{ target }}));
 }};
 // The pick opens the files of the hooks folder, and the saved one reads as picked.
