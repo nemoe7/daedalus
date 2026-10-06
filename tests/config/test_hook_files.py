@@ -124,14 +124,17 @@ def test_pick_line() -> None:
   assert pool["usage"]["daedalus"]["line"] == "kilo/poolside/laguna-s-2.1:free"
 
 
-def test_pick_needs_a_change() -> None:
-  """The same session model draws nothing, the first answer draws, and a retry code draws."""
+def test_pick_on_every_answer() -> None:
+  """A repeated model draws too, and the first answer and a retry draw."""
   module = hooks.load(FOLDER / "served_model.py")
   assert module is not None
   stop = {"choices": [{"finish_reason": "stop"}]}
-  assert "usage" not in module.on_chunk(
-    dict(stop), "daedalus/auto", {"previous": "kilo/x", "served": "kilo/x"}
+  repeat = module.on_chunk(
+    dict(stop),
+    "daedalus/auto",
+    {"previous": "kilo/x", "served": "kilo/x", "pool": "koinos"},
   )
+  assert repeat["usage"]["daedalus"]["line"] == "C \u00b7 kilo/x"
   assert "usage" not in module.on_chunk(
     {"choices": [{"delta": {}}]}, "daedalus/auto", {"previous": "", "served": "kilo/x"}
   )
