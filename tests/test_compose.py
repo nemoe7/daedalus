@@ -33,6 +33,13 @@ def test_tailscale_openwebui_has_its_own_profile() -> None:
   assert services["tailscale-openwebui"]["profiles"] == ["tailscale-openwebui"]
 
 
+def test_openwebui_embeds_through_a_listed_model() -> None:
+  """The embedding line names a catalog row, not the short alias."""
+  compose = yaml.safe_load((ROOT / "compose.yml").read_text())
+  env = compose["services"]["open-webui"]["environment"]
+  assert env["RAG_EMBEDDING_MODEL"] == "mistral/mistral-embed-2312"
+
+
 def test_openwebui_keeps_the_memory_review_and_the_async_cap() -> None:
   """The Open WebUI memory review and its async embedding, with the cap of the free Mistral key."""
   compose = yaml.safe_load((ROOT / "compose.yml").read_text())

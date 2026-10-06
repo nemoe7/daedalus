@@ -884,6 +884,9 @@ async def chat(request: Request) -> Response:
     return upstream.error_response(
       400, "Unknown provider or pool", "invalid_request_error"
     )
+  # The Models page is the source of truth: a name it does not list never reaches a provider.
+  if found[1] is None and not router.listed(model):
+    return upstream.unknown_model(model)
   # The tools filter can empty a pool: say why, before the request reaches an upstream.
   if body.get("tools") and found[1] and not any(found[0]):
     return upstream.error_response(

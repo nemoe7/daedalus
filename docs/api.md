@@ -80,9 +80,11 @@ See [Hooks](hooks.md#the-http-surface).
 | `daedalus/moros`, `daedalus/koinos`, `daedalus/deinos`, `daedalus/sophos` | The fallback ladder from that tier |
 | `daedalus/graphos` | The transcription pool, for `POST /v1/audio/transcriptions` only |
 | `daedalus/photos` | The image pool, for `POST /v1/images/generations` and `POST /v1/images/edits` only |
-| `provider/slug`, for example `groq/llama-3.3-70b-versatile` | That model only |
+| `provider/slug`, for example `groq/llama-3.3-70b-versatile` | That model only, when the model list holds the id |
 
 The `pools` settings replace a pool name after `daedalus/`: each key is the generic pool name, and its value is the client name. Then only the new name works. See [Configuration](configuration.md#router-settings).
+
+A `provider/slug` answers only when `GET /v1/models` lists that id, the same list that the **Models** page shows. The catalog lists an id when the provider API reports it or a provider file names it under `models:`. A name outside the list takes a 404, with the nearest listed id of its provider as a hint.
 
 ## Model list fields
 
@@ -136,8 +138,9 @@ Errors use the OpenAI shape:
 
 | Status | Cause |
 | --- | --- |
-| 400 | Invalid request, unknown model, `context_length_exceeded`, or a direct request to a provider with no `api_key` |
+| 400 | Invalid request, `context_length_exceeded`, or a direct request to a provider with no `api_key` |
 | 401 | Missing or wrong key |
+| 404 | A `provider/slug` that the model list does not hold (`model_not_found`), or a path that is not an endpoint |
 | 429 `rate_limit_exceeded` | A cooldown, or the `rpm` or `tpm` limit. `Retry-After` gives the seconds. See [Pacing](architecture.md#pacing). |
 | 4xx or 5xx from the provider | The last model failed with this status |
 | 502 | No model answered, or the provider answer was not valid |

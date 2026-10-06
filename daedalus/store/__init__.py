@@ -246,6 +246,27 @@ def model_info() -> dict[str, dict[str, int | bool]]:
   return info
 
 
+def catalog_name(model: str) -> str | None:
+  """The stored id of a model: its own id, else the shortest stored id of its provider that starts with its slug."""
+  if not Path(MODELS_DB).exists():
+    return None
+  provider, _, slug = model.partition("/")
+  database = connect_read(MODELS_DB)
+  try:
+    row = database.execute("SELECT id FROM models WHERE id = ?", (model,)).fetchone()
+    if row is not None:
+      return row[0]
+    rows = database.execute(
+      "SELECT id FROM models WHERE provider = ?", (provider,)
+    ).fetchall()
+  except sqlite3.OperationalError:
+    return None
+  finally:
+    database.close()
+  near = [key for (key,) in rows if key.partition("/")[2].startswith(slug)]
+  return min(near, key=len) if near else None
+
+
 def model_limits(model: str) -> dict[str, Any]:
   """The stored `reasoning_effort` and `max_output_tokens` of one model, without empty values."""
   if not Path(MODELS_DB).exists():

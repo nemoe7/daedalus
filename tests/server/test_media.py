@@ -87,22 +87,40 @@ class Upstream:
 
 
 def test_embeddings(fake: Upstream, client: TestClient) -> None:
-  body = {"model": "mistral/mistral-embed", "input": "hi", "dimensions": 8, "user": "u"}
+  body = {
+    "model": "mistral/mistral-embed-2312",
+    "input": "hi",
+    "dimensions": 8,
+    "user": "u",
+  }
   response = client.post("/v1/embeddings", json=body)
   assert response.status_code == 200, response.text
-  assert response.json()["model"] == "mistral/mistral-embed", response.json()
+  assert response.json()["model"] == "mistral/mistral-embed-2312", response.json()
   sent = fake.sent[-1]
   assert str(sent.url) == "https://mistral.test/v1/embeddings", sent.url
-  expected = {"model": "mistral-embed", "input": "hi", "output_dimension": 8}
+  expected = {"model": "mistral-embed-2312", "input": "hi", "output_dimension": 8}
   assert json.loads(sent.content) == expected, "only the known fields go upstream"
   body = {
-    "model": "mistral/mistral-embed",
+    "model": "mistral/mistral-embed-2312",
     "input": ["hi"],
     "encoding_format": "base64",
   }
   vector = client.post("/v1/embeddings", json=body).json()["data"][0]["embedding"]
   assert struct.unpack("<2f", base64.b64decode(vector)) == (0.25, -1.0), vector
   assert "encoding_format" not in json.loads(fake.sent[-1].content), "floats upstream"
+
+
+def test_unlisted_model(fake: Upstream, client: TestClient) -> None:
+  """A media route refuses a direct id outside the model list, with the nearest listed one."""
+  count = len(fake.sent)
+  response = client.post(
+    "/v1/embeddings", json={"model": "mistral/mistral-embed", "input": "hi"}
+  )
+  assert response.status_code == 404, response.text
+  error = response.json()["error"]
+  assert error["type"] == "model_not_found" and error["code"] == 404, error
+  assert "mistral/mistral-embed-2312" in error["message"], error
+  assert len(fake.sent) == count, "the alias never reaches the upstream"
 
 
 def test_gemini(fake: Upstream, client: TestClient) -> None:
@@ -134,8 +152,11 @@ def test_errors(fake: Upstream, client: TestClient) -> None:
     ({"model": "daedalus/auto", "input": "hi"}, 400),
     ({"model": "koinos", "input": "hi"}, 400),
     ({"model": "nobody/x", "input": "hi"}, 400),
-    ({"model": "mistral/mistral-embed", "input": []}, 400),
-    ({"model": "mistral/mistral-embed", "input": "hi", "encoding_format": "x"}, 400),
+    ({"model": "mistral/mistral-embed-2312", "input": []}, 400),
+    (
+      {"model": "mistral/mistral-embed-2312", "input": "hi", "encoding_format": "x"},
+      400,
+    ),
   ):
     response = client.post("/v1/embeddings", json=body)
     assert response.status_code == status, (body, response.text)
@@ -375,7 +396,11 @@ def test_model_list(client: TestClient) -> None:
       "supports_function_calling": 1,
       "supports_reasoning": 0,
     },
-    {"id": "mistral/mistral-embed", "mode": "embedding", "max_input_tokens": 8192},
+    {
+      "id": "mistral/mistral-embed-2312",
+      "mode": "embedding",
+      "max_input_tokens": 8192,
+    },
     {"id": "kilo/new", "max_input_tokens": 262144, "supports_reasoning": 1},
   ]
   tiers = {"api_key": "k", "tier": {"TIER-A": ["*"]}}
@@ -404,14 +429,19 @@ def test_model_list(client: TestClient) -> None:
   )
   assert set(found["daedalus/moros"]) == {"id", "object", "owned_by"}, "no members"
   assert found["groq/llama"]["supports_reasoning"] is False, found["groq/llama"]
-  assert "max_input_tokens" not in found["mistral/mistral-embed"], "chat models only"
+  assert "max_input_tokens" not in found["mistral/mistral-embed-2312"], (
+    "chat models only"
+  )
   assert names[:5] == ["daedalus/auto", *api.router.POOLS], names
   assert names[5:7] == ["groq/llama", "kilo/new"], "chat models first"
   assert names[7] == "daedalus/graphos", "a media pool with members is listed"
-  assert sorted(names[8:]) == ["groq/whisper-large-v3", "mistral/mistral-embed"], names
+  assert sorted(names[8:]) == [
+    "groq/whisper-large-v3",
+    "mistral/mistral-embed-2312",
+  ], names
 
 
-def test_empty_pool(client: TestClient) -> None:
+def test_empty_pool(client: TestClient, own_store) -> None:
   body = {"model": "daedalus/photos", "prompt": "a cat"}
   response = client.post("/v1/images/generations", json=body)
   assert response.status_code == 400, response.text
@@ -429,7 +459,7 @@ def test_empty_pool(client: TestClient) -> None:
   ), response.text
 
 
-def test_pools(fake: Upstream, client: TestClient) -> None:
+def test_pools(fake: Upstream, client: TestClient, own_store) -> None:
   store.write_store(POOL_ROWS)
   pick, api.PENALTIES.pick = api.PENALTIES.pick, lambda: 0.0
   try:
@@ -551,6 +581,46 @@ def assert_media_pacing(fake: Upstream, client: TestClient) -> None:
     api.PACING.clear()
 
 
+# The direct ids of this file, listed in the store, so the Models-page gate lets them answer.
+MODELS = [
+  {"id": "mistral/mistral-embed-2312", "mode": "embedding"},
+  {"id": "mistral/voxtral", "mode": "audio_transcription"},
+  {"id": "mistral/voxtral-mini-latest", "mode": "audio_transcription"},
+  {"id": "gemini/gemini-embedding-001", "mode": "embedding"},
+  {"id": "gemini/gemini-3.8-flash-tts", "mode": "audio_speech"},
+  {"id": "gemini/gemini-3.5-transcribe", "mode": "audio_transcription"},
+  {"id": "gemini/gemini-2.5-flash-image", "mode": "image_generation"},
+  {"id": "groq/whisper-large-v3", "mode": "audio_transcription"},
+  {"id": "groq/canopylabs/orpheus-v1-english", "mode": "audio_speech"},
+  {"id": "groq/img", "mode": "image_generation"},
+  {"id": "cloudflare/@cf/x", "mode": "embedding"},
+  {"id": "cloudflare/@cf/openai/whisper", "mode": "audio_transcription"},
+  {"id": "cloudflare/@cf/openai/whisper-large-v3-turbo", "mode": "audio_transcription"},
+  {"id": "cloudflare/@cf/myshell-ai/melotts", "mode": "audio_speech"},
+  {"id": "cloudflare/@cf/deepgram/aura-2-en", "mode": "audio_speech"},
+  {"id": "cloudflare/@cf/other/tts", "mode": "audio_speech"},
+  {
+    "id": "cloudflare/@cf/black-forest-labs/flux-1-schnell",
+    "mode": "image_generation",
+  },
+  {
+    "id": "cloudflare/@cf/stabilityai/stable-diffusion-xl-base-1.0",
+    "mode": "image_generation",
+  },
+]
+
+
+@pytest.fixture
+def own_store():
+  """A state file of its own, so a pool test decides its own rows and their order."""
+  with tempfile.TemporaryDirectory() as name:
+    original, store.MODELS_DB = store.MODELS_DB, Path(name) / "models.sqlite3"
+    try:
+      yield
+    finally:
+      store.MODELS_DB = original
+
+
 @pytest.fixture(scope="module")
 def fake():
   fake = Upstream()
@@ -561,6 +631,7 @@ def fake():
 
 @pytest.fixture(scope="module")
 def client(fake: Upstream):
+  store.write_store(MODELS)
   with pytest.MonkeyPatch.context() as patch:
     patch.setattr(media, "get_config", lambda: CONFIG)
     patch.setattr(api, "get_config", lambda: CONFIG)

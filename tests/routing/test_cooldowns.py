@@ -153,6 +153,7 @@ def test_requests() -> None:
     "first": {"api_key": "k", "api_base": "https://limited.test/v1"},
     "second": {"api_key": "k", "api_base": "https://answers.test/v1"},
   }
+  store.write_store([{"id": "first/a"}, {"id": "second/b"}])
   sent: list[str] = []
 
   def recorded(request: httpx.Request) -> httpx.Response:
