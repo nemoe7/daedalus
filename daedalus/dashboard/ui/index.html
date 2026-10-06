@@ -51,6 +51,8 @@
 <div id="app" hidden>
   <header>
     <div class="brand"><img src="ui/logo.svg" alt="" width="34" height="34"><div>daedalus<span>.</span><small id="version"></small></div></div>
+    <div class="tab-bar">
+    <button class="ghost tab-step" id="nav-left" type="button" aria-label="Show the earlier tabs" hidden><span aria-hidden="true">&lsaquo;</span></button>
     <nav class="tabs" id="nav">
       <a href="#/" data-page="overview">Overview</a>
       <a href="#/requests" data-page="requests">Requests</a>
@@ -60,6 +62,8 @@
       <a href="#/limits" data-page="limits">Limits</a>
       <a href="#/settings" data-page="settings">Settings</a>
     </nav>
+    <button class="ghost tab-step" id="nav-right" type="button" aria-label="Show the later tabs" hidden><span aria-hidden="true">&rsaquo;</span></button>
+    </div>
     <div class="chips">
       <span id="status" class="chips" data-status></span>
       <button class="ghost logout" id="logout" type="button">Log out</button>
@@ -92,7 +96,7 @@
       <div class="flow">
         <div class="column wide">
           <div class="panel editbar requests-bar">
-            <input type="search" id="request-search" placeholder="Filter by model, app or session">
+            <input type="search" id="request-search" placeholder="Filter">
             <select id="request-status" aria-label="Status">
               <option value="all">All statuses</option>
               <option value="ok">2xx only</option>
@@ -155,6 +159,13 @@
             </optgroup>
           </select>
           <div id="tiers"></div>
+          <select id="sort-small" class="only-sm" aria-label="Sort">
+            <option value="id">Sort: Model</option>
+            <option value="tier">Sort: Tier</option>
+            <option value="tools">Sort: Tools</option>
+            <option value="cooldown">Sort: Cooldown</option>
+            <option value="weight">Sort: Weight</option>
+          </select>
         </div>
         <table class="models">
           <thead><tr id="model-head">
