@@ -32,6 +32,29 @@ Each item has 1 hook point and 1 file path. The path starts in the [`config`](..
 
 For each point, the file defines 1 function with the name of the point.
 
+The first chart follows a chat request. The second shows the catalog build and the dashboard load.
+
+```mermaid
+flowchart LR
+  A[Client request] --> B{{on-request}}
+  B --> C[Catalog pick and fallback chain]
+  C --> P{{on-prompt}}
+  P --> D{{on-upstream}}
+  D --> E[Provider API]
+  E --> F{{on-answer}}
+  F --> G[Client answer]
+  E --> N{{on-chunk}}
+  N --> G
+```
+
+```mermaid
+flowchart LR
+  H[Catalog build] --> I{{on-catalog}}
+  I --> J[(Model store)]
+  K[Dashboard load] --> L{{on-init}}
+  L --> M[Code legend rows]
+```
+
 ### `on-request`
 
 Before the chain of a chat request, and again on a repeat with the count.
@@ -130,23 +153,6 @@ At the dashboard load, for each enabled request hook file.
 `on_init()`
 
 No arguments. It returns the rows of the code legend of the dashboard, such as `[["rtN", "A repeat picked another model, N times"]]`.
-
-```mermaid
-flowchart TD
-  A[Client request] --> B{{on-request}}
-  B --> C[Catalog pick and fallback chain]
-  C --> P{{on-prompt}}
-  P --> D{{on-upstream}}
-  D --> E[Provider API]
-  E --> F{{on-answer}}
-  F --> G[Client answer]
-  E --> N{{on-chunk}}
-  N --> G
-  H[Catalog build] --> I{{on-catalog}}
-  I --> J[(Model store)]
-  K[Dashboard load] --> L{{on-init}}
-  L --> M[Code legend rows]
-```
 
 A request-level point, such as `on-request`, takes its files from the `request_hooks` group of [`config/daedalus.yml`](../config/daedalus.yml), because no provider owns the request yet:
 
