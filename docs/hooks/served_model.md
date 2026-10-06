@@ -8,14 +8,14 @@ request, in the final stream chunk, under `usage.daedalus`.
 | Runs | `on-chunk`, on each streamed chunk of a `daedalus/auto` or pool request |
 | Writes | `chunk["usage"]["daedalus"]` holds 3 keys. `line`: the served model for the client. `model`: the served slug. `pool`: the landed pool |
 | Named by | `request_hooks.on-chunk` in [`config/daedalus.yml`](../../config/daedalus.yml), as `[hooks/served_model.py]` |
-| Shows | On the first answer of a session. When the served model differs from the last one. When the ladder moved. On the retry code of [`owui_auto_reasoning_effort.py`](owui_auto_reasoning_effort.md) |
+| Shows | On the final chunk of each `daedalus/auto` or pool answer, retries and repeats included. The `when` Valve of the [filter](../integrations/owui/served_model.md) picks the lines to draw |
 
 ```mermaid
 flowchart TD
   A[Streamed chunk] --> B{{on_chunk}}
   B --> C{Pool request?}
   C -- no --> D[No line]
-  C -- yes --> E{Served model changed, ladder moved, or a retry?}
+  C -- yes --> E{Final chunk with a served model?}
   E -- no --> D
   E -- yes --> F[usage.daedalus of the final chunk]
   F --> G[The Open WebUI filter draws the status]
