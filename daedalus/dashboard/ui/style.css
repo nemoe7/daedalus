@@ -568,6 +568,14 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .hide-md { display: none; }
 }
 
+/* A wide screen holds the header and the rail still, and the pane of the picked section carries its
+   own scroll, so the form moves without the page. */
+@media (min-width: 901px) {
+  header { position: sticky; top: 0; z-index: 4; }
+  .sections { position: sticky; top: 78px; }
+  .section-pane { overflow-y: auto; }
+}
+
 @media (max-width: 900px) {
   /* A phone shows the section list, then 1 section, with a way back to the list. */
   .sections, .section-pane { flex: 1 1 100%; }
