@@ -69,7 +69,8 @@ changes no file under the CI paths starts no build.
 | Use the dev image | `install --dev` outside a git checkout, or `image: ghcr.io/nemoe7/daedalus:dev` in [`compose.yml`](../compose.yml). |
 
 The dev image tracks `main`. Its code has no review. Use it to test the newest commits, not to run a
-release.
+release. `DAEDALUS_DEV_IMAGE` and `DAEDALUS_DEV_PULL` change the image and the pull policy, and
+`DAEDALUS_VERSION` is the version under the logo.
 
 ## Optional services
 
@@ -156,7 +157,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Image | `pgvector/pgvector:0.8.6-pg18-trixie` |
 | Content | The vectors of files, knowledge and memory. The chats stay in the `open-webui` volume. |
 | Password | `OPENWEBUI_DB_PASSWORD`, default `openwebui`. No port on the host. |
-| Vector size | 1024, the size of a `mistral/mistral-embed-2312` vector. A new model needs a new index. |
+| Vector size | `PGVECTOR_INITIALIZE_MAX_VECTOR_LENGTH` is `1024`, the size of a `mistral/mistral-embed-2312` vector. A new model needs a new index. |
 | Volume | `webui-db` |
 
 ### Tika
