@@ -2465,3 +2465,30 @@ def test_the_requests_filters_ride_in_the_hash() -> None:
     app,
   ), "the filters write their own hash"
   assert app.count("  requestHash();\n") == 3, app.count("  requestHash();\n")
+
+
+def test_a_wrong_shape_is_refused_at_save(client: TestClient) -> None:
+  """A known key with a wrong shape gives 422 with its name, and a good shape lands."""
+  login = {"username": "admin", "password": MASTER}
+  assert client.post("/ui/api/login", json=login).status_code == 200, "the session"
+  made = client.post("/ui/api/files", json={"name": "shapetest"})
+  assert made.status_code == 200, made.text
+  path = made.json()["path"]
+  try:
+    for text, word in (
+      ("api_key: k\ntier: TIER-B\n", "tier"),
+      ("api_key: k\nmodels: nope\n", "models"),
+      ("api_key: k\nhooks: 7\n", "hooks"),
+      ("api_key: k\nexclude: {a: 1}\n", "exclude"),
+      ("api_key: k\ndiscovery_match: nope\n", "discovery_match"),
+      ("api_key: k\ntier:\n  TIER-B: TIER-B\n", "TIER-B"),
+    ):
+      reply = client.put("/ui/api/files", json={"path": path, "text": text})
+      assert reply.status_code == 422, reply.text
+      assert word in reply.json()["error"]["message"], reply.text
+    good = "api_key: k\ntier:\n  TIER-B: [a]\n"
+    assert (
+      client.put("/ui/api/files", json={"path": path, "text": good}).status_code == 200
+    ), good
+  finally:
+    client.request("DELETE", "/ui/api/files", json={"path": path})

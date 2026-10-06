@@ -36,6 +36,25 @@ PROVIDER_KEYS = (
 _config: dict[str, Any] | None = None
 SAVED: dict[str, str] = {}
 
+# The shape of each known key of a provider block: the type of the value, and the words of a refusal.
+BLOCK_SHAPES: dict[str, tuple[type, str]] = {
+  "api_key": (str, "a string"),
+  "api_base": (str, "a string"),
+  "api_type": (str, "a string"),
+  "discovery_url": (str, "a string"),
+  "discovery_match": (dict, "a mapping of a property to its value"),
+  "client_keys": (dict, "a mapping of a client to its key"),
+  "tier": (dict, "a mapping of a tier name to a list of patterns"),
+  "models": (dict, "a mapping of a pattern to its values"),
+  "hooks": (list, "a list of hook file names"),
+  "exclude": (list, "a list of patterns"),
+}
+# The shape of the value of a key that holds a mapping.
+NESTED_SHAPES: dict[str, tuple[type, str]] = {
+  "tier": (list, "a list of patterns"),
+  "client_keys": (str, "a string"),
+}
+
 
 def env_value(name: str) -> str:
   """The value of 1 name: the environment variable, else empty. Used for env:NAME."""
@@ -164,14 +183,69 @@ def file_shadows(path: Path | str = DEFAULT_PATH) -> dict[str, str]:
   }
 
 
+def block_shape_problems(block: Mapping[str, Any]) -> list[tuple[tuple[str, ...], str]]:
+  """Each known key of a provider block with a wrong shape, as its path and the reason."""
+  found: list[tuple[tuple[str, ...], str]] = []
+  for key, (kind, wanted) in BLOCK_SHAPES.items():
+    value = block.get(key)
+    if value is not None and not isinstance(value, kind):
+      found.append(((key,), f"must be {wanted}"))
+  for key, (kind, wanted) in NESTED_SHAPES.items():
+    values = block.get(key)
+    if not isinstance(values, dict):
+      continue
+    for name, value in values.items():
+      if value is not None and not isinstance(value, kind):
+        found.append(((key, str(name)), f"must be {wanted}"))
+  return found
+
+
+def file_shape_problems(loaded: Mapping[str, Any], stem: str = "") -> list[str]:
+  """Each known key of a provider file with a wrong shape, as `<block>.<key> must be ...`."""
+  own = f"{stem}." if stem else ""
+  found = [
+    f"{own}{'.'.join(path)} {reason}" for path, reason in block_shape_problems(loaded)
+  ]
+  for name, value in loaded.items():
+    if name in BLOCK_SHAPES or not isinstance(value, Mapping):
+      continue
+    found += [
+      f"{name}.{'.'.join(path)} {reason}"
+      for path, reason in block_shape_problems(value)
+    ]
+  return found
+
+
+def drop_wrong_shapes(loaded: dict[str, Any], where: str, stem: str) -> None:
+  """Drop each known key of a provider file with a wrong shape, and name it in the log."""
+  blocks: list[tuple[str, dict[str, Any]]] = [(stem, loaded)]
+  blocks += [
+    (name, value)
+    for name, value in loaded.items()
+    if name not in BLOCK_SHAPES and isinstance(value, dict)
+  ]
+  for name, block in blocks:
+    for path, reason in block_shape_problems(block):
+      if len(path) == 2:
+        block[path[0]].pop(path[1], None)
+      else:
+        block.pop(path[0], None)
+      logger.warning(
+        "%s: the %s.%s key %s, so it drops out", where, name, ".".join(path), reason
+      )
+
+
 def load_config(path: Path | str = DEFAULT_PATH) -> dict[str, Any]:
   """Read the main provider file and each `{provider}.yml` file into memory."""
   global _config
   load_saved()
-  loaded = read_yaml(Path(path))
+  source = Path(path)
+  loaded = read_yaml(source)
+  drop_wrong_shapes(loaded, source.name, source.stem)
   for file, content in provider_blocks(path):
     block = loaded.setdefault(file.stem, {})
     if isinstance(block, dict):
+      drop_wrong_shapes(content, file.name, file.stem)
       block[FILE_KEY] = content
   for name, owner in file_shadows(path).items():
     logger.warning(

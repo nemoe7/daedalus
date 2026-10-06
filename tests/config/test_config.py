@@ -242,3 +242,72 @@ def test_file_shadows_names_only_a_shared_block() -> None:
     messages = [record.getMessage() for record in records]
     assert any("p.yml" in text and "free.yml" in text for text in messages), messages
     assert not any("q.yml" in text for text in messages), messages
+
+
+def _log_capture():
+  """A logger handler that keeps the records of the daedalus.config logger."""
+  records: list[logging.LogRecord] = []
+
+  class Keep(logging.Handler):
+    def emit(self, record: logging.LogRecord) -> None:
+      records.append(record)
+
+  handler = Keep()
+  logging.getLogger("daedalus.config").addHandler(handler)
+  return records, handler
+
+
+def test_a_wrong_shape_in_the_main_file_drops_out() -> None:
+  """A hand-edited key of a provider block leaves the config, and the router reads what is left."""
+  with tempfile.TemporaryDirectory() as folder:
+    main = Path(folder) / "free.yml"
+    main.write_text(
+      "p:\n  api_key: k\n  tier: TIER-B\n  models: nope\n  hooks: 7\n"
+      "  discovery_match: nope\n",
+      encoding="utf-8",
+    )
+    records, handler = _log_capture()
+    try:
+      loaded = config.load_config(main)
+    finally:
+      logging.getLogger("daedalus.config").removeHandler(handler)
+  messages = [record.getMessage() for record in records]
+  assert loaded["p"] == {"api_key": "k"}, loaded["p"]
+  assert any("free.yml" in text and "tier" in text for text in messages), messages
+  assert any("models" in text for text in messages), messages
+  assert any("hooks" in text for text in messages), messages
+  assert router.pooled(loaded, "p/a"), "the router reads the rest of the block"
+
+
+def test_a_wrong_shape_in_a_tier_drops_out() -> None:
+  """A tier value that is not a list leaves the tier map, and the other tiers stay."""
+  with tempfile.TemporaryDirectory() as folder:
+    main = Path(folder) / "free.yml"
+    main.write_text(
+      "p:\n  api_key: k\n  tier:\n    TIER-A: TIER-B\n    TIER-B: [a]\n",
+      encoding="utf-8",
+    )
+    records, handler = _log_capture()
+    try:
+      loaded = config.load_config(main)
+    finally:
+      logging.getLogger("daedalus.config").removeHandler(handler)
+  assert loaded["p"]["tier"] == {"TIER-B": ["a"]}, loaded["p"]["tier"]
+  assert any("TIER-A" in record.getMessage() for record in records), records
+
+
+def test_a_wrong_shape_in_a_provider_file_drops_out() -> None:
+  """The file block of a `{provider}.yml` file keeps its good keys."""
+  with tempfile.TemporaryDirectory() as folder:
+    main = Path(folder) / "free.yml"
+    main.write_text("p:\n  api_key: main\n", encoding="utf-8")
+    (Path(folder) / "p.yml").write_text(
+      "api_key: file\nmodels: nope\n", encoding="utf-8"
+    )
+    records, handler = _log_capture()
+    try:
+      loaded = config.load_config(main)
+    finally:
+      logging.getLogger("daedalus.config").removeHandler(handler)
+  assert loaded["p"]["_file"] == {"api_key": "file"}, loaded["p"]["_file"]
+  assert any("p.yml" in record.getMessage() for record in records), records
