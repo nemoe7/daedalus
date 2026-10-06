@@ -878,8 +878,12 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
   assert (
     ".requests tr.request > td:nth-child(1) .cell-value,\n"
     "  .requests tr.live-row > td:nth-child(1) .cell-value "
-    "{ font-size: 14px; white-space: nowrap; }"
+    "{ font-size: inherit; white-space: nowrap; }"
   ) in mobile_css, "the stamp holds 1 line at its own width"
+  assert (
+    ".models tr, .keys tr, .requests tr.request, .requests tr.live-row "
+    "{ font-size: 13px; }"
+  ) in mobile_css, "1 text size holds every phone card"
   assert "user-select" not in mobile_css, "the phone card keeps the text selection"
   assert (
     ".requests .mobile-fallback-chain ol { list-style: none; margin: 5px 0 0; "
