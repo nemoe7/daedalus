@@ -105,6 +105,7 @@
 
 ## Git
 
+- The sandbox clone may be shallow: check it with `git rev-parse --is-shallow-repository`, and run `git fetch --unshallow` before work that needs full history.
 - **Before every commit, without exception, print the planned final commit list first** — every commit and fix folded into one timeline, one message per logical change, keeping the PR title and body matching it.
 - If one landed unlisted, print the corrected timeline first.
 - Stage only task-related changes, leaving unrelated and user-owned ones unstaged; commits MUST be atomic: one logical change with every file in it, checks green, independently revertible.
