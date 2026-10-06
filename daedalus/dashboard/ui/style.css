@@ -639,8 +639,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
     flex-wrap: wrap; background: transparent; border: 0; border-bottom: 1px solid var(--line);
     border-radius: 0; padding: 0;
   }
-  /* The bar keeps 15px under the rule, past the panel padding that every panel carries. */
-  section[data-page="requests"] .requests-bar { padding: 0 0 15px; }
+  /* The bar keeps 15px under the rule, and 3px of room at its top left corner: the panel clips its
+     own rounded corner over a flush child, and the ring of the field meets that corner. */
+  section[data-page="requests"] .requests-bar { padding: 3px 3px 15px; }
   /* A ring that draws outside a flush control is cut by the panel edge, so a phone draws it inside. */
   .toolbar input:focus-visible, .toolbar select:focus-visible,
   .requests-bar input:focus-visible, .requests-bar select:focus-visible { outline-offset: -2px; }
@@ -667,9 +668,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .models .cell-value { min-width: 0; text-align: left; }
   .models td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .models .weight { width: auto; }
-  /* The form row of the keys page sits above the cards on the same rail: the bottom padding alone,
-     so the row starts at the top edge and its left edge agrees with a card. */
-  [data-page="keys"] .toolbar { padding: 0 0 8px; }
+  /* The form row of the keys page sits above the cards on the same rail, with its bottom padding. The
+     3px of room at its top left corner keeps the panel corner off the field and off its focus ring. */
+  [data-page="keys"] .toolbar { padding: 3px 0 8px 3px; }
   /* A phone turns the API keys table into cards: the name takes its own line, then Last used and
      Delete share the next row. */
   .keys thead { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
