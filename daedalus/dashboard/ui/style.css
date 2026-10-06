@@ -639,6 +639,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   }
   /* The bar keeps 15px under the rule, past the panel padding that every panel carries. */
   section[data-page="requests"] .requests-bar { padding: 0 0 15px; }
+  /* A ring that draws outside a flush control is cut by the panel edge, so a phone draws it inside. */
+  .toolbar input:focus-visible, .toolbar select:focus-visible,
+  .requests-bar input:focus-visible, .requests-bar select:focus-visible { outline-offset: -2px; }
   .requests-bar input[type=search] { flex: 1 1 100%; min-width: 0; }
   .requests-bar select, .requests-bar .live-toggle { flex: 1 1 auto; }
   /* A phone drops the count line: the cards carry the state, and the line only pushes them down. */
