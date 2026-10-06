@@ -99,6 +99,33 @@ def test_the_on_change_valve_draws_only_a_move() -> None:
   ], seen
 
 
+def test_a_repeat_of_the_message_line_draws_once() -> None:
+  """In 1 message a repeat of the last line draws no row, a move draws, and another message draws."""
+  seen: list[dict[str, Any]] = []
+
+  async def emit(event: dict[str, Any]) -> None:
+    seen.append(event)
+
+  plugin = module.Filter()
+  first = {"chat_id": "c1", "message_id": "m1"}
+  moved = {"usage": {"daedalus": {"line": "B \u00b7 kilo/y", "model": "kilo/y"}}}
+  same = {"usage": {"daedalus": {"line": "A \u00b7 kilo/x", "model": "kilo/x"}}}
+  run(plugin.stream(same, __event_emitter__=emit, __metadata__=first))
+  run(plugin.stream(same, __event_emitter__=emit, __metadata__=first))
+  run(plugin.stream(moved, __event_emitter__=emit, __metadata__=first))
+  run(plugin.stream(moved, __event_emitter__=emit, __metadata__=first))
+  run(
+    plugin.stream(
+      same, __event_emitter__=emit, __metadata__={"chat_id": "c1", "message_id": "m2"}
+    )
+  )
+  assert [event["data"]["description"] for event in seen] == [
+    "A \u00b7 kilo/x",
+    "B \u00b7 kilo/y",
+    "A \u00b7 kilo/x",
+  ], seen
+
+
 def test_the_always_valve_draws_every_line() -> None:
   """The default `always` Valve draws each line, even a repeat of the same served model."""
   seen: list[dict[str, Any]] = []
