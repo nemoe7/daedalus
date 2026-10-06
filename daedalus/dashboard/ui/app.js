@@ -102,14 +102,14 @@ const cell = (label, inner, cls = "", attrs = "") =>
 // A confirmation modal in place of window.confirm. It resolves true on Confirm.
 // A placeholder shows the name field: the caller reads modal-input after a true.
 let settle = null;
-function ask(title, message, confirm = "Confirm", danger = false, placeholder = null) {
+function ask(title, message, confirm = "Confirm", danger = false, placeholder = null, value = "") {
   return new Promise((resolve) => {
     settle = resolve;
     $("modal-title").textContent = title;
     $("modal-message").textContent = message;
     $("modal-field").hidden = placeholder === null;
     const box = $("modal-input");
-    box.value = "";
+    box.value = value;
     box.placeholder = placeholder ?? "";
     const ok = $("modal-ok");
     ok.textContent = confirm;
@@ -117,6 +117,35 @@ function ask(title, message, confirm = "Confirm", danger = false, placeholder = 
     $("modal").returnValue = "";
     $("modal").showModal();
     if (placeholder !== null) box.focus?.();
+    if (value) box.select?.();
+  });
+}
+
+// The small editor of a value row, on the modal manager. The close of that dialog writes the
+// 1 value: Save writes it, and Cancel or Escape leaves the file alone.
+async function editValue(input, write) {
+  const box = $("modal-input");
+  box.type = input.type === "password" ? "password" : "text";
+  const done = ask(`Edit ${input.dataset.value}`, "The new value goes to the file when this dialog closes.",
+    "Save", false, input.placeholder ?? "", input.value);
+  if (!(await done)) {
+    box.type = "text";
+    return;
+  }
+  box.type = "text";
+  if (box.value === input.value) return;
+  input.value = box.value;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  write();
+}
+
+// A value row: the value shows as text, and a click opens the small editor.
+function bindValueRows(host, write) {
+  host.addEventListener("click", (event) => {
+    const input = event.target.closest("[data-value]");
+    if (!input) return;
+    event.preventDefault();
+    editValue(input, write);
   });
 }
 
@@ -1048,15 +1077,12 @@ function renderFiles() {
     return `<button type="button" class="tab${index === state.file ? " on" : ""}"
       data-file="${index}" title="${esc(file.path)}${shadow}">${esc(fileName(file.path))}${mark}</button>`;
   }).join(" ");
-  $("save").disabled = !dirty();
   // The main provider file stays: only a {provider}.yml file can go.
   const current = state.files[state.file];
   $("drop-provider").hidden = current?.main !== false;
   $("file-note").textContent = current?.shadow
     ? `${fileName(current.path)} sets no provider key: the ${fileName(current.shadow)} block wins. Its models still apply.` : "";
-  // The bar Save writes the form and the card Save writes the text, so 1 shows at a time.
-  $("save").hidden = state.view === "yaml";
-  $("save").disabled = state.view !== "form" || !dirty();
+  // The card Save writes the text. The form rows write themselves, on the close.
   const yamlSave = $("yaml-save");
   if (yamlSave) yamlSave.disabled = state.view !== "yaml" || !dirty();
 }
@@ -1204,6 +1230,7 @@ function showSettingAdder(button) {
     }
     renderSettingList(group, key);
     renderSettingsSave();
+    if (keep && text) saveSettings();
   };
   box.addEventListener("keydown", (event) => {
     if (event.key === "Enter") done(true);
@@ -1221,6 +1248,7 @@ function dropSetting(path) {
   setListValue(group, key, values);
   renderSettingList(group, key);
   renderSettingsSave();
+  saveSettings();
 }
 
 // The label of a field, with its hint behind an info icon on a desktop and under the label on a phone.
@@ -1374,24 +1402,25 @@ function providerCard(name, block) {
     return maskedPlaceholder(row);
   };
   const text = (key, label, hint) => {
+    const row = `data-value="${esc(label)}"`;
     if (key === "api_key" || key === "account_id") {
       const info = tokenInfo(block[key]);
       if (info) {
-        const row = state.env.find((r) => r.name === info.name);
-        const ph = placeholderFor(info, row) || defaults[key] || "";
+        const row_ = state.env.find((r) => r.name === info.name);
+        const ph = placeholderFor(info, row_) || defaults[key] || "";
         const extra = "";
         if (info.type === "env") {
           const shown = info.raw;
-          return field(label, hint, `<input class="text" type="text" spellcheck="false" autocomplete="off"
-          data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(shown)}" placeholder="${esc(ph)}">${extra}`);
+          return field(label, hint, `<input class="text" type="text" readonly spellcheck="false" autocomplete="off"
+          ${row} data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(shown)}" placeholder="${esc(ph)}">${extra}`);
         }
-        return field(label, hint, `<input class="text" type="password" spellcheck="false" autocomplete="off"
-        data-set='${esc(JSON.stringify([...path, key]))}' value="" placeholder="${esc(ph)}">${extra}`);
+        return field(label, hint, `<input class="text" type="password" readonly spellcheck="false" autocomplete="off"
+        ${row} data-set='${esc(JSON.stringify([...path, key]))}' value="" placeholder="${esc(ph)}">${extra}`);
       }
     }
     const extra = "";
-    return field(label, hint, `<input class="text" type="text" spellcheck="false" autocomplete="off"
-    data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(block[key] ?? "")}" placeholder="${esc(defaults[key] ?? "")}">${extra}`);
+    return field(label, hint, `<input class="text" type="text" readonly spellcheck="false" autocomplete="off"
+    ${row} data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(block[key] ?? "")}" placeholder="${esc(defaults[key] ?? "")}">${extra}`);
   };
   const tiers = TIERS.map((tier) => `<div class="tier-row"><span class="tier">${tier.slice(-1)}</span>
     ${listField(tier, block.tier?.[tier], [...path, "tier", tier])}</div>`).join("");
@@ -1434,7 +1463,7 @@ function renderForm() {
       + sectionPane("Providers", `<div class="card" data-section="error"><h3>The YAML is not valid</h3>
       <p class="sub">${esc(state.files[state.file].error ?? "")}</p>
       <p class="sub">Fix the text in the YAML section. Then the form opens the file.</p></div>`
-      + yamlCard("editor", "yaml-save", "The file text. A block that the form cannot show still opens here."));
+      + yamlCard("editor", "yaml-save", `The file text of ${fileName(state.files[state.file].path)}. A block that the form cannot show still opens here.`));
     pickSection(host, "yaml");
     $("editor").value = typed ?? state.files[state.file].text;
     renderFiles();
@@ -1446,7 +1475,7 @@ function renderForm() {
   const active = items.some(([key]) => key === picked) ? picked : items[0][0];
   host.innerHTML = sectionList("provider-form", items, active)
     + sectionPane("Providers", names.map((name) => providerCard(name, blocks[name])).join("")
-      + yamlCard("editor", "yaml-save", "The file text. A block that the form cannot show still opens here."));
+      + yamlCard("editor", "yaml-save", `The file text of ${fileName(state.files[state.file]?.path ?? "")}. A block that the form cannot show still opens here.`));
   pickSection(host, active);
   $("editor").value = typed ?? state.files[state.file]?.text ?? "";
   renderFiles();
@@ -1477,6 +1506,7 @@ function dropAt(path) {
   if (Array.isArray(parent)) parent.splice(key, 1);
   else if (parent) delete parent[key];
   renderCard(path[0]);
+  saveForm();
 }
 
 function showAdder(button) {
@@ -1494,8 +1524,9 @@ function showAdder(button) {
   (box.querySelector("select") || input).focus();
   const done = (keep) => {
     const text = input.value.trim();
-    if (keep && text) addValue(path, kind, text, box.querySelector("select")?.value);
-    else renderCard(path[0]);
+    if (keep && text) {
+      if (addValue(path, kind, text, box.querySelector("select")?.value)) saveForm();
+    } else renderCard(path[0]);
   };
   box.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && event.target.tagName === "SELECT") return input.focus();
@@ -1508,8 +1539,8 @@ function showAdder(button) {
 }
 
 function addValue(path, kind, text, key) {
-  const message = $("save-message");
-  message.textContent = "";
+  let kept = true;
+  clearWrite("providers");
   if (kind === "list") {
     const list = parentOf([...path, 0], []);
     // A repeat is a no-op, so no double value lands in the list.
@@ -1517,17 +1548,18 @@ function addValue(path, kind, text, key) {
   } else if (kind === "pattern") {
     const models = parentOf([...path, text], {});
     if (text in models) {
-      message.className = "message bad";
-      message.textContent = `The pattern ${text} is already there.`;
+      showWrite("providers", `The pattern ${text} is already there.`, true);
+      kept = false;
     } else models[text] = {};
   } else {
     const [name, value] = kind === "match" ? text.split(/\s*=\s*(.*)/s) : [key, text];
     if (!name || value === undefined) {
-      message.className = "message bad";
-      message.textContent = "Write the value as key = value.";
+      showWrite("providers", "Write the value as key = value.", true);
+      kept = false;
     } else parentOf([...path, name], {})[name] = parsed(value);
   }
   renderCard(path[0]);
+  return kept;
 }
 
 function renamePattern(input) {
@@ -1538,14 +1570,13 @@ function renamePattern(input) {
   if (after === before) return;
   if (!after || after in models) {
     input.value = before;
-    const message = $("save-message");
-    message.className = "message bad";
-    message.textContent = after ? `The pattern ${after} is already there.` : "A pattern cannot be empty.";
+    showWrite("providers", after ? `The pattern ${after} is already there.` : "A pattern cannot be empty.", true);
     return;
   }
   const renamed = Object.fromEntries(Object.entries(models).map(([key, value]) => [key === before ? after : key, value]));
   parentOf(path, {})[path[path.length - 1]] = renamed;
   renderCard(path[0]);
+  saveForm();
 }
 
 function setText(input) {
@@ -1584,11 +1615,59 @@ function setText(input) {
   renderFiles();
 }
 
+// The status line of a write, and 1 step of Undo. A write replaces the step.
+const WRITE_UI = {
+  providers: { message: $("save-message"), undo: $("save-undo") },
+  settings: { message: $("settings-message"), undo: $("settings-undo"), note: $("settings-note") },
+};
+let lastWrite = null;
+
+function showWrite(page, text, bad = false) {
+  const ui = WRITE_UI[page];
+  ui.message.className = bad ? "message bad" : "message ok";
+  ui.message.textContent = text;
+  ui.undo.hidden = !lastWrite;
+  if (ui.note) ui.note.hidden = false;
+}
+
+function clearWrite(page) {
+  const ui = WRITE_UI[page];
+  ui.message.textContent = "";
+  ui.undo.hidden = true;
+  if (ui.note) ui.note.hidden = true;
+}
+
+// The text of the file before a write. Undo puts that text back in 1 call.
+function rememberWrite(page, restore) {
+  lastWrite = { page, ...restore };
+}
+
+async function undoWrite() {
+  if (!lastWrite) return;
+  const write = lastWrite;
+  lastWrite = null;
+  try {
+    if (write.settings) {
+      await call("settings", { method: "PUT", body: JSON.stringify({ text: write.text }) });
+      await loadSettings();
+    } else {
+      await call("files", { method: "PUT", body: JSON.stringify({ path: write.path, text: write.text }) });
+      await takeFile(write.index);
+      renderForm();
+    }
+    refresh();
+    showWrite(write.page, "Undone");
+  } catch (error) {
+    if (error instanceof LoggedOut) return showLogin("The session ended. Log in again.");
+    showWrite(write.page, error.message, true);
+  }
+}
+
 async function saveForm() {
-  if (!dirty()) return;
+  if (!dirty()) return clearWrite("providers");
   const index = state.file;
   const file = state.files[index];
-  const message = $("save-message");
+  rememberWrite("providers", { index, path: file.path, text: file.text });
   const isToken = (v) => typeof v === "string" && (v.startsWith("env:") || v.startsWith("db:"));
   const hadRaw = Object.values(pruned(state.forms[index]) || {}).some((block) =>
     block && typeof block === "object" && (
@@ -1598,41 +1677,40 @@ async function saveForm() {
   try {
     await call("providers", { method: "PUT", body: JSON.stringify({ path: file.path, blocks: pruned(state.forms[index]) }) });
     await takeFile(index);
-    message.className = "message ok";
-    message.textContent = hadRaw ? "Saved — key moved to database" : "Saved and reloaded";
+    showWrite("providers", hadRaw ? "Saved — key moved to database" : "Saved and reloaded");
     await refreshEnv();
     renderForm();
     refresh();
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin("The session ended. Log in to save again.");
-    message.className = "message bad";
-    message.textContent = error.message;
+    showWrite("providers", error.message, true);
   }
   renderFiles();
 }
 
 async function saveYaml() {
-  if (!dirty()) return;
+  if (!dirty()) return clearWrite("providers");
   const index = state.file;
   const file = state.files[index];
   const text = $("editor")?.value ?? "";
-  const message = $("save-message");
+  rememberWrite("providers", { index, path: file.path, text: file.text });
   try {
     await call("files", { method: "PUT", body: JSON.stringify({ path: file.path, text }) });
     await takeFile(index);
-    message.className = "message ok";
-    message.textContent = "Saved and reloaded";
+    showWrite("providers", "Saved and reloaded");
     refresh();
     guarded(refreshEnv);
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin("The session ended. Log in to save again.");
-    message.className = "message bad";
-    message.textContent = error.message;
+    showWrite("providers", error.message, true);
   }
   renderFiles();
 }
 
-const save = () => (state.view === "form" ? saveForm() : saveYaml());
+// The shown view is the YAML section of the page when its card is the picked 1.
+const yamlView = () => (location.hash.startsWith("#/settings")
+  ? state.settingsView === "yaml"
+  : state.view === "yaml");
 
 // A pick sets the view of the page: the form rows, or the file text. A leave of the text with
 // unsaved lines asks first, then shows the saved file again.
@@ -1645,7 +1723,7 @@ async function pickProviderSection(key) {
     if (state.view === "yaml") state.files[index].text = state.saved[index];
     state.forms[index] = clone(state.files[index].blocks ?? {});
     state.view = view;
-    $("save-message").textContent = "";
+    clearWrite("providers");
   }
   openSection(host, key);
   renderFiles();
@@ -1790,7 +1868,6 @@ const isSwitch = (group, key) => typeof state.settings.defaults[group][key] === 
 function renderSettings() {
   // A render keeps the text of an edit in progress. The saved text shows otherwise.
   const typed = state.settingsView === "yaml" ? $("settings-editor")?.value : undefined;
-  $("settings-path").textContent = `${fileName(state.settings.path)} · Ctrl+S saves and reloads`;
   const card = ([group, title, fields]) => `
     <div class="card"><h3>${esc(title)}</h3>${fields.map(([key, label, unit, hint]) => {
       const id = `set-${group}-${key}`;
@@ -1806,7 +1883,8 @@ function renderSettings() {
       }
       if (unit === "name") {
         return `<label class="field info" for="${id}">${labelSpan(label, hint)}
-          <span class="input"><i class="prefix">daedalus/</i><input type="text" id="${id}" maxlength="40" spellcheck="false"
+          <span class="input"><i class="prefix">daedalus/</i><input type="text" id="${id}" maxlength="40" readonly
+            aria-label="${esc(label)}" data-value="${esc(label)}" spellcheck="false"
             value="${esc(fileValue(group, key) ?? "")}" placeholder="${esc(state.settings.defaults[group][key])}"></span></label>`;
       }
       if (unit === "hooks") {
@@ -1822,7 +1900,8 @@ function renderSettings() {
       const fallback = state.settings.defaults[group][key];
       const value = fileValue(group, key);
       return `<label class="field info" for="${id}">${labelSpan(label, hint)}
-        <span class="input"><input type="number" min="${MINIMA[`${group}.${key}`] ?? 0}" id="${id}" value="${value ?? ""}"
+        <span class="input"><input type="number" readonly aria-label="${esc(label)}" data-value="${esc(label)}"
+          min="${MINIMA[`${group}.${key}`] ?? 0}" id="${id}" value="${value ?? ""}"
           step="${DECIMALS.has(`${group}.${key}`) ? "any" : "1"}" ${MAXIMA[`${group}.${key}`] ? `max="${MAXIMA[`${group}.${key}`]}"` : ""}
           placeholder="${fallback ?? ""}"><i>${esc(unit)}</i></span></label>`;
     }).join("")}</div>`;
@@ -1834,7 +1913,7 @@ function renderSettings() {
   $("settings").innerHTML = sectionList("settings", items, active)
     + sectionPane("Settings", groups.map(([group, title, fields]) => card([group, title, fields]).replace(
       '<div class="card">', `<div class="card" data-section="${esc(group)}">`)).join("")
-      + yamlCard("settings-editor", "settings-yaml-save", "The file text. A key that the form cannot show still opens here."));
+      + yamlCard("settings-editor", "settings-yaml-save", `The file text of ${fileName(state.settings.path)}. A key that the form cannot show still opens here.`));
   pickSection($("settings"), active);
   $("settings-editor").value = typed ?? state.settings.text;
   // The rendered file wins, and the shown rows follow its mode.
@@ -1917,9 +1996,7 @@ function settingsDirty() {
 
 function renderSettingsSave() {
   const yaml = state.settingsView === "yaml";
-  // The bar Save writes the rows and the card Save writes the text, so 1 shows at a time.
-  $("settings-save").hidden = yaml;
-  $("settings-save").disabled = yaml || !settingsDirty();
+  // The card Save writes the text. The rows write themselves, on the change or the close.
   const cardSave = $("settings-yaml-save");
   if (cardSave) cardSave.disabled = !yaml || !settingsDirty();
 }
@@ -1946,19 +2023,18 @@ async function pickSettingsSection(key) {
 }
 
 async function saveSettings() {
-  if (!settingsDirty()) return;
-  const body = state.settingsView === "yaml" ? { text: $("settings-editor")?.value ?? "" } : { changes: settingsChanges() };
-  const message = $("settings-message");
+  if (!settingsDirty()) return clearWrite("settings");
+  const text = $("settings-editor")?.value ?? "";
+  const body = state.settingsView === "yaml" ? { text } : { changes: settingsChanges() };
+  rememberWrite("settings", { settings: true, text: state.settings.text });
   try {
     await call("settings", { method: "PUT", body: JSON.stringify(body) });
     await loadSettings();
-    message.className = "message ok";
-    message.textContent = "Saved and reloaded";
+    showWrite("settings", "Saved and reloaded");
     refresh();
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin("The session ended. Log in to save again.");
-    message.className = "message bad";
-    message.textContent = error.message;
+    showWrite("settings", error.message, true);
   }
   renderSettingsSave();
 }
@@ -2467,7 +2543,10 @@ $("drop-provider").addEventListener("click", async () => {
 $("provider-form").addEventListener("input", (event) => {
   if (event.target.id === "editor") renderFiles();
 });
-$("save").addEventListener("click", save);
+bindValueRows($("provider-form"), () => saveForm());
+bindValueRows($("settings"), () => saveSettings());
+$("save-undo").addEventListener("click", undoWrite);
+$("settings-undo").addEventListener("click", undoWrite);
 $("provider-form").addEventListener("click", (event) => {
   const section = event.target.closest(".sections button[data-section]");
   if (section) return pickProviderSection(section.dataset.section);
@@ -2520,7 +2599,8 @@ $("settings").addEventListener("click", async (event) => {
     setListValue(group, key, values);
     openHookPicker = null;
     renderHookList(group, key);
-    return renderSettingsSave();
+    renderSettingsSave();
+    return saveSettings();
   }
   const pick = event.target.closest("[data-hook-pick]");
   if (pick) {
@@ -2542,6 +2622,7 @@ $("settings").addEventListener("click", async (event) => {
     setListValue(group, key, [...listValue(group, key), ""]);
     renderHookList(group, key);
     renderSettingsSave();
+    saveSettings();
   }
   const hookDrop = event.target.closest("[data-hook-drop]");
   if (hookDrop) {
@@ -2551,9 +2632,14 @@ $("settings").addEventListener("click", async (event) => {
     setListValue(group, key, values);
     renderHookList(group, key);
     renderSettingsSave();
+    saveSettings();
   }
 });
-$("settings-save").addEventListener("click", saveSettings);
+$("settings").addEventListener("change", (event) => {
+  // A switch and a pick list hold 1 valid value, so the change writes it at once.
+  const input = event.target;
+  if (input.type === "checkbox" || input.tagName === "SELECT") saveSettings();
+});
 $("settings").addEventListener("input", (event) => {
   if (event.target.id !== "settings-editor") return;
   $("settings-message").textContent = "";
@@ -2563,11 +2649,11 @@ $("settings").addEventListener("click", (event) => {
   if (event.target.closest("#settings-yaml-save")) saveSettings();
 });
 document.addEventListener("keydown", (event) => {
-  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
-    event.preventDefault();
-    if (location.hash.startsWith("#/settings")) saveSettings();
-    else save();
-  }
+  if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s") return;
+  if (!yamlView()) return;
+  event.preventDefault();
+  if (location.hash.startsWith("#/settings")) saveSettings();
+  else saveYaml();
 });
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && state.timers?.length) refresh();

@@ -1450,12 +1450,10 @@ for (const pick of ['none', 'race', 'session']) {{
   assert.deepStrictEqual(shown(), expect[pick], pick + ' moves the rows');
   assert.strictEqual(probe.state.settings.file.affinity.mode, 'session', 'the file is not written back');
 }}
-// A pick that differs from the file turns the Save button on and reaches the payload.
-node('settings-save').disabled = true;
+// A pick that differs from the file reaches the write payload of that 1 row.
 const select = node('set-affinity-mode');
 select.value = 'race';
 node('settings').handlers.input.forEach((fn) => fn({{ target: select }}));
-assert.strictEqual(node('settings-save').disabled, false, 'the Save button wakes');
 assert.strictEqual(probe.settingsChanges().affinity.mode, 'race', 'the pick reaches the save payload');
 """,
   )
@@ -2646,8 +2644,6 @@ def test_the_yaml_editor_ends_each_list_and_saves_itself() -> None:
     "function yamlCard(editor, save, hint) {",
     'const items = names.map((name) => [name, name]).concat([["yaml", "YAML"]]);',
     'const items = groups.map(([group, title]) => [group, title]).concat([["yaml", "YAML"]]);',
-    '$("save").hidden = state.view === "yaml";',
-    '$("settings-save").hidden = yaml;',
     'if (event.target.closest("#yaml-save")) return saveYaml();',
     'if (event.target.closest("#settings-yaml-save")) saveSettings();',
     'const typed = state.view === "yaml" ? $("editor")?.value : undefined;',
@@ -2662,6 +2658,32 @@ def test_the_yaml_editor_ends_each_list_and_saves_itself() -> None:
   )
   assert '$("editor").addEventListener("input", renderFiles);' not in app, (
     "the editor lives in a rendered card, so the listener rides on the pane"
+  )
+
+
+def test_a_row_writes_itself_and_the_bar_is_gone() -> None:
+  """No Save bar: a value row opens the editor dialog, and its close writes that 1 value."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  assert 'id="save"' not in page and 'id="settings-save"' not in page, "no bar Save"
+  assert 'id="save-undo"' in page and 'id="settings-undo"' in page, "1 Undo per page"
+  for needle in (
+    "async function editValue(input, write) {",
+    "function bindValueRows(host, write) {",
+    'bindValueRows($("provider-form"), () => saveForm());',
+    'bindValueRows($("settings"), () => saveSettings());',
+    'if (input.type === "checkbox" || input.tagName === "SELECT") saveSettings();',
+    "async function undoWrite() {",
+    "function rememberWrite(page, restore) {",
+    'class="text" type="text" readonly spellcheck="false"',
+  ):
+    assert needle in app, needle
+  assert '$("save")' not in app and '$("settings-save")' not in app, (
+    "the bar Save is gone"
+  )
+  assert 'clearWrite("providers")' in app and 'clearWrite("settings")' in app, (
+    "a quiet page stays quiet"
   )
 
 
