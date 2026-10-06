@@ -44,6 +44,8 @@ Saving provider YAML in the dashboard rebuilds the model list from cache. After 
 | Port | `3357` |
 | State | `./.daedalus-state` (model store, API keys, weights, sessions) |
 | Config | `./config`, read-write. The dashboard edits these files. |
+| User | `DAEDALUS_UID` and `DAEDALUS_GID`, both default `1000` |
+| Headroom | `HEADROOM_URL`, default `http://headroom:8787`. The messages go there first. |
 
 ## Image release
 
@@ -104,8 +106,9 @@ The installers ask for profiles only when `.env` is absent. If you decline Open 
 
 | Setting | Value |
 | --- | --- |
-| API base | `http://api:3357/v1` |
-| API key | `OPENWEBUI_API_KEY`, else `DAEDALUS_MASTER_KEY` |
+| API base (`OPENAI_API_BASE_URL`) | `http://api:3357/v1` |
+| API key (`OPENAI_API_KEY`) | `OPENWEBUI_API_KEY`, else `DAEDALUS_MASTER_KEY` |
+| `ENABLE_OLLAMA_API` | `false`. Every model comes from daedalus. |
 | First user | Becomes the Open WebUI admin |
 | `ENABLE_FORWARD_USER_INFO_HEADERS` | `true`. It sends the chat id and the user facts for [try again](architecture.md#try-again). |
 | `WEBUI_SECRET_KEY` | From `.env`. Without it, each new container makes a new key, and all logins end. |
@@ -114,12 +117,12 @@ The installers ask for profiles only when `.env` is absent. If you decline Open 
 | `AUDIO_STT_ENGINE`, `AUDIO_STT_MODEL` | `openai` and `daedalus/graphos`. Speech to text goes to daedalus, not to a local Whisper. |
 | `ENABLE_IMAGE_GENERATION`, `IMAGE_GENERATION_MODEL` | `true` and `daedalus/photos` |
 | `ENABLE_IMAGE_EDIT`, `IMAGE_EDIT_ENGINE`, `IMAGE_EDIT_MODEL` | `true`, `openai` and `daedalus/photos`. Only the photos models with image input edit. |
-| `AUDIO_STT_OPENAI_API_*`, `IMAGES_OPENAI_API_*`, `IMAGES_EDIT_OPENAI_API_*` | The daedalus API base and key. Without them, speech and images go to OpenAI. |
+| `AUDIO_STT_OPENAI_API_BASE_URL`, `AUDIO_STT_OPENAI_API_KEY`, `IMAGES_OPENAI_API_BASE_URL`, `IMAGES_OPENAI_API_KEY`, `IMAGES_EDIT_OPENAI_API_BASE_URL`, `IMAGES_EDIT_OPENAI_API_KEY` | The daedalus API base and key. Without them, speech and images go to OpenAI. |
 | `VECTOR_DB`, `PGVECTOR_DB_URL` | `pgvector` in `webui-db`, for files, knowledge and memory. `main-slim` supports no other vector store. |
 | `ENABLE_MEMORY_BACKGROUND_REVIEW`, `MEMORIES_REVIEW_INTERVAL_TURNS` | `true` and `5`. After every 5th user turn, the chat model reviews the last turns and drafts the memories. |
-| `RAG_EMBEDDING_ENGINE`, `RAG_EMBEDDING_MODEL` | `openai` and `mistral/mistral-embed-2312` through daedalus. `main-slim` has no local embedding model. |
-| `CONTENT_EXTRACTION_ENGINE` | `tika`. Without the `tika` profile, PDF and Office files fail. Plain text skips it. |
-| `ENABLE_WEB_SEARCH`, `WEB_SEARCH_ENGINE` | `true` and `searxng`. Without the `search` profile, a web search fails. |
+| `RAG_OPENAI_API_BASE_URL`, `RAG_OPENAI_API_KEY`, `RAG_EMBEDDING_ENGINE`, `RAG_EMBEDDING_MODEL` | `http://api:3357/v1`, the daedalus key, `openai` and `mistral/mistral-embed-2312`. `main-slim` has no local embedding model. |
+| `CONTENT_EXTRACTION_ENGINE`, `TIKA_SERVER_URL` | `tika` and `http://tika:9998`. Without the `tika` profile, PDF and Office files fail. Plain text skips it. |
+| `ENABLE_WEB_SEARCH`, `WEB_SEARCH_ENGINE`, `SEARXNG_QUERY_URL` | `true`, `searxng` and `http://searxng:8080/search?q=<query>`. Without the `search` profile, a web search fails. |
 | `DEFAULT_MODEL_METADATA` | On in each new chat. An existing install: **Admin Settings → Models → Defaults**. |
 | MCP servers | MCP tools need **Native** function calling. Tool requests skip the models without it. See [MCP](https://docs.openwebui.com/features/extensibility/mcp/). |
 | Spoken replies | **Settings → Audio**: Web API or Kokoro.js. Gemini TTS allows 3 requests per minute. |
@@ -157,6 +160,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Image | `pgvector/pgvector:0.8.6-pg18-trixie` |
 | Content | The vectors of files, knowledge and memory. The chats stay in the `open-webui` volume. |
 | Password | `OPENWEBUI_DB_PASSWORD`, default `openwebui`. No port on the host. |
+| Keys | `POSTGRES_USER`, `POSTGRES_PASSWORD` and `POSTGRES_DB`, all `openwebui`. |
 | Vector size | `PGVECTOR_INITIALIZE_MAX_VECTOR_LENGTH` is `1024`, the size of a `mistral/mistral-embed-2312` vector. A new model needs a new index. |
 | Volume | `webui-db` |
 
@@ -165,7 +169,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Setting | Value |
 | --- | --- |
 | Image | `apache/tika:3.3.0.0-full`, with Tesseract OCR. Open WebUI uses the Tika 3 API by default. |
-| Process | 1 Java process (`-noFork`) with a 512 MB heap |
+| Process | 1 Java process (`-noFork`) with a 512 MB heap, from `JAVA_TOOL_OPTIONS` |
 | Out of memory | Java stops, and Docker starts Tika again |
 | OCR | Tesseract reads the text-poor pages on the Pi CPU. 1 scanned page takes many seconds. |
 | Compose | `required: false` in the Open WebUI `depends_on`: `webui` starts without Tika. Compose 2.20 or later. |
@@ -177,6 +181,8 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Image | `searxng/searxng:2026.9.25-12f8b6515` |
 | Settings | [`services/searxng/settings.yml`](../services/searxng/settings.yml): JSON results on, the limiter off, so no Valkey |
 | `SEARXNG_SECRET` | From `.env`. Empty by default: no SearXNG host port, the image proxy off. |
+| `SEARXNG_QUERY_URL` | Open WebUI answers on `http://searxng:8080/search?q=<query>`. |
+| `FORCE_OWNERSHIP` | `false`, for the read-only settings file. |
 | When it searches | With Native function calling, the model decides. Tell it to search when it does not. |
 | Blocks | SearXNG queries public search engines. They can block the Pi address or show a CAPTCHA. |
 
@@ -191,6 +197,8 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Log | `saved=N` shows the saved tokens. |
 | `HEADROOM_BEACON` | `off`. The anonymous upload of compression stats, on by default. |
 | `HEADROOM_UPDATE_CHECK` | `off`. Compose pins the image version. |
+| `HEADROOM_COMPRESS_ALLOW_REMOTE` | `1`. Without it, Headroom answers the `api` container with a 404. |
+| `HEADROOM_TELEMETRY`, `HOME`, `HEADROOM_WORKSPACE_DIR` | Telemetry `off`, and the workspace of the image user at `/home/nonroot`. |
 
 Headroom is worth it for long agentic tasks. So far, it keeps token use lower with the same model quality.
 
@@ -204,4 +212,5 @@ Headroom is worth it for long agentic tasks. So far, it keeps token use lower wi
 | Open WebUI | `https://TS_HOSTNAME_OWUI.TAILNET.ts.net:8443`, with the `webui` and `tailscale-openwebui` profiles. A phone microphone needs the HTTPS. |
 | Funnel | Off: only your tailnet can connect. |
 | `TS_AUTH_ONCE` | `true`. The state volume keeps the login across restarts, old auth keys included. |
-| Health | `/healthz` on `127.0.0.1:9002`. `docker ps` shows "unhealthy" when the device has no tailnet address. |
+| `TS_STATE_DIR`, `TS_SERVE_CONFIG` | `/var/lib/tailscale` and `/config/serve.json`. |
+| Health | `TS_ENABLE_HEALTH_CHECK` and `TS_LOCAL_ADDR_PORT` at `127.0.0.1:9002`: `/healthz`. `docker ps` shows "unhealthy" when the device has no tailnet address. |
