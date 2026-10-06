@@ -2564,6 +2564,7 @@ def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
     ".models tr > td.hide-sm { display: none; }",
     ".keys tr > td.name { grid-column: 1; grid-row: 1; max-width: none; }",
     ".keys tr > td:nth-child(4) { grid-column: 1; grid-row: 2; }",
+    'section[data-page="requests"] .requests-bar { padding: 0 0 15px; }',
   ):
     assert rule in phone, rule
   assert ".sections button.on" in css and ".section-pane {" in css, (
