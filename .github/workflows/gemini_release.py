@@ -260,12 +260,8 @@ def ancestor(base, target):
   return code == 0
 
 
-def baseline(rows, tag, target, previous=""):
-  published = [r for r in rows if not r["draft"] and r["tag_name"] != tag]
-  if previous:
-    published = [r for r in published if r["tag_name"] == previous]
-    if not published:
-      raise RuntimeError("Previous tag has no published release")
+def baseline(rows, target):
+  published = [r for r in rows if not r["draft"]]
   for row in sorted(published, key=lambda r: r["published_at"], reverse=True):
     sha = tag_sha(row["tag_name"])
     if ancestor(sha, target):
@@ -744,9 +740,8 @@ def next_version(previous, impact, promote=False):
   return f"{major}.{minor}.{patch + 1}"
 
 
-def version_tag(previous, version):
-  """Tags always carry the `v` prefix; `previous` stays for baselines without one."""
-  del previous
+def version_tag(version):
+  """Tags always carry the `v` prefix."""
   if not version:
     return None
   return "v" + version
@@ -782,7 +777,7 @@ def check_remote_target(repo, branch, target):
 
 def current_base(repo, target):
   rows = releases(repo)
-  previous, base = baseline(rows, "", target)
+  previous, base = baseline(rows, target)
   record = next((row for row in rows if row["tag_name"] == previous), None)
   if record and record["prerelease"]:
     raise RuntimeError("Published prerelease baseline needs a new decision")
@@ -949,7 +944,7 @@ def propose(repo, branch):
   if not version:
     summary("No release impact; no proposal artifact or tag created.")
     return
-  tag = version_tag(previous, version)
+  tag = version_tag(version)
   if any(r["tag_name"] == tag for r in releases(repo)):
     raise RuntimeError("Proposed tag already has a release")
   if remote_ref(repo, tag) is not None:
@@ -1113,7 +1108,7 @@ def approve(repo, branch):
   version = next_version(
     release_version(proposal["previous"]), proposal["impact"], proposal["promote"]
   )
-  tag = version_tag(proposal["previous"], version)
+  tag = version_tag(version)
   if not version or proposal["version"] != version or proposal["tag"] != tag:
     raise RuntimeError("Proposed version does not match its evidence")
   link = (
