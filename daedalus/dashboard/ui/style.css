@@ -637,6 +637,8 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
     flex-wrap: wrap; background: transparent; border: 0; border-bottom: 1px solid var(--line);
     border-radius: 0; padding: 0;
   }
+  /* The bar keeps 15px under the rule, past the panel padding that every panel carries. */
+  section[data-page="requests"] .requests-bar { padding: 0 0 15px; }
   .requests-bar input[type=search] { flex: 1 1 100%; min-width: 0; }
   .requests-bar select, .requests-bar .live-toggle { flex: 1 1 auto; }
   /* A phone drops the count line: the cards carry the state, and the line only pushes them down. */
