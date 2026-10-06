@@ -171,7 +171,7 @@ A save of a file that is not valid YAML, or that has a key 2 times in 1 map, get
 A provider file on disk that is not valid YAML still gets its tab. It opens in the YAML view, with the error line next to the Save button. Fix the text there and save it.
 
 A field hint rides behind the info icon next to its label. The `Tiers`, `Model overrides` and
-`Provider values` groups start closed.
+`Provider values` groups start closed, and their icon carries the group hint.
 
 ## Limits
 
