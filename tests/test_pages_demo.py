@@ -430,7 +430,13 @@ def test_the_build_copies_the_page_and_loads_the_demo_first(tmp_path: Path) -> N
   out = pages_demo.build(tmp_path / "site", pages_demo.demo_version())
   page = (out / "index.html").read_text(encoding="utf-8")
   assert page.index("demo.js") < page.index("ui/app.js")
-  assert 'src="demo.js"' in page
+  assert f'src="demo.js?v={pages_demo.demo_version()}"' in page, "the demo script"
+  assert f'src="ui/app.js?v={pages_demo.demo_version()}"' in page, (
+    "the version rides on the script"
+  )
+  assert f'href="ui/style.css?v={pages_demo.demo_version()}"' in page, (
+    "and on the style"
+  )
   for name in ("app.js", "index.html", "style.css", "manifest.json", "logo.svg"):
     assert (out / "ui" / name).exists() or (out / name).exists(), name
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
