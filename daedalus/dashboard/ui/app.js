@@ -306,7 +306,7 @@ function renderStatus(status) {
   setStateKnown(true);
   renderStatusCard(status);
   $("version").textContent = status.version;
-  markNavFades();
+  markNavSteps();
 }
 
 // The tier filter of the Models tab for each pool. The other pools show all tiers.
@@ -770,23 +770,27 @@ function requestMatches(r, { live = false } = {}) {
   return true;
 }
 
-// The kept rows the toolbar shows, and the count beside the controls.
+// The kept rows the toolbar shows, and the count beside the controls. The count and the empty row
+// read both lists: the requests in flight at the top, and the kept ones below.
 function renderRequestTable() {
   const rows = state.requests.filter((r) => requestMatches(r));
-  renderRequests(rows, state.requests.length && !rows.length
+  const live = [...state.live.values()].filter((r) => requestMatches(r, { live: true })).length;
+  const total = state.requests.length + live;
+  renderRequests(rows, total && !rows.length && !live
     ? "No requests match the filter, or the kept window holds no such request"
-    : "No requests");
+    : "No requests", live);
   $("request-clear").hidden = !state.requestSearch && state.requestStatus === "all" && !state.requestHours;
   $("more-requests").hidden = state.requestFetched < state.requestLimit
     || state.requestLimit >= REQUESTS_KEPT;
-  $("request-count").textContent = state.requests.length
-    ? `${count(rows.length, "request")} of ${state.requests.length}`
-    : "";
+  const shown = rows.length + live;
+  const head = shown === total ? count(total, "request") : `${shown} of ${count(total, "request")}`;
+  $("request-count").textContent = total ? `${head}${live ? ` · ${live} in flight` : ""}` : "";
 }
 
-function renderRequests(rows, empty = "No requests") {
+function renderRequests(rows, empty = "No requests", live = 0) {
   const flatRows = splitRequests(rows);
-  const text = JSON.stringify(flatRows);
+  // The live count rides in the key: a live row hides the empty row, so it changes the markup.
+  const text = JSON.stringify([flatRows, live ? 1 : 0]);
   const selected = getSelection();
   if (text === shownRequests) return;
   if (!selected.isCollapsed && $("requests").contains(selected.anchorNode)) return;
@@ -809,7 +813,7 @@ function renderRequests(rows, empty = "No requests") {
       ${cell("Stream", streamCell(r), "hide-sm hide-md num")}
       ${fallbackCell(r, "hide-sm hide-md num")}
     </tr>${chainOpen ? chainRows(r) : ""}`;
-  }).join("") : `<tr role="row"><td role="cell" colspan="13" class="empty">${empty}</td></tr>`;
+  }).join("") : live ? "" : `<tr role="row"><td role="cell" colspan="13" class="empty">${empty}</td></tr>`;
 }
 
 // The label of each catalog mode.
@@ -887,6 +891,10 @@ function renderSortHeads() {
     const on = th.dataset.sort === state.sort.key;
     th.setAttribute("aria-sort", on ? (state.sort.dir > 0 ? "ascending" : "descending") : "none");
   });
+  const small = $("sort-small");
+  if ([...small.options].some((option) => option.value === state.sort.key)) {
+    small.value = state.sort.key;
+  }
 }
 
 const dash = '<span class="muted">-</span>';
@@ -918,14 +926,14 @@ function renderModels() {
     <tr>
       ${nameCell(m.id, modelName(m.id), "Model", `<span class="types phone-types">${typeChips(m)}</span>`)}
       <td class="hide-sm"><div class="types">${typeChips(m)}</div></td>
-      <td class="mid">${m.tier ? `<span class="tier" title="${esc(m.tier)}">${esc(tierLetter(m.tier))}</span>` : dash}</td>
+      <td class="mid">${mobileLabel("Tier")}<span class="cell-value">${m.tier ? `<span class="tier" title="${esc(m.tier)}">${esc(tierLetter(m.tier))}</span>` : dash}</span></td>
       <td class="hide-sm mid num${m.order > 1 ? "" : " muted"}">${m.order ?? dash}</td>
       <td class="hide-sm num muted"><span${m.max_input_tokens ? ` title="${m.max_input_tokens.toLocaleString()} tokens"` : ""}>${tokens(m.max_input_tokens)}</span></td>
-      <td class="mid">${m.mode === "chat" ? yesNo(m.tools) : dash}</td>
+      <td class="mid">${mobileLabel("Tools")}<span class="cell-value">${m.mode === "chat" ? yesNo(m.tools) : dash}</span></td>
       <td class="hide-sm mid">${m.mode === "chat" ? reasoningCell(m) : dash}</td>
-      <td class="num">${coolCells(m)}</td>
-      <td>${m.weight == null ? dash
-        : `<div class="weight">${weightBar(m.weight)}<span class="num">${m.weight.toFixed(2)}</span></div>`}</td>
+      <td class="num">${mobileLabel("Cooldown")}<span class="cell-value">${coolCells(m)}</span></td>
+      <td>${mobileLabel("Weight")}<span class="cell-value">${m.weight == null ? dash
+        : `<div class="weight">${weightBar(m.weight)}<span class="num">${m.weight.toFixed(2)}</span></div>`}</span></td>
     </tr>`).join("") : `<tr><td colspan="9" class="empty">${empty}</td></tr>`);
 }
 
@@ -966,10 +974,10 @@ async function refreshEnv() {
 function renderKeys(rows) {
   draw("keys", rows.length ? rows.map((k) => `
     <tr>
-      <td>${esc(k.name)}</td>
+      <td class="name" title="${esc(k.name)}">${esc(k.name)}</td>
       <td class="num muted mono"><span${k.start ? ` title="Only the start of a saved key is kept"` : ""}>${k.start ? esc(k.start) + "&hellip;" : "-"}</span></td>
       <td class="hide-sm muted">${stamp(k.created)}</td>
-      <td class="muted">${k.used ? stamp(k.used) : "never"}</td>
+      <td class="muted">${mobileLabel("Last used")}<span class="cell-value">${k.used ? stamp(k.used) : "never"}</span></td>
       <td class="end"><button type="button" class="ghost danger" data-key="${esc(k.name)}">Delete</button></td>
     </tr>`).join("") : '<tr><td colspan="5" class="empty">No API keys. The master key opens /v1.</td></tr>');
 }
@@ -1212,8 +1220,23 @@ function dropSetting(path) {
   renderSettingsSave();
 }
 
+// The label of a field, with its hint behind an info icon on a desktop and under the label on a phone.
+let HINT_COUNT = 0;
+function labelSpan(label, hint) {
+  if (!hint) return `<span><b>${esc(label)}</b></span>`;
+  const id = `hint-${++HINT_COUNT}`;
+  return `<span><b>${esc(label)}</b><button type="button" class="hint" aria-describedby="${id}"`
+    + ` aria-label="Hint">i</button><small id="${id}" role="tooltip">${esc(hint)}</small></span>`;
+}
+
 function field(label, hint, body) {
-  return `<div class="field stack"><span><b>${esc(label)}</b>${hint ? `<small>${esc(hint)}</small>` : ""}</span>${body}</div>`;
+  return `<div class="field stack info">${labelSpan(label, hint)}${body}</div>`;
+}
+
+// A group of fields that starts closed, so a long card stays short.
+function fold(label, hint, body) {
+  return `<details class="fold"><summary>${esc(label)}<button type="button" class="hint" aria-label="Hint">i</button>`
+    + `<small role="tooltip">${esc(hint)}</small></summary><div class="fold-body">${body}</div></details>`;
 }
 
 function providerCard(name, block) {
@@ -1305,19 +1328,20 @@ function providerCard(name, block) {
     </div>`).join("");
   const others = Object.keys(block).filter((key) => !FORM_KEYS.includes(key) && key !== "_file");
   const values = others.map((key) => pill(`${key}: ${shown(block[key])}`, path, key)).join("") + adder(path, "column", "+ key");
-  const accountField = name === "cloudflare" ? text("account_id", "Account ID", "For Cloudflare: env:NAME or db:NAME. Pasting your ID stores it in the database.") : "";
+  const accountField = name === "cloudflare" ? text("account_id", "Account ID", "The Cloudflare account of the URL templates") : "";
   return `<div class="card provider" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
-    ${text("api_key", "API key", "env:NAME reads the environment variables, pasting your key stores it in the database.")}
+    <p class="sub">env:NAME reads the environment variables. A pasted key goes to the database.</p>
+    ${text("api_key", "API key")}
     ${accountField}
-    ${field("Client keys", "env:NAME reads the environment variables, pasting your key stores it in the database.", `<div class="pills">${mapPills(block.client_keys, [...path, "client_keys"], "match", " = ")}</div>`)}
+    ${field("Client keys", "A provider key for each daedalus key name", `<div class="pills">${mapPills(block.client_keys, [...path, "client_keys"], "match", " = ")}</div>`)}
     ${text("api_base", "API base", "Empty: the default, in gray")}
     ${text("api_type", "API type", "openai or gemini. Empty: the default, in gray")}
     ${text("discovery_url", "Discovery URL", "The model list URL. Empty: the default, in gray")}
     ${field("Discovery match", "The catalog keeps a model when each key matches", `<div class="pills">${mapPills(block.discovery_match, [...path, "discovery_match"], "match", " = ")}</div>`)}
     ${field("Exclude", "Model patterns that never route", listField("exclude", block.exclude, [...path, "exclude"]))}
-    ${field("Tiers", "Model patterns for each tier", tiers)}
-    ${field("Model overrides", "A pattern and the catalog values that it sets", `${overrides}<div class="pills">${adder([...path, "models"], "pattern", "+ Pattern")}</div>`)}
-    ${field("Provider values", "Catalog values for each model of the provider. A model override has priority.", `<div class="pills">${values}</div>`)}
+    ${fold("Tiers", "Model patterns for each tier", tiers)}
+    ${fold("Model overrides", "A pattern and the catalog values that it sets", `${overrides}<div class="pills">${adder([...path, "models"], "pattern", "+ Pattern")}</div>`)}
+    ${fold("Provider values", "Catalog values for each model of the provider. A model override has priority.", `<div class="pills">${values}</div>`)}
   </div>`;
 }
 
@@ -1621,7 +1645,6 @@ const SETTINGS = [
 ];
 
 // The Settings cards of each column, from top to bottom.
-const SETTINGS_COLUMNS = [["timeouts", "catalog", "pacing", "pools"], ["affinity", "headroom", "routing", "cooldown", "loops", "dashboard"], ["weights", "escalation", "switch", "request_hooks"]];
 // The options of each choice field.
 const CHOICES = {
   mode: [["none", "None"], ["session", "Session"], ["race", "Race"]],
@@ -1687,35 +1710,35 @@ function renderSettings() {
           aria-describedby="${id}-hint" aria-label="Hint">i</button><small id="${id}-hint" role="tooltip">${esc(hint)}</small></span></label>`;
       }
       if (unit === "choice") {
-        return `<label class="field" for="${id}"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
+        return `<label class="field info" for="${id}">${labelSpan(label, hint)}
           <select id="${id}">${CHOICES[key].map(([name, text]) => `<option value="${name}"${setting(group, key) === name ? " selected" : ""}>${text}</option>`).join("")}</select></label>`;
       }
       if (unit === "name") {
-        return `<label class="field" for="${id}"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
+        return `<label class="field info" for="${id}">${labelSpan(label, hint)}
           <span class="input"><i class="prefix">daedalus/</i><input type="text" id="${id}" maxlength="40" spellcheck="false"
             value="${esc(fileValue(group, key) ?? "")}" placeholder="${esc(state.settings.defaults[group][key])}"></span></label>`;
       }
       if (unit === "hooks") {
-        return `<div class="field stack"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
+        return `<div class="field stack info">${labelSpan(label, hint)}
           <div class="pills" id="${id}" aria-label="${esc(label)}">${hookList(group, key)}</div></div>`;
       }
       if (unit === "list") {
         const values = listValue(group, key);
-        return `<div class="field stack"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
+        return `<div class="field stack info">${labelSpan(label, hint)}
           <div class="pills" id="${id}" aria-label="${esc(label)}">${values
             .map((value, index) => settingPill(group, key, value, index)).join("")}${settingAdder(group, key)}</div></div>`;
       }
       const fallback = state.settings.defaults[group][key];
       const value = fileValue(group, key);
-      return `<label class="field" for="${id}"><span><b>${esc(label)}</b><small>${esc(hint)}</small></span>
+      return `<label class="field info" for="${id}">${labelSpan(label, hint)}
         <span class="input"><input type="number" min="${MINIMA[`${group}.${key}`] ?? 0}" id="${id}" value="${value ?? ""}"
           step="${DECIMALS.has(`${group}.${key}`) ? "any" : "1"}" ${MAXIMA[`${group}.${key}`] ? `max="${MAXIMA[`${group}.${key}`]}"` : ""}
           placeholder="${fallback ?? ""}"><i>${esc(unit)}</i></span></label>`;
     }).join("")}</div>`;
-  const cards = Object.fromEntries(SETTINGS.map((item) => [item[0], card(item)]));
-  $("settings").innerHTML = SETTINGS_COLUMNS
-    .map((column) => column.filter((group) => group !== "headroom" || state.settings.headroom_available))
-    .map((groups) => `<div class="column">${groups.map((group) => cards[group]).join("")}</div>`)
+  // The cards flow into balanced columns, so no column runs far past another.
+  $("settings").innerHTML = SETTINGS
+    .filter(([group]) => group !== "headroom" || state.settings.headroom_available)
+    .map((item) => card(item))
     .join("");
   // The rendered file wins, and the shown rows follow its mode.
   showAffinityRows(setting("affinity", "mode"));
@@ -2227,14 +2250,17 @@ function requestHash() {
   history.replaceState(null, "", `#/requests${query ? `?${query}` : ""}`);
 }
 
-// A fade at an edge of the tab bar shows the tabs that wait off screen.
+// A chevron at each end of the tab bar shows the tabs that wait off screen, and scrolls to them.
 const nav = $("nav");
-function markNavFades() {
+function markNavSteps() {
   const end = nav.scrollWidth - nav.clientWidth;
-  nav.classList.toggle("fade-left", nav.scrollLeft > 2);
-  nav.classList.toggle("fade-right", nav.scrollLeft < end - 2);
+  $("nav-left").hidden = nav.scrollLeft <= 2;
+  $("nav-right").hidden = nav.scrollLeft >= end - 2;
 }
-nav.addEventListener("scroll", markNavFades, { passive: true });
+nav.addEventListener("scroll", markNavSteps, { passive: true });
+for (const [id, step] of [["nav-left", -1], ["nav-right", 1]]) {
+  $(id).addEventListener("click", () => nav.scrollBy({ left: (step * nav.clientWidth) / 2, behavior: "smooth" }));
+}
 
 function showPage() {
   const [path, query] = location.hash.split("?");
@@ -2252,8 +2278,8 @@ function showPage() {
     if (on) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
   });
-  // The first paint marks the fades too, so a cut tab shows before the first status answer.
-  markNavFades();
+  // The first paint marks the chevrons too, so a cut tab shows before the first status answer.
+  markNavSteps();
   document.title = `daedalus · ${document.querySelector(`#nav a[data-page="${page}"]`).firstChild.textContent}`;
   if (page === "providers" && state.view === "form") renderForm();
 }
@@ -2268,6 +2294,11 @@ $("model-head").addEventListener("click", (event) => {
   // Up, then down, then back to the default order.
   const same = state.sort.key === key;
   state.sort = !same ? { key, dir: 1 } : state.sort.dir > 0 ? { key, dir: -1 } : { key: "", dir: 1 };
+  renderSortHeads();
+  renderModels();
+});
+$("sort-small").addEventListener("change", () => {
+  state.sort = { key: $("sort-small").value, dir: 1 };
   renderSortHeads();
   renderModels();
 });
@@ -2349,7 +2380,7 @@ $("provider-form").addEventListener("keydown", (event) => {
   if (event.key === "Enter" && event.target.dataset.pattern) event.target.blur();
 });
 window.addEventListener("resize", () => {
-  markNavFades();
+  markNavSteps();
   const host = $("provider-form");
   if (!host.hidden && host.clientWidth && Number(host.dataset.columns) !== formColumns()) renderForm();
 });
