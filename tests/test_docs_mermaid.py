@@ -8,6 +8,8 @@ CUSTOM = re.compile(
   r"^\s*(%%\{init:|classDef\b|class\s+[\w,\s-]+\s+\w+\s*$|style\s+\S+\s+fill:)",
   re.MULTILINE,
 )
+# The chains run LR, so a page fills the width of a desktop. A fan-out or a loop keeps TD.
+DIRECTION = re.compile(r"flowchart (LR|TD)")
 BLOCK = re.compile(r"```mermaid\n(.*?)```", re.DOTALL)
 
 
@@ -34,4 +36,15 @@ def test_the_check_finds_a_theme() -> None:
 def test_mermaid_blocks_stay_in_the_docs() -> None:
   """The pages keep their diagrams, so a removal never empties a page."""
   total = sum(len(BLOCK.findall(page.read_text(encoding="utf-8"))) for page in pages())
-  assert total == 21, total
+  assert total == 25, total
+
+
+def test_every_flow_chart_names_a_direction() -> None:
+  """A chart with no direction falls back to TD, the tall shape a desktop reader scrolls."""
+  found = []
+  for page in pages():
+    for block in BLOCK.findall(page.read_text(encoding="utf-8")):
+      head = block.strip().splitlines()[0].strip()
+      if head.startswith("flowchart") and DIRECTION.fullmatch(head) is None:
+        found.append(f"{page}: {head}")
+  assert found == [], "a flow chart with no direction: " + "; ".join(found)

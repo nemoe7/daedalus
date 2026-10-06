@@ -21,22 +21,30 @@ daedalus provides an OpenAI endpoint. It routes requests to a free model of the 
 
 ## Request flow
 
+The first chart is the gate and the model name. The next two follow the ladder, from the filters to the last error.
+
 ```mermaid
-flowchart TD
+flowchart LR
   C[Client] -->|POST /v1/chat/completions| A{Master key or API key?}
   A -->|no| E401[401]
   A -->|yes| M{Model name}
   M -->|daedalus/auto| CL[Classifier sets the tier]
   M -->|pool name| P[Tier of the pool]
   M -->|provider/slug| D[That model only]
-  CL --> L[Fallback ladder]
-  P --> L
-  L --> F[Remove models without tools, for a tool request]
+```
+
+```mermaid
+flowchart LR
+  L[Fallback ladder] --> F[Remove models without tools, for a tool request]
   F --> V[Remove models without vision, for an image request]
   V --> S[Remove models with a too-small context window]
   S --> O[Order: weights and session model]
-  D --> H
-  O --> H[Headroom compression, when on]
+```
+
+```mermaid
+flowchart LR
+  O[Order: weights and session model] --> H[Headroom compression, when on]
+  D[That model only] --> H
   H --> T[Try the next model]
   T -->|answer| OK[Answer to the client]
   T -->|error| T

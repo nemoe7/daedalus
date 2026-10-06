@@ -11,7 +11,7 @@ model by output price, and writes that order into each request.
 | Notes | A client `provider` object has priority. If the list read fails, the old order stays. |
 
 ```mermaid
-flowchart TD
+flowchart LR
   A[Catalog build] --> B{{on_catalog}}
   B --> C[Endpoints sorted by output price]
   C --> D[(cheapest_output.json)]

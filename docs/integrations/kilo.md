@@ -12,7 +12,7 @@ Kilo reads limits only from its config, and the plugin starts on each config cha
 | Fails | Open: a late or a failed read logs 1 line, and the Kilo config keeps its own values |
 
 ```mermaid
-flowchart TD
+flowchart LR
   A[Kilo reads its config] --> B[Provider block with a daedalus baseURL]
   B --> C[GET /models]
   C --> D[Patch each model of the block]
