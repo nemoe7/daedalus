@@ -694,7 +694,8 @@ function renderLive() {
     .sort((a, b) => b.since - a.since);
   $("live").innerHTML = rows.map((r) => `
     <tr role="row" class="live-row" data-live="${r.id}">
-      ${cell("Time", `<span class="pulse"></span>${stamp(r.since / 1000)}`, "num muted")}
+      ${cell("Time", `<span class="pulse"></span>${relative(r.since / 1000)}`, "num muted",
+        ` title="${esc(stamp(r.since / 1000))}"`)}
       ${appCell(r)}
       ${cell("Session", esc(r.session || "-"), "hide-sm hide-md num mono")}
       ${nameCell(r.model || r.path, modelName(r.model || r.path, poolOf(r)) + routingCodes(r))}
@@ -1702,7 +1703,8 @@ function placeUndo(anchor = null) {
     ?? document.querySelector(`.section-pane > .card[data-section="${lastWrite.section}"]`);
   if (!target) return;
   const row = target.closest(".field") ?? target;
-  row.append(lastWrite.button);
+  // The row reads {undo} {field}: the icon sits at the left of the row it changed.
+  row.prepend(lastWrite.button);
 }
 
 async function undoWrite() {
@@ -1936,10 +1938,9 @@ function renderSettings() {
     <div class="card"><h3>${esc(title)}</h3>${fields.map(([key, label, unit, hint]) => {
       const id = `set-${group}-${key}`;
       if (isSwitch(group, key)) {
-        // A desktop hides the hint behind the info icon; a phone keeps it under the label.
-        return `<label class="field check" for="${id}"><input type="checkbox" id="${id}"
-          ${setting(group, key) ? "checked" : ""}><span><b>${esc(label)}</b><button type="button" class="hint"
-          aria-describedby="${id}-hint" aria-label="Hint">i</button><small id="${id}-hint" role="tooltip">${esc(hint)}</small></span></label>`;
+        // A boolean row reads as a row: the label with its hint, then the switch at the right edge.
+        return `<label class="field info" for="${id}">${labelSpan(label, hint)}
+          <input type="checkbox" role="switch" class="switch" id="${id}" ${setting(group, key) ? "checked" : ""}></label>`;
       }
       if (unit === "choice") {
         return `<label class="field info" for="${id}">${labelSpan(label, hint)}
@@ -2147,6 +2148,12 @@ function limitTitle(r) {
   return r.span ? `${kind} per ${SPAN_WORD[r.span] || r.span}` : kind;
 }
 
+// A time cell of the Limits table: the relative time, with the exact stamp on hover. An empty
+// value keeps the dash.
+const limitTimeCell = (seconds, cls) => (seconds
+  ? `<td class="${cls}" title="${esc(stamp(seconds))}">${esc(relative(seconds))}</td>`
+  : `<td class="${cls}">-</td>`);
+
 // The balances, then the 3 rate-limit rows with the least left.
 function overviewLimits(data) {
   if (!data) return "";
@@ -2192,8 +2199,8 @@ function renderLimitRows(rows) {
       <td><div class="weight left" title="${r.remaining.toLocaleString()} of ${r.limit.toLocaleString()}">
         ${weightBar(r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0)}
         <span class="num${r.remaining > 0 ? "" : " out"}">${floorCount(r.remaining)} of ${floorCount(r.limit)}</span></div></td>
-      <td class="hide-sm muted time">${r.reset ? stamp(r.reset) : "-"}</td>
-      <td class="hide-sm muted time">${stamp(r.at)}</td>
+      ${limitTimeCell(r.reset, "hide-sm muted time")}
+      ${limitTimeCell(r.at, "hide-sm muted time")}
     </tr>`).join("") : '<tr><td colspan="5" class="empty">No rate-limit headers yet. Groq and Mistral send them with each answer.</td></tr>');
 }
 
