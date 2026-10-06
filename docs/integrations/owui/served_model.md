@@ -22,9 +22,9 @@ flowchart TD
 
 The Filter starts nothing and needs no key. Without a served model in the stream, it draws no line. The
 `enabled` Valve silences the line without an uninstall, and `prefix` puts own text before it. The
-`when` Valve sets the moment: `always` draws each line that arrives, and `on change` draws a line
+`when` Valve sets the moment: `always` draws the line of each answer, and `on change` draws a line
 only when the served model of the chat moves. The Filter keeps the last served model of each chat
-for that valve.
+for that valve, so a repeat stays quiet under `on change` alone.
 Open WebUI draws the newest entry of the status list a second time while the reader has the list
 open. That row is the header row of the list, so no line is lost.
 
