@@ -68,6 +68,10 @@ AGENT_SEEN_META='agent_seen_at'
 AGENT_KEY_RE=re.compile('[A-Za-z0-9_-]{20,64}\\Z')
 AGENT_HOST_RE=re.compile('https://[A-Za-z0-9.-]+\\Z')
 def now():return datetime.now(timezone.utc).isoformat()
+def workspace_branch(root=None):
+	try:head=(Path(root or Path.cwd())/'.git'/'HEAD').read_text(encoding='utf-8').strip()
+	except OSError:return''
+	prefix='ref: refs/heads/';return head[len(prefix):]if head.startswith(prefix)else''
 def clear_skip_poll(db):db.execute('DELETE FROM meta WHERE key = ?',(SKIP_POLL_META,))
 def reset_poll_count(db):
 	unacked=db.execute('SELECT (SELECT count(*) FROM notes WHERE acknowledged_at IS NULL) + (SELECT count(*) FROM submissions WHERE acknowledged_at IS NULL)').fetchone()[0]
@@ -1008,7 +1012,7 @@ def handler(store):
 					except RuntimeError as error:state['rendering_error']=str(error)
 					self.reply(200,json.dumps(state,ensure_ascii=False));return
 				if path=='/api/submissions':live={report['id']for report in store.state()['reports']};self.reply(200,json.dumps([saved_answer_line(record)for record in store.submissions()if record['report_id']in live],ensure_ascii=False),'application/json; charset=utf-8');return
-				if path=='/api/copy-state':notes=store.state()['notes'];lines,counts=store.state_lines(notes,store.tasks()or{});self.reply(200,json.dumps({'text':state_ndjson(lines),'counts':counts,'stamp':store.newest_stamp()},ensure_ascii=False),'application/json; charset=utf-8');return
+				if path=='/api/copy-state':notes=store.state()['notes'];lines,counts=store.state_lines(notes,store.tasks()or{});self.reply(200,json.dumps({'text':state_ndjson(lines),'counts':counts,'stamp':store.newest_stamp(),'repo':store.path.parent.parent.name,'branch':workspace_branch(store.path.parent.parent)},ensure_ascii=False),'application/json; charset=utf-8');return
 				if path=='/api/report-sources':self.reply(200,json.dumps([saved_report_line(record)for record in store.report_sources()],ensure_ascii=False),'application/json; charset=utf-8');return
 				match=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/(html|source)',path)
 				if match:
