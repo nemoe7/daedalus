@@ -51,6 +51,14 @@ def answer(request: httpx.Request) -> httpx.Response:
   return httpx.Response(200, json={"id": "x", "model": "m", "choices": [choice]})
 
 
+def test_ui_path_sends_the_reader_to_the_page(client: TestClient) -> None:
+  """`/ui` and `/ui/` answer a redirect to the page at `/`."""
+  for path in ("/ui", "/ui/"):
+    answer = client.get(path, follow_redirects=False)
+    assert answer.status_code == 307, answer.text
+    assert answer.headers["location"] == "/"
+
+
 def test_page(client: TestClient) -> None:
   page = client.get("/")
   assert page.status_code == 200 and "text/html" in page.headers["content-type"]
