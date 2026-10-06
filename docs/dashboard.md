@@ -207,7 +207,7 @@ To test the token, send the query of [`daedalus/routing/limits.py`](../daedalus/
 
 ## A phone
 
-The Settings page and the provider form show their section list alone on a phone. A pick opens 1 section, and the button above it returns to the list.
+The Settings page and the provider form show their section list alone on a phone. Each row carries a chevron, and a pick opens 1 section as its own page. The section rides in the hash as `#/settings?section=timeouts`, so the back gesture of the phone returns to the list. The button above the card names that list, as `‹ Settings`, for a phone without the gesture.
 
 A phone keeps the 4 numbers of the Overview above the status card, in 2 rows of 2. The Models table
 and the API keys table become cards, as the Requests table does. A chevron at an end of the tab bar
