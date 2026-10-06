@@ -2360,15 +2360,16 @@ def test_a_phone_keeps_the_tap_size_of_its_controls() -> None:
   ) in css, "the phone keeps the 44px target of the filter controls"
 
 
-def test_the_save_bars_stick_under_the_header() -> None:
-  """The Save bar of Settings and Providers holds its place while the fields scroll."""
+def test_the_save_bars_keep_no_sticky_rule() -> None:
+  """The Save bar of Providers and Settings scrolls with its form, so no row hides behind it."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
   ).read_text(encoding="utf-8")
-  assert (
-    'section[data-page="providers"] > .editbar, section[data-page="settings"] > .editbar {\n'
-    "  position: sticky; top: 0; z-index: 4; background: var(--panel);"
-  ) in css, "the Save bars stick"
+  for page in ("providers", "settings"):
+    rules = re.findall(rf'section\[data-page="{page}"\][^{{}}]*\{{([^}}]*)\}}', css)
+    assert not any("position: sticky" in body for body in rules), (
+      f"a sticky Save bar hides the rows of the {page} form"
+    )
 
 
 def test_the_requests_bar_keeps_its_own_height() -> None:
