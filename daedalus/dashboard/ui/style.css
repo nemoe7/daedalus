@@ -356,7 +356,7 @@ section[data-page="providers"], section[data-page="settings"] {
 .card.yaml-view textarea { min-height: 320px; margin: 4px 0 0; border: 1px solid var(--line); border-radius: 8px; }
 .yaml-save { display: flex; align-items: center; gap: 12px; padding-top: 12px; }
 .files { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
-.files + .message { margin: -8px 0 12px; }
+.files + .message, .files + .write-note, .write-note + .message { margin: -8px 0 12px; }
 .provider .field.stack { flex-direction: column; align-items: stretch; gap: 8px; }
 .provider input.text { width: 100%; padding: 6px 10px; font: 13px var(--mono); }
 .pills { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -424,6 +424,7 @@ section[data-page="providers"], section[data-page="settings"] {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 10px 0; border-top: 1px solid var(--line);
 }
+.field { position: relative; }
 .field:first-of-type { border-top: 0; }
 /* A card with an On switch greys its other rows while the switch is off. */
 .field.off { opacity: .5; }
@@ -447,7 +448,7 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6
 .field.check > span, .field.info > span { position: relative; grid-template-columns: auto auto; justify-content: start; align-items: center; column-gap: 6px; }
 .field.check .hint, .field.info .hint {
   width: 16px; height: 16px; padding: 0; border: 1px solid var(--line); border-radius: 50%;
-  background: transparent; color: var(--muted); font: 11px/1 var(--mono);
+  background: transparent; color: var(--muted); font-family: inherit; font-size: 11px; line-height: 1;
 }
 .field.check .hint:hover, .field.check .hint:focus-visible,
 .field.info .hint:hover, .field.info .hint:focus-visible { color: var(--text); border-color: var(--muted); }
@@ -471,7 +472,7 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6
 /* The info icon of a closed group carries its hint, as the icon of a field does. */
 .fold summary .hint {
   margin-left: 2px; width: 16px; height: 16px; padding: 0; border: 1px solid var(--line);
-  border-radius: 50%; background: transparent; color: var(--muted); font: 11px/1 var(--mono);
+  border-radius: 50%; background: transparent; color: var(--muted); font-family: inherit; font-size: 11px; line-height: 1;
 }
 .fold summary .hint:hover, .fold summary .hint:focus-visible { color: var(--text); border-color: var(--muted); }
 .fold summary .hint:hover ~ small, .fold summary .hint:focus ~ small {
@@ -508,6 +509,19 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 .message:empty { display: none; }
 /* The status line of a write, with its Undo. It stays out of the way until a write lands. */
 .write-note { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; }
+/* The Undo of the last write, beside the row that caused it: a small round arrow. */
+.undo-step {
+  padding: 0; width: 26px; height: 26px; border-radius: 50%; flex: none;
+  font-size: 14px; line-height: 1; color: var(--accent); border-color: var(--accent);
+}
+.undo-step:hover { color: var(--text); border-color: var(--muted); }
+.field > .undo-step { position: absolute; right: 0; top: 8px; }
+/* The card holds the icon at its top right when the row itself went away. */
+.card { position: relative; }
+.card > .undo-step { position: absolute; right: 16px; top: 12px; }
+/* The action chips of the file row: a new file, and the delete of a provider file. */
+.files .tab.danger { color: var(--bad); border-color: var(--line); }
+.files .tab.danger:hover { color: var(--bad); border-color: var(--bad); }
 .message.ok { color: var(--ok); } .message.bad { color: var(--bad); }
 .hint { margin-left: auto; font-size: 12px; color: var(--muted); }
 .panel.env { margin-top: 16px; }
