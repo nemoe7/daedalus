@@ -1345,7 +1345,9 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   REQUEST_HOOKS = dict(values["request_hooks"])
   router.set_headroom(values["headroom"]["enabled"])
   router.set_threshold(values["routing"]["threshold"])
-  remote.sync(values["remote_hooks"])
+  remote.sync(values["remote_hooks"], hosts=values["remote_hook_hosts"])
+  # Warn only: a file that does not compile stays in place, and the start goes on.
+  remote.compile_check(values["remote_hooks"])
   timeouts, affinity, weights = (
     values["timeouts"],
     values["affinity"],
