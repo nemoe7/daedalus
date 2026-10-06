@@ -2492,3 +2492,32 @@ def test_a_wrong_shape_is_refused_at_save(client: TestClient) -> None:
     ), good
   finally:
     client.request("DELETE", "/ui/api/files", json={"path": path})
+
+
+def test_a_failed_login_waits_and_locks(client: TestClient) -> None:
+  """A failed try waits, 5 failures lock the client out, and a good try lands after the lock."""
+  os.environ[dashboard.DAEDALUS_MASTER_KEY] = MASTER
+  dashboard.LOGIN_FAILURES.clear()
+  wrong = {"username": "admin", "password": MASTER + "x"}
+  good = {"username": "admin", "password": MASTER}
+  started = time.monotonic()
+  assert client.post("/ui/api/login", json=wrong).status_code == 401
+  assert time.monotonic() - started >= dashboard.LOGIN_DELAY, "a failed try waits"
+  delay = dashboard.LOGIN_DELAY
+  dashboard.LOGIN_DELAY = 0.0
+  try:
+    for _ in range(dashboard.LOGIN_LIMIT - 1):
+      assert client.post("/ui/api/login", json=wrong).status_code == 401
+    locked = client.post("/ui/api/login", json=wrong)
+    assert locked.status_code == 429, locked.text
+    assert "Wait" in locked.json()["error"]["message"], locked.text
+    assert client.post("/ui/api/login", json=good).status_code == 429, "the lock holds"
+    host = next(iter(dashboard.LOGIN_FAILURES))
+    dashboard.LOGIN_FAILURES[host] = (
+      dashboard.LOGIN_LIMIT,
+      time.time() - dashboard.LOGIN_LOCK - 1,
+    )
+    assert client.post("/ui/api/login", json=good).status_code == 200, "the lock ends"
+  finally:
+    dashboard.LOGIN_DELAY = delay
+    dashboard.LOGIN_FAILURES.clear()
