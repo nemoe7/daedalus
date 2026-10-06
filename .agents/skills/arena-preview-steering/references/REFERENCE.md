@@ -10,7 +10,7 @@ Use `scripts/preview.py` relative to the actual installed steering skill. The st
 | `serve --port 8000` | Start the shared preview with `start_process`, prefixed with `setsid` so no shell exit reaches it |
 | `read` | List every pending note and report answer; mark only delivered IDs Seen, and stamp the parent report read by the agent |
 | `key` | Print the recorded agent key, host and stamp; needs no server, and a later session recovers the key after the quiet note is acknowledged |
-| `poll` | Wait for a pending inbox item before ending a turn; return at once with the task list while an upcoming task is unblocked |
+| `poll` | Wait for a pending inbox item before ending a turn; return at once with the task list while an upcoming task is unblocked, and at once when the owner pressed Skip poll in the page |
 | `ack <id> --reply <markdown>` | Answer one delivered ID with a rendered reply |
 | `ack <id> --note <text>` | Answer one delivered ID with one plain line |
 | `task-list` | List tasks and their stored status, order and details |
@@ -33,6 +33,8 @@ Use this only after the owner selects the external channel. The owner supplies a
 ## Read cadence
 
 Read the inbox at turn start, each reasoning boundary, before and after every tool-call block, before expensive or irreversible work, and before turn end. When ending a turn or a report form awaits answers, run `poll`. Co-issue a read inside each parallel block and read again after it returns; a block is the cadence unit. A count that changes inside a block is a read now, not at the next boundary: the reminder prints only a count, so a higher count means notes nobody has read. ALWAYS run `poll` on the bash call that ends the turn, chained or not. Between two reads, NEVER run a fourth bash call; a read MUST come before it. NEVER set or export `_arena_preview_platform`; a blocked gate is repaired, NEVER bypassed. A blocking-only call needs its read after return. Initial discovery may precede the first read; startup MUST.
+
+The page's Message log toolbar carries a Skip poll button. A press arms one flag and writes no note, so no stale line waits in the log for a later turn to misread. A second press clears the flag, so the owner can take the skip back before the poll reads it. A listing that carries a `skip_poll` stamp reports it: the poll that finds it consumes it, prints `SKIP: the owner pressed Skip poll; end the turn without another poll.` on stderr, and the turn ends there. Never poll again after a skip. A note or a report answer clears the flag as it arrives, so the wait delivers it; an item that arrived before the press, or an unblocked task, still outranks the skip and keeps the flag armed.
 
 Every CLI call stamps `agent_seen_at`. The preview header turns amber with `No agent since <time>` after three quiet minutes, so a preview left open after a turn says no agent has spoken.
 
