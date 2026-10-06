@@ -69,9 +69,15 @@ text and the cell title keep the full `provider/slug`.
 
 The bar above the table narrows the view: a text match over the model, the served model, the client app, the
 session and the status, a status filter (all, 2xx only, errors only) and a time range (all, the last hour, the last 24 hours). The count at
-the right of the bar names the shown rows. The view narrows in the page, so no new call goes out.
+the right of the bar names the shown rows. The view narrows in the page, so no new call goes out. The filters
+ride in the hash, such as `#/requests?status=bad&hours=24&q=timeout`, so a shared link shows the same view.
 
-The page lists the requests in flight at the top, then the last ones, 50 at a time and 500 at most. A click on a request opens its attempts, and a hover on a count or name shows the exact value. A request that the client closed shows the code `499`. An exact string, such as a version, a session id or an API key, reads in the mono font.
+The page lists the requests in flight at the top, then the last ones, 50 at a time and 500 at most. The Live
+button pauses the in-flight rows and counts the requests that arrive while the pause holds. A second click
+shows them and resumes. A click on a request opens its attempts, and a hover on a count or name shows the exact value.
+Each time reads as an age, such as `4 mins ago`, and its title holds the exact stamp. A request that the client
+closed shows the code `499`. An exact string, such as a version, a session id or an API key, reads in the mono
+font.
 
 The pool of the auto model rides in the model name, such as `daedalus/auto/moros`. The routing codes beside a name, such as `lmt`, `frX` and `tlN`, are 3 characters. The Code legend card beside the table gives the meaning of each code. A hook file that defines `on_init` adds its rows below the base rows of that card.
 
@@ -182,6 +188,12 @@ To show the Cloudflare neurons, give the Cloudflare token the analytics permissi
 4. Select **Continue to summary**, then **Update token**. The token value does not change.
 
 To test the token, send the query of [`daedalus/routing/limits.py`](../daedalus/routing/limits.py) with curl. Without the permission, the answer has an `errors` list.
+
+## A failed read
+
+A read that fails shows 1 line at the top of the page, with the message of the server and a **Try again**
+button. A later read that lands hides the line. Each write note, such as the save of a provider file, carries
+`role="status"`, so a screen reader reads it.
 
 ## API keys
 
