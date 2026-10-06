@@ -155,7 +155,44 @@ the downloaded file, because a file cannot vouch for itself.
 A download that fails, or a body that does not match the pin, writes 1 error line and leaves the last
 verified copy in place. So a start with no network keeps its hooks, and daedalus never runs a file
 that the pin did not pass. daedalus refuses a name that holds a path separator, so a URL never
-writes outside the folder.
+writes outside the folder. A body that does not read as Python writes 1 warning line, and the file
+stays. The warning does not stop the start.
+
+The `remote_hook_hosts` group limits the hosts that a URL may name. An empty list, the default,
+passes every host. A `*.` entry also covers the subdomains:
+
+```yaml
+remote_hook_hosts:
+  - example.com
+  - '*.githubusercontent.com'
+```
+
+An entry from another host never goes to the network, and its last copy stays.
+
+### Pin and verify
+
+`daedalus hooks pin` prints the sha256 of each hook file and records it in
+[`config/hooks.lock.json`](../config). `daedalus hooks verify` compares the files on disk against
+that lock and against the pins of the settings file, and then loads each file in its own process,
+with a 10 second limit:
+
+```bash
+daedalus hooks pin                     # every file of config/hooks, then the lock file
+daedalus hooks pin --url https://example.com/my_hook.py   # the pin of a URL, with no download
+daedalus hooks verify
+```
+
+`verify` prints 1 line for each file. `ok` passes, `unpinned` names a file with no pin,
+`warn` names a file that does not load, and `bad` names a file that changed, went missing or
+drifted off its settings pin. Only `bad` sets the exit code 1, so a script can gate on it.
+
+Inside the Docker image, the `daedalus` command sits on the path of the container, so no shell and
+no install are necessary:
+
+```bash
+docker compose exec api daedalus hooks verify
+docker exec daedalus-api daedalus hooks pin
+```
 
 ## The shipped hook files
 

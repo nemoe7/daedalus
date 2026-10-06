@@ -74,6 +74,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
   "request_hooks": {"on-request": [], "on-prompt": [], "on-chunk": []},
   # The hook files that come from a URL, each pinned to the sha256 of its bytes.
   "remote_hooks": [],
+  # The hosts a remote hook URL may name. Empty: every host passes.
+  "remote_hook_hosts": [],
   # The generic key of each pool, and the client name after `daedalus/` as its default.
   "pools": {
     "tier-a": "sophos",
@@ -97,6 +99,10 @@ LOOP_LIMITS = {
 TIMEOUT_MAX = 86400.0
 THEMES = ("system", "light", "dark")
 TIME_FORMATS = ("24h", "12h")
+# A host of the allowlist: letters, digits and dashes, in labels of a name. No port, no path.
+HOST = re.compile(
+  r"[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*"
+)
 POOL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,39}")
 
 
@@ -122,6 +128,8 @@ def check(group: str, key: str, value: Any) -> Any:
     return hook_paths(name, value)
   if group == "remote_hooks":
     return remote_list(group, value)
+  if group == "remote_hook_hosts":
+    return host_list(group, value)
   if group == "pools":
     if not isinstance(value, str) or not POOL_NAME.fullmatch(value) or value == "auto":
       raise SettingsError(
@@ -210,6 +218,21 @@ def remote_list(name: str, value: Any) -> list[dict[str, str]]:
         raise SettingsError(f"{name}: each file needs its own name")
       seen.add(entry["name"])
     found.append(entry)
+  return found
+
+
+def host_list(name: str, value: Any) -> list[str]:
+  """The hosts of the `remote_hook_hosts` allowlist: 1 host each, or `*.` and a host."""
+  if not isinstance(value, list) or not all(
+    isinstance(item, str) and item.strip() for item in value
+  ):
+    raise SettingsError(f"{name} must be a list of hosts")
+  found: list[str] = []
+  for item in value:
+    host = item.strip().lower().rstrip(".")
+    if not HOST.fullmatch(host.removeprefix("*.")):
+      raise SettingsError(f"{name}: {item!r} is not a host")
+    found.append(host)
   return found
 
 
