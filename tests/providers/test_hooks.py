@@ -241,6 +241,7 @@ def test_hook_files() -> None:
 def test_broken_hook_retry() -> None:
   """A hook file with an error does not cache None and reloads on fix."""
   target = hooks.CONFIG_DIR / "flaky.py"
+  target.parent.mkdir(parents=True, exist_ok=True)
   target.write_text("def on_answer(:\n")
   assert hooks.load(target) is None
   target.write_text("def on_answer(a, m):\n  return {'ok': True}\n")
