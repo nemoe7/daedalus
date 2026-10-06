@@ -1491,6 +1491,7 @@ function renderForm() {
   $("editor").value = typed ?? state.files[state.file]?.text ?? "";
   renderFiles();
   placeUndo();
+  fitSectionPane();
 }
 
 // 1 card again after an edit, in the same place, and the pick stays.
@@ -1986,6 +1987,7 @@ function renderSettings() {
   showSwitchRows();
   renderSettingsSave();
   placeUndo();
+  fitSectionPane();
 }
 
 // A row with a mode list shows only under those modes: the race values wait for race, and the pin
@@ -2228,6 +2230,8 @@ async function start() {
   // The page shows before the first state answer, so a slow answer paints the shape of the page.
   $("login").hidden = true;
   $("app").hidden = false;
+  // The pane sizes once the app shows: a pane built while the app is hidden has no height yet.
+  fitSectionPane();
   setStateKnown(null);
   await refreshFast();
   await refreshSlow();
@@ -2515,6 +2519,19 @@ for (const [id, step] of [["nav-left", -1], ["nav-right", 1]]) {
   $(id).addEventListener("click", () => nav.scrollBy({ left: (step * nav.clientWidth) / 2, behavior: "smooth" }));
 }
 
+// A wide screen holds the page still: each pane of a section takes the height that its own top
+// leaves on the screen, so the form scrolls on its own under a still header and rail.
+function fitSectionPane() {
+  const wide = matchMedia("(min-width: 901px)").matches;
+  for (const pane of document.querySelectorAll(".section-pane")) {
+    if (!wide || !pane.offsetParent) {
+      pane.style.maxHeight = "";
+      continue;
+    }
+    pane.style.maxHeight = `${Math.max(240, innerHeight - pane.getBoundingClientRect().top - 16)}px`;
+  }
+}
+
 function showPage() {
   const [path, query] = location.hash.split("?");
   const asked = path.replace("#/", "").replace(/^config$/, "providers").replace(/^pools$/, "models");
@@ -2536,6 +2553,7 @@ function showPage() {
   applySectionHash();
   document.title = `daedalus · ${document.querySelector(`#nav a[data-page="${page}"]`).firstChild.textContent}`;
   if (page === "providers" && state.view === "form") renderForm();
+  fitSectionPane();
 }
 
 window.addEventListener("hashchange", showPage);
@@ -2642,7 +2660,10 @@ $("provider-form").addEventListener("change", (event) => {
 $("provider-form").addEventListener("keydown", (event) => {
   if (event.key === "Enter" && event.target.dataset.pattern) event.target.blur();
 });
-window.addEventListener("resize", markNavSteps);
+window.addEventListener("resize", () => {
+  markNavSteps();
+  fitSectionPane();
+});
 $("settings").addEventListener("input", (event) => {
   clearWrite("settings");
   showLengthLimit(event.target, $("settings-message"));
