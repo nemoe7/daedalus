@@ -67,7 +67,7 @@ services:
       RAG_EMBEDDING_ENGINE: openai
       RAG_OPENAI_API_BASE_URL: http://api:3357/v1
       RAG_OPENAI_API_KEY: ${OPENWEBUI_API_KEY:-${DAEDALUS_MASTER_KEY:-}}
-      RAG_EMBEDDING_MODEL: mistral/mistral-embed
+      RAG_EMBEDDING_MODEL: mistral/mistral-embed-2312
       RAG_EMBEDDING_BATCH_SIZE: "32" # chunks per request, below the free Mistral limits
       ENABLE_ASYNC_EMBEDDING: "true" # 32 chunks in each call, and 2 calls at a time
       RAG_EMBEDDING_CONCURRENT_REQUESTS: "2" # keep the parallel calls inside the free Mistral key

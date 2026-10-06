@@ -105,6 +105,7 @@ async def test_providers() -> None:
       "tier": {"TIER-D": ["test"]},
     },
   }
+  store.write_store([{"id": "groq/org/model"}, {"id": "gemini/test"}])
   config.set_config(configured)
   async with httpx.AsyncClient(
     transport=httpx.MockTransport(upstream)

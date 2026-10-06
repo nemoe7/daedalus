@@ -109,7 +109,13 @@ def test_wait(client: TestClient) -> None:
 
 @pytest.fixture(scope="module")
 def client():
-  store.write_store([{"id": "p/one"}, {"id": "p/two"}])
+  store.write_store(
+    [
+      {"id": "p/one"},
+      {"id": "p/two"},
+      {"id": "p/img", "mode": "image_generation"},
+    ]
+  )
   with pytest.MonkeyPatch.context() as patch:
     patch.setattr(api, "get_config", lambda: CONFIG)
     patch.setattr(media, "get_config", lambda: CONFIG)

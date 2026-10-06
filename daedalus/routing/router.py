@@ -7,6 +7,7 @@ from collections import OrderedDict
 from collections.abc import Mapping
 from typing import Any, Final
 
+from daedalus import store
 from daedalus.catalog.discovery import matches, specificity
 from daedalus.config import block_for, client_key, file_block, main_block
 from daedalus.routing import lanes
@@ -67,6 +68,13 @@ def built_in(name: str) -> str | None:
     if name == new:
       return old
   return None if name in RENAMED else name
+
+
+def listed(model: str) -> bool:
+  """Tell if a request may answer: the store lists the id, or it names a built-in pool."""
+  if model in POOLS or model == RESERVED_MODEL or model in MEDIA_POOLS:
+    return True
+  return store.catalog_name(model) == model
 
 
 def tier_models(provider: Mapping[str, Any], tier_name: str) -> list[str]:

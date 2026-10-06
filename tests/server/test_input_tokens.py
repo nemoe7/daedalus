@@ -63,6 +63,7 @@ async def test_input_tokens() -> None:
   estimate = context.input_tokens({"messages": MESSAGES})
   with tempfile.TemporaryDirectory() as folder:
     store.MODELS_DB = Path(folder) / "models.sqlite3"
+    store.write_store([{"id": "groq/x"}, {"id": "plain/x"}])
     async with httpx.AsyncClient(
       transport=httpx.MockTransport(upstream)
     ) as upstream_client:
