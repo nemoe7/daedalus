@@ -319,6 +319,28 @@ def test_the_fixtures_cover_each_call_of_the_page() -> None:
   assert not unknown, unknown
 
 
+def test_the_fixtures_hold_each_settings_row_of_the_page() -> None:
+  """A settings group or key added to the page fails here, so the capture runs again."""
+  fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
+  defaults = fixtures["settings"]["defaults"]
+  text = APP_JS.read_text(encoding="utf-8")
+  block = text[
+    text.index("\nconst SETTINGS = [") : text.index("\nconst SETTINGS_COLUMNS")
+  ]
+  missing, group = [], ""
+  for line in block.split("\n"):
+    name = re.match(r'\["([a-z_0-9-]+)", "', line.lstrip(" "))
+    if not name or not line.startswith(" " * 2):
+      continue
+    if len(line) - len(line.lstrip(" ")) == 2:
+      group = name.group(1)
+      if group not in defaults:
+        missing.append(group)
+    elif group in defaults and name.group(1) not in defaults[group]:
+      missing.append(f"{group}.{name.group(1)}")
+  assert not missing, missing
+
+
 def test_the_fixtures_carry_the_edge_cases() -> None:
   """The demo shows the states that the page must fit: a long name, a cooldown and a failure."""
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
