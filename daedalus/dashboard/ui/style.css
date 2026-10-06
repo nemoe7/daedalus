@@ -448,7 +448,8 @@ section[data-page="models"] > .editbar, section[data-page="limits"] > .editbar {
 .notice .ghost { margin-left: auto; }
 /* The Live switch shows its paused state, with the count of the requests that wait. */
 .live-toggle[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
-/* The Limits bar holds 1 button and 1 line, so it stays short. */
+/* The Limits bar holds the check button, the filter and 1 line, so it stays short. */
+.editbar input[type="search"] { min-width: 12rem; }
 section[data-page="limits"] > .editbar { padding: 6px 10px; gap: 10px; }
 section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 /* The provider cards hold short values, so the column stays narrow. The table takes the rest. */
