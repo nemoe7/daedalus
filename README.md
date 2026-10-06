@@ -116,6 +116,11 @@ Put `uv run` before each command in the table. After `git pull`, run `uv sync` a
 | `daedalus dump [all\|catalog\|models]` | Writes the provider catalogs, or every stored model row, to `.daedalus-state/dump`. |
 | `daedalus hooks pin` / `daedalus hooks verify` | Prints the sha256 of each hook file and records it in `config/hooks.lock.json`, or verifies them against their pins. |
 
+`daedalus catalog` looks for a live server first. It probes `DAEDALUS_URL`, or
+`http://DAEDALUS_HOST:DAEDALUS_PORT`, on `/health` with a 0.3 s limit. On an answer the command
+prints 1 line and asks that server to rebuild. The route is `POST /v1/catalog`, behind the master
+key. With no answer the command rebuilds in its own process, as before.
+
 ## Development
 
 `uv sync` also installs the development tools: pytest, pytest-xdist and Ruff. CI runs these commands for each code change:

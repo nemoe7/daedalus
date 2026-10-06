@@ -79,10 +79,13 @@ def test_commands() -> None:
     discovery.dump,
     api.CATALOG_REFRESH,
     api.CATALOG_REBUILD_CACHED,
+    cli.live_url,
     sys.modules.get("uvicorn"),
   )
   catalog.refresh = lambda: calls.append("catalog")
   discovery.dump = lambda **_: calls.append("dump")
+  # No live server changes the path of a test, whatever runs on the machine.
+  cli.live_url = lambda: None
   sys.modules["uvicorn"] = SimpleNamespace(
     run=lambda *_, port, **__: calls.append(f"listen:{port}")
   )
@@ -147,6 +150,7 @@ def test_commands() -> None:
       discovery.dump,
       api.CATALOG_REFRESH,
       api.CATALOG_REBUILD_CACHED,
+      cli.live_url,
       uvicorn,
     ) = original
     if uvicorn is None:

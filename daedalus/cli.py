@@ -3,8 +3,11 @@
 import argparse
 import json
 import logging
+import os
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import yaml
@@ -22,6 +25,12 @@ IMPORT_CODE = (
   "import sys; from pathlib import Path; from daedalus.providers.hooks import load; "
   "sys.exit(0 if load(Path(sys.argv[1])) else 1)"
 )
+# The discovery step of a host CLI: the wait for `/health`, and for the rebuild ask.
+PROBE_SECONDS = 0.3
+ASK_SECONDS = 2.0
+DAEDALUS_URL = "DAEDALUS_URL"
+# The server hosts that a client reaches at the loopback address.
+ANY_HOST = ("0.0.0.0", "::")
 
 
 def dump_models(file_format: str) -> None:
@@ -65,6 +74,49 @@ def import_problem(path: Path) -> str | None:
     return None
   lines = (done.stderr or done.stdout).strip().splitlines()
   return lines[-1] if lines else f"exit {done.returncode}"
+
+
+def probe(url: str) -> bool:
+  """Tell if a daedalus answers `GET /health` within `PROBE_SECONDS`."""
+  try:
+    with urllib.request.urlopen(f"{url}/health", timeout=PROBE_SECONDS) as answer:
+      return answer.status == 200
+  except (OSError, ValueError):
+    return False
+
+
+def live_url() -> str | None:
+  """The address of a live daedalus, else None.
+
+  It comes from `DAEDALUS_URL`, or from the host and the port, and a `/health`
+  probe within `PROBE_SECONDS` agrees on it.
+  """
+  url = os.environ.get(DAEDALUS_URL, "").rstrip("/")
+  if not url:
+    host = os.environ.get(api.DAEDALUS_HOST) or api.HOST
+    if host in ANY_HOST:
+      host = "127.0.0.1"
+    url = f"http://{host}:{os.environ.get(api.DAEDALUS_PORT) or api.PORT}"
+  return url if probe(url) else None
+
+
+def ask_rebuild(url: str) -> bool:
+  """Ask a live daedalus to rebuild its store. False keeps the rebuild here."""
+  key = dashboard.master()
+  if key is None:
+    logger.warning("no master key: the rebuild runs in this process")
+    return False
+  request = urllib.request.Request(
+    f"{url}/v1/catalog", method="POST", headers={"Authorization": f"Bearer {key}"}
+  )
+  try:
+    with urllib.request.urlopen(request, timeout=ASK_SECONDS) as answer:
+      return answer.status == 202
+  except urllib.error.HTTPError as exc:
+    logger.warning("the daedalus at %s refused the rebuild: HTTP %s", url, exc.code)
+  except (OSError, ValueError) as exc:
+    logger.warning("the daedalus at %s did not answer: %s", url, exc)
+  return False
 
 
 def hooks_pin(names: list[str], urls: list[str]) -> int:
@@ -222,8 +274,14 @@ def run(argv: list[str] | None = None) -> None:
     if args.kind in ("models", "all"):
       dump_models(args.format)
   elif args.command == "catalog":
-    store.migrate()
-    catalog.refresh()
+    url = live_url()
+    if url is not None:
+      print(f"using the daedalus at {url}")
+    if url is not None and ask_rebuild(url):
+      logger.info("the daedalus at %s rebuilds the catalog now", url)
+    else:
+      store.migrate()
+      catalog.refresh()
   elif args.command == "hooks":
     if args.hooks_command is None:
       hooks.print_help()
