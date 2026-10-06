@@ -136,7 +136,8 @@ async function editValue(input, write) {
   if (box.value === input.value) return;
   input.value = box.value;
   input.dispatchEvent(new Event("input", { bubbles: true }));
-  write();
+  state.writeAnchor = anchorOf(input);
+  write(input);
 }
 
 // A value row: the value shows as text, and a click opens the small editor.
@@ -148,6 +149,10 @@ function bindValueRows(host, write) {
     editValue(input, write);
   });
 }
+
+// The anchor of a write: the row of the control that caused it. A value row holds its editor,
+// so the icon lands inside that row.
+const anchorOf = (node) => node?.closest(".pills, .tier-row, .override, .input, .field") ?? node ?? null;
 
 // A number of the Overview strip: the value on top, its name below.
 const kpi = (value, label) => `<div class="kpi"><b>${value}</b><small>${esc(label)}</small></div>`;
@@ -1019,6 +1024,8 @@ async function refreshKeys() {
 
 // The block keys that the form edits. The YAML view edits the other keys.
 const FORM_KEYS = ["api_key", "account_id", "client_keys", "api_base", "api_type", "discovery_url", "discovery_match", "exclude", "tier", "models"];
+// The pattern fields take the same 4 shapes, so 1 hint serves them all.
+const PATTERN_HINT = "Exact: the whole name. Glob: a * or a ?. Regex: a leading ^. A leading ! refuses.";
 // The keys that a model override sets but the provider level does not.
 const MODEL_ONLY = ["pool", "timeout"];
 // The keys that the provider level sets but a model override does not.
@@ -1070,18 +1077,19 @@ function fileDirty(index) {
 const dirty = () => state.files.length > 0 && fileDirty(state.file);
 
 function renderFiles() {
-  $("files").innerHTML = state.files.map((file, index) => {
+  const current = state.files[state.file];
+  const chips = state.files.map((file, index) => {
     const mark = fileDirty(index) ? " &bull;" : "";
     // The provider keys of a shadowed file do nothing, so the tab says which file wins.
     const shadow = file.shadow ? ` (provider keys: ${esc(file.shadow)} wins)` : "";
     return `<button type="button" class="tab${index === state.file ? " on" : ""}"
       data-file="${index}" title="${esc(file.path)}${shadow}">${esc(fileName(file.path))}${mark}</button>`;
   }).join(" ");
-  // The main provider file stays: only a {provider}.yml file can go.
-  const current = state.files[state.file];
-  $("drop-provider").hidden = current?.main !== false;
-  $("file-note").textContent = current?.shadow
-    ? `${fileName(current.path)} sets no provider key: the ${fileName(current.shadow)} block wins. Its models still apply.` : "";
+  // The page actions ride in the file row, as 1 more chip. The main provider file stays:
+  // only a {provider}.yml file can go.
+  const drop = current?.main === false
+    ? '<button type="button" class="tab danger" id="drop-provider">Delete file</button>' : "";
+  $("files").innerHTML = `${chips} <button type="button" class="tab" id="new-provider">+ New provider</button>${drop ? ` ${drop}` : ""}`;
   // The card Save writes the text. The form rows write themselves, on the close.
   const yamlSave = $("yaml-save");
   if (yamlSave) yamlSave.disabled = state.view !== "yaml" || !dirty();
@@ -1110,7 +1118,8 @@ async function takeFile(index) {
 // A file with YAML that is not valid opens in the YAML view, with the error line.
 function showFileError(index) {
   const error = state.files[index]?.error;
-  $("save-message").textContent = error ? `Not valid YAML: ${error}` : "";
+  if (error) showWrite("providers", `Not valid YAML: ${error}`, true);
+  else clearWrite("providers");
   if (error) state.view = "yaml";
 }
 
@@ -1426,7 +1435,7 @@ function providerCard(name, block) {
     ${listField(tier, block.tier?.[tier], [...path, "tier", tier])}</div>`).join("");
   const models = block.models && typeof block.models === "object" ? block.models : {};
   const overrides = Object.entries(models).map(([pattern, values]) => `<div class="override">
-      <input class="text" type="text" spellcheck="false" value="${esc(pattern)}" aria-label="Model pattern"
+      <input class="text" type="text" spellcheck="false" value="${esc(pattern)}" aria-label="Model pattern" title="${esc(PATTERN_HINT)}"
         data-pattern='${esc(JSON.stringify([...path, "models"]))}' data-key="${esc(pattern)}">
       <div class="pills">${mapPills(values, [...path, "models", pattern], "override", ": ")}</div>
       <button type="button" class="ghost" title="Delete the pattern"
@@ -1444,9 +1453,9 @@ function providerCard(name, block) {
     ${text("api_type", "API type", "openai or gemini. Empty: the default, in gray")}
     ${text("discovery_url", "Discovery URL", "The model list URL. Empty: the default, in gray")}
     ${field("Discovery match", "The catalog keeps a model when each key matches", `<div class="pills">${mapPills(block.discovery_match, [...path, "discovery_match"], "match", " = ")}</div>`)}
-    ${field("Exclude", "Model patterns that never route", listField("exclude", block.exclude, [...path, "exclude"]))}
-    ${fold("Tiers", "Model patterns for each tier", tiers)}
-    ${fold("Model overrides", "A pattern and the catalog values that it sets", `${overrides}<div class="pills">${adder([...path, "models"], "pattern", "+ Pattern")}</div>`)}
+    ${field("Exclude", `Model patterns that never route. ${PATTERN_HINT}`, listField("exclude", block.exclude, [...path, "exclude"]))}
+    ${fold("Tiers", `Model patterns for each tier. ${PATTERN_HINT}`, tiers)}
+    ${fold("Model overrides", `A pattern and the catalog values that it sets. ${PATTERN_HINT}`, `${overrides}<div class="pills">${adder([...path, "models"], "pattern", "+ Pattern")}</div>`)}
     ${fold("Provider values", "Catalog values for each model of the provider. A model override has priority.", `<div class="pills">${values}</div>`)}
   </div>`;
 }
@@ -1479,6 +1488,7 @@ function renderForm() {
   pickSection(host, active);
   $("editor").value = typed ?? state.files[state.file]?.text ?? "";
   renderFiles();
+  placeUndo();
 }
 
 // 1 card again after an edit, in the same place, and the pick stays.
@@ -1487,6 +1497,7 @@ function renderCard(name) {
   if (card) card.outerHTML = providerCard(name, state.forms[state.file][name]);
   pickSection($("provider-form"), sectionState($("provider-form")).key);
   renderFiles();
+  placeUndo();
 }
 
 // The parent object of a path, with the empty maps and lists that it needs.
@@ -1517,8 +1528,9 @@ function showAdder(button) {
   const choices = kind === "column" ? [...state.overrideKeys.filter((key) => !MODEL_ONLY.includes(key)), ...PROVIDER_ONLY].sort() : state.overrideKeys;
   const keys = choices.map((key) => `<option>${esc(key)}</option>`).join("");
   const placeholder = { list: "pattern", match: "key = value", pattern: "model pattern", override: "value", column: "value" }[kind];
+  const hint = kind === "list" || kind === "pattern" ? PATTERN_HINT : "";
   box.innerHTML = `${kind === "override" || kind === "column" ? `<select aria-label="Key">${keys}</select>` : ""}
-    <input type="text" spellcheck="false" placeholder="${placeholder}">`;
+    <input type="text" spellcheck="false" placeholder="${placeholder}" title="${esc(hint)}">`;
   button.replaceWith(box);
   const input = box.querySelector("input");
   (box.querySelector("select") || input).focus();
@@ -1563,6 +1575,7 @@ function addValue(path, kind, text, key) {
 }
 
 function renamePattern(input) {
+  state.writeAnchor = anchorOf(input);
   const path = JSON.parse(input.dataset.pattern);
   const models = path.reduce((node, key) => node[key], state.forms[state.file]);
   const before = input.dataset.key;
@@ -1615,37 +1628,88 @@ function setText(input) {
   renderFiles();
 }
 
-// The status line of a write, and 1 step of Undo. A write replaces the step.
+// The status of a write. A good write says nothing: the Undo icon next to its own row is the
+// sign. A failure keeps its line, because an error has to say what went wrong.
 const WRITE_UI = {
-  providers: { message: $("save-message"), undo: $("save-undo") },
-  settings: { message: $("settings-message"), undo: $("settings-undo"), note: $("settings-note") },
+  providers: { message: $("save-message"), note: $("save-note") },
+  settings: { message: $("settings-message"), note: $("settings-note") },
 };
 let lastWrite = null;
 
 function showWrite(page, text, bad = false) {
   const ui = WRITE_UI[page];
-  ui.message.className = bad ? "message bad" : "message ok";
+  if (!bad) return clearWrite(page);
+  ui.message.className = "message bad";
   ui.message.textContent = text;
-  ui.undo.hidden = !lastWrite;
-  if (ui.note) ui.note.hidden = false;
+  ui.note.hidden = false;
 }
 
 function clearWrite(page) {
   const ui = WRITE_UI[page];
   ui.message.textContent = "";
-  ui.undo.hidden = true;
-  if (ui.note) ui.note.hidden = true;
+  ui.note.hidden = true;
 }
 
-// The text of the file before a write. Undo puts that text back in 1 call.
-function rememberWrite(page, restore) {
-  lastWrite = { page, ...restore };
+// The text of the file before a write, with the row that caused it. The Undo icon rides beside
+// that row, so the way back sits next to the change.
+function rememberWrite(page, restore, anchor = null) {
+  lastWrite = {
+    page, ...restore,
+    section: anchor?.closest("[data-section]")?.dataset.section ?? "",
+    // The row of the write, so a render of its card can put the icon back in that row.
+    key: controlKey(anchor),
+  };
+  const old = document.querySelector(".undo-step");
+  if (old) old.remove();
+  if (!anchor) return;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "ghost undo-step";
+  button.title = "Undo this write";
+  button.setAttribute("aria-label", "Undo this write");
+  button.textContent = "\u21b6";
+  button.addEventListener("click", (event) => {
+    // The row of a switch is a label, so the click must not reach it.
+    event.preventDefault();
+    event.stopPropagation();
+    undoWrite();
+  });
+  lastWrite.button = button;
+  placeUndo(anchor);
+}
+
+// The control of a row: the key of its field, so the row of a fresh render matches the row of
+// the write that just landed.
+function controlKey(anchor) {
+  if (!anchor) return "";
+  const set = anchor.matches?.("[data-set]") ? anchor : anchor.querySelector?.("[data-set]");
+  if (set?.dataset?.set) return set.dataset.set;
+  const named = anchor.matches?.("input[id], select[id]") ? anchor : anchor.querySelector?.("input[id], select[id]");
+  return named?.id ?? "";
+}
+
+// The icon sits at the top right of the row that changed. A render of that card replaces the
+// row, so the icon falls back to the header of the card.
+function placeUndo(anchor = null) {
+  if (!lastWrite?.button) return;
+  // The same row of the fresh render, from the key of the write.
+  const again = lastWrite.key
+    ? [...document.querySelectorAll("[data-set]")].find((node) => node.dataset.set === lastWrite.key)?.closest(".field")
+      ?? document.getElementById(lastWrite.key)?.closest(".field")
+    : null;
+  const target = (anchor?.isConnected ? anchor : null) ?? again
+    ?? document.querySelector(`.section-pane > .card[data-section="${lastWrite.section}"]`);
+  if (!target) return;
+  const row = target.closest(".field") ?? target;
+  row.append(lastWrite.button);
 }
 
 async function undoWrite() {
   if (!lastWrite) return;
   const write = lastWrite;
   lastWrite = null;
+  const old = document.querySelector(".undo-step");
+  if (old) old.remove();
   try {
     if (write.settings) {
       await call("settings", { method: "PUT", body: JSON.stringify({ text: write.text }) });
@@ -1656,7 +1720,6 @@ async function undoWrite() {
       renderForm();
     }
     refresh();
-    showWrite(write.page, "Undone");
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin("The session ended. Log in again.");
     showWrite(write.page, error.message, true);
@@ -1667,7 +1730,7 @@ async function saveForm() {
   if (!dirty()) return clearWrite("providers");
   const index = state.file;
   const file = state.files[index];
-  rememberWrite("providers", { index, path: file.path, text: file.text });
+  rememberWrite("providers", { index, path: file.path, text: file.text }, state.writeAnchor);
   const isToken = (v) => typeof v === "string" && (v.startsWith("env:") || v.startsWith("db:"));
   const hadRaw = Object.values(pruned(state.forms[index]) || {}).some((block) =>
     block && typeof block === "object" && (
@@ -1677,7 +1740,7 @@ async function saveForm() {
   try {
     await call("providers", { method: "PUT", body: JSON.stringify({ path: file.path, blocks: pruned(state.forms[index]) }) });
     await takeFile(index);
-    showWrite("providers", hadRaw ? "Saved — key moved to database" : "Saved and reloaded");
+    clearWrite("providers");
     await refreshEnv();
     renderForm();
     refresh();
@@ -1693,11 +1756,11 @@ async function saveYaml() {
   const index = state.file;
   const file = state.files[index];
   const text = $("editor")?.value ?? "";
-  rememberWrite("providers", { index, path: file.path, text: file.text });
+  rememberWrite("providers", { index, path: file.path, text: file.text }, $("yaml-save"));
   try {
     await call("files", { method: "PUT", body: JSON.stringify({ path: file.path, text }) });
     await takeFile(index);
-    showWrite("providers", "Saved and reloaded");
+    clearWrite("providers");
     refresh();
     guarded(refreshEnv);
   } catch (error) {
@@ -1920,6 +1983,7 @@ function renderSettings() {
   showAffinityRows(setting("affinity", "mode"));
   showSwitchRows();
   renderSettingsSave();
+  placeUndo();
 }
 
 // A row with a mode list shows only under those modes: the race values wait for race, and the pin
@@ -2016,7 +2080,7 @@ async function pickSettingsSection(key) {
   if (view !== state.settingsView) {
     if (settingsDirty() && !(await ask("Discard changes", "The unsaved settings changes go away.", "Discard", true))) return;
     state.settingsView = view;
-    $("settings-message").textContent = "";
+    clearWrite("settings");
     renderSettings();
   }
   openSection($("settings"), key);
@@ -2026,11 +2090,11 @@ async function saveSettings() {
   if (!settingsDirty()) return clearWrite("settings");
   const text = $("settings-editor")?.value ?? "";
   const body = state.settingsView === "yaml" ? { text } : { changes: settingsChanges() };
-  rememberWrite("settings", { settings: true, text: state.settings.text });
+  rememberWrite("settings", { settings: true, text: state.settings.text }, state.writeAnchor ?? $("settings-yaml-save"));
   try {
     await call("settings", { method: "PUT", body: JSON.stringify(body) });
     await loadSettings();
-    showWrite("settings", "Saved and reloaded");
+    clearWrite("settings");
     refresh();
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin("The session ended. Log in to save again.");
@@ -2510,9 +2574,9 @@ async function reloadFiles(keep) {
   guarded(refreshEnv);
 }
 
-$("new-provider").addEventListener("click", async () => {
-  const message = $("save-message");
-  message.textContent = "";
+$("files").addEventListener("click", async (event) => {
+  if (!event.target.closest("#new-provider")) return;
+  clearWrite("providers");
   const ok = await ask(
     "New provider", "Lowercase letters, digits and dashes.", "Create", false, "Provider name",
   );
@@ -2524,12 +2588,12 @@ $("new-provider").addEventListener("click", async () => {
     await reloadFiles(made.path);
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin();
-    message.textContent = error.message;
+    showWrite("providers", error.message, true);
   }
 });
-$("drop-provider").addEventListener("click", async () => {
-  const message = $("save-message");
-  message.textContent = "";
+$("files").addEventListener("click", async (event) => {
+  if (!event.target.closest("#drop-provider")) return;
+  clearWrite("providers");
   const file = state.files[state.file];
   if (!file || !(await ask("Delete file", `${file.path} goes away. The main file stays.`, "Delete", true))) return;
   try {
@@ -2537,7 +2601,7 @@ $("drop-provider").addEventListener("click", async () => {
     await reloadFiles(null);
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin();
-    message.textContent = error.message;
+    showWrite("providers", error.message, true);
   }
 });
 $("provider-form").addEventListener("input", (event) => {
@@ -2545,17 +2609,21 @@ $("provider-form").addEventListener("input", (event) => {
 });
 bindValueRows($("provider-form"), () => saveForm());
 bindValueRows($("settings"), () => saveSettings());
-$("save-undo").addEventListener("click", undoWrite);
-$("settings-undo").addEventListener("click", undoWrite);
 $("provider-form").addEventListener("click", (event) => {
   const section = event.target.closest(".sections button[data-section]");
   if (section) return pickProviderSection(section.dataset.section);
   if (event.target.closest("[data-back]")) return closeSection($("provider-form"));
   if (event.target.closest("#yaml-save")) return saveYaml();
   const drop = event.target.closest("[data-drop]");
-  if (drop) return dropAt(JSON.parse(drop.dataset.drop));
+  if (drop) {
+    state.writeAnchor = anchorOf(drop);
+    return dropAt(JSON.parse(drop.dataset.drop));
+  }
   const add = event.target.closest("[data-add]");
-  if (add) showAdder(add);
+  if (add) {
+    state.writeAnchor = anchorOf(add);
+    showAdder(add);
+  }
 });
 $("provider-form").addEventListener("input", (event) => {
   if (event.target.dataset.set) setText(event.target);
@@ -2568,7 +2636,7 @@ $("provider-form").addEventListener("keydown", (event) => {
 });
 window.addEventListener("resize", markNavSteps);
 $("settings").addEventListener("input", (event) => {
-  $("settings-message").textContent = "";
+  clearWrite("settings");
   showLengthLimit(event.target, $("settings-message"));
   // The mode decides which rows of the affinity card show. The pick stays, so only the rows move.
   if (event.target.id === "set-affinity-mode") {
@@ -2593,6 +2661,7 @@ $("settings").addEventListener("click", async (event) => {
   // A hook chip: the pick opens the file list, and a choice lands in the row at once.
   const choice = event.target.closest("[data-hook-choice]");
   if (choice) {
+    state.writeAnchor = anchorOf(choice);
     const [group, key, index, value] = JSON.parse(choice.dataset.hookChoice);
     const values = [...listValue(group, key)];
     values[index] = value;
@@ -2613,11 +2682,18 @@ $("settings").addEventListener("click", async (event) => {
   // Any other click closes the open list before its own work.
   if (openHookPicker) closeHookPicker();
   const drop = event.target.closest("[data-setting-drop]");
-  if (drop) return dropSetting(JSON.parse(drop.dataset.settingDrop));
+  if (drop) {
+    state.writeAnchor = anchorOf(drop);
+    return dropSetting(JSON.parse(drop.dataset.settingDrop));
+  }
   const add = event.target.closest("[data-setting-add]");
-  if (add) showSettingAdder(add);
+  if (add) {
+    state.writeAnchor = anchorOf(add);
+    showSettingAdder(add);
+  }
   const hookAdd = event.target.closest("[data-hook-add]");
   if (hookAdd) {
+    state.writeAnchor = anchorOf(hookAdd);
     const [group, key] = JSON.parse(hookAdd.dataset.hookAdd);
     setListValue(group, key, [...listValue(group, key), ""]);
     renderHookList(group, key);
@@ -2626,6 +2702,7 @@ $("settings").addEventListener("click", async (event) => {
   }
   const hookDrop = event.target.closest("[data-hook-drop]");
   if (hookDrop) {
+    state.writeAnchor = anchorOf(hookDrop);
     const [group, key, index] = JSON.parse(hookDrop.dataset.hookDrop);
     const values = [...listValue(group, key)];
     values.splice(index, 1);
@@ -2638,11 +2715,13 @@ $("settings").addEventListener("click", async (event) => {
 $("settings").addEventListener("change", (event) => {
   // A switch and a pick list hold 1 valid value, so the change writes it at once.
   const input = event.target;
-  if (input.type === "checkbox" || input.tagName === "SELECT") saveSettings();
+  if (input.type !== "checkbox" && input.tagName !== "SELECT") return;
+  state.writeAnchor = anchorOf(input);
+  saveSettings();
 });
 $("settings").addEventListener("input", (event) => {
   if (event.target.id !== "settings-editor") return;
-  $("settings-message").textContent = "";
+  clearWrite("settings");
   renderSettingsSave();
 });
 $("settings").addEventListener("click", (event) => {
