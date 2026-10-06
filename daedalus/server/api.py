@@ -66,6 +66,8 @@ async def lifespan(_application: FastAPI) -> AsyncIterator[None]:
   rebuilds = (
     asyncio.create_task(schedule.run(CATALOG_REFRESH)) if CATALOG_REFRESH else None
   )
+  # The lane rows and the balances of the last run, so the Limits tab is never empty.
+  LIMITS.restore()
   checks = asyncio.create_task(LIMITS.run()) if LIMIT_CHECKS else None
   prunes = asyncio.create_task(prune_store())
   yield

@@ -109,3 +109,13 @@ async def test_headers(client: httpx.AsyncClient) -> None:
     assert "groq/x" in api.COOLDOWNS.ends(), "0 left of a day starts a cooldown"
   finally:
     LEFT["requests"] = "3"
+
+
+async def test_the_rows_survive_a_restart(client: httpx.AsyncClient) -> None:
+  """A new process keeps the lane rows of the last answer, the way a container update keeps them."""
+  chat = {"model": "groq/x", "messages": [{"role": "user", "content": "hi"}]}
+  response = await client.post("/v1/chat/completions", json=chat)
+  assert response.status_code == 200, response.text
+  api.LIMITS.lanes = {}  # a new process holds no rows in memory
+  async with api.lifespan(api.app):
+    assert [lane["model"] for lane in api.LIMITS.view()["lanes"]] == ["groq/x"]

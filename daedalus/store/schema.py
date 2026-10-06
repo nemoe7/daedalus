@@ -90,6 +90,13 @@ Table(
   Column("used", REAL, nullable=False),
 )
 Table(
+  "limits",
+  METADATA,
+  Column("name", TEXT, primary_key=True),
+  Column("payload", TEXT, nullable=False),
+  Column("updated", REAL, nullable=False),
+)
+Table(
   "saved_env",
   METADATA,
   Column("name", TEXT, primary_key=True),
