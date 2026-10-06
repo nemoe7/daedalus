@@ -113,8 +113,7 @@ main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
 .pool-line .line > :first-child { flex-shrink: 0; }
 .pool-line .line > :last-child { overflow: hidden; text-overflow: ellipsis; }
 .pool-line .track { margin-bottom: 6px; }
-.card { border: 1px solid var(--line); border-radius: var(--radius); }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+.card, .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
 .card { padding: 18px 20px; }
 .panel { overflow-x: auto; }
 .out { color: var(--bad); }
@@ -575,6 +574,8 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 }
 @media (max-width: 720px) {
   header, #app > main { padding-left: 16px; padding-right: 16px; }
+  /* A phone keeps 1 padding all around the page, so the top matches the sides. */
+  #app > main { padding-top: 16px; }
   /* The header keeps the brand and Log out. The status chips move to the card below. */
   header { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; }
   .brand { padding-top: 10px; }
@@ -617,12 +618,15 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .only-sm { display: block; }
   .models thead { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
   .models, .models tbody { display: block; }
-  .models tr { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 8px; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: transparent; }
+  .models tr { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 8px; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
   .models tr > td { display: flex; align-items: baseline; gap: 5px; min-width: 0; padding: 0; border: 0; white-space: normal; }
   .models tr > td.name { grid-column: 1 / -1; max-width: none; }
   /* A card hides the columns that a phone drops, as the table layout does. */
   .models tr > td.hide-sm { display: none; }
   .models .mobile-label { display: inline; flex: none; color: var(--muted); font-size: 11px; }
+  /* A label and its value read as 1 line, so they share the small size. The name cell keeps
+     its own size. */
+  .models tr > td:not(.name) .cell-value { font-size: 11px; }
   .models .cell-value { min-width: 0; text-align: left; }
   .models td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .models .weight { width: auto; }
@@ -630,7 +634,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
      Delete share the next row. */
   .keys thead { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
   .keys, .keys tbody { display: block; }
-  .keys tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: transparent; }
+  .keys tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
   .keys tr > td { display: flex; align-items: baseline; gap: 5px; min-width: 0; padding: 0; border: 0; }
   .keys tr > td.name { grid-column: 1; grid-row: 1; max-width: none; }
   .keys tr > td:nth-child(2) { grid-column: 2; grid-row: 1; justify-content: flex-end; }
@@ -638,6 +642,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .keys tr > td.end { grid-column: 2; grid-row: 2; justify-content: flex-end; }
   .keys tr > td.hide-sm { display: none; }
   .keys .mobile-label { display: inline; flex: none; color: var(--muted); font-size: 11px; }
+  .keys tr > td:not(.name) .cell-value { font-size: 11px; }
   .keys .cell-value { min-width: 0; text-align: left; }
   .keys td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* The last row of a panel clears the panel edge and the screen bottom. */
@@ -649,11 +654,17 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .models td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .phone-types { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
   .hide-sm { display: none; }
-  /* The weight of a model card takes its own line. The value and the bar of a quarter cell
-     run past the card edge, so the row gives them the full width. */
-  .models tr > td:last-child { grid-column: 1 / -1; }
-  .models .weight { width: 100%; min-width: 0; gap: 8px; }
-  .models .weight .num { flex: none; }
+  /* The 3 small cells take the width of their text, and the weight cell takes the rest. So the
+     value and the bar of a weight stay inside the card. */
+  /* The desktop hints (width 1%, nowrap) would squeeze a cell to its border. A card clears
+     them, then the 3 small cells take the width of their text and the weight takes the rest. */
+  .models tr > td:not(:first-child) { width: auto; padding-left: 0; padding-right: 0; }
+  /* The card grid holds the gaps, so the head-cell padding of a desk goes. The weight then
+     takes the width that its value and its bar need. */
+  .models tr > td:last-child { padding-right: 0; }
+  .models tr { grid-template-columns: max-content max-content max-content minmax(0, 1fr); }
+  .models td:last-child .cell-value, .models .weight { flex: 1; min-width: 0; }
+  .models .weight { width: 100%; gap: 6px; }
   #limit-rows .weight.left { min-width: 0; }
   .requests, .requests tbody, .requests tr { display: block; }
   .requests thead {
@@ -667,7 +678,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .requests tr.request, .requests tr.live-row {
     display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto; gap: 5px 8px;
     align-items: center; margin-bottom: 10px; padding: 8px 10px;
-    border: 1px solid var(--line); border-radius: var(--radius); background: transparent;
+    border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel);
   }
   .requests tr.live-row { background: var(--field); }
   /* A card row carries its edge alone. The wrapper behind the cards drops its fill too, so the
@@ -676,7 +687,6 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   /* A card row paints no patch on hover: the cells sit apart, so a fill lands as a rectangle
      behind each 1 of them. The card edge and the live dot already tell the state. */
   tr.request:hover td, tr.request.open td, tr.request.has-chain:hover td { background: transparent; }
-  .models tr, .keys tr { background: transparent; }
   .requests tr.request.open { border-bottom-left-radius: 0; border-bottom-right-radius: 0; margin-bottom: 0; }
   .requests tr.chain {
     margin-top: 0; border-top: 0; border-top-left-radius: 0; border-top-right-radius: 0;
