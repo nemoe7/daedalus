@@ -669,6 +669,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   /* A card row carries its edge alone. The wrapper behind the cards drops its fill too, so the
      page colour shows once instead of a layer behind every card. */
   .panel:has(> .requests), .panel:has(> .models), .panel:has(> .keys) { background: transparent; border: 0; }
+  /* A card row paints no patch on hover: the cells sit apart, so a fill lands as a rectangle
+     behind each 1 of them. The card edge and the live dot already tell the state. */
+  tr.request:hover td, tr.request.open td, tr.request.has-chain:hover td { background: transparent; }
   .models tr, .keys tr { background: transparent; }
   .requests tr.request.open { border-bottom-left-radius: 0; border-bottom-right-radius: 0; margin-bottom: 0; }
   .requests tr.chain {
