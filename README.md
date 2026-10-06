@@ -68,7 +68,7 @@ Copy the file under a new name, keep the functions you need, and name the copy i
 | --- | --- |
 | Base URL | `http://localhost:3357/v1` |
 | API key | A key from the **API keys** page |
-| Model | `daedalus/auto`, a pool name, or `provider/slug` |
+| Model | `daedalus/auto`, a pool name, or a `provider/slug` from the **Models** page |
 
 The tested clients are Kilo Code and Open WebUI.
 

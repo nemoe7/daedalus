@@ -55,7 +55,7 @@ services:
       # Files and memory: main-slim has no local embedding model and supports only pgvector.
       VECTOR_DB: pgvector
       PGVECTOR_DB_URL: postgresql://openwebui:${OPENWEBUI_DB_PASSWORD:-openwebui}@webui-db:5432/openwebui
-      PGVECTOR_INITIALIZE_MAX_VECTOR_LENGTH: "1024" # the size of a mistral-embed vector
+      PGVECTOR_INITIALIZE_MAX_VECTOR_LENGTH: "1024" # the size of a mistral-embed-2312 vector
       RAG_EMBEDDING_ENGINE: openai
       RAG_OPENAI_API_BASE_URL: http://api:3357/v1
       RAG_OPENAI_API_KEY: ${OPENWEBUI_API_KEY:-${DAEDALUS_MASTER_KEY:-}}
