@@ -43,6 +43,9 @@ services:
       WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:-}
       AIOHTTP_CLIENT_TIMEOUT: "600" # keep at or above timeouts.request
       TASK_MODEL_EXTERNAL: daedalus/auto
+      # Auto memory: a review of the last turns after every 5th user turn, on the chat model.
+      ENABLE_MEMORY_BACKGROUND_REVIEW: "true"
+      MEMORIES_REVIEW_INTERVAL_TURNS: "5"
       # Audio and images use their own URL and key. Without them, they go to api.openai.com.
       AUDIO_STT_ENGINE: openai
       AUDIO_STT_OPENAI_API_BASE_URL: http://api:3357/v1
@@ -66,7 +69,8 @@ services:
       RAG_OPENAI_API_KEY: ${OPENWEBUI_API_KEY:-${DAEDALUS_MASTER_KEY:-}}
       RAG_EMBEDDING_MODEL: mistral/mistral-embed
       RAG_EMBEDDING_BATCH_SIZE: "32" # chunks per request, below the free Mistral limits
-      ENABLE_ASYNC_EMBEDDING: "false" # 1 request at a time, so fewer 429 errors
+      ENABLE_ASYNC_EMBEDDING: "true" # 32 chunks in each call, and 2 calls at a time
+      RAG_EMBEDDING_CONCURRENT_REQUESTS: "2" # keep the parallel calls inside the free Mistral key
       # Tika in the tika profile reads PDF and Office files, with OCR for scanned pages.
       # Without it, plain text files still work.
       CONTENT_EXTRACTION_ENGINE: tika
