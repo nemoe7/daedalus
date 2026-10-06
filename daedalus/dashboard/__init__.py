@@ -551,8 +551,12 @@ def check_file(path: Path, text: str) -> dict[str, Any] | None:
   """Validate the text of one config file. Returns settings values for the settings file."""
   if path == settings.DEFAULT_PATH:
     return settings.parse(text, path)
-  if not isinstance(config.load_yaml(text), dict):
+  loaded = config.load_yaml(text)
+  if not isinstance(loaded, dict):
     raise settings.SettingsError(f"{path} must hold provider blocks")
+  problems = config.file_shape_problems(loaded, path.stem)
+  if problems:
+    raise settings.SettingsError(f"{path}: {'; '.join(problems)}")
   return None
 
 
