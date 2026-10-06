@@ -25,7 +25,7 @@ Open `http://HOST:3357/`.
 
 | Page | Contents |
 | --- | --- |
-| Overview | 4 numbers on top (in flight, failed, lowest limit left, models), then the status, the last 5 requests, the limits and the pools in columns. Each pool row names its top model. The page shows state only: the Providers, API keys and Settings pages hold the configuration. |
+| Overview | 4 numbers on top: in flight, success rate, lowest limit left, models. Then the status, the last 5 requests, the limits and the pools in columns. Each pool row names its top model. The page shows state only: the Providers, API keys and Settings pages hold the configuration. |
 | Requests | The log of the last requests and the ones in flight. See [Requests](#requests). |
 | Models | The catalog table and a card for each pool. See [Models](#models). |
 | API keys | Make and delete API keys |
@@ -220,8 +220,9 @@ To test the token, send the query of [`daedalus/routing/limits.py`](../daedalus/
 The Settings page and the provider form show their section list alone on a phone. Each row carries a chevron, and a pick opens 1 section as its own page. The section rides in the hash as `#/settings?section=timeouts`, so the back gesture of the phone returns to the list. The button above the card names that list, as `‹ Settings`, for a phone without the gesture.
 
 A phone keeps the 4 numbers of the Overview above the status card, in 2 rows of 2. The Models table
-and the API keys table become cards, as the Requests table does. A chevron at an end of the tab bar
-scrolls the tabs that wait off screen, and it goes at the end of the list.
+and the API keys table become cards, as the Requests table does. A phone card carries its edge alone:
+the wrapper behind the cards paints nothing. A chevron at an end of the tab bar scrolls the tabs that
+wait off screen, and it goes at the end of the list.
 
 ## A failed read
 

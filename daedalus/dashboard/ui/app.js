@@ -160,14 +160,15 @@ const kpi = (value, label) => `<div class="kpi"><b>${value}</b><small>${esc(labe
 // One card for each page, from the data that the pages already read.
 function renderOverview() {
   const failed = state.requests.filter((r) => ["s4", "s5"].includes(statusClass(r))).length;
-  const share = state.requests.length ? `${Math.round((failed / state.requests.length) * 100)}%` : "-";
+  const answered = state.requests.length - failed;
+  const share = state.requests.length ? `${Math.round((answered / state.requests.length) * 100)}%` : "-";
   const lanes = state.limits ? state.limits.lanes.flatMap((lane) => lane.rows) : [];
   const left = lanes.length
     ? `${Math.round(Math.min(...lanes.map((r) => (r.limit > 0 ? r.remaining / r.limit : 1))) * 100)}%`
     : "-";
   draw("ov-kpis", [
     kpi(state.live.size, "In flight now"),
-    kpi(share, `Failed of ${count(state.requests.length, "kept request")}`),
+    kpi(share, `Success of last ${count(state.requests.length, "request")}`),
     kpi(left, "Lowest limit left"),
     kpi(state.models.length || 0, "Models in the catalog"),
   ].join(""));
@@ -1286,7 +1287,7 @@ function sectionList(id, items, active) {
 
 // The pane of a section list. The back button names the page it returns to, as iOS does.
 function sectionPane(back, cards) {
-  return `<div class="section-pane"><button class="ghost back" type="button" data-back>&lsaquo; ${esc(back)}</button>${cards}</div>`;
+  return `<div class="section-pane"><button class="ghost back" type="button" data-back><span class="chev" aria-hidden="true">&lsaquo;</span> ${esc(back)}</button>${cards}</div>`;
 }
 
 // The last section of a list: the file text, and its own save. It holds the lines that the form
