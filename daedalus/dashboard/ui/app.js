@@ -1977,6 +1977,7 @@ function renderLimits(data) {
 }
 
 function renderLimitRows(rows) {
+  $("limits-clear").hidden = !state.limitSearch;
   draw("limit-rows", rows.length ? rows.map((r) => `<tr>
       ${nameCell(r.model, `${modelName(r.model)}${r.client ? ` <span class="muted">${esc(r.client)}</span>` : ""}`)}
       <td title="${esc(limitTitle(r))}">${esc(limitUnit(r))}</td>
@@ -2272,9 +2273,10 @@ function applyLimitFilters(query) {
   renderLimitRows(shownLimits());
 }
 
+// The filter owns the address bar only on the Limits page: the poll calls this on every page.
 function limitsHash() {
+  if (!location.hash.startsWith("#/limits")) return;
   const asked = $("limits-search").value.trim();
-  $("limits-clear").hidden = !asked;
   history.replaceState(null, "", `#/limits${asked ? `?q=${encodeURIComponent(asked)}` : ""}`);
 }
 

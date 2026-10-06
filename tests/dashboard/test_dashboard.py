@@ -2622,3 +2622,15 @@ def test_the_providers_page_folds_the_long_groups() -> None:
   assert ".fold summary .hint:hover ~ small" in style, (
     "the hint of a group shows its tooltip on hover and on focus"
   )
+
+
+def test_the_limits_poll_keeps_out_of_the_address_bar() -> None:
+  """The limits answer arrives on every page, so it never writes the hash."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert 'if (!location.hash.startsWith("#/limits")) return;' in app, (
+    "the filter writes the hash on the Limits page alone"
+  )
+  assert '$("limits-clear").hidden = !state.limitSearch;' in app, (
+    "the clear button follows the filter, and not the hash write"
+  )
