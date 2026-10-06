@@ -257,6 +257,9 @@ groq:
 | `headroom` | Optional. `false`: no Headroom compression for the models of the block. Absent: `headroom.enabled`. |
 | `hourly_requests` | Optional. The provider requests per hour. At the limit, the provider leaves the chains. |
 
+A known key with a wrong shape is a 422 on the Providers page, and a hand-edited file drops that key
+with a line in the log, so a bad `tier` or `models` never breaks a request. See [A wrong shape](#a-wrong-shape).
+
 `rpm` and `tpm` limit the requests and the input tokens of a model in 60 s. At a limit, the model leaves the chains. See [Pacing](architecture.md#pacing).
 
 Other keys of a `models` entry:
@@ -273,6 +276,15 @@ Other keys of a `models` entry:
 | `headroom` | `false`: the model keeps its messages. Absent: the value of the block, then `headroom.enabled`. |
 
 When 2 entries match 1 model, the last entry in the file sets the key. A model key at the provider level, for example `reasoning_effort: high` next to `api_key`, sets the value for each model of the provider.
+
+### A wrong shape
+
+The dashboard reads the shape of each known key of a provider block: `api_key`, `api_base`, `api_type` and
+`discovery_url` are strings, `client_keys`, `tier` and `models` are mappings, and `hooks` and `exclude` are
+lists. `tier` holds a list of patterns for each tier name, and `client_keys` holds a string for each key name.
+
+The Providers page refuses a wrong shape with a 422 that names the key. A hand edit that leaves a wrong shape
+drops that key at load, with a line in the log that names the file and the key, so the rest of the block stays.
 
 ### Client keys
 
