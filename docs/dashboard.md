@@ -72,7 +72,8 @@ text and the cell title keep the full `provider/slug`.
 The bar above the table narrows the view: a text match over the model, the served model, the client app, the
 session and the status, a status filter (all, 2xx only, errors only) and a time range (all, the last hour, the last 24 hours). The count at
 the right of the bar names the shown rows. The view narrows in the page, so no new call goes out. The filters
-ride in the hash, such as `#/requests?status=bad&hours=24&q=timeout`, so a shared link shows the same view.
+ride in the hash, such as `#/requests?status=bad&hours=24&q=timeout`, so a shared link shows the same view. A
+**Clear filters** button shows while a filter is live.
 
 The page lists the requests in flight at the top, then the last ones, 50 at a time and 500 at most. The Live
 button pauses the in-flight rows and counts the requests that arrive while the pause holds. A second click
@@ -165,7 +166,9 @@ A provider file on disk that is not valid YAML still gets its tab. It opens in t
 
 ## Limits
 
-daedalus reads the balances when it starts, then each hour. **Check now** reads them at once. A provider without a key or without data does not show.
+daedalus reads the balances when it starts, then each hour. **Check now** reads them at once. The filter above the
+table narrows it to 1 model, and it rides in the hash, such as `#/limits?q=llama`. A **Clear filters** button shows
+while the filter is live. A provider without a key or without data does not show.
 
 | Provider | Values | Source |
 | --- | --- | --- |
