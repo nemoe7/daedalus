@@ -1243,6 +1243,11 @@ function sectionList(id, items, active) {
   return `<nav class="sections" aria-label="Sections">${buttons}</nav>`;
 }
 
+// The pane of a section list. The back button names the page it returns to, as iOS does.
+function sectionPane(back, cards) {
+  return `<div class="section-pane"><button class="ghost back" type="button" data-back>&lsaquo; ${esc(back)}</button>${cards}</div>`;
+}
+
 // The pick of a section: 1 button on, 1 card shown, and the phone leaves the list.
 function pickSection(host, key, open = sectionState(host).open) {
   const state_ = sectionState(host);
@@ -1258,6 +1263,36 @@ function pickSection(host, key, open = sectionState(host).open) {
   for (const card of host.querySelectorAll(".section-pane > .card")) {
     card.hidden = card.dataset.section !== key;
   }
+}
+
+// A phone turns a pick into its own page: the section rides in the hash, so the back gesture returns.
+const phoneSection = () => matchMedia("(max-width: 900px)").matches;
+
+function openSection(host, key) {
+  pickSection(host, key, true);
+  if (!phoneSection()) return;
+  const [path] = location.hash.split("?");
+  history.pushState({ section: key }, "", `${path}?section=${encodeURIComponent(key)}`);
+}
+
+// The back button leaves the pushed page when it can, and closes the section either way.
+function closeSection(host) {
+  const key = sectionState(host).key;
+  if (history.state?.section === key) return history.back();
+  const [path] = location.hash.split("?");
+  history.replaceState(null, "", path);
+  pickSection(host, key, false);
+}
+
+// The section of the shown page, from the hash: a deep link and the phone back gesture read it.
+function applySectionHash() {
+  const [path, query] = location.hash.split("?");
+  const host = path === "#/settings" ? $("settings") : path === "#/providers" ? $("provider-form") : null;
+  if (!host) return;
+  const key = new URLSearchParams(query ?? "").get("section");
+  const known = [...host.querySelectorAll(".sections button")].some((button) => button.dataset.section === key);
+  if (key && known) pickSection(host, key, true);
+  else pickSection(host, sectionState(host).key, false);
 }
 
 // A group of fields that starts closed, so a long card stays short.
@@ -1389,9 +1424,7 @@ function renderForm() {
   const picked = sectionState(host).key;
   const active = names.includes(picked) ? picked : names[0];
   host.innerHTML = sectionList("provider-form", names.map((name) => [name, name]), active)
-    + `<div class="section-pane"><button class="ghost back" type="button" data-back>&lsaquo; All providers</button>`
-    + names.map((name) => providerCard(name, blocks[name])).join("")
-    + "</div>";
+    + sectionPane("Providers", names.map((name) => providerCard(name, blocks[name])).join(""));
   pickSection(host, active);
 }
 
@@ -1767,10 +1800,8 @@ function renderSettings() {
   const picked = sectionState($("settings")).key;
   const active = items.some(([group]) => group === picked) ? picked : items[0][0];
   $("settings").innerHTML = sectionList("settings", items.map(([group, title]) => [group, title]), active)
-    + `<div class="section-pane"><button class="ghost back" type="button" data-back>&lsaquo; All sections</button>`
-    + items.map(([group, title, fields]) => card([group, title, fields]).replace(
-      '<div class="card">', `<div class="card" data-section="${esc(group)}">`)).join("")
-    + "</div>";
+    + sectionPane("Settings", items.map(([group, title, fields]) => card([group, title, fields]).replace(
+      '<div class="card">', `<div class="card" data-section="${esc(group)}">`)).join(""));
   pickSection($("settings"), active);
   // The rendered file wins, and the shown rows follow its mode.
   showAffinityRows(setting("affinity", "mode"));
@@ -2319,11 +2350,13 @@ function showPage() {
   });
   // The first paint marks the chevrons too, so a cut tab shows before the first status answer.
   markNavSteps();
+  applySectionHash();
   document.title = `daedalus · ${document.querySelector(`#nav a[data-page="${page}"]`).firstChild.textContent}`;
   if (page === "providers" && state.view === "form") renderForm();
 }
 
 window.addEventListener("hashchange", showPage);
+window.addEventListener("popstate", applySectionHash);
 showPage();
 $("search").addEventListener("input", renderModels);
 $("model-head").addEventListener("click", (event) => {
@@ -2405,8 +2438,8 @@ $("views").addEventListener("click", (event) => {
 });
 $("provider-form").addEventListener("click", (event) => {
   const section = event.target.closest("[data-section]");
-  if (section) return pickSection($("provider-form"), section.dataset.section, true);
-  if (event.target.closest("[data-back]")) return pickSection($("provider-form"), sectionState($("provider-form")).key, false);
+  if (section) return openSection($("provider-form"), section.dataset.section);
+  if (event.target.closest("[data-back]")) return closeSection($("provider-form"));
   const drop = event.target.closest("[data-drop]");
   if (drop) return dropAt(JSON.parse(drop.dataset.drop));
   const add = event.target.closest("[data-add]");
@@ -2443,8 +2476,8 @@ $("settings").addEventListener("keydown", (event) => {
 });
 $("settings").addEventListener("click", (event) => {
   const section = event.target.closest("[data-section]");
-  if (section) return pickSection($("settings"), section.dataset.section, true);
-  if (event.target.closest("[data-back]")) return pickSection($("settings"), sectionState($("settings")).key, false);
+  if (section) return openSection($("settings"), section.dataset.section);
+  if (event.target.closest("[data-back]")) return closeSection($("settings"));
   // A hook chip: the pick opens the file list, and a choice lands in the row at once.
   const choice = event.target.closest("[data-hook-choice]");
   if (choice) {
