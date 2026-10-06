@@ -105,6 +105,16 @@ def test_hook_http_refuses_a_missing_file() -> None:
   assert response.status_code == 404, response.text
 
 
+def test_hook_http_asks_for_the_key_before_the_file() -> None:
+  """A caller with no key cannot tell a missing hook file from a real one."""
+  name = written("order.py", GOOD)
+  client = TestClient(api.app)
+  missing = client.post("/v1/hook/gone.py", json={"messages": CHAT})
+  real = client.post(f"/v1/hook/{name}", json={"messages": CHAT})
+  assert missing.status_code == 401, missing.text
+  assert real.status_code == 401, real.text
+
+
 def test_hook_http_refuses_a_path_outside_the_folder() -> None:
   """A path that leaves the config folder never loads."""
   response = TestClient(api.app, headers=AUTH).post(
