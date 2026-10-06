@@ -233,32 +233,18 @@
         <button class="ghost danger" id="drop-provider" type="button" hidden>Delete file</button>
         <span class="message" id="save-message" role="status"></span>
         <span class="hint">Ctrl+S saves and reloads</span>
-        <div class="views" id="views">
-          <button class="tab on" type="button" data-view="form">Form</button>
-          <button class="tab" type="button" data-view="yaml">YAML</button>
-        </div>
       </div>
       <div class="files" id="files"></div>
       <div class="message" id="file-note" role="status"></div>
       <div class="settings" id="provider-form"></div>
-      <div class="panel" id="yaml-view" hidden>
-        <textarea id="editor" spellcheck="false" aria-label="Config file"></textarea>
-      </div>
     </section>
     <section data-page="settings" hidden>
       <div class="panel editbar">
         <button class="primary" id="settings-save" type="button" disabled>Save</button>
         <span class="message" id="settings-message" role="status"></span>
         <span class="hint" id="settings-path">Ctrl+S saves and reloads</span>
-        <div class="views" id="settings-views">
-          <button class="tab on" type="button" data-view="form">Form</button>
-          <button class="tab" type="button" data-view="yaml">YAML</button>
-        </div>
       </div>
       <div class="settings" id="settings"></div>
-      <div class="panel yaml-view" id="settings-yaml" hidden>
-        <textarea id="settings-editor" spellcheck="false" aria-label="Settings file"></textarea>
-      </div>
     </section>
   </main>
 </div>
