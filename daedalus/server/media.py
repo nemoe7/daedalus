@@ -71,13 +71,19 @@ def models_for(
 ) -> list[str] | Response:
   """The models to try: the one model, or the pool models by weight after the models that answered this content."""
   if model != pool:
+    built = model if model.startswith("daedalus/") else f"daedalus/{model}"
     if (
-      model == router.RESERVED_MODEL
-      or model in router.POOLS
-      or model in router.MEDIA_POOLS
+      built == router.RESERVED_MODEL
+      or built in router.POOLS
+      or built in router.MEDIA_POOLS
     ):
       hint = f" or {pool_label(pool)}" if pool else ""
       return invalid(f"This endpoint needs a provider/slug model{hint}")
+    # A name whose provider is no config block keeps its plain 400 from the provider lookup.
+    if model.partition("/")[0] not in get_config():
+      return [model]
+    if not router.listed(model):
+      return upstream.unknown_model(model)
     return [model]
   config = get_config()
   members = [

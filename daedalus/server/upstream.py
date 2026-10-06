@@ -119,6 +119,13 @@ def error_response(
   )
 
 
+def unknown_model(model: str) -> JSONResponse:
+  """The 404 answer for a name that the model list does not hold, with the nearest listed id."""
+  near = store.catalog_name(model)
+  hint = f"The Models page lists {near}." if near else "See the Models page."
+  return error_response(404, f"Unknown model {model}. {hint}", "model_not_found")
+
+
 def cooling_response(seconds: float) -> JSONResponse:
   """The 429 answer when each model of the request is in a cooldown."""
   wait = max(1, math.ceil(seconds))

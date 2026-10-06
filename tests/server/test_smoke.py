@@ -92,8 +92,9 @@ def use_config(api_key: str = UPSTREAM_KEY) -> None:
 
 
 def use_upstream(api_key: str = UPSTREAM_KEY, local_key: str = "") -> None:
-  """Point the app at the stub upstream."""
+  """Point the app at the stub upstream, with its model in the store."""
   use_config(api_key)
+  store.write_store([{"id": "stub/gpt-test"}])
   for item in keys.listing(store.MODELS_DB):
     keys.delete(store.MODELS_DB, item["name"])
   if local_key:
@@ -332,6 +333,19 @@ async def test_unknown_models(client: httpx.AsyncClient) -> None:
   assert (await client.post("/v1/embeddings", json={})).status_code == 400
   assert (await client.post("/v1/moderations", json={})).status_code == 404
   assert len(SEEN) == count, SEEN
+
+
+async def test_unlisted_model(client: httpx.AsyncClient) -> None:
+  """Only a listed id answers: a slug beside it takes a 404 with the name of the listed one."""
+  count = len(SEEN)
+  response = await client.post("/v1/chat/completions", json=chat_body(model="stub/gpt"))
+  assert response.status_code == 404, response.text
+  error = response.json()["error"]
+  assert error["type"] == "model_not_found" and error["code"] == 404, error
+  assert "stub/gpt-test" in error["message"], error
+  listed = await client.post("/v1/chat/completions", json=chat_body())
+  assert listed.status_code == 200, "the listed id answers"
+  assert len(SEEN) == count + 1, "the unlisted name never reaches the upstream"
 
 
 async def test_local_key() -> None:
