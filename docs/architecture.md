@@ -5,7 +5,6 @@ daedalus provides an OpenAI endpoint. It routes requests to a free model of the 
 ## Request flow
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e3e8fd", "primaryBorderColor": "#3b5bfd", "primaryTextColor": "#1a1f36", "lineColor": "#3b5bfd", "textColor": "#3b5bfd", "secondaryColor": "#ede9fe", "tertiaryColor": "#f5f3ff", "clusterBkg": "#f5f3ff", "clusterBorder": "#8b5cf6", "titleColor": "#5c388c", "edgeLabelBackground": "#ffffff", "noteBkgColor": "#ede9fe", "noteBorderColor": "#8b5cf6"}}}%%
 flowchart TD
   C[Client] -->|POST /v1/chat/completions| A{Master key or API key?}
   A -->|no| E401[401]
@@ -25,8 +24,6 @@ flowchart TD
   T -->|answer| OK[Answer to the client]
   T -->|error| T
   T -->|no model left| E502[Last error to the client]
-  classDef bad fill:#fbe4ee,stroke:#781f4c,color:#781f4c
-  class E401,E502 bad
 ```
 
 | Step | Rule |
@@ -58,7 +55,6 @@ Each provider request carries the headers of the client request, for example `HT
 Only `daedalus/auto` uses the classifier. A pool name or a `provider/slug` name skips it.
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e3e8fd", "primaryBorderColor": "#3b5bfd", "primaryTextColor": "#1a1f36", "lineColor": "#3b5bfd", "textColor": "#3b5bfd", "secondaryColor": "#ede9fe", "tertiaryColor": "#f5f3ff", "clusterBkg": "#f5f3ff", "clusterBorder": "#8b5cf6", "titleColor": "#5c388c", "edgeLabelBackground": "#ffffff", "noteBkgColor": "#ede9fe", "noteBorderColor": "#8b5cf6"}}}%%
 flowchart TD
   U[All user messages, no system prompt] --> R[Rules: request type]
   U --> K[Shape: length, code, math, choices, language]
@@ -97,7 +93,6 @@ The classifier is a copy of the [LiteLLM](https://github.com/BerriAI/litellm) [A
 When a tier has no model that answers, the chain goes up to tier A, then down from the start:
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e3e8fd", "primaryBorderColor": "#3b5bfd", "primaryTextColor": "#1a1f36", "lineColor": "#3b5bfd", "textColor": "#3b5bfd", "secondaryColor": "#ede9fe", "tertiaryColor": "#f5f3ff", "clusterBkg": "#f5f3ff", "clusterBorder": "#8b5cf6", "titleColor": "#5c388c", "edgeLabelBackground": "#ffffff", "noteBkgColor": "#ede9fe", "noteBorderColor": "#8b5cf6"}}}%%
 flowchart LR
   subgraph sD[Start at tier D]
     direction LR
@@ -126,7 +121,6 @@ Inside each tier, the models of order 1 go first, then the models of order 2, an
 The chain skips an order with no model.
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e3e8fd", "primaryBorderColor": "#3b5bfd", "primaryTextColor": "#1a1f36", "lineColor": "#3b5bfd", "textColor": "#3b5bfd", "secondaryColor": "#ede9fe", "tertiaryColor": "#f5f3ff", "clusterBkg": "#f5f3ff", "clusterBorder": "#8b5cf6", "titleColor": "#5c388c", "edgeLabelBackground": "#ffffff", "noteBkgColor": "#ede9fe", "noteBorderColor": "#8b5cf6"}}}%%
 flowchart LR
   subgraph B[Tier B]
     direction LR
@@ -150,7 +144,6 @@ flowchart LR
 Each model has 1 weight for all pools. The first tier uses a weighted draw. The next tiers use the weight order.
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e3e8fd", "primaryBorderColor": "#3b5bfd", "primaryTextColor": "#1a1f36", "lineColor": "#3b5bfd", "textColor": "#3b5bfd", "secondaryColor": "#ede9fe", "tertiaryColor": "#f5f3ff", "clusterBkg": "#f5f3ff", "clusterBorder": "#8b5cf6", "titleColor": "#5c388c", "edgeLabelBackground": "#ffffff", "noteBkgColor": "#ede9fe", "noteBorderColor": "#8b5cf6"}}}%%
 stateDiagram-v2
   direction LR
   [*] --> W: weight 1
@@ -221,7 +214,6 @@ A model with `rpm` or `tpm` in its provider file leaves the chains and the media
 A conversation keeps its model (the session model) in each slot.
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e3e8fd", "primaryBorderColor": "#3b5bfd", "primaryTextColor": "#1a1f36", "lineColor": "#3b5bfd", "textColor": "#3b5bfd", "secondaryColor": "#ede9fe", "tertiaryColor": "#f5f3ff", "clusterBkg": "#f5f3ff", "clusterBorder": "#8b5cf6", "titleColor": "#5c388c", "edgeLabelBackground": "#ffffff", "noteBkgColor": "#ede9fe", "noteBorderColor": "#8b5cf6"}}}%%
 sequenceDiagram
   participant C as Client
   participant D as daedalus
@@ -256,7 +248,6 @@ With `affinity.mode: race`, a request to `daedalus/auto` or to a tier pool can r
 `affinity.count` models of its own chain.
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#e3e8fd", "primaryBorderColor": "#3b5bfd", "primaryTextColor": "#1a1f36", "lineColor": "#3b5bfd", "textColor": "#3b5bfd", "secondaryColor": "#ede9fe", "tertiaryColor": "#f5f3ff", "clusterBkg": "#f5f3ff", "clusterBorder": "#8b5cf6", "titleColor": "#5c388c", "edgeLabelBackground": "#ffffff", "noteBkgColor": "#ede9fe", "noteBorderColor": "#8b5cf6"}}}%%
 sequenceDiagram
   participant C as Client
   participant D as daedalus
