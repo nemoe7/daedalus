@@ -13,6 +13,8 @@ from daedalus.config import SAVED
 from daedalus.providers.base import OpenAIProvider, ProviderError, Upload, limits
 
 TRANSCRIPT_FORMATS = ("json", "text", "vtt")
+# The 2 URLs of the account, in the template form that the card shows as a placeholder.
+ACCOUNT_URL = "https://api.cloudflare.com/client/v4/accounts/{account_id}"
 # The Aura encoding and container for each OpenAI speech format.
 AURA_FORMATS = {
   "mp3": ("mp3", None),
@@ -89,12 +91,17 @@ class CloudflareProvider(OpenAIProvider):
   defaults: ClassVar[Mapping[str, str]] = {
     "api_type": "openai",
     "account_id": "env:CLOUDFLARE_ACCOUNT_ID",
+    "api_base": f"{ACCOUNT_URL}/ai/v1",
+    "discovery_url": f"{ACCOUNT_URL}/ai/models/search?per_page=100",
   }
   transcript_formats: ClassVar[tuple[str, ...]] = TRANSCRIPT_FORMATS
 
   @classmethod
   def configure(cls, config: dict[str, Any]) -> dict[str, Any]:
-    """The config with the account id and its 2 URLs, from the config, the store or the env."""
+    """The config with the account id filled into its 2 URL templates, from the config, the store or the env.
+
+    Without an account id, a URL template drops out: a request cannot use it.
+    """
     merged = dict(config)
     account_id = str(merged.get("account_id") or "").strip()
     if not account_id:
@@ -105,15 +112,14 @@ class CloudflareProvider(OpenAIProvider):
       ).strip()
       if account_id:
         merged["account_id"] = account_id
-    if account_id:
-      merged.setdefault(
-        "api_base",
-        f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1",
-      )
-      merged.setdefault(
-        "discovery_url",
-        f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/models/search?per_page=100",
-      )
+    for key in ("api_base", "discovery_url"):
+      value = str(merged.get(key) or "")
+      if "{account_id}" not in value:
+        continue
+      if account_id:
+        merged[key] = value.replace("{account_id}", account_id)
+      else:
+        merged.pop(key)
     return merged
 
   def __init__(self, name: str, config: Mapping) -> None:
