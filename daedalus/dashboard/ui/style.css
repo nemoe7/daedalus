@@ -446,13 +446,24 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6
 /* A closed group of fields: the summary is the row, and the body holds the fields. */
 .fold { border-top: 1px solid var(--line); }
 .fold summary {
-  display: flex; align-items: center; gap: 6px; padding: 10px 0; cursor: pointer;
-  list-style: none; font-weight: 500;
+  position: relative; display: flex; align-items: center; gap: 6px; padding: 10px 0;
+  cursor: pointer; list-style: none; font-weight: 500;
 }
 .fold summary::-webkit-details-marker { display: none; }
 .fold summary::after { content: "+"; margin-left: auto; color: var(--muted); font-family: var(--mono); }
 .fold[open] summary::after { content: "\2212"; }
 .fold summary small { display: none; }
+/* The info icon of a closed group carries its hint, as the icon of a field does. */
+.fold summary .hint {
+  margin-left: 2px; width: 16px; height: 16px; padding: 0; border: 1px solid var(--line);
+  border-radius: 50%; background: transparent; color: var(--muted); font: 11px/1 var(--mono);
+}
+.fold summary .hint:hover, .fold summary .hint:focus-visible { color: var(--text); border-color: var(--muted); }
+.fold summary .hint:hover ~ small, .fold summary .hint:focus ~ small {
+  display: block; position: absolute; top: calc(100% + 4px); left: 0; z-index: 3;
+  width: max-content; max-width: 260px; padding: 6px 8px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--panel); color: var(--muted); font-size: 12px;
+}
 .fold summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .fold-body { padding-bottom: 4px; }
 .settings .field.stack { flex-direction: column; align-items: stretch; gap: 8px; }
@@ -549,6 +560,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .field.check > span, .field.info > span { grid-template-columns: auto auto; }
   .field.check .hint, .field.info .hint { width: 22px; height: 22px; font-size: 12px; }
   .field.check .hint, .field.info .hint { display: grid; place-items: center; }
+  .fold summary .hint { width: 22px; height: 22px; font-size: 12px; }
   .field.check small, .field.info small { display: none; }
   /* The requests bar keeps 2 rows: the search takes the width, then the 3 controls share the next row. */
   .requests-bar { flex-wrap: wrap; }
