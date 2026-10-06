@@ -104,8 +104,8 @@ A card for each pool shows above the table, with its top model and its mean weig
 
 ## Providers
 
-The cards of the Form view stack in columns. The Save bar stays under the header while the fields scroll, so a
-field far down keeps its Save in reach. A phone hides the Ctrl+S hint and tightens the bar over the file tabs.
+The cards of the Form view stack in columns. The Save bar rides at the top of the form and scrolls with
+the page, so it hides no row of the form. A phone hides the Ctrl+S hint and tightens the bar over the file tabs.
 
 | Field | YAML key | Input |
 | --- | --- | --- |

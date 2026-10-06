@@ -438,12 +438,10 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6
 .settings .field textarea {
   min-height: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px;
 }
-section[data-page="settings"] > .editbar, section[data-page="models"] > .editbar,
-section[data-page="limits"] > .editbar { margin-bottom: 16px; }
-/* The Save bar of the 2 editing pages stays under the header, so a field far down keeps its Save in
-   reach. The panel background covers the rows that scroll behind it. */
-section[data-page="providers"] > .editbar, section[data-page="settings"] > .editbar {
-  position: sticky; top: 0; z-index: 4; background: var(--panel);
+/* The Save bar rides above the form, in the flow. A sticky bar hides the rows that scroll behind it. */
+section[data-page="providers"] > .editbar, section[data-page="settings"] > .editbar,
+section[data-page="models"] > .editbar, section[data-page="limits"] > .editbar {
+  margin-bottom: 16px;
 }
 /* The Limits bar holds 1 button and 1 line, so it stays short. */
 section[data-page="limits"] > .editbar { padding: 6px 10px; gap: 10px; }
