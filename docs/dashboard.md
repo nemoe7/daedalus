@@ -8,6 +8,7 @@ Open `http://HOST:3357/`.
 | Password | Reads `DAEDALUS_PASSWORD`, else `DAEDALUS_MASTER_KEY`. Without a password, the form shows a master key hint. |
 | Remember me | On at the start: 30 days. Else the session ends after 12 h. |
 | Change | A new master key, user or password stops all sessions. |
+| Too many tries | A failed try waits 0.5 s. After 5 failures in a row, the client waits 60 s before another try. The count ends at a good login. |
 
 ## Contents
 
@@ -17,6 +18,7 @@ Open `http://HOST:3357/`.
 - [Models](#models)
 - [Providers](#providers)
 - [Limits](#limits)
+- [A failed read](#a-failed-read)
 - [API keys](#api-keys)
 
 ## Pages

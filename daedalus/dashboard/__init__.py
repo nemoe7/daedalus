@@ -218,6 +218,11 @@ COOKIE = "daedalus_session"
 HEADER = "x-daedalus-session"
 SESSION_SECONDS = 12 * 3600
 REMEMBER_SECONDS = 30 * 86400
+# A failed login waits, and 5 failures in a row lock the client out for a minute.
+LOGIN_DELAY = 0.5
+LOGIN_LIMIT = 5
+LOGIN_LOCK = 60.0
+LOGIN_FAILURES: dict[str, tuple[int, float]] = {}
 UI_DIR = Path(__file__).parent / "ui"
 UI_FILES = {
   "app.js": "text/javascript",
@@ -317,6 +322,26 @@ def live(key: str, value: str) -> bool:
 
 def denied() -> JSONResponse:
   return failure(401, "Log in to the dashboard.", "authentication_error")
+
+
+def login_client(request: Request) -> str:
+  """The client of a login try: its address, else the word `client`."""
+  return request.client.host if request.client else "client"
+
+
+def login_locked(client: str) -> float:
+  """The seconds left of the login lockout of a client, and 0 when it may try again."""
+  count, at = LOGIN_FAILURES.get(client, (0, 0.0))
+  left = at + LOGIN_LOCK - time.time()
+  return left if count >= LOGIN_LIMIT and left > 0 else 0.0
+
+
+async def login_failed(client: str) -> JSONResponse:
+  """Count a failed try, wait, and refuse the login."""
+  count, _ = LOGIN_FAILURES.get(client, (0, 0.0))
+  LOGIN_FAILURES[client] = (count + 1, time.time())
+  await asyncio.sleep(LOGIN_DELAY)
+  return failure(401, "Wrong username or password.", "authentication_error")
 
 
 def failure(status: int, message: str, kind: str) -> JSONResponse:
@@ -641,6 +666,15 @@ def routes(
     body = await json_body(request)
     if not isinstance(body, dict):
       return failure(400, "Send a username and a password.", "invalid_request_error")
+    # A locked client waits before another try, so a list of keys runs no faster than a guess.
+    client = login_client(request)
+    left = login_locked(client)
+    if left:
+      return failure(
+        429,
+        f"Too many failed tries. Wait {int(left) + 1} seconds.",
+        "rate_limit_error",
+      )
     user = hmac.compare_digest(
       str(body.get("username", "")).encode(), username.encode()
     )
@@ -648,7 +682,8 @@ def routes(
       str(body.get("password", "")).encode(), password.encode()
     )
     if not (user and known):
-      return failure(401, "Wrong username or password.", "authentication_error")
+      return await login_failed(client)
+    LOGIN_FAILURES.pop(client, None)
     # Without "remember", the browser drops the cookie on close and the value ends after 12 h.
     remember = body.get("remember") is True
     seconds = REMEMBER_SECONDS if remember else SESSION_SECONDS
