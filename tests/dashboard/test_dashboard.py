@@ -2587,7 +2587,14 @@ def test_the_providers_page_folds_the_long_groups() -> None:
     "the field hint rides behind the info icon"
   )
   assert 'role="tooltip"' in app, "the hint text serves as the tooltip"
+  assert 'closest(".fold summary .hint")' in app, (
+    "a click on the hint of a group never opens the group"
+  )
+  assert 'aria-describedby="${id}"' in app, "the hint of a group names its tooltip"
   style = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   assert ".settings > .column { flex: 1 1 min(340px, 100%);" in style, (
     "the provider form keeps its own columns, so a card never splits across 1"
+  )
+  assert ".fold summary .hint:hover ~ small" in style, (
+    "the hint of a group shows its tooltip on hover and on focus"
   )
