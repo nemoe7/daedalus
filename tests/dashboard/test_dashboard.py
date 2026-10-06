@@ -2580,8 +2580,8 @@ def test_each_page_holds_a_section_list() -> None:
   for needle in (
     "function sectionList(",
     "function pickSection(",
-    'pickSection($("settings"), section.dataset.section, true)',
-    'pickSection($("provider-form"), section.dataset.section, true)',
+    'openSection($("settings"), section.dataset.section)',
+    'openSection($("provider-form"), section.dataset.section)',
     'class="section-pane"',
     'class="ghost back"',
   ):
@@ -2633,4 +2633,31 @@ def test_the_limits_poll_keeps_out_of_the_address_bar() -> None:
   )
   assert '$("limits-clear").hidden = !state.limitSearch;' in app, (
     "the clear button follows the filter, and not the hash write"
+  )
+
+
+def test_a_phone_opens_a_section_as_its_own_page() -> None:
+  """A pick pushes the section into the hash, and the back button names its page."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  for needle in (
+    "function sectionPane(back, cards) {",
+    "function openSection(host, key) {",
+    "function closeSection(host) {",
+    "function applySectionHash() {",
+    "history.pushState({ section: key }",
+    'window.addEventListener("popstate", applySectionHash);',
+    "applySectionHash();",
+  ):
+    assert needle in app, needle
+  assert 'sectionPane("Settings"' in app and 'sectionPane("Providers"' in app, (
+    "each pane names the page its back button returns to"
+  )
+  style = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  phone = style.split("@media (max-width: 900px) {", 1)[1]
+  assert '.sections button::after { content: "\\203a";' in phone, (
+    "a phone row carries a chevron"
+  )
+  assert '.settings[data-detail="1"] .section-pane { display: grid; }' in phone, (
+    "a phone shows the picked section alone"
   )
