@@ -1233,7 +1233,7 @@ const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobal
 const nodes = new Map();
 const node = (id) => {{
   if (!nodes.has(id)) {{
-    const made = {{ id, innerHTML: '', value: '', checked: false, textContent: '', disabled: false, hidden: false, handlers: {{}},
+    const made = {{ id, innerHTML: '', value: '', checked: false, textContent: '', disabled: false, hidden: false, dataset: {{}}, handlers: {{}},
       addEventListener: (type, fn) => {{ (made.handlers[type] ||= []).push(fn); }},
       classList: {{ toggle: () => {{}} }}, closest: () => made, querySelectorAll: () => [] }};
     nodes.set(id, made);
@@ -2568,9 +2568,33 @@ def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
     ".keys tr > td:nth-child(4) { grid-column: 1; grid-row: 2; }",
   ):
     assert rule in phone, rule
-  assert "#settings { display: block; column-count: 2;" in css, (
-    "the settings cards flow into 2 columns"
+  assert ".sections button.on" in css and ".section-pane {" in css, (
+    "the Settings page holds a section list and the pane"
   )
+
+
+def test_each_page_holds_a_section_list() -> None:
+  """Every section sits in a rail, and the pane shows the picked 1."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  for needle in (
+    "function sectionList(",
+    "function pickSection(",
+    'pickSection($("settings"), section.dataset.section, true)',
+    'pickSection($("provider-form"), section.dataset.section, true)',
+    'class="section-pane"',
+    'class="ghost back"',
+  ):
+    assert needle in app, needle
+  assert "const CARD_WIDTH" not in app, "the hand-balanced columns are gone"
+  style = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  for needle in (
+    ".sections button.on",
+    ".section-pane {",
+    '.settings[data-detail="1"] .section-pane',
+    ".sections button { min-height: 44px; }",
+  ):
+    assert needle in style, needle
 
 
 def test_the_providers_page_folds_the_long_groups() -> None:
@@ -2592,8 +2616,8 @@ def test_the_providers_page_folds_the_long_groups() -> None:
   )
   assert 'aria-describedby="${id}"' in app, "the hint of a group names its tooltip"
   style = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  assert ".settings > .column { flex: 1 1 min(340px, 100%);" in style, (
-    "the provider form keeps its own columns, so a card never splits across 1"
+  assert ".settings > .column {" not in style and "column-count" not in style, (
+    "no page splits a card across a column"
   )
   assert ".fold summary .hint:hover ~ small" in style, (
     "the hint of a group shows its tooltip on hover and on focus"
