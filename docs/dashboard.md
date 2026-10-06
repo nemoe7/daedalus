@@ -170,6 +170,8 @@ A save of a file that is not valid YAML, or that has a key 2 times in 1 map, get
 
 A provider file on disk that is not valid YAML still gets its tab. It opens in the YAML view, with the error line next to the Save button. Fix the text there and save it.
 
+The form holds the section list of the current file: the rail names every provider of the file, and the pane shows the picked card.
+A narrow screen shows the list alone, and a pick opens 1 provider, with a button back to the list.
 A field hint rides behind the info icon next to its label. The `Tiers`, `Model overrides` and
 `Provider values` groups start closed, and their icon carries the group hint.
 
@@ -204,6 +206,8 @@ To show the Cloudflare neurons, give the Cloudflare token the analytics permissi
 To test the token, send the query of [`daedalus/routing/limits.py`](../daedalus/routing/limits.py) with curl. Without the permission, the answer has an `errors` list.
 
 ## A phone
+
+The Settings page and the provider form show their section list alone on a phone. A pick opens 1 section, and the button above it returns to the list.
 
 A phone keeps the 4 numbers of the Overview above the status card, in 2 rows of 2. The Models table
 and the API keys table become cards, as the Requests table does. A chevron at an end of the tab bar
