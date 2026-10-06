@@ -115,13 +115,14 @@ The installers ask for profiles only when `.env` is absent. If you decline Open 
 | `ENABLE_IMAGE_EDIT`, `IMAGE_EDIT_ENGINE`, `IMAGE_EDIT_MODEL` | `true`, `openai` and `daedalus/photos`. Only the photos models with image input edit. |
 | `AUDIO_STT_OPENAI_API_*`, `IMAGES_OPENAI_API_*`, `IMAGES_EDIT_OPENAI_API_*` | The daedalus API base and key. Without them, speech and images go to OpenAI. |
 | `VECTOR_DB`, `PGVECTOR_DB_URL` | `pgvector` in `webui-db`, for files, knowledge and memory. `main-slim` supports no other vector store. |
+| `ENABLE_MEMORY_BACKGROUND_REVIEW`, `MEMORIES_REVIEW_INTERVAL_TURNS` | `true` and `5`. After every 5th user turn, the chat model reviews the last turns and drafts the memories. |
 | `RAG_EMBEDDING_ENGINE`, `RAG_EMBEDDING_MODEL` | `openai` and `mistral/mistral-embed` through daedalus. `main-slim` has no local embedding model. |
 | `CONTENT_EXTRACTION_ENGINE` | `tika`. Without the `tika` profile, PDF and Office files fail. Plain text skips it. |
 | `ENABLE_WEB_SEARCH`, `WEB_SEARCH_ENGINE` | `true` and `searxng`. Without the `search` profile, a web search fails. |
 | `DEFAULT_MODEL_METADATA` | On in each new chat. An existing install: **Admin Settings → Models → Defaults**. |
 | MCP servers | MCP tools need **Native** function calling. Tool requests skip the models without it. See [MCP](https://docs.openwebui.com/features/extensibility/mcp/). |
 | Spoken replies | **Settings → Audio**: Web API or Kokoro.js. Gemini TTS allows 3 requests per minute. |
-| `RAG_EMBEDDING_BATCH_SIZE`, `ENABLE_ASYNC_EMBEDDING` | `32` and `false`: 32 chunks in each request, serial, for the free Mistral limits |
+| `RAG_EMBEDDING_BATCH_SIZE`, `ENABLE_ASYNC_EMBEDDING`, `RAG_EMBEDDING_CONCURRENT_REQUESTS` | `32`, `true` and `2`: 32 chunks in each call, 2 calls at a time, inside the free Mistral limits |
 
 After a change of `pools.audio` or `pools.images` in [`config/daedalus.yml`](../config/daedalus.yml), change `daedalus/graphos` or `daedalus/photos` in [`compose.yml`](../compose.yml) and in **Admin Settings**. Also change the pool names in the Kilo and Open WebUI model settings.
 

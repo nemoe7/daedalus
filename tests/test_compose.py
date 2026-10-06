@@ -31,3 +31,14 @@ def test_tailscale_openwebui_has_its_own_profile() -> None:
   services = compose["services"]
   assert services["open-webui"]["profiles"] == ["webui"]
   assert services["tailscale-openwebui"]["profiles"] == ["tailscale-openwebui"]
+
+
+def test_openwebui_keeps_the_memory_review_and_the_async_cap() -> None:
+  """The Open WebUI memory review and its async embedding, with the cap of the free Mistral key."""
+  compose = yaml.safe_load((ROOT / "compose.yml").read_text())
+  env = compose["services"]["open-webui"]["environment"]
+  assert env["ENABLE_MEMORY_BACKGROUND_REVIEW"] == "true"
+  assert env["MEMORIES_REVIEW_INTERVAL_TURNS"] == "5"
+  assert env["ENABLE_ASYNC_EMBEDDING"] == "true"
+  assert env["RAG_EMBEDDING_CONCURRENT_REQUESTS"] == "2"
+  assert env["RAG_EMBEDDING_BATCH_SIZE"] == "32"
