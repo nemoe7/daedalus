@@ -114,11 +114,12 @@ def test_hook_http_refuses_a_path_outside_the_folder() -> None:
 
 
 def test_hook_http_reports_a_failure() -> None:
-  """A hook that raises is a 500, and the message names the file."""
+  """A hook that raises is a 500. The message names the file, and the exception text stays in the log."""
   name = written("broken.py", BROKEN)
   response = TestClient(api.app, headers=AUTH).post(f"/v1/hook/{name}", json={})
   assert response.status_code == 500, response.text
-  assert name in response.text and "boom" in response.text
+  assert name in response.text
+  assert "boom" not in response.text, "the exception text is not for the caller"
 
 
 def test_hook_http_refuses_a_non_dict_answer() -> None:

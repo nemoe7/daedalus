@@ -796,9 +796,11 @@ async def hook_call(request: Request, file: str) -> Response:
       headers=dict(request.headers),
       **call,
     )
-  except Exception as exc:
+  except Exception:
     logger.exception("on-http hook %s failed", path)
-    return upstream.error_response(500, f"{file} failed: {exc}", "server_error")
+    return upstream.error_response(
+      500, f"{file} failed. The server log holds the detail.", "server_error"
+    )
   if not isinstance(answer, dict):
     return upstream.error_response(500, f"{file} returned no dict", "server_error")
   return JSONResponse(answer)
