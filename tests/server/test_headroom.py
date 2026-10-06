@@ -185,6 +185,18 @@ def lines():
   api.logger.removeHandler(lines)
 
 
+@pytest.fixture(autouse=True, scope="module")
+def headroom_url():
+  """The sidecar address of the module, so a test passes in any run order."""
+  kept = os.environ.get(headroom.HEADROOM_URL)
+  os.environ[headroom.HEADROOM_URL] = "http://headroom:8787"
+  yield
+  if kept is None:
+    os.environ.pop(headroom.HEADROOM_URL, None)
+  else:
+    os.environ[headroom.HEADROOM_URL] = kept
+
+
 @pytest.fixture(scope="module")
 def sidecar():
   sidecar = Sidecar()
