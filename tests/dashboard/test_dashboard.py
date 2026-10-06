@@ -2384,3 +2384,84 @@ def test_the_requests_bar_keeps_its_own_height() -> None:
   assert (
     'section[data-page="requests"] > .flow > .column > .requests-bar { flex: none; }'
   ) in css, "the toolbar keeps its own height"
+
+
+def test_every_note_of_a_write_is_a_live_region() -> None:
+  """A save or a failure lands in a status or an alert region, so a screen reader reads it."""
+  root = Path(__file__).resolve().parent.parent.parent
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  for name, role in (
+    ("reset-message", "status"),
+    ("limits-message", "status"),
+    ("save-message", "status"),
+    ("settings-message", "status"),
+    ("file-note", "status"),
+    ("key-message", "alert"),
+    ("login-message", "alert"),
+    ("notice", "alert"),
+  ):
+    tag = re.search(rf"<[^>]*id=\"{name}\"[^>]*>", page)
+    assert tag and f'role="{role}"' in tag.group(0), (name, tag and tag.group(0))
+
+
+def test_a_failed_read_shows_a_line_in_the_page() -> None:
+  """`guarded` shows the failure with a retry button, and a later read hides it."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert re.search(
+    r"async function guarded\(task\) \{\n  try \{\n    await task\(\);\n    clearNotice\(\);",
+    app,
+  ), "a successful read hides the failure line"
+  assert "showNotice(error.message);\n      console.error(error);" in app, (
+    "a failed read shows its message"
+  )
+  assert '$("notice-retry").addEventListener("click", () => {' in app, (
+    "the retry button"
+  )
+  assert "alert(" not in app, "no native dialog is left"
+
+
+def test_the_requests_rows_show_a_relative_time() -> None:
+  """A row reads `4 mins ago`, and the title holds the exact stamp."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert 'const cell = (label, inner, cls = "", attrs = "") =>' in app, (
+    "the cell takes attributes"
+  )
+  assert '${relative(r.at)}`, "num muted", ` title="${esc(stamp(r.at))}"`)}' in app, (
+    "the Time cell keeps the relative text and the exact stamp"
+  )
+
+
+def test_the_requests_table_has_a_live_switch() -> None:
+  """The switch pauses the in-flight rows and counts the requests that wait."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  assert 'id="live-toggle"' in page and 'aria-pressed="false"' in page, page[
+    page.index("live-toggle") - 60 :
+  ][:120]
+  assert "function renderLiveToggle()" in app and "state.liveWaiting.add(id)" in app, (
+    "the button draws its state and the held rows"
+  )
+  assert "function tickLive() {\n  if (state.livePaused) return;" in app, (
+    "a paused table holds still"
+  )
+  assert "function renderLive() {\n  if (state.livePaused) return;" in app, (
+    "a paused table redraws no row"
+  )
+
+
+def test_the_requests_filters_ride_in_the_hash() -> None:
+  """`#/requests?status=bad&hours=24&q=timeout` sets the filters, and a change writes the hash."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert (
+    'if (asked === "requests" && query !== undefined) applyRequestFilters(query);'
+    in app
+  )
+  assert re.search(
+    r"function requestHash\(\) \{[\s\S]*?history\.replaceState\(null, \"\", `#/requests",
+    app,
+  ), "the filters write their own hash"
+  assert app.count("  requestHash();\n") == 3, app.count("  requestHash();\n")
