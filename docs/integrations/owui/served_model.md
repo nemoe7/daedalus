@@ -27,3 +27,5 @@ only when the served model of the chat moves. The Filter keeps the last served m
 for that valve.
 Open WebUI draws the newest entry of the status list a second time while the reader has the list
 open. That row is the header row of the list, so no line is lost.
+
+See [Open WebUI integration](../owui.md) for the other plugins.

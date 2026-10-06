@@ -25,7 +25,7 @@ flowchart TD
 ## The level of a call
 
 The `on_prompt` point reads the heuristics v2 tier of the newest user turn and the newest model
-turn, so each turn of a chat gets its own level. The model part is capped at `ANSWER_CHARS`, 500
+turn, so each turn of a chat gets its own level. The model part keeps at most `ANSWER_CHARS`, 500
 characters, because a long answer would bloat the read. The `LEVELS` table holds the level of each
 tier, from `TIER-D` `none` to `TIER-A` `high`. A value of the client keeps the last word over that
 read. The tier of the conversation stays with the routing of `daedalus/auto`, so this file sets the
@@ -53,3 +53,5 @@ and this file writes the code of the row, `rt1`, `rt2`.
 The same count reaches `on_prompt` as `retry`, so the level of a try again follows the same press.
 Without the header, a repeat is a new request. Without the file, a repeat of a message takes the
 usual chain.
+
+The other shipped hook files: [The served model line](served_model.md) and [the OpenRouter endpoint order](or_cheapest_output.md).

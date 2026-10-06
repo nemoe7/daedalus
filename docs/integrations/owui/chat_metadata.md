@@ -37,3 +37,5 @@ Without both, the line reads `unknown`.
 
 A repeat replaces the block of the Filter, so the messages keep 1 of them, at the top. The
 `enabled` Valve off returns the body as it came in.
+
+See [Open WebUI integration](../owui.md) for the other plugins.
