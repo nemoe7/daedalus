@@ -13,3 +13,6 @@ build/
 *.log
 .env
 .env.bak
+
+# The digest file of `daedalus hooks pin`
+config/hooks.lock.json
