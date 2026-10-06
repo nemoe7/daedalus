@@ -577,15 +577,17 @@ class Store:
 		for status in TASK_STATUSES:
 			for record in tasks.get(status)or[]:lines.append(saved_task_line(record))
 		answers=[saved_answer_line(record)for record in self.submissions()];lines.extend(answers);reports=[saved_report_line(record)for record in self.report_sources()];lines.extend(reports);return lines,{'notes':len(notes),'tasks':len(lines)-len(notes)-len(answers)-len(reports),'answers':len(answers),'reports':len(reports)}
-	def newest_stamp(self):
-		tables=('notes',('at','acknowledged_at','ack_edited_at','seen_at')),('submissions',('at','acknowledged_at','seen_at')),('reports',('updated_at','published_at','seen_at','agent_seen_at')),('uploads',('at',)),('tasks',('updated_at',));stamps=[]
+	def newest_stamps(self):
+		groups=('note','notes',('at','acknowledged_at','ack_edited_at','seen_at')),('answer','submissions',('at','acknowledged_at','seen_at')),('report','reports',('updated_at','published_at','seen_at','agent_seen_at')),('upload','uploads',('at',)),('task','tasks',('updated_at',));stamps={}
 		with closing(self.connect())as db:
-			for(table,names)in tables:
-				exprs=', '.join(f"MAX({name})"for name in names)
+			for(group,table,names)in groups:
+				exprs=', '.join(f"MAX({name})"for name in names);newest=None
 				for value in db.execute(f"SELECT {exprs} FROM {table}").fetchone():
 					stamp=import_stamp(value)
-					if stamp:stamps.append(stamp)
-		return max(stamps).isoformat()if stamps else None
+					if stamp and(newest is None or stamp>newest):newest=stamp
+				stamps[group]=newest.isoformat()if newest else None
+		return stamps
+	def newest_stamp(self,stamps=None):stamps=stamps or self.newest_stamps();values=[import_stamp(value)for value in stamps.values()];values=[value for value in values if value];return max(values).isoformat()if values else None
 	def save_state(self,payload):
 		if not isinstance(payload,dict):raise TypeError('Save a state object')
 		notes=payload.get('notes');tasks=payload.get('tasks')
@@ -1012,7 +1014,7 @@ def handler(store):
 					except RuntimeError as error:state['rendering_error']=str(error)
 					self.reply(200,json.dumps(state,ensure_ascii=False));return
 				if path=='/api/submissions':live={report['id']for report in store.state()['reports']};self.reply(200,json.dumps([saved_answer_line(record)for record in store.submissions()if record['report_id']in live],ensure_ascii=False),'application/json; charset=utf-8');return
-				if path=='/api/copy-state':notes=store.state()['notes'];lines,counts=store.state_lines(notes,store.tasks()or{});self.reply(200,json.dumps({'text':state_ndjson(lines),'counts':counts,'stamp':store.newest_stamp(),'repo':store.path.parent.parent.name,'branch':workspace_branch(store.path.parent.parent)},ensure_ascii=False),'application/json; charset=utf-8');return
+				if path=='/api/copy-state':notes=store.state()['notes'];lines,counts=store.state_lines(notes,store.tasks()or{});stamps=store.newest_stamps();self.reply(200,json.dumps({'text':state_ndjson(lines),'counts':counts,'stamp':store.newest_stamp(stamps),'stamps':{'note':stamps['note'],'task':stamps['task']},'repo':store.path.parent.parent.name,'branch':workspace_branch(store.path.parent.parent)},ensure_ascii=False),'application/json; charset=utf-8');return
 				if path=='/api/report-sources':self.reply(200,json.dumps([saved_report_line(record)for record in store.report_sources()],ensure_ascii=False),'application/json; charset=utf-8');return
 				match=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/(html|source)',path)
 				if match:
