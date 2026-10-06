@@ -649,7 +649,11 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .models td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .phone-types { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
   .hide-sm { display: none; }
-  .models .weight { width: 80px; min-width: 0; gap: 6px; }
+  /* The weight of a model card takes its own line. The value and the bar of a quarter cell
+     run past the card edge, so the row gives them the full width. */
+  .models tr > td:last-child { grid-column: 1 / -1; }
+  .models .weight { width: 100%; min-width: 0; gap: 8px; }
+  .models .weight .num { flex: none; }
   #limit-rows .weight.left { min-width: 0; }
   .requests, .requests tbody, .requests tr { display: block; }
   .requests thead {
