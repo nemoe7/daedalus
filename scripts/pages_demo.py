@@ -1382,9 +1382,14 @@ def build(out: Path, version: str) -> Path:
     raise SystemExit(
       "index.html does not load ui/app.js: the demo build cannot patch it"
     )
-  (out / "index.html").write_text(
-    page.replace(marker, f'<script src="demo.js"></script>\n{marker}'), encoding="utf-8"
+  # The version rides on each asset, so a browser picks up a new build and not the cache.
+  stamped = f'<script src="demo.js?v={version}"></script>\n<script src="ui/app.js?v={version}"></script>'
+  page = page.replace(marker, stamped)
+  page = page.replace(
+    '<link rel="stylesheet" href="ui/style.css">',
+    f'<link rel="stylesheet" href="ui/style.css?v={version}">',
   )
+  (out / "index.html").write_text(page, encoding="utf-8")
   return out
 
 
