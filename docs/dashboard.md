@@ -29,9 +29,9 @@ Open `http://HOST:3357/`.
 | Requests | The log of the last requests and the ones in flight. See [Requests](#requests). |
 | Models | The catalog table and a card for each pool. See [Models](#models). |
 | API keys | Make and delete API keys |
-| Providers | A tab per provider file. Form: a card per provider. YAML: the file text. |
+| Providers | A tab per provider file. Form: a section per provider. YAML: the file text, as the last section. |
 | Limits | The last rate-limit headers of each model, and each provider key balance in a card. |
-| Settings | Form and YAML views of [`config/daedalus.yml`](../config/daedalus.yml). A save checks each value, then reloads the settings. |
+| Settings | Form and YAML sections of [`config/daedalus.yml`](../config/daedalus.yml). A save checks each value, then reloads the settings. |
 
 The logo shows in the header, on the login page and as the tab icon. The page has a web app manifest, so a browser can install the dashboard as an app. A browser installs it only over HTTPS or from localhost. The version shows under the name, also on the login page before a login: the image tag, for example v0.2.0, or dev-COMMIT after `install --dev`.
 
@@ -165,6 +165,8 @@ A value of `true` or `false` becomes a boolean. A value with digits only becomes
 A save from the Form view keeps the comments, the key order, the quotes and the one-line maps of the file. It changes only the lines of the values that changed. An empty list or map leaves the file. An empty pattern row stays, because a pattern alone declares a model.
 
 A change to the other view asks for a confirmation when the file holds unsaved changes. The other view shows the saved file.
+
+The YAML editor ends the section list of both pages. It is the fallback: a key or a block that the form cannot show still opens there. That card carries its own Save, and the bar Save hides while it shows.
 
 A save of a file that is not valid YAML, or that has a key 2 times in 1 map, gets an error message. The file does not change. This rule applies to the Providers page and the Settings page.
 
