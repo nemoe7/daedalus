@@ -229,26 +229,27 @@ vm.runInContext(src, sandbox);
 """
 
 
-def test_app_js_tab_fades() -> None:
-  """The tab bar fades mark the scroll ends, so a cut tab still shows."""
+def test_app_js_tab_steps() -> None:
+  """A chevron shows at each end of the tab bar that holds tabs off screen, and hides at the end."""
   code = _app_js_vm(
     """
-assert(classes.has('fade-left') && classes.has('fade-right'), 'the first paint marks the fades');
+const left = byId.get('nav-left'), right = byId.get('nav-right');
+assert(!left.hidden && !right.hidden, 'both chevrons show on the first paint');
 sandbox.renderStatus({
   healthy: true, sessions: 2, models: 80, version: 'v1',
   catalog: { built: 1, next: 2, rebuilding: false },
 });
-assert(classes.has('fade-left') && classes.has('fade-right'));
+assert(!left.hidden && !right.hidden);
 nav.scrollLeft = 0;
-sandbox.markNavFades();
-assert(!classes.has('fade-left') && classes.has('fade-right'));
+sandbox.markNavSteps();
+assert(left.hidden && !right.hidden, 'the left chevron goes at the start');
 nav.scrollLeft = 160;
-sandbox.markNavFades();
-assert(classes.has('fade-left') && !classes.has('fade-right'));
+sandbox.markNavSteps();
+assert(!left.hidden && right.hidden, 'the right chevron goes at the end');
 nav.scrollLeft = 0;
 nav.scrollWidth = 100;
-sandbox.markNavFades();
-assert(!classes.has('fade-left') && !classes.has('fade-right'));
+sandbox.markNavSteps();
+assert(left.hidden && right.hidden, 'no chevron when every tab fits');
 """
   )
   subprocess.run(["node", "-e", code], check=True)
@@ -2271,7 +2272,13 @@ probe.state.requestFetched = 3;
 const rows = () => (node('requests').innerHTML.match(/class="request/g) || []).length;
 probe.renderRequestTable();
 assert.strictEqual(rows(), 3, 'no filter shows every kept row');
-assert.strictEqual(node('request-count').textContent, '3 requests of 3', 'the hint counts the shown rows');
+assert.strictEqual(node('request-count').textContent, '3 requests', 'the hint counts the shown rows');
+probe.state.live = new Map([[1, { id: 1 }]]);
+probe.renderRequestTable();
+assert.strictEqual(node('request-count').textContent, '4 requests · 1 in flight', 'the count reads both lists');
+assert(!node('requests').innerHTML.includes('No requests'), 'a live row keeps the empty row away');
+probe.renderRequestTable();
+probe.state.live.clear();
 probe.state.requestSearch = 'kilo';
 probe.renderRequestTable();
 assert.strictEqual(rows(), 1, 'the text match reads the client');
@@ -2290,6 +2297,7 @@ assert.strictEqual(rows(), 2, 'the range drops the 2 hour old row');
 probe.state.requestSearch = 'nothing at all';
 probe.renderRequestTable();
 assert(node('requests').innerHTML.includes('No requests match the filter'), 'the empty table names the filter');
+
 assert.strictEqual(probe.requestMatches({ status: 200, at: now }, { live: true }), false, 'a live row follows the text too');
 probe.state.requestSearch = '';
 assert.strictEqual(probe.requestMatches({ status: 200, at: now }, { live: true }), true, 'a live row needs no status');
@@ -2545,3 +2553,37 @@ def test_a_failed_login_waits_and_locks(client: TestClient) -> None:
   finally:
     dashboard.LOGIN_DELAY = delay
     dashboard.LOGIN_FAILURES.clear()
+
+
+def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
+  """The phone band, the Models cards, the key cards and the tab chevrons carry their CSS."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  phone = css.split("@media (max-width: 720px) {", 1)[1]
+  for rule in (
+    ".kpis { grid-template-columns: 1fr 1fr;",
+    ".models tr > td.name { grid-column: 1 / -1; max-width: none; }",
+    ".models tr > td.hide-sm { display: none; }",
+    ".keys tr > td.name { grid-column: 1; grid-row: 1; max-width: none; }",
+    ".keys tr > td:nth-child(4) { grid-column: 1; grid-row: 2; }",
+  ):
+    assert rule in phone, rule
+  assert ".settings { display: block; column-count: 2;" in css, (
+    "the settings cards flow into 2 columns"
+  )
+
+
+def test_the_providers_page_folds_the_long_groups() -> None:
+  """Tiers, Model overrides and Provider values start closed, so a card stays short."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert '${fold("Tiers"' in app and '${fold("Model overrides"' in app, (
+    "the fold groups"
+  )
+  assert (
+    "function fold(label, hint, body) {" in app and '<details class="fold">' in app
+  ), "a closed group wraps its fields"
+  assert 'class="hint" aria-label="Hint"' in app, (
+    "the field hint rides behind the info icon"
+  )
+  assert 'role="tooltip"' in app, "the hint text serves as the tooltip"

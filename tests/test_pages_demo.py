@@ -325,7 +325,9 @@ def test_the_fixtures_hold_each_settings_row_of_the_page() -> None:
   defaults = fixtures["settings"]["defaults"]
   text = APP_JS.read_text(encoding="utf-8")
   block = text[
-    text.index("\nconst SETTINGS = [") : text.index("\nconst SETTINGS_COLUMNS")
+    text.index("\nconst SETTINGS = [") : text.index(
+      "\n// The options of each choice field."
+    )
   ]
   missing, group = [], ""
   for line in block.split("\n"):
