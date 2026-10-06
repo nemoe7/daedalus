@@ -16,3 +16,6 @@ build/
 
 # The digest file of `daedalus hooks pin`
 config/hooks.lock.json
+
+# The local dashboard demo build of `scripts/pages_demo.py`
+_site/
