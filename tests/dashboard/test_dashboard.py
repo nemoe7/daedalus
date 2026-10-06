@@ -213,6 +213,7 @@ const sandbox = {{
     hidden: false,
     documentElement: {{ dataset: {{}} }},
     getElementById: (id) => (id === 'nav' ? nav : el(id)),
+    createElement: () => ({{ append: () => {{}}, setAttribute: () => {{}}, addEventListener: () => {{}}, remove: () => {{}} }}),
     querySelector: () => ({{ firstChild: {{ textContent: 'Models' }} }}),
     querySelectorAll: (sel) => (sel === '[data-status]' ? hosts : []),
     addEventListener: () => {{}},
@@ -1234,8 +1235,11 @@ const nodes = new Map();
 const node = (id) => {{
   if (!nodes.has(id)) {{
     const made = {{ id, innerHTML: '', value: '', checked: false, textContent: '', disabled: false, hidden: false, dataset: {{}}, handlers: {{}},
+      isConnected: true, title: '', type: '',
       addEventListener: (type, fn) => {{ (made.handlers[type] ||= []).push(fn); }},
-      classList: {{ toggle: () => {{}} }}, closest: () => made, querySelectorAll: () => [] }};
+      remove: () => {{}}, append: () => {{}}, after: () => {{}}, setAttribute: () => {{}},
+      classList: {{ toggle: () => {{}} }}, closest: (sel) => (sel === '[data-section]' ? null : made),
+      querySelector: () => null, querySelectorAll: () => [] }};
     nodes.set(id, made);
   }}
   return nodes.get(id);
@@ -1247,8 +1251,9 @@ const sandbox = {{
     hidden: false,
     documentElement: {{ dataset: {{}} }},
     getElementById: node,
-    querySelector: () => ({{ firstChild: {{ textContent: 'Models' }} }}),
-    querySelectorAll: () => [],
+    createElement: (tag) => node('made-' + tag),
+    querySelector: () => ({{ firstChild: {{ textContent: 'Models' }}, closest: () => null, querySelector: () => null, append: () => {{}}, remove: () => {{}} }}),
+    querySelectorAll: () => ([]),
     addEventListener: () => {{}},
   }},
   navigator: {{}},
@@ -2401,7 +2406,6 @@ def test_every_note_of_a_write_is_a_live_region() -> None:
     ("limits-message", "status"),
     ("save-message", "status"),
     ("settings-message", "status"),
-    ("file-note", "status"),
     ("key-message", "alert"),
     ("login-message", "alert"),
     ("notice", "alert"),
@@ -2667,15 +2671,21 @@ def test_a_row_writes_itself_and_the_bar_is_gone() -> None:
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   assert 'id="save"' not in page and 'id="settings-save"' not in page, "no bar Save"
-  assert 'id="save-undo"' in page and 'id="settings-undo"' in page, "1 Undo per page"
+  assert 'id="save-note"' in page and 'id="settings-note"' in page, "1 note per page"
+  assert 'id="save-undo"' not in page and 'id="settings-undo"' not in page, (
+    "the Undo rides beside the row that changed, not in the page"
+  )
   for needle in (
     "async function editValue(input, write) {",
     "function bindValueRows(host, write) {",
     'bindValueRows($("provider-form"), () => saveForm());',
     'bindValueRows($("settings"), () => saveSettings());',
-    'if (input.type === "checkbox" || input.tagName === "SELECT") saveSettings();',
+    'if (input.type !== "checkbox" && input.tagName !== "SELECT") return;',
+    'showWrite("providers", `Not valid YAML: ${error}`, true);',
     "async function undoWrite() {",
-    "function rememberWrite(page, restore) {",
+    "function rememberWrite(page, restore, anchor = null) {",
+    "function placeUndo(anchor = null) {",
+    'button.className = "ghost undo-step";',
     'class="text" type="text" readonly spellcheck="false"',
   ):
     assert needle in app, needle
@@ -2684,6 +2694,9 @@ def test_a_row_writes_itself_and_the_bar_is_gone() -> None:
   )
   assert 'clearWrite("providers")' in app and 'clearWrite("settings")' in app, (
     "a quiet page stays quiet"
+  )
+  assert 'showWrite("providers", "Saved and reloaded")' not in app, (
+    "a good write says nothing"
   )
 
 

@@ -119,10 +119,12 @@ hash, such as `#/limits?kind=tokens&q=kilo`, and **Clear filters** drops them.
 
 ## Providers
 
-The cards of the Form view stack in columns. The page carries no Save bar: a row writes itself, and the
-status line above the file tabs names the write and holds 1 step of Undo. A value row shows its value as
-text, and a click opens the small editor of that 1 value. The close of that dialog writes it. A switch and
-a pick list hold 1 valid value, so the change writes at once.
+The cards of the Form view stack in columns. The page carries no Save bar: a row writes itself. A value
+row shows its value as text, and a click opens the small editor of that 1 value. The close of that dialog
+writes it. A switch and a pick list hold 1 valid value, so the change writes at once. The last write shows
+its Undo beside the row that changed, and a failure shows its line under the file chips. The file row holds
+the 2 actions beside the file chips: **+ New provider**, and **Delete file** for a file that is not the
+main one.
 
 | Field | YAML key | Input |
 | --- | --- | --- |
@@ -155,6 +157,7 @@ The panel under the form lists the names used by `env:NAME` and `db:NAME` values
 | --- | --- |
 | × on a chip | Deletes the value |
 | **+ Add** | Opens an input. Enter adds the value. Escape stops. |
+| Undo | A back arrow beside the row of the last write. It puts the file text of the moment before that write back. |
 | **+ key** | A key list and a value input. Model overrides also take `pool` and `timeout`. |
 | **+ Pattern** | Adds a pattern row with no overrides |
 | Change of a pattern | Renames the pattern. The row keeps its position. |
@@ -169,7 +172,7 @@ A write from the Form view keeps the comments, the key order, the quotes and the
 
 A change to the other view asks for a confirmation when the file holds unsaved changes. The other view shows the saved file.
 
-The Settings rows write the same way. A switch and a pick list write on the change. A text or a number row writes when its editor closes. A chip list writes on the add or the drop.
+The Settings rows write the same way. A switch and a pick list write on the change. A text or a number row writes when its editor closes. A chip list writes on the add or the drop. The Settings page keeps no bar: the rail starts the page, and only an error shows a line.
 
 The YAML editor ends the section list of both pages. It is the fallback: a key or a block that the form cannot show still opens there. That card carries its own Save. Ctrl+S reaches it too.
 
