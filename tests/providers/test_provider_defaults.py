@@ -57,6 +57,19 @@ def test_provider_defaults() -> None:
     os.environ["CLOUDFLARE_ACCOUNT_ID"] = "test-account"
   assert "task=" not in cloudflare["discovery_url"], "the provider class filters tasks"
 
+  saved = config.SAVED.pop("CLOUDFLARE_ACCOUNT_ID", None)
+  os.environ.pop("CLOUDFLARE_ACCOUNT_ID", None)
+  try:
+    plain = providers.settings("cloudflare", {"api_key": "k"})
+    assert "api_base" not in plain and "discovery_url" not in plain, plain
+    assert providers.CloudflareProvider.defaults["api_base"].startswith(
+      "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1"
+    ), "the card placeholder holds the template"
+  finally:
+    os.environ["CLOUDFLARE_ACCOUNT_ID"] = "test-account"
+    if saved is not None:
+      config.SAVED["CLOUDFLARE_ACCOUNT_ID"] = saved
+
   setup = {
     "gemini": {"api_key": "k"},
     "custom": {"api_key": "k"},

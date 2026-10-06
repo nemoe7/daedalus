@@ -1674,6 +1674,13 @@ def test_defaults(client: TestClient) -> None:
     "api_type": "openai"
   }
   assert "env:CLOUDFLARE_ACCOUNT_ID" in found["cloudflare"]["account_id"], "a token"
+  # Cloudflare derives its 2 URLs from the account ID, so the card shows the template.
+  account = "https://api.cloudflare.com/client/v4/accounts/{account_id}"
+  assert found["cloudflare"]["api_base"] == f"{account}/ai/v1", found["cloudflare"]
+  assert (
+    found["cloudflare"]["discovery_url"] == f"{account}/ai/models/search?per_page=100"
+  )
+  assert "cloudflare" not in json.dumps(found["gemini"])
   assert TestClient(api.app).get("/ui/api/provider-defaults").status_code == 401
 
 
