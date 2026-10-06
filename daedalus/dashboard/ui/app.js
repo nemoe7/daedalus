@@ -1033,7 +1033,8 @@ const formText = (index) => JSON.stringify(pruned(state.forms[index]));
 
 function fileDirty(index) {
   if (state.view === "form") return state.forms[index] != null && formText(index) !== state.formSaved[index];
-  const text = index === state.file ? $("editor").value : state.files[index].text;
+  const editor = $("editor");
+  const text = index === state.file && editor ? editor.value : state.files[index].text;
   return text !== state.saved[index];
 }
 
@@ -1053,9 +1054,11 @@ function renderFiles() {
   $("drop-provider").hidden = current?.main !== false;
   $("file-note").textContent = current?.shadow
     ? `${fileName(current.path)} sets no provider key: the ${fileName(current.shadow)} block wins. Its models still apply.` : "";
-  document.querySelectorAll("#views [data-view]").forEach((tab) => tab.classList.toggle("on", tab.dataset.view === state.view));
-  $("provider-form").hidden = state.view !== "form";
-  $("yaml-view").hidden = state.view !== "yaml";
+  // The bar Save writes the form and the card Save writes the text, so 1 shows at a time.
+  $("save").hidden = state.view === "yaml";
+  $("save").disabled = state.view !== "form" || !dirty();
+  const yamlSave = $("yaml-save");
+  if (yamlSave) yamlSave.disabled = state.view !== "yaml" || !dirty();
 }
 
 // The files, the form copies and the saved copies, from the API.
@@ -1074,7 +1077,8 @@ async function takeFile(index) {
   state.saved[index] = fresh.text;
   state.forms[index] = clone(fresh.blocks);
   state.formSaved[index] = formText(index);
-  if (index === state.file) $("editor").value = fresh.text;
+  const editor = $("editor");
+  if (index === state.file && editor) editor.value = fresh.text;
 }
 
 // A file with YAML that is not valid opens in the YAML view, with the error line.
@@ -1085,9 +1089,9 @@ function showFileError(index) {
 }
 
 function openFile(index) {
-  if (state.files.length) state.files[state.file].text = $("editor").value;
+  const editor = $("editor");
+  if (state.files.length && editor) state.files[state.file].text = editor.value;
   state.file = index;
-  $("editor").value = state.files[index].text;
   showFileError(index);
   renderFiles();
   renderForm();
@@ -1246,6 +1250,15 @@ function sectionList(id, items, active) {
 // The pane of a section list. The back button names the page it returns to, as iOS does.
 function sectionPane(back, cards) {
   return `<div class="section-pane"><button class="ghost back" type="button" data-back>&lsaquo; ${esc(back)}</button>${cards}</div>`;
+}
+
+// The last section of a list: the file text, and its own save. It holds the lines that the form
+// cannot show, so a broken file still opens.
+function yamlCard(editor, save, hint) {
+  return `<div class="card yaml-view" data-section="yaml"><h3>YAML</h3><p class="sub">${esc(hint)}</p>`
+    + `<textarea id="${editor}" spellcheck="false" aria-label="File text"></textarea>`
+    + `<div class="yaml-save"><button class="primary" id="${save}" type="button" disabled>Save</button>`
+    + `<span class="hint">Ctrl+S saves and reloads</span></div></div>`;
 }
 
 // The pick of a section: 1 button on, 1 card shown, and the phone leaves the list.
@@ -1415,17 +1428,26 @@ function renderForm() {
   const blocks = state.forms[state.file];
   if (!state.files.length) return (host.innerHTML = "");
   if (blocks == null) {
-    host.innerHTML = `<div class="section-pane"><div class="card" data-section="error"><h3>The YAML is not valid</h3>
+    host.innerHTML = sectionList("provider-form", [["yaml", "YAML"]], "yaml")
+      + sectionPane("Providers", `<div class="card" data-section="error"><h3>The YAML is not valid</h3>
       <p class="sub">${esc(state.files[state.file].error ?? "")}</p>
-      <p class="sub">Fix the file in the YAML view. Then the form opens it.</p></div></div>`;
+      <p class="sub">Fix the text in the YAML section. Then the form opens the file.</p></div>`
+      + yamlCard("editor", "yaml-save", "The file text. A block that the form cannot show still opens here."));
+    pickSection(host, "yaml");
+    $("editor").value = state.files[state.file].text;
+    renderFiles();
     return;
   }
   const names = Object.keys(blocks);
+  const items = names.map((name) => [name, name]).concat([["yaml", "YAML"]]);
   const picked = sectionState(host).key;
-  const active = names.includes(picked) ? picked : names[0];
-  host.innerHTML = sectionList("provider-form", names.map((name) => [name, name]), active)
-    + sectionPane("Providers", names.map((name) => providerCard(name, blocks[name])).join(""));
+  const active = items.some(([key]) => key === picked) ? picked : items[0][0];
+  host.innerHTML = sectionList("provider-form", items, active)
+    + sectionPane("Providers", names.map((name) => providerCard(name, blocks[name])).join("")
+      + yamlCard("editor", "yaml-save", "The file text. A block that the form cannot show still opens here."));
   pickSection(host, active);
+  $("editor").value = state.files[state.file]?.text ?? "";
+  renderFiles();
 }
 
 // 1 card again after an edit, in the same place, and the pick stays.
@@ -1591,7 +1613,7 @@ async function saveYaml() {
   if (!dirty()) return;
   const index = state.file;
   const file = state.files[index];
-  const text = $("editor").value;
+  const text = $("editor")?.value ?? "";
   const message = $("save-message");
   try {
     await call("files", { method: "PUT", body: JSON.stringify({ path: file.path, text }) });
@@ -1610,17 +1632,22 @@ async function saveYaml() {
 
 const save = () => (state.view === "form" ? saveForm() : saveYaml());
 
-// The other view shows the saved file. Unsaved changes go after a confirmation.
-async function switchView(view) {
-  if (view === state.view) return;
-  if (dirty() && !(await ask("Discard changes", "The unsaved changes of this file go away.", "Discard", true))) return;
-  const index = state.file;
-  state.forms[index] = clone(state.files[index].blocks);
-  $("editor").value = state.files[index].text = state.saved[index];
-  state.view = view;
-  $("save-message").textContent = "";
+// A pick sets the view of the page: the form rows, or the file text. A leave of the text with
+// unsaved lines asks first, then shows the saved file again.
+async function pickProviderSection(key) {
+  const host = $("provider-form");
+  const view = key === "yaml" ? "yaml" : "form";
+  if (view !== state.view) {
+    if (dirty() && !(await ask("Discard changes", "The unsaved changes of this file go away.", "Discard", true))) return;
+    const index = state.file;
+    if (state.view === "yaml") state.files[index].text = state.saved[index];
+    state.forms[index] = clone(state.files[index].blocks ?? {});
+    state.view = view;
+    $("save-message").textContent = "";
+  }
+  openSection(host, key);
   renderFiles();
-  if (view === "form") renderForm();
+  renderForm();
 }
 
 // The request-level hook points, in the order of `daedalus/providers/hooks.py`.
@@ -1796,13 +1823,16 @@ function renderSettings() {
           placeholder="${fallback ?? ""}"><i>${esc(unit)}</i></span></label>`;
     }).join("")}</div>`;
   // The section list: the rail names every group, and the pane holds its card.
-  const items = SETTINGS.filter(([group]) => group !== "headroom" || state.settings.headroom_available);
+  const groups = SETTINGS.filter(([group]) => group !== "headroom" || state.settings.headroom_available);
+  const items = groups.map(([group, title]) => [group, title]).concat([["yaml", "YAML"]]);
   const picked = sectionState($("settings")).key;
-  const active = items.some(([group]) => group === picked) ? picked : items[0][0];
-  $("settings").innerHTML = sectionList("settings", items.map(([group, title]) => [group, title]), active)
-    + sectionPane("Settings", items.map(([group, title, fields]) => card([group, title, fields]).replace(
-      '<div class="card">', `<div class="card" data-section="${esc(group)}">`)).join(""));
+  const active = items.some(([key]) => key === picked) ? picked : items[0][0];
+  $("settings").innerHTML = sectionList("settings", items, active)
+    + sectionPane("Settings", groups.map(([group, title, fields]) => card([group, title, fields]).replace(
+      '<div class="card">', `<div class="card" data-section="${esc(group)}">`)).join("")
+      + yamlCard("settings-editor", "settings-yaml-save", "The file text. A key that the form cannot show still opens here."));
   pickSection($("settings"), active);
+  $("settings-editor").value = state.settings.text;
   // The rendered file wins, and the shown rows follow its mode.
   showAffinityRows(setting("affinity", "mode"));
   showSwitchRows();
@@ -1877,16 +1907,17 @@ function settingsChanges() {
 
 function settingsDirty() {
   if (!state.settings) return false;
-  if (state.settingsView === "yaml") return $("settings-editor").value !== state.settings.text;
+  if (state.settingsView === "yaml") return ($("settings-editor")?.value ?? state.settings.text) !== state.settings.text;
   return Object.keys(settingsChanges()).length > 0;
 }
 
 function renderSettingsSave() {
-  $("settings-save").disabled = !settingsDirty();
-  document.querySelectorAll("#settings-views [data-view]")
-    .forEach((tab) => tab.classList.toggle("on", tab.dataset.view === state.settingsView));
-  $("settings").hidden = state.settingsView !== "form";
-  $("settings-yaml").hidden = state.settingsView !== "yaml";
+  const yaml = state.settingsView === "yaml";
+  // The bar Save writes the rows and the card Save writes the text, so 1 shows at a time.
+  $("settings-save").hidden = yaml;
+  $("settings-save").disabled = yaml || !settingsDirty();
+  const cardSave = $("settings-yaml-save");
+  if (cardSave) cardSave.disabled = !yaml || !settingsDirty();
 }
 
 async function loadSettings() {
@@ -1895,23 +1926,24 @@ async function loadSettings() {
   renderLegend();
   applyTheme(setting("dashboard", "theme"));
   hourCycle = setting("dashboard", "time_format") === "12h" ? "h12" : "h23";
-  $("settings-editor").value = state.settings.text;
   renderSettings();
 }
 
-// The other view shows the saved file. Unsaved changes go after a confirmation.
-async function switchSettingsView(view) {
-  if (view === state.settingsView) return;
-  if (settingsDirty() && !(await ask("Discard changes", "The unsaved settings changes go away.", "Discard", true))) return;
-  state.settingsView = view;
-  $("settings-editor").value = state.settings.text;
-  $("settings-message").textContent = "";
-  renderSettings();
+// A pick sets the view of the page. Unsaved changes of the other view go after a confirmation.
+async function pickSettingsSection(key) {
+  const view = key === "yaml" ? "yaml" : "form";
+  if (view !== state.settingsView) {
+    if (settingsDirty() && !(await ask("Discard changes", "The unsaved settings changes go away.", "Discard", true))) return;
+    state.settingsView = view;
+    $("settings-message").textContent = "";
+    renderSettings();
+  }
+  openSection($("settings"), key);
 }
 
 async function saveSettings() {
   if (!settingsDirty()) return;
-  const body = state.settingsView === "yaml" ? { text: $("settings-editor").value } : { changes: settingsChanges() };
+  const body = state.settingsView === "yaml" ? { text: $("settings-editor")?.value ?? "" } : { changes: settingsChanges() };
   const message = $("settings-message");
   try {
     await call("settings", { method: "PUT", body: JSON.stringify(body) });
@@ -2051,7 +2083,6 @@ async function start() {
   await refreshEnv();
   [state.overrideKeys, state.providerDefaults] = await Promise.all([call("provider-keys"), call("provider-defaults")]);
   state.file = 0;
-  $("editor").value = state.files[0]?.text ?? "";
   showFileError(0);
   renderFiles();
   renderTiers();
@@ -2393,7 +2424,6 @@ async function reloadFiles(keep) {
   takeFiles(await call("files"));
   const index = Math.max(0, state.files.findIndex((file) => file.path === keep));
   state.file = index;
-  $("editor").value = state.files[index]?.text ?? "";
   showFileError(index);
   renderFiles();
   renderForm();
@@ -2430,16 +2460,15 @@ $("drop-provider").addEventListener("click", async () => {
     message.textContent = error.message;
   }
 });
-$("editor").addEventListener("input", renderFiles);
-$("save").addEventListener("click", save);
-$("views").addEventListener("click", (event) => {
-  const tab = event.target.closest("[data-view]");
-  if (tab) switchView(tab.dataset.view);
+$("provider-form").addEventListener("input", (event) => {
+  if (event.target.id === "editor") renderFiles();
 });
+$("save").addEventListener("click", save);
 $("provider-form").addEventListener("click", (event) => {
-  const section = event.target.closest("[data-section]");
-  if (section) return openSection($("provider-form"), section.dataset.section);
+  const section = event.target.closest(".sections button[data-section]");
+  if (section) return pickProviderSection(section.dataset.section);
   if (event.target.closest("[data-back]")) return closeSection($("provider-form"));
+  if (event.target.closest("#yaml-save")) return saveYaml();
   const drop = event.target.closest("[data-drop]");
   if (drop) return dropAt(JSON.parse(drop.dataset.drop));
   const add = event.target.closest("[data-add]");
@@ -2474,9 +2503,9 @@ document.addEventListener("click", (event) => {
 $("settings").addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeHookPicker();
 });
-$("settings").addEventListener("click", (event) => {
-  const section = event.target.closest("[data-section]");
-  if (section) return openSection($("settings"), section.dataset.section);
+$("settings").addEventListener("click", async (event) => {
+  const section = event.target.closest(".sections button[data-section]");
+  if (section) return pickSettingsSection(section.dataset.section);
   if (event.target.closest("[data-back]")) return closeSection($("settings"));
   // A hook chip: the pick opens the file list, and a choice lands in the row at once.
   const choice = event.target.closest("[data-hook-choice]");
@@ -2521,18 +2550,18 @@ $("settings").addEventListener("click", (event) => {
   }
 });
 $("settings-save").addEventListener("click", saveSettings);
-$("settings-views").addEventListener("click", (event) => {
-  const tab = event.target.closest("[data-view]");
-  if (tab) switchSettingsView(tab.dataset.view);
-});
-$("settings-editor").addEventListener("input", () => {
+$("settings").addEventListener("input", (event) => {
+  if (event.target.id !== "settings-editor") return;
   $("settings-message").textContent = "";
   renderSettingsSave();
+});
+$("settings").addEventListener("click", (event) => {
+  if (event.target.closest("#settings-yaml-save")) saveSettings();
 });
 document.addEventListener("keydown", (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
     event.preventDefault();
-    if (location.hash === "#/settings") saveSettings();
+    if (location.hash.startsWith("#/settings")) saveSettings();
     else save();
   }
 });

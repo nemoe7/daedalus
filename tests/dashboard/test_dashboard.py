@@ -2580,10 +2580,12 @@ def test_each_page_holds_a_section_list() -> None:
   for needle in (
     "function sectionList(",
     "function pickSection(",
-    'openSection($("settings"), section.dataset.section)',
-    'openSection($("provider-form"), section.dataset.section)',
+    "pickSettingsSection(section.dataset.section)",
+    "pickProviderSection(section.dataset.section)",
     'class="section-pane"',
     'class="ghost back"',
+    "function yamlCard(editor, save, hint) {",
+    'data-section="yaml"',
   ):
     assert needle in app, needle
   assert "const CARD_WIDTH" not in app, "the hand-balanced columns are gone"
@@ -2633,6 +2635,31 @@ def test_the_limits_poll_keeps_out_of_the_address_bar() -> None:
   )
   assert '$("limits-clear").hidden = !state.limitSearch;' in app, (
     "the clear button follows the filter, and not the hash write"
+  )
+
+
+def test_the_yaml_editor_ends_each_list_and_saves_itself() -> None:
+  """The YAML view is the last section of both lists, with its own Save."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  for needle in (
+    "function yamlCard(editor, save, hint) {",
+    'const items = names.map((name) => [name, name]).concat([["yaml", "YAML"]]);',
+    'const items = groups.map(([group, title]) => [group, title]).concat([["yaml", "YAML"]]);',
+    '$("save").hidden = state.view === "yaml";',
+    '$("settings-save").hidden = yaml;',
+    'if (event.target.closest("#yaml-save")) return saveYaml();',
+    'if (event.target.closest("#settings-yaml-save")) saveSettings();',
+  ):
+    assert needle in app, needle
+  assert 'data-section="yaml"' in app and 'yamlCard("editor", "yaml-save"' in app, (
+    "the card holds the picked section and the editor"
+  )
+  assert 'yamlCard("settings-editor", "settings-yaml-save"' in app, (
+    "the settings card carries its own pair"
+  )
+  assert '$("editor").addEventListener("input", renderFiles);' not in app, (
+    "the editor lives in a rendered card, so the listener rides on the pane"
   )
 
 
