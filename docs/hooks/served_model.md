@@ -25,3 +25,5 @@ The line is `{tier} · {slug}` for `daedalus/auto`, such as `A · kilo/poolside/
 the slug alone for a named pool. The [served model filter](../integrations/owui/served_model.md) draws it.
 The chat pools own no provider block, so the `hooks` list of a provider cannot name this file.
 The file itself skips every model that is not `daedalus/auto` or a chat pool.
+
+The other shipped hook files: [the auto reasoning effort and try-again rule](owui_auto_reasoning_effort.md) and [the OpenRouter endpoint order](or_cheapest_output.md).

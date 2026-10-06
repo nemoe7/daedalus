@@ -126,10 +126,12 @@ uv run ruff format --check
 
 | Page | Contents |
 | --- | --- |
+| [Docs index](docs/index.md) | Every page, in the order of a first read |
 | [Architecture](docs/architecture.md) | Request flow, classification, fallback ladder, weights, session affinity and loops |
 | [API](docs/api.md) | Endpoints, model names, access and errors |
 | [Configuration](docs/configuration.md) | Environment variables, [`config/daedalus.yml`](config/daedalus.yml) and provider files |
 | [Providers](docs/providers.md) | Supported providers and what each one can do |
+| [Provider keys](docs/provider-keys.md) | The steps that make a key for each provider |
 | [Deployment](docs/deployment.md) | Docker Compose, profiles, Open WebUI, Tika, SearXNG, Headroom and Tailscale |
 | [Open WebUI integration](docs/integrations/owui.md) | The skills, the filters and the tools of the [`integrations/openwebui`](integrations/openwebui) folder |
 | [Dashboard](docs/dashboard.md) | Pages and API keys |

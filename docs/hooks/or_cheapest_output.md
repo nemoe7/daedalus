@@ -22,3 +22,5 @@ flowchart TD
 
 The order holds provider slugs with no variant, such as `deepinfra` for `deepinfra/fp4`.
 Each provider keeps the place of its cheapest endpoint.
+
+The other shipped hook files: [the auto reasoning effort and try-again rule](owui_auto_reasoning_effort.md) and [the served model line](served_model.md).
