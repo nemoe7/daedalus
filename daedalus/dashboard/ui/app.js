@@ -1235,8 +1235,10 @@ function field(label, hint, body) {
 
 // A group of fields that starts closed, so a long card stays short.
 function fold(label, hint, body) {
-  return `<details class="fold"><summary>${esc(label)}<button type="button" class="hint" aria-label="Hint">i</button>`
-    + `<small role="tooltip">${esc(hint)}</small></summary><div class="fold-body">${body}</div></details>`;
+  const id = `hint-${++HINT_COUNT}`;
+  return `<details class="fold"><summary>${esc(label)}<button type="button" class="hint" aria-describedby="${id}"`
+    + ` aria-label="Hint">i</button><small id="${id}" role="tooltip">${esc(hint)}</small></summary>`
+    + `<div class="fold-body">${body}</div></details>`;
 }
 
 function providerCard(name, block) {
@@ -2040,6 +2042,11 @@ $("limits-check").addEventListener("click", async () => {
 });
 $("show-password").addEventListener("click", () => showPassword($("login").password.type === "password"));
 document.addEventListener("click", async (event) => {
+  // The info icon of a closed group shows its hint. It never opens the group.
+  if (event.target.closest(".fold summary .hint")) {
+    event.preventDefault();
+    return;
+  }
   if (event.target.closest(".rebuild")) return rebuildCatalog();
   if (!event.target.closest(".logout")) return;
   if (!(await ask("Log out", "The dashboard session ends.", "Log out"))) return;
