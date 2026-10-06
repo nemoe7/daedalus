@@ -635,7 +635,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
      rule under it, so the log starts below the line. */
   .requests-bar {
     flex-wrap: wrap; background: transparent; border: 0; border-bottom: 1px solid var(--line);
-    border-radius: 0; padding-left: 0; padding-right: 0;
+    border-radius: 0; padding: 0;
   }
   .requests-bar input[type=search] { flex: 1 1 100%; min-width: 0; }
   .requests-bar select, .requests-bar .live-toggle { flex: 1 1 auto; }
