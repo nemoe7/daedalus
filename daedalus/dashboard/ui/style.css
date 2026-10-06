@@ -646,17 +646,16 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .models thead { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
   .models, .models tbody { display: block; }
   .models tr { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 8px; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); align-items: baseline; }
+  /* A phone card reads with 1 text size: a label, a value, a badge and a chip all carry it, and
+     the muted colour alone marks a label. */
+  .models tr, .keys tr, .requests tr.request, .requests tr.live-row { font-size: 13px; }
   .models tr > td { display: flex; align-items: baseline; gap: 5px; min-width: 0; padding: 0; border: 0; white-space: normal; }
   .models tr > td.name { grid-column: 1 / -1; max-width: none; }
   /* A card hides the columns that a phone drops, as the table layout does. */
   .models tr > td.hide-sm { display: none; }
-  .models .mobile-label { display: inline; flex: none; color: var(--muted); font-size: 11px; }
-  /* 1 font size per role: the name keeps its own size, then every value, label and chip of the
-     small row shares 1 size, so the tier badge and the mode chip read as the same text. */
-  .models .tier, .models .chip.flag { font-size: 11px; line-height: 16px; }
-  /* 1 value size per card: a value keeps the size it has in the desktop table, and only the
-     label is small. */
-  .models tr > td:not(.name) .cell-value { font-size: 14px; }
+  .models .mobile-label { display: inline; flex: none; color: var(--muted); font-size: inherit; }
+  .models .tier, .models .chip.flag { font-size: inherit; line-height: 16px; }
+  .models tr > td:not(.name) .cell-value { font-size: inherit; }
   .models .cell-value { min-width: 0; text-align: left; }
   .models td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .models .weight { width: auto; }
@@ -674,8 +673,8 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .keys tr > td:nth-child(4) { grid-column: 1; grid-row: 2; }
   .keys tr > td.end { grid-column: 2; grid-row: 2; justify-content: flex-end; }
   .keys tr > td.hide-sm { display: none; }
-  .keys .mobile-label { display: inline; flex: none; color: var(--muted); font-size: 11px; }
-  .keys tr > td:not(.name) .cell-value { font-size: 14px; }
+  .keys .mobile-label { display: inline; flex: none; color: var(--muted); font-size: inherit; }
+  .keys tr > td:not(.name) .cell-value { font-size: inherit; }
   .keys .cell-value { min-width: 0; text-align: left; }
   .keys td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* The last row of a panel clears the panel edge and the screen bottom. */
@@ -696,8 +695,11 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
      takes the width that its value and its bar need. */
   .models tr > td:last-child { padding-right: 0; }
   .models tr { grid-template-columns: max-content max-content max-content minmax(0, 1fr); }
-  .models td:last-child .cell-value, .models .weight { flex: 1; min-width: 0; }
-  .models .weight { width: 100%; gap: 6px; }
+  .models td:last-child .cell-value { flex: 0 1 auto; min-width: 0; }
+  /* The bar keeps a short set width, so the row spends its room on the values. */
+  .models .weight { width: auto; flex: none; min-width: 0; gap: 6px; }
+  .models .weight .track { flex: none; width: 40px; }
+  .models .weight .num { width: auto; }
   #limit-rows .weight.left { min-width: 0; }
   .requests, .requests tbody, .requests tr { display: block; }
   .requests thead {
@@ -735,7 +737,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   /* The stamp reads on 1 line at its own width, so the client tag and the status badge keep their
      own room. */
   .requests tr.request > td:nth-child(1) .cell-value,
-  .requests tr.live-row > td:nth-child(1) .cell-value { font-size: 14px; white-space: nowrap; }
+  .requests tr.live-row > td:nth-child(1) .cell-value { font-size: inherit; white-space: nowrap; }
   .requests tr.request > td:nth-child(1), .requests tr.live-row > td:nth-child(1) { grid-column: 1; grid-row: 1; }
   .requests tr.request > td:nth-child(2), .requests tr.live-row > td:nth-child(2) { grid-column: 2 / 4; grid-row: 1; }
   .requests tr.request > td:nth-child(7), .requests tr.live-row > td:nth-child(7) {
@@ -758,7 +760,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
      label and value never touch the session value. */
   .requests tr.request > td:nth-child(3), .requests tr.live-row > td:nth-child(3) { grid-column: 1 / 3; grid-row: 6; }
   .requests tr.request > td:nth-child(5), .requests tr.live-row > td:nth-child(5) { grid-column: 3 / 5; grid-row: 6; }
-  .requests .mobile-label { display: inline; flex: none; color: var(--muted); font-size: 11px; }
+  .requests .mobile-label { display: inline; flex: none; color: var(--muted); font-size: inherit; }
   .requests .cell-value { flex: 1; min-width: 0; text-align: left; overflow-wrap: anywhere; }
   .requests tr.request > td:nth-child(1) .mobile-label,
   .requests tr.request > td:nth-child(2) .mobile-label,
@@ -772,7 +774,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   }
   .requests tr.request > td:nth-child(7) .cell-value, .requests tr.live-row > td:nth-child(7) .cell-value {
     flex: none; padding: 2px 7px; border: 1px solid var(--line); border-radius: 999px;
-    background: var(--field); font-size: 11px;
+    background: var(--field); font-size: inherit;
   }
   /* The 4 token and time cells share the row, so the row wraps them in 2 pairs instead of
      letting the values touch. */
@@ -782,14 +784,14 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
     flex-wrap: wrap; column-gap: 10px;
   }
   .requests tr.request > td:nth-child(n+8):nth-child(-n+11) .mobile-label,
-  .requests tr.live-row > td:nth-child(n+8):nth-child(-n+11) .mobile-label { font-size: 11px; }
+  .requests tr.live-row > td:nth-child(n+8):nth-child(-n+11) .mobile-label { font-size: inherit; }
   .requests tr.request > td:nth-child(n+8):nth-child(-n+11) .cell-value,
   .requests tr.live-row > td:nth-child(n+8):nth-child(-n+11) .cell-value {
-    flex: none; font-size: 14px; white-space: nowrap;
+    flex: none; font-size: inherit; white-space: nowrap;
   }
   .requests .fallbacks-cell > .mobile-label, .requests .fallbacks-cell > .cell-value { display: none; }
   .requests .mobile-fallback-chain > summary {
-    width: fit-content; padding: 5px 0; color: var(--accent); cursor: pointer; font-size: 12px; font-weight: 600;
+    width: fit-content; padding: 5px 0; color: var(--accent); cursor: pointer; font-size: inherit; font-weight: 600;
   }
   @media (hover: hover) {
     .requests .mobile-fallback-chain > summary:hover {
@@ -800,6 +802,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .requests .mobile-fallback-chain ol { list-style: none; margin: 5px 0 0; padding: 0; }
   .requests .mobile-fallback-chain li { overflow-wrap: anywhere; white-space: normal; }
   .requests .mobile-fallback-chain pre { overflow-wrap: anywhere; white-space: pre-wrap; }
+  /* The details read with the card: the chain keeps the card size too. */
+  .requests .mobile-fallback-chain pre, .requests .mobile-fallback-chain .from,
+  .requests .mobile-fallback-chain code { font-size: inherit; }
   .requests td.empty { display: block; text-align: center; }
   .requests tr.chain td { display: block; padding-top: 0; }
 }
