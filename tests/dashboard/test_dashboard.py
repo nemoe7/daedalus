@@ -2522,6 +2522,60 @@ def test_the_save_bars_keep_no_sticky_rule() -> None:
     )
 
 
+def test_the_wide_rail_sticky_never_pushes_the_rail_down() -> None:
+  """The rail sticks at the scrollport top, so a page at rest keeps rail and pane aligned."""
+  css = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
+  ).read_text(encoding="utf-8")
+  wide = re.search(r"@media \(min-width: 901px\) \{(.*?)\n\}", css, re.DOTALL)
+  assert wide, "the wide media query holds the still-header layout"
+  rail = re.search(r"\.sections \{([^}]*)\}", wide.group(1))
+  assert rail and "position: sticky" in rail.group(1), (
+    "the rail sticks on a wide screen"
+  )
+  assert "top: 0;" in rail.group(1), (
+    "a top above the scrollport top pushes the rail below the pane at rest"
+  )
+
+
+def test_app_js_fit_section_pane_spares_the_page_padding() -> None:
+  """The pane cap ends above the page padding, so a wide page holds no scroll of its own."""
+  code = """
+const fs = require('fs');
+const vm = require('vm');
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { fitSectionPane };";
+const pane = { offsetParent: {}, style: {}, getBoundingClientRect: () => ({ top: 128 }) };
+const main = { clientHeight: 851, getBoundingClientRect: () => ({ top: 49 }) };
+const bare = () => ({
+  addEventListener: () => {}, classList: { toggle: () => {} }, style: {}, dataset: {},
+  children: [], scrollWidth: 0, clientWidth: 0, scrollLeft: 0, querySelectorAll: () => [],
+});
+const sandbox = {
+  matchMedia: () => ({ matches: true, addEventListener: () => {} }),
+  innerHeight: 900,
+  getComputedStyle: () => ({ paddingBottom: '28px' }),
+  document: {
+    addEventListener: () => {},
+    documentElement: { dataset: {} },
+    getElementById: bare,
+    querySelector: (sel) => (sel === 'main' ? main
+      : sel.startsWith('#nav a') ? { firstChild: { textContent: 'Providers' } } : null),
+    querySelectorAll: (sel) => (sel === '.section-pane' ? [pane] : []),
+  },
+  window: { addEventListener: () => {} },
+  navigator: {}, location: { hash: '' }, getSelection: () => ({ isCollapsed: true }),
+  console: { error: () => {} },
+};
+vm.createContext(sandbox);
+vm.runInContext(src, sandbox);
+const assert = require('assert');
+sandbox.__probe.fitSectionPane();
+// 49 + 851 - 28 padding - 128 pane top - 16 gap: the pane ends inside the scrollport.
+assert.strictEqual(pane.style.maxHeight, '728px', 'the cap spares the page padding: ' + pane.style.maxHeight);
+"""
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_the_requests_bar_keeps_its_own_height() -> None:
   """Only the table panel of the Requests page scrolls, so the toolbar stays in view."""
   css = (
