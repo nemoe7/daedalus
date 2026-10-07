@@ -2880,27 +2880,5 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false
-  },
-  {
-    "id": "gemini/gemini-nano-banana-2.1",
-    "provider": "gemini",
-    "slug": "gemini-nano-banana-2.1",
-    "mode": "chat",
-    "max_input_tokens": 65536,
-    "max_output_tokens": 65536,
-    "max_tokens": 65536,
-    "rpm": 1000,
-    "tpm": 4000000,
-    "reasoning_effort": "high",
-    "supports_function_calling": false,
-    "supports_tool_choice": false,
-    "supports_parallel_function_calling": false,
-    "supports_response_schema": false,
-    "supports_reasoning": true,
-    "supports_vision": true,
-    "supports_pdf_input": true,
-    "supports_audio_input": false,
-    "supports_audio_output": false,
-    "supports_web_search": true
   }
 ]
