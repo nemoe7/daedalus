@@ -1123,19 +1123,44 @@ def routes(
       return failure(422, str(exc), "invalid_request_error")
     return write_config(path, text)
 
+  @api.post("/hooks/scan")
+  async def hooks_scan(request: Request) -> JSONResponse:
+    """Read 1 source and answer with its hook files, without a write."""
+    if not allowed(request):
+      return denied()
+    body = await json_body(request)
+    if not isinstance(body, dict):
+      return failure(400, "A repo is needed.", "invalid_request_error")
+    found = remote.scan(body)
+    if found is None:
+      return failure(
+        400, f"The source {body.get('repo')!r} did not read.", "invalid_request_error"
+      )
+    return JSONResponse(found)
+
   @api.post("/hooks/update")
   async def hooks_update(request: Request) -> JSONResponse:
     """Read the sources of `hooks.sources` now, and answer with the version of each file."""
     if not allowed(request):
       return denied()
+    body = await json_body(request)
+    source = body.get("source") if isinstance(body, dict) else None
+    take = body.get("take") if isinstance(body, dict) else None
     group = settings.load()["hooks"]
-    if not group["sources"]:
+    entries = [source] if isinstance(source, dict) else group["sources"]
+    if not entries:
       return failure(400, "No source in hooks.sources.", "invalid_request_error")
     hooks.set_installed(group["dir"], group["disabled"])
     before = remote.read_records()
-    moved = remote.update(group["sources"], hooks.folder())
+    moved = remote.update(
+      entries, hooks.folder(), take=take if isinstance(take, list) else None
+    )
     after = remote.read_records()
-    repos = {source["repo"] for source in group["sources"]}
+    repos = {
+      repo
+      for entry in entries
+      if isinstance(entry, dict) and (repo := remote.repo_name(entry.get("repo")))
+    }
     return JSONResponse(
       {
         "moved": moved,

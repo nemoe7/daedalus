@@ -162,14 +162,17 @@ def update(
   folder: Path | None = None,
   lock_path: Path | None = None,
   only_missing: bool = False,
+  take: Iterable[str] | None = None,
 ) -> list[str]:
   """Fetch each source and write its hook files. Return the names whose bytes moved.
 
   `only_missing` is the rule of a start: a source fetches only when 1 of its recorded files is
-  missing from the folder, unless the entry sets `auto_update`. A failed fetch, an archive that
+  missing from the folder, unless the entry sets `auto_update`. A `take` list writes those names
+  alone, which lets the operator leave a file of the source alone. A failed fetch, an archive that
   does not read, a block the reader refuses or a write that fails all keep the files on disk and
   the record that describes them.
   """
+  wanted = None if take is None else {str(name) for name in take}
   target = FOLDER if folder is None else folder
   lock = LOCK if lock_path is None else lock_path
   records = read_records(lock)
@@ -202,6 +205,8 @@ def update(
       continue
     fresh: dict[str, dict[str, str]] = {}
     for name, raw in files.items():
+      if wanted is not None and name not in wanted:
+        continue
       try:
         text = raw.decode("utf-8")
       except UnicodeDecodeError:
@@ -238,6 +243,72 @@ def update(
       write_records(found, lock)
       records = found
   return moved
+
+
+def scan(entry: Any) -> dict[str, Any] | None:
+  """Read 1 source and answer with its files, without a write.
+
+  The answer names the repo, the folder, the ref, the commit and 1 row per `.py` file of the
+  archive: the name, the frontmatter, the sha256 and the problem of a refused block. A source
+  that GitHub does not answer gives None.
+  """
+  if not isinstance(entry, Mapping):
+    return None
+  repo = repo_name(entry.get("repo"))
+  if repo is None:
+    tell(f"hook source {entry.get('repo')!r} is not an owner/name or a GitHub URL")
+    return None
+  ref = str(entry.get("ref") or "main").strip()
+  folder = str(entry.get("path") or "").strip().strip("/")
+  commit = commit_of(repo, ref)
+  if commit is None:
+    return None
+  body = fetch(ARCHIVE.format(repo=repo, commit=commit))
+  if body is None:
+    return None
+  files = archive_files(body, folder)
+  if files is None:
+    return None
+  rows: list[dict[str, Any]] = []
+  for name, raw in sorted(files.items()):
+    try:
+      text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+      rows.append(
+        {
+          "name": name,
+          "version": "",
+          "scope": "",
+          "targets": [],
+          "points": [],
+          "problem": "the file is not UTF-8 text",
+          "sha256": digest(raw),
+        }
+      )
+      continue
+    info, problem = meta_check(text)
+    rows.append(
+      {
+        "name": name,
+        "version": str(info.get("version", "")) if info else "",
+        "scope": str(info.get("scope", "global")) if info else "",
+        "targets": [str(target) for target in info["targets"]]
+        if info and info.get("targets")
+        else [],
+        "points": [str(point) for point in info["points"]]
+        if info and info.get("points")
+        else [],
+        "problem": problem or "",
+        "sha256": digest(raw),
+      }
+    )
+  return {
+    "repo": repo,
+    "path": folder,
+    "ref": ref,
+    "commit": commit,
+    "files": rows,
+  }
 
 
 def read_records(path: Path | None = None) -> dict[str, dict[str, str]]:

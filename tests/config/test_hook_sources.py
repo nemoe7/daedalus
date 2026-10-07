@@ -329,3 +329,64 @@ def test_on_disk_skips_a_temporary_name(tmp_path: Path) -> None:
   (tmp_path / ".one.py.part").write_bytes(b"half")
   assert remote.on_disk(tmp_path) == {"one.py": remote.digest(b"body\n")}
   assert remote.on_disk(tmp_path / "gone") == {}
+
+
+def test_update_takes_the_named_files(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A take list writes those names alone, and the other files of the archive stay out."""
+  pages = {
+    API: json.dumps({"sha": COMMIT}).encode(),
+    ARCHIVE: tar({"hooks/one.py": block(), "hooks/two.py": block(name="two")}),
+  }
+  answers(monkeypatch, pages)
+  lock = tmp_path / "hooks.lock.json"
+  moved = remote.update([source()], tmp_path, lock, take=["one.py"])
+  assert moved == ["one.py"]
+  assert (tmp_path / "one.py").is_file() and not (tmp_path / "two.py").exists()
+  assert list(remote.read_records(lock)) == ["one.py"]
+
+
+def test_scan_names_the_files_of_a_source(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """The scan answers with the frontmatter of each file and writes nothing."""
+  pages = {
+    API: json.dumps({"sha": COMMIT}).encode(),
+    ARCHIVE: tar(
+      {
+        "hooks/one.py": block(),
+        "hooks/two.py": block(name="two"),
+        "hooks/bad.py": "# ---\n# points: [on-later]\n# ---\n",
+      }
+    ),
+  }
+  calls = answers(monkeypatch, pages)
+  found = remote.scan(source())
+  assert found is not None
+  assert found["repo"] == "owner/name"
+  assert found["path"] == "hooks" and found["ref"] == "main"
+  assert found["commit"] == COMMIT
+  rows = {row["name"]: row for row in found["files"]}
+  assert sorted(rows) == ["bad.py", "one.py", "two.py"]
+  assert rows["one.py"] == {
+    "name": "one.py",
+    "version": "1.2.0",
+    "scope": "global",
+    "targets": [],
+    "points": ["on-answer"],
+    "problem": "",
+    "sha256": remote.digest(block().encode()),
+  }
+  assert "on-later" in rows["bad.py"]["problem"]
+  assert calls == [API, ARCHIVE]
+  assert not list(tmp_path.iterdir()), "a scan writes nothing"
+
+
+def test_scan_of_a_bad_source_gives_none(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A source that GitHub does not answer gives None."""
+  answers(monkeypatch, {})
+  assert remote.scan(source(repo="owner/none")) is None
+  assert remote.scan({"repo": "nope"}) is None
