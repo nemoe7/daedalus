@@ -8,7 +8,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from daedalus import dashboard
+from daedalus import dashboard, store
 from daedalus.providers import hooks
 from daedalus.server import api, upstream
 
@@ -438,6 +438,41 @@ def test_the_shipped_hook_caps_the_model_turn() -> None:
   assert module._newest([], "the joined prompt") == "the joined prompt", (
     "the prompt stays the fallback"
   )
+
+
+def test_the_shipped_hook_ladders_the_catalog_efforts() -> None:
+  """A model with a catalog effort list ladders by that list, over the coded set."""
+  module = shipped_module()
+  value: dict = {}
+  module.on_prompt(
+    value,
+    prompt="why is this slow",
+    app="OWUI",
+    retry=1,
+    level="none",
+    model="openrouter/z-ai/glm-5.3-flash",
+    config={"openrouter": {}},
+  )
+  assert value["reasoning_effort"] == "minimal", "the coded set of the gateway"
+  store.write_store(
+    [
+      {
+        "id": "openrouter/z-ai/glm-5.3-flash",
+        "supported_efforts": ["low", "high"],
+      }
+    ]
+  )
+  value = {}
+  module.on_prompt(
+    value,
+    prompt="why is this slow",
+    app="OWUI",
+    retry=1,
+    level="none",
+    model="openrouter/z-ai/glm-5.3-flash",
+    config={"openrouter": {}},
+  )
+  assert value["reasoning_effort"] == "high", "one step up on the list of the catalog"
 
 
 def test_the_shipped_hook_ladders_the_efforts_of_the_model() -> None:

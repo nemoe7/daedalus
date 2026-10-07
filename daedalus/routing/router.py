@@ -127,19 +127,32 @@ FALLBACK_EFFORTS: Final[tuple[str, ...]] = ("none", "low", "medium", "high")
 EFFORT_CAP: Final = 5
 
 
-def efforts(config: Mapping[str, Any], model: str) -> list[str]:
-  """The ordered reasoning efforts of a model: its key, its block, then the coded default."""
+def effort_names(value: Any) -> list[str]:
+  """The effort names of a value, and none when the value is not a list of names."""
+  if not isinstance(value, list):
+    return []
+  return (
+    [name for name in value if isinstance(name, str) and name]
+    if all(isinstance(name, str) and name for name in value)
+    else []
+  )
+
+
+def efforts(
+  config: Mapping[str, Any], model: str, supported: object = None
+) -> list[str]:
+  """The ordered reasoning efforts of a model: its key, its block, its catalog row, then the code.
+
+  `supported` is the list that the catalog holds for the model, so a provider that names its
+  efforts per model narrows the coded set. The settings of the file keep the last word.
+  """
   name, _, slug = model.partition("/")
   found = model_setting(config, model, "supported_reasoning_efforts")
   if found is None:
     found = (block_for(config, name, slug) or {}).get("supported_reasoning_efforts")
-  if (
-    not isinstance(found, list)
-    or not found
-    or not all(isinstance(value, str) for value in found)
-  ):
-    return list(DEFAULT_EFFORTS.get(name, FALLBACK_EFFORTS))
-  return list(found)
+  if found is None:
+    found = supported
+  return effort_names(found) or list(DEFAULT_EFFORTS.get(name, FALLBACK_EFFORTS))
 
 
 def effort_at(efforts: list[str], step: int) -> str:
