@@ -4,9 +4,9 @@
 
 - Arena agent: these rules cover every chat, task, and this repository's first message, prompt or not.
 - Initial file/skill reads may precede the first reply.
-- Load the named Arena skills: `arena-preview-steering` for the inbox, the reports and the gate, and `arena-proxy` for a source the sandbox cannot reach.
+- Load the named skill `arena-skill` for the inbox, the reports, the gate, and the proxy routes to a source the sandbox cannot reach.
 - Before the first skill use in a session, read its SKILL.md and every Markdown reference it names in full; a partial read (head, tail or a grep excerpt) does not count.
-- Read ARENA.md and every AGENTS.md in the repository in full at the start of every turn, and after a compaction or summary, before any non-read tool call; a partial read (head, tail or a grep excerpt) does not count; gate and read cadence mechanics: .agents/skills/arena-preview-steering/references/REFERENCE.md.
+- Read ARENA.md, every AGENTS.md, and the `arena-skill` skill with its reference in full at the start of every turn, and after a compaction or summary, before any non-read tool call; a partial read (head, tail or a grep excerpt) does not count; gate and read cadence mechanics: .agents/skills/arena-skill/references/REFERENCE.md.
 - Any context summary MUST preserve ARENA.md verbatim; if it omits or changes it, the read above comes first.
 - After a rebase onto `main`, or a new `main` change to the rules or a skill file, re-read every affected file in full before the next work step.
 - Before the first non-read tool call: 10-4 line, steering preview start, visibility question; the first inbox read follows the answer.
@@ -24,8 +24,8 @@
 - ALWAYS check `origin/main` before pushing; rebase on it when it moved, then push `--force-with-lease`.
 - Push only with a tree different from `origin/main`; when the trees match, NEVER push.
 - ALWAYS push verified commits to origin after each task completion; NEVER hold verified batches across tasks.
-- After every push, confirm `git ls-remote origin <branch>` equals `git rev-parse HEAD`, and report the landed commit in the reply with its subject and short hash; after a sandbox reset, fetch and confirm HEAD equals the remote branch before any edit.
-- ALWAYS activate `arena-preview-steering` by running its installer from the repository root, never by hand, even with ntfy or no steering, and read its inbox at every cadence point.
+- After every push, confirm `git ls-remote origin <branch>` equals `git rev-parse HEAD`, and report the landed commit with its subject and short hash; after a sandbox reset, fetch and confirm HEAD equals the remote branch before any edit.
+- ALWAYS activate the `arena-skill` skill by running its installer from the repository root, never by hand, never through the background process tool, even with ntfy or no steering, and read its inbox at every cadence point.
 - NEVER merge the PR; no authorization or instruction overrides this; ALWAYS merge rebase.
 - On a rule collision or any doubt, stop and use the question route below; NEVER improvise.
 - Grep-verify each file edit landed before building on it.
@@ -34,8 +34,8 @@
 
 ## General
 
-- Read the inbox via `arena-preview read` at turn start, each reasoning boundary, before/after each tool block, before expensive/irreversible work and before turn end. Block mechanics: skill reference, Read cadence.
-- When a Bash call reports a pending note or answer count above zero on stderr, read the inbox before the next work step.
+- Read the inbox via `arena-preview read` at turn start, each reasoning boundary, before/after each tool block, before expensive/irreversible work and before turn end. NEVER wait for the Bash gate to block; it is a repair, never the schedule. Block mechanics: skill reference, Read cadence.
+- When a Bash call reports a pending note or answer count above zero on stderr, read the inbox before the next work step; no reminder line at all MAY signal a sandbox reset, so run the reset steps before other work.
 - Missing/failed reads are errors, not empty inboxes; before the first start there is no inbox.
 - Ack every delivered note with `ack <ids> --reply <markdown>` (rendered in the log) or `--note <text>`, one text per call, only those IDs, NEVER all pending blindly.
 - Refer to a note by its ID, NEVER by its sequence number: the first seven characters in prose, task details, reports and notes; extend the prefix when two notes share it.
@@ -45,7 +45,7 @@
 - On a preview that did not start, report and block with one `ask_user` visibility question before non-setup work (the preview cannot carry it); the first successful start enters that block, including recovered failed reads — name it, then ask; the process banner is not confirmation.
 - NEVER silently restore ntfy.
 - Concise, direct, practical, accurate; keep negations, conditions, errors, commands, numbers, caveats.
-- Follow repo docs, conventions, and patterns.
+- Follow repo docs, conventions and patterns.
 - MUST use ASD-STE100 for all human-facing text: responses, comments, docs.
 - Comments, docs, responses: terse, unambiguous; NEVER a wall of text; NEVER padded prose where a list or table is faster.
 - Documentation: no storyline or narrative unless asked.
@@ -54,8 +54,8 @@
 - Cite code, diffs and tool output by path and line instead of repeating.
 - Step straight on after a tool call succeeds, with no result narration.
 - Batch independent tool calls where the surface permits.
-- ALWAYS take the smallest open task next; a user-stated priority outranks size. Re-sort on arrivals; NEVER use arrival order.
-- Work while tasks remain. End when verified and stopped; NEVER name the remaining token budget as the reason. Run the repo's checks locally before every push; push only green; read the passed or failed line of every gate, because a pipe that hides the verdict counts as skipping it. After each push, watch the PR's checks to conclusion with `gh pr checks <PR> --watch` on a Bash call with timeout 1800s; a fresh push can leave the list empty for up to 30 seconds, so wait once, briefly, then watch, and NEVER poll by hand; an empty or absent list is unverified, never a conclusion. Stop and report HTTP 401 or any other command/API error; pending checks are not command errors. Before turn end with a pushed branch, check and report open PR CI; failed checks are unfinished work.
+- ALWAYS take the smallest open task; a user-stated priority outranks size. Re-sort on arrivals; NEVER use arrival order.
+- Work while tasks remain. End when verified and stopped; NEVER name the remaining token budget. Run the repo's checks locally before every push; push only green; read each gate's passed or failed line, because a pipe that hides the verdict counts as skipping it. After each push, watch the PR's checks to conclusion with `gh pr checks <PR> --watch` on a Bash call with timeout 1800s; a fresh push can leave the list empty for up to 30 seconds, so wait once, briefly, then watch, and NEVER poll by hand; an empty or absent list is unverified, never a conclusion. Stop and report HTTP 401 or any other command/API error; pending checks are not command errors. Before turn end with a pushed branch, check and report open PR CI; failed checks are unfinished work.
 - Skills specialize defaults and NEVER weaken a requirement or convention; use one only for its domain.
 
 ## Scope
@@ -120,7 +120,7 @@
 - Project convention first; else Conventional Commits `<type>[optional scope]: <description>`: imperative, specific, lowercase after the colon, no period, <=72 chars, no body, `!` marks breaking; types `feat fix refactor perf style docs test build chore`, prefer history's types; reuse history's scopes, adding none otherwise.
 - Keep reports/audits/preview state/inboxes/receipts in ignored workspace dirs, NEVER caches; NEVER commit/push them.
 - NEVER cite a session-local artifact (note, report, submission, task ID) in a repo file: it does not persist. Cite the durable record instead.
-- Longer reports use `arena-preview-steering`, not diff-viewer commits. Update one Markdown source per subject in place, mark dispositions, republish its stable ID; several may coexist. Verify delivery; clean Git status proves nothing. Short reports stay in chat, without artifacts/pipeline.
+- Longer reports use the `arena-skill` skill, not diff-viewer commits. Update one Markdown source per subject in place, mark dispositions, republish its stable ID; several may coexist. Verify delivery; clean Git status proves nothing. Short reports stay in chat, without artifacts/pipeline.
 - `GH_TOKEN` can die mid-turn with no repo change: `gh auth status` calls it invalid, pushes fail, `gh auth setup-git` does not help.
 - Retry once, NEVER loop or ask for credentials — then ask through `ask_user` for a GitHub reconnect in Arena and a reply in chat; do not end silently.
 - Prove recovery with `git ls-remote origin <branch>` before pushing again.
@@ -133,6 +133,7 @@
 ## Workspace
 
 - If Chromium is needed, install `@sparticuz/chromium` from npm; use its extracted binary and runtime files, not a Playwright-managed browser.
+- Install dependencies and virtual environments with the background process tool, so the install runs while the turn continues.
 
 - Snapshot limits are best-effort (~128 MB/10,000 files): stay well below both, dropping large or temp artifacts.
 - Cache/build/dependency dirs (`node_modules`, `.cache`, `.venv`, `dist`, `build`, `out`, `target`, `__pycache__`, etc.), installed packages, and processes do not persist, so keep durable work in plain files.
@@ -147,7 +148,7 @@
 ## Response
 
 - Report changes/findings, checks/results, files/decisions, open issues, assumptions, limitations; open with the result, skip restating the task, prefer numbered lists, and report skipped work with its add-when trigger in at most three short lines.
-- Short chat reports: concise on phone and vertical monitors; limit prose; no essays unless strictly necessary.
+- Short chat reports: concise on phone and vertical monitors; limit prose; no essays unless necessary.
 - NEVER mermaid in chat; repository docs use mermaid for pipelines, diagrams, and flows.
 - User-run commands: print the Windows Command Prompt (`cmd`) form by default, plus bash when the Pi or bash is asked for.
 - Report changes at a high level in the final response ("X now does Y"), especially after long tasks; not required during execution, and a final report turn ends by reading the steering channel, not by asking an open question.

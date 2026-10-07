@@ -9,7 +9,7 @@ REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)" || {
 PYTHON="$HOME/.agents/.arena-preview-venv/bin/python"
 if [[ ! -x "$PYTHON" ]]; then
   printf 'arena-preview: missing %s; run %s/scripts/install.sh from the repository root\n' \
-    "$PYTHON" "$REPO_ROOT/.agents/skills/arena-preview-steering" >&2
+    "$PYTHON" "$REPO_ROOT/.agents/skills/arena-skill" >&2
   exit 2
 fi
 exec "$PYTHON" "$SCRIPT_DIR/preview.py" "$@"
