@@ -367,11 +367,11 @@ def test_pools() -> None:
 
 
 def test_the_efforts_key_follows_the_block_hierarchy() -> None:
-  """The reasoning_efforts key reads from the model entry, then the block, then the code."""
+  """The supported_reasoning_efforts key reads from the model entry, then the block, then the code."""
   config = {
     "kilo": {
-      "reasoning_efforts": ["none", "low", "high"],
-      "models": {"a": {"reasoning_efforts": ["none", "medium"]}},
+      "supported_reasoning_efforts": ["none", "low", "high"],
+      "models": {"a": {"supported_reasoning_efforts": ["none", "medium"]}},
     },
     "mistral": {},
   }

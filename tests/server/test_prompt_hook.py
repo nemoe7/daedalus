@@ -440,9 +440,9 @@ def test_the_shipped_hook_caps_the_model_turn() -> None:
 
 
 def test_the_shipped_hook_ladders_the_efforts_of_the_model() -> None:
-  """The reasoning_efforts key of a model re-indexes the ladder of the hook."""
+  """The supported_reasoning_efforts key of a model re-indexes the ladder of the hook."""
   module = shipped_module()
-  config = {"p": {"models": {"m": {"reasoning_efforts": ["none", "medium", "high"]}}}}
+  config = {"p": {"models": {"m": {"supported_reasoning_efforts": ["none", "medium", "high"]}}}}
   value: dict = {}
   module.on_prompt(
     value,

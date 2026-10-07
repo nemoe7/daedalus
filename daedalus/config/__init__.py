@@ -47,7 +47,7 @@ BLOCK_SHAPES: dict[str, tuple[type, str]] = {
   "models": (dict, "a mapping of a pattern to its values"),
   "hooks": (list, "a list of hook file names"),
   "exclude": (list, "a list of patterns"),
-  "reasoning_efforts": (list, "a list of effort names"),
+  "supported_reasoning_efforts": (list, "a list of effort names"),
 }
 # The shape of the value of a key that holds a mapping.
 NESTED_SHAPES: dict[str, tuple[type, str]] = {
