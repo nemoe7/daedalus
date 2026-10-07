@@ -68,7 +68,7 @@ def test_page(client: TestClient) -> None:
   assert 'src="ui/app.js?v=' in page.text, "relative asset paths with a content hash"
   assert 'href="ui/style.css?v=' in page.text, "the style link has a content hash"
   assert (
-    '<th scope="col" class="hide-sm hide-md" role="columnheader"'
+    '<th scope="col" class="hide-sm" role="columnheader"'
     ' title="The chat session that picked the model">Session</th>' in page.text
   ), "the Requests session column"
   assert '<div class="card legend" id="requests-legend">' in page.text, (
@@ -475,6 +475,20 @@ def test_requests_reads_model_served_effort() -> None:
   assert live.index('"Served by")') < live.index('cell("Effort"')
 
 
+def test_the_requests_table_keeps_the_app_and_the_session() -> None:
+  """App and Session show at every width: no band drops a request column."""
+  root = Path(__file__).resolve().parent.parent.parent
+  html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  head = html.split('class="requests"', 1)[1].split("</thead>", 1)[0]
+  assert "hide-md" not in head, "no request head column hides"
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert app.count('"hide-sm hide-md num') == 0, (
+    "no request cell hides on a narrow desktop"
+  )
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert ".hide-md" not in css, "the narrow desktop band keeps every request column"
+
+
 def test_requests_stream_column_survives_narrow_desktops() -> None:
   """The Stream column hides on phones only, so a desktop table keeps its stream time."""
   root = Path(__file__).resolve().parent.parent.parent
@@ -485,7 +499,7 @@ def test_requests_stream_column_survives_narrow_desktops() -> None:
   assert 'class="hide-sm"' in head, head
   js = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert js.count('cell("Stream", streamCell(r), "hide-sm num")') == 1
-  assert js.count('hide-sm hide-md num">${mobileLabel("Stream")}') == 0
+  assert "hide-md" not in js, "no width band drops the stream column"
 
 
 def test_narrow_desktop_header_keeps_one_row() -> None:
@@ -837,7 +851,7 @@ assert(cells.every((td) => td.includes('role="cell"')), 'each request cell keeps
 assert.strictEqual((html.match(/class="cell-value"/g) || []).length, 11, 'every value cell keeps its value span');
 const mobileLabels = (markup) => [...markup.matchAll(new RegExp('<span class="mobile-label" aria-hidden="true">([^<]*)</span>', 'g'))].map((m) => m[1]);
 assert.deepStrictEqual(mobileLabels(html), {json.dumps(labels)}, 'the cells show their column names in table order');
-assert(html.includes('hide-sm hide-md num mono'), 'the session id reads in the mono font');
+assert(html.includes('hide-sm num mono'), 'the session id reads in the mono font');
 assert(html.includes('class="request has-chain"'), 'requests with fallbacks expose their chain');
 assert(html.includes('View fallback chain · 1 fallback'), 'the chain details disclose the fallback count');
 assert(probe.chainRows({json.dumps(row)}).includes('Fallback chain · 1 fallback'), 'the desktop chain details carry the count');
