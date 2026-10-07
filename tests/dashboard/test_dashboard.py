@@ -3313,6 +3313,29 @@ def test_the_first_data_of_a_card_arrives_once() -> None:
   assert 'firstDraw($("requests"));' in app, "the requests table marks itself too"
 
 
+def test_a_pending_call_spins_and_the_first_load_waits_on_skeletons() -> None:
+  """A slow call shows a spinner in the header, and the first load draws placeholder rows."""
+  root = Path(__file__).resolve().parents[2]
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  assert 'id="spinner"' in page, "the spinner of the header"
+  assert "@keyframes spin" in css and ".spinner {" in css, "the ring"
+  assert "@keyframes shimmer" in css and "tr.skeleton td span {" in css, (
+    "the placeholder bar"
+  )
+  assert "calling" in app and "setTimeout(() =>" in app, (
+    "the grace period of a slow call"
+  )
+  assert (
+    '$("spinner").hidden = false;' in app and '$("spinner").hidden = true;' in app
+  ), "the ring follows"
+  assert "function skeletons(" in app and 'skeletons("requests"' in app, (
+    "the placeholder rows"
+  )
+  assert 'skeletons("models"' in app, "the models table waits too"
+
+
 def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
   """The phone band, the Models cards, the key cards and the tab chevrons carry their CSS."""
   root = Path(__file__).resolve().parent.parent.parent
