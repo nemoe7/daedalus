@@ -50,139 +50,10 @@ ENDPOINTS = (
   "settings",
   "login",
 )
-DEMO_FREE = """# The shipped provider names and model slugs, with demo keys and no upstream calls.
-cloudflare:
-  api_key: db:CLOUDFLARE_API_KEY
-  api_base: https://api.cloudflare.com/client/v4/accounts/00000000000000000000000000000000/ai/v1
-  tier:
-    TIER-A:
-      - "@cf/openai/gpt-oss-120b"
-      - "@cf/mistralai/mistral-small-3.1-24b-instruct"
-    TIER-B:
-      - "@cf/zai-org/glm-4.7-flash"
-      - "@cf/qwen/qwq-32b"
-    TIER-C:
-      - "@cf/meta/llama-4-scout-17b-16e-instruct"
-    TIER-D:
-      - "@cf/meta/llama-3.1-8b-instruct-fp8"
-  models:
-    "@cf/openai/gpt-oss-120b":
-      max_input_tokens: 128000
-      max_output_tokens: 128000
-      tools: true
-      supports_reasoning: true
-    "@cf/mistralai/mistral-small-3.1-24b-instruct":
-      max_input_tokens: 128000
-      max_output_tokens: 128000
-      tools: true
-    "@cf/zai-org/glm-4.7-flash":
-      max_input_tokens: 131072
-      max_output_tokens: 131072
-      tools: true
-      supports_reasoning: true
-    "@cf/qwen/qwq-32b":
-      max_input_tokens: 20000
-      max_output_tokens: 4000
-      supports_reasoning: true
-    "@cf/meta/llama-4-scout-17b-16e-instruct":
-      max_input_tokens: 131000
-      max_output_tokens: 131000
-      tools: true
-      supports_vision: true
-    "@cf/meta/llama-3.1-8b-instruct-fp8":
-      max_input_tokens: 32000
-      max_output_tokens: 32000
-    "@cf/openai/whisper-large-v3-turbo":
-      mode: audio_transcription
-    "@cf/black-forest-labs/flux-1-schnell":
-      mode: image_generation
-    "@cf/baai/bge-m3":
-      mode: embedding
-openrouter:
-  api_key: db:OPENROUTER_API_KEY
-  api_base: https://openrouter.ai/api/v1
-  tier:
-    TIER-A:
-      - "z-ai/glm-5.3-flash"
-  models:
-    "z-ai/glm-5.3-flash":
-      max_input_tokens: 1310720
-      max_output_tokens: 131072
-      reasoning_effort: low
-      tools: true
-      supports_vision: true
-# The 2 providers of the balance cards, with the `hourly_requests` cap of the Limits page.
-kilo:
-  api_key: db:KILO_API_KEY
-  api_base: https://api.kilo.ai/api/gateway
-  hourly_requests: 200
-pollinations:
-  api_key: db:POLLINATIONS_API_KEY
-  api_base: https://gen.pollinations.ai/v1
-"""
-# A file of a provider that the main file also sets, so the tab shows the shadow note.
-DEMO_ATLAS = """api_key: db:OPENROUTER_API_KEY
-api_base: https://openrouter.ai/api/v1
-tier:
-  TIER-A: ['z-ai/glm-5.3-flash']
-"""
-DEMO_ROWS: tuple[dict[str, Any], ...] = (
-  {
-    "id": "cloudflare/@cf/openai/gpt-oss-120b",
-    "max_input_tokens": 128000,
-    "max_output_tokens": 128000,
-    "supports_function_calling": True,
-    "supports_reasoning": True,
-  },
-  {
-    "id": "cloudflare/@cf/mistralai/mistral-small-3.1-24b-instruct",
-    "max_input_tokens": 128000,
-    "max_output_tokens": 128000,
-    "supports_function_calling": True,
-  },
-  {
-    "id": "cloudflare/@cf/zai-org/glm-4.7-flash",
-    "max_input_tokens": 131072,
-    "max_output_tokens": 131072,
-    "supports_function_calling": True,
-    "supports_reasoning": True,
-  },
-  {
-    "id": "cloudflare/@cf/qwen/qwq-32b",
-    "max_input_tokens": 20000,
-    "max_output_tokens": 4000,
-    "supports_reasoning": True,
-  },
-  {
-    "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
-    "max_input_tokens": 131000,
-    "max_output_tokens": 131000,
-    "supports_function_calling": True,
-    "supports_vision": True,
-  },
-  {
-    "id": "cloudflare/@cf/meta/llama-3.1-8b-instruct-fp8",
-    "max_input_tokens": 32000,
-    "max_output_tokens": 32000,
-  },
-  {
-    "id": "cloudflare/@cf/openai/whisper-large-v3-turbo",
-    "mode": "audio_transcription",
-  },
-  {
-    "id": "cloudflare/@cf/black-forest-labs/flux-1-schnell",
-    "mode": "image_generation",
-  },
-  {"id": "cloudflare/@cf/baai/bge-m3", "mode": "embedding"},
-  {
-    "id": "openrouter/z-ai/glm-5.3-flash",
-    "max_input_tokens": 1310720,
-    "max_output_tokens": 131072,
-    "supports_function_calling": True,
-    "supports_reasoning": True,
-    "supports_vision": True,
-  },
-)
+# The shipped provider files, as-is: the Providers tab shows them and nothing else.
+DEMO_FILES = ("free.yml", "openrouter.yml", "pollinations.yml")
+# The models of the demo: a captured snapshot of the owner's catalog, 132 rows.
+MODELS_FILE = ROOT / "scripts" / "pages_models.json"
 TOOL = {"type": "function", "function": {"name": "get_weather", "parameters": {}}}
 # The models that the demo makes fail or rate limit, for 1 row each.
 DOWN = set()
@@ -214,8 +85,13 @@ DEMO_KEYS = (
 # The demo has no provider key. The page shows the value masked, as a saved value does.
 DEMO_VALUES = (
   ("CLOUDFLARE_API_KEY", "not-a-real-cloudflare-key-0123"),
+  ("CLOUDFLARE_ACCOUNT_ID", "00000000000000000000000000000000"),
   ("OPENROUTER_API_KEY", "not-a-real-openrouter-key-0123"),
+  ("GEMINI_API_KEY", "not-a-real-gemini-key-0123"),
+  ("GROQ_API_KEY", "not-a-real-groq-key-0123"),
   ("KILO_API_KEY", "not-a-real-kilo-key-0123"),
+  ("MISTRAL_API_KEY", "not-a-real-mistral-key-0123"),
+  ("ZAI_API_KEY", "not-a-real-z-ai-key-0123"),
   ("POLLINATIONS_API_KEY", "not-a-real-pollinations-key-0123"),
 )
 # The rate-limit headers of a provider answer: the Limits page reads them.
@@ -308,19 +184,20 @@ def answer(request: httpx.Request) -> httpx.Response:
 
 
 def demo_files(folder: Path) -> tuple[Path, ...]:
-  """Write the config of the demo, and return the files of the Providers tab."""
-  provider = folder / "config" / "providers" / "free.yml"
-  provider.parent.mkdir(parents=True)
-  provider.write_text(DEMO_FREE, encoding="utf-8")
-  shadowed = provider.with_name("openrouter.yml")
-  shadowed.write_text(DEMO_ATLAS, encoding="utf-8")
+  """Copy the shipped provider files as-is, and return the files of the Providers tab."""
+  target = folder / "config" / "providers"
+  target.mkdir(parents=True)
+  shipped = ROOT / "config" / "providers"
+  files = tuple(shipped / name for name in DEMO_FILES)
+  for file in files:
+    shutil.copyfile(file, target / file.name)
   settings_file = folder / "config" / "daedalus.yml"
   settings_file.write_text(settings.DEFAULT_PATH.read_text(encoding="utf-8"))
   # The shipped hooks of the config folder: the legend rows of the page come from them.
-  shipped = ROOT / "config" / "hooks"
-  if shipped.is_dir():
-    shutil.copytree(shipped, folder / "config" / "hooks", dirs_exist_ok=True)
-  return provider, shadowed
+  hooks_dir = ROOT / "config" / "hooks"
+  if hooks_dir.is_dir():
+    shutil.copytree(hooks_dir, folder / "config" / "hooks", dirs_exist_ok=True)
+  return tuple(target / name for name in DEMO_FILES)
 
 
 def seed_saved() -> None:
@@ -440,7 +317,8 @@ def capture() -> dict[str, Any]:
   """Run the dashboard against a demo state, and return the answer of each call."""
   with tempfile.TemporaryDirectory() as temp:
     folder = Path(temp)
-    provider, _ = demo_files(folder)
+    files = demo_files(folder)
+    provider = files[0]
     saved = (
       store.MODELS_DB,
       discovery.DUMP_DIR,
@@ -454,13 +332,15 @@ def capture() -> dict[str, Any]:
       store.MODELS_DB = folder / "state" / "models.sqlite3"
       discovery.DUMP_DIR = folder / "dump"
       hooks.CONFIG_DIR = folder / "config"
-      dashboard.FILES = (provider,)
+      dashboard.FILES = files
       config.DEFAULT_PATH = provider
       settings.DEFAULT_PATH = folder / "config" / "daedalus.yml"
       os.environ[dashboard.DAEDALUS_MASTER_KEY] = DEMO_MASTER
       store.migrate()
-      store.write_store(DEMO_ROWS)
+      store.write_store(json.loads(MODELS_FILE.read_text(encoding="utf-8")))
       seed_saved()
+      # The shipped files read their keys from the environment, which the capture fakes.
+      os.environ.update(dict(DEMO_VALUES))
       config.set_config(config.load_config(provider))
       upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
       client = TestClient(api.app)
@@ -607,7 +487,6 @@ const DEMO_FIXTURES = __FIXTURES__;
   const SETTINGS_PATH = DEMO_FIXTURES.settings.path;
   const name_of = (path) => String(path).split("/").pop();
   const stem_of = (path) => name_of(path).replace(/\\.yml$/, "");
-  const head_of = (path) => String(path).replace(/[^/]*$/, "");
   // The values of the YAML subset of the config files: maps, lists and scalars.
   const yaml_read = (text) => {
     const box = { node: {} };
@@ -665,23 +544,6 @@ const DEMO_FIXTURES = __FIXTURES__;
       }
     }
     return { value: box.node };
-  };
-  // `form_blocks` of the server: the block map of a file and its error line.
-  const form_blocks = (row) => {
-    const empty = !row.text.trim();
-    const read = empty ? { value: {} } : yaml_read(row.text);
-    if (read.error) {
-      row.blocks = null;
-      row.error = read.error;
-      return;
-    }
-    if (!read.value || typeof read.value !== "object" || Array.isArray(read.value)) {
-      row.blocks = null;
-      row.error = `${name_of(row.path)} must hold provider blocks`;
-      return;
-    }
-    row.blocks = row.main ? read.value : { [stem_of(row.path)]: read.value };
-    row.error = null;
   };
   // `settings.parse` of the server: the error line of a settings text, or an empty string.
   const settings_error = (value) => {
@@ -866,65 +728,6 @@ const DEMO_FIXTURES = __FIXTURES__;
     DEMO_FIXTURES.login.session = true;
     return json({ ok: true, session: "demo" });
   };
-  const file_row = (path) => DEMO_FIXTURES.files.find((row) => row.path === path);
-  const file_text = async (init) => {
-    const { path, text } = await body_of(init);
-    const row = file_row(path);
-    if (!row) return bad("Unknown config file.", 400);
-    if (typeof text !== "string") return bad("The file text must be a string.", 400);
-    const read = yaml_read(text);
-    if (read.error) return bad(read.error, 422);
-    if (path === SETTINGS_PATH) {
-      const error = settings_error(read.value);
-      if (error) return bad(error, 422);
-    } else if (!read.value || typeof read.value !== "object" || Array.isArray(read.value)) {
-      return bad(`${path} must hold provider blocks`, 422);
-    }
-    row.text = text;
-    form_blocks(row);
-    return json({ ok: true, text });
-  };
-  const file_made = async (init) => {
-    const name = word((await body_of(init)).name);
-    if (!/^[a-z0-9-]+$/.test(name))
-      return bad("The provider name must use lowercase letters, digits and dashes.", 400);
-    const main = DEMO_FIXTURES.files.find((row) => row.main) || DEMO_FIXTURES.files[0];
-    const path = head_of(main.path) + `${name}.yml`;
-    if (file_row(path)) return bad(`${path} exists.`, 400);
-    const text = `${name}:\\n  api_base: https://example.test/v1\\n`;
-    const made = { path, text, blocks: null, error: null, main: false, shadow: null };
-    form_blocks(made);
-    DEMO_FIXTURES.files.push(made);
-    return json({ path, text });
-  };
-  const file_dropped = async (init) => {
-    const { path } = await body_of(init);
-    const at = DEMO_FIXTURES.files.findIndex((row) => row.path === path && !row.main);
-    if (at < 0) return bad("Only a {provider}.yml file can go.", 400);
-    DEMO_FIXTURES.files.splice(at, 1);
-    return json({ ok: true });
-  };
-  // `providers` PUT: the blocks of 1 file, merged into its text, with the comments kept.
-  const providers_saved = async (init) => {
-    const { path, blocks } = await body_of(init);
-    const row = file_row(path);
-    if (!row) return bad("Unknown config file.", 400);
-    if (!blocks || typeof blocks !== "object" || Array.isArray(blocks))
-      return bad("Each provider block must be a map.", 400);
-    for (const value of Object.values(blocks)) {
-      if (!value || typeof value !== "object" || Array.isArray(value))
-        return bad("Each provider block must be a map.", 400);
-    }
-    const stem = stem_of(path);
-    const document = row.main ? blocks : blocks[stem];
-    if (!document || typeof document !== "object" || Array.isArray(document))
-      return bad(`${path} needs the block ${stem}.`, 400);
-    // The form writes the whole file with the demo writer, so the blocks stay the truth
-    // of the state and the catalog follows them.
-    row.text = yaml_of(row.main ? document : { [stem]: document }, "");
-    form_blocks(row);
-    return json({ ok: true, text: row.text });
-  };
   const settings_saved = async (init) => {
     const { text, changes } = await body_of(init);
     if (typeof text === "string") {
@@ -1013,21 +816,63 @@ const DEMO_FIXTURES = __FIXTURES__;
   };
   const catalog = () => {
     const known = new Map(DEMO_FIXTURES.models.map((row) => [row.id, row]));
+    // The patterns of the server: an exact name, then a glob, then a regex, then a negation.
+    const BACKSLASH = String.fromCharCode(92);
+    const esc = (text) => String(text).split("").map((char) =>
+      (".+^$()|[]{}".includes(char) || char === BACKSLASH ? BACKSLASH + char : char)).join("");
+    const glob = (pattern) => new RegExp("^" + pattern.split("*").map((part) =>
+      part.split("?").map(esc).join(".")).join(".*") + "$");
+    const hit = (pattern, slug) => {
+      if (pattern.startsWith("!")) return !hit(pattern.slice(1), slug);
+      if (pattern.startsWith("^")) return new RegExp(pattern).test(slug);
+      if (pattern.includes("*") || pattern.includes("?")) return glob(pattern).test(slug);
+      return pattern === slug;
+    };
+    const spec = (pattern) => {
+      if (pattern.startsWith("!")) return [0, 0];
+      if (pattern.startsWith("^")) return [1, pattern.length];
+      if (pattern.includes("*") || pattern.includes("?"))
+        return [2, pattern.replace(/[*?]/g, "").length];
+      return [3, pattern.length];
+    };
+    // The value of the most specific pattern that takes one slug, as the config does.
+    const take = (map, slug) => {
+      let best = null, bestSpec = null;
+      for (const [pattern, value] of Object.entries(map)) {
+        if (!hit(pattern, slug)) continue;
+        const rank = spec(pattern);
+        if (!bestSpec || rank[0] > bestSpec[0] || (rank[0] === bestSpec[0] && rank[1] > bestSpec[1])) {
+          best = value;
+          bestSpec = rank;
+        }
+      }
+      return best;
+    };
     const rows = [];
     for (const [name, block] of blocks()) {
-      const tiers = new Map();
+      const declared = Object.keys(block.models || {});
+      const tiers = {};
       for (const [tier, ids] of Object.entries(block.tier || {}))
-        if (Array.isArray(ids)) for (const id of ids) tiers.set(String(id), tier);
-      const slugs = new Set([...Object.keys(block.models || {}), ...tiers.keys()]);
+        if (Array.isArray(ids)) for (const id of ids) tiers[String(id)] = tier;
+      // A kept slug: one exclude does not drop, or one the models block names exactly.
+      const slugs = new Set();
+      for (const id of known.keys()) {
+        if (!id.startsWith(`${name}/`)) continue;
+        const slug = id.slice(name.length + 1);
+        if (declared.some((pattern) => hit(pattern, slug))
+          || !(block.exclude || []).some((pattern) => hit(pattern, slug))) slugs.add(slug);
+      }
+      for (const pattern of declared)
+        if (spec(pattern)[0] === 3) slugs.add(pattern);
       for (const slug of slugs) {
         const id = `${name}/${slug}`;
-        const meta = (block.models || {})[slug] || {};
+        const meta = take(block.models || {}, slug) || {};
         const cap = known.get(id);
         const row = {};
         for (const key of Object.keys(MODEL_DEFAULTS))
           row[key] = cap ? cap[key] : DEMO_FIXTURES.models[0][key];
         row.id = id;
-        row.tier = tiers.get(slug) || (cap ? cap.tier : null);
+        row.tier = take(tiers, slug) || (cap ? cap.tier : null);
         row.mode = meta.mode || (cap ? cap.mode : "chat");
         row.max_input_tokens = meta.max_input_tokens ?? (cap ? cap.max_input_tokens : null);
         row.max_output_tokens = meta.max_output_tokens ?? (cap ? cap.max_output_tokens : null);
@@ -1175,11 +1020,13 @@ const DEMO_FIXTURES = __FIXTURES__;
     if (path === "catalog" && method === "POST") return rebuild();
     if (path === "limits" && method === "POST") return check_limits();
     if (path === "reset" && method === "POST") {
-      for (const row of state.models) {
-        weights.delete(row.id);
-        cooldowns.delete(row.id);
-        Object.assign(row, { weight: 1, cooldown: null, client_cooldowns: {} });
+      // The snapshot rows carry the captured weights, so the reset pins them back to 1.
+      for (const row of DEMO_FIXTURES.models) {
+        weights.set(row.id, 1);
+        cooldowns.set(row.id, null);
       }
+      for (const row of state.models)
+        Object.assign(row, { weight: 1, cooldown: null, client_cooldowns: {} });
       return json({ ok: true });
     }
     if (path === "login" && method === "POST") return log_in(init);
@@ -1191,17 +1038,9 @@ const DEMO_FIXTURES = __FIXTURES__;
       return method === "PUT" ? env_saved(init) : method === "DELETE" ? env_cleared(init) : null;
     if (path === "keys" && method === "POST") return key_made(init);
     if (path.startsWith("keys/") && method === "DELETE") return key_dropped(decodeURIComponent(path.slice(5)));
-    if (path === "files")
-      return reload(
-        method === "PUT"
-          ? file_text(init)
-          : method === "POST"
-            ? file_made(init)
-            : method === "DELETE"
-              ? file_dropped(init)
-              : null
-      );
-    if (path === "providers" && method === "PUT") return reload(providers_saved(init));
+    // The shipped provider files are display-only: every write is refused.
+    if ((path === "files" && method !== "GET") || (path === "providers" && method === "PUT"))
+      return bad("The demo serves the shipped provider files read-only.", 403);
     if (path === "settings" && method === "PUT") return settings_saved(init);
     return null;
   };
@@ -1222,11 +1061,15 @@ const DEMO_FIXTURES = __FIXTURES__;
     if (path === "requests") return json(slice(url));
     // These reads come from the demo state: the provider files, the requests and the
     // fake upstream, so a save moves them together.
-    if (path === "models") return json(state.models);
+    if (path === "models") return json(DEMO_FIXTURES.models.map((row) => ({
+      ...row,
+      weight: weights.has(row.id) ? weights.get(row.id) : row.weight,
+      cooldown: cooldowns.has(row.id) ? cooldowns.get(row.id) : row.cooldown ?? null,
+    })));
     if (path === "pools") return json(pools());
     if (path === "limits") return check_limits();
     if (path === "status")
-      return json({ ...DEMO_FIXTURES.status, models: state.models.length,
+      return json({ ...DEMO_FIXTURES.status, models: DEMO_FIXTURES.models.length,
         sessions: new Set(DEMO_FIXTURES.requests.map((row) => row.session).filter(Boolean)).size });
     if (!(path in DEMO_FIXTURES)) return json({}, 404);
     return json(DEMO_FIXTURES[path]);
