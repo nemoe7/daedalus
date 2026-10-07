@@ -114,7 +114,7 @@ Kilo Code reads token limits only from its config, and it cannot show the routed
 | `tools` | Models that cannot call tools leave the chain. |
 | `messages` with an `image_url` part | Models without `supports_vision` leave the pool chains, older images included. Direct `provider/slug` requests stay. |
 | `max_tokens`, `max_completion_tokens` | A value above the `max_output_tokens` of the model in the catalog drops to that value. |
-| `reasoning_effort` | Only models with `supports_reasoning` true or missing from the catalog. Unset takes the catalog `reasoning_effort`. |
+| `reasoning_effort` | Only models with `supports_reasoning` true or missing from the catalog. Unset takes the catalog `reasoning_effort`. A value outside the effort list of the catalog row of the model moves to the nearest name of that list. |
 | Other fields | Go to the provider. Mistral and Groq get only the message fields that they accept. |
 
 ## Endpoints for non-chat models
