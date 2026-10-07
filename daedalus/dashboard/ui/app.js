@@ -17,7 +17,7 @@ const esc = (text) => String(text ?? "").replace(/[&<>"']/g, (c) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const tierLetter = (name) => (name || "").replace("TIER-", "") || "-";
 const tokens = (n) => !n ? "-" : n >= 1e6 ? +(n / 1e6).toFixed(1) + "M" : n < 1000 ? String(n) : Math.round(n / 1024) + "K";
-// The hour cycle of each shown time, from dashboard.time_format: h23 for 24h, h12 for 12h.
+// The hour cycle of each shown time, from personalization.time_format: h23 for 24h, h12 for 12h.
 let hourCycle = "h23";
 // The stamp of an absolute time: 2026-10-04 12:30:46.
 const stamp = (seconds) => {
@@ -2104,8 +2104,8 @@ async function loadSettings() {
   state.settings = await call("settings");
   state.settings.lists = {};
   renderLegend();
-  applyTheme(setting("dashboard", "theme"));
-  hourCycle = setting("dashboard", "time_format") === "12h" ? "h12" : "h23";
+  applyTheme(setting("personalization", "theme"));
+  hourCycle = setting("personalization", "time_format") === "12h" ? "h12" : "h23";
   renderSettings();
 }
 
