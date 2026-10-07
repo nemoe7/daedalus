@@ -102,6 +102,13 @@ def on_request(value: dict, model: str, headers: dict) -> dict | None:
   return value
 
 
+def _level(context: Any, tier: int) -> str:
+  """The effort of one tier on the ladder of the efforts list of the model."""
+  return router.effort_at(
+    router.efforts(context.get("config") or {}, context.get("model") or ""), tier - 1
+  )
+
+
 def _floor(context: Any) -> int:
   """The lowest tier this request may take: 2 when the model requires reasoning, else 1.
 
@@ -153,20 +160,24 @@ def on_prompt(
       # A step of an agentic turn carries no new user text: its read would drop the level of
       # the thread, so the step keeps the level of the last answer instead.
       kept = max(TIER_OF.get(level, read), _floor(context))
-      value["reasoning_effort"] = LEVELS[kept]
-      logger.info("a continuing turn keeps %s for %s", LEVELS[kept], app)
+      kept_level = _level(context, kept)
+      value["reasoning_effort"] = kept_level
+      logger.info("a continuing turn keeps %s for %s", kept_level, app)
       return
-    value["reasoning_effort"] = LEVELS[read]
-    logger.info("the prompt reads %s for %s", LEVELS[read], app)
+    read_level = _level(context, read)
+    value["reasoning_effort"] = read_level
+    logger.info("the prompt reads %s for %s", read_level, app)
     return
   if level is None:
-    value["reasoning_effort"] = LEVELS[read]
-    logger.info("a try again after no reasoned answer: %s", LEVELS[read])
+    read_level = _level(context, read)
+    value["reasoning_effort"] = read_level
+    logger.info("a try again after no reasoned answer: %s", read_level)
     return
   before = max(TIER_OF.get(level, read), TIER_OF.get(effort or "", 0))
   tier = min(before + 1, TOP)
-  value["reasoning_effort"] = LEVELS[tier]
-  logger.info("a try again for %s: %s +1 step -> %s", app, level, LEVELS[tier])
+  stepped = _level(context, tier)
+  value["reasoning_effort"] = stepped
+  logger.info("a try again for %s: %s +1 step -> %s", app, level, stepped)
 
 
 def on_init() -> list[list[str]]:

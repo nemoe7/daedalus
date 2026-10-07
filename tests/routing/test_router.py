@@ -364,3 +364,31 @@ def test_pools() -> None:
     "gemini/gemini-3.5-flash",
     "openrouter/anthropic/claude-opus-5",
   ]
+
+
+def test_the_efforts_key_follows_the_block_hierarchy() -> None:
+  """The reasoning_efforts key reads from the model entry, then the block, then the code."""
+  config = {
+    "kilo": {
+      "reasoning_efforts": ["none", "low", "high"],
+      "models": {"a": {"reasoning_efforts": ["none", "medium"]}},
+    },
+    "mistral": {},
+  }
+  assert router.efforts(config, "kilo/a") == ["none", "medium"]
+  assert router.efforts(config, "kilo/b") == ["none", "low", "high"]
+  assert router.efforts(config, "mistral/m") == ["none", "high"], (
+    "a coded default per provider"
+  )
+  assert router.efforts(config, "openrouter/x") == ["none", "low", "medium", "high"]
+
+
+def test_the_effort_ladder_caps_at_five_and_at_the_list() -> None:
+  """Ladder step 0 is the lowest effort, and a step caps at 5 and at the list end."""
+  efforts = ["none", "low", "medium", "high", "xhigh"]
+  assert router.effort_at(efforts, 0) == "none"
+  assert router.effort_at(efforts, 1) == "low"
+  assert router.effort_at(efforts, 4) == "xhigh"
+  assert router.effort_at(efforts, 7) == "xhigh"
+  assert router.effort_at(["low", "medium"], 0) == "low", "no none starts at the lowest"
+  assert router.effort_at(["low", "medium"], 5) == "medium"

@@ -106,6 +106,38 @@ def model_setting(config: Mapping[str, Any], model: str, key: str) -> Any:
   return found
 
 
+# The reasoning efforts each provider accepts, from its docs. A config key wins over the code.
+DEFAULT_EFFORTS: Final[Mapping[str, tuple[str, ...]]] = {
+  "mistral": ("none", "high"),
+  "pollinations": ("none",),
+  "z-ai": ("none",),
+}
+# The ladder of a provider with no coded list: the 4 levels of the heuristics read.
+FALLBACK_EFFORTS: Final[tuple[str, ...]] = ("none", "low", "medium", "high")
+# The cap of any ladder step, so a step never passes the 6th effort of a list.
+EFFORT_CAP: Final = 5
+
+
+def efforts(config: Mapping[str, Any], model: str) -> list[str]:
+  """The ordered reasoning efforts of a model: its key, its block, then the coded default."""
+  name, _, slug = model.partition("/")
+  found = model_setting(config, model, "reasoning_efforts")
+  if found is None:
+    found = (block_for(config, name, slug) or {}).get("reasoning_efforts")
+  if (
+    not isinstance(found, list)
+    or not found
+    or not all(isinstance(value, str) for value in found)
+  ):
+    return list(DEFAULT_EFFORTS.get(name, FALLBACK_EFFORTS))
+  return list(found)
+
+
+def effort_at(efforts: list[str], step: int) -> str:
+  """The effort of one ladder step: 0 the lowest, capped at 5 and at the list end."""
+  return efforts[max(0, min(step, EFFORT_CAP, len(efforts) - 1))]
+
+
 def headroom_allowed(config: Mapping[str, Any], model: str) -> bool:
   """Tell if the messages of a model take the Headroom compression.
 
