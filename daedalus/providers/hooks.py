@@ -221,6 +221,29 @@ def enabled(path: Path) -> bool:
   return path.name not in DISABLED and path.stem not in DISABLED
 
 
+def rows() -> list[dict[str, Any]]:
+  """1 row per hook file of the folder: the name, the frontmatter, the state and the problem."""
+  found: list[dict[str, Any]] = []
+  for path in sorted(folder().glob("*.py")):
+    info, problem = meta_check(head_text(path))
+    found.append(
+      {
+        "name": path.name,
+        "version": str(info.get("version", "")) if info else "",
+        "scope": str(info.get("scope", "global")) if info else "",
+        "targets": [str(target) for target in info["targets"]]
+        if info and info.get("targets")
+        else [],
+        "points": [str(point) for point in info["points"]]
+        if info and info.get("points")
+        else [],
+        "enabled": enabled(path) and problem is None,
+        "problem": problem or "",
+      }
+    )
+  return found
+
+
 def hook_files() -> list[str]:
   """The names of the hook files in the config folder, as paths for the settings group."""
   root = CONFIG_DIR / DIR

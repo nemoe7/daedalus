@@ -27,7 +27,7 @@ from fastapi.responses import (
 
 from daedalus import __version__, config, providers, store
 from daedalus.catalog import schedule
-from daedalus.config import block_for, provider_edit, settings
+from daedalus.config import block_for, provider_edit, remote, settings
 from daedalus.providers import hooks
 from daedalus.routing import router
 from daedalus.routing.cooldowns import Cooldowns
@@ -1088,11 +1088,15 @@ def routes(
     path = settings.DEFAULT_PATH
     text = path.read_text(encoding="utf-8") if path.exists() else ""
     raw = yaml.safe_load(text)
+    records = remote.read_records()
     return JSONResponse(
       {
         "path": str(path),
         "headroom_available": await headroom.available(),
         "hook_files": hooks.hook_files(),
+        "hook_rows": [
+          {**row, "record": records.get(row["name"], {})} for row in hooks.rows()
+        ],
         "defaults": settings.DEFAULTS,
         "file": raw if isinstance(raw, dict) else {},
         "text": text,
@@ -1118,5 +1122,34 @@ def routes(
     except settings.SettingsError as exc:
       return failure(422, str(exc), "invalid_request_error")
     return write_config(path, text)
+
+  @api.post("/hooks/update")
+  async def hooks_update(request: Request) -> JSONResponse:
+    """Read the sources of `hooks.sources` now, and answer with the version of each file."""
+    if not allowed(request):
+      return denied()
+    group = settings.load()["hooks"]
+    if not group["sources"]:
+      return failure(400, "No source in hooks.sources.", "invalid_request_error")
+    hooks.set_installed(group["dir"], group["disabled"])
+    before = remote.read_records()
+    moved = remote.update(group["sources"], hooks.folder())
+    after = remote.read_records()
+    repos = {source["repo"] for source in group["sources"]}
+    return JSONResponse(
+      {
+        "moved": moved,
+        "hooks": [
+          {
+            "name": name,
+            "moved": name in moved,
+            "before": before.get(name, {}),
+            "after": record,
+          }
+          for name, record in sorted(after.items())
+          if record["repo"] in repos
+        ],
+      }
+    )
 
   return api

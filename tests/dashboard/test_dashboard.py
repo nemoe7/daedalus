@@ -13,9 +13,9 @@ from fastapi.testclient import TestClient
 import daedalus
 from daedalus import config, dashboard, store
 from daedalus.catalog import schedule
-from daedalus.config import settings
+from daedalus.config import remote, settings
 from daedalus.dashboard import History
-from daedalus.providers import base
+from daedalus.providers import base, hooks
 from daedalus.routing import loops
 from daedalus.server import api, headroom, upstream
 
@@ -2114,6 +2114,85 @@ def test_hook_legend_rows(client: TestClient, state_folder: Path) -> None:
   )
   body = client.get("/ui/api/hooks").json()
   assert body == {"legend": [["rtN", "A repeat picked another model, N times"]]}, body
+
+
+def test_hook_rows_and_update(
+  client: TestClient, state_folder: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """The settings name the rows of the hook folder, and the update endpoint fetches now."""
+  client.post("/ui/api/login", json={"username": "admin", "password": MASTER})
+  root = state_folder / "config" / "hooks"
+  root.mkdir(parents=True, exist_ok=True)
+  (root / "one.py").write_text(
+    "# ---\n# version: 1.2.0\n# scope: provider\n# targets: [p]\n# ---\n"
+    "def on_answer(answer, model):\n  return answer\n",
+    encoding="utf-8",
+  )
+  rows = {
+    row["name"]: row for row in client.get("/ui/api/settings").json()["hook_rows"]
+  }
+  assert rows["one.py"] == {
+    "name": "one.py",
+    "version": "1.2.0",
+    "scope": "provider",
+    "targets": ["p"],
+    "points": [],
+    "enabled": True,
+    "problem": "",
+    "record": {},
+  }, rows
+  before = {
+    "one.py": {
+      "sha256": "b" * 64,
+      "version": "1.0.0",
+      "repo": "owner/name",
+      "commit": "c" * 40,
+    }
+  }
+  after = {"one.py": {**before["one.py"], "sha256": "d" * 64, "version": "1.2.0"}}
+  state = {"records": {}}
+  seen: list[object] = []
+  monkeypatch.setattr(remote, "read_records", lambda path=None: state["records"])
+
+  def fake_update(entries, folder=None, lock_path=None, only_missing=False):
+    seen.append((list(entries), folder, only_missing))
+    state["records"] = after
+    return ["one.py"]
+
+  monkeypatch.setattr(remote, "update", fake_update)
+  sources = [
+    {"repo": "owner/name", "path": "hooks", "ref": "main", "auto_update": False}
+  ]
+  monkeypatch.setattr(
+    settings,
+    "load",
+    lambda path=None: {"hooks": {"dir": "hooks", "sources": sources, "disabled": []}},
+  )
+  state["records"] = before
+  found = client.post("/ui/api/hooks/update")
+  assert found.status_code == 200, found.text
+  assert found.json() == {
+    "moved": ["one.py"],
+    "hooks": [
+      {
+        "name": "one.py",
+        "moved": True,
+        "before": before["one.py"],
+        "after": after["one.py"],
+      }
+    ],
+  }, found.text
+  assert seen == [(sources, hooks.CONFIG_DIR / "hooks", False)]
+  monkeypatch.setattr(
+    settings,
+    "load",
+    lambda path=None: {"hooks": {"dir": "hooks", "sources": [], "disabled": []}},
+  )
+  empty = client.post("/ui/api/hooks/update")
+  assert empty.status_code == 400 and "No source" in empty.text, empty.text
+  assert TestClient(api.app).post("/ui/api/hooks/update").status_code == 401, (
+    "a session is needed"
+  )
 
 
 def test_files(

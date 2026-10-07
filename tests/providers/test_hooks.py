@@ -458,3 +458,34 @@ def test_bad_block_stays_out() -> None:
     assert hooks.run("on-answer", {}, "p/m", {}) == {}
   finally:
     hooks.set_installed()
+
+
+def test_rows_report_the_folder() -> None:
+  """Each row names the file, its frontmatter, its state and its problem."""
+  try:
+    hooks.set_installed("rows", ["off.py"])
+    scoped(
+      "on.py",
+      ANSWER % "on",
+      "# ---\n# version: 2.0\n# scope: provider\n# targets: [p]\n"
+      "# points: [on-answer]\n# ---\n",
+    )
+    scoped("off.py", ANSWER % "off", "# ---\n# points: [on-answer]\n# ---\n")
+    scoped("plain.py", ANSWER % "plain", "")
+    scoped("bad.py", ANSWER % "bad", "# ---\n# points: [on-later]\n# ---\n")
+    found = {row["name"]: row for row in hooks.rows()}
+    assert found["on.py"] == {
+      "name": "on.py",
+      "version": "2.0",
+      "scope": "provider",
+      "targets": ["p"],
+      "points": ["on-answer"],
+      "enabled": True,
+      "problem": "",
+    }
+    assert found["off.py"]["enabled"] is False
+    assert found["plain.py"]["version"] == "" and found["plain.py"]["enabled"] is True
+    assert found["bad.py"]["enabled"] is False
+    assert "on-later" in found["bad.py"]["problem"]
+  finally:
+    hooks.set_installed()
