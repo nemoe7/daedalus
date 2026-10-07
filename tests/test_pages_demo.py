@@ -134,90 +134,46 @@ const check = (ok, text) => {
     "a key is dropped");
   check(!(await (await context.fetch("ui/api/keys")).json()).some((row) => row.name === "extra-client"),
     "the key list drops it");
-  const file = await (await context.fetch("ui/api/files", {
-    method: "POST",
-    body: JSON.stringify({ name: "extra" }),
-  })).json();
-  check(file.path.endsWith("extra.yml") && file.text, "a file is made");
-  check((await (await context.fetch("ui/api/files")).json()).some((row) => row.path === file.path),
-    "the file list shows it");
-  check((await context.fetch("ui/api/files", {
-    method: "DELETE",
-    body: JSON.stringify({ path: file.path }),
-  })).status === 200, "a file is dropped");
+  // The shipped provider files are display-only: the list shows them as-is, writes refuse.
   const files = await (await context.fetch("ui/api/files")).json();
+  check(files.length === 3
+    && files.every((row) => String(row.path).startsWith("config/providers/")),
+    "the file list holds the shipped files");
   const main = files.find((row) => row.main);
-  check((await context.fetch("ui/api/providers", {
-    method: "PUT",
-    body: JSON.stringify({ path: main.path, blocks: main.blocks }),
-  })).status === 200, "a provider form lands");
-  // One state: the provider files build the catalog and the pools, the fake upstream
-  // answers the lanes and the cards, and a save moves them together.
-  const built = await (await context.fetch("ui/api/models")).json();
-  check(built.length === 10 && built.some((row) => row.id === "cloudflare/@cf/openai/gpt-oss-120b"),
-    "the catalog reads the provider files");
-  check((await (await context.fetch("ui/api/pools")).json())
-    .find((pool) => pool.name === "daedalus/sophos").members.length === 3, "a pool reads its tier");
-  // The save adds 1 chat model: the lanes of the upstream grow by exactly 1.
-  const lanesBefore = (await (await context.fetch("ui/api/limits")).json()).lanes.length;
-  const withModel = JSON.parse(JSON.stringify(main.blocks));
-  withModel.cloudflare.models["@cf/demo/new"] = { max_input_tokens: 4096, tools: true };
-  withModel.cloudflare.tier["TIER-A"].push("@cf/demo/new");
-  check((await context.fetch("ui/api/providers", {
-    method: "PUT",
-    body: JSON.stringify({ path: main.path, blocks: withModel }),
-  })).status === 200, "a provider save with a new model");
-  const added = await (await context.fetch("ui/api/models")).json();
-  check(added.length === 11 && added.find((row) => row.id === "cloudflare/@cf/demo/new").tier === "TIER-A",
-    "the model joins the catalog and its tier");
-  check((await (await context.fetch("ui/api/pools")).json())
-    .find((pool) => pool.name === "daedalus/sophos").members.length === 4, "the pool follows the save");
-  const lanes = await (await context.fetch("ui/api/limits", { method: "POST" })).json();
-  check(lanes.lanes.length === lanesBefore + 1
-    && lanes.providers.find((card) => card.name === "openrouter").items[0][1] === "1000 of 1K left",
-    "the upstream answers the new lane and the cards");
-  const without = JSON.parse(JSON.stringify(withModel));
-  delete without.cloudflare.models["@cf/demo/new"];
-  without.cloudflare.tier["TIER-A"] = without.cloudflare.tier["TIER-A"].filter((id) => id !== "@cf/demo/new");
-  await context.fetch("ui/api/providers", {
-    method: "PUT",
-    body: JSON.stringify({ path: main.path, blocks: without }),
-  });
-  check((await (await context.fetch("ui/api/models")).json()).length === 10, "the model leaves the catalog");
-  check((await (await context.fetch("ui/api/limits", { method: "POST" })).json()).lanes.length === lanesBefore,
-    "the lane leaves with it");
+  check(main.path === "config/providers/free.yml" && main.text.includes("tier:"),
+    "the main file is verbatim");
+  check(files.some((row) => row.shadow), "a shadowed file keeps its note");
+  const models = await (await context.fetch("ui/api/models")).json();
+  check(models.length > 100, "the models are the captured snapshot");
+  check(models.every((row) => !String(row.id).includes("*")), "no glob reaches the models page");
+  const sophos = (await (await context.fetch("ui/api/pools")).json())
+    .find((pool) => pool.name === "daedalus/sophos");
+  check(sophos.members.length > 10 && sophos.members.every((row) => row.tier === "TIER-A"),
+    "a pool reads its tier patterns");
+  const readOnly = async (path, body, method) => {
+    const answer = await context.fetch("ui/api/" + path, { method, body: JSON.stringify(body) });
+    check(answer.status === 403, `the refusal of ${path}`);
+    check((await answer.json()).error.message.includes("read-only"), `the text of ${path}`);
+  };
+  await readOnly("providers", { path: main.path, blocks: main.blocks }, "PUT");
+  await readOnly("files", { path: main.path, text: main.text }, "PUT");
+  await readOnly("files", { name: "extra" }, "POST");
+  await readOnly("files", { path: main.path }, "DELETE");
+  check((await (await context.fetch("ui/api/files")).json()).length === 3,
+    "the files stay as shipped");
   check((await context.fetch("ui/api/reset", { method: "POST" })).status === 200, "a reset lands");
   const cleared = await (await context.fetch("ui/api/models")).json();
-  check(cleared.every((row) => row.cooldown === null && row.weight === 1), "the reset clears the weights");
-  // Each write carries the checks of the server: the YAML, the names and the session.
+  check(cleared.every((row) => row.cooldown === null && row.weight === 1),
+    "the reset clears the weights");
+  // Each write carries the checks of the server: the names and the session.
   const refuse = async (path, body, status, text, method = "PUT") => {
     const answer = await context.fetch("ui/api/" + path, { method, body: JSON.stringify(body) });
     check(answer.status === status, `the refusal of ${path} (${status})`);
     check((await answer.json()).error.message.includes(text), `the text of ${path}`);
   };
-  const listed = await (await context.fetch("ui/api/files")).json();
-  const head = listed.find((row) => row.main);
-  const shadow = listed.find((row) => !row.main);
   await refuse("settings", { changes: { personalization: { grid: 1 } } }, 422, "unknown key");
-  await refuse("files", { path: head.path, text: "cloudflare:\\n\\tbad: 1\\n" }, 422, "cannot start any token");
-  await refuse("files", { path: head.path, text: "- a\\n- b\\n" }, 422, "must hold provider blocks");
-  await refuse("providers", { path: shadow.path, blocks: { other: { api_base: "https://x.test" } } }, 400, "needs the block");
   await refuse("keys", { name: "x".repeat(41) }, 400, "1 to 40 characters", "POST");
   await refuse("keys", { name: "openwebui" }, 400, "is in use", "POST");
-  const renamed = await context.fetch("ui/api/files", {
-    method: "PUT",
-    body: JSON.stringify({ path: head.path, text: head.text + "\\nextra:\\n  api_base: https://extra.test/v1\\n" }),
-  });
-  check(renamed.status === 200, "a good text is saved");
-  const texted = await (await context.fetch("ui/api/files")).json();
-  check("extra" in texted.find((row) => row.path === head.path).blocks, "the blocks follow the text");
-  const merged = await context.fetch("ui/api/providers", {
-    method: "PUT",
-    body: JSON.stringify({ path: head.path, blocks: texted.find((row) => row.path === head.path).blocks }),
-  });
-  check(merged.status === 200, "the provider form is saved");
-  const kept = await (await context.fetch("ui/api/files")).json();
-  check(kept.find((row) => row.path === head.path).error === null, "the merged file stays valid");
   await context.fetch("ui/api/logout", { method: "POST" });
   check((await (await context.fetch("ui/api/login")).json()).session === false, "a logout ends the session");
   const wrong = await context.fetch("ui/api/login", {
@@ -262,7 +218,8 @@ const check = (ok, text) => {
   check(grown.length > all.length, "the finished row joins the table");
   // The status and the cards read the same state as the table.
   const liveStatus = await (await context.fetch("ui/api/status")).json();
-  check(liveStatus.models === 10, "the status counts the catalog");
+  check(liveStatus.models === (await (await context.fetch("ui/api/models")).json()).length,
+    "the status counts the catalog");
   check(liveStatus.sessions === new Set(grown.map((row) => row.session).filter(Boolean)).size,
     "the status counts the sessions of the table");
   const liveLimits = await (await context.fetch("ui/api/limits", { method: "POST" })).json();
@@ -425,6 +382,19 @@ def test_the_fixtures_carry_the_edge_cases() -> None:
   assert not [value for value in named if "demo" in value], (
     "the values carry real names"
   )
+
+
+def test_the_demo_files_are_the_shipped_provider_files() -> None:
+  """The Providers tab of the demo shows the shipped ymls verbatim, and nothing else."""
+  fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
+  shipped = pages_demo.ROOT / "config" / "providers"
+  names = [Path(row["path"]).name for row in fixtures["files"]]
+  assert names == ["free.yml", "openrouter.yml", "pollinations.yml"], names
+  for row in fixtures["files"]:
+    assert row["text"] == (shipped / Path(row["path"]).name).read_text(
+      encoding="utf-8"
+    ), row["path"]
+  assert len(fixtures["models"]) > 100, len(fixtures["models"])
 
 
 def test_the_build_copies_the_page_and_loads_the_demo_first(tmp_path: Path) -> None:
