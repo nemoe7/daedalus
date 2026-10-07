@@ -23,7 +23,7 @@ flowchart LR
 ```mermaid
 flowchart LR
   E{{on_prompt}} --> F[Tier of the newest turns, from the router]
-  F --> G[The level of LEVELS]
+  F --> G[The step of the efforts list of the model]
   G --> H[reasoning_effort of the request]
 ```
 
@@ -31,9 +31,11 @@ flowchart LR
 
 The `on_prompt` point reads the heuristics v2 tier of the newest user turn and the newest model
 turn, so each turn of a chat gets its own level. The model part keeps at most `ANSWER_CHARS`, 500
-characters, because a long answer would bloat the read. The `LEVELS` table holds the level of each
-tier, from `TIER-D` `none` to `TIER-A` `high`. A value of the client keeps the last word over that
-read. The tier of the conversation stays with the routing of `daedalus/auto`, so this file sets the
+characters, because a long answer would bloat the read. The tier indexes the `reasoning_efforts`
+list of the model: `TIER-D` is step 0, the lowest effort the model accepts, and each tier above is
+1 step up. The `reasoning_efforts` key of the model or of its block names the list, and a provider
+with no key keeps its coded default. The ladder stops at `high` and at the end of the list. A value
+of the client keeps the last word over that read. The tier of the conversation stays with the routing of `daedalus/auto`, so this file sets the
 level alone.
 
 | Event | The level |
