@@ -55,7 +55,7 @@ const none = (text) => `<div class="more">${text}</div>`;
 // A model name cell that ends in an ellipsis when it is too long. The title shows the full name.
 const mobileLabel = (text) => `<span class="mobile-label" aria-hidden="true">${esc(text)}</span>`;
 const nameCell = (text, shown = esc(text), label = "Model", extra = "") =>
-  `<td role="cell" class="name" title="${esc(text)}">${mobileLabel(label)}<span class="cell-value">${shown}</span>${extra}</td>`;
+  `<td role="cell" class="name" title="${esc(text)}">${label ? mobileLabel(label) : ""}<span class="cell-value">${shown}</span>${extra}</td>`;
 // The marks beside a model name: `provider/developer/slug`. The provider mark drops when the
 // developer carries the same name. The set names the SVG files that ship under `ui/icons/`; a name
 // with no file shows its own text in place of a mark.
@@ -899,17 +899,27 @@ function typeChips(m) {
 const CHIP_ICONS = {
   tools: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.531 12.469 6.619 20.38a1 1 0 1 1-3-3l7.912-7.912"/><path d="M15.686 4.314A12.5 12.5 0 0 0 5.461 2.958 1 1 0 0 0 5.58 4.71a22 22 0 0 1 6.318 3.393"/><path d="M17.7 3.7a1 1 0 0 0-1.4 0l-4.6 4.6a1 1 0 0 0 0 1.4l2.6 2.6a1 1 0 0 0 1.4 0l4.6-4.6a1 1 0 0 0 0-1.4z"/><path d="M19.686 8.314a12.501 12.501 0 0 1 1.356 10.225 1 1 0 0 1-1.751-.119 22 22 0 0 0-3.393-6.319"/></svg>',
   cool: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M4 7l16 10M20 7L4 17"/></svg>',
+  brain: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-1.04Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-1.04Z"/></svg>',
 };
 function phoneChips(m) {
-  const tier = m.tier ? `<span class="chip flag">${esc(tierLetter(m.tier))}</span>` : "";
-  const tools = m.mode === "chat" && m.tools
-    ? `<span class="chip flag" title="Tools">${CHIP_ICONS.tools}</span>` : "";
+  // The desktop columns a phone drops ride as labelled chips, so the card row stays full.
+  const tier = m.tier ? `<span class="chip flag" title="Tier">Tier ${esc(tierLetter(m.tier))}</span>` : "";
+  const order = m.order
+    ? `<span class="chip flag${m.order > 1 ? "" : " mute"}" title="Order">Order ${m.order}</span>`
+    : "";
+  const context = m.max_input_tokens
+    ? `<span class="chip flag" title="Context">Context <span class="num">${tokens(m.max_input_tokens)}</span></span>`
+    : "";
+  // A chat card keeps both state chips: a model that says no shows its chip muted.
+  const tools = m.mode === "chat"
+    ? `<span class="chip flag${m.tools ? "" : " mute"}" title="Tools">${CHIP_ICONS.tools}</span>` : "";
+  const reasoning = m.mode === "chat"
+    ? `<span class="chip flag${m.reasoning ? "" : " mute"}" title="Reasoning">${CHIP_ICONS.brain}${m.effort ? `<span class="num">${esc(m.effort)}</span>` : ""}</span>`
+    : "";
   const cool = m.cooldown && m.cooldown > Date.now() / 1000
     ? `<span class="chip flag" title="Cooldown">${CHIP_ICONS.cool}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
     : "";
-  const weight = m.weight == null ? ""
-    : `<span class="chip flag" title="Weight"><span class="num">${m.weight.toFixed(2)}</span></span>`;
-  return tier + tools + cool + weight;
+  return tier + order + context + tools + reasoning + cool;
 }
 
 function renderTiers() {
@@ -1003,7 +1013,7 @@ function renderModels() {
   const empty = state.models.length ? "No models match" : "No models. Run daedalus catalog.";
   draw("models", rows.length ? rows.map((m) => `
     <tr>
-      ${nameCell(m.id, modelName(m.id), "Model", `<span class="types phone-types">${typeChips(m)}</span><span class="phone-chips">${phoneChips(m)}</span>`)}
+      ${nameCell(m.id, modelName(m.id), "", `<span class="types phone-types">${typeChips(m)}</span><span class="phone-chips">${phoneChips(m)}</span>`)}
       <td class="hide-sm"><div class="types">${typeChips(m)}</div></td>
       <td class="mid hide-sm">${mobileLabel("Tier")}<span class="cell-value">${m.tier ? `<span class="tier" title="${esc(m.tier)}">${esc(tierLetter(m.tier))}</span>` : dash}</span></td>
       <td class="hide-sm mid num${m.order > 1 ? "" : " muted"}">${m.order ?? dash}</td>
