@@ -229,6 +229,7 @@ def rows() -> list[dict[str, Any]]:
     found.append(
       {
         "name": path.name,
+        "path": f"{DIR}/{path.name}",
         "version": str(info.get("version", "")) if info else "",
         "scope": str(info.get("scope", "global")) if info else "",
         "targets": [str(target) for target in info["targets"]]
