@@ -319,14 +319,20 @@ td.end { text-align: right; }
   }
   section[data-page="requests"] > .flow > .column > .panel:not(.editbar) { flex: 1; min-height: 0; overflow: auto; }
   section[data-page="requests"] > .flow > .column > .requests-bar { flex: none; }
+  /* The bar keeps 1 row: a filter pick never drops the count hint to a second line. The search
+     field gives up its width first, so the controls and the hint hold their place. */
+  section[data-page="requests"] .requests-bar { flex-wrap: nowrap; }
+  section[data-page="requests"] .requests-bar input[type="search"] { flex: 1 1 8rem; min-width: 0; }
+  section[data-page="requests"] .requests-bar .hint { white-space: nowrap; }
   section[data-page="requests"] .legend { align-self: flex-start; }
   /* The time column holds 19 characters, so it keeps its own width, and the model column takes the
      free width of the row, as in the Models table. The phone layout ignores these hints. */
   .requests tr:not(.chain) > th, .requests tr:not(.chain) > td { width: 1%; }
-  /* The Model and Served by columns share the free width equally, so both move on a resize. */
+  /* The Model and Served by columns share the free width equally, so both move on a resize. The cap
+     holds the share: a long name ends in an ellipsis instead of eating the width of the other. */
   .requests tr:not(.chain) > th:nth-child(4), .requests tr:not(.chain) > td:nth-child(4),
   .requests tr:not(.chain) > th:nth-child(5), .requests tr:not(.chain) > td:nth-child(5) {
-    width: 30%; max-width: none;
+    width: 30%; max-width: 30%;
   }
 }
 /* A collapsed border scrolls away from a sticky head, so the rule rides on an inset shadow. */

@@ -1480,16 +1480,58 @@ def test_requests_time_column_keeps_its_width() -> None:
   free = re.search(
     r"\.requests tr:not\(\.chain\) > th:nth-child\(4\), \.requests tr:not\(\.chain\) > td:nth-child\(4\),\n"
     r"\s+\.requests tr:not\(\.chain\) > th:nth-child\(5\), \.requests tr:not\(\.chain\) > td:nth-child\(5\) \{\n"
-    r"\s+width: 30%; max-width: none;",
+    r"\s+width: 30%; max-width: 30%;",
     css,
   )
   assert free, "the model and served by columns share the free width"
+  assert (
+    ".requests td.name { max-width: 16rem; overflow: hidden; text-overflow: ellipsis; }"
+    in css
+  ), "a name past its share ends in an ellipsis"
   phone = css.split("@media (max-width: 720px) {", 1)[1]
   assert (
     "display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto;"
     in phone
   ), "the phone row stays a grid"
   assert "width: 1%" not in phone, "the phone cells keep their grid tracks"
+
+
+def test_each_model_filter_pick_moves_the_rows_only() -> None:
+  """A search, a select or a tier of the Models tab replays the table, not the page."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert "function pickRows() {" in app and 'replay($("models"));' in app, (
+    "the pick replays the table"
+  )
+  for handler in (
+    '$("search").addEventListener("input", pickRows);',
+    '$("sort-small").addEventListener("change", () => {',
+    '$("mode").addEventListener("change", () => {',
+    '$("tiers").addEventListener("click", (event) => {',
+  ):
+    assert handler in app, handler
+  # The handlers of this tab never call the plain draw, so no pick moves the page.
+  toolbar = app[app.index('$("search").addEventListener') :]
+  toolbar = toolbar[: toolbar.index("$('files')") if "$('files')" in toolbar else 4000]
+  assert "renderModels();" not in toolbar, "each pick goes through pickRows"
+
+
+def test_the_requests_bar_keeps_its_line_on_a_filter_pick() -> None:
+  """A filter pick holds the toolbar: the count hint never drops to a second row."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  desktop = css.split("@media (min-width: 721px) {", 1)[1]
+  assert (
+    'section[data-page="requests"] .requests-bar { flex-wrap: nowrap; }' in desktop
+  ), "the bar keeps 1 row"
+  assert (
+    'section[data-page="requests"] .requests-bar input[type="search"] '
+    "{ flex: 1 1 8rem; min-width: 0; }" in desktop
+  ), "the search field gives up its width first"
+  assert (
+    'section[data-page="requests"] .requests-bar .hint { white-space: nowrap; }'
+    in desktop
+  ), "the count hint holds its own line"
 
 
 def test_header_state_matches_the_page_switcher() -> None:
@@ -3311,6 +3353,38 @@ def test_the_first_data_of_a_card_arrives_once() -> None:
   )
   assert "firstDraw(host);" in app, "the shared draw path marks the host"
   assert 'firstDraw($("requests"));' in app, "the requests table marks itself too"
+
+
+def test_app_js_a_pool_pick_moves_the_models_table_only() -> None:
+  """A pool card holds the page still: the models table arrives, and nothing else moves."""
+  code = _app_js_vm(
+    """
+sandbox.URLSearchParams = URLSearchParams;
+sandbox.history = { replaceState: () => {} };
+sandbox.__el("sort-small").options = [];
+const sections = ["overview", "models"].map((page) => ({
+  dataset: { page }, hidden: true, offsetWidth: 0,
+  classList: {
+    added: [], add(name) { this.added.push(name); },
+    remove(name) { this.added = this.added.filter((item) => item !== name); },
+    toggle() {},
+  },
+}));
+sandbox.document.querySelectorAll = (sel) => (sel === "section[data-page]" ? sections : []);
+const models = sandbox.__el("models");
+const drawn = [];
+models.classList = { add: (name) => drawn.push(name), remove: () => {}, toggle: () => {} };
+sandbox.location.hash = "#/models";
+sandbox.showPage();
+sandbox.location.hash = "#/models?tier=C&mode=chat&sort=weight";
+sandbox.showPage();
+const on = sections.find((row) => row.dataset.page === "models");
+assert.strictEqual(on.classList.added.includes("enter"), false, "the page holds still");
+assert.strictEqual(drawn.includes("drawn"), true, "the models table arrives");
+process.exit(0);
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
 
 
 def test_a_pending_call_spins_and_the_first_load_waits_on_skeletons() -> None:

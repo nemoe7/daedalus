@@ -266,6 +266,11 @@ const check = (ok, text) => {
   check(shaped(end.row), "the finished row carries the fields of the server");
   const grown = await (await context.fetch("ui/api/requests?limit=500")).json();
   check(grown.length > all.length, "the finished row joins the table");
+  // An auto row names the pool that answered, as the live server records it.
+  const autos = grown.filter((row) => String(row.model).startsWith("daedalus/auto"));
+  check(autos.length > 0 && autos.every((row) =>
+    ["sophos", "deinos", "koinos", "moros"].includes(row.pool)),
+    "an auto row names the pool that answered");
   // The status and the cards read the same state as the table.
   const liveStatus = await (await context.fetch("ui/api/status")).json();
   check(liveStatus.models === (await (await context.fetch("ui/api/models")).json()).length,
