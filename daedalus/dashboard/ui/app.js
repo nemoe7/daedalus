@@ -1604,10 +1604,19 @@ function yamlCard(editor, save, hint) {
     + `<span class="hint">Ctrl+S saves and reloads</span></div></div>`;
 }
 
+// The phone slide of the view that arrives: the pane from the right, and the list back from the left.
+function playSlide(host, open) {
+  if (!phoneSection()) return;
+  const arriving = host.querySelector(open ? ".section-pane" : ".sections");
+  if (!arriving) return;
+  arriving.classList.remove("slide");
+  void arriving.offsetWidth;
+  arriving.classList.add("slide");
+}
+
 // The pick of a section: 1 button on, 1 card shown, and the phone leaves the list.
 function pickSection(host, key, open = sectionState(host).open) {
   const state_ = sectionState(host);
-  // A phone slides the arriving view in: the pane from the right, and the list back from the left.
   const moved = state_.open !== open;
   state_.key = key;
   state_.open = open;
@@ -1621,12 +1630,10 @@ function pickSection(host, key, open = sectionState(host).open) {
   for (const card of host.querySelectorAll(".section-pane > .card")) {
     card.hidden = card.dataset.section !== key;
   }
-  if (!moved || !phoneSection()) return;
-  const arriving = host.querySelector(open ? ".section-pane" : ".sections");
-  if (!arriving) return;
-  arriving.classList.remove("slide");
-  void arriving.offsetWidth;
-  arriving.classList.add("slide");
+  if (!moved) return;
+  // The slide plays at once, and the flag holds it for a render that builds the pane again.
+  state_.slide = true;
+  playSlide(host, open);
 }
 
 // A phone turns a pick into its own page: the section rides in the hash, so the back gesture returns.
@@ -1660,6 +1667,17 @@ function applySectionHash() {
   const known = [...host.querySelectorAll(".sections button")].some((button) => button.dataset.section === key);
   if (key && known) pickSection(host, key, true);
   else pickSection(host, sectionState(host).key, false);
+}
+
+// A phone back moves the section before the page builds its form, and that build replaces the
+// pane. The slide of the pick replays once on the fresh markup, so the back reads as a move.
+function slideAgain() {
+  for (const host of [$("settings"), $("provider-form")]) {
+    const state_ = sectionState(host);
+    if (!state_.slide) continue;
+    state_.slide = false;
+    playSlide(host, state_.open);
+  }
 }
 
 // A group of fields that starts closed, so a long card stays short.
@@ -2921,9 +2939,12 @@ function showPage() {
   });
   // The first paint marks the chevrons too, so a cut tab shows before the first status answer.
   markNavSteps();
-  applySectionHash();
-  document.title = `daedalus · ${document.querySelector(`#nav a[data-page="${page}"]`).firstChild.textContent}`;
+  // The page renders before the section pick: a render replaces the markup of the pane, and the
+  // slide of a phone back rides on the classes that the pick sets.
   if (page === "providers" && state.view === "form") renderForm();
+  applySectionHash();
+  slideAgain();
+  document.title = `daedalus · ${document.querySelector(`#nav a[data-page="${page}"]`).firstChild.textContent}`;
   fitSectionPane();
 }
 

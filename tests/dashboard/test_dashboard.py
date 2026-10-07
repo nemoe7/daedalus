@@ -1609,6 +1609,24 @@ def test_the_settings_sections_carry_a_rule() -> None:
   )
 
 
+def test_the_providers_back_keeps_its_slide() -> None:
+  """A phone back from a Providers section slides: the form renders before the pick lands."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  body = app[
+    app.index("function showPage()") : app.index('window.addEventListener("hashchange"')
+  ]
+  render = body.index('if (page === "providers" && state.view === "form") renderForm();')
+  pick = body.index("applySectionHash();")
+  assert render < pick, "the form renders before the section pick"
+  assert "slideAgain();" in body[pick:], "the slide of the pick replays on the fresh markup"
+  assert "function playSlide(host, open) {" in app, "1 helper plays the arriving slide"
+  assert "state_.slide = true;" in app, "a pick holds its slide for the render that follows"
+  assert 'for (const host of [$("settings"), $("provider-form")]) {' in app, (
+    "both pages replay their slide"
+  )
+
+
 def test_the_requests_bar_keeps_its_line_on_a_filter_pick() -> None:
   """A filter pick holds the toolbar: the count hint never drops to a second row."""
   root = Path(__file__).resolve().parent.parent.parent
