@@ -51,7 +51,7 @@
 
 <div id="app" hidden>
   <header>
-    <div class="brand"><img src="ui/logo.svg" alt="" width="34" height="34"><div>daedalus<span>.</span><small id="version"></small></div></div>
+    <div class="brand"><img src="ui/logo.svg" alt="" width="34" height="34"><div>daedalus<span>.</span><small id="version"></small></div><span class="spinner" id="spinner" aria-hidden="true" hidden></span></div>
     <div class="tab-bar">
     <button class="ghost tab-step" id="nav-left" type="button" aria-label="Show the earlier tabs" hidden><span aria-hidden="true">&lsaquo;</span></button>
     <nav class="tabs" id="nav">
@@ -65,7 +65,6 @@
     <button class="ghost tab-step" id="nav-right" type="button" aria-label="Show the later tabs" hidden><span aria-hidden="true">&rsaquo;</span></button>
     </div>
     <div class="chips">
-      <span class="spinner" id="spinner" aria-hidden="true" hidden></span>
       <span id="status" class="chips" data-status></span>
       <button class="ghost logout" id="logout" type="button">Log out</button>
     </div>
