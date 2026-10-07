@@ -2527,6 +2527,9 @@ def test_the_tab_bar_fades_its_clipped_edges() -> None:
   assert ".tab-step span { display: block; transform: translateY(-2px); }" in css, (
     "the angle glyph centers on the tab text"
   )
+  assert "#nav-left:not([hidden]) { margin-left: -12px; }" in css, (
+    "a shown chevron sits at the page edge"
+  )
 
 
 def test_a_phone_keeps_one_rhythm_around_the_bar_rules() -> None:
