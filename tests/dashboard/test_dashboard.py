@@ -1616,12 +1616,18 @@ def test_the_providers_back_keeps_its_slide() -> None:
   body = app[
     app.index("function showPage()") : app.index('window.addEventListener("hashchange"')
   ]
-  render = body.index('if (page === "providers" && state.view === "form") renderForm();')
+  render = body.index(
+    'if (page === "providers" && state.view === "form") renderForm();'
+  )
   pick = body.index("applySectionHash();")
   assert render < pick, "the form renders before the section pick"
-  assert "slideAgain();" in body[pick:], "the slide of the pick replays on the fresh markup"
+  assert "slideAgain();" in body[pick:], (
+    "the slide of the pick replays on the fresh markup"
+  )
   assert "function playSlide(host, open) {" in app, "1 helper plays the arriving slide"
-  assert "state_.slide = true;" in app, "a pick holds its slide for the render that follows"
+  assert "state_.slide = true;" in app, (
+    "a pick holds its slide for the render that follows"
+  )
   assert 'for (const host of [$("settings"), $("provider-form")]) {' in app, (
     "both pages replay their slide"
   )
