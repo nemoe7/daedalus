@@ -218,6 +218,8 @@ def file_shape_problems(loaded: Mapping[str, Any], stem: str = "") -> list[str]:
 
 def drop_wrong_shapes(loaded: dict[str, Any], where: str, stem: str) -> None:
   """Drop each known key of a provider file with a wrong shape, and name it in the log."""
+  from daedalus.config import settings
+
   blocks: list[tuple[str, dict[str, Any]]] = [(stem, loaded)]
   blocks += [
     (name, value)
@@ -226,6 +228,9 @@ def drop_wrong_shapes(loaded: dict[str, Any], where: str, stem: str) -> None:
   ]
   for name, block in blocks:
     for path, reason in block_shape_problems(block):
+      # The settings groups of daedalus.yml share the top level with the provider blocks.
+      if block is loaded and path[0] in settings.DEFAULTS:
+        continue
       if len(path) == 2:
         block[path[0]].pop(path[1], None)
       else:

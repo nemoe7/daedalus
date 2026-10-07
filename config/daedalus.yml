@@ -4,7 +4,7 @@
 # DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.
 # HEADROOM_URL turns on message compression through a Headroom sidecar.
 # `headroom: false` in a provider block or a model entry turns it off for that scope.
-request_hooks:
+hooks:
   # The request-level hook files of the config folder, in list order. An empty list: no hook.
   # on-request sets the key of the turn. The shipped file applies the Open WebUI try-again rule.
   on-request: [hooks/owui_auto_reasoning_effort.py]

@@ -86,13 +86,13 @@ The 2 old groups, `session_affinity` and `parallel`, stop the start too. The err
 
 The shipped file holds the changes from the defaults only. The **Settings** page writes the changed keys only. A cleared field loses its line, and the default applies. The table below lists each key, its default and its use.
 
-### Timeouts
+### Limits
 
 | Key | Default | Use |
 | --- | --- | --- |
-| `timeouts.request` | `600` | Seconds to wait for an answer, for all attempts. A started stream does not stop. |
-| `timeouts.wait` | `60` | Seconds with no provider data, keep-alive bytes excluded. Then the next model starts. Media: none. |
-| `timeouts.slow` | `30` | A first token after this time is slow |
+| `limits.request` | `600` | Seconds to wait for an answer, for all attempts. A started stream does not stop. |
+| `limits.wait` | `60` | Seconds with no provider data, keep-alive bytes excluded. Then the next model starts. Media: none. |
+| `limits.slow` | `30` | A first token after this time is slow |
 
 ### Affinity
 
@@ -111,34 +111,34 @@ The shipped file holds the changes from the defaults only. The **Settings** page
 
 | Key | Default | Use |
 | --- | --- | --- |
-| `weights.enabled` | `true` | `false` keeps all weights at 1 |
-| `weights.success` | `1.5` | Factor for a success |
-| `weights.fault` | `0.5` | Factor for a fault |
-| `weights.slow` | `0.75` | Factor for a slow success |
-| `weights.hourly` | `1.212` | Recovery factor for each hour |
-| `weights.rate_limit` | `0.75` | Factor for an HTTP 429 |
+| `balance.weights` | `true` | `false` keeps all weights at 1 |
+| `balance.success` | `1.5` | Factor for a success |
+| `balance.fault` | `0.5` | Factor for a fault |
+| `balance.slow` | `0.75` | Factor for a slow success |
+| `balance.hourly` | `1.212` | Recovery factor for each hour |
+| `balance.rate_limit` | `0.75` | Factor for an HTTP 429 |
 
 ### Cooldowns
 
 | Key | Default | Use |
 | --- | --- | --- |
-| `cooldown.first` | `60` | Seconds of the first cooldown of a 429 with no reset time |
-| `cooldown.longest` | `21600` | Each next 429 doubles the cooldown, up to these seconds |
+| `balance.first` | `60` | Seconds of the first cooldown of a 429 with no reset time |
+| `balance.longest` | `21600` | Each next 429 doubles the cooldown, up to these seconds |
 
 ### Loops
 
 | Key | Default | Use |
 | --- | --- | --- |
-| `loops.calls` | `3` | Repeated identical tool calls since the last user message. Integer from 2 to 100. |
-| `loops.repeats` | `4` | Consecutive copies of a repeated text passage. Integer from 2 to 16. |
-| `loops.shortest` | `20` | Shortest passage period, in characters. Integer from 1 to 1,000 and no greater than `loops.longest`. |
-| `loops.longest` | `2000` | Longest passage period, in characters. Integer from 1 to 10,000. |
+| `limits.calls` | `3` | Repeated identical tool calls since the last user message. Integer from 2 to 100. |
+| `limits.repeats` | `4` | Consecutive copies of a repeated text passage. Integer from 2 to 16. |
+| `limits.shortest` | `20` | Shortest passage period, in characters. Integer from 1 to 1,000 and no greater than `limits.longest`. |
+| `limits.longest` | `2000` | Longest passage period, in characters. Integer from 1 to 10,000. |
 
 ### Pacing
 
 | Key | Default | Use |
 | --- | --- | --- |
-| `pacing.enabled` | `true` | `false`: the `rpm` and `tpm` of the provider files do not skip models |
+| `balance.pacing` | `true` | `false`: the `rpm` and `tpm` of the provider files do not skip models |
 
 ### Catalog
 
@@ -147,22 +147,22 @@ The shipped file holds the changes from the defaults only. The **Settings** page
 | `catalog.every` | `6` | Hours between catalog rebuilds. `0` stops them. |
 | `catalog.anchor` | `6` | Local hour that the rebuild times start from. A whole hour from 0 to 23. |
 
-### Headroom
+### Optimization
 
 | Key | Default | Use |
 | --- | --- | --- |
-| `headroom.enabled` | `true` | `false`: the messages of each model go to the provider unchanged. |
-| `headroom.timeout` | `5` | Seconds for the full Headroom answer. Then the original messages go to the provider. |
+| `optimization.enabled` | `true` | `false`: the messages of each model go to the provider unchanged. |
+| `optimization.timeout` | `5` | Seconds for the full Headroom answer. Then the original messages go to the provider. |
 
 ### Routing
 
 | Key | Default | Use |
 | --- | --- | --- |
 | `routing.threshold` | `0.75` | The odds a tier needs to take a request. A higher value sends more requests to the stronger tiers. Number from 0 to 1. |
-| `escalation.keywords` | The list below | Whole words or phrases. A match moves the `daedalus/auto` tier 1 step up, and the conversation keeps it. |
-| `switch.keywords` | `clanker` | Words or phrases. A match gives the pool session another model of the same tier. |
+| `routing.escalation` | The list below | Whole words or phrases. A match moves the `daedalus/auto` tier 1 step up, and the conversation keeps it. |
+| `routing.switch` | `clanker` | Words or phrases. A match gives the pool session another model of the same tier. |
 
-The shipped `escalation.keywords`:
+The shipped `routing.escalation`:
 
 - `ultrathink`
 - `think hard`
@@ -186,28 +186,28 @@ The shipped `escalation.keywords`:
 - `design`
 - `architecture`
 
-### Dashboard
+### Personalization
 
 | Key | Default | Use |
 | --- | --- | --- |
-| `dashboard.theme` | `system` | `system`, `light` or `dark`. The Settings page sets it. Login always follows the device. |
-| `dashboard.time_format` | `24h` | `24h` or `12h` for the hour of each shown time. Every time carries its date: `2026-10-04 12:30:46`. The Settings page sets it. |
+| `personalization.theme` | `system` | `system`, `light` or `dark`. The Settings page sets it. Login always follows the device. |
+| `personalization.time_format` | `24h` | `24h` or `12h` for the hour of each shown time. Every time carries its date: `2026-10-04 12:30:46`. The Settings page sets it. |
 
 ### Hooks
 
 | Key | Default | Use |
 | --- | --- | --- |
-| `request_hooks.on-request` | `[hooks/owui_auto_reasoning_effort.py]` | The request hook files of the [`config`](../config) folder, in list order. An empty list: no hook. See [Hooks](hooks.md). |
-| `request_hooks.on-prompt` | `[hooks/owui_auto_reasoning_effort.py]` | The prompt hook files of the [`config`](../config) folder, called 1 time before the first attempt of a chat request. The call needs a prompt and a reasoning model in the chain. The value sets the reasoning effort of the request. See [Hooks](hooks.md). |
-| `request_hooks.on-chunk` | `[hooks/served_model.py]` | The stream chunk hook files of the [`config`](../config) folder, called on each streamed chunk of a chat request, in list order. An empty list: no hook. See [Hooks](hooks.md). |
-| `remote_hooks` | `[]` | The hook files that come from a URL, each with the `sha256` of its bytes and an optional `name`. `daedalus hooks pin` writes the pin of a URL. See [Hooks](hooks.md#remote-hook-files). |
-| `remote_hook_hosts` | `[]` | The hosts a `remote_hooks` URL may name, 1 host per entry. A `*.` entry also covers the subdomains. Empty: every host passes. |
+| `hooks.on-request` | `[hooks/owui_auto_reasoning_effort.py]` | The request hook files of the [`config`](../config) folder, in list order. An empty list: no hook. See [Hooks](hooks.md). |
+| `hooks.on-prompt` | `[hooks/owui_auto_reasoning_effort.py]` | The prompt hook files of the [`config`](../config) folder, called 1 time before the first attempt of a chat request. The call needs a prompt and a reasoning model in the chain. The value sets the reasoning effort of the request. See [Hooks](hooks.md). |
+| `hooks.on-chunk` | `[hooks/served_model.py]` | The stream chunk hook files of the [`config`](../config) folder, called on each streamed chunk of a chat request, in list order. An empty list: no hook. See [Hooks](hooks.md). |
+| `hooks.remote` | `[]` | The hook files that come from a URL, each with the `sha256` of its bytes and an optional `name`. `daedalus hooks pin` writes the pin of a URL. See [Hooks](hooks.md#remote-hook-files). |
+| `hooks.remote_hosts` | `[]` | The hosts a `hooks.remote` URL may name, 1 host per entry. A `*.` entry also covers the subdomains. Empty: every host passes. |
 
 ### Pools
 
 | Key | Default | Use |
 | --- | --- | --- |
-| `pools.tier-a`, `pools.tier-b`, `pools.tier-c`, `pools.tier-d`, `pools.audio`, `pools.images` | `sophos`, `deinos`, `koinos`, `moros`, `graphos`, `photos` | The client name after `daedalus/`: 1-40 characters, no `auto`. A change renames that pool, and the old name breaks with HTTP 400. |
+| `personalization.tier-a`, `personalization.tier-b`, `personalization.tier-c`, `personalization.tier-d`, `personalization.audio`, `personalization.images` | `sophos`, `deinos`, `koinos`, `moros`, `graphos`, `photos` | The client name after `daedalus/`: 1-40 characters, no `auto`. A change renames that pool, and the old name breaks with HTTP 400. |
 
 ## Provider key values
 
@@ -254,7 +254,7 @@ groq:
 | `order` | Optional. 1 or more, default 1. Runs after the lower orders of its tier. |
 | `hooks` | Optional. Hook points and file paths in [`config`](../config), like `- on-upstream: hooks/x.py`. |
 | `streams` | Optional. `false`: the block answers no stream. The client waits for the whole body. Absent: true. |
-| `headroom` | Optional. `false`: no Headroom compression for the models of the block. Absent: `headroom.enabled`. |
+| `headroom` | Optional. `false`: no Headroom compression for the models of the block. Absent: `optimization.enabled`. |
 | `hourly_requests` | Optional. The provider requests per hour. At the limit, the provider leaves the chains. |
 
 A known key with a wrong shape is a 422 on the Providers page, and a hand-edited file drops that key
@@ -267,13 +267,13 @@ Other keys of a `models` entry:
 | Key | Use |
 | --- | --- |
 | `pool` | `false`: out of the pools and `daedalus/auto`. A direct `provider/slug` request still uses it. |
-| `timeout` | Seconds with no provider data, in place of `timeouts.wait`. Direct requests retry until `timeouts.request`. |
+| `timeout` | Seconds with no provider data, in place of `limits.wait`. Direct requests retry until `limits.request`. |
 | `reasoning_effort` | The effort for a request with no `reasoning_effort`. Only a model that reasons gets it. |
 | `max_output_tokens` | The output limit of the model. A larger `max_tokens` or `max_completion_tokens` drops to this value. |
 | `supports_function_calling`, or its short name `tools` | `true` or `false`. Pool and `daedalus/auto` tool requests skip a model without it. |
 | `supports_vision` | `true` or `false`. Pool and `daedalus/auto` image requests skip a model without it. |
 | `streams` | `false`: the model answers no stream. A request that wanted one retries without it. Absent: true. |
-| `headroom` | `false`: the model keeps its messages. Absent: the value of the block, then `headroom.enabled`. |
+| `headroom` | `false`: the model keeps its messages. Absent: the value of the block, then `optimization.enabled`. |
 
 When 2 entries match 1 model, the last entry in the file sets the key. A model key at the provider level, for example `reasoning_effort: high` next to `api_key`, sets the value for each model of the provider.
 

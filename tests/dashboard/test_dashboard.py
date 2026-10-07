@@ -107,12 +107,12 @@ def test_page(client: TestClient) -> None:
   ), "a logout asks first, in the modal"
   assert "shortEffort(sentText(a, r.effort))" in script.text
   assert '["change_on_draw", "Change pin on draw"' in script.text
-  assert '["headroom", "Headroom"' in script.text, "the Headroom card is in Settings"
-  assert '["enabled", "Enabled"' in script.text, "the Headroom switch is a checkbox"
-  assert '["loops", "Loop detection"' in script.text, (
-    "the loop thresholds are in Settings"
+  assert '["optimization", "Optimization"' in script.text, (
+    "the Optimization card is in Settings"
   )
-  assert '["routing", "Classifier"' in script.text, "the Classifier card is in Settings"
+  assert '["enabled", "Headroom on"' in script.text, "the Headroom switch is a checkbox"
+  assert '["limits", "Limits"' in script.text, "the loop thresholds are in Settings"
+  assert '["routing", "Routing"' in script.text, "the Routing card is in Settings"
   assert client.get("/ui/style.css").status_code == 200
   assert script.headers["cache-control"] == "no-cache", "an update applies at once"
   assert client.get("/ui/index.html").status_code == 404, "listed assets only"
@@ -1292,27 +1292,27 @@ assert(html.slice(Math.max(0, at - 120), at).includes('role="switch"'), 'the row
 const row = html.slice(html.lastIndexOf('<label', at), at);
 assert(row.includes('class="hint"') && row.includes('aria-describedby="hint-'), 'the row carries its hint icon');
 assert(row.includes('role="tooltip"'), 'the hint text serves as the tooltip');
-for (const id of ['set-affinity-change_on_draw', 'set-weights-enabled', 'set-pacing-enabled']) node(id).checked = true;
+for (const id of ['set-affinity-change_on_draw', 'set-balance-weights', 'set-balance-pacing', 'set-optimization-enabled']) node(id).checked = true;
 node('set-affinity-mode').value = 'session';
-node('set-dashboard-theme').value = 'system';
-node('set-dashboard-time_format').value = '24h';
+node('set-personalization-theme').value = 'system';
+node('set-personalization-time_format').value = '24h';
 assert.strictEqual(JSON.stringify(probe.settingsChanges()), '{{}}', 'a loaded file reports no change');
 // The keyword fields are chip lists with a + adder, not a text box.
-const list = html.slice(Math.max(0, html.indexOf('id="set-escalation-keywords"') - 40), html.indexOf('id="set-escalation-keywords"') + 2600);
+const list = html.slice(Math.max(0, html.indexOf('id="set-routing-escalation"') - 40), html.indexOf('id="set-routing-escalation"') + 2600);
 assert(list.includes('class="pills"'), 'the keyword field is a chip list');
 assert(list.includes('class="pill"'), 'each keyword is a chip');
 const adder = html.indexOf('data-setting-add=');
 assert(adder > 0, 'the + adder is in the form');
 assert(html.slice(adder, adder + 80).includes('escalation'), 'the + adder names its list');
-assert(!html.includes('<textarea id="set-escalation-keywords"'), 'no text box for the keywords');
+assert(!html.includes('<textarea id="set-routing-escalation"'), 'no text box for the keywords');
 // A dropped chip leaves the list, and the change reaches the save payload.
-const first = probe.listValue('escalation', 'keywords')[0];
-probe.dropSetting(['escalation', 'keywords', 0]);
-assert(!probe.listValue('escalation', 'keywords').includes(first), 'the chip left the list');
-assert.deepStrictEqual(probe.settingsChanges().escalation.keywords, probe.listValue('escalation', 'keywords'), 'the change reaches the save payload');
+const first = probe.listValue('routing', 'escalation')[0];
+probe.dropSetting(['routing', 'escalation', 0]);
+assert(!probe.listValue('routing', 'escalation').includes(first), 'the chip left the list');
+assert.deepStrictEqual(probe.settingsChanges().routing.escalation, probe.listValue('routing', 'escalation'), 'the change reaches the save payload');
 // A new value joins the list 1 time.
-probe.setListValue('switch', 'keywords', [...probe.listValue('switch', 'keywords'), 'clanker', 'clanker']);
-assert.strictEqual(probe.listValue('switch', 'keywords').length, probe.state.settings.defaults.switch.keywords.length + 2, 'the raw list takes both');
+probe.setListValue('routing', 'switch', [...probe.listValue('routing', 'switch'), 'clanker', 'clanker']);
+assert.strictEqual(probe.listValue('routing', 'switch').length, probe.state.settings.defaults.routing.switch.length + 2, 'the raw list takes both');
 """,
   )
 
@@ -1331,7 +1331,7 @@ def test_app_js_hook_rows() -> None:
       ],
       "defaults": settings.DEFAULTS,
       "file": {
-        "request_hooks": {
+        "hooks": {
           "on-request": ["hooks/owui_auto_reasoning_effort.py", "hooks/served_model.py"]
         }
       },
@@ -1344,7 +1344,7 @@ probe.state.settings = {payload};
 probe.renderSettings();
 const html = node('settings').innerHTML;
 assert(html.includes('>On request<') && html.includes('>On chunk<'), 'each point has a row');
-const at = html.indexOf('id="set-request_hooks-on-request"');
+const at = html.indexOf('id="set-hooks-on-request"');
 assert(at > 0, 'the on-request row names its host');
 const box = html.slice(at, at + 1400);
 assert(box.includes('data-hook-pick='), 'a row picks a file');
@@ -1355,28 +1355,28 @@ const clickOn = (selector, data) => {{
   node('settings').handlers.click.forEach((fn) => fn({{ target }}));
 }};
 // The pick opens the files of the hooks folder, and the saved one reads as picked.
-const pick = (index) => clickOn('[data-hook-pick]', {{ hookPick: '["request_hooks", "on-request", ' + index + ']' }});
+const pick = (index) => clickOn('[data-hook-pick]', {{ hookPick: '["hooks", "on-request", ' + index + ']' }});
 pick(0);
-const open = node('set-request_hooks-on-request').innerHTML;
+const open = node('set-hooks-on-request').innerHTML;
 assert(open.includes('class="menu"') && open.includes('role="listbox"'), 'the list opens under the chip');
 assert(open.includes('>served_model.py<') && open.includes('>or_cheapest_output.py<'), 'the list holds the hook files');
 assert(open.includes('aria-selected="true"'), 'the saved file shows as picked');
 assert(open.includes('title="Pick a hook file">owui_auto_reasoning_effort.py</button>'), 'the chip drops the folder of the name');
 // A choice lands in the row, reaches the save payload, and closes the list.
-clickOn('[data-hook-choice]', {{ hookChoice: '["request_hooks", "on-request", 0, "hooks/served_model.py"]' }});
-assert(!node('set-request_hooks-on-request').innerHTML.includes('class="menu"'), 'the pick closes the list');
+clickOn('[data-hook-choice]', {{ hookChoice: '["hooks", "on-request", 0, "hooks/served_model.py"]' }});
+assert(!node('set-hooks-on-request').innerHTML.includes('class="menu"'), 'the pick closes the list');
 // The pick builds the list inside the page, so the 2 rows compare as text.
-assert.strictEqual(JSON.stringify(probe.settingsChanges().request_hooks['on-request']), JSON.stringify(['hooks/served_model.py', 'hooks/served_model.py']), 'the pick reaches the save payload');
+assert.strictEqual(JSON.stringify(probe.settingsChanges().hooks['on-request']), JSON.stringify(['hooks/served_model.py', 'hooks/served_model.py']), 'the pick reaches the save payload');
 // The same pick again closes the list, so 1 list shows at a time.
 pick(1);
-assert(node('set-request_hooks-on-request').innerHTML.includes('class="menu"'), 'the second pick opens');
+assert(node('set-hooks-on-request').innerHTML.includes('class="menu"'), 'the second pick opens');
 pick(1);
-assert(!node('set-request_hooks-on-request').innerHTML.includes('class="menu"'), 'the same pick shuts it');
+assert(!node('set-hooks-on-request').innerHTML.includes('class="menu"'), 'the same pick shuts it');
 // A new row reaches the save payload, and an empty point clears the key.
-probe.setListValue('request_hooks', 'on-chunk', ['hooks/served_model.py']);
-assert.deepStrictEqual(probe.settingsChanges().request_hooks['on-chunk'], ['hooks/served_model.py'], 'the new row reaches the save payload');
-probe.setListValue('request_hooks', 'on-request', []);
-assert.strictEqual(probe.settingsChanges().request_hooks['on-request'], null, 'an empty point clears the key');
+probe.setListValue('hooks', 'on-chunk', ['hooks/served_model.py']);
+assert.deepStrictEqual(probe.settingsChanges().hooks['on-chunk'], ['hooks/served_model.py'], 'the new row reaches the save payload');
+probe.setListValue('hooks', 'on-request', []);
+assert.strictEqual(probe.settingsChanges().hooks['on-request'], null, 'an empty point clears the key');
 """,
   )
 
@@ -1476,8 +1476,8 @@ def test_app_js_switch_rows_grey_the_card() -> None:
     f"""
 probe.state.settings = {payload};
 // The rows of the Weights and Headroom cards, with the controls that the grey keeps in step.
-const rows = ['set-weights-success', 'set-weights-fault', 'set-weights-slow', 'set-weights-hourly',
-  'set-weights-rate_limit', 'set-headroom-timeout'];
+const rows = ['set-balance-success', 'set-balance-fault', 'set-balance-slow', 'set-balance-hourly',
+  'set-balance-rate_limit', 'set-optimization-timeout'];
 for (const id of rows) {{
   const made = node(id);
   made.off = new Set();
@@ -1488,20 +1488,20 @@ for (const id of rows) {{
 const off = (id) => node(id).off.has('off');
 const disabled = (id) => node(id).controls.every((control) => control.disabled);
 // The first render greys the factors of an off Weights switch and leaves Headroom live.
-node('set-weights-enabled').checked = false;
-node('set-headroom-enabled').checked = true;
+node('set-balance-weights').checked = false;
+node('set-optimization-enabled').checked = true;
 probe.renderSettings();
 assert(rows.slice(0, 5).every(off), 'every weights factor greys');
 assert(rows.slice(0, 5).every(disabled), 'and every factor control goes disabled');
-assert(!off('set-headroom-timeout') && !disabled('set-headroom-timeout'), 'the other card stays live');
+assert(!off('set-optimization-timeout') && !disabled('set-optimization-timeout'), 'the other card stays live');
 // The switch keeps its own row live, so it can be turned back on.
-assert(!node('set-weights-enabled').disabled, 'the switch stays usable');
+assert(!node('set-balance-weights').disabled, 'the switch stays usable');
 // An on switch clears its card, and the off one greys only its own card.
-node('set-weights-enabled').checked = true;
-node('set-headroom-enabled').checked = false;
+node('set-balance-weights').checked = true;
+node('set-optimization-enabled').checked = false;
 probe.showSwitchRows();
-assert(!off('set-weights-success') && !disabled('set-weights-success'), 'the on switch clears the weights');
-assert(off('set-headroom-timeout') && disabled('set-headroom-timeout'), 'the headroom timeout greys');
+assert(!off('set-balance-success') && !disabled('set-balance-success'), 'the on switch clears the weights');
+assert(off('set-optimization-timeout') && disabled('set-optimization-timeout'), 'the headroom timeout greys');
 // The other boolean rows of a card, such as Affinity's Change pin on draw, grey nothing.
 const idle = node('set-affinity-idle');
 idle.off = new Set();
@@ -1512,14 +1512,14 @@ node('set-affinity-change_on_draw').checked = false;
 probe.showSwitchRows();
 assert(!off('set-affinity-idle') && !disabled('set-affinity-idle'), 'the affinity pin pick greys nothing');
 // The form listens for the flip, so the card greys on the click without a save.
-node('set-weights-enabled').checked = true;
-node('set-headroom-enabled').checked = true;
+node('set-balance-weights').checked = true;
+node('set-optimization-enabled').checked = true;
 probe.showSwitchRows();
-node('set-weights-enabled').checked = false;
-node('set-weights-enabled').type = 'checkbox';
-node('settings').handlers.input.forEach((fn) => fn({{ target: node('set-weights-enabled') }}));
-assert(off('set-weights-success'), 'the flip greys the card at once');
-assert(!off('set-headroom-timeout'), 'and leaves the other card alone');
+node('set-balance-weights').checked = false;
+node('set-balance-weights').type = 'checkbox';
+node('settings').handlers.input.forEach((fn) => fn({{ target: node('set-balance-weights') }}));
+assert(off('set-balance-success'), 'the flip greys the card at once');
+assert(!off('set-optimization-timeout'), 'and leaves the other card alone');
 """,
   )
 
@@ -1847,7 +1847,7 @@ def test_files(
   ), "the Settings page owns the settings file"
   shown = client.get("/ui/api/settings").json()
   assert shown["file"] == {
-    "request_hooks": {
+    "hooks": {
       "on-request": ["hooks/owui_auto_reasoning_effort.py"],
       "on-prompt": ["hooks/owui_auto_reasoning_effort.py"],
       "on-chunk": ["hooks/served_model.py"],
@@ -1861,14 +1861,20 @@ def test_files(
   assert "hooks/picked.py" in client.get("/ui/api/settings").json()["hook_files"], (
     "the settings page lists the hook files, so a row picks its own"
   )
-  assert shown["defaults"]["timeouts"]["slow"] == 30.0, shown
-  assert shown["defaults"]["weights"]["fault"] == 0.5, shown
-  assert shown["defaults"]["loops"] == {
-    "calls": 3,
-    "repeats": 4,
-    "shortest": 20,
-    "longest": 2000,
-  }, shown
+  assert shown["defaults"]["limits"]["slow"] == 30.0, shown
+  assert shown["defaults"]["balance"]["fault"] == 0.5, shown
+  limits = shown["defaults"]["limits"]
+  assert (
+    limits["calls"],
+    limits["repeats"],
+    limits["shortest"],
+    limits["longest"],
+  ) == (
+    3,
+    4,
+    20,
+    2000,
+  ), shown
   assert shown["headroom_available"] is False, shown
 
   async def ready() -> bool:
@@ -1877,13 +1883,13 @@ def test_files(
   monkeypatch.setattr(headroom, "available", ready)
   assert client.get("/ui/api/settings").json()["headroom_available"] is True
   before = settings.DEFAULT_PATH.read_text()
-  bad = client.put("/ui/api/settings", json={"changes": {"weights": {"fault": 0}}})
+  bad = client.put("/ui/api/settings", json={"changes": {"balance": {"fault": 0}}})
   assert bad.status_code == 422 and "above 0" in bad.text, bad.text
-  bad = client.put("/ui/api/settings", json={"changes": {"loops": {"calls": 1}}})
+  bad = client.put("/ui/api/settings", json={"changes": {"limits": {"calls": 1}}})
   assert bad.status_code == 422 and "between 2 and 100" in bad.text, bad.text
   huge = client.put(
     "/ui/api/settings",
-    json={"changes": {"timeouts": {"request": 99999999999999999999}}},
+    json={"changes": {"limits": {"request": 99999999999999999999}}},
   )
   assert huge.status_code == 422 and "at most 86400 seconds" in huge.text, huge.text
   assert settings.DEFAULT_PATH.read_text() == before, "a bad value is not written"
@@ -1891,9 +1897,8 @@ def test_files(
   assert unknown.status_code == 422, unknown.text
   assert client.put("/ui/api/settings", json={"changes": 1}).status_code == 400
   changes = {
-    "timeouts": {"slow": 12},
+    "limits": {"slow": 12, "calls": 5, "repeats": 6, "shortest": 10, "longest": 3000},
     "catalog": {"every": 0},
-    "loops": {"calls": 5, "repeats": 6, "shortest": 10, "longest": 3000},
   }
   saved = client.put("/ui/api/settings", json={"changes": changes})
   assert saved.status_code == 200, saved.text
@@ -1903,9 +1908,7 @@ def test_files(
   assert "  every: 0" in text, text
   assert api.SLOW_SECONDS == 12.0, "the save applies the settings"
   assert (loops.CALLS, loops.REPEATS, loops.SHORTEST, loops.LONGEST) == (5, 6, 10, 3000)
-  cleared = client.put(
-    "/ui/api/settings", json={"changes": {"timeouts": {"slow": None}}}
-  )
+  cleared = client.put("/ui/api/settings", json={"changes": {"limits": {"slow": None}}})
   assert (
     cleared.status_code == 200 and "  slow:" not in settings.DEFAULT_PATH.read_text()
   ), "a cleared key leaves the file"
@@ -1915,32 +1918,30 @@ def test_files(
   assert "  every:" not in settings.DEFAULT_PATH.read_text(), (
     "a cleared key leaves the file"
   )
-  words = {"escalation": {"keywords": ["ultrathink", "yes", "think hard"]}}
+  words = {"routing": {"escalation": ["ultrathink", "yes", "think hard"]}}
   assert client.put("/ui/api/settings", json={"changes": words}).status_code == 200
   text = settings.DEFAULT_PATH.read_text()
-  assert "keywords:\n    - ultrathink\n    - 'yes'\n    - think hard\n" in text, text
+  assert "escalation:\n    - ultrathink\n    - 'yes'\n    - think hard\n" in text, text
   assert api.KEYWORDS and api.KEYWORDS.search("please ultrathink"), "the save applies"
-  words = {"escalation": {"keywords": ["audit"]}}
+  words = {"routing": {"escalation": ["audit"]}}
   assert client.put("/ui/api/settings", json={"changes": words}).status_code == 200
   text = settings.DEFAULT_PATH.read_text()
-  assert "keywords:\n    - audit\n" in text and "ultrathink" not in text, text
-  words = {"escalation": {"keywords": None}}
+  assert "escalation:\n    - audit\n" in text and "ultrathink" not in text, text
+  words = {"routing": {"escalation": None}}
   assert client.put("/ui/api/settings", json={"changes": words}).status_code == 200
   text = settings.DEFAULT_PATH.read_text()
-  assert "  keywords:" not in text, "a cleared key leaves the file"
+  assert "  escalation:" not in text, "a cleared key leaves the file"
   assert api.KEYWORDS and api.KEYWORDS.search("ultrathink"), (
     "an empty field falls back to the code default"
   )
   assert (
     client.put(
-      "/ui/api/settings", json={"changes": {"request_hooks": {"on-request": 3}}}
+      "/ui/api/settings", json={"changes": {"hooks": {"on-request": 3}}}
     ).status_code
     == 422
   ), "a hook path is a string"
   hook = {
-    "request_hooks": {
-      "on-request": ["hooks/owui_auto_reasoning_effort.py", "hooks/picked.py"]
-    }
+    "hooks": {"on-request": ["hooks/owui_auto_reasoning_effort.py", "hooks/picked.py"]}
   }
   assert client.put("/ui/api/settings", json={"changes": hook}).status_code == 200
   assert api.REQUEST_HOOKS == {
@@ -1950,7 +1951,7 @@ def test_files(
   }, "the save applies each request hook of the point"
   assert (
     client.put(
-      "/ui/api/settings", json={"changes": {"request_hooks": {"on-request": []}}}
+      "/ui/api/settings", json={"changes": {"hooks": {"on-request": []}}}
     ).status_code
     == 200
   )
@@ -1959,16 +1960,18 @@ def test_files(
     "on-prompt": ["hooks/owui_auto_reasoning_effort.py"],
     "on-chunk": ["hooks/served_model.py"],
   }, "an empty list turns the hook off"
-  dark = {"dashboard": {"theme": "dark"}}
+  dark = {"personalization": {"theme": "dark"}}
   assert client.put("/ui/api/settings", json={"changes": dark}).status_code == 200
-  assert client.get("/ui/api/settings").json()["file"]["dashboard"]["theme"] == "dark"
+  assert (
+    client.get("/ui/api/settings").json()["file"]["personalization"]["theme"] == "dark"
+  )
   blue = client.put(
-    "/ui/api/settings", json={"changes": {"dashboard": {"theme": "blue"}}}
+    "/ui/api/settings", json={"changes": {"personalization": {"theme": "blue"}}}
   )
   assert blue.status_code == 422 and "system, light or dark" in blue.text, blue.text
   assert (
     client.put(
-      "/ui/api/settings", json={"changes": {"dashboard": {"theme": None}}}
+      "/ui/api/settings", json={"changes": {"personalization": {"theme": None}}}
     ).status_code
     == 200
   )
