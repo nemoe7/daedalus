@@ -42,10 +42,12 @@ header {
 .tabs a:hover { color: var(--text); }
 .tabs a.on { color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
 /* A chevron at an end of the tab bar shows the tabs that wait off screen, and scrolls to them. */
-.tab-bar { grid-area: tabs; display: flex; align-items: center; gap: 2px; min-width: 0; }
+/* The bar stretches, so the underline of the picked tab lands on the header bottom line.
+   The step buttons keep their own center. */
+.tab-bar { grid-area: tabs; display: flex; align-items: stretch; gap: 2px; min-width: 0; }
 .tabs { flex: 1; min-width: 0; }
 .tab-step {
-  flex: none; display: grid; place-items: center; width: 28px; height: 44px; padding: 0;
+  flex: none; align-self: center; display: grid; place-items: center; width: 28px; height: 44px; padding: 0;
   border: 0; background: transparent; color: var(--muted); font-size: 22px; line-height: 1;
 }
 /* The scroll edges fade a clipped tab toward the bar center, so no cut reads hard. Each fade
