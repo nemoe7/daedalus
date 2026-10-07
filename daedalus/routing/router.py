@@ -106,20 +106,25 @@ def model_setting(config: Mapping[str, Any], model: str, key: str) -> Any:
   return found
 
 
-# The reasoning efforts each provider accepts, from its docs. A config key wins over the code.
-# OpenRouter and Kilo pass the OpenAI enum through. Gemini names minimal to high, plus off.
-# Mistral takes none or high, and the z-ai flash models only switch thinking on or off, because
-# `reasoning_effort` starts at GLM-5.2. Cloudflare takes `reasoning_effort` per model, and none
-# of the models in the shipped block takes it, so its models carry a key when that changes. The
-# shipped Pollinations block holds image models only, which take no effort.
+# The reasoning efforts each provider accepts, from its docs, lowest first. The list is a ladder:
+# the hook picks a rung by the tier of the request. A config key of the model or of the block wins
+# over the code, and the catalog list of 1 model wins over the coded set (`efforts`).
+# Cloudflare takes `reasoning_effort` per model, and its reasoning models agree on low and medium
+# alone: gpt-oss names low, medium and high, and qwen3.8 names low, medium and xhigh.
+# Gemini names minimal to high, plus off, and its mapping sends the `thinkingLevel` of the model.
+# The Groq block holds gpt-oss models, which take low, medium and high, and a name outside the set
+# of 1 model is a 400. `reasoning_effort` starts at GLM-5.2, which maps low to high and xhigh to
+# max, while GLM-5.3 takes low, high and max alone, so the z-ai rungs fit both. The shipped z-ai
+# flash models predate the parameter, and the shipped Pollinations block holds image models only.
 DEFAULT_EFFORTS: Final[Mapping[str, tuple[str, ...]]] = {
-  "cloudflare": ("none",),
+  "cloudflare": ("low", "medium"),
   "gemini": ("none", "minimal", "low", "medium", "high"),
+  "groq": ("low", "medium", "high"),
   "kilo": ("none", "minimal", "low", "medium", "high", "xhigh", "max"),
   "mistral": ("none", "high"),
   "openrouter": ("none", "minimal", "low", "medium", "high", "xhigh", "max"),
   "pollinations": ("none",),
-  "z-ai": ("none", "high"),
+  "z-ai": ("low", "high", "max"),
 }
 # The ladder of a provider with no coded list: the 4 levels of the heuristics read.
 FALLBACK_EFFORTS: Final[tuple[str, ...]] = ("none", "low", "medium", "high")

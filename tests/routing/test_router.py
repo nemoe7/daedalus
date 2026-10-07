@@ -412,10 +412,19 @@ def test_the_efforts_key_follows_the_block_hierarchy() -> None:
     "xhigh",
     "max",
   ]
-  assert router.efforts(config, "z-ai/glm-4.7-flash") == ["none", "high"], (
-    "thinking on or off"
+  assert router.efforts(config, "z-ai/glm-5.3") == ["low", "high", "max"], (
+    "the levels that GLM-5.2 and GLM-5.3 both take"
   )
-  assert router.efforts(config, "cloudflare/@cf/x") == ["none"], "no effort parameter"
+  assert router.efforts(config, "groq/openai/gpt-oss-120b") == [
+    "low",
+    "medium",
+    "high",
+  ], "the gpt-oss models of the block refuse none"
+  assert router.efforts(config, "cloudflare/@cf/qwen/qwen3.8-27b") == [
+    "low",
+    "medium",
+  ], "the reasoning models of the block agree on these 2 levels"
+  assert router.efforts(config, "cloudflare/@cf/a/b") == ["low", "medium"]
   assert router.efforts(config, "unknown/x") == ["none", "low", "medium", "high"]
 
 
