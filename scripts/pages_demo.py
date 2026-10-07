@@ -381,8 +381,9 @@ const DEMO_FIXTURES = __FIXTURES__;
   const KEPT = 500;
   // The requests of this page, by model. The limits check reads the count.
   const USED = new Map();
-  // The tests shrink every wait with `window.DEMO_SCALE`; the shipped page keeps 1.
-  const wait = (ms) => new Promise((done) => setTimeout(done, ms * (window.DEMO_SCALE || 1)));
+  // The tests shrink every wait with `window.DEMO_SCALE`; the shipped page keeps 1. The floor
+  // keeps a shrunken wait at the timer resolution, so every wait stays measurable.
+  const wait = (ms) => new Promise((done) => setTimeout(done, Math.max(1, ms * (window.DEMO_SCALE || 1))));
   const round = (value) => Math.round(value * 1000) / 1000;
   // A count in the compact form that the server writes: floored to K, M or B.
   const floored = (value) => (value >= 1e9 ? `${Math.floor(value / 1e9)}B`
@@ -422,16 +423,17 @@ const DEMO_FIXTURES = __FIXTURES__;
   };
   const streamFor = (streaming) => (streaming ? gap(1, 90) : gap(0.2, 1.5));
   const pick = (rows) => rows[Math.floor(Math.random() * rows.length)];
-  // The times of a row in flight, as `Live` keeps them: the request time and the attempt time.
+  // The times of a row in flight, as `Live` keeps them. The monotonic clock counts fractions
+  // of a millisecond, so a short wait still measures above zero.
   const CLOCKS = new Map();
   const began = (id) => {
-    const now = Date.now();
+    const now = performance.now();
     CLOCKS.set(id, { at: now, attempt: now });
   };
-  const attempted = (id) => (CLOCKS.get(id).attempt = Date.now());
+  const attempted = (id) => (CLOCKS.get(id).attempt = performance.now());
   const ages = (id) => {
     const clock = CLOCKS.get(id);
-    const now = Date.now();
+    const now = performance.now();
     return {
       age: round((now - clock.at) / 1000),
       attempt_age: round((now - clock.attempt) / 1000),
