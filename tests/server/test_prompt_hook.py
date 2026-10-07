@@ -282,6 +282,42 @@ def test_the_shipped_hook_takes_the_read_after_no_reasoned_answer() -> None:
   assert value["reasoning_effort"] == module.LEVELS[read], "no reasoned answer, no step"
 
 
+def test_the_shipped_hook_keeps_the_level_of_a_continuing_turn() -> None:
+  """An agentic step whose newest message is no user turn keeps the level of the last answer."""
+  module = shipped_module()
+  steps = [
+    {"role": "user", "content": "Plan the migration in steps."},
+    {"role": "assistant", "content": "Done with step 1."},
+    {"role": "tool", "content": '{"ok": true}'},
+  ]
+  value: dict = {}
+  module.on_prompt(value, messages=steps, app="OWUI", level="medium")
+  assert value["reasoning_effort"] == "medium", "the step keeps the level of the thread"
+  read = max(int(api.router.required_tier("Done with step 1.\nthanks")), 1)
+  value = {}
+  module.on_prompt(
+    value,
+    messages=steps + [{"role": "user", "content": "thanks"}],
+    app="OWUI",
+    level="medium",
+  )
+  assert value["reasoning_effort"] == module.LEVELS[read], (
+    "a new user turn takes the read, not the level of the thread"
+  )
+  value = {}
+  module.on_prompt(
+    value,
+    messages=steps,
+    app="OWUI",
+    level="none",
+    model="p/m",
+    config={"p": {"models": {"m": {"reasoning": "required"}}}},
+  )
+  assert value["reasoning_effort"] == "low", (
+    "a model that requires reasoning floors the kept level"
+  )
+
+
 def test_the_shipped_hook_keeps_the_client_value_and_the_other_client() -> None:
   """A new message keeps the value of the client and the read serves `OWUI` alone."""
   module = shipped_module()

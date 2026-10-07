@@ -126,7 +126,8 @@ def on_prompt(
   """Set the reasoning level of an Open WebUI request: the read of the thread, or the step of a repeat.
 
   A new message takes the level of the read of its newest user turn and model turn, and a value of
-  the client keeps the last word. A try again steps the level of the last answer 1 up, above the
+  the client keeps the last word. A step of a continuing turn, whose newest message is no user
+  turn, keeps the level of the last answer, so a multistep agentic turn never drops to `none`. A try again steps the level of the last answer 1 up, above the
   value of the client, because the regenerate button carries the level. A last answer with no
   recorded level took no reasoning step, so that request takes the read and no step, while the tier
   still steps 1 up. The cap of the ladder is `high`. A model that requires reasoning floors the
@@ -146,6 +147,14 @@ def on_prompt(
   read = max(int(router.required_tier(_newest(messages, prompt))), _floor(context))
   if not retry:
     if effort:
+      return
+    last = messages[-1] if isinstance(messages, list) and messages else None
+    if isinstance(last, dict) and last.get("role") != "user" and level:
+      # A step of an agentic turn carries no new user text: its read would drop the level of
+      # the thread, so the step keeps the level of the last answer instead.
+      kept = max(TIER_OF.get(level, read), _floor(context))
+      value["reasoning_effort"] = LEVELS[kept]
+      logger.info("a continuing turn keeps %s for %s", LEVELS[kept], app)
       return
     value["reasoning_effort"] = LEVELS[read]
     logger.info("the prompt reads %s for %s", LEVELS[read], app)
