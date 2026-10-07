@@ -1593,7 +1593,20 @@ def test_the_settings_sections_carry_a_rule() -> None:
     "padding-bottom: 8px; border-bottom: 1px solid var(--line); margin-bottom: 0;"
     in css
   )
-  assert ".field:first-of-type { border-top: 0; }" in css, "the first row keeps 1 rule"
+  assert ".card > h3 + .field { border-top: 0; }" in css, (
+    "the first row of a card keeps no rule of its own"
+  )
+  assert ".field:first-of-type" not in css, (
+    "the rule follows the row order, not the tag"
+  )
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert '["balance", "Load Distribution", [' in app, (
+    "the group reads as Load Distribution"
+  )
+  assert "<h3>API Keys</h3>" in app, "the keys card is title case"
+  assert '[["keys", "API Keys"], ["yaml", "YAML"]]' in app, (
+    "the keys section is title case"
+  )
 
 
 def test_the_requests_bar_keeps_its_line_on_a_filter_pick() -> None:
@@ -3596,7 +3609,7 @@ def test_the_yaml_editor_ends_each_list_and_saves_itself() -> None:
   for needle in (
     "function yamlCard(editor, save, hint) {",
     'const items = names.map((name) => [name, name]).concat([["yaml", "YAML"]]);',
-    'const items = groups.map(([group, title]) => [group, title]).concat([["keys", "API keys"], ["yaml", "YAML"]]);',
+    'const items = groups.map(([group, title]) => [group, title]).concat([["keys", "API Keys"], ["yaml", "YAML"]]);',
     'if (event.target.closest("#yaml-save")) return saveYaml();',
     'if (event.target.closest("#settings-yaml-save")) saveSettings();',
     'const typed = state.view === "yaml" ? $("editor")?.value : undefined;',
