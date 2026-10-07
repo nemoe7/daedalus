@@ -322,6 +322,86 @@ sandbox.call = async (path) => {
   client.cookies.clear()
 
 
+def test_app_js_hides_the_empty_row_when_a_request_goes_live(
+  client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """The live start event re-renders the table, so the no-requests row leaves at once."""
+  monkeypatch.setenv(dashboard.DAEDALUS_MASTER_KEY, MASTER)
+  login = client.post("/ui/api/login", json={"username": "admin", "password": MASTER})
+  assert login.status_code == 200, login.text
+  found = client.get("/ui/api/settings")
+  assert found.status_code == 200, found.text
+  monkeypatch.setenv("DAE_TEST_SETTINGS", json.dumps(found.json()))
+  code = _app_js_vm(
+    """
+const sources = [];
+const enrich = (node) => Object.assign(node, {
+  dataset: node.dataset || {}, value: node.value ?? "", checked: node.checked ?? false,
+  hidden: node.hidden ?? false, style: node.style || {}, children: node.children || [],
+  closest: node.closest || (() => null),
+  querySelector: node.querySelector || (() => null),
+  querySelectorAll: node.querySelectorAll || (() => []),
+  setAttribute: node.setAttribute || (() => {}),
+  removeAttribute: node.removeAttribute || (() => {}),
+  focus: node.focus || (() => {}),
+});
+for (const node of byId.values()) enrich(node);
+const getElement = sandbox.document.getElementById;
+sandbox.document.getElementById = (id) => enrich(getElement(id));
+sandbox.document.querySelector = (sel) =>
+  (sel.includes("data-page") ? { hidden: true } : { firstChild: { textContent: "Models" } });
+sandbox.EventSource = class {
+  constructor() {
+    this.listeners = new Map();
+    sources.push(this);
+  }
+  addEventListener(kind, call) {
+    if (!this.listeners.has(kind)) this.listeners.set(kind, []);
+    this.listeners.get(kind).push(call);
+  }
+  close() {}
+  fire(kind, data) {
+    for (const call of this.listeners.get(kind) || []) call({ data: JSON.stringify(data) });
+  }
+};
+sandbox.setInterval = setInterval;
+sandbox.clearInterval = clearInterval;
+sandbox.sessionStorage = { getItem: () => "boot-session", setItem() {}, removeItem() {} };
+sandbox.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+const answers = {
+  settings: JSON.parse(process.env.DAE_TEST_SETTINGS),
+  login: { session: true }, hooks: { legend: [] },
+  status: { healthy: true, sessions: 0, models: 1, version: "v1",
+    catalog: { built: null, next: null, rebuilding: false }, affinity: { mode: "none" } },
+  pools: [], models: [], keys: [], env: [], limits: { providers: [], lanes: [], checked: null },
+  files: [{ path: "config/daedalus.yml", text: "", blocks: {}, error: null, main: true }],
+  "provider-keys": [], "provider-defaults": {},
+};
+sandbox.call = async (path) => {
+  if (path.startsWith("requests")) return [];
+  const key = path.split("?")[0];
+  if (!(key in answers)) throw new Error(`no stub for ${path}`);
+  return answers[key];
+};
+(async () => {
+  await sandbox.start();
+  assert.ok(sources.length === 1, "the page opens the stream");
+  assert.ok(el("requests").innerHTML.includes("No requests"), "the empty row shows 1st");
+  sources[0].fire("start", {
+    id: 7, path: "/v1/chat/completions", age: 0, attempt_age: 0, ttft: null,
+    app: "OWUI", session: "60e8c22", key: "master", model: "daedalus/auto", effort: "none",
+    pool: null, stream: true, trying: "mistral/ministral-8b-2512", via: null, attempts: [],
+    tokens: null, fallbacks: "0",
+  });
+  assert.strictEqual(el("requests").innerHTML, "", "the live row hides the empty row");
+  process.exit(0);
+})().catch((error) => { console.error(error); process.exit(1); });
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+  client.cookies.clear()
+
+
 def test_app_js_settings_groups_ship_in_the_defaults() -> None:
   """Every settings group that app.js reads ships in `settings.DEFAULTS`."""
   source = (
@@ -361,12 +441,21 @@ def test_phone_model_head_keeps_a_tap_area() -> None:
   mobile_css = mobile_css.split("\n}", 1)[0]
   assert "th[data-sort] { cursor: pointer; }" in base_css
   assert ".models th { padding: 13px 8px; }" in mobile_css
-  assert ".phone-types { display: flex; flex-wrap: wrap;" in mobile_css, (
-    "the chips of a dropped Type column wrap under the name"
+  assert ".phone-types, .phone-chips { display: contents; }" in mobile_css, (
+    "the chips of a dropped Type column join the capability chips"
   )
-  assert (
-    "flex-basis: 100%" in mobile_css.split(".phone-types", 1)[1].split("}", 1)[0]
-  ), "the modality chips take their own row and never share it with the name"
+  assert ".models td.name .cell-value { flex-basis: 100%; }" in mobile_css, (
+    "the name keeps its row above the chips"
+  )
+
+
+def test_phone_chips_share_one_row() -> None:
+  """The modality and capability chips of a card ride one row, at one size."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert ".phone-types, .phone-chips { display: contents; }" in css, "one row"
+  assert ".models td.name .chip {" in css, "one size"
+  assert ".phone-types { display: flex" not in css, "no row of its own"
+  assert ".phone-chips {\n    display: flex" not in css, "no row of its own"
 
 
 def test_app_js_type_chips_drop_the_redundant_media_flag() -> None:
