@@ -461,6 +461,8 @@ def test_narrow_desktop_header_keeps_one_row() -> None:
   assert '"brand chips" "tabs tabs"' not in narrow, "the header keeps one row"
   brand = base.split(".brand {", 1)[1].split("}", 1)[0]
   assert "padding: 6px 0;" in brand, "the brand keeps vertical room"
+  bar = base.split(".tab-bar {", 1)[1].split("}", 1)[0]
+  assert "align-items: stretch;" in bar, "the tab underline reaches the header line"
 
 
 def test_phone_chips_share_one_row() -> None:
