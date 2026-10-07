@@ -35,9 +35,30 @@ DAEDALUS_URL = "DAEDALUS_URL"
 ANY_HOST = ("0.0.0.0", "::")
 
 
+def tier_of_rows() -> dict[str, str]:
+  """The tier that claims each stored row, from the provider files of the config.
+
+  The tier is not a column of the store: the provider blocks name it as patterns over the
+  slugs. No provider file, no tiers, and the dump still writes every row.
+  """
+  try:
+    found, lines = config.get_config(), store.read_models()
+  except OSError:
+    logger.warning("no provider file: the dump carries no tier")
+    return {}
+  from daedalus.routing import router
+
+  tiers: dict[str, str] = {}
+  for name, group in router.tier_lines(found, lines).items():
+    for line in group:
+      tiers.setdefault(line, name)
+  return tiers
+
+
 def dump_models(file_format: str) -> None:
-  """Write every stored model row to `models.json` or `models.csv`."""
-  rows = store.stored_rows()
+  """Write every stored model row to `models.json` or `models.csv`, with the tier that claims it."""
+  tiers = tier_of_rows()
+  rows = [{**row, "tier": tiers.get(row["id"])} for row in store.stored_rows()]
   folder = discovery.DUMP_DIR
   folder.mkdir(parents=True, exist_ok=True)
   for extension in ("json", "csv"):

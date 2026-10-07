@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
-from daedalus import catalog, cli, store
+from daedalus import catalog, cli, config, store
 from daedalus.catalog import discovery
 from daedalus.server import api
 from daedalus.store import keys
@@ -169,12 +169,16 @@ def test_dump_modes(tmp_path: Path, monkeypatch) -> None:
   monkeypatch.setattr(store, "migrate", lambda: calls.append("migrate"))
   monkeypatch.setattr(catalog, "refresh", lambda: calls.append("refresh"))
   monkeypatch.setattr(store, "stored_rows", lambda: rows)
+  # The tier column has its own test: this 1 reads the format switch alone.
+  monkeypatch.setattr(config, "get_config", dict)
 
   cli.run(["dump", "catalog", "--fmt", "csv"])
   assert calls == ["migrate", ("catalog", "csv")], calls
   cli.run(["dump", "models", "--format", "json"])
   assert calls == ["migrate", ("catalog", "csv"), "migrate"], calls
-  assert json.loads((tmp_path / "models.json").read_text("utf-8")) == rows
+  assert json.loads((tmp_path / "models.json").read_text("utf-8")) == [
+    {**rows[0], "tier": None}
+  ]
   cli.run(["dump", "all", "-f", "csv"])
   assert calls == [
     "migrate",
@@ -186,8 +190,36 @@ def test_dump_modes(tmp_path: Path, monkeypatch) -> None:
   assert not (tmp_path / "models.json").exists(), "the old format is removed"
   with (tmp_path / "models.csv").open(encoding="utf-8", newline="") as source:
     assert list(csv.DictReader(source)) == [
-      {"id": "p/a", "flags": '["vision"]', "mode": "chat"}
+      {"id": "p/a", "flags": '["vision"]', "mode": "chat", "tier": ""}
     ]
+
+
+def test_dump_models_names_the_tier_of_each_row(tmp_path: Path, monkeypatch) -> None:
+  """The dump carries the tier that claims a row, so no reader matches slugs to patterns by hand."""
+  monkeypatch.setattr(
+    config,
+    "get_config",
+    lambda: {
+      "p": {
+        "api_key": "k",
+        "api_base": "https://p.test/v1",
+        "tier": {"TIER-A": ["one*"], "TIER-B": ["*"]},
+      }
+    },
+  )
+  monkeypatch.setattr(discovery, "DUMP_DIR", tmp_path / "dump")
+  monkeypatch.setattr(store, "MODELS_DB", tmp_path / "models.sqlite3")
+  store.write_store([{"id": "p/one"}, {"id": "q/two"}])
+  cli.dump_models("json")
+  rows = json.loads((tmp_path / "dump" / "models.json").read_text("utf-8"))
+  assert {row["id"]: row["tier"] for row in rows} == {
+    "p/one": "TIER-A",
+    "q/two": None,
+  }, rows
+  cli.dump_models("csv")
+  with (tmp_path / "dump" / "models.csv").open(encoding="utf-8", newline="") as source:
+    found = {row["id"]: row["tier"] for row in csv.DictReader(source)}
+  assert found == {"p/one": "TIER-A", "q/two": ""}, found
 
 
 def test_master() -> None:
