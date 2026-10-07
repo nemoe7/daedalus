@@ -189,6 +189,13 @@ const check = (ok, text) => {
   const fresh = await (await context.fetch("ui/api/limits", { method: "POST" })).json();
   check(fresh.checked > 0 && fresh.lanes[0].at > 0, "the limits check reads a fresh time");
   const seen = [];
+  // A scripted run: the harness shrinks the waits, names each wave, and freezes the draws so
+  // the escalation template with the cooldown and the weight change always serves.
+  context.DEMO_SCALE = 0.005;
+  context.DEMO_SCENARIOS = ["chat", "escalate", "agentic", "rag", "kilo", "stray",
+    "escalate", "escalate", "escalate", "escalate", "escalate", "escalate", "escalate",
+    "escalate"];
+  context.Math.random = () => 0.25;
   const stream = new context.EventSource("ui/api/requests/live");
   ["live", "start", "update", "first", "end"].forEach((kind) =>
     stream.addEventListener(kind, (event) => seen.push([kind, JSON.parse(event.data)])),
@@ -201,8 +208,7 @@ const check = (ok, text) => {
       endRead = rows.some((item) => item.model === row.model && item.at === row.at);
     });
   });
-  // The pace of the demo is slow: 2 replayed rows, the shortest path to a fallback chain,
-  // take up to 17.4 s.
+  // At this scale a call takes under a second: the scripted waves all land inside 20 s.
   await new Promise((done) => setTimeout(done, 20000));
   stream.close();
   check(endRead === true, "the end refresh reads the finished row");
@@ -237,6 +243,34 @@ const check = (ok, text) => {
   check(grown.every(shaped), "each row of the table carries the fields of the server");
   check(grown.some((row) => Number(row.fallbacks) > 0), "a fallback chain arrives");
   check(grown.some((row) => (row.attempts || []).some((a) => a.cooldown)), "a rate limit");
+  // The rows of a scenario share a session, in the order the apps send them.
+  const bySession = new Map();
+  for (const row of grown) {
+    if (!row.session) continue;
+    if (!bySession.has(row.session)) bySession.set(row.session, []);
+    bySession.get(row.session).push(row);
+  }
+  const ordered = [...bySession.values()].some((rows) => {
+    const sorted = [...rows].sort((a, b) => a.at - b.at);
+    return sorted.length >= 3 && sorted[0].model === "mistral/mistral-embed-2312"
+      && sorted[1].stream === false && sorted[2].stream === true;
+  });
+  check(ordered, "an owui chat runs embed, title, chat in order");
+  const climbing = [...bySession.values()].some((rows) => {
+    const efforts = [...rows].sort((a, b) => a.at - b.at).map((row) => row.effort);
+    return efforts.includes("none") && efforts.includes("low");
+  });
+  check(climbing, "an agent workflow climbs the effort ladder");
+  check(grown.some((row) => row.app === null), "a stray client arrives");
+  check(grown.some((row) => row.routed === "deinos"), "a row names the pool of the last model");
+  check(grown.some((row) => row.loop === "2"), "a tool loop stops a chain");
+  const reasons = new Set(grown.filter((row) => row.transition).map((row) => row.transition.reason));
+  check(["err", "ctx", "lmt", "hlt", "rnd", "cls", "esc", "rce", "rt1"]
+    .every((code) => reasons.has(code)), "each legend code arrives");
+  // The cards read the same traffic: the weights and the cooldowns move as the rows land.
+  const moved = await (await context.fetch("ui/api/models")).json();
+  check(moved.some((row) => row.weight !== 1), "the traffic moves the weights");
+  check(moved.some((row) => row.cooldown !== null), "the traffic sets a cooldown");
   const seven = (value) => typeof value === "string" && /^[0-9a-f]{7}$/.test(value);
   check(grown.filter((row) => row.session).every((row) => seven(row.session)),
     "each session reads like the server sends it");
@@ -446,21 +480,18 @@ def test_the_demo_carries_the_version_of_the_build(tmp_path: Path) -> None:
     del os.environ["DEMO_VERSION"]
 
 
-def test_the_live_demo_converts_a_live_row_promptly() -> None:
-  """A live row finishes within about 2 s, so the table gains it without a long wait."""
-  found = {
-    name: (float(low), float(high))
-    for name, low, high in re.findall(
-      r"const (WAVE_MS|TTFT_S|STREAM_S) = \[([\d.]+), ([\d.]+)\];",
-      pages_demo.DEMO_JS,
-    )
-  }
-  assert sorted(found) == ["STREAM_S", "TTFT_S", "WAVE_MS"], found
-  assert "const WAVE = 1;" in pages_demo.DEMO_JS, "1 request per wave"
-  assert all(low < high for low, high in found.values()), found
-  assert found["WAVE_MS"][0] >= 5000, found
-  assert found["TTFT_S"][1] <= 1.0, found
-  assert found["STREAM_S"][1] <= 1.5, found
+def test_the_live_demo_lands_a_row_before_the_end_event() -> None:
+  """The row joins the table state before the end event, and the spreads are the real ones."""
+  js = pages_demo.DEMO_JS
+  block = js[js.index("// 1 request, as the server lives it") :]
+  assert block.index("keep(done);") < block.index('this.send("end"'), (
+    "the row lands 1st"
+  )
+  assert "return r < 0.7 ? gap(20, 30) : r < 0.9 ? gap(0, 20) : gap(30, 60);" in js, (
+    "the TTFT"
+  )
+  assert "streaming ? gap(1, 90)" in js, "the stream spread"
+  assert "const WAVE_MS = [6000, 18000];" in js, "the gap between the waves"
 
 
 def test_the_demo_answers_the_page_without_a_server(tmp_path: Path) -> None:
