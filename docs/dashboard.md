@@ -25,13 +25,12 @@ Open `http://HOST:3357/`.
 
 | Page | Contents |
 | --- | --- |
-| Overview | 4 numbers on top: in flight, success rate, lowest limit left, models. Then the status, the last 5 requests, the limits and the pools in columns. Each pool row names its top model. The page shows state only: the Providers, API keys and Settings pages hold the configuration. |
+| Overview | 4 numbers on top: in flight, success rate, lowest limit left, models. Then the status, the last 5 requests, the limits and the pools in columns. Each pool row names its top model. The page shows state only: the Providers and Settings pages hold the configuration. |
 | Requests | The log of the last requests and the ones in flight. See [Requests](#requests). |
 | Models | The catalog table and a card for each pool. See [Models](#models). |
-| API keys | Make and delete API keys |
 | Providers | A tab per provider file. Form: a section per provider. YAML: the file text, as the last section. |
 | Limits | The last rate-limit headers of each model, and each provider key balance in a card. |
-| Settings | Form and YAML sections of [`config/daedalus.yml`](../config/daedalus.yml). A write checks the value, then reloads the settings. |
+| Settings | Form and YAML sections of [`config/daedalus.yml`](../config/daedalus.yml). A write checks the value, then reloads the settings. An API keys section makes and deletes keys. |
 
 The logo shows in the header, on the login page and as the tab icon. The page has a web app manifest, so a browser can install the dashboard as an app. A browser installs it only over HTTPS or from localhost. The version shows under the name, also on the login page before a login: the image tag, for example v0.2.0, or dev-COMMIT after `install --dev`.
 
@@ -242,6 +241,8 @@ button. A later read that lands hides the line. Each write note, such as the sav
 | Storage | SHA-256 hash only. The dashboard shows the key 1 time. |
 | Access | `/v1` only. Not the dashboard. |
 | Log | `key=NAME` |
+
+The form and the table ride in their own section of the Settings page.
 
 Give each application its own key. Then you can delete 1 key after a leak, and the other applications continue to work.
 

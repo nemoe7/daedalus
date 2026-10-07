@@ -684,7 +684,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .models .weight { width: auto; }
   /* The form row and the Models bar ride on the page rail, with their bottom padding. The 3px of
      room at the top left corner keeps the panel corner off the field and off its focus ring. */
-  [data-page="keys"] .toolbar { padding: 3px 0 8px 3px; }
+  #new-key { padding: 3px 0 8px 3px; }
   [data-page="models"] .toolbar { padding: 3px 0 8px 3px; }
   /* A phone turns the API keys table into cards: the name takes its own line, then Last used and
      Delete share the next row. */

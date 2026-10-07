@@ -85,7 +85,6 @@ def test_page(client: TestClient) -> None:
     "overview",
     "requests",
     "models",
-    "keys",
     "providers",
     "limits",
     "settings",
@@ -958,8 +957,9 @@ def test_phone_panels_clear_the_last_row() -> None:
 def test_keys_page_holds_its_labels_on_one_line() -> None:
   """The keys table keeps the key value and the Delete label whole on a phone."""
   root = Path(__file__).resolve().parent.parent.parent
-  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
-  assert '<table class="keys">' in page, "the keys table carries its class"
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert '<table class="keys">' in app, "the keys card of Settings carries the table"
+  assert '<td class="num muted mono">' in app, "the key value reads in the mono font"
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   assert ".keys td:nth-child(2) { white-space: nowrap; }" in css, (
     "the key value stays on one line"
@@ -967,8 +967,6 @@ def test_keys_page_holds_its_labels_on_one_line() -> None:
   assert "button { font: inherit; cursor: pointer; white-space: nowrap; }" in css, (
     "a button label never wraps"
   )
-  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert '<td class="num muted mono">' in app, "the key value reads in the mono font"
 
 
 def test_the_version_reads_in_the_mono_font() -> None:
@@ -1834,7 +1832,7 @@ def test_pages_not_nested(client: TestClient) -> None:
         self.depth -= 1
 
   Sections().feed(client.get("/").text)
-  assert len(found) == 7 and all(depth == 0 for _, depth in found), found
+  assert len(found) == 6 and all(depth == 0 for _, depth in found), found
 
 
 def test_login_form(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -2794,12 +2792,13 @@ def test_every_note_of_a_write_is_a_live_region() -> None:
     ("limits-message", "status"),
     ("save-message", "status"),
     ("settings-message", "status"),
-    ("key-message", "alert"),
     ("login-message", "alert"),
     ("notice", "alert"),
   ):
     tag = re.search(rf"<[^>]*id=\"{name}\"[^>]*>", page)
     assert tag and f'role="{role}"' in tag.group(0), (name, tag and tag.group(0))
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert 'id="key-message" role="alert"' in app, "the key note is a live region too"
 
 
 def test_a_failed_read_shows_a_line_in_the_page() -> None:
@@ -2970,7 +2969,7 @@ def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
     ".keys tr > td.name { grid-column: 1; grid-row: 1; max-width: none; }",
     ".keys tr > td:nth-child(4) { grid-column: 1; grid-row: 2; align-items: center; }",
     'section[data-page="requests"] .requests-bar { padding: 3px 3px 8px; }',
-    '[data-page="keys"] .toolbar { padding: 3px 0 8px 3px; }',
+    "#new-key { padding: 3px 0 8px 3px; }",
     ".toolbar input:focus-visible, .toolbar select:focus-visible,",
   ):
     assert rule in phone, rule
@@ -3051,7 +3050,7 @@ def test_the_yaml_editor_ends_each_list_and_saves_itself() -> None:
   for needle in (
     "function yamlCard(editor, save, hint) {",
     'const items = names.map((name) => [name, name]).concat([["yaml", "YAML"]]);',
-    'const items = groups.map(([group, title]) => [group, title]).concat([["yaml", "YAML"]]);',
+    'const items = groups.map(([group, title]) => [group, title]).concat([["keys", "API keys"], ["yaml", "YAML"]]);',
     'if (event.target.closest("#yaml-save")) return saveYaml();',
     'if (event.target.closest("#settings-yaml-save")) saveSettings();',
     'const typed = state.view === "yaml" ? $("editor")?.value : undefined;',
