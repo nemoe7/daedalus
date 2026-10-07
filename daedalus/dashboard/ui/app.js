@@ -861,7 +861,9 @@ function renderRequestTable() {
   renderRequests(rows, total && !rows.length && !live
     ? "No requests match the filter, or the kept window holds no such request"
     : "No requests", live);
-  $("request-clear").hidden = !state.requestSearch && state.requestStatus === "all" && !state.requestHours;
+  // The button keeps its seat in the bar, so showing it never moves the count hint.
+  $("request-clear").classList.toggle("off",
+    !state.requestSearch && state.requestStatus === "all" && !state.requestHours);
   $("more-requests").hidden = state.requestFetched < state.requestLimit
     || state.requestLimit >= REQUESTS_KEPT;
   const shown = rows.length + live;
