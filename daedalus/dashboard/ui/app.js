@@ -726,7 +726,7 @@ function renderLive() {
       ${cell("Session", esc(r.session || "-"), "hide-sm hide-md num mono")}
       ${nameCell(r.model || r.path, modelName(r.model || r.path, poolOf(r)) + routingCodes(r))}
       ${cell("Effort", effortCell(r), "hide-sm")}
-      ${nameCell(r.via || r.trying || "", r.via ? modelName(r.via) : `<span class="muted">${r.trying ? `trying ${esc(r.trying)}` : "waiting"}</span>`, "Served by")}
+      ${nameCell(r.via || r.trying || "", r.via ? modelName(r.via) : `<span class="muted">${r.trying ? `trying ${modelName(r.trying)}` : "waiting"}</span>`, "Served by")}
       ${cell("Status", "live", "status muted")}
       ${cell("Input", "-", "hide-sm num muted")}
       ${cell("Output", "-", "hide-sm num muted")}
