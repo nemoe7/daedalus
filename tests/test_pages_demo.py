@@ -101,20 +101,20 @@ const check = (ok, text) => {
   // A simulated save lands in the page memory, and a reload brings the fixtures back.
   const save = await context.fetch("ui/api/settings", {
     method: "PUT",
-    body: JSON.stringify({ changes: { dashboard: { theme: "light" } } }),
+    body: JSON.stringify({ changes: { personalization: { theme: "light" } } }),
   });
   check(save.status === 200, "a settings save lands");
   const held = await (await context.fetch("ui/api/settings")).json();
-  check(held.file.dashboard.theme === "light", "the page shows the saved value");
+  check(held.file.personalization.theme === "light", "the page shows the saved value");
   check(held.text.includes("theme: light"), "the saved text holds it");
   // An empty field writes the default, and the group stays whole.
   const clearedTheme = await context.fetch("ui/api/settings", {
     method: "PUT",
-    body: JSON.stringify({ changes: { dashboard: { theme: null } } }),
+    body: JSON.stringify({ changes: { personalization: { theme: null } } }),
   });
   check(clearedTheme.status === 200, "a settings clear lands");
   const afterClear = await (await context.fetch("ui/api/settings")).json();
-  check(afterClear.file.dashboard === undefined, "the cleared key leaves the file");
+  check(afterClear.file.personalization === undefined, "the cleared key leaves the file");
   check(!afterClear.text.includes("theme"), "the cleared line leaves the text");
   const env = await (await context.fetch("ui/api/env", {
     method: "PUT",
@@ -198,7 +198,7 @@ const check = (ok, text) => {
   const listed = await (await context.fetch("ui/api/files")).json();
   const head = listed.find((row) => row.main);
   const shadow = listed.find((row) => !row.main);
-  await refuse("settings", { changes: { dashboard: { grid: 1 } } }, 422, "unknown key");
+  await refuse("settings", { changes: { personalization: { grid: 1 } } }, 422, "unknown key");
   await refuse("files", { path: head.path, text: "cloudflare:\\n\\tbad: 1\\n" }, 422, "cannot start any token");
   await refuse("files", { path: head.path, text: "- a\\n- b\\n" }, 422, "must hold provider blocks");
   await refuse("providers", { path: shadow.path, blocks: { other: { api_base: "https://x.test" } } }, 400, "needs the block");

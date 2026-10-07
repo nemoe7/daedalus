@@ -1824,10 +1824,10 @@ const HOOK_POINTS = [
 
 // The Settings form: [group, title, [[key, label, unit, hint], ...]].
 const SETTINGS = [
-  ["timeouts", "Timeouts", [
-    ["request", "Request", "s", "The time to wait for an answer, for all attempts. A stream that started does not stop at this limit."],
-    ["wait", "Wait", "s", "The time without data from the provider. Keep-alive bytes do not count."],
-    ["slow", "Slow first token", "s", "A first token after this time is slow."],
+  ["routing", "Routing", [
+    ["threshold", "Success threshold", "", "The odds a tier needs to take a request. 0.75 is the value of the shipped table."],
+    ["escalation", "Escalation keywords", "list", "1 word or phrase per chip. A match in the last user message moves the daedalus/auto session tier 1 step up."],
+    ["switch", "Switch keywords", "list", "1 word or phrase per chip. A match in the last user message gives the pool session another model of the same tier."],
   ]],
   // The 5th element of a row lists the modes that show it. Only `mode` always shows.
   ["affinity", "Affinity", [
@@ -1840,56 +1840,44 @@ const SETTINGS = [
     ["slow", "Race slow token", "s", "Seconds with no content from the first model. Then the racing models start.", ["race"]],
     ["penalty", "Loser factor", "x", "The weight factor for the model that loses the race. At most 1.", ["race"]],
   ]],
-  ["weights", "Weights", [
-    ["enabled", "On", "", "Off: all weights stay at 1, and the chain keeps the usual order."],
+  ["balance", "Balance", [
+    ["weights", "Weights on", "", "Off: all weights stay at 1, and the chain keeps the usual order."],
     ["success", "Success", "x", "The weight factor for a success."],
     ["fault", "Fault", "x", "The weight factor for a fault."],
     ["slow", "Slow success", "x", "The weight factor for a slow first token."],
     ["hourly", "Hourly recovery", "x", "The weight factor for each hour."],
     ["rate_limit", "Rate limit", "x", "The weight factor for an HTTP 429."],
-  ]],
-  ["cooldown", "Cooldown", [
     ["first", "First backoff", "s", "The cooldown of a first 429 with no reset time."],
     ["longest", "Longest backoff", "s", "Each next 429 doubles the cooldown, up to this time."],
+    ["pacing", "Pacing on", "", "A model at its rpm or tpm for the last minute leaves the chains."],
   ]],
-  ["loops", "Loop detection", [
+  ["limits", "Limits", [
+    ["request", "Request", "s", "The time to wait for an answer, for all attempts. A stream that started does not stop at this limit."],
+    ["wait", "Wait", "s", "The time without data from the provider. Keep-alive bytes do not count."],
+    ["slow", "Slow first token", "s", "A first token after this time is slow."],
     ["calls", "Tool calls", "", "Repeated identical calls since the last user message; 2–100."],
     ["repeats", "Text repeats", "", "Consecutive copies of a text passage; 2–16."],
     ["shortest", "Shortest passage", "", "Minimum period in characters; 1–1,000 and no greater than Longest."],
     ["longest", "Longest passage", "", "Maximum period in characters; 1–10,000."],
   ]],
-  ["pacing", "Pacing", [
-    ["enabled", "On", "", "A model at its rpm or tpm for the last minute leaves the chains."],
+  ["optimization", "Optimization", [
+    ["enabled", "Headroom on", "", "Off: the messages of every model go to the provider unchanged."],
+    ["timeout", "Headroom timeout", "s", "After this time, the original messages go to the provider."],
   ]],
   ["catalog", "Catalog", [
     ["every", "Rebuild interval", "h", "The hours between rebuilds. 0 stops them."],
     ["anchor", "Anchor hour", "h", "The local hour (TZ) that the rebuild times start from."],
   ]],
-  ["headroom", "Headroom", [
-    ["enabled", "Enabled", "", "Off: the messages of every model go to the provider unchanged."],
-    ["timeout", "Timeout", "s", "After this time, the original messages go to the provider."],
-  ]],
-  ["routing", "Classifier", [
-    ["threshold", "Success threshold", "", "The odds a tier needs to take a request. 0.75 is the value of the shipped table."],
-  ]],
-  ["escalation", "Escalation", [
-    ["keywords", "Keywords", "list", "1 word or phrase per chip. A match in the last user message moves the daedalus/auto session tier 1 step up."],
-  ]],
-  ["switch", "Switch", [
-    ["keywords", "Keywords", "list", "1 word or phrase per chip. A match in the last user message gives the pool session another model of the same tier."],
-  ]],
-  ["dashboard", "Dashboard", [
-    ["theme", "Theme", "choice", "System follows the light or dark setting of the device."],
-    ["time_format", "Time format", "choice", "The hour of each shown time. Every time carries its date."],
-  ]],
-  ["request_hooks", "Request hooks", HOOK_POINTS],
-  ["pools", "Pool names", [
+  ["hooks", "Hooks", HOOK_POINTS],
+  ["personalization", "Personalization", [
     ["tier-a", "Tier A", "name", "The client name of the tier A pool: sophos by default."],
     ["tier-b", "Tier B", "name", "The client name of the tier B pool: deinos by default."],
     ["tier-c", "Tier C", "name", "The client name of the tier C pool: koinos by default."],
     ["tier-d", "Tier D", "name", "The client name of the tier D pool: moros by default."],
     ["audio", "Transcription", "name", "The client name of the transcription pool: graphos by default."],
     ["images", "Image", "name", "The client name of the image pool: photos by default."],
+    ["theme", "Theme", "choice", "System follows the light or dark setting of the device."],
+    ["time_format", "Time format", "choice", "The hour of each shown time. Every time carries its date."],
   ]],
 ];
 

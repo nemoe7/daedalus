@@ -763,7 +763,8 @@ def routes(
     """The legend rows of the enabled request hook files."""
     if not allowed(request):
       return denied()
-    entries = settings.load().get("request_hooks")
+    found = settings.load().get("hooks") or {}
+    entries = {key: value for key, value in found.items() if key.startswith("on-")}
     return JSONResponse({"legend": hooks.init_rows(entries)})
 
   @api.post("/reset")

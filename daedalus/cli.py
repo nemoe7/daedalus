@@ -152,7 +152,7 @@ def hooks_pin(names: list[str], urls: list[str]) -> int:
 def hooks_verify() -> int:
   """Check each hook file against the lock file, the settings pins and the loader."""
   try:
-    entries = settings.load()["remote_hooks"]
+    entries = settings.load()["hooks"]["remote"]
   except settings.SettingsError as exc:
     print(f"settings: {exc}")
     return 2

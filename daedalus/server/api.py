@@ -1363,19 +1363,24 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   global PARALLEL_ENABLED, PARALLEL_COUNT, PARALLEL_CHANCE, PARALLEL_SLOW_SECONDS
   global PARALLEL_PENALTY, REQUEST_HOOKS
   # The settings key each pool by its generic name. Its default value gives the built-in name.
+  personal = values["personalization"]
   router.set_pool_names(
-    {settings.DEFAULTS["pools"][key]: name for key, name in values["pools"].items()}
+    {
+      settings.DEFAULTS["personalization"][key]: personal[key]
+      for key in settings.POOL_KEYS
+    }
   )
-  REQUEST_HOOKS = dict(values["request_hooks"])
-  router.set_headroom(values["headroom"]["enabled"])
+  hooks = values["hooks"]
+  REQUEST_HOOKS = {key: value for key, value in hooks.items() if key.startswith("on-")}
+  router.set_headroom(values["optimization"]["enabled"])
   router.set_threshold(values["routing"]["threshold"])
-  remote.sync(values["remote_hooks"], hosts=values["remote_hook_hosts"])
+  remote.sync(hooks["remote"], hosts=hooks["remote_hosts"])
   # Warn only: a file that does not compile stays in place, and the start goes on.
-  remote.compile_check(values["remote_hooks"])
-  timeouts, affinity, weights = (
-    values["timeouts"],
+  remote.compile_check(hooks["remote"])
+  limits, affinity, balance = (
+    values["limits"],
     values["affinity"],
-    values["weights"],
+    values["balance"],
   )
   # 1 mode names the pin and the race: none is neither, session is the pin, race is both.
   AFFINITY_MODE = affinity["mode"]
@@ -1394,31 +1399,31 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   )
   PENALTIES.race = PARALLEL_ENABLED
   upstream.TIMEOUT_SECONDS, upstream.WAIT_SECONDS = (
-    timeouts["request"],
-    timeouts["wait"],
+    limits["request"],
+    limits["wait"],
   )
-  SLOW_SECONDS = timeouts["slow"]
-  PENALTIES.idle, PENALTIES.enabled = affinity["idle"], weights["enabled"]
+  SLOW_SECONDS = limits["slow"]
+  PENALTIES.idle, PENALTIES.enabled = affinity["idle"], balance["weights"]
   PENALTIES.change_on_draw = affinity["change_on_draw"]
   signatures.IDLE_SECONDS = RETRIES.idle = media.REPEATS.idle = affinity["idle"]
   loops.IDLE_SECONDS = affinity["idle"]
-  loops.CALLS = values["loops"]["calls"]
-  loops.REPEATS = values["loops"]["repeats"]
-  loops.SHORTEST = values["loops"]["shortest"]
-  loops.LONGEST = values["loops"]["longest"]
+  loops.CALLS = limits["calls"]
+  loops.REPEATS = limits["repeats"]
+  loops.SHORTEST = limits["shortest"]
+  loops.LONGEST = limits["longest"]
   PENALTIES.stay = affinity["stay"]
-  headroom.TIMEOUT_SECONDS = values["headroom"]["timeout"]
+  headroom.TIMEOUT_SECONDS = values["optimization"]["timeout"]
   schedule.EVERY, schedule.ANCHOR = (
     values["catalog"]["every"],
     values["catalog"]["anchor"],
   )
   for name in ("success", "fault", "slow", "hourly", "rate_limit"):
-    setattr(PENALTIES, name, weights[name])
-  PACING.enabled = values["pacing"]["enabled"]
-  KEYWORDS = keyword_pattern(values["escalation"]["keywords"])
-  SWITCH = keyword_pattern(values["switch"]["keywords"])
+    setattr(PENALTIES, name, balance[name])
+  PACING.enabled = balance["pacing"]
+  KEYWORDS = keyword_pattern(values["routing"]["escalation"])
+  SWITCH = keyword_pattern(values["routing"]["switch"])
   COOLDOWNS.first, COOLDOWNS.longest = (
-    values["cooldown"]["first"],
-    values["cooldown"]["longest"],
+    balance["first"],
+    balance["longest"],
   )
   upstream.set_client(None)
