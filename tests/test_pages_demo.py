@@ -273,8 +273,11 @@ const check = (ok, text) => {
   check(liveStatus.sessions === new Set(grown.map((row) => row.session).filter(Boolean)).size,
     "the status counts the sessions of the table");
   const liveLimits = await (await context.fetch("ui/api/limits", { method: "POST" })).json();
-  check(liveLimits.providers.find((card) => card.name === "cloudflare").items[0][1]
-    !== "10K of 10K left", "the traffic moves the balance card");
+  // The provider that the waves reached has a card, and its traffic moved the number.
+  const reached = new Set(grown.map((row) => String(row.via).split("/")[0]));
+  const card = liveLimits.providers.find((item) => reached.has(item.name)
+    && item.items.some((value) => typeof value[2] === "number" && value[2] < 1));
+  check(!!card, "the traffic moves the balance card");
   check(grown.every(shaped), "each row of the table carries the fields of the server");
   check(grown.some((row) => Number(row.fallbacks) > 0), "a fallback chain arrives");
   check(grown.some((row) => (row.attempts || []).some((a) => a.cooldown)), "a rate limit");
@@ -485,18 +488,38 @@ def test_the_demo_can_slow_its_answers_for_a_reviewer(tmp_path: Path) -> None:
   assert "SLOW ? wait(SLOW) : Promise.resolve()" in script, "every fixture answer waits"
 
 
-def test_the_demo_keeps_media_models_out_of_the_chat_waves(tmp_path: Path) -> None:
-  """The chat list of the demo follows the catalog mode, so an image model answers no chat."""
+def test_the_demo_serves_auto_only_from_the_members_of_the_auto_pool(
+  tmp_path: Path,
+) -> None:
+  """The auto waves draw the members the auto pool holds, so no stray model answers."""
   out = pages_demo.build(tmp_path / "site", "demo.9")
   script = (out / "demo.js").read_text(encoding="utf-8")
-  head = 'const TEXT = DEMO_FIXTURES.models.filter((row) => row.mode === "chat")'
-  assert head in script, "the mode picks the chat models"
+  assert 'const TEXT = MEMBERS["daedalus/auto"]' in script, (
+    "the auto pool picks the chat models"
+  )
   assert "MEDIA_PATH" not in script, "no name list decides the chat models"
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
-  media = [row["id"] for row in fixtures["models"] if row["mode"] == "image_generation"]
-  assert any("leonardo/lucid-origin" in row for row in media), (
-    "the fixtures keep an image model"
+  auto = next(row for row in fixtures["pools"] if row["name"] == "daedalus/auto")
+  members = [item["id"] for item in auto["members"]]
+  mode = {row["id"]: row["mode"] for row in fixtures["models"]}
+  assert members and all(mode.get(name) == "chat" for name in members), (
+    "every member of the auto pool is a chat model"
   )
+  assert not any("leonardo/lucid-origin" in name for name in members), (
+    "no image model rides the auto pool"
+  )
+
+
+def test_the_demo_drops_the_models_its_provider_files_exclude(tmp_path: Path) -> None:
+  """A row the demo provider files drop leaves the page, and a declared row stays."""
+  fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
+  kept = [row["id"] for row in pages_demo.kept_models(fixtures)]
+  assert "gemini/gemini-nano-banana-2.1" not in kept, "an excluded row is gone"
+  assert "openrouter/z-ai/glm-5.3-flash" in kept, "a declared row of a file stays"
+  assert len(kept) == len(set(kept)), "each row is kept once"
+  out = pages_demo.build(tmp_path / "site", "demo.9")
+  script = (out / "demo.js").read_text(encoding="utf-8")
+  assert "gemini-nano-banana-2.1" not in script, "no excluded row reaches the page"
 
 
 def test_the_build_copies_the_page_and_loads_the_demo_first(tmp_path: Path) -> None:
@@ -513,9 +536,7 @@ def test_the_build_copies_the_page_and_loads_the_demo_first(tmp_path: Path) -> N
   )
   for name in ("app.js", "index.html", "style.css", "manifest.json", "logo.svg"):
     assert (out / "ui" / name).exists() or (out / name).exists(), name
-  fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
-  fixtures["login"]["version"] = pages_demo.demo_version()
-  fixtures["status"]["version"] = pages_demo.demo_version()
+  fixtures = pages_demo.demo_fixtures(pages_demo.demo_version())
   assert json.dumps(fixtures) in (out / "demo.js").read_text(encoding="utf-8")
   assert 'const MARKER = "ui/api/";' in (out / "demo.js").read_text(encoding="utf-8"), (
     "the demo matches the call path"
