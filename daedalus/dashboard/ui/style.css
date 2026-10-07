@@ -696,7 +696,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .models tbody, .keys tbody { display: block; margin-top: 10px; }
   /* The dropped Type column shows under each model name, and the name keeps its ellipsis. */
   .models td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .phone-types { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .phone-types { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; flex-basis: 100%; }
   /* The tier, tools and cooldown chips read as one row, then the weight takes the next. */
   .models tr > td.name { flex-wrap: wrap; }
   .phone-chips {
