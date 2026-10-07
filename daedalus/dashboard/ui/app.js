@@ -600,7 +600,7 @@ function streamCell(r) {
 }
 
 // The short app name from the client headers, with the API key name on hover.
-const appCell = (r) => `<td role="cell" class="hide-md"${r.key ? ` title="API key: ${esc(r.key)}"` : ""}>${mobileLabel("App")}<span class="cell-value">${r.app ? esc(r.app) : dash}</span></td>`;
+const appCell = (r) => `<td role="cell"${r.key ? ` title="API key: ${esc(r.key)}"` : ""}>${mobileLabel("App")}<span class="cell-value">${r.app ? esc(r.app) : dash}</span></td>`;
 
 // A live request with local times, because the server sends ages and not clock times.
 function liveRow(r) {
@@ -742,7 +742,7 @@ function renderLive() {
       ${cell("Time", `<span class="pulse"></span><span class="live-ago">${relative(r.since / 1000)}</span>`, "num muted",
         ` title="${esc(stamp(r.since / 1000))}"`)}
       ${appCell(r)}
-      ${cell("Session", esc(r.session || "-"), "hide-sm hide-md num mono")}
+      ${cell("Session", esc(r.session || "-"), "hide-sm num mono")}
       ${nameCell(r.model || r.path, modelName(r.model || r.path, poolOf(r)) + routingCodes(r))}
       ${nameCell(r.via || r.trying || "", r.via ? modelName(r.via) : `<span class="muted">${r.trying ? `trying ${modelName(r.trying)}` : "waiting"}</span>`, "Served by")}
       ${cell("Effort", effortCell(r), "hide-sm")}
@@ -751,7 +751,7 @@ function renderLive() {
       ${cell("Output", "-", "hide-sm num muted")}
       <td role="cell" class="hide-sm num">${mobileLabel("TTFT")}<span class="cell-value"><span data-clock="ttft"></span></span></td>
       <td role="cell" class="hide-sm num">${mobileLabel("Stream")}<span class="cell-value"><span data-clock="stream"></span></span></td>
-      ${fallbackCell(r, "hide-sm hide-md num muted", true)}
+      ${fallbackCell(r, "hide-sm num muted", true)}
     </tr>`).join("");
   state.liveSeen = new Set(rows.map((r) => r.id));
   tickLive();
@@ -894,7 +894,7 @@ function renderRequests(rows, empty = "No requests", live = 0) {
     <tr role="row" class="request${chain ? " has-chain" : ""}${chainOpen ? " open" : ""}" data-at="${r.at}"${chain ? ' title="Show the fallback chain"' : ""}>
       ${cell("Time", `<span class="caret${chain ? "" : " none"}"></span>${relative(r.at)}`, "num muted", ` title="${esc(stamp(r.at))}"`)}
       ${appCell(r)}
-      ${cell("Session", esc(r.session || "-"), "hide-sm hide-md num mono")}
+      ${cell("Session", esc(r.session || "-"), "hide-sm num mono")}
       ${nameCell(r.model || "-", modelName(r.model || "-", poolOf(r)) + routingCodes(r))}
       ${nameCell(r.via || "", r.via ? modelName(r.via) : '<span class="muted">none</span>', "Served by")}
       ${cell("Effort", effortCell(r), "hide-sm")}
@@ -903,7 +903,7 @@ function renderRequests(rows, empty = "No requests", live = 0) {
       ${tokenCell(r.tokens?.output, "", "Output")}
       ${cell("TTFT", esc(r.ttft || "-"), "hide-sm num")}
       ${cell("Stream", streamCell(r), "hide-sm num")}
-      ${fallbackCell(r, "hide-sm hide-md num")}
+      ${fallbackCell(r, "hide-sm num")}
     </tr>${chainOpen ? chainRows(r) : ""}`;
   }).join("") : live ? "" : `<tr role="row"><td role="cell" colspan="13" class="empty">${empty}</td></tr>`;
   firstDraw($("requests"));

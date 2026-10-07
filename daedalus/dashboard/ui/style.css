@@ -668,10 +668,6 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 .eye[aria-pressed="true"] .slash { display: inline; }
 .login .check { display: flex; align-items: center; gap: 8px; }
 .login .check input { accent-color: var(--accent); }
-/* A narrower desktop drops 4 low-value request columns, so the rest fits without a scroll. */
-@media (max-width: 1700px) {
-  .hide-md { display: none; }
-}
 
 /* A wide screen holds the header and the rail still, and the pane of the picked section carries its
    own scroll, so the form moves without the page. */
