@@ -517,12 +517,12 @@ const DEMO_FIXTURES = __FIXTURES__;
   // A session reads like the server sends it: the first 7 characters of the key hash.
   const session = (n) => ((n * 2654435761) % 0xfffffff).toString(16).padStart(7, "0");
   const gap = (min, max) => min + Math.random() * (max - min);
-  // The pace of the live demo: 1 request per wave, a long wait between the waves, and a
-  // slow first token and stream, so a viewer reads each row before the next one lands.
+  // The pace of the live demo: 1 request per wave, and a long wait between the waves. The
+  // first token and the stream stay short, so a finished row lands in the table at once.
   const WAVE = 1;
   const WAVE_MS = [6000, 18000];
-  const TTFT_S = [1.2, 4.5];
-  const STREAM_S = [1.0, 4.0];
+  const TTFT_S = [0.2, 0.7];
+  const STREAM_S = [0.3, 1.0];
   const pick = (rows) => rows[Math.floor(Math.random() * rows.length)];
   // The times of a row in flight, as `Live` keeps them: the request time and the attempt time.
   const CLOCKS = new Map();
