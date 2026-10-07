@@ -536,7 +536,9 @@ section[data-page="settings"] .card > h3, .card.provider > h3 {
   padding: 10px 0; border-top: 1px solid var(--line);
 }
 .field { position: relative; }
-.field:first-of-type { border-top: 0; }
+/* The rule belongs to the row above: the first row of a card keeps none of its own, because the
+   title header already draws the rule over it. A row after a list row keeps its rule too. */
+.card > h3 + .field { border-top: 0; }
 /* A card with an On switch greys its other rows while the switch is off. */
 .field.off { opacity: .5; }
 .field > span:first-child, .field.info > span { display: grid; gap: 2px; }

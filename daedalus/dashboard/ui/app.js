@@ -2148,7 +2148,7 @@ const SETTINGS = [
     ["slow", "Race slow token", "s", "Seconds with no content from the first model. Then the racing models start.", ["race"]],
     ["penalty", "Loser factor", "x", "The weight factor for the model that loses the race. At most 1.", ["race"]],
   ]],
-  ["balance", "Balance", [
+  ["balance", "Load Distribution", [
     ["weights", "Weights on", "", "Off: all weights stay at 1, and the chain keeps the usual order."],
     ["success", "Success", "x", "The weight factor for a success."],
     ["fault", "Fault", "x", "The weight factor for a fault."],
@@ -2245,7 +2245,7 @@ const isSwitch = (group, key) => typeof state.settings.defaults[group][key] === 
 
 // The API keys card of the Settings page: the form, the reveal and the table ride in it.
 function keysCard() {
-  return `<div class="card" data-section="keys"><h3>API keys</h3>
+  return `<div class="card" data-section="keys"><h3>API Keys</h3>
     <form class="toolbar" id="new-key">
       <input id="key-name" maxlength="40" placeholder="Name of the new key" required>
       <button class="primary" type="submit">New key</button>
@@ -2307,7 +2307,7 @@ function renderSettings() {
     }).join("")}${group === "hooks" ? hooksManager() : ""}</div>`;
   // The section list: the rail names every group, and the pane holds its card.
   const groups = SETTINGS.filter(([group]) => group !== "headroom" || state.settings.headroom_available);
-  const items = groups.map(([group, title]) => [group, title]).concat([["keys", "API keys"], ["yaml", "YAML"]]);
+  const items = groups.map(([group, title]) => [group, title]).concat([["keys", "API Keys"], ["yaml", "YAML"]]);
   const picked = sectionState($("settings")).key;
   const active = items.some(([key]) => key === picked) ? picked : items[0][0];
   $("settings").innerHTML = sectionList("settings", items, active)
