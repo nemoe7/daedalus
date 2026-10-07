@@ -485,6 +485,20 @@ def test_the_demo_can_slow_its_answers_for_a_reviewer(tmp_path: Path) -> None:
   assert "SLOW ? wait(SLOW) : Promise.resolve()" in script, "every fixture answer waits"
 
 
+def test_the_demo_keeps_media_models_out_of_the_chat_waves(tmp_path: Path) -> None:
+  """The chat list of the demo follows the catalog mode, so an image model answers no chat."""
+  out = pages_demo.build(tmp_path / "site", "demo.9")
+  script = (out / "demo.js").read_text(encoding="utf-8")
+  head = 'const TEXT = DEMO_FIXTURES.models.filter((row) => row.mode === "chat")'
+  assert head in script, "the mode picks the chat models"
+  assert "MEDIA_PATH" not in script, "no name list decides the chat models"
+  fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
+  media = [row["id"] for row in fixtures["models"] if row["mode"] == "image_generation"]
+  assert any("leonardo/lucid-origin" in row for row in media), (
+    "the fixtures keep an image model"
+  )
+
+
 def test_the_build_copies_the_page_and_loads_the_demo_first(tmp_path: Path) -> None:
   """`--out` serves the real UI, with the demo script before it."""
   out = pages_demo.build(tmp_path / "site", pages_demo.demo_version())

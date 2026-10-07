@@ -398,17 +398,10 @@ const DEMO_FIXTURES = __FIXTURES__;
     : value >= 1e3 ? `${Math.floor(value / 1e3)}K`
     : `${Math.floor(value)}`);
   // The media models answer on their own paths.
-  const MEDIA_PATH = {
-    "cloudflare/@cf/openai/whisper-large-v3-turbo": "/v1/audio/transcriptions",
-    "cloudflare/@cf/black-forest-labs/flux-1-schnell": "/v1/images/generations",
-    "cloudflare/@cf/baai/bge-m3": "/v1/embeddings",
-  };
-  // The embedding model of an owui chat, and the chat models: the catalog without the media
-  // and embedding rows.
+  // The embedding model of an owui chat, and the chat models. The catalog mode picks them, as the
+  // server does, so an image, audio, embedding, decisions or rerank row never answers a chat wave.
   const EMBED = "mistral/mistral-embed-2312";
-  const TEXT = DEMO_FIXTURES.models.map((row) => row.id)
-    .filter((id) => !(id in MEDIA_PATH)
-      && !/embed|flux|whisper|bge|imagen|sdxl|stable-diffusion|dreamshaper|z-image|tts|speech/i.test(id));
+  const TEXT = DEMO_FIXTURES.models.filter((row) => row.mode === "chat").map((row) => row.id);
   const POOL_NAMES = ["sophos", "deinos", "koinos", "moros"];
   // The auto reasoning hook climbs this ladder, 1 step per agent step.
   const LADDER = ["none", "low", "medium", "high"];
