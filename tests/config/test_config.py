@@ -154,6 +154,9 @@ def test_repo_file() -> None:
   for slug in ("gemini-3.8-flash", "gemma-4-31b-it", "gemini-9-flash"):
     effort = config_params(loaded["gemini"], slug).get("reasoning_effort")
     assert effort == "high", (slug, effort)
+  # allam-2-7b has a 4096 combined window, so the input limit leaves room for the output.
+  allam = config_params(loaded["groq"], "allam-2-7b")
+  assert allam.get("max_input_tokens") == 2048, allam
 
 
 def walk(node: object) -> list[str]:
