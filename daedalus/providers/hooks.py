@@ -7,10 +7,14 @@ import logging
 import posixpath
 import re
 from collections.abc import Mapping
+from itertools import islice
 from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+import yaml
+
+from daedalus import __version__
 from daedalus.config import block_for
 
 logger = logging.getLogger("daedalus.hooks")
@@ -29,6 +33,15 @@ POINTS = {
 }
 # An optional extra function of a request hook file: the rows of the code legend.
 INIT = "on_init"
+# The frontmatter of a hook file: a comment block at the top, and the keys that it may hold.
+BLOCK = "# ---"
+META_KEYS = ("name", "version", "requires", "points", "scope", "targets")
+SCOPES = ("global", "provider", "model")
+META_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}")
+# The head of a file that holds the frontmatter block.
+HEAD = 60
+# 1 comparison of a `requires` value: an operator and a dotted version.
+CLAUSE = re.compile(r"(==|>=|<=|>|<) *([0-9]+(?:\.[0-9A-Za-z-]+)*)")
 
 # The loaded module of each file, with the file time. A new file time loads the file again.
 _loaded: dict[Path, tuple[float, ModuleType | None]] = {}
@@ -41,6 +54,127 @@ def tell(problem: str) -> None:
   if problem not in _told:
     _told.add(problem)
     logger.warning("%s", problem)
+
+
+def version_tuple(text: str) -> tuple[int, ...] | None:
+  """The numbers of a dotted version, or None when a part is not a number."""
+  parts = text.split(".")
+  if not parts or not all(part.isdigit() for part in parts):
+    return None
+  return tuple(int(part) for part in parts)
+
+
+def requires_ok(requires: str, version: str) -> bool:
+  """True when each comma-separated comparison holds against the running version."""
+  here = version_tuple(version)
+  if here is None:
+    return False
+  for item in requires.split(","):
+    found = CLAUSE.fullmatch(item.strip())
+    if found is None:
+      return False
+    wanted = version_tuple(found.group(2))
+    if wanted is None:
+      return False
+    size = max(len(here), len(wanted))
+    left = here + (0,) * (size - len(here))
+    right = wanted + (0,) * (size - len(wanted))
+    operator = found.group(1)
+    holds = (
+      left == right
+      if operator == "=="
+      else left >= right
+      if operator == ">="
+      else left <= right
+      if operator == "<="
+      else left > right
+      if operator == ">"
+      else left < right
+    )
+    if not holds:
+      return False
+  return True
+
+
+def meta_block(text: str) -> dict[str, Any] | None:
+  """The frontmatter block of a file text, or None when the text holds no block."""
+  lines = text.splitlines()
+  at = 0
+  while at < len(lines) and not lines[at].strip():
+    at += 1
+  if at >= len(lines) or lines[at].strip() != BLOCK:
+    return None
+  body: list[str] = []
+  for line in lines[at + 1 :]:
+    if line.strip() == BLOCK:
+      found = yaml.safe_load("\n".join(body))
+      return found if isinstance(found, dict) else {}
+    body.append(line.removeprefix("#").removeprefix(" "))
+  return None
+
+
+def head_text(path: Path) -> str:
+  """The first lines of a hook file, and an empty text when the file does not read."""
+  try:
+    with path.open(encoding="utf-8") as stream:
+      return "".join(islice(stream, HEAD))
+  except (OSError, UnicodeDecodeError):
+    return ""
+
+
+def meta_check(text: str) -> tuple[dict[str, Any] | None, str | None]:
+  """The frontmatter of a file text and the reason it is not usable, 1 of the 2 filled."""
+  found = meta_block(text)
+  if found is None:
+    return None, None
+  for key in found:
+    if key not in META_KEYS:
+      return None, f"unknown frontmatter key {key!r}"
+  name = found.get("name")
+  if name is not None and (not isinstance(name, str) or not META_NAME.fullmatch(name)):
+    return None, "name must be 1 file name"
+  version = found.get("version")
+  if version is not None:
+    if isinstance(version, bool) or not isinstance(version, int | float | str):
+      return None, "version must be 1 text"
+    found["version"] = str(version)
+  requires = found.get("requires")
+  if requires is not None:
+    if not isinstance(requires, str):
+      return None, "requires must be 1 text"
+    if not requires_ok(requires, __version__):
+      return None, f"requires {requires}, and daedalus is {__version__}"
+  points = found.get("points")
+  if points is not None:
+    if not isinstance(points, list) or not all(
+      isinstance(point, str) for point in points
+    ):
+      return None, "points must be a list of point names"
+    for point in points:
+      if point not in POINTS:
+        return None, f"unknown point {point!r}"
+  scope = found.get("scope")
+  if scope is not None and scope not in SCOPES:
+    return None, f"scope {scope!r} must be 1 of {', '.join(SCOPES)}"
+  targets = found.get("targets")
+  if targets is not None and (
+    not isinstance(targets, list)
+    or not all(isinstance(target, str) and target.strip() for target in targets)
+  ):
+    return None, "targets must be a list of names"
+  if scope in ("provider", "model") and not targets:
+    return None, f"scope {scope} needs targets"
+  return found, None
+
+
+def meta(path: Path) -> dict[str, Any] | None:
+  """The usable frontmatter of a hook file, or None when the file holds none."""
+  return meta_check(head_text(path))[0]
+
+
+def meta_problem(path: Path) -> str | None:
+  """The reason the frontmatter of a hook file is not usable, or None."""
+  return meta_check(head_text(path))[1]
 
 
 def resolve(value: Any) -> Path | None:
