@@ -1554,6 +1554,9 @@ def test_the_motion_reaches_the_modal_the_sections_and_the_switches() -> None:
   assert 'replay([...host.querySelectorAll(".section-pane > .card")]' in app, (
     "the picked section card arrives"
   )
+  assert (
+    ".section-pane > .card.drawn { animation: fade var(--soft) var(--ease); }" in css
+  ), "the card fades, so the scroll pane never clips its top"
   assert 'replay($("provider-form"));' in app, "a file change arrives its form"
   assert "if (!off) replay(field);" in app, "the rows of a switch arrive"
   assert (

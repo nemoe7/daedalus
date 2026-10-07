@@ -41,6 +41,10 @@ tr.live-row.arrive { animation: arrive var(--soft) var(--ease); }
 /* The first data of a card or a table arrives the same way, once, on the class that the shared
    draw path sets. */
 .drawn { animation: arrive var(--soft) var(--ease); }
+/* A card that arrives inside the scrolling pane fades only: the lift of `arrive` would clip its
+   top edge against the scroll box of the pane. */
+@keyframes fade { from { opacity: 0; } }
+.section-pane > .card.drawn { animation: fade var(--soft) var(--ease); }
 /* A phone slides the arriving view in: the section pane from the right, and the list back from the
    left. The class lands on a pick or a back only, so a render never replays it. */
 @keyframes slide-in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
