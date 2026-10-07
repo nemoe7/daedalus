@@ -38,6 +38,9 @@ tr.request:active td { background: var(--field); }
    the class: a redraw of the group leaves the rows already on the page still. */
 @keyframes arrive { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 tr.live-row.arrive { animation: arrive var(--soft) var(--ease); }
+/* The first data of a card or a table arrives the same way, once, on the class that the shared
+   draw path sets. */
+.drawn { animation: arrive var(--soft) var(--ease); }
 /* The count of the stream glows on a change, then settles back to the muted hint. */
 @keyframes bump { from { color: var(--accent); } }
 .hint.bump { animation: bump 2s var(--ease); }

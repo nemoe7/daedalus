@@ -877,6 +877,7 @@ function renderRequests(rows, empty = "No requests", live = 0) {
       ${fallbackCell(r, "hide-sm hide-md num")}
     </tr>${chainOpen ? chainRows(r) : ""}`;
   }).join("") : live ? "" : `<tr role="row"><td role="cell" colspan="13" class="empty">${empty}</td></tr>`;
+  firstDraw($("requests"));
 }
 
 // The label of each catalog mode.
@@ -992,6 +993,14 @@ const dash = '<span class="muted">-</span>';
 // selection of the page survive, because an identical table is not built again. A live selection
 // holds the redraw of its own host back, as the Requests table does.
 const DRAWN = new Map();
+// A host that already arrived: the first data of a card or a table fades in, and a later redraw
+// of a host that holds data stays still, so a refresh or a live tick never blinks the panel.
+const DRAWN_SHOWN = new Set();
+function firstDraw(host) {
+  if (!host || DRAWN_SHOWN.has(host)) return;
+  DRAWN_SHOWN.add(host);
+  host.classList.add("drawn");
+}
 function draw(id, markup) {
   const host = $(id);
   if (DRAWN.get(host) === markup) return;
@@ -999,6 +1008,7 @@ function draw(id, markup) {
   if (!selected.isCollapsed && host.contains(selected.anchorNode)) return;
   DRAWN.set(host, markup);
   host.innerHTML = markup;
+  firstDraw(host);
 }
 
 function renderModels() {
