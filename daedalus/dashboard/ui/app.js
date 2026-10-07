@@ -729,13 +729,13 @@ function renderLive() {
       ${appCell(r)}
       ${cell("Session", esc(r.session || "-"), "hide-sm hide-md num mono")}
       ${nameCell(r.model || r.path, modelName(r.model || r.path, poolOf(r)) + routingCodes(r))}
-      ${cell("Effort", effortCell(r), "hide-sm")}
       ${nameCell(r.via || r.trying || "", r.via ? modelName(r.via) : `<span class="muted">${r.trying ? `trying ${modelName(r.trying)}` : "waiting"}</span>`, "Served by")}
+      ${cell("Effort", effortCell(r), "hide-sm")}
       ${cell("Status", "live", "status muted")}
       ${cell("Input", "-", "hide-sm num muted")}
       ${cell("Output", "-", "hide-sm num muted")}
       <td role="cell" class="hide-sm num">${mobileLabel("TTFT")}<span class="cell-value"><span data-clock="ttft"></span></span></td>
-      <td role="cell" class="hide-sm hide-md num">${mobileLabel("Stream")}<span class="cell-value"><span data-clock="stream"></span></span></td>
+      <td role="cell" class="hide-sm num">${mobileLabel("Stream")}<span class="cell-value"><span data-clock="stream"></span></span></td>
       ${fallbackCell(r, "hide-sm hide-md num muted", true)}
     </tr>`).join("");
   tickLive();
@@ -870,13 +870,13 @@ function renderRequests(rows, empty = "No requests", live = 0) {
       ${appCell(r)}
       ${cell("Session", esc(r.session || "-"), "hide-sm hide-md num mono")}
       ${nameCell(r.model || "-", modelName(r.model || "-", poolOf(r)) + routingCodes(r))}
-      ${cell("Effort", effortCell(r), "hide-sm")}
       ${nameCell(r.via || "", r.via ? modelName(r.via) : '<span class="muted">none</span>', "Served by")}
+      ${cell("Effort", effortCell(r), "hide-sm")}
       ${cell("Status", statusCell(r), `status ${statusClass(r)}`)}
       ${tokenCell(r.tokens?.input, r.tokens?.estimate ? "~" : "", "Input")}
       ${tokenCell(r.tokens?.output, "", "Output")}
       ${cell("TTFT", esc(r.ttft || "-"), "hide-sm num")}
-      ${cell("Stream", streamCell(r), "hide-sm hide-md num")}
+      ${cell("Stream", streamCell(r), "hide-sm num")}
       ${fallbackCell(r, "hide-sm hide-md num")}
     </tr>${chainOpen ? chainRows(r) : ""}`;
   }).join("") : live ? "" : `<tr role="row"><td role="cell" colspan="13" class="empty">${empty}</td></tr>`;
