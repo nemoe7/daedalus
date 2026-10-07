@@ -726,6 +726,30 @@ assert(!liveHtml.includes('mobile-fallback-chain'), 'live rows do not show a fal
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_app_js_live_served_by_shows_the_trying_marks() -> None:
+  """A live row that still tries a model shows its marks, not the raw slug."""
+  run_app_js(
+    "state, renderLive",
+    """
+node('live').children = [];
+probe.state.live.set(7, {
+  id: 7, since: 100000, attemptSince: 100000, first: null, stream: true, session: 's7',
+  app: 'OWUI', model: 'daedalus/auto', effort: null, pool: 'moros', via: null,
+  trying: 'cloudflare/@cf/zai-org/glm-4.7-flash', fallbacks: 0,
+});
+probe.renderLive();
+const html = node('live').innerHTML;
+const servedBy = html.slice(html.indexOf('Served by'));
+assert(servedBy.includes('trying'), 'the cell keeps the trying word');
+assert(servedBy.includes('ui/icons/cloudflare.svg'), 'the trying model shows its provider mark');
+assert(servedBy.includes('ui/icons/zai-org.svg'), 'the trying model shows its developer mark');
+assert(servedBy.includes('<span class="model-part">glm-4.7-flash</span>'), 'the model part reads short');
+assert(!servedBy.includes('trying cloudflare/@cf/zai-org/glm-4.7-flash'),
+  'the raw slug never stands in place of the marks');
+""",
+  )
+
+
 def test_app_js_live_clocks_wait_for_the_first_token() -> None:
   """The stream clock stays empty until the first token, also on a request without a stream."""
   code = """
