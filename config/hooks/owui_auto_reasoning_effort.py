@@ -102,6 +102,17 @@ def on_request(value: dict, model: str, headers: dict) -> dict | None:
   return value
 
 
+def _floor(context: Any) -> int:
+  """The lowest tier this request may take: 2 when the model requires reasoning, else 1.
+
+  A model that rejects a request with reasoning off, such as kilo lfm-2.5, names
+  `reasoning: required` in its config entry. That model never takes the `none` level.
+  """
+  config = context.get("config") or {}
+  model = context.get("model") or ""
+  return 2 if router.model_setting(config, model, "reasoning") == "required" else 1
+
+
 def on_prompt(
   value: dict,
   prompt: str = "",
@@ -118,7 +129,8 @@ def on_prompt(
   the client keeps the last word. A try again steps the level of the last answer 1 up, above the
   value of the client, because the regenerate button carries the level. A last answer with no
   recorded level took no reasoning step, so that request takes the read and no step, while the tier
-  still steps 1 up. The cap of the ladder is `high`.
+  still steps 1 up. The cap of the ladder is `high`. A model that requires reasoning floors the
+  read to `low`, so it never takes `none`.
 
   :param value: the request values, holding `reasoning_effort`
   :param prompt: the user turns joined, the fallback when the messages do not come
@@ -131,7 +143,7 @@ def on_prompt(
   """
   if app != CLIENT:
     return
-  read = int(router.required_tier(_newest(messages, prompt)))
+  read = max(int(router.required_tier(_newest(messages, prompt))), _floor(context))
   if not retry:
     if effort:
       return
