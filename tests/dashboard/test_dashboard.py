@@ -2510,6 +2510,32 @@ def test_a_phone_keeps_the_tap_size_of_its_controls() -> None:
   ) in css, "the phone keeps the 44px target of the filter controls"
 
 
+def test_a_phone_keeps_one_rhythm_around_the_bar_rules() -> None:
+  """Every phone bar keeps 8px over its rule, and the flow gap keeps 16px under it."""
+  css = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
+  ).read_text(encoding="utf-8")
+  phone = re.search(r"@media \(max-width: 720px\) \{(.*?)\n\}", css, re.DOTALL)
+  assert phone, "the phone media query holds the bar rules"
+  bar = re.search(
+    r'section\[data-page="requests"\] \.requests-bar \{([^}]*)\}', phone.group(1)
+  )
+  assert bar and "padding: 3px 3px 8px;" in bar.group(1), (
+    "the requests bar keeps the same room over its rule as the keys and models bars"
+  )
+  panel = re.search(r"\.panel:has\(> \.requests\) \{([^}]*)\}", phone.group(1))
+  assert panel and "margin-top: 0;" in panel.group(1), (
+    "the flow gap alone keeps the 16px under the requests rule"
+  )
+  bodies = re.search(r"\.models tbody, \.keys tbody \{([^}]*)\}", phone.group(1))
+  assert bodies and "margin-top: 16px;" in bodies.group(1), (
+    "the first card row keeps the flow gap under the bar rule"
+  )
+  assert not re.search(r'\[data-page="limits"\] > \.editbar \{[^}]*padding', css), (
+    "a page-scoped editbar padding breaks the shared border rhythm"
+  )
+
+
 def test_the_save_bars_keep_no_sticky_rule() -> None:
   """The Save bar of Providers and Settings scrolls with its form, so no row hides behind it."""
   css = (
@@ -2761,7 +2787,7 @@ def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
     ".models tr > td.hide-sm { display: none; }",
     ".keys tr > td.name { grid-column: 1; grid-row: 1; max-width: none; }",
     ".keys tr > td:nth-child(4) { grid-column: 1; grid-row: 2; align-items: center; }",
-    'section[data-page="requests"] .requests-bar { padding: 3px 3px 15px; }',
+    'section[data-page="requests"] .requests-bar { padding: 3px 3px 8px; }',
     '[data-page="keys"] .toolbar { padding: 3px 0 8px 3px; }',
     ".toolbar input:focus-visible, .toolbar select:focus-visible,",
   ):
