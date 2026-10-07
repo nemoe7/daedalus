@@ -211,15 +211,21 @@ MAX_TASK_DETAIL=2000
 MAX_TASK_DETAILS=40
 TASK_STEP_MAX=120
 ECHO_DETAIL=200
-TASK_COLUMNS='id, title, details, status, position, updated_at, blocked'
+TASK_COLUMNS='id, title, details, status, position, updated_at, blocked, report_id'
 CLI_DESCRIPTION='Notes, reports, tasks and the preview server for Arena steering.'
 SAVED_STATE='saved-state.ndjson'
 NOTE_LINE_KEYS='id','text','at','acknowledged_at','ack_kind','ack_text','ack_edited_at','replies','ack_edited_seen_count','seen_at','task_id'
-TASK_LINE_KEYS='id','title','details','status','order'
+TASK_LINE_KEYS='id','title','details','status','order','report_id'
 SUBMISSION_LINE_KEYS='id','report_id','text','at','acknowledged_at','ack_kind','ack_text','ack_edited_at','replies','ack_edited_seen_count','seen_at','task_id'
 REPORT_LINE_KEYS='id','title','markdown','published_at'
-def task_row(row):return{'id':row[0],'title':row[1],'details':json.loads(row[2]),'status':row[3],'order':row[4],'updated_at':row[5],'blocked':bool(row[6])if len(row)>6 else False}
-def echo_task(record,before=None,after=None):return{'id':record['id'],'title':record['title'],'status':record['status'],'order':record['order'],'prev':before,'next':after,'details':[detail[:ECHO_DETAIL]+('…'if len(detail)>ECHO_DETAIL else'')for detail in record['details']]}
+def task_row(row):
+	shaped={'id':row[0],'title':row[1],'details':json.loads(row[2]),'status':row[3],'order':row[4],'updated_at':row[5],'blocked':bool(row[6])if len(row)>6 else False}
+	if len(row)>7 and row[7]:shaped['report_id']=row[7]
+	return shaped
+def echo_task(record,before=None,after=None):
+	echo={'id':record['id'],'title':record['title'],'status':record['status'],'order':record['order'],'prev':before,'next':after,'details':[detail[:ECHO_DETAIL]+('…'if len(detail)>ECHO_DETAIL else'')for detail in record['details']]}
+	if record.get('report_id'):echo['report_id']=record['report_id']
+	return echo
 def saved_note_line(record):
 	if not isinstance(record,dict):raise TypeError('Every saved note is an object')
 	return{key:record.get(key)for key in NOTE_LINE_KEYS}
@@ -232,7 +238,9 @@ def saved_report_line(record):
 def state_ndjson(lines):return''.join(json.dumps(line,ensure_ascii=False)+'\n'for line in lines)
 def saved_task_line(record):
 	if not isinstance(record,dict):raise TypeError('Every saved task is an object')
-	line={key:record.get(key)for key in TASK_LINE_KEYS};line['details']=[str(item)for item in record.get('details')or[]];return line
+	line={key:record.get(key)for key in TASK_LINE_KEYS};line['details']=[str(item)for item in record.get('details')or[]]
+	if not line.get('report_id'):line.pop('report_id',None)
+	return line
 def upload_name(name):
 	cleaned=Path(str(name or'')).name.strip()
 	if not cleaned:raise ValueError('An upload needs a file name')
@@ -374,6 +382,11 @@ def quiet_inbox_line(line):
 			continue
 		return False
 	return True
+GATE_NOISE='cd','tail','grep','head'
+def gate_line_hint(line):
+	words={token for token in re.split('[^A-Za-z0-9_.-]+',line or'')};found=[name for name in GATE_NOISE if name in words]
+	if not found:return None
+	named=', '.join(f"`{name}`"for name in found);return f"This call runs {named}; omit those commands: a bare `arena-preview read` is the only call that passes."
 def poll_inbox(store,sleeper=None):
 	if sleeper is None:sleeper=time.sleep
 	listing={'checked_at':None,'pending':[]};store.start_poll()
@@ -448,6 +461,7 @@ class Store:
 			if'seen_at'not in columns:db.execute('UPDATE notes SET seen_at = acknowledged_at WHERE seen_at IS NULL AND acknowledged_at IS NOT NULL')
 			columns={row['name']for row in db.execute('PRAGMA table_info(tasks)')}
 			if'blocked'not in columns:db.execute('ALTER TABLE tasks ADD COLUMN blocked INTEGER NOT NULL DEFAULT 0')
+			if'report_id'not in columns:db.execute('ALTER TABLE tasks ADD COLUMN report_id TEXT')
 			columns={row['name']for row in db.execute('PRAGMA table_info(submissions)')}
 			if'ack_edited_at'not in columns:db.execute('ALTER TABLE submissions ADD COLUMN ack_edited_at TEXT')
 			if'seen_at'not in columns:db.execute('ALTER TABLE submissions ADD COLUMN seen_at TEXT')
@@ -485,8 +499,8 @@ class Store:
 			existing=db.execute('SELECT * FROM submissions WHERE id = ?',(submission_id,)).fetchone()
 			if existing:
 				if existing['text']!=text:raise ValueError('This message ID already belongs to different text')
-				return message_row(existing)
-			db.execute('INSERT INTO submissions (id, report_id, text, at, acknowledged_at, ack_kind, ack_text, ack_edited_at, seen_at, task_id, replies, ack_edited_seen_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',(submission_id,report_id,text,at or now(),*receipt,when(seen_at)if seen_at is not None else None,task_id,more,seen_reply_count));reset_poll_count(db);clear_skip_poll(db);return message_row(db.execute('SELECT * FROM submissions WHERE id = ?',(submission_id,)).fetchone())
+				self.release_report_tasks(db,report_id);return message_row(existing)
+			db.execute('INSERT INTO submissions (id, report_id, text, at, acknowledged_at, ack_kind, ack_text, ack_edited_at, seen_at, task_id, replies, ack_edited_seen_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',(submission_id,report_id,text,at or now(),*receipt,when(seen_at)if seen_at is not None else None,task_id,more,seen_reply_count));self.release_report_tasks(db,report_id);reset_poll_count(db);clear_skip_poll(db);return message_row(db.execute('SELECT * FROM submissions WHERE id = ?',(submission_id,)).fetchone())
 	def submissions(self):
 		with closing(self.connect())as db:return[message_row(row)for row in db.execute('SELECT * FROM submissions ORDER BY seq')]
 	def report_sources(self):
@@ -526,7 +540,7 @@ class Store:
 		if db is not None:yield db;return
 		with closing(self.connect())as own,own:yield own
 		if autosave:self.autosave()
-	def write_task(self,task_id,title=None,details=None,status=None,order=None,blocked=None,shared=None):
+	def write_task(self,task_id,title=None,details=None,status=None,order=None,blocked=None,report_id=None,shared=None):
 		details=[str(item)for item in details if str(item).strip()]if details else None;check_task(task_id,title,details)
 		if status is not None and status not in TASK_STATUSES:raise ValueError(f"A task is either {' or '.join(TASK_STATUSES)}")
 		stamp=now()
@@ -538,15 +552,22 @@ class Store:
 			if details is None:details=stored['details']if stored else[]
 			status=status or(stored['status']if stored else'upcoming')
 			if blocked is None:blocked=stored['blocked']if stored else False
+			if report_id is None:report_id=stored.get('report_id')if stored else None
+			if report_id:identifier(report_id)
+			if report_id and blocked and self.report_has_answers(db,report_id):blocked=False
 			if status=='finished'and blocked:raise ValueError(f"Task {task_id} is blocked; clear the mark with --unblocked first")
-			siblings=[task_row(item)for item in db.execute(f"SELECT {TASK_COLUMNS} FROM tasks WHERE status = ? AND id != ? ORDER BY position, id",(status,task_id)).fetchall()];record={'id':task_id,'title':title,'details':details,'status':status,'order':len(siblings)+1,'updated_at':stamp,'blocked':bool(blocked)}
+			siblings=[task_row(item)for item in db.execute(f"SELECT {TASK_COLUMNS} FROM tasks WHERE status = ? AND id != ? ORDER BY position, id",(status,task_id)).fetchall()];record={'id':task_id,'title':title,'details':details,'status':status,'order':len(siblings)+1,'updated_at':stamp,'blocked':bool(blocked),'report_id':report_id}
 			if order is not None:index=max(0,min(order-1,len(siblings)))
 			elif stored and stored['status']==status:index=max(0,min(stored['order']-1,len(siblings)))
 			else:index=len(siblings)
-			siblings.insert(index,record);record['order']=index+1;db.execute('INSERT INTO tasks VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, details = excluded.details, status = excluded.status, position = excluded.position, updated_at = excluded.updated_at, blocked = excluded.blocked',(task_id,title,json.dumps(details,ensure_ascii=False),status,index+1,stamp,stamp,1 if blocked else 0))
+			siblings.insert(index,record);record['order']=index+1;db.execute('INSERT INTO tasks VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, details = excluded.details, status = excluded.status, position = excluded.position, updated_at = excluded.updated_at, blocked = excluded.blocked, report_id = excluded.report_id',(task_id,title,json.dumps(details,ensure_ascii=False),status,index+1,stamp,stamp,1 if blocked else 0,report_id))
 			for(position,item)in enumerate(siblings,1):db.execute('UPDATE tasks SET position = ? WHERE id = ?',(position,item['id']))
 			self.renumber(db)
 		return record
+	@staticmethod
+	def report_has_answers(db,report_id):return bool(db.execute('SELECT 1 FROM submissions WHERE report_id = ? LIMIT 1',(report_id,)).fetchone())
+	@staticmethod
+	def release_report_tasks(db,report_id):db.execute('UPDATE tasks SET blocked = 0, updated_at = ? WHERE report_id = ? AND blocked = 1',(now(),report_id))
 	def remove_task(self,task_id):
 		with self.transaction()as db:
 			row=db.execute(f"SELECT {TASK_COLUMNS} FROM tasks WHERE id = ?",(task_id,)).fetchone()
@@ -565,10 +586,10 @@ class Store:
 	def amend_task(self,prev_id,task_id):
 		check_task(task_id,None,None);stamp=now()
 		with self.transaction()as db:
-			row=db.execute('SELECT id, title, details, status, position, created_at, blocked FROM tasks WHERE id = ?',(prev_id,)).fetchone()
+			row=db.execute('SELECT id, title, details, status, position, created_at, blocked, report_id FROM tasks WHERE id = ?',(prev_id,)).fetchone()
 			if row is None:raise ValueError(f"No task is stored under {prev_id}")
 			if db.execute('SELECT 1 FROM tasks WHERE id = ?',(task_id,)).fetchone():raise ValueError(f"A task is already stored under {task_id}")
-			self.refuse_shared_id(db,'tasks','reports',task_id);db.execute('DELETE FROM tasks WHERE id = ?',(prev_id,));db.execute('INSERT INTO tasks VALUES (?, ?, ?, ?, ?, ?, ?, ?)',(task_id,row[1],row[2],row[3],row[4],row[5],stamp,row[6]));self.renumber(db)
+			self.refuse_shared_id(db,'tasks','reports',task_id);db.execute('DELETE FROM tasks WHERE id = ?',(prev_id,));db.execute('INSERT INTO tasks VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',(task_id,row[1],row[2],row[3],row[4],row[5],stamp,row[6],row[7]));self.renumber(db)
 	def autosave(self):
 		try:self.save_state({'notes':self.state()['notes'],'tasks':self.tasks()})
 		except Exception as error:print(f"preview: autosave failed: {error}",file=sys.stderr)
@@ -769,10 +790,10 @@ class Store:
 			if not isinstance(record,dict):raise TypeError('Import a list of task objects')
 			details=[str(item)for item in record.get('details')or[]if str(item).strip()];status=record.get('status');check_task(record.get('id'),record.get('title'),details)
 			if status is not None and status not in TASK_STATUSES:raise ValueError(f"A task is either {' or '.join(TASK_STATUSES)}")
-			prepared.append((record.get('id'),record.get('title'),details,status,record.get('order')or index,record.get('blocked')))
+			prepared.append((record.get('id'),record.get('title'),details,status,record.get('order')or index,record.get('blocked'),record.get('report_id')))
 		with self.transaction(shared,autosave=autosave)as db:
 			if replace:
-				for(task_id,title,_,_,_,_)in prepared:
+				for(task_id,title,_,_,_,_,_)in prepared:
 					stored=db.execute('SELECT 1 FROM tasks WHERE id = ?',(task_id,)).fetchone()
 					if title is None and not stored:raise ValueError(f"A new task needs a title: {task_id}")
 				db.execute('DELETE FROM tasks')
@@ -1110,7 +1131,7 @@ def resolve_state_dir():
 		if(parent/'.git').exists():return str(parent/'arena-state')
 	return'arena-state'
 def main():
-	parser=argparse.ArgumentParser(description=CLI_DESCRIPTION);parser.add_argument('--reminder',action='store_true',help='Print the unacked-count reminder line and exit');commands=parser.add_subparsers(dest='command',required=False);serve=commands.add_parser('serve');serve.add_argument('--port',type=int,default=8000,help='Port to bind (default: 8000)');commands.add_parser('init');commands.add_parser('read');commands.add_parser('key');inbox_line=commands.add_parser('inbox-line',help='Report whether a command line that names an inbox call runs nothing else');inbox_line.add_argument('line',help='The command line, as the hook read it');gate=commands.add_parser('gate');gate.add_argument('--push',action='store_true',help='Block while any note or answer awaits an ack, whatever the call count');commands.add_parser('poll');download=commands.add_parser('download-request',help='Request an HTTPS browser download, pending a preview Approve click');download.add_argument('url',help='One HTTPS URL without embedded credentials');download.add_argument('--allow-proxy',action='store_true',help='Let the owner opt in to AllOrigins and CodeTabs fallback for this request');ack=commands.add_parser('ack');ack.add_argument('ids',nargs='+');ack.add_argument('--reply',help='Markdown answer shown in the message log');ack.add_argument('--note',help='Short plain answer shown in the message log');publish=commands.add_parser('publish');publish.add_argument('source',type=Path);publish.add_argument('--id',required=True);publish.add_argument('--title',required=True);unpublish=commands.add_parser('unpublish');unpublish.add_argument('report_id');task=commands.add_parser('task');task.add_argument('id_arg',nargs='?',metavar='TASK-ID');task.add_argument('title_arg',nargs='?',metavar='TASK-TITLE');task.add_argument('detail_arg',nargs='*',metavar='TASK-DETAIL');task.add_argument('--task-details',action='append',help='One step per line, 120 characters or fewer, repeatable; an empty string clears the list');task.add_argument('--blocked',dest='blocked',action='store_true',default=None,help='Mark the task blocked, so a poll may wait');task.add_argument('--unblocked',dest='blocked',action='store_false',help='Clear the blocked mark');task.add_argument('--msg-id',help='Message this task answers; marks that message as having a task');task.add_argument('--amend',metavar='PREV-ID',help='Rename the task stored under this ID to the one given');task.add_argument('--status',choices=TASK_STATUSES,default=None);task.add_argument('--order',type=int,default=None,help='1-based place in its div, not the end');task_remove=commands.add_parser('task-remove');task_remove.add_argument('task_id');commands.add_parser('task-list');state_import=commands.add_parser('import-state');state_import.add_argument('source',nargs='?',type=Path);state_import.add_argument('--replace-tasks',action='store_true');state_import.add_argument('--force',action='store_true',help='import even when the live state holds newer messages');args=parser.parse_args();state_dir=resolve_state_dir()
+	parser=argparse.ArgumentParser(description=CLI_DESCRIPTION);parser.add_argument('--reminder',action='store_true',help='Print the unacked-count reminder line and exit');commands=parser.add_subparsers(dest='command',required=False);serve=commands.add_parser('serve');serve.add_argument('--port',type=int,default=8000,help='Port to bind (default: 8000)');commands.add_parser('init');commands.add_parser('read');commands.add_parser('key');inbox_line=commands.add_parser('inbox-line',help='Report whether a command line that names an inbox call runs nothing else');inbox_line.add_argument('line',help='The command line, as the hook read it');gate=commands.add_parser('gate');gate.add_argument('--push',action='store_true',help='Block while any note or answer awaits an ack, whatever the call count');gate.add_argument('--line',default='',help='The command line, as the hook read it; a blocked call then names the commands to drop');commands.add_parser('poll');download=commands.add_parser('download-request',help='Request an HTTPS browser download, pending a preview Approve click');download.add_argument('url',help='One HTTPS URL without embedded credentials');download.add_argument('--allow-proxy',action='store_true',help='Let the owner opt in to AllOrigins and CodeTabs fallback for this request');ack=commands.add_parser('ack');ack.add_argument('ids',nargs='+');ack.add_argument('--reply',help='Markdown answer shown in the message log');ack.add_argument('--note',help='Short plain answer shown in the message log');publish=commands.add_parser('publish');publish.add_argument('source',type=Path);publish.add_argument('--id',required=True);publish.add_argument('--title',required=True);unpublish=commands.add_parser('unpublish');unpublish.add_argument('report_id');task=commands.add_parser('task');task.add_argument('id_arg',nargs='?',metavar='TASK-ID');task.add_argument('title_arg',nargs='?',metavar='TASK-TITLE');task.add_argument('detail_arg',nargs='*',metavar='TASK-DETAIL');task.add_argument('--task-details',action='append',help='One step per line, 120 characters or fewer, repeatable; an empty string clears the list');task.add_argument('--blocked',dest='blocked',action='store_true',default=None,help='Mark the task blocked, so a poll may wait');task.add_argument('--unblocked',dest='blocked',action='store_false',help='Clear the blocked mark');task.add_argument('--msg-id',help='Message this task answers; marks that message as having a task');task.add_argument('--report',metavar='REPORT-ID',help='Report this task waits on; its answer clears the blocked mark');task.add_argument('--amend',metavar='PREV-ID',help='Rename the task stored under this ID to the one given');task.add_argument('--status',choices=TASK_STATUSES,default=None);task.add_argument('--order',type=int,default=None,help='1-based place in its div, not the end');task_remove=commands.add_parser('task-remove');task_remove.add_argument('task_id');commands.add_parser('task-list');state_import=commands.add_parser('import-state');state_import.add_argument('source',nargs='?',type=Path);state_import.add_argument('--replace-tasks',action='store_true');state_import.add_argument('--force',action='store_true',help='import even when the live state holds newer messages');args=parser.parse_args();state_dir=resolve_state_dir()
 	try:
 		if args.reminder:store=Store(state_dir,create=False);require_server(store);print(store.reminder(advance=True),flush=True);return 0
 		if not args.command:parser.error('a command is required')
@@ -1119,7 +1140,11 @@ def main():
 			try:allowed=Store(state_dir).gate(pending_only=args.push)
 			except FileNotFoundError:allowed=True
 			except Exception:return 2
-			if not allowed:print('READ INBOX NOW. The only call that passes is a bare `arena-preview read`. Then ack every note with a bare `arena-preview ack <id> --reply <markdown>` or `arena-preview ack <id> --note <text>` call, one call per note.',flush=True);return 1
+			if not allowed:
+				if args.push:print('PUSH BLOCKED: a note or answer awaits an ack, so nothing left the sandbox. Read the inbox, ack every item, then push again.',flush=True)
+				print('READ INBOX NOW. The only call that passes is a bare `arena-preview read`. Then ack every note with a bare `arena-preview ack <id> --reply <markdown>` or `arena-preview ack <id> --note <text>` call, one call per note.',flush=True);hint=gate_line_hint(args.line)
+				if hint:print(hint,flush=True)
+				return 1
 			if args.push and main_identical():print('HEAD content equals `origin/main`, so the push carries nothing. Start new work from `origin/main`.',flush=True);return 1
 			return 0
 		store=Store(state_dir,create=args.command in{'serve','init','import-state'});print(store.reminder(),file=sys.stderr,flush=True)
@@ -1148,9 +1173,12 @@ def main():
 			if details is None and args.detail_arg:details=args.detail_arg
 			if details is not None:details=task_steps(details);check_task_steps(details)
 			if args.amend:store.amend_task(args.amend,task_id)
+			if args.report:
+				try:store.report(args.report)
+				except FileNotFoundError:raise ValueError(f"No report is stored under {args.report}")from None
 			if args.msg_id:
-				with store.transaction()as shared:record=store.write_task(task_id,args.title_arg,details,args.status,args.order,args.blocked,shared=shared);store.mark_task(args.msg_id,task_id,shared=shared)
-			else:record=store.write_task(task_id,args.title_arg,details,args.status,args.order,args.blocked)
+				with store.transaction()as shared:record=store.write_task(task_id,args.title_arg,details,args.status,args.order,args.blocked,args.report,shared=shared);store.mark_task(args.msg_id,task_id,shared=shared)
+			else:record=store.write_task(task_id,args.title_arg,details,args.status,args.order,args.blocked,args.report)
 			before,after=store.neighbours(task_id);echo=echo_task(record,before,after)
 			if args.msg_id:echo['msg_id']=args.msg_id
 			print(cli_json(echo))

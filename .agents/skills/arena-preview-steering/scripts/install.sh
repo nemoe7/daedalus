@@ -181,12 +181,32 @@ _arena_preview_gate() {
       fi
       ;;
   esac
+  _arena_preview_line="\$(tr '\\0' ' ' < /proc/\$\$/cmdline 2>/dev/null)"
+  # The command sits on PATH in every shell the installer touched, so a spelled-out path
+  # only buries the call. Say it once per shell, then let the line run its gate.
+  case "\$_arena_preview_line" in
+    *"$REPO_ROOT/$SKILL_REL/scripts/arena-preview"*|*"$REPO_ROOT/$SKILL_REL/scripts/preview.py"*)
+      if [ -z "\${_arena_preview_bare_told:-}" ]; then
+        _arena_preview_bare_told=1
+        printf '%s\n' 'Call it bare: arena-preview works from any directory, so drop the full path.' >&2
+      fi
+      ;;
+  esac
+  # A read the sandbox cannot reach on its own: the hook names the proxy route once a shell.
+  case "\$_arena_preview_line" in
+    *code-scanning*|*code_scanning*|*"gh run view"*|*"gh run download"*|*actions/runs*)
+      if [ -z "\${_arena_preview_proxy_told:-}" ]; then
+        _arena_preview_proxy_told=1
+        printf '%s\n' 'Read that through the proxy: load the arena-proxy skill for code-scanning alerts and workflow run logs.' >&2
+      fi
+      ;;
+  esac
   case "\$BASH_COMMAND" in *preview*|*profile*|*bashrc*|*arena-state*|gh*|sleep*|true*|:*|test*|"git status"*|"git diff"*|"git add"*|"git commit"*|*arena-workspace*|*"ss -ltn"*|*"netstat -ltn"*) return 0 ;; esac
   # A push is a checkpoint: an unread note can change what leaves the sandbox,
   # so it waits for an ack whatever the call count.
   case "\$BASH_COMMAND" in
     *"git push"*)
-      "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" gate --push 2>/dev/null
+      "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" gate --push --line "\$_arena_preview_line" 2>/dev/null
       case \$? in
         1) exit 130 ;;
       esac
@@ -196,7 +216,6 @@ _arena_preview_gate() {
   # before the read stays quiet for the count gate, while the push rule above still runs
   # for every push in the same shell. The quiet line holds only when every command on it
   # is an inbox call or an inert prefix, so a read beside work never exempts the work.
-  _arena_preview_line="\$(tr '\\0' ' ' < /proc/\$\$/cmdline 2>/dev/null)"
   case "\$_arena_preview_line" in
     *"arena-preview read"*|*"arena-preview ack"*|*"arena-preview poll"*|*"arena-preview task"*|*"preview.py read"*|*"preview.py ack"*|*"preview.py poll"*|*"preview.py task"*)
       if "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" inbox-line "\$_arena_preview_line" 2>/dev/null; then
@@ -206,7 +225,7 @@ _arena_preview_gate() {
   esac
   case "\${_arena_preview_gate_checked:-}" in 1) return 0 ;; esac
   _arena_preview_gate_checked=1
-  "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" gate 2>/dev/null
+  "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" gate --line "\$_arena_preview_line" 2>/dev/null
   case \$? in
     1) exit 130 ;;
   esac
