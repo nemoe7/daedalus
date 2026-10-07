@@ -393,6 +393,8 @@ probe.renderModels();
 const phone = el('models').innerHTML;
 assert(phone.includes('class="mark slug"'), 'a phone keeps the provider text');
 assert(phone.includes('<span class="model-part">m</span>'), 'a phone keeps the model part');
+const chipRow = phone.split('class="phone-chips"')[1].split('</td>')[0];
+assert(chipRow.includes('1.00'), 'the weight reads as a phone chip');
 """
   subprocess.run(["node", "-e", code], check=True)
 
