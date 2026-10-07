@@ -523,7 +523,9 @@ def test_the_live_demo_lands_a_row_before_the_end_event() -> None:
   assert "return r < 0.7 ? gap(20, 30) : r < 0.9 ? gap(0, 20) : gap(30, 60);" in js, (
     "the TTFT"
   )
-  assert "streaming ? gap(1, 90)" in js, "the stream spread"
+  assert "r < 0.6 ? gap(15, 45) : r < 0.85 ? gap(0.5, 15) : gap(45, 120)" in js, (
+    "the stream spread lands near 30 s, near 0, and up to 120 s"
+  )
   assert "const WAVE_MS = [6000, 18000];" in js, "the gap between the waves"
 
 
