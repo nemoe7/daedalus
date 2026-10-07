@@ -1960,6 +1960,29 @@ const settingList = (group, key) => {
 // The boolean settings, such as `enabled` and `change_on_draw`, are checkboxes in the form.
 const isSwitch = (group, key) => typeof state.settings.defaults[group][key] === "boolean";
 
+// The API keys card of the Settings page: the form, the reveal and the table ride in it.
+function keysCard() {
+  return `<div class="card" data-section="keys"><h3>API keys</h3>
+    <form class="toolbar" id="new-key">
+      <input id="key-name" maxlength="40" placeholder="Name of the new key" required>
+      <button class="primary" type="submit">New key</button>
+      <span class="message bad" id="key-message" role="alert"></span>
+    </form>
+    <div class="reveal" id="reveal" hidden>
+      <span>Copy the key <b id="reveal-name"></b> now. daedalus shows it only this time.</span>
+      <code id="reveal-key"></code>
+      <button class="ghost" id="copy" type="button">Copy</button>
+      <button class="ghost" id="reveal-close" type="button">Done</button>
+    </div>
+    <table class="keys">
+      <thead><tr>
+        <th>Name</th><th>Key</th><th class="hide-sm">Created</th><th>Last used</th><th></th>
+      </tr></thead>
+      <tbody id="keys"></tbody>
+    </table>
+  </div>`;
+}
+
 function renderSettings() {
   // A render keeps the text of an edit in progress. The saved text shows otherwise.
   const typed = state.settingsView === "yaml" ? $("settings-editor")?.value : undefined;
@@ -2001,12 +2024,13 @@ function renderSettings() {
     }).join("")}</div>`;
   // The section list: the rail names every group, and the pane holds its card.
   const groups = SETTINGS.filter(([group]) => group !== "headroom" || state.settings.headroom_available);
-  const items = groups.map(([group, title]) => [group, title]).concat([["yaml", "YAML"]]);
+  const items = groups.map(([group, title]) => [group, title]).concat([["keys", "API keys"], ["yaml", "YAML"]]);
   const picked = sectionState($("settings")).key;
   const active = items.some(([key]) => key === picked) ? picked : items[0][0];
   $("settings").innerHTML = sectionList("settings", items, active)
     + sectionPane("Settings", groups.map(([group, title, fields]) => card([group, title, fields]).replace(
       '<div class="card">', `<div class="card" data-section="${esc(group)}">`)).join("")
+      + keysCard()
       + yamlCard("settings-editor", "settings-yaml-save", `The file text of ${fileName(state.settings.path)}. A key that the form cannot show still opens here.`));
   pickSection($("settings"), active);
   $("settings-editor").value = typed ?? state.settings.text;
@@ -2357,9 +2381,12 @@ function showLengthLimit(input, message) {
   }
 }
 
-$("new-key").addEventListener("input", () => showLengthLimit($("key-name"), $("key-message")));
-
-$("new-key").addEventListener("submit", async (event) => {
+// The API keys card rides in the rendered Settings pane, so its events delegate to the pane.
+$("settings").addEventListener("input", (event) => {
+  if (event.target.id === "key-name") showLengthLimit($("key-name"), $("key-message"));
+});
+$("settings").addEventListener("submit", async (event) => {
+  if (event.target.id !== "new-key") return;
   event.preventDefault();
   const message = $("key-message");
   message.textContent = "";
@@ -2375,7 +2402,23 @@ $("new-key").addEventListener("submit", async (event) => {
     message.textContent = error.message;
   }
 });
-$("keys").addEventListener("click", async (event) => {
+$("settings").addEventListener("click", async (event) => {
+  if (event.target.closest("#copy")) {
+    try {
+      await navigator.clipboard.writeText($("reveal-key").textContent);
+      $("copy").textContent = "Copied";
+    } catch {
+      getSelection().selectAllChildren($("reveal-key"));
+      $("copy").textContent = "Press Ctrl+C";
+    }
+    return;
+  }
+  if (event.target.closest("#reveal-close")) {
+    $("reveal").hidden = true;
+    $("reveal-key").textContent = "";
+    $("copy").textContent = "Copy";
+    return;
+  }
   const button = event.target.closest("[data-key]");
   if (!button) return;
   const name = button.dataset.key;
@@ -2467,21 +2510,7 @@ $("requests").addEventListener("click", async (event) => {
   shownRequests = "";
   renderRequestTable();
 });
-$("copy").addEventListener("click", async () => {
-  try {
-    await navigator.clipboard.writeText($("reveal-key").textContent);
-    $("copy").textContent = "Copied";
-  } catch {
-    getSelection().selectAllChildren($("reveal-key"));
-    $("copy").textContent = "Press Ctrl+C";
-  }
-});
-$("reveal-close").addEventListener("click", () => {
-  $("reveal").hidden = true;
-  $("reveal-key").textContent = "";
-  $("copy").textContent = "Copy";
-});
-const PAGES = ["overview", "requests", "models", "keys", "providers", "limits", "settings"];
+const PAGES = ["overview", "requests", "models", "providers", "limits", "settings"];
 
 // A Models link such as #/models?tier=C&mode=chat&sort=weight sets the filters.
 function applyModelFilters(query) {
