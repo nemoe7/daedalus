@@ -45,7 +45,8 @@ const state = {
   pools: [], requests: [], requestLimit: REQUESTS_STEP, requestFetched: 0, keys: [], catalog: {},
   settings: null, legendExtra: [],
   requestSearch: "", requestStatus: "all", requestHours: 0, limitSearch: "",
-  live: new Map(), livePaused: false, liveWaiting: new Set(), source: null, env: [],
+  live: new Map(), livePaused: false, liveWaiting: new Set(), liveSeen: new Set(), liveCount: 0,
+  source: null, env: [],
 };
 
 const fileName = (path) => path.split(/[\\/]/).pop();
@@ -707,8 +708,10 @@ function renderLive() {
   if (state.livePaused) return;
   const rows = [...state.live.values()].filter((r) => requestMatches(r, { live: true }))
     .sort((a, b) => b.since - a.since);
+  // The whole group is redrawn on each event, so only a row that the page has not drawn yet
+  // carries the glide: a redraw of a row already on the page stays still.
   $("live").innerHTML = rows.map((r) => `
-    <tr role="row" class="live-row" data-live="${r.id}">
+    <tr role="row" class="live-row${state.liveSeen.has(r.id) ? "" : " arrive"}" data-live="${r.id}">
       ${cell("Time", `<span class="pulse"></span><span class="live-ago">${relative(r.since / 1000)}</span>`, "num muted",
         ` title="${esc(stamp(r.since / 1000))}"`)}
       ${appCell(r)}
@@ -723,6 +726,7 @@ function renderLive() {
       <td role="cell" class="hide-sm num">${mobileLabel("Stream")}<span class="cell-value"><span data-clock="stream"></span></span></td>
       ${fallbackCell(r, "hide-sm hide-md num muted", true)}
     </tr>`).join("");
+  state.liveSeen = new Set(rows.map((r) => r.id));
   tickLive();
 }
 
@@ -835,7 +839,15 @@ function renderRequestTable() {
     || state.requestLimit >= REQUESTS_KEPT;
   const shown = rows.length + live;
   const head = shown === total ? count(total, "request") : `${shown} of ${count(total, "request")}`;
-  $("request-count").textContent = total ? `${head}${live ? ` · ${live} in flight` : ""}` : "";
+  const hint = $("request-count");
+  hint.textContent = total ? `${head}${live ? ` · ${live} in flight` : ""}` : "";
+  // The hint pulses when the stream itself changes, not when a filter rewrites the text.
+  if (live !== state.liveCount) {
+    state.liveCount = live;
+    hint.classList.remove("bump");
+    void hint.offsetWidth;
+    hint.classList.add("bump");
+  }
 }
 
 function renderRequests(rows, empty = "No requests", live = 0) {
@@ -2814,6 +2826,12 @@ function showPage() {
   const page = PAGES.includes(asked) ? asked : PAGES[0];
   document.querySelectorAll("section[data-page]").forEach((section) => {
     section.hidden = section.dataset.page !== page;
+    // The arriving page fades in, and the reflow read restarts the animation on a repeat visit.
+    section.classList.remove("enter");
+    if (section.dataset.page === page) {
+      void section.offsetWidth;
+      section.classList.add("enter");
+    }
   });
   document.querySelectorAll("#nav a").forEach((link) => {
     const on = link.dataset.page === page;

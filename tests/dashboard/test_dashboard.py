@@ -151,7 +151,7 @@ const sandbox = {
   document: {
     hidden: false,
     documentElement: { dataset: {} },
-    getElementById: () => ({ innerHTML: '', addEventListener: () => {}, classList: { toggle: () => {} } }),
+    getElementById: () => ({ innerHTML: '', addEventListener: () => {}, classList: { add: () => {}, remove: () => {}, toggle: () => {} } }),
     querySelector: () => ({ firstChild: { textContent: 'Models' } }),
     querySelectorAll: () => [],
     addEventListener: () => {},
@@ -206,7 +206,7 @@ const nav = {{
 }};
 const byId = new Map();
 const el = (id) => {{
-  if (!byId.has(id)) byId.set(id, {{ innerHTML: '', textContent: '', addEventListener: () => {{}}, classList: {{ toggle: () => {{}} }} }});
+  if (!byId.has(id)) byId.set(id, {{ innerHTML: '', textContent: '', addEventListener: () => {{}}, classList: {{ add: () => {{}}, remove: () => {{}}, toggle: () => {{}} }} }});
   return byId.get(id);
 }};
 const sandbox = {{
@@ -804,7 +804,7 @@ const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{ renderRequests, renderLive, poolTier, state, modelName, poolOf, routingCodes, chainRows }};";
 const nodes = new Map();
 const node = (id) => {{
-  if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', hidden: false, children: [], listeners: {{}}, contains: () => false, addEventListener(type, handler) {{ this.listeners[type] = handler; }}, classList: {{ toggle: () => {{}} }} }});
+  if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', hidden: false, children: [], listeners: {{}}, contains: () => false, addEventListener(type, handler) {{ this.listeners[type] = handler; }}, classList: {{ add: () => {{}}, remove: () => {{}}, toggle: () => {{}} }} }});
   return nodes.get(id);
 }};
 const sandbox = {{
@@ -907,7 +907,7 @@ const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { tickLive, state };";
 const nodes = new Map();
 const node = (id) => {
-  if (!nodes.has(id)) nodes.set(id, { innerHTML: '', children: [], listeners: {}, classList: { toggle: () => {} }, addEventListener(type, handler) { this.listeners[type] = handler; } });
+  if (!nodes.has(id)) nodes.set(id, { innerHTML: '', children: [], listeners: {}, classList: { add: () => {}, remove: () => {}, toggle: () => {} }, addEventListener(type, handler) { this.listeners[type] = handler; } });
   return nodes.get(id);
 };
 const ttft = { textContent: '' };
@@ -1221,7 +1221,7 @@ const node = (id) => {
     shown: false, listeners: {},
     addEventListener(type, handler) { this.listeners[type] = handler; },
     showModal() { this.shown = true; },
-    classList: { toggle: () => {} } });
+    classList: { add: () => {}, remove: () => {}, toggle: () => {} } });
   return nodes.get(id);
 };
 const sandbox = {
@@ -1294,7 +1294,7 @@ const node = (id) => {
     shown: false, listeners: {},
     addEventListener(type, handler) { this.listeners[type] = handler; },
     showModal() { this.shown = true; },
-    classList: { toggle: () => {} } });
+    classList: { add: () => {}, remove: () => {}, toggle: () => {} } });
   return nodes.get(id);
 };
 const sandbox = {
@@ -1340,7 +1340,7 @@ const node = (id) => {
     shown: false, listeners: {},
     addEventListener(type, handler) { this.listeners[type] = handler; },
     showModal() { this.shown = true; },
-    classList: { toggle: () => {} } });
+    classList: { add: () => {}, remove: () => {}, toggle: () => {} } });
   return nodes.get(id);
 };
 const sandbox = {
@@ -1406,7 +1406,7 @@ const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{ renderLimits, state }};";
 const nodes = new Map();
 const node = (id) => {{
-  if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', hidden: false, addEventListener: () => {{}}, classList: {{ toggle: () => {{}} }} }});
+  if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', hidden: false, addEventListener: () => {{}}, classList: {{ add: () => {{}}, remove: () => {{}}, toggle: () => {{}} }} }});
   return nodes.get(id);
 }};
 const sandbox = {{
@@ -1518,7 +1518,7 @@ const node = (id) => {{
       isConnected: true, title: '', type: '',
       addEventListener: (type, fn) => {{ (made.handlers[type] ||= []).push(fn); }},
       remove: () => {{}}, append: () => {{}}, prepend: () => {{}}, after: () => {{}}, setAttribute: () => {{}},
-      classList: {{ toggle: () => {{}} }}, closest: (sel) => (sel === '[data-section]' ? null : made),
+      classList: {{ add: () => {{}}, remove: () => {{}}, toggle: () => {{}} }}, closest: (sel) => (sel === '[data-section]' ? null : made),
       querySelector: () => null, querySelectorAll: () => [] }};
     nodes.set(id, made);
   }}
@@ -2830,7 +2830,7 @@ const nodes = new Map();
 const node = (id) => {
   if (!nodes.has(id)) nodes.set(id, { innerHTML: '', value: '', textContent: '', hidden: false,
     listeners: {}, contains: () => false, addEventListener(type, handler) { this.listeners[type] = handler; },
-    classList: { toggle: () => {} } });
+    classList: { add: () => {}, remove: () => {}, toggle: () => {} } });
   return nodes.get(id);
 };
 const sandbox = {
@@ -2899,7 +2899,7 @@ const nodes = new Map();
 const node = (id) => {
   if (!nodes.has(id)) nodes.set(id, { innerHTML: '', value: '', textContent: '', hidden: false,
     listeners: {}, contains: () => false, addEventListener(type, handler) { this.listeners[type] = handler; },
-    classList: { toggle: () => {} } });
+    classList: { add: () => {}, remove: () => {}, toggle: () => {} } });
   return nodes.get(id);
 };
 const sandbox = {
@@ -3036,7 +3036,7 @@ const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobal
 const pane = { offsetParent: {}, style: {}, getBoundingClientRect: () => ({ top: 128 }) };
 const main = { clientHeight: 851, getBoundingClientRect: () => ({ top: 49 }) };
 const bare = () => ({
-  addEventListener: () => {}, classList: { toggle: () => {} }, style: {}, dataset: {},
+  addEventListener: () => {}, classList: { add: () => {}, remove: () => {}, toggle: () => {} }, style: {}, dataset: {},
   children: [], scrollWidth: 0, clientWidth: 0, scrollLeft: 0, querySelectorAll: () => [],
 });
 const sandbox = {
@@ -3251,6 +3251,46 @@ def test_the_phone_model_cards_carry_the_desktop_columns() -> None:
   assert 'title="Weight"' not in chips, "the weight row carries the weight alone"
   assert ">Tier " in chips and ">Order " in chips, "the ambiguous chips carry labels"
   assert "brain:" in app, "the reasoning chip is a brain"
+
+
+def test_the_page_carries_a_motion_base() -> None:
+  """The page names 1 duration and 1 easing, and 1 block that drops the motion on request."""
+  root = Path(__file__).resolve().parents[2]
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert "--fast:" in css and "--soft:" in css and "--ease:" in css, "the motion tokens"
+  assert "animation: pulse 1s var(--ease)" in css, "the state dot reads the easing"
+  assert "a, button, .snippet, .card, .chip, .pill, tr.request td {" in css, (
+    "the controls and the rows glide between their states"
+  )
+  assert "transition: background-color var(--" in css, "the switch reads the token"
+  block = css.split("@media (prefers-reduced-motion: reduce) {", 1)[1].split("\n}", 1)[
+    0
+  ]
+  for rule in ("transition: none", "animation: none"):
+    assert rule in block, rule
+  assert "@keyframes enter" in css, "the page enter of a tab switch"
+  assert 'classList.add("enter")' in app and 'classList.remove("enter")' in app, (
+    "the shown section replays the enter"
+  )
+
+
+def test_a_live_row_arrives_and_the_stream_count_pulses() -> None:
+  """A new live row glides in, an old one does not replay it, and the count pulses on a change."""
+  root = Path(__file__).resolve().parents[2]
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert "@keyframes arrive" in css and "tr.live-row.arrive {" in css, (
+    "the glide of a new live row"
+  )
+  assert "@keyframes bump" in css and ".hint.bump {" in css, "the pulse of the count"
+  assert "liveSeen" in app and "liveCount" in app, (
+    "the rows already drawn, and the last count"
+  )
+  assert '? "" : " arrive"' in app, "the class only on a new row"
+  assert 'classList.add("bump")' in app and 'classList.remove("bump")' in app, (
+    "the pulse retrigger"
+  )
 
 
 def test_the_phone_keeps_the_numbers_and_the_cards() -> None:

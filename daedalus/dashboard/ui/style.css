@@ -4,6 +4,7 @@
   --accent: #304ffe; --ok: #283593; --warn: #a3386c; --bad: #781f4c; --bar: #e3e8fd; --orange: #ef6c00; --red: #d32f2f;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23616161' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --tier: #212c70; --tag: #5c388c; --field: #f7f7f9; --radius: 12px;
+  --fast: .12s; --soft: .2s; --ease: cubic-bezier(.2, .7, .3, 1);
   --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
   color-scheme: light; scrollbar-color: var(--line) transparent;
 }
@@ -26,7 +27,29 @@ button { font: inherit; cursor: pointer; white-space: nowrap; }
 /* A press shows at once, also on a touch screen without hover. */
 button:not(:disabled):active, .tabs a:active, .filter:active, .add:active, .card.pool:active { opacity: .7; }
 tr.request:active td { background: var(--field); }
-@media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+/* A visitor who asks for less motion keeps a still page: every transition and animation drops,
+   the state dot and the switch of a boolean with them. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition: none !important; animation: none !important; scroll-behavior: auto !important;
+  }
+}
+/* A live row that just arrived glides in, so a stream reads as it grows. Only a new row carries
+   the class: a redraw of the group leaves the rows already on the page still. */
+@keyframes arrive { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+tr.live-row.arrive { animation: arrive var(--soft) var(--ease); }
+/* The count of the stream glows on a change, then settles back to the muted hint. */
+@keyframes bump { from { color: var(--accent); } }
+.hint.bump { animation: bump 2s var(--ease); }
+/* A tab switch fades the arriving page in, so the change of the view reads. */
+@keyframes enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+section[data-page].enter { animation: enter var(--soft) var(--ease); }
+/* A control and a row glide between their states, on the fast duration of the page. The cells of
+   a request row carry the rule too, because the hover background sits on the cell. */
+a, button, .snippet, .card, .chip, .pill, tr.request td {
+  transition: background-color var(--fast) var(--ease), color var(--fast) var(--ease),
+    border-color var(--fast) var(--ease), opacity var(--fast) var(--ease);
+}
 header {
   display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "brand tabs chips";
   column-gap: 32px; padding: 0 32px; border-bottom: 1px solid var(--line); background: var(--panel);
@@ -327,7 +350,7 @@ A chip reads as noise, so the separator stays plain, and the icons keep the text
 tr.live-row td { background: var(--field); }
 .pulse {
   display: inline-block; width: 6px; height: 6px; margin: 0 10px 1px 0; border-radius: 50%;
-  background: var(--accent); animation: pulse 1s ease-in-out infinite alternate;
+  background: var(--accent); animation: pulse 1s var(--ease) infinite alternate;
 }
 @keyframes pulse { from { opacity: 1; } to { opacity: 0.25; } }
 tr.request.has-chain.open td { background: var(--field); }
@@ -481,7 +504,7 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6
   background: var(--field) no-repeat 3px 50%;
   background-image: radial-gradient(circle, var(--muted) 0 9px, transparent 10px);
   background-size: 20px 20px;
-  transition: background-color .15s ease, background-position .15s ease;
+  transition: background-color var(--fast) var(--ease), background-position var(--fast) var(--ease);
 }
 .field input.switch:checked {
   border-color: var(--accent); background-color: var(--accent); background-position: 21px 50%;
