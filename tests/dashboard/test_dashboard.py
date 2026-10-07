@@ -7,6 +7,7 @@ import subprocess
 import tarfile
 import time
 from pathlib import Path
+from xml.etree import ElementTree
 
 import httpx
 import pytest
@@ -2237,6 +2238,32 @@ assert(JSON.stringify(probe.settingsChanges().hooks.sources) === '[]', 'the sour
 node('set-hooks-dir').value = 'mine';
 assert(probe.settingsChanges().hooks.dir === 'mine', 'the folder reaches the payload');
 """,
+  )
+
+
+def test_app_js_capability_chip_icons() -> None:
+  """The Tools and Reasoning chips carry the 2 icons the note picked, in the chip color."""
+  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  block = app[app.index("const CHIP_ICONS = {") : app.index("function phoneChips")]
+  icons = dict(re.findall(r"(\w+): '(<svg.*?</svg>)'", block, re.DOTALL))
+  assert set(icons) == {"tools", "cool", "brain"}, set(icons)
+  terminal, brain = icons["tools"], icons["brain"]
+  assert 'viewBox="0 0 122.88 103.53"' in terminal, "the terminal glyph box"
+  assert "M31.84,38.55" in terminal and "M94.1,79.41" in terminal, (
+    "the terminal glyph paths"
+  )
+  assert 'viewBox="0 0 122.88 115.23"' in brain, "the brain glyph box"
+  assert "M60.89,8.37" in brain, "the brain glyph path"
+  for name, icon in (("terminal", terminal), ("brain", brain)):
+    assert 'width="12"' in icon and 'aria-hidden="true"' in icon, name
+    assert 'fill="currentColor"' in icon, f"the chip color of the {name}"
+    assert "<style" not in icon and "<g" not in icon, f"the plain markup of the {name}"
+    ElementTree.fromstring(icon)
+  assert 'title="Tools">${CHIP_ICONS.tools}' in app, (
+    "the terminal draws in the tools chip"
+  )
+  assert 'title="Reasoning">${CHIP_ICONS.brain}' in app, (
+    "the brain draws in the reasoning chip"
   )
 
 
