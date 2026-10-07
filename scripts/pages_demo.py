@@ -384,6 +384,13 @@ const DEMO_FIXTURES = __FIXTURES__;
   // The tests shrink every wait with `window.DEMO_SCALE`; the shipped page keeps 1. The floor
   // keeps a shrunken wait at the timer resolution, so every wait stays measurable.
   const wait = (ms) => new Promise((done) => setTimeout(done, Math.max(1, ms * (window.DEMO_SCALE || 1))));
+  // A reviewer adds `?slow=800` to the address, and every fixture answer waits that long. The page
+  // then shows the ring of a slow call and the skeleton rows of a first load, which an answer that
+  // lands at once never shows.
+  const SLOW = (() => {
+    const found = /[?&]slow=([0-9]+)/.exec(location.search || "");
+    return found ? Number(found[1]) : 0;
+  })();
   const round = (value) => Math.round(value * 1000) / 1000;
   // A count in the compact form that the server writes: floored to K, M or B.
   const floored = (value) => (value >= 1e9 ? `${Math.floor(value / 1e9)}B`
@@ -455,7 +462,7 @@ const DEMO_FIXTURES = __FIXTURES__;
   DEMO_FIXTURES.status.catalog.built = opened - 600;
   DEMO_FIXTURES.status.catalog.next = opened + 7200;
   const json = (body, status = 200) =>
-    Promise.resolve(new Response(JSON.stringify(body), {
+    (SLOW ? wait(SLOW) : Promise.resolve()).then(() => new Response(JSON.stringify(body), {
       status, headers: { "Content-Type": "application/json" },
     }));
   const slice = (url) => {

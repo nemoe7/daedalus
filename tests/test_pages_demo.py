@@ -475,6 +475,16 @@ def test_the_demo_files_are_the_shipped_provider_files() -> None:
   assert len(fixtures["models"]) > 100, len(fixtures["models"])
 
 
+def test_the_demo_can_slow_its_answers_for_a_reviewer(tmp_path: Path) -> None:
+  """A reviewer sets `?slow=800` to watch the spinner and the skeleton rows of the page."""
+  out = pages_demo.build(tmp_path / "site", "demo.9")
+  script = (out / "demo.js").read_text(encoding="utf-8")
+  assert "const SLOW =" in script and "slow=([0-9]+)" in script, (
+    "the knob reads the address bar"
+  )
+  assert "SLOW ? wait(SLOW) : Promise.resolve()" in script, "every fixture answer waits"
+
+
 def test_the_build_copies_the_page_and_loads_the_demo_first(tmp_path: Path) -> None:
   """`--out` serves the real UI, with the demo script before it."""
   out = pages_demo.build(tmp_path / "site", pages_demo.demo_version())
