@@ -1030,12 +1030,14 @@ function firstDraw(host) {
   DRAWN_SHOWN.add(host);
   host.classList.add("drawn");
 }
-// Restart the arrival on 1 host: a filter pick moves its own table, and the page holds still.
+// Restart the arrival on 1 host: a filter pick or a section pick moves its own block, and the
+// page around it holds still. A host that never arrived keeps its own draw path.
 function replay(host) {
   if (!host) return;
   host.classList.remove("drawn");
   void host.offsetWidth;
   host.classList.add("drawn");
+  DRAWN_SHOWN.add(host);
 }
 function draw(id, markup) {
   const host = $(id);
@@ -1238,6 +1240,8 @@ function openFile(index) {
   showFileError(index);
   renderFiles();
   renderForm();
+  // The picked file arrives its form, so a file change reads on the page.
+  replay($("provider-form"));
 }
 
 // A chip for 1 value. The × button deletes the list item or the map key.
@@ -1603,6 +1607,8 @@ function yamlCard(editor, save, hint) {
 // The pick of a section: 1 button on, 1 card shown, and the phone leaves the list.
 function pickSection(host, key, open = sectionState(host).open) {
   const state_ = sectionState(host);
+  // A phone slides the arriving view in: the pane from the right, and the list back from the left.
+  const moved = state_.open !== open;
   state_.key = key;
   state_.open = open;
   host.dataset.detail = open ? "1" : "0";
@@ -1615,6 +1621,12 @@ function pickSection(host, key, open = sectionState(host).open) {
   for (const card of host.querySelectorAll(".section-pane > .card")) {
     card.hidden = card.dataset.section !== key;
   }
+  if (!moved || !phoneSection()) return;
+  const arriving = host.querySelector(open ? ".section-pane" : ".sections");
+  if (!arriving) return;
+  arriving.classList.remove("slide");
+  void arriving.offsetWidth;
+  arriving.classList.add("slide");
 }
 
 // A phone turns a pick into its own page: the section rides in the hash, so the back gesture returns.
@@ -1622,6 +1634,9 @@ const phoneSection = () => matchMedia("(max-width: 900px)").matches;
 
 function openSection(host, key) {
   pickSection(host, key, true);
+  // The picked card arrives: a section change of Providers or Settings reads on the page.
+  replay([...host.querySelectorAll(".section-pane > .card")]
+    .find((card) => card.dataset.section === key));
   if (!phoneSection()) return;
   const [path] = location.hash.split("?");
   history.pushState({ section: key }, "", `${path}?section=${encodeURIComponent(key)}`);
@@ -2099,9 +2114,10 @@ async function pickProviderSection(key) {
     state.view = view;
     clearWrite("providers");
   }
-  openSection(host, key);
   renderFiles();
   renderForm();
+  // The build comes first: the arrival lands on the form that the page now shows.
+  openSection(host, key);
 }
 
 // The request-level hook points, in the order of `daedalus/providers/hooks.py`.
@@ -2332,6 +2348,7 @@ function showSwitchRows() {
       if (!field) continue;
       field.classList.toggle("off", off);
       field.querySelectorAll("input, select, button").forEach((node) => { node.disabled = off; });
+      if (!off) replay(field);
     }
   }
 }

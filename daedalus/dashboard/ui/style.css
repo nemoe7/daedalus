@@ -41,6 +41,14 @@ tr.live-row.arrive { animation: arrive var(--soft) var(--ease); }
 /* The first data of a card or a table arrives the same way, once, on the class that the shared
    draw path sets. */
 .drawn { animation: arrive var(--soft) var(--ease); }
+/* A phone slides the arriving view in: the section pane from the right, and the list back from the
+   left. The class lands on a pick or a back only, so a render never replays it. */
+@keyframes slide-in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+@keyframes slide-back { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+@media (max-width: 900px) {
+  .section-pane.slide { animation: slide-in var(--soft) var(--ease); }
+  .sections.slide { animation: slide-back var(--soft) var(--ease); }
+}
 /* A call that runs longer than a blink spins a ring at the header right, so a slow answer reads
    as work. The seat keeps its width, so the ring comes and goes without moving the tabs. */
 .spinner {
@@ -292,7 +300,21 @@ a.more:hover { color: var(--accent); }
   max-width: 420px; padding: 0; border: 1px solid var(--line); border-radius: var(--radius);
   background: var(--panel); color: var(--text);
 }
-.modal::backdrop { background: rgb(0 0 0 / 0.45); }
+/* The modal arrives and leaves on the page tokens: the box fades and lifts, the backdrop fades.
+   The discrete properties wait for the transition, so the close is seen too. */
+.modal {
+  opacity: 0; transform: translateY(-6px) scale(.98);
+  transition: opacity var(--soft) var(--ease), transform var(--soft) var(--ease),
+    overlay var(--soft) allow-discrete, display var(--soft) allow-discrete;
+}
+.modal[open] { opacity: 1; transform: none; }
+@starting-style { .modal[open] { opacity: 0; transform: translateY(-6px) scale(.98); } }
+.modal::backdrop {
+  background: rgb(0 0 0 / 0); transition: background-color var(--soft) var(--ease),
+    overlay var(--soft) allow-discrete, display var(--soft) allow-discrete;
+}
+.modal[open]::backdrop { background: rgb(0 0 0 / 0.45); }
+@starting-style { .modal[open]::backdrop { background: rgb(0 0 0 / 0); } }
 .modal form { display: grid; gap: 8px; margin: 0; padding: 20px; }
 .modal h3 { margin: 0; font-size: 15px; font-weight: 600; }
 .modal p { margin: 0; color: var(--muted); font-size: 13px; }
@@ -500,6 +522,11 @@ section[data-page="providers"], section[data-page="settings"] {
 .section-pane > .card { min-width: 0; }
 .section-pane .back { display: none; justify-self: start; }
 .settings h3 { margin-bottom: 8px; }
+/* Every section of a Settings card carries a rule: the title header separates from its rows, and
+   each row from the next, so a long card reads as sections. */
+section[data-page="settings"] .card > h3, .card.provider > h3 {
+  padding-bottom: 8px; border-bottom: 1px solid var(--line); margin-bottom: 0;
+}
 .field {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 10px 0; border-top: 1px solid var(--line);
