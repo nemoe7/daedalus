@@ -460,7 +460,7 @@ def test_narrow_desktop_header_keeps_one_row() -> None:
   assert ".status-card { display: block;" in narrow, "the card takes them"
   assert '"brand chips" "tabs tabs"' not in narrow, "the header keeps one row"
   brand = base.split(".brand {", 1)[1].split("}", 1)[0]
-  assert "padding: 10px 0;" in brand, "the brand keeps vertical room"
+  assert "padding: 6px 0;" in brand, "the brand keeps vertical room"
 
 
 def test_phone_chips_share_one_row() -> None:
