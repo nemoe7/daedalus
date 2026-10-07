@@ -280,3 +280,78 @@ def test_a_run_writes_1_log_line(caplog: pytest.LogCaptureFixture) -> None:
   with caplog.at_level("DEBUG"):
     hooks.run("on-chunk", setup, "p/m", {}, context={})
   assert "on-chunk hook told.py for p/m: edits in place" in caplog.text
+
+
+def test_meta_block() -> None:
+  """The frontmatter block gives the name, the version, the points, the scope and the targets."""
+  path = hooks.CONFIG_DIR / "hooks" / "meta.py"
+  path.parent.mkdir(parents=True, exist_ok=True)
+  path.write_text(
+    "# ---\n"
+    "# name: meta\n"
+    "# version: 1.3.0\n"
+    "# points: [on-chunk, on-answer]\n"
+    "# scope: provider\n"
+    "# targets: [openrouter]\n"
+    "# ---\n"
+    "def on_chunk(chunk, model, context=None):\n  chunk['seen'] = True\n",
+    encoding="utf-8",
+  )
+  assert hooks.meta(path) == {
+    "name": "meta",
+    "version": "1.3.0",
+    "points": ["on-chunk", "on-answer"],
+    "scope": "provider",
+    "targets": ["openrouter"],
+  }
+  assert hooks.meta_problem(path) is None
+
+
+def test_meta_absent_and_defaults() -> None:
+  """A file with no block has no problem, and the loader keeps its file name."""
+  path = hooks.CONFIG_DIR / "hooks" / "plain.py"
+  path.parent.mkdir(parents=True, exist_ok=True)
+  path.write_text(
+    "def on_answer(answer, model):\n  return {'v': 1}\n", encoding="utf-8"
+  )
+  assert hooks.meta(path) is None
+  assert hooks.meta_problem(path) is None
+
+
+def test_meta_problems() -> None:
+  """A bad point, a bad scope, a target-less scope and a new version stop the file."""
+  cases = (
+    ("# ---\n# points: [on-later]\n# ---\n", "on-later"),
+    ("# ---\n# scope: pool\n# ---\n", "pool"),
+    ("# ---\n# scope: model\n# ---\n", "targets"),
+    ('# ---\n# requires: ">=99.0"\n# ---\n', "99.0"),
+    ("# ---\n# version: [1]\n# ---\n", "version"),
+  )
+  for text, part in cases:
+    path = hooks.CONFIG_DIR / "hooks" / "bad.py"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text + "def on_answer(a, m):\n  return {}\n", encoding="utf-8")
+    problem = hooks.meta_problem(path)
+    assert problem and part in problem, (part, problem)
+    assert hooks.meta(path) is None
+
+
+def test_meta_runs_no_code() -> None:
+  """The reader takes the block from the text, so the body runs at no read."""
+  path = hooks.CONFIG_DIR / "hooks" / "danger.py"
+  path.parent.mkdir(parents=True, exist_ok=True)
+  path.write_text(
+    "# ---\n# name: danger\n# version: 1\n# ---\nraise SystemExit('ran')\n",
+    encoding="utf-8",
+  )
+  assert hooks.meta(path) == {"name": "danger", "version": "1"}
+  assert hooks.meta_problem(path) is None
+
+
+def test_requires_compare() -> None:
+  """A requirement takes a comma list of comparisons against the running version."""
+  assert hooks.requires_ok(">=0.1", "0.1.0") is True
+  assert hooks.requires_ok(">=0.2", "0.1.0") is False
+  assert hooks.requires_ok(">=0.1,<1.0", "0.1.0") is True
+  assert hooks.requires_ok("==0.1.0", "0.1.0") is True
+  assert hooks.requires_ok(">=x", "0.1.0") is False
