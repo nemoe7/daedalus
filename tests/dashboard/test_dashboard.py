@@ -476,7 +476,9 @@ def test_requests_stream_column_survives_narrow_desktops() -> None:
   """The Stream column hides on phones only, so a desktop table keeps its stream time."""
   root = Path(__file__).resolve().parent.parent.parent
   html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
-  head = html.split('title="The stream time after the first token"', 1)[0].rsplit("<th", 1)[1]
+  head = html.split('title="The stream time after the first token"', 1)[0].rsplit(
+    "<th", 1
+  )[1]
   assert 'class="hide-sm"' in head, head
   js = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert js.count('cell("Stream", streamCell(r), "hide-sm num")') == 1
