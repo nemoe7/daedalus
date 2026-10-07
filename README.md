@@ -101,7 +101,7 @@ Put `uv run` before each command in the table. After `git pull`, run `uv sync` a
 | --- | --- |
 | `daedalus serve [PORT] [--catalog]` | Starts the router on `0.0.0.0:PORT` (default 3357). `--catalog` rebuilds the model store first. |
 | `daedalus catalog` | Discovers the provider models and rebuilds the model store. |
-| `daedalus dump [all\|catalog\|models]` | Writes the provider catalogs, or every stored model row, to `.daedalus-state/dump`. |
+| `daedalus dump [all\|catalog\|models]` | Writes the provider catalogs, or every stored model row with the tier that claims it, to `.daedalus-state/dump`. |
 | `daedalus hooks update` / `hooks list` / `hooks verify` | Reads the `hooks.sources` repos and writes the files, lists the installed files, or compares them against `config/hooks.lock.json`. |
 
 `daedalus catalog` looks for a live server first. It probes `DAEDALUS_URL`, or
