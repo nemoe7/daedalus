@@ -2,7 +2,7 @@
 
 <!-- markdownlint-disable MD033 -->
 <p align="center"><img src="daedalus/dashboard/ui/logo.svg" alt="daedalus: a D-shaped bow that shoots 3 arrows" width="176"></p>
-<p align="center"><em>“One of them is bound to hit.”</em></p>
+<p align="center"><em>“When used, it causes a wide spread of arrows to rain from the sky.”</em> — <a href="https://terraria.wiki.gg/wiki/Daedalus_Stormbow">Daedalus Stormbow</a></p>
 <!-- markdownlint-enable MD033 -->
 
 daedalus puts your personal API keys behind 1 endpoint and uses a classifier to select a model for each task.
