@@ -1463,7 +1463,7 @@ def test_the_overview_pool_rows_draw_the_marks_of_the_top_model() -> None:
 
 
 def test_requests_time_column_keeps_its_width() -> None:
-  """The time column holds its 19 characters, and the model column takes the free width."""
+  """The time column holds 19 chars, and Model and Served by share the free width."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   desktop = css.split("@media (min-width: 721px) {", 1)[1]
@@ -1473,10 +1473,12 @@ def test_requests_time_column_keeps_its_width() -> None:
   )
   assert hint, "the other columns keep the width of their content"
   free = re.search(
-    r"\.requests tr:not\(\.chain\) > th:nth-child\(4\), \.requests tr:not\(\.chain\) > td:nth-child\(4\) \{\n\s+width: auto; max-width: none;",
+    r"\.requests tr:not\(\.chain\) > th:nth-child\(4\), \.requests tr:not\(\.chain\) > td:nth-child\(4\),\n"
+    r"\s+\.requests tr:not\(\.chain\) > th:nth-child\(5\), \.requests tr:not\(\.chain\) > td:nth-child\(5\) \{\n"
+    r"\s+width: 30%; max-width: none;",
     css,
   )
-  assert free, "the model column takes the free width"
+  assert free, "the model and served by columns share the free width"
   phone = css.split("@media (max-width: 720px) {", 1)[1]
   assert (
     "display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto;"
