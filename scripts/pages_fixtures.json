@@ -4608,11 +4608,12 @@
         "every": 6.0
       },
       "hooks": {
+        "dir": "hooks",
+        "disabled": [],
         "on-chunk": [],
         "on-prompt": [],
         "on-request": [],
-        "remote": [],
-        "remote_hosts": []
+        "sources": []
       },
       "limits": {
         "calls": 3,
@@ -4686,6 +4687,52 @@
       "hooks/or_cheapest_output.py",
       "hooks/owui_auto_reasoning_effort.py",
       "hooks/served_model.py"
+    ],
+    "hook_rows": [
+      {
+        "enabled": true,
+        "name": "example.py",
+        "path": "hooks/example.py",
+        "points": [],
+        "problem": "",
+        "record": {},
+        "scope": "",
+        "targets": [],
+        "version": ""
+      },
+      {
+        "enabled": true,
+        "name": "or_cheapest_output.py",
+        "path": "hooks/or_cheapest_output.py",
+        "points": [],
+        "problem": "",
+        "record": {},
+        "scope": "",
+        "targets": [],
+        "version": ""
+      },
+      {
+        "enabled": true,
+        "name": "owui_auto_reasoning_effort.py",
+        "path": "hooks/owui_auto_reasoning_effort.py",
+        "points": [],
+        "problem": "",
+        "record": {},
+        "scope": "",
+        "targets": [],
+        "version": ""
+      },
+      {
+        "enabled": true,
+        "name": "served_model.py",
+        "path": "hooks/served_model.py",
+        "points": [],
+        "problem": "",
+        "record": {},
+        "scope": "",
+        "targets": [],
+        "version": ""
+      }
     ],
     "path": "config/daedalus.yml",
     "text": "# Router settings. Each key is optional. A missing key uses the built-in default.\n# This file holds the changes from the defaults only. docs/configuration.md lists each key,\n# its default and its use.\n# DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.\n# HEADROOM_URL turns on message compression through a Headroom sidecar.\n# `headroom: false` in a provider block or a model entry turns it off for that scope.\nhooks:\n  # The request-level hook files of the config folder, in list order. An empty list: no hook.\n  # on-request sets the key of the turn. The shipped file applies the Open WebUI try-again rule.\n  on-request: [hooks/owui_auto_reasoning_effort.py]\n  # on-prompt sets the reasoning level of a chat request. The shipped file reads the tier of the\n  # message and steps the level 1 up for a try again, for an Open WebUI client.\n  on-prompt: [hooks/owui_auto_reasoning_effort.py]\n  # on-chunk sees each streamed chunk of a chat request. The shipped file writes the served model\n  # line.\n  on-chunk: [hooks/served_model.py]\n"
