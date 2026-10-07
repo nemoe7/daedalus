@@ -65,6 +65,7 @@ AGENT_KEY_META='agent_key'
 AGENT_KEY_EXPIRY_SECONDS=1200
 AGENT_KEY_EXPIRY_META='agent_key_expired_at'
 AGENT_SEEN_META='agent_seen_at'
+TURN_ENDED_META='turn_ended_at'
 AGENT_KEY_RE=re.compile('[A-Za-z0-9_-]{20,64}\\Z')
 AGENT_HOST_RE=re.compile('https://[A-Za-z0-9.-]+\\Z')
 def now():return datetime.now(timezone.utc).isoformat()
@@ -351,7 +352,7 @@ def unquote_commands(line):
 		char=text[index]
 		if quote:
 			if char=='\\'and quote=='"':index+=2;continue
-			if text.startswith('$(',index)or char=='`':kept.append(' $(')
+			if quote=='"'and(text.startswith('$(',index)or char=='`'):kept.append(' $(')
 			if char==quote:quote=''
 			index+=1;continue
 		if char in("'",'"'):quote=char;index+=1;continue
@@ -382,10 +383,10 @@ def poll_inbox(store,sleeper=None):
 			if listing['pending']:full=store.read();print(cli_json(full),flush=True);store.mark_seen([item['id']for item in full['pending']]);store.mark_reports_agent_seen([item.get('report_id')for item in full['pending']]);return 0
 			open_tasks=[item for item in store.list_tasks()if item['status']=='upcoming'and not item['blocked']]
 			if open_tasks:listing['tasks']=open_tasks;names=', '.join(item['id']for item in open_tasks);print(f"CONTINUE: unblocked task {names} waits. Do not end the turn.",file=sys.stderr,flush=True);print(cli_json(listing),flush=True);return 0
-			if store.skip_poll_requested():store.take_skip_poll();print('SKIP: the owner pressed Skip poll; end the turn without another poll.',file=sys.stderr,flush=True);print(cli_json(listing),flush=True);return 0
+			if store.skip_poll_requested():store.take_skip_poll();store.mark_turn_ended();print('SKIP: the owner pressed Skip poll; end the turn without another poll.',file=sys.stderr,flush=True);print(cli_json(listing),flush=True);return 0
 			if index+1<POLL_MAX_LOOPS:sleeper(POLL_INTERVAL);store.stamp_polling()
 	finally:store.clear_polling()
-	print(cli_json(listing),flush=True);return 1
+	store.mark_turn_ended();print(cli_json(listing),flush=True);return 1
 def parse_state_import(text):
 	try:value=json.loads(text)
 	except json.JSONDecodeError:value=[json.loads(line)for line in text.splitlines()if line.strip()]
@@ -511,7 +512,7 @@ class Store:
 			if tasks is not None:
 				for item in tasks['finished']+tasks['upcoming']:item['updated_at']=clip_stamp(item['updated_at'])
 				tasks['updated_at']=clip_stamp(tasks['updated_at'])
-			return{'notes':notes,'reports':reports,'tasks':tasks,'uploads':uploads,'fetch_jobs':fetch_jobs,'workspace':workspace_usage(),'last_check':clip_stamp(meta.get('last_check')),'polling':self.polling(),'polling_since':clip_stamp(meta.get(POLL_SINCE_META))if self.polling()else None,'skip_poll':clip_stamp(meta.get(SKIP_POLL_META)),'calls_since_message':meta_number(db,POLLS_SINCE_MESSAGE),'agent_key':self.agent_key(),'agent_seen_at':clip_stamp(meta.get(AGENT_SEEN_META))}
+			return{'notes':notes,'reports':reports,'tasks':tasks,'uploads':uploads,'fetch_jobs':fetch_jobs,'workspace':workspace_usage(),'last_check':clip_stamp(meta.get('last_check')),'polling':self.polling(),'polling_since':clip_stamp(meta.get(POLL_SINCE_META))if self.polling()else None,'skip_poll':clip_stamp(meta.get(SKIP_POLL_META)),'calls_since_message':meta_number(db,POLLS_SINCE_MESSAGE),'agent_key':self.agent_key(),'agent_seen_at':clip_stamp(meta.get(AGENT_SEEN_META)),'turn_ended_at':clip_stamp(meta.get(TURN_ENDED_META))}
 	def tasks(self):
 		with closing(self.connect())as db:rows=db.execute(f"SELECT {TASK_COLUMNS} FROM tasks ORDER BY status DESC, position, id").fetchall()
 		records=[task_row(row)for row in rows]
@@ -801,7 +802,10 @@ class Store:
 		return clip_stamp(stamp)
 	def set_meta(self,key,value):
 		with closing(self.connect())as db,db:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(key,str(value)))
-	def touch_agent(self):self.set_meta(AGENT_SEEN_META,now())
+	def touch_agent(self):self.set_meta(AGENT_SEEN_META,now());self.clear_turn_ended()
+	def mark_turn_ended(self):self.set_meta(TURN_ENDED_META,now())
+	def clear_turn_ended(self):
+		with closing(self.connect())as db,db:db.execute('DELETE FROM meta WHERE key = ?',(TURN_ENDED_META,))
 	def set_agent_key(self,key,host=None):self.set_meta(AGENT_KEY_META,json.dumps({'key':key,'host':host,'at':now()},ensure_ascii=False))
 	def notice_expired_key(self):
 		record=self.agent_key()
