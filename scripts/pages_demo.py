@@ -511,6 +511,12 @@ const DEMO_FIXTURES = __FIXTURES__;
   // A session reads like the server sends it: the first 7 characters of the key hash.
   const session = (n) => ((n * 2654435761) % 0xfffffff).toString(16).padStart(7, "0");
   const gap = (min, max) => min + Math.random() * (max - min);
+  // The pace of the live demo: 1 request per wave, a long wait between the waves, and a
+  // slow first token and stream, so a viewer reads each row before the next one lands.
+  const WAVE = 1;
+  const WAVE_MS = [6000, 18000];
+  const TTFT_S = [1.2, 4.5];
+  const STREAM_S = [1.0, 4.0];
   const pick = (rows) => rows[Math.floor(Math.random() * rows.length)];
   // The times of a row in flight, as `Live` keeps them: the request time and the attempt time.
   const CLOCKS = new Map();
@@ -1226,7 +1232,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     USED.set(served, (USED.get(served) || 0) + 1);
     apply(row);
   };
-  // The live stream of a server: the demo sends the same events, in waves of 1 to 3 requests,
+  // The live stream of a server: the demo sends the same events, 1 request per wave,
   // each with its own timings and a random gap before the next wave.
   window.EventSource = class {
     constructor() {
@@ -1261,10 +1267,9 @@ const DEMO_FIXTURES = __FIXTURES__;
       }
       while (!this.closed) {
         const wave = [];
-        const count = 1 + Math.floor(Math.random() * 3);
-        for (let n = 0; n < count; n++) wave.push(this.one(++this.next));
+        for (let n = 0; n < WAVE; n++) wave.push(this.one(++this.next));
         await Promise.all(wave);
-        await wait(gap(1200, 6000));
+        await wait(gap(...WAVE_MS));
       }
     }
     // One captured row, with the fields of the server and the times of the page.
@@ -1285,12 +1290,12 @@ const DEMO_FIXTURES = __FIXTURES__;
         fallbacks: "0", ...ages(id),
       });
       this.send("update", live);
-      await wait(round(gap(0.4, 2.4)) * 1000);
+      await wait(round(gap(...TTFT_S)) * 1000);
       // The first token: TTFT freezes at the wait, and the stream clock counts from 0.
       const frozen = ages(id);
       Object.assign(live, { trying: null, via: served, ttft: frozen.attempt_age, ...frozen });
       this.send("first", live);
-      const streamed = round(gap(0.2, 1.4));
+      const streamed = round(gap(...STREAM_S));
       await wait(streamed * 1000);
       const done = {
         ...row, at: Date.now() / 1000, seconds: round(frozen.attempt_age + streamed),
@@ -1318,12 +1323,12 @@ const DEMO_FIXTURES = __FIXTURES__;
         trying: served, via: null, attempts: [], tokens: null, fallbacks: "0", ...ages(id),
       });
       this.send("update", row);
-      await wait(round(gap(0.4, 2.4)) * 1000);
+      await wait(round(gap(...TTFT_S)) * 1000);
       // The first token: TTFT freezes at the wait, and the stream clock counts from 0.
       const frozen = ages(id);
       Object.assign(row, { trying: null, via: served, ttft: frozen.attempt_age, ...frozen });
       this.send("first", row);
-      const streamed = round(gap(0.2, 1.4));
+      const streamed = round(gap(...STREAM_S));
       await wait(streamed * 1000);
       // The finished row carries the fields of `dashboard.record`: the status code, the text
       // times, and the answer.
