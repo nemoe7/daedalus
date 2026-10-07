@@ -58,7 +58,6 @@
       <a href="#/" data-page="overview">Overview</a>
       <a href="#/requests" data-page="requests">Requests</a>
       <a href="#/models" data-page="models">Models<span class="count" id="nav-models"></span></a>
-      <a href="#/keys" data-page="keys">API keys</a>
       <a href="#/providers" data-page="providers">Providers</a>
       <a href="#/limits" data-page="limits">Limits</a>
       <a href="#/settings" data-page="settings">Settings</a>
@@ -182,27 +181,6 @@
             <th data-sort="weight"><button type="button" class="sort">Weight</button></th>
           </tr></thead>
           <tbody id="models"></tbody>
-        </table>
-      </div>
-    </section>
-    <section data-page="keys" hidden>
-      <div class="panel">
-        <form class="toolbar" id="new-key">
-          <input id="key-name" maxlength="40" placeholder="Name of the new key" required>
-          <button class="primary" type="submit">New key</button>
-          <span class="message bad" id="key-message" role="alert"></span>
-        </form>
-        <div class="reveal" id="reveal" hidden>
-          <span>Copy the key <b id="reveal-name"></b> now. daedalus shows it only this time.</span>
-          <code id="reveal-key"></code>
-          <button class="ghost" id="copy" type="button">Copy</button>
-          <button class="ghost" id="reveal-close" type="button">Done</button>
-        </div>
-        <table class="keys">
-          <thead><tr>
-            <th>Name</th><th>Key</th><th class="hide-sm">Created</th><th>Last used</th><th></th>
-          </tr></thead>
-          <tbody id="keys"></tbody>
         </table>
       </div>
     </section>
