@@ -2554,12 +2554,15 @@ for (const [id, step] of [["nav-left", -1], ["nav-right", 1]]) {
 // leaves on the screen, so the form scrolls on its own under a still header and rail.
 function fitSectionPane() {
   const wide = matchMedia("(min-width: 901px)").matches;
+  const main = document.querySelector("main");
   for (const pane of document.querySelectorAll(".section-pane")) {
-    if (!wide || !pane.offsetParent) {
+    if (!wide || !pane.offsetParent || !main) {
       pane.style.maxHeight = "";
       continue;
     }
-    pane.style.maxHeight = `${Math.max(240, innerHeight - pane.getBoundingClientRect().top - 16)}px`;
+    const pad = parseFloat(getComputedStyle(main).paddingBottom) || 0;
+    const bottom = main.getBoundingClientRect().top + main.clientHeight - pad;
+    pane.style.maxHeight = `${Math.max(240, bottom - pane.getBoundingClientRect().top - 16)}px`;
   }
 }
 

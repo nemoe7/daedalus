@@ -572,7 +572,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
    own scroll, so the form moves without the page. */
 @media (min-width: 901px) {
   header { position: sticky; top: 0; z-index: 4; }
-  .sections { position: sticky; top: 78px; }
+  .sections { position: sticky; top: 0; }
   .section-pane { overflow-y: auto; }
 }
 
