@@ -15,7 +15,7 @@ openrouter:
 
 The `hooks` key works like `order`. A `models` entry has priority. Then comes the provider block in the `{provider}.yml` file of the model, then the provider block in the main file. A model with `hooks: []` uses no hooks.
 
-Each item has 1 hook point and 1 file path. The path starts in the [`config`](../config) folder, and the file must stay in that folder. The file name can be any name.
+Each item has 1 hook point and 1 file path. The path starts in the [`config`](../config) folder, and the file must stay in that folder. The usual path is `hooks/name.py`, under the folder of `hooks.dir`. An installed file joins a point without a line here, from its own `points` block.
 
 ## Contents
 
@@ -24,7 +24,10 @@ Each item has 1 hook point and 1 file path. The path starts in the [`config`](..
 - [Errors](#errors)
 - [Logs](#logs)
 - [Changes](#changes)
-- [Remote hook files](#remote-hook-files)
+- [The hook folder](#the-hook-folder)
+- [Sources and the lock](#sources-and-the-lock)
+- [The CLI](#the-cli)
+- [The Settings page](#the-settings-page)
 - [The shipped hook files](#the-shipped-hook-files)
 - [New hook points](#new-hook-points)
 
@@ -154,16 +157,16 @@ At the dashboard load, for each enabled request hook file.
 
 No arguments. It returns the rows of the code legend of the dashboard, such as `[["rtN", "A repeat picked another model, N times"]]`.
 
-A request-level point, such as `on-request`, takes its files from the `request_hooks` group of [`config/daedalus.yml`](../config/daedalus.yml), because no provider owns the request yet:
+A request-level point, such as `on-request`, takes its files from the `hooks` group of [`config/daedalus.yml`](../config/daedalus.yml), because no provider owns the request yet:
 
 ```yaml
-request_hooks:
+hooks:
   on-request: [hooks/owui_auto_reasoning_effort.py]
   on-prompt: [hooks/owui_auto_reasoning_effort.py]
   on-chunk: [hooks/served_model.py]
 ```
 
-Each key holds a list of files, and they run in list order. 1 path on its own works too. An empty list turns that point off. The `on-init` point has no group of its own: the dashboard reads the `on_init` function of each file in `request_hooks`. The legend card shows those rows below the base rows, and a file with no `on_init` adds no row. A file that sets `value["key"]` counts the requests of that key: a repeat after an answer is a try again.
+Each key holds a list of files, and they run in list order. 1 path on its own works too. An empty list turns that point off. An installed file with a `points` block joins its points without a key here. The `on-init` point has no group of its own: the dashboard reads the `on_init` function of each file of the folder. The legend card shows those rows below the base rows, and a file with no `on_init` adds no row. A file that sets `value["key"]` counts the requests of that key: a repeat after an answer is a try again.
 
 ### The reasoning effort
 
@@ -237,67 +240,104 @@ daedalus reads a file again when its file time changes. A restart is not necessa
 
 Hooks get no database access. An `on-catalog` hook changes only the row. daedalus writes only the known columns of the row, so a hook cannot change a table. A hook that keeps data uses its own file, such as `cheapest_output.json`.
 
-The dashboard edits the `hooks` list of a model or a provider. The Request hooks card of the Settings page names the file of each request-level point. It writes no hook file: only a person with access to the [`config`](../config) folder adds one. A hook runs inside the daedalus process, with all its access.
+The dashboard edits the `hooks` list of a model or a provider. The Hooks card of the Settings page names the folder, the sources and the files that load. Only the update writes a hook file, and it writes to the folder of `hooks.dir`. A hook runs inside the daedalus process, with all its access.
 
-## Remote hook files
+## The hook folder
 
-A small machine, such as a Raspberry Pi, may run daedalus without a checkout of the repository. The
-`remote_hooks` group of [`config/daedalus.yml`](../config/daedalus.yml) brings a hook file from a
-URL, so no copy is manual:
+A hook file sits in the folder that `hooks.dir` names, under [`config`](../config). The default is
+`hooks`, so the shipped files live in [`config/hooks`](../config/hooks). An installed file carries a
+frontmatter block, so the manager knows its version and its scope without a run of the file:
 
-```yaml
-remote_hooks:
-  - url: https://example.com/my_hook.py
-    sha256: 9f2c...   # the sha256 of the file bytes
-    name: my_hook     # optional; the URL file name is the fallback
+```python
+# ---
+# name: served_model
+# version: 1.3.0
+# requires: ">=0.2"
+# points: [on-chunk]
+# scope: global
+# ---
 ```
 
-At each start, daedalus downloads an entry only when the copy in [`config/hooks`](../config/hooks)
-does not already hold the bytes of the pin, and it writes the file there. The
-`request_hooks` group then names the file as usual. The pin lives in the settings file, never in
-the downloaded file, because a file cannot vouch for itself.
+| Key | Value | Use |
+| --- | --- | --- |
+| `name` | text | The file name without `.py` |
+| `version` | text | The version of the file. The update line shows the old value and the new 1 |
+| `requires` | version range | The daedalus version that the file needs. A mismatch warns 1 time and leaves the file out |
+| `points` | list of point names | The functions of the file |
+| `scope` | `global`, `provider` or `model` | Where the hook attaches |
+| `targets` | list of names | The provider names or the model ids of a `provider` or a `model` scope |
 
-A download that fails, or a body that does not match the pin, writes 1 error line and leaves the last
-verified copy in place. So a start with no network keeps its hooks, and daedalus never runs a file
-that the pin did not pass. daedalus refuses a name that holds a path separator, so a URL never
-writes outside the folder. A body that does not read as Python writes 1 warning line, and the file
-stays. The warning does not stop the start.
+A file with no block still runs. The manager takes the name from the file name, applies no scope, and
+writes 1 warning line. The scope rules:
 
-The `remote_hook_hosts` group limits the hosts that a URL may name. An empty list, the default,
-passes every host. A `*.` entry also covers the subdomains:
+1. `global` runs the hook for every model and for every request point.
+2. `provider` runs the hook when the name of the model holds 1 of the targets.
+3. `model` runs the hook for the named model ids alone.
+4. A request point accepts `provider` and `model` too.
+5. `on-http` needs no scope, because the route names the file.
+
+## Sources and the lock
+
+The `hooks.sources` list brings the hook files from GitHub:
 
 ```yaml
-remote_hook_hosts:
-  - example.com
-  - '*.githubusercontent.com'
+hooks:
+  dir: hooks
+  sources:
+    - repo: nemoe7/daedalus-hooks
+      path: hooks
+      ref: main
+      auto_update: false
+  disabled: []
 ```
 
-An entry from another host never goes to the network, and its last copy stays.
+| Key | Value | Use |
+| --- | --- | --- |
+| `repo` | `owner/name` or a GitHub URL | The repository of the hook files |
+| `path` | 1 folder in the repo | The folder that holds the `.py` files. The fetch reads the files directly under it |
+| `ref` | 1 branch, a tag or a commit | `main` by default |
+| `auto_update` | true or false | `true` follows the ref at each start. `false`, the default, fetches a file only when it is missing from the folder |
 
-### Pin and verify
+A start reads a source only when 1 of its files is missing from the folder. An update reads the
+commit of the ref, reads the archive of that commit, and writes each file through a temporary name.
+A failed fetch, an archive that does not read, a block the reader refuses or a write that fails all
+keep the files on disk.
 
-`daedalus hooks pin` prints the sha256 of each hook file and records it in
-[`config/hooks.lock.json`](../config). `daedalus hooks verify` compares the files on disk against
-that lock and against the pins of the settings file, and then loads each file in its own process,
-with a 10 second limit:
+The lock in [`config/hooks.lock.json`](../config) records the sha256, the version, the repo and the
+commit of each installed file. A file that leaves the repo stays on disk with its record. An
+installed file runs at a point when its block names that point, its scope matches the model, and
+`hooks.disabled` does not hold its name.
+
+## The CLI
 
 ```bash
-daedalus hooks pin                     # every file of config/hooks, then the lock file
-daedalus hooks pin --url https://example.com/my_hook.py   # the pin of a URL, with no download
-daedalus hooks verify
+daedalus hooks update                       # every source of hooks.sources
+daedalus hooks update nemoe7/daedalus-hooks # the sources of 1 repo
+daedalus hooks list                         # the file, the version, the scope and the state of each
+daedalus hooks verify                       # the disk against the lock
 ```
 
-`verify` prints 1 line for each file. `ok` passes, `unpinned` names a file with no pin,
-`warn` names a file that does not load, and `bad` names a file that changed, went missing or
-drifted off its settings pin. Only `bad` sets the exit code 1, so a script can gate on it.
+`hooks verify` loads each file in its own process, with a 10 second limit. It prints 1 line for each
+file: `ok`, `unpinned`, `warn` or `bad`. Only `bad` sets the exit code 1, so a script can gate on it.
 
 Inside the Docker image, the `daedalus` command sits on the path of the container, so no shell and
 no install are necessary:
 
 ```bash
-docker compose exec api daedalus hooks verify
-docker exec daedalus-api daedalus hooks pin
+docker compose exec api daedalus hooks update
+docker exec daedalus-api daedalus hooks verify
 ```
+
+## The Settings page
+
+The Hooks card of the Settings page holds the folder, the sources and 1 switch per installed file.
+`Update from the sources` reads the same sources as `daedalus hooks update`, and names the old
+version and the new 1 of each file that moved. `+ Add a repo` opens 1 modal for the repo URL. The
+scan then lists the files of that repo, each with its own switch, so the operator takes some files
+and leaves the rest. The `×` of the source row removes the picked source.
+
+A hook row of a provider card or of a model entry offers the installed files whose scope fits that
+card, and the keyword chips of the Hooks card accept any file of the folder.
 
 ## The shipped hook files
 
@@ -312,4 +352,4 @@ docker exec daedalus-api daedalus hooks pin
 
 ## New hook points
 
-A model point is 1 item in `POINTS` in [`daedalus/providers/hooks.py`](../daedalus/providers/hooks.py), and 1 `hooks.run` call where the value is ready. A request point is also 1 key in the `request_hooks` group of the settings, and 1 `hooks.run_request` call.
+A model point is 1 item in `POINTS` in [`daedalus/providers/hooks.py`](../daedalus/providers/hooks.py), and 1 `hooks.run` call where the value is ready. A request point is also 1 key in the `hooks` group of the settings, and 1 `hooks.run_request` call.

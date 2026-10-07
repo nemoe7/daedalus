@@ -77,10 +77,12 @@ An ADR holds one decision and the reason for it.
 
 ## Hooks
 
-A hook file is an optional plugin under `config/hooks`, and the points live in
-`daedalus/providers/hooks.py`. The base runs with no hook file, and it loads no hook at import
-time. The shipped files are examples, not a dependency.
+A hook file is an optional plugin in the folder that `hooks.dir` names under `config`, and the
+points live in `daedalus/providers/hooks.py`. The base runs with no hook file, and it loads no hook
+at import time. The shipped files are examples, not a dependency.
 
+- Give an installed hook file a `# ---` frontmatter block, and bump its `version:` line on every
+  change to that file. The manager reads the block before any run.
 - Keep the base free of a member that exists only for a hook. A helper, a constant or a config
   key that one hook needs belongs in that hook file.
 - Keep a hook file portable. It uses the documented surface of its point and the public modules
