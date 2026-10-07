@@ -78,13 +78,15 @@ DEFAULTS: dict[str, dict[str, Any]] = {
   # The message compression through Headroom. A block or a model entry turns it off for 1 model.
   "optimization": {"enabled": True, "timeout": 5.0},
   "catalog": {"every": 6.0, "anchor": 6.0},
-  # The request hook files, and the rules for the hook files that come from a URL.
+  # The hook files: the folder, the GitHub sources, the names that stay out, and the request
+  # hook lists.
   "hooks": {
+    "dir": "hooks",
+    "sources": [],
+    "disabled": [],
     "on-request": [],
     "on-prompt": [],
     "on-chunk": [],
-    "remote": [],
-    "remote_hosts": [],
   },
   # The names and the view that suit the owner, not the router.
   "personalization": {
@@ -128,10 +130,15 @@ LOOP_LIMITS = {
 TIMEOUT_MAX = 86400.0
 THEMES = ("system", "light", "dark")
 TIME_FORMATS = ("24h", "12h")
-# A host of the allowlist: letters, digits and dashes, in labels of a name. No port, no path.
-HOST = re.compile(
-  r"[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*"
-)
+# A folder under `config` that holds the hook files, and the name of 1 hook file.
+DIR_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,39}")
+HOOK_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}")
+# The keys of 1 hook source, and the keys that left the hooks group with the group that replaces them.
+SOURCE_KEYS = ("repo", "path", "ref", "auto_update")
+GONE_KEYS = {
+  ("hooks", "remote"): "hooks.sources",
+  ("hooks", "remote_hosts"): "hooks.sources",
+}
 POOL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,39}")
 
 
@@ -165,10 +172,12 @@ def check(group: str, key: str, value: Any) -> Any:
   if group == "catalog":
     return schedule_value(name, key, value)
   if group == "hooks":
-    if key == "remote":
-      return remote_list(name, value)
-    if key == "remote_hosts":
-      return host_list(name, value)
+    if key == "dir":
+      return dir_name(name, value)
+    if key == "sources":
+      return source_list(name, value)
+    if key == "disabled":
+      return name_list(name, value)
     return hook_paths(name, value)
   if group == "personalization":
     if key in POOL_KEYS:
@@ -223,52 +232,62 @@ def keyword_list(name: str, value: Any) -> list[str]:
   return [item.strip() for item in value]
 
 
-def remote_list(name: str, value: Any) -> list[dict[str, str]]:
-  """The remote hook files: each entry carries a URL, the sha256 of its bytes, and an optional name."""
+def dir_name(name: str, value: Any) -> str:
+  """The folder under `config` that holds the hook files: 1 plain folder name."""
+  if not isinstance(value, str) or not DIR_NAME.fullmatch(value):
+    raise SettingsError(
+      f"{name} must be 1 folder name of letters, digits, dots, dashes or underscores"
+    )
+  return value
+
+
+def source_list(name: str, value: Any) -> list[dict[str, Any]]:
+  """The hook sources: the GitHub repo, the folder, the ref and the auto_update flag of each."""
   if value in (None, ""):
     return []
   if not isinstance(value, list):
-    raise SettingsError(f"{name} must be a list of remote hook files")
-  found: list[dict[str, str]] = []
-  seen: set[str] = set()
+    raise SettingsError(f"{name} must be a list of sources")
+  from daedalus.config import remote
+
+  found: list[dict[str, Any]] = []
   for item in value:
     if not isinstance(item, dict):
-      raise SettingsError(f"{name}: each item needs a url and a sha256")
+      raise SettingsError(f"{name}: each item needs a repo and a path")
     for key in item:
-      if key not in ("url", "sha256", "name"):
+      if key not in SOURCE_KEYS:
         raise SettingsError(f"{name}: unknown key {key!r}")
-    url = item.get("url")
-    pin = item.get("sha256")
-    if not isinstance(url, str) or not url.startswith(("http://", "https://")):
-      raise SettingsError(f"{name}: url must start with http:// or https://")
-    if not isinstance(pin, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", pin):
-      raise SettingsError(f"{name}: sha256 must be 64 hex characters")
-    name_value = item.get("name")
-    if name_value is not None and not isinstance(name_value, str):
-      raise SettingsError(f"{name}: name must be a file name")
-    entry = {"url": url, "sha256": pin.lower()}
-    if isinstance(name_value, str) and name_value.strip():
-      entry["name"] = name_value.strip()
-      if entry["name"] in seen:
-        raise SettingsError(f"{name}: each file needs its own name")
-      seen.add(entry["name"])
-    found.append(entry)
+    repo = remote.repo_name(item.get("repo"))
+    if repo is None:
+      raise SettingsError(f"{name}: repo must be owner/name or a GitHub URL")
+    folder = item.get("path", "")
+    if folder is not None and not isinstance(folder, str):
+      raise SettingsError(f"{name}: path must be 1 folder name")
+    ref = item.get("ref", "main")
+    if not isinstance(ref, str) or not ref.strip():
+      raise SettingsError(f"{name}: ref must be 1 branch, tag or commit")
+    auto = item.get("auto_update", False)
+    if not isinstance(auto, bool):
+      raise SettingsError(f"{name}: auto_update must be true or false")
+    found.append(
+      {
+        "repo": repo,
+        "path": str(folder or "").strip().strip("/"),
+        "ref": ref.strip(),
+        "auto_update": auto,
+      }
+    )
   return found
 
 
-def host_list(name: str, value: Any) -> list[str]:
-  """The hosts of the `remote_hook_hosts` allowlist: 1 host each, or `*.` and a host."""
+def name_list(name: str, value: Any) -> list[str]:
+  """The names of the hooks that stay on disk and do not load."""
+  if value in (None, ""):
+    return []
   if not isinstance(value, list) or not all(
-    isinstance(item, str) and item.strip() for item in value
+    isinstance(item, str) and HOOK_NAME.fullmatch(item) for item in value
   ):
-    raise SettingsError(f"{name} must be a list of hosts")
-  found: list[str] = []
-  for item in value:
-    host = item.strip().lower().rstrip(".")
-    if not HOST.fullmatch(host.removeprefix("*.")):
-      raise SettingsError(f"{name}: {item!r} is not a host")
-    found.append(host)
-  return found
+    raise SettingsError(f"{name} must be a list of hook names")
+  return list(value)
 
 
 def hook_path(name: str, value: Any) -> str:
@@ -334,6 +353,8 @@ def parse(text: str, target: Path | str = DEFAULT_PATH) -> dict[str, dict[str, A
       raise SettingsError(f"{group} must hold keys")
     for key, value in values.items():
       if key not in DEFAULTS[group]:
+        if (group, key) in GONE_KEYS:
+          raise SettingsError(f"{group}.{key} is gone. Use {GONE_KEYS[(group, key)]}")
         raise SettingsError(f"unknown key {group}.{key} in {target}")
       merged[group][key] = check(group, key, value)
   pool_values = [merged["personalization"][key] for key in POOL_KEYS]
@@ -370,6 +391,8 @@ def update_text(text: str, changes: dict[str, dict[str, Any]]) -> str:
       raise SettingsError(f"unknown group {group!r}")
     for key in values:
       if key not in DEFAULTS[group]:
+        if (group, key) in GONE_KEYS:
+          raise SettingsError(f"{group}.{key} is gone. Use {GONE_KEYS[(group, key)]}")
         raise SettingsError(f"unknown key {group}.{key}")
   writer = round_trip()
   try:

@@ -1370,13 +1370,15 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
       for key in settings.POOL_KEYS
     }
   )
-  hooks = values["hooks"]
-  REQUEST_HOOKS = {key: value for key, value in hooks.items() if key.startswith("on-")}
+  hook_values = values["hooks"]
+  REQUEST_HOOKS = {
+    key: value for key, value in hook_values.items() if key.startswith("on-")
+  }
+  hooks.set_installed(hook_values["dir"], hook_values["disabled"])
   router.set_headroom(values["optimization"]["enabled"])
   router.set_threshold(values["routing"]["threshold"])
-  remote.sync(hooks["remote"], hosts=hooks["remote_hosts"])
-  # Warn only: a file that does not compile stays in place, and the start goes on.
-  remote.compile_check(hooks["remote"])
+  # A start takes a missing file of each source; an update takes the commit of the ref.
+  remote.update(hook_values["sources"], only_missing=True)
   limits, affinity, balance = (
     values["limits"],
     values["affinity"],

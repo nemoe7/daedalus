@@ -64,6 +64,8 @@ SETTINGS = (
     for name in ("IDLE_SECONDS", "CALLS", "REPEATS", "SHORTEST", "LONGEST")
   ),
   (headroom, "TIMEOUT_SECONDS"),
+  (hooks, "DIR"),
+  (hooks, "DISABLED"),
   *((schedule, name) for name in ("EVERY", "ANCHOR", "BUSY", "PENDING")),
   (router, "RENAMED"),
   (router, "HEADROOM"),
