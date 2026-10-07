@@ -72,13 +72,15 @@ async def test_generic_keys(client: httpx.AsyncClient) -> None:
     "audio": "graphos",
     "images": "photos",
   }
-  assert settings.DEFAULTS["pools"] == defaults
+  assert {
+    key: settings.DEFAULTS["personalization"][key] for key in defaults
+  } == defaults
   try:
     api.apply_settings(settings.parse(""))
     assert router.pool_name("daedalus/sophos") == "daedalus/sophos"
     ids = [m["id"] for m in (await client.get("/v1/models")).json()["data"]]
     assert "daedalus/sophos" in ids and "daedalus/tier-a" not in ids, ids
-    api.apply_settings(settings.parse("pools:\n  tier-a: best\n"))
+    api.apply_settings(settings.parse("personalization:\n  tier-a: best\n"))
     assert router.pool_name("daedalus/sophos") == "daedalus/best"
     ids = [m["id"] for m in (await client.get("/v1/models")).json()["data"]]
     assert "daedalus/best" in ids and "daedalus/sophos" not in ids, ids

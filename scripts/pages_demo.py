@@ -689,11 +689,11 @@ const DEMO_FIXTURES = __FIXTURES__;
         if (!(key in DEFAULTS[group])) return `unknown key ${group}.${key} in ${SETTINGS_PATH}`;
       }
     }
-    const pools = { ...DEFAULTS.pools, ...(value.pools || {}) };
+    const pools = { ...DEFAULTS.personalization, ...(value.personalization || {}) };
     if (new Set(Object.values(pools)).size !== Object.keys(pools).length)
-      return "each pool in pools must have its own name";
-    const loops = { ...DEFAULTS.loops, ...(value.loops || {}) };
-    if (loops.shortest > loops.longest) return "loops.shortest must be at most loops.longest";
+      return "each pool in personalization must have its own name";
+    const limits = { ...DEFAULTS.limits, ...(value.limits || {}) };
+    if (limits.shortest > limits.longest) return "limits.shortest must be at most limits.longest";
     return "";
   };
   // The provider form sends parsed blocks. The files tab reads the text of a file.
@@ -1057,8 +1057,8 @@ const DEMO_FIXTURES = __FIXTURES__;
   };
   // The pools of the server: the settings name each tier, and auto holds every chat model.
   const pools = () => {
-    const file = DEMO_FIXTURES.settings.file.pools || {};
-    const names = { ...DEMO_FIXTURES.settings.defaults.pools, ...file };
+    const file = DEMO_FIXTURES.settings.file.personalization || {};
+    const names = { ...DEMO_FIXTURES.settings.defaults.personalization, ...file };
     const out = [];
     const members = (rows) => rows.map((row) => ({
       cooldown: row.cooldown, id: row.id, tier: row.tier, weight: row.weight,

@@ -34,7 +34,7 @@ def no_remote(
 ) -> None:
   """`settings.load` without the file, with the given remote entries."""
   monkeypatch.setattr(
-    settings, "load", lambda path=None: {"remote_hooks": entries or []}
+    settings, "load", lambda path=None: {"hooks": {"remote": entries or []}}
   )
 
 
