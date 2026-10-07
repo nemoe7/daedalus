@@ -723,8 +723,6 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
     min-height: 22px; line-height: 20px;
   }
   .phone-chips .chip svg { display: block; }
-  /* A no of a state chip reads muted, as the desktop column reads it. */
-  .phone-chips .chip.mute { opacity: 0.45; }
   .models tr > td:last-child { grid-column: 1 / -1; }
   .hide-sm { display: none; }
   /* The 3 small cells take the width of their text, and the weight cell takes the rest. So the
