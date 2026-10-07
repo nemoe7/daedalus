@@ -467,8 +467,8 @@ def test_the_demo_carries_the_version_of_the_build(tmp_path: Path) -> None:
     del os.environ["DEMO_VERSION"]
 
 
-def test_the_live_demo_keeps_a_slow_pace() -> None:
-  """The demo sends 1 request per wave, with a slow first token and a slow stream."""
+def test_the_live_demo_converts_a_live_row_promptly() -> None:
+  """A live row finishes within about 2 s, so the table gains it without a long wait."""
   found = {
     name: (float(low), float(high))
     for name, low, high in re.findall(
@@ -480,8 +480,8 @@ def test_the_live_demo_keeps_a_slow_pace() -> None:
   assert "const WAVE = 1;" in pages_demo.DEMO_JS, "1 request per wave"
   assert all(low < high for low, high in found.values()), found
   assert found["WAVE_MS"][0] >= 5000, found
-  assert found["TTFT_S"][0] >= 1.0, found
-  assert found["STREAM_S"][0] >= 1.0, found
+  assert found["TTFT_S"][1] <= 1.0, found
+  assert found["STREAM_S"][1] <= 1.5, found
 
 
 def test_the_demo_answers_the_page_without_a_server(tmp_path: Path) -> None:
