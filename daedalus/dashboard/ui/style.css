@@ -324,6 +324,8 @@ td.end { text-align: right; }
   section[data-page="requests"] .requests-bar { flex-wrap: nowrap; }
   section[data-page="requests"] .requests-bar input[type="search"] { flex: 1 1 8rem; min-width: 0; }
   section[data-page="requests"] .requests-bar .hint { white-space: nowrap; }
+  /* The Clear filters button holds its width when it is off, so showing it never pushes the hint. */
+  section[data-page="requests"] .requests-bar #request-clear.off { visibility: hidden; }
   section[data-page="requests"] .legend { align-self: flex-start; }
   /* The time column holds 19 characters, so it keeps its own width, and the model column takes the
      free width of the row, as in the Models table. The phone layout ignores these hints. */

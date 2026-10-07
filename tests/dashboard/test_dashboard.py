@@ -3212,9 +3212,13 @@ def test_the_limits_filter_rides_in_the_hash() -> None:
     and app.count("renderLimitRows(shownLimits());") == 4
   )
   assert (
-    '$("request-clear").hidden = !state.requestSearch && state.requestStatus === "all" && !state.requestHours;'
-    in app
+    '$("request-clear").classList.toggle("off",\n    !state.requestSearch'
+    ' && state.requestStatus === "all" && !state.requestHours);' in app
   ), "the Clear filters button shows only with a live filter"
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert "#request-clear.off { visibility: hidden; }" in css, (
+    "the button holds its seat, so the hint never moves"
+  )
 
 
 def test_the_requests_filters_ride_in_the_hash() -> None:
