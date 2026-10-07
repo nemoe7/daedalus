@@ -1065,7 +1065,7 @@ async function refreshKeys() {
 }
 
 // The block keys that the form edits. The YAML view edits the other keys.
-const FORM_KEYS = ["api_key", "account_id", "client_keys", "api_base", "api_type", "discovery_url", "discovery_match", "exclude", "tier", "models"];
+const FORM_KEYS = ["api_key", "account_id", "client_keys", "api_base", "api_type", "discovery_url", "discovery_match", "exclude", "tier", "models", "hooks"];
 // The pattern fields take the same 4 shapes, so 1 hint serves them all.
 const PATTERN_HINT = "Exact: the whole name. Glob: a * or a ?. Regex: a leading ^. A leading ! refuses.";
 // The keys that a model override sets but the provider level does not.
@@ -1254,6 +1254,200 @@ function closeHookPicker() {
   const [group, key] = openHookPicker.split(".");
   openHookPicker = null;
   renderHookList(group, key);
+}
+
+// The installed hooks whose scope fits a card: a global hook, then 1 that names the provider or the
+// model of the card. `kind` is "provider" or "model", and `name` is the provider or the model id.
+function hookFit(row, kind, name) {
+  const scope = row.scope || "global";
+  const targets = row.targets || [];
+  if (scope === "global") return true;
+  if (scope === "provider") return targets.includes(kind === "provider" ? name : String(name).split("/")[0]);
+  if (scope === "model") return kind === "model" && targets.includes(name);
+  return false;
+}
+
+function hookChoices(kind, name) {
+  return (state.settings?.hook_rows ?? [])
+    .filter((row) => !row.problem && hookFit(row, kind, name))
+    .map((row) => row.path);
+}
+
+// The form of a provider or a model, where each hook row picks a point and 1 file that fits the
+// card. The rows write through the path of the form, and the same chip flow as the Settings page.
+const HOOK_DEFAULT = "on-upstream";
+let openFormHook = null;
+
+const hookFormRow = (entry, path, choices) => {
+  const list = entry && typeof entry === "object" ? entry : {};
+  const point = Object.keys(list)[0] ?? HOOK_DEFAULT;
+  const value = String(list[point] ?? "");
+  const at = JSON.stringify(path);
+  const open = openFormHook === at;
+  const menu = open ? `<div class="menu" role="listbox" aria-label="Hook file">${[""].concat(choices)
+    .map((name) => `<button type="button" role="option" aria-selected="${name === value}"
+      data-form-hook-choice='${esc(JSON.stringify([...path, name]))}'
+      >${name ? hookName(name) : "No file"}</button>`).join("")}</div>` : "";
+  return `<span class="pill hook"><select data-form-hook-point='${esc(at)}' aria-label="Hook point">${
+    HOOK_POINTS.map(([key, label]) => `<option value="${key}"${key === point ? " selected" : ""}>${esc(label)}</option>`).join("")
+    }</select><button type="button" class="pick" data-form-hook-pick='${esc(at)}'
+    aria-haspopup="listbox" aria-expanded="${open}" title="Pick a hook file"
+    >${value ? hookName(value) : "No file"}</button><button type="button" title="Delete"
+    data-form-hook-drop='${esc(at)}'>&times;</button>${menu}</span>`;
+};
+
+// The hook rows of a provider block or of a model override, with the installed hooks that fit.
+function hookFormRows(values, path, kind, name) {
+  const choices = hookChoices(kind, name);
+  const rows = (Array.isArray(values) ? values : [])
+    .map((entry, index) => hookFormRow(entry, [...path, index], choices)).join("")
+    || '<em class="none">No hook file</em>';
+  return `<div class="pills">${rows}<button type="button" class="add"
+    data-form-hook-add='${esc(JSON.stringify([path, kind, name]))}'>+ Add file</button></div>`;
+}
+
+// The list of the form at a hook path, created when it is missing. The path of a row ends with the
+// index, so the parent list arrives from 1 extra step.
+const formHookList = (path) => parentOf([...path, 0], []);
+
+// The label of a source: the repo, then the folder and the ref that differ from the usual 1s.
+const sourceLabel = (entry) => `${entry.repo || ""}${entry.path ? `/${entry.path}` : ""}${entry.ref && entry.ref !== "main" ? `@${entry.ref}` : ""}`;
+
+// The parts of a source from the typed text: owner/name, and the ref and the folder of a /tree URL.
+function sourceParts(value) {
+  const tree = String(value).match(/github\.com\/([^/]+\/[^/]+)\/tree\/([^/]+)\/?(.*)$/);
+  if (tree) return { repo: tree[1].replace(/\.git$/, ""), ref: tree[2], path: tree[3].replace(/\/$/, "") };
+  const plain = String(value).match(/github\.com\/([^/]+)\/([^/?#]+?)(?:\.git)?\/?$/);
+  if (plain) return { repo: `${plain[1]}/${plain[2]}`, ref: "main", path: "hooks" };
+  return { repo: String(value).trim().replace(/^\/+|\/+$/g, ""), ref: "main", path: "hooks" };
+}
+
+const hookVersion = (record) => record?.version || "-";
+
+// The note under the sources. The update fills it with the old and the new version of each file.
+function hooksNote(text) {
+  const note = $("hooks-note");
+  if (note) note.textContent = text;
+}
+
+function updateNote(answer) {
+  const moved = (answer.hooks || []).filter((hook) => hook.moved);
+  if (!moved.length) return "No file moved.";
+  return `Moved ${moved.map((hook) => `${hook.name}: ${hookVersion(hook.before)} to ${hookVersion(hook.after)}`).join(", ")}.`;
+}
+
+// The manager of the Hooks card: the folder, the sources, the files that load and the update.
+function hooksManager() {
+  const rows = state.settings.hook_rows || [];
+  const sources = listValue("hooks", "sources");
+  const disabled = listValue("hooks", "disabled");
+  const at = Math.min(state.hooksSource ?? 0, Math.max(0, sources.length - 1));
+  const options = sources.length
+    ? sources.map((entry, index) => `<option value="${index}"${index === at ? " selected" : ""}>${esc(sourceLabel(entry))}</option>`).join("")
+    : '<option value="">No source</option>';
+  const list = rows.map((row) => {
+    const record = row.record || {};
+    const source = record.repo ? `${record.repo}@${(record.commit || "").slice(0, 7)}` : "";
+    return `<tr><td role="cell" class="name"><span class="cell-value">${esc(row.name)}</span></td>
+      <td role="cell"><span class="cell-value">${esc(hookVersion(row))}</span></td>
+      <td role="cell"><span class="cell-value">${esc(row.scope || "global")}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
+      <td role="cell" class="hide-sm"><span class="cell-value">${row.problem ? `<span class="bad">${esc(row.problem)}</span>` : esc(source)}</span></td>
+      <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
+        ${disabled.includes(row.name) ? "" : "checked"} aria-label="Load ${esc(row.name)}"></td></tr>`;
+  }).join("") || '<tr><td role="cell" colspan="5"><em class="none">No hook file</em></td></tr>';
+  const scan = state.hooksScan;
+  const panel = scan ? `<div class="pills" id="hooks-scan">
+      <span class="sub">${esc(sourceLabel(scan))} at ${esc((scan.commit || "").slice(0, 7))}</span>${scan.files
+    .map((file) => `<label class="pill"><input type="checkbox" data-hook-take="${esc(file.name)}"
+      ${scan.take[file.name] ? "checked" : ""}>${esc(file.name)}${file.version ? ` ${esc(file.version)}` : ""}</label>`).join("")}
+      <button type="button" class="primary" data-hook-take-all>Take the picked files</button></div>` : "";
+  return `<div class="field stack info">${labelSpan("Installed hooks", "The files of the hook folder. The switch leaves a file on disk and out of the run.")}
+      <table class="keys"><thead><tr><th>File</th><th>Version</th><th>Scope</th><th class="hide-sm">Source</th><th>Load</th></tr></thead>
+      <tbody>${list}</tbody></table>
+      <button type="button" class="ghost" data-hooks-update>Update from the sources</button></div>
+    <div class="field stack info">${labelSpan("Folder", "The folder under config that holds the hook files.")}
+      <span class="input"><i class="prefix">config/</i><input type="text" id="set-hooks-dir" data-value="Folder"
+        readonly spellcheck="false" value="${esc(fileValue("hooks", "dir") ?? "")}"
+        placeholder="${esc(state.settings.defaults.hooks.dir)}"></span></div>
+    <div class="field stack info">${labelSpan("Sources", "Each source names a GitHub repo, a folder in it and a ref.")}
+      <div class="pills"><select id="hook-source" data-hook-source aria-label="Source">${options}</select>
+        <button type="button" class="add" data-hook-source-add>+ Add a repo</button>
+        <button type="button" class="ghost" data-hook-source-drop title="Delete the source">&times;</button></div>${panel}
+      <div class="sub" id="hooks-note" role="status"></div></div>`;
+}
+
+async function addHookSource() {
+  const typed = await ask("Add a source", "The GitHub repo of the hooks. A /tree URL also names the ref and the folder.",
+    "Scan", false, "owner/name or a GitHub URL");
+  if (!typed) return;
+  const parts = sourceParts($("modal-input").value.trim());
+  try {
+    const found = await call("hooks/scan", { method: "POST", body: JSON.stringify(parts) });
+    const installed = new Map((state.settings.hook_rows || []).map((row) => [row.name, row.version]));
+    state.hooksScan = {
+      ...found,
+      take: Object.fromEntries(found.files.map((file) => [file.name, installed.get(file.name) !== file.version])),
+    };
+    renderSettings();
+    hooksNote(`${found.files.length} file(s) in ${sourceLabel(found)}.`);
+  } catch (error) {
+    if (error instanceof LoggedOut) return showLogin("The session ended. Log in to add the source again.");
+    showWrite("settings", error.message, true);
+  }
+}
+
+async function takeHooks() {
+  const scan = state.hooksScan;
+  if (!scan) return;
+  const source = { repo: scan.repo, path: scan.path, ref: scan.ref, auto_update: false };
+  const sources = [...listValue("hooks", "sources")];
+  if (!sources.some((entry) => entry.repo === source.repo && entry.path === source.path && entry.ref === source.ref)) {
+    sources.push(source);
+  }
+  setListValue("hooks", "sources", sources);
+  const take = scan.files.map((file) => file.name).filter((name) => scan.take[name]);
+  state.hooksScan = null;
+  try {
+    await call("settings", { method: "PUT", body: JSON.stringify({ changes: settingsChanges() }) });
+    const answer = await call("hooks/update", { method: "POST", body: JSON.stringify({ source, take }) });
+    await loadSettings();
+    hooksNote(updateNote(answer));
+  } catch (error) {
+    if (error instanceof LoggedOut) return showLogin("The session ended. Log in and take the files again.");
+    showWrite("settings", error.message, true);
+  }
+}
+
+async function runHooksUpdate() {
+  hooksNote("Update");
+  try {
+    const answer = await call("hooks/update", { method: "POST" });
+    await loadSettings();
+    hooksNote(updateNote(answer));
+  } catch (error) {
+    if (error instanceof LoggedOut) return showLogin("The session ended. Log in to update again.");
+    hooksNote(error.message);
+  }
+}
+
+function dropHookSource() {
+  const sources = [...listValue("hooks", "sources")];
+  if (!sources.length) return;
+  sources.splice(Math.min(state.hooksSource ?? 0, sources.length - 1), 1);
+  setListValue("hooks", "sources", sources);
+  state.hooksSource = 0;
+  renderSettings();
+  renderSettingsSave();
+  saveSettings();
+}
+
+function toggleHook(name, on) {
+  const disabled = new Set(listValue("hooks", "disabled"));
+  if (on) disabled.delete(name);
+  else disabled.add(name);
+  setListValue("hooks", "disabled", [...disabled]);
+  renderSettingsSave();
+  saveSettings();
 }
 
 function renderSettingList(group, key) {
@@ -1476,13 +1670,19 @@ function providerCard(name, block) {
   const tiers = TIERS.map((tier) => `<div class="tier-row"><span class="tier">${tier.slice(-1)}</span>
     ${listField(tier, block.tier?.[tier], [...path, "tier", tier])}</div>`).join("");
   const models = block.models && typeof block.models === "object" ? block.models : {};
-  const overrides = Object.entries(models).map(([pattern, values]) => `<div class="override">
+  const overrides = Object.entries(models).map(([pattern, values]) => {
+    // The hooks of the override ride in their own rows, so the value pills show the other keys.
+    const rest = values && typeof values === "object" && !Array.isArray(values) ? { ...values } : values;
+    if (rest && typeof rest === "object" && !Array.isArray(rest)) delete rest.hooks;
+    return `<div class="override">
       <input class="text" type="text" spellcheck="false" value="${esc(pattern)}" aria-label="Model pattern" title="${esc(PATTERN_HINT)}"
         data-pattern='${esc(JSON.stringify([...path, "models"]))}' data-key="${esc(pattern)}">
-      <div class="pills">${mapPills(values, [...path, "models", pattern], "override", ": ")}</div>
+      <div class="pills">${mapPills(rest, [...path, "models", pattern], "override", ": ")}</div>
+      ${hookFormRows(values?.hooks, [...path, "models", pattern, "hooks"], "model", pattern)}
       <button type="button" class="ghost" title="Delete the pattern"
         data-drop='${esc(JSON.stringify([...path, "models", pattern]))}'>&times;</button>
-    </div>`).join("");
+    </div>`;
+  }).join("");
   const others = Object.keys(block).filter((key) => !FORM_KEYS.includes(key) && key !== "_file");
   const values = others.map((key) => pill(`${key}: ${shown(block[key])}`, path, key)).join("") + adder(path, "column", "+ key");
   const accountField = name === "cloudflare" ? text("account_id", "Account ID", "The Cloudflare account of the URL templates") : "";
@@ -1498,6 +1698,7 @@ function providerCard(name, block) {
     ${field("Exclude", `Model patterns that never route. ${PATTERN_HINT}`, listField("exclude", block.exclude, [...path, "exclude"]))}
     ${fold("Tiers", `Model patterns for each tier. ${PATTERN_HINT}`, tiers)}
     ${fold("Model overrides", `A pattern and the catalog values that it sets. ${PATTERN_HINT}`, `${overrides}<div class="pills">${adder([...path, "models"], "pattern", "+ Pattern")}</div>`)}
+    ${fold("Hooks", "The hook files of this provider, for each point. The installed files that fit the provider come first.", hookFormRows(block.hooks, [name, "hooks"], "provider", name))}
     ${fold("Provider values", "Catalog values for each model of the provider. A model override has priority.", `<div class="pills">${values}</div>`)}
   </div>`;
 }
@@ -2021,7 +2222,7 @@ function renderSettings() {
           min="${MINIMA[`${group}.${key}`] ?? 0}" id="${id}" value="${value ?? ""}"
           step="${DECIMALS.has(`${group}.${key}`) ? "any" : "1"}" ${MAXIMA[`${group}.${key}`] ? `max="${MAXIMA[`${group}.${key}`]}"` : ""}
           placeholder="${fallback ?? ""}"><i>${esc(unit)}</i></span></label>`;
-    }).join("")}</div>`;
+    }).join("")}${group === "hooks" ? hooksManager() : ""}</div>`;
   // The section list: the rail names every group, and the pane holds its card.
   const groups = SETTINGS.filter(([group]) => group !== "headroom" || state.settings.headroom_available);
   const items = groups.map(([group, title]) => [group, title]).concat([["keys", "API keys"], ["yaml", "YAML"]]);
@@ -2105,6 +2306,13 @@ function settingsChanges() {
       if (value !== before) (changes[group] ||= {})[key] = value;
     }
   }
+  // The hook manager sends its own rows: the folder, the sources and the names that stay off.
+  const dir = document.getElementById("set-hooks-dir");
+  if (dir && dir.value.trim() && dir.value.trim() !== setting("hooks", "dir")) (changes.hooks ||= {}).dir = dir.value.trim();
+  const sources = listValue("hooks", "sources");
+  if (JSON.stringify(sources) !== JSON.stringify(settingList("hooks", "sources"))) (changes.hooks ||= {}).sources = sources;
+  const disabled = listValue("hooks", "disabled");
+  if (JSON.stringify(disabled) !== JSON.stringify(settingList("hooks", "disabled"))) (changes.hooks ||= {}).disabled = disabled;
   return changes;
 }
 
@@ -2736,8 +2944,52 @@ async function addClientKey(button) {
 $("provider-form").addEventListener("input", (event) => {
   if (event.target.dataset.set) setText(event.target);
 });
+$("provider-form").addEventListener("click", (event) => {
+  const add = event.target.closest("[data-form-hook-add]");
+  if (add) {
+    const [path] = JSON.parse(add.dataset.formHookAdd);
+    formHookList(path).push({ [HOOK_DEFAULT]: "" });
+    renderCard(path[0]);
+    return saveForm();
+  }
+  const drop = event.target.closest("[data-form-hook-drop]");
+  if (drop) {
+    const parts = JSON.parse(drop.dataset.formHookDrop);
+    const index = parts.pop();
+    formHookList(parts).splice(index, 1);
+    renderCard(parts[0]);
+    return saveForm();
+  }
+  const choice = event.target.closest("[data-form-hook-choice]");
+  if (choice) {
+    const parts = JSON.parse(choice.dataset.formHookChoice);
+    const file = parts.pop();
+    const index = parts.pop();
+    const list = formHookList(parts);
+    const entry = list[index] && typeof list[index] === "object" ? list[index] : {};
+    list[index] = { [Object.keys(entry)[0] ?? HOOK_DEFAULT]: file };
+    openFormHook = null;
+    renderCard(parts[0]);
+    return saveForm();
+  }
+  const pick = event.target.closest("[data-form-hook-pick]");
+  if (pick) {
+    const at = pick.dataset.formHookPick;
+    openFormHook = openFormHook === at ? null : at;
+    renderCard(JSON.parse(at)[0]);
+  }
+});
 $("provider-form").addEventListener("change", (event) => {
-  if (event.target.dataset.pattern) renamePattern(event.target);
+  if (event.target.dataset.pattern) return renamePattern(event.target);
+  if (event.target.dataset.formHookPoint) {
+    const parts = JSON.parse(event.target.dataset.formHookPoint);
+    const index = parts.pop();
+    const list = formHookList(parts);
+    const entry = list[index] && typeof list[index] === "object" ? list[index] : {};
+    list[index] = { [event.target.value]: String(Object.values(entry)[0] ?? "") };
+    renderCard(parts[0]);
+    return saveForm();
+  }
 });
 $("provider-form").addEventListener("keydown", (event) => {
   if (event.key === "Enter" && event.target.dataset.pattern) event.target.blur();
@@ -2769,6 +3021,11 @@ $("settings").addEventListener("click", async (event) => {
   const section = event.target.closest(".sections button[data-section]");
   if (section) return pickSettingsSection(section.dataset.section);
   if (event.target.closest("[data-back]")) return closeSection($("settings"));
+  // The manager: the modal of a source, the delete of 1, the update and the take of a scan.
+  if (event.target.closest("[data-hook-source-add]")) return addHookSource();
+  if (event.target.closest("[data-hook-source-drop]")) return dropHookSource();
+  if (event.target.closest("[data-hooks-update]")) return runHooksUpdate();
+  if (event.target.closest("[data-hook-take-all]")) return takeHooks();
   // A hook chip: the pick opens the file list, and a choice lands in the row at once.
   const choice = event.target.closest("[data-hook-choice]");
   if (choice) {
@@ -2824,8 +3081,18 @@ $("settings").addEventListener("click", async (event) => {
   }
 });
 $("settings").addEventListener("change", (event) => {
-  // A switch and a pick list hold 1 valid value, so the change writes it at once.
   const input = event.target;
+  // The manager writes at once too: the source pick stays in the page, and the 2 boxes save.
+  if (input.dataset.hookSource !== undefined) {
+    state.hooksSource = Number(input.value) || 0;
+    return;
+  }
+  if (input.dataset.hookToggle) return toggleHook(input.dataset.hookToggle, input.checked);
+  if (input.dataset.hookTake) {
+    state.hooksScan.take[input.dataset.hookTake] = input.checked;
+    return;
+  }
+  // A switch and a pick list hold 1 valid value, so the change writes it at once.
   if (input.type !== "checkbox" && input.tagName !== "SELECT") return;
   state.writeAnchor = anchorOf(input);
   saveSettings();

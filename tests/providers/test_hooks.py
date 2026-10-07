@@ -476,6 +476,7 @@ def test_rows_report_the_folder() -> None:
     found = {row["name"]: row for row in hooks.rows()}
     assert found["on.py"] == {
       "name": "on.py",
+      "path": "rows/on.py",
       "version": "2.0",
       "scope": "provider",
       "targets": ["p"],

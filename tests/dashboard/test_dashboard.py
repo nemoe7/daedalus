@@ -2137,6 +2137,137 @@ def _tar() -> bytes:
   return body.getvalue()
 
 
+def test_app_js_hooks_section() -> None:
+  """The Settings page holds the folder, the sources and the update of the hook files."""
+  script = TestClient(api.app).get("/ui/app.js")
+  assert script.status_code == 200
+  for piece in (
+    'id="set-hooks-dir"',
+    "data-hook-source-add",
+    "data-hook-source-drop",
+    "data-hook-source",
+    "data-hook-toggle",
+    "data-hooks-update",
+    "data-hook-take",
+    "data-hook-take-all",
+    'ask("Add a source"',
+    "hooks/scan",
+    'listValue("hooks", "sources")',
+    'listValue("hooks", "disabled")',
+    'fileValue("hooks", "dir")',
+    "hook_rows",
+    'setting("hooks", "dir")',
+  ):
+    assert piece in script.text, piece
+
+
+def test_app_js_hooks_manager_renders() -> None:
+  """The Hooks card lists the installed files, the folder and the sources, and its rows save."""
+  payload = json.dumps(
+    {
+      "path": "config/daedalus.yml",
+      "headroom_available": False,
+      "text": "",
+      "hook_files": ["hooks/one.py"],
+      "hook_rows": [
+        {
+          "name": "one.py",
+          "path": "hooks/one.py",
+          "version": "1.2.0",
+          "scope": "provider",
+          "targets": ["openrouter"],
+          "points": ["on-answer"],
+          "enabled": True,
+          "problem": "",
+          "record": {
+            "sha256": "d" * 64,
+            "version": "1.2.0",
+            "repo": "owner/name",
+            "commit": "c" * 40,
+          },
+        },
+        {
+          "name": "bad.py",
+          "path": "hooks/bad.py",
+          "version": "",
+          "scope": "",
+          "targets": [],
+          "points": [],
+          "enabled": False,
+          "problem": "unknown point 'on-later'",
+          "record": {},
+        },
+      ],
+      "defaults": settings.DEFAULTS,
+      "file": {
+        "hooks": {
+          "dir": "hooks",
+          "sources": [
+            {
+              "repo": "owner/name",
+              "path": "hooks",
+              "ref": "main",
+              "auto_update": False,
+            }
+          ],
+          "disabled": ["bad.py"],
+        }
+      },
+    }
+  )
+  run_app_js(
+    "state, renderSettings, settingsChanges, setListValue",
+    f"""
+probe.state.settings = {payload};
+probe.renderSettings();
+const html = node('settings').innerHTML;
+assert(html.includes('id="set-hooks-dir"'), 'the folder field');
+assert(html.includes('value="hooks"'), 'the folder shows the saved value');
+assert(html.includes('id="hook-source"') && html.includes('>owner/name/hooks<'), 'the sources show the saved repo');
+assert(html.includes('data-hook-source-add') && html.includes('data-hook-source-drop') && html.includes('data-hooks-update'), 'the source controls');
+assert(html.includes('data-hook-toggle="one.py"') && html.includes('data-hook-toggle="bad.py"'), '1 switch per file');
+assert(html.includes('>1.2.0<') && html.includes('provider: openrouter'), 'the version and the scope of a file');
+assert(html.includes('owner/name@ccccccc'), 'the source of an installed file');
+assert(html.includes('unknown point'), 'a bad block shows its problem');
+assert(!html.includes('data-hook-take'), 'no scan before a repo is picked');
+probe.setListValue('hooks', 'disabled', []);
+assert(JSON.stringify(probe.settingsChanges().hooks.disabled) === '[]', 'the off names reach the payload');
+probe.setListValue('hooks', 'sources', []);
+assert(JSON.stringify(probe.settingsChanges().hooks.sources) === '[]', 'the sources reach the payload');
+node('set-hooks-dir').value = 'mine';
+assert(probe.settingsChanges().hooks.dir === 'mine', 'the folder reaches the payload');
+""",
+  )
+
+
+def test_app_js_hook_fit() -> None:
+  """A hook fits a card when its scope names the provider or the model of that card."""
+  code = _app_js_vm(
+    """
+const rows = [
+  { name: 'any.py', scope: 'global', targets: [] },
+  { name: 'or.py', scope: 'provider', targets: ['openrouter'] },
+  { name: 'gpt.py', scope: 'model', targets: ['gpt-4o'] },
+  { name: 'bad.py', scope: 'global', targets: [], problem: 'unknown point' },
+];
+assert.strictEqual(sandbox.hookFit(rows[0], 'provider', 'groq'), true);
+assert.strictEqual(sandbox.hookFit(rows[1], 'provider', 'openrouter'), true);
+assert.strictEqual(sandbox.hookFit(rows[1], 'provider', 'groq'), false);
+assert.strictEqual(sandbox.hookFit(rows[1], 'model', 'openrouter/gpt-4o'), true);
+assert.strictEqual(sandbox.hookFit(rows[1], 'model', 'groq/llama'), false);
+assert.strictEqual(sandbox.hookFit(rows[2], 'model', 'gpt-4o'), true);
+assert.strictEqual(sandbox.hookFit(rows[2], 'model', 'gpt-4o-mini'), false);
+assert.strictEqual(sandbox.hookFit(rows[2], 'provider', 'openai'), false);
+assert.strictEqual(sandbox.hookFit({}, 'provider', 'groq'), true, 'no scope is global');
+const parts = (value) => JSON.stringify(sandbox.sourceParts(value));
+assert.strictEqual(parts('https://github.com/owner/name/tree/dev/hooks'), '{"repo":"owner/name","ref":"dev","path":"hooks"}');
+assert.strictEqual(parts('owner/name'), '{"repo":"owner/name","ref":"main","path":"hooks"}');
+assert.strictEqual(parts('https://github.com/owner/name'), '{"repo":"owner/name","ref":"main","path":"hooks"}');
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_hook_rows_and_update(
   client: TestClient, state_folder: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -2154,6 +2285,7 @@ def test_hook_rows_and_update(
   }
   assert rows["one.py"] == {
     "name": "one.py",
+    "path": "hooks/one.py",
     "version": "1.2.0",
     "scope": "provider",
     "targets": ["p"],

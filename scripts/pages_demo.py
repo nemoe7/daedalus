@@ -1068,7 +1068,35 @@ const DEMO_FIXTURES = __FIXTURES__;
     if ((path === "files" && method !== "GET") || (path === "providers" && method === "PUT"))
       return bad("The demo serves the shipped provider files read-only.", 403);
     if (path === "settings" && method === "PUT") return settings_saved(init);
+    // The demo fetch names the demo repo, and the take holds the picked files in the page memory.
+    if (path === "hooks/scan" && method === "POST") {
+      const asked = body_of(init);
+      return json({
+        repo: word(asked.repo) || DEMO_HOOKS.repo,
+        path: word(asked.path) || "hooks",
+        ref: word(asked.ref) || "main",
+        commit: DEMO_HOOKS.commit,
+        files: DEMO_HOOKS.files,
+      });
+    }
+    if (path === "hooks/update" && method === "POST") return json(DEMO_HOOKS.answer);
     return null;
+  };
+  // The hook manager of the demo: a scan names 2 files, and an update reports the version move.
+  const DEMO_HOOKS = {
+    repo: "nemoe7/daedalus-hooks",
+    commit: "3f9c1ab4d2e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9",
+    files: [
+      { name: "served_model.py", version: "1.3.0", scope: "global", targets: [], points: ["on-chunk"], problem: "" },
+      { name: "owui_auto_reasoning_effort.py", version: "1.1.0", scope: "model", targets: ["gpt-5"], points: ["on-prompt"], problem: "" },
+    ],
+    answer: {
+      moved: ["served_model.py"],
+      hooks: [
+        { name: "served_model.py", moved: true, before: { version: "1.2.0" }, after: { version: "1.3.0" } },
+        { name: "owui_auto_reasoning_effort.py", moved: false, before: { version: "1.1.0" }, after: { version: "1.1.0" } },
+      ],
+    },
   };
   const MARKER = "ui/api/";
   const real = window.fetch.bind(window);
