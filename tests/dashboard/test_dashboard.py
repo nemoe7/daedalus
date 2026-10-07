@@ -1516,6 +1516,48 @@ def test_each_model_filter_pick_moves_the_rows_only() -> None:
   assert "renderModels();" not in toolbar, "each pick goes through pickRows"
 
 
+def test_the_motion_reaches_the_modal_the_sections_and_the_switches() -> None:
+  """The modal, a section change, a file change and a switch carry the page motion."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert ".modal[open] { opacity: 1; transform: none; }" in css, "the modal arrives"
+  assert "@starting-style { .modal[open] {" in css, "and the same way on the open"
+  assert (
+    "transition: opacity var(--soft) var(--ease), transform var(--soft) var(--ease),"
+    in css
+  )
+  assert ".modal[open]::backdrop { background: rgb(0 0 0 / 0.45); }" in css, (
+    "the backdrop fades in"
+  )
+  assert 'replay([...host.querySelectorAll(".section-pane > .card")]' in app, (
+    "the picked section card arrives"
+  )
+  assert 'replay($("provider-form"));' in app, "a file change arrives its form"
+  assert "if (!off) replay(field);" in app, "the rows of a switch arrive"
+  assert (
+    ".section-pane.slide { animation: slide-in var(--soft) var(--ease); }" in css
+  ), "the phone slides the pane in"
+  assert ".sections.slide { animation: slide-back var(--soft) var(--ease); }" in css, (
+    "and the list back"
+  )
+  assert "@keyframes slide-in" in css and "@keyframes slide-back" in css
+
+
+def test_the_settings_sections_carry_a_rule() -> None:
+  """Each section of a Settings card separates from the next, the title header included."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert 'section[data-page="settings"] .card > h3, .card.provider > h3 {' in css, (
+    "the title header carries a rule too"
+  )
+  assert (
+    "padding-bottom: 8px; border-bottom: 1px solid var(--line); margin-bottom: 0;"
+    in css
+  )
+  assert ".field:first-of-type { border-top: 0; }" in css, "the first row keeps 1 rule"
+
+
 def test_the_requests_bar_keeps_its_line_on_a_filter_pick() -> None:
   """A filter pick holds the toolbar: the count hint never drops to a second row."""
   root = Path(__file__).resolve().parent.parent.parent
@@ -1811,7 +1853,10 @@ for (const id of rows) {{
   const made = node(id);
   made.off = new Set();
   made.controls = [{{ disabled: false }}, {{ disabled: false }}];
-  made.classList = {{ toggle: (name, on) => (on ? made.off.add(name) : made.off.delete(name)) }};
+  made.added = new Set();
+  made.classList = {{ add: (name) => made.added.add(name),
+    remove: (name) => made.added.delete(name),
+    toggle: (name, on) => (on ? made.off.add(name) : made.off.delete(name)) }};
   made.querySelectorAll = () => made.controls;
 }}
 const off = (id) => node(id).off.has('off');
