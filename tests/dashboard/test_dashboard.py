@@ -449,6 +449,20 @@ def test_phone_model_head_keeps_a_tap_area() -> None:
   )
 
 
+def test_narrow_desktop_header_keeps_one_row() -> None:
+  """Under 1320 px the status chips move to the Overview card, and the brand keeps room."""
+  css = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
+  ).read_text(encoding="utf-8")
+  base, rest = css.split("@media (max-width: 1320px) {", 1)
+  narrow = rest.split("\n}", 1)[0]
+  assert "#status { display: none; }" in narrow, "the chips leave the header"
+  assert ".status-card { display: block;" in narrow, "the card takes them"
+  assert '"brand chips" "tabs tabs"' not in narrow, "the header keeps one row"
+  brand = base.split(".brand {", 1)[1].split("}", 1)[0]
+  assert "padding: 10px 0;" in brand, "the brand keeps vertical room"
+
+
 def test_phone_chips_share_one_row() -> None:
   """The modality and capability chips of a card ride one row, at one size."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")

@@ -31,7 +31,7 @@ header {
   display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "brand tabs chips";
   column-gap: 32px; padding: 0 32px; border-bottom: 1px solid var(--line); background: var(--panel);
 }
-.brand { grid-area: brand; align-self: center; display: flex; align-items: center; gap: 8px; font-weight: 650; font-size: 18px; letter-spacing: .2px; }
+.brand { grid-area: brand; align-self: center; display: flex; align-items: center; gap: 8px; padding: 10px 0; font-weight: 650; font-size: 18px; letter-spacing: .2px; }
 .brand span { color: var(--accent); }
 .brand small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; letter-spacing: 0; font-family: var(--mono); }
 .tabs { grid-area: tabs; display: flex; gap: 24px; overflow-x: auto; scrollbar-width: none; }
@@ -608,8 +608,18 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .section-pane .back .chev { font-size: 24px; line-height: 1; vertical-align: -3px; }
 }
 @media (max-width: 1320px) {
-  header { grid-template-columns: auto 1fr; grid-template-areas: "brand chips" "tabs tabs"; }
-  .tabs a { min-height: 44px; }
+  /* A narrow desktop keeps 1 header row: the status chips move to the Overview card, as on a
+     phone, and the tabs scroll when they do not fit. */
+  #status { display: none; }
+  .status-card { display: block; padding: 12px 14px; margin-bottom: 16px; }
+  .status-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .status-health { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+  .status-rows { margin-top: 5px; }
+  .status-card .line b { color: var(--text); font-weight: 600; }
+  button.line {
+    width: 100%; border: 0; border-top: 1px solid var(--line); background: none;
+    color: inherit; font: inherit; text-align: left; cursor: pointer;
+  }
 }
 @media (max-width: 720px) {
   header, #app > main { padding-left: 16px; padding-right: 16px; }
@@ -617,22 +627,11 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   #app > main { padding-top: 16px; }
   /* The header keeps the brand and Log out. The status chips move to the card below. */
   header { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; }
-  .brand { padding-top: 10px; }
-  #status { display: none; }
   .chips .ghost { min-height: 44px; }
   /* The phone card: a health row, then 1 line for each value. It fills the width, with no chip row.
      The 4 numbers of the strip stay above it, in 2 rows of 2, so the health line never leaves the page. */
   .kpis { grid-template-columns: 1fr 1fr; gap: 10px 14px; padding: 12px 14px; }
   .kpi b { font-size: 18px; }
-  .status-card { display: block; padding: 12px 14px; margin-bottom: 16px; }
-  .status-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .status-health { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
-  .status-rows { margin-top: 5px; }
-  button.line {
-    width: 100%; border: 0; border-top: 1px solid var(--line); background: none;
-    color: inherit; font: inherit; text-align: left; cursor: pointer;
-  }
-  .status-card .line b { color: var(--text); font-weight: 600; }
   .editbar { gap: 8px; padding: 8px 10px; }
   .editbar .primary, .editbar .ghost { padding: 5px 12px; }
   /* A phone keeps every control at the 44px target size. */
