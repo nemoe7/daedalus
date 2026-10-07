@@ -200,8 +200,9 @@ The shipped `routing.escalation`:
 | `hooks.on-request` | `[hooks/owui_auto_reasoning_effort.py]` | The request hook files of the [`config`](../config) folder, in list order. An empty list: no hook. See [Hooks](hooks.md). |
 | `hooks.on-prompt` | `[hooks/owui_auto_reasoning_effort.py]` | The prompt hook files of the [`config`](../config) folder, called 1 time before the first attempt of a chat request. The call needs a prompt and a reasoning model in the chain. The value sets the reasoning effort of the request. See [Hooks](hooks.md). |
 | `hooks.on-chunk` | `[hooks/served_model.py]` | The stream chunk hook files of the [`config`](../config) folder, called on each streamed chunk of a chat request, in list order. An empty list: no hook. See [Hooks](hooks.md). |
-| `hooks.remote` | `[]` | The hook files that come from a URL, each with the `sha256` of its bytes and an optional `name`. `daedalus hooks pin` writes the pin of a URL. See [Hooks](hooks.md#remote-hook-files). |
-| `hooks.remote_hosts` | `[]` | The hosts a `hooks.remote` URL may name, 1 host per entry. A `*.` entry also covers the subdomains. Empty: every host passes. |
+| `hooks.dir` | `hooks` | The folder under [`config`](../config) that holds the hook files: 1 plain folder name. See [Hooks](hooks.md#the-hook-folder). |
+| `hooks.sources` | `[]` | The GitHub sources of the hook files. Each entry names a `repo`, a `path`, a `ref` and `auto_update`. See [Hooks](hooks.md#sources-and-the-lock). |
+| `hooks.disabled` | `[]` | The names of the installed hook files that stay on disk and do not run. The Settings page holds 1 switch per file. |
 
 ### Pools
 
