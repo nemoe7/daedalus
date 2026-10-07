@@ -343,16 +343,17 @@ def test_the_shipped_hook_floors_a_model_that_requires_reasoning() -> None:
     }
   }
   model = "kilo/liquid/lfm-2.5-2.6b:free"
-  # A TIER-D read is `none`, but a model that requires reasoning floors to `low`.
+  # A TIER-D read is `none`, but a model that requires reasoning floors one step up.
+  # The kilo list is `none, minimal, low, medium, high, xhigh, max`, so the floor is `minimal`.
   value: dict = {}
   module.on_prompt(value, prompt="thanks", app="OWUI", model=model, config=config)
-  assert value["reasoning_effort"] == "low", value
-  # A try again that would read `none` also floors to `low`.
+  assert value["reasoning_effort"] == "minimal", value
+  # A try again that would read `none` also floors to `minimal`.
   value = {}
   module.on_prompt(
     value, prompt="thanks", app="OWUI", retry=1, level=None, model=model, config=config
   )
-  assert value["reasoning_effort"] == "low", value
+  assert value["reasoning_effort"] == "minimal", value
   # A model with no `reasoning: required` keeps the plain read, so `none` stays.
   value = {}
   module.on_prompt(

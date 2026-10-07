@@ -380,7 +380,20 @@ def test_the_efforts_key_follows_the_block_hierarchy() -> None:
   assert router.efforts(config, "mistral/m") == ["none", "high"], (
     "a coded default per provider"
   )
-  assert router.efforts(config, "openrouter/x") == ["none", "low", "medium", "high"]
+  assert router.efforts(config, "openrouter/x") == [
+    "none",
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max",
+  ]
+  assert router.efforts(config, "z-ai/glm-4.7-flash") == ["none", "high"], (
+    "thinking on or off"
+  )
+  assert router.efforts(config, "cloudflare/@cf/x") == ["none"], "no effort parameter"
+  assert router.efforts(config, "unknown/x") == ["none", "low", "medium", "high"]
 
 
 def test_the_effort_ladder_caps_at_five_and_at_the_list() -> None:
