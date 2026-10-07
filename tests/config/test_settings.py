@@ -459,7 +459,7 @@ def test_hooks_remote_is_gone() -> None:
 
 def test_apply_wires_the_hook_settings(monkeypatch: pytest.MonkeyPatch) -> None:
   """A save takes the hook folder, the disabled names and the sources of a start."""
-  seen: list[tuple[list[dict[str, object]], bool]] = []
+  seen: list[tuple[list[dict[str, object]], bool, Path | None]] = []
 
   def record(
     entries: object,
@@ -467,7 +467,7 @@ def test_apply_wires_the_hook_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     lock_path: Path | None = None,
     only_missing: bool = False,
   ) -> list[str]:
-    seen.append((list(entries), only_missing))  # type: ignore[arg-type]
+    seen.append((list(entries), only_missing, folder))  # type: ignore[arg-type]
     return []
 
   monkeypatch.setattr(api.remote, "update", record)
@@ -479,7 +479,11 @@ def test_apply_wires_the_hook_settings(monkeypatch: pytest.MonkeyPatch) -> None:
   try:
     assert hooks.DIR == "mine" and hooks.DISABLED == {"one.py"}
     assert seen == [
-      ([{"repo": "owner/name", "path": "", "ref": "main", "auto_update": False}], True)
+      (
+        [{"repo": "owner/name", "path": "", "ref": "main", "auto_update": False}],
+        True,
+        hooks.CONFIG_DIR / "mine",
+      )
     ]
   finally:
     api.apply_settings(settings.parse(""))

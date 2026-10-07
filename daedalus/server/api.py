@@ -1377,8 +1377,8 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   hooks.set_installed(hook_values["dir"], hook_values["disabled"])
   router.set_headroom(values["optimization"]["enabled"])
   router.set_threshold(values["routing"]["threshold"])
-  # A start takes a missing file of each source; an update takes the commit of the ref.
-  remote.update(hook_values["sources"], only_missing=True)
+  # A start takes a missing file of each source. An update takes the commit of the ref.
+  remote.update(hook_values["sources"], hooks.folder(), only_missing=True)
   limits, affinity, balance = (
     values["limits"],
     values["affinity"],
