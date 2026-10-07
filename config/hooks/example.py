@@ -1,3 +1,6 @@
+# ---
+# version: 1.0.0
+# ---
 """An example daedalus hook file. It changes nothing.
 
 Copy it, and name the copy in the hooks list of a model, provider or file:

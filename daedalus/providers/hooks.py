@@ -221,27 +221,40 @@ def enabled(path: Path) -> bool:
   return path.name not in DISABLED and path.stem not in DISABLED
 
 
-def rows() -> list[dict[str, Any]]:
-  """1 row per hook file of the folder: the name, the frontmatter, the state and the problem."""
+def rows(named: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+  """1 row per hook file: the state, the frontmatter and the points that the settings name it at.
+
+  `named` is the request-hook group of the settings. Its points land in `runs`, less the points
+  that the block of the file does not admit. Without `named`, the row holds no `runs` key.
+  """
   found: list[dict[str, Any]] = []
+  wired: dict[str, list[str]] = {}
+  for point, value in (named or {}).items():
+    for item in value if isinstance(value, list) else [value]:
+      name = str(item).split("/")[-1]
+      if name.endswith(".py") and point not in wired.setdefault(name, []):
+        wired[name].append(point)
   for path in sorted(folder().glob("*.py")):
     info, problem = meta_check(head_text(path))
-    found.append(
-      {
-        "name": path.name,
-        "path": f"{DIR}/{path.name}",
-        "version": str(info.get("version", "")) if info else "",
-        "scope": str(info.get("scope", "global")) if info else "",
-        "targets": [str(target) for target in info["targets"]]
-        if info and info.get("targets")
-        else [],
-        "points": [str(point) for point in info["points"]]
-        if info and info.get("points")
-        else [],
-        "enabled": enabled(path) and problem is None,
-        "problem": problem or "",
-      }
+    gate = (
+      [str(point) for point in info["points"]] if info and info.get("points") else []
     )
+    row = {
+      "name": path.name,
+      "path": f"{DIR}/{path.name}",
+      "version": str(info.get("version", "")) if info else "",
+      "scope": str(info.get("scope", "global")) if info else "",
+      "targets": [str(target) for target in info["targets"]]
+      if info and info.get("targets")
+      else [],
+      "points": gate,
+      "enabled": enabled(path) and problem is None,
+      "problem": problem or "",
+    }
+    if named is not None:
+      ripe = [point for point in wired.get(path.name, []) if not gate or point in gate]
+      row["runs"] = sorted(ripe, key=list(POINTS).index)
+    found.append(row)
   return found
 
 

@@ -1281,50 +1281,8 @@ const settingPill = (group, key, value, index) => `<span class="pill">${esc(valu
 const settingAdder = (group, key) => `<button type="button" class="add"
   data-setting-add='${esc(JSON.stringify([group, key]))}'>+ Add</button>`;
 
-// The file list of a hook chip, drawn in the page. The closed chip holds the name alone, and the
-// list opens under it. The system menu of a select stays light on a light device, so a chip in the
-// dark theme would hold a light list with the light text of the page in it.
-let openHookPicker = null;
-
-// The name of a hook file as the chip shows it, without the folder of the config.
+// The name of a hook file as a chip shows it, without the folder of the config.
 const hookName = (name) => esc(name.replace(/^hooks\//, ""));
-
-// A hook row: 1 file of the hooks folder, as a keyword chip that opens the files of that folder.
-const hookRow = (group, key, value, index) => {
-  const files = state.settings.hook_files || [];
-  const names = files.includes(value) || !value ? files : [...files, value];
-  const path = [group, key, index];
-  const open = openHookPicker === `${group}.${key}.${index}`;
-  const choices = [""].concat(names).map((name) => `<button type="button" role="option"
-    aria-selected="${name === value}" data-hook-choice='${esc(JSON.stringify([...path, name]))}'
-    >${name ? hookName(name) : "No file"}</button>`).join("");
-  return `<span class="pill hook"><button type="button" class="pick"
-    data-hook-pick='${esc(JSON.stringify(path))}' aria-haspopup="listbox" aria-expanded="${open}"
-    title="Pick a hook file">${value ? hookName(value) : "No file"}</button><button type="button"
-    title="Delete" data-hook-drop='${esc(JSON.stringify(path))}'>&times;</button>${
-    open ? `<div class="menu" role="listbox" aria-label="Hook file">${choices}</div>` : ""}</span>`;
-};
-
-const hookList = (group, key) => {
-  const rows = listValue(group, key)
-    .map((value, index) => hookRow(group, key, value, index)).join("") ||
-    '<em class="none">No hook file</em>';
-  return `${rows}<button type="button" class="add"
-    data-hook-add='${esc(JSON.stringify([group, key]))}'>+ Add file</button>`;
-};
-
-function renderHookList(group, key) {
-  const host = $(`set-${group}-${key}`);
-  if (host) host.innerHTML = hookList(group, key);
-}
-
-// A pick or any other click closes the open list, which leaves the chip as it was.
-function closeHookPicker() {
-  if (!openHookPicker) return;
-  const [group, key] = openHookPicker.split(".");
-  openHookPicker = null;
-  renderHookList(group, key);
-}
 
 // The installed hooks whose scope fits a card: a global hook, then 1 that names the provider or the
 // model of the card. `kind` is "provider" or "model", and `name` is the provider or the model id.
@@ -1394,6 +1352,40 @@ function sourceParts(value) {
 
 const hookVersion = (record) => record?.version || "-";
 
+// The request points of the settings group: the `on-*` keys of its defaults, in point order. The
+// card names every file at the points it runs at, so the settings hold no list of its own.
+const requestPoints = () => HOOK_POINTS.filter(([key]) => key in (state.settings?.defaults?.hooks ?? {}));
+
+// The point chips of a hook row: 1 chip per request point that runs this file. The x takes the
+// file off that point, and the last chip opens the points that the file still skips.
+let openPointPicker = null;
+
+function hookPointsCell(row) {
+  const mine = row.runs || [];
+  const labels = new Map(HOOK_POINTS.map(([key, label]) => [key, label]));
+  const chips = mine.map((point) => `<span class="pill ${row.enabled ? "on" : "off"}">${esc(labels.get(point) || point)}<button type="button"
+    title="Take the file off this point" data-hook-point-drop='${esc(JSON.stringify([row.name, point]))}'>&times;</button></span>`).join("");
+  const rest = requestPoints().filter(([key]) => !mine.includes(key));
+  const open = openPointPicker === row.name;
+  const menu = open && rest.length ? `<div class="menu" role="listbox" aria-label="Hook point">${rest
+    .map(([key, label]) => `<button type="button" role="option" aria-selected="false"
+      data-hook-point-take='${esc(JSON.stringify([row.name, key]))}'>${esc(label)}</button>`).join("")}</div>` : "";
+  return `<div class="pills">${chips || '<em class="none">No point</em>'}<span class="pill hook"><button type="button"
+    class="pick" data-hook-point-pick="${esc(row.name)}" aria-haspopup="listbox" aria-expanded="${open}"
+    title="Add a point">+ Point</button>${menu}</span></div>`;
+}
+
+// A point chip writes the settings list of that point: the file joins it, or leaves it.
+function setHookPoint(name, point, on) {
+  const path = `hooks/${name}`;
+  const values = listValue("hooks", point).filter((value) => value !== path);
+  if (on) values.push(path);
+  setListValue("hooks", point, values);
+  renderSettings();
+  renderSettingsSave();
+  saveSettings();
+}
+
 // The note under the sources. The update fills it with the old and the new version of each file.
 function hooksNote(text) {
   const note = $("hooks-note");
@@ -1421,10 +1413,11 @@ function hooksManager() {
     return `<tr><td role="cell" class="name"><span class="cell-value">${esc(row.name)}</span></td>
       <td role="cell"><span class="cell-value">${esc(hookVersion(row))}</span></td>
       <td role="cell"><span class="cell-value">${esc(row.scope || "global")}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
+      <td role="cell" class="points">${hookPointsCell(row)}</td>
       <td role="cell" class="hide-sm"><span class="cell-value">${row.problem ? `<span class="bad">${esc(row.problem)}</span>` : esc(source)}</span></td>
       <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
         ${disabled.includes(row.name) ? "" : "checked"} aria-label="Load ${esc(row.name)}"></td></tr>`;
-  }).join("") || '<tr><td role="cell" colspan="5"><em class="none">No hook file</em></td></tr>';
+  }).join("") || '<tr><td role="cell" colspan="6"><em class="none">No hook file</em></td></tr>';
   const scan = state.hooksScan;
   const panel = scan ? `<div class="pills" id="hooks-scan">
       <span class="sub">${esc(sourceLabel(scan))} at ${esc((scan.commit || "").slice(0, 7))}</span>${scan.files
@@ -1432,7 +1425,7 @@ function hooksManager() {
       ${scan.take[file.name] ? "checked" : ""}>${esc(file.name)}${file.version ? ` ${esc(file.version)}` : ""}</label>`).join("")}
       <button type="button" class="primary" data-hook-take-all>Take the picked files</button></div>` : "";
   return `<div class="field stack info">${labelSpan("Installed hooks", "The files of the hook folder. The switch leaves a file on disk and out of the run.")}
-      <table class="keys"><thead><tr><th>File</th><th>Version</th><th>Scope</th><th class="hide-sm">Source</th><th>Load</th></tr></thead>
+      <table class="keys"><thead><tr><th>File</th><th>Version</th><th>Scope</th><th>Points</th><th class="hide-sm">Source</th><th>Load</th></tr></thead>
       <tbody>${list}</tbody></table>
       <button type="button" class="ghost" data-hooks-update>Update from the sources</button></div>
     <div class="field stack info">${labelSpan("Folder", "The folder under config that holds the hook files.")}
@@ -2194,7 +2187,8 @@ const SETTINGS = [
     ["every", "Rebuild interval", "h", "The hours between rebuilds. 0 stops them."],
     ["anchor", "Anchor hour", "h", "The local hour (TZ) that the rebuild times start from."],
   ]],
-  ["hooks", "Hooks", HOOK_POINTS],
+  // The request points live in the hooks table, so the card holds the manager alone.
+  ["hooks", "Hooks", []],
   ["personalization", "Personalization", [
     ["tier-a", "Tier A", "name", "The client name of the tier A pool: sophos by default."],
     ["tier-b", "Tier B", "name", "The client name of the tier B pool: deinos by default."],
@@ -2287,6 +2281,8 @@ function keysCard() {
 function renderSettings() {
   // A render keeps the text of an edit in progress. The saved text shows otherwise.
   const typed = state.settingsView === "yaml" ? $("settings-editor")?.value : undefined;
+  // The rebuild of the card leaves the pane at its top: the scroll comes back after it.
+  const scroll = settingsScroll();
   const card = ([group, title, fields]) => `
     <div class="card"><h3>${esc(title)}</h3>${fields.map(([key, label, unit, hint]) => {
       const id = `set-${group}-${key}`;
@@ -2304,10 +2300,6 @@ function renderSettings() {
           <span class="input"><i class="prefix">daedalus/</i><input type="text" id="${id}" maxlength="40" readonly
             aria-label="${esc(label)}" data-value="${esc(label)}" spellcheck="false"
             value="${esc(fileValue(group, key) ?? "")}" placeholder="${esc(state.settings.defaults[group][key])}"></span></label>`;
-      }
-      if (unit === "hooks") {
-        return `<div class="field stack info">${labelSpan(label, hint)}
-          <div class="pills" id="${id}" aria-label="${esc(label)}">${hookList(group, key)}</div></div>`;
       }
       if (unit === "list") {
         const values = listValue(group, key);
@@ -2341,6 +2333,7 @@ function renderSettings() {
   renderSettingsSave();
   placeUndo();
   fitSectionPane();
+  keepSettingsScroll(scroll);
 }
 
 // A row with a mode list shows only under those modes: the race values wait for race, and the pin
@@ -2357,6 +2350,7 @@ function showAffinityRows(mode = $("set-affinity-mode")?.value) {
 // boolean rows, such as `change_on_draw` of Affinity, belong to their own card and grey nothing.
 function showSwitchRows() {
   for (const [group, , fields] of SETTINGS) {
+    if (!fields.length) continue;
     const [toggle] = fields[0];
     if (!isSwitch(group, toggle)) continue;
     const off = !$(`set-${group}-${toggle}`)?.checked;
@@ -2380,12 +2374,6 @@ function settingsChanges() {
       const input = $(`set-${group}-${key}`);
       if (!input) continue;
       let value, before;
-      if (unit === "hooks") {
-        value = listValue(group, key).filter(Boolean);
-        // An empty list removes the key, so the file keeps no copy of the default.
-        if (JSON.stringify(value) !== JSON.stringify(settingList(group, key))) (changes[group] ||= {})[key] = value.length ? value : null;
-        continue;
-      }
       if (unit === "list") {
         value = listValue(group, key);
         if (JSON.stringify(value) !== JSON.stringify(setting(group, key))) (changes[group] ||= {})[key] = value;
@@ -2414,6 +2402,12 @@ function settingsChanges() {
   if (JSON.stringify(sources) !== JSON.stringify(settingList("hooks", "sources"))) (changes.hooks ||= {}).sources = sources;
   const disabled = listValue("hooks", "disabled");
   if (JSON.stringify(disabled) !== JSON.stringify(settingList("hooks", "disabled"))) (changes.hooks ||= {}).disabled = disabled;
+  // The rows of the table write the request points: the list holds the files of that point.
+  for (const [point] of requestPoints()) {
+    if (!(state.settings.lists || {})[`hooks.${point}`]) continue;
+    const values = listValue("hooks", point).filter(Boolean);
+    if (JSON.stringify(values) !== JSON.stringify(settingList("hooks", point))) (changes.hooks ||= {})[point] = values.length ? values : null;
+  }
   return changes;
 }
 
@@ -2893,6 +2887,18 @@ for (const [id, step] of [["nav-left", -1], ["nav-right", 1]]) {
 
 // A wide screen holds the page still: each pane of a section takes the height that its own top
 // leaves on the screen, so the form scrolls on its own under a still header and rail.
+function settingsScroll() {
+  const pane = $("settings")?.querySelector?.(".section-pane");
+  return { pane: pane?.scrollTop ?? 0, top: typeof window.scrollY === "number" ? window.scrollY : 0 };
+}
+
+// A rebuild of the card lands under the same scroll, so an update from the sources holds its place.
+function keepSettingsScroll(at) {
+  const pane = $("settings")?.querySelector?.(".section-pane");
+  if (pane && at.pane) pane.scrollTop = at.pane;
+  if (at.top && typeof window.scrollTo === "function") window.scrollTo(0, at.top);
+}
+
 function fitSectionPane() {
   const wide = matchMedia("(min-width: 901px)").matches;
   const main = document.querySelector("main");
@@ -3130,13 +3136,6 @@ $("settings").addEventListener("input", (event) => {
   if (event.target.type === "checkbox") showSwitchRows();
   renderSettingsSave();
 });
-// A click away from the settings closes the open hook list, and Esc does the same.
-document.addEventListener("click", (event) => {
-  if (!$("settings").contains(event.target)) closeHookPicker();
-});
-$("settings").addEventListener("keydown", (event) => {
-  if (event.key === "Escape") closeHookPicker();
-});
 $("settings").addEventListener("click", async (event) => {
   const section = event.target.closest(".sections button[data-section]");
   if (section) return pickSettingsSection(section.dataset.section);
@@ -3146,29 +3145,31 @@ $("settings").addEventListener("click", async (event) => {
   if (event.target.closest("[data-hook-source-drop]")) return dropHookSource();
   if (event.target.closest("[data-hooks-update]")) return runHooksUpdate();
   if (event.target.closest("[data-hook-take-all]")) return takeHooks();
-  // A hook chip: the pick opens the file list, and a choice lands in the row at once.
-  const choice = event.target.closest("[data-hook-choice]");
-  if (choice) {
-    state.writeAnchor = anchorOf(choice);
-    const [group, key, index, value] = JSON.parse(choice.dataset.hookChoice);
-    const values = [...listValue(group, key)];
-    values[index] = value;
-    setListValue(group, key, values);
-    openHookPicker = null;
-    renderHookList(group, key);
-    renderSettingsSave();
-    return saveSettings();
+  // A point chip: the x takes the file off the point, a pick closes the menu of the others.
+  const pointDrop = event.target.closest("[data-hook-point-drop]");
+  if (pointDrop) {
+    const [name, point] = JSON.parse(pointDrop.dataset.hookPointDrop);
+    state.writeAnchor = anchorOf(pointDrop);
+    return setHookPoint(name, point, false);
   }
-  const pick = event.target.closest("[data-hook-pick]");
-  if (pick) {
-    const [group, key, index] = JSON.parse(pick.dataset.hookPick);
-    const at = `${group}.${key}.${index}`;
-    const open = openHookPicker === at;
-    openHookPicker = open ? null : at;
-    return renderHookList(group, key);
+  const pointTake = event.target.closest("[data-hook-point-take]");
+  if (pointTake) {
+    const [name, point] = JSON.parse(pointTake.dataset.hookPointTake);
+    openPointPicker = null;
+    state.writeAnchor = anchorOf(pointTake);
+    return setHookPoint(name, point, true);
   }
-  // Any other click closes the open list before its own work.
-  if (openHookPicker) closeHookPicker();
+  const pointPick = event.target.closest("[data-hook-point-pick]");
+  if (pointPick) {
+    openPointPicker = openPointPicker === pointPick.dataset.hookPointPick ? null : pointPick.dataset.hookPointPick;
+    return renderSettings();
+  }
+
+  // Any other click closes the menu of the points before its own work.
+  if (openPointPicker) {
+    openPointPicker = null;
+    renderSettings();
+  }
   const drop = event.target.closest("[data-setting-drop]");
   if (drop) {
     state.writeAnchor = anchorOf(drop);
@@ -3178,26 +3179,6 @@ $("settings").addEventListener("click", async (event) => {
   if (add) {
     state.writeAnchor = anchorOf(add);
     showSettingAdder(add);
-  }
-  const hookAdd = event.target.closest("[data-hook-add]");
-  if (hookAdd) {
-    state.writeAnchor = anchorOf(hookAdd);
-    const [group, key] = JSON.parse(hookAdd.dataset.hookAdd);
-    setListValue(group, key, [...listValue(group, key), ""]);
-    renderHookList(group, key);
-    renderSettingsSave();
-    saveSettings();
-  }
-  const hookDrop = event.target.closest("[data-hook-drop]");
-  if (hookDrop) {
-    state.writeAnchor = anchorOf(hookDrop);
-    const [group, key, index] = JSON.parse(hookDrop.dataset.hookDrop);
-    const values = [...listValue(group, key)];
-    values.splice(index, 1);
-    setListValue(group, key, values);
-    renderHookList(group, key);
-    renderSettingsSave();
-    saveSettings();
   }
 });
 $("settings").addEventListener("change", (event) => {

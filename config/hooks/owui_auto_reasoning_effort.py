@@ -1,3 +1,7 @@
+# ---
+# version: 1.0.0
+# points: [on-request, on-prompt]
+# ---
 """The Open WebUI reasoning level and try-again rule, as a request hook.
 
 1 file holds the 2 surfaces of the rule:

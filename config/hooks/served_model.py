@@ -1,3 +1,7 @@
+# ---
+# version: 1.0.0
+# points: [on-chunk]
+# ---
 """The served model: the model that served a pool answer, in the final chunk's `usage.daedalus`."""
 
 import logging

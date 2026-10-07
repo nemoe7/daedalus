@@ -1089,13 +1089,18 @@ def routes(
     text = path.read_text(encoding="utf-8") if path.exists() else ""
     raw = yaml.safe_load(text)
     records = remote.read_records()
+    entries = {
+      key: value
+      for key, value in (raw or {}).get("hooks", {}).items()
+      if key.startswith("on-")
+    }
     return JSONResponse(
       {
         "path": str(path),
         "headroom_available": await headroom.available(),
         "hook_files": hooks.hook_files(),
         "hook_rows": [
-          {**row, "record": records.get(row["name"], {})} for row in hooks.rows()
+          {**row, "record": records.get(row["name"], {})} for row in hooks.rows(entries)
         ],
         "defaults": settings.DEFAULTS,
         "file": raw if isinstance(raw, dict) else {},
