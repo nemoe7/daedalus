@@ -57,39 +57,41 @@ cloudflare:
   tier:
     TIER-A:
       - "@cf/openai/gpt-oss-120b"
-      - "@cf/mistralai/mistral-small-3.2-24b-instruct"
+      - "@cf/mistralai/mistral-small-3.1-24b-instruct"
     TIER-B:
       - "@cf/zai-org/glm-4.7-flash"
       - "@cf/qwen/qwq-32b"
     TIER-C:
       - "@cf/meta/llama-4-scout-17b-16e-instruct"
     TIER-D:
-      - "@cf/meta/llama-3.1-8b-instruct"
+      - "@cf/meta/llama-3.1-8b-instruct-fp8"
   models:
     "@cf/openai/gpt-oss-120b":
       max_input_tokens: 128000
-      max_output_tokens: 16384
+      max_output_tokens: 128000
       tools: true
-    "@cf/mistralai/mistral-small-3.2-24b-instruct":
+      supports_reasoning: true
+    "@cf/mistralai/mistral-small-3.1-24b-instruct":
       max_input_tokens: 128000
-      max_output_tokens: 16384
+      max_output_tokens: 128000
       tools: true
-      supports_vision: true
     "@cf/zai-org/glm-4.7-flash":
-      max_input_tokens: 128000
-      max_output_tokens: 16384
+      max_input_tokens: 131072
+      max_output_tokens: 131072
       tools: true
+      supports_reasoning: true
     "@cf/qwen/qwq-32b":
       max_input_tokens: 20000
       max_output_tokens: 4000
-      tools: true
+      supports_reasoning: true
     "@cf/meta/llama-4-scout-17b-16e-instruct":
-      max_input_tokens: 128000
-      max_output_tokens: 16384
+      max_input_tokens: 131000
+      max_output_tokens: 131000
       tools: true
-    "@cf/meta/llama-3.1-8b-instruct":
+      supports_vision: true
+    "@cf/meta/llama-3.1-8b-instruct-fp8":
       max_input_tokens: 32000
-      max_output_tokens: 4000
+      max_output_tokens: 32000
     "@cf/openai/whisper-large-v3-turbo":
       mode: audio_transcription
     "@cf/black-forest-labs/flux-1-schnell":
@@ -108,6 +110,7 @@ openrouter:
       max_output_tokens: 131072
       reasoning_effort: low
       tools: true
+      supports_vision: true
 # The 2 providers of the balance cards, with the `hourly_requests` cap of the Limits page.
 kilo:
   api_key: db:KILO_API_KEY
@@ -127,38 +130,40 @@ DEMO_ROWS: tuple[dict[str, Any], ...] = (
   {
     "id": "cloudflare/@cf/openai/gpt-oss-120b",
     "max_input_tokens": 128000,
-    "max_output_tokens": 16384,
+    "max_output_tokens": 128000,
     "supports_function_calling": True,
+    "supports_reasoning": True,
   },
   {
-    "id": "cloudflare/@cf/mistralai/mistral-small-3.2-24b-instruct",
+    "id": "cloudflare/@cf/mistralai/mistral-small-3.1-24b-instruct",
     "max_input_tokens": 128000,
-    "max_output_tokens": 16384,
+    "max_output_tokens": 128000,
     "supports_function_calling": True,
-    "supports_vision": True,
   },
   {
     "id": "cloudflare/@cf/zai-org/glm-4.7-flash",
-    "max_input_tokens": 128000,
-    "max_output_tokens": 16384,
+    "max_input_tokens": 131072,
+    "max_output_tokens": 131072,
     "supports_function_calling": True,
+    "supports_reasoning": True,
   },
   {
     "id": "cloudflare/@cf/qwen/qwq-32b",
     "max_input_tokens": 20000,
     "max_output_tokens": 4000,
-    "supports_function_calling": True,
+    "supports_reasoning": True,
   },
   {
     "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
-    "max_input_tokens": 128000,
-    "max_output_tokens": 16384,
+    "max_input_tokens": 131000,
+    "max_output_tokens": 131000,
     "supports_function_calling": True,
+    "supports_vision": True,
   },
   {
-    "id": "cloudflare/@cf/meta/llama-3.1-8b-instruct",
+    "id": "cloudflare/@cf/meta/llama-3.1-8b-instruct-fp8",
     "max_input_tokens": 32000,
-    "max_output_tokens": 4000,
+    "max_output_tokens": 32000,
   },
   {
     "id": "cloudflare/@cf/openai/whisper-large-v3-turbo",
@@ -175,6 +180,7 @@ DEMO_ROWS: tuple[dict[str, Any], ...] = (
     "max_output_tokens": 131072,
     "supports_function_calling": True,
     "supports_reasoning": True,
+    "supports_vision": True,
   },
 )
 TOOL = {"type": "function", "function": {"name": "get_weather", "parameters": {}}}
@@ -188,7 +194,7 @@ DEMO_CALLS = (
   ("daedalus/koinos", "Name 5 fruit trees."),
   ("daedalus/sophos", "What is the weather in Manila?"),
   (
-    "cloudflare/@cf/mistralai/mistral-small-3.2-24b-instruct",
+    "cloudflare/@cf/mistralai/mistral-small-3.1-24b-instruct",
     "Summarize this log line: upstream timeout after 30 s.",
   ),
   ("openrouter/z-ai/glm-5.3-flash", "Say hello in Japanese."),
@@ -416,7 +422,7 @@ def seed_requests(client: TestClient, auth: dict[str, str]) -> None:
     if model == DEMO_TOOLS:
       body["tools"] = [TOOL]
     if model == DEMO_DOWN:
-      DOWN.add("@cf/meta/llama-3.1-8b-instruct")
+      DOWN.add("@cf/meta/llama-3.1-8b-instruct-fp8")
     if model == DEMO_LIMITED:
       LIMITED.add("@cf/meta/llama-4-scout-17b-16e-instruct")
     client.post("/v1/chat/completions", json=body, headers=auth)
