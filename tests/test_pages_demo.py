@@ -208,9 +208,42 @@ const check = (ok, text) => {
       endRead = rows.some((item) => item.model === row.model && item.at === row.at);
     });
   });
-  // At this scale a call takes under a second: the scripted waves all land inside 20 s.
-  await new Promise((done) => setTimeout(done, 20000));
+  // The scripted waves land as fast as the machine allows: the harness waits for the rows
+  // its checks read, up to 40 s, so a loaded runner does not fail the run.
+  const ready = async () => {
+    const rows = await (await context.fetch("ui/api/requests?limit=500")).json();
+    const sessions = new Map();
+    for (const row of rows) {
+      if (!row.session) continue;
+      if (!sessions.has(row.session)) sessions.set(row.session, []);
+      sessions.get(row.session).push(row);
+    }
+    const ordered = [...sessions.values()].some((group) => {
+      const sorted = [...group].sort((a, b) => a.at - b.at);
+      return sorted.length >= 3 && sorted[0].model === "mistral/mistral-embed-2312"
+        && sorted[1].stream === false && sorted[2].stream === true;
+    });
+    const climbing = [...sessions.values()].some((group) => {
+      const efforts = [...group].sort((a, b) => a.at - b.at).map((row) => row.effort);
+      return efforts.includes("none") && efforts.includes("low");
+    });
+    const reasons = new Set(rows.filter((row) => row.transition)
+      .map((row) => row.transition.reason));
+    return ordered && climbing
+      && rows.some((row) => row.app === null)
+      && rows.some((row) => row.routed === "deinos")
+      && rows.some((row) => row.loop === "2")
+      && rows.some((row) => (row.attempts || []).some((a) => a.cooldown))
+      && ["err", "ctx", "lmt", "hlt", "rnd", "cls", "esc", "rce", "rt1"]
+        .every((code) => reasons.has(code));
+  };
+  let landed = false;
+  for (let i = 0; i < 80 && !landed; i++) {
+    landed = await ready();
+    if (!landed) await new Promise((done) => setTimeout(done, 500));
+  }
   stream.close();
+  check(landed, "the scripted waves all land");
   check(endRead === true, "the end refresh reads the finished row");
   const kinds = seen.map(([kind]) => kind);
   check(kinds[0] === "live" && Array.isArray(seen[0][1]), "the stream starts with the live rows");
