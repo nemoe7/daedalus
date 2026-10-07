@@ -1,12 +1,12 @@
 #!/bin/bash
-# Installer for the arena-preview-steering automatic poll hook and the state directory.
+# Installer for the arena automatic poll hook and the state directory.
 # Idempotent: safe to run repeatedly, and a sandbox restore requires it again.
-# Run from the repository root, where the skill lives at .agents/skills/arena-preview-steering.
+# Run from the repository root, where the skill lives at .agents/skills/arena-skill.
 set -u
 
 VENV="$HOME/.agents/.arena-preview-venv"
 REPO_ROOT="$(pwd)"
-SKILL_REL=".agents/skills/arena-preview-steering"
+SKILL_REL=".agents/skills/arena-skill"
 STATE_REL="arena-state"
 GLOBAL_IGNORE="$HOME/.gitignore_global"
 HOOK="$HOME/.arena-preview-hook.sh"
@@ -197,7 +197,7 @@ _arena_preview_gate() {
     *code-scanning*|*code_scanning*|*"gh run view"*|*"gh run download"*|*actions/runs*)
       if [ -z "\${_arena_preview_proxy_told:-}" ]; then
         _arena_preview_proxy_told=1
-        printf '%s\n' 'Read that through the proxy: load the arena-proxy skill for code-scanning alerts and workflow run logs.' >&2
+        printf '%s\n' 'Read that through the proxy: the arena skill carries the routes for code-scanning alerts and workflow run logs.' >&2
       fi
       ;;
   esac
@@ -239,7 +239,7 @@ strip_block "$PATH_MARKER"
 # arena-preview-path
 # The root is pinned at install time: a source-time lookup reads the cwd of the
 # sourcing shell, so a shell outside the checkout would miss the command.
-_arena_preview_scripts="__ARENA_PREVIEW_ROOT__/.agents/skills/arena-preview-steering/scripts"
+_arena_preview_scripts="__ARENA_PREVIEW_ROOT__/.agents/skills/arena-skill/scripts"
 if [ -x "$_arena_preview_scripts/arena-preview" ]; then
   case ":$PATH:" in
     *":$_arena_preview_scripts:"*) ;;
