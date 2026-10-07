@@ -211,6 +211,16 @@ def resolve(value: Any) -> Path | None:
   return None
 
 
+def folder() -> Path:
+  """The folder of the hook files of the settings."""
+  return CONFIG_DIR / DIR
+
+
+def enabled(path: Path) -> bool:
+  """True when the settings do not disable this hook file."""
+  return path.name not in DISABLED and path.stem not in DISABLED
+
+
 def hook_files() -> list[str]:
   """The names of the hook files in the config folder, as paths for the settings group."""
   root = CONFIG_DIR / DIR
@@ -229,11 +239,8 @@ def installed_files() -> list[Path]:
     return []
   found: list[Path] = []
   for path in sorted(root.glob("*.py")):
-    if path.name in DISABLED or path.stem in DISABLED:
-      continue
-    if meta(path) is None:
-      continue
-    found.append(path)
+    if enabled(path) and meta(path) is not None:
+      found.append(path)
   return found
 
 

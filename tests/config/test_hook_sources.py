@@ -321,3 +321,11 @@ def test_records_round_trip(tmp_path: Path) -> None:
   )
   assert remote.read_records(lock) == {}
   assert remote.read_records(tmp_path / "gone.json") == {}
+
+
+def test_on_disk_skips_a_temporary_name(tmp_path: Path) -> None:
+  """`on_disk` holds the sha256 of each file, and a name that starts with a dot stays out."""
+  (tmp_path / "one.py").write_bytes(b"body\n")
+  (tmp_path / ".one.py.part").write_bytes(b"half")
+  assert remote.on_disk(tmp_path) == {"one.py": remote.digest(b"body\n")}
+  assert remote.on_disk(tmp_path / "gone") == {}

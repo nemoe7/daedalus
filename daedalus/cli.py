@@ -9,12 +9,14 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 import yaml
 
 from daedalus import __version__, catalog, config, dashboard, store
 from daedalus.catalog import discovery
 from daedalus.config import remote, settings
+from daedalus.providers import hooks
 from daedalus.server import api, logs
 from daedalus.store import keys
 
@@ -46,11 +48,6 @@ def dump_models(file_format: str) -> None:
   else:
     discovery.write_csv(path, rows)
   logger.info("wrote %d available models to %s", len(rows), path)
-
-
-def hook_name(name: str) -> str:
-  """The file name inside the hooks folder, from a bare name or a `hooks/...` path."""
-  return name.strip().removeprefix("hooks/")
 
 
 def import_problem(path: Path) -> str | None:
@@ -119,61 +116,96 @@ def ask_rebuild(url: str) -> bool:
   return False
 
 
-def hooks_pin(names: list[str], urls: list[str]) -> int:
-  """Print the sha256 of each hook file and of each URL, and write the lock file."""
-  pins = remote.read_lock()
-  bad = 0
-  for name in names or sorted(remote.on_disk()):
-    plain = hook_name(name)
-    if not remote.NAME.fullmatch(plain):
-      print(f"{'refused':<9} {name}")
-      bad = 1
-      continue
-    try:
-      body = (remote.FOLDER / plain).read_bytes()
-    except OSError:
-      print(f"{'missing':<9} {plain}")
-      bad = 1
-      continue
-    found = remote.digest(body)
-    pins[plain] = found
-    print(f"{found}  {plain}")
-  for url in urls:
-    body = remote.fetch(url)
-    if body is None:
-      print(f"{'failed':<9} {url}")
-      bad = 1
-      continue
-    print(f"{remote.digest(body)}  {url}")
-  remote.write_lock(pins)
-  return bad
+def hooks_of() -> tuple[dict[str, Any], Path] | None:
+  """The hooks group of the settings and its folder, or None with the problem printed."""
+  try:
+    group = settings.load()["hooks"]
+  except settings.SettingsError as exc:
+    print(f"settings: {exc}")
+    return None
+  hooks.set_installed(group["dir"], group["disabled"])
+  return group, hooks.folder()
+
+
+def hooks_update() -> int:
+  """Fetch the sources of the settings now, and print 1 row per installed file."""
+  found = hooks_of()
+  if found is None:
+    return 2
+  group, folder = found
+  if not group["sources"]:
+    print("no source in hooks.sources")
+    return 1
+  moved = remote.update(group["sources"], folder)
+  repos = {source["repo"] for source in group["sources"]}
+  for name, record in sorted(remote.read_records().items()):
+    if record["repo"] in repos:
+      print(f"{name:<24} {record['version'] or '-':<12} {lock_note(record)}")
+  print(f"moved {len(moved)} file(s)" if moved else "no change")
+  return 0
+
+
+def lock_note(record: dict[str, str]) -> str:
+  """The version, the repo and the short commit of 1 lock record."""
+  version = record.get("version") or "-"
+  source = f"{record['repo']}@{record['commit'][:12]}" if record.get("repo") else "-"
+  return f"{version} {source}"
+
+
+def hooks_list() -> int:
+  """Print 1 row per hook file: the version, the scope, the state and the source."""
+  found = hooks_of()
+  if found is None:
+    return 2
+  _group, folder = found
+  records = remote.read_records()
+  for path in sorted(folder.glob("*.py")):
+    info, problem = hooks.meta_check(hooks.head_text(path))
+    version = str(info.get("version", "")) if info else ""
+    scope = str(info.get("scope", "global")) if info else ""
+    targets = info.get("targets") if info else None
+    if targets:
+      scope = f"{scope}: {', '.join(str(target) for target in targets)}"
+    record = records.get(path.name, {})
+    source = lock_note(record) if record else ""
+    state = "bad" if problem else "on" if hooks.enabled(path) else "off"
+    note = f"; {problem}" if problem else ""
+    print(
+      f"{path.name:<30} {version or '-':<12} {scope or '-':<24} {state:<4} {source}{note}"
+    )
+  return 0
 
 
 def hooks_verify() -> int:
-  """Check each hook file against the lock file and the loader."""
-  lock = remote.read_lock()
-  disk = remote.on_disk()
+  """Check each hook file against the lock record of the sources and the loader."""
+  found = hooks_of()
+  if found is None:
+    return 2
+  _group, folder = found
+  lock = remote.read_records()
+  disk = remote.on_disk(folder)
   failed = 0
   for name in sorted(set(disk) | set(lock)):
-    found = disk.get(name)
+    here = disk.get(name)
+    record = lock.get(name, {})
     notes: list[str] = []
     bad = warned = unpinned = False
     if name in lock:
-      if found is None:
+      if here is None:
         notes.append("in the lock file, not in the folder")
         bad = True
-      elif found != lock[name]:
+      elif here != record["sha256"]:
         notes.append(
-          f"changed: the lock holds {lock[name][:12]}, the disk holds {found[:12]}"
+          f"changed: the lock holds {record['sha256'][:12]}, the disk holds {here[:12]}"
         )
         bad = True
       else:
-        notes.append("pin ok")
-    if found is not None and name not in lock:
-      notes.append("no pin recorded; run `daedalus hooks pin`")
+        notes.append(f"lock ok: {lock_note(record)}")
+    if here is not None and name not in lock:
+      notes.append("no record; run `daedalus hooks update`")
       unpinned = True
-    if found is not None:
-      problem = import_problem(remote.FOLDER / name)
+    if here is not None:
+      problem = import_problem(folder / name)
       if problem:
         notes.append(f"does not load: {problem}")
         warned = True
@@ -227,23 +259,20 @@ def run(argv: list[str] | None = None) -> None:
     default="json",
     help="file format (default: json)",
   )
-  hooks = commands.add_parser("hooks", help="pin the hook files and check them on disk")
-  hooks_commands = hooks.add_subparsers(dest="hooks_command", metavar="COMMAND")
-  pin = hooks_commands.add_parser(
-    "pin", help="print the sha256 of each hook file and write config/hooks.lock.json"
+  hooks_command = commands.add_parser(
+    "hooks", help="update the hook files, list them, and check them on disk"
   )
-  pin.add_argument(
-    "names", nargs="*", help="hook file names or hooks/... paths; default: every file"
-  )
-  pin.add_argument(
-    "--url",
-    action="append",
-    default=[],
-    dest="urls",
-    help="print the sha256 of the bytes at this URL, for a remote_hooks entry",
+  hooks_commands = hooks_command.add_subparsers(dest="hooks_command", metavar="COMMAND")
+  hooks_commands.add_parser(
+    "update", help="fetch the sources of hooks.sources and write the hook files"
   )
   hooks_commands.add_parser(
-    "verify", help="check each hook file against its pins, and load it with a warning"
+    "list",
+    help="print the version, the scope, the state and the source of each hook file",
+  )
+  hooks_commands.add_parser(
+    "verify",
+    help="check each hook file against the lock record, and load it with a warning",
   )
   args = parser.parse_args(argv)
   if args.command is None:
@@ -267,13 +296,13 @@ def run(argv: list[str] | None = None) -> None:
       catalog.refresh()
   elif args.command == "hooks":
     if args.hooks_command is None:
-      hooks.print_help()
+      hooks_command.print_help()
       return
-    code = (
-      hooks_pin(args.names, args.urls)
-      if args.hooks_command == "pin"
-      else hooks_verify()
-    )
+    code = {
+      "update": hooks_update,
+      "list": hooks_list,
+      "verify": hooks_verify,
+    }[args.hooks_command]()
     if code:
       parser.exit(code)
   else:
