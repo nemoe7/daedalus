@@ -157,21 +157,17 @@ def hooks_list() -> int:
   found = hooks_of()
   if found is None:
     return 2
-  _group, folder = found
   records = remote.read_records()
-  for path in sorted(folder.glob("*.py")):
-    info, problem = hooks.meta_check(hooks.head_text(path))
-    version = str(info.get("version", "")) if info else ""
-    scope = str(info.get("scope", "global")) if info else ""
-    targets = info.get("targets") if info else None
-    if targets:
-      scope = f"{scope}: {', '.join(str(target) for target in targets)}"
-    record = records.get(path.name, {})
+  for row in hooks.rows():
+    scope = row["scope"]
+    if row["targets"]:
+      scope = f"{scope or 'global'}: {', '.join(row['targets'])}"
+    record = records.get(row["name"], {})
     source = lock_note(record) if record else ""
-    state = "bad" if problem else "on" if hooks.enabled(path) else "off"
-    note = f"; {problem}" if problem else ""
+    state = "bad" if row["problem"] else "on" if row["enabled"] else "off"
+    note = f"; {row['problem']}" if row["problem"] else ""
     print(
-      f"{path.name:<30} {version or '-':<12} {scope or '-':<24} {state:<4} {source}{note}"
+      f"{row['name']:<30} {row['version'] or '-':<12} {scope or '-':<24} {state:<4} {source}{note}"
     )
   return 0
 
