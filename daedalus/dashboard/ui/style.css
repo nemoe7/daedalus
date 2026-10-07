@@ -57,6 +57,10 @@ header {
 }
 #nav.fade-left { --fade-left: 20px; }
 #nav.fade-right { --fade-right: 20px; }
+/* A shown chevron sits at the page edge, not at the bar padding, so the step reads as the
+   edge of the bar. */
+#nav-left:not([hidden]) { margin-left: -12px; }
+#nav-right:not([hidden]) { margin-right: -12px; }
 .tab-step:hover { color: var(--text); }
 /* The angle glyph sits low in its line box: the nudge centers it on the tab text. */
 .tab-step span { display: block; transform: translateY(-2px); }
