@@ -624,6 +624,8 @@ function openLive() {
     if (holdLive(r.id)) return;
     state.live.set(r.id, liveRow(r));
     renderLive();
+    // The table reads the live count: a new row hides the empty row without a refresh.
+    renderRequestTable();
   };
   source.addEventListener("live", (event) => {
     const rows = JSON.parse(event.data);
@@ -633,6 +635,7 @@ function openLive() {
     }
     state.live = new Map(rows.map((r) => [r.id, liveRow(r)]));
     renderLive();
+    renderRequestTable();
   });
   ["start", "update", "first"].forEach((kind) => source.addEventListener(kind, put));
   source.addEventListener("end", (event) => {
@@ -640,6 +643,7 @@ function openLive() {
     if (holdLive(id)) return;
     state.live.delete(id);
     renderLive();
+    renderRequestTable();
     guarded(refreshFast);
   });
   state.source = source;

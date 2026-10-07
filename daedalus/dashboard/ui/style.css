@@ -678,7 +678,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   /* A card hides the columns that a phone drops, as the table layout does. */
   .models tr > td.hide-sm { display: none; }
   .models .mobile-label { display: inline; flex: none; color: var(--muted); font-size: inherit; }
-  .models .tier, .models .chip.flag { font-size: inherit; line-height: 16px; }
+  .models .tier { font-size: inherit; line-height: 16px; }
   .models tr > td:not(.name) .cell-value { font-size: inherit; }
   .models .cell-value { min-width: 0; text-align: left; }
   .models td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -711,18 +711,16 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .models tbody, .keys tbody { display: block; margin-top: 16px; }
   /* The dropped Type column shows under each model name, and the name keeps its ellipsis. */
   .models td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .phone-types { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; flex-basis: 100%; }
-  /* The tier, tools and cooldown chips read as one row, then the weight takes the next. */
-  .models tr > td.name { flex-wrap: wrap; }
-  .phone-chips {
-    display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start;
-    gap: 4px; margin-top: 4px; flex-basis: 100%;
-  }
-  .phone-chips .chip {
+  /* The modality and capability chips share one row, at one size. The name keeps its row,
+     and the chips wrap under it as one group. */
+  .phone-types, .phone-chips { display: contents; }
+  .models tr > td.name { flex-wrap: wrap; gap: 4px; }
+  .models td.name .cell-value { flex-basis: 100%; }
+  .models td.name .chip {
     display: inline-flex; align-items: center; gap: 3px;
-    min-height: 22px; line-height: 20px;
+    min-height: 22px; line-height: 20px; font-size: 12px;
   }
-  .phone-chips .chip svg { display: block; }
+  .models td.name .chip svg { display: block; }
   .models tr > td:last-child { grid-column: 1 / -1; }
   .hide-sm { display: none; }
   /* The 3 small cells take the width of their text, and the weight cell takes the rest. So the
