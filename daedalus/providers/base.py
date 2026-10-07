@@ -140,6 +140,7 @@ def openrouter_columns(row: dict) -> dict[str, Any]:
   top = row.get("top_provider") or {}
   architecture = row.get("architecture") or {}
   reasoning = row.get("reasoning") or {}
+  efforts = reasoning.get("supported_efforts")
   return {
     **limits(
       top.get("context_length") or row.get("context_length"),
@@ -162,6 +163,12 @@ def openrouter_columns(row: dict) -> dict[str, Any]:
     **output_mode(architecture.get("output_modalities")),
     "reasoning_effort": reasoning.get("default_effort")
     if isinstance(reasoning, dict)
+    else None,
+    # The efforts of this model, when the gateway lists them. A stray name drops the whole list.
+    "supported_efforts": efforts
+    if isinstance(efforts, list)
+    and efforts
+    and all(isinstance(name, str) and name for name in efforts)
     else None,
   }
 

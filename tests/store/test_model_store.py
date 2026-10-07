@@ -122,6 +122,37 @@ def test_model_store() -> None:
       store.MODELS_DB = original
 
 
+def test_supported_efforts_round_trip() -> None:
+  """A stored effort list reads back as a list, and a model without one reads nothing."""
+  with tempfile.TemporaryDirectory() as folder:
+    database = Path(folder) / "models.sqlite3"
+    rows = [
+      {
+        "id": "openrouter/z-ai/glm-5.3-flash",
+        "reasoning_effort": "medium",
+        "supported_efforts": ["max", "high", "medium", "low"],
+      },
+      {"id": "openrouter/plain"},
+    ]
+    store.write_store(rows, database)
+    with sqlite3.connect(database) as connection:
+      stored = connection.execute(
+        "SELECT supported_efforts FROM models WHERE id = 'openrouter/z-ai/glm-5.3-flash'"
+      ).fetchone()
+    connection.close()
+    assert stored == ('["max", "high", "medium", "low"]',), stored
+    original = store.MODELS_DB
+    store.MODELS_DB = database
+    try:
+      found = store.model_limits("openrouter/z-ai/glm-5.3-flash")
+      assert found["supported_efforts"] == ["max", "high", "medium", "low"], found
+      assert found["reasoning_effort"] == "medium", found
+      assert "supported_efforts" not in store.model_limits("openrouter/plain")
+      assert store.model_limits("openrouter/nope") == {}
+    finally:
+      store.MODELS_DB = original
+
+
 def test_in_place() -> None:
   with tempfile.TemporaryDirectory() as folder:
     database = Path(folder) / "models.sqlite3"
