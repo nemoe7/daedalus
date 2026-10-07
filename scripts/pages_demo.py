@@ -1150,9 +1150,10 @@ const DEMO_FIXTURES = __FIXTURES__;
         ...row, at: Date.now() / 1000, seconds: round(frozen.attempt_age + streamed),
         ttft: `${frozen.attempt_age.toFixed(3)}s`,
       };
+      // The row lands before the end event: the refresh of the page then reads it at once.
+      keep(done);
       this.send("end", { id, row: done });
       CLOCKS.delete(id);
-      keep(done);
     }
     async one(id) {
       // A captured row is the template, so each field keeps the shape and the type of the server.
@@ -1193,9 +1194,10 @@ const DEMO_FIXTURES = __FIXTURES__;
           ? template.attempts.map((item) => ({ ...item }))
           : [{ model: served, result: "answered", seconds: frozen.attempt_age, error: "" }],
       };
+      // The row lands before the end event: the refresh of the page then reads it at once.
+      keep(done);
       this.send("end", { id, row: done });
       CLOCKS.delete(id);
-      keep(done);
     }
   };
 })();
