@@ -48,7 +48,7 @@ const fs = require("fs");
 const vm = require("vm");
 const context = {
   location: { origin: "https://demo.test", href: "https://demo.test/" },
-  Response, URL, clearTimeout, console, Promise, Math, JSON, Object, Array,
+  Response, URL, clearTimeout, console, Promise, Math, JSON, Object, Array, performance,
   network: [], listeners: [], timers: [],
 };
 context.window = context;
