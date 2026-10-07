@@ -1482,7 +1482,7 @@ def test_the_overview_pool_rows_draw_the_marks_of_the_top_model() -> None:
 
 
 def test_requests_time_column_keeps_its_width() -> None:
-  """The time column holds 19 chars, and Model and Served by share the free width."""
+  """The time column holds 19 chars, and Model and Served by land on 1 width."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   desktop = css.split("@media (min-width: 721px) {", 1)[1]
@@ -1498,6 +1498,12 @@ def test_requests_time_column_keeps_its_width() -> None:
     css,
   )
   assert free, "the model and served by columns share the free width"
+  shared = re.search(
+    r"\.requests tr:not\(\.chain\) > td\.name > \.cell-value \{\n"
+    r"\s+display: inline-block; width: 28ch; overflow: hidden; text-overflow: ellipsis;",
+    desktop,
+  )
+  assert shared, "both name columns cap the name at the same width"
   assert (
     ".requests td.name { max-width: 16rem; overflow: hidden; text-overflow: ellipsis; }"
     in css
