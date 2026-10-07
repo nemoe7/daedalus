@@ -41,12 +41,14 @@ tr.live-row.arrive { animation: arrive var(--soft) var(--ease); }
 /* The first data of a card or a table arrives the same way, once, on the class that the shared
    draw path sets. */
 .drawn { animation: arrive var(--soft) var(--ease); }
-/* A call that runs longer than a blink spins a ring in the header, so a slow answer reads as work. */
+/* A call that runs longer than a blink spins a ring at the header right, so a slow answer reads
+   as work. The seat keeps its width, so the ring comes and goes without moving the tabs. */
 .spinner {
   width: 14px; height: 14px; flex: none; align-self: center; border-radius: 50%;
   border: 2px solid var(--line); border-top-color: var(--accent);
-  animation: spin .7s linear infinite;
+  visibility: hidden;
 }
+.spinner.on { visibility: visible; animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 /* The placeholder rows of the first load breathe while the answer is on the way. */
 tr.skeleton td span {

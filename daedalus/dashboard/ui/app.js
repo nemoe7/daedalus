@@ -233,8 +233,9 @@ function keepSession(value, remember) {
 let calling = 0;
 let spinnerTimer = null;
 function showSpinner(on) {
-  if (on) $("spinner").hidden = false;
-  else $("spinner").hidden = true;
+  const ring = $("spinner");
+  if (on) ring.classList.add("on");
+  else ring.classList.remove("on");
 }
 
 async function call(path, options = {}) {
