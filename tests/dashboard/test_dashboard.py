@@ -201,7 +201,8 @@ const hosts = [{{ innerHTML: '' }}, {{ innerHTML: '' }}];
 const classes = new Set();
 const nav = {{
   scrollLeft: 30, clientWidth: 100, scrollWidth: 260,
-  classList: {{ toggle: (name, on) => (on ? classes.add(name) : classes.delete(name)) }},
+  classList: {{ add: (name) => classes.add(name), remove: (name) => classes.delete(name),
+    toggle: (name, on) => (on ? classes.add(name) : classes.delete(name)) }},
   addEventListener: () => {{}},
 }};
 const byId = new Map();
@@ -569,7 +570,8 @@ const el = (id) => {
     const classes = new Set();
     byId.set(id, {
       innerHTML: '', textContent: '', value: '', addEventListener: () => {},
-      classList: { toggle: (name, on) => (on ? classes.add(name) : classes.delete(name)), contains: (n) => classes.has(n) },
+      classList: { add: (name) => classes.add(name), remove: (name) => classes.delete(name),
+      toggle: (name, on) => (on ? classes.add(name) : classes.delete(name)), contains: (n) => classes.has(n) },
     });
   }
   return byId.get(id);
@@ -660,7 +662,7 @@ const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
   + String.fromCharCode(10) + 'globalThis.__probe = { modelName, MARK_FILES };';
 const byId = new Map();
 const el = (id) => {
-  if (!byId.has(id)) byId.set(id, { innerHTML: '', textContent: '', value: '', addEventListener: () => {}, classList: { toggle: () => {}, contains: () => false } });
+  if (!byId.has(id)) byId.set(id, { innerHTML: '', textContent: '', value: '', addEventListener: () => {}, classList: { add: () => {}, remove: () => {}, toggle: () => {}, contains: () => false } });
   return byId.get(id);
 };
 const sandbox = {
@@ -2830,7 +2832,7 @@ const nodes = new Map();
 const node = (id) => {
   if (!nodes.has(id)) nodes.set(id, { innerHTML: '', value: '', textContent: '', hidden: false,
     listeners: {}, contains: () => false, addEventListener(type, handler) { this.listeners[type] = handler; },
-    classList: { add: () => {}, remove: () => {}, toggle: () => {} } });
+    classList: { added: [], add(name) { this.added.push(name); }, remove(name) {}, toggle: () => {} } });
   return nodes.get(id);
 };
 const sandbox = {
@@ -2856,6 +2858,10 @@ const rows = () => (node('requests').innerHTML.match(/class="request/g) || []).l
 probe.renderRequestTable();
 assert.strictEqual(rows(), 3, 'no filter shows every kept row');
 assert.strictEqual(node('request-count').textContent, '3 requests', 'the hint counts the shown rows');
+assert.strictEqual(node('requests').classList.added.filter((n) => n === 'drawn').length, 1,
+  'the first data of the table arrives once');
+assert.strictEqual(node('request-count').classList.added.filter((n) => n === 'bump').length, 0,
+  'no pulse without a change of the stream');
 probe.state.live = new Map([[1, { id: 1 }]]);
 probe.renderRequestTable();
 assert.strictEqual(node('request-count').textContent, '4 requests · 1 in flight', 'the count reads both lists');
@@ -2899,7 +2905,7 @@ const nodes = new Map();
 const node = (id) => {
   if (!nodes.has(id)) nodes.set(id, { innerHTML: '', value: '', textContent: '', hidden: false,
     listeners: {}, contains: () => false, addEventListener(type, handler) { this.listeners[type] = handler; },
-    classList: { add: () => {}, remove: () => {}, toggle: () => {} } });
+    classList: { added: [], add(name) { this.added.push(name); }, remove(name) {}, toggle: () => {} } });
   return nodes.get(id);
 };
 const sandbox = {
@@ -3291,6 +3297,20 @@ def test_a_live_row_arrives_and_the_stream_count_pulses() -> None:
   assert 'classList.add("bump")' in app and 'classList.remove("bump")' in app, (
     "the pulse retrigger"
   )
+
+
+def test_the_first_data_of_a_card_arrives_once() -> None:
+  """The drawn helper marks a host once, and the redraw of a host that holds data stays still."""
+  root = Path(__file__).resolve().parents[2]
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert ".drawn { animation: arrive" in css, "the enter of the first data"
+  assert "const DRAWN_SHOWN = new Set();" in app, "the hosts that already arrived"
+  assert "DRAWN_SHOWN.has(host)" in app and "DRAWN_SHOWN.add(host)" in app, (
+    "the once mark"
+  )
+  assert "firstDraw(host);" in app, "the shared draw path marks the host"
+  assert 'firstDraw($("requests"));' in app, "the requests table marks itself too"
 
 
 def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
