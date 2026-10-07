@@ -2510,6 +2510,25 @@ def test_a_phone_keeps_the_tap_size_of_its_controls() -> None:
   ) in css, "the phone keeps the 44px target of the filter controls"
 
 
+def test_the_tab_bar_fades_its_clipped_edges() -> None:
+  """A clipped tab edge fades toward the bar center, so the cut never reads hard."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  nav = re.search(r"#nav \{([^}]*)\}", css)
+  assert nav and "mask-image: linear-gradient(90deg, transparent 0," in nav.group(1), (
+    "the tab scroller masks its edges"
+  )
+  assert "#nav.fade-left { --fade-left: 20px; }" in css, "the left fade rides a class"
+  assert "#nav.fade-right { --fade-right: 20px; }" in css, (
+    "the right fade rides a class"
+  )
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert 'nav.classList.toggle("fade-left"' in app, "the bar fades only while it clips"
+  assert ".tab-step span { display: block; transform: translateY(-2px); }" in css, (
+    "the angle glyph centers on the tab text"
+  )
+
+
 def test_a_phone_keeps_one_rhythm_around_the_bar_rules() -> None:
   """Every phone bar keeps 8px over its rule, and the flow gap keeps 16px under it."""
   css = (
