@@ -193,10 +193,19 @@ const check = (ok, text) => {
   ["live", "start", "update", "first", "end"].forEach((kind) =>
     stream.addEventListener(kind, (event) => seen.push([kind, JSON.parse(event.data)])),
   );
+  let endRead = null;
+  stream.addEventListener("end", (event) => {
+    const row = JSON.parse(event.data).row;
+    // The page refreshes the table from this very call: the row must ride in its read.
+    context.fetch("ui/api/requests?limit=50").then((answer) => answer.json()).then((rows) => {
+      endRead = rows.some((item) => item.model === row.model && item.at === row.at);
+    });
+  });
   // The pace of the demo is slow: 2 replayed rows, the shortest path to a fallback chain,
   // take up to 17.4 s.
   await new Promise((done) => setTimeout(done, 20000));
   stream.close();
+  check(endRead === true, "the end refresh reads the finished row");
   const kinds = seen.map(([kind]) => kind);
   check(kinds[0] === "live" && Array.isArray(seen[0][1]), "the stream starts with the live rows");
   check(kinds.includes("start") && kinds.includes("end"), "a live request");
