@@ -469,8 +469,10 @@ probe.renderModels();
 const phone = el('models').innerHTML;
 assert(phone.includes('class="mark slug"'), 'a phone keeps the provider text');
 assert(phone.includes('<span class="model-part">m</span>'), 'a phone keeps the model part');
-const chipRow = phone.split('class="phone-chips"')[1].split('</td>')[0];
-assert(chipRow.includes('1.00'), 'the weight reads as a phone chip');
+    const chipRow = phone.split('class="phone-chips"')[1].split('</td>')[0];
+    assert(chipRow.includes('title="Context"'), 'the context rides as a phone chip');
+    assert(!chipRow.includes('1.00'), 'the weight chip leaves the chip row');
+    assert(phone.includes('1.00'), 'the weight row carries the weight');
 """
   subprocess.run(["node", "-e", code], check=True)
 
@@ -2796,6 +2798,19 @@ def test_a_failed_login_waits_and_locks(client: TestClient) -> None:
   finally:
     dashboard.LOGIN_DELAY = delay
     dashboard.LOGIN_FAILURES.clear()
+
+
+def test_the_phone_model_cards_carry_the_desktop_columns() -> None:
+  """The phone model card drops the Model label and fills its row with the desktop columns."""
+  root = Path(__file__).resolve().parents[2]
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  chips = app.split("function phoneChips(m) {", 1)[1].split("\n}", 1)[0]
+  assert 'nameCell(m.id, modelName(m.id), "",' in app, "the card drops the Model label"
+  assert 'title="Context"' in chips, "the context column rides as a chip"
+  assert 'title="Reasoning"' in chips, "the reasoning column rides as a chip"
+  assert 'title="Weight"' not in chips, "the weight row carries the weight alone"
+  assert ">Tier " in chips and ">Order " in chips, "the ambiguous chips carry labels"
+  assert "brain:" in app, "the reasoning chip is a brain"
 
 
 def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
