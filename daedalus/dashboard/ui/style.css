@@ -512,9 +512,8 @@ section[data-page="models"] > .editbar, section[data-page="limits"] > .editbar {
 .notice .ghost { margin-left: auto; }
 /* The Live switch shows its paused state, with the count of the requests that wait. */
 .live-toggle[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
-/* The Limits bar holds the check button, the filter and 1 line, so it stays short. */
+/* The Limits filter keeps a readable width beside the check button. */
 .editbar input[type="search"] { min-width: 12rem; }
-section[data-page="limits"] > .editbar { padding: 6px 10px; gap: 10px; }
 section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 /* The provider cards hold short values, so the column stays narrow. The table takes the rest. */
 @media (min-width: 721px) { #balances { flex: 0 1 260px; } }
@@ -639,9 +638,10 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
     flex-wrap: wrap; background: transparent; border: 0; border-bottom: 1px solid var(--line);
     border-radius: 0; padding: 0;
   }
-  /* The bar keeps 15px under the rule, and 3px of room at its top left corner: the panel clips its
-     own rounded corner over a flush child, and the ring of the field meets that corner. */
-  section[data-page="requests"] .requests-bar { padding: 3px 3px 15px; }
+  /* The bar keeps 8px over its rule, as the keys and models bars do, and 3px of room at its top
+     left corner: the panel clips its own rounded corner over a flush child, and the ring of the
+     field meets that corner. */
+  section[data-page="requests"] .requests-bar { padding: 3px 3px 8px; }
   /* A ring that draws outside a flush control is cut by the panel edge, so a phone draws it inside. */
   .toolbar input:focus-visible, .toolbar select:focus-visible,
   .requests-bar input:focus-visible, .requests-bar select:focus-visible { outline-offset: -2px; }
@@ -693,7 +693,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   /* A phone head cell keeps a 44 px tap area for its sort. */
   .models th { padding: 13px 8px; }
   /* The first card row keeps a gap from the bar above it. */
-  .models tbody, .keys tbody { display: block; margin-top: 10px; }
+  .models tbody, .keys tbody { display: block; margin-top: 16px; }
   /* The dropped Type column shows under each model name, and the name keeps its ellipsis. */
   .models td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .phone-types { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; flex-basis: 100%; }
@@ -743,7 +743,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
      page colour shows once instead of a layer behind every card. */
   .panel:has(> .requests), .panel:has(> .models), .panel:has(> .keys) { background: transparent; border: 0; }
   /* The first request card keeps the same gap from the bar rule as the Models and Keys cards. */
-  .panel:has(> .requests) { margin-top: 10px; }
+  .panel:has(> .requests) { margin-top: 0; }
   /* A card row paints no patch on hover: the cells sit apart, so a fill lands as a rectangle
      behind each 1 of them. The card edge and the live dot already tell the state. */
   tr.request:hover td, tr.request.open td, tr.request.has-chain:hover td { background: transparent; }
