@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import yaml
 from fastapi.testclient import TestClient
 
 from daedalus import config, dashboard, store
@@ -401,7 +402,11 @@ const DEMO_FIXTURES = __FIXTURES__;
   // The embedding model of an owui chat, and the chat models. The catalog mode picks them, as the
   // server does, so an image, audio, embedding, decisions or rerank row never answers a chat wave.
   const EMBED = "mistral/mistral-embed-2312";
-  const TEXT = DEMO_FIXTURES.models.filter((row) => row.mode === "chat").map((row) => row.id);
+  // The members of each pool: the ids the pool holds, as the router draws from them.
+  const MEMBERS = Object.fromEntries(
+    DEMO_FIXTURES.pools.map((pool) => [pool.name, pool.members.map((item) => item.id)])
+  );
+  const TEXT = MEMBERS["daedalus/auto"] || [];
   const POOL_NAMES = ["sophos", "deinos", "koinos", "moros"];
   // The auto reasoning hook climbs this ladder, 1 step per agent step.
   const LADDER = ["none", "low", "medium", "high"];
@@ -1253,7 +1258,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       const pooled = Math.random() < 0.5;
       const model = pooled ? `daedalus/${pick(POOL_NAMES)}` : pick(TEXT);
       await this.call({
-        app: null, session: null, model, via: pooled ? pick(TEXT) : model,
+        app: null, session: null, model, via: pooled ? pick(MEMBERS[model] || TEXT) : model,
         stream: Math.random() < 0.5, ttft: ttftFor("chat"),
       });
     }
@@ -1319,11 +1324,59 @@ def demo_version() -> str:
   return f"demo.{count}" if count.isdigit() else "demo"
 
 
-def build(out: Path, version: str) -> Path:
-  """Copy the UI into `out`, add the demo script, and load it before the page."""
+def demo_blocks(fixtures: dict[str, Any]) -> dict[str, dict[str, Any]]:
+  """The provider blocks of the demo files: the main file, and each `{provider}.yml` file."""
+  files = {
+    Path(row["path"]).name: yaml.safe_load(row["text"]) or {}
+    for row in fixtures["files"]
+  }
+  main = files.pop(Path(config.DEFAULT_PATH).name, {})
+  blocks = {
+    name: {"main": block, "file": None}
+    for name, block in main.items()
+    if isinstance(block, dict)
+  }
+  for name, content in files.items():
+    found = blocks.setdefault(Path(name).stem, {"main": None, "file": None})
+    found["file"] = content if isinstance(content, dict) else None
+  return blocks
+
+
+def kept_models(fixtures: dict[str, Any]) -> list[dict[str, Any]]:
+  """The fixture rows the demo provider files keep. A row stays when 1 of its blocks keeps it."""
+  slugs: dict[str, list[str]] = {}
+  for row in fixtures["models"]:
+    name, _, slug = row["id"].partition("/")
+    slugs.setdefault(name, []).append(slug)
+  blocks = demo_blocks(fixtures)
+  kept: set[str] = set()
+  for name, names in slugs.items():
+    parts = blocks.get(name)
+    if parts is None:
+      kept.update(f"{name}/{slug}" for slug in names)
+      continue
+    for block in (parts["main"], parts["file"]):
+      if isinstance(block, dict):
+        kept.update(f"{name}/{slug}" for slug in discovery.select(block, names))
+  return [row for row in fixtures["models"] if row["id"] in kept]
+
+
+def demo_fixtures(version: str) -> dict[str, Any]:
+  """The fixtures of 1 build: the rows the provider files keep, with the version stamps."""
   fixtures = json.loads(FIXTURES.read_text(encoding="utf-8"))
+  # A snapshot outlives the config: the demo drops the rows its provider files exclude.
+  fixtures["models"] = kept_models(fixtures)
+  kept = {row["id"] for row in fixtures["models"]}
+  for pool in fixtures["pools"]:
+    pool["members"] = [item for item in pool["members"] if item["id"] in kept]
   fixtures["login"]["version"] = version
   fixtures["status"]["version"] = version
+  return fixtures
+
+
+def build(out: Path, version: str) -> Path:
+  """Copy the UI into `out`, add the demo script, and load it before the page."""
+  fixtures = demo_fixtures(version)
   if out.exists():
     shutil.rmtree(out)
   shutil.copytree(UI, out / "ui")
