@@ -20,6 +20,7 @@ conversation stays with the routing of `daedalus/auto`, so this file sets the le
 import logging
 from typing import Any
 
+from daedalus import store
 from daedalus.routing import router
 
 logger = logging.getLogger("daedalus.hooks")
@@ -103,9 +104,18 @@ def on_request(value: dict, model: str, headers: dict) -> dict | None:
 
 
 def _level(context: Any, tier: int) -> str:
-  """The effort of one tier on the ladder of the efforts list of the model."""
+  """The effort of one tier on the ladder of the efforts list of the model.
+
+  The list of the catalog of the model, when it holds one, narrows the coded set.
+  """
+  model = context.get("model") or ""
   return router.effort_at(
-    router.efforts(context.get("config") or {}, context.get("model") or ""), tier - 1
+    router.efforts(
+      context.get("config") or {},
+      model,
+      store.model_limits(model).get("supported_efforts"),
+    ),
+    tier - 1,
   )
 
 

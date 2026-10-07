@@ -366,6 +366,29 @@ def test_pools() -> None:
   ]
 
 
+def test_the_catalog_efforts_sit_under_the_config_keys() -> None:
+  """A catalog list fills the gap of a missing config key, and the config key keeps the last word."""
+  config = {
+    "kilo": {"models": {"a": {"supported_reasoning_efforts": ["none", "high"]}}},
+    "openrouter": {},
+    "mistral": {},
+  }
+  listed = ["max", "high", "low"]
+  assert router.efforts(config, "openrouter/x", listed) == listed
+  assert router.efforts(config, "mistral/m", listed) == listed, "over the coded default"
+  assert router.efforts(config, "kilo/a", listed) == ["none", "high"], (
+    "the config key wins"
+  )
+  assert router.efforts(config, "kilo/b", listed) == listed, "the block holds no key"
+  assert router.efforts(config, "openrouter/x") == router.efforts(
+    config, "openrouter/x", None
+  ), "no catalog row keeps the coded set"
+  for bad in ([], ["high", 2], "high", None):
+    assert router.efforts(config, "openrouter/x", bad) == router.efforts(
+      config, "openrouter/x"
+    ), bad
+
+
 def test_the_efforts_key_follows_the_block_hierarchy() -> None:
   """The supported_reasoning_efforts key reads from the model entry, then the block, then the code."""
   config = {
