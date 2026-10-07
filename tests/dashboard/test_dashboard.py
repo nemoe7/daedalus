@@ -486,15 +486,19 @@ def test_requests_stream_column_survives_narrow_desktops() -> None:
 
 
 def test_narrow_desktop_header_keeps_one_row() -> None:
-  """Under 1320 px the status chips move to the Overview card, and the brand keeps room."""
-  css = (
-    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
-  ).read_text(encoding="utf-8")
+  """The Overview card holds the state at every width. A narrow header drops it."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   base, rest = css.split("@media (max-width: 1320px) {", 1)
   narrow = rest.split("\n}", 1)[0]
-  assert "#status { display: none; }" in narrow, "the chips leave the header"
-  assert ".status-card { display: block;" in narrow, "the card takes them"
-  assert '"brand chips" "tabs tabs"' not in narrow, "the header keeps one row"
+  assert "#status { display: none; }" in narrow, "a narrow header drops the state"
+  assert ".status-card { display: none" not in css, "the card shows at every width"
+  assert ".status-card { padding" not in css, (
+    "the card keeps the card padding at every width"
+  )
+  assert "button.line {" in base, "the catalog line is a button at every width"
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert "catalogChip" not in app, "the header keeps no catalog chip"
   brand = base.split(".brand {", 1)[1].split("}", 1)[0]
   assert "padding: 6px 0;" in brand, "the brand keeps vertical room"
   bar = base.split(".tab-bar {", 1)[1].split("}", 1)[0]
@@ -530,7 +534,7 @@ assert(mixed.includes('Image in') && !mixed.includes('Audio out'), mixed);
 
 
 def test_app_js_status_hosts() -> None:
-  """The status chips fill every host, and no id repeats across them."""
+  """The header hosts keep the state chip. The Overview card holds the health, sessions and catalog."""
   code = _app_js_vm(
     """
 sandbox.renderStatus({
@@ -538,13 +542,12 @@ sandbox.renderStatus({
   catalog: { built: 1, next: 2, rebuilding: false },
 });
 assert.strictEqual(hosts[0].innerHTML, hosts[1].innerHTML);
-assert(hosts[0].innerHTML.includes('Healthy'));
-assert(hosts[0].innerHTML.includes('chip rebuild'));
-assert(!hosts[0].innerHTML.includes('catalog-rebuild'), 'no id the two hosts would share');
-assert(byId.get('card-health').innerHTML.includes('Healthy'), 'the phone card shows the health');
+assert(!hosts[0].innerHTML.includes('Healthy'), 'the header drops the health');
+assert(!hosts[0].innerHTML.includes('chip rebuild'), 'the header drops the catalog chip');
+assert(byId.get('card-health').innerHTML.includes('Healthy'), 'the card shows the health');
 const card = byId.get('card-rows').innerHTML;
-assert(card.includes('Sessions') && card.includes('>2<'), 'the phone card shows the sessions');
-assert(card.includes('Catalog') && card.includes('chip rebuild') === false, 'no chip in the card');
+assert(card.includes('Sessions') && card.includes('>2<'), 'the card shows the sessions');
+assert(card.includes('Catalog'), 'the card shows the catalog');
 assert(card.includes('class="line rebuild"'), 'the catalog line starts a rebuild');
 """
   )
@@ -731,9 +734,10 @@ sandbox.renderStatus({
   healthy: true, sessions: 2, models: 80, version: 'v1',
   catalog: { built: 1, next: 2, rebuilding: false },
 });
-assert(hosts[0].innerHTML.includes('Healthy'), 'the good answer shows');
+assert.strictEqual(hosts[0].innerHTML, '', 'the good answer clears the header');
 assert(!hosts[0].innerHTML.includes('State unknown'), 'the good answer clears the note');
 assert(!hosts[0].innerHTML.includes('Loading the state'), 'the loading note goes away');
+assert(byId.get('card-health').innerHTML.includes('Healthy'), 'the card shows the health');
 """
   )
   subprocess.run(["node", "-e", code], check=True)
@@ -1278,7 +1282,7 @@ def test_app_js_time_stamps() -> None:
   assert "shortTime(" not in source and "dateTime(" not in source, (
     "one helper stamps each time"
   )
-  assert "&middot; Next <b>" in source, "the catalog label reads Next"
+  assert "&middot; Next" in source, "the catalog label reads Next"
   code = """
 const fs = require('fs');
 const vm = require('vm');

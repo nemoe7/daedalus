@@ -39,10 +39,13 @@ The logo shows in the header, on the login page and as the tab icon. The page ha
 
 A hidden browser tab sends no requests. It gets new data when it shows again.
 
-The header shows the state of daedalus as text. The text uses the style of the page switcher: a health dot, then the sessions, then the catalog line. The line gives the time of the last catalog rebuild. It also gives the next scheduled rebuild.
+The header shows the state of daedalus as text, in the style of the page switcher. A narrow
+header drops the state, as a phone does.
 
-A phone shows a status card at the top of the Overview page instead: the health line, then 1
-line for the sessions and 1 line for the catalog, each with its value at the right.
+The Overview page shows the state in its own card at every width: the health line, then 1
+line for the sessions and 1 line for the catalog, each with its value at the right. The
+catalog line gives the time of the last catalog rebuild. It also gives the next scheduled
+rebuild.
 
 The header keeps its Log out button on a phone. Log out asks in a modal. Click the catalog line to rebuild the catalog now, after a confirmation. The line shows "rebuilding" until the rebuild ends.
 
@@ -56,7 +59,7 @@ That script answers each `ui/api/` call from [`scripts/pages_fixtures.json`](../
 
 One state holds the demo together. The provider files build the catalog and the pools. The requests move the weights, the cooldowns, the lane counters and the balance cards. A fake upstream answers each provider with its plan, so a save and a check now agree with the tables.
 
-A reload brings the captured data back. The Catalog chip starts a rebuild in the page, and it finishes after about 26 seconds. The header shows the version `demo`.
+A reload brings the captured data back. The Catalog line of the status card starts a rebuild in the page, and it finishes after about 26 seconds. The header shows the version `demo`.
 
 The Pages demo workflow builds the demo from `main` and deploys it after a change to the page, the script or the fixtures. After a change to an endpoint, run `python3 scripts/pages_demo.py --capture` and commit the new fixtures.
 
