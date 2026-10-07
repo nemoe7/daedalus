@@ -71,7 +71,7 @@ def test_failures(caplog: pytest.LogCaptureFixture) -> None:
   broken = write("broken.py", "def on_upstream(:\n")
   other = write("other.py", "def on_answer(answer, model):\n  return None\n")
   good = write("good.py", "def on_upstream(body, model, headers):\n  body['k'] = 2\n")
-  (hooks.CONFIG_DIR.parent / "outside.py").write_text("raise SystemExit('ran')\n")
+  (hooks.CONFIG_DIR.parent / "outside.py").write_text("raise RuntimeError('ran')\n")
   setup = config(
     {"on-upstream": boom},
     {"on-upstream": text},
@@ -341,7 +341,7 @@ def test_meta_runs_no_code() -> None:
   path = hooks.CONFIG_DIR / "hooks" / "danger.py"
   path.parent.mkdir(parents=True, exist_ok=True)
   path.write_text(
-    "# ---\n# name: danger\n# version: 1\n# ---\nraise SystemExit('ran')\n",
+    "# ---\n# name: danger\n# version: 1\n# ---\nraise RuntimeError('ran')\n",
     encoding="utf-8",
   )
   assert hooks.meta(path) == {"name": "danger", "version": "1"}
@@ -355,3 +355,106 @@ def test_requires_compare() -> None:
   assert hooks.requires_ok(">=0.1,<1.0", "0.1.0") is True
   assert hooks.requires_ok("==0.1.0", "0.1.0") is True
   assert hooks.requires_ok(">=x", "0.1.0") is False
+
+
+def test_hook_folder() -> None:
+  """The settings name the folder of the hook files, and the picker follows it."""
+  try:
+    hooks.set_installed("shared", [])
+    path = hooks.CONFIG_DIR / "shared" / "one.py"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+      "def on_answer(answer, model):\n  return {'v': 1}\n", encoding="utf-8"
+    )
+    assert hooks.resolve("shared/one.py") == path
+    assert hooks.hook_files() == ["shared/one.py"]
+  finally:
+    hooks.set_installed()
+
+
+def scoped(name: str, body: str, block: str) -> None:
+  """Write 1 hook file with a frontmatter block in the hook folder."""
+  path = hooks.CONFIG_DIR / hooks.DIR / name
+  path.parent.mkdir(parents=True, exist_ok=True)
+  path.write_text(f"{block}{body}", encoding="utf-8")
+
+
+ANSWER = "def on_answer(answer, model):\n  answer.setdefault('by', []).append('%s')\n"
+
+
+def test_scoped_hooks() -> None:
+  """A file with a block runs for the models of its scope, and a disabled name stays out."""
+  try:
+    hooks.set_installed("scoped", [])
+    scoped("all.py", ANSWER % "all", "# ---\n# points: [on-answer]\n# ---\n")
+    scoped(
+      "or.py",
+      ANSWER % "or",
+      "# ---\n# scope: provider\n# targets: [openrouter]\n# points: [on-answer]\n# ---\n",
+    )
+    scoped(
+      "mine.py",
+      ANSWER % "mine",
+      "# ---\n# scope: model\n# targets: [p/m]\n# points: [on-answer]\n# ---\n",
+    )
+    scoped("plain.py", ANSWER % "plain", "# ---\n# points: [on-answer]\n# ---\n")
+    assert hooks.run("on-answer", {}, "openrouter/x", {}).get("by") == [
+      "all",
+      "or",
+      "plain",
+    ]
+    assert hooks.run("on-answer", {}, "p/m", {}).get("by") == ["all", "mine", "plain"]
+    assert hooks.run("on-answer", {}, "other/m", {}).get("by") == ["all", "plain"]
+    hooks.set_installed("scoped", ["all.py", "plain"])
+    assert hooks.run("on-answer", {}, "openrouter/x", {}).get("by") == ["or"]
+  finally:
+    hooks.set_installed()
+
+
+def test_scoped_request_hook() -> None:
+  """A request-level file with a provider scope runs for that provider only."""
+  try:
+    hooks.set_installed("reqscope", [])
+    scoped(
+      "req.py",
+      "def on_request(value, model, headers):\n  value['key'] = 'set'\n",
+      "# ---\n# scope: provider\n# targets: [openrouter]\n# points: [on-request]\n# ---\n",
+    )
+    assert hooks.run_request(
+      "on-request", {}, "openrouter/x", {"key": None}, headers={}
+    ) == {"key": "set"}
+    assert hooks.run_request("on-request", {}, "p/m", {"key": None}, headers={}) == {
+      "key": None
+    }
+  finally:
+    hooks.set_installed()
+
+
+def test_explicit_before_installed() -> None:
+  """The named files run first, and the installed files follow in name order."""
+  try:
+    hooks.set_installed("order", [])
+    named = hooks.CONFIG_DIR / "order" / "named.py"
+    named.parent.mkdir(parents=True, exist_ok=True)
+    named.write_text(ANSWER % "named", encoding="utf-8")
+    scoped("b.py", ANSWER % "b", "# ---\n# points: [on-answer]\n# ---\n")
+    scoped("a.py", ANSWER % "a", "# ---\n# points: [on-answer]\n# ---\n")
+    setup = {"p": {"api_key": "k", "hooks": [{"on-answer": "order/named.py"}]}}
+    found = hooks.run("on-answer", setup, "p/m", {})
+    assert found["by"] == ["named", "a", "b"]
+  finally:
+    hooks.set_installed()
+
+
+def test_bad_block_stays_out() -> None:
+  """A block with an unknown point keeps the file out of the installed list."""
+  try:
+    hooks.set_installed("badblock", [])
+    scoped(
+      "bad.py",
+      "def on_answer(answer, model):\n  answer['bad'] = True\n",
+      "# ---\n# points: [on-later]\n# ---\n",
+    )
+    assert hooks.run("on-answer", {}, "p/m", {}) == {}
+  finally:
+    hooks.set_installed()

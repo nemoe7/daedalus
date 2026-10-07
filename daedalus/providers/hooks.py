@@ -6,7 +6,7 @@ import importlib.util
 import logging
 import posixpath
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from itertools import islice
 from pathlib import Path
 from types import ModuleType
@@ -21,6 +21,9 @@ logger = logging.getLogger("daedalus.hooks")
 
 # The hook files must be in this folder. The paths in `hooks` start here.
 CONFIG_DIR = Path("config")
+# The folder under `CONFIG_DIR` that holds the hook files, and the names that stay out.
+DIR = "hooks"
+DISABLED: set[str] = set()
 # Each hook point, and the function that its file defines.
 POINTS = {
   "on-catalog": "on_catalog",
@@ -54,6 +57,13 @@ def tell(problem: str) -> None:
   if problem not in _told:
     _told.add(problem)
     logger.warning("%s", problem)
+
+
+def set_installed(dir_name: str = "hooks", disabled: Iterable[str] = ()) -> None:
+  """Use the hook folder and the disabled names of the settings."""
+  global DIR, DISABLED
+  DIR = dir_name
+  DISABLED = {str(name) for name in disabled}
 
 
 def version_tuple(text: str) -> tuple[int, ...] | None:
@@ -190,7 +200,7 @@ def resolve(value: Any) -> Path | None:
   names = [wanted] if wanted.endswith(".py") else [wanted, f"{wanted}.py"]
   root = CONFIG_DIR.resolve()
   listing: dict[str, Path] = {}
-  for found in (root / "hooks").rglob("*"):
+  for found in (root / DIR).rglob("*"):
     path = found.resolve()
     if path.is_file() and path.is_relative_to(root):
       listing.setdefault(path.relative_to(root).as_posix(), path)
@@ -203,10 +213,57 @@ def resolve(value: Any) -> Path | None:
 
 def hook_files() -> list[str]:
   """The names of the hook files in the config folder, as paths for the settings group."""
-  root = CONFIG_DIR / "hooks"
+  root = CONFIG_DIR / DIR
   if not root.is_dir():
     return []
-  return sorted(f"hooks/{path.name}" for path in root.glob("*.py"))
+  return sorted(f"{DIR}/{path.name}" for path in root.glob("*.py"))
+
+
+def installed_files() -> list[Path]:
+  """The hook files of the folder with a usable frontmatter block, in name order.
+
+  A file without a block stays out: an explicit `hooks` list or a request point names it.
+  """
+  root = CONFIG_DIR / DIR
+  if not root.is_dir():
+    return []
+  found: list[Path] = []
+  for path in sorted(root.glob("*.py")):
+    if path.name in DISABLED or path.stem in DISABLED:
+      continue
+    if meta(path) is None:
+      continue
+    found.append(path)
+  return found
+
+
+def merge(explicit: list[Path], extra: list[Path]) -> list[Path]:
+  """The explicit files first, then the new extra files, with no file twice."""
+  found = list(explicit)
+  for path in extra:
+    if path not in found:
+      found.append(path)
+  return found
+
+
+def meta_paths(point: str, model: str) -> list[Path]:
+  """The installed files whose frontmatter gives this point to this model."""
+  found: list[Path] = []
+  for path in installed_files():
+    info = meta(path)
+    if info is None:
+      continue
+    points = info.get("points")
+    if points is not None and point not in points:
+      continue
+    scope = info.get("scope", "global")
+    targets = info.get("targets") or []
+    if scope == "provider" and model.partition("/")[0] not in targets:
+      continue
+    if scope == "model" and model not in targets:
+      continue
+    found.append(path)
+  return found
 
 
 def entries_for(config: Mapping[str, Any], model: str) -> Any:
@@ -225,10 +282,10 @@ def files(config: Mapping[str, Any], model: str, point: str) -> list[Path]:
   name = model.partition("/")[0]
   entries = entries_for(config, model)
   if entries is None:
-    return []
+    return meta_paths(point, model)
   if not isinstance(entries, list):
     tell(f"hooks of {name} must be a list")
-    return []
+    return meta_paths(point, model)
   found = []
   for entry in entries:
     if not isinstance(entry, dict):
@@ -239,7 +296,7 @@ def files(config: Mapping[str, Any], model: str, point: str) -> list[Path]:
         tell(f"hooks of {name}: unknown point {key}")
     if point in entry and (path := resolve(entry[point])) is not None:
       found.append(path)
-  return found
+  return merge(found, meta_paths(point, model))
 
 
 def request_files(entries: Mapping[str, Any] | None, point: str) -> list[Path]:
@@ -262,32 +319,35 @@ def request_files(entries: Mapping[str, Any] | None, point: str) -> list[Path]:
 def init_rows(entries: Mapping[str, Any] | None) -> list[list[str]]:
   """The legend rows of each enabled request hook file that defines `on_init`, in file order."""
   rows: list[list[str]] = []
-  if not isinstance(entries, Mapping):
-    return rows
+  names: list[Path] = []
+  if isinstance(entries, Mapping):
+    for value in entries.values():
+      items = [value] if isinstance(value, str) else value
+      if not isinstance(items, list):
+        continue
+      for item in items:
+        path = resolve(item)
+        if path is not None:
+          names.append(path)
   seen: set[Path] = set()
-  for value in entries.values():
-    items = [value] if isinstance(value, str) else value
-    if not isinstance(items, list):
+  for path in merge(names, installed_files()):
+    if path in seen:
       continue
-    for item in items:
-      path = resolve(item)
-      if path is None or path in seen:
-        continue
-      seen.add(path)
-      hook = getattr(load(path), INIT, None)
-      if not callable(hook):
-        continue
-      try:
-        found = hook()
-      except Exception:
-        logger.exception("on-init hook %s failed", path)
-        continue
-      if isinstance(found, list):
-        rows.extend(
-          [str(row[0]), str(row[1])]
-          for row in found
-          if isinstance(row, (list, tuple)) and len(row) == 2
-        )
+    seen.add(path)
+    hook = getattr(load(path), INIT, None)
+    if not callable(hook):
+      continue
+    try:
+      found = hook()
+    except Exception:
+      logger.exception("on-init hook %s failed", path)
+      continue
+    if isinstance(found, list):
+      rows.extend(
+        [str(row[0]), str(row[1])]
+        for row in found
+        if isinstance(row, (list, tuple)) and len(row) == 2
+      )
   return rows
 
 
@@ -382,4 +442,5 @@ def run_request(
   **context: Any,
 ) -> dict[str, Any]:
   """The value after each request hook of one point, from the settings file, in list order."""
-  return run_files(point, request_files(entries, point), value, model=model, **context)
+  paths = merge(request_files(entries, point), meta_paths(point, model))
+  return run_files(point, paths, value, model=model, **context)
