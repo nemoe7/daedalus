@@ -124,7 +124,12 @@ def test_edit_errors(client: TestClient) -> None:
     data={"model": "cloudflare/@cf/black-forest-labs/flux-1-schnell", "prompt": "x"},
     files={"image": ("in.png", small, "image/png")},
   )
-  assert response.status_code == 400 and "cannot edit" in response.text, response.text
+  assert response.status_code == 400, response.text
+  assert response.json()["error"] == {
+    "message": "The model cannot take this request",
+    "type": "invalid_request_error",
+    "code": 400,
+  }, response.text
   response = edit(client, "x", small, n="two")
   assert response.status_code == 400 and "n must be" in response.text, response.text
   response = client.post(
@@ -132,4 +137,9 @@ def test_edit_errors(client: TestClient) -> None:
     data={"model": KLEIN, "prompt": "x"},
     files={"image": ("in.png", base64.b64decode("AAAA"), "image/png")},
   )
-  assert response.status_code == 400 and "cannot read" in response.text, response.text
+  assert response.status_code == 400, response.text
+  assert response.json()["error"] == {
+    "message": "The model cannot take this request",
+    "type": "invalid_request_error",
+    "code": 400,
+  }, response.text

@@ -4,6 +4,7 @@ import asyncio
 import base64
 import hashlib
 import json
+import logging
 import struct
 import time
 from collections.abc import Awaitable, Callable
@@ -20,6 +21,7 @@ from daedalus.server import access, stream, upstream
 from daedalus.store import keys
 
 routes = APIRouter()
+logger = logging.getLogger("daedalus")
 TRANSCRIPT_FORMATS = ("json", "text", "srt", "verbose_json", "vtt")
 SPEECH_FORMATS = ("mp3", "opus", "aac", "flac", "wav", "pcm")
 # The server sets the shared weights, cooldowns and pacing at start.
@@ -163,7 +165,8 @@ async def attempt(
       pending = call(provider, slug, candidate)
     except providers.ProviderError as exc:
       if not pooled:
-        return invalid(str(exc))
+        logger.warning("media %s failed: %s", candidate, upstream.failure_text(exc))
+        return invalid("The model cannot take this request")
       # A pool model that cannot take this request is not a fault.
       attempts.append(upstream.note(candidate, "skipped", None, str(exc)))
       continue

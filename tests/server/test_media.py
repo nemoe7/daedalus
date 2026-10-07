@@ -12,7 +12,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from daedalus import dashboard, store
+from daedalus import dashboard, providers, store
 from daedalus.server import api, media, upstream
 
 MASTER = "test-master-key-0001"
@@ -121,6 +121,23 @@ def test_unlisted_model(fake: Upstream, client: TestClient) -> None:
   assert error["type"] == "model_not_found" and error["code"] == 404, error
   assert "mistral/mistral-embed-2312" in error["message"], error
   assert len(fake.sent) == count, "the alias never reaches the upstream"
+
+
+def test_provider_error_stays_off_the_wire(
+  client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A media attempt that cannot start answers a generic 400, and the detail stays out of the body."""
+
+  def broken(*_args: object, **_kwargs: object) -> None:
+    raise providers.ProviderError("Missing api_key for keyless")
+
+  monkeypatch.setattr(providers, "provider_for", broken)
+  response = client.post(
+    "/v1/embeddings", json={"model": "mistral/mistral-embed-2312", "input": "hi"}
+  )
+  assert response.status_code == 400, response.text
+  message = response.json()["error"]["message"]
+  assert message == "The model cannot take this request", message
 
 
 def test_gemini(fake: Upstream, client: TestClient) -> None:
