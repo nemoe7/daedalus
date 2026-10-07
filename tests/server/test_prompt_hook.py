@@ -297,6 +297,34 @@ def test_the_shipped_hook_keeps_the_client_value_and_the_other_client() -> None:
   assert value["reasoning_effort"] == module.LEVELS[read]
 
 
+def test_the_shipped_hook_floors_a_model_that_requires_reasoning() -> None:
+  """A model with `reasoning: required` never takes `none`, so the read floors to `low`."""
+  module = shipped_module()
+  config = {
+    "kilo": {
+      "api_key": "k",
+      "models": {"liquid/lfm-2.5-2.6b:free": {"reasoning": "required"}},
+    }
+  }
+  model = "kilo/liquid/lfm-2.5-2.6b:free"
+  # A TIER-D read is `none`, but a model that requires reasoning floors to `low`.
+  value: dict = {}
+  module.on_prompt(value, prompt="thanks", app="OWUI", model=model, config=config)
+  assert value["reasoning_effort"] == "low", value
+  # A try again that would read `none` also floors to `low`.
+  value = {}
+  module.on_prompt(
+    value, prompt="thanks", app="OWUI", retry=1, level=None, model=model, config=config
+  )
+  assert value["reasoning_effort"] == "low", value
+  # A model with no `reasoning: required` keeps the plain read, so `none` stays.
+  value = {}
+  module.on_prompt(
+    value, prompt="thanks", app="OWUI", model="kilo/other", config=config
+  )
+  assert value["reasoning_effort"] == "none", value
+
+
 def test_the_shipped_hook_writes_the_retry_key_and_the_code() -> None:
   """The try-again rule names the turn from the chat header, and writes `rtN` on a repeat."""
   module = shipped_module()
