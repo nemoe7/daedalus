@@ -108,8 +108,10 @@ def model_setting(config: Mapping[str, Any], model: str, key: str) -> Any:
 
 # The reasoning efforts each provider accepts, from its docs. A config key wins over the code.
 # OpenRouter and Kilo pass the OpenAI enum through. Gemini names minimal to high, plus off.
-# Cloudflare and Pollinations take no effort. Mistral takes none or high, and the z-ai flash
-# models only switch thinking on or off, because `reasoning_effort` starts at GLM-5.2.
+# Mistral takes none or high, and the z-ai flash models only switch thinking on or off, because
+# `reasoning_effort` starts at GLM-5.2. Cloudflare takes `reasoning_effort` per model, and none
+# of the models in the shipped block takes it, so its models carry a key when that changes. The
+# shipped Pollinations block holds image models only, which take no effort.
 DEFAULT_EFFORTS: Final[Mapping[str, tuple[str, ...]]] = {
   "cloudflare": ("none",),
   "gemini": ("none", "minimal", "low", "medium", "high"),
