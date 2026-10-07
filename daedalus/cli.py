@@ -150,20 +150,11 @@ def hooks_pin(names: list[str], urls: list[str]) -> int:
 
 
 def hooks_verify() -> int:
-  """Check each hook file against the lock file, the settings pins and the loader."""
-  try:
-    entries = settings.load()["hooks"]["remote"]
-  except settings.SettingsError as exc:
-    print(f"settings: {exc}")
-    return 2
+  """Check each hook file against the lock file and the loader."""
   lock = remote.read_lock()
   disk = remote.on_disk()
-  remote_pins: dict[str, str] = {}
-  for entry in entries:
-    if isinstance(entry, dict) and remote.NAME.fullmatch(remote.file_name(entry)):
-      remote_pins[remote.file_name(entry)] = str(entry.get("sha256", "")).lower()
   failed = 0
-  for name in sorted(set(disk) | set(lock) | set(remote_pins)):
+  for name in sorted(set(disk) | set(lock)):
     found = disk.get(name)
     notes: list[str] = []
     bad = warned = unpinned = False
@@ -178,15 +169,7 @@ def hooks_verify() -> int:
         bad = True
       else:
         notes.append("pin ok")
-    if name in remote_pins:
-      if found is None:
-        notes.append("downloads at the next start")
-      elif found != remote_pins[name]:
-        notes.append("drift: the bytes differ from the settings pin")
-        bad = True
-      else:
-        notes.append("settings pin ok")
-    if found is not None and name not in lock and name not in remote_pins:
+    if found is not None and name not in lock:
       notes.append("no pin recorded; run `daedalus hooks pin`")
       unpinned = True
     if found is not None:

@@ -7,6 +7,7 @@ import pytest
 import yaml
 
 from daedalus.config import settings
+from daedalus.providers import hooks
 from daedalus.routing import loops, penalties
 from daedalus.server import api
 
@@ -42,15 +43,17 @@ def test_load(folder: Path) -> None:
     "on-request": ["hooks/owui_auto_reasoning_effort.py"],
     "on-prompt": ["hooks/owui_auto_reasoning_effort.py"],
     "on-chunk": ["hooks/served_model.py"],
-    "remote": [],
-    "remote_hosts": [],
+    "dir": "hooks",
+    "sources": [],
+    "disabled": [],
   }
   assert values.pop("hooks") == {
     "on-request": [],
     "on-prompt": [],
     "on-chunk": [],
-    "remote": [],
-    "remote_hosts": [],
+    "dir": "hooks",
+    "sources": [],
+    "disabled": [],
   }
   assert shipped == values, "the shipped file holds no default copy"
   path = folder / "daedalus.yml"
@@ -74,7 +77,7 @@ def test_load(folder: Path) -> None:
   )
   expect_error(folder, "hooks:\n  on-later: a.py\n", "unknown key hooks.on-later")
   hooks = settings.parse('hooks:\n  on-request: ""\n')["hooks"]
-  assert hooks["on-request"] == [] and hooks["remote"] == []
+  assert hooks["on-request"] == [] and hooks["sources"] == []
   hooks = settings.parse("hooks:\n  on-request: hooks/x.py\n")["hooks"]
   assert hooks["on-request"] == ["hooks/x.py"], "1 path on its own works"
   hooks = settings.parse("hooks:\n  on-request: [hooks/x.py, hooks/y.py]\n")["hooks"]
@@ -389,3 +392,95 @@ def test_update_text_drops_an_empty_group() -> None:
     "limits:\n  slow: 30\ncatalog:\n  every: 6\n", {"limits": {"slow": None}}
   )
   assert text == "catalog:\n  every: 6\n", text
+
+
+def test_hooks_dir_names_the_folder() -> None:
+  """`hooks.dir` takes 1 plain folder name, and another value is refused."""
+  assert settings.parse("")["hooks"]["dir"] == "hooks"
+  assert (
+    settings.parse("hooks:\n  dir: mine-2.hooks\n")["hooks"]["dir"] == "mine-2.hooks"
+  )
+  for bad in ("a/b", "../hooks", "", " hooks", ".", ".."):
+    with pytest.raises(settings.SettingsError, match="dir must be 1 folder name"):
+      settings.parse(f'hooks:\n  dir: "{bad}"\n')
+
+
+def test_hooks_sources_take_a_repo_path_ref_and_flag() -> None:
+  """`hooks.sources` holds 1 entry per repo, with the folder, the ref and the auto_update flag."""
+  assert settings.parse("")["hooks"]["sources"] == []
+  text = (
+    "hooks:\n  sources:\n    - repo: owner/name\n"
+    "      path: hooks/\n      ref: v1.2\n      auto_update: true\n"
+  )
+  assert settings.parse(text)["hooks"]["sources"] == [
+    {"repo": "owner/name", "path": "hooks", "ref": "v1.2", "auto_update": True}
+  ]
+  url = settings.parse(
+    "hooks:\n  sources:\n    - repo: https://github.com/owner/name/tree/main\n"
+  )["hooks"]["sources"]
+  assert url == [
+    {"repo": "owner/name", "path": "", "ref": "main", "auto_update": False}
+  ]
+  for text, message in (
+    ("hooks:\n  sources: nope\n", "must be a list"),
+    ("hooks:\n  sources:\n    - path: hooks\n", "owner/name or a GitHub URL"),
+    ("hooks:\n  sources:\n    - repo: owner\n", "owner/name or a GitHub URL"),
+    ("hooks:\n  sources:\n    - repo: owner/name\n      ref: ''\n", "ref must be"),
+    (
+      "hooks:\n  sources:\n    - repo: owner/name\n      auto_update: 1\n",
+      "auto_update must be",
+    ),
+    ("hooks:\n  sources:\n    - repo: owner/name\n      extra: 1\n", "unknown key"),
+  ):
+    with pytest.raises(settings.SettingsError, match=message):
+      settings.parse(text)
+
+
+def test_hooks_disabled_names_stay_off() -> None:
+  """`hooks.disabled` holds the names that stay on disk and do not load."""
+  assert settings.parse("")["hooks"]["disabled"] == []
+  assert settings.parse("hooks:\n  disabled: [one.py, two]\n")["hooks"]["disabled"] == [
+    "one.py",
+    "two",
+  ]
+  for bad in ("nope", "[one.py, 7]", "[a/b]"):
+    with pytest.raises(settings.SettingsError, match="list of hook names"):
+      settings.parse(f"hooks:\n  disabled: {bad}\n")
+
+
+def test_hooks_remote_is_gone() -> None:
+  """The settings file of the old shape names `hooks.sources`, on a load and on a save."""
+  for key in ("remote", "remote_hosts"):
+    with pytest.raises(settings.SettingsError, match="hooks.sources"):
+      settings.parse(f"hooks:\n  {key}: []\n")
+  with pytest.raises(settings.SettingsError, match="hooks.sources"):
+    settings.update_text("", {"hooks": {"remote": []}})
+
+
+def test_apply_wires_the_hook_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+  """A save takes the hook folder, the disabled names and the sources of a start."""
+  seen: list[tuple[list[dict[str, object]], bool]] = []
+
+  def record(
+    entries: object,
+    folder: Path | None = None,
+    lock_path: Path | None = None,
+    only_missing: bool = False,
+  ) -> list[str]:
+    seen.append((list(entries), only_missing))  # type: ignore[arg-type]
+    return []
+
+  monkeypatch.setattr(api.remote, "update", record)
+  api.apply_settings(
+    settings.parse(
+      "hooks:\n  dir: mine\n  disabled: [one.py]\n  sources:\n    - repo: owner/name\n"
+    )
+  )
+  try:
+    assert hooks.DIR == "mine" and hooks.DISABLED == {"one.py"}
+    assert seen == [
+      ([{"repo": "owner/name", "path": "", "ref": "main", "auto_update": False}], True)
+    ]
+  finally:
+    api.apply_settings(settings.parse(""))
+  assert hooks.DIR == "hooks" and hooks.DISABLED == set()
