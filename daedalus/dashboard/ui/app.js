@@ -904,17 +904,15 @@ const CHIP_ICONS = {
 function phoneChips(m) {
   // The desktop columns a phone drops ride as labelled chips, so the card row stays full.
   const tier = m.tier ? `<span class="chip flag" title="Tier">Tier ${esc(tierLetter(m.tier))}</span>` : "";
-  const order = m.order
-    ? `<span class="chip flag${m.order > 1 ? "" : " mute"}" title="Order">Order ${m.order}</span>`
-    : "";
+  const order = m.order ? `<span class="chip flag" title="Order">Order ${m.order}</span>` : "";
   const context = m.max_input_tokens
     ? `<span class="chip flag" title="Context">Context <span class="num">${tokens(m.max_input_tokens)}</span></span>`
     : "";
-  // A chat card keeps both state chips: a model that says no shows its chip muted.
-  const tools = m.mode === "chat"
-    ? `<span class="chip flag${m.tools ? "" : " mute"}" title="Tools">${CHIP_ICONS.tools}</span>` : "";
-  const reasoning = m.mode === "chat"
-    ? `<span class="chip flag${m.reasoning ? "" : " mute"}" title="Reasoning">${CHIP_ICONS.brain}${m.effort ? `<span class="num">${esc(m.effort)}</span>` : ""}</span>`
+  // A state the model does not support shows no chip at all.
+  const tools = m.mode === "chat" && m.tools
+    ? `<span class="chip flag" title="Tools">${CHIP_ICONS.tools}</span>` : "";
+  const reasoning = m.mode === "chat" && m.reasoning
+    ? `<span class="chip flag" title="Reasoning">${CHIP_ICONS.brain}${m.effort ? `<span class="num">${esc(m.effort)}</span>` : ""}</span>`
     : "";
   const cool = m.cooldown && m.cooldown > Date.now() / 1000
     ? `<span class="chip flag" title="Cooldown">${CHIP_ICONS.cool}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
