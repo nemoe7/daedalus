@@ -381,7 +381,8 @@ const DEMO_FIXTURES = __FIXTURES__;
   const KEPT = 500;
   // The requests of this page, by model. The limits check reads the count.
   const USED = new Map();
-  const wait = (ms) => new Promise((done) => setTimeout(done, ms));
+  // The tests shrink every wait with `window.DEMO_SCALE`; the shipped page keeps 1.
+  const wait = (ms) => new Promise((done) => setTimeout(done, ms * (window.DEMO_SCALE || 1)));
   const round = (value) => Math.round(value * 1000) / 1000;
   // A count in the compact form that the server writes: floored to K, M or B.
   const floored = (value) => (value >= 1e9 ? `${Math.floor(value / 1e9)}B`
@@ -394,15 +395,32 @@ const DEMO_FIXTURES = __FIXTURES__;
     "cloudflare/@cf/black-forest-labs/flux-1-schnell": "/v1/images/generations",
     "cloudflare/@cf/baai/bge-m3": "/v1/embeddings",
   };
+  // The embedding model of an owui chat, and the chat models: the catalog without the media
+  // and embedding rows.
+  const EMBED = "mistral/mistral-embed-2312";
+  const TEXT = DEMO_FIXTURES.models.map((row) => row.id)
+    .filter((id) => !(id in MEDIA_PATH)
+      && !/embed|flux|whisper|bge|imagen|sdxl|stable-diffusion|dreamshaper|z-image|tts|speech/i.test(id));
+  const POOL_NAMES = ["sophos", "deinos", "koinos", "moros"];
+  // The auto reasoning hook climbs this ladder, 1 step per agent step.
+  const LADDER = ["none", "low", "medium", "high"];
+  // The transition codes of the legend, in the order the try-again rows cycle through them.
+  const REASONS = ["err", "ctx", "lmt", "hlt", "rnd", "cls", "esc", "rce", "rt1"];
+  let reasonN = 0;
   // A session reads like the server sends it: the first 7 characters of the key hash.
   const session = (n) => ((n * 2654435761) % 0xfffffff).toString(16).padStart(7, "0");
   const gap = (min, max) => min + Math.random() * (max - min);
-  // The pace of the live demo: 1 request per wave, and a long wait between the waves. The
-  // first token and the stream stay short, so a finished row lands in the table at once.
-  const WAVE = 1;
+  // The pace of the live demo: 1 scenario per wave, and a long wait between the waves. A real
+  // first token takes 0 to 60 s, most often 20 to 30 s, and a stream runs 1 to 90 s. The tests
+  // script the waves with `window.DEMO_SCENARIOS`.
   const WAVE_MS = [6000, 18000];
-  const TTFT_S = [0.2, 0.7];
-  const STREAM_S = [0.3, 1.0];
+  const ttftFor = (kind) => {
+    if (kind === "embed") return gap(0.1, 0.5);
+    if (kind === "title") return gap(0.4, 1.5);
+    const r = Math.random();
+    return r < 0.7 ? gap(20, 30) : r < 0.9 ? gap(0, 20) : gap(30, 60);
+  };
+  const streamFor = (streaming) => (streaming ? gap(1, 90) : gap(0.2, 1.5));
   const pick = (rows) => rows[Math.floor(Math.random() * rows.length)];
   // The times of a row in flight, as `Live` keeps them: the request time and the attempt time.
   const CLOCKS = new Map();
@@ -419,10 +437,11 @@ const DEMO_FIXTURES = __FIXTURES__;
       attempt_age: round((now - clock.attempt) / 1000),
     };
   };
-  // The Requests tab starts empty. The captured rows come back as live traffic, so the
-  // fallback chain and the rate limit show, and the waves continue after them.
+  // The Requests tab starts empty. The captured rows feed the scenarios as templates, so the
+  // fallback chains and the rate limits keep the shapes and the codes of the server.
   const SEEDED = DEMO_FIXTURES.requests.map((row) => ({ ...row }));
   DEMO_FIXTURES.requests = [];
+  const TEMPLATES = SEEDED.filter((row) => row.transition);
   // The captured catalog clock shifts to the viewer once: the last build 10 minutes ago,
   // and the next in 2 hours.
   const opened = Date.now() / 1000;
@@ -1088,6 +1107,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       this.listeners = new Map();
       this.closed = false;
       this.next = 0;
+      this.sessions = 0;
       // The server sends the requests in flight 1st, then each change.
       this.running = new Map();
       this.loop();
@@ -1110,89 +1130,132 @@ const DEMO_FIXTURES = __FIXTURES__;
       // The page attaches its listeners 1st: the server answers on a later tick.
       await wait(0);
       this.send("live", [...this.running.values()]);
-      for (const row of SEEDED) {
-        if (this.closed) return;
-        await this.replay(row);
-      }
+      const queue = window.DEMO_SCENARIOS;
       while (!this.closed) {
-        const wave = [];
-        for (let n = 0; n < WAVE; n++) wave.push(this.one(++this.next));
-        await Promise.all(wave);
+        const kind = queue && queue.length ? queue.shift() : this.pick();
+        await this.scenario(kind);
+        if (this.closed) return;
         await wait(gap(...WAVE_MS));
       }
     }
-    // One captured row, with the fields of the server and the times of the page.
-    async replay(row) {
+    // The mix of a day of traffic: mostly owui chats, often agents, and a rare stray client.
+    pick() {
+      const r = Math.random();
+      if (r < 0.06) return "stray";
+      if (r < 0.18) return "kilo";
+      if (r < 0.34) return "agentic";
+      if (r < 0.46) return "rag";
+      if (r < 0.62) return "escalate";
+      return "chat";
+    }
+    async scenario(kind) {
+      if (kind === "stray") return this.stray();
+      if (kind === "kilo") return this.agentic("Kilo", 1 + Math.floor(Math.random() * 4));
+      if (kind === "agentic") return this.agentic("OWUI", 2 + Math.floor(Math.random() * 4));
+      if (kind === "rag") return this.rag();
+      if (kind === "escalate") return this.escalate();
+      return this.chat();
+    }
+    // An owui chat does these in order: the embedding, the title, and the chat itself.
+    async chat() {
+      const s = session(++this.sessions * 7919);
+      await this.call({
+        app: "OWUI", session: s, model: EMBED, via: EMBED,
+        path: "/v1/embeddings", stream: false, ttft: ttftFor("embed"),
+      });
+      await this.call({
+        app: "OWUI", session: s, model: "daedalus/auto", via: pick(TEXT),
+        stream: false, ttft: ttftFor("title"),
+      });
+      await this.call({
+        app: "OWUI", session: s, model: "daedalus/auto", via: pick(TEXT),
+        stream: true, ttft: ttftFor("chat"), effort: "none", routed: "deinos",
+        tokens: { estimate: false, input: 14 + this.sessions, output: 5 + this.sessions },
+      });
+    }
+    // A rag search calls the embedding model, and the chat answers from the documents.
+    async rag() {
+      const s = session(++this.sessions * 7919);
+      await this.call({
+        app: "OWUI", session: s, model: EMBED, via: EMBED,
+        path: "/v1/embeddings", stream: false, ttft: ttftFor("embed"),
+      });
+      await this.call({
+        app: "OWUI", session: s, model: "daedalus/auto", via: pick(TEXT),
+        stream: true, ttft: ttftFor("chat"), effort: "low",
+        tokens: { estimate: false, input: 480 + this.sessions, output: 90 },
+      });
+    }
+    // An agent workflow climbs the effort ladder, 1 step per call, and can stop on a tool loop.
+    async agentic(app, steps) {
+      const s = session(++this.sessions * 7919);
+      for (let i = 0; i < steps; i++) {
+        if (this.closed) return;
+        await this.call({
+          app, session: s, model: "daedalus/auto", via: pick(TEXT),
+          stream: true, ttft: ttftFor("chat"), effort: LADDER[Math.min(i, LADDER.length - 1)],
+          loop: i === steps - 1 ? "2" : null,
+          tokens: { estimate: true, input: 1200 + 90 * i, output: 240 + 30 * i },
+        });
+      }
+    }
+    // A try again bumps to a higher tier: the row keeps the chain, the cooldown and the weight.
+    async escalate() {
+      const template = pick(TEMPLATES);
+      const reason = REASONS[reasonN++ % REASONS.length];
+      const s = session(++this.sessions * 7919);
+      await this.call({
+        app: template.app, session: s, model: template.model, pool: template.pool,
+        via: template.via, stream: template.stream === true, effort: template.effort,
+        ttft: ttftFor("chat"), transition: { ...template.transition, reason },
+        fallbacks: template.fallbacks, retry: template.retry, loop: template.loop,
+        routed: template.routed, tokens: template.tokens,
+        attempts: (template.attempts || []).map((item) => ({ ...item })),
+      });
+    }
+    // A client the page does not know: no app, and no session. Rare, but it happens.
+    async stray() {
+      const pooled = Math.random() < 0.5;
+      const model = pooled ? `daedalus/${pick(POOL_NAMES)}` : pick(TEXT);
+      await this.call({
+        app: null, session: null, model, via: pooled ? pick(TEXT) : model,
+        stream: Math.random() < 0.5, ttft: ttftFor("chat"),
+      });
+    }
+    // 1 request, as the server lives it: start, model known, first token, end.
+    async call(spec) {
       const id = ++this.next;
-      const served = row.via || row.model;
       began(id);
-      const live = {
-        id, path: MEDIA_PATH[row.model] || "/v1/chat/completions", ...ages(id), ttft: null,
-      };
+      const live = { id, path: spec.path || "/v1/chat/completions", ...ages(id), ttft: null };
       this.send("start", live);
       await wait(gap(60, 200));
       // The attempt starts when the model is known, as `Live.update` restarts its clock.
       attempted(id);
       Object.assign(live, {
-        app: row.app, session: row.session, key: row.key, model: row.model, effort: row.effort,
-        pool: row.pool, stream: row.stream, trying: served, via: null, attempts: [], tokens: null,
-        fallbacks: "0", ...ages(id),
+        app: spec.app ?? null, session: spec.session ?? null, key: "master", model: spec.model,
+        effort: spec.effort ?? null, pool: spec.pool ?? null, stream: spec.stream === true,
+        trying: spec.via, via: null, attempts: [], tokens: null,
+        fallbacks: spec.fallbacks || "0", ...ages(id),
       });
       this.send("update", live);
-      await wait(round(gap(...TTFT_S)) * 1000);
+      await wait(round(spec.ttft) * 1000);
       // The first token: TTFT freezes at the wait, and the stream clock counts from 0.
       const frozen = ages(id);
-      Object.assign(live, { trying: null, via: served, ttft: frozen.attempt_age, ...frozen });
+      Object.assign(live, { trying: null, via: spec.via, ttft: frozen.attempt_age, ...frozen });
       this.send("first", live);
-      const streamed = round(gap(...STREAM_S));
-      await wait(streamed * 1000);
-      const done = {
-        ...row, at: Date.now() / 1000, seconds: round(frozen.attempt_age + streamed),
-        ttft: `${frozen.attempt_age.toFixed(3)}s`,
-      };
-      // The row lands before the end event: the refresh of the page then reads it at once.
-      keep(done);
-      this.send("end", { id, row: done });
-      CLOCKS.delete(id);
-    }
-    async one(id) {
-      // A captured row is the template, so each field keeps the shape and the type of the server.
-      const template = pick(SEEDED);
-      const served = template.via;
-      const path = MEDIA_PATH[template.model] || "/v1/chat/completions";
-      began(id);
-      const row = { id, path, ...ages(id), ttft: null };
-      this.send("start", row);
-      await wait(gap(60, 200));
-      // The attempt starts when the model is known, as `Live.update` restarts its clock.
-      attempted(id);
-      const stream = path === "/v1/chat/completions" ? true : template.stream === true;
-      Object.assign(row, {
-        app: pick(["OWUI", "Kilo"]), session: session(id), key: "master",
-        model: template.model, effort: template.effort, pool: template.pool, stream,
-        trying: served, via: null, attempts: [], tokens: null, fallbacks: "0", ...ages(id),
-      });
-      this.send("update", row);
-      await wait(round(gap(...TTFT_S)) * 1000);
-      // The first token: TTFT freezes at the wait, and the stream clock counts from 0.
-      const frozen = ages(id);
-      Object.assign(row, { trying: null, via: served, ttft: frozen.attempt_age, ...frozen });
-      this.send("first", row);
-      const streamed = round(gap(...STREAM_S));
+      const streamed = round(streamFor(spec.stream === true));
       await wait(streamed * 1000);
       // The finished row carries the fields of `dashboard.record`: the status code, the text
       // times, and the answer.
       const done = {
         at: Date.now() / 1000, status: 200, seconds: round(frozen.attempt_age + streamed),
-        app: row.app, session: row.session, key: row.key, model: row.model, effort: row.effort,
-        pool: row.pool, routed: template.routed || null, transition: template.transition || null,
-        retry: template.retry || null, loop: template.loop || null,
-        via: served, ttft: `${frozen.attempt_age.toFixed(3)}s`, stream: row.stream,
-        status: template.status || 200, fallbacks: template.fallbacks || "0",
-        tokens: template.tokens ? { ...template.tokens } : null,
-        attempts: (template.attempts || []).length
-          ? template.attempts.map((item) => ({ ...item }))
-          : [{ model: served, result: "answered", seconds: frozen.attempt_age, error: "" }],
+        app: spec.app ?? null, session: spec.session ?? null, key: "master", model: spec.model,
+        effort: spec.effort ?? null, pool: spec.pool ?? null, routed: spec.routed ?? null,
+        transition: spec.transition ?? null, retry: spec.retry ?? null, loop: spec.loop ?? null,
+        via: spec.via, ttft: `${frozen.attempt_age.toFixed(3)}s`, stream: spec.stream === true,
+        fallbacks: spec.fallbacks || "0", tokens: spec.tokens ?? null,
+        attempts: spec.attempts
+          || [{ model: spec.via, result: "answered", seconds: frozen.attempt_age, error: "" }],
       };
       // The row lands before the end event: the refresh of the page then reads it at once.
       keep(done);
