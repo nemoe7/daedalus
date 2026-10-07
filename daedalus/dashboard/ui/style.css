@@ -282,8 +282,10 @@ td.end { text-align: right; }
   /* The time column holds 19 characters, so it keeps its own width, and the model column takes the
      free width of the row, as in the Models table. The phone layout ignores these hints. */
   .requests tr:not(.chain) > th, .requests tr:not(.chain) > td { width: 1%; }
-  .requests tr:not(.chain) > th:nth-child(4), .requests tr:not(.chain) > td:nth-child(4) {
-    width: auto; max-width: none;
+  /* The Model and Served by columns share the free width equally, so both move on a resize. */
+  .requests tr:not(.chain) > th:nth-child(4), .requests tr:not(.chain) > td:nth-child(4),
+  .requests tr:not(.chain) > th:nth-child(5), .requests tr:not(.chain) > td:nth-child(5) {
+    width: 30%; max-width: none;
   }
 }
 /* A collapsed border scrolls away from a sticky head, so the rule rides on an inset shadow. */
