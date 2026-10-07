@@ -2542,8 +2542,12 @@ function requestHash() {
 const nav = $("nav");
 function markNavSteps() {
   const end = nav.scrollWidth - nav.clientWidth;
-  $("nav-left").hidden = nav.scrollLeft <= 2;
-  $("nav-right").hidden = nav.scrollLeft >= end - 2;
+  const left = nav.scrollLeft <= 2;
+  const right = nav.scrollLeft >= end - 2;
+  $("nav-left").hidden = left;
+  $("nav-right").hidden = right;
+  nav.classList.toggle("fade-left", !left);
+  nav.classList.toggle("fade-right", !right);
 }
 nav.addEventListener("scroll", markNavSteps, { passive: true });
 for (const [id, step] of [["nav-left", -1], ["nav-right", 1]]) {

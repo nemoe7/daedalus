@@ -48,7 +48,18 @@ header {
   flex: none; display: grid; place-items: center; width: 28px; height: 44px; padding: 0;
   border: 0; background: transparent; color: var(--muted); font-size: 22px; line-height: 1;
 }
+/* The scroll edges fade a clipped tab toward the bar center, so no cut reads hard. Each fade
+   rides the chevron of its edge: an edge only fades while its tabs clip. */
+#nav {
+  --fade-left: 0px; --fade-right: 0px;
+  mask-image: linear-gradient(90deg, transparent 0, #000 var(--fade-left),
+    #000 calc(100% - var(--fade-right)), transparent 100%);
+}
+#nav.fade-left { --fade-left: 20px; }
+#nav.fade-right { --fade-right: 20px; }
 .tab-step:hover { color: var(--text); }
+/* The angle glyph sits low in its line box: the nudge centers it on the tab text. */
+.tab-step span { display: block; transform: translateY(-2px); }
 .count { margin-left: 6px; color: var(--muted); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .count:empty { display: none; }
 .chips {
