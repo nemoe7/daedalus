@@ -36,8 +36,8 @@ TIMEOUT: Final = 30.0
 # The 2 answers of a GitHub source: the commit of a ref, and the archive of a commit.
 API: Final = "https://api.github.com/repos/{repo}/commits/{ref}"
 ARCHIVE: Final = "https://codeload.github.com/{repo}/tar.gz/{commit}"
-# The `owner/name` of a source, and the name of a hook file inside the archive of a source.
-REPO: Final = re.compile(r"[A-Za-z0-9._-]+/[A-Za-z0-9._-]+")
+# The longest owner or repo name that a source may hold, and the name of a hook file in an archive.
+REPO_PART: Final = re.compile(r"[A-Za-z0-9._-]{1,100}")
 PY: Final = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}\.py")
 # The problems that are already in the log, so that each one shows 1 time.
 _told: set[str] = set()
@@ -108,8 +108,12 @@ def repo_name(value: Any) -> str | None:
   segments = [part for part in parts.path.strip("/").split("/") if part]
   if len(segments) < 2:
     return None
-  found = f"{segments[0]}/{segments[1].removesuffix('.git')}"
-  return found if REPO.fullmatch(found) else None
+  owner = segments[0]
+  name = segments[1].removesuffix(".git")
+  # Each part is short and simple, so 1 long value never slows the reader.
+  if not (REPO_PART.fullmatch(owner) and REPO_PART.fullmatch(name)):
+    return None
+  return f"{owner}/{name}"
 
 
 def commit_of(repo: str, ref: str, timeout: float = TIMEOUT) -> str | None:
