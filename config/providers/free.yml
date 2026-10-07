@@ -46,7 +46,7 @@ gemini:
   reasoning_effort: high
   exclude:
     - aqa
-    - nano-banana*
+    - "*nano-banana*"
     - veo*
     - "*robotics*"
     - antigravity*
