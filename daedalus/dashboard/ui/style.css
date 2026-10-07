@@ -80,6 +80,7 @@ button.chip:disabled { cursor: progress; }
 .types { display: flex; gap: 4px; }
 /* A phone drops the Type column, so the chips of each model join its name. */
 .phone-types { display: none; }
+.phone-chips { display: none; }
 .chip.flag { padding: 0 7px; font-size: 12px; line-height: 20px; }
 .chip.mode { color: var(--text); }
 /* A state that the page cannot confirm reads in the bad color, so it cannot pass for healthy. */
@@ -696,6 +697,18 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   /* The dropped Type column shows under each model name, and the name keeps its ellipsis. */
   .models td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .phone-types { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  /* The tier, tools and cooldown chips read as one row, then the weight takes the next. */
+  .models tr > td.name { flex-wrap: wrap; }
+  .phone-chips {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start;
+    gap: 4px; margin-top: 4px; flex-basis: 100%;
+  }
+  .phone-chips .chip {
+    display: inline-flex; align-items: center; gap: 3px;
+    min-height: 22px; line-height: 20px;
+  }
+  .phone-chips .chip svg { display: block; }
+  .models tr > td:last-child { grid-column: 1 / -1; }
   .hide-sm { display: none; }
   /* The 3 small cells take the width of their text, and the weight cell takes the rest. So the
      value and the bar of a weight stay inside the card. */
@@ -774,6 +787,12 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .requests tr.request > td:nth-child(5), .requests tr.live-row > td:nth-child(5) { grid-column: 3 / 5; grid-row: 6; }
   .requests .mobile-label { display: inline; flex: none; color: var(--muted); font-size: inherit; }
   .requests .cell-value { flex: 1; min-width: 0; text-align: left; overflow-wrap: anywhere; }
+  /* A live card already reads live, so the "just now" adds nothing; the pulse carries it. */
+  .requests .live-ago { display: none; }
+  /* The mono face belongs to the session hash, not to its "Session" label. */
+  .requests td.mono .mobile-label {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
   .requests tr.request > td:nth-child(1) .mobile-label,
   .requests tr.request > td:nth-child(2) .mobile-label,
   .requests tr.request > td:nth-child(7) .mobile-label,
