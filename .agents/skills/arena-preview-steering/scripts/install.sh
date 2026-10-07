@@ -166,6 +166,21 @@ _arena_preview_gate() {
       fi
       ;;
   esac
+  # A branch that trails origin/main replays onto a stale base. The check runs once per shell,
+  # and only on a line that already names a commit or a push, so the git call stays off every
+  # other command line.
+  case "\$BASH_COMMAND" in
+    *"git commit"*|*"git push"*)
+      if [ -z "\${_arena_preview_main_checked:-}" ]; then
+        _arena_preview_main_checked=1
+        _arena_preview_behind="\$(git rev-list --count HEAD..origin/main 2>/dev/null)"
+        case "\${_arena_preview_behind:-}" in
+          ''|0) ;;
+          *) printf '%s\n' "origin/main carries \${_arena_preview_behind} commit(s) this branch lacks. Replay your commits over main: run git fetch origin and git rebase origin/main, then push." >&2 ;;
+        esac
+      fi
+      ;;
+  esac
   case "\$BASH_COMMAND" in *preview*|*profile*|*bashrc*|*arena-state*|gh*|sleep*|true*|:*|test*|"git status"*|"git diff"*|"git add"*|"git commit"*|*arena-workspace*|*"ss -ltn"*|*"netstat -ltn"*) return 0 ;; esac
   # A push is a checkpoint: an unread note can change what leaves the sandbox,
   # so it waits for an ack whatever the call count.
