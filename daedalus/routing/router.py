@@ -107,10 +107,17 @@ def model_setting(config: Mapping[str, Any], model: str, key: str) -> Any:
 
 
 # The reasoning efforts each provider accepts, from its docs. A config key wins over the code.
+# OpenRouter and Kilo pass the OpenAI enum through. Gemini names minimal to high, plus off.
+# Cloudflare and Pollinations take no effort. Mistral takes none or high, and the z-ai flash
+# models only switch thinking on or off, because `reasoning_effort` starts at GLM-5.2.
 DEFAULT_EFFORTS: Final[Mapping[str, tuple[str, ...]]] = {
+  "cloudflare": ("none",),
+  "gemini": ("none", "minimal", "low", "medium", "high"),
+  "kilo": ("none", "minimal", "low", "medium", "high", "xhigh", "max"),
   "mistral": ("none", "high"),
+  "openrouter": ("none", "minimal", "low", "medium", "high", "xhigh", "max"),
   "pollinations": ("none",),
-  "z-ai": ("none",),
+  "z-ai": ("none", "high"),
 }
 # The ladder of a provider with no coded list: the 4 levels of the heuristics read.
 FALLBACK_EFFORTS: Final[tuple[str, ...]] = ("none", "low", "medium", "high")
