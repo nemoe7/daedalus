@@ -204,7 +204,7 @@ const nav = {{
 }};
 const byId = new Map();
 const el = (id) => {{
-  if (!byId.has(id)) byId.set(id, {{ innerHTML: '', textContent: '', addEventListener: () => {{}} }});
+  if (!byId.has(id)) byId.set(id, {{ innerHTML: '', textContent: '', addEventListener: () => {{}}, classList: {{ toggle: () => {{}} }} }});
   return byId.get(id);
 }};
 const sandbox = {{
@@ -223,9 +223,11 @@ const sandbox = {{
   window: {{ addEventListener: () => {{}} }},
   getSelection: () => ({{ isCollapsed: true }}),
   $: (id) => (id === 'nav' ? nav : el(id)),
+  __el: el,
+  __probe: {{}},
 }};
 vm.createContext(sandbox);
-vm.runInContext(src, sandbox);
+vm.runInContext(src + String.fromCharCode(10) + 'globalThis.__probe.askPair = typeof askPair === "function" ? askPair : undefined;', sandbox);
 {extra}
 """
 
@@ -389,6 +391,34 @@ const phone = el('models').innerHTML;
 assert(phone.includes('class="mark slug"'), 'a phone keeps the provider text');
 assert(phone.includes('<span class="model-part">m</span>'), 'a phone keeps the model part');
 """
+  subprocess.run(["node", "-e", code], check=True)
+
+
+def test_app_js_client_key_modal() -> None:
+  """The client key adder opens the modal with 2 fields: the key name and its value."""
+  code = _app_js_vm(
+    """
+const modal = el('modal');
+modal.returnValue = 'ok';
+modal.showModal = () => modal.close('ok');
+modal.close = (value) => {
+  modal.returnValue = value || modal.returnValue;
+  const done = sandbox.__settle;
+  sandbox.__settle = null;
+  done?.(modal.returnValue === 'ok');
+};
+const askPair = sandbox.__probe.askPair;
+const shown = askPair('Client key', 'The key and its value go to the file.', 'name', 'value', 'k', 'v');
+assert.strictEqual(typeof shown.then, 'function', 'askPair resolves');
+assert.strictEqual(el('modal-title').textContent, 'Client key', 'the title');
+assert.strictEqual(el('modal-field').hidden, false, 'the name field shows');
+assert.strictEqual(el('modal-field2').hidden, false, 'the value field shows');
+assert.strictEqual(el('modal-input').placeholder, 'name', 'the name placeholder');
+assert.strictEqual(el('modal-input2').placeholder, 'value', 'the value placeholder');
+assert.strictEqual(el('modal-input').value, 'k', 'the name keeps its value');
+assert.strictEqual(el('modal-input2').value, 'v', 'the value keeps its value');
+"""
+  )
   subprocess.run(["node", "-e", code], check=True)
 
 

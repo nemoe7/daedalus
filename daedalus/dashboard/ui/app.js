@@ -101,13 +101,14 @@ const cell = (label, inner, cls = "", attrs = "") =>
 
 // A confirmation modal in place of window.confirm. It resolves true on Confirm.
 // A placeholder shows the name field: the caller reads modal-input after a true.
-let settle = null;
+// The settle promise lives on the sandbox so a test can resolve the dialog.
 function ask(title, message, confirm = "Confirm", danger = false, placeholder = null, value = "") {
   return new Promise((resolve) => {
-    settle = resolve;
+    globalThis.__settle = resolve;
     $("modal-title").textContent = title;
     $("modal-message").textContent = message;
     $("modal-field").hidden = placeholder === null;
+    $("modal-field2").hidden = true;
     const box = $("modal-input");
     box.value = value;
     box.placeholder = placeholder ?? "";
@@ -118,6 +119,31 @@ function ask(title, message, confirm = "Confirm", danger = false, placeholder = 
     $("modal").showModal();
     if (placeholder !== null) box.focus?.();
     if (value) box.select?.();
+  });
+}
+
+// The 2-field modal: a name and its value, for a client key. It resolves true on Confirm,
+// and the caller reads modal-input and modal-input2 after a true.
+function askPair(title, message, nameLabel, valueLabel, name = "", value = "", confirm = "Save") {
+  return new Promise((resolve) => {
+    globalThis.__settle = resolve;
+    $("modal-title").textContent = title;
+    $("modal-message").textContent = message;
+    $("modal-field").hidden = false;
+    $("modal-field2").hidden = false;
+    const nameBox = $("modal-input");
+    nameBox.value = name;
+    nameBox.placeholder = nameLabel;
+    const valueBox = $("modal-input2");
+    valueBox.value = value;
+    valueBox.placeholder = valueLabel;
+    const ok = $("modal-ok");
+    ok.textContent = confirm;
+    ok.classList.toggle("danger", false);
+    $("modal").returnValue = "";
+    $("modal").showModal();
+    nameBox.focus?.();
+    if (name) nameBox.select?.();
   });
 }
 
@@ -2651,9 +2677,27 @@ $("provider-form").addEventListener("click", (event) => {
   const add = event.target.closest("[data-add]");
   if (add) {
     state.writeAnchor = anchorOf(add);
+    if (add.dataset.kind === "match") return addClientKey(add);
     showAdder(add);
   }
 });
+
+// The client key adder opens the 2-field modal: the key name and its value.
+async function addClientKey(button) {
+  const path = JSON.parse(button.dataset.add);
+  clearWrite("providers");
+  const ok = await askPair(
+    "Client key", "The key and its value go to the file when this dialog closes.",
+    "Key name", "Provider key",
+  );
+  if (!ok) return;
+  const name = $("modal-input").value.trim();
+  const value = $("modal-input2").value.trim();
+  if (!name || !value) return showWrite("providers", "Write the key name and its value.", true);
+  parentOf([...path, name], {})[name] = parsed(value);
+  renderCard(path[0]);
+  saveForm();
+}
 $("provider-form").addEventListener("input", (event) => {
   if (event.target.dataset.set) setText(event.target);
 });
@@ -2793,8 +2837,8 @@ $("modal").addEventListener("click", (event) => {
 
 // The dialog closes on Confirm, on Cancel, on Escape and on a backdrop click.
 $("modal").addEventListener("close", (event) => {
-  const done = settle;
-  settle = null;
+  const done = globalThis.__settle;
+  globalThis.__settle = null;
   done?.(event.target.returnValue === "ok");
 });
 
