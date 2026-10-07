@@ -258,6 +258,82 @@ assert(left.hidden && right.hidden, 'no chevron when every tab fits');
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_app_js_boots_the_app_with_the_server_settings(
+  client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A stored session boots the page: the app shows and the login form hides."""
+  monkeypatch.setenv(dashboard.DAEDALUS_MASTER_KEY, MASTER)
+  login = client.post("/ui/api/login", json={"username": "admin", "password": MASTER})
+  assert login.status_code == 200, login.text
+  found = client.get("/ui/api/settings")
+  assert found.status_code == 200, found.text
+  payload = found.json()
+  payload["file"] = {"personalization": {"theme": "dark", "time_format": "12h"}}
+  monkeypatch.setenv("DAE_TEST_SETTINGS", json.dumps(payload))
+  code = _app_js_vm(
+    """
+// The boot path needs nodes that hold dataset, closest and attributes.
+const enrich = (node) => Object.assign(node, {
+  dataset: node.dataset || {}, value: node.value ?? "", checked: node.checked ?? false,
+  hidden: node.hidden ?? false, style: node.style || {},
+  closest: node.closest || (() => null),
+  querySelector: node.querySelector || (() => null),
+  querySelectorAll: node.querySelectorAll || (() => []),
+  setAttribute: node.setAttribute || (() => {}),
+  removeAttribute: node.removeAttribute || (() => {}),
+  focus: node.focus || (() => {}),
+});
+for (const node of byId.values()) enrich(node);
+const getElement = sandbox.document.getElementById;
+sandbox.document.getElementById = (id) => enrich(getElement(id));
+sandbox.document.querySelector = (sel) =>
+  (sel.includes("data-page") ? { hidden: true } : { firstChild: { textContent: "Models" } });
+sandbox.EventSource = class { addEventListener() {} close() {} };
+sandbox.setInterval = setInterval;
+sandbox.clearInterval = clearInterval;
+sandbox.sessionStorage = { getItem: () => "boot-session", setItem() {}, removeItem() {} };
+sandbox.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+const answers = {
+  settings: JSON.parse(process.env.DAE_TEST_SETTINGS),
+  login: { session: true }, hooks: { legend: [] },
+  status: { healthy: true, sessions: 0, models: 1, version: "v1",
+    catalog: { built: null, next: null, rebuilding: false }, affinity: { mode: "none" } },
+  pools: [], models: [], keys: [], env: [], limits: { providers: [], lanes: [], checked: null },
+  files: [{ path: "config/daedalus.yml", text: "", blocks: {}, error: null, main: true }],
+  "provider-keys": [], "provider-defaults": {},
+};
+sandbox.call = async (path) => {
+  if (path.startsWith("requests")) return [];
+  const key = path.split("?")[0];
+  if (!(key in answers)) throw new Error(`no stub for ${path}`);
+  return answers[key];
+};
+(async () => {
+  await sandbox.start();
+  assert.strictEqual(el("app").hidden, false, "the app shows");
+  assert.strictEqual(el("login").hidden, true, "the login form hides");
+  assert.strictEqual(vm.runInContext("hourCycle", sandbox), "h12", "time_format read");
+  assert.strictEqual(sandbox.document.documentElement.dataset.theme, "dark", "theme read");
+  process.exit(0);
+})().catch((error) => { console.error(error); process.exit(1); });
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+  client.cookies.clear()
+
+
+def test_app_js_settings_groups_ship_in_the_defaults() -> None:
+  """Every settings group that app.js reads ships in `settings.DEFAULTS`."""
+  source = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/app.js"
+  ).read_text(encoding="utf-8")
+  reads = set(re.findall(r'(?:setting|fileValue)\("([a-z-]+)"', source))
+  reads |= set(re.findall(r'^  \["([a-z-]+)", "[^"]+", \[', source, re.MULTILINE))
+  assert reads, "the settings reads of app.js"
+  missing = sorted(reads - set(settings.DEFAULTS))
+  assert not missing, f"app.js reads settings groups the server never sends: {missing}"
+
+
 def test_app_js_length_limit_message() -> None:
   """A field that stops at its length tells the rule, so the cut is not silent."""
   code = _app_js_vm(
