@@ -3319,7 +3319,10 @@ def test_a_pending_call_spins_and_the_first_load_waits_on_skeletons() -> None:
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
-  assert 'id="spinner"' in page, "the spinner of the header"
+  brand = next(line for line in page.splitlines() if 'class="brand"' in line)
+  chips = page[page.index('<div class="chips">') : page.index('id="status"')]
+  assert 'id="spinner"' in chips, "the ring sits at the header right"
+  assert "spinner" not in brand, "the ring left the brand row, so no tab moves"
   assert "@keyframes spin" in css and ".spinner {" in css, "the ring"
   assert "@keyframes shimmer" in css and "tr.skeleton td span {" in css, (
     "the placeholder bar"
@@ -3327,9 +3330,12 @@ def test_a_pending_call_spins_and_the_first_load_waits_on_skeletons() -> None:
   assert "calling" in app and "setTimeout(() =>" in app, (
     "the grace period of a slow call"
   )
-  assert (
-    '$("spinner").hidden = false;' in app and '$("spinner").hidden = true;' in app
-  ), "the ring follows"
+  assert 'ring.classList.add("on");' in app and 'ring.classList.remove("on");' in app, (
+    "the ring follows"
+  )
+  assert ".spinner.on {" in css and "visibility: visible;" in css, (
+    "the seat holds the width, so the ring shows without a shift"
+  )
   assert "function skeletons(" in app and 'skeletons("requests"' in app, (
     "the placeholder rows"
   )
