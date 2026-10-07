@@ -76,8 +76,15 @@ header {
 #status { padding: 0; gap: 24px; }
 .chips .chip, .chips .ghost { padding: 0; border: 0; border-radius: 0; font-size: 14px; font-weight: 500; }
 .chips button.chip:hover:not(:disabled) { color: var(--text); }
-/* A phone drops the header state. The Overview page shows it in its own card. */
-.status-card { display: none; }
+/* The header keeps the state; the Overview card holds the health, sessions and catalog. */
+.status-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.status-health { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.status-rows { margin-top: 5px; }
+.status-card .line b { color: var(--text); font-weight: 600; }
+button.line {
+  width: 100%; border: 0; border-top: 1px solid var(--line); background: none;
+  color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
 /* The 4 numbers above the Overview cards: the value on top, its name below. */
 .kpis {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
@@ -610,18 +617,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .section-pane .back .chev { font-size: 24px; line-height: 1; vertical-align: -3px; }
 }
 @media (max-width: 1320px) {
-  /* A narrow desktop keeps 1 header row: the status chips move to the Overview card, as on a
-     phone, and the tabs scroll when they do not fit. */
+  /* A narrow desktop keeps 1 header row: the state leaves the header, as on a phone, and the
+     tabs scroll when they do not fit. */
   #status { display: none; }
-  .status-card { display: block; padding: 12px 14px; margin-bottom: 16px; }
-  .status-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .status-health { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
-  .status-rows { margin-top: 5px; }
-  .status-card .line b { color: var(--text); font-weight: 600; }
-  button.line {
-    width: 100%; border: 0; border-top: 1px solid var(--line); background: none;
-    color: inherit; font: inherit; text-align: left; cursor: pointer;
-  }
 }
 @media (max-width: 720px) {
   header, #app > main { padding-left: 16px; padding-right: 16px; }

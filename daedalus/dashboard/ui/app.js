@@ -295,14 +295,6 @@ async function guarded(task) {
   }
 }
 
-// The catalog chip. A click starts a rebuild.
-function catalogChip({ built, next, rebuilding }) {
-  const last = rebuilding ? "rebuilding" : built ? relative(built) : "never";
-  const following = next ? ` &middot; Next <b>${esc(relative(next))}</b>` : " &middot; no schedule";
-  return `<button type="button" class="chip rebuild" ${rebuilding ? "disabled" : ""}
-    title="${rebuilding ? "A catalog rebuild runs now" : "Rebuild the catalog now"}">Catalog <b>${esc(last)}</b>${following}</button>`;
-}
-
 async function rebuildCatalog() {
   const go = await ask("Rebuild the catalog", "daedalus reads the model list of each provider again.", "Rebuild");
   if (!go) return;
@@ -343,16 +335,9 @@ function stateChip() {
   return '<span class="chip bad" id="state-unknown" title="The last state call failed. The page shows the last good answer.">State unknown</span>';
 }
 
+// The Overview card holds the health, the sessions and the catalog; the header keeps the state.
 function renderChips() {
-  const status = state.status;
-  const chips = status ? [
-    `<span class="chip"><span class="dot${status.healthy ? "" : " off"}"></span>` +
-      `<b>${status.healthy ? "Healthy" : "Down"}</b></span>`,
-    `<span class="chip" title="Conversations with a session model and a request in the last hour"><b>${status.sessions}</b> sessions</span>`,
-    catalogChip(status.catalog),
-  ] : [];
-  chips.push(stateChip());
-  document.querySelectorAll("[data-status]").forEach((host) => { host.innerHTML = chips.join(""); });
+  document.querySelectorAll("[data-status]").forEach((host) => { host.innerHTML = stateChip(); });
 }
 
 function setStateKnown(value) {
