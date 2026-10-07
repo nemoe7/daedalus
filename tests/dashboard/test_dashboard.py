@@ -288,6 +288,9 @@ def test_phone_model_head_keeps_a_tap_area() -> None:
   assert ".phone-types { display: flex; flex-wrap: wrap;" in mobile_css, (
     "the chips of a dropped Type column wrap under the name"
   )
+  assert (
+    "flex-basis: 100%" in mobile_css.split(".phone-types", 1)[1].split("}", 1)[0]
+  ), "the modality chips take their own row and never share it with the name"
 
 
 def test_app_js_type_chips_drop_the_redundant_media_flag() -> None:
