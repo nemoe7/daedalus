@@ -907,7 +907,9 @@ function phoneChips(m) {
   const cool = m.cooldown && m.cooldown > Date.now() / 1000
     ? `<span class="chip flag" title="Cooldown">${CHIP_ICONS.cool}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
     : "";
-  return tier + tools + cool;
+  const weight = m.weight == null ? ""
+    : `<span class="chip flag" title="Weight"><span class="num">${m.weight.toFixed(2)}</span></span>`;
+  return tier + tools + cool + weight;
 }
 
 function renderTiers() {
