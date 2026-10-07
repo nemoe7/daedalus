@@ -121,9 +121,9 @@ EFFORT_CAP: Final = 5
 def efforts(config: Mapping[str, Any], model: str) -> list[str]:
   """The ordered reasoning efforts of a model: its key, its block, then the coded default."""
   name, _, slug = model.partition("/")
-  found = model_setting(config, model, "reasoning_efforts")
+  found = model_setting(config, model, "supported_reasoning_efforts")
   if found is None:
-    found = (block_for(config, name, slug) or {}).get("reasoning_efforts")
+    found = (block_for(config, name, slug) or {}).get("supported_reasoning_efforts")
   if (
     not isinstance(found, list)
     or not found
