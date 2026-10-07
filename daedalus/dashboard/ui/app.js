@@ -227,19 +227,45 @@ function keepSession(value, remember) {
   if (value) (remember ? localStorage : sessionStorage).setItem(SESSION, value);
 }
 
+// A call that runs longer than a blink shows the header spinner, so a slow answer never reads as a
+// dead page. The count holds the ring while any call of the page is open, and a fast call shows
+// nothing: the timer waits out the grace period first.
+let calling = 0;
+let spinnerTimer = null;
+function showSpinner(on) {
+  if (on) $("spinner").hidden = false;
+  else $("spinner").hidden = true;
+}
+
 async function call(path, options = {}) {
-  const response = await fetch("ui/api/" + path, {
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...(session() ? { "x-daedalus-session": session() } : {}) },
-    ...options,
-  });
-  if (response.status === 401 && path !== "login") {
-    keepSession(null);
-    throw new LoggedOut();
+  calling += 1;
+  if (calling === 1) spinnerTimer = setTimeout(() => showSpinner(true), 300);
+  try {
+    const response = await fetch("ui/api/" + path, {
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", ...(session() ? { "x-daedalus-session": session() } : {}) },
+      ...options,
+    });
+    if (response.status === 401 && path !== "login") {
+      keepSession(null);
+      throw new LoggedOut();
+    }
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error?.message || `HTTP ${response.status}`);
+    return body;
+  } finally {
+    calling -= 1;
+    if (!calling) {
+      clearTimeout(spinnerTimer);
+      showSpinner(false);
+    }
   }
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error?.message || `HTTP ${response.status}`);
-  return body;
+}
+
+// The first load draws placeholder rows, so a table shows its shape while the answer is on the way.
+function skeletons(id, cols, rows = 3) {
+  $(id).innerHTML = Array.from({ length: rows }, () =>
+    `<tr class="skeleton" aria-hidden="true">${`<td><span></span></td>`.repeat(cols)}</tr>`).join("");
 }
 
 function showLogin(message = "") {
@@ -2516,6 +2542,8 @@ async function start() {
   // The pane sizes once the app shows: a pane built while the app is hidden has no height yet.
   fitSectionPane();
   setStateKnown(null);
+  skeletons("requests", 13);
+  skeletons("models", 9);
   await refreshFast();
   await refreshSlow();
   takeFiles(await call("files"));

@@ -41,6 +41,19 @@ tr.live-row.arrive { animation: arrive var(--soft) var(--ease); }
 /* The first data of a card or a table arrives the same way, once, on the class that the shared
    draw path sets. */
 .drawn { animation: arrive var(--soft) var(--ease); }
+/* A call that runs longer than a blink spins a ring in the header, so a slow answer reads as work. */
+.spinner {
+  width: 14px; height: 14px; flex: none; align-self: center; border-radius: 50%;
+  border: 2px solid var(--line); border-top-color: var(--accent);
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+/* The placeholder rows of the first load breathe while the answer is on the way. */
+tr.skeleton td span {
+  display: block; height: 10px; border-radius: 999px; background: var(--bar);
+  animation: shimmer 1.1s var(--ease) infinite alternate;
+}
+@keyframes shimmer { from { opacity: .45; } to { opacity: 1; } }
 /* The count of the stream glows on a change, then settles back to the muted hint. */
 @keyframes bump { from { color: var(--accent); } }
 .hint.bump { animation: bump 2s var(--ease); }
