@@ -237,7 +237,9 @@ const check = (ok, text) => {
   ["live", "start", "update", "first", "end"].forEach((kind) =>
     stream.addEventListener(kind, (event) => seen.push([kind, JSON.parse(event.data)])),
   );
-  await new Promise((done) => setTimeout(done, 9000));
+  // The pace of the demo is slow: 2 replayed rows, the shortest path to a fallback chain,
+  // take up to 17.4 s.
+  await new Promise((done) => setTimeout(done, 20000));
   stream.close();
   const kinds = seen.map(([kind]) => kind);
   check(kinds[0] === "live" && Array.isArray(seen[0][1]), "the stream starts with the live rows");
@@ -463,6 +465,23 @@ def test_the_demo_carries_the_version_of_the_build(tmp_path: Path) -> None:
     assert pages_demo.demo_version() == "demo.99", "the environment wins"
   finally:
     del os.environ["DEMO_VERSION"]
+
+
+def test_the_live_demo_keeps_a_slow_pace() -> None:
+  """The demo sends 1 request per wave, with a slow first token and a slow stream."""
+  found = {
+    name: (float(low), float(high))
+    for name, low, high in re.findall(
+      r"const (WAVE_MS|TTFT_S|STREAM_S) = \[([\d.]+), ([\d.]+)\];",
+      pages_demo.DEMO_JS,
+    )
+  }
+  assert sorted(found) == ["STREAM_S", "TTFT_S", "WAVE_MS"], found
+  assert "const WAVE = 1;" in pages_demo.DEMO_JS, "1 request per wave"
+  assert all(low < high for low, high in found.values()), found
+  assert found["WAVE_MS"][0] >= 5000, found
+  assert found["TTFT_S"][0] >= 1.0, found
+  assert found["STREAM_S"][0] >= 1.0, found
 
 
 def test_the_demo_answers_the_page_without_a_server(tmp_path: Path) -> None:
