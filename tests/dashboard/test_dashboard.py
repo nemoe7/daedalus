@@ -1713,6 +1713,41 @@ const probe = sandbox.__probe;
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_app_js_keeps_the_scroll_of_the_settings_pane() -> None:
+  """A rebuild of the settings card puts the pane back, so an update holds the reader's place."""
+  payload = json.dumps(
+    {
+      "path": "config/daedalus.yml",
+      "headroom_available": False,
+      "text": "",
+      "defaults": settings.DEFAULTS,
+      "file": {},
+    }
+  )
+  run_app_js(
+    "state, renderSettings, settingsScroll, keepSettingsScroll",
+    f"""
+probe.state.settings = {payload};
+const pane = {{ scrollTop: 0 }};
+node('settings').querySelector = (sel) => (sel === '.section-pane' ? pane : null);
+pane.scrollTop = 240;
+const at = probe.settingsScroll();
+assert(at.pane === 240, 'the helper reads the pane of the settings');
+pane.scrollTop = 0;
+probe.keepSettingsScroll(at);
+assert(pane.scrollTop === 240, 'the pane lands where it was');
+""",
+  )
+  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  body = app[
+    app.index("function renderSettings()") : app.index("function renderSettingsSave()")
+  ]
+  assert body.index("const scroll = settingsScroll();") < body.index(
+    '$("settings").innerHTML'
+  ), "the scroll comes from before the rebuild"
+  assert "keepSettingsScroll(scroll);" in body, "the rebuild puts the pane back"
+
+
 def test_app_js_settings_switches() -> None:
   """Every boolean setting renders as a switch, so a loaded file reports no change."""
   payload = json.dumps(
@@ -1763,24 +1798,45 @@ assert.strictEqual(probe.listValue('routing', 'switch').length, probe.state.sett
   )
 
 
-def test_app_js_hook_rows() -> None:
-  """A request point holds 1 row per hook file, picked from the files of the config folder."""
+def test_app_js_hook_point_chips() -> None:
+  """The hooks table carries the request points of each file as chips, and a chip writes the point."""
   payload = json.dumps(
     {
       "path": "config/daedalus.yml",
       "headroom_available": False,
       "text": "",
-      "hook_files": [
-        "hooks/owui_auto_reasoning_effort.py",
-        "hooks/served_model.py",
-        "hooks/or_cheapest_output.py",
-      ],
+      "hook_files": ["hooks/one.py", "hooks/off.py"],
       "defaults": settings.DEFAULTS,
       "file": {
         "hooks": {
-          "on-request": ["hooks/owui_auto_reasoning_effort.py", "hooks/served_model.py"]
+          "on-request": ["hooks/one.py"],
+          "on-chunk": ["hooks/served_model.py"],
         }
       },
+      "hook_rows": [
+        {
+          "name": "one.py",
+          "path": "hooks/one.py",
+          "version": "1.2.0",
+          "scope": "global",
+          "targets": [],
+          "points": [],
+          "runs": ["on-request"],
+          "enabled": True,
+          "problem": "",
+        },
+        {
+          "name": "off.py",
+          "path": "hooks/off.py",
+          "version": "1.0.0",
+          "scope": "global",
+          "targets": [],
+          "points": [],
+          "runs": ["on-chunk"],
+          "enabled": False,
+          "problem": "",
+        },
+      ],
     }
   )
   run_app_js(
@@ -1789,39 +1845,29 @@ def test_app_js_hook_rows() -> None:
 probe.state.settings = {payload};
 probe.renderSettings();
 const html = node('settings').innerHTML;
-assert(html.includes('>On request<') && html.includes('>On chunk<'), 'each point has a row');
-const at = html.indexOf('id="set-hooks-on-request"');
-assert(at > 0, 'the on-request row names its host');
-const box = html.slice(at, at + 1400);
-assert(box.includes('data-hook-pick='), 'a row picks a file');
-assert(box.includes('data-hook-add='), 'the point takes another file');
-assert(!box.includes('class="menu"'), 'the list stays shut until the pick');
+assert(!html.includes('id="set-hooks-on-request"'), 'the point section left the card body');
+assert(html.includes('<th>Points</th>'), 'the table names its point column');
+assert(html.includes('class="pill on">On request'), 'a live point reads on');
+assert(html.includes('class="pill off">On chunk'), 'a file that the switch turned off reads dim');
+assert(html.includes(`data-hook-point-drop='[&quot;one.py&quot;,&quot;on-request&quot;]'`), 'the chip takes the file off the point');
+assert(html.includes('data-hook-point-pick="one.py"'), 'a row adds another point');
+assert(!html.includes('class="menu"'), 'the point list stays shut');
 const clickOn = (selector, data) => {{
   const target = {{ dataset: data, closest: (sel) => (sel === selector ? target : null), prepend: () => {{}} }};
   node('settings').handlers.click.forEach((fn) => fn({{ target }}));
 }};
-// The pick opens the files of the hooks folder, and the saved one reads as picked.
-const pick = (index) => clickOn('[data-hook-pick]', {{ hookPick: '["hooks", "on-request", ' + index + ']' }});
-pick(0);
-const open = node('set-hooks-on-request').innerHTML;
+// The chip of the row opens the points that the file still skips.
+clickOn('[data-hook-point-pick]', {{ hookPointPick: 'one.py' }});
+const open = node('settings').innerHTML;
 assert(open.includes('class="menu"') && open.includes('role="listbox"'), 'the list opens under the chip');
-assert(open.includes('>served_model.py<') && open.includes('>or_cheapest_output.py<'), 'the list holds the hook files');
-assert(open.includes('aria-selected="true"'), 'the saved file shows as picked');
-assert(open.includes('title="Pick a hook file">owui_auto_reasoning_effort.py</button>'), 'the chip drops the folder of the name');
-// A choice lands in the row, reaches the save payload, and closes the list.
-clickOn('[data-hook-choice]', {{ hookChoice: '["hooks", "on-request", 0, "hooks/served_model.py"]' }});
-assert(!node('set-hooks-on-request').innerHTML.includes('class="menu"'), 'the pick closes the list');
-// The pick builds the list inside the page, so the 2 rows compare as text.
-assert.strictEqual(JSON.stringify(probe.settingsChanges().hooks['on-request']), JSON.stringify(['hooks/served_model.py', 'hooks/served_model.py']), 'the pick reaches the save payload');
-// The same pick again closes the list, so 1 list shows at a time.
-pick(1);
-assert(node('set-hooks-on-request').innerHTML.includes('class="menu"'), 'the second pick opens');
-pick(1);
-assert(!node('set-hooks-on-request').innerHTML.includes('class="menu"'), 'the same pick shuts it');
-// A new row reaches the save payload, and an empty point clears the key.
-probe.setListValue('hooks', 'on-chunk', ['hooks/served_model.py']);
-assert.deepStrictEqual(probe.settingsChanges().hooks['on-chunk'], ['hooks/served_model.py'], 'the new row reaches the save payload');
-probe.setListValue('hooks', 'on-request', []);
+assert(open.includes(`data-hook-point-take='[&quot;one.py&quot;,&quot;on-chunk&quot;]'`), 'the list holds the other points');
+assert(open.includes('>On prompt<'), 'every point of the settings is offered');
+assert(!open.includes(`data-hook-point-take='[&quot;one.py&quot;,&quot;on-request&quot;]'`), 'a point that runs is not offered again');
+// A taken point joins the list of that point, and reaches the save payload.
+clickOn('[data-hook-point-take]', {{ hookPointTake: '["one.py","on-chunk"]' }});
+assert.strictEqual(JSON.stringify(probe.settingsChanges().hooks['on-chunk']), JSON.stringify(['hooks/served_model.py', 'hooks/one.py']), 'the point reaches the save payload');
+// The x of a chip leaves the point, and an empty point clears the key.
+clickOn('[data-hook-point-drop]', {{ hookPointDrop: '["one.py","on-request"]' }});
 assert.strictEqual(probe.settingsChanges().hooks['on-request'], null, 'an empty point clears the key');
 """,
   )
@@ -1847,8 +1893,9 @@ def test_hook_chip_matches_the_keyword_chips() -> None:
   assert "border: 1px solid var(--line)" in menu.group(1)
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert 'const settingPill = (group, key, value, index) => `<span class="pill">' in app
-  markup = re.search(r'return `<span class="pill hook">.*?</span>`;', app, re.DOTALL)
+  markup = re.search(r"const hookFormRow = .*?\n};", app, re.DOTALL)
   assert markup, "the hook row builds 1 chip"
+  assert 'class="pill hook"' in markup.group(0), "the row rides in a chip"
   assert 'title="Pick a hook file"' in markup.group(0), "the chip names its picker"
   assert 'role="listbox"' in markup.group(0), "the list names its role"
   assert 'role="option"' in app and "aria-selected=" in app, "each choice is an option"
@@ -2481,6 +2528,7 @@ def test_hook_rows_and_update(
     "scope": "provider",
     "targets": ["p"],
     "points": [],
+    "runs": [],
     "enabled": True,
     "problem": "",
     "record": {},

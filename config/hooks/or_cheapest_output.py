@@ -1,3 +1,7 @@
+# ---
+# version: 1.0.0
+# points: [on-catalog, on-upstream]
+# ---
 """A daedalus hook: OpenRouter tries the endpoints with the cheapest output price first.
 
 Name this file 2 times in the hooks list of an OpenRouter model, provider or file:

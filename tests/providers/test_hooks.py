@@ -460,6 +460,29 @@ def test_bad_block_stays_out() -> None:
     hooks.set_installed()
 
 
+def test_rows_add_the_request_points_that_name_a_file() -> None:
+  """The settings name a file at a request point: the row shows that point once, in point order."""
+  try:
+    hooks.set_installed("rows2")
+    scoped("both.py", ANSWER % "both", "# ---\n# points: [on-chunk]\n# ---\n")
+    scoped("named.py", ANSWER % "named", "")
+    rows = {
+      row["name"]: row
+      for row in hooks.rows(
+        {
+          "on-prompt": ["rows2/both.py", "rows2/named.py"],
+          "on-chunk": ["rows2/both.py"],
+        }
+      )
+    }
+    assert rows["both.py"]["runs"] == ["on-chunk"], "the block admits on-chunk alone"
+    assert rows["both.py"]["points"] == ["on-chunk"], "the block is the declaration"
+    assert rows["named.py"]["runs"] == ["on-prompt"], rows["named.py"]
+    assert "runs" not in hooks.rows()[0], "no settings gives no named point"
+  finally:
+    hooks.set_installed()
+
+
 def test_rows_report_the_folder() -> None:
   """Each row names the file, its frontmatter, its state and its problem."""
   try:

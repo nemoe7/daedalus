@@ -59,6 +59,17 @@ TOOL = {"type": "function", "function": {"name": "get_weather", "parameters": {}
 # The models that the demo makes fail or rate limit, for 1 row each.
 DOWN = set()
 LIMITED = set()
+# The source of the demo: the repo that ships its hook files. The Sources card starts with it.
+DEMO_SOURCE = {
+  "repo": "nemoe7/daedalus",
+  "path": "hooks",
+  "ref": "main",
+  "auto_update": False,
+}
+# The same source in the file text, under the last line of the captured `hooks` block.
+DEMO_SOURCE_YAML = (
+  "  sources:\n    - repo: nemoe7/daedalus\n      path: hooks\n      ref: main\n"
+)
 # The prompts of the captured rows, in the order that the table shows them.
 DEMO_CALLS = (
   ("daedalus/moros", "Count to three."),
@@ -1095,7 +1106,7 @@ const DEMO_FIXTURES = __FIXTURES__;
   };
   // The hook manager of the demo: a scan names 2 files, and an update reports the version move.
   const DEMO_HOOKS = {
-    repo: "nemoe7/daedalus-hooks",
+    repo: "nemoe7/daedalus",
     commit: "3f9c1ab4d2e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9",
     files: [
       { name: "served_model.py", version: "1.3.0", scope: "global", targets: [], points: ["on-chunk"], problem: "" },
@@ -1380,6 +1391,26 @@ def demo_fixtures(version: str) -> dict[str, Any]:
     pool["members"] = [item for item in pool["members"] if item["id"] in kept]
   fixtures["login"]["version"] = version
   fixtures["status"]["version"] = version
+  # The hook rows come from the files of this repo, so the table shows the version each 1 carries.
+  # The capture holds an older copy, and a version bump lands here without a new capture.
+  settings_file = fixtures["settings"].setdefault("file", {})
+  hooks_file = settings_file.setdefault("hooks", {})
+  hooks_file["sources"] = [dict(DEMO_SOURCE)]
+  saved = hooks.CONFIG_DIR
+  try:
+    # The build reads the shipped folder, whatever config folder the running process holds.
+    hooks.CONFIG_DIR = ROOT / "config"
+    rows = hooks.rows(
+      {key: value for key, value in hooks_file.items() if key.startswith("on-")}
+    )
+  finally:
+    hooks.CONFIG_DIR = saved
+  fixtures["settings"]["hook_rows"] = [{**row, "record": {}} for row in rows]
+  # The YAML card shows the same source, under the last line of its captured hooks block.
+  text = fixtures["settings"]["text"]
+  marker = "  on-chunk: [hooks/served_model.py]\n"
+  if marker in text and "sources:" not in text:
+    fixtures["settings"]["text"] = text.replace(marker, marker + DEMO_SOURCE_YAML, 1)
   return fixtures
 
 

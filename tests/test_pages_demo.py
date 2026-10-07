@@ -527,6 +527,28 @@ def test_the_demo_drops_the_models_its_provider_files_exclude(tmp_path: Path) ->
   assert "gemini-nano-banana-2.1" not in script, "no excluded row reaches the page"
 
 
+def test_the_demo_states_its_source_and_the_hook_versions(tmp_path: Path) -> None:
+  """The Sources card starts with the repo that ships the hooks, and the table shows its versions."""
+  assert pages_demo.DEMO_SOURCE["repo"] == "nemoe7/daedalus"
+  fixtures = pages_demo.demo_fixtures("demo.test")
+  hooks_file = fixtures["settings"]["file"]["hooks"]
+  assert hooks_file["sources"] == [pages_demo.DEMO_SOURCE], hooks_file["sources"]
+  assert "repo: nemoe7/daedalus" in fixtures["settings"]["text"], (
+    "the YAML card shows it"
+  )
+  rows = {row["name"]: row for row in fixtures["settings"]["hook_rows"]}
+  shipped = {path.name for path in (Path("config") / "hooks").glob("*.py")}
+  assert set(rows) == shipped, rows
+  for name, row in rows.items():
+    assert row["version"], f"no version for {name}"
+  assert rows["owui_auto_reasoning_effort.py"]["runs"] == ["on-request", "on-prompt"]
+  assert rows["served_model.py"]["runs"] == ["on-chunk"]
+  out = pages_demo.build(tmp_path / "site", "demo.test")
+  script = (out / "demo.js").read_text(encoding="utf-8")
+  assert '"repo": "nemoe7/daedalus"' in script, "the source reaches the page"
+  assert '"version": "1.0.0"' in script, "the version of a hook reaches the page"
+
+
 def test_the_build_copies_the_page_and_loads_the_demo_first(tmp_path: Path) -> None:
   """`--out` serves the real UI, with the demo script before it."""
   out = pages_demo.build(tmp_path / "site", pages_demo.demo_version())

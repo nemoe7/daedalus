@@ -482,6 +482,10 @@ section[data-page="providers"], section[data-page="settings"] {
 .adder { display: inline-flex; gap: 6px; }
 /* A hook row: the file name in a chip that opens the list of the hooks folder. The chip holds the
    same pill as a keyword chip, and the list draws in the page so it follows the page theme. */
+/* The point chips of the hooks table: a point that runs the file reads on, and a file that the
+   Load switch turned off reads dim. */
+.pill.on { border-color: var(--accent); background: var(--bar); color: var(--tier); }
+.pill.off { opacity: .5; }
 .pill.hook { position: relative; }
 .pill.hook:focus-within { border-color: var(--accent); }
 .pill.hook .pick {
