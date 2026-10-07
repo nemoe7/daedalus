@@ -14,37 +14,10 @@ from daedalus.config.provider_edit import round_trip
 
 DEFAULT_PATH = Path("config/daedalus.yml")
 DEFAULTS: dict[str, dict[str, Any]] = {
-  "timeouts": {"request": 600.0, "wait": 60.0, "slow": 30.0},
-  # 1 mode names the session pin and the race: none is neither, session is the pin, race is both.
-  "affinity": {
-    "mode": "session",
-    "idle": 3600.0,
-    "stay": 0.85,
-    "change_on_draw": True,
-    "count": 1,
-    "chance": 0.05,
-    "slow": 30.0,
-    "penalty": 0.9,
-  },
-  "weights": {
-    "enabled": True,
-    "success": 1.5,
-    "fault": 0.5,
-    "slow": 0.75,
-    "hourly": 1.212,
-    "rate_limit": 0.75,
-  },
-  "cooldown": {"first": 60.0, "longest": 21600.0},
-  "loops": {"calls": 3, "repeats": 4, "shortest": 20, "longest": 2000},
-  "pacing": {"enabled": True},
-  "catalog": {"every": 6.0, "anchor": 6.0},
-  # The message compression through Headroom. A block or a model entry turns it off for 1 model.
-  "headroom": {"enabled": True, "timeout": 5.0},
-  # The bar of the classifier: the odds a tier needs to take a request.
-  "routing": {"threshold": 0.75},
-  # The phrases that raise the tier of `daedalus/auto`, and the words that move the session model.
-  "escalation": {
-    "keywords": [
+  # How a request picks a model: the classifier bar and the keyword rules.
+  "routing": {
+    "threshold": 0.75,
+    "escalation": [
       "ultrathink",
       "think hard",
       "think harder",
@@ -66,29 +39,85 @@ DEFAULTS: dict[str, dict[str, Any]] = {
       "debug",
       "design",
       "architecture",
-    ]
+    ],
+    "switch": ["clanker"],
   },
-  "switch": {"keywords": ["clanker"]},
-  "dashboard": {"theme": "system", "time_format": "24h"},
-  # The request-level hook files. Each key is a hook point, and the value is a list of file paths.
-  "request_hooks": {"on-request": [], "on-prompt": [], "on-chunk": []},
-  # The hook files that come from a URL, each pinned to the sha256 of its bytes.
-  "remote_hooks": [],
-  # The hosts a remote hook URL may name. Empty: every host passes.
-  "remote_hook_hosts": [],
-  # The generic key of each pool, and the client name after `daedalus/` as its default.
-  "pools": {
+  # 1 mode names the session pin and the race: none is neither, session is the pin, race is both.
+  "affinity": {
+    "mode": "session",
+    "idle": 3600.0,
+    "stay": 0.85,
+    "change_on_draw": True,
+    "count": 1,
+    "chance": 0.05,
+    "slow": 30.0,
+    "penalty": 0.9,
+  },
+  # The load balance after a fault, a slow token or a rate limit.
+  "balance": {
+    "weights": True,
+    "success": 1.5,
+    "fault": 0.5,
+    "slow": 0.75,
+    "hourly": 1.212,
+    "rate_limit": 0.75,
+    "first": 60.0,
+    "longest": 21600.0,
+    "pacing": True,
+  },
+  # The budgets on time and on repeats.
+  "limits": {
+    "request": 600.0,
+    "wait": 60.0,
+    "slow": 30.0,
+    "calls": 3,
+    "repeats": 4,
+    "shortest": 20,
+    "longest": 2000,
+  },
+  # The message compression through Headroom. A block or a model entry turns it off for 1 model.
+  "optimization": {"enabled": True, "timeout": 5.0},
+  "catalog": {"every": 6.0, "anchor": 6.0},
+  # The request hook files, and the rules for the hook files that come from a URL.
+  "hooks": {
+    "on-request": [],
+    "on-prompt": [],
+    "on-chunk": [],
+    "remote": [],
+    "remote_hosts": [],
+  },
+  # The names and the view that suit the owner, not the router.
+  "personalization": {
     "tier-a": "sophos",
     "tier-b": "deinos",
     "tier-c": "koinos",
     "tier-d": "moros",
     "audio": "graphos",
     "images": "photos",
+    "theme": "system",
+    "time_format": "24h",
   },
 }
 # The modes of `affinity.mode`. The 2 old groups each map to 1 of them.
 MODES = ("none", "session", "race")
 MIGRATED = {"session_affinity": "session", "parallel": "race"}
+# The old group names and the group that holds their keys now.
+RENAMED = {
+  "timeouts": "limits",
+  "loops": "limits",
+  "weights": "balance",
+  "cooldown": "balance",
+  "pacing": "balance",
+  "headroom": "optimization",
+  "escalation": "routing",
+  "switch": "routing",
+  "request_hooks": "hooks",
+  "remote_hooks": "hooks",
+  "remote_hook_hosts": "hooks",
+  "dashboard": "personalization",
+  "pools": "personalization",
+}
+POOL_KEYS = ("tier-a", "tier-b", "tier-c", "tier-d", "audio", "images")
 LOOP_LIMITS = {
   "calls": (2, 100),
   "repeats": (2, 16),
@@ -110,12 +139,23 @@ class SettingsError(ValueError):
   """A settings file with an unknown key or a wrong value."""
 
 
+def unit_interval(name: str, value: Any) -> float:
+  """A number from 0 to 1, else a `SettingsError`."""
+  if (
+    isinstance(value, bool) or not isinstance(value, int | float) or not 0 <= value <= 1
+  ):
+    raise SettingsError(f"{name} must be a number from 0 to 1")
+  return float(value)
+
+
 def check(group: str, key: str, value: Any) -> Any:
   """The value when its type fits the default, else a `SettingsError`."""
   name = f"{group}.{key}"
-  if group in ("escalation", "switch"):
-    return keyword_list(name, value)
-  if group == "loops":
+  if group == "routing":
+    if key in ("escalation", "switch"):
+      return keyword_list(name, value)
+    return unit_interval(name, value)
+  if group == "limits" and key in LOOP_LIMITS:
     if isinstance(value, bool) or not isinstance(value, int):
       raise SettingsError(f"{name} must be a whole number")
     minimum, maximum = LOOP_LIMITS[key]
@@ -124,31 +164,34 @@ def check(group: str, key: str, value: Any) -> Any:
     return value
   if group == "catalog":
     return schedule_value(name, key, value)
-  if group == "request_hooks":
+  if group == "hooks":
+    if key == "remote":
+      return remote_list(name, value)
+    if key == "remote_hosts":
+      return host_list(name, value)
     return hook_paths(name, value)
-  if group == "remote_hooks":
-    return remote_list(group, value)
-  if group == "remote_hook_hosts":
-    return host_list(group, value)
-  if group == "pools":
-    if not isinstance(value, str) or not POOL_NAME.fullmatch(value) or value == "auto":
-      raise SettingsError(
-        f"{name} must be 1 to 40 letters, digits, dots, dashes or underscores, and not auto"
-      )
-    return value
-  if key == "theme":
-    if value not in THEMES:
-      raise SettingsError(f"{name} must be system, light or dark")
-    return value
-  if key == "time_format":
-    if value not in TIME_FORMATS:
-      raise SettingsError(f"{name} must be 24h or 12h")
-    return value
+  if group == "personalization":
+    if key in POOL_KEYS:
+      if (
+        not isinstance(value, str) or not POOL_NAME.fullmatch(value) or value == "auto"
+      ):
+        raise SettingsError(
+          f"{name} must be 1 to 40 letters, digits, dots, dashes or underscores, and not auto"
+        )
+      return value
+    if key == "theme":
+      if value not in THEMES:
+        raise SettingsError(f"{name} must be system, light or dark")
+      return value
+    if key == "time_format":
+      if value not in TIME_FORMATS:
+        raise SettingsError(f"{name} must be 24h or 12h")
+      return value
   if key == "mode":
     if value not in MODES:
       raise SettingsError(f"{name} must be none, session or race")
     return value
-  if key in ("enabled", "change_on_draw"):
+  if key in ("enabled", "change_on_draw", "weights", "pacing"):
     if not isinstance(value, bool):
       raise SettingsError(f"{name} must be true or false")
     return value
@@ -158,19 +201,11 @@ def check(group: str, key: str, value: Any) -> Any:
     if not 1 <= value <= 10:
       raise SettingsError(f"{name} must be between 1 and 10")
     return value
-  if key in ("chance", "threshold"):
-    if (
-      isinstance(value, bool)
-      or not isinstance(value, int | float)
-      or not 0 <= value <= 1
-    ):
-      raise SettingsError(f"{name} must be a number from 0 to 1")
-    return float(value)
+  if key == "chance":
+    return unit_interval(name, value)
   if isinstance(value, bool) or not isinstance(value, int | float) or value <= 0:
     raise SettingsError(f"{name} must be a number above 0")
-  if (group == "timeouts" or (group, key) == ("headroom", "timeout")) and (
-    value > TIMEOUT_MAX
-  ):
+  if group in ("limits", "optimization") and value > TIMEOUT_MAX:
     raise SettingsError(f"{name} must be at most {int(TIMEOUT_MAX)} seconds")
   if key == "stay" and value >= 1:
     raise SettingsError(f"{name} must be below 1")
@@ -287,6 +322,8 @@ def parse(text: str, target: Path | str = DEFAULT_PATH) -> dict[str, dict[str, A
   for group, values in raw.items():
     if group in MIGRATED:
       raise SettingsError(f"{group} is gone. Use affinity.mode: {MIGRATED[group]}")
+    if group in RENAMED:
+      raise SettingsError(f"{group} is gone. Use {RENAMED[group]}")
     if group not in DEFAULTS:
       raise SettingsError(f"unknown group {group!r} in {target}")
     if not isinstance(DEFAULTS[group], dict):
@@ -299,11 +336,12 @@ def parse(text: str, target: Path | str = DEFAULT_PATH) -> dict[str, dict[str, A
       if key not in DEFAULTS[group]:
         raise SettingsError(f"unknown key {group}.{key} in {target}")
       merged[group][key] = check(group, key, value)
-  if len(set(merged["pools"].values())) < len(merged["pools"]):
-    raise SettingsError("each pool in pools must have its own name")
-  loop_values = merged["loops"]
-  if loop_values["shortest"] > loop_values["longest"]:
-    raise SettingsError("loops.shortest must be at most loops.longest")
+  pool_values = [merged["personalization"][key] for key in POOL_KEYS]
+  if len(set(pool_values)) < len(pool_values):
+    raise SettingsError("each pool in personalization must have its own name")
+  limit_values = merged["limits"]
+  if limit_values["shortest"] > limit_values["longest"]:
+    raise SettingsError("limits.shortest must be at most limits.longest")
   return merged
 
 
@@ -326,6 +364,8 @@ def update_text(text: str, changes: dict[str, dict[str, Any]]) -> str:
   for group, values in changes.items():
     if group in MIGRATED:
       raise SettingsError(f"{group} is gone. Use affinity.mode: {MIGRATED[group]}")
+    if group in RENAMED:
+      raise SettingsError(f"{group} is gone. Use {RENAMED[group]}")
     if group not in DEFAULTS or not isinstance(values, dict):
       raise SettingsError(f"unknown group {group!r}")
     for key in values:

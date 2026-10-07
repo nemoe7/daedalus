@@ -108,21 +108,24 @@ def test_sync_needs_a_mapping(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
 def test_the_group_takes_a_list_of_entries() -> None:
   """The settings group checks the URL, the pin and the name."""
-  text = f"remote_hooks:\n  - url: {URL}\n    sha256: {'A' * 64}\n"
+  text = f"hooks:\n  remote:\n    - url: {URL}\n      sha256: {'A' * 64}\n"
   found = settings.parse(text)
-  assert found["remote_hooks"] == [{"url": URL, "sha256": PIN}]
-  assert settings.parse("")["remote_hooks"] == []
+  assert found["hooks"]["remote"] == [{"url": URL, "sha256": PIN}]
+  assert settings.parse("")["hooks"]["remote"] == []
   doubled = (
-    "remote_hooks:\n"
-    f"  - url: {URL}\n    sha256: {PIN}\n    name: same.py\n"
-    f"  - url: {URL}\n    sha256: {PIN}\n    name: same.py\n"
+    "hooks:\n  remote:\n"
+    f"    - url: {URL}\n      sha256: {PIN}\n      name: same.py\n"
+    f"    - url: {URL}\n      sha256: {PIN}\n      name: same.py\n"
   )
   for text, message in (
-    ("remote_hooks: nope\n", "must be a list"),
-    ("remote_hooks:\n  - url: nope\n    sha256: " + PIN + "\n", "http:// or https://"),
-    (f"remote_hooks:\n  - url: {URL}\n    sha256: abc\n", "64 hex"),
+    ("hooks:\n  remote: nope\n", "must be a list"),
     (
-      f"remote_hooks:\n  - url: {URL}\n    sha256: {PIN}\n    extra: 1\n",
+      "hooks:\n  remote:\n    - url: nope\n      sha256: " + PIN + "\n",
+      "http:// or https://",
+    ),
+    (f"hooks:\n  remote:\n    - url: {URL}\n      sha256: abc\n", "64 hex"),
+    (
+      f"hooks:\n  remote:\n    - url: {URL}\n      sha256: {PIN}\n      extra: 1\n",
       "unknown key",
     ),
     (doubled, "own name"),
@@ -194,14 +197,17 @@ def test_the_lock_holds_the_digests(tmp_path: Path) -> None:
 
 def test_the_group_takes_the_hosts() -> None:
   """The allowlist checks each host, keeps the wildcard, and refuses anything else."""
-  text = "remote_hook_hosts:\n  - example.com.\n  - '*.GitHub.com'\n"
-  assert settings.parse(text)["remote_hook_hosts"] == ["example.com", "*.github.com"]
-  assert settings.parse("")["remote_hook_hosts"] == []
+  text = "hooks:\n  remote_hosts:\n    - example.com.\n    - '*.GitHub.com'\n"
+  assert settings.parse(text)["hooks"]["remote_hosts"] == [
+    "example.com",
+    "*.github.com",
+  ]
+  assert settings.parse("")["hooks"]["remote_hosts"] == []
   for text, message in (
-    ("remote_hook_hosts: nope\n", "must be a list"),
-    ("remote_hook_hosts:\n  - https://example.com\n", "is not a host"),
-    ("remote_hook_hosts:\n  - example.com/path\n", "is not a host"),
-    ("remote_hook_hosts:\n  - ''\n", "must be a list"),
+    ("hooks:\n  remote_hosts: nope\n", "must be a list"),
+    ("hooks:\n  remote_hosts:\n    - https://example.com\n", "is not a host"),
+    ("hooks:\n  remote_hosts:\n    - example.com/path\n", "is not a host"),
+    ("hooks:\n  remote_hosts:\n    - ''\n", "must be a list"),
   ):
     with pytest.raises(settings.SettingsError, match=message):
       settings.parse(text)

@@ -24,129 +24,136 @@ def expect_error(folder: Path, text: str, message: str) -> None:
 
 def test_load(folder: Path) -> None:
   values = settings.load(folder / "missing.yml")
-  assert values["timeouts"] == {"request": 600.0, "wait": 60.0, "slow": 30.0}
-  assert values["weights"]["fault"] == penalties.FAULT
-  assert "think hard" in values["escalation"]["keywords"], "the default keywords"
-  assert values["switch"]["keywords"] == ["clanker"]
+  limits = values["limits"]
+  assert (limits["request"], limits["wait"], limits["slow"]) == (600.0, 60.0, 30.0)
+  assert values["balance"]["fault"] == penalties.FAULT
+  assert "think hard" in values["routing"]["escalation"], "the default keywords"
+  assert values["routing"]["switch"] == ["clanker"]
   shipped_path = Path(__file__).parents[2] / "config" / "daedalus.yml"
   raw = yaml.safe_load(shipped_path.read_text(encoding="utf-8"))
-  assert "escalation" not in raw and "switch" not in raw, (
-    "the keyword lists stay defaults"
-  )
+  assert "routing" not in raw, "the keyword lists stay defaults"
   for group, entries in raw.items():
     for key, value in entries.items():
       assert value != settings.DEFAULTS[group][key], (
         f"{group}.{key} copies the code default"
       )
   shipped = settings.load(shipped_path)
-  assert shipped.pop("request_hooks") == {
+  assert shipped.pop("hooks") == {
     "on-request": ["hooks/owui_auto_reasoning_effort.py"],
     "on-prompt": ["hooks/owui_auto_reasoning_effort.py"],
     "on-chunk": ["hooks/served_model.py"],
+    "remote": [],
+    "remote_hosts": [],
   }
-  assert values.pop("request_hooks") == {
+  assert values.pop("hooks") == {
     "on-request": [],
     "on-prompt": [],
     "on-chunk": [],
+    "remote": [],
+    "remote_hosts": [],
   }
   assert shipped == values, "the shipped file holds no default copy"
   path = folder / "daedalus.yml"
-  path.write_text("timeouts:\n  wait: 120\nweights:\n  fault: 0.25\n", encoding="utf-8")
+  path.write_text("limits:\n  wait: 120\nbalance:\n  fault: 0.25\n", encoding="utf-8")
   values = settings.load(path)
-  assert values["timeouts"]["slow"] == 30.0, "slow keeps its own default"
-  assert values["weights"]["fault"] == 0.25 and values["weights"]["success"] == 1.5
+  assert values["limits"]["slow"] == 30.0, "slow keeps its own default"
+  assert values["balance"]["fault"] == 0.25 and values["balance"]["success"] == 1.5
   path.write_text("", encoding="utf-8")
   assert settings.load(path)["affinity"]["mode"] == "session", "an empty file"
   assert settings.load(path)["affinity"]["change_on_draw"] is True
   expect_error(folder, "affinity:\n  change_on_draw: 1\n", "true or false")
   expect_error(folder, "server:\n  port: 1\n", "unknown group 'server'")
-  expect_error(folder, "weights:\n  factor: 2\n", "unknown key weights.factor")
+  expect_error(folder, "balance:\n  factor: 2\n", "unknown key balance.factor")
   expect_error(
-    folder, "request_hooks:\n  on-request: 3\n", "must be a hook file path, or a list"
+    folder, "hooks:\n  on-request: 3\n", "must be a hook file path, or a list"
   )
   expect_error(
     folder,
-    "request_hooks:\n  on-request: [hooks/x.py, 2]\n",
+    "hooks:\n  on-request: [hooks/x.py, 2]\n",
     "must be a hook file path",
   )
-  expect_error(
-    folder, "request_hooks:\n  on-later: a.py\n", "unknown key request_hooks.on-later"
-  )
-  hooks = settings.parse('request_hooks:\n  on-request: ""\n')["request_hooks"]
-  assert hooks == {"on-request": [], "on-prompt": [], "on-chunk": []}
-  hooks = settings.parse("request_hooks:\n  on-request: hooks/x.py\n")["request_hooks"]
-  assert hooks == {"on-request": ["hooks/x.py"], "on-prompt": [], "on-chunk": []}, (
-    "1 path on its own works"
-  )
-  hooks = settings.parse("request_hooks:\n  on-request: [hooks/x.py, hooks/y.py]\n")[
-    "request_hooks"
-  ]
-  assert hooks == {
-    "on-request": ["hooks/x.py", "hooks/y.py"],
-    "on-prompt": [],
-    "on-chunk": [],
-  }
+  expect_error(folder, "hooks:\n  on-later: a.py\n", "unknown key hooks.on-later")
+  hooks = settings.parse('hooks:\n  on-request: ""\n')["hooks"]
+  assert hooks["on-request"] == [] and hooks["remote"] == []
+  hooks = settings.parse("hooks:\n  on-request: hooks/x.py\n")["hooks"]
+  assert hooks["on-request"] == ["hooks/x.py"], "1 path on its own works"
+  hooks = settings.parse("hooks:\n  on-request: [hooks/x.py, hooks/y.py]\n")["hooks"]
+  assert hooks["on-request"] == ["hooks/x.py", "hooks/y.py"]
   text = settings.update_text(
     "",
-    {"request_hooks": {"on-request": ["hooks/x.py", "hooks/y.py"]}},
+    {"hooks": {"on-request": ["hooks/x.py", "hooks/y.py"]}},
   )
   (folder / "hooks.yml").write_text(text, encoding="utf-8")
-  assert settings.load(folder / "hooks.yml")["request_hooks"]["on-request"] == [
+  assert settings.load(folder / "hooks.yml")["hooks"]["on-request"] == [
     "hooks/x.py",
     "hooks/y.py",
   ]
   text = settings.update_text(
-    "request_hooks:\n  on-request: hooks/a.py # keep\n",
-    {"request_hooks": {"on-request": "hooks/b.py"}},
+    "hooks:\n  on-request: hooks/a.py # keep\n",
+    {"hooks": {"on-request": "hooks/b.py"}},
   )
-  assert text == "request_hooks:\n  on-request: hooks/b.py # keep\n", text
-  expect_error(folder, "weights:\n  enabled: 1\n", "true or false")
-  expect_error(folder, "timeouts:\n  wait: true\n", "above 0")
-  expect_error(folder, "timeouts:\n  wait: 0\n", "above 0")
+  assert text == "hooks:\n  on-request: hooks/b.py # keep\n", text
+  expect_error(folder, "balance:\n  weights: 1\n", "true or false")
+  expect_error(folder, "limits:\n  wait: true\n", "above 0")
+  expect_error(folder, "limits:\n  wait: 0\n", "above 0")
   expect_error(folder, "affinity:\n  stay: 1\n", "below 1")
   expect_error(folder, "- a\n", "groups of keys")
-  (folder / "twice.yml").write_text("weights:\n  fault: 0.5\n  fault: 0.25\n")
+  (folder / "twice.yml").write_text("balance:\n  fault: 0.5\n  fault: 0.25\n")
   try:
     settings.load(folder / "twice.yml")
   except yaml.YAMLError as exc:
     assert "duplicate key 'fault'" in str(exc) and "line 3" in str(exc), exc
   else:
     raise AssertionError("no error for a duplicate key")
-  expect_error(folder, "escalation:\n  keywords: think\n", "list of words or phrases")
-  expect_error(folder, "escalation:\n  keywords: [1]\n", "list of words or phrases")
-  expect_error(folder, "switch:\n  keywords: clanker\n", "list of words or phrases")
-  expect_error(folder, "dashboard:\n  theme: blue\n", "system, light or dark")
-  path.write_text("dashboard:\n  theme: dark\n", encoding="utf-8")
-  assert settings.load(path)["dashboard"]["theme"] == "dark"
-  assert settings.load(path)["dashboard"]["time_format"] == "24h", "24h by default"
-  expect_error(folder, "dashboard:\n  time_format: 25h\n", "24h or 12h")
-  path.write_text("dashboard:\n  time_format: 12h\n", encoding="utf-8")
-  assert settings.load(path)["dashboard"]["time_format"] == "12h"
-  expect_error(folder, "escalation:\n  keywords: [' ']\n", "list of words or phrases")
-  path.write_text(
-    "escalation:\n  keywords: [ultrathink, ' think hard ']\n", encoding="utf-8"
+  expect_error(folder, "routing:\n  escalation: think\n", "list of words or phrases")
+  expect_error(folder, "routing:\n  escalation: [1]\n", "list of words or phrases")
+  expect_error(folder, "routing:\n  switch: clanker\n", "list of words or phrases")
+  expect_error(folder, "personalization:\n  theme: blue\n", "system, light or dark")
+  path.write_text("personalization:\n  theme: dark\n", encoding="utf-8")
+  assert settings.load(path)["personalization"]["theme"] == "dark"
+  assert settings.load(path)["personalization"]["time_format"] == "24h", (
+    "24h by default"
   )
-  keywords = settings.load(path)["escalation"]["keywords"]
+  expect_error(folder, "personalization:\n  time_format: 25h\n", "24h or 12h")
+  path.write_text("personalization:\n  time_format: 12h\n", encoding="utf-8")
+  assert settings.load(path)["personalization"]["time_format"] == "12h"
+  expect_error(folder, "routing:\n  escalation: [' ']\n", "list of words or phrases")
+  path.write_text(
+    "routing:\n  escalation: [ultrathink, ' think hard ']\n", encoding="utf-8"
+  )
+  keywords = settings.load(path)["routing"]["escalation"]
   assert keywords == ["ultrathink", "think hard"], "a config list replaces the default"
 
 
 def test_loop_settings() -> None:
-  assert settings.parse("")["loops"] == {
-    "calls": 3,
-    "repeats": 4,
-    "shortest": 20,
-    "longest": 2000,
-  }
-  assert settings.parse(
-    "loops:\n  calls: 100\n  repeats: 16\n  shortest: 1000\n  longest: 10000\n"
-  )["loops"] == {"calls": 100, "repeats": 16, "shortest": 1000, "longest": 10000}
+  limits = settings.parse("")["limits"]
+  assert (
+    limits["calls"],
+    limits["repeats"],
+    limits["shortest"],
+    limits["longest"],
+  ) == (
+    3,
+    4,
+    20,
+    2000,
+  )
+  moved = settings.parse(
+    "limits:\n  calls: 100\n  repeats: 16\n  shortest: 1000\n  longest: 10000\n"
+  )["limits"]
+  assert (moved["calls"], moved["repeats"], moved["shortest"], moved["longest"]) == (
+    100,
+    16,
+    1000,
+    10000,
+  )
   for text, message in (
-    ("loops:\n  calls: true\n", "whole number"),
-    ("loops:\n  calls: 1\n", "between 2 and 100"),
-    ("loops:\n  repeats: 17\n", "between 2 and 16"),
-    ("loops:\n  shortest: 1001\n", "between 1 and 1000"),
-    ("loops:\n  longest: 10001\n", "between 1 and 10000"),
-    ("loops:\n  shortest: 21\n  longest: 20\n", "at most loops.longest"),
+    ("limits:\n  calls: true\n", "whole number"),
+    ("limits:\n  calls: 1\n", "between 2 and 100"),
+    ("limits:\n  repeats: 17\n", "between 2 and 16"),
+    ("limits:\n  shortest: 1001\n", "between 1 and 1000"),
+    ("limits:\n  longest: 10001\n", "between 1 and 10000"),
+    ("limits:\n  shortest: 21\n  longest: 20\n", "at most limits.longest"),
   ):
     with pytest.raises(settings.SettingsError, match=message):
       settings.parse(text)
@@ -201,8 +208,8 @@ def test_apply(folder: Path) -> None:
   path = folder / "off.yml"
   path.write_text(
     "affinity:\n  mode: none\n  change_on_draw: false\n"
-    "weights:\n  enabled: false\n"
-    "loops:\n  calls: 5\n  repeats: 6\n  shortest: 10\n  longest: 3000\n",
+    "balance:\n  weights: false\n"
+    "limits:\n  calls: 5\n  repeats: 6\n  shortest: 10\n  longest: 3000\n",
     encoding="utf-8",
   )
   store = api.PENALTIES
@@ -267,13 +274,13 @@ def test_cli(folder: Path) -> None:
   command = [sys.executable, "-c", CLI]
   (folder / "config").mkdir()
   (folder / "config" / "daedalus.yml").write_text(
-    "weights:\n  x: 1\n", encoding="utf-8"
+    "balance:\n  x: 1\n", encoding="utf-8"
   )
   wrong = subprocess.run(
     [*command, "serve"], cwd=folder, capture_output=True, text=True, check=False
   )
-  assert wrong.returncode == 2 and "weights.x" in wrong.stderr, wrong.stderr
-  (folder / "config" / "daedalus.yml").write_text("weights:\n  fault: 0.5\n")
+  assert wrong.returncode == 2 and "balance.x" in wrong.stderr, wrong.stderr
+  (folder / "config" / "daedalus.yml").write_text("balance:\n  fault: 0.5\n")
   (folder / "config" / "providers").mkdir()
   (folder / "config" / "providers" / "free.yml").write_text(
     "groq:\n  api_key: a\ngroq:\n  api_key: b\n", encoding="utf-8"
@@ -300,26 +307,29 @@ def folder(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 def test_timeout_cap() -> None:
   """A timeout stops at 1 day, in the file and in the form."""
-  assert settings.check("timeouts", "request", 86400) == 86400.0
-  assert settings.check("headroom", "timeout", 86400) == 86400.0
+  assert settings.check("limits", "request", 86400) == 86400.0
+  assert settings.check("optimization", "timeout", 86400) == 86400.0
   for group, key, value in (
-    ("timeouts", "request", 86401),
-    ("timeouts", "wait", 1e20),
-    ("headroom", "timeout", 86401),
+    ("limits", "request", 86401),
+    ("limits", "wait", 1e20),
+    ("optimization", "timeout", 86401),
   ):
     with pytest.raises(settings.SettingsError, match="at most 86400 seconds"):
       settings.check(group, key, value)
   with pytest.raises(settings.SettingsError, match="at most 86400 seconds"):
-    settings.parse("timeouts:\n  request: 90000\n")
+    settings.parse("limits:\n  request: 90000\n")
 
 
 def test_headroom_switch() -> None:
   """The Headroom switch is a boolean, in the settings file and in the form."""
-  assert settings.check("headroom", "enabled", True) is True
-  assert settings.check("headroom", "enabled", False) is False
-  assert settings.parse("headroom:\n  enabled: false\n")["headroom"]["enabled"] is False
+  assert settings.check("optimization", "enabled", True) is True
+  assert settings.check("optimization", "enabled", False) is False
+  assert (
+    settings.parse("optimization:\n  enabled: false\n")["optimization"]["enabled"]
+    is False
+  )
   with pytest.raises(settings.SettingsError, match="true or false"):
-    settings.parse("headroom:\n  enabled: 1\n")
+    settings.parse("optimization:\n  enabled: 1\n")
 
 
 def test_routing_threshold() -> None:
@@ -349,25 +359,33 @@ def test_apply_takes_the_threshold(folder: Path) -> None:
 
 def test_pool_names() -> None:
   """The key of each pool is generic, its default is the built-in name, and a save keeps a number-like name."""
-  assert settings.parse("")["pools"]["tier-a"] == "sophos"
-  assert settings.parse("pools:\n  tier-a: fast\n")["pools"]["tier-a"] == "fast"
-  assert settings.parse("pools:\n  images: pics\n")["pools"]["images"] == "pics"
+  assert settings.parse("")["personalization"]["tier-a"] == "sophos"
+  assert (
+    settings.parse("personalization:\n  tier-a: fast\n")["personalization"]["tier-a"]
+    == "fast"
+  )
+  assert (
+    settings.parse("personalization:\n  images: pics\n")["personalization"]["images"]
+    == "pics"
+  )
   for bad in ("a/b", "auto", "''", "x" * 41, "[a]"):
     with pytest.raises(settings.SettingsError):
-      settings.parse(f"pools:\n  tier-a: {bad}\n")
+      settings.parse(f"personalization:\n  tier-a: {bad}\n")
   with pytest.raises(settings.SettingsError, match="own name"):
-    settings.parse("pools:\n  tier-a: koinos\n")
-  swapped = settings.parse("pools:\n  tier-a: koinos\n  tier-c: sophos\n")["pools"]
+    settings.parse("personalization:\n  tier-a: koinos\n")
+  swapped = settings.parse("personalization:\n  tier-a: koinos\n  tier-c: sophos\n")[
+    "personalization"
+  ]
   assert (swapped["tier-a"], swapped["tier-c"]) == ("koinos", "sophos"), swapped
   text = settings.update_text(
-    "pools:\n  tier-a: sophos\n", {"pools": {"tier-a": "123"}}
+    "personalization:\n  tier-a: sophos\n", {"personalization": {"tier-a": "123"}}
   )
-  assert settings.parse(text)["pools"]["tier-a"] == "123", text
+  assert settings.parse(text)["personalization"]["tier-a"] == "123", text
 
 
 def test_update_text_drops_an_empty_group() -> None:
   """The last key of a group takes the group with it."""
   text = settings.update_text(
-    "timeouts:\n  slow: 30\ncatalog:\n  every: 6\n", {"timeouts": {"slow": None}}
+    "limits:\n  slow: 30\ncatalog:\n  every: 6\n", {"limits": {"slow": None}}
   )
   assert text == "catalog:\n  every: 6\n", text
