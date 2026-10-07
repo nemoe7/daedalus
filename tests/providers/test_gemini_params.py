@@ -44,7 +44,7 @@ def test_gemini_params() -> None:
     "seed": 7,
     "responseLogprobs": True,
     "logprobs": 3,
-    "thinkingConfig": {"thinkingLevel": "minimal"},
+    "thinkingConfig": {"thinkingLevel": "low"},
     "responseModalities": ["TEXT", "IMAGE", "MODALITY_UNSPECIFIED"],
   }, sent
   assert sent["serviceTier"] == "priority"
@@ -80,7 +80,18 @@ def test_gemini_params() -> None:
   disabled = body(
     "gemini-3.8-flash", thinking={"type": "disabled", "budget_tokens": 99}
   )
-  assert disabled["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "minimal"}
+  assert disabled["generationConfig"]["thinkingConfig"] == {"thinkingLevel": "low"}
+  # The 3.7 and 3.8 Flash models refuse `minimal`, so the lowest 2 rungs step to `low`.
+  for model in ("gemini-3.7-flash", "gemini-3.8-flash"):
+    for effort in ("none", "minimal", "disable"):
+      floor = body(model, reasoning_effort=effort)["generationConfig"]
+      assert floor["thinkingConfig"] == {"thinkingLevel": "low"}, (model, effort, floor)
+    assert body(model, reasoning_effort="low")["generationConfig"][
+      "thinkingConfig"
+    ] == {"thinkingLevel": "low"}
+  assert body("gemini-3.6-flash", reasoning_effort="minimal")["generationConfig"][
+    "thinkingConfig"
+  ] == {"thinkingLevel": "minimal"}, "the 3.6 Flash model still takes minimal"
   try:
     body("m", reasoning_effort="extreme")
   except providers.ProviderError:

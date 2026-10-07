@@ -79,13 +79,19 @@ def thinking_level(effort: str, model: str) -> dict:
   name = model.lower()
   flash = "flash" in name and "gemini-3" in name
   medium = flash or "gemini-3.1-pro-preview" in name
+  # The 3.7 and 3.8 Flash models refuse `minimal`, so their lowest level is `low`.
+  floor = (
+    "low"
+    if flash and ("3.7" in name or "3.8" in name)
+    else ("minimal" if flash else "low")
+  )
   levels = {
-    "minimal": "minimal" if flash else "low",
+    "minimal": floor,
     "low": "low",
     "medium": "medium" if medium else "high",
     "high": "high",
-    "disable": "minimal" if flash else "low",
-    "none": "minimal" if flash else "low",
+    "disable": floor,
+    "none": floor,
   }
   if effort not in levels:
     raise ProviderError(f"Unsupported reasoning_effort: {effort}")
