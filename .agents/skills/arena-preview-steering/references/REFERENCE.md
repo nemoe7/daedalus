@@ -68,6 +68,22 @@ A report source is UTF-8 `.md`, at most 2,000,000 bytes. IDs have 1–80 letters
 
 Write an option group's custom slot inside the group, as `- ( ) custom: ___`. The nearest non-empty line before a group is its prompt; a labeled blank supplies its own prompt. Append `{#my-id}` to a prompt to keep the field ID stable. Markers inside fenced code blocks remain text. Limit a report to 50 fields, each prompt to 500 characters, and each group to 1–20 unique options of at most 200 characters. Fix invalid fields before publication. Each submission has its own pending ID; acknowledge every new answer, not just an earlier submission.
 
+Give each group its own prompt, so every answer maps to its question:
+
+```
+Pick the release channel: {#release-channel}
+
+- ( ) stable
+- ( ) beta
+- ( ) custom: ___
+
+Which checks must pass first? {#release-checks}
+
+- [ ] unit tests
+- [ ] integration tests
+- [ ] custom: ___
+```
+
 ## Uploaded notes and Downloads
 
 Each file on a composed note is 1–50MB. `read` returns the note with an `attachments[]` list; read each record's `path` before acknowledging the single note ID. `present: false` means the record remains but the bytes do not.
