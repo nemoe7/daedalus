@@ -1,8 +1,10 @@
+import io
 import json
 import os
 import re
 import shutil
 import subprocess
+import tarfile
 import time
 from pathlib import Path
 
@@ -2116,6 +2118,25 @@ def test_hook_legend_rows(client: TestClient, state_folder: Path) -> None:
   assert body == {"legend": [["rtN", "A repeat picked another model, N times"]]}, body
 
 
+def _tar() -> bytes:
+  """The archive of 1 commit, with 2 hook files under `hooks`."""
+  body = io.BytesIO()
+  with tarfile.open(fileobj=body, mode="w:gz") as archive:
+    for name, version in (("scanned.py", "1.2.0"), ("picked.py", "2.0.0")):
+      text = (
+        "# ---\n"
+        f"# version: {version}\n"
+        "# points: [on-answer]\n"
+        "# ---\n"
+        "def on_answer(answer, model):\n"
+        "  return answer\n"
+      ).encode()
+      info = tarfile.TarInfo(f"name-{'a' * 7}/hooks/{name}")
+      info.size = len(text)
+      archive.addfile(info, io.BytesIO(text))
+  return body.getvalue()
+
+
 def test_hook_rows_and_update(
   client: TestClient, state_folder: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -2154,8 +2175,8 @@ def test_hook_rows_and_update(
   seen: list[object] = []
   monkeypatch.setattr(remote, "read_records", lambda path=None: state["records"])
 
-  def fake_update(entries, folder=None, lock_path=None, only_missing=False):
-    seen.append((list(entries), folder, only_missing))
+  def fake_update(entries, folder=None, lock_path=None, only_missing=False, take=None):
+    seen.append((list(entries), folder, only_missing, take))
     state["records"] = after
     return ["one.py"]
 
@@ -2182,7 +2203,7 @@ def test_hook_rows_and_update(
       }
     ],
   }, found.text
-  assert seen == [(sources, hooks.CONFIG_DIR / "hooks", False)]
+  assert seen == [(sources, hooks.CONFIG_DIR / "hooks", False, None)]
   monkeypatch.setattr(
     settings,
     "load",
@@ -2193,6 +2214,41 @@ def test_hook_rows_and_update(
   assert TestClient(api.app).post("/ui/api/hooks/update").status_code == 401, (
     "a session is needed"
   )
+
+
+def test_hook_scan_and_take(
+  client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """The scan answers with the files of a repo, and an update takes the picked names."""
+  commit = "a" * 40
+  pages = {
+    remote.API.format(repo="owner/name", ref="main"): json.dumps(
+      {"sha": commit}
+    ).encode(),
+    remote.ARCHIVE.format(repo="owner/name", commit=commit): _tar(),
+  }
+  monkeypatch.setattr(remote, "fetch", lambda url, timeout=30.0: pages.get(url))
+  assert TestClient(api.app).post("/ui/api/hooks/scan", json={}).status_code == 401
+  client.post("/ui/api/login", json={"username": "admin", "password": MASTER})
+  body = {"repo": "https://github.com/owner/name", "path": "hooks", "ref": "main"}
+  found = client.post("/ui/api/hooks/scan", json=body)
+  assert found.status_code == 200, found.text
+  answer = found.json()
+  assert answer["repo"] == "owner/name" and answer["commit"] == commit
+  assert [row["name"] for row in answer["files"]] == ["picked.py", "scanned.py"]
+  assert {row["name"]: row["version"] for row in answer["files"]}[
+    "scanned.py"
+  ] == "1.2.0"
+  root = hooks.CONFIG_DIR / "hooks"
+  assert not (root / "scanned.py").exists(), "a scan writes nothing"
+  bad = client.post("/ui/api/hooks/scan", json={"repo": "owner/other"})
+  assert bad.status_code == 400, bad.text
+  take = client.post(
+    "/ui/api/hooks/update", json={"source": body, "take": ["picked.py"]}
+  )
+  assert take.status_code == 200, take.text
+  assert take.json()["moved"] == ["picked.py"], take.text
+  assert (root / "picked.py").is_file() and not (root / "scanned.py").exists()
 
 
 def test_files(
