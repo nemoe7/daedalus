@@ -224,14 +224,47 @@ def failure_note(model: str, started: float, exc: Exception) -> dict[str, Any]:
 OUTPUT_FIELDS = ("max_tokens", "max_completion_tokens")
 
 
+# The effort names in rank order, lowest first. A gateway maps a name it lists to itself.
+EFFORT_RANKS = ("none", "minimal", "low", "medium", "high", "xhigh", "max")
+
+
+def nearest_effort(asked: str, listed: list[str]) -> str | None:
+  """The listed name nearest the asked effort, the lower of 2 equals, and None without a match.
+
+  An asked name outside `EFFORT_RANKS`, and a list of such names alone, find no answer.
+  """
+  if asked in listed:
+    return asked
+  if asked not in EFFORT_RANKS:
+    return None
+  rank = EFFORT_RANKS.index(asked)
+  known = [name for name in listed if name in EFFORT_RANKS]
+  if not known:
+    return None
+  return min(
+    known,
+    key=lambda name: (abs(EFFORT_RANKS.index(name) - rank), EFFORT_RANKS.index(name)),
+  )
+
+
 def with_defaults(candidate: str, body: dict[str, Any]) -> dict[str, Any]:
-  """The body with the stored effort when it has none, and output limits cut to the model."""
+  """The body with the stored effort, the effort moved to a name the model lists, and limits cut.
+
+  The stored effort fills the gap when the body names none, then the list of the catalog moves
+  the value to the nearest name of that list, so a model never receives a name it refuses.
+  """
   found = store.model_limits(candidate)
   changed = dict(body)
   if "reasoning_effort" not in body:
     effort = found.get("reasoning_effort")
     if effort is not None:
       changed["reasoning_effort"] = effort
+  listed = found.get("supported_efforts")
+  effort = changed.get("reasoning_effort")
+  if isinstance(effort, str) and isinstance(listed, list):
+    chosen = nearest_effort(effort, listed)
+    if chosen is not None:
+      changed["reasoning_effort"] = chosen
   limit = found.get("max_output_tokens")
   for field in OUTPUT_FIELDS:
     asked = body.get(field)

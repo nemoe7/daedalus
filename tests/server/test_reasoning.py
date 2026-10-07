@@ -46,3 +46,67 @@ def test_reasoning() -> None:
     finally:
       store.MODELS_DB = original
       upstream.set_client(None)
+
+
+def test_the_effort_lands_on_a_name_of_the_model_list() -> None:
+  """A model that lists its efforts takes the nearest name of the list, and never a stray one."""
+  sent: list[httpx.Request] = []
+
+  def answer(request: httpx.Request) -> httpx.Response:
+    sent.append(request)
+    return httpx.Response(200, json={"choices": []})
+
+  upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
+  rows = [
+    {
+      "id": "groq/proxy",
+      "mode": "chat",
+      "supports_reasoning": 1,
+      "supported_efforts": ["max", "high", "low"],
+    },
+    {
+      "id": "groq/narrow",
+      "mode": "chat",
+      "supports_reasoning": 1,
+      "supported_efforts": ["low", "high"],
+    },
+    {
+      "id": "groq/stray",
+      "mode": "chat",
+      "supports_reasoning": 1,
+      "supported_efforts": ["default"],
+    },
+    {"id": "groq/nolist", "mode": "chat", "supports_reasoning": 1},
+  ]
+  with tempfile.TemporaryDirectory() as name:
+    original, store.MODELS_DB = store.MODELS_DB, Path(name) / "models.sqlite3"
+    try:
+      store.write_store(rows)
+      assert sent_body(sent, "groq/proxy")["reasoning_effort"] == "high", (
+        "the client asked high, and the list holds it"
+      )
+      for asked, wanted, why in (
+        ("medium", "low", "a tie steps down"),
+        ("minimal", "low", "minimal is closer to low than to high"),
+        ("none", "low", "none sits under the list, so the lowest listed name"),
+      ):
+        asyncio.run(
+          upstream.attempt("groq/narrow", {**BODY, "reasoning_effort": asked}, CONFIG)
+        )
+        assert json.loads(sent[-1].content)["reasoning_effort"] == wanted, (why, asked)
+      asyncio.run(
+        upstream.attempt("groq/stray", {**BODY, "reasoning_effort": "medium"}, CONFIG)
+      )
+      assert json.loads(sent[-1].content)["reasoning_effort"] == "medium", (
+        "a list that the order does not know stays out of it"
+      )
+      asyncio.run(
+        upstream.attempt("groq/nolist", {**BODY, "reasoning_effort": "max"}, CONFIG)
+      )
+      assert json.loads(sent[-1].content)["reasoning_effort"] == "max", (
+        "a model with no list keeps the client value"
+      )
+      assert BODY["reasoning_effort"] == "high", "the client body does not change"
+    finally:
+      store.MODELS_DB = original
+      upstream.set_client(None)
