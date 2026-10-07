@@ -1,5 +1,6 @@
 """The SQLite model store: the model table, and the tables of the other modules."""
 
+import json
 import sqlite3
 import time
 from collections.abc import Iterable
@@ -29,10 +30,12 @@ COLUMNS = (
   "supports_audio_input",
   "supports_audio_output",
   "supports_web_search",
+  # A new column goes last: an added column lands at the table end, so 1 order fits both.
+  "supported_efforts",
 )
 # The Alembic steps: env.py, and 1 file in versions/ for each layout change.
 MIGRATIONS = Path(__file__).with_name("migrations")
-TEXT_COLUMNS = frozenset({"mode", "reasoning_effort"})
+TEXT_COLUMNS = frozenset({"mode", "reasoning_effort", "supported_efforts"})
 # Rows that enter the chat chains. No catalog match gives no mode.
 ROUTABLE_MODES = (None, "chat")
 
@@ -90,7 +93,11 @@ def write_store(
           key: previous.get(key) if value is None else value
           for key, value in found.items()
         }
-      values.append((row["id"], provider, slug, *found.values()))
+      stored = tuple(
+        json.dumps(value) if isinstance(value, (list, dict)) else value
+        for value in found.values()
+      )
+      values.append((row["id"], provider, slug, *stored))
     updates = ", ".join(f"{key} = excluded.{key}" for key in names[1:])
     database.executemany(
       f"INSERT INTO models ({', '.join(names)}) VALUES ({', '.join('?' * len(names))})"
@@ -267,14 +274,28 @@ def catalog_name(model: str) -> str | None:
   return min(near, key=len) if near else None
 
 
+def effort_list(value: Any) -> list[str]:
+  """The effort names of a stored value: a list, or the JSON text of one."""
+  if isinstance(value, str):
+    try:
+      value = json.loads(value)
+    except ValueError:
+      return []
+  if not isinstance(value, list):
+    return []
+  return [name for name in value if isinstance(name, str) and name]
+
+
 def model_limits(model: str) -> dict[str, Any]:
-  """The stored `reasoning_effort` and `max_output_tokens` of one model, without empty values."""
+  """The stored efforts and `max_output_tokens` of one model, without empty values."""
   if not Path(MODELS_DB).exists():
     return {}
   database = connect_read(MODELS_DB)
   try:
     row = database.execute(
-      "SELECT reasoning_effort, max_output_tokens FROM models WHERE id = ?", (model,)
+      "SELECT reasoning_effort, max_output_tokens, supported_efforts"
+      " FROM models WHERE id = ?",
+      (model,),
     ).fetchone()
   except sqlite3.OperationalError:
     return {}
@@ -282,10 +303,13 @@ def model_limits(model: str) -> dict[str, Any]:
     database.close()
   if row is None:
     return {}
-  effort, output = row
+  effort, output, listed = row
   found: dict[str, Any] = {}
   if isinstance(effort, str) and effort:
     found["reasoning_effort"] = effort
+  names = effort_list(listed)
+  if names:
+    found["supported_efforts"] = names
   try:
     number = int(float(output))
   except (TypeError, ValueError):

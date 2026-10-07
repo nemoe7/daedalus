@@ -101,6 +101,24 @@ def test_openrouter_shape() -> None:
     assert found["supports_pdf_input"] is True and found["reasoning_effort"] == "high"
 
 
+def test_openrouter_supported_efforts() -> None:
+  """A gateway row lists the efforts of the model, and the empty list stays out."""
+  row = {
+    "max_context_length": 2000,
+    "reasoning": {
+      "default_effort": "high",
+      "supported_efforts": ["xhigh", "high", "low", "none"],
+    },
+  }
+  found = discovery.native_columns("openrouter", row)
+  assert found["reasoning_effort"] == "high", found
+  assert found["supported_efforts"] == ["xhigh", "high", "low", "none"], found
+  row["reasoning"] = {"supported_efforts": None}
+  assert "supported_efforts" not in discovery.native_columns("kilo", row)
+  row["reasoning"] = {"supported_efforts": [1, "high"]}
+  assert "supported_efforts" not in discovery.native_columns("kilo", row)
+
+
 def test_mistral() -> None:
   row = {
     "max_context_length": 256000,
