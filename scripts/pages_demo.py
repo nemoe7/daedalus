@@ -407,6 +407,12 @@ const DEMO_FIXTURES = __FIXTURES__;
     DEMO_FIXTURES.pools.map((pool) => [pool.name, pool.members.map((item) => item.id)])
   );
   const TEXT = MEMBERS["daedalus/auto"] || [];
+  // The pool that answers with each model, as a live row names it: the tier pool that holds it.
+  const POOL_OF = {};
+  for (const pool of DEMO_FIXTURES.pools) {
+    if (pool.name === "daedalus/auto") continue;
+    for (const item of pool.members) POOL_OF[item.id] = pool.name.replace("daedalus/", "");
+  }
   const POOL_NAMES = ["sophos", "deinos", "koinos", "moros"];
   // The auto reasoning hook climbs this ladder, 1 step per agent step.
   const LADDER = ["none", "low", "medium", "high"];
@@ -1265,6 +1271,9 @@ const DEMO_FIXTURES = __FIXTURES__;
     // 1 request, as the server lives it: start, model known, first token, end.
     async call(spec) {
       const id = ++this.next;
+      // An auto row carries the pool that answered, as `dashboard.record` writes it.
+      const pool = spec.pool ?? (String(spec.model).startsWith("daedalus/auto")
+        ? POOL_OF[spec.via] || null : null);
       began(id);
       const live = { id, path: spec.path || "/v1/chat/completions", ...ages(id), ttft: null };
       this.send("start", live);
@@ -1273,7 +1282,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       attempted(id);
       Object.assign(live, {
         app: spec.app ?? null, session: spec.session ?? null, key: "master", model: spec.model,
-        effort: spec.effort ?? null, pool: spec.pool ?? null, stream: spec.stream === true,
+        effort: spec.effort ?? null, pool, stream: spec.stream === true,
         trying: spec.via, via: null, attempts: [], tokens: null,
         fallbacks: spec.fallbacks || "0", ...ages(id),
       });
@@ -1290,7 +1299,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       const done = {
         at: Date.now() / 1000, status: 200, seconds: round(frozen.attempt_age + streamed),
         app: spec.app ?? null, session: spec.session ?? null, key: "master", model: spec.model,
-        effort: spec.effort ?? null, pool: spec.pool ?? null, routed: spec.routed ?? null,
+        effort: spec.effort ?? null, pool, routed: spec.routed ?? null,
         transition: spec.transition ?? null, retry: spec.retry ?? null, loop: spec.loop ?? null,
         via: spec.via, ttft: `${frozen.attempt_age.toFixed(3)}s`, stream: spec.stream === true,
         fallbacks: spec.fallbacks || "0", tokens: spec.tokens ?? null,

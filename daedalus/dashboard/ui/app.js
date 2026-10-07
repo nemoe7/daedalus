@@ -1028,6 +1028,13 @@ function firstDraw(host) {
   DRAWN_SHOWN.add(host);
   host.classList.add("drawn");
 }
+// Restart the arrival on 1 host: a filter pick moves its own table, and the page holds still.
+function replay(host) {
+  if (!host) return;
+  host.classList.remove("drawn");
+  void host.offsetWidth;
+  host.classList.add("drawn");
+}
 function draw(id, markup) {
   const host = $(id);
   if (DRAWN.get(host) === markup) return;
@@ -1036,6 +1043,13 @@ function draw(id, markup) {
   DRAWN.set(host, markup);
   host.innerHTML = markup;
   firstDraw(host);
+}
+
+// A filter pick of the Models tab moves the rows only: the table arrives again, and the page holds
+// still, so a pool card, a select or the search box never moves the whole view.
+function pickRows() {
+  renderModels();
+  replay($("models"));
 }
 
 function renderModels() {
@@ -2856,18 +2870,26 @@ function fitSectionPane() {
   }
 }
 
+let shownPage = "";
 function showPage() {
   const [path, query] = location.hash.split("?");
   const asked = path.replace("#/", "").replace(/^config$/, "providers").replace(/^pools$/, "models");
-  if (asked === "models" && query !== undefined) applyModelFilters(query);
+  const page = PAGES.includes(asked) ? asked : PAGES[0];
+  const changed = page !== shownPage;
+  shownPage = page;
+  // A pool card lands on the page it already shows: the table below it arrives, and the page
+  // itself holds still, so a filter pick never moves the whole view.
+  if (asked === "models" && query !== undefined) {
+    applyModelFilters(query);
+    if (!changed) replay($("models"));
+  }
   if (asked === "requests" && query !== undefined) applyRequestFilters(query);
   if (asked === "limits" && query !== undefined) applyLimitFilters(query);
-  const page = PAGES.includes(asked) ? asked : PAGES[0];
   document.querySelectorAll("section[data-page]").forEach((section) => {
     section.hidden = section.dataset.page !== page;
-    // The arriving page fades in, and the reflow read restarts the animation on a repeat visit.
+    // The arriving page fades in on a page change, and the reflow read restarts the animation.
     section.classList.remove("enter");
-    if (section.dataset.page === page) {
+    if (section.dataset.page === page && changed) {
       void section.offsetWidth;
       section.classList.add("enter");
     }
@@ -2889,7 +2911,7 @@ function showPage() {
 window.addEventListener("hashchange", showPage);
 window.addEventListener("popstate", applySectionHash);
 showPage();
-$("search").addEventListener("input", renderModels);
+$("search").addEventListener("input", pickRows);
 $("model-head").addEventListener("click", (event) => {
   const th = event.target.closest("th[data-sort]");
   if (!th) return;
@@ -2898,23 +2920,23 @@ $("model-head").addEventListener("click", (event) => {
   const same = state.sort.key === key;
   state.sort = !same ? { key, dir: 1 } : state.sort.dir > 0 ? { key, dir: -1 } : { key: "", dir: 1 };
   renderSortHeads();
-  renderModels();
+  pickRows();
 });
 $("sort-small").addEventListener("change", () => {
   state.sort = { key: $("sort-small").value, dir: 1 };
   renderSortHeads();
-  renderModels();
+  pickRows();
 });
 $("mode").addEventListener("change", () => {
   state.mode = $("mode").value;
-  renderModels();
+  pickRows();
 });
 $("tiers").addEventListener("click", (event) => {
   const button = event.target.closest("[data-tier]");
   if (!button) return;
   state.tier = button.dataset.tier;
   renderTiers();
-  renderModels();
+  pickRows();
 });
 $("files").addEventListener("click", (event) => {
   const button = event.target.closest("[data-file]");
