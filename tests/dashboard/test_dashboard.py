@@ -1555,7 +1555,7 @@ def test_pages_not_nested(client: TestClient) -> None:
   assert len(found) == 7 and all(depth == 0 for _, depth in found), found
 
 
-def test_login_form(client: TestClient) -> None:
+def test_login_form(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
   """The login hints fill in admin, show the master key note, and say whether the cookie is live."""
   env = {dashboard.DAEDALUS_USERNAME: "owner", dashboard.DAEDALUS_PASSWORD: "secret"}
   cases = [
@@ -1565,8 +1565,9 @@ def test_login_form(client: TestClient) -> None:
   ]
   for values, username, master in cases:
     for name in env:
-      os.environ.pop(name, None)
-    os.environ.update(values)
+      monkeypatch.delenv(name, raising=False)
+    for name, value in values.items():
+      monkeypatch.setenv(name, value)
     hints = TestClient(api.app)
     found = hints.get("/ui/api/login").json()
     assert found == {
@@ -1575,7 +1576,7 @@ def test_login_form(client: TestClient) -> None:
       "version": daedalus.__version__,
       "session": False,
     }, (values, found)
-    os.environ[dashboard.DAEDALUS_MASTER_KEY] = MASTER
+    monkeypatch.setenv(dashboard.DAEDALUS_MASTER_KEY, MASTER)
     login = {
       "username": values.get(dashboard.DAEDALUS_USERNAME, "admin"),
       "password": values.get(dashboard.DAEDALUS_PASSWORD, MASTER),
@@ -1586,18 +1587,16 @@ def test_login_form(client: TestClient) -> None:
     assert hints.get("/ui/api/login").json()["session"] is True, (
       "the hint sees the cookie"
     )
-    os.environ.pop(dashboard.DAEDALUS_MASTER_KEY, None)
-  for name in env:
-    os.environ.pop(name, None)
+    monkeypatch.delenv(dashboard.DAEDALUS_MASTER_KEY, raising=False)
 
 
-def test_login(client: TestClient) -> None:
-  os.environ.pop(dashboard.DAEDALUS_MASTER_KEY, None)
+def test_login(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+  monkeypatch.delenv(dashboard.DAEDALUS_MASTER_KEY, raising=False)
   login = {"username": "admin", "password": MASTER}
   assert client.post("/ui/api/login", json=login).status_code == 503, "no master key"
-  os.environ[dashboard.DAEDALUS_MASTER_KEY] = "short"
+  monkeypatch.setenv(dashboard.DAEDALUS_MASTER_KEY, "short")
   assert client.post("/ui/api/login", json=login).status_code == 503, "a short key"
-  os.environ[dashboard.DAEDALUS_MASTER_KEY] = MASTER
+  monkeypatch.setenv(dashboard.DAEDALUS_MASTER_KEY, MASTER)
   assert client.get("/ui/api/status").status_code == 401, "no session"
   wrong = {"username": "admin", "password": MASTER + "x"}
   assert client.post("/ui/api/login", json=wrong).status_code == 401
@@ -1624,12 +1623,12 @@ def test_login(client: TestClient) -> None:
   assert (
     client.get("/ui/api/status", cookies={dashboard.COOKIE: old}).status_code == 401
   )
-  os.environ[dashboard.DAEDALUS_MASTER_KEY] = MASTER + "-new"
+  monkeypatch.setenv(dashboard.DAEDALUS_MASTER_KEY, MASTER + "-new")
   assert client.get("/ui/api/status").status_code == 401, "a new master key ends it"
-  os.environ[dashboard.DAEDALUS_MASTER_KEY] = MASTER
+  monkeypatch.setenv(dashboard.DAEDALUS_MASTER_KEY, MASTER)
   assert client.post("/ui/api/login", json=login).status_code == 200
-  os.environ[dashboard.DAEDALUS_USERNAME] = "owner"
-  os.environ[dashboard.DAEDALUS_PASSWORD] = "ui password"
+  monkeypatch.setenv(dashboard.DAEDALUS_USERNAME, "owner")
+  monkeypatch.setenv(dashboard.DAEDALUS_PASSWORD, "ui password")
   assert client.get("/ui/api/status").status_code == 401, (
     "a new login ends the sessions"
   )
@@ -1640,7 +1639,8 @@ def test_login(client: TestClient) -> None:
   models = client.get("/v1/models", headers={"Authorization": "Bearer ui password"})
   assert models.status_code == 401, "the password is for the dashboard only"
   assert client.get("/v1/models").status_code == 200, "the master key stays the /v1 key"
-  del os.environ[dashboard.DAEDALUS_USERNAME], os.environ[dashboard.DAEDALUS_PASSWORD]
+  monkeypatch.delenv(dashboard.DAEDALUS_USERNAME)
+  monkeypatch.delenv(dashboard.DAEDALUS_PASSWORD)
   client.post("/ui/api/logout")
   assert client.get("/ui/api/status").status_code == 401, "logout ends the session"
   https = {"Origin": "https://3357-box.example.app"}
@@ -1837,6 +1837,9 @@ def test_hook_legend_rows(client: TestClient, state_folder: Path) -> None:
 def test_files(
   client: TestClient, folder: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+  # The dashboard session is a cookie, and the bearer header does not carry it, so the
+  # test logs in rather than ride a cookie that an earlier test in the worker left.
+  client.post("/ui/api/login", json={"username": "admin", "password": MASTER})
   listing = client.get("/ui/api/files")
   assert isinstance(listing.json(), list), listing.text[:400]
   names = [item["path"] for item in listing.json()]
@@ -1978,13 +1981,15 @@ def test_files(
   # The YAML view reads and writes the file text.
   text = client.get("/ui/api/settings").json()["text"]
   assert text == settings.DEFAULT_PATH.read_text(), "the text of the file"
-  broken = client.put("/ui/api/settings", json={"text": "weights:\n  fault: 0\n"})
+  broken = client.put("/ui/api/settings", json={"text": "balance:\n  fault: 0\n"})
   assert broken.status_code == 422 and "above 0" in broken.text, broken.text
   assert settings.DEFAULT_PATH.read_text() == text, "a bad text is not written"
-  edited = text + "timeouts:\n  slow: 14 # edited\n"
+  edited = text + "optimization:\n  timeout: 14 # edited\n"
   saved = client.put("/ui/api/settings", json={"text": edited})
   assert saved.status_code == 200 and saved.json()["text"] == edited, saved.text
-  assert settings.DEFAULT_PATH.read_text() == edited and api.SLOW_SECONDS == 14.0
+  assert (
+    settings.DEFAULT_PATH.read_text() == edited and headroom.TIMEOUT_SECONDS == 14.0
+  )
   providers = str(config.DEFAULT_PATH)
   broken = client.put("/ui/api/files", json={"path": providers, "text": "a: ["})
   assert broken.status_code == 422, "a YAML error"
