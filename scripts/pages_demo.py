@@ -412,7 +412,8 @@ const DEMO_FIXTURES = __FIXTURES__;
   const session = (n) => ((n * 2654435761) % 0xfffffff).toString(16).padStart(7, "0");
   const gap = (min, max) => min + Math.random() * (max - min);
   // The pace of the live demo: 1 scenario per wave, and a long wait between the waves. A real
-  // first token takes 0 to 60 s, most often 20 to 30 s, and a stream runs 1 to 90 s. The tests
+  // first token takes 0 to 60 s, most often 20 to 30 s, and a stream lands near 30 s, drops
+  // close to 0, and the long tail reaches 120 s. The tests
   // script the waves with `window.DEMO_SCENARIOS`.
   const WAVE_MS = [6000, 18000];
   const ttftFor = (kind) => {
@@ -421,7 +422,11 @@ const DEMO_FIXTURES = __FIXTURES__;
     const r = Math.random();
     return r < 0.7 ? gap(20, 30) : r < 0.9 ? gap(0, 20) : gap(30, 60);
   };
-  const streamFor = (streaming) => (streaming ? gap(1, 90) : gap(0.2, 1.5));
+  const streamFor = (streaming) => {
+    if (!streaming) return gap(0.2, 1.5);
+    const r = Math.random();
+    return r < 0.6 ? gap(15, 45) : r < 0.85 ? gap(0.5, 15) : gap(45, 120);
+  };
   const pick = (rows) => rows[Math.floor(Math.random() * rows.length)];
   // The times of a row in flight, as `Live` keeps them. The monotonic clock counts fractions
   // of a millisecond, so a short wait still measures above zero.
