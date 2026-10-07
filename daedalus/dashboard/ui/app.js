@@ -615,7 +615,7 @@ function renderLiveToggle() {
   const button = $("live-toggle");
   button.setAttribute("aria-pressed", String(state.livePaused));
   button.textContent = state.livePaused
-    ? `Live: paused${state.liveWaiting.size ? ` · ${state.liveWaiting.size} new` : ""}`
+    ? `Paused${state.liveWaiting.size ? ` · ${state.liveWaiting.size} new` : ""}`
     : "Live";
 }
 

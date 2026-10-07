@@ -612,8 +612,8 @@ section[data-page="models"] > .editbar, section[data-page="limits"] > .editbar {
 /* A read failure: 1 line at the top of the page, with 1 button to ask again. */
 .notice { display: flex; flex: none; align-items: center; gap: 12px; margin-bottom: 16px; color: var(--bad); }
 .notice .ghost { margin-left: auto; }
-/* The Live switch shows its paused state, with the count of the requests that wait. */
-.live-toggle[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+/* The Live switch: blue reads Live, gray reads Paused, with the count of the requests that wait. */
+.live-toggle[aria-pressed="false"] { border-color: var(--accent); color: var(--accent); }
 /* The Limits filter keeps a readable width beside the check button. */
 .editbar input[type="search"] { min-width: 12rem; }
 section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }

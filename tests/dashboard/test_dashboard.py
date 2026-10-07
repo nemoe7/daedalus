@@ -1516,6 +1516,27 @@ def test_each_model_filter_pick_moves_the_rows_only() -> None:
   assert "renderModels();" not in toolbar, "each pick goes through pickRows"
 
 
+def test_the_live_switch_reads_blue_live_and_gray_paused() -> None:
+  """The switch says Paused, and blue marks the live stream while gray marks the pause."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  assert (
+    '? `Paused${state.liveWaiting.size ? ` · ${state.liveWaiting.size} new` : ""}`'
+    in app
+  )
+  assert "Live: paused" not in app, "the label is just Paused"
+  assert (
+    '.live-toggle[aria-pressed="false"] { border-color: var(--accent); color: var(--accent); }'
+    in css
+  ), "blue reads Live"
+  assert '.live-toggle[aria-pressed="true"]' not in css, (
+    "gray reads Paused, from the ghost look"
+  )
+  assert 'aria-pressed="false"' in page, "the first paint reads Live"
+
+
 def test_the_motion_reaches_the_modal_the_sections_and_the_switches() -> None:
   """The modal, a section change, a file change and a switch carry the page motion."""
   root = Path(__file__).resolve().parent.parent.parent
