@@ -449,6 +449,40 @@ def test_phone_model_head_keeps_a_tap_area() -> None:
   )
 
 
+def test_status_card_sits_in_the_card_grid() -> None:
+  """The Overview status card rides in the card grid, at the width of its neighbours."""
+  root = Path(__file__).resolve().parent.parent.parent
+  html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  head = html[: html.index('<div class="flow">')]
+  assert "status-card" not in head, "the card no longer spans the page"
+  flow = html[html.index('<div class="flow">)'.replace(")", "")) :]
+  column = flow.split('<div class="column">', 1)[1]
+  assert column.index("status-card") < column.index("ov-requests")
+
+
+def test_requests_reads_model_served_effort() -> None:
+  """The Requests table reads Model, Served by, Effort, in the head and in both row kinds."""
+  root = Path(__file__).resolve().parent.parent.parent
+  html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  assert html.index(">Served by</th>") < html.index(">Effort</th>")
+  js = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  rows = js[js.index("function renderRequests") : js.index("function renderTiers")]
+  assert rows.index('"Served by")') < rows.index('cell("Effort"')
+  live = js[js.index("function renderLive") : js.index("function tickLive")]
+  assert live.index('"Served by")') < live.index('cell("Effort"')
+
+
+def test_requests_stream_column_survives_narrow_desktops() -> None:
+  """The Stream column hides on phones only, so a desktop table keeps its stream time."""
+  root = Path(__file__).resolve().parent.parent.parent
+  html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  head = html.split('title="The stream time after the first token"', 1)[0].rsplit("<th", 1)[1]
+  assert 'class="hide-sm"' in head, head
+  js = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert js.count('cell("Stream", streamCell(r), "hide-sm num")') == 1
+  assert js.count('hide-sm hide-md num">${mobileLabel("Stream")}') == 0
+
+
 def test_narrow_desktop_header_keeps_one_row() -> None:
   """Under 1320 px the status chips move to the Overview card, and the brand keeps room."""
   css = (
