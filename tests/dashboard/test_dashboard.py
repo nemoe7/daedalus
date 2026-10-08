@@ -3568,6 +3568,33 @@ def test_a_failed_read_shows_a_line_in_the_page() -> None:
   assert "alert(" not in app, "no native dialog is left"
 
 
+def test_app_js_names_a_failure_with_no_message() -> None:
+  """A failure with no server message names the status, and the message of the server shows."""
+  code = _app_js_vm(
+    """
+sandbox.setTimeout = () => 0;
+sandbox.clearTimeout = () => {};
+const store = { getItem: () => null, removeItem: () => {}, setItem: () => {} };
+sandbox.sessionStorage = store;
+sandbox.localStorage = store;
+vm.runInContext('globalThis.__probe.call = call;', sandbox);
+const answer = (status, body) => ({ ok: status < 400, status, json: () => Promise.resolve(body) });
+(async () => {
+  sandbox.fetch = () => Promise.resolve(answer(500, {}));
+  const bare = await sandbox.__probe.call('catalog').then(() => '', (error) => error.message);
+  assert.strictEqual(bare, 'The server answered HTTP 500 with no message.', bare);
+  sandbox.fetch = () => Promise.resolve(answer(409, { error: { message: 'The file could not be deleted.' } }));
+  const said = await sandbox.__probe.call('hooks/file').then(() => '', (error) => error.message);
+  assert.strictEqual(said, 'The file could not be deleted.', said);
+  sandbox.fetch = () => Promise.reject(new TypeError('Failed to fetch'));
+  const offline = await sandbox.__probe.call('catalog').then(() => '', (error) => error.message);
+  assert.strictEqual(offline, 'The dashboard cannot reach the server.', offline);
+})().catch((error) => { console.error(error); process.exit(1); });
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_the_requests_rows_show_a_relative_time() -> None:
   """A row reads `4 mins ago`, and the title holds the exact stamp."""
   root = Path(__file__).resolve().parent.parent.parent
@@ -3883,6 +3910,22 @@ def test_a_section_row_answers_the_hold() -> None:
   )
   assert ".sections button:hover { background: var(--field); }" in style, (
     "a pointer keeps the same look"
+  )
+
+
+def test_the_notice_takes_the_red_and_wraps() -> None:
+  """A failure line reads in our red, wraps a long message, and arrives on the page tokens."""
+  css = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
+  ).read_text(encoding="utf-8")
+  rule = re.search(r"\n\.notice \{([^}]*)\}", css)
+  assert rule, "the notice keeps its rule"
+  assert "color: var(--red);" in rule.group(1), "the failure line takes our red"
+  assert "animation: arrive var(--soft) var(--ease);" in rule.group(1), (
+    "the line arrives as the modal does"
+  )
+  assert "#notice-text { min-width: 0; overflow-wrap: anywhere; }" in css, (
+    "a long message wraps in place of a clipped line"
   )
 
 

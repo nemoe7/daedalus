@@ -242,17 +242,25 @@ async function call(path, options = {}) {
   calling += 1;
   if (calling === 1) spinnerTimer = setTimeout(() => showSpinner(true), 300);
   try {
-    const response = await fetch("ui/api/" + path, {
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json", ...(session() ? { "x-daedalus-session": session() } : {}) },
-      ...options,
-    });
+    let response;
+    try {
+      response = await fetch("ui/api/" + path, {
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json", ...(session() ? { "x-daedalus-session": session() } : {}) },
+        ...options,
+      });
+    } catch {
+      // No answer at all: the line says so in place of the browser wording of a failed fetch.
+      throw new Error("The dashboard cannot reach the server.");
+    }
     if (response.status === 401 && path !== "login") {
       keepSession(null);
       throw new LoggedOut();
     }
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body.error?.message || `HTTP ${response.status}`);
+    if (!response.ok) {
+      throw new Error(body.error?.message || `The server answered HTTP ${response.status} with no message.`);
+    }
     return body;
   } finally {
     calling -= 1;

@@ -646,9 +646,14 @@ section[data-page="providers"] > .editbar, section[data-page="settings"] > .edit
 section[data-page="models"] > .editbar, section[data-page="limits"] > .editbar {
   margin-bottom: 16px;
 }
-/* A read failure: 1 line at the top of the page, with 1 button to ask again. */
-.notice { display: flex; flex: none; align-items: center; gap: 12px; margin-bottom: 16px; color: var(--bad); }
+/* A read failure: the red of the theme, the motion of the modal, and a message that wraps in
+   place of a clipped line. The button asks again. */
+.notice {
+  display: flex; flex: none; align-items: center; gap: 12px; margin-bottom: 16px; color: var(--red);
+  animation: arrive var(--soft) var(--ease);
+}
 .notice .ghost { margin-left: auto; }
+#notice-text { min-width: 0; overflow-wrap: anywhere; }
 /* The Live switch: blue reads Live, gray reads Paused, with the count of the requests that wait. */
 .live-toggle[aria-pressed="false"] { border-color: var(--accent); color: var(--accent); }
 /* The Limits filter keeps a readable width beside the check button. */
