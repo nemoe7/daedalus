@@ -59,6 +59,8 @@ CLAUSE = re.compile(r"(==|>=|<=|>|<) *([0-9]+(?:\.[0-9A-Za-z-]+)*)")
 
 # The loaded module of each file, with the file time. A new file time loads the file again.
 _loaded: dict[Path, tuple[float, ModuleType | None]] = {}
+# The frontmatter of each file, by path, with the file time and the size of the read.
+_meta: dict[Path, tuple[tuple[int, int], dict[str, Any] | None, str | None]] = {}
 # The problems that are already in the log, so that each one shows 1 time.
 _told: set[str] = set()
 
@@ -192,14 +194,29 @@ def meta_check(text: str) -> tuple[dict[str, Any] | None, str | None]:
   return found, None
 
 
+def meta_file(path: Path) -> tuple[dict[str, Any] | None, str | None]:
+  """The frontmatter of a hook file and the reason it is not usable, from the file state."""
+  try:
+    state = path.stat()
+    stamp = (state.st_mtime_ns, state.st_size)
+  except OSError:
+    stamp = (-1, -1)
+  cached = _meta.get(path)
+  if cached is not None and cached[0] == stamp:
+    return cached[1], cached[2]
+  found = meta_check(head_text(path))
+  _meta[path] = (stamp, found[0], found[1])
+  return found
+
+
 def meta(path: Path) -> dict[str, Any] | None:
   """The usable frontmatter of a hook file, or None when the file holds none."""
-  return meta_check(head_text(path))[0]
+  return meta_file(path)[0]
 
 
 def meta_problem(path: Path) -> str | None:
   """The reason the frontmatter of a hook file is not usable, or None."""
-  return meta_check(head_text(path))[1]
+  return meta_file(path)[1]
 
 
 def resolve(value: Any) -> Path | None:
@@ -250,7 +267,7 @@ def rows(named: dict[str, Any] | None = None) -> list[dict[str, Any]]:
       if name.endswith(".py") and surface not in wired.setdefault(name, []):
         wired[name].append(surface)
   for path in sorted(folder().glob("*.py")):
-    info, problem = meta_check(head_text(path))
+    info, problem = meta_file(path)
     gate = (
       [str(surface) for surface in info["surfaces"]]
       if info and info.get("surfaces")

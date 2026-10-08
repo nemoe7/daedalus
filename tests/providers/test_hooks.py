@@ -359,6 +359,33 @@ def test_meta_runs_no_code() -> None:
   assert hooks.meta_problem(path) is None
 
 
+def test_meta_reads_one_file_state_once(monkeypatch) -> None:
+  """An unchanged hook file gives its frontmatter from the cache, so the file reads once."""
+  path = hooks.ROOT / "hooks" / "cached.py"
+  path.parent.mkdir(parents=True, exist_ok=True)
+  path.write_text(
+    "# ---\n# name: cached\n# ---\ndef on_answer(a, m):\n  return {}\n",
+    encoding="utf-8",
+  )
+  reads = []
+  real = hooks.head_text
+
+  def counted(found) -> str:
+    reads.append(found)
+    return real(found)
+
+  monkeypatch.setattr(hooks, "head_text", counted)
+  assert hooks.meta(path) == {"name": "cached"}
+  assert hooks.meta_problem(path) is None
+  assert reads == [path], reads
+  path.write_text(
+    "# ---\n# name: rewritten\n# ---\ndef on_answer(a, m):\n  return {}\n",
+    encoding="utf-8",
+  )
+  assert hooks.meta(path) == {"name": "rewritten"}
+  assert reads == [path, path], reads
+
+
 def test_requires_compare() -> None:
   """A requirement takes a comma list of comparisons against the running version."""
   assert hooks.requires_ok(">=0.1", "0.1.0") is True
