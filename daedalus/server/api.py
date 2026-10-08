@@ -829,15 +829,171 @@ async def hook_call(request: Request, file: str) -> Response:
   return JSONResponse(answer)
 
 
-@app.post("/v1/chat/completions")
-async def chat(request: Request) -> Response:
-  denied = access.check_api_key(request)
-  if denied is not None:
-    return denied
+@dataclass
+class Plan:
+  """The plan of 1 chat request: the body, the chain, the pins and the attempts."""
+
+  request: Request
+  body: dict[str, Any]
+  config: dict[str, Any]
+  pin: Tracker
+  attempts: list[dict[str, Any]]
+  deadline: float
+  racing: bool
+  tokens: dict[str, Any]
+
+
+async def start_candidate(plan, model: str, sent: dict[str, Any]) -> dict[str, Any]:
+  """Start 1 model and wait for its first content, or for the whole answer without a stream."""
+  response = None
+  began = time.perf_counter()
   try:
-    body = await request.json()
-  except ValueError:
-    return upstream.error_response(400, "Invalid JSON.", "invalid_request_error")
+    # A non-stream client reads our own stream when this request may race, and buffers the
+    # answer into 1 body. A model that cannot send a stream answers its plain body.
+    buffered = (
+      not plan.body.get("stream")
+      and plan.racing
+      and router.streams_allowed(plan.config, model)
+    )
+    asked = {**plan.body, "stream": True} if buffered else plan.body
+    try:
+      provider, response = await upstream.in_time(
+        upstream.attempt(model, asked, plan.config, sent, plan.pin.client),
+        plan.deadline,
+      )
+    except upstream.UpstreamStatus as exc:
+      # A status that names the request shape is a stream refusal. Try this model once
+      # without a stream, and buffer its whole body. The key, the rate limit and a provider
+      # fault keep their own paths.
+      if not buffered or exc.status in NOT_A_REFUSAL or exc.status >= 500:
+        raise
+      plan.attempts.append(upstream.note(model, "stream refused", began, exc.detail))
+      logger.info("upstream %s refused the stream, retrying without one", model)
+      buffered, response = False, None
+      provider, response = await upstream.in_time(
+        upstream.attempt(model, plan.body, plan.config, sent, plan.pin.client),
+        plan.deadline,
+      )
+    wait = router.model_wait(plan.config, model, upstream.WAIT_SECONDS)
+    if not buffered and not plan.body.get("stream"):
+      raw = await upstream.in_time(upstream.read_body(response, wait), plan.deadline)
+      return {
+        "provider": provider,
+        "response": response,
+        "wait": wait,
+        "raw": raw,
+        "at": time.perf_counter(),
+      }
+    events = stream.sse_data(provider.stream(response, model, True, wait), wait)
+    pending = await upstream.in_time(stream.first_content(events), plan.deadline)
+    return {
+      "provider": provider,
+      "response": response,
+      "wait": wait,
+      "events": events,
+      "pending": pending,
+      "at": time.perf_counter(),
+    }
+  except BaseException:
+    # An attempt that ends early, a cancel included, gives its connection back.
+    if response is not None:
+      await response.aclose()
+    raise
+
+
+async def race_models(
+  plan: Plan, first: str, others: list[str], sent: dict[str, Any], started: float
+) -> Try:
+  """Race the models for the first content. Each loser stops, with its own fault or with the race factor."""
+  takes = [Try(first, sent, asyncio.create_task(start_candidate(plan, first, sent)))]
+  try:
+    # A draw starts the other models now. Without it, only a first model with no content starts them.
+    quick = bool(PARALLEL_CHANCE) and PENALTIES.pick() < PARALLEL_CHANCE
+    if not quick:
+      await asyncio.wait([takes[0].task], timeout=PARALLEL_SLOW_SECONDS)
+    if quick or not takes[0].task.done():
+      plan.request.state.race = "drawn" if quick else "slow"
+      for model in others:
+        PACING.record(plan.pin.lane(model), plan.tokens)
+        other: dict[str, Any] = {}
+        takes.append(
+          Try(model, other, asyncio.create_task(start_candidate(plan, model, other)))
+        )
+    winner = await first_winner(takes)
+    for take in takes:
+      if take is winner:
+        continue
+      if not take.task.done():
+        take.task.cancel()
+        with suppress(asyncio.CancelledError):
+          await take.task
+        exc = None
+      else:
+        exc = take.task.exception()
+        if exc is None:
+          content = take.task.result()
+          if "events" in content:
+            await content["events"].aclose()
+          else:
+            # A non-stream loser is already whole, and its body is dropped with its connection.
+            await content["response"].aclose()
+      if exc is not None:
+        if take.model != first:
+          # A racing model that failed takes its own fault, as a fallback does.
+          plan.attempts.append(
+            upstream.failure_note(take.model, started, exc) | take.sent
+          )
+          plan.pin.failed(take.model, exc, plan.attempts[-1])
+        continue
+      plan.attempts.append(upstream.note(take.model, "lost race", started) | take.sent)
+      PENALTIES.record(take.model, PARALLEL_PENALTY)
+      logger.info("parallel %s lost the race", take.model)
+    if winner is None:
+      raise takes[0].task.exception()
+    if len(takes) == 1:
+      plan.request.state.race = "fast"
+    # The row reads the race: the winner carries the mark, and a runner that wins takes the pin.
+    winner.sent["race"] = "won"
+    if winner.model != first:
+      plan.request.state.transition = "rce"
+    return winner
+  finally:
+    # The winner keeps its content. The other tasks are over.
+    for take in takes:
+      take.task.cancel()
+
+
+@dataclass
+class Plan:
+  """The plan of 1 chat request: the body, the chain, the pins and the attempts."""
+
+  request: Request
+  body: dict[str, Any]
+  config: dict[str, Any]
+  model: str
+  turn: retries.Turn | None
+  previous: dict[str, str] | None
+  found: tuple[list[list[str]], str | None]
+  pin: Tracker
+  raw_groups: list[list[str]]
+  sized_groups: list[list[str]]
+  cooled_groups: list[list[str]]
+  paced: list[list[str]]
+  models: list[str]
+  old: str | None
+  looping: str | None
+  first_transition: dict[str, Any] | None
+  include_usage: bool
+  deadline: float
+  direct_wait: bool
+  racing: bool
+  runners: list[str]
+  attempts: list[dict[str, Any]]
+  tokens: dict[str, Any]
+
+
+async def plan_chat(request: Request, body: Any) -> Plan | Response:
+  """The decided route of 1 chat request: the checks, the hooks and the chain."""
   if not isinstance(body, dict) or not isinstance(body.get("model"), str):
     return upstream.error_response(400, "A model is required.", "invalid_request_error")
   model = body["model"]
@@ -1051,9 +1207,6 @@ async def chat(request: Request) -> Response:
     if saved is not None:
       request.state.saved = str(saved)
   include_usage = bool((body.get("stream_options") or {}).get("include_usage"))
-  failure = upstream.error_response(
-    502, "No model answered the request.", "upstream_error"
-  )
   deadline = time.perf_counter() + upstream.TIMEOUT_SECONDS
   direct_wait = (
     model not in router.POOLS
@@ -1083,128 +1236,48 @@ async def chat(request: Request) -> Response:
     request.state.race = "stream"
   elif len(models) <= 1:
     request.state.race = "single"
+  return Plan(
+    request=request,
+    body=body,
+    config=config,
+    model=model,
+    turn=turn,
+    previous=previous,
+    found=found,
+    pin=pin,
+    raw_groups=raw_groups,
+    sized_groups=sized_groups,
+    cooled_groups=cooled_groups,
+    paced=paced,
+    models=models,
+    old=old,
+    looping=looping,
+    first_transition=first_transition,
+    include_usage=include_usage,
+    deadline=deadline,
+    direct_wait=direct_wait,
+    racing=racing,
+    runners=runners,
+    attempts=attempts,
+    tokens=tokens,
+  )
 
-  async def start_candidate(model: str, sent: dict[str, Any]) -> dict[str, Any]:
-    """Start 1 model and wait for its first content, or for the whole answer without a stream."""
-    response = None
-    began = time.perf_counter()
-    try:
-      # A non-stream client reads our own stream when this request may race, and buffers the
-      # answer into 1 body. A model that cannot send a stream answers its plain body.
-      buffered = (
-        not body.get("stream") and racing and router.streams_allowed(config, model)
-      )
-      asked = {**body, "stream": True} if buffered else body
-      try:
-        provider, response = await upstream.in_time(
-          upstream.attempt(model, asked, config, sent, pin.client),
-          deadline,
-        )
-      except upstream.UpstreamStatus as exc:
-        # A status that names the request shape is a stream refusal. Try this model once
-        # without a stream, and buffer its whole body. The key, the rate limit and a provider
-        # fault keep their own paths.
-        if not buffered or exc.status in NOT_A_REFUSAL or exc.status >= 500:
-          raise
-        attempts.append(upstream.note(model, "stream refused", began, exc.detail))
-        logger.info("upstream %s refused the stream, retrying without one", model)
-        buffered, response = False, None
-        provider, response = await upstream.in_time(
-          upstream.attempt(model, body, config, sent, pin.client),
-          deadline,
-        )
-      wait = router.model_wait(config, model, upstream.WAIT_SECONDS)
-      if not buffered and not body.get("stream"):
-        raw = await upstream.in_time(upstream.read_body(response, wait), deadline)
-        return {
-          "provider": provider,
-          "response": response,
-          "wait": wait,
-          "raw": raw,
-          "at": time.perf_counter(),
-        }
-      events = stream.sse_data(provider.stream(response, model, True, wait), wait)
-      pending = await upstream.in_time(stream.first_content(events), deadline)
-      return {
-        "provider": provider,
-        "response": response,
-        "wait": wait,
-        "events": events,
-        "pending": pending,
-        "at": time.perf_counter(),
-      }
-    except BaseException:
-      # An attempt that ends early, a cancel included, gives its connection back.
-      if response is not None:
-        await response.aclose()
-      raise
 
-  async def race_models(
-    first: str, others: list[str], sent: dict[str, Any], started: float
-  ) -> Try:
-    """Race the models for the first content. Each loser stops, with its own fault or with the race factor."""
-    takes = [Try(first, sent, asyncio.create_task(start_candidate(first, sent)))]
-    try:
-      # A draw starts the other models now. Without it, only a first model with no content starts them.
-      quick = bool(PARALLEL_CHANCE) and PENALTIES.pick() < PARALLEL_CHANCE
-      if not quick:
-        await asyncio.wait([takes[0].task], timeout=PARALLEL_SLOW_SECONDS)
-      if quick or not takes[0].task.done():
-        request.state.race = "drawn" if quick else "slow"
-        for model in others:
-          PACING.record(pin.lane(model), tokens)
-          other: dict[str, Any] = {}
-          takes.append(
-            Try(model, other, asyncio.create_task(start_candidate(model, other)))
-          )
-      winner = await first_winner(takes)
-      for take in takes:
-        if take is winner:
-          continue
-        if not take.task.done():
-          take.task.cancel()
-          with suppress(asyncio.CancelledError):
-            await take.task
-          exc = None
-        else:
-          exc = take.task.exception()
-          if exc is None:
-            content = take.task.result()
-            if "events" in content:
-              await content["events"].aclose()
-            else:
-              # A non-stream loser is already whole, and its body is dropped with its connection.
-              await content["response"].aclose()
-        if exc is not None:
-          if take.model != first:
-            # A racing model that failed takes its own fault, as a fallback does.
-            attempts.append(upstream.failure_note(take.model, started, exc) | take.sent)
-            pin.failed(take.model, exc, attempts[-1])
-          continue
-        attempts.append(upstream.note(take.model, "lost race", started) | take.sent)
-        PENALTIES.record(take.model, PARALLEL_PENALTY)
-        logger.info("parallel %s lost the race", take.model)
-      if winner is None:
-        raise takes[0].task.exception()
-      if len(takes) == 1:
-        request.state.race = "fast"
-      # The row reads the race: the winner carries the mark, and a runner that wins takes the pin.
-      winner.sent["race"] = "won"
-      if winner.model != first:
-        request.state.transition = "rce"
-      return winner
-    finally:
-      # The winner keeps its content. The other tasks are over.
-      for take in takes:
-        take.task.cancel()
-
+async def run_chat(plan: Plan) -> Response:
+  """Walk the chain of 1 chat request until 1 model answers, or answer with the last error."""
+  request, body, config, model = plan.request, plan.body, plan.config, plan.model
+  pin, models, attempts = plan.pin, plan.models, plan.attempts
+  tokens, deadline, turn = plan.tokens, plan.deadline, plan.turn
+  failure = upstream.error_response(
+    502, "No model answered the request.", "upstream_error"
+  )
   index = 0
   previous_attempt: tuple[str, str] | None = None
   fallback_reason = "err"
   while index < len(models):
     candidate = models[index]
     candidate_pool = model_pool(config, candidate) or getattr(request.state, "pool", "")
-    transition = first_transition if index == 0 else None
+    transition = plan.first_transition if index == 0 else None
     if index and previous_attempt:
       transition = route_transition(
         previous_attempt[1],
@@ -1230,13 +1303,12 @@ async def chat(request: Request) -> Response:
     PACING.record(pin.lane(candidate), tokens)
     try:
       # The request limit caps the wait for an answer, for all attempts.
-      if not runners or index:
-        content = await start_candidate(candidate, sent)
+      if not plan.runners or index:
+        content = await start_candidate(plan, candidate, sent)
       else:
-        winner = await race_models(candidate, runners, sent, started)
+        winner = await race_models(plan, candidate, plan.runners, sent, started)
         candidate, sent = winner.model, winner.sent
         content = winner.task.result()
-      wait = content["wait"]
       if not body.get("stream"):
         events = content.get("events")
         if events is None:
@@ -1280,16 +1352,16 @@ async def chat(request: Request) -> Response:
       )
       break
     except httpx.ReadTimeout as exc:
-      if direct_wait and time.perf_counter() < deadline:
+      if plan.direct_wait and time.perf_counter() < deadline:
         attempts.append(upstream.failure_note(candidate, started, exc) | sent)
         await asyncio.sleep(min(0.1, max(0, deadline - time.perf_counter())))
         continue
       attempts.append(upstream.failure_note(candidate, started, exc) | sent)
       pin.failed(candidate, attempt=attempts[-1])
       failure = upstream.error_response(
-        504 if direct_wait else 502,
+        504 if plan.direct_wait else 502,
         "Upstream provider timed out"
-        if direct_wait
+        if plan.direct_wait
         else "Upstream provider attempt failed",
         "upstream_error",
       )
@@ -1355,7 +1427,7 @@ async def chat(request: Request) -> Response:
         rest,
         body,
         config,
-        include_usage,
+        plan.include_usage,
         candidate,
         pin,
         attempts,
@@ -1365,13 +1437,28 @@ async def chat(request: Request) -> Response:
         stream_context={
           "pool": getattr(request.state, "pool", "") or "",
           "code": getattr(request.state, "code", "") or "",
-          "previous": (previous or {}).get("model", ""),
+          "plan.previous": (plan.previous or {}).get("model", ""),
         },
         hook_files=hooks.request_files(REQUEST_HOOKS, "on-chunk"),
       ),
       media_type="text/event-stream",
     )
   return failure
+
+
+@app.post("/v1/chat/completions")
+async def chat(request: Request) -> Response:
+  denied = access.check_api_key(request)
+  if denied is not None:
+    return denied
+  try:
+    body = await request.json()
+  except ValueError:
+    return upstream.error_response(400, "Invalid JSON.", "invalid_request_error")
+  plan = await plan_chat(request, body)
+  if isinstance(plan, Response):
+    return plan
+  return await run_chat(plan)
 
 
 def keyword_pattern(keywords: list[str]) -> re.Pattern[str] | None:
