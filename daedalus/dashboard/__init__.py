@@ -1230,7 +1230,7 @@ def routes(
 
   @api.delete("/hooks/file")
   async def hooks_file_delete(request: Request) -> JSONResponse:
-    """Delete 1 hook file from the hook folder, and leave its record out of the lock."""
+    """Remove 1 hook file from the hook folder, and leave its record out of the lock."""
     if not allowed(request):
       return denied()
     body = await json_body(request)
