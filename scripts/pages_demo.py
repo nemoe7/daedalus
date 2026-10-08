@@ -1506,7 +1506,9 @@ def demo_fixtures(version: str) -> dict[str, Any]:
     pool["members"] = [item for item in pool["members"] if item["id"] in kept]
   fixtures["login"]["version"] = version
   fixtures["status"]["version"] = version
-  fixtures["notifications"]["update"]["current"] = version
+  update = fixtures["notifications"]["update"] or {}
+  update["current"] = version
+  fixtures["notifications"]["update"] = update
   # The hook rows come from the files of this repo, so the table shows the version each 1 carries.
   # The capture holds an older copy, and a version bump lands here without a new capture.
   settings_file = fixtures["settings"].setdefault("file", {})
