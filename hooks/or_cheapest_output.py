@@ -6,18 +6,6 @@
 # description: OpenRouter tries the endpoints with the cheapest output price first.
 # license: daedalus Noncommercial License 1.0.0
 # ---
-"""A daedalus hook: OpenRouter tries the endpoints with the cheapest output price first.
-
-Name this file 2 times in the hooks list of an OpenRouter model, provider or file:
-
-  hooks:
-    - on-catalog: hooks/or_cheapest_output.py
-    - on-upstream: hooks/or_cheapest_output.py
-
-At each catalog build, on_catalog reads the endpoint list of each model with the hook.
-It sorts the list by output price after the discount, and the input price breaks a tie.
-on_upstream then sends the order as provider.order. A client provider object has priority.
-"""
 
 import json
 import logging

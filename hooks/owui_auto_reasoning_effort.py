@@ -6,24 +6,6 @@
 # description: The Open WebUI reasoning level and try-again rule.
 # license: daedalus Noncommercial License 1.0.0
 # ---
-"""The Open WebUI reasoning level and try-again rule, as a request hook.
-
-1 file holds the 2 surfaces of the rule:
-
-  on_request  the surface `request_hooks.on-request`: the key of the turn, and the code of a repeat
-  on_prompt   the surface `request_hooks.on-prompt`: the reasoning level of the request
-
-Open WebUI sends `x-openwebui-chat-id` when `ENABLE_FORWARD_USER_INFO_HEADERS` is true. A repeat of
-a message that a model answered is a try again: daedalus steps 1 tier up for `daedalus/auto`, keeps
-a named pool, and drops the models that answered, then this file writes the code of the row, `rt1`,
-`rt2`. The prompt surface reads the heuristics v2 tier of the newest user turn and the newest model
-turn, which is the classified level of the thread, so each turn of a chat gets its own level. A try again steps the
-level of the last answer 1 up. A last answer with no level took no reasoning step, so that request
-takes the read of the newest turn instead. The cap of the ladder is `high`. The tier of the
-conversation stays with the routing of `daedalus/auto`, so this file sets the level alone.
-
-`config/daedalus.yml` names this file in both groups. An empty value turns that surface off.
-"""
 
 import logging
 from typing import Any

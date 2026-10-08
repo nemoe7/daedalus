@@ -6,7 +6,6 @@
 # description: The model that served a pool answer, in the final chunk's usage.daedalus.
 # license: daedalus Noncommercial License 1.0.0
 # ---
-"""The served model: the model that served a pool answer, in the final chunk's `usage.daedalus`."""
 
 import logging
 from typing import Any
