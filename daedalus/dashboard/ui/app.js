@@ -2545,9 +2545,92 @@ function renderLimitRows(rows) {
     </tr>`).join("") : '<tr><td colspan="5" class="empty">No rate-limit headers yet. Groq and Mistral send them with each answer.</td></tr>');
 }
 
+function rebuildDiff(event) {
+  const marks = [
+    event.added.length ? `<span class="added">+${event.added.length}</span>` : "",
+    event.removed.length ? `<span class="removed">-${event.removed.length}</span>` : "",
+    event.changed.length ? `<span class="moved">~${event.changed.length}</span>` : "",
+  ].join(" ");
+  return marks || '<span class="muted">-</span>';
+}
+
+function renderNotifications(data) {
+  state.notifications = data;
+  const open = state.notificationOpen || (state.notificationOpen = new Set());
+  draw(
+    "rebuild-rows",
+    data.rebuilds.length
+      ? data.rebuilds
+          .map((event, index) => {
+            const detail = [
+              ...event.added.map((model) => ["added", "+", model]),
+              ...event.removed.map((model) => ["removed", "-", model]),
+              ...event.changed.map((model) => ["moved", "~", model]),
+            ];
+            return `<tr class="rebuild-row" data-rebuild="${index}" tabindex="0">
+      <td class="muted time">${stamp(event.at)}</td>
+      <td>${esc(event.reason)}</td>
+      <td class="num">${event.models}</td>
+      <td>${rebuildDiff(event)}</td>
+      <td class="hide-sm">${event.failed.length ? esc(event.failed.join(", ")) : '<span class="muted">-</span>'}</td>
+    </tr>` +
+              (detail.length
+                ? `<tr class="rebuild-detail" hidden="${open.has(index) ? "" : "hidden"}"><td colspan="5">
+        ${detail
+          .map(([kind, mark, model]) => `<div class="line"><span class="${kind}">${mark}</span><span>${esc(model)}</span></div>`)
+          .join("")}
+      </td></tr>`
+                : "");
+          })
+          .join("")
+      : '<tr><td colspan="5" class="empty">No rebuilds yet. The first one lands with the next catalog build.</td>');
+  const update = data.update;
+  let body = "<h3>Update</h3>";
+  if (!update) body += none("Not checked yet");
+  else if (update.error === "no commit in this build's version")
+    body += none("This build's version names no commit, so the check has nothing to compare.");
+  else if (update.error) body += none(`Check failed: ${esc(update.error)}`);
+  else if (update.channel === "release")
+    body += update.update
+      ? line("Available", `<a href="${esc(update.url)}">${esc(update.latest)}</a>`) +
+        line("You are on", esc(update.current))
+      : line("Up to date", esc(update.latest || update.current));
+  else if (update.update) body += line("Behind main", `${update.behind} ${update.behind === 1 ? "commit" : "commits"}`);
+  else body += line("Up to date", "main");
+  body += line("Checked", update ? stamp(update.at) : "-");
+  draw(
+    "update-card",
+    body + '<button class="ghost" id="update-check" type="button">Check now</button>'
+  );
+  draw(
+    "limit-warnings-card",
+    "<h3>Limit warnings</h3>" +
+      (data.limits.length
+        ? data.limits
+            .map(
+              (row) => `<div class="balance">
+      ${line(
+        `${esc(row.model)}${row.client ? ` <span class="muted">${esc(row.client)}</span>` : ""}`,
+        `${floorCount(row.remaining)} of ${floorCount(row.limit)} ${esc(row.kind)}${row.span ? ` ${esc(row.span)}` : ""}`
+      )}
+      ${weightBar(row.share)}
+    </div>`
+            )
+            .join("")
+        : none("No row is near its limit."))
+  );
+}
+
 async function refreshSlow() {
-  const [pools, models, limits] = await Promise.all([call("pools"), call("models"), call("limits"), refreshKeys()]);
+  const [pools, models, limits, notifications] = await Promise.all([
+    call("pools"),
+    call("models"),
+    call("limits"),
+    call("notifications"),
+    refreshKeys(),
+  ]);
   renderLimits(limits);
+  renderNotifications(notifications);
   renderPools(pools);
   state.pools = pools;
   state.models = models;
@@ -2574,6 +2657,7 @@ async function start() {
   setStateKnown(null);
   skeletons("requests", 13);
   skeletons("models", 9);
+  skeletons("rebuild-rows", 5);
   await refreshFast();
   await refreshSlow();
   takeFiles(await call("files"));
@@ -2628,6 +2712,33 @@ $("limits-check").addEventListener("click", async () => {
     $("limits-message").textContent = error.message;
   } finally {
     button.disabled = false;
+  }
+});
+// A rebuild row opens its list of added, removed and moved models, and closes it on the second pick.
+$("rebuild-rows").addEventListener("click", (event) => {
+  const row = event.target.closest("tr.rebuild-row");
+  if (!row || !state.notifications) return;
+  const open = state.notificationOpen || (state.notificationOpen = new Set());
+  const index = Number(row.dataset.rebuild);
+  if (open.has(index)) open.delete(index);
+  else open.add(index);
+  renderNotifications(state.notifications);
+});
+$("update-card").addEventListener("click", async (event) => {
+  const button = event.target.closest("#update-check");
+  if (!button) return;
+  button.disabled = true;
+  button.textContent = "Checking";
+  try {
+    const result = await call("updates", { method: "POST" });
+    if (state.notifications) {
+      state.notifications = { ...state.notifications, update: result };
+      renderNotifications(state.notifications);
+    }
+  } catch (error) {
+    if (error instanceof LoggedOut) return showLogin();
+    button.disabled = false;
+    button.textContent = "Check now";
   }
 });
 $("show-password").addEventListener("click", () => showPassword($("login").password.type === "password"));
@@ -2799,7 +2910,7 @@ $("requests").addEventListener("click", async (event) => {
   shownRequests = "";
   renderRequestTable();
 });
-const PAGES = ["overview", "requests", "models", "providers", "limits", "settings"];
+const PAGES = ["overview", "requests", "models", "notifications", "providers", "limits", "settings"];
 
 // A Models link such as #/models?tier=C&mode=chat&sort=weight sets the filters.
 function applyModelFilters(query) {
