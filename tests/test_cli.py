@@ -177,7 +177,7 @@ def test_dump_modes(tmp_path: Path, monkeypatch) -> None:
   cli.run(["dump", "models", "--format", "json"])
   assert calls == ["migrate", ("catalog", "csv"), "migrate"], calls
   assert json.loads((tmp_path / "models.json").read_text("utf-8")) == [
-    {**rows[0], "tier": None, "supported_efforts": None}
+    {**rows[0], "tier": None, "supported_efforts": ["none", "low", "medium", "high"]}
   ]
   cli.run(["dump", "all", "-f", "csv"])
   assert calls == [
@@ -195,7 +195,7 @@ def test_dump_modes(tmp_path: Path, monkeypatch) -> None:
         "flags": '["vision"]',
         "mode": "chat",
         "tier": "",
-        "supported_efforts": "",
+        "supported_efforts": '["none","low","medium","high"]',
       }
     ]
 
@@ -229,8 +229,15 @@ def test_dump_models_names_the_tier_of_each_row(tmp_path: Path, monkeypatch) -> 
 
 
 def test_dump_models_carries_the_evaluated_efforts(tmp_path: Path, monkeypatch) -> None:
-  """The dump carries the efforts a row names, evaluated to a list, and null when it names none."""
-  monkeypatch.setattr(config, "get_config", dict)
+  """The dump carries the resolved ladder of each row: the model key, the block, the catalog row, then the coded provider."""
+  monkeypatch.setattr(
+    config,
+    "get_config",
+    lambda: {
+      "p": {"models": {"one*": {"supported_reasoning_efforts": ["xhigh"]}}},
+      "q": {"supported_reasoning_efforts": ["low", "high"]},
+    },
+  )
   monkeypatch.setattr(discovery, "DUMP_DIR", tmp_path / "dump")
   monkeypatch.setattr(store, "MODELS_DB", tmp_path / "models.sqlite3")
   store.write_store(
@@ -246,16 +253,16 @@ def test_dump_models_carries_the_evaluated_efforts(tmp_path: Path, monkeypatch) 
   cli.dump_models("json")
   rows = json.loads((tmp_path / "dump" / "models.json").read_text("utf-8"))
   assert {row["id"]: row["supported_efforts"] for row in rows} == {
-    "p/one": ["max", "high", "low"],
-    "q/two": None,
+    "p/one": ["xhigh"],
+    "q/two": ["low", "high"],
     "r/three": ["high", "low"],
   }, rows
   cli.dump_models("csv")
   with (tmp_path / "dump" / "models.csv").open(encoding="utf-8", newline="") as source:
     found = {row["id"]: row["supported_efforts"] for row in csv.DictReader(source)}
   assert found == {
-    "p/one": '["max","high","low"]',
-    "q/two": "",
+    "p/one": '["xhigh"]',
+    "q/two": '["low","high"]',
     "r/three": '["high","low"]',
   }, found
 

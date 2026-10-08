@@ -58,15 +58,24 @@ def tier_of_rows() -> dict[str, str]:
 def dump_models(file_format: str) -> None:
   """Write every stored model row to `models.json` or `models.csv`.
 
-  The dump adds the tier that claims a row, and the efforts the row names, evaluated to a list:
-  null when the row names none.
+  The dump adds the tier that claims a row, and the resolved ladder of efforts the row takes:
+  the model key, the block, the catalog row, then the coded ladder of the provider.
   """
+  try:
+    found = config.get_config()
+  except OSError:
+    logger.warning("no provider file: the dump resolves efforts to the coded ladder")
+    found = {}
+  from daedalus.routing import router
+
   tiers = tier_of_rows()
   rows = [
     {
       **row,
       "tier": tiers.get(row["id"]),
-      "supported_efforts": store.effort_list(row.get("supported_efforts")) or None,
+      "supported_efforts": router.efforts(
+        found, row["id"], store.effort_list(row.get("supported_efforts")) or None
+      ),
     }
     for row in store.stored_rows()
   ]
