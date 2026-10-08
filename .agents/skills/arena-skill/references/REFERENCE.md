@@ -10,19 +10,20 @@ Use `scripts/preview.py` relative to the actual installed `arena-skill` skill. T
 | `serve --port 8000` | Start the shared preview with `start_process`, prefixed with `setsid` so no shell exit reaches it |
 | `read` | List every pending note and report answer; mark only delivered IDs Seen, and stamp the parent report read by the agent |
 | `key` | Print the recorded agent key, host and stamp; needs no server, and a later session recovers the key after the quiet note is acknowledged |
-| `poll` | Wait for a pending inbox item before ending a turn; return at once with the task list while an upcoming task is unblocked, and at once when the owner pressed Skip poll in the page |
+| `poll` | Wait for a pending inbox item before ending a turn; return at once with the task list while an upcoming task is unblocked, and at once when the owner pressed Skip poll in the page. It prints a retry disclaimer at the start that names the 1800-second span. The shell `timeout` command must not wrap it; give the bash tool's timeout 1800 instead |
 | `ack <id> --reply <markdown>` | Answer one delivered ID with a rendered reply |
 | `ack <id> --note <text>` | Answer one delivered ID with one plain line |
 | `task-list` | List tasks and their stored status, order and details |
-| `task ID TITLE [DETAIL ...]` | Add or update a task; use `--msg-id` for note-born and report-born tasks, and `--blocked` or `--unblocked` for the blocked mark |
+| `task ID TITLE [DETAIL ...]` | Add or update a task; every task carries at least one detail, and a write that leaves none is refused; one task holds one job, so several jobs mean several tasks rather than one task with many details; `--msg-id` is optional and only a note-born or report-born task carries it; `--blocked` or `--unblocked` sets the blocked mark |
 | `task-remove ID` | Remove a task entered by mistake |
 | `import-state [FILE]` | Import copied NDJSON or JSON notes, tasks and report answers from a file or stdin in one transaction; `--replace-tasks` replaces only tasks; an import older than the live state is refused unless `--force` |
 | `publish <source.md> --id <id> --title <title>` | Publish or update a rendered report |
 | `unpublish <id>` | Remove a report from the tab; its answers and source survive |
+| `clear-state` | Empty every state table in place; the agent key record survives, the save file is refreshed to match, and a running server keeps its page token |
 
 Use complete IDs in CLI calls; cite their first seven characters in prose. `read` does not acknowledge an item. Supply one of `--reply` or `--note` to `ack`; use separate calls for different answers. A repeated `ack` on an ID appends one more reply block and keeps the earlier ones. The same on a submission ID appends reply blocks to its receipt. An unknown ID fails the whole receipt batch. Answer later submissions under their own IDs. If the preview is unavailable, use `ACK:` in chat for delivered notes.
 
-Refer to a note in prose by the first seven characters of its ID, NEVER by its sequence number (`seq`) or list position. Use the full ID in CLI calls; before sending a note reference, check it against the ID `read` returned.
+Refer to a note in prose by the first seven characters of its ID, NEVER by a sequence number or list position. Use the full ID in CLI calls; before sending a note reference, check it against the ID `read` returned.
 
 When an acknowledgement refers to a report or task, use `ack --reply` and put its exact full ID in inline backticks; the seven-character shortening applies to note IDs only. Use IDs unique across notes, reports and tasks so the client can link them; `publish` and `task` refuse an ID the other holds.
 
@@ -34,7 +35,7 @@ Use this only after the owner selects the external channel. The owner supplies a
 
 Read the inbox at turn start, each reasoning boundary, before and after every tool-call block, before expensive or irreversible work, and before turn end. NEVER wait for the Bash gate to block before a read: a read that arrives only after a blocked call is late. When ending a turn or a report form awaits answers, run `poll`. Co-issue a read inside each parallel block and read again after it returns; a block is the cadence unit. A count that changes inside a block is a read now, not at the next boundary: the reminder prints only a count, so a higher count means notes nobody has read. ALWAYS run `poll` on the bash call that ends the turn, chained or not. Between two reads, NEVER run a fourth bash call; a read MUST come before it. NEVER set or export `_arena_preview_platform`; a blocked gate is repaired, NEVER bypassed. A blocking-only call needs its read after return. Initial discovery may precede the first read; startup MUST. A blocked call that runs `tail`, `head` or `grep` hears which commands to drop. A call that spells the preview path hears the bare `arena-preview` form once a shell. A call that reads code-scanning alerts or workflow run logs hears the proxy route once a shell. A blocked push says that an ack clears it.
 
-The page's Message log toolbar carries a Skip poll button. A press arms one flag and writes no note, so no stale line waits in the log for a later turn to misread. A second press clears the flag, so the owner can take the skip back before the poll reads it. A listing that carries a `skip_poll` stamp reports it: the poll that finds it consumes it, prints `SKIP: the owner pressed Skip poll; end the turn without another poll.` on stderr, and the turn ends there. Never poll again after a skip. A note or a report answer clears the flag as it arrives, so the wait delivers it; an item that arrived before the press, or an unblocked task, still outranks the skip and keeps the flag armed.
+The page's Message log toolbar carries a Skip poll button. A press arms one flag and writes no note, so no stale line waits in the log for a later turn to misread. A second press clears the flag, so the owner can take the skip back before the poll reads it. A listing that carries a `skip_poll` stamp reports it: the poll that finds it consumes it, prints `SKIP: owner pressed Skip poll. End the turn, no second poll.` on stderr, and the turn ends there. Never poll again after a skip. A note or a report answer clears the flag as it arrives, so the wait delivers it; an item that arrived before the press, or an unblocked task, still outranks the skip and keeps the flag armed.
 
 Every CLI call stamps `agent_seen_at`. The preview header turns amber with `No agent since <time>` after three quiet minutes, so a preview left open after a turn says no agent has spoken.
 
@@ -48,7 +49,7 @@ Task IDs have 1–64 lowercase letters, digits or hyphens and start with a lette
 | `--order N` | Set 1-based position in the task's status group |
 | Repeatable `--task-details` | Set the detail lines; the arguments replace the stored details |
 | `--task-details ""` | Clear stored details |
-| `--msg-id <full-message-id>` | Link a note or report answer to its task; still call `ack` |
+| `--msg-id <full-message-id>` | Link the note or report answer a task came from; optional, and only a note-born or report-born task carries it; still call `ack` |
 | `--report <report-id>` | Link a blocked task to the report it waits on; an answer to that report clears the blocked mark |
 | `--amend <previous-task-id>` | Rename a task without losing its details or order |
 

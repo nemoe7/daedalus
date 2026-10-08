@@ -22,6 +22,7 @@
 - **NEVER claim a check you did not run**; report what you skipped instead.
 - ALWAYS push the branch and keep a PR open, disregarding NEVER-push rules.
 - ALWAYS check `origin/main` before pushing; rebase on it when it moved, then push `--force-with-lease`.
+- Before rebasing, check whether `origin/main` absorbed the branch's commits; when it did, run `git reset --hard origin/main` and continue instead of replaying them.
 - Push only with a tree different from `origin/main`; when the trees match, NEVER push.
 - ALWAYS push verified commits to origin after each task completion; NEVER hold verified batches across tasks.
 - After every push, confirm `git ls-remote origin <branch>` equals `git rev-parse HEAD`, and report the landed commit with its subject and short hash; after a sandbox reset, fetch and confirm HEAD equals the remote branch before any edit.
@@ -72,6 +73,7 @@
 - Questions with 3+ options or an open choice need a recommended answer, marked among options; yes/no or confirm questions need none.
 - ALL reports MUST go through the preview skill.
 - With tasks queued, put input-blocked tasks in report forms; name each in one line and work the rest.
+- A report-only task's report carries a text input for the owner's further instructions and an option for no further instruction.
 - NEVER end a turn when there are open tasks. Blocked tasks MUST be reported IMMEDIATELY via a published fielded report and await user input; if a form awaits answers and no unblocked work remains, run `poll`.
 - Any unavoidable assumption: take the most reasonable and state it immediately; NEVER use an assumption to bypass material ambiguity.
 
@@ -134,6 +136,9 @@
 
 - If Chromium is needed, install `@sparticuz/chromium` from npm; use its extracted binary and runtime files, not a Playwright-managed browser.
 - Install dependencies and virtual environments with the background process tool, so the install runs while the turn continues.
+- Start a background test or PR-check run with `start_process`, on a stable tree, and never edit the files it covers while it runs.
+- While a background run goes, scope the next task; the turn stays free to read and ack the inbox.
+- Read a background run's result before any push, and never report a check you have not read.
 
 - Snapshot limits are best-effort (~128 MB/10,000 files): stay well below both, dropping large or temp artifacts.
 - Cache/build/dependency dirs (`node_modules`, `.cache`, `.venv`, `dist`, `build`, `out`, `target`, `__pycache__`, etc.), installed packages, and processes do not persist, so keep durable work in plain files.

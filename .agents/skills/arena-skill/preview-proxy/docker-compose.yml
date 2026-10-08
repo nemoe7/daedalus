@@ -1,0 +1,38 @@
+# Runs the published arena-preview-proxy image behind a Tailscale sidecar.
+# Set TS_AUTHKEY and PROXY_COOKIE_SECRET in the environment, or in a .env file.
+# The sidecar applies tailscale-serve.json, so the tailnet reaches the proxy over
+# HTTPS at https://arena-preview.<tailnet>.ts.net; Funnel stays off.
+services:
+  proxy:
+    image: ghcr.io/nemoe7/arena-preview-proxy:latest
+    container_name: arena-preview-proxy
+    restart: unless-stopped
+    # The Tailscale sidecar owns the network namespace, so the proxy takes no ports.
+    network_mode: service:tailscale
+    environment:
+      # Signs the selected-preview cookie; at least 32 characters. Generate one
+      # with `openssl rand -hex 32`.
+      PROXY_COOKIE_SECRET: ${PROXY_COOKIE_SECRET:?set PROXY_COOKIE_SECRET}
+    depends_on:
+      - tailscale
+
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: arena-preview-proxy-tailscale
+    restart: unless-stopped
+    hostname: arena-preview
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:?set TS_AUTHKEY}
+      TS_HOSTNAME: arena-preview
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/tailscale-serve.json
+      # Userspace networking serves the tailnet without a host tun device and
+      # without added capabilities. Add flags through TS_EXTRA_ARGS when needed.
+      TS_USERSPACE: "true"
+      TS_EXTRA_ARGS: ${TS_EXTRA_ARGS:-}
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+      - ./tailscale-serve.json:/config/tailscale-serve.json:ro
+
+volumes:
+  tailscale-state:

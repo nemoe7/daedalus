@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="Arena preview">
+  <rect width="192" height="192" rx="36" fill="#1f2430"/>
+  <rect x="34" y="46" width="124" height="96" rx="14" fill="none" stroke="#4f7cff" stroke-width="10"/>
+  <path d="M84 74l36 20-36 20z" fill="#f2f4f8"/>
+</svg>

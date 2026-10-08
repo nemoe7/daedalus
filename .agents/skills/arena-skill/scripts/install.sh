@@ -162,7 +162,7 @@ _arena_preview_gate() {
     *"git commit"*|*"git push"*|*"gh pr checks"*)
       if [ -z "\${_arena_preview_reminded:-}" ]; then
         _arena_preview_reminded=1
-        printf '%s\n' "Finished a task? Update your task-list with arena-preview task <id> --status finished." >&2
+        printf '%s\n' "Finished a task? Update the task list: arena-preview task <id> --status finished." >&2
       fi
       ;;
   esac
@@ -176,7 +176,19 @@ _arena_preview_gate() {
         _arena_preview_behind="\$(git rev-list --count HEAD..origin/main 2>/dev/null)"
         case "\${_arena_preview_behind:-}" in
           ''|0) ;;
-          *) printf '%s\n' "origin/main carries \${_arena_preview_behind} commit(s) this branch lacks. Replay your commits over main: run git fetch origin and git rebase origin/main, then push." >&2 ;;
+          *)
+            # A shallow fetch leaves main's tip alone in the graph. The count then
+            # measures the graft, not main, so the line waits for a visible history.
+            _arena_preview_lone=0
+            if [ "\$(git rev-parse --is-shallow-repository 2>/dev/null)" = true ]; then
+              case "\$(git rev-list --count origin/main 2>/dev/null)" in
+                0|1) _arena_preview_lone=1 ;;
+              esac
+            fi
+            if [ "\${_arena_preview_lone}" = 0 ]; then
+              printf '%s\n' "origin/main carries \${_arena_preview_behind} commit(s) this branch lacks. Replay your commits over main: run git fetch origin and git rebase origin/main, then push." >&2
+            fi
+            ;;
         esac
       fi
       ;;
@@ -197,7 +209,7 @@ _arena_preview_gate() {
     *code-scanning*|*code_scanning*|*"gh run view"*|*"gh run download"*|*actions/runs*)
       if [ -z "\${_arena_preview_proxy_told:-}" ]; then
         _arena_preview_proxy_told=1
-        printf '%s\n' 'Read that through the proxy: the arena skill carries the routes for code-scanning alerts and workflow run logs.' >&2
+        printf '%s\n' 'Read that through the proxy: the arena skill carries the routes for code-scanning alerts and run logs.' >&2
       fi
       ;;
   esac
