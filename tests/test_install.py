@@ -43,7 +43,7 @@ def checkout(tmp_path: Path, env_text: str | None) -> tuple[Path, dict[str, str]
     'case "$*" in\n'
     "  *api.github.com*) printf '[]' ;;\n"
     '  *archive*) tar -czf - -C "$DAEDALUS_TEST_SOURCE" '
-    "--transform='s,^,daedalus/,' compose.yml compose.dev.yml .env.example config install.sh services ;;\n"
+    "--transform='s,^,daedalus/,' compose.yml compose.dev.yml .env.example config hooks install.sh services ;;\n"
     '  *) echo "Unexpected curl request: $*" >&2; exit 1 ;;\n'
     "esac\n"
   )

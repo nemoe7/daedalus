@@ -17,6 +17,7 @@ services:
     volumes:
       - ./.daedalus-state:/app/.daedalus-state
       - ./config:/app/config # read-write: the dashboard edits and reloads these files
+      - ./hooks:/app/hooks # read-write: the dashboard takes and deletes hook files
     restart: unless-stopped
 
   # Optional profiles. Set COMPOSE_PROFILES in .env, or use: docker compose --profile NAME up -d

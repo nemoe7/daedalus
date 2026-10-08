@@ -61,9 +61,9 @@ if [ "$prod" = 1 ]; then rm -f "$dir/.daedalus-dev"; dev=0; fi
 # Files to pull: only pull compose.dev.yml when --dev or marker present
 # Ordered checks: compose -> .env -> profiles -> required service dirs
 if [ "$dev" = 1 ]; then
-  base_files=(compose.yml compose.dev.yml .env.example config install.sh)
+  base_files=(compose.yml compose.dev.yml .env.example config hooks install.sh)
 else
-  base_files=(compose.yml .env.example config install.sh)
+  base_files=(compose.yml .env.example config hooks install.sh)
 fi
 # Service mapping: profile -> dir
 # search -> services/searxng, tailscale -> services/tailscale
