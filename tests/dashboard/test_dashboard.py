@@ -1887,7 +1887,10 @@ def test_app_js_a_file_change_leaves_the_pick_of_the_other_file() -> None:
     {
       "path": "config/providers/free.yml",
       "text": "free",
-      "blocks": {"cloudflare": {"api_key": "env:C"}, "openrouter": {"api_key": "env:F"}},
+      "blocks": {
+        "cloudflare": {"api_key": "env:C"},
+        "openrouter": {"api_key": "env:F"},
+      },
       "main": True,
     },
   ]

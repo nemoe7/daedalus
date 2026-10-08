@@ -258,7 +258,12 @@ def record(
     if found.get(key):
       found[key] = router.pool_name(found[key])
   # The seconds of the row count in whole milliseconds, as the clocks of the live list do.
-  row = {"at": time.time(), "status": status, "seconds": round(seconds * 1000) / 1000, **found}
+  row = {
+    "at": time.time(),
+    "status": status,
+    "seconds": round(seconds * 1000) / 1000,
+    **found,
+  }
   if cancelled:
     row["cancelled"] = True
   HISTORY.add(row)
