@@ -704,7 +704,9 @@ class Tracker:
     exc: Exception | None = None,
     attempt: dict[str, Any] | None = None,
   ) -> dict[str, Any] | None:
-    """Lower the weight, and remove the pin when it names this model. A rate limit also starts a cooldown and ends the counted hour."""
+    """Lower the weight, and remove the pin when it names this model. A rate limit also starts a cooldown
+    and ends the counted hour.
+    """
     limited = isinstance(exc, upstream.RateLimitError)
     if limited:
       PACING.used_up(model)

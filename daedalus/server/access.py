@@ -37,7 +37,9 @@ def bearer(request: Request) -> str:
 
 
 def check_api_key(request: Request) -> JSONResponse | None:
-  """Reject the request unless the bearer token is the master key or an API key. Keep the client headers of an accepted request."""
+  """Reject the request unless the bearer token is the master key or an API key. Keep the client headers
+  of an accepted request.
+  """
   token, master = bearer(request), dashboard.master()
   if master is not None and hmac.compare_digest(token.encode(), master.encode()):
     name = "master"

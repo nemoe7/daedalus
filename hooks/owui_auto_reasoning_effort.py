@@ -122,13 +122,13 @@ def on_prompt(
 ) -> None:
   """Set the reasoning level of an Open WebUI request: the read of the thread, or the step of a repeat.
 
-  A new message takes the level of the read of its newest user turn and model turn, and a value of
-  the client keeps the last word. A step of a continuing turn, whose newest message is no user
-  turn, keeps the level of the last answer, so a multistep agentic turn never drops to `none`. A try again steps the level of the last answer 1 up, above the
-  value of the client, because the regenerate button carries the level. A last answer with no
-  recorded level took no reasoning step, so that request takes the read and no step, while the tier
-  still steps 1 up. The cap of the ladder is `high`. A model that requires reasoning floors the
-  read to `low`, so it never takes `none`.
+  A new message takes the level of the read of its newest user turn and model turn, and a value of the
+  client keeps the last word. A step of a continuing turn, whose newest message is no user turn, keeps
+  the level of the last answer, so a multistep agentic turn never drops to `none`. A try again steps
+  the level of the last answer 1 up, above the value of the client, because the regenerate button
+  carries the level. A last answer with no recorded level took no reasoning step, so that request
+  takes the read and no step, while the tier still steps 1 up. The cap of the ladder is `high`. A
+  model that requires reasoning floors the read to `low`, so it never takes `none`.
 
   :param value: the request values, holding `reasoning_effort`
   :param prompt: the user turns joined, the fallback when the messages do not come

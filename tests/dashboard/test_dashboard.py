@@ -151,7 +151,8 @@ const sandbox = {
   document: {
     hidden: false,
     documentElement: { dataset: {} },
-    getElementById: () => ({ innerHTML: '', addEventListener: () => {}, classList: { add: () => {}, remove: () => {}, toggle: () => {} } }),
+    getElementById: () => ({ innerHTML: '', addEventListener: () => {}, classList: { add: () => {},
+      remove: () => {}, toggle: () => {} } }),
     querySelector: () => ({ firstChild: { textContent: 'Models' } }),
     querySelectorAll: () => [],
     addEventListener: () => {},
@@ -207,7 +208,8 @@ const nav = {{
 }};
 const byId = new Map();
 const el = (id) => {{
-  if (!byId.has(id)) byId.set(id, {{ innerHTML: '', textContent: '', addEventListener: () => {{}}, classList: {{ add: () => {{}}, remove: () => {{}}, toggle: () => {{}} }} }});
+  if (!byId.has(id)) byId.set(id, {{ innerHTML: '', textContent: '', addEventListener: () => {{}},
+    classList: {{ add: () => {{}}, remove: () => {{}}, toggle: () => {{}} }} }});
   return byId.get(id);
 }};
 const sandbox = {{
@@ -216,7 +218,8 @@ const sandbox = {{
     hidden: false,
     documentElement: {{ dataset: {{}} }},
     getElementById: (id) => (id === 'nav' ? nav : el(id)),
-    createElement: () => ({{ append: () => {{}}, prepend: () => {{}}, setAttribute: () => {{}}, addEventListener: () => {{}}, remove: () => {{}} }}),
+    createElement: () => ({{ append: () => {{}}, prepend: () => {{}}, setAttribute: () => {{}},
+      addEventListener: () => {{}}, remove: () => {{}} }}),
     querySelector: () => ({{ firstChild: {{ textContent: 'Models' }} }}),
     querySelectorAll: (sel) => (sel === '[data-status]' ? hosts : []),
     addEventListener: () => {{}},
@@ -230,7 +233,8 @@ const sandbox = {{
   __probe: {{}},
 }};
 vm.createContext(sandbox);
-vm.runInContext(src + String.fromCharCode(10) + 'globalThis.__probe.askPair = typeof askPair === "function" ? askPair : undefined;', sandbox);
+vm.runInContext(src + String.fromCharCode(10) +
+  'globalThis.__probe.askPair = typeof askPair === "function" ? askPair : undefined;', sandbox);
 {extra}
 """
 
@@ -678,13 +682,17 @@ const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
   + String.fromCharCode(10) + 'globalThis.__probe = { modelName, MARK_FILES };';
 const byId = new Map();
 const el = (id) => {
-  if (!byId.has(id)) byId.set(id, { innerHTML: '', textContent: '', value: '', addEventListener: () => {}, classList: { add: () => {}, remove: () => {}, toggle: () => {}, contains: () => false } });
+  if (!byId.has(id)) byId.set(id, { innerHTML: '', textContent: '', value: '', addEventListener: () => {},
+    classList: { add: () => {}, remove: () => {}, toggle: () => {}, contains: () => false } });
   return byId.get(id);
 };
 const sandbox = {
   matchMedia: () => ({ matches: false, addEventListener: () => {} }),
-  document: { hidden: false, documentElement: { dataset: {} }, getElementById: el, querySelector: () => ({ firstChild: { textContent: 'Models' } }), querySelectorAll: () => [], addEventListener: () => {} },
-  navigator: {}, location: { hash: '' }, history: { replaceState: () => {} }, window: { addEventListener: () => {}, matchMedia: () => ({ matches: false }) },
+  document: { hidden: false, documentElement: { dataset: {} }, getElementById: el,
+    querySelector: () => ({ firstChild: { textContent: 'Models' } }), querySelectorAll: () => [],
+      addEventListener: () => {} },
+  navigator: {}, location: { hash: '' }, history: { replaceState: () => {} },
+    window: { addEventListener: () => {}, matchMedia: () => ({ matches: false }) },
   getSelection: () => ({ isCollapsed: true }), console: { error: () => {} }, $: el,
 };
 vm.createContext(sandbox);
@@ -699,15 +707,20 @@ assert.strictEqual(seps(full), 2, 'a slash between each part');
 assert(full.includes('<span class="model-part">dots-3-note-preview:free</span>'), 'the model part');
 assert.strictEqual(marks(modelName('cloudflare/@cf/cloudflare/clef')), 1, '1 icon when the provider is the developer');
 assert.strictEqual(seps(modelName('cloudflare/@cf/cloudflare/clef')), 1, '1 slash for 1 head');
-assert(modelName('cloudflare/@cf/cloudflare/clef').includes('<span class="model-part">clef</span>'), 'the model part of a scope');
-assert(modelName('cloudflare/@cf/openai/gpt-oss-120b').includes('<span class="model-part">gpt-oss-120b</span>'), 'a scope keeps the developer');
+assert(modelName('cloudflare/@cf/cloudflare/clef').includes('<span class="model-part">clef</span>'),
+  'the model part of a scope');
+assert(modelName('cloudflare/@cf/openai/gpt-oss-120b').includes('<span class="model-part">gpt-oss-120b</span>'),
+  'a scope keeps the developer');
 assert.strictEqual(modelName('bare'), 'bare', 'a name with no slash stays text');
 const bare = modelName('p/m');
-assert(bare.includes('class="mark slug"') && bare.includes('>p<'), 'the text of a name with no file stands in for a mark');
+assert(bare.includes('class="mark slug"') && bare.includes('>p<'),
+  'the text of a name with no file stands in for a mark');
 assert.strictEqual(seps(bare), 1, 'the slash before the slug');
 assert(bare.includes('<span class="model-part">m</span>'), 'the slug of a bare name');
-assert(modelName('cloudflare/@cf/meta/llama-3.1-8b-instruct').includes('<img class="mark" src="ui/icons/cloudflare.svg"'), 'a shipped mark file');
-assert(modelName('cloudflare/@cf/inclusionai/ling-3.0-flash').includes('class="mark slug">inclusionai<'), 'a name with no file shows its text');
+assert(modelName('cloudflare/@cf/meta/llama-3.1-8b-instruct')
+  .includes('<img class="mark" src="ui/icons/cloudflare.svg"'), 'a shipped mark file');
+assert(modelName('cloudflare/@cf/inclusionai/ling-3.0-flash').includes('class="mark slug">inclusionai<'),
+  'a name with no file shows its text');
 assert(sandbox.__probe.MARK_FILES.has('cloudflare') && sandbox.__probe.MARK_FILES.has('z-ai'), 'the shipped mark set');
 """
   subprocess.run(["node", "-e", code], check=True)
@@ -721,8 +734,10 @@ const cell = sandbox.statusCell;
 const text = sandbox.statusText;
 assert.strictEqual(cell({ cancelled: true }), '<span title="Cancelled">499</span>', 'the code of a closed request');
 assert.strictEqual(cell({ cancelled: false, status: 200 }), '<span title="OK">200</span>', 'a normal code');
-assert.strictEqual(cell({ cancelled: false, status: 429 }), '<span title="Too many requests">429</span>', 'a limited request');
-assert.strictEqual(cell({ cancelled: false, status: 'err' }), '<span title="The attempt failed">err</span>', 'a failed request');
+assert.strictEqual(cell({ cancelled: false, status: 429 }), '<span title="Too many requests">429</span>',
+  'a limited request');
+assert.strictEqual(cell({ cancelled: false, status: 'err' }), '<span title="The attempt failed">err</span>',
+  'a failed request');
 assert.strictEqual(cell({ cancelled: false, status: 302 }), '302', 'a code without a note stays plain');
 assert.strictEqual(text({ cancelled: true }), 'cancelled', 'the word in the chain text');
 """
@@ -819,19 +834,28 @@ def test_app_js_request_cards() -> None:
   code = f"""
 const fs = require('fs');
 const vm = require('vm');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{ renderRequests, renderLive, poolTier, state, modelName, poolOf, routingCodes, chainRows }};";
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') +
+  "\\nglobalThis.__probe = {{ renderRequests, renderLive," +
+  " poolTier, state, modelName, poolOf, routingCodes, chainRows }};";
 const nodes = new Map();
 const node = (id) => {{
-  if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', hidden: false, children: [], listeners: {{}}, contains: () => false, addEventListener(type, handler) {{ this.listeners[type] = handler; }}, classList: {{ add: () => {{}}, remove: () => {{}}, toggle: () => {{}} }} }});
+  if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', hidden: false,
+    children: [], listeners: {{}}, contains: () => false, addEventListener(type,
+      handler) {{ this.listeners[type] = handler; }}, classList: {{ add: () => {{}}, remove: () => {{}},
+      toggle: () => {{}} }} }});
   return nodes.get(id);
 }};
 const sandbox = {{
-  esc: (text) => String(text ?? '').replace(/[&<>"']/g, (c) => ({{ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }})[c]),
+  esc: (text) => String(text ??
+    '').replace(/[&<>"']/g, (c) => ({{ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }})[c]),
   seconds: (value) => value.toFixed(3) + 's',
   floorCount: (value) => String(value),
   matchMedia: () => ({{ matches: false, addEventListener: () => {{}} }}),
-  document: {{ hidden: false, documentElement: {{ dataset: {{}} }}, getElementById: node, querySelector: () => ({{ firstChild: {{ textContent: 'M' }} }}), querySelectorAll: () => [], addEventListener: () => {{}} }},
-  navigator: {{}}, location: {{ hash: '' }}, window: {{ addEventListener: () => {{}}, matchMedia: () => ({{ matches: false }}) }},
+  document: {{ hidden: false, documentElement: {{ dataset: {{}} }}, getElementById: node,
+    querySelector: () => ({{ firstChild: {{ textContent: 'M' }} }}), querySelectorAll: () => [],
+      addEventListener: () => {{}} }},
+  navigator: {{}}, location: {{ hash: '' }}, window: {{ addEventListener: () => {{}},
+    matchMedia: () => ({{ matches: false }}) }},
   getSelection: () => ({{ isCollapsed: true }}), console: {{ error: () => {{}} }}, $: node,
 }};
 vm.createContext(sandbox);
@@ -851,22 +875,29 @@ const cells = [...html.matchAll(/<td[^>]*>/g)].map((m) => m[0]);
 assert.strictEqual(cells.length, 12, 'every column of the row is a cell: ' + cells.length);
 assert(cells.every((td) => td.includes('role="cell"')), 'each request cell keeps its table role');
 assert.strictEqual((html.match(/class="cell-value"/g) || []).length, 11, 'every value cell keeps its value span');
-const mobileLabels = (markup) => [...markup.matchAll(new RegExp('<span class="mobile-label" aria-hidden="true">([^<]*)</span>', 'g'))].map((m) => m[1]);
+const mobileLabels = (markup) => [...markup.matchAll(new
+  RegExp('<span class="mobile-label" aria-hidden="true">([^<]*)</span>', 'g'))].map((m) => m[1]);
 assert.deepStrictEqual(mobileLabels(html), {json.dumps(labels)}, 'the cells show their column names in table order');
 assert(html.includes('hide-sm num mono'), 'the session id reads in the mono font');
 assert(html.includes('class="request has-chain"'), 'requests with fallbacks expose their chain');
 assert(html.includes('View fallback chain · 1 fallback'), 'the chain details disclose the fallback count');
-assert(probe.chainRows({json.dumps(row)}).includes('Fallback chain · 1 fallback'), 'the desktop chain details carry the count');
-assert(probe.chainRows({json.dumps({**row, "fallbacks": 3})}).includes('Fallback chain · 3 fallbacks'), 'the count keeps its plural');
-assert(!probe.chainRows({json.dumps({**row, "fallbacks": None})}).includes('Fallback chain ·'), 'a row with no count keeps the plain head');
+assert(probe.chainRows({json.dumps(row)}).includes('Fallback chain · 1 fallback'),
+  'the desktop chain details carry the count');
+assert(probe.chainRows({json.dumps({**row, "fallbacks": 3})}).includes('Fallback chain · 3 fallbacks'),
+  'the count keeps its plural');
+assert(!probe.chainRows({json.dumps({**row, "fallbacks": None})}).includes('Fallback chain ·'),
+  'a row with no count keeps the plain head');
 // The pool of the auto model rides in the slug, and the daedalus head carries its own mark.
 const autoCell = probe.modelName('daedalus/auto', probe.poolOf({{ model: 'daedalus/auto', pool: 'moros' }}));
 assert.strictEqual(probe.poolOf({{ model: 'daedalus/auto', pool: 'moros' }}), 'moros', 'the auto pool joins the slug');
-assert(autoCell.includes('<span class="model-part">auto</span>') && autoCell.includes('<span class="model-part">moros</span>'), 'the slug reads daedalus/auto/moros');
+assert(autoCell.includes('<span class="model-part">auto</span>') &&
+  autoCell.includes('<span class="model-part">moros</span>'), 'the slug reads daedalus/auto/moros');
 assert(autoCell.includes('ui/icons/daedalus.svg'), 'the daedalus head carries its own mark');
-assert.strictEqual(probe.poolOf({{ model: 'p/big', pool: 'daedalus/deinos' }}), '', 'a direct model keeps its own slug');
+assert.strictEqual(probe.poolOf({{ model: 'p/big', pool: 'daedalus/deinos' }}), '',
+  'a direct model keeps its own slug');
 assert.strictEqual(probe.routingCodes({{ routed: 'deinos' }}).includes('fr'), true, 'the fallback tier code stays');
-for (const value of ['View fallback chain', 's1', 'high <span class="from">xhi</span>', 'rate limited', 'frA', 'tl3']) assert(html.includes(value), 'the details keep ' + value);
+for (const value of ['View fallback chain', 's1', 'high <span class="from">xhi</span>', 'rate limited', 'frA',
+  'tl3']) assert(html.includes(value), 'the details keep ' + value);
 assert(!html.includes('rt2') && !html.includes('tool loop'), 'the frX and tlN codes replace the long forms');
 const mobileSelectors = [];
 const mobileTap = {{ target: {{ closest: (selector) => {{ mobileSelectors.push(selector); return null; }} }} }};
@@ -874,20 +905,25 @@ sandbox.window.matchMedia = () => ({{ matches: true }});
 node('requests').listeners.click(mobileTap);
 assert(!mobileSelectors.includes('tr.request'), 'a mobile row tap does not open a second chain');
 const detailSelectors = [];
-const detailTap = {{ target: {{ closest: (selector) => {{ detailSelectors.push(selector); return selector === '.mobile-fallback-chain' ? {{}} : null; }} }} }};
+const detailTap = {{ target: {{ closest: (selector) => {{ detailSelectors.push(selector); return selector ===
+  '.mobile-fallback-chain' ? {{}} : null; }} }} }};
 sandbox.window.matchMedia = () => ({{ matches: false }});
 node('requests').listeners.click(detailTap);
 assert(!detailSelectors.includes('tr.request'), 'a detail disclosure does not toggle the desktop chain');
-probe.state.live.set(2, {{ id: 2, since: 100000, attemptSince: 100000, first: null, stream: false, session: 's2', app: 'OWUI', model: 'daedalus/auto', effort: 'medium', pool: 'moros', via: 'p/live', fallbacks: 0 }});
+probe.state.live.set(2, {{ id: 2, since: 100000, attemptSince: 100000, first: null, stream: false, session: 's2',
+  app: 'OWUI', model: 'daedalus/auto', effort: 'medium', pool: 'moros', via: 'p/live', fallbacks: 0 }});
 probe.renderLive();
 const liveHtml = node('live').innerHTML;
 const liveCells = [...liveHtml.matchAll(/<td[^>]*>/g)].map((m) => m[0]);
 assert.strictEqual(liveCells.length, 12, 'every live column is a cell');
 assert(liveCells.every((td) => td.includes('role="cell"')), 'each live request cell keeps its table role');
-assert.strictEqual((liveHtml.match(/class="cell-value"/g) || []).length, 11, 'every live value cell keeps its value span');
+assert.strictEqual((liveHtml.match(/class="cell-value"/g) || []).length, 11,
+  'every live value cell keeps its value span');
 assert.deepStrictEqual(mobileLabels(liveHtml), {json.dumps(labels)}, 'live request cells show their column names');
-assert(liveHtml.includes('<span class="mobile-fallback-count">0 fallbacks</span>'), 'the live row reads the fallback count alone');
-for (const value of ['s2', 'medium', '<span class="model-part">moros</span>']) assert(liveHtml.includes(value), 'live details keep ' + value);
+assert(liveHtml.includes('<span class="mobile-fallback-count">0 fallbacks</span>'),
+  'the live row reads the fallback count alone');
+for (const value of ['s2', 'medium', '<span class="model-part">moros</span>']) assert(liveHtml.includes(value),
+  'live details keep ' + value);
 assert(!liveHtml.includes('mobile-fallback-chain'), 'live rows do not show a fallback chain');
 """
   subprocess.run(["node", "-e", code], check=True)
@@ -925,7 +961,8 @@ const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { tickLive, state };";
 const nodes = new Map();
 const node = (id) => {
-  if (!nodes.has(id)) nodes.set(id, { innerHTML: '', children: [], listeners: {}, classList: { add: () => {}, remove: () => {}, toggle: () => {} }, addEventListener(type, handler) { this.listeners[type] = handler; } });
+  if (!nodes.has(id)) nodes.set(id, { innerHTML: '', children: [], listeners: {}, classList: { add: () => {},
+    remove: () => {}, toggle: () => {} }, addEventListener(type, handler) { this.listeners[type] = handler; } });
   return nodes.get(id);
 };
 const ttft = { textContent: '' };
@@ -940,7 +977,9 @@ const sandbox = {
   seconds: (value) => value.toFixed(3) + 's',
   floorCount: (value) => String(value),
   matchMedia: () => ({ matches: false, addEventListener: () => {} }),
-  document: { hidden: false, documentElement: { dataset: {} }, getElementById: liveNode, querySelector: () => ({ firstChild: { textContent: 'M' } }), querySelectorAll: () => [], addEventListener: () => {} },
+  document: { hidden: false, documentElement: { dataset: {} }, getElementById: liveNode,
+    querySelector: () => ({ firstChild: { textContent: 'M' } }), querySelectorAll: () => [],
+      addEventListener: () => {} },
   navigator: {}, location: { hash: '' }, window: { addEventListener: () => {}, matchMedia: () => ({ matches: false }) },
   getSelection: () => ({ isCollapsed: true }), console: { error: () => {} }, $: liveNode,
 };
@@ -958,10 +997,12 @@ probe.tickLive();
 assert.strictEqual(stream.textContent, '', 'a streaming request waits the same way');
 probe.state.live.set(2, row({ first: Date.now() }));
 probe.tickLive();
-assert(stream.textContent.endsWith('s'), 'a plain request counts its whole time after the first token: ' + stream.textContent);
+assert(stream.textContent.endsWith('s'),
+  'a plain request counts its whole time after the first token: ' + stream.textContent);
 probe.state.live.set(2, row({ first: Date.now(), stream: true }));
 probe.tickLive();
-assert(stream.textContent.endsWith('s'), 'a streaming request counts the time after the first token: ' + stream.textContent);
+assert(stream.textContent.endsWith('s'),
+  'a streaming request counts the time after the first token: ' + stream.textContent);
 """
   subprocess.run(["node", "-e", code], check=True)
 
@@ -1246,7 +1287,9 @@ const sandbox = {
   esc: (text) => String(text ?? ''), seconds: (value) => value.toFixed(3) + 's',
   floorCount: (value) => String(value), toLocaleString: (value) => String(value),
   matchMedia: () => ({ matches: false, addEventListener: () => {} }),
-  document: { hidden: false, documentElement: { dataset: {} }, getElementById: node, querySelector: () => ({ firstChild: { textContent: 'M' } }), querySelectorAll: () => [], addEventListener: () => {} },
+  document: { hidden: false, documentElement: { dataset: {} }, getElementById: node,
+    querySelector: () => ({ firstChild: { textContent: 'M' } }), querySelectorAll: () => [],
+      addEventListener: () => {} },
   navigator: {}, location: { hash: '' }, history: { replaceState: () => {} }, window: { addEventListener: () => {} },
   getSelection: () => ({ isCollapsed: true }), console: { error: () => {} }, $: node,
 };
@@ -1319,7 +1362,9 @@ const sandbox = {
   esc: (text) => String(text ?? ''), seconds: (value) => value.toFixed(3) + 's',
   floorCount: (value) => String(value), toLocaleString: (value) => String(value),
   matchMedia: () => ({ matches: false, addEventListener: () => {} }),
-  document: { hidden: false, documentElement: { dataset: {} }, getElementById: node, querySelector: () => ({ firstChild: { textContent: 'M' } }), querySelectorAll: () => [], addEventListener: () => {} },
+  document: { hidden: false, documentElement: { dataset: {} }, getElementById: node,
+    querySelector: () => ({ firstChild: { textContent: 'M' } }), querySelectorAll: () => [],
+      addEventListener: () => {} },
   navigator: {}, location: { hash: '' }, window: { addEventListener: () => {} },
   getSelection: () => ({ isCollapsed: true }), console: { error: () => {} }, $: node,
 };
@@ -1365,7 +1410,9 @@ const sandbox = {
   esc: (text) => String(text ?? ''), seconds: (value) => value.toFixed(3) + 's',
   floorCount: (value) => String(value), toLocaleString: (value) => String(value),
   matchMedia: () => ({ matches: false, addEventListener: () => {} }),
-  document: { hidden: false, documentElement: { dataset: {} }, getElementById: node, querySelector: () => ({ firstChild: { textContent: 'M' } }), querySelectorAll: () => [], addEventListener: () => {} },
+  document: { hidden: false, documentElement: { dataset: {} }, getElementById: node,
+    querySelector: () => ({ firstChild: { textContent: 'M' } }), querySelectorAll: () => [],
+      addEventListener: () => {} },
   navigator: {}, location: { hash: '' }, history: { replaceState: () => {} }, window: { addEventListener: () => {} },
   getSelection: () => ({ isCollapsed: true }), console: { error: () => {} }, $: node,
 };
@@ -1421,20 +1468,26 @@ def test_app_js_limit_units() -> None:
   code = f"""
 const fs = require('fs');
 const vm = require('vm');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{ renderLimits, state }};";
+const src = fs.readFileSync('daedalus/dashboard/ui/app.js',
+  'utf8') + "\\nglobalThis.__probe = {{ renderLimits, state }};";
 const nodes = new Map();
 const node = (id) => {{
-  if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', hidden: false, addEventListener: () => {{}}, classList: {{ add: () => {{}}, remove: () => {{}}, toggle: () => {{}} }} }});
+  if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', hidden: false,
+    addEventListener: () => {{}}, classList: {{ add: () => {{}}, remove: () => {{}}, toggle: () => {{}} }} }});
   return nodes.get(id);
 }};
 const sandbox = {{
-  esc: (text) => String(text ?? '').replace(/[&<>"']/g, (c) => ({{ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }})[c]),
+  esc: (text) => String(text ??
+    '').replace(/[&<>"']/g, (c) => ({{ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }})[c]),
   seconds: (value) => value.toFixed(3) + 's',
   floorCount: (value) => String(value),
   toLocaleString: (value) => String(value),
   matchMedia: () => ({{ matches: false, addEventListener: () => {{}} }}),
-  document: {{ hidden: false, documentElement: {{ dataset: {{}} }}, getElementById: node, querySelector: () => ({{ firstChild: {{ textContent: 'M' }} }}), querySelectorAll: () => [], addEventListener: () => {{}} }},
-  navigator: {{}}, location: {{ hash: '' }}, history: {{ replaceState: () => {{}} }}, window: {{ addEventListener: () => {{}} }},
+  document: {{ hidden: false, documentElement: {{ dataset: {{}} }}, getElementById: node,
+    querySelector: () => ({{ firstChild: {{ textContent: 'M' }} }}), querySelectorAll: () => [],
+      addEventListener: () => {{}} }},
+  navigator: {{}}, location: {{ hash: '' }}, history: {{ replaceState: () => {{}} }},
+    window: {{ addEventListener: () => {{}} }},
   getSelection: () => ({{ isCollapsed: true }}), console: {{ error: () => {{}} }}, $: node,
 }};
 vm.createContext(sandbox);
@@ -1683,11 +1736,13 @@ const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobal
 const nodes = new Map();
 const node = (id) => {{
   if (!nodes.has(id)) {{
-    const made = {{ id, innerHTML: '', value: '', checked: false, textContent: '', disabled: false, hidden: false, dataset: {{}}, handlers: {{}},
+    const made = {{ id, innerHTML: '', value: '', checked: false, textContent: '', disabled: false, hidden: false,
+      dataset: {{}}, handlers: {{}},
       isConnected: true, title: '', type: '',
       addEventListener: (type, fn) => {{ (made.handlers[type] ||= []).push(fn); }},
       remove: () => {{}}, append: () => {{}}, prepend: () => {{}}, after: () => {{}}, setAttribute: () => {{}},
-      classList: {{ add: () => {{}}, remove: () => {{}}, toggle: () => {{}} }}, closest: (sel) => (sel === '[data-section]' ? null : made),
+      classList: {{ add: () => {{}}, remove: () => {{}}, toggle: () => {{}} }},
+        closest: (sel) => (sel === '[data-section]' ? null : made),
       querySelector: () => null, querySelectorAll: () => [] }};
     nodes.set(id, made);
   }}
@@ -1701,7 +1756,8 @@ const sandbox = {{
     documentElement: {{ dataset: {{}} }},
     getElementById: node,
     createElement: (tag) => node('made-' + tag),
-    querySelector: () => ({{ firstChild: {{ textContent: 'Models' }}, closest: () => null, querySelector: () => null, append: () => {{}}, prepend: () => {{}}, remove: () => {{}} }}),
+    querySelector: () => ({{ firstChild: {{ textContent: 'Models' }}, closest: () => null,
+      querySelector: () => null, append: () => {{}}, prepend: () => {{}}, remove: () => {{}} }}),
     querySelectorAll: () => ([]),
     addEventListener: () => {{}},
   }},
@@ -1781,13 +1837,15 @@ assert(html.slice(Math.max(0, at - 120), at).includes('role="switch"'), 'the row
 const row = html.slice(html.lastIndexOf('<label', at), at);
 assert(row.includes('class="hint"') && row.includes('aria-describedby="hint-'), 'the row carries its hint icon');
 assert(row.includes('role="tooltip"'), 'the hint text serves as the tooltip');
-for (const id of ['set-affinity-change_on_draw', 'set-balance-weights', 'set-balance-pacing', 'set-optimization-enabled']) node(id).checked = true;
+for (const id of ['set-affinity-change_on_draw', 'set-balance-weights', 'set-balance-pacing',
+  'set-optimization-enabled']) node(id).checked = true;
 node('set-affinity-mode').value = 'session';
 node('set-personalization-theme').value = 'system';
 node('set-personalization-time_format').value = '24h';
 assert.strictEqual(JSON.stringify(probe.settingsChanges()), '{{}}', 'a loaded file reports no change');
 // The keyword fields are chip lists with a + adder, not a text box.
-const list = html.slice(Math.max(0, html.indexOf('id="set-routing-escalation"') - 40), html.indexOf('id="set-routing-escalation"') + 2600);
+const list = html.slice(Math.max(0, html.indexOf('id="set-routing-escalation"') - 40),
+  html.indexOf('id="set-routing-escalation"') + 2600);
 assert(list.includes('class="pills"'), 'the keyword field is a chip list');
 assert(list.includes('class="pill"'), 'each keyword is a chip');
 const adder = html.indexOf('data-setting-add=');
@@ -1798,10 +1856,12 @@ assert(!html.includes('<textarea id="set-routing-escalation"'), 'no text box for
 const first = probe.listValue('routing', 'escalation')[0];
 probe.dropSetting(['routing', 'escalation', 0]);
 assert(!probe.listValue('routing', 'escalation').includes(first), 'the chip left the list');
-assert.deepStrictEqual(probe.settingsChanges().routing.escalation, probe.listValue('routing', 'escalation'), 'the change reaches the save payload');
+assert.deepStrictEqual(probe.settingsChanges().routing.escalation, probe.listValue('routing', 'escalation'),
+  'the change reaches the save payload');
 // A new value joins the list 1 time.
 probe.setListValue('routing', 'switch', [...probe.listValue('routing', 'switch'), 'clanker', 'clanker']);
-assert.strictEqual(probe.listValue('routing', 'switch').length, probe.state.settings.defaults.routing.switch.length + 2, 'the raw list takes both');
+assert.strictEqual(probe.listValue('routing', 'switch').length,
+  probe.state.settings.defaults.routing.switch.length + 2, 'the raw list takes both');
 """,
   )
 
@@ -1963,13 +2023,15 @@ def test_app_js_affinity_modes_hide_their_rows() -> None:
     "state, renderSettings, settingsChanges",
     f"""
 probe.state.settings = {payload};
-const ids = ['set-affinity-mode', 'set-affinity-change_on_draw', 'set-affinity-idle', 'set-affinity-stay', 'set-affinity-count', 'set-affinity-chance', 'set-affinity-slow', 'set-affinity-penalty'];
+const ids = ['set-affinity-mode', 'set-affinity-change_on_draw', 'set-affinity-idle', 'set-affinity-stay',
+  'set-affinity-count', 'set-affinity-chance', 'set-affinity-slow', 'set-affinity-penalty'];
 const shown = () => ids.filter((id) => !node(id).hidden);
 // The 2 pin-draw values come with session only: under race the pinned model leads, so no draw runs.
 const expect = {{
   none: ['set-affinity-mode'],
   session: ['set-affinity-mode', 'set-affinity-change_on_draw', 'set-affinity-idle', 'set-affinity-stay'],
-  race: ['set-affinity-mode', 'set-affinity-idle', 'set-affinity-count', 'set-affinity-chance', 'set-affinity-slow', 'set-affinity-penalty'],
+  race: ['set-affinity-mode', 'set-affinity-idle', 'set-affinity-count', 'set-affinity-chance',
+    'set-affinity-slow', 'set-affinity-penalty'],
 }};
 const rendered = (mode) => {{
   node('set-affinity-mode').value = mode;
@@ -2482,7 +2544,8 @@ const html = node('settings').innerHTML;
 assert(html.includes('id="set-hooks-dir"'), 'the folder field');
 assert(html.includes('value="hooks"'), 'the folder shows the saved value');
 assert(html.includes('id="hook-source"') && html.includes('>owner/name/hooks<'), 'the sources show the saved repo');
-assert(html.includes('data-hook-source-add') && html.includes('data-hook-source-drop') && html.includes('data-hooks-update'), 'the source controls');
+assert(html.includes('data-hook-source-add') && html.includes('data-hook-source-drop') &&
+  html.includes('data-hooks-update'), 'the source controls');
 assert(html.includes('data-hook-toggle="one.py"') && html.includes('data-hook-toggle="bad.py"'), '1 switch per file');
 assert(html.includes('>1.2.0<') && html.includes('provider: openrouter'), 'the version and the scope of a file');
 assert(html.includes('owner/name@ccccccc'), 'the source of an installed file');
@@ -2544,7 +2607,8 @@ assert.strictEqual(sandbox.hookFit(rows[2], 'model', 'gpt-4o-mini'), false);
 assert.strictEqual(sandbox.hookFit(rows[2], 'provider', 'openai'), false);
 assert.strictEqual(sandbox.hookFit({}, 'provider', 'groq'), true, 'no scope is global');
 const parts = (value) => JSON.stringify(sandbox.sourceParts(value));
-assert.strictEqual(parts('https://github.com/owner/name/tree/dev/hooks'), '{"repo":"owner/name","ref":"dev","path":"hooks"}');
+assert.strictEqual(parts('https://github.com/owner/name/tree/dev/hooks'),
+  '{"repo":"owner/name","ref":"dev","path":"hooks"}');
 assert.strictEqual(parts('owner/name'), '{"repo":"owner/name","ref":"main","path":"hooks"}');
 assert.strictEqual(parts('https://github.com/owner/name'), '{"repo":"owner/name","ref":"main","path":"hooks"}');
 """
@@ -3191,7 +3255,8 @@ probe.state.requestSearch = 'nothing at all';
 probe.renderRequestTable();
 assert(node('requests').innerHTML.includes('No requests match the filter'), 'the empty table names the filter');
 
-assert.strictEqual(probe.requestMatches({ status: 200, at: now }, { live: true }), false, 'a live row follows the text too');
+assert.strictEqual(probe.requestMatches({ status: 200, at: now }, { live: true }), false,
+  'a live row follows the text too');
 probe.state.requestSearch = '';
 assert.strictEqual(probe.requestMatches({ status: 200, at: now }, { live: true }), true, 'a live row needs no status');
 """

@@ -423,7 +423,9 @@ def env_tokens(node: Any) -> list[str]:
 
 
 def env_names() -> dict[str, list[str]]:
-  """Each env:NAME and db:NAME of the provider files and of the defaults of the providers in use, with the places that use it."""
+  """Each env:NAME and db:NAME of the provider files and of the defaults of the providers in use, with
+  the places that use it.
+  """
   found: dict[str, list[str]] = {}
 
   def add(name: str, place: str) -> None:
@@ -490,7 +492,9 @@ def raw_value(value: Any) -> bool:
 
 
 def park_keys(provider: str, block: dict[str, Any]) -> None:
-  """Move the keys in the key fields of a form block to the saved values, and put their db:NAME in the block, or keep env:NAME."""
+  """Move the keys in the key fields of a form block to the saved values, and put their db:NAME in the
+  block, or keep env:NAME.
+  """
 
   def is_env_token(value: Any) -> str | None:
     if not isinstance(value, str) or not value.startswith(config.ENV_PREFIX):
@@ -559,7 +563,9 @@ def new_file_text(name: str) -> str:
 
 
 def form_blocks(path: Path, text: str) -> tuple[dict[str, Any] | None, str | None]:
-  """The provider blocks of a file by provider name and no error, or None and the error line when the YAML is not valid."""
+  """The provider blocks of a file by provider name and no error, or None and the error line when the
+  YAML is not valid.
+  """
   try:
     found = config.load_yaml(text) if text.strip() else {}
   except yaml.YAMLError as exc:
@@ -575,7 +581,9 @@ def override_keys() -> list[str]:
 
 
 def provider_defaults() -> dict[str, dict[str, str]]:
-  """The `api_type`, `api_base` and `discovery_url` defaults of each known provider, with no values from the environment."""
+  """The `api_type`, `api_base` and `discovery_url` defaults of each known provider, with no values from
+  the environment.
+  """
   found = {name: dict(kind.defaults) for name, kind in providers.PROVIDERS.items()}
   found["*"] = dict(providers.OpenAIProvider.defaults)
   return found

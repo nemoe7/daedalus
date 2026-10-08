@@ -1129,7 +1129,8 @@ const DEMO_FIXTURES = __FIXTURES__;
         out.push({ items: [["Free requests today", `${left} of 1K left`, left / plan.free]], name: provider });
       } else if (provider === "kilo") {
         const left = Math.max(0, plan.requests - count);
-        out.push({ items: [["Balance", "$0.00", null], ["Requests left this hour", `${left} of ${plan.requests}`, left / plan.requests]], name: provider });
+        out.push({ items: [["Balance", "$0.00", null], ["Requests left this hour", `${left} of ${plan.requests}`,
+        left / plan.requests]], name: provider });
       } else if (provider === "pollinations") {
         out.push({ items: [["Pollen", "0.25", null]], name: provider });
       } else if (provider === "cloudflare") {
@@ -1247,13 +1248,15 @@ const DEMO_FIXTURES = __FIXTURES__;
     commit: "3f9c1ab4d2e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9",
     files: [
       { name: "served_model.py", version: "1.3.0", scope: "global", targets: [], surfaces: ["on-chunk"], problem: "" },
-      { name: "owui_auto_reasoning_effort.py", version: "1.1.0", scope: "model", targets: ["gpt-5"], surfaces: ["on-prompt"], problem: "" },
+      { name: "owui_auto_reasoning_effort.py", version: "1.1.0", scope: "model", targets: ["gpt-5"],
+      surfaces: ["on-prompt"], problem: "" },
     ],
     answer: {
       moved: ["served_model.py"],
       hooks: [
         { name: "served_model.py", moved: true, before: { version: "1.2.0" }, after: { version: "1.3.0" } },
-        { name: "owui_auto_reasoning_effort.py", moved: false, before: { version: "1.1.0" }, after: { version: "1.1.0" } },
+        { name: "owui_auto_reasoning_effort.py", moved: false, before: { version: "1.1.0" },
+        after: { version: "1.1.0" } },
       ],
     },
   };

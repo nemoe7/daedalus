@@ -1,7 +1,7 @@
 """
 title: Chat metadata
 author: nemo
-description: Inject the date, the clock, the timezone, the place and the language into the chat as 1 system message at the top. It needs no key.
+description: Inject the date, the clock, the timezone, the place and the language at the top of the chat. No key.
 required_open_webui_version: 0.10.0
 version: 1.0.1
 licence: daedalus Noncommercial License 1.0.0

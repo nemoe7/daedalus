@@ -5,3 +5,12 @@ exclude = [".agents"]
 [lint]
 ignore = ["BLE001", "S110"]
 extend-safe-fixes = ["C408", "PERF102", "RUF059"]
+# Every line holds at most 120 characters. The formatter keeps its own default.
+extend-select = ["E501"]
+
+[lint.pycodestyle]
+max-line-length = 120
+
+[lint.per-file-ignores]
+# The gemini release file comes from another repository, so its lines stay.
+".github/workflows/gemini_release.py" = ["E501"]

@@ -1,4 +1,6 @@
-"""Check that keep-alive bytes do not hold a request: a model fails after the wait, and the request ends at its limit."""
+"""Check that keep-alive bytes do not hold a request: a model fails after the wait, and the request
+ends at its limit.
+"""
 
 import asyncio
 import json

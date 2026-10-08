@@ -1,7 +1,7 @@
 """
 title: GitHub
 author: nemo
-description: GitHub access for Open WebUI. Reads run freely. Every write passes a confirmation gate and a timeout, and the tool sends nothing when it cannot show the gate. Stdlib only.
+description: GitHub access for Open WebUI. Reads run freely. Writes need a confirmed gate and a timeout. Stdlib only.
 required_open_webui_version: 0.10.0
 version: 3.0.1
 licence: daedalus Noncommercial License 1.0.0
@@ -3265,7 +3265,8 @@ class Tools:
     """Read the Actions minutes used, for an organization or a user.
 
     :param owner: the organization or the user login
-    :param owner_type: org reads /orgs/{owner}/settings/billing/actions, user reads /users/{owner}/settings/billing/actions
+    :param owner_type: org reads /orgs/{owner}/settings/billing/actions, user reads
+      /users/{owner}/settings/billing/actions
     """
     kind = (owner_type or "org").strip().lower()
     if kind not in ("org", "user"):

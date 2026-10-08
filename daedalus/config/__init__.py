@@ -156,7 +156,9 @@ def provider_blocks(
 
 
 def provider_files(path: Path | str = DEFAULT_PATH) -> list[Path]:
-  """The paths of the `{provider}.yml` files next to the main provider file, also the files with YAML that is not valid."""
+  """The paths of the `{provider}.yml` files next to the main provider file, also the files with YAML
+  that is not valid.
+  """
   main = Path(path)
   found = []
   for file in sorted(main.parent.glob("*.yml")):

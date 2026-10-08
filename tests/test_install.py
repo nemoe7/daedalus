@@ -16,7 +16,9 @@ pytestmark = pytest.mark.skipif(
 
 
 def checkout(tmp_path: Path, env_text: str | None) -> tuple[Path, dict[str, str]]:
-  """A folder with install.sh, compose.yml, .env.example and config/, and a PATH with a docker that logs its arguments."""
+  """A folder with install.sh, compose.yml, .env.example and config/, and a PATH with a docker that logs
+  its arguments.
+  """
   folder = tmp_path / "daedalus"
   folder.mkdir()
   for name in ("install.sh", "compose.yml", ".env.example"):

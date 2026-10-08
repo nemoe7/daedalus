@@ -1,7 +1,7 @@
 """
 title: Open WebUI Manager
 author: nemo
-description: The Open WebUI workspace manager: knowledge bases, skills, the file library, Workspace Tools and Functions. Reads and new items run freely. Every overwrite, toggle and delete passes a confirmation gate. The preset attach stays private. Stdlib only.
+description: Open WebUI manager: knowledge, skills, files, tools, functions. Writes need a confirmed gate. Stdlib only.
 required_open_webui_version: 0.10.0
 version: 1.0.2
 licence: daedalus Noncommercial License 1.0.0
@@ -515,7 +515,12 @@ class Tools:
       )
     if err:
       return err
-    return f"Knowledge base updated successfully.\nknowledge_id={knowledge_id}\nname={data.get('name', payload['name'])}\ndescription={data.get('description', payload['description'])}"
+    return (
+      f"Knowledge base updated successfully.\n"
+      f"knowledge_id={knowledge_id}\n"
+      f"name={data.get('name', payload['name'])}\n"
+      f"description={data.get('description', payload['description'])}"
+    )
 
   async def create_knowledge_directory(
     self,
@@ -559,7 +564,12 @@ class Tools:
       )
     if err:
       return err
-    return f"Knowledge directory created successfully.\nname={data.get('name', name)}\ndirectory_id={data.get('id')}\nparent_id={data.get('parent_id')}"
+    return (
+      f"Knowledge directory created successfully.\n"
+      f"name={data.get('name', name)}\n"
+      f"directory_id={data.get('id')}\n"
+      f"parent_id={data.get('parent_id')}"
+    )
 
   async def ensure_knowledge_directory_path(
     self,
@@ -614,7 +624,13 @@ class Tools:
           return err
         current = data.get("id")
         created.append(part)
-    return f"Knowledge directory path ready.\npath={'/'.join(parts)}\ndirectory_id={current}\ncreated={', '.join(created) or 'none'}\nreused={', '.join(reused) or 'none'}"
+    return (
+      f"Knowledge directory path ready.\n"
+      f"path={'/'.join(parts)}\n"
+      f"directory_id={current}\n"
+      f"created={', '.join(created) or 'none'}\n"
+      f"reused={', '.join(reused) or 'none'}"
+    )
 
   async def _upload(self, session, knowledge_id, directory_id, filename, content):
     form = aiohttp.FormData()
@@ -692,7 +708,13 @@ class Tools:
       )
     if err:
       return err
-    return f"Created and indexed knowledge file successfully.\nfilename={data.get('filename', filename)}\nfile_id={data.get('id')}\nknowledge_id={knowledge_id}\ndirectory_id={directory_id or 'ROOT'}"
+    return (
+      f"Created and indexed knowledge file successfully.\n"
+      f"filename={data.get('filename', filename)}\n"
+      f"file_id={data.get('id')}\n"
+      f"knowledge_id={knowledge_id}\n"
+      f"directory_id={directory_id or 'ROOT'}"
+    )
 
   async def create_knowledge_markdown_at_path(
     self,
@@ -747,7 +769,13 @@ class Tools:
       )
     if err:
       return err
-    return f"Knowledge Markdown file created successfully.\npath={'/'.join(parts[:-1] + [filename])}\nfilename={data.get('filename', filename)}\nfile_id={data.get('id')}\ndirectory_id={directory or 'ROOT'}"
+    return (
+      f"Knowledge Markdown file created successfully.\n"
+      f"path={'/'.join(parts[:-1] + [filename])}\n"
+      f"filename={data.get('filename', filename)}\n"
+      f"file_id={data.get('id')}\n"
+      f"directory_id={directory or 'ROOT'}"
+    )
 
   async def _ensure_dirs(self, session, knowledge_id, parts):
     current = ""
@@ -804,13 +832,25 @@ class Tools:
         )
         if err:
           return err
-        return f"Knowledge file updated successfully.\npath={path}\nfile_id={item.get('id')}\ndirectory_id={directory or 'ROOT'}"
+        return (
+          f"Knowledge file updated successfully.\n"
+          f"path={path}\n"
+          f"file_id={item.get('id')}\n"
+          f"directory_id={directory or 'ROOT'}"
+        )
       data, err = await self._request(
         session, "GET", f"/files/{item.get('id')}/data/content"
       )
     if err:
       return err
-    return f"path={path}\nfilename={filename}\nfile_id={item.get('id')}\ndirectory_id={directory or 'ROOT'}\n\n{(data or {}).get('content', '')}"
+    return (
+      f"path={path}\n"
+      f"filename={filename}\n"
+      f"file_id={item.get('id')}\n"
+      f"directory_id={directory or 'ROOT'}\n"
+      f"\n"
+      f"{(data or {}).get('content', '')}"
+    )
 
   async def update_knowledge_file(
     self,
@@ -1038,11 +1078,21 @@ class Tools:
         )
         if err:
           return err
-        return f"Knowledge Markdown file updated successfully.\naction=updated\npath={'/'.join(parts[:-1] + [filename])}\nfile_id={item.get('id')}"
+        return (
+          f"Knowledge Markdown file updated successfully.\n"
+          f"action=updated\n"
+          f"path={'/'.join(parts[:-1] + [filename])}\n"
+          f"file_id={item.get('id')}"
+        )
       data, err = await self._upload(s, knowledge_id, directory, filename, content)
     if err:
       return err
-    return f"Knowledge Markdown file created successfully.\naction=created\npath={'/'.join(parts[:-1] + [filename])}\nfile_id={data.get('id')}"
+    return (
+      f"Knowledge Markdown file created successfully.\n"
+      f"action=created\n"
+      f"path={'/'.join(parts[:-1] + [filename])}\n"
+      f"file_id={data.get('id')}"
+    )
 
   async def rename_knowledge_file(
     self,
@@ -1129,7 +1179,9 @@ class Tools:
       )
     return (
       e
-      or f"Knowledge directory renamed successfully.\ndirectory_id={directory_id}\nnew_name={(d or {}).get('name', new_name)}"
+      or f"Knowledge directory renamed successfully.\n"
+      f"directory_id={directory_id}\n"
+      f"new_name={(d or {}).get('name', new_name)}"
     )
 
   async def move_knowledge_directory(
@@ -1138,7 +1190,10 @@ class Tools:
     directory_id: str = Field(..., description="ID of the directory to move."),
     target_parent_id: str = Field(
       ...,
-      description="ID of the target parent directory. Use an empty string to move the directory to the knowledge base root.",
+      description=(
+        "ID of the target parent directory. Use an empty string to move the directory"
+        " to the knowledge base root."
+      ),
     ),
     __request__=None,
     __user__: dict | None = None,
@@ -1151,7 +1206,8 @@ class Tools:
 
     :param knowledge_id: ID of the Open WebUI knowledge base
     :param directory_id: ID of the directory to move
-    :param target_parent_id: ID of the target parent directory. Use an empty string to move the directory to the knowledge base root
+    :param target_parent_id: ID of the target parent directory. Use an empty string to move the
+      directory to the knowledge base root
     """
 
     refusal = await self._guard(
@@ -1632,7 +1688,9 @@ class Tools:
       )
     return (
       e
-      or f"Knowledge base permanently deleted successfully.\nknowledge_id={knowledge_id}\nname={meta.get('name', 'Unnamed')}"
+      or f"Knowledge base permanently deleted successfully.\n"
+      f"knowledge_id={knowledge_id}\n"
+      f"name={meta.get('name', 'Unnamed')}"
     )
 
   async def _knowledge_reference(self, s, knowledge_id):

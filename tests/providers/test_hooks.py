@@ -1,4 +1,6 @@
-"""Provider hooks from the `hooks` list change a copy of the request or answer, and a failure keeps the value that came in."""
+"""Provider hooks from the `hooks` list change a copy of the request or answer, and a failure keeps the
+value that came in.
+"""
 
 import os
 import time
