@@ -335,7 +335,7 @@ const check = (ok, text) => {
   const traffic = [...byId.values()];
   const aged = traffic.map((events) => events.filter(([, data]) => typeof data.age === "number"));
   check(aged.every((events) => events.every(([, data], i) =>
-    data.age >= 0 && data.attempt_age >= 0 && data.attempt_age <= data.age + 0.001
+    data.age >= 0 && data.attempt_age >= 0 && data.attempt_age <= data.age
     && (i === 0 || data.age >= events[i - 1][1].age))), "the clocks of a request only grow");
   const paired = traffic
     .filter((events) => events.some(([kind]) => kind === "end"))
@@ -601,6 +601,17 @@ def test_the_live_demo_lands_a_row_before_the_end_event() -> None:
     "the stream spread lands near 30 s, near 0, and up to 120 s"
   )
   assert "const WAVE_MS = [6000, 18000];" in js, "the gap between the waves"
+
+
+def test_the_demo_clocks_count_in_whole_milliseconds() -> None:
+  """The clocks count in whole milliseconds from 1 read of the clock, so a first token always ages above zero."""
+  js = pages_demo.DEMO_JS
+  block = js[js.index("const CLOCKS = new Map()") : js.index("const SEEDED = DEMO_FIXTURES.requests.map")]
+  assert "Math.max(1, Math.round(now - clock.at))" in block, "the age floors at 1 ms"
+  assert "Math.max(1, Math.round(now - clock.attempt))" in block, "the attempt age floors at 1 ms"
+  assert "(now - clock.at) / 1000" not in block, "no fractions of a millisecond in the ages"
+  reads = block.count("performance.now()")
+  assert reads == 3, "began, attempted, and the 1 read of ages"
 
 
 def test_the_demo_answers_the_page_without_a_server(tmp_path: Path) -> None:
