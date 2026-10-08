@@ -1,6 +1,6 @@
 # ---
-# version: 1.0.0
-# points: [on-chunk]
+# version: 1.0.1
+# surfaces: [on-chunk]
 # author: nemoe7
 # title: Served model
 # description: The model that served a pool answer, in the final chunk's usage.daedalus.

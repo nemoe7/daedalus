@@ -598,7 +598,7 @@ def served(request: Request, config: dict[str, Any], candidate: str) -> None:
 
 PENALTIES = penalties.Penalties(lambda: store.MODELS_DB)
 RETRIES = retries.Retries()
-# The request-level hook files, by point, from the `hooks` group of `config/daedalus.yml`.
+# The request-level hook files, by surface, from the `hooks` group of `config/daedalus.yml`.
 REQUEST_HOOKS: dict[str, str] = {}
 COOLDOWNS = cooldowns.Cooldowns(lambda: store.MODELS_DB)
 PACING = pacing.Pacing()
@@ -789,7 +789,7 @@ async def hook_call(request: Request, file: str) -> Response:
   if path is None or not path.is_file():
     return upstream.error_response(404, f"No hook file {file}", "invalid_request_error")
   found = hooks.load(path)
-  handler = getattr(found, hooks.POINTS["on-http"], None)
+  handler = getattr(found, hooks.SURFACES["on-http"], None)
   if not callable(handler):
     return upstream.error_response(
       400, f"{file} has no on_http function", "invalid_request_error"
@@ -914,7 +914,7 @@ async def chat(request: Request) -> Response:
     return upstream.error_response(
       400, f"Missing api_key for {name}", "invalid_request_error"
     )
-  # A hook file of the prompt point sets the reasoning effort of the attempt. The base sets
+  # A hook file of the prompt surface sets the reasoning effort of the attempt. The base sets
   # none, so the value of a hook file, the client value and the catalog default decide, in that
   # order. A chain with no reasoning model stays out of it.
   chain_models = [candidate for group in found[0] for candidate in group]

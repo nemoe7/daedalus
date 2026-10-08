@@ -1306,23 +1306,23 @@ function hookChoices(kind, name) {
     .map((row) => row.path);
 }
 
-// The form of a provider or a model, where each hook row picks a point and 1 file that fits the
+// The form of a provider or a model, where each hook row picks a surface and 1 file that fits the
 // card. The rows write through the path of the form, and the same chip flow as the Settings page.
 const HOOK_DEFAULT = "on-upstream";
 let openFormHook = null;
 
 const hookFormRow = (entry, path, choices) => {
   const list = entry && typeof entry === "object" ? entry : {};
-  const point = Object.keys(list)[0] ?? HOOK_DEFAULT;
-  const value = String(list[point] ?? "");
+  const surface = Object.keys(list)[0] ?? HOOK_DEFAULT;
+  const value = String(list[surface] ?? "");
   const at = JSON.stringify(path);
   const open = openFormHook === at;
   const menu = open ? `<div class="menu" role="listbox" aria-label="Hook file">${[""].concat(choices)
     .map((name) => `<button type="button" role="option" aria-selected="${name === value}"
       data-form-hook-choice='${esc(JSON.stringify([...path, name]))}'
       >${name ? hookName(name) : "No file"}</button>`).join("")}</div>` : "";
-  return `<span class="pill hook"><select data-form-hook-point='${esc(at)}' aria-label="Hook point">${
-    HOOK_POINTS.map(([key, label]) => `<option value="${key}"${key === point ? " selected" : ""}>${esc(label)}</option>`).join("")
+  return `<span class="pill hook"><select data-form-hook-surface='${esc(at)}' aria-label="Hook surface">${
+    HOOK_SURFACES.map(([key, label]) => `<option value="${key}"${key === surface ? " selected" : ""}>${esc(label)}</option>`).join("")
     }</select><button type="button" class="pick" data-form-hook-pick='${esc(at)}'
     aria-haspopup="listbox" aria-expanded="${open}" title="Pick a hook file"
     >${value ? hookName(value) : "No file"}</button><button type="button" title="Delete"
@@ -1357,17 +1357,17 @@ function sourceParts(value) {
 
 const hookVersion = (record) => record?.version || "-";
 
-// The request points of the settings group: the `on-*` keys of its defaults, in point order. The
-// card names every file at the points it runs at, so the settings hold no list of its own.
-const requestPoints = () => HOOK_POINTS.filter(([key]) => key in (state.settings?.defaults?.hooks ?? {}));
+// The request surfaces of the settings group: the `on-*` keys of its defaults, in surface order. The
+// card names every file at the surfaces it runs at, so the settings hold no list of its own.
+const requestSurfaces = () => HOOK_SURFACES.filter(([key]) => key in (state.settings?.defaults?.hooks ?? {}));
 
-// The point chips of a hook row: 1 chip per point the block of the file names. The file defines
-// what it hooks into, so the card shows the points and holds no control over them.
-function hookPointsCell(row) {
-  const labels = new Map(HOOK_POINTS.map(([key, label]) => [key, label]));
-  const chips = (row.points || []).map((point) =>
-    `<span class="pill ${row.enabled ? "on" : "off"}">${esc(labels.get(point) || point)}</span>`).join("");
-  return `<div class="pills">${chips || '<em class="none">No point</em>'}</div>`;
+// The surface chips of a hook row: 1 chip per surface the block of the file names. The file defines
+// what it hooks into, so the card shows the surfaces and holds no control over them.
+function hookSurfacesCell(row) {
+  const labels = new Map(HOOK_SURFACES.map(([key, label]) => [key, label]));
+  const chips = (row.surfaces || []).map((surface) =>
+    `<span class="pill ${row.enabled ? "on" : "off"}">${esc(labels.get(surface) || surface)}</span>`).join("");
+  return `<div class="pills">${chips || '<em class="none">No surface</em>'}</div>`;
 }
 
 // The note under the sources. The update fills it with the old and the new version of each file.
@@ -1397,7 +1397,7 @@ function hooksManager() {
     return `<tr><td role="cell" class="name"><span class="cell-value" title="${esc(row.name)}">${esc(row.name)}</span></td>
       <td role="cell"><span class="cell-value">${esc(hookVersion(row))}</span></td>
       <td role="cell"><span class="cell-value">${esc(row.scope || "global")}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
-      <td role="cell" class="points">${hookPointsCell(row)}</td>
+      <td role="cell" class="surfaces">${hookSurfacesCell(row)}</td>
       <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || "bundled")}">${row.problem ? `<span class="bad">${esc(row.problem)}</span>` : esc(source || "bundled")}</span></td>
       <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
         ${disabled.includes(row.name) ? "" : "checked"} aria-label="Load ${esc(row.name)}"></td>
@@ -1409,8 +1409,8 @@ function hooksManager() {
     .map((file) => `<label class="pill"><input type="checkbox" data-hook-take="${esc(file.name)}"
       ${scan.take[file.name] ? "checked" : ""}>${esc(file.name)}${file.version ? ` ${esc(file.version)}` : ""}</label>`).join("")}
       <button type="button" class="primary" data-hook-take-all>Take the picked files</button></div>` : "";
-  return `<div class="field stack info">${labelSpan("Installed hooks", "The files of the hook folder. A point is a stage of a request, and the block of the file names the points it runs at. The switch leaves a file on disk and out of the run.")}
-      <table class="keys"><thead><tr><th>File</th><th>Version</th><th>Scope</th><th>Points</th><th class="hide-sm">Source</th><th>Load</th><th></th></tr></thead>
+  return `<div class="field stack info">${labelSpan("Installed hooks", "The files of the hook folder. A surface is a stage of a request, and the block of the file names the surfaces it runs at. The switch leaves a file on disk and out of the run.")}
+      <table class="keys"><thead><tr><th>File</th><th>Version</th><th>Scope</th><th>Surfaces</th><th class="hide-sm">Source</th><th>Load</th><th></th></tr></thead>
       <tbody>${list}</tbody></table>
       <button type="button" class="ghost" data-hooks-update>Update from the sources</button></div>
     <div class="field stack info">${labelSpan("Folder", "The folder at the root that holds the hook files.")}
@@ -1510,7 +1510,7 @@ function toggleHook(name, on) {
   const row = [...document.querySelectorAll('.card[data-section="hooks"] .keys tbody tr')].find(
     (tr) => tr.querySelector("input[data-hook-toggle]")?.dataset.hookToggle === name
   );
-  row?.querySelectorAll(".points .pill").forEach((pill) => {
+  row?.querySelectorAll(".surfaces .pill").forEach((pill) => {
     pill.classList.toggle("on", on);
     pill.classList.toggle("off", !on);
   });
@@ -1813,7 +1813,7 @@ function providerCard(name, block) {
     ${field("Exclude", `Model patterns that never route. ${PATTERN_HINT}`, listField("exclude", block.exclude, [...path, "exclude"]))}
     ${fold("Tiers", `Model patterns for each tier. ${PATTERN_HINT}`, tiers)}
     ${fold("Model overrides", `A pattern and the catalog values that it sets. ${PATTERN_HINT}`, `${overrides}<div class="pills">${adder([...path, "models"], "pattern", "+ Pattern")}</div>`)}
-    ${fold("Hooks", "The hook files of this provider, for each point. The installed files that fit the provider come first.", hookFormRows(block.hooks, [name, "hooks"], "provider", name))}
+    ${fold("Hooks", "The hook files of this provider, for each surface. The installed files that fit the provider come first.", hookFormRows(block.hooks, [name, "hooks"], "provider", name))}
     ${fold("Provider values", "Catalog values for each model of the provider. A model override has priority.", `<div class="pills">${values}</div>`)}
   </div>`;
 }
@@ -2154,8 +2154,8 @@ async function pickProviderSection(key) {
   openSection(host, key);
 }
 
-// The request-level hook points, in the order of `daedalus/providers/hooks.py`.
-const HOOK_POINTS = [
+// The request-level hook surfaces, in the order of `daedalus/providers/hooks.py`.
+const HOOK_SURFACES = [
   ["on-catalog", "On catalog", "hooks", "At each catalog build, as the row goes to the store."],
   ["on-request", "On request", "hooks", "Before the chain of a chat request, and on the repeat with the count. It sets the key of a turn."],
   ["on-prompt", "On prompt", "hooks", "Before the first attempt, when the chain holds a reasoning model. It sets the reasoning effort."],
@@ -2210,7 +2210,7 @@ const SETTINGS = [
     ["every", "Rebuild interval", "h", "The hours between rebuilds. 0 stops them."],
     ["anchor", "Anchor hour", "h", "The local hour (TZ) that the rebuild times start from."],
   ]],
-  // The request points live in the hooks table, so the card holds the manager alone.
+  // The request surfaces live in the hooks table, so the card holds the manager alone.
   ["hooks", "Hooks", []],
   ["personalization", "Personalization", [
     ["tier-a", "Tier A", "name", "The client name of the tier A pool: sophos by default."],
@@ -2425,11 +2425,11 @@ function settingsChanges() {
   if (JSON.stringify(sources) !== JSON.stringify(settingList("hooks", "sources"))) (changes.hooks ||= {}).sources = sources;
   const disabled = listValue("hooks", "disabled");
   if (JSON.stringify(disabled) !== JSON.stringify(settingList("hooks", "disabled"))) (changes.hooks ||= {}).disabled = disabled;
-  // The rows of the table write the request points: the list holds the files of that point.
-  for (const [point] of requestPoints()) {
-    if (!(state.settings.lists || {})[`hooks.${point}`]) continue;
-    const values = listValue("hooks", point).filter(Boolean);
-    if (JSON.stringify(values) !== JSON.stringify(settingList("hooks", point))) (changes.hooks ||= {})[point] = values.length ? values : null;
+  // The rows of the table write the request surfaces: the list holds the files of that surface.
+  for (const [surface] of requestSurfaces()) {
+    if (!(state.settings.lists || {})[`hooks.${surface}`]) continue;
+    const values = listValue("hooks", surface).filter(Boolean);
+    if (JSON.stringify(values) !== JSON.stringify(settingList("hooks", surface))) (changes.hooks ||= {})[surface] = values.length ? values : null;
   }
   return changes;
 }

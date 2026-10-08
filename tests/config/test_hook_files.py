@@ -88,14 +88,16 @@ def test_on_upstream(cheapest) -> None:
 
 
 def test_example() -> None:
-  """The example file loads, has each hook point, and changes nothing."""
+  """The example file loads, has each hook surface, and changes nothing."""
   root = hooks.ROOT / "hooks"
   root.mkdir(parents=True, exist_ok=True)
   shutil.copy(FOLDER / "example.py", root / "example.py")
   module = hooks.load(root / "example.py")
   assert module is not None
-  assert all(callable(getattr(module, name)) for name in hooks.POINTS.values())
-  setup = {"p": {"hooks": [{point: "hooks/example.py"} for point in hooks.POINTS]}}
+  assert all(callable(getattr(module, name)) for name in hooks.SURFACES.values())
+  setup = {
+    "p": {"hooks": [{surface: "hooks/example.py"} for surface in hooks.SURFACES]}
+  }
   body = {"messages": [{"role": "user", "content": "hi"}]}
   assert hooks.run("on-upstream", setup, "p/m", body, headers={}) == body
   assert hooks.run("on-answer", setup, "p/m", {"a": 1}) == {"a": 1}
@@ -151,7 +153,7 @@ def test_pick_on_every_answer() -> None:
 
 
 def test_a_request_point_runs_each_named_file() -> None:
-  """The shipped file names no hook, and a request point runs each file it names."""
+  """The shipped file names no hook, and a request surface runs each file it names."""
   text = (FOLDER.parent / "config" / "daedalus.yml").read_text()
   assert "hooks:" not in text, "the shipped file leaves every hook to its own block"
   entries = {

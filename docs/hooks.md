@@ -15,11 +15,11 @@ openrouter:
 
 The `hooks` key works like `order`. A `models` entry has priority. Then comes the provider block in the `{provider}.yml` file of the model, then the provider block in the main file. A model with `hooks: []` uses no hooks.
 
-Each item has 1 hook point and 1 file path. The path starts in the [`config`](../config) folder, and the file must stay in that folder. The usual path is `hooks/name.py`, under the folder of `hooks.dir`. An installed file joins a point without a line here, from its own `points` block.
+Each item has 1 hook surface and 1 file path. The path starts in the [`config`](../config) folder, and the file must stay in that folder. The usual path is `hooks/name.py`, under the folder of `hooks.dir`. An installed file joins a surface without a line here, from its own `surfaces` block.
 
 ## Contents
 
-- [Hook points](#hook-points)
+- [Hook surfaces](#hook-surfaces)
 - [The HTTP surface](#the-http-surface)
 - [Errors](#errors)
 - [Logs](#logs)
@@ -29,11 +29,11 @@ Each item has 1 hook point and 1 file path. The path starts in the [`config`](..
 - [The CLI](#the-cli)
 - [The Settings page](#the-settings-page)
 - [The shipped hook files](#the-shipped-hook-files)
-- [New hook points](#new-hook-points)
+- [New hook surfaces](#new-hook-surfaces)
 
-## Hook points
+## Hook surfaces
 
-For each point, the file defines 1 function with the name of the point.
+For each surface, the file defines 1 function with the name of the surface.
 
 The first chart follows a chat request. The second shows the catalog build and the dashboard load.
 
@@ -116,7 +116,7 @@ After a full chat answer comes back, before the client gets it.
 
 | Argument | Value |
 | --- | --- |
-| `answer` | The answer in the OpenAI format. A stream has no `on-answer` point |
+| `answer` | The answer in the OpenAI format. A stream has no `on-answer` surface |
 
 ### `on-chunk`
 
@@ -157,7 +157,7 @@ At the dashboard load, for each enabled request hook file.
 
 No arguments. It returns the rows of the code legend of the dashboard, such as `[["rtN", "A repeat picked another model, N times"]]`.
 
-A request-level point, such as `on-request`, takes its files from the `hooks` group of [`config/daedalus.yml`](../config/daedalus.yml), because no provider owns the request yet. An installed file with a `points` block in its frontmatter joins its points without a key there:
+A request-level surface, such as `on-request`, takes its files from the `hooks` group of [`config/daedalus.yml`](../config/daedalus.yml), because no provider owns the request yet. An installed file with a `surfaces` block in its frontmatter joins its surfaces without a key there:
 
 ```yaml
 hooks:
@@ -166,27 +166,27 @@ hooks:
   on-chunk: [hooks/served_model.py]
 ```
 
-Each key holds a list of files, and they run in list order. 1 path on its own works too. An empty list turns that point off.
+Each key holds a list of files, and they run in list order. 1 path on its own works too. An empty list turns that surface off.
 
-The `on-init` point has no group of its own: the dashboard reads the `on_init` function of each file of the folder. The legend card shows those rows below the base rows, and a file with no `on_init` adds no row.
+The `on-init` surface has no group of its own: the dashboard reads the `on_init` function of each file of the folder. The legend card shows those rows below the base rows, and a file with no `on_init` adds no row.
 
 A file that sets `value["key"]` counts the requests of that key: a repeat after an answer is a try again.
 
 ### The reasoning effort
 
-The `on-prompt` point hands each hook file the values of the request, and a hook file sets
+The `on-prompt` surface hands each hook file the values of the request, and a hook file sets
 `reasoning_effort`. The value of a hook file wins over the value of the client and over the catalog
 default, and the base sets no effort of its own. The shipped file steps aside for a client value on a
 new message, so a client keeps the last word there. The levels and the shipped file are on the
 [auto reasoning effort](hooks/owui_auto_reasoning_effort.md) page.
 
-`daedalus` then drops the models that answered the message: `daedalus/auto` steps the tier 1 step up, and a named pool keeps its pool. The point runs again with `count` filled in. A file that writes `value["code"]` sets the code of the Requests row, such as `rt1`. Without a `key`, a repeat is a new request.
+`daedalus` then drops the models that answered the message: `daedalus/auto` steps the tier 1 step up, and a named pool keeps its pool. The surface runs again with `count` filled in. A file that writes `value["code"]` sets the code of the Requests row, such as `rt1`. Without a `key`, a repeat is a new request.
 
 Without a `code`, the row shows no code. [`hooks/owui_auto_reasoning_effort.py`](../hooks/owui_auto_reasoning_effort.py) applies this rule to the `x-openwebui-chat-id` header of Open WebUI.
 The media endpoints, transcription and images, count a repeat of the same content with no hook.
 That count is the one repeat path of the base app.
 
-A function gets a copy of the value. It can change the copy and return None, or it can return a new dict. The hooks of 1 point run in list order, and each hook gets the value of the hook before it.
+A function gets a copy of the value. It can change the copy and return None, or it can return a new dict. The hooks of 1 surface run in list order, and each hook gets the value of the hook before it.
 
 ## The HTTP surface
 
@@ -227,14 +227,14 @@ of the request. Its page is [auto reasoning effort](hooks/owui_auto_reasoning_ef
 A hook error does not stop the request. daedalus logs the error, and the value goes on without the changes of that hook. The next hook in the list still runs. These are errors:
 
 - An exception, or a return value that is not a dict or None
-- A file that is not there, does not load, or has no function for the point
-- A path outside the [`config`](../config) folder, or an unknown point
+- A file that is not there, does not load, or has no function for the surface
+- A path outside the [`config`](../config) folder, or an unknown surface
 
 ## Logs
 
-The base writes 1 line for each hook that runs, at `INFO`. The line holds the point, the file,
-the model and the value that the hook gave back. The `on-chunk` point runs for each chunk of
-1 answer. Its run line stays at `DEBUG`, and a hook file of that point writes the line of the
+The base writes 1 line for each hook that runs, at `INFO`. The line holds the surface, the file,
+the model and the value that the hook gave back. The `on-chunk` surface runs for each chunk of
+1 answer. Its run line stays at `DEBUG`, and a hook file of that surface writes the line of the
 answer. The shipped files log their own decisions. A log line never changes the answer of a
 hook.
 
@@ -257,7 +257,7 @@ frontmatter block, so the manager knows its version and its scope without a run 
 # name: served_model
 # version: 1.3.0
 # requires: ">=0.2"
-# points: [on-chunk]
+# surfaces: [on-chunk]
 # scope: global
 # ---
 ```
@@ -267,7 +267,7 @@ frontmatter block, so the manager knows its version and its scope without a run 
 | `name` | text | The file name without `.py` |
 | `version` | text | The version of the file. The update line shows the old value and the new 1 |
 | `requires` | version range | The daedalus version that the file needs. A mismatch warns 1 time and leaves the file out |
-| `points` | list of point names | The functions of the file |
+| `surfaces` | list of surface names | The functions of the file |
 | `scope` | `global`, `provider` or `model` | Where the hook attaches |
 | `targets` | list of names | The provider names or the model ids of a `provider` or a `model` scope |
 | `author` | text | The name of the author of the file |
@@ -278,10 +278,10 @@ frontmatter block, so the manager knows its version and its scope without a run 
 A file with no block still runs. The manager takes the name from the file name, applies no scope, and
 writes 1 warning line. The scope rules:
 
-1. `global` runs the hook for every model and for every request point.
+1. `global` runs the hook for every model and for every request surface.
 2. `provider` runs the hook when the name of the model holds 1 of the targets.
 3. `model` runs the hook for the named model ids alone.
-4. A request point accepts `provider` and `model` too.
+4. A request surface accepts `provider` and `model` too.
 5. `on-http` needs no scope, because the route names the file.
 
 ## Sources and the lock
@@ -313,7 +313,7 @@ keep the files on disk.
 
 The lock in [`hooks.lock.json`](../config) records the sha256, the version, the repo and the
 commit of each installed file. A file that leaves the repo stays on disk with its record. An
-installed file runs at a point when its block names that point, its scope matches the model, and
+installed file runs at a surface when its block names that surface, its scope matches the model, and
 `hooks.disabled` does not hold its name.
 
 ## The CLI
@@ -358,6 +358,6 @@ card, and the keyword chips of the Hooks card accept any file of the folder.
 [`hooks/example.py`](../hooks/example.py) is the start for a new hook file. The
 [README](../README.md#hooks) holds its description and 1 example.
 
-## New hook points
+## New hook surfaces
 
-A model point is 1 item in `POINTS` in [`daedalus/providers/hooks.py`](../daedalus/providers/hooks.py), and 1 `hooks.run` call where the value is ready. A request point is also 1 key in the `hooks` group of the settings, and 1 `hooks.run_request` call.
+A model surface is 1 item in `SURFACES` in [`daedalus/providers/hooks.py`](../daedalus/providers/hooks.py), and 1 `hooks.run` call where the value is ready. A request surface is also 1 key in the `hooks` group of the settings, and 1 `hooks.run_request` call.

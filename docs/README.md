@@ -19,7 +19,7 @@ Every page, in the order of a first read.
 
 | Page | Contents |
 | --- | --- |
-| [Hooks](hooks.md) | The 8 hook points, the HTTP surface, the errors, the logs, the remote files and the shipped files |
+| [Hooks](hooks.md) | The 8 hook surfaces, the HTTP surface, the errors, the logs, the remote files and the shipped files |
 | [Auto reasoning effort](hooks/owui_auto_reasoning_effort.md) | The reasoning level of a turn, and the try-again rule |
 | [The served model line](hooks/served_model.md) | The model that served a chat pool request |
 | [The OpenRouter endpoint order](hooks/or_cheapest_output.md) | The endpoint order of 1 OpenRouter model, by output price |

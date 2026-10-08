@@ -1,6 +1,6 @@
 # ---
-# version: 1.0.0
-# points: [on-catalog, on-upstream]
+# version: 1.0.1
+# surfaces: [on-catalog, on-upstream]
 # author: nemoe7
 # title: Cheapest output first
 # description: OpenRouter tries the endpoints with the cheapest output price first.

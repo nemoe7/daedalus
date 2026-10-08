@@ -14,7 +14,7 @@ from daedalus.providers import hooks
 COMMIT = "a" * 40
 API = "https://api.github.com/repos/owner/name/commits/main"
 ARCHIVE = f"https://codeload.github.com/owner/name/tar.gz/{COMMIT}"
-BLOCK = "# ---\n# version: 1.2.0\n# points: [on-request]\n# ---\n"
+BLOCK = "# ---\n# version: 1.2.0\n# surfaces: [on-request]\n# ---\n"
 BODY = (BLOCK + "def on_request(value, model, headers):\n  return value\n").encode()
 PLAIN = b"def on_request(value, model, headers):\n  return value\n"
 RECORD = {

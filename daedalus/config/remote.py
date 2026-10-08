@@ -284,7 +284,7 @@ def scan(entry: Any) -> dict[str, Any] | None:
           "version": "",
           "scope": "",
           "targets": [],
-          "points": [],
+          "surfaces": [],
           "problem": "the file is not UTF-8 text",
           "sha256": digest(raw),
         }
@@ -299,8 +299,8 @@ def scan(entry: Any) -> dict[str, Any] | None:
         "targets": [str(target) for target in info["targets"]]
         if info and info.get("targets")
         else [],
-        "points": [str(point) for point in info["points"]]
-        if info and info.get("points")
+        "surfaces": [str(surface) for surface in info["surfaces"]]
+        if info and info.get("surfaces")
         else [],
         "problem": problem or "",
         "sha256": digest(raw),

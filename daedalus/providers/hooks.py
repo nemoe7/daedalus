@@ -24,8 +24,8 @@ ROOT = Path(".")
 # The folder under `ROOT` that holds the hook files, and the names that stay out.
 DIR = "hooks"
 DISABLED: set[str] = set()
-# Each hook point, and the function that its file defines.
-POINTS = {
+# Each hook surface, and the function that its file defines.
+SURFACES = {
   "on-catalog": "on_catalog",
   "on-request": "on_request",
   "on-prompt": "on_prompt",
@@ -42,7 +42,7 @@ META_KEYS = (
   "name",
   "version",
   "requires",
-  "points",
+  "surfaces",
   "scope",
   "targets",
   "author",
@@ -165,15 +165,15 @@ def meta_check(text: str) -> tuple[dict[str, Any] | None, str | None]:
       return None, "requires must be 1 text"
     if not requires_ok(requires, __version__):
       return None, f"requires {requires}, and daedalus is {__version__}"
-  points = found.get("points")
-  if points is not None:
-    if not isinstance(points, list) or not all(
-      isinstance(point, str) for point in points
+  surfaces = found.get("surfaces")
+  if surfaces is not None:
+    if not isinstance(surfaces, list) or not all(
+      isinstance(surface, str) for surface in surfaces
     ):
-      return None, "points must be a list of point names"
-    for point in points:
-      if point not in POINTS:
-        return None, f"unknown point {point!r}"
+      return None, "surfaces must be a list of surface names"
+    for surface in surfaces:
+      if surface not in SURFACES:
+        return None, f"unknown surface {surface!r}"
   scope = found.get("scope")
   if scope is not None and scope not in SCOPES:
     return None, f"scope {scope!r} must be 1 of {', '.join(SCOPES)}"
@@ -237,22 +237,24 @@ def enabled(path: Path) -> bool:
 
 
 def rows(named: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-  """1 row per hook file: the state, the frontmatter and the points that the settings name it at.
+  """1 row per hook file: the state, the frontmatter and the surfaces that the settings name it at.
 
-  `named` is the request-hook group of the settings. Its points land in `runs`, less the points
+  `named` is the request-hook group of the settings. Its surfaces land in `runs`, less the surfaces
   that the block of the file does not admit. Without `named`, the row holds no `runs` key.
   """
   found: list[dict[str, Any]] = []
   wired: dict[str, list[str]] = {}
-  for point, value in (named or {}).items():
+  for surface, value in (named or {}).items():
     for item in value if isinstance(value, list) else [value]:
       name = str(item).split("/")[-1]
-      if name.endswith(".py") and point not in wired.setdefault(name, []):
-        wired[name].append(point)
+      if name.endswith(".py") and surface not in wired.setdefault(name, []):
+        wired[name].append(surface)
   for path in sorted(folder().glob("*.py")):
     info, problem = meta_check(head_text(path))
     gate = (
-      [str(point) for point in info["points"]] if info and info.get("points") else []
+      [str(surface) for surface in info["surfaces"]]
+      if info and info.get("surfaces")
+      else []
     )
     row = {
       "name": path.name,
@@ -262,13 +264,15 @@ def rows(named: dict[str, Any] | None = None) -> list[dict[str, Any]]:
       "targets": [str(target) for target in info["targets"]]
       if info and info.get("targets")
       else [],
-      "points": gate,
+      "surfaces": gate,
       "enabled": enabled(path) and problem is None,
       "problem": problem or "",
     }
     if named is not None:
-      ripe = [point for point in wired.get(path.name, []) if not gate or point in gate]
-      row["runs"] = sorted(ripe, key=list(POINTS).index)
+      ripe = [
+        surface for surface in wired.get(path.name, []) if not gate or surface in gate
+      ]
+      row["runs"] = sorted(ripe, key=list(SURFACES).index)
     found.append(row)
   return found
 
@@ -284,7 +288,7 @@ def hook_files() -> list[str]:
 def installed_files() -> list[Path]:
   """The hook files of the folder with a usable frontmatter block, in name order.
 
-  A file without a block stays out: an explicit `hooks` list or a request point names it.
+  A file without a block stays out: an explicit `hooks` list or a request surface names it.
   """
   root = ROOT / DIR
   if not root.is_dir():
@@ -305,15 +309,15 @@ def merge(explicit: list[Path], extra: list[Path]) -> list[Path]:
   return found
 
 
-def meta_paths(point: str, model: str) -> list[Path]:
-  """The installed files whose frontmatter gives this point to this model."""
+def meta_paths(surface: str, model: str) -> list[Path]:
+  """The installed files whose frontmatter gives this surface to this model."""
   found: list[Path] = []
   for path in installed_files():
     info = meta(path)
     if info is None:
       continue
-    points = info.get("points")
-    if points is not None and point not in points:
+    surfaces = info.get("surfaces")
+    if surfaces is not None and surface not in surfaces:
       continue
     scope = info.get("scope", "global")
     targets = info.get("targets") or []
@@ -336,36 +340,36 @@ def entries_for(config: Mapping[str, Any], model: str) -> Any:
   return found
 
 
-def files(config: Mapping[str, Any], model: str, point: str) -> list[Path]:
-  """The files of one hook point for `model`, in list order."""
+def files(config: Mapping[str, Any], model: str, surface: str) -> list[Path]:
+  """The files of one hook surface for `model`, in list order."""
   name = model.partition("/")[0]
   entries = entries_for(config, model)
   if entries is None:
-    return meta_paths(point, model)
+    return meta_paths(surface, model)
   if not isinstance(entries, list):
     tell(f"hooks of {name} must be a list")
-    return meta_paths(point, model)
+    return meta_paths(surface, model)
   found = []
   for entry in entries:
     if not isinstance(entry, dict):
-      tell(f"hooks of {name}: each item needs a point and a file")
+      tell(f"hooks of {name}: each item needs a surface and a file")
       continue
     for key in entry:
-      if key not in POINTS:
-        tell(f"hooks of {name}: unknown point {key}")
-    if point in entry and (path := resolve(entry[point])) is not None:
+      if key not in SURFACES:
+        tell(f"hooks of {name}: unknown surface {key}")
+    if surface in entry and (path := resolve(entry[surface])) is not None:
       found.append(path)
-  return merge(found, meta_paths(point, model))
+  return merge(found, meta_paths(surface, model))
 
 
-def request_files(entries: Mapping[str, Any] | None, point: str) -> list[Path]:
-  """The files of one request-level point, from the `hooks` group of the settings file."""
-  value = entries.get(point) if isinstance(entries, Mapping) else None
+def request_files(entries: Mapping[str, Any] | None, surface: str) -> list[Path]:
+  """The files of one request-level surface, from the `hooks` group of the settings file."""
+  value = entries.get(surface) if isinstance(entries, Mapping) else None
   if value is None or value == "":
     return []
   items = [value] if isinstance(value, str) else value
   if not isinstance(items, list):
-    tell(f"request_hooks.{point} must be a file path or a list of them")
+    tell(f"request_hooks.{surface} must be a file path or a list of them")
     return []
   found = []
   for item in items:
@@ -438,16 +442,16 @@ def load(path: Path) -> ModuleType | None:
 
 
 def run_files(
-  point: str, paths: list[Path], value: dict[str, Any], **context: Any
+  surface: str, paths: list[Path], value: dict[str, Any], **context: Any
 ) -> dict[str, Any]:
-  """The value after each hook file of one point, in list order.
+  """The value after each hook file of one surface, in list order.
 
   Each hook gets a copy. It returns a new dict, or None to keep its changes to the copy.
   A hook that fails does not change the value.
   """
-  if point not in POINTS:
-    raise ValueError(f"Unknown hook point: {point}")
-  function = POINTS[point]
+  if surface not in SURFACES:
+    raise ValueError(f"Unknown hook surface: {surface}")
+  function = SURFACES[surface]
   for path in paths:
     found = load(path)
     hook = getattr(found, function, None)
@@ -459,14 +463,14 @@ def run_files(
     try:
       result = hook(work, **context)
     except Exception:
-      logger.exception("%s hook %s for %s failed", point, path, context.get("model"))
+      logger.exception("%s hook %s for %s failed", surface, path, context.get("model"))
       continue
-    # The chunk point runs for each chunk of 1 answer, so its run line stays on DEBUG, and a hook
-    # file of that point writes the line of the answer.
+    # The chunk surface runs for each chunk of 1 answer, so its run line stays on DEBUG, and a hook
+    # file of that surface writes the line of the answer.
     logger.log(
-      logging.DEBUG if point == "on-chunk" else logging.INFO,
+      logging.DEBUG if surface == "on-chunk" else logging.INFO,
       "%s hook %s for %s: %s",
-      point,
+      surface,
       path.name,
       context.get("model") or "-",
       "a new value" if isinstance(result, dict) else "edits in place",
@@ -477,29 +481,31 @@ def run_files(
       value = result
     else:
       logger.warning(
-        "%s hook %s for %s returned no dict", point, path, context.get("model")
+        "%s hook %s for %s returned no dict", surface, path, context.get("model")
       )
   return value
 
 
 def run(
-  point: str,
+  surface: str,
   config: Mapping[str, Any],
   model: str,
   value: dict[str, Any],
   **context: Any,
 ) -> dict[str, Any]:
-  """The value after each model hook of one point, in list order."""
-  return run_files(point, files(config, model, point), value, model=model, **context)
+  """The value after each model hook of one surface, in list order."""
+  return run_files(
+    surface, files(config, model, surface), value, model=model, **context
+  )
 
 
 def run_request(
-  point: str,
+  surface: str,
   entries: Mapping[str, Any] | None,
   model: str,
   value: dict[str, Any],
   **context: Any,
 ) -> dict[str, Any]:
-  """The value after each request hook of one point, from the settings file, in list order."""
-  paths = merge(request_files(entries, point), meta_paths(point, model))
-  return run_files(point, paths, value, model=model, **context)
+  """The value after each request hook of one surface, from the settings file, in list order."""
+  paths = merge(request_files(entries, surface), meta_paths(surface, model))
+  return run_files(surface, paths, value, model=model, **context)

@@ -587,7 +587,9 @@ def test_the_demo_states_its_source_and_the_hook_versions(tmp_path: Path) -> Non
   out = pages_demo.build(tmp_path / "site", "demo.test")
   script = (out / "demo.js").read_text(encoding="utf-8")
   assert '"repo": "nemoe7/daedalus"' in script, "the source reaches the page"
-  assert '"version": "1.0.0"' in script, "the version of a hook reaches the page"
+  assert f'"version": "{rows["served_model.py"]["version"]}"' in script, (
+    "the version of a hook reaches the page"
+  )
 
 
 def test_a_capture_without_an_update_block_still_builds(

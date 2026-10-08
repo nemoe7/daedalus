@@ -71,6 +71,8 @@ DEMO_SOURCE = {
 DEMO_SOURCE_YAML = (
   "  sources:\n    - repo: nemoe7/daedalus\n      path: hooks\n      ref: main\n"
 )
+# The request-level surfaces of the demo file, in the order of the settings defaults.
+DEMO_HOOK_SURFACES = ("on-request", "on-prompt", "on-chunk")
 # The prompts of the captured rows, in the order that the table shows them.
 DEMO_CALLS = (
   ("daedalus/moros", "Count to three."),
@@ -196,6 +198,33 @@ def answer(request: httpx.Request) -> httpx.Response:
   )
 
 
+def demo_hook_entries() -> dict[str, list[str]]:
+  """The request surfaces of the demo file: each one and the files of the folder that name it."""
+  found: dict[str, list[str]] = {}
+  for surface in DEMO_HOOK_SURFACES:
+    names = [
+      f"hooks/{path.name}"
+      for path in sorted((ROOT / "hooks").glob("*.py"))
+      if (info := hooks.meta(path)) and surface in (info.get("surfaces") or [])
+    ]
+    if names:
+      found[surface] = names
+  return found
+
+
+def demo_settings_text() -> str:
+  """The file text of the demo: the repo file, and the demo hooks group when the file holds none."""
+  text = settings.DEFAULT_PATH.read_text(encoding="utf-8")
+  if "on-request:" in text:
+    return text
+  head = f"{text.rstrip()}\n" if text.strip() else ""
+  entries = "".join(
+    f"  {surface}: [{', '.join(names)}]\n"
+    for surface, names in demo_hook_entries().items()
+  )
+  return head + "hooks:\n" + entries + DEMO_SOURCE_YAML
+
+
 def demo_files(folder: Path) -> tuple[Path, ...]:
   """Copy the shipped provider files as-is, and return the files of the Providers tab."""
   target = folder / "config" / "providers"
@@ -205,7 +234,7 @@ def demo_files(folder: Path) -> tuple[Path, ...]:
   for file in files:
     shutil.copyfile(file, target / file.name)
   settings_file = folder / "config" / "daedalus.yml"
-  settings_file.write_text(settings.DEFAULT_PATH.read_text(encoding="utf-8"))
+  settings_file.write_text(demo_settings_text())
   # The shipped hooks of the root folder: the legend rows of the page come from them.
   hooks_dir = ROOT / "hooks"
   if hooks_dir.is_dir():
@@ -1210,8 +1239,8 @@ const DEMO_FIXTURES = __FIXTURES__;
     repo: "nemoe7/daedalus",
     commit: "3f9c1ab4d2e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9",
     files: [
-      { name: "served_model.py", version: "1.3.0", scope: "global", targets: [], points: ["on-chunk"], problem: "" },
-      { name: "owui_auto_reasoning_effort.py", version: "1.1.0", scope: "model", targets: ["gpt-5"], points: ["on-prompt"], problem: "" },
+      { name: "served_model.py", version: "1.3.0", scope: "global", targets: [], surfaces: ["on-chunk"], problem: "" },
+      { name: "owui_auto_reasoning_effort.py", version: "1.1.0", scope: "model", targets: ["gpt-5"], surfaces: ["on-prompt"], problem: "" },
     ],
     answer: {
       moved: ["served_model.py"],
@@ -1514,6 +1543,9 @@ def demo_fixtures(version: str) -> dict[str, Any]:
   settings_file = fixtures["settings"].setdefault("file", {})
   hooks_file = settings_file.setdefault("hooks", {})
   hooks_file["sources"] = [dict(DEMO_SOURCE)]
+  # The request surfaces of the demo file, from the shipped folder, so a clean capture
+  # keeps the wired rows of the table.
+  hooks_file.update(demo_hook_entries())
   saved = hooks.ROOT
   try:
     # The build reads the shipped folder, whatever root folder the running process holds.
@@ -1529,7 +1561,12 @@ def demo_fixtures(version: str) -> dict[str, Any]:
   if "sources:" not in text:
     head = f"{text.rstrip()}\n" if text.strip() else ""
     group = "" if "hooks:" in text else "hooks:\n"
-    fixtures["settings"]["text"] = head + group + DEMO_SOURCE_YAML
+    entries = "".join(
+      f"  {surface}: [{', '.join(names)}]\n"
+      for surface, names in demo_hook_entries().items()
+      if f"  {surface}:" not in text
+    )
+    fixtures["settings"]["text"] = head + group + entries + DEMO_SOURCE_YAML
   return fixtures
 
 

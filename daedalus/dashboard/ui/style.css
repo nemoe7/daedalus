@@ -413,9 +413,9 @@ A chip reads as noise, so the separator stays plain, and the icons keep the text
    holds the model name. The global anywhere wrap splits the name mid-word, and the name carries
    no break point of its own. */
 .card[data-section="hooks"] .keys th:not(:first-child), .card[data-section="hooks"] .keys td:not(:first-child) { width: 1%; }
-.card[data-section="hooks"] .keys td:not(:first-child):not(.points) { white-space: nowrap; }
+.card[data-section="hooks"] .keys td:not(:first-child):not(.surfaces) { white-space: nowrap; }
 .card[data-section="hooks"] .keys td.name { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.card[data-section="hooks"] .keys td.points .pill { white-space: nowrap; }
+.card[data-section="hooks"] .keys td.surfaces .pill { white-space: nowrap; }
 tr.live-row td { background: var(--field); }
 .pulse {
   display: inline-block; width: 6px; height: 6px; margin: 0 10px 1px 0; border-radius: 50%;
@@ -499,7 +499,7 @@ section[data-page="providers"], section[data-page="settings"] {
 .adder { display: inline-flex; gap: 6px; }
 /* A hook row: the file name in a chip that opens the list of the hooks folder. The chip holds the
    same pill as a keyword chip, and the list draws in the page so it follows the page theme. */
-/* The point chips of the hooks table: a point that runs the file reads on, and a file that the
+/* The surface chips of the hooks table: a surface that runs the file reads on, and a file that the
    Load switch turned off reads dim. */
 .pill.on { border-color: var(--accent); background: var(--bar); color: var(--tier); }
 .pill.off { opacity: .5; }

@@ -30,7 +30,7 @@ def test_no_hooks() -> None:
 
 
 def test_upstream_hooks_in_order() -> None:
-  """Each hook of the point runs in list order on a copy. Any file name works."""
+  """Each hook of the surface runs in list order on a copy. Any file name works."""
   first = write(
     "add_user",
     "def on_upstream(body, model, headers):\n"
@@ -93,8 +93,8 @@ def test_failures(caplog: pytest.LogCaptureFixture) -> None:
     "has no on_upstream function",
     "is not a file of the config folder",
     "is not a file path",
-    "unknown point on-later",
-    "each item needs a point",
+    "unknown surface on-later",
+    "each item needs a surface",
   ):
     assert part in caplog.text, part
   bad = {"p": {"hooks": {"on-upstream": good}}}
@@ -173,7 +173,7 @@ def test_request_hooks() -> None:
   assert both == [
     hooks.ROOT / "hooks" / "req.py",
     hooks.ROOT / "hooks" / "req2.py",
-  ], "1 point takes many files"
+  ], "1 surface takes many files"
   assert hooks.run_request(
     "on-request",
     {"on-request": [first, second]},
@@ -251,7 +251,7 @@ def test_broken_hook_retry() -> None:
 
 
 def test_chunk_hook_changes_the_copy() -> None:
-  """The on-chunk point runs with its context on each stream chunk, and the value that came in stays."""
+  """The on-chunk surface runs with its context on each stream chunk, and the value that came in stays."""
   path = write(
     "mark.py",
     "def on_chunk(chunk, model, context=None):\n"
@@ -265,7 +265,7 @@ def test_chunk_hook_changes_the_copy() -> None:
 
 
 def test_a_run_writes_1_log_line(caplog: pytest.LogCaptureFixture) -> None:
-  """Each hook that runs writes 1 line. The chunk point waits for DEBUG."""
+  """Each hook that runs writes 1 line. The chunk surface waits for DEBUG."""
   path = write(
     "told.py",
     "def on_answer(answer, model):\n  return {'v': 1}\n"
@@ -283,14 +283,14 @@ def test_a_run_writes_1_log_line(caplog: pytest.LogCaptureFixture) -> None:
 
 
 def test_meta_block() -> None:
-  """The frontmatter block gives the name, the version, the points, the scope and the targets."""
+  """The frontmatter block gives the name, the version, the surfaces, the scope and the targets."""
   path = hooks.ROOT / "hooks" / "meta.py"
   path.parent.mkdir(parents=True, exist_ok=True)
   path.write_text(
     "# ---\n"
     "# name: meta\n"
     "# version: 1.3.0\n"
-    "# points: [on-chunk, on-answer]\n"
+    "# surfaces: [on-chunk, on-answer]\n"
     "# scope: provider\n"
     "# targets: [openrouter]\n"
     "# ---\n"
@@ -300,7 +300,7 @@ def test_meta_block() -> None:
   assert hooks.meta(path) == {
     "name": "meta",
     "version": "1.3.0",
-    "points": ["on-chunk", "on-answer"],
+    "surfaces": ["on-chunk", "on-answer"],
     "scope": "provider",
     "targets": ["openrouter"],
   }
@@ -319,9 +319,9 @@ def test_meta_absent_and_defaults() -> None:
 
 
 def test_meta_problems() -> None:
-  """A bad point, a bad scope, a target-less scope and a new version stop the file."""
+  """A bad surface, a bad scope, a target-less scope and a new version stop the file."""
   cases = (
-    ("# ---\n# points: [on-later]\n# ---\n", "on-later"),
+    ("# ---\n# surfaces: [on-later]\n# ---\n", "on-later"),
     ("# ---\n# scope: pool\n# ---\n", "pool"),
     ("# ---\n# scope: model\n# ---\n", "targets"),
     ('# ---\n# requires: ">=99.0"\n# ---\n', "99.0"),
@@ -388,18 +388,18 @@ def test_scoped_hooks() -> None:
   """A file with a block runs for the models of its scope, and a disabled name stays out."""
   try:
     hooks.set_installed("scoped", [])
-    scoped("all.py", ANSWER % "all", "# ---\n# points: [on-answer]\n# ---\n")
+    scoped("all.py", ANSWER % "all", "# ---\n# surfaces: [on-answer]\n# ---\n")
     scoped(
       "or.py",
       ANSWER % "or",
-      "# ---\n# scope: provider\n# targets: [openrouter]\n# points: [on-answer]\n# ---\n",
+      "# ---\n# scope: provider\n# targets: [openrouter]\n# surfaces: [on-answer]\n# ---\n",
     )
     scoped(
       "mine.py",
       ANSWER % "mine",
-      "# ---\n# scope: model\n# targets: [p/m]\n# points: [on-answer]\n# ---\n",
+      "# ---\n# scope: model\n# targets: [p/m]\n# surfaces: [on-answer]\n# ---\n",
     )
-    scoped("plain.py", ANSWER % "plain", "# ---\n# points: [on-answer]\n# ---\n")
+    scoped("plain.py", ANSWER % "plain", "# ---\n# surfaces: [on-answer]\n# ---\n")
     assert hooks.run("on-answer", {}, "openrouter/x", {}).get("by") == [
       "all",
       "or",
@@ -420,7 +420,7 @@ def test_scoped_request_hook() -> None:
     scoped(
       "req.py",
       "def on_request(value, model, headers):\n  value['key'] = 'set'\n",
-      "# ---\n# scope: provider\n# targets: [openrouter]\n# points: [on-request]\n# ---\n",
+      "# ---\n# scope: provider\n# targets: [openrouter]\n# surfaces: [on-request]\n# ---\n",
     )
     assert hooks.run_request(
       "on-request", {}, "openrouter/x", {"key": None}, headers={}
@@ -439,8 +439,8 @@ def test_explicit_before_installed() -> None:
     named = hooks.ROOT / "order" / "named.py"
     named.parent.mkdir(parents=True, exist_ok=True)
     named.write_text(ANSWER % "named", encoding="utf-8")
-    scoped("b.py", ANSWER % "b", "# ---\n# points: [on-answer]\n# ---\n")
-    scoped("a.py", ANSWER % "a", "# ---\n# points: [on-answer]\n# ---\n")
+    scoped("b.py", ANSWER % "b", "# ---\n# surfaces: [on-answer]\n# ---\n")
+    scoped("a.py", ANSWER % "a", "# ---\n# surfaces: [on-answer]\n# ---\n")
     setup = {"p": {"api_key": "k", "hooks": [{"on-answer": "order/named.py"}]}}
     found = hooks.run("on-answer", setup, "p/m", {})
     assert found["by"] == ["named", "a", "b"]
@@ -449,13 +449,13 @@ def test_explicit_before_installed() -> None:
 
 
 def test_bad_block_stays_out() -> None:
-  """A block with an unknown point keeps the file out of the installed list."""
+  """A block with an unknown surface keeps the file out of the installed list."""
   try:
     hooks.set_installed("badblock", [])
     scoped(
       "bad.py",
       "def on_answer(answer, model):\n  answer['bad'] = True\n",
-      "# ---\n# points: [on-later]\n# ---\n",
+      "# ---\n# surfaces: [on-later]\n# ---\n",
     )
     assert hooks.run("on-answer", {}, "p/m", {}) == {}
   finally:
@@ -463,10 +463,10 @@ def test_bad_block_stays_out() -> None:
 
 
 def test_rows_add_the_request_points_that_name_a_file() -> None:
-  """The settings name a file at a request point: the row shows that point once, in point order."""
+  """The settings name a file at a request surface: the row shows that surface once, in surface order."""
   try:
     hooks.set_installed("rows2")
-    scoped("both.py", ANSWER % "both", "# ---\n# points: [on-chunk]\n# ---\n")
+    scoped("both.py", ANSWER % "both", "# ---\n# surfaces: [on-chunk]\n# ---\n")
     scoped("named.py", ANSWER % "named", "")
     rows = {
       row["name"]: row
@@ -478,9 +478,9 @@ def test_rows_add_the_request_points_that_name_a_file() -> None:
       )
     }
     assert rows["both.py"]["runs"] == ["on-chunk"], "the block admits on-chunk alone"
-    assert rows["both.py"]["points"] == ["on-chunk"], "the block is the declaration"
+    assert rows["both.py"]["surfaces"] == ["on-chunk"], "the block is the declaration"
     assert rows["named.py"]["runs"] == ["on-prompt"], rows["named.py"]
-    assert "runs" not in hooks.rows()[0], "no settings gives no named point"
+    assert "runs" not in hooks.rows()[0], "no settings gives no named surface"
   finally:
     hooks.set_installed()
 
@@ -493,11 +493,11 @@ def test_rows_report_the_folder() -> None:
       "on.py",
       ANSWER % "on",
       "# ---\n# version: 2.0\n# scope: provider\n# targets: [p]\n"
-      "# points: [on-answer]\n# ---\n",
+      "# surfaces: [on-answer]\n# ---\n",
     )
-    scoped("off.py", ANSWER % "off", "# ---\n# points: [on-answer]\n# ---\n")
+    scoped("off.py", ANSWER % "off", "# ---\n# surfaces: [on-answer]\n# ---\n")
     scoped("plain.py", ANSWER % "plain", "")
-    scoped("bad.py", ANSWER % "bad", "# ---\n# points: [on-later]\n# ---\n")
+    scoped("bad.py", ANSWER % "bad", "# ---\n# surfaces: [on-later]\n# ---\n")
     found = {row["name"]: row for row in hooks.rows()}
     assert found["on.py"] == {
       "name": "on.py",
@@ -505,7 +505,7 @@ def test_rows_report_the_folder() -> None:
       "version": "2.0",
       "scope": "provider",
       "targets": ["p"],
-      "points": ["on-answer"],
+      "surfaces": ["on-answer"],
       "enabled": True,
       "problem": "",
     }

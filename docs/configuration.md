@@ -210,8 +210,8 @@ The shipped `routing.escalation`:
 | `hooks.sources` | `[]` | The GitHub sources of the hook files. Each entry names a `repo`, a `path`, a `ref` and `auto_update`. See [Hooks](hooks.md#sources-and-the-lock). |
 | `hooks.disabled` | `[]` | The names of the installed hook files that stay on disk and do not run. The Settings page holds 1 switch per file. |
 
-A key of the 3 points lists files to run before the files of the folder. A file with a `# ---` block that
-names the point joins it without a key here.
+A key of the 3 surfaces lists files to run before the files of the folder. A file with a `# ---` block that
+names the surface joins it without a key here.
 
 ### Pools
 
@@ -262,7 +262,7 @@ groq:
 | `tier` | Patterns for each tier key: `TIER-A`, `TIER-B`, `TIER-C`, `TIER-D` |
 | `models` | Values for each model, for example `max_input_tokens`. These have priority over discovery and LiteLLM. |
 | `order` | Optional. 1 or more, default 1. Runs after the lower orders of its tier. |
-| `hooks` | Optional. Hook points and file paths in [`config`](../config), like `- on-upstream: hooks/x.py`. |
+| `hooks` | Optional. Hook surfaces and file paths in [`config`](../config), like `- on-upstream: hooks/x.py`. |
 | `streams` | Optional. `false`: the block answers no stream. The client waits for the whole body. Absent: true. |
 | `headroom` | Optional. `false`: no Headroom compression for the models of the block. Absent: `optimization.enabled`. |
 | `hourly_requests` | Optional. The provider requests per hour. At the limit, the provider leaves the chains. |

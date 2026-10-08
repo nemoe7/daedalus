@@ -308,7 +308,7 @@ def hook_path(name: str, value: Any) -> str:
 
 
 def hook_paths(name: str, value: Any) -> list[str]:
-  """The hook files of 1 request point: 1 path, a list of paths, or empty for no hook."""
+  """The hook files of 1 request surface: 1 path, a list of paths, or empty for no hook."""
   if value in (None, "", []):
     return []
   if isinstance(value, str):

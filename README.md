@@ -28,9 +28,9 @@ daedalus is for personal use only. Do not share it with other users, because the
 
 ## Hooks
 
-A hook is 1 Python file in the [`hooks`](hooks) folder that changes a catalog row, a chat request or an answer. A config key or a model block names the file, and daedalus calls it at the point of the change. The base runs with no hook file, and the shipped files are examples. The folder comes from `hooks.dir`, and a file carries a `# ---` frontmatter block with its version, its points and its scope.
+A hook is 1 Python file in the [`hooks`](hooks) folder that changes a catalog row, a chat request or an answer. A config key or a model block names the file, and daedalus calls it at the point of the change. The base runs with no hook file, and the shipped files are examples. The folder comes from `hooks.dir`, and a file carries a `# ---` frontmatter block with its version, its surfaces and its scope.
 
-[`hooks/example.py`](hooks/example.py) is the start for a new hook file. It holds 1 stub for each point, with an example in the comments:
+[`hooks/example.py`](hooks/example.py) is the start for a new hook file. It holds 1 stub for each surface, with an example in the comments:
 
 ```python
 def on_upstream(body, model, headers):
@@ -38,7 +38,7 @@ def on_upstream(body, model, headers):
     body["provider"]["allow_fallbacks"] = False
 ```
 
-Copy the file under a new name, keep the functions you need, and name the copy in the `hooks` list of the model or the provider. The points, the frontmatter, the GitHub sources and the errors are in [Hooks](docs/hooks.md). Each shipped file has its own page under [`docs/hooks`](docs/hooks).
+Copy the file under a new name, keep the functions you need, and name the copy in the `hooks` list of the model or the provider. The surfaces, the frontmatter, the GitHub sources and the errors are in [Hooks](docs/hooks.md). Each shipped file has its own page under [`docs/hooks`](docs/hooks).
 
 ## Quick start
 

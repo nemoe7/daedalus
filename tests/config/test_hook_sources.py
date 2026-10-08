@@ -20,7 +20,7 @@ def block(version: str = "1.2.0", name: str = "one") -> str:
     "# ---\n"
     f"# name: {name}\n"
     f"# version: {version}\n"
-    "# points: [on-answer]\n"
+    "# surfaces: [on-answer]\n"
     "# ---\n"
     "def on_answer(answer, model):\n"
     "  return answer\n"
@@ -126,13 +126,13 @@ def test_the_lock_records_the_source(
 def test_a_bad_block_stays_out(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-  """A block with an unknown point or an unmet requires never lands, with 1 warning a file."""
+  """A block with an unknown surface or an unmet requires never lands, with 1 warning a file."""
   pages = {
     API: json.dumps({"sha": COMMIT}).encode(),
     ARCHIVE: tar(
       {
         "hooks/good.py": block(),
-        "hooks/later.py": "# ---\n# points: [on-later]\n# ---\n",
+        "hooks/later.py": "# ---\n# surfaces: [on-later]\n# ---\n",
         "hooks/new.py": '# ---\n# requires: ">=99"\n# ---\n',
       }
     ),
@@ -361,7 +361,7 @@ def test_scan_names_the_files_of_a_source(
       {
         "hooks/one.py": block(),
         "hooks/two.py": block(name="two"),
-        "hooks/bad.py": "# ---\n# points: [on-later]\n# ---\n",
+        "hooks/bad.py": "# ---\n# surfaces: [on-later]\n# ---\n",
       }
     ),
   }
@@ -378,7 +378,7 @@ def test_scan_names_the_files_of_a_source(
     "version": "1.2.0",
     "scope": "global",
     "targets": [],
-    "points": ["on-answer"],
+    "surfaces": ["on-answer"],
     "problem": "",
     "sha256": remote.digest(block().encode()),
   }

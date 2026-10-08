@@ -66,7 +66,7 @@ def post(
 
 @pytest.fixture
 def hook_file() -> str:
-  """A hook file of the `on-prompt` point: it records its surfaces and sets a value."""
+  """A hook file of the `on-prompt` surface: it records its values and sets a value."""
   path = hooks.ROOT / "hooks" / "prompt_probe.py"
   path.parent.mkdir(parents=True, exist_ok=True)
   dump = path.with_suffix(".json")
@@ -164,7 +164,7 @@ def test_no_reasoning_model(
 
 
 def ladder_file(monkeypatch: pytest.MonkeyPatch) -> None:
-  """Write the shipped hook into the hook folder, and name it in the prompt point."""
+  """Write the shipped hook into the hook folder, and name it in the prompt surface."""
   shipped = (
     Path(__file__).resolve().parents[2] / "hooks" / "owui_auto_reasoning_effort.py"
   )

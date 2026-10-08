@@ -1807,7 +1807,7 @@ assert.strictEqual(probe.listValue('routing', 'switch').length, probe.state.sett
 
 
 def test_app_js_hook_point_chips() -> None:
-  """The hooks table shows the points each file names in its block, and nothing edits them."""
+  """The hooks table shows the surfaces each file names in its block, and nothing edits them."""
   payload = json.dumps(
     {
       "path": "config/daedalus.yml",
@@ -1828,7 +1828,7 @@ def test_app_js_hook_point_chips() -> None:
           "version": "1.2.0",
           "scope": "global",
           "targets": [],
-          "points": ["on-request"],
+          "surfaces": ["on-request"],
           "runs": ["on-request"],
           "enabled": True,
           "problem": "",
@@ -1839,7 +1839,7 @@ def test_app_js_hook_point_chips() -> None:
           "version": "1.0.0",
           "scope": "global",
           "targets": [],
-          "points": ["on-chunk"],
+          "surfaces": ["on-chunk"],
           "runs": ["on-chunk"],
           "enabled": False,
           "problem": "",
@@ -1850,7 +1850,7 @@ def test_app_js_hook_point_chips() -> None:
           "version": "1.0.0",
           "scope": "global",
           "targets": [],
-          "points": [],
+          "surfaces": [],
           "runs": [],
           "enabled": True,
           "problem": "",
@@ -1864,14 +1864,14 @@ def test_app_js_hook_point_chips() -> None:
 probe.state.settings = {payload};
 probe.renderSettings();
 const html = node('settings').innerHTML;
-assert(!html.includes('id="set-hooks-on-request"'), 'the point section left the card body');
-assert(html.includes('<th>Points</th>'), 'the table names its point column');
-assert(html.includes('class="pill on">On request'), 'the point the file names reads on');
+assert(!html.includes('id="set-hooks-on-request"'), 'the surface section left the card body');
+assert(html.includes('<th>Surfaces</th>'), 'the table names its surface column');
+assert(html.includes('class="pill on">On request'), 'the surface the file names reads on');
 assert(html.includes('class="pill off">On chunk'), 'a file that the switch turned off reads dim');
-assert(html.includes('<em class="none">No point</em>'), 'a file that names no point reads none');
-assert(!html.includes('data-hook-point-pick'), 'nothing adds a point');
-assert(!html.includes('data-hook-point-drop'), 'nothing takes a point off');
-assert(!html.includes('class="menu"'), 'no point list opens');
+assert(html.includes('<em class="none">No surface</em>'), 'a file that names no surface reads none');
+assert(!html.includes('data-hook-surface-pick'), 'nothing adds a surface');
+assert(!html.includes('data-hook-surface-drop'), 'nothing takes a surface off');
+assert(!html.includes('class="menu"'), 'no surface list opens');
 assert(html.includes('>bundled<'), 'a file with no source reads bundled');
 """,
   )
@@ -2384,7 +2384,7 @@ def _tar() -> bytes:
       text = (
         "# ---\n"
         f"# version: {version}\n"
-        "# points: [on-answer]\n"
+        "# surfaces: [on-answer]\n"
         "# ---\n"
         "def on_answer(answer, model):\n"
         "  return answer\n"
@@ -2434,7 +2434,7 @@ def test_app_js_hooks_manager_renders() -> None:
           "version": "1.2.0",
           "scope": "provider",
           "targets": ["openrouter"],
-          "points": ["on-answer"],
+          "surfaces": ["on-answer"],
           "enabled": True,
           "problem": "",
           "record": {
@@ -2450,9 +2450,9 @@ def test_app_js_hooks_manager_renders() -> None:
           "version": "",
           "scope": "",
           "targets": [],
-          "points": [],
+          "surfaces": [],
           "enabled": False,
-          "problem": "unknown point 'on-later'",
+          "problem": "unknown surface 'on-later'",
           "record": {},
         },
       ],
@@ -2486,7 +2486,7 @@ assert(html.includes('data-hook-source-add') && html.includes('data-hook-source-
 assert(html.includes('data-hook-toggle="one.py"') && html.includes('data-hook-toggle="bad.py"'), '1 switch per file');
 assert(html.includes('>1.2.0<') && html.includes('provider: openrouter'), 'the version and the scope of a file');
 assert(html.includes('owner/name@ccccccc'), 'the source of an installed file');
-assert(html.includes('unknown point'), 'a bad block shows its problem');
+assert(html.includes('unknown surface'), 'a bad block shows its problem');
 assert(!html.includes('data-hook-take'), 'no scan before a repo is picked');
 probe.setListValue('hooks', 'disabled', []);
 assert(JSON.stringify(probe.settingsChanges().hooks.disabled) === '[]', 'the off names reach the payload');
@@ -2532,7 +2532,7 @@ const rows = [
   { name: 'any.py', scope: 'global', targets: [] },
   { name: 'or.py', scope: 'provider', targets: ['openrouter'] },
   { name: 'gpt.py', scope: 'model', targets: ['gpt-4o'] },
-  { name: 'bad.py', scope: 'global', targets: [], problem: 'unknown point' },
+  { name: 'bad.py', scope: 'global', targets: [], problem: 'unknown surface' },
 ];
 assert.strictEqual(sandbox.hookFit(rows[0], 'provider', 'groq'), true);
 assert.strictEqual(sandbox.hookFit(rows[1], 'provider', 'openrouter'), true);
@@ -2573,7 +2573,7 @@ def test_hook_rows_and_update(
     "version": "1.2.0",
     "scope": "provider",
     "targets": ["p"],
-    "points": [],
+    "surfaces": [],
     "runs": [],
     "enabled": True,
     "problem": "",
@@ -2825,7 +2825,7 @@ def test_files(
     "on-request": ["hooks/owui_auto_reasoning_effort.py", "hooks/picked.py"],
     "on-prompt": [],
     "on-chunk": [],
-  }, "the save applies each request hook of the point"
+  }, "the save applies each request hook of the surface"
   assert (
     client.put(
       "/ui/api/settings", json={"changes": {"hooks": {"on-request": []}}}
