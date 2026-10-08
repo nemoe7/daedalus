@@ -101,6 +101,22 @@ async def test_events() -> None:
   assert not live.queues, "a closed stream leaves no queue"
 
 
+def test_the_live_clocks_count_in_whole_milliseconds() -> None:
+  """The live list counts in whole milliseconds, so no age, ttft or seconds carries a fraction of a ms."""
+  source = Path(dashboard.__file__).read_text(encoding="utf-8")
+  view = source[source.index("def view(self, key") : source.index("def send(")]
+  for needle in (
+    'round((now - row["started"]) * 1000) / 1000',
+    'round((now - row["attempt_started"]) * 1000) / 1000',
+    'round((row["first"] - row["attempt_started"]) * 1000) / 1000',
+  ):
+    assert needle in view, needle
+  assert 'round((now - row["started"], 3)' not in view, "no fractions of a ms in the ages"
+  record = source[source.index("def record(") : source.index("def live_update(")]
+  assert "round(seconds * 1000) / 1000" in record, "the seconds of a row count in whole ms"
+  assert "round(seconds, 3)" not in record
+
+
 def test_url_session() -> None:
   session = dashboard.cookie(dashboard.secret(), time.time())
 

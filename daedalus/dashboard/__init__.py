@@ -145,10 +145,13 @@ class Live:
       for name, value in row.items()
       if name not in {"started", "attempt_started", "first"}
     }
-    shown["age"] = round(now - row["started"], 3)
-    shown["attempt_age"] = round(now - row["attempt_started"], 3)
+    # The clocks count in whole milliseconds, so no age carries a fraction of a ms.
+    shown["age"] = round((now - row["started"]) * 1000) / 1000
+    shown["attempt_age"] = round((now - row["attempt_started"]) * 1000) / 1000
     shown["ttft"] = (
-      None if row["first"] is None else round(row["first"] - row["attempt_started"], 3)
+      None
+      if row["first"] is None
+      else round((row["first"] - row["attempt_started"]) * 1000) / 1000
     )
     return shown
 
@@ -254,7 +257,8 @@ def record(
   for key in ("pool", "routed"):
     if found.get(key):
       found[key] = router.pool_name(found[key])
-  row = {"at": time.time(), "status": status, "seconds": round(seconds, 3), **found}
+  # The seconds of the row count in whole milliseconds, as the clocks of the live list do.
+  row = {"at": time.time(), "status": status, "seconds": round(seconds * 1000) / 1000, **found}
   if cancelled:
     row["cancelled"] = True
   HISTORY.add(row)
