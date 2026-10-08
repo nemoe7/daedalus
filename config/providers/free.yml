@@ -36,6 +36,11 @@ cloudflare:
 
   models:
     "@cf/qwen/qwq-32b": { max_input_tokens: 20000, max_output_tokens: 4000 }
+    # The ladders of the Workers AI docs: gpt-oss takes low, medium and high, and qwen3.8 takes
+    # low, medium and xhigh, wider than the coded low and medium of the block.
+    "@cf/openai/gpt-oss-120b": { supported_reasoning_efforts: [low, medium, high] }
+    "@cf/openai/gpt-oss-20b": { supported_reasoning_efforts: [low, medium, high] }
+    "@cf/qwen/qwen3.8-27b": { supported_reasoning_efforts: [low, medium, xhigh] }
     # Image input: FLUX.2 edits with up to 4 input images, in daedalus/photos.
     "*flux-2*": { supports_vision: true }
     # Clef answers typed questions with probabilities, not chat text, although Workers AI lists it as text.
@@ -71,16 +76,18 @@ gemini:
       - gemini-3.5-flash-lite*
       - gemini-3-flash-preview
   models:
+    # The ladders of the Gemini docs: 3.7 and 3.8 flash reject MINIMAL, and the rest of the 3.x
+    # flash line and the gemma-4 line name minimal to high.
     gemini-3-flash-preview: { rpm: 5, tpm: 250000 }
-    gemini-3.1-flash-lite: { rpm: 15, tpm: 250000 }
-    gemini-3.1-flash-lite-preview: { rpm: 15, tpm: 250000 }
-    gemini-3.5-flash: { rpm: 5, tpm: 250000 }
-    gemini-3.5-flash-lite: { rpm: 15, tpm: 250000 }
-    gemini-3.6-flash: { rpm: 5, tpm: 250000 }
-    gemini-3.7-flash: { rpm: 5, tpm: 250000 }
-    gemini-3.8-flash: { rpm: 5, tpm: 250000 }
-    gemma-4-26b-a4b-it: { rpm: 30, tpm: 16000 }
-    gemma-4-31b-it: { rpm: 30, tpm: 16000 }
+    gemini-3.1-flash-lite: { rpm: 15, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }
+    gemini-3.1-flash-lite-preview: { rpm: 15, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }
+    gemini-3.5-flash: { rpm: 5, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }
+    gemini-3.5-flash-lite: { rpm: 15, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }
+    gemini-3.6-flash: { rpm: 5, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }
+    gemini-3.7-flash: { rpm: 5, tpm: 250000, supported_reasoning_efforts: [low, medium, high] }
+    gemini-3.8-flash: { rpm: 5, tpm: 250000, supported_reasoning_efforts: [low, medium, high] }
+    gemma-4-26b-a4b-it: { rpm: 30, tpm: 16000, supported_reasoning_efforts: [minimal, low, medium, high] }
+    gemma-4-31b-it: { rpm: 30, tpm: 16000, supported_reasoning_efforts: [minimal, low, medium, high] }
     "gemini-3*-tts*": { mode: audio_speech, rpm: 3, tpm: 10000 }
     "gemini-3*-transcribe": { mode: audio_transcription, rpm: 3, tpm: 10000 }
 

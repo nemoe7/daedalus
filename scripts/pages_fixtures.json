@@ -115,8 +115,9 @@
     {
       "blocks": {
         "cloudflare": {
-          "account_id": "env:CLOUDFLARE_ACCOUNT_ID",
           "api_key": "env:CLOUDFLARE_API_KEY",
+          "account_id": "env:CLOUDFLARE_ACCOUNT_ID",
+          "order": 2,
           "discovery_match": {
             "require_workers_paid": false
           },
@@ -124,19 +125,6 @@
             "*llama-guard*",
             "*llama-3.2-11b-vision*"
           ],
-          "models": {
-            "*flux-2*": {
-              "supports_vision": true
-            },
-            "@cf/cloudflare/clef*": {
-              "mode": "decisions"
-            },
-            "@cf/qwen/qwq-32b": {
-              "max_input_tokens": 20000,
-              "max_output_tokens": 4000
-            }
-          },
-          "order": 2,
           "tier": {
             "TIER-A": [
               "*qwen3.*",
@@ -166,10 +154,44 @@
               "@cf/utter-project/*",
               "*-lora"
             ]
+          },
+          "models": {
+            "@cf/qwen/qwq-32b": {
+              "max_input_tokens": 20000,
+              "max_output_tokens": 4000
+            },
+            "@cf/openai/gpt-oss-120b": {
+              "supported_reasoning_efforts": [
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "@cf/openai/gpt-oss-20b": {
+              "supported_reasoning_efforts": [
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "@cf/qwen/qwen3.8-27b": {
+              "supported_reasoning_efforts": [
+                "low",
+                "medium",
+                "xhigh"
+              ]
+            },
+            "*flux-2*": {
+              "supports_vision": true
+            },
+            "@cf/cloudflare/clef*": {
+              "mode": "decisions"
+            }
           }
         },
         "gemini": {
           "api_key": "env:GEMINI_API_KEY",
+          "reasoning_effort": "high",
           "exclude": [
             "aqa",
             "*nano-banana*",
@@ -185,59 +207,6 @@
             "*-live*",
             "lyria-*"
           ],
-          "models": {
-            "gemini-3*-transcribe": {
-              "mode": "audio_transcription",
-              "rpm": 3,
-              "tpm": 10000
-            },
-            "gemini-3*-tts*": {
-              "mode": "audio_speech",
-              "rpm": 3,
-              "tpm": 10000
-            },
-            "gemini-3-flash-preview": {
-              "rpm": 5,
-              "tpm": 250000
-            },
-            "gemini-3.1-flash-lite": {
-              "rpm": 15,
-              "tpm": 250000
-            },
-            "gemini-3.1-flash-lite-preview": {
-              "rpm": 15,
-              "tpm": 250000
-            },
-            "gemini-3.5-flash": {
-              "rpm": 5,
-              "tpm": 250000
-            },
-            "gemini-3.5-flash-lite": {
-              "rpm": 15,
-              "tpm": 250000
-            },
-            "gemini-3.6-flash": {
-              "rpm": 5,
-              "tpm": 250000
-            },
-            "gemini-3.7-flash": {
-              "rpm": 5,
-              "tpm": 250000
-            },
-            "gemini-3.8-flash": {
-              "rpm": 5,
-              "tpm": 250000
-            },
-            "gemma-4-26b-a4b-it": {
-              "rpm": 30,
-              "tpm": 16000
-            },
-            "gemma-4-31b-it": {
-              "rpm": 30,
-              "tpm": 16000
-            }
-          },
-          "reasoning_effort": "high",
           "tier": {
             "TIER-A": [
               "gemini-3.8-flash",
@@ -253,39 +222,120 @@
               "gemini-3.5-flash-lite*",
               "gemini-3-flash-preview"
             ]
+          },
+          "models": {
+            "gemini-3-flash-preview": {
+              "rpm": 5,
+              "tpm": 250000
+            },
+            "gemini-3.1-flash-lite": {
+              "rpm": 15,
+              "tpm": 250000,
+              "supported_reasoning_efforts": [
+                "minimal",
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "gemini-3.1-flash-lite-preview": {
+              "rpm": 15,
+              "tpm": 250000,
+              "supported_reasoning_efforts": [
+                "minimal",
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "gemini-3.5-flash": {
+              "rpm": 5,
+              "tpm": 250000,
+              "supported_reasoning_efforts": [
+                "minimal",
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "gemini-3.5-flash-lite": {
+              "rpm": 15,
+              "tpm": 250000,
+              "supported_reasoning_efforts": [
+                "minimal",
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "gemini-3.6-flash": {
+              "rpm": 5,
+              "tpm": 250000,
+              "supported_reasoning_efforts": [
+                "minimal",
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "gemini-3.7-flash": {
+              "rpm": 5,
+              "tpm": 250000,
+              "supported_reasoning_efforts": [
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "gemini-3.8-flash": {
+              "rpm": 5,
+              "tpm": 250000,
+              "supported_reasoning_efforts": [
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "gemma-4-26b-a4b-it": {
+              "rpm": 30,
+              "tpm": 16000,
+              "supported_reasoning_efforts": [
+                "minimal",
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "gemma-4-31b-it": {
+              "rpm": 30,
+              "tpm": 16000,
+              "supported_reasoning_efforts": [
+                "minimal",
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "gemini-3*-tts*": {
+              "mode": "audio_speech",
+              "rpm": 3,
+              "tpm": 10000
+            },
+            "gemini-3*-transcribe": {
+              "mode": "audio_transcription",
+              "rpm": 3,
+              "tpm": 10000
+            }
           }
         },
         "groq": {
           "api_key": "env:GROQ_API_KEY",
+          "rpm": 30,
+          "tpm": 8000,
           "exclude": [
             "*prompt-guard*",
             "*safeguard*"
           ],
-          "models": {
-            "*orpheus*": {
-              "mode": "audio_speech",
-              "rpm": 10,
-              "tpm": 1200
-            },
-            "allam-2-7b": {
-              "max_input_tokens": 2048
-            },
-            "openai/gpt-oss-120b": {
-              "max_input_tokens": 7000
-            },
-            "openai/gpt-oss-20b": {
-              "max_input_tokens": 7000
-            },
-            "qwen/qwen3.8-27b": {
-              "max_input_tokens": 7000,
-              "max_output_tokens": 16384
-            },
-            "whisper-*": {
-              "mode": "audio_transcription",
-              "rpm": 20
-            }
-          },
-          "rpm": 30,
           "tier": {
             "TIER-A": [
               "openai/gpt-oss-120b",
@@ -298,15 +348,38 @@
               "allam-2-7b"
             ]
           },
-          "tpm": 8000
+          "models": {
+            "openai/gpt-oss-120b": {
+              "max_input_tokens": 7000
+            },
+            "openai/gpt-oss-20b": {
+              "max_input_tokens": 7000
+            },
+            "qwen/qwen3.8-27b": {
+              "max_input_tokens": 7000,
+              "max_output_tokens": 16384
+            },
+            "allam-2-7b": {
+              "max_input_tokens": 2048
+            },
+            "whisper-*": {
+              "mode": "audio_transcription",
+              "rpm": 20
+            },
+            "*orpheus*": {
+              "mode": "audio_speech",
+              "rpm": 10,
+              "tpm": 1200
+            }
+          }
         },
         "kilo": {
           "api_key": "env:KILO_API_KEY",
+          "hourly_requests": 200,
           "exclude": [
             "*content-safety*",
             "!*:free"
           ],
-          "hourly_requests": 200,
           "tier": {
             "TIER-A": [
               "glm-5*",
@@ -328,17 +401,6 @@
         },
         "mistral": {
           "api_key": "env:MISTRAL_API_KEY",
-          "models": {
-            "*embed*": {
-              "mode": "embedding"
-            },
-            "voxtral*-tts*": {
-              "mode": "audio_speech"
-            },
-            "voxtral-mini*": {
-              "mode": "audio_transcription"
-            }
-          },
           "tier": {
             "TIER-A": [
               "mistral-medium-*"
@@ -357,6 +419,17 @@
               "ministral-8b-*",
               "ministral-3b-*"
             ]
+          },
+          "models": {
+            "voxtral-mini*": {
+              "mode": "audio_transcription"
+            },
+            "voxtral*-tts*": {
+              "mode": "audio_speech"
+            },
+            "*embed*": {
+              "mode": "embedding"
+            }
           }
         },
         "openrouter": {
@@ -389,6 +462,15 @@
           "exclude": [
             "*"
           ],
+          "tier": {
+            "TIER-B": [
+              "glm-4.5-flash",
+              "glm-4.7-flash"
+            ],
+            "TIER-D": [
+              "glm-4.6v-flash"
+            ]
+          },
           "models": {
             "glm-4.5-flash": {
               "max_input_tokens": 131072,
@@ -408,15 +490,6 @@
               "rpm": 60,
               "tpm": 8000
             }
-          },
-          "tier": {
-            "TIER-B": [
-              "glm-4.5-flash",
-              "glm-4.7-flash"
-            ],
-            "TIER-D": [
-              "glm-4.6v-flash"
-            ]
           }
         }
       },
@@ -424,7 +497,7 @@
       "main": true,
       "path": "config/providers/free.yml",
       "shadow": null,
-      "text": "cloudflare:\n  api_key: env:CLOUDFLARE_API_KEY\n  account_id: env:CLOUDFLARE_ACCOUNT_ID\n  # After the order 1 models: the daily Neurons go to images and transcription first.\n  order: 2\n  discovery_match:\n    require_workers_paid: false\n  exclude:\n    - \"*llama-guard*\"\n    - \"*llama-3.2-11b-vision*\"\n  tier:\n    TIER-A:\n      - \"*qwen3.*\"\n      - \"*nemotron-3-120b-a12b*\"\n      - \"@cf/openai/gpt-oss-120b\"\n    TIER-B:\n      - \"*qwen3-30b-a3b*\"\n      - \"*deepseek-r1*\"\n      - \"@cf/openai/gpt-oss-20b\"\n      - \"@cf/zai-org/glm-4.7-flash\"\n      - \"@cf/google/gemma-4-*\"\n      - \"@cf/qwen/qwq-32b\"\n    TIER-C:\n      - \"@cf/meta/llama-3.3-70b-*\"\n      - \"@cf/meta/llama-4-scout-*\"\n      - \"@cf/mistralai/mistral-small-*\"\n      - \"@cf/qwen/qwen2.5-coder-*\"\n      - \"@cf/aisingapore/*\"\n    TIER-D:\n      - \"@cf/meta/llama-3.1-8b-*\"\n      - \"@cf/meta/llama-3.2-*\"\n      - \"@cf/ibm-granite/*\"\n      - \"@cf/swiss-ai/*\"\n      - \"@cf/utter-project/*\"\n      - \"*-lora\"\n\n  models:\n    \"@cf/qwen/qwq-32b\": { max_input_tokens: 20000, max_output_tokens: 4000 }\n    # Image input: FLUX.2 edits with up to 4 input images, in daedalus/photos.\n    \"*flux-2*\": { supports_vision: true }\n    # Clef answers typed questions with probabilities, not chat text, although Workers AI lists it as text.\n    \"@cf/cloudflare/clef*\": { mode: decisions }\n\ngemini:\n  api_key: env:GEMINI_API_KEY\n  reasoning_effort: high\n  exclude:\n    - aqa\n    - \"*nano-banana*\"\n    - veo*\n    - \"*robotics*\"\n    - antigravity*\n    - \"*-latest\"\n    - gemini-2.5-*\n    - gemini-3.1-pro-preview*\n    - deep-research*\n    - \"*omni*\"\n    - \"*-image*\"\n    - \"*-live*\"\n    - lyria-*\n  tier:\n    TIER-A:\n      - gemini-3.8-flash\n      - gemini-3.7-flash\n    TIER-B:\n      - gemini-3.5-flash\n      - gemini-3.6-flash\n      - gemma-4-*\n    TIER-C:\n      - gemini-3.1-flash*\n      - gemini-3.5-flash-lite*\n      - gemini-3-flash-preview\n  models:\n    gemini-3-flash-preview: { rpm: 5, tpm: 250000 }\n    gemini-3.1-flash-lite: { rpm: 15, tpm: 250000 }\n    gemini-3.1-flash-lite-preview: { rpm: 15, tpm: 250000 }\n    gemini-3.5-flash: { rpm: 5, tpm: 250000 }\n    gemini-3.5-flash-lite: { rpm: 15, tpm: 250000 }\n    gemini-3.6-flash: { rpm: 5, tpm: 250000 }\n    gemini-3.7-flash: { rpm: 5, tpm: 250000 }\n    gemini-3.8-flash: { rpm: 5, tpm: 250000 }\n    gemma-4-26b-a4b-it: { rpm: 30, tpm: 16000 }\n    gemma-4-31b-it: { rpm: 30, tpm: 16000 }\n    \"gemini-3*-tts*\": { mode: audio_speech, rpm: 3, tpm: 10000 }\n    \"gemini-3*-transcribe\": { mode: audio_transcription, rpm: 3, tpm: 10000 }\n\ngroq:\n  api_key: env:GROQ_API_KEY\n  # The free limits of https://console.groq.com/docs/rate-limits\n  rpm: 30\n  tpm: 8000\n  exclude:\n    - \"*prompt-guard*\"\n    - \"*safeguard*\"\n  tier:\n    TIER-A:\n      - openai/gpt-oss-120b\n      - qwen/qwen3.8-27b\n    TIER-B:\n      - openai/gpt-oss-20b\n    TIER-D:\n      - allam-2-7b\n  models:\n    openai/gpt-oss-120b: { max_input_tokens: 7000 }\n    openai/gpt-oss-20b: { max_input_tokens: 7000 }\n    qwen/qwen3.8-27b: { max_input_tokens: 7000, max_output_tokens: 16384 }\n    # allam-2-7b has a 4096 combined window, so the input cap leaves room for the output.\n    allam-2-7b: { max_input_tokens: 2048 }\n    \"whisper-*\": { mode: audio_transcription, rpm: 20 }\n    \"*orpheus*\": { mode: audio_speech, rpm: 10, tpm: 1200 }\n\nkilo:\n  api_key: env:KILO_API_KEY\n  # Free models: 200 requests per IP per hour, https://kilo.ai/docs/gateway/usage-and-billing\n  hourly_requests: 200\n  exclude:\n    - \"*content-safety*\"\n    - \"!*:free\"\n  tier:\n    TIER-A:\n      - \"glm-5*\"\n      - \"inclusionai/ling-3.0-flash*\"\n      - \"nvidia/nemotron-3-super-*\"\n      - \"nvidia/nemotron-3-ultra-*\"\n      - \"poolside/laguna-s-*\"\n      - \"qwen/qwen3.8-27b*\"\n      - \"stepfun/step-3.7-flash*\"\n      - \"thinkingmachines/inkling*\"\n    TIER-B:\n      - \"*\" # every other model; a more specific pattern wins\n    TIER-D:\n      - \"liquid/lfm-2.5-2.6b*\"\n\nmistral:\n  api_key: env:MISTRAL_API_KEY\n  tier:\n    TIER-A:\n      - \"mistral-medium-*\"\n    TIER-B:\n      - \"mistral-small-2*\"\n    TIER-C:\n      - \"mistral-large-*\"\n      - \"codestral*\"\n      - \"*leanstral*\"\n      - \"ministral-14b-*\"\n      - \"voxtral-small-*\"\n    TIER-D:\n      - \"ministral-8b-*\"\n      - \"ministral-3b-*\"\n  models:\n    \"voxtral-mini*\": { mode: audio_transcription }\n    \"voxtral*-tts*\": { mode: audio_speech } # the TTS models speak, they do not transcribe\n    \"*embed*\": { mode: embedding }\n\nopenrouter:\n  api_key: env:OPENROUTER_API_KEY\n  exclude:\n    - \"*content-safety*\"\n    - recraft/* # image generation needs a credit balance, also for the :free ids\n    - \"!*:free\"\n  tier:\n    TIER-A:\n      - \"inclusionai/ling-3.0-flash*\"\n      - \"nvidia/nemotron-3-super-*\"\n      - \"nvidia/nemotron-3-ultra-*\"\n      - \"poolside/laguna-s-*\"\n      - \"qwen/qwen3.8-27b*\"\n      - \"stepfun/step-3.7-flash*\"\n      - \"thinkingmachines/inkling*\"\n    TIER-B:\n      - \"*\" # every other model; a more specific pattern wins\n    TIER-D:\n      - \"liquid/lfm-2.5-2.6b*\"\n\nz-ai:\n  api_key: env:ZAI_API_KEY\n  exclude:\n    - \"*\"\n  tier:\n    TIER-B:\n      - glm-4.5-flash\n      - glm-4.7-flash\n    TIER-D:\n      - glm-4.6v-flash\n  models:\n    glm-4.5-flash: { max_input_tokens: 131072, max_output_tokens: 98304, rpm: 60, tpm: 8000 }\n    glm-4.6v-flash: { max_input_tokens: 131072, max_output_tokens: 98304, rpm: 60, tpm: 8000 }\n    glm-4.7-flash: { max_input_tokens: 131072, max_output_tokens: 131072, rpm: 60, tpm: 8000 }\n"
+      "text": "cloudflare:\n  api_key: env:CLOUDFLARE_API_KEY\n  account_id: env:CLOUDFLARE_ACCOUNT_ID\n  # After the order 1 models: the daily Neurons go to images and transcription first.\n  order: 2\n  discovery_match:\n    require_workers_paid: false\n  exclude:\n    - \"*llama-guard*\"\n    - \"*llama-3.2-11b-vision*\"\n  tier:\n    TIER-A:\n      - \"*qwen3.*\"\n      - \"*nemotron-3-120b-a12b*\"\n      - \"@cf/openai/gpt-oss-120b\"\n    TIER-B:\n      - \"*qwen3-30b-a3b*\"\n      - \"*deepseek-r1*\"\n      - \"@cf/openai/gpt-oss-20b\"\n      - \"@cf/zai-org/glm-4.7-flash\"\n      - \"@cf/google/gemma-4-*\"\n      - \"@cf/qwen/qwq-32b\"\n    TIER-C:\n      - \"@cf/meta/llama-3.3-70b-*\"\n      - \"@cf/meta/llama-4-scout-*\"\n      - \"@cf/mistralai/mistral-small-*\"\n      - \"@cf/qwen/qwen2.5-coder-*\"\n      - \"@cf/aisingapore/*\"\n    TIER-D:\n      - \"@cf/meta/llama-3.1-8b-*\"\n      - \"@cf/meta/llama-3.2-*\"\n      - \"@cf/ibm-granite/*\"\n      - \"@cf/swiss-ai/*\"\n      - \"@cf/utter-project/*\"\n      - \"*-lora\"\n\n  models:\n    \"@cf/qwen/qwq-32b\": { max_input_tokens: 20000, max_output_tokens: 4000 }\n    # The ladders of the Workers AI docs: gpt-oss takes low, medium and high, and qwen3.8 takes\n    # low, medium and xhigh, wider than the coded low and medium of the block.\n    \"@cf/openai/gpt-oss-120b\": { supported_reasoning_efforts: [low, medium, high] }\n    \"@cf/openai/gpt-oss-20b\": { supported_reasoning_efforts: [low, medium, high] }\n    \"@cf/qwen/qwen3.8-27b\": { supported_reasoning_efforts: [low, medium, xhigh] }\n    # Image input: FLUX.2 edits with up to 4 input images, in daedalus/photos.\n    \"*flux-2*\": { supports_vision: true }\n    # Clef answers typed questions with probabilities, not chat text, although Workers AI lists it as text.\n    \"@cf/cloudflare/clef*\": { mode: decisions }\n\ngemini:\n  api_key: env:GEMINI_API_KEY\n  reasoning_effort: high\n  exclude:\n    - aqa\n    - \"*nano-banana*\"\n    - veo*\n    - \"*robotics*\"\n    - antigravity*\n    - \"*-latest\"\n    - gemini-2.5-*\n    - gemini-3.1-pro-preview*\n    - deep-research*\n    - \"*omni*\"\n    - \"*-image*\"\n    - \"*-live*\"\n    - lyria-*\n  tier:\n    TIER-A:\n      - gemini-3.8-flash\n      - gemini-3.7-flash\n    TIER-B:\n      - gemini-3.5-flash\n      - gemini-3.6-flash\n      - gemma-4-*\n    TIER-C:\n      - gemini-3.1-flash*\n      - gemini-3.5-flash-lite*\n      - gemini-3-flash-preview\n  models:\n    # The ladders of the Gemini docs: 3.7 and 3.8 flash reject MINIMAL, and the rest of the 3.x\n    # flash line and the gemma-4 line name minimal to high.\n    gemini-3-flash-preview: { rpm: 5, tpm: 250000 }\n    gemini-3.1-flash-lite: { rpm: 15, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }\n    gemini-3.1-flash-lite-preview: { rpm: 15, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }\n    gemini-3.5-flash: { rpm: 5, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }\n    gemini-3.5-flash-lite: { rpm: 15, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }\n    gemini-3.6-flash: { rpm: 5, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }\n    gemini-3.7-flash: { rpm: 5, tpm: 250000, supported_reasoning_efforts: [low, medium, high] }\n    gemini-3.8-flash: { rpm: 5, tpm: 250000, supported_reasoning_efforts: [low, medium, high] }\n    gemma-4-26b-a4b-it: { rpm: 30, tpm: 16000, supported_reasoning_efforts: [minimal, low, medium, high] }\n    gemma-4-31b-it: { rpm: 30, tpm: 16000, supported_reasoning_efforts: [minimal, low, medium, high] }\n    \"gemini-3*-tts*\": { mode: audio_speech, rpm: 3, tpm: 10000 }\n    \"gemini-3*-transcribe\": { mode: audio_transcription, rpm: 3, tpm: 10000 }\n\ngroq:\n  api_key: env:GROQ_API_KEY\n  # The free limits of https://console.groq.com/docs/rate-limits\n  rpm: 30\n  tpm: 8000\n  exclude:\n    - \"*prompt-guard*\"\n    - \"*safeguard*\"\n  tier:\n    TIER-A:\n      - openai/gpt-oss-120b\n      - qwen/qwen3.8-27b\n    TIER-B:\n      - openai/gpt-oss-20b\n    TIER-D:\n      - allam-2-7b\n  models:\n    openai/gpt-oss-120b: { max_input_tokens: 7000 }\n    openai/gpt-oss-20b: { max_input_tokens: 7000 }\n    qwen/qwen3.8-27b: { max_input_tokens: 7000, max_output_tokens: 16384 }\n    # allam-2-7b has a 4096 combined window, so the input cap leaves room for the output.\n    allam-2-7b: { max_input_tokens: 2048 }\n    \"whisper-*\": { mode: audio_transcription, rpm: 20 }\n    \"*orpheus*\": { mode: audio_speech, rpm: 10, tpm: 1200 }\n\nkilo:\n  api_key: env:KILO_API_KEY\n  # Free models: 200 requests per IP per hour, https://kilo.ai/docs/gateway/usage-and-billing\n  hourly_requests: 200\n  exclude:\n    - \"*content-safety*\"\n    - \"!*:free\"\n  tier:\n    TIER-A:\n      - \"glm-5*\"\n      - \"inclusionai/ling-3.0-flash*\"\n      - \"nvidia/nemotron-3-super-*\"\n      - \"nvidia/nemotron-3-ultra-*\"\n      - \"poolside/laguna-s-*\"\n      - \"qwen/qwen3.8-27b*\"\n      - \"stepfun/step-3.7-flash*\"\n      - \"thinkingmachines/inkling*\"\n    TIER-B:\n      - \"*\" # every other model; a more specific pattern wins\n    TIER-D:\n      - \"liquid/lfm-2.5-2.6b*\"\n\nmistral:\n  api_key: env:MISTRAL_API_KEY\n  tier:\n    TIER-A:\n      - \"mistral-medium-*\"\n    TIER-B:\n      - \"mistral-small-2*\"\n    TIER-C:\n      - \"mistral-large-*\"\n      - \"codestral*\"\n      - \"*leanstral*\"\n      - \"ministral-14b-*\"\n      - \"voxtral-small-*\"\n    TIER-D:\n      - \"ministral-8b-*\"\n      - \"ministral-3b-*\"\n  models:\n    \"voxtral-mini*\": { mode: audio_transcription }\n    \"voxtral*-tts*\": { mode: audio_speech } # the TTS models speak, they do not transcribe\n    \"*embed*\": { mode: embedding }\n\nopenrouter:\n  api_key: env:OPENROUTER_API_KEY\n  exclude:\n    - \"*content-safety*\"\n    - recraft/* # image generation needs a credit balance, also for the :free ids\n    - \"!*:free\"\n  tier:\n    TIER-A:\n      - \"inclusionai/ling-3.0-flash*\"\n      - \"nvidia/nemotron-3-super-*\"\n      - \"nvidia/nemotron-3-ultra-*\"\n      - \"poolside/laguna-s-*\"\n      - \"qwen/qwen3.8-27b*\"\n      - \"stepfun/step-3.7-flash*\"\n      - \"thinkingmachines/inkling*\"\n    TIER-B:\n      - \"*\" # every other model; a more specific pattern wins\n    TIER-D:\n      - \"liquid/lfm-2.5-2.6b*\"\n\nz-ai:\n  api_key: env:ZAI_API_KEY\n  exclude:\n    - \"*\"\n  tier:\n    TIER-B:\n      - glm-4.5-flash\n      - glm-4.7-flash\n    TIER-D:\n      - glm-4.6v-flash\n  models:\n    glm-4.5-flash: { max_input_tokens: 131072, max_output_tokens: 98304, rpm: 60, tpm: 8000 }\n    glm-4.6v-flash: { max_input_tokens: 131072, max_output_tokens: 98304, rpm: 60, tpm: 8000 }\n    glm-4.7-flash: { max_input_tokens: 131072, max_output_tokens: 131072, rpm: 60, tpm: 8000 }\n"
     },
     {
       "blocks": {

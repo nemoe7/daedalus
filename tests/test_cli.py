@@ -176,8 +176,9 @@ def test_dump_modes(tmp_path: Path, monkeypatch) -> None:
   assert calls == ["migrate", ("catalog", "csv")], calls
   cli.run(["dump", "models", "--format", "json"])
   assert calls == ["migrate", ("catalog", "csv"), "migrate"], calls
+  # The row names no reasoning, so the dump carries no ladder for it.
   assert json.loads((tmp_path / "models.json").read_text("utf-8")) == [
-    {**rows[0], "tier": None, "supported_efforts": ["none", "low", "medium", "high"]}
+    {**rows[0], "tier": None, "supported_efforts": None}
   ]
   cli.run(["dump", "all", "-f", "csv"])
   assert calls == [
@@ -195,7 +196,7 @@ def test_dump_modes(tmp_path: Path, monkeypatch) -> None:
         "flags": '["vision"]',
         "mode": "chat",
         "tier": "",
-        "supported_efforts": '["none","low","medium","high"]',
+        "supported_efforts": "",
       }
     ]
 
@@ -244,10 +245,16 @@ def test_dump_models_carries_the_evaluated_efforts(tmp_path: Path, monkeypatch) 
     [
       {
         "id": "p/one",
+        "supports_reasoning": True,
         "supported_efforts": json.dumps(["max", "high", "low"]),
       },
-      {"id": "q/two"},
-      {"id": "r/three", "supported_efforts": json.dumps(["high", 7, "", "low"])},
+      {"id": "q/two", "supports_reasoning": True},
+      {
+        "id": "r/three",
+        "supports_reasoning": True,
+        "supported_efforts": json.dumps(["high", 7, "", "low"]),
+      },
+      {"id": "s/four", "supported_efforts": json.dumps(["high"])},
     ]
   )
   cli.dump_models("json")
@@ -256,6 +263,7 @@ def test_dump_models_carries_the_evaluated_efforts(tmp_path: Path, monkeypatch) 
     "p/one": ["xhigh"],
     "q/two": ["low", "high"],
     "r/three": ["high", "low"],
+    "s/four": None,
   }, rows
   cli.dump_models("csv")
   with (tmp_path / "dump" / "models.csv").open(encoding="utf-8", newline="") as source:
@@ -264,6 +272,7 @@ def test_dump_models_carries_the_evaluated_efforts(tmp_path: Path, monkeypatch) 
     "p/one": '["xhigh"]',
     "q/two": '["low","high"]',
     "r/three": '["high","low"]',
+    "s/four": "",
   }, found
 
 
