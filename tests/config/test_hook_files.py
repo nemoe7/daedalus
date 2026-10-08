@@ -155,7 +155,9 @@ def test_pick_on_every_answer() -> None:
 def test_a_request_point_runs_each_named_file() -> None:
   """The shipped file names no hook, and a request surface runs each file it names."""
   text = (FOLDER.parent / "config" / "daedalus.yml").read_text()
-  assert "hooks:" not in text, "the shipped file leaves every hook to its own block"
+  assert "on-request:" not in text and "disabled:" not in text, (
+    "the shipped file names no hook, and its initial source stays"
+  )
   entries = {
     "on-request": "hooks/owui_auto_reasoning_effort.py",
     "on-chunk": "hooks/served_model.py",

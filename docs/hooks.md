@@ -306,10 +306,11 @@ hooks:
 | `repo` | `owner/name` or a GitHub URL | The repository of the hook files |
 | `path` | 1 folder in the repo | The folder that holds the `.py` files. daedalus reads the files directly under it |
 | `ref` | 1 branch, a tag or a commit | `main` by default |
-| `auto_update` | true or false | `true` follows the ref at each start. `false`, the default, reads a file only when it is missing from the folder |
+| `auto_update` | true or false | `true` follows the ref at each start. `false`, the default, leaves each file to the Take button |
 
-A start reads a source only when 1 of its files is missing from the folder. An update reads the
-commit of the ref, reads the archive of that commit, and writes each file through a temporary name.
+A start reads a source that sets `auto_update`. The Settings card lists a source, and its Take button
+writes the picked files. An update reads the commit of the ref,
+reads the archive of that commit, and writes each file through a temporary name.
 A request that fails, an archive that does not read, a block the reader refuses or a write that fails all
 keep the files on disk.
 

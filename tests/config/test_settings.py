@@ -31,12 +31,19 @@ def test_load(folder: Path) -> None:
   assert "think hard" in values["routing"]["escalation"], "the default keywords"
   assert values["routing"]["switch"] == ["clanker"]
   shipped_path = Path(__file__).parents[2] / "config" / "daedalus.yml"
-  assert yaml.safe_load(shipped_path.read_text(encoding="utf-8")) is None, (
-    "the shipped file holds no key. The dashboard writes its changes into it"
+  shipped = yaml.safe_load(shipped_path.read_text(encoding="utf-8")) or {}
+  assert set(shipped) <= {"hooks"}, (
+    "the shipped file holds the initial hook source alone"
   )
-  assert settings.load(shipped_path) == values, (
-    "the shipped file leaves every default in place"
+  assert set(shipped.get("hooks") or {}) == {"sources"}, (
+    "no hook runs at the first start. The dashboard writes its other changes into the file"
   )
+  loaded = settings.load(shipped_path)
+  assert loaded["hooks"]["sources"] == [
+    {"repo": "nemoe7/daedalus", "path": "hooks", "ref": "main", "auto_update": False}
+  ], "the shipped file names the repo of the hooks"
+  loaded["hooks"]["sources"] = values["hooks"]["sources"]
+  assert loaded == values, "the shipped file leaves every other default in place"
   path = folder / "daedalus.yml"
   path.write_text("limits:\n  wait: 120\nbalance:\n  fault: 0.25\n", encoding="utf-8")
   values = settings.load(path)
@@ -473,13 +480,19 @@ def test_apply_wires_the_hook_settings(monkeypatch: pytest.MonkeyPatch) -> None:
   )
   try:
     assert hooks.DIR == "mine" and hooks.DISABLED == {"one.py"}
-    assert seen == [
-      (
-        [{"repo": "owner/name", "path": "", "ref": "main", "auto_update": False}],
-        True,
-        hooks.ROOT / "mine",
+    assert seen == [([], True, hooks.ROOT / "mine")], (
+      "a start leaves the file to the Take button"
+    )
+    api.apply_settings(
+      settings.parse(
+        "hooks:\n  sources:\n    - repo: owner/name\n      auto_update: true\n"
       )
-    ]
+    )
+    assert seen[-1] == (
+      [{"repo": "owner/name", "path": "", "ref": "main", "auto_update": True}],
+      True,
+      hooks.ROOT / "hooks",
+    ), "a source with auto_update reads the ref at a start"
   finally:
     api.apply_settings(settings.parse(""))
   assert hooks.DIR == "hooks" and hooks.DISABLED == set()

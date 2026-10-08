@@ -2729,7 +2729,15 @@ def test_files(
     client.put("/ui/api/files", json={"path": path, "text": ""}).status_code == 400
   ), "the Settings page owns the settings file"
   shown = client.get("/ui/api/settings").json()
-  assert shown["file"] == {}, "the shipped file holds no change from the defaults"
+  source = {
+    "repo": "nemoe7/daedalus",
+    "path": "hooks",
+    "ref": "main",
+    "auto_update": False,
+  }
+  assert shown["file"] == {"hooks": {"sources": [source]}}, (
+    "the shipped file holds the initial hook source alone"
+  )
   root = folder / "hooks"
   root.mkdir(parents=True, exist_ok=True)
   (root / "picked.py").write_text(
