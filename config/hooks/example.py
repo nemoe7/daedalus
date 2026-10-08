@@ -8,10 +8,12 @@ Copy it, and name the copy in the hooks list of a model, provider or file:
   hooks:
     - on-upstream: hooks/my_hook.py
 
-A request-level point, such as `on-request`, goes in the `request_hooks` group of `config/daedalus.yml`:
+A request-level point, such as `on-request`, goes in the `hooks` group of `config/daedalus.yml`:
 
-  request_hooks:
+  hooks:
     on-request: [hooks/my_hook.py]
+
+A `points` list in the block above joins those points with no key there.
 
 Each function is optional. daedalus calls only the functions of the points in the list.
 A function gets a copy. It can change the copy and return None, or it can return a new dict.
