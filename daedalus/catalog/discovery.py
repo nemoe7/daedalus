@@ -108,17 +108,12 @@ def cached_snapshot(url: str) -> dict[str, Any] | None:
   return payload if isinstance(payload, dict) else None
 
 
-def worker_count(tasks: int) -> int:
-  """The thread count of a batch: 1 thread per task, capped at the processor count."""
-  return max(1, min(tasks, CORES))
-
-
 def read_each(keys: Iterable[str], read: Callable[[str], Any]) -> dict[str, Any]:
   """Read each key in its own thread, and keep the order of the keys."""
   unique = list(dict.fromkeys(keys))
   if not unique:
     return {}
-  with ThreadPoolExecutor(max_workers=worker_count(len(unique))) as pool:
+  with ThreadPoolExecutor(max_workers=max(1, min(len(unique), CORES))) as pool:
     futures = {key: pool.submit(read, key) for key in unique}
     return {key: future.result() for key, future in futures.items()}
 

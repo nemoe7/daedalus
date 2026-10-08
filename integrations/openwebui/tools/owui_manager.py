@@ -16,6 +16,9 @@ from typing import Any, Literal
 import aiohttp
 from pydantic import BaseModel, Field
 
+# The answer of each tool call without a request context.
+NO_CONTEXT = "Error: Open WebUI request context is unavailable."
+
 
 def _split_ids(value: Any) -> list[str]:
   """Split a comma or newline separated id list into clean, unique ids."""
@@ -332,7 +335,7 @@ class Tools:
       __request__=__request__, __user__=__user__, __event_call__=__event_call__
     ):
       if __request__ is None:
-        return "Error: Open WebUI request context is unavailable."
+        return NO_CONTEXT
       async with await self._open_session(__request__) as session:
         data, err = await self._request(session, "GET", "/knowledge/")
       if err:
@@ -383,7 +386,7 @@ class Tools:
       __event_call__=__event_call__,
     ):
       if __request__ is None:
-        return "Error: Open WebUI request context is unavailable."
+        return NO_CONTEXT
       async with await self._open_session(__request__) as session:
         data, err = await self._directory_listing(session, knowledge_id, directory_id)
       if err:
@@ -440,7 +443,7 @@ class Tools:
     if refusal:
       return refusal
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     name = name.strip()
     if not name:
       return "Error: knowledge base name is empty."
@@ -495,7 +498,7 @@ class Tools:
     if refusal:
       return refusal
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     async with await self._open_session(__request__) as session:
       current, err = await self._request(session, "GET", f"/knowledge/{knowledge_id}")
       if err:
@@ -550,7 +553,7 @@ class Tools:
     if refusal:
       return refusal
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     name = name.strip()
     if not name:
       return "Error: directory name is empty."
@@ -593,7 +596,7 @@ class Tools:
     if err:
       return err
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     created = []
     reused = []
     current = ""
@@ -701,7 +704,7 @@ class Tools:
     if not filename.lower().endswith(".md"):
       filename += ".md"
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     async with await self._open_session(__request__) as session:
       data, err = await self._upload(
         session, knowledge_id, directory_id, filename, content
@@ -759,7 +762,7 @@ class Tools:
     if not filename.lower().endswith(".md"):
       filename += ".md"
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     async with await self._open_session(__request__) as session:
       directory, err = await self._ensure_dirs(session, knowledge_id, parts[:-1])
       if err:
@@ -810,7 +813,7 @@ class Tools:
     if err:
       return err
     if request is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     filename = parts[-1]
     async with await self._open_session(request) as session:
       directory, err = await self._resolve_directory(session, knowledge_id, parts[:-1])
@@ -882,7 +885,7 @@ class Tools:
     if refusal:
       return refusal
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     async with await self._open_session(__request__) as s:
       _, e = await self._request(
         s,
@@ -917,7 +920,7 @@ class Tools:
       __event_call__=__event_call__,
     ):
       if __request__ is None:
-        return "Error: Open WebUI request context is unavailable."
+        return NO_CONTEXT
       async with await self._open_session(__request__) as s:
         data, e = await self._request(s, "GET", f"/files/{file_id}/data/content")
       if e:
@@ -1055,7 +1058,7 @@ class Tools:
     if not filename.lower().endswith(".md"):
       filename += ".md"
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     async with await self._open_session(__request__) as s:
       directory, err = await self._ensure_dirs(s, knowledge_id, parts[:-1])
       if err:
@@ -1128,7 +1131,7 @@ class Tools:
     if "/" in new_filename or "\\" in new_filename:
       return "Error: filename must not contain directory separators."
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     async with await self._open_session(__request__) as s:
       _, e = await self._request(
         s,
@@ -1168,7 +1171,7 @@ class Tools:
     if refusal:
       return refusal
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     async with await self._open_session(__request__) as s:
       d, e = await self._request(
         s,
@@ -1219,7 +1222,7 @@ class Tools:
     if refusal:
       return refusal
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     async with await self._open_session(__request__) as s:
       d, e = await self._request(
         s,
@@ -1269,7 +1272,7 @@ class Tools:
     if confirm is not True:
       return "Deletion cancelled: confirm must be true."
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     async with await self._open_session(__request__) as s:
       _, e = await self._request(s, "DELETE", f"/files/{file_id}", expected=(200, 204))
     return e or f"Knowledge file permanently deleted successfully.\nfile_id={file_id}"
@@ -1313,7 +1316,7 @@ class Tools:
     if err:
       return err
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     async with await self._open_session(__request__) as s:
       directory, err = await self._resolve_directory(s, knowledge_id, parts[:-1])
       if err:
@@ -1358,7 +1361,7 @@ class Tools:
     if refusal:
       return refusal
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     async with await self._open_session(__request__) as s:
       _, e = await self._request(
         s,
@@ -1414,7 +1417,7 @@ class Tools:
       if not query:
         return "Error: search query is empty."
       if __request__ is None:
-        return "Error: Open WebUI request context is unavailable."
+        return NO_CONTEXT
       page = max(1, page)
       max_content_items = max(1, min(max_content_items, 50))
 
@@ -1499,7 +1502,7 @@ class Tools:
       __event_call__=__event_call__,
     ):
       if __request__ is None:
-        return "Error: Open WebUI request context is unavailable."
+        return NO_CONTEXT
       async with await self._open_session(__request__) as s:
         d, e = await self._request(
           s,
@@ -1572,7 +1575,7 @@ class Tools:
       __event_call__=__event_call__,
     ):
       if __request__ is None:
-        return "Error: Open WebUI request context is unavailable."
+        return NO_CONTEXT
       max_depth = max(1, min(max_depth, 50))
       max_nodes = max(1, min(max_nodes, 5000))
       lines = []
@@ -1670,7 +1673,7 @@ class Tools:
     if confirm is not True:
       return "Deletion cancelled: confirm must be true."
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     async with await self._open_session(__request__) as s:
       meta, e = await self._request(s, "GET", f"/knowledge/{knowledge_id}")
       if e:
@@ -1921,7 +1924,7 @@ class Tools:
       __event_call__=__event_call__,
     ):
       if __request__ is None:
-        return "Error: Open WebUI request context is unavailable."
+        return NO_CONTEXT
       async with await self._open_session(__request__) as s:
         data, err = await self._request(
           s, "GET", "/files/", params={"page": max(1, page)}
@@ -1968,7 +1971,7 @@ class Tools:
       __event_call__=__event_call__,
     ):
       if __request__ is None:
-        return "Error: Open WebUI request context is unavailable."
+        return NO_CONTEXT
       name = (filename or "").strip()
       if not name:
         return "Error: filename is empty."
@@ -2013,7 +2016,7 @@ class Tools:
       __event_call__=__event_call__,
     ):
       if __request__ is None:
-        return "Error: Open WebUI request context is unavailable."
+        return NO_CONTEXT
       async with await self._open_session(__request__) as s:
         data, err = await self._request(s, "GET", f"/files/{file_id}/data/content")
       if err:
@@ -2056,7 +2059,7 @@ class Tools:
     if refusal:
       return refusal
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     name = (filename or "").strip() or "untitled.txt"
     boundary = "daedalus-openwebui-manager"
     body = (
@@ -2096,7 +2099,7 @@ class Tools:
     :param name: the new filename, with its extension
     """
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     refusal = await self._guard(
       "rename a file", f"{file_id} -> {name}", __user__, __event_call__
     )
@@ -2121,7 +2124,7 @@ class Tools:
     :param file_id: the id of the file to delete
     """
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     refusal = await self._guard("delete a file", str(file_id), __user__, __event_call__)
     if refusal:
       return refusal
@@ -2143,7 +2146,7 @@ class Tools:
       __request__=__request__, __user__=__user__, __event_call__=__event_call__
     ):
       if __request__ is None:
-        return "Error: Open WebUI request context is unavailable."
+        return NO_CONTEXT
       async with await self._open_session(__request__) as s:
         data, err = await self._request(s, "GET", "/skills/")
       if err:
@@ -2185,7 +2188,7 @@ class Tools:
       __event_call__=__event_call__,
     ):
       if __request__ is None:
-        return "Error: Open WebUI request context is unavailable."
+        return NO_CONTEXT
       async with await self._open_session(__request__) as s:
         data, err = await self._request(s, "GET", f"/skills/id/{skill_id}")
       if err:
@@ -2235,7 +2238,7 @@ class Tools:
     if refusal:
       return refusal
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     identifier = (skill_id or "").strip() or re.sub(
       r"[^a-z0-9]+", "-", (name or "").strip().lower()
     ).strip("-")
@@ -2281,7 +2284,7 @@ class Tools:
     if refusal:
       return refusal
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     target = (url or "").strip()
     if not target.startswith("https://"):
       return "Error: the URL must start with https://."
@@ -2334,7 +2337,7 @@ class Tools:
     :param description: the new description, or empty
     """
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     refusal = await self._guard(
       "overwrite a skill", f"{name} (id={skill_id})", __user__, __event_call__
     )
@@ -2367,7 +2370,7 @@ class Tools:
     :param skill_id: the id of the skill to turn on or off
     """
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     refusal = await self._guard(
       "toggle a skill", str(skill_id), __user__, __event_call__
     )
@@ -2392,7 +2395,7 @@ class Tools:
     :param skill_id: the id of the skill to delete
     """
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     refusal = await self._guard(
       "delete a skill", str(skill_id), __user__, __event_call__
     )
@@ -2416,7 +2419,7 @@ class Tools:
       __request__=__request__, __user__=__user__, __event_call__=__event_call__
     ):
       if __request__ is None:
-        return "Error: Open WebUI request context is unavailable."
+        return NO_CONTEXT
       async with await self._open_session(__request__) as s:
         data, err = await self._request(s, "GET", "/tools/")
       if err:
@@ -2456,7 +2459,7 @@ class Tools:
       __event_call__=__event_call__,
     ):
       if __request__ is None:
-        return "Error: Open WebUI request context is unavailable."
+        return NO_CONTEXT
       async with await self._open_session(__request__) as s:
         data, err = await self._request(s, "GET", f"/tools/id/{tool_id}")
       if err:
@@ -2507,7 +2510,7 @@ class Tools:
     if refusal:
       return refusal
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     identifier = (tool_id or "").strip() or re.sub(
       r"[^a-z0-9]+", "_", (name or "").strip().lower()
     ).strip("_")
@@ -2547,7 +2550,7 @@ class Tools:
     :param description: the new description, or empty
     """
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     refusal = await self._guard(
       "overwrite a tool", f"{name} (id={tool_id})", __user__, __event_call__
     )
@@ -2580,7 +2583,7 @@ class Tools:
     :param tool_id: the id of the tool to turn on or off
     """
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     refusal = await self._guard("toggle a tool", str(tool_id), __user__, __event_call__)
     if refusal:
       return refusal
@@ -2625,7 +2628,7 @@ class Tools:
     :param tool_id: the id of the tool to delete
     """
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     refusal = await self._guard("delete a tool", str(tool_id), __user__, __event_call__)
     if refusal:
       return refusal
@@ -2647,7 +2650,7 @@ class Tools:
       __request__=__request__, __user__=__user__, __event_call__=__event_call__
     ):
       if __request__ is None:
-        return "Error: Open WebUI request context is unavailable."
+        return NO_CONTEXT
       async with await self._open_session(__request__) as s:
         data, err = await self._request(s, "GET", "/functions/")
       if err:
@@ -2690,7 +2693,7 @@ class Tools:
       __event_call__=__event_call__,
     ):
       if __request__ is None:
-        return "Error: Open WebUI request context is unavailable."
+        return NO_CONTEXT
       async with await self._open_session(__request__) as s:
         data, err = await self._request(s, "GET", f"/functions/id/{function_id}")
       if err:
@@ -2742,7 +2745,7 @@ class Tools:
     if refusal:
       return refusal
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     identifier = (function_id or "").strip() or re.sub(
       r"[^a-z0-9]+", "_", (name or "").strip().lower()
     ).strip("_")
@@ -2782,7 +2785,7 @@ class Tools:
     :param description: the new description, or empty
     """
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     refusal = await self._guard(
       "overwrite a function", f"{name} (id={function_id})", __user__, __event_call__
     )
@@ -2813,7 +2816,7 @@ class Tools:
     :param function_id: the id of the function to turn on or off
     """
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     refusal = await self._guard(
       "toggle a function", str(function_id), __user__, __event_call__
     )
@@ -2841,7 +2844,7 @@ class Tools:
     :param function_id: the id of the function to delete
     """
     if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
+      return NO_CONTEXT
     refusal = await self._guard(
       "delete a function", str(function_id), __user__, __event_call__
     )

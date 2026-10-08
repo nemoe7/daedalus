@@ -6,7 +6,6 @@ import time
 
 from daedalus import store
 from daedalus.providers.base import ProviderError
-from daedalus.store.database import open_db
 
 # The same tool call this many times since the last user message is a tool loop.
 CALLS = 3
@@ -66,7 +65,7 @@ def repeated_call(messages: list) -> tuple[str, int] | None:
 
 
 def connect() -> sqlite3.Connection:
-  return open_db(store.MODELS_DB, (SCHEMA,))
+  return store.table_connection(SCHEMA)
 
 
 def save(calls: list[str], model: str) -> None:
@@ -76,7 +75,7 @@ def save(calls: list[str], model: str) -> None:
   now = time.time()
   database = connect()
   with database:
-    database.execute(f"DELETE FROM {TABLE} WHERE used < ?", (now - IDLE_SECONDS,))
+    store.drop_expired(database, TABLE, IDLE_SECONDS, now)
     database.executemany(
       f"INSERT OR REPLACE INTO {TABLE} VALUES (?, ?, ?)",
       [(call, model, now) for call in calls],

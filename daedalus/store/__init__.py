@@ -42,6 +42,18 @@ TEXT_COLUMNS = frozenset({"mode", "reasoning_effort", "supported_efforts", "tier
 ROUTABLE_MODES = (None, "chat")
 
 
+def table_connection(schema: str) -> sqlite3.Connection:
+  """The thread's own connection to the model store, with 1 small table ready."""
+  return open_db(MODELS_DB, (schema,))
+
+
+def drop_expired(
+  database: sqlite3.Connection, table: str, idle: float, now: float
+) -> None:
+  """Delete the rows of 1 small table without a use for `idle` seconds."""
+  database.execute(f"DELETE FROM {table} WHERE used < ?", (now - idle,))
+
+
 def migrate(path: Path | str | None = None, revision: str = "head") -> None:
   """Bring the state file to the newest table layout, or to 1 step, with the Alembic steps."""
   # SQLAlchemy and Alembic load only here, at the start, so the requests do not load them.

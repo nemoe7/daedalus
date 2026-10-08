@@ -4,7 +4,6 @@ import sqlite3
 import time
 
 from daedalus import store
-from daedalus.store.database import open_db
 
 TABLE = "signatures"
 # A signature with no use for this long expires. The session idle setting replaces it.
@@ -18,7 +17,7 @@ SCHEMA = (
 
 
 def connect() -> sqlite3.Connection:
-  return open_db(store.MODELS_DB, (SCHEMA,))
+  return store.table_connection(SCHEMA)
 
 
 def save(call: str, model: str, signature: str) -> None:
@@ -26,7 +25,7 @@ def save(call: str, model: str, signature: str) -> None:
   now = time.time()
   database = connect()
   with database:
-    database.execute(f"DELETE FROM {TABLE} WHERE used < ?", (now - IDLE_SECONDS,))
+    store.drop_expired(database, TABLE, IDLE_SECONDS, now)
     database.execute(
       f"INSERT OR REPLACE INTO {TABLE} VALUES (?, ?, ?, ?)",
       (call, model, signature, now),
