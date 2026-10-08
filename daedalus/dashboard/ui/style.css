@@ -618,6 +618,9 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6
   width: max-content; max-width: 260px; padding: 6px 8px; border: 1px solid var(--line);
   border-radius: 8px; background: var(--panel); color: var(--muted); font-size: 12px;
 }
+/* A hint that would spill past the bottom of the pane flips above its icon. The spill would
+   raise the pane's scrollbar and shift the text. */
+.field.info small.up, .fold summary small.up { top: auto; bottom: calc(100% + 4px); }
 .fold summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .fold-body { padding-bottom: 4px; }
 .settings .field.stack { flex-direction: column; align-items: stretch; gap: 8px; }
