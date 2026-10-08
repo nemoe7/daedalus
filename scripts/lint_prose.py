@@ -76,7 +76,9 @@ def blocks(path: Path) -> list[tuple[int, str]]:
     if skip:
       continue
     if not held and (
-      line.lstrip().startswith(BLOCK_START) or LIST.match(line) or line.startswith("    ")
+      line.lstrip().startswith(BLOCK_START)
+      or LIST.match(line)
+      or line.startswith("    ")
     ):
       # A heading, a table row, a list item or an indented block is not a paragraph.
       skip = True
