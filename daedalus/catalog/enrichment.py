@@ -176,6 +176,10 @@ def enrich(
     block = block_for(config, provider_name, slug) or {}
     row.update(config_params(block, slug))
     row["supported_efforts"] = supported_ladder(config, line, row)
-    row["tier"] = claiming_tier(block, slug) if block else None
+    row["tier"] = (
+      claiming_tier(block, slug)
+      if block and row.get("mode") in (None, "chat")
+      else None
+    )
     rows.append(row)
   return rows, problems
