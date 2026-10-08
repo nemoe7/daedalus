@@ -1,5 +1,7 @@
 """Clients use the pool names of the `pools` settings, and a replaced name gets HTTP 400."""
 
+from types import SimpleNamespace
+
 import httpx
 import pytest
 
@@ -60,6 +62,37 @@ async def test_auto_pool_shows_while_live(client: httpx.AsyncClient) -> None:
   assert any(row.get("trying") == "p/x" and row.get("pool") for row in updates), updates
   row = dashboard.HISTORY.latest(1)[0]
   assert any(live.get("pool") == row["pool"] for live in updates), (updates, row)
+
+
+def test_the_tier_the_store_holds_beats_the_on_call_resolution(
+  tmp_path, monkeypatch
+) -> None:
+  """The stored tier of a model beats the tier the config claims, and the claim answers when the store has none."""
+  database = tmp_path / "models.sqlite3"
+  store.write_store([{"id": "p/one", "tier": "TIER-B"}, {"id": "p/two"}], database)
+  monkeypatch.setattr(store, "MODELS_DB", database)
+  config.set_config(
+    {
+      "p": {
+        "api_base": "https://p.test/v1",
+        "api_key": "k",
+        "tier": {"TIER-A": ["*"]},
+      }
+    }
+  )
+  try:
+    found = config.get_config()
+    # the stored TIER-B beats the claimed TIER-A
+    assert api.model_pool(found, "p/one") == "deinos"
+    assert api.attempted_pool(found, "p/one") == "deinos"
+    # no stored tier: the claim answers
+    assert api.model_pool(found, "p/two") == "sophos"
+    assert api.attempted_pool(found, "p/two") == "sophos"
+    request = SimpleNamespace(state=SimpleNamespace(pool="sophos"))
+    api.served(request, found, "p/one")
+    assert (request.state.pool, request.state.routed) == ("deinos", "sophos")
+  finally:
+    config.set_config(None)
 
 
 async def test_generic_keys(client: httpx.AsyncClient) -> None:

@@ -153,6 +153,20 @@ def test_supported_efforts_round_trip() -> None:
       store.MODELS_DB = original
 
 
+def test_tier_round_trip() -> None:
+  """A stored tier reads back with the limits of the model, and a model without one reads nothing."""
+  with tempfile.TemporaryDirectory() as folder:
+    database = Path(folder) / "models.sqlite3"
+    store.write_store([{"id": "p/one", "tier": "TIER-A"}, {"id": "q/two"}], database)
+    original = store.MODELS_DB
+    store.MODELS_DB = database
+    try:
+      assert store.model_limits("p/one")["tier"] == "TIER-A"
+      assert "tier" not in store.model_limits("q/two")
+    finally:
+      store.MODELS_DB = original
+
+
 def test_in_place() -> None:
   with tempfile.TemporaryDirectory() as folder:
     database = Path(folder) / "models.sqlite3"

@@ -161,7 +161,7 @@ def test_commands() -> None:
 
 def test_dump_modes(tmp_path: Path, monkeypatch) -> None:
   calls: list[tuple[str, str] | str] = []
-  rows = [{"id": "p/a", "mode": "chat", "flags": ["vision"]}]
+  rows = [{"id": "p/a", "mode": "chat", "flags": ["vision"], "tier": None}]
   monkeypatch.setattr(discovery, "DUMP_DIR", tmp_path)
   monkeypatch.setattr(
     discovery, "dump", lambda *, file_format: calls.append(("catalog", file_format))
@@ -176,7 +176,7 @@ def test_dump_modes(tmp_path: Path, monkeypatch) -> None:
   assert calls == ["migrate", ("catalog", "csv")], calls
   cli.run(["dump", "models", "--format", "json"])
   assert calls == ["migrate", ("catalog", "csv"), "migrate"], calls
-  # The row names no reasoning, so the dump carries no ladder for it.
+  # The store holds no ladder for the row, so the dump mirrors that.
   assert json.loads((tmp_path / "models.json").read_text("utf-8")) == [
     {**rows[0], "tier": None, "supported_efforts": None}
   ]
@@ -202,21 +202,10 @@ def test_dump_modes(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_dump_models_names_the_tier_of_each_row(tmp_path: Path, monkeypatch) -> None:
-  """The dump carries the tier that claims a row, so no reader matches slugs to patterns by hand."""
-  monkeypatch.setattr(
-    config,
-    "get_config",
-    lambda: {
-      "p": {
-        "api_key": "k",
-        "api_base": "https://p.test/v1",
-        "tier": {"TIER-A": ["one*"], "TIER-B": ["*"]},
-      }
-    },
-  )
+  """The dump mirrors the tier the store holds for a row, so no reader matches slugs to patterns by hand."""
   monkeypatch.setattr(discovery, "DUMP_DIR", tmp_path / "dump")
   monkeypatch.setattr(store, "MODELS_DB", tmp_path / "models.sqlite3")
-  store.write_store([{"id": "p/one"}, {"id": "q/two"}])
+  store.write_store([{"id": "p/one", "tier": "TIER-A"}, {"id": "q/two"}])
   cli.dump_models("json")
   rows = json.loads((tmp_path / "dump" / "models.json").read_text("utf-8"))
   assert {row["id"]: row["tier"] for row in rows} == {
@@ -229,8 +218,10 @@ def test_dump_models_names_the_tier_of_each_row(tmp_path: Path, monkeypatch) -> 
   assert found == {"p/one": "TIER-A", "q/two": ""}, found
 
 
-def test_dump_models_carries_the_evaluated_efforts(tmp_path: Path, monkeypatch) -> None:
-  """The dump carries the resolved ladder of each row: the model key, the block, the catalog row, then the coded provider."""
+def test_dump_models_carries_the_ladder_of_the_store(
+  tmp_path: Path, monkeypatch
+) -> None:
+  """The dump mirrors the store's ladder: what the catalog holds is what the dump holds, and missing stays missing."""
   monkeypatch.setattr(
     config,
     "get_config",
@@ -245,13 +236,11 @@ def test_dump_models_carries_the_evaluated_efforts(tmp_path: Path, monkeypatch) 
     [
       {
         "id": "p/one",
-        "supports_reasoning": True,
         "supported_efforts": json.dumps(["max", "high", "low"]),
       },
-      {"id": "q/two", "supports_reasoning": True},
+      {"id": "q/two"},
       {
         "id": "r/three",
-        "supports_reasoning": True,
         "supported_efforts": json.dumps(["high", 7, "", "low"]),
       },
       {"id": "s/four", "supported_efforts": json.dumps(["high"])},
@@ -260,19 +249,19 @@ def test_dump_models_carries_the_evaluated_efforts(tmp_path: Path, monkeypatch) 
   cli.dump_models("json")
   rows = json.loads((tmp_path / "dump" / "models.json").read_text("utf-8"))
   assert {row["id"]: row["supported_efforts"] for row in rows} == {
-    "p/one": ["xhigh"],
-    "q/two": ["low", "high"],
+    "p/one": ["max", "high", "low"],
+    "q/two": None,
     "r/three": ["high", "low"],
-    "s/four": None,
+    "s/four": ["high"],
   }, rows
   cli.dump_models("csv")
   with (tmp_path / "dump" / "models.csv").open(encoding="utf-8", newline="") as source:
     found = {row["id"]: row["supported_efforts"] for row in csv.DictReader(source)}
   assert found == {
-    "p/one": '["xhigh"]',
-    "q/two": '["low","high"]',
+    "p/one": '["max","high","low"]',
+    "q/two": "",
     "r/three": '["high","low"]',
-    "s/four": "",
+    "s/four": '["high"]',
   }, found
 
 

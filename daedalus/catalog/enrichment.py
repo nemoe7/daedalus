@@ -7,6 +7,7 @@ import httpx
 
 from daedalus.catalog.discovery import MAX_PAGES, Fetch, fetch_json, matches, with_param
 from daedalus.config import block_for
+from daedalus.routing.router import claiming_tier, efforts
 from daedalus.store import COLUMNS
 
 LITELLM_CATALOG = "https://api.litellm.ai/model_catalog"
@@ -55,6 +56,15 @@ def config_params(provider: dict[str, Any], slug: str) -> dict[str, Any]:
   return found
 
 
+def supported_ladder(
+  config: dict[str, Any], model: str, row: dict[str, Any]
+) -> list[str] | None:
+  """The resolved ladder the store keeps for a model, or None for a model that does not reason."""
+  if not row.get("supports_reasoning"):
+    return None
+  return efforts(config, model, row.get("supported_efforts"))
+
+
 def enrich(
   lines: Iterable[str],
   config: dict[str, Any],
@@ -89,5 +99,7 @@ def enrich(
     row.update((native or {}).get(line, {}))
     block = block_for(config, provider_name, slug) or {}
     row.update(config_params(block, slug))
+    row["supported_efforts"] = supported_ladder(config, line, row)
+    row["tier"] = claiming_tier(block, slug) if block else None
     rows.append(row)
   return rows, problems

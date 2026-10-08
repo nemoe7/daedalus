@@ -57,6 +57,15 @@ def task_name(row: dict) -> Any:
   return task.get("name") if isinstance(task, dict) else None
 
 
+# The reasoning models that Workers AI documents with an on/off `enable_thinking` only, so the
+# effort maps to the toggle instead of the undocumented effort parameter.
+THINKING_TOGGLES = (
+  "@cf/zai-org/glm-4.7-flash",
+  "@cf/google/gemma-4-26b-a4b-it",
+  "@cf/nvidia/nemotron-3-120b-a12b",
+)
+
+
 # FLUX.2 on Workers AI takes up to 4 input images, each smaller than 512x512.
 EDIT_INPUTS = 4
 EDIT_SIDE = 511
@@ -126,12 +135,30 @@ class CloudflareProvider(OpenAIProvider):
     super().__init__(name, type(self).configure(dict(config)))
 
   def body(self, slug: str, payload: dict) -> dict:
-    """The OpenAI body, with string content where Workers AI models need it."""
-    return {
+    """The OpenAI body, with string content where Workers AI models need it.
+
+    The on/off toggle models take `enable_thinking` instead of the undocumented effort.
+    """
+    found = {
       **payload,
       "model": slug,
       "messages": [text_only(m) for m in payload["messages"]],
     }
+    if slug not in THINKING_TOGGLES:
+      return found
+    effort = found.get("reasoning_effort")
+    if effort is None:
+      return found
+    found.pop("reasoning_effort")
+    found["chat_template_kwargs"] = {"enable_thinking": effort != "none"}
+    return found
+
+  def effort(self, payload: dict) -> str | None:
+    """The toggle state of one on/off body, as the rung its ladder names."""
+    kwargs = payload.get("chat_template_kwargs")
+    if isinstance(kwargs, dict) and "enable_thinking" in kwargs:
+      return "max" if kwargs["enable_thinking"] else "none"
+    return super().effort(payload)
 
   def transcribe_request(
     self, slug: str, fields: dict[str, Any], audio: tuple[str, bytes, str]

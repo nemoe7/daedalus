@@ -41,6 +41,13 @@ cloudflare:
     "@cf/openai/gpt-oss-120b": { supported_reasoning_efforts: [low, medium, high] }
     "@cf/openai/gpt-oss-20b": { supported_reasoning_efforts: [low, medium, high] }
     "@cf/qwen/qwen3.8-27b": { supported_reasoning_efforts: [low, medium, xhigh] }
+    # The Workers AI docs give these 3 an on/off enable_thinking only, no levels: none turns the
+    # thinking off, max leaves it on.
+    "@cf/zai-org/glm-4.7-flash": { supported_reasoning_efforts: [none, max] }
+    "@cf/google/gemma-4-26b-a4b-it": { supported_reasoning_efforts: [none, max] }
+    "@cf/nvidia/nemotron-3-120b-a12b": { supported_reasoning_efforts: [none, max] }
+    # qwq-32b, deepseek-r1-distill-qwen-32b and qwen3-30b-a3b-fp8 document no effort control:
+    # they reason always, and the coded low and medium stands for them.
     # Image input: FLUX.2 edits with up to 4 input images, in daedalus/photos.
     "*flux-2*": { supports_vision: true }
     # Clef answers typed questions with probabilities, not chat text, although Workers AI lists it as text.
@@ -110,7 +117,11 @@ groq:
   models:
     openai/gpt-oss-120b: { max_input_tokens: 7000 }
     openai/gpt-oss-20b: { max_input_tokens: 7000 }
-    qwen/qwen3.8-27b: { max_input_tokens: 7000, max_output_tokens: 16384 }
+    qwen/qwen3.8-27b:
+      max_input_tokens: 7000
+      max_output_tokens: 16384
+      # The model docs name these three rungs; the Groq deployment lists no effort set.
+      supported_reasoning_efforts: [low, medium, xhigh]
     # allam-2-7b has a 4096 combined window, so the input cap leaves room for the output.
     allam-2-7b: { max_input_tokens: 2048 }
     "whisper-*": { mode: audio_transcription, rpm: 20 }
