@@ -16,6 +16,7 @@ Open `http://HOST:3357/`.
 - [Demo on GitHub Pages](#demo-on-github-pages)
 - [Requests](#requests)
 - [Models](#models)
+- [Notifications](#notifications)
 - [Providers](#providers)
 - [Limits](#limits)
 - [A failed read](#a-failed-read)
@@ -28,6 +29,7 @@ Open `http://HOST:3357/`.
 | Overview | 4 numbers on top: in flight, success rate, lowest limit left, models. Then the status, the last 5 requests, the limits and the pools in columns. Each pool row names its top model. The page shows state only: the Providers and Settings pages hold the configuration. |
 | Requests | The log of the last requests and the ones in flight. See [Requests](#requests). |
 | Models | The catalog table and a card for each pool. See [Models](#models). |
+| Notifications | The catalog rebuilds with their diffs, the update check, and the lane rows near their limit. |
 | Providers | A tab per provider file. Form: a section per provider. YAML: the file text, as the last section. |
 | Limits | The last rate-limit headers of each model, and each provider key balance in a card. |
 | Settings | Form and YAML sections of [`config/daedalus.yml`](../config/daedalus.yml). A write checks the value, then reloads the settings. An API keys section makes and deletes keys. |
@@ -118,6 +120,19 @@ A phone shows 1 card for each model: the name on its own line, then `Tier`, `Too
 
 The bar above the table narrows the rows: a text match, a kind and a model. The filters ride in the
 hash, such as `#/limits?kind=tokens&q=kilo`, and **Clear filters** drops them.
+
+## Notifications
+
+| Item | Value |
+| --- | --- |
+| Rebuilds | 1 row per catalog rebuild: the time, the reason, the model count after the rebuild, and the diff. |
+| Reason | `scheduled` is the 6-hour clock, `manual` the rebuild button, and a config save the save of a provider file. |
+| Diff | `+N` rows added, `-N` rows deleted, `~N` rows whose stored columns moved. A click on a row lists the models, and a second click closes the list. |
+| Failed | The providers whose model list failed in the rebuild. |
+| Rebuild storage | The `catalog_rebuilds` table of `.daedalus-state/models.sqlite3`, the 200 newest events. |
+| Update check | The version that goes after this build. A build from a `v` tag reads the latest release of `updates.repo`. A source build reads the head of `main` and compares its own commit. |
+| Update cadence | At most 1 check per 6 h, on the tick of the catalog schedule. **Check now** runs 1 at once. The last check and its time stay in the `updates` table, so the next start shows them. |
+| Limit warnings | The lane rows of the [Limits](#limits) page with a quarter or less of their limit left, the lowest share first. |
 
 ## Providers
 

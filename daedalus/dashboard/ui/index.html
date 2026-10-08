@@ -58,6 +58,7 @@
       <a href="#/" data-page="overview">Overview</a>
       <a href="#/requests" data-page="requests">Requests</a>
       <a href="#/models" data-page="models">Models<span class="count" id="nav-models"></span></a>
+      <a href="#/notifications" data-page="notifications">Notifications</a>
       <a href="#/providers" data-page="providers">Providers</a>
       <a href="#/limits" data-page="limits">Limits</a>
       <a href="#/settings" data-page="settings">Settings</a>
@@ -183,6 +184,28 @@
           </tr></thead>
           <tbody id="models"></tbody>
         </table>
+      </div>
+    </section>
+    <section data-page="notifications" hidden>
+      <div class="flow">
+        <div class="column wide">
+          <div class="panel">
+            <table class="rebuilds" aria-label="Catalog rebuilds" role="table">
+              <thead role="rowgroup"><tr role="row">
+                <th scope="col" role="columnheader" title="When the rebuild finished">Time</th>
+                <th scope="col" role="columnheader" title="scheduled is the 6-hour clock, manual the button, config a saved provider file">Reason</th>
+                <th scope="col" role="columnheader" title="The models in the store after the rebuild">Models</th>
+                <th scope="col" role="columnheader" title="The rows the rebuild added, removed or moved">Diff</th>
+                <th scope="col" class="hide-sm" role="columnheader" title="The providers whose model list failed in the rebuild">Failed</th>
+              </tr></thead>
+              <tbody id="rebuild-rows" role="rowgroup"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="column">
+          <div class="card" id="update-card"></div>
+          <div class="card" id="limit-warnings-card"></div>
+        </div>
       </div>
     </section>
     <section data-page="limits" hidden>

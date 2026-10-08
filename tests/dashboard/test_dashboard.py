@@ -14,7 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import daedalus
-from daedalus import config, dashboard, store
+from daedalus import config, dashboard, store, updates
 from daedalus.catalog import schedule
 from daedalus.config import remote, settings
 from daedalus.dashboard import History
@@ -302,6 +302,7 @@ const answers = {
   status: { healthy: true, sessions: 0, models: 1, version: "v1",
     catalog: { built: null, next: null, rebuilding: false }, affinity: { mode: "none" } },
   pools: [], models: [], keys: [], env: [], limits: { providers: [], lanes: [], checked: null },
+  notifications: { rebuilds: [], update: null, limits: [] },
   files: [{ path: "config/daedalus.yml", text: "", blocks: {}, error: null, main: true }],
   "provider-keys": [], "provider-defaults": {},
 };
@@ -377,6 +378,7 @@ const answers = {
   status: { healthy: true, sessions: 0, models: 1, version: "v1",
     catalog: { built: null, next: null, rebuilding: false }, affinity: { mode: "none" } },
   pools: [], models: [], keys: [], env: [], limits: { providers: [], lanes: [], checked: null },
+  notifications: { rebuilds: [], update: null, limits: [] },
   files: [{ path: "config/daedalus.yml", text: "", blocks: {}, error: null, main: true }],
   "provider-keys": [], "provider-defaults": {},
 };
@@ -2092,7 +2094,7 @@ def test_pages_not_nested(client: TestClient) -> None:
         self.depth -= 1
 
   Sections().feed(client.get("/").text)
-  assert len(found) == 6 and all(depth == 0 for _, depth in found), found
+  assert len(found) == 7 and all(depth == 0 for _, depth in found), found
 
 
 def test_login_form(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -3803,3 +3805,86 @@ def test_a_phone_opens_a_section_as_its_own_page() -> None:
   assert '.settings[data-detail="1"] .section-pane { display: grid; }' in phone, (
     "a phone shows the picked section alone"
   )
+
+
+def test_notifications_endpoint(client: TestClient) -> None:
+  assert (
+    client.post(
+      "/ui/api/login", json={"username": "admin", "password": MASTER}
+    ).status_code
+    == 200
+  )
+  store.record_rebuild(
+    reason="scheduled",
+    models=3,
+    added=["p/new"],
+    removed=["p/old"],
+    changed=["p/big"],
+    failed=["kilo"],
+  )
+  updates.save(
+    {
+      "repo": "nemoe7/daedalus",
+      "current": "v1.0.0",
+      "channel": "release",
+      "latest": "v1.1.0",
+      "url": "https://github.com/nemoe7/daedalus/releases/tag/v1.1.0",
+      "behind": None,
+      "update": True,
+      "error": None,
+    }
+  )
+  api.LIMITS.lanes["p/big"] = {
+    "at": time.time(),
+    "rows": [
+      {
+        "kind": "requests",
+        "span": "minute",
+        "limit": 100,
+        "remaining": 5,
+        "reset": time.time() + 50,
+      },
+      {
+        "kind": "tokens",
+        "span": "minute",
+        "limit": 10000,
+        "remaining": 9000,
+        "reset": None,
+      },
+    ],
+  }
+  try:
+    answer = client.get("/ui/api/notifications")
+    assert answer.status_code == 200
+    data = answer.json()
+    assert data["rebuilds"][0]["reason"] == "scheduled"
+    assert data["rebuilds"][0]["added"] == ["p/new"]
+    assert data["rebuilds"][0]["changed"] == ["p/big"]
+    assert data["update"]["latest"] == "v1.1.0"
+    assert len(data["limits"]) == 1, "only the row near its limit warns"
+    warning = data["limits"][0]
+    assert warning["model"] == "p/big"
+    assert warning["remaining"] == 5 and warning["limit"] == 100
+  finally:
+    api.LIMITS.lanes.pop("p/big", None)
+    client.cookies.clear()
+
+
+def test_update_check_now(client: TestClient) -> None:
+  assert (
+    client.post(
+      "/ui/api/login", json={"username": "admin", "password": MASTER}
+    ).status_code
+    == 200
+  )
+  with pytest.MonkeyPatch.context() as patch:
+    patch.setattr(updates, "__version__", "v1.0.0")
+    patch.setattr(
+      updates, "_fetch", lambda url: {"tag_name": "v9.9.9", "html_url": "https://x"}
+    )
+    answer = client.post("/ui/api/updates")
+    assert answer.status_code == 200
+    data = answer.json()
+    assert data["latest"] == "v9.9.9" and data["update"] is True
+    assert updates.read()["latest"] == "v9.9.9"
+  client.cookies.clear()

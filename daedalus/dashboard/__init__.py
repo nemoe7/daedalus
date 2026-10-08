@@ -25,11 +25,11 @@ from fastapi.responses import (
   StreamingResponse,
 )
 
-from daedalus import __version__, config, providers, store
+from daedalus import __version__, config, providers, store, updates
 from daedalus.catalog import schedule
 from daedalus.config import block_for, provider_edit, remote, settings
 from daedalus.providers import hooks
-from daedalus.routing import router
+from daedalus.routing import lanes, router
 from daedalus.routing.cooldowns import Cooldowns
 from daedalus.routing.limits import Limits
 from daedalus.routing.penalties import Penalties
@@ -812,6 +812,43 @@ def routes(
       return denied()
     await seen.check()
     return JSONResponse(seen.view())
+
+  # A lane row warns when no more than this part of its limit is left.
+  LIMIT_SHARE = 0.25
+
+  def limit_warnings() -> list[dict[str, Any]]:
+    """The lane rows near their limit, the lowest share of limit left first."""
+    found = []
+    for lane, seen_lanes in seen.lanes.items():
+      model, client = lanes.split(lane)
+      for row in seen_lanes.get("rows", []):
+        limit, remaining = row.get("limit"), row.get("remaining")
+        if not limit or remaining is None:
+          continue
+        share = remaining / limit
+        if share <= LIMIT_SHARE:
+          found.append(
+            {"model": model, "client": client or None, **row, "share": share}
+          )
+    return sorted(found, key=lambda row: (row["share"], row["model"]))
+
+  @api.get("/notifications")
+  async def notifications(request: Request) -> JSONResponse:
+    if not allowed(request):
+      return denied()
+    return JSONResponse(
+      {
+        "rebuilds": store.recent_rebuilds(50),
+        "update": updates.read(),
+        "limits": limit_warnings(),
+      }
+    )
+
+  @api.post("/updates")
+  async def update_check(request: Request) -> JSONResponse:
+    if not allowed(request):
+      return denied()
+    return JSONResponse(await asyncio.to_thread(updates.check_now))
 
   @api.get("/pools")
   async def pools(request: Request) -> JSONResponse:
