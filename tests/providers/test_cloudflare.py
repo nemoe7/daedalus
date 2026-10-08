@@ -71,3 +71,50 @@ def test_new_models() -> None:
       "a decision model stays out of the pools"
     )
     assert config_params(cloudflare, slug).get("mode") == "decisions", slug
+
+
+def sent(slug: str, effort: object) -> dict:
+  """The body that goes to Workers AI for one client effort."""
+  payload = {"messages": [{"role": "user", "content": "hi"}]}
+  if effort is not None:
+    payload["reasoning_effort"] = effort
+  return CLOUDFLARE.body(slug, payload)
+
+
+def test_the_on_off_toggles_map_the_effort_to_enable_thinking() -> None:
+  """The documented on/off models send `enable_thinking`, and never the effort parameter."""
+  for slug in (
+    "@cf/zai-org/glm-4.7-flash",
+    "@cf/google/gemma-4-26b-a4b-it",
+    "@cf/nvidia/nemotron-3-120b-a12b",
+  ):
+    body = sent(slug, "max")
+    assert body["chat_template_kwargs"] == {"enable_thinking": True}, slug
+    assert "reasoning_effort" not in body, slug
+    body = sent(slug, "none")
+    assert body["chat_template_kwargs"] == {"enable_thinking": False}, slug
+    assert "reasoning_effort" not in body, slug
+  assert CLOUDFLARE.effort(sent("@cf/zai-org/glm-4.7-flash", "none")) == "none"
+  assert CLOUDFLARE.effort(sent("@cf/zai-org/glm-4.7-flash", "max")) == "max"
+
+
+def test_the_toggle_ladders_are_in_the_shipped_config() -> None:
+  """The 3 on/off models of the shipped config name the documented on/off ladder."""
+  with open("config/providers/free.yml", encoding="utf-8") as handle:
+    cloudflare = yaml.safe_load(handle)["cloudflare"]
+  for slug in (
+    "@cf/zai-org/glm-4.7-flash",
+    "@cf/google/gemma-4-26b-a4b-it",
+    "@cf/nvidia/nemotron-3-120b-a12b",
+  ):
+    found = router.model_setting(
+      {"cloudflare": cloudflare}, f"cloudflare/{slug}", "supported_reasoning_efforts"
+    )
+    assert found == ["none", "max"], (slug, found)
+
+
+def test_a_model_outside_the_toggles_keeps_the_pass_through() -> None:
+  """The other Workers AI rows keep the reasoning_effort pass-through."""
+  body = sent("@cf/qwen/qwq-32b", "low")
+  assert body["reasoning_effort"] == "low"
+  assert "chat_template_kwargs" not in body

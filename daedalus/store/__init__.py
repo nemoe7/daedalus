@@ -30,12 +30,13 @@ COLUMNS = (
   "supports_audio_input",
   "supports_audio_output",
   "supports_web_search",
-  # A new column goes last: an added column lands at the table end, so 1 order fits both.
   "supported_efforts",
+  # A new column goes last: an added column lands at the table end, so 1 order fits both.
+  "tier",
 )
 # The Alembic steps: env.py, and 1 file in versions/ for each layout change.
 MIGRATIONS = Path(__file__).with_name("migrations")
-TEXT_COLUMNS = frozenset({"mode", "reasoning_effort", "supported_efforts"})
+TEXT_COLUMNS = frozenset({"mode", "reasoning_effort", "supported_efforts", "tier"})
 # Rows that enter the chat chains. No catalog match gives no mode.
 ROUTABLE_MODES = (None, "chat")
 
@@ -287,13 +288,13 @@ def effort_list(value: Any) -> list[str]:
 
 
 def model_limits(model: str) -> dict[str, Any]:
-  """The stored efforts and `max_output_tokens` of one model, without empty values."""
+  """The stored efforts, `max_output_tokens`, and tier of one model, without empty values."""
   if not Path(MODELS_DB).exists():
     return {}
   database = connect_read(MODELS_DB)
   try:
     row = database.execute(
-      "SELECT reasoning_effort, max_output_tokens, supported_efforts"
+      "SELECT reasoning_effort, max_output_tokens, supported_efforts, tier"
       " FROM models WHERE id = ?",
       (model,),
     ).fetchone()
@@ -303,10 +304,12 @@ def model_limits(model: str) -> dict[str, Any]:
     database.close()
   if row is None:
     return {}
-  effort, output, listed = row
+  effort, output, listed, tier = row
   found: dict[str, Any] = {}
   if isinstance(effort, str) and effort:
     found["reasoning_effort"] = effort
+  if isinstance(tier, str) and tier:
+    found["tier"] = tier
   names = effort_list(listed)
   if names:
     found["supported_efforts"] = names

@@ -468,10 +468,15 @@ def pool_tier(pool: str) -> int | None:
 
 
 def model_pool(config: dict[str, Any], model: str) -> str | None:
-  """The pool that owns a provider model, or None when no pool claims it."""
+  """The pool that owns a provider model, or None when no pool claims it.
+
+  The tier the store holds for the model beats the on-call resolution of the config.
+  """
   name, _, slug = model.partition("/")
-  block = block_for(config, name, slug)
-  tier_name = router.claiming_tier(block, slug) if block else None
+  tier_name = store.model_limits(model).get("tier")
+  if tier_name is None:
+    block = block_for(config, name, slug)
+    tier_name = router.claiming_tier(block, slug) if block else None
   tier = next(
     (value for value, name in router.TIER_NAMES.items() if name == tier_name), None
   )
@@ -563,19 +568,29 @@ def route_transition(
 
 
 def attempted_pool(config: dict[str, Any], candidate: str) -> str | None:
-  """The client pool of one model, for the live row of a `daedalus/auto` request."""
+  """The client pool of one model, for the live row of a `daedalus/auto` request.
+
+  The tier the store holds for the model beats the on-call resolution of the config.
+  """
   provider_name, _, slug = candidate.partition("/")
-  block = block_for(config, provider_name, slug)
-  tier = router.claiming_tier(block, slug) if block else None
+  tier = store.model_limits(candidate).get("tier")
+  if tier is None:
+    block = block_for(config, provider_name, slug)
+    tier = router.claiming_tier(block, slug) if block else None
   return POOL_NAMES.get(tier) if tier is not None else None
 
 
 def served(request: Request, config: dict[str, Any], candidate: str) -> None:
-  """Show the pool of the model that answers, and keep the first pool when it differs."""
+  """Show the pool of the model that answers, and keep the first pool when it differs.
+
+  The tier the store holds for the model beats the on-call resolution of the config.
+  """
   first = getattr(request.state, "pool", None)
   provider_name, _, slug = candidate.partition("/")
-  block = block_for(config, provider_name, slug)
-  tier = router.claiming_tier(block, slug) if block else None
+  tier = store.model_limits(candidate).get("tier")
+  if tier is None:
+    block = block_for(config, provider_name, slug)
+    tier = router.claiming_tier(block, slug) if block else None
   if first is None or POOL_NAMES.get(tier, first) == first:
     return
   request.state.pool, request.state.routed = POOL_NAMES[tier], first

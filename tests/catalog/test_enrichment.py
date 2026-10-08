@@ -148,3 +148,40 @@ def test_enrich_leaves_a_model_with_no_catalog_entry() -> None:
   rows, _ = enrichment.enrich(["openrouter/zzz"], {}, fetch)
   assert rows[0]["id"] == "openrouter/zzz"
   assert rows[0]["rpm"] is None
+
+
+def test_enrich_finalizes_the_supported_efforts_ladder() -> None:
+  """The store takes the resolved ladder of a reasoning model, null for one that does not, and the claimed tier."""
+  fetch, _ = sequenced(PAGE)
+  config = {
+    "openrouter": {
+      "models": {"a": {"supported_reasoning_efforts": ["xhigh"]}},
+      "tier": {"TIER-A": ["a", "c"], "TIER-B": ["b"]},
+    }
+  }
+  rows, _ = enrichment.enrich(
+    ["openrouter/a", "openrouter/b", "openrouter/c"],
+    config,
+    fetch,
+    native={
+      "openrouter/a": {"supports_reasoning": True},
+      "openrouter/b": {
+        "supports_reasoning": False,
+        "supported_efforts": ["max", "high"],
+      },
+      "openrouter/c": {
+        "supports_reasoning": True,
+        "supported_efforts": ["high", "medium"],
+      },
+    },
+  )
+  # the model key has the last word
+  assert rows[0]["supported_efforts"] == ["xhigh"]
+  # a model that does not reasoning carries null, even if a list is present
+  assert rows[1]["supported_efforts"] is None
+  # a reasoning model without config keys keeps the list its catalog row holds
+  assert rows[2]["supported_efforts"] == ["high", "medium"]
+  # the tier the block claims, or null for a row no pattern claims
+  assert rows[0]["tier"] == "TIER-A"
+  assert rows[1]["tier"] == "TIER-B"
+  assert rows[2]["tier"] == "TIER-A"

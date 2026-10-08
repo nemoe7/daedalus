@@ -35,52 +35,16 @@ DAEDALUS_URL = "DAEDALUS_URL"
 ANY_HOST = ("0.0.0.0", "::")
 
 
-def tier_of_rows() -> dict[str, str]:
-  """The tier that claims each stored row, from the provider files of the config.
-
-  The tier is not a column of the store: the provider blocks name it as patterns over the
-  slugs. No provider file, no tiers, and the dump still writes every row.
-  """
-  try:
-    found, lines = config.get_config(), store.read_models()
-  except OSError:
-    logger.warning("no provider file: the dump carries no tier")
-    return {}
-  from daedalus.routing import router
-
-  tiers: dict[str, str] = {}
-  for name, group in router.tier_lines(found, lines).items():
-    for line in group:
-      tiers.setdefault(line, name)
-  return tiers
-
-
 def dump_models(file_format: str) -> None:
   """Write every stored model row to `models.json` or `models.csv`.
 
-  The dump adds the tier that claims a row, and the resolved ladder of efforts the row takes:
-  the model key, the block, the catalog row, then the coded ladder of the provider.
-  A row that does not reason names none, so the dump carries null for it.
+  The dump mirrors the store: the tier and the ladder the store holds for each row, verbatim.
+  What the live data says is what the dump says, and missing stays missing.
   """
-  try:
-    found = config.get_config()
-  except OSError:
-    logger.warning("no provider file: the dump resolves efforts to the coded ladder")
-    found = {}
-  from daedalus.routing import router
-
-  tiers = tier_of_rows()
   rows = [
     {
       **row,
-      "tier": tiers.get(row["id"]),
-      "supported_efforts": (
-        router.efforts(
-          found, row["id"], store.effort_list(row.get("supported_efforts")) or None
-        )
-        if row.get("supports_reasoning")
-        else None
-      ),
+      "supported_efforts": store.effort_list(row.get("supported_efforts")) or None,
     }
     for row in store.stored_rows()
   ]
