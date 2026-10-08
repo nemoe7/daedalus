@@ -27,6 +27,7 @@ SIMULATED = (
   "providers",
   "reset",
   "settings",
+  "updates",
 )
 # The calls that the demo answers from the fixtures.
 READS = (
@@ -37,6 +38,7 @@ READS = (
   "limits",
   "login",
   "models",
+  "notifications",
   "pools",
   "provider-defaults",
   "provider-keys",

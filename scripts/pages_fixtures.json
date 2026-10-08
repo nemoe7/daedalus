@@ -4817,5 +4817,48 @@
     "models": 77,
     "sessions": 6,
     "version": "dev"
+  },
+  "notifications": {
+    "rebuilds": [
+      {
+        "at": 1791425580.477,
+        "reason": "scheduled",
+        "models": 131,
+        "added": [
+          "openrouter/z-ai/glm-5.3-flash"
+        ],
+        "removed": [
+          "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct"
+        ],
+        "changed": [
+          "z-ai/glm-4.7-flash"
+        ],
+        "failed": []
+      },
+      {
+        "at": 1791393840.12,
+        "reason": "scheduled",
+        "models": 130,
+        "added": [],
+        "removed": [],
+        "changed": [
+          "groq/qwen/qwen3.8-27b"
+        ],
+        "failed": [
+          "kilo"
+        ]
+      }
+    ],
+    "update": {
+      "repo": "nemoe7/daedalus",
+      "current": "demo",
+      "channel": "dev",
+      "latest": null,
+      "url": null,
+      "behind": null,
+      "update": false,
+      "error": "no commit in this build's version",
+      "at": 1791425580.477
+    }
   }
 }
