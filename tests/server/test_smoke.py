@@ -229,7 +229,7 @@ async def test_routed_model(client: httpx.AsyncClient) -> None:
         "/v1/chat/completions", json=chat_body(model="daedalus/sophos", tools=[tool])
       )
       assert bare.status_code == 400, bare.text
-      assert bare.json()["error"]["message"] == "No model of this pool takes tools"
+      assert bare.json()["error"]["message"] == "No model of this pool takes tools."
       assert len(SEEN) == sent, "the upstream never sees it"
   finally:
     store.MODELS_DB = saved

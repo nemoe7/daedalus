@@ -786,19 +786,21 @@ async def hook_call(request: Request, file: str) -> Response:
   try:
     body = await request.json()
   except ValueError:
-    return upstream.error_response(400, "Invalid JSON", "invalid_request_error")
+    return upstream.error_response(400, "Invalid JSON.", "invalid_request_error")
   if not isinstance(body, dict):
     return upstream.error_response(
-      400, "The body must be an object", "invalid_request_error"
+      400, "The body must be an object.", "invalid_request_error"
     )
   path = hooks.resolve(f"hooks/{file}")
   if path is None or not path.is_file():
-    return upstream.error_response(404, f"No hook file {file}", "invalid_request_error")
+    return upstream.error_response(
+      404, f"No hook file {file}.", "invalid_request_error"
+    )
   found = hooks.load(path)
   handler = getattr(found, hooks.SURFACES["on-http"], None)
   if not callable(handler):
     return upstream.error_response(
-      400, f"{file} has no on_http function", "invalid_request_error"
+      400, f"{file} has no on_http function.", "invalid_request_error"
     )
   messages = body.get("messages")
   key = session_key(access.bearer(request), messages)
@@ -823,7 +825,7 @@ async def hook_call(request: Request, file: str) -> Response:
       500, f"{file} failed. The server log holds the detail.", "server_error"
     )
   if not isinstance(answer, dict):
-    return upstream.error_response(500, f"{file} returned no dict", "server_error")
+    return upstream.error_response(500, f"{file} returned no dict.", "server_error")
   return JSONResponse(answer)
 
 
@@ -835,9 +837,9 @@ async def chat(request: Request) -> Response:
   try:
     body = await request.json()
   except ValueError:
-    return upstream.error_response(400, "Invalid JSON", "invalid_request_error")
+    return upstream.error_response(400, "Invalid JSON.", "invalid_request_error")
   if not isinstance(body, dict) or not isinstance(body.get("model"), str):
-    return upstream.error_response(400, "A model is required", "invalid_request_error")
+    return upstream.error_response(400, "A model is required.", "invalid_request_error")
   model = body["model"]
   request.state.model = model
   request.state.effort = providers.effort_text(body.get("reasoning_effort"))
@@ -847,26 +849,26 @@ async def chat(request: Request) -> Response:
   )
   if not isinstance(body.get("messages"), list):
     return upstream.error_response(
-      400, "messages must be a list", "invalid_request_error"
+      400, "messages must be a list.", "invalid_request_error"
     )
   if not model or any(not isinstance(message, dict) for message in body["messages"]):
     return upstream.error_response(
-      400, "Invalid model or messages", "invalid_request_error"
+      400, "Invalid model or messages.", "invalid_request_error"
     )
   model = router.built_in(model)
   if model is None:
     return upstream.error_response(
-      400, "Unknown provider or pool", "invalid_request_error"
+      400, "Unknown provider or pool.", "invalid_request_error"
     )
   if "stream" in body and not isinstance(body["stream"], bool):
     return upstream.error_response(
-      400, "stream must be boolean", "invalid_request_error"
+      400, "stream must be boolean.", "invalid_request_error"
     )
   if body.get("stream_options") is not None and not isinstance(
     body["stream_options"], dict
   ):
     return upstream.error_response(
-      400, "stream_options must be an object", "invalid_request_error"
+      400, "stream_options must be an object.", "invalid_request_error"
     )
   config = get_config()
   key = session_key(access.bearer(request), body["messages"])
@@ -911,7 +913,7 @@ async def chat(request: Request) -> Response:
     found = chain(model, body, config, key)
   if found is None:
     return upstream.error_response(
-      400, "Unknown provider or pool", "invalid_request_error"
+      400, "Unknown provider or pool.", "invalid_request_error"
     )
   # The Models page is the source of truth: a name it does not list never reaches a provider.
   if found[1] is None and not router.listed(model):
@@ -919,12 +921,12 @@ async def chat(request: Request) -> Response:
   # The tools filter can empty a pool: say why, before the request reaches an upstream.
   if body.get("tools") and found[1] and not any(found[0]):
     return upstream.error_response(
-      400, "No model of this pool takes tools", "invalid_request_error"
+      400, "No model of this pool takes tools.", "invalid_request_error"
     )
   name = model.partition("/")[0]
   if name in config and not router.keyed(config, model):
     return upstream.error_response(
-      400, f"Missing api_key for {name}", "invalid_request_error"
+      400, f"Missing api_key for {name}.", "invalid_request_error"
     )
   # A hook file of the prompt surface sets the reasoning effort of the attempt. The base sets
   # none, so the value of a hook file, the client value and the catalog default decide, in that
@@ -1050,7 +1052,7 @@ async def chat(request: Request) -> Response:
       request.state.saved = str(saved)
   include_usage = bool((body.get("stream_options") or {}).get("include_usage"))
   failure = upstream.error_response(
-    502, "No model answered the request", "upstream_error"
+    502, "No model answered the request.", "upstream_error"
   )
   deadline = time.perf_counter() + upstream.TIMEOUT_SECONDS
   direct_wait = (
@@ -1274,7 +1276,7 @@ async def chat(request: Request) -> Response:
       attempts.append(upstream.late_note(candidate, started) | sent)
       pin.failed(candidate, attempt=attempts[-1])
       failure = upstream.error_response(
-        504, "Upstream provider timed out", "upstream_error"
+        504, "Upstream provider timed out.", "upstream_error"
       )
       break
     except httpx.ReadTimeout as exc:
@@ -1300,7 +1302,7 @@ async def chat(request: Request) -> Response:
       if started_cooldown := pin.failed(candidate, exc, attempts[-1]):
         attempts[-1]["cooldown"] = started_cooldown
       failure = upstream.error_response(
-        exc.status, "Upstream provider rejected the request", "upstream_error"
+        exc.status, "Upstream provider rejected the request.", "upstream_error"
       )
       previous_attempt = (candidate, candidate_pool)
       fallback_reason = "lmt" if isinstance(exc, upstream.RateLimitError) else "err"
@@ -1311,7 +1313,7 @@ async def chat(request: Request) -> Response:
       attempts.append(upstream.failure_note(candidate, started, exc) | sent)
       pin.failed(candidate, attempt=attempts[-1])
       failure = upstream.error_response(
-        502, "Upstream provider attempt failed", "upstream_error"
+        502, "Upstream provider attempt failed.", "upstream_error"
       )
       previous_attempt = (candidate, candidate_pool)
       fallback_reason = "err"

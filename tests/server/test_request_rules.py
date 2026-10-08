@@ -40,7 +40,7 @@ async def test_missing_key(client: httpx.AsyncClient) -> None:
   assert api.PENALTIES.weights(["b/x"]) == {"b/x": 1.0}, "no fault"
   response = await send(client, "b/x")
   assert response.status_code == 400, response.text
-  assert response.json()["error"]["message"] == "Missing api_key for b", response.text
+  assert response.json()["error"]["message"] == "Missing api_key for b.", response.text
   assert SEEN == [], "no upstream call"
 
 
