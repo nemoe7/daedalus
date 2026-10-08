@@ -150,10 +150,10 @@ def test_pick_on_every_answer() -> None:
   assert retry["usage"]["daedalus"]["line"] == "B \u00b7 kilo/x"
 
 
-def test_pick_named_on_the_pools() -> None:
-  """The shipped config names the served model hook for the pools and the reserved model, and for no other provider."""
+def test_a_request_point_runs_each_named_file() -> None:
+  """The shipped file names no hook, and a request point runs each file it names."""
   text = (FOLDER.parent / "daedalus.yml").read_text()
-  assert "on-chunk: [hooks/served_model.py]" in text
+  assert "hooks:" not in text, "the shipped file leaves every hook to its own block"
   entries = {
     "on-request": "hooks/owui_auto_reasoning_effort.py",
     "on-chunk": "hooks/served_model.py",

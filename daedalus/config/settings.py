@@ -407,10 +407,14 @@ def update_text(text: str, changes: dict[str, dict[str, Any]]) -> str:
     document = writer.load(text) if text.strip() else None
   except yaml.YAMLError as exc:
     raise SettingsError(error_text(exc)) from exc
+  head = ""
   if not isinstance(document, CommentedMap):
-    if text.strip():
+    if document is None:
+      document = CommentedMap()
+      # A file of comment lines gives no document, so its comments go back by hand.
+      head = "".join(f"{line}\n" for line in text.splitlines() if line.startswith("#"))
+    else:
       raise SettingsError("the settings file must hold groups of keys")
-    document = CommentedMap()
   for group, values in changes.items():
     block = document.get(group)
     if block is None:
@@ -425,7 +429,7 @@ def update_text(text: str, changes: dict[str, dict[str, Any]]) -> str:
     if not block:
       del document[group]
   if not document:
-    return ""
+    return head
   output = StringIO()
   writer.dump(document, output)
-  return output.getvalue()
+  return head + output.getvalue()

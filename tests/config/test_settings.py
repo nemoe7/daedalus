@@ -31,31 +31,12 @@ def test_load(folder: Path) -> None:
   assert "think hard" in values["routing"]["escalation"], "the default keywords"
   assert values["routing"]["switch"] == ["clanker"]
   shipped_path = Path(__file__).parents[2] / "config" / "daedalus.yml"
-  raw = yaml.safe_load(shipped_path.read_text(encoding="utf-8"))
-  assert "routing" not in raw, "the keyword lists stay defaults"
-  for group, entries in raw.items():
-    for key, value in entries.items():
-      assert value != settings.DEFAULTS[group][key], (
-        f"{group}.{key} copies the code default"
-      )
-  shipped = settings.load(shipped_path)
-  assert shipped.pop("hooks") == {
-    "on-request": ["hooks/owui_auto_reasoning_effort.py"],
-    "on-prompt": ["hooks/owui_auto_reasoning_effort.py"],
-    "on-chunk": ["hooks/served_model.py"],
-    "dir": "hooks",
-    "sources": [],
-    "disabled": [],
-  }
-  assert values.pop("hooks") == {
-    "on-request": [],
-    "on-prompt": [],
-    "on-chunk": [],
-    "dir": "hooks",
-    "sources": [],
-    "disabled": [],
-  }
-  assert shipped == values, "the shipped file holds no default copy"
+  assert yaml.safe_load(shipped_path.read_text(encoding="utf-8")) is None, (
+    "the shipped file holds no key. The dashboard writes its changes into it"
+  )
+  assert settings.load(shipped_path) == values, (
+    "the shipped file leaves every default in place"
+  )
   path = folder / "daedalus.yml"
   path.write_text("limits:\n  wait: 120\nbalance:\n  fault: 0.25\n", encoding="utf-8")
   values = settings.load(path)
@@ -392,6 +373,20 @@ def test_update_text_drops_an_empty_group() -> None:
     "limits:\n  slow: 30\ncatalog:\n  every: 6\n", {"limits": {"slow": None}}
   )
   assert text == "catalog:\n  every: 6\n", text
+
+
+def test_update_text_writes_into_a_file_of_comments_only() -> None:
+  """A file of comment lines holds no group, and a save writes the changes into it."""
+  text = settings.update_text("# Router settings.\n", {"limits": {"slow": 12}})
+  assert text == "# Router settings.\nlimits:\n  slow: 12\n", text
+
+
+def test_update_text_keeps_a_comment_of_a_written_file() -> None:
+  """A save keeps the comment lines of a file that holds keys."""
+  text = settings.update_text(
+    "# Router settings.\nlimits:\n  slow: 30\n", {"limits": {"slow": 12}}
+  )
+  assert "# Router settings." in text and "  slow: 12" in text, text
 
 
 def test_hooks_dir_names_the_folder() -> None:
