@@ -56,9 +56,7 @@ async def test_order(client: httpx.AsyncClient) -> None:
   """With the cheapest output hook, the saved order goes out, and a client provider object wins."""
   folder = hooks.ROOT / "hooks"
   folder.mkdir(parents=True, exist_ok=True)
-  shutil.copy(
-    REPO / "hooks" / "or_cheapest_output.py", folder / "cheapest.py"
-  )
+  shutil.copy(REPO / "hooks" / "or_cheapest_output.py", folder / "cheapest.py")
   module = hooks.load((folder / "cheapest.py").resolve())
   module.save_order("p/x", ["cheap", "cloud"])
   config.get_config()["p"]["hooks"] = [{"on-upstream": "hooks/cheapest.py"}]

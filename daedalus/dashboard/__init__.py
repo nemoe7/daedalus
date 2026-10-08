@@ -1228,4 +1228,28 @@ def routes(
       }
     )
 
+  @api.delete("/hooks/file")
+  async def hooks_file_delete(request: Request) -> JSONResponse:
+    """Delete 1 hook file from the hook folder, and leave its record out of the lock."""
+    if not allowed(request):
+      return denied()
+    body = await json_body(request)
+    name = body.get("name") if isinstance(body, dict) else None
+    if not isinstance(name, str) or not name.strip():
+      return failure(400, "A file name is needed.", "invalid_request_error")
+    group = settings.load()["hooks"]
+    hooks.set_installed(group["dir"], group["disabled"])
+    path = hooks.resolve(name)
+    if path is None:
+      return failure(
+        404, f"The hook {name} is not a file of the folder.", "invalid_request_error"
+      )
+    path.unlink()
+    records = remote.read_records()
+    key = path.relative_to(hooks.folder()).as_posix()
+    if key in records:
+      del records[key]
+      remote.write_records(records)
+    return JSONResponse({"ok": True})
+
   return api

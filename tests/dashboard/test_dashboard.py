@@ -2633,6 +2633,52 @@ def test_hook_rows_and_update(
   )
 
 
+def test_hook_file_delete(
+  client: TestClient, state_folder: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """The delete leaves the file and its lock record out, and stays inside the folder."""
+  root = state_folder / "hooks"
+  root.mkdir(parents=True, exist_ok=True)
+  (root / "drop.py").write_text(
+    "# ---\n# version: 1.0.0\n# ---\ndef on_answer(a, m):\n  return a\n",
+    encoding="utf-8",
+  )
+  state = {"records": {}}
+  monkeypatch.setattr(remote, "read_records", lambda path=None: state["records"])
+  monkeypatch.setattr(
+    remote,
+    "write_records",
+    lambda records, path=None: state.update(records=dict(records)),
+  )
+  state["records"] = {
+    "drop.py": {
+      "sha256": "b" * 64,
+      "version": "1.0.0",
+      "repo": "owner/name",
+      "commit": "c" * 40,
+    }
+  }
+  assert (
+    TestClient(api.app)
+    .request("DELETE", "/ui/api/hooks/file", json={"name": "hooks/drop.py"})
+    .status_code
+    == 401
+  ), "a session is needed"
+  client.post("/ui/api/login", json={"username": "admin", "password": MASTER})
+  missing = client.request(
+    "DELETE", "/ui/api/hooks/file", json={"name": "hooks/nope.py"}
+  )
+  assert missing.status_code == 404, missing.text
+  escape = client.request(
+    "DELETE", "/ui/api/hooks/file", json={"name": "config/daedalus.yml"}
+  )
+  assert escape.status_code == 404, escape.text
+  found = client.request("DELETE", "/ui/api/hooks/file", json={"name": "hooks/drop.py"})
+  assert found.status_code == 200, found.text
+  assert not (root / "drop.py").exists()
+  assert state["records"] == {}
+
+
 def test_hook_scan_and_take(
   client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:

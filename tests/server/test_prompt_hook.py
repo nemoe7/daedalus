@@ -166,9 +166,7 @@ def test_no_reasoning_model(
 def ladder_file(monkeypatch: pytest.MonkeyPatch) -> None:
   """Write the shipped hook into the hook folder, and name it in the prompt point."""
   shipped = (
-    Path(__file__).resolve().parents[2]
-    / "hooks"
-    / "owui_auto_reasoning_effort.py"
+    Path(__file__).resolve().parents[2] / "hooks" / "owui_auto_reasoning_effort.py"
   )
   target = hooks.ROOT / "hooks" / "owui_auto_reasoning_effort.py"
   target.parent.mkdir(parents=True, exist_ok=True)
@@ -211,11 +209,7 @@ def test_the_shipped_ladder_file_skips_another_client(
 
 def shipped_levels() -> dict[int, str]:
   """The level table of the shipped ladder file, read from the file itself."""
-  path = (
-    Path(__file__).resolve().parents[2]
-    / "hooks"
-    / "owui_auto_reasoning_effort.py"
-  )
+  path = Path(__file__).resolve().parents[2] / "hooks" / "owui_auto_reasoning_effort.py"
   spec = importlib.util.spec_from_file_location("shipped_ladder", path)
   assert spec and spec.loader, path
   module = importlib.util.module_from_spec(spec)
@@ -225,11 +219,7 @@ def shipped_levels() -> dict[int, str]:
 
 def shipped_module():
   """The shipped ladder file, loaded from the file itself."""
-  path = (
-    Path(__file__).resolve().parents[2]
-    / "hooks"
-    / "owui_auto_reasoning_effort.py"
-  )
+  path = Path(__file__).resolve().parents[2] / "hooks" / "owui_auto_reasoning_effort.py"
   spec = importlib.util.spec_from_file_location("shipped_ladder", path)
   assert spec and spec.loader, path
   module = importlib.util.module_from_spec(spec)

@@ -244,7 +244,7 @@ daedalus reads a file again when its file time changes. A restart is not necessa
 
 Hooks get no database access. An `on-catalog` hook changes only the row. daedalus writes only the known columns of the row, so a hook cannot change a table. A hook that keeps data uses its own file, such as `cheapest_output.json`.
 
-The dashboard edits the `hooks` list of a model or a provider. The Hooks card of the Settings page names the folder, the sources and the files that load. Only the update writes a hook file, and it writes to the folder of `hooks.dir`. A hook runs inside the daedalus process, with all its access.
+The dashboard edits the `hooks` list of a model or a provider. The Hooks card of the Settings page names the folder, the sources and the files that load. Only the update writes a hook file, and it writes to the folder of `hooks.dir`. The Delete button of a row leaves the file and its lock record out, and the settings entries of the file stay. A hook runs inside the daedalus process, with all its access.
 
 ## The hook folder
 
@@ -342,7 +342,7 @@ The Hooks card of the Settings page holds the folder, the sources and 1 switch p
 `Update from the sources` reads the same sources as `daedalus hooks update`, and names the old
 version and the new 1 of each file that moved. `+ Add a repo` opens 1 modal for the repo URL. The
 scan then lists the files of that repo, each with its own switch, so the operator takes some files
-and leaves the rest. The `×` of the source row removes the picked source.
+and leaves the rest. The `×` of the source row deletes the picked source.
 
 A hook row of a provider card or of a model entry offers the installed files whose scope fits that
 card, and the keyword chips of the Hooks card accept any file of the folder.

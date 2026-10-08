@@ -17,6 +17,7 @@ SIMULATED = (
   "catalog",
   "env",
   "files",
+  "hooks/file",
   "hooks/scan",
   "hooks/update",
   "keys",

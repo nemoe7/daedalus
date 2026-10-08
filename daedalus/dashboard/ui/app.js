@@ -1400,8 +1400,9 @@ function hooksManager() {
       <td role="cell" class="points">${hookPointsCell(row)}</td>
       <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || "bundled")}">${row.problem ? `<span class="bad">${esc(row.problem)}</span>` : esc(source || "bundled")}</span></td>
       <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
-        ${disabled.includes(row.name) ? "" : "checked"} aria-label="Load ${esc(row.name)}"></td></tr>`;
-  }).join("") || '<tr><td role="cell" colspan="6"><em class="none">No hook file</em></td></tr>';
+        ${disabled.includes(row.name) ? "" : "checked"} aria-label="Load ${esc(row.name)}"></td>
+      <td class="end"><button type="button" class="ghost danger" data-hook-drop="${esc(row.path)}">Delete</button></td></tr>`;
+  }).join("") || '<tr><td role="cell" colspan="7"><em class="none">No hook file</em></td></tr>';
   const scan = state.hooksScan;
   const panel = scan ? `<div class="pills" id="hooks-scan">
       <span class="sub">${esc(sourceLabel(scan))} at ${esc((scan.commit || "").slice(0, 7))}</span>${scan.files
@@ -1409,7 +1410,7 @@ function hooksManager() {
       ${scan.take[file.name] ? "checked" : ""}>${esc(file.name)}${file.version ? ` ${esc(file.version)}` : ""}</label>`).join("")}
       <button type="button" class="primary" data-hook-take-all>Take the picked files</button></div>` : "";
   return `<div class="field stack info">${labelSpan("Installed hooks", "The files of the hook folder. A point is a stage of a request, and the block of the file names the points it runs at. The switch leaves a file on disk and out of the run.")}
-      <table class="keys"><thead><tr><th>File</th><th>Version</th><th>Scope</th><th>Points</th><th class="hide-sm">Source</th><th>Load</th></tr></thead>
+      <table class="keys"><thead><tr><th>File</th><th>Version</th><th>Scope</th><th>Points</th><th class="hide-sm">Source</th><th>Load</th><th></th></tr></thead>
       <tbody>${list}</tbody></table>
       <button type="button" class="ghost" data-hooks-update>Update from the sources</button></div>
     <div class="field stack info">${labelSpan("Folder", "The folder at the root that holds the hook files.")}
@@ -1421,6 +1422,17 @@ function hooksManager() {
         <button type="button" class="add" data-hook-source-add>+ Add a repo</button>
         <button type="button" class="ghost" data-hook-source-drop title="Delete the source">&times;</button></div>${panel}
       <div class="sub" id="hooks-note" role="status"></div></div>`;
+}
+
+// The Delete button of a row: the file leaves the folder and the lock, and the settings
+// entries of the file stay, so the row shows the problem of a missing file.
+async function dropHookFile(button) {
+  const name = button.dataset.hookDrop;
+  if (!(await ask("Delete the hook file", `${name} leaves the folder and the lock. The settings entries of the file stay.`, "Delete", true))) return;
+  await guarded(async () => {
+    await call("hooks/file", { method: "DELETE", body: JSON.stringify({ name }) });
+    await loadSettings();
+  });
 }
 
 async function addHookSource() {
@@ -3265,6 +3277,7 @@ $("settings").addEventListener("click", async (event) => {
   // The manager: the modal of a source, the delete of 1, the update and the take of a scan.
   if (event.target.closest("[data-hook-source-add]")) return addHookSource();
   if (event.target.closest("[data-hook-source-drop]")) return dropHookSource();
+  if (event.target.closest("[data-hook-drop]")) return dropHookFile(event.target.closest("[data-hook-drop]"));
   if (event.target.closest("[data-hooks-update]")) return runHooksUpdate();
   if (event.target.closest("[data-hook-take-all]")) return takeHooks();
   const drop = event.target.closest("[data-setting-drop]");
