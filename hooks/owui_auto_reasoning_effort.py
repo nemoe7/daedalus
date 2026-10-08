@@ -53,7 +53,6 @@ ANSWER_CHARS = 500
 
 
 def _text(content: Any) -> str:
-  """The text of one message content, which is a string or a list of parts."""
   if isinstance(content, str):
     return content
   if isinstance(content, list):
@@ -112,10 +111,6 @@ def on_request(value: dict, model: str, headers: dict) -> dict | None:
 
 
 def _level(context: Any, tier: int) -> str:
-  """The effort of one tier on the ladder of the efforts list of the model.
-
-  The list of the catalog of the model, when it holds one, narrows the coded set.
-  """
   model = context.get("model") or ""
   return router.effort_at(
     router.efforts(
@@ -128,11 +123,6 @@ def _level(context: Any, tier: int) -> str:
 
 
 def _floor(context: Any) -> int:
-  """The lowest tier this request may take: 2 when the model requires reasoning, else 1.
-
-  A model that rejects a request with reasoning off, such as kilo lfm-2.5, names
-  `reasoning: required` in its config entry. That model never takes the `none` level.
-  """
   config = context.get("config") or {}
   model = context.get("model") or ""
   return 2 if router.model_setting(config, model, "reasoning") == "required" else 1

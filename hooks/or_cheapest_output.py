@@ -35,12 +35,10 @@ TIMEOUT_SECONDS = 20
 
 
 def orders_file() -> Path:
-  """The saved orders, beside the model store, so that they stay after a restart."""
   return Path(store.MODELS_DB).parent / "cheapest_output.json"
 
 
 def read_orders() -> dict[str, list[str]]:
-  """The saved order of each model, or an empty dict."""
   try:
     found = json.loads(orders_file().read_text())
   except (OSError, ValueError):
@@ -49,7 +47,6 @@ def read_orders() -> dict[str, list[str]]:
 
 
 def save_order(model: str, order: list[str]) -> None:
-  """Save the order of one model. The file changes in 1 step."""
   orders = {**read_orders(), model: order}
   target = orders_file()
   target.parent.mkdir(parents=True, exist_ok=True)
@@ -59,7 +56,6 @@ def save_order(model: str, order: list[str]) -> None:
 
 
 def price(value: Any) -> float:
-  """One price as a number. A price that is not there sorts last."""
   try:
     number = float(value)
   except (TypeError, ValueError):

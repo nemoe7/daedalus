@@ -30,7 +30,6 @@ def tier_letter(pool: str) -> str:
 
 
 def line_for(model: str, pool: str, served: str) -> str:
-  """`{letter} · {slug}` for `daedalus/auto`, the slug alone for a named pool."""
   if model != RESERVED:
     return served
   letter = tier_letter(pool)
