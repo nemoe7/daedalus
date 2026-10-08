@@ -161,3 +161,46 @@ def test_settings() -> None:
       assert message in str(exc), exc
     else:
       raise AssertionError(text)
+
+
+def test_rebuild_records_the_diff() -> None:
+  import daedalus.catalog
+
+  store.migrate()
+  store.write_store([{"id": "p/one", "mode": "chat"}, {"id": "p/two", "mode": "chat"}])
+
+  def refresh():
+    daedalus.catalog.LAST_FAILED = ["kilo"]
+    store.write_store(
+      [{"id": "p/one", "mode": "chat"}, {"id": "p/three", "mode": "chat"}]
+    )
+    return store.MODELS_DB
+
+  asyncio.run(schedule.rebuild(refresh, "manual"))
+  daedalus.catalog.LAST_FAILED = []
+  events = store.recent_rebuilds()
+  assert events[0]["reason"] == "manual"
+  assert events[0]["models"] == 2
+  assert events[0]["added"] == ["p/three"]
+  assert events[0]["removed"] == ["p/two"]
+  assert events[0]["changed"] == []
+  assert events[0]["failed"] == ["kilo"]
+
+
+def test_rebuild_records_the_changed_row() -> None:
+  store.migrate()
+  store.write_store(
+    [{"id": "p/one", "mode": "chat", "supported_efforts": "[low, medium]"}]
+  )
+
+  def refresh():
+    store.write_store(
+      [{"id": "p/one", "mode": "chat", "supported_efforts": "[low, medium, high]"}]
+    )
+    return store.MODELS_DB
+
+  asyncio.run(schedule.rebuild(refresh, "scheduled"))
+  events = store.recent_rebuilds()
+  assert events[0]["reason"] == "scheduled"
+  assert events[0]["added"] == [] and events[0]["removed"] == []
+  assert events[0]["changed"] == ["p/one"]

@@ -13,6 +13,9 @@ from daedalus.store import write_store
 
 logger = logging.getLogger("daedalus.catalog")
 
+# The provider names whose model list failed in the last rebuild, for its event.
+LAST_FAILED: list[str] = []
+
 
 def with_hooks(
   config: dict[str, Any], rows: Iterable[dict[str, Any]]
@@ -42,6 +45,7 @@ def with_hooks(
 
 def _rebuild(cached: bool) -> Path:
   """Build the model store from fetched provider lists or cached snapshots."""
+  global LAST_FAILED
   # The default provider file of the repository fills the names that the live config lacks, so a
   # new default provider lands here. The fetch never writes the local file of the operator.
   from daedalus.config import defaults
@@ -52,6 +56,7 @@ def _rebuild(cached: bool) -> Path:
   native, skipped = build_rows(
     config, failed=failed, cached=cached, save_snapshots=not cached
   )
+  LAST_FAILED = list(failed)
   lines = list(native)
   unenriched: list[str] = []
   rows, problems = enrich(lines, config, native=native, failed=unenriched)

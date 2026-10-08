@@ -61,13 +61,32 @@ def due(now: float) -> bool:
   return built is None or built < mark
 
 
+def _record(before: dict[str, str], reason: str) -> None:
+  """Write the event of a finished rebuild, with the rows it added, removed and moved."""
+  from daedalus import catalog
+
+  after = store.row_hashes()
+  store.record_rebuild(
+    reason=reason,
+    models=len(after),
+    added=sorted(set(after) - set(before)),
+    removed=sorted(set(before) - set(after)),
+    changed=sorted(
+      model for model in set(before) & set(after) if before[model] != after[model]
+    ),
+    failed=list(catalog.LAST_FAILED),
+  )
+
+
 async def rebuild(refresh: Callable[[], object], reason: str) -> None:
-  """Run 1 rebuild in a worker thread, then drain the latest queued config rebuild."""
+  """Run 1 rebuild in a worker thread, record its diff, and drain the queued config rebuild."""
   global BUSY, PENDING
   BUSY = True
   logger.info("catalog rebuild: %s", reason)
   try:
+    before = store.row_hashes()
     await asyncio.to_thread(refresh)
+    _record(before, reason)
   finally:
     BUSY = False
     pending, PENDING = PENDING, None

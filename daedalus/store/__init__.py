@@ -1,5 +1,6 @@
 """The SQLite model store: the model table, and the tables of the other modules."""
 
+import hashlib
 import json
 import sqlite3
 import time
@@ -8,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from daedalus.config import STATE_DIR
-from daedalus.store.database import connect_read
+from daedalus.store.database import connect_read, open_db
 
 MODELS_DB = STATE_DIR / "models.sqlite3"
 # Metadata columns, in table order. Config values win over the catalog.
@@ -441,3 +442,97 @@ def has_store() -> bool:
   finally:
     database.close()
   return bool(found)
+
+
+# The newest rebuild events the store keeps.
+REBUILDS_KEEP = 200
+REBUILDS_TABLE = (
+  "CREATE TABLE IF NOT EXISTS catalog_rebuilds "
+  "(id INTEGER PRIMARY KEY, at REAL NOT NULL, reason TEXT NOT NULL, "
+  "models INTEGER NOT NULL, added TEXT NOT NULL, removed TEXT NOT NULL, "
+  "changed TEXT NOT NULL, failed TEXT NOT NULL)"
+)
+
+
+def row_hashes() -> dict[str, str]:
+  """The id of each stored row to its hash, so a rebuild can name the rows it moved."""
+  if not Path(MODELS_DB).exists():
+    return {}
+  database = connect_read(MODELS_DB)
+  try:
+    rows = database.execute(
+      f"SELECT id, {', '.join(COLUMNS)} FROM models ORDER BY id"
+    ).fetchall()
+  except sqlite3.OperationalError:
+    return {}
+  finally:
+    database.close()
+  found = {}
+  for row in rows:
+    values = "\x1f".join(json.dumps(value, sort_keys=True) for value in row[1:])
+    found[row[0]] = hashlib.sha256(values.encode("utf-8")).hexdigest()
+  return found
+
+
+def record_rebuild(
+  reason: str,
+  models: int,
+  added: list[str],
+  removed: list[str],
+  changed: list[str],
+  failed: list[str],
+  at: float | None = None,
+) -> None:
+  """Write one rebuild event with its diff, and keep the newest REBUILDS_KEEP events."""
+  database = open_db(MODELS_DB, (REBUILDS_TABLE,))
+  try:
+    database.execute(
+      "INSERT INTO catalog_rebuilds (at, reason, models, added, removed, changed, failed) "
+      "VALUES (?, ?, ?, ?, ?, ?, ?)",
+      (
+        time.time() if at is None else at,
+        reason,
+        models,
+        json.dumps(added),
+        json.dumps(removed),
+        json.dumps(changed),
+        json.dumps(failed),
+      ),
+    )
+    database.execute(
+      "DELETE FROM catalog_rebuilds WHERE id IN ("
+      "SELECT id FROM catalog_rebuilds ORDER BY id DESC LIMIT ? OFFSET ?)",
+      (1, REBUILDS_KEEP),
+    )
+    database.commit()
+  finally:
+    database.close()
+
+
+def recent_rebuilds(limit: int = 50) -> list[dict[str, Any]]:
+  """The rebuild events, newest first, with their lists read back."""
+  if not Path(MODELS_DB).exists():
+    return []
+  database = connect_read(MODELS_DB)
+  try:
+    rows = database.execute(
+      "SELECT at, reason, models, added, removed, changed, failed FROM catalog_rebuilds "
+      "ORDER BY id DESC LIMIT ?",
+      (limit,),
+    ).fetchall()
+  except sqlite3.OperationalError:
+    return []
+  finally:
+    database.close()
+  return [
+    {
+      "at": row[0],
+      "reason": row[1],
+      "models": row[2],
+      "added": json.loads(row[3]),
+      "removed": json.loads(row[4]),
+      "changed": json.loads(row[5]),
+      "failed": json.loads(row[6]),
+    }
+    for row in rows
+  ]

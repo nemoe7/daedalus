@@ -25,6 +25,7 @@ STATEMENTS = (
   *penalties.TABLES,
   keys.SCHEMA,
   saved_env.SCHEMA,
+  store.REBUILDS_TABLE,
 )
 
 
