@@ -171,8 +171,12 @@ class Watch:
       task.cancel()
 
 
+# The model paths: the Requests page keeps these calls alone, and not the control calls.
+MODEL_PATHS = ("/v1/chat/completions", *(route.path for route in media.routes.routes))
+
+
 class RequestLog:
-  """Log each request, and keep each API request for the dashboard after its last byte.
+  """Log each request, and keep each model call for the dashboard after its last byte.
 
   A plain ASGI class passes the stream chunks on with no extra queue.
   """
@@ -186,7 +190,7 @@ class RequestLog:
       return
     started = time.perf_counter()
     request = Request(scope)
-    api_post = request.method == "POST" and request.url.path.startswith("/v1/")
+    api_post = request.method == "POST" and request.url.path in MODEL_PATHS
     if api_post:
       request.state.live = dashboard.LIVE.start(request.url.path)
     status: int | None = None

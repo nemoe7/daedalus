@@ -4,6 +4,7 @@ import threading
 
 from fastapi.testclient import TestClient
 
+from daedalus import dashboard
 from daedalus.catalog import schedule
 from daedalus.server import api
 
@@ -40,3 +41,11 @@ def test_catalog_route_without_a_rebuild(monkeypatch) -> None:
   response = TestClient(api.app, headers=AUTH).post("/v1/catalog")
   assert response.status_code == 503
   assert response.json()["error"]["type"] == "server_error"
+
+
+def test_the_control_calls_leave_no_request_row() -> None:
+  """The Requests page holds the model calls alone: a refused control call leaves no row."""
+  client = TestClient(api.app)
+  assert client.post("/v1/catalog").status_code == 401
+  assert client.post("/v1/hook/example.py").status_code == 401
+  assert dashboard.HISTORY.latest() == [], "a control call is not a model request"
