@@ -39,6 +39,8 @@ def test_model_store() -> None:
   seen = []
 
   def fetch(url: str, headers: dict) -> dict:
+    if url.startswith(enrichment.MODELSCHEMAS_URL):
+      return {}
     query = parse_qs(urlsplit(url).query)
     seen.append(query)
     assert url.startswith(enrichment.LITELLM_CATALOG), url

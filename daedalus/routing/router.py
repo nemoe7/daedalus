@@ -128,6 +128,16 @@ DEFAULT_EFFORTS: Final[Mapping[str, tuple[str, ...]]] = {
 }
 # The ladder of a provider with no coded list: the 4 levels of the heuristics read.
 FALLBACK_EFFORTS: Final[tuple[str, ...]] = ("none", "low", "medium", "high")
+# The effort names from lowest to highest, the vocabulary every ladder is made of.
+EFFORT_RANKS: Final[tuple[str, ...]] = (
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+)
 # The cap of any ladder step, so a step never passes the 6th effort of a list.
 EFFORT_CAP: Final = 5
 
