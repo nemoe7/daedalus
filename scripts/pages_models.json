@@ -2780,7 +2780,7 @@
     "supports_audio_input": true,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": "[\"max\", \"high\", \"medium\", \"low\", \"minimal\", \"none\"]",
+    "supported_efforts": "[\"max\", \"xhigh\", \"high\", \"medium\", \"low\", \"minimal\", \"none\"]",
     "tier": "TIER-A"
   },
   {
@@ -2804,7 +2804,7 @@
     "supports_audio_input": true,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": "[\"max\", \"high\", \"medium\", \"low\", \"minimal\", \"none\"]",
+    "supported_efforts": "[\"max\", \"xhigh\", \"high\", \"medium\", \"low\", \"minimal\", \"none\"]",
     "tier": "TIER-A"
   },
   {
