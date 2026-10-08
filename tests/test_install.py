@@ -72,17 +72,25 @@ def run(
 
 
 def run_interactive(
-  folder: Path, env: dict[str, str], *answers: str
+  folder: Path,
+  env: dict[str, str],
+  *answers: str,
+  piped: bool = False,
+  cwd: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
-  """Run install.sh on a pseudo-terminal with line answers."""
+  """Run install.sh on a pseudo-terminal with line answers. A piped run reads the script from a pipe."""
   import pty
   import select
   import signal
   import time
 
+  script = str(folder / "install.sh")
+  argv = ["bash", "-c", f'cat "{script}" | bash'] if piped else ["bash", script]
   pid, master = pty.fork()
   if pid == 0:
-    os.execvpe("bash", ["bash", str(folder / "install.sh")], env)
+    if cwd is not None:
+      os.chdir(cwd)
+    os.execvpe("bash", argv, env)
   os.write(master, ("\n".join(answers) + "\n").encode())
   output = bytearray()
   deadline = time.monotonic() + 60
@@ -118,7 +126,7 @@ def run_interactive(
     output.extend(chunk)
   os.close(master)
   return subprocess.CompletedProcess(
-    ["bash", str(folder / "install.sh")],
+    argv,
     os.waitstatus_to_exitcode(status),
     output.decode(errors="replace"),
     "",
@@ -300,3 +308,39 @@ def test_dev_downloads_from_main_and_pulls(tmp_path: Path) -> None:
     "ghcr.io/nemoe7/daedalus:dev|always||compose -f compose.dev.yml up -d"
     in (tmp_path / "docker.log").read_text()
   )
+
+
+def test_a_crlf_env_takes_a_valid_key(tmp_path: Path) -> None:
+  """A .env with Windows line ends passes the master key check, and an empty key gets a new 1."""
+  key = "sk-" + "a" * 41
+  folder, env = checkout(tmp_path, f"DAEDALUS_MASTER_KEY={key}\r\n")
+  done = run(folder, env)
+  assert done.returncode == 0, done.stderr
+  text = (folder / ".env").read_text()
+  assert f"DAEDALUS_MASTER_KEY={key}\n" in text, text
+  assert "\r" not in text, "the carriage return leaves the file"
+
+  (tmp_path / "second").mkdir()
+  folder, env = checkout(tmp_path / "second", "DAEDALUS_MASTER_KEY=\r\n")
+  done = run(folder, env)
+  assert done.returncode == 0, done.stderr
+  text = (folder / ".env").read_text()
+  assert "DAEDALUS_MASTER_KEY=sk-" in text, text
+  assert "DAEDALUS_MASTER_KEY=\r\n" not in text, text
+
+
+def test_a_piped_run_keeps_the_folder_of_another_project(tmp_path: Path) -> None:
+  """The pipe leaves BASH_SOURCE empty, so a compose.yml in the current folder claims no install."""
+  folder, env = checkout(tmp_path, None)
+  project = tmp_path / "project"
+  project.mkdir()
+  shutil.copy(ROOT / "compose.yml", project / "compose.yml")
+  home = tmp_path / "home"
+  home.mkdir()
+  done = run_interactive(
+    folder, {**env, "HOME": str(home)}, "y", "n", "n", "n", piped=True, cwd=project
+  )
+  assert done.returncode == 0, done.stdout + done.stderr
+  assert (home / "daedalus" / "install.sh").is_file(), done.stdout
+  assert not (project / "install.sh").exists(), "the other project folder stays"
+  assert not (project / ".env").exists(), "the other project folder stays"

@@ -38,8 +38,10 @@ done
 # No args: keep dev=0 prod=0 initially, marker may set dev later
 
 # A checkout has compose.yml beside this script. With curl | bash, there is no script file.
-here=$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)
-if [ -f "$here/compose.yml" ]; then dir=$here; else dir=$HOME/daedalus; fi
+src=${BASH_SOURCE[0]:-}
+here=
+if [ -n "$src" ]; then here=$(cd "$(dirname "$src")" && pwd); fi
+if [ -n "$here" ] && [ -f "$here/compose.yml" ]; then dir=$here; else dir=$HOME/daedalus; fi
 
 # Persistent dev flag: .daedalus-dev marker auto-selects dev unless --prod/--no-dev given.
 if [ -f "$dir/.daedalus-dev" ] && [ "$prod" = 0 ]; then dev=1; fi
@@ -97,7 +99,7 @@ fi
 # Ordered check 3: read .env for COMPOSE_PROFILES to determine required service dirs
 profiles=""
 if [ -f "$dir/.env" ]; then
-  profiles=$(grep -E '^COMPOSE_PROFILES=' "$dir/.env" | tail -n1 | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
+  profiles=$(grep -E '^COMPOSE_PROFILES=' "$dir/.env" | tail -n1 | cut -d= -f2- | tr -d '\r' | tr -d '"' | tr -d "'" || true)
 fi
 # Normalize: comma -> space
 profiles_spaced=$(echo "$profiles" | tr ',' ' ')
@@ -156,7 +158,9 @@ if [ "${#plan[@]}" -gt 0 ]; then
   printf '  - %s\n' "${plan[@]}"
   answer=
   # With curl | bash, stdin is the script, so the answer comes from the terminal.
-  read -r -p "Continue? [y/N] " answer </dev/tty || true
+  if [ -c /dev/tty ]; then
+    read -r -p "Continue? [y/N] " answer </dev/tty || true
+  fi
   case "$answer" in
     y | Y | yes | Yes | YES) ;;
     *) echo "Stopped. Nothing changed."; exit 1 ;;
@@ -166,7 +170,9 @@ fi
 # Ask only on the first install. Updates keep the profiles in .env.
 ask_profile() {
   local profile="$1" label="$2" answer=
-  read -r -p "$label [y/N] " answer </dev/tty || true
+  if [ -c /dev/tty ]; then
+    read -r -p "$label [y/N] " answer </dev/tty || true
+  fi
   case "$answer" in
     y|Y|yes|Yes|YES) selected_profiles+=("$profile") ;;
   esac
@@ -263,6 +269,8 @@ if [ "$missing_env" = 1 ]; then
     printf 'COMPOSE_PROFILES=%s\n' "$profile_list" >>.env
   fi
 fi
+# A .env from a Windows editor carries a carriage return at the end of each line.
+sed -i 's/\r$//' .env
 key=
 if grep -q '^DAEDALUS_MASTER_KEY=$' .env; then
   # The sk- prefix matches the API keys that daedalus makes in the dashboard.
@@ -284,6 +292,10 @@ if [ "$(uname -s)" = Linux ] && ! grep -qs '^DAEDALUS_UID=' .env; then
   if [ -s .env ] && [ -n "$(tail -c1 .env)" ]; then echo >>.env; fi
   printf 'DAEDALUS_UID=%s\nDAEDALUS_GID=%s\n' "$(id -u)" "$(id -g)" >>.env
 fi
+# Both files hold the master key.
+chmod 600 .env
+if [ -f .env.bak ]; then chmod 600 .env.bak; fi
+
 mkdir -p .daedalus-state
 
 compose=(compose)

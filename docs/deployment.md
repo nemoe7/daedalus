@@ -172,7 +172,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Process | 1 Java process (`-noFork`) with a 512 MB heap, from `JAVA_TOOL_OPTIONS` |
 | Out of memory | Java stops, and Docker starts Tika again |
 | OCR | Tesseract reads the text-poor pages on the Pi CPU. 1 scanned page takes many seconds. |
-| Compose | `required: false` in the Open WebUI `depends_on`: `webui` starts without Tika. Compose 2.20 or later. |
+| Compose | `required: false` in the Open WebUI `depends_on`: `webui` starts without Tika. Compose 2.20 or later. The `env_file` form of `compose.yml` needs 2.24.0 or later. |
 
 ### SearXNG
 
