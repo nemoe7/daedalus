@@ -97,11 +97,12 @@ A passage has 20 to 2,000 characters. A passage made of a shorter part that repe
 example a line of `=`, is not a loop. The arguments of 2 calls are the same when their JSON
 values are the same, in any key order.
 
-daedalus keeps the model that made each tool call, by tool call id, in `models.sqlite3`. A
-call id expires after the session idle time. When the id is not known, the tool loop gives no
-fault. The request log shows `loop=N`, where N is the number of the same calls. A thinking or
-answer loop shows as an attempt with the result `loop`. [`config/daedalus.yml`](../../config/daedalus.yml) cannot
-change the loop numbers.
+daedalus keeps the model that made each tool call, by tool call id, in `models.sqlite3`. A call id expires
+after the session idle time. When the id is not known, the tool loop gives no fault. The request log shows
+`loop=N`, where N is the number of the same calls.
+
+A thinking or answer loop shows as an attempt with the result `loop`.
+[`config/daedalus.yml`](../../config/daedalus.yml) cannot change the loop numbers.
 
 ### Settings
 

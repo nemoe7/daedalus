@@ -27,7 +27,10 @@ flowchart TD
 | Tools | `list_tools`, `show_tool`, `create_tool`, `update_tool`, `toggle_tool`, `delete_tool` |
 | Functions | `list_functions`, `show_function`, `create_function`, `update_function`, `toggle_function`, `delete_function` |
 
-The `permissions` valve holds 3 levels. `Always ask` gates every call, reads included. `Allow reads` frees the reads and the new items, and holds the mutations and the toggles. `Always allow` holds nothing. The item name rides in the question.
+The `permissions` valve holds 3 levels. `Always ask` gates every call, reads included. `Allow reads` frees the
+reads and the new items, and holds the mutations and the toggles. `Always allow` holds nothing.
+
+The item name rides in the question.
 
 A new knowledge base, skill, tool or function joins the model presets in the same call. The tool reads each preset, merges the matching `meta` list and posts the record back. It skips a preset without write access and names it. The `PRESET_MODELS` valve picks the presets by id or by name, and an empty list serves each preset.
 

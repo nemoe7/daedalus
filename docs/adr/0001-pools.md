@@ -29,10 +29,11 @@ Each provider block lists patterns under each tier key. A pattern has 1 of 4 typ
 - a regex with a leading `^`
 - a negation with a leading `!`
 
-A model goes to 1 tier only. When patterns of 2 tiers match a model, the most specific
-pattern sets the tier. An exact name comes first, then a glob, then a regex, then a
-negation. Between 2 globs, the glob with more literal characters wins. Between 2 regexes,
-the longer regex wins. A tie goes to the higher tier.
+A model goes to 1 tier only. When patterns of 2 tiers match a model, the most specific pattern sets the tier.
+An exact name comes first, then a glob, then a regex, then a negation. Between 2 globs, the glob with more
+literal characters wins.
+
+Between 2 regexes, the longer regex wins. A tie goes to the higher tier.
 
 Pool names follow one convention. A pool name is a two-syllable Greek adjective that ends
 in -os.
@@ -60,10 +61,12 @@ choose a model inside 1 order, so a session model of order 2 does not go before 
 The media pools use the order too. Cloudflare and Pollinations have order 2, so they share
 `daedalus/photos`, and Cloudflare text models wait for the other chat providers.
 
-`daedalus/auto` stays. It scores the text of all user messages in the conversation, without
-the system prompt. It takes the tier that this text needs. After the first tool call in the
-conversation, the tier is TIER-C or higher. A conversation keeps the highest tier that it
-got, until its session expires. Then `daedalus/auto` follows the same chain from that tier.
+`daedalus/auto` stays. It scores the text of all user messages in the conversation, without the system prompt.
+It takes the tier that this text needs. After the first tool call in the conversation, the tier is TIER-C or
+higher.
+
+A conversation keeps the highest tier that it got, until its session expires. Then `daedalus/auto` follows the
+same chain from that tier.
 
 ## Consequences
 

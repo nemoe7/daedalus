@@ -74,10 +74,12 @@ mark, and a name with no file shows its own text. The folder holds the marks of
 text and the cell title keep the full `provider/slug`.
 
 The bar above the table narrows the view: a text match over the model, the served model, the client app, the
-session and the status, a status filter (all, 2xx only, errors only) and a time range (all, the last hour, the last 24 hours). The count at
-the right of the bar names the shown rows. The view narrows in the page, so no new call goes out. The filters
-ride in the hash, such as `#/requests?status=bad&hours=24&q=timeout`, so a shared link shows the same view. A
-**Clear filters** button shows while a filter is live.
+session and the status, a status filter (all, 2xx only, errors only) and a time range (all, the last hour, the
+last 24 hours). The count at the right of the bar names the shown rows. The view narrows in the page, so no
+new call goes out. The filters ride in the hash, such as `#/requests?status=bad&hours=24&q=timeout`, so a
+shared link shows the same view.
+
+A **Clear filters** button shows while a filter is live.
 
 The page lists the model calls in flight at the top, then the last ones, 50 at a time and 500 at most.
 The Live button pauses the in-flight rows and counts the requests that arrive while the pause holds.
@@ -138,12 +140,13 @@ hash, such as `#/limits?kind=tokens&q=kilo`, and **Clear filters** drops them.
 
 ## Providers
 
-The cards of the Form view stack in columns. The page carries no Save bar: a row writes itself. A value
-row shows its value as text, and a click opens the small editor of that 1 value. The close of that dialog
-writes it. A switch and a pick list hold 1 valid value, so the change writes at once. The last write shows
-its Undo beside the row that changed, and a failure shows its line under the file chips. The file row holds
-the 2 actions beside the file chips: **+ New provider**, and **Delete file** for a file that is not the
-main one.
+The cards of the Form view stack in columns. The page carries no Save bar: a row writes itself. A value row
+shows its value as text, and a click opens the small editor of that 1 value. The close of that dialog writes
+it.
+
+A switch and a pick list hold 1 valid value, so the change writes at once. The last write shows its Undo
+beside the row that changed, and a failure shows its line under the file chips. The file row holds the 2
+actions beside the file chips: **+ New provider**, and **Delete file** for a file that is not the main one.
 
 | Field | YAML key | Input |
 | --- | --- | --- |
@@ -191,7 +194,10 @@ A write from the Form view keeps the comments, the key order, the quotes and the
 
 A change to the other view asks for a confirmation when the file holds unsaved changes. The other view shows the saved file.
 
-The Settings rows write the same way. A switch and a pick list write on the change. A text or a number row writes when its editor closes. A chip list writes on the add or the drop. The Settings page keeps no bar: the rail starts the page, and only an error shows a line.
+The Settings rows write the same way. A switch and a pick list write on the change. A text or a number row
+writes when its editor closes. A chip list writes on the add or the drop.
+
+The Settings page keeps no bar: the rail starts the page, and only an error shows a line.
 
 The YAML editor ends the section list of both pages. It is the fallback: a key or a block that the form cannot show still opens there. That card carries its own Save. Ctrl+S reaches it too.
 
@@ -206,9 +212,11 @@ A field hint rides behind the info icon next to its label. The `Tiers`, `Model o
 
 ## Limits
 
-daedalus reads the balances when it starts, then each hour. **Check now** reads them at once. The filter above the
-table narrows it to 1 model, and it rides in the hash, such as `#/limits?q=llama`. A **Clear filters** button shows
-while the filter is live. A provider without a key or without data does not show.
+daedalus reads the balances when it starts, then each hour. **Check now** reads them at once. The filter above
+the table narrows it to 1 model, and it rides in the hash, such as `#/limits?q=llama`. A **Clear filters**
+button shows while the filter is live.
+
+A provider without a key or without data does not show.
 
 | Provider | Values | Source |
 | --- | --- | --- |
@@ -219,7 +227,11 @@ while the filter is live. A provider without a key or without data does not show
 | Groq, Mistral | The limit, the count left and the reset time of each window, for each model | The `x-ratelimit-*` headers of the last answer |
 | Kilo, and each provider with `hourly_requests` | In the card of the provider: the requests left in the last hour | The daedalus count. A 429 from the provider sets it to 0. |
 
-The rows and the cards come back after a restart, from the state file. The `Seen` and `Checked` times mark each reading. A client with its own provider key has its own rows. A bar like the weight bar shows the rest of each limit: header rows, OpenRouter credit and free requests, and Cloudflare neurons. The number and the bar show the same quantity.
+The rows and the cards come back after a restart, from the state file. The `Seen` and `Checked` times mark
+each reading. A client with its own provider key has its own rows. A bar like the weight bar shows the rest of
+each limit: header rows, OpenRouter credit and free requests, and Cloudflare neurons.
+
+The number and the bar show the same quantity.
 
 The Limit column of a header row shows its short unit, such as `RPM` for requests per minute, and a hover spells it out. A count of 0 shows in red. From 1,000, a count shows floored to K, M or B, for example 998M of 1B. Hover a header row to see the exact number.
 

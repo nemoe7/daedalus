@@ -44,7 +44,7 @@ An ADR holds one decision and the reason for it.
 
 - Lint every human-facing file with `.agents/skills/asd-ste100/scripts/ste-lint.py`. The run
   must report 0 violations, advisory findings included.
-- Lint Python comments and docstrings with `scripts/lint_prose.py`.
+- Lint Python comments, docstrings and the pages' paragraphs with `scripts/lint_prose.py`.
 - Lint Markdown with `npx markdownlint-cli2 "**/*.md"`. The run must report 0 issues. The
   rules are in `.markdownlint-cli2.jsonc`: the markdownlint defaults, MD060 on, MD013 off.
 - Docs never hold narrative. State the fact, and leave out the story.

@@ -19,9 +19,10 @@ A request with `tools` skips the models that cannot call tools, in the chains of
 and of `daedalus/auto`. The skip is silent: no log line, no chain entry in Requests, and
 no fallback count.
 
-The config key `tools` decides first. `tools: true` on the provider or on a matching
-`models` entry marks the row as tool-capable. `tools: false` marks it as not tool-capable.
-Without a `tools` key, the discovery value, then the LiteLLM value, marks the row.
+The config key `tools` decides first. `tools: true` on the provider or on a matching `models` entry marks the
+row as tool-capable. `tools: false` marks it as not tool-capable. Without a `tools` key, the discovery value,
+then the LiteLLM value, marks the row.
+
 A row with no config key, no discovery value and no LiteLLM value is not tool-capable.
 
 A request with an `image_url` part in any message skips the models without vision, in the

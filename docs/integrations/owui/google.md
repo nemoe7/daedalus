@@ -2,7 +2,11 @@
 
 [Open WebUI integration](../owui.md)
 
-[`integrations/openwebui/tools/google.py`](../../../integrations/openwebui/tools/google.py) is a second Workspace Tool: 1 file, standard library only, empty `requirements`. It holds Gmail, Calendar, Drive and Docs. The `permissions` valve sets the gate. `Always ask`, the shipped default, holds every call, reads included. `Allow reads` frees the reads and holds the writes.
+[`integrations/openwebui/tools/google.py`](../../../integrations/openwebui/tools/google.py) is a second
+Workspace Tool: 1 file, standard library only, empty `requirements`. It holds Gmail, Calendar, Drive and Docs.
+The `permissions` valve sets the gate. `Always ask`, the shipped default, holds every call, reads included.
+
+`Allow reads` frees the reads and holds the writes.
 
 ```mermaid
 flowchart TD

@@ -2,7 +2,12 @@
 
 [Open WebUI integration](../owui.md)
 
-[`integrations/openwebui/tools/github.py`](../../../integrations/openwebui/tools/github.py) is an Open WebUI Workspace Tool: one Python file, standard library only, empty `requirements`. It holds the GitHub surface of the reference connector. The `permissions` valve sets the gate. `Always ask`, the shipped default, holds every call, reads included. `Allow reads` frees the reads and holds the writes.
+[`integrations/openwebui/tools/github.py`](../../../integrations/openwebui/tools/github.py) is an Open WebUI
+Workspace Tool: one Python file, standard library only, empty `requirements`. It holds the GitHub surface of
+the reference connector. The `permissions` valve sets the gate. `Always ask`, the shipped default, holds every
+call, reads included.
+
+`Allow reads` frees the reads and holds the writes.
 
 ```mermaid
 flowchart TD

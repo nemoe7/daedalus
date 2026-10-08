@@ -30,9 +30,10 @@ clock stay fresh. The block holds 4 lines at most:
 | `Location` or `Approximate location` | The place of the `location` Valve |
 | `Language` | The language of the `language` Valve, else of the request header |
 
-The place line reads `Approximate location` while the `location_approximate` Valve is on, which
-suits an IP lookup. It reads `Location` for a precise place. The `language` Valve wins over the
-request. An empty Valve reads the first value of the `Accept-Language` header of the request.
+The place line reads `Approximate location` while the `location_approximate` Valve is on, which suits an IP
+lookup. It reads `Location` for a precise place. The `language` Valve wins over the request. An empty Valve
+reads the first value of the `Accept-Language` header of the request.
+
 Without both, the line reads `unknown`.
 
 A repeat replaces the block of the Filter, so the messages keep 1 of them, at the top. The
