@@ -45,7 +45,7 @@ A key can also go into `.env` under the name that [Configuration](configuration.
 
 ## Catalog
 
-`daedalus catalog` makes the model store in `.daedalus-state/models.sqlite3`. The command reads the config files again, so a hand edit of a file applies to the new store.
+`daedalus catalog` makes the model store in `.daedalus-state/models.sqlite3`. The command reads the config files again, so a hand edit of a file applies to the new store. The provider reads run at the same time, 1 thread per provider, up to the processor count. Each read logs 1 line with its count.
 
 ```mermaid
 flowchart LR

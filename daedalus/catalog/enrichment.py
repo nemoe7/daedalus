@@ -1,6 +1,7 @@
 """Add the catalog metadata and config values to each discovered model."""
 
-from collections.abc import Iterable, Mapping
+import logging
+from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 import httpx
@@ -10,12 +11,15 @@ from daedalus.catalog.discovery import (
   Fetch,
   fetch_json,
   matches,
+  read_each,
   save_snapshot,
   with_param,
 )
 from daedalus.config import block_for
 from daedalus.routing.router import EFFORT_RANKS, claiming_tier, efforts
 from daedalus.store import COLUMNS
+
+logger = logging.getLogger("daedalus.catalog")
 
 LITELLM_CATALOG = "https://api.litellm.ai/model_catalog"
 
@@ -54,6 +58,7 @@ def litellm_entries(
         entries[entry["id"].removeprefix(f"{name}/")] = entry
     if payload.get("has_more") is not True:
       break
+  logger.info("%s: read %d LiteLLM entries", name, len(entries))
   return entries
 
 
@@ -69,6 +74,7 @@ def modelschemas_entries(
     if isinstance(row, dict) and isinstance(row.get("rawId"), str) and row["rawId"]:
       entries[row["rawId"]] = row
   save_snapshot(url, payload)
+  logger.info("%s: read %d modelschemas rows", name, len(entries))
   return entries
 
 
@@ -121,6 +127,16 @@ def supported_ladder(
   return efforts(config, model, row.get("supported_efforts"))
 
 
+def entries_or_reason(
+  reader: Callable[[str, Fetch], dict[str, dict[str, Any]]], name: str, fetch: Fetch
+) -> dict[str, dict[str, Any]] | str:
+  """Read 1 source for 1 name, or the reason it failed."""
+  try:
+    return reader(name, fetch)
+  except (httpx.HTTPError, ValueError) as error:
+    return str(error)
+
+
 def enrich(
   lines: Iterable[str],
   config: dict[str, Any],
@@ -129,20 +145,31 @@ def enrich(
   failed: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
   """Add metadata to each line: config, then provider columns, then the catalogs."""
+  lines = list(lines)
   # 1 read per provider name per source, for example 1 for Kilo and OpenRouter alike.
-  cache: dict[str, dict[str, dict[str, Any]] | str] = {}
-  schemas: dict[str, dict[str, dict[str, Any]] | str] = {}
+  # The names come first, so that each source reads its providers at the same time.
+  names: list[str] = []
+  schema_names: list[str] = []
+  for line in lines:
+    provider_name = line.partition("/")[0]
+    for known, keep in (
+      (LITELLM_PROVIDER.get(provider_name, provider_name), names),
+      (MODELSCHEMAS_PROVIDER.get(provider_name, provider_name), schema_names),
+    ):
+      if known not in keep:
+        keep.append(known)
+  cache: dict[str, dict[str, dict[str, Any]] | str] = read_each(
+    names, lambda name: entries_or_reason(litellm_entries, name, fetch)
+  )
+  schemas: dict[str, dict[str, dict[str, Any]] | str] = read_each(
+    schema_names, lambda name: entries_or_reason(modelschemas_entries, name, fetch)
+  )
   noted: set[str] = set()
   noted_schemas: set[str] = set()
   rows, problems = [], []
   for line in lines:
     provider_name, _, slug = line.partition("/")
     name = LITELLM_PROVIDER.get(provider_name, provider_name)
-    if name not in cache:
-      try:
-        cache[name] = litellm_entries(provider_name, fetch)
-      except (httpx.HTTPError, ValueError) as error:
-        cache[name] = str(error)
     entries = cache[name]
     if isinstance(entries, str):
       if provider_name not in noted:
@@ -155,11 +182,6 @@ def enrich(
     row: dict[str, Any] = {"id": line, "provider": provider_name, "slug": slug}
     row.update({key: entry.get(key) for key in COLUMNS})
     ms_name = MODELSCHEMAS_PROVIDER.get(provider_name, provider_name)
-    if ms_name not in schemas:
-      try:
-        schemas[ms_name] = modelschemas_entries(provider_name, fetch)
-      except (httpx.HTTPError, ValueError) as error:
-        schemas[ms_name] = str(error)
     ms = schemas[ms_name]
     if isinstance(ms, str):
       if provider_name not in noted_schemas:

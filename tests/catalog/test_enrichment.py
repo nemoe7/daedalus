@@ -1,5 +1,7 @@
 """Catalog enrichment: the LiteLLM pages, the config columns and the overrides."""
 
+import threading
+
 import httpx
 
 from daedalus.catalog import enrichment
@@ -227,6 +229,31 @@ def test_enrich_reads_each_provider_once() -> None:
   assert rows[0]["rpm"] == 9
   assert rows[0]["slug"] == "a"
   assert problems == []
+
+
+def test_enrich_reads_the_providers_at_the_same_time() -> None:
+  """The 2 provider reads of one source overlap, and each source keeps its own batch."""
+  both = threading.Barrier(2, timeout=5)
+
+  def fetch(url: str, headers: dict[str, str]) -> dict:
+    both.wait()
+    if url.startswith(enrichment.MODELSCHEMAS_URL):
+      return MS_PAGE
+    return {"data": [], "has_more": False}
+
+  rows, problems = enrichment.enrich(["gemini/g", "zai/z"], {}, fetch)
+  assert problems == [], problems
+  assert [row["id"] for row in rows] == ["gemini/g", "zai/z"]
+
+
+def test_enrich_logs_each_source_read(caplog) -> None:
+  """Each source read logs its row count, so a rebuild shows its progress."""
+  fetch, _ = sequenced(PAGE, MS_PAGE)
+  with caplog.at_level("INFO", logger="daedalus.catalog"):
+    enrichment.enrich(["openrouter/a"], {}, fetch)
+  told = [record.getMessage() for record in caplog.records]
+  assert "openrouter: read 1 LiteLLM entries" in told, told
+  assert "openrouter: read 6 modelschemas rows" in told, told
 
 
 def test_enrich_reports_a_catalog_that_failed() -> None:

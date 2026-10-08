@@ -2,6 +2,7 @@
 
 import json
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -312,6 +313,59 @@ def test_build_rows() -> None:
   assert "denied: No route for that URI" in skipped, skipped
   assert any(item.startswith("broken: ") for item in skipped), skipped
   assert len(skipped) == 3, skipped
+
+
+def test_the_provider_reads_run_at_the_same_time(monkeypatch) -> None:
+  """The provider downloads overlap, so the rebuild waits for the slowest alone."""
+  monkeypatch.setattr(discovery, "CORES", 2)
+  both = threading.Barrier(2, timeout=5)
+
+  def fetch(url: str, headers: dict[str, str]) -> dict[str, Any]:
+    both.wait()
+    return PAYOUT[url]
+
+  providers = {"openrouter": CONFIG["openrouter"], "z-ai": CONFIG["z-ai"]}
+  lines, skipped = discovery.build_rows(providers, fetch)
+  assert skipped == [], skipped
+  assert "openrouter/google/gemma-4-26b-a4b-it:free" in lines
+
+
+def test_a_line_per_provider_read(caplog) -> None:
+  """Each provider read logs its model count, so a rebuild shows its progress."""
+  with caplog.at_level("INFO", logger="daedalus.catalog"):
+    discovery.build_rows(
+      {"openrouter": CONFIG["openrouter"], "gemini": CONFIG["gemini"]},
+      make_fetch(PAYOUT),
+    )
+  told = [record.getMessage() for record in caplog.records]
+  assert "openrouter: read 3 models" in told, told
+  assert "gemini: read 5 models" in told, told
+
+
+def test_the_read_cap_holds(monkeypatch) -> None:
+  """With 1 core the reads run one after the other."""
+  monkeypatch.setattr(discovery, "CORES", 1)
+  live = 0
+  peak = 0
+  lock = threading.Lock()
+
+  def read(key: str) -> str:
+    nonlocal live, peak
+    with lock:
+      live += 1
+      peak = max(peak, live)
+    time.sleep(0.05)
+    with lock:
+      live -= 1
+    return key.upper()
+
+  assert discovery.read_each(list("abcd"), read) == {
+    "a": "A",
+    "b": "B",
+    "c": "C",
+    "d": "D",
+  }
+  assert peak == 1, peak
 
 
 def test_provider_file_override() -> None:

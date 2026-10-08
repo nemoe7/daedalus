@@ -4,10 +4,12 @@ import csv
 import hashlib
 import json
 import logging
+import os
 import re
 import sqlite3
 import time
 from collections.abc import Callable, Iterable
+from concurrent.futures import ThreadPoolExecutor
 from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any
@@ -34,6 +36,10 @@ MAX_PAGES = 50
 
 # A provider slug above this length is not a model name, and no pattern sees it.
 SLUG_LIMIT = 200
+
+
+# The thread cap of a read batch: 1 thread per task, and no more than the processors.
+CORES = os.cpu_count() or 1
 
 
 # Row list key per response shape, and the slug key order for that shape.
@@ -100,6 +106,21 @@ def cached_snapshot(url: str) -> dict[str, Any] | None:
     logger.warning("ignored an invalid provider snapshot for %s", snapshot_hash(url))
     return None
   return payload if isinstance(payload, dict) else None
+
+
+def worker_count(tasks: int) -> int:
+  """The thread count of a batch: 1 thread per task, capped at the processor count."""
+  return max(1, min(tasks, CORES))
+
+
+def read_each(keys: Iterable[str], read: Callable[[str], Any]) -> dict[str, Any]:
+  """Read each key in its own thread, and keep the order of the keys."""
+  unique = list(dict.fromkeys(keys))
+  if not unique:
+    return {}
+  with ThreadPoolExecutor(max_workers=worker_count(len(unique))) as pool:
+    futures = {key: pool.submit(read, key) for key in unique}
+    return {key: future.result() for key, future in futures.items()}
 
 
 def text(value: Any) -> str:
@@ -330,6 +351,24 @@ def provider_rows(
   return {slug: row for slug, row in rows.items() if kind.discoverable(row)}
 
 
+def read_source(
+  provider_name: str, provider: dict[str, Any], source: str, fetch: Fetch, cached: bool
+) -> dict[str, Any] | str:
+  """Read 1 discovery URL and log its model count, or return the reason it failed."""
+  if cached:
+    payload = cached_snapshot(source)
+    if payload is None:
+      return "no cached catalog snapshot"
+  else:
+    try:
+      payload = read_pages(provider_name, provider, fetch)
+    except (httpx.HTTPError, ValueError) as error:
+      return str(error)
+  count = len(extract_rows(payload, provider.get("discovery_match")))
+  logger.info("%s: read %d models", provider_name, count)
+  return payload
+
+
 def read_providers(
   config: dict[str, Any] | None = None,
   fetch: Fetch = fetch_json,
@@ -341,11 +380,10 @@ def read_providers(
 ) -> tuple[list[tuple[str, dict[str, Any], dict[str, Any], bool]], list[str]]:
   """Read provider lists from the network or snapshots, with one reason per skip."""
   providers = get_config() if config is None else config
-  found: list[tuple[str, dict[str, Any], dict[str, Any], bool]] = []
+  plan: list[tuple[str, dict[str, Any], bool, str]] = []
   skipped: list[str] = []
-  # 1 read and snapshot per URL: every block with that URL shares the response.
-  downloads: dict[str, dict[str, Any] | str] = {}
-  saved: set[str] = set()
+  # 1 read per URL: every block with that URL shares the response, and the first block asks.
+  owners: dict[str, tuple[str, dict[str, Any]]] = {}
   for provider_name, raw in providers.items():
     if not isinstance(raw, dict):
       skipped.append(f"{provider_name}: not a mapping")
@@ -366,31 +404,28 @@ def read_providers(
       if not isinstance(source, str) or not source:
         skipped.append(f"{provider_name}: no discovery_url")
         continue
-      if source not in downloads:
-        if cached:
-          payload = cached_snapshot(source)
-          if payload is None:
-            reason = "no cached catalog snapshot"
-            downloads[source] = reason
-            skipped.append(f"{provider_name}: {reason}")
-            if failed is not None and provider_name not in failed:
-              failed.append(provider_name)
-          else:
-            downloads[source] = payload
-        else:
-          try:
-            downloads[source] = read_pages(provider_name, provider, fetch)
-          except (httpx.HTTPError, ValueError) as error:
-            downloads[source] = str(error)
-            skipped.append(f"{provider_name}: {error}")
-            if failed is not None and provider_name not in failed:
-              failed.append(provider_name)
-      payload = downloads[source]
-      if isinstance(payload, dict):
-        found.append((provider_name, provider, payload, is_file))
-        if save_snapshots and not cached and source not in saved:
-          save_snapshot(source, payload)
-          saved.add(source)
+      plan.append((provider_name, provider, is_file, source))
+      owners.setdefault(source, (provider_name, provider))
+  downloads = read_each(
+    owners, lambda source: read_source(*owners[source], source, fetch, cached)
+  )
+  found: list[tuple[str, dict[str, Any], dict[str, Any], bool]] = []
+  saved: set[str] = set()
+  reported: set[str] = set()
+  for provider_name, provider, is_file, source in plan:
+    payload = downloads[source]
+    if not isinstance(payload, dict):
+      # 1 skip line per URL, on the first block that names it.
+      if source not in reported:
+        reported.add(source)
+        skipped.append(f"{provider_name}: {payload}")
+        if failed is not None and provider_name not in failed:
+          failed.append(provider_name)
+      continue
+    found.append((provider_name, provider, payload, is_file))
+    if save_snapshots and not cached and source not in saved:
+      save_snapshot(source, payload)
+      saved.add(source)
   return found, skipped
 
 
