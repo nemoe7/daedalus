@@ -7,6 +7,8 @@
 
 daedalus puts your personal API keys behind 1 endpoint and uses a classifier to select a model for each task.
 
+daedalus is in development. The code changes fast, and it breaks faster.
+
 ## Features
 
 - 1 OpenAI-compatible endpoint for 8 providers: Cloudflare, Gemini, Groq, Kilo, Mistral, OpenRouter, Pollinations and Z.ai. Each provider gets its native API, Gemini included.
