@@ -1805,13 +1805,13 @@ assert.strictEqual(probe.listValue('routing', 'switch').length, probe.state.sett
 
 
 def test_app_js_hook_point_chips() -> None:
-  """The hooks table carries the request points of each file as chips, and a chip writes the point."""
+  """The hooks table shows the points each file names in its block, and nothing edits them."""
   payload = json.dumps(
     {
       "path": "config/daedalus.yml",
       "headroom_available": False,
       "text": "",
-      "hook_files": ["hooks/one.py", "hooks/off.py"],
+      "hook_files": ["hooks/one.py", "hooks/off.py", "hooks/bare.py"],
       "defaults": settings.DEFAULTS,
       "file": {
         "hooks": {
@@ -1826,7 +1826,7 @@ def test_app_js_hook_point_chips() -> None:
           "version": "1.2.0",
           "scope": "global",
           "targets": [],
-          "points": [],
+          "points": ["on-request"],
           "runs": ["on-request"],
           "enabled": True,
           "problem": "",
@@ -1837,44 +1837,40 @@ def test_app_js_hook_point_chips() -> None:
           "version": "1.0.0",
           "scope": "global",
           "targets": [],
-          "points": [],
+          "points": ["on-chunk"],
           "runs": ["on-chunk"],
           "enabled": False,
+          "problem": "",
+        },
+        {
+          "name": "bare.py",
+          "path": "hooks/bare.py",
+          "version": "1.0.0",
+          "scope": "global",
+          "targets": [],
+          "points": [],
+          "runs": [],
+          "enabled": True,
           "problem": "",
         },
       ],
     }
   )
   run_app_js(
-    "state, renderSettings, settingsChanges, setListValue",
+    "state, renderSettings",
     f"""
 probe.state.settings = {payload};
 probe.renderSettings();
 const html = node('settings').innerHTML;
 assert(!html.includes('id="set-hooks-on-request"'), 'the point section left the card body');
 assert(html.includes('<th>Points</th>'), 'the table names its point column');
-assert(html.includes('class="pill on">On request'), 'a live point reads on');
+assert(html.includes('class="pill on">On request'), 'the point the file names reads on');
 assert(html.includes('class="pill off">On chunk'), 'a file that the switch turned off reads dim');
-assert(html.includes(`data-hook-point-drop='[&quot;one.py&quot;,&quot;on-request&quot;]'`), 'the chip takes the file off the point');
-assert(html.includes('data-hook-point-pick="one.py"'), 'a row adds another point');
-assert(!html.includes('class="menu"'), 'the point list stays shut');
-const clickOn = (selector, data) => {{
-  const target = {{ dataset: data, closest: (sel) => (sel === selector ? target : null), prepend: () => {{}} }};
-  node('settings').handlers.click.forEach((fn) => fn({{ target }}));
-}};
-// The chip of the row opens the points that the file still skips.
-clickOn('[data-hook-point-pick]', {{ hookPointPick: 'one.py' }});
-const open = node('settings').innerHTML;
-assert(open.includes('class="menu"') && open.includes('role="listbox"'), 'the list opens under the chip');
-assert(open.includes(`data-hook-point-take='[&quot;one.py&quot;,&quot;on-chunk&quot;]'`), 'the list holds the other points');
-assert(open.includes('>On prompt<'), 'every point of the settings is offered');
-assert(!open.includes(`data-hook-point-take='[&quot;one.py&quot;,&quot;on-request&quot;]'`), 'a point that runs is not offered again');
-// A taken point joins the list of that point, and reaches the save payload.
-clickOn('[data-hook-point-take]', {{ hookPointTake: '["one.py","on-chunk"]' }});
-assert.strictEqual(JSON.stringify(probe.settingsChanges().hooks['on-chunk']), JSON.stringify(['hooks/served_model.py', 'hooks/one.py']), 'the point reaches the save payload');
-// The x of a chip leaves the point, and an empty point clears the key.
-clickOn('[data-hook-point-drop]', {{ hookPointDrop: '["one.py","on-request"]' }});
-assert.strictEqual(probe.settingsChanges().hooks['on-request'], null, 'an empty point clears the key');
+assert(html.includes('<em class="none">No point</em>'), 'a file that names no point reads none');
+assert(!html.includes('data-hook-point-pick'), 'nothing adds a point');
+assert(!html.includes('data-hook-point-drop'), 'nothing takes a point off');
+assert(!html.includes('class="menu"'), 'no point list opens');
+assert(html.includes('>bundled<'), 'a file with no source reads bundled');
 """,
   )
 
@@ -1890,6 +1886,9 @@ def test_hook_chip_matches_the_keyword_chips() -> None:
   ring = re.search(r"\.pill\.hook:focus-within \{([^}]*)\}", css)
   assert ring and "border-color: var(--accent)" in ring.group(1), (
     "the focus ring wraps the chip"
+  )
+  assert re.search(r"\.keys td:nth-child\(3\) \{ white-space: nowrap; \}", css), (
+    "the scope column keeps its word on one line"
   )
   menu = re.search(r"\.pill\.hook \.menu \{([^}]*)\}", css)
   assert menu and "background: var(--panel)" in menu.group(1), (
