@@ -90,7 +90,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
   },
   # The update check: the repository it reads for a newer daedalus.
   "updates": {"repo": "nemoe7/daedalus"},
-  # The names and the view that suit the owner, not the router.
+  # The names and the view that suit the operator, not the router.
   "personalization": {
     "tier-a": "sophos",
     "tier-b": "deinos",
