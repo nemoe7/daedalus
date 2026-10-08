@@ -89,6 +89,17 @@ at import time. The shipped files are examples, not a dependency.
   of the base, so it runs against any daedalus version.
 - Treat a hook file as admin code: it runs in the server process with full access.
 
+## Pools
+
+Each chat pool is a gateway to one tier. The rule of thumb for the tiers:
+
+| Pool | Tier | Rule of thumb |
+| --- | --- | --- |
+| moros | TIER-D | small |
+| koinos | TIER-C | small but more capable |
+| deinos | TIER-B | weak thinkers |
+| sophos | TIER-A | strong thinkers |
+
 ## State database
 
 - A table change needs an Alembic step. See the State database section of `docs/architecture.md`.
