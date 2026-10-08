@@ -488,3 +488,15 @@ def test_apply_wires_the_hook_settings(monkeypatch: pytest.MonkeyPatch) -> None:
   finally:
     api.apply_settings(settings.parse(""))
   assert hooks.DIR == "hooks" and hooks.DISABLED == set()
+
+
+def test_updates_repo_names_the_repository() -> None:
+  """`updates.repo` holds the GitHub repository the check reads, as owner/name."""
+  assert settings.parse("")["updates"]["repo"] == "nemoe7/daedalus"
+  assert (
+    settings.parse("updates:\n  repo: mine/daedalus\n")["updates"]["repo"]
+    == "mine/daedalus"
+  )
+  for bad in ("daedalus", "a/b/c", "", "o//r", "/o/r"):
+    with pytest.raises(settings.SettingsError, match="repository"):
+      settings.parse(f'updates:\n  repo: "{bad}"\n')

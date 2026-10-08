@@ -6,7 +6,7 @@ from alembic.migration import MigrationContext
 from sqlalchemy import create_engine
 
 import daedalus
-from daedalus import dashboard, store
+from daedalus import dashboard, store, updates
 from daedalus.catalog import discovery
 from daedalus.providers import signatures
 from daedalus.routing import cooldowns, limits, loops, penalties
@@ -26,6 +26,7 @@ STATEMENTS = (
   keys.SCHEMA,
   saved_env.SCHEMA,
   store.REBUILDS_TABLE,
+  updates.UPDATES_TABLE,
 )
 
 

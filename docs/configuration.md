@@ -147,6 +147,12 @@ The shipped file holds the changes from the defaults only. The **Settings** page
 | `catalog.every` | `6` | Hours between catalog rebuilds. `0` stops them. |
 | `catalog.anchor` | `6` | Local hour that the rebuild times start from. A whole hour from 0 to 23. |
 
+### Updates
+
+| Key | Default | Use |
+| --- | --- | --- |
+| `updates.repo` | `nemoe7/daedalus` | The GitHub repository the update check reads, as `owner/name`. A build from a `v` tag reads its latest release. A source build reads the head of `main` against its own commit. |
+
 ### Optimization
 
 | Key | Default | Use |

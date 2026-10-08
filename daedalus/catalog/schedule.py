@@ -5,7 +5,7 @@ import logging
 import time
 from collections.abc import Callable
 
-from daedalus import store
+from daedalus import store, updates
 
 logger = logging.getLogger("daedalus")
 
@@ -124,9 +124,10 @@ def request(refresh: Callable[[], object]) -> bool:
 
 
 async def run(refresh: Callable[[], object]) -> None:
-  """Rebuild the catalog when it is due, until the task stops."""
+  """Rebuild the catalog when it is due, and check for an update on the tick, until the task stops."""
   while True:
     now = time.time()
+    await asyncio.to_thread(updates.tick, now)
     if BUSY or not due(now):
       following = upcoming(now)
       wait = TICK_SECONDS if following is None else following - now
