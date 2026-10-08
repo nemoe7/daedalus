@@ -174,11 +174,10 @@ A file that sets `value["key"]` counts the requests of that key: a repeat after 
 
 ### The reasoning effort
 
-The `on-prompt` surface hands each hook file the values of the request, and a hook file sets
-`reasoning_effort`. The value of a hook file wins over the value of the client and over the catalog
-default, and the base sets no effort of its own. The shipped file steps aside for a client value on a
-new message, so a client keeps the last word there. The levels and the shipped file are on the
-[auto reasoning effort](hooks/owui_auto_reasoning_effort.md) page.
+The `on-prompt` surface hands each hook file the values of the request, and a hook file sets `reasoning_effort`. A hook
+value wins over the client value and over the catalog default, and the base sets no effort of its
+own. The shipped file steps aside for a client value on a new message, so a client keeps the last
+word there. The levels and the shipped file are on the [auto reasoning effort](hooks/owui_auto_reasoning_effort.md) page.
 
 `daedalus` then drops the models that answered the message: `daedalus/auto` steps the tier 1 step up, and a named pool keeps its pool. The surface runs again with `count` filled in. A file that writes `value["code"]` sets the code of the Requests row, such as `rt1`. Without a `key`, a repeat is a new request.
 
@@ -214,9 +213,9 @@ curl -X POST http://localhost:3357/v1/hook/example -H "Authorization: Bearer $DA
   -H "Content-Type: application/json" -d '{"messages": [{"role": "user", "content": "why is this slow"}]}'
 ```
 
-The route loads the file, calls its `on_http`, and answers with the dict it returns. An error
-inside the hook is a 500, and a missing file is a 404. Any valid key may call any hook file, so
-treat a hook file as admin code: it runs in the process of daedalus with full access.
+The route loads the file, calls its `on_http`, and answers with the dict it returns. An error inside the
+hook is a 500, and a missing file is a 404. Any valid key may call any hook file. Treat a hook file
+as admin code: it runs in the process of daedalus with full access.
 
 The shipped [`hooks/owui_auto_reasoning_effort.py`](../hooks/owui_auto_reasoning_effort.py)
 names the turn of an Open WebUI chat, writes the `rtN` code of a repeat, and sets the reasoning level
@@ -316,8 +315,8 @@ hooks:
 A start reads a source that sets `auto_update`. The Settings card lists a source, and its Take button
 writes the picked files. An update reads the commit of the ref,
 reads the archive of that commit, and writes each file through a temporary name.
-A request that fails, an archive that does not read, a block the reader refuses or a write that fails all
-keep the files on disk.
+A request that fails, an archive that does not read, a refused block or a failed write all keep the
+files on disk.
 
 The lock in [`hooks.lock.json`](../config) records the sha256, the version, the repo and the
 commit of each installed file. A file that leaves the repo stays on disk with its record. An
@@ -354,7 +353,7 @@ repo, each with its own switch, so the operator takes some files and leaves the 
 The `×` of the source row deletes the picked source.
 
 A hook row of a provider card or of a model entry offers the installed files whose scope fits that
-card, and the keyword chips of the Hooks card accept any file of the folder.
+card. The keyword chips of the Hooks card accept any file of the folder.
 
 ## The shipped hook files
 

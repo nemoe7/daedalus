@@ -29,14 +29,14 @@ flowchart LR
 
 ## The level of a call
 
-The `on_prompt` surface reads the heuristics v2 tier of the newest user turn and the newest model
-turn, so each turn of a chat gets its own level. The model part keeps at most `ANSWER_CHARS`, 500
+The `on_prompt` surface reads the heuristics v2 tier of the newest user turn and of the newest
+model turn. Each turn of a chat gets its own level. The model part keeps at most `ANSWER_CHARS`, 500
 characters, because a long answer would bloat the read.
 
-The tier indexes the `supported_reasoning_efforts` list of the model: `TIER-D` is step 0, the lowest
-effort the model accepts, and each tier above is 1 step up. That key of the model or of its block
-names the list first, then the list that the catalog holds for the model, and a provider with no
-list keeps its coded default. The ladder stops at `high` and at the end of the list.
+The tier indexes the `supported_reasoning_efforts` list of the model: `TIER-D` is step 0, the lowest effort the model accepts, and
+each tier above is 1 step up. That key of the model or of its block names the list first. Then the
+list that the catalog holds for the model applies, and a provider with no list keeps its coded
+default. The ladder stops at `high` and at the end of the list.
 
 A value of the client keeps the last word over that read. The tier of the conversation stays with the
 routing of `daedalus/auto`, so this file sets the level alone.
@@ -54,11 +54,10 @@ no effort. `upstream.without_reasoning` drops the field for a model the catalog 
 
 ## The try again
 
-Open WebUI sends the header `x-openwebui-chat-id` when `ENABLE_FORWARD_USER_INFO_HEADERS` is true.
-The `on_request` surface names the turn from that header and the digest of the messages. A repeat of a
-message that a model answered is a try again: daedalus steps 1 tier up for `daedalus/auto`, keeps a
-named pool, and drops the models that answered. Then it calls the surface again with `count` filled in,
-and this file writes the code of the row, `rt1`, `rt2`.
+Open WebUI sends the header `x-openwebui-chat-id` when `ENABLE_FORWARD_USER_INFO_HEADERS` is true, and the `on_request` surface names the turn from that
+header and the digest of the messages. A repeat of a message that a model answered is a try again.
+daedalus steps 1 tier up for `daedalus/auto`, keeps a named pool, and drops the models that answered. Then it
+calls the surface again with `count` filled in, and this file writes the code of the row, `rt1`, `rt2`.
 
 The same count reaches `on_prompt` as `retry`, so the level of a try again follows the same press.
 Without the header, a repeat is a new request. Without the file, a repeat of a message takes the

@@ -17,6 +17,8 @@ BLOCK_START = ("#", "|", ">", "<")
 SHORT_FORMS = ("e.g.", "i.e.", "etc.", "vs.", "cf.")
 DOT = "\u2022"
 SENTENCE_LIMIT = 4
+WORD_LIMIT = 25
+INLINE_CODE = re.compile(r"`[^`]*`")
 
 
 def prose(path: Path) -> str:
@@ -112,6 +114,19 @@ def long_blocks() -> int:
   return failures
 
 
+def long_sentences() -> int:
+  """Count the shipped-page sentences that run past the word limit of the linter."""
+  failures = 0
+  for path in page_files():
+    for number, text in blocks(path):
+      for sentence in re.split(r"(?<=[.!?])\s+", INLINE_CODE.sub("", text)):
+        count = len(sentence.split())
+        if count > WORD_LIMIT:
+          failures += 1
+          print(f"--- {path}:{number}\n{count} words: {sentence.strip()[:90]}")
+  return failures
+
+
 def main() -> int:
   """Lint every target file, and fail when the linter fails."""
   failures = 0
@@ -134,11 +149,11 @@ def main() -> int:
         failures += 1
         print(f"--- {path}")
         print(run.stdout.strip())
-  failures += long_blocks()
+  failures += long_blocks() + long_sentences()
   if failures:
     print(f"{failures} files carry lint findings")
     return 1
-  print("ok: comments, docstrings and paragraphs lint clean")
+  print("ok: comments, docstrings, paragraphs and sentences lint clean")
   return 0
 
 

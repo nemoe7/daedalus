@@ -38,8 +38,8 @@ A rate limit is an HTTP 429 answer. A model in a cooldown drops out of each chai
 that is too small for the input does. A session model in a cooldown loses its pin.
 
 The cooldown end comes from the first rule that applies: a daily limit from the provider, a
-reset time from the provider, or a doubling backoff that starts at 1 minute. A success starts
-the backoff again. A daily limit comes first, because a Gemini daily 429 can carry a
+reset time, or a doubling backoff. The backoff starts at 1 minute, and a success starts it
+again. A daily limit comes first, because a Gemini daily 429 can carry a
 `retryDelay` of only 1 second. [Architecture](../architecture.md#cooldowns) holds the rules,
 the default numbers and the log line.
 

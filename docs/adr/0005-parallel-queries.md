@@ -7,8 +7,8 @@ Accepted.
 ## Context
 
 A session model answers most turns. A slow first token holds the client until that token
-comes. The draw of ADR 4 moves some turns to another model of the first tier, but the draw
-does not remove the wait of the current turn.
+comes. The draw of ADR 4 moves some turns to another model of the first tier. It does not remove
+the wait of the current turn.
 
 ## Decision
 

@@ -28,8 +28,8 @@ The `when` Valve sets the moment. `always` draws the line of each answer, and `o
 line only when the served model of the chat moves. For that valve the Filter keeps the last served
 model of each chat, so a repeat stays quiet on `on change` alone.
 
-The Filter also keeps the last line of each message: a line equal to it draws no row, so the several
-answers of 1 message, such as the rounds of a tool call, hold 1 row. It draws that row again in
+The Filter also keeps the last line of each message. A line equal to it draws no row, so several
+answers of 1 message, such as tool-call rounds, hold 1 row. It draws that row again in
 another message.
 
 Open WebUI draws the newest entry of the status list a second time while the reader has the list

@@ -14,8 +14,9 @@ The reference deployment is a Raspberry Pi 4B with 8 GB of RAM. The compose file
 The install scripts show what they install or download and ask `[y/N]` before a change. Then they install Docker if it is missing: Docker Desktop with winget on Windows, or `get.docker.com` on Linux. Outside a git checkout, they download the files of the newest `v*` tag, else `main`, to the `daedalus` folder in the home folder. They copy only missing files, so `.env` and [`config/`](../config) stay.
 
 They make `.env` with a new master key, then pull the daedalus image and start the containers.
-With `--dev`, they use [`compose.dev.yml`](../compose.dev.yml): they build the image from the source when the source is in
-the folder, and they pull `ghcr.io/nemoe7/daedalus:dev` when it is not. See the
+With `--dev`, they use [`compose.dev.yml`](../compose.dev.yml). They build the image from the
+source when the source is in the folder, and they pull `ghcr.io/nemoe7/daedalus:dev` when it
+is not. See the
 [README](../README.md#quick-start).
 
 The commands below are the same in cmd, PowerShell and bash.

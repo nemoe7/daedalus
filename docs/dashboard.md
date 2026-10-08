@@ -46,8 +46,8 @@ A hidden browser tab sends no requests. It gets new data when it shows again.
 The header shows the state of daedalus as text, in the style of the page switcher. A narrow
 header drops the state, as a phone does.
 
-The Overview page shows the state in its own card at every width: the health line, then 1
-line for the sessions and 1 line for the catalog, each with its value at the right. The
+The Overview page shows the state in its own card at every width. It holds the health line,
+then a line for the sessions and a line for the catalog, each with its value at the right. The
 catalog line gives the time of the last catalog rebuild. It also gives the next scheduled
 rebuild.
 
@@ -69,18 +69,19 @@ The Pages demo workflow builds the demo from `main` and deploys it after a chang
 
 ## Requests
 
-Each model name reads as the model id does: the mark of the provider, then the mark of the
-developer when the developer is another name, then the model part, such as `clef`, with a `/`
-between the parts. A name with a shipped SVG file under [`daedalus/dashboard/ui/icons/`](../daedalus/dashboard/ui/icons) shows that
-mark, and a name with no file shows its own text. The folder holds the marks of
+The name of a model reads as its id does. It draws 3 marks: the provider, the developer when that
+name differs, and the model part. A `/` stands between the parts, as in `provider/clef`. A name with a shipped
+SVG file under [`daedalus/dashboard/ui/icons/`](../daedalus/dashboard/ui/icons) shows that mark, and a name with no file shows its own text.
+
+The folder holds the marks of
 `lobehub/lobe-icons` (MIT), and 1 new file with the name in the model id adds a mark. The hover
 text and the cell title keep the full `provider/slug`.
 
-The bar above the table narrows the view: a text match over the model, the served model, the client app, the
-session and the status, a status filter (all, 2xx only, errors only) and a time range (all, the last hour, the
-last 24 hours). The count at the right of the bar names the shown rows. The view narrows in the page, so no
-new call goes out. The filters ride in the hash, such as `#/requests?status=bad&hours=24&q=timeout`, so a
-shared link shows the same view.
+The bar above the table narrows the view: a text match over the model, the served model, the client
+app, the session and the status. A status filter (all, 2xx only, errors only) and a time range (all,
+the last hour, the last 24 hours) narrow it too. The count at the right of the bar names the shown
+rows: the view narrows in the page, so no new call goes out. The filters ride in the hash, such as
+`#/requests?status=bad&hours=24&q=timeout`, so a shared link shows the same view.
 
 A **Clear filters** button shows while a filter is live.
 
@@ -147,9 +148,10 @@ The cards of the Form view stack in columns. The page carries no Save bar: a row
 shows its value as text, and a click opens the small editor of that 1 value. The close of that dialog writes
 it.
 
-A switch and a pick list hold 1 valid value, so the change writes at once. The last write shows its Undo
-beside the row that changed, and a failure shows its line under the file chips. The file row holds the 2
-actions beside the file chips: **+ New provider**, and **Delete file** for a file that is not the main one.
+A switch and a pick list hold 1 valid value, so the change writes at once. The last write shows its
+Undo beside the row that changed, and a failure shows its line under the file chips. The file row
+holds 2 actions beside the file chips. They are **+ New provider**, and **Delete file** for a file
+that is not the main one.
 
 | Field | YAML key | Input |
 | --- | --- | --- |
