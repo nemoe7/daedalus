@@ -409,6 +409,13 @@ A chip reads as noise, so the separator stays plain, and the icons keep the text
 #limit-rows th:last-child, #limit-rows td:last-child { padding-right: 16px; }
 .keys td:nth-child(2) { white-space: nowrap; }
 .keys td:nth-child(3) { white-space: nowrap; }
+/* The file name of the hooks table holds one line and takes the free width, as the models table
+   holds the model name. The global anywhere wrap splits the name mid-word, and the name carries
+   no break point of its own. */
+.card[data-section="hooks"] .keys th:not(:first-child), .card[data-section="hooks"] .keys td:not(:first-child) { width: 1%; }
+.card[data-section="hooks"] .keys td:not(:first-child):not(.points) { white-space: nowrap; }
+.card[data-section="hooks"] .keys td.name { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card[data-section="hooks"] .keys td.points .pill { white-space: nowrap; }
 tr.live-row td { background: var(--field); }
 .pulse {
   display: inline-block; width: 6px; height: 6px; margin: 0 10px 1px 0; border-radius: 50%;

@@ -1394,11 +1394,11 @@ function hooksManager() {
   const list = rows.map((row) => {
     const record = row.record || {};
     const source = record.repo ? `${record.repo}@${(record.commit || "").slice(0, 7)}` : "";
-    return `<tr><td role="cell" class="name"><span class="cell-value">${esc(row.name)}</span></td>
+    return `<tr><td role="cell" class="name"><span class="cell-value" title="${esc(row.name)}">${esc(row.name)}</span></td>
       <td role="cell"><span class="cell-value">${esc(hookVersion(row))}</span></td>
       <td role="cell"><span class="cell-value">${esc(row.scope || "global")}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
       <td role="cell" class="points">${hookPointsCell(row)}</td>
-      <td role="cell" class="hide-sm"><span class="cell-value">${row.problem ? `<span class="bad">${esc(row.problem)}</span>` : esc(source || "bundled")}</span></td>
+      <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || "bundled")}">${row.problem ? `<span class="bad">${esc(row.problem)}</span>` : esc(source || "bundled")}</span></td>
       <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
         ${disabled.includes(row.name) ? "" : "checked"} aria-label="Load ${esc(row.name)}"></td></tr>`;
   }).join("") || '<tr><td role="cell" colspan="6"><em class="none">No hook file</em></td></tr>';
