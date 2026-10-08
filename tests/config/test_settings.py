@@ -477,7 +477,7 @@ def test_apply_wires_the_hook_settings(monkeypatch: pytest.MonkeyPatch) -> None:
       (
         [{"repo": "owner/name", "path": "", "ref": "main", "auto_update": False}],
         True,
-        hooks.CONFIG_DIR / "mine",
+        hooks.ROOT / "mine",
       )
     ]
   finally:

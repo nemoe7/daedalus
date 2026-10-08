@@ -89,7 +89,7 @@ def state_folder(
     # No test reads the GitHub API of the update check.
     patch.setattr(updates, "_fetch", no_network)
     patch.setattr(discovery, "DUMP_DIR", folder / "dump")
-    patch.setattr(hooks, "CONFIG_DIR", folder / "config")
+    patch.setattr(hooks, "ROOT", folder)
     patch.setattr(api.PENALTIES, "pick", api.PENALTIES.pick)
     patch.setattr(headroom, "_down", False)
     # Each test file starts like a new process, with no router state.

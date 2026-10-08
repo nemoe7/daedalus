@@ -10,7 +10,7 @@ from daedalus.providers import hooks
 
 def write(name: str, text: str) -> str:
   """Write a hook file in the config folder with a new file time, and give its config path."""
-  path = hooks.CONFIG_DIR / "hooks" / name
+  path = hooks.ROOT / "hooks" / name
   path.parent.mkdir(parents=True, exist_ok=True)
   path.write_text(text)
   stamp = time.time() + len(hooks._loaded) + 1
@@ -71,7 +71,7 @@ def test_failures(caplog: pytest.LogCaptureFixture) -> None:
   broken = write("broken.py", "def on_upstream(:\n")
   other = write("other.py", "def on_answer(answer, model):\n  return None\n")
   good = write("good.py", "def on_upstream(body, model, headers):\n  body['k'] = 2\n")
-  (hooks.CONFIG_DIR.parent / "outside.py").write_text("raise RuntimeError('ran')\n")
+  (hooks.ROOT / "outside.py").write_text("raise RuntimeError('ran')\n")
   setup = config(
     {"on-upstream": boom},
     {"on-upstream": text},
@@ -161,7 +161,7 @@ def test_request_hooks() -> None:
   assert found == {"key": "c1:d1", "digest": "d1"}
   assert seen == {"key": None, "digest": "d1"}, "the hook changes a copy"
   assert hooks.request_files({"on-request": first}, "on-request") == [
-    hooks.CONFIG_DIR / "hooks" / "req.py"
+    hooks.ROOT / "hooks" / "req.py"
   ]
   second = write(
     "req2.py",
@@ -171,8 +171,8 @@ def test_request_hooks() -> None:
   )
   both = hooks.request_files({"on-request": [first, second]}, "on-request")
   assert both == [
-    hooks.CONFIG_DIR / "hooks" / "req.py",
-    hooks.CONFIG_DIR / "hooks" / "req2.py",
+    hooks.ROOT / "hooks" / "req.py",
+    hooks.ROOT / "hooks" / "req2.py",
   ], "1 point takes many files"
   assert hooks.run_request(
     "on-request",
@@ -223,7 +223,7 @@ def test_init_rows() -> None:
 
 def test_hook_files() -> None:
   """The picker lists the Python files of the hooks folder as config paths."""
-  root = hooks.CONFIG_DIR / "hooks"
+  root = hooks.ROOT / "hooks"
   root.mkdir(parents=True, exist_ok=True)
   named = write("listed.py", "def on_answer(value, model, headers):\n  return value\n")
   listed = root / "listed.py"
@@ -240,7 +240,7 @@ def test_hook_files() -> None:
 
 def test_broken_hook_retry() -> None:
   """A hook file with an error does not cache None and reloads on fix."""
-  target = hooks.CONFIG_DIR / "flaky.py"
+  target = hooks.ROOT / "flaky.py"
   target.parent.mkdir(parents=True, exist_ok=True)
   target.write_text("def on_answer(:\n")
   assert hooks.load(target) is None
@@ -284,7 +284,7 @@ def test_a_run_writes_1_log_line(caplog: pytest.LogCaptureFixture) -> None:
 
 def test_meta_block() -> None:
   """The frontmatter block gives the name, the version, the points, the scope and the targets."""
-  path = hooks.CONFIG_DIR / "hooks" / "meta.py"
+  path = hooks.ROOT / "hooks" / "meta.py"
   path.parent.mkdir(parents=True, exist_ok=True)
   path.write_text(
     "# ---\n"
@@ -309,7 +309,7 @@ def test_meta_block() -> None:
 
 def test_meta_absent_and_defaults() -> None:
   """A file with no block has no problem, and the loader keeps its file name."""
-  path = hooks.CONFIG_DIR / "hooks" / "plain.py"
+  path = hooks.ROOT / "hooks" / "plain.py"
   path.parent.mkdir(parents=True, exist_ok=True)
   path.write_text(
     "def on_answer(answer, model):\n  return {'v': 1}\n", encoding="utf-8"
@@ -330,7 +330,7 @@ def test_meta_problems() -> None:
     ("# ---\n# author: ' '\n# ---\n", "author"),
   )
   for text, part in cases:
-    path = hooks.CONFIG_DIR / "hooks" / "bad.py"
+    path = hooks.ROOT / "hooks" / "bad.py"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text + "def on_answer(a, m):\n  return {}\n", encoding="utf-8")
     problem = hooks.meta_problem(path)
@@ -340,7 +340,7 @@ def test_meta_problems() -> None:
 
 def test_meta_runs_no_code() -> None:
   """The reader takes the block from the text, so the body runs at no read."""
-  path = hooks.CONFIG_DIR / "hooks" / "danger.py"
+  path = hooks.ROOT / "hooks" / "danger.py"
   path.parent.mkdir(parents=True, exist_ok=True)
   path.write_text(
     "# ---\n# name: danger\n# version: 1\n# ---\nraise RuntimeError('ran')\n",
@@ -363,7 +363,7 @@ def test_hook_folder() -> None:
   """The settings name the folder of the hook files, and the picker follows it."""
   try:
     hooks.set_installed("shared", [])
-    path = hooks.CONFIG_DIR / "shared" / "one.py"
+    path = hooks.ROOT / "shared" / "one.py"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
       "def on_answer(answer, model):\n  return {'v': 1}\n", encoding="utf-8"
@@ -376,7 +376,7 @@ def test_hook_folder() -> None:
 
 def scoped(name: str, body: str, block: str) -> None:
   """Write 1 hook file with a frontmatter block in the hook folder."""
-  path = hooks.CONFIG_DIR / hooks.DIR / name
+  path = hooks.ROOT / hooks.DIR / name
   path.parent.mkdir(parents=True, exist_ok=True)
   path.write_text(f"{block}{body}", encoding="utf-8")
 
@@ -436,7 +436,7 @@ def test_explicit_before_installed() -> None:
   """The named files run first, and the installed files follow in name order."""
   try:
     hooks.set_installed("order", [])
-    named = hooks.CONFIG_DIR / "order" / "named.py"
+    named = hooks.ROOT / "order" / "named.py"
     named.parent.mkdir(parents=True, exist_ok=True)
     named.write_text(ANSWER % "named", encoding="utf-8")
     scoped("b.py", ANSWER % "b", "# ---\n# points: [on-answer]\n# ---\n")

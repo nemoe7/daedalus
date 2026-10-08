@@ -182,7 +182,7 @@ new message, so a client keeps the last word there. The levels and the shipped f
 
 `daedalus` then drops the models that answered the message: `daedalus/auto` steps the tier 1 step up, and a named pool keeps its pool. The point runs again with `count` filled in. A file that writes `value["code"]` sets the code of the Requests row, such as `rt1`. Without a `key`, a repeat is a new request.
 
-Without a `code`, the row shows no code. [`config/hooks/owui_auto_reasoning_effort.py`](../config/hooks/owui_auto_reasoning_effort.py) applies this rule to the `x-openwebui-chat-id` header of Open WebUI.
+Without a `code`, the row shows no code. [`hooks/owui_auto_reasoning_effort.py`](../hooks/owui_auto_reasoning_effort.py) applies this rule to the `x-openwebui-chat-id` header of Open WebUI.
 The media endpoints, transcription and images, count a repeat of the same content with no hook.
 That count is the one repeat path of the base app.
 
@@ -191,7 +191,7 @@ A function gets a copy of the value. It can change the copy and return None, or 
 ## The HTTP surface
 
 A hook file can answer an HTTP call. The path names the file, and the file must sit under
-`config/hooks`:
+`hooks`:
 
 cmd:
 
@@ -218,7 +218,7 @@ The route loads the file, calls its `on_http`, and answers with the dict it retu
 inside the hook is a 500, and a missing file is a 404. Any valid key may call any hook file, so
 treat a hook file as admin code: it runs in the process of daedalus with full access.
 
-The shipped [`config/hooks/owui_auto_reasoning_effort.py`](../config/hooks/owui_auto_reasoning_effort.py)
+The shipped [`hooks/owui_auto_reasoning_effort.py`](../hooks/owui_auto_reasoning_effort.py)
 names the turn of an Open WebUI chat, writes the `rtN` code of a repeat, and sets the reasoning level
 of the request. Its page is [auto reasoning effort](hooks/owui_auto_reasoning_effort.md).
 
@@ -249,7 +249,7 @@ The dashboard edits the `hooks` list of a model or a provider. The Hooks card of
 ## The hook folder
 
 A hook file sits in the folder that `hooks.dir` names, under [`config`](../config). The default is
-`hooks`, so the shipped files live in [`config/hooks`](../config/hooks). An installed file carries a
+`hooks`, so the shipped files live in [`hooks`](../hooks). An installed file carries a
 frontmatter block, so the manager knows its version and its scope without a run of the file:
 
 ```python
@@ -311,7 +311,7 @@ commit of the ref, reads the archive of that commit, and writes each file throug
 A request that fails, an archive that does not read, a block the reader refuses or a write that fails all
 keep the files on disk.
 
-The lock in [`config/hooks.lock.json`](../config) records the sha256, the version, the repo and the
+The lock in [`hooks.lock.json`](../config) records the sha256, the version, the repo and the
 commit of each installed file. A file that leaves the repo stays on disk with its record. An
 installed file runs at a point when its block names that point, its scope matches the model, and
 `hooks.disabled` does not hold its name.
@@ -351,11 +351,11 @@ card, and the keyword chips of the Hooks card accept any file of the folder.
 
 | File | What it does |
 | --- | --- |
-| [`hooks/owui_auto_reasoning_effort.py`](../config/hooks/owui_auto_reasoning_effort.py) | The [auto reasoning level and try-again rule](hooks/owui_auto_reasoning_effort.md) of an Open WebUI chat |
-| [`hooks/served_model.py`](../config/hooks/served_model.py) | The [served model line](hooks/served_model.md) of a chat pool request |
-| [`hooks/or_cheapest_output.py`](../config/hooks/or_cheapest_output.py) | The [OpenRouter endpoint order](hooks/or_cheapest_output.md) |
+| [`hooks/owui_auto_reasoning_effort.py`](../hooks/owui_auto_reasoning_effort.py) | The [auto reasoning level and try-again rule](hooks/owui_auto_reasoning_effort.md) of an Open WebUI chat |
+| [`hooks/served_model.py`](../hooks/served_model.py) | The [served model line](hooks/served_model.md) of a chat pool request |
+| [`hooks/or_cheapest_output.py`](../hooks/or_cheapest_output.py) | The [OpenRouter endpoint order](hooks/or_cheapest_output.md) |
 
-[`hooks/example.py`](../config/hooks/example.py) is the start for a new hook file. The
+[`hooks/example.py`](../hooks/example.py) is the start for a new hook file. The
 [README](../README.md#hooks) holds its description and 1 example.
 
 ## New hook points

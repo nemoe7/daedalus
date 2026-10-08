@@ -1412,8 +1412,8 @@ function hooksManager() {
       <table class="keys"><thead><tr><th>File</th><th>Version</th><th>Scope</th><th>Points</th><th class="hide-sm">Source</th><th>Load</th></tr></thead>
       <tbody>${list}</tbody></table>
       <button type="button" class="ghost" data-hooks-update>Update from the sources</button></div>
-    <div class="field stack info">${labelSpan("Folder", "The folder under config that holds the hook files.")}
-      <span class="input"><i class="prefix">config/</i><input type="text" id="set-hooks-dir" data-value="Folder"
+    <div class="field stack info">${labelSpan("Folder", "The folder at the root that holds the hook files.")}
+      <span class="input"><input type="text" id="set-hooks-dir" data-value="Folder"
         readonly spellcheck="false" value="${esc(fileValue("hooks", "dir") ?? "")}"
         placeholder="${esc(state.settings.defaults.hooks.dir)}"></span></div>
     <div class="field stack info">${labelSpan("Sources", "Each source names a GitHub repo, a folder in it and a ref.")}

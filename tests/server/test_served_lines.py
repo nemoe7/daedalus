@@ -13,7 +13,7 @@ from daedalus.server import api, media
 from daedalus.server.upstream import set_client
 
 MASTER = "test-master-key-0001"
-REAL_HOOK = Path(__file__).resolve().parents[2] / "config" / "hooks" / "served_model.py"
+REAL_HOOK = Path(__file__).resolve().parents[2] / "hooks" / "served_model.py"
 BODY = {"model": "daedalus/deinos", "messages": [{"role": "user", "content": "hi"}]}
 CALLS: list[str] = []
 
@@ -43,7 +43,7 @@ def openrouter(request: httpx.Request) -> httpx.Response:
 
 @pytest.fixture
 async def client(tmp_path: Path):
-  root = hooks.CONFIG_DIR / "hooks"
+  root = hooks.ROOT / "hooks"
   root.mkdir(parents=True, exist_ok=True)
   shutil.copy(REAL_HOOK, root / "served_model.py")
   config.set_config(

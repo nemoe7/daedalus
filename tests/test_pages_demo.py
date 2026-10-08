@@ -577,7 +577,7 @@ def test_the_demo_states_its_source_and_the_hook_versions(tmp_path: Path) -> Non
     "the YAML card shows it"
   )
   rows = {row["name"]: row for row in fixtures["settings"]["hook_rows"]}
-  shipped = {path.name for path in (Path("config") / "hooks").glob("*.py")}
+  shipped = {path.name for path in Path("hooks").glob("*.py")}
   assert set(rows) == shipped, rows
   for name, row in rows.items():
     assert row["version"], f"no version for {name}"

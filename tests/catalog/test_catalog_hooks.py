@@ -8,7 +8,7 @@ from daedalus.providers import hooks
 
 def test_with_hooks(caplog: pytest.LogCaptureFixture) -> None:
   """A hook changes the columns but not the id. A provider with no key gets no hook call."""
-  folder = hooks.CONFIG_DIR / "hooks"
+  folder = hooks.ROOT / "hooks"
   folder.mkdir(parents=True, exist_ok=True)
   (folder / "rows.py").write_text(
     "def on_catalog(row, model, api_base, headers):\n"

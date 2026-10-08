@@ -1,6 +1,6 @@
 # The OpenRouter endpoint order
 
-[`config/hooks/or_cheapest_output.py`](../../config/hooks/or_cheapest_output.py) orders the endpoints of a
+[`hooks/or_cheapest_output.py`](../../hooks/or_cheapest_output.py) orders the endpoints of a
 model by output price, and writes that order into each request.
 
 | Item | Value |

@@ -40,7 +40,7 @@ def tar(files: dict[str, str]) -> bytes:
 @pytest.fixture
 def folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
   """The hook folder and the lock file of 1 test."""
-  monkeypatch.setattr(hooks, "CONFIG_DIR", tmp_path)
+  monkeypatch.setattr(hooks, "ROOT", tmp_path)
   monkeypatch.setattr(remote, "LOCK", tmp_path / "hooks.lock.json")
   found = tmp_path / "hooks"
   found.mkdir()

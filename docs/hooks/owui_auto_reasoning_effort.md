@@ -1,6 +1,6 @@
 # Auto reasoning effort and try again
 
-[`config/hooks/owui_auto_reasoning_effort.py`](../../config/hooks/owui_auto_reasoning_effort.py) holds 1
+[`hooks/owui_auto_reasoning_effort.py`](../../hooks/owui_auto_reasoning_effort.py) holds 1
 surface for each point: `on_request` names the turn and the code of a repeat, and `on_prompt` sets the
 reasoning level of the request.
 

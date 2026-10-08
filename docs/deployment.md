@@ -31,7 +31,7 @@ The commands below are the same in cmd, PowerShell and bash.
 | Rebuild the catalog now | The Catalog line of the Overview status card, or `docker compose exec api daedalus catalog` |
 | Run the CLI on the host | `daedalus catalog` probes `DAEDALUS_URL`, or `DAEDALUS_HOST` and `DAEDALUS_PORT`, and asks a live server to rebuild. `dump`, `hooks update` and `hooks verify` read the same files as the container. |
 | Dump catalogs/models | `docker compose exec api daedalus dump catalog`, `models`, or `all`. Files go to `.daedalus-state/dump` |
-| Update the hook files | `docker compose exec api daedalus hooks update` reads the `hooks.sources` repos and writes `config/hooks.lock.json`. `daedalus hooks verify` then reads the lock and loads each file. See [Hooks](hooks.md#sources-and-the-lock) |
+| Update the hook files | `docker compose exec api daedalus hooks update` reads the `hooks.sources` repos and writes `hooks.lock.json`. `daedalus hooks verify` then reads the lock and loads each file. See [Hooks](hooks.md#sources-and-the-lock) |
 
 `dump` defaults to JSON. Add `-f csv` (also `--fmt` or `--format`) for CSV. Catalog refresh saves provider snapshots. Every dump reads those snapshots and never fetches. The models dump carries the tier that claims each row.
 

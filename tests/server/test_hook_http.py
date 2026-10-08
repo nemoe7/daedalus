@@ -32,7 +32,7 @@ TEXT = """def on_http(body, key="", prompt="", headers=None):
 
 def written(name: str, source: str) -> str:
   """Write a hook file in the config folder of the test, and name it for the route."""
-  root = hooks.CONFIG_DIR / "hooks"
+  root = hooks.ROOT / "hooks"
   root.mkdir(parents=True, exist_ok=True)
   (root / name).write_text(source)
   return name
@@ -77,8 +77,8 @@ def test_hook_http_hands_the_level_of_the_session() -> None:
 
 
 def test_hook_http_takes_a_nested_path() -> None:
-  """A file in a folder under `config/hooks` is named by its path, `nested/probe.py`."""
-  root = hooks.CONFIG_DIR / "hooks" / "nested"
+  """A file in a folder under `hooks` is named by its path, `nested/probe.py`."""
+  root = hooks.ROOT / "hooks" / "nested"
   root.mkdir(parents=True, exist_ok=True)
   (root / "probe.py").write_text(GOOD)
   response = TestClient(api.app, headers=AUTH).post(
@@ -98,7 +98,7 @@ def test_hook_http_takes_the_short_name() -> None:
 
 
 def test_hook_http_refuses_a_missing_file() -> None:
-  """A name with no file under `config/hooks` is a 404."""
+  """A name with no file under `hooks` is a 404."""
   response = TestClient(api.app, headers=AUTH).post(
     "/v1/hook/gone.py", json={"messages": CHAT}
   )

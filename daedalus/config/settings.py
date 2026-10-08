@@ -132,7 +132,7 @@ LOOP_LIMITS = {
 TIMEOUT_MAX = 86400.0
 THEMES = ("system", "light", "dark")
 TIME_FORMATS = ("24h", "12h")
-# A folder under `config` that holds the hook files, and the name of 1 hook file.
+# A folder at the root that holds the hook files, and the name of 1 hook file.
 DIR_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,39}")
 HOOK_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}")
 # The GitHub repository of the update check, as owner/name.
@@ -241,7 +241,7 @@ def keyword_list(name: str, value: Any) -> list[str]:
 
 
 def dir_name(name: str, value: Any) -> str:
-  """The folder under `config` that holds the hook files: 1 plain folder name."""
+  """The folder at the root that holds the hook files: 1 plain folder name."""
   if not isinstance(value, str) or not DIR_NAME.fullmatch(value):
     raise SettingsError(
       f"{name} must be 1 folder name of letters, digits, dots, dashes or underscores"
@@ -299,7 +299,7 @@ def name_list(name: str, value: Any) -> list[str]:
 
 
 def hook_path(name: str, value: Any) -> str:
-  """A hook file path inside the config folder, or an empty value for no hook."""
+  """A hook file path inside the root folder, or an empty value for no hook."""
   if value in (None, ""):
     return ""
   if not isinstance(value, str) or value != value.strip() or not value:

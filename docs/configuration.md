@@ -206,7 +206,7 @@ The shipped `routing.escalation`:
 | `hooks.on-request` | `[]` | The request hook files of the [`config`](../config) folder, in list order. See [Hooks](hooks.md). |
 | `hooks.on-prompt` | `[]` | The prompt hook files of the [`config`](../config) folder, called 1 time before the first attempt of a chat request. The call needs a prompt and a reasoning model in the chain. The value sets the reasoning effort of the request. See [Hooks](hooks.md). |
 | `hooks.on-chunk` | `[]` | The stream chunk hook files of the [`config`](../config) folder, called on each streamed chunk of a chat request, in list order. See [Hooks](hooks.md). |
-| `hooks.dir` | `hooks` | The folder under [`config`](../config) that holds the hook files: 1 plain folder name. See [Hooks](hooks.md#the-hook-folder). |
+| `hooks.dir` | `hooks` | The folder at the root that holds the hook files: 1 plain folder name. See [Hooks](hooks.md#the-hook-folder). |
 | `hooks.sources` | `[]` | The GitHub sources of the hook files. Each entry names a `repo`, a `path`, a `ref` and `auto_update`. See [Hooks](hooks.md#sources-and-the-lock). |
 | `hooks.disabled` | `[]` | The names of the installed hook files that stay on disk and do not run. The Settings page holds 1 switch per file. |
 

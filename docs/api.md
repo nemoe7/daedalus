@@ -61,7 +61,7 @@ curl http://localhost:3357/v1/models -H "Authorization: Bearer $DAEDALUS_KEY"
 | `POST /v1/audio/speech` | `provider/slug` | No |
 | `POST /v1/images/generations` | `daedalus/photos` or `provider/slug` | Yes, for `daedalus/photos` |
 | `POST /v1/images/edits` | `daedalus/photos` or `provider/slug` | Yes, for `daedalus/photos`: only the models with image input |
-| `POST /v1/hook/<file>` | A hook file under `config/hooks`, named by its path, with or without the `.py` suffix | None |
+| `POST /v1/hook/<file>` | A hook file under `hooks`, named by its path, with or without the `.py` suffix | None |
 
 Embeddings and speech have no pool and no fallback. Vectors and voices from 2 models are different. See [Architecture](architecture.md#media-pools) for the media pools.
 

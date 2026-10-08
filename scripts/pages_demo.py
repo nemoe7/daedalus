@@ -206,10 +206,10 @@ def demo_files(folder: Path) -> tuple[Path, ...]:
     shutil.copyfile(file, target / file.name)
   settings_file = folder / "config" / "daedalus.yml"
   settings_file.write_text(settings.DEFAULT_PATH.read_text(encoding="utf-8"))
-  # The shipped hooks of the config folder: the legend rows of the page come from them.
-  hooks_dir = ROOT / "config" / "hooks"
+  # The shipped hooks of the root folder: the legend rows of the page come from them.
+  hooks_dir = ROOT / "hooks"
   if hooks_dir.is_dir():
-    shutil.copytree(hooks_dir, folder / "config" / "hooks", dirs_exist_ok=True)
+    shutil.copytree(hooks_dir, folder / "hooks", dirs_exist_ok=True)
   return tuple(target / name for name in DEMO_FILES)
 
 
@@ -335,7 +335,7 @@ def capture() -> dict[str, Any]:
     saved = (
       store.MODELS_DB,
       discovery.DUMP_DIR,
-      hooks.CONFIG_DIR,
+      hooks.ROOT,
       dashboard.FILES,
       config.DEFAULT_PATH,
       settings.DEFAULT_PATH,
@@ -344,7 +344,7 @@ def capture() -> dict[str, Any]:
     try:
       store.MODELS_DB = folder / "state" / "models.sqlite3"
       discovery.DUMP_DIR = folder / "dump"
-      hooks.CONFIG_DIR = folder / "config"
+      hooks.ROOT = folder
       dashboard.FILES = files
       config.DEFAULT_PATH = provider
       settings.DEFAULT_PATH = folder / "config" / "daedalus.yml"
@@ -369,7 +369,7 @@ def capture() -> dict[str, Any]:
         name.split("?")[0]: client.get(f"/ui/api/{name}").json() for name in ENDPOINTS
       }
     finally:
-      store.MODELS_DB, discovery.DUMP_DIR, hooks.CONFIG_DIR, dashboard.FILES = saved[:4]
+      store.MODELS_DB, discovery.DUMP_DIR, hooks.ROOT, dashboard.FILES = saved[:4]
       config.DEFAULT_PATH, settings.DEFAULT_PATH = saved[4:]
       os.environ.clear()
       os.environ.update(environ)
@@ -1514,15 +1514,15 @@ def demo_fixtures(version: str) -> dict[str, Any]:
   settings_file = fixtures["settings"].setdefault("file", {})
   hooks_file = settings_file.setdefault("hooks", {})
   hooks_file["sources"] = [dict(DEMO_SOURCE)]
-  saved = hooks.CONFIG_DIR
+  saved = hooks.ROOT
   try:
-    # The build reads the shipped folder, whatever config folder the running process holds.
-    hooks.CONFIG_DIR = ROOT / "config"
+    # The build reads the shipped folder, whatever root folder the running process holds.
+    hooks.ROOT = ROOT
     rows = hooks.rows(
       {key: value for key, value in hooks_file.items() if key.startswith("on-")}
     )
   finally:
-    hooks.CONFIG_DIR = saved
+    hooks.ROOT = saved
   fixtures["settings"]["hook_rows"] = [{**row, "record": {}} for row in rows]
   # The YAML card shows the same source, under the `hooks` group of the captured text.
   text = fixtures["settings"]["text"]

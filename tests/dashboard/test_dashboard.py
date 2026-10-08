@@ -2366,10 +2366,10 @@ def test_hook_legend_rows(client: TestClient, state_folder: Path) -> None:
     "a session is needed"
   )
   assert client.get("/ui/api/hooks").json() == {"legend": []}, "no hook file yet"
-  folder = state_folder / "config" / "hooks"
+  folder = state_folder / "hooks"
   folder.mkdir(parents=True, exist_ok=True)
   (folder / "owui_auto_reasoning_effort.py").write_text(
-    Path("config/hooks/owui_auto_reasoning_effort.py").read_text(encoding="utf-8"),
+    Path("hooks/owui_auto_reasoning_effort.py").read_text(encoding="utf-8"),
     encoding="utf-8",
   )
   body = client.get("/ui/api/hooks").json()
@@ -2557,7 +2557,7 @@ def test_hook_rows_and_update(
 ) -> None:
   """The settings name the rows of the hook folder, and the update endpoint fetches now."""
   client.post("/ui/api/login", json={"username": "admin", "password": MASTER})
-  root = state_folder / "config" / "hooks"
+  root = state_folder / "hooks"
   root.mkdir(parents=True, exist_ok=True)
   (root / "one.py").write_text(
     "# ---\n# version: 1.2.0\n# scope: provider\n# targets: [p]\n# ---\n"
@@ -2620,7 +2620,7 @@ def test_hook_rows_and_update(
       }
     ],
   }, found.text
-  assert seen == [(sources, hooks.CONFIG_DIR / "hooks", False, None)]
+  assert seen == [(sources, hooks.ROOT / "hooks", False, None)]
   monkeypatch.setattr(
     settings,
     "load",
@@ -2656,7 +2656,7 @@ def test_hook_scan_and_take(
   assert {row["name"]: row["version"] for row in answer["files"]}[
     "scanned.py"
   ] == "1.2.0"
-  root = hooks.CONFIG_DIR / "hooks"
+  root = hooks.ROOT / "hooks"
   assert not (root / "scanned.py").exists(), "a scan writes nothing"
   bad = client.post("/ui/api/hooks/scan", json={"repo": "owner/other"})
   assert bad.status_code == 400, bad.text
@@ -2684,7 +2684,7 @@ def test_files(
   ), "the Settings page owns the settings file"
   shown = client.get("/ui/api/settings").json()
   assert shown["file"] == {}, "the shipped file holds no change from the defaults"
-  root = folder / "config" / "hooks"
+  root = folder / "hooks"
   root.mkdir(parents=True, exist_ok=True)
   (root / "picked.py").write_text(
     "def on_answer(value, model, headers):\n  return value\n"

@@ -5,7 +5,7 @@ the commit of the ref from the GitHub API, reads the archive of that commit, and
 files of the folder through a temporary name. A failed fetch keeps the files on disk. The same
 holds for an archive that does not read, a block the reader refuses or a write that fails.
 
-The lock in `config/hooks.lock.json` records the sha256, the version, the repo and the commit of
+The lock in `hooks.lock.json` records the sha256, the version, the repo and the commit of
 each file. `daedalus hooks verify` compares the files on disk against that lock.
 """
 
@@ -30,8 +30,8 @@ from daedalus.providers.hooks import meta_check
 logger = logging.getLogger("daedalus.config")
 
 # The default folder of the hook files, when a caller names none, and the record of each file.
-FOLDER: Final = Path("config/hooks")
-LOCK: Final = Path("config/hooks.lock.json")
+FOLDER: Final = Path("hooks")
+LOCK: Final = Path("hooks.lock.json")
 TIMEOUT: Final = 30.0
 # The 2 answers of a GitHub source: the commit of a ref, and the archive of a commit.
 API: Final = "https://api.github.com/repos/{repo}/commits/{ref}"

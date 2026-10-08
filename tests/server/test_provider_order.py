@@ -54,10 +54,10 @@ CHAT = {"model": "p/x", "messages": [{"role": "user", "content": "hi"}]}
 
 async def test_order(client: httpx.AsyncClient) -> None:
   """With the cheapest output hook, the saved order goes out, and a client provider object wins."""
-  folder = hooks.CONFIG_DIR / "hooks"
+  folder = hooks.ROOT / "hooks"
   folder.mkdir(parents=True, exist_ok=True)
   shutil.copy(
-    REPO / "config" / "hooks" / "or_cheapest_output.py", folder / "cheapest.py"
+    REPO / "hooks" / "or_cheapest_output.py", folder / "cheapest.py"
   )
   module = hooks.load((folder / "cheapest.py").resolve())
   module.save_order("p/x", ["cheap", "cloud"])
@@ -71,7 +71,7 @@ async def test_order(client: httpx.AsyncClient) -> None:
 
 async def test_hooks(client: httpx.AsyncClient) -> None:
   """The on-upstream hook changes the body and headers, and the on-answer hook changes the answer."""
-  folder = hooks.CONFIG_DIR / "hooks"
+  folder = hooks.ROOT / "hooks"
   folder.mkdir(parents=True, exist_ok=True)
   (folder / "any-name.py").write_text(
     "def on_upstream(body, model, headers):\n"

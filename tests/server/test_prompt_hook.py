@@ -67,7 +67,7 @@ def post(
 @pytest.fixture
 def hook_file() -> str:
   """A hook file of the `on-prompt` point: it records its surfaces and sets a value."""
-  path = hooks.CONFIG_DIR / "hooks" / "prompt_probe.py"
+  path = hooks.ROOT / "hooks" / "prompt_probe.py"
   path.parent.mkdir(parents=True, exist_ok=True)
   dump = path.with_suffix(".json")
   path.write_text(
@@ -118,7 +118,7 @@ def test_hook_file_wins(
   monkeypatch.setattr(api, "REQUEST_HOOKS", {"on-prompt": [hook_file]})
   written = post(provider, "daedalus/auto:TIER-B")
   assert written["reasoning_effort"] == "max"
-  dump = json.loads((hooks.CONFIG_DIR / "hooks" / "prompt_probe.json").read_text())
+  dump = json.loads((hooks.ROOT / "hooks" / "prompt_probe.json").read_text())
   assert set(dump["keys"]) == {
     "messages",
     "prompt",
@@ -158,7 +158,7 @@ def test_no_reasoning_model(
   monkeypatch.setattr(upstream.store, "reasoning_flags", lambda: {"a/1": False})
   written = post(provider, "daedalus/auto:TIER-A")
   assert "reasoning_effort" not in written, written
-  assert not (hooks.CONFIG_DIR / "hooks" / "prompt_probe.json").exists(), (
+  assert not (hooks.ROOT / "hooks" / "prompt_probe.json").exists(), (
     "the hook did not run"
   )
 
@@ -167,11 +167,10 @@ def ladder_file(monkeypatch: pytest.MonkeyPatch) -> None:
   """Write the shipped hook into the hook folder, and name it in the prompt point."""
   shipped = (
     Path(__file__).resolve().parents[2]
-    / "config"
     / "hooks"
     / "owui_auto_reasoning_effort.py"
   )
-  target = hooks.CONFIG_DIR / "hooks" / "owui_auto_reasoning_effort.py"
+  target = hooks.ROOT / "hooks" / "owui_auto_reasoning_effort.py"
   target.parent.mkdir(parents=True, exist_ok=True)
   target.write_text(shipped.read_text(encoding="utf-8"), encoding="utf-8")
   hooks._loaded.pop(target.resolve(), None)
@@ -214,7 +213,6 @@ def shipped_levels() -> dict[int, str]:
   """The level table of the shipped ladder file, read from the file itself."""
   path = (
     Path(__file__).resolve().parents[2]
-    / "config"
     / "hooks"
     / "owui_auto_reasoning_effort.py"
   )
@@ -229,7 +227,6 @@ def shipped_module():
   """The shipped ladder file, loaded from the file itself."""
   path = (
     Path(__file__).resolve().parents[2]
-    / "config"
     / "hooks"
     / "owui_auto_reasoning_effort.py"
   )

@@ -1,4 +1,4 @@
-"""The hook files in `config/hooks`: the cheapest output order and the example."""
+"""The hook files in `hooks`: the cheapest output order and the example."""
 
 import json
 import shutil
@@ -10,7 +10,7 @@ import pytest
 from daedalus import store
 from daedalus.providers import hooks
 
-FOLDER = Path(__file__).resolve().parents[2] / "config" / "hooks"
+FOLDER = Path(__file__).resolve().parents[2] / "hooks"
 ROWS = [
   {"tag": "cloud", "pricing": {"prompt": "0.0000003", "completion": "0.000001"}},
   {
@@ -89,7 +89,7 @@ def test_on_upstream(cheapest) -> None:
 
 def test_example() -> None:
   """The example file loads, has each hook point, and changes nothing."""
-  root = hooks.CONFIG_DIR / "hooks"
+  root = hooks.ROOT / "hooks"
   root.mkdir(parents=True, exist_ok=True)
   shutil.copy(FOLDER / "example.py", root / "example.py")
   module = hooks.load(root / "example.py")
@@ -152,13 +152,13 @@ def test_pick_on_every_answer() -> None:
 
 def test_a_request_point_runs_each_named_file() -> None:
   """The shipped file names no hook, and a request point runs each file it names."""
-  text = (FOLDER.parent / "daedalus.yml").read_text()
+  text = (FOLDER.parent / "config" / "daedalus.yml").read_text()
   assert "hooks:" not in text, "the shipped file leaves every hook to its own block"
   entries = {
     "on-request": "hooks/owui_auto_reasoning_effort.py",
     "on-chunk": "hooks/served_model.py",
   }
-  target = hooks.CONFIG_DIR / "hooks" / "served_model.py"
+  target = hooks.ROOT / "hooks" / "served_model.py"
   target.parent.mkdir(parents=True, exist_ok=True)
   target.write_text("", encoding="utf-8")
   found = hooks.request_files(entries, "on-chunk")

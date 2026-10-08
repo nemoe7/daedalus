@@ -1,6 +1,6 @@
 # The served model line
 
-[`config/hooks/served_model.py`](../../config/hooks/served_model.py) reports the model that served a chat pool
+[`hooks/served_model.py`](../../hooks/served_model.py) reports the model that served a chat pool
 request, in the final stream chunk, under `usage.daedalus`.
 
 | Item | Value |

@@ -19,9 +19,9 @@ from daedalus.config import block_for
 
 logger = logging.getLogger("daedalus.hooks")
 
-# The hook files must be in this folder. The paths in `hooks` start here.
-CONFIG_DIR = Path("config")
-# The folder under `CONFIG_DIR` that holds the hook files, and the names that stay out.
+# The hook files must be in the folder at the root. The paths in `hooks` start here.
+ROOT = Path(".")
+# The folder under `ROOT` that holds the hook files, and the names that stay out.
 DIR = "hooks"
 DISABLED: set[str] = set()
 # Each hook point, and the function that its file defines.
@@ -213,7 +213,7 @@ def resolve(value: Any) -> Path | None:
     return None
   wanted = posixpath.normpath(value.replace("\\", "/")).strip("/")
   names = [wanted] if wanted.endswith(".py") else [wanted, f"{wanted}.py"]
-  root = CONFIG_DIR.resolve()
+  root = ROOT.resolve()
   listing: dict[str, Path] = {}
   for found in (root / DIR).rglob("*"):
     path = found.resolve()
@@ -228,7 +228,7 @@ def resolve(value: Any) -> Path | None:
 
 def folder() -> Path:
   """The folder of the hook files of the settings."""
-  return CONFIG_DIR / DIR
+  return ROOT / DIR
 
 
 def enabled(path: Path) -> bool:
@@ -275,7 +275,7 @@ def rows(named: dict[str, Any] | None = None) -> list[dict[str, Any]]:
 
 def hook_files() -> list[str]:
   """The names of the hook files in the config folder, as paths for the settings group."""
-  root = CONFIG_DIR / DIR
+  root = ROOT / DIR
   if not root.is_dir():
     return []
   return sorted(f"{DIR}/{path.name}" for path in root.glob("*.py"))
@@ -286,7 +286,7 @@ def installed_files() -> list[Path]:
 
   A file without a block stays out: an explicit `hooks` list or a request point names it.
   """
-  root = CONFIG_DIR / DIR
+  root = ROOT / DIR
   if not root.is_dir():
     return []
   found: list[Path] = []
