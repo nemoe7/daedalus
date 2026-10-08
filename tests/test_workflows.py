@@ -200,6 +200,20 @@ def test_the_secret_scan_reads_the_whole_history() -> None:
   assert "fetch-depth: 0" in content
 
 
+def test_the_ignore_file_holds_only_global_fingerprints() -> None:
+  """A commit-pinned entry dies with its branch, so every entry must stay global."""
+  entries = [
+    line.strip()
+    for line in Path(".gitleaksignore").read_text().splitlines()
+    if line.strip() and not line.startswith("#")
+  ]
+  assert [e for e in entries if len(e.split(":")) != 3] == []
+  fixture = "tests/dashboard/test_env_values.py:generic-api-key:25"
+  assert fixture in entries, (
+    "the replaced dashboard fixture stays ignored in every copy"
+  )
+
+
 def test_the_container_scan_uses_hadolint() -> None:
   """Hadolint lints the Dockerfile, and the pull request check blocks."""
   content = (WORKFLOWS / "container-scan.yml").read_text()
