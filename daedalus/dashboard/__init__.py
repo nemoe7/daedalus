@@ -39,6 +39,8 @@ from daedalus.store.database import open_db
 
 KEEP = 500
 SHOWN = 50
+# A lane row warns when no more than this part of its limit is left.
+LIMIT_SHARE = 0.25
 TABLE = (
   "CREATE TABLE IF NOT EXISTS requests (id INTEGER PRIMARY KEY, row TEXT NOT NULL)"
 )
@@ -654,23 +656,68 @@ def page() -> APIRouter:
   return pages
 
 
-def routes(
+def members(
   penalties: Penalties,
-  get_config: Callable[[], Mapping[str, Any]],
-  apply: Callable[[dict[str, Any]], None],
-  cooldowns: Cooldowns | None = None,
-  refresh: Callable[[], Callable[[], object] | None] = lambda: None,
-  limits: Limits | None = None,
-  rebuild_cached: Callable[[], Callable[[], object] | None] = lambda: None,
-  affinity: Callable[[], dict[str, Any]] = dict,
-) -> APIRouter:
-  """The dashboard endpoints. All except login need a session."""
-  api = APIRouter(prefix="/ui/api")
+  groups: list[list[str]],
+  order: tuple[int | None, ...],
+  ends: Mapping[str, float],
+) -> list[dict]:
+  """The member rows of 1 pool: the id, the tier, the weight and the cooldown."""
+  lines = [line for group in groups for line in group]
+  weights = penalties.weights(lines)
+  return [
+    {
+      "id": line,
+      "tier": router.TIER_NAMES[tier] if tier else None,
+      "weight": weights[line],
+      "cooldown": Cooldowns.until(line, ends),
+    }
+    for tier, group in zip(order, groups, strict=True)
+    for line in group
+  ]
 
-  def request_cached_rebuild() -> None:
-    task = rebuild_cached()
-    if task is not None:
-      schedule.request(task)
+
+def limit_warnings(seen: Limits) -> list[dict[str, Any]]:
+  """The lane rows near their limit, the lowest share of limit left first."""
+  found = []
+  for lane, seen_lanes in seen.lanes.items():
+    model, client = lanes.split(lane)
+    for row in seen_lanes.get("rows", []):
+      limit, remaining = row.get("limit"), row.get("remaining")
+      if not limit or remaining is None:
+        continue
+      share = remaining / limit
+      if share <= LIMIT_SHARE:
+        found.append({"model": model, "client": client or None, **row, "share": share})
+  return sorted(found, key=lambda row: (row["share"], row["model"]))
+
+
+def write_config(
+  path: Path,
+  text: str,
+  apply: Callable[[dict[str, Any]], None],
+  rebuild: Callable[[], None],
+) -> JSONResponse:
+  """Write a valid text in 1 step, reload it, and send it back."""
+  try:
+    values = check_file(path, text)
+  except (settings.SettingsError, yaml.YAMLError) as exc:
+    return failure(422, config.error_text(exc), "invalid_request_error")
+  path.parent.mkdir(parents=True, exist_ok=True)
+  temporary = path.with_suffix(".tmp")
+  temporary.write_text(text, encoding="utf-8")
+  temporary.replace(path)
+  if values is None:
+    # A provider file is 1 block of the config: the main file is the one to load.
+    config.load_config(FILES[0])
+    rebuild()
+  else:
+    apply(values)
+  return JSONResponse({"ok": True, "text": text})
+
+
+def login_routes(api: APIRouter) -> None:
+  """The login and the logout endpoints, the 1 group without a session."""
 
   @api.post("/login")
   async def log_in(request: Request) -> JSONResponse:
@@ -740,21 +787,16 @@ def routes(
       partition(response)
     return response
 
-  def members(
-    groups: list[list[str]], order: tuple[int | None, ...], ends: Mapping[str, float]
-  ) -> list[dict]:
-    lines = [line for group in groups for line in group]
-    weights = penalties.weights(lines)
-    return [
-      {
-        "id": line,
-        "tier": router.TIER_NAMES[tier] if tier else None,
-        "weight": weights[line],
-        "cooldown": Cooldowns.until(line, ends),
-      }
-      for tier, group in zip(order, groups, strict=True)
-      for line in group
-    ]
+
+def state_routes(
+  api: APIRouter,
+  penalties: Penalties,
+  cooldowns: Cooldowns | None,
+  affinity: Callable[[], dict[str, Any]],
+  refresh: Callable[[], Callable[[], object] | None],
+  seen: Limits,
+) -> None:
+  """The state endpoints: the health, the hooks, the reset, the catalog and the notifications."""
 
   @api.get("/status")
   async def status(request: Request) -> JSONResponse:
@@ -805,8 +847,27 @@ def routes(
       return failure(409, "A catalog rebuild runs now.", "invalid_request_error")
     return JSONResponse({"ok": True}, status_code=202)
 
-  # With no limits, the page shows an empty list.
-  seen = limits or Limits()
+  @api.get("/notifications")
+  async def notifications(request: Request) -> JSONResponse:
+    if not allowed(request):
+      return denied()
+    return JSONResponse(
+      {
+        "rebuilds": store.recent_rebuilds(50),
+        "update": updates.read(),
+        "limits": limit_warnings(seen),
+      }
+    )
+
+  @api.post("/updates")
+  async def update_check(request: Request) -> JSONResponse:
+    if not allowed(request):
+      return denied()
+    return JSONResponse(await asyncio.to_thread(updates.check_now))
+
+
+def limit_routes(api: APIRouter, seen: Limits) -> None:
+  """The limit endpoints: the view, and the view after a fresh read."""
 
   @api.get("/limits")
   async def limit_view(request: Request) -> JSONResponse:
@@ -821,42 +882,14 @@ def routes(
     await seen.check()
     return JSONResponse(seen.view())
 
-  # A lane row warns when no more than this part of its limit is left.
-  LIMIT_SHARE = 0.25
 
-  def limit_warnings() -> list[dict[str, Any]]:
-    """The lane rows near their limit, the lowest share of limit left first."""
-    found = []
-    for lane, seen_lanes in seen.lanes.items():
-      model, client = lanes.split(lane)
-      for row in seen_lanes.get("rows", []):
-        limit, remaining = row.get("limit"), row.get("remaining")
-        if not limit or remaining is None:
-          continue
-        share = remaining / limit
-        if share <= LIMIT_SHARE:
-          found.append(
-            {"model": model, "client": client or None, **row, "share": share}
-          )
-    return sorted(found, key=lambda row: (row["share"], row["model"]))
-
-  @api.get("/notifications")
-  async def notifications(request: Request) -> JSONResponse:
-    if not allowed(request):
-      return denied()
-    return JSONResponse(
-      {
-        "rebuilds": store.recent_rebuilds(50),
-        "update": updates.read(),
-        "limits": limit_warnings(),
-      }
-    )
-
-  @api.post("/updates")
-  async def update_check(request: Request) -> JSONResponse:
-    if not allowed(request):
-      return denied()
-    return JSONResponse(await asyncio.to_thread(updates.check_now))
+def pool_routes(
+  api: APIRouter,
+  penalties: Penalties,
+  get_config: Callable[[], Mapping[str, Any]],
+  cooldowns: Cooldowns | None,
+) -> None:
+  """The pool and the model endpoints."""
 
   @api.get("/pools")
   async def pools(request: Request) -> JSONResponse:
@@ -869,7 +902,7 @@ def routes(
       {
         "name": router.RESERVED_MODEL,
         "members": members(
-          router.chain_groups(config, lines, AUTO_TIERS), AUTO_TIERS, ends
+          penalties, router.chain_groups(config, lines, AUTO_TIERS), AUTO_TIERS, ends
         ),
       },
     ]
@@ -878,13 +911,19 @@ def routes(
       found.append(
         {
           "name": name,
-          "members": members(router.chain_groups(config, lines, order), order, ends),
+          "members": members(
+            penalties, router.chain_groups(config, lines, order), order, ends
+          ),
         }
       )
     for name, mode in router.MEDIA_POOLS.items():
       media = [m for m in store.mode_models(mode) if router.pooled(config, m)]
       found.append(
-        {"name": name, "mode": mode, "members": members([media], (None,), ends)}
+        {
+          "name": name,
+          "mode": mode,
+          "members": members(penalties, [media], (None,), ends),
+        }
       )
     for pool in found:
       pool["shown"] = router.pool_name(pool["name"])
@@ -916,6 +955,10 @@ def routes(
       ]
     )
 
+
+def history_routes(api: APIRouter) -> None:
+  """The recent-request list and its live stream."""
+
   @api.get("/requests")
   async def requests(request: Request) -> JSONResponse:
     if not allowed(request):
@@ -936,6 +979,10 @@ def routes(
       media_type="text/event-stream",
       headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+def key_routes(api: APIRouter) -> None:
+  """The API-key endpoints."""
 
   @api.get("/keys")
   async def key_list(request: Request) -> JSONResponse:
@@ -963,6 +1010,14 @@ def routes(
     if not keys.delete(store.MODELS_DB, name):
       return failure(404, f"No key has the name {name!r}.", "invalid_request_error")
     return Response(status_code=204)
+
+
+def file_routes(
+  api: APIRouter,
+  apply: Callable[[dict[str, Any]], None],
+  rebuild: Callable[[], None],
+) -> None:
+  """The provider-file endpoints: the files, the keys, the defaults and the saved values."""
 
   @api.get("/files")
   async def files(request: Request) -> JSONResponse:
@@ -1026,7 +1081,7 @@ def routes(
     except ValueError as exc:
       return failure(400, str(exc), "invalid_request_error")
     old = path.read_text(encoding="utf-8") if path.exists() else ""
-    return write_config(path, provider_edit.merge_text(old, document))
+    return write_config(path, provider_edit.merge_text(old, document), apply, rebuild)
 
   @api.get("/env")
   async def env_list(request: Request) -> JSONResponse:
@@ -1054,7 +1109,7 @@ def routes(
       )
     saved_env.save(store.MODELS_DB, name, value)
     config.load_config(FILES[0])
-    request_cached_rebuild()
+    rebuild()
     return JSONResponse(env_rows())
 
   @api.delete("/env")
@@ -1066,7 +1121,7 @@ def routes(
     if not isinstance(name, str) or not saved_env.clear(store.MODELS_DB, name):
       return failure(400, "No saved value with this name.", "invalid_request_error")
     config.load_config(FILES[0])
-    request_cached_rebuild()
+    rebuild()
     return JSONResponse(env_rows())
 
   @api.put("/files")
@@ -1080,25 +1135,7 @@ def routes(
     path, text = names[body["path"]], body.get("text")
     if not isinstance(text, str):
       return failure(400, "The file text must be a string.", "invalid_request_error")
-    return write_config(path, text)
-
-  def write_config(path: Path, text: str) -> JSONResponse:
-    """Write a valid text in 1 step, reload it, and send it back."""
-    try:
-      values = check_file(path, text)
-    except (settings.SettingsError, yaml.YAMLError) as exc:
-      return failure(422, config.error_text(exc), "invalid_request_error")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(text, encoding="utf-8")
-    temporary.replace(path)
-    if values is None:
-      # A provider file is 1 block of the config: the main file is the one to load.
-      config.load_config(FILES[0])
-      request_cached_rebuild()
-    else:
-      apply(values)
-    return JSONResponse({"ok": True, "text": text})
+    return write_config(path, text, apply, rebuild)
 
   @api.post("/files")
   async def make_file(request: Request) -> JSONResponse:
@@ -1118,7 +1155,7 @@ def routes(
     text = new_file_text(name)
     path.write_text(text, encoding="utf-8")
     config.load_config(FILES[0])
-    request_cached_rebuild()
+    rebuild()
     return JSONResponse({"path": str(path), "text": text})
 
   @api.delete("/files")
@@ -1132,8 +1169,16 @@ def routes(
       return failure(400, "Only a {provider}.yml file can go.", "invalid_request_error")
     found[name].unlink()
     config.load_config(FILES[0])
-    request_cached_rebuild()
+    rebuild()
     return JSONResponse({"ok": True})
+
+
+def settings_routes(
+  api: APIRouter,
+  apply: Callable[[dict[str, Any]], None],
+  rebuild: Callable[[], None],
+) -> None:
+  """The settings and the hook-file endpoints."""
 
   @api.get("/settings")
   async def settings_values(request: Request) -> JSONResponse:
@@ -1171,7 +1216,7 @@ def routes(
     path = settings.DEFAULT_PATH
     # The YAML view sends the file text. The form sends the changed values.
     if isinstance(body.get("text"), str):
-      return write_config(path, body["text"])
+      return write_config(path, body["text"], apply, rebuild)
     changes = body.get("changes")
     if not isinstance(changes, dict):
       return failure(400, "The changes must be an object.", "invalid_request_error")
@@ -1180,7 +1225,7 @@ def routes(
       text = settings.update_text(text, changes)
     except settings.SettingsError as exc:
       return failure(422, str(exc), "invalid_request_error")
-    return write_config(path, text)
+    return write_config(path, text, apply, rebuild)
 
   @api.post("/hooks/scan")
   async def hooks_scan(request: Request) -> JSONResponse:
@@ -1260,4 +1305,33 @@ def routes(
       remote.write_records(records)
     return JSONResponse({"ok": True})
 
+
+def routes(
+  penalties: Penalties,
+  get_config: Callable[[], Mapping[str, Any]],
+  apply: Callable[[dict[str, Any]], None],
+  cooldowns: Cooldowns | None = None,
+  refresh: Callable[[], Callable[[], object] | None] = lambda: None,
+  limits: Limits | None = None,
+  rebuild_cached: Callable[[], Callable[[], object] | None] = lambda: None,
+  affinity: Callable[[], dict[str, Any]] = dict,
+) -> APIRouter:
+  """The dashboard endpoints. All except login need a session."""
+  api = APIRouter(prefix="/ui/api")
+
+  def request_cached_rebuild() -> None:
+    task = rebuild_cached()
+    if task is not None:
+      schedule.request(task)
+
+  # With no limits, the page shows an empty list.
+  seen = limits or Limits()
+  login_routes(api)
+  state_routes(api, penalties, cooldowns, affinity, refresh, seen)
+  limit_routes(api, seen)
+  pool_routes(api, penalties, get_config, cooldowns)
+  history_routes(api)
+  key_routes(api)
+  file_routes(api, apply, request_cached_rebuild)
+  settings_routes(api, apply, request_cached_rebuild)
   return api
