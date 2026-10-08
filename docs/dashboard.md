@@ -79,12 +79,14 @@ the right of the bar names the shown rows. The view narrows in the page, so no n
 ride in the hash, such as `#/requests?status=bad&hours=24&q=timeout`, so a shared link shows the same view. A
 **Clear filters** button shows while a filter is live.
 
-The page lists the requests in flight at the top, then the last ones, 50 at a time and 500 at most. The Live
-button pauses the in-flight rows and counts the requests that arrive while the pause holds. A second click
-shows them and resumes. A click on a request opens its attempts, and a hover on a count or name shows the exact value.
-Each time reads as an age, such as `4 mins ago`, and its title holds the exact stamp. A request that the client
-closed shows the code `499`. An exact string, such as a version, a session id or an API key, reads in the mono
-font.
+The page lists the requests in flight at the top, then the last ones, 50 at a time and 500 at most.
+The Live button pauses the in-flight rows and counts the requests that arrive while the pause holds.
+A second click shows them and resumes. A click on a request opens its attempts, and a hover on a
+count or name shows the exact value.
+
+Each time reads as an age, such as `4 mins ago`, and its title holds the exact stamp. A request that
+the client closed shows the code `499`. An exact string, such as a version, a session id or an API
+key, reads in the mono font.
 
 The pool of the auto model rides in the model name, such as `daedalus/auto/moros`. The routing codes beside a name, such as `lmt`, `frX` and `tlN`, are 3 characters. The Code legend card beside the table gives the meaning of each code. A hook file that defines `on_init` adds its rows below the base rows of that card.
 

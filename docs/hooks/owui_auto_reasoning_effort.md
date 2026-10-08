@@ -8,7 +8,7 @@ reasoning level of the request.
 | --- | --- |
 | Runs | `on_request` before the chain of a chat request. `on_prompt` before the first attempt |
 | Writes | `value["key"]` and `value["code"]` on the repeat. `value["reasoning_effort"]` on the level |
-| Named by | its own block: `points: [on-request, on-prompt]`. The `hooks` keys of [`config/daedalus.yml`](../../config/daedalus.yml) run it first |
+| Named by | its own frontmatter block: `points: [on-request, on-prompt]`. The `hooks` keys of [`config/daedalus.yml`](../../config/daedalus.yml) run it first |
 | Serves | The Open WebUI client, from the `CLIENT` constant, and the `x-openwebui-chat-id` header |
 
 The first chart is the repeat key of `on_request`. The second is the level of `on_prompt`.
@@ -31,12 +31,15 @@ flowchart LR
 
 The `on_prompt` point reads the heuristics v2 tier of the newest user turn and the newest model
 turn, so each turn of a chat gets its own level. The model part keeps at most `ANSWER_CHARS`, 500
-characters, because a long answer would bloat the read. The tier indexes the `supported_reasoning_efforts`
-list of the model: `TIER-D` is step 0, the lowest effort the model accepts, and each tier above is
-1 step up. The `supported_reasoning_efforts` key of the model or of its block names the list, then the
-list that the catalog holds for the model, and a provider with no list keeps its coded default. The ladder stops at `high` and at the end of the list. A value
-of the client keeps the last word over that read. The tier of the conversation stays with the routing of `daedalus/auto`, so this file sets the
-level alone.
+characters, because a long answer would bloat the read.
+
+The tier indexes the `supported_reasoning_efforts` list of the model: `TIER-D` is step 0, the lowest
+effort the model accepts, and each tier above is 1 step up. That key of the model or of its block
+names the list first, then the list that the catalog holds for the model, and a provider with no
+list keeps its coded default. The ladder stops at `high` and at the end of the list.
+
+A value of the client keeps the last word over that read. The tier of the conversation stays with the
+routing of `daedalus/auto`, so this file sets the level alone.
 
 | Event | The level |
 | --- | --- |
