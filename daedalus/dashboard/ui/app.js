@@ -1238,6 +1238,11 @@ function openFile(index) {
   if (state.files.length && editor) state.files[state.file].text = editor.value;
   state.file = index;
   showFileError(index);
+  // The pick of the other file would ride over into this one, and the pane would show the
+  // content of the file under a section of the other. The new file opens its first section.
+  const section = sectionState("provider-form");
+  section.key = "";
+  section.open = false;
   renderFiles();
   renderForm();
   // The picked file arrives its form, so a file change reads on the page.
