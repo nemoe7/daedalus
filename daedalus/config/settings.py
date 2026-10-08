@@ -88,6 +88,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "on-prompt": [],
     "on-chunk": [],
   },
+  # The update check: the repository it reads for a newer daedalus.
+  "updates": {"repo": "nemoe7/daedalus"},
   # The names and the view that suit the owner, not the router.
   "personalization": {
     "tier-a": "sophos",
@@ -133,6 +135,8 @@ TIME_FORMATS = ("24h", "12h")
 # A folder under `config` that holds the hook files, and the name of 1 hook file.
 DIR_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,39}")
 HOOK_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}")
+# The GitHub repository of the update check, as owner/name.
+REPO_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9._-]+")
 # The keys of 1 hook source, and the keys that left the hooks group with the group that replaces them.
 SOURCE_KEYS = ("repo", "path", "ref", "auto_update")
 GONE_KEYS = {
@@ -171,6 +175,10 @@ def check(group: str, key: str, value: Any) -> Any:
     return value
   if group == "catalog":
     return schedule_value(name, key, value)
+  if group == "updates" and key == "repo":
+    if not isinstance(value, str) or not REPO_NAME.fullmatch(value):
+      raise SettingsError(f"{name} must be 1 GitHub repository, as owner/name")
+    return value
   if group == "hooks":
     if key == "dir":
       return dir_name(name, value)

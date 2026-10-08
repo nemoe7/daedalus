@@ -6,7 +6,7 @@ import os
 import httpx
 import pytest
 
-from daedalus import config, dashboard, store
+from daedalus import config, dashboard, store, updates
 from daedalus.catalog import discovery, schedule
 from daedalus.config import defaults as defaults_module
 from daedalus.providers import hooks, signatures
@@ -86,6 +86,8 @@ def state_folder(
     # No test reads the default provider file of the repository over the network.
     patch.setattr(defaults_module, "PATH", folder / "free.defaults.yml")
     patch.setattr(defaults_module, "fetch", no_network)
+    # No test reads the GitHub API of the update check.
+    patch.setattr(updates, "_fetch", no_network)
     patch.setattr(discovery, "DUMP_DIR", folder / "dump")
     patch.setattr(hooks, "CONFIG_DIR", folder / "config")
     patch.setattr(api.PENALTIES, "pick", api.PENALTIES.pick)
