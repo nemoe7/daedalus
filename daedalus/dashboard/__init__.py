@@ -734,6 +734,15 @@ def write_config(
   return JSONResponse({"ok": True, "text": text})
 
 
+def unlink_file(path: Path, label: str) -> JSONResponse | None:
+  """Remove 1 file, and answer the failure when the file stays."""
+  try:
+    path.unlink()
+  except OSError:
+    return failure(409, f"The file {label} could not be deleted.", "server_error")
+  return None
+
+
 def login_routes(api: APIRouter) -> None:
   """The login and the logout endpoints, the 1 group without a session."""
 
@@ -1191,7 +1200,9 @@ def file_routes(
     found = {str(Path(p)): Path(p) for p in config.provider_files(FILES[0])}
     if not isinstance(name, str) or name not in found:
       return failure(400, "Only a {provider}.yml file can go.", "invalid_request_error")
-    found[name].unlink()
+    answer = unlink_file(found[name], name)
+    if answer is not None:
+      return answer
     config.load_config(FILES[0])
     rebuild()
     return JSONResponse({"ok": True})
@@ -1321,7 +1332,9 @@ def settings_routes(
       return failure(
         404, f"The hook {name} is not a file of the folder.", "invalid_request_error"
       )
-    path.unlink()
+    answer = unlink_file(path, name)
+    if answer is not None:
+      return answer
     records = remote.read_records()
     key = path.relative_to(hooks.folder()).as_posix()
     if key in records:

@@ -2760,6 +2760,57 @@ def test_hook_file_delete(
   assert state["records"] == {}
 
 
+def test_a_hook_file_that_stays_answers_a_clear_message(
+  client: TestClient, state_folder: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A file the OS refuses answers 409 with its name, and the file stays."""
+  root = state_folder / "hooks"
+  root.mkdir(parents=True, exist_ok=True)
+  target = root / "locked.py"
+  target.write_text("# ---\n# version: 1.0.0\n# ---\n", encoding="utf-8")
+  real = Path.unlink
+
+  def refuse(self: Path, *args: object, **kwargs: object) -> None:
+    if self == target:
+      raise PermissionError(13, "Permission denied", str(self))
+    real(self, *args, **kwargs)
+
+  monkeypatch.setattr(Path, "unlink", refuse)
+  login = {"username": "admin", "password": MASTER}
+  assert client.post("/ui/api/login", json=login).status_code == 200
+  answer = client.request(
+    "DELETE", "/ui/api/hooks/file", json={"name": "hooks/locked.py"}
+  )
+  assert answer.status_code == 409, answer.text
+  assert "locked.py" in answer.json()["error"]["message"], answer.json()
+  assert target.exists(), "a refused delete leaves the file"
+  real(target)
+
+
+def test_a_provider_file_that_stays_answers_a_clear_message(
+  client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A provider file the OS refuses answers 409, and the file stays."""
+  login = {"username": "admin", "password": MASTER}
+  assert client.post("/ui/api/login", json=login).status_code == 200
+  made = client.post("/ui/api/files", json={"name": "locked"})
+  assert made.status_code == 200, made.text
+  target = Path(made.json()["path"])
+  real = Path.unlink
+
+  def refuse(self: Path, *args: object, **kwargs: object) -> None:
+    if self == target:
+      raise PermissionError(13, "Permission denied", str(self))
+    real(self, *args, **kwargs)
+
+  monkeypatch.setattr(Path, "unlink", refuse)
+  answer = client.request("DELETE", "/ui/api/files", json={"path": str(target)})
+  assert answer.status_code == 409, answer.text
+  assert "locked" in answer.json()["error"]["message"], answer.json()
+  assert target.exists(), "a refused delete leaves the file"
+  real(target)
+
+
 def test_hook_scan_and_take(
   client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
