@@ -1797,7 +1797,7 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-A"
+    "tier": "TIER-B"
   },
   {
     "id": "kilo/inclusionai/ling-3.0-flash-sante:free",
@@ -1845,7 +1845,7 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-C"
+    "tier": "TIER-D"
   },
   {
     "id": "kilo/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
@@ -2373,7 +2373,7 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-A"
+    "tier": "TIER-B"
   },
   {
     "id": "openrouter/fish-audio/s2.1-pro-free:free",
@@ -2493,7 +2493,7 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-C"
+    "tier": "TIER-D"
   },
   {
     "id": "openrouter/liquid/lfm-2.5-embedding-350m:free",

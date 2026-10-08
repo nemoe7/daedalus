@@ -119,7 +119,6 @@ kilo:
   tier:
     TIER-A:
       - "glm-5*"
-      - "dots-studio/dots-3-*"
       - "inclusionai/ling-3.0-flash*"
       - "nvidia/nemotron-3-super-*"
       - "nvidia/nemotron-3-ultra-*"
@@ -129,7 +128,7 @@ kilo:
       - "thinkingmachines/inkling*"
     TIER-B:
       - "*" # every other model; a more specific pattern wins
-    TIER-C:
+    TIER-D:
       - "liquid/lfm-2.5-2.6b*"
 
 mistral:
@@ -161,7 +160,6 @@ openrouter:
     - "!*:free"
   tier:
     TIER-A:
-      - "dots-studio/dots-3-*"
       - "inclusionai/ling-3.0-flash*"
       - "nvidia/nemotron-3-super-*"
       - "nvidia/nemotron-3-ultra-*"
@@ -171,7 +169,7 @@ openrouter:
       - "thinkingmachines/inkling*"
     TIER-B:
       - "*" # every other model; a more specific pattern wins
-    TIER-C:
+    TIER-D:
       - "liquid/lfm-2.5-2.6b*"
 
 z-ai:
