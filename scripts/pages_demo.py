@@ -272,6 +272,13 @@ DEMO_SHAPES = (
     "retry": "1",
     "fallbacks": "1",
     "status": 200,
+    "transition": {
+      "from_model": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
+      "from_pool": "koinos",
+      "reason": "err",
+      "to_model": "cloudflare/@cf/zai-org/glm-4.7-flash",
+      "to_pool": "koinos",
+    },
     "attempts": [
       {
         "model": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
@@ -1402,7 +1409,10 @@ const DEMO_FIXTURES = __FIXTURES__;
     }
     // A try again bumps to a higher tier: the row keeps the chain, the cooldown and the weight.
     async escalate() {
-      const template = pick(TEMPLATES);
+      // The scripted wave shows the rate limit: the cooldown template serves, if the
+      // capture holds one.
+      const cooled = TEMPLATES.find((row) => (row.attempts || []).some((a) => a.cooldown));
+      const template = cooled || pick(TEMPLATES);
       const reason = REASONS[reasonN++ % REASONS.length];
       const s = session(++this.sessions * 7919);
       await this.call({

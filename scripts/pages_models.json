@@ -380,7 +380,9 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "max"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -452,7 +454,10 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "max"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -812,7 +817,10 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "max"
+    ],
     "tier": "TIER-A"
   },
   {
@@ -836,7 +844,11 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "low",
+      "medium",
+      "high"
+    ],
     "tier": "TIER-A"
   },
   {
@@ -860,7 +872,11 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "low",
+      "medium",
+      "high"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -1004,7 +1020,9 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "max"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -1052,7 +1070,11 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "low",
+      "medium",
+      "xhigh"
+    ],
     "tier": "TIER-A"
   },
   {
@@ -1076,7 +1098,9 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "max"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -1148,7 +1172,10 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "max"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -1172,7 +1199,12 @@
     "supports_audio_input": true,
     "supports_audio_output": false,
     "supports_web_search": true,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "minimal",
+      "low",
+      "medium",
+      "high"
+    ],
     "tier": "TIER-C"
   },
   {
@@ -1196,7 +1228,12 @@
     "supports_audio_input": true,
     "supports_audio_output": false,
     "supports_web_search": true,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "minimal",
+      "low",
+      "medium",
+      "high"
+    ],
     "tier": "TIER-C"
   },
   {
@@ -1220,7 +1257,12 @@
     "supports_audio_input": true,
     "supports_audio_output": false,
     "supports_web_search": true,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "minimal",
+      "low",
+      "medium",
+      "high"
+    ],
     "tier": "TIER-C"
   },
   {
@@ -1245,7 +1287,7 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": "TIER-C"
   },
   {
     "id": "gemini/gemini-3.5-flash",
@@ -1268,7 +1310,12 @@
     "supports_audio_input": true,
     "supports_audio_output": false,
     "supports_web_search": true,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "minimal",
+      "low",
+      "medium",
+      "high"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -1292,7 +1339,12 @@
     "supports_audio_input": true,
     "supports_audio_output": false,
     "supports_web_search": true,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "minimal",
+      "low",
+      "medium",
+      "high"
+    ],
     "tier": "TIER-C"
   },
   {
@@ -1340,7 +1392,12 @@
     "supports_audio_input": true,
     "supports_audio_output": false,
     "supports_web_search": true,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "minimal",
+      "low",
+      "medium",
+      "high"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -1364,7 +1421,11 @@
     "supports_audio_input": true,
     "supports_audio_output": false,
     "supports_web_search": true,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "low",
+      "medium",
+      "high"
+    ],
     "tier": "TIER-A"
   },
   {
@@ -1388,7 +1449,11 @@
     "supports_audio_input": true,
     "supports_audio_output": false,
     "supports_web_search": true,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "low",
+      "medium",
+      "high"
+    ],
     "tier": "TIER-A"
   },
   {
@@ -1532,7 +1597,12 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "minimal",
+      "low",
+      "medium",
+      "high"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -1556,7 +1626,12 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "minimal",
+      "low",
+      "medium",
+      "high"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -1652,7 +1727,11 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": true,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "low",
+      "medium",
+      "high"
+    ],
     "tier": "TIER-A"
   },
   {
@@ -1676,7 +1755,11 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": true,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "low",
+      "medium",
+      "high"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -1700,7 +1783,11 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "low",
+      "medium",
+      "xhigh"
+    ],
     "tier": "TIER-A"
   },
   {
@@ -1772,7 +1859,15 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -1796,7 +1891,15 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -1820,7 +1923,15 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
     "tier": "TIER-A"
   },
   {
@@ -1844,7 +1955,15 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
     "tier": "TIER-D"
   },
   {
@@ -1868,7 +1987,15 @@
     "supports_audio_input": true,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -1892,7 +2019,10 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "low",
+      "medium"
+    ],
     "tier": "TIER-A"
   },
   {
@@ -1916,7 +2046,10 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "medium",
+      "high"
+    ],
     "tier": "TIER-A"
   },
   {
@@ -1940,7 +2073,15 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -1964,7 +2105,15 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
     "tier": "TIER-A"
   },
   {
@@ -1988,7 +2137,15 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -2012,7 +2169,15 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
     "tier": "TIER-A"
   },
   {
@@ -2036,7 +2201,14 @@
     "supports_audio_input": true,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "max"
+    ],
     "tier": "TIER-A"
   },
   {
@@ -2085,7 +2257,7 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": "TIER-C"
   },
   {
     "id": "mistral/labs-leanstral-1-5-1",
@@ -2108,7 +2280,10 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "high"
+    ],
     "tier": "TIER-C"
   },
   {
@@ -2228,7 +2403,10 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "high"
+    ],
     "tier": "TIER-A"
   },
   {
@@ -2252,7 +2430,10 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "high"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -2348,7 +2529,15 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -2372,7 +2561,15 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -2397,7 +2594,7 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": "TIER-B"
   },
   {
     "id": "openrouter/google/gemma-4-26b-a4b-it:free",
@@ -2420,7 +2617,15 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -2444,7 +2649,15 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -2468,7 +2681,15 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
     "tier": "TIER-A"
   },
   {
@@ -2492,7 +2713,15 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
     "tier": "TIER-D"
   },
   {
@@ -2517,7 +2746,7 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": "TIER-B"
   },
   {
     "id": "openrouter/nvidia/llama-nemotron-embed-vl-1b-v2:free",
@@ -2541,7 +2770,7 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": "TIER-B"
   },
   {
     "id": "openrouter/nvidia/llama-nemotron-rerank-vl-1b-v2:free",
@@ -2565,7 +2794,7 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": "TIER-B"
   },
   {
     "id": "openrouter/nvidia/nemotron-3-embed-1b:free",
@@ -2589,7 +2818,7 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": "TIER-B"
   },
   {
     "id": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
@@ -2612,7 +2841,15 @@
     "supports_audio_input": true,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -2636,7 +2873,10 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": "[\"medium\", \"low\"]",
+    "supported_efforts": [
+      "medium",
+      "low"
+    ],
     "tier": "TIER-A"
   },
   {
@@ -2660,7 +2900,10 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": "[\"high\", \"medium\"]",
+    "supported_efforts": [
+      "high",
+      "medium"
+    ],
     "tier": "TIER-A"
   },
   {
@@ -2684,7 +2927,15 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -2708,7 +2959,15 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
     "tier": "TIER-A"
   },
   {
@@ -2732,7 +2991,15 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -2757,7 +3024,7 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": "TIER-B"
   },
   {
     "id": "openrouter/thinkingmachines/inkling-small:free",
@@ -2780,7 +3047,14 @@
     "supports_audio_input": true,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": "[\"max\", \"xhigh\", \"high\", \"medium\", \"low\", \"minimal\", \"none\"]",
+    "supported_efforts": [
+      "max",
+      "high",
+      "medium",
+      "low",
+      "minimal",
+      "none"
+    ],
     "tier": "TIER-A"
   },
   {
@@ -2804,7 +3078,14 @@
     "supports_audio_input": true,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": "[\"max\", \"xhigh\", \"high\", \"medium\", \"low\", \"minimal\", \"none\"]",
+    "supported_efforts": [
+      "max",
+      "high",
+      "medium",
+      "low",
+      "minimal",
+      "none"
+    ],
     "tier": "TIER-A"
   },
   {
@@ -2828,8 +3109,12 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": "[\"max\", \"high\", \"low\"]",
-    "tier": null
+    "supported_efforts": [
+      "max",
+      "high",
+      "low"
+    ],
+    "tier": "TIER-A"
   },
   {
     "id": "z-ai/glm-4.5-flash",
@@ -2846,13 +3131,16 @@
     "supports_tool_choice": true,
     "supports_parallel_function_calling": false,
     "supports_response_schema": false,
-    "supports_reasoning": false,
+    "supports_reasoning": true,
     "supports_vision": false,
     "supports_pdf_input": false,
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "max"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -2870,13 +3158,16 @@
     "supports_tool_choice": false,
     "supports_parallel_function_calling": false,
     "supports_response_schema": false,
-    "supports_reasoning": false,
+    "supports_reasoning": true,
     "supports_vision": false,
     "supports_pdf_input": false,
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "max"
+    ],
     "tier": "TIER-D"
   },
   {
@@ -2900,7 +3191,10 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "max"
+    ],
     "tier": "TIER-B"
   },
   {
@@ -3069,7 +3363,7 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": "TIER-B"
   },
   {
     "id": "cloudflare/@cf/cloudflare/clef",
@@ -3140,7 +3434,47 @@
     "supports_audio_input": false,
     "supports_audio_output": false,
     "supports_web_search": false,
-    "supported_efforts": null,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "tier": "TIER-B"
+  },
+  {
+    "id": "kilo/stealth/glyph-cluster",
+    "provider": "kilo",
+    "slug": "stealth/glyph-cluster",
+    "mode": null,
+    "max_input_tokens": 256000,
+    "max_output_tokens": 256000,
+    "max_tokens": 256000,
+    "rpm": null,
+    "tpm": null,
+    "reasoning_effort": null,
+    "supports_function_calling": true,
+    "supports_tool_choice": false,
+    "supports_parallel_function_calling": false,
+    "supports_response_schema": false,
+    "supports_reasoning": true,
+    "supports_vision": false,
+    "supports_pdf_input": false,
+    "supports_audio_input": false,
+    "supports_audio_output": false,
+    "supports_web_search": false,
+    "supported_efforts": [
+      "none",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
     "tier": "TIER-B"
   }
 ]
