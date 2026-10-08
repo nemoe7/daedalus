@@ -3873,6 +3873,19 @@ def test_each_page_holds_a_section_list() -> None:
     assert needle in style, needle
 
 
+def test_a_section_row_answers_the_hold() -> None:
+  """A section row a finger holds takes the field background, beside the opacity fade."""
+  style = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
+  ).read_text(encoding="utf-8")
+  assert ".sections button:active { background: var(--field); }" in style, (
+    "the hold of a section row shows as a background"
+  )
+  assert ".sections button:hover { background: var(--field); }" in style, (
+    "a pointer keeps the same look"
+  )
+
+
 def test_the_providers_page_folds_the_long_groups() -> None:
   """Tiers, Model overrides and Provider values start closed, so a card stays short."""
   root = Path(__file__).resolve().parent.parent.parent

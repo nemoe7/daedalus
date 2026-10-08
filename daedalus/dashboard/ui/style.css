@@ -544,6 +544,11 @@ section[data-page="providers"], section[data-page="settings"] {
   color: var(--text); font: inherit; font-weight: 500; text-align: left;
 }
 .sections button:last-child { border-bottom: 0; }
+.sections button:active { background: var(--field); }
+/* A pointer keeps the same look, and a touch screen keeps no hover after a tap. */
+@media (hover: hover) {
+  .sections button:hover { background: var(--field); }
+}
 .sections button.on { background: var(--field); box-shadow: inset 2px 0 0 var(--accent); }
 .section-pane { flex: 1 1 min(360px, 100%); display: grid; gap: 16px; min-width: 0; }
 .section-pane > .card { min-width: 0; }
