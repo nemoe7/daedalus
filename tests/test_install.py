@@ -80,7 +80,7 @@ def run_interactive(
 ) -> subprocess.CompletedProcess[str]:
   """Run install.sh on a pseudo-terminal with line answers. A piped run reads the script from a pipe."""
   import pty
-  import select
+  import selectors
   import signal
   import time
 
@@ -93,6 +93,9 @@ def run_interactive(
     os.execvpe("bash", argv, env)
   os.write(master, ("\n".join(answers) + "\n").encode())
   output = bytearray()
+  # select() refuses a descriptor over 1023, and the whole suite keeps many open.
+  watched = selectors.DefaultSelector()
+  watched.register(master, selectors.EVENT_READ)
   deadline = time.monotonic() + 60
   while True:
     waited, status = os.waitpid(pid, os.WNOHANG)
@@ -102,21 +105,18 @@ def run_interactive(
     if remaining <= 0:
       os.kill(pid, signal.SIGKILL)
       os.waitpid(pid, 0)
+      watched.close()
       os.close(master)
       detail = output.decode(errors="replace")
       raise AssertionError(f"interactive installer timed out: {detail}")
-    readable, _, _ = select.select([master], [], [], min(remaining, 0.2))
-    if readable:
+    if watched.select(min(remaining, 0.2)):
       try:
         chunk = os.read(master, 4096)
       except OSError:
         chunk = b""
       if chunk:
         output.extend(chunk)
-  while True:
-    readable, _, _ = select.select([master], [], [], 0)
-    if not readable:
-      break
+  while watched.select(0):
     try:
       chunk = os.read(master, 4096)
     except OSError:
@@ -124,6 +124,7 @@ def run_interactive(
     if not chunk:
       break
     output.extend(chunk)
+  watched.close()
   os.close(master)
   return subprocess.CompletedProcess(
     argv,
