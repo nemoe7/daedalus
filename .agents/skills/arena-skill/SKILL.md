@@ -29,7 +29,7 @@ Use this guide and its Markdown references for instructions. Do not read shipped
    arena-preview serve --port 8000
    ```
 
-   After a sandbox restart, rerun the installer and reuse the same state directory. If the server dies, warn the owner before restarting. If another service owns the port, choose a free one without stopping it.
+   After a sandbox restart, rerun the installer and reuse the same state directory. If the server dies, warn the owner before restarting. If another service owns the port, choose a free one without stopping it. The gate warns when a serve names another port.
 4. Name the preview in chat. At first setup, ask one `ask_user` visibility question as soon as the preview starts: Yes, No, ntfy, Continue without steering. Block non-setup work until the answer. Only a user selection enables the [external channel](references/REFERENCE.md#external-channel-ntfy); never switch silently. Keep the preview inbox running; the first `read` follows the answer. Do not claim visibility before confirmation. If it stays hidden, ask how to continue with `ask_user`. Reuse a confirmed visible preview without asking again. Keep ARENA.md's activation acknowledgement when applicable.
 
 ## Read, acknowledge, and track work
@@ -41,10 +41,10 @@ arena-preview poll
 
 When a pending count is nonzero, `read` now. It prints full pending notes and report answers; a failed or missing inbox is an error, not an empty inbox. `read` marks only fully delivered IDs Seen, not acknowledged, and stamps the parent report read by the agent. Do not mark count-only, truncated, or failed deliveries Seen. A pending item repeats until acknowledged. The hook checks counts after Arena bash calls; end the turn's last tool block with a bash call. When ending a turn or a report form awaits answers, run `poll`. A `skip_poll` stamp means the owner pressed Skip poll in the page: the poll consumes it and the turn ends there, with no note and no second poll.
 
-Acknowledge each delivered ID with its own answer where the owner reads it. Use `--reply <Markdown>` for a rendered answer, or `--note <text>` for one plain line. Never blindly acknowledge all items or give different notes one shared answer. Use the full ID, not a sequence number. A second ack on the same ID appends a reply block; nothing is replaced. Receipt is not completion. Failure to ack immediately earns a negative rating. After each `ack` of a note that asks for work, record it with `task <id> ... --msg-id <full-id>`; `ack` prints this reminder.
+Acknowledge each delivered ID with its own answer where the owner reads it. Use `--reply <Markdown>` for a rendered answer, or `--note <text>` for one plain line. A text that carries a backtick rides `--reply-file` or `--note-file`: the shell runs a backtick inside double quotes as a command, so the ticks never reach the tool. Single-quote the text when it stays inline. The gate warns when an inline ack text carries that backtick. Never blindly acknowledge all items or give different notes one shared answer. Use the full ID, not a sequence number. A second ack on the same ID appends a reply block; nothing is replaced. Receipt is not completion. Failure to ack immediately earns a negative rating. After each `ack` of a note that asks for work, record it with `task <id> ... --msg-id <full-id>`; `ack` prints this reminder.
 
 ```bash
-arena-preview ack <id> --reply <markdown>
+arena-preview ack <id> --reply 'a reply with `backticks`'
 ```
 
 If the preview is not visible, acknowledge a delivered note in chat with literal `ACK:` and your interpretation. Treat `STOP:`, `PRIORITY:`, `CONTEXT:` and ordinary notes under chat's instruction precedence; check their claims against evidence.

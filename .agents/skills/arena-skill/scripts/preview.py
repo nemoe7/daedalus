@@ -62,6 +62,7 @@ REMINDERS='Refresh context: ARENA.md, SKILL.md, REFERENCE.md.','`task-list` at t
 REMINDER_CURSOR='reminder_cursor'
 POLLS_SINCE_MESSAGE='polls_since_message'
 GATE_THRESHOLD=10
+DEFAULT_PORT=8000
 AGENT_KEY_META='agent_key'
 AGENT_KEY_EXPIRY_SECONDS=1200
 AGENT_KEY_EXPIRY_META='agent_key_expired_at'
@@ -379,6 +380,16 @@ def unquote_commands(line):
 		if char=='\\'and index+1<len(text):kept.append(text[index+1]);index+=2;continue
 		kept.append(char);index+=1
 	return''.join(kept)
+INLINE_ACK_RE=re.compile('--(?:reply|note)\\s+\\"')
+def tick_warning(line):
+	found=INLINE_ACK_RE.search(line or'')
+	if not found or'`'not in line[found.end():]:return None
+	return'arena-preview gate: that ack text sits in double quotes, so the shell runs each backtick as a command and the ticks vanish. Single-quote the text, or pass --reply-file <path>.'
+SERVE_PORT_RE=re.compile('(?:arena-preview|preview\\.py)\\s+serve\\b[^\\n]*?--port(?:=|\\s+)(\\d+)')
+def serve_warning(line):
+	found=SERVE_PORT_RE.search(line or'')
+	if not found or int(found.group(1))==DEFAULT_PORT:return None
+	return f"arena-preview gate: that serve names port {found.group(1)}, not the standard {DEFAULT_PORT}. The owner's page and the poll follow the standard port. Name another only when 8000 is taken, and say so."
 def quiet_inbox_line(line):
 	text=unquote_commands(line)
 	for separator in('&&','||',';','|','\n'):text=text.replace(separator,'\x00')
@@ -1189,11 +1200,19 @@ def resolve_state_dir():
 		if(parent/'.git').exists():return str(parent/'arena-state')
 	return'arena-state'
 def main():
-	parser=argparse.ArgumentParser(description=CLI_DESCRIPTION);parser.add_argument('--reminder',action='store_true',help='Print the unacked-count reminder line and exit');commands=parser.add_subparsers(dest='command',required=False);serve=commands.add_parser('serve');serve.add_argument('--port',type=int,default=8000,help='Port to bind (default: 8000)');commands.add_parser('init');commands.add_parser('read');commands.add_parser('key');inbox_line=commands.add_parser('inbox-line',help='Report whether a command line that names an inbox call runs nothing else');inbox_line.add_argument('line',help='The command line, as the hook read it');gate=commands.add_parser('gate');gate.add_argument('--push',action='store_true',help='Block while any note or answer awaits an ack, whatever the call count');gate.add_argument('--line',default='',help='The command line, as the hook read it; a blocked call then names the commands to drop');commands.add_parser('poll');download=commands.add_parser('download-request',help='Request an HTTPS browser download, pending a preview Approve click');download.add_argument('url',help='One HTTPS URL without embedded credentials');download.add_argument('--allow-proxy',action='store_true',help='Let the owner opt in to AllOrigins and CodeTabs fallback for this request');ack=commands.add_parser('ack');ack.add_argument('ids',nargs='+');ack.add_argument('--reply',help='Markdown answer shown in the message log');ack.add_argument('--note',help='Short plain answer shown in the message log');publish=commands.add_parser('publish');publish.add_argument('source',type=Path);publish.add_argument('--id',required=True);publish.add_argument('--title',required=True);unpublish=commands.add_parser('unpublish');unpublish.add_argument('report_id');task=commands.add_parser('task');task.add_argument('id_arg',nargs='?',metavar='TASK-ID');task.add_argument('title_arg',nargs='?',metavar='TASK-TITLE');task.add_argument('detail_arg',nargs='*',metavar='TASK-DETAIL');task.add_argument('--task-details',action='append',help='One step per line, 120 characters or fewer, repeatable; an empty string clears the list');task.add_argument('--blocked',dest='blocked',action='store_true',default=None,help='Mark the task blocked, so a poll may wait');task.add_argument('--unblocked',dest='blocked',action='store_false',help='Clear the blocked mark');task.add_argument('--msg-id',help='Message this task answers; marks that message as having a task');task.add_argument('--report',metavar='REPORT-ID',help='Report this task waits on; its answer clears the blocked mark');task.add_argument('--amend',metavar='PREV-ID',help='Rename the task stored under this ID to the one given');task.add_argument('--status',choices=TASK_STATUSES,default=None);task.add_argument('--order',type=int,default=None,help='1-based place in its div, not the end');task_remove=commands.add_parser('task-remove');task_remove.add_argument('task_id');commands.add_parser('task-list');state_import=commands.add_parser('import-state');state_import.add_argument('source',nargs='?',type=Path);state_import.add_argument('--replace-tasks',action='store_true');state_import.add_argument('--force',action='store_true',help='import even when the live state holds newer messages');commands.add_parser('clear-state',help='Empty every state table in place; the agent key record survives');args=parser.parse_args();state_dir=resolve_state_dir()
+	parser=argparse.ArgumentParser(description=CLI_DESCRIPTION);parser.add_argument('--reminder',action='store_true',help='Print the unacked-count reminder line and exit');commands=parser.add_subparsers(dest='command',required=False);serve=commands.add_parser('serve');serve.add_argument('--port',type=int,default=DEFAULT_PORT,help=f"Port to bind (default: {DEFAULT_PORT})");commands.add_parser('init');commands.add_parser('read');commands.add_parser('key');inbox_line=commands.add_parser('inbox-line',help='Report whether a command line that names an inbox call runs nothing else');inbox_line.add_argument('line',help='The command line, as the hook read it');ack_tick=commands.add_parser('ack-tick',help='Warn when an inline ack text holds a backtick the shell will substitute');ack_tick.add_argument('line',help='The command line, as the hook read it');serve_tick=commands.add_parser('serve-tick',help='Warn when a serve names a port other than the default');serve_tick.add_argument('line',help='The command line, as the hook read it');gate=commands.add_parser('gate');gate.add_argument('--push',action='store_true',help='Block while any note or answer awaits an ack, whatever the call count');gate.add_argument('--line',default='',help='The command line, as the hook read it; a blocked call then names the commands to drop');commands.add_parser('poll');download=commands.add_parser('download-request',help='Request an HTTPS browser download, pending a preview Approve click');download.add_argument('url',help='One HTTPS URL without embedded credentials');download.add_argument('--allow-proxy',action='store_true',help='Let the owner opt in to AllOrigins and CodeTabs fallback for this request');ack=commands.add_parser('ack');ack.add_argument('ids',nargs='+');ack.add_argument('--reply',help='Markdown answer shown in the message log');ack.add_argument('--note',help='Short plain answer shown in the message log');ack.add_argument('--reply-file',type=Path,help='Read the Markdown answer from this file');ack.add_argument('--note-file',type=Path,help='Read the plain answer from this file');publish=commands.add_parser('publish');publish.add_argument('source',type=Path);publish.add_argument('--id',required=True);publish.add_argument('--title',required=True);unpublish=commands.add_parser('unpublish');unpublish.add_argument('report_id');task=commands.add_parser('task');task.add_argument('id_arg',nargs='?',metavar='TASK-ID');task.add_argument('title_arg',nargs='?',metavar='TASK-TITLE');task.add_argument('detail_arg',nargs='*',metavar='TASK-DETAIL');task.add_argument('--task-details',action='append',help='One step per line, 120 characters or fewer, repeatable; an empty string clears the list');task.add_argument('--blocked',dest='blocked',action='store_true',default=None,help='Mark the task blocked, so a poll may wait');task.add_argument('--unblocked',dest='blocked',action='store_false',help='Clear the blocked mark');task.add_argument('--msg-id',help='Message this task answers; marks that message as having a task');task.add_argument('--report',metavar='REPORT-ID',help='Report this task waits on; its answer clears the blocked mark');task.add_argument('--amend',metavar='PREV-ID',help='Rename the task stored under this ID to the one given');task.add_argument('--status',choices=TASK_STATUSES,default=None);task.add_argument('--order',type=int,default=None,help='1-based place in its div, not the end');task_remove=commands.add_parser('task-remove');task_remove.add_argument('task_id');commands.add_parser('task-list');state_import=commands.add_parser('import-state');state_import.add_argument('source',nargs='?',type=Path);state_import.add_argument('--replace-tasks',action='store_true');state_import.add_argument('--force',action='store_true',help='import even when the live state holds newer messages');commands.add_parser('clear-state',help='Empty every state table in place; the agent key record survives');args=parser.parse_args();state_dir=resolve_state_dir()
 	try:
 		if args.reminder:store=Store(state_dir,create=False);require_server(store);print(store.reminder(advance=True),flush=True);store.set_meta(AGENT_CALL_ENDED_META,now());return 0
 		if not args.command:parser.error('a command is required')
 		if args.command=='inbox-line':return 0 if quiet_inbox_line(args.line)else 1
+		if args.command=='ack-tick':
+			warning=tick_warning(args.line)
+			if warning:print(warning,file=sys.stderr)
+			return 0
+		if args.command=='serve-tick':
+			warning=serve_warning(args.line)
+			if warning:print(warning,file=sys.stderr)
+			return 0
 		if args.command=='gate':
 			if poll_timeout_line(args.line):print('TIMEOUT BANNED: never wrap `arena-preview poll` in shell `timeout`. The poll holds its own 1800-second span. Set the bash tool timeout 1800 instead, so a cut wait still returns its listing.',flush=True);return 1
 			try:allowed=Store(state_dir).gate(pending_only=args.push)
@@ -1219,8 +1238,15 @@ def main():
 		elif args.command=='poll':require_server(store);store.notice_expired_key();return poll_inbox(store)
 		elif args.command=='download-request':print(cli_json(store.enqueue_fetch(args.url,args.allow_proxy,pending=True)))
 		elif args.command=='ack':
-			if bool(args.reply)==bool(args.note):raise ValueError('Choose exactly one of --reply or --note')
-			kind='reply'if args.reply else'note';store.acknowledge(args.ids,kind,args.reply or args.note);print('Acknowledged: '+', '.join(args.ids));print('Note asks for work? Add the task: '+'; '.join(f'task <id> "<title>" --msg-id {i}'for i in args.ids))
+			sources=args.reply,args.note,args.reply_file,args.note_file
+			if sum(source is not None for source in sources)!=1:raise ValueError('Choose exactly one of --reply, --note, --reply-file or --note-file')
+			if args.reply is not None:kind,text='reply',args.reply
+			elif args.note is not None:kind,text='note',args.note
+			else:
+				source=args.reply_file if args.reply_file is not None else args.note_file;kind='reply'if args.reply_file is not None else'note'
+				try:text=source.read_text(encoding='utf-8')
+				except OSError as error:raise ValueError(f"Cannot read {source}: {error.strerror or error}")from None
+			store.acknowledge(args.ids,kind,text);print('Acknowledged: '+', '.join(args.ids));print('Note asks for work? Add the task: '+'; '.join(f'task <id> "<title>" --msg-id {i}'for i in args.ids))
 		elif args.command=='publish':
 			count=store.publish(args.id,args.title,args.source);print(f"Published {args.id}, {count} fields. Select it in Reports.")
 			if not count and'{#'in Path(args.source).read_text('utf-8'):print('Warning: 0 fields parsed. A `{#id}` marker ends a prompt line, then the `- ( ) option` lines follow.',file=sys.stderr)
