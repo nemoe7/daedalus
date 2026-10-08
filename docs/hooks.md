@@ -157,7 +157,7 @@ At the dashboard load, for each enabled request hook file.
 
 No arguments. It returns the rows of the code legend of the dashboard, such as `[["rtN", "A repeat picked another model, N times"]]`.
 
-A request-level point, such as `on-request`, takes its files from the `hooks` group of [`config/daedalus.yml`](../config/daedalus.yml), because no provider owns the request yet:
+A request-level point, such as `on-request`, takes its files from the `hooks` group of [`config/daedalus.yml`](../config/daedalus.yml), because no provider owns the request yet. An installed file with a `points` block in its frontmatter joins its points without a key there:
 
 ```yaml
 hooks:
@@ -166,7 +166,11 @@ hooks:
   on-chunk: [hooks/served_model.py]
 ```
 
-Each key holds a list of files, and they run in list order. 1 path on its own works too. An empty list turns that point off. An installed file with a `points` block joins its points without a key here. The `on-init` point has no group of its own: the dashboard reads the `on_init` function of each file of the folder. The legend card shows those rows below the base rows, and a file with no `on_init` adds no row. A file that sets `value["key"]` counts the requests of that key: a repeat after an answer is a try again.
+Each key holds a list of files, and they run in list order. 1 path on its own works too. An empty list turns that point off.
+
+The `on-init` point has no group of its own: the dashboard reads the `on_init` function of each file of the folder. The legend card shows those rows below the base rows, and a file with no `on_init` adds no row.
+
+A file that sets `value["key"]` counts the requests of that key: a repeat after an answer is a try again.
 
 ### The reasoning effort
 
@@ -294,13 +298,13 @@ hooks:
 | Key | Value | Use |
 | --- | --- | --- |
 | `repo` | `owner/name` or a GitHub URL | The repository of the hook files |
-| `path` | 1 folder in the repo | The folder that holds the `.py` files. The fetch reads the files directly under it |
+| `path` | 1 folder in the repo | The folder that holds the `.py` files. daedalus reads the files directly under it |
 | `ref` | 1 branch, a tag or a commit | `main` by default |
-| `auto_update` | true or false | `true` follows the ref at each start. `false`, the default, fetches a file only when it is missing from the folder |
+| `auto_update` | true or false | `true` follows the ref at each start. `false`, the default, reads a file only when it is missing from the folder |
 
 A start reads a source only when 1 of its files is missing from the folder. An update reads the
 commit of the ref, reads the archive of that commit, and writes each file through a temporary name.
-A failed fetch, an archive that does not read, a block the reader refuses or a write that fails all
+A request that fails, an archive that does not read, a block the reader refuses or a write that fails all
 keep the files on disk.
 
 The lock in [`config/hooks.lock.json`](../config) records the sha256, the version, the repo and the
