@@ -218,6 +218,7 @@ def field_html(question):
 	return f"{body}{group}</div></div>"
 TASK_STATUSES='upcoming','finished'
 TASK_ID=re.compile('^[a-z0-9][a-z0-9-]{0,63}$')
+NOTE_ID=re.compile('^[0-9a-f]{7}(?:-[0-9a-f]+)?$')
 MAX_TASK_TITLE=200
 MAX_TASK_DETAIL=2000
 MAX_TASK_DETAILS=40
@@ -456,6 +457,7 @@ def check_task_steps(details):
 		if len(step)>TASK_STEP_MAX:raise ValueError(f"A task detail is one step per line, {TASK_STEP_MAX} characters or fewer; this line runs {len(step)}. Split it and repeat --task-details")
 def check_task(task_id,title,details):
 	if not TASK_ID.match(task_id or''):raise ValueError('A task ID is 1-64 characters of lowercase letters, digits and hyphens, and starts with a letter or digit')
+	if NOTE_ID.match(task_id or''):raise ValueError('That ID is a note ID. A task ID names the job: give the task a proper name, like fix-the-widget')
 	if title is not None and len(title)>MAX_TASK_TITLE:raise ValueError(f"A task title must be {MAX_TASK_TITLE} characters or fewer")
 	if len(details or())>MAX_TASK_DETAILS:raise ValueError(f"A task carries at most {MAX_TASK_DETAILS} details")
 	for detail in details or():
