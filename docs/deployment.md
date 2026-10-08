@@ -29,7 +29,7 @@ The commands below are the same in cmd, PowerShell and bash.
 | Stop | `docker compose down` |
 | Log | `docker compose logs -f api` |
 | Rebuild the catalog now | The Catalog line of the Overview status card, or `docker compose exec api daedalus catalog` |
-| Run the CLI on the host | `daedalus catalog` probes `DAEDALUS_URL`, or `DAEDALUS_HOST` and `DAEDALUS_PORT`, and asks a live server to rebuild. `dump`, `hooks update` and `hooks verify` read the same files as the container. |
+| Run the CLI on the host | `daedalus catalog` probes `DAEDALUS_URL`, or `DAEDALUS_HOST` and `DAEDALUS_PORT`, and asks a live server to rebuild. A refused request stops the command, and `--force` rebuilds the store here. `dump`, `hooks update` and `hooks verify` read the same files as the container. |
 | Dump catalogs/models | `docker compose exec api daedalus dump catalog`, `models`, or `all`. Files go to `.daedalus-state/dump` |
 | Update the hook files | `docker compose exec api daedalus hooks update` reads the `hooks.sources` repos and writes `hooks.lock.json`. `daedalus hooks verify` then reads the lock and loads each file. See [Hooks](hooks.md#sources-and-the-lock) |
 

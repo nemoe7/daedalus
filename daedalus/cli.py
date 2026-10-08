@@ -107,8 +107,16 @@ def live_url() -> str | None:
   return url if probe(url) else None
 
 
+class Refused(Exception):
+  """The live daedalus answered the rebuild request with a refusal."""
+
+
 def ask_rebuild(url: str) -> bool:
-  """Ask a live daedalus to rebuild its store. False keeps the rebuild here."""
+  """Ask a live daedalus to rebuild its store.
+
+  A silent server returns False, and the rebuild goes here. A refusal raises
+  `Refused`, because that server owns the store and a second writer is unsafe.
+  """
   key = dashboard.master()
   if key is None:
     logger.warning("no master key: the rebuild runs in this process")
@@ -120,7 +128,9 @@ def ask_rebuild(url: str) -> bool:
     with urllib.request.urlopen(request, timeout=ASK_SECONDS) as answer:
       return answer.status == 202
   except urllib.error.HTTPError as exc:
-    logger.warning("the daedalus at %s refused the rebuild: HTTP %s", url, exc.code)
+    raise Refused(
+      f"the daedalus at {url} refused the rebuild: HTTP {exc.code}"
+    ) from exc
   except (OSError, ValueError) as exc:
     logger.warning("the daedalus at %s did not answer: %s", url, exc)
   return False
@@ -243,8 +253,13 @@ def run(argv: list[str] | None = None) -> None:
   serve.add_argument(
     "--catalog", action="store_true", help="rebuild the model store first"
   )
-  commands.add_parser(
+  catalog_command = commands.add_parser(
     "catalog", help="discover provider models and rebuild the model store"
+  )
+  catalog_command.add_argument(
+    "--force",
+    action="store_true",
+    help="rebuild the store in this process when a live daedalus refuses the request",
   )
   dump = commands.add_parser(
     "dump", help="write provider catalogs or available models to .daedalus-state/dump"
@@ -295,7 +310,16 @@ def run(argv: list[str] | None = None) -> None:
     url = live_url()
     if url is not None:
       print(f"using the daedalus at {url}")
-    if url is not None and ask_rebuild(url):
+    try:
+      asked = url is not None and ask_rebuild(url)
+    except Refused as exc:
+      if not args.force:
+        parser.exit(
+          2, f"daedalus: {exc}. Set {dashboard.DAEDALUS_MASTER_KEY} to its key.\n"
+        )
+      logger.warning("%s: the force flag keeps the rebuild here", exc)
+      asked = False
+    if asked:
       logger.info("the daedalus at %s rebuilds the catalog now", url)
     else:
       store.migrate()

@@ -81,7 +81,8 @@ def test_ask_rebuild(monkeypatch, live: str) -> None:
   assert cli.ask_rebuild(live) is True
   assert Live.seen == [("POST", f"Bearer {MASTER}")]
   Live.status = 401
-  assert cli.ask_rebuild(live) is False
+  with pytest.raises(cli.Refused):
+    cli.ask_rebuild(live)
   assert cli.ask_rebuild("http://127.0.0.1:1") is False
   monkeypatch.setenv(dashboard.DAEDALUS_MASTER_KEY, "too-short")
   assert cli.ask_rebuild(live) is False, "no key means no request"
@@ -101,6 +102,18 @@ def test_catalog_uses_the_live_server(monkeypatch, live: str) -> None:
   assert Live.seen == [("GET", "/health"), ("POST", f"Bearer {MASTER}")]
 
 
+def test_catalog_runs_here_with_the_force_flag(monkeypatch, live: str) -> None:
+  """The flag takes the local rebuild after a refusal, and names the server."""
+  calls: list[str] = []
+  Live.status = 401
+  monkeypatch.setattr(catalog, "refresh", lambda: calls.append("local"))
+  monkeypatch.setattr(cli.store, "migrate", lambda: calls.append("migrate"))
+  monkeypatch.setenv(dashboard.DAEDALUS_MASTER_KEY, MASTER)
+  monkeypatch.setenv(cli.DAEDALUS_URL, live)
+  cli.run(["catalog", "--force"])
+  assert calls == ["migrate", "local"], "the flag keeps the rebuild here"
+
+
 def test_catalog_runs_here_with_no_server(monkeypatch) -> None:
   calls: list[str] = []
   monkeypatch.setattr(catalog, "refresh", lambda: calls.append("local"))
@@ -112,11 +125,17 @@ def test_catalog_runs_here_with_no_server(monkeypatch) -> None:
   assert shown.getvalue() == "", "no discovery line with no server"
 
 
-def test_catalog_runs_here_when_the_server_refuses(monkeypatch, live: str) -> None:
+def test_catalog_stops_when_the_server_refuses(monkeypatch, capsys, live: str) -> None:
+  """A refused command stops here, so the store gains no second writer."""
   calls: list[str] = []
   Live.status = 401
   monkeypatch.setattr(catalog, "refresh", lambda: calls.append("local"))
+  monkeypatch.setattr(cli.store, "migrate", lambda: calls.append("migrate"))
   monkeypatch.setenv(dashboard.DAEDALUS_MASTER_KEY, MASTER)
   monkeypatch.setenv(cli.DAEDALUS_URL, live)
-  cli.run(["catalog"])
-  assert calls == ["local"], "a refused ask falls back to the local rebuild"
+  with pytest.raises(SystemExit) as stopped:
+    cli.run(["catalog"])
+  assert stopped.value.code == 2, "a refused rebuild is a failed command"
+  assert calls == [], "a refused command writes no state here"
+  printed = capsys.readouterr().err
+  assert "refused the rebuild" in printed and "401" in printed
