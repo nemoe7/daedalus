@@ -1,5 +1,6 @@
 # ---
-# version: 1.0.1
+# version: 1.0.2
+# surfaces: []
 # author: nemoe7
 # title: Example hook
 # description: An example hook file that changes nothing.
