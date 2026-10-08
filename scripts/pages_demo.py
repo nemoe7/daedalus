@@ -532,15 +532,41 @@ const DEMO_FIXTURES = __FIXTURES__;
     const quoted = text.match(/^(["'])(.*)\\1$/);
     return quoted ? quoted[2] : text;
   };
-  // The flow maps of the config files: one level, scalar values, as the shipped ymls write them.
+  // The flow lists of the config files: one level, scalar values, as the effort ladders write them.
+  const flow_list = (text, where) => {
+    const inner = text.slice(1, -1).trim();
+    if (!inner) return [];
+    const out = [];
+    for (const part of inner.split(",")) out.push(unscale(part));
+    return out;
+  };
+  const flow_value = (raw, where) => {
+    const value = raw.trim();
+    return value.startsWith("[") ? flow_list(value, where) : unscale(value);
+  };
+  // The flow maps of the config files: one level, the values are scalars or flow lists. The split
+  // keeps the commas of a list together, so a ladder inside a map survives.
   const flow_map = (text, where) => {
     const out = {};
     const inner = text.slice(1, -1).trim();
     if (!inner) return out;
-    for (const part of inner.split(",")) {
+    const parts = [];
+    let depth = 0;
+    let start = 0;
+    for (let i = 0; i < inner.length; i += 1) {
+      const char = inner[i];
+      if (char === "[" || char === "{") depth += 1;
+      else if (char === "]" || char === "}") depth -= 1;
+      else if (char === "," && depth === 0) {
+        parts.push(inner.slice(start, i));
+        start = i + 1;
+      }
+    }
+    parts.push(inner.slice(start));
+    for (const part of parts) {
       const at = part.indexOf(":");
       if (at < 0) throw new Error(`expected ':' in the flow mapping at ${where}`);
-      out[unscale(part.slice(0, at))] = unscale(part.slice(at + 1));
+      out[unscale(part.slice(0, at))] = flow_value(part.slice(at + 1), where);
     }
     return out;
   };
@@ -607,6 +633,8 @@ const DEMO_FIXTURES = __FIXTURES__;
         } catch (problem) {
           return { error: String(problem.message) };
         }
+      } else if (value.startsWith("[") && value.endsWith("]")) {
+        top.node[key] = flow_list(value, `line ${n + 1}`);
       } else {
         top.node[key] = unscale(value);
       }

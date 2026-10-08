@@ -60,6 +60,7 @@ def dump_models(file_format: str) -> None:
 
   The dump adds the tier that claims a row, and the resolved ladder of efforts the row takes:
   the model key, the block, the catalog row, then the coded ladder of the provider.
+  A row that does not reason names none, so the dump carries null for it.
   """
   try:
     found = config.get_config()
@@ -73,8 +74,12 @@ def dump_models(file_format: str) -> None:
     {
       **row,
       "tier": tiers.get(row["id"]),
-      "supported_efforts": router.efforts(
-        found, row["id"], store.effort_list(row.get("supported_efforts")) or None
+      "supported_efforts": (
+        router.efforts(
+          found, row["id"], store.effort_list(row.get("supported_efforts")) or None
+        )
+        if row.get("supports_reasoning")
+        else None
       ),
     }
     for row in store.stored_rows()
