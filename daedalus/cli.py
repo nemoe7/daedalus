@@ -56,9 +56,20 @@ def tier_of_rows() -> dict[str, str]:
 
 
 def dump_models(file_format: str) -> None:
-  """Write every stored model row to `models.json` or `models.csv`, with the tier that claims it."""
+  """Write every stored model row to `models.json` or `models.csv`.
+
+  The dump adds the tier that claims a row, and the efforts the row names, evaluated to a list:
+  null when the row names none.
+  """
   tiers = tier_of_rows()
-  rows = [{**row, "tier": tiers.get(row["id"])} for row in store.stored_rows()]
+  rows = [
+    {
+      **row,
+      "tier": tiers.get(row["id"]),
+      "supported_efforts": store.effort_list(row.get("supported_efforts")) or None,
+    }
+    for row in store.stored_rows()
+  ]
   folder = discovery.DUMP_DIR
   folder.mkdir(parents=True, exist_ok=True)
   for extension in ("json", "csv"):
