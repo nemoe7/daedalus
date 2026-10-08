@@ -2683,13 +2683,7 @@ def test_files(
     client.put("/ui/api/files", json={"path": path, "text": ""}).status_code == 400
   ), "the Settings page owns the settings file"
   shown = client.get("/ui/api/settings").json()
-  assert shown["file"] == {
-    "hooks": {
-      "on-request": ["hooks/owui_auto_reasoning_effort.py"],
-      "on-prompt": ["hooks/owui_auto_reasoning_effort.py"],
-      "on-chunk": ["hooks/served_model.py"],
-    }
-  }, "the shipped file holds the changes only"
+  assert shown["file"] == {}, "the shipped file holds no change from the defaults"
   root = folder / "config" / "hooks"
   root.mkdir(parents=True, exist_ok=True)
   (root / "picked.py").write_text(
@@ -2741,7 +2735,7 @@ def test_files(
   assert saved.status_code == 200, saved.text
   text = settings.DEFAULT_PATH.read_text()
   assert "  slow: 12" in text, "the new value is written"
-  assert "# on-request sets the key of the turn." in text, "the comments stay"
+  assert "# Router settings." in text, "the comments stay"
   assert "  every: 0" in text, text
   assert api.SLOW_SECONDS == 12.0, "the save applies the settings"
   assert (loops.CALLS, loops.REPEATS, loops.SHORTEST, loops.LONGEST) == (5, 6, 10, 3000)
@@ -2783,8 +2777,8 @@ def test_files(
   assert client.put("/ui/api/settings", json={"changes": hook}).status_code == 200
   assert api.REQUEST_HOOKS == {
     "on-request": ["hooks/owui_auto_reasoning_effort.py", "hooks/picked.py"],
-    "on-prompt": ["hooks/owui_auto_reasoning_effort.py"],
-    "on-chunk": ["hooks/served_model.py"],
+    "on-prompt": [],
+    "on-chunk": [],
   }, "the save applies each request hook of the point"
   assert (
     client.put(
@@ -2794,8 +2788,8 @@ def test_files(
   )
   assert api.REQUEST_HOOKS == {
     "on-request": [],
-    "on-prompt": ["hooks/owui_auto_reasoning_effort.py"],
-    "on-chunk": ["hooks/served_model.py"],
+    "on-prompt": [],
+    "on-chunk": [],
   }, "an empty list turns the hook off"
   dark = {"personalization": {"theme": "dark"}}
   assert client.put("/ui/api/settings", json={"changes": dark}).status_code == 200

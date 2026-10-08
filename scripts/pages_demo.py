@@ -67,7 +67,7 @@ DEMO_SOURCE = {
   "ref": "main",
   "auto_update": False,
 }
-# The same source in the file text, under the last line of the captured `hooks` block.
+# The same source in the file text, under the `hooks` group of the captured file.
 DEMO_SOURCE_YAML = (
   "  sources:\n    - repo: nemoe7/daedalus\n      path: hooks\n      ref: main\n"
 )
@@ -1522,11 +1522,12 @@ def demo_fixtures(version: str) -> dict[str, Any]:
   finally:
     hooks.CONFIG_DIR = saved
   fixtures["settings"]["hook_rows"] = [{**row, "record": {}} for row in rows]
-  # The YAML card shows the same source, under the last line of its captured hooks block.
+  # The YAML card shows the same source, under the `hooks` group of the captured text.
   text = fixtures["settings"]["text"]
-  marker = "  on-chunk: [hooks/served_model.py]\n"
-  if marker in text and "sources:" not in text:
-    fixtures["settings"]["text"] = text.replace(marker, marker + DEMO_SOURCE_YAML, 1)
+  if "sources:" not in text:
+    head = f"{text.rstrip()}\n" if text.strip() else ""
+    group = "" if "hooks:" in text else "hooks:\n"
+    fixtures["settings"]["text"] = head + group + DEMO_SOURCE_YAML
   return fixtures
 
 

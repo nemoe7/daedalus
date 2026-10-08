@@ -8,7 +8,7 @@ reasoning level of the request.
 | --- | --- |
 | Runs | `on_request` before the chain of a chat request. `on_prompt` before the first attempt |
 | Writes | `value["key"]` and `value["code"]` on the repeat. `value["reasoning_effort"]` on the level |
-| Named by | `hooks.on-request` and `hooks.on-prompt` in [`config/daedalus.yml`](../../config/daedalus.yml) |
+| Named by | its own block: `points: [on-request, on-prompt]`. The `hooks` keys of [`config/daedalus.yml`](../../config/daedalus.yml) run it first |
 | Serves | The Open WebUI client, from the `CLIENT` constant, and the `x-openwebui-chat-id` header |
 
 The first chart is the repeat key of `on_request`. The second is the level of `on_prompt`.

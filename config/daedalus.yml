@@ -1,17 +1,6 @@
 # Router settings. Each key is optional. A missing key uses the built-in default.
 # This file holds the changes from the defaults only. docs/configuration.md lists each key,
-# its default and its use.
+# its default and its use. The Settings page of the dashboard writes here.
 # DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.
 # HEADROOM_URL turns on message compression through a Headroom sidecar.
 # `headroom: false` in a provider block or a model entry turns it off for that scope.
-hooks:
-  # The files sit in the folder of `dir` under config, and a GitHub source fills it. See docs/hooks.md.
-  # The request-level hook files of the config folder, in list order. An empty list: no hook.
-  # on-request sets the key of the turn. The shipped file applies the Open WebUI try-again rule.
-  on-request: [hooks/owui_auto_reasoning_effort.py]
-  # on-prompt sets the reasoning level of a chat request. The shipped file reads the tier of the
-  # message and steps the level 1 up for a try again, for an Open WebUI client.
-  on-prompt: [hooks/owui_auto_reasoning_effort.py]
-  # on-chunk sees each streamed chunk of a chat request. The shipped file writes the served model
-  # line.
-  on-chunk: [hooks/served_model.py]
