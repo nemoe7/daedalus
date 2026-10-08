@@ -589,6 +589,19 @@ def test_the_demo_states_its_source_and_the_hook_versions(tmp_path: Path) -> Non
   assert '"version": "1.0.0"' in script, "the version of a hook reaches the page"
 
 
+def test_a_capture_without_an_update_block_still_builds(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A fresh capture holds no update block, and the build stamps its version into it."""
+  fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
+  fixtures["notifications"]["update"] = None
+  made = tmp_path / "pages_fixtures.json"
+  made.write_text(json.dumps(fixtures), encoding="utf-8")
+  monkeypatch.setattr(pages_demo, "FIXTURES", made)
+  stamped = pages_demo.demo_fixtures("demo.none")
+  assert stamped["notifications"]["update"]["current"] == "demo.none"
+
+
 def test_the_build_copies_the_page_and_loads_the_demo_first(tmp_path: Path) -> None:
   """`--out` serves the real UI, with the demo script before it."""
   out = pages_demo.build(tmp_path / "site", pages_demo.demo_version())
