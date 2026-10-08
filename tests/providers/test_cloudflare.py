@@ -113,8 +113,38 @@ def test_the_toggle_ladders_are_in_the_shipped_config() -> None:
     assert found == ["none", "max"], (slug, found)
 
 
+def test_the_no_control_rows_drop_the_effort_and_log_it(caplog) -> None:
+  """The always-reasoning models document no control: the effort drops, and the drop is logged."""
+  for slug in (
+    "@cf/qwen/qwq-32b",
+    "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
+    "@cf/qwen/qwen3-30b-a3b-fp8",
+  ):
+    with caplog.at_level("INFO", logger="daedalus"):
+      body = sent(slug, "max")
+    assert "reasoning_effort" not in body, slug
+    assert "chat_template_kwargs" not in body, slug
+    assert any(slug in line and "dropped" in line for line in caplog.messages), slug
+  assert CLOUDFLARE.effort(sent("@cf/qwen/qwq-32b", "max")) is None
+
+
+def test_the_no_control_ladders_are_in_the_shipped_config() -> None:
+  """The 3 no-control models of the shipped config name the max ladder alone."""
+  with open("config/providers/free.yml", encoding="utf-8") as handle:
+    cloudflare = yaml.safe_load(handle)["cloudflare"]
+  for slug in (
+    "@cf/qwen/qwq-32b",
+    "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
+    "@cf/qwen/qwen3-30b-a3b-fp8",
+  ):
+    found = router.model_setting(
+      {"cloudflare": cloudflare}, f"cloudflare/{slug}", "supported_reasoning_efforts"
+    )
+    assert found == ["max"], (slug, found)
+
+
 def test_a_model_outside_the_toggles_keeps_the_pass_through() -> None:
   """The other Workers AI rows keep the reasoning_effort pass-through."""
-  body = sent("@cf/qwen/qwq-32b", "low")
+  body = sent("@cf/openai/gpt-oss-120b", "low")
   assert body["reasoning_effort"] == "low"
   assert "chat_template_kwargs" not in body
