@@ -3,7 +3,7 @@
 import httpx
 
 from daedalus.catalog import enrichment
-from daedalus.catalog.discovery import MAX_PAGES, Fetch
+from daedalus.catalog.discovery import MAX_PAGES, Fetch, with_param
 
 PAGE = {"data": [{"id": "openrouter/a", "rpm": 9}], "has_more": False}
 
@@ -212,7 +212,17 @@ def test_enrich_reads_each_provider_once() -> None:
   fetch, seen = sequenced(PAGE, MS_PAGE)
   rows, problems = enrichment.enrich(["openrouter/a", "openrouter/b"], {}, fetch)
   assert len(seen) == 2
-  assert "litellm.ai" in seen[0] and "modelschemas.com" in seen[1]
+  litellm_page = with_param(
+    with_param(
+      with_param(enrichment.LITELLM_CATALOG, "provider", "openrouter"),
+      "page_size",
+      enrichment.LITELLM_PAGE_SIZE,
+    ),
+    "page",
+    1,
+  )
+  assert seen[0] == litellm_page
+  assert seen[1] == with_param(enrichment.MODELSCHEMAS_URL, "provider", "openrouter")
   assert [row["id"] for row in rows] == ["openrouter/a", "openrouter/b"]
   assert rows[0]["rpm"] == 9
   assert rows[0]["slug"] == "a"
@@ -236,8 +246,10 @@ def test_enrich_reports_a_modelschemas_source_that_failed() -> None:
   """Only the modelschemas read failed: one problem line, and the other source still fills."""
   failed: list[str] = []
 
+  modelschemas_page = with_param(enrichment.MODELSCHEMAS_URL, "provider", "openrouter")
+
   def flaky(url: str, headers: dict[str, str]) -> dict:
-    if "modelschemas.com" in url:
+    if url == modelschemas_page:
       raise httpx.HTTPError("boom")
     return PAGE
 

@@ -399,7 +399,19 @@ def test_shared_litellm() -> None:
   lines = ["kilo/a/b", "openrouter/a/b"]
   rows, problems = enrichment.enrich(lines, {}, fetch)
   assert (len(calls), problems) == (2, []), calls
-  assert "litellm.ai" in calls[0] and "modelschemas.com" in calls[1]
+  litellm_page = discovery.with_param(
+    discovery.with_param(
+      discovery.with_param(enrichment.LITELLM_CATALOG, "provider", "openrouter"),
+      "page_size",
+      enrichment.LITELLM_PAGE_SIZE,
+    ),
+    "page",
+    1,
+  )
+  assert calls[0] == litellm_page
+  assert calls[1] == discovery.with_param(
+    enrichment.MODELSCHEMAS_URL, "provider", "openrouter"
+  )
   assert [row["max_input_tokens"] for row in rows] == [9, 9], rows
 
 
