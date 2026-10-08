@@ -70,7 +70,9 @@ Embeddings and speech have no pool and no fallback. Vectors and voices from 2 mo
 `POST /v1/hook/<file>` runs the `on_http` function of 1 hook file, and answers with the dict it
 returns. The path names the file, and the `.py` suffix is optional: `example` finds
 `example.py`. A hook file that holds no `on_http` answers 400, and a missing file answers 404.
-See [Hooks](hooks.md#the-http-surface).
+
+Any valid key may call the route, so treat a hook file as admin code. See
+[Hooks](hooks.md#the-http-surface).
 
 ## Model names
 
