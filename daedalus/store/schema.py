@@ -16,6 +16,18 @@ Table(
 )
 Table("catalog", METADATA, Column("built", REAL))
 Table(
+  "catalog_rebuilds",
+  METADATA,
+  Column("id", INTEGER, primary_key=True),
+  Column("at", REAL, nullable=False),
+  Column("reason", TEXT, nullable=False),
+  Column("models", INTEGER, nullable=False),
+  Column("added", TEXT, nullable=False),
+  Column("removed", TEXT, nullable=False),
+  Column("changed", TEXT, nullable=False),
+  Column("failed", TEXT, nullable=False),
+)
+Table(
   "provider_snapshots",
   METADATA,
   Column("url_hash", TEXT, primary_key=True),
@@ -98,6 +110,13 @@ Table(
 )
 Table(
   "saved_env",
+  METADATA,
+  Column("name", TEXT, primary_key=True),
+  Column("value", TEXT, nullable=False),
+  Column("updated", REAL, nullable=False),
+)
+Table(
+  "updates",
   METADATA,
   Column("name", TEXT, primary_key=True),
   Column("value", TEXT, nullable=False),

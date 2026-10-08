@@ -1,0 +1,52 @@
+"""The catalog_rebuilds table: one event per rebuild, with the diff it made."""
+
+from daedalus import store
+
+
+def test_row_hashes_flag_the_moved_row() -> None:
+  store.migrate()
+  store.write_store([{"id": "p/one", "mode": "chat", "tier": "TIER-A", "rpm": 10}])
+  first = store.row_hashes()
+  assert set(first) == {"p/one"}
+  # The same row keeps its hash.
+  store.write_store([{"id": "p/one", "mode": "chat", "tier": "TIER-A", "rpm": 10}])
+  assert store.row_hashes() == first
+  # A moved ladder or tier changes the hash.
+  store.write_store([{"id": "p/one", "mode": "chat", "tier": "TIER-B", "rpm": 10}])
+  assert store.row_hashes()["p/one"] != first["p/one"]
+
+
+def test_record_and_read() -> None:
+  store.migrate()
+  store.record_rebuild(
+    reason="scheduled",
+    models=3,
+    added=["p/a", "p/b"],
+    removed=["p/c"],
+    changed=["p/d"],
+    failed=["kilo"],
+  )
+  events = store.recent_rebuilds()
+  assert len(events) == 1
+  event = events[0]
+  assert event["reason"] == "scheduled"
+  assert event["models"] == 3
+  assert event["added"] == ["p/a", "p/b"]
+  assert event["removed"] == ["p/c"]
+  assert event["changed"] == ["p/d"]
+  assert event["failed"] == ["kilo"]
+  assert event["at"] > 0
+
+
+def test_newest_first_and_pruned() -> None:
+  store.migrate()
+  for index in range(205):
+    store.record_rebuild(
+      reason=f"r{index}", models=index, added=[], removed=[], changed=[], failed=[]
+    )
+  events = store.recent_rebuilds(limit=1000)
+  assert len(events) == 200, "the events older than the newest 200 go"
+  assert [event["reason"] for event in events] == [
+    f"r{index}" for index in range(204, 4, -1)
+  ]
+  assert len(store.recent_rebuilds(limit=3)) == 3
