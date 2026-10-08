@@ -674,9 +674,11 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   font-size: 14px; line-height: 1; color: var(--accent); border-color: var(--accent);
 }
 .undo-step:hover { color: var(--text); border-color: var(--muted); }
-/* The row of a write holds the Undo at its left, so the row reads {undo} {field}. */
-.field > .undo-step { position: absolute; left: 0; top: 10px; }
-.field:has(> .undo-step) { padding-left: 34px; }
+/* The row of a write holds the Undo beside its control, in the flow: the free space moves left,
+   so the label and the control keep their place. */
+.field > .undo-step { margin-left: auto; margin-right: 8px; }
+/* A row of a column holds the Undo on the line of its label: the control keeps its place below. */
+.field.stack > .undo-step { position: absolute; right: 0; top: 10px; }
 /* The card holds the icon at its top right when the row itself went away. */
 .card { position: relative; }
 .card > .undo-step { position: absolute; right: 16px; top: 12px; }

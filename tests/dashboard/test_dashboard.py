@@ -3568,6 +3568,83 @@ def test_a_failed_read_shows_a_line_in_the_page() -> None:
   assert "alert(" not in app, "no native dialog is left"
 
 
+def test_the_undo_never_moves_the_row() -> None:
+  """The Undo sits beside the control, and a row of a column keeps it on the label line."""
+  css = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
+  ).read_text(encoding="utf-8")
+  assert ".field > .undo-step { margin-left: auto; margin-right: 8px; }" in css, (
+    "the icon rides in the free space of the row, before the control"
+  )
+  assert (
+    ".field.stack > .undo-step { position: absolute; right: 0; top: 10px; }" in css
+  ), "a row of a column holds the icon on the label line"
+  assert ".field:has(> .undo-step) { padding-left: 34px; }" not in css, (
+    "the row keeps its width in place of a shift"
+  )
+
+
+def test_app_js_places_the_undo_beside_the_control() -> None:
+  """The Undo of a row sits before the control, so the label and the row keep their place."""
+  code = _app_js_vm(
+    """
+vm.runInContext('globalThis.__probe.rememberWrite = rememberWrite; globalThis.__probe.placeUndo = placeUndo;'
+  + ' globalThis.__probe.lastWrite = () => lastWrite; globalThis.__probe.dropUndo = dropUndo;', sandbox);
+let placed = '';
+const control = { id: 'set-catalog-every', dataset: { set: 'catalog.every' }, isConnected: true,
+  matches: (sel) => sel === '[data-set]',
+  closest: (sel) => (sel === '[data-section]' ? { dataset: { section: 'catalog' } } : row),
+  querySelector: () => null };
+const row = {
+  children: [control],
+  insertBefore: (button, before) => { placed = 'insertBefore ' + (before === control); },
+  prepend: () => { placed = 'prepend'; },
+  closest: () => row,
+  querySelector: () => control,
+};
+sandbox.document.querySelector = () => null;
+sandbox.document.getElementById = () => ({ closest: () => null });
+sandbox.document.createElement = () => ({ addEventListener: () => {}, remove: () => {}, setAttribute: () => {} });
+sandbox.__probe.rememberWrite('settings', { settings: true, text: 'a' }, control);
+assert.strictEqual(placed, 'insertBefore true', 'the icon joins the row before its control: ' + placed);
+assert.strictEqual(sandbox.__probe.lastWrite().key, 'catalog.every', 'the key of the row');
+let dropped = 0;
+control.remove = () => { dropped += 1; };
+sandbox.document.querySelector = (sel) => (sel === '.undo-step' ? control : null);
+sandbox.__probe.dropUndo();
+assert.strictEqual(dropped, 1, 'the icon leaves the page');
+assert.strictEqual(sandbox.__probe.lastWrite(), null, 'no write waits a way back');
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
+def test_app_js_clears_the_undo_when_a_change_lands_back() -> None:
+  """A change that returns to the saved value writes nothing, and takes the last Undo away."""
+  code = _app_js_vm(
+    """
+vm.runInContext('globalThis.__probe.saveSettings = saveSettings;', sandbox);
+vm.runInContext('settingsDirty = () => false;', sandbox);
+const store = { getItem: () => null, removeItem: () => {}, setItem: () => {} };
+sandbox.sessionStorage = store;
+sandbox.localStorage = store;
+let removed = 0;
+let sent = 0;
+sandbox.fetch = () => {
+  sent += 1;
+  return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
+};
+sandbox.document.querySelector = (sel) => (sel === '.undo-step' ? { remove: () => { removed += 1; } } : null);
+(async () => {
+  await sandbox.__probe.saveSettings();
+  assert.strictEqual(removed, 1, 'the Undo of the write goes');
+  assert.strictEqual(sent, 0, 'a change back to the saved value writes nothing');
+})().catch((error) => { console.error(error); process.exit(1); });
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_app_js_names_a_failure_with_no_message() -> None:
   """A failure with no server message names the status, and the message of the server shows."""
   code = _app_js_vm(

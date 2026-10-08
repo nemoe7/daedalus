@@ -2068,16 +2068,23 @@ function placeUndo(anchor = null) {
     ?? document.querySelector(`.section-pane > .card[data-section="${lastWrite.section}"]`);
   if (!target) return;
   const row = target.closest(".field") ?? target;
-  // The row reads {undo} {field}: the icon sits at the left of the row it changed.
-  row.prepend(lastWrite.button);
+  // The row reads {label} {undo} {control}: the icon sits beside the control it undoes, so the
+  // label keeps its place and the row never moves.
+  const control = row.querySelector(".input, .pills, select, input");
+  if (control) row.insertBefore(lastWrite.button, control);
+  else row.prepend(lastWrite.button);
+}
+
+// No write waits a way back: the icon of the last write leaves the page.
+function dropUndo() {
+  lastWrite = null;
+  document.querySelector(".undo-step")?.remove();
 }
 
 async function undoWrite() {
   if (!lastWrite) return;
   const write = lastWrite;
-  lastWrite = null;
-  const old = document.querySelector(".undo-step");
-  if (old) old.remove();
+  dropUndo();
   try {
     if (write.settings) {
       await call("settings", { method: "PUT", body: JSON.stringify({ text: write.text }) });
@@ -2477,7 +2484,11 @@ async function pickSettingsSection(key) {
 }
 
 async function saveSettings() {
-  if (!settingsDirty()) return clearWrite("settings");
+  // A change that lands back on the saved value makes no write, so the last Undo goes.
+  if (!settingsDirty()) {
+    dropUndo();
+    return clearWrite("settings");
+  }
   const text = $("settings-editor")?.value ?? "";
   const body = state.settingsView === "yaml" ? { text } : { changes: settingsChanges() };
   rememberWrite("settings", { settings: true, text: state.settings.text }, state.writeAnchor ?? $("settings-yaml-save"));
