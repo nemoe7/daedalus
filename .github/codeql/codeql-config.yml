@@ -1,0 +1,5 @@
+# CodeQL settings. The vendored agent skills are tools, not product code, and they stay out
+# of the scan.
+name: daedalus codeql
+paths-ignore:
+  - .agents/**

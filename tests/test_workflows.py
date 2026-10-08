@@ -115,6 +115,9 @@ def test_codeql_scans_python_and_the_workflows_only() -> None:
   matrix = load("codeql.yml")["jobs"]["analyze"]["strategy"]["matrix"]
   assert matrix["language"] == ["python", "actions"]
   assert "javascript" not in matrix["language"]
+  config = Path(".github/codeql/codeql-config.yml")
+  assert config.exists()
+  assert ".agents/**" in config.read_text(), "the vendored skills stay out of the scan"
   assert (
     load("codeql.yml")["jobs"]["analyze"]["permissions"]["security-events"] == "write"
   )
@@ -211,6 +214,18 @@ def test_the_ignore_file_holds_only_global_fingerprints() -> None:
   fixture = "tests/dashboard/test_env_values.py:generic-api-key:25"
   assert fixture in entries, (
     "the replaced dashboard fixture stays ignored in every copy"
+  )
+
+
+def test_a_pull_request_ignore_file_decides_its_own_scan() -> None:
+  """The scan reads the base tree, so the job takes the ignore file of the PR head."""
+  steps = load("secret-scan.yml")["jobs"]["gitleaks"]["steps"]
+  taken = next(step for step in steps if "gitleaksignore" in step.get("run", ""))
+  assert taken["if"] == "github.event_name == 'pull_request_target'"
+  assert 'git show "$PR_HEAD:.gitleaksignore" > .gitleaksignore' in taken["run"]
+  assert "rm -f .gitleaksignore" in taken["run"], "a deleted ignore file stays deleted"
+  assert steps[0]["with"]["ref"] == "${{ github.sha }}", (
+    "the base tree keeps the tools trusted"
   )
 
 
