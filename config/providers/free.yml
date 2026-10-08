@@ -35,7 +35,7 @@ cloudflare:
       - "*-lora"
 
   models:
-    "@cf/qwen/qwq-32b": { max_input_tokens: 20000, max_output_tokens: 4000 }
+    "@cf/qwen/qwq-32b": { max_input_tokens: 20000, max_output_tokens: 4000, supported_reasoning_efforts: [max] }
     # The ladders of the Workers AI docs: gpt-oss takes low, medium and high, and qwen3.8 takes
     # low, medium and xhigh, wider than the coded low and medium of the block.
     "@cf/openai/gpt-oss-120b": { supported_reasoning_efforts: [low, medium, high] }
@@ -47,7 +47,9 @@ cloudflare:
     "@cf/google/gemma-4-26b-a4b-it": { supported_reasoning_efforts: [none, max] }
     "@cf/nvidia/nemotron-3-120b-a12b": { supported_reasoning_efforts: [none, max] }
     # qwq-32b, deepseek-r1-distill-qwen-32b and qwen3-30b-a3b-fp8 document no effort control:
-    # they reason always, and the coded low and medium stands for them.
+    # they reason always, so the ladder is max alone; the request effort drops, and the drop is logged.
+    "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b": { supported_reasoning_efforts: [max] }
+    "@cf/qwen/qwen3-30b-a3b-fp8": { supported_reasoning_efforts: [max] }
     # Image input: FLUX.2 edits with up to 4 input images, in daedalus/photos.
     "*flux-2*": { supports_vision: true }
     # Clef answers typed questions with probabilities, not chat text, although Workers AI lists it as text.

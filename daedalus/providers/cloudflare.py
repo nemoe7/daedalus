@@ -1,6 +1,7 @@
 import base64
 import io
 import json
+import logging
 import os
 import time
 from collections.abc import Mapping
@@ -13,6 +14,7 @@ from daedalus.config import SAVED
 from daedalus.providers.base import OpenAIProvider, ProviderError, Upload, limits
 
 TRANSCRIPT_FORMATS = ("json", "text", "vtt")
+logger = logging.getLogger("daedalus")
 # The 2 URLs of the account, in the template form that the card shows as a placeholder.
 ACCOUNT_URL = "https://api.cloudflare.com/client/v4/accounts/{account_id}"
 # The Aura encoding and container for each OpenAI speech format.
@@ -63,6 +65,15 @@ THINKING_TOGGLES = (
   "@cf/zai-org/glm-4.7-flash",
   "@cf/google/gemma-4-26b-a4b-it",
   "@cf/nvidia/nemotron-3-120b-a12b",
+)
+
+
+# The reasoning models that document no effort control: they reason always, so the ladder is
+# max alone, and the provider drops the request effort, which it logs.
+NO_EFFORT_CONTROL = (
+  "@cf/qwen/qwq-32b",
+  "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
+  "@cf/qwen/qwen3-30b-a3b-fp8",
 )
 
 
@@ -144,6 +155,12 @@ class CloudflareProvider(OpenAIProvider):
       "model": slug,
       "messages": [text_only(m) for m in payload["messages"]],
     }
+    if slug in NO_EFFORT_CONTROL:
+      effort = found.get("reasoning_effort")
+      if effort is not None:
+        logger.info("effort %s dropped for %s: no effort control", effort, slug)
+        found.pop("reasoning_effort")
+      return found
     if slug not in THINKING_TOGGLES:
       return found
     effort = found.get("reasoning_effort")
