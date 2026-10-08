@@ -2288,6 +2288,23 @@ def test_defaults(client: TestClient) -> None:
   assert TestClient(api.app).get("/ui/api/provider-defaults").status_code == 401
 
 
+def test_models_answer_304_until_the_cooling_moves(client: TestClient) -> None:
+  """An unchanged model list answers 304, and a new cooldown sends the rows again."""
+  first = client.get("/ui/api/models")
+  tag = first.headers["etag"]
+  assert tag.startswith('"'), first.headers
+  same = client.get("/ui/api/models", headers={"if-none-match": tag})
+  assert same.status_code == 304, same.text
+  assert same.content == b"", "a 304 carries no body"
+  api.COOLDOWNS.start("p/small", {"retry-after": "90"}, b"")
+  try:
+    again = client.get("/ui/api/models", headers={"if-none-match": tag})
+  finally:
+    api.COOLDOWNS.clear()
+  assert again.status_code == 200, again.text
+  assert again.headers["etag"] != tag
+
+
 def test_data(client: TestClient) -> None:
   response = client.get("/ui/api/models")
   assert response.status_code == 200, response.text

@@ -245,6 +245,8 @@ UI_PATHS = {name: UI_DIR / name for name in UI_FILES}
 ICON_PATHS = {path.name: path for path in (UI_DIR / "icons").glob("*.svg")}
 # The browser asks again each time, so a new version of the page applies at once.
 FRESH = {"Cache-Control": "no-cache"}
+# The answers of a session stay in 1 browser cache, and each read revalidates them.
+CACHE = {"Cache-Control": "no-cache, private"}
 # The files that the Providers editor shows, in tab order. The Settings page has its own form.
 FILES = (config.DEFAULT_PATH,)
 logger = logging.getLogger("daedalus")
@@ -618,6 +620,22 @@ def tier_map(config: Mapping[str, Any], lines: list[str]) -> dict[str, str]:
   return found
 
 
+def model_tag(
+  built: float | None,
+  config: Mapping[str, Any],
+  rows: list[dict[str, Any]],
+  weights: Mapping[str, float],
+  ends: Mapping[str, float],
+) -> str:
+  """The stamp of the model list: the catalog time, the config, the rows and the cooling state.
+
+  The weights carry 2 decimals, as the page shows them, so a slow recovery keeps the stamp.
+  """
+  shown = {model: round(weight, 2) for model, weight in weights.items()}
+  text = json.dumps([built, config, rows, shown, ends], default=str, sort_keys=True)
+  return f'"{hashlib.sha256(text.encode()).hexdigest()[:16]}"'
+
+
 def versioned_index() -> str:
   """The page with a content hash on each asset link, so no cache serves an old file."""
   text = (UI_DIR / "index.html").read_text(encoding="utf-8")
@@ -939,8 +957,13 @@ def pool_routes(
     chat = [row["id"] for row in rows if row["mode"] == "chat"]
     weighted = [row["id"] for row in rows if row["mode"] in WEIGHTED_MODES]
     config = get_config()
-    tiers, weights = tier_map(config, chat), penalties.weights(weighted)
+    weights = penalties.weights(weighted)
     ends = cooldowns.ends() if cooldowns else {}
+    # The stamp of the list: a poll of an unchanged state answers 304 and skips the rows.
+    tag = model_tag(store.built(), config, rows, weights, ends)
+    if request.headers.get("if-none-match") == tag:
+      return Response(status_code=304, headers={**CACHE, "ETag": tag})
+    tiers = tier_map(config, chat)
     return JSONResponse(
       [
         {
@@ -952,7 +975,8 @@ def pool_routes(
           "order": router.cached_order(config, row["id"]),
         }
         for row in rows
-      ]
+      ],
+      headers={**CACHE, "ETag": tag},
     )
 
 
