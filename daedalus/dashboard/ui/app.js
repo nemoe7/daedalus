@@ -1493,6 +1493,15 @@ function toggleHook(name, on) {
   if (on) disabled.delete(name);
   else disabled.add(name);
   setListValue("hooks", "disabled", [...disabled]);
+  // The save re-renders the table after the write. The chips flip in place first, so the color
+  // transition runs on the same node instead of a swap that no transition can cross.
+  const row = [...document.querySelectorAll('.card[data-section="hooks"] .keys tbody tr')].find(
+    (tr) => tr.querySelector("input[data-hook-toggle]")?.dataset.hookToggle === name
+  );
+  row?.querySelectorAll(".points .pill").forEach((pill) => {
+    pill.classList.toggle("on", on);
+    pill.classList.toggle("off", !on);
+  });
   renderSettingsSave();
   saveSettings();
 }
