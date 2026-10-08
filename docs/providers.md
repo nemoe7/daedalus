@@ -51,7 +51,7 @@ A key can also go into `.env` under the name that [Configuration](configuration.
 flowchart LR
   D[Provider model lists] --> X[Remove the exclude patterns]
   X --> M[Remove models that fail discovery_match]
-  M --> V[Add values: provider file, then discovery, then LiteLLM]
+  M --> V[Add values: provider file, then discovery, then LiteLLM, then modelschemas]
   V --> T[Set the tier from the tier patterns]
   T --> S[(models.sqlite3)]
 ```

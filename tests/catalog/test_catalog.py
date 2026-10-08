@@ -389,7 +389,7 @@ def test_shared_download() -> None:
 
 
 def test_shared_litellm() -> None:
-  """Kilo and OpenRouter read the same LiteLLM catalog 1 time."""
+  """Kilo and OpenRouter read the same LiteLLM catalog and modelschemas provider 1 time."""
   calls: list[str] = []
 
   def fetch(url: str, headers: dict[str, str]) -> dict[str, Any]:
@@ -398,7 +398,8 @@ def test_shared_litellm() -> None:
 
   lines = ["kilo/a/b", "openrouter/a/b"]
   rows, problems = enrichment.enrich(lines, {}, fetch)
-  assert (len(calls), problems) == (1, []), calls
+  assert (len(calls), problems) == (2, []), calls
+  assert "litellm.ai" in calls[0] and "modelschemas.com" in calls[1]
   assert [row["max_input_tokens"] for row in rows] == [9, 9], rows
 
 
