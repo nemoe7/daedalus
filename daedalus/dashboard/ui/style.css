@@ -301,9 +301,10 @@ a.more:hover { color: var(--accent); }
 /* The ghost danger buttons read red on hover. A filled danger button keeps its label. */
 .ghost.danger:hover { color: var(--bad); border-color: var(--bad); }
 .modal .primary.danger:hover { filter: brightness(1.12); }
-/* The confirmation modal, in place of window.confirm. */
+/* The confirmation modal, in place of window.confirm. The cap holds the page gutter of a phone. */
 .modal {
-  max-width: 420px; padding: 0; border: 1px solid var(--line); border-radius: var(--radius);
+  max-width: min(420px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--line);
+  border-radius: var(--radius);
   background: var(--panel); color: var(--text);
 }
 /* The modal arrives and leaves on the page tokens: the box fades and lifts, the backdrop fades.

@@ -3394,6 +3394,17 @@ def test_a_phone_keeps_the_tap_size_of_its_controls() -> None:
   ) in css, "the phone keeps the 44px target of the filter controls"
 
 
+def test_the_confirm_dialog_keeps_the_phone_gutter() -> None:
+  """The dialog takes its 420px cap, or the phone width less the 2 page gutters."""
+  css = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
+  ).read_text(encoding="utf-8")
+  rule = re.search(r"\n\.modal \{([^}]*)\}", css)
+  assert rule and "max-width: min(420px, calc(100vw - 32px));" in rule.group(1), (
+    "the dialog stops at the page gutter on a phone, in place of edge to edge"
+  )
+
+
 def test_the_tab_bar_fades_its_clipped_edges() -> None:
   """A clipped tab edge fades toward the bar center, so the cut never reads hard."""
   root = Path(__file__).resolve().parent.parent.parent
