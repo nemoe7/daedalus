@@ -326,6 +326,8 @@ def test_meta_problems() -> None:
     ("# ---\n# scope: model\n# ---\n", "targets"),
     ('# ---\n# requires: ">=99.0"\n# ---\n', "99.0"),
     ("# ---\n# version: [1]\n# ---\n", "version"),
+    ("# ---\n# title: [1]\n# ---\n", "title"),
+    ("# ---\n# author: ' '\n# ---\n", "author"),
   )
   for text, part in cases:
     path = hooks.CONFIG_DIR / "hooks" / "bad.py"

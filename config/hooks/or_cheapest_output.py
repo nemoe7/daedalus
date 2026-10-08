@@ -1,6 +1,10 @@
 # ---
 # version: 1.0.0
 # points: [on-catalog, on-upstream]
+# author: nemoe7
+# title: Cheapest output first
+# description: OpenRouter tries the endpoints with the cheapest output price first.
+# license: daedalus Noncommercial License 1.0.0
 # ---
 """A daedalus hook: OpenRouter tries the endpoints with the cheapest output price first.
 

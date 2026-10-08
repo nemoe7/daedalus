@@ -1,5 +1,9 @@
 # ---
 # version: 1.0.0
+# author: nemoe7
+# title: Example hook
+# description: An example hook file that changes nothing.
+# license: daedalus Noncommercial License 1.0.0
 # ---
 """An example daedalus hook file. It changes nothing.
 

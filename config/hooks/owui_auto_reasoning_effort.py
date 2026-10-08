@@ -1,6 +1,10 @@
 # ---
 # version: 1.0.0
 # points: [on-request, on-prompt]
+# author: nemoe7
+# title: Auto reasoning effort
+# description: The Open WebUI reasoning level and try-again rule.
+# license: daedalus Noncommercial License 1.0.0
 # ---
 """The Open WebUI reasoning level and try-again rule, as a request hook.
 

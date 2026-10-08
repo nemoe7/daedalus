@@ -270,6 +270,10 @@ frontmatter block, so the manager knows its version and its scope without a run 
 | `points` | list of point names | The functions of the file |
 | `scope` | `global`, `provider` or `model` | Where the hook attaches |
 | `targets` | list of names | The provider names or the model ids of a `provider` or a `model` scope |
+| `author` | text | The name of the author of the file |
+| `title` | text | The short name of the hook |
+| `description` | text | One line of what the hook does |
+| `license` | text | The license of the file |
 
 A file with no block still runs. The manager takes the name from the file name, applies no scope, and
 writes 1 warning line. The scope rules:

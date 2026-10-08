@@ -1,6 +1,10 @@
 # ---
 # version: 1.0.0
 # points: [on-chunk]
+# author: nemoe7
+# title: Served model
+# description: The model that served a pool answer, in the final chunk's usage.daedalus.
+# license: daedalus Noncommercial License 1.0.0
 # ---
 """The served model: the model that served a pool answer, in the final chunk's `usage.daedalus`."""
 

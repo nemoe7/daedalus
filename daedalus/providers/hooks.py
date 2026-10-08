@@ -38,7 +38,18 @@ POINTS = {
 INIT = "on_init"
 # The frontmatter of a hook file: a comment block at the top, and the keys that it may hold.
 BLOCK = "# ---"
-META_KEYS = ("name", "version", "requires", "points", "scope", "targets")
+META_KEYS = (
+  "name",
+  "version",
+  "requires",
+  "points",
+  "scope",
+  "targets",
+  "author",
+  "title",
+  "description",
+  "license",
+)
 SCOPES = ("global", "provider", "model")
 META_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}")
 # The head of a file that holds the frontmatter block.
@@ -174,6 +185,10 @@ def meta_check(text: str) -> tuple[dict[str, Any] | None, str | None]:
     return None, "targets must be a list of names"
   if scope in ("provider", "model") and not targets:
     return None, f"scope {scope} needs targets"
+  for key in ("author", "title", "description", "license"):
+    value = found.get(key)
+    if value is not None and (not isinstance(value, str) or not value.strip()):
+      return None, f"{key} must be 1 text"
   return found, None
 
 
