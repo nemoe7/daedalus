@@ -550,6 +550,10 @@ section[data-page="providers"], section[data-page="settings"] {
   .sections button:hover { background: var(--field); }
 }
 .sections button.on { background: var(--field); box-shadow: inset 2px 0 0 var(--accent); }
+/* A card of a section closes on the room of 1 row: the last row keeps the same space to the edge
+   of the card as the space between 2 rows. */
+section[data-page="settings"] .card,
+section[data-page="providers"] .card { padding-bottom: 10px; }
 .section-pane { flex: 1 1 min(360px, 100%); display: grid; gap: 16px; min-width: 0; }
 .section-pane > .card { min-width: 0; }
 .section-pane .back { display: none; justify-self: start; }

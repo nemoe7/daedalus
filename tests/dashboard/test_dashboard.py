@@ -1016,6 +1016,17 @@ def test_phone_panels_clear_the_last_row() -> None:
   assert ".panel { padding-bottom: 8px; }" in mobile, "the panel edge clears"
 
 
+def test_a_card_closes_on_the_room_of_its_rows() -> None:
+  """The bottom of a Settings or Provider card keeps the room of 1 row, not the card padding."""
+  css = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
+  ).read_text(encoding="utf-8")
+  assert (
+    'section[data-page="settings"] .card,\n'
+    'section[data-page="providers"] .card { padding-bottom: 10px; }'
+  ) in css, "the last row of a card keeps the room of a row at the bottom edge"
+
+
 def test_keys_page_holds_its_labels_on_one_line() -> None:
   """The keys table keeps the key value and the Delete label whole on a phone."""
   root = Path(__file__).resolve().parent.parent.parent
