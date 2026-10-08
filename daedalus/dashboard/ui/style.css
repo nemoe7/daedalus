@@ -405,6 +405,7 @@ A chip reads as noise, so the separator stays plain, and the icons keep the text
 #limit-rows th:not(:first-child), #limit-rows td:not(:first-child) { padding-left: 8px; padding-right: 8px; }
 #limit-rows th:last-child, #limit-rows td:last-child { padding-right: 16px; }
 .keys td:nth-child(2) { white-space: nowrap; }
+.keys td:nth-child(3) { white-space: nowrap; }
 tr.live-row td { background: var(--field); }
 .pulse {
   display: inline-block; width: 6px; height: 6px; margin: 0 10px 1px 0; border-radius: 50%;

@@ -1356,34 +1356,13 @@ const hookVersion = (record) => record?.version || "-";
 // card names every file at the points it runs at, so the settings hold no list of its own.
 const requestPoints = () => HOOK_POINTS.filter(([key]) => key in (state.settings?.defaults?.hooks ?? {}));
 
-// The point chips of a hook row: 1 chip per request point that runs this file. The x takes the
-// file off that point, and the last chip opens the points that the file still skips.
-let openPointPicker = null;
-
+// The point chips of a hook row: 1 chip per point the block of the file names. The file defines
+// what it hooks into, so the card shows the points and holds no control over them.
 function hookPointsCell(row) {
-  const mine = row.runs || [];
   const labels = new Map(HOOK_POINTS.map(([key, label]) => [key, label]));
-  const chips = mine.map((point) => `<span class="pill ${row.enabled ? "on" : "off"}">${esc(labels.get(point) || point)}<button type="button"
-    title="Take the file off this point" data-hook-point-drop='${esc(JSON.stringify([row.name, point]))}'>&times;</button></span>`).join("");
-  const rest = requestPoints().filter(([key]) => !mine.includes(key));
-  const open = openPointPicker === row.name;
-  const menu = open && rest.length ? `<div class="menu" role="listbox" aria-label="Hook point">${rest
-    .map(([key, label]) => `<button type="button" role="option" aria-selected="false"
-      data-hook-point-take='${esc(JSON.stringify([row.name, key]))}'>${esc(label)}</button>`).join("")}</div>` : "";
-  return `<div class="pills">${chips || '<em class="none">No point</em>'}<span class="pill hook"><button type="button"
-    class="pick" data-hook-point-pick="${esc(row.name)}" aria-haspopup="listbox" aria-expanded="${open}"
-    title="Add a point">+ Point</button>${menu}</span></div>`;
-}
-
-// A point chip writes the settings list of that point: the file joins it, or leaves it.
-function setHookPoint(name, point, on) {
-  const path = `hooks/${name}`;
-  const values = listValue("hooks", point).filter((value) => value !== path);
-  if (on) values.push(path);
-  setListValue("hooks", point, values);
-  renderSettings();
-  renderSettingsSave();
-  saveSettings();
+  const chips = (row.points || []).map((point) =>
+    `<span class="pill ${row.enabled ? "on" : "off"}">${esc(labels.get(point) || point)}</span>`).join("");
+  return `<div class="pills">${chips || '<em class="none">No point</em>'}</div>`;
 }
 
 // The note under the sources. The update fills it with the old and the new version of each file.
@@ -1414,7 +1393,7 @@ function hooksManager() {
       <td role="cell"><span class="cell-value">${esc(hookVersion(row))}</span></td>
       <td role="cell"><span class="cell-value">${esc(row.scope || "global")}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
       <td role="cell" class="points">${hookPointsCell(row)}</td>
-      <td role="cell" class="hide-sm"><span class="cell-value">${row.problem ? `<span class="bad">${esc(row.problem)}</span>` : esc(source)}</span></td>
+      <td role="cell" class="hide-sm"><span class="cell-value">${row.problem ? `<span class="bad">${esc(row.problem)}</span>` : esc(source || "bundled")}</span></td>
       <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
         ${disabled.includes(row.name) ? "" : "checked"} aria-label="Load ${esc(row.name)}"></td></tr>`;
   }).join("") || '<tr><td role="cell" colspan="6"><em class="none">No hook file</em></td></tr>';
@@ -1424,7 +1403,7 @@ function hooksManager() {
     .map((file) => `<label class="pill"><input type="checkbox" data-hook-take="${esc(file.name)}"
       ${scan.take[file.name] ? "checked" : ""}>${esc(file.name)}${file.version ? ` ${esc(file.version)}` : ""}</label>`).join("")}
       <button type="button" class="primary" data-hook-take-all>Take the picked files</button></div>` : "";
-  return `<div class="field stack info">${labelSpan("Installed hooks", "The files of the hook folder. The switch leaves a file on disk and out of the run.")}
+  return `<div class="field stack info">${labelSpan("Installed hooks", "The files of the hook folder. A point is a stage of a request, and the block of the file names the points it runs at. The switch leaves a file on disk and out of the run.")}
       <table class="keys"><thead><tr><th>File</th><th>Version</th><th>Scope</th><th>Points</th><th class="hide-sm">Source</th><th>Load</th></tr></thead>
       <tbody>${list}</tbody></table>
       <button type="button" class="ghost" data-hooks-update>Update from the sources</button></div>
@@ -3145,31 +3124,6 @@ $("settings").addEventListener("click", async (event) => {
   if (event.target.closest("[data-hook-source-drop]")) return dropHookSource();
   if (event.target.closest("[data-hooks-update]")) return runHooksUpdate();
   if (event.target.closest("[data-hook-take-all]")) return takeHooks();
-  // A point chip: the x takes the file off the point, a pick closes the menu of the others.
-  const pointDrop = event.target.closest("[data-hook-point-drop]");
-  if (pointDrop) {
-    const [name, point] = JSON.parse(pointDrop.dataset.hookPointDrop);
-    state.writeAnchor = anchorOf(pointDrop);
-    return setHookPoint(name, point, false);
-  }
-  const pointTake = event.target.closest("[data-hook-point-take]");
-  if (pointTake) {
-    const [name, point] = JSON.parse(pointTake.dataset.hookPointTake);
-    openPointPicker = null;
-    state.writeAnchor = anchorOf(pointTake);
-    return setHookPoint(name, point, true);
-  }
-  const pointPick = event.target.closest("[data-hook-point-pick]");
-  if (pointPick) {
-    openPointPicker = openPointPicker === pointPick.dataset.hookPointPick ? null : pointPick.dataset.hookPointPick;
-    return renderSettings();
-  }
-
-  // Any other click closes the menu of the points before its own work.
-  if (openPointPicker) {
-    openPointPicker = null;
-    renderSettings();
-  }
   const drop = event.target.closest("[data-setting-drop]");
   if (drop) {
     state.writeAnchor = anchorOf(drop);
