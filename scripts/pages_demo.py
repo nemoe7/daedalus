@@ -532,6 +532,18 @@ const DEMO_FIXTURES = __FIXTURES__;
     const quoted = text.match(/^(["'])(.*)\\1$/);
     return quoted ? quoted[2] : text;
   };
+  // The flow maps of the config files: one level, scalar values, as the shipped ymls write them.
+  const flow_map = (text, where) => {
+    const out = {};
+    const inner = text.slice(1, -1).trim();
+    if (!inner) return out;
+    for (const part of inner.split(",")) {
+      const at = part.indexOf(":");
+      if (at < 0) throw new Error(`expected ':' in the flow mapping at ${where}`);
+      out[unscale(part.slice(0, at))] = unscale(part.slice(at + 1));
+    }
+    return out;
+  };
   const DEFAULTS = DEMO_FIXTURES.settings.defaults || {};
   const SETTINGS_PATH = DEMO_FIXTURES.settings.path;
   const name_of = (path) => String(path).split("/").pop();
@@ -577,7 +589,8 @@ const DEMO_FIXTURES = __FIXTURES__;
       if (at < 0)
         return { error: `could not find expected ':' at line ${n + 1}, column ${depth + body.length}` };
       const value = body.slice(at + 1).trim();
-      if (value.includes(": "))
+      // The flow map of a line holds `: ` pairs inside its braces, so it reads before the guard.
+      if (!value.startsWith("{") && value.includes(": "))
         return { error: `mapping values are not allowed here at line ${n + 1}, column ${depth + at + 3}` };
       if (!top.node || typeof top.node !== "object" || Array.isArray(top.node))
         return { error: `mapping values are not allowed here at line ${n + 1}, column ${depth + 1}` };
@@ -588,6 +601,12 @@ const DEMO_FIXTURES = __FIXTURES__;
         const child = follows.startsWith("- ") ? [] : {};
         top.node[key] = child;
         stack.push({ indent: depth, node: child });
+      } else if (value.startsWith("{") && value.endsWith("}")) {
+        try {
+          top.node[key] = flow_map(value, `line ${n + 1}`);
+        } catch (problem) {
+          return { error: String(problem.message) };
+        }
       } else {
         top.node[key] = unscale(value);
       }
@@ -1064,6 +1083,39 @@ const DEMO_FIXTURES = __FIXTURES__;
       if (answer.status === 200 || answer.status === 201) state.models = catalog();
       return answer;
     });
+  // The yaml save of the Providers tab: the text re-reads into the blocks of the file.
+  const file_saved = (init) => {
+    const asked = body_of(init);
+    const file = DEMO_FIXTURES.files.find((item) => item.path === asked.path);
+    if (!file) return bad("Unknown config file.", 400);
+    const text = String(asked.text ?? "");
+    const stem = stem_of(file.path);
+    const parsed = yaml_read(text);
+    if (parsed.error) return bad(parsed.error, 422);
+    if (!parsed.value || typeof parsed.value !== "object" || Array.isArray(parsed.value))
+      return bad(`${file.path} must hold provider blocks`, 422);
+    file.text = text;
+    file.blocks = file.main ? parsed.value : { [stem]: parsed.value };
+    file.error = null;
+    return reload(json({ ok: true, text }));
+  };
+  // The form save of the Providers tab: the blocks re-write the text of the file.
+  const form_saved = (init) => {
+    const asked = body_of(init);
+    const file = DEMO_FIXTURES.files.find((item) => item.path === asked.path);
+    if (!file) return bad("Unknown config file.", 400);
+    const sent = asked.blocks;
+    if (!sent || typeof sent !== "object" || Array.isArray(sent))
+      return bad("The blocks must be a map of providers.", 400);
+    const stem = stem_of(file.path);
+    const document = file.main ? sent : sent[stem];
+    if (!document || typeof document !== "object" || Array.isArray(document))
+      return bad(`${stem} must hold the block ${stem}.`, 400);
+    file.blocks = file.main ? sent : { [stem]: document };
+    file.text = yaml_of(document);
+    file.error = null;
+    return reload(json({ ok: true, text: file.text }));
+  };
   // A write with no home in the demo stays refused.
   const save = (path, method, init) => {
     if (path === "catalog" && method === "POST") return rebuild();
@@ -1087,9 +1139,10 @@ const DEMO_FIXTURES = __FIXTURES__;
       return method === "PUT" ? env_saved(init) : method === "DELETE" ? env_cleared(init) : null;
     if (path === "keys" && method === "POST") return key_made(init);
     if (path.startsWith("keys/") && method === "DELETE") return key_dropped(decodeURIComponent(path.slice(5)));
-    // The shipped provider files are display-only: every write is refused.
-    if ((path === "files" && method !== "GET") || (path === "providers" && method === "PUT"))
-      return bad("The demo serves the shipped provider files read-only.", 403);
+    if (path === "files" && method === "PUT") return file_saved(init);
+    if (path === "providers" && method === "PUT") return form_saved(init);
+    if (path === "files" && method !== "GET")
+      return bad("The demo keeps the shipped file list read-only.", 403);
     if (path === "settings" && method === "PUT") return settings_saved(init);
     // The demo fetch names the demo repo, and the take holds the picked files in the page memory.
     if (path === "hooks/scan" && method === "POST") {
@@ -1138,7 +1191,8 @@ const DEMO_FIXTURES = __FIXTURES__;
     if (path === "requests") return json(slice(url));
     // These reads come from the demo state: the provider files, the requests and the
     // fake upstream, so a save moves them together.
-    if (path === "models") return json(DEMO_FIXTURES.models.map((row) => ({
+    // The models page reads the catalog of the current files, so a provider edit moves it.
+    if (path === "models") return json(state.models.map((row) => ({
       ...row,
       weight: weights.has(row.id) ? weights.get(row.id) : row.weight,
       cooldown: cooldowns.has(row.id) ? cooldowns.get(row.id) : row.cooldown ?? null,
@@ -1146,7 +1200,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     if (path === "pools") return json(pools());
     if (path === "limits") return check_limits();
     if (path === "status")
-      return json({ ...DEMO_FIXTURES.status, models: DEMO_FIXTURES.models.length,
+      return json({ ...DEMO_FIXTURES.status, models: state.models.length,
         sessions: new Set(DEMO_FIXTURES.requests.map((row) => row.session).filter(Boolean)).size });
     if (!(path in DEMO_FIXTURES)) return json({}, 404);
     return json(DEMO_FIXTURES[path]);

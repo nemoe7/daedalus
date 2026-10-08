@@ -136,7 +136,7 @@ const check = (ok, text) => {
     "a key is dropped");
   check(!(await (await context.fetch("ui/api/keys")).json()).some((row) => row.name === "extra-client"),
     "the key list drops it");
-  // The shipped provider files are display-only: the list shows them as-is, writes refuse.
+  // The shipped provider files show as-is, and the demo takes their edits in the page memory.
   const files = await (await context.fetch("ui/api/files")).json();
   check(files.length === 3
     && files.every((row) => String(row.path).startsWith("config/providers/")),
@@ -157,8 +157,46 @@ const check = (ok, text) => {
     check(answer.status === 403, `the refusal of ${path}`);
     check((await answer.json()).error.message.includes("read-only"), `the text of ${path}`);
   };
-  await readOnly("providers", { path: main.path, blocks: main.blocks }, "PUT");
-  await readOnly("files", { path: main.path, text: main.text }, "PUT");
+  // The demo takes the provider edits in the page memory: the yaml re-reads into the blocks,
+  // and the form re-writes the text. A refresh brings the shipped files back.
+  const put = async (path, body) => {
+    const answer = await context.fetch("ui/api/" + path, { method: "PUT", body: JSON.stringify(body) });
+    return { status: answer.status, body: await answer.json() };
+  };
+  const added = main.text + "demoprovider:\\n  models:\\n    demo-edit-check:\\n";
+  let edit = await put("files", { path: main.path, text: added });
+  check(edit.status === 200 && edit.body.ok === true && edit.body.text === added, "the yaml save lands");
+  let list = await (await context.fetch("ui/api/files")).json();
+  const edited = list.find((row) => row.path === main.path);
+  check(edited.blocks.demoprovider && edited.blocks.demoprovider.models["demo-edit-check"],
+    "the blocks re-read the text");
+  check((await (await context.fetch("ui/api/models")).json()).some((row) => row.id === "demoprovider/demo-edit-check"),
+    "the models page follows the text");
+  const forms = { ...edited.blocks };
+  delete forms.demoprovider;
+  forms.cloudflare = { ...forms.cloudflare, order: 3 };
+  edit = await put("providers", { path: main.path, blocks: forms });
+  check(edit.status === 200 && edit.body.ok === true, "the form save lands");
+  list = await (await context.fetch("ui/api/files")).json();
+  const rewrote = list.find((row) => row.path === main.path);
+  check(rewrote.text.includes("order: 3") && !rewrote.text.includes("demoprovider"),
+    "the text re-writes the form");
+  check(!(await (await context.fetch("ui/api/models")).json()).some((row) => row.id === "demoprovider/demo-edit-check"),
+    "the models page follows the form");
+  edit = await put("files", { path: main.path, text: rewrote.text });
+  check(edit.status === 200 && edit.body.ok === true, "the regenerated text re-reads");
+  list = await (await context.fetch("ui/api/files")).json();
+  const round = list.find((row) => row.path === main.path);
+  check(round.blocks.cloudflare.order === 3 && round.blocks.demoprovider === undefined,
+    "the round trip keeps the blocks");
+  edit = await put("files", { path: main.path, text: "\\tcloudflare: 2" });
+  check(edit.status === 422 && String(edit.body.error.message).includes("cannot start any token"),
+    "the bad yaml is refused");
+  edit = await put("files", { path: main.path, text: "- 1\\n- 2" });
+  check(edit.status === 422 && edit.body.error.message.includes("must hold provider blocks"),
+    "a list is not provider blocks");
+  list = await (await context.fetch("ui/api/files")).json();
+  check(list.find((row) => row.path === main.path).text === rewrote.text, "the refusals keep the text");
   await readOnly("files", { name: "extra" }, "POST");
   await readOnly("files", { path: main.path }, "DELETE");
   check((await (await context.fetch("ui/api/files")).json()).length === 3,
