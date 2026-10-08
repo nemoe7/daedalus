@@ -1875,6 +1875,42 @@ assert(html.includes('>bundled<'), 'a file with no source reads bundled');
   )
 
 
+def test_app_js_a_file_change_leaves_the_pick_of_the_other_file() -> None:
+  """A file switch opens the first section of the new file, so the pick of the other file does not ride over."""
+  files = [
+    {
+      "path": "config/providers/openrouter.yml",
+      "text": "openrouter: {}",
+      "blocks": {"openrouter": {"api_key": "env:O"}},
+      "main": True,
+    },
+    {
+      "path": "config/providers/free.yml",
+      "text": "free",
+      "blocks": {"cloudflare": {"api_key": "env:C"}, "openrouter": {"api_key": "env:F"}},
+      "main": True,
+    },
+  ]
+  run_app_js(
+    "state, takeFiles, renderForm, pickSection, openFile",
+    f"""
+probe.takeFiles({json.dumps(files)});
+probe.state.file = 0;
+probe.renderForm();
+// The user of a phone opens the openrouter section of openrouter.yml as a page.
+probe.pickSection(node('provider-form'), 'openrouter', true);
+// Then the user switches the file to free.yml.
+probe.openFile(1);
+const html = node('provider-form').innerHTML;
+const list = html.slice(html.indexOf('class="sections"'), html.indexOf('class="section-pane"'));
+assert(list.includes('data-section="cloudflare" class="on"'), 'the new file opens its first section');
+assert(!list.includes('data-section="openrouter" class="on"'), 'the pick of the other file does not ride over');
+assert.strictEqual(node('provider-form').dataset.detail, '0', 'the phone returns to the section list');
+assert(html.includes('The file text of free.yml'), 'the yaml card names the new file');
+""",
+  )
+
+
 def test_hook_chip_matches_the_keyword_chips() -> None:
   """A hook row uses the keyword pill, and its file list draws in the page, on the page theme."""
   root = Path(__file__).resolve().parent.parent.parent
