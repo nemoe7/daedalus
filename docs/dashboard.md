@@ -1,5 +1,8 @@
 # Dashboard
 
+The dashboard is the browser view of 1 daedalus: the overview, the requests, the models, the
+notifications, the providers, the limits and the settings.
+
 Open `http://HOST:3357/`.
 
 | Login | Value |

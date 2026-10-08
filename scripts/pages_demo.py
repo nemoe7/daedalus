@@ -54,7 +54,7 @@ ENDPOINTS = (
 )
 # The shipped provider files, as-is: the Providers tab shows them and nothing else.
 DEMO_FILES = ("free.yml", "openrouter.yml", "pollinations.yml")
-# The models of the demo: a captured snapshot of the live catalog, 131 rows.
+# The models of the demo: a captured snapshot of the live catalog, 132 rows.
 MODELS_FILE = ROOT / "scripts" / "pages_models.json"
 TOOL = {"type": "function", "function": {"name": "get_weather", "parameters": {}}}
 # The models that the demo makes fail or rate limit, for 1 row each.
