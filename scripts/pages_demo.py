@@ -450,8 +450,9 @@ const DEMO_FIXTURES = __FIXTURES__;
     return r < 0.6 ? gap(15, 45) : r < 0.85 ? gap(0.5, 15) : gap(45, 120);
   };
   const pick = (rows) => rows[Math.floor(Math.random() * rows.length)];
-  // The times of a row in flight, as `Live` keeps them. The monotonic clock counts fractions
-  // of a millisecond, so a short wait still measures above zero.
+  // The times of a row in flight, as `Live` keeps them. The clocks count in whole
+  // milliseconds from 1 read of the clock: a timer that fired is at least 1 ms, so a first
+  // token always ages above zero.
   const CLOCKS = new Map();
   const began = (id) => {
     const now = performance.now();
@@ -462,8 +463,8 @@ const DEMO_FIXTURES = __FIXTURES__;
     const clock = CLOCKS.get(id);
     const now = performance.now();
     return {
-      age: round((now - clock.at) / 1000),
-      attempt_age: round((now - clock.attempt) / 1000),
+      age: Math.max(1, Math.round(now - clock.at)) / 1000,
+      attempt_age: Math.max(1, Math.round(now - clock.attempt)) / 1000,
     };
   };
   // The Requests tab starts empty. The captured rows feed the scenarios as templates, so the
