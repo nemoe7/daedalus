@@ -4764,13 +4764,13 @@
         "problem": "",
         "record": {},
         "runs": [],
-        "scope": "global",
+        "scope": "yaml",
         "surfaces": [
           "on-catalog",
           "on-upstream"
         ],
-        "targets": [],
-        "version": "1.0.1"
+        "targets": ["openrouter"],
+        "version": "1.0.3"
       },
       {
         "enabled": true,

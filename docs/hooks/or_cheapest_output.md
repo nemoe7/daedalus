@@ -5,6 +5,7 @@ model by output price, and writes that order into each request.
 
 | Item | Value |
 | --- | --- |
+| Scope | `yaml`, `targets: [openrouter]`: the models that the `openrouter.yml` file names. The `openrouter` block of the main file stays untouched. |
 | Runs | `on-catalog` at each catalog build, and `on-upstream` before each provider call |
 | Writes | The order in `.daedalus-state/cheapest_output.json`, then `provider.order` in the body |
 | Named by | The `hooks` list of the model `z-ai/glm-5.3-flash` in [`openrouter.yml`](../../config/providers/openrouter.yml) |

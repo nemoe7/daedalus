@@ -1289,13 +1289,13 @@ const settingAdder = (group, key) => `<button type="button" class="add"
 // The name of a hook file as a chip shows it, without the folder of the config.
 const hookName = (name) => esc(name.replace(/^hooks\//, ""));
 
-// The installed hooks whose scope fits a card: a global hook, then 1 that names the provider or the
-// model of the card. `kind` is "provider" or "model", and `name` is the provider or the model id.
+// The installed hooks whose scope fits a card: a global hook, then 1 that names the provider, its
+// file or the model. `kind` is "provider" or "model", and `name` is the provider or the model id.
 function hookFit(row, kind, name) {
   const scope = row.scope || "global";
   const targets = row.targets || [];
   if (scope === "global") return true;
-  if (scope === "provider") return targets.includes(kind === "provider" ? name : String(name).split("/")[0]);
+  if (scope === "provider" || scope === "yaml") return targets.includes(kind === "provider" ? name : String(name).split("/")[0]);
   if (scope === "model") return kind === "model" && targets.includes(name);
   return false;
 }

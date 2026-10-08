@@ -15,7 +15,7 @@ from typing import Any
 import yaml
 
 from daedalus import __version__
-from daedalus.config import block_for
+from daedalus.config import block_for, file_block, file_takes
 
 logger = logging.getLogger("daedalus.hooks")
 
@@ -50,7 +50,7 @@ META_KEYS = (
   "description",
   "license",
 )
-SCOPES = ("global", "provider", "model")
+SCOPES = ("global", "provider", "yaml", "model")
 META_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}")
 # The head of a file that holds the frontmatter block.
 HEAD = 60
@@ -183,7 +183,7 @@ def meta_check(text: str) -> tuple[dict[str, Any] | None, str | None]:
     or not all(isinstance(target, str) and target.strip() for target in targets)
   ):
     return None, "targets must be a list of names"
-  if scope in ("provider", "model") and not targets:
+  if scope in ("provider", "yaml", "model") and not targets:
     return None, f"scope {scope} needs targets"
   for key in ("author", "title", "description", "license"):
     value = found.get(key)
@@ -309,7 +309,14 @@ def merge(explicit: list[Path], extra: list[Path]) -> list[Path]:
   return found
 
 
-def meta_paths(surface: str, model: str) -> list[Path]:
+def file_covers(config: Mapping[str, Any], model: str, targets: list[str]) -> bool:
+  """Tell if the `{provider}.yml` file of 1 target names the model in its `models`."""
+  name, _, slug = model.partition("/")
+  found = file_block(config.get(name)) if name in targets else None
+  return found is not None and file_takes(found, slug)
+
+
+def meta_paths(config: Mapping[str, Any], surface: str, model: str) -> list[Path]:
   """The installed files whose frontmatter gives this surface to this model."""
   found: list[Path] = []
   for path in installed_files():
@@ -322,6 +329,8 @@ def meta_paths(surface: str, model: str) -> list[Path]:
     scope = info.get("scope", "global")
     targets = info.get("targets") or []
     if scope == "provider" and model.partition("/")[0] not in targets:
+      continue
+    if scope == "yaml" and not file_covers(config, model, targets):
       continue
     if scope == "model" and model not in targets:
       continue
@@ -345,10 +354,10 @@ def files(config: Mapping[str, Any], model: str, surface: str) -> list[Path]:
   name = model.partition("/")[0]
   entries = entries_for(config, model)
   if entries is None:
-    return meta_paths(surface, model)
+    return meta_paths(config, surface, model)
   if not isinstance(entries, list):
     tell(f"hooks of {name} must be a list")
-    return meta_paths(surface, model)
+    return meta_paths(config, surface, model)
   found = []
   for entry in entries:
     if not isinstance(entry, dict):
@@ -359,7 +368,7 @@ def files(config: Mapping[str, Any], model: str, surface: str) -> list[Path]:
         tell(f"hooks of {name}: unknown surface {key}")
     if surface in entry and (path := resolve(entry[surface])) is not None:
       found.append(path)
-  return merge(found, meta_paths(surface, model))
+  return merge(found, meta_paths(config, surface, model))
 
 
 def request_files(entries: Mapping[str, Any] | None, surface: str) -> list[Path]:
@@ -501,11 +510,12 @@ def run(
 
 def run_request(
   surface: str,
+  config: Mapping[str, Any],
   entries: Mapping[str, Any] | None,
   model: str,
   value: dict[str, Any],
   **context: Any,
 ) -> dict[str, Any]:
   """The value after each request hook of one surface, from the settings file, in list order."""
-  paths = merge(request_files(entries, surface), meta_paths(surface, model))
+  paths = merge(request_files(entries, surface), meta_paths(config, surface, model))
   return run_files(surface, paths, value, model=model, **context)

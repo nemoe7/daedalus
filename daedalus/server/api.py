@@ -875,6 +875,7 @@ async def chat(request: Request) -> Response:
   if REQUEST_HOOKS.get("on-request"):
     value = hooks.run_request(
       "on-request",
+      config,
       REQUEST_HOOKS,
       model,
       {"key": None, "digest": retries.digest(body["messages"]), "count": None},
@@ -887,7 +888,12 @@ async def chat(request: Request) -> Response:
         # The hook writes the code of the row: it runs again with the count filled in.
         value["count"] = turn.count
         value = hooks.run_request(
-          "on-request", REQUEST_HOOKS, model, value, headers=dict(request.headers)
+          "on-request",
+          config,
+          REQUEST_HOOKS,
+          model,
+          value,
+          headers=dict(request.headers),
         )
         written = value.get("code")
         code = written if isinstance(written, str) and written else None

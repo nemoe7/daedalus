@@ -156,7 +156,12 @@ def test_request_hooks() -> None:
   )
   seen: dict = {"key": None, "digest": "d1"}
   found = hooks.run_request(
-    "on-request", {"on-request": first}, "daedalus/auto", seen, headers={"x-chat": "c1"}
+    "on-request",
+    {},
+    {"on-request": first},
+    "daedalus/auto",
+    seen,
+    headers={"x-chat": "c1"},
   )
   assert found == {"key": "c1:d1", "digest": "d1"}
   assert seen == {"key": None, "digest": "d1"}, "the hook changes a copy"
@@ -176,6 +181,7 @@ def test_request_hooks() -> None:
   ], "1 surface takes many files"
   assert hooks.run_request(
     "on-request",
+    {},
     {"on-request": [first, second]},
     "daedalus/auto",
     seen,
@@ -184,10 +190,10 @@ def test_request_hooks() -> None:
   for entries in ({}, {"on-request": ""}, None, {"on-request": 5}, {"on-request": []}):
     assert hooks.request_files(entries, "on-request") == []
   assert hooks.run_request(
-    "on-request", {"on-request": ["gone.py"]}, "daedalus/auto", {"key": None}
+    "on-request", {}, {"on-request": ["gone.py"]}, "daedalus/auto", {"key": None}
   ) == {"key": None}, "a file that does not load changes nothing"
   plain = {"key": None}
-  assert hooks.run_request("on-request", {}, "daedalus/auto", plain) is plain
+  assert hooks.run_request("on-request", {}, {}, "daedalus/auto", plain) is plain
 
 
 def test_init_rows() -> None:
@@ -324,6 +330,7 @@ def test_meta_problems() -> None:
     ("# ---\n# surfaces: [on-later]\n# ---\n", "on-later"),
     ("# ---\n# scope: pool\n# ---\n", "pool"),
     ("# ---\n# scope: model\n# ---\n", "targets"),
+    ("# ---\n# scope: yaml\n# ---\n", "targets"),
     ('# ---\n# requires: ">=99.0"\n# ---\n', "99.0"),
     ("# ---\n# version: [1]\n# ---\n", "version"),
     ("# ---\n# title: [1]\n# ---\n", "title"),
@@ -413,6 +420,30 @@ def test_scoped_hooks() -> None:
     hooks.set_installed()
 
 
+def test_yaml_scope_follows_the_provider_file() -> None:
+  """A yaml scope runs for the models of the provider file, and not for the models of the main file."""
+  try:
+    hooks.set_installed("yamlscope", [])
+    scoped(
+      "file.py",
+      ANSWER % "file",
+      "# ---\n# scope: yaml\n# targets: [openrouter]\n# surfaces: [on-answer]\n# ---\n",
+    )
+    providers = {
+      "openrouter": {
+        "api_key": "k",
+        "tier": {"TIER-B": ["*"]},
+        "_file": {"models": {"z-ai/glm-5.3-flash": {"timeout": 15}}},
+      }
+    }
+    assert hooks.run("on-answer", providers, "openrouter/z-ai/glm-5.3-flash", {}).get(
+      "by"
+    ) == ["file"]
+    assert hooks.run("on-answer", providers, "openrouter/x", {}).get("by") is None
+  finally:
+    hooks.set_installed()
+
+
 def test_scoped_request_hook() -> None:
   """A request-level file with a provider scope runs for that provider only."""
   try:
@@ -423,11 +454,11 @@ def test_scoped_request_hook() -> None:
       "# ---\n# scope: provider\n# targets: [openrouter]\n# surfaces: [on-request]\n# ---\n",
     )
     assert hooks.run_request(
-      "on-request", {}, "openrouter/x", {"key": None}, headers={}
+      "on-request", {}, {}, "openrouter/x", {"key": None}, headers={}
     ) == {"key": "set"}
-    assert hooks.run_request("on-request", {}, "p/m", {"key": None}, headers={}) == {
-      "key": None
-    }
+    assert hooks.run_request(
+      "on-request", {}, {}, "p/m", {"key": None}, headers={}
+    ) == {"key": None}
   finally:
     hooks.set_installed()
 

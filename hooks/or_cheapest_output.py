@@ -1,7 +1,7 @@
 # ---
-# version: 1.0.2
+# version: 1.0.3
 # surfaces: [on-catalog, on-upstream]
-# scope: provider
+# scope: yaml
 # targets: [openrouter]
 # author: nemoe7
 # title: Cheapest output first
