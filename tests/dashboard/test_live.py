@@ -111,9 +111,13 @@ def test_the_live_clocks_count_in_whole_milliseconds() -> None:
     'round((row["first"] - row["attempt_started"]) * 1000) / 1000',
   ):
     assert needle in view, needle
-  assert 'round((now - row["started"], 3)' not in view, "no fractions of a ms in the ages"
+  assert 'round((now - row["started"], 3)' not in view, (
+    "no fractions of a ms in the ages"
+  )
   record = source[source.index("def record(") : source.index("def live_update(")]
-  assert "round(seconds * 1000) / 1000" in record, "the seconds of a row count in whole ms"
+  assert "round(seconds * 1000) / 1000" in record, (
+    "the seconds of a row count in whole ms"
+  )
   assert "round(seconds, 3)" not in record
 
 

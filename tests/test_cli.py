@@ -190,7 +190,13 @@ def test_dump_modes(tmp_path: Path, monkeypatch) -> None:
   assert not (tmp_path / "models.json").exists(), "the old format is removed"
   with (tmp_path / "models.csv").open(encoding="utf-8", newline="") as source:
     assert list(csv.DictReader(source)) == [
-      {"id": "p/a", "flags": '["vision"]', "mode": "chat", "tier": "", "supported_efforts": ""}
+      {
+        "id": "p/a",
+        "flags": '["vision"]',
+        "mode": "chat",
+        "tier": "",
+        "supported_efforts": "",
+      }
     ]
 
 
