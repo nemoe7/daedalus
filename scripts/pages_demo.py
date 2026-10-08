@@ -42,6 +42,7 @@ ENDPOINTS = (
   "pools",
   "requests?limit=50",
   "limits",
+  "notifications",
   "hooks",
   "keys",
   "files",
@@ -494,10 +495,23 @@ const DEMO_FIXTURES = __FIXTURES__;
       return json({ error }, 409);
     }
     DEMO_FIXTURES.status.catalog.rebuilding = true;
+    const before = new Map(state.models.map((row) => [row.id, JSON.stringify(row)]));
     setTimeout(() => {
       DEMO_FIXTURES.status.catalog.rebuilding = false;
       DEMO_FIXTURES.status.catalog.built = Date.now() / 1000;
       state.models = catalog();
+      // The rebuild event of the Notifications page: the rows the rebuild added, removed or moved.
+      const after = new Map(state.models.map((row) => [row.id, JSON.stringify(row)]));
+      DEMO_FIXTURES.notifications.rebuilds.unshift({
+        at: Date.now() / 1000,
+        reason: "manual",
+        models: state.models.length,
+        added: [...after.keys()].filter((id) => !before.has(id)),
+        removed: [...before.keys()].filter((id) => !after.has(id)),
+        changed: [...after.keys()].filter((id) => before.has(id) && before.get(id) !== after.get(id)),
+        failed: [],
+      });
+      DEMO_FIXTURES.notifications.rebuilds.length = Math.min(DEMO_FIXTURES.notifications.rebuilds.length, 50);
     }, REBUILD_MS);
     return json({ ok: true }, 202);
   };
@@ -1148,6 +1162,11 @@ const DEMO_FIXTURES = __FIXTURES__;
   const save = (path, method, init) => {
     if (path === "catalog" && method === "POST") return rebuild();
     if (path === "limits" && method === "POST") return check_limits();
+    if (path === "updates" && method === "POST") {
+      // The demo keeps the captured answer: the check moves its checked time.
+      DEMO_FIXTURES.notifications.update = { ...DEMO_FIXTURES.notifications.update, at: Date.now() / 1000 };
+      return json(DEMO_FIXTURES.notifications.update);
+    }
     if (path === "reset" && method === "POST") {
       // The snapshot rows carry the captured weights, so the reset pins them back to 1.
       for (const row of DEMO_FIXTURES.models) {
@@ -1227,6 +1246,19 @@ const DEMO_FIXTURES = __FIXTURES__;
     })));
     if (path === "pools") return json(pools());
     if (path === "limits") return check_limits();
+    if (path === "notifications") {
+      // The warnings read the lanes of the Limits page, at the share the server warns from.
+      const warnings = (DEMO_FIXTURES.limits.lanes || []).flatMap((lane) =>
+        (lane.rows || [])
+          .filter((row) => row.limit > 0 && row.remaining / row.limit <= 0.25)
+          .map((row) => ({ ...row, model: lane.model, client: lane.client ?? null, share: row.remaining / row.limit }))
+      ).sort((a, b) => a.share - b.share || a.model.localeCompare(b.model));
+      return json({
+        rebuilds: DEMO_FIXTURES.notifications.rebuilds,
+        update: DEMO_FIXTURES.notifications.update,
+        limits: warnings,
+      });
+    }
     if (path === "status")
       return json({ ...DEMO_FIXTURES.status, models: state.models.length,
         sessions: new Set(DEMO_FIXTURES.requests.map((row) => row.session).filter(Boolean)).size });
@@ -1474,6 +1506,7 @@ def demo_fixtures(version: str) -> dict[str, Any]:
     pool["members"] = [item for item in pool["members"] if item["id"] in kept]
   fixtures["login"]["version"] = version
   fixtures["status"]["version"] = version
+  fixtures["notifications"]["update"]["current"] = version
   # The hook rows come from the files of this repo, so the table shows the version each 1 carries.
   # The capture holds an older copy, and a version bump lands here without a new capture.
   settings_file = fixtures["settings"].setdefault("file", {})
