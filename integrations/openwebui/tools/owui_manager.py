@@ -3,7 +3,7 @@ title: Open WebUI Manager
 author: nemo
 description: The Open WebUI workspace manager: knowledge bases, skills, the file library, Workspace Tools and Functions. Reads and new items run freely. Every overwrite, toggle and delete passes a confirmation gate. The preset attach stays private. Stdlib only.
 required_open_webui_version: 0.10.0
-version: 1.0.1
+version: 1.0.2
 licence: daedalus Noncommercial License 1.0.0
 """
 
@@ -211,9 +211,6 @@ class Tools:
       return None, "Error: Open WebUI API request timed out."
     except aiohttp.ClientError as exc:
       return None, f"Error: Open WebUI connection failed: {exc}"
-
-  def _error(self, message):
-    return message
 
   def _file_item(self, item):
     return item.get("file", item) if isinstance(item, dict) else {}
@@ -1638,45 +1635,6 @@ class Tools:
       or f"Knowledge base permanently deleted successfully.\nknowledge_id={knowledge_id}\nname={meta.get('name', 'Unnamed')}"
     )
 
-  async def _list_model_presets(
-    self,
-    query: str = "",
-    page: int = 1,
-    __request__=None,
-  ) -> str:
-    """
-    List the workspace model presets of the current Open WebUI user.
-
-    Shows the attachment counts of each preset: knowledge, tools,
-    skills, filters and actions.
-    """
-    if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
-    params = {"page": max(1, page)}
-    if query.strip():
-      params["query"] = query.strip()
-    async with await self._open_session(__request__) as s:
-      data, err = await self._request(s, "GET", "/models/list", params=params)
-    if err:
-      return err
-    items = (data or {}).get("items", [])
-    if not items:
-      return "No model presets found."
-    lines = [f"total={(data or {}).get('total')}"]
-    for item in items:
-      meta = item.get("meta") or {}
-      lines.append(
-        f"- {item.get('name', 'Unnamed')} (id={item.get('id')}, "
-        f"base_model_id={item.get('base_model_id') or 'none'}, "
-        f"write_access={item.get('write_access')}, "
-        f"knowledge={len(meta.get('knowledge') or [])}, "
-        f"tools={len(meta.get('toolIds') or [])}, "
-        f"skills={len(meta.get('skillIds') or [])}, "
-        f"filters={len(meta.get('filterIds') or [])}, "
-        f"actions={len(meta.get('actionIds') or [])})"
-      )
-    return "\n".join(lines)
-
   async def _knowledge_reference(self, s, knowledge_id):
     """Build the stored knowledge reference of one knowledge base id."""
     data, err = await self._request(s, "GET", f"/knowledge/{knowledge_id}")
@@ -1855,137 +1813,6 @@ class Tools:
     return await self._attach_to_presets(
       {"knowledge": list(knowledge_ids)}, __request__
     )
-
-  async def _update_model_preset(
-    self,
-    model_id: str = Field(
-      ..., description="ID of the workspace model preset to change."
-    ),
-    add_knowledge_ids: str = "",
-    add_tool_ids: str = "",
-    add_skill_ids: str = "",
-    add_filter_ids: str = "",
-    add_action_ids: str = "",
-    add_function_ids: str = "",
-    remove_knowledge_ids: str = "",
-    remove_tool_ids: str = "",
-    remove_skill_ids: str = "",
-    remove_filter_ids: str = "",
-    remove_action_ids: str = "",
-    remove_function_ids: str = "",
-    __request__=None,
-  ) -> str:
-    """
-    Attach or detach knowledge bases, tools, skills, filters and actions
-    on one workspace model preset.
-
-    Each id list is a comma or newline separated string of Open WebUI ids.
-    The tool reads the record first and writes it back whole, so the other fields
-    and the other meta keys stay.
-    """
-    if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
-    model = (model_id or "").strip()
-    if not model:
-      return "Error: model_id is empty. Use list_model_presets to read the ids."
-    add, remove = self._preset_changes(
-      add_knowledge_ids,
-      add_tool_ids,
-      add_skill_ids,
-      add_filter_ids,
-      add_action_ids,
-      add_function_ids,
-      remove_knowledge_ids,
-      remove_tool_ids,
-      remove_skill_ids,
-      remove_filter_ids,
-      remove_action_ids,
-      remove_function_ids,
-    )
-    async with await self._open_session(__request__) as s:
-      line, err = await self._write_preset(s, model, add, remove)
-    return err or line
-
-  async def _update_all_model_presets(
-    self,
-    add_knowledge_ids: str = "",
-    add_tool_ids: str = "",
-    add_skill_ids: str = "",
-    add_filter_ids: str = "",
-    add_action_ids: str = "",
-    add_function_ids: str = "",
-    remove_knowledge_ids: str = "",
-    remove_tool_ids: str = "",
-    remove_skill_ids: str = "",
-    remove_filter_ids: str = "",
-    remove_action_ids: str = "",
-    remove_function_ids: str = "",
-    only_writable: bool = True,
-    max_models: int = 200,
-    __request__=None,
-  ) -> str:
-    """
-    Apply the same attachments to every workspace model preset.
-
-    Reads each page of /models/list, then updates each preset with the
-    model function. The tool skips a preset without write access and names it in
-    the result, unless only_writable is false. max_models caps the run.
-    """
-    if __request__ is None:
-      return "Error: Open WebUI request context is unavailable."
-    add, remove = self._preset_changes(
-      add_knowledge_ids,
-      add_tool_ids,
-      add_skill_ids,
-      add_filter_ids,
-      add_action_ids,
-      add_function_ids,
-      remove_knowledge_ids,
-      remove_tool_ids,
-      remove_skill_ids,
-      remove_filter_ids,
-      remove_action_ids,
-      remove_function_ids,
-    )
-    if not any(add.values()) and not any(remove.values()):
-      return "Error: no ids given. Pass at least one add or remove list."
-    max_models = max(1, min(max_models, 1000))
-    lines = []
-    seen = 0
-    skipped = []
-    total = None
-    page = 1
-    async with await self._open_session(__request__) as s:
-      while page <= 100:
-        data, err = await self._request(s, "GET", "/models/list", params={"page": page})
-        if err:
-          lines.append(err)
-          break
-        if page == 1:
-          total = (data or {}).get("total")
-        items = (data or {}).get("items") or []
-        if not items:
-          break
-        for item in items:
-          if seen >= max_models:
-            break
-          seen += 1
-          model_id = item.get("id")
-          if only_writable and not item.get("write_access"):
-            skipped.append(str(model_id))
-            continue
-          line, err = await self._write_preset(s, model_id, add, remove)
-          lines.append(err or line)
-        if seen >= max_models:
-          break
-        if total is not None and seen >= int(total):
-          break
-        page += 1
-    result = [f"presets seen={seen}, cap={max_models}"]
-    result += lines
-    if skipped:
-      result.append(f"skipped, no write access: {', '.join(skipped)}")
-    return "\n".join(result)
 
   async def _read(
     self,
