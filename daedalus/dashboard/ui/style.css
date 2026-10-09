@@ -348,7 +348,8 @@ a.more:hover { color: var(--accent); }
 .model-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
 /* A narrow page folds the three blocks to one column, so no wrap leaves an orphan. */
 @media (max-width: 479px) { .model-stats { grid-template-columns: 1fr; } }
-.model-stats .stat { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); }
+/* The floor holds the token blocks at the height of the weight block, which draws the only bar. */
+.model-stats .stat { display: grid; gap: 2px; min-height: 60px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); }
 .model-stats .track { margin-top: auto; }
 .model-stats .num { font-size: 16px; }
 .model-stats .label { color: var(--muted); font-size: 11px; }
