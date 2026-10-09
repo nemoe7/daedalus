@@ -875,8 +875,10 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .phone-types, .phone-chips { display: contents; }
   .models tr > td.name { flex-wrap: wrap; gap: 4px; }
   .models td.name .cell-value { flex-basis: 100%; }
+  /* The card row aligns on the text baseline, and an icon chip has none, so it rides high.
+     Each chip centers on its row, so icon and word chips sit level. */
   .models td.name .chip {
-    display: inline-flex; align-items: center; gap: 3px;
+    display: inline-flex; align-items: center; gap: 3px; align-self: center;
     min-height: 22px; line-height: 20px; font-size: 12px;
   }
   .models td.name .chip svg { display: block; }
