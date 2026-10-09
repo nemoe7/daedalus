@@ -3135,6 +3135,16 @@ function markNavSteps() {
   nav.classList.toggle("fade-right", !right);
 }
 nav.addEventListener("scroll", markNavSteps, { passive: true });
+// A tab reuses the entry in place of pushing one, so the phone back leaves the app
+// in place of walking the tabs in reverse.
+for (const link of document.querySelectorAll("#nav a")) {
+  link.addEventListener("click", (event) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey) return;
+    event.preventDefault();
+    history.replaceState(null, "", link.getAttribute("href"));
+    showPage();
+  });
+}
 for (const [id, step] of [["nav-left", -1], ["nav-right", 1]]) {
   $(id).addEventListener("click", () => nav.scrollBy({ left: (step * nav.clientWidth) / 2, behavior: "smooth" }));
 }

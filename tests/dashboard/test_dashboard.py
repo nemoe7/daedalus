@@ -4015,6 +4015,10 @@ def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
   assert ".sections button.on" in css and ".section-pane {" in css, (
     "the Settings page holds a section list and the pane"
   )
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert 'history.replaceState(null, "", link.getAttribute("href"));' in app, (
+    "a tab reuses the entry, so the phone back leaves the app"
+  )
 
 
 def test_each_page_holds_a_section_list() -> None:
