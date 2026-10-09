@@ -3478,6 +3478,9 @@ def test_the_tab_bar_fades_its_clipped_edges() -> None:
   assert "#nav-left:not([hidden]) { margin-left: -12px; }" in css, (
     "a shown chevron sits at the page edge"
   )
+  assert ".tab-step[hidden] { display: grid !important; visibility: hidden; }" in css, (
+    "a hidden chevron keeps its slot, so the scroll never snaps"
+  )
 
 
 def test_a_phone_keeps_one_rhythm_around_the_bar_rules() -> None:
