@@ -1483,7 +1483,7 @@ function hooksManager() {
   const list = rows.map((row) => {
     const record = row.record || {};
     const source = record.repo ? `${record.repo}@${(record.commit || "").slice(0, 7)}` : "";
-    return `<tr><td role="cell" class="name"><span class="cell-value" title="${esc(row.name)}">${esc(row.name)}</span></td>
+    return `<tr><td role="cell" class="name"><span class="cell-value" title="${esc(row.name)}">${esc(row.title || row.name)}</span></td>
       <td role="cell"><span class="cell-value">${esc(hookVersion(row))}</span></td>
       <td role="cell"><span class="cell-value">${esc(row.scope || "global")}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
       <td role="cell" class="surfaces">${hookSurfacesCell(row)}</td>
@@ -1499,7 +1499,7 @@ function hooksManager() {
       ${scan.take[file.name] ? "checked" : ""}>${esc(file.name)}${file.version ? ` ${esc(file.version)}` : ""}</label>`).join("")}
       <button type="button" class="primary" data-hook-take-all>Take the picked files</button></div>` : "";
   return `<div class="field stack info">${labelSpan("Installed hooks", "The files of the hook folder. A surface is a stage of a request, and the block of the file names the surfaces it runs at. The switch leaves a file on disk and out of the run.")}
-      <table class="keys"><thead><tr><th>File</th><th>Version</th><th>Scope</th><th>Surfaces</th><th class="hide-sm">Source</th><th>Load</th><th></th></tr></thead>
+      <table class="keys"><thead><tr><th>Title</th><th>Version</th><th>Scope</th><th>Surfaces</th><th class="hide-sm">Source</th><th>Load</th><th></th></tr></thead>
       <tbody>${list}</tbody></table>
       <button type="button" class="ghost" data-hooks-update>Update from the sources</button></div>
     <div class="field stack info">${labelSpan("Folder", "The folder at the root that holds the hook files.")}

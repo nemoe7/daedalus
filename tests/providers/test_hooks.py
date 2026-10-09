@@ -545,6 +545,23 @@ def test_rows_add_the_request_points_that_name_a_file() -> None:
     hooks.set_installed()
 
 
+def test_rows_carry_the_title() -> None:
+  """A row carries the title of its frontmatter, and no title when the block has none."""
+  try:
+    hooks.set_installed("rows3")
+    scoped(
+      "titled.py",
+      ANSWER % "titled",
+      "# ---\n# title: Cheapest output first\n# surfaces: [on-answer]\n# ---\n",
+    )
+    scoped("plain.py", ANSWER % "plain", "")
+    found = {row["name"]: row for row in hooks.rows()}
+    assert found["titled.py"]["title"] == "Cheapest output first"
+    assert found["plain.py"]["title"] == ""
+  finally:
+    hooks.set_installed()
+
+
 def test_rows_report_the_folder() -> None:
   """Each row names the file, its frontmatter, its state and its problem."""
   try:
@@ -562,6 +579,7 @@ def test_rows_report_the_folder() -> None:
     assert found["on.py"] == {
       "name": "on.py",
       "path": "rows/on.py",
+      "title": "",
       "version": "2.0",
       "scope": "provider",
       "targets": ["p"],

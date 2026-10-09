@@ -2528,6 +2528,7 @@ def test_app_js_hooks_manager_renders() -> None:
         {
           "name": "one.py",
           "path": "hooks/one.py",
+          "title": "One hook",
           "version": "1.2.0",
           "scope": "provider",
           "targets": ["openrouter"],
@@ -2581,6 +2582,8 @@ assert(html.includes('value="hooks"'), 'the folder shows the saved value');
 assert(html.includes('id="hook-source"') && html.includes('>owner/name/hooks<'), 'the sources show the saved repo');
 assert(html.includes('data-hook-source-add') && html.includes('data-hook-source-drop') &&
   html.includes('data-hooks-update'), 'the source controls');
+assert(html.includes('<th>Title</th>'), 'the table names its title column');
+assert(html.includes('One hook'), 'the title of the file shows');
 assert(html.includes('data-hook-toggle="one.py"') && html.includes('data-hook-toggle="bad.py"'), '1 switch per file');
 assert(html.includes('>1.2.0<') && html.includes('provider: openrouter'), 'the version and the scope of a file');
 assert(html.includes('owner/name@ccccccc'), 'the source of an installed file');
@@ -2674,6 +2677,7 @@ def test_hook_rows_and_update(
   assert rows["one.py"] == {
     "name": "one.py",
     "path": "hooks/one.py",
+    "title": "",
     "version": "1.2.0",
     "scope": "provider",
     "targets": ["p"],
