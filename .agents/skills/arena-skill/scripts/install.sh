@@ -201,6 +201,21 @@ _arena_preview_gate() {
       fi
       ;;
   esac
+  # A checks call on a branch main leads meets an empty listing; once a shell the line
+  # names the cause, so the agent rebases instead of re-polling (owner note b0ebdfa).
+  case "\$BASH_COMMAND" in
+    *"gh pr checks"*)
+      if [ -z "\${_arena_preview_nochecks_told:-}" ]; then
+        _arena_preview_nochecks_told=1
+        case "\$(git rev-list --count HEAD..origin/main 2>/dev/null)" in
+          ''|0) ;;
+          *)
+            printf '%s\n' "origin/main has moved; no checks will report until the branch rebases over it. Run git fetch origin and git rebase origin/main, then push --force-with-lease." >&2
+            ;;
+        esac
+      fi
+      ;;
+  esac
   _arena_preview_line="\$(tr '\\0' ' ' < /proc/\$\$/cmdline 2>/dev/null)"
   # The command sits on PATH in every shell the installer touched, so a spelled-out path
   # only buries the call. Say it once per shell, then let the line run its gate.

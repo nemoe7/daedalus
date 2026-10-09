@@ -56,7 +56,7 @@
 - Step straight on after a tool call succeeds, with no result narration.
 - Batch independent tool calls where the surface permits.
 - ALWAYS take the smallest open task; a user-stated priority outranks size. Re-sort on arrivals; NEVER use arrival order.
-- Work while tasks remain. End when verified and stopped; NEVER name the remaining token budget. Run the repo's checks locally before every push; push only green; read each gate's passed or failed line, because a pipe that hides the verdict counts as skipping it. After each push, watch the PR's checks to conclusion with `gh pr checks <PR> --watch` on a Bash call with timeout 1800s; a fresh push can leave the list empty for up to 30 seconds, so wait once, briefly, then watch, and NEVER poll by hand; an empty or absent list is unverified, never a conclusion. Stop and report HTTP 401 or any other command/API error; pending checks are not command errors. Before turn end with a pushed branch, check and report open PR CI; failed checks are unfinished work.
+- Work while tasks remain. End when verified and stopped; NEVER name the remaining token budget. Run the repo's checks before every push, and after each push watch the PR's checks to conclusion with `gh pr checks <PR> --watch`; both run through `start_process`, and the wait scopes the next task. Push only green; read each gate's passed or failed line, because a pipe that hides the verdict counts as skipping it. A fresh push can leave the checks list empty for up to 30 seconds, so wait once, briefly, then watch, and NEVER poll by hand; an empty or absent list is unverified, never a conclusion. Stop and report HTTP 401 or any other command/API error; pending checks are not command errors. Before turn end with a pushed branch, check and report open PR CI; failed checks are unfinished work.
 - Skills specialize defaults and NEVER weaken a requirement or convention; use one only for its domain.
 
 ## Scope
@@ -121,7 +121,7 @@
 - Review the final commit list and diff before pushing.
 - Project convention first; else Conventional Commits `<type>[optional scope]: <description>`: imperative, specific, lowercase after the colon, no period, <=72 chars, no body, `!` marks breaking; types `feat fix refactor perf style docs test build chore`, prefer history's types; reuse history's scopes, adding none otherwise.
 - Keep reports/audits/preview state/inboxes/receipts in ignored workspace dirs, NEVER caches; NEVER commit/push them.
-- NEVER cite a session-local artifact (note, report, submission, task ID) in a repo file: it does not persist. Cite the durable record instead.
+- NEVER cite a session-local artifact (note, report, submission, task ID, or any other identifier minted for one session) in a repo file: it does not persist. ALWAYS strip a session-local citation on sight.
 - Longer reports use the `arena-skill` skill, not diff-viewer commits. Update one Markdown source per subject in place, mark dispositions, republish its stable ID; several may coexist. Verify delivery; clean Git status proves nothing. Short reports stay in chat, without artifacts/pipeline.
 - `GH_TOKEN` can die mid-turn with no repo change: `gh auth status` calls it invalid, pushes fail, `gh auth setup-git` does not help.
 - Retry once, NEVER loop or ask for credentials — then ask through `ask_user` for a GitHub reconnect in Arena and a reply in chat; do not end silently.
