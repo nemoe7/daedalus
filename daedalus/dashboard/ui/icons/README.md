@@ -30,3 +30,7 @@ Each file keeps the name of its origin, except these files:
 | `myshell-ai.svg` | `myshell.svg` |
 | `stabilityai.svg` | `stability.svg` |
 | `z-ai.svg`, `zai-org.svg` | `zai.svg` |
+
+## Capability icons
+
+`cap/brain.svg` and `cap/wrench.svg` draw the reasoning and tools chips. They come from `lucide-icons/lucide` at commit `a04f228`. Their license is ISC, appended to `LICENSE`. The app inlines the same paths in `app.js`.

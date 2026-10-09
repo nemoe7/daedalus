@@ -2599,20 +2599,21 @@ def test_app_js_capability_chip_icons() -> None:
   block = app[app.index("const CHIP_ICONS = {") : app.index("function phoneChips")]
   icons = dict(re.findall(r"(\w+): '(<svg.*?</svg>)'", block, re.DOTALL))
   assert set(icons) == {"tools", "cool", "brain"}, set(icons)
-  terminal, brain = icons["tools"], icons["brain"]
-  assert 'viewBox="0 0 122.88 103.53"' in terminal, "the terminal glyph box"
-  assert "M31.84,38.55" in terminal and "M94.1,79.41" in terminal, (
-    "the terminal glyph paths"
+  wrench, brain = icons["tools"], icons["brain"]
+  assert 'viewBox="0 0 24 24"' in wrench and 'viewBox="0 0 24 24"' in brain, (
+    "the lucide glyph box"
   )
-  assert 'viewBox="0 0 122.88 115.23"' in brain, "the brain glyph box"
-  assert "M60.89,8.37" in brain, "the brain glyph path"
-  for name, icon in (("terminal", terminal), ("brain", brain)):
+  assert "M14.7 6.3" in wrench, "the lucide wrench path"
+  assert "M12 18V5" in brain, "the lucide brain path"
+  for name, icon in (("wrench", wrench), ("brain", brain)):
     assert 'width="12"' in icon and 'aria-hidden="true"' in icon, name
-    assert 'fill="currentColor"' in icon, f"the chip color of the {name}"
+    assert 'stroke="currentColor"' in icon and 'fill="none"' in icon, (
+      f"the chip color of the {name}"
+    )
     assert "<style" not in icon and "<g" not in icon, f"the plain markup of the {name}"
     ElementTree.fromstring(icon)
   assert 'title="Tools">${CHIP_ICONS.tools}' in app, (
-    "the terminal draws in the tools chip"
+    "the wrench draws in the tools chip"
   )
   assert 'title="Reasoning">${CHIP_ICONS.brain}' in app, (
     "the brain draws in the reasoning chip"
