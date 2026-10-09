@@ -2704,34 +2704,37 @@ function rebuildDiff(event) {
   return marks || '<span class="muted">-</span>';
 }
 
+// The modal of 1 rebuild: the full diff, one line per added, removed or moved model.
+function openDiffModal(event) {
+  $("model-modal-title").textContent = `${event.reason} \u00b7 ${stamp(event.at)}`;
+  const lines = [
+    ...event.added.map((model) => ["added", "+", model]),
+    ...event.removed.map((model) => ["removed", "-", model]),
+    ...event.changed.map((entry) => ["moved", "~", entry]),
+  ];
+  $("model-modal-body").innerHTML = lines.length
+    ? lines
+        .map(([kind, mark, text]) => `<div class="line"><span class="${kind}">${mark}</span><span>${esc(text)}</span></div>`)
+        .join("")
+    : none("No model moved.");
+  $("model-modal").showModal();
+}
+
 function renderNotifications(data) {
   state.notifications = data;
-  const open = state.notificationOpen || (state.notificationOpen = new Set());
   draw(
     "rebuild-rows",
     data.rebuilds.length
       ? data.rebuilds
-          .map((event, index) => {
-            const detail = [
-              ...event.added.map((model) => ["added", "+", model]),
-              ...event.removed.map((model) => ["removed", "-", model]),
-              ...event.changed.map((model) => ["moved", "~", model]),
-            ];
-            return `<tr class="rebuild-row" data-rebuild="${index}" tabindex="0">
+          .map(
+            (event, index) => `<tr class="rebuild-row" data-rebuild="${index}" tabindex="0">
       <td class="muted time">${stamp(event.at)}</td>
       <td>${esc(event.reason)}</td>
       <td class="num">${event.models}</td>
       <td>${rebuildDiff(event)}</td>
       <td class="hide-sm">${event.failed.length ? esc(event.failed.join(", ")) : '<span class="muted">-</span>'}</td>
-    </tr>` +
-              (detail.length
-                ? `<tr class="rebuild-detail" hidden="${open.has(index) ? "" : "hidden"}"><td colspan="5">
-        ${detail
-          .map(([kind, mark, model]) => `<div class="line"><span class="${kind}">${mark}</span><span>${esc(model)}</span></div>`)
-          .join("")}
-      </td></tr>`
-                : "");
-          })
+    </tr>`
+          )
           .join("")
       : '<tr><td colspan="5" class="empty">No rebuilds yet. The first one lands with the next catalog build.</td>');
   const update = data.update;
@@ -2864,15 +2867,12 @@ $("limits-check").addEventListener("click", async () => {
     button.disabled = false;
   }
 });
-// A rebuild row opens its list of added, removed and moved models, and closes it on the second pick.
+// A rebuild row opens the modal of its diff.
 $("rebuild-rows").addEventListener("click", (event) => {
   const row = event.target.closest("tr.rebuild-row");
   if (!row || !state.notifications) return;
-  const open = state.notificationOpen || (state.notificationOpen = new Set());
   const index = Number(row.dataset.rebuild);
-  if (open.has(index)) open.delete(index);
-  else open.add(index);
-  renderNotifications(state.notifications);
+  openDiffModal(state.notifications.rebuilds[index]);
 });
 $("update-card").addEventListener("click", async (event) => {
   const button = event.target.closest("#update-check");

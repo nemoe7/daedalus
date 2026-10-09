@@ -1054,6 +1054,22 @@ def test_the_model_rows_light_up_on_hover() -> None:
   ) in css, "the row hover waits for a pointer and lights the row"
 
 
+def test_a_rebuild_row_opens_the_diff_modal() -> None:
+  """A click on a rebuild row opens the modal of its diff, with its moves on the ~ lines."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert "function openDiffModal(event) {" in app
+  assert "openDiffModal(state.notifications.rebuilds[index])" in app
+  for line in (
+    '["added", "+", model]',
+    '["removed", "-", model]',
+    '["moved", "~", entry]',
+  ):
+    assert line in app, line
+  assert '$("model-modal").showModal();' in app
+  assert "rebuild-detail" not in app, "the diff rides in the modal, not an inline row"
+
+
 def test_a_card_closes_on_the_room_of_its_rows() -> None:
   """The bottom of a Settings or Provider card keeps the room of 1 row, not the card padding."""
   css = (
