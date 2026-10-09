@@ -125,7 +125,12 @@ def repo_name(value: Any) -> str | None:
   owner = segments[0]
   name = segments[1].removesuffix(".git")
   # Each part is short and simple, so 1 long value never slows the reader.
-  if not (REPO_PART.fullmatch(owner) and REPO_PART.fullmatch(name)):
+  # A part of dots walks out of the install folder, so it never names a repo.
+  if (
+    not (REPO_PART.fullmatch(owner) and REPO_PART.fullmatch(name))
+    or owner in {".", ".."}
+    or name in {".", ".."}
+  ):
     return None
   return f"{owner}/{name}"
 
@@ -205,6 +210,7 @@ def update(
   target = hooks.folder() if folder is None else folder
   lock = target / LOCK if lock_path is None else lock_path
   records = read_records(lock)
+  root = target.resolve()
   moved: list[str] = []
   for entry in entries:
     if not isinstance(entry, Mapping):
@@ -267,7 +273,12 @@ def update(
         continue
       if info is None:
         logger.warning("hook %s/%s has no frontmatter block", repo, name)
-      here = target / repo / name
+      here = (target / repo / name).resolve()
+      if not here.is_relative_to(root):
+        tell(f"hook source {repo}: {name} does not land in the install folder")
+        if report is not None:
+          report.append(f"{repo}/{name} does not land in the install folder")
+        continue
       landed = here.is_file() and here.read_bytes() == raw
       if not landed and not write(here, raw, report):
         continue
