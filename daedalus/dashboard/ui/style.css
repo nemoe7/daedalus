@@ -499,8 +499,9 @@ textarea {
   width: 100%; max-width: none; flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable;
   padding-inline: max(32px, calc((100% - 1116px) / 2));
 }
+main:has(> section[data-page="providers"]:not([hidden])),
 main:has(> section[data-page="settings"]:not([hidden])) { display: flex; flex-direction: column; padding-bottom: 28px; }
-section[data-page="settings"] {
+section[data-page="providers"], section[data-page="settings"] {
   flex: 1 0 auto; display: flex; flex-direction: column;
 }
 /* The YAML section of a list: the file text in its card, with the save under it. */
@@ -582,7 +583,8 @@ section[data-page="settings"] {
 .sections button.on { background: var(--field); box-shadow: inset 2px 0 0 var(--accent); }
 /* A card of a section closes on the room of 1 row: the last row keeps the same space to the edge
    of the card as the space between 2 rows. */
-section[data-page="settings"] .card { padding-bottom: 10px; }
+section[data-page="settings"] .card,
+section[data-page="providers"] .card { padding-bottom: 10px; }
 .section-pane { flex: 1 1 min(360px, 100%); display: grid; gap: 16px; min-width: 0; }
 .section-pane > .card { min-width: 0; }
 .section-pane .back { display: none; justify-self: start; }
@@ -675,7 +677,7 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6
   min-height: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px;
 }
 /* The Save bar rides above the form, in the flow. A sticky bar hides the rows that scroll behind it. */
-section[data-page="settings"] > .editbar,
+section[data-page="providers"] > .editbar, section[data-page="settings"] > .editbar,
 section[data-page="models"] > .editbar, section[data-page="limits"] > .editbar {
   margin-bottom: 16px;
 }
@@ -797,7 +799,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .toolbar input, .toolbar select, .requests-bar input, .requests-bar select,
   .filter, .tab { min-height: 44px; }
   .editbar .tab { padding: 4px 10px; font-size: 13px; }
-  section[data-page="settings"] .editbar .hint { display: none; }
+  section[data-page="providers"] .editbar .hint, section[data-page="settings"] .editbar .hint { display: none; }
   th, td { padding: 10px; }
   /* A phone keeps the info icon of a field, so the hint stays behind 1 tap and the page stays short. */
   .field.info > span { grid-template-columns: auto auto; }

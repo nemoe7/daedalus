@@ -88,8 +88,8 @@ def test_page(client: TestClient) -> None:
     "overview",
     "requests",
     "models",
+    "providers",
     "limits",
-    "notifications",
     "settings",
   ):
     assert f'<section data-page="{name}"' in page.text, f"the {name} page"
@@ -289,7 +289,6 @@ const enrich = (node) => Object.assign(node, {
   setAttribute: node.setAttribute || (() => {}),
   removeAttribute: node.removeAttribute || (() => {}),
   focus: node.focus || (() => {}),
-  append: node.append || (() => {}),
 });
 for (const node of byId.values()) enrich(node);
 const getElement = sandbox.document.getElementById;
@@ -353,7 +352,6 @@ const enrich = (node) => Object.assign(node, {
   setAttribute: node.setAttribute || (() => {}),
   removeAttribute: node.removeAttribute || (() => {}),
   focus: node.focus || (() => {}),
-  append: node.append || (() => {}),
 });
 for (const node of byId.values()) enrich(node);
 const getElement = sandbox.document.getElementById;
@@ -1021,10 +1019,8 @@ def test_phone_panels_clear_the_last_row() -> None:
   assert ".panel { padding-bottom: 8px; }" in mobile, "the panel edge clears"
 
 
-def test_the_header_keeps_six_tabs_and_providers_rides_in_settings(
-  client: TestClient,
-) -> None:
-  """The header shows 6 tabs in the chosen order, and Providers is a Settings section."""
+def test_the_header_puts_providers_before_settings(client: TestClient) -> None:
+  """The header shows 7 tabs in order, with Providers just before Settings."""
   page = client.get("/")
   nav = page.text[
     page.text.index('<nav class="tabs" id="nav">') : page.text.index("</nav>")
@@ -1035,20 +1031,14 @@ def test_the_header_keeps_six_tabs_and_providers_rides_in_settings(
     "models",
     "limits",
     "notifications",
+    "providers",
     "settings",
   ]
-  assert '<section data-page="providers"' not in page.text, (
-    "the providers page moves into Settings"
-  )
   app = client.get("/ui/app.js").text
   assert (
-    'const PAGES = ["overview", "requests", "models", "limits", "notifications", "settings"];'
-    in app
-  )
-  assert (
-    '[["providers", "Providers"], ["keys", "API Keys"], ["yaml", "YAML"]]' in app
-  ), "Providers is a new section of the Settings rail"
-  assert 'asked === "providers"' in app, "the #/providers deep link opens the section"
+    'const PAGES = ["overview", "requests", "models", "limits",'
+    ' "notifications", "providers", "settings"];'
+  ) in app
 
 
 def test_the_model_rows_light_up_on_hover() -> None:
@@ -1069,9 +1059,10 @@ def test_a_card_closes_on_the_room_of_its_rows() -> None:
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
   ).read_text(encoding="utf-8")
-  assert ('section[data-page="settings"] .card { padding-bottom: 10px; }') in css, (
-    "the last row of a card keeps the room of a row at the bottom edge"
-  )
+  assert (
+    'section[data-page="settings"] .card,\n'
+    'section[data-page="providers"] .card { padding-bottom: 10px; }'
+  ) in css, "the last row of a card keeps the room of a row at the bottom edge"
 
 
 def test_keys_page_holds_its_labels_on_one_line() -> None:
@@ -1724,9 +1715,9 @@ def test_the_settings_sections_carry_a_rule() -> None:
     "the group reads as Load Distribution"
   )
   assert "<h3>API Keys</h3>" in app, "the keys card is title case"
-  assert (
-    '[["providers", "Providers"], ["keys", "API Keys"], ["yaml", "YAML"]]' in app
-  ), "the providers section rides before the keys"
+  assert '[["keys", "API Keys"], ["yaml", "YAML"]]' in app, (
+    "the keys section is title case"
+  )
 
 
 def test_the_providers_back_keeps_its_slide() -> None:
@@ -1736,7 +1727,9 @@ def test_the_providers_back_keeps_its_slide() -> None:
   body = app[
     app.index("function showPage()") : app.index('window.addEventListener("hashchange"')
   ]
-  render = body.index('if (state.view === "form" && (asked === "providers"')
+  render = body.index(
+    'if (page === "providers" && state.view === "form") renderForm();'
+  )
   pick = body.index("applySectionHash();")
   assert render < pick, "the form renders before the section pick"
   assert "slideAgain();" in body[pick:], (
@@ -2213,7 +2206,7 @@ def test_pages_not_nested(client: TestClient) -> None:
         self.depth -= 1
 
   Sections().feed(client.get("/").text)
-  assert len(found) == 6 and all(depth == 0 for _, depth in found), found
+  assert len(found) == 7 and all(depth == 0 for _, depth in found), found
 
 
 def test_login_form(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -4259,10 +4252,7 @@ def test_the_yaml_editor_ends_each_list_and_saves_itself() -> None:
   for needle in (
     "function yamlCard(editor, save, hint) {",
     'const items = names.map((name) => [name, name]).concat([["yaml", "YAML"]]);',
-    (
-      "const items = groups.map(([group, title]) => [group, title]).concat("
-      '[["providers", "Providers"], ["keys", "API Keys"], ["yaml", "YAML"]]);'
-    ),
+    'const items = groups.map(([group, title]) => [group, title]).concat([["keys", "API Keys"], ["yaml", "YAML"]]);',
     'if (event.target.closest("#yaml-save")) return saveYaml();',
     'if (event.target.closest("#settings-yaml-save")) saveSettings();',
     'const typed = state.view === "yaml" ? $("editor")?.value : undefined;',
