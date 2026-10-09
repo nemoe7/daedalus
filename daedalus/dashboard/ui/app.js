@@ -1016,27 +1016,44 @@ function reasoningCell(m) {
 }
 const yesNo = (on) => (on ? '<span class="yes">Yes</span>' : '<span class="muted">No</span>');
 
-// The modal of 1 model: every fact of its row, the supported efforts included.
+// The modal of 1 model: a card that leads with the model, its developer and its provider.
+// The capabilities read as lucide icon chips, the limits as stats, the efforts as chips.
 function openModelModal(m) {
-  const facts = [
-    ["Provider", m.provider || ""],
-    ["Slug", m.slug || ""],
-    ["Mode", m.mode || "chat"],
-    ["Tier", m.tier || ""],
-    ["Order", m.order ?? ""],
-    ["Input limit", m.max_input_tokens ? `${m.max_input_tokens.toLocaleString()} tokens` : ""],
-    ["Output limit", m.max_output_tokens ? `${m.max_output_tokens.toLocaleString()} tokens` : ""],
-    ["Tools", m.mode === "chat" ? (m.tools ? "Yes" : "No") : ""],
-    ["Reasoning", m.mode === "chat" ? (m.reasoning ? "Yes" : "No") : ""],
-    ["Default effort", m.reasoning && m.effort ? (EFFORTS[m.effort] || m.effort) : ""],
-    ["Weight", m.weight == null ? "" : m.weight.toFixed(2)],
-  ];
-  const body = facts.filter(([, value]) => value !== "").map(([label, value]) =>
-    `<dt>${esc(label)}</dt><dd>${esc(String(value))}</dd>`).join("");
+  const { provider, dev, model } = parts(m.id);
+  $("model-modal-title").innerHTML =
+    `${mark(provider)}<span class="name">${esc(model || m.slug || m.id)}</span>`;
+  // A lobe mark rides beside a part that owns one; a part without a file keeps plain text.
+  const markImg = (name) => (MARK_FILES.has(name) ? mark(name) : "");
+  const identity = [
+    ["Model", model || m.slug || m.id, ""],
+    ...(dev ? [["Developer", dev, markImg(dev)]] : []),
+    ["Provider", provider, markImg(provider)],
+  ].map(([label, value, icon]) =>
+    `<div class="id-row"><span class="label">${esc(label)}</span>${icon}<span class="value">${esc(value)}</span></div>`)
+    .join("");
+  const chips = [
+    typeChips(m),
+    m.tier ? `<span class="chip flag" title="Tier">Tier ${esc(tierLetter(m.tier))}</span>` : "",
+    m.order ? `<span class="chip flag" title="Order">Order ${m.order}</span>` : "",
+    m.mode === "chat" && m.tools
+      ? `<span class="chip flag" title="Tools">${CHIP_ICONS.tools}</span>` : "",
+    m.mode === "chat" && m.reasoning ? reasoningCell(m) : "",
+    m.cooldown && m.cooldown > Date.now() / 1000
+      ? `<span class="chip flag" title="Cooldown">${CHIP_ICONS.cool}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
+      : "",
+  ].join("");
+  const stats = [
+    m.max_input_tokens ? [m.max_input_tokens.toLocaleString(), "input tokens"] : null,
+    m.max_output_tokens ? [m.max_output_tokens.toLocaleString(), "output tokens"] : null,
+    m.weight != null ? [m.weight.toFixed(2), "weight", weightBar(m.weight)] : null,
+  ].filter(Boolean).map(([value, label, bar]) =>
+    `<div class="stat"><span class="num">${esc(value)}</span><span class="label">${esc(label)}</span>${bar || ""}</div>`)
+    .join("");
   const efforts = (m.efforts || []).map((name) =>
     `<span class="chip flag effort${name in EFFORTS ? ` e-${name}` : ""}">${esc(EFFORTS[name] || name)}</span>`).join("");
-  $("model-modal-title").textContent = m.id;
-  $("model-modal-body").innerHTML = `<dl class="model-detail">${body}</dl>`
+  $("model-modal-body").innerHTML = `<div class="model-id">${identity}</div>`
+    + (chips ? `<div class="model-chips">${chips}</div>` : "")
+    + (stats ? `<div class="model-stats">${stats}</div>` : "")
     + (efforts ? `<h4>Supported efforts</h4><div class="pills">${efforts}</div>` : "");
   $("model-modal").showModal();
 }

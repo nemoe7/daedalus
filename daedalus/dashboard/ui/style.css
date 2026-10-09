@@ -332,12 +332,23 @@ a.more:hover { color: var(--accent); }
 .modal-field { display: block; }
 .modal-field input { width: 100%; box-sizing: border-box; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
-/* The modal of 1 model: the facts of its row in 2 columns, and the efforts as chips. A row
-   click opens it, on a wide screen and on a phone card alike. */
+/* The modal of 1 model reads as a card: the name with its mark on top, the identity block
+   under it, then the icon chips, the stats and the efforts. A row click opens it, on a wide
+   screen and on a phone card alike. */
 .model-modal { max-width: min(560px, calc(100vw - 32px)); }
-.model-detail { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 12px 0 0; }
-.model-detail dt { color: var(--muted); }
-.model-detail dd { min-width: 0; overflow-wrap: anywhere; }
+.model-modal h3 { display: flex; align-items: center; gap: 10px; }
+.model-modal h3 .mark { width: 22px; height: 22px; }
+.model-modal h3 .name { font-family: var(--mono); overflow-wrap: anywhere; }
+.model-id { display: grid; gap: 4px; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--field); }
+.model-id .id-row { display: flex; align-items: center; gap: 10px; }
+.model-id .label { flex: 0 0 72px; color: var(--muted); font-size: 12px; }
+.model-id .mark { width: 16px; height: 16px; }
+.model-id .value { min-width: 0; font-family: var(--mono); overflow-wrap: anywhere; }
+.model-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.model-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 12px; }
+.model-stats .stat { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); }
+.model-stats .num { font-size: 16px; }
+.model-stats .label { color: var(--muted); font-size: 11px; }
 .model-modal h4 { margin: 14px 0 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
 .models tbody tr { cursor: pointer; }
 .modal .primary.danger { background: var(--bad); }

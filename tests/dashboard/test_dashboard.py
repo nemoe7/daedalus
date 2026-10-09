@@ -4097,6 +4097,31 @@ def test_the_notice_leaves_on_its_own_keyframes() -> None:
   ), "the note hides only when its own leave played out"
 
 
+def test_the_model_modal_reads_as_a_card() -> None:
+  """The model modal leads with the identity, and the capabilities ride as icon chips."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert '<dl class="model-detail">' not in app, "the table dump is gone"
+  assert "const { provider, dev, model } = parts(m.id);" in app, (
+    "the card splits the id into its parts"
+  )
+  assert '["Model", model || m.slug || m.id' in app, "the model leads"
+  assert '["Developer", dev, markImg(dev)]' in app, "the developer rides when present"
+  assert '["Provider", provider,' in app, "the provider closes the identity"
+  assert 'const markImg = (name) => (MARK_FILES.has(name) ? mark(name) : "");' in app, (
+    "the lobe marks ride beside the parts that own one"
+  )
+  assert "typeChips(m)," in app and "CHIP_ICONS.tools" in app, (
+    "the capabilities read as icon chips"
+  )
+  assert "weightBar(m.weight)" in app, "the weight draws its bar"
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert ".model-detail" not in css, "the dump rule is gone"
+  assert ".model-id {" in css and ".model-stats {" in css and ".model-chips {" in css, (
+    "the card keeps its blocks"
+  )
+
+
 def test_the_providers_page_folds_the_long_groups() -> None:
   """Tiers, Model overrides and Provider values start closed, so a card stays short."""
   root = Path(__file__).resolve().parent.parent.parent
