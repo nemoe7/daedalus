@@ -61,19 +61,30 @@ def due(now: float) -> bool:
   return built is None or built < mark
 
 
-def _record(before: dict[str, str], reason: str) -> None:
-  """Write the event of a finished rebuild, with the rows it added, removed and moved."""
+def _record(before: dict[str, dict], reason: str) -> None:
+  """Write the event of a finished rebuild, with the rows it added, removed and moved.
+
+  Each moved row names every move it made: "p/one: tier TIER-A->TIER-B, rpm 10->20".
+  """
   from daedalus import catalog
 
-  after = store.row_hashes()
+  after = store.rows_by_id()
+  changed = []
+  for model in sorted(set(before) & set(after)):
+    if before[model] == after[model]:
+      continue
+    moves = [
+      f"{key} {before[model][key]}->{after[model][key]}"
+      for key in store.COLUMNS
+      if before[model][key] != after[model][key]
+    ]
+    changed.append(f"{model}: {', '.join(moves)}")
   store.record_rebuild(
     reason=reason,
     models=len(after),
     added=sorted(set(after) - set(before)),
     removed=sorted(set(before) - set(after)),
-    changed=sorted(
-      model for model in set(before) & set(after) if before[model] != after[model]
-    ),
+    changed=changed,
     failed=list(catalog.LAST_FAILED),
   )
 
@@ -84,7 +95,7 @@ async def rebuild(refresh: Callable[[], object], reason: str) -> None:
   BUSY = True
   logger.info("catalog rebuild: %s", reason)
   try:
-    before = store.row_hashes()
+    before = store.rows_by_id()
     await asyncio.to_thread(refresh)
     _record(before, reason)
   finally:

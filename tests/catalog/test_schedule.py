@@ -203,4 +203,6 @@ def test_rebuild_records_the_changed_row() -> None:
   events = store.recent_rebuilds()
   assert events[0]["reason"] == "scheduled"
   assert events[0]["added"] == [] and events[0]["removed"] == []
-  assert events[0]["changed"] == ["p/one"]
+  assert events[0]["changed"] == [
+    "p/one: supported_efforts [low, medium]->[low, medium, high]"
+  ], "the change names the row and every move it made"
