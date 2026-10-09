@@ -81,7 +81,7 @@ def test_repo_name() -> None:
 def test_a_source_writes_its_files(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The archive of the ref lands in the folder, and only the `.py` files under the path."""
+  """The archive lands under owner/name, and only the `.py` files under the path."""
   pages = {
     API: json.dumps({"sha": COMMIT}).encode(),
     ARCHIVE: tar(
@@ -96,18 +96,19 @@ def test_a_source_writes_its_files(
   }
   answers(monkeypatch, pages)
   moved = remote.update([source()], tmp_path, tmp_path / "hooks.lock.json")
-  assert moved == ["one.py", "two.py"]
-  assert (tmp_path / "one.py").read_text(encoding="utf-8") == block()
-  assert not (tmp_path / "three.py").exists()
-  assert not (tmp_path / "notes.md").exists()
-  assert not (tmp_path / "four.py").exists()
+  assert moved == ["owner/name/one.py", "owner/name/two.py"]
+  assert (tmp_path / "owner/name/one.py").read_text(encoding="utf-8") == block()
+  assert not (tmp_path / "owner/name/three.py").exists()
+  assert not (tmp_path / "owner/name/notes.md").exists()
+  assert not (tmp_path / "owner/name/four.py").exists()
+  assert list(tmp_path.glob("*.py")) == [], "a fetched file lands under the repo alone"
   assert list(tmp_path.glob(".*")) == [], "no half file stays"
 
 
 def test_the_lock_records_the_source(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The lock holds the sha256, the version, the repo and the commit of each file."""
+  """The lock keys an identity owner/repo/file.py, and holds its sha256, version, repo and commit."""
   body = block()
   pages = {
     API: json.dumps({"sha": COMMIT}).encode(),
@@ -117,7 +118,7 @@ def test_the_lock_records_the_source(
   lock = tmp_path / "hooks.lock.json"
   remote.update([source()], tmp_path, lock)
   assert remote.read_records(lock) == {
-    "one.py": {
+    "owner/name/one.py": {
       "sha256": remote.digest(body.encode("utf-8")),
       "version": "1.2.0",
       "repo": "owner/name",
@@ -143,9 +144,9 @@ def test_a_bad_block_stays_out(
   answers(monkeypatch, pages)
   with caplog.at_level("WARNING"):
     moved = remote.update([source()], tmp_path, tmp_path / "hooks.lock.json")
-  assert moved == ["good.py"]
-  assert not (tmp_path / "later.py").exists()
-  assert not (tmp_path / "new.py").exists()
+  assert moved == ["owner/name/good.py"]
+  assert not (tmp_path / "owner/name/later.py").exists()
+  assert not (tmp_path / "owner/name/new.py").exists()
   assert "later.py" in caplog.text
   assert "new.py" in caplog.text
 
@@ -164,8 +165,8 @@ def test_no_block_still_installs(
   lock = tmp_path / "hooks.lock.json"
   with caplog.at_level("WARNING"):
     moved = remote.update([source()], tmp_path, lock)
-  assert moved == ["plain.py"]
-  assert remote.read_records(lock)["plain.py"]["version"] == ""
+  assert moved == ["owner/name/plain.py"]
+  assert remote.read_records(lock)["owner/name/plain.py"]["version"] == ""
   assert "frontmatter" in caplog.text
 
 
@@ -180,14 +181,15 @@ def test_a_failed_ref_keeps_the_files(
     "commit": "c" * 40,
   }
   lock = tmp_path / "hooks.lock.json"
-  (tmp_path / "one.py").write_text(block(), encoding="utf-8")
-  remote.write_records({"one.py": kept}, lock)
+  (tmp_path / "owner/name/one.py").parent.mkdir(parents=True)
+  (tmp_path / "owner/name/one.py").write_text(block(), encoding="utf-8")
+  remote.write_records({"owner/name/one.py": kept}, lock)
   before = lock.read_text(encoding="utf-8")
   answers(monkeypatch, {})
   assert remote.update([source()], tmp_path, lock) == []
-  assert (tmp_path / "one.py").read_text(encoding="utf-8") == block()
+  assert (tmp_path / "owner/name/one.py").read_text(encoding="utf-8") == block()
   assert lock.read_text(encoding="utf-8") == before
-  assert remote.read_records(lock)["one.py"] == kept
+  assert remote.read_records(lock)["owner/name/one.py"] == kept
 
 
 def test_a_bad_archive_keeps_the_files(
@@ -195,10 +197,11 @@ def test_a_bad_archive_keeps_the_files(
 ) -> None:
   """An archive that does not read writes nothing, and the file and the record stay."""
   lock = tmp_path / "hooks.lock.json"
-  (tmp_path / "one.py").write_text(block(), encoding="utf-8")
+  (tmp_path / "owner/name/one.py").parent.mkdir(parents=True)
+  (tmp_path / "owner/name/one.py").write_text(block(), encoding="utf-8")
   remote.write_records(
     {
-      "one.py": {
+      "owner/name/one.py": {
         "sha256": "b" * 64,
         "version": "1.0.0",
         "repo": "owner/name",
@@ -211,8 +214,34 @@ def test_a_bad_archive_keeps_the_files(
   pages = {API: json.dumps({"sha": COMMIT}).encode(), ARCHIVE: b"not a tar"}
   answers(monkeypatch, pages)
   assert remote.update([source()], tmp_path, lock) == []
-  assert (tmp_path / "one.py").read_text(encoding="utf-8") == block()
+  assert (tmp_path / "owner/name/one.py").read_text(encoding="utf-8") == block()
   assert lock.read_text(encoding="utf-8") == before
+
+
+def test_a_moved_install_leaves_no_flat_copy(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A legacy flat install moves under owner/name when the source writes again."""
+  legacy = {
+    "sha256": "b" * 64,
+    "version": "1.0.0",
+    "repo": "owner/name",
+    "commit": "c" * 40,
+  }
+  lock = tmp_path / "hooks.lock.json"
+  (tmp_path / "one.py").write_text(block(), encoding="utf-8")
+  remote.write_records({"one.py": legacy}, lock)
+  pages = {
+    API: json.dumps({"sha": COMMIT}).encode(),
+    ARCHIVE: tar({"hooks/one.py": block()}),
+  }
+  answers(monkeypatch, pages)
+  moved = remote.update([source()], tmp_path, lock)
+  assert moved == ["owner/name/one.py"]
+  assert (tmp_path / "owner/name/one.py").is_file()
+  assert not (tmp_path / "one.py").exists(), "the flat copy moved, it did not fork"
+  found = remote.read_records(lock)
+  assert list(found) == ["owner/name/one.py"]
 
 
 def test_only_missing_skips_a_complete_source(
@@ -242,9 +271,11 @@ def test_only_missing_fetches_a_missing_file(
   calls = answers(monkeypatch, pages)
   lock = tmp_path / "hooks.lock.json"
   remote.update([source()], tmp_path, lock)
-  (tmp_path / "one.py").unlink()
+  (tmp_path / "owner/name/one.py").unlink()
   calls.clear()
-  assert remote.update([source()], tmp_path, lock, only_missing=True) == ["one.py"]
+  assert remote.update([source()], tmp_path, lock, only_missing=True) == [
+    "owner/name/one.py"
+  ]
   assert calls == [API, ARCHIVE]
 
 
@@ -285,11 +316,13 @@ def test_a_file_that_leaves_the_repo_stays_pinned(
     {"hooks/one.py": block()}
   )
   assert remote.update([source()], tmp_path, lock) == []
-  assert (tmp_path / "two.py").exists(), "the file stays on disk"
+  assert (tmp_path / "owner/name/two.py").exists(), "the file stays on disk"
   found = remote.read_records(lock)
-  assert found["two.py"]["repo"] == "owner/name"
-  assert found["two.py"]["commit"] == COMMIT, "the record keeps its own commit"
-  assert found["one.py"]["commit"] == second
+  assert found["owner/name/two.py"]["repo"] == "owner/name"
+  assert found["owner/name/two.py"]["commit"] == COMMIT, (
+    "the record keeps its own commit"
+  )
+  assert found["owner/name/one.py"]["commit"] == second
 
 
 def test_other_sources_stay_in_the_lock(
@@ -303,7 +336,7 @@ def test_other_sources_stay_in_the_lock(
     "repo": "other/repo",
     "commit": "c" * 40,
   }
-  remote.write_records({"mine.py": mine}, lock)
+  remote.write_records({"other/repo/mine.py": mine}, lock)
   pages = {
     API: json.dumps({"sha": COMMIT}).encode(),
     ARCHIVE: tar({"hooks/one.py": block()}),
@@ -311,8 +344,8 @@ def test_other_sources_stay_in_the_lock(
   answers(monkeypatch, pages)
   remote.update([source()], tmp_path, lock)
   found = remote.read_records(lock)
-  assert found["mine.py"] == mine
-  assert found["one.py"]["commit"] == COMMIT
+  assert found["other/repo/mine.py"] == mine
+  assert found["owner/name/one.py"]["commit"] == COMMIT
 
 
 def test_records_round_trip(tmp_path: Path) -> None:
@@ -331,33 +364,40 @@ def test_records_round_trip(tmp_path: Path) -> None:
 
 
 def test_on_disk_skips_a_temporary_name(tmp_path: Path) -> None:
-  """`on_disk` holds the sha256 of each file, and a name that starts with a dot stays out."""
+  """`on_disk` keys a flat file by name and a nested one by identity, and skips dot names."""
   (tmp_path / "one.py").write_bytes(b"body\n")
   (tmp_path / ".one.py.part").write_bytes(b"half")
-  assert remote.on_disk(tmp_path) == {"one.py": remote.digest(b"body\n")}
+  (tmp_path / "owner/name").mkdir(parents=True)
+  (tmp_path / "owner/name/two.py").write_bytes(b"more\n")
+  (tmp_path / "owner/name/.two.py.part").write_bytes(b"half")
+  assert remote.on_disk(tmp_path) == {
+    "one.py": remote.digest(b"body\n"),
+    "owner/name/two.py": remote.digest(b"more\n"),
+  }
   assert remote.on_disk(tmp_path / "gone") == {}
 
 
 def test_update_takes_the_named_files(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """A take list writes those names alone, and the other files of the archive stay out."""
+  """A take list writes those identities alone, and the other files of the archive stay out."""
   pages = {
     API: json.dumps({"sha": COMMIT}).encode(),
     ARCHIVE: tar({"hooks/one.py": block(), "hooks/two.py": block(name="two")}),
   }
   answers(monkeypatch, pages)
   lock = tmp_path / "hooks.lock.json"
-  moved = remote.update([source()], tmp_path, lock, take=["one.py"])
-  assert moved == ["one.py"]
-  assert (tmp_path / "one.py").is_file() and not (tmp_path / "two.py").exists()
-  assert list(remote.read_records(lock)) == ["one.py"]
+  moved = remote.update([source()], tmp_path, lock, take=["owner/name/one.py"])
+  assert moved == ["owner/name/one.py"]
+  assert (tmp_path / "owner/name/one.py").is_file()
+  assert not (tmp_path / "owner/name/two.py").exists()
+  assert list(remote.read_records(lock)) == ["owner/name/one.py"]
 
 
 def test_scan_names_the_files_of_a_source(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The scan answers with the frontmatter of each file and writes nothing."""
+  """The scan answers with the frontmatter of each file, under its identity, and writes nothing."""
   pages = {
     API: json.dumps({"sha": COMMIT}).encode(),
     ARCHIVE: tar(
@@ -375,9 +415,13 @@ def test_scan_names_the_files_of_a_source(
   assert found["path"] == "hooks" and found["ref"] == "main"
   assert found["commit"] == COMMIT
   rows = {row["name"]: row for row in found["files"]}
-  assert sorted(rows) == ["bad.py", "one.py", "two.py"]
-  assert rows["one.py"] == {
-    "name": "one.py",
+  assert sorted(rows) == [
+    "owner/name/bad.py",
+    "owner/name/one.py",
+    "owner/name/two.py",
+  ]
+  assert rows["owner/name/one.py"] == {
+    "name": "owner/name/one.py",
     "version": "1.2.0",
     "scope": "global",
     "targets": [],
@@ -385,7 +429,7 @@ def test_scan_names_the_files_of_a_source(
     "problem": "",
     "sha256": remote.digest(block().encode()),
   }
-  assert "on-later" in rows["bad.py"]["problem"]
+  assert "on-later" in rows["owner/name/bad.py"]["problem"]
   assert calls == [API, ARCHIVE]
   assert not list(tmp_path.iterdir()), "a scan writes nothing"
 
@@ -432,7 +476,7 @@ def test_a_report_names_an_archive_without_the_folder(
 def test_a_report_names_a_refused_file(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """A file whose block the reader refuses names its problem in the report."""
+  """A file whose block the reader refuses names its identity and its problem in the report."""
   pages = {
     API: json.dumps({"sha": COMMIT}).encode(),
     ARCHIVE: tar({"hooks/one.py": "# ---\n# bogus: 1\n# ---\n"}),
@@ -443,7 +487,9 @@ def test_a_report_names_a_refused_file(
     remote.update([source()], tmp_path, tmp_path / "hooks.lock.json", report=report)
     == []
   )
-  assert any("one.py" in line and "unknown frontmatter key" in line for line in report)
+  assert any(
+    "owner/name/one.py" in line and "unknown frontmatter key" in line for line in report
+  )
 
 
 def test_a_report_names_a_source_that_is_not_a_map(
@@ -474,15 +520,15 @@ def test_the_base_example_never_installs(
   answers(monkeypatch, pages)
   lock = tmp_path / "hooks.lock.json"
   moved = remote.update([source(repo="nemoe7/daedalus")], tmp_path, lock)
-  assert moved == ["one.py"]
-  assert not (tmp_path / "example.py").exists()
-  assert list(remote.read_records(lock)) == ["one.py"]
+  assert moved == ["nemoe7/daedalus/one.py"]
+  assert not (tmp_path / "nemoe7/daedalus/example.py").exists()
+  assert list(remote.read_records(lock)) == ["nemoe7/daedalus/one.py"]
   pages = {
     API: json.dumps({"sha": COMMIT}).encode(),
     ARCHIVE: tar({"hooks/example.py": block(name="example")}),
   }
   answers(monkeypatch, pages)
-  assert remote.update([source()], tmp_path, lock) == ["example.py"]
+  assert remote.update([source()], tmp_path, lock) == ["owner/name/example.py"]
 
 
 def test_the_lock_lives_in_the_hooks_folder(
@@ -502,7 +548,8 @@ def test_the_lock_lives_in_the_hooks_folder(
     "the lock rides in the hooks folder"
   )
   assert not (tmp_path / "hooks.lock.json").exists(), "no lock litters the start folder"
-  assert remote.read_records()["one.py"]["repo"] == "owner/name"
+  assert (tmp_path / "hooks" / "owner" / "name" / "one.py").is_file()
+  assert remote.read_records()["owner/name/one.py"]["repo"] == "owner/name"
 
 
 def test_the_report_never_carries_exception_text(

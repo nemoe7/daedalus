@@ -2941,20 +2941,24 @@ def test_hook_scan_and_take(
   assert found.status_code == 200, found.text
   answer = found.json()
   assert answer["repo"] == "owner/name" and answer["commit"] == commit
-  assert [row["name"] for row in answer["files"]] == ["picked.py", "scanned.py"]
+  assert [row["name"] for row in answer["files"]] == [
+    "owner/name/picked.py",
+    "owner/name/scanned.py",
+  ]
   assert {row["name"]: row["version"] for row in answer["files"]}[
-    "scanned.py"
+    "owner/name/scanned.py"
   ] == "1.2.0"
   root = hooks.ROOT / "hooks"
-  assert not (root / "scanned.py").exists(), "a scan writes nothing"
+  assert not (root / "owner/name/scanned.py").exists(), "a scan writes nothing"
   bad = client.post("/ui/api/hooks/scan", json={"repo": "owner/other"})
   assert bad.status_code == 400, bad.text
   take = client.post(
-    "/ui/api/hooks/update", json={"source": body, "take": ["picked.py"]}
+    "/ui/api/hooks/update", json={"source": body, "take": ["owner/name/picked.py"]}
   )
   assert take.status_code == 200, take.text
-  assert take.json()["moved"] == ["picked.py"], take.text
-  assert (root / "picked.py").is_file() and not (root / "scanned.py").exists()
+  assert take.json()["moved"] == ["owner/name/picked.py"], take.text
+  assert (root / "owner/name/picked.py").is_file()
+  assert not (root / "owner/name/scanned.py").exists()
 
 
 def test_files(

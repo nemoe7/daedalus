@@ -253,6 +253,26 @@ def enabled(path: Path) -> bool:
   return path.name not in DISABLED and path.stem not in DISABLED
 
 
+def file_rows() -> list[tuple[str, Path]]:
+  """The `.py` files of the folder in name order, each with its identity.
+
+  A flat file carries its name. A nested install carries owner/repo/file.py.
+  A part that starts with a dot stays out: the writer of a download uses such a name.
+  """
+  root = folder()
+  if not root.is_dir():
+    return []
+  found: list[tuple[str, Path]] = []
+  for path in sorted(root.rglob("*.py")):
+    if not path.is_file():
+      continue
+    rel = path.relative_to(root).as_posix()
+    if any(part.startswith(".") for part in rel.split("/")):
+      continue
+    found.append((rel, path))
+  return found
+
+
 def rows(named: dict[str, Any] | None = None) -> list[dict[str, Any]]:
   """1 row per hook file: the state, the frontmatter and the surfaces that the settings name it at.
 
@@ -266,7 +286,7 @@ def rows(named: dict[str, Any] | None = None) -> list[dict[str, Any]]:
       name = str(item).split("/")[-1]
       if name.endswith(".py") and surface not in wired.setdefault(name, []):
         wired[name].append(surface)
-  for path in sorted(folder().glob("*.py")):
+  for rel, path in file_rows():
     info, problem = meta_file(path)
     gate = (
       [str(surface) for surface in info["surfaces"]]
@@ -274,8 +294,8 @@ def rows(named: dict[str, Any] | None = None) -> list[dict[str, Any]]:
       else []
     )
     row = {
-      "name": path.name,
-      "path": f"{DIR}/{path.name}",
+      "name": rel,
+      "path": f"{DIR}/{rel}",
       "title": str(info.get("title", "")) if info else "",
       "version": str(info.get("version", "")) if info else "",
       "scope": str(info.get("scope", "global")) if info else "",
@@ -297,10 +317,7 @@ def rows(named: dict[str, Any] | None = None) -> list[dict[str, Any]]:
 
 def hook_files() -> list[str]:
   """The names of the hook files in the config folder, as paths for the settings group."""
-  root = ROOT / DIR
-  if not root.is_dir():
-    return []
-  return sorted(f"{DIR}/{path.name}" for path in root.glob("*.py"))
+  return sorted(f"{DIR}/{rel}" for rel, _path in file_rows())
 
 
 def installed_files() -> list[Path]:
@@ -308,14 +325,9 @@ def installed_files() -> list[Path]:
 
   A file without a block stays out: an explicit `hooks` list or a request surface names it.
   """
-  root = ROOT / DIR
-  if not root.is_dir():
-    return []
-  found: list[Path] = []
-  for path in sorted(root.glob("*.py")):
-    if enabled(path) and meta(path) is not None:
-      found.append(path)
-  return found
+  return [
+    path for _rel, path in file_rows() if enabled(path) and meta(path) is not None
+  ]
 
 
 def merge(explicit: list[Path], extra: list[Path]) -> list[Path]:

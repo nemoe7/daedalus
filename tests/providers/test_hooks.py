@@ -410,6 +410,27 @@ def test_hook_folder() -> None:
     hooks.set_installed()
 
 
+def test_a_nested_install_lists_and_loads() -> None:
+  """A fetched install under owner/repo lists by identity and loads with the flat files."""
+  try:
+    hooks.set_installed("nested")
+    scoped(
+      "owner/repo/fetched.py",
+      ANSWER % "fetched",
+      "# ---\n# surfaces: [on-answer]\n# ---\n",
+    )
+    scoped("shipped.py", ANSWER % "shipped", "# ---\n# surfaces: [on-answer]\n# ---\n")
+    found = {row["name"]: row for row in hooks.rows()}
+    assert found["owner/repo/fetched.py"]["path"] == "nested/owner/repo/fetched.py"
+    assert found["shipped.py"]["path"] == "nested/shipped.py", "a flat file stays flat"
+    assert "nested/owner/repo/fetched.py" in hooks.hook_files()
+    names = [path.name for path in hooks.installed_files()]
+    assert "fetched.py" in names and "shipped.py" in names
+    assert hooks.run("on-answer", {}, "other/m", {}).get("by") == ["fetched", "shipped"]
+  finally:
+    hooks.set_installed()
+
+
 def scoped(name: str, body: str, block: str) -> None:
   """Write 1 hook file with a frontmatter block in the hook folder."""
   path = hooks.ROOT / hooks.DIR / name
