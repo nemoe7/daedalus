@@ -503,3 +503,30 @@ def test_the_lock_lives_in_the_hooks_folder(
   )
   assert not (tmp_path / "hooks.lock.json").exists(), "no lock litters the start folder"
   assert remote.read_records()["one.py"]["repo"] == "owner/name"
+
+
+def test_the_report_never_carries_exception_text(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """The report names the step that failed, never the text of the exception."""
+
+  def boom(url: str, **kwargs: object) -> None:
+    raise remote.httpx.ConnectError("SECRET-LOAD")
+
+  monkeypatch.setattr(remote.httpx, "get", boom)
+
+  def refuse(self: Path, data: bytes) -> None:
+    raise OSError("SECRET-WRITE")
+
+  monkeypatch.setattr(Path, "write_bytes", refuse)
+  report: list[str] = []
+  remote.fetch(API, report=report)
+  assert remote.write(tmp_path / "x.py", b"data", report) is False
+  assert remote.archive_files(b"not-a-tar", "hooks", report) is None
+  assert report == [
+    f"{API} did not load",
+    "x.py did not write",
+    "the archive did not read",
+  ]
+  joined = "\n".join(report)
+  assert "SECRET-LOAD" not in joined and "SECRET-WRITE" not in joined

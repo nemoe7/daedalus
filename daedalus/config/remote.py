@@ -67,7 +67,7 @@ def fetch(
   except httpx.HTTPError as exc:
     tell(f"remote hook {url} did not load: {exc}; the last copy stays")
     if report is not None:
-      report.append(f"{url} did not load: {exc}")
+      report.append(f"{url} did not load")
     return None
   return response.content
 
@@ -85,7 +85,7 @@ def write(path: Path, body: bytes, report: list[str] | None = None) -> bool:
   except OSError as exc:
     tell(f"remote hook {path} did not write: {exc}")
     if report is not None:
-      report.append(f"{path.name} did not write: {exc}")
+      report.append(f"{path.name} did not write")
     return False
   return True
 
@@ -174,7 +174,7 @@ def archive_files(
   except (tarfile.TarError, OSError, EOFError) as exc:
     tell(f"hook archive did not read: {exc}; the files on disk stay")
     if report is not None:
-      report.append(f"the archive did not read: {exc}")
+      report.append("the archive did not read")
     return None
   return {name: found[name] for name in sorted(found)}
 
