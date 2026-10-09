@@ -459,6 +459,32 @@ def test_a_report_names_a_source_that_is_not_a_map(
   assert report == ["source 'owner/name' is not an owner/name or a GitHub URL"]
 
 
+def test_the_base_example_never_installs(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """example.py of nemoe7/daedalus stays out, and the same name of another repo lands."""
+  base_api = "https://api.github.com/repos/nemoe7/daedalus/commits/main"
+  base_archive = f"https://codeload.github.com/nemoe7/daedalus/tar.gz/{COMMIT}"
+  pages = {
+    base_api: json.dumps({"sha": COMMIT}).encode(),
+    base_archive: tar(
+      {"hooks/example.py": block(name="example"), "hooks/one.py": block()}
+    ),
+  }
+  answers(monkeypatch, pages)
+  lock = tmp_path / "hooks.lock.json"
+  moved = remote.update([source(repo="nemoe7/daedalus")], tmp_path, lock)
+  assert moved == ["one.py"]
+  assert not (tmp_path / "example.py").exists()
+  assert list(remote.read_records(lock)) == ["one.py"]
+  pages = {
+    API: json.dumps({"sha": COMMIT}).encode(),
+    ARCHIVE: tar({"hooks/example.py": block(name="example")}),
+  }
+  answers(monkeypatch, pages)
+  assert remote.update([source()], tmp_path, lock) == ["example.py"]
+
+
 def test_the_lock_lives_in_the_hooks_folder(
   monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

@@ -241,6 +241,9 @@ def update(
       continue
     fresh: dict[str, dict[str, str]] = {}
     for name, raw in files.items():
+      # The example of the base repo never installs. It ships for copy, not for fetch.
+      if repo == "nemoe7/daedalus" and name == "example.py":
+        continue
       if wanted is not None and name not in wanted:
         continue
       try:
