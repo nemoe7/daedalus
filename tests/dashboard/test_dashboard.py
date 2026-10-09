@@ -2786,6 +2786,31 @@ def test_hook_file_delete(
   assert state["records"] == {}
 
 
+def test_hook_file_delete_with_a_relative_folder(
+  client: TestClient, state_folder: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A relative hooks dir in the settings still deletes the file, as in a server run."""
+  root = state_folder / "hooks"
+  root.mkdir(parents=True, exist_ok=True)
+  (root / "drop.py").write_text(
+    "# ---\n# version: 1.0.0\n# ---\ndef on_answer(a, m):\n  return a\n",
+    encoding="utf-8",
+  )
+  state = {"records": {}}
+  monkeypatch.setattr(remote, "read_records", lambda path=None: state["records"])
+  monkeypatch.setattr(
+    remote,
+    "write_records",
+    lambda records, path=None: state.update(records=dict(records)),
+  )
+  monkeypatch.setattr(hooks, "ROOT", Path("."))
+  monkeypatch.chdir(state_folder)
+  client.post("/ui/api/login", json={"username": "admin", "password": MASTER})
+  found = client.request("DELETE", "/ui/api/hooks/file", json={"name": "hooks/drop.py"})
+  assert found.status_code == 200, found.text
+  assert not (root / "drop.py").exists()
+
+
 def test_a_hook_file_that_stays_answers_a_clear_message(
   client: TestClient, state_folder: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

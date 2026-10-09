@@ -244,8 +244,8 @@ def resolve(value: Any) -> Path | None:
 
 
 def folder() -> Path:
-  """The folder of the hook files of the settings."""
-  return ROOT / DIR
+  """The folder of the hook files of the settings, resolved to an absolute path."""
+  return (ROOT / DIR).resolve()
 
 
 def enabled(path: Path) -> bool:
