@@ -1182,12 +1182,13 @@ def file_routes(
         "The provider name must use lowercase letters, digits and dashes.",
         "invalid_request_error",
       )
-    folder = FILES[0].parent
-    path = (folder / f"{name}.yml").resolve()
-    if not str(path).startswith(str(folder.resolve()) + os.sep):
+    folder = str(FILES[0].parent.resolve())
+    resolved = os.path.realpath(os.path.join(folder, f"{name}.yml"))
+    if not resolved.startswith(folder + os.sep):
       return failure(
         400, "The name must stay in the provider folder.", "invalid_request_error"
       )
+    path = Path(resolved)
     if path in config_files():
       return failure(400, f"{path} exists.", "invalid_request_error")
     text = new_file_text(name)
