@@ -4120,6 +4120,13 @@ def test_the_model_modal_reads_as_a_card() -> None:
   assert ".model-id {" in css and ".model-stats {" in css and ".model-chips {" in css, (
     "the card keeps its blocks"
   )
+  assert "const empty = '<div class=\"track\"></div>';" in app, (
+    "every stat block carries the same track"
+  )
+  assert ".model-stats .track { margin-top: auto; }" in css, (
+    "the bar pins to the floor of its block"
+  )
+  assert "min-height: 64px" not in css, "the blocks take one height by structure"
 
 
 def test_the_providers_page_folds_the_long_groups() -> None:

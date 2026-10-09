@@ -347,6 +347,7 @@ a.more:hover { color: var(--accent); }
 .model-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .model-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 12px; }
 .model-stats .stat { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); }
+.model-stats .track { margin-top: auto; }
 .model-stats .num { font-size: 16px; }
 .model-stats .label { color: var(--muted); font-size: 11px; }
 .model-modal h4 { margin: 14px 0 6px; font-size: 12px; font-weight: 600; color: var(--muted); }

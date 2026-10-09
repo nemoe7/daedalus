@@ -1042,12 +1042,14 @@ function openModelModal(m) {
       ? `<span class="chip flag" title="Cooldown">${CHIP_ICONS.cool}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
       : "",
   ].join("");
+  // Every block carries the same track, so the blocks take one height in every wrap.
+  const empty = '<div class="track"></div>';
   const stats = [
-    m.max_input_tokens ? [m.max_input_tokens.toLocaleString(), "input tokens"] : null,
-    m.max_output_tokens ? [m.max_output_tokens.toLocaleString(), "output tokens"] : null,
+    m.max_input_tokens ? [m.max_input_tokens.toLocaleString(), "input tokens", empty] : null,
+    m.max_output_tokens ? [m.max_output_tokens.toLocaleString(), "output tokens", empty] : null,
     m.weight != null ? [m.weight.toFixed(2), "weight", weightBar(m.weight)] : null,
   ].filter(Boolean).map(([value, label, bar]) =>
-    `<div class="stat"><span class="num">${esc(value)}</span><span class="label">${esc(label)}</span>${bar || ""}</div>`)
+    `<div class="stat"><span class="num">${esc(value)}</span><span class="label">${esc(label)}</span>${bar}</div>`)
     .join("");
   const efforts = (m.efforts || []).map((name) =>
     `<span class="chip flag effort${name in EFFORTS ? ` e-${name}` : ""}">${esc(EFFORTS[name] || name)}</span>`).join("");
