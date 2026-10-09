@@ -4145,6 +4145,9 @@ def test_the_model_modal_reads_as_a_card() -> None:
   assert ".model-modal h3 .name { overflow-wrap: anywhere; }" in css, (
     "the modal name reads in the regular face"
   )
+  assert "width: min(560px, calc(100vw - 32px));" in css, (
+    "the modal keeps one width on every screen"
+  )
   assert ".model-id .value { min-width: 0; overflow-wrap: anywhere; }" in css, (
     "the identity values read in the regular face"
   )
