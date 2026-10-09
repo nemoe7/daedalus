@@ -4127,6 +4127,10 @@ def test_the_model_modal_reads_as_a_card() -> None:
     "the bar pins to the floor of its block"
   )
   assert "min-height: 64px" not in css, "the blocks take one height by structure"
+  assert "grid-template-columns: repeat(3, 1fr);" in css, "the blocks ride one row"
+  assert (
+    "@media (max-width: 479px) { .model-stats { grid-template-columns: 1fr; } }" in css
+  ), "a narrow page folds them to one column, so no wrap leaves an orphan"
 
 
 def test_the_providers_page_folds_the_long_groups() -> None:
