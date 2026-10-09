@@ -17,6 +17,7 @@ import hashlib
 import io
 import json
 import logging
+import os
 import posixpath
 import re
 import tarfile
@@ -210,7 +211,6 @@ def update(
   target = hooks.folder() if folder is None else folder
   lock = target / LOCK if lock_path is None else lock_path
   records = read_records(lock)
-  root = target.resolve()
   moved: list[str] = []
   for entry in entries:
     if not isinstance(entry, Mapping):
@@ -273,27 +273,28 @@ def update(
         continue
       if info is None:
         logger.warning("hook %s/%s has no frontmatter block", repo, name)
-      # Every part passes a basename, so a value with a slash never names 2 parts.
+      # The path normalizes and then passes a prefix check before any write.
       owner, _, leaf = repo.partition("/")
-      here = (
-        target
-        / posixpath.basename(owner)
-        / posixpath.basename(leaf)
-        / posixpath.basename(name)
-      ).resolve()
-      if not here.is_relative_to(root):
+      folder = os.path.realpath(target)
+      here = os.path.realpath(os.path.join(target, owner, leaf, name))
+      if not here.startswith(folder + os.sep):
         tell(f"hook source {repo}: {name} does not land in the install folder")
         if report is not None:
           report.append(f"{repo}/{name} does not land in the install folder")
         continue
-      landed = here.is_file() and here.read_bytes() == raw
-      if not landed and not write(here, raw, report):
+      path = Path(here)
+      landed = path.is_file() and path.read_bytes() == raw
+      if not landed and not write(path, raw, report):
         continue
       # A legacy flat install of this file moves under the repo: no copy stays.
-      legacy = target / posixpath.basename(name)
-      if records.get(name, {}).get("repo") == repo and legacy.is_file():
+      legacy = os.path.realpath(os.path.join(target, name))
+      if (
+        records.get(name, {}).get("repo") == repo
+        and legacy.startswith(folder + os.sep)
+        and os.path.isfile(legacy)
+      ):
         try:
-          legacy.unlink()
+          os.unlink(legacy)
         except OSError:
           pass
         else:
