@@ -1031,13 +1031,19 @@ function openModelModal(m) {
   ].map(([label, value, icon]) =>
     `<div class="id-row"><span class="label">${esc(label)}</span>${icon}<span class="value">${esc(value)}</span></div>`)
     .join("");
+  // The modal chips carry icon and word together, so a chip reads without its title.
+  const flags = (m.flags || []).filter((f) => f !== REDUNDANT[m.mode]).map((f) =>
+    `<span class="chip flag" title="${esc(FLAGS[f] || f)}">${FLAG_ICONS[f] ? `${FLAG_ICONS[f]} ` : ""}${esc(FLAGS[f] || f)}</span>`)
+    .join("");
   const chips = [
-    typeChips(m),
+    `<span class="chip flag mode">${esc(MODES[m.mode] || m.mode)}</span>` + flags,
     m.tier ? `<span class="chip flag" title="Tier">Tier ${esc(tierLetter(m.tier))}</span>` : "",
     m.order ? `<span class="chip flag" title="Order">Order ${m.order}</span>` : "",
     m.mode === "chat" && m.tools
-      ? `<span class="chip flag" title="Tools">${CHIP_ICONS.tools}</span>` : "",
-    m.mode === "chat" && m.reasoning ? reasoningCell(m) : "",
+      ? `<span class="chip flag" title="Tools">${CHIP_ICONS.tools} Tools</span>` : "",
+    m.mode === "chat" && m.reasoning
+      ? `<span class="chip flag" title="Reasoning">${CHIP_ICONS.brain} Reasoning</span>`
+      : "",
     m.cooldown && m.cooldown > Date.now() / 1000
       ? `<span class="chip flag" title="Cooldown">${CHIP_ICONS.cool}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
       : "",

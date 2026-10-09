@@ -4111,9 +4111,20 @@ def test_the_model_modal_reads_as_a_card() -> None:
   assert 'const markImg = (name) => (MARK_FILES.has(name) ? mark(name) : "");' in app, (
     "the lobe marks ride beside the parts that own one"
   )
-  assert "typeChips(m)," in app and "CHIP_ICONS.tools" in app, (
+  assert "CHIP_ICONS.tools" in app and "CHIP_ICONS.brain" in app, (
     "the capabilities read as icon chips"
   )
+  modal = app.split("function openModelModal")[1].split("\nfunction ")[0]
+  assert "${CHIP_ICONS.brain} Reasoning</span>" in modal, (
+    "the reasoning chip draws the brain and the word together"
+  )
+  assert "${CHIP_ICONS.tools} Tools</span>" in modal, (
+    "the tools chip draws the wrench and the word together"
+  )
+  assert '${FLAG_ICONS[f] ? `${FLAG_ICONS[f]} ` : ""}${esc(FLAGS[f] || f)}' in modal, (
+    "the modality chips draw their icon and their label together"
+  )
+  assert "reasoningCell" not in modal, "no bare Yes rides in the modal"
   assert "weightBar(m.weight)" in app, "the weight draws its bar"
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   assert ".model-detail" not in css, "the dump rule is gone"
