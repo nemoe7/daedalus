@@ -1411,13 +1411,15 @@ function hooksNote(text) {
 
 function updateNote(answer) {
   const moved = (answer.hooks || []).filter((hook) => hook.moved);
-  const lines = [];
-  if (moved.length)
-    lines.push(`Moved ${moved.map((hook) => `${hook.name}: ${hookVersion(hook.before)} to ${hookVersion(hook.after)}`).join(", ")}.`);
   // A source that fetched and moved nothing says why, so the note diagnoses itself.
-  for (const line of answer.report || []) lines.push(line);
-  if (!lines.length) return "No file moved.";
-  return lines.join(" ");
+  if (moved.length)
+    return `Moved ${moved.map((hook) => `${hook.name}: ${hookVersion(hook.before)} to ${hookVersion(hook.after)}`).join(", ")}.`;
+  return "No file moved.";
+}
+
+// A failure rides the floating note in the red of the theme, not the line under the card.
+function updateFails(answer) {
+  return (answer.report || []).join(" ");
 }
 
 // The manager of the Hooks card: the folder, the sources, the files that load and the update.
@@ -1508,7 +1510,9 @@ async function takeHooks() {
     await call("settings", { method: "PUT", body: JSON.stringify({ changes: settingsChanges() }) });
     const answer = await call("hooks/update", { method: "POST", body: JSON.stringify({ source, take }) });
     await loadSettings();
-    hooksNote(updateNote(answer));
+    const fails = updateFails(answer);
+    hooksNote(fails ? "" : updateNote(answer));
+    if (fails) showNotice(fails);
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin("The session ended. Log in and take the files again.");
     showWrite("settings", error.message, true);
@@ -1520,7 +1524,9 @@ async function runHooksUpdate() {
   try {
     const answer = await call("hooks/update", { method: "POST" });
     await loadSettings();
-    hooksNote(updateNote(answer));
+    const fails = updateFails(answer);
+    hooksNote(fails ? "" : updateNote(answer));
+    if (fails) showNotice(fails);
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin("The session ended. Log in to update again.");
     hooksNote(error.message);
