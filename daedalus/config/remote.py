@@ -2,12 +2,13 @@
 
 A source of the `hooks.sources` group names a repo, a folder inside it and a ref. `update` reads
 the commit of the ref from the GitHub API, reads the archive of that commit, and writes the `.py`
-files of the folder through a temporary name. A failed fetch keeps the files on disk. The same
-holds for an archive that does not read, a block the reader refuses or a write that fails.
+files under owner/repo/file.py through a temporary name. A flat file stays a shipped copy.
+A failed fetch keeps the files on disk. The same holds for an archive that does not read,
+a block the reader refuses or a write that fails.
 
-The lock `hooks.lock.json` rides in the hooks folder and records the sha256, the version,
-the repo and the commit of each file. `daedalus hooks verify` compares the files on disk
-against that lock.
+The lock `hooks.lock.json` rides in the hooks folder and records, by owner/repo/file.py,
+the sha256, the version, the repo and the commit of each file. `daedalus hooks verify`
+compares the files on disk against that lock.
 """
 
 from __future__ import annotations
@@ -91,18 +92,23 @@ def write(path: Path, body: bytes, report: list[str] | None = None) -> bool:
 
 
 def on_disk(folder: Path | None = None) -> dict[str, str]:
-  """The sha256 of each hook file in the folder, by name, in name order.
+  """The sha256 of each hook file under the folder, by identity, in name order.
 
-  A name that starts with a dot stays out: the writer of a download uses such a name.
+  A flat file carries its name. A fetched install carries owner/repo/file.py.
+  A part that starts with a dot stays out: the writer of a download uses such a name.
   """
   target = hooks.folder() if folder is None else folder
   if not target.is_dir():
     return {}
-  return {
-    path.name: digest(path.read_bytes())
-    for path in sorted(target.iterdir())
-    if path.is_file() and not path.name.startswith(".")
-  }
+  found = {}
+  for path in sorted(target.rglob("*")):
+    if not path.is_file():
+      continue
+    rel = path.relative_to(target).as_posix()
+    if any(part.startswith(".") for part in rel.split("/")):
+      continue
+    found[rel] = digest(path.read_bytes())
+  return found
 
 
 def repo_name(value: Any) -> str | None:
@@ -187,13 +193,13 @@ def update(
   take: Iterable[str] | None = None,
   report: list[str] | None = None,
 ) -> list[str]:
-  """Fetch each source and write its hook files. Return the names whose bytes moved.
+  """Fetch each source and write its hook files. Return the identities whose bytes moved.
 
   `only_missing` is the rule of a start: a source fetches only when 1 of its recorded files is
-  missing from the folder, unless the entry sets `auto_update`. A `take` list writes those names
-  alone, which lets the operator leave a file of the source alone. A failed fetch, an archive that
-  does not read, a block the reader refuses or a write that fails all keep the files on disk and
-  the record that describes them.
+  missing from the folder, unless the entry sets `auto_update`. A `take` list writes those
+  identities alone, which lets the operator leave a file of the source alone. A failed fetch,
+  an archive that does not read, a block the reader refuses or a write that fails all keep the
+  files on disk and the record that describes them.
   """
   wanted = None if take is None else {str(name) for name in take}
   target = hooks.folder() if folder is None else folder
@@ -240,11 +246,13 @@ def update(
         report.append(f"source {repo} held no .py file under {path!r}")
       continue
     fresh: dict[str, dict[str, str]] = {}
+    dropped: set[str] = set()
     for name, raw in files.items():
       # The example of the base repo never installs. It ships for copy, not for fetch.
       if repo == "nemoe7/daedalus" and name == "example.py":
         continue
-      if wanted is not None and name not in wanted:
+      identity = f"{repo}/{name}"
+      if wanted is not None and identity not in wanted:
         continue
       try:
         text = raw.decode("utf-8")
@@ -255,17 +263,28 @@ def update(
       if problem is not None:
         logger.warning("hook %s/%s: %s; the file stays out", repo, name, problem)
         if report is not None:
-          report.append(f"{name}: {problem}")
+          report.append(f"{identity}: {problem}")
         continue
       if info is None:
         logger.warning("hook %s/%s has no frontmatter block", repo, name)
-      here = target / name
-      if not (here.is_file() and here.read_bytes() == raw):
-        if not write(here, raw, report):
-          continue
-        moved.append(name)
+      here = target / repo / name
+      landed = here.is_file() and here.read_bytes() == raw
+      if not landed and not write(here, raw, report):
+        continue
+      # A legacy flat install of this file moves under the repo: no copy stays.
+      legacy = target / name
+      if records.get(name, {}).get("repo") == repo and legacy.is_file():
+        try:
+          legacy.unlink()
+        except OSError:
+          pass
+        else:
+          dropped.add(name)
+          landed = False
+      if not landed:
+        moved.append(identity)
         logger.info("hook source %s wrote %s", repo, here)
-      fresh[name] = {
+      fresh[identity] = {
         "sha256": digest(raw),
         "version": str(info.get("version", "")) if info else "",
         "repo": repo,
@@ -274,7 +293,10 @@ def update(
     kept = {
       name: record
       for name, record in records.items()
-      if record["repo"] == repo and name not in fresh and (target / name).is_file()
+      if record["repo"] == repo
+      and name not in fresh
+      and name not in dropped
+      and (target / name).is_file()
     }
     others = {
       name: record for name, record in records.items() if record["repo"] != repo
@@ -290,7 +312,7 @@ def scan(entry: Any) -> dict[str, Any] | None:
   """Read 1 source and answer with its files, without a write.
 
   The answer names the repo, the folder, the ref, the commit and 1 row per `.py` file of the
-  archive: the name, the frontmatter, the sha256 and the problem of a refused block. A source
+  archive: the identity, the frontmatter, the sha256 and the problem of a refused block. A source
   that GitHub does not answer gives None.
   """
   if not isinstance(entry, Mapping):
@@ -312,12 +334,13 @@ def scan(entry: Any) -> dict[str, Any] | None:
     return None
   rows: list[dict[str, Any]] = []
   for name, raw in sorted(files.items()):
+    identity = f"{repo}/{name}"
     try:
       text = raw.decode("utf-8")
     except UnicodeDecodeError:
       rows.append(
         {
-          "name": name,
+          "name": identity,
           "version": "",
           "scope": "",
           "targets": [],
@@ -330,7 +353,7 @@ def scan(entry: Any) -> dict[str, Any] | None:
     info, problem = meta_check(text)
     rows.append(
       {
-        "name": name,
+        "name": identity,
         "version": str(info.get("version", "")) if info else "",
         "scope": str(info.get("scope", "global")) if info else "",
         "targets": [str(target) for target in info["targets"]]
