@@ -943,23 +943,23 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .requests tr.request > td:nth-child(7), .requests tr.live-row > td:nth-child(7) {
     grid-column: 4; grid-row: 1; justify-content: flex-end;
   }
-  .requests tr.request > td:nth-child(4), .requests tr.live-row > td:nth-child(4) { grid-column: 1 / -1; grid-row: 2; }
-  .requests tr.request > td:nth-child(6), .requests tr.live-row > td:nth-child(6) { grid-column: 1 / -1; grid-row: 3; }
+  .requests tr.request > td:nth-child(4), .requests tr.live-row > td:nth-child(4) { grid-column: 1 / -1; grid-row: 3; }
+  .requests tr.request > td:nth-child(6), .requests tr.live-row > td:nth-child(6) { grid-column: 1 / -1; grid-row: 5; }
   /* The 4 token and time cells read as 2 rows of 2, so a label and its value never touch the
      neighbour. */
-  .requests tr.request > td:nth-child(8), .requests tr.live-row > td:nth-child(8) { grid-column: 1 / 3; grid-row: 4; }
-  .requests tr.request > td:nth-child(9), .requests tr.live-row > td:nth-child(9) { grid-column: 3 / 5; grid-row: 4; }
-  .requests tr.request > td:nth-child(10), .requests tr.live-row > td:nth-child(10) { grid-column: 1 / 3; grid-row: 5; }
-  .requests tr.request > td:nth-child(11), .requests tr.live-row > td:nth-child(11) { grid-column: 3 / 5; grid-row: 5; }
+  .requests tr.request > td:nth-child(8), .requests tr.live-row > td:nth-child(8) { grid-column: 1 / 3; grid-row: 6; }
+  .requests tr.request > td:nth-child(9), .requests tr.live-row > td:nth-child(9) { grid-column: 3 / 5; grid-row: 6; }
+  .requests tr.request > td:nth-child(10), .requests tr.live-row > td:nth-child(10) { grid-column: 1 / 3; grid-row: 7; }
+  .requests tr.request > td:nth-child(11), .requests tr.live-row > td:nth-child(11) { grid-column: 3 / 5; grid-row: 7; }
   .requests tr.request > td.fallbacks-cell, .requests tr.live-row > td.fallbacks-cell {
-    display: block; grid-column: 1 / -1; grid-row: 7;
+    display: block; grid-column: 1 / -1; grid-row: 8;
   }
   .requests tr.request > td.fallbacks-cell.no-details,
   .requests tr.live-row > td.fallbacks-cell.no-details { display: none; }
-  /* Session and effort hold the last row under the 2 token rows: 1 pair per row, so the effort
-     label and value never touch the session value. */
-  .requests tr.request > td:nth-child(3), .requests tr.live-row > td:nth-child(3) { grid-column: 1 / 3; grid-row: 6; }
-  .requests tr.request > td:nth-child(5), .requests tr.live-row > td:nth-child(5) { grid-column: 3 / 5; grid-row: 6; }
+  /* The phone card reads in this order: session, model, served by, effort, the 2 token pairs,
+     then the TTFT and stream pair. The chain details keep the last row. */
+  .requests tr.request > td:nth-child(3), .requests tr.live-row > td:nth-child(3) { grid-column: 1 / -1; grid-row: 2; }
+  .requests tr.request > td:nth-child(5), .requests tr.live-row > td:nth-child(5) { grid-column: 1 / -1; grid-row: 4; }
   .requests .mobile-label { display: inline; flex: none; color: var(--muted); font-size: inherit; }
   .requests .cell-value { flex: 1; min-width: 0; text-align: left; overflow-wrap: anywhere; }
   /* A live card already reads live, so the "just now" adds nothing; the pulse carries it. */
