@@ -335,7 +335,8 @@ a.more:hover { color: var(--accent); }
 /* The modal of 1 model reads as a card: the name with its mark on top, the identity block
    under it, then the icon chips, the stats and the efforts. A row click opens it, on a wide
    screen and on a phone card alike. */
-.model-modal { max-width: min(560px, calc(100vw - 32px)); }
+/* The modal keeps one width on every screen, in place of sizing to its content. */
+.model-modal { width: min(560px, calc(100vw - 32px)); max-width: min(560px, calc(100vw - 32px)); }
 .model-modal h3 { display: flex; align-items: center; gap: 10px; }
 .model-modal h3 .mark { width: 22px; height: 22px; }
 .model-modal h3 .name { overflow-wrap: anywhere; }
