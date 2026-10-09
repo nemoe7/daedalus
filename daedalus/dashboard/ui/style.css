@@ -150,6 +150,10 @@ button.line {
   border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 13px;
 }
 .chip b { color: var(--text); font-weight: 600; }
+/* The lucide glyphs sit on the text line; buttons draw them a touch larger. */
+.chip svg, button svg { vertical-align: -2px; }
+.ghost svg, .add svg, .hint svg { width: 14px; height: 14px; }
+.search-ico { display: inline-flex; color: var(--muted); }
 button.chip { background: transparent; font: inherit; font-size: 13px; cursor: pointer; }
 button.chip:hover:not(:disabled) { border-color: var(--accent); }
 button.chip:disabled { cursor: progress; }

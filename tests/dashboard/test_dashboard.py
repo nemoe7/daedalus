@@ -542,15 +542,16 @@ def test_app_js_type_chips_drop_the_redundant_media_flag() -> None:
   code = _app_js_vm(
     """
 const speech = sandbox.typeChips({ mode: 'audio_speech', flags: ['audio_output'] });
-assert(!speech.includes('Audio out'), speech);
+assert(!speech.includes('title="Audio out"'), speech);
 assert(speech.includes('Speech'), speech);
 const transcription = sandbox.typeChips({ mode: 'audio_transcription', flags: ['audio_input'] });
-assert(!transcription.includes('Audio in'), transcription);
+assert(!transcription.includes('title="Audio in"'), transcription);
 assert(transcription.includes('Transcription'), transcription);
 const chat = sandbox.typeChips({ mode: 'chat', flags: ['vision', 'audio_input', 'audio_output'] });
-assert(chat.includes('Image in') && chat.includes('Audio in') && chat.includes('Audio out'), chat);
+assert(chat.includes('title="Image in"') && chat.includes('title="Audio in"'), chat);
+assert(chat.includes('title="Audio out"'), chat);
 const mixed = sandbox.typeChips({ mode: 'audio_speech', flags: ['vision', 'audio_output'] });
-assert(mixed.includes('Image in') && !mixed.includes('Audio out'), mixed);
+assert(mixed.includes('title="Image in"') && !mixed.includes('title="Audio out"'), mixed);
 """
   )
   subprocess.run(["node", "-e", code], check=True)
@@ -625,7 +626,7 @@ probe.renderModels();
 const html = el('models').innerHTML;
 assert(html.includes('</span><span class="types phone-types">'), 'the chips sit outside the clipped name');
 assert(html.includes('>Chat<'), 'the mode chip shows');
-assert(html.includes('>Image in<'), 'the media chip shows');
+assert(html.includes('title="Image in"'), 'the media chip shows');
 assert(html.includes('<div class="types">'), 'the Type column stays for a desktop');
 assert(html.includes('<span class="cell-value">'), 'the name cell keeps its value span');
 assert(html.includes('class="mark slug"') && html.includes('>p<'), 'a name with no file shows its text');
@@ -2596,9 +2597,13 @@ assert(probe.settingsChanges().hooks.dir === 'mine', 'the folder reaches the pay
 def test_app_js_capability_chip_icons() -> None:
   """The Tools and Reasoning chips carry the 2 icons the note picked, in the chip color."""
   app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  block = app[app.index("const CHIP_ICONS = {") : app.index("function phoneChips")]
-  icons = dict(re.findall(r"(\w+): '(<svg.*?</svg>)'", block, re.DOTALL))
-  assert set(icons) == {"tools", "cool", "brain"}, set(icons)
+  block = app[app.index("const LUCIDE = {") : app.index("const CHIP_ICONS")]
+  glyphs = dict(re.findall(r"(\w+): '(<svg.*?</svg>)'", block, re.DOTALL))
+  icons = {
+    "tools": glyphs["wrench"],
+    "cool": glyphs["snowflake"],
+    "brain": glyphs["brain"],
+  }
   wrench, brain = icons["tools"], icons["brain"]
   assert 'viewBox="0 0 24 24"' in wrench and 'viewBox="0 0 24 24"' in brain, (
     "the lucide glyph box"

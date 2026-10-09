@@ -33,4 +33,21 @@ Each file keeps the name of its origin, except these files:
 
 ## Capability icons
 
-`cap/brain.svg` and `cap/wrench.svg` draw the reasoning and tools chips. They come from `lucide-icons/lucide` at commit `a04f228`. Their license is ISC, appended to `LICENSE`. The app inlines the same paths in `app.js`.
+The chips and small buttons draw lucide glyphs from `cap/`. They come from `lucide-icons/lucide` at commit `a04f228`. Their license is ISC, appended to `LICENSE`. The app inlines the same paths in `app.js` and `index.html`.
+
+| File | Spot |
+| --- | --- |
+| `cap/brain.svg` | The reasoning chip |
+| `cap/wrench.svg` | The tools chip |
+| `cap/snowflake.svg` | The cooldown chip |
+| `cap/image.svg` | The image-in flag chip |
+| `cap/file-text.svg` | The pdf-in flag chip |
+| `cap/mic.svg` | The audio-in flag chip |
+| `cap/volume-2.svg` | The audio-out flag chip |
+| `cap/activity.svg` | The live switch while live |
+| `cap/pause.svg` | The live switch while paused |
+| `cap/rotate-cw.svg` | The retry button of the note |
+| `cap/plus.svg` | The add-a-repo button |
+| `cap/search.svg` | The limits filter box |
+| `cap/info.svg` | The hint button of a field label |
+| `cap/x.svg` | The delete button of a pill or source |
