@@ -276,6 +276,7 @@ def rows(named: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     row = {
       "name": path.name,
       "path": f"{DIR}/{path.name}",
+      "title": str(info.get("title", "")) if info else "",
       "version": str(info.get("version", "")) if info else "",
       "scope": str(info.get("scope", "global")) if info else "",
       "targets": [str(target) for target in info["targets"]]
