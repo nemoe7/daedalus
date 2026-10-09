@@ -308,20 +308,26 @@ function showPassword(on) {
   button.title = label;
 }
 
-// A read failure: 1 line in the page and 1 button to ask again. A later read of the server hides it.
+// A read failure: 1 line in the page and 1 button to ask again. The line stays until the
+// user clears it with the x; the retry asks again but keeps the line in place.
 function showNotice(message) {
   $("notice-text").textContent = message || "The dashboard cannot read the server.";
-  $("notice").hidden = false;
+  const note = $("notice");
+  note.classList.remove("leave");
+  note.hidden = false;
 }
 
 function clearNotice() {
   $("notice").hidden = true;
 }
 
+function closeNotice() {
+  $("notice").classList.add("leave");
+}
+
 async function guarded(task) {
   try {
     await task();
-    clearNotice();
   } catch (error) {
     if (error instanceof LoggedOut) showLogin();
     else {
@@ -3005,8 +3011,17 @@ $("limits-clear").addEventListener("click", () => {
 });
 
 $("notice-retry").addEventListener("click", () => {
-  clearNotice();
   refresh();
+});
+$("notice-close").addEventListener("click", () => {
+  closeNotice();
+});
+// The leave plays out, then hides the note; a new failure interrupts the leave.
+$("notice").addEventListener("animationend", (event) => {
+  if (event.animationName !== "leave") return;
+  const note = $("notice");
+  note.classList.remove("leave");
+  note.hidden = true;
 });
 
 $("requests").addEventListener("click", async (event) => {

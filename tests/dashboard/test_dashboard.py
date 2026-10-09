@@ -3605,19 +3605,28 @@ def test_every_note_of_a_write_is_a_live_region() -> None:
 
 
 def test_a_failed_read_shows_a_line_in_the_page() -> None:
-  """`guarded` shows the failure with a retry button, and a later read hides it."""
+  """`guarded` shows the failure with a retry button. The line stays until the x clears it."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert re.search(
-    r"async function guarded\(task\) \{\n  try \{\n    await task\(\);\n    clearNotice\(\);",
+    r"async function guarded\(task\) \{\n  try \{\n    await task\(\);\n  \} catch \(error\) \{",
     app,
-  ), "a successful read hides the failure line"
+  ), "a good read keeps the failure line"
+  assert "await task();\n    clearNotice();" not in app, (
+    "the failure line only goes on the x, never on a read"
+  )
   assert "showNotice(error.message);\n      console.error(error);" in app, (
     "a failed read shows its message"
   )
   assert '$("notice-retry").addEventListener("click", () => {' in app, (
     "the retry button"
   )
+  assert (
+    '$("notice-retry").addEventListener("click", () => {\n  clearNotice();' not in app
+  ), "the retry asks again but keeps the line in place"
+  assert (
+    '$("notice-close").addEventListener("click", () => {\n  closeNotice();\n});' in app
+  ), "the x clears the line"
   assert "alert(" not in app, "no native dialog is left"
 
 
@@ -3656,7 +3665,8 @@ const row = {
   querySelector: () => control,
 };
 sandbox.document.querySelector = () => null;
-sandbox.document.getElementById = () => ({ closest: () => null });
+sandbox.document.getElementById = () => ({ closest: () => null,
+  classList: { add: () => {}, remove: () => {} } });
 sandbox.document.createElement = () => ({ addEventListener: () => {}, remove: () => {}, setAttribute: () => {} });
 sandbox.__probe.rememberWrite('settings', { settings: true, text: 'a' }, control);
 assert.strictEqual(placed, 'insertBefore true', 'the icon joins the row before its control: ' + placed);
@@ -4057,6 +4067,34 @@ def test_the_notice_takes_the_red_and_wraps() -> None:
   assert "#notice-text { min-width: 0; overflow-wrap: anywhere; }" in css, (
     "a long message wraps in place of a clipped line"
   )
+
+
+def test_the_notice_leaves_on_its_own_keyframes() -> None:
+  """The x clears the line on a leave that mirrors the arrival, then hides the note."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert (
+    "@keyframes leave { from { opacity: 1; transform: none; }"
+    " to { opacity: 0; transform: translateY(8px); } }"
+  ) in css, "the leave plays the arrival backwards"
+  assert (
+    ".notice.leave { animation: leave var(--soft) var(--ease) forwards; }" in css
+  ), "the leave keeps the page tokens of the arrival"
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  close = re.search(r'<button[^>]*id="notice-close"[^>]*>', page)
+  assert close and 'aria-label="Dismiss the notice"' in close.group(0), (
+    "the x reads as a dismiss for a screen reader"
+  )
+  body = page.split('id="notice-close"')[1].split("</button>")[0]
+  assert '<path d="M18 6 6 18" />' in body and '<path d="m6 6 12 12" />' in body, (
+    "the x draws the lucide glyph"
+  )
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert re.search(
+    r'\$\("notice"\)\.addEventListener\("animationend", \(event\) => \{\n'
+    r'  if \(event\.animationName !== "leave"\) return;',
+    app,
+  ), "the note hides only when its own leave played out"
 
 
 def test_the_providers_page_folds_the_long_groups() -> None:
