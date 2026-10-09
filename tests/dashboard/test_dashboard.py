@@ -2684,8 +2684,12 @@ def test_hook_rows_and_update(
   seen: list[object] = []
   monkeypatch.setattr(remote, "read_records", lambda path=None: state["records"])
 
-  def fake_update(entries, folder=None, lock_path=None, only_missing=False, take=None):
+  def fake_update(
+    entries, folder=None, lock_path=None, only_missing=False, take=None, report=None
+  ):
     seen.append((list(entries), folder, only_missing, take))
+    if report is not None:
+      report.append("source owner/name at main did not read")
     state["records"] = after
     return ["one.py"]
 
@@ -2703,6 +2707,7 @@ def test_hook_rows_and_update(
   assert found.status_code == 200, found.text
   assert found.json() == {
     "moved": ["one.py"],
+    "report": ["source owner/name at main did not read"],
     "hooks": [
       {
         "name": "one.py",
@@ -2833,7 +2838,9 @@ def test_hook_scan_and_take(
     ).encode(),
     remote.ARCHIVE.format(repo="owner/name", commit=commit): _tar(),
   }
-  monkeypatch.setattr(remote, "fetch", lambda url, timeout=30.0: pages.get(url))
+  monkeypatch.setattr(
+    remote, "fetch", lambda url, timeout=30.0, report=None: pages.get(url)
+  )
   assert TestClient(api.app).post("/ui/api/hooks/scan", json={}).status_code == 401
   client.post("/ui/api/login", json={"username": "admin", "password": MASTER})
   body = {"repo": "https://github.com/owner/name", "path": "hooks", "ref": "main"}

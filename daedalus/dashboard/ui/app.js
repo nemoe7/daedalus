@@ -1386,8 +1386,13 @@ function hooksNote(text) {
 
 function updateNote(answer) {
   const moved = (answer.hooks || []).filter((hook) => hook.moved);
-  if (!moved.length) return "No file moved.";
-  return `Moved ${moved.map((hook) => `${hook.name}: ${hookVersion(hook.before)} to ${hookVersion(hook.after)}`).join(", ")}.`;
+  const lines = [];
+  if (moved.length)
+    lines.push(`Moved ${moved.map((hook) => `${hook.name}: ${hookVersion(hook.before)} to ${hookVersion(hook.after)}`).join(", ")}.`);
+  // A source that fetched and moved nothing says why, so the note diagnoses itself.
+  for (const line of answer.report || []) lines.push(line);
+  if (!lines.length) return "No file moved.";
+  return lines.join(" ");
 }
 
 // The manager of the Hooks card: the folder, the sources, the files that load and the update.

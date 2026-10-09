@@ -50,7 +50,9 @@ def answers(monkeypatch: pytest.MonkeyPatch, pages: dict[str, bytes]) -> list[st
   """A fetch that answers from the pages, and the URLs it saw, in order."""
   calls: list[str] = []
 
-  def get(url: str, timeout: float = remote.TIMEOUT) -> bytes | None:
+  def get(
+    url: str, timeout: float = remote.TIMEOUT, report: list[str] | None = None
+  ) -> bytes | None:
     calls.append(url)
     return pages.get(url)
 
@@ -394,3 +396,63 @@ def test_scan_of_a_bad_source_gives_none(
   answers(monkeypatch, {})
   assert remote.scan(source(repo="owner/none")) is None
   assert remote.scan({"repo": "nope"}) is None
+
+
+def test_a_report_names_a_source_that_did_not_read(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """The update names, in a report it fills, the source that read nothing."""
+  answers(monkeypatch, {})
+  report: list[str] = []
+  assert (
+    remote.update([source()], tmp_path, tmp_path / "hooks.lock.json", report=report)
+    == []
+  )
+  assert any(line.startswith("source owner/name at main") for line in report)
+
+
+def test_a_report_names_an_archive_without_the_folder(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """An archive with no .py file under the path names the folder in the report."""
+  pages = {
+    API: json.dumps({"sha": COMMIT}).encode(),
+    ARCHIVE: tar({"other/four.py": block(name="four")}),
+  }
+  answers(monkeypatch, pages)
+  report: list[str] = []
+  assert (
+    remote.update([source()], tmp_path, tmp_path / "hooks.lock.json", report=report)
+    == []
+  )
+  assert any("held no .py file under 'hooks'" in line for line in report)
+
+
+def test_a_report_names_a_refused_file(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A file whose block the reader refuses names its problem in the report."""
+  pages = {
+    API: json.dumps({"sha": COMMIT}).encode(),
+    ARCHIVE: tar({"hooks/one.py": "# ---\n# bogus: 1\n# ---\n"}),
+  }
+  answers(monkeypatch, pages)
+  report: list[str] = []
+  assert (
+    remote.update([source()], tmp_path, tmp_path / "hooks.lock.json", report=report)
+    == []
+  )
+  assert any("one.py" in line and "unknown frontmatter key" in line for line in report)
+
+
+def test_a_report_names_a_source_that_is_not_a_map(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A source entry that is not a map names itself in the report."""
+  answers(monkeypatch, {})
+  report: list[str] = []
+  assert (
+    remote.update(["owner/name"], tmp_path, tmp_path / "hooks.lock.json", report=report)
+    == []
+  )
+  assert report == ["source 'owner/name' is not an owner/name or a GitHub URL"]

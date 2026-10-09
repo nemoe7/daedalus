@@ -1291,9 +1291,15 @@ def settings_routes(
       return failure(400, "No source in hooks.sources.", "invalid_request_error")
     hooks.set_installed(group["dir"], group["disabled"])
     before = remote.read_records()
+    report: list[str] = []
     moved = remote.update(
-      entries, hooks.folder(), take=take if isinstance(take, list) else None
+      entries,
+      hooks.folder(),
+      take=take if isinstance(take, list) else None,
+      report=report,
     )
+    for line in report:
+      logger.warning("hooks update: %s", line)
     after = remote.read_records()
     repos = {
       repo
@@ -1303,6 +1309,7 @@ def settings_routes(
     return JSONResponse(
       {
         "moved": moved,
+        "report": report,
         "hooks": [
           {
             "name": name,

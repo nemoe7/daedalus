@@ -75,7 +75,7 @@ def test_update_writes_the_source(
     ARCHIVE: tar({"hooks/one.py": BLOCK + "one = 1\n"}),
   }
   monkeypatch.setattr(
-    remote, "fetch", lambda url, timeout=remote.TIMEOUT: pages.get(url)
+    remote, "fetch", lambda url, timeout=remote.TIMEOUT, report=None: pages.get(url)
   )
   assert cli.hooks_update() == 0
   assert (folder / "one.py").exists(), "the fetch wrote the file"

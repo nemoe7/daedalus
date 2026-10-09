@@ -55,18 +55,22 @@ def digest(body: bytes) -> str:
   return hashlib.sha256(body).hexdigest()
 
 
-def fetch(url: str, timeout: float = TIMEOUT) -> bytes | None:
+def fetch(
+  url: str, timeout: float = TIMEOUT, report: list[str] | None = None
+) -> bytes | None:
   """The bytes of 1 URL. A network or status error logs and gives None."""
   try:
     response = httpx.get(url, timeout=timeout, follow_redirects=True)
     response.raise_for_status()
   except httpx.HTTPError as exc:
     tell(f"remote hook {url} did not load: {exc}; the last copy stays")
+    if report is not None:
+      report.append(f"{url} did not load: {exc}")
     return None
   return response.content
 
 
-def write(path: Path, body: bytes) -> bool:
+def write(path: Path, body: bytes, report: list[str] | None = None) -> bool:
   """Write the body through a temporary name, so a reader never sees half a file.
 
   False names a write that failed, so a caller never records a file that did not land.
@@ -78,6 +82,8 @@ def write(path: Path, body: bytes) -> bool:
     temporary.replace(path)
   except OSError as exc:
     tell(f"remote hook {path} did not write: {exc}")
+    if report is not None:
+      report.append(f"{path.name} did not write: {exc}")
     return False
   return True
 
@@ -116,25 +122,33 @@ def repo_name(value: Any) -> str | None:
   return f"{owner}/{name}"
 
 
-def commit_of(repo: str, ref: str, timeout: float = TIMEOUT) -> str | None:
+def commit_of(
+  repo: str, ref: str, timeout: float = TIMEOUT, report: list[str] | None = None
+) -> str | None:
   """The commit of 1 ref of a repo, from the GitHub API. A failure logs and gives None."""
   url = API.format(repo=repo, ref=ref)
-  body = fetch(url, timeout)
+  body = fetch(url, timeout, report)
   if body is None:
     return None
   try:
     found = json.loads(body)
   except ValueError:
     tell(f"hook source {repo}: {url} did not answer with JSON")
+    if report is not None:
+      report.append(f"source {repo} did not answer with JSON")
     return None
   commit = found.get("sha") if isinstance(found, Mapping) else None
   if not isinstance(commit, str) or not re.fullmatch(r"[0-9a-fA-F]{40}", commit):
     tell(f"hook source {repo}: {url} named no commit")
+    if report is not None:
+      report.append(f"source {repo} named no commit")
     return None
   return commit.lower()
 
 
-def archive_files(body: bytes, path: str) -> dict[str, bytes] | None:
+def archive_files(
+  body: bytes, path: str, report: list[str] | None = None
+) -> dict[str, bytes] | None:
   """The `.py` files directly under 1 folder of a repo archive, by file name.
 
   None names an archive that does not read: the caller keeps the files on disk.
@@ -157,6 +171,8 @@ def archive_files(body: bytes, path: str) -> dict[str, bytes] | None:
           found[name] = stream.read()
   except (tarfile.TarError, OSError, EOFError) as exc:
     tell(f"hook archive did not read: {exc}; the files on disk stay")
+    if report is not None:
+      report.append(f"the archive did not read: {exc}")
     return None
   return {name: found[name] for name in sorted(found)}
 
@@ -167,6 +183,7 @@ def update(
   lock_path: Path | None = None,
   only_missing: bool = False,
   take: Iterable[str] | None = None,
+  report: list[str] | None = None,
 ) -> list[str]:
   """Fetch each source and write its hook files. Return the names whose bytes moved.
 
@@ -183,10 +200,16 @@ def update(
   moved: list[str] = []
   for entry in entries:
     if not isinstance(entry, Mapping):
+      if report is not None:
+        report.append(f"source {entry!r} is not an owner/name or a GitHub URL")
       continue
     repo = repo_name(entry.get("repo"))
     if repo is None:
       tell(f"hook source {entry.get('repo')!r} is not an owner/name or a GitHub URL")
+      if report is not None:
+        report.append(
+          f"source {entry.get('repo')!r} is not an owner/name or a GitHub URL"
+        )
       continue
     ref = str(entry.get("ref") or "main").strip()
     path = str(entry.get("path") or "").strip()
@@ -198,14 +221,21 @@ def update(
       and all((target / name).is_file() for name in pinned)
     ):
       continue
-    commit = commit_of(repo, ref)
+    commit = commit_of(repo, ref, report=report)
     if commit is None:
+      if report is not None:
+        report.append(f"source {repo} at {ref} did not read")
       continue
-    body = fetch(ARCHIVE.format(repo=repo, commit=commit))
+    body = fetch(ARCHIVE.format(repo=repo, commit=commit), report=report)
     if body is None:
       continue
-    files = archive_files(body, path)
+    files = archive_files(body, path, report)
     if files is None:
+      continue
+    if not files:
+      tell(f"hook source {repo} held no .py file under {path!r}")
+      if report is not None:
+        report.append(f"source {repo} held no .py file under {path!r}")
       continue
     fresh: dict[str, dict[str, str]] = {}
     for name, raw in files.items():
@@ -219,12 +249,14 @@ def update(
       info, problem = meta_check(text)
       if problem is not None:
         logger.warning("hook %s/%s: %s; the file stays out", repo, name, problem)
+        if report is not None:
+          report.append(f"{name}: {problem}")
         continue
       if info is None:
         logger.warning("hook %s/%s has no frontmatter block", repo, name)
       here = target / name
       if not (here.is_file() and here.read_bytes() == raw):
-        if not write(here, raw):
+        if not write(here, raw, report):
           continue
         moved.append(name)
         logger.info("hook source %s wrote %s", repo, here)
