@@ -273,7 +273,14 @@ def update(
         continue
       if info is None:
         logger.warning("hook %s/%s has no frontmatter block", repo, name)
-      here = (target / repo / name).resolve()
+      # Every part passes a basename, so a value with a slash never names 2 parts.
+      owner, _, leaf = repo.partition("/")
+      here = (
+        target
+        / posixpath.basename(owner)
+        / posixpath.basename(leaf)
+        / posixpath.basename(name)
+      ).resolve()
       if not here.is_relative_to(root):
         tell(f"hook source {repo}: {name} does not land in the install folder")
         if report is not None:
@@ -283,7 +290,7 @@ def update(
       if not landed and not write(here, raw, report):
         continue
       # A legacy flat install of this file moves under the repo: no copy stays.
-      legacy = target / name
+      legacy = target / posixpath.basename(name)
       if records.get(name, {}).get("repo") == repo and legacy.is_file():
         try:
           legacy.unlink()
