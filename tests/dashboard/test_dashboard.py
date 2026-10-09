@@ -1051,6 +1051,19 @@ def test_the_header_keeps_six_tabs_and_providers_rides_in_settings(
   assert 'asked === "providers"' in app, "the #/providers deep link opens the section"
 
 
+def test_the_model_rows_light_up_on_hover() -> None:
+  """A Models row lights up under a pointer, as the settings and providers rows do."""
+  css = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
+  ).read_text(encoding="utf-8")
+  assert (
+    "@media (hover: hover) {\n"
+    "  tr.request.has-chain:hover td { background: var(--field); }\n"
+    "  table.models tbody tr:hover td { background: var(--field); }\n"
+    "}"
+  ) in css, "the row hover waits for a pointer and lights the row"
+
+
 def test_a_card_closes_on_the_room_of_its_rows() -> None:
   """The bottom of a Settings or Provider card keeps the room of 1 row, not the card padding."""
   css = (
@@ -1205,6 +1218,7 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
   assert "tr.request.has-chain.open td { background: var(--field); }" in base_css
   assert (
     "@media (hover: hover) {\n  tr.request.has-chain:hover td "
+    "{ background: var(--field); }\n  table.models tbody tr:hover td "
     "{ background: var(--field); }\n}" in base_css
   ), "the row hover needs a pointer, a touch tap keeps no background"
   assert ".requests tr.request, .requests tr.live-row {" in mobile_css

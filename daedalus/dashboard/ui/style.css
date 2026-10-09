@@ -456,6 +456,7 @@ tr.request.has-chain.open td { background: var(--field); }
 /* A touch screen keeps the hover look after a tap, so the hover style needs a pointer. */
 @media (hover: hover) {
   tr.request.has-chain:hover td { background: var(--field); }
+  table.models tbody tr:hover td { background: var(--field); }
 }
 tr.request.open td { border-bottom: 0; }
 .caret {
