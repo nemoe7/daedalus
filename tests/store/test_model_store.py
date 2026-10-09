@@ -113,11 +113,15 @@ def test_model_store() -> None:
       compact = store.model_rows()
       assert set(compact[0]) == {
         "id",
+        "provider",
+        "slug",
         "mode",
         "max_input_tokens",
+        "max_output_tokens",
         "tools",
         "reasoning",
         "effort",
+        "efforts",
         "flags",
       }, compact[0]
     finally:

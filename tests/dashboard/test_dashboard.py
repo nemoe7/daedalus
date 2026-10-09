@@ -2323,11 +2323,15 @@ def test_data(client: TestClient) -> None:
   assert [row["id"] for row in models] == ["p/big", "p/small", "p/embed"], "all rows"
   assert models[0] == {
     "id": "p/big",
+    "provider": "p",
+    "slug": "big",
     "mode": "chat",
     "max_input_tokens": 1000,
+    "max_output_tokens": None,
     "tools": True,
     "reasoning": True,
     "effort": "medium",
+    "efforts": [],
     "flags": ["vision", "audio_input"],
     "tier": "TIER-A",
     "weight": 1.0,

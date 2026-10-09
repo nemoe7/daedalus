@@ -216,15 +216,19 @@ def stored_rows() -> list[dict[str, Any]]:
 
 
 def model_rows() -> list[dict[str, Any]]:
-  """The pages' view of the rows: mode, the input limit, the tool and reasoning facts, the media flags."""
+  """The pages' view of the rows: the source names, limits, efforts, and the tool and reasoning facts."""
   return [
     {
       "id": row["id"],
+      "provider": row["provider"],
+      "slug": row["slug"],
       "mode": row["mode"] or "chat",
       "max_input_tokens": row["max_input_tokens"],
+      "max_output_tokens": row["max_output_tokens"],
       "tools": row["supports_function_calling"],
       "reasoning": row["supports_reasoning"],
       "effort": row["reasoning_effort"] or None,
+      "efforts": effort_list(row["supported_efforts"]),
       "flags": [flag for flag in MEDIA_FLAGS if row[f"supports_{flag}"]],
     }
     for row in stored_rows()

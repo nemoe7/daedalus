@@ -111,6 +111,7 @@ A phone shows 1 card for each model: the name on its own line, then `Tier`, `Too
 | Type | 1 model type: chat, embedding, transcription, speech, image, video, decisions or rerank. The Media entries cover image input, PDF input, audio input and audio output. |
 | Tier chips | `TIER-A` to `TIER-D` |
 | Column head | A sort by that column |
+| Model row | Opens the modal of the model: every fact of its row, the supported efforts included. |
 
 | Column | Shows |
 | --- | --- |

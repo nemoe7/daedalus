@@ -990,6 +990,31 @@ function reasoningCell(m) {
   return `<span class="chip flag effort${known ? ` e-${m.effort}` : ""}" title="Default reasoning effort">${esc(label)}</span>`;
 }
 const yesNo = (on) => (on ? '<span class="yes">Yes</span>' : '<span class="muted">No</span>');
+
+// The modal of 1 model: every fact of its row, the supported efforts included.
+function openModelModal(m) {
+  const facts = [
+    ["Provider", m.provider || ""],
+    ["Slug", m.slug || ""],
+    ["Mode", m.mode || "chat"],
+    ["Tier", m.tier || ""],
+    ["Order", m.order ?? ""],
+    ["Input limit", m.max_input_tokens ? `${m.max_input_tokens.toLocaleString()} tokens` : ""],
+    ["Output limit", m.max_output_tokens ? `${m.max_output_tokens.toLocaleString()} tokens` : ""],
+    ["Tools", m.mode === "chat" ? (m.tools ? "Yes" : "No") : ""],
+    ["Reasoning", m.mode === "chat" ? (m.reasoning ? "Yes" : "No") : ""],
+    ["Default effort", m.reasoning && m.effort ? (EFFORTS[m.effort] || m.effort) : ""],
+    ["Weight", m.weight == null ? "" : m.weight.toFixed(2)],
+  ];
+  const body = facts.filter(([, value]) => value !== "").map(([label, value]) =>
+    `<dt>${esc(label)}</dt><dd>${esc(String(value))}</dd>`).join("");
+  const efforts = (m.efforts || []).map((name) =>
+    `<span class="chip flag effort${name in EFFORTS ? ` e-${name}` : ""}">${esc(EFFORTS[name] || name)}</span>`).join("");
+  $("model-modal-title").textContent = m.id;
+  $("model-modal-body").innerHTML = `<dl class="model-detail">${body}</dl>`
+    + (efforts ? `<h4>Supported efforts</h4><div class="pills">${efforts}</div>` : "");
+  $("model-modal").showModal();
+}
 // Red at 0, orange at 0.5 and blue at 1, mixed in between.
 function weightColor(weight) {
   const high = weight >= 0.5;
@@ -1075,7 +1100,7 @@ function renderModels() {
     && m.id.toLowerCase().includes(query)));
   const empty = state.models.length ? "No models match" : "No models. Run daedalus catalog.";
   draw("models", rows.length ? rows.map((m) => `
-    <tr>
+    <tr data-model="${esc(m.id)}">
       ${nameCell(m.id, modelName(m.id), "", `<span class="types phone-types">${typeChips(m)}</span><span class="phone-chips">${phoneChips(m)}</span>`)}
       <td class="hide-sm"><div class="types">${typeChips(m)}</div></td>
       <td class="mid hide-sm">${mobileLabel("Tier")}<span class="cell-value">${m.tier ? `<span class="tier" title="${esc(m.tier)}">${esc(tierLetter(m.tier))}</span>` : dash}</span></td>
@@ -3123,6 +3148,14 @@ window.addEventListener("hashchange", showPage);
 window.addEventListener("popstate", applySectionHash);
 showPage();
 $("search").addEventListener("input", pickRows);
+// A row or card of the models list opens the modal of its model.
+$("models").addEventListener("click", (event) => {
+  const row = event.target.closest("tr[data-model]");
+  if (!row) return;
+  const model = state.models.find((item) => item.id === row.dataset.model);
+  if (model) openModelModal(model);
+});
+
 $("model-head").addEventListener("click", (event) => {
   const th = event.target.closest("th[data-sort]");
   if (!th) return;

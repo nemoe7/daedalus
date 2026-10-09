@@ -328,6 +328,14 @@ a.more:hover { color: var(--accent); }
 .modal-field { display: block; }
 .modal-field input { width: 100%; box-sizing: border-box; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+/* The modal of 1 model: the facts of its row in 2 columns, and the efforts as chips. A row
+   click opens it, on a wide screen and on a phone card alike. */
+.model-modal { max-width: min(560px, calc(100vw - 32px)); }
+.model-detail { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 12px 0 0; }
+.model-detail dt { color: var(--muted); }
+.model-detail dd { min-width: 0; overflow-wrap: anywhere; }
+.model-modal h4 { margin: 14px 0 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.models tbody tr { cursor: pointer; }
 .modal .primary.danger { background: var(--bad); }
 td.end { text-align: right; }
 .empty { padding: 24px 16px; color: var(--muted); text-align: center; }
