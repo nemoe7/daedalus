@@ -72,6 +72,9 @@ def test_repo_name() -> None:
   assert remote.repo_name("owner") is None
   assert remote.repo_name("https://gitlab.com/owner/name") is None
   assert remote.repo_name(None) is None
+  assert remote.repo_name("../name") is None, "a part that walks out stays out"
+  assert remote.repo_name("owner/..") is None
+  assert remote.repo_name("./name") is None
   assert remote.repo_name("-" * 500) is None, "a long run of dashes stays out"
   assert remote.repo_name(f"owner/{'n' * 200}") is None, (
     "a name longer than GitHub takes"
