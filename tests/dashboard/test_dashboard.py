@@ -4131,6 +4131,12 @@ def test_the_model_modal_reads_as_a_card() -> None:
   assert (
     "@media (max-width: 479px) { .model-stats { grid-template-columns: 1fr; } }" in css
   ), "a narrow page folds them to one column, so no wrap leaves an orphan"
+  assert ".model-modal h3 .name { overflow-wrap: anywhere; }" in css, (
+    "the modal name reads in the regular face"
+  )
+  assert ".model-id .value { min-width: 0; overflow-wrap: anywhere; }" in css, (
+    "the identity values read in the regular face"
+  )
 
 
 def test_the_providers_page_folds_the_long_groups() -> None:
