@@ -115,6 +115,8 @@ header {
    edge of the bar. */
 #nav-left:not([hidden]) { margin-left: -12px; }
 #nav-right:not([hidden]) { margin-right: -12px; }
+/* A hidden chevron keeps its slot, so the bar width never changes and the scroll never snaps. */
+.tab-step[hidden] { display: grid !important; visibility: hidden; }
 .tab-step:hover { color: var(--text); }
 /* The angle glyph sits low in its line box: the nudge centers it on the tab text. */
 .tab-step span { display: block; transform: translateY(-2px); }
