@@ -1008,6 +1008,9 @@ class Store:
 		with self.transaction()as db:
 			row=db.execute('SELECT title, seen_at, ack_seen_at, viewed_at FROM reports WHERE id = ?',(report_id,)).fetchone()
 			if row is None:raise FileNotFoundError('Report not found')
+			if not dismissed_by_owner:
+				answered=db.execute('SELECT 1 FROM submissions WHERE report_id = ? LIMIT 1',(report_id,)).fetchone()
+				if answered is not None:raise ValueError("The report has been answered: its id is pinned by the answer, so a revision publishes under a new id and the tab is the owner's to dismiss.")
 			acked=db.execute('SELECT MAX(acknowledged_at) FROM submissions WHERE report_id = ?',(report_id,)).fetchone()[0]
 			if acked and not(row['ack_seen_at']and row['ack_seen_at']>=acked):raise UnpublishHeld('The report waits for the owner: its answer ack '+str(clip_stamp(acked))+' is newer than their last open of it. The open clears the wait.')
 			if not dismissed_by_owner:
