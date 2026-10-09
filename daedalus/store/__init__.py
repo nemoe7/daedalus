@@ -1,6 +1,5 @@
 """The SQLite model store: the model table, and the tables of the other modules."""
 
-import hashlib
 import json
 import sqlite3
 import time
@@ -470,8 +469,8 @@ REBUILDS_TABLE = (
 )
 
 
-def row_hashes() -> dict[str, str]:
-  """The id of each stored row to its hash, so a rebuild can name the rows it moved."""
+def rows_by_id() -> dict[str, dict[str, Any]]:
+  """The values of each stored row by id, so a rebuild can name the moves it made."""
   if not Path(MODELS_DB).exists():
     return {}
   database = connect_read(MODELS_DB)
@@ -483,11 +482,7 @@ def row_hashes() -> dict[str, str]:
     return {}
   finally:
     database.close()
-  found = {}
-  for row in rows:
-    values = "\x1f".join(json.dumps(value, sort_keys=True) for value in row[1:])
-    found[row[0]] = hashlib.sha256(values.encode("utf-8")).hexdigest()
-  return found
+  return {row[0]: dict(zip(COLUMNS, row[1:])) for row in rows}
 
 
 def record_rebuild(

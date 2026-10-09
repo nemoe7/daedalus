@@ -3,17 +3,18 @@
 from daedalus import store
 
 
-def test_row_hashes_flag_the_moved_row() -> None:
+def test_rows_by_id_carries_the_values() -> None:
   store.migrate()
   store.write_store([{"id": "p/one", "mode": "chat", "tier": "TIER-A", "rpm": 10}])
-  first = store.row_hashes()
+  first = store.rows_by_id()
   assert set(first) == {"p/one"}
-  # The same row keeps its hash.
+  assert first["p/one"]["tier"] == "TIER-A" and first["p/one"]["rpm"] == 10
+  # The same row keeps its values.
   store.write_store([{"id": "p/one", "mode": "chat", "tier": "TIER-A", "rpm": 10}])
-  assert store.row_hashes() == first
-  # A moved ladder or tier changes the hash.
+  assert store.rows_by_id() == first
+  # A moved tier shows in the values.
   store.write_store([{"id": "p/one", "mode": "chat", "tier": "TIER-B", "rpm": 10}])
-  assert store.row_hashes()["p/one"] != first["p/one"]
+  assert store.rows_by_id()["p/one"]["tier"] == "TIER-B"
 
 
 def test_record_and_read() -> None:
