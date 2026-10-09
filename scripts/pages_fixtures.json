@@ -617,29 +617,29 @@
   },
   "keys": [
     {
-      "created": 1791541188.5135128,
+      "created": 1791542071.4566424,
       "name": "openwebui",
-      "start": "sk-dfIC",
+      "start": "sk-wgmG",
       "used": null
     },
     {
-      "created": 1791541188.5146072,
+      "created": 1791542071.4574623,
       "name": "kilo-code",
-      "start": "sk-sK1g",
+      "start": "sk-8vwA",
       "used": null
     },
     {
-      "created": 1791541188.515472,
+      "created": 1791542071.4583993,
       "name": "openwebui-home-assistant-integration-001",
-      "start": "sk-a7c4",
+      "start": "sk-KfzD",
       "used": null
     }
   ],
   "limits": {
-    "checked": 1791541188.6276586,
+    "checked": 1791542071.5676372,
     "lanes": [
       {
-        "at": 1791541188.599729,
+        "at": 1791542071.5433497,
         "client": null,
         "model": "cloudflare/@cf/mistralai/mistral-small-3.1-24b-instruct",
         "rows": [
@@ -647,62 +647,104 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791541225.599729,
+            "reset": 1791542108.5433497,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791541200.599729,
+            "reset": 1791542083.5433497,
             "span": null
           }
         ]
       },
       {
-        "at": 1791541188.621953,
+        "at": 1791542071.528809,
         "client": null,
-        "model": "gemini/gemini-3.5-transcribe",
+        "model": "gemini/gemini-3-flash-preview",
         "rows": [
           {
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791541225.621953,
+            "reset": 1791542108.528809,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791541200.621953,
+            "reset": 1791542083.528809,
             "span": null
           }
         ]
       },
       {
-        "at": 1791541188.5767384,
+        "at": 1791542071.530337,
         "client": null,
-        "model": "groq/allam-2-7b",
+        "model": "gemini/gemini-3.1-flash-lite",
         "rows": [
           {
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791541225.5767384,
-            "span": "day"
+            "reset": 1791542108.530337,
+            "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791541200.5767384,
-            "span": "minute"
+            "reset": 1791542083.530337,
+            "span": null
           }
         ]
       },
       {
-        "at": 1791541188.6228144,
+        "at": 1791542071.5269563,
+        "client": null,
+        "model": "gemini/gemini-3.1-flash-lite-preview",
+        "rows": [
+          {
+            "kind": "requests",
+            "limit": 14400.0,
+            "remaining": 14312.0,
+            "reset": 1791542108.5269563,
+            "span": null
+          },
+          {
+            "kind": "tokens",
+            "limit": 4000000.0,
+            "remaining": 3980123.0,
+            "reset": 1791542083.5269563,
+            "span": null
+          }
+        ]
+      },
+      {
+        "at": 1791542071.5316572,
+        "client": null,
+        "model": "gemini/gemini-3.5-flash-lite",
+        "rows": [
+          {
+            "kind": "requests",
+            "limit": 14400.0,
+            "remaining": 14312.0,
+            "reset": 1791542108.5316572,
+            "span": null
+          },
+          {
+            "kind": "tokens",
+            "limit": 4000000.0,
+            "remaining": 3980123.0,
+            "reset": 1791542083.5316572,
+            "span": null
+          }
+        ]
+      },
+      {
+        "at": 1791542071.5639365,
         "client": null,
         "model": "groq/whisper-large-v3",
         "rows": [
@@ -710,41 +752,41 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791541225.6228144,
+            "reset": 1791542108.5639365,
             "span": "day"
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791541200.6228144,
+            "reset": 1791542083.5639365,
             "span": "minute"
           }
         ]
       },
       {
-        "at": 1791541188.6084104,
+        "at": 1791542071.5328345,
         "client": null,
-        "model": "mistral/labs-leanstral-1-5-1",
+        "model": "mistral/codestral-2508",
         "rows": [
           {
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791541225.6084104,
+            "reset": 1791542108.5328345,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791541200.6084104,
+            "reset": 1791542083.5328345,
             "span": null
           }
         ]
       },
       {
-        "at": 1791541188.5889385,
+        "at": 1791542071.552579,
         "client": null,
         "model": "mistral/voxtral-small-2507",
         "rows": [
@@ -752,20 +794,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791541225.5889385,
+            "reset": 1791542108.552579,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791541200.5889385,
+            "reset": 1791542083.552579,
             "span": null
           }
         ]
       },
       {
-        "at": 1791541188.5957756,
+        "at": 1791542071.539205,
         "client": null,
         "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
         "rows": [
@@ -773,20 +815,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791541225.5957756,
+            "reset": 1791542108.539205,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791541200.5957756,
+            "reset": 1791542083.539205,
             "span": null
           }
         ]
       },
       {
-        "at": 1791541188.6039135,
+        "at": 1791542071.547942,
         "client": null,
         "model": "openrouter/z-ai/glm-5.3-flash",
         "rows": [
@@ -794,20 +836,20 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791541225.6039135,
+            "reset": 1791542108.547942,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791541200.6039135,
+            "reset": 1791542083.547942,
             "span": null
           }
         ]
       },
       {
-        "at": 1791541188.6159027,
+        "at": 1791542071.5592036,
         "client": null,
         "model": "z-ai/glm-4.6v-flash",
         "rows": [
@@ -815,14 +857,14 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791541225.6159027,
+            "reset": 1791542108.5592036,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791541200.6159027,
+            "reset": 1791542083.5592036,
             "span": null
           }
         ]
@@ -848,8 +890,8 @@
           ],
           [
             "Requests left this hour",
-            "199 of 200",
-            0.995
+            "198 of 200",
+            0.99
           ]
         ],
         "name": "kilo"
@@ -1460,7 +1502,7 @@
     },
     {
       "client_cooldowns": {},
-      "cooldown": 1791634788.6249032,
+      "cooldown": 1791635671.5655253,
       "effort": null,
       "efforts": [],
       "flags": [
@@ -1575,7 +1617,7 @@
       "slug": "@cf/openai/gpt-oss-120b",
       "tier": "TIER-A",
       "tools": true,
-      "weight": 0.5000003109816379
+      "weight": 0.5000002390236633
     },
     {
       "client_cooldowns": {},
@@ -1891,7 +1933,7 @@
       "slug": "gemini-3-flash-preview",
       "tier": "TIER-C",
       "tools": true,
-      "weight": 1.0
+      "weight": 0.5000012005949478
     },
     {
       "client_cooldowns": {},
@@ -1918,7 +1960,7 @@
       "slug": "gemini-3.1-flash-lite",
       "tier": "TIER-C",
       "tools": true,
-      "weight": 1.0
+      "weight": 0.5000011629095803
     },
     {
       "client_cooldowns": {},
@@ -1945,7 +1987,7 @@
       "slug": "gemini-3.1-flash-lite-preview",
       "tier": "TIER-C",
       "tools": true,
-      "weight": 1.0
+      "weight": 0.5000012408907258
     },
     {
       "client_cooldowns": {},
@@ -2017,7 +2059,7 @@
       "slug": "gemini-3.5-flash-lite",
       "tier": "TIER-C",
       "tools": true,
-      "weight": 1.0
+      "weight": 0.5000011278855573
     },
     {
       "client_cooldowns": {},
@@ -2037,7 +2079,7 @@
       "slug": "gemini-3.5-transcribe",
       "tier": null,
       "tools": false,
-      "weight": 0.5000003723897744
+      "weight": 1.0
     },
     {
       "client_cooldowns": {},
@@ -3628,7 +3670,7 @@
           "cooldown": null,
           "id": "cloudflare/@cf/openai/gpt-oss-120b",
           "tier": "TIER-A",
-          "weight": 0.5000005063671374
+          "weight": 0.500000411921465
         },
         {
           "cooldown": null,
@@ -3901,7 +3943,7 @@
           "weight": 1.0
         },
         {
-          "cooldown": 1791634788.6249032,
+          "cooldown": 1791635671.5655253,
           "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
           "tier": "TIER-C",
           "weight": 1.0
@@ -3922,25 +3964,25 @@
           "cooldown": null,
           "id": "gemini/gemini-3-flash-preview",
           "tier": "TIER-C",
-          "weight": 1.0
+          "weight": 0.5000013734930822
         },
         {
           "cooldown": null,
           "id": "gemini/gemini-3.1-flash-lite",
           "tier": "TIER-C",
-          "weight": 1.0
+          "weight": 0.5000013358077016
         },
         {
           "cooldown": null,
           "id": "gemini/gemini-3.1-flash-lite-preview",
           "tier": "TIER-C",
-          "weight": 1.0
+          "weight": 0.5000014137888741
         },
         {
           "cooldown": null,
           "id": "gemini/gemini-3.5-flash-lite",
           "tier": "TIER-C",
-          "weight": 1.0
+          "weight": 0.5000013007836664
         },
         {
           "cooldown": null,
@@ -4079,7 +4121,7 @@
           "cooldown": null,
           "id": "cloudflare/@cf/openai/gpt-oss-120b",
           "tier": "TIER-A",
-          "weight": 0.5000005105119493
+          "weight": 0.5000004152067531
         },
         {
           "cooldown": null,
@@ -4366,7 +4408,7 @@
           "weight": 1.0
         },
         {
-          "cooldown": 1791634788.6249032,
+          "cooldown": 1791635671.5655253,
           "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
           "tier": "TIER-C",
           "weight": 1.0
@@ -4387,25 +4429,25 @@
           "cooldown": null,
           "id": "gemini/gemini-3-flash-preview",
           "tier": "TIER-C",
-          "weight": 1.0
+          "weight": 0.5000013791277439
         },
         {
           "cooldown": null,
           "id": "gemini/gemini-3.1-flash-lite",
           "tier": "TIER-C",
-          "weight": 1.0
+          "weight": 0.500001341442363
         },
         {
           "cooldown": null,
           "id": "gemini/gemini-3.1-flash-lite-preview",
           "tier": "TIER-C",
-          "weight": 1.0
+          "weight": 0.5000014194235363
         },
         {
           "cooldown": null,
           "id": "gemini/gemini-3.5-flash-lite",
           "tier": "TIER-C",
-          "weight": 1.0
+          "weight": 0.5000013064183275
         },
         {
           "cooldown": null,
@@ -4575,7 +4617,7 @@
           "cooldown": null,
           "id": "gemini/gemini-3.5-transcribe",
           "tier": null,
-          "weight": 0.5000005781596126
+          "weight": 1.0
         },
         {
           "cooldown": null,
@@ -4767,11 +4809,11 @@
   "requests": [
     {
       "app": "Kilo",
-      "at": 1791541188.6259577,
+      "at": 1791542071.5663564,
       "attempts": [
         {
           "error": "",
-          "model": "mistral/labs-leanstral-1-5-1",
+          "model": "mistral/voxtral-small-2507",
           "result": "answered",
           "seconds": 0.001
         }
@@ -4785,7 +4827,7 @@
       "race": "off",
       "retry": null,
       "routed": null,
-      "seconds": 0.003,
+      "seconds": 0.004,
       "session": "547df45",
       "status": 200,
       "stream": true,
@@ -4796,11 +4838,11 @@
       },
       "transition": null,
       "ttft": "0.001s",
-      "via": "mistral/labs-leanstral-1-5-1"
+      "via": "mistral/voxtral-small-2507"
     },
     {
       "app": "Kilo",
-      "at": 1791541188.6258821,
+      "at": 1791542071.5663023,
       "attempts": [
         {
           "error": "the deployment is down",
@@ -4836,7 +4878,7 @@
       "race": "off",
       "retry": "1",
       "routed": null,
-      "seconds": 0.003,
+      "seconds": 0.004,
       "session": "547df45",
       "status": 200,
       "stream": true,
@@ -4853,15 +4895,15 @@
         "to_pool": "koinos"
       },
       "ttft": "0.001s",
-      "via": "mistral/labs-leanstral-1-5-1"
+      "via": "mistral/voxtral-small-2507"
     },
     {
       "app": "OWUI",
-      "at": 1791541188.625714,
+      "at": 1791542071.5661776,
       "attempts": [
         {
           "error": "",
-          "model": "mistral/labs-leanstral-1-5-1",
+          "model": "mistral/voxtral-small-2507",
           "result": "answered",
           "seconds": 0.001
         }
@@ -4875,7 +4917,7 @@
       "race": "off",
       "retry": null,
       "routed": "moros",
-      "seconds": 0.003,
+      "seconds": 0.004,
       "session": "547df45",
       "status": 200,
       "stream": true,
@@ -4892,22 +4934,12 @@
         "to_pool": "deinos"
       },
       "ttft": "0.001s",
-      "via": "mistral/labs-leanstral-1-5-1"
+      "via": "mistral/voxtral-small-2507"
     },
     {
       "app": null,
-      "at": 1791541188.6232398,
+      "at": 1791542071.5644822,
       "attempts": [
-        {
-          "error": "ProviderError: Invalid Gemini answer",
-          "model": "gemini/gemini-3.5-transcribe",
-          "result": "failed",
-          "seconds": 0.001,
-          "weight_change": {
-            "from": 1.0,
-            "to": 0.5
-          }
-        },
         {
           "error": "",
           "model": "groq/whisper-large-v3",
@@ -4916,7 +4948,7 @@
         }
       ],
       "effort": null,
-      "fallbacks": "1",
+      "fallbacks": "0",
       "key": "master",
       "loop": null,
       "model": "daedalus/graphos",
@@ -4924,7 +4956,7 @@
       "race": null,
       "retry": null,
       "routed": null,
-      "seconds": 0.004,
+      "seconds": 0.003,
       "session": null,
       "status": 200,
       "stream": null,
@@ -4935,7 +4967,7 @@
     },
     {
       "app": null,
-      "at": 1791541188.6168044,
+      "at": 1791542071.5599084,
       "attempts": [
         {
           "error": "",
@@ -4968,11 +5000,11 @@
     },
     {
       "app": null,
-      "at": 1791541188.6093132,
+      "at": 1791542071.553749,
       "attempts": [
         {
           "error": "",
-          "model": "mistral/labs-leanstral-1-5-1",
+          "model": "mistral/voxtral-small-2507",
           "result": "answered",
           "seconds": 0.001
         }
@@ -4986,7 +5018,7 @@
       "race": "off",
       "retry": null,
       "routed": null,
-      "seconds": 0.003,
+      "seconds": 0.004,
       "session": "547df45",
       "status": 200,
       "stream": true,
@@ -4997,18 +5029,18 @@
       },
       "transition": null,
       "ttft": "0.001s",
-      "via": "mistral/labs-leanstral-1-5-1"
+      "via": "mistral/voxtral-small-2507"
     },
     {
       "app": null,
-      "at": 1791541188.6044362,
+      "at": 1791542071.5487006,
       "attempts": [
         {
           "effort": "low",
           "error": "",
           "model": "openrouter/z-ai/glm-5.3-flash",
           "result": "answered",
-          "seconds": 0.001
+          "seconds": 0.002
         }
       ],
       "effort": null,
@@ -5020,7 +5052,7 @@
       "race": "off",
       "retry": null,
       "routed": null,
-      "seconds": 0.002,
+      "seconds": 0.003,
       "session": "5d7e3b6",
       "status": 200,
       "stream": false,
@@ -5030,12 +5062,12 @@
         "output": 9
       },
       "transition": null,
-      "ttft": "0.001s",
+      "ttft": "0.002s",
       "via": "openrouter/z-ai/glm-5.3-flash"
     },
     {
       "app": null,
-      "at": 1791541188.6002417,
+      "at": 1791542071.5439718,
       "attempts": [
         {
           "error": "",
@@ -5068,7 +5100,7 @@
     },
     {
       "app": null,
-      "at": 1791541188.5964844,
+      "at": 1791542071.5402641,
       "attempts": [
         {
           "effort": "medium",
@@ -5102,17 +5134,61 @@
     },
     {
       "app": null,
-      "at": 1791541188.590225,
+      "at": 1791542071.5342965,
       "attempts": [
         {
+          "effort": "thinkingLevel=high",
+          "error": "ProviderError: Upstream stream ended before completion",
+          "model": "gemini/gemini-3.1-flash-lite-preview",
+          "result": "failed",
+          "seconds": 0.002,
+          "weight_change": {
+            "from": 1.0,
+            "to": 0.5
+          }
+        },
+        {
+          "effort": "thinkingLevel=high",
+          "error": "ProviderError: Upstream stream ended before completion",
+          "model": "gemini/gemini-3-flash-preview",
+          "result": "failed",
+          "seconds": 0.001,
+          "weight_change": {
+            "from": 1.0,
+            "to": 0.5
+          }
+        },
+        {
+          "effort": "thinkingLevel=high",
+          "error": "ProviderError: Upstream stream ended before completion",
+          "model": "gemini/gemini-3.1-flash-lite",
+          "result": "failed",
+          "seconds": 0.001,
+          "weight_change": {
+            "from": 1.0,
+            "to": 0.5
+          }
+        },
+        {
+          "effort": "thinkingLevel=high",
+          "error": "ProviderError: Upstream stream ended before completion",
+          "model": "gemini/gemini-3.5-flash-lite",
+          "result": "failed",
+          "seconds": 0.001,
+          "weight_change": {
+            "from": 1.0,
+            "to": 0.5
+          }
+        },
+        {
           "error": "",
-          "model": "mistral/voxtral-small-2507",
+          "model": "mistral/codestral-2508",
           "result": "answered",
           "seconds": 0.001
         }
       ],
       "effort": null,
-      "fallbacks": "0",
+      "fallbacks": "4",
       "key": "master",
       "loop": null,
       "model": "daedalus/koinos",
@@ -5120,7 +5196,7 @@
       "race": "off",
       "retry": null,
       "routed": null,
-      "seconds": 0.004,
+      "seconds": 0.01,
       "session": "115f867",
       "status": 200,
       "stream": true,
@@ -5129,17 +5205,23 @@
         "input": 14,
         "output": 5
       },
-      "transition": null,
+      "transition": {
+        "from_model": "gemini/gemini-3.5-flash-lite",
+        "from_pool": "koinos",
+        "reason": "err",
+        "to_model": "mistral/codestral-2508",
+        "to_pool": "koinos"
+      },
       "ttft": "0.001s",
-      "via": "mistral/voxtral-small-2507"
+      "via": "mistral/codestral-2508"
     },
     {
       "app": null,
-      "at": 1791541188.5840251,
+      "at": 1791542071.5223134,
       "attempts": [
         {
           "error": "",
-          "model": "kilo/dots-studio/dots-3-note-preview:free",
+          "model": "kilo/poolside/laguna-xs-2.1:free",
           "result": "answered",
           "seconds": 0.001
         }
@@ -5163,17 +5245,17 @@
       },
       "transition": null,
       "ttft": "0.001s",
-      "via": "kilo/dots-studio/dots-3-note-preview:free"
+      "via": "kilo/poolside/laguna-xs-2.1:free"
     },
     {
       "app": null,
-      "at": 1791541188.57792,
+      "at": 1791542071.5160584,
       "attempts": [
         {
           "error": "",
-          "model": "groq/allam-2-7b",
+          "model": "kilo/liquid/lfm-2.5-2.6b:free",
           "result": "answered",
-          "seconds": 0.004
+          "seconds": 0.003
         }
       ],
       "effort": null,
@@ -5185,18 +5267,17 @@
       "race": "off",
       "retry": null,
       "routed": null,
-      "seconds": 0.012,
+      "seconds": 0.01,
       "session": "a57a308",
       "status": 200,
       "stream": false,
       "tokens": {
-        "estimate": false,
-        "input": 24,
-        "output": 9
+        "estimate": true,
+        "input": 14
       },
       "transition": null,
-      "ttft": "0.004s",
-      "via": "groq/allam-2-7b"
+      "ttft": "0.003s",
+      "via": "kilo/liquid/lfm-2.5-2.6b:free"
     }
   ],
   "settings": {
@@ -5398,7 +5479,7 @@
       "slow": 30.0
     },
     "catalog": {
-      "built": 1791541188.5019994,
+      "built": 1791542071.448632,
       "next": 1791547200.0,
       "rebuilding": false
     },
