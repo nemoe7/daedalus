@@ -650,13 +650,18 @@ section[data-page="providers"] > .editbar, section[data-page="settings"] > .edit
 section[data-page="models"] > .editbar, section[data-page="limits"] > .editbar {
   margin-bottom: 16px;
 }
-/* A read failure: the red of the theme, the motion of the modal, and a message that wraps in
-   place of a clipped line. The button asks again. */
+/* A read failure floats over the page in the red of the theme: border, text and button. The
+   message wraps in place of a clipped line, and the button asks again. */
 .notice {
-  display: flex; flex: none; align-items: center; gap: 12px; margin-bottom: 16px; color: var(--red);
+  position: fixed; left: 0; right: 0; bottom: 16px; z-index: 90;
+  display: flex; align-items: center; gap: 12px;
+  width: fit-content; max-width: calc(100vw - 32px); margin-inline: auto;
+  padding: 10px 14px; border: 1px solid var(--red); border-radius: var(--radius);
+  background: var(--panel); color: var(--red);
+  box-shadow: 0 8px 20px rgb(0 0 0 / 25%);
   animation: arrive var(--soft) var(--ease);
 }
-.notice .ghost { margin-left: auto; }
+.notice .ghost { margin-left: auto; color: var(--red); border-color: var(--red); }
 #notice-text { min-width: 0; overflow-wrap: anywhere; }
 /* The Live switch: blue reads Live, gray reads Paused, with the count of the requests that wait. */
 .live-toggle[aria-pressed="false"] { border-color: var(--accent); color: var(--accent); }
