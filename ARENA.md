@@ -48,7 +48,7 @@
 - Concise, direct, practical, accurate; keep negations, conditions, errors, commands, numbers, caveats.
 - Follow repo docs, conventions and patterns.
 - MUST use ASD-STE100 for all human-facing text: responses, comments, docs.
-- Comments, docs, responses: terse, unambiguous; NEVER a wall of text; NEVER padded prose where a list or table is faster.
+- Comments, docs, responses: terse, unambiguous; NEVER a wall of text; NEVER padded prose where a list or table is faster; 4 sentences max per paragraph.
 - Documentation: no storyline or narrative unless asked.
 - Use [Keep a Changelog](https://keepachangelog.com/) unless the repo uses another changelog format.
 - Open on the substance, never preamble or postamble.
@@ -93,7 +93,7 @@
 
 ## Verification
 
-- Before the final reply, MUST run task-list; if an upcoming task is not blocked by an unanswered report, MUST continue it and NEVER end the turn while it remains.
+- Update the stored task details in the same tool block as the work that moves them; before the final reply, MUST run task-list, and NEVER end the turn while an unblocked upcoming task remains.
 - Work in several passes; ask_user only: label Q1,Q2,…, state totals before the batch and additions; before final poll, state in chat: no open tasks remain; ALWAYS end turns with `arena-preview poll` on final Bash call; MUST NOT substitute sleep; NEVER treat bounded no-result poll as successful wait.
 - Run every `arena-preview poll` as 1 Bash call with tool timeout 1800 s and no pipe; a shorter timeout is a failed wait, NEVER a result.
 - Confirm a duplicated, garbled, or disowned message in one line before acting, keeping its edit reversible until then; use the preview inbox as the source of truth for steering instructions and acknowledgement receipts, verifying pending/completed work there rather than from Arena chat output; treat a repeat as a resend: answer what is pending, restate finished work in one line, NEVER redo or widen scope.
