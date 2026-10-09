@@ -1655,9 +1655,11 @@ function openSection(host, key) {
   // The picked card arrives: a section change of Providers or Settings reads on the page.
   replay([...host.querySelectorAll(".section-pane > .card")]
     .find((card) => card.dataset.section === key));
-  if (!phoneSection()) return;
+  // The section rides in the hash, so a refresh keeps it; a phone also gets a back step.
   const [path] = location.hash.split("?");
-  history.pushState({ section: key }, "", `${path}?section=${encodeURIComponent(key)}`);
+  const url = `${path}?section=${encodeURIComponent(key)}`;
+  if (phoneSection()) history.pushState({ section: key }, "", url);
+  else history.replaceState(null, "", url);
 }
 
 // The back button leaves the pushed page when it can, and closes the section either way.
@@ -1677,7 +1679,12 @@ function applySectionHash() {
   const key = new URLSearchParams(query ?? "").get("section");
   const known = [...host.querySelectorAll(".sections button")].some((button) => button.dataset.section === key);
   if (key && known) pickSection(host, key, true);
-  else pickSection(host, sectionState(host).key, false);
+  else if (key) {
+    // The rail renders later, on the first data: the pick rides the state until then.
+    const state_ = sectionState(host);
+    state_.key = key;
+    state_.open = true;
+  } else pickSection(host, sectionState(host).key, false);
 }
 
 // A phone back moves the section before the page builds its form, and that build replaces the
