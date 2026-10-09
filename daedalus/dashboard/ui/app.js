@@ -171,7 +171,7 @@ async function editValue(input, write) {
 function bindValueRows(host, write) {
   host.addEventListener("click", (event) => {
     const input = event.target.closest("[data-value]");
-    if (!input) return;
+    if (!input || input.closest(".settings") !== host) return;
     event.preventDefault();
     editValue(input, write);
   });
@@ -1194,7 +1194,7 @@ function tickCooldowns() {
 // The saved values of the provider keys. A key field shows the state: env:NAME or db:NAME.
 async function refreshEnv() {
   state.env = await call("env");
-  if (!document.querySelector('section[data-page="providers"]').hidden) renderForm();
+  if (providersShown()) renderForm();
 }
 
 function renderKeys(rows) {
@@ -1673,6 +1673,8 @@ function field(label, hint, body) {
 // The picked section of each list, and whether the phone shows that section or the list.
 const SECTION_STATE = { settings: { key: "", open: false }, providers: { key: "", open: false } };
 const sectionState = (host) => SECTION_STATE[host.id === "settings" ? "settings" : "providers"];
+// The Providers section shows when its card holds the pane. A refresh then renders its form.
+const providersShown = () => sectionState($("settings")).key === "providers";
 
 // A section list: every section in a rail, and the pane shows the picked 1.
 function sectionList(id, items, active) {
@@ -1712,13 +1714,13 @@ function pickSection(host, key, open = sectionState(host).open) {
   state_.key = key;
   state_.open = open;
   host.dataset.detail = open ? "1" : "0";
-  for (const button of host.querySelectorAll(".sections button")) {
+  for (const button of host.querySelectorAll(":scope > .sections button")) {
     const on = button.dataset.section === key;
     button.classList.toggle("on", on);
     if (on) button.setAttribute("aria-current", "true");
     else button.removeAttribute("aria-current");
   }
-  for (const card of host.querySelectorAll(".section-pane > .card")) {
+  for (const card of host.querySelectorAll(":scope > .section-pane > .card")) {
     card.hidden = card.dataset.section !== key;
   }
   if (!moved) return;
@@ -1756,6 +1758,10 @@ function applySectionHash() {
   const [path, query] = location.hash.split("?");
   const host = path === "#/settings" ? $("settings") : path === "#/providers" ? $("provider-form") : null;
   if (!host) return;
+  // The providers deep link opens the settings section that now holds the form.
+  if (path === "#/providers") {
+    pickSection($("settings"), "providers", phoneSection() ? true : sectionState($("settings")).open);
+  }
   const key = new URLSearchParams(query ?? "").get("section");
   const known = [...host.querySelectorAll(".sections button")].some((button) => button.dataset.section === key);
   if (key && known) pickSection(host, key, true);
@@ -2386,6 +2392,11 @@ const settingList = (group, key) => {
 const isSwitch = (group, key) => typeof state.settings.defaults[group][key] === "boolean";
 
 // The API keys card of the Settings page: the form, the reveal and the table ride in it.
+// The Providers section of the Settings rail: the moved nodes fill the card below.
+function providersCard() {
+  return '<div class="card" data-section="providers"><h3>Providers</h3></div>';
+}
+
 function keysCard() {
   return `<div class="card" data-section="keys"><h3>API Keys</h3>
     <form class="toolbar" id="new-key">
@@ -2447,14 +2458,19 @@ function renderSettings() {
     }).join("")}${group === "hooks" ? hooksManager() : ""}</div>`;
   // The section list: the rail names every group, and the pane holds its card.
   const groups = SETTINGS.filter(([group]) => group !== "headroom" || state.settings.headroom_available);
-  const items = groups.map(([group, title]) => [group, title]).concat([["keys", "API Keys"], ["yaml", "YAML"]]);
+  const items = groups.map(([group, title]) => [group, title]).concat([["providers", "Providers"], ["keys", "API Keys"], ["yaml", "YAML"]]);
   const picked = sectionState($("settings")).key;
   const active = items.some(([key]) => key === picked) ? picked : items[0][0];
+  // The providers nodes keep their listeners: they ride out of the pane before the rebuild
+  // lands, and into the fresh card after it, so a render never resets the form or the chips.
+  $("providers-home").append($("files"), $("save-note"), $("provider-form"));
   $("settings").innerHTML = sectionList("settings", items, active)
     + sectionPane("Settings", groups.map(([group, title, fields]) => card([group, title, fields]).replace(
       '<div class="card">', `<div class="card" data-section="${esc(group)}">`)).join("")
+      + providersCard()
       + keysCard()
       + yamlCard("settings-editor", "settings-yaml-save", `The file text of ${fileName(state.settings.path)}. A key that the form cannot show still opens here.`));
+  $("settings").querySelector('[data-section="providers"]')?.append($("files"), $("save-note"), $("provider-form"));
   pickSection($("settings"), active);
   $("settings-editor").value = typed ?? state.settings.text;
   // The rendered file wins, and the shown rows follow its mode.
@@ -2818,7 +2834,7 @@ async function start() {
   renderFiles();
   renderTiers();
   renderOverview();
-  if (!document.querySelector(`section[data-page="providers"]`).hidden) renderForm();
+  if (providersShown()) renderForm();
   state.timers = [
     // A hidden tab asks the server for nothing. It refreshes when it shows again.
     setInterval(() => document.hidden || guarded(refreshFast), 5000),
@@ -3069,7 +3085,7 @@ $("requests").addEventListener("click", async (event) => {
   shownRequests = "";
   renderRequestTable();
 });
-const PAGES = ["overview", "requests", "models", "notifications", "providers", "limits", "settings"];
+const PAGES = ["overview", "requests", "models", "limits", "notifications", "settings"];
 
 // A Models link such as #/models?tier=C&mode=chat&sort=weight sets the filters.
 function applyModelFilters(query) {
@@ -3211,7 +3227,8 @@ function showPage() {
   markNavSteps();
   // The page renders before the section pick: a render replaces the markup of the pane, and the
   // slide of a phone back rides on the classes that the pick sets.
-  if (page === "providers" && state.view === "form") renderForm();
+  if (state.view === "form" && (asked === "providers"
+    || /(^|&)section=providers(&|$)/.test(query || ""))) renderForm();
   applySectionHash();
   slideAgain();
   document.title = `daedalus · ${document.querySelector(`#nav a[data-page="${page}"]`).firstChild.textContent}`;
