@@ -533,6 +533,8 @@ def test_phone_chips_share_one_row() -> None:
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   assert ".phone-types, .phone-chips { display: contents; }" in css, "one row"
   assert ".models td.name .chip {" in css, "one size"
+  chip_block = css.split(".models td.name .chip {", 1)[1].split("}", 1)[0]
+  assert "align-self: center;" in chip_block, "an icon chip sits level with a word chip"
   assert ".phone-types { display: flex" not in css, "no row of its own"
   assert ".phone-chips {\n    display: flex" not in css, "no row of its own"
 
