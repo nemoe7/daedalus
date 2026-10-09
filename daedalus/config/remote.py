@@ -5,8 +5,9 @@ the commit of the ref from the GitHub API, reads the archive of that commit, and
 files of the folder through a temporary name. A failed fetch keeps the files on disk. The same
 holds for an archive that does not read, a block the reader refuses or a write that fails.
 
-The lock in `hooks.lock.json` records the sha256, the version, the repo and the commit of
-each file. `daedalus hooks verify` compares the files on disk against that lock.
+The lock `hooks.lock.json` rides in the hooks folder and records the sha256, the version,
+the repo and the commit of each file. `daedalus hooks verify` compares the files on disk
+against that lock.
 """
 
 from __future__ import annotations
@@ -25,12 +26,13 @@ from urllib.parse import urlparse
 
 import httpx
 
+from daedalus.providers import hooks
 from daedalus.providers.hooks import meta_check
 
 logger = logging.getLogger("daedalus.config")
 
-# The default folder of the hook files, when a caller names none, and the record of each file.
-FOLDER: Final = Path("hooks")
+# The lock rides in the folder of the hook files, so its write lands where the process owns
+# the folder. A caller without a folder uses the folder of the settings.
 LOCK: Final = Path("hooks.lock.json")
 TIMEOUT: Final = 30.0
 # The 2 answers of a GitHub source: the commit of a ref, and the archive of a commit.
@@ -93,7 +95,7 @@ def on_disk(folder: Path | None = None) -> dict[str, str]:
 
   A name that starts with a dot stays out: the writer of a download uses such a name.
   """
-  target = FOLDER if folder is None else folder
+  target = hooks.folder() if folder is None else folder
   if not target.is_dir():
     return {}
   return {
@@ -194,8 +196,8 @@ def update(
   the record that describes them.
   """
   wanted = None if take is None else {str(name) for name in take}
-  target = FOLDER if folder is None else folder
-  lock = LOCK if lock_path is None else lock_path
+  target = hooks.folder() if folder is None else folder
+  lock = target / LOCK if lock_path is None else lock_path
   records = read_records(lock)
   moved: list[str] = []
   for entry in entries:
@@ -352,7 +354,7 @@ def read_records(path: Path | None = None) -> dict[str, dict[str, str]]:
 
   A record with no usable sha256 stays out, so 1 bad line never breaks the boot.
   """
-  target = LOCK if path is None else path
+  target = hooks.folder() / LOCK if path is None else path
   try:
     found = json.loads(target.read_text(encoding="utf-8"))
   except (OSError, ValueError):
@@ -379,7 +381,7 @@ def write_records(
   records: Mapping[str, Mapping[str, str]], path: Path | None = None
 ) -> None:
   """Write the lock file, in name order, with 1 record per installed file."""
-  target = LOCK if path is None else path
+  target = hooks.folder() / LOCK if path is None else path
   target.parent.mkdir(parents=True, exist_ok=True)
   body = {name: dict(records[name]) for name in sorted(records)}
   target.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")

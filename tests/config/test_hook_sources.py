@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from daedalus.config import remote
+from daedalus.providers import hooks
 
 COMMIT = "a" * 40
 API = "https://api.github.com/repos/owner/name/commits/main"
@@ -456,3 +457,23 @@ def test_a_report_names_a_source_that_is_not_a_map(
     == []
   )
   assert report == ["source 'owner/name' is not an owner/name or a GitHub URL"]
+
+
+def test_the_lock_lives_in_the_hooks_folder(
+  monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+  """The defaults put the lock beside the hook files, where a server owns the folder."""
+  (tmp_path / "hooks").mkdir()
+  monkeypatch.setattr(hooks, "ROOT", Path("."))
+  monkeypatch.chdir(tmp_path)
+  pages = {
+    API: json.dumps({"sha": COMMIT}).encode(),
+    ARCHIVE: tar({"hooks/one.py": block()}),
+  }
+  answers(monkeypatch, pages)
+  remote.update([source()])
+  assert (tmp_path / "hooks" / "hooks.lock.json").exists(), (
+    "the lock rides in the hooks folder"
+  )
+  assert not (tmp_path / "hooks.lock.json").exists(), "no lock litters the start folder"
+  assert remote.read_records()["one.py"]["repo"] == "owner/name"

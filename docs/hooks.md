@@ -318,8 +318,8 @@ reads the archive of that commit, and writes each file through a temporary name.
 A request that fails, an archive that does not read, a refused block or a failed write all keep the
 files on disk.
 
-The lock in [`hooks.lock.json`](../config) records the sha256, the version, the repo and the
-commit of each installed file. A file that leaves the repo stays on disk with its record. An
+The lock [`hooks.lock.json`](../config) rides in the hooks folder and records the sha256, the
+version, the repo and the commit of each installed file. A file that leaves the repo stays on disk with its record. An
 installed file runs at a surface when its block names that surface, its scope matches the model, and
 `hooks.disabled` does not hold its name.
 
