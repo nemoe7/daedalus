@@ -86,8 +86,9 @@ def test_lines() -> None:
   lines.lines.clear()
   client = TestClient(api.app)
   client.get("/")
+  client.get("/health")
   client.get("/ui/api/status")
   shown = [" ".join(line.split()[:5]) for line in lines.lines]
   assert shown == ["INFO daedalus GET /ui/api/status 401"], (
-    "dashboard reads go to debug"
+    "dashboard reads and health probes go to debug"
   )

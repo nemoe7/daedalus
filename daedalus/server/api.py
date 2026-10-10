@@ -239,9 +239,11 @@ def log_line(request: Request, status: int, started: float) -> None:
   line = " ".join(
     [request.method, request.url.path, str(status), logs.elapsed(started)]
   )
-  # The dashboard polls every few seconds, so its reads go to the debug log.
+  # The dashboard and the health probe poll every few seconds, so their reads go to the debug log.
   quiet = request.method == "GET" and status < 400
-  quiet = quiet and (request.url.path == "/" or request.url.path.startswith("/ui/"))
+  quiet = quiet and (
+    request.url.path in ("/", "/health") or request.url.path.startswith("/ui/")
+  )
   logger.log(logging.DEBUG if quiet else logging.INFO, " ".join([line, *models]))
 
 
