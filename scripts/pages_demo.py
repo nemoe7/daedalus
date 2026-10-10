@@ -19,7 +19,6 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-import yaml
 from fastapi.testclient import TestClient
 
 from daedalus import config, dashboard, store
@@ -1501,48 +1500,10 @@ def demo_version() -> str:
   return f"demo.{count}" if count.isdigit() else "demo"
 
 
-def demo_blocks(fixtures: dict[str, Any]) -> dict[str, dict[str, Any]]:
-  """The provider blocks of the demo files: the main file, and each `{provider}.yml` file."""
-  files = {
-    Path(row["path"]).name: yaml.safe_load(row["text"]) or {}
-    for row in fixtures["files"]
-  }
-  main = files.pop(Path(config.DEFAULT_PATH).name, {})
-  blocks = {
-    name: {"main": block, "file": None}
-    for name, block in main.items()
-    if isinstance(block, dict)
-  }
-  for name, content in files.items():
-    found = blocks.setdefault(Path(name).stem, {"main": None, "file": None})
-    found["file"] = content if isinstance(content, dict) else None
-  return blocks
-
-
-def kept_models(fixtures: dict[str, Any]) -> list[dict[str, Any]]:
-  """The fixture rows the demo provider files keep. A row stays when 1 of its blocks keeps it."""
-  slugs: dict[str, list[str]] = {}
-  for row in fixtures["models"]:
-    name, _, slug = row["id"].partition("/")
-    slugs.setdefault(name, []).append(slug)
-  blocks = demo_blocks(fixtures)
-  kept: set[str] = set()
-  for name, names in slugs.items():
-    parts = blocks.get(name)
-    if parts is None:
-      kept.update(f"{name}/{slug}" for slug in names)
-      continue
-    for block in (parts["main"], parts["file"]):
-      if isinstance(block, dict):
-        kept.update(f"{name}/{slug}" for slug in discovery.select(block, names))
-  return [row for row in fixtures["models"] if row["id"] in kept]
-
-
 def demo_fixtures(version: str) -> dict[str, Any]:
   """The fixtures of 1 build: the rows the provider files keep, with the version stamps."""
   fixtures = json.loads(FIXTURES.read_text(encoding="utf-8"))
-  # A snapshot outlives the config: the demo drops the rows its provider files exclude.
-  fixtures["models"] = kept_models(fixtures)
+  # The snapshot is the actual catalog state, so every row stays.
   kept = {row["id"] for row in fixtures["models"]}
   for pool in fixtures["pools"]:
     pool["members"] = [item for item in pool["members"] if item["id"] in kept]
