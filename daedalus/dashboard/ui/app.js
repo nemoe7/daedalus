@@ -946,6 +946,7 @@ const LUCIDE = {
   search: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34" /> <circle cx="11" cy="11" r="8" /></svg>',
   info: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /> <path d="M12 16v-4" /> <path d="M12 8h.01" /></svg>',
   x: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></svg>',
+  trash: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>',
 };
 // The flag chips draw lucide; a flag without a glyph keeps its text.
 const FLAG_ICONS = { vision: LUCIDE.image, pdf_input: LUCIDE.file_text, audio_input: LUCIDE.mic, audio_output: LUCIDE.volume_2 };
@@ -1204,7 +1205,7 @@ function renderKeys(rows) {
       <td class="num muted mono"><span${k.start ? ` title="Only the start of a saved key is kept"` : ""}>${k.start ? esc(k.start) + "&hellip;" : "-"}</span></td>
       <td class="hide-sm muted">${stamp(k.created)}</td>
       <td class="muted">${mobileLabel("Last used")}<span class="cell-value">${k.used ? stamp(k.used) : "never"}</span></td>
-      <td class="end"><button type="button" class="ghost danger" data-key="${esc(k.name)}">Delete</button></td>
+      <td class="end"><button type="button" class="ghost danger" data-key="${esc(k.name)}" aria-label="Delete ${esc(k.name)}" title="Delete">${LUCIDE.trash}</button></td>
     </tr>`).join("") : '<tr><td colspan="5" class="empty">No API keys. The master key opens /v1.</td></tr>');
 }
 
@@ -1495,7 +1496,7 @@ function hooksManager() {
       <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || "bundled")}">${row.problem ? `<span class="bad">${esc(row.problem)}</span>` : esc(source || "bundled")}</span></td>
       <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
         ${disabled.includes(row.name) ? "" : "checked"} aria-label="Enabled ${esc(row.name)}"></td>
-      <td class="end"><button type="button" class="ghost danger" data-hook-drop="${esc(row.path)}">Delete</button></td></tr>`;
+      <td class="end"><button type="button" class="ghost danger" data-hook-drop="${esc(row.path)}" aria-label="Delete ${esc(row.name)}" title="Delete">${LUCIDE.trash}</button></td></tr>`;
   }).join("") || '<tr><td role="cell" colspan="7"><em class="none">No hook file</em></td></tr>';
   const scan = state.hooksScan;
   const panel = scan ? `<div class="pills" id="hooks-scan">

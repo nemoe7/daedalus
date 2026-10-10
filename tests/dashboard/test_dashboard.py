@@ -4444,3 +4444,13 @@ def test_hook_table_columns() -> None:
   columns = "<th>Author/Title</th><th>Version</th><th>Surfaces</th><th>Scopes</th>"
   assert columns in app, "the hooks table names its columns in the note order"
   assert '<th class="hide-sm">Source</th><th>Enabled</th>' in app
+
+
+def test_table_delete_buttons_use_the_trash_icon() -> None:
+  """The key and hook table rows draw the trash icon for Delete, not the word."""
+  app = (
+    Path(__file__).resolve().parents[2] / "daedalus/dashboard/ui/app.js"
+  ).read_text(encoding="utf-8")
+  assert app.count("${LUCIDE.trash}") >= 2, "the key row and the hook row draw the icon"
+  assert 'data-key="${esc(k.name)}">Delete</button>' not in app, "the key row"
+  assert 'data-hook-drop="${esc(row.path)}">Delete</button>' not in app, "the hook row"
