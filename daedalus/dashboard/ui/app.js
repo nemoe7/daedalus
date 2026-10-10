@@ -1493,7 +1493,7 @@ function hooksManager() {
       <td role="cell"><span class="cell-value">${esc(hookVersion(row))}</span></td>
       <td role="cell" class="surfaces">${hookSurfacesCell(row)}</td>
       <td role="cell"><span class="cell-value">${esc(row.scope || "global")}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
-      <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || "bundled")}">${row.problem ? `<span class="bad">${esc(row.problem)}</span>` : esc(source || "bundled")}</span></td>
+      <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || "local")}">${row.problem ? `<span class="bad">${esc(row.problem)}</span>` : esc(source || "local")}</span></td>
       <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
         ${disabled.includes(row.name) ? "" : "checked"} aria-label="Enabled ${esc(row.name)}"></td>
       <td class="end"><button type="button" class="ghost danger" data-hook-drop="${esc(row.path)}" aria-label="Delete ${esc(row.name)}" title="Delete">${LUCIDE.trash}</button></td></tr>`;

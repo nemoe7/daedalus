@@ -1998,7 +1998,7 @@ assert(html.includes('<em class="none">No surface</em>'), 'a file that names no 
 assert(!html.includes('data-hook-surface-pick'), 'nothing adds a surface');
 assert(!html.includes('data-hook-surface-drop'), 'nothing takes a surface off');
 assert(!html.includes('class="menu"'), 'no surface list opens');
-assert(html.includes('>bundled<'), 'a file with no source reads bundled');
+assert(html.includes('>local<'), 'a file with no source reads local');
 """,
   )
 
