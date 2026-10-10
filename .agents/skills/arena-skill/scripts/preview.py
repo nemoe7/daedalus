@@ -70,7 +70,6 @@ AGENT_SEEN_META='agent_seen_at'
 AGENT_CALL_ENDED_META='agent_call_ended_at'
 TURN_ENDED_META='turn_ended_at'
 REMOVED_META='state_removed_at'
-UNPUBLISH_VIEW_SECONDS=60
 AGENT_KEY_RE=re.compile('[A-Za-z0-9_-]{20,64}\\Z')
 AGENT_HOST_RE=re.compile('https://[A-Za-z0-9.-]+\\Z')
 def now():return datetime.now(timezone.utc).isoformat()
@@ -358,6 +357,50 @@ def add_note_attachments(note,records):
 	if records:note['attachment_name']=records[0]['name'];note['attachment_path']=records[0]['path'];note['attachments']=records
 	return note
 def cli_json(value):return json.dumps(value,ensure_ascii=False,separators=(',',':'))
+def format_pending_item(item):
+	kind=item.get('kind')or'note';display_kind='answer'if kind=='report'else kind;header=f"{display_kind} {item.get('id','')}"
+	if item.get('report_id'):header+=f" report {item['report_id']}"
+	if item.get('at'):header+=f" at {item['at']}"
+	text=item.get('text')or'';return f"{header}\n{text}"if text else header
+def format_read(listing):
+	checked_at=listing.get('checked_at');pending=listing.get('pending')or[];count=len(pending)
+	if checked_at:first=f"Inbox {checked_at}: {count} pending"
+	else:first=f"Inbox: {count} pending"
+	if count==0:return first
+	lines=[first,'']
+	for(idx,item)in enumerate(pending):
+		lines.append(format_pending_item(item))
+		if idx!=len(pending)-1:lines.append('')
+	return'\n'.join(lines)
+def format_task_list(tasks):
+	total=len(tasks);lines=[f"Tasks {total}"]
+	for task in tasks:
+		order=task.get('order');status=task.get('status');id_=task.get('id');blocked=task.get('blocked');report_id=task.get('report_id');blocked_mark='*'if blocked else'';line=f"{order}{blocked_mark}  {status} {id_}"
+		if report_id:line+=f" report {report_id}"
+		lines.append(line)
+	return'\n'.join(lines)
+def format_task(record,before=None,after=None):
+	id_=record.get('id');order=record.get('order');status=record.get('status');report_id=record.get('report_id');blocked=record.get('blocked');title=record.get('title')or'';details=record.get('details')or[];cut=[detail[:ECHO_DETAIL]+('…'if len(detail)>ECHO_DETAIL else'')for detail in details];first=f"task {id_}, order {order}, status {status}"
+	if report_id:first+=f", report {report_id}"
+	if blocked:first+=', blocked'
+	lines=[first,title]+[f"- {d}"for d in cut];return'\n'.join(lines)
+def format_key(record):
+	lines=[]
+	if record.get('key'):lines.append(f"key {record['key']}")
+	if record.get('host'):lines.append(f"host {record['host']}")
+	if record.get('at'):lines.append(f"at {record['at']}")
+	return'\n'.join(lines)if lines else''
+def format_fetch_job(job):
+	id_=job.get('id');url=job.get('url');allow_proxy=job.get('allow_proxy');approval=job.get('approval');status=job.get('status');parts=[f"Queued {id_} {url}"]
+	if allow_proxy is not None:parts[0]+=f" proxy={allow_proxy}"
+	if approval:parts[0]+=f" approval={approval}"
+	if status:parts[0]+=f" status={status}"
+	return'\n'.join(parts)
+def format_import_receipt(receipt):
+	notes=receipt.get('notes',0);answers=receipt.get('answers',0);reports=receipt.get('reports',0);tasks=receipt.get('tasks',0);forced=receipt.get('forced');base=f"Imported notes {notes}, answers {answers}, reports {reports}, tasks {tasks}"
+	if forced:base+=' (forced)'
+	return base
+def format_clear_state(counts):parts=[f"{k} {v}"for(k,v)in counts.items()];return'Cleared '+', '.join(parts)if parts else'Cleared'
 def require_server(store):
 	port=store.meta_value('port')
 	if not port:return
@@ -365,7 +408,7 @@ def require_server(store):
 		probe.settimeout(1)
 		if probe.connect_ex(('127.0.0.1',int(port)))==0:return
 	raise ValueError(f"preview server is down; start it before polling: arena-preview serve --port {port}")
-def print_read(store):listing=store.read();print(cli_json(listing),flush=True);store.mark_seen([item['id']for item in listing['pending']]);store.mark_reports_agent_seen([item.get('report_id')for item in listing['pending']])
+def print_read(store):listing=store.read();print(format_read(listing),flush=True);store.mark_seen([item['id']for item in listing['pending']]);store.mark_reports_agent_seen([item.get('report_id')for item in listing['pending']])
 POLL_INTERVAL=1
 HOLD_STALE_SECONDS=1800
 POLL_MAX_LOOPS=1800
@@ -403,11 +446,19 @@ def quiet_inbox_line(line):
 	for piece in text.split('\x00'):
 		tokens=[token for token in piece.split()if token]
 		if not tokens:continue
-		head=tokens[0].rsplit('/',1)[-1]
+		idx=0
+		while idx<len(tokens)and'='in tokens[idx]and not tokens[idx].startswith('-'):idx+=1
+		if idx>=len(tokens):continue
+		if tokens[idx]=='bash':
+			idx+=1
+			while idx<len(tokens)and tokens[idx].startswith('-'):
+				idx+=1
+				if idx<len(tokens)and tokens[idx-1]=='-c':break
+			if idx>=len(tokens):continue
+		head=tokens[idx].rsplit('/',1)[-1]
 		if head in INERT_COMMANDS:continue
 		if head in('arena-preview','preview.py'):
-			rest=tokens[1:]
-			if'/dev/null'in piece and'>'in piece:return False
+			rest=tokens[idx+1:]
 			if any(token.startswith('$(')or'`'in token for token in rest):return False
 			continue
 		return False
@@ -440,13 +491,13 @@ def poll_inbox(store,sleeper=None):
 	try:
 		for index in range(POLL_MAX_LOOPS):
 			listing=store.read(include_quiet=False)
-			if listing['pending']:full=store.read();print(cli_json(full),flush=True);store.mark_seen([item['id']for item in full['pending']]);store.mark_reports_agent_seen([item.get('report_id')for item in full['pending']]);print_poll_hold(store);return 0
+			if listing['pending']:full=store.read();print(format_read(full),flush=True);store.mark_seen([item['id']for item in full['pending']]);store.mark_reports_agent_seen([item.get('report_id')for item in full['pending']]);print_poll_hold(store);return 0
 			open_tasks=[item for item in store.list_tasks()if item['status']=='upcoming'and not item['blocked']]
-			if open_tasks:listing['tasks']=open_tasks;names=', '.join(item['id']for item in open_tasks);continue_line=f"CONTINUE: unblocked task {names} waits. Task list still up. Work it or mark it blocked before the next poll. Do not end the turn.";print(continue_line,file=sys.stderr,flush=True);print(continue_line,flush=True);print(cli_json(listing),flush=True);print_poll_hold(store);return 0
-			if store.skip_poll_requested():store.take_skip_poll();store.mark_turn_ended();print('SKIP: owner pressed Skip poll. End the turn, no second poll.',file=sys.stderr,flush=True);print(cli_json(listing),flush=True);print_poll_hold(store);return 0
+			if open_tasks:listing['tasks']=open_tasks;names=', '.join(item['id']for item in open_tasks);continue_line=f"CONTINUE: unblocked task {names} waits. Task list still up. Work it or mark it blocked before the next poll. Do not end the turn.";print(continue_line,file=sys.stderr,flush=True);print(continue_line,flush=True);print(format_task_list(listing.get('tasks',[])),flush=True);print_poll_hold(store);return 0
+			if store.skip_poll_requested():store.take_skip_poll();store.mark_turn_ended();print('SKIP: owner pressed Skip poll. End the turn, no second poll.',file=sys.stderr,flush=True);print(format_read(listing),flush=True);print_poll_hold(store);return 0
 			if index+1<POLL_MAX_LOOPS:sleeper(POLL_INTERVAL);store.stamp_polling()
 	finally:store.clear_polling()
-	store.mark_turn_ended();print(cli_json(listing),flush=True);print_poll_hold(store);return 1
+	store.mark_turn_ended();print('Poll ended: 0 pending.',flush=True);print_poll_hold(store);return 1
 def parse_state_import(text):
 	try:value=json.loads(text)
 	except json.JSONDecodeError:value=[json.loads(line)for line in text.splitlines()if line.strip()]
@@ -1011,11 +1062,7 @@ class Store:
 			if not dismissed_by_owner:
 				answered=db.execute('SELECT 1 FROM submissions WHERE report_id = ? LIMIT 1',(report_id,)).fetchone()
 				if answered is not None:raise ValueError("The report has been answered: its id is pinned by the answer, so a revision publishes under a new id and the tab is the owner's to dismiss.")
-			acked=db.execute('SELECT MAX(acknowledged_at) FROM submissions WHERE report_id = ?',(report_id,)).fetchone()[0]
-			if acked and not(row['ack_seen_at']and row['ack_seen_at']>=acked):raise UnpublishHeld('The report waits for the owner: its answer ack '+str(clip_stamp(acked))+' is newer than their last open of it. The open clears the wait.')
-			if not dismissed_by_owner:
-				views=[value for value in(row['viewed_at'],row['seen_at'],row['ack_seen_at'])if value];age=seconds_since(max(views))if views else None
-				if age is not None and 0<=age<UNPUBLISH_VIEW_SECONDS:raise UnpublishHeld('The owner is reading this report: the last view is '+str(int(age))+' s old. Retry after '+str(max(1,int(UNPUBLISH_VIEW_SECONDS-age)))+' s without a view.')
+			if not row['seen_at']:raise UnpublishHeld('The report waits for the owner: it has not been seen yet. Open it to clear the wait.')
 			db.execute('DELETE FROM reports WHERE id = ?',(report_id,));db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(REMOVED_META,now()))
 			if dismissed_by_owner:db.execute('INSERT INTO notes (id, text, at, quiet) VALUES (?, ?, ?, 1)',(new_id(),f"The owner dismissed the report {report_id} ({row['title']}).",now()))
 	def clear_state(self):
@@ -1287,9 +1334,9 @@ def main():
 		elif args.command=='key':
 			record=store.agent_key()
 			if not record:print('No agent key recorded.',file=sys.stderr);return 1
-			print(cli_json(record))
+			print(format_key(record))
 		elif args.command=='poll':require_server(store);store.notice_expired_key();return poll_inbox(store)
-		elif args.command=='download-request':print(cli_json(store.enqueue_fetch(args.url,args.allow_proxy,pending=True)))
+		elif args.command=='download-request':print(format_fetch_job(store.enqueue_fetch(args.url,args.allow_proxy,pending=True)))
 		elif args.command=='ack':
 			sources=args.reply,args.note,args.reply_file,args.note_file
 			if sum(source is not None for source in sources)!=1:raise ValueError('Choose exactly one of --reply, --note, --reply-file or --note-file')
@@ -1299,13 +1346,13 @@ def main():
 				source=args.reply_file if args.reply_file is not None else args.note_file;kind='reply'if args.reply_file is not None else'note'
 				try:text=source.read_text(encoding='utf-8')
 				except OSError as error:raise ValueError(f"Cannot read {source}: {error.strerror or error}")from None
-			arrivals={record_id:store.record_arrival(record_id)for record_id in args.ids};store.acknowledge(args.ids,kind,text);print('Acknowledged: '+', '.join(args.ids))
+			arrivals={record_id:store.record_arrival(record_id)for record_id in args.ids};store.acknowledge(args.ids,kind,text);short=[i[:7]for i in args.ids];print('Acknowledged '+' '.join(short))
 			for record_id in args.ids:
 				age=stamp_age_seconds(arrivals.get(record_id))
 				if age is not None and age>HOLD_STALE_SECONDS:minutes=int(age//60);print(f"HOLD: this ack answered a message {minutes} min old. The message might be stale. Hold further work until the owner confirms.",file=sys.stderr,flush=True)
 			print('Note asks for work? Add the task: '+'; '.join(f'task <id> "<title>" --msg-id {i}'for i in args.ids))
 		elif args.command=='publish':
-			count=store.publish(args.id,args.title,args.source);print(f"Published {args.id}, {count} fields. Select it in Reports.")
+			count=store.publish(args.id,args.title,args.source);print(f"Published {args.id}, {count} fields.")
 			if not count and'{#'in Path(args.source).read_text('utf-8'):print('Warning: 0 fields parsed. A `{#id}` marker ends a prompt line, then the `- ( ) option` lines follow.',file=sys.stderr)
 		elif args.command=='unpublish':store.unpublish(args.report_id);print(f"Unpublished {args.report_id}. Answers and source file remain.")
 		elif args.command=='task':
@@ -1321,13 +1368,11 @@ def main():
 			if args.msg_id:
 				with store.transaction()as shared:record=store.write_task(task_id,args.title_arg,details,args.status,args.order,args.blocked,args.report,shared=shared);store.mark_task(args.msg_id,task_id,shared=shared)
 			else:record=store.write_task(task_id,args.title_arg,details,args.status,args.order,args.blocked,args.report)
-			before,after=store.neighbours(task_id);echo=echo_task(record,before,after)
-			if args.msg_id:echo['msg_id']=args.msg_id
-			print(cli_json(echo))
-		elif args.command=='task-remove':print(cli_json(echo_task(store.remove_task(args.task_id))))
-		elif args.command=='task-list':print(cli_json(store.list_tasks()))
-		elif args.command=='import-state':text=args.source.read_text(encoding='utf-8')if args.source else sys.stdin.read();print(cli_json(store.import_state(text,args.replace_tasks,args.force)))
-		elif args.command=='clear-state':print(cli_json(store.clear_state()))
+			print(format_task(record))
+		elif args.command=='task-remove':print(format_task(store.remove_task(args.task_id)))
+		elif args.command=='task-list':print(format_task_list(store.list_tasks()))
+		elif args.command=='import-state':text=args.source.read_text(encoding='utf-8')if args.source else sys.stdin.read();print(format_import_receipt(store.import_state(text,args.replace_tasks,args.force)))
+		elif args.command=='clear-state':print(format_clear_state(store.clear_state()))
 	except(OSError,ValueError,TypeError,KeyError,sqlite3.Error,RuntimeError)as error:print(f"Preview error: {error}",file=sys.stderr);return 1
 	return 0
 if __name__=='__main__':ensure_installed();raise SystemExit(main())
