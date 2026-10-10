@@ -1862,24 +1862,6 @@ function fold(label, hint, body) {
     + `<div class="fold-body">${body}</div></details>`;
 }
 
-// The hint of a row near the bottom of the pane would spill past the pane, and the spill
-// raises the pane's scrollbar and shifts the text. Such a hint flips above its icon.
-function hintFlip(button) {
-  const tip = button?.nextElementSibling;
-  const pane = button?.closest(".section-pane");
-  if (!tip || !pane || getComputedStyle(tip).display === "none") return;
-  const over = tip.getBoundingClientRect().bottom > pane.getBoundingClientRect().bottom;
-  tip.classList.toggle("up", over);
-}
-["mouseover", "focusin"].forEach((kind) =>
-  document.addEventListener(kind, (event) => hintFlip(event.target.closest?.(".hint")))
-);
-["mouseout", "focusout"].forEach((kind) =>
-  document.addEventListener(kind, (event) => {
-    event.target.closest?.(".hint")?.nextElementSibling?.classList.remove("up");
-  })
-);
-
 function providerCard(name, block) {
   const path = [name];
   if (!block || typeof block !== "object" || Array.isArray(block)) {
