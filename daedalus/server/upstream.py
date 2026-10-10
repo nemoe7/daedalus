@@ -229,6 +229,8 @@ def nearest_effort(asked: str, listed: list[str]) -> str | None:
   """The listed name nearest the asked effort, the lower of 2 equals, and None without a match.
 
   An asked name outside the effort ranks, and a list of such names alone, find no answer.
+  `none` is no rung of the ladder: a real level takes a real rung, and `none` answers only a
+  model that lists `none` alone.
   """
   ranks = router.EFFORT_RANKS
   if asked in listed:
@@ -237,6 +239,8 @@ def nearest_effort(asked: str, listed: list[str]) -> str | None:
     return None
   rank = ranks.index(asked)
   known = [name for name in listed if name in ranks]
+  if asked != "none":
+    known = [name for name in known if name != "none"] or known
   if not known:
     return None
   return min(known, key=lambda name: (abs(ranks.index(name) - rank), ranks.index(name)))

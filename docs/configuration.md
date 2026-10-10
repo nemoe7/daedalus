@@ -278,7 +278,7 @@ Other keys of a `models` entry:
 | --- | --- |
 | `pool` | `false`: out of the pools and `daedalus/auto`. A direct `provider/slug` request still uses it. |
 | `timeout` | Seconds with no provider data, in place of `limits.wait`. Direct requests retry until `limits.request`. |
-| `reasoning_effort` | The effort for a request with no `reasoning_effort`. Only a model that reasons gets it. A value outside the effort list of the catalog row of the model moves to the nearest name of that list. |
+| `reasoning_effort` | The effort for a request with no `reasoning_effort`. Only a model that reasons gets it. A value outside the effort list of the catalog row of the model moves to the nearest name of that list. `none` answers only a model that lists `none` alone. |
 | `supported_reasoning_efforts` | The ordered efforts the model accepts, lowest first. A hook ladder indexes this list. Default: the block value, then the list of the catalog row of the model, then the coded default of the provider. |
 | `max_output_tokens` | The output limit of the model. A larger `max_tokens` or `max_completion_tokens` drops to this value. |
 | `supports_function_calling`, or its short name `tools` | `true` or `false`. Pool and `daedalus/auto` tool requests skip a model without it. |
