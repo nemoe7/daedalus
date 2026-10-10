@@ -7,10 +7,10 @@ import httpx
 
 from daedalus.providers.base import OpenAIProvider, check_wait, frame, limits
 
-# Mistral takes only high or none. The other OpenAI values map to the nearest of the 2.
+# Mistral takes only high or none. A real level maps to high, and only `none` maps to `none`.
 EFFORTS: Mapping[str, str] = {
   "none": "none",
-  "minimal": "none",
+  "minimal": "high",
   "low": "high",
   "medium": "high",
   "high": "high",
