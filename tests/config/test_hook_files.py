@@ -192,3 +192,16 @@ def test_request_paths_add_the_installed_files_of_the_surface(
     {"on-prompt": "hooks/other.py"}, {}, "on-prompt", "daedalus/auto"
   )
   assert [path.name for path in named] == ["other.py", "probe.py"]
+
+
+def test_the_example_stays_out_of_the_folder_list(tmp_path: Path, monkeypatch) -> None:
+  """The example of the base repo never lists as a hook file of the folder."""
+  root = tmp_path / "hooks"
+  root.mkdir()
+  for name in ("example.py", "one.py"):
+    (root / name).write_text("# ---\n# version: 1.0.0\n# surfaces: []\n# ---\n")
+  monkeypatch.setattr(hooks, "ROOT", tmp_path)
+  monkeypatch.setattr(hooks, "DIR", "hooks")
+  monkeypatch.setattr(hooks, "DISABLED", set())
+  assert hooks.hook_files() == ["hooks/one.py"]
+  assert [path.name for path in hooks.installed_files()] == ["one.py"]

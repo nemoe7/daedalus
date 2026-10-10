@@ -269,6 +269,9 @@ def file_rows() -> list[tuple[str, Path]]:
     rel = path.relative_to(root).as_posix()
     if any(part.startswith(".") for part in rel.split("/")):
       continue
+    # The example of the base repo ships for copy. It never lists as an installed file.
+    if rel == "example.py":
+      continue
     found.append((rel, path))
   return found
 
