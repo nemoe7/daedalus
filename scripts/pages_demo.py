@@ -53,7 +53,7 @@ ENDPOINTS = (
 )
 # The shipped provider files, as-is: the Providers tab shows them and nothing else.
 DEMO_FILES = ("free.yml", "openrouter.yml", "pollinations.yml")
-# The models of the demo: a captured snapshot of the live catalog, 132 rows.
+# The models of the demo: a captured snapshot of the live catalog, 130 rows.
 MODELS_FILE = ROOT / "scripts" / "pages_models.json"
 TOOL = {"type": "function", "function": {"name": "get_weather", "parameters": {}}}
 # The models that the demo makes fail or rate limit, for 1 row each.
@@ -999,14 +999,11 @@ const DEMO_FIXTURES = __FIXTURES__;
       const tiers = {};
       for (const [tier, ids] of Object.entries(block.tier || {}))
         if (Array.isArray(ids)) for (const id of ids) tiers[String(id)] = tier;
-      // A kept slug: one exclude does not drop, or one the models block names exactly.
+      // The snapshot is the catalog state, so each captured row reaches the page. The models
+      // block still names an exact slug that the snapshot does not hold.
       const slugs = new Set();
-      for (const id of known.keys()) {
-        if (!id.startsWith(`${name}/`)) continue;
-        const slug = id.slice(name.length + 1);
-        if (declared.some((pattern) => hit(pattern, slug))
-          || !(block.exclude || []).some((pattern) => hit(pattern, slug))) slugs.add(slug);
-      }
+      for (const id of known.keys())
+        if (id.startsWith(`${name}/`)) slugs.add(id.slice(name.length + 1));
       for (const pattern of declared)
         if (spec(pattern)[0] === 3) slugs.add(pattern);
       for (const slug of slugs) {

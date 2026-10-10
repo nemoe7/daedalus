@@ -79,6 +79,8 @@ const check = (ok, text) => {
   check((await status.json()).healthy === true, "status body");
   const first = await (await context.fetch("ui/api/requests?limit=10")).json();
   check(first.length === 0, "the Requests tab starts empty");
+  const served = await (await context.fetch("ui/api/models")).json();
+  console.log("models " + served.length);
   const all = await (await context.fetch("ui/api/requests")).json();
   check(all.length === 0, "the Overview starts empty too");
   const stray = await context.fetch("ui/api/nothing", { method: "PUT" });
@@ -682,7 +684,7 @@ def test_the_demo_clocks_count_in_whole_milliseconds() -> None:
 
 
 def test_the_demo_answers_the_page_without_a_server(tmp_path: Path) -> None:
-  """The script in a JavaScript runtime: the fixtures, a refused write and a live request."""
+  """The script in a JavaScript runtime: the catalog count, a refused write and a live request."""
   out = pages_demo.build(tmp_path / "site", pages_demo.demo_version())
   built = subprocess.run(
     ["node", "-e", NODE_CHECK],
@@ -693,6 +695,10 @@ def test_the_demo_answers_the_page_without_a_server(tmp_path: Path) -> None:
     check=False,
   )
   assert built.returncode == 0, f"{built.stdout}\n{built.stderr}"
+  fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
+  assert f"models {len(fixtures['models'])}\n" in built.stdout, (
+    f"the page serves each row of the snapshot: {built.stdout}"
+  )
 
 
 def test_the_capture_builds_the_demo_state() -> None:
