@@ -251,7 +251,7 @@ def test_governance_runs_only_from_trusted_base_code() -> None:
   assert "pull_request_target" in data["on"]
   assert "pull_request" not in data["on"]
   assert "github.event.pull_request.number" in data["concurrency"]["group"]
-  for job_id in ("title", "body", "commits"):
+  for job_id in ("title", "body", "commits", "versions"):
     checkout = data["jobs"][job_id]["steps"][0]
     assert checkout["uses"].startswith("actions/checkout@")
     assert checkout["with"]["ref"] == "${{ github.sha }}"
@@ -308,9 +308,9 @@ def test_pr_files_cannot_replace_the_trusted_checks() -> None:
 
 
 def test_the_pr_check_validates_the_body_prose_and_commits() -> None:
-  """One workflow holds the title, the description and the commit checks."""
+  """One workflow holds the title, the description, the commit and the version checks."""
   data = load("pr-check.yml")
-  assert sorted(data["jobs"]) == ["body", "commits", "title"]
+  assert sorted(data["jobs"]) == ["body", "commits", "title", "versions"]
 
   content = (WORKFLOWS / "pr-check.yml").read_text()
   assert "scripts/check_pr.py --body-file" in content
