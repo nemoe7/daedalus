@@ -1,6 +1,6 @@
 # ---
-# version: 1.0.1
-# surfaces: [on-request, on-prompt]
+# version: 1.0.2
+# surfaces: [on-request, on-prompt, on-chunk]
 # author: nemoe7
 # title: Auto reasoning effort
 # description: The Open WebUI reasoning level and try-again rule.
@@ -32,6 +32,9 @@ TOP = max(router.TIERS)
 
 # The characters of the model turn that join the read. A long answer would bloat the read.
 ANSWER_CHARS = 500
+
+# The separator of the served model line: `kilo/poolside/laguna-s-2.1:free · high`.
+DOT = " · "
 
 
 def _text(content: Any) -> str:
@@ -173,3 +176,31 @@ def on_prompt(
 def on_init() -> list[list[str]]:
   """The legend row of this hook."""
   return [["rtN", "A repeat picked another model, N times"]]
+
+
+def on_chunk(
+  chunk: dict[str, Any], model: str = "", context: dict[str, Any] | None = None
+) -> dict[str, Any]:
+  """Put the routed reasoning at the end of the served model line of the final chunk.
+
+  The served model hook writes the line first, and this surface overrides it. A reasoning of
+  `none` leaves the line alone, so the line names a reasoning only when the model reasoned.
+
+  :param chunk: one OpenAI chunk on its way to the client
+  :param model: the requested model
+  :param context: `effort`, the reasoning effort of the attempt that answered
+  """
+  effort = str((context or {}).get("effort") or "")
+  if not effort or effort == "none":
+    return chunk
+  usage = chunk.get("usage")
+  found = usage.get("daedalus") if isinstance(usage, dict) else None
+  if not isinstance(found, dict) or not found.get("line"):
+    return chunk
+  line = str(found["line"])
+  if line.endswith(f"{DOT}{effort}"):
+    return chunk
+  pick = {**found, "line": f"{line}{DOT}{effort}"}
+  chunk["usage"] = {**usage, "daedalus": pick}
+  logger.info("served reasoning %s for %s", pick["line"], model)
+  return chunk

@@ -13,7 +13,8 @@ from daedalus.server import api, media
 from daedalus.server.upstream import set_client
 
 MASTER = "test-master-key-0001"
-REAL_HOOK = Path(__file__).resolve().parents[2] / "hooks" / "served_model.py"
+HOOKS = Path(__file__).resolve().parents[2] / "hooks"
+REAL_HOOKS = ("served_model.py", "owui_auto_reasoning_effort.py")
 BODY = {"model": "daedalus/deinos", "messages": [{"role": "user", "content": "hi"}]}
 CALLS: list[str] = []
 
@@ -45,7 +46,8 @@ def openrouter(request: httpx.Request) -> httpx.Response:
 async def client(tmp_path: Path):
   root = hooks.ROOT / "hooks"
   root.mkdir(parents=True, exist_ok=True)
-  shutil.copy(REAL_HOOK, root / "served_model.py")
+  for name in REAL_HOOKS:
+    shutil.copy(HOOKS / name, root / name)
   config.set_config(
     {
       "p": {
@@ -62,7 +64,7 @@ async def client(tmp_path: Path):
   media.REPEATS.clear()
   dashboard.HISTORY.clear()
   CALLS.clear()
-  api.REQUEST_HOOKS = {"on-chunk": ["hooks/served_model.py"]}
+  api.REQUEST_HOOKS = {"on-chunk": [f"hooks/{name}" for name in REAL_HOOKS]}
   async with httpx.AsyncClient(transport=httpx.MockTransport(openrouter)) as outer:
     set_client(outer)
     transport = httpx.ASGITransport(app=api.app)
@@ -108,7 +110,7 @@ async def test_each_round_of_one_message_carries_its_own_line(
 async def test_the_line_carries_the_routed_reasoning(
   client: httpx.AsyncClient,
 ) -> None:
-  """The line names the routed effort when it is not none, and it stays bare for none."""
+  """The reasoning hook overrides the line, and a reasoning of none leaves it bare."""
   for asked, wanted in (("high", "p/a · high"), ("none", "p/a")):
     answer = await client.post(
       "/v1/chat/completions",
@@ -118,3 +120,29 @@ async def test_the_line_carries_the_routed_reasoning(
     picks = lines(answer.text)
     assert len(picks) == 1, picks
     assert picks[0]["line"] == wanted, (asked, picks)
+
+
+async def test_the_line_follows_the_installed_files(
+  client: httpx.AsyncClient,
+) -> None:
+  """The reasoning hook alone draws no line, and the served model hook alone draws a bare one."""
+  both = [f"hooks/{name}" for name in REAL_HOOKS]
+  cases = (
+    (["served_model.py"], both[1:], None),
+    (["owui_auto_reasoning_effort.py"], both[:1], "p/a"),
+    ([], both, "p/a · high"),
+  )
+  for off, paths, wanted in cases:
+    hooks.set_installed("hooks", off)
+    api.REQUEST_HOOKS = {"on-chunk": paths}
+    answer = await client.post(
+      "/v1/chat/completions",
+      json={**BODY, "stream": True, "reasoning_effort": "high"},
+    )
+    assert answer.status_code == 200, answer.text
+    picks = lines(answer.text)
+    if wanted is None:
+      assert picks == [], (off, picks)
+    else:
+      assert [pick["line"] for pick in picks] == [wanted], (off, picks)
+  hooks.set_installed("hooks", [])

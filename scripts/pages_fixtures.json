@@ -5199,16 +5199,18 @@
         "record": {},
         "runs": [
           "on-request",
-          "on-prompt"
+          "on-prompt",
+          "on-chunk"
         ],
         "scope": "global",
         "surfaces": [
           "on-request",
-          "on-prompt"
+          "on-prompt",
+          "on-chunk"
         ],
         "targets": [],
         "title": "Auto reasoning effort",
-        "version": "1.0.1"
+        "version": "1.0.2"
       },
       {
         "author": "nemoe7",
@@ -5226,11 +5228,11 @@
         ],
         "targets": [],
         "title": "Served model",
-        "version": "1.0.2"
+        "version": "1.0.1"
       }
     ],
     "path": "config/daedalus.yml",
-    "text": "# Router settings. Each key is optional. A missing key uses the built-in default.\n# This file holds the changes from the defaults only. docs/configuration.md lists each key,\n# its default and its use. The Settings page of the dashboard writes here.\n# DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.\n# HEADROOM_URL turns on message compression through a Headroom sidecar.\n# `headroom: false` in a provider block or a model entry turns it off for that scope.\n\n# The hook files of the repo. The Settings page lists them and takes the picked 1s.\nhooks:\n  sources:\n    - repo: nemoe7/daedalus\n      path: hooks\n      ref: main\n      auto_update: false\nhooks:\n  on-request: [hooks/owui_auto_reasoning_effort.py]\n  on-prompt: [hooks/owui_auto_reasoning_effort.py]\n  on-chunk: [hooks/served_model.py]\n  sources:\n    - repo: nemoe7/daedalus\n      path: hooks\n      ref: main\n"
+    "text": "# Router settings. Each key is optional. A missing key uses the built-in default.\n# This file holds the changes from the defaults only. docs/configuration.md lists each key,\n# its default and its use. The Settings page of the dashboard writes here.\n# DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.\n# HEADROOM_URL turns on message compression through a Headroom sidecar.\n# `headroom: false` in a provider block or a model entry turns it off for that scope.\n\n# The hook files of the repo. The Settings page lists them and takes the picked 1s.\nhooks:\n  sources:\n    - repo: nemoe7/daedalus\n      path: hooks\n      ref: main\n      auto_update: false\n"
   },
   "status": {
     "affinity": {

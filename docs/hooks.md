@@ -164,7 +164,7 @@ A request-level surface, such as `on-request`, takes its files from the `hooks` 
 hooks:
   on-request: [hooks/owui_auto_reasoning_effort.py]
   on-prompt: [hooks/owui_auto_reasoning_effort.py]
-  on-chunk: [hooks/served_model.py]
+  on-chunk: [hooks/served_model.py, hooks/owui_auto_reasoning_effort.py]
 ```
 
 Each key holds a list of files, and they run in list order. 1 path on its own works too. An empty list turns that surface off.
