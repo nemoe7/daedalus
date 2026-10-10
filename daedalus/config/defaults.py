@@ -1,6 +1,7 @@
 """The default provider file of the repository, filled in for the names that the local file lacks."""
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,59 @@ def raw(text: str) -> dict[str, Any]:
   """The provider blocks of the text, with their `env:` and `db:` tokens kept."""
   found = yaml.safe_load(text)
   return found if isinstance(found, dict) else {}
+
+
+def _env_name(provider: object, suffix: str = "API_KEY") -> str:
+  """The conventional environment name for one cloud provider value."""
+  name = "".join(char for char in str(provider).upper() if char.isalnum())
+  return f"{name}_{suffix}"
+
+
+def _restored(value: Any, fallback: str) -> Any:
+  """Restore a resolved value to its known token, or to its conventional cloud token."""
+  from daedalus.config import ENV_PREFIX, SAVED, SAVED_PREFIX
+
+  if isinstance(value, str) and value.startswith((ENV_PREFIX, SAVED_PREFIX)):
+    return value
+  if isinstance(value, str):
+    matches = sorted(
+      name for name, found in os.environ.items() if found and found == value
+    )
+    if matches:
+      name = fallback if fallback in matches else matches[0]
+      return ENV_PREFIX + name
+    matches = sorted(name for name, found in SAVED.items() if found and found == value)
+    if matches:
+      name = fallback if fallback in matches else matches[0]
+      return SAVED_PREFIX + name
+  return ENV_PREFIX + fallback
+
+
+def _restore_tokens(blocks: dict[str, Any]) -> bool:
+  """Restore key-field tokens in a legacy cache and report whether it changed."""
+  changed = False
+  for provider, block in blocks.items():
+    if not isinstance(block, dict):
+      continue
+    fields = (
+      ("api_key", _env_name(provider)),
+      ("account_id", _env_name(provider, "ACCOUNT_ID")),
+    )
+    for key, fallback in fields:
+      if key not in block:
+        continue
+      value = _restored(block[key], fallback)
+      changed = changed or value != block[key]
+      block[key] = value
+    clients = block.get("client_keys")
+    if not isinstance(clients, dict):
+      continue
+    for client, current in clients.items():
+      suffix = "".join(char if char.isalnum() else "_" for char in str(client).upper())
+      value = _restored(current, f"{_env_name(provider)}_{suffix}")
+      changed = changed or value != current
+      clients[client] = value
+  return changed
 
 
 def parse(text: str) -> dict[str, Any]:
@@ -61,7 +115,13 @@ def cached_raw() -> dict[str, Any]:
     text = PATH.read_text(encoding="utf-8")
   except OSError:
     return {}
-  return raw(text)
+  blocks = raw(text)
+  if _restore_tokens(blocks):
+    try:
+      PATH.write_text(yaml.safe_dump(blocks, sort_keys=False), encoding="utf-8")
+    except OSError as exc:
+      logger.warning("the default provider cache did not migrate: %s", exc)
+  return blocks
 
 
 def cached() -> dict[str, Any]:

@@ -21,6 +21,8 @@ lands in `.daedalus-state/free.defaults.yml`.
 
 With no local `free.yml`, the remote or cached copy supplies the main provider blocks.
 The **Providers** form shows these inherited blocks while the local YAML stays empty.
+Before the form reads an older cache, daedalus replaces resolved provider key values with their `env:` or `db:` tokens.
+
 Saving a changed inherited block writes that complete provider block to the local `free.yml`; untouched blocks stay inherited.
 With no network or a bad file, the copy of the last good read stands, and daedalus logs 1 line.
 
