@@ -68,8 +68,10 @@ const MARK_FILES = new Set([
   "myshell-ai", "nvidia", "openai", "openrouter", "pollinations", "poolside", "qwen", "runwayml",
   "stabilityai", "stepfun", "z-ai", "zai-org",
 ]);
-const mark = (name) => MARK_FILES.has(name)
-  ? `<img class="mark" src="ui/icons/${esc(name)}.svg" alt="" aria-hidden="true">`
+const mark = (name, tint = false) => MARK_FILES.has(name)
+  ? tint
+    ? `<span class="mark tint" style="--mark:url(ui/icons/${esc(name)}.svg)" aria-hidden="true"></span>`
+    : `<img class="mark" src="ui/icons/${esc(name)}.svg" alt="" aria-hidden="true">`
   : `<span class="mark slug">${esc(name)}</span>`;
 // `provider/dev/model` and `provider/model` both land. The developer is the part before the model,
 // with a scope prefix such as `@cf/` dropped.
@@ -83,10 +85,10 @@ const parts = (id) => {
 };
 // The separator of the parts, so the cell reads as the model id does.
 const sep = '<span class="mark-sep" aria-hidden="true">/</span>';
-const modelName = (id, pool = "") => {
+const modelName = (id, pool = "", tint = false) => {
   const { provider, dev, model } = parts(id);
   if (model === null) return esc(id);
-  const heads = (dev ? [provider, dev] : [provider]).map(mark);
+  const heads = (dev ? [provider, dev] : [provider]).map((name) => mark(name, tint));
   const tail = pool ? sep + `<span class="model-part">${esc(pool)}</span>` : "";
   return heads.join(sep) + sep + `<span class="model-part">${esc(model)}</span>` + tail;
 };
@@ -2771,8 +2773,8 @@ const DIFF_LABELS = {
   tier: "Tier",
 };
 
-function diffChip(sign, label, icon = "", kind = "") {
-  return `<span class="chip flag${kind ? ` ${kind}` : ""}">${sign}${icon ? `${icon} ` : ""}${esc(label)}</span>`;
+function diffChip(label, icon = "", kind = "") {
+  return `<span class="chip flag${kind ? ` ${kind}` : ""}">${icon ? `${icon} ` : ""}${esc(label)}</span>`;
 }
 
 function diffValue(text) {
@@ -2799,8 +2801,7 @@ function diffField(name, oldText, newText) {
   if (capability) {
     const wasOn = before === true || before === 1;
     const isOn = after === true || after === 1;
-    if (wasOn !== isOn)
-      return [diffChip(isOn ? "+" : "-", capability[1], capability[0])];
+    if (wasOn !== isOn) return [diffChip(capability[1], capability[0])];
   }
   if (name === "supported_efforts"
       && (before == null || Array.isArray(before))
@@ -2808,23 +2809,23 @@ function diffField(name, oldText, newText) {
     const oldEfforts = before || [];
     const newEfforts = after || [];
     const chips = [
-      ...oldEfforts.filter((value) => !newEfforts.includes(value)).map((value) => effortChip(value, `-${value}`)),
-      ...newEfforts.filter((value) => !oldEfforts.includes(value)).map((value) => effortChip(value, `+${value}`)),
+      ...oldEfforts.filter((value) => !newEfforts.includes(value)).map((value) => effortChip(value)),
+      ...newEfforts.filter((value) => !oldEfforts.includes(value)).map((value) => effortChip(value)),
     ];
     if (chips.length) return chips;
   }
-  const chip = (sign, value) => {
-    if (name === "reasoning_effort") return effortChip(value, `${sign}${value}`);
-    if (name === "mode") return diffChip(sign, MODES[value] || value, "", "mode");
+  const chip = (value) => {
+    if (name === "reasoning_effort") return effortChip(value);
+    if (name === "mode") return diffChip(MODES[value] || value, "", "mode");
     const shown = name === "tier" ? tierLetter(value) : diffShown(value);
-    return diffChip(sign, `${DIFF_LABELS[name] || name} ${shown}`);
+    return diffChip(`${DIFF_LABELS[name] || name} ${shown}`);
   };
   const chips = [];
-  if (before != null) chips.push(chip("-", before));
-  if (after != null) chips.push(chip("+", after));
+  if (before != null) chips.push(chip(before));
+  if (after != null) chips.push(chip(after));
   if (!chips.length) {
-    chips.push(diffChip("-", `${DIFF_LABELS[name] || name} ${oldText}`));
-    chips.push(diffChip("+", `${DIFF_LABELS[name] || name} ${newText}`));
+    chips.push(diffChip(`${DIFF_LABELS[name] || name} ${oldText}`));
+    chips.push(diffChip(`${DIFF_LABELS[name] || name} ${newText}`));
   }
   return chips;
 }
@@ -2842,12 +2843,14 @@ function diffChanges(text) {
 }
 
 // A diff entry starts with its model id. A changed entry adds its field chips.
-function diffModel(text) {
+function diffModel(text, kind = "") {
   const value = String(text);
   const at = value.indexOf(": ");
   const id = at < 0 ? value : value.slice(0, at);
   const change = at < 0 ? "" : `: ${diffChanges(value.slice(at + 2))}`;
-  return modelName(id) + change;
+  const name = modelName(id, "", Boolean(kind));
+  const identity = kind ? `<span class="diff-id ${kind}">${name}</span>` : name;
+  return identity + change;
 }
 
 // The modal of 1 rebuild: the full diff, one line per added, removed or moved model.
@@ -2860,7 +2863,7 @@ function openDiffModal(event) {
   ];
   $("model-modal-body").innerHTML = lines.length
     ? lines
-        .map(([kind, mark, text]) => `<div class="line diff-line"><span class="${kind}">${mark}</span><span class="diff-model" title="${esc(text)}">${diffModel(text)}</span></div>`)
+        .map(([kind, mark, text]) => `<div class="line diff-line"><span class="${kind}">${mark}</span><span class="diff-model" title="${esc(text)}">${diffModel(text, kind)}</span></div>`)
         .join("")
     : none("No model moved.");
   $("model-modal").showModal();

@@ -1073,7 +1073,7 @@ def test_a_rebuild_row_opens_the_diff_modal() -> None:
 def test_app_js_diff_rows_use_model_marks() -> None:
   """The catalog diff replaces provider and developer names with their marks."""
   run_app_js(
-    "diffModel, CHIP_ICONS",
+    "diffModel, CHIP_ICONS, openDiffModal",
     """
 const added = probe.diffModel('openrouter/dots-studio/dots-3-note-preview:free');
 assert(added.includes('ui/icons/openrouter.svg'), 'the provider mark shows');
@@ -1081,33 +1081,59 @@ assert(added.includes('ui/icons/dots-studio.svg'), 'the developer mark shows');
 assert(added.includes('<span class="model-part">dots-3-note-preview:free</span>'),
   'a colon in the model slug stays in the model part');
 assert(!added.includes('openrouter/dots-studio/'), 'the full provider path leaves the row');
-const changed = probe.diffModel(
-  'z-ai/glm-4.7-flash: supports_function_calling 0->1, supports_reasoning None->1, '
+const entry = 'z-ai/glm-4.7-flash: supports_function_calling 0->1, supports_reasoning None->1, '
   + 'supported_efforts ["low", "high", "max"]->["none", "max"], '
-  + 'max_input_tokens 4096->8192'
-);
+  + 'max_input_tokens 4096->8192';
+const changed = probe.diffModel(entry);
 assert(changed.includes('ui/icons/z-ai.svg'), 'a changed row keeps the provider mark');
-assert(changed.includes(`>+${probe.CHIP_ICONS.tools} Tools</span>`), 'tools reuse the model chip');
-assert(changed.includes(`>+${probe.CHIP_ICONS.brain} Reasoning</span>`), 'reasoning reuses the model chip');
-assert(changed.includes('class="chip flag effort e-low">-low</span>'), 'a removed low effort is a chip');
-assert(changed.includes('class="chip flag effort e-high">-high</span>'), 'a removed high effort is a chip');
-assert(changed.includes('class="chip flag effort e-none">+none</span>'), 'an added effort is a chip');
-assert(!changed.includes('-max') && !changed.includes('+max'), 'an unchanged effort stays out');
-assert(changed.includes('class="chip flag">-Context 4096</span>'), 'an old scalar is a chip');
-assert(changed.includes('class="chip flag">+Context 8192</span>'), 'a new scalar is a chip');
+assert(changed.includes(`class="chip flag">${probe.CHIP_ICONS.tools} Tools</span>`),
+  'the tools chip keeps its normal color');
+assert(changed.includes(`class="chip flag">${probe.CHIP_ICONS.brain} Reasoning</span>`),
+  'the reasoning chip keeps its normal color');
+assert(changed.includes('class="chip flag effort e-low">Low</span>'),
+  'a removed effort keeps its normal effort color');
+assert(changed.includes('class="chip flag effort e-none">None</span>'),
+  'an added effort keeps its normal effort color');
+assert(changed.includes('class="chip flag">Context 4096</span>'),
+  'the old scalar chip keeps its normal color');
+assert(changed.includes('class="chip flag">Context 8192</span>'),
+  'the new scalar chip keeps its normal color');
+assert(!changed.includes('>+') && !changed.includes('>-'), 'field chips carry no diff signs');
 assert(!changed.includes('supported_efforts'), 'the raw field names leave the row');
 assert(!changed.includes('->'), 'raw arrows leave the changed row');
+node('model-modal').showModal = () => {};
+probe.openDiffModal({
+  reason: 'scheduled', at: 1791600000, models: 3,
+  added: ['openrouter/dots-studio/dots-3-note-preview:free'],
+  removed: ['groq/llama-3.1-8b-instant'], changed: [entry], failed: [],
+});
+const modal = node('model-modal-body').innerHTML;
+assert(modal.includes('class="diff-id added"'), 'an added model identity uses the + color');
+assert(modal.includes('class="diff-id removed"'), 'a removed model identity uses the - color');
+assert(modal.includes('class="diff-id moved"'), 'a changed model identity uses the ~ color');
+assert(modal.includes('class="mark tint"'), 'the provider icon can inherit the identity color');
 """,
   )
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   rule = re.search(r"\.diff-line > \.diff-model \{([^}]*)\}", css)
   assert rule and "white-space: normal" in rule.group(1), "a long row wraps"
   assert "overflow-wrap: anywhere" in rule.group(1), "a long slug can wrap"
+  tinted = re.search(r"\.mark\.tint \{([^}]*)\}", css)
+  assert tinted and "background: currentColor" in tinted.group(1), (
+    "a diff provider mark takes the identity color"
+  )
+  assert "mask: var(--mark)" in tinted.group(1), (
+    "the colored mark keeps its provider icon"
+  )
   chips = re.search(r"\.diff-chips \{([^}]*)\}", css)
   assert chips and "display: inline-flex" in chips.group(1), (
     "the change chips share a row"
   )
-  assert "flex-wrap: wrap" in chips.group(1), "the change chips wrap in the modal"
+  assert "width: max-content" in chips.group(1), (
+    "the chip group moves as 1 unit when it does not fit"
+  )
+  assert "max-width: 100%" in chips.group(1), "the chip group stays inside the modal"
+  assert "flex-wrap: wrap" in chips.group(1), "the chips wrap after moving as a group"
 
 
 def test_a_card_closes_on_the_room_of_its_rows() -> None:
