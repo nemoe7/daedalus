@@ -167,7 +167,7 @@ hooks:
   on-chunk: [hooks/served_model.py, hooks/owui_auto_reasoning_effort.py]
 ```
 
-Each key holds a list of files, and they run in list order. 1 path on its own works too. An empty list turns that surface off.
+Each key holds a list of files, and they run in list order. 1 path on its own works too. An empty list turns that surface off. The Hooks card of the dashboard lists the files of each request surface, and its arrows set that order.
 
 The `on-init` surface has no group of its own: the dashboard reads the `on_init` function of each file of the folder. The legend card shows those rows below the base rows, and a file with no `on_init` adds no row.
 

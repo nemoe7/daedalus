@@ -450,6 +450,9 @@ A chip reads as noise, so the separator stays plain, and the icons keep the text
 .card[data-section="hooks"] .keys .hook-sha { display: block; font-size: 0.85em; color: var(--muted, #8b8b8b); font-family: monospace; }
 .card[data-section="hooks"] .keys td.surfaces { white-space: normal; }
 .card[data-section="hooks"] .keys td.surfaces .pill { white-space: nowrap; }
+.card[data-section="hooks"] .hook-order { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.card[data-section="hooks"] .hook-order li { display: flex; align-items: center; gap: 6px; }
+.card[data-section="hooks"] .hook-order li .cell-value { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 tr.live-row td { background: var(--field); }
 .pulse {
   display: inline-block; width: 6px; height: 6px; margin: 0 10px 1px 0; border-radius: 50%;

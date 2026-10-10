@@ -4482,3 +4482,17 @@ def test_hook_rows_wrap_the_title_and_show_the_sha() -> None:
   assert 'class="hook-author"' in app, "the author sits under the title"
   assert 'class="hook-sha"' in app, "the short SHA sits under the repo"
   assert "record.commit.slice(0, 7)" in app, "the SHA is cut to 7 characters"
+
+
+def test_the_hooks_card_orders_the_files_of_a_surface() -> None:
+  """The Hooks card lists the files of each request surface, with a move up and a move down."""
+  app = (
+    Path(__file__).resolve().parents[2] / "daedalus/dashboard/ui/app.js"
+  ).read_text(encoding="utf-8")
+  assert "data-hook-move" in app, "a file row carries its move"
+  assert "function moveHookFile(" in app, "the move writes the new order"
+  assert 'setListValue("hooks", surface, values)' in app, (
+    "the new order goes to the settings"
+  )
+  assert 'id="hooks-order"' in app, "the card holds the order block"
+  assert "chevron_up" in app and "chevron_down" in app, "the moves draw an arrow"
