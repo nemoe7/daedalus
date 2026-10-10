@@ -146,3 +146,21 @@ async def test_the_line_follows_the_installed_files(
     else:
       assert [pick["line"] for pick in picks] == [wanted], (off, picks)
   hooks.set_installed("hooks", [])
+
+
+async def test_the_client_scope_gates_the_line_on_the_request(
+  client: httpx.AsyncClient,
+) -> None:
+  """An installed file with the client scope runs for its client alone."""
+  hooks.set_installed("hooks", [])
+  api.REQUEST_HOOKS = {}
+  body = {**BODY, "stream": True, "reasoning_effort": "high"}
+  answer = await client.post(
+    "/v1/chat/completions", json=body, headers={"x-openwebui-chat-id": "t1"}
+  )
+  assert answer.status_code == 200, answer.text
+  # The name order of the folder puts the served model hook last, so the line holds no effort.
+  assert [pick["line"] for pick in lines(answer.text)] == ["p/a"]
+  other = await client.post("/v1/chat/completions", json=body)
+  assert other.status_code == 200, other.text
+  assert lines(other.text) == []

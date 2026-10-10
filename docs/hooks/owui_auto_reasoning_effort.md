@@ -8,8 +8,8 @@ reasoning level of the request.
 | --- | --- |
 | Runs | `on_request` before the chain of a chat request. `on_prompt` before the first attempt. `on_chunk` on the final chunk |
 | Writes | `value["key"]` and `value["code"]` on the repeat. `value["reasoning_effort"]` on the level. `usage.daedalus.line` on the chunk |
-| Named by | its own frontmatter block: `surfaces: [on-request, on-prompt, on-chunk]`. The `hooks` keys of [`config/daedalus.yml`](../../config/daedalus.yml) run it first |
-| Serves | The Open WebUI client, from the `CLIENT` constant, and the `x-openwebui-chat-id` header |
+| Named by | its own frontmatter block: `surfaces: [on-request, on-prompt, on-chunk]`, `scope: client`, `targets: [OWUI]`. The `hooks` keys of [`config/daedalus.yml`](../../config/daedalus.yml) run it first |
+| Serves | The Open WebUI client, from the `client` scope of its block, and the `x-openwebui-chat-id` header |
 
 The first chart shows the repeat key of `on_request`. The second shows the level of `on_prompt`.
 
@@ -48,9 +48,9 @@ routing of `daedalus/auto`, so this file sets the level only.
 | A try again after a model without reasoning | The read of the newest turns, with no step |
 | Any request, at the top | `high` |
 
-The base sets no effort of its own. The surface serves the client of the `CLIENT` constant, so a Kilo
-request or a generic client keeps its own effort. A chain with no reasoning model gets no call and
-no effort. `upstream.without_reasoning` drops the field for a model the catalog marks as a model with no reasoning.
+The base sets no effort of its own, and the `client` scope of the block serves the Open WebUI
+client. The base never runs this file for a Kilo request or a generic client, so that client keeps
+its own effort. A chain with no reasoning model gets no call and no effort. `upstream.without_reasoning` drops the field for a model the catalog marks as a model with no reasoning.
 
 ## The served line
 

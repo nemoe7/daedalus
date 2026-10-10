@@ -50,7 +50,7 @@ META_KEYS = (
   "description",
   "license",
 )
-SCOPES = ("global", "provider", "yaml", "model")
+SCOPES = ("global", "provider", "yaml", "model", "client")
 META_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}")
 # The head of a file that holds the frontmatter block.
 HEAD = 60
@@ -185,7 +185,7 @@ def meta_check(text: str) -> tuple[dict[str, Any] | None, str | None]:
     or not all(isinstance(target, str) and target.strip() for target in targets)
   ):
     return None, "targets must be a list of names"
-  if scope in ("provider", "yaml", "model") and not targets:
+  if scope in ("provider", "yaml", "model", "client") and not targets:
     return None, f"scope {scope} needs targets"
   for key in ("author", "title", "description", "license"):
     value = found.get(key)
@@ -350,8 +350,13 @@ def file_covers(config: Mapping[str, Any], model: str, targets: list[str]) -> bo
   return found is not None and file_takes(found, slug)
 
 
-def meta_paths(config: Mapping[str, Any], surface: str, model: str) -> list[Path]:
-  """The installed files whose frontmatter gives this surface to this model."""
+def meta_paths(
+  config: Mapping[str, Any], surface: str, model: str, app: str = ""
+) -> list[Path]:
+  """The installed files whose frontmatter gives this surface to this model and client.
+
+  :param app: the short name of the client app of the request, empty when the request names none
+  """
   found: list[Path] = []
   for path in installed_files():
     info = meta(path)
@@ -367,6 +372,8 @@ def meta_paths(config: Mapping[str, Any], surface: str, model: str) -> list[Path
     if scope == "yaml" and not file_covers(config, model, targets):
       continue
     if scope == "model" and model not in targets:
+      continue
+    if scope == "client" and app not in targets:
       continue
     found.append(path)
   return found
@@ -423,10 +430,14 @@ def request_files(entries: Mapping[str, Any] | None, surface: str) -> list[Path]
 
 
 def request_paths(
-  entries: Mapping[str, Any] | None, config: Mapping[str, Any], surface: str, model: str
+  entries: Mapping[str, Any] | None,
+  config: Mapping[str, Any],
+  surface: str,
+  model: str,
+  app: str = "",
 ) -> list[Path]:
   """The named files of one request-level surface, then the installed files that give it."""
-  return merge(request_files(entries, surface), meta_paths(config, surface, model))
+  return merge(request_files(entries, surface), meta_paths(config, surface, model, app))
 
 
 def init_rows(entries: Mapping[str, Any] | None) -> list[list[str]]:
@@ -555,8 +566,9 @@ def run_request(
   entries: Mapping[str, Any] | None,
   model: str,
   value: dict[str, Any],
+  app: str = "",
   **context: Any,
 ) -> dict[str, Any]:
   """The value after each request hook of one surface, from the settings file, in list order."""
-  paths = request_paths(entries, config, surface, model)
+  paths = request_paths(entries, config, surface, model, app)
   return run_files(surface, paths, value, model=model, **context)

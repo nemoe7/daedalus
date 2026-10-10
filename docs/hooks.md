@@ -273,8 +273,8 @@ frontmatter block, so the manager knows its version and its scope without a run 
 | `version` | text | The version of the file. The update line shows the old version and the new one |
 | `requires` | version range | The daedalus version that the file needs. A mismatch warns 1 time and leaves the file out |
 | `surfaces` | list of surface names | The functions of the file |
-| `scope` | `global`, `provider`, `yaml` or `model` | Where the hook attaches |
-| `targets` | list of names | The provider names or the model ids of a `provider`, `yaml` or `model` scope |
+| `scope` | `global`, `provider`, `yaml`, `model` or `client` | Where the hook attaches |
+| `targets` | list of names | The provider names, the model ids or the client apps of a `provider`, `yaml`, `model` or `client` scope |
 | `author` | text | The name of the author of the file |
 | `title` | text | The short name of the hook |
 | `description` | text | One line of what the hook does |
@@ -288,8 +288,10 @@ writes 1 warning line. The scope rules:
 3. `yaml` runs the hook for the models that the `{provider}.yml` file of 1 of the targets names in
    its `models`. The main provider file stays out.
 4. `model` runs the hook for the named model ids alone.
-5. A request surface accepts `provider`, `yaml` and `model` too.
-6. `on-http` needs no scope, because the route names the file.
+5. `client` runs the hook for a request of 1 of the named client apps. The base names the app from
+   the request headers, such as `OWUI` or `Kilo`.
+6. A request surface accepts `provider`, `yaml`, `model` and `client` too.
+7. `on-http` needs no scope, because the route names the file.
 
 ## Sources and the lock
 

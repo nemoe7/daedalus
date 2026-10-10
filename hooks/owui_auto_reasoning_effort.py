@@ -1,6 +1,8 @@
 # ---
-# version: 1.0.2
+# version: 1.0.3
 # surfaces: [on-request, on-prompt, on-chunk]
+# scope: client
+# targets: [OWUI]
 # author: nemoe7
 # title: Auto reasoning effort
 # description: The Open WebUI reasoning level and try-again rule.
@@ -14,10 +16,6 @@ from daedalus import store
 from daedalus.routing import router
 
 logger = logging.getLogger("daedalus.hooks")
-
-# The client this rule serves. The base names the app from its headers: `OWUI`, `Kilo`, another
-# title, or None. Set it to None to serve every client.
-CLIENT = "OWUI"
 
 # The header that names the chat. Open WebUI sends it when `ENABLE_FORWARD_USER_INFO_HEADERS` is
 # true, and no other client sends it.
@@ -118,7 +116,6 @@ def on_prompt(
   prompt: str = "",
   messages: list | None = None,
   effort: str | None = None,
-  app: str | None = None,
   retry: int = 0,
   level: str | None = None,
   **context: Any,
@@ -137,13 +134,11 @@ def on_prompt(
   :param prompt: the user turns joined, the fallback when the messages do not come
   :param messages: the messages of the request, for the newest user turn and model turn
   :param effort: the value of the client, `None` when it sent none
-  :param app: the client app of the request, from its headers
   :param retry: the count of try agains of this message, 0 for its first answer
   :param level: the reasoning level of the last answer of the chat, else None
   :param context: the other values of the surface
   """
-  if app != CLIENT:
-    return
+  model = context.get("model") or ""
   read = max(int(router.required_tier(_newest(messages, prompt))), _floor(context))
   if not retry:
     if effort:
@@ -155,11 +150,11 @@ def on_prompt(
       kept = max(TIER_OF.get(level, read), _floor(context))
       kept_level = _level(context, kept)
       value["reasoning_effort"] = kept_level
-      logger.info("a continuing turn keeps %s for %s", kept_level, app)
+      logger.info("a continuing turn keeps %s for %s", kept_level, model)
       return
     read_level = _level(context, read)
     value["reasoning_effort"] = read_level
-    logger.info("the prompt reads %s for %s", read_level, app)
+    logger.info("the prompt reads %s for %s", read_level, model)
     return
   if level is None:
     read_level = _level(context, read)
@@ -170,7 +165,7 @@ def on_prompt(
   tier = min(before + 1, TOP)
   stepped = _level(context, tier)
   value["reasoning_effort"] = stepped
-  logger.info("a try again for %s: %s +1 step -> %s", app, level, stepped)
+  logger.info("a try again for %s: %s +1 step -> %s", model, level, stepped)
 
 
 def on_init() -> list[list[str]]:

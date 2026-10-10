@@ -205,3 +205,21 @@ def test_the_example_stays_out_of_the_folder_list(tmp_path: Path, monkeypatch) -
   monkeypatch.setattr(hooks, "DISABLED", set())
   assert hooks.hook_files() == ["hooks/one.py"]
   assert [path.name for path in hooks.installed_files()] == ["one.py"]
+
+
+def test_the_client_scope_gates_on_the_app_of_the_request(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A file with the client scope runs only for a request of 1 of its target apps."""
+  monkeypatch.setattr(hooks, "ROOT", tmp_path)
+  folder = tmp_path / "hooks"
+  folder.mkdir()
+  (folder / "owui.py").write_text(
+    "# ---\n# surfaces: [on-prompt]\n# scope: client\n# targets: [OWUI]\n# ---\n",
+    encoding="utf-8",
+  )
+  hooks.set_installed("hooks", [])
+  found = hooks.request_paths({}, {}, "on-prompt", "daedalus/auto", "OWUI")
+  assert [path.name for path in found] == ["owui.py"]
+  assert hooks.request_paths({}, {}, "on-prompt", "daedalus/auto", "Kilo") == []
+  assert hooks.request_paths({}, {}, "on-prompt", "daedalus/auto") == []

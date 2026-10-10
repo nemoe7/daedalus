@@ -5202,15 +5202,17 @@
           "on-prompt",
           "on-chunk"
         ],
-        "scope": "global",
+        "scope": "client",
         "surfaces": [
           "on-request",
           "on-prompt",
           "on-chunk"
         ],
-        "targets": [],
+        "targets": [
+          "OWUI"
+        ],
         "title": "Auto reasoning effort",
-        "version": "1.0.2"
+        "version": "1.0.3"
       },
       {
         "author": "nemoe7",
@@ -5222,13 +5224,15 @@
         "runs": [
           "on-chunk"
         ],
-        "scope": "global",
+        "scope": "client",
         "surfaces": [
           "on-chunk"
         ],
-        "targets": [],
+        "targets": [
+          "OWUI"
+        ],
         "title": "Served model",
-        "version": "1.0.1"
+        "version": "1.0.2"
       }
     ],
     "path": "config/daedalus.yml",
