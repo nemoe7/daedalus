@@ -11,6 +11,7 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import uuid
 from contextlib import closing,contextmanager,nullcontext
@@ -62,6 +63,7 @@ REMINDERS='Refresh context: ARENA.md, SKILL.md, REFERENCE.md.','`task-list` at t
 REMINDER_CURSOR='reminder_cursor'
 POLLS_SINCE_MESSAGE='polls_since_message'
 GATE_THRESHOLD=10
+STALE_REPORT_THRESHOLD=10
 DEFAULT_PORT=8000
 AGENT_KEY_META='agent_key'
 AGENT_KEY_EXPIRY_SECONDS=1200
@@ -89,6 +91,30 @@ def main_identical(root='.'):
 			if git('rev-parse','--verify','--quiet',ref).returncode:return False
 		return git('diff','--quiet','origin/main','HEAD','--').returncode==0
 	except OSError:return False
+PR_CHECK_INTERVAL=60
+PR_CHECK_TTL=180
+PR_CHECK_META='pr_check'
+def repo_slug(root='.'):
+	try:url=subprocess.run(['git','config','--get','remote.origin.url'],cwd=root,capture_output=True,text=True,check=False).stdout.strip()
+	except OSError:return''
+	match=re.search('[:/]([^/:]+/[^/]+?)(?:\\.git)?$',url);return match.group(1)if match else''
+def pr_failed_check(root='.'):
+	branch=workspace_branch(root);slug=repo_slug(root)
+	if not branch or not slug:return''
+	try:
+		head=subprocess.run(['gh','pr','list','--head',branch,'--json','headRefOid','--jq','.[0].headRefOid'],cwd=root,capture_output=True,text=True,check=False).stdout.strip()
+		if not head:return''
+		query='[.check_runs[] | select(.conclusion=="failure" or .conclusion=="cancelled" or .conclusion=="timed_out") | .name] | join(", ")';return subprocess.run(['gh','api',f"repos/{slug}/commits/{head}/check-runs",'--jq',query],cwd=root,capture_output=True,text=True,check=False).stdout.strip()
+	except OSError:return''
+def pr_check_worker(store,root,stop):
+	while not stop.is_set():payload=json.dumps({'failed':pr_failed_check(root),'ts':now()});store.set_meta(PR_CHECK_META,payload);stop.wait(PR_CHECK_INTERVAL)
+def cached_pr_failure(db):
+	row=db.execute('SELECT value FROM meta WHERE key = ?',(PR_CHECK_META,)).fetchone()
+	if not row:return''
+	try:payload=json.loads(str(row[0]));stamp=datetime.fromisoformat(str(payload.get('ts','')))
+	except(ValueError,TypeError):return''
+	if(datetime.now(timezone.utc)-stamp).total_seconds()>PR_CHECK_TTL:return''
+	return str(payload.get('failed',''))
 SESSION_ID_TABLES=('notes','note'),('submissions','answer'),('reports','report'),('tasks','task')
 HEX7_RE=re.compile('[0-9a-f]{7}')
 DIFF_FILE_RE=re.compile('^\\+\\+\\+ b/(.+)$')
@@ -567,6 +593,8 @@ def poll_inbox(store,sleeper=None):
 			listing=store.read(include_quiet=False)
 			if listing['pending']:full=store.read();print(format_read(full),flush=True);store.mark_seen([item['id']for item in full['pending']]);store.mark_reports_agent_seen([item.get('report_id')for item in full['pending']]);print_poll_hold(store);return 0
 			if run_notices(store.path.parent):print_poll_hold(store);return 0
+			with closing(store.connect())as db:failed=cached_pr_failure(db)
+			if failed:print(f"PR CHECKS FAILED: {failed}. Fix the failed check before the next push.",flush=True);print_poll_hold(store);return 0
 			open_tasks=[item for item in store.list_tasks()if item['status']=='upcoming'and not item['blocked']]
 			if open_tasks:listing['tasks']=open_tasks;names=', '.join(item['id']for item in open_tasks);continue_line=f"CONTINUE: unblocked task {names}. Work it or block it; do not end the turn.";print(continue_line,flush=True);print(format_task_list(listing.get('tasks',[])),flush=True);print_poll_hold(store);return 0
 			if store.skip_poll_requested():store.take_skip_poll();store.mark_turn_ended();print('SKIP: owner pressed Skip poll. End the turn, no second poll.',flush=True);print(format_read(listing),flush=True);print_poll_hold(store);return 0
@@ -1050,11 +1078,23 @@ class Store:
 		host=record.get('host')
 		if not isinstance(host,str)or not AGENT_HOST_RE.fullmatch(host):host=None
 		return{'key':key,'host':host,'at':clip_stamp(record.get('at'))}
+	def stale_report_ids(self,db):
+		stale=[];rows=db.execute('SELECT id, markdown FROM reports WHERE published_at IS NOT NULL ORDER BY seq, id')
+		for row in rows:
+			try:fields=len(parse_fields(row['markdown'])[1])
+			except ValueError:continue
+			if fields==0:stale.append(row['id']);continue
+			pending=db.execute('SELECT count(*) FROM submissions WHERE report_id = ? AND acknowledged_at IS NULL',(row['id'],)).fetchone()[0];answered=db.execute('SELECT count(*) FROM submissions WHERE report_id = ?',(row['id'],)).fetchone()[0]
+			if answered and not pending:stale.append(row['id'])
+		return stale
 	def reminder(self,advance=False):
 		with closing(self.connect())as db,db:
-			uploads=db.execute('SELECT count(*) FROM notes JOIN uploads USING (id) WHERE acknowledged_at IS NULL').fetchone()[0];notes=db.execute('SELECT count(*) FROM notes WHERE acknowledged_at IS NULL').fetchone()[0]-uploads;reports=db.execute('SELECT count(*) FROM submissions WHERE acknowledged_at IS NULL').fetchone()[0];remaining=db.execute("SELECT count(*) FROM tasks WHERE status <> 'finished'").fetchone()[0];cursor=meta_number(db,REMINDER_CURSOR);polls=0 if advance and not notes+reports+uploads else meta_number(db,POLLS_SINCE_MESSAGE)+(1 if advance else 0);db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(REMINDER_CURSOR,str(cursor+1)))
+			uploads=db.execute('SELECT count(*) FROM notes JOIN uploads USING (id) WHERE acknowledged_at IS NULL').fetchone()[0];notes=db.execute('SELECT count(*) FROM notes WHERE acknowledged_at IS NULL').fetchone()[0]-uploads;reports=db.execute('SELECT count(*) FROM submissions WHERE acknowledged_at IS NULL').fetchone()[0];remaining=db.execute("SELECT count(*) FROM tasks WHERE status <> 'finished'").fetchone()[0];published=db.execute('SELECT count(*) FROM reports WHERE published_at IS NOT NULL').fetchone()[0];stale=self.stale_report_ids(db)if published>=STALE_REPORT_THRESHOLD else[];failed=cached_pr_failure(db);cursor=meta_number(db,REMINDER_CURSOR);polls=0 if advance and not notes+reports+uploads else meta_number(db,POLLS_SINCE_MESSAGE)+(1 if advance else 0);db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(REMINDER_CURSOR,str(cursor+1)))
 			if advance:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(POLLS_SINCE_MESSAGE,str(polls)))
-		counts=[f"{count} {kind}{'s'if count!=1 else''}"for(count,kind)in((notes,'note'),(reports,'answer'),(uploads,'upload'))if count];unacked=[f"unacked {', '.join(counts)}"]if counts else[];head=[f"calls {polls}"]if polls and counts else[];tail=reminder_tail(cursor,remaining);return' | '.join([' '.join([*head,*unacked]).strip(),tail]).strip(' |')
+		counts=[f"{count} {kind}{'s'if count!=1 else''}"for(count,kind)in((notes,'note'),(reports,'answer'),(uploads,'upload'))if count];unacked=[f"unacked {', '.join(counts)}"]if counts else[];head=[f"calls {polls}"]if polls and counts else[];tail=reminder_tail(cursor,remaining);parts=[' '.join([*head,*unacked]).strip(),tail]
+		if stale:parts.append('Unpublish stale reports: '+', '.join(stale))
+		if failed:parts.append('Pull request checks failed: '+failed)
+		return' | '.join(parts).strip(' |')
 	def gate(self,threshold=GATE_THRESHOLD,pending_only=False):
 		with closing(self.connect())as db,db:pending=db.execute('SELECT (SELECT count(*) FROM notes WHERE acknowledged_at IS NULL AND quiet = 0) + (SELECT count(*) FROM submissions WHERE acknowledged_at IS NULL)').fetchone()[0];polls=meta_number(db,POLLS_SINCE_MESSAGE)
 		if pending_only:return not pending
@@ -1440,7 +1480,10 @@ def main():
 		if args.command!='serve':store.touch_agent()
 		if args.command=='serve':
 			require_renderer()
-			with ThreadingHTTPServer(('0.0.0.0',args.port),handler(store))as server:store.set_meta('port',str(server.server_port));print(f"Preview on 0.0.0.0:{server.server_port}; state: {store.path}",flush=True);server.serve_forever()
+			with ThreadingHTTPServer(('0.0.0.0',args.port),handler(store))as server:
+				store.set_meta('port',str(server.server_port));print(f"Preview on 0.0.0.0:{server.server_port}; state: {store.path}",flush=True);stop=threading.Event();threading.Thread(target=pr_check_worker,args=(store,str(state_dir.parent),stop),daemon=True).start()
+				try:server.serve_forever()
+				finally:stop.set()
 		elif args.command=='read':require_server(store);store.notice_expired_key();print_read(store)
 		elif args.command=='note':
 			rows=store.notes_matching(args.id)
