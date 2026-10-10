@@ -181,6 +181,14 @@ async def cache(
   return answer
 
 
+def routed_effort(attempts: list[dict[str, Any]], model: str) -> str:
+  """The reasoning effort of the attempt that answered, and empty when it carries none."""
+  for note in reversed(attempts):
+    if note.get("result") == "answered" and note.get("model") == model:
+      return str(note.get("effort") or "")
+  return ""
+
+
 async def relay(
   pending: list[str],
   events: AsyncIterator[str],
@@ -251,7 +259,12 @@ async def relay(
             chunk_hooks,
             chunk,
             model=requested,
-            context={**state, "attempts": failures, "served": model},
+            context={
+              **state,
+              "attempts": failures,
+              "served": model,
+              "effort": routed_effort(attempts, model),
+            },
           )
         yield providers.frame(chunk)
     except loops.LoopError as exc:
