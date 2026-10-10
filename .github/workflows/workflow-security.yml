@@ -7,6 +7,7 @@ on:
       - ".github/actionlint.yaml"
       - ".github/zizmor.yml"
       - "scripts/pr_snapshot.py"
+      - "scripts/check_versions.py"
   push:
     branches: [main]
     paths:
@@ -14,6 +15,7 @@ on:
       - ".github/actionlint.yaml"
       - ".github/zizmor.yml"
       - "scripts/pr_snapshot.py"
+      - "scripts/check_versions.py"
   workflow_dispatch:
 
 concurrency:

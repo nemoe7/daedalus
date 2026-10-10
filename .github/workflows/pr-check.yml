@@ -70,3 +70,19 @@ jobs:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: python3 scripts/check_pr.py --range "$PR_BASE..$PR_HEAD" --body-file pr-body.md --no-ste
+
+  versions:
+    name: Module versions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check the version of each changed module
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/check_versions.py --base "$PR_BASE" --head "$PR_HEAD"
