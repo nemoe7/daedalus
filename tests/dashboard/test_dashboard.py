@@ -4454,3 +4454,14 @@ def test_table_delete_buttons_use_the_trash_icon() -> None:
   assert app.count("${LUCIDE.trash}") >= 2, "the key row and the hook row draw the icon"
   assert 'data-key="${esc(k.name)}">Delete</button>' not in app, "the key row"
   assert 'data-hook-drop="${esc(row.path)}">Delete</button>' not in app, "the hook row"
+
+
+def test_hook_rows_wrap_the_title_and_show_the_sha() -> None:
+  """A hook row wraps its title, shows its author below, and shows the short SHA under the repo."""
+  app = (
+    Path(__file__).resolve().parents[2] / "daedalus/dashboard/ui/app.js"
+  ).read_text(encoding="utf-8")
+  assert 'class="hook-title"' in app, "the title sits on its own line"
+  assert 'class="hook-author"' in app, "the author sits under the title"
+  assert 'class="hook-sha"' in app, "the short SHA sits under the repo"
+  assert "record.commit.slice(0, 7)" in app, "the SHA is cut to 7 characters"

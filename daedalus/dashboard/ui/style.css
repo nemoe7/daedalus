@@ -444,7 +444,11 @@ A chip reads as noise, so the separator stays plain, and the icons keep the text
    no break point of its own. */
 .card[data-section="hooks"] .keys th:not(:first-child), .card[data-section="hooks"] .keys td:not(:first-child) { width: 1%; }
 .card[data-section="hooks"] .keys td:not(:first-child):not(.surfaces) { white-space: nowrap; }
-.card[data-section="hooks"] .keys td.name { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card[data-section="hooks"] .keys td.name { min-width: 9rem; white-space: normal; overflow-wrap: anywhere; }
+.card[data-section="hooks"] .keys .hook-title { display: block; }
+.card[data-section="hooks"] .keys .hook-author { display: block; font-size: 0.85em; color: var(--muted, #8b8b8b); }
+.card[data-section="hooks"] .keys .hook-sha { display: block; font-size: 0.85em; color: var(--muted, #8b8b8b); font-family: monospace; }
+.card[data-section="hooks"] .keys td.surfaces { white-space: normal; }
 .card[data-section="hooks"] .keys td.surfaces .pill { white-space: nowrap; }
 tr.live-row td { background: var(--field); }
 .pulse {
