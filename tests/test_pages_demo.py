@@ -556,16 +556,15 @@ def test_the_demo_serves_auto_only_from_the_members_of_the_auto_pool(
   )
 
 
-def test_the_demo_drops_the_models_its_provider_files_exclude(tmp_path: Path) -> None:
-  """A row the demo provider files drop leaves the page, and a declared row stays."""
+def test_the_demo_keeps_every_row_of_the_snapshot(tmp_path: Path) -> None:
+  """The demo shows the captured catalog as it is: each snapshot row reaches the page."""
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
-  kept = [row["id"] for row in pages_demo.kept_models(fixtures)]
-  assert "gemini/gemini-nano-banana-2.1" not in kept, "an excluded row is gone"
-  assert "openrouter/z-ai/glm-5.3-flash" in kept, "a declared row of a file stays"
-  assert len(kept) == len(set(kept)), "each row is kept once"
+  ids = [row["id"] for row in fixtures["models"]]
+  assert len(ids) == len(set(ids)), "each row is listed once"
   out = pages_demo.build(tmp_path / "site", "demo.9")
   script = (out / "demo.js").read_text(encoding="utf-8")
-  assert "gemini-nano-banana-2.1" not in script, "no excluded row reaches the page"
+  for model_id in ids:
+    assert f'"id": "{model_id}"' in script, f"{model_id} reaches the page"
 
 
 def test_the_demo_states_its_source_and_the_hook_versions(tmp_path: Path) -> None:
