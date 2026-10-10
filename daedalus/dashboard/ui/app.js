@@ -1010,6 +1010,10 @@ const sortValue = {
 
 // The label of each reasoning effort. The chip color grows with the effort.
 const EFFORTS = { none: "None", minimal: "Minimal", low: "Low", medium: "Medium", high: "High", xhigh: "X-High", max: "Max" };
+function effortChip(name, label = EFFORTS[name] || name) {
+  const level = name in EFFORTS ? ` e-${name}` : "";
+  return `<span class="chip flag effort${level}">${esc(label)}</span>`;
+}
 // A reasoning model shows its default effort from the catalog, else Yes.
 function reasoningCell(m) {
   if (!m.reasoning || !m.effort) return yesNo(m.reasoning);
@@ -1059,8 +1063,7 @@ function openModelModal(m) {
   ].filter(Boolean).map(([value, label, bar]) =>
     `<div class="stat"><span class="num">${esc(value)}</span><span class="label">${esc(label)}</span>${bar || ""}</div>`)
     .join("");
-  const efforts = (m.efforts || []).map((name) =>
-    `<span class="chip flag effort${name in EFFORTS ? ` e-${name}` : ""}">${esc(EFFORTS[name] || name)}</span>`).join("");
+  const efforts = (m.efforts || []).map((name) => effortChip(name)).join("");
   $("model-modal-body").innerHTML = `<div class="model-id">${identity}</div>`
     + (chips ? `<div class="model-chips">${chips}</div>` : "")
     + (stats ? `<div class="model-stats">${stats}</div>` : "")
@@ -2746,6 +2749,107 @@ function rebuildDiff(event) {
   return marks || '<span class="muted">-</span>';
 }
 
+const DIFF_CAPABILITIES = {
+  supports_function_calling: [CHIP_ICONS.tools, "Tools"],
+  supports_tool_choice: [CHIP_ICONS.tools, "Tool choice"],
+  supports_parallel_function_calling: [CHIP_ICONS.tools, "Parallel tools"],
+  supports_response_schema: ["", "Structured output"],
+  supports_reasoning: [CHIP_ICONS.brain, "Reasoning"],
+  supports_vision: [FLAG_ICONS.vision, FLAGS.vision],
+  supports_pdf_input: [FLAG_ICONS.pdf_input, FLAGS.pdf_input],
+  supports_audio_input: [FLAG_ICONS.audio_input, FLAGS.audio_input],
+  supports_audio_output: [FLAG_ICONS.audio_output, FLAGS.audio_output],
+  supports_web_search: [LUCIDE.search, "Web search"],
+};
+const DIFF_LABELS = {
+  mode: "Type",
+  max_input_tokens: "Context",
+  max_output_tokens: "Output",
+  max_tokens: "Tokens",
+  rpm: "RPM",
+  tpm: "TPM",
+  tier: "Tier",
+};
+
+function diffChip(sign, label, icon = "", kind = "") {
+  return `<span class="chip flag${kind ? ` ${kind}` : ""}">${sign}${icon ? `${icon} ` : ""}${esc(label)}</span>`;
+}
+
+function diffValue(text) {
+  if (text === "None") return null;
+  if (text === "True") return true;
+  if (text === "False") return false;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+function diffShown(value) {
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (Array.isArray(value)) return value.join(", ");
+  return String(value);
+}
+
+function diffField(name, oldText, newText) {
+  const before = diffValue(oldText);
+  const after = diffValue(newText);
+  const capability = DIFF_CAPABILITIES[name];
+  if (capability) {
+    const wasOn = before === true || before === 1;
+    const isOn = after === true || after === 1;
+    if (wasOn !== isOn)
+      return [diffChip(isOn ? "+" : "-", capability[1], capability[0])];
+  }
+  if (name === "supported_efforts"
+      && (before == null || Array.isArray(before))
+      && (after == null || Array.isArray(after))) {
+    const oldEfforts = before || [];
+    const newEfforts = after || [];
+    const chips = [
+      ...oldEfforts.filter((value) => !newEfforts.includes(value)).map((value) => effortChip(value, `-${value}`)),
+      ...newEfforts.filter((value) => !oldEfforts.includes(value)).map((value) => effortChip(value, `+${value}`)),
+    ];
+    if (chips.length) return chips;
+  }
+  const chip = (sign, value) => {
+    if (name === "reasoning_effort") return effortChip(value, `${sign}${value}`);
+    if (name === "mode") return diffChip(sign, MODES[value] || value, "", "mode");
+    const shown = name === "tier" ? tierLetter(value) : diffShown(value);
+    return diffChip(sign, `${DIFF_LABELS[name] || name} ${shown}`);
+  };
+  const chips = [];
+  if (before != null) chips.push(chip("-", before));
+  if (after != null) chips.push(chip("+", after));
+  if (!chips.length) {
+    chips.push(diffChip("-", `${DIFF_LABELS[name] || name} ${oldText}`));
+    chips.push(diffChip("+", `${DIFF_LABELS[name] || name} ${newText}`));
+  }
+  return chips;
+}
+
+function diffChanges(text) {
+  const chips = [];
+  for (const entry of text.split(/, (?=[a-z_]+ )/)) {
+    const space = entry.indexOf(" ");
+    const arrow = entry.indexOf("->", space + 1);
+    const name = entry.slice(0, space);
+    if (space < 1 || arrow < 0 || !/^[a-z_]+$/.test(name)) return esc(text);
+    chips.push(...diffField(name, entry.slice(space + 1, arrow), entry.slice(arrow + 2)));
+  }
+  return chips.length ? `<span class="diff-chips">${chips.join("")}</span>` : esc(text);
+}
+
+// A diff entry starts with its model id. A changed entry adds its field chips.
+function diffModel(text) {
+  const value = String(text);
+  const at = value.indexOf(": ");
+  const id = at < 0 ? value : value.slice(0, at);
+  const change = at < 0 ? "" : `: ${diffChanges(value.slice(at + 2))}`;
+  return modelName(id) + change;
+}
+
 // The modal of 1 rebuild: the full diff, one line per added, removed or moved model.
 function openDiffModal(event) {
   $("model-modal-title").textContent = `${event.reason} \u00b7 ${stamp(event.at)}`;
@@ -2756,7 +2860,7 @@ function openDiffModal(event) {
   ];
   $("model-modal-body").innerHTML = lines.length
     ? lines
-        .map(([kind, mark, text]) => `<div class="line"><span class="${kind}">${mark}</span><span>${esc(text)}</span></div>`)
+        .map(([kind, mark, text]) => `<div class="line diff-line"><span class="${kind}">${mark}</span><span class="diff-model" title="${esc(text)}">${diffModel(text)}</span></div>`)
         .join("")
     : none("No model moved.");
   $("model-modal").showModal();

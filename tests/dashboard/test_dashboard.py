@@ -1070,6 +1070,46 @@ def test_a_rebuild_row_opens_the_diff_modal() -> None:
   assert "rebuild-detail" not in app, "the diff rides in the modal, not an inline row"
 
 
+def test_app_js_diff_rows_use_model_marks() -> None:
+  """The catalog diff replaces provider and developer names with their marks."""
+  run_app_js(
+    "diffModel, CHIP_ICONS",
+    """
+const added = probe.diffModel('openrouter/dots-studio/dots-3-note-preview:free');
+assert(added.includes('ui/icons/openrouter.svg'), 'the provider mark shows');
+assert(added.includes('ui/icons/dots-studio.svg'), 'the developer mark shows');
+assert(added.includes('<span class="model-part">dots-3-note-preview:free</span>'),
+  'a colon in the model slug stays in the model part');
+assert(!added.includes('openrouter/dots-studio/'), 'the full provider path leaves the row');
+const changed = probe.diffModel(
+  'z-ai/glm-4.7-flash: supports_function_calling 0->1, supports_reasoning None->1, '
+  + 'supported_efforts ["low", "high", "max"]->["none", "max"], '
+  + 'max_input_tokens 4096->8192'
+);
+assert(changed.includes('ui/icons/z-ai.svg'), 'a changed row keeps the provider mark');
+assert(changed.includes(`>+${probe.CHIP_ICONS.tools} Tools</span>`), 'tools reuse the model chip');
+assert(changed.includes(`>+${probe.CHIP_ICONS.brain} Reasoning</span>`), 'reasoning reuses the model chip');
+assert(changed.includes('class="chip flag effort e-low">-low</span>'), 'a removed low effort is a chip');
+assert(changed.includes('class="chip flag effort e-high">-high</span>'), 'a removed high effort is a chip');
+assert(changed.includes('class="chip flag effort e-none">+none</span>'), 'an added effort is a chip');
+assert(!changed.includes('-max') && !changed.includes('+max'), 'an unchanged effort stays out');
+assert(changed.includes('class="chip flag">-Context 4096</span>'), 'an old scalar is a chip');
+assert(changed.includes('class="chip flag">+Context 8192</span>'), 'a new scalar is a chip');
+assert(!changed.includes('supported_efforts'), 'the raw field names leave the row');
+assert(!changed.includes('->'), 'raw arrows leave the changed row');
+""",
+  )
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  rule = re.search(r"\.diff-line > \.diff-model \{([^}]*)\}", css)
+  assert rule and "white-space: normal" in rule.group(1), "a long row wraps"
+  assert "overflow-wrap: anywhere" in rule.group(1), "a long slug can wrap"
+  chips = re.search(r"\.diff-chips \{([^}]*)\}", css)
+  assert chips and "display: inline-flex" in chips.group(1), (
+    "the change chips share a row"
+  )
+  assert "flex-wrap: wrap" in chips.group(1), "the change chips wrap in the modal"
+
+
 def test_a_card_closes_on_the_room_of_its_rows() -> None:
   """The bottom of a Settings or Provider card keeps the room of 1 row, not the card padding."""
   css = (
