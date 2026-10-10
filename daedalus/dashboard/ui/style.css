@@ -768,9 +768,20 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 /* A wide screen holds the header and the rail still, and the pane of the picked section carries its
    own scroll, so the form moves without the page. */
 @media (min-width: 901px) {
+  #app > main:has(> section[data-page="providers"]:not([hidden])),
+  #app > main:has(> section[data-page="settings"]:not([hidden])) {
+    overflow-y: hidden; scrollbar-gutter: auto;
+  }
+  section[data-page="providers"], section[data-page="settings"] {
+    flex: 1 1 auto; min-height: 0;
+  }
+  section[data-page="providers"] > .settings,
+  section[data-page="settings"] > .settings {
+    flex: 1 1 auto; min-height: 0;
+  }
   header { position: sticky; top: 0; z-index: 4; }
   .sections { position: sticky; top: 0; }
-  .section-pane { overflow-y: auto; }
+  .section-pane { min-height: 0; overflow-y: auto; }
 }
 
 @media (max-width: 900px) {

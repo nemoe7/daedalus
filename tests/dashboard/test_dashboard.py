@@ -3761,6 +3761,41 @@ def test_the_wide_rail_sticky_never_pushes_the_rail_down() -> None:
   )
 
 
+def test_wide_settings_and_providers_scroll_only_the_section_pane() -> None:
+  """A wide section page keeps no outer scrollbar beside the pane scrollbar."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  wide = re.search(r"@media \(min-width: 901px\) \{(.*?)\n\}", css, re.DOTALL)
+  assert wide, "the wide section layout"
+  body = wide.group(1)
+  outer = re.search(
+    r'#app > main:has\(> section\[data-page="providers"\]:not\(\[hidden\]\)\),\n'
+    r'\s+#app > main:has\(> section\[data-page="settings"\]:not\(\[hidden\]\)\) \{([^}]*)\}',
+    body,
+  )
+  assert outer and "overflow-y: hidden" in outer.group(1), (
+    "the wide main page is not a second scrollport"
+  )
+  assert "scrollbar-gutter: auto" in outer.group(1), (
+    "the disabled outer scrollport reserves no scrollbar gutter"
+  )
+  sections = re.search(
+    r'section\[data-page="providers"\], section\[data-page="settings"\] \{([^}]*)\}',
+    body,
+  )
+  assert sections and "flex: 1 1 auto" in sections.group(1)
+  assert "min-height: 0" in sections.group(1), "the section can fit the main scrollport"
+  forms = re.search(
+    r'section\[data-page="providers"\] > \.settings,\n'
+    r'\s+section\[data-page="settings"\] > \.settings \{([^}]*)\}',
+    body,
+  )
+  assert forms and "flex: 1 1 auto" in forms.group(1)
+  assert "min-height: 0" in forms.group(1), "the pane row takes only the free height"
+  pane = re.search(r"\.section-pane \{([^}]*)\}", body)
+  assert pane and "overflow-y: auto" in pane.group(1)
+  assert "min-height: 0" in pane.group(1), "the section pane owns the vertical overflow"
+
+
 def test_app_js_fit_section_pane_spares_the_page_padding() -> None:
   """The pane cap ends above the page padding, so a wide page holds no scroll of its own."""
   code = """
