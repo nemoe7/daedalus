@@ -4467,6 +4467,25 @@ def test_the_providers_page_folds_the_long_groups() -> None:
   )
 
 
+def test_information_hovers_open_above_without_growing_the_settings_pane() -> None:
+  """A bottom-row tooltip stays out of layout and opens into the card, not below it."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  style = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  starts = (".field.info .hint:hover ~ small", ".fold summary .hint:hover ~ small")
+  for start in starts:
+    found = re.search(re.escape(start) + r"[^{}]*\{([^}]*)\}", style)
+    assert found, start
+    rule = found.group(1)
+    assert "position: absolute;" in rule, "the tooltip stays outside normal layout"
+    assert "top: auto;" in rule and "bottom: calc(100% + 4px);" in rule, (
+      "every information tooltip opens above its trigger"
+    )
+  assert "small.up" not in style and "hintFlip" not in app, (
+    "the tooltip never opens below before a script flips it"
+  )
+
+
 def test_the_limits_poll_keeps_out_of_the_address_bar() -> None:
   """The limits answer arrives on every page, so it never writes the hash."""
   root = Path(__file__).resolve().parent.parent.parent
