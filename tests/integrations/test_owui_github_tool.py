@@ -45,7 +45,7 @@ TOOLS = [
   "dependabot_alerts",
   "dismiss_pull_request_review",
   "download_workflow_artifact",
-  "fetch",
+  "fetch_github_url",
   "fetch_blob",
   "fetch_commit",
   "fetch_commit_workflow_runs",
@@ -669,3 +669,13 @@ def test_a_github_error_propagates(monkeypatch):
     asyncio.run(client().get_repo("o/r"))
   assert info.value.status == 404
   assert "Not Found" in str(info.value)
+
+
+def test_the_url_reader_carries_a_github_name():
+  """The GitHub url reader names GitHub, and its 422 names the builtin reader."""
+  assert hasattr(tool.Tools, "fetch_github_url"), "the tool carries a GitHub name"
+  assert not hasattr(tool.Tools, "fetch"), "the short name that hid the builtin is gone"
+  with pytest.raises(tool.GitHubError) as info:
+    asyncio.run(client().fetch_github_url("https://example.com/page"))
+  assert info.value.status == 422
+  assert "fetch_url" in str(info.value), "the error names the builtin reader"
