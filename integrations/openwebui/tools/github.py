@@ -306,7 +306,7 @@ class Tools:
     repository_id: int | None = None,
     repository_url: str | None = None,
   ) -> dict:
-    """Read one issue. Exactly one repository selector.
+    """Read one GitHub issue. Exactly one repository selector.
 
     :param issue_number: the issue number
     :param repository_full_name: owner/repo
@@ -318,7 +318,7 @@ class Tools:
     return self._ok(self._issue_shape(issue))
 
   async def fetch_issue_comments(self, repo_full_name: str, issue_number: int) -> dict:
-    """Read an issue's comments, first page.
+    """Read a GitHub issue's comments, first page.
 
     :param repo_full_name: owner/repo
     :param issue_number: the issue number
@@ -337,7 +337,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """List the issues of the signed-in user, most recently updated first.
+    """List the GitHub issues of the signed-in user, most recently updated first.
 
     :param top_k: how many to return
     """
@@ -372,7 +372,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Create a top-level comment on an issue or pull request conversation.
+    """Create a top-level comment on a GitHub issue or pull request conversation.
 
     :param repo_full_name: owner/repo
     :param pr_number: the issue or pull request number
@@ -404,7 +404,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Edit an issue comment.
+    """Edit a GitHub issue comment.
 
     :param repo_full_name: owner/repo
     :param comment_id: the comment id
@@ -439,7 +439,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Create an issue.
+    """Create a GitHub issue.
 
     :param repository_full_name: owner/repo
     :param title: the issue title
@@ -486,7 +486,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Edit an issue. Labels replace the current set, unlike add_issue_labels.
+    """Edit a GitHub issue. Labels replace the current set, unlike add_issue_labels.
 
     :param repository_full_name: owner/repo
     :param issue_number: the issue number
@@ -532,7 +532,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Add up to 10 assignees to an issue.
+    """Add up to 10 assignees to a GitHub issue.
 
     :param repository_full_name: owner/repo
     :param issue_number: the issue number
@@ -564,7 +564,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Remove assignees from an issue.
+    """Remove assignees from a GitHub issue.
 
     :param repository_full_name: owner/repo
     :param issue_number: the issue number
@@ -596,7 +596,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Add labels to an issue, keeping the ones already there.
+    """Add labels to a GitHub issue, keeping the ones already there.
 
     :param repository_full_name: owner/repo
     :param issue_number: the issue number
@@ -629,7 +629,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Remove one label from an issue.
+    """Remove one label from a GitHub issue.
 
     :param repository_full_name: owner/repo
     :param issue_number: the issue number
@@ -682,7 +682,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """List the submitted reviews of a pull request.
+    """List the submitted reviews of a GitHub pull request.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
@@ -729,7 +729,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """List the inline review threads of a pull request, with their resolution state.
+    """List the inline review threads of a GitHub pull request, with their resolution state.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
@@ -789,7 +789,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Submit a pull request review. COMMENT and REQUEST_CHANGES need a review body.
+    """Submit a GitHub pull request review. COMMENT and REQUEST_CHANGES need a review body.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
@@ -830,7 +830,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Reply to a top-level inline review comment.
+    """Reply to a GitHub top-level inline review comment.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
@@ -863,7 +863,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Edit an inline review comment.
+    """Edit a GitHub inline review comment.
 
     :param repo_full_name: owner/repo
     :param comment_id: the review comment id
@@ -893,7 +893,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Resolve a review thread by its GraphQL node id.
+    """Resolve a GitHub review thread by its GraphQL node id.
 
     :param thread_id: the thread node id, from list_pull_request_review_threads
     """
@@ -926,7 +926,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Reopen a resolved review thread by its GraphQL node id.
+    """Reopen a resolved GitHub review thread by its GraphQL node id.
 
     :param thread_id: the thread node id, from list_pull_request_review_threads
     """
@@ -960,7 +960,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Dismiss a pull request review by its GraphQL node id.
+    """Dismiss a GitHub pull request review by its GraphQL node id.
 
     :param review_id: the review node id, from list_pull_request_reviews
     :param message: the dismissal message
@@ -999,7 +999,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Request reviewers on a pull request.
+    """Request reviewers on a GitHub pull request.
 
     :param repository_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1033,7 +1033,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Read pull request metadata, without the diff.
+    """Read GitHub pull request metadata, without the diff.
 
     :param repository_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1058,7 +1058,7 @@ class Tools:
     )
 
   async def fetch_pr(self, repo_full_name: str, pr_number: int) -> dict:
-    """Read a pull request with its title, url and unified diff.
+    """Read a GitHub pull request with its title, url and unified diff.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1083,7 +1083,7 @@ class Tools:
     )
 
   async def fetch_pr_comments(self, repo_full_name: str, pr_number: int) -> dict:
-    """Read a pull request discussion: issue comments, review comments and reviews.
+    """Read a GitHub pull request discussion: issue comments, review comments and reviews.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1114,7 +1114,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Read only the diff or the patch of a pull request.
+    """Read only the diff or the patch of a GitHub pull request.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1148,7 +1148,7 @@ class Tools:
     )
 
   async def fetch_pr_patch(self, repo_full_name: str, pr_number: int) -> dict:
-    """Read the per-file patches of a pull request, first page.
+    """Read the per-file patches of a GitHub pull request, first page.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1178,7 +1178,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """List the changed filenames of a pull request, first page.
+    """List the changed filenames of a GitHub pull request, first page.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1207,7 +1207,7 @@ class Tools:
   async def fetch_pr_file_patch(
     self, repo_full_name: str, pr_number: int, path: str
   ) -> dict:
-    """Read the patch of one changed file. The path comes from list_pr_changed_filenames.
+    """Read the patch of one changed GitHub file. The path comes from list_pr_changed_filenames.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1254,7 +1254,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Open a pull request. The call needs a title unless it names an issue.
+    """Open a pull request. The call needs a title unless it names a GitHub issue.
 
     :param repository_full_name: owner/repo
     :param title: the pull request title
@@ -1309,7 +1309,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Edit a pull request.
+    """Edit a GitHub pull request.
 
     :param repository_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1350,7 +1350,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Turn a pull request into a draft.
+    """Turn a GitHub pull request into a draft.
 
     :param repository_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1387,7 +1387,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Mark a draft pull request ready for review.
+    """Mark a draft GitHub pull request ready for review.
 
     :param repository_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1428,7 +1428,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Merge a pull request.
+    """Merge a GitHub pull request.
 
     :param repository_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1468,7 +1468,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Add one label to a pull request.
+    """Add one label to a GitHub pull request.
 
     :param repository_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1494,7 +1494,7 @@ class Tools:
 
   # ═════════════════════════ files and git data ═════════════════════════
 
-  async def fetch_file(
+  async def fetch_github_file(
     self,
     repository_full_name: str,
     path: str,
@@ -1503,7 +1503,7 @@ class Tools:
     start_line: int | None = None,
     end_line: int | None = None,
   ) -> dict:
-    """Read a file, base64 decoded. A directory returns its listing as JSON text.
+    """Read a GitHub file, base64 decoded. A directory returns its listing as JSON text.
 
     :param repository_full_name: owner/repo
     :param path: the path inside the repository
@@ -1557,7 +1557,7 @@ class Tools:
     )
 
   async def fetch_blob(self, repository_full_name: str, blob_sha: str) -> dict:
-    """Read a blob by SHA, base64 decoded.
+    """Read a GitHub blob by SHA, base64 decoded.
 
     :param repository_full_name: owner/repo
     :param blob_sha: the blob SHA
@@ -1572,7 +1572,7 @@ class Tools:
     )
 
   async def fetch_github_url(self, url: str) -> dict:
-    """Read one github.com or api.github.com URL. For any other URL, use the builtin `fetch_url` tool.
+    """Read one GitHub URL of github.com or api.github.com. For any other URL, use the builtin `fetch_url` tool.
 
     :param url: a github.com or api.github.com URL
     """
@@ -1725,7 +1725,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Create a branch. Give exactly one of sha or base_ref.
+    """Create a GitHub branch. Give exactly one of sha or base_ref.
 
     :param repository_full_name: owner/repo
     :param branch_name: the new branch name
@@ -1773,7 +1773,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Move a branch to another commit.
+    """Move a GitHub branch to another commit.
 
     :param repository_full_name: owner/repo
     :param branch_name: the branch name
@@ -1798,7 +1798,7 @@ class Tools:
       __event_call__=__event_call__,
     )
 
-  async def create_file(
+  async def create_github_file(
     self,
     repository_full_name: str,
     path: str,
@@ -1808,7 +1808,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Create a file with one commit.
+    """Create a GitHub file with one commit.
 
     :param repository_full_name: owner/repo
     :param path: the new file path
@@ -1843,7 +1843,7 @@ class Tools:
       __event_call__=__event_call__,
     )
 
-  async def update_file(
+  async def update_github_file(
     self,
     repository_full_name: str,
     path: str,
@@ -1854,7 +1854,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Replace a file with one commit. The sha comes from fetch_file.
+    """Replace a GitHub file with one commit. The sha comes from fetch_github_file.
 
     :param repository_full_name: owner/repo
     :param path: the file path
@@ -1891,7 +1891,7 @@ class Tools:
       __event_call__=__event_call__,
     )
 
-  async def delete_file(
+  async def delete_github_file(
     self,
     repository_full_name: str,
     path: str,
@@ -1901,7 +1901,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Delete a file with one commit. The sha comes from fetch_file.
+    """Delete a GitHub file with one commit. The sha comes from fetch_github_file.
 
     :param repository_full_name: owner/repo
     :param path: the file path
@@ -1939,7 +1939,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """List commits, newest first, with an optional path filter.
+    """List GitHub commits, newest first, with an optional path filter.
 
     :param repository_full_name: owner/repo
     :param path: only the commits that touch this path
@@ -1994,7 +1994,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """List the tree of a branch, tag or commit, recursive by default.
+    """List the GitHub tree of a branch, tag or commit, recursive by default.
 
     :param repository_full_name: owner/repo
     :param ref: the branch or tag name, the default branch when absent
@@ -2057,7 +2057,7 @@ class Tools:
     per_page: int = 30,
     page: int = 1,
   ) -> dict:
-    """List the code scanning alerts of a repository, or read 1 alert with its instances.
+    """List the code scanning alerts of a GitHub repository, or read 1 alert with its instances.
 
     :param repo_full_name: owner/repo
     :param alert_number: the alert number. Set it to read that alert and its instances
@@ -2107,7 +2107,7 @@ class Tools:
     per_page: int = 30,
     page: int = 1,
   ) -> dict:
-    """List the secret scanning alerts of a repository, or read 1 alert with its locations.
+    """List the secret scanning alerts of a GitHub repository, or read 1 alert with its locations.
 
     :param repo_full_name: owner/repo
     :param alert_number: the alert number. Set it to read that alert and its locations
@@ -2159,7 +2159,7 @@ class Tools:
     per_page: int = 30,
     page: int = 1,
   ) -> dict:
-    """List the Dependabot alerts of a repository, or read 1 alert.
+    """List the Dependabot alerts of a GitHub repository, or read 1 alert.
 
     :param repo_full_name: owner/repo
     :param alert_number: the alert number. Set it to read that alert
@@ -2211,7 +2211,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Open or update a pull request from a file list, in 1 confirmed call.
+    """Open or update a GitHub pull request from a file list, in 1 confirmed call.
 
     Each files entry holds path and content. An entry with delete true removes the file. The call
     creates the blobs, the tree and the commit, then the branch and the pull request, or it moves
@@ -2351,7 +2351,7 @@ class Tools:
     )
 
   async def compare_commits(self, repo_full_name: str, base: str, head: str) -> dict:
-    """Compare two refs and return the commit and file changes.
+    """Compare two GitHub refs and return the commit and file changes.
 
     :param repo_full_name: owner/repo
     :param base: the base ref
@@ -2375,7 +2375,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Fetch repository metadata. Normally exactly one selector.
+    """Fetch GitHub repository metadata. Normally exactly one selector.
 
     :param repository_full_name: owner/repo
     :param repository_id: the numeric repository id
@@ -2410,7 +2410,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """List the repositories of the signed-in user, or of one owner.
+    """List the GitHub repositories of the signed-in user, or of one owner.
 
     :param page_size: repositories per page
     :param page_offset: how many to skip
@@ -2559,7 +2559,7 @@ class Tools:
       for item in (data.get("items") or [])
     ]
 
-  async def search(
+  async def search_github_code(
     self,
     query: str,
     topn: int = 20,
@@ -2589,7 +2589,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Search the branches of one repository by name.
+    """Search the GitHub branches of one repository by name.
 
     :param owner: the repository owner
     :param repo_name: the repository name
@@ -2694,7 +2694,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Search issues and pull requests together.
+    """Search GitHub issues and GitHub pull requests together.
 
     :param query: the search terms
     :param repository_full_name: one repository or a list to restrict to
@@ -2813,7 +2813,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Search commits.
+    """Search GitHub commits.
 
     :param query: the search terms
     :param repository_full_name: one repository or a list to restrict to
@@ -2875,7 +2875,7 @@ class Tools:
   # ═══════════════════════ commit read (draft extra) ════════════════════
 
   async def fetch_commit(self, repository_full_name: str, commit_sha: str) -> dict:
-    """Fetch one commit with its files and stats.
+    """Fetch one GitHub commit with its files and stats.
 
     :param repository_full_name: owner/repo
     :param commit_sha: the commit SHA
@@ -2886,7 +2886,7 @@ class Tools:
 
   # ═════════════════════════ workspace actions ══════════════════════════
 
-  async def check_runs(
+  async def list_github_check_runs(
     self,
     repo_full_name: str,
     ref: str,
@@ -2897,7 +2897,7 @@ class Tools:
     per_page: int = 30,
     page: int = 1,
   ) -> dict:
-    """List the check runs of a ref, or read 1 check run with its annotations.
+    """List the GitHub check runs of a ref, or read 1 check run with its annotations.
 
     :param repo_full_name: owner/repo
     :param ref: the commit SHA, branch or tag
@@ -2942,7 +2942,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """List the Actions workflows of a repository.
+    """List the Actions workflows of a GitHub repository.
 
     :param repo_full_name: owner/repo
     :param per_page: workflows per page
@@ -2980,7 +2980,7 @@ class Tools:
   async def fetch_commit_workflow_runs(
     self, repo_full_name: str, commit_sha: str
   ) -> dict:
-    """Fetch the pull-request-triggered workflow runs of a commit, first page.
+    """Fetch the GitHub pull-request-triggered workflow runs of a commit, first page.
 
     :param repo_full_name: owner/repo
     :param commit_sha: the commit SHA
@@ -2994,7 +2994,7 @@ class Tools:
     return self._ok({"workflow_runs": data.get("workflow_runs") or []})
 
   async def fetch_workflow_run_jobs(self, repo_full_name: str, run_id: int) -> dict:
-    """Fetch the jobs of a workflow run, latest attempt.
+    """Fetch the jobs of a GitHub workflow run, latest attempt.
 
     :param repo_full_name: owner/repo
     :param run_id: the workflow run id
@@ -3008,7 +3008,7 @@ class Tools:
     return self._ok({"jobs": data.get("jobs") or []})
 
   async def fetch_workflow_job_steps(self, repo_full_name: str, job_id: int) -> dict:
-    """Fetch the steps of a workflow job.
+    """Fetch the steps of a GitHub workflow job.
 
     :param repo_full_name: owner/repo
     :param job_id: the job id
@@ -3018,7 +3018,7 @@ class Tools:
     return self._ok({"steps": data.get("steps") or [], "job": data})
 
   async def fetch_workflow_job_logs(self, repo_full_name: str, job_id: int) -> dict:
-    """Fetch the raw log text of a workflow job.
+    """Fetch the raw log text of a GitHub workflow job.
 
     :param repo_full_name: owner/repo
     :param job_id: the job id
@@ -3038,7 +3038,7 @@ class Tools:
   async def fetch_workflow_run_artifacts(
     self, repo_full_name: str, run_id: int, name: str | None = None
   ) -> dict:
-    """Fetch the artifacts of a workflow run, first page.
+    """Fetch the GitHub artifacts of a workflow run, first page.
 
     :param repo_full_name: owner/repo
     :param run_id: the workflow run id
@@ -3063,7 +3063,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Fetch an artifact's metadata and its download url. The archive needs the token.
+    """Fetch a GitHub artifact's metadata and its download url. The archive needs the token.
 
     :param repo_full_name: owner/repo
     :param artifact_id: the artifact id
@@ -3114,7 +3114,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Fetch the combined status of a commit.
+    """Fetch the GitHub combined status of a commit.
 
     :param repo_full_name: owner/repo
     :param commit_sha: the commit SHA
@@ -3153,7 +3153,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Rerun the failed jobs of a workflow run. Needs Actions write permission.
+    """Rerun the failed jobs of a GitHub workflow run. Needs Actions write permission.
 
     :param repo_full_name: owner/repo
     :param run_id: the workflow run id
@@ -3176,12 +3176,12 @@ class Tools:
 
   # ═════════════════════════ identity and accounts ══════════════════════
 
-  async def get_profile(
+  async def get_github_profile(
     self,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Fetch the signed-in user profile."""
+    """Fetch the profile of the signed-in GitHub user."""
 
     async def run(__user__=__user__, __event_call__=__event_call__):
       data = await self._request("GET", f"{API}/user")
@@ -3197,7 +3197,7 @@ class Tools:
       )
 
     return await self._read(
-      "read get_profile",
+      "read get_github_profile",
       str(locals().get("name", "") or locals().get("path", "") or ""),
       run,
       __user__,
@@ -3209,7 +3209,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """List the organizations of the signed-in user."""
+    """List the GitHub organizations of the signed-in user."""
 
     async def run(__user__=__user__, __event_call__=__event_call__):
       data = await self._request("GET", f"{API}/user/orgs")
@@ -3231,7 +3231,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """List the app installations the signed-in user can reach.
+    """List the GitHub app installations the signed-in user can reach.
 
     :param manageable_only: keep installs the user can manage, when REST says so
     """
@@ -3263,7 +3263,7 @@ class Tools:
   # ═════════════════════ releases, tags, packages, minutes ═══════════════
 
   async def actions_minutes(self, owner: str, owner_type: str = "org") -> dict:
-    """Read the Actions minutes used, for an organization or a user.
+    """Read the GitHub Actions minutes used, for an organization or a user.
 
     :param owner: the organization or the user login
     :param owner_type: org reads /orgs/{owner}/settings/billing/actions, user reads
@@ -3278,7 +3278,7 @@ class Tools:
     )
     return self._ok({"minutes": data})
 
-  async def releases(
+  async def list_github_releases(
     self,
     repo_full_name: str,
     release_id: int | None = None,
@@ -3286,7 +3286,7 @@ class Tools:
     per_page: int = 30,
     page: int = 1,
   ) -> dict:
-    """List the releases of a repository, or read 1 release by id or by tag.
+    """List the releases of a GitHub repository, or read 1 release by id or by tag.
 
     :param repo_full_name: owner/repo
     :param release_id: the release id. It wins over tag
@@ -3308,8 +3308,10 @@ class Tools:
     )
     return self._ok({"releases": data})
 
-  async def tags(self, repo_full_name: str, per_page: int = 30, page: int = 1) -> dict:
-    """List the tags of a repository.
+  async def list_github_tags(
+    self, repo_full_name: str, per_page: int = 30, page: int = 1
+  ) -> dict:
+    """List the tags of a GitHub repository.
 
     :param repo_full_name: owner/repo
     :param per_page: tags per page
@@ -3323,7 +3325,7 @@ class Tools:
     )
     return self._ok({"tags": data})
 
-  async def packages(
+  async def list_github_packages(
     self,
     package_type: str | None = None,
     owner: str | None = None,
@@ -3332,7 +3334,7 @@ class Tools:
     per_page: int = 30,
     page: int = 1,
   ) -> dict:
-    """List the packages of the signed-in user, a user or an organization, or read 1 package.
+    """List the GitHub packages of the signed-in user, a user or an organization, or read 1 package.
 
     :param package_type: npm, maven, rubygems, docker, nuget, container or generic. Required with owner.
     :param owner: the user or organization login. Absent reads the packages of the signed-in user
@@ -3365,14 +3367,14 @@ class Tools:
 
   # ═════════════════════════════════ gists ═══════════════════════════════
 
-  async def gists(
+  async def list_gists(
     self,
     username: str | None = None,
     per_page: int = 30,
     page: int = 1,
     since: str | None = None,
   ) -> dict:
-    """List the gists of a user, or the gists of the signed-in user.
+    """List the GitHub gists of a user, or the gists of the signed-in user.
 
     :param username: the user login. Absent reads the gists of the signed-in user
     :param per_page: gists per page
@@ -3392,7 +3394,7 @@ class Tools:
     return self._ok({"gists": data})
 
   async def fetch_gist(self, gist_id: str) -> dict:
-    """Fetch one gist with its files.
+    """Fetch one GitHub gist with its files.
 
     :param gist_id: the gist id
     """
@@ -3407,7 +3409,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Create a gist. The gate asks first.
+    """Create a GitHub gist. The gate asks first.
 
     :param files: the files, each {name: {"content": "..."}}
     :param description: the gist description
@@ -3440,7 +3442,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Edit a gist. The gate asks first.
+    """Edit a GitHub gist. The gate asks first.
 
     :param gist_id: the gist id
     :param files: the files to add or replace, each {name: {"content": "..."}}
@@ -3469,7 +3471,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Delete a gist. The gate asks first.
+    """Delete a GitHub gist. The gate asks first.
 
     :param gist_id: the gist id
     """
@@ -3498,7 +3500,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Dismiss or reopen a code scanning alert. The gate asks first.
+    """Dismiss or reopen a GitHub code scanning alert. The gate asks first.
 
     :param repo_full_name: owner/repo
     :param alert_number: the alert number
@@ -3538,7 +3540,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Resolve or reopen a secret scanning alert. The gate asks first.
+    """Resolve or reopen a GitHub secret scanning alert. The gate asks first.
 
     :param repo_full_name: owner/repo
     :param alert_number: the alert number
@@ -3578,7 +3580,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Dismiss or reopen a Dependabot alert. The gate asks first.
+    """Dismiss or reopen a GitHub Dependabot alert. The gate asks first.
 
     :param repo_full_name: owner/repo
     :param alert_number: the alert number

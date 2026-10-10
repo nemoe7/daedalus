@@ -28,18 +28,18 @@ flowchart TD
 
 3 security reads cover the alert lists: `code_scanning_alerts`, `secret_scanning_alerts` and `dependabot_alerts`. Each lists the alerts with filters, or reads 1 alert with its instances or locations. They need a token with the `security_events` scope, or the matching fine-grained read. Without it GitHub answers 403.
 
-2 CI reads cover the checks. `check_runs` lists the check runs of a ref with the name, the status and the filter, or reads 1 run with its annotations. `list_workflows` lists the Actions workflows.
+2 CI reads cover the checks. `list_github_check_runs` lists the check runs of a ref with the name, the status and the filter, or reads 1 run with its annotations. `list_workflows` lists the Actions workflows.
 
 4 more reads ship:
 
 | Read | Use |
 | --- | --- |
 | `actions_minutes` | The Actions minutes of an org or a user |
-| `releases` | The releases, or 1 by id or tag |
-| `tags` | The tags |
-| `packages` | The packages of the signed-in user, a user or an org |
+| `list_github_releases` | The releases, or 1 by id or tag |
+| `list_github_tags` | The tags |
+| `list_github_packages` | The packages of the signed-in user, a user or an org |
 
-Gist management ships as 5 tools: `gists`, `fetch_gist`, and the gated writes `create_gist`, `update_gist` and `delete_gist`.
+Gist management ships as 5 tools: `list_gists`, `fetch_gist`, and the gated writes `create_gist`, `update_gist` and `delete_gist`.
 
 The 3 alert reads take gated writes: `update_code_scanning_alert`, `update_secret_scanning_alert` and `update_dependabot_alert` dismiss, resolve or reopen an alert.
 
