@@ -3701,16 +3701,18 @@ def test_the_tab_bar_fades_its_clipped_edges() -> None:
   """A clipped tab edge fades toward the bar center, so the cut never reads hard."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  nav = re.search(r"#nav \{([^}]*)\}", css)
-  assert nav and "mask-image: linear-gradient(90deg, transparent 0," in nav.group(1), (
-    "the tab scroller masks its edges"
+  fade = re.search(r"#nav,\s*\.card-scroll \{([^}]*)\}", css)
+  assert fade and "mask-image: linear-gradient(90deg, transparent 0," in fade.group(
+    1
+  ), "the tab and card scrollers share their edge mask"
+  assert "#nav.fade-left, .card-scroll.fade-left { --fade-left: 20px; }" in css, (
+    "the left fade rides a class"
   )
-  assert "#nav.fade-left { --fade-left: 20px; }" in css, "the left fade rides a class"
-  assert "#nav.fade-right { --fade-right: 20px; }" in css, (
+  assert "#nav.fade-right, .card-scroll.fade-right { --fade-right: 20px; }" in css, (
     "the right fade rides a class"
   )
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert 'nav.classList.toggle("fade-left"' in app, "the bar fades only while it clips"
+  assert "markScrollEdges(nav)" in app, "the bar fades only while it clips"
   assert ".tab-step span { display: block; transform: translateY(-2px); }" in css, (
     "the angle glyph centers on the tab text"
   )
@@ -3720,6 +3722,44 @@ def test_the_tab_bar_fades_its_clipped_edges() -> None:
   assert ".tab-step[hidden] { display: grid !important; visibility: hidden; }" in css, (
     "a hidden chevron keeps its slot, so the scroll never snaps"
   )
+
+
+def test_card_tables_own_horizontal_overflow_and_fade_only_clipped_edges() -> None:
+  """Wide card tables fade at their scrollport while card-level controls stay outside it."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  keys = app[app.index("function keysCard()") : app.index("function renderSettings()")]
+  hooks = app[
+    app.index("function hooksManager()") : app.index("async function dropHookFile")
+  ]
+
+  assert re.search(
+    r'<div class="card-scroll">\s*<table class="keys">.*?</table>\s*</div>',
+    keys,
+    re.DOTALL,
+  ), "the API Keys table scrolls without masking its form or reveal controls"
+  assert keys.index('<form class="toolbar"') < keys.index('<div class="card-scroll">')
+  assert re.search(
+    r'<div class="card-scroll">\s*<table class="keys">.*?</table>\s*</div>\s*'
+    r"<button[^>]+data-hooks-update",
+    hooks,
+    re.DOTALL,
+  ), "the Hooks table scrolls without masking its Update control"
+  card_scroll = re.search(r"\.card-scroll \{([^}]*)\}", css)
+  assert card_scroll and "overflow-x: auto;" in card_scroll.group(1), (
+    "the table region, not the card or settings pane, owns horizontal overflow"
+  )
+  assert ".card-scroll.fade-left" in css and ".card-scroll.fade-right" in css
+  assert "function markScrollEdges(scroller)" in app
+  assert 'document.querySelectorAll(".card-scroll")' in app
+  assert 'scroller.classList.toggle("fade-left", !left)' in app
+  assert 'scroller.classList.toggle("fade-right", !right)' in app
+  assert re.search(
+    r'document\.addEventListener\("scroll",.*?\.card-scroll.*?, true\);',
+    app,
+    re.DOTALL,
+  ), "a card updates its fades as its own table scrolls"
 
 
 def test_a_phone_keeps_one_rhythm_around_the_bar_rules() -> None:

@@ -102,15 +102,17 @@ header {
   flex: none; align-self: center; display: grid; place-items: center; width: 28px; height: 44px; padding: 0;
   border: 0; background: transparent; color: var(--muted); font-size: 22px; line-height: 1;
 }
-/* The scroll edges fade a clipped tab toward the bar center, so no cut reads hard. Each fade
-   rides the chevron of its edge: an edge only fades while its tabs clip. */
-#nav {
-  --fade-left: 0px; --fade-right: 0px;
+/* A clipped scroll edge fades toward its center, so no cut reads hard. The class only rides an
+   edge while content waits beyond it. */
+#nav,
+.card-scroll {
+  --fade-left: 0px; --fade-right: 0px; overflow-x: auto;
   mask-image: linear-gradient(90deg, transparent 0, #000 var(--fade-left),
     #000 calc(100% - var(--fade-right)), transparent 100%);
 }
-#nav.fade-left { --fade-left: 20px; }
-#nav.fade-right { --fade-right: 20px; }
+#nav.fade-left, .card-scroll.fade-left { --fade-left: 20px; }
+#nav.fade-right, .card-scroll.fade-right { --fade-right: 20px; }
+.card-scroll { max-width: 100%; }
 /* A shown chevron sits at the page edge, not at the bar padding, so the step reads as the
    edge of the bar. */
 #nav-left:not([hidden]) { margin-left: -12px; }

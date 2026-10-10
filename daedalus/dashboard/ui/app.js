@@ -1214,6 +1214,7 @@ function renderKeys(rows) {
       <td class="muted">${mobileLabel("Last used")}<span class="cell-value">${k.used ? stamp(k.used) : "never"}</span></td>
       <td class="end"><button type="button" class="ghost danger" data-key="${esc(k.name)}" aria-label="Delete ${esc(k.name)}" title="Delete">${LUCIDE.trash}</button></td>
     </tr>`).join("") : '<tr><td colspan="5" class="empty">No API keys. The master key opens /v1.</td></tr>');
+  markCardScrollEdges();
 }
 
 async function refreshKeys() {
@@ -1574,8 +1575,8 @@ function hooksManager() {
       ${scan.take[file.name] ? "checked" : ""}>${esc(file.name)}${file.version ? ` ${esc(file.version)}` : ""}</label>`).join("")}
       <button type="button" class="primary" data-hook-take-all>Take the picked files</button></div>` : "";
   return `<div class="field stack info">${labelSpan("Installed hooks", "The files of the hook folder. A surface is a stage of a request. The block of the file names the surfaces that run the file. The switch keeps a file on disk and out of the run.")}
-      <table class="keys"><thead><tr><th>Author/Title</th><th>Version</th><th>Surfaces</th><th>Scopes</th><th class="hide-sm">Source</th><th>Enabled</th><th></th></tr></thead>
-      <tbody>${list}</tbody></table>
+      <div class="card-scroll"><table class="keys"><thead><tr><th>Author/Title</th><th>Version</th><th>Surfaces</th><th>Scopes</th><th class="hide-sm">Source</th><th>Enabled</th><th></th></tr></thead>
+      <tbody>${list}</tbody></table></div>
       <button type="button" class="ghost" data-hooks-update>Update from the sources</button></div>
     <div class="field stack info" id="hooks-order">${hookOrderRows()}</div>
     <div class="field stack info">${labelSpan("Folder", "The folder at the root that holds the hook files.")}
@@ -1797,6 +1798,7 @@ function pickSection(host, key, open = sectionState(host).open) {
   for (const card of host.querySelectorAll(".section-pane > .card")) {
     card.hidden = card.dataset.section !== key;
   }
+  markCardScrollEdges();
   if (!moved) return;
   // The slide plays at once, and the flag holds it for a render that builds the pane again.
   state_.slide = true;
@@ -2460,12 +2462,12 @@ function keysCard() {
       <button class="ghost" id="copy" type="button">Copy</button>
       <button class="ghost" id="reveal-close" type="button">Done</button>
     </div>
-    <table class="keys">
+    <div class="card-scroll"><table class="keys">
       <thead><tr>
         <th>Name</th><th>Key</th><th class="hide-sm">Created</th><th>Last used</th><th></th>
       </tr></thead>
       <tbody id="keys"></tbody>
-    </table>
+    </table></div>
   </div>`;
 }
 
@@ -2525,6 +2527,7 @@ function renderSettings() {
   placeUndo();
   fitSectionPane();
   keepSettingsScroll(scroll);
+  markCardScrollEdges();
 }
 
 // A row with a mode list shows only under those modes: the race values wait for race, and the pin
@@ -2987,6 +2990,7 @@ async function start() {
   $("app").hidden = false;
   // The pane sizes once the app shows: a pane built while the app is hidden has no height yet.
   fitSectionPane();
+  markCardScrollEdges();
   setStateKnown(null);
   skeletons("requests", 13);
   skeletons("models", 9);
@@ -3302,16 +3306,30 @@ function requestHash() {
   history.replaceState(null, "", `#/requests${query ? `?${query}` : ""}`);
 }
 
+function markScrollEdges(scroller) {
+  const end = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+  const left = scroller.scrollLeft <= 2;
+  const right = scroller.scrollLeft >= end - 2;
+  scroller.classList.toggle("fade-left", !left);
+  scroller.classList.toggle("fade-right", !right);
+  return { left, right };
+}
+
+function markCardScrollEdges() {
+  for (const scroller of document.querySelectorAll(".card-scroll")) markScrollEdges(scroller);
+}
+
+document.addEventListener("scroll", (event) => {
+  const scroller = event.target;
+  if (scroller.matches?.(".card-scroll")) markScrollEdges(scroller);
+}, true);
+
 // A chevron at each end of the tab bar shows the tabs that wait off screen, and scrolls to them.
 const nav = $("nav");
 function markNavSteps() {
-  const end = nav.scrollWidth - nav.clientWidth;
-  const left = nav.scrollLeft <= 2;
-  const right = nav.scrollLeft >= end - 2;
+  const { left, right } = markScrollEdges(nav);
   $("nav-left").hidden = left;
   $("nav-right").hidden = right;
-  nav.classList.toggle("fade-left", !left);
-  nav.classList.toggle("fade-right", !right);
 }
 nav.addEventListener("scroll", markNavSteps, { passive: true });
 // A tab reuses the entry in place of pushing one, so the phone back leaves the app
@@ -3395,6 +3413,7 @@ function showPage() {
   slideAgain();
   document.title = `daedalus · ${document.querySelector(`#nav a[data-page="${page}"]`).firstChild.textContent}`;
   fitSectionPane();
+  markCardScrollEdges();
 }
 
 window.addEventListener("hashchange", showPage);
@@ -3574,6 +3593,7 @@ $("provider-form").addEventListener("keydown", (event) => {
 window.addEventListener("resize", () => {
   markNavSteps();
   fitSectionPane();
+  markCardScrollEdges();
 });
 $("settings").addEventListener("input", (event) => {
   clearWrite("settings");
