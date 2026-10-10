@@ -3408,8 +3408,34 @@
     }
   ],
   "notifications": {
-    "limits": [],
-    "rebuilds": [],
+    "limits": [
+      {
+        "at": 1791597600.0,
+        "client": "owui",
+        "kind": "requests",
+        "limit": 30.0,
+        "model": "groq/openai/gpt-oss-120b",
+        "remaining": 6.0,
+        "reset": 1791601200.0,
+        "share": 0.2,
+        "span": "minute"
+      }
+    ],
+    "rebuilds": [
+      {
+        "added": [
+          "groq/openai/gpt-oss-120b"
+        ],
+        "at": 1791594000.0,
+        "changed": [
+          "groq/qwen/qwen3.8-27b"
+        ],
+        "failed": [],
+        "models": 75,
+        "reason": "scheduled",
+        "removed": []
+      }
+    ],
     "resets": [
       {
         "at": 1791590400.0,

@@ -2888,37 +2888,52 @@ function openDiffModal(event) {
 
 function renderNotifications(data) {
   state.notifications = data;
-  const resets = data.resets || [];
+  const time = (at) => `<time class="muted" title="${esc(stamp(at))}">${esc(relative(at))}</time>`;
+  const item = (kind, at, title, body, action = "") => {
+    const tag = action ? "button" : "div";
+    const attrs = action ? ` type="button" ${action}` : "";
+    return `<${tag} class="notification-item ${kind}"${attrs}>
+      <span class="notification-mark" aria-hidden="true"></span>
+      <span class="notification-copy"><span class="notification-head"><b>${title}</b>${time(at)}</span>
+      <span class="notification-body">${body}</span></span></${tag}>`;
+  };
+  const notices = [
+    ...(data.resets || []).map((event) => ({
+      at: event.at,
+      html: item(
+        "reset",
+        event.at,
+        `${esc(event.provider)} ${esc(limitUnit(event))} reset`,
+        event.client ? `Client ${esc(event.client)}` : "Provider allowance renewed",
+      ),
+    })),
+    ...(data.limits || []).map((event) => ({
+      at: event.at,
+      html: item(
+        "warning",
+        event.at,
+        `${esc(event.model)} near its limit`,
+        `${floorCount(event.remaining)} of ${floorCount(event.limit)} ${esc(limitUnit(event))} left`
+          + (event.client ? ` · ${esc(event.client)}` : ""),
+      ),
+    })),
+    ...(data.rebuilds || []).map((event, index) => ({
+      at: event.at,
+      html: item(
+        "rebuild",
+        event.at,
+        `Catalog rebuild · ${esc(event.reason)}`,
+        `${count(event.models, "model")} · ${rebuildDiff(event)}`
+          + (event.failed.length ? ` · Failed: ${esc(event.failed.join(", "))}` : ""),
+        `data-rebuild="${index}"`,
+      ),
+    })),
+  ].sort((a, b) => b.at - a.at);
   draw(
-    "reset-rows",
-    resets.length
-      ? resets
-          .map(
-            (event) => `<tr>
-      <td class="muted time">${stamp(event.at)}</td>
-      <td>${esc(event.provider)}</td>
-      <td title="${esc(limitTitle(event))}">${esc(limitUnit(event))}</td>
-      <td class="hide-sm">${event.client ? esc(event.client) : '<span class="muted">-</span>'}</td>
-    </tr>`
-          )
-          .join("")
-      : '<tr><td colspan="4" class="empty">No limit resets yet.</td></tr>'
+    "notification-feed",
+    "<h3>Notifications</h3>" +
+      (notices.length ? notices.map((notice) => notice.html).join("") : none("No notifications yet."))
   );
-  draw(
-    "rebuild-rows",
-    data.rebuilds.length
-      ? data.rebuilds
-          .map(
-            (event, index) => `<tr class="rebuild-row" data-rebuild="${index}" tabindex="0">
-      <td class="muted time">${stamp(event.at)}</td>
-      <td>${esc(event.reason)}</td>
-      <td class="num">${event.models}</td>
-      <td>${rebuildDiff(event)}</td>
-      <td class="hide-sm">${event.failed.length ? esc(event.failed.join(", ")) : '<span class="muted">-</span>'}</td>
-    </tr>`
-          )
-          .join("")
-      : '<tr><td colspan="5" class="empty">No rebuilds yet. The first one lands with the next catalog build.</td>');
   const update = data.update;
   let body = "<h3>Update</h3>";
   if (!update) body += none("Not checked yet");
@@ -2936,23 +2951,6 @@ function renderNotifications(data) {
   draw(
     "update-card",
     body + '<button class="ghost" id="update-check" type="button">Check now</button>'
-  );
-  draw(
-    "limit-warnings-card",
-    "<h3>Limit warnings</h3>" +
-      (data.limits.length
-        ? data.limits
-            .map(
-              (row) => `<div class="balance">
-      ${line(
-        `${esc(row.model)}${row.client ? ` <span class="muted">${esc(row.client)}</span>` : ""}`,
-        `${floorCount(row.remaining)} of ${floorCount(row.limit)} ${esc(row.kind)}${row.span ? ` ${esc(row.span)}` : ""}`
-      )}
-      ${weightBar(row.share)}
-    </div>`
-            )
-            .join("")
-        : none("No row is near its limit."))
   );
 }
 
@@ -2992,8 +2990,6 @@ async function start() {
   setStateKnown(null);
   skeletons("requests", 13);
   skeletons("models", 9);
-  skeletons("reset-rows", 4);
-  skeletons("rebuild-rows", 5);
   await refreshFast();
   await refreshSlow();
   takeFiles(await call("files"));
@@ -3050,9 +3046,9 @@ $("limits-check").addEventListener("click", async () => {
     button.disabled = false;
   }
 });
-// A rebuild row opens the modal of its diff.
-$("rebuild-rows").addEventListener("click", (event) => {
-  const row = event.target.closest("tr.rebuild-row");
+// A rebuild notification opens the modal of its diff.
+$("notification-feed").addEventListener("click", (event) => {
+  const row = event.target.closest("[data-rebuild]");
   if (!row || !state.notifications) return;
   const index = Number(row.dataset.rebuild);
   openDiffModal(state.notifications.rebuilds[index]);
