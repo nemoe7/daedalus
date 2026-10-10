@@ -11,7 +11,7 @@ The reference deployment is a Raspberry Pi 4B with 8 GB of RAM. The compose file
 
 ## Docker Compose
 
-The install scripts show what they install or download and ask `[y/N]` before a change. Then they install Docker if it is missing: Docker Desktop with winget on Windows, or `get.docker.com` on Linux. Outside a git checkout, they download the files of the newest `v*` tag, else `main`, to the `daedalus` folder in the home folder. They copy only missing files, so `.env` and [`config/`](../config) stay.
+The install scripts show what they install or download and ask `[y/N]` before a change. Then they install Docker if it is missing: Docker Desktop with winget on Windows, or `get.docker.com` on Linux. Outside a git checkout, they download the files of the newest `v*` tag, or of `main` when there is no tag. They write them to the `daedalus` folder in the home folder, and copy only missing files, so `.env` and [`config/`](../config) stay.
 
 They make `.env` with a new master key, then pull the daedalus image and start the containers.
 With `--dev`, they use [`compose.dev.yml`](../compose.dev.yml). They build the image from the
@@ -37,7 +37,7 @@ The commands below are the same in cmd, PowerShell and bash.
 `dump` defaults to JSON. Add `-f csv` (also `--fmt` or `--format`) for CSV. Catalog refresh saves provider
 snapshots. Every dump reads those snapshots and never fetches.
 
-The models dump carries the tier that claims each row.
+The models dump carries the tier of each row.
 
 Saving provider YAML in the dashboard rebuilds the model list from cache. After editing files outside the dashboard, click Catalog to fetch and rebuild.
 
@@ -116,11 +116,11 @@ The installers ask for profiles only when `.env` is absent. If you decline Open 
 | First user | Becomes the Open WebUI admin |
 | `ENABLE_FORWARD_USER_INFO_HEADERS` | `true`. It sends the chat id and the user facts for [try again](architecture.md#try-again). |
 | `WEBUI_SECRET_KEY` | From `.env`. Without it, each new container makes a new key, and all logins end. |
-| `AIOHTTP_CLIENT_TIMEOUT` | `600`, the same as `timeouts.request`. The Open WebUI default is 300 s. |
+| `AIOHTTP_CLIENT_TIMEOUT` | `600`, the same as `limits.request`. The Open WebUI default is 300 s. |
 | `TASK_MODEL_EXTERNAL` | `daedalus/auto`, for titles, tags and follow-ups |
 | `AUDIO_STT_ENGINE`, `AUDIO_STT_MODEL` | `openai` and `daedalus/graphos`. Speech to text goes to daedalus, not to a local Whisper. |
 | `ENABLE_IMAGE_GENERATION`, `IMAGE_GENERATION_MODEL` | `true` and `daedalus/photos` |
-| `ENABLE_IMAGE_EDIT`, `IMAGE_EDIT_ENGINE`, `IMAGE_EDIT_MODEL` | `true`, `openai` and `daedalus/photos`. Only the photos models with image input edit. |
+| `ENABLE_IMAGE_EDIT`, `IMAGE_EDIT_ENGINE`, `IMAGE_EDIT_MODEL` | `true`, `openai` and `daedalus/photos`. Only the photos models with image input take an edit request. |
 | `AUDIO_STT_OPENAI_API_BASE_URL`, `AUDIO_STT_OPENAI_API_KEY`, `IMAGES_OPENAI_API_BASE_URL`, `IMAGES_OPENAI_API_KEY`, `IMAGES_EDIT_OPENAI_API_BASE_URL`, `IMAGES_EDIT_OPENAI_API_KEY` | The daedalus API base and key. Without them, speech and images go to OpenAI. |
 | `VECTOR_DB`, `PGVECTOR_DB_URL` | `pgvector` in `webui-db`, for files, knowledge and memory. `main-slim` supports no other vector store. |
 | `ENABLE_MEMORY_BACKGROUND_REVIEW`, `MEMORIES_REVIEW_INTERVAL_TURNS` | `true` and `5`. After every 5th user turn, the chat model reviews the last turns and drafts the memories. |
@@ -132,7 +132,7 @@ The installers ask for profiles only when `.env` is absent. If you decline Open 
 | Spoken replies | **Settings → Audio**: Web API or Kokoro.js. Gemini TTS allows 3 requests per minute. |
 | `RAG_EMBEDDING_BATCH_SIZE`, `ENABLE_ASYNC_EMBEDDING`, `RAG_EMBEDDING_CONCURRENT_REQUESTS` | `32`, `true` and `2`: 32 chunks in each call, 2 calls at a time, inside the free Mistral limits |
 
-After a change of `pools.audio` or `pools.images` in [`config/daedalus.yml`](../config/daedalus.yml), change `daedalus/graphos` or `daedalus/photos` in [`compose.yml`](../compose.yml) and in **Admin Settings**. Also change the pool names in the Kilo and Open WebUI model settings.
+After a change of `personalization.audio` or `personalization.images` in [`config/daedalus.yml`](../config/daedalus.yml), change `daedalus/graphos` or `daedalus/photos` in [`compose.yml`](../compose.yml) and in **Admin Settings**. Also change the pool names in the Kilo and Open WebUI model settings.
 
 Open WebUI reads most of these settings only on the first start with a new data volume. After that, the values in **Admin Settings** apply. On an existing install, set them there.
 
@@ -175,7 +175,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Image | `apache/tika:3.3.0.0-full`, with Tesseract OCR. Open WebUI uses the Tika 3 API by default. |
 | Process | 1 Java process (`-noFork`) with a 512 MB heap, from `JAVA_TOOL_OPTIONS` |
 | Out of memory | Java stops, and Docker starts Tika again |
-| OCR | Tesseract reads the text-poor pages on the Pi CPU. 1 scanned page takes many seconds. |
+| OCR | Tesseract reads the pages with little text on the Pi CPU. 1 scanned page takes many seconds. |
 | Compose | `required: false` in the Open WebUI `depends_on`: `webui` starts without Tika. Compose 2.20 or later. The `env_file` form of `compose.yml` needs 2.24.0 or later. |
 
 ### SearXNG
@@ -204,7 +204,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | `HEADROOM_COMPRESS_ALLOW_REMOTE` | `1`. Without it, Headroom answers the `api` container with a 404. |
 | `HEADROOM_TELEMETRY`, `HOME`, `HEADROOM_WORKSPACE_DIR` | Telemetry `off`, and the workspace of the image user at `/home/nonroot`. |
 
-Headroom is worth it for long agentic tasks. So far, it keeps token use lower with the same model quality.
+Headroom helps long agentic tasks. It keeps token use lower at the same model quality.
 
 ### Tailscale
 
@@ -215,6 +215,6 @@ Headroom is worth it for long agentic tasks. So far, it keeps token use lower wi
 | daedalus | `https://TS_HOSTNAME.TAILNET.ts.net` |
 | Open WebUI | `https://TS_HOSTNAME_OWUI.TAILNET.ts.net:8443`, with the `webui` and `tailscale-openwebui` profiles. A phone microphone needs the HTTPS. |
 | Funnel | Off: only your tailnet can connect. |
-| `TS_AUTH_ONCE` | `true`. The state volume keeps the login across restarts, old auth keys included. |
+| `TS_AUTH_ONCE` | `true`. The state volume keeps the login, and the old auth keys, across restarts. |
 | `TS_STATE_DIR`, `TS_SERVE_CONFIG` | `/var/lib/tailscale` and `/config/serve.json`. |
 | Health | `TS_ENABLE_HEALTH_CHECK` and `TS_LOCAL_ADDR_PORT` at `127.0.0.1:9002`: `/healthz`. `docker ps` shows "unhealthy" when the device has no tailnet address. |

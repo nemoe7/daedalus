@@ -4,7 +4,7 @@ daedalus serves the OpenAI API on `http://HOST:3357/v1`.
 
 The tested clients are Kilo Code and Open WebUI.
 
-Open WebUI: a general chat interface.
+Open WebUI is a general chat interface. Kilo Code is an agent in the editor.
 
 ## Contents
 
@@ -52,7 +52,7 @@ curl http://localhost:3357/v1/models -H "Authorization: Bearer $DAEDALUS_KEY"
 
 | Method and path | Models | Fallback |
 | --- | --- | --- |
-| `GET /health` | None. No key is necessary. | None |
+| `GET /health` | None. No key. | None |
 | `GET /v1/models` | `daedalus/auto`, the 4 pools, chat models, media pools with models, then the rest. | None |
 | `POST /v1/catalog` | None. It asks the running server to rebuild its model store. | None |
 | `POST /v1/chat/completions` | `daedalus/auto`, a pool, or `provider/slug` | Yes, for `daedalus/auto` and pools |
@@ -84,7 +84,7 @@ Any valid key may call the route, so treat a hook file as admin code. See
 | `daedalus/photos` | The image pool, for `POST /v1/images/generations` and `POST /v1/images/edits` only |
 | `provider/slug`, for example `groq/llama-3.3-70b-versatile` | That model only, when the model list holds the id |
 
-The `pools` settings replace a pool name after `daedalus/`: each key is the generic pool name, and its value is the client name. Then only the new name works. See [Configuration](configuration.md#router-settings).
+The `personalization` settings replace a pool name after `daedalus/`: each key is the generic pool name, and its value is the new name. Then only the new name works. See [Configuration](configuration.md#router-settings).
 
 A `provider/slug` answers only when `GET /v1/models` lists that id, the same list that the **Models** page shows. The catalog lists an id when the provider API reports it or a provider file names it under `models:`. A name outside the list takes a 404, with the nearest listed id of its provider as a hint.
 
@@ -110,11 +110,11 @@ Kilo Code reads token limits only from its config, and it cannot show the routed
 
 | Field | Rule |
 | --- | --- |
-| `messages` | Necessary. A list of objects. |
+| `messages` | Required. A list of objects. |
 | `stream` | Boolean. |
-| `stream_options` | Object. `include_usage` adds a usage chunk. Groq and OpenRouter streams drop it when unasked. |
+| `stream_options` | Object. `include_usage` adds a usage chunk. Groq and OpenRouter streams drop it when the request does not ask for it. |
 | `tools` | Models that cannot call tools leave the chain. |
-| `messages` with an `image_url` part | Models without `supports_vision` leave the pool chains, older images included. Direct `provider/slug` requests stay. |
+| `messages` with an `image_url` part | Models without `supports_vision` leave the pool chains. An earlier image in the thread counts the same way. Direct `provider/slug` requests stay. |
 | `max_tokens`, `max_completion_tokens` | A value above the `max_output_tokens` of the model in the catalog drops to that value. |
 | `reasoning_effort` | Only models with `supports_reasoning` true or missing from the catalog. Unset takes the catalog `reasoning_effort`. A value outside the effort list of the catalog row of the model moves to the nearest name of that list. |
 | Other fields | Go to the provider. Mistral and Groq get only the message fields that they accept. |
@@ -123,7 +123,7 @@ Kilo Code reads token limits only from its config, and it cannot show the routed
 
 | Endpoint | Input | What daedalus changes |
 | --- | --- | --- |
-| Embeddings | JSON: `input`, `dimensions`, `encoding_format` | The provider always sends float vectors. daedalus makes the base64 form. |
+| Embeddings | JSON: `input`, `dimensions`, `encoding_format` | The provider always sends float vectors. daedalus returns the base64 form. |
 | Transcriptions | Multipart form: `file`, `language`, `prompt`, `response_format`, `temperature`, `timestamp_granularities[]` | Each provider gets only the fields that it accepts. |
 | Speech | JSON: `input`, `voice`, `instructions`, `response_format`, `speed` | The audio comes back with the provider media type. |
 | Images | JSON: `prompt`, `n`, `size`, `quality`, `style`, `response_format` | A native provider image comes back as a `data:` URL, or as `b64_json`. |
@@ -146,8 +146,8 @@ Errors use the OpenAI shape:
 | 429 `rate_limit_exceeded` | A cooldown, or the `rpm` or `tpm` limit. `Retry-After` gives the seconds. See [Pacing](architecture.md#pacing). |
 | 4xx or 5xx from the provider | The last model failed with this status |
 | 502 | No model answered, or the provider answer was not valid |
-| 504 | A direct `provider/slug` model with a `timeout` got no answer until `timeouts.request`. See [Configuration](configuration.md#provider-files). |
+| 504 | A direct `provider/slug` model with a `timeout` got no answer until `limits.request`. See [Configuration](configuration.md#provider-files). |
 
 The dashboard **Requests** page shows the full provider error of each attempt. daedalus removes the prompt text from provider errors.
 
-A 502 means that the last model in the chain failed with a network error or a timeout. The client can only send the request again later. When the last model answers with a status such as 429, the client gets that status. Then wait until your provider quotas reset.
+A 502 means that the last model in the chain failed with a network error or a timeout. The client can only send the request again later. When the last model answers with a status such as 429, the client gets that status. The client sends the request again after the provider quotas reset.
