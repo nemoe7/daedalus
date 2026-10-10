@@ -22,18 +22,23 @@ def fetch(url: str = URL, timeout: float = TIMEOUT) -> str:
   return response.text
 
 
+def raw(text: str) -> dict[str, Any]:
+  """The provider blocks of the text, with their `env:` and `db:` tokens kept."""
+  found = yaml.safe_load(text)
+  return found if isinstance(found, dict) else {}
+
+
 def parse(text: str) -> dict[str, Any]:
   """The provider blocks of the text, with `env:` and `db:` values resolved."""
   from daedalus.config import expand
 
-  raw = yaml.safe_load(text)
-  return expand(raw) if isinstance(raw, dict) else {}
+  return expand(raw(text))
 
 
 def refresh() -> dict[str, Any]:
   """Fetch the default file into the cache and return it. A failure logs 1 line and gives the cache."""
   try:
-    blocks = parse(fetch())
+    blocks = raw(fetch())
   except (httpx.HTTPError, yaml.YAMLError) as exc:
     logger.warning("the default provider file did not load: %s", exc)
     return cached()
@@ -45,17 +50,25 @@ def refresh() -> dict[str, Any]:
     PATH.write_text(yaml.safe_dump(blocks, sort_keys=False), encoding="utf-8")
   except OSError as exc:
     logger.warning("the default provider cache did not write: %s", exc)
-  return blocks
+  from daedalus.config import expand
+
+  return expand(blocks)
 
 
-def cached() -> dict[str, Any]:
-  """The default blocks of the last good fetch, or an empty mapping."""
+def cached_raw() -> dict[str, Any]:
+  """The last good default blocks with their value tokens kept, or an empty mapping."""
   try:
     text = PATH.read_text(encoding="utf-8")
   except OSError:
     return {}
-  raw = yaml.safe_load(text)
-  return raw if isinstance(raw, dict) else {}
+  return raw(text)
+
+
+def cached() -> dict[str, Any]:
+  """The resolved default blocks of the last good fetch, or an empty mapping."""
+  from daedalus.config import expand
+
+  return expand(cached_raw())
 
 
 def fill(

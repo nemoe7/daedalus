@@ -20,6 +20,8 @@ and does not replace the cloud block. The read never writes [`config/providers/f
 lands in `.daedalus-state/free.defaults.yml`.
 
 With no local `free.yml`, the remote or cached copy supplies the main provider blocks.
+The **Providers** form shows these inherited blocks while the local YAML stays empty.
+Saving a changed inherited block writes that complete provider block to the local `free.yml`; untouched blocks stay inherited.
 With no network or a bad file, the copy of the last good read stands, and daedalus logs 1 line.
 
 daedalus reads the files at the start and on each save from the dashboard. A hand edit of a file on disk needs a reload. A save from the dashboard reloads the file for the live server and rebuilds the catalog from it. With no save, run `daedalus catalog`: the command reads the files again for its store build.

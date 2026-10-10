@@ -27,7 +27,15 @@ from fastapi.responses import (
 
 from daedalus import __version__, config, providers, store, updates
 from daedalus.catalog import schedule
-from daedalus.config import block_for, provider_edit, remote, settings
+from daedalus.config import (
+  block_for,
+  provider_edit,
+  remote,
+  settings,
+)
+from daedalus.config import (
+  defaults as cloud_defaults,
+)
 from daedalus.providers import hooks
 from daedalus.routing import lanes, router
 from daedalus.routing.cooldowns import Cooldowns
@@ -440,11 +448,14 @@ def env_names() -> dict[str, list[str]]:
   used: set[str] = set()
   for path in config_files():
     try:
-      content = config.load_yaml(path.read_text(encoding="utf-8"))
+      text = path.read_text(encoding="utf-8") if path.exists() else ""
+      content = config.load_yaml(text) if text.strip() else {}
     except (OSError, yaml.YAMLError):
       continue
     if not isinstance(content, dict):
       continue
+    if path == FILES[0]:
+      content = effective_main_blocks(content)
     used |= {str(key) for key in content} if path == FILES[0] else {path.stem}
     for name in env_tokens(content):
       add(name, path.name)
@@ -577,6 +588,26 @@ def form_blocks(path: Path, text: str) -> tuple[dict[str, Any] | None, str | Non
   if not isinstance(found, dict):
     return None, f"{path.name} must hold provider blocks"
   return (found if path == FILES[0] else {path.stem: found}), None
+
+
+def effective_main_blocks(local: dict[str, Any]) -> dict[str, Any]:
+  """Cloud main blocks overlaid whole by the blocks declared in the local main file."""
+  inherited = {
+    name: block
+    for name, block in cloud_defaults.cached_raw().items()
+    if isinstance(block, dict)
+  }
+  return {**inherited, **local}
+
+
+def local_main_blocks(blocks: dict[str, Any], local: dict[str, Any]) -> dict[str, Any]:
+  """The existing local blocks and each inherited block that the form changed."""
+  inherited = cloud_defaults.cached_raw()
+  return {
+    name: block
+    for name, block in blocks.items()
+    if name in local or block != inherited.get(name)
+  }
 
 
 def override_keys() -> list[str]:
@@ -1070,6 +1101,8 @@ def file_routes(
         hit = (stamp, {"path": key, "text": text, "blocks": blocks, "error": error})
         _FILES_CACHE[key] = hit
       entry = dict(hit[1])
+      if path == main and isinstance(entry["blocks"], dict):
+        entry["blocks"] = effective_main_blocks(entry["blocks"])
       entry["main"] = path == main
       # A block of the main file keeps its provider keys, so the tab names the winner.
       entry["shadow"] = shadows.get(path.name)
@@ -1115,6 +1148,10 @@ def file_routes(
     except ValueError as exc:
       return failure(400, str(exc), "invalid_request_error")
     old = path.read_text(encoding="utf-8") if path.exists() else ""
+    if path == FILES[0]:
+      local, _ = form_blocks(path, old)
+      if isinstance(local, dict):
+        document = local_main_blocks(document, local)
     return write_config(path, provider_edit.merge_text(old, document), apply, rebuild)
 
   @api.get("/env")

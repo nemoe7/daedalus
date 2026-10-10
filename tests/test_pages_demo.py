@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pages_demo
 import pytest
+import yaml
 
 from daedalus import __version__ as DAEDALUS_VERSION
 
@@ -144,15 +145,17 @@ const check = (ok, text) => {
     "a key is dropped");
   check(!(await (await context.fetch("ui/api/keys")).json()).some((row) => row.name === "extra-client"),
     "the key list drops it");
-  // The shipped provider files show as-is, and the demo takes their edits in the page memory.
+  // The empty local main shows the effective cloud blocks, and the demo takes edits in page memory.
   const files = await (await context.fetch("ui/api/files")).json();
   check(files.length === 3
     && files.every((row) => String(row.path).startsWith("config/providers/")),
-    "the file list holds the shipped files");
+    "the file list holds the provider files");
   const main = files.find((row) => row.main);
-  check(main.path === "config/providers/free.yml" && main.text.includes("tier:"),
-    "the main file is verbatim");
-  check(files.some((row) => row.shadow), "a shadowed file keeps its note");
+  check(main.path === "config/providers/free.yml" && main.text === ""
+    && main.blocks.cloudflare && main.blocks.openrouter,
+    "the empty local main shows the cloud blocks");
+  check(!files.some((row) => row.shadow),
+    "a sibling provider file does not suppress its cloud main block");
   const models = await (await context.fetch("ui/api/models")).json();
   check(models.length > 100, "the models are the captured snapshot");
   check(models.every((row) => !String(row.id).includes("*")), "no glob reaches the models page");
@@ -165,8 +168,8 @@ const check = (ok, text) => {
     check(answer.status === 403, `the refusal of ${path}`);
     check((await answer.json()).error.message.includes("read-only"), `the text of ${path}`);
   };
-  // The demo takes the provider edits in the page memory: the yaml re-reads into the blocks,
-  // and the form re-writes the text. A refresh brings the shipped files back.
+  // The demo takes provider edits in page memory: YAML overlays the cloud blocks, and the form
+  // writes only changed whole blocks. A refresh brings the empty local main back.
   const put = async (path, body) => {
     const answer = await context.fetch("ui/api/" + path, { method: "PUT", body: JSON.stringify(body) });
     return { status: answer.status, body: await answer.json() };
@@ -187,8 +190,9 @@ const check = (ok, text) => {
   check(edit.status === 200 && edit.body.ok === true, "the form save lands");
   list = await (await context.fetch("ui/api/files")).json();
   const rewrote = list.find((row) => row.path === main.path);
-  check(rewrote.text.includes("order: 3") && !rewrote.text.includes("demoprovider"),
-    "the text re-writes the form");
+  check(rewrote.text.includes("order: 3") && !rewrote.text.includes("demoprovider")
+    && !rewrote.text.includes("\\nkilo:") && !rewrote.text.includes("\\nopenrouter:"),
+    "the form writes only the changed whole cloud block");
   check(!(await (await context.fetch("ui/api/models")).json()).some((row) => row.id === "demoprovider/demo-edit-check"),
     "the models page follows the form");
   edit = await put("files", { path: main.path, text: rewrote.text });
@@ -501,7 +505,9 @@ def test_the_fixtures_carry_the_edge_cases() -> None:
   assert any(len(key["name"]) == 40 for key in fixtures["keys"]), (
     "a key name at its limit"
   )
-  assert any(file.get("shadow") for file in fixtures["files"]), "a shadowed file"
+  assert not any(file.get("shadow") for file in fixtures["files"]), (
+    "a sibling provider file does not shadow an inherited main block"
+  )
   sessions = {row["session"] for row in requests if row.get("session")}
   assert sessions and all(re.fullmatch(r"[0-9a-f]{7}", value) for value in sessions), (
     sessions
@@ -516,13 +522,18 @@ def test_the_fixtures_carry_the_edge_cases() -> None:
   )
 
 
-def test_the_demo_files_are_the_shipped_provider_files() -> None:
-  """The Providers tab of the demo shows the shipped ymls verbatim, and nothing else."""
+def test_the_demo_main_form_uses_cloud_blocks_with_an_empty_local_file() -> None:
+  """The Providers demo shows the shipped main as inherited and keeps its local text empty."""
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
   shipped = pages_demo.ROOT / "config" / "providers"
   names = [Path(row["path"]).name for row in fixtures["files"]]
   assert names == ["free.yml", "openrouter.yml", "pollinations.yml"], names
-  for row in fixtures["files"]:
+  main, *singles = fixtures["files"]
+  assert main["text"] == "", "the local main file starts empty"
+  assert main["blocks"] == yaml.safe_load(
+    (shipped / "free.yml").read_text(encoding="utf-8")
+  ), "the form shows the cloud main blocks"
+  for row in singles:
     assert row["text"] == (shipped / Path(row["path"]).name).read_text(
       encoding="utf-8"
     ), row["path"]

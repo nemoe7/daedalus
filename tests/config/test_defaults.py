@@ -34,22 +34,27 @@ def test_refresh_writes_the_cache(
 ) -> None:
   """A good fetch lands in the cache, and the cache carries it on a bad one."""
   monkeypatch.setattr(defaults, "PATH", tmp_path / "free.defaults.yml")
+  monkeypatch.setenv("CLOUD_TEST_KEY", "secret")
   monkeypatch.setattr(
-    defaults, "fetch", lambda *a, **k: "kilo:\n  api_base: https://kilo.test\n"
+    defaults,
+    "fetch",
+    lambda *a, **k: (
+      "kilo:\n  api_key: env:CLOUD_TEST_KEY\n  api_base: https://kilo.test\n"
+    ),
   )
-  assert defaults.refresh() == {"kilo": {"api_base": "https://kilo.test"}}
-  assert defaults.cached() == {"kilo": {"api_base": "https://kilo.test"}}, (
-    "the cache holds it"
-  )
+  resolved = {"kilo": {"api_key": "secret", "api_base": "https://kilo.test"}}
+  assert defaults.refresh() == resolved
+  assert defaults.cached() == resolved, "the cache resolves its tokens for the runtime"
+  assert defaults.cached_raw() == {
+    "kilo": {"api_key": "env:CLOUD_TEST_KEY", "api_base": "https://kilo.test"}
+  }, "the cache keeps editable value tokens"
 
   def broken(*_args, **_kwargs):
     raise httpx.ConnectError("no network")
 
   monkeypatch.setattr(defaults, "fetch", broken)
-  assert defaults.refresh() == {"kilo": {"api_base": "https://kilo.test"}}, (
-    "the cache stands"
-  )
-  assert defaults.cached() == {"kilo": {"api_base": "https://kilo.test"}}
+  assert defaults.refresh() == resolved, "the cache stands"
+  assert defaults.cached() == resolved
 
 
 def test_refresh_leaves_the_local_file(

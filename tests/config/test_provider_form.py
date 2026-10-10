@@ -9,6 +9,7 @@ import yaml
 from fastapi.testclient import TestClient
 
 from daedalus import config, dashboard
+from daedalus.config import defaults
 from daedalus.config.provider_edit import merge_text
 from daedalus.server import api
 
@@ -36,6 +37,20 @@ models:
   z-ai/glm-5.3-flash:
     # A short wait.
     timeout: 15
+"""
+CLOUD = """\
+cloudflare:
+  api_key: env:CLOUDFLARE_API_KEY
+  order: 1
+  models:
+    cloud-model: { rpm: 10 }
+openrouter:
+  api_key: env:OPENROUTER_API_KEY
+  models:
+    cloud-route: {}
+kilo:
+  api_key: env:KILO_API_KEY
+  hourly_requests: 200
 """
 
 
@@ -115,12 +130,15 @@ def test_endpoints(folder: Path) -> None:
   assert TestClient(api.app).get("/ui/api/provider-keys").status_code == 401
 
 
-def test_files_accept_a_missing_main(
+def test_files_show_cloud_main_when_local_main_is_missing(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+  """The main form shows cloud blocks, even beside a provider file of the same name."""
   main = tmp_path / "free.yml"
   single = tmp_path / "openrouter.yml"
   single.write_text(SINGLE, encoding="utf-8")
+  monkeypatch.setattr(defaults, "PATH", tmp_path / "free.defaults.yml")
+  defaults.PATH.write_text(CLOUD, encoding="utf-8")
   monkeypatch.setattr(dashboard, "FILES", (main,))
   session = dashboard.cookie(dashboard.secret(), time.time())
   client = TestClient(api.app, headers={"x-daedalus-session": session})
@@ -130,8 +148,49 @@ def test_files_accept_a_missing_main(
   assert answer.status_code == 200, answer.text
   files = answer.json()
   assert [Path(row["path"]).name for row in files] == ["free.yml", "openrouter.yml"]
-  assert files[0]["text"] == "" and files[0]["blocks"] == {}
+  assert files[0]["text"] == "", "the inherited view does not write the local file"
+  assert files[0]["blocks"] == yaml.safe_load(CLOUD), (
+    "every cloud main block remains visible"
+  )
+  assert files[0]["blocks"]["openrouter"]["models"] == {"cloud-route": {}}, (
+    "the sibling provider file does not suppress the cloud main block"
+  )
   assert files[1]["blocks"] == {"openrouter": yaml.safe_load(SINGLE)}
+  env = {row["name"]: row for row in client.get("/ui/api/env").json()}
+  assert env["CLOUDFLARE_API_KEY"]["used"] == ["free.yml"], (
+    "the inherited key remains editable"
+  )
+
+
+def test_saving_an_inherited_block_writes_only_that_whole_block(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """Changing 1 cloud block materializes it locally and leaves the others inherited."""
+  main = tmp_path / "free.yml"
+  monkeypatch.setattr(defaults, "PATH", tmp_path / "free.defaults.yml")
+  defaults.PATH.write_text(CLOUD, encoding="utf-8")
+  monkeypatch.setattr(dashboard, "FILES", (main,))
+  session = dashboard.cookie(dashboard.secret(), time.time())
+  client = TestClient(api.app, headers={"x-daedalus-session": session})
+
+  blocks = client.get("/ui/api/files").json()[0]["blocks"]
+  blocks["cloudflare"]["order"] = 3
+  try:
+    saved = client.put("/ui/api/providers", json={"path": str(main), "blocks": blocks})
+    assert saved.status_code == 200, saved.text
+    local = yaml.safe_load(main.read_text(encoding="utf-8"))
+    expected = yaml.safe_load(CLOUD)["cloudflare"]
+    expected["order"] = 3
+    assert local == {"cloudflare": expected}, (
+      "the complete changed block is the only local override"
+    )
+    effective = client.get("/ui/api/files").json()[0]
+    assert effective["blocks"]["kilo"] == yaml.safe_load(CLOUD)["kilo"], (
+      "an untouched cloud block remains inherited"
+    )
+    assert "kilo:" not in effective["text"]
+  finally:
+    config.set_config(None)
 
 
 @pytest.fixture(scope="module")

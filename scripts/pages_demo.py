@@ -23,7 +23,7 @@ from fastapi.testclient import TestClient
 
 from daedalus import config, dashboard, store
 from daedalus.catalog import discovery
-from daedalus.config import settings
+from daedalus.config import defaults, settings
 from daedalus.providers import hooks
 from daedalus.routing import router
 from daedalus.server import api, upstream
@@ -51,7 +51,8 @@ ENDPOINTS = (
   "settings",
   "login",
 )
-# The shipped provider files, as-is: the Providers tab shows them and nothing else.
+# The provider files of the demo. Its local main stays empty, and the shipped main supplies the
+# cached cloud blocks that the Providers form shows.
 DEMO_FILES = ("free.yml", "openrouter.yml", "pollinations.yml")
 # The models of the demo: a captured snapshot of the live catalog, 126 rows.
 MODELS_FILE = ROOT / "scripts" / "pages_models.json"
@@ -229,13 +230,16 @@ def demo_settings_text() -> str:
 
 
 def demo_files(folder: Path) -> tuple[Path, ...]:
-  """Copy the shipped provider files as-is, and return the files of the Providers tab."""
+  """Make an empty local main beside the shipped single-provider files of the Providers tab."""
   target = folder / "config" / "providers"
   target.mkdir(parents=True)
   shipped = ROOT / "config" / "providers"
   files = tuple(shipped / name for name in DEMO_FILES)
   for file in files:
-    shutil.copyfile(file, target / file.name)
+    if file.name == "free.yml":
+      (target / file.name).write_text("", encoding="utf-8")
+    else:
+      shutil.copyfile(file, target / file.name)
   settings_file = folder / "config" / "daedalus.yml"
   settings_file.write_text(demo_settings_text())
   # The shipped hooks of the root folder: the legend rows of the page come from them.
@@ -378,6 +382,7 @@ def capture() -> dict[str, Any]:
       dashboard.FILES,
       config.DEFAULT_PATH,
       settings.DEFAULT_PATH,
+      defaults.PATH,
     )
     environ = dict(os.environ)
     try:
@@ -387,6 +392,9 @@ def capture() -> dict[str, Any]:
       dashboard.FILES = files
       config.DEFAULT_PATH = provider
       settings.DEFAULT_PATH = folder / "config" / "daedalus.yml"
+      defaults.PATH = folder / "state" / "free.defaults.yml"
+      defaults.PATH.parent.mkdir(parents=True, exist_ok=True)
+      shutil.copyfile(ROOT / "config" / "providers" / "free.yml", defaults.PATH)
       os.environ[dashboard.DAEDALUS_MASTER_KEY] = DEMO_MASTER
       store.migrate()
       store.write_store(json.loads(MODELS_FILE.read_text(encoding="utf-8")))
@@ -409,7 +417,7 @@ def capture() -> dict[str, Any]:
       }
     finally:
       store.MODELS_DB, discovery.DUMP_DIR, hooks.ROOT, dashboard.FILES = saved[:4]
-      config.DEFAULT_PATH, settings.DEFAULT_PATH = saved[4:]
+      config.DEFAULT_PATH, settings.DEFAULT_PATH, defaults.PATH = saved[4:]
       os.environ.clear()
       os.environ.update(environ)
       upstream.set_client(None)
@@ -627,6 +635,10 @@ const DEMO_FIXTURES = __FIXTURES__;
   const SETTINGS_PATH = DEMO_FIXTURES.settings.path;
   const name_of = (path) => String(path).split("/").pop();
   const stem_of = (path) => name_of(path).replace(/\\.yml$/, "");
+  // The demo starts with an empty local main. These effective blocks are its cached cloud copy.
+  const CLOUD_MAIN = JSON.parse(JSON.stringify(
+    DEMO_FIXTURES.files.find((file) => file.main)?.blocks || {},
+  ));
   // The values of the YAML subset of the config files: maps, lists and scalars.
   const yaml_read = (text) => {
     const box = { node: {} };
@@ -1174,7 +1186,10 @@ const DEMO_FIXTURES = __FIXTURES__;
     if (!parsed.value || typeof parsed.value !== "object" || Array.isArray(parsed.value))
       return bad(`${file.path} must hold provider blocks`, 422);
     file.text = text;
-    file.blocks = file.main ? parsed.value : { [stem]: parsed.value };
+    if (file.main) {
+      file.local = parsed.value;
+      file.blocks = { ...CLOUD_MAIN, ...parsed.value };
+    } else file.blocks = { [stem]: parsed.value };
     file.error = null;
     return reload(json({ ok: true, text }));
   };
@@ -1187,10 +1202,19 @@ const DEMO_FIXTURES = __FIXTURES__;
     if (!sent || typeof sent !== "object" || Array.isArray(sent))
       return bad("The blocks must be a map of providers.", 400);
     const stem = stem_of(file.path);
-    const document = file.main ? sent : sent[stem];
+    let document = sent[stem];
+    if (file.main) {
+      const parsed = file.local || yaml_read(file.text).value || {};
+      document = Object.fromEntries(Object.entries(sent).filter(([name, block]) =>
+        Object.prototype.hasOwnProperty.call(parsed, name)
+        || JSON.stringify(block) !== JSON.stringify(CLOUD_MAIN[name])));
+    }
     if (!document || typeof document !== "object" || Array.isArray(document))
       return bad(`${stem} must hold the block ${stem}.`, 400);
-    file.blocks = file.main ? sent : { [stem]: document };
+    if (file.main) {
+      file.local = document;
+      file.blocks = { ...CLOUD_MAIN, ...document };
+    } else file.blocks = { [stem]: document };
     file.text = yaml_of(document);
     file.error = null;
     return reload(json({ ok: true, text: file.text }));
