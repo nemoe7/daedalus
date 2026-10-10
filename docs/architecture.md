@@ -21,7 +21,7 @@ daedalus provides an OpenAI endpoint. It routes requests to a free model of the 
 
 ## Request flow
 
-The first chart is the gate and the model name. The next two follow the ladder, from the filters to the last error.
+The first chart shows the gate and the model name. The next two follow the ladder, from the filters to the last error.
 
 ```mermaid
 flowchart LR
@@ -62,13 +62,13 @@ flowchart LR
 | Stream | When a stream stops, the next model continues the answer. |
 | Client cancel | A client close before the last byte stops the request. No fault, no next model. |
 
-The end client only sees the last error to provide a cleaner transition between models in the fallback ladder.
+The client sees only the last error, so a switch between models stays quiet.
 
 ### Client headers
 
 Each provider request carries the headers of the client request, for example `HTTP-Referer` and `X-Title`. OpenRouter uses these 2 headers to show the app, for example Kilo Code. The provider headers, for example the provider key, replace a client header with the same name.
 
-| Kept back | Headers |
+| Group | Headers |
 | --- | --- |
 | Credentials | `Authorization`, `Cookie`, `X-Api-Key`, `Api-Key`, `X-Goog-Api-Key` |
 | Transport | `Host`, `Accept`, `Accept-Encoding`, `Content-Type`, `Content-Length`, `Content-Encoding`, `Transfer-Encoding`, `Connection`, `Keep-Alive`, `TE`, `Trailer`, `Upgrade`, `Expect` |
@@ -99,12 +99,12 @@ flowchart TD
 | Input | Effect |
 | --- | --- |
 | Request type | 1 of 7 types, from the first rule that matches. No match: `general`. |
-| Length | 1 of 4 odds buckets: short, under 200 characters. medium, under 800. long, under 2000. very long. The type scan reads the first 2000 characters. |
+| Length | 1 of 4 odds buckets: `short` under 200 characters, `medium` under 800, `long` under 2000, or `very long`. The type scan reads the first 2000 characters. |
 | Conversation | The tier does not go down until the session expires (1 h idle). |
 | Tool call | After the first tool call, the tier is C or higher, and the search stops. |
 | Keyword | An `escalation.keywords` match in the last user message moves the tier 1 step up. |
 
-The classifier is a copy of the [LiteLLM](https://github.com/BerriAI/litellm) [AutoRouter heuristic v2](https://docs.litellm.ai/blog/heuristic-v2). It is not perfect, but it is a good start. The `routing.threshold` setting gives the odds a tier needs to take a request, and the shipped value is `0.75`.
+The classifier is a copy of the [LiteLLM](https://github.com/BerriAI/litellm) [AutoRouter heuristic v2](https://docs.litellm.ai/blog/heuristic-v2). The `routing.threshold` setting gives the odds a tier needs to take a request, and the shipped value is `0.75`.
 
 ## Pools and the fallback ladder
 
@@ -160,7 +160,7 @@ flowchart LR
 
 | Provider | Order | Why |
 | --- | --- | --- |
-| Cloudflare | 2 | The daily Neurons go to images and transcription first |
+| Cloudflare | 2 | Images and transcription spend the daily Neurons first |
 | Pollinations | 2 | No order-1 image model: Cloudflare and Pollinations share the image pool by weight |
 | Other providers | 1 | The default |
 
@@ -200,7 +200,7 @@ A model in a cooldown leaves each chain and each media pool. A session model in 
 | 2 | `retry-after` or `x-ratelimit-reset` header, or Gemini `RetryInfo.retryDelay` | That time | `reset` |
 | 3 | No reset time | 60 s, then double each backoff, 6 h at most. A success: 60 s again. | `backoff` |
 
-Some limits start a cooldown with no 429. A longer cooldown stays.
+Some limits start a cooldown with no 429. The longer of the two stays.
 
 | Cause | Cooldown end | Reason in the log |
 | --- | --- | --- |
@@ -229,7 +229,7 @@ A model with `rpm` or `tpm` in its provider file leaves the chains and the media
 | Requests | Each request that daedalus sent to the model, fallbacks included |
 | Tokens | The input estimate of the context check: characters / 4. Media requests count 0 tokens. |
 | Skip | Silent. The weight does not change, and the log has no line. |
-| Provider hour | The last-hour requests to all provider models, per client. A 429 uses the hour rest. |
+| Provider hour | The last-hour requests to all provider models, per client. A 429 resets the hour window. |
 | Each model skipped | HTTP 429 `rate_limit_exceeded`. `Retry-After`: the time until the first model takes requests again. |
 | Client with its own key | Its own counts, against the same `rpm` and `tpm`. See [Client lanes](#client-lanes). |
 | Storage | Memory only. A restart sets the counts to 0. |
@@ -286,10 +286,10 @@ sequenceDiagram
 
 | Item | Value |
 | --- | --- |
-| Scope | `daedalus/auto` and the tier pools. Not `provider/slug`. A non-stream client reads our own stream. |
+| Scope | `daedalus/auto` and the tier pools. Not `provider/slug`. A non-stream client reads the daedalus stream. |
 | Racing models | The next `affinity.count` models of the chain, from 1 to 10 |
 | Start of the racing models | A draw below `affinity.chance`, or no content at `affinity.slow` |
-| Winner | The first model with content. Models at the same time keep the model that started first. |
+| Winner | The first model with content. When 2 models answer at the same time, the one that started first wins. |
 | Losers | daedalus cancels each call, and the weight takes `affinity.penalty`. No cooldown starts. |
 | Draw | The session model starts each request. The draw of [Session affinity](#session-affinity) stops. |
 | Log | The attempt of the loser shows `lost race` |
@@ -306,7 +306,7 @@ repeat is a new request with no hook.
 | Needs | A request hook that writes the key of the turn, such as the shipped [`owui_auto_reasoning_effort`](hooks/owui_auto_reasoning_effort.md) file. |
 | Found by | The same chat id and messages as an earlier answered request, system messages excluded. |
 | Tier | On `daedalus/auto`, 1 above the pool that answered the last attempt |
-| At tier A | A tier A model that did not answer this message. After all, the list restarts. |
+| At tier A | A tier A model that did not answer this message. Then the list starts again at the top. |
 | Named pool | The pool keeps its models, without the models that answered |
 | Next new message | The classifier and the session tier, as before |
 | Session model | The model that answers becomes the session model of its tier slot |
@@ -317,7 +317,7 @@ repeat is a new request with no hook.
 
 ## Loops
 
-A loop is a fault of the model that made it. See [ADR 4](adr/0004-penalties.md#loops).
+A loop counts against the model that made it. See [ADR 4](adr/0004-penalties.md#loops).
 
 | Loop | Found by | Next step |
 | --- | --- | --- |
@@ -340,7 +340,7 @@ A loop is a fault of the model that made it. See [ADR 4](adr/0004-penalties.md#l
 | Weights | The same weights as the chat models |
 | Skip | A model that cannot do the request leaves it, with no fault. |
 | Try again | The same key and content as an earlier answered pool request. Transcription: audio and fields. Built in, with no hook. |
-| Models of a try again | The models that answered this content leave. After all, the list restarts. |
+| Models of a try again | The models that answered this content leave. Then the list starts again at the top. |
 | Log | `retry=N` |
 | Expiry | 1 h with no repeat of the message, in memory only |
 | Embeddings and speech | No pool. `provider/slug` only. |
@@ -378,8 +378,8 @@ daedalus is small enough for a Raspberry Pi that also runs other containers.
 
 | Item | Value |
 | --- | --- |
-| Tier rows of the pools | The tier sort runs once per config and list. Reloads and changes sort again. |
-| Classifier | 1 result for each prompt, for the last 64. Tool loops: the first request only. |
+| Tier rows of the pools | The tier sort runs once for each config and model list. Reloads and changes sort again. |
+| Classifier | 1 result for each of the last 64 prompts. Tool loops: the first request only. |
 | State files | SQLite WAL mode. The files `models.sqlite3-wal` and `models.sqlite3-shm` are part of the store. |
 | Catalog reads | Each rebuild reads each `discovery_url`, the LiteLLM catalog and the modelschemas provider list once. Kilo reads the OpenRouter rows in both catalogs. |
 | Weights, pins, cooldowns, request history | No disk wait. A power loss can lose the last writes, not the file. |

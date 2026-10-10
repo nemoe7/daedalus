@@ -92,7 +92,7 @@ Before the first attempt of a chat request, when the chain holds a reasoning mod
 | `value` | The dict the hook files change, empty at the start |
 | `reasoning` | The chain models that support reasoning |
 | `effort` | The value of the client, `None` when it sent none |
-| `retry` | The count of try agains of this message, `0` for its first answer |
+| `retry` | The number of retries for this message, `0` for its first answer |
 | `level` | The reasoning level of the last answer of the chat, `None` when the chat has none |
 | `app` | The client app of the request, `OWUI`, `Kilo` or another title, from its headers |
 
@@ -183,7 +183,7 @@ word there. The levels and the shipped file are on the [auto reasoning effort](h
 
 Without a `code`, the row shows no code. [`hooks/owui_auto_reasoning_effort.py`](../hooks/owui_auto_reasoning_effort.py) applies this rule to the `x-openwebui-chat-id` header of Open WebUI.
 The media endpoints, transcription and images, count a repeat of the same content with no hook.
-That count is the one repeat path of the base app.
+That count is the only retry path of the base app.
 
 A function gets a copy of the value. It can change the copy and return None, or it can return a new dict. The hooks of 1 surface run in list order, and each hook gets the value of the hook before it.
 
@@ -245,7 +245,7 @@ Hooks get no database access. An `on-catalog` hook changes only the row. daedalu
 
 The dashboard edits the `hooks` list of a model or a provider. The Hooks card of the Settings page names the
 folder, the sources and the files that load. Only the update writes a hook file, and it writes to the folder
-of `hooks.dir`. The Delete button of a row leaves the file and its lock record out, and the settings entries
+of `hooks.dir`. The Delete button deletes the file and its lock record, and the settings entries
 of the file stay.
 
 A hook runs inside the daedalus process, with all its access.
@@ -269,7 +269,7 @@ frontmatter block, so the manager knows its version and its scope without a run 
 | Key | Value | Use |
 | --- | --- | --- |
 | `name` | text | The file name without `.py` |
-| `version` | text | The version of the file. The update line shows the old value and the new 1 |
+| `version` | text | The version of the file. The update line shows the old version and the new one |
 | `requires` | version range | The daedalus version that the file needs. A mismatch warns 1 time and leaves the file out |
 | `surfaces` | list of surface names | The functions of the file |
 | `scope` | `global`, `provider`, `yaml` or `model` | Where the hook attaches |
@@ -310,7 +310,7 @@ hooks:
 | `repo` | `owner/name` or a GitHub URL | The repository of the hook files |
 | `path` | 1 folder in the repo | The folder that holds the `.py` files. daedalus reads the files directly under it |
 | `ref` | 1 branch, a tag or a commit | `main` by default |
-| `auto_update` | true or false | `true` follows the ref at each start. `false`, the default, leaves each file to the Take button |
+| `auto_update` | true or false | `true` follows the ref at each start. `false`, the default, waits for the Take button |
 
 A start reads a source that sets `auto_update`. The Settings card lists a source, and its Take button
 writes the picked files. An update reads the commit of the ref,
@@ -318,7 +318,7 @@ reads the archive of that commit, and writes each file through a temporary name.
 A request that fails, an archive that does not read, a refused block or a failed write all keep the
 files on disk.
 
-The lock [`hooks.lock.json`](../config) rides in the hooks folder and records the sha256, the
+The lock [`hooks.lock.json`](../config) lives in the hooks folder and records the sha256, the
 version, the repo and the commit of each installed file. A file that leaves the repo stays on disk with its record. An
 installed file runs at a surface when its block names that surface, its scope matches the model, and
 `hooks.disabled` does not hold its name.
@@ -346,13 +346,13 @@ docker exec daedalus-api daedalus hooks verify
 ## The Settings page
 
 The Hooks card of the Settings page holds the folder, the sources and 1 switch per installed file. `Update
-from the sources` reads the same sources as `daedalus hooks update`, and names the old version and the new 1
+from the sources` reads the same sources as `daedalus hooks update`, and names the old version and the new version
 of each file that moved. `+ Add a repo` opens 1 modal for the repo URL. The scan then lists the files of that
 repo, each with its own switch, so the operator takes some files and leaves the rest.
 
 The `×` of the source row deletes the picked source.
 
-A hook row of a provider card or of a model entry offers the installed files whose scope fits that
+A hook row of a provider card or of a model entry lists the installed files whose scope fits that
 card. The keyword chips of the Hooks card accept any file of the folder.
 
 ## The shipped hook files

@@ -1,6 +1,6 @@
 # Dashboard
 
-The dashboard is the browser view of 1 daedalus: the overview, the requests, the models, the
+The dashboard is the browser view of a daedalus server: the overview, the requests, the models, the
 notifications, the providers, the limits and the settings.
 
 Open `http://HOST:3357/`.
@@ -11,7 +11,7 @@ Open `http://HOST:3357/`.
 | Password | Reads `DAEDALUS_PASSWORD`, else `DAEDALUS_MASTER_KEY`. Without a password, the form shows a master key hint. |
 | Remember me | On at the start: 30 days. Else the session ends after 12 h. |
 | Change | A new master key, user or password stops all sessions. |
-| Too many tries | A failed try waits 0.5 s. After 5 failures in a row, the client waits 60 s before another try. The count ends at a good login. |
+| Too many tries | A failed try waits 0.5 s. After 5 failures in a row, the client waits 60 s before another try. A good login sets the count back to 0. |
 
 ## Contents
 
@@ -51,15 +51,15 @@ then a line for the sessions and a line for the catalog, each with its value at 
 catalog line gives the time of the last catalog rebuild. It also gives the next scheduled
 rebuild.
 
-The header keeps its Log out button on a phone. Log out asks in a modal. Click the catalog line to rebuild the catalog now, after a confirmation. The line shows "rebuilding" until the rebuild ends.
+The header keeps its Log out button on a phone. Log out opens a confirmation dialog. Click the catalog line to rebuild the catalog now, after a confirmation. The line shows "rebuilding" until the rebuild ends.
 
-Only 1 rebuild runs at a time. A confirmation of a dangerous action uses a modal of the dashboard, not the browser box.
+Only 1 rebuild runs at a time. A confirmation of a dangerous action uses a dialog of the dashboard, not a browser dialog.
 
 ## Demo on GitHub Pages
 
 A static demo of this page runs at <https://nemoe7.github.io/daedalus/>. Set the Pages source of the repository to **GitHub Actions** 1 time, and the Pages demo workflow deploys each change to the page. No server runs there. [`scripts/pages_demo.py`](../scripts/pages_demo.py) copies the page and adds `demo.js`.
 
-That script answers each `ui/api/` call from [`scripts/pages_fixtures.json`](../scripts/pages_fixtures.json). The Requests tab starts empty, and the script streams the captured requests in, then keeps the table rotating. A save lands in the page memory, and it takes the checks of the server. Those checks cover the YAML of a file, the block of a provider name, and the rules of a key name.
+That script answers each `ui/api/` call from [`scripts/pages_fixtures.json`](../scripts/pages_fixtures.json). The Requests tab starts empty, and the script streams the captured requests in, then keeps the table rotating. A save stays in the page memory, and it goes through the checks of the server. Those checks cover the YAML of a file, the block of a provider name, and the rules of a key name.
 
 One state holds the demo together. The provider files build the catalog and the pools. The requests move the weights, the cooldowns, the lane counters and the balance cards. A fake upstream answers each provider with its plan, so a save and a check now agree with the tables.
 
@@ -96,7 +96,7 @@ key, reads in the mono font.
 
 The pool of the auto model rides in the model name, such as `daedalus/auto/moros`. The routing codes beside a name, such as `lmt`, `frX` and `tlN`, are 3 characters. The Code legend card beside the table gives the meaning of each code. A hook file that defines `on_init` adds its rows below the base rows of that card.
 
-A wide screen keeps the table in its own panel, so the head stays in view. The panel scrolls sideways, so the page never scrolls sideways. A phone shows the page scroll and its card list.
+A wide screen keeps the table in its own panel, so the head stays in view. The panel scrolls sideways, so the page never scrolls sideways. On a phone, the page scrolls and the rows become cards.
 
 ## Models
 
@@ -127,8 +127,9 @@ A phone shows 1 card for each model: the name on its own line, then `Tier`, `Too
 
 **Reset weights and cooldowns** sets each weight back to 1 and ends each cooldown. Session models stay.
 
-The bar above the table narrows the rows: a text match, a kind and a model. The filters ride in the
-hash, such as `#/limits?kind=tokens&q=kilo`, and **Clear filters** drops them.
+The bar above the table narrows the rows: a text match, a type and a tier. A pool card of the
+Overview page links to a set of those filters, such as `#/models?tier=C&mode=chat&sort=weight`.
+The page drops the hash after it reads it.
 
 ## Notifications
 
@@ -166,7 +167,7 @@ that is not the main one.
 | Exclude | `exclude` | Pattern chips |
 | Tiers | `tier.TIER-A` to `tier.TIER-D` | 1 chip list for each tier |
 | Model overrides | `models` | 1 row for each pattern, with `key: value` chips |
-| Provider values | Catalog columns at the provider level, for example `reasoning_effort` or `rpm` | `key: value` chips. A model override has priority. |
+| Provider values | Catalog columns at the provider level, for example `reasoning_effort` or `rpm` | `key: value` chips. A model override wins. |
 
 ### Keys and values
 
@@ -213,7 +214,7 @@ A provider file on disk that is not valid YAML still gets its tab. It opens in t
 
 The form holds the section list of the current file: the rail names every provider of the file, and the pane shows the picked card.
 A narrow screen shows the list alone, and a pick opens 1 provider, with a button back to the list.
-A field hint rides behind the info icon next to its label. The `Tiers`, `Model overrides` and
+A field hint sits behind the info icon next to its label. The `Tiers`, `Model overrides` and
 `Provider values` groups start closed, and their icon carries the group hint.
 
 ## Limits
@@ -257,7 +258,7 @@ To test the token, send the query of [`daedalus/routing/limits.py`](../daedalus/
 The Settings page and the provider form show their section list alone on a phone. Each row carries a chevron, and a pick opens 1 section as its own page. The section rides in the hash as `#/settings?section=timeouts`, so the back gesture of the phone returns to the list. The button above the card names that list, as `‹ Settings`, for a phone without the gesture.
 
 A phone keeps the 4 numbers of the Overview above the status card, in 2 rows of 2. The Models table
-and the API keys table become cards, as the Requests table does. A phone card carries its edge alone:
+and the API keys table become cards, as the Requests table does. A phone card carries its own border:
 the wrapper behind the cards paints nothing. A chevron at an end of the tab bar scrolls the tabs that
 wait off screen, and it goes at the end of the list.
 

@@ -6,7 +6,7 @@ Each provider except Pollinations has a tested free tier.
 | --- | --- | --- | --- |
 | `cloudflare` | Cloudflare Workers AI | OpenAI-compatible, plus the native run API for audio and images | A text-only message goes as 1 string. Paid models stay out. Order 2. The Clef models carry the `decisions` mode, not `chat`. |
 | `gemini` | Google Gemini | Native Gemini API | daedalus maps OpenAI to Gemini and back, thought signatures included. [`free.yml`](../config/providers/free.yml) sets `reasoning_effort: high`. |
-| `groq` | Groq | OpenAI-compatible | Gets only the message fields that it accepts. |
+| `groq` | Groq | OpenAI-compatible | daedalus sends only the message fields that Groq accepts. |
 | `kilo` | Kilo Gateway | OpenAI-compatible | Only `:free` models, and `stealth/` models with price 0 in each price field. |
 | `mistral` | Mistral | OpenAI-compatible | Only the message fields that it accepts. `reasoning_effort`: `none` or `high`. Thinking chunks are `reasoning_content`. |
 | `openrouter` | OpenRouter | OpenAI-compatible, plus the OpenRouter Image API (`/images`). Speech is mp3, or pcm on ask. | Only `:free` and price-0 `stealth/` models. Output types set the modes. Images need credits. |
@@ -100,7 +100,7 @@ A mode that daedalus does not know keeps the model out of each chain and pool.
 | Pollinations | - | - | - | Yes, with Pollen | `flux.2-klein-4b`, with Pollen |
 
 - "Yes": the provider has free models for this endpoint.
-- "-": we know of no free model. daedalus sends the request to the OpenAI-compatible API of the provider.
+- "-": daedalus knows of no free model. daedalus sends the request to the OpenAI-compatible API of the provider.
 - "400": daedalus stops the request.
 
 Limits of the native Cloudflare API:
@@ -130,7 +130,7 @@ The Gemini exclude list keeps these models out:
 | `aqa` | It answers from given sources only. |
 | `*-latest` aliases | The model behind each alias changes over time. |
 
-Mistral needs no exclude list. Discovery keeps out these Mistral rows:
+Mistral needs no exclude list. Discovery keeps these Mistral rows out:
 
 | Rows | Reason |
 | --- | --- |

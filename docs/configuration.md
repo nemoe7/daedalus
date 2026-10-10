@@ -15,7 +15,7 @@ A key that shows 2 times in 1 map of a config file stops the start. The error gi
 
 At each catalog rebuild, daedalus reads the default provider file of the repository,
 [`config/providers/free.yml`](../config/providers/free.yml) on `main`, and adds each provider that the local file lacks. The
-local file wins whole, so a local provider block, a changed value and a removed provider stay.
+local file wins as a whole, so a local provider block, a changed value and a removed provider stay.
 The read never writes [`config/providers/free.yml`](../config/providers/free.yml): the copy lands in `.daedalus-state/free.defaults.yml`.
 With no network or a bad file, the copy of the last good read stands, and daedalus logs 1 line.
 
@@ -48,11 +48,11 @@ A restart reads the edited file.
 
 | Name | Default | Use |
 | --- | --- | --- |
-| `DAEDALUS_MASTER_KEY` | None. Necessary. | `/v1` key. 16 or more characters, no spaces. |
+| `DAEDALUS_MASTER_KEY` | None. Required. | `/v1` key. 16 or more characters, no spaces. |
 | `DAEDALUS_USERNAME` | `admin` | Dashboard user |
 | `DAEDALUS_PASSWORD` | `DAEDALUS_MASTER_KEY` | Dashboard password. It does not open `/v1`. |
 | `DAEDALUS_HOST` | `0.0.0.0` | Address of the server |
-| `DAEDALUS_PORT` | `3357` | Port of the server. `daedalus serve PORT` has priority. |
+| `DAEDALUS_PORT` | `3357` | Port of the server. `daedalus serve PORT` wins. |
 | `DAEDALUS_URL` | Empty | The address of a live daedalus for the CLI. Empty uses `DAEDALUS_HOST` and `DAEDALUS_PORT`. |
 | `TZ` | UTC | Clock for the catalog schedule, for example `Asia/Manila` |
 | `DAEDALUS_UID`, `DAEDALUS_GID` | `1000` | Container user and group |
@@ -82,7 +82,7 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 
 [`config/daedalus.yml`](../config/daedalus.yml). Each key is optional. A missing key uses the default. An unknown key stops the start.
 
-The 2 old groups, `session_affinity` and `parallel`, stop the start too. The error names the `affinity.mode` that replaces each one.
+The 2 old groups, `session_affinity` and `parallel`, also stop the server from starting. The error names the `affinity.mode` that replaces each one.
 
 The shipped file holds the changes from the defaults only. The **Settings** page writes the changed keys only. A cleared field loses its line, and the default applies. The table below lists each key, its default and its use.
 
@@ -91,7 +91,7 @@ The shipped file holds the changes from the defaults only. The **Settings** page
 | Key | Default | Use |
 | --- | --- | --- |
 | `limits.request` | `600` | Seconds to wait for an answer, for all attempts. A started stream does not stop. |
-| `limits.wait` | `60` | Seconds with no provider data, keep-alive bytes excluded. Then the next model starts. Media: none. |
+| `limits.wait` | `60` | Seconds with no provider data, keep-alive bytes excluded. Then the next model starts. No effect on media requests. |
 | `limits.slow` | `30` | A first token after this time is slow |
 
 ### Affinity
@@ -263,8 +263,8 @@ groq:
 | `models` | Values for each model, for example `max_input_tokens`. These have priority over discovery and LiteLLM. |
 | `order` | Optional. 1 or more, default 1. Runs after the lower orders of its tier. |
 | `hooks` | Optional. Hook surfaces and file paths in [`config`](../config), like `- on-upstream: hooks/x.py`. |
-| `streams` | Optional. `false`: the block answers no stream. The client waits for the whole body. Absent: true. |
-| `headroom` | Optional. `false`: no Headroom compression for the models of the block. Absent: `optimization.enabled`. |
+| `streams` | Optional. `false`: the block answers no stream. The client waits for the whole body. Default: true. |
+| `headroom` | Optional. `false`: no Headroom compression for the models of the block. Default: `optimization.enabled`. |
 | `hourly_requests` | Optional. The provider requests per hour. At the limit, the provider leaves the chains. |
 
 A known key with a wrong shape is a 422 on the Providers page. A hand-edited file drops that key
@@ -279,12 +279,12 @@ Other keys of a `models` entry:
 | `pool` | `false`: out of the pools and `daedalus/auto`. A direct `provider/slug` request still uses it. |
 | `timeout` | Seconds with no provider data, in place of `limits.wait`. Direct requests retry until `limits.request`. |
 | `reasoning_effort` | The effort for a request with no `reasoning_effort`. Only a model that reasons gets it. A value outside the effort list of the catalog row of the model moves to the nearest name of that list. |
-| `supported_reasoning_efforts` | The ordered efforts the model accepts, lowest first. A hook ladder indexes this list. Absent: the block value, then the list of the catalog row of the model, then the coded default of the provider. |
+| `supported_reasoning_efforts` | The ordered efforts the model accepts, lowest first. A hook ladder indexes this list. Default: the block value, then the list of the catalog row of the model, then the coded default of the provider. |
 | `max_output_tokens` | The output limit of the model. A larger `max_tokens` or `max_completion_tokens` drops to this value. |
 | `supports_function_calling`, or its short name `tools` | `true` or `false`. Pool and `daedalus/auto` tool requests skip a model without it. |
 | `supports_vision` | `true` or `false`. Pool and `daedalus/auto` image requests skip a model without it. |
-| `streams` | `false`: the model answers no stream. A request that wanted one retries without it. Absent: true. |
-| `headroom` | `false`: the model keeps its messages. Absent: the value of the block, then `optimization.enabled`. |
+| `streams` | `false`: the model answers no stream. A request that wanted one retries without it. Default: true. |
+| `headroom` | `false`: the model keeps its messages. Default: the value of the block, then `optimization.enabled`. |
 
 When 2 entries match 1 model, the last entry in the file sets the key. A model key at the provider level, for example `reasoning_effort: high` next to `api_key`, sets the value for each model of the provider.
 
@@ -322,7 +322,7 @@ To set up 2 clients:
 2. In `.env`, set `GEMINI_API_KEY_KILO` and `GEMINI_API_KEY_OWUI`. Or save them in **Keys and values** on the Providers page, after step 3.
 3. Add `client_keys` to the provider file, or add it in the **Client keys** field of the Providers page.
 
-4. After a `.env` change, run `docker compose up -d`. It makes the container again with the new `.env` values. `docker compose restart` keeps the old values.
+4. After a `.env` change, run `docker compose up -d`. It rebuilds the container with the new `.env` values. `docker compose restart` keeps the old values.
 
 A saved value needs no restart.
 
