@@ -162,6 +162,50 @@ def test_files_show_cloud_main_when_local_main_is_missing(
   )
 
 
+def test_files_restore_tokens_from_an_expanded_cloud_cache(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A legacy resolved cache never sends provider values to the browser."""
+  main = tmp_path / "free.yml"
+  cache = {
+    "cloudflare": {
+      "api_key": "cloudflare-secret",
+      "account_id": "cloudflare-account",
+      "models": {"cloud-model": {"rpm": 10}},
+    },
+    "z-ai": {"api_key": "zai-secret", "models": {"z-model": {}}},
+    "kilo": {"api_key": "kilo-secret", "models": {"kilo-model": {}}},
+    "mistral": {"api_key": "stale-secret", "models": {"mistral-model": {}}},
+  }
+  monkeypatch.setenv("CLOUDFLARE_API_KEY", "cloudflare-secret")
+  monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "cloudflare-account")
+  monkeypatch.setenv("ZAI_API_KEY", "zai-secret")
+  monkeypatch.setitem(config.SAVED, "KILO_STORED_KEY", "kilo-secret")
+  monkeypatch.setattr(defaults, "PATH", tmp_path / "free.defaults.yml")
+  defaults.PATH.write_text(yaml.safe_dump(cache), encoding="utf-8")
+  monkeypatch.setattr(dashboard, "FILES", (main,))
+  session = dashboard.cookie(dashboard.secret(), time.time())
+  client = TestClient(api.app, headers={"x-daedalus-session": session})
+
+  answer = client.get("/ui/api/files")
+
+  assert answer.status_code == 200, answer.text
+  blocks = answer.json()[0]["blocks"]
+  assert blocks["cloudflare"]["api_key"] == "env:CLOUDFLARE_API_KEY"
+  assert blocks["cloudflare"]["account_id"] == "env:CLOUDFLARE_ACCOUNT_ID"
+  assert blocks["z-ai"]["api_key"] == "env:ZAI_API_KEY"
+  assert blocks["kilo"]["api_key"] == "db:KILO_STORED_KEY"
+  assert blocks["mistral"]["api_key"] == "env:MISTRAL_API_KEY"
+  leaked = ("cloudflare-secret", "zai-secret", "kilo-secret", "stale-secret")
+  assert not any(value in answer.text for value in leaked)
+  assert "secret" not in defaults.PATH.read_text(encoding="utf-8"), (
+    "the legacy cache is migrated away from resolved values"
+  )
+  assert defaults.cached()["cloudflare"]["api_key"] == "cloudflare-secret", (
+    "the runtime still resolves the provider value"
+  )
+
+
 def test_saving_an_inherited_block_writes_only_that_whole_block(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -81,6 +81,9 @@ const check = (ok, text) => {
   const notifications = await (await context.fetch("ui/api/notifications")).json();
   check(notifications.resets.length === 1, "the reset fixture reaches Notifications");
   check(notifications.resets[0].kind === "neurons", "the reset fixture keeps its limit");
+  check(notifications.limits.length === 1, "the one-time warning fixture reaches Notifications");
+  check(Number.isFinite(notifications.limits[0].at), "the warning fixture keeps its event time");
+  check(notifications.rebuilds.length === 1, "the rebuild fixture shares the notification feed");
   const first = await (await context.fetch("ui/api/requests?limit=10")).json();
   check(first.length === 0, "the Requests tab starts empty");
   const served = await (await context.fetch("ui/api/models")).json();
@@ -159,6 +162,11 @@ const check = (ok, text) => {
   const models = await (await context.fetch("ui/api/models")).json();
   check(models.length > 100, "the models are the captured snapshot");
   check(models.every((row) => !String(row.id).includes("*")), "no glob reaches the models page");
+  const nonChat = models.filter((row) => row.mode !== "chat");
+  check(nonChat.length > 0 && nonChat.every((row) => row.tier === null),
+    "non-chat models have no routing tier");
+  check(models.some((row) => row.mode === "chat" && row.tier),
+    "chat models keep their routing tiers");
   const sophos = (await (await context.fetch("ui/api/pools")).json())
     .find((pool) => pool.name === "daedalus/sophos");
   check(sophos.members.length > 10 && sophos.members.every((row) => row.tier === "TIER-A"),
@@ -240,6 +248,11 @@ const check = (ok, text) => {
   check((await (await context.fetch("ui/api/login")).json()).session === true, "the login opens the page again");
   const fresh = await (await context.fetch("ui/api/limits", { method: "POST" })).json();
   check(fresh.checked > 0 && fresh.lanes[0].at > 0, "the limits check reads a fresh time");
+  const limitUnits = new Set(fresh.lanes.flatMap((lane) =>
+    lane.rows.map((row) => `${row.kind}/${row.span}`)));
+  check(limitUnits.has("requests/day"), "the demo keeps an RPD row");
+  check(limitUnits.has("requests/minute"), "the demo keeps an RPM row");
+  check(limitUnits.has("tokens/minute"), "the demo keeps a TPM row");
   const seen = [];
   // A scripted run: the harness shrinks the waits, names each wave, and freezes the draws so
   // the escalation template with the cooldown and the weight change always serves.

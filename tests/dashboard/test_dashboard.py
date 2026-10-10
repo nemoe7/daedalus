@@ -1056,33 +1056,44 @@ def test_the_model_rows_light_up_on_hover() -> None:
   ) in css, "the row hover waits for a pointer and lights the row"
 
 
-def test_limit_resets_render_in_the_notifications_tab() -> None:
-  """Reset events use their own table beside the catalog rebuild history."""
+def test_limit_events_and_rebuilds_share_a_relative_notification_feed() -> None:
+  """Limit warnings, resets and rebuilds read as one phone-like card with relative times."""
   root = Path(__file__).resolve().parent.parent.parent
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   section = page.split('<section data-page="notifications" hidden>', 1)[1].split(
     "</section>", 1
   )[0]
-  assert 'aria-label="Limit resets"' in section
-  assert 'id="reset-rows"' in section
-  assert section.index('aria-label="Limit resets"') < section.index(
-    'aria-label="Catalog rebuilds"'
-  )
+  assert 'id="notification-feed"' in section
+  assert 'aria-label="Notifications"' in section
+  assert 'id="reset-rows"' not in section and 'id="rebuild-rows"' not in section
+  assert 'id="limit-warnings-card"' not in section
   run_app_js(
     "renderNotifications",
     """
+const now = Math.floor(Date.now() / 1000);
 probe.renderNotifications({
-  resets: [{ at: 1791600000, provider: 'groq', client: 'owui', kind: 'tokens', span: 'minute' }],
-  rebuilds: [], update: null, limits: [],
+  resets: [{ at: now - 65, provider: 'groq', client: 'owui', kind: 'tokens', span: 'minute' }],
+  rebuilds: [{ at: now - 125, reason: 'scheduled', models: 3,
+    added: ['p/new'], removed: [], changed: [], failed: [] }],
+  update: null,
+  limits: [{ at: now - 5, model: 'groq/model', client: 'owui', kind: 'requests', span: 'minute',
+    remaining: 5, limit: 100, share: 0.05 }],
 });
-const html = node('reset-rows').innerHTML;
-assert(html.includes('groq'), 'the provider shows');
-assert(html.includes('owui'), 'the client lane shows');
-assert(html.includes('TPM'), 'the reset limit uses its short name');
-assert(!html.includes('No limit resets'), 'the event replaces the empty row');
+const html = node('notification-feed').innerHTML;
+assert(html.includes('groq/model'), 'the warning is its own notification');
+assert(html.includes('5 of 100'), 'the warning keeps its allowance');
+assert(html.includes('groq') && html.includes('TPM'), 'the reset notification shows');
+assert(html.includes('Catalog rebuild') && html.includes('scheduled'), 'the rebuild notification shows');
+assert(html.includes('just now') && html.includes('1 min ago') && html.includes('2 mins ago'),
+  'the feed times are relative');
+assert(html.indexOf('groq/model') < html.indexOf('Catalog rebuild'), 'newest notifications come first');
+assert(html.includes('data-rebuild="0"'), 'the rebuild notification still opens its diff');
 """,
   )
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert ".notification-feed" in css and ".notification-item" in css, (
+    "the shared card lays out notification rows"
+  )
   for selector, body in re.findall(r"([^{}]+)\{([^{}]*)\}", css):
     if "#limit-rows" in selector:
       assert "padding" not in body, "Limits columns use the shared table cell padding"
@@ -1146,6 +1157,10 @@ assert(modal.includes('class="diff-id added"'), 'an added model identity uses th
 assert(modal.includes('class="diff-id removed"'), 'a removed model identity uses the - color');
 assert(modal.includes('class="diff-id moved"'), 'a changed model identity uses the ~ color');
 assert(modal.includes('class="mark tint"'), 'the provider icon can inherit the identity color');
+assert(modal.includes('--mark:url(icons/openrouter.svg)'),
+  'the tinted provider mark resolves beside the dashboard stylesheet');
+assert(modal.includes('<span class="mark-sep" aria-hidden="true">/</span>'),
+  'the slash separator stays beside the provider mark');
 """,
   )
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -4467,6 +4482,25 @@ def test_the_providers_page_folds_the_long_groups() -> None:
   )
 
 
+def test_information_hovers_open_above_without_growing_the_settings_pane() -> None:
+  """A bottom-row tooltip stays out of layout and opens into the card, not below it."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  style = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  starts = (".field.info .hint:hover ~ small", ".fold summary .hint:hover ~ small")
+  for start in starts:
+    found = re.search(re.escape(start) + r"[^{}]*\{([^}]*)\}", style)
+    assert found, start
+    rule = found.group(1)
+    assert "position: absolute;" in rule, "the tooltip stays outside normal layout"
+    assert "top: auto;" in rule and "bottom: calc(100% + 4px);" in rule, (
+      "every information tooltip opens above its trigger"
+    )
+  assert "small.up" not in style and "hintFlip" not in app, (
+    "the tooltip never opens below before a script flips it"
+  )
+
+
 def test_the_limits_poll_keeps_out_of_the_address_bar() -> None:
   """The limits answer arrives on every page, so it never writes the hash."""
   root = Path(__file__).resolve().parent.parent.parent
@@ -4611,25 +4645,6 @@ def test_notifications_endpoint(
       "error": None,
     }
   )
-  api.LIMITS.lanes["p/big"] = {
-    "at": time.time(),
-    "rows": [
-      {
-        "kind": "requests",
-        "span": "minute",
-        "limit": 100,
-        "remaining": 5,
-        "reset": time.time() + 50,
-      },
-      {
-        "kind": "tokens",
-        "span": "minute",
-        "limit": 10000,
-        "remaining": 9000,
-        "reset": None,
-      },
-    ],
-  }
   resets = [
     {
       "at": 1_791_600_000.0,
@@ -4639,7 +4654,21 @@ def test_notifications_endpoint(
       "span": "minute",
     }
   ]
+  warnings = [
+    {
+      "at": 1_791_599_900.0,
+      "model": "p/big",
+      "client": None,
+      "kind": "requests",
+      "span": "minute",
+      "limit": 100.0,
+      "remaining": 5.0,
+      "reset": 1_791_600_050.0,
+      "share": 0.05,
+    }
+  ]
   monkeypatch.setattr(api.LIMITS, "resets", lambda: resets)
+  monkeypatch.setattr(api.LIMITS, "warnings", lambda: warnings)
   try:
     answer = client.get("/ui/api/notifications")
     assert answer.status_code == 200
@@ -4654,12 +4683,8 @@ def test_notifications_endpoint(
     assert data["resets"] == resets
     assert data["resets"][0]["provider"] == "groq"
     assert data["resets"][0]["client"] == "owui"
-    assert len(data["limits"]) == 1, "only the row near its limit warns"
-    warning = data["limits"][0]
-    assert warning["model"] == "p/big"
-    assert warning["remaining"] == 5 and warning["limit"] == 100
+    assert data["limits"] == warnings, "the remembered warning keeps its event time"
   finally:
-    api.LIMITS.lanes.pop("p/big", None)
     client.cookies.clear()
 
 

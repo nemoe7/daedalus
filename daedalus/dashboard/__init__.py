@@ -37,7 +37,7 @@ from daedalus.config import (
   defaults as cloud_defaults,
 )
 from daedalus.providers import hooks
-from daedalus.routing import lanes, router
+from daedalus.routing import router
 from daedalus.routing.cooldowns import Cooldowns
 from daedalus.routing.limits import Limits
 from daedalus.routing.penalties import Penalties
@@ -47,8 +47,6 @@ from daedalus.store.database import open_db
 
 KEEP = 500
 SHOWN = 50
-# A lane row warns when no more than this part of its limit is left.
-LIMIT_SHARE = 0.25
 TABLE = (
   "CREATE TABLE IF NOT EXISTS requests (id INTEGER PRIMARY KEY, row TEXT NOT NULL)"
 )
@@ -726,21 +724,6 @@ def members(
   ]
 
 
-def limit_warnings(seen: Limits) -> list[dict[str, Any]]:
-  """The lane rows near their limit, the lowest share of limit left first."""
-  found = []
-  for lane, seen_lanes in seen.lanes.items():
-    model, client = lanes.split(lane)
-    for row in seen_lanes.get("rows", []):
-      limit, remaining = row.get("limit"), row.get("remaining")
-      if not limit or remaining is None:
-        continue
-      share = remaining / limit
-      if share <= LIMIT_SHARE:
-        found.append({"model": model, "client": client or None, **row, "share": share})
-  return sorted(found, key=lambda row: (row["share"], row["model"]))
-
-
 def write_config(
   path: Path,
   text: str,
@@ -914,7 +897,7 @@ def state_routes(
         "resets": seen.resets(),
         "rebuilds": store.recent_rebuilds(50, include_empty=False),
         "update": updates.read(),
-        "limits": limit_warnings(seen),
+        "limits": seen.warnings(),
       }
     )
 

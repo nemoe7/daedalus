@@ -322,10 +322,67 @@ def test_advertised_resets_notify_at_the_boundary_once(tmp_path: Path) -> None:
   assert all(row["remaining"] == row["limit"] for row in rows), (
     "a reset restores each remembered allowance"
   )
-  assert all(row["reset"] is None for row in rows), (
-    "the elapsed boundary leaves each remembered row"
+  assert all(row["reset"] == boundary for row in rows), (
+    "the elapsed boundary stays visible after the allowance resets"
   )
   assert found.resets() == events, "reading the due boundary again adds no event"
+
+
+def test_a_limit_warning_is_kept_once_per_low_limit_crossing(tmp_path: Path) -> None:
+  """A low limit becomes one persisted notification until its allowance resets."""
+  now = [NOW]
+  path = tmp_path / "models.sqlite3"
+  found = limits.Limits(clock=lambda: now[0], path=lambda: path)
+
+  def observe(target: limits.Limits, remaining: int, reset: float) -> None:
+    target.observe(
+      "groq/model#owui",
+      httpx.Headers(
+        {
+          "x-ratelimit-limit-requests-minute": "100",
+          "x-ratelimit-remaining-requests-minute": str(remaining),
+          "x-ratelimit-reset-requests-minute": str(reset),
+        }
+      ),
+    )
+
+  boundary = NOW + 60
+  observe(found, 30, boundary)
+  assert found.warnings() == [], "a row above the warning share stays quiet"
+  now[0] += 1
+  observe(found, 25, boundary)
+  events = found.warnings()
+  assert len(events) == 1
+  assert events[0] == {
+    "at": NOW + 1,
+    "model": "groq/model",
+    "client": "owui",
+    "kind": "requests",
+    "span": "minute",
+    "limit": 100.0,
+    "remaining": 25.0,
+    "reset": boundary,
+    "share": 0.25,
+  }
+  now[0] += 1
+  observe(found, 5, boundary)
+  assert found.warnings() == events, "a lower answer in the same window adds no alert"
+
+  restored = limits.Limits(clock=lambda: now[0], path=lambda: path)
+  restored.restore()
+  observe(restored, 1, boundary)
+  assert restored.warnings() == events, "a restart does not repeat the alert"
+  now[0] = boundary
+  restored.resets()
+  now[0] += 1
+  observe(restored, 20, boundary + 60)
+  repeated = restored.warnings()
+  assert len(repeated) == 2 and repeated[0]["at"] == boundary + 1, repeated
+  now[0] = boundary + 60
+  restored.resets()
+  now[0] += 1
+  observe(restored, 10, boundary + 60)
+  assert restored.warnings() == repeated, "one advertised window cannot alert twice"
 
 
 def test_a_newer_advertised_boundary_replaces_the_pending_one(tmp_path: Path) -> None:
