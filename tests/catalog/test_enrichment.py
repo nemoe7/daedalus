@@ -1,8 +1,10 @@
 """Catalog enrichment: the LiteLLM pages, the config columns and the overrides."""
 
 import threading
+from pathlib import Path
 
 import httpx
+import yaml
 
 from daedalus.catalog import enrichment
 from daedalus.catalog.discovery import MAX_PAGES, Fetch, with_param
@@ -323,6 +325,39 @@ def test_enrich_fills_only_what_the_earlier_sources_left_empty() -> None:
   # an explicit false flag stands, and a model without a ladder stays empty
   assert by_id["openrouter/d"]["supports_reasoning"] is False
   assert by_id["openrouter/d"]["supported_efforts"] is None
+
+
+def test_zai_config_keeps_flash_reasoning_without_native_rows() -> None:
+  """The shipped Z.AI block keeps its on/off ladder without native rows."""
+  litellm = {
+    "data": [
+      {"id": "zai/glm-4.5-flash"},
+      {
+        "id": "zai/glm-4.7-flash",
+        "supports_reasoning": True,
+        "supported_efforts": ["low", "high", "max"],
+      },
+    ],
+    "has_more": False,
+  }
+
+  def fetch(url: str, headers: dict[str, str]) -> dict:
+    if url.startswith(enrichment.LITELLM_CATALOG):
+      return litellm
+    return {"models": []}
+
+  config = yaml.safe_load(Path("config/providers/free.yml").read_text(encoding="utf-8"))
+  slugs = ["glm-4.5-flash", "glm-4.6v-flash", "glm-4.7-flash"]
+  rows, problems = enrichment.enrich(
+    [f"z-ai/{slug}" for slug in slugs], config, fetch, native={}
+  )
+
+  assert problems == [], problems
+  by_slug = {row["slug"]: row for row in rows}
+  assert {
+    slug: (by_slug[slug]["supports_reasoning"], by_slug[slug]["supported_efforts"])
+    for slug in slugs
+  } == {slug: (True, ["none", "max"]) for slug in slugs}
 
 
 def test_enrich_keeps_the_litellm_ladder_over_modelschemas() -> None:

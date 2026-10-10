@@ -195,6 +195,8 @@ z-ai:
   api_key: env:ZAI_API_KEY
   exclude:
     - "*"
+  supports_reasoning: true
+  supported_reasoning_efforts: [none, max]
   tier:
     TIER-B:
       - glm-4.5-flash
