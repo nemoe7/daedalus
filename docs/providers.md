@@ -124,6 +124,7 @@ The Gemini exclude list keeps these models out:
 | Models | Reason |
 | --- | --- |
 | The 2.5 family, TTS included | Only past users can use them. |
+| The 3.7 flash line | Google deprecated the model. |
 | Live models | They use only the Live API, a websocket. daedalus does not support it. |
 | Models with a 0/0 free quota | Images, Omni, Lyria, Veo, 3.1 Pro, Deep Research |
 | Robotics ER, Antigravity | They are for robot vision and for agents. |
