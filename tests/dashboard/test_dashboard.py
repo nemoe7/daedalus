@@ -1992,8 +1992,8 @@ probe.renderSettings();
 const html = node('settings').innerHTML;
 assert(!html.includes('id="set-hooks-on-request"'), 'the surface section left the card body');
 assert(html.includes('<th>Surfaces</th>'), 'the table names its surface column');
-assert(html.includes('class="pill on">On request'), 'the surface the file names reads on');
-assert(html.includes('class="pill off">On chunk'), 'a file that the switch turned off reads dim');
+assert(html.includes('class="pill on named" title="Named in the settings">On request'), 'the named surface reads on');
+assert(html.includes('class="pill off named" title="Named in the settings">On chunk'), 'the off file reads dim');
 assert(html.includes('<em class="none">No surface</em>'), 'a file that names no surface reads none');
 assert(!html.includes('data-hook-surface-pick'), 'nothing adds a surface');
 assert(!html.includes('data-hook-surface-drop'), 'nothing takes a surface off');
@@ -2634,7 +2634,7 @@ assert(html.includes('value="hooks"'), 'the folder shows the saved value');
 assert(html.includes('id="hook-source"') && html.includes('>owner/name/hooks<'), 'the sources show the saved repo');
 assert(html.includes('data-hook-source-add') && html.includes('data-hook-source-drop') &&
   html.includes('data-hooks-update'), 'the source controls');
-assert(html.includes('<th>Title</th>'), 'the table names its title column');
+assert(html.includes('<th>Author/Title</th>'), 'the table names its author and title column');
 assert(html.includes('One hook'), 'the title of the file shows');
 assert(html.includes('data-hook-toggle="one.py"') && html.includes('data-hook-toggle="bad.py"'), '1 switch per file');
 assert(html.includes('>1.2.0<') && html.includes('provider: openrouter'), 'the version and the scope of a file');
@@ -2719,7 +2719,7 @@ def test_hook_rows_and_update(
   root = state_folder / "hooks"
   root.mkdir(parents=True, exist_ok=True)
   (root / "one.py").write_text(
-    "# ---\n# version: 1.2.0\n# scope: provider\n# targets: [p]\n# ---\n"
+    "# ---\n# version: 1.2.0\n# author: nemoe7\n# scope: provider\n# targets: [p]\n# ---\n"
     "def on_answer(answer, model):\n  return answer\n",
     encoding="utf-8",
   )
@@ -2730,6 +2730,7 @@ def test_hook_rows_and_update(
     "name": "one.py",
     "path": "hooks/one.py",
     "title": "",
+    "author": "nemoe7",
     "version": "1.2.0",
     "scope": "provider",
     "targets": ["p"],
@@ -4433,3 +4434,13 @@ def test_update_check_now(client: TestClient) -> None:
     assert data["latest"] == "v9.9.9" and data["update"] is True
     assert updates.read()["latest"] == "v9.9.9"
   client.cookies.clear()
+
+
+def test_hook_table_columns() -> None:
+  """The hooks table reads Author/Title, Version, Surfaces, Scopes, Source and Enabled."""
+  app = (
+    Path(__file__).resolve().parents[2] / "daedalus/dashboard/ui/app.js"
+  ).read_text(encoding="utf-8")
+  columns = "<th>Author/Title</th><th>Version</th><th>Surfaces</th><th>Scopes</th>"
+  assert columns in app, "the hooks table names its columns in the note order"
+  assert '<th class="hide-sm">Source</th><th>Enabled</th>' in app

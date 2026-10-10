@@ -601,6 +601,7 @@ def test_rows_report_the_folder() -> None:
       "name": "on.py",
       "path": "rows/on.py",
       "title": "",
+      "author": "",
       "version": "2.0",
       "scope": "provider",
       "targets": ["p"],

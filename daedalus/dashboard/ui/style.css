@@ -534,6 +534,7 @@ section[data-page="providers"], section[data-page="settings"] {
    Load switch turned off reads dim. */
 .pill.on { border-color: var(--accent); background: var(--bar); color: var(--tier); }
 .pill.off { opacity: .5; }
+.pill.named::before { content: "\25CF"; margin-right: 4px; font-size: .7em; }
 /* A pill with no button of its own takes the room the button would. */
 .pill.on, .pill.off, #hooks-scan .pill { padding-right: 10px; }
 .pill.hook { position: relative; }

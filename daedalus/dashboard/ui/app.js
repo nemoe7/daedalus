@@ -1447,8 +1447,12 @@ const requestSurfaces = () => HOOK_SURFACES.filter(([key]) => key in (state.sett
 // what it hooks into, so the card shows the surfaces and holds no control over them.
 function hookSurfacesCell(row) {
   const labels = new Map(HOOK_SURFACES.map(([key, label]) => [key, label]));
-  const chips = (row.surfaces || []).map((surface) =>
-    `<span class="pill ${row.enabled ? "on" : "off"}">${esc(labels.get(surface) || surface)}</span>`).join("");
+  const named = new Set(row.runs || []);
+  const chips = (row.surfaces || []).map((surface) => {
+    const mark = named.has(surface) ? " named" : "";
+    const note = named.has(surface) ? "Named in the settings" : "Not named in the settings";
+    return `<span class="pill ${row.enabled ? "on" : "off"}${mark}" title="${note}">${esc(labels.get(surface) || surface)}</span>`;
+  }).join("");
   return `<div class="pills">${chips || '<em class="none">No surface</em>'}</div>`;
 }
 
@@ -1483,13 +1487,14 @@ function hooksManager() {
   const list = rows.map((row) => {
     const record = row.record || {};
     const source = record.repo ? `${record.repo}@${(record.commit || "").slice(0, 7)}` : "";
-    return `<tr><td role="cell" class="name"><span class="cell-value" title="${esc(row.name)}">${esc(row.title || row.name)}</span></td>
+    const label = [row.author, row.title || row.name].filter(Boolean).join("/");
+    return `<tr><td role="cell" class="name"><span class="cell-value" title="${esc(row.name)}">${esc(label)}</span></td>
       <td role="cell"><span class="cell-value">${esc(hookVersion(row))}</span></td>
-      <td role="cell"><span class="cell-value">${esc(row.scope || "global")}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
       <td role="cell" class="surfaces">${hookSurfacesCell(row)}</td>
+      <td role="cell"><span class="cell-value">${esc(row.scope || "global")}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
       <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || "bundled")}">${row.problem ? `<span class="bad">${esc(row.problem)}</span>` : esc(source || "bundled")}</span></td>
       <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
-        ${disabled.includes(row.name) ? "" : "checked"} aria-label="Load ${esc(row.name)}"></td>
+        ${disabled.includes(row.name) ? "" : "checked"} aria-label="Enabled ${esc(row.name)}"></td>
       <td class="end"><button type="button" class="ghost danger" data-hook-drop="${esc(row.path)}">Delete</button></td></tr>`;
   }).join("") || '<tr><td role="cell" colspan="7"><em class="none">No hook file</em></td></tr>';
   const scan = state.hooksScan;
@@ -1499,7 +1504,7 @@ function hooksManager() {
       ${scan.take[file.name] ? "checked" : ""}>${esc(file.name)}${file.version ? ` ${esc(file.version)}` : ""}</label>`).join("")}
       <button type="button" class="primary" data-hook-take-all>Take the picked files</button></div>` : "";
   return `<div class="field stack info">${labelSpan("Installed hooks", "The files of the hook folder. A surface is a stage of a request, and the block of the file names the surfaces it runs at. The switch leaves a file on disk and out of the run.")}
-      <table class="keys"><thead><tr><th>Title</th><th>Version</th><th>Scope</th><th>Surfaces</th><th class="hide-sm">Source</th><th>Load</th><th></th></tr></thead>
+      <table class="keys"><thead><tr><th>Author/Title</th><th>Version</th><th>Surfaces</th><th>Scopes</th><th class="hide-sm">Source</th><th>Enabled</th><th></th></tr></thead>
       <tbody>${list}</tbody></table>
       <button type="button" class="ghost" data-hooks-update>Update from the sources</button></div>
     <div class="field stack info">${labelSpan("Folder", "The folder at the root that holds the hook files.")}

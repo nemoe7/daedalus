@@ -297,6 +297,7 @@ def rows(named: dict[str, Any] | None = None) -> list[dict[str, Any]]:
       "name": rel,
       "path": f"{DIR}/{rel}",
       "title": str(info.get("title", "")) if info else "",
+      "author": str(info.get("author", "")) if info else "",
       "version": str(info.get("version", "")) if info else "",
       "scope": str(info.get("scope", "global")) if info else "",
       "targets": [str(target) for target in info["targets"]]
