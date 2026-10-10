@@ -1571,8 +1571,8 @@ class Tools:
       {"content": content, "sha": data.get("sha"), "size": data.get("size")}
     )
 
-  async def fetch(self, url: str) -> dict:
-    """Read one GitHub page or API url: repository, directory, file, issue, PR, commit, branch, run.
+  async def fetch_github_url(self, url: str) -> dict:
+    """Read one github.com or api.github.com URL. For any other URL, use the builtin `fetch_url` tool.
 
     :param url: a github.com or api.github.com URL
     """
@@ -1587,7 +1587,8 @@ class Tools:
     if parsed.netloc != "github.com" or len(parts) < 2:
       raise GitHubError(
         422,
-        f"fetch reads github.com or api.github.com URLs only, not {url}.",
+        f"fetch_github_url reads github.com or api.github.com URLs only, not {url}. "
+        "Use the builtin fetch_url tool for that URL.",
         "GET",
         url,
       )
