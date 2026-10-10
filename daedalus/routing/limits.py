@@ -17,7 +17,15 @@ import httpx
 from daedalus import providers, store
 from daedalus.config import file_block, main_block
 from daedalus.routing import lanes
-from daedalus.routing.cooldowns import Cooldowns, header_seconds, next_midnight
+from daedalus.routing.cooldowns import (
+  PACIFIC,
+  Cooldowns,
+  gemini_details,
+  header_seconds,
+  next_midnight,
+  parsed,
+  reset_seconds,
+)
 from daedalus.store.database import open_db
 
 CHECK_SECONDS = 3600.0
@@ -102,6 +110,65 @@ def header_rows(
       }
     )
   return rows
+
+
+def gemini_quota_label(quota: Any) -> tuple[str, str] | None:
+  """The kind and span of a Gemini quota ID that the Limits page tracks."""
+  name = str(quota).lower()
+  kind = (
+    "tokens" if "inputtokens" in name else "requests" if "requests" in name else None
+  )
+  span = "minute" if "perminute" in name else "day" if "perday" in name else None
+  return (kind, span) if kind and span else None
+
+
+def gemini_quota_rows(body: bytes, now: float) -> list[dict[str, Any]]:
+  """Exhausted Gemini quotas from a 429 body, with the RetryInfo or daily boundary."""
+  content = parsed(body)
+  seconds = reset_seconds({}, content, now)
+  rows: dict[tuple[str, str], dict[str, Any]] = {}
+  for detail in gemini_details(content):
+    if not str(detail.get("@type", "")).endswith("QuotaFailure"):
+      continue
+    violations = detail.get("violations")
+    if not isinstance(violations, list):
+      continue
+    for violation in violations:
+      if not isinstance(violation, dict):
+        continue
+      label = gemini_quota_label(violation.get("quotaId"))
+      limit = number(violation.get("quotaValue"))
+      if label is None or limit is None:
+        continue
+      kind, span = label
+      reset = (
+        next_midnight(now, PACIFIC)
+        if span == "day"
+        else now + seconds
+        if seconds and seconds > 0
+        else None
+      )
+      rows[label] = {
+        "kind": kind,
+        "span": span,
+        "limit": limit,
+        "remaining": 0.0,
+        "reset": reset,
+      }
+  return [rows[key] for key in sorted(rows)]
+
+
+def merged_rows(
+  previous: list[dict[str, Any]], current: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+  """The remembered rows with current values replacing the same kind and span."""
+  rows = {
+    (row.get("kind"), row.get("span")): row for row in previous if isinstance(row, dict)
+  }
+  rows.update({(row["kind"], row["span"]): row for row in current})
+  return [
+    rows[key] for key in sorted(rows, key=lambda item: (str(item[0]), str(item[1])))
+  ]
 
 
 def cooling_end(row: Mapping[str, Any], now: float) -> float | None:
@@ -519,13 +586,17 @@ class Limits:
       self.save()
     return [dict(event) for event in self.reset_history]
 
-  def observe(self, lane: str, headers: Mapping[str, str]) -> None:
+  def observe(self, lane: str, headers: Mapping[str, str], body: bytes = b"") -> None:
     """Keep one answer's rate limits, cooldowns and advertised reset boundaries."""
     now = self.clock()
     changed = self._materialize_resets(now)
     model, client = lanes.split(lane)
     provider = model.partition("/")[0]
     rows = header_rows(provider, headers, now)
+    quota_rows = gemini_quota_rows(body, now) if provider == "gemini" else []
+    if quota_rows:
+      previous = self.lanes.get(lane, {}).get("rows", [])
+      rows = merged_rows(previous, [*rows, *quota_rows])
     if not rows:
       if changed:
         self.save()

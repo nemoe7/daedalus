@@ -29,6 +29,38 @@ MISTRAL = {
 }
 
 
+def gemini_quota(
+  model: str, violations: list[tuple[str, str, str]], delay: str
+) -> bytes:
+  """A Gemini quota failure with its RetryInfo boundary."""
+  return json.dumps(
+    {
+      "error": {
+        "code": 429,
+        "status": "RESOURCE_EXHAUSTED",
+        "details": [
+          {
+            "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+            "violations": [
+              {
+                "quotaMetric": metric,
+                "quotaId": quota,
+                "quotaDimensions": {"location": "global", "model": model},
+                "quotaValue": value,
+              }
+              for metric, quota, value in violations
+            ],
+          },
+          {
+            "@type": "type.googleapis.com/google.rpc.RetryInfo",
+            "retryDelay": delay,
+          },
+        ],
+      }
+    }
+  ).encode()
+
+
 @pytest.fixture
 def cooldowns(tmp_path: Path) -> Cooldowns:
   return Cooldowns(lambda: tmp_path / "models.sqlite3", clock=lambda: NOW)
@@ -46,6 +78,88 @@ def test_rows() -> None:
   spans = [(r["kind"], r["span"], r["remaining"]) for r in rows]
   assert spans == [("tokens", "minute", 49000), ("tokens", "month", 0)], spans
   assert limits.header_rows("gemini", {"content-type": "x"}, NOW) == []
+
+
+def test_gemini_quota_failures_track_gemma_and_flash_limits(tmp_path: Path) -> None:
+  """Gemma and Flash quota details track exhausted TPM, RPM and RPD rows."""
+  now = [NOW]
+  found = limits.Limits(clock=lambda: now[0], path=lambda: tmp_path / "models.sqlite3")
+  input_metric = (
+    "generativelanguage.googleapis.com/generate_content_free_tier_input_token_count"
+  )
+  request_metric = (
+    "generativelanguage.googleapis.com/generate_content_free_tier_requests"
+  )
+  found.observe(
+    "gemini/gemma-4-26b-a4b-it#gemma-client",
+    httpx.Headers(),
+    gemini_quota(
+      "gemma-4-26b",
+      [
+        (
+          input_metric,
+          "GenerateContentInputTokensPerModelPerMinute-FreeTier",
+          "16000",
+        )
+      ],
+      "51s",
+    ),
+  )
+  found.observe(
+    "gemini/gemini-3.6-flash#flash-client",
+    httpx.Headers(),
+    gemini_quota(
+      "gemini-3.6-flash",
+      [
+        (
+          request_metric,
+          "GenerateRequestsPerMinutePerProjectPerModel-FreeTier",
+          "5",
+        ),
+        (
+          request_metric,
+          "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+          "20",
+        ),
+        (
+          input_metric,
+          "GenerateContentInputTokensPerModelPerMinute-FreeTier",
+          "250000",
+        ),
+      ],
+      "33s",
+    ),
+  )
+  lanes = {row["model"]: row["rows"] for row in found.view()["lanes"]}
+  assert lanes["gemini/gemma-4-26b-a4b-it"] == [
+    {
+      "kind": "tokens",
+      "span": "minute",
+      "limit": 16000,
+      "remaining": 0,
+      "reset": NOW + 51,
+    }
+  ]
+  flash = {
+    (row["kind"], row["span"]): (row["limit"], row["remaining"], row["reset"])
+    for row in lanes["gemini/gemini-3.6-flash"]
+  }
+  pacific_midnight = datetime(2026, 9, 29, 7, 0, tzinfo=UTC).timestamp()
+  assert flash == {
+    ("requests", "day"): (20, 0, pacific_midnight),
+    ("requests", "minute"): (5, 0, NOW + 33),
+    ("tokens", "minute"): (250000, 0, NOW + 33),
+  }
+  assert found.resets() == []
+  now[0] = NOW + 33
+  events = found.resets()
+  assert {
+    (event["provider"], event["client"], event["kind"], event["span"])
+    for event in events
+  } == {
+    ("gemini", "flash-client", "requests", "minute"),
+    ("gemini", "flash-client", "tokens", "minute"),
+  }
 
 
 def test_cooldown(cooldowns: Cooldowns) -> None:

@@ -72,10 +72,10 @@ LIMITS: limits.Limits | None = None
 LANE: ContextVar[str | None] = ContextVar("lane", default=None)
 
 
-def observe(lane: str, headers: httpx.Headers) -> None:
-  """Give the headers of one answer to the limits."""
+def observe(lane: str, headers: httpx.Headers, body: bytes = b"") -> None:
+  """Give the limit headers and error body of one answer to the limits."""
   if LIMITS is not None:
-    LIMITS.observe(lane, headers)
+    LIMITS.observe(lane, headers, body)
 
 
 def new_client() -> httpx.AsyncClient:
@@ -337,12 +337,14 @@ async def attempt(
   started = time.perf_counter()
   response = await get_client().send(upstream, stream=True)
   status = response.status_code
-  observe(router.lane(config, candidate, client), response.headers)
+  lane = router.lane(config, candidate, client)
   if status < 400:
+    observe(lane, response.headers)
     logger.info("upstream %s %d %s", candidate, status, elapsed(started))
     return provider, response
   raw = await response.aread()
   await response.aclose()
+  observe(lane, response.headers, raw)
   raise rejected(candidate, response, started, raw)
 
 
@@ -394,8 +396,9 @@ async def post(
   response = await get_client().post(
     url, headers=with_client(headers), timeout=timeout, **content
   )
-  # The rate-limit headers of a 429 explain the limit, so they count before the error goes out.
-  observe(LANE.get() or candidate, response.headers)
+  # The rate-limit headers and body of a 429 explain the limit, so they count before the error goes out.
+  body = response.content if response.status_code >= 400 else b""
+  observe(LANE.get() or candidate, response.headers, body)
   if response.status_code >= 400:
     raise rejected(candidate, response, started, response.content)
   logger.info("upstream %s %d %s", candidate, response.status_code, elapsed(started))

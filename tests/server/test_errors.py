@@ -33,6 +33,28 @@ def raised(call) -> upstream.UpstreamStatus:
   raise AssertionError("no upstream error")
 
 
+def test_a_rejected_body_reaches_limit_tracking(monkeypatch) -> None:
+  """A streamed and a plain 429 give their body to limit tracking."""
+  seen: list[tuple[str, bytes]] = []
+
+  class Recorder:
+    def observe(self, lane: str, _headers: httpx.Headers, body: bytes = b"") -> None:
+      seen.append((lane, body))
+
+  def answer(_request: httpx.Request) -> httpx.Response:
+    return httpx.Response(429, json={"error": {"details": ["quota"]}})
+
+  monkeypatch.setattr(upstream, "LIMITS", Recorder())
+  upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
+  try:
+    raised(lambda: upstream.attempt("groq/m", BODY, CONFIG))
+    raised(lambda: upstream.post("groq/m", "https://groq.test/x", {}))
+  finally:
+    upstream.set_client(None)
+  expected = b'{"error":{"details":["quota"]}}'
+  assert seen == [("groq/m", expected), ("groq/m", expected)]
+
+
 def test_errors() -> None:
   status = {"code": 200}
 
