@@ -50,7 +50,7 @@ def test_steps(client: TestClient) -> None:
   assert dashboard.HISTORY.latest(1)[0]["retry"] == "1", dashboard.HISTORY.latest(1)[0]
   first = ask(client, FIRST, CHAT)
   assert first.startswith("a/"), "tier A"
-  key = api.session_key(MASTER, FIRST)
+  key = api.session_key(MASTER, FIRST, CHAT)
   assert api.PENALTIES.pinned(key, "daedalus/auto:TIER-A") == first, (
     "the new session model"
   )

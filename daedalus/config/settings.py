@@ -77,6 +77,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
   },
   # The message compression through Headroom. A block or a model entry turns it off for 1 model.
   "optimization": {"enabled": True, "timeout": 5.0},
+  # Client metadata that may leave daedalus for a provider.
+  "privacy": {"forward_owui_chat_id": False},
   "catalog": {"every": 6.0, "anchor": 6.0},
   # The hook files: the folder, the GitHub sources, the names that stay out, and the request
   # hook lists.
@@ -208,7 +210,13 @@ def check(group: str, key: str, value: Any) -> Any:
     if value not in MODES:
       raise SettingsError(f"{name} must be none, session or race")
     return value
-  if key in ("enabled", "change_on_draw", "weights", "pacing"):
+  if key in (
+    "enabled",
+    "change_on_draw",
+    "weights",
+    "pacing",
+    "forward_owui_chat_id",
+  ):
     if not isinstance(value, bool):
       raise SettingsError(f"{name} must be true or false")
     return value

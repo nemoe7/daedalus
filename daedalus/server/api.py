@@ -8,7 +8,7 @@ import os
 import re
 import sqlite3
 import time
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Mapping
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from typing import Any
@@ -312,9 +312,20 @@ def first_user_text(messages: object) -> str:
   return texts[0] if texts else ""
 
 
-def session_key(token: str, messages: object) -> str:
-  """The conversation key: the hash of the bearer token and the first user message."""
-  return keys.digest(f"{token}\n{first_user_text(messages)}")
+def session_key(
+  token: str, messages: object, headers: Mapping[str, str] | None = None
+) -> str:
+  """The conversation key from the token and OWUI chat ID, or the first user message."""
+  chat_id = next(
+    (
+      value.strip()
+      for name, value in (headers or {}).items()
+      if name.lower() == upstream.OWUI_CHAT_ID and value.strip()
+    ),
+    "",
+  )
+  identity = f"owui-chat:{chat_id}" if chat_id else first_user_text(messages)
+  return keys.digest(f"{token}\n{identity}")
 
 
 @app.get("/health")
@@ -805,7 +816,7 @@ async def hook_call(request: Request, file: str) -> Response:
       400, f"{file} has no on_http function.", "invalid_request_error"
     )
   messages = body.get("messages")
-  key = session_key(access.bearer(request), messages)
+  key = session_key(access.bearer(request), messages, request.headers)
   call: dict[str, Any] = {}
   # A file that names `pin` gets the last pin of the chat, and a file that names `level` gets
   # the reasoning level of its last answer: an older file keeps its 4 values.
@@ -1029,7 +1040,7 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
       400, "stream_options must be an object.", "invalid_request_error"
     )
   config = get_config()
-  key = session_key(access.bearer(request), body["messages"])
+  key = session_key(access.bearer(request), body["messages"], request.headers)
   request.state.session = key[:7]
   previous = (
     previous_auto_pin(key, config)
@@ -1550,6 +1561,7 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   loops.LONGEST = limits["longest"]
   PENALTIES.stay = affinity["stay"]
   headroom.TIMEOUT_SECONDS = values["optimization"]["timeout"]
+  upstream.FORWARD_OWUI_CHAT_ID = values["privacy"]["forward_owui_chat_id"]
   schedule.EVERY, schedule.ANCHOR = (
     values["catalog"]["every"],
     values["catalog"]["anchor"],

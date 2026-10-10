@@ -240,9 +240,31 @@ def test_session_key() -> None:
   ]
   other = [{"role": "system", "content": "s"}, {"role": "user", "content": "z"}]
   key = api.session_key("t", first)
-  assert key == api.session_key("t", later), "one conversation keeps its key"
+  assert key == keys.digest("t\na"), (
+    "the old fallback key stays byte-for-byte compatible"
+  )
+  assert key == api.session_key("t", later), "one conversation keeps its fallback key"
   assert key != api.session_key("t", other), "each first user message has its own key"
   assert key != api.session_key("u", first), "each token has its own key"
+  chat = {"X-OpenWebUI-Chat-Id": "chat-1"}
+  chat_key = api.session_key("t", first, chat)
+  assert chat_key == keys.digest("t\nowui-chat:chat-1"), (
+    "the chat ID has its own namespace"
+  )
+  assert chat_key == api.session_key(
+    "t", later, {"x-openwebui-chat-id": "  chat-1  "}
+  ), "the header name and surrounding space are normalized"
+  assert chat_key == api.session_key("t", later, chat), "one OWUI chat keeps its key"
+  assert chat_key == api.session_key("t", other, chat), (
+    "the chat ID wins over the prompt"
+  )
+  assert chat_key != api.session_key("t", first, {"x-openwebui-chat-id": "chat-2"})
+  assert chat_key != api.session_key("u", first, chat), (
+    "each token keeps its own namespace"
+  )
+  assert key == api.session_key("t", first, {"x-openwebui-chat-id": "   "}), (
+    "an empty header uses the existing fallback"
+  )
 
 
 def test_slots() -> None:

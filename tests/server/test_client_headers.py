@@ -8,6 +8,7 @@ import pytest
 
 from daedalus import config, dashboard, store
 from daedalus.server import access, api, media
+from daedalus.server import upstream as upstream_module
 from daedalus.server.upstream import set_client
 
 MASTER = "test-master-key-0001"
@@ -24,6 +25,7 @@ SENT = {
   "Tailscale-User-Login": "owner@example.com",
   "X-OpenWebUI-User-Email": "owner@example.com",
   "X-OpenWebUI-Chat-Id": "c1",
+  "X-OpenWebUI-Trace": "trace",
   "Accept-Encoding": "br",
 }
 
@@ -80,7 +82,8 @@ def check(headers: httpx.Headers) -> None:
   assert headers["x-title"] == "Kilo Code", headers
   assert headers["user-agent"] == "Kilo-Code/7.0", headers
   assert headers["x-session-affinity"] == "s1", headers
-  assert headers["x-openwebui-chat-id"] == "c1", headers
+  assert headers["x-openwebui-trace"] == "trace", headers
+  assert "x-openwebui-chat-id" not in headers, headers
   hidden = (
     "cookie",
     "x-api-key",
@@ -111,6 +114,34 @@ async def test_client_headers(client: httpx.AsyncClient) -> None:
     check(headers)
   rows = dashboard.HISTORY.latest()
   assert [(row["app"], row["key"]) for row in rows] == [("Kilo", "master")] * 3, rows
+
+
+async def test_chat_id_separates_identical_first_messages(
+  client: httpx.AsyncClient,
+) -> None:
+  """Two OWUI chat IDs give the same first prompt two affinity sessions."""
+  body = {"model": "daedalus/moros", "messages": [{"role": "user", "content": "same"}]}
+  dashboard.HISTORY.clear()
+  for chat_id in ("chat-1", "chat-2"):
+    response = await client.post(
+      "/v1/chat/completions",
+      json=body,
+      headers={"X-OpenWebUI-Chat-Id": chat_id},
+    )
+    assert response.status_code == 200, response.text
+  sessions = {row["session"] for row in dashboard.HISTORY.latest(2)}
+  assert len(sessions) == 2, sessions
+
+
+async def test_chat_id_forwarding_is_an_opt_in(
+  client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """The privacy switch can send the OWUI chat ID to the provider."""
+  monkeypatch.setattr(upstream_module, "FORWARD_OWUI_CHAT_ID", True)
+  body = {"model": "daedalus/moros", "messages": [{"role": "user", "content": "hi"}]}
+  response = await client.post("/v1/chat/completions", json=body)
+  assert response.status_code == 200, response.text
+  assert SEEN[-1]["x-openwebui-chat-id"] == "c1", SEEN[-1]
 
 
 def test_app_name() -> None:

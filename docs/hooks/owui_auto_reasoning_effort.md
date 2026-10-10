@@ -64,10 +64,13 @@ before `served_model.py`, so name the surface to make the override win:
 
 ## The try again
 
-Open WebUI sends the header `x-openwebui-chat-id` when `ENABLE_FORWARD_USER_INFO_HEADERS` is true, and the `on_request` surface names the turn from that
-header and the digest of the messages. A repeat of a message that a model answered is a try again.
-daedalus steps 1 tier up for `daedalus/auto`, keeps a named pool, and drops the models that answered. Then it
-calls the surface again with `count` filled in, and this file writes the code of the request, `rt1`, `rt2`.
+Open WebUI sends `x-openwebui-chat-id` through the daedalus connection's custom headers. The bundled
+deployment sets it to `{{CHAT_ID}}` without forwarding the user's personal fields.
+
+The `on_request` surface names the turn from that header and the digest of the messages. A repeat of a
+message that a model answered is a try again. daedalus steps 1 tier up for `daedalus/auto`, keeps a named
+pool, and drops the models that answered. Then it calls the surface again with `count` filled in, and this
+file writes the code of the request, `rt1`, `rt2`.
 
 The same count reaches `on_prompt` as `retry`, so the level of a try again follows the same rule.
 Without the header, a repeat is a new request. Without the file, a repeat of a message takes the

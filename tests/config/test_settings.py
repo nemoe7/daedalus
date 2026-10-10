@@ -9,7 +9,7 @@ import yaml
 from daedalus.config import settings
 from daedalus.providers import hooks
 from daedalus.routing import loops, penalties
-from daedalus.server import api
+from daedalus.server import api, upstream
 
 
 def expect_error(folder: Path, text: str, message: str) -> None:
@@ -193,6 +193,22 @@ def test_affinity_settings(folder: Path) -> None:
     assert api.AFFINITY is False and api.PARALLEL_ENABLED is False
   finally:
     api.apply_settings(settings.load(folder / "missing.yml"))
+
+
+def test_privacy_settings(folder: Path) -> None:
+  """OWUI chat IDs stay private by default, and the privacy switch can forward them."""
+  assert settings.parse("")["privacy"] == {"forward_owui_chat_id": False}
+  expect_error(
+    folder,
+    "privacy:\n  forward_owui_chat_id: 1\n",
+    "true or false",
+  )
+  api.apply_settings(settings.parse("privacy:\n  forward_owui_chat_id: true\n"))
+  try:
+    assert upstream.FORWARD_OWUI_CHAT_ID is True
+  finally:
+    api.apply_settings(settings.parse(""))
+  assert upstream.FORWARD_OWUI_CHAT_ID is False
 
 
 def test_apply(folder: Path) -> None:

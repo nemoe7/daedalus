@@ -270,7 +270,8 @@ sequenceDiagram
 
 | Item | Value |
 | --- | --- |
-| Conversation key | SHA-256 of the bearer token and the first user message |
+| Conversation key | SHA-256 of the bearer token and `owui-chat:<trimmed X-OpenWebUI-Chat-Id>`, when present. Otherwise, the first user message. |
+| Chat ID forwarding | Kept from model providers by default. `privacy.forward_owui_chat_id` opts in. |
 | Modes | `none` keeps no pin and no race. `session` keeps the pin. `race` keeps the pin and the [race](#parallel-queries). |
 | Slot | The pool name, or `daedalus/auto` plus the tier |
 | Share of first-tier draws | 85%. With `affinity.mode: race`, the session model starts each request. |

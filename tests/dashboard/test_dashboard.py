@@ -114,6 +114,8 @@ def test_page(client: TestClient) -> None:
   )
   assert '["enabled", "Headroom on"' in script.text, "the Headroom switch is a checkbox"
   assert '["limits", "Limits"' in script.text, "the loop thresholds are in Settings"
+  assert '["privacy", "Privacy"' in script.text, "the header switch is in Settings"
+  assert '["forward_owui_chat_id", "Forward OWUI chat ID"' in script.text
   assert '["routing", "Routing"' in script.text, "the Routing card is in Settings"
   assert client.get("/ui/style.css").status_code == 200
   assert script.headers["cache-control"] == "no-cache", "an update applies at once"

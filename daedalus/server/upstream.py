@@ -63,6 +63,9 @@ KEPT_BACK = frozenset(
 )
 # Open WebUI sends the name, e-mail, id and role of its user in `x-openwebui-user-*`.
 KEPT_BACK_PREFIXES = ("proxy-", "x-forwarded-", "tailscale-", "x-openwebui-user-")
+OWUI_CHAT_ID = "x-openwebui-chat-id"
+# A chat ID names the user's conversation. It stays inside daedalus unless the operator opts in.
+FORWARD_OWUI_CHAT_ID = False
 # The client headers of the current request that go on to each provider.
 _forwarded: ContextVar[httpx.Headers] = ContextVar("forwarded")
 _client: httpx.AsyncClient | None = None
@@ -289,6 +292,7 @@ def forward(headers: Mapping[str, str]) -> None:
         for name, value in headers.items()
         if name.lower() not in KEPT_BACK
         and not name.lower().startswith(KEPT_BACK_PREFIXES)
+        and (name.lower() != OWUI_CHAT_ID or FORWARD_OWUI_CHAT_ID)
       }
     )
   )

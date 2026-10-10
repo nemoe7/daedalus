@@ -5,6 +5,10 @@
 # HEADROOM_URL turns on message compression through a Headroom sidecar.
 # `headroom: false` in a provider block or a model entry turns it off for that scope.
 
+# Open WebUI chat IDs stay in daedalus unless this setting is true.
+# privacy:
+#   forward_owui_chat_id: false
+
 # The hook files of the repo. The Settings page lists them and takes the picked 1s.
 hooks:
   sources:

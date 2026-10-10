@@ -2360,6 +2360,9 @@ const SETTINGS = [
     ["enabled", "Headroom on", "", "Off: the messages of every model go to the provider unchanged."],
     ["timeout", "Headroom timeout", "s", "After this time, the original messages go to the provider."],
   ]],
+  ["privacy", "Privacy", [
+    ["forward_owui_chat_id", "Forward OWUI chat ID", "", "On: send the Open WebUI conversation ID to model providers. Off: keep it inside daedalus."],
+  ]],
   ["catalog", "Catalog", [
     ["every", "Rebuild interval", "h", "The hours between rebuilds. 0 stops them."],
     ["anchor", "Anchor hour", "h", "The local hour (TZ) that the rebuild times start from."],

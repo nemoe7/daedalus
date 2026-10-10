@@ -163,6 +163,12 @@ The shipped file holds the changes from the defaults only. The **Settings** page
 | `optimization.enabled` | `true` | `false`: the messages of each model go to the provider unchanged. |
 | `optimization.timeout` | `5` | Seconds for the full Headroom answer. Then the original messages go to the provider. |
 
+### Privacy
+
+| Key | Default | Use |
+| --- | --- | --- |
+| `privacy.forward_owui_chat_id` | `false` | `true`: send `X-OpenWebUI-Chat-Id` to model providers. The inbound ID remains available to daedalus session affinity and hooks. |
+
 ### Routing
 
 | Key | Default | Use |

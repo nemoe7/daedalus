@@ -1,5 +1,6 @@
 """Tests of the Docker Compose files."""
 
+import json
 from pathlib import Path
 
 import yaml
@@ -38,6 +39,15 @@ def test_openwebui_embeds_through_a_listed_model() -> None:
   compose = yaml.safe_load((ROOT / "compose.yml").read_text())
   env = compose["services"]["open-webui"]["environment"]
   assert env["RAG_EMBEDDING_MODEL"] == "mistral/mistral-embed-2312"
+
+
+def test_openwebui_forwards_only_the_chat_id() -> None:
+  """A new bundled Open WebUI sends the chat ID without the user's personal fields."""
+  compose = yaml.safe_load((ROOT / "compose.yml").read_text())
+  env = compose["services"]["open-webui"]["environment"]
+  assert env["ENABLE_FORWARD_USER_INFO_HEADERS"] == "false"
+  configs = json.loads(env["OPENAI_API_CONFIGS"])
+  assert configs == {"0": {"headers": {"X-OpenWebUI-Chat-Id": "{{CHAT_ID}}"}}}
 
 
 def test_openwebui_keeps_the_memory_review_and_the_async_cap() -> None:

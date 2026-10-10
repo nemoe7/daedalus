@@ -114,7 +114,8 @@ The installers ask for profiles only when `.env` is absent. If you decline Open 
 | API key (`OPENAI_API_KEY`) | `OPENWEBUI_API_KEY`, else `DAEDALUS_MASTER_KEY` |
 | `ENABLE_OLLAMA_API` | `false`. Every model comes from daedalus. |
 | First user | Becomes the Open WebUI admin |
-| `ENABLE_FORWARD_USER_INFO_HEADERS` | `true`. It sends the chat id and the user facts for [try again](architecture.md#try-again). |
+| `OPENAI_API_CONFIGS` | Connection `0` sends `X-OpenWebUI-Chat-Id: {{CHAT_ID}}` for session affinity and [try again](architecture.md#try-again). |
+| `ENABLE_FORWARD_USER_INFO_HEADERS` | `false`. Open WebUI does not send the user's name, email address, stable user ID, or role. |
 | `WEBUI_SECRET_KEY` | From `.env`. Without it, each new container makes a new key, and all logins end. |
 | `AIOHTTP_CLIENT_TIMEOUT` | `600`, the same as `limits.request`. The Open WebUI default is 300 s. |
 | `TASK_MODEL_EXTERNAL` | `daedalus/auto`, for titles, tags and follow-ups |
@@ -135,6 +136,12 @@ The installers ask for profiles only when `.env` is absent. If you decline Open 
 After a change of `personalization.audio` or `personalization.images` in [`config/daedalus.yml`](../config/daedalus.yml), change `daedalus/graphos` or `daedalus/photos` in [`compose.yml`](../compose.yml) and in **Admin Settings**. Also change the pool names in the Kilo and Open WebUI model settings.
 
 Open WebUI reads most of these settings only on the first start with a new data volume. After that, the values in **Admin Settings** apply. On an existing install, set them there.
+
+For an existing or separate Open WebUI install:
+
+1. Open **Admin Settings → Connections**, and edit the daedalus OpenAI connection.
+2. Open **Advanced**. Set **Custom Headers** to `{"X-OpenWebUI-Chat-Id":"{{CHAT_ID}}"}`.
+3. Keep **Forward User Info Headers** off.
 
 To check the services and settings:
 
