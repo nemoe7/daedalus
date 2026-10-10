@@ -1488,12 +1488,13 @@ function hooksManager() {
   const list = rows.map((row) => {
     const record = row.record || {};
     const source = record.repo ? `${record.repo}@${(record.commit || "").slice(0, 7)}` : "";
-    const label = [row.author, row.title || row.name].filter(Boolean).join("/");
-    return `<tr><td role="cell" class="name"><span class="cell-value" title="${esc(row.name)}">${esc(label)}</span></td>
+    const title = row.title || row.name;
+    const author = row.author ? `<span class="hook-author">${esc(row.author)}</span>` : "";
+    return `<tr><td role="cell" class="name"><span class="cell-value" title="${esc(row.name)}"><span class="hook-title">${esc(title)}</span>${author}</span></td>
       <td role="cell"><span class="cell-value">${esc(hookVersion(row))}</span></td>
       <td role="cell" class="surfaces">${hookSurfacesCell(row)}</td>
       <td role="cell"><span class="cell-value">${esc(row.scope || "global")}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
-      <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || "local")}">${row.problem ? `<span class="bad">${esc(row.problem)}</span>` : esc(source || "local")}</span></td>
+      <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || "local")}">${row.problem ? `<span class="bad">${esc(row.problem)}</span>` : esc(record.repo || "local")}${record.commit ? `<span class="hook-sha">${esc(record.commit.slice(0, 7))}</span>` : ""}</span></td>
       <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
         ${disabled.includes(row.name) ? "" : "checked"} aria-label="Enabled ${esc(row.name)}"></td>
       <td class="end"><button type="button" class="ghost danger" data-hook-drop="${esc(row.path)}" aria-label="Delete ${esc(row.name)}" title="Delete">${LUCIDE.trash}</button></td></tr>`;
