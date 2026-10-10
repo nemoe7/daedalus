@@ -520,15 +520,24 @@ def record_rebuild(
     database.close()
 
 
-def recent_rebuilds(limit: int = 50) -> list[dict[str, Any]]:
-  """The rebuild events, newest first, with their lists read back."""
+def recent_rebuilds(
+  limit: int = 50, *, include_empty: bool = True
+) -> list[dict[str, Any]]:
+  """The rebuild events, newest first. Omit events with no diff or failure on request."""
   if not Path(MODELS_DB).exists():
     return []
+  where = (
+    ""
+    if include_empty
+    else (
+      "WHERE added != '[]' OR removed != '[]' OR changed != '[]' OR failed != '[]' "
+    )
+  )
   database = connect_read(MODELS_DB)
   try:
     rows = database.execute(
       "SELECT at, reason, models, added, removed, changed, failed FROM catalog_rebuilds "
-      "ORDER BY id DESC LIMIT ?",
+      f"{where}ORDER BY id DESC LIMIT ?",
       (limit,),
     ).fetchall()
   except sqlite3.OperationalError:

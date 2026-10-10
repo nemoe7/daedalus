@@ -880,7 +880,7 @@ def state_routes(
       return denied()
     return JSONResponse(
       {
-        "rebuilds": store.recent_rebuilds(50),
+        "rebuilds": store.recent_rebuilds(50, include_empty=False),
         "update": updates.read(),
         "limits": limit_warnings(seen),
       }

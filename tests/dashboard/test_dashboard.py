@@ -4425,6 +4425,22 @@ def test_notifications_endpoint(client: TestClient) -> None:
     changed=["p/big"],
     failed=["kilo"],
   )
+  store.record_rebuild(
+    reason="unchanged",
+    models=3,
+    added=[],
+    removed=[],
+    changed=[],
+    failed=[],
+  )
+  store.record_rebuild(
+    reason="failed",
+    models=3,
+    added=[],
+    removed=[],
+    changed=[],
+    failed=["groq"],
+  )
   updates.save(
     {
       "repo": "nemoe7/daedalus",
@@ -4460,9 +4476,12 @@ def test_notifications_endpoint(client: TestClient) -> None:
     answer = client.get("/ui/api/notifications")
     assert answer.status_code == 200
     data = answer.json()
-    assert data["rebuilds"][0]["reason"] == "scheduled"
-    assert data["rebuilds"][0]["added"] == ["p/new"]
-    assert data["rebuilds"][0]["changed"] == ["p/big"]
+    rebuilds = data["rebuilds"]
+    assert [event["reason"] for event in rebuilds[:2]] == ["failed", "scheduled"]
+    assert all(event["reason"] != "unchanged" for event in rebuilds)
+    assert rebuilds[0]["failed"] == ["groq"], "a provider failure still notifies"
+    assert rebuilds[1]["added"] == ["p/new"]
+    assert rebuilds[1]["changed"] == ["p/big"]
     assert data["update"]["latest"] == "v1.1.0"
     assert len(data["limits"]) == 1, "only the row near its limit warns"
     warning = data["limits"][0]
