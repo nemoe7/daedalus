@@ -30,7 +30,7 @@ def sent_effort(effort: object) -> object:
 def test_efforts() -> None:
   for effort, expected in (
     ("none", "none"),
-    ("minimal", "none"),
+    ("minimal", "high"),
     ("low", "high"),
     ("medium", "high"),
     ("high", "high"),
