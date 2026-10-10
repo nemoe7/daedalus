@@ -77,16 +77,18 @@ def test_refresh_rejects_other_content(
   assert not (tmp_path / "free.defaults.yml").exists(), "nothing writes"
 
 
-def test_the_catalog_rebuild_fills_the_live_config(
-  monkeypatch: pytest.MonkeyPatch,
+def test_the_catalog_rebuild_refreshes_default_blocks(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """A rebuild fetches the defaults and adds the absent provider names to the live config."""
-  seen: dict = {}
+  """A rebuild replaces an old cloud block and keeps a local provider block."""
+  local = tmp_path / "free.yml"
+  local.write_text("cloudflare:\n  api_key: mine\n", encoding="utf-8")
+  monkeypatch.setattr(defaults, "PATH", tmp_path / "free.defaults.yml")
+  defaults.PATH.write_text("kilo:\n  api_base: https://old.test\n", encoding="utf-8")
   monkeypatch.setattr(
-    defaults,
-    "refresh",
-    lambda: {"kilo": {"api_base": "https://kilo.test"}},
+    defaults, "fetch", lambda: "kilo:\n  api_base: https://new.test\n"
   )
+  seen: dict = {}
 
   def build(config, **_kwargs):
     seen.update(config)
@@ -94,8 +96,7 @@ def test_the_catalog_rebuild_fills_the_live_config(
 
   from daedalus import config as live
 
-  monkeypatch.setattr(live, "get_config", lambda: {"cloudflare": {"api_key": "mine"}})
-  monkeypatch.setattr("daedalus.catalog.get_config", live.get_config)
+  live.load_config(local)
   monkeypatch.setattr("daedalus.catalog.build_rows", build)
   monkeypatch.setattr("daedalus.catalog.enrich", lambda *a, **k: ([], []))
   monkeypatch.setattr(
@@ -103,8 +104,14 @@ def test_the_catalog_rebuild_fills_the_live_config(
   )
   from daedalus.catalog import _rebuild
 
-  _rebuild(cached=True)
-  assert "kilo" in seen and seen["cloudflare"] == {"api_key": "mine"}, seen
+  try:
+    _rebuild(cached=True)
+  finally:
+    live.set_config(None)
+  assert seen == {
+    "cloudflare": {"api_key": "mine"},
+    "kilo": {"api_base": "https://new.test"},
+  }, seen
 
 
 def test_the_cache_file_holds_yaml(

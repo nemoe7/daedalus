@@ -10,6 +10,7 @@ import pytest
 from daedalus import config, providers
 from daedalus.catalog import discovery
 from daedalus.catalog.enrichment import config_params
+from daedalus.config import defaults
 from daedalus.routing import router
 
 SAMPLE = """\
@@ -77,6 +78,19 @@ def test_missing_file() -> None:
     pass
   else:
     raise AssertionError("a missing file must raise FileNotFoundError")
+
+
+def test_missing_main_uses_cached_defaults(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  monkeypatch.chdir(tmp_path)
+  monkeypatch.setattr(defaults, "PATH", tmp_path / "free.defaults.yml")
+  defaults.PATH.write_text("p:\n  exclude: [gpt3]\n", encoding="utf-8")
+
+  loaded = config.load_config()
+
+  assert loaded == {"p": {"exclude": ["gpt3"]}}
+  assert config.get_config() is loaded
 
 
 def test_repo_file() -> None:

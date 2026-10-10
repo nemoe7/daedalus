@@ -17,6 +17,8 @@ At each catalog rebuild, daedalus reads the default provider file of the reposit
 [`config/providers/free.yml`](../config/providers/free.yml) on `main`, and adds each provider that the local file lacks. The
 local file wins as a whole, so a local provider block, a changed value and a removed provider stay.
 The read never writes [`config/providers/free.yml`](../config/providers/free.yml): the copy lands in `.daedalus-state/free.defaults.yml`.
+
+With no local `free.yml`, the remote or cached copy supplies the main provider blocks.
 With no network or a bad file, the copy of the last good read stands, and daedalus logs 1 line.
 
 daedalus reads the files at the start and on each save from the dashboard. A hand edit of a file on disk needs a reload. A save from the dashboard reloads the file for the live server and rebuilds the catalog from it. With no save, run `daedalus catalog`: the command reads the files again for its store build.

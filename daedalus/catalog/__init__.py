@@ -7,7 +7,7 @@ from typing import Any
 
 from daedalus.catalog.discovery import build_rows
 from daedalus.catalog.enrichment import enrich
-from daedalus.config import get_config
+from daedalus.config import get_config, sync_defaults
 from daedalus.providers import ProviderError, hooks, provider_for
 from daedalus.store import write_store
 
@@ -46,12 +46,10 @@ def with_hooks(
 def _rebuild(cached: bool) -> Path:
   """Build the model store from fetched provider lists or cached snapshots."""
   global LAST_FAILED
-  # The default provider file of the repository fills the names that the live config lacks, so a
-  # new default provider lands here. The fetch never writes the local file of the operator.
   from daedalus.config import defaults
 
-  config = get_config()
-  defaults.fill(config, defaults.refresh())
+  get_config()
+  config = sync_defaults(defaults.refresh())
   failed: list[str] = []
   native, skipped = build_rows(
     config, failed=failed, cached=cached, save_snapshots=not cached

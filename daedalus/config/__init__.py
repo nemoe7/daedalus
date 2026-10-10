@@ -33,6 +33,7 @@ PROVIDER_KEYS = (
 )
 
 _config: dict[str, Any] | None = None
+_local_config: dict[str, Any] | None = None
 SAVED: dict[str, str] = {}
 
 # The shape of each known key of a provider block: the type of the value, and the words of a refusal.
@@ -177,7 +178,10 @@ def provider_files(path: Path | str = DEFAULT_PATH) -> list[Path]:
 def file_shadows(path: Path | str = DEFAULT_PATH) -> dict[str, str]:
   """Each `{provider}.yml` whose block the main file also sets, with the name of the main file."""
   main = Path(path)
-  loaded = read_yaml(main)
+  try:
+    loaded = read_yaml(main)
+  except FileNotFoundError:
+    return {}
   return {
     file.name: main.name
     for file in provider_files(path)
@@ -243,11 +247,16 @@ def drop_wrong_shapes(loaded: dict[str, Any], where: str, stem: str) -> None:
 
 
 def load_config(path: Path | str = DEFAULT_PATH) -> dict[str, Any]:
-  """Read the main provider file and each `{provider}.yml` file into memory."""
-  global _config
+  """Read the local provider files and cached defaults into memory."""
+  global _config, _local_config
   load_saved()
   source = Path(path)
-  loaded = read_yaml(source)
+  try:
+    loaded = read_yaml(source)
+  except FileNotFoundError:
+    if source != DEFAULT_PATH:
+      raise
+    loaded = {}
   drop_wrong_shapes(loaded, source.name, source.stem)
   for file, content in provider_blocks(path):
     block = loaded.setdefault(file.stem, {})
@@ -261,6 +270,7 @@ def load_config(path: Path | str = DEFAULT_PATH) -> dict[str, Any]:
       Path(name).stem,
       owner,
     )
+  _local_config = dict(loaded)
   from daedalus.config import defaults
 
   defaults.fill(loaded)
@@ -305,14 +315,26 @@ def client_key(block: Any, client: str | None) -> str | None:
   return found if isinstance(found, str) and found else None
 
 
+def sync_defaults(provider_defaults: dict[str, Any]) -> dict[str, Any]:
+  """Replace inherited provider blocks and keep the local blocks."""
+  global _config
+  loaded = dict(_local_config or {})
+  from daedalus.config import defaults
+
+  defaults.fill(loaded, provider_defaults)
+  _config = loaded
+  return loaded
+
+
 def get_config() -> dict[str, Any]:
-  """Return the loaded config, loading `config/providers/free.yml` on the first call."""
+  """Return the config, loading the local files and cached defaults on the first call."""
   if _config is None:
     return load_config()
   return _config
 
 
 def set_config(config: dict[str, Any] | None) -> None:
-  """Replace the loaded config. Test seam."""
-  global _config
+  """Replace the loaded and local config. Test seam."""
+  global _config, _local_config
   _config = config
+  _local_config = dict(config) if config is not None else None

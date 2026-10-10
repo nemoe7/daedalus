@@ -115,6 +115,25 @@ def test_endpoints(folder: Path) -> None:
   assert TestClient(api.app).get("/ui/api/provider-keys").status_code == 401
 
 
+def test_files_accept_a_missing_main(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  main = tmp_path / "free.yml"
+  single = tmp_path / "openrouter.yml"
+  single.write_text(SINGLE, encoding="utf-8")
+  monkeypatch.setattr(dashboard, "FILES", (main,))
+  session = dashboard.cookie(dashboard.secret(), time.time())
+  client = TestClient(api.app, headers={"x-daedalus-session": session})
+
+  answer = client.get("/ui/api/files")
+
+  assert answer.status_code == 200, answer.text
+  files = answer.json()
+  assert [Path(row["path"]).name for row in files] == ["free.yml", "openrouter.yml"]
+  assert files[0]["text"] == "" and files[0]["blocks"] == {}
+  assert files[1]["blocks"] == {"openrouter": yaml.safe_load(SINGLE)}
+
+
 @pytest.fixture(scope="module")
 def folder(tmp_path_factory: pytest.TempPathFactory):
   original = config.DEFAULT_PATH, dashboard.FILES
