@@ -356,7 +356,6 @@ def upload_row(row,directory):path=directory/UPLOAD_DIR/row['file'];record=dict(
 def add_note_attachments(note,records):
 	if records:note['attachment_name']=records[0]['name'];note['attachment_path']=records[0]['path'];note['attachments']=records
 	return note
-def cli_json(value):return json.dumps(value,ensure_ascii=False,separators=(',',':'))
 def format_pending_item(item):
 	kind=item.get('kind')or'note';display_kind='answer'if kind=='report'else kind;header=f"{display_kind} {item.get('id','')}"
 	if item.get('report_id'):header+=f" report {item['report_id']}"
@@ -379,7 +378,7 @@ def format_task_list(tasks):
 		if report_id:line+=f" report {report_id}"
 		lines.append(line)
 	return'\n'.join(lines)
-def format_task(record,before=None,after=None):
+def format_task(record):
 	id_=record.get('id');order=record.get('order');status=record.get('status');report_id=record.get('report_id');blocked=record.get('blocked');title=record.get('title')or'';details=record.get('details')or[];cut=[detail[:ECHO_DETAIL]+('…'if len(detail)>ECHO_DETAIL else'')for detail in details];first=f"task {id_}, order {order}, status {status}"
 	if report_id:first+=f", report {report_id}"
 	if blocked:first+=', blocked'
@@ -440,7 +439,7 @@ def serve_warning(line):
 	found=SERVE_PORT_RE.search(line or'')
 	if not found or int(found.group(1))==DEFAULT_PORT:return None
 	return f"arena-preview gate: that serve names port {found.group(1)}, not the standard {DEFAULT_PORT}. The owner's page and the poll follow the standard port. Name another only when 8000 is taken, and say so."
-def quiet_inbox_line(line):
+def first_blocking_piece(line):
 	text=unquote_commands(line)
 	for separator in('&&','||',';','|','\n'):text=text.replace(separator,'\x00')
 	for piece in text.split('\x00'):
@@ -459,11 +458,35 @@ def quiet_inbox_line(line):
 		if head in INERT_COMMANDS:continue
 		if head in('arena-preview','preview.py'):
 			rest=tokens[idx+1:]
-			if any(token.startswith('$(')or'`'in token for token in rest):return False
+			if any(token.startswith('$(')or'`'in token for token in rest):return piece.strip()
 			continue
-		return False
-	return True
+		return piece.strip()
+	return None
+def quiet_inbox_line(line):return first_blocking_piece(line)is None
 GATE_NOISE='tail','grep','head'
+RUN_NAME=re.compile('[A-Za-z0-9._-]{1,64}')
+RUN_TAIL_LINES=40
+def run_record_path(state_dir,name):return Path(state_dir)/'runs'/f"{name}.json"
+def run_command(state_dir,name,argv):
+	if not RUN_NAME.fullmatch(name or''):print('arena-preview run: the name takes 1 to 64 letters, digits, dot, dash or underscore.',flush=True);return 2
+	if argv[:1]==['--']:argv=argv[1:]
+	if not argv:print('arena-preview run: name a command after --, for example: run gates -- make check',flush=True);return 2
+	started=time.monotonic();completed=subprocess.run(argv,capture_output=True,text=True,check=False);seconds=round(time.monotonic()-started,1);output=(completed.stdout+completed.stderr).splitlines();tail=output[-RUN_TAIL_LINES:];verdict=tail[-1]if tail else'(no output)';record={'name':name,'argv':argv,'exit':completed.returncode,'seconds':seconds,'finished_at':now(),'verdict':verdict,'tail':tail,'announced':False};path=run_record_path(state_dir,name);path.parent.mkdir(parents=True,exist_ok=True);path.write_text(json.dumps(record,ensure_ascii=False,indent=1)+'\n',encoding='utf-8')
+	for line in tail:print(line,flush=True)
+	line=f"arena-preview run {name}: exit {completed.returncode} in {seconds} s. Verdict: {verdict}";print(line,flush=True);print(line,file=sys.stderr,flush=True);return completed.returncode
+def run_notices(state_dir):
+	runs=Path(state_dir)/'runs'
+	if not runs.is_dir():return
+	for path in sorted(runs.glob('*.json')):
+		try:record=json.loads(path.read_text(encoding='utf-8'))
+		except(OSError,ValueError):continue
+		if record.get('announced'):continue
+		print(f"Finished run {record.get('name')}: exit {record.get('exit')} in {record.get('seconds')} s. Verdict: {record.get('verdict')}",flush=True);record['announced']=True;path.write_text(json.dumps(record,ensure_ascii=False,indent=1)+'\n',encoding='utf-8')
+SHELL_WRAPPER=re.compile('^(?:\\S*/)?(?:ba|z|da)?sh\\s+(?:-\\w+\\s+)*-c\\s+')
+def shell_command_text(text):
+	stripped=SHELL_WRAPPER.sub('',text.strip(),count=1)
+	if len(stripped)>=2 and stripped[0]==stripped[-1]and stripped[0]in'\'"':stripped=stripped[1:-1]
+	return stripped
 def gate_line_hint(line):
 	words={token for token in re.split('[^A-Za-z0-9_.-]+',line or'')};found=[name for name in GATE_NOISE if name in words]
 	if not found:return None
@@ -780,7 +803,6 @@ class Store:
 			for path in created:path.unlink(missing_ok=True)
 			raise
 		self.autosave();return result
-	def note_with_upload(self,note_id,text,name,content_type,data):return self.note_with_uploads(note_id,text,[(name,content_type,data)])
 	def fetch_jobs(self):
 		with closing(self.connect())as db:rows=db.execute('SELECT * FROM fetch_jobs ORDER BY seq DESC').fetchall()
 		return[fetch_row(row,self.path.parent)for row in rows]
@@ -957,7 +979,7 @@ class Store:
 		with closing(self.connect())as db,db:
 			uploads=db.execute('SELECT count(*) FROM notes JOIN uploads USING (id) WHERE acknowledged_at IS NULL').fetchone()[0];notes=db.execute('SELECT count(*) FROM notes WHERE acknowledged_at IS NULL').fetchone()[0]-uploads;reports=db.execute('SELECT count(*) FROM submissions WHERE acknowledged_at IS NULL').fetchone()[0];remaining=db.execute("SELECT count(*) FROM tasks WHERE status <> 'finished'").fetchone()[0];cursor=meta_number(db,REMINDER_CURSOR);polls=0 if advance and not notes+reports+uploads else meta_number(db,POLLS_SINCE_MESSAGE)+(1 if advance else 0);db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(REMINDER_CURSOR,str(cursor+1)))
 			if advance:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(POLLS_SINCE_MESSAGE,str(polls)))
-		counts=[f"{count} {kind}{'s'if count!=1 else''}."for(count,kind)in((notes,'note'),(reports,'answer'),(uploads,'upload'))if count];ack=['DO NOT IGNORE. ACK ASAP.']if counts else[];head=[f"Calls since user message: {polls}."]if polls and counts else[];tail=reminder_tail(cursor,remaining);return' '.join([*head,*counts,*ack,tail])
+		counts=[f"{count} {kind}{'s'if count!=1 else''}"for(count,kind)in((notes,'note'),(reports,'answer'),(uploads,'upload'))if count];unacked=[f"Unacked: {', '.join(counts)}."]if counts else[];ack=['DO NOT IGNORE. ACK ASAP.']if counts else[];head=[f"Calls since user message: {polls}."]if polls and counts else[];tail=reminder_tail(cursor,remaining);return' '.join([*head,*unacked,*ack,tail])
 	def gate(self,threshold=GATE_THRESHOLD,pending_only=False):
 		with closing(self.connect())as db,db:pending=db.execute('SELECT (SELECT count(*) FROM notes WHERE acknowledged_at IS NULL AND quiet = 0) + (SELECT count(*) FROM submissions WHERE acknowledged_at IS NULL)').fetchone()[0];polls=meta_number(db,POLLS_SINCE_MESSAGE)
 		if pending_only:return not pending
@@ -1059,9 +1081,6 @@ class Store:
 		with self.transaction()as db:
 			row=db.execute('SELECT title, seen_at, ack_seen_at, viewed_at FROM reports WHERE id = ?',(report_id,)).fetchone()
 			if row is None:raise FileNotFoundError('Report not found')
-			if not dismissed_by_owner:
-				answered=db.execute('SELECT 1 FROM submissions WHERE report_id = ? LIMIT 1',(report_id,)).fetchone()
-				if answered is not None:raise ValueError("The report has been answered: its id is pinned by the answer, so a revision publishes under a new id and the tab is the owner's to dismiss.")
 			if not row['seen_at']:raise UnpublishHeld('The report waits for the owner: it has not been seen yet. Open it to clear the wait.')
 			db.execute('DELETE FROM reports WHERE id = ?',(report_id,));db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(REMOVED_META,now()))
 			if dismissed_by_owner:db.execute('INSERT INTO notes (id, text, at, quiet) VALUES (?, ?, ?, 1)',(new_id(),f"The owner dismissed the report {report_id} ({row['title']}).",now()))
@@ -1296,11 +1315,12 @@ def ensure_installed():
 			except OSError:pass
 			return
 def main():
-	parser=argparse.ArgumentParser(description=CLI_DESCRIPTION);parser.add_argument('--reminder',action='store_true',help='Print the unacked-count reminder line and exit');commands=parser.add_subparsers(dest='command',required=False);serve=commands.add_parser('serve');serve.add_argument('--port',type=int,default=DEFAULT_PORT,help=f"Port to bind (default: {DEFAULT_PORT})");commands.add_parser('init');commands.add_parser('read');note_reread=commands.add_parser('note',help='Reread a stored note by its short or full ID');note_reread.add_argument('id',help='Seven or all characters of a note ID');commands.add_parser('key');inbox_line=commands.add_parser('inbox-line',help='Report whether a command line that names an inbox call runs nothing else');inbox_line.add_argument('line',help='The command line, as the hook read it');ack_tick=commands.add_parser('ack-tick',help='Warn when an inline ack text holds a backtick the shell will substitute');ack_tick.add_argument('line',help='The command line, as the hook read it');serve_tick=commands.add_parser('serve-tick',help='Warn when a serve names a port other than the default');serve_tick.add_argument('line',help='The command line, as the hook read it');gate=commands.add_parser('gate');gate.add_argument('--push',action='store_true',help='Block while any note or answer awaits an ack, whatever the call count');gate.add_argument('--line',default='',help='The command line, as the hook read it; a blocked call then names the commands to drop');commands.add_parser('poll');download=commands.add_parser('download-request',help='Request an HTTPS browser download, pending a preview Approve click');download.add_argument('url',help='One HTTPS URL without embedded credentials');download.add_argument('--allow-proxy',action='store_true',help='Let the owner opt in to AllOrigins and CodeTabs fallback for this request');ack=commands.add_parser('ack');ack.add_argument('ids',nargs='+');ack.add_argument('--reply',help='Markdown answer shown in the message log');ack.add_argument('--note',help='Short plain answer shown in the message log');ack.add_argument('--reply-file',type=Path,help='Read the Markdown answer from this file');ack.add_argument('--note-file',type=Path,help='Read the plain answer from this file');publish=commands.add_parser('publish');publish.add_argument('source',type=Path);publish.add_argument('--id',required=True);publish.add_argument('--title',required=True);unpublish=commands.add_parser('unpublish');unpublish.add_argument('report_id');task=commands.add_parser('task');task.add_argument('id_arg',nargs='?',metavar='TASK-ID');task.add_argument('title_arg',nargs='?',metavar='TASK-TITLE');task.add_argument('detail_arg',nargs='*',metavar='TASK-DETAIL');task.add_argument('--task-details',action='append',help='One step per line, 120 characters or fewer, repeatable; an empty string clears the list');task.add_argument('--blocked',dest='blocked',action='store_true',default=None,help='Mark the task blocked, so a poll may wait');task.add_argument('--unblocked',dest='blocked',action='store_false',help='Clear the blocked mark');task.add_argument('--msg-id',help='Message this task answers; marks that message as having a task');task.add_argument('--report',metavar='REPORT-ID',help='Report this task waits on; its answer clears the blocked mark');task.add_argument('--amend',metavar='PREV-ID',help='Rename the task stored under this ID to the one given');task.add_argument('--status',choices=TASK_STATUSES,default=None);task.add_argument('--order',type=int,default=None,help='1-based place in its div, not the end');task_remove=commands.add_parser('task-remove');task_remove.add_argument('task_id');commands.add_parser('task-list');state_import=commands.add_parser('import-state');state_import.add_argument('source',nargs='?',type=Path);state_import.add_argument('--replace-tasks',action='store_true');state_import.add_argument('--force',action='store_true',help='import even when the live state holds newer messages');commands.add_parser('clear-state',help='Empty every state table in place; the agent key record survives');args=parser.parse_args();state_dir=resolve_state_dir()
+	parser=argparse.ArgumentParser(description=CLI_DESCRIPTION);parser.add_argument('--reminder',action='store_true',help='Print the unacked-count reminder line and exit');commands=parser.add_subparsers(dest='command',required=False);serve=commands.add_parser('serve');serve.add_argument('--port',type=int,default=DEFAULT_PORT,help=f"Port to bind (default: {DEFAULT_PORT})");commands.add_parser('init');commands.add_parser('read');note_reread=commands.add_parser('note',help='Reread a stored note by its short or full ID');note_reread.add_argument('id',help='Seven or all characters of a note ID');commands.add_parser('key');inbox_line=commands.add_parser('inbox-line',help='Report whether a command line that names an inbox call runs nothing else');inbox_line.add_argument('line',help='The command line, as the hook read it');run=commands.add_parser('run',help='Run a command, keep its output tail, and show the exit on the next gate call');run.add_argument('name',help='A short name for the run, for example gates');run.add_argument('command_args',nargs=argparse.REMAINDER,help='The command, after --');ack_tick=commands.add_parser('ack-tick',help='Warn when an inline ack text holds a backtick the shell will substitute');ack_tick.add_argument('line',help='The command line, as the hook read it');serve_tick=commands.add_parser('serve-tick',help='Warn when a serve names a port other than the default');serve_tick.add_argument('line',help='The command line, as the hook read it');gate=commands.add_parser('gate');gate.add_argument('--push',action='store_true',help='Block while any note or answer awaits an ack, whatever the call count');gate.add_argument('--line',default='',help='The command line, as the hook read it; a blocked call then names the commands to drop');commands.add_parser('poll');download=commands.add_parser('download-request',help='Request an HTTPS browser download, pending a preview Approve click');download.add_argument('url',help='One HTTPS URL without embedded credentials');download.add_argument('--allow-proxy',action='store_true',help='Let the owner opt in to AllOrigins and CodeTabs fallback for this request');ack=commands.add_parser('ack');ack.add_argument('ids',nargs='+');ack.add_argument('--reply',help='Markdown answer shown in the message log');ack.add_argument('--note',help='Short plain answer shown in the message log');ack.add_argument('--reply-file',type=Path,help='Read the Markdown answer from this file');ack.add_argument('--note-file',type=Path,help='Read the plain answer from this file');publish=commands.add_parser('publish');publish.add_argument('source',type=Path);publish.add_argument('--id',required=True);publish.add_argument('--title',required=True);unpublish=commands.add_parser('unpublish');unpublish.add_argument('report_id');task=commands.add_parser('task');task.add_argument('id_arg',nargs='?',metavar='TASK-ID');task.add_argument('title_arg',nargs='?',metavar='TASK-TITLE');task.add_argument('detail_arg',nargs='*',metavar='TASK-DETAIL');task.add_argument('--task-details',action='append',help='One step per line, 120 characters or fewer, repeatable; an empty string clears the list');task.add_argument('--blocked',dest='blocked',action='store_true',default=None,help='Mark the task blocked, so a poll may wait');task.add_argument('--unblocked',dest='blocked',action='store_false',help='Clear the blocked mark');task.add_argument('--msg-id',help='Message this task answers; marks that message as having a task');task.add_argument('--report',metavar='REPORT-ID',help='Report this task waits on; its answer clears the blocked mark');task.add_argument('--amend',metavar='PREV-ID',help='Rename the task stored under this ID to the one given');task.add_argument('--status',choices=TASK_STATUSES,default=None);task.add_argument('--order',type=int,default=None,help='1-based place in its div, not the end');task_remove=commands.add_parser('task-remove');task_remove.add_argument('task_id');commands.add_parser('task-list');state_import=commands.add_parser('import-state');state_import.add_argument('source',nargs='?',type=Path);state_import.add_argument('--replace-tasks',action='store_true');state_import.add_argument('--force',action='store_true',help='import even when the live state holds newer messages');commands.add_parser('clear-state',help='Empty every state table in place; the agent key record survives');args=parser.parse_args();state_dir=resolve_state_dir()
 	try:
 		if args.reminder:store=Store(state_dir,create=False);require_server(store);print(store.reminder(advance=True),flush=True);store.set_meta(AGENT_CALL_ENDED_META,now());return 0
 		if not args.command:parser.error('a command is required')
 		if args.command=='inbox-line':return 0 if quiet_inbox_line(args.line)else 1
+		if args.command=='run':return run_command(state_dir,args.name,args.command_args)
 		if args.command=='ack-tick':
 			warning=tick_warning(args.line)
 			if warning:print(warning,file=sys.stderr)
@@ -1310,6 +1330,7 @@ def main():
 			if warning:print(warning,file=sys.stderr)
 			return 0
 		if args.command=='gate':
+			run_notices(state_dir)
 			if poll_timeout_line(args.line):print('TIMEOUT BANNED: never wrap `arena-preview poll` in shell `timeout`. The poll holds its own 1800-second span. Set the bash tool timeout 1800 instead, so a cut wait still returns its listing.',flush=True);return 1
 			try:allowed=Store(state_dir).gate(pending_only=args.push)
 			except FileNotFoundError:allowed=True
@@ -1318,6 +1339,8 @@ def main():
 				if args.push:print('PUSH BLOCKED: a note or answer awaits an ack, so nothing left the sandbox. Read the inbox, ack every item, push again.',flush=True)
 				print('READ INBOX NOW. Only a bare `arena-preview read` passes. Then ack every note, one call per note: `arena-preview ack <id> --reply <markdown>` or `arena-preview ack <id> --note <text>`.',flush=True);hint=gate_line_hint(args.line)
 				if hint:print(hint,flush=True)
+				blocker=first_blocking_piece(args.line)
+				if blocker:blocker=shell_command_text(blocker);print(f"Blocked by the part `{blocker}`. Run the inbox calls alone, or drop this part.",flush=True)
 				return 1
 			if args.push and main_identical():print('HEAD equals `origin/main`, so the push carries nothing. Start new work from `origin/main`.',flush=True);return 1
 			return 0
