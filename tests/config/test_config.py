@@ -93,6 +93,31 @@ def test_missing_main_uses_cached_defaults(
   assert config.get_config() is loaded
 
 
+def test_missing_main_keeps_defaults_beside_a_provider_file(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A provider file stays separate from cached and refreshed main defaults."""
+  monkeypatch.chdir(tmp_path)
+  folder = tmp_path / "config" / "providers"
+  folder.mkdir(parents=True)
+  (folder / "p.yml").write_text(
+    "api_key: file\nmodels:\n  special: {pool: false}\n", encoding="utf-8"
+  )
+  monkeypatch.setattr(defaults, "PATH", tmp_path / "free.defaults.yml")
+  defaults.PATH.write_text("p:\n  exclude: [gpt3]\n", encoding="utf-8")
+
+  loaded = config.load_config()
+
+  assert config.main_block(loaded["p"]) == {"exclude": ["gpt3"]}
+  assert config.file_block(loaded["p"]) == {
+    "api_key": "file",
+    "models": {"special": {"pool": False}},
+  }
+  refreshed = config.sync_defaults({"p": {"exclude": ["gpt4"]}})
+  assert config.main_block(refreshed["p"]) == {"exclude": ["gpt4"]}
+  assert config.file_block(refreshed["p"]) == config.file_block(loaded["p"])
+
+
 def test_repo_file() -> None:
   """The committed provider file parses, and its top-level keys are alphabetical."""
   for name in (

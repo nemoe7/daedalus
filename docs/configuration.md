@@ -14,9 +14,10 @@ daedalus reads its settings from these sources:
 A key that shows 2 times in 1 map of a config file stops the start. The error gives the key and the 2 line numbers.
 
 At each catalog rebuild, daedalus reads the default provider file of the repository,
-[`config/providers/free.yml`](../config/providers/free.yml) on `main`, and adds each provider that the local file lacks. The
-local file wins as a whole, so a local provider block, a changed value and a removed provider stay.
-The read never writes [`config/providers/free.yml`](../config/providers/free.yml): the copy lands in `.daedalus-state/free.defaults.yml`.
+[`config/providers/free.yml`](../config/providers/free.yml) on `main`, and adds each provider that the local `free.yml` lacks.
+A provider block in the local `free.yml` replaces its cloud block as a whole. A separate `{provider}.yml` file stays independent
+and does not replace the cloud block. The read never writes [`config/providers/free.yml`](../config/providers/free.yml): the copy
+lands in `.daedalus-state/free.defaults.yml`.
 
 With no local `free.yml`, the remote or cached copy supplies the main provider blocks.
 With no network or a bad file, the copy of the last good read stands, and daedalus logs 1 line.

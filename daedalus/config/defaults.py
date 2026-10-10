@@ -61,8 +61,16 @@ def cached() -> dict[str, Any]:
 def fill(
   loaded: dict[str, Any], defaults: dict[str, Any] | None = None
 ) -> dict[str, Any]:
-  """Add each default provider block that `loaded` lacks, in place. A local name wins whole."""
+  """Add each missing default provider block. A local main block wins whole."""
+  from daedalus.config import FILE_KEY
+
   for name, block in (defaults if defaults is not None else cached()).items():
     if name not in loaded and isinstance(block, dict):
       loaded[name] = block
+    elif (
+      isinstance(block, dict)
+      and isinstance(loaded.get(name), dict)
+      and set(loaded[name]) == {FILE_KEY}
+    ):
+      loaded[name] = {**block, **loaded[name]}
   return loaded
