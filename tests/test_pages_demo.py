@@ -162,6 +162,11 @@ const check = (ok, text) => {
   const models = await (await context.fetch("ui/api/models")).json();
   check(models.length > 100, "the models are the captured snapshot");
   check(models.every((row) => !String(row.id).includes("*")), "no glob reaches the models page");
+  const nonChat = models.filter((row) => row.mode !== "chat");
+  check(nonChat.length > 0 && nonChat.every((row) => row.tier === null),
+    "non-chat models have no routing tier");
+  check(models.some((row) => row.mode === "chat" && row.tier),
+    "chat models keep their routing tiers");
   const sophos = (await (await context.fetch("ui/api/pools")).json())
     .find((pool) => pool.name === "daedalus/sophos");
   check(sophos.members.length > 10 && sophos.members.every((row) => row.tier === "TIER-A"),
