@@ -9,6 +9,11 @@ call, including reads.
 
 `Allow reads` frees the reads and holds the writes.
 
+Each tool name and its docstring are the interface that the model reads. Open WebUI turns the text
+above the first `:param` into the description of the tool. Each `:param name:` line becomes the
+description of that argument in the JSON schema. So a param line is not a comment: it is the only
+place that gives the model a rule, and it stays.
+
 ```mermaid
 flowchart TD
   A[Chat] --> B[The model calls a tool]
