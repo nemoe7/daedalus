@@ -1,6 +1,6 @@
 # The manager tool
 
-[Open WebUI integration](../owui.md)
+See [Open WebUI integration](../owui.md) for the other plugins.
 
 [`integrations/openwebui/tools/owui_manager.py`](../../../integrations/openwebui/tools/owui_manager.py) is 1 Workspace Tool over the whole workspace: knowledge bases, skills, the file library, the Workspace Tools and the Functions. The caller token comes from the chat request, and the `OWUI_API_BASE` valve holds the base URL.
 
@@ -27,14 +27,14 @@ flowchart TD
 | Tools | `list_tools`, `show_tool`, `create_tool`, `update_tool`, `toggle_tool`, `delete_tool` |
 | Functions | `list_functions`, `show_function`, `create_function`, `update_function`, `toggle_function`, `delete_function` |
 
-The `permissions` valve holds 3 levels. `Always ask` gates every call, reads included. `Allow reads` frees the
+The `permissions` valve holds 3 levels. `Always ask` gates every call, including reads. `Allow reads` frees the
 reads and the new items, and holds the mutations and the toggles. `Always allow` holds nothing.
 
-The item name rides in the question.
+The question names the item.
 
 A new knowledge base, skill, tool or function joins the model presets in the same call. The tool reads each preset, merges the matching `meta` list and posts the record back. It skips a preset without write access and names it. The `PRESET_MODELS` valve picks the presets by id or by name, and an empty list serves each preset.
 
-`timeout_seconds` sets the wait for the confirmation, and `UserValves.mode` plus `UserValves.timeout_seconds` give each user their own gate, where `0` keeps the valve. Open WebUI v0.11.4 has no per-tool toggle route, so `toggle_tool` toggles the tool id in the preset `toolIds` lists.
+`timeout_seconds` sets the wait for the confirmation, and `UserValves.mode` plus `UserValves.timeout_seconds` give each user their own gate, where `0` keeps the tool valve. Open WebUI v0.11.4 has no per-tool toggle route, so `toggle_tool` toggles the tool id in the preset `toolIds` lists.
 
 The preset helpers stay private, so Open WebUI builds no model tool spec for them. `/model/update` needs the owner, a write grant or an admin.
 

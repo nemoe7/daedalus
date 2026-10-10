@@ -1,6 +1,6 @@
 # Deep research skill
 
-[Open WebUI integration](../owui.md)
+See [Open WebUI integration](../owui.md) for the other plugins.
 
 [`integrations/openwebui/skills/deep-research.md`](../../../integrations/openwebui/skills/deep-research.md) is an Open WebUI skill: plain instructions, no code. The model plans, searches in 3 to 5 rounds with `search_web`, reads pages with `fetch_url`, and writes a report with numbered sources. Each step is a normal chat request, so daedalus failover and loop checks apply.
 

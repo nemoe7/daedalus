@@ -11,7 +11,7 @@ the request or answers with text. The tier pools of ADR 1 sort models by capabil
 only, so a tool request can reach a model without tool support.
 
 An image request has the same problem. A model without vision refuses the request, and the
-model gets a fault.
+model takes a fault.
 
 ## Decision
 

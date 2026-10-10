@@ -9,7 +9,7 @@ model by output price, and writes that order into each request.
 | Runs | `on-catalog` at each catalog build, and `on-upstream` before each provider call |
 | Writes | The order in `.daedalus-state/cheapest_output.json`, then `provider.order` in the body |
 | Named by | The `hooks` list of the model `z-ai/glm-5.3-flash` in [`openrouter.yml`](../../config/providers/openrouter.yml) |
-| Notes | A client `provider` object has priority. If the list read fails, the old order stays. |
+| Notes | A client `provider` object wins. If the list read fails, the old order stays. |
 
 ```mermaid
 flowchart LR

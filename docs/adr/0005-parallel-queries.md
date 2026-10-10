@@ -37,5 +37,5 @@ when `affinity.mode` is `race`.
 - The 85/15 draw of ADR 4 stops while the race runs. A conversation with no session model
   takes the draw of ADR 4, and then the race of this ADR.
 - A fast session model keeps the pin, so its answers hold a conversation. The switch
-  keywords and a client retry stay as the moves by hand.
+  keywords and a client retry stay as the manual moves.
 - The request log shows each model that lost as `lost race`, with its own effort.

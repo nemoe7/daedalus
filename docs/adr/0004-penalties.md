@@ -20,7 +20,7 @@ Each model has a weight from 0.01 to 1. All models start at 1. The floor of 0.01
 | --- | --- |
 | Success | weight x 1.5, 1 at most |
 | Fault | weight x 0.5, 0.01 at least |
-| Slow success: the first token comes after `timeouts.slow`, 30 s by default | weight x 0.75, 0.01 at least |
+| Slow success: the first token comes after `limits.slow`, 30 s by default | weight x 0.75, 0.01 at least |
 | Rate limit: HTTP 429 | weight x 0.75, 0.01 at least, and a cooldown |
 | Each hour | weight x 1.212, 1 at most, as a continuous rate |
 
@@ -89,7 +89,7 @@ when it rebuilds the model table.
 
 ### Loops
 
-A loop is a fault of the model that made it: a repeated tool call, a repeated thinking
+A loop counts against the model that made it: a repeated tool call, a repeated thinking
 passage, or a repeated answer passage. [Architecture](../architecture.md#loops) holds the
 counts and the next step of each one.
 
@@ -115,7 +115,7 @@ session and the race settings.
 - A model that fails often gets fewer first attempts, but it is not removed.
 - A model with a low weight comes back over time: from 0.5 to 1 in about 4 hours.
 - One conversation stays on its session model for most turns. The other models of the first
-  tier still get some turns, so a bad session model does not hold a conversation for ever.
+  tier still get some turns, so a bad session model does not hold a conversation forever.
 - With `affinity.mode: race`, the draws stop and the session model keeps the conversation
   while it answers first (ADR 5).
 - The request log shows `pin=new`, `pin=hit`, `pin=moved`, `pin=switched` or `pin=slow`.

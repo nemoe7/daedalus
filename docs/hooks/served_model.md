@@ -6,9 +6,9 @@ request, in the final stream chunk, under `usage.daedalus`.
 | Item | Value |
 | --- | --- |
 | Runs | `on-chunk`, on each streamed chunk of a `daedalus/auto` or pool request |
-| Writes | `chunk["usage"]["daedalus"]` holds 3 keys. `line`: the served model for the client. `model`: the served slug. `pool`: the landed pool |
+| Writes | `chunk["usage"]["daedalus"]` holds 3 keys. `line`: the served model for the client. `model`: the served slug. `pool`: the pool that answered |
 | Named by | its own frontmatter block: `surfaces: [on-chunk]`. A `hooks.on-chunk` list in [`config/daedalus.yml`](../../config/daedalus.yml) runs it first |
-| Shows | On the final chunk of each `daedalus/auto` or pool answer, retries and repeats included. The [filter](../integrations/owui/served_model.md) draws 1 row for each line, and its `when` Valve picks the rows |
+| Shows | On the final chunk of each `daedalus/auto` or pool answer, including retries and repeats. The [filter](../integrations/owui/served_model.md) draws 1 row for each line, and its `when` Valve picks the rows |
 
 ```mermaid
 flowchart TD

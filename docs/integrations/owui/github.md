@@ -1,11 +1,11 @@
 # GitHub tool
 
-[Open WebUI integration](../owui.md)
+See [Open WebUI integration](../owui.md) for the other plugins.
 
 [`integrations/openwebui/tools/github.py`](../../../integrations/openwebui/tools/github.py) is an Open WebUI
 Workspace Tool: one Python file, standard library only, empty `requirements`. It holds the GitHub surface of
 the reference connector. The `permissions` valve sets the gate. `Always ask`, the shipped default, holds every
-call, reads included.
+call, including reads.
 
 `Allow reads` frees the reads and holds the writes.
 
@@ -26,7 +26,7 @@ flowchart TD
 
 3 tools sit outside the connector list. `create_pr_with_files` writes a file list as 1 commit and opens or updates the pull request. `list_commits` reads the history of a path or a branch. `list_tree` reads the whole tree in 1 call.
 
-3 security reads cover the alert lists: `code_scanning_alerts`, `secret_scanning_alerts` and `dependabot_alerts`. Each lists with filters, or reads 1 alert with its instances or locations. They need a token with the `security_events` scope, or the matching fine-grained read. Without it GitHub answers 403.
+3 security reads cover the alert lists: `code_scanning_alerts`, `secret_scanning_alerts` and `dependabot_alerts`. Each lists the alerts with filters, or reads 1 alert with its instances or locations. They need a token with the `security_events` scope, or the matching fine-grained read. Without it GitHub answers 403.
 
 2 CI reads cover the checks. `check_runs` lists the check runs of a ref with the name, the status and the filter, or reads 1 run with its annotations. `list_workflows` lists the Actions workflows.
 
@@ -59,8 +59,8 @@ The 3 alert reads take gated writes: `update_code_scanning_alert`, `update_secre
 
 The 22 reads are the issue, pull request, commit, workflow and profile reads. Under `Always ask` each one waits for the click, so no repository line reaches the chat. `Allow reads` frees them.
 
-`UserValves.mode` gives each user the same 3 levels, and `default` follows the tool valve. `UserValves.timeout_seconds` gives each user their own confirmation wait. A value of `0` keeps the valve.
+`UserValves.mode` gives each user the same 3 levels, and `default` follows the tool valve. `UserValves.timeout_seconds` gives each user their own confirmation wait. A value of `0` keeps the tool valve.
 
-The confirmation travels over the socket of the chat tab. `WEBSOCKET_EVENT_CALLER_TIMEOUT` is unset by default, so the Open WebUI server waits without a timeout when the browser does not answer. Only `timeout_seconds` ends that wait. A page refresh drops the dialog, the tool returns `denied: true`, and it sends nothing.
+The confirmation travels over the socket of the chat tab. `WEBSOCKET_EVENT_CALLER_TIMEOUT` is unset by default, so the Open WebUI server waits without a timeout when the browser does not answer. Only `timeout_seconds` ends that wait. A page refresh drops the dialog, the tool returns `denied: true`, and the tool sends nothing.
 
 [`tests/integrations/test_owui_github_tool.py`](../../../tests/integrations/test_owui_github_tool.py) holds the tool surface, the gate and the error path.

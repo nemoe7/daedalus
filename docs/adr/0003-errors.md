@@ -25,8 +25,8 @@ receives one stream with one status.
 A partial tool call cannot continue. When a stream fails inside a tool call, daedalus sends
 one error chunk and ends the stream.
 
-`timeouts.wait` caps the gap between provider data at 60 seconds. A provider that sends data
-is not waiting, so a stream that produces output sits outside the cap. `timeouts.request`
+`limits.wait` caps the gap between provider data at 60 seconds. A provider that sends data
+is not waiting, so a stream that produces output sits outside the cap. `limits.request`
 caps the whole request at 600 seconds. Keep-alive bytes are not data: after 60 seconds of
 only keep-alive bytes, the next model starts.
 
