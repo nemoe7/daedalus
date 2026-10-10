@@ -81,6 +81,9 @@ const check = (ok, text) => {
   const notifications = await (await context.fetch("ui/api/notifications")).json();
   check(notifications.resets.length === 1, "the reset fixture reaches Notifications");
   check(notifications.resets[0].kind === "neurons", "the reset fixture keeps its limit");
+  check(notifications.limits.length === 1, "the one-time warning fixture reaches Notifications");
+  check(Number.isFinite(notifications.limits[0].at), "the warning fixture keeps its event time");
+  check(notifications.rebuilds.length === 1, "the rebuild fixture shares the notification feed");
   const first = await (await context.fetch("ui/api/requests?limit=10")).json();
   check(first.length === 0, "the Requests tab starts empty");
   const served = await (await context.fetch("ui/api/models")).json();

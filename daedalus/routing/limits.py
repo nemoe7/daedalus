@@ -45,6 +45,8 @@ COOLING_SPANS = ("day", "month")
 CLOUDFLARE_FREE = 10_000
 CLOUDFLARE_GRAPHQL = "https://api.cloudflare.com/client/v4/graphql"
 RESET_HISTORY = 50
+WARNING_HISTORY = 50
+WARNING_SHARE = 0.25
 RESET_LIMITS = {
   ("tokens", "minute"),
   ("requests", "minute"),
@@ -401,6 +403,85 @@ def saved_reset_times(found: Any) -> dict[str, float]:
   }
 
 
+def warning_share(row: Mapping[str, Any]) -> float | None:
+  """The share of one limit row that remains, or None without finite counts."""
+  limit, remaining = number(row.get("limit")), number(row.get("remaining"))
+  if (
+    limit is None
+    or not math.isfinite(limit)
+    or limit <= 0
+    or remaining is None
+    or not math.isfinite(remaining)
+  ):
+    return None
+  return remaining / limit
+
+
+def warning_event(found: Any) -> dict[str, Any] | None:
+  """A stored one-time low-limit notification, or None when its shape is invalid."""
+  if not isinstance(found, dict):
+    return None
+  at, reset = number(found.get("at")), number(found.get("reset"))
+  model, client = found.get("model"), found.get("client")
+  kind, span = found.get("kind"), found.get("span")
+  share = warning_share(found)
+  if (
+    at is None
+    or not math.isfinite(at)
+    or not isinstance(model, str)
+    or not model
+    or (client is not None and not isinstance(client, str))
+    or not isinstance(kind, str)
+    or not kind
+    or (span is not None and not isinstance(span, str))
+    or (reset is not None and not math.isfinite(reset))
+    or share is None
+    or share > WARNING_SHARE
+  ):
+    return None
+  return {
+    "at": at,
+    "model": model,
+    "client": client,
+    "kind": kind,
+    "span": span,
+    "limit": number(found["limit"]),
+    "remaining": number(found["remaining"]),
+    "reset": reset,
+    "share": max(0.0, min(1.0, share)),
+  }
+
+
+def warning_key(event: Mapping[str, Any]) -> str:
+  """The persisted scope of one low-limit notification."""
+  return json.dumps(
+    [event["model"], event["client"], event["kind"], event["span"]],
+    separators=(",", ":"),
+  )
+
+
+def saved_warning_events(found: Any) -> list[dict[str, Any]]:
+  """The valid low-limit notifications in a stored list."""
+  if not isinstance(found, list):
+    return []
+  return [event for item in found if (event := warning_event(item)) is not None]
+
+
+def saved_warning_times(found: Any) -> dict[str, float | None]:
+  """The latest reset boundary warned for each stored limit scope."""
+  if not isinstance(found, dict):
+    return {}
+  times: dict[str, float | None] = {}
+  for key, value in found.items():
+    if value is None:
+      times[str(key)] = None
+      continue
+    at = number(value)
+    if at is not None and math.isfinite(at):
+      times[str(key)] = at
+  return times
+
+
 class Limits:
   """Provider limits, balances and reset notifications."""
 
@@ -425,6 +506,8 @@ class Limits:
     self.pending_resets: dict[str, dict[str, Any]] = {}
     self.emitted_resets: dict[str, float] = {}
     self.reset_history: list[dict[str, Any]] = []
+    self.warning_history: list[dict[str, Any]] = []
+    self.warned_limits: dict[str, float | None] = {}
     # The rows that daedalus counts itself, such as `hourly_requests`, for a wall-clock time.
     self.counted: Callable[[float], list[dict[str, Any]]] = lambda now: []
 
@@ -441,6 +524,8 @@ class Limits:
         "pending_resets": list(self.pending_resets.values()),
         "emitted_resets": self.emitted_resets,
         "reset_history": self.reset_history,
+        "warning_history": self.warning_history,
+        "warned_limits": self.warned_limits,
       }
     )
     database = self.connect()
@@ -490,6 +575,17 @@ class Limits:
       for key, event in self.pending_resets.items()
       if event["at"] > self.emitted_resets.get(key, 0.0)
     }
+    warnings = saved_warning_events(found.get("warning_history"))
+    warnings.sort(key=lambda event: event["at"], reverse=True)
+    self.warning_history = warnings[:WARNING_HISTORY]
+    self.warned_limits = saved_warning_times(found.get("warned_limits"))
+    for event in reversed(self.warning_history):
+      key, reset = warning_key(event), event["reset"]
+      known = self.warned_limits.get(key)
+      if key not in self.warned_limits or (
+        reset is not None and (known is None or reset > known)
+      ):
+        self.warned_limits[key] = reset
 
   def clear(self) -> None:
     self.lanes.clear()
@@ -497,6 +593,8 @@ class Limits:
     self.pending_resets.clear()
     self.emitted_resets.clear()
     self.reset_history.clear()
+    self.warning_history.clear()
+    self.warned_limits.clear()
     self.checked = None
     database = self.connect()
     with database:
@@ -524,6 +622,50 @@ class Limits:
     if pending is not None and event["at"] <= pending["at"]:
       return False
     self.pending_resets[key] = event
+    return True
+
+  def _record_warnings(
+    self,
+    lane: str,
+    previous: list[dict[str, Any]],
+    current: list[dict[str, Any]],
+    now: float,
+  ) -> bool:
+    """Keep one notification when a lane row crosses into its low-limit range."""
+    before = {
+      (row.get("kind"), row.get("span")): warning_share(row)
+      for row in previous
+      if isinstance(row, dict)
+    }
+    model, client = lanes.split(lane)
+    added = []
+    for row in current:
+      share = warning_share(row)
+      old = before.get((row.get("kind"), row.get("span")))
+      if (
+        share is None
+        or share > WARNING_SHARE
+        or (old is not None and old <= WARNING_SHARE)
+      ):
+        continue
+      event = warning_event(
+        {"at": now, "model": model, "client": client or None, **row}
+      )
+      if event is None:
+        continue
+      key, reset = warning_key(event), event["reset"]
+      known = self.warned_limits.get(key)
+      if key in self.warned_limits and (
+        reset is None or (known is not None and reset <= known)
+      ):
+        continue
+      self.warned_limits[key] = reset
+      added.append(event)
+    if not added:
+      return False
+    self.warning_history = sorted(
+      [*added, *self.warning_history], key=lambda event: event["at"], reverse=True
+    )[:WARNING_HISTORY]
     return True
 
   def _refresh_rows(self, now: float) -> bool:
@@ -587,6 +729,10 @@ class Limits:
       self.save()
     return [dict(event) for event in self.reset_history]
 
+  def warnings(self) -> list[dict[str, Any]]:
+    """Return one notification for each remembered low-limit crossing."""
+    return [dict(event) for event in self.warning_history]
+
   def observe(self, lane: str, headers: Mapping[str, str], body: bytes = b"") -> None:
     """Keep one answer's rate limits, cooldowns and advertised reset boundaries."""
     now = self.clock()
@@ -594,14 +740,15 @@ class Limits:
     model, client = lanes.split(lane)
     provider = model.partition("/")[0]
     rows = header_rows(provider, headers, now)
+    previous = self.lanes.get(lane, {}).get("rows", [])
     quota_rows = gemini_quota_rows(body, now) if provider == "gemini" else []
     if quota_rows:
-      previous = self.lanes.get(lane, {}).get("rows", [])
       rows = merged_rows(previous, [*rows, *quota_rows])
     if not rows:
       if changed:
         self.save()
       return
+    self._record_warnings(lane, previous, rows, now)
     self.lanes[lane] = {"at": now, "rows": rows}
     for row in rows:
       self._schedule_reset(

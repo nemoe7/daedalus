@@ -1309,20 +1309,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     })));
     if (path === "pools") return json(pools());
     if (path === "limits") return check_limits();
-    if (path === "notifications") {
-      // The warnings read the lanes of the Limits page, at the share the server warns from.
-      const warnings = (DEMO_FIXTURES.limits.lanes || []).flatMap((lane) =>
-        (lane.rows || [])
-          .filter((row) => row.limit > 0 && row.remaining / row.limit <= 0.25)
-          .map((row) => ({ ...row, model: lane.model, client: lane.client ?? null, share: row.remaining / row.limit }))
-      ).sort((a, b) => a.share - b.share || a.model.localeCompare(b.model));
-      return json({
-        resets: DEMO_FIXTURES.notifications.resets,
-        rebuilds: DEMO_FIXTURES.notifications.rebuilds,
-        update: DEMO_FIXTURES.notifications.update,
-        limits: warnings,
-      });
-    }
+    if (path === "notifications") return json(DEMO_FIXTURES.notifications);
     if (path === "status")
       return json({ ...DEMO_FIXTURES.status, models: state.models.length,
         sessions: new Set(DEMO_FIXTURES.requests.map((row) => row.session).filter(Boolean)).size });
