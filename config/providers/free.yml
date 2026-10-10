@@ -67,6 +67,7 @@ gemini:
     - "*-latest"
     - gemini-2.5-*
     - gemini-3.1-pro-preview*
+    - gemini-3.7-flash* # Google deprecated the model
     - deep-research*
     - "*omni*"
     - "*-image*"
@@ -75,7 +76,6 @@ gemini:
   tier:
     TIER-A:
       - gemini-3.8-flash
-      - gemini-3.7-flash
     TIER-B:
       - gemini-3.5-flash
       - gemini-3.6-flash
@@ -85,7 +85,7 @@ gemini:
       - gemini-3.5-flash-lite*
       - gemini-3-flash-preview
   models:
-    # The ladders of the Gemini docs: 3.7 and 3.8 flash reject MINIMAL, and the rest of the 3.x
+    # The ladders of the Gemini docs: 3.8 flash rejects MINIMAL, and the rest of the 3.x
     # flash line and the gemma-4 line name minimal to high.
     gemini-3-flash-preview: { rpm: 5, tpm: 250000 }
     gemini-3.1-flash-lite: { rpm: 15, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }
@@ -93,7 +93,6 @@ gemini:
     gemini-3.5-flash: { rpm: 5, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }
     gemini-3.5-flash-lite: { rpm: 15, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }
     gemini-3.6-flash: { rpm: 5, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }
-    gemini-3.7-flash: { rpm: 5, tpm: 250000, supported_reasoning_efforts: [low, medium, high] }
     gemini-3.8-flash: { rpm: 5, tpm: 250000, supported_reasoning_efforts: [low, medium, high] }
     gemma-4-26b-a4b-it: { rpm: 30, tpm: 16000, supported_reasoning_efforts: [minimal, low, medium, high] }
     gemma-4-31b-it: { rpm: 30, tpm: 16000, supported_reasoning_efforts: [minimal, low, medium, high] }
