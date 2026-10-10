@@ -169,3 +169,26 @@ def test_a_request_point_runs_each_named_file() -> None:
   assert [path.name for path in found] == ["served_model.py"]
   assert hooks.request_files(entries, "on-answer") == []
   assert hooks.request_files({"on-chunk": ""}, "on-chunk") == []
+
+
+def test_request_paths_add_the_installed_files_of_the_surface(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A request point also runs an installed file whose `surfaces` block names it, with no key."""
+  monkeypatch.setattr(hooks, "ROOT", tmp_path)
+  folder = tmp_path / "hooks"
+  folder.mkdir()
+  (folder / "probe.py").write_text(
+    "# ---\n# surfaces: [on-prompt]\n# ---\n\ndef on_prompt(value, **context):\n  pass\n",
+    encoding="utf-8",
+  )
+  (folder / "other.py").write_text(
+    "# ---\n# surfaces: [on-chunk]\n# ---\n", encoding="utf-8"
+  )
+  hooks.set_installed("hooks", [])
+  found = hooks.request_paths({}, {}, "on-prompt", "daedalus/auto")
+  assert [path.name for path in found] == ["probe.py"]
+  named = hooks.request_paths(
+    {"on-prompt": "hooks/other.py"}, {}, "on-prompt", "daedalus/auto"
+  )
+  assert [path.name for path in named] == ["other.py", "probe.py"]

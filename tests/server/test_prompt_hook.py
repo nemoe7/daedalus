@@ -492,3 +492,17 @@ def test_the_shipped_hook_ladders_the_efforts_of_the_model() -> None:
   assert value["reasoning_effort"] == "high", (
     "the ladder caps at the list and at the top tier"
   )
+
+
+def test_an_installed_file_runs_on_prompt_without_a_key(
+  provider: Provider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """An installed file with a `surfaces` block sets the level with no `hooks` key in the settings."""
+  ladder_file(monkeypatch)
+  monkeypatch.setattr(api, "REQUEST_HOOKS", {})
+  monkeypatch.setattr(
+    upstream.store, "model_limits", lambda candidate: {"reasoning_effort": "minimal"}
+  )
+  body = {**BODY, "messages": [{"role": "user", "content": "why is this slow, again"}]}
+  written = post(provider, "daedalus/auto:TIER-B", body, app="OWUI")
+  assert written["reasoning_effort"] != "minimal", "the installed file ran"

@@ -103,15 +103,16 @@ def test_other_requests(client: TestClient) -> None:
 
 
 def test_no_hook_no_retry(client: TestClient) -> None:
-  """Without a request hook, a repeated message is a new request."""
-  off = api.REQUEST_HOOKS
+  """Without a request hook file, a repeated message is a new request."""
+  off, disabled = api.REQUEST_HOOKS, hooks.DISABLED
   api.REQUEST_HOOKS = {}
+  hooks.DISABLED = {"owui_auto_reasoning_effort.py"}
   try:
     assert ask(client, FIRST, CHAT) == "c/1"
     assert ask(client, FIRST, CHAT) == "c/1", "the hook owns the rule"
     assert dashboard.HISTORY.latest(1)[0]["retry"] is None, "no try code"
   finally:
-    api.REQUEST_HOOKS = off
+    api.REQUEST_HOOKS, hooks.DISABLED = off, disabled
 
 
 def test_shipped_hook_legend(client: TestClient) -> None:

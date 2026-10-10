@@ -418,6 +418,13 @@ def request_files(entries: Mapping[str, Any] | None, surface: str) -> list[Path]
   return found
 
 
+def request_paths(
+  entries: Mapping[str, Any] | None, config: Mapping[str, Any], surface: str, model: str
+) -> list[Path]:
+  """The named files of one request-level surface, then the installed files that give it."""
+  return merge(request_files(entries, surface), meta_paths(config, surface, model))
+
+
 def init_rows(entries: Mapping[str, Any] | None) -> list[list[str]]:
   """The legend rows of each enabled request hook file that defines `on_init`, in file order."""
   rows: list[list[str]] = []
@@ -547,5 +554,5 @@ def run_request(
   **context: Any,
 ) -> dict[str, Any]:
   """The value after each request hook of one surface, from the settings file, in list order."""
-  paths = merge(request_files(entries, surface), meta_paths(config, surface, model))
+  paths = request_paths(entries, config, surface, model)
   return run_files(surface, paths, value, model=model, **context)
