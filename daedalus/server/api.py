@@ -1067,7 +1067,11 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
         code = written if isinstance(written, str) and written else None
   if turn is not None and turn.count:
     request.state.code = code
-    found = retry_chain(turn, model, body, config)
+    found = (
+      retry_chain(turn, model, body, config)
+      if model == router.RESERVED_MODEL or model in router.POOLS
+      else chain(model, body, config, key)
+    )
     request.state.retry = str(turn.count)
   else:
     found = chain(model, body, config, key)

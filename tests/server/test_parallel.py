@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -219,6 +220,38 @@ def test_direct_model_does_not_race(client: TestClient) -> None:
     assert response.status_code == 200
     response.read()
   assert CALLS == ["b/1"], CALLS
+
+
+def test_direct_model_repeat_does_not_race(
+  client: TestClient, state_folder: Path
+) -> None:
+  """A repeated `provider/slug` request stays direct when the affinity race is on."""
+  path = state_folder / "hooks" / "retry.py"
+  path.parent.mkdir(parents=True, exist_ok=True)
+  path.write_text(
+    Path("hooks/owui_auto_reasoning_effort.py").read_text(encoding="utf-8"),
+    encoding="utf-8",
+  )
+  api.REQUEST_HOOKS = {"on-request": "hooks/retry.py"}
+  api.PARALLEL_CHANCE = 1.0
+  api.RETRIES.clear()
+  try:
+    body = {"model": "b/1", "messages": [FIRST], "stream": True}
+    headers = {
+      "Authorization": f"Bearer {MASTER}",
+      "X-OpenWebUI-Chat-Id": "direct-chat",
+    }
+    for _ in range(2):
+      with client.stream(
+        "POST", "/v1/chat/completions", json=body, headers=headers
+      ) as response:
+        assert response.status_code == 200
+        response.read()
+    assert CALLS == ["b/1", "b/1"], CALLS
+  finally:
+    api.REQUEST_HOOKS = {}
+    api.PARALLEL_CHANCE = 0.0
+    api.RETRIES.clear()
 
 
 def test_no_stream_reads_our_stream_and_races(client: TestClient) -> None:
