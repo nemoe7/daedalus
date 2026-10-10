@@ -946,6 +946,8 @@ const LUCIDE = {
   search: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34" /> <circle cx="11" cy="11" r="8" /></svg>',
   info: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /> <path d="M12 16v-4" /> <path d="M12 8h.01" /></svg>',
   x: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></svg>',
+  chevron_up: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6" /></svg>',
+  chevron_down: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>',
   trash: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>',
 };
 // The flag chips draw lucide; a flag without a glyph keeps its text.
@@ -1457,6 +1459,38 @@ function hookSurfacesCell(row) {
   return `<div class="pills">${chips || '<em class="none">No surface</em>'}</div>`;
 }
 
+// The file list of each request surface: the list order is the run order of the surface.
+function hookOrderRows() {
+  return requestSurfaces().map(([key, label]) => {
+    const files = listValue("hooks", key);
+    const rows = files.map((file, index) => `<li><span class="cell-value">${esc(hookName(file))}</span>
+      <button type="button" class="ghost" data-hook-move='${esc(JSON.stringify([key, index, -1]))}'
+        ${index ? "" : "disabled"} aria-label="Move ${esc(file)} up" title="Move up">${LUCIDE.chevron_up}</button>
+      <button type="button" class="ghost" data-hook-move='${esc(JSON.stringify([key, index, 1]))}'
+        ${index + 1 < files.length ? "" : "disabled"} aria-label="Move ${esc(file)} down" title="Move down">${LUCIDE.chevron_down}</button></li>`).join("");
+    return `<div class="field stack info">${labelSpan(label, "The files of this surface run in this order.")}
+      <ul class="hook-order">${rows || '<li><em class="none">No file named</em></li>'}</ul></div>`;
+  }).join("");
+}
+
+// The order block of the Hooks card, after a move.
+function renderHookOrder() {
+  const host = $("hooks-order");
+  if (host) host.innerHTML = hookOrderRows();
+}
+
+// The move of 1 file in the list of a surface: up is -1, down is 1.
+function moveHookFile([surface, index, step]) {
+  const values = [...listValue("hooks", surface)];
+  const at = index + step;
+  if (at < 0 || at >= values.length) return;
+  [values[index], values[at]] = [values[at], values[index]];
+  setListValue("hooks", surface, values);
+  renderHookOrder();
+  renderSettingsSave();
+  saveSettings();
+}
+
 // The note under the sources. The update fills it with the old and the new version of each file.
 function hooksNote(text) {
   const note = $("hooks-note");
@@ -1509,6 +1543,7 @@ function hooksManager() {
       <table class="keys"><thead><tr><th>Author/Title</th><th>Version</th><th>Surfaces</th><th>Scopes</th><th class="hide-sm">Source</th><th>Enabled</th><th></th></tr></thead>
       <tbody>${list}</tbody></table>
       <button type="button" class="ghost" data-hooks-update>Update from the sources</button></div>
+    <div class="field stack info" id="hooks-order">${hookOrderRows()}</div>
     <div class="field stack info">${labelSpan("Folder", "The folder at the root that holds the hook files.")}
       <span class="input"><input type="text" id="set-hooks-dir" data-value="Folder"
         readonly spellcheck="false" value="${esc(fileValue("hooks", "dir") ?? "")}"
@@ -3422,6 +3457,8 @@ $("settings").addEventListener("click", async (event) => {
   // The manager: the modal of a source, the delete of 1, the update and the take of a scan.
   if (event.target.closest("[data-hook-source-add]")) return addHookSource();
   if (event.target.closest("[data-hook-source-drop]")) return dropHookSource();
+  const move = event.target.closest("[data-hook-move]");
+  if (move) return moveHookFile(JSON.parse(move.dataset.hookMove));
   if (event.target.closest("[data-hook-drop]")) return dropHookFile(event.target.closest("[data-hook-drop]"));
   if (event.target.closest("[data-hooks-update]")) return runHooksUpdate();
   if (event.target.closest("[data-hook-take-all]")) return takeHooks();
