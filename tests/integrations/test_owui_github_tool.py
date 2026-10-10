@@ -30,27 +30,26 @@ TOOLS = [
   "add_issue_assignees",
   "add_issue_labels",
   "add_review_to_pr",
+  "code_scanning_alerts",
   "compare_commits",
   "convert_pull_request_to_draft",
   "create_branch",
-  "create_file",
   "create_gist",
+  "create_github_file",
   "create_issue",
-  "create_pull_request",
   "create_pr_with_files",
-  "code_scanning_alerts",
-  "check_runs",
-  "delete_file",
+  "create_pull_request",
   "delete_gist",
+  "delete_github_file",
   "dependabot_alerts",
   "dismiss_pull_request_review",
   "download_workflow_artifact",
-  "fetch_github_url",
   "fetch_blob",
   "fetch_commit",
   "fetch_commit_workflow_runs",
-  "fetch_file",
   "fetch_gist",
+  "fetch_github_file",
+  "fetch_github_url",
   "fetch_issue",
   "fetch_issue_comments",
   "fetch_pr",
@@ -62,52 +61,53 @@ TOOLS = [
   "fetch_workflow_run_artifacts",
   "fetch_workflow_run_jobs",
   "get_commit_combined_status",
-  "gists",
+  "get_github_profile",
   "get_pr_diff",
   "get_pr_info",
-  "get_profile",
   "get_repo",
   "get_repo_collaborator_permission",
   "label_pr",
-  "list_installations",
   "list_commits",
+  "list_gists",
+  "list_github_check_runs",
+  "list_github_packages",
+  "list_github_releases",
+  "list_github_tags",
+  "list_installations",
   "list_pr_changed_filenames",
   "list_pull_request_review_threads",
   "list_pull_request_reviews",
   "list_recent_issues",
   "list_repositories",
   "list_tree",
-  "list_workflows",
-  "packages",
   "list_user_orgs",
+  "list_workflows",
   "mark_pull_request_ready_for_review",
   "merge_pull_request",
   "remove_issue_assignees",
   "remove_issue_label",
-  "releases",
   "reply_to_review_comment",
   "request_pull_request_reviewers",
   "rerun_failed_workflow_run_jobs",
   "resolve_review_thread",
-  "search",
   "search_branches",
   "search_commits",
+  "search_github_code",
   "search_issues",
   "search_prs",
-  "tags",
   "search_repositories",
   "secret_scanning_alerts",
-  "update_code_scanning_alert",
   "unresolve_review_thread",
-  "update_file",
+  "update_code_scanning_alert",
   "update_dependabot_alert",
-  "update_issue",
   "update_gist",
+  "update_github_file",
+  "update_issue",
   "update_issue_comment",
   "update_pull_request",
-  "update_secret_scanning_alert",
   "update_ref",
   "update_review_comment",
+  "update_secret_scanning_alert",
 ]
 
 
@@ -292,7 +292,7 @@ def test_file_reads_decode_and_search_hits_the_global_route(monkeypatch):
     }
   )
   opener(monkeypatch, body, calls)
-  out = asyncio.run(client().fetch_file("o/r", "a.py", ref="feat/x"))
+  out = asyncio.run(client().fetch_github_file("o/r", "a.py", ref="feat/x"))
   assert out["result"]["content"] == "print(1)\n"
   assert (
     calls[0]["url"] == "https://api.github.com/repos/o/r/contents/a.py?ref=feat%2Fx"
@@ -300,7 +300,7 @@ def test_file_reads_decode_and_search_hits_the_global_route(monkeypatch):
 
   calls.clear()
   opener(monkeypatch, json.dumps({"items": [{"path": "p", "html_url": "u"}]}), calls)
-  out = asyncio.run(client().search("needle", 5, repository_name="o/r"))
+  out = asyncio.run(client().search_github_code("needle", 5, repository_name="o/r"))
   assert calls[0]["url"].startswith("https://api.github.com/search/code?")
   assert "q=needle+repo%3Ao%2Fr" in calls[0]["url"]
   assert out["result"]["results"][0]["display_url"] == "u"
@@ -462,7 +462,7 @@ def test_check_runs_list_and_annotations(monkeypatch):
     calls,
   )
   out = asyncio.run(
-    client().check_runs("o/r", "1595387", check_name="ci", filter="latest")
+    client().list_github_check_runs("o/r", "1595387", check_name="ci", filter="latest")
   )
   assert out["result"]["check_runs"][0]["conclusion"] == "failure"
   assert "check_name=ci" in calls[0]["url"]
@@ -470,7 +470,9 @@ def test_check_runs_list_and_annotations(monkeypatch):
   assert calls[0]["url"].startswith(
     "https://api.github.com/repos/o/r/commits/1595387/check-runs?"
   )
-  detail = asyncio.run(client().check_runs("o/r", "1595387", check_run_id=4))
+  detail = asyncio.run(
+    client().list_github_check_runs("o/r", "1595387", check_run_id=4)
+  )
   assert detail["result"]["annotations"][0]["message"] == "boom"
   assert calls[1]["url"].endswith("/check-runs/4")
   assert calls[2]["url"].endswith("/check-runs/4/annotations")
@@ -511,13 +513,13 @@ def test_releases_list_tag_and_id(monkeypatch):
     [json.dumps([{"id": 1}]), json.dumps({"id": 2}), json.dumps({"id": 3})],
     calls,
   )
-  out = asyncio.run(client().releases("o/r"))
+  out = asyncio.run(client().list_github_releases("o/r"))
   assert out["result"]["releases"][0]["id"] == 1
   assert calls[0]["url"].endswith("/releases?per_page=30&page=1")
-  out = asyncio.run(client().releases("o/r", tag="v1.2.3"))
+  out = asyncio.run(client().list_github_releases("o/r", tag="v1.2.3"))
   assert out["result"]["release"]["id"] == 2
   assert calls[1]["url"].endswith("/releases/tags/v1.2.3")
-  out = asyncio.run(client().releases("o/r", release_id=3))
+  out = asyncio.run(client().list_github_releases("o/r", release_id=3))
   assert out["result"]["release"]["id"] == 3
   assert calls[2]["url"].endswith("/releases/3")
 
@@ -534,13 +536,15 @@ def test_tags_and_packages(monkeypatch):
     ],
     calls,
   )
-  out = asyncio.run(client().tags("o/r"))
+  out = asyncio.run(client().list_github_tags("o/r"))
   assert out["result"]["tags"][0]["name"] == "v1"
   assert calls[0]["url"].endswith("/tags?per_page=30&page=1")
-  out = asyncio.run(client().packages("npm"))
+  out = asyncio.run(client().list_github_packages("npm"))
   assert out["result"]["packages"][0]["name"] == "left-pad"
   assert calls[1]["url"] == "https://api.github.com/user/packages?package_type=npm"
-  out = asyncio.run(client().packages("npm", owner="acme", package_name="left-pad"))
+  out = asyncio.run(
+    client().list_github_packages("npm", owner="acme", package_name="left-pad")
+  )
   assert out["result"]["package"]["name"] == "left-pad"
   assert out["result"]["versions"][0]["name"] == "1.0.0"
   assert calls[2]["url"] == "https://api.github.com/orgs/acme/packages/npm/left-pad"
@@ -550,10 +554,10 @@ def test_tags_and_packages(monkeypatch):
 def test_gists_list_and_fetch(monkeypatch):
   calls = []
   opener(monkeypatch, [json.dumps([{"id": "abc"}]), json.dumps({"id": "abc"})], calls)
-  out = asyncio.run(client().gists())
+  out = asyncio.run(client().list_gists())
   assert out["result"]["gists"][0]["id"] == "abc"
   assert calls[0]["url"].startswith("https://api.github.com/gists?")
-  out = asyncio.run(client().gists("nemo"))
+  out = asyncio.run(client().list_gists("nemo"))
   assert calls[1]["url"].startswith("https://api.github.com/users/nemo/gists?")
   out = asyncio.run(client().fetch_gist("abc"))
   assert out["result"]["gist"]["id"] == "abc"
