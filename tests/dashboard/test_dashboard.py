@@ -306,7 +306,7 @@ const answers = {
   status: { healthy: true, sessions: 0, models: 1, version: "v1",
     catalog: { built: null, next: null, rebuilding: false }, affinity: { mode: "none" } },
   pools: [], models: [], keys: [], env: [], limits: { providers: [], lanes: [], checked: null },
-  notifications: { rebuilds: [], update: null, limits: [] },
+  notifications: { resets: [], rebuilds: [], update: null, limits: [] },
   files: [{ path: "config/daedalus.yml", text: "", blocks: {}, error: null, main: true }],
   "provider-keys": [], "provider-defaults": {},
 };
@@ -382,7 +382,7 @@ const answers = {
   status: { healthy: true, sessions: 0, models: 1, version: "v1",
     catalog: { built: null, next: null, rebuilding: false }, affinity: { mode: "none" } },
   pools: [], models: [], keys: [], env: [], limits: { providers: [], lanes: [], checked: null },
-  notifications: { rebuilds: [], update: null, limits: [] },
+  notifications: { resets: [], rebuilds: [], update: null, limits: [] },
   files: [{ path: "config/daedalus.yml", text: "", blocks: {}, error: null, main: true }],
   "provider-keys": [], "provider-defaults": {},
 };
@@ -1052,6 +1052,38 @@ def test_the_model_rows_light_up_on_hover() -> None:
     "  table.models tbody tr:hover td { background: var(--field); }\n"
     "}"
   ) in css, "the row hover waits for a pointer and lights the row"
+
+
+def test_limit_resets_render_in_the_notifications_tab() -> None:
+  """Reset events use their own table beside the catalog rebuild history."""
+  root = Path(__file__).resolve().parent.parent.parent
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  section = page.split('<section data-page="notifications" hidden>', 1)[1].split(
+    "</section>", 1
+  )[0]
+  assert 'aria-label="Limit resets"' in section
+  assert 'id="reset-rows"' in section
+  assert section.index('aria-label="Limit resets"') < section.index(
+    'aria-label="Catalog rebuilds"'
+  )
+  run_app_js(
+    "renderNotifications",
+    """
+probe.renderNotifications({
+  resets: [{ at: 1791600000, provider: 'groq', client: 'owui', kind: 'tokens', span: 'minute' }],
+  rebuilds: [], update: null, limits: [],
+});
+const html = node('reset-rows').innerHTML;
+assert(html.includes('groq'), 'the provider shows');
+assert(html.includes('owui'), 'the client lane shows');
+assert(html.includes('TPM'), 'the reset limit uses its short name');
+assert(!html.includes('No limit resets'), 'the event replaces the empty row');
+""",
+  )
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  for selector, body in re.findall(r"([^{}]+)\{([^{}]*)\}", css):
+    if "#limit-rows" in selector:
+      assert "padding" not in body, "Limits columns use the shared table cell padding"
 
 
 def test_a_rebuild_row_opens_the_diff_modal() -> None:
@@ -4436,7 +4468,9 @@ def test_a_phone_opens_a_section_as_its_own_page() -> None:
   )
 
 
-def test_notifications_endpoint(client: TestClient) -> None:
+def test_notifications_endpoint(
+  client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
   assert (
     client.post(
       "/ui/api/login", json={"username": "admin", "password": MASTER}
@@ -4498,6 +4532,16 @@ def test_notifications_endpoint(client: TestClient) -> None:
       },
     ],
   }
+  resets = [
+    {
+      "at": 1_791_600_000.0,
+      "provider": "groq",
+      "client": "owui",
+      "kind": "tokens",
+      "span": "minute",
+    }
+  ]
+  monkeypatch.setattr(api.LIMITS, "resets", lambda: resets)
   try:
     answer = client.get("/ui/api/notifications")
     assert answer.status_code == 200
@@ -4509,6 +4553,9 @@ def test_notifications_endpoint(client: TestClient) -> None:
     assert rebuilds[1]["added"] == ["p/new"]
     assert rebuilds[1]["changed"] == ["p/big"]
     assert data["update"]["latest"] == "v1.1.0"
+    assert data["resets"] == resets
+    assert data["resets"][0]["provider"] == "groq"
+    assert data["resets"][0]["client"] == "owui"
     assert len(data["limits"]) == 1, "only the row near its limit warns"
     warning = data["limits"][0]
     assert warning["model"] == "p/big"

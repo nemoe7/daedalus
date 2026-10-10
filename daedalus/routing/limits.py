@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import math
 import re
 import sqlite3
 import time
@@ -35,6 +36,14 @@ KINDS = {"req": "requests"}
 COOLING_SPANS = ("day", "month")
 CLOUDFLARE_FREE = 10_000
 CLOUDFLARE_GRAPHQL = "https://api.cloudflare.com/client/v4/graphql"
+RESET_HISTORY = 50
+RESET_LIMITS = {
+  ("tokens", "minute"),
+  ("requests", "minute"),
+  ("requests", "hour"),
+  ("requests", "day"),
+  ("neurons", "day"),
+}
 ACCOUNT = re.compile(r"/accounts/([^/]+)/")
 NEURONS = (
   "query ($account: string!, $start: Time!) { viewer {"
@@ -268,8 +277,65 @@ def saved_balances(found: Any) -> dict[str, list[Item]]:
   }
 
 
+def reset_event(found: Any) -> dict[str, Any] | None:
+  """A stored reset event with its provider, client lane, limit and boundary."""
+  if not isinstance(found, dict):
+    return None
+  provider, client = found.get("provider"), found.get("client")
+  kind, span, at = found.get("kind"), found.get("span"), number(found.get("at"))
+  if (
+    not isinstance(provider, str)
+    or not provider
+    or (client is not None and not isinstance(client, str))
+    or not isinstance(kind, str)
+    or not isinstance(span, str)
+    or (kind, span) not in RESET_LIMITS
+    or at is None
+    or not math.isfinite(at)
+  ):
+    return None
+  return {"at": at, "provider": provider, "client": client, "kind": kind, "span": span}
+
+
+def reset_key(event: Mapping[str, Any]) -> str:
+  """The persisted scope of one reset: provider, client lane, kind and span."""
+  return json.dumps(
+    [event["provider"], event["client"], event["kind"], event["span"]],
+    separators=(",", ":"),
+  )
+
+
+def saved_reset_events(found: Any) -> list[dict[str, Any]]:
+  """The valid reset events in a stored list."""
+  if not isinstance(found, list):
+    return []
+  return [event for item in found if (event := reset_event(item)) is not None]
+
+
+def saved_pending_resets(found: Any) -> dict[str, dict[str, Any]]:
+  """The newest stored pending reset for each scope."""
+  pending: dict[str, dict[str, Any]] = {}
+  for event in saved_reset_events(found):
+    key = reset_key(event)
+    if key not in pending or event["at"] > pending[key]["at"]:
+      pending[key] = event
+  return pending
+
+
+def saved_reset_times(found: Any) -> dict[str, float]:
+  """The latest emitted reset boundary of each stored scope."""
+  if not isinstance(found, dict):
+    return {}
+  times = {str(key): number(value) for key, value in found.items()}
+  return {
+    key: value
+    for key, value in times.items()
+    if value is not None and math.isfinite(value)
+  }
+
+
 class Limits:
-  """The last rate-limit headers of each lane, and the provider balances of the last check."""
+  """Provider limits, balances and reset notifications."""
 
   def __init__(
     self,
@@ -289,6 +355,9 @@ class Limits:
     self.lanes: dict[str, dict[str, Any]] = {}
     self.balances: dict[str, list[Item]] = {}
     self.checked: float | None = None
+    self.pending_resets: dict[str, dict[str, Any]] = {}
+    self.emitted_resets: dict[str, float] = {}
+    self.reset_history: list[dict[str, Any]] = []
     # The rows that daedalus counts itself, such as `hourly_requests`, for a wall-clock time.
     self.counted: Callable[[float], list[dict[str, Any]]] = lambda now: []
 
@@ -296,9 +365,16 @@ class Limits:
     return open_db(self.path(), (TABLE,))
 
   def save(self) -> None:
-    """Write the lane rows and the balance cards, so the next start shows the last look."""
+    """Write the limit view and reset state for the next start."""
     payload = json.dumps(
-      {"lanes": self.lanes, "balances": self.balances, "checked": self.checked}
+      {
+        "lanes": self.lanes,
+        "balances": self.balances,
+        "checked": self.checked,
+        "pending_resets": list(self.pending_resets.values()),
+        "emitted_resets": self.emitted_resets,
+        "reset_history": self.reset_history,
+      }
     )
     database = self.connect()
     with database:
@@ -334,33 +410,145 @@ class Limits:
     checked = found.get("checked")
     if isinstance(checked, (int, float)) and not isinstance(checked, bool):
       self.checked = float(checked)
+    history = saved_reset_events(found.get("reset_history"))
+    history.sort(key=lambda event: event["at"], reverse=True)
+    self.reset_history = history[:RESET_HISTORY]
+    self.emitted_resets = saved_reset_times(found.get("emitted_resets"))
+    for event in self.reset_history:
+      key = reset_key(event)
+      self.emitted_resets[key] = max(self.emitted_resets.get(key, 0.0), event["at"])
+    self.pending_resets = saved_pending_resets(found.get("pending_resets"))
+    self.pending_resets = {
+      key: event
+      for key, event in self.pending_resets.items()
+      if event["at"] > self.emitted_resets.get(key, 0.0)
+    }
 
   def clear(self) -> None:
     self.lanes.clear()
     self.balances.clear()
+    self.pending_resets.clear()
+    self.emitted_resets.clear()
+    self.reset_history.clear()
     self.checked = None
     database = self.connect()
     with database:
       database.execute("DELETE FROM limits WHERE name = ?", (SAVED,))
     database.close()
 
-  def observe(self, lane: str, headers: Mapping[str, str]) -> None:
-    """Keep the rate-limit headers of one answer. 0 left of a day or a month cools the lane down to the reset."""
+  def _schedule_reset(
+    self,
+    provider: Any,
+    client: Any,
+    kind: Any,
+    span: Any,
+    at: Any,
+  ) -> bool:
+    """Keep a newer pending boundary for one notification scope."""
+    event = reset_event(
+      {"provider": provider, "client": client, "kind": kind, "span": span, "at": at}
+    )
+    if event is None:
+      return False
+    key = reset_key(event)
+    if event["at"] <= self.emitted_resets.get(key, 0.0):
+      return False
+    pending = self.pending_resets.get(key)
+    if pending is not None and event["at"] <= pending["at"]:
+      return False
+    self.pending_resets[key] = event
+    return True
+
+  def _refresh_rows(self, now: float) -> bool:
+    """Restore remembered allowances whose advertised boundary passed."""
+    changed = False
+    for seen in self.lanes.values():
+      for row in seen["rows"]:
+        reset, limit = number(row.get("reset")), number(row.get("limit"))
+        if (
+          (row.get("kind"), row.get("span")) not in RESET_LIMITS
+          or reset is None
+          or not math.isfinite(reset)
+          or reset > now
+          or limit is None
+          or not math.isfinite(limit)
+        ):
+          continue
+        row["remaining"], row["reset"] = limit, None
+        changed = True
+    return changed
+
+  def _materialize_resets(self, now: float) -> bool:
+    """Refresh due rows and move due boundaries into notification history."""
+    changed = self._refresh_rows(now)
+    due = sorted(
+      (
+        (key, event) for key, event in self.pending_resets.items() if event["at"] <= now
+      ),
+      key=lambda item: item[1]["at"],
+    )
+    if not due:
+      return changed
+    added = []
+    for key, event in due:
+      del self.pending_resets[key]
+      if event["at"] <= self.emitted_resets.get(key, 0.0):
+        continue
+      self.emitted_resets[key] = event["at"]
+      added.append(event)
+    if added:
+      self.reset_history.extend(added)
+      self.reset_history.sort(key=lambda event: event["at"], reverse=True)
+      del self.reset_history[RESET_HISTORY:]
+    return True
+
+  def resets(self) -> list[dict[str, Any]]:
+    """Materialize due reset boundaries and return newest notifications first."""
     now = self.clock()
-    rows = header_rows(lane.partition("/")[0], headers, now)
+    changed = self._materialize_resets(now)
+    for row in self.counted(now):
+      changed |= self._schedule_reset(
+        row.get("provider"),
+        row.get("client"),
+        row.get("kind"),
+        row.get("span"),
+        row.get("reset"),
+      )
+    changed |= self._materialize_resets(now)
+    if changed:
+      self.save()
+    return [dict(event) for event in self.reset_history]
+
+  def observe(self, lane: str, headers: Mapping[str, str]) -> None:
+    """Keep one answer's rate limits, cooldowns and advertised reset boundaries."""
+    now = self.clock()
+    changed = self._materialize_resets(now)
+    model, client = lanes.split(lane)
+    provider = model.partition("/")[0]
+    rows = header_rows(provider, headers, now)
     if not rows:
+      if changed:
+        self.save()
       return
     self.lanes[lane] = {"at": now, "rows": rows}
+    for row in rows:
+      self._schedule_reset(
+        provider, client or None, row["kind"], row["span"], row["reset"]
+      )
     ends = [end for row in rows if (end := cooling_end(row, now))]
     if ends and self.cooldowns:
       self.cooldowns.hold(lane, max(ends), "limit")
     self.save()
 
   async def check(self) -> None:
-    """Read the balance of each provider key that has a balance endpoint."""
+    """Read provider balances and keep their due or newly advertised reset boundaries."""
+    now = self.clock()
+    changed = self._materialize_resets(now)
     if self.client is None:
+      if changed:
+        self.save()
       return
-    now, config, found, failed = self.clock(), self.config(), {}, set()
+    config, found, failed = self.config(), {}, set()
     for name, (read, items) in READERS.items():
       block = keyed_block(config.get(name))
       if block is None:
@@ -377,6 +565,10 @@ class Limits:
         continue
       if shown:
         found[name] = shown
+        if name == "cloudflare":
+          self._schedule_reset(
+            "cloudflare", None, "neurons", "day", next_midnight(now, UTC)
+          )
       if name == "openrouter" and isinstance(data, dict):
         self.free_used_up(data, now)
     # A read that fails now keeps the last card of that provider, the way a restart keeps

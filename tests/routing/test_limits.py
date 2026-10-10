@@ -172,6 +172,172 @@ def test_floored() -> None:
   assert [limits.floored(v) for v in values] == ["0", "999", "1K", "998M", "1B"]
 
 
+def test_advertised_resets_notify_at_the_boundary_once(tmp_path: Path) -> None:
+  """TPM, RPM, RPH and RPD wait for their advertised time, then notify once with the boundary time."""
+  now = [NOW]
+  boundary = NOW + 60
+  headers = {}
+  for kind, span in (
+    ("tokens", "minute"),
+    ("requests", "minute"),
+    ("requests", "hour"),
+    ("requests", "day"),
+  ):
+    name = f"{kind}-{span}"
+    headers[f"x-ratelimit-limit-{name}"] = "100"
+    headers[f"x-ratelimit-remaining-{name}"] = "50"
+    headers[f"x-ratelimit-reset-{name}"] = str(boundary)
+  found = limits.Limits(clock=lambda: now[0], path=lambda: tmp_path / "models.sqlite3")
+  found.observe("mistral/model#owui", httpx.Headers(headers))
+  assert found.resets() == [], "an advertised boundary does not notify early"
+  now[0] = boundary - 0.001
+  assert found.resets() == [], "the last instant before the boundary stays quiet"
+  now[0] = boundary
+  events = found.resets()
+  assert {
+    (event["kind"], event["span"], event["provider"], event["client"])
+    for event in events
+  } == {
+    ("tokens", "minute", "mistral", "owui"),
+    ("requests", "minute", "mistral", "owui"),
+    ("requests", "hour", "mistral", "owui"),
+    ("requests", "day", "mistral", "owui"),
+  }
+  assert all(event["at"] == boundary for event in events), events
+  rows = found.view()["lanes"][0]["rows"]
+  assert all(row["remaining"] == row["limit"] for row in rows), (
+    "a reset restores each remembered allowance"
+  )
+  assert all(row["reset"] is None for row in rows), (
+    "the elapsed boundary leaves each remembered row"
+  )
+  assert found.resets() == events, "reading the due boundary again adds no event"
+
+
+def test_a_newer_advertised_boundary_replaces_the_pending_one(tmp_path: Path) -> None:
+  """One scope keeps its newest provider boundary, even when another model reports it."""
+  now = [NOW]
+  path = tmp_path / "models.sqlite3"
+  found = limits.Limits(clock=lambda: now[0], path=lambda: path)
+
+  def headers(boundary: float) -> httpx.Headers:
+    return httpx.Headers(
+      {
+        "x-ratelimit-limit-requests-minute": "100",
+        "x-ratelimit-remaining-requests-minute": "50",
+        "x-ratelimit-reset-requests-minute": str(boundary),
+      }
+    )
+
+  first, second = NOW + 60, NOW + 120
+  found.observe("groq/a#client", headers(first))
+  now[0] += 10
+  found.observe("groq/b#client", headers(second))
+  now[0] = first
+  assert found.resets() == [], "the replaced boundary no longer notifies"
+  now[0] = second
+  events = found.resets()
+  assert len(events) == 1 and events[0]["at"] == second, events
+
+
+def test_reset_boundaries_and_deduplication_survive_a_restart(tmp_path: Path) -> None:
+  """A pending reset and its one emitted event persist through separate process starts."""
+  now = [NOW]
+  path = tmp_path / "models.sqlite3"
+  boundary = NOW + 30
+  headers = httpx.Headers(
+    {
+      "x-ratelimit-limit-tokens-minute": "1000",
+      "x-ratelimit-remaining-tokens-minute": "500",
+      "x-ratelimit-reset-tokens-minute": str(boundary),
+    }
+  )
+  limits.Limits(clock=lambda: now[0], path=lambda: path).observe("groq/model", headers)
+  restored = limits.Limits(clock=lambda: now[0], path=lambda: path)
+  restored.restore()
+  assert restored.resets() == []
+  now[0] = boundary
+  assert len(restored.resets()) == 1
+  again = limits.Limits(clock=lambda: now[0], path=lambda: path)
+  again.restore()
+  events = again.resets()
+  assert len(events) == 1 and events[0]["at"] == boundary, events
+  assert again.resets() == events, "the emitted boundary stays deduplicated"
+
+
+def test_openrouter_and_kilo_request_resets_notify(tmp_path: Path) -> None:
+  """OpenRouter's bare request headers and Kilo's counted rolling hour both notify."""
+  now = [NOW]
+  path = tmp_path / "models.sqlite3"
+  found = limits.Limits(clock=lambda: now[0], path=lambda: path)
+  openrouter_reset, kilo_reset = NOW + 30, NOW + 60
+  found.observe(
+    "openrouter/free#owui",
+    httpx.Headers(
+      {
+        "x-ratelimit-limit": "50",
+        "x-ratelimit-remaining": "10",
+        "x-ratelimit-reset": str(openrouter_reset),
+      }
+    ),
+  )
+  found.counted = lambda _now: [
+    {
+      "provider": "kilo",
+      "kind": "requests",
+      "span": "hour",
+      "limit": 200,
+      "remaining": 199,
+      "reset": kilo_reset,
+    }
+  ]
+  assert found.resets() == []
+  now[0] = openrouter_reset
+  events = found.resets()
+  assert [(event["provider"], event["client"], event["span"]) for event in events] == [
+    ("openrouter", "owui", "day")
+  ]
+  now[0] = kilo_reset
+  events = found.resets()
+  assert {(event["provider"], event["client"], event["span"]) for event in events} == {
+    ("openrouter", "owui", "day"),
+    ("kilo", None, "hour"),
+  }
+  assert found.resets() == events, "the rolling boundary emits only once"
+
+
+async def test_cloudflare_neurons_reset_at_utc_midnight(tmp_path: Path) -> None:
+  """A successful Neurons read schedules one notification for the next UTC midnight."""
+  now = [NOW]
+  config = {
+    "cloudflare": {
+      "api_key": "k",
+      "api_base": "https://api.cloudflare.com/client/v4/accounts/acc/ai/v1",
+    }
+  }
+  async with httpx.AsyncClient(transport=httpx.MockTransport(answer)) as client:
+    found = limits.Limits(
+      config=lambda: config,
+      client=lambda: client,
+      clock=lambda: now[0],
+      path=lambda: tmp_path / "models.sqlite3",
+    )
+    await found.check()
+    midnight = datetime(2026, 9, 30, tzinfo=UTC).timestamp()
+    assert found.resets() == []
+    now[0] = midnight
+    events = found.resets()
+  assert events == [
+    {
+      "at": midnight,
+      "provider": "cloudflare",
+      "client": None,
+      "kind": "neurons",
+      "span": "day",
+    }
+  ]
+
+
 def test_rows_survive_a_restart(tmp_path: Path) -> None:
   """The lane rows and the balances of the last run come back after a restart, and `clear` drops them."""
   path = tmp_path / "models.sqlite3"

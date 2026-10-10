@@ -11,6 +11,7 @@ daedalus provides an OpenAI endpoint. It routes requests to a free model of the 
 - [Cooldowns](#cooldowns)
 - [Client lanes](#client-lanes)
 - [Pacing](#pacing)
+- [Reset notifications](#reset-notifications)
 - [Session affinity](#session-affinity)
 - [Parallel queries](#parallel-queries)
 - [Try again](#try-again)
@@ -233,6 +234,20 @@ A model with `rpm` or `tpm` in its provider file leaves the chains and the media
 | Each model skipped | HTTP 429 `rate_limit_exceeded`. `Retry-After`: the time until the first model takes requests again. |
 | Client with its own key | Its own counts, against the same `rpm` and `tpm`. See [Client lanes](#client-lanes). |
 | Storage | Memory only. A restart sets the counts to 0. |
+
+## Reset notifications
+
+The Notifications page shows 1 notice when a known provider limit resets. It checks for due resets each time the page refreshes. Therefore, a notice does not need a new provider answer.
+
+| Item | Value |
+| --- | --- |
+| Limits | Tokens per minute, requests per minute, requests per hour, requests per day, and Cloudflare Neurons per day |
+| Sources | Provider reset headers, OpenRouter request headers, Kilo hourly counts, and the Cloudflare UTC day |
+| Scope | Provider, client lane, limit kind, and limit span |
+| Pending reset | 1 for each scope. Only a newer boundary replaces it. |
+| Time of the notice | The known reset boundary, not the time of the page refresh |
+| Limits row | The remembered allowance returns to full and the elapsed reset time clears at the boundary |
+| Storage | The limits JSON row in `.daedalus-state/models.sqlite3`, including the newest 50 notices |
 
 ## Session affinity
 

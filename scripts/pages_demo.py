@@ -1289,6 +1289,7 @@ const DEMO_FIXTURES = __FIXTURES__;
           .map((row) => ({ ...row, model: lane.model, client: lane.client ?? null, share: row.remaining / row.limit }))
       ).sort((a, b) => a.share - b.share || a.model.localeCompare(b.model));
       return json({
+        resets: DEMO_FIXTURES.notifications.resets,
         rebuilds: DEMO_FIXTURES.notifications.rebuilds,
         update: DEMO_FIXTURES.notifications.update,
         limits: warnings,

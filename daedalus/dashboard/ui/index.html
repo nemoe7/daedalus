@@ -200,6 +200,17 @@
       <div class="flow">
         <div class="column wide">
           <div class="panel">
+            <table class="resets" aria-label="Limit resets" role="table">
+              <thead role="rowgroup"><tr role="row">
+                <th scope="col" role="columnheader" title="When the provider reset the limit">Time</th>
+                <th scope="col" role="columnheader">Provider</th>
+                <th scope="col" role="columnheader">Limit</th>
+                <th scope="col" class="hide-sm" role="columnheader" title="The client-specific provider key, when set">Client</th>
+              </tr></thead>
+              <tbody id="reset-rows" role="rowgroup"></tbody>
+            </table>
+          </div>
+          <div class="panel">
             <table class="rebuilds" aria-label="Catalog rebuilds" role="table">
               <thead role="rowgroup"><tr role="row">
                 <th scope="col" role="columnheader" title="When the rebuild finished">Time</th>

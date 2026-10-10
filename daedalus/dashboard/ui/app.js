@@ -2677,12 +2677,13 @@ const unit = (r) => `${r.kind === "tokens" ? "tok" : "req"}${r.span ? `/${SPANS[
 const SPAN_SHORT = { minute: "M", hour: "H", day: "D", month: "MO" };
 const SPAN_WORD = { minute: "minute", hour: "hour", day: "day", month: "month" };
 function limitUnit(r) {
+  if (r.kind === "neurons") return "Neurons/day";
   if (!SPAN_SHORT[r.span]) return r.kind;
   return `${r.kind === "tokens" ? "T" : "R"}P${SPAN_SHORT[r.span]}`;
 }
 // The full name of a short unit, for the hover text of the Limit column, for example Requests per day.
 function limitTitle(r) {
-  const kind = r.kind === "tokens" ? "Tokens" : "Requests";
+  const kind = r.kind === "neurons" ? "Neurons" : r.kind === "tokens" ? "Tokens" : "Requests";
   return r.span ? `${kind} per ${SPAN_WORD[r.span] || r.span}` : kind;
 }
 
@@ -2871,6 +2872,22 @@ function openDiffModal(event) {
 
 function renderNotifications(data) {
   state.notifications = data;
+  const resets = data.resets || [];
+  draw(
+    "reset-rows",
+    resets.length
+      ? resets
+          .map(
+            (event) => `<tr>
+      <td class="muted time">${stamp(event.at)}</td>
+      <td>${esc(event.provider)}</td>
+      <td title="${esc(limitTitle(event))}">${esc(limitUnit(event))}</td>
+      <td class="hide-sm">${event.client ? esc(event.client) : '<span class="muted">-</span>'}</td>
+    </tr>`
+          )
+          .join("")
+      : '<tr><td colspan="4" class="empty">No limit resets yet.</td></tr>'
+  );
   draw(
     "rebuild-rows",
     data.rebuilds.length
@@ -2959,6 +2976,7 @@ async function start() {
   setStateKnown(null);
   skeletons("requests", 13);
   skeletons("models", 9);
+  skeletons("reset-rows", 4);
   skeletons("rebuild-rows", 5);
   await refreshFast();
   await refreshSlow();

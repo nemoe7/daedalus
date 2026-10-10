@@ -3495,6 +3495,15 @@
   "notifications": {
     "limits": [],
     "rebuilds": [],
+    "resets": [
+      {
+        "at": 1791590400.0,
+        "client": null,
+        "kind": "neurons",
+        "provider": "cloudflare",
+        "span": "day"
+      }
+    ],
     "update": null
   },
   "pools": [
