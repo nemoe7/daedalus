@@ -171,7 +171,8 @@ def enrich(
     provider_name, _, slug = line.partition("/")
     name = LITELLM_PROVIDER.get(provider_name, provider_name)
     entries = cache[name]
-    if isinstance(entries, str):
+    unread = isinstance(entries, str)
+    if unread:
       if provider_name not in noted:
         noted.add(provider_name)
         problems.append(f"{provider_name}: LiteLLM catalog failed: {entries}")
@@ -197,6 +198,10 @@ def enrich(
     row.update((native or {}).get(line, {}))
     block = block_for(config, provider_name, slug) or {}
     row.update(config_params(block, slug))
+    # No catalog match gives no mode. The row makes text, so it takes the chat mode. A provider
+    # whose catalog read failed keeps no mode, so the store keeps the mode it holds.
+    if not unread:
+      row["mode"] = row["mode"] or "chat"
     row["supported_efforts"] = supported_ladder(config, line, row)
     row["tier"] = (
       claiming_tier(block, slug)

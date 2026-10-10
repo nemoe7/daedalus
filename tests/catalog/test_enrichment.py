@@ -231,6 +231,22 @@ def test_enrich_reads_each_provider_once() -> None:
   assert problems == []
 
 
+def test_enrich_gives_a_text_row_the_chat_mode() -> None:
+  """A row no catalog names takes the chat mode, and a media row keeps its own mode."""
+  fetch, _ = sequenced({"data": [], "has_more": False}, {"models": []})
+  rows, problems = enrichment.enrich(["openrouter/new-model"], {}, fetch)
+  assert problems == [], problems
+  assert rows[0]["mode"] == "chat", rows[0]["mode"]
+  media, _ = sequenced({"data": [], "has_more": False}, {"models": []})
+  rows, _ = enrichment.enrich(
+    ["openrouter/paint"],
+    {},
+    media,
+    native={"openrouter/paint": {"mode": "image_generation"}},
+  )
+  assert rows[0]["mode"] == "image_generation", rows[0]["mode"]
+
+
 def test_enrich_reads_the_providers_at_the_same_time() -> None:
   """The 2 provider reads of one source overlap, and each source keeps its own batch."""
   both = threading.Barrier(2, timeout=5)
