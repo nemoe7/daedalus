@@ -311,7 +311,7 @@ function showPassword(on) {
 // A read failure: 1 line in the page and 1 button to ask again. The line stays until the
 // user clears it with the x; the retry asks again but keeps the line in place.
 function showNotice(message) {
-  $("notice-text").textContent = message || "The dashboard cannot read the server.";
+  $("notice-text").textContent = message || "The dashboard cannot reach the server.";
   const note = $("notice");
   note.classList.remove("leave");
   note.hidden = false;
@@ -543,12 +543,12 @@ function chainRows(r) {
 // Why the racers did or did not start: the code wears the same 3 letter shape as the routing
 // codes, and the title carries the full note. It shows while the race is on.
 const RACE_NOTES = {
-  off: "No race: the affinity mode is not race",
-  pool: "No race: the request is not a pool or auto route",
+  off: "No race: the affinity mode is not \"race\"",
+  pool: "No race: the route is not a pool or auto",
   stream: "No race: the request is not a stream",
   single: "No race: the pool holds 1 model",
   fast: "No race: the first model answered before the slow seconds",
-  slow: "Raced the pin: the racers started after the slow seconds",
+  slow: "Raced the pin: the racers started after the slow timeout",
   drawn: "Raced the pin: the draw started the racers with the first model",
 };
 const RACE_CODES = {
@@ -874,7 +874,7 @@ function renderRequestTable() {
   const live = [...state.live.values()].filter((r) => requestMatches(r, { live: true })).length;
   const total = state.requests.length + live;
   renderRequests(rows, total && !rows.length && !live
-    ? "No requests match the filter, or the kept window holds no such request"
+    ? "No requests match the filter, or the last 500 hold none"
     : "No requests", live);
   // The button keeps its seat in the bar, so showing it never moves the count hint.
   $("request-clear").classList.toggle("off",
@@ -1148,7 +1148,7 @@ function renderModels() {
     (state.tier === "All" || tierLetter(m.tier) === state.tier)
     && (state.mode === "all" || m.mode === state.mode || m.flags.includes(state.mode))
     && m.id.toLowerCase().includes(query)));
-  const empty = state.models.length ? "No models match" : "No models. Run daedalus catalog.";
+  const empty = state.models.length ? "No models match the filter" : "No models. Run daedalus catalog.";
   draw("models", rows.length ? rows.map((m) => `
     <tr data-model="${esc(m.id)}">
       ${nameCell(m.id, modelName(m.id), "", `<span class="types phone-types">${typeChips(m)}</span><span class="phone-chips">${phoneChips(m)}</span>`)}
@@ -1505,7 +1505,7 @@ function hooksManager() {
     .map((file) => `<label class="pill"><input type="checkbox" data-hook-take="${esc(file.name)}"
       ${scan.take[file.name] ? "checked" : ""}>${esc(file.name)}${file.version ? ` ${esc(file.version)}` : ""}</label>`).join("")}
       <button type="button" class="primary" data-hook-take-all>Take the picked files</button></div>` : "";
-  return `<div class="field stack info">${labelSpan("Installed hooks", "The files of the hook folder. A surface is a stage of a request, and the block of the file names the surfaces it runs at. The switch leaves a file on disk and out of the run.")}
+  return `<div class="field stack info">${labelSpan("Installed hooks", "The files of the hook folder. A surface is a stage of a request. The block of the file names the surfaces that run the file. The switch keeps a file on disk and out of the run.")}
       <table class="keys"><thead><tr><th>Author/Title</th><th>Version</th><th>Surfaces</th><th>Scopes</th><th class="hide-sm">Source</th><th>Enabled</th><th></th></tr></thead>
       <tbody>${list}</tbody></table>
       <button type="button" class="ghost" data-hooks-update>Update from the sources</button></div>
@@ -1524,7 +1524,7 @@ function hooksManager() {
 // entries of the file stay, so the row shows the problem of a missing file.
 async function dropHookFile(button) {
   const name = button.dataset.hookDrop;
-  if (!(await ask("Delete the hook file", `${name} leaves the folder and the lock. The settings entries of the file stay.`, "Delete", true))) return;
+  if (!(await ask("Delete the hook file", `Delete ${name} from the folder and the lock. The settings entries of the file stay.`, "Delete", true))) return;
   await guarded(async () => {
     await call("hooks/file", { method: "DELETE", body: JSON.stringify({ name }) });
     await loadSettings();
@@ -1544,7 +1544,7 @@ async function addHookSource() {
       take: Object.fromEntries(found.files.map((file) => [file.name, installed.get(file.name) !== file.version])),
     };
     renderSettings();
-    hooksNote(`${found.files.length} file(s) in ${sourceLabel(found)}.`);
+    hooksNote(`${count(found.files.length, "file")} in ${sourceLabel(found)}.`);
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin("The session ended. Log in to add the source again.");
     showWrite("settings", error.message, true);
@@ -1576,7 +1576,7 @@ async function takeHooks() {
 }
 
 async function runHooksUpdate() {
-  hooksNote("Update");
+  hooksNote("Updating...");
   try {
     const answer = await call("hooks/update", { method: "POST" });
     await loadSettings();
@@ -2026,7 +2026,7 @@ function addValue(path, kind, text, key) {
   } else if (kind === "pattern") {
     const models = parentOf([...path, text], {});
     if (text in models) {
-      showWrite("providers", `The pattern ${text} is already there.`, true);
+      showWrite("providers", `The pattern ${text} exists.`, true);
       kept = false;
     } else models[text] = {};
   } else {
@@ -2049,7 +2049,7 @@ function renamePattern(input) {
   if (after === before) return;
   if (!after || after in models) {
     input.value = before;
-    showWrite("providers", after ? `The pattern ${after} is already there.` : "A pattern cannot be empty.", true);
+    showWrite("providers", after ? `The pattern ${after} exists.` : "A pattern cannot be empty.", true);
     return;
   }
   const renamed = Object.fromEntries(Object.entries(models).map(([key, value]) => [key === before ? after : key, value]));
