@@ -55,7 +55,7 @@ async def client(tmp_path: Path):
       }
     }
   )
-  store.write_store([{"id": "p/a"}])
+  store.write_store([{"id": "p/a", "supports_reasoning": 1}])
   api.PENALTIES.clear()
   api.COOLDOWNS.clear()
   api.PACING.clear()
@@ -103,3 +103,18 @@ async def test_each_round_of_one_message_carries_its_own_line(
   assert [len(round_) for round_ in rounds] == [1, 1], rounds
   assert rounds[0] == rounds[1], rounds
   assert rounds[0][0]["model"] == "p/a", rounds
+
+
+async def test_the_line_carries_the_routed_reasoning(
+  client: httpx.AsyncClient,
+) -> None:
+  """The line names the routed effort when it is not none, and it stays bare for none."""
+  for asked, wanted in (("high", "p/a · high"), ("none", "p/a")):
+    answer = await client.post(
+      "/v1/chat/completions",
+      json={**BODY, "stream": True, "reasoning_effort": asked},
+    )
+    assert answer.status_code == 200, answer.text
+    picks = lines(answer.text)
+    assert len(picks) == 1, picks
+    assert picks[0]["line"] == wanted, (asked, picks)

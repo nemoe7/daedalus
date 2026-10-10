@@ -1,5 +1,5 @@
 # ---
-# version: 1.0.1
+# version: 1.0.2
 # surfaces: [on-chunk]
 # author: nemoe7
 # title: Served model
@@ -28,11 +28,14 @@ def tier_letter(pool: str) -> str:
   return router.TIER_NAMES[tier].removeprefix("TIER-") if tier else ""
 
 
-def line_for(model: str, pool: str, served: str) -> str:
+def line_for(model: str, pool: str, served: str, effort: str = "") -> str:
+  """The served model line, with the routed effort when that effort reasons."""
   if model != RESERVED:
-    return served
-  letter = tier_letter(pool)
-  return f"{letter}{DOT}{served}" if letter else served
+    base = served
+  else:
+    letter = tier_letter(pool)
+    base = f"{letter}{DOT}{served}" if letter else served
+  return f"{base}{DOT}{effort}" if effort and effort != "none" else base
 
 
 def on_chunk(
@@ -42,7 +45,7 @@ def on_chunk(
 
   :param chunk: one OpenAI chunk on its way to the client
   :param model: the requested model, `daedalus/auto` or a pool
-  :param context: `pool`, the landed pool; `served`, the landed model
+  :param context: `pool`, the landed pool; `served`, the landed model; `effort`, its reasoning
   """
   if model != RESERVED and model not in router.POOLS:
     return chunk
@@ -56,7 +59,12 @@ def on_chunk(
   if not served:
     return chunk
   pool = str(found.get("pool") or "")
-  pick = {"line": line_for(model, pool, served), "model": served, "pool": pool}
+  effort = str(found.get("effort") or "")
+  pick = {
+    "line": line_for(model, pool, served, effort),
+    "model": served,
+    "pool": pool,
+  }
   usage = chunk.get("usage")
   chunk["usage"] = (
     {**usage, "daedalus": pick} if isinstance(usage, dict) else {"daedalus": pick}

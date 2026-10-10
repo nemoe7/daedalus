@@ -133,6 +133,7 @@ On each streamed chunk of a chat request, before the client gets it.
 | `code` | The retry code |
 | `pool` | The landed pool |
 | `served` | The landed model |
+| `effort` | The reasoning effort of the attempt that answered, empty for none |
 
 ### `on-http`
 
