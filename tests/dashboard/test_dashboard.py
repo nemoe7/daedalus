@@ -1146,6 +1146,10 @@ assert(modal.includes('class="diff-id added"'), 'an added model identity uses th
 assert(modal.includes('class="diff-id removed"'), 'a removed model identity uses the - color');
 assert(modal.includes('class="diff-id moved"'), 'a changed model identity uses the ~ color');
 assert(modal.includes('class="mark tint"'), 'the provider icon can inherit the identity color');
+assert(modal.includes('--mark:url(icons/openrouter.svg)'),
+  'the tinted provider mark resolves beside the dashboard stylesheet');
+assert(modal.includes('<span class="mark-sep" aria-hidden="true">/</span>'),
+  'the slash separator stays beside the provider mark');
 """,
   )
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")

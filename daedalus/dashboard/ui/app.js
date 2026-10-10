@@ -70,7 +70,7 @@ const MARK_FILES = new Set([
 ]);
 const mark = (name, tint = false) => MARK_FILES.has(name)
   ? tint
-    ? `<span class="mark tint" style="--mark:url(ui/icons/${esc(name)}.svg)" aria-hidden="true"></span>`
+    ? `<span class="mark tint" style="--mark:url(icons/${esc(name)}.svg)" aria-hidden="true"></span>`
     : `<img class="mark" src="ui/icons/${esc(name)}.svg" alt="" aria-hidden="true">`
   : `<span class="mark slug">${esc(name)}</span>`;
 // `provider/dev/model` and `provider/model` both land. The developer is the part before the model,
