@@ -1991,7 +1991,7 @@ probe.state.settings = {payload};
 probe.renderSettings();
 const html = node('settings').innerHTML;
 assert(!html.includes('id="set-hooks-on-request"'), 'the surface section left the card body');
-assert(html.includes('<th>Surfaces</th>'), 'the table names its surface column');
+assert(html.includes('class="hook-surfaces"'), 'each hook card holds its surfaces');
 assert(html.includes('class="pill on named" title="Named in the settings">On request'), 'the named surface reads on');
 assert(html.includes('class="pill off named" title="Named in the settings">On chunk'), 'the off file reads dim');
 assert(html.includes('<em class="none">No surface</em>'), 'a file that names no surface reads none');
@@ -2581,6 +2581,7 @@ def test_app_js_hooks_manager_renders() -> None:
           "name": "one.py",
           "path": "hooks/one.py",
           "title": "One hook",
+          "author": "owner",
           "version": "1.2.0",
           "scope": "provider",
           "targets": ["openrouter"],
@@ -2634,11 +2635,12 @@ assert(html.includes('value="hooks"'), 'the folder shows the saved value');
 assert(html.includes('id="hook-source"') && html.includes('>owner/name/hooks<'), 'the sources show the saved repo');
 assert(html.includes('data-hook-source-add') && html.includes('data-hook-source-drop') &&
   html.includes('data-hooks-update'), 'the source controls');
-assert(html.includes('<th>Author/Title</th>'), 'the table names its author and title column');
+assert(html.includes('class="hook-grid"') && html.includes('class="hook-card"'), 'the hooks show as cards');
+assert(html.includes('class="hook-author">owner<'), 'the author shows under the title');
 assert(html.includes('One hook'), 'the title of the file shows');
 assert(html.includes('data-hook-toggle="one.py"') && html.includes('data-hook-toggle="bad.py"'), '1 switch per file');
 assert(html.includes('>1.2.0<') && html.includes('provider: openrouter'), 'the version and the scope of a file');
-assert(html.includes('owner/name@ccccccc'), 'the source of an installed file');
+assert(html.includes('owner/name <span class="hook-sha">ccccccc</span>'), 'the source of an installed file');
 assert(html.includes('unknown surface'), 'a bad block shows its problem');
 assert(!html.includes('data-hook-take'), 'no scan before a repo is picked');
 probe.setListValue('hooks', 'disabled', []);
@@ -4437,13 +4439,19 @@ def test_update_check_now(client: TestClient) -> None:
 
 
 def test_hook_table_columns() -> None:
-  """The hooks table reads Author/Title, Version, Surfaces, Scopes, Source and Enabled."""
+  """Each hook card shows its title and author, version and scope, surfaces, source, and switch."""
   app = (
     Path(__file__).resolve().parents[2] / "daedalus/dashboard/ui/app.js"
   ).read_text(encoding="utf-8")
-  columns = "<th>Author/Title</th><th>Version</th><th>Surfaces</th><th>Scopes</th>"
-  assert columns in app, "the hooks table names its columns in the note order"
-  assert '<th class="hide-sm">Source</th><th>Enabled</th>' in app
+  for marker in (
+    'class="hook-title"',
+    'class="hook-author"',
+    'class="hook-meta"',
+    'class="hook-surfaces"',
+    'class="hook-source"',
+    'aria-label="Enabled ',
+  ):
+    assert marker in app, f"each hook card holds {marker}"
 
 
 def test_table_delete_buttons_use_the_trash_icon() -> None:
