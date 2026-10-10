@@ -243,6 +243,11 @@ const check = (ok, text) => {
   check((await (await context.fetch("ui/api/login")).json()).session === true, "the login opens the page again");
   const fresh = await (await context.fetch("ui/api/limits", { method: "POST" })).json();
   check(fresh.checked > 0 && fresh.lanes[0].at > 0, "the limits check reads a fresh time");
+  const limitUnits = new Set(fresh.lanes.flatMap((lane) =>
+    lane.rows.map((row) => `${row.kind}/${row.span}`)));
+  check(limitUnits.has("requests/day"), "the demo keeps an RPD row");
+  check(limitUnits.has("requests/minute"), "the demo keeps an RPM row");
+  check(limitUnits.has("tokens/minute"), "the demo keeps a TPM row");
   const seen = [];
   // A scripted run: the harness shrinks the waits, names each wave, and freezes the draws so
   // the escalation template with the cooldown and the weight change always serves.
