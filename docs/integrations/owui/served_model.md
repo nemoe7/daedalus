@@ -22,15 +22,15 @@ flowchart TD
 ```
 
 The Filter starts nothing and needs no key. Without a served model in the stream, it draws no line.
-The `enabled` Valve silences the line without an uninstall, and `prefix` puts own text before it.
+The `enabled` Valve silences the line without an uninstall, and `prefix` puts your own text before it.
 
 The `when` Valve sets the moment. `always` draws the line of each answer, and `on change` draws a
 line only when the served model of the chat moves. For that valve the Filter keeps the last served
-model of each chat, so a repeat stays quiet on `on change` alone.
+model of each chat, so a repeat stays quiet on `on change`.
 
 The Filter also keeps the last line of each message. A line equal to it draws no row, so several
-answers of 1 message, such as tool-call rounds, hold 1 row. It draws that row again in
-another message.
+answers of 1 message, such as tool-call rounds, hold 1 row. The next message draws the row
+again.
 
 Open WebUI draws the newest entry of the status list a second time while the reader has the list
 open. That row is the header row of the list, so no line is lost.

@@ -34,9 +34,9 @@ The place line reads `Approximate location` while the `location_approximate` Val
 lookup. It reads `Location` for a precise place. The `language` Valve wins over the request. An empty Valve
 reads the first value of the `Accept-Language` header of the request.
 
-Without both, the line reads `unknown`.
+With no Valve and no header, the line reads `unknown`.
 
-A repeat replaces the block of the Filter, so the messages keep 1 of them, at the top. The
-`enabled` Valve off returns the body as it came in.
+A repeat replaces the block of the Filter, so the messages keep 1 of them, at the top. With the
+`enabled` Valve off, the body returns as it came in.
 
 See [Open WebUI integration](../owui.md) for the other plugins.

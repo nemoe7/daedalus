@@ -8,7 +8,7 @@ Each file is 1 plugin: paste its content in **Workspace → Tools** or **Workspa
 | --- | --- | --- |
 | [`deep-research.md`](owui/deep-research.md) | Skill | A research plan over `search_web` and `fetch_url` |
 | [`served_model.py`](owui/served_model.md) | Filter | Draws the daedalus served model line above the answer |
-| [`chat_metadata.py`](owui/chat_metadata.md) | Filter | Puts 1 system message with the date, the clock, the timezone, the place and the language at the top |
+| [`chat_metadata.py`](owui/chat_metadata.md) | Filter | Puts 1 system message at the top, with the date, the clock, the timezone, the place and the language |
 | [`github.py`](owui/github.md) | Tool | The GitHub reads and writes, behind the permission gate |
 | [`google.py`](owui/google.md) | Tool | Gmail, Calendar, Drive and Docs, behind the permission gate |
 | [`owui_manager.py`](owui/owui_manager.md) | Tool | The workspace: knowledge, skills, files, tools and functions |
@@ -35,4 +35,4 @@ flowchart TD
 A gated tool asks over the socket of the chat tab. `WEBSOCKET_EVENT_CALLER_TIMEOUT` is unset by
 default, so the Open WebUI server waits without a timeout when the browser does not answer. Only
 `timeout_seconds` ends that wait. A page refresh drops the dialog, the tool returns `denied: true`,
-and it sends nothing.
+and the tool sends nothing.

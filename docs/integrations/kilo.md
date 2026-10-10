@@ -61,4 +61,4 @@ mkdir -p ~/.config/kilo/plugin
 cp integrations/kilo/daedalus.js ~/.config/kilo/plugin/
 ```
 
-Kilo shows no routed model for a custom provider. The **Requests** page and the log show it.
+Kilo shows no routed model for a custom provider. The **Requests** page and the log show the model that served the request.

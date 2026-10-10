@@ -1,10 +1,10 @@
 # Google tool
 
-[Open WebUI integration](../owui.md)
+See [Open WebUI integration](../owui.md) for the other plugins.
 
 [`integrations/openwebui/tools/google.py`](../../../integrations/openwebui/tools/google.py) is a second
 Workspace Tool: 1 file, standard library only, empty `requirements`. It holds Gmail, Calendar, Drive and Docs.
-The `permissions` valve sets the gate. `Always ask`, the shipped default, holds every call, reads included.
+The `permissions` valve sets the gate. `Always ask`, the shipped default, holds every call, including reads.
 
 `Allow reads` frees the reads and holds the writes.
 
@@ -40,6 +40,6 @@ flowchart TD
 
 The 5 reads are `search_mail`, `read_thread`, `agenda`, `search_files` and `read_document`. The 3 gated writes are `send_mail`, `create_event` and `append_to_document`.
 
-The shipped `Always ask` holds every call, reads included, so no mail line and no one time code reaches the chat without a click. `Allow reads` frees the reads and keeps the gate on the 3 writes. `Always allow` runs everything. `UserValves.mode` carries the same 3 values for one user, and `default` follows the tool valve.
+The shipped `Always ask` holds every call, reads included, so no mail line and no one-time code reaches the chat without a click. `Allow reads` frees the reads and keeps the gate on the 3 writes. `Always allow` runs everything. `UserValves.mode` carries the same 3 values for one user, and `default` follows the tool valve.
 
 [`tests/integrations/test_owui_google_tool.py`](../../../tests/integrations/test_owui_google_tool.py) holds the surface, the gate, the token cache and the error path.
