@@ -587,7 +587,11 @@ def test_the_demo_states_its_source_and_the_hook_versions(tmp_path: Path) -> Non
   for name, row in rows.items():
     assert row["version"], f"no version for {name}"
   assert rows["served_model.py"]["title"] == "Served model"
-  assert rows["owui_auto_reasoning_effort.py"]["runs"] == ["on-request", "on-prompt"]
+  assert rows["owui_auto_reasoning_effort.py"]["runs"] == [
+    "on-request",
+    "on-prompt",
+    "on-chunk",
+  ]
   assert rows["served_model.py"]["runs"] == ["on-chunk"]
   out = pages_demo.build(tmp_path / "site", "demo.test")
   script = (out / "demo.js").read_text(encoding="utf-8")

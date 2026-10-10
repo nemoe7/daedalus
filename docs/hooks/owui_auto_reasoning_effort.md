@@ -6,9 +6,9 @@ reasoning level of the request.
 
 | Item | Value |
 | --- | --- |
-| Runs | `on_request` before the chain of a chat request. `on_prompt` before the first attempt |
-| Writes | `value["key"]` and `value["code"]` on the repeat. `value["reasoning_effort"]` on the level |
-| Named by | its own frontmatter block: `surfaces: [on-request, on-prompt]`. The `hooks` keys of [`config/daedalus.yml`](../../config/daedalus.yml) run it first |
+| Runs | `on_request` before the chain of a chat request. `on_prompt` before the first attempt. `on_chunk` on the final chunk |
+| Writes | `value["key"]` and `value["code"]` on the repeat. `value["reasoning_effort"]` on the level. `usage.daedalus.line` on the chunk |
+| Named by | its own frontmatter block: `surfaces: [on-request, on-prompt, on-chunk]`. The `hooks` keys of [`config/daedalus.yml`](../../config/daedalus.yml) run it first |
 | Serves | The Open WebUI client, from the `CLIENT` constant, and the `x-openwebui-chat-id` header |
 
 The first chart shows the repeat key of `on_request`. The second shows the level of `on_prompt`.
@@ -51,6 +51,16 @@ routing of `daedalus/auto`, so this file sets the level only.
 The base sets no effort of its own. The surface serves the client of the `CLIENT` constant, so a Kilo
 request or a generic client keeps its own effort. A chain with no reasoning model gets no call and
 no effort. `upstream.without_reasoning` drops the field for a model the catalog marks as a model with no reasoning.
+
+## The served line
+
+The [served model hook](served_model.md) writes the line of the final chunk first.
+Then `on_chunk` of this file puts the routed effort at its end, such as `kilo/laguna-s-2.1:free · high`. An
+effort of `none` leaves the line alone, and this file alone draws no line.
+
+The files of a surface run in list order, and an installed file joins in name order. This name sorts
+before `served_model.py`, so name the surface to make the override win:
+`on-chunk: [hooks/served_model.py, hooks/owui_auto_reasoning_effort.py]`.
 
 ## The try again
 
