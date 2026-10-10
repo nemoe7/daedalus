@@ -448,21 +448,6 @@ A chip reads as noise, so the separator stays plain, and the icons keep the text
 .card[data-section="hooks"] .keys .hook-title { display: block; }
 .card[data-section="hooks"] .keys .hook-author { display: block; font-size: 0.85em; color: var(--muted, #8b8b8b); }
 .card[data-section="hooks"] .keys .hook-sha { display: block; font-size: 0.85em; color: var(--muted, #8b8b8b); font-family: monospace; }
-.hooks-section { display: grid; gap: 14px; }
-.hook-summary { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.9em; color: var(--muted); }
-.hook-summary .bad { color: var(--bad, #c62828); }
-.hook-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 12px; }
-.hook-card { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.hook-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-.hook-id { min-width: 0; }
-.hook-title { display: block; font-weight: 600; overflow-wrap: anywhere; }
-.hook-author { display: block; font-size: 0.85em; color: var(--muted); }
-.hook-meta { display: flex; flex-wrap: wrap; gap: 6px; }
-.hook-meta .chip { font-size: 0.85em; padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; }
-.hook-surfaces { display: flex; flex-wrap: wrap; gap: 6px; }
-.hook-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: auto; font-size: 0.85em; color: var(--muted); }
-.hook-source { overflow-wrap: anywhere; }
-.hook-where { display: grid; gap: 12px; }
 .card[data-section="hooks"] .keys td.surfaces { white-space: normal; }
 .card[data-section="hooks"] .keys td.surfaces .pill { white-space: nowrap; }
 tr.live-row td { background: var(--field); }

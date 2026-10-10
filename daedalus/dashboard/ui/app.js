@@ -1476,28 +1476,7 @@ function updateFails(answer) {
   return (answer.report || []).join(" ");
 }
 
-// One hook as a card: the title and the author, the switch, the version and the scope,
-// the surfaces, and the source with the short SHA. The Delete button sits in the footer.
-function hookCard(row, disabled) {
-  const record = row.record || {};
-  const sha = record.commit ? record.commit.slice(0, 7) : "";
-  const targets = (row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : "";
-  const source = row.problem
-    ? `<span class="bad">${esc(row.problem)}</span>`
-    : `${esc(record.repo || "local")}${sha ? ` <span class="hook-sha">${esc(sha)}</span>` : ""}`;
-  const author = row.author ? `<span class="hook-author">${esc(row.author)}</span>` : "";
-  return `<article class="hook-card" data-hook="${esc(row.name)}">
-    <header class="hook-head"><div class="hook-id"><span class="hook-title" title="${esc(row.name)}">${esc(row.title || row.name)}</span>${author}</div>
-      <input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
-        ${disabled.includes(row.name) ? "" : "checked"} aria-label="Enabled ${esc(row.name)}"></header>
-    <div class="hook-meta"><span class="chip">${esc(hookVersion(row))}</span><span class="chip">${esc(row.scope || "global")}${targets}</span></div>
-    <div class="hook-surfaces">${hookSurfacesCell(row)}</div>
-    <footer class="hook-foot"><span class="hook-source">${source}</span>
-      <button type="button" class="ghost danger" data-hook-drop="${esc(row.path)}" aria-label="Delete ${esc(row.name)}" title="Delete">${LUCIDE.trash}</button></footer>
-  </article>`;
-}
-
-// The manager of the Hooks card: a summary, the hook cards, the folder, and the sources.
+// The manager of the Hooks card: the folder, the sources, the files that load and the update.
 function hooksManager() {
   const rows = state.settings.hook_rows || [];
   const sources = listValue("hooks", "sources");
@@ -1506,35 +1485,39 @@ function hooksManager() {
   const options = sources.length
     ? sources.map((entry, index) => `<option value="${index}"${index === at ? " selected" : ""}>${esc(sourceLabel(entry))}</option>`).join("")
     : '<option value="">No source</option>';
-  const enabled = rows.filter((row) => !disabled.includes(row.name)).length;
-  const problems = rows.filter((row) => row.problem).length;
-  const summary = `<div class="hook-summary"><span>${rows.length} installed</span><span>${enabled} enabled</span>${
-    problems ? `<span class="bad">${problems} with a problem</span>` : ""}</div>`;
-  const cards = rows.map((row) => hookCard(row, disabled)).join("")
-    || '<p class="none">No hook file. Add a source below, then update.</p>';
+  const list = rows.map((row) => {
+    const record = row.record || {};
+    const source = record.repo ? `${record.repo}@${(record.commit || "").slice(0, 7)}` : "";
+    const title = row.title || row.name;
+    const author = row.author ? `<span class="hook-author">${esc(row.author)}</span>` : "";
+    return `<tr><td role="cell" class="name"><span class="cell-value" title="${esc(row.name)}"><span class="hook-title">${esc(title)}</span>${author}</span></td>
+      <td role="cell"><span class="cell-value">${esc(hookVersion(row))}</span></td>
+      <td role="cell" class="surfaces">${hookSurfacesCell(row)}</td>
+      <td role="cell"><span class="cell-value">${esc(row.scope || "global")}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
+      <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || "local")}">${row.problem ? `<span class="bad">${esc(row.problem)}</span>` : esc(record.repo || "local")}${record.commit ? `<span class="hook-sha">${esc(record.commit.slice(0, 7))}</span>` : ""}</span></td>
+      <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
+        ${disabled.includes(row.name) ? "" : "checked"} aria-label="Enabled ${esc(row.name)}"></td>
+      <td class="end"><button type="button" class="ghost danger" data-hook-drop="${esc(row.path)}" aria-label="Delete ${esc(row.name)}" title="Delete">${LUCIDE.trash}</button></td></tr>`;
+  }).join("") || '<tr><td role="cell" colspan="7"><em class="none">No hook file</em></td></tr>';
   const scan = state.hooksScan;
   const panel = scan ? `<div class="pills" id="hooks-scan">
       <span class="sub">${esc(sourceLabel(scan))} at ${esc((scan.commit || "").slice(0, 7))}</span>${scan.files
     .map((file) => `<label class="pill"><input type="checkbox" data-hook-take="${esc(file.name)}"
       ${scan.take[file.name] ? "checked" : ""}>${esc(file.name)}${file.version ? ` ${esc(file.version)}` : ""}</label>`).join("")}
       <button type="button" class="primary" data-hook-take-all>Take the picked files</button></div>` : "";
-  return `<div class="hooks-section">
-    ${summary}
-    <div class="field stack info">${labelSpan("Installed hooks", "The files of the hook folder. A surface is a stage of a request, and the block of the file names the surfaces it runs at. The switch leaves a file on disk and out of the run.")}
-      <div class="hook-grid">${cards}</div>
+  return `<div class="field stack info">${labelSpan("Installed hooks", "The files of the hook folder. A surface is a stage of a request, and the block of the file names the surfaces it runs at. The switch leaves a file on disk and out of the run.")}
+      <table class="keys"><thead><tr><th>Author/Title</th><th>Version</th><th>Surfaces</th><th>Scopes</th><th class="hide-sm">Source</th><th>Enabled</th><th></th></tr></thead>
+      <tbody>${list}</tbody></table>
       <button type="button" class="ghost" data-hooks-update>Update from the sources</button></div>
-    <div class="hook-where">
-      <div class="field stack info">${labelSpan("Folder", "The folder at the root that holds the hook files.")}
-        <span class="input"><input type="text" id="set-hooks-dir" data-value="Folder"
-          readonly spellcheck="false" value="${esc(fileValue("hooks", "dir") ?? "")}"
-          placeholder="${esc(state.settings.defaults.hooks.dir)}"></span></div>
-      <div class="field stack info">${labelSpan("Sources", "Each source names a GitHub repo, a folder in it and a ref.")}
-        <div class="pills"><select id="hook-source" data-hook-source aria-label="Source">${options}</select>
-          <button type="button" class="add" data-hook-source-add>${LUCIDE.plus} Add a repo</button>
-          <button type="button" class="ghost" data-hook-source-drop title="Delete the source">${LUCIDE.x}</button></div>${panel}
-        <div class="sub" id="hooks-note" role="status"></div></div>
-    </div>
-  </div>`;
+    <div class="field stack info">${labelSpan("Folder", "The folder at the root that holds the hook files.")}
+      <span class="input"><input type="text" id="set-hooks-dir" data-value="Folder"
+        readonly spellcheck="false" value="${esc(fileValue("hooks", "dir") ?? "")}"
+        placeholder="${esc(state.settings.defaults.hooks.dir)}"></span></div>
+    <div class="field stack info">${labelSpan("Sources", "Each source names a GitHub repo, a folder in it and a ref.")}
+      <div class="pills"><select id="hook-source" data-hook-source aria-label="Source">${options}</select>
+        <button type="button" class="add" data-hook-source-add>${LUCIDE.plus} Add a repo</button>
+        <button type="button" class="ghost" data-hook-source-drop title="Delete the source">${LUCIDE.x}</button></div>${panel}
+      <div class="sub" id="hooks-note" role="status"></div></div>`;
 }
 
 // The Delete button of a row: the file leaves the folder and the lock, and the settings
