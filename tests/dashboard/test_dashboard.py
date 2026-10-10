@@ -4143,6 +4143,23 @@ def test_the_notice_takes_the_red_and_wraps() -> None:
   )
 
 
+def test_the_notice_sits_under_the_header() -> None:
+  """The failure line opens the page under the header and stays there on a scroll."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  rule = re.search(r"\n\.notice \{([^}]*)\}", css)
+  assert rule, "the notice keeps its rule"
+  assert "position: sticky; top: 0;" in rule.group(1), (
+    "the line holds the top of the pane"
+  )
+  assert "bottom" not in rule.group(1), "the line leaves the bottom of the page"
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  first = page.split("<main>", 1)[1].lstrip().split(">", 1)[0]
+  assert first.startswith('<div class="notice"'), (
+    "the line opens the pane, so its top holds under the header"
+  )
+
+
 def test_the_notice_leaves_on_its_own_keyframes() -> None:
   """The x clears the line on a leave that mirrors the arrival, then hides the note."""
   root = Path(__file__).resolve().parent.parent.parent

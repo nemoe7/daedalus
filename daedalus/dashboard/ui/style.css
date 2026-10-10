@@ -686,15 +686,15 @@ section[data-page="providers"] > .editbar, section[data-page="settings"] > .edit
 section[data-page="models"] > .editbar, section[data-page="limits"] > .editbar {
   margin-bottom: 16px;
 }
-/* A read failure floats over the page in the red of the theme: border, text and button. The
-   message wraps in place of a clipped line, the button asks again, and the x clears the note
-   on a leave that mirrors the arrival. The note stays until that x goes. */
+/* A read failure holds the top of the pane, under the header, in the red of the theme: border,
+   text and button. The message wraps in place of a clipped line, the button asks again, and the x
+   clears the note on a leave that mirrors the arrival. The note stays until that x goes. */
 @keyframes leave { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(8px); } }
 .notice.leave { animation: leave var(--soft) var(--ease) forwards; }
 .notice {
-  position: fixed; left: 0; right: 0; bottom: 16px; z-index: 90;
+  position: sticky; top: 0; z-index: 90;
   display: flex; align-items: center; gap: 12px;
-  width: fit-content; max-width: calc(100vw - 32px); margin-inline: auto;
+  width: fit-content; max-width: calc(100vw - 32px); margin: 0 auto 12px;
   padding: 10px 14px; border: 1px solid var(--red); border-radius: var(--radius);
   background: var(--panel); color: var(--red);
   box-shadow: 0 8px 20px rgb(0 0 0 / 25%);
