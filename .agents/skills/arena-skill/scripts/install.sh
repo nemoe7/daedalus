@@ -251,6 +251,25 @@ _arena_preview_gate() {
       "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" serve-tick "\$BASH_COMMAND"
       ;;
   esac
+  # A fetch to a host outside the egress allowlist fails its TLS handshake, and the error
+  # reads as a transient fault. The warning lands before the call runs, and it names the
+  # tool that reaches the host instead.
+  case "\$BASH_COMMAND" in
+    *curl*|*wget*|*"git clone"*|*"git fetch"*|*"git ls-remote"*)
+      "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" egress-tick "\$BASH_COMMAND"
+      ;;
+  esac
+  # A commit that cites a session-local ID leaves a reader an ID nothing can resolve.
+  # The scan reads the staged diff against the state database, so a git SHA that is not
+  # a session ID never matches, while a full ID and its 7-character head both do.
+  case "\$BASH_COMMAND" in
+    *"git commit"*)
+      "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" commit-tick --repo "$REPO_ROOT"
+      case \$? in
+        1) exit 130 ;;
+      esac
+      ;;
+  esac
   case "\$BASH_COMMAND" in *preview*|*profile*|*bashrc*|*arena-state*|gh*|sleep*|true*|:*|test*|"git status"*|"git diff"*|"git add"*|"git commit"*|*arena-workspace*|*"ss -ltn"*|*"netstat -ltn"*) return 0 ;; esac
   # A push is a checkpoint: an unread note can change what leaves the sandbox,
   # so it waits for an ack whatever the call count.

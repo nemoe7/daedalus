@@ -36,7 +36,7 @@ Use this only after the owner selects the external channel. The owner supplies a
 
 Read the inbox when a Bash call reports a pending note, answer or upload count on stderr, before the next work step; that reminder is the schedule. NEVER wait for the Bash gate to block before a read. When ending a turn or a report form awaits answers, run `poll`. ALWAYS run `poll` on the bash call that ends the turn, chained or not. NEVER set or export `_arena_preview_platform`; a blocked gate is repaired, NEVER bypassed. A blocking-only call needs its read after return. Initial discovery may precede the first read; startup MUST. A blocked call that runs `tail`, `head` or `grep` hears which commands to drop. A call that spells the preview path hears the bare `arena-preview` form once a shell. A call that reads code-scanning alerts or workflow run logs hears the proxy route once a shell. A blocked push says that an ack clears it.
 
-The page's Message log toolbar carries a Skip poll button. A listing that carries a `skip_poll` stamp reports it: the poll that finds it consumes it, prints `SKIP: owner pressed Skip poll. End the turn, no second poll.` on stderr, and the turn ends there. Never poll again after a skip.
+The page's Message log toolbar carries a Skip poll button. A listing that carries a `skip_poll` stamp reports it: the poll that finds it consumes it, prints `SKIP: owner pressed Skip poll. End the turn, no second poll.` on stdout, and the turn ends there. Never poll again after a skip.
 
 ## Tasks
 

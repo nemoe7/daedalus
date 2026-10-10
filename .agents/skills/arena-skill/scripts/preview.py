@@ -89,6 +89,40 @@ def main_identical(root='.'):
 			if git('rev-parse','--verify','--quiet',ref).returncode:return False
 		return git('diff','--quiet','origin/main','HEAD','--').returncode==0
 	except OSError:return False
+SESSION_ID_TABLES=('notes','note'),('submissions','answer'),('reports','report'),('tasks','task')
+HEX7_RE=re.compile('[0-9a-f]{7}')
+DIFF_FILE_RE=re.compile('^\\+\\+\\+ b/(.+)$')
+DIFF_HUNK_RE=re.compile('^@@ -\\S+ \\+(\\d+)')
+def session_id_tokens(store):
+	tokens={}
+	with closing(store.connect())as db:
+		for(table,label)in SESSION_ID_TABLES:
+			for row in db.execute(f"SELECT id FROM {table}").fetchall():
+				ident=row['id'];tokens.setdefault(ident,(label,ident));head=ident.split('-',1)[0]
+				if HEX7_RE.fullmatch(head):tokens.setdefault(head,(label,ident))
+	return tokens
+def staged_session_id_hits(store,root='.'):
+	tokens=session_id_tokens(store)
+	if not tokens:return[]
+	try:diff=subprocess.run(['git','diff','--cached','-U0','--no-color'],cwd=root,capture_output=True,text=True,check=False)
+	except OSError:return[]
+	if diff.returncode:return[]
+	patterns={token:re.compile(f"(?<![0-9A-Za-z]){re.escape(token)}(?![0-9A-Za-z])")for token in tokens};hits=[];path=None;number=0
+	for line in diff.stdout.splitlines():
+		named=DIFF_FILE_RE.match(line)
+		if named:path=named.group(1);continue
+		hunk=DIFF_HUNK_RE.match(line)
+		if hunk:number=int(hunk.group(1))-1;continue
+		if not line.startswith('+')or line.startswith('+++'):continue
+		number+=1
+		for(token,pattern)in patterns.items():
+			if pattern.search(line):kind,ident=tokens[token];hits.append((path,number,token,kind,ident))
+	return hits
+def commit_id_report(hits):
+	if not hits:return None
+	lines=['COMMIT BLOCKED: the staged change cites a session-local ID. That ID exists only in this session, so a reader of the repository cannot resolve it.']
+	for(path,number,token,kind,ident)in hits:named=ident if token==ident else f"{token} of {ident}";lines.append(f"  {path}:{number}: {kind} {named}")
+	lines.append('Strip the citation, then commit again.');return'\n'.join(lines)
 def new_id():hexed=uuid.uuid4().hex;return f"{hexed[:7]}-{hexed[7:]}"
 def seconds_since(value):
 	if not value:return None
@@ -229,6 +263,8 @@ MAX_TASK_DETAILS=40
 TASK_STEP_MAX=120
 ECHO_DETAIL=200
 TASK_COLUMNS='id, title, details, status, position, updated_at, blocked, report_id'
+RENAME_TARGETS={'note':('notes',(('uploads','note_id'),)),'answer':('submissions',()),'report':('reports',(('submissions','report_id'),('tasks','report_id'))),'task':('tasks',(('notes','task_id'),('submissions','task_id')))}
+RENAME_TABLES='notes','submissions','reports','tasks'
 CLI_DESCRIPTION='Notes, reports, tasks and the preview server for Arena steering.'
 SAVED_STATE='saved-state.ndjson'
 NOTE_LINE_KEYS='id','text','at','acknowledged_at','ack_kind','ack_text','ack_edited_at','replies','ack_edited_seen_count','seen_at','task_id'
@@ -357,24 +393,26 @@ def add_note_attachments(note,records):
 	if records:note['attachment_name']=records[0]['name'];note['attachment_path']=records[0]['path'];note['attachments']=records
 	return note
 def format_pending_item(item):
-	kind=item.get('kind')or'note';display_kind='answer'if kind=='report'else kind;header=f"{display_kind} {item.get('id','')}"
+	kind=item.get('kind')or'note';display_kind='answer'if kind=='report'else kind;header=str(item.get('id',''))[:7]
+	if display_kind!='note':header+=f" {display_kind}"
 	if item.get('report_id'):header+=f" report {item['report_id']}"
-	if item.get('at'):header+=f" at {item['at']}"
-	text=item.get('text')or'';return f"{header}\n{text}"if text else header
+	lines=[header];text=item.get('text')or''
+	if text:lines.append(text)
+	attachments=item.get('attachments')or[]
+	if attachments:names=', '.join(f"{record.get('name','')}"if record.get('present')else f"{record.get('name','')} (missing)"for record in attachments);lines.append(f"attachments: {names}")
+	return'\n'.join(lines)
 def format_read(listing):
 	checked_at=listing.get('checked_at');pending=listing.get('pending')or[];count=len(pending)
 	if checked_at:first=f"Inbox {checked_at}: {count} pending"
 	else:first=f"Inbox: {count} pending"
 	if count==0:return first
-	lines=[first,'']
-	for(idx,item)in enumerate(pending):
-		lines.append(format_pending_item(item))
-		if idx!=len(pending)-1:lines.append('')
-	return'\n'.join(lines)
-def format_task_list(tasks):
-	total=len(tasks);lines=[f"Tasks {total}"]
-	for task in tasks:
-		order=task.get('order');status=task.get('status');id_=task.get('id');blocked=task.get('blocked');report_id=task.get('report_id');blocked_mark='*'if blocked else'';line=f"{order}{blocked_mark}  {status} {id_}"
+	return'\n'.join([first,*(format_pending_item(item)for item in pending)])
+def format_task_list(tasks,full=False):
+	shown=tasks if full else[t for t in tasks if t.get('status')=='upcoming'];lines=[f"Tasks {len(shown)}"if full else f"Tasks {len(shown)} upcoming"]
+	for(index,task)in enumerate(shown):
+		order=task.get('order');status=task.get('status')
+		if not full and index==0:status='current'
+		id_=task.get('id');blocked=task.get('blocked');report_id=task.get('report_id');blocked_mark='*'if blocked else'';line=f"{order}{blocked_mark}  {status} {id_}"
 		if report_id:line+=f" report {report_id}"
 		lines.append(line)
 	return'\n'.join(lines)
@@ -386,7 +424,7 @@ def format_task(record):
 def format_key(record):
 	lines=[]
 	if record.get('key'):lines.append(f"key {record['key']}")
-	if record.get('host'):lines.append(f"host {record['host']}")
+	if record.get('host'):lines.append(f"host {record['host']}");lines.append(f"use fetch_page on {record['host']}/v1/<route>?key=<key>, never bash")
 	if record.get('at'):lines.append(f"at {record['at']}")
 	return'\n'.join(lines)if lines else''
 def format_fetch_job(job):
@@ -439,6 +477,18 @@ def serve_warning(line):
 	found=SERVE_PORT_RE.search(line or'')
 	if not found or int(found.group(1))==DEFAULT_PORT:return None
 	return f"arena-preview gate: that serve names port {found.group(1)}, not the standard {DEFAULT_PORT}. The owner's page and the poll follow the standard port. Name another only when 8000 is taken, and say so."
+EGRESS_ALLOWLIST=frozenset(('github.com','api.github.com','codeload.github.com','registry.npmjs.org','pypi.org','files.pythonhosted.org','dns.google'))
+FETCH_COMMAND_RE=re.compile('(?:^|[\\s;&|(])(?:curl|wget|git\\s+(?:clone|fetch|ls-remote|pull|push))\\b')
+URL_HOST_RE=re.compile('(?:https?|ftp)://([^/\\s\\"\'@?]+)')
+def egress_warning(line):
+	text=line or''
+	if not FETCH_COMMAND_RE.search(text):return None
+	hosts=[]
+	for found in URL_HOST_RE.finditer(text):
+		host=found.group(1).split(':',1)[0].lower()
+		if host and host not in EGRESS_ALLOWLIST and host not in hosts:hosts.append(host)
+	if not hosts:return None
+	names=', '.join(hosts);return f"arena-preview gate: {names} sits outside this sandbox's egress allowlist. The TLS handshake fails with SSL_ERROR_SYSCALL, which reads as a transient fault and never clears on a retry. Read it through the fetch_page tool instead."
 def first_blocking_piece(line):
 	text=unquote_commands(line)
 	for separator in('&&','||',';','|','\n'):text=text.replace(separator,'\x00')
@@ -473,7 +523,7 @@ def run_command(state_dir,name,argv):
 	if not argv:print('arena-preview run: name a command after --, for example: run gates -- make check',flush=True);return 2
 	started=time.monotonic();completed=subprocess.run(argv,capture_output=True,text=True,check=False);seconds=round(time.monotonic()-started,1);output=(completed.stdout+completed.stderr).splitlines();tail=output[-RUN_TAIL_LINES:];verdict=tail[-1]if tail else'(no output)';record={'name':name,'argv':argv,'exit':completed.returncode,'seconds':seconds,'finished_at':now(),'verdict':verdict,'tail':tail,'announced':False};path=run_record_path(state_dir,name);path.parent.mkdir(parents=True,exist_ok=True);path.write_text(json.dumps(record,ensure_ascii=False,indent=1)+'\n',encoding='utf-8')
 	for line in tail:print(line,flush=True)
-	line=f"arena-preview run {name}: exit {completed.returncode} in {seconds} s. Verdict: {verdict}";print(line,flush=True);print(line,file=sys.stderr,flush=True);return completed.returncode
+	print(f"run {name}: exit {completed.returncode} {seconds}s {verdict}",flush=True);return completed.returncode
 def run_notices(state_dir):
 	printed=0;runs=Path(state_dir)/'runs'
 	if not runs.is_dir():return printed
@@ -481,7 +531,7 @@ def run_notices(state_dir):
 		try:record=json.loads(path.read_text(encoding='utf-8'))
 		except(OSError,ValueError):continue
 		if record.get('announced'):continue
-		print(f"Finished run {record.get('name')}: exit {record.get('exit')} in {record.get('seconds')} s. Verdict: {record.get('verdict')}",flush=True);record['announced']=True;path.write_text(json.dumps(record,ensure_ascii=False,indent=1)+'\n',encoding='utf-8');printed+=1
+		print(f"run {record.get('name')} done: exit {record.get('exit')} {record.get('seconds')}s {record.get('verdict')}",flush=True);record['announced']=True;path.write_text(json.dumps(record,ensure_ascii=False,indent=1)+'\n',encoding='utf-8');printed+=1
 	return printed
 SHELL_WRAPPER=re.compile('^(?:\\S*/)?(?:ba|z|da)?sh\\s+(?:-\\w+\\s+)*-c\\s+')
 def shell_command_text(text):
@@ -511,15 +561,15 @@ def print_poll_hold(store):
 	if line is not None:print(line,file=sys.stderr,flush=True)
 def poll_inbox(store,sleeper=None):
 	if sleeper is None:sleeper=time.sleep
-	listing={'checked_at':None,'pending':[]};print('POLL: this wait runs up to 1800 s. Ends early with no new messages or unblocked tasks? The bash tool timeout cut it. Retry with the tool timeout 1800.',file=sys.stderr,flush=True);store.start_poll()
+	listing={'checked_at':None,'pending':[]};print('POLL: up to 1800 s. Ends early and empty? The tool timeout cut it; retry at 1800.',file=sys.stderr,flush=True);store.start_poll()
 	try:
 		for index in range(POLL_MAX_LOOPS):
 			listing=store.read(include_quiet=False)
 			if listing['pending']:full=store.read();print(format_read(full),flush=True);store.mark_seen([item['id']for item in full['pending']]);store.mark_reports_agent_seen([item.get('report_id')for item in full['pending']]);print_poll_hold(store);return 0
 			if run_notices(store.path.parent):print_poll_hold(store);return 0
 			open_tasks=[item for item in store.list_tasks()if item['status']=='upcoming'and not item['blocked']]
-			if open_tasks:listing['tasks']=open_tasks;names=', '.join(item['id']for item in open_tasks);continue_line=f"CONTINUE: unblocked task {names} waits. Task list still up. Work it or mark it blocked before the next poll. Do not end the turn.";print(continue_line,file=sys.stderr,flush=True);print(continue_line,flush=True);print(format_task_list(listing.get('tasks',[])),flush=True);print_poll_hold(store);return 0
-			if store.skip_poll_requested():store.take_skip_poll();store.mark_turn_ended();print('SKIP: owner pressed Skip poll. End the turn, no second poll.',file=sys.stderr,flush=True);print(format_read(listing),flush=True);print_poll_hold(store);return 0
+			if open_tasks:listing['tasks']=open_tasks;names=', '.join(item['id']for item in open_tasks);continue_line=f"CONTINUE: unblocked task {names}. Work it or block it; do not end the turn.";print(continue_line,flush=True);print(format_task_list(listing.get('tasks',[])),flush=True);print_poll_hold(store);return 0
+			if store.skip_poll_requested():store.take_skip_poll();store.mark_turn_ended();print('SKIP: owner pressed Skip poll. End the turn, no second poll.',flush=True);print(format_read(listing),flush=True);print_poll_hold(store);return 0
 			if index+1<POLL_MAX_LOOPS:sleeper(POLL_INTERVAL);store.stamp_polling()
 	finally:store.clear_polling()
 	store.mark_turn_ended();print('Poll ended: 0 pending.',flush=True);print_poll_hold(store);return 1
@@ -543,7 +593,7 @@ def task_steps(details):
 	return[step for step in steps if step]
 def check_task_steps(details):
 	for step in details or():
-		if len(step)>TASK_STEP_MAX:raise ValueError(f"A task detail is one step per line, {TASK_STEP_MAX} characters or fewer; this line runs {len(step)}. Split it and repeat --task-details")
+		if len(step)>TASK_STEP_MAX:raise ValueError(f"A task detail is one step per line, {TASK_STEP_MAX} characters or fewer; this line runs {len(step)}. Split it and repeat --details")
 def check_task(task_id,title,details):
 	if not TASK_ID.match(task_id or''):raise ValueError('A task ID is 1-64 characters of lowercase letters, digits and hyphens, and starts with a letter or digit')
 	if NOTE_ID.match(task_id or''):raise ValueError('That ID is a note ID. A task ID names the job: give the task a proper name, like fix-the-widget')
@@ -609,6 +659,17 @@ class Store:
 			if'approval'not in columns:db.execute("ALTER TABLE fetch_jobs ADD COLUMN approval TEXT NOT NULL DEFAULT 'approved' CHECK (approval IN ('pending', 'approved', 'denied'))")
 			if'origin'not in columns:db.execute("ALTER TABLE fetch_jobs ADD COLUMN origin TEXT NOT NULL DEFAULT 'agent'")
 		if not existed:self.path.chmod(384)
+	def id_matches(self,token):
+		like=f"{token}%";found=[]
+		with closing(self.connect())as db:
+			for(table,label)in(('notes','note'),('submissions','answer'),('reports','report'),('tasks','task')):rows=db.execute(f"SELECT * FROM {table} WHERE id = ? OR id LIKE ?",(token,like)).fetchall();found.extend((label,dict(row))for row in rows)
+		return found
+	def resolve_id(self,token):
+		matches=self.id_matches(token);exact=[item for item in matches if item[1]['id']==token]
+		if len(exact)==1:return token
+		if len(matches)==1:return matches[0][1]['id']
+		if not matches:raise ValueError(f"No note, answer, report or task holds the ID {token}")
+		listed='; '.join(f"{kind} {record['id']} {(record.get('title')or record.get('text')or'')[:40]!r}"for(kind,record)in matches);raise ValueError(f"{token} matches {len(matches)} records: {listed}. Give the full ID of one")
 	def notes_matching(self,token):
 		with closing(self.connect())as db:return[message_row(row)for row in db.execute('SELECT * FROM notes WHERE id = ? OR id LIKE ? ORDER BY at DESC',(token,f"{token}%")).fetchall()]
 	def connect(self):db=sqlite3.connect(self.path,timeout=5);db.row_factory=sqlite3.Row;return db
@@ -713,6 +774,18 @@ class Store:
 	@staticmethod
 	def refuse_shared_id(db,table,other,identity):
 		if db.execute(f"SELECT 1 FROM {other} WHERE id = ?",(identity,)).fetchone():raise ValueError(f"{identity} already names a {other[:-1]}; a {table[:-1]} needs another ID, for example {identity}-{table[:-1]}")
+	def rename_entity(self,prev_id,new_id):
+		identifier(new_id);exact=[item for item in self.id_matches(prev_id)if item[1]['id']==prev_id]
+		if len(exact)!=1:raise ValueError(f"No note, answer, report or task holds the ID {prev_id}")
+		kind=exact[0][0];table,dependents=RENAME_TARGETS[kind]
+		if kind=='task':check_task(new_id,None,None)
+		with self.transaction()as db:
+			for other in RENAME_TABLES:
+				if db.execute(f"SELECT 1 FROM {other} WHERE id = ?",(new_id,)).fetchone():raise ValueError(f"{new_id} already names a row in {other}")
+			db.execute(f"UPDATE {table} SET id = ? WHERE id = ?",(new_id,prev_id))
+			if table=='tasks':db.execute('UPDATE tasks SET updated_at = ? WHERE id = ?',(now(),new_id))
+			for(other,column)in dependents:db.execute(f"UPDATE {other} SET {column} = ? WHERE {column} = ?",(new_id,prev_id))
+		return kind
 	def amend_task(self,prev_id,task_id):
 		check_task(task_id,None,None);stamp=now()
 		with self.transaction()as db:
@@ -981,7 +1054,7 @@ class Store:
 		with closing(self.connect())as db,db:
 			uploads=db.execute('SELECT count(*) FROM notes JOIN uploads USING (id) WHERE acknowledged_at IS NULL').fetchone()[0];notes=db.execute('SELECT count(*) FROM notes WHERE acknowledged_at IS NULL').fetchone()[0]-uploads;reports=db.execute('SELECT count(*) FROM submissions WHERE acknowledged_at IS NULL').fetchone()[0];remaining=db.execute("SELECT count(*) FROM tasks WHERE status <> 'finished'").fetchone()[0];cursor=meta_number(db,REMINDER_CURSOR);polls=0 if advance and not notes+reports+uploads else meta_number(db,POLLS_SINCE_MESSAGE)+(1 if advance else 0);db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(REMINDER_CURSOR,str(cursor+1)))
 			if advance:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(POLLS_SINCE_MESSAGE,str(polls)))
-		counts=[f"{count} {kind}{'s'if count!=1 else''}"for(count,kind)in((notes,'note'),(reports,'answer'),(uploads,'upload'))if count];unacked=[f"Unacked: {', '.join(counts)}."]if counts else[];ack=['DO NOT IGNORE. ACK ASAP.']if counts else[];head=[f"Calls since user message: {polls}."]if polls and counts else[];tail=reminder_tail(cursor,remaining);return' '.join([*head,*unacked,*ack,tail])
+		counts=[f"{count} {kind}{'s'if count!=1 else''}"for(count,kind)in((notes,'note'),(reports,'answer'),(uploads,'upload'))if count];unacked=[f"unacked {', '.join(counts)}"]if counts else[];head=[f"calls {polls}"]if polls and counts else[];tail=reminder_tail(cursor,remaining);return' | '.join([' '.join([*head,*unacked]).strip(),tail]).strip(' |')
 	def gate(self,threshold=GATE_THRESHOLD,pending_only=False):
 		with closing(self.connect())as db,db:pending=db.execute('SELECT (SELECT count(*) FROM notes WHERE acknowledged_at IS NULL AND quiet = 0) + (SELECT count(*) FROM submissions WHERE acknowledged_at IS NULL)').fetchone()[0];polls=meta_number(db,POLLS_SINCE_MESSAGE)
 		if pending_only:return not pending
@@ -1317,7 +1390,7 @@ def ensure_installed():
 			except OSError:pass
 			return
 def main():
-	parser=argparse.ArgumentParser(description=CLI_DESCRIPTION);parser.add_argument('--reminder',action='store_true',help='Print the unacked-count reminder line and exit');commands=parser.add_subparsers(dest='command',required=False);serve=commands.add_parser('serve');serve.add_argument('--port',type=int,default=DEFAULT_PORT,help=f"Port to bind (default: {DEFAULT_PORT})");commands.add_parser('init');commands.add_parser('read');note_reread=commands.add_parser('note',help='Reread a stored note by its short or full ID');note_reread.add_argument('id',help='Seven or all characters of a note ID');commands.add_parser('key');inbox_line=commands.add_parser('inbox-line',help='Report whether a command line that names an inbox call runs nothing else');inbox_line.add_argument('line',help='The command line, as the hook read it');run=commands.add_parser('run',help='Run a command, keep its output tail, and show the exit on the next gate call');run.add_argument('name',help='A short name for the run, for example gates');run.add_argument('command_args',nargs=argparse.REMAINDER,help='The command, after --');ack_tick=commands.add_parser('ack-tick',help='Warn when an inline ack text holds a backtick the shell will substitute');ack_tick.add_argument('line',help='The command line, as the hook read it');serve_tick=commands.add_parser('serve-tick',help='Warn when a serve names a port other than the default');serve_tick.add_argument('line',help='The command line, as the hook read it');gate=commands.add_parser('gate');gate.add_argument('--push',action='store_true',help='Block while any note or answer awaits an ack, whatever the call count');gate.add_argument('--line',default='',help='The command line, as the hook read it; a blocked call then names the commands to drop');commands.add_parser('poll');download=commands.add_parser('download-request',help='Request an HTTPS browser download, pending a preview Approve click');download.add_argument('url',help='One HTTPS URL without embedded credentials');download.add_argument('--allow-proxy',action='store_true',help='Let the owner opt in to AllOrigins and CodeTabs fallback for this request');ack=commands.add_parser('ack');ack.add_argument('ids',nargs='+');ack.add_argument('--reply',help='Markdown answer shown in the message log');ack.add_argument('--note',help='Short plain answer shown in the message log');ack.add_argument('--reply-file',type=Path,help='Read the Markdown answer from this file');ack.add_argument('--note-file',type=Path,help='Read the plain answer from this file');publish=commands.add_parser('publish');publish.add_argument('source',type=Path);publish.add_argument('--id',required=True);publish.add_argument('--title',required=True);unpublish=commands.add_parser('unpublish');unpublish.add_argument('report_id');task=commands.add_parser('task');task.add_argument('id_arg',nargs='?',metavar='TASK-ID');task.add_argument('title_arg',nargs='?',metavar='TASK-TITLE');task.add_argument('detail_arg',nargs='*',metavar='TASK-DETAIL');task.add_argument('--task-details',action='append',help='One step per line, 120 characters or fewer, repeatable; an empty string clears the list');task.add_argument('--blocked',dest='blocked',action='store_true',default=None,help='Mark the task blocked, so a poll may wait');task.add_argument('--unblocked',dest='blocked',action='store_false',help='Clear the blocked mark');task.add_argument('--msg-id',help='Message this task answers; marks that message as having a task');task.add_argument('--report',metavar='REPORT-ID',help='Report this task waits on; its answer clears the blocked mark');task.add_argument('--amend',metavar='PREV-ID',help='Rename the task stored under this ID to the one given');task.add_argument('--status',choices=TASK_STATUSES,default=None);task.add_argument('--order',type=int,default=None,help='1-based place in its div, not the end');task_remove=commands.add_parser('task-remove');task_remove.add_argument('task_id');commands.add_parser('task-list');state_import=commands.add_parser('import-state');state_import.add_argument('source',nargs='?',type=Path);state_import.add_argument('--replace-tasks',action='store_true');state_import.add_argument('--force',action='store_true',help='import even when the live state holds newer messages');commands.add_parser('clear-state',help='Empty every state table in place; the agent key record survives');args=parser.parse_args();state_dir=resolve_state_dir()
+	parser=argparse.ArgumentParser(description=CLI_DESCRIPTION);parser.add_argument('-r','--reminder',action='store_true',help='Print the unacked-count reminder line and exit');commands=parser.add_subparsers(dest='command',required=False);serve=commands.add_parser('serve',help='Serve the preview page; -p names the port');serve.add_argument('-p','--port',type=int,default=DEFAULT_PORT,help=f"Port to bind (default: {DEFAULT_PORT})");commands.add_parser('init',help='Create the state directory and its database');commands.add_parser('read',help='Print every pending note, answer and upload');note_reread=commands.add_parser('note',help='Reread a stored note by its short or full ID');note_reread.add_argument('id',help='Seven or all characters of a note ID');commands.add_parser('key',help='Print the recorded agent key, host and use line');inbox_line=commands.add_parser('inbox-line',help='Report whether a command line that names an inbox call runs nothing else');inbox_line.add_argument('line',help='The command line, as the hook read it');run=commands.add_parser('run',help='Run a command, keep its output tail, and show the exit on the next gate call');run.add_argument('name',help='A short name for the run, for example gates');run.add_argument('command_args',nargs=argparse.REMAINDER,help='The command, after --');ack_tick=commands.add_parser('ack-tick',help='Warn when an inline ack text holds a backtick the shell will substitute');ack_tick.add_argument('line',help='The command line, as the hook read it');serve_tick=commands.add_parser('serve-tick',help='Warn when a serve names a port other than the default');serve_tick.add_argument('line',help='The command line, as the hook read it');egress_tick=commands.add_parser('egress-tick',help='Warn when a line fetches a host the sandbox egress filter blocks');egress_tick.add_argument('line',help='The command line, as the hook read it');rename=commands.add_parser('rename',help='Move a note, answer, report or task to a new ID');rename.add_argument('old_id',help='The stored ID, or a prefix that names one record');rename.add_argument('new_id',help='The ID to move the record to');commit_tick=commands.add_parser('commit-tick',help='Block a commit whose staged lines cite a session-local ID');commit_tick.add_argument('--repo',default='.',help='The repository to read the staged diff from');gate=commands.add_parser('gate',help='Read the inbox gate; -p blocks on any unacked note, -l names the blocked line');gate.add_argument('-p','--push',action='store_true',help='Block while any note or answer awaits an ack, whatever the call count');gate.add_argument('-l','--line',default='',help='The command line, as the hook read it; a blocked call then names the commands to drop');commands.add_parser('poll',help='Block until the owner answers or a gate run finishes');download=commands.add_parser('download-request',help='Request an HTTPS browser download, pending a preview Approve click; -a allows the proxy fallback');download.add_argument('url',help='One HTTPS URL without embedded credentials');download.add_argument('-a','--allow-proxy',action='store_true',help='Let the owner opt in to AllOrigins and CodeTabs fallback for this request');ack=commands.add_parser('ack',help='Answer a note; -r replies, -n notes, -R and -N read the answer from a file');ack.add_argument('ids',nargs='+');ack.add_argument('-r','--reply',help='Markdown answer shown in the message log');ack.add_argument('-n','--note',help='Short plain answer shown in the message log');ack.add_argument('-R','--reply-file',type=Path,help='Read the Markdown answer from this file');ack.add_argument('-N','--note-file',type=Path,help='Read the plain answer from this file');publish=commands.add_parser('publish',help='Publish a report; -i names the ID, -t the title');publish.add_argument('source',type=Path);publish.add_argument('-i','--id',required=True);publish.add_argument('-t','--title',required=True);unpublish=commands.add_parser('unpublish',help='Withdraw a published report by its ID');unpublish.add_argument('report_id');task=commands.add_parser('task',help='Write or update a task; -s status, -o order, -d details, -m note, -r report, -b blocked, -u unblocked, -a amend');task.add_argument('id_arg',nargs='?',metavar='TASK-ID');task.add_argument('title_arg',nargs='?',metavar='TASK-TITLE');task.add_argument('detail_arg',nargs='*',metavar='TASK-DETAIL');task.add_argument('-d','--details','--task-details',dest='task_details',action='append',help='One step per line, 120 characters or fewer, repeatable; an empty string clears the list');task.add_argument('-b','--blocked',dest='blocked',action='store_true',default=None,help='Mark the task blocked, so a poll may wait');task.add_argument('-u','--unblocked',dest='blocked',action='store_false',help='Clear the blocked mark');task.add_argument('-m','--msg-id',help='Message this task answers; marks that message as having a task');task.add_argument('-r','--report',metavar='REPORT-ID',help='Report this task waits on; its answer clears the blocked mark');task.add_argument('-a','--amend',metavar='PREV-ID',help='Rename the task stored under this ID to the one given');task.add_argument('-s','--status',choices=TASK_STATUSES,default=None);task.add_argument('-o','--order',type=int,default=None,help='1-based place in its div, not the end');task_remove=commands.add_parser('task-remove',help='Delete a task by its ID');task_remove.add_argument('task_id');task_list=commands.add_parser('task-list',help='List the tasks; -f includes the finished ones');task_list.add_argument('-f','--full',action='store_true',help='print every task, finished included');state_import=commands.add_parser('import-state',help='Import an NDJSON backup; -r replaces tasks, -f forces over newer messages');state_import.add_argument('source',nargs='?',type=Path);state_import.add_argument('-r','--replace-tasks',action='store_true');state_import.add_argument('-f','--force',action='store_true',help='import even when the live state holds newer messages');commands.add_parser('clear-state',help='Empty every state table in place; the agent key record survives');args=parser.parse_args();state_dir=resolve_state_dir()
 	try:
 		if args.reminder:store=Store(state_dir,create=False);require_server(store);print(store.reminder(advance=True),flush=True);store.set_meta(AGENT_CALL_ENDED_META,now());return 0
 		if not args.command:parser.error('a command is required')
@@ -1330,6 +1403,23 @@ def main():
 		if args.command=='serve-tick':
 			warning=serve_warning(args.line)
 			if warning:print(warning,file=sys.stderr)
+			return 0
+		if args.command=='egress-tick':
+			warning=egress_warning(args.line)
+			if warning:print(warning,file=sys.stderr)
+			return 0
+		if args.command=='rename':
+			try:old_id=Store(state_dir).resolve_id(args.old_id)
+			except FileNotFoundError:print(f"No note, answer, report or task holds the ID {args.old_id}");return 1
+			except ValueError as error:print(error);return 1
+			try:kind=Store(state_dir).rename_entity(old_id,args.new_id)
+			except ValueError as error:print(error);return 1
+			print(f"ok {kind} {old_id} -> {args.new_id}");return 0
+		if args.command=='commit-tick':
+			try:store=Store(state_dir)
+			except FileNotFoundError:return 0
+			report=commit_id_report(staged_session_id_hits(store,args.repo))
+			if report:print(report,file=sys.stderr);return 1
 			return 0
 		if args.command=='gate':
 			run_notices(state_dir)
@@ -1371,22 +1461,22 @@ def main():
 				source=args.reply_file if args.reply_file is not None else args.note_file;kind='reply'if args.reply_file is not None else'note'
 				try:text=source.read_text(encoding='utf-8')
 				except OSError as error:raise ValueError(f"Cannot read {source}: {error.strerror or error}")from None
-			arrivals={record_id:store.record_arrival(record_id)for record_id in args.ids};store.acknowledge(args.ids,kind,text);short=[i[:7]for i in args.ids];print('Acknowledged '+' '.join(short))
-			for record_id in args.ids:
+			ids=[store.resolve_id(token)for token in args.ids];arrivals={record_id:store.record_arrival(record_id)for record_id in ids};store.acknowledge(ids,kind,text);short=[i[:7]for i in ids];print('ok '+' '.join(short))
+			for record_id in ids:
 				age=stamp_age_seconds(arrivals.get(record_id))
 				if age is not None and age>HOLD_STALE_SECONDS:minutes=int(age//60);print(f"HOLD: this ack answered a message {minutes} min old. The message might be stale. Hold further work until the owner confirms.",file=sys.stderr,flush=True)
-			print('Note asks for work? Add the task: '+'; '.join(f'task <id> "<title>" --msg-id {i}'for i in args.ids))
+			print('need a task? '+'; '.join(f'task <id> "<title>" -m {i}'for i in ids))
 		elif args.command=='publish':
 			count=store.publish(args.id,args.title,args.source);print(f"Published {args.id}, {count} fields.")
 			if not count and'{#'in Path(args.source).read_text('utf-8'):print('Warning: 0 fields parsed. A `{#id}` marker ends a prompt line, then the `- ( ) option` lines follow.',file=sys.stderr)
-		elif args.command=='unpublish':store.unpublish(args.report_id);print(f"Unpublished {args.report_id}. Answers and source file remain.")
+		elif args.command=='unpublish':report_id=store.resolve_id(args.report_id);store.unpublish(report_id);print(f"Unpublished {report_id}. Answers and source file remain.")
 		elif args.command=='task':
 			task_id=args.id_arg
 			if not task_id:raise ValueError('A task needs an ID')
 			details=args.task_details
 			if details is None and args.detail_arg:details=args.detail_arg
 			if details is not None:details=task_steps(details);check_task_steps(details)
-			if args.amend:store.amend_task(args.amend,task_id)
+			if args.amend:store.amend_task(store.resolve_id(args.amend),task_id)
 			if args.report:
 				try:store.report(args.report)
 				except FileNotFoundError:raise ValueError(f"No report is stored under {args.report}")from None
@@ -1394,8 +1484,8 @@ def main():
 				with store.transaction()as shared:record=store.write_task(task_id,args.title_arg,details,args.status,args.order,args.blocked,args.report,shared=shared);store.mark_task(args.msg_id,task_id,shared=shared)
 			else:record=store.write_task(task_id,args.title_arg,details,args.status,args.order,args.blocked,args.report)
 			print(format_task(record))
-		elif args.command=='task-remove':print(format_task(store.remove_task(args.task_id)))
-		elif args.command=='task-list':print(format_task_list(store.list_tasks()))
+		elif args.command=='task-remove':print(format_task(store.remove_task(store.resolve_id(args.task_id))))
+		elif args.command=='task-list':print(format_task_list(store.list_tasks(),args.full))
 		elif args.command=='import-state':text=args.source.read_text(encoding='utf-8')if args.source else sys.stdin.read();print(format_import_receipt(store.import_state(text,args.replace_tasks,args.force)))
 		elif args.command=='clear-state':print(format_clear_state(store.clear_state()))
 	except(OSError,ValueError,TypeError,KeyError,sqlite3.Error,RuntimeError)as error:print(f"Preview error: {error}",file=sys.stderr);return 1
