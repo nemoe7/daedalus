@@ -539,9 +539,10 @@ class Limits:
           or reset > now
           or limit is None
           or not math.isfinite(limit)
+          or number(row.get("remaining")) == limit
         ):
           continue
-        row["remaining"], row["reset"] = limit, None
+        row["remaining"] = limit
         changed = True
     return changed
 
