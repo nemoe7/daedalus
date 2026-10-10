@@ -1497,34 +1497,6 @@
     "tier": "TIER-B"
   },
   {
-    "id": "gemini/gemini-3.7-flash",
-    "provider": "gemini",
-    "slug": "gemini-3.7-flash",
-    "mode": "chat",
-    "max_input_tokens": 1048576,
-    "max_output_tokens": 65536,
-    "max_tokens": 65536,
-    "rpm": 5,
-    "tpm": 250000,
-    "reasoning_effort": "high",
-    "supports_function_calling": true,
-    "supports_tool_choice": true,
-    "supports_parallel_function_calling": true,
-    "supports_response_schema": true,
-    "supports_reasoning": true,
-    "supports_vision": true,
-    "supports_pdf_input": true,
-    "supports_audio_input": true,
-    "supports_audio_output": false,
-    "supports_web_search": true,
-    "supported_efforts": [
-      "low",
-      "medium",
-      "high"
-    ],
-    "tier": "TIER-A"
-  },
-  {
     "id": "gemini/gemini-3.8-flash",
     "provider": "gemini",
     "slug": "gemini-3.8-flash",
