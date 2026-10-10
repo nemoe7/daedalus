@@ -110,3 +110,50 @@ def test_the_effort_lands_on_a_name_of_the_model_list() -> None:
     finally:
       store.MODELS_DB = original
       upstream.set_client(None)
+
+
+def test_the_none_rung_answers_only_a_none_request() -> None:
+  """A model that lists `none` and a real rung maps a real level to the real rung."""
+  sent: list[httpx.Request] = []
+
+  def answer(request: httpx.Request) -> httpx.Response:
+    sent.append(request)
+    return httpx.Response(200, json={"choices": []})
+
+  upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
+  rows = [
+    {
+      "id": "groq/switch",
+      "mode": "chat",
+      "supports_reasoning": 1,
+      "supported_efforts": ["none", "max"],
+    },
+    {
+      "id": "groq/off",
+      "mode": "chat",
+      "supports_reasoning": 1,
+      "supported_efforts": ["none"],
+    },
+  ]
+  with tempfile.TemporaryDirectory() as name:
+    original, store.MODELS_DB = store.MODELS_DB, Path(name) / "models.sqlite3"
+    try:
+      store.write_store(rows)
+      for asked, wanted, why in (
+        ("low", "max", "a real level takes the real rung, not the off switch"),
+        ("medium", "max", "max is the only rung above none"),
+        ("none", "none", "none maps to none when the model lists it"),
+      ):
+        asyncio.run(
+          upstream.attempt("groq/switch", {**BODY, "reasoning_effort": asked}, CONFIG)
+        )
+        assert json.loads(sent[-1].content)["reasoning_effort"] == wanted, (why, asked)
+      asyncio.run(
+        upstream.attempt("groq/off", {**BODY, "reasoning_effort": "high"}, CONFIG)
+      )
+      assert json.loads(sent[-1].content)["reasoning_effort"] == "none", (
+        "a list of none alone still answers none"
+      )
+    finally:
+      store.MODELS_DB = original
+      upstream.set_client(None)
