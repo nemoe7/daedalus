@@ -1,6 +1,8 @@
 # ---
-# version: 1.0.1
+# version: 1.0.2
 # surfaces: [on-chunk]
+# scope: client
+# targets: [OWUI]
 # author: nemoe7
 # title: Served model
 # description: The model that served a pool answer, in the final chunk's usage.daedalus.

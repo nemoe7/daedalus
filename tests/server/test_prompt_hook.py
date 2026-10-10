@@ -196,8 +196,10 @@ def test_the_shipped_ladder_file_sets_the_effort(
 def test_the_shipped_ladder_file_skips_another_client(
   provider: Provider, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The shipped `owui_auto_reasoning_effort.py` leaves the effort of Kilo and of a generic client alone."""
+  """The base runs the shipped ladder file for its client alone, so another client keeps its effort."""
   ladder_file(monkeypatch)
+  # No named list: the file joins the surface by its own block, and its client scope gates it.
+  monkeypatch.setattr(api, "REQUEST_HOOKS", {})
   monkeypatch.setattr(
     upstream.store, "model_limits", lambda candidate: {"reasoning_effort": "minimal"}
   )
@@ -305,18 +307,15 @@ def test_the_shipped_hook_keeps_the_level_of_a_continuing_turn() -> None:
   )
 
 
-def test_the_shipped_hook_keeps_the_client_value_and_the_other_client() -> None:
-  """A new message keeps the value of the client and the read serves `OWUI` alone."""
+def test_the_shipped_hook_keeps_the_client_value() -> None:
+  """A new message keeps the value of the client. The base gates the client, not the file."""
   module = shipped_module()
   read = int(api.router.required_tier("why is this slow"))
   value: dict = {}
-  module.on_prompt(value, prompt="why is this slow", effort="minimal", app="OWUI")
+  module.on_prompt(value, prompt="why is this slow", effort="minimal")
   assert value == {}, "a client value keeps the last word"
   value = {}
-  module.on_prompt(value, prompt="why is this slow", app="Kilo")
-  assert value == {}, "another client keeps its own effort"
-  value = {}
-  module.on_prompt(value, prompt="why is this slow", app="OWUI")
+  module.on_prompt(value, prompt="why is this slow")
   assert value["reasoning_effort"] == module.LEVELS[read]
 
 

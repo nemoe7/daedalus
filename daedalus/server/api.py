@@ -1038,13 +1038,15 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
   )
   turn = None
   code = None
-  if hooks.request_paths(REQUEST_HOOKS, config, "on-request", model):
+  app = getattr(request.state, "app", "") or ""
+  if hooks.request_paths(REQUEST_HOOKS, config, "on-request", model, app):
     value = hooks.run_request(
       "on-request",
       config,
       REQUEST_HOOKS,
       model,
       {"key": None, "digest": retries.digest(body["messages"]), "count": None},
+      app=app,
       headers=dict(request.headers),
     )
     found_key = value.get("key")
@@ -1102,7 +1104,7 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
     tier = next(
       (key for key, known in router.TIER_NAMES.items() if known == tier_name), None
     )
-    paths = hooks.request_paths(REQUEST_HOOKS, config, "on-prompt", model)
+    paths = hooks.request_paths(REQUEST_HOOKS, config, "on-prompt", model, app)
     values: dict[str, str | None] = {}
     if paths:
       # The heuristics read costs time, so only a hook file pays for it.
@@ -1441,7 +1443,13 @@ async def run_chat(plan: Plan) -> Response:
           "code": getattr(request.state, "code", "") or "",
           "plan.previous": (plan.previous or {}).get("model", ""),
         },
-        hook_files=hooks.request_paths(REQUEST_HOOKS, config, "on-chunk", model),
+        hook_files=hooks.request_paths(
+          REQUEST_HOOKS,
+          config,
+          "on-chunk",
+          model,
+          getattr(request.state, "app", "") or "",
+        ),
       ),
       media_type="text/event-stream",
     )
