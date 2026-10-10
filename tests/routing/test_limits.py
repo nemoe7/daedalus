@@ -322,8 +322,8 @@ def test_advertised_resets_notify_at_the_boundary_once(tmp_path: Path) -> None:
   assert all(row["remaining"] == row["limit"] for row in rows), (
     "a reset restores each remembered allowance"
   )
-  assert all(row["reset"] is None for row in rows), (
-    "the elapsed boundary leaves each remembered row"
+  assert all(row["reset"] == boundary for row in rows), (
+    "the elapsed boundary stays visible after the allowance resets"
   )
   assert found.resets() == events, "reading the due boundary again adds no event"
 
