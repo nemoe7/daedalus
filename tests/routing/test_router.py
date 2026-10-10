@@ -437,7 +437,6 @@ def test_the_shipped_config_names_the_documented_efforts() -> None:
     "cloudflare/@cf/qwen/qwen3.8-27b": ["low", "medium", "xhigh"],
     "gemini/gemini-3.8-flash": ["low", "medium", "high"],
     "gemini/gemini-3.6-flash": ["minimal", "low", "medium", "high"],
-    "gemini/gemini-3.5-flash": ["minimal", "low", "medium", "high"],
     "gemini/gemini-3.5-flash-lite": ["minimal", "low", "medium", "high"],
     "gemini/gemini-3.1-flash-lite": ["minimal", "low", "medium", "high"],
     "gemini/gemini-3.1-flash-lite-preview": ["minimal", "low", "medium", "high"],

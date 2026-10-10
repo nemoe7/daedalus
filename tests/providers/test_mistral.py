@@ -6,6 +6,7 @@ import json
 import httpx
 import yaml
 
+from daedalus.catalog import discovery
 from daedalus.catalog.enrichment import config_params
 from daedalus.providers.mistral import MistralProvider
 
@@ -105,6 +106,35 @@ def test_discoverable() -> None:
     )
   ]
   assert kept == ["mistral-medium-latest", "codestral-embed"], kept
+
+
+def test_free_config_uses_direct_available_models() -> None:
+  """Paid Small and Medium rows and aliases stay out, and tier lists name current direct models."""
+  with open("config/providers/free.yml", encoding="utf-8") as handle:
+    mistral = yaml.safe_load(handle)["mistral"]
+  assert mistral["exclude"] == [
+    "*-latest",
+    "mistral-medium-3-5",
+    "mistral-small-2603",
+  ]
+  assert mistral["tier"] == {
+    "TIER-C": [
+      "codestral-2508",
+      "labs-leanstral-1-5-1",
+      "ministral-14b-2512",
+      "voxtral-small-2507",
+    ],
+    "TIER-D": ["ministral-8b-2512", "ministral-3b-2512"],
+  }
+  candidates = [
+    "mistral-medium-latest",
+    "mistral-medium-3-5",
+    "mistral-small-2603",
+    *mistral["tier"]["TIER-C"],
+    *mistral["tier"]["TIER-D"],
+  ]
+  kept = discovery.select(mistral, candidates)
+  assert kept == sorted(candidates[3:]), kept
 
 
 def test_modes() -> None:

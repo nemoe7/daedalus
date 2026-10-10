@@ -67,6 +67,7 @@ gemini:
     - "*-latest"
     - gemini-2.5-*
     - gemini-3.1-pro-preview*
+    - gemini-3.5-flash # Google deprecated the model
     - gemini-3.7-flash* # Google deprecated the model
     - deep-research*
     - "*omni*"
@@ -77,7 +78,6 @@ gemini:
     TIER-A:
       - gemini-3.8-flash
     TIER-B:
-      - gemini-3.5-flash
       - gemini-3.6-flash
       - gemma-4-*
     TIER-C:
@@ -90,7 +90,6 @@ gemini:
     gemini-3-flash-preview: { rpm: 5, tpm: 250000 }
     gemini-3.1-flash-lite: { rpm: 15, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }
     gemini-3.1-flash-lite-preview: { rpm: 15, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }
-    gemini-3.5-flash: { rpm: 5, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }
     gemini-3.5-flash-lite: { rpm: 15, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }
     gemini-3.6-flash: { rpm: 5, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }
     gemini-3.8-flash: { rpm: 5, tpm: 250000, supported_reasoning_efforts: [low, medium, high] }
@@ -152,20 +151,19 @@ kilo:
 
 mistral:
   api_key: env:MISTRAL_API_KEY
+  exclude:
+    - "*-latest" # aliases can move to a model with different access
+    - mistral-medium-3-5 # the Free workspace reports 0 requests per minute
+    - mistral-small-2603 # the Free workspace reports 0 requests per minute
   tier:
-    TIER-A:
-      - "mistral-medium-*"
-    TIER-B:
-      - "mistral-small-2*"
     TIER-C:
-      - "mistral-large-*"
-      - "codestral*"
-      - "*leanstral*"
-      - "ministral-14b-*"
-      - "voxtral-small-*"
+      - codestral-2508
+      - labs-leanstral-1-5-1
+      - ministral-14b-2512
+      - voxtral-small-2507
     TIER-D:
-      - "ministral-8b-*"
-      - "ministral-3b-*"
+      - ministral-8b-2512
+      - ministral-3b-2512
   models:
     "voxtral-mini*": { mode: audio_transcription }
     "voxtral*-tts*": { mode: audio_speech } # the TTS models speak, they do not transcribe
