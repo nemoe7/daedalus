@@ -632,7 +632,7 @@
             "limit": 14400.0,
             "remaining": 14312.0,
             "reset": 1791608916.0994048,
-            "span": null
+            "span": "minute"
           },
           {
             "kind": "tokens",

@@ -1113,17 +1113,18 @@ const DEMO_FIXTURES = __FIXTURES__;
     const plan = plan_of(provider, blocks().get(provider));
     const count = USED.get(model) || 0;
     const waited = template ? Math.max(1, (template.rows[0]?.reset || now + 120) - template.at) : 120;
+    const span_of = (kind) => template?.rows.find((row) => row.kind === kind)?.span ?? null;
     return {
       at: now,
       client: null,
       model,
       rows: [
         {
-          kind: "requests", limit: plan.requests, span: null,
+          kind: "requests", limit: plan.requests, span: span_of("requests"),
           remaining: Math.max(0, plan.requests - count), reset: now + waited,
         },
         {
-          kind: "tokens", limit: plan.tokens, span: null,
+          kind: "tokens", limit: plan.tokens, span: span_of("tokens"),
           remaining: Math.max(0, plan.tokens - count * 40), reset: now + waited,
         },
       ],
