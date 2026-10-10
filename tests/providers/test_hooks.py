@@ -529,6 +529,35 @@ def test_explicit_before_installed() -> None:
     hooks.set_installed()
 
 
+def test_surface_order_keeps_hook_scopes() -> None:
+  """A surface order reorders matching hooks without making a scoped hook global."""
+  try:
+    order = {
+      "on-answer": [
+        "surface-order/b.py",
+        "surface-order/scoped.py",
+        "surface-order/a.py",
+      ]
+    }
+    hooks.set_installed("surface-order", [], order)
+    scoped("a.py", ANSWER % "a", "# ---\n# surfaces: [on-answer]\n# ---\n")
+    scoped("b.py", ANSWER % "b", "# ---\n# surfaces: [on-answer]\n# ---\n")
+    scoped(
+      "scoped.py",
+      ANSWER % "scoped",
+      "# ---\n# scope: provider\n# targets: [openrouter]\n"
+      "# surfaces: [on-answer]\n# ---\n",
+    )
+    assert hooks.run("on-answer", {}, "openrouter/x", {})["by"] == [
+      "b",
+      "scoped",
+      "a",
+    ]
+    assert hooks.run("on-answer", {}, "other/x", {})["by"] == ["b", "a"]
+  finally:
+    hooks.set_installed()
+
+
 def test_bad_block_stays_out() -> None:
   """A block with an unknown surface keeps the file out of the installed list."""
   try:

@@ -4976,6 +4976,7 @@
       "hooks": {
         "dir": "hooks",
         "disabled": [],
+        "order": {},
         "on-chunk": [],
         "on-prompt": [],
         "on-request": [],
@@ -5042,15 +5043,12 @@
     },
     "file": {
       "hooks": {
-        "on-chunk": [
-          "hooks/served_model.py"
-        ],
-        "on-prompt": [
-          "hooks/owui_auto_reasoning_effort.py"
-        ],
-        "on-request": [
-          "hooks/owui_auto_reasoning_effort.py"
-        ],
+        "order": {
+          "on-chunk": [
+            "hooks/served_model.py",
+            "hooks/owui_auto_reasoning_effort.py"
+          ]
+        },
         "sources": [
           {
             "path": "hooks",
@@ -5093,11 +5091,7 @@
         "path": "hooks/owui_auto_reasoning_effort.py",
         "problem": "",
         "record": {},
-        "runs": [
-          "on-request",
-          "on-prompt",
-          "on-chunk"
-        ],
+        "runs": [],
         "scope": "client",
         "surfaces": [
           "on-request",
@@ -5117,9 +5111,7 @@
         "path": "hooks/served_model.py",
         "problem": "",
         "record": {},
-        "runs": [
-          "on-chunk"
-        ],
+        "runs": [],
         "scope": "client",
         "surfaces": [
           "on-chunk"
@@ -5132,7 +5124,7 @@
       }
     ],
     "path": "config/daedalus.yml",
-    "text": "# Router settings. Each key is optional. A missing key uses the built-in default.\n# This file holds the changes from the defaults only. docs/configuration.md lists each key,\n# its default and its use. The Settings page of the dashboard writes here.\n# DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.\n# HEADROOM_URL turns on message compression through a Headroom sidecar.\n# `headroom: false` in a provider block or a model entry turns it off for that scope.\n\n# Open WebUI chat IDs stay in daedalus unless this setting is true.\n# privacy:\n#   forward_owui_chat_id: false\n\n# The hook files of the repo. The Settings page lists them and takes the picked 1s.\nhooks:\n  sources:\n    - repo: nemoe7/daedalus\n      path: hooks\n      ref: main\n      auto_update: false\n"
+    "text": "# Router settings. Each key is optional. A missing key uses the built-in default.\n# This file holds the changes from the defaults only. docs/configuration.md lists each key,\n# its default and its use. The Settings page of the dashboard writes here.\n# DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.\n# HEADROOM_URL turns on message compression through a Headroom sidecar.\n# `headroom: false` in a provider block or a model entry turns it off for that scope.\n\n# Open WebUI chat IDs stay in daedalus unless this setting is true.\n# privacy:\n#   forward_owui_chat_id: false\n\n# The hook files of the repo. The Settings page lists them and takes the picked 1s.\nhooks:\n  order:\n    on-chunk: [hooks/served_model.py, hooks/owui_auto_reasoning_effort.py]\n  sources:\n    - repo: nemoe7/daedalus\n      path: hooks\n      ref: main\n      auto_update: false\n"
   },
   "status": {
     "affinity": {

@@ -143,7 +143,7 @@ def hooks_of() -> tuple[dict[str, Any], Path] | None:
   except settings.SettingsError as exc:
     print(f"settings: {exc}")
     return None
-  hooks.set_installed(group["dir"], group["disabled"])
+  hooks.set_installed(group["dir"], group["disabled"], group["order"])
   return group, hooks.folder()
 
 

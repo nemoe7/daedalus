@@ -66,10 +66,6 @@ DEMO_SOURCE = {
   "ref": "main",
   "auto_update": False,
 }
-# The same source in the file text, under the `hooks` group of the captured file.
-DEMO_SOURCE_YAML = (
-  "  sources:\n    - repo: nemoe7/daedalus\n      path: hooks\n      ref: main\n"
-)
 # The request-level surfaces of the demo file, in the order of the settings defaults.
 DEMO_HOOK_SURFACES = ("on-request", "on-prompt", "on-chunk")
 # The prompts of the captured rows, in the order that the table shows them.
@@ -198,7 +194,7 @@ def answer(request: httpx.Request) -> httpx.Response:
 
 
 def demo_hook_entries() -> dict[str, list[str]]:
-  """The request surfaces of the demo file: each one and the files of the folder that name it."""
+  """The request surfaces of the demo files, from their frontmatter."""
   found: dict[str, list[str]] = {}
   for surface in DEMO_HOOK_SURFACES:
     names = [
@@ -211,17 +207,25 @@ def demo_hook_entries() -> dict[str, list[str]]:
   return found
 
 
+def demo_hook_order() -> dict[str, list[str]]:
+  """One visible metadata-only order for the Hooks card of the demo."""
+  names = demo_hook_entries().get("on-chunk", [])
+  return {"on-chunk": list(reversed(names))} if names else {}
+
+
 def demo_settings_text() -> str:
-  """The file text of the demo: the repo file, and the demo hooks group when the file holds none."""
+  """The repo settings file with the demo source and metadata-only hook order."""
   text = settings.DEFAULT_PATH.read_text(encoding="utf-8")
-  if "on-request:" in text:
-    return text
-  head = f"{text.rstrip()}\n" if text.strip() else ""
-  entries = "".join(
-    f"  {surface}: [{', '.join(names)}]\n"
-    for surface, names in demo_hook_entries().items()
+  return settings.update_text(
+    text,
+    {
+      "hooks": {
+        **{surface: None for surface in DEMO_HOOK_SURFACES},
+        "order": demo_hook_order(),
+        "sources": [dict(DEMO_SOURCE)],
+      }
+    },
   )
-  return head + "hooks:\n" + entries + DEMO_SOURCE_YAML
 
 
 def demo_files(folder: Path) -> tuple[Path, ...]:
@@ -1514,31 +1518,29 @@ def demo_fixtures(version: str) -> dict[str, Any]:
   # The capture holds an older copy, and a version bump lands here without a new capture.
   settings_file = fixtures["settings"].setdefault("file", {})
   hooks_file = settings_file.setdefault("hooks", {})
+  for surface in DEMO_HOOK_SURFACES:
+    hooks_file.pop(surface, None)
+  hooks_file["order"] = demo_hook_order()
   hooks_file["sources"] = [dict(DEMO_SOURCE)]
-  # The request surfaces of the demo file, from the shipped folder, so a clean capture
-  # keeps the wired rows of the table.
-  hooks_file.update(demo_hook_entries())
   saved = hooks.ROOT
   try:
     # The build reads the shipped folder, whatever root folder the running process holds.
     hooks.ROOT = ROOT
-    rows = hooks.rows(
-      {key: value for key, value in hooks_file.items() if key.startswith("on-")}
-    )
+    rows = hooks.rows({})
   finally:
     hooks.ROOT = saved
   fixtures["settings"]["hook_rows"] = [{**row, "record": {}} for row in rows]
-  # The YAML card shows the same source, under the `hooks` group of the captured text.
-  text = fixtures["settings"]["text"]
-  if "sources:" not in text:
-    head = f"{text.rstrip()}\n" if text.strip() else ""
-    group = "" if "hooks:" in text else "hooks:\n"
-    entries = "".join(
-      f"  {surface}: [{', '.join(names)}]\n"
-      for surface, names in demo_hook_entries().items()
-      if f"  {surface}:" not in text
-    )
-    fixtures["settings"]["text"] = head + group + entries + DEMO_SOURCE_YAML
+  # The YAML card shows the same metadata-only order and source.
+  fixtures["settings"]["text"] = settings.update_text(
+    fixtures["settings"]["text"],
+    {
+      "hooks": {
+        **{surface: None for surface in DEMO_HOOK_SURFACES},
+        "order": demo_hook_order(),
+        "sources": [dict(DEMO_SOURCE)],
+      }
+    },
+  )
   return fixtures
 
 

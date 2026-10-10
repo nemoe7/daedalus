@@ -55,7 +55,12 @@ def quiet(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def group_of(monkeypatch: pytest.MonkeyPatch, **group: object) -> None:
   """`settings.load` of the test, with the hooks group."""
-  found: dict[str, object] = {"dir": "hooks", "sources": [], "disabled": []}
+  found: dict[str, object] = {
+    "dir": "hooks",
+    "sources": [],
+    "disabled": [],
+    "order": {},
+  }
   found.update(group)
   monkeypatch.setattr(settings, "load", lambda path=None: {"hooks": found})
 

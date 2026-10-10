@@ -218,6 +218,7 @@ The shipped `routing.escalation`:
 | `hooks.dir` | `hooks` | The folder at the root that holds the hook files: 1 plain folder name. See [Hooks](hooks.md#the-hook-folder). |
 | `hooks.sources` | `[]` | The GitHub sources of the hook files. Each entry names a `repo`, a `path`, a `ref` and `auto_update`. See [Hooks](hooks.md#sources-and-the-lock). |
 | `hooks.disabled` | `[]` | The names of the installed hook files that stay on disk and do not run. The Settings page holds 1 switch per file. |
+| `hooks.order` | `{}` | A preferred file list for `on-catalog`, `on-request`, `on-prompt`, `on-upstream`, `on-answer` or `on-chunk`. The order applies after scope matching, so it does not change where a hook runs. Unlisted files keep their existing order after the listed files. |
 
 A key of the 3 surfaces lists files to run before the files of the folder. A file with a `# ---` block that
 names the surface joins it without a key here.

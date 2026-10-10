@@ -1451,6 +1451,33 @@ const hookVersion = (record) => record?.version || "-";
 // card names every file at the surfaces it runs at, so the settings hold no list of its own.
 const requestSurfaces = () => HOOK_SURFACES.filter(([key]) => key in (state.settings?.defaults?.hooks ?? {}));
 
+// The saved surface order is separate from the explicit request-hook lists. An order changes only
+// precedence, so a metadata hook keeps its provider, model or client scope.
+function hookOrderState() {
+  if (!state.settings.hookOrder) {
+    const saved = setting("hooks", "order");
+    state.settings.hookOrder = Object.fromEntries(Object.entries(saved && typeof saved === "object" ? saved : {})
+      .map(([surface, files]) => [surface, Array.isArray(files) ? [...files] : []]));
+  }
+  return state.settings.hookOrder;
+}
+
+// The preferred files first, then every explicitly named or installed file that supports the
+// surface. The row order from the server is file-name order.
+function hookOrderFiles(surface) {
+  const saved = hookOrderState()[surface] || [];
+  const explicit = surface in (state.settings?.defaults?.hooks ?? {}) ? settingList("hooks", surface) : [];
+  const installed = (state.settings?.hook_rows ?? [])
+    .filter((row) => !row.problem && ((row.surfaces || []).includes(surface) || (row.runs || []).includes(surface)))
+    .map((row) => row.path);
+  return [...new Set([...saved, ...explicit, ...installed])];
+}
+
+// Request surfaces stay visible when empty. The other surfaces show when an installed hook uses
+// them, so an on-catalog or on-upstream hook also gets an order control.
+const orderedSurfaces = () => HOOK_SURFACES.filter(([surface]) =>
+  surface in (state.settings?.defaults?.hooks ?? {}) || hookOrderFiles(surface).length);
+
 // The surface chips of a hook row: 1 chip per surface the block of the file names. The file defines
 // what it hooks into, so the card shows the surfaces and holds no control over them.
 function hookSurfacesCell(row) {
@@ -1464,17 +1491,19 @@ function hookSurfacesCell(row) {
   return `<div class="pills">${chips || '<em class="none">No surface</em>'}</div>`;
 }
 
-// The file list of each request surface: the list order is the run order of the surface.
+// The candidate files of each surface. Runtime filters their metadata scope before it applies this
+// order, and files not shown here keep their existing order after these files.
 function hookOrderRows() {
-  return requestSurfaces().map(([key, label]) => {
-    const files = listValue("hooks", key);
-    const rows = files.map((file, index) => `<li><span class="cell-value">${esc(hookName(file))}</span>
-      <button type="button" class="ghost" data-hook-move='${esc(JSON.stringify([key, index, -1]))}'
+  return orderedSurfaces().map(([surface, label]) => {
+    const files = hookOrderFiles(surface);
+    const rows = files.map((file, index) => `<li><span class="cell-value">${hookName(file)}</span>
+      <button type="button" class="ghost" data-hook-move='${esc(JSON.stringify([surface, index, -1]))}'
         ${index ? "" : "disabled"} aria-label="Move ${esc(file)} up" title="Move up">${LUCIDE.chevron_up}</button>
-      <button type="button" class="ghost" data-hook-move='${esc(JSON.stringify([key, index, 1]))}'
+      <button type="button" class="ghost" data-hook-move='${esc(JSON.stringify([surface, index, 1]))}'
         ${index + 1 < files.length ? "" : "disabled"} aria-label="Move ${esc(file)} down" title="Move down">${LUCIDE.chevron_down}</button></li>`).join("");
-    return `<div class="field stack info">${labelSpan(label, "The files of this surface run in this order.")}
-      <ul class="hook-order">${rows || '<li><em class="none">No file named</em></li>'}</ul></div>`;
+    const hint = "The matching files run in this order. Their provider, model or client scopes still apply.";
+    return `<div class="field stack info">${labelSpan(label, hint)}
+      <ul class="hook-order">${rows || '<li><em class="none">No file for this surface</em></li>'}</ul></div>`;
   }).join("");
 }
 
@@ -1484,13 +1513,13 @@ function renderHookOrder() {
   if (host) host.innerHTML = hookOrderRows();
 }
 
-// The move of 1 file in the list of a surface: up is -1, down is 1.
+// The move of 1 file in the order of a surface: up is -1, down is 1.
 function moveHookFile([surface, index, step]) {
-  const values = [...listValue("hooks", surface)];
+  const values = [...hookOrderFiles(surface)];
   const at = index + step;
   if (at < 0 || at >= values.length) return;
   [values[index], values[at]] = [values[at], values[index]];
-  setListValue("hooks", surface, values);
+  hookOrderState()[surface] = values;
   renderHookOrder();
   renderSettingsSave();
   saveSettings();
@@ -2575,13 +2604,15 @@ function settingsChanges() {
       if (value !== before) (changes[group] ||= {})[key] = value;
     }
   }
-  // The hook manager sends its own rows: the folder, the sources and the names that stay off.
+  // The hook manager sends its own rows: the folder, sources, disabled names and surface order.
   const dir = document.getElementById("set-hooks-dir");
   if (dir && dir.value.trim() && dir.value.trim() !== setting("hooks", "dir")) (changes.hooks ||= {}).dir = dir.value.trim();
   const sources = listValue("hooks", "sources");
   if (JSON.stringify(sources) !== JSON.stringify(settingList("hooks", "sources"))) (changes.hooks ||= {}).sources = sources;
   const disabled = listValue("hooks", "disabled");
   if (JSON.stringify(disabled) !== JSON.stringify(settingList("hooks", "disabled"))) (changes.hooks ||= {}).disabled = disabled;
+  const order = hookOrderState();
+  if (JSON.stringify(order) !== JSON.stringify(setting("hooks", "order"))) (changes.hooks ||= {}).order = order;
   // The rows of the table write the request surfaces: the list holds the files of that surface.
   for (const [surface] of requestSurfaces()) {
     if (!(state.settings.lists || {})[`hooks.${surface}`]) continue;

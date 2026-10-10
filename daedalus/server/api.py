@@ -1515,7 +1515,7 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   REQUEST_HOOKS = {
     key: value for key, value in hook_values.items() if key.startswith("on-")
   }
-  hooks.set_installed(hook_values["dir"], hook_values["disabled"])
+  hooks.set_installed(hook_values["dir"], hook_values["disabled"], hook_values["order"])
   router.set_headroom(values["optimization"]["enabled"])
   router.set_threshold(values["routing"]["threshold"])
   # A start reads a source that asks for it. The Settings card picks the other files.

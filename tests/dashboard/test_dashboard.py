@@ -2103,6 +2103,63 @@ assert(html.includes('>local<'), 'a file with no source reads local');
   )
 
 
+def test_app_js_hook_order_includes_installed_files() -> None:
+  """Each surface order lists its installed metadata hooks before the settings names files."""
+  payload = json.dumps(
+    {
+      "path": "config/daedalus.yml",
+      "headroom_available": False,
+      "text": "",
+      "hook_files": ["hooks/auto.py", "hooks/served.py"],
+      "defaults": settings.DEFAULTS,
+      "file": {"hooks": {"sources": []}},
+      "hook_rows": [
+        {
+          "name": "auto.py",
+          "path": "hooks/auto.py",
+          "scope": "client",
+          "targets": ["OWUI"],
+          "surfaces": ["on-request", "on-chunk"],
+          "runs": [],
+          "enabled": True,
+          "problem": "",
+        },
+        {
+          "name": "served.py",
+          "path": "hooks/served.py",
+          "scope": "client",
+          "targets": ["OWUI"],
+          "surfaces": ["on-chunk"],
+          "runs": [],
+          "enabled": True,
+          "problem": "",
+        },
+      ],
+    }
+  )
+  run_app_js(
+    "state, renderSettings, hookOrderFiles, moveHookFile, settingsChanges",
+    f"""
+probe.state.settings = {payload};
+probe.renderSettings();
+const html = node('settings').innerHTML;
+const start = html.indexOf('id="hooks-order"');
+const end = html.indexOf('>Folder<', start);
+const order = html.slice(start, end);
+assert(order.includes('auto.py'), 'an automatically installed hook appears in its surface order');
+assert(order.includes('served.py'), 'the other installed hook appears too');
+assert(order.indexOf('auto.py') < order.lastIndexOf('served.py'), 'the default is file-name order');
+assert(order.includes('data-hook-move'), 'the installed hooks carry order controls');
+probe.moveHookFile(['on-chunk', 0, 1]);
+assert.deepStrictEqual(Array.from(probe.hookOrderFiles('on-chunk')),
+  ['hooks/served.py', 'hooks/auto.py'], 'the move changes the effective surface order');
+assert.deepStrictEqual(JSON.parse(JSON.stringify(probe.settingsChanges().hooks)),
+  {{order: {{'on-chunk': ['hooks/served.py', 'hooks/auto.py']}}}},
+  'the save writes only the order hint');
+""",
+  )
+
+
 def test_app_js_a_file_change_leaves_the_pick_of_the_other_file() -> None:
   """A file switch opens the first section of the new file, so the pick of the other file does not ride over."""
   files = [
@@ -2869,7 +2926,9 @@ def test_hook_rows_and_update(
   monkeypatch.setattr(
     settings,
     "load",
-    lambda path=None: {"hooks": {"dir": "hooks", "sources": sources, "disabled": []}},
+    lambda path=None: {
+      "hooks": {"dir": "hooks", "sources": sources, "disabled": [], "order": {}}
+    },
   )
   state["records"] = before
   found = client.post("/ui/api/hooks/update")
@@ -2890,7 +2949,9 @@ def test_hook_rows_and_update(
   monkeypatch.setattr(
     settings,
     "load",
-    lambda path=None: {"hooks": {"dir": "hooks", "sources": [], "disabled": []}},
+    lambda path=None: {
+      "hooks": {"dir": "hooks", "sources": [], "disabled": [], "order": {}}
+    },
   )
   empty = client.post("/ui/api/hooks/update")
   assert empty.status_code == 400 and "No source" in empty.text, empty.text
@@ -4619,14 +4680,17 @@ def test_hook_rows_wrap_the_title_and_show_the_sha() -> None:
 
 
 def test_the_hooks_card_orders_the_files_of_a_surface() -> None:
-  """The Hooks card lists the files of each request surface, with a move up and a move down."""
+  """The Hooks card lists each active surface, with a move up and a move down."""
   app = (
     Path(__file__).resolve().parents[2] / "daedalus/dashboard/ui/app.js"
   ).read_text(encoding="utf-8")
   assert "data-hook-move" in app, "a file row carries its move"
   assert "function moveHookFile(" in app, "the move writes the new order"
-  assert 'setListValue("hooks", surface, values)' in app, (
-    "the new order goes to the settings"
+  assert "hookOrderState()[surface] = values" in app, (
+    "the new precedence stays separate from explicit hook activation"
+  )
+  assert 'setListValue("hooks", surface, values)' not in app, (
+    "an order change does not make a metadata hook explicit"
   )
   assert 'id="hooks-order"' in app, "the card holds the order block"
   assert "chevron_up" in app and "chevron_down" in app, "the moves draw an arrow"

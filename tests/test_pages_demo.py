@@ -578,9 +578,14 @@ def test_the_demo_states_its_source_and_the_hook_versions(tmp_path: Path) -> Non
   fixtures = pages_demo.demo_fixtures("demo.test")
   hooks_file = fixtures["settings"]["file"]["hooks"]
   assert hooks_file["sources"] == [pages_demo.DEMO_SOURCE], hooks_file["sources"]
+  assert hooks_file["order"] == pages_demo.demo_hook_order()
+  assert not any(surface in hooks_file for surface in pages_demo.DEMO_HOOK_SURFACES), (
+    "the demo exercises metadata-only hooks"
+  )
   assert "repo: nemoe7/daedalus" in fixtures["settings"]["text"], (
     "the YAML card shows it"
   )
+  assert "order:" in fixtures["settings"]["text"], "the YAML card shows the order"
   rows = {row["name"]: row for row in fixtures["settings"]["hook_rows"]}
   # The example of the base repo ships for copy, so the table leaves it out.
   shipped = {
@@ -590,12 +595,8 @@ def test_the_demo_states_its_source_and_the_hook_versions(tmp_path: Path) -> Non
   for name, row in rows.items():
     assert row["version"], f"no version for {name}"
   assert rows["served_model.py"]["title"] == "Served model"
-  assert rows["owui_auto_reasoning_effort.py"]["runs"] == [
-    "on-request",
-    "on-prompt",
-    "on-chunk",
-  ]
-  assert rows["served_model.py"]["runs"] == ["on-chunk"]
+  assert rows["owui_auto_reasoning_effort.py"]["runs"] == []
+  assert rows["served_model.py"]["runs"] == []
   out = pages_demo.build(tmp_path / "site", "demo.test")
   script = (out / "demo.js").read_text(encoding="utf-8")
   assert '"repo": "nemoe7/daedalus"' in script, "the source reaches the page"

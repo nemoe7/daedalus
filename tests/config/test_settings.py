@@ -66,10 +66,21 @@ def test_load(folder: Path) -> None:
   expect_error(folder, "hooks:\n  on-later: a.py\n", "unknown key hooks.on-later")
   hooks = settings.parse('hooks:\n  on-request: ""\n')["hooks"]
   assert hooks["on-request"] == [] and hooks["sources"] == []
+  assert hooks["order"] == {}
   hooks = settings.parse("hooks:\n  on-request: hooks/x.py\n")["hooks"]
   assert hooks["on-request"] == ["hooks/x.py"], "1 path on its own works"
   hooks = settings.parse("hooks:\n  on-request: [hooks/x.py, hooks/y.py]\n")["hooks"]
   assert hooks["on-request"] == ["hooks/x.py", "hooks/y.py"]
+  hooks = settings.parse(
+    "hooks:\n  order:\n    on-request: [hooks/y.py, hooks/x.py]\n"
+  )["hooks"]
+  assert hooks["order"] == {"on-request": ["hooks/y.py", "hooks/x.py"]}
+  expect_error(folder, "hooks:\n  order: []\n", "order must hold surfaces")
+  expect_error(
+    folder,
+    "hooks:\n  order:\n    on-later: [hooks/x.py]\n",
+    "unknown surface on-later",
+  )
   text = settings.update_text(
     "",
     {"hooks": {"on-request": ["hooks/x.py", "hooks/y.py"]}},
@@ -476,7 +487,7 @@ def test_hooks_remote_is_gone() -> None:
 
 
 def test_apply_wires_the_hook_settings(monkeypatch: pytest.MonkeyPatch) -> None:
-  """A save takes the hook folder, the disabled names and the sources of a start."""
+  """A save takes the hook folder, disabled names, order and sources of a start."""
   seen: list[tuple[list[dict[str, object]], bool, Path | None]] = []
 
   def record(
@@ -491,11 +502,14 @@ def test_apply_wires_the_hook_settings(monkeypatch: pytest.MonkeyPatch) -> None:
   monkeypatch.setattr(api.remote, "update", record)
   api.apply_settings(
     settings.parse(
-      "hooks:\n  dir: mine\n  disabled: [one.py]\n  sources:\n    - repo: owner/name\n"
+      "hooks:\n  dir: mine\n  disabled: [one.py]\n"
+      "  order:\n    on-request: [mine/two.py, mine/one.py]\n"
+      "  sources:\n    - repo: owner/name\n"
     )
   )
   try:
     assert hooks.DIR == "mine" and hooks.DISABLED == {"one.py"}
+    assert hooks.ORDER == {"on-request": ["mine/two.py", "mine/one.py"]}
     assert seen == [([], True, hooks.ROOT / "mine")], (
       "a start leaves the file to the Take button"
     )
@@ -511,7 +525,7 @@ def test_apply_wires_the_hook_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     ), "a source with auto_update reads the ref at a start"
   finally:
     api.apply_settings(settings.parse(""))
-  assert hooks.DIR == "hooks" and hooks.DISABLED == set()
+  assert hooks.DIR == "hooks" and hooks.DISABLED == set() and hooks.ORDER == {}
 
 
 def test_updates_repo_names_the_repository() -> None:

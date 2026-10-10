@@ -1296,7 +1296,7 @@ def settings_routes(
     entries = [source] if isinstance(source, dict) else group["sources"]
     if not entries:
       return failure(400, "No source in hooks.sources.", "invalid_request_error")
-    hooks.set_installed(group["dir"], group["disabled"])
+    hooks.set_installed(group["dir"], group["disabled"], group["order"])
     before = remote.read_records()
     report: list[str] = []
     moved = remote.update(
@@ -1340,7 +1340,7 @@ def settings_routes(
     if not isinstance(name, str) or not name.strip():
       return failure(400, "A file name is needed.", "invalid_request_error")
     group = settings.load()["hooks"]
-    hooks.set_installed(group["dir"], group["disabled"])
+    hooks.set_installed(group["dir"], group["disabled"], group["order"])
     path = hooks.resolve(name)
     if path is None:
       return failure(

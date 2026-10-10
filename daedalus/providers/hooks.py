@@ -21,9 +21,10 @@ logger = logging.getLogger("daedalus.hooks")
 
 # The hook files must be in the folder at the root. The paths in `hooks` start here.
 ROOT = Path(".")
-# The folder under `ROOT` that holds the hook files, and the names that stay out.
+# The folder under `ROOT` that holds the hook files, the names that stay out and each surface order.
 DIR = "hooks"
 DISABLED: set[str] = set()
+ORDER: dict[str, list[str]] = {}
 # Each hook surface, and the function that its file defines.
 SURFACES = {
   "on-catalog": "on_catalog",
@@ -72,11 +73,20 @@ def tell(problem: str) -> None:
     logger.warning("%s", problem)
 
 
-def set_installed(dir_name: str = "hooks", disabled: Iterable[str] = ()) -> None:
-  """Use the hook folder and the disabled names of the settings."""
-  global DIR, DISABLED
+def set_installed(
+  dir_name: str = "hooks",
+  disabled: Iterable[str] = (),
+  order: Mapping[str, Iterable[str]] | None = None,
+) -> None:
+  """Use the hook folder, disabled names and surface orders of the settings."""
+  global DIR, DISABLED, ORDER
   DIR = dir_name
   DISABLED = {str(name) for name in disabled}
+  ORDER = (
+    {str(surface): [str(name) for name in names] for surface, names in order.items()}
+    if isinstance(order, Mapping)
+    else {}
+  )
 
 
 def version_tuple(text: str) -> tuple[int, ...] | None:
@@ -248,6 +258,30 @@ def folder() -> Path:
   return (ROOT / DIR).resolve()
 
 
+def ordered(surface: str, paths: list[Path]) -> list[Path]:
+  """Put the named files first in the order of a surface, then keep the remaining order."""
+  names = ORDER.get(surface, [])
+  if not names:
+    return paths
+  positions: dict[str, int] = {}
+  for index, value in enumerate(names):
+    name = posixpath.normpath(value.replace("\\", "/")).strip("/")
+    positions.setdefault(name, index)
+    if not Path(name).suffix:
+      positions.setdefault(f"{name}.py", index)
+  root = ROOT.resolve()
+
+  def rank(item: tuple[int, Path]) -> tuple[int, int]:
+    index, path = item
+    try:
+      name = path.resolve().relative_to(root).as_posix()
+    except ValueError:
+      return (1, index)
+    return (0, positions[name]) if name in positions else (1, index)
+
+  return [path for _index, path in sorted(enumerate(paths), key=rank)]
+
+
 def enabled(path: Path) -> bool:
   """True when the settings do not disable this hook file."""
   return path.name not in DISABLED and path.stem not in DISABLED
@@ -376,7 +410,7 @@ def meta_paths(
     if scope == "client" and app not in targets:
       continue
     found.append(path)
-  return found
+  return ordered(surface, found)
 
 
 def entries_for(config: Mapping[str, Any], model: str) -> Any:
@@ -409,7 +443,7 @@ def files(config: Mapping[str, Any], model: str, surface: str) -> list[Path]:
         tell(f"hooks of {name}: unknown surface {key}")
     if surface in entry and (path := resolve(entry[surface])) is not None:
       found.append(path)
-  return merge(found, meta_paths(config, surface, model))
+  return ordered(surface, merge(found, meta_paths(config, surface, model)))
 
 
 def request_files(entries: Mapping[str, Any] | None, surface: str) -> list[Path]:
@@ -437,7 +471,10 @@ def request_paths(
   app: str = "",
 ) -> list[Path]:
   """The named files of one request-level surface, then the installed files that give it."""
-  return merge(request_files(entries, surface), meta_paths(config, surface, model, app))
+  return ordered(
+    surface,
+    merge(request_files(entries, surface), meta_paths(config, surface, model, app)),
+  )
 
 
 def init_rows(entries: Mapping[str, Any] | None) -> list[list[str]]:

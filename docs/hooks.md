@@ -144,7 +144,7 @@ On `POST /v1/hook/<file>`, for the file the path names.
 | Argument | Value |
 | --- | --- |
 | `body` | The JSON body of the call |
-| `key` | The session key of the chat, from the bearer token and its first user turn |
+| `key` | The session key of the chat, from the bearer token and Open WebUI chat ID. The first user turn is the fallback |
 | `prompt` | The first user turn |
 | `headers` | The request headers |
 | `pin` | The slot and the model of the last answer of the chat |
@@ -162,12 +162,16 @@ A request-level surface, such as `on-request`, takes its files from the `hooks` 
 
 ```yaml
 hooks:
+  order:
+    on-chunk: [hooks/served_model.py, hooks/owui_auto_reasoning_effort.py]
   on-request: [hooks/owui_auto_reasoning_effort.py]
   on-prompt: [hooks/owui_auto_reasoning_effort.py]
   on-chunk: [hooks/served_model.py, hooks/owui_auto_reasoning_effort.py]
 ```
 
-Each key holds a list of files, and they run in list order. 1 path on its own works too. An empty list turns that surface off. The Hooks card of the dashboard lists the files of each request surface, and its arrows set that order.
+Each `on-*` key holds explicit files. A path on its own works too. An empty list names no explicit file, but matching installed files still join the surface.
+
+`order` changes the active file order after scope matching and does not change a hook's scope. The Hooks card lists each surface and its files. Its arrows write this order.
 
 The `on-init` surface has no group of its own: the dashboard reads the `on_init` function of each file of the folder. The legend card shows those rows below the base rows, and a file with no `on_init` adds no row.
 
@@ -348,10 +352,9 @@ docker exec daedalus-api daedalus hooks verify
 
 ## The Settings page
 
-The Hooks card of the Settings page holds the folder, the sources and 1 switch per installed file. `Update
-from the sources` reads the same sources as `daedalus hooks update`, and names the old version and the new version
-of each file that moved. `+ Add a repo` opens 1 modal for the repo URL. The scan then lists the files of that
-repo, each with its own switch, so the operator takes some files and leaves the rest.
+The Hooks card of the Settings page holds the folder, the sources and 1 switch per installed file. It lists the active candidates of each surface, and its arrows set their order without changing their scopes. `Update from the sources` reads the same sources as `daedalus hooks update`, and names the old version and the new version of each file that moved. `+ Add a repo` opens 1 modal for the repo URL.
+
+The scan then lists the files of that repo, each with its own switch, so the operator takes some files and leaves the rest.
 
 The `×` of the source row deletes the picked source.
 

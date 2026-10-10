@@ -86,6 +86,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "dir": "hooks",
     "sources": [],
     "disabled": [],
+    "order": {},
     "on-request": [],
     "on-prompt": [],
     "on-chunk": [],
@@ -104,6 +105,15 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "time_format": "24h",
   },
 }
+# The hook surfaces whose active files can have an explicit order.
+HOOK_ORDER_SURFACES = (
+  "on-catalog",
+  "on-request",
+  "on-prompt",
+  "on-upstream",
+  "on-answer",
+  "on-chunk",
+)
 # The modes of `affinity.mode`. The 2 old groups each map to 1 of them.
 MODES = ("none", "session", "race")
 MIGRATED = {"session_affinity": "session", "parallel": "race"}
@@ -188,6 +198,8 @@ def check(group: str, key: str, value: Any) -> Any:
       return source_list(name, value)
     if key == "disabled":
       return name_list(name, value)
+    if key == "order":
+      return hook_order(name, value)
     return hook_paths(name, value)
   if group == "personalization":
     if key in POOL_KEYS:
@@ -324,6 +336,23 @@ def hook_paths(name: str, value: Any) -> list[str]:
   if not isinstance(value, list):
     raise SettingsError(f"{name} must be a hook file path, or a list of them")
   return [hook_path(name, item) for item in value]
+
+
+def hook_order(name: str, value: Any) -> dict[str, list[str]]:
+  """The preferred file order at each hook surface."""
+  if value in (None, ""):
+    return {}
+  if not isinstance(value, dict):
+    raise SettingsError(f"{name} must hold surfaces and file lists")
+  found: dict[str, list[str]] = {}
+  for surface, files in value.items():
+    if surface not in HOOK_ORDER_SURFACES:
+      raise SettingsError(f"{name}: unknown surface {surface}")
+    paths = hook_paths(f"{name}.{surface}", files)
+    if len(paths) != len(set(paths)):
+      raise SettingsError(f"{name}.{surface} must not repeat a hook file")
+    found[surface] = paths
+  return found
 
 
 def schedule_value(name: str, key: str, value: Any) -> float:
