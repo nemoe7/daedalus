@@ -1030,8 +1030,8 @@ const DEMO_FIXTURES = __FIXTURES__;
         for (const key of Object.keys(MODEL_DEFAULTS))
           row[key] = cap ? cap[key] : DEMO_FIXTURES.models[0][key];
         row.id = id;
-        row.tier = take(tiers, slug) || (cap ? cap.tier : null);
         row.mode = meta.mode || (cap ? cap.mode : "chat");
+        row.tier = row.mode === "chat" ? take(tiers, slug) || (cap ? cap.tier : null) : null;
         row.max_input_tokens = meta.max_input_tokens ?? (cap ? cap.max_input_tokens : null);
         row.max_output_tokens = meta.max_output_tokens ?? (cap ? cap.max_output_tokens : null);
         row.tools = meta.tools ?? (cap ? cap.tools : false);
