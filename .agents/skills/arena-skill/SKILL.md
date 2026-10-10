@@ -14,7 +14,7 @@ Use this guide and its Markdown references for instructions. Do not read shipped
 ## Start here
 
 1. Run `<skill>/scripts/install.sh` from the repository root, once per session.
-2. Start the preview with the long-lived process tool, named `<repo> - Steering`, and run one command in it: `arena-preview serve --port 8000`.
+2. Start the preview as Setup step 3 describes.
 3. Read the inbox with `arena-preview read`; answer with `arena-preview ack`.
 4. When a call needs the recorded agent key, run `arena-preview key`; it prints the key, the host and the stamp and needs no server.
 5. When a read cannot leave the sandbox, use the proxy routes in [When the proxy is needed](#when-the-proxy-is-needed) through `fetch_page`.
@@ -23,7 +23,7 @@ Use this guide and its Markdown references for instructions. Do not read shipped
 
 1. Find this skill's actual path; installed and source paths differ. Report missing installed files; do not install or repair them without authorization.
 2. Use an ignored, persisted state directory, default `arena-state`. Verify `core.excludesFile` with `git check-ignore`; never add it to the repository `.gitignore`, put it in a cache/build folder, or commit/push its state and reports.
-3. Run `<skill>/scripts/install.sh` once per session. Use `arena-preview <command>` for CLI calls, never the full script path. Start the server with Arena's long-lived process tool, named `<repo> - Steering`, not a timed shell; that tool MUST host `serve` alone. Run `read`, `ack`, `task`, `publish` and every other command as one-shot shell calls:
+3. Use `arena-preview <command>` for CLI calls, never the full script path. Start the server with Arena's long-lived process tool, named `<repo> - Steering`, not a timed shell; that tool MUST host `serve` alone. Run `read`, `ack`, `task`, `publish` and every other command as one-shot shell calls:
 
    ```bash
    arena-preview serve --port 8000

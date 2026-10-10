@@ -475,13 +475,14 @@ def run_command(state_dir,name,argv):
 	for line in tail:print(line,flush=True)
 	line=f"arena-preview run {name}: exit {completed.returncode} in {seconds} s. Verdict: {verdict}";print(line,flush=True);print(line,file=sys.stderr,flush=True);return completed.returncode
 def run_notices(state_dir):
-	runs=Path(state_dir)/'runs'
-	if not runs.is_dir():return
+	printed=0;runs=Path(state_dir)/'runs'
+	if not runs.is_dir():return printed
 	for path in sorted(runs.glob('*.json')):
 		try:record=json.loads(path.read_text(encoding='utf-8'))
 		except(OSError,ValueError):continue
 		if record.get('announced'):continue
-		print(f"Finished run {record.get('name')}: exit {record.get('exit')} in {record.get('seconds')} s. Verdict: {record.get('verdict')}",flush=True);record['announced']=True;path.write_text(json.dumps(record,ensure_ascii=False,indent=1)+'\n',encoding='utf-8')
+		print(f"Finished run {record.get('name')}: exit {record.get('exit')} in {record.get('seconds')} s. Verdict: {record.get('verdict')}",flush=True);record['announced']=True;path.write_text(json.dumps(record,ensure_ascii=False,indent=1)+'\n',encoding='utf-8');printed+=1
+	return printed
 SHELL_WRAPPER=re.compile('^(?:\\S*/)?(?:ba|z|da)?sh\\s+(?:-\\w+\\s+)*-c\\s+')
 def shell_command_text(text):
 	stripped=SHELL_WRAPPER.sub('',text.strip(),count=1)
@@ -515,6 +516,7 @@ def poll_inbox(store,sleeper=None):
 		for index in range(POLL_MAX_LOOPS):
 			listing=store.read(include_quiet=False)
 			if listing['pending']:full=store.read();print(format_read(full),flush=True);store.mark_seen([item['id']for item in full['pending']]);store.mark_reports_agent_seen([item.get('report_id')for item in full['pending']]);print_poll_hold(store);return 0
+			if run_notices(store.path.parent):print_poll_hold(store);return 0
 			open_tasks=[item for item in store.list_tasks()if item['status']=='upcoming'and not item['blocked']]
 			if open_tasks:listing['tasks']=open_tasks;names=', '.join(item['id']for item in open_tasks);continue_line=f"CONTINUE: unblocked task {names} waits. Task list still up. Work it or mark it blocked before the next poll. Do not end the turn.";print(continue_line,file=sys.stderr,flush=True);print(continue_line,flush=True);print(format_task_list(listing.get('tasks',[])),flush=True);print_poll_hold(store);return 0
 			if store.skip_poll_requested():store.take_skip_poll();store.mark_turn_ended();print('SKIP: owner pressed Skip poll. End the turn, no second poll.',file=sys.stderr,flush=True);print(format_read(listing),flush=True);print_poll_hold(store);return 0

@@ -24,7 +24,7 @@ Use `scripts/preview.py` relative to the actual installed `arena-skill` skill. T
 
 Use complete IDs in CLI calls; cite their first seven characters in prose. `read` does not acknowledge an item. Supply one of `--reply` or `--note` to `ack`; use separate calls for different answers. A repeated `ack` on an ID appends one more reply block and keeps the earlier ones. The same on a submission ID appends reply blocks to its receipt. An unknown ID fails the whole receipt batch. Answer later submissions under their own IDs. If the preview is unavailable, use `ACK:` in chat for delivered notes.
 
-Refer to a note in prose by the first seven characters of its ID, NEVER by a sequence number or list position. Use the full ID in CLI calls; before sending a note reference, check it against the ID `read` returned.
+Refer to a note in prose by the first seven characters of its ID. Use the full ID in CLI calls. Check a note reference against the ID `read` returned before sending it.
 
 When an acknowledgement refers to a report or task, use `ack --reply` and put its exact full ID in inline backticks; the seven-character shortening applies to note IDs only. Use IDs unique across notes, reports and tasks so the client can link them; `publish` and `task` refuse an ID the other holds.
 

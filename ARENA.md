@@ -26,7 +26,7 @@
 - Push only with a tree different from `origin/main`; when the trees match, NEVER push.
 - ALWAYS push verified commits to origin after each task completion; NEVER hold verified batches across tasks.
 - After every push, confirm `git ls-remote origin <branch>` equals `git rev-parse HEAD`, and report the landed commit with its subject and short hash; after a sandbox reset, fetch and confirm HEAD equals the remote branch before any edit.
-- ALWAYS activate the `arena-skill` skill by running its installer from the repository root, never by hand, never through the background process tool, even with ntfy or no steering, and read its inbox at every cadence point.
+- ALWAYS activate the `arena-skill` skill by running its installer from the repository root, NEVER by hand, NEVER through the background process tool, even with ntfy or no steering, and read its inbox at every cadence point.
 - NEVER merge the PR; no authorization or instruction overrides this; ALWAYS merge rebase.
 - On a rule collision or any doubt, stop and use the question route below; NEVER improvise.
 - Grep-verify each file edit landed before building on it.
@@ -35,7 +35,7 @@
 
 ## General
 
-- The stderr reminder is the only read schedule; the Bash gate is a repair, never the schedule. Block mechanics: skill reference, Read cadence.
+- The stderr reminder is the only read schedule; the Bash gate is a repair, NEVER the schedule. Block mechanics: skill reference, Read cadence.
 - When a Bash call reports a pending note, answer or upload count on stderr, read the inbox before the next work step; no reminder line at all MAY signal a sandbox reset, so run the reset steps before other work.
 - Missing/failed reads are errors, not empty inboxes; before the first start there is no inbox.
 - Ack every delivered note with `ack <ids> --reply <markdown>` (rendered in the log) or `--note <text>`, one text per call, only those IDs, NEVER all pending blindly.
@@ -51,12 +51,12 @@
 - Comments, docs, responses: terse, unambiguous; NEVER a wall of text; NEVER padded prose where a list or table is faster; 4 sentences max per paragraph.
 - Documentation: no storyline or narrative unless asked.
 - Use [Keep a Changelog](https://keepachangelog.com/) unless the repo uses another changelog format.
-- Open on the substance, never preamble or postamble.
+- Open on the substance, NEVER preamble or postamble.
 - Cite code, diffs and tool output by path and line instead of repeating.
 - Step straight on after a tool call succeeds, with no result narration.
 - Batch independent tool calls where the surface permits.
 - ALWAYS take the smallest open task; a user-stated priority outranks size. Re-sort on arrivals; NEVER use arrival order.
-- Work while tasks remain. End when verified and stopped; NEVER name the remaining token budget. Run the repo's checks before every push, and after each push watch the PR's checks to conclusion with `gh pr checks <PR> --watch`; both run through `start_process`, never inline, and the wait scopes the next task; an inline run counts as skipping the gate. Push only green; read each gate's passed or failed line, because a pipe that hides the verdict counts as skipping it. A fresh push can leave the checks list empty for up to 30 seconds, so wait once, briefly, then watch, and NEVER poll by hand; an empty or absent list is unverified, never a conclusion. Stop and report HTTP 401 or any other command/API error; pending checks are not command errors. Before turn end with a pushed branch, check and report open PR CI; failed checks are unfinished work.
+- Work while tasks remain. End when verified and stopped; NEVER name the remaining token budget. Run the repo's checks before every push, and after each push watch the PR's checks to conclusion with `gh pr checks <PR> --watch`; both run through `start_process`, NEVER inline, and the wait scopes the next task; an inline run counts as skipping the gate. Push only green; read each gate's passed or failed line, because a pipe that hides the verdict counts as skipping it. A fresh push can leave the checks list empty for up to 30 seconds, so wait once, briefly, then watch, and NEVER poll by hand; an empty or absent list is unverified, NEVER a conclusion. Stop and report HTTP 401 or any other command/API error; pending checks are not command errors. Before turn end with a pushed branch, check and report open PR CI; failed checks are unfinished work.
 - Skills specialize defaults and NEVER weaken a requirement or convention; use one only for its domain.
 
 ## Scope
@@ -124,7 +124,7 @@
 - NEVER cite a session-local artifact (note, report, submission, task ID, or any other identifier minted for one session) in a repo file: it does not persist. ALWAYS strip a session-local citation on sight.
 - Longer reports use the `arena-skill` skill, not diff-viewer commits. Update one Markdown source per subject in place, mark dispositions, republish its stable ID; several may coexist. Verify delivery; clean Git status proves nothing. Short reports stay in chat, without artifacts/pipeline.
 - `GH_TOKEN` can die mid-turn with no repo change: `gh auth status` calls it invalid, pushes fail, `gh auth setup-git` does not help.
-- Retry once, NEVER loop or ask for credentials — then ask through `ask_user` for a GitHub reconnect in Arena and a reply in chat; do not end silently.
+- Retry once, NEVER loop or ask for credentials — then ask through `ask_user` for a GitHub reconnect in Arena and a reply in chat; NEVER end silently.
 - Prove recovery with `git ls-remote origin <branch>` before pushing again.
 - `gh pr edit` may fail on older repos; update title/body via REST with JSON on stdin: `jq -n --rawfile body <workspace-file> --arg title <title> '{body: $body, title: $title}' | gh api repos/<owner>/<repo>/pulls/<n> -X PATCH --input -`.
 - **NEVER `-f body=@path`**; stage PR text in the workspace, NEVER /tmp. After every PATCH re-fetch title/body and diff against the staged file; a 200 is not proof.
@@ -136,9 +136,9 @@
 
 - If Chromium is needed, install `@sparticuz/chromium` from npm; use its extracted binary and runtime files, not a Playwright-managed browser.
 - Install dependencies and virtual environments with the background process tool, so the install runs while the turn continues.
-- Start a background test or PR-check run with `start_process`, on a stable tree, and never edit the files it covers while it runs.
-- For a gate run, prefer `arena-preview run <name> -- <command>` through `start_process`. The next call shows the finished run. Until then, scope the next task. Read the verdict line before any push.
-- Read a background run's result before any push, and never report a check you have not read.
+- Start a background test or PR-check run with `start_process`, on a stable tree, and NEVER edit the files it covers while it runs.
+- For a gate run, MUST use `arena-preview run <name> -- <command>` through `start_process`, and NEVER call `get_process_output` to wait for it. The verdict prints in the start_process log, on stdout and on stderr, when the run exits. The next bash or `arena-preview` call also prints it once as `Finished run <name>`. Until then, scope the next task. Read the verdict line before any push.
+- Never report a check you have not read.
 
 - Snapshot limits are best-effort (~128 MB/10,000 files): stay well below both, dropping large or temp artifacts.
 - Cache/build/dependency dirs (`node_modules`, `.cache`, `.venv`, `dist`, `build`, `out`, `target`, `__pycache__`, etc.), installed packages, and processes do not persist, so keep durable work in plain files.
