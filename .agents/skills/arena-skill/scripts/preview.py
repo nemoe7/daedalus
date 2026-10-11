@@ -102,18 +102,27 @@ def pr_failed_check(root='.'):
 	branch=workspace_branch(root);slug=repo_slug(root)
 	if not branch or not slug:return''
 	try:
-		head=subprocess.run(['gh','pr','list','--head',branch,'--json','headRefOid','--jq','.[0].headRefOid'],cwd=root,capture_output=True,text=True,check=False).stdout.strip()
+		listed=subprocess.run(['gh','pr','list','--head',branch,'--json','headRefOid','--jq','.[0].headRefOid'],cwd=root,capture_output=True,text=True,check=False)
+		if listed.returncode:return None
+		head=listed.stdout.strip()
 		if not head:return''
-		query='[.check_runs[] | select(.conclusion=="failure" or .conclusion=="cancelled" or .conclusion=="timed_out") | .name] | join(", ")';return subprocess.run(['gh','api',f"repos/{slug}/commits/{head}/check-runs",'--jq',query],cwd=root,capture_output=True,text=True,check=False).stdout.strip()
-	except OSError:return''
+		query='[.check_runs[] | select(.conclusion=="failure" or .conclusion=="cancelled" or .conclusion=="timed_out") | .name] | join(", ")';checks=subprocess.run(['gh','api',f"repos/{slug}/commits/{head}/check-runs",'--jq',query],cwd=root,capture_output=True,text=True,check=False)
+		if checks.returncode:return None
+		return checks.stdout.strip()
+	except OSError:return None
 def pr_check_worker(store,root,stop):
-	while not stop.is_set():payload=json.dumps({'failed':pr_failed_check(root),'ts':now()});store.set_meta(PR_CHECK_META,payload);stop.wait(PR_CHECK_INTERVAL)
+	while not stop.is_set():
+		failed=pr_failed_check(root)
+		if failed is not None:
+			try:store.set_meta(PR_CHECK_META,json.dumps({'failed':failed,'ts':now()}))
+			except Exception:pass
+		stop.wait(PR_CHECK_INTERVAL)
 def cached_pr_failure(db):
 	row=db.execute('SELECT value FROM meta WHERE key = ?',(PR_CHECK_META,)).fetchone()
 	if not row:return''
-	try:payload=json.loads(str(row[0]));stamp=datetime.fromisoformat(str(payload.get('ts','')))
+	try:payload=json.loads(str(row[0]));stamp=datetime.fromisoformat(str(payload.get('ts','')));age=(datetime.now(timezone.utc)-stamp).total_seconds()
 	except(ValueError,TypeError):return''
-	if(datetime.now(timezone.utc)-stamp).total_seconds()>PR_CHECK_TTL:return''
+	if age>PR_CHECK_TTL:return''
 	return str(payload.get('failed',''))
 SESSION_ID_TABLES=('notes','note'),('submissions','answer'),('reports','report'),('tasks','task')
 HEX7_RE=re.compile('[0-9a-f]{7}')
@@ -1415,6 +1424,10 @@ def handler(store):
 			except(ValueError,TypeError,UnicodeDecodeError)as error:self.problem(400,error)
 			except(OSError,sqlite3.Error,RuntimeError)as error:self.problem(503,error)
 	return Handler
+def resolve_repo_root():
+	for parent in Path(__file__).resolve().parents:
+		if(parent/'.git').exists():return str(parent)
+	return str(Path.cwd())
 def resolve_state_dir():
 	configured=os.environ.get('ARENA_PREVIEW_STATE_DIR')
 	if configured:return configured
@@ -1481,7 +1494,7 @@ def main():
 		if args.command=='serve':
 			require_renderer()
 			with ThreadingHTTPServer(('0.0.0.0',args.port),handler(store))as server:
-				store.set_meta('port',str(server.server_port));print(f"Preview on 0.0.0.0:{server.server_port}; state: {store.path}",flush=True);stop=threading.Event();threading.Thread(target=pr_check_worker,args=(store,str(state_dir.parent),stop),daemon=True).start()
+				store.set_meta('port',str(server.server_port));print(f"Preview on 0.0.0.0:{server.server_port}; state: {store.path}",flush=True);stop=threading.Event();threading.Thread(target=pr_check_worker,args=(store,resolve_repo_root(),stop),daemon=True).start()
 				try:server.serve_forever()
 				finally:stop.set()
 		elif args.command=='read':require_server(store);store.notice_expired_key();print_read(store)
