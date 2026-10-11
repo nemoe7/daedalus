@@ -427,8 +427,9 @@ def upload_row(row,directory):path=directory/UPLOAD_DIR/row['file'];record=dict(
 def add_note_attachments(note,records):
 	if records:note['attachment_name']=records[0]['name'];note['attachment_path']=records[0]['path'];note['attachments']=records
 	return note
+def bare_id(token):return str(token or'').strip().strip('`').strip()
 def format_pending_item(item):
-	kind=item.get('kind')or'note';display_kind='answer'if kind=='report'else kind;header=str(item.get('id',''))[:7]
+	kind=item.get('kind')or'note';display_kind='answer'if kind=='report'else kind;header='`'+str(item.get('id',''))[:7]+'`'
 	if display_kind!='note':header+=f" {display_kind}"
 	if item.get('report_id'):header+=f" report {item['report_id']}"
 	lines=[header];text=item.get('text')or''
@@ -697,12 +698,12 @@ class Store:
 			if'origin'not in columns:db.execute("ALTER TABLE fetch_jobs ADD COLUMN origin TEXT NOT NULL DEFAULT 'agent'")
 		if not existed:self.path.chmod(384)
 	def id_matches(self,token):
-		like=f"{token}%";found=[]
+		token=bare_id(token);like=f"{token}%";found=[]
 		with closing(self.connect())as db:
 			for(table,label)in(('notes','note'),('submissions','answer'),('reports','report'),('tasks','task')):rows=db.execute(f"SELECT * FROM {table} WHERE id = ? OR id LIKE ?",(token,like)).fetchall();found.extend((label,dict(row))for row in rows)
 		return found
 	def resolve_id(self,token):
-		matches=self.id_matches(token);exact=[item for item in matches if item[1]['id']==token]
+		token=bare_id(token);matches=self.id_matches(token);exact=[item for item in matches if item[1]['id']==token]
 		if len(exact)==1:return token
 		if len(matches)==1:return matches[0][1]['id']
 		if not matches:raise ValueError(f"No note, answer, report or task holds the ID {token}")
