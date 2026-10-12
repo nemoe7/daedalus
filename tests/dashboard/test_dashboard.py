@@ -1162,18 +1162,58 @@ assert(node('model-modal-title').textContent.startsWith('scheduled ·'),
   )
 
 
+def test_rebuild_summary_and_modal_rows_share_event_descriptors() -> None:
+  """A rebuild summary and its modal read the same source, sign, and color contract."""
+  run_app_js(
+    "DIFF_KINDS, rebuildDiff, openDiffModal",
+    """
+assert.strictEqual(
+  JSON.stringify(probe.DIFF_KINDS),
+  JSON.stringify([
+    ['added', '+', 'added'],
+    ['removed', '-', 'removed'],
+    ['moved', '~', 'changed'],
+  ]),
+  'the descriptor keeps each class, sign, and event source key',
+);
+const event = {
+  reason: 'scheduled', at: 1791600000, models: 3,
+  added: ['p/new'], removed: ['p/old'], changed: ['p/moved'], failed: [],
+};
+assert.strictEqual(
+  probe.rebuildDiff(event),
+  '<span class="added">+1</span> <span class="removed">-1</span> <span class="moved">~1</span>',
+  'the summary reads the shared descriptors',
+);
+node('model-modal').showModal = () => {};
+probe.openDiffModal(event);
+let modal = node('model-modal-body').innerHTML;
+for (const [kind, mark] of [['added', '+'], ['removed', '-'], ['moved', '~']]) {
+  assert(modal.includes(`<span class="${kind}">${mark}</span>`), `${kind} modal line`);
+}
+probe.DIFF_KINDS[0] = ['shared-kind', '!', 'added'];
+assert(
+  probe.rebuildDiff(event).startsWith('<span class="shared-kind">!1</span>'),
+  'the summary reads a descriptor change',
+);
+probe.openDiffModal(event);
+modal = node('model-modal-body').innerHTML;
+assert(
+  modal.includes('<span class="shared-kind">!</span>'),
+  'the modal reads the same descriptor change',
+);
+""",
+  )
+
+
 def test_a_rebuild_row_opens_the_diff_modal() -> None:
   """A click on a rebuild row opens the modal of its diff, with its moves on the ~ lines."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert "function openDiffModal(event) {" in app
   assert "openDiffModal(state.notifications.rebuilds[index])" in app
-  for line in (
-    '["added", "+", model]',
-    '["removed", "-", model]',
-    '["moved", "~", entry]',
-  ):
-    assert line in app, line
+  assert "const lines = DIFF_KINDS.flatMap(([kind, mark, key]) =>" in app
+  assert "event[key].map((text) => [kind, mark, text])" in app
   assert '$("model-modal").showModal();' in app
   assert "rebuild-detail" not in app, "the diff rides in the modal, not an inline row"
 

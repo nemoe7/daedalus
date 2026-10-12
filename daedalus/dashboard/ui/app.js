@@ -2870,12 +2870,15 @@ function renderLimitRows(rows) {
     </tr>`).join("") : '<tr><td colspan="5" class="empty">No rate-limit headers yet. Groq and Mistral send them with each answer.</td></tr>');
 }
 
+const DIFF_KINDS = [
+  ["added", "+", "added"],
+  ["removed", "-", "removed"],
+  ["moved", "~", "changed"],
+];
+
 function rebuildDiff(event) {
-  const marks = [
-    event.added.length ? `<span class="added">+${event.added.length}</span>` : "",
-    event.removed.length ? `<span class="removed">-${event.removed.length}</span>` : "",
-    event.changed.length ? `<span class="moved">~${event.changed.length}</span>` : "",
-  ].join(" ");
+  const marks = DIFF_KINDS.map(([kind, mark, key]) =>
+    event[key].length ? `<span class="${kind}">${mark}${event[key].length}</span>` : "").join(" ");
   return marks || '<span class="muted">-</span>';
 }
 
@@ -2984,11 +2987,8 @@ function diffModel(text, kind = "") {
 // The modal of 1 rebuild: the full diff, one line per added, removed or moved model.
 function openDiffModal(event) {
   $("model-modal-title").textContent = `${event.reason} \u00b7 ${stamp(event.at)}`;
-  const lines = [
-    ...event.added.map((model) => ["added", "+", model]),
-    ...event.removed.map((model) => ["removed", "-", model]),
-    ...event.changed.map((entry) => ["moved", "~", entry]),
-  ];
+  const lines = DIFF_KINDS.flatMap(([kind, mark, key]) =>
+    event[key].map((text) => [kind, mark, text]));
   $("model-modal-body").innerHTML = lines.length
     ? lines
         .map(([kind, mark, text]) => `<div class="line diff-line"><span class="${kind}">${mark}</span><span class="diff-model" title="${esc(text)}">${diffModel(text, kind)}</span></div>`)
