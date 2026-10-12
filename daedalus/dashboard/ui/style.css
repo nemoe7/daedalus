@@ -800,7 +800,14 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   }
   header { position: sticky; top: 0; z-index: 4; }
   .sections { position: sticky; top: 0; }
-  .section-pane { min-height: 0; overflow-y: auto; }
+  /* The pane softens only a clipped edge. Its cards stay the content of this one scrollport. */
+  .section-pane {
+    --fade-top: 0px; --fade-bottom: 0px; min-height: 0; overflow-y: auto;
+    mask-image: linear-gradient(180deg, transparent 0, #000 var(--fade-top),
+      #000 calc(100% - var(--fade-bottom)), transparent 100%);
+  }
+  .section-pane.fade-top { --fade-top: 20px; }
+  .section-pane.fade-bottom { --fade-bottom: 20px; }
 }
 
 @media (max-width: 900px) {

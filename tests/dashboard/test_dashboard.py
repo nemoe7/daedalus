@@ -1973,7 +1973,10 @@ def test_app_js_keeps_the_scroll_of_the_settings_pane() -> None:
     "state, renderSettings, settingsScroll, keepSettingsScroll",
     f"""
 probe.state.settings = {payload};
-const pane = {{ scrollTop: 0 }};
+const pane = {{
+  scrollTop: 0, clientHeight: 200, scrollHeight: 600,
+  classList: {{ toggle: () => {{}} }},
+}};
 node('settings').querySelector = (sel) => (sel === '.section-pane' ? pane : null);
 pane.scrollTop = 240;
 const at = probe.settingsScroll();
@@ -3762,6 +3765,52 @@ def test_card_tables_own_horizontal_overflow_and_fade_only_clipped_edges() -> No
   ), "a card updates its fades as its own table scrolls"
 
 
+def test_wide_section_pane_fades_only_clipped_vertical_edges() -> None:
+  """The Settings pane softens only an edge that still has content beyond it."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  wide = re.search(r"@media \(min-width: 901px\) \{(.*?)\n\}", css, re.DOTALL)
+  assert wide, "the wide section layout"
+  pane = re.search(r"\.section-pane \{([^}]*)\}", wide.group(1))
+  assert pane and "mask-image: linear-gradient(180deg, transparent 0," in pane.group(
+    1
+  ), "the vertical scrollport carries its own edge mask"
+  assert ".section-pane.fade-top { --fade-top: 20px; }" in wide.group(1)
+  assert ".section-pane.fade-bottom { --fade-bottom: 20px; }" in wide.group(1)
+  assert "function markPaneEdges(pane)" in app
+  assert 'pane.classList.toggle("fade-top", !top)' in app
+  assert 'pane.classList.toggle("fade-bottom", !bottom)' in app
+  assert re.search(
+    r'document\.addEventListener\("scroll",.*?\.section-pane.*?, true\);',
+    app,
+    re.DOTALL,
+  ), "the pane updates the mask at each vertical edge"
+
+  run_app_js(
+    "markPaneEdges",
+    """
+const classes = new Set();
+const pane = {
+  scrollTop: 0, clientHeight: 200, scrollHeight: 600,
+  classList: { toggle: (name, on) => (on ? classes.add(name) : classes.delete(name)) },
+};
+probe.markPaneEdges(pane);
+assert(!classes.has('fade-top') && classes.has('fade-bottom'), 'only the far edge fades at the top');
+pane.scrollTop = 200;
+probe.markPaneEdges(pane);
+assert(classes.has('fade-top') && classes.has('fade-bottom'), 'both edges fade in the middle');
+pane.scrollTop = 400;
+probe.markPaneEdges(pane);
+assert(classes.has('fade-top') && !classes.has('fade-bottom'), 'only the near edge fades at the bottom');
+pane.scrollTop = 0;
+pane.scrollHeight = 200;
+probe.markPaneEdges(pane);
+assert(!classes.has('fade-top') && !classes.has('fade-bottom'), 'a fitting card has no fade');
+""",
+  )
+
+
 def test_a_phone_keeps_one_rhythm_around_the_bar_rules() -> None:
   """Every phone bar keeps 8px over its rule, and the flow gap keeps 16px under it."""
   css = (
@@ -3857,7 +3906,10 @@ def test_app_js_fit_section_pane_spares_the_page_padding() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { fitSectionPane };";
-const pane = { offsetParent: {}, style: {}, getBoundingClientRect: () => ({ top: 128 }) };
+const pane = {
+  offsetParent: {}, style: {}, scrollTop: 0, clientHeight: 200, scrollHeight: 600,
+  classList: { toggle: () => {} }, getBoundingClientRect: () => ({ top: 128 }),
+};
 const main = { clientHeight: 851, getBoundingClientRect: () => ({ top: 49 }) };
 const bare = () => ({
   addEventListener: () => {}, classList: { add: () => {}, remove: () => {}, toggle: () => {} }, style: {}, dataset: {},

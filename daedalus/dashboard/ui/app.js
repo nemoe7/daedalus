@@ -1799,6 +1799,7 @@ function pickSection(host, key, open = sectionState(host).open) {
     card.hidden = card.dataset.section !== key;
   }
   markCardScrollEdges();
+  markSectionPaneEdges();
   if (!moved) return;
   // The slide plays at once, and the flag holds it for a render that builds the pane again.
   state_.slide = true;
@@ -3319,9 +3320,23 @@ function markCardScrollEdges() {
   for (const scroller of document.querySelectorAll(".card-scroll")) markScrollEdges(scroller);
 }
 
+function markPaneEdges(pane) {
+  const end = Math.max(0, pane.scrollHeight - pane.clientHeight);
+  const top = pane.scrollTop <= 2;
+  const bottom = pane.scrollTop >= end - 2;
+  pane.classList.toggle("fade-top", !top);
+  pane.classList.toggle("fade-bottom", !bottom);
+  return { top, bottom };
+}
+
+function markSectionPaneEdges() {
+  for (const pane of document.querySelectorAll(".section-pane")) markPaneEdges(pane);
+}
+
 document.addEventListener("scroll", (event) => {
   const scroller = event.target;
   if (scroller.matches?.(".card-scroll")) markScrollEdges(scroller);
+  if (scroller.matches?.(".section-pane")) markPaneEdges(scroller);
 }, true);
 
 // A chevron at each end of the tab bar shows the tabs that wait off screen, and scrolls to them.
@@ -3357,6 +3372,7 @@ function settingsScroll() {
 function keepSettingsScroll(at) {
   const pane = $("settings")?.querySelector?.(".section-pane");
   if (pane && at.pane) pane.scrollTop = at.pane;
+  if (pane) markPaneEdges(pane);
   if (at.top && typeof window.scrollTo === "function") window.scrollTo(0, at.top);
 }
 
@@ -3366,11 +3382,13 @@ function fitSectionPane() {
   for (const pane of document.querySelectorAll(".section-pane")) {
     if (!wide || !pane.offsetParent || !main) {
       pane.style.maxHeight = "";
+      markPaneEdges(pane);
       continue;
     }
     const pad = parseFloat(getComputedStyle(main).paddingBottom) || 0;
     const bottom = main.getBoundingClientRect().top + main.clientHeight - pad;
     pane.style.maxHeight = `${Math.max(240, bottom - pane.getBoundingClientRect().top - 16)}px`;
+    markPaneEdges(pane);
   }
 }
 
