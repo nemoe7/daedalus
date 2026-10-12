@@ -418,6 +418,15 @@ def add_note_attachments(note,records):
 	if records:note['attachment_name']=records[0]['name'];note['attachment_path']=records[0]['path'];note['attachments']=records
 	return note
 def bare_id(token):return str(token or'').strip().strip('`').strip()
+def format_size(size):
+	if size<1024:return f"{size} B"
+	if size<1024**2:return f"{short_number(size/1024)} KB"
+	return f"{short_number(size/1024**2)} MB"
+def short_number(value):text=f"{value:.1f}";return text.removesuffix('.0')
+def attachment_line(record):
+	line=f"{record.get('name','')}: {record.get('path','')}"
+	if not record.get('present'):return line+' (missing)'
+	size=record.get('size');return line+(f" ({format_size(size)})"if isinstance(size,int)else'')
 def format_pending_item(item):
 	kind=item.get('kind')or'note';display_kind='answer'if kind=='report'else kind;header='`'+str(item.get('id',''))[:6]+'`'
 	if display_kind!='note':header+=f" {display_kind}"
@@ -425,7 +434,7 @@ def format_pending_item(item):
 	lines=[header];text=item.get('text')or''
 	if text:lines.append(text)
 	attachments=item.get('attachments')or[]
-	if attachments:names=', '.join(f"{record.get('name','')}: {record.get('path','')}"if record.get('present')else f"{record.get('name','')}: {record.get('path','')} (missing)"for record in attachments);lines.append(f"attachments: {names}")
+	if attachments:names=', '.join(attachment_line(record)for record in attachments);lines.append(f"attachments: {names}")
 	return'\n'.join(lines)
 def format_read(listing):
 	checked_at=listing.get('checked_at');pending=listing.get('pending')or[];count=len(pending)

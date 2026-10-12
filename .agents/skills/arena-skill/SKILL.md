@@ -23,7 +23,7 @@ Use this guide and its Markdown references for instructions. Do not read shipped
 
 1. Find this skill's actual path; installed and source paths differ. Report missing installed files; do not install or repair them without authorization.
 2. Use an ignored, persisted state directory, default `arena-state`. Verify `core.excludesFile` with `git check-ignore`; never add it to the repository `.gitignore`, put it in a cache/build folder, or commit/push its state and reports.
-3. Use `arena-preview <command>` for CLI calls, never the full script path. Start the server with Arena's long-lived process tool, named `<repo> - Steering`, not a timed shell; that tool MUST host `serve` alone. Run `read`, `ack`, `task`, `publish` and every other command as one-shot shell calls:
+3. Use `arena-preview <command>` for CLI calls, never the full script path. Start the server with Arena's long-lived process tool, named `<repo> - Steering`, not a timed shell; that tool MUST host `serve` alone. Run `read`, `ack`, `task`, `publish` and every other command as one-shot shell calls. Send a long command the gate does not start detached through `arena-preview route <name> -- <command>`; its verdict prints on a later call:
 
    ```bash
    arena-preview serve --port 8000
@@ -65,7 +65,7 @@ Republish the same ID after each source update; if answers exist, use a new ID. 
 
 ## Files and downloads
 
-For each note's `attachments[]`, read every file at its `path` before acknowledging that note once. If `present` is false or bytes are missing, report the loss.
+For each note's `attachments[]`, the read carries each file's size; an image MUST be read before acknowledging that note once, and read a text file with caution. If `present` is false or bytes are missing, report the loss.
 
 To ask for a file, run `download-request <url>`: it queues a pending job and does not download it. The owner approves or denies it in Downloads. Add `--allow-proxy` only when that URL may use AllOrigins and then CodeTabs. URLs cannot contain credentials. A saved job writes an inbox note with the path. Read that note and acknowledge it. Report failed or missing files.
 

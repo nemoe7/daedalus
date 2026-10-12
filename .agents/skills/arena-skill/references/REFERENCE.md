@@ -117,7 +117,7 @@ Which checks must pass first? {#release-checks}
 
 ## Uploaded notes and Downloads
 
-Each file on a composed note is 1–50MB. `read` returns the note with an `attachments[]` list; read each record's `path` before acknowledging the single note ID. `present: false` means the record remains but the bytes do not.
+Each file on a composed note is 1–50MB. `read` returns the note with an `attachments[]` list that carries each file's byte size; read an image record's `path` before acknowledging the single note ID, and read a text record with caution. `present: false` means the record remains but the bytes do not.
 
 An agent asks with `download-request <url>`. That queues a pending job. The owner approves or denies it before the browser fetches the URL. Add `--allow-proxy` only for that URL. Credentials in URLs are rejected. Each completed job sends one inbox note with the saved path. Retry failures in Downloads; report CORS, network and size failures. A restore may keep a job record but lose the file. The NDJSON backup does not restore jobs or file bytes.
 
