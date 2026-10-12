@@ -366,7 +366,7 @@ function renderStatusCard(status) {
         : affinity.mode)
     : "";
   $("card-rows").innerHTML = line("Sessions", status.sessions) + affinityLine
-    + `<button class="line rebuild" type="button" title="${label}" ${rebuilding ? "disabled" : ""}>
+    + `<button class="line rebuild" type="button" data-catalog-rebuild title="${label}" ${rebuilding ? "disabled" : ""}>
       <span>Catalog</span><span><b>${esc(last)}</b>${following}</span></button>`;
 }
 
@@ -3082,7 +3082,7 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     return;
   }
-  if (event.target.closest(".rebuild")) return rebuildCatalog();
+  if (event.target.closest("[data-catalog-rebuild]")) return rebuildCatalog();
   if (!event.target.closest(".logout")) return;
   if (!(await ask("Log out", "The dashboard session ends.", "Log out"))) return;
   await call("logout", { method: "POST" }).catch(() => {});

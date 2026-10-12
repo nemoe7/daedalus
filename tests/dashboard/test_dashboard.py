@@ -1099,6 +1099,56 @@ assert(html.includes('data-rebuild="0"'), 'the rebuild notification still opens 
       assert "padding" not in body, "Limits columns use the shared table cell padding"
 
 
+def test_rebuild_notification_and_catalog_action_have_distinct_targets() -> None:
+  """A rebuild notification opens its diff but never reaches the catalog rebuild action."""
+  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  status = app[app.index("function renderStatusCard") : app.index("let stateKnown")]
+  assert "data-catalog-rebuild" in status, "the catalog line owns the rebuild action"
+
+  notifications = app[
+    app.index("function renderNotifications") : app.index("async function refreshSlow")
+  ]
+  assert '`data-rebuild="${index}"`' in notifications, (
+    "a notification owns the diff action"
+  )
+  assert "data-catalog-rebuild" not in notifications, (
+    "a diff notification never carries the catalog action"
+  )
+
+  click = app[
+    app.index('document.addEventListener("click"') : app.index('$("reset-weights")')
+  ]
+  assert 'event.target.closest("[data-catalog-rebuild]")' in click
+  assert 'event.target.closest(".rebuild")' not in click, (
+    "the document handler does not treat the notification style as an action"
+  )
+
+  run_app_js(
+    "state",
+    """
+let shown = 0;
+node('model-modal').showModal = () => { shown += 1; };
+probe.state.notifications = {
+  rebuilds: [{
+    at: 1791600000, reason: 'scheduled', models: 2,
+    added: ['p/new'], removed: [], changed: [], failed: [],
+  }],
+};
+const row = { dataset: { rebuild: '0' } };
+const event = {
+  target: {
+    closest: (selector) => selector === '[data-rebuild]' || selector === '.rebuild' ? row : null,
+  },
+};
+node('notification-feed').handlers.click[0](event);
+for (const handler of documentHandlers.click || []) handler(event);
+assert.strictEqual(shown, 1, 'the bubbling click opens only the diff modal');
+assert(node('model-modal-title').textContent.startsWith('scheduled ·'),
+  'the rebuild confirmation never replaces the diff title');
+""",
+  )
+
+
 def test_a_rebuild_row_opens_the_diff_modal() -> None:
   """A click on a rebuild row opens the modal of its diff, with its moves on the ~ lines."""
   root = Path(__file__).resolve().parent.parent.parent
@@ -1929,6 +1979,7 @@ const node = (id) => {{
   }}
   return nodes.get(id);
 }};
+const documentHandlers = {{}};
 const sandbox = {{
   esc: (text) => String(text ?? ''),
   matchMedia: () => ({{ matches: false, addEventListener: () => {{}} }}),
@@ -1940,7 +1991,7 @@ const sandbox = {{
     querySelector: () => ({{ firstChild: {{ textContent: 'Models' }}, closest: () => null,
       querySelector: () => null, append: () => {{}}, prepend: () => {{}}, remove: () => {{}} }}),
     querySelectorAll: () => ([]),
-    addEventListener: () => {{}},
+    addEventListener: (type, fn) => {{ (documentHandlers[type] ||= []).push(fn); }},
   }},
   navigator: {{}},
   location: {{ hash: '' }},
