@@ -11,13 +11,28 @@ The reference deployment is a Raspberry Pi 4B with 8 GB of RAM. The compose file
 
 ## Docker Compose
 
-The install scripts show what they install or download and ask `[y/N]` before a change. Then they install Docker if it is missing: Docker Desktop with winget on Windows, or `get.docker.com` on Linux. Outside a git checkout, they download the files of the newest `v*` tag, or of `main` when there is no tag. They write them to the `daedalus` folder in the home folder, and copy only missing files, so `.env` and [`config/`](../config) stay.
+The install scripts show the first-install plan and ask `[y/N]`. Then they install Docker if it is missing: Docker Desktop with winget on Windows, or `get.docker.com` on Linux. Outside a git checkout, each run downloads the files of the newest `v*` tag, or of `main` when there is no tag. It refreshes unchanged managed Compose files and service defaults, while `.env`, [`config/`](../config), local overrides and volumes stay.
 
 They make `.env` with a new master key, then pull the daedalus image and start the containers.
 With `--dev`, they use [`compose.dev.yml`](../compose.dev.yml). They build the image from the
 source when the source is in the folder, and they pull `ghcr.io/nemoe7/daedalus:dev` when it
 is not. See the
 [README](../README.md#quick-start).
+
+### Managed and local Compose settings
+
+Each service reads shipped values from `services/SERVICE/defaults.env`. These files and the two Compose files are managed: do not edit them in a standalone installation. Put a service environment override in the ignored `services/SERVICE/local.env` instead. Keep credentials and installation-wide values in the ignored root `.env`.
+
+For example:
+
+```dotenv
+# services/open-webui/local.env
+AIOHTTP_CLIENT_TIMEOUT=900
+```
+
+Use the ignored `compose.override.yml` for structural changes such as ports, volumes, labels, devices, networks or image overrides. Normal production commands load that standard Compose override automatically. The installers also load it, including with `--dev`; a manual dev start uses `docker compose -f compose.dev.yml -f compose.override.yml up -d`.
+
+A standalone installer records managed hashes in `.daedalus-state/managed-files.sha256`. It replaces a file only when it still matches the recorded or a known shipped version. If a managed file has local edits, the installer preserves it, writes the new version under `.daedalus-state/updates/`, and stops before Docker. Move the customization to `local.env` or `compose.override.yml`, install the candidate managed file, and rerun. It never guesses with a per-key merge.
 
 The commands below are the same in cmd, PowerShell and bash.
 
@@ -133,7 +148,7 @@ The installers ask for profiles only when `.env` is absent. If you decline Open 
 | Spoken replies | **Settings → Audio**: Web API or Kokoro.js. Gemini TTS allows 3 requests per minute. |
 | `RAG_EMBEDDING_BATCH_SIZE`, `ENABLE_ASYNC_EMBEDDING`, `RAG_EMBEDDING_CONCURRENT_REQUESTS` | `32`, `true` and `2`: 32 chunks in each call, 2 calls at a time, inside the free Mistral limits |
 
-After a change of `personalization.audio` or `personalization.images` in [`config/daedalus.yml`](../config/daedalus.yml), change `daedalus/graphos` or `daedalus/photos` in [`compose.yml`](../compose.yml) and in **Admin Settings**. Also change the pool names in the Kilo and Open WebUI model settings.
+After a change of `personalization.audio` or `personalization.images` in [`config/daedalus.yml`](../config/daedalus.yml), override `AUDIO_STT_MODEL`, `IMAGE_GENERATION_MODEL` or `IMAGE_EDIT_MODEL` in `services/open-webui/local.env` and update **Admin Settings**. Also change the pool names in the Kilo and Open WebUI model settings.
 
 Open WebUI reads most of these settings only on the first start with a new data volume. After that, the values in **Admin Settings** apply. On an existing install, set them there.
 

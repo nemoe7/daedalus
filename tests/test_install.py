@@ -1,5 +1,6 @@
 """Tests of install.sh in a checkout with stub Docker and curl commands."""
 
+import hashlib
 import os
 import shutil
 import subprocess
@@ -23,8 +24,13 @@ def checkout(tmp_path: Path, env_text: str | None) -> tuple[Path, dict[str, str]
   folder.mkdir()
   for name in ("install.sh", "compose.yml", ".env.example"):
     shutil.copy(ROOT / name, folder / name)
-  # The installer downloads a missing config/ dir, and a checkout always has one.
+  for source in (ROOT / "services").glob("*/defaults.env"):
+    destination = folder / source.relative_to(ROOT)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(source, destination)
+  # The installer downloads missing profile assets; a source checkout has config and Git metadata.
   (folder / "config").mkdir()
+  (folder / ".git").mkdir()
   if env_text is not None:
     (folder / ".env").write_text(env_text)
   stub = tmp_path / "bin"
@@ -55,6 +61,26 @@ def checkout(tmp_path: Path, env_text: str | None) -> tuple[Path, dict[str, str]
     "DAEDALUS_TEST_SOURCE": str(ROOT),
   }
   return folder, env
+
+
+def copy_release_tree(destination: Path) -> None:
+  """Copy the paths packed by the curl stub into a mutable fake release."""
+  destination.mkdir()
+  for name in (
+    "compose.yml",
+    "compose.dev.yml",
+    ".env.example",
+    "config",
+    "hooks",
+    "install.sh",
+    "services",
+  ):
+    source = ROOT / name
+    target = destination / name
+    if source.is_dir():
+      shutil.copytree(source, target)
+    else:
+      shutil.copy(source, target)
 
 
 def run(
@@ -169,7 +195,7 @@ def test_webui_profile_does_not_require_tailscale_service_dir(tmp_path: Path) ->
   folder, env = checkout(tmp_path, env_text)
   result = run(folder, env)
   assert result.returncode == 0, result.stderr + result.stdout
-  assert "required service dirs" not in result.stdout
+  assert "required service files" not in result.stdout
   assert "Install Headroom?" not in result.stdout
   assert "Install Tika?" not in result.stdout
   assert "COMPOSE_PROFILES=webui" in (folder / ".env").read_text()
@@ -177,7 +203,7 @@ def test_webui_profile_does_not_require_tailscale_service_dir(tmp_path: Path) ->
 
 
 @pytest.mark.parametrize(
-  ("answers", "expected_profiles", "prompts", "skipped_prompts", "service_dirs"),
+  ("answers", "expected_profiles", "prompts", "skipped_prompts", "service_files"),
   [
     (
       ("y", "y", "n", "y"),
@@ -192,7 +218,7 @@ def test_webui_profile_does_not_require_tailscale_service_dir(tmp_path: Path) ->
         "Enable SearXNG search?",
         "Install Tailscale for Open WebUI?",
       ),
-      ("services/tailscale",),
+      ("services/tailscale/serve.json",),
     ),
     (
       ("y", "n", "y", "n", "y", "y", "y"),
@@ -206,7 +232,7 @@ def test_webui_profile_does_not_require_tailscale_service_dir(tmp_path: Path) ->
         "Install Tailscale for Open WebUI? [y/N]",
       ),
       (),
-      ("services/searxng", "services/tailscale-openwebui"),
+      ("services/searxng/settings.yml", "services/tailscale-openwebui/serve.json"),
     ),
   ],
 )
@@ -216,7 +242,7 @@ def test_profile_prompts_are_dependency_aware(
   expected_profiles: str,
   prompts: tuple[str, ...],
   skipped_prompts: tuple[str, ...],
-  service_dirs: tuple[str, ...],
+  service_files: tuple[str, ...],
 ) -> None:
   """First install asks for profiles and skips WebUI options when declined."""
   folder, env = checkout(tmp_path, None)
@@ -232,18 +258,20 @@ def test_profile_prompts_are_dependency_aware(
     if line.startswith("COMPOSE_PROFILES=")
   ]
   assert profile_lines == [f"COMPOSE_PROFILES={expected_profiles}"]
-  for service_dir in service_dirs:
-    assert (folder / service_dir).is_dir()
+  for service_file in service_files:
+    assert (folder / service_file).is_file()
   assert "compose up -d" in (tmp_path / "docker.log").read_text()
 
 
-def test_tailscale_openwebui_profile_requires_service_dir(tmp_path: Path) -> None:
+def test_tailscale_openwebui_profile_requires_service_file(tmp_path: Path) -> None:
   """The independent sidecar profile requests its own Tailscale config."""
   env_text = f"DAEDALUS_MASTER_KEY={'k' * 20}\nCOMPOSE_PROFILES=tailscale-openwebui\n"
   folder, env = checkout(tmp_path, env_text)
   result = run(folder, env)
   assert result.returncode == 1
-  assert "required service dirs: services/tailscale-openwebui)" in result.stdout
+  assert (
+    "required service files: services/tailscale-openwebui/serve.json)" in result.stdout
+  )
   assert "Stopped. Nothing changed." in result.stdout
   assert not (tmp_path / "docker.log").exists()
 
@@ -330,6 +358,151 @@ def test_a_crlf_env_takes_a_valid_key(tmp_path: Path) -> None:
   text = (folder / ".env").read_text()
   assert "DAEDALUS_MASTER_KEY=sk-" in text, text
   assert "DAEDALUS_MASTER_KEY=\r\n" not in text, text
+
+
+def test_local_compose_override_is_loaded(tmp_path: Path) -> None:
+  """The installer layers the user-owned structural override after the managed file."""
+  env_text = f"DAEDALUS_MASTER_KEY={'k' * 20}\nCOMPOSE_PROFILES=\n"
+  folder, env = checkout(tmp_path, env_text)
+  (folder / "compose.override.yml").write_text("services: {}\n")
+
+  done = run(folder, env)
+
+  assert done.returncode == 0, done.stderr + done.stdout
+  assert (
+    "compose -f compose.yml -f compose.override.yml up -d"
+    in (tmp_path / "docker.log").read_text()
+  )
+
+
+@pytest.mark.skipif(not shutil.which("pwsh"), reason="needs PowerShell")
+def test_windows_installer_parses() -> None:
+  """PowerShell accepts the Windows installer syntax when its parser is available."""
+  path = str(ROOT / "install.ps1").replace("'", "''")
+  command = (
+    "$tokens=$null; $errors=$null; "
+    f"[System.Management.Automation.Language.Parser]::ParseFile('{path}', "
+    "[ref]$tokens, [ref]$errors) | Out-Null; "
+    "if ($errors.Count) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }"
+  )
+  parsed = subprocess.run(
+    ["pwsh", "-NoProfile", "-Command", command],
+    capture_output=True,
+    text=True,
+    check=False,
+  )
+  assert parsed.returncode == 0, parsed.stderr + parsed.stdout
+
+
+def test_windows_installer_has_the_managed_override_contract() -> None:
+  """The Windows path keeps the same managed files and local layers as bash."""
+  script = (ROOT / "install.ps1").read_text()
+  for service in (
+    "api",
+    "open-webui",
+    "webui-db",
+    "tika",
+    "searxng",
+    "headroom",
+    "tailscale",
+    "tailscale-openwebui",
+  ):
+    assert f"services/{service}/defaults.env" in script
+  assert ".daedalus-state/managed-files.sha256" in script
+  assert ".daedalus-state/updates" in script
+  assert "compose.override.yml" in script
+  assert "legacy-compose.sha256" in script
+
+
+def test_new_installer_can_install_a_release_before_managed_defaults(
+  tmp_path: Path,
+) -> None:
+  """A main installer still installs the latest tag when that tag predates the env split."""
+  folder, env = checkout(tmp_path, None)
+  release = tmp_path / "old-release"
+  copy_release_tree(release)
+  for defaults in release.glob("services/*/defaults.env"):
+    defaults.unlink()
+  old_compose = "services:\n  api:\n    image: ghcr.io/nemoe7/daedalus:old\n"
+  for name in ("compose.yml", "compose.dev.yml"):
+    (release / name).write_text(old_compose)
+  home = tmp_path / "home"
+  home.mkdir()
+  old_release_env = {
+    **env,
+    "HOME": str(home),
+    "DAEDALUS_TEST_SOURCE": str(release),
+  }
+
+  done = run_interactive(
+    folder, old_release_env, "y", "n", "n", "n", piped=True, cwd=tmp_path
+  )
+
+  assert done.returncode == 0, done.stdout + done.stderr
+  installed = home / "daedalus"
+  assert (installed / "compose.yml").read_text() == (
+    release / "compose.yml"
+  ).read_text()
+  assert not (installed / "services/open-webui/defaults.env").exists()
+  assert "compose up -d" in (tmp_path / "docker.log").read_text()
+
+
+def test_standalone_install_downloads_all_service_defaults(tmp_path: Path) -> None:
+  """A release install refreshes the managed defaults even when no profile needs an asset."""
+  env_text = f"DAEDALUS_MASTER_KEY={'k' * 20}\nCOMPOSE_PROFILES=\n"
+  folder, env = checkout(tmp_path, env_text)
+  shutil.rmtree(folder / ".git")
+  shutil.rmtree(folder / "services", ignore_errors=True)
+  local = folder / "services/open-webui/local.env"
+  local.parent.mkdir(parents=True)
+  local.write_text("AIOHTTP_CLIENT_TIMEOUT=900\n")
+
+  done = run(folder, env)
+
+  assert done.returncode == 0, done.stderr + done.stdout
+  assert (folder / "services/open-webui/defaults.env").is_file()
+  assert local.read_text() == "AIOHTTP_CLIENT_TIMEOUT=900\n"
+  assert (folder / ".daedalus-state/managed-files.sha256").is_file()
+  assert "compose up -d" in (tmp_path / "docker.log").read_text()
+
+
+def test_standalone_install_migrates_a_known_shipped_compose(tmp_path: Path) -> None:
+  """An unedited historical Compose file is replaced without a per-key merge."""
+  env_text = f"DAEDALUS_MASTER_KEY={'k' * 20}\nCOMPOSE_PROFILES=\n"
+  folder, env = checkout(tmp_path, env_text)
+  shutil.rmtree(folder / ".git")
+  historical = "services:\n  api:\n    image: ghcr.io/nemoe7/daedalus:known\n"
+  (folder / "compose.yml").write_text(historical)
+  release = tmp_path / "known-release"
+  copy_release_tree(release)
+  historical_hash = hashlib.sha256(historical.encode()).hexdigest()
+  legacy = release / "config/legacy-compose.sha256"
+  legacy.write_text(legacy.read_text() + f"{historical_hash}  compose.yml\n")
+  release_env = {**env, "DAEDALUS_TEST_SOURCE": str(release)}
+
+  done = run(folder, release_env)
+
+  assert done.returncode == 0, done.stderr + done.stdout
+  assert (folder / "compose.yml").read_text() == (ROOT / "compose.yml").read_text()
+  assert (folder / ".daedalus-state/managed-files.sha256").is_file()
+
+
+def test_standalone_install_stops_on_an_edited_managed_compose(tmp_path: Path) -> None:
+  """An unknown Compose edit is preserved and gets a new-file candidate, never merged."""
+  env_text = f"DAEDALUS_MASTER_KEY={'k' * 20}\nCOMPOSE_PROFILES=\n"
+  folder, env = checkout(tmp_path, env_text)
+  shutil.rmtree(folder / ".git")
+  edited = "services:\n  api:\n    image: example.invalid/user-build\n"
+  (folder / "compose.yml").write_text(edited)
+
+  done = run(folder, env)
+
+  assert done.returncode == 1
+  assert (folder / "compose.yml").read_text() == edited
+  candidate = folder / ".daedalus-state/updates/compose.yml.new"
+  assert candidate.read_text() == (ROOT / "compose.yml").read_text()
+  assert "move your changes to" in (done.stderr + done.stdout).lower()
+  assert not (tmp_path / "docker.log").exists()
 
 
 def test_a_piped_run_keeps_the_folder_of_another_project(tmp_path: Path) -> None:

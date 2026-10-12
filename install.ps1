@@ -51,9 +51,11 @@ while ($i -lt $args.Count) {
   $i++
 }
 
-# A checkout has compose.yml beside this script. With irm | iex, there is no script file.
+# A checkout has compose.yml and Git metadata beside this script. With irm | iex, there is no script file.
+$checkout = $false
 if ($PSScriptRoot -and (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'compose.yml'))) {
   $dir = $PSScriptRoot
+  $checkout = Test-Path -LiteralPath (Join-Path $PSScriptRoot '.git')
 } else {
   $dir = Join-Path $HOME 'daedalus'
 }
@@ -70,14 +72,27 @@ if ($dev -and (Test-Path -LiteralPath (Join-Path $dir 'daedalus')) -and -not (Te
 if ($dev) { New-Item -ItemType Directory -Force -Path $dir | Out-Null; New-Item -ItemType File -Force -Path (Join-Path $dir '.daedalus-dev') | Out-Null }
 if ($prod) { Remove-Item -LiteralPath (Join-Path $dir '.daedalus-dev') -Force -ErrorAction SilentlyContinue; $dev = $false }
 
-# Files to pull: only pull compose.dev.yml when --dev or marker present
-# Ordered checks: compose -> .env -> profiles -> required service dirs
+# Managed Compose/default files update as a unit outside Git checkouts. Local env files and
+# compose.override.yml are user-owned and never downloaded or replaced.
+$serviceDefaults = @(
+  'services/api/defaults.env',
+  'services/open-webui/defaults.env',
+  'services/webui-db/defaults.env',
+  'services/tika/defaults.env',
+  'services/searxng/defaults.env',
+  'services/headroom/defaults.env',
+  'services/tailscale/defaults.env',
+  'services/tailscale-openwebui/defaults.env'
+)
+$managedFiles = @('compose.yml') + $serviceDefaults
+# Files to pull: only pull compose.dev.yml when --dev or the marker is present.
+# Ordered checks: compose -> .env -> profiles -> required service assets.
 if ($dev) {
-  $baseFiles = 'compose.yml', 'compose.dev.yml', '.env.example', 'config', 'install.ps1', 'install.cmd'
+  $managedFiles += 'compose.dev.yml'
+  $baseFiles = @('compose.yml', 'compose.dev.yml', '.env.example', 'config', 'install.ps1', 'install.cmd') + $serviceDefaults
 } else {
-  $baseFiles = 'compose.yml', '.env.example', 'config', 'install.ps1', 'install.cmd'
+  $baseFiles = @('compose.yml', '.env.example', 'config', 'install.ps1', 'install.cmd') + $serviceDefaults
 }
-# Service mapping: search -> services/searxng, tailscale -> services/tailscale
 
 $needDocker = -not (Get-Command docker -ErrorAction SilentlyContinue)
 
@@ -91,7 +106,7 @@ foreach ($f in $baseFiles) {
 # Ordered check 2: .env?
 $missingEnv = -not (Test-Path -LiteralPath (Join-Path $dir '.env'))
 
-# Ordered check 3: read .env for COMPOSE_PROFILES
+# Ordered check 3: read .env for COMPOSE_PROFILES.
 $profiles = ""
 if (Test-Path -LiteralPath (Join-Path $dir '.env')) {
   $envLine = Select-String -Path (Join-Path $dir '.env') -Pattern '^COMPOSE_PROFILES=' | Select-Object -Last 1
@@ -101,39 +116,33 @@ if (Test-Path -LiteralPath (Join-Path $dir '.env')) {
 }
 $profilesSpaced = $profiles -replace ',', ' '
 
-$requiredServiceDirs = @()
-if (-not (Test-Path -LiteralPath (Join-Path $dir 'config'))) { $requiredServiceDirs += 'config' }
+$requiredServiceFiles = @()
 if ($profilesSpaced -match '\bsearch\b') {
-  if (-not (Test-Path -LiteralPath (Join-Path $dir 'services/searxng'))) { $requiredServiceDirs += 'services/searxng' }
+  if (-not (Test-Path -LiteralPath (Join-Path $dir 'services/searxng/settings.yml'))) { $requiredServiceFiles += 'services/searxng/settings.yml' }
 }
 if ($profilesSpaced -match '(^|\s)tailscale(\s|$)') {
-  if (-not (Test-Path -LiteralPath (Join-Path $dir 'services/tailscale'))) { $requiredServiceDirs += 'services/tailscale' }
+  if (-not (Test-Path -LiteralPath (Join-Path $dir 'services/tailscale/serve.json'))) { $requiredServiceFiles += 'services/tailscale/serve.json' }
 }
 if ($profilesSpaced -match '(^|\s)tailscale-openwebui(\s|$)') {
-  if (-not (Test-Path -LiteralPath (Join-Path $dir 'services/tailscale-openwebui'))) { $requiredServiceDirs += 'services/tailscale-openwebui' }
+  if (-not (Test-Path -LiteralPath (Join-Path $dir 'services/tailscale-openwebui/serve.json'))) { $requiredServiceFiles += 'services/tailscale-openwebui/serve.json' }
 }
 
-# For update: if any base file missing or .env missing or required service dir missing, need files
-$needFiles = $false
-if ($missingCompose) { $needFiles = $true }
-if ($missingEnv) { $needFiles = $true }
+# Standalone runs fetch the release to compare managed hashes even when every file exists.
+$needFiles = $missingCompose -or $missingEnv
 foreach ($f in $baseFiles) {
   if (-not (Test-Path -LiteralPath (Join-Path $dir $f))) { $needFiles = $true; break }
 }
-if ($requiredServiceDirs.Count -gt 0) { $needFiles = $true }
+if ($requiredServiceFiles.Count -gt 0) { $needFiles = $true }
 
-# Build final files list for copy: base + required service dirs
 $files = $baseFiles
-foreach ($d in $requiredServiceDirs) {
-  if ($files -notcontains $d) { $files += $d }
+foreach ($path in $requiredServiceFiles) {
+  if ($files -notcontains $path) { $files += $path }
 }
-# Ensure services parent if any service dir required
-if ($requiredServiceDirs.Count -gt 0 -and $files -notcontains 'services') { $files += 'services' }
 
 $plan = @()
 if ($needDocker) { $plan += 'Docker Desktop, with winget (it asks for admin rights, then a restart)' }
 if ($missingCompose) { $plan += "The daedalus files, to $dir" }
-elseif ($needFiles) { $plan += "The daedalus files, to $dir" }
+elseif ($requiredServiceFiles.Count -gt 0) { $plan += "The daedalus files, to $dir (required service files: $($requiredServiceFiles -join ' '))" }
 if ($missingEnv) { $plan += "The settings file $dir\.env, with a new master key" }
 
 if ($plan.Count -gt 0) {
@@ -155,21 +164,20 @@ if ($missingEnv) {
     if (Confirm-Profile 'Install Tailscale for Open WebUI?') { $selectedProfiles += 'tailscale-openwebui' }
   }
   $profileList = $selectedProfiles -join ','
-  $profileServiceDirs = @()
-  if ($selectedProfiles -contains 'search') { $profileServiceDirs += 'services/searxng' }
-  if ($selectedProfiles -contains 'tailscale') { $profileServiceDirs += 'services/tailscale' }
-  if ($selectedProfiles -contains 'tailscale-openwebui') { $profileServiceDirs += 'services/tailscale-openwebui' }
-  foreach ($d in $profileServiceDirs) {
-    if (-not (Test-Path -LiteralPath (Join-Path $dir $d))) {
-      if ($requiredServiceDirs -notcontains $d) { $requiredServiceDirs += $d }
-      if ($files -notcontains $d) { $files += $d }
+  $profileServiceFiles = @()
+  if ($selectedProfiles -contains 'search') { $profileServiceFiles += 'services/searxng/settings.yml' }
+  if ($selectedProfiles -contains 'tailscale') { $profileServiceFiles += 'services/tailscale/serve.json' }
+  if ($selectedProfiles -contains 'tailscale-openwebui') { $profileServiceFiles += 'services/tailscale-openwebui/serve.json' }
+  foreach ($path in $profileServiceFiles) {
+    if (-not (Test-Path -LiteralPath (Join-Path $dir $path))) {
+      if ($requiredServiceFiles -notcontains $path) { $requiredServiceFiles += $path }
+      if ($files -notcontains $path) { $files += $path }
       $needFiles = $true
     }
   }
-  if ($requiredServiceDirs.Count -gt 0 -and $files -notcontains 'services') { $files += 'services' }
 }
 
-if ($needFiles) {
+if ($needFiles -or -not $checkout) {
   # The newest v* tag, else main.
   $tag = (Invoke-RestMethod "https://api.github.com/repos/$repo/tags").name |
     Where-Object { $_ -match '^v\d+(\.\d+)+$' } |
@@ -185,10 +193,97 @@ if ($needFiles) {
     Expand-Archive -LiteralPath "$tmp\source.zip" -DestinationPath "$tmp\source"
     $source = (Get-ChildItem -LiteralPath "$tmp\source" -Directory | Select-Object -First 1).FullName
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
-    # Only the missing files: a new run keeps the files that you changed.
+
+    # A main-branch installer may run before its files reach a stable tag. Support that older
+    # archive when its Compose file does not refer to the new defaults yet.
+    $archiveManaged = @()
+    $sourceCompose = [IO.File]::ReadAllText((Join-Path $source 'compose.yml'))
+    foreach ($name in $managedFiles) {
+      if (Test-Path -LiteralPath (Join-Path $source $name) -PathType Leaf) {
+        $archiveManaged += $name
+      } elseif ($name -like 'services/*/defaults.env' -and -not $sourceCompose.Contains("./$name")) {
+        continue
+      } else {
+        Stop-Install "The downloaded release is missing $name."
+      }
+    }
+    $managedFiles = $archiveManaged
+
+    if (-not $checkout) {
+      function Get-NormalizedHash([string]$path) {
+        $text = [IO.File]::ReadAllText($path).Replace("`r", '')
+        $bytes = (New-Object Text.UTF8Encoding($false)).GetBytes($text)
+        $sha = [Security.Cryptography.SHA256]::Create()
+        try { return -join ($sha.ComputeHash($bytes) | ForEach-Object { $_.ToString('x2') }) }
+        finally { $sha.Dispose() }
+      }
+
+      $stateFile = Join-Path $dir '.daedalus-state/managed-files.sha256'
+      $updateDir = Join-Path $dir '.daedalus-state/updates'
+      $legacyFile = Join-Path $source 'config/legacy-compose.sha256'
+      $recorded = @{}
+      if (Test-Path -LiteralPath $stateFile) {
+        foreach ($line in [IO.File]::ReadAllLines($stateFile)) {
+          if ($line -match '^([0-9a-f]{64})  (.+)$') { $recorded[$Matches[2]] = $Matches[1] }
+        }
+      }
+      $legacy = @{}
+      if (Test-Path -LiteralPath $legacyFile) {
+        foreach ($line in [IO.File]::ReadAllLines($legacyFile)) {
+          if ($line -match '^([0-9a-f]{64})  (.+)$') { $legacy["$($Matches[1])  $($Matches[2])"] = $true }
+        }
+      }
+
+      $conflicts = @()
+      foreach ($name in $managedFiles) {
+        $sourceFile = Join-Path $source $name
+        if (-not (Test-Path -LiteralPath $sourceFile -PathType Leaf)) { Stop-Install "The downloaded release is missing $name." }
+        $destination = Join-Path $dir $name
+        if (-not (Test-Path -LiteralPath $destination -PathType Leaf)) { continue }
+        $currentHash = Get-NormalizedHash $destination
+        $sourceHash = Get-NormalizedHash $sourceFile
+        if ($currentHash -eq $sourceHash) { continue }
+        if ($recorded.ContainsKey($name) -and $recorded[$name] -eq $currentHash) { continue }
+        if ($legacy.ContainsKey("$currentHash  $name")) { continue }
+        $conflicts += $name
+      }
+
+      if ($conflicts.Count -gt 0) {
+        foreach ($name in $conflicts) {
+          $candidate = Join-Path $updateDir "$name.new"
+          New-Item -ItemType Directory -Force -Path (Split-Path -Parent $candidate) | Out-Null
+          Copy-Item -LiteralPath (Join-Path $source $name) -Destination $candidate -Force
+          Write-Host "Managed file $name has local changes; the new file is $candidate." -ForegroundColor Red
+        }
+        Stop-Install 'Nothing was replaced. Move your changes to services/*/local.env or compose.override.yml, install the candidate managed files, then run the installer again.'
+      }
+
+      $stateLines = @()
+      foreach ($name in $managedFiles) {
+        $sourceFile = Join-Path $source $name
+        $destination = Join-Path $dir $name
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+        $sourceHash = Get-NormalizedHash $sourceFile
+        if (-not (Test-Path -LiteralPath $destination -PathType Leaf) -or (Get-NormalizedHash $destination) -ne $sourceHash) {
+          Copy-Item -LiteralPath $sourceFile -Destination "$destination.tmp" -Force
+          Move-Item -LiteralPath "$destination.tmp" -Destination $destination -Force
+        }
+        $stateLines += "$sourceHash  $name"
+      }
+      New-Item -ItemType Directory -Force -Path (Split-Path -Parent $stateFile) | Out-Null
+      [IO.File]::WriteAllLines("$stateFile.tmp", $stateLines, (New-Object Text.UTF8Encoding($false)))
+      Move-Item -LiteralPath "$stateFile.tmp" -Destination $stateFile -Force
+      Remove-Item -LiteralPath $updateDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    # Config, scripts and profile assets remain user-owned after installation; only add them when absent.
     foreach ($name in $files) {
-      if (-not (Test-Path -LiteralPath (Join-Path $dir $name))) {
-        Copy-Item -LiteralPath (Join-Path $source $name) -Destination $dir -Recurse
+      $sourceFile = Join-Path $source $name
+      if (-not (Test-Path -LiteralPath $sourceFile)) { continue }
+      $destination = Join-Path $dir $name
+      if (-not (Test-Path -LiteralPath $destination)) {
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+        Copy-Item -LiteralPath $sourceFile -Destination $destination -Recurse
       }
     }
   } finally {
@@ -272,6 +367,13 @@ if ($dev) {
     # No source in $dir: run the dev image of main instead of building.
     $env:DAEDALUS_DEV_IMAGE = $devImage
     $env:DAEDALUS_DEV_PULL = 'always'
+  }
+}
+if (Test-Path -LiteralPath 'compose.override.yml') {
+  if ($dev) {
+    $compose += '-f', 'compose.override.yml'
+  } else {
+    $compose = @('compose', '-f', 'compose.yml', '-f', 'compose.override.yml')
   }
 }
 docker @compose up -d

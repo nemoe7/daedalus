@@ -37,11 +37,17 @@ while [ $i -lt ${#args[@]} ]; do
 done
 # No args: keep dev=0 prod=0 initially, marker may set dev later
 
-# A checkout has compose.yml beside this script. With curl | bash, there is no script file.
+# A checkout has compose.yml and Git metadata beside this script. With curl | bash, there is no script file.
 src=${BASH_SOURCE[0]:-}
 here=
+checkout=0
 if [ -n "$src" ]; then here=$(cd "$(dirname "$src")" && pwd); fi
-if [ -n "$here" ] && [ -f "$here/compose.yml" ]; then dir=$here; else dir=$HOME/daedalus; fi
+if [ -n "$here" ] && [ -f "$here/compose.yml" ]; then
+  dir=$here
+  [ -e "$here/.git" ] && checkout=1
+else
+  dir=$HOME/daedalus
+fi
 
 # Persistent dev flag: .daedalus-dev marker auto-selects dev unless --prod/--no-dev given.
 if [ -f "$dir/.daedalus-dev" ] && [ "$prod" = 0 ]; then dev=1; fi
@@ -58,16 +64,27 @@ fi
 if [ "$dev" = 1 ]; then mkdir -p "$dir"; touch "$dir/.daedalus-dev"; fi
 if [ "$prod" = 1 ]; then rm -f "$dir/.daedalus-dev"; dev=0; fi
 
-# Files to pull: only pull compose.dev.yml when --dev or marker present
-# Ordered checks: compose -> .env -> profiles -> required service dirs
+# Managed Compose/default files update as a unit outside Git checkouts. Local env files and
+# compose.override.yml are user-owned and never downloaded or replaced.
+service_defaults=(
+  services/api/defaults.env
+  services/open-webui/defaults.env
+  services/webui-db/defaults.env
+  services/tika/defaults.env
+  services/searxng/defaults.env
+  services/headroom/defaults.env
+  services/tailscale/defaults.env
+  services/tailscale-openwebui/defaults.env
+)
+managed_files=(compose.yml "${service_defaults[@]}")
+# Files to pull: only pull compose.dev.yml when --dev or the marker is present.
+# Ordered checks: compose -> .env -> profiles -> required service assets.
 if [ "$dev" = 1 ]; then
-  base_files=(compose.yml compose.dev.yml .env.example config hooks install.sh)
+  managed_files+=(compose.dev.yml)
+  base_files=(compose.yml compose.dev.yml .env.example config hooks install.sh "${service_defaults[@]}")
 else
-  base_files=(compose.yml .env.example config hooks install.sh)
+  base_files=(compose.yml .env.example config hooks install.sh "${service_defaults[@]}")
 fi
-# Service mapping: profile -> dir
-# search -> services/searxng, tailscale -> services/tailscale
-# Always include services parent dir check via its subdirs
 
 need_docker=0
 plan=()
@@ -96,62 +113,43 @@ if [ ! -f "$dir/.env" ]; then
   plan+=("The settings file $dir/.env, with a new master key")
 fi
 
-# Ordered check 3: read .env for COMPOSE_PROFILES to determine required service dirs
+# Ordered check 3: read .env for COMPOSE_PROFILES to determine required service assets.
 profiles=""
 if [ -f "$dir/.env" ]; then
   profiles=$(grep -E '^COMPOSE_PROFILES=' "$dir/.env" | tail -n1 | cut -d= -f2- | tr -d '\r' | tr -d '"' | tr -d "'" || true)
 fi
-# Normalize: comma -> space
 profiles_spaced=$(echo "$profiles" | tr ',' ' ')
 
-required_service_dirs=()
-# config always required
-[ -e "$dir/config" ] || required_service_dirs+=("config")
-# services/searxng if search profile enabled
+required_service_files=()
 if echo "$profiles_spaced" | grep -qw "search"; then
-  [ -e "$dir/services/searxng" ] || required_service_dirs+=("services/searxng")
+  [ -e "$dir/services/searxng/settings.yml" ] || required_service_files+=("services/searxng/settings.yml")
 fi
-# services/tailscale if its exact profile is enabled
 if [[ " $profiles_spaced " == *" tailscale "* ]]; then
-  [ -e "$dir/services/tailscale" ] || required_service_dirs+=("services/tailscale")
+  [ -e "$dir/services/tailscale/serve.json" ] || required_service_files+=("services/tailscale/serve.json")
 fi
-# services/tailscale-openwebui if its exact profile is enabled
 if [[ " $profiles_spaced " == *" tailscale-openwebui "* ]]; then
-  [ -e "$dir/services/tailscale-openwebui" ] || required_service_dirs+=("services/tailscale-openwebui")
+  [ -e "$dir/services/tailscale-openwebui/serve.json" ] || required_service_files+=("services/tailscale-openwebui/serve.json")
 fi
-# If required service dirs missing, add to plan
-[ ${#required_service_dirs[@]} -eq 0 ] || plan+=("The daedalus files, to $dir (required service dirs: ${required_service_dirs[*]})")
+[ ${#required_service_files[@]} -eq 0 ] || plan+=("The daedalus files, to $dir (required service files: ${required_service_files[*]})")
 
-# For update case: if any base file missing, need download
+# For an update, download when a base file or profile asset is missing. Standalone runs also
+# fetch the release to compare managed hashes even when every file exists.
 missing_files=0
 [ $missing_compose -eq 1 ] && missing_files=1
 [ -f "$dir/.env" ] || missing_files=1
 for f in "${base_files[@]}"; do
   [ -e "$dir/$f" ] || { missing_files=1; break; }
 done
-# Also if any required service dir missing, need download
-[ ${#required_service_dirs[@]} -gt 0 ] && missing_files=1
+[ ${#required_service_files[@]} -gt 0 ] && missing_files=1
 
-# For files list used in copy loop: base + required service dirs + services parent if needed
 files=("${base_files[@]}")
-# Add required service dirs to files list for copy
-for d in "${required_service_dirs[@]}"; do
-  # Avoid duplicate
+for path in "${required_service_files[@]}"; do
   skip=0
   for existing in "${files[@]}"; do
-    [ "$existing" = "$d" ] && skip=1
+    [ "$existing" = "$path" ] && skip=1
   done
-  [ $skip -eq 0 ] && files+=("$d")
+  [ $skip -eq 0 ] && files+=("$path")
 done
-# Also always include services parent if any service dir required, to ensure parent exists
-if [ ${#required_service_dirs[@]} -gt 0 ]; then
-  # Ensure services parent is in files if not already
-  has_services=0
-  for existing in "${files[@]}"; do
-    [ "$existing" = "services" ] && has_services=1
-  done
-  [ $has_services -eq 1 ] || files+=("services")
-fi
 
 if [ "${#plan[@]}" -gt 0 ]; then
   echo "This script installs or downloads:"
@@ -189,35 +187,26 @@ if [ "$missing_env" = 1 ]; then
     ask_profile tailscale-openwebui "Install Tailscale for Open WebUI?"
   fi
   profile_list=$(IFS=,; printf '%s' "${selected_profiles[*]}")
-  profile_service_dirs=()
+  profile_service_files=()
   if [[ " ${selected_profiles[*]} " == *" search "* ]]; then
-    profile_service_dirs+=("services/searxng")
+    profile_service_files+=("services/searxng/settings.yml")
   fi
   if [[ " ${selected_profiles[*]} " == *" tailscale "* ]]; then
-    profile_service_dirs+=("services/tailscale")
+    profile_service_files+=("services/tailscale/serve.json")
   fi
   if [[ " ${selected_profiles[*]} " == *" tailscale-openwebui "* ]]; then
-    profile_service_dirs+=("services/tailscale-openwebui")
+    profile_service_files+=("services/tailscale-openwebui/serve.json")
   fi
-  profile_dirs_missing=0
-  for d in "${profile_service_dirs[@]}"; do
-    if [ -e "$dir/$d" ]; then continue; fi
-    required_service_dirs+=("$d")
+  for path in "${profile_service_files[@]}"; do
+    if [ -e "$dir/$path" ]; then continue; fi
+    required_service_files+=("$path")
     missing_files=1
-    profile_dirs_missing=1
     found=0
     for existing in "${files[@]}"; do
-      if [ "$existing" = "$d" ]; then found=1; break; fi
+      if [ "$existing" = "$path" ]; then found=1; break; fi
     done
-    [ $found -eq 1 ] || files+=("$d")
+    [ $found -eq 1 ] || files+=("$path")
   done
-  if [ "$profile_dirs_missing" = 1 ]; then
-    found_services=0
-    for existing in "${files[@]}"; do
-      if [ "$existing" = "services" ]; then found_services=1; break; fi
-    done
-    [ $found_services -eq 1 ] || files+=("services")
-  fi
 fi
 
 if [ "$need_docker" = 1 ]; then
@@ -226,7 +215,7 @@ if [ "$need_docker" = 1 ]; then
   echo "Docker is installed. After your next login, docker works without sudo."
 fi
 
-if [ $missing_files -eq 1 ]; then
+if [ $missing_files -eq 1 ] || [ "$checkout" = 0 ]; then
   # The newest v* tag, else main.
   tags=$(curl -fsSL "https://api.github.com/repos/$repo/tags")
   tag=$(printf '%s\n' "$tags" | grep -o '"name": *"v[0-9][^"]*"' | cut -d'"' -f4 | sort -V | tail -n 1 || true)
@@ -238,9 +227,87 @@ if [ $missing_files -eq 1 ]; then
   trap 'rm -rf "$tmp"' EXIT
   curl -fsSL "https://github.com/$repo/archive/$ref.tar.gz" | tar -xz -C "$tmp" --strip-components=1
   mkdir -p "$dir"
-  # Only the missing files: a new run keeps the files that you changed.
+
+  # A main-branch installer may run before its files reach a stable tag. Support that older
+  # archive when its Compose file does not refer to the new defaults yet.
+  archive_managed=()
+  for name in "${managed_files[@]}"; do
+    if [ -f "$tmp/$name" ]; then
+      archive_managed+=("$name")
+    elif [[ "$name" == services/*/defaults.env ]] && ! grep -Fq "./$name" "$tmp/compose.yml"; then
+      continue
+    else
+      echo "The downloaded release is missing $name." >&2
+      exit 1
+    fi
+  done
+  managed_files=("${archive_managed[@]}")
+
+  if [ "$checkout" = 0 ]; then
+    normalized_sha256() {
+      if command -v sha256sum >/dev/null 2>&1; then
+        tr -d '\r' <"$1" | sha256sum | cut -d' ' -f1
+      else
+        tr -d '\r' <"$1" | shasum -a 256 | cut -d' ' -f1
+      fi
+    }
+
+    state_file="$dir/.daedalus-state/managed-files.sha256"
+    update_dir="$dir/.daedalus-state/updates"
+    legacy_file="$tmp/config/legacy-compose.sha256"
+    conflicts=()
+    for name in "${managed_files[@]}"; do
+      source_file="$tmp/$name"
+      [ -f "$source_file" ] || { echo "The downloaded release is missing $name." >&2; exit 1; }
+      destination="$dir/$name"
+      [ -f "$destination" ] || continue
+      current_hash=$(normalized_sha256 "$destination")
+      source_hash=$(normalized_sha256 "$source_file")
+      [ "$current_hash" = "$source_hash" ] && continue
+      recorded_hash=
+      if [ -f "$state_file" ]; then
+        recorded_hash=$(awk -v path="$name" '$2 == path { print $1; exit }' "$state_file")
+      fi
+      if [ -n "$recorded_hash" ] && [ "$current_hash" = "$recorded_hash" ]; then continue; fi
+      if [ -f "$legacy_file" ] && grep -Fqx "$current_hash  $name" "$legacy_file"; then continue; fi
+      conflicts+=("$name")
+    done
+
+    if [ ${#conflicts[@]} -gt 0 ]; then
+      for name in "${conflicts[@]}"; do
+        candidate="$update_dir/$name.new"
+        mkdir -p "$(dirname "$candidate")"
+        cp "$tmp/$name" "$candidate"
+        echo "Managed file $name has local changes; the new file is $candidate." >&2
+      done
+      echo "Nothing was replaced. Move your changes to services/*/local.env or compose.override.yml, install the candidate managed files, then run the installer again." >&2
+      exit 1
+    fi
+
+    state_tmp="$tmp/managed-files.sha256"
+    : >"$state_tmp"
+    for name in "${managed_files[@]}"; do
+      destination="$dir/$name"
+      mkdir -p "$(dirname "$destination")"
+      source_hash=$(normalized_sha256 "$tmp/$name")
+      if [ ! -f "$destination" ] || [ "$(normalized_sha256 "$destination")" != "$source_hash" ]; then
+        cp "$tmp/$name" "$destination.tmp"
+        mv "$destination.tmp" "$destination"
+      fi
+      printf '%s  %s\n' "$source_hash" "$name" >>"$state_tmp"
+    done
+    mkdir -p "$(dirname "$state_file")"
+    mv "$state_tmp" "$state_file"
+    rm -rf "$update_dir"
+  fi
+
+  # Config, scripts and profile assets remain user-owned after installation; only add them when absent.
   for name in "${files[@]}"; do
-    [ -e "$dir/$name" ] || cp -R "$tmp/$name" "$dir/"
+    [ -e "$tmp/$name" ] || continue
+    if [ ! -e "$dir/$name" ]; then
+      mkdir -p "$(dirname "$dir/$name")"
+      cp -R "$tmp/$name" "$dir/$name"
+    fi
   done
   echo "The files of ${tag:-main} are in $dir."
 fi
@@ -308,6 +375,13 @@ if [ "$dev" = 1 ]; then
   else
     # No source in $dir: run the dev image of main instead of building.
     version=("DAEDALUS_DEV_IMAGE=$dev_image" "DAEDALUS_DEV_PULL=always")
+  fi
+fi
+if [ -f compose.override.yml ]; then
+  if [ "$dev" = 1 ]; then
+    compose+=(-f compose.override.yml)
+  else
+    compose=(compose -f compose.yml -f compose.override.yml)
   fi
 fi
 # Until the next login, a new member of the docker group must use sudo.
