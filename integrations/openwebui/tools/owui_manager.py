@@ -2,8 +2,8 @@
 title: Open WebUI Manager
 author: nemo
 description: Open WebUI manager: knowledge, skills, files, tools, functions. Writes need a confirmed gate. Stdlib only.
-required_open_webui_version: 0.10.0
-version: 1.0.2
+required_open_webui_version: 0.12.0
+version: 1.0.3
 licence: daedalus Noncommercial License 1.0.0
 """
 
@@ -12,6 +12,7 @@ import json
 import re
 from collections.abc import Callable
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 import aiohttp
 from pydantic import BaseModel, Field
@@ -59,6 +60,22 @@ def _merge_ids(current: Any, add: list[Any], remove: list[str]) -> list[Any]:
   return merged
 
 
+class SkillFileInput(BaseModel):
+  """One UTF-8 supporting file for a skill."""
+
+  path: str = Field(description="Relative path within the skill")
+  content: str = Field(description="Complete UTF-8 text content")
+
+
+class SkillFileOperationInput(BaseModel):
+  """One versioned skill-file mutation."""
+
+  op: Literal["put", "move", "delete"] = Field(description="Operation to apply")
+  path: str = Field(description="Relative source or target path")
+  content: str | None = Field(default=None, description="UTF-8 content for put")
+  destination: str | None = Field(default=None, description="Destination path for move")
+
+
 class Tools:
   """The one Open WebUI workspace manager tool.
 
@@ -74,7 +91,7 @@ class Tools:
     PRESET_MODELS: str = ""
     permissions: Literal["Always ask", "Allow reads", "Always allow"] = "Always ask"
     timeout_seconds: int = 60
-    INSTALL_FETCH_TIMEOUT: float = 12.0
+    INSTALL_FETCH_TIMEOUT: float = 60.0
     TRUSTED_DOMAINS: str = "github.com,huggingface.co,githubusercontent.com"
     SHOW_STATUS: bool = True
 
@@ -187,7 +204,15 @@ class Tools:
     return headers, dict(request.cookies)
 
   async def _request(
-    self, session, method, path, *, timeout=None, expected=(200,), **kwargs
+    self,
+    session,
+    method,
+    path,
+    *,
+    timeout=None,
+    expected=(200,),
+    as_text=False,
+    **kwargs,
   ):
     """Unified HTTP request sending and response handling."""
     try:
@@ -205,6 +230,8 @@ class Tools:
           )
         if response.status == 204:
           return {}, None
+        if as_text:
+          return {"_text": await response.text()}, None
         try:
           return await response.json(content_type=None), None
         except (ValueError, aiohttp.ContentTypeError):
@@ -2134,6 +2161,21 @@ class Tools:
 
   # ---------------------------------------------------------------- the skills
 
+  @staticmethod
+  def _format_skill_files(data) -> str:
+    """Format one versioned skill-file manifest for model-readable output."""
+    data = data or {}
+    lines = [f"version_id={data.get('version_id') or ''}", "files:"]
+    files = data.get("files") or []
+    lines.extend(
+      f"- {item.get('path')} (size={item.get('size', 0)}, "
+      f"encoding={item.get('encoding') or 'text'})"
+      for item in files
+    )
+    if not files:
+      lines.append("- none")
+    return "\n".join(lines)
+
   async def list_skills(
     self,
     __request__=None,
@@ -2151,7 +2193,7 @@ class Tools:
         data, err = await self._request(s, "GET", "/skills/")
       if err:
         return err
-      items = (data or {}).get("items") or []
+      items = data if isinstance(data, list) else (data or {}).get("items") or []
       if not items:
         return "No skills found."
       return "\n".join(
@@ -2191,13 +2233,22 @@ class Tools:
         return NO_CONTEXT
       async with await self._open_session(__request__) as s:
         data, err = await self._request(s, "GET", f"/skills/id/{skill_id}")
+        if err:
+          return err
+        if not data:
+          return f"Error: skill not found: {skill_id}"
+        files, err = await self._request(
+          s,
+          "GET",
+          f"/skills/id/{skill_id}/files",
+          params={"version_id": data.get("version_id")},
+        )
       if err:
         return err
-      if not data:
-        return f"Error: skill not found: {skill_id}"
       return (
         f"name={data.get('name')} (id={data.get('id')}, "
         f"active={data.get('is_active')}, description={data.get('description') or ''})\n"
+        f"{self._format_skill_files(files)}\n"
         f"\n{data.get('content') or ''}"
       )
 
@@ -2209,12 +2260,147 @@ class Tools:
       __event_call__,
     )
 
+  async def list_skill_files(
+    self,
+    skill_id: str,
+    version_id: str = "",
+    __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> str:
+    """
+    List every file in one skill snapshot, with its size and encoding.
+
+    :param skill_id: the id of the skill to inspect
+    :param version_id: a version id from show_skill, or empty for the current version
+    """
+
+    async def run(
+      skill_id=skill_id,
+      version_id=version_id,
+      __request__=__request__,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      if __request__ is None:
+        return NO_CONTEXT
+      params = {"version_id": version_id} if version_id else None
+      async with await self._open_session(__request__) as s:
+        data, err = await self._request(
+          s, "GET", f"/skills/id/{skill_id}/files", params=params
+        )
+      return err or self._format_skill_files(data)
+
+    return await self._read(
+      "read list_skill_files",
+      str(skill_id),
+      run,
+      __user__,
+      __event_call__,
+    )
+
+  async def read_skill_file(
+    self,
+    skill_id: str,
+    path: str,
+    version_id: str = "",
+    offset: int = 0,
+    max_chars: int = 10000,
+    __request__=None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> str:
+    """
+    Read a UTF-8 file from one skill snapshot, with character-offset paging.
+
+    Binary supporting files return their metadata instead of decoded bytes.
+
+    :param skill_id: the id of the skill to inspect
+    :param path: the relative file path, for example references/api.md
+    :param version_id: a version id from show_skill, or empty for the current version
+    :param offset: character offset to start reading from
+    :param max_chars: maximum characters to return, up to 100000
+    """
+
+    async def run(
+      skill_id=skill_id,
+      path=path,
+      version_id=version_id,
+      offset=offset,
+      max_chars=max_chars,
+      __request__=__request__,
+      __user__=__user__,
+      __event_call__=__event_call__,
+    ):
+      if __request__ is None:
+        return NO_CONTEXT
+      path = (path or "").strip()
+      if not path:
+        return "Error: skill file path is empty."
+      params = {"version_id": version_id} if version_id else None
+      async with await self._open_session(__request__) as s:
+        manifest, err = await self._request(
+          s, "GET", f"/skills/id/{skill_id}/files", params=params
+        )
+        if err:
+          return err
+        snapshot = (manifest or {}).get("version_id") or version_id
+        item = next(
+          (
+            item
+            for item in (manifest or {}).get("files") or []
+            if item.get("path") == path
+          ),
+          None,
+        )
+        if not item:
+          return f"Error: skill file not found: {path}"
+        if item.get("encoding"):
+          return (
+            f"path={path}\nversion_id={snapshot}\nsize={item.get('size', 0)}\n"
+            f"encoding={item.get('encoding')}\ncontent=<binary file>\n"
+            "Open the file in the Open WebUI skill editor."
+          )
+        data, err = await self._request(
+          s,
+          "GET",
+          f"/skills/id/{skill_id}/files/content",
+          params={"path": path, "version_id": snapshot},
+          as_text=True,
+        )
+      if err:
+        return err
+      if isinstance(data, dict) and "_text" in data:
+        content = str(data["_text"])
+      elif isinstance(data, str):
+        content = data
+      else:
+        content = json.dumps(data, ensure_ascii=False, indent=2)
+      start = max(0, int(offset or 0))
+      end = start + max(1, min(int(max_chars or 10000), 100000))
+      next_offset = end if end < len(content) else None
+      return (
+        f"path={path}\nversion_id={snapshot}\noffset={start}\n"
+        f"next_offset={next_offset if next_offset is not None else 'none'}\n"
+        f"content={content[start:end]}"
+      )
+
+    return await self._read(
+      "read read_skill_file",
+      f"{skill_id}:{path}",
+      run,
+      __user__,
+      __event_call__,
+    )
+
   async def create_skill(
     self,
     name: str,
     content: str,
     description: str = "",
     skill_id: str = "",
+    files: list[SkillFileInput] | None = None,
+    commit_message: str = "",
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
@@ -2223,9 +2409,11 @@ class Tools:
     Create one skill. A new item runs free, and it joins the preset models.
 
     :param name: the name of the new skill
-    :param content: the full skill text
+    :param content: the complete UTF-8 SKILL.md text
     :param description: a short description, or empty
     :param skill_id: an id to use, or empty to let Open WebUI build one
+    :param files: optional UTF-8 supporting files, each with path and content
+    :param commit_message: an optional description of this version
     """
 
     refusal = await self._guard(
@@ -2244,22 +2432,42 @@ class Tools:
     ).strip("-")
     if not identifier:
       return "Error: name is empty, so no skill id can be built."
+    supporting = []
+    for item in files or []:
+      if isinstance(item, BaseModel):
+        item = item.model_dump(exclude_none=True)
+      if not isinstance(item, dict):
+        return "Error: each supporting file must have path and content."
+      path = str(item.get("path") or "").strip()
+      if not path or "content" not in item:
+        return "Error: each supporting file must have path and content."
+      if path == "SKILL.md":
+        return "Error: pass SKILL.md in content, not files."
+      if item.get("encoding"):
+        return "Error: create_skill supporting files must be UTF-8 text."
+      if not isinstance(item.get("content"), str):
+        return f"Error: supporting file content must be text: {path}"
+      supporting.append({"path": path, "content": item["content"]})
+    skill_files = [{"path": "SKILL.md", "content": content}, *supporting]
     body = {
       "id": identifier,
       "name": name,
       "description": description,
       "content": content,
+      "files": skill_files,
+      "commit_message": commit_message or None,
       "meta": {},
       "is_active": True,
     }
     async with await self._open_session(__request__) as s:
-      _data, err = await self._request(
+      data, err = await self._request(
         s, "POST", "/skills/create", json=body, expected=(200, 201)
       )
       if err:
         return err
+      identifier = (data or {}).get("id") or identifier
       attach = await self._attach_to_presets({"skillIds": [identifier]}, __request__)
-    return f"created skill {name} (id={identifier})\n{attach}"
+    return f"created skill {name} (id={identifier})\nfiles={len(skill_files)}\n{attach}"
 
   async def install_skill(
     self,
@@ -2269,9 +2477,13 @@ class Tools:
     __request__=None,
   ) -> str:
     """
-    Install one skill from a URL. The host must be a trusted domain.
+    Import one or more skills from a trusted URL through Open WebUI v0.12.
 
-    :param url: the URL of the skill file to load
+    A GitHub repository, folder or SKILL.md URL can carry complete skill
+    packages. Raw Markdown, JSON and ZIP URLs also work. The importer preserves
+    binary files. Open WebUI restricts URL loading to administrators.
+
+    :param url: the HTTPS URL of a skill file, package, folder or repository
     """
 
     refusal = await self._guard(
@@ -2286,37 +2498,86 @@ class Tools:
     if __request__ is None:
       return NO_CONTEXT
     target = (url or "").strip()
-    if not target.startswith("https://"):
-      return "Error: the URL must start with https://."
-    host = target.split("/")[2].lower() if "//" in target else ""
-    trusted = [d.strip().lower() for d in _split_ids(self.valves.TRUSTED_DOMAINS)]
-    if not any(host == d or host.endswith("." + d) for d in trusted):
+    parsed = urlsplit(target)
+    if parsed.scheme != "https" or not parsed.hostname:
+      return "Error: the URL must start with https:// and include a host."
+    if parsed.username or parsed.password:
+      return "Error: the URL must not contain credentials."
+    host = parsed.hostname.lower()
+    request_url = parsed._replace(fragment="").geturl()
+    source_url = parsed._replace(query="", fragment="").geturl()
+    trusted = [
+      domain.strip().lower() for domain in _split_ids(self.valves.TRUSTED_DOMAINS)
+    ]
+    if not any(host == domain or host.endswith("." + domain) for domain in trusted):
       return f"Error: {host} is not a trusted domain."
-    try:
-      async with (
-        aiohttp.ClientSession() as s,
-        s.get(
-          target,
-          timeout=aiohttp.ClientTimeout(
-            total=float(self.valves.INSTALL_FETCH_TIMEOUT or 12)
-          ),
-        ) as response,
-      ):
-        if response.status != 200:
-          return f"Error: the request failed with status {response.status}."
-        text = await response.text()
-    except (asyncio.TimeoutError, aiohttp.ClientError) as exc:
-      return f"Error: the request failed: {exc}"
-    name = ""
-    for line in text.split("\n"):
-      if line.startswith("# "):
-        name = line[2:].strip()
-        break
-    name = name or target.rstrip("/").split("/")[-1].replace(".md", "")
-    created = await self.create_skill(
-      name, text, f"Installed from {target}", "", __request__
+
+    timeout = aiohttp.ClientTimeout(
+      total=max(1.0, float(self.valves.INSTALL_FETCH_TIMEOUT or 60))
     )
-    return created
+    imported = []
+    lines = []
+    async with await self._open_session(__request__) as session:
+      packages, err = await self._request(
+        session,
+        "POST",
+        "/skills/load/url",
+        json={"url": request_url},
+        expected=(200,),
+        timeout=timeout,
+      )
+      if err:
+        return err
+      if not isinstance(packages, list) or not packages:
+        return "Error: the URL contained no importable skills."
+      for package in packages:
+        if not isinstance(package, dict):
+          lines.append("failed import: Open WebUI returned an invalid skill package")
+          continue
+        files = package.get("files")
+        if not isinstance(files, list) or not files:
+          content = package.get("content")
+          files = (
+            [{"path": "SKILL.md", "content": content}]
+            if isinstance(content, str)
+            else []
+          )
+        if not files or any(not isinstance(item, dict) for item in files):
+          lines.append("failed import: Open WebUI returned invalid skill files")
+          continue
+        identifier = str(package.get("id") or "")
+        name = str(package.get("name") or identifier or "Imported skill")
+        root = next(
+          (item.get("content") for item in files if item.get("path") == "SKILL.md"),
+          "",
+        )
+        body = {
+          "id": identifier,
+          "name": name,
+          "description": package.get("description") or "",
+          "content": root,
+          "files": files,
+          "commit_message": f"Imported from {source_url}",
+          "meta": package.get("meta") or {},
+          "is_active": package.get("is_active", True),
+          "access_grants": [],
+        }
+        created, create_err = await self._request(
+          session,
+          "POST",
+          "/skills/create",
+          json=body,
+          expected=(200, 201),
+        )
+        if create_err:
+          lines.append(f"failed {name} (id={identifier}): {create_err}")
+          continue
+        created_id = (created or {}).get("id") or identifier
+        imported.append(created_id)
+        lines.append(f"imported {name} (id={created_id}, files={len(files)})")
+    if imported:
+      lines.append(await self._attach_to_presets({"skillIds": imported}, __request__))
+    return "\n".join(lines)
 
   async def update_skill(
     self,
@@ -2356,6 +2617,91 @@ class Tools:
         s, "POST", f"/skills/id/{skill_id}/update", json=body
       )
     return err or f"updated skill {skill_id}"
+
+  async def update_skill_files(
+    self,
+    skill_id: str,
+    operations: list[SkillFileOperationInput],
+    expected_version_id: str = "",
+    commit_message: str = "",
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+    __request__=None,
+  ) -> str:
+    """
+    Apply UTF-8 file operations as one new version of an existing skill.
+
+    Operations are {op: put, path, content}, {op: move, path, destination},
+    or {op: delete, path}. Untouched files stay in the snapshot. Pass the
+    version from show_skill for strict optimistic concurrency, or leave it
+    empty to use the version read immediately before this update.
+
+    :param skill_id: the id of the skill to update
+    :param operations: put, move or delete operations for relative skill paths
+    :param expected_version_id: the version expected by the caller, or empty to read it now
+    :param commit_message: an optional description of this version
+    """
+    if __request__ is None:
+      return NO_CONTEXT
+    refusal = await self._guard(
+      "update skill files", str(skill_id), __user__, __event_call__
+    )
+    if refusal:
+      return refusal
+    if not isinstance(operations, list) or not operations:
+      return "Error: provide at least one skill file operation."
+    operations = [
+      operation.model_dump(exclude_none=True)
+      if isinstance(operation, BaseModel)
+      else operation
+      for operation in operations
+    ]
+    for operation in operations:
+      if not isinstance(operation, dict):
+        return "Error: each skill file operation must be an object."
+      if operation.get("encoding"):
+        return "Error: update_skill_files writes UTF-8 text only."
+      if operation.get("op") not in {"put", "move", "delete"}:
+        return "Error: skill file op must be put, move or delete."
+      if not str(operation.get("path") or "").strip():
+        return "Error: each skill file operation needs a path."
+      if operation.get("op") == "put" and not isinstance(operation.get("content"), str):
+        return "Error: a put operation needs text content."
+      if (
+        operation.get("op") == "move"
+        and not str(operation.get("destination") or "").strip()
+      ):
+        return "Error: a move operation needs a destination."
+
+    async with await self._open_session(__request__) as session:
+      current, err = await self._request(session, "GET", f"/skills/id/{skill_id}")
+      if err:
+        return err
+      if not current:
+        return f"Error: skill not found: {skill_id}"
+      expected = expected_version_id or current.get("version_id")
+      if not expected:
+        return "Error: Open WebUI returned no current skill version."
+      body = {
+        "id": skill_id,
+        "name": current.get("name") or skill_id,
+        "expected_version_id": expected,
+        "operations": operations,
+        "commit_message": commit_message or None,
+      }
+      data, err = await self._request(
+        session,
+        "POST",
+        f"/skills/id/{skill_id}/update",
+        json=body,
+        expected=(200, 201),
+      )
+    if err:
+      return err
+    return (
+      f"updated skill files {skill_id} "
+      f"(version_id={(data or {}).get('version_id') or 'unknown'})"
+    )
 
   async def toggle_skill(
     self,

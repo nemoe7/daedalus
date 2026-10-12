@@ -1,8 +1,8 @@
 """Tests for the one Open WebUI manager tool.
 
-The tool file is loaded by path, because Open WebUI tools are standalone
-Python files and not part of the daedalus package. The HTTP layer is
-replaced with a stub, so no test reaches the network.
+Tests load the tool file by path because Open WebUI tools are standalone
+Python files and not part of the daedalus package. A stub replaces the HTTP
+layer, so no test reaches the network.
 """
 
 import asyncio
@@ -11,6 +11,8 @@ import json
 import pathlib
 import sys
 import types
+
+import pytest
 
 # The tool imports aiohttp, which the daedalus venv does not hold. The stub satisfies it.
 fake = types.ModuleType("aiohttp")
@@ -69,9 +71,12 @@ FILES = [
 SKILLS = [
   "list_skills",
   "show_skill",
+  "list_skill_files",
+  "read_skill_file",
   "install_skill",
   "create_skill",
   "update_skill",
+  "update_skill_files",
   "delete_skill",
 ]
 TOOLS = [
@@ -215,6 +220,249 @@ def test_a_new_item_runs_free_and_joins_the_presets():
   assert len(writes) == 1
   payload = writes[0][2]["json"]
   assert payload["meta"]["skillIds"] == ["my-skill"]
+
+
+def test_list_skills_accepts_the_v012_list_response():
+  """The v0.12 collection route returns a bare list, not an items wrapper."""
+  tool, _ = make_tool(
+    {"GET /skills/": [{"id": "s1", "name": "Skill One", "is_active": True}]}
+  )
+  tool.valves.permissions = "Allow reads"
+
+  answer = asyncio.run(tool.list_skills(__request__=object()))
+
+  assert answer == "- Skill One (id=s1, active=True)"
+
+
+def test_create_skill_sends_the_root_and_supporting_files():
+  """Skill creation keeps SKILL.md and each UTF-8 supporting file in one snapshot."""
+  tool, calls = make_tool(
+    {
+      "POST /skills/create": {"id": "my-skill", "version_id": "v1"},
+      "GET /models/list": {"items": []},
+    }
+  )
+  tool.valves.permissions = "Allow reads"
+
+  answer = asyncio.run(
+    tool.create_skill(
+      "My Skill",
+      "# Instructions",
+      files=[
+        {"path": "references/api.md", "content": "API notes"},
+        {"path": "scripts/check.py", "content": "print('ok')"},
+      ],
+      commit_message="Initial package",
+      __request__=object(),
+    )
+  )
+
+  assert "created skill My Skill (id=my-skill)" in answer
+  assert "files=3" in answer
+  create = next(call for call in calls if call[1] == "/skills/create")
+  assert create[2]["json"]["files"] == [
+    {"path": "SKILL.md", "content": "# Instructions"},
+    {"path": "references/api.md", "content": "API notes"},
+    {"path": "scripts/check.py", "content": "print('ok')"},
+  ]
+  assert create[2]["json"]["commit_message"] == "Initial package"
+
+
+def test_show_and_read_skill_files_use_the_versioned_routes():
+  """A skill read exposes its snapshot and pages one UTF-8 supporting file."""
+  tool, calls = make_tool(
+    {
+      "GET /skills/id/s1/files/content": {"_text": "0123456789"},
+      "GET /skills/id/s1/files": {
+        "version_id": "v7",
+        "files": [
+          {"path": "SKILL.md", "size": 20, "encoding": None},
+          {"path": "references/a.md", "size": 10, "encoding": None},
+        ],
+      },
+      "GET /skills/id/s1": {
+        "id": "s1",
+        "name": "Skill One",
+        "description": "one",
+        "content": "# Skill One",
+        "is_active": True,
+        "version_id": "v7",
+      },
+    }
+  )
+  tool.valves.permissions = "Allow reads"
+
+  shown = asyncio.run(tool.show_skill("s1", __request__=object()))
+  content = asyncio.run(
+    tool.read_skill_file(
+      "s1",
+      "references/a.md",
+      version_id="v7",
+      offset=2,
+      max_chars=4,
+      __request__=object(),
+    )
+  )
+
+  assert "version_id=v7" in shown
+  assert "references/a.md (size=10, encoding=text)" in shown
+  manifest = next(call for call in calls if call[1] == "/skills/id/s1/files")
+  assert manifest[2]["params"] == {"version_id": "v7"}
+  assert "content=2345" in content
+  assert "next_offset=6" in content
+  read = next(call for call in calls if call[1] == "/skills/id/s1/files/content")
+  assert read[2]["params"] == {"path": "references/a.md", "version_id": "v7"}
+  assert read[2]["as_text"] is True
+
+
+def test_update_skill_files_stays_behind_the_write_gate():
+  """The shipped permission blocks a file update before any API request."""
+  tool, calls = make_tool()
+
+  answer = json.loads(
+    asyncio.run(
+      tool.update_skill_files(
+        "s1",
+        [{"op": "put", "path": "SKILL.md", "content": "# New"}],
+        __request__=object(),
+      )
+    )
+  )
+
+  assert answer["result"]["denied"] is True
+  assert calls == []
+
+
+def test_update_skill_files_posts_operations_with_the_current_version():
+  """A multi-file edit uses optimistic concurrency and preserves untouched files."""
+  tool, calls = make_tool(
+    {
+      "POST /skills/id/s1/update": {"id": "s1", "version_id": "v8"},
+      "GET /skills/id/s1": {
+        "id": "s1",
+        "name": "Skill One",
+        "description": "one",
+        "meta": {"tags": ["test"]},
+        "is_active": True,
+        "access_grants": [],
+        "version_id": "v7",
+      },
+    }
+  )
+  tool.valves.permissions = "Always allow"
+  operations = [
+    {"op": "put", "path": "references/a.md", "content": "new"},
+    {"op": "move", "path": "scripts/old.py", "destination": "scripts/check.py"},
+    {"op": "delete", "path": "assets/old.png"},
+  ]
+
+  answer = asyncio.run(
+    tool.update_skill_files(
+      "s1", operations, commit_message="Refresh files", __request__=object()
+    )
+  )
+
+  assert "updated skill files s1 (version_id=v8)" in answer
+  update = next(call for call in calls if call[1] == "/skills/id/s1/update")
+  body = update[2]["json"]
+  assert body["expected_version_id"] == "v7"
+  assert body["operations"] == operations
+  assert body["commit_message"] == "Refresh files"
+  assert "meta" not in body
+  assert "access_grants" not in body
+
+
+def test_install_skill_uses_openwebui_url_import_and_keeps_packages():
+  """A URL import creates every native package, including binary supporting files."""
+  packages = [
+    {
+      "id": "alpha",
+      "name": "Alpha",
+      "description": "first",
+      "meta": {},
+      "files": [
+        {"path": "SKILL.md", "content": "# Alpha"},
+        {"path": "assets/icon.png", "content": "AA==", "encoding": "base64"},
+      ],
+    },
+    {
+      "id": "beta",
+      "name": "Beta",
+      "description": "second",
+      "meta": {},
+      "files": [{"path": "SKILL.md", "content": "# Beta"}],
+    },
+  ]
+  tool, calls = make_tool(
+    {
+      "POST /skills/load/url": packages,
+      "POST /skills/create": {},
+      "GET /models/list": {"items": []},
+    }
+  )
+  tool.valves.permissions = "Allow reads"
+  attached = []
+
+  async def fake_attach(add, request, remove=None):
+    attached.append(add)
+    return "preset_models: none"
+
+  tool._attach_to_presets = fake_attach
+  target = "https://github.com/example/skills/tree/main/packages?token=secret#readme"
+
+  answer = asyncio.run(tool.install_skill(target, __request__=object()))
+
+  assert "imported Alpha (id=alpha, files=2)" in answer
+  assert "imported Beta (id=beta, files=1)" in answer
+  load = next(call for call in calls if call[1] == "/skills/load/url")
+  assert load[2]["json"] == {"url": target.rsplit("#", 1)[0]}
+  creates = [call for call in calls if call[1] == "/skills/create"]
+  assert [call[2]["json"]["id"] for call in creates] == ["alpha", "beta"]
+  assert creates[0][2]["json"]["files"][1]["encoding"] == "base64"
+  assert creates[0][2]["json"]["commit_message"] == (
+    "Imported from https://github.com/example/skills/tree/main/packages"
+  )
+  assert attached == [{"skillIds": ["alpha", "beta"]}]
+
+
+@pytest.mark.parametrize(
+  ("target", "message"),
+  [
+    ("http://github.com/example/skill.md", "must start with https://"),
+    ("https://user:secret@github.com/example/skill.md", "must not contain credentials"),
+    ("https://example.com/skill.md", "is not a trusted domain"),
+  ],
+)
+def test_install_skill_rejects_unsafe_or_untrusted_urls(target, message):
+  """Rejected imports never reach either Open WebUI or the remote host."""
+  tool, calls = make_tool({})
+  tool.valves.permissions = "Allow reads"
+
+  answer = asyncio.run(tool.install_skill(target, __request__=object()))
+
+  assert message in answer
+  assert calls == []
+
+
+def test_legacy_skill_update_keeps_its_single_content_request():
+  """The v0.12 file operations do not change the existing instructions CRUD call."""
+  tool, calls = make_tool({"POST /skills/id/s1/update": {"id": "s1"}})
+  tool.valves.permissions = "Always allow"
+
+  answer = asyncio.run(
+    tool.update_skill("s1", "Skill One", "# Revised", "one", __request__=object())
+  )
+
+  assert answer == "updated skill s1"
+  update = next(call for call in calls if call[1] == "/skills/id/s1/update")
+  assert update[2]["json"] == {
+    "id": "s1",
+    "name": "Skill One",
+    "description": "one",
+    "content": "# Revised",
+    "meta": {},
+    "is_active": True,
+  }
 
 
 def test_the_preset_filter_takes_ids_and_names():
