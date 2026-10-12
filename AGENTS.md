@@ -68,6 +68,7 @@ An ADR holds one decision and the reason for it.
 
 - A new page uses the `.flow` layout of `style.css`: the table in a `.column.wide`, and the cards in a `.column` beside it.
 - Do not put cards in a row above a table.
+- Reuse an existing shared UI component before adding page-specific markup, behavior, or CSS. When no component fits and the same contract has at least two current callers, add one shared component. Migrate those callers in the same change. Keep one-off domain UI local.
 - Update the pages simulation when code or UI changes: `scripts/pages_demo.py`, live at <https://nemoe7.github.io/daedalus/>.
 
 ## Open WebUI plugins
