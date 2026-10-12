@@ -3,9 +3,11 @@ title: Google
 author: nemo
 description: Gmail, Calendar, Drive, Docs for Open WebUI. Reads run freely. Writes need a confirmed gate. Stdlib only.
 required_open_webui_version: 0.10.0
-version: 1.0.1
+version: 1.0.2
 licence: daedalus Noncommercial License 1.0.0
 """
+
+# fmt: off
 
 import asyncio
 import base64

@@ -3,9 +3,11 @@ title: Served model
 author: nemo
 description: The daedalus served model line above the answer body. It reads the stream usage. No key.
 required_open_webui_version: 0.10.0
-version: 1.0.3
+version: 1.0.4
 licence: daedalus Noncommercial License 1.0.0
 """
+
+# fmt: off
 
 from typing import Any, Literal
 

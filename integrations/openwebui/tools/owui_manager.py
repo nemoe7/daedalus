@@ -3,9 +3,11 @@ title: Open WebUI Manager
 author: nemo
 description: Open WebUI manager: knowledge, skills, files, tools, functions. Writes need a confirmed gate. Stdlib only.
 required_open_webui_version: 0.12.0
-version: 1.0.3
+version: 1.0.4
 licence: daedalus Noncommercial License 1.0.0
 """
+
+# fmt: off
 
 import asyncio
 import json

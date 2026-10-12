@@ -3,9 +3,11 @@ title: Chat metadata
 author: nemo
 description: Inject the date, the clock, the timezone, the place and the language at the top of the chat. No key.
 required_open_webui_version: 0.10.0
-version: 1.0.1
+version: 1.0.2
 licence: daedalus Noncommercial License 1.0.0
 """
+
+# fmt: off
 
 import os
 from datetime import datetime

@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import check_versions
+
+ROOT = Path(__file__).parents[1]
 
 
 def test_the_version_of_a_plugin_frontmatter():
@@ -15,6 +19,20 @@ def test_the_version_of_a_plugin_frontmatter():
 
 def test_the_version_of_a_hook_frontmatter():
   assert check_versions.version_of("# ---\n# version: 1.0.2\n# ---\n") == (1, 0, 2)
+
+
+def test_shipped_openwebui_python_plugins_disable_black_after_frontmatter():
+  plugins = sorted((ROOT / "integrations/openwebui/functions").glob("*.py"))
+  plugins += sorted((ROOT / "integrations/openwebui/tools").glob("*.py"))
+  assert plugins
+  for path in plugins:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    assert lines[0] == '"""', path.relative_to(ROOT)
+    closing = lines.index('"""', 1)
+    first_source_line = next(
+      (line for line in lines[closing + 1 :] if line.strip()), ""
+    )
+    assert first_source_line == "# fmt: off", path.relative_to(ROOT)
 
 
 def test_a_file_without_a_version_line():
