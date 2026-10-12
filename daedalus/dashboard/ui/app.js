@@ -1580,8 +1580,8 @@ function hookOrderRows() {
         },
       })}</li>`).join("");
     const hint = "The matching files run in this order. Their provider, model or client scopes still apply.";
-    return `<div class="field stack info">${labelSpan(label, hint)}
-      <ul class="hook-order">${rows || '<li><em class="none">No file for this surface</em></li>'}</ul></div>`;
+    return field(label, hint, `
+      <ul class="hook-order">${rows || '<li><em class="none">No file for this surface</em></li>'}</ul>`);
   }).join("");
 }
 
@@ -1656,18 +1656,18 @@ function hooksManager() {
       ${actionButton("Take the picked files", {
         variant: "primary", attrs: { "data-hook-take-all": true },
       })}</div>` : "";
-  return `<div class="field stack info">${labelSpan("Installed hooks", "The files of the hook folder. A surface is a stage of a request. The block of the file names the surfaces that run the file. The switch keeps a file on disk and out of the run.")}
+  return `${field("Installed hooks", "The files of the hook folder. A surface is a stage of a request. The block of the file names the surfaces that run the file. The switch keeps a file on disk and out of the run.", `
       <div class="card-scroll"><table class="keys"><thead><tr><th>Author/Title</th><th>Version</th><th>Surfaces</th><th>Scopes</th><th class="hide-sm">Source</th><th>Enabled</th><th></th></tr></thead>
       <tbody>${list}</tbody></table></div>
       ${actionButton("Update from the sources", {
         variant: "ghost", attrs: { "data-hooks-update": true },
-      })}</div>
+      })}`)}
     <div class="field stack info" id="hooks-order">${hookOrderRows()}</div>
-    <div class="field stack info">${labelSpan("Folder", "The folder at the root that holds the hook files.")}
+    ${field("Folder", "The folder at the root that holds the hook files.", `
       <span class="input"><input type="text" id="set-hooks-dir" data-value="Folder"
         readonly spellcheck="false" value="${esc(fileValue("hooks", "dir") ?? "")}"
-        placeholder="${esc(state.settings.defaults.hooks.dir)}"></span></div>
-    <div class="field stack info">${labelSpan("Sources", "Each source names a GitHub repo, a folder in it and a ref.")}
+        placeholder="${esc(state.settings.defaults.hooks.dir)}"></span>`)}
+    ${field("Sources", "Each source names a GitHub repo, a folder in it and a ref.", `
       <div class="pills"><select id="hook-source" data-hook-source aria-label="Source">${options}</select>
         ${actionButton(`${icon("plus")} Add a repo`, {
           variant: "add", attrs: { "data-hook-source-add": true },
@@ -1676,7 +1676,7 @@ function hooksManager() {
           variant: "ghost",
           attrs: { "data-hook-source-drop": true, title: "Delete the source" },
         })}</div>${panel}
-      <div class="sub" id="hooks-note" role="status"></div></div>`;
+      <div class="sub" id="hooks-note" role="status"></div>`)}`;
 }
 
 // The Delete button of a row: the file leaves the folder and the lock, and the settings
@@ -2026,25 +2026,23 @@ function providerCard(name, block) {
     return maskedPlaceholder(row);
   };
   const text = (key, label, hint) => {
-    const row = `data-value="${esc(label)}"`;
+    let type = "text";
+    let value = block[key] ?? "";
+    let placeholder = defaults[key] ?? "";
     if (key === "api_key" || key === "account_id") {
       const info = tokenInfo(block[key]);
       if (info) {
-        const row_ = state.env.find((r) => r.name === info.name);
-        const ph = placeholderFor(info, row_) || defaults[key] || "";
-        const extra = "";
-        if (info.type === "env") {
-          const shown = info.raw;
-          return field(label, hint, `<input class="text" type="text" readonly spellcheck="false" autocomplete="off"
-          ${row} data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(shown)}" placeholder="${esc(ph)}">${extra}`);
+        const row = state.env.find((entry) => entry.name === info.name);
+        placeholder = placeholderFor(info, row) || defaults[key] || "";
+        if (info.type === "env") value = info.raw;
+        else {
+          type = "password";
+          value = "";
         }
-        return field(label, hint, `<input class="text" type="password" readonly spellcheck="false" autocomplete="off"
-        ${row} data-set='${esc(JSON.stringify([...path, key]))}' value="" placeholder="${esc(ph)}">${extra}`);
       }
     }
-    const extra = "";
-    return field(label, hint, `<input class="text" type="text" readonly spellcheck="false" autocomplete="off"
-    ${row} data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(block[key] ?? "")}" placeholder="${esc(defaults[key] ?? "")}">${extra}`);
+    return field(label, hint, `<input class="text" type="${type}" readonly spellcheck="false" autocomplete="off"
+      data-value="${esc(label)}" data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(value)}" placeholder="${esc(placeholder)}">`);
   };
   const tiers = TIERS.map((tier) => `<div class="tier-row"><span class="tier">${tier.slice(-1)}</span>
     ${listField(tier, block.tier?.[tier], [...path, "tier", tier])}</div>`).join("");
@@ -2605,9 +2603,9 @@ function renderSettings() {
       }
       if (unit === "list") {
         const values = listValue(group, key);
-        return `<div class="field stack info">${labelSpan(label, hint)}
+        return field(label, hint, `
           <div class="pills" id="${id}" aria-label="${esc(label)}">${values
-            .map((value, index) => settingPill(group, key, value, index)).join("")}${settingAdder(group, key)}</div></div>`;
+            .map((value, index) => settingPill(group, key, value, index)).join("")}${settingAdder(group, key)}</div>`);
       }
       const fallback = state.settings.defaults[group][key];
       const value = fileValue(group, key);

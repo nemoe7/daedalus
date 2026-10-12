@@ -4764,7 +4764,7 @@ def test_a_row_writes_itself_and_the_bar_is_gone() -> None:
     "function rememberWrite(page, restore, anchor = null) {",
     "function placeUndo(anchor = null) {",
     'button.className = "ghost undo-step";',
-    'class="text" type="text" readonly spellcheck="false"',
+    'readonly spellcheck="false" autocomplete="off"',
   ):
     assert needle in app, needle
   assert '$("save")' not in app and '$("settings-save")' not in app, (
@@ -4961,6 +4961,68 @@ def test_the_hooks_card_orders_the_files_of_a_surface() -> None:
   )
   assert 'id="hooks-order"' in app, "the card holds the order block"
   assert "chevron_up" in app and "chevron_down" in app, "the moves draw an arrow"
+
+
+def test_dashboard_form_rows_keep_their_contracts() -> None:
+  """Form rows share one wrapper and keep each provider value state."""
+  app = (
+    Path(__file__).resolve().parents[2] / "daedalus/dashboard/ui/app.js"
+  ).read_text(encoding="utf-8")
+  assert app.count('<div class="field stack info">${labelSpan') == 1, (
+    "every stacked field uses the shared wrapper"
+  )
+  provider = app[
+    app.index("function providerCard(") : app.index("function renderForm()")
+  ]
+  assert provider.count('readonly spellcheck="false" autocomplete="off"') == 1, (
+    "provider text fields share one input renderer"
+  )
+
+  run_app_js(
+    "state, field, providerCard",
+    """
+const wrapped = probe.field('<Label>', 'Hint <&', '<input data-trusted="yes">');
+assert(wrapped.startsWith('<div class="field stack info"><span><b>&lt;Label&gt;</b>'), wrapped);
+assert(wrapped.includes('role="tooltip">Hint &lt;&amp;</small>'), 'the hint stays escaped');
+assert(wrapped.endsWith('<input data-trusted="yes"></div>'), 'the trusted body stays intact');
+
+probe.state.providerDefaults = {
+  cloudflare: {
+    api_base: 'https://default.example/v1', api_type: 'openai',
+    discovery_url: 'https://default.example/models', account_id: 'env:CF_ACCOUNT',
+  },
+  '*': {},
+};
+probe.state.env = [
+  { name: 'CF_TOKEN', state: 'env', has_env: true },
+  { name: 'CF_ACCOUNT', state: 'saved', has_saved: true, start: 'acct', length: 8 },
+];
+probe.state.settings = { hook_rows: [] };
+const html = probe.providerCard('cloudflare', {
+  api_key: 'env:CF_TOKEN', account_id: 'db:CF_ACCOUNT',
+  api_base: 'https://custom.example/v1', api_type: '',
+  client_keys: {}, discovery_match: {}, exclude: [], tier: {}, models: {}, hooks: [],
+});
+const inputFor = (label) => {
+  const at = html.indexOf(`data-value="${label}"`);
+  assert(at > 0, `the ${label} input exists`);
+  return html.slice(html.lastIndexOf('<input', at), html.indexOf('>', at) + 1);
+};
+const apiKey = inputFor('API key');
+assert(apiKey.includes('type="text"') && apiKey.includes('readonly'), apiKey);
+assert(apiKey.includes('value="env:CF_TOKEN"'), 'an environment token stays visible');
+assert(apiKey.includes('placeholder="From environment"'), apiKey);
+assert(apiKey.includes("data-set='[&quot;cloudflare&quot;,&quot;api_key&quot;]'"), apiKey);
+const account = inputFor('Account ID');
+assert(account.includes('type="password"') && account.includes('value=""'), account);
+assert(account.includes('placeholder="acct••••"'), 'a database token stays masked');
+const base = inputFor('API base');
+assert(base.includes('type="text"') && base.includes('value="https://custom.example/v1"'), base);
+assert(base.includes('placeholder="https://default.example/v1"'), base);
+assert.strictEqual((html.match(/<input class="text" type="(?:text|password)" readonly/g) || []).length, 5,
+  'each provider text value keeps the shared readonly contract');
+""",
+  )
 
 
 def test_dashboard_display_primitives_keep_their_contracts() -> None:
