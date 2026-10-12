@@ -4959,3 +4959,207 @@ def test_the_hooks_card_orders_the_files_of_a_surface() -> None:
   )
   assert 'id="hooks-order"' in app, "the card holds the order block"
   assert "chevron_up" in app and "chevron_down" in app, "the moves draw an arrow"
+
+
+def test_dashboard_display_primitives_keep_their_contracts() -> None:
+  """Shared render helpers keep trusted markup separate from escaped text."""
+  run_app_js(
+    "line, none, mobileLabel, nameCell, cell, kpi, weightBar, statusCell",
+    """
+assert.strictEqual(probe.line('<b>left</b>', '<i>right</i>'),
+  '<div class="line"><span><b>left</b></span><span><i>right</i></span></div>');
+assert.strictEqual(probe.none('No requests'), '<div class="more">No requests</div>');
+assert.strictEqual(probe.mobileLabel('<label & "x">'),
+  '<span class="mobile-label" aria-hidden="true">&lt;label &amp; &quot;x&quot;&gt;</span>');
+assert.strictEqual(probe.nameCell('p/"<&', '<b>trusted</b>', '<Model>'),
+  '<td role="cell" class="name" title="p/&quot;&lt;&amp;">'
+  + '<span class="mobile-label" aria-hidden="true">&lt;Model&gt;</span>'
+  + '<span class="cell-value"><b>trusted</b></span></td>');
+assert.strictEqual(probe.cell('<Time>', '<b>trusted</b>', 'num', ' title="exact"'),
+  '<td role="cell" class="num" title="exact">'
+  + '<span class="mobile-label" aria-hidden="true">&lt;Time&gt;</span>'
+  + '<span class="cell-value"><b>trusted</b></span></td>');
+assert.strictEqual(probe.kpi('<strong>7</strong>', '<models>'),
+  '<div class="kpi"><b><strong>7</strong></b><small>&lt;models&gt;</small></div>');
+assert.strictEqual(probe.statusCell({ status: '<bad>' }), '&lt;bad&gt;');
+const meter = probe.weightBar(0.25);
+assert(meter.includes('class="track"') && meter.includes('class="fill"'), meter);
+assert(meter.includes('width:25%') && meter.includes('var(--orange) 50%'), meter);
+""",
+  )
+
+
+def test_dashboard_action_buttons_keep_their_contracts() -> None:
+  """Action buttons keep native types, variants, state, and semantic selectors."""
+  root = Path(__file__).resolve().parents[2]
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  for source in (page, app):
+    tags = re.findall(r"<button\b[^>]*>", source, re.DOTALL)
+    assert tags and all('type="' in tag for tag in tags), tags
+  for fragment in (
+    'class="primary" type="submit"',
+    'class="ghost" type="submit" value="cancel"',
+    'class="ghost danger" id="reset-weights" type="button"',
+    'class="ghost live-toggle" id="live-toggle" type="button" aria-pressed="false"',
+    'class="ghost tab-step" id="nav-left" type="button"',
+    'type="button" class="sort"',
+    'type="button" class="filter${t === state.tier ? " on" : ""}" data-tier="${t}"',
+    'type="button" class="tab${index === state.file ? " on" : ""}"',
+    'type="button" class="add"',
+  ):
+    assert fragment in page or fragment in app, fragment
+
+  contracts = (
+    ("catalog", "data-catalog-rebuild", 'closest("[data-catalog-rebuild]")'),
+    ("notification", 'data-rebuild="${index}"', 'closest("[data-rebuild]")'),
+    ("file", 'data-file="${index}"', 'closest("[data-file]")'),
+    ("settings add", "data-setting-add=", 'closest("[data-setting-add]")'),
+    ("settings delete", "data-setting-drop=", 'closest("[data-setting-drop]")'),
+    ("hook add", "data-hook-source-add", 'closest("[data-hook-source-add]")'),
+    ("hook delete", 'data-hook-drop="${esc(row.path)}"', 'closest("[data-hook-drop]")'),
+    ("hook update", "data-hooks-update", 'closest("[data-hooks-update]")'),
+  )
+  for name, markup, selector in contracts:
+    assert markup in app, f"{name} markup"
+    assert selector in app, f"{name} handler"
+  assert 'value="cancel"' in page and 'value="ok"' in page and 'value="close"' in page
+  assert '$("modal").addEventListener("close"' in app
+  assert 'event.target.returnValue === "ok"' in app
+
+
+def test_dashboard_icons_and_feedback_keep_accessible_names() -> None:
+  """Decorative icons stay hidden, and icon actions and messages keep accessible names."""
+  root = Path(__file__).resolve().parents[2]
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  lucide = app.partition("const LUCIDE = {")[2].partition("\n};")[0]
+  assert lucide.count("<svg ") == lucide.count('aria-hidden="true"') > 0
+  inline_icons = re.findall(r"<svg\b[^>]*>", page, re.DOTALL)
+  assert inline_icons and all('aria-hidden="true"' in tag for tag in inline_icons)
+  for fragment in (
+    'id="show-password" aria-pressed="false" aria-label="Show the password"',
+    'id="nav-left" type="button" aria-label="Show the earlier tabs"',
+    'id="nav-right" type="button" aria-label="Show the later tabs"',
+    'id="notice-close" type="button" aria-label="Dismiss the notice"',
+    'data-key="${esc(k.name)}" aria-label="Delete ${esc(k.name)}"',
+    'data-hook-drop="${esc(row.path)}" aria-label="Delete ${esc(row.name)}"',
+    'button.setAttribute("aria-label", "Undo this write")',
+  ):
+    assert fragment in page or fragment in app, fragment
+  for name, role in (
+    ("login-message", "alert"),
+    ("notice", "alert"),
+    ("reset-message", "status"),
+    ("limits-message", "status"),
+    ("save-message", "status"),
+    ("settings-message", "status"),
+  ):
+    tag = re.search(rf'<[^>]*id="{name}"[^>]*>', page)
+    assert tag and f'role="{role}"' in tag.group(0), name
+  assert 'id="key-message" role="alert"' in app
+  assert '<dialog id="modal" class="modal" aria-labelledby="modal-title">' in page
+  assert (
+    '<dialog id="model-modal" class="modal model-modal" aria-labelledby="model-modal-title">'
+    in page
+  )
+
+
+def test_dashboard_dialog_modes_clear_stale_state() -> None:
+  """Each dialog mode resets its fields and danger state before it opens."""
+  run_app_js(
+    "ask, askPair",
+    """
+node('modal').showModal = () => {};
+const classes = new Set();
+node('modal-ok').classList = {
+  toggle: (name, on) => (on ? classes.add(name) : classes.delete(name)),
+};
+probe.askPair('Client key', 'Write both values.', 'Key name', 'Provider key', 'name', 'value');
+assert.strictEqual(node('modal-field').hidden, false, 'a pair shows the first field');
+assert.strictEqual(node('modal-field2').hidden, false, 'a pair shows the second field');
+assert(!classes.has('danger'), 'a pair is not dangerous');
+probe.ask('Delete key', 'The key goes away.', 'Delete', true);
+assert.strictEqual(node('modal-field').hidden, true, 'a confirmation hides the first field');
+assert.strictEqual(node('modal-field2').hidden, true, 'a confirmation hides the second field');
+assert(classes.has('danger'), 'a dangerous confirmation marks its action');
+probe.ask('New provider', 'Write a name.', 'Create', false, 'Provider name', 'acme');
+assert.strictEqual(node('modal-field').hidden, false, 'an input mode shows the first field');
+assert.strictEqual(node('modal-field2').hidden, true, 'an input mode keeps the second field hidden');
+assert(!classes.has('danger'), 'a later safe mode clears danger');
+assert.strictEqual(node('modal-input').placeholder, 'Provider name');
+assert.strictEqual(node('modal-input').value, 'acme');
+""",
+  )
+
+
+def test_dashboard_rows_keep_their_responsive_cell_order() -> None:
+  """Models and both request row types keep the cell order that phone CSS uses."""
+  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+
+  def in_order(source: str, needles: tuple[str, ...]) -> None:
+    cursor = 0
+    for needle in needles:
+      found = source.find(needle, cursor)
+      assert found >= 0, needle
+      cursor = found + len(needle)
+
+  models = app.split("function renderModels() {", 1)[1].split(
+    "\n}\n\n// The time left", 1
+  )[0]
+  in_order(
+    models,
+    (
+      '${nameCell(m.id, modelName(m.id), "",',
+      '<td class="hide-sm"><div class="types">',
+      '<td class="mid hide-sm">${mobileLabel("Tier")}',
+      '<td class="hide-sm mid num${m.order > 1 ? "" : " muted"}">',
+      '<td class="hide-sm num muted"><span${m.max_input_tokens',
+      '<td class="mid hide-sm">${mobileLabel("Tools")}',
+      '<td class="hide-sm mid">${m.mode === "chat" ? reasoningCell(m) : dash}</td>',
+      '<td class="num hide-sm">${mobileLabel("Cooldown")}',
+      '<td>${mobileLabel("Weight")}',
+    ),
+  )
+
+  requests = app.split("function renderRequests(", 1)[1].split(
+    "\n}\n\n// The label of each catalog mode", 1
+  )[0]
+  in_order(
+    requests,
+    (
+      '${cell("Time",',
+      "${appCell(r)}",
+      '${cell("Session",',
+      "${nameCell(r.model",
+      "${nameCell(r.via",
+      '${cell("Effort",',
+      '${cell("Status",',
+      "${tokenCell(r.tokens?.input",
+      "${tokenCell(r.tokens?.output",
+      '${cell("TTFT",',
+      '${cell("Stream",',
+      "${fallbackCell(r,",
+    ),
+  )
+
+  live = app.split("function renderLive() {", 1)[1].split(
+    "\n}\n\n// The live clocks", 1
+  )[0]
+  in_order(
+    live,
+    (
+      '${cell("Time",',
+      "${appCell(r)}",
+      '${cell("Session",',
+      "${nameCell(r.model",
+      "${nameCell(r.via",
+      '${cell("Effort",',
+      '${cell("Status",',
+      '${cell("Input",',
+      '${cell("Output",',
+      'data-clock="ttft"',
+      'data-clock="stream"',
+      "${fallbackCell(r,",
+    ),
+  )
