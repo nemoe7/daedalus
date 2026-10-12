@@ -208,6 +208,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Log | `saved=N` shows the saved tokens. |
 | `HEADROOM_BEACON` | `off`. The anonymous upload of compression stats, on by default. |
 | `HEADROOM_UPDATE_CHECK` | `off`. Compose pins the image version. |
+| `HEADROOM_ALLOW_UNAUTHENTICATED_BIND` | `1`. Headroom binds only inside the Compose network; do not publish its port without adding authentication. |
 | `HEADROOM_COMPRESS_ALLOW_REMOTE` | `1`. Without it, Headroom answers the `api` container with a 404. |
 | `HEADROOM_TELEMETRY`, `HOME`, `HEADROOM_WORKSPACE_DIR` | Telemetry `off`, and the workspace of the image user at `/home/nonroot`. |
 

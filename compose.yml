@@ -135,10 +135,11 @@ services:
 
   headroom:
     profiles: [headroom]
-    image: ghcr.io/headroomlabs-ai/headroom:0.39.1-slim # distroless: no shell
+    image: ghcr.io/headroomlabs-ai/headroom:0.40.0-slim # distroless: no shell
     container_name: daedalus-headroom
     command: ["--host", "0.0.0.0", "--port", "8787"]
     environment:
+      HEADROOM_ALLOW_UNAUTHENTICATED_BIND: "1" # safe only while the bind stays inside the Compose network
       HEADROOM_COMPRESS_ALLOW_REMOTE: "1" # else Headroom answers the api container with 404
       HEADROOM_TELEMETRY: "off"
       HEADROOM_BEACON: "off" # the anonymous upload, on by default

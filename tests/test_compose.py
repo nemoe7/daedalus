@@ -41,6 +41,15 @@ def test_openwebui_embeds_through_a_listed_model() -> None:
   assert env["RAG_EMBEDDING_MODEL"] == "mistral/mistral-embed-2312"
 
 
+def test_headroom_pin_allows_its_internal_bind() -> None:
+  """Headroom 0.40 acknowledges its token-less bind inside the Compose network."""
+  compose = yaml.safe_load((ROOT / "compose.yml").read_text())
+  headroom = compose["services"]["headroom"]
+  assert headroom["image"] == "ghcr.io/headroomlabs-ai/headroom:0.40.0-slim"
+  assert headroom["environment"]["HEADROOM_ALLOW_UNAUTHENTICATED_BIND"] == "1"
+  assert "ports" not in headroom, "the unauthenticated bind must remain internal"
+
+
 def test_openwebui_forwards_only_the_chat_id() -> None:
   """A new bundled Open WebUI sends the chat ID without the user's personal fields."""
   compose = yaml.safe_load((ROOT / "compose.yml").read_text())
