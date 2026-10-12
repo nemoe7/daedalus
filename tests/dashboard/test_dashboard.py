@@ -4632,7 +4632,7 @@ def test_the_model_modal_reads_as_a_card() -> None:
     in modal
   ), "the modality chips draw their icon and their label together"
   assert "reasoningCell" not in modal, "no bare Yes rides in the modal"
-  assert "weightBar(m.weight)" in app, "the weight draws its bar"
+  assert "progressMeter(m.weight)" in app, "the weight draws its shared meter"
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   assert ".model-detail" not in css, "the dump rule is gone"
   assert ".model-id {" in css and ".model-stats {" in css and ".model-chips {" in css, (
@@ -4964,12 +4964,32 @@ def test_the_hooks_card_orders_the_files_of_a_surface() -> None:
 
 
 def test_dashboard_display_primitives_keep_their_contracts() -> None:
-  """Shared render helpers keep trusted markup separate from escaped text."""
+  """Shared value renderers preserve trusted markup, escaped data, and exact wrappers."""
+  app = (
+    Path(__file__).resolve().parents[2] / "daedalus/dashboard/ui/app.js"
+  ).read_text(encoding="utf-8")
+  assert app.count("timeText(") >= 4, (
+    "the overview, limits, and notifications share time markup"
+  )
+  assert app.count("progressMeter(") >= 7, (
+    "every weight and allowance bar shares one meter"
+  )
+  assert app.count("statusBadge(") >= 5, (
+    "request, boolean, and validation states share one badge"
+  )
+  assert "weightBar(" not in app, "the domain-named progress duplicate is gone"
+
   run_app_js(
-    "line, none, mobileLabel, nameCell, cell, kpi, weightBar, statusCell",
+    (
+      "line, none, mobileLabel, nameCell, cell, kpi, stamp, timeText, "
+      "progressMeter, statusBadge, statusCell, yesNo"
+    ),
     """
 assert.strictEqual(probe.line('<b>left</b>', '<i>right</i>'),
   '<div class="line"><span><b>left</b></span><span><i>right</i></span></div>');
+assert.strictEqual(probe.line('<b>left</b>', '<i>right</i>', { title: '<value & "x">' }),
+  '<div class="line"><span><b>left</b></span><span>'
+  + '<span title="&lt;value &amp; &quot;x&quot;&gt;"><i>right</i></span></span></div>');
 assert.strictEqual(probe.none('No requests'), '<div class="more">No requests</div>');
 assert.strictEqual(probe.mobileLabel('<label & "x">'),
   '<span class="mobile-label" aria-hidden="true">&lt;label &amp; &quot;x&quot;&gt;</span>');
@@ -4983,8 +5003,18 @@ assert.strictEqual(probe.cell('<Time>', '<b>trusted</b>', 'num', ' title="exact"
   + '<span class="cell-value"><b>trusted</b></span></td>');
 assert.strictEqual(probe.kpi('<strong>7</strong>', '<models>'),
   '<div class="kpi"><b><strong>7</strong></b><small>&lt;models&gt;</small></div>');
+const at = Date.now() / 1000 - 600;
+assert.strictEqual(probe.timeText(at),
+  `<span title="${probe.stamp(at)}">10 mins ago</span>`);
+assert.strictEqual(probe.timeText(at, { tag: 'time', variant: 'muted' }),
+  `<time class="muted" title="${probe.stamp(at)}">10 mins ago</time>`);
+assert.strictEqual(probe.statusBadge('<bad>', { variant: 'bad', title: '<reason & "x">' }),
+  '<span class="bad" title="&lt;reason &amp; &quot;x&quot;&gt;">&lt;bad&gt;</span>');
 assert.strictEqual(probe.statusCell({ status: '<bad>' }), '&lt;bad&gt;');
-const meter = probe.weightBar(0.25);
+assert.strictEqual(probe.statusCell({ status: 200 }), '<span title="OK">200</span>');
+assert.strictEqual(probe.yesNo(true), '<span class="yes">Yes</span>');
+assert.strictEqual(probe.yesNo(false), '<span class="muted">No</span>');
+const meter = probe.progressMeter(0.25);
 assert(meter.includes('class="track"') && meter.includes('class="fill"'), meter);
 assert(meter.includes('width:25%') && meter.includes('var(--orange) 50%'), meter);
 """,

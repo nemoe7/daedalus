@@ -15,6 +15,10 @@ const REQUESTS_KEPT = 500;
 const $ = (id) => document.getElementById(id);
 const esc = (text) => String(text ?? "").replace(/[&<>"']/g, (c) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const htmlAttrs = (attrs = {}) => Object.entries(attrs).map(([name, value]) => {
+  if (value === false || value == null) return "";
+  return value === true ? ` ${name}` : ` ${name}="${esc(value)}"`;
+}).join("");
 const tierLetter = (name) => (name || "").replace("TIER-", "") || "-";
 const tokens = (n) => !n ? "-" : n >= 1e6 ? +(n / 1e6).toFixed(1) + "M" : n < 1000 ? String(n) : Math.round(n / 1024) + "K";
 // The hour cycle of each shown time, from personalization.time_format: h23 for 24h, h12 for 12h.
@@ -45,6 +49,12 @@ function relative(seconds) {
   return `${ago ? `${count} ${unit}${count === 1 ? "" : "s"} ago` : `in ${count} ${unit}${count === 1 ? "" : "s"}`}`;
 }
 
+// A relative time with its exact stamp on hover. The caller keeps the surrounding layout local.
+function timeText(seconds, { tag = "span", variant = "" } = {}) {
+  const attrs = htmlAttrs({ class: variant || null, title: stamp(seconds) });
+  return `<${tag}${attrs}>${esc(relative(seconds))}</${tag}>`;
+}
+
 const state = {
   models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, saved: [], timers: [],
   view: "form", forms: [], formSaved: [], overrideKeys: [], providerDefaults: {}, settingsView: "form",
@@ -56,15 +66,15 @@ const state = {
 };
 
 const fileName = (path) => path.split(/[\\/]/).pop();
-const line = (left, right) => `<div class="line"><span>${left}</span><span>${right}</span></div>`;
+function line(left, right, valueAttrs = {}) {
+  const attrs = htmlAttrs(valueAttrs);
+  const value = attrs ? `<span${attrs}>${right}</span>` : right;
+  return `<div class="line"><span>${left}</span><span>${value}</span></div>`;
+}
 const count = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const none = (text) => `<div class="more">${text}</div>`;
 function actionButton(content, { variant = "", type = "button", attrs = {} } = {}) {
-  const attributes = Object.entries(attrs).map(([name, value]) => {
-    if (value === false || value == null) return "";
-    return value === true ? ` ${name}` : ` ${name}="${esc(value)}"`;
-  }).join("");
-  return `<button${variant ? ` class="${esc(variant)}"` : ""} type="${esc(type)}"${attributes}>${content}</button>`;
+  return `<button${variant ? ` class="${esc(variant)}"` : ""} type="${esc(type)}"${htmlAttrs(attrs)}>${content}</button>`;
 }
 // A model name cell that ends in an ellipsis when it is too long. The title shows the full name.
 const mobileLabel = (text) => `<span class="mobile-label" aria-hidden="true">${esc(text)}</span>`;
@@ -216,7 +226,7 @@ function renderOverview() {
   ].join(""));
   draw("ov-requests", state.requests.slice(0, 5).map((r) => line(
     `<span class="status ${statusClass(r)}">${statusCell(r)}</span> <span title="${esc(r.via || r.model || "")}">${r.via || r.model ? modelName(r.via || r.model) : "-"}</span>`,
-    `<span title="${esc(stamp(r.at))}">${relative(r.at)}</span>`,
+    timeText(r.at),
   )).join("") || none("No requests"));
   $("ov-model-count").textContent = state.models.length || "";
   // Each pool with its mean weight and the model that served it most.
@@ -226,7 +236,7 @@ function renderOverview() {
     const top = topModel(pool.members, served);
     const health = poolHealth(pool.members);
     return `<div class="pool-line"><div class="line"><span>${esc(pool.shown.replace("daedalus/", ""))}</span>
-      <span title="${esc(top?.id)}">${top ? modelName(top.id) : "no models"}</span></div>${health === null ? "" : weightBar(health)}</div>`;
+      <span title="${esc(top?.id)}">${top ? modelName(top.id) : "no models"}</span></div>${health === null ? "" : progressMeter(health)}</div>`;
   }).join("") || none(state.models.length ? "No pools" : "No models. Run daedalus catalog."));
   draw("ov-limits", overviewLimits(state.limits) || none("No limits yet"));
 }
@@ -455,7 +465,7 @@ function renderPools(pools) {
     const { tier, mode } = poolFilter(pool);
     const health = poolHealth(pool.members);
     const bar = health === null ? "" : `<div class="health" title="Mean weight. A model in a cooldown counts as 0.">
-      ${weightBar(health)}<span class="num">${health.toFixed(2)}</span></div>`;
+      ${progressMeter(health)}<span class="num">${health.toFixed(2)}</span></div>`;
     const context = pool.context
       ? ` <span class="ctx" title="The largest context of a pool model, ${pool.context.toLocaleString()} tokens">${tokens(pool.context)}</span>` : "";
     return `<a class="card pool" data-tier="${tier}" data-mode="${esc(mode)}" title="${esc(pool.shown)}: ${esc(POOL_NOTES[pool.name] || "")}">
@@ -504,11 +514,17 @@ function statusText(r) {
 // The meaning of each status, for the hover of the status cell.
 const STATUS_NOTES = { 200: "OK", 429: "Too many requests", 500: "Upstream error", err: "The attempt failed" };
 
+// One short state. Its caller decides the meaning, color, and surrounding layout.
+function statusBadge(text, { variant = "", title = "" } = {}) {
+  const attrs = htmlAttrs({ class: variant || null, title: title || null });
+  return `<span${attrs}>${esc(text)}</span>`;
+}
+
 // The status on the page: 499, the nginx code of a request that the client closed.
 function statusCell(r) {
-  if (r.cancelled) return '<span title="Cancelled">499</span>';
+  if (r.cancelled) return statusBadge(499, { title: "Cancelled" });
   const note = STATUS_NOTES[r.status];
-  return note ? `<span title="${esc(note)}">${esc(r.status)}</span>` : esc(r.status);
+  return note ? statusBadge(r.status, { title: note }) : esc(r.status);
 }
 
 function statusClass(r) {
@@ -1043,7 +1059,7 @@ function reasoningCell(m) {
   const label = known ? EFFORTS[m.effort] : m.effort.charAt(0).toUpperCase() + m.effort.slice(1);
   return `<span class="chip flag effort${known ? ` e-${m.effort}` : ""}" title="Default reasoning effort">${esc(label)}</span>`;
 }
-const yesNo = (on) => (on ? '<span class="yes">Yes</span>' : '<span class="muted">No</span>');
+const yesNo = (on) => statusBadge(on ? "Yes" : "No", { variant: on ? "yes" : "muted" });
 
 // The modal of 1 model: a card that leads with the model, its developer and its provider.
 // The capabilities read as lucide icon chips, the limits as stats, the efforts as chips.
@@ -1081,7 +1097,7 @@ function openModelModal(m) {
   const stats = [
     m.max_input_tokens ? [m.max_input_tokens.toLocaleString(), "input tokens"] : null,
     m.max_output_tokens ? [m.max_output_tokens.toLocaleString(), "output tokens"] : null,
-    m.weight != null ? [m.weight.toFixed(2), "weight", weightBar(m.weight)] : null,
+    m.weight != null ? [m.weight.toFixed(2), "weight", progressMeter(m.weight)] : null,
   ].filter(Boolean).map(([value, label, bar]) =>
     `<div class="stat"><span class="num">${esc(value)}</span><span class="label">${esc(label)}</span>${bar || ""}</div>`)
     .join("");
@@ -1099,8 +1115,8 @@ function weightColor(weight) {
   return high ? `color-mix(in oklch, var(--accent) ${share}%, var(--orange))`
     : `color-mix(in oklch, var(--orange) ${share}%, var(--red))`;
 }
-const weightBar = (weight) => `<div class="track"><div class="fill"
-  style="width:${Math.round(weight * 100)}%;background:${weightColor(weight)}"></div></div>`;
+const progressMeter = (value) => `<div class="track"><div class="fill"
+  style="width:${Math.round(value * 100)}%;background:${weightColor(value)}"></div></div>`;
 
 // With no column chosen, the rows sort by type, then by model name.
 function sortModels(rows) {
@@ -1187,7 +1203,7 @@ function renderModels() {
       <td class="hide-sm mid">${m.mode === "chat" ? reasoningCell(m) : dash}</td>
       <td class="num hide-sm">${mobileLabel("Cooldown")}<span class="cell-value">${coolCells(m)}</span></td>
       <td>${mobileLabel("Weight")}<span class="cell-value">${m.weight == null ? dash
-        : `<div class="weight">${weightBar(m.weight)}<span class="num">${m.weight.toFixed(2)}</span></div>`}</span></td>
+        : `<div class="weight">${progressMeter(m.weight)}<span class="num">${m.weight.toFixed(2)}</span></div>`}</span></td>
     </tr>`).join("") : `<tr><td colspan="9" class="empty">${empty}</td></tr>`);
 }
 
@@ -1624,7 +1640,7 @@ function hooksManager() {
       <td role="cell"><span class="cell-value">${esc(hookVersion(row))}</span></td>
       <td role="cell" class="surfaces">${hookSurfacesCell(row)}</td>
       <td role="cell"><span class="cell-value">${esc(row.scope || "global")}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
-      <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || "local")}">${row.problem ? `<span class="bad">${esc(row.problem)}</span>` : esc(record.repo || "local")}${record.commit ? `<span class="hook-sha">${esc(record.commit.slice(0, 7))}</span>` : ""}</span></td>
+      <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || "local")}">${row.problem ? statusBadge(row.problem, { variant: "bad" }) : esc(record.repo || "local")}${record.commit ? `<span class="hook-sha">${esc(record.commit.slice(0, 7))}</span>` : ""}</span></td>
       <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
         ${disabled.includes(row.name) ? "" : "checked"} aria-label="Enabled ${esc(row.name)}"></td>
       <td class="end">${actionButton(icon("trash"), {
@@ -2802,20 +2818,21 @@ function limitTitle(r) {
 // A time cell of the Limits table: the relative time, with the exact stamp on hover. An empty
 // value keeps the dash.
 const limitTimeCell = (seconds, cls) => (seconds
-  ? `<td class="${cls}" title="${esc(stamp(seconds))}">${esc(relative(seconds))}</td>`
+  ? timeText(seconds, { tag: "td", variant: cls })
   : `<td class="${cls}">-</td>`);
 
 // The balances, then the 3 rate-limit rows with the least left.
 function overviewLimits(data) {
   if (!data) return "";
-  const bar = (left) => (left == null ? "" : weightBar(left));
+  const bar = (left) => (left == null ? "" : progressMeter(left));
   const balances = data.providers.flatMap((p) => p.items.map(([label, value, left]) =>
     `<div class="balance">${line(`${esc(p.name)} &middot; ${esc(label)}`, esc(value))}${bar(left)}</div>`));
   const share = (r) => (r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0);
   const rows = data.lanes.flatMap((lane) => lane.rows.map((row) => ({ ...row, model: lane.model })))
     .sort((a, b) => share(a) - share(b)).slice(0, 3)
     .map((r) => `<div class="balance">${line(`<span title="${esc(r.model)}">${modelName(r.model)}</span>`,
-      `<span title="${r.remaining.toLocaleString()} of ${r.limit.toLocaleString()}">${floorCount(r.remaining)} of ${floorCount(r.limit)} ${esc(unit(r))}</span>`)}${bar(share(r))}</div>`);
+      `${floorCount(r.remaining)} of ${floorCount(r.limit)} ${esc(unit(r))}`,
+      { title: `${r.remaining.toLocaleString()} of ${r.limit.toLocaleString()}` })}${bar(share(r))}</div>`);
   return [...balances, ...rows].join("");
 }
 
@@ -2839,7 +2856,7 @@ function renderLimits(data) {
   $("balances").hidden = !data.providers.length;
   draw("balances", data.providers.map((p) => `<div class="card"><h3>${esc(p.name)}</h3>
     ${p.items.map(([label, value, left]) => `<div class="balance">${line(esc(label), esc(value))}
-      ${left == null ? "" : weightBar(left)}</div>`).join("")}</div>`).join(""));
+      ${left == null ? "" : progressMeter(left)}</div>`).join("")}</div>`).join(""));
 }
 
 function renderLimitRows(rows) {
@@ -2848,7 +2865,7 @@ function renderLimitRows(rows) {
       ${nameCell(r.model, `${modelName(r.model)}${r.client ? ` <span class="muted">${esc(r.client)}</span>` : ""}`)}
       <td title="${esc(limitTitle(r))}">${esc(limitUnit(r))}</td>
       <td><div class="weight left" title="${r.remaining.toLocaleString()} of ${r.limit.toLocaleString()}">
-        ${weightBar(r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0)}
+        ${progressMeter(r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0)}
         <span class="num${r.remaining > 0 ? "" : " out"}">${floorCount(r.remaining)} of ${floorCount(r.limit)}</span></div></td>
       ${limitTimeCell(r.reset, "hide-sm muted time")}
       ${limitTimeCell(r.at, "hide-sm muted time")}
@@ -2984,10 +3001,9 @@ function openDiffModal(event) {
 
 function renderNotifications(data) {
   state.notifications = data;
-  const time = (at) => `<time class="muted" title="${esc(stamp(at))}">${esc(relative(at))}</time>`;
   const item = (kind, at, title, body, attrs = null) => {
     const content = `<span class="notification-mark" aria-hidden="true"></span>
-      <span class="notification-copy"><span class="notification-head"><b>${title}</b>${time(at)}</span>
+      <span class="notification-copy"><span class="notification-head"><b>${title}</b>${timeText(at, { tag: "time", variant: "muted" })}</span>
       <span class="notification-body">${body}</span></span>`;
     return attrs
       ? actionButton(content, { variant: `notification-item ${kind}`, attrs })
