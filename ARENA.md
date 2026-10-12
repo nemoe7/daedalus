@@ -39,7 +39,7 @@
 - When a Bash call reports a pending note, answer or upload count on stderr, read the inbox before the next work step; no reminder line at all MAY signal a sandbox reset, so run the reset steps before other work.
 - Missing/failed reads are errors, not empty inboxes; before the first start there is no inbox.
 - Ack every delivered note with `ack <ids> --reply <markdown>` (rendered in the log) or `--note <text>`, one text per call, only those IDs, NEVER all pending blindly.
-- Refer to a note by its ID, NEVER by its sequence number: the first seven characters in prose, task details, reports and notes; extend the prefix when two notes share it.
+- Refer to a note by its ID, NEVER by its sequence number: the first six characters in prose, task details, reports and notes; extend the prefix when two notes share it.
 - Receipt is not completion. Ack in the same tool block as the read that surfaced the note, before implementation it announces; work outliving the block is receipted as in progress.
 - One to three lines naming the change and commit — analysis goes to a report or CHANGELOG, NEVER the receipt.
 - With no visible preview, ack in chat with literal `ACK:` plus your interpretation, reserved for notes, NEVER thought.
