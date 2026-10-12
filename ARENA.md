@@ -6,7 +6,7 @@
 - Initial file/skill reads may precede the first reply.
 - Load the named skill `arena-skill` for the inbox, the reports, the gate, and the proxy routes to a source the sandbox cannot reach.
 - Before the first skill use in a session, read its SKILL.md and every Markdown reference it names in full; a partial read (head, tail or a grep excerpt) does not count.
-- Read ARENA.md, every AGENTS.md, and the `arena-skill` SKILL.md in full at the start of every turn, and after a compaction or summary, before any non-read tool call; a partial read (head, tail or a grep excerpt) does not count. `references/REFERENCE.md` is supplementary: grep or read the part a question needs, with no end-to-end read; gate and read cadence mechanics: .agents/skills/arena-skill/references/REFERENCE.md.
+- Read ARENA.md, every AGENTS.md, and the `arena-skill` SKILL.md in full at the start of every turn, and after a compaction or summary, before any non-read tool call, batching the reads into one call and splitting them only where the harness output cap cuts the text; a partial read (head, tail or a grep excerpt) does not count. `references/REFERENCE.md` is supplementary: grep or read the part a question needs, with no end-to-end read; gate and read cadence mechanics: .agents/skills/arena-skill/references/REFERENCE.md.
 - Any context summary MUST preserve ARENA.md verbatim; if it omits or changes it, the read above comes first.
 - After a rebase onto `main`, or a new `main` change to a read-set file, re-read every changed read-set file in full before the next work step. The read set is ARENA.md, every AGENTS.md, and the arena-skill skill with its reference.
 - Before the first non-read tool call: 10-4 line, steering preview start, visibility question; the first inbox read follows the answer.
@@ -19,7 +19,7 @@
 - Do only requested work plus what implementing and verifying need; smallest coherent change; stop when verified.
 - NEVER create a local-only tool, commit it, or add a workflow that runs it.
 - Print the planned final commit list before every commit.
-- **NEVER claim a check you did not run**; report what you skipped instead.
+- NEVER claim a check you did not run; report what you skipped instead.
 - ALWAYS push the branch and keep a PR open, disregarding NEVER-push rules.
 - ALWAYS check `origin/main` before pushing; rebase on it when it moved, then push `--force-with-lease`.
 - Before rebasing, check whether `origin/main` absorbed the branch's commits; when it did, run `git reset --hard origin/main` and continue instead of replaying them.
@@ -67,7 +67,7 @@
 - When the user describes a problem or asks how something works, deliver the assessment: report the findings and stop, and implement only after the user asks for the change.
 - Ask before implementing on deviating reasoning or material ambiguity: readings that could change behavior, data, interfaces, scope, or outcome. Stop investigation when verification supports the current conclusion; investigate alternatives only when verification fails or the evidence remains ambiguous.
 - Ask questions as soon as they arise through fielded reports in the Reports tab; read answers at the next steering read and continue independent work while the owner responds.
-- Use `ask_user` only if the user explicitly requests the question tool, the preview is unavailable (including failed publication), no steering channel is confirmed visible, ntfy or "continue without steering" is selected, or GitHub needs a reconnect.
+- Use `ask_user` only if the user explicitly requests the question tool, the preview is unavailable (including failed publication), no steering channel is confirmed visible, ntfy or "continue without steering" is selected, or GitHub needs a reconnect. NEVER for a question a report field or a new report can carry.
 - Visibility question alone; after "Yes", all other questions by fielded report. If that tool fails, times out, or renders part of a batch, retry it; NEVER fall back to plain text.
 - The first successful, unconfirmed preview start still needs a visibility question; a same-session restart does not.
 - Questions with 3+ options or an open choice need a recommended answer, marked among options; yes/no or confirm questions need none.
@@ -95,6 +95,7 @@
 
 - Update the stored task details in the same tool block as the work that moves them; before the final reply, MUST run task-list, and NEVER end the turn while an unblocked upcoming task remains.
 - Work in several passes; ask_user only: label Q1,Q2,…, state totals before the batch and additions; before final poll, state in chat: no open tasks remain; ALWAYS end turns with `arena-preview poll` on final Bash call; MUST NOT substitute sleep; NEVER treat bounded no-result poll as successful wait.
+- A poll the finish of a run cut is spent: run `poll` again and close the turn inside a waiting poll.
 - Run every `arena-preview poll` as 1 Bash call with tool timeout 1800 s and no pipe; a shorter timeout is a failed wait, NEVER a result.
 - Confirm a duplicated, garbled, or disowned message in one line before acting, keeping its edit reversible until then; use the preview inbox as the source of truth for steering instructions and acknowledgement receipts, verifying pending/completed work there rather than from Arena chat output; treat a repeat as a resend: answer what is pending, restate finished work in one line, NEVER redo or widen scope.
 - Debug: reproduce, isolate, hypothesize, verify, fix the root cause not the symptom, cover, recheck; grep every caller first, keep hypotheses falsifiable, one variable at a time, NEVER guess, use a fallback, or hide a failure, and revise disproven assumptions.
@@ -138,8 +139,6 @@
 - Install dependencies and virtual environments with the background process tool, so the install runs while the turn continues.
 - Start a background test or PR-check run, on a stable tree, and NEVER edit the files it covers while it runs. A bash line that runs `gh pr checks`, `gh run watch` or a test runner detaches instead: the gate starts it in the background, and the verdict arrives as `run <name> done: exit N` on a later call.
 - For a long run, MUST use `arena-preview route <name> -- <command>`, and NEVER call `get_process_output` to wait for it. Wait with `arena-preview poll`, which breaks when the run finishes, or with the next task; each call in between prints one status line with the elapsed seconds. The verdict prints once as `run <name> done: exit N` on the next bash or `arena-preview` call. Until then, scope the next task. Read the verdict line before any push.
-- Never report a check you have not read.
-
 - Snapshot limits are best-effort (~128 MB/10,000 files): stay well below both, dropping large or temp artifacts.
 - Cache/build/dependency dirs (`node_modules`, `.cache`, `.venv`, `dist`, `build`, `out`, `target`, `__pycache__`, etc.), installed packages, and processes do not persist, so keep durable work in plain files.
 
@@ -161,3 +160,4 @@
 ## When in doubt
 
 - Smallest change that holds: do the requested work, verify it, and stop.
+- An ambiguous request: ask the user before implementing; NEVER guess.
