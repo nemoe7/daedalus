@@ -209,7 +209,7 @@ function renderOverview() {
   ].join(""));
   draw("ov-requests", state.requests.slice(0, 5).map((r) => line(
     `<span class="status ${statusClass(r)}">${statusCell(r)}</span> <span title="${esc(r.via || r.model || "")}">${r.via || r.model ? modelName(r.via || r.model) : "-"}</span>`,
-    stamp(r.at),
+    `<span title="${esc(stamp(r.at))}">${relative(r.at)}</span>`,
   )).join("") || none("No requests"));
   $("ov-model-count").textContent = state.models.length || "";
   // Each pool with its mean weight and the model that served it most.

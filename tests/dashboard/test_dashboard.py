@@ -3702,7 +3702,7 @@ def test_app_js_overview_leads_with_4_numbers() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
-  + "\\nglobalThis.__probe = { state, renderOverview };\\n";
+  + "\\nglobalThis.__probe = { state, renderOverview, stamp };\\n";
 const nodes = new Map();
 const node = (id) => {
   if (!nodes.has(id)) nodes.set(id, { innerHTML: '', value: '', textContent: '', hidden: false,
@@ -3723,7 +3723,7 @@ vm.runInContext(src, sandbox);
 const assert = require('assert');
 const probe = sandbox.__probe;
 const now = Math.floor(Date.now() / 1000);
-probe.state.requests = [{ at: now, status: 200 }, { at: now, status: 500 },
+probe.state.requests = [{ at: now - 600, status: 200 }, { at: now, status: 500 },
   { at: now, status: 200 }, { at: now, status: 200 }, { at: now, status: 200 },
   { at: now, status: 200 }, { at: now, status: 200 }];
 probe.state.live = new Map([[1, { id: 1 }], [2, { id: 2 }]]);
@@ -3738,8 +3738,13 @@ assert(kpis.includes('Success of last 7 requests</small>'), 'the strip names the
 assert(kpis.includes('<b>86%</b>'), '6 answered of 7 reads 86 percent');
 assert(kpis.includes('<b>25%</b><small>Lowest limit left</small>'), 'the strip takes the lowest limit left');
 assert(kpis.includes('<b>3</b><small>Models in the catalog</small>'), 'the strip counts the catalog');
-const rows = (node('ov-requests').innerHTML.match(/class="line"/g) || []).length;
+const overviewRequests = node('ov-requests').innerHTML;
+const rows = (overviewRequests.match(/class="line"/g) || []).length;
 assert.strictEqual(rows, 5, 'the request card holds 5 rows, not 10');
+const exact = probe.stamp(now - 600);
+assert(overviewRequests.includes(`title="${exact}">10 mins ago</span>`),
+  'the visible Overview time is relative and its hover keeps the exact stamp');
+assert(!overviewRequests.includes(`>${exact}</span>`), 'the exact stamp is not visible');
 probe.state.limits = null;
 probe.state.requests = [];
 probe.renderOverview();
