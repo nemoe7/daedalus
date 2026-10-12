@@ -639,7 +639,7 @@ function renderLiveToggle() {
   const label = state.livePaused
     ? `Paused${state.liveWaiting.size ? ` · ${state.liveWaiting.size} new` : ""}`
     : "Live";
-  button.innerHTML = `${state.livePaused ? LUCIDE.pause : LUCIDE.activity} ${esc(label)}`;
+  button.innerHTML = `${state.livePaused ? icon("pause") : icon("activity")} ${esc(label)}`;
 }
 
 // A change while the table is paused. It waits for the resume.
@@ -938,28 +938,30 @@ const MODES = {
   audio_speech: "Speech", image_generation: "Image", video_generation: "Video",
   decisions: "Decisions", rerank: "Rerank",
 };
-// The small glyphs ride as lucide paths, inlined so the chip color reaches them.
-const LUCIDE = {
-  wrench: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z" /></svg>',
-  brain: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 18V5" /> <path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4" /> <path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5" /> <path d="M17.997 5.125a4 4 0 0 1 2.526 5.77" /> <path d="M18 18a4 4 0 0 0 2-7.464" /> <path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517" /> <path d="M6 18a4 4 0 0 1-2-7.464" /> <path d="M6.003 5.125a4 4 0 0 0-2.526 5.77" /></svg>',
-  snowflake: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10 20-1.25-2.5L6 18" /> <path d="M10 4 8.75 6.5 6 6" /> <path d="m14 20 1.25-2.5L18 18" /> <path d="m14 4 1.25 2.5L18 6" /> <path d="m17 21-3-6h-4" /> <path d="m17 3-3 6 1.5 3" /> <path d="M2 12h6.5L10 9" /> <path d="m20 10-1.5 2 1.5 2" /> <path d="M22 12h-6.5L14 15" /> <path d="m4 10 1.5 2L4 14" /> <path d="m7 21 3-6-1.5-3" /> <path d="m7 3 3 6h4" /></svg>',
-  image: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /> <circle cx="9" cy="9" r="2" /> <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /></svg>',
-  file_text: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M10 9H8" /> <path d="M16 13H8" /> <path d="M16 17H8" /></svg>',
-  mic: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19v3" /> <path d="M19 10v2a7 7 0 0 1-14 0v-2" /> <rect x="9" y="2" width="6" height="13" rx="3" /></svg>',
-  volume_2: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z" /> <path d="M16 9a5 5 0 0 1 0 6" /> <path d="M19.364 18.364a9 9 0 0 0 0-12.728" /></svg>',
-  activity: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" /></svg>',
-  pause: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="3" width="5" height="18" rx="1" /> <rect x="5" y="3" width="5" height="18" rx="1" /></svg>',
-  rotate_cw: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /></svg>',
-  plus: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /> <path d="M12 5v14" /></svg>',
-  search: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34" /> <circle cx="11" cy="11" r="8" /></svg>',
-  info: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /> <path d="M12 16v-4" /> <path d="M12 8h.01" /></svg>',
-  x: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></svg>',
-  chevron_up: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6" /></svg>',
-  chevron_down: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>',
-  trash: '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>',
+// Dynamic glyphs share one decorative SVG wrapper, so their size and Lucide attributes stay aligned.
+const ICON_PATHS = {
+  wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z" />',
+  brain: '<path d="M12 18V5" /> <path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4" /> <path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5" /> <path d="M17.997 5.125a4 4 0 0 1 2.526 5.77" /> <path d="M18 18a4 4 0 0 0 2-7.464" /> <path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517" /> <path d="M6 18a4 4 0 0 1-2-7.464" /> <path d="M6.003 5.125a4 4 0 0 0-2.526 5.77" />',
+  snowflake: '<path d="m10 20-1.25-2.5L6 18" /> <path d="M10 4 8.75 6.5 6 6" /> <path d="m14 20 1.25-2.5L18 18" /> <path d="m14 4 1.25 2.5L18 6" /> <path d="m17 21-3-6h-4" /> <path d="m17 3-3 6 1.5 3" /> <path d="M2 12h6.5L10 9" /> <path d="m20 10-1.5 2 1.5 2" /> <path d="M22 12h-6.5L14 15" /> <path d="m4 10 1.5 2L4 14" /> <path d="m7 21 3-6-1.5-3" /> <path d="m7 3 3 6h4" />',
+  image: '<rect width="18" height="18" x="3" y="3" rx="2" ry="2" /> <circle cx="9" cy="9" r="2" /> <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />',
+  file_text: '<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M10 9H8" /> <path d="M16 13H8" /> <path d="M16 17H8" />',
+  mic: '<path d="M12 19v3" /> <path d="M19 10v2a7 7 0 0 1-14 0v-2" /> <rect x="9" y="2" width="6" height="13" rx="3" />',
+  volume_2: '<path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z" /> <path d="M16 9a5 5 0 0 1 0 6" /> <path d="M19.364 18.364a9 9 0 0 0 0-12.728" />',
+  activity: '<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" />',
+  pause: '<rect x="14" y="3" width="5" height="18" rx="1" /> <rect x="5" y="3" width="5" height="18" rx="1" />',
+  plus: '<path d="M5 12h14" /> <path d="M12 5v14" />',
+  search: '<path d="m21 21-4.34-4.34" /> <circle cx="11" cy="11" r="8" />',
+  info: '<circle cx="12" cy="12" r="10" /> <path d="M12 16v-4" /> <path d="M12 8h.01" />',
+  x: '<path d="M18 6 6 18" /> <path d="m6 6 12 12" />',
+  chevron_up: '<path d="m18 15-6-6-6 6" />',
+  chevron_down: '<path d="m6 9 6 6 6-6" />',
+  trash: '<path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />',
 };
-// The flag chips draw lucide; a flag without a glyph keeps its text.
-const FLAG_ICONS = { vision: LUCIDE.image, pdf_input: LUCIDE.file_text, audio_input: LUCIDE.mic, audio_output: LUCIDE.volume_2 };
+function icon(name) {
+  return `<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON_PATHS[name]}</svg>`;
+}
+// The flag chips name registered glyphs; a flag without a glyph keeps its text.
+const FLAG_ICON_NAMES = { vision: "image", pdf_input: "file_text", audio_input: "mic", audio_output: "volume_2" };
 // The label of each media flag chip.
 const FLAGS = { vision: "Image in", pdf_input: "PDF in", audio_input: "Audio in", audio_output: "Audio out" };
 // The mode already says what these media flags say: Speech is audio out, Transcription is audio in.
@@ -968,14 +970,14 @@ const REDUNDANT = { audio_speech: "audio_output", audio_transcription: "audio_in
 function typeChips(m) {
   return `<span class="chip flag mode">${esc(MODES[m.mode] || m.mode)}</span>`
     + m.flags.filter((f) => f !== REDUNDANT[m.mode])
-      .map((f) => (FLAG_ICONS[f]
-      ? `<span class="chip flag" title="${esc(FLAGS[f] || f)}">${FLAG_ICONS[f]}</span>`
+      .map((f) => (FLAG_ICON_NAMES[f]
+      ? `<span class="chip flag" title="${esc(FLAGS[f] || f)}">${icon(FLAG_ICON_NAMES[f])}</span>`
       : `<span class="chip flag">${esc(FLAGS[f] || f)}</span>`)).join("");
 }
 
 // The phone folds the Tier, Tools and Cooldown columns into a row of chips under the name.
 // The chips draw lucide: a wrench for tools, snow for cooldown and a brain for reasoning.
-const CHIP_ICONS = { tools: LUCIDE.wrench, cool: LUCIDE.snowflake, brain: LUCIDE.brain };
+const CHIP_ICON_NAMES = { tools: "wrench", cool: "snowflake", brain: "brain" };
 
 function phoneChips(m) {
   // The desktop columns a phone drops ride as labelled chips, so the card row stays full.
@@ -986,12 +988,12 @@ function phoneChips(m) {
     : "";
   // A state the model does not support shows no chip at all.
   const tools = m.mode === "chat" && m.tools
-    ? `<span class="chip flag" title="Tools">${CHIP_ICONS.tools}</span>` : "";
+    ? `<span class="chip flag" title="Tools">${icon(CHIP_ICON_NAMES.tools)}</span>` : "";
   const reasoning = m.mode === "chat" && m.reasoning
-    ? `<span class="chip flag" title="Reasoning">${CHIP_ICONS.brain}${m.effort ? `<span class="num">${esc(m.effort)}</span>` : ""}</span>`
+    ? `<span class="chip flag" title="Reasoning">${icon(CHIP_ICON_NAMES.brain)}${m.effort ? `<span class="num">${esc(m.effort)}</span>` : ""}</span>`
     : "";
   const cool = m.cooldown && m.cooldown > Date.now() / 1000
-    ? `<span class="chip flag" title="Cooldown">${CHIP_ICONS.cool}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
+    ? `<span class="chip flag" title="Cooldown">${icon(CHIP_ICON_NAMES.cool)}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
     : "";
   return tier + order + context + tools + reasoning + cool;
 }
@@ -1048,19 +1050,19 @@ function openModelModal(m) {
     .join("");
   // The modal chips carry icon and word together, so a chip reads without its title.
   const flags = (m.flags || []).filter((f) => f !== REDUNDANT[m.mode]).map((f) =>
-    `<span class="chip flag" title="${esc(FLAGS[f] || f)}">${FLAG_ICONS[f] ? `${FLAG_ICONS[f]} ` : ""}${esc(FLAGS[f] || f)}</span>`)
+    `<span class="chip flag" title="${esc(FLAGS[f] || f)}">${FLAG_ICON_NAMES[f] ? `${icon(FLAG_ICON_NAMES[f])} ` : ""}${esc(FLAGS[f] || f)}</span>`)
     .join("");
   const chips = [
     `<span class="chip flag mode">${esc(MODES[m.mode] || m.mode)}</span>` + flags,
     m.tier ? `<span class="chip flag" title="Tier">Tier ${esc(tierLetter(m.tier))}</span>` : "",
     m.order ? `<span class="chip flag" title="Order">Order ${m.order}</span>` : "",
     m.mode === "chat" && m.tools
-      ? `<span class="chip flag" title="Tools">${CHIP_ICONS.tools} Tools</span>` : "",
+      ? `<span class="chip flag" title="Tools">${icon(CHIP_ICON_NAMES.tools)} Tools</span>` : "",
     m.mode === "chat" && m.reasoning
-      ? `<span class="chip flag" title="Reasoning">${CHIP_ICONS.brain} Reasoning</span>`
+      ? `<span class="chip flag" title="Reasoning">${icon(CHIP_ICON_NAMES.brain)} Reasoning</span>`
       : "",
     m.cooldown && m.cooldown > Date.now() / 1000
-      ? `<span class="chip flag" title="Cooldown">${CHIP_ICONS.cool}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
+      ? `<span class="chip flag" title="Cooldown">${icon(CHIP_ICON_NAMES.cool)}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
       : "",
   ].join("");
   // Only the weight draws a bar. A floor in the style keeps the blocks at one height.
@@ -1218,7 +1220,7 @@ function renderKeys(rows) {
       <td class="num muted mono"><span${k.start ? ` title="Only the start of a saved key is kept"` : ""}>${k.start ? esc(k.start) + "&hellip;" : "-"}</span></td>
       <td class="hide-sm muted">${stamp(k.created)}</td>
       <td class="muted">${mobileLabel("Last used")}<span class="cell-value">${k.used ? stamp(k.used) : "never"}</span></td>
-      <td class="end"><button type="button" class="ghost danger" data-key="${esc(k.name)}" aria-label="Delete ${esc(k.name)}" title="Delete">${LUCIDE.trash}</button></td>
+      <td class="end"><button type="button" class="ghost danger" data-key="${esc(k.name)}" aria-label="Delete ${esc(k.name)}" title="Delete">${icon("trash")}</button></td>
     </tr>`).join("") : '<tr><td colspan="5" class="empty">No API keys. The master key opens /v1.</td></tr>');
   markCardScrollEdges();
 }
@@ -1348,7 +1350,7 @@ function openFile(index) {
 
 // A chip for 1 value. The × button deletes the list item or the map key.
 const pill = (text, path, key) => `<span class="pill">${esc(text)}<button type="button" title="Delete"
-  data-drop='${esc(JSON.stringify([...path, key]))}'>${LUCIDE.x}</button></span>`;
+  data-drop='${esc(JSON.stringify([...path, key]))}'>${icon("x")}</button></span>`;
 
 // The "+ Add" button. A click puts an inline input in its place.
 const adder = (path, kind, label = "+ Add") => `<button type="button" class="add"
@@ -1379,7 +1381,7 @@ function setListValue(group, key, values) {
   state.settings.lists[`${group}.${key}`] = values;
 }
 const settingPill = (group, key, value, index) => `<span class="pill">${esc(value)}<button type="button" title="Delete"
-  data-setting-drop='${esc(JSON.stringify([group, key, index]))}'>${LUCIDE.x}</button></span>`;
+  data-setting-drop='${esc(JSON.stringify([group, key, index]))}'>${icon("x")}</button></span>`;
 const settingAdder = (group, key) => `<button type="button" class="add"
   data-setting-add='${esc(JSON.stringify([group, key]))}'>+ Add</button>`;
 
@@ -1423,7 +1425,7 @@ const hookFormRow = (entry, path, choices) => {
     }</select><button type="button" class="pick" data-form-hook-pick='${esc(at)}'
     aria-haspopup="listbox" aria-expanded="${open}" title="Pick a hook file"
     >${value ? hookName(value) : "No file"}</button><button type="button" title="Delete"
-    data-form-hook-drop='${esc(at)}'>${LUCIDE.x}</button>${menu}</span>`;
+    data-form-hook-drop='${esc(at)}'>${icon("x")}</button>${menu}</span>`;
 };
 
 // The hook rows of a provider block or of a model override, with the installed hooks that fit.
@@ -1505,9 +1507,9 @@ function hookOrderRows() {
     const files = hookOrderFiles(surface);
     const rows = files.map((file, index) => `<li><span class="cell-value">${hookName(file)}</span>
       <button type="button" class="ghost" data-hook-move='${esc(JSON.stringify([surface, index, -1]))}'
-        ${index ? "" : "disabled"} aria-label="Move ${esc(file)} up" title="Move up">${LUCIDE.chevron_up}</button>
+        ${index ? "" : "disabled"} aria-label="Move ${esc(file)} up" title="Move up">${icon("chevron_up")}</button>
       <button type="button" class="ghost" data-hook-move='${esc(JSON.stringify([surface, index, 1]))}'
-        ${index + 1 < files.length ? "" : "disabled"} aria-label="Move ${esc(file)} down" title="Move down">${LUCIDE.chevron_down}</button></li>`).join("");
+        ${index + 1 < files.length ? "" : "disabled"} aria-label="Move ${esc(file)} down" title="Move down">${icon("chevron_down")}</button></li>`).join("");
     const hint = "The matching files run in this order. Their provider, model or client scopes still apply.";
     return `<div class="field stack info">${labelSpan(label, hint)}
       <ul class="hook-order">${rows || '<li><em class="none">No file for this surface</em></li>'}</ul></div>`;
@@ -1572,7 +1574,7 @@ function hooksManager() {
       <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || "local")}">${row.problem ? `<span class="bad">${esc(row.problem)}</span>` : esc(record.repo || "local")}${record.commit ? `<span class="hook-sha">${esc(record.commit.slice(0, 7))}</span>` : ""}</span></td>
       <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
         ${disabled.includes(row.name) ? "" : "checked"} aria-label="Enabled ${esc(row.name)}"></td>
-      <td class="end"><button type="button" class="ghost danger" data-hook-drop="${esc(row.path)}" aria-label="Delete ${esc(row.name)}" title="Delete">${LUCIDE.trash}</button></td></tr>`;
+      <td class="end"><button type="button" class="ghost danger" data-hook-drop="${esc(row.path)}" aria-label="Delete ${esc(row.name)}" title="Delete">${icon("trash")}</button></td></tr>`;
   }).join("") || '<tr><td role="cell" colspan="7"><em class="none">No hook file</em></td></tr>';
   const scan = state.hooksScan;
   const panel = scan ? `<div class="pills" id="hooks-scan">
@@ -1591,8 +1593,8 @@ function hooksManager() {
         placeholder="${esc(state.settings.defaults.hooks.dir)}"></span></div>
     <div class="field stack info">${labelSpan("Sources", "Each source names a GitHub repo, a folder in it and a ref.")}
       <div class="pills"><select id="hook-source" data-hook-source aria-label="Source">${options}</select>
-        <button type="button" class="add" data-hook-source-add>${LUCIDE.plus} Add a repo</button>
-        <button type="button" class="ghost" data-hook-source-drop title="Delete the source">${LUCIDE.x}</button></div>${panel}
+        <button type="button" class="add" data-hook-source-add>${icon("plus")} Add a repo</button>
+        <button type="button" class="ghost" data-hook-source-drop title="Delete the source">${icon("x")}</button></div>${panel}
       <div class="sub" id="hooks-note" role="status"></div></div>`;
 }
 
@@ -1746,7 +1748,7 @@ function labelSpan(label, hint) {
   if (!hint) return `<span><b>${esc(label)}</b></span>`;
   const id = `hint-${++HINT_COUNT}`;
   return `<span><b>${esc(label)}</b><button type="button" class="hint" aria-describedby="${id}"`
-    + ` aria-label="Hint">${LUCIDE.info}</button><small id="${id}" role="tooltip">${esc(hint)}</small></span>`;
+    + ` aria-label="Hint">${icon("info")}</button><small id="${id}" role="tooltip">${esc(hint)}</small></span>`;
 }
 
 function field(label, hint, body) {
@@ -1867,7 +1869,7 @@ function slideAgain() {
 function fold(label, hint, body) {
   const id = `hint-${++HINT_COUNT}`;
   return `<details class="fold"><summary>${esc(label)}<button type="button" class="hint" aria-describedby="${id}"`
-    + ` aria-label="Hint">${LUCIDE.info}</button><small id="${id}" role="tooltip">${esc(hint)}</small></summary>`
+    + ` aria-label="Hint">${icon("info")}</button><small id="${id}" role="tooltip">${esc(hint)}</small></summary>`
     + `<div class="fold-body">${body}</div></details>`;
 }
 
@@ -1962,7 +1964,7 @@ function providerCard(name, block) {
       <div class="pills">${mapPills(rest, [...path, "models", pattern], "override", ": ")}</div>
       ${hookFormRows(values?.hooks, [...path, "models", pattern, "hooks"], "model", pattern)}
       <button type="button" class="ghost" title="Delete the pattern"
-        data-drop='${esc(JSON.stringify([...path, "models", pattern]))}'>${LUCIDE.x}</button>
+        data-drop='${esc(JSON.stringify([...path, "models", pattern]))}'>${icon("x")}</button>
     </div>`;
   }).join("");
   const others = Object.keys(block).filter((key) => !FORM_KEYS.includes(key) && key !== "_file");
@@ -2779,16 +2781,16 @@ function rebuildDiff(event) {
 }
 
 const DIFF_CAPABILITIES = {
-  supports_function_calling: [CHIP_ICONS.tools, "Tools"],
-  supports_tool_choice: [CHIP_ICONS.tools, "Tool choice"],
-  supports_parallel_function_calling: [CHIP_ICONS.tools, "Parallel tools"],
+  supports_function_calling: [CHIP_ICON_NAMES.tools, "Tools"],
+  supports_tool_choice: [CHIP_ICON_NAMES.tools, "Tool choice"],
+  supports_parallel_function_calling: [CHIP_ICON_NAMES.tools, "Parallel tools"],
   supports_response_schema: ["", "Structured output"],
-  supports_reasoning: [CHIP_ICONS.brain, "Reasoning"],
-  supports_vision: [FLAG_ICONS.vision, FLAGS.vision],
-  supports_pdf_input: [FLAG_ICONS.pdf_input, FLAGS.pdf_input],
-  supports_audio_input: [FLAG_ICONS.audio_input, FLAGS.audio_input],
-  supports_audio_output: [FLAG_ICONS.audio_output, FLAGS.audio_output],
-  supports_web_search: [LUCIDE.search, "Web search"],
+  supports_reasoning: [CHIP_ICON_NAMES.brain, "Reasoning"],
+  supports_vision: [FLAG_ICON_NAMES.vision, FLAGS.vision],
+  supports_pdf_input: [FLAG_ICON_NAMES.pdf_input, FLAGS.pdf_input],
+  supports_audio_input: [FLAG_ICON_NAMES.audio_input, FLAGS.audio_input],
+  supports_audio_output: [FLAG_ICON_NAMES.audio_output, FLAGS.audio_output],
+  supports_web_search: ["search", "Web search"],
 };
 const DIFF_LABELS = {
   mode: "Type",
@@ -2800,8 +2802,8 @@ const DIFF_LABELS = {
   tier: "Tier",
 };
 
-function diffChip(label, icon = "", kind = "") {
-  return `<span class="chip flag${kind ? ` ${kind}` : ""}">${icon ? `${icon} ` : ""}${esc(label)}</span>`;
+function diffChip(label, iconName = "", kind = "") {
+  return `<span class="chip flag${kind ? ` ${kind}` : ""}">${iconName ? `${icon(iconName)} ` : ""}${esc(label)}</span>`;
 }
 
 function diffValue(text) {

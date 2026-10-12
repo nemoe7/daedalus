@@ -7,7 +7,6 @@ import subprocess
 import tarfile
 import time
 from pathlib import Path
-from xml.etree import ElementTree
 
 import httpx
 import pytest
@@ -1182,7 +1181,7 @@ def test_a_rebuild_row_opens_the_diff_modal() -> None:
 def test_app_js_diff_rows_use_model_marks() -> None:
   """The catalog diff replaces provider and developer names with their marks."""
   run_app_js(
-    "diffModel, CHIP_ICONS, openDiffModal",
+    "diffModel, icon, openDiffModal",
     """
 const added = probe.diffModel('openrouter/dots-studio/dots-3-note-preview:free');
 assert(added.includes('ui/icons/openrouter.svg'), 'the provider mark shows');
@@ -1195,9 +1194,9 @@ const entry = 'z-ai/glm-4.7-flash: supports_function_calling 0->1, supports_reas
   + 'max_input_tokens 4096->8192';
 const changed = probe.diffModel(entry);
 assert(changed.includes('ui/icons/z-ai.svg'), 'a changed row keeps the provider mark');
-assert(changed.includes(`class="chip flag">${probe.CHIP_ICONS.tools} Tools</span>`),
+assert(changed.includes(`class="chip flag">${probe.icon('wrench')} Tools</span>`),
   'the tools chip keeps its normal color');
-assert(changed.includes(`class="chip flag">${probe.CHIP_ICONS.brain} Reasoning</span>`),
+assert(changed.includes(`class="chip flag">${probe.icon('brain')} Reasoning</span>`),
   'the reasoning chip keeps its normal color');
 assert(changed.includes('class="chip flag effort e-low">Low</span>'),
   'a removed effort keeps its normal effort color');
@@ -2897,32 +2896,29 @@ assert(probe.settingsChanges().hooks.dir === 'mine', 'the folder reaches the pay
 
 
 def test_app_js_capability_chip_icons() -> None:
-  """The Tools and Reasoning chips carry the 2 icons the note picked, in the chip color."""
-  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  block = app[app.index("const LUCIDE = {") : app.index("const CHIP_ICONS")]
-  glyphs = dict(re.findall(r"(\w+): '(<svg.*?</svg>)'", block, re.DOTALL))
-  icons = {
-    "tools": glyphs["wrench"],
-    "cool": glyphs["snowflake"],
-    "brain": glyphs["brain"],
-  }
-  wrench, brain = icons["tools"], icons["brain"]
-  assert 'viewBox="0 0 24 24"' in wrench and 'viewBox="0 0 24 24"' in brain, (
-    "the lucide glyph box"
+  """One renderer gives each registered chip icon its decorative SVG contract."""
+  run_app_js(
+    "ICON_PATHS, icon",
+    """
+const names = Object.keys(probe.ICON_PATHS);
+assert(names.length > 0, 'the icon registry has callers');
+for (const name of names) {
+  const path = probe.ICON_PATHS[name];
+  const glyph = probe.icon(name);
+  assert(!path.includes('<svg') && !path.includes('<style') && !path.includes('<g'), name);
+  assert(glyph.startsWith('<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"'), name);
+  assert(glyph.includes('fill="none" stroke="currentColor" stroke-width="2"'), name);
+  assert(glyph.endsWith(`${path}</svg>`), name);
+}
+assert(probe.ICON_PATHS.wrench.includes('M14.7 6.3'), 'the lucide wrench path');
+assert(probe.ICON_PATHS.brain.includes('M12 18V5'), 'the lucide brain path');
+""",
   )
-  assert "M14.7 6.3" in wrench, "the lucide wrench path"
-  assert "M12 18V5" in brain, "the lucide brain path"
-  for name, icon in (("wrench", wrench), ("brain", brain)):
-    assert 'width="12"' in icon and 'aria-hidden="true"' in icon, name
-    assert 'stroke="currentColor"' in icon and 'fill="none"' in icon, (
-      f"the chip color of the {name}"
-    )
-    assert "<style" not in icon and "<g" not in icon, f"the plain markup of the {name}"
-    ElementTree.fromstring(icon)
-  assert 'title="Tools">${CHIP_ICONS.tools}' in app, (
+  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert 'title="Tools">${icon(CHIP_ICON_NAMES.tools)}' in app, (
     "the wrench draws in the tools chip"
   )
-  assert 'title="Reasoning">${CHIP_ICONS.brain}' in app, (
+  assert 'title="Reasoning">${icon(CHIP_ICON_NAMES.brain)}' in app, (
     "the brain draws in the reasoning chip"
   )
 
@@ -4618,19 +4614,20 @@ def test_the_model_modal_reads_as_a_card() -> None:
   assert 'const markImg = (name) => (MARK_FILES.has(name) ? mark(name) : "");' in app, (
     "the lobe marks ride beside the parts that own one"
   )
-  assert "CHIP_ICONS.tools" in app and "CHIP_ICONS.brain" in app, (
+  assert "CHIP_ICON_NAMES.tools" in app and "CHIP_ICON_NAMES.brain" in app, (
     "the capabilities read as icon chips"
   )
   modal = app.split("function openModelModal")[1].split("\nfunction ")[0]
-  assert "${CHIP_ICONS.brain} Reasoning</span>" in modal, (
+  assert "${icon(CHIP_ICON_NAMES.brain)} Reasoning</span>" in modal, (
     "the reasoning chip draws the brain and the word together"
   )
-  assert "${CHIP_ICONS.tools} Tools</span>" in modal, (
+  assert "${icon(CHIP_ICON_NAMES.tools)} Tools</span>" in modal, (
     "the tools chip draws the wrench and the word together"
   )
-  assert '${FLAG_ICONS[f] ? `${FLAG_ICONS[f]} ` : ""}${esc(FLAGS[f] || f)}' in modal, (
-    "the modality chips draw their icon and their label together"
-  )
+  assert (
+    '${FLAG_ICON_NAMES[f] ? `${icon(FLAG_ICON_NAMES[f])} ` : ""}${esc(FLAGS[f] || f)}'
+    in modal
+  ), "the modality chips draw their icon and their label together"
   assert "reasoningCell" not in modal, "no bare Yes rides in the modal"
   assert "weightBar(m.weight)" in app, "the weight draws its bar"
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -4928,7 +4925,9 @@ def test_table_delete_buttons_use_the_trash_icon() -> None:
   app = (
     Path(__file__).resolve().parents[2] / "daedalus/dashboard/ui/app.js"
   ).read_text(encoding="utf-8")
-  assert app.count("${LUCIDE.trash}") >= 2, "the key row and the hook row draw the icon"
+  assert app.count('${icon("trash")}') >= 2, (
+    "the key row and the hook row draw the icon"
+  )
   assert 'data-key="${esc(k.name)}">Delete</button>' not in app, "the key row"
   assert 'data-hook-drop="${esc(row.path)}">Delete</button>' not in app, "the hook row"
 
@@ -5033,8 +5032,6 @@ def test_dashboard_icons_and_feedback_keep_accessible_names() -> None:
   root = Path(__file__).resolve().parents[2]
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  lucide = app.partition("const LUCIDE = {")[2].partition("\n};")[0]
-  assert lucide.count("<svg ") == lucide.count('aria-hidden="true"') > 0
   inline_icons = re.findall(r"<svg\b[^>]*>", page, re.DOTALL)
   assert inline_icons and all('aria-hidden="true"' in tag for tag in inline_icons)
   for fragment in (
