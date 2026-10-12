@@ -1626,6 +1626,11 @@ assert.strictEqual(probe.relative(now - 600), '10 mins ago');
 assert.strictEqual(probe.relative(now + 600), 'in 10 mins');
 assert.strictEqual(probe.relative(now - 10), 'just now');
 assert.strictEqual(probe.relative(now - 3600), '1 hour ago');
+assert.strictEqual(probe.relative(now - 23 * 3600), '23 hours ago', 'hours stop below 1 day');
+assert.strictEqual(probe.relative(now - 24 * 3600), '1 day ago', '1 day is singular');
+assert.strictEqual(probe.relative(now - 2 * 86400), '2 days ago', 'later days are plural');
+assert.strictEqual(probe.relative(now - 29 * 86400), '29 days ago', 'day labels stop below 30 days');
+assert.strictEqual(probe.relative(now - 30 * 86400), 'a long time ago', '30 days uses the old-time label');
 """
   subprocess.run(["node", "-e", code], check=True)
 

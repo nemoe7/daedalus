@@ -29,13 +29,19 @@ const stamp = (seconds) => {
   });
   return `${day} ${time}`;
 };
-// A relative time for the catalog: 2 hours ago, in 6 hours, 12 mins ago, in 3 mins.
+// A shared relative time: 2 hours ago, in 6 hours, 12 mins ago, 29 days ago.
 function relative(seconds) {
   const minutes = (seconds * 1000 - Date.now()) / 60000;
   const ago = minutes <= 0;
   const size = ago ? Math.floor(-minutes) : Math.ceil(minutes);
   if (ago && size === 0) return "just now";
-  const [count, unit] = size < 60 ? [size, "min"] : [ago ? Math.floor(size / 60) : Math.ceil(size / 60), "hour"];
+  const dayMinutes = 60 * 24;
+  if (ago && size >= dayMinutes * 30) return "a long time ago";
+  const [count, unit] = size < 60
+    ? [size, "min"]
+    : ago && size >= dayMinutes
+      ? [Math.floor(size / dayMinutes), "day"]
+      : [ago ? Math.floor(size / 60) : Math.ceil(size / 60), "hour"];
   return `${ago ? `${count} ${unit}${count === 1 ? "" : "s"} ago` : `in ${count} ${unit}${count === 1 ? "" : "s"}`}`;
 }
 
