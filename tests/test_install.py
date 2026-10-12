@@ -28,7 +28,7 @@ def checkout(tmp_path: Path, env_text: str | None) -> tuple[Path, dict[str, str]
     destination = folder / source.relative_to(ROOT)
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy(source, destination)
-  # The installer downloads missing profile assets; a source checkout has config and Git metadata.
+  # The installer downloads missing profile assets. A source checkout has config and Git metadata.
   (folder / "config").mkdir()
   (folder / ".git").mkdir()
   if env_text is not None:
@@ -467,7 +467,7 @@ def test_standalone_install_downloads_all_service_defaults(tmp_path: Path) -> No
 
 
 def test_standalone_install_migrates_a_known_shipped_compose(tmp_path: Path) -> None:
-  """An unedited historical Compose file is replaced without a per-key merge."""
+  """The installer replaces an unedited historical Compose file without a per-key merge."""
   env_text = f"DAEDALUS_MASTER_KEY={'k' * 20}\nCOMPOSE_PROFILES=\n"
   folder, env = checkout(tmp_path, env_text)
   shutil.rmtree(folder / ".git")
@@ -488,7 +488,7 @@ def test_standalone_install_migrates_a_known_shipped_compose(tmp_path: Path) -> 
 
 
 def test_standalone_install_stops_on_an_edited_managed_compose(tmp_path: Path) -> None:
-  """An unknown Compose edit is preserved and gets a new-file candidate, never merged."""
+  """The installer preserves an unknown Compose edit, writes a candidate and does not merge it."""
   env_text = f"DAEDALUS_MASTER_KEY={'k' * 20}\nCOMPOSE_PROFILES=\n"
   folder, env = checkout(tmp_path, env_text)
   shutil.rmtree(folder / ".git")

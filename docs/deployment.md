@@ -21,7 +21,9 @@ is not. See the
 
 ### Managed and local Compose settings
 
-Each service reads shipped values from `services/SERVICE/defaults.env`. These files and the two Compose files are managed: do not edit them in a standalone installation. Put a service environment override in the ignored `services/SERVICE/local.env` instead. Keep credentials and installation-wide values in the ignored root `.env`.
+Each service reads shipped values from `services/SERVICE/defaults.env`. The installer manages these files and the two Compose files. Do not edit them in a standalone installation.
+
+Put a service environment override in the ignored `services/SERVICE/local.env` instead. Keep credentials and installation-wide values in the ignored root `.env`.
 
 For example:
 
@@ -30,9 +32,11 @@ For example:
 AIOHTTP_CLIENT_TIMEOUT=900
 ```
 
-Use the ignored `compose.override.yml` for structural changes such as ports, volumes, labels, devices, networks or image overrides. Normal production commands load that standard Compose override automatically. The installers also load it, including with `--dev`; a manual dev start uses `docker compose -f compose.dev.yml -f compose.override.yml up -d`.
+Use the ignored `compose.override.yml` for structural changes such as ports, volumes, labels, devices, networks or image overrides. Normal production commands load that standard Compose override automatically. The installers also load it, including with `--dev`. A manual dev start uses `docker compose -f compose.dev.yml -f compose.override.yml up -d`.
 
-A standalone installer records managed hashes in `.daedalus-state/managed-files.sha256`. It replaces a file only when it still matches the recorded or a known shipped version. If a managed file has local edits, the installer preserves it, writes the new version under `.daedalus-state/updates/`, and stops before Docker. Move the customization to `local.env` or `compose.override.yml`, install the candidate managed file, and rerun. It never guesses with a per-key merge.
+A standalone installer records managed hashes in `.daedalus-state/managed-files.sha256`. It replaces a file only when it still matches the recorded or a known shipped version. If a managed file has local edits, the installer preserves it, writes the new version under `.daedalus-state/updates/`, and stops before Docker.
+
+Move the customization to `local.env` or `compose.override.yml`, install the candidate managed file, and rerun. The installer does not use a per-key merge.
 
 The commands below are the same in cmd, PowerShell and bash.
 
@@ -223,7 +227,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Log | `saved=N` shows the saved tokens. |
 | `HEADROOM_BEACON` | `off`. The anonymous upload of compression stats, on by default. |
 | `HEADROOM_UPDATE_CHECK` | `off`. Compose pins the image version. |
-| `HEADROOM_ALLOW_UNAUTHENTICATED_BIND` | `1`. Headroom binds only inside the Compose network; do not publish its port without adding authentication. |
+| `HEADROOM_ALLOW_UNAUTHENTICATED_BIND` | `1`. Headroom binds only inside the Compose network. Do not publish its port without adding authentication. |
 | `HEADROOM_COMPRESS_ALLOW_REMOTE` | `1`. Without it, Headroom answers the `api` container with a 404. |
 | `HEADROOM_TELEMETRY`, `HOME`, `HEADROOM_WORKSPACE_DIR` | Telemetry `off`, and the workspace of the image user at `/home/nonroot`. |
 
