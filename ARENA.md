@@ -6,7 +6,7 @@
 - Initial file/skill reads may precede the first reply.
 - Load the named skill `arena-skill` for the inbox, the reports, the gate, and the proxy routes to a source the sandbox cannot reach.
 - Before the first skill use in a session, read its SKILL.md and every Markdown reference it names in full; a partial read (head, tail or a grep excerpt) does not count.
-- Read ARENA.md, every AGENTS.md, and the `arena-skill` skill with its reference in full at the start of every turn, and after a compaction or summary, before any non-read tool call; a partial read (head, tail or a grep excerpt) does not count; gate and read cadence mechanics: .agents/skills/arena-skill/references/REFERENCE.md.
+- Read ARENA.md, every AGENTS.md, and the `arena-skill` SKILL.md in full at the start of every turn, and after a compaction or summary, before any non-read tool call; a partial read (head, tail or a grep excerpt) does not count. `references/REFERENCE.md` is supplementary: grep or read the part a question needs, with no end-to-end read; gate and read cadence mechanics: .agents/skills/arena-skill/references/REFERENCE.md.
 - Any context summary MUST preserve ARENA.md verbatim; if it omits or changes it, the read above comes first.
 - After a rebase onto `main`, or a new `main` change to a read-set file, re-read every changed read-set file in full before the next work step. The read set is ARENA.md, every AGENTS.md, and the arena-skill skill with its reference.
 - Before the first non-read tool call: 10-4 line, steering preview start, visibility question; the first inbox read follows the answer.
@@ -136,8 +136,8 @@
 
 - If Chromium is needed, install `@sparticuz/chromium` from npm; use its extracted binary and runtime files, not a Playwright-managed browser.
 - Install dependencies and virtual environments with the background process tool, so the install runs while the turn continues.
-- Start a background test or PR-check run with `start_process`, on a stable tree, and NEVER edit the files it covers while it runs.
-- For a gate run, MUST use `arena-preview run <name> -- <command>` through `start_process`, and NEVER call `get_process_output` to wait for it. The verdict prints in the start_process log, on stdout and on stderr, when the run exits. The next bash or `arena-preview` call also prints it once as `Finished run <name>`. Until then, scope the next task. Read the verdict line before any push.
+- Start a background test or PR-check run, on a stable tree, and NEVER edit the files it covers while it runs. A bash line that runs `gh pr checks`, `gh run watch` or a test runner detaches instead: the gate starts it in the background, and the verdict arrives as `run <name> done: exit N` on a later call.
+- For a long run, MUST use `arena-preview route <name> -- <command>`, and NEVER call `get_process_output` to wait for it. Wait with `arena-preview poll`, which breaks when the run finishes, or with the next task; each call in between prints one status line with the elapsed seconds. The verdict prints once as `run <name> done: exit N` on the next bash or `arena-preview` call. Until then, scope the next task. Read the verdict line before any push.
 - Never report a check you have not read.
 
 - Snapshot limits are best-effort (~128 MB/10,000 files): stay well below both, dropping large or temp artifacts.

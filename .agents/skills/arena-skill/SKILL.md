@@ -2,7 +2,7 @@
 name: arena-skill
 description: Steer an Arena.ai agent mid-turn through a local preview inbox, publish rendered Markdown reports, and reach data outside the sandbox through the owner's proxy backend. Use in Arena Agent Mode when the user wants steering or a report, or ARENA.md requires it, and when a source the sandbox cannot reach is needed. NEVER USE THIS SKILL OUTSIDE OF ARENA.AI.
 license: MIT
-compatibility: Arena.ai Agent Mode, Python 3.10+, persisted workspace and long-lived process tools; serve needs markdown-it-py; the proxy routes need the fetch_page tool, an owner-run Python 3.10+ backend and a public HTTPS URL for it.
+compatibility: Arena.ai Agent Mode, Python 3.10+, persisted workspace and long-lived process tools; serve needs markdown-it-py.
 ---
 
 # Arena Skill
@@ -101,12 +101,11 @@ https://<backend-host>/v1/<route>?key=<agent-key>&<parameters>
 
 | Route | Parameters | Returns |
 | --- | --- | --- |
-| `/v1/health` | none, no key | JSON liveness: `ok`, `version` |
-| `/v1/key` | `master`, no agent key | JSON with the live agent key,  |
-| `/v1/ping` | `key` | JSON status: version, GitHub API base, default repo, token presence, route list, model state, caps |
-| `/v1/gh` | `key`, `path`, plus the path's own query | The GitHub API response through the owner's token, or the text tail for a run-log path |
+| `/v1/gh` | `key`, `path`, plus the path's own query | The GitHub API response through the owner's token, or the text tail of a run-log path |
 | `/v1/fetch` | `key`, `url`, `mode`, `encoding`, `gzip`, `stage`, `id`, `index` | Text, JSON with base64, or one staged chunk |
-| `/v1/llm` | `key`, `prompt`, `model`, `system`, `image`, `file`, `ref`, `diff`, `repo`, `max_tokens`, or `id` | JSON job id, then JSON status and text |
+| `/v1/llm` | `key`, `prompt`, `model`, `system`, `image`, `file`, `ref`, `diff`, `repo`, `max_tokens`, or `id` | A job id, then status and text |
+
+`/v1/health` needs no key, `/v1/key` takes `master` and answers the live agent key, and `/v1/ping` takes `key` and answers the route list with the model state and the caps.
 
 Examples:
 
@@ -115,11 +114,7 @@ Examples:
 /v1/gh?key=KEY&path=repos/OWNER/REPO/code-scanning/alerts&state=open&per_page=100
 /v1/gh?key=KEY&path=repos/OWNER/REPO/actions/runs/1234567890/logs
 /v1/fetch?key=KEY&url=https%3A%2F%2Fexample.com%2Fdata.bin&mode=base64&gzip=1
-/v1/fetch?key=KEY&url=https%3A%2F%2Fexample.com%2Fbig.bin&stage=1
-/v1/fetch?key=KEY&id=ID&index=0
 /v1/llm?key=KEY&prompt=review%20this&repo=OWNER/REPO&diff=84
-/v1/llm?key=KEY&prompt=what%20is%20wrong%20here&image=https%3A%2F%2Fexample.com%2Fshot.png
-/v1/llm?key=KEY&id=JOB
 ```
 
 The `path` value stays relative to `api.github.com` and carries no scheme. The backend refuses an absolute URL. A path ending `/actions/runs/<id>/logs` answers the text tail.
@@ -128,20 +123,17 @@ The `path` value stays relative to `api.github.com` and carries no scheme. The b
 
 `/v1/fetch` carries a binary response that the tool cannot. Pick the smallest form that survives the trip:
 
-| Form | Parameter | Cost | Use for |
-| --- | --- | --- | --- |
-| text | `mode=text` or `auto` | none | UTF-8 without NUL bytes |
-| base64 | `mode=base64` | +33% characters | any binary, the default that decodes everywhere |
-| base85 | `mode=base64&encoding=b85` | +25% characters | binary when the decoder is Python |
-| gzip and base64 | `gzip=1` | less than base64 for compressible bytes | logs, JSON, HTML, text-shaped bytes |
-| staged chunks | `stage=1`, then `id` and `index` | base64 per chunk | anything large, and every staged read |
+| Form | Parameter | Use for |
+| --- | --- | --- |
+| text | `mode=text` or `auto` | UTF-8 without NUL bytes |
+| base64 | `mode=base64` | any binary, the default that decodes everywhere, at +33% characters |
+| base85 | `mode=base64&encoding=b85` | binary when the decoder is Python, at +25% |
+| gzip and base64 | `gzip=1` | logs, JSON, HTML and text-shaped bytes, below plain base64 |
+| staged chunks | `stage=1`, then `id` and `index` | anything large, and every staged read |
 
-- A staged request answers with `id`, `bytes`, `chunks`, and the chunk size in bytes (49,152).
-- Read each chunk with `index`, decode it, and append. The final `chunks` value says when to stop. An out-of-range index answers 404 with the count.
-- Staged bytes expire after one hour. Stage only what the session needs.
-- A refused target answers 400.
-- Reassembly, sandbox side, base64: `printf %s "<payload>" | base64 -d >> file.bin`. Add `| gunzip` for a gzip payload.
-- Prefer a text extraction, a smaller range, or a summary over a large binary.
+- A staged request answers `id`, `bytes`, `chunks` and a 49,152-byte chunk size. Read each with `index`, decode it and append until the `chunks` count ends; an out-of-range index answers 404 with the count.
+- Staged bytes expire after an hour, and a refused target answers 400. Stage only what the session needs.
+- Reassembly: `printf %s "<payload>" | base64 -d >> file.bin`, plus `| gunzip` for a gzip payload. Prefer a text extraction, a smaller range or a summary over a large binary.
 
 ## Model calls
 
