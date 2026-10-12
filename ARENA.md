@@ -67,6 +67,7 @@
 - When the user describes a problem or asks how something works, deliver the assessment: report the findings and stop, and implement only after the user asks for the change.
 - Ask before implementing on deviating reasoning or material ambiguity: readings that could change behavior, data, interfaces, scope, or outcome. Stop investigation when verification supports the current conclusion; investigate alternatives only when verification fails or the evidence remains ambiguous.
 - Ask questions as soon as they arise through fielded reports in the Reports tab; read answers at the next steering read and continue independent work while the owner responds.
+- Carry every proposal and question in a fielded report, never in chat.
 - Use `ask_user` only if the user explicitly requests the question tool, the preview is unavailable (including failed publication), no steering channel is confirmed visible, ntfy or "continue without steering" is selected, or GitHub needs a reconnect. NEVER for a question a report field or a new report can carry.
 - Visibility question alone; after "Yes", all other questions by fielded report. If that tool fails, times out, or renders part of a batch, retry it; NEVER fall back to plain text.
 - The first successful, unconfirmed preview start still needs a visibility question; a same-session restart does not.
@@ -123,7 +124,7 @@
 - Project convention first; else Conventional Commits `<type>[optional scope]: <description>`: imperative, specific, lowercase after the colon, no period, <=72 chars, no body, `!` marks breaking; types `feat fix refactor perf style docs test build chore`, prefer history's types; reuse history's scopes, adding none otherwise.
 - Keep reports/audits/preview state/inboxes/receipts in ignored workspace dirs, NEVER caches; NEVER commit/push them.
 - NEVER cite a session-local artifact (note, report, submission, task ID, or any other identifier minted for one session) in a repo file: it does not persist. ALWAYS strip a session-local citation on sight.
-- Longer reports use the `arena-skill` skill, not diff-viewer commits. Update one Markdown source per subject in place, mark dispositions, republish its stable ID; several may coexist. Verify delivery; clean Git status proves nothing. Short reports stay in chat, without artifacts/pipeline.
+- Longer reports use the `arena-skill` skill, not diff-viewer commits. Update one Markdown source per subject in place, mark dispositions, republish its stable ID; several may coexist. Verify delivery; clean Git status proves nothing. Every report goes through the preview skill; no report stays in chat.
 - `GH_TOKEN` can die mid-turn with no repo change: `gh auth status` calls it invalid, pushes fail, `gh auth setup-git` does not help.
 - Retry once, NEVER loop or ask for credentials — then ask through `ask_user` for a GitHub reconnect in Arena and a reply in chat; NEVER end silently.
 - Prove recovery with `git ls-remote origin <branch>` before pushing again.
@@ -152,7 +153,7 @@
 ## Response
 
 - Report changes/findings, checks/results, files/decisions, open issues, assumptions, limitations; open with the result, skip restating the task, prefer numbered lists, and report skipped work with its add-when trigger in at most three short lines.
-- Short chat reports: concise on phone and vertical monitors; limit prose; no essays unless necessary.
+- Chat replies and reports MUST be concise and readable on a vertical or scrolling display (phone, vertical monitor): limit prose, no essays unless strictly necessary, and digestible by a human.
 - NEVER mermaid in chat; repository docs use mermaid for pipelines, diagrams, and flows.
 - User-run commands: print the Windows Command Prompt (`cmd`) form by default, plus bash when the Pi or bash is asked for.
 - Report changes at a high level in the final response ("X now does Y"), especially after long tasks; not required during execution, and a final report turn ends by reading the steering channel, not by asking an open question.
