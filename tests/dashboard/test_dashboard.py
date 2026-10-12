@@ -3722,8 +3722,46 @@ def test_the_tab_bar_fades_its_clipped_edges() -> None:
   assert "#nav-left:not([hidden]) { margin-left: -12px; }" in css, (
     "a shown chevron sits at the page edge"
   )
-  assert ".tab-step[hidden] { display: grid !important; visibility: hidden; }" in css, (
+  hidden = re.search(r"\.tab-step\[hidden\] \{([^}]*)\}", css)
+  assert hidden and "display: grid !important;" in hidden.group(1), (
     "a hidden chevron keeps its slot, so the scroll never snaps"
+  )
+  assert "visibility: hidden;" in hidden.group(1)
+  assert "pointer-events: none;" in hidden.group(1), "the fading chevron takes no input"
+
+
+def test_scroll_edge_affordances_share_the_soft_motion() -> None:
+  """Pane and tab fades glide with the tab chevrons, in and out, on the soft motion."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  for edge in ("left", "right", "top", "bottom"):
+    registered = re.search(rf"@property --fade-{edge} \{{([^}}]*)\}}", css)
+    assert registered and 'syntax: "<length>";' in registered.group(1), (
+      f"the {edge} mask stop can interpolate"
+    )
+    assert "initial-value: 0px;" in registered.group(1)
+
+  nav = re.search(r"#nav \{([^}]*)\}", css)
+  assert nav and (
+    "transition: --fade-left var(--soft) var(--ease),\n"
+    "    --fade-right var(--soft) var(--ease);"
+  ) in nav.group(1), "the header fade uses the page's soft motion"
+
+  wide = re.search(r"@media \(min-width: 901px\) \{(.*?)\n\}", css, re.DOTALL)
+  pane = wide and re.search(r"\.section-pane \{([^}]*)\}", wide.group(1))
+  assert pane and (
+    "transition: --fade-top var(--soft) var(--ease),\n"
+    "      --fade-bottom var(--soft) var(--ease);"
+  ) in pane.group(1), "the settings fade uses the same motion"
+
+  step = re.search(r"\n\.tab-step \{([^}]*)\}", css)
+  assert step and "opacity: 1;" in step.group(1)
+  assert "opacity var(--soft) var(--ease)" in step.group(1), (
+    "a shown header chevron fades in with its mask"
+  )
+  hidden = re.search(r"\.tab-step\[hidden\] \{([^}]*)\}", css)
+  assert hidden and "opacity: 0;" in hidden.group(1)
+  assert "visibility 0s var(--soft)" in hidden.group(1), (
+    "visibility waits while a header chevron fades out"
   )
 
 
