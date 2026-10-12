@@ -59,7 +59,7 @@ def reminder_tail(cursor,remaining):
 		tail=fill_reminder(REMINDERS[(cursor+step)%len(REMINDERS)],remaining)
 		if tail:return tail
 	return REMINDERS[cursor%len(REMINDERS)]
-REMINDERS='Refresh: ARENA.md, SKILL.md.','`task-list` at turn start. Update it as work changes.','Take the smallest open task next.','Always push.','`ask_user` on GH_TOKEN failure.','Keep docs terse but clear.','Ask questions ASAP in reports.','Publish your reports.','Never end a turn with unblocked tasks.','Unpublish stale reports.','End the turn with `poll`.','Grep-verify each edit.',TASK_REMINDER,'Rebase `origin/main` before pushing; empty checks mean it moved.',"Check the PR's CI before ending a pushed turn; run it with `start_process`.",'Run `arena-preview`, not the full path.'
+REMINDERS='Refresh: ARENA.md, SKILL.md.','`task-list` at turn start. Update it as work changes.','Take the smallest open task next.','Always push.','`ask_user` on GH_TOKEN failure.','Keep docs terse but clear.','Ask questions ASAP in reports.','Publish your reports.','Never end a turn with unblocked tasks.','Unpublish stale reports.','End the turn with `poll`.','Grep-verify each edit.',TASK_REMINDER,'Rebase `origin/main` before pushing; empty checks mean it moved.',"Check the PR's CI before ending a pushed turn; read the run's verdict on a later call.",'Run `arena-preview`, not the full path.'
 REMINDER_CURSOR='reminder_cursor'
 POLLS_SINCE_MESSAGE='polls_since_message'
 GATE_THRESHOLD=10
@@ -430,11 +430,15 @@ def format_read(listing):
 	else:first=f"Inbox: {count} pending"
 	if count==0:return first
 	return'\n'.join([first,*(format_pending_item(item)for item in pending)])
+def current_task(tasks):
+	for task in tasks:
+		if task.get('status')=='upcoming'and not task.get('blocked'):return task
+	return None
 def format_task_list(tasks,full=False):
-	shown=tasks if full else[t for t in tasks if t.get('status')=='upcoming'];lines=[f"Tasks {len(shown)}"if full else f"Tasks {len(shown)} upcoming"]
-	for(index,task)in enumerate(shown):
+	shown=tasks if full else[t for t in tasks if t.get('status')=='upcoming'];lines=[f"Tasks {len(shown)}"if full else f"Tasks {len(shown)} upcoming"];head=None if full else current_task(shown)
+	for task in shown:
 		order=task.get('order');status=task.get('status')
-		if not full and index==0:status='current'
+		if head is not None and task.get('id')==head.get('id'):status='current'
 		id_=task.get('id');blocked=task.get('blocked');report_id=task.get('report_id');blocked_mark='*'if blocked else'';line=f"{order}{blocked_mark}  {status} {id_}"
 		if report_id:line+=f" report {report_id}"
 		lines.append(line)
