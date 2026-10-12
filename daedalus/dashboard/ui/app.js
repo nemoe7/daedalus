@@ -59,6 +59,13 @@ const fileName = (path) => path.split(/[\\/]/).pop();
 const line = (left, right) => `<div class="line"><span>${left}</span><span>${right}</span></div>`;
 const count = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const none = (text) => `<div class="more">${text}</div>`;
+function actionButton(content, { variant = "", type = "button", attrs = {} } = {}) {
+  const attributes = Object.entries(attrs).map(([name, value]) => {
+    if (value === false || value == null) return "";
+    return value === true ? ` ${name}` : ` ${name}="${esc(value)}"`;
+  }).join("");
+  return `<button${variant ? ` class="${esc(variant)}"` : ""} type="${esc(type)}"${attributes}>${content}</button>`;
+}
 // A model name cell that ends in an ellipsis when it is too long. The title shows the full name.
 const mobileLabel = (text) => `<span class="mobile-label" aria-hidden="true">${esc(text)}</span>`;
 const nameCell = (text, shown = esc(text), label = "Model", extra = "") =>
@@ -372,8 +379,10 @@ function renderStatusCard(status) {
         : affinity.mode)
     : "";
   $("card-rows").innerHTML = line("Sessions", status.sessions) + affinityLine
-    + `<button class="line rebuild" type="button" data-catalog-rebuild title="${label}" ${rebuilding ? "disabled" : ""}>
-      <span>Catalog</span><span><b>${esc(last)}</b>${following}</span></button>`;
+    + actionButton(`<span>Catalog</span><span><b>${esc(last)}</b>${following}</span>`, {
+      variant: "line rebuild",
+      attrs: { "data-catalog-rebuild": true, title: label, disabled: rebuilding },
+    });
 }
 
 // The last state answer. It stays in place when a later call fails, and the chip says so.
@@ -542,7 +551,7 @@ function chainRows(r) {
   const many = fallbackCount(r);
   return `<tr role="row" class="chain"><td role="cell" colspan="13"><div class="chain-body">
     <div class="chain-head"><span class="muted">Fallback chain${many ? ` · ${many}` : ""}</span>
-      <button class="ghost copy-chain" type="button" data-at="${r.at}">Copy</button></div>
+      ${actionButton("Copy", { variant: "ghost copy-chain", attrs: { "data-at": r.at } })}</div>
     ${raceNote(r)}${chainSteps(r)}
   </div></td></tr>`;
 }
@@ -576,7 +585,7 @@ function mobileFallbackChain(r, tail = "") {
   return `<details class="mobile-fallback-chain">
     <summary>View fallback chain${tail}</summary>
     <div class="mobile-chain-head"><span class="muted">Fallback chain</span>
-      <button class="ghost copy-chain" type="button" data-at="${r.at}">Copy</button></div>
+      ${actionButton("Copy", { variant: "ghost copy-chain", attrs: { "data-at": r.at } })}</div>
     ${raceNote(r)}${chainSteps(r)}
   </details>`;
 }
@@ -1000,7 +1009,10 @@ function phoneChips(m) {
 
 function renderTiers() {
   $("tiers").innerHTML = ["All", "A", "B", "C", "D"].map((t) =>
-    `<button type="button" class="filter${t === state.tier ? " on" : ""}" data-tier="${t}">${t}</button>`,
+    actionButton(esc(t), {
+      variant: `filter${t === state.tier ? " on" : ""}`,
+      attrs: { "data-tier": t },
+    }),
   ).join(" ");
   $("mode").value = state.mode;
 }
@@ -1220,7 +1232,10 @@ function renderKeys(rows) {
       <td class="num muted mono"><span${k.start ? ` title="Only the start of a saved key is kept"` : ""}>${k.start ? esc(k.start) + "&hellip;" : "-"}</span></td>
       <td class="hide-sm muted">${stamp(k.created)}</td>
       <td class="muted">${mobileLabel("Last used")}<span class="cell-value">${k.used ? stamp(k.used) : "never"}</span></td>
-      <td class="end"><button type="button" class="ghost danger" data-key="${esc(k.name)}" aria-label="Delete ${esc(k.name)}" title="Delete">${icon("trash")}</button></td>
+      <td class="end">${actionButton(icon("trash"), {
+        variant: "ghost danger",
+        attrs: { "data-key": k.name, "aria-label": `Delete ${k.name}`, title: "Delete" },
+      })}</td>
     </tr>`).join("") : '<tr><td colspan="5" class="empty">No API keys. The master key opens /v1.</td></tr>');
   markCardScrollEdges();
 }
@@ -1290,15 +1305,19 @@ function renderFiles() {
   const chips = state.files.map((file, index) => {
     const mark = fileDirty(index) ? " &bull;" : "";
     // The provider keys of a shadowed file do nothing, so the tab says which file wins.
-    const shadow = file.shadow ? ` (provider keys: ${esc(file.shadow)} wins)` : "";
-    return `<button type="button" class="tab${index === state.file ? " on" : ""}"
-      data-file="${index}" title="${esc(file.path)}${shadow}">${esc(fileName(file.path))}${mark}</button>`;
+    const shadow = file.shadow ? ` (provider keys: ${file.shadow} wins)` : "";
+    return actionButton(`${esc(fileName(file.path))}${mark}`, {
+      variant: `tab${index === state.file ? " on" : ""}`,
+      attrs: { "data-file": index, title: `${file.path}${shadow}` },
+    });
   }).join(" ");
   // The page actions ride in the file row, as 1 more chip. The main provider file stays:
   // only a {provider}.yml file can go.
   const drop = current?.main === false
-    ? '<button type="button" class="tab danger" id="drop-provider">Delete file</button>' : "";
-  $("files").innerHTML = `${chips} <button type="button" class="tab" id="new-provider">+ New provider</button>${drop ? ` ${drop}` : ""}`;
+    ? actionButton("Delete file", { variant: "tab danger", attrs: { id: "drop-provider" } }) : "";
+  $("files").innerHTML = `${chips} ${actionButton("+ New provider", {
+    variant: "tab", attrs: { id: "new-provider" },
+  })}${drop ? ` ${drop}` : ""}`;
   // The card Save writes the text. The form rows write themselves, on the close.
   const yamlSave = $("yaml-save");
   if (yamlSave) yamlSave.disabled = state.view !== "yaml" || !dirty();
@@ -1349,12 +1368,15 @@ function openFile(index) {
 }
 
 // A chip for 1 value. The × button deletes the list item or the map key.
-const pill = (text, path, key) => `<span class="pill">${esc(text)}<button type="button" title="Delete"
-  data-drop='${esc(JSON.stringify([...path, key]))}'>${icon("x")}</button></span>`;
+const pill = (text, path, key) => `<span class="pill">${esc(text)}${actionButton(icon("x"), {
+  attrs: { title: "Delete", "data-drop": JSON.stringify([...path, key]) },
+})}</span>`;
 
 // The "+ Add" button. A click puts an inline input in its place.
-const adder = (path, kind, label = "+ Add") => `<button type="button" class="add"
-  data-add='${esc(JSON.stringify(path))}' data-kind="${kind}">${esc(label)}</button>`;
+const adder = (path, kind, label = "+ Add") => actionButton(esc(label), {
+  variant: "add",
+  attrs: { "data-add": JSON.stringify(path), "data-kind": kind },
+});
 
 function listField(name, values, path) {
   const list = Array.isArray(values) ? values : [];
@@ -1380,10 +1402,12 @@ function setListValue(group, key, values) {
   state.settings.lists ||= {};
   state.settings.lists[`${group}.${key}`] = values;
 }
-const settingPill = (group, key, value, index) => `<span class="pill">${esc(value)}<button type="button" title="Delete"
-  data-setting-drop='${esc(JSON.stringify([group, key, index]))}'>${icon("x")}</button></span>`;
-const settingAdder = (group, key) => `<button type="button" class="add"
-  data-setting-add='${esc(JSON.stringify([group, key]))}'>+ Add</button>`;
+const settingPill = (group, key, value, index) => `<span class="pill">${esc(value)}${actionButton(icon("x"), {
+  attrs: { title: "Delete", "data-setting-drop": JSON.stringify([group, key, index]) },
+})}</span>`;
+const settingAdder = (group, key) => actionButton("+ Add", {
+  variant: "add", attrs: { "data-setting-add": JSON.stringify([group, key]) },
+});
 
 // The name of a hook file as a chip shows it, without the folder of the config.
 const hookName = (name) => esc(name.replace(/^hooks\//, ""));
@@ -1417,15 +1441,28 @@ const hookFormRow = (entry, path, choices) => {
   const at = JSON.stringify(path);
   const open = openFormHook === at;
   const menu = open ? `<div class="menu" role="listbox" aria-label="Hook file">${[""].concat(choices)
-    .map((name) => `<button type="button" role="option" aria-selected="${name === value}"
-      data-form-hook-choice='${esc(JSON.stringify([...path, name]))}'
-      >${name ? hookName(name) : "No file"}</button>`).join("")}</div>` : "";
+    .map((name) => actionButton(name ? hookName(name) : "No file", {
+      attrs: {
+        role: "option",
+        "aria-selected": String(name === value),
+        "data-form-hook-choice": JSON.stringify([...path, name]),
+      },
+    })).join("")}</div>` : "";
+  const picker = actionButton(value ? hookName(value) : "No file", {
+    variant: "pick",
+    attrs: {
+      "data-form-hook-pick": at,
+      "aria-haspopup": "listbox",
+      "aria-expanded": String(open),
+      title: "Pick a hook file",
+    },
+  });
+  const drop = actionButton(icon("x"), {
+    attrs: { title: "Delete", "data-form-hook-drop": at },
+  });
   return `<span class="pill hook"><select data-form-hook-surface='${esc(at)}' aria-label="Hook surface">${
     HOOK_SURFACES.map(([key, label]) => `<option value="${key}"${key === surface ? " selected" : ""}>${esc(label)}</option>`).join("")
-    }</select><button type="button" class="pick" data-form-hook-pick='${esc(at)}'
-    aria-haspopup="listbox" aria-expanded="${open}" title="Pick a hook file"
-    >${value ? hookName(value) : "No file"}</button><button type="button" title="Delete"
-    data-form-hook-drop='${esc(at)}'>${icon("x")}</button>${menu}</span>`;
+    }</select>${picker}${drop}${menu}</span>`;
 };
 
 // The hook rows of a provider block or of a model override, with the installed hooks that fit.
@@ -1434,8 +1471,10 @@ function hookFormRows(values, path, kind, name) {
   const rows = (Array.isArray(values) ? values : [])
     .map((entry, index) => hookFormRow(entry, [...path, index], choices)).join("")
     || '<em class="none">No hook file</em>';
-  return `<div class="pills">${rows}<button type="button" class="add"
-    data-form-hook-add='${esc(JSON.stringify([path, kind, name]))}'>+ Add file</button></div>`;
+  return `<div class="pills">${rows}${actionButton("+ Add file", {
+    variant: "add",
+    attrs: { "data-form-hook-add": JSON.stringify([path, kind, name]) },
+  })}</div>`;
 }
 
 // The list of the form at a hook path, created when it is missing. The path of a row ends with the
@@ -1506,10 +1545,24 @@ function hookOrderRows() {
   return orderedSurfaces().map(([surface, label]) => {
     const files = hookOrderFiles(surface);
     const rows = files.map((file, index) => `<li><span class="cell-value">${hookName(file)}</span>
-      <button type="button" class="ghost" data-hook-move='${esc(JSON.stringify([surface, index, -1]))}'
-        ${index ? "" : "disabled"} aria-label="Move ${esc(file)} up" title="Move up">${icon("chevron_up")}</button>
-      <button type="button" class="ghost" data-hook-move='${esc(JSON.stringify([surface, index, 1]))}'
-        ${index + 1 < files.length ? "" : "disabled"} aria-label="Move ${esc(file)} down" title="Move down">${icon("chevron_down")}</button></li>`).join("");
+      ${actionButton(icon("chevron_up"), {
+        variant: "ghost",
+        attrs: {
+          "data-hook-move": JSON.stringify([surface, index, -1]),
+          disabled: !index,
+          "aria-label": `Move ${file} up`,
+          title: "Move up",
+        },
+      })}
+      ${actionButton(icon("chevron_down"), {
+        variant: "ghost",
+        attrs: {
+          "data-hook-move": JSON.stringify([surface, index, 1]),
+          disabled: index + 1 >= files.length,
+          "aria-label": `Move ${file} down`,
+          title: "Move down",
+        },
+      })}</li>`).join("");
     const hint = "The matching files run in this order. Their provider, model or client scopes still apply.";
     return `<div class="field stack info">${labelSpan(label, hint)}
       <ul class="hook-order">${rows || '<li><em class="none">No file for this surface</em></li>'}</ul></div>`;
@@ -1574,18 +1627,25 @@ function hooksManager() {
       <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || "local")}">${row.problem ? `<span class="bad">${esc(row.problem)}</span>` : esc(record.repo || "local")}${record.commit ? `<span class="hook-sha">${esc(record.commit.slice(0, 7))}</span>` : ""}</span></td>
       <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
         ${disabled.includes(row.name) ? "" : "checked"} aria-label="Enabled ${esc(row.name)}"></td>
-      <td class="end"><button type="button" class="ghost danger" data-hook-drop="${esc(row.path)}" aria-label="Delete ${esc(row.name)}" title="Delete">${icon("trash")}</button></td></tr>`;
+      <td class="end">${actionButton(icon("trash"), {
+        variant: "ghost danger",
+        attrs: { "data-hook-drop": row.path, "aria-label": `Delete ${row.name}`, title: "Delete" },
+      })}</td></tr>`;
   }).join("") || '<tr><td role="cell" colspan="7"><em class="none">No hook file</em></td></tr>';
   const scan = state.hooksScan;
   const panel = scan ? `<div class="pills" id="hooks-scan">
       <span class="sub">${esc(sourceLabel(scan))} at ${esc((scan.commit || "").slice(0, 7))}</span>${scan.files
     .map((file) => `<label class="pill"><input type="checkbox" data-hook-take="${esc(file.name)}"
       ${scan.take[file.name] ? "checked" : ""}>${esc(file.name)}${file.version ? ` ${esc(file.version)}` : ""}</label>`).join("")}
-      <button type="button" class="primary" data-hook-take-all>Take the picked files</button></div>` : "";
+      ${actionButton("Take the picked files", {
+        variant: "primary", attrs: { "data-hook-take-all": true },
+      })}</div>` : "";
   return `<div class="field stack info">${labelSpan("Installed hooks", "The files of the hook folder. A surface is a stage of a request. The block of the file names the surfaces that run the file. The switch keeps a file on disk and out of the run.")}
       <div class="card-scroll"><table class="keys"><thead><tr><th>Author/Title</th><th>Version</th><th>Surfaces</th><th>Scopes</th><th class="hide-sm">Source</th><th>Enabled</th><th></th></tr></thead>
       <tbody>${list}</tbody></table></div>
-      <button type="button" class="ghost" data-hooks-update>Update from the sources</button></div>
+      ${actionButton("Update from the sources", {
+        variant: "ghost", attrs: { "data-hooks-update": true },
+      })}</div>
     <div class="field stack info" id="hooks-order">${hookOrderRows()}</div>
     <div class="field stack info">${labelSpan("Folder", "The folder at the root that holds the hook files.")}
       <span class="input"><input type="text" id="set-hooks-dir" data-value="Folder"
@@ -1593,8 +1653,13 @@ function hooksManager() {
         placeholder="${esc(state.settings.defaults.hooks.dir)}"></span></div>
     <div class="field stack info">${labelSpan("Sources", "Each source names a GitHub repo, a folder in it and a ref.")}
       <div class="pills"><select id="hook-source" data-hook-source aria-label="Source">${options}</select>
-        <button type="button" class="add" data-hook-source-add>${icon("plus")} Add a repo</button>
-        <button type="button" class="ghost" data-hook-source-drop title="Delete the source">${icon("x")}</button></div>${panel}
+        ${actionButton(`${icon("plus")} Add a repo`, {
+          variant: "add", attrs: { "data-hook-source-add": true },
+        })}
+        ${actionButton(icon("x"), {
+          variant: "ghost",
+          attrs: { "data-hook-source-drop": true, title: "Delete the source" },
+        })}</div>${panel}
       <div class="sub" id="hooks-note" role="status"></div></div>`;
 }
 
@@ -1747,8 +1812,11 @@ let HINT_COUNT = 0;
 function labelSpan(label, hint) {
   if (!hint) return `<span><b>${esc(label)}</b></span>`;
   const id = `hint-${++HINT_COUNT}`;
-  return `<span><b>${esc(label)}</b><button type="button" class="hint" aria-describedby="${id}"`
-    + ` aria-label="Hint">${icon("info")}</button><small id="${id}" role="tooltip">${esc(hint)}</small></span>`;
+  const button = actionButton(icon("info"), {
+    variant: "hint",
+    attrs: { "aria-describedby": id, "aria-label": "Hint" },
+  });
+  return `<span><b>${esc(label)}</b>${button}<small id="${id}" role="tooltip">${esc(hint)}</small></span>`;
 }
 
 function field(label, hint, body) {
@@ -1761,14 +1829,19 @@ const sectionState = (host) => SECTION_STATE[host.id === "settings" ? "settings"
 
 // A section list: every section in a rail, and the pane shows the picked 1.
 function sectionList(id, items, active) {
-  const buttons = items.map(([key, label]) => `<button type="button" data-section="${esc(key)}"`
-    + `${key === active ? ' class="on" aria-current="true"' : ""}>${esc(label)}</button>`).join("");
+  const buttons = items.map(([key, label]) => actionButton(esc(label), {
+    variant: key === active ? "on" : "",
+    attrs: { "data-section": key, "aria-current": key === active ? "true" : null },
+  })).join("");
   return `<nav class="sections" aria-label="Sections">${buttons}</nav>`;
 }
 
 // The pane of a section list. The back button names the page it returns to, as iOS does.
 function sectionPane(back, cards) {
-  return `<div class="section-pane"><button class="ghost back" type="button" data-back><span class="chev" aria-hidden="true">&lsaquo;</span> ${esc(back)}</button>${cards}</div>`;
+  const button = actionButton(`<span class="chev" aria-hidden="true">&lsaquo;</span> ${esc(back)}`, {
+    variant: "ghost back", attrs: { "data-back": true },
+  });
+  return `<div class="section-pane">${button}${cards}</div>`;
 }
 
 // The last section of a list: the file text, and its own save. It holds the lines that the form
@@ -1776,7 +1849,9 @@ function sectionPane(back, cards) {
 function yamlCard(editor, save, hint) {
   return `<div class="card yaml-view" data-section="yaml"><h3>YAML</h3><p class="sub">${esc(hint)}</p>`
     + `<textarea id="${editor}" spellcheck="false" aria-label="File text"></textarea>`
-    + `<div class="yaml-save"><button class="primary" id="${save}" type="button" disabled>Save</button>`
+    + `<div class="yaml-save">${actionButton("Save", {
+      variant: "primary", attrs: { id: save, disabled: true },
+    })}`
     + `<span class="hint">Ctrl+S saves and reloads</span></div></div>`;
 }
 
@@ -1868,8 +1943,12 @@ function slideAgain() {
 // A group of fields that starts closed, so a long card stays short.
 function fold(label, hint, body) {
   const id = `hint-${++HINT_COUNT}`;
-  return `<details class="fold"><summary>${esc(label)}<button type="button" class="hint" aria-describedby="${id}"`
-    + ` aria-label="Hint">${icon("info")}</button><small id="${id}" role="tooltip">${esc(hint)}</small></summary>`
+  const button = actionButton(icon("info"), {
+    variant: "hint",
+    attrs: { "aria-describedby": id, "aria-label": "Hint" },
+  });
+  return `<details class="fold"><summary>${esc(label)}${button}`
+    + `<small id="${id}" role="tooltip">${esc(hint)}</small></summary>`
     + `<div class="fold-body">${body}</div></details>`;
 }
 
@@ -1963,8 +2042,13 @@ function providerCard(name, block) {
         data-pattern='${esc(JSON.stringify([...path, "models"]))}' data-key="${esc(pattern)}">
       <div class="pills">${mapPills(rest, [...path, "models", pattern], "override", ": ")}</div>
       ${hookFormRows(values?.hooks, [...path, "models", pattern, "hooks"], "model", pattern)}
-      <button type="button" class="ghost" title="Delete the pattern"
-        data-drop='${esc(JSON.stringify([...path, "models", pattern]))}'>${icon("x")}</button>
+      ${actionButton(icon("x"), {
+        variant: "ghost",
+        attrs: {
+          title: "Delete the pattern",
+          "data-drop": JSON.stringify([...path, "models", pattern]),
+        },
+      })}
     </div>`;
   }).join("");
   const others = Object.keys(block).filter((key) => !FORM_KEYS.includes(key) && key !== "_file");
@@ -2462,14 +2546,14 @@ function keysCard() {
   return `<div class="card" data-section="keys"><h3>API Keys</h3>
     <form class="toolbar" id="new-key">
       <input id="key-name" maxlength="40" placeholder="Name of the new key" required>
-      <button class="primary" type="submit">New key</button>
+      ${actionButton("New key", { variant: "primary", type: "submit" })}
       <span class="message bad" id="key-message" role="alert"></span>
     </form>
     <div class="reveal" id="reveal" hidden>
       <span>Copy the key <b id="reveal-name"></b> now. daedalus shows it only this time.</span>
       <code id="reveal-key"></code>
-      <button class="ghost" id="copy" type="button">Copy</button>
-      <button class="ghost" id="reveal-close" type="button">Done</button>
+      ${actionButton("Copy", { variant: "ghost", attrs: { id: "copy" } })}
+      ${actionButton("Done", { variant: "ghost", attrs: { id: "reveal-close" } })}
     </div>
     <div class="card-scroll"><table class="keys">
       <thead><tr>
@@ -2901,13 +2985,13 @@ function openDiffModal(event) {
 function renderNotifications(data) {
   state.notifications = data;
   const time = (at) => `<time class="muted" title="${esc(stamp(at))}">${esc(relative(at))}</time>`;
-  const item = (kind, at, title, body, action = "") => {
-    const tag = action ? "button" : "div";
-    const attrs = action ? ` type="button" ${action}` : "";
-    return `<${tag} class="notification-item ${kind}"${attrs}>
-      <span class="notification-mark" aria-hidden="true"></span>
+  const item = (kind, at, title, body, attrs = null) => {
+    const content = `<span class="notification-mark" aria-hidden="true"></span>
       <span class="notification-copy"><span class="notification-head"><b>${title}</b>${time(at)}</span>
-      <span class="notification-body">${body}</span></span></${tag}>`;
+      <span class="notification-body">${body}</span></span>`;
+    return attrs
+      ? actionButton(content, { variant: `notification-item ${kind}`, attrs })
+      : `<div class="notification-item ${kind}">${content}</div>`;
   };
   const notices = [
     ...(data.resets || []).map((event) => ({
@@ -2937,7 +3021,7 @@ function renderNotifications(data) {
         `Catalog rebuild · ${esc(event.reason)}`,
         `${count(event.models, "model")} · ${rebuildDiff(event)}`
           + (event.failed.length ? ` · Failed: ${esc(event.failed.join(", "))}` : ""),
-        `data-rebuild="${index}"`,
+        { "data-rebuild": index },
       ),
     })),
   ].sort((a, b) => b.at - a.at);
@@ -2962,7 +3046,7 @@ function renderNotifications(data) {
   body += line("Checked", update ? stamp(update.at) : "-");
   draw(
     "update-card",
-    body + '<button class="ghost" id="update-check" type="button">Check now</button>'
+    body + actionButton("Check now", { variant: "ghost", attrs: { id: "update-check" } })
   );
 }
 

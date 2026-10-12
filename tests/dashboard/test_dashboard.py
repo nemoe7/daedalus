@@ -1121,7 +1121,7 @@ def test_rebuild_notification_and_catalog_action_have_distinct_targets() -> None
   notifications = app[
     app.index("function renderNotifications") : app.index("async function refreshSlow")
   ]
-  assert '`data-rebuild="${index}"`' in notifications, (
+  assert '{ "data-rebuild": index }' in notifications, (
     "a notification owns the diff action"
   )
   assert "data-catalog-rebuild" not in notifications, (
@@ -2278,8 +2278,10 @@ probe.pickSection(node('provider-form'), 'openrouter', true);
 probe.openFile(1);
 const html = node('provider-form').innerHTML;
 const list = html.slice(html.indexOf('class="sections"'), html.indexOf('class="section-pane"'));
-assert(list.includes('data-section="cloudflare" class="on"'), 'the new file opens its first section');
-assert(!list.includes('data-section="openrouter" class="on"'), 'the pick of the other file does not ride over');
+assert(list.includes('class="on" type="button" data-section="cloudflare" aria-current="true"'),
+  'the new file opens its first section');
+assert(!list.includes('class="on" type="button" data-section="openrouter"'),
+  'the pick of the other file does not ride over');
 assert.strictEqual(node('provider-form').dataset.detail, '0', 'the phone returns to the section list');
 assert(html.includes('The file text of free.yml'), 'the yaml card names the new file');
 """,
@@ -2312,9 +2314,11 @@ def test_hook_chip_matches_the_keyword_chips() -> None:
   markup = re.search(r"const hookFormRow = .*?\n};", app, re.DOTALL)
   assert markup, "the hook row builds 1 chip"
   assert 'class="pill hook"' in markup.group(0), "the row rides in a chip"
-  assert 'title="Pick a hook file"' in markup.group(0), "the chip names its picker"
+  assert 'title: "Pick a hook file"' in markup.group(0), "the chip names its picker"
   assert 'role="listbox"' in markup.group(0), "the list names its role"
-  assert 'role="option"' in app and "aria-selected=" in app, "each choice is an option"
+  assert 'role: "option"' in app and '"aria-selected":' in app, (
+    "each choice is an option"
+  )
   assert "data-hook-select" not in app, "no system menu on a chip"
 
 
@@ -3852,11 +3856,10 @@ def test_card_tables_own_horizontal_overflow_and_fade_only_clipped_edges() -> No
     re.DOTALL,
   ), "the API Keys table scrolls without masking its form or reveal controls"
   assert keys.index('<form class="toolbar"') < keys.index('<div class="card-scroll">')
-  assert re.search(
-    r'<div class="card-scroll">\s*<table class="keys">.*?</table>\s*</div>\s*'
-    r"<button[^>]+data-hooks-update",
-    hooks,
-    re.DOTALL,
+  table_end = hooks.index("</table></div>")
+  update = hooks.index('actionButton("Update from the sources"', table_end)
+  assert (
+    update > table_end and '"data-hooks-update": true' in hooks[update : update + 200]
   ), "the Hooks table scrolls without masking its Update control"
   card_scroll = re.search(r"\.card-scroll \{([^}]*)\}", css)
   assert card_scroll and "overflow-x: auto;" in card_scroll.group(1), (
@@ -4510,7 +4513,7 @@ def test_each_page_holds_a_section_list() -> None:
     "pickSettingsSection(section.dataset.section)",
     "pickProviderSection(section.dataset.section)",
     'class="section-pane"',
-    'class="ghost back"',
+    'variant: "ghost back"',
     "function yamlCard(editor, save, hint) {",
     'data-section="yaml"',
   ):
@@ -4667,14 +4670,14 @@ def test_the_providers_page_folds_the_long_groups() -> None:
   assert (
     "function fold(label, hint, body) {" in app and '<details class="fold">' in app
   ), "a closed group wraps its fields"
-  assert app.count('class="hint"') >= 2 and 'aria-label="Hint"' in app, (
+  assert app.count('variant: "hint"') >= 2 and '"aria-label": "Hint"' in app, (
     "the field hint rides behind the info icon"
   )
   assert 'role="tooltip"' in app, "the hint text serves as the tooltip"
   assert 'closest(".fold summary .hint")' in app, (
     "a click on the hint of a group never opens the group"
   )
-  assert 'aria-describedby="${id}"' in app, "the hint of a group names its tooltip"
+  assert '"aria-describedby": id' in app, "the hint of a group names its tooltip"
   style = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   assert ".settings > .column {" not in style and "column-count" not in style, (
     "no page splits a card across a column"
@@ -4925,7 +4928,7 @@ def test_table_delete_buttons_use_the_trash_icon() -> None:
   app = (
     Path(__file__).resolve().parents[2] / "daedalus/dashboard/ui/app.js"
   ).read_text(encoding="utf-8")
-  assert app.count('${icon("trash")}') >= 2, (
+  assert app.count('actionButton(icon("trash")') >= 2, (
     "the key row and the hook row draw the icon"
   )
   assert 'data-key="${esc(k.name)}">Delete</button>' not in app, "the key row"
@@ -4989,35 +4992,67 @@ assert(meter.includes('width:25%') && meter.includes('var(--orange) 50%'), meter
 
 
 def test_dashboard_action_buttons_keep_their_contracts() -> None:
-  """Action buttons keep native types, variants, state, and semantic selectors."""
+  """One action renderer keeps native types, variants, states, and selectors."""
   root = Path(__file__).resolve().parents[2]
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  for source in (page, app):
-    tags = re.findall(r"<button\b[^>]*>", source, re.DOTALL)
-    assert tags and all('type="' in tag for tag in tags), tags
+  static_tags = re.findall(r"<button\b[^>]*>", page, re.DOTALL)
+  assert static_tags and all('type="' in tag for tag in static_tags), static_tags
+  assert all(tag.index('class="') < tag.index('type="') for tag in static_tags), (
+    "static actions use the class-then-type contract"
+  )
+  assert app.count("<button") == 1, (
+    "only the shared renderer writes a dynamic button tag"
+  )
+  assert app.count("actionButton(") >= 25, (
+    "every dynamic action uses the shared renderer"
+  )
+
+  run_app_js(
+    "actionButton",
+    """
+const rendered = probe.actionButton('<b>trusted</b>', {
+  variant: 'ghost danger',
+  type: 'submit',
+  attrs: { value: 'ok', 'data-name': '<&"', disabled: true, hidden: false, title: null },
+});
+assert.strictEqual(rendered,
+  '<button class="ghost danger" type="submit" value="ok" data-name="&lt;&amp;&quot;" disabled>'
+  + '<b>trusted</b></button>');
+assert.strictEqual(probe.actionButton('Paused', {
+  variant: 'ghost live-toggle', attrs: { 'aria-pressed': 'false' },
+}), '<button class="ghost live-toggle" type="button" aria-pressed="false">Paused</button>');
+assert.strictEqual(probe.actionButton('Pick', {
+  attrs: { role: 'option', 'aria-selected': 'false' },
+}), '<button type="button" role="option" aria-selected="false">Pick</button>');
+""",
+  )
+
   for fragment in (
     'class="primary" type="submit"',
     'class="ghost" type="submit" value="cancel"',
-    'class="ghost danger" id="reset-weights" type="button"',
-    'class="ghost live-toggle" id="live-toggle" type="button" aria-pressed="false"',
-    'class="ghost tab-step" id="nav-left" type="button"',
-    'type="button" class="sort"',
-    'type="button" class="filter${t === state.tier ? " on" : ""}" data-tier="${t}"',
-    'type="button" class="tab${index === state.file ? " on" : ""}"',
-    'type="button" class="add"',
+    'class="ghost danger" type="button" id="reset-weights"',
+    'class="ghost live-toggle" type="button" id="live-toggle" aria-pressed="false"',
+    'class="ghost tab-step" type="button" id="nav-left"',
+    'class="sort" type="button"',
   ):
-    assert fragment in page or fragment in app, fragment
+    assert fragment in page, fragment
+  for fragment in (
+    'variant: `filter${t === state.tier ? " on" : ""}`',
+    'variant: `tab${index === state.file ? " on" : ""}`',
+    'variant: "add"',
+  ):
+    assert fragment in app, fragment
 
   contracts = (
-    ("catalog", "data-catalog-rebuild", 'closest("[data-catalog-rebuild]")'),
-    ("notification", 'data-rebuild="${index}"', 'closest("[data-rebuild]")'),
-    ("file", 'data-file="${index}"', 'closest("[data-file]")'),
-    ("settings add", "data-setting-add=", 'closest("[data-setting-add]")'),
-    ("settings delete", "data-setting-drop=", 'closest("[data-setting-drop]")'),
-    ("hook add", "data-hook-source-add", 'closest("[data-hook-source-add]")'),
-    ("hook delete", 'data-hook-drop="${esc(row.path)}"', 'closest("[data-hook-drop]")'),
-    ("hook update", "data-hooks-update", 'closest("[data-hooks-update]")'),
+    ("catalog", '"data-catalog-rebuild"', 'closest("[data-catalog-rebuild]")'),
+    ("notification", '"data-rebuild"', 'closest("[data-rebuild]")'),
+    ("file", '"data-file"', 'closest("[data-file]")'),
+    ("settings add", '"data-setting-add"', 'closest("[data-setting-add]")'),
+    ("settings delete", '"data-setting-drop"', 'closest("[data-setting-drop]")'),
+    ("hook add", '"data-hook-source-add"', 'closest("[data-hook-source-add]")'),
+    ("hook delete", '"data-hook-drop"', 'closest("[data-hook-drop]")'),
+    ("hook update", '"data-hooks-update"', 'closest("[data-hooks-update]")'),
   )
   for name, markup, selector in contracts:
     assert markup in app, f"{name} markup"
@@ -5036,11 +5071,11 @@ def test_dashboard_icons_and_feedback_keep_accessible_names() -> None:
   assert inline_icons and all('aria-hidden="true"' in tag for tag in inline_icons)
   for fragment in (
     'id="show-password" aria-pressed="false" aria-label="Show the password"',
-    'id="nav-left" type="button" aria-label="Show the earlier tabs"',
-    'id="nav-right" type="button" aria-label="Show the later tabs"',
-    'id="notice-close" type="button" aria-label="Dismiss the notice"',
-    'data-key="${esc(k.name)}" aria-label="Delete ${esc(k.name)}"',
-    'data-hook-drop="${esc(row.path)}" aria-label="Delete ${esc(row.name)}"',
+    'type="button" id="nav-left" aria-label="Show the earlier tabs"',
+    'type="button" id="nav-right" aria-label="Show the later tabs"',
+    'type="button" id="notice-close" aria-label="Dismiss the notice"',
+    '"data-key": k.name, "aria-label": `Delete ${k.name}`',
+    '"data-hook-drop": row.path, "aria-label": `Delete ${row.name}`',
     'button.setAttribute("aria-label", "Undo this write")',
   ):
     assert fragment in page or fragment in app, fragment
