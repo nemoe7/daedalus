@@ -19,7 +19,7 @@ services:
       - path: ./services/api/local.env
         required: false
     ports:
-      - "3357:3357"
+      - "${DAEDALUS_HOST_PORT:-3357}:3357"
     volumes:
       - ./.daedalus-state:/app/.daedalus-state
       - ./config:/app/config # read-write: the dashboard edits and reloads these files
@@ -44,7 +44,7 @@ services:
       PGVECTOR_DB_URL: postgresql://openwebui:${OPENWEBUI_DB_PASSWORD:-openwebui}@webui-db:5432/openwebui
       RAG_OPENAI_API_KEY: ${OPENWEBUI_API_KEY:-${DAEDALUS_MASTER_KEY:-}}
     ports:
-      - "3000:8080"
+      - "${OPENWEBUI_PORT:-3000}:8080"
     volumes:
       - open-webui:/app/backend/data
     depends_on:

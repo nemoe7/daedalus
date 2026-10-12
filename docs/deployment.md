@@ -32,7 +32,16 @@ For example:
 AIOHTTP_CLIENT_TIMEOUT=900
 ```
 
-Use the ignored `compose.override.yml` for structural changes such as ports, volumes, labels, devices, networks or image overrides. Normal production commands load that standard Compose override automatically. The installers also load it, including with `--dev`. A manual dev start uses `docker compose -f compose.dev.yml -f compose.override.yml up -d`.
+Set the two published host ports in the root `.env`:
+
+```dotenv
+DAEDALUS_HOST_PORT=3358
+OPENWEBUI_PORT=3001
+```
+
+These values change only the host side of each mapping. The internal daedalus and Open WebUI ports stay at `3357` and `8080`. Use these variables instead of a Compose override because Compose can merge port lists and keep the original mapping active.
+
+Use the ignored `compose.override.yml` for other structural changes such as volumes, labels, devices, networks or image overrides. Normal production commands load that standard Compose override automatically. The installers also load it, including with `--dev`. A manual dev start uses `docker compose -f compose.dev.yml -f compose.override.yml up -d`.
 
 A standalone installer records managed hashes in `.daedalus-state/managed-files.sha256`. It replaces a file only when it still matches the recorded or a known shipped version. If a managed file has local edits, the installer preserves it, writes the new version under `.daedalus-state/updates/`, and stops before Docker.
 
@@ -64,7 +73,7 @@ Saving provider YAML in the dashboard rebuilds the model list from cache. After 
 | --- | --- |
 | Container | `daedalus-api`, with the health check of the image on `/health` |
 | Image | `ghcr.io/nemoe7/daedalus:latest`, for `linux/amd64` and `linux/arm64` |
-| Port | `3357` |
+| Port | `DAEDALUS_HOST_PORT`, default `3357`. The container port stays `3357`. |
 | State | `./.daedalus-state` (model store, API keys, weights, sessions) |
 | Config | `./config`, read-write. The dashboard edits these files. |
 | User | `DAEDALUS_UID` and `DAEDALUS_GID`, both default `1000` |
@@ -116,7 +125,7 @@ flowchart LR
 
 | Profile | Service | What it does |
 | --- | --- | --- |
-| `webui` | `open-webui`, `webui-db` | Chat UI on `http://localhost:3000`, with daedalus as its OpenAI API. |
+| `webui` | `open-webui`, `webui-db` | Chat UI on host port `OPENWEBUI_PORT`, default `3000`, with daedalus as its OpenAI API. |
 | `tika` | `tika` | Reads PDF and Office files for Open WebUI, with OCR. No port on the host. |
 | `search` | `searxng` | Web search for Open WebUI. No port on the host, no key. |
 | `headroom` | `headroom` | Compresses the messages before daedalus sends them. No port on the host. |
@@ -129,6 +138,7 @@ The installers ask for profiles only when `.env` is absent. If you decline Open 
 
 | Setting | Value |
 | --- | --- |
+| Host port | `OPENWEBUI_PORT`, default `3000`. The container port stays `8080`. |
 | API base (`OPENAI_API_BASE_URL`) | `http://api:3357/v1` |
 | API key (`OPENAI_API_KEY`) | `OPENWEBUI_API_KEY`, else `DAEDALUS_MASTER_KEY` |
 | `ENABLE_OLLAMA_API` | `false`. Every model comes from daedalus. |

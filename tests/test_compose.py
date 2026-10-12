@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def _env_file_paths(service: dict[str, object]) -> list[tuple[str, bool]]:
-  """Return each Compose env file and whether it is required."""
+  """Return each Compose env file with its required flag."""
   result = []
   for item in service.get("env_file", []):
     if isinstance(item, str):
@@ -77,6 +77,19 @@ def test_dev_copy() -> None:
     "${DAEDALUS_DEV_PULL:-build}",
   )
   assert dev == main
+
+
+def test_host_ports_use_root_env_defaults() -> None:
+  """Root env values change host ports without changing container ports."""
+  for filename in ("compose.yml", "compose.dev.yml"):
+    compose = yaml.safe_load((ROOT / filename).read_text())
+    services = compose["services"]
+    assert services["api"]["ports"] == ["${DAEDALUS_HOST_PORT:-3357}:3357"]
+    assert services["open-webui"]["ports"] == ["${OPENWEBUI_PORT:-3000}:8080"]
+
+  example = (ROOT / ".env.example").read_text()
+  assert "# DAEDALUS_HOST_PORT=3357" in example
+  assert "# OPENWEBUI_PORT=3000" in example
 
 
 def test_tailscale_openwebui_has_its_own_profile() -> None:
