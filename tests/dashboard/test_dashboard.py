@@ -1056,6 +1056,20 @@ def test_the_model_rows_light_up_on_hover() -> None:
   ) in css, "the row hover waits for a pointer and lights the row"
 
 
+def test_notification_actions_match_the_shared_pointer_hover() -> None:
+  """An actionable notification uses the field hover of Models and Settings rows."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  gated = "\n".join(
+    re.findall(r"@media \(hover: hover\) \{\n(.*?)\n *\}", css, re.DOTALL)
+  )
+  bare = re.sub(r"@media \(hover: hover\) \{\n.*?\n *\}", "", css, flags=re.DOTALL)
+  hover = "button.notification-item:hover { background: var(--field); }"
+  assert hover in gated, "notification actions share the row hover color"
+  assert "button.notification-item:hover" not in bare, (
+    "a touch tap keeps no notification hover"
+  )
+
+
 def test_limit_events_and_rebuilds_share_a_relative_notification_feed() -> None:
   """Limit warnings, resets and rebuilds read as one phone-like card with relative times."""
   root = Path(__file__).resolve().parent.parent.parent

@@ -244,7 +244,9 @@ td.time { white-space: nowrap; }
   border-radius: 0; background: transparent; color: inherit; font: inherit; text-align: left;
 }
 button.notification-item { cursor: pointer; }
-button.notification-item:hover { background: var(--bar); }
+@media (hover: hover) {
+  button.notification-item:hover { background: var(--field); }
+}
 .notification-mark { width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: var(--muted); }
 .notification-item.reset .notification-mark { background: var(--accent); }
 .notification-item.warning .notification-mark { background: var(--warn); }
