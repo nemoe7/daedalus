@@ -51,7 +51,7 @@ then a line for the sessions and a line for the catalog, each with its value at 
 catalog line gives the time of the last catalog rebuild. It also gives the next scheduled
 rebuild.
 
-The header keeps its Log out button on a phone. Log out opens a confirmation dialog. Click the catalog line to rebuild the catalog now, after a confirmation. The line shows "rebuilding" until the rebuild ends.
+The header keeps its Log out button on a phone. Log out opens a confirmation dialog. Click the catalog line to rebuild the catalog, after a confirmation. The line shows "rebuilding…" until the rebuild ends.
 
 Only 1 rebuild runs at a time. A confirmation of a dangerous action uses a dialog of the dashboard, not a browser dialog.
 

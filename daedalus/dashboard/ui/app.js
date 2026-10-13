@@ -425,7 +425,9 @@ async function guarded(task) {
 }
 
 async function rebuildCatalog() {
-  const go = await ask(t("catalog.action.title"), t("catalog.action.hint"), t("action.rebuild_button"));
+  // The count is the providers in the catalog now: a rebuild reads their model lists again.
+  const providers = new Set(state.models.map((row) => row.provider)).size;
+  const go = await ask(t("catalog.action.title"), t("catalog.action.hint", { count: providers }), t("action.rebuild_button"));
   if (!go) return;
   try {
     await call("catalog", { method: "POST" });
