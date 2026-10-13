@@ -184,9 +184,9 @@ function ask(title, message, confirm = t("action.confirm"), danger = false, plac
   });
 }
 
-// The 2-field modal: a name and its value, for a client key. It resolves true on Confirm,
-// and the caller reads modal-input and modal-input2 after a true.
-function askPair(title, message, nameLabel, valueLabel, name = "", value = "", confirm = t("action.save")) {
+// The 2-field modal: a name and its value. It resolves true on Confirm, and the caller reads
+// modal-input and modal-input2 after a true. A choices list turns the name field into a select.
+function askPair(title, message, nameLabel, valueLabel, name = "", value = "", confirm = t("action.save"), choices = null) {
   return new Promise((resolve) => {
     globalThis.__settle = resolve;
     $("modal-title").textContent = title;
@@ -194,6 +194,14 @@ function askPair(title, message, nameLabel, valueLabel, name = "", value = "", c
     $("modal-field").hidden = false;
     $("modal-field2").hidden = false;
     const nameBox = $("modal-input");
+    const pick = $("modal-select");
+    const picked = Array.isArray(choices);
+    nameBox.hidden = picked;
+    pick.hidden = !picked;
+    if (picked) {
+      pick.innerHTML = choices.map((key) => `<option>${esc(key)}</option>`).join("");
+      pick.setAttribute("aria-label", nameLabel);
+    }
     nameBox.value = name;
     nameBox.placeholder = nameLabel;
     const valueBox = $("modal-input2");
@@ -204,7 +212,7 @@ function askPair(title, message, nameLabel, valueLabel, name = "", value = "", c
     ok.classList.toggle("danger", false);
     $("modal").returnValue = "";
     $("modal").showModal();
-    nameBox.focus?.();
+    (picked ? pick : nameBox).focus?.();
     if (name) nameBox.select?.();
   });
 }
@@ -2252,28 +2260,17 @@ function dropAt(path) {
 
 function showAdder(button) {
   const path = JSON.parse(button.dataset.add);
-  const kind = button.dataset.kind;
   const box = document.createElement("span");
   box.className = "adder";
-  const choices = kind === "column" ? [...state.overrideKeys.filter((key) => !MODEL_ONLY.includes(key)), ...PROVIDER_ONLY].sort() : state.overrideKeys;
-  const keys = choices.map((key) => `<option>${esc(key)}</option>`).join("");
-  const placeholder = {
-    list: t("provider.adder.pattern"),
-    match: t("provider.adder.key_value"),
-    pattern: t("provider.adder.model_pattern"),
-    override: t("provider.adder.value"),
-    column: t("provider.adder.value"),
-  }[kind];
-  const hint = kind === "list" || kind === "pattern" ? PATTERN_HINT : "";
-  box.innerHTML = `${kind === "override" || kind === "column" ? `<select aria-label="${t("provider.key.label")}">${keys}</select>` : ""}
-    <input type="text" spellcheck="false" placeholder="${placeholder}" title="${esc(hint)}">`;
+  box.innerHTML = `<input type="text" spellcheck="false"
+    placeholder="${t("provider.adder.pattern")}" title="${esc(PATTERN_HINT)}">`;
   button.replaceWith(box);
   const input = box.querySelector("input");
   (box.querySelector("select") || input).focus();
   const done = (keep) => {
     const text = input.value.trim();
     if (keep && text) {
-      if (addValue(path, kind, text, box.querySelector("select")?.value)) saveForm();
+      if (addValue(path, kind, text)) saveForm();
     } else renderCard(path[0]);
   };
   box.addEventListener("keydown", (event) => {
@@ -2286,7 +2283,7 @@ function showAdder(button) {
   }));
 }
 
-function addValue(path, kind, text, key) {
+function addValue(path, kind, text) {
   let kept = true;
   clearWrite("providers");
   if (kind === "list") {
@@ -2299,12 +2296,6 @@ function addValue(path, kind, text, key) {
       showWrite("providers", t("provider.pattern.exists", { pattern: text }), true);
       kept = false;
     } else models[text] = {};
-  } else {
-    const [name, value] = kind === "match" ? text.split(/\s*=\s*(.*)/s) : [key, text];
-    if (!name || value === undefined) {
-      showWrite("providers", t("provider.validation.map_value"), true);
-      kept = false;
-    } else parentOf([...path, name], {})[name] = parsed(value);
   }
   renderCard(path[0]);
   return kept;
@@ -3812,23 +3803,40 @@ $("provider-form").addEventListener("click", (event) => {
   const add = event.target.closest("[data-add]");
   if (add) {
     state.writeAnchor = anchorOf(add);
-    if (add.dataset.kind === "match") return addClientKey(add);
-    showAdder(add);
+    if (add.dataset.kind === "list" || add.dataset.kind === "pattern") showAdder(add);
+    else addMatchPair(add);
   }
 });
 
-// The client key adder opens the 2-field modal: the key name and its value.
-async function addClientKey(button) {
+// The pair dialog copy of each map field, so no field borrows the words of another.
+const MATCH_COPY = {
+  client_keys: ["dialog.client_key.title", "dialog.client_key.message", "provider.key_name.label", "provider.provider_key.label"],
+  discovery_match: ["provider.discovery_match.label", "provider.discovery_match.hint", "provider.key.label", "dialog.value"],
+  column: ["provider.provider_values.label", "provider.provider_values.hint", "provider.key.label", "dialog.value"],
+  override: ["provider.model_overrides.label", "dialog.edit_value.message", "provider.key.label", "dialog.value"],
+};
+
+// The key choices of a catalog column map. A provider value does not take the model-only columns.
+function columnChoices(kind) {
+  if (kind === "match") return null;
+  if (kind !== "column") return state.overrideKeys;
+  return [...state.overrideKeys.filter((key) => !MODEL_ONLY.includes(key)), ...PROVIDER_ONLY].sort();
+}
+
+// The adder of a map field opens the pair dialog: the key and its value.
+async function addMatchPair(button) {
   const path = JSON.parse(button.dataset.add);
+  const kind = button.dataset.kind;
   clearWrite("providers");
-  const ok = await askPair(
-    t("dialog.client_key.title"), t("dialog.client_key.message"),
-    t("provider.key_name.label"), t("provider.provider_key.label"),
-  );
+  const copy = MATCH_COPY[kind === "match" ? path[path.length - 1] : kind] ?? MATCH_COPY.client_keys;
+  const ok = await askPair(...copy.map((key) => t(key)), "", "", t("action.save"), columnChoices(kind));
   if (!ok) return;
-  const name = $("modal-input").value.trim();
+  const name = (kind === "match" ? $("modal-input") : $("modal-select")).value.trim();
   const value = $("modal-input2").value.trim();
-  if (!name || !value) return showWrite("providers", t("provider.validation.client_key"), true);
+  if (!name || !value) {
+    const message = kind === "match" ? "provider.validation.client_key" : "provider.validation.map_value";
+    return showWrite("providers", t(message), true);
+  }
   parentOf([...path, name], {})[name] = parsed(value);
   renderCard(path[0]);
   saveForm();

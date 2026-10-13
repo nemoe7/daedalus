@@ -385,7 +385,7 @@ a.more:hover { color: var(--accent); }
 .modal h3 { margin: 0; font-size: 15px; font-weight: 600; }
 .modal p { margin: 0; color: var(--muted); font-size: 13px; }
 .modal-field { display: block; }
-.modal-field input { width: 100%; box-sizing: border-box; }
+.modal-field input, .modal-field select { width: 100%; box-sizing: border-box; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
 /* The modal of 1 model reads as a card: the name with its mark on top, the identity block
    under it, then the icon chips, the stats and the efforts. A row click opens it, on a wide
