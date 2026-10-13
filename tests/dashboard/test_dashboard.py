@@ -422,7 +422,8 @@ sandbox.call = async (path) => {
 (async () => {
   await sandbox.start();
   assert.ok(sources.length === 1, "the page opens the stream");
-  assert.ok(el("requests").innerHTML.includes("No requests"), "the empty row shows 1st");
+  assert.ok(el("requests").innerHTML.includes(sandbox.t("request.empty.none")),
+    "the empty row shows 1st");
   sources[0].fire("start", {
     id: 7, path: "/v1/chat/completions", age: 0, attempt_age: 0, ttft: null,
     app: "OWUI", session: "60e8c22", key: "master", model: "daedalus/auto", effort: "none",
@@ -577,16 +578,19 @@ def test_app_js_type_chips_drop_the_redundant_media_flag() -> None:
   code = _app_js_vm(
     """
 const speech = sandbox.typeChips({ mode: 'audio_speech', flags: ['audio_output'] });
-assert(!speech.includes('title="Audio out"'), speech);
+assert(!speech.includes('title="' + sandbox.t('model.flag.audio_output') + '"'), speech);
 assert(speech.includes('Speech'), speech);
 const transcription = sandbox.typeChips({ mode: 'audio_transcription', flags: ['audio_input'] });
-assert(!transcription.includes('title="Audio in"'), transcription);
+assert(!transcription.includes('title="' + sandbox.t('model.flag.audio_input') + '"'),
+  transcription);
 assert(transcription.includes('Transcription'), transcription);
 const chat = sandbox.typeChips({ mode: 'chat', flags: ['vision', 'audio_input', 'audio_output'] });
-assert(chat.includes('title="Image in"') && chat.includes('title="Audio in"'), chat);
-assert(chat.includes('title="Audio out"'), chat);
+assert(chat.includes('title="' + sandbox.t('model.flag.vision') + '"')
+  && chat.includes('title="' + sandbox.t('model.flag.audio_input') + '"'), chat);
+assert(chat.includes('title="' + sandbox.t('model.flag.audio_output') + '"'), chat);
 const mixed = sandbox.typeChips({ mode: 'audio_speech', flags: ['vision', 'audio_output'] });
-assert(mixed.includes('title="Image in"') && !mixed.includes('title="Audio out"'), mixed);
+assert(mixed.includes('title="' + sandbox.t('model.flag.vision') + '"')
+  && !mixed.includes('title="' + sandbox.t('model.flag.audio_output') + '"'), mixed);
 """
   )
   subprocess.run(["node", "-e", code], check=True)
@@ -662,7 +666,8 @@ probe.renderModels();
 const html = el('models').innerHTML;
 assert(html.includes('</span><span class="types phone-types">'), 'the chips sit outside the clipped name');
 assert(html.includes('>Chat<'), 'the mode chip shows');
-assert(html.includes('title="Image in"'), 'the media chip shows');
+assert(html.includes('title="' + sandbox.t('model.flag.vision') + '"'),
+  'the media chip shows');
 assert(html.includes('<div class="types">'), 'the Type column stays for a desktop');
 assert(html.includes('<span class="cell-value">'), 'the name cell keeps its value span');
 assert(html.includes('class="mark slug"') && html.includes('>p<'), 'a name with no file shows its text');
@@ -696,9 +701,11 @@ modal.close = (value) => {
   done?.(modal.returnValue === 'ok');
 };
 const askPair = sandbox.__probe.askPair;
-const shown = askPair('Client key', 'The key and its value go to the file.', 'name', 'value', 'k', 'v');
+const shown = askPair(sandbox.t('dialog.client_key.title'),
+  'The key and its value go to the file.', 'name', 'value', 'k', 'v');
 assert.strictEqual(typeof shown.then, 'function', 'askPair resolves');
-assert.strictEqual(el('modal-title').textContent, 'Client key', 'the title');
+assert.strictEqual(el('modal-title').textContent, sandbox.t('dialog.client_key.title'),
+  'the title');
 assert.strictEqual(el('modal-field').hidden, false, 'the name field shows');
 assert.strictEqual(el('modal-field2').hidden, false, 'the value field shows');
 assert.strictEqual(el('modal-input').placeholder, 'name', 'the name placeholder');
@@ -841,12 +848,15 @@ def test_app_js_cancelled_status() -> None:
     """
 const cell = sandbox.statusCell;
 const text = sandbox.statusText;
-assert.strictEqual(cell({ cancelled: true }), '<span title="Cancelled">499</span>', 'the code of a closed request');
-assert.strictEqual(cell({ cancelled: false, status: 200 }), '<span title="OK">200</span>', 'a normal code');
-assert.strictEqual(cell({ cancelled: false, status: 429 }), '<span title="Too many requests">429</span>',
-  'a limited request');
-assert.strictEqual(cell({ cancelled: false, status: 'err' }), '<span title="The attempt failed">err</span>',
-  'a failed request');
+const titled = (key, code) => '<span title="' + sandbox.t(key) + '">' + code + '</span>';
+assert.strictEqual(cell({ cancelled: true }), titled('request.status.cancelled', '499'),
+  'the code of a closed request');
+assert.strictEqual(cell({ cancelled: false, status: 200 }), titled('request.status.ok', '200'),
+  'a normal code');
+assert.strictEqual(cell({ cancelled: false, status: 429 }),
+  titled('request.status.rate_limited', '429'), 'a limited request');
+assert.strictEqual(cell({ cancelled: false, status: 'err' }),
+  titled('request.status.failed', 'err'), 'a failed request');
 assert.strictEqual(cell({ cancelled: false, status: 302 }), '302', 'a code without a note stays plain');
 assert.strictEqual(text({ cancelled: true }), 'cancelled', 'the word in the chain text');
 """
@@ -869,18 +879,20 @@ def test_app_js_state_chip() -> None:
   code = _app_js_vm(
     """
 sandbox.setStateKnown(null);
-assert(hosts[0].innerHTML.includes('Loading the state'), hosts[0].innerHTML);
+assert(hosts[0].innerHTML.includes(sandbox.t('state.loading')), hosts[0].innerHTML);
 assert(!hosts[0].innerHTML.includes('chip bad'), 'no alarm before the first answer');
 sandbox.setStateKnown(false);
-assert(hosts[0].innerHTML.includes('State unknown'), hosts[0].innerHTML);
+assert(hosts[0].innerHTML.includes(sandbox.t('state.unknown')), hosts[0].innerHTML);
 assert(hosts[0].innerHTML.includes('chip bad'), hosts[0].innerHTML);
 sandbox.renderStatus({
   healthy: true, sessions: 2, models: 80, version: 'v1',
   catalog: { built: 1, next: 2, rebuilding: false },
 });
 assert.strictEqual(hosts[0].innerHTML, '', 'the good answer clears the header');
-assert(!hosts[0].innerHTML.includes('State unknown'), 'the good answer clears the note');
-assert(!hosts[0].innerHTML.includes('Loading the state'), 'the loading note goes away');
+assert(!hosts[0].innerHTML.includes(sandbox.t('state.unknown')),
+  'the good answer clears the note');
+assert(!hosts[0].innerHTML.includes(sandbox.t('state.loading')),
+  'the loading note goes away');
 assert(byId.get('card-health').innerHTML.includes('Healthy'), 'the card shows the health');
 """
   )
