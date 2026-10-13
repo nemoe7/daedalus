@@ -3812,23 +3812,31 @@ $("provider-form").addEventListener("click", (event) => {
   const add = event.target.closest("[data-add]");
   if (add) {
     state.writeAnchor = anchorOf(add);
-    if (add.dataset.kind === "match") return addClientKey(add);
+    if (add.dataset.kind === "match") return addMapPair(add);
     showAdder(add);
   }
 });
 
-// The client key adder opens the 2-field modal: the key name and its value.
-async function addClientKey(button) {
+// The map adder opens the 2-field modal: a name and its value, named for the map it fills.
+async function addMapPair(button) {
   const path = JSON.parse(button.dataset.add);
   clearWrite("providers");
+  const discovery = path[path.length - 1] === "discovery_match";
   const ok = await askPair(
-    t("dialog.client_key.title"), t("dialog.client_key.message"),
-    t("provider.client_key_placeholder"), t("provider.provider_key_placeholder"),
+    discovery ? t("dialog.discovery_match.title") : t("dialog.client_key.title"),
+    discovery ? t("dialog.discovery_match.message") : t("dialog.client_key.message"),
+    discovery ? t("provider.discovery_property_placeholder") : t("provider.client_key_placeholder"),
+    discovery ? t("provider.discovery_value_placeholder") : t("provider.provider_key_placeholder"),
   );
   if (!ok) return;
   const name = $("modal-input").value.trim();
   const value = $("modal-input2").value.trim();
-  if (!name || !value) return showWrite("providers", t("provider.validation.client_key_text"), true);
+  if (!name || !value) {
+    const message = discovery
+      ? t("provider.validation.discovery_match_text")
+      : t("provider.validation.client_key_text");
+    return showWrite("providers", message, true);
+  }
   parentOf([...path, name], {})[name] = parsed(value);
   renderCard(path[0]);
   saveForm();

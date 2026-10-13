@@ -713,6 +713,17 @@ assert.strictEqual(el('modal-input2').value, 'v', 'the value keeps its value');
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_discovery_match_add_does_not_use_the_client_key_dialog() -> None:
+  """The discovery match adder names a property and its value, not a client key."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  catalog = (root / "daedalus/dashboard/ui/en.js").read_text(encoding="utf-8")
+  assert 't("dialog.discovery_match.title")' in app
+  assert 't("provider.discovery_property_placeholder")' in app
+  assert '"dialog.discovery_match.title": "Discovery match"' in catalog
+  assert '"provider.discovery_property_placeholder": "Property"' in catalog
+
+
 def test_app_js_model_marks() -> None:
   """A model name reads `provider/dev/slug`: a mark for each head, then the model part."""
   code = """
