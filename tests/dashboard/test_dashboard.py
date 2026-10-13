@@ -724,6 +724,18 @@ def test_discovery_match_add_does_not_use_the_client_key_dialog() -> None:
   assert '"provider.discovery_property_placeholder": "Property"' in catalog
 
 
+def test_provider_values_add_opens_a_two_field_modal() -> None:
+  """The provider values adder opens a modal: a select on top, a text field below."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  catalog = (root / "daedalus/dashboard/ui/en.js").read_text(encoding="utf-8")
+  assert '<select id="modal-choice"' in page
+  assert 'if (add.dataset.kind === "column") return addProviderValue(add);' in app
+  assert 't("dialog.provider_value.title")' in app
+  assert '"dialog.provider_value.title": "Provider value"' in catalog
+
+
 def test_app_js_model_marks() -> None:
   """A model name reads `provider/dev/slug`: a mark for each head, then the model part."""
   code = """

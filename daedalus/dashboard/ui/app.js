@@ -171,6 +171,7 @@ function ask(title, message, confirm = t("action.confirm_button"), danger = fals
     $("modal-message").textContent = message;
     $("modal-field").hidden = placeholder === null;
     $("modal-field2").hidden = true;
+    $("modal-choice-field").hidden = true;
     const box = $("modal-input");
     box.value = value;
     box.placeholder = placeholder ?? "";
@@ -184,7 +185,7 @@ function ask(title, message, confirm = t("action.confirm_button"), danger = fals
   });
 }
 
-// The 2-field modal: a name and its value, for a client key. It resolves true on Confirm,
+// The 2-field modal: a name and its value. It resolves true on Confirm,
 // and the caller reads modal-input and modal-input2 after a true.
 function askPair(title, message, nameLabel, valueLabel, name = "", value = "", confirm = t("action.save_button")) {
   return new Promise((resolve) => {
@@ -193,6 +194,7 @@ function askPair(title, message, nameLabel, valueLabel, name = "", value = "", c
     $("modal-message").textContent = message;
     $("modal-field").hidden = false;
     $("modal-field2").hidden = false;
+    $("modal-choice-field").hidden = true;
     const nameBox = $("modal-input");
     nameBox.value = name;
     nameBox.placeholder = nameLabel;
@@ -206,6 +208,30 @@ function askPair(title, message, nameLabel, valueLabel, name = "", value = "", c
     $("modal").showModal();
     nameBox.focus?.();
     if (name) nameBox.select?.();
+  });
+}
+
+// The 2-field modal with a select on top and a text field below. It resolves true on
+// Confirm, and the caller reads modal-choice and modal-input2 after a true.
+function askChoicePair(title, message, choices, placeholder) {
+  return new Promise((resolve) => {
+    globalThis.__settle = resolve;
+    $("modal-title").textContent = title;
+    $("modal-message").textContent = message;
+    $("modal-field").hidden = true;
+    $("modal-field2").hidden = false;
+    $("modal-choice-field").hidden = false;
+    const choice = $("modal-choice");
+    choice.innerHTML = choices.map((key) => `<option value="${esc(key)}">${esc(key)}</option>`).join("");
+    const box = $("modal-input2");
+    box.value = "";
+    box.placeholder = placeholder ?? "";
+    const ok = $("modal-ok");
+    ok.textContent = t("action.save_button");
+    ok.classList.toggle("danger", false);
+    $("modal").returnValue = "";
+    $("modal").showModal();
+    choice.focus?.();
   });
 }
 
@@ -3813,6 +3839,7 @@ $("provider-form").addEventListener("click", (event) => {
   if (add) {
     state.writeAnchor = anchorOf(add);
     if (add.dataset.kind === "match") return addMapPair(add);
+    if (add.dataset.kind === "column") return addProviderValue(add);
     showAdder(add);
   }
 });
@@ -3840,6 +3867,22 @@ async function addMapPair(button) {
   parentOf([...path, name], {})[name] = parsed(value);
   renderCard(path[0]);
   saveForm();
+}
+
+// The provider values adder opens the 2-field modal: a catalog key from the select,
+// and its value in the text field below it.
+async function addProviderValue(button) {
+  const path = JSON.parse(button.dataset.add);
+  clearWrite("providers");
+  const choices = [...state.overrideKeys.filter((key) => !MODEL_ONLY.includes(key)), ...PROVIDER_ONLY].sort();
+  const ok = await askChoicePair(
+    t("dialog.provider_value.title"), t("dialog.provider_value.message"),
+    choices, t("provider.adder.value_placeholder"),
+  );
+  if (!ok) return;
+  const text = $("modal-input2").value.trim();
+  if (!text) return showWrite("providers", t("provider.validation.provider_value_text"), true);
+  if (addValue(path, "column", text, $("modal-choice").value)) saveForm();
 }
 $("provider-form").addEventListener("input", (event) => {
   if (event.target.dataset.set) setText(event.target);
