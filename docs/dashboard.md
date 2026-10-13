@@ -187,8 +187,8 @@ The panel under the form lists the names used by `env:NAME` and `db:NAME` values
 | × on a chip | Deletes the value |
 | **+ Add** | Opens an input. Enter adds the value. Escape stops. |
 | Undo | A back arrow beside the row of the last write. It puts the file text of the moment before that write back. |
-| **+ key** | A key list and a value input. Model overrides also take `pool` and `timeout`. |
-| **+ Pattern** | Adds a pattern row with no overrides |
+| **+ Add key** | A key list and a value input. Model overrides also take `pool` and `timeout`. |
+| **+ Add pattern** | Adds a pattern row with no overrides |
 | Change of a pattern | Renames the pattern. The row keeps its position. |
 | A value row | Opens the small editor. **Save** writes that 1 value, then reloads the configuration. |
 | Ctrl+S | Writes the text of the YAML view, and does nothing in the Form view. |
@@ -264,7 +264,7 @@ wait off screen, and it goes at the end of the list.
 
 ## A failed read
 
-A read that fails shows 1 line at the top of the page, with the message of the server and a **Try again**
+A read that fails shows 1 line at the top of the page, with the message of the server and a **Retry**
 button. A later read that lands hides the line. Each write note, such as the save of a provider file, carries
 `role="status"`, so a screen reader reads it.
 

@@ -1374,7 +1374,7 @@ function renderKeys(rows) {
       <td class="muted">${mobileLabel(t("settings.keys.last_used_column"))}<span class="cell-value">${k.used ? stamp(k.used) : t("settings.keys.used_never_text")}</span></td>
       <td class="end">${actionButton(icon("trash"), {
         variant: "ghost danger",
-        attrs: { "data-key": k.name, "aria-label": t("settings.keys.delete_named_label", { name: k.name }), title: t("action.delete_button") },
+        attrs: { "data-key": k.name, "aria-label": t("settings.keys.delete_named_label", { name: k.name }), title: t("action.remove_button") },
       })}</td>
     </tr>`).join("") : `<tr><td colspan="5" class="empty">${t("settings.keys.empty_text")}</td></tr>`);
   markCardScrollEdges();
@@ -1509,7 +1509,7 @@ function openFile(index) {
 
 // A chip for 1 value. The × button deletes the list item or the map key.
 const pill = (text, path, key) => `<span class="pill">${esc(text)}${actionButton(icon("x"), {
-  attrs: { title: t("action.delete_button"), "data-drop": JSON.stringify([...path, key]) },
+  attrs: { title: t("action.remove_button"), "data-drop": JSON.stringify([...path, key]) },
 })}</span>`;
 
 // The "+ Add" button. A click puts an inline input in its place.
@@ -1543,7 +1543,7 @@ function setListValue(group, key, values) {
   state.settings.lists[`${group}.${key}`] = values;
 }
 const settingPill = (group, key, value, index) => `<span class="pill">${esc(value)}${actionButton(icon("x"), {
-  attrs: { title: t("action.delete_button"), "data-setting-drop": JSON.stringify([group, key, index]) },
+  attrs: { title: t("action.remove_button"), "data-setting-drop": JSON.stringify([group, key, index]) },
 })}</span>`;
 const settingAdder = (group, key) => actionButton(t("action.add_button"), {
   variant: "add", attrs: { "data-setting-add": JSON.stringify([group, key]) },
@@ -1598,7 +1598,7 @@ const hookFormRow = (entry, path, choices) => {
     },
   });
   const drop = actionButton(icon("x"), {
-    attrs: { title: t("action.delete_button"), "data-form-hook-drop": at },
+    attrs: { title: t("action.remove_button"), "data-form-hook-drop": at },
   });
   return `<span class="pill hook"><select data-form-hook-surface='${esc(at)}' aria-label="${t("hook.surface.label")}">${
     HOOK_SURFACES.map(([key, label]) => `<option value="${key}"${key === surface ? " selected" : ""}>${esc(label)}</option>`).join("")
@@ -1773,7 +1773,7 @@ function hooksManager() {
         ${disabled.includes(row.name) ? "" : "checked"} aria-label="${t("hook.state.enabled_named_label", { name: esc(row.name) })}"></td>
       <td class="end">${actionButton(icon("trash"), {
         variant: "ghost danger",
-        attrs: { "data-hook-drop": row.path, "aria-label": t("hook.action.delete_named_label", { name: row.name }), title: t("action.delete_button") },
+        attrs: { "data-hook-drop": row.path, "aria-label": t("hook.action.delete_named_label", { name: row.name }), title: t("action.remove_button") },
       })}</td></tr>`;
   }).join("") || `<tr><td role="cell" colspan="7"><em class="none">${t("hook.empty.file_text")}</em></td></tr>`;
   const scan = state.hooksScan;
