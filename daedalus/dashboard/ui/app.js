@@ -1652,11 +1652,11 @@ const orderedSurfaces = () => HOOK_SURFACES.filter(([surface]) =>
 // what it hooks into, so the card shows the surfaces and holds no control over them.
 function hookSurfacesCell(row) {
   const labels = new Map(HOOK_SURFACES.map(([key, label]) => [key, label]));
+  const hints = new Map(HOOK_SURFACES.map(([key, , , hint]) => [key, hint]));
   const named = new Set(row.runs || []);
   const chips = (row.surfaces || []).map((surface) => {
     const mark = named.has(surface) ? " named" : "";
-    const note = named.has(surface) ? t("hook.state.named") : t("hook.state.not_named");
-    return `<span class="pill ${row.enabled ? "on" : "off"}${mark}" title="${note}">${esc(labels.get(surface) || surface)}</span>`;
+    return `<span class="pill ${row.enabled ? "on" : "off"}${mark}" title="${hints.get(surface) || ""}">${esc(labels.get(surface) || surface)}</span>`;
   }).join("");
   return `<div class="pills">${chips || `<em class="none">${t("hook.empty.surface")}</em>`}</div>`;
 }
