@@ -235,6 +235,7 @@ const nav = {{
 const byId = new Map();
 const el = (id) => {{
   if (!byId.has(id)) byId.set(id, {{ innerHTML: '', textContent: '', addEventListener: () => {{}},
+    setAttribute: () => {{}},
     classList: {{ add: () => {{}}, remove: () => {{}}, toggle: () => {{}} }} }});
   return byId.get(id);
 }};
@@ -704,6 +705,77 @@ assert.strictEqual(el('modal-input').placeholder, 'name', 'the name placeholder'
 assert.strictEqual(el('modal-input2').placeholder, 'value', 'the value placeholder');
 assert.strictEqual(el('modal-input').value, 'k', 'the name keeps its value');
 assert.strictEqual(el('modal-input2').value, 'v', 'the value keeps its value');
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
+def test_app_js_discovery_match_add_names_its_own_field() -> None:
+  """Each `match` field opens the pair dialog with the copy of its own field."""
+  code = _app_js_vm(
+    """
+vm.runInContext('globalThis.__probe.addMatch = addMatchPair', sandbox);
+el('modal').showModal = () => {};
+const open = (field) => {
+  sandbox.__probe.addMatch({ dataset: { add: JSON.stringify(['p', field]), kind: 'match' } });
+  return [el('modal-title').textContent, el('modal-message').textContent,
+    el('modal-input').placeholder, el('modal-input2').placeholder];
+};
+assert.deepStrictEqual(open('discovery_match'), [
+  sandbox.t('provider.discovery_match.label'), sandbox.t('provider.discovery_match.hint'),
+  sandbox.t('provider.key.label'), sandbox.t('dialog.value'),
+], 'the discovery match dialog names its own field');
+assert.deepStrictEqual(open('client_keys'), [
+  sandbox.t('dialog.client_key.title'), sandbox.t('dialog.client_key.message'),
+  sandbox.t('provider.key_name.label'), sandbox.t('provider.provider_key.label'),
+], 'the client key dialog keeps its copy');
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
+def test_app_js_provider_value_add_names_its_own_field() -> None:
+  """The Provider values adder opens the pair dialog with a select of the catalog columns."""
+  code = _app_js_vm(
+    """
+vm.runInContext('globalThis.__probe.addMatch = addMatchPair', sandbox);
+el('modal').showModal = () => {};
+vm.runInContext('state.overrideKeys = ["rpm", "reasoning_effort", "pool"]', sandbox);
+sandbox.__probe.addMatch({ dataset: { add: JSON.stringify(['p']), kind: 'column' } });
+assert.strictEqual(el('modal-title').textContent, sandbox.t('provider.provider_values.label'),
+  'the title');
+assert.strictEqual(el('modal-message').textContent, sandbox.t('provider.provider_values.hint'),
+  'the message');
+assert.strictEqual(el('modal-input').hidden, true, 'the name input hides');
+assert.strictEqual(el('modal-select').hidden, false, 'the select shows');
+const options = el('modal-select').innerHTML.match(/<option>[^<]*<[/]option>/g) || [];
+assert.deepStrictEqual(options, ['<option>hourly_requests</option>',
+  '<option>reasoning_effort</option>', '<option>rpm</option>'],
+  'the select holds the provider columns in order');
+assert.strictEqual(el('modal-input2').placeholder, sandbox.t('dialog.value'), 'the value field');
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
+def test_app_js_model_override_add_names_its_own_field() -> None:
+  """The Model overrides value adder opens the pair dialog with a select of every column."""
+  code = _app_js_vm(
+    """
+vm.runInContext('globalThis.__probe.addMatch = addMatchPair', sandbox);
+el('modal').showModal = () => {};
+vm.runInContext('state.overrideKeys = ["rpm", "pool", "timeout"]', sandbox);
+sandbox.__probe.addMatch({ dataset: {
+  add: JSON.stringify(['p', 'models', 'big*']), kind: 'override',
+} });
+assert.strictEqual(el('modal-title').textContent, sandbox.t('provider.model_overrides.label'),
+  'the title');
+assert.strictEqual(el('modal-message').textContent, sandbox.t('dialog.edit_value.message'),
+  'the message');
+const options = el('modal-select').innerHTML.match(/<option>[^<]*<[/]option>/g) || [];
+assert.deepStrictEqual(options, ['<option>rpm</option>', '<option>pool</option>',
+  '<option>timeout</option>'], 'the select holds every catalog column');
+assert.strictEqual(el('modal-input2').placeholder, sandbox.t('dialog.value'), 'the value field');
 """
   )
   subprocess.run(["node", "-e", code], check=True)
