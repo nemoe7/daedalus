@@ -74,7 +74,7 @@ vm.createContext(sandbox);
 vm.runInContext(fs.readFileSync("{CATALOG.as_posix()}", "utf8"), sandbox);
 vm.runInContext({json.dumps(helper.group(0))}, sandbox);
 const assert = require("assert");
-assert.strictEqual(sandbox.t("nav.overview_link"), "Overview");
+assert.strictEqual(sandbox.t("nav.overview_link"), sandbox.DAEDALUS_LOCALE["nav.overview_link"]);
 assert.strictEqual(sandbox.t("test.missing"), "test.missing");
 sandbox.DAEDALUS_LOCALE["test.template"] = "{{value}} then {{value}} and {{missing}}";
 assert.strictEqual(
@@ -83,7 +83,7 @@ assert.strictEqual(
 );
 assert.strictEqual(
   sandbox.t("request.count.other_text", {{ count: 3 }}),
-  "3 requests",
+  sandbox.DAEDALUS_LOCALE["request.count.other_text"].replace("{{count}}", "3"),
 );
 """
   subprocess.run(["node", "-e", script], check=True)
@@ -119,12 +119,12 @@ vm.createContext(sandbox);
 vm.runInContext(fs.readFileSync("{CATALOG.as_posix()}", "utf8"), sandbox);
 vm.runInContext({locale_script}, sandbox);
 const assert = require("assert");
-assert.strictEqual(text.textContent, "Overview");
+assert.strictEqual(text.textContent, sandbox.DAEDALUS_LOCALE["nav.overview_link"]);
 assert.strictEqual(missing.textContent, "test.missing");
-assert.strictEqual(aria.attributes["aria-label"], "Requests");
-assert.strictEqual(label.attributes.label, "Media");
-assert.strictEqual(placeholder.attributes.placeholder, "Filter by provider or slug");
-assert.strictEqual(title.attributes.title, "Show the password");
+assert.strictEqual(aria.attributes["aria-label"], sandbox.DAEDALUS_LOCALE["nav.requests_link"]);
+assert.strictEqual(label.attributes.label, sandbox.DAEDALUS_LOCALE["model.filter.media_label"]);
+assert.strictEqual(placeholder.attributes.placeholder, sandbox.DAEDALUS_LOCALE["model.filter.placeholder"]);
+assert.strictEqual(title.attributes.title, sandbox.DAEDALUS_LOCALE["auth.password.show_label"]);
 """
   subprocess.run(["node", "-e", script], check=True)
 

@@ -262,6 +262,7 @@ const sandbox = {{
 vm.createContext(sandbox);
 vm.runInContext(src + String.fromCharCode(10) +
   'globalThis.__probe.askPair = typeof askPair === "function" ? askPair : undefined;', sandbox);
+const LOCALE = sandbox.DAEDALUS_LOCALE;
 {extra}
 """
 
@@ -422,7 +423,7 @@ sandbox.call = async (path) => {
 (async () => {
   await sandbox.start();
   assert.ok(sources.length === 1, "the page opens the stream");
-  assert.ok(el("requests").innerHTML.includes("No requests"), "the empty row shows 1st");
+  assert.ok(el("requests").innerHTML.includes(LOCALE["request.empty.none_text"]), "the empty row shows 1st");
   sources[0].fire("start", {
     id: 7, path: "/v1/chat/completions", age: 0, attempt_age: 0, ttft: null,
     app: "OWUI", session: "60e8c22", key: "master", model: "daedalus/auto", effort: "none",
@@ -580,16 +581,18 @@ def test_app_js_type_chips_drop_the_redundant_media_flag() -> None:
   code = _app_js_vm(
     """
 const speech = sandbox.typeChips({ mode: 'audio_speech', flags: ['audio_output'] });
-assert(!speech.includes('title="Audio out"'), speech);
-assert(speech.includes('Speech'), speech);
+assert(!speech.includes('title="' + LOCALE["model.flag.audio_output_label"] + '"'), speech);
+assert(speech.includes(LOCALE["model.mode.audio_speech_label"]), speech);
 const transcription = sandbox.typeChips({ mode: 'audio_transcription', flags: ['audio_input'] });
-assert(!transcription.includes('title="Audio in"'), transcription);
-assert(transcription.includes('Transcription'), transcription);
+assert(!transcription.includes('title="' + LOCALE["model.flag.audio_input_label"] + '"'), transcription);
+assert(transcription.includes(LOCALE["model.mode.audio_transcription_label"]), transcription);
 const chat = sandbox.typeChips({ mode: 'chat', flags: ['vision', 'audio_input', 'audio_output'] });
-assert(chat.includes('title="Image in"') && chat.includes('title="Audio in"'), chat);
-assert(chat.includes('title="Audio out"'), chat);
+assert(chat.includes('title="' + LOCALE["model.flag.vision_label"] + '"')
+  && chat.includes('title="' + LOCALE["model.flag.audio_input_label"] + '"'), chat);
+assert(chat.includes('title="' + LOCALE["model.flag.audio_output_label"] + '"'), chat);
 const mixed = sandbox.typeChips({ mode: 'audio_speech', flags: ['vision', 'audio_output'] });
-assert(mixed.includes('title="Image in"') && !mixed.includes('title="Audio out"'), mixed);
+assert(mixed.includes('title="' + LOCALE["model.flag.vision_label"] + '"')
+  && !mixed.includes('title="' + LOCALE["model.flag.audio_output_label"] + '"'), mixed);
 """
   )
   subprocess.run(["node", "-e", code], check=True)
@@ -604,12 +607,12 @@ sandbox.renderStatus({
   catalog: { built: 1, next: 2, rebuilding: false },
 });
 assert.strictEqual(hosts[0].innerHTML, hosts[1].innerHTML);
-assert(!hosts[0].innerHTML.includes('Healthy'), 'the header drops the health');
+assert(!hosts[0].innerHTML.includes(LOCALE["state.healthy_text"]), 'the header drops the health');
 assert(!hosts[0].innerHTML.includes('chip rebuild'), 'the header drops the catalog chip');
-assert(byId.get('card-health').innerHTML.includes('Healthy'), 'the card shows the health');
+assert(byId.get('card-health').innerHTML.includes(LOCALE["state.healthy_text"]), 'the card shows the health');
 const card = byId.get('card-rows').innerHTML;
-assert(card.includes('Sessions') && card.includes('>2<'), 'the card shows the sessions');
-assert(card.includes('Catalog'), 'the card shows the catalog');
+assert(card.includes(LOCALE["common.sessions_label"]) && card.includes('>2<'), 'the card shows the sessions');
+assert(card.includes(LOCALE["catalog.label"]), 'the card shows the catalog');
 assert(card.includes('class="line rebuild"'), 'the catalog line starts a rebuild');
 """
   )
@@ -654,6 +657,7 @@ const sandbox = {
 };
 vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
+const LOCALE = sandbox.DAEDALUS_LOCALE;
 const assert = require('assert');
 const probe = sandbox.__probe;
 probe.state.models = [{
@@ -664,8 +668,8 @@ probe.state.models = [{
 probe.renderModels();
 const html = el('models').innerHTML;
 assert(html.includes('</span><span class="types phone-types">'), 'the chips sit outside the clipped name');
-assert(html.includes('>Chat<'), 'the mode chip shows');
-assert(html.includes('title="Image in"'), 'the media chip shows');
+assert(html.includes('>' + LOCALE["model.mode.chat_label"] + '<'), 'the mode chip shows');
+assert(html.includes('title="' + LOCALE["model.flag.vision_label"] + '"'), 'the media chip shows');
 assert(html.includes('<div class="types">'), 'the Type column stays for a desktop');
 assert(html.includes('<span class="cell-value">'), 'the name cell keeps its value span');
 assert(html.includes('class="mark slug"') && html.includes('>p<'), 'a name with no file shows its text');
@@ -678,7 +682,8 @@ const phone = el('models').innerHTML;
 assert(phone.includes('class="mark slug"'), 'a phone keeps the provider text');
 assert(phone.includes('<span class="model-part">m</span>'), 'a phone keeps the model part');
     const chipRow = phone.split('class="phone-chips"')[1].split('</td>')[0];
-    assert(chipRow.includes('title="Context"'), 'the context rides as a phone chip');
+    assert(chipRow.includes('title="' + LOCALE["model.column.context_column"] + '"'),
+      'the context rides as a phone chip');
     assert(!chipRow.includes('1.00'), 'the weight chip leaves the chip row');
     assert(phone.includes('1.00'), 'the weight row carries the weight');
 """
@@ -720,8 +725,8 @@ def test_discovery_match_add_does_not_use_the_client_key_dialog() -> None:
   catalog = (root / "daedalus/dashboard/ui/en.js").read_text(encoding="utf-8")
   assert 't("dialog.discovery_match.title")' in app
   assert 't("provider.discovery_property_placeholder")' in app
-  assert '"dialog.discovery_match.title": "Discovery match"' in catalog
-  assert '"provider.discovery_property_placeholder": "Property"' in catalog
+  assert '"dialog.discovery_match.title":' in catalog
+  assert '"provider.discovery_property_placeholder":' in catalog
 
 
 def test_provider_values_add_opens_a_two_field_modal() -> None:
@@ -733,7 +738,7 @@ def test_provider_values_add_opens_a_two_field_modal() -> None:
   assert '<select id="modal-choice"' in page
   assert 'if (add.dataset.kind === "column") return addProviderValue(add);' in app
   assert 't("dialog.provider_value.title")' in app
-  assert '"dialog.provider_value.title": "Provider value"' in catalog
+  assert '"dialog.provider_value.title":' in catalog
 
 
 def test_app_js_model_marks() -> None:
@@ -796,14 +801,16 @@ def test_app_js_cancelled_status() -> None:
     """
 const cell = sandbox.statusCell;
 const text = sandbox.statusText;
-assert.strictEqual(cell({ cancelled: true }), '<span title="Cancelled">499</span>', 'the code of a closed request');
-assert.strictEqual(cell({ cancelled: false, status: 200 }), '<span title="OK">200</span>', 'a normal code');
-assert.strictEqual(cell({ cancelled: false, status: 429 }), '<span title="Too many requests">429</span>',
-  'a limited request');
-assert.strictEqual(cell({ cancelled: false, status: 'err' }), '<span title="The attempt failed">err</span>',
-  'a failed request');
+assert.strictEqual(cell({ cancelled: true }),
+  '<span title="' + LOCALE["request.status.cancelled_text"] + '">499</span>', 'the code of a closed request');
+assert.strictEqual(cell({ cancelled: false, status: 200 }),
+  '<span title="' + LOCALE["request.status.ok_text"] + '">200</span>', 'a normal code');
+assert.strictEqual(cell({ cancelled: false, status: 429 }),
+  '<span title="' + LOCALE["request.status.rate_limited_text"] + '">429</span>', 'a limited request');
+assert.strictEqual(cell({ cancelled: false, status: 'err' }),
+  '<span title="' + LOCALE["request.status.failed_text"] + '">err</span>', 'a failed request');
 assert.strictEqual(cell({ cancelled: false, status: 302 }), '302', 'a code without a note stays plain');
-assert.strictEqual(text({ cancelled: true }), 'cancelled', 'the word in the chain text');
+assert.strictEqual(text({ cancelled: true }), LOCALE["request.state.cancelled_text"], 'the word in the chain text');
 """
   )
   subprocess.run(["node", "-e", code], check=True)
@@ -824,19 +831,19 @@ def test_app_js_state_chip() -> None:
   code = _app_js_vm(
     """
 sandbox.setStateKnown(null);
-assert(hosts[0].innerHTML.includes('Loading the state'), hosts[0].innerHTML);
+assert(hosts[0].innerHTML.includes(LOCALE["state.loading_text"]), hosts[0].innerHTML);
 assert(!hosts[0].innerHTML.includes('chip bad'), 'no alarm before the first answer');
 sandbox.setStateKnown(false);
-assert(hosts[0].innerHTML.includes('State unknown'), hosts[0].innerHTML);
+assert(hosts[0].innerHTML.includes(LOCALE["state.unknown_text"]), hosts[0].innerHTML);
 assert(hosts[0].innerHTML.includes('chip bad'), hosts[0].innerHTML);
 sandbox.renderStatus({
   healthy: true, sessions: 2, models: 80, version: 'v1',
   catalog: { built: 1, next: 2, rebuilding: false },
 });
 assert.strictEqual(hosts[0].innerHTML, '', 'the good answer clears the header');
-assert(!hosts[0].innerHTML.includes('State unknown'), 'the good answer clears the note');
-assert(!hosts[0].innerHTML.includes('Loading the state'), 'the loading note goes away');
-assert(byId.get('card-health').innerHTML.includes('Healthy'), 'the card shows the health');
+assert(!hosts[0].innerHTML.includes(LOCALE["state.unknown_text"]), 'the good answer clears the note');
+assert(!hosts[0].innerHTML.includes(LOCALE["state.loading_text"]), 'the loading note goes away');
+assert(byId.get('card-health').innerHTML.includes(LOCALE["state.healthy_text"]), 'the card shows the health');
 """
   )
   subprocess.run(["node", "-e", code], check=True)
@@ -881,19 +888,6 @@ def test_app_js_request_cards() -> None:
     "request.column.output_column",
     "request.column.ttft_column",
     "request.column.stream_column",
-  ]
-  labels = [
-    "Time",
-    "App",
-    "Session",
-    "Model",
-    "Served by",
-    "Effort",
-    "Status",
-    "Input",
-    "Output",
-    "TTFT",
-    "Stream",
   ]
   row = {
     "at": 100,
@@ -948,6 +942,7 @@ const sandbox = {{
 }};
 vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
+const LOCALE = sandbox.DAEDALUS_LOCALE;
 const assert = require('assert');
 const probe = sandbox.__probe;
 // The pool cards give the tier letter of the `frX` code. The built-in names cover the first paint.
@@ -965,15 +960,23 @@ assert(cells.every((td) => td.includes('role="cell"')), 'each request cell keeps
 assert.strictEqual((html.match(/class="cell-value"/g) || []).length, 11, 'every value cell keeps its value span');
 const mobileLabels = (markup) => [...markup.matchAll(new
   RegExp('<span class="mobile-label" aria-hidden="true">([^<]*)</span>', 'g'))].map((m) => m[1]);
-assert.deepStrictEqual(mobileLabels(html), {json.dumps(labels)}, 'the cells show their column names in table order');
+const columnNames = {json.dumps(keys)}.map((key) => LOCALE[key]);
+const fallbackCount = (count, key) => LOCALE[key].replace("{{count}}", String(count));
+const chainTitle = (count, key) => LOCALE["request.chain.title_with_count_text"]
+  .replace("{{count}}", fallbackCount(count, key));
+const chainView = (count, key) => LOCALE["request.chain.view_with_count_text"]
+  .replace("{{count}}", fallbackCount(count, key));
+assert.deepStrictEqual(mobileLabels(html), columnNames,
+  'the cells show their column names in table order');
 assert(html.includes('hide-sm num mono'), 'the session id reads in the mono font');
 assert(html.includes('class="request has-chain"'), 'requests with fallbacks expose their chain');
-assert(html.includes('View fallback chain · 1 fallback'), 'the chain details disclose the fallback count');
-assert(probe.chainRows({json.dumps(row)}).includes('Fallback chain · 1 fallback'),
+assert(html.includes(chainView(1, "request.chain.fallback.one_text")),
+  'the chain details disclose the fallback count');
+assert(probe.chainRows({json.dumps(row)}).includes(chainTitle(1, "request.chain.fallback.one_text")),
   'the desktop chain details carry the count');
-assert(probe.chainRows({json.dumps({**row, "fallbacks": 3})}).includes('Fallback chain · 3 fallbacks'),
-  'the count keeps its plural');
-assert(!probe.chainRows({json.dumps({**row, "fallbacks": None})}).includes('Fallback chain ·'),
+assert(probe.chainRows({json.dumps({**row, "fallbacks": 3})})
+  .includes(chainTitle(3, "request.chain.fallback.other_text")), 'the count keeps its plural');
+assert(!probe.chainRows({json.dumps({**row, "fallbacks": None})}).includes(LOCALE["request.chain.title"] + ' ·'),
   'a row with no count keeps the plain head');
 // The pool of the auto model rides in the slug, and the daedalus head carries its own mark.
 const autoCell = probe.modelName('daedalus/auto', probe.poolOf({{ model: 'daedalus/auto', pool: 'moros' }}));
@@ -984,8 +987,9 @@ assert(autoCell.includes('ui/icons/daedalus.svg'), 'the daedalus head carries it
 assert.strictEqual(probe.poolOf({{ model: 'p/big', pool: 'daedalus/deinos' }}), '',
   'a direct model keeps its own slug');
 assert.strictEqual(probe.routingCodes({{ routed: 'deinos' }}).includes('fr'), true, 'the fallback tier code stays');
-for (const value of ['View fallback chain', 's1', 'high <span class="from">xhi</span>', 'rate limited', 'frA',
-  'tl3']) assert(html.includes(value), 'the details keep ' + value);
+for (const value of [LOCALE["request.chain.view_text"], 's1',
+  'high <span class="from">xhi</span>', 'rate limited', 'frA', 'tl3'])
+  assert(html.includes(value), 'the details keep ' + value);
 assert(!html.includes('rt2') && !html.includes('tool loop'), 'the frX and tlN codes replace the long forms');
 const mobileSelectors = [];
 const mobileTap = {{ target: {{ closest: (selector) => {{ mobileSelectors.push(selector); return null; }} }} }};
@@ -1007,8 +1011,10 @@ assert.strictEqual(liveCells.length, 12, 'every live column is a cell');
 assert(liveCells.every((td) => td.includes('role="cell"')), 'each live request cell keeps its table role');
 assert.strictEqual((liveHtml.match(/class="cell-value"/g) || []).length, 11,
   'every live value cell keeps its value span');
-assert.deepStrictEqual(mobileLabels(liveHtml), {json.dumps(labels)}, 'live request cells show their column names');
-assert(liveHtml.includes('<span class="mobile-fallback-count">0 fallbacks</span>'),
+assert.deepStrictEqual(mobileLabels(liveHtml), columnNames,
+  'live request cells show their column names');
+assert(liveHtml.includes('<span class="mobile-fallback-count">'
+  + fallbackCount(0, "request.chain.fallback.other_text") + '</span>'),
   'the live row reads the fallback count alone');
 for (const value of ['s2', 'medium', '<span class="model-part">moros</span>']) assert(liveHtml.includes(value),
   'live details keep ' + value);
@@ -1030,7 +1036,7 @@ probe.state.live.set(7, {
 });
 probe.renderLive();
 const html = node('live').innerHTML;
-const servedBy = html.slice(html.indexOf('Served by'));
+const servedBy = html.slice(html.indexOf(LOCALE["request.column.served_by_column"]));
 assert(servedBy.includes('trying'), 'the cell keeps the trying word');
 assert(servedBy.includes('ui/icons/cloudflare.svg'), 'the trying model shows its provider mark');
 assert(servedBy.includes('ui/icons/zai-org.svg'), 'the trying model shows its developer mark');
@@ -1179,13 +1185,22 @@ probe.renderNotifications({
     remaining: 5, limit: 100, share: 0.05 }],
 });
 const html = node('notification-feed').innerHTML;
+const tokensPerMinute = LOCALE["limits.unit.rate_initial_text"]
+  .replace("{unit}", LOCALE["limits.unit.tokens.initial_text"])
+  .replace("{span}", LOCALE["limits.span.minute.initial_text"]);
+const rebuildText = LOCALE["notification.catalog_rebuild_text"]
+  .replace("{reason}", 'scheduled');
 assert(html.includes('groq/model'), 'the warning is its own notification');
 assert(html.includes('5 of 100'), 'the warning keeps its allowance');
-assert(html.includes('groq') && html.includes('TPM'), 'the reset notification shows');
-assert(html.includes('Catalog rebuild') && html.includes('scheduled'), 'the rebuild notification shows');
-assert(html.includes('just now') && html.includes('1 min ago') && html.includes('2 mins ago'),
+assert(html.includes('groq') && html.includes(tokensPerMinute),
+  'the reset notification shows');
+assert(html.includes(rebuildText), 'the rebuild notification shows');
+assert(html.includes(LOCALE["time.just_now_text"])
+  && html.includes(LOCALE["time.minute_ago.one_text"])
+  && html.includes(LOCALE["time.minute_ago.other_text"].replace("{count}", "2")),
   'the feed times are relative');
-assert(html.indexOf('groq/model') < html.indexOf('Catalog rebuild'), 'newest notifications come first');
+assert(html.indexOf('groq/model') < html.indexOf(rebuildText),
+  'newest notifications come first');
 assert(html.includes('data-rebuild="0"'), 'the rebuild notification still opens its diff');
 """,
   )
@@ -1320,17 +1335,17 @@ const entry = 'z-ai/glm-4.7-flash: supports_function_calling 0->1, supports_reas
   + 'max_input_tokens 4096->8192';
 const changed = probe.diffModel(entry);
 assert(changed.includes('ui/icons/z-ai.svg'), 'a changed row keeps the provider mark');
-assert(changed.includes(`class="chip flag">${probe.icon('wrench')} Tools</span>`),
+assert(changed.includes(`class="chip flag">${probe.icon('wrench')} ${LOCALE["model.column.tools_column"]}</span>`),
   'the tools chip keeps its normal color');
-assert(changed.includes(`class="chip flag">${probe.icon('brain')} Reasoning</span>`),
+assert(changed.includes(`class="chip flag">${probe.icon('brain')} ${LOCALE["model.column.reasoning_column"]}</span>`),
   'the reasoning chip keeps its normal color');
-assert(changed.includes('class="chip flag effort e-low">Low</span>'),
+assert(changed.includes('class="chip flag effort e-low">' + LOCALE["model.effort.low_label"] + '</span>'),
   'a removed effort keeps its normal effort color');
-assert(changed.includes('class="chip flag effort e-none">None</span>'),
+assert(changed.includes('class="chip flag effort e-none">' + LOCALE["model.effort.none_label"] + '</span>'),
   'an added effort keeps its normal effort color');
-assert(changed.includes('class="chip flag">Context 4096</span>'),
+assert(changed.includes('class="chip flag">' + LOCALE["model.column.context_column"] + ' 4096</span>'),
   'the old scalar chip keeps its normal color');
-assert(changed.includes('class="chip flag">Context 8192</span>'),
+assert(changed.includes('class="chip flag">' + LOCALE["model.column.context_column"] + ' 8192</span>'),
   'the new scalar chip keeps its normal color');
 assert(!changed.includes('>+') && !changed.includes('>-'), 'field chips carry no diff signs');
 assert(!changed.includes('supported_efforts'), 'the raw field names leave the row');
@@ -1741,22 +1756,28 @@ const sandbox = {
 };
 vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
+const LOCALE = sandbox.DAEDALUS_LOCALE;
 const assert = require('assert');
 const probe = sandbox.__probe;
 const when = new Date(2026, 9, 4, 12, 30, 46);
 assert.strictEqual(probe.stamp(when.getTime() / 1000), '2026-10-04 12:30:46', 'the stamp of an absolute time');
 const now = Math.floor(Date.now() / 1000);
-assert.strictEqual(probe.relative(now - 7200), '2 hours ago');
-assert.strictEqual(probe.relative(now + 7200), 'in 2 hours');
-assert.strictEqual(probe.relative(now - 600), '10 mins ago');
-assert.strictEqual(probe.relative(now + 600), 'in 10 mins');
-assert.strictEqual(probe.relative(now - 10), 'just now');
-assert.strictEqual(probe.relative(now - 3600), '1 hour ago');
-assert.strictEqual(probe.relative(now - 23 * 3600), '23 hours ago', 'hours stop below 1 day');
-assert.strictEqual(probe.relative(now - 24 * 3600), '1 day ago', '1 day is singular');
-assert.strictEqual(probe.relative(now - 2 * 86400), '2 days ago', 'later days are plural');
-assert.strictEqual(probe.relative(now - 29 * 86400), '29 days ago', 'day labels stop below 30 days');
-assert.strictEqual(probe.relative(now - 30 * 86400), 'a long time ago', '30 days uses the old-time label');
+assert.strictEqual(probe.relative(now - 7200), LOCALE["time.hour_ago.other_text"].replace("{count}", "2"));
+assert.strictEqual(probe.relative(now + 7200), LOCALE["time.hour_from_now.other_text"].replace("{count}", "2"));
+assert.strictEqual(probe.relative(now - 600), LOCALE["time.minute_ago.other_text"].replace("{count}", "10"));
+assert.strictEqual(probe.relative(now + 600), LOCALE["time.minute_from_now.other_text"].replace("{count}", "10"));
+assert.strictEqual(probe.relative(now - 10), LOCALE["time.just_now_text"]);
+assert.strictEqual(probe.relative(now - 3600), LOCALE["time.hour_ago.one_text"]);
+assert.strictEqual(probe.relative(now - 23 * 3600),
+  LOCALE["time.hour_ago.other_text"].replace("{count}", "23"), 'hours stop below 1 day');
+assert.strictEqual(probe.relative(now - 24 * 3600), LOCALE["time.day_ago.one_text"],
+  '1 day is singular');
+assert.strictEqual(probe.relative(now - 2 * 86400),
+  LOCALE["time.day_ago.other_text"].replace("{count}", "2"), 'later days are plural');
+assert.strictEqual(probe.relative(now - 29 * 86400),
+  LOCALE["time.day_ago.other_text"].replace("{count}", "29"), 'day labels stop below 30 days');
+assert.strictEqual(probe.relative(now - 30 * 86400), LOCALE["time.long_ago_text"],
+  '30 days uses the old-time label');
 """
   subprocess.run(["node", "-e", code], check=True)
 
@@ -1795,10 +1816,11 @@ const sandbox = {
 };
 vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
+const LOCALE = sandbox.DAEDALUS_LOCALE;
 const assert = require('assert');
 const cell = sandbox.__probe.transitionCell;
 assert.ok(cell({ reason: 'rt2' }).includes('>rt2<'), 'the hook code shows as given');
-assert.ok(cell({ reason: 'rt2' }).includes('A repeat picked another model'), 'the tooltip is generic');
+assert.ok(cell({ reason: 'rt2' }).includes(LOCALE["request.route.repeat_text"]), 'the tooltip is generic');
 assert.ok(cell({ reason: 'lmt' }).includes('>lmt<'), 'another reason keeps its own code');
 assert.strictEqual(cell(null), '', 'no transition, no code');
 """
@@ -1870,17 +1892,28 @@ const sandbox = {{
 }};
 vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
+const LOCALE = sandbox.DAEDALUS_LOCALE;
 const assert = require('assert');
 sandbox.__probe.renderLimits({json.dumps(payload)});
 const html = node('limit-rows').innerHTML;
+const rate = (unit, span) => LOCALE["limits.unit.rate_initial_text"]
+  .replace("{{unit}}", LOCALE[unit]).replace("{{span}}", LOCALE[span]);
+const tokensPerMinute = LOCALE["limits.unit.per_text"]
+  .replace("{{unit}}", LOCALE["limits.unit.tokens_text"])
+  .replace("{{span}}", LOCALE["limits.span.minute.label"]);
 assert(html.includes('<td role="cell" class="name" title="mistral/mistral-embed">'), 'the model cell keeps 1 line');
-assert(html.includes('>TPM</td>'), 'tokens per minute');
-assert(html.includes('>RPM</td>'), 'requests per minute');
-assert(html.includes('>RPD</td>'), 'requests per day');
+assert(html.includes('>' + rate("limits.unit.tokens.initial_text",
+  "limits.span.minute.initial_text") + '</td>'), 'tokens per minute');
+assert(html.includes('>' + rate("limits.unit.requests.initial_text",
+  "limits.span.minute.initial_text") + '</td>'), 'requests per minute');
+assert(html.includes('>' + rate("limits.unit.requests.initial_text",
+  "limits.span.day.initial_text") + '</td>'), 'requests per day');
 assert(html.includes('>requests</td>'), 'a row without a window keeps its kind');
-assert(html.includes('title="Tokens per minute"'), 'the hover text spells the unit out');
-assert(html.includes('title="Requests"'), 'a row without a window gets the kind alone');
-assert(!html.includes('>per '), 'the cell text stays short');
+assert(html.includes('title="' + tokensPerMinute + '"'),
+  'the hover text spells the unit out');
+assert(html.includes('title="' + LOCALE["limits.unit.requests_text"] + '"'),
+  'a row without a window gets the kind alone');
+assert(!html.includes('>' + tokensPerMinute + '</td>'), 'the cell text stays short');
 """
   subprocess.run(["node", "-e", code], check=True)
 
@@ -2159,6 +2192,7 @@ const sandbox = {{
 vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
 const assert = require('assert');
+const LOCALE = sandbox.DAEDALUS_LOCALE;
 const probe = sandbox.__probe;
 {body}
 """
@@ -2316,14 +2350,17 @@ probe.state.settings = {payload};
 probe.renderSettings();
 const html = node('settings').innerHTML;
 assert(!html.includes('id="set-hooks-on-request"'), 'the surface section left the card body');
-assert(html.includes('<th>Surfaces</th>'), 'the table names its surface column');
-assert(html.includes('class="pill on named" title="Named in the settings">On request'), 'the named surface reads on');
-assert(html.includes('class="pill off named" title="Named in the settings">On chunk'), 'the off file reads dim');
-assert(html.includes('<em class="none">No surface</em>'), 'a file that names no surface reads none');
+assert(html.includes('<th>' + LOCALE["hook.column.surfaces_column"] + '</th>'), 'the table names its surface column');
+assert(html.includes('class="pill on named" title="' + LOCALE["hook.state.named_text"]
+  + '">' + LOCALE["hook.surface.request.label"]), 'the named surface reads on');
+assert(html.includes('class="pill off named" title="' + LOCALE["hook.state.named_text"]
+  + '">' + LOCALE["hook.surface.chunk.label"]), 'the off file reads dim');
+assert(html.includes('<em class="none">' + LOCALE["hook.empty.surface_text"] + '</em>'),
+  'a file that names no surface reads none');
 assert(!html.includes('data-hook-surface-pick'), 'nothing adds a surface');
 assert(!html.includes('data-hook-surface-drop'), 'nothing takes a surface off');
 assert(!html.includes('class="menu"'), 'no surface list opens');
-assert(html.includes('>local<'), 'a file with no source reads local');
+assert(html.includes('>' + LOCALE["hook.scope.local_text"] + '<'), 'a file with no source reads local');
 """,
   )
 
@@ -3024,7 +3061,8 @@ assert(html.includes('value="hooks"'), 'the folder shows the saved value');
 assert(html.includes('id="hook-source"') && html.includes('>owner/name/hooks<'), 'the sources show the saved repo');
 assert(html.includes('data-hook-source-add') && html.includes('data-hook-source-drop') &&
   html.includes('data-hooks-update'), 'the source controls');
-assert(html.includes('<th>Author/Title</th>'), 'the table names its author and title column');
+assert(html.includes('<th>' + LOCALE["hook.column.author_title"] + '</th>'),
+  'the table names its author and title column');
 assert(html.includes('One hook'), 'the title of the file shows');
 assert(html.includes('data-hook-toggle="one.py"') && html.includes('data-hook-toggle="bad.py"'), '1 switch per file');
 assert(html.includes('>1.2.0<') && html.includes('provider: openrouter'), 'the version and the scope of a file');
@@ -3790,6 +3828,7 @@ const sandbox = {
 };
 vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
+const LOCALE = sandbox.DAEDALUS_LOCALE;
 const assert = require('assert');
 const probe = sandbox.__probe;
 const now = Math.floor(Date.now() / 1000);
@@ -3810,7 +3849,7 @@ assert.strictEqual(node('request-count').classList.added.filter((n) => n === 'bu
 probe.state.live = new Map([[1, { id: 1 }]]);
 probe.renderRequestTable();
 assert.strictEqual(node('request-count').textContent, '4 requests · 1 in flight', 'the count reads both lists');
-assert(!node('requests').innerHTML.includes('No requests'), 'a live row keeps the empty row away');
+assert(!node('requests').innerHTML.includes(LOCALE["request.empty.none_text"]), 'a live row keeps the empty row away');
 probe.renderRequestTable();
 probe.state.live.clear();
 probe.state.requestSearch = 'kilo';
@@ -3830,7 +3869,7 @@ probe.renderRequestTable();
 assert.strictEqual(rows(), 2, 'the range drops the 2 hour old row');
 probe.state.requestSearch = 'nothing at all';
 probe.renderRequestTable();
-assert(node('requests').innerHTML.includes('No requests match the filter'), 'the empty table names the filter');
+assert(node('requests').innerHTML.includes(LOCALE["request.empty.filter_text"]), 'the empty table names the filter');
 
 assert.strictEqual(probe.requestMatches({ status: 200, at: now }, { live: true }), false,
   'a live row follows the text too');
@@ -3865,6 +3904,7 @@ const sandbox = {
 };
 vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
+const LOCALE = sandbox.DAEDALUS_LOCALE;
 const assert = require('assert');
 const probe = sandbox.__probe;
 const now = Math.floor(Date.now() / 1000);
@@ -3877,12 +3917,17 @@ probe.state.pools = [];
 probe.state.limits = { providers: [], lanes: [{ rows: [{ limit: 100, remaining: 25 }] }] };
 probe.renderOverview();
 const kpis = node('ov-kpis').innerHTML;
+const successText = LOCALE["overview.kpi.success_label"].replace("{requests}",
+  LOCALE["request.count.other_text"].replace("{count}", "7"));
 assert.strictEqual((kpis.match(/class="kpi"/g) || []).length, 4, 'the strip holds 4 numbers');
-assert(kpis.includes('<b>2</b><small>In flight now</small>'), 'the strip counts the live requests');
-assert(kpis.includes('Success of last 7 requests</small>'), 'the strip names the success share');
+assert(kpis.includes('<b>2</b><small>' + LOCALE["overview.kpi.in_flight_label"]
+  + '</small>'), 'the strip counts the live requests');
+assert(kpis.includes(successText + '</small>'), 'the strip names the success share');
 assert(kpis.includes('<b>86%</b>'), '6 answered of 7 reads 86 percent');
-assert(kpis.includes('<b>25%</b><small>Lowest limit left</small>'), 'the strip takes the lowest limit left');
-assert(kpis.includes('<b>3</b><small>Models in the catalog</small>'), 'the strip counts the catalog');
+assert(kpis.includes('<b>25%</b><small>' + LOCALE["overview.kpi.limit_left_label"]
+  + '</small>'), 'the strip takes the lowest limit left');
+assert(kpis.includes('<b>3</b><small>' + LOCALE["overview.kpi.catalog_models_label"]
+  + '</small>'), 'the strip counts the catalog');
 const overviewRequests = node('ov-requests').innerHTML;
 const rows = (overviewRequests.match(/class="line"/g) || []).length;
 assert.strictEqual(rows, 5, 'the request card holds 5 rows, not 10');
@@ -4349,13 +4394,13 @@ const answer = (status, body) => ({ ok: status < 400, status, json: () => Promis
 (async () => {
   sandbox.fetch = () => Promise.resolve(answer(500, {}));
   const bare = await sandbox.__probe.call('catalog').then(() => '', (error) => error.message);
-  assert.strictEqual(bare, 'The server answered HTTP 500 with no message.', bare);
+  assert.strictEqual(bare, LOCALE["error.http_without_message"].replace("{status}", "500"), bare);
   sandbox.fetch = () => Promise.resolve(answer(409, { error: { message: 'The file could not be deleted.' } }));
   const said = await sandbox.__probe.call('hooks/file').then(() => '', (error) => error.message);
   assert.strictEqual(said, 'The file could not be deleted.', said);
   sandbox.fetch = () => Promise.reject(new TypeError('Failed to fetch'));
   const offline = await sandbox.__probe.call('catalog').then(() => '', (error) => error.message);
-  assert.strictEqual(offline, 'The dashboard cannot reach the server.', offline);
+  assert.strictEqual(offline, LOCALE["error.dashboard_unreachable_text"], offline);
 })().catch((error) => { console.error(error); process.exit(1); });
 """
   )
@@ -5178,15 +5223,15 @@ const inputFor = (label) => {
   assert(at > 0, `the ${label} input exists`);
   return html.slice(html.lastIndexOf('<input', at), html.indexOf('>', at) + 1);
 };
-const apiKey = inputFor('API key');
+const apiKey = inputFor(LOCALE["provider.api_key.label"]);
 assert(apiKey.includes('type="text"') && apiKey.includes('readonly'), apiKey);
 assert(apiKey.includes('value="env:CF_TOKEN"'), 'an environment token stays visible');
-assert(apiKey.includes('placeholder="From environment"'), apiKey);
+assert(apiKey.includes('placeholder="' + LOCALE["provider.secret.environment_text"] + '"'), apiKey);
 assert(apiKey.includes("data-set='[&quot;cloudflare&quot;,&quot;api_key&quot;]'"), apiKey);
-const account = inputFor('Account ID');
+const account = inputFor(LOCALE["provider.account_id.label"]);
 assert(account.includes('type="password"') && account.includes('value=""'), account);
 assert(account.includes('placeholder="acct••••"'), 'a database token stays masked');
-const base = inputFor('API base');
+const base = inputFor(LOCALE["provider.api_base.label"]);
 assert(base.includes('type="text"') && base.includes('value="https://custom.example/v1"'), base);
 assert(base.includes('placeholder="https://default.example/v1"'), base);
 assert.strictEqual((html.match(/<input class="text" type="(?:text|password)" readonly/g) || []).length, 5,
@@ -5236,16 +5281,18 @@ assert.strictEqual(probe.cell('<Time>', '<b>trusted</b>', 'num', ' title="exact"
 assert.strictEqual(probe.kpi('<strong>7</strong>', '<models>'),
   '<div class="kpi"><b><strong>7</strong></b><small>&lt;models&gt;</small></div>');
 const at = Date.now() / 1000 - 600;
+const tenMinutesAgo = LOCALE["time.minute_ago.other_text"].replace("{count}", "10");
 assert.strictEqual(probe.timeText(at),
-  `<span title="${probe.stamp(at)}">10 mins ago</span>`);
+  `<span title="${probe.stamp(at)}">${tenMinutesAgo}</span>`);
 assert.strictEqual(probe.timeText(at, { tag: 'time', variant: 'muted' }),
-  `<time class="muted" title="${probe.stamp(at)}">10 mins ago</time>`);
+  `<time class="muted" title="${probe.stamp(at)}">${tenMinutesAgo}</time>`);
 assert.strictEqual(probe.statusBadge('<bad>', { variant: 'bad', title: '<reason & "x">' }),
   '<span class="bad" title="&lt;reason &amp; &quot;x&quot;&gt;">&lt;bad&gt;</span>');
 assert.strictEqual(probe.statusCell({ status: '<bad>' }), '&lt;bad&gt;');
-assert.strictEqual(probe.statusCell({ status: 200 }), '<span title="OK">200</span>');
-assert.strictEqual(probe.yesNo(true), '<span class="yes">Yes</span>');
-assert.strictEqual(probe.yesNo(false), '<span class="muted">No</span>');
+assert.strictEqual(probe.statusCell({ status: 200 }),
+  '<span title="' + LOCALE["request.status.ok_text"] + '">200</span>');
+assert.strictEqual(probe.yesNo(true), '<span class="yes">' + LOCALE["common.boolean.yes_text"] + '</span>');
+assert.strictEqual(probe.yesNo(false), '<span class="muted">' + LOCALE["common.boolean.no_text"] + '</span>');
 const meter = probe.progressMeter(0.25);
 assert(meter.includes('class="track"') && meter.includes('class="fill"'), meter);
 assert(meter.includes('width:25%') && meter.includes('var(--orange) 50%'), meter);
