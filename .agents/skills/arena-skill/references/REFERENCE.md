@@ -1,6 +1,6 @@
 # Preview transport: commands and recovery
 
-Use `scripts/preview.py` relative to the actual installed `arena-skill` skill. The state directory uses `ARENA_PREVIEW_STATE_DIR` when set, and repository `arena-state` otherwise. Keep the same ignored, persisted directory across CLI calls and server restarts. The installed wrapper finds the repository from its own path, so every CLI call works from any working directory and needs no `cd`.
+Run every command as the bare `arena-preview`; the script under the installed `arena-skill` skill is `scripts/preview.py`. The state directory uses `ARENA_PREVIEW_STATE_DIR` when set, and repository `arena-state` otherwise. Keep the same ignored, persisted directory across CLI calls and server restarts. The installed wrapper finds the repository from its own path, so every CLI call works from any working directory and needs no `cd`.
 
 ## Commands
 
@@ -13,6 +13,9 @@ Use `scripts/preview.py` relative to the actual installed `arena-skill` skill. T
 | `key` | Print the recorded agent key, host and stamp; needs no server, and a later session recovers the key after acknowledging the quiet note |
 | `poll` | Wait for a pending inbox item before ending a turn; return at once with the task list for an unblocked upcoming task, and at once when the owner pressed Skip poll in the page. It prints a retry disclaimer at the start that names the 1800-second span. The shell `timeout` command must not wrap it; give the bash tool's timeout 1800 instead |
 | `route <name> -- <command>` | The gate's helper for a detected long run, and the call a failed start names: it starts the command detached under a name and records its tail and exit, so the verdict prints on a later call as `run <name> done: exit N`, with one status line per call while it runs |
+| `logs <name>` | Print a routed run's status and its recorded output tail; it works while the run lives and after its verdict |
+| `worktree start --gate <gate-name> [--allow <glob>] <name> <destination>` | Create a detached task worktree outside the root while the named root gate runs |
+| `worktree collect <name>` | Print the allowed detached-worktree patch after a green root gate |
 | `ack <id> --reply <markdown>` | Answer one delivered ID with a rendered reply; single-quote the text, because a backtick inside double quotes runs as a shell command |
 | `ack <id> --note <text>` | Answer one delivered ID with one plain line; quote it the same way |
 | `ack <id> --reply-file <path>` | Read the rendered reply from a file, so no shell quoting touches a backtick; `--note-file` reads the plain line the same way. The gate warns when an inline ack text holds a backtick inside double quotes |
@@ -20,12 +23,21 @@ Use `scripts/preview.py` relative to the actual installed `arena-skill` skill. T
 | `task ID TITLE [DETAIL ...]` | Add or update a task; every task carries at least one detail, and reject a write that leaves none; one task holds one job, so several jobs mean several tasks rather than one task with many details; `--msg-id` is optional and only a note-born or report-born task carries it; `--blocked` or `--unblocked` sets the blocked mark |
 | `task-remove ID` | Remove a task entered by mistake |
 | `import-state [FILE]` | Import copied NDJSON or JSON notes, tasks and report answers from a file or stdin in one transaction; it replaces the live notes, answers, reports and tasks unless `--merge` keeps them; `--replace-tasks` replaces only tasks |
+| `download-request <url>` | Queue one pending file download for the owner to approve in Downloads; `--allow-proxy` permits the two proxies |
 | `publish <source.md> --id <id> --title <title>` | Publish or update a rendered report |
 | `unpublish <id>` | Remove a report from the tab; its answers and source survive. It refuses while the owner has an unseen answer ack, or within the minute after the owner's last look. A held call answers `409` |
+| `stale-reports` | List stale published report IDs and reasons without changing state |
 | `rename <id> <new-id>` | Rename one stored note, report answer, report or task in place, so its answers, order and stamps survive |
 | `clear-state` | Empty every state table in place; preserve the agent key, refresh the save file to match, and keep a running server's page token |
 
-Use complete IDs in CLI calls; cite their first six characters in prose. `read` does not acknowledge an item. Supply one of `--reply` or `--note` to `ack`; use separate calls for different answers. A repeated `ack` on an ID appends one more reply block and keeps the earlier ones. The same on a submission ID appends reply blocks to its receipt. An unknown ID fails the whole receipt batch. Answer later submissions under their own IDs. If the preview is unavailable, use `ACK:` in chat for delivered notes.
+- Use complete IDs in CLI calls; cite their first six characters in prose.
+- `read` does not acknowledge an item.
+- Supply one of `--reply` or `--note` to `ack`; use separate calls for different answers.
+- A repeated `ack` on an ID appends one more reply block and keeps the earlier ones.
+- The same on a submission ID appends reply blocks to its receipt.
+- An unknown ID fails the whole receipt batch.
+- Answer later submissions under their own IDs.
+- If the preview is unavailable, use `ACK:` in chat for delivered notes.
 
 Refer to a note in prose by the first six characters of its ID. Use the full ID in CLI calls. Check a note reference against the ID returned by `read` before sending it.
 
@@ -33,11 +45,32 @@ When an acknowledgement refers to a report or task, use `ack --reply` and put it
 
 ## External channel (ntfy)
 
-Use this only after the owner selects the external channel. The owner supplies a topic `<repo>-<branch>-<8-char unguessable secret>` (sanitize the branch) and posts notes to its URL. At each steering read, use page-fetch on `https://ntfy.sh/<topic>/json?poll=1&since=<marker>`. Start with `since=all`. Then use the newest `event:"message"` ID as the marker in `<state-dir>/ntfy-since.txt`; ignore `open` and `keepalive` events. An empty response, or a first 500 with no message body on a new topic, is quiet until the owner posts. For other JSON failures, try the HTML topic page, then a `since=all` replay. Read error bodies: retry an upstream error once. If it repeats, tell the owner the error and a fresh topic URL, then read that topic with `since=all`. If the new topic repeats the error, stop for this turn and retry after the owner's next message. Report a repeated 500 on an established topic once and retry at the next read. Do not use sandbox HTTP to poll ntfy.
+- Use this only after the owner selects the external channel.
+- The owner supplies a topic `<repo>-<branch>-<8-char unguessable secret>` (sanitize the branch) and posts notes to its URL.
+- At each steering read, use page-fetch on `https://ntfy.sh/<topic>/json?poll=1&since=<marker>`.
+- Start with `since=all`.
+- Then use the newest `event:"message"` ID as the marker in `<state-dir>/ntfy-since.txt`; ignore `open` and `keepalive` events.
+- An empty response, or a first 500 with no message body on a new topic, is quiet until the owner posts.
+- For other JSON failures, try the HTML topic page, then a `since=all` replay.
+- Read error bodies: retry an upstream error once.
+- If it repeats, tell the owner the error and a fresh topic URL, then read that topic with `since=all`.
+- If the new topic repeats the error, stop for this turn and retry after the owner's next message.
+- Report a repeated 500 on an established topic once and retry at the next read.
+- Do not use sandbox HTTP to poll ntfy.
 
 ## Read cadence
 
-Read the inbox when a Bash call reports a pending note, answer or upload count on stderr, before the next work step; that reminder is the schedule. NEVER wait for the Bash gate to block before a read. When ending a turn or a report form awaits answers, run `poll`. ALWAYS run `poll` on the bash call that ends the turn, chained or not. NEVER set or export `_arena_preview_platform`; repair a blocked gate, NEVER bypass it. A blocking-only call needs its read after return. Initial discovery may precede the first read; startup MUST. A blocked call that runs `tail`, `head` or `grep` hears which commands to drop. A call that spells the preview path hears the bare `arena-preview` form once a shell. A call that reads code-scanning alerts or workflow run logs hears the proxy route once a shell. A call the gate detects as a long run hears on stderr that the run continues detached, with one status line per later call and the verdict once at the end. A blocked push says that an ack clears it.
+- Read the inbox when a Bash call reports a pending note, answer or upload count on stderr, before the next work step; that reminder is the schedule.
+- NEVER wait for the Bash gate to block before a read.
+- When ending a turn or a report form awaits answers, run `poll`.
+- NEVER set or export `_arena_preview_platform`; repair a blocked gate, NEVER bypass it.
+- A blocking-only call needs its read after return.
+- Initial discovery may precede the first read; startup MUST.
+- A blocked call that runs `tail`, `head` or `grep` hears which commands to drop.
+- A call that spells the preview path hears the bare `arena-preview` form once a shell.
+- A call that reads code-scanning alerts or workflow run logs hears the proxy route once a shell.
+- A call the gate detects as a long run hears on stderr that the run continues detached, with one status line per later call and the verdict once at the end.
+- A blocked push says that an ack clears it.
 
 The page's Message log toolbar carries a Skip poll button. A listing that carries a `skip_poll` stamp reports it: the poll that finds it consumes it, prints `SKIP: owner pressed Skip poll. End the turn, no second poll.` on stdout, and the turn ends there. Never poll again after a skip. While a detached run has no exit, the press waits: the poll runs its span, the stamp stays armed, and the run's finish breaks the wait first.
 
@@ -48,11 +81,12 @@ The profile gate and the EXIT hook beside it hold one case per shape below. Ever
 | Case | Trigger | Answer |
 | --- | --- | --- |
 | `shell-shape` | a caller that is not `bash`, `sh`, `dash`, `ksh` or `zsh` | pass, so a hosted process keeps its shell |
+| `shell-line` | every gated shell | the command line is read once per shell, so a command costs no read |
 | `platform-shell` | the platform's probe or its own hosted process | pass, and mark the shell once |
 | `task-reminder` | `git commit`, `git push` or `gh pr checks` | the task-list notice once per shell, then the line runs |
 | `main-moved` | `git commit` or `git push` while the branch trails `origin/main` | the rebase notice once per shell, then the line runs |
 | `route-marker` | a shell the gate started itself (`ARENA_PREVIEW_ROUTE=1`) | pass, so a detached run never matches its own family |
-| `long-run` | `gh pr checks`, `gh run watch`, or a test runner head (`pytest`, `node --test`, `npm test`, `make test`, `go test`, `cargo test` and the rest) | the call ends clean and the run continues, or `exit 130` when the start fails |
+| `long-run` | `gh pr checks`, `gh run watch`, or a test runner head (`pytest`, `node --test`, `npm test`, `make test`, `go test`, `cargo test` and the rest) | the call ends clean and the run continues, or `exit 130` when the start fails. Any run of 10 seconds or more is a long run too, and MUST use `route` |
 | `bare-path` | a line that spells out the installed `preview.py` or `arena-preview` | the bare-call notice once per shell, then the line runs |
 | `proxy-route` | a read of code-scanning alerts or workflow run logs | the proxy notice once per shell, then the line runs |
 | `ack-ticks` | an `ack` whose inline text holds a backtick inside double quotes | the warning lands before the call runs |
@@ -86,18 +120,28 @@ A task linked with `--report` stays blocked until the owner answers that report.
 
 ## Publish reports
 
-A report source is UTF-8 `.md`, at most 2,000,000 bytes. IDs have 1–80 letters, digits, hyphens or underscores; titles have 1–200 characters. Source edits do not update a published report: call `publish` again. A report that has answers refuses republishing under the same ID; publish its update under a new ID. Delete a report the owner no longer needs with `unpublish <id>`; its sent answers and its `.md` source under the state directory stay. An unseen answer ack holds the removal, and the agent's own call waits the minute after the owner's last look at the report. The page's own press passes that window, because the click is the owner's decision. Verify the rendered report before telling the owner it is available. An image renders from its URL. `![alt](src =320x200)` sets its size, and `=320x` scales the height. If an update rejects an answer, ask the owner to preserve the draft, reload and review the current report.
+- A report source is UTF-8 `.md`, at most 2,000,000 bytes.
+- Report IDs have 1–80 letters, digits, hyphens or underscores; titles have 1–200 characters.
+- Source edits do not update a published report: call `publish` again.
+- A report that has answers refuses republishing under the same ID; publish its update under a new ID.
+- Delete a report the owner no longer needs with `unpublish <id>`; its sent answers and its `.md` source under the state directory stay.
+- An unseen answer ack holds the removal, and the agent's own call waits the minute after the owner's last look at the report.
+- The page's own press passes that window, because the click is the owner's decision.
+- Verify the rendered report before telling the owner it is available.
+- An image renders from its URL.
+- `![alt](src =320x200)` sets its size, and `=320x` scales the height.
+- If an update rejects an answer, ask the owner to preserve the draft, reload and review the current report.
 
 ## Report fields
 
 | Markdown marker | Control |
 | --- | --- |
-| `- ( ) option` (`- (x)` to preselect) | One radio choice |
+| `- ( ) option` (`- (x)` to preselect) | One radio choice; the preselect is the marked recommended answer |
 | `- [ ] option` (`- [x]` to preselect) | Checkbox choices |
 | `- ( ) Label: ___` or `- [ ] Label: ___` inside a group | A labeled free-text choice |
 | `Label: ___` or bare `___` | A text answer |
 
-Write an option group's custom slot inside the group, as `- ( ) custom: ___`. The nearest non-empty line before a group is its prompt; a labeled blank supplies its own prompt. Append `{#my-id}` to a prompt to keep the field ID stable. Markers inside fenced code blocks remain text. Limit a report to 50 fields, each prompt to 500 characters, and each group to 1–20 unique options of at most 200 characters. Fix invalid fields before publication. Each submission has its own pending ID; acknowledge every new answer, not just an earlier submission.
+Write an option group's custom slot inside the group, as `- ( ) custom: ___`. The nearest non-empty line before a group is its prompt; a labeled blank supplies its own prompt. Append `{#my-id}` to a prompt to keep the field ID stable. Markers inside fenced code blocks remain text. The server caps a report's fields, prompts and options, and an over-limit value fails with an error the agent reads then. Fix invalid fields before publication. Each submission has its own pending ID; acknowledge every new answer, not just an earlier submission.
 
 Give each group its own prompt, so every answer maps to its question:
 

@@ -157,8 +157,13 @@ _arena_preview_gate() {
   # Never gate Arena probes or bookkeeping shells. An exit from either can report a dead preview or sandbox while the server runs.
   # Mark such a shell once from its command line and leave the rest of it alone.
   case "\${_arena_preview_platform:-}" in 1) return 0 ;; esac
+  # The shell command line never changes, so one read per shell serves every command.
+  # case: shell-line
+  case "\${_arena_preview_line:-}" in
+    "") _arena_preview_line="\$(tr '\\0' ' ' < /proc/\$\$/cmdline 2>/dev/null)" ;;
+  esac
   # case: platform-shell
-  case "\$(tr '\\0' ' ' < /proc/\$\$/cmdline 2>/dev/null)" in
+  case "\$_arena_preview_line" in
     *arena-workspace*|*"ss -ltn"*|*"netstat -ltn"*|*"source ~/.profile"*|*"mkdir -p '/home/user'"*)
       _arena_preview_platform=1
       return 0
@@ -200,7 +205,6 @@ _arena_preview_gate() {
       fi
       ;;
   esac
-  _arena_preview_line="\$(tr '\\0' ' ' < /proc/\$\$/cmdline 2>/dev/null)"
   # A detached route runs its own line. Its marker prevents the gate from matching its family twice.
   # case: route-marker
   case "\${ARENA_PREVIEW_ROUTE:-}" in 1) return 0 ;; esac

@@ -29,13 +29,15 @@ Use this guide and its Markdown references for instructions. Do not read shipped
    arena-preview serve --port 8000
    ```
 
-   After a sandbox restart, rerun the installer and reuse the same state directory. If the server dies, warn the owner before restarting. If another service owns the port, choose a free one without stopping it. The gate warns when a serve names another port.
-
-- When multiple queued tasks each edit files, ALWAYS start the root gate after task scope.
-- While that gate runs, ALWAYS use `arena-preview worktree start` before unrelated file-editing work; a lone file-editing task needs no worktree; declare nonoverlapping paths first.
-- NEVER start a gate, commit or push in the detached worktree; only collect its diff after the root gate passes, then validate it on the root.
+   After a sandbox restart, rerun the installer and reuse the same state directory. If the server dies, warn the owner before restarting. If another service owns the port, choose a free one without stopping it. The gate warns when a serve names another port. Read a routed run's recorded tail with `arena-preview logs <name>`.
 
 4. Name the preview in chat. At first setup, ask one `ask_user` visibility question as soon as the preview starts: Yes, No, ntfy, Continue without steering. Block non-setup work until the answer. Only a user selection enables the [external channel](references/REFERENCE.md#external-channel-ntfy); never switch silently. Keep the preview inbox running; the first `read` follows the answer. Do not claim visibility before confirmation. If it stays hidden, ask how to continue with `ask_user`. Reuse a visible preview after confirmation. Keep ARENA.md's activation acknowledgement when applicable.
+
+## Gate and worktrees
+
+- When several queued tasks each edit files, declare each task's paths, then start the root gate before that file work.
+- While that gate runs, ALWAYS use `arena-preview worktree start` before unrelated file-editing work; a queued file task with non-overlapping paths works in that worktree and never waits read-only.
+- NEVER start a gate, commit or push in the detached worktree; only collect its diff after the root gate passes, then validate it on the root.
 
 ## Read, acknowledge, and track work
 
@@ -44,9 +46,26 @@ arena-preview read
 arena-preview poll
 ```
 
-When a Bash call's stderr names a pending count, `read` now. It prints full pending notes and report answers; a failed or missing inbox is an error, not an empty inbox. `read` marks only fully delivered IDs Seen, not acknowledged, and stamps the parent report read by the agent. Do not mark count-only, truncated, or failed deliveries Seen. A pending item repeats until acknowledged. The hook checks counts after Arena bash calls; end the turn's last tool block with a bash call. When ending a turn or a report form awaits answers, run `poll`. A `skip_poll` stamp means the owner pressed Skip poll in the page: the poll consumes it and the turn ends there, with no note and no second poll. A note that starts `RE: <id>` also shows its stored parent notes before the reply. A parent that is still pending shows once.
+- When a Bash call's stderr names a pending count, `read` now.
+- It prints full pending notes and report answers; a failed or missing inbox is an error, not an empty inbox.
+- Do not mark count-only, truncated, or failed deliveries Seen.
+- A pending item repeats until acknowledged.
+- The hook checks counts after Arena bash calls; end the turn's last tool block with a bash call.
+- A `skip_poll` stamp means the owner pressed Skip poll in the page: the poll consumes it and the turn ends there, with no note and no second poll.
+- A note that starts `RE: <id>` also shows its stored parent notes before the reply.
+- A parent that is still pending shows once.
 
-Acknowledge each delivered ID with its own answer where the owner reads it. Use `--reply <Markdown>` for a rendered answer, or `--note <text>` for one plain line. A text that carries a backtick rides `--reply-file` or `--note-file`: the shell runs a backtick inside double quotes as a command, so the ticks never reach the tool. Single-quote the text when it stays inline. The gate warns when an inline ack text carries that backtick. Never blindly acknowledge all items or give different notes one shared answer. Use the full ID, not a sequence number. A second ack adds a reply without replacing the earlier answer. Receipt is not completion. Failure to ack immediately earns a negative rating. After each `ack` of a note that asks for work, record it with `task <id> ... --msg-id <full-id>`; `ack` prints this reminder.
+- Acknowledge each delivered ID with its own answer where the owner reads it.
+- Use `--reply <Markdown>` for a rendered answer, or `--note <text>` for one plain line.
+- A text that carries a backtick rides `--reply-file` or `--note-file`: the shell runs a backtick inside double quotes as a command, so the ticks never reach the tool.
+- Single-quote the text when it stays inline.
+- The gate warns when an inline ack text carries that backtick.
+- Never blindly acknowledge all items or give different notes one shared answer.
+- Use the full ID, not a sequence number.
+- A second ack adds a reply without replacing the earlier answer.
+- Receipt is not completion.
+- Failure to ack immediately earns a negative rating.
+- After each `ack` of a note that asks for work, record it with `task <id> ... --msg-id <full-id>`; `ack` prints this reminder.
 
 ```bash
 arena-preview ack <id> --reply 'a reply with `backticks`'
@@ -58,19 +77,24 @@ ALWAYS report every workaround or bypass found during Arena skill work through a
 
 ALWAYS report every dead end found during Arena skill work to the owner as an upstream bug to fix.
 
-Run `task-list` at turn start. Before implementation, record approved work with `task <kebab-title-id> "<title>" [details ...]`, put the current item first with `--order 1`, and update its status (`upcoming` or `finished`, no other value) and details as work changes; in every ack, put the task ID in backticks so the log links it. For a task from a note or report answer, use `--msg-id <full-message-id>`; queue and acknowledge it in the same tool block. The task marker does not replace `ack`. Mark a task `--status finished` only after verification. For a task that waits on a report, add `--report <report-id>`; the owner's answer clears its blocked mark, and until then the task sorts first in its group.
+- Run `task-list` at turn start.
+- Before implementation, record approved work with `task <kebab-title-id> "<title>" [details ...]`, put the current item first with `--order 1`, and update its status (`upcoming` or `finished`, no other value) and details as work changes; in every ack, put the task ID in backticks so the log links it.
+- For a task from a note or report answer, use `--msg-id <full-message-id>`; queue and acknowledge it in the same tool block.
+- The task marker does not replace `ack`.
+- Mark a task `--status finished` only after verification.
+- For a task that waits on a report, add `--report <report-id>`; the owner's answer clears its blocked mark, and until then the task sorts first in its group.
 
 When a task creates a commit, MUST add its landed subject and short hash to task details.
 
 ## Publish reports and forms
 
-Short answers stay in chat. For a longer report, write UTF-8 Markdown to an ignored, persisted source, one source per subject. Report actual findings, changes, checks, limits and decisions. Publish in Reports; verify its `/api/state` entry and rendered `/api/reports/<id>/html` result.
+Report carriage always goes through this skill: a short answer goes in the `ack` reply; a long answer or a question goes in a fielded report. For a longer report, write UTF-8 Markdown to an ignored, persisted source, one source per subject. Report actual findings, changes, checks, limits and decisions. Publish in Reports; verify its `/api/state` entry and rendered `/api/reports/<id>/html` result.
 
 ```bash
 arena-preview publish <source.md> --id <id> --title <title>
 ```
 
-Republish the same ID after each source update; if answers exist, use a new ID. Remove a stale one with `unpublish <id>`; its answers and source survive for a new ID. Do not use Mermaid, raw HTML or remote report assets. [Field syntax and limits](references/REFERENCE.md#report-fields) apply when you write answerable reports. Write an option set's custom slot inside the group, as `- ( ) custom: ___`.
+Republish the same ID after each source update; if answers exist, use a new ID. List stale ones with `stale-reports`; remove one with `unpublish <id>`; its answers and source survive for a new ID. Do not use Mermaid, raw HTML or remote report assets. [Field syntax and limits](references/REFERENCE.md#report-fields) apply when you write answerable reports. Write an option set's custom slot inside the group, as `- ( ) custom: ___`.
 
 `read` lists report submissions as `kind: report`. Acknowledge each submission ID separately, including newer answers to an already answered form. Publishing a report never acknowledges a submission.
 
@@ -144,7 +168,7 @@ The `path` value stays relative to `api.github.com` and carries no scheme. The b
 | gzip and base64 | `gzip=1` | logs, JSON, HTML and text-shaped bytes, below plain base64 |
 | staged chunks | `stage=1`, then `id` and `index` | anything large, and every staged read |
 
-- A staged request answers `id`, `bytes`, `chunks` and a 49,152-byte chunk size. Read each with `index`, decode it and append until the `chunks` count ends; an out-of-range index answers 404 with the count.
+- A staged request answers `id`, `bytes`, `chunks` and the chunk size. Read each with `index`, decode it and append until the `chunks` count ends; a bad index fails with the tool's own error.
 - Staged bytes expire after an hour, and a refused target answers 400. Stage only what the session needs.
 - Reassembly: `printf %s "<payload>" | base64 -d >> file.bin`, plus `| gunzip` for a gzip payload. Prefer a text extraction, a smaller range or a summary over a large binary.
 
