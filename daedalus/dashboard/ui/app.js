@@ -1088,6 +1088,8 @@ const ICON_PATHS = {
   chevron_up: '<path d="m18 15-6-6-6 6" />',
   chevron_down: '<path d="m6 9 6 6 6-6" />',
   trash: '<path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />',
+  refresh_cw: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /> <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /> <path d="M8 16H3v5" />',
+  download: '<path d="M12 15V3" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /> <path d="m7 10 5 5 5-5" />',
 };
 function icon(name) {
   return `<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON_PATHS[name]}</svg>`;
@@ -1781,13 +1783,13 @@ function hooksManager() {
       <span class="sub">${t("hook.scan.at_text", { source: esc(sourceLabel(scan)), commit: esc((scan.commit || "").slice(0, 7)) })}</span>${scan.files
     .map((file) => `<label class="pill"><input type="checkbox" data-hook-take="${esc(file.name)}"
       ${scan.take[file.name] ? "checked" : ""}>${esc(file.name)}${file.version ? ` ${esc(file.version)}` : ""}</label>`).join("")}
-      ${actionButton(t("action.take_files_button"), {
+      ${actionButton(`${icon("download")} ${t("action.take_files_button")}`, {
         variant: "primary", attrs: { "data-hook-take-all": true },
       })}</div>` : "";
   return `${field(t("settings.hooks.installed.label"), t("settings.hooks.installed.hint"), `
       <div class="card-scroll"><table class="keys"><thead><tr><th>${t("hook.column.author_title")}</th><th>${t("hook.column.version_column")}</th><th>${t("hook.column.surfaces_column")}</th><th>${t("hook.column.scopes_column")}</th><th class="hide-sm">${t("hook.column.source_column")}</th><th>${t("hook.column.enabled_column")}</th><th></th></tr></thead>
       <tbody>${list}</tbody></table></div>
-      ${actionButton(t("action.update_sources_button"), {
+      ${actionButton(`${icon("refresh_cw")} ${t("action.update_sources_button")}`, {
         variant: "ghost", attrs: { "data-hooks-update": true },
       })}`)}
     <div class="field stack info" id="hooks-order">${hookOrderRows()}</div>
@@ -3246,7 +3248,9 @@ function renderNotifications(data) {
   body += line(t("update.checked_text"), update ? stamp(update.at) : "-");
   draw(
     "update-card",
-    body + actionButton(t("action.check_now_button"), { variant: "ghost", attrs: { id: "update-check" } })
+    body + actionButton(`${icon("refresh_cw")} ${t("action.check_now_button")}`, {
+      variant: "ghost", attrs: { id: "update-check" },
+    })
   );
 }
 
@@ -3364,7 +3368,7 @@ $("update-card").addEventListener("click", async (event) => {
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin();
     button.disabled = false;
-    button.textContent = t("action.check_now_button");
+    button.innerHTML = `${icon("refresh_cw")} ${t("action.check_now_button")}`;
   }
 });
 $("show-password").addEventListener("click", () => showPassword($("login").password.type === "password"));

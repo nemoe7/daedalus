@@ -1173,7 +1173,7 @@ def test_limit_events_and_rebuilds_share_a_relative_notification_feed() -> None:
   assert 'id="reset-rows"' not in section and 'id="rebuild-rows"' not in section
   assert 'id="limit-warnings-card"' not in section
   run_app_js(
-    "renderNotifications",
+    "renderNotifications, icon",
     """
 const now = Math.floor(Date.now() / 1000);
 probe.renderNotifications({
@@ -1202,6 +1202,9 @@ assert(html.includes(LOCALE["time.just_now_text"])
 assert(html.indexOf('groq/model') < html.indexOf(rebuildText),
   'newest notifications come first');
 assert(html.includes('data-rebuild="0"'), 'the rebuild notification still opens its diff');
+const card = node('update-card').innerHTML;
+assert(card.includes(probe.icon('refresh_cw') + ' ' + LOCALE['action.check_now_button']),
+  'the update card check button leads with the refresh glyph');
 """,
   )
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -2984,6 +2987,7 @@ def test_app_js_hooks_section() -> None:
     "data-hooks-update",
     "data-hook-take",
     "data-hook-take-all",
+    '${icon("download")} ${t("action.take_files_button")}',
     'ask(t("dialog.source.title")',
     "hooks/scan",
     'listValue("hooks", "sources")',
@@ -3051,7 +3055,7 @@ def test_app_js_hooks_manager_renders() -> None:
     }
   )
   run_app_js(
-    "state, renderSettings, settingsChanges, setListValue",
+    "state, renderSettings, settingsChanges, setListValue, icon",
     f"""
 probe.state.settings = {payload};
 probe.renderSettings();
@@ -3061,6 +3065,8 @@ assert(html.includes('value="hooks"'), 'the folder shows the saved value');
 assert(html.includes('id="hook-source"') && html.includes('>owner/name/hooks<'), 'the sources show the saved repo');
 assert(html.includes('data-hook-source-add') && html.includes('data-hook-source-drop') &&
   html.includes('data-hooks-update'), 'the source controls');
+assert(html.includes(probe.icon('refresh_cw') + ' ' + LOCALE['action.update_sources_button']),
+  'the update button leads with the refresh glyph');
 assert(html.includes('<th>' + LOCALE["hook.column.author_title"] + '</th>'),
   'the table names its author and title column');
 assert(html.includes('One hook'), 'the title of the file shows');
@@ -3096,6 +3102,8 @@ for (const name of names) {
 }
 assert(probe.ICON_PATHS.wrench.includes('M14.7 6.3'), 'the lucide wrench path');
 assert(probe.ICON_PATHS.brain.includes('M12 18V5'), 'the lucide brain path');
+assert(probe.ICON_PATHS.refresh_cw.includes('M3 12a9 9'), 'the lucide refresh path');
+assert(probe.ICON_PATHS.download.includes('M12 15V3'), 'the lucide download path');
 """,
   )
   app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -4047,7 +4055,10 @@ def test_card_tables_own_horizontal_overflow_and_fade_only_clipped_edges() -> No
   ), "the API Keys table scrolls without masking its form or reveal controls"
   assert keys.index('<form class="toolbar"') < keys.index('<div class="card-scroll">')
   table_end = hooks.index("</table></div>")
-  update = hooks.index('actionButton(t("action.update_sources_button")', table_end)
+  update = hooks.index(
+    'actionButton(`${icon("refresh_cw")} ${t("action.update_sources_button")}`',
+    table_end,
+  )
   assert (
     update > table_end and '"data-hooks-update": true' in hooks[update : update + 200]
   ), "the Hooks table scrolls without masking its Update control"
@@ -4444,6 +4455,13 @@ def test_the_limits_filter_rides_in_the_hash() -> None:
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   assert 'id="limits-search"' in page and 'id="limits-clear"' in page, page
+  check = page.split('id="limits-check"')[1].split("</button>")[0]
+  assert '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />' in check, (
+    "the check button draws the lucide refresh glyph"
+  )
+  assert '<span data-i18n="action.check_now_button">' in check, (
+    "the word stays for a screen reader, and the locale fill keeps the glyph"
+  )
   assert 'id="request-clear"' in page, "the Requests bar holds a Clear filters button"
   assert (
     'if (asked === "limits" && query !== undefined) applyLimitFilters(query);' in app
@@ -5120,6 +5138,22 @@ def test_update_check_now(client: TestClient) -> None:
     assert data["latest"] == "v9.9.9" and data["update"] is True
     assert updates.read()["latest"] == "v9.9.9"
   client.cookies.clear()
+
+
+def test_a_failed_update_check_keeps_the_glyph_and_the_word() -> None:
+  """The update card button comes back with its glyph and its word when the check fails."""
+  run_app_js(
+    "icon",
+    """
+const button = node('update-check');
+button.closest = () => button;
+node('update-card').handlers.click[0]({ target: button }).then(() => {
+  assert(button.disabled === false, 'the button is live again');
+  assert(button.innerHTML.includes(probe.icon('refresh_cw')), 'the glyph returns');
+  assert(button.innerHTML.includes(LOCALE['action.check_now_button']), 'the word returns');
+});
+""",
+  )
 
 
 def test_hook_table_columns() -> None:
