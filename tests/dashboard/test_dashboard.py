@@ -68,8 +68,10 @@ def test_page(client: TestClient) -> None:
   assert 'href="ui/style.css?v=' in page.text, "the style link has a content hash"
   assert (
     '<th scope="col" class="hide-sm" role="columnheader"'
-    ' title="The chat session that picked the model">Session</th>' in page.text
-  ), "the Requests session column"
+    ' title="request.column.session.hint"'
+    ' data-i18n-title="request.column.session.hint"'
+    ' data-i18n="request.column.session">request.column.session</th>' in page.text
+  ), "the localized Requests session column"
   assert '<div class="card legend" id="requests-legend">' in page.text, (
     "the code legend is a card of its own beside the table"
   )
@@ -95,8 +97,17 @@ def test_page(client: TestClient) -> None:
   assert 'name="remember" type="checkbox" checked' in page.text, "remember me starts on"
   script = client.get("/ui/app.js")
   assert script.status_code == 200 and "javascript" in script.headers["content-type"]
-  for reason in ("ctx", "hlt", "lmt", "err", "rnd", "cls", "esc"):
-    assert f'  {reason}: "' in script.text, reason
+  reasons = {
+    "ctx": "context",
+    "hlt": "health",
+    "lmt": "limit",
+    "err": "failure",
+    "rnd": "random",
+    "cls": "classifier",
+    "esc": "escalation",
+  }
+  for reason, key in reasons.items():
+    assert f'  {reason}: t("request.route.{key}")' in script.text, reason
   assert "const REPEAT_CODE = " in script.text, "the repeat code family"
   assert 'title="${esc(label)}"' in script.text, "reason codes have hover labels"
   assert (
@@ -104,18 +115,30 @@ def test_page(client: TestClient) -> None:
     in script.text
   )
   assert (
-    'await ask("Log out", "The dashboard session ends.", "Log out")' in script.text
+    'await ask(t("action.logout"), t("auth.logout.message"), t("action.logout"))'
+    in script.text
   ), "a logout asks first, in the modal"
   assert "shortEffort(sentText(a, r.effort))" in script.text
-  assert '["change_on_draw", "Change pin on draw"' in script.text
-  assert '["optimization", "Optimization"' in script.text, (
+  assert '["change_on_draw", t("settings.affinity.change_on_draw.label")' in script.text
+  assert '["optimization", t("settings.optimization.title")' in script.text, (
     "the Optimization card is in Settings"
   )
-  assert '["enabled", "Headroom on"' in script.text, "the Headroom switch is a checkbox"
-  assert '["limits", "Limits"' in script.text, "the loop thresholds are in Settings"
-  assert '["privacy", "Privacy"' in script.text, "the header switch is in Settings"
-  assert '["forward_owui_chat_id", "Forward OWUI chat ID"' in script.text
-  assert '["routing", "Routing"' in script.text, "the Routing card is in Settings"
+  assert '["enabled", t("settings.optimization.enabled.label")' in script.text, (
+    "the Headroom switch is a checkbox"
+  )
+  assert '["limits", t("settings.limits.title")' in script.text, (
+    "the loop thresholds are in Settings"
+  )
+  assert '["privacy", t("settings.privacy.title")' in script.text, (
+    "the header switch is in Settings"
+  )
+  assert (
+    '["forward_owui_chat_id", t("settings.privacy.forward_chat_id.label")'
+    in script.text
+  )
+  assert '["routing", t("settings.routing.title")' in script.text, (
+    "the Routing card is in Settings"
+  )
   assert client.get("/ui/style.css").status_code == 200
   assert script.headers["cache-control"] == "no-cache", "an update applies at once"
   assert client.get("/ui/index.html").status_code == 404, "listed assets only"
@@ -142,7 +165,8 @@ def test_app_js_split_requests() -> None:
   """The dashboard script splits requests with multiple answers and formats transition codes."""
   code = """
 const fs = require('fs');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8');
+const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
+  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8');
 const vm = require('vm');
 const sandbox = {
   TRANSITION_REASONS: { err: 'Previous upstream attempt failed', lmt: 'Rate limit' },
@@ -198,7 +222,8 @@ def _app_js_vm(extra: str) -> str:
 const fs = require('fs');
 const vm = require('vm');
 const assert = require('assert');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8');
+const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
+  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8');
 const hosts = [{{ innerHTML: '' }}, {{ innerHTML: '' }}];
 const classes = new Set();
 const nav = {{
@@ -474,12 +499,18 @@ def test_requests_reads_model_served_effort() -> None:
   """The Requests table reads Model, Served by, Effort, in the head and in both row kinds."""
   root = Path(__file__).resolve().parent.parent.parent
   html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
-  assert html.index(">Served by</th>") < html.index(">Effort</th>")
+  assert html.index('data-i18n="request.column.served_by"') < html.index(
+    'data-i18n="request.column.effort"'
+  )
   js = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   rows = js[js.index("function renderRequests") : js.index("function renderTiers")]
-  assert rows.index('"Served by")') < rows.index('cell("Effort"')
+  assert rows.index('t("request.column.served_by")') < rows.index(
+    'cell(t("request.column.effort")'
+  )
   live = js[js.index("function renderLive") : js.index("function tickLive")]
-  assert live.index('"Served by")') < live.index('cell("Effort"')
+  assert live.index('t("request.column.served_by")') < live.index(
+    'cell(t("request.column.effort")'
+  )
 
 
 def test_the_requests_table_keeps_the_app_and_the_session() -> None:
@@ -500,12 +531,12 @@ def test_requests_stream_column_survives_narrow_desktops() -> None:
   """The Stream column hides on phones only, so a desktop table keeps its stream time."""
   root = Path(__file__).resolve().parent.parent.parent
   html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
-  head = html.split('title="The stream time after the first token"', 1)[0].rsplit(
+  head = html.split('data-i18n-title="request.column.stream.hint"', 1)[0].rsplit(
     "<th", 1
   )[1]
   assert 'class="hide-sm"' in head, head
   js = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert js.count('cell("Stream", streamCell(r), "hide-sm num")') == 1
+  assert js.count('cell(t("request.column.stream"), streamCell(r), "hide-sm num")') == 1
   assert "hide-md" not in js, "no width band drops the stream column"
 
 
@@ -586,7 +617,8 @@ def test_app_js_model_rows_keep_the_type_on_a_phone() -> None:
   code = """
 const fs = require('fs');
 const vm = require('vm');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
+const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
+  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
   + String.fromCharCode(10) + 'globalThis.__probe = { state, renderModels, $ };'
 const byId = new Map();
 const el = (id) => {
@@ -682,7 +714,8 @@ def test_app_js_model_marks() -> None:
   code = """
 const fs = require('fs');
 const vm = require('vm');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
+const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
+  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
   + String.fromCharCode(10) + 'globalThis.__probe = { modelName, MARK_FILES };';
 const byId = new Map();
 const el = (id) => {
@@ -802,16 +835,39 @@ def test_app_js_request_cards() -> None:
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/index.html"
   ).read_text(encoding="utf-8")
   header = re.search(
-    r'<table class="requests" aria-label="Requests" role="table">.*?<thead[^>]*>(.*?)</thead>',
+    r'<table class="requests" aria-label="nav.requests"[^>]*>.*?'
+    r"<thead[^>]*>(.*?)</thead>",
     page,
     re.DOTALL,
   )
-  assert header, "the Requests table header"
-  labels = [
-    re.sub(r"<[^>]+>", "", text).strip()
-    for text in re.findall(r"<th[^>]*>(.*?)</th>", header.group(1))
+  assert header, "the localized Requests table header"
+  keys = re.findall(r'data-i18n="([^"]+)"', header.group(1))
+  assert keys == [
+    "request.column.time",
+    "request.column.app",
+    "request.column.session",
+    "request.column.model",
+    "request.column.served_by",
+    "request.column.effort",
+    "request.column.status",
+    "request.column.input",
+    "request.column.output",
+    "request.column.ttft",
+    "request.column.stream",
   ]
-  assert len(labels) == 11, labels
+  labels = [
+    "Time",
+    "App",
+    "Session",
+    "Model",
+    "Served by",
+    "Effort",
+    "Status",
+    "Input",
+    "Output",
+    "TTFT",
+    "Stream",
+  ]
   row = {
     "at": 100,
     "app": "OWUI",
@@ -838,7 +894,8 @@ def test_app_js_request_cards() -> None:
   code = f"""
 const fs = require('fs');
 const vm = require('vm');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') +
+const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
+  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') +
   "\\nglobalThis.__probe = {{ renderRequests, renderLive," +
   " poolTier, state, modelName, poolOf, routingCodes, chainRows }};";
 const nodes = new Map();
@@ -962,7 +1019,8 @@ def test_app_js_live_clocks_wait_for_the_first_token() -> None:
   code = """
 const fs = require('fs');
 const vm = require('vm');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { tickLive, state };";
+const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
+  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { tickLive, state };";
 const nodes = new Map();
 const node = (id) => {
   if (!nodes.has(id)) nodes.set(id, { innerHTML: '', children: [], listeners: {}, classList: { add: () => {},
@@ -1077,7 +1135,8 @@ def test_limit_events_and_rebuilds_share_a_relative_notification_feed() -> None:
     "</section>", 1
   )[0]
   assert 'id="notification-feed"' in section
-  assert 'aria-label="Notifications"' in section
+  assert 'aria-label="nav.notifications"' in section
+  assert 'data-i18n-aria-label="nav.notifications"' in section
   assert 'id="reset-rows"' not in section and 'id="rebuild-rows"' not in section
   assert 'id="limit-warnings-card"' not in section
   run_app_js(
@@ -1332,37 +1391,35 @@ def test_the_short_values_carry_their_full_text() -> None:
   root = Path(__file__).resolve().parent.parent.parent
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   head = page.split('<table class="requests"', 1)[1].split("</thead>", 1)[0]
-  assert head.count('title="') == 11, "each Requests head carries a hover text"
-  for note in (
-    "When the request started",
-    "The client app, from its request headers",
-    "The chat session that picked the model",
-    "The model asked for; the pool rides in the slug of an auto route",
-    "The reasoning effort asked of the model",
-    "The model that answered, after any fallback",
-    "The status; 499 marks a request the client closed",
-    "Input tokens. ~ marks an estimate.",
-    "Output tokens from the provider",
-    "Time to the first token",
-    "The stream time after the first token",
+  assert head.count(' title="') == 11, "each Requests head carries a hover text"
+  for key in (
+    "time",
+    "app",
+    "session",
+    "model",
+    "effort",
+    "served_by",
+    "status",
+    "input",
+    "output",
+    "ttft",
+    "stream",
   ):
-    assert f'title="{note}"' in head, note
+    assert f'title="request.column.{key}.hint"' in head, key
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert 'title="${m.max_input_tokens.toLocaleString()} tokens"' in app, (
-    "the context count"
-  )
+  assert (
+    't("model.tokens.title", { count: m.max_input_tokens.toLocaleString() })' in app
+  ), "the context count"
   assert 'title="${esc(m.tier)}"' in app, "the tier name"
   assert (
-    "The largest context of a pool model, ${pool.context.toLocaleString()} tokens"
-    in app
+    't("model.context.pool_hint", { count: pool.context.toLocaleString() })' in app
   ), "the pool context count"
-  assert 'title="Only the start of a saved key is kept"' in app, "the key start"
+  assert 'title="${t("settings.keys.only_start")}"' in app, "the key start"
+  for key in ("ok", "rate_limited", "upstream_error", "failed"):
+    assert f't("request.status.{key}")' in app, key
   assert (
-    'const STATUS_NOTES = { 200: "OK", 429: "Too many requests", 500: "Upstream error", err: "The attempt failed" };'
+    't("limits.value.of", { remaining: r.remaining.toLocaleString(), limit: r.limit.toLocaleString() })'
     in app
-  ), "the status meanings"
-  assert (
-    'title="${r.remaining.toLocaleString()} of ${r.limit.toLocaleString()}"' in app
   ), "the exact rate-limit counts"
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   assert (
@@ -1389,18 +1446,19 @@ def test_the_parallel_race_reads_on_the_page() -> None:
   app = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/app.js"
   ).read_text(encoding="utf-8")
-  assert 'rce: "A racing model took the pin"' in app, "the race code"
+  assert 'rce: t("request.route.race")' in app, "the race code"
   assert 'code !== "rce" || raceOn()' in app, "its legend row waits for the setting"
-  assert 'a.race === "won"' in app and '<span class="from">won race</span>' in app, (
+  assert 'a.race === "won"' in app and 't("request.chain.won_race")' in app, (
     "the winning step carries the mark"
   )
-  assert "affinity?.mode" in app and 'line("Affinity"' in app, (
+  assert "affinity?.mode" in app and 'line(t("common.affinity")' in app, (
     "the status card shows the applied affinity mode"
   )
   assert (
     "RACE_NOTES" in app and 'class="chain-race"' in app and "raceCode" not in app
   ), "the race decision reads inside the fallback chain, not in the model cell"
-  assert 'slow: "slow pin"' in app and 'drawn: "on draw"' in app, (
+  assert 'slow: t("request.race.slow.label")' in app
+  assert 'drawn: t("request.race.drawn.label")' in app, (
     "the chain note reads as the short label"
   )
 
@@ -1557,7 +1615,8 @@ def test_app_js_modal() -> None:
   code = """
 const fs = require('fs');
 const vm = require('vm');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { ask, state };";
+const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
+  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { ask, state };";
 const nodes = new Map();
 const node = (id) => {
   if (!nodes.has(id)) nodes.set(id, { innerHTML: '', textContent: '', value: '', hidden: false, returnValue: '',
@@ -1628,11 +1687,12 @@ def test_app_js_time_stamps() -> None:
   assert "shortTime(" not in source and "dateTime(" not in source, (
     "one helper stamps each time"
   )
-  assert "&middot; Next" in source, "the catalog label reads Next"
+  assert 't("catalog.next"' in source, "the catalog label reads its Next key"
   code = """
 const fs = require('fs');
 const vm = require('vm');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { stamp, relative };";
+const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
+  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { stamp, relative };";
 const nodes = new Map();
 const node = (id) => {
   if (!nodes.has(id)) nodes.set(id, { innerHTML: '', textContent: '', value: '', hidden: false, returnValue: '',
@@ -1685,7 +1745,8 @@ def test_app_js_retry_code() -> None:
   code = """
 const fs = require('fs');
 const vm = require('vm');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { transitionCell };";
+const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
+  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { transitionCell };";
 const nodes = new Map();
 const node = (id) => {
   if (!nodes.has(id)) nodes.set(id, { innerHTML: '', textContent: '', value: '', hidden: false, returnValue: '',
@@ -1757,7 +1818,8 @@ def test_app_js_limit_units() -> None:
   code = f"""
 const fs = require('fs');
 const vm = require('vm');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js',
+const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
+  fs.readFileSync('daedalus/dashboard/ui/app.js',
   'utf8') + "\\nglobalThis.__probe = {{ renderLimits, state }};";
 const nodes = new Map();
 const node = (id) => {{
@@ -1817,7 +1879,7 @@ def test_the_overview_pool_rows_draw_the_marks_of_the_top_model() -> None:
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   row = re.search(
     r'draw\("ov-models", state\.pools\.map\(\(pool\) => \{.*?'
-    r'top \? modelName\(top\.id\) : "no models"',
+    r'top \? modelName\(top\.id\) : t\("model\.empty\.pool"\)',
     app,
     re.DOTALL,
   )
@@ -1886,10 +1948,8 @@ def test_the_live_switch_reads_blue_live_and_gray_paused() -> None:
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
-  assert (
-    '? `Paused${state.liveWaiting.size ? ` · ${state.liveWaiting.size} new` : ""}`'
-    in app
-  )
+  assert 't("request.live.paused_new", { count: state.liveWaiting.size })' in app
+  assert 't("request.live.paused")' in app
   assert "Live: paused" not in app, "the label is just Paused"
   assert (
     '.live-toggle[aria-pressed="false"] { border-color: var(--accent); color: var(--accent); }'
@@ -1950,12 +2010,14 @@ def test_the_settings_sections_carry_a_rule() -> None:
     "the rule follows the row order, not the tag"
   )
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert '["balance", "Load Distribution", [' in app, (
-    "the group reads as Load Distribution"
+  assert '["balance", t("settings.balance.title"), [' in app, (
+    "the group reads from the Load Distribution key"
   )
-  assert "<h3>API Keys</h3>" in app, "the keys card is title case"
-  assert '[["keys", "API Keys"], ["yaml", "YAML"]]' in app, (
-    "the keys section is title case"
+  assert '<h3>${t("settings.keys.title")}</h3>' in app, (
+    "the keys card reads its title key"
+  )
+  assert '["keys", t("settings.keys.title")], ["yaml", t("yaml.label")]' in app, (
+    "the keys section reads its title keys"
   )
 
 
@@ -2021,7 +2083,8 @@ def run_app_js(probe: str, body: str) -> None:
   code = f"""
 const fs = require('fs');
 const vm = require('vm');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{{probe}}};";
+const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
+  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = {{{probe}}};";
 const nodes = new Map();
 const node = (id) => {{
   if (!nodes.has(id)) {{
@@ -2354,7 +2417,9 @@ def test_hook_chip_matches_the_keyword_chips() -> None:
   markup = re.search(r"const hookFormRow = .*?\n};", app, re.DOTALL)
   assert markup, "the hook row builds 1 chip"
   assert 'class="pill hook"' in markup.group(0), "the row rides in a chip"
-  assert 'title: "Pick a hook file"' in markup.group(0), "the chip names its picker"
+  assert 'title: t("hook.action.pick_file")' in markup.group(0), (
+    "the chip names its picker"
+  )
   assert 'role="listbox"' in markup.group(0), "the list names its role"
   assert 'role: "option"' in app and '"aria-selected":' in app, (
     "each choice is an option"
@@ -2487,7 +2552,9 @@ def test_mode_conventions() -> None:
   app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   html = Path("daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   for mode in sorted({"chat", *base.OUTPUT_MODES.values()}):
-    assert re.search(rf"\b{mode}: \"", app), f"{mode} has no label"
+    assert re.search(rf'\b{mode}: t\("model\.mode\.{mode}"\)', app), (
+      f"{mode} has no localized label"
+    )
     assert f'value="{mode}"' in html, f"{mode} has no Type filter option"
 
 
@@ -2845,7 +2912,7 @@ def test_app_js_hooks_section() -> None:
     "data-hooks-update",
     "data-hook-take",
     "data-hook-take-all",
-    'ask("Add a source"',
+    'ask(t("dialog.source.title")',
     "hooks/scan",
     'listValue("hooks", "sources")',
     'listValue("hooks", "disabled")',
@@ -2959,12 +3026,12 @@ assert(probe.ICON_PATHS.brain.includes('M12 18V5'), 'the lucide brain path');
 """,
   )
   app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert 'title="Tools">${icon(CHIP_ICON_NAMES.tools)}' in app, (
+  assert 'title="${t("model.column.tools")}">${icon(CHIP_ICON_NAMES.tools)}' in app, (
     "the wrench draws in the tools chip"
   )
-  assert 'title="Reasoning">${icon(CHIP_ICON_NAMES.brain)}' in app, (
-    "the brain draws in the reasoning chip"
-  )
+  assert (
+    'title="${t("model.column.reasoning")}">${icon(CHIP_ICON_NAMES.brain)}' in app
+  ), "the brain draws in the reasoning chip"
 
 
 def test_app_js_hook_fit() -> None:
@@ -3667,7 +3734,8 @@ def test_app_js_requests_toolbar_narrows_the_table() -> None:
   code = """
 const fs = require('fs');
 const vm = require('vm');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
+const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
+  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
   + "\\nglobalThis.__probe = { state, renderRequestTable, requestMatches };\\n";
 const nodes = new Map();
 const node = (id) => {
@@ -3741,7 +3809,8 @@ def test_app_js_overview_leads_with_4_numbers() -> None:
   code = """
 const fs = require('fs');
 const vm = require('vm');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
+const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
+  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
   + "\\nglobalThis.__probe = { state, renderOverview, stamp };\\n";
 const nodes = new Map();
 const node = (id) => {
@@ -3897,7 +3966,7 @@ def test_card_tables_own_horizontal_overflow_and_fade_only_clipped_edges() -> No
   ), "the API Keys table scrolls without masking its form or reveal controls"
   assert keys.index('<form class="toolbar"') < keys.index('<div class="card-scroll">')
   table_end = hooks.index("</table></div>")
-  update = hooks.index('actionButton("Update from the sources"', table_end)
+  update = hooks.index('actionButton(t("action.update_sources")', table_end)
   assert (
     update > table_end and '"data-hooks-update": true' in hooks[update : update + 200]
   ), "the Hooks table scrolls without masking its Update control"
@@ -4057,7 +4126,8 @@ def test_app_js_fit_section_pane_spares_the_page_padding() -> None:
   code = """
 const fs = require('fs');
 const vm = require('vm');
-const src = fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { fitSectionPane };";
+const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
+  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { fitSectionPane };";
 const pane = {
   offsetParent: {}, style: {}, scrollTop: 0, clientHeight: 200, scrollHeight: 600,
   classList: { toggle: () => {} }, getBoundingClientRect: () => ({ top: 128 }),
@@ -4392,10 +4462,16 @@ def test_the_phone_model_cards_carry_the_desktop_columns() -> None:
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   chips = app.split("function phoneChips(m) {", 1)[1].split("\n}", 1)[0]
   assert 'nameCell(m.id, modelName(m.id), "",' in app, "the card drops the Model label"
-  assert 'title="Context"' in chips, "the context column rides as a chip"
-  assert 'title="Reasoning"' in chips, "the reasoning column rides as a chip"
-  assert 'title="Weight"' not in chips, "the weight row carries the weight alone"
-  assert ">Tier " in chips and ">Order " in chips, "the ambiguous chips carry labels"
+  assert 'title="${t("model.column.context")}"' in chips, (
+    "the context column rides as a chip"
+  )
+  assert 'title="${t("model.column.reasoning")}"' in chips, (
+    "the reasoning column rides as a chip"
+  )
+  assert "model.column.weight" not in chips, "the weight row carries the weight alone"
+  assert 't("model.mobile.tier"' in chips and 't("model.mobile.order"' in chips, (
+    "the ambiguous chips carry localized labels"
+  )
   assert "brain:" in app, "the reasoning chip is a brain"
 
 
@@ -4628,9 +4704,10 @@ def test_the_notice_leaves_on_its_own_keyframes() -> None:
   ), "the leave keeps the page tokens of the arrival"
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   close = re.search(r'<button[^>]*id="notice-close"[^>]*>', page)
-  assert close and 'aria-label="Dismiss the notice"' in close.group(0), (
-    "the x reads as a dismiss for a screen reader"
+  assert close and 'aria-label="notice.dismiss"' in close.group(0), (
+    "the x has a localized dismiss label for a screen reader"
   )
+  assert 'data-i18n-aria-label="notice.dismiss"' in close.group(0)
   body = page.split('id="notice-close"')[1].split("</button>")[0]
   assert '<path d="M18 6 6 18" />' in body and '<path d="m6 6 12 12" />' in body, (
     "the x draws the lucide glyph"
@@ -4651,9 +4728,13 @@ def test_the_model_modal_reads_as_a_card() -> None:
   assert "const { provider, dev, model } = parts(m.id);" in app, (
     "the card splits the id into its parts"
   )
-  assert '["Model", model || m.slug || m.id' in app, "the model leads"
-  assert '["Developer", dev, markImg(dev)]' in app, "the developer rides when present"
-  assert '["Provider", provider,' in app, "the provider closes the identity"
+  assert '[t("model.column.model"), model || m.slug || m.id' in app, "the model leads"
+  assert '[t("model.detail.developer"), dev, markImg(dev)]' in app, (
+    "the developer rides when present"
+  )
+  assert '[t("model.detail.provider"), provider,' in app, (
+    "the provider closes the identity"
+  )
   assert 'const markImg = (name) => (MARK_FILES.has(name) ? mark(name) : "");' in app, (
     "the lobe marks ride beside the parts that own one"
   )
@@ -4661,10 +4742,10 @@ def test_the_model_modal_reads_as_a_card() -> None:
     "the capabilities read as icon chips"
   )
   modal = app.split("function openModelModal")[1].split("\nfunction ")[0]
-  assert "${icon(CHIP_ICON_NAMES.brain)} Reasoning</span>" in modal, (
-    "the reasoning chip draws the brain and the word together"
-  )
-  assert "${icon(CHIP_ICON_NAMES.tools)} Tools</span>" in modal, (
+  assert (
+    '${icon(CHIP_ICON_NAMES.brain)} ${t("model.column.reasoning")}</span>' in modal
+  ), "the reasoning chip draws the brain and the word together"
+  assert '${icon(CHIP_ICON_NAMES.tools)} ${t("model.column.tools")}</span>' in modal, (
     "the tools chip draws the wrench and the word together"
   )
   assert (
@@ -4678,9 +4759,10 @@ def test_the_model_modal_reads_as_a_card() -> None:
   assert ".model-id {" in css and ".model-stats {" in css and ".model-chips {" in css, (
     "the card keeps its blocks"
   )
-  assert '[m.max_input_tokens.toLocaleString(), "input tokens"] : null,' in app, (
-    "the token stats keep no bar"
-  )
+  assert (
+    '[m.max_input_tokens.toLocaleString(), t("model.detail.input_tokens")] : null,'
+    in app
+  ), "the token stats keep no bar"
   assert ".model-stats .track { margin-top: auto; }" in css, (
     "the bar pins to the floor of its block"
   )
@@ -4704,13 +4786,13 @@ def test_the_providers_page_folds_the_long_groups() -> None:
   """Tiers, Model overrides and Provider values start closed, so a card stays short."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert '${fold("Tiers"' in app and '${fold("Model overrides"' in app, (
-    "the fold groups"
-  )
+  assert '${fold(t("provider.tiers.label")' in app
+  assert '${fold(t("provider.model_overrides.label")' in app, "the fold groups"
   assert (
     "function fold(label, hint, body) {" in app and '<details class="fold">' in app
   ), "a closed group wraps its fields"
-  assert app.count('variant: "hint"') >= 2 and '"aria-label": "Hint"' in app, (
+  assert app.count('variant: "hint"') >= 2
+  assert '"aria-label": t("common.hint")' in app, (
     "the field hint rides behind the info icon"
   )
   assert 'role="tooltip"' in app, "the hint text serves as the tooltip"
@@ -4764,8 +4846,8 @@ def test_the_yaml_editor_ends_each_list_and_saves_itself() -> None:
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   for needle in (
     "function yamlCard(editor, save, hint) {",
-    'const items = names.map((name) => [name, name]).concat([["yaml", "YAML"]]);',
-    'const items = groups.map(([group, title]) => [group, title]).concat([["keys", "API Keys"], ["yaml", "YAML"]]);',
+    'const items = names.map((name) => [name, name]).concat([["yaml", t("yaml.label")]]);',
+    '["keys", t("settings.keys.title")], ["yaml", t("yaml.label")],',
     'if (event.target.closest("#yaml-save")) return saveYaml();',
     'if (event.target.closest("#settings-yaml-save")) saveSettings();',
     'const typed = state.view === "yaml" ? $("editor")?.value : undefined;',
@@ -4799,7 +4881,7 @@ def test_a_row_writes_itself_and_the_bar_is_gone() -> None:
     'bindValueRows($("provider-form"), () => saveForm());',
     'bindValueRows($("settings"), () => saveSettings());',
     'if (input.type !== "checkbox" && input.tagName !== "SELECT") return;',
-    'showWrite("providers", `Not valid YAML: ${error}`, true);',
+    'showWrite("providers", t("provider.yaml.error", { error }), true);',
     "async function undoWrite() {",
     "function rememberWrite(page, restore, anchor = null) {",
     "function placeUndo(anchor = null) {",
@@ -4832,7 +4914,8 @@ def test_a_phone_opens_a_section_as_its_own_page() -> None:
     "applySectionHash();",
   ):
     assert needle in app, needle
-  assert 'sectionPane("Settings"' in app and 'sectionPane("Providers"' in app, (
+  assert 'sectionPane(t("nav.settings")' in app
+  assert 'sectionPane(t("nav.providers")' in app, (
     "each pane names the page its back button returns to"
   )
   style = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -4958,9 +5041,15 @@ def test_hook_table_columns() -> None:
   app = (
     Path(__file__).resolve().parents[2] / "daedalus/dashboard/ui/app.js"
   ).read_text(encoding="utf-8")
-  columns = "<th>Author/Title</th><th>Version</th><th>Surfaces</th><th>Scopes</th>"
+  columns = (
+    '<th>${t("hook.column.author_title")}</th>'
+    '<th>${t("hook.column.version")}</th>'
+    '<th>${t("hook.column.surfaces")}</th>'
+    '<th>${t("hook.column.scopes")}</th>'
+  )
   assert columns in app, "the hooks table names its columns in the note order"
-  assert '<th class="hide-sm">Source</th><th>Enabled</th>' in app
+  assert '<th class="hide-sm">${t("hook.column.source")}</th>' in app
+  assert '<th>${t("hook.column.enabled")}</th>' in app
 
 
 def test_table_delete_buttons_use_the_trash_icon() -> None:
@@ -5170,7 +5259,7 @@ assert.strictEqual(probe.actionButton('Pick', {
   ):
     assert fragment in page, fragment
   for fragment in (
-    'variant: `filter${t === state.tier ? " on" : ""}`',
+    'variant: `filter${tier === state.tier ? " on" : ""}`',
     'variant: `tab${index === state.file ? " on" : ""}`',
     'variant: "add"',
   ):
@@ -5202,13 +5291,13 @@ def test_dashboard_icons_and_feedback_keep_accessible_names() -> None:
   inline_icons = re.findall(r"<svg\b[^>]*>", page, re.DOTALL)
   assert inline_icons and all('aria-hidden="true"' in tag for tag in inline_icons)
   for fragment in (
-    'id="show-password" aria-pressed="false" aria-label="Show the password"',
-    'type="button" id="nav-left" aria-label="Show the earlier tabs"',
-    'type="button" id="nav-right" aria-label="Show the later tabs"',
-    'type="button" id="notice-close" aria-label="Dismiss the notice"',
-    '"data-key": k.name, "aria-label": `Delete ${k.name}`',
-    '"data-hook-drop": row.path, "aria-label": `Delete ${row.name}`',
-    'button.setAttribute("aria-label", "Undo this write")',
+    'aria-label="auth.password.show"',
+    'type="button" id="nav-left" aria-label="nav.earlier_tabs"',
+    'type="button" id="nav-right" aria-label="nav.later_tabs"',
+    'type="button" id="notice-close" aria-label="notice.dismiss"',
+    '"data-key": k.name, "aria-label": t("settings.keys.delete_named", { name: k.name })',
+    '"data-hook-drop": row.path, "aria-label": t("hook.action.delete_named", { name: row.name })',
+    'button.setAttribute("aria-label", t("action.undo_write"))',
   ):
     assert fragment in page or fragment in app, fragment
   for name, role in (
@@ -5276,13 +5365,13 @@ def test_dashboard_rows_keep_their_responsive_cell_order() -> None:
     (
       '${nameCell(m.id, modelName(m.id), "",',
       '<td class="hide-sm"><div class="types">',
-      '<td class="mid hide-sm">${mobileLabel("Tier")}',
+      '<td class="mid hide-sm">${mobileLabel(t("model.column.tier"))}',
       '<td class="hide-sm mid num${m.order > 1 ? "" : " muted"}">',
       '<td class="hide-sm num muted"><span${m.max_input_tokens',
-      '<td class="mid hide-sm">${mobileLabel("Tools")}',
+      '<td class="mid hide-sm">${mobileLabel(t("model.column.tools"))}',
       '<td class="hide-sm mid">${m.mode === "chat" ? reasoningCell(m) : dash}</td>',
-      '<td class="num hide-sm">${mobileLabel("Cooldown")}',
-      '<td>${mobileLabel("Weight")}',
+      '<td class="num hide-sm">${mobileLabel(t("model.column.cooldown"))}',
+      '<td>${mobileLabel(t("model.column.weight"))}',
     ),
   )
 
@@ -5292,17 +5381,17 @@ def test_dashboard_rows_keep_their_responsive_cell_order() -> None:
   in_order(
     requests,
     (
-      '${cell("Time",',
+      '${cell(t("request.column.time"),',
       "${appCell(r)}",
-      '${cell("Session",',
+      '${cell(t("request.column.session"),',
       "${nameCell(r.model",
       "${nameCell(r.via",
-      '${cell("Effort",',
-      '${cell("Status",',
+      '${cell(t("request.column.effort"),',
+      '${cell(t("request.column.status"),',
       "${tokenCell(r.tokens?.input",
       "${tokenCell(r.tokens?.output",
-      '${cell("TTFT",',
-      '${cell("Stream",',
+      '${cell(t("request.column.ttft"),',
+      '${cell(t("request.column.stream"),',
       "${fallbackCell(r,",
     ),
   )
@@ -5313,15 +5402,15 @@ def test_dashboard_rows_keep_their_responsive_cell_order() -> None:
   in_order(
     live,
     (
-      '${cell("Time",',
+      '${cell(t("request.column.time"),',
       "${appCell(r)}",
-      '${cell("Session",',
+      '${cell(t("request.column.session"),',
       "${nameCell(r.model",
       "${nameCell(r.via",
-      '${cell("Effort",',
-      '${cell("Status",',
-      '${cell("Input",',
-      '${cell("Output",',
+      '${cell(t("request.column.effort"),',
+      '${cell(t("request.column.status"),',
+      '${cell(t("request.column.input"),',
+      '${cell(t("request.column.output"),',
       'data-clock="ttft"',
       'data-clock="stream"',
       "${fallbackCell(r,",
