@@ -7,7 +7,7 @@ Each provider except Pollinations has a tested free tier.
 | `cloudflare` | Cloudflare Workers AI | OpenAI-compatible, plus the native run API for audio and images | A text-only message goes as 1 string. Paid models stay out. Order 2. The Clef models carry the `decisions` mode, not `chat`. |
 | `gemini` | Google Gemini | Native Gemini API | daedalus maps OpenAI to Gemini and back, thought signatures included. [`free.yml`](../config/providers/free.yml) sets `reasoning_effort: high`. |
 | `groq` | Groq | OpenAI-compatible | daedalus sends only the message fields that Groq accepts. |
-| `kilo` | Kilo Gateway | OpenAI-compatible | Only `:free` models, and `stealth/` models with price 0 in each price field. |
+| `kilo` | Kilo Gateway | OpenAI-compatible | Only models whose discovery row has `isFree: true`. |
 | `mistral` | Mistral | OpenAI-compatible | Only the message fields that it accepts. `reasoning_effort`: `none` or `high`. Thinking chunks are `reasoning_content`. |
 | `openrouter` | OpenRouter | OpenAI-compatible, plus the OpenRouter Image API (`/images`). Speech is mp3, or pcm on ask. | Only `:free` and price-0 `stealth/` models. Output types set the modes. Images need credits. |
 | `pollinations` | Pollinations | OpenAI-compatible | In [`pollinations.yml`](../config/providers/pollinations.yml), not [`free.yml`](../config/providers/free.yml): its Pollen does not refill ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)). Order 2, as Cloudflare. |
@@ -16,7 +16,8 @@ Each provider except Pollinations has a tested free tier.
 | Provider | How daedalus keeps it free |
 | --- | --- |
 | Cloudflare, Gemini, Groq, Mistral | Use an account on the free plan, with no payment method. |
-| Kilo, OpenRouter | The `!*:free` exclude pattern. Lyria models show price 0 and cost money for each song. |
+| Kilo | The `isFree: true` discovery match. |
+| OpenRouter | The `!*:free` exclude pattern. Lyria models show price 0 and cost money for each song. |
 | Pollinations | Not free ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)). The `"*"` exclude pattern, only the 4 image models under `models:`. |
 | Z.ai | The `"*"` exclude pattern, and only the free models under `models:`. |
 

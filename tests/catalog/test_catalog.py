@@ -610,19 +610,28 @@ def test_declared_kept() -> None:
 
 
 def test_free_stealth() -> None:
-  """A stealth row passes the kilo and openrouter excludes only with price 0 in each field."""
+  """Kilo keeps its `isFree` rows. A stealth row passes the openrouter excludes only with price 0 in each field."""
   free = {"prompt": "0", "completion": "0"}
   payload = {
     "data": [
-      {"id": "google/gemma-4-31b-it:free", "pricing": free},
-      {"id": "stealth/space-bunny-alpha", "pricing": {**free, "discount": 0}},
+      {"id": "google/gemma-4-31b-it:free", "pricing": free, "isFree": True},
+      {
+        "id": "stealth/space-bunny-alpha",
+        "pricing": {**free, "discount": 0},
+        "isFree": True,
+      },
       {
         "id": "stealth/claude-opus-4.8",
         "pricing": {"prompt": "0.000004", "completion": "0"},
+        "isFree": False,
       },
-      {"id": "stealth/router", "pricing": {"prompt": "-1", "completion": "-1"}},
-      {"id": "stealth/unknown"},
-      {"id": "google/lyria-3-pro-preview", "pricing": free},
+      {
+        "id": "stealth/router",
+        "pricing": {"prompt": "-1", "completion": "-1"},
+        "isFree": False,
+      },
+      {"id": "stealth/unknown", "isFree": False},
+      {"id": "google/lyria-3-pro-preview", "pricing": free, "isFree": False},
     ]
   }
   providers = config.load_config()
@@ -652,7 +661,7 @@ def test_free_stealth() -> None:
 
 
 def test_free_only() -> None:
-  """The committed config keeps only :free rows for kilo and openrouter."""
+  """The committed config keeps only free rows for kilo and openrouter."""
   providers = config.load_config()
   rows = [
     "openai/gpt-6-sol",
@@ -672,16 +681,27 @@ def test_free_only() -> None:
   declared = discovery.declared_ids(providers["openrouter"])
   assert openrouter == sorted(["google/gemma-4-31b-it:free", *declared]), openrouter
 
-  kilo = discovery.select(
-    providers["kilo"],
-    rows
-    + [
-      "kilo-auto/free",
-      "kilo-auto/efficient",
-      "poolside/laguna-s-2.1:free",
-    ],
-  )
-  assert kilo == ["google/gemma-4-31b-it:free", "poolside/laguna-s-2.1:free"], kilo
+  kilo_block = {
+    key: value for key, value in providers["kilo"].items() if key != config.FILE_KEY
+  }
+  kilo_block.update(api_key="k", discovery_url="https://gateway.test/models")
+  payload = {
+    "data": [
+      {"id": "openai/gpt-6-sol", "isFree": False},
+      {"id": "google/gemma-4-31b-it:free", "isFree": False},
+      {"id": "poolside/laguna-s-2.1:free", "isFree": True},
+      {"id": "kilo-auto/free", "isFree": True},
+      {"id": "openrouter/free", "isFree": True},
+      {"id": "inclusionai/ling-3.1-flash", "isFree": True},
+      {"id": "nvidia/nemotron-3.5-content-safety:free", "isFree": True},
+    ]
+  }
+  lines, skipped = discovery.build_rows({"kilo": kilo_block}, lambda *_: payload)
+  assert not skipped, skipped
+  assert sorted(lines) == [
+    "kilo/inclusionai/ling-3.1-flash",
+    "kilo/poolside/laguna-s-2.1:free",
+  ], lines
 
 
 def test_non_text() -> None:
