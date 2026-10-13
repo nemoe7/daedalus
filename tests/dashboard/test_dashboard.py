@@ -70,7 +70,8 @@ def test_page(client: TestClient) -> None:
     '<th scope="col" class="hide-sm" role="columnheader"'
     ' title="request.column.session.hint"'
     ' data-i18n-title="request.column.session.hint"'
-    ' data-i18n="request.column.session">request.column.session</th>' in page.text
+    ' data-i18n="request.column.session_column">request.column.session_column</th>'
+    in page.text
   ), "the localized Requests session column"
   assert '<div class="card legend" id="requests-legend">' in page.text, (
     "the code legend is a card of its own beside the table"
@@ -107,7 +108,7 @@ def test_page(client: TestClient) -> None:
     "esc": "escalation",
   }
   for reason, key in reasons.items():
-    assert f'  {reason}: t("request.route.{key}")' in script.text, reason
+    assert f'  {reason}: t("request.route.{key}_text")' in script.text, reason
   assert "const REPEAT_CODE = " in script.text, "the repeat code family"
   assert 'title="${esc(label)}"' in script.text, "reason codes have hover labels"
   assert (
@@ -115,7 +116,7 @@ def test_page(client: TestClient) -> None:
     in script.text
   )
   assert (
-    'await ask(t("action.logout"), t("auth.logout.message"), t("action.logout"))'
+    'await ask(t("action.logout_button"), t("auth.logout.message"), t("action.logout_button"))'
     in script.text
   ), "a logout asks first, in the modal"
   assert "shortEffort(sentText(a, r.effort))" in script.text
@@ -499,17 +500,17 @@ def test_requests_reads_model_served_effort() -> None:
   """The Requests table reads Model, Served by, Effort, in the head and in both row kinds."""
   root = Path(__file__).resolve().parent.parent.parent
   html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
-  assert html.index('data-i18n="request.column.served_by"') < html.index(
-    'data-i18n="request.column.effort"'
+  assert html.index('data-i18n="request.column.served_by_column"') < html.index(
+    'data-i18n="request.column.effort_column"'
   )
   js = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   rows = js[js.index("function renderRequests") : js.index("function renderTiers")]
-  assert rows.index('t("request.column.served_by")') < rows.index(
-    'cell(t("request.column.effort")'
+  assert rows.index('t("request.column.served_by_column")') < rows.index(
+    'cell(t("request.column.effort_column")'
   )
   live = js[js.index("function renderLive") : js.index("function tickLive")]
-  assert live.index('t("request.column.served_by")') < live.index(
-    'cell(t("request.column.effort")'
+  assert live.index('t("request.column.served_by_column")') < live.index(
+    'cell(t("request.column.effort_column")'
   )
 
 
@@ -536,7 +537,10 @@ def test_requests_stream_column_survives_narrow_desktops() -> None:
   )[1]
   assert 'class="hide-sm"' in head, head
   js = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert js.count('cell(t("request.column.stream"), streamCell(r), "hide-sm num")') == 1
+  assert (
+    js.count('cell(t("request.column.stream_column"), streamCell(r), "hide-sm num")')
+    == 1
+  )
   assert "hide-md" not in js, "no width band drops the stream column"
 
 
@@ -835,7 +839,7 @@ def test_app_js_request_cards() -> None:
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/index.html"
   ).read_text(encoding="utf-8")
   header = re.search(
-    r'<table class="requests" aria-label="nav.requests"[^>]*>.*?'
+    r'<table class="requests" aria-label="nav.requests_link"[^>]*>.*?'
     r"<thead[^>]*>(.*?)</thead>",
     page,
     re.DOTALL,
@@ -843,17 +847,17 @@ def test_app_js_request_cards() -> None:
   assert header, "the localized Requests table header"
   keys = re.findall(r'data-i18n="([^"]+)"', header.group(1))
   assert keys == [
-    "request.column.time",
-    "request.column.app",
-    "request.column.session",
-    "request.column.model",
-    "request.column.served_by",
-    "request.column.effort",
-    "request.column.status",
-    "request.column.input",
-    "request.column.output",
-    "request.column.ttft",
-    "request.column.stream",
+    "request.column.time_column",
+    "request.column.app_column",
+    "request.column.session_column",
+    "request.column.model_column",
+    "request.column.served_by_column",
+    "request.column.effort_column",
+    "request.column.status_column",
+    "request.column.input_column",
+    "request.column.output_column",
+    "request.column.ttft_column",
+    "request.column.stream_column",
   ]
   labels = [
     "Time",
@@ -1135,8 +1139,8 @@ def test_limit_events_and_rebuilds_share_a_relative_notification_feed() -> None:
     "</section>", 1
   )[0]
   assert 'id="notification-feed"' in section
-  assert 'aria-label="nav.notifications"' in section
-  assert 'data-i18n-aria-label="nav.notifications"' in section
+  assert 'aria-label="nav.notifications_link"' in section
+  assert 'data-i18n-aria-label="nav.notifications_link"' in section
   assert 'id="reset-rows"' not in section and 'id="rebuild-rows"' not in section
   assert 'id="limit-warnings-card"' not in section
   run_app_js(
@@ -1414,11 +1418,11 @@ def test_the_short_values_carry_their_full_text() -> None:
   assert (
     't("model.context.pool_hint", { count: pool.context.toLocaleString() })' in app
   ), "the pool context count"
-  assert 'title="${t("settings.keys.only_start")}"' in app, "the key start"
+  assert 'title="${t("settings.keys.only_start_title")}"' in app, "the key start"
   for key in ("ok", "rate_limited", "upstream_error", "failed"):
-    assert f't("request.status.{key}")' in app, key
+    assert f't("request.status.{key}_text")' in app, key
   assert (
-    't("limits.value.of", { remaining: r.remaining.toLocaleString(), limit: r.limit.toLocaleString() })'
+    't("limits.value.of_text", { remaining: r.remaining.toLocaleString(), limit: r.limit.toLocaleString() })'
     in app
   ), "the exact rate-limit counts"
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -1446,12 +1450,12 @@ def test_the_parallel_race_reads_on_the_page() -> None:
   app = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/app.js"
   ).read_text(encoding="utf-8")
-  assert 'rce: t("request.route.race")' in app, "the race code"
+  assert 'rce: t("request.route.race_text")' in app, "the race code"
   assert 'code !== "rce" || raceOn()' in app, "its legend row waits for the setting"
-  assert 'a.race === "won"' in app and 't("request.chain.won_race")' in app, (
+  assert 'a.race === "won"' in app and 't("request.chain.won_race_text")' in app, (
     "the winning step carries the mark"
   )
-  assert "affinity?.mode" in app and 'line(t("common.affinity")' in app, (
+  assert "affinity?.mode" in app and 'line(t("common.affinity_label")' in app, (
     "the status card shows the applied affinity mode"
   )
   assert (
@@ -1687,7 +1691,7 @@ def test_app_js_time_stamps() -> None:
   assert "shortTime(" not in source and "dateTime(" not in source, (
     "one helper stamps each time"
   )
-  assert 't("catalog.next"' in source, "the catalog label reads its Next key"
+  assert 't("catalog.next_text"' in source, "the catalog label reads its Next key"
   code = """
 const fs = require('fs');
 const vm = require('vm');
@@ -1879,7 +1883,7 @@ def test_the_overview_pool_rows_draw_the_marks_of_the_top_model() -> None:
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   row = re.search(
     r'draw\("ov-models", state\.pools\.map\(\(pool\) => \{.*?'
-    r'top \? modelName\(top\.id\) : t\("model\.empty\.pool"\)',
+    r'top \? modelName\(top\.id\) : t\("model\.empty\.pool_text"\)',
     app,
     re.DOTALL,
   )
@@ -1948,8 +1952,8 @@ def test_the_live_switch_reads_blue_live_and_gray_paused() -> None:
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
-  assert 't("request.live.paused_new", { count: state.liveWaiting.size })' in app
-  assert 't("request.live.paused")' in app
+  assert 't("request.live.paused_new_button", { count: state.liveWaiting.size })' in app
+  assert 't("request.live.paused_button")' in app
   assert "Live: paused" not in app, "the label is just Paused"
   assert (
     '.live-toggle[aria-pressed="false"] { border-color: var(--accent); color: var(--accent); }'
@@ -2417,7 +2421,7 @@ def test_hook_chip_matches_the_keyword_chips() -> None:
   markup = re.search(r"const hookFormRow = .*?\n};", app, re.DOTALL)
   assert markup, "the hook row builds 1 chip"
   assert 'class="pill hook"' in markup.group(0), "the row rides in a chip"
-  assert 'title: t("hook.action.pick_file")' in markup.group(0), (
+  assert 'title: t("hook.action.pick_file_title")' in markup.group(0), (
     "the chip names its picker"
   )
   assert 'role="listbox"' in markup.group(0), "the list names its role"
@@ -2552,7 +2556,7 @@ def test_mode_conventions() -> None:
   app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   html = Path("daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   for mode in sorted({"chat", *base.OUTPUT_MODES.values()}):
-    assert re.search(rf'\b{mode}: t\("model\.mode\.{mode}"\)', app), (
+    assert re.search(rf'\b{mode}: t\("model\.mode\.{mode}_label"\)', app), (
       f"{mode} has no localized label"
     )
     assert f'value="{mode}"' in html, f"{mode} has no Type filter option"
@@ -3026,11 +3030,12 @@ assert(probe.ICON_PATHS.brain.includes('M12 18V5'), 'the lucide brain path');
 """,
   )
   app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert 'title="${t("model.column.tools")}">${icon(CHIP_ICON_NAMES.tools)}' in app, (
-    "the wrench draws in the tools chip"
-  )
   assert (
-    'title="${t("model.column.reasoning")}">${icon(CHIP_ICON_NAMES.brain)}' in app
+    'title="${t("model.column.tools_column")}">${icon(CHIP_ICON_NAMES.tools)}' in app
+  ), "the wrench draws in the tools chip"
+  assert (
+    'title="${t("model.column.reasoning_column")}">${icon(CHIP_ICON_NAMES.brain)}'
+    in app
   ), "the brain draws in the reasoning chip"
 
 
@@ -3966,7 +3971,7 @@ def test_card_tables_own_horizontal_overflow_and_fade_only_clipped_edges() -> No
   ), "the API Keys table scrolls without masking its form or reveal controls"
   assert keys.index('<form class="toolbar"') < keys.index('<div class="card-scroll">')
   table_end = hooks.index("</table></div>")
-  update = hooks.index('actionButton(t("action.update_sources")', table_end)
+  update = hooks.index('actionButton(t("action.update_sources_button")', table_end)
   assert (
     update > table_end and '"data-hooks-update": true' in hooks[update : update + 200]
   ), "the Hooks table scrolls without masking its Update control"
@@ -4462,16 +4467,18 @@ def test_the_phone_model_cards_carry_the_desktop_columns() -> None:
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   chips = app.split("function phoneChips(m) {", 1)[1].split("\n}", 1)[0]
   assert 'nameCell(m.id, modelName(m.id), "",' in app, "the card drops the Model label"
-  assert 'title="${t("model.column.context")}"' in chips, (
+  assert 'title="${t("model.column.context_column")}"' in chips, (
     "the context column rides as a chip"
   )
-  assert 'title="${t("model.column.reasoning")}"' in chips, (
+  assert 'title="${t("model.column.reasoning_column")}"' in chips, (
     "the reasoning column rides as a chip"
   )
-  assert "model.column.weight" not in chips, "the weight row carries the weight alone"
-  assert 't("model.mobile.tier"' in chips and 't("model.mobile.order"' in chips, (
-    "the ambiguous chips carry localized labels"
+  assert "model.column.weight_column" not in chips, (
+    "the weight row carries the weight alone"
   )
+  assert (
+    't("model.mobile.tier_text"' in chips and 't("model.mobile.order_text"' in chips
+  ), "the ambiguous chips carry localized labels"
   assert "brain:" in app, "the reasoning chip is a brain"
 
 
@@ -4704,10 +4711,10 @@ def test_the_notice_leaves_on_its_own_keyframes() -> None:
   ), "the leave keeps the page tokens of the arrival"
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   close = re.search(r'<button[^>]*id="notice-close"[^>]*>', page)
-  assert close and 'aria-label="notice.dismiss"' in close.group(0), (
+  assert close and 'aria-label="notice.dismiss_label"' in close.group(0), (
     "the x has a localized dismiss label for a screen reader"
   )
-  assert 'data-i18n-aria-label="notice.dismiss"' in close.group(0)
+  assert 'data-i18n-aria-label="notice.dismiss_label"' in close.group(0)
   body = page.split('id="notice-close"')[1].split("</button>")[0]
   assert '<path d="M18 6 6 18" />' in body and '<path d="m6 6 12 12" />' in body, (
     "the x draws the lucide glyph"
@@ -4728,11 +4735,13 @@ def test_the_model_modal_reads_as_a_card() -> None:
   assert "const { provider, dev, model } = parts(m.id);" in app, (
     "the card splits the id into its parts"
   )
-  assert '[t("model.column.model"), model || m.slug || m.id' in app, "the model leads"
-  assert '[t("model.detail.developer"), dev, markImg(dev)]' in app, (
+  assert '[t("model.column.model_column"), model || m.slug || m.id' in app, (
+    "the model leads"
+  )
+  assert '[t("model.detail.developer_label"), dev, markImg(dev)]' in app, (
     "the developer rides when present"
   )
-  assert '[t("model.detail.provider"), provider,' in app, (
+  assert '[t("model.detail.provider_label"), provider,' in app, (
     "the provider closes the identity"
   )
   assert 'const markImg = (name) => (MARK_FILES.has(name) ? mark(name) : "");' in app, (
@@ -4743,11 +4752,12 @@ def test_the_model_modal_reads_as_a_card() -> None:
   )
   modal = app.split("function openModelModal")[1].split("\nfunction ")[0]
   assert (
-    '${icon(CHIP_ICON_NAMES.brain)} ${t("model.column.reasoning")}</span>' in modal
+    '${icon(CHIP_ICON_NAMES.brain)} ${t("model.column.reasoning_column")}</span>'
+    in modal
   ), "the reasoning chip draws the brain and the word together"
-  assert '${icon(CHIP_ICON_NAMES.tools)} ${t("model.column.tools")}</span>' in modal, (
-    "the tools chip draws the wrench and the word together"
-  )
+  assert (
+    '${icon(CHIP_ICON_NAMES.tools)} ${t("model.column.tools_column")}</span>' in modal
+  ), "the tools chip draws the wrench and the word together"
   assert (
     '${FLAG_ICON_NAMES[f] ? `${icon(FLAG_ICON_NAMES[f])} ` : ""}${esc(FLAGS[f] || f)}'
     in modal
@@ -4760,7 +4770,7 @@ def test_the_model_modal_reads_as_a_card() -> None:
     "the card keeps its blocks"
   )
   assert (
-    '[m.max_input_tokens.toLocaleString(), t("model.detail.input_tokens")] : null,'
+    '[m.max_input_tokens.toLocaleString(), t("model.detail.input_tokens_label")] : null,'
     in app
   ), "the token stats keep no bar"
   assert ".model-stats .track { margin-top: auto; }" in css, (
@@ -4881,7 +4891,7 @@ def test_a_row_writes_itself_and_the_bar_is_gone() -> None:
     'bindValueRows($("provider-form"), () => saveForm());',
     'bindValueRows($("settings"), () => saveSettings());',
     'if (input.type !== "checkbox" && input.tagName !== "SELECT") return;',
-    'showWrite("providers", t("provider.yaml.error", { error }), true);',
+    'showWrite("providers", t("provider.yaml.error_text", { error }), true);',
     "async function undoWrite() {",
     "function rememberWrite(page, restore, anchor = null) {",
     "function placeUndo(anchor = null) {",
@@ -4914,8 +4924,8 @@ def test_a_phone_opens_a_section_as_its_own_page() -> None:
     "applySectionHash();",
   ):
     assert needle in app, needle
-  assert 'sectionPane(t("nav.settings")' in app
-  assert 'sectionPane(t("nav.providers")' in app, (
+  assert 'sectionPane(t("nav.settings_link")' in app
+  assert 'sectionPane(t("nav.providers_link")' in app, (
     "each pane names the page its back button returns to"
   )
   style = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -5043,13 +5053,13 @@ def test_hook_table_columns() -> None:
   ).read_text(encoding="utf-8")
   columns = (
     '<th>${t("hook.column.author_title")}</th>'
-    '<th>${t("hook.column.version")}</th>'
-    '<th>${t("hook.column.surfaces")}</th>'
-    '<th>${t("hook.column.scopes")}</th>'
+    '<th>${t("hook.column.version_column")}</th>'
+    '<th>${t("hook.column.surfaces_column")}</th>'
+    '<th>${t("hook.column.scopes_column")}</th>'
   )
   assert columns in app, "the hooks table names its columns in the note order"
-  assert '<th class="hide-sm">${t("hook.column.source")}</th>' in app
-  assert '<th>${t("hook.column.enabled")}</th>' in app
+  assert '<th class="hide-sm">${t("hook.column.source_column")}</th>' in app
+  assert '<th>${t("hook.column.enabled_column")}</th>' in app
 
 
 def test_table_delete_buttons_use_the_trash_icon() -> None:
@@ -5291,13 +5301,13 @@ def test_dashboard_icons_and_feedback_keep_accessible_names() -> None:
   inline_icons = re.findall(r"<svg\b[^>]*>", page, re.DOTALL)
   assert inline_icons and all('aria-hidden="true"' in tag for tag in inline_icons)
   for fragment in (
-    'aria-label="auth.password.show"',
-    'type="button" id="nav-left" aria-label="nav.earlier_tabs"',
-    'type="button" id="nav-right" aria-label="nav.later_tabs"',
-    'type="button" id="notice-close" aria-label="notice.dismiss"',
-    '"data-key": k.name, "aria-label": t("settings.keys.delete_named", { name: k.name })',
-    '"data-hook-drop": row.path, "aria-label": t("hook.action.delete_named", { name: row.name })',
-    'button.setAttribute("aria-label", t("action.undo_write"))',
+    'aria-label="auth.password.show_label"',
+    'type="button" id="nav-left" aria-label="nav.earlier_tabs_label"',
+    'type="button" id="nav-right" aria-label="nav.later_tabs_label"',
+    'type="button" id="notice-close" aria-label="notice.dismiss_label"',
+    '"data-key": k.name, "aria-label": t("settings.keys.delete_named_label", { name: k.name })',
+    '"data-hook-drop": row.path, "aria-label": t("hook.action.delete_named_label", { name: row.name })',
+    'button.setAttribute("aria-label", t("action.undo_write_label"))',
   ):
     assert fragment in page or fragment in app, fragment
   for name, role in (
@@ -5365,13 +5375,13 @@ def test_dashboard_rows_keep_their_responsive_cell_order() -> None:
     (
       '${nameCell(m.id, modelName(m.id), "",',
       '<td class="hide-sm"><div class="types">',
-      '<td class="mid hide-sm">${mobileLabel(t("model.column.tier"))}',
+      '<td class="mid hide-sm">${mobileLabel(t("model.column.tier_column"))}',
       '<td class="hide-sm mid num${m.order > 1 ? "" : " muted"}">',
       '<td class="hide-sm num muted"><span${m.max_input_tokens',
-      '<td class="mid hide-sm">${mobileLabel(t("model.column.tools"))}',
+      '<td class="mid hide-sm">${mobileLabel(t("model.column.tools_column"))}',
       '<td class="hide-sm mid">${m.mode === "chat" ? reasoningCell(m) : dash}</td>',
-      '<td class="num hide-sm">${mobileLabel(t("model.column.cooldown"))}',
-      '<td>${mobileLabel(t("model.column.weight"))}',
+      '<td class="num hide-sm">${mobileLabel(t("model.column.cooldown_column"))}',
+      '<td>${mobileLabel(t("model.column.weight_column"))}',
     ),
   )
 
@@ -5381,17 +5391,17 @@ def test_dashboard_rows_keep_their_responsive_cell_order() -> None:
   in_order(
     requests,
     (
-      '${cell(t("request.column.time"),',
+      '${cell(t("request.column.time_column"),',
       "${appCell(r)}",
-      '${cell(t("request.column.session"),',
+      '${cell(t("request.column.session_column"),',
       "${nameCell(r.model",
       "${nameCell(r.via",
-      '${cell(t("request.column.effort"),',
-      '${cell(t("request.column.status"),',
+      '${cell(t("request.column.effort_column"),',
+      '${cell(t("request.column.status_column"),',
       "${tokenCell(r.tokens?.input",
       "${tokenCell(r.tokens?.output",
-      '${cell(t("request.column.ttft"),',
-      '${cell(t("request.column.stream"),',
+      '${cell(t("request.column.ttft_column"),',
+      '${cell(t("request.column.stream_column"),',
       "${fallbackCell(r,",
     ),
   )
@@ -5402,15 +5412,15 @@ def test_dashboard_rows_keep_their_responsive_cell_order() -> None:
   in_order(
     live,
     (
-      '${cell(t("request.column.time"),',
+      '${cell(t("request.column.time_column"),',
       "${appCell(r)}",
-      '${cell(t("request.column.session"),',
+      '${cell(t("request.column.session_column"),',
       "${nameCell(r.model",
       "${nameCell(r.via",
-      '${cell(t("request.column.effort"),',
-      '${cell(t("request.column.status"),',
-      '${cell(t("request.column.input"),',
-      '${cell(t("request.column.output"),',
+      '${cell(t("request.column.effort_column"),',
+      '${cell(t("request.column.status_column"),',
+      '${cell(t("request.column.input_column"),',
+      '${cell(t("request.column.output_column"),',
       'data-clock="ttft"',
       'data-clock="stream"',
       "${fallbackCell(r,",

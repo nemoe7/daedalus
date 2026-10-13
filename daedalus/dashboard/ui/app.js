@@ -22,13 +22,13 @@ const applyLocale = (root = document) => {
 };
 
 const POOL_NOTES = {
-  "daedalus/auto": t("model.pool.auto"),
-  "daedalus/sophos": t("model.pool.tier_a"),
-  "daedalus/deinos": t("model.pool.tier_b"),
-  "daedalus/koinos": t("model.pool.tier_c"),
-  "daedalus/moros": t("model.pool.tier_d"),
-  "daedalus/graphos": t("model.pool.graphos"),
-  "daedalus/photos": t("model.pool.photos"),
+  "daedalus/auto": t("model.pool.auto_text"),
+  "daedalus/sophos": t("model.pool.tier_a_text"),
+  "daedalus/deinos": t("model.pool.tier_b_text"),
+  "daedalus/koinos": t("model.pool.tier_c_text"),
+  "daedalus/moros": t("model.pool.tier_d_text"),
+  "daedalus/graphos": t("model.pool.graphos_text"),
+  "daedalus/photos": t("model.pool.photos_text"),
 };
 // The Requests page loads 50 rows, and each "Show more" adds 50, up to the 500 that the server keeps.
 const REQUESTS_STEP = 50;
@@ -62,21 +62,21 @@ function relative(seconds) {
   const minutes = (seconds * 1000 - Date.now()) / 60000;
   const ago = minutes <= 0;
   const size = ago ? Math.floor(-minutes) : Math.ceil(minutes);
-  if (ago && size === 0) return t("time.just_now");
+  if (ago && size === 0) return t("time.just_now_text");
   const dayMinutes = 60 * 24;
-  if (ago && size >= dayMinutes * 30) return t("time.long_ago");
+  if (ago && size >= dayMinutes * 30) return t("time.long_ago_text");
   if (size < 60) {
     return ago
-      ? plural(size, "time.minute_ago.one", "time.minute_ago.other")
-      : plural(size, "time.minute_from_now.one", "time.minute_from_now.other");
+      ? plural(size, "time.minute_ago.one_text", "time.minute_ago.other_text")
+      : plural(size, "time.minute_from_now.one_text", "time.minute_from_now.other_text");
   }
   if (ago && size >= dayMinutes) {
-    return plural(Math.floor(size / dayMinutes), "time.day_ago.one", "time.day_ago.other");
+    return plural(Math.floor(size / dayMinutes), "time.day_ago.one_text", "time.day_ago.other_text");
   }
   const hours = ago ? Math.floor(size / 60) : Math.ceil(size / 60);
   return ago
-    ? plural(hours, "time.hour_ago.one", "time.hour_ago.other")
-    : plural(hours, "time.hour_from_now.one", "time.hour_from_now.other");
+    ? plural(hours, "time.hour_ago.one_text", "time.hour_ago.other_text")
+    : plural(hours, "time.hour_from_now.one_text", "time.hour_from_now.other_text");
 }
 
 // A relative time with its exact stamp on hover. The caller keeps the surrounding layout local.
@@ -102,10 +102,10 @@ function line(left, right, valueAttrs = {}) {
   return `<div class="line"><span>${left}</span><span>${value}</span></div>`;
 }
 const count = (number, kind) => {
-  if (kind === "commit") return plural(number, "update.count.commit.one", "update.count.commit.other");
-  if (kind === "file") return plural(number, "hook.count.file.one", "hook.count.file.other");
-  if (kind === "model") return plural(number, "model.count.one", "model.count.other");
-  if (kind === "request") return plural(number, "request.count.one", "request.count.other");
+  if (kind === "commit") return plural(number, "update.count.commit.one_text", "update.count.commit.other_text");
+  if (kind === "file") return plural(number, "hook.count.file.one_text", "hook.count.file.other_text");
+  if (kind === "model") return plural(number, "model.count.one_text", "model.count.other_text");
+  if (kind === "request") return plural(number, "request.count.one_text", "request.count.other_text");
   return t(kind, { count: number });
 };
 const none = (text) => `<div class="more">${text}</div>`;
@@ -114,7 +114,7 @@ function actionButton(content, { variant = "", type = "button", attrs = {} } = {
 }
 // A model name cell that ends in an ellipsis when it is too long. The title shows the full name.
 const mobileLabel = (text) => `<span class="mobile-label" aria-hidden="true">${esc(text)}</span>`;
-const nameCell = (text, shown = esc(text), label = t("model.column.model"), extra = "") =>
+const nameCell = (text, shown = esc(text), label = t("model.column.model_column"), extra = "") =>
   `<td role="cell" class="name" title="${esc(text)}">${label ? mobileLabel(label) : ""}<span class="cell-value">${shown}</span>${extra}</td>`;
 // The marks beside a model name: `provider/developer/slug`. The provider mark drops when the
 // developer carries the same name. The set names the SVG files that ship under `ui/icons/`; a name
@@ -164,7 +164,7 @@ const cell = (label, inner, cls = "", attrs = "") =>
 // A confirmation modal in place of window.confirm. It resolves true on Confirm.
 // A placeholder shows the name field: the caller reads modal-input after a true.
 // The settle promise lives on the sandbox so a test can resolve the dialog.
-function ask(title, message, confirm = t("action.confirm"), danger = false, placeholder = null, value = "") {
+function ask(title, message, confirm = t("action.confirm_button"), danger = false, placeholder = null, value = "") {
   return new Promise((resolve) => {
     globalThis.__settle = resolve;
     $("modal-title").textContent = title;
@@ -186,7 +186,7 @@ function ask(title, message, confirm = t("action.confirm"), danger = false, plac
 
 // The 2-field modal: a name and its value, for a client key. It resolves true on Confirm,
 // and the caller reads modal-input and modal-input2 after a true.
-function askPair(title, message, nameLabel, valueLabel, name = "", value = "", confirm = t("action.save")) {
+function askPair(title, message, nameLabel, valueLabel, name = "", value = "", confirm = t("action.save_button")) {
   return new Promise((resolve) => {
     globalThis.__settle = resolve;
     $("modal-title").textContent = title;
@@ -215,7 +215,7 @@ async function editValue(input, write) {
   const box = $("modal-input");
   box.type = input.type === "password" ? "password" : "text";
   const done = ask(t("dialog.edit_value.title", { name: input.dataset.value }),
-    t("dialog.edit_value.message"), t("action.save"), false, input.placeholder ?? "", input.value);
+    t("dialog.edit_value.message"), t("action.save_button"), false, input.placeholder ?? "", input.value);
   if (!(await done)) {
     box.type = "text";
     return;
@@ -255,15 +255,15 @@ function renderOverview() {
     ? `${Math.round(Math.min(...lanes.map((r) => (r.limit > 0 ? r.remaining / r.limit : 1))) * 100)}%`
     : "-";
   draw("ov-kpis", [
-    kpi(state.live.size, t("overview.kpi.in_flight")),
-    kpi(share, t("overview.kpi.success", { requests: count(state.requests.length, "request") })),
-    kpi(left, t("overview.kpi.limit_left")),
-    kpi(state.models.length || 0, t("overview.kpi.catalog_models")),
+    kpi(state.live.size, t("overview.kpi.in_flight_label")),
+    kpi(share, t("overview.kpi.success_label", { requests: count(state.requests.length, "request") })),
+    kpi(left, t("overview.kpi.limit_left_label")),
+    kpi(state.models.length || 0, t("overview.kpi.catalog_models_label")),
   ].join(""));
   draw("ov-requests", state.requests.slice(0, 5).map((r) => line(
     `<span class="status ${statusClass(r)}">${statusCell(r)}</span> <span title="${esc(r.via || r.model || "")}">${r.via || r.model ? modelName(r.via || r.model) : "-"}</span>`,
     timeText(r.at),
-  )).join("") || none(t("overview.empty.requests")));
+  )).join("") || none(t("overview.empty.requests_text")));
   $("ov-model-count").textContent = state.models.length || "";
   // Each pool with its mean weight and the model that served it most.
   const served = {};
@@ -272,9 +272,9 @@ function renderOverview() {
     const top = topModel(pool.members, served);
     const health = poolHealth(pool.members);
     return `<div class="pool-line"><div class="line"><span>${esc(pool.shown.replace("daedalus/", ""))}</span>
-      <span title="${esc(top?.id)}">${top ? modelName(top.id) : t("model.empty.pool")}</span></div>${health === null ? "" : progressMeter(health)}</div>`;
-  }).join("") || none(state.models.length ? t("model.pool.no_pools") : t("model.empty.catalog")));
-  draw("ov-limits", overviewLimits(state.limits) || none(t("overview.empty.limits")));
+      <span title="${esc(top?.id)}">${top ? modelName(top.id) : t("model.empty.pool_text")}</span></div>${health === null ? "" : progressMeter(health)}</div>`;
+  }).join("") || none(state.models.length ? t("model.pool.no_pools_text") : t("model.empty.catalog_text")));
+  draw("ov-limits", overviewLimits(state.limits) || none(t("overview.empty.limits_text")));
 }
 
 class LoggedOut extends Error {}
@@ -312,7 +312,7 @@ async function call(path, options = {}) {
       });
     } catch {
       // No answer at all: the line says so in place of the browser wording of a failed fetch.
-      throw new Error(t("error.dashboard_unreachable"));
+      throw new Error(t("error.dashboard_unreachable_text"));
     }
     if (response.status === 401 && path !== "login") {
       keepSession(null);
@@ -362,7 +362,7 @@ async function loginHints() {
 // The eye button shows the password until the next click or login.
 function showPassword(on) {
   const button = $("show-password");
-  const label = on ? t("auth.password.hide") : t("auth.password.show");
+  const label = on ? t("auth.password.hide_label") : t("auth.password.show_label");
   $("login").password.type = on ? "text" : "password";
   button.setAttribute("aria-pressed", String(on));
   button.setAttribute("aria-label", label);
@@ -372,7 +372,7 @@ function showPassword(on) {
 // A read failure: 1 line in the page and 1 button to ask again. The line stays until the
 // user clears it with the x; the retry asks again but keeps the line in place.
 function showNotice(message) {
-  $("notice-text").textContent = message || t("error.dashboard_unreachable");
+  $("notice-text").textContent = message || t("error.dashboard_unreachable_text");
   const note = $("notice");
   note.classList.remove("leave");
   note.hidden = false;
@@ -399,7 +399,7 @@ async function guarded(task) {
 }
 
 async function rebuildCatalog() {
-  const go = await ask(t("catalog.action.title"), t("catalog.action.hint"), t("action.rebuild"));
+  const go = await ask(t("catalog.action.title"), t("catalog.action.hint"), t("action.rebuild_button"));
   if (!go) return;
   try {
     await call("catalog", { method: "POST" });
@@ -413,23 +413,23 @@ async function rebuildCatalog() {
 // The status card of a phone: the health row, then 1 line for each value. The catalog line starts a rebuild.
 function renderStatusCard(status) {
   const { built, next, rebuilding } = status.catalog || {};
-  const last = rebuilding ? t("catalog.rebuilding") : built ? relative(built) : t("catalog.never");
+  const last = rebuilding ? t("catalog.rebuilding_text") : built ? relative(built) : t("catalog.never_text");
   const following = next
-    ? t("catalog.next", { time: esc(relative(next)) })
-    : t("catalog.no_schedule");
-  const label = rebuilding ? t("catalog.rebuild.running") : t("catalog.rebuild.start");
+    ? t("catalog.next_text", { time: esc(relative(next)) })
+    : t("catalog.no_schedule_text");
+  const label = rebuilding ? t("catalog.rebuild.running_title") : t("catalog.rebuild.start_title");
   $("card-health").innerHTML =
-    `<span class="dot${status.healthy ? "" : " off"}"></span>${status.healthy ? t("state.healthy") : t("state.down")}`;
+    `<span class="dot${status.healthy ? "" : " off"}"></span>${status.healthy ? t("state.healthy_text") : t("state.down_text")}`;
   const affinity = status.affinity;
   const affinityLine = affinity?.mode && affinity.mode !== "none"
-    ? line(t("common.affinity"), affinity.mode === "race"
-        ? t("status.affinity.race", {
-            mode: t("settings.choice.race"), count: affinity.count,
+    ? line(t("common.affinity_label"), affinity.mode === "race"
+        ? t("status.affinity.race_text", {
+            mode: t("settings.choice.race_option"), count: affinity.count,
             chance: Math.round(affinity.chance * 100), slow: affinity.slow,
           })
-        : t("settings.choice.session"))
+        : t("settings.choice.session_option"))
     : "";
-  $("card-rows").innerHTML = line(t("common.sessions"), status.sessions) + affinityLine
+  $("card-rows").innerHTML = line(t("common.sessions_label"), status.sessions) + affinityLine
     + actionButton(`<span>${t("catalog.label")}</span><span><b>${esc(last)}</b>${following}</span>`, {
       variant: "line rebuild",
       attrs: { "data-catalog-rebuild": true, title: label, disabled: rebuilding },
@@ -440,9 +440,9 @@ function renderStatusCard(status) {
 let stateKnown = null;
 
 function stateChip() {
-  if (stateKnown === null) return `<span class="chip" id="state-loading">${t("state.loading")}</span>`;
+  if (stateKnown === null) return `<span class="chip" id="state-loading">${t("state.loading_text")}</span>`;
   if (stateKnown) return "";
-  return `<span class="chip bad" id="state-unknown" title="${t("state.unknown.hint")}">${t("state.unknown")}</span>`;
+  return `<span class="chip bad" id="state-unknown" title="${t("state.unknown.hint")}">${t("state.unknown_text")}</span>`;
 }
 
 // The Overview card holds the health, the sessions and the catalog; the header keeps the state.
@@ -505,7 +505,7 @@ function renderPools(pools) {
   draw("pools", pools.map((pool) => {
     const { tier, mode } = poolFilter(pool);
     const health = poolHealth(pool.members);
-    const bar = health === null ? "" : `<div class="health" title="${t("model.pool.mean_weight")}">
+    const bar = health === null ? "" : `<div class="health" title="${t("model.pool.mean_weight_title")}">
       ${progressMeter(health)}<span class="num">${health.toFixed(2)}</span></div>`;
     const context = pool.context
       ? ` <span class="ctx" title="${t("model.context.pool_hint", { count: pool.context.toLocaleString() })}">${tokens(pool.context)}</span>` : "";
@@ -518,19 +518,19 @@ function renderPools(pools) {
 const opened = new Set();
 let shownRequests = "";
 
-const seconds = (value) => value == null ? "" : t("time.seconds.short", { value: value.toFixed(3) });
+const seconds = (value) => value == null ? "" : t("time.seconds.short_text", { value: value.toFixed(3) });
 
 // A cooldown that an attempt started, such as "cooldown 60s backoff".
-const coolText = (c) => t("request.chain.cooldown", {
-  time: timeLeft(Date.now() / 1000 + c.seconds) || t("time.seconds.short", { value: 0 }),
+const coolText = (c) => t("request.chain.cooldown_text", {
+  time: timeLeft(Date.now() / 1000 + c.seconds) || t("time.seconds.short_text", { value: 0 }),
   reason: c.reason,
 });
-const weightText = (a) => t("request.chain.weight", {
+const weightText = (a) => t("request.chain.weight_text", {
   from: a.weight_change.from.toFixed(2), to: a.weight_change.to.toFixed(2),
 });
 
 function sentText(a, asked) {
-  if (a.effort == null) return t("request.effort.dropped");
+  if (a.effort == null) return t("request.effort.dropped_text");
   const shown = String(a.effort).replace(/^thinkingLevel=/, "");
   const level = shown.split("=").pop().toLowerCase();
   return asked && level === String(asked).toLowerCase() ? asked : shown;
@@ -554,15 +554,15 @@ function effortCell(r) {
 
 // A request that the client closed shows "cancelled" in place of its status.
 function statusText(r) {
-  return r.cancelled ? t("request.state.cancelled") : r.status;
+  return r.cancelled ? t("request.state.cancelled_text") : r.status;
 }
 
 // The meaning of each status, for the hover of the status cell.
 const STATUS_NOTES = {
-  200: t("request.status.ok"),
-  429: t("request.status.rate_limited"),
-  500: t("request.status.upstream_error"),
-  err: t("request.status.failed"),
+  200: t("request.status.ok_text"),
+  429: t("request.status.rate_limited_text"),
+  500: t("request.status.upstream_error_text"),
+  err: t("request.status.failed_text"),
 };
 
 // One short state. Its caller decides the meaning, color, and surrounding layout.
@@ -573,7 +573,7 @@ function statusBadge(text, { variant = "", title = "" } = {}) {
 
 // The status on the page: 499, the nginx code of a request that the client closed.
 function statusCell(r) {
-  if (r.cancelled) return statusBadge(499, { title: t("request.status.cancelled") });
+  if (r.cancelled) return statusBadge(499, { title: t("request.status.cancelled_text") });
   const note = STATUS_NOTES[r.status];
   return note ? statusBadge(r.status, { title: note }) : esc(r.status);
 }
@@ -586,19 +586,19 @@ function statusClass(r) {
 
 function chainText(r) {
   const head = [stamp(r.at), r.model, statusText(r),
-    r.effort && t("request.chain.field.effort", { value: r.effort }),
-    r.pool && t("request.chain.field.pool", { value: r.pool }),
-    r.routed && t("request.chain.field.from", { value: r.routed }),
-    t("request.chain.field.fallbacks", { value: r.fallbacks ?? 0 }),
-    r.retry && t("request.chain.field.retry", { value: r.retry }),
-    r.loop && t("request.chain.field.loop", { value: r.loop }),
+    r.effort && t("request.chain.field.effort_text", { value: r.effort }),
+    r.pool && t("request.chain.field.pool_text", { value: r.pool }),
+    r.routed && t("request.chain.field.from_text", { value: r.routed }),
+    t("request.chain.field.fallbacks_text", { value: r.fallbacks ?? 0 }),
+    r.retry && t("request.chain.field.retry_text", { value: r.retry }),
+    r.loop && t("request.chain.field.loop_text", { value: r.loop }),
   ].filter(Boolean).join(" ");
   const steps = (r.attempts || []).map((a, i) =>
-    t("request.chain.attempt", {
+    t("request.chain.attempt_text", {
       number: i + 1, model: a.model, result: a.result, time: seconds(a.seconds),
     }).trim() + ("effort" in a
-      ? ` ${t("request.chain.field.effort", { value: sentText(a, r.effort) })}` : "")
-      + (a.race === "won" ? ` ${t("request.chain.won_race")}` : "")
+      ? ` ${t("request.chain.field.effort_text", { value: sentText(a, r.effort) })}` : "")
+      + (a.race === "won" ? ` ${t("request.chain.won_race_text")}` : "")
       + (a.weight_change ? ` ${weightText(a)}` : "")
       + (a.cooldown ? ` ${coolText(a.cooldown)}` : "")
       + (a.error ? `\n   ${a.error}` : ""));
@@ -613,23 +613,23 @@ function chainSteps(r) {
     <li class="step ${a.result === "answered" ? "good" : "bad"}">
       <span class="num">${i + 1}.</span> <b>${esc(a.model)}</b>
       <span class="result">${esc(a.result)}</span> <span class="muted num">${seconds(a.seconds)}</span>
-      ${"effort" in a ? `<span class="from">${t("request.chain.effort", { effort: esc(shortEffort(sentText(a, r.effort))) })}</span>` : ""}
+      ${"effort" in a ? `<span class="from">${t("request.chain.effort_text", { effort: esc(shortEffort(sentText(a, r.effort))) })}</span>` : ""}
       ${a.weight_change ? `<span class="from">${esc(weightText(a))}</span>` : ""}
       ${a.cooldown ? `<span class="from">${esc(coolText(a.cooldown))}</span>` : ""}
-      ${a.race === "won" ? `<span class="from">${t("request.chain.won_race")}</span>` : ""}
+      ${a.race === "won" ? `<span class="from">${t("request.chain.won_race_text")}</span>` : ""}
       ${a.error ? `<pre>${esc(a.error)}</pre>` : ""}
     </li>`).join("");
-  return steps ? `<ol>${steps}</ol>` : `<p class="muted">${t("request.chain.empty")}</p>`;
+  return steps ? `<ol>${steps}</ol>` : `<p class="muted">${t("request.chain.empty_text")}</p>`;
 }
 
 function chainRows(r) {
   const many = fallbackCount(r);
   const title = many
-    ? t("request.chain.title_with_count", { count: many })
+    ? t("request.chain.title_with_count_text", { count: many })
     : t("request.chain.title");
   return `<tr role="row" class="chain"><td role="cell" colspan="13"><div class="chain-body">
     <div class="chain-head"><span class="muted">${title}</span>
-      ${actionButton(t("request.chain.copy"), { variant: "ghost copy-chain", attrs: { "data-at": r.at } })}</div>
+      ${actionButton(t("request.chain.copy_button"), { variant: "ghost copy-chain", attrs: { "data-at": r.at } })}</div>
     ${raceNote(r)}${chainSteps(r)}
   </div></td></tr>`;
 }
@@ -659,19 +659,19 @@ const raceNote = (r) => (state.status?.affinity?.enabled && RACE_CODES[r.race]
   ? `<p class="chain-race" title="${esc(RACE_NOTES[r.race])}">${esc(RACE_CODES[r.race])}</p>` : "");
 
 function routingCodes(r) {
-  const from = r.routed ? ` <span class="from" title="${t("request.route.previous_tier", { tier: esc(poolTier(r.routed)) })}">fr${esc(poolTier(r.routed))}</span>` : "";
-  const loop = r.loop ? ` <span class="from" title="${t("request.route.tool_loop", { count: esc(r.loop) })}">tl${esc(r.loop)}</span>` : "";
+  const from = r.routed ? ` <span class="from" title="${t("request.route.previous_tier_text", { tier: esc(poolTier(r.routed)) })}">fr${esc(poolTier(r.routed))}</span>` : "";
+  const loop = r.loop ? ` <span class="from" title="${t("request.route.tool_loop_text", { count: esc(r.loop) })}">tl${esc(r.loop)}</span>` : "";
   return transitionCell(r.transition) + from + loop;
 }
 
 function mobileFallbackChain(r, tail = "") {
   const summary = tail
-    ? t("request.chain.view_with_count", { count: tail.replace(/^ · /, "") })
-    : t("request.chain.view");
+    ? t("request.chain.view_with_count_text", { count: tail.replace(/^ · /, "") })
+    : t("request.chain.view_text");
   return `<details class="mobile-fallback-chain">
     <summary>${summary}</summary>
     <div class="mobile-chain-head"><span class="muted">${t("request.chain.title")}</span>
-      ${actionButton(t("request.chain.copy"), { variant: "ghost copy-chain", attrs: { "data-at": r.at } })}</div>
+      ${actionButton(t("request.chain.copy_button"), { variant: "ghost copy-chain", attrs: { "data-at": r.at } })}</div>
     ${raceNote(r)}${chainSteps(r)}
   </details>`;
 }
@@ -681,7 +681,7 @@ function mobileFallbackChain(r, tail = "") {
 function fallbackCount(r) {
   return r.fallbacks === undefined || r.fallbacks === null
     ? ""
-    : plural(Number(r.fallbacks), "request.chain.fallback.one", "request.chain.fallback.other");
+    : plural(Number(r.fallbacks), "request.chain.fallback.one_text", "request.chain.fallback.other_text");
 }
 
 function mobileRequestDetails(r, live = false) {
@@ -703,7 +703,7 @@ function floorCount(n) {
   return `${Math.floor(n / size)}${mark}`;
 }
 
-function tokenCell(count, mark = "", label = t("request.column.input")) {
+function tokenCell(count, mark = "", label = t("request.column.input_column")) {
   if (typeof count !== "number") return cell(label, "-", "hide-sm num");
   const shown = floorCount(count);
   return `<td role="cell" class="hide-sm num" title="${mark}${count.toLocaleString()}">${mobileLabel(label)}<span class="cell-value">${mark}${shown}</span></td>`;
@@ -717,7 +717,7 @@ function streamCell(r) {
 }
 
 // The short app name from the client headers, with the API key name on hover.
-const appCell = (r) => `<td role="cell"${r.key ? ` title="${t("request.app.api_key", { key: esc(r.key) })}"` : ""}>${mobileLabel(t("request.column.app"))}<span class="cell-value">${r.app ? esc(r.app) : dash}</span></td>`;
+const appCell = (r) => `<td role="cell"${r.key ? ` title="${t("request.app.api_key_text", { key: esc(r.key) })}"` : ""}>${mobileLabel(t("request.column.app_column"))}<span class="cell-value">${r.app ? esc(r.app) : dash}</span></td>`;
 
 // A live request with local times, because the server sends ages and not clock times.
 function liveRow(r) {
@@ -733,9 +733,9 @@ function renderLiveToggle() {
   button.setAttribute("aria-pressed", String(state.livePaused));
   const label = state.livePaused
     ? state.liveWaiting.size
-      ? t("request.live.paused_new", { count: state.liveWaiting.size })
-      : t("request.live.paused")
-    : t("request.live");
+      ? t("request.live.paused_new_button", { count: state.liveWaiting.size })
+      : t("request.live.paused_button")
+    : t("request.live_button");
   button.innerHTML = `${state.livePaused ? icon("pause") : icon("activity")} ${esc(label)}`;
 }
 
@@ -790,19 +790,19 @@ function closeLive() {
 }
 
 const TRANSITION_REASONS = {
-  ctx: t("request.route.context"),
-  hlt: t("request.route.health"),
-  lmt: t("request.route.limit"),
-  err: t("request.route.failure"),
-  rnd: t("request.route.random"),
-  cls: t("request.route.classifier"),
-  esc: t("request.route.escalation"),
-  rce: t("request.route.race"),
+  ctx: t("request.route.context_text"),
+  hlt: t("request.route.health_text"),
+  lmt: t("request.route.limit_text"),
+  err: t("request.route.failure_text"),
+  rnd: t("request.route.random_text"),
+  cls: t("request.route.classifier_text"),
+  esc: t("request.route.escalation_text"),
+  rce: t("request.route.race_text"),
 };
 
 // A repeat carries the code of the hook, such as rt1. The row shows the code as given.
 const REPEAT_CODE = /^rt\d+$/;
-const REPEAT_LABEL = t("request.route.repeat");
+const REPEAT_LABEL = t("request.route.repeat_text");
 
 function transitionCell(t) {
   if (!t || !t.reason) return "";
@@ -830,8 +830,8 @@ const raceOn = () => Boolean(
 function renderLegend(extra = state.legendExtra) {
   const rows = [
     ...Object.entries(TRANSITION_REASONS).filter(([code]) => code !== "rce" || raceOn()),
-    ["frX", t("request.legend.frx")],
-    ["tlN", t("request.legend.tln")],
+    ["frX", t("request.legend.frx_text")],
+    ["tlN", t("request.legend.tln_text")],
     ...extra,
   ];
   $("legend-body").innerHTML = rows.map(([code, label]) =>
@@ -859,18 +859,18 @@ function renderLive() {
   // carries the glide: a redraw of a row already on the page stays still.
   $("live").innerHTML = rows.map((r) => `
     <tr role="row" class="live-row${state.liveSeen.has(r.id) ? "" : " arrive"}" data-live="${r.id}">
-      ${cell(t("request.column.time"), `<span class="pulse"></span><span class="live-ago">${relative(r.since / 1000)}</span>`, "num muted",
+      ${cell(t("request.column.time_column"), `<span class="pulse"></span><span class="live-ago">${relative(r.since / 1000)}</span>`, "num muted",
         ` title="${esc(stamp(r.since / 1000))}"`)}
       ${appCell(r)}
-      ${cell(t("request.column.session"), esc(r.session || "-"), "hide-sm num mono")}
-      ${nameCell(r.model || r.path, modelName(r.model || r.path, poolOf(r)) + routingCodes(r), t("request.column.model"))}
-      ${nameCell(r.via || r.trying || "", r.via ? modelName(r.via) : `<span class="muted">${r.trying ? t("request.state.trying", { model: modelName(r.trying) }) : t("request.state.waiting")}</span>`, t("request.column.served_by"))}
-      ${cell(t("request.column.effort"), effortCell(r), "hide-sm")}
-      ${cell(t("request.column.status"), t("request.state.live"), "status muted")}
-      ${cell(t("request.column.input"), "-", "hide-sm num muted")}
-      ${cell(t("request.column.output"), "-", "hide-sm num muted")}
-      <td role="cell" class="hide-sm num">${mobileLabel(t("request.column.ttft"))}<span class="cell-value"><span data-clock="ttft"></span></span></td>
-      <td role="cell" class="hide-sm num">${mobileLabel(t("request.column.stream"))}<span class="cell-value"><span data-clock="stream"></span></span></td>
+      ${cell(t("request.column.session_column"), esc(r.session || "-"), "hide-sm num mono")}
+      ${nameCell(r.model || r.path, modelName(r.model || r.path, poolOf(r)) + routingCodes(r), t("request.column.model_column"))}
+      ${nameCell(r.via || r.trying || "", r.via ? modelName(r.via) : `<span class="muted">${r.trying ? t("request.state.trying_text", { model: modelName(r.trying) }) : t("request.state.waiting_text")}</span>`, t("request.column.served_by_column"))}
+      ${cell(t("request.column.effort_column"), effortCell(r), "hide-sm")}
+      ${cell(t("request.column.status_column"), t("request.state.live_text"), "status muted")}
+      ${cell(t("request.column.input_column"), "-", "hide-sm num muted")}
+      ${cell(t("request.column.output_column"), "-", "hide-sm num muted")}
+      <td role="cell" class="hide-sm num">${mobileLabel(t("request.column.ttft_column"))}<span class="cell-value"><span data-clock="ttft"></span></span></td>
+      <td role="cell" class="hide-sm num">${mobileLabel(t("request.column.stream_column"))}<span class="cell-value"><span data-clock="stream"></span></span></td>
       ${fallbackCell(r, "hide-sm num muted", true)}
     </tr>`).join("");
   state.liveSeen = new Set(rows.map((r) => r.id));
@@ -979,8 +979,8 @@ function renderRequestTable() {
   const live = [...state.live.values()].filter((r) => requestMatches(r, { live: true })).length;
   const total = state.requests.length + live;
   renderRequests(rows, total && !rows.length && !live
-    ? t("request.empty.filter")
-    : t("request.empty.none"), live);
+    ? t("request.empty.filter_text")
+    : t("request.empty.none_text"), live);
   // The button keeps its seat in the bar, so showing it never moves the count hint.
   $("request-clear").classList.toggle("off",
     !state.requestSearch && state.requestStatus === "all" && !state.requestHours);
@@ -989,10 +989,10 @@ function renderRequestTable() {
   const shown = rows.length + live;
   const head = shown === total
     ? count(total, "request")
-    : t("request.count.shown", { shown, total: count(total, "request") });
+    : t("request.count.shown_text", { shown, total: count(total, "request") });
   const hint = $("request-count");
   hint.textContent = total
-    ? `${head}${live ? ` · ${t("request.count.in_flight", { count: live })}` : ""}`
+    ? `${head}${live ? ` · ${t("request.count.in_flight_text", { count: live })}` : ""}`
     : "";
   // The hint pulses when the stream itself changes, not when a filter rewrites the text.
   if (live !== state.liveCount) {
@@ -1003,7 +1003,7 @@ function renderRequestTable() {
   }
 }
 
-function renderRequests(rows, empty = t("request.empty.none"), live = 0) {
+function renderRequests(rows, empty = t("request.empty.none_text"), live = 0) {
   const flatRows = splitRequests(rows);
   // The live count rides in the key: a live row hides the empty row, so it changes the markup.
   const text = JSON.stringify([flatRows, live ? 1 : 0]);
@@ -1015,18 +1015,18 @@ function renderRequests(rows, empty = t("request.empty.none"), live = 0) {
     const chain = hasChain(r);
     const chainOpen = chain && opened.has(String(r.at));
     return `
-    <tr role="row" class="request${chain ? " has-chain" : ""}${chainOpen ? " open" : ""}" data-at="${r.at}"${chain ? ` title="${t("request.chain.show")}"` : ""}>
-      ${cell(t("request.column.time"), `<span class="caret${chain ? "" : " none"}"></span>${relative(r.at)}`, "num muted", ` title="${esc(stamp(r.at))}"`)}
+    <tr role="row" class="request${chain ? " has-chain" : ""}${chainOpen ? " open" : ""}" data-at="${r.at}"${chain ? ` title="${t("request.chain.show_title")}"` : ""}>
+      ${cell(t("request.column.time_column"), `<span class="caret${chain ? "" : " none"}"></span>${relative(r.at)}`, "num muted", ` title="${esc(stamp(r.at))}"`)}
       ${appCell(r)}
-      ${cell(t("request.column.session"), esc(r.session || "-"), "hide-sm num mono")}
-      ${nameCell(r.model || "-", modelName(r.model || "-", poolOf(r)) + routingCodes(r), t("request.column.model"))}
-      ${nameCell(r.via || "", r.via ? modelName(r.via) : `<span class="muted">${t("request.state.none")}</span>`, t("request.column.served_by"))}
-      ${cell(t("request.column.effort"), effortCell(r), "hide-sm")}
-      ${cell(t("request.column.status"), statusCell(r), `status ${statusClass(r)}`)}
-      ${tokenCell(r.tokens?.input, r.tokens?.estimate ? "~" : "", t("request.column.input"))}
-      ${tokenCell(r.tokens?.output, "", t("request.column.output"))}
-      ${cell(t("request.column.ttft"), esc(r.ttft || "-"), "hide-sm num")}
-      ${cell(t("request.column.stream"), streamCell(r), "hide-sm num")}
+      ${cell(t("request.column.session_column"), esc(r.session || "-"), "hide-sm num mono")}
+      ${nameCell(r.model || "-", modelName(r.model || "-", poolOf(r)) + routingCodes(r), t("request.column.model_column"))}
+      ${nameCell(r.via || "", r.via ? modelName(r.via) : `<span class="muted">${t("request.state.none_text")}</span>`, t("request.column.served_by_column"))}
+      ${cell(t("request.column.effort_column"), effortCell(r), "hide-sm")}
+      ${cell(t("request.column.status_column"), statusCell(r), `status ${statusClass(r)}`)}
+      ${tokenCell(r.tokens?.input, r.tokens?.estimate ? "~" : "", t("request.column.input_column"))}
+      ${tokenCell(r.tokens?.output, "", t("request.column.output_column"))}
+      ${cell(t("request.column.ttft_column"), esc(r.ttft || "-"), "hide-sm num")}
+      ${cell(t("request.column.stream_column"), streamCell(r), "hide-sm num")}
       ${fallbackCell(r, "hide-sm num")}
     </tr>${chainOpen ? chainRows(r) : ""}`;
   }).join("") : live ? "" : `<tr role="row"><td role="cell" colspan="13" class="empty">${empty}</td></tr>`;
@@ -1035,14 +1035,14 @@ function renderRequests(rows, empty = t("request.empty.none"), live = 0) {
 
 // The label of each catalog mode.
 const MODES = {
-  chat: t("model.mode.chat"),
-  embedding: t("model.mode.embedding"),
-  audio_transcription: t("model.mode.audio_transcription"),
-  audio_speech: t("model.mode.audio_speech"),
-  image_generation: t("model.mode.image_generation"),
-  video_generation: t("model.mode.video_generation"),
-  decisions: t("model.mode.decisions"),
-  rerank: t("model.mode.rerank"),
+  chat: t("model.mode.chat_label"),
+  embedding: t("model.mode.embedding_label"),
+  audio_transcription: t("model.mode.audio_transcription_label"),
+  audio_speech: t("model.mode.audio_speech_label"),
+  image_generation: t("model.mode.image_generation_label"),
+  video_generation: t("model.mode.video_generation_label"),
+  decisions: t("model.mode.decisions_label"),
+  rerank: t("model.mode.rerank_label"),
 };
 // Dynamic glyphs share one decorative SVG wrapper, so their size and Lucide attributes stay aligned.
 const ICON_PATHS = {
@@ -1070,10 +1070,10 @@ function icon(name) {
 const FLAG_ICON_NAMES = { vision: "image", pdf_input: "file_text", audio_input: "mic", audio_output: "volume_2" };
 // The label of each media flag chip.
 const FLAGS = {
-  vision: t("model.flag.vision"),
-  pdf_input: t("model.flag.pdf_input"),
-  audio_input: t("model.flag.audio_input"),
-  audio_output: t("model.flag.audio_output"),
+  vision: t("model.flag.vision_label"),
+  pdf_input: t("model.flag.pdf_input_label"),
+  audio_input: t("model.flag.audio_input_label"),
+  audio_output: t("model.flag.audio_output_label"),
 };
 // The mode already says what these media flags say: Speech is audio out, Transcription is audio in.
 const REDUNDANT = { audio_speech: "audio_output", audio_transcription: "audio_input" };
@@ -1092,26 +1092,26 @@ const CHIP_ICON_NAMES = { tools: "wrench", cool: "snowflake", brain: "brain" };
 
 function phoneChips(m) {
   // The desktop columns a phone drops ride as labelled chips, so the card row stays full.
-  const tier = m.tier ? `<span class="chip flag" title="${t("model.column.tier")}">${t("model.mobile.tier", { value: esc(tierLetter(m.tier)) })}</span>` : "";
-  const order = m.order ? `<span class="chip flag" title="${t("model.column.order")}">${t("model.mobile.order", { value: m.order })}</span>` : "";
+  const tier = m.tier ? `<span class="chip flag" title="${t("model.column.tier_column")}">${t("model.mobile.tier_text", { value: esc(tierLetter(m.tier)) })}</span>` : "";
+  const order = m.order ? `<span class="chip flag" title="${t("model.column.order_column")}">${t("model.mobile.order_text", { value: m.order })}</span>` : "";
   const context = m.max_input_tokens
-    ? `<span class="chip flag" title="${t("model.column.context")}">${t("model.mobile.context", { value: `<span class="num">${tokens(m.max_input_tokens)}</span>` })}</span>`
+    ? `<span class="chip flag" title="${t("model.column.context_column")}">${t("model.mobile.context_text", { value: `<span class="num">${tokens(m.max_input_tokens)}</span>` })}</span>`
     : "";
   // A state the model does not support shows no chip at all.
   const tools = m.mode === "chat" && m.tools
-    ? `<span class="chip flag" title="${t("model.column.tools")}">${icon(CHIP_ICON_NAMES.tools)}</span>` : "";
+    ? `<span class="chip flag" title="${t("model.column.tools_column")}">${icon(CHIP_ICON_NAMES.tools)}</span>` : "";
   const reasoning = m.mode === "chat" && m.reasoning
-    ? `<span class="chip flag" title="${t("model.column.reasoning")}">${icon(CHIP_ICON_NAMES.brain)}${m.effort ? `<span class="num">${esc(m.effort)}</span>` : ""}</span>`
+    ? `<span class="chip flag" title="${t("model.column.reasoning_column")}">${icon(CHIP_ICON_NAMES.brain)}${m.effort ? `<span class="num">${esc(m.effort)}</span>` : ""}</span>`
     : "";
   const cool = m.cooldown && m.cooldown > Date.now() / 1000
-    ? `<span class="chip flag" title="${t("model.column.cooldown")}">${icon(CHIP_ICON_NAMES.cool)}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
+    ? `<span class="chip flag" title="${t("model.column.cooldown_column")}">${icon(CHIP_ICON_NAMES.cool)}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
     : "";
   return tier + order + context + tools + reasoning + cool;
 }
 
 function renderTiers() {
   $("tiers").innerHTML = ["All", "A", "B", "C", "D"].map((tier) =>
-    actionButton(esc(tier === "All" ? t("model.type.all") : tier), {
+    actionButton(esc(tier === "All" ? t("model.type.all_button") : tier), {
       variant: `filter${tier === state.tier ? " on" : ""}`,
       attrs: { "data-tier": tier },
     }),
@@ -1134,13 +1134,13 @@ const sortValue = {
 
 // The label of each reasoning effort. The chip color grows with the effort.
 const EFFORTS = {
-  none: t("model.effort.none"),
-  minimal: t("model.effort.minimal"),
-  low: t("model.effort.low"),
-  medium: t("model.effort.medium"),
-  high: t("model.effort.high"),
-  xhigh: t("model.effort.xhigh"),
-  max: t("model.effort.max"),
+  none: t("model.effort.none_label"),
+  minimal: t("model.effort.minimal_label"),
+  low: t("model.effort.low_label"),
+  medium: t("model.effort.medium_label"),
+  high: t("model.effort.high_label"),
+  xhigh: t("model.effort.xhigh_label"),
+  max: t("model.effort.max_label"),
 };
 function effortChip(name, label = EFFORTS[name] || name) {
   const level = name in EFFORTS ? ` e-${name}` : "";
@@ -1151,9 +1151,9 @@ function reasoningCell(m) {
   if (!m.reasoning || !m.effort) return yesNo(m.reasoning);
   const known = m.effort in EFFORTS;
   const label = known ? EFFORTS[m.effort] : m.effort.charAt(0).toUpperCase() + m.effort.slice(1);
-  return `<span class="chip flag effort${known ? ` e-${m.effort}` : ""}" title="${t("model.detail.default_effort")}">${esc(label)}</span>`;
+  return `<span class="chip flag effort${known ? ` e-${m.effort}` : ""}" title="${t("model.detail.default_effort_label")}">${esc(label)}</span>`;
 }
-const yesNo = (on) => statusBadge(on ? t("common.boolean.yes") : t("common.boolean.no"), { variant: on ? "yes" : "muted" });
+const yesNo = (on) => statusBadge(on ? t("common.boolean.yes_text") : t("common.boolean.no_text"), { variant: on ? "yes" : "muted" });
 
 // The modal of 1 model: a card that leads with the model, its developer and its provider.
 // The capabilities read as lucide icon chips, the limits as stats, the efforts as chips.
@@ -1164,9 +1164,9 @@ function openModelModal(m) {
   // A lobe mark rides beside a part that owns one; a part without a file keeps plain text.
   const markImg = (name) => (MARK_FILES.has(name) ? mark(name) : "");
   const identity = [
-    [t("model.column.model"), model || m.slug || m.id, ""],
-    ...(dev ? [[t("model.detail.developer"), dev, markImg(dev)]] : []),
-    [t("model.detail.provider"), provider, markImg(provider)],
+    [t("model.column.model_column"), model || m.slug || m.id, ""],
+    ...(dev ? [[t("model.detail.developer_label"), dev, markImg(dev)]] : []),
+    [t("model.detail.provider_label"), provider, markImg(provider)],
   ].map(([label, value, icon]) =>
     `<div class="id-row"><span class="label">${esc(label)}</span>${icon}<span class="value">${esc(value)}</span></div>`)
     .join("");
@@ -1176,22 +1176,22 @@ function openModelModal(m) {
     .join("");
   const chips = [
     `<span class="chip flag mode">${esc(MODES[m.mode] || m.mode)}</span>` + flags,
-    m.tier ? `<span class="chip flag" title="${t("model.column.tier")}">${t("model.mobile.tier", { value: esc(tierLetter(m.tier)) })}</span>` : "",
-    m.order ? `<span class="chip flag" title="${t("model.column.order")}">${t("model.mobile.order", { value: m.order })}</span>` : "",
+    m.tier ? `<span class="chip flag" title="${t("model.column.tier_column")}">${t("model.mobile.tier_text", { value: esc(tierLetter(m.tier)) })}</span>` : "",
+    m.order ? `<span class="chip flag" title="${t("model.column.order_column")}">${t("model.mobile.order_text", { value: m.order })}</span>` : "",
     m.mode === "chat" && m.tools
-      ? `<span class="chip flag" title="${t("model.column.tools")}">${icon(CHIP_ICON_NAMES.tools)} ${t("model.column.tools")}</span>` : "",
+      ? `<span class="chip flag" title="${t("model.column.tools_column")}">${icon(CHIP_ICON_NAMES.tools)} ${t("model.column.tools_column")}</span>` : "",
     m.mode === "chat" && m.reasoning
-      ? `<span class="chip flag" title="${t("model.column.reasoning")}">${icon(CHIP_ICON_NAMES.brain)} ${t("model.column.reasoning")}</span>`
+      ? `<span class="chip flag" title="${t("model.column.reasoning_column")}">${icon(CHIP_ICON_NAMES.brain)} ${t("model.column.reasoning_column")}</span>`
       : "",
     m.cooldown && m.cooldown > Date.now() / 1000
-      ? `<span class="chip flag" title="${t("model.column.cooldown")}">${icon(CHIP_ICON_NAMES.cool)}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
+      ? `<span class="chip flag" title="${t("model.column.cooldown_column")}">${icon(CHIP_ICON_NAMES.cool)}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
       : "",
   ].join("");
   // Only the weight draws a bar. A floor in the style keeps the blocks at one height.
   const stats = [
-    m.max_input_tokens ? [m.max_input_tokens.toLocaleString(), t("model.detail.input_tokens")] : null,
-    m.max_output_tokens ? [m.max_output_tokens.toLocaleString(), t("model.detail.output_tokens")] : null,
-    m.weight != null ? [m.weight.toFixed(2), t("model.detail.weight"), progressMeter(m.weight)] : null,
+    m.max_input_tokens ? [m.max_input_tokens.toLocaleString(), t("model.detail.input_tokens_label")] : null,
+    m.max_output_tokens ? [m.max_output_tokens.toLocaleString(), t("model.detail.output_tokens_label")] : null,
+    m.weight != null ? [m.weight.toFixed(2), t("model.detail.weight_label"), progressMeter(m.weight)] : null,
   ].filter(Boolean).map(([value, label, bar]) =>
     `<div class="stat"><span class="num">${esc(value)}</span><span class="label">${esc(label)}</span>${bar || ""}</div>`)
     .join("");
@@ -1199,7 +1199,7 @@ function openModelModal(m) {
   $("model-modal-body").innerHTML = `<div class="model-id">${identity}</div>`
     + (chips ? `<div class="model-chips">${chips}</div>` : "")
     + (stats ? `<div class="model-stats">${stats}</div>` : "")
-    + (efforts ? `<h4>${t("model.detail.supported_efforts")}</h4><div class="pills">${efforts}</div>` : "");
+    + (efforts ? `<h4>${t("model.detail.supported_efforts_label")}</h4><div class="pills">${efforts}</div>` : "");
   $("model-modal").showModal();
 }
 // Red at 0, orange at 0.5 and blue at 1, mixed in between.
@@ -1285,18 +1285,18 @@ function renderModels() {
     (state.tier === "All" || tierLetter(m.tier) === state.tier)
     && (state.mode === "all" || m.mode === state.mode || m.flags.includes(state.mode))
     && m.id.toLowerCase().includes(query)));
-  const empty = state.models.length ? t("model.empty.filter") : t("model.empty.catalog");
+  const empty = state.models.length ? t("model.empty.filter_text") : t("model.empty.catalog_text");
   draw("models", rows.length ? rows.map((m) => `
     <tr data-model="${esc(m.id)}">
       ${nameCell(m.id, modelName(m.id), "", `<span class="types phone-types">${typeChips(m)}</span><span class="phone-chips">${phoneChips(m)}</span>`)}
       <td class="hide-sm"><div class="types">${typeChips(m)}</div></td>
-      <td class="mid hide-sm">${mobileLabel(t("model.column.tier"))}<span class="cell-value">${m.tier ? `<span class="tier" title="${esc(m.tier)}">${esc(tierLetter(m.tier))}</span>` : dash}</span></td>
+      <td class="mid hide-sm">${mobileLabel(t("model.column.tier_column"))}<span class="cell-value">${m.tier ? `<span class="tier" title="${esc(m.tier)}">${esc(tierLetter(m.tier))}</span>` : dash}</span></td>
       <td class="hide-sm mid num${m.order > 1 ? "" : " muted"}">${m.order ?? dash}</td>
       <td class="hide-sm num muted"><span${m.max_input_tokens ? ` title="${t("model.tokens.title", { count: m.max_input_tokens.toLocaleString() })}"` : ""}>${tokens(m.max_input_tokens)}</span></td>
-      <td class="mid hide-sm">${mobileLabel(t("model.column.tools"))}<span class="cell-value">${m.mode === "chat" ? yesNo(m.tools) : dash}</span></td>
+      <td class="mid hide-sm">${mobileLabel(t("model.column.tools_column"))}<span class="cell-value">${m.mode === "chat" ? yesNo(m.tools) : dash}</span></td>
       <td class="hide-sm mid">${m.mode === "chat" ? reasoningCell(m) : dash}</td>
-      <td class="num hide-sm">${mobileLabel(t("model.column.cooldown"))}<span class="cell-value">${coolCells(m)}</span></td>
-      <td>${mobileLabel(t("model.column.weight"))}<span class="cell-value">${m.weight == null ? dash
+      <td class="num hide-sm">${mobileLabel(t("model.column.cooldown_column"))}<span class="cell-value">${coolCells(m)}</span></td>
+      <td>${mobileLabel(t("model.column.weight_column"))}<span class="cell-value">${m.weight == null ? dash
         : `<div class="weight">${progressMeter(m.weight)}<span class="num">${m.weight.toFixed(2)}</span></div>`}</span></td>
     </tr>`).join("") : `<tr><td colspan="9" class="empty">${empty}</td></tr>`);
 }
@@ -1308,14 +1308,14 @@ function timeLeft(until) {
   const h = Math.floor(left / 3600), m = Math.floor((left % 3600) / 60), s = left % 60;
   const pad = (n) => String(n).padStart(2, "0");
   return h
-    ? t("time.duration.hours_minutes", { hours: h, minutes: pad(m) })
+    ? t("time.duration.hours_minutes_text", { hours: h, minutes: pad(m) })
     : m
-      ? t("time.duration.minutes_seconds", { minutes: m, seconds: pad(s) })
-      : t("time.duration.seconds", { seconds: s });
+      ? t("time.duration.minutes_seconds_text", { minutes: m, seconds: pad(s) })
+      : t("time.duration.seconds_text", { seconds: s });
 }
 const coolCell = (until) => {
   const left = until ? timeLeft(until) : null;
-  return left ? `<span class="cool" data-until="${until}" title="${t("model.cooldown.until", { time: esc(stamp(until)) })}">${left}</span>` : dash;
+  return left ? `<span class="cool" data-until="${until}" title="${t("model.cooldown.until_text", { time: esc(stamp(until)) })}">${left}</span>` : dash;
 };
 // The cooldown of the model, and of each client with its own provider key, such as "kilo 4m 05s".
 function coolCells(m) {
@@ -1343,14 +1343,14 @@ function renderKeys(rows) {
   draw("keys", rows.length ? rows.map((k) => `
     <tr>
       <td class="name" title="${esc(k.name)}">${esc(k.name)}</td>
-      <td class="num muted mono"><span${k.start ? ` title="${t("settings.keys.only_start")}"` : ""}>${k.start ? esc(k.start) + "&hellip;" : "-"}</span></td>
+      <td class="num muted mono"><span${k.start ? ` title="${t("settings.keys.only_start_title")}"` : ""}>${k.start ? esc(k.start) + "&hellip;" : "-"}</span></td>
       <td class="hide-sm muted">${stamp(k.created)}</td>
-      <td class="muted">${mobileLabel(t("settings.keys.last_used"))}<span class="cell-value">${k.used ? stamp(k.used) : t("settings.keys.used_never")}</span></td>
+      <td class="muted">${mobileLabel(t("settings.keys.last_used_column"))}<span class="cell-value">${k.used ? stamp(k.used) : t("settings.keys.used_never_text")}</span></td>
       <td class="end">${actionButton(icon("trash"), {
         variant: "ghost danger",
-        attrs: { "data-key": k.name, "aria-label": t("settings.keys.delete_named", { name: k.name }), title: t("action.delete") },
+        attrs: { "data-key": k.name, "aria-label": t("settings.keys.delete_named_label", { name: k.name }), title: t("action.delete_button") },
       })}</td>
-    </tr>`).join("") : `<tr><td colspan="5" class="empty">${t("settings.keys.empty")}</td></tr>`);
+    </tr>`).join("") : `<tr><td colspan="5" class="empty">${t("settings.keys.empty_text")}</td></tr>`);
   markCardScrollEdges();
 }
 
@@ -1419,7 +1419,7 @@ function renderFiles() {
   const chips = state.files.map((file, index) => {
     const mark = fileDirty(index) ? " &bull;" : "";
     // The provider keys of a shadowed file do nothing, so the tab says which file wins.
-    const shadow = file.shadow ? t("provider.file.shadow", { file: file.shadow }) : "";
+    const shadow = file.shadow ? t("provider.file.shadow_text", { file: file.shadow }) : "";
     return actionButton(`${esc(fileName(file.path))}${mark}`, {
       variant: `tab${index === state.file ? " on" : ""}`,
       attrs: { "data-file": index, title: `${file.path}${shadow}` },
@@ -1428,8 +1428,8 @@ function renderFiles() {
   // The page actions ride in the file row, as 1 more chip. The main provider file stays:
   // only a {provider}.yml file can go.
   const drop = current?.main === false
-    ? actionButton(t("action.delete_file"), { variant: "tab danger", attrs: { id: "drop-provider" } }) : "";
-  $("files").innerHTML = `${chips} ${actionButton(t("action.new_provider"), {
+    ? actionButton(t("action.delete_file_button"), { variant: "tab danger", attrs: { id: "drop-provider" } }) : "";
+  $("files").innerHTML = `${chips} ${actionButton(t("action.new_provider_button"), {
     variant: "tab", attrs: { id: "new-provider" },
   })}${drop ? ` ${drop}` : ""}`;
   // The card Save writes the text. The form rows write themselves, on the close.
@@ -1460,7 +1460,7 @@ async function takeFile(index) {
 // A file with YAML that is not valid opens in the YAML view, with the error line.
 function showFileError(index) {
   const error = state.files[index]?.error;
-  if (error) showWrite("providers", t("provider.yaml.error", { error }), true);
+  if (error) showWrite("providers", t("provider.yaml.error_text", { error }), true);
   else clearWrite("providers");
   if (error) state.view = "yaml";
 }
@@ -1483,11 +1483,11 @@ function openFile(index) {
 
 // A chip for 1 value. The × button deletes the list item or the map key.
 const pill = (text, path, key) => `<span class="pill">${esc(text)}${actionButton(icon("x"), {
-  attrs: { title: t("action.delete"), "data-drop": JSON.stringify([...path, key]) },
+  attrs: { title: t("action.delete_button"), "data-drop": JSON.stringify([...path, key]) },
 })}</span>`;
 
 // The "+ Add" button. A click puts an inline input in its place.
-const adder = (path, kind, label = t("action.add")) => actionButton(esc(label), {
+const adder = (path, kind, label = t("action.add_button")) => actionButton(esc(label), {
   variant: "add",
   attrs: { "data-add": JSON.stringify(path), "data-kind": kind },
 });
@@ -1500,7 +1500,7 @@ function listField(name, values, path) {
 function mapPills(values, path, kind, separator) {
   const map = values && typeof values === "object" ? values : {};
   return Object.entries(map).map(([key, value]) => pill(`${key}${separator}${shown(value)}`, path, key)).join("")
-    + adder(path, kind, kind === "override" ? t("action.add_key") : t("action.add"));
+    + adder(path, kind, kind === "override" ? t("action.add_key_button") : t("action.add_button"));
 }
 
 // The chip list of a Settings field. The edited values live in the page state, so a
@@ -1517,9 +1517,9 @@ function setListValue(group, key, values) {
   state.settings.lists[`${group}.${key}`] = values;
 }
 const settingPill = (group, key, value, index) => `<span class="pill">${esc(value)}${actionButton(icon("x"), {
-  attrs: { title: t("action.delete"), "data-setting-drop": JSON.stringify([group, key, index]) },
+  attrs: { title: t("action.delete_button"), "data-setting-drop": JSON.stringify([group, key, index]) },
 })}</span>`;
-const settingAdder = (group, key) => actionButton(t("action.add"), {
+const settingAdder = (group, key) => actionButton(t("action.add_button"), {
   variant: "add", attrs: { "data-setting-add": JSON.stringify([group, key]) },
 });
 
@@ -1555,24 +1555,24 @@ const hookFormRow = (entry, path, choices) => {
   const at = JSON.stringify(path);
   const open = openFormHook === at;
   const menu = open ? `<div class="menu" role="listbox" aria-label="${t("hook.file.label")}">${[""].concat(choices)
-    .map((name) => actionButton(name ? hookName(name) : t("hook.empty.file"), {
+    .map((name) => actionButton(name ? hookName(name) : t("hook.empty.file_text"), {
       attrs: {
         role: "option",
         "aria-selected": String(name === value),
         "data-form-hook-choice": JSON.stringify([...path, name]),
       },
     })).join("")}</div>` : "";
-  const picker = actionButton(value ? hookName(value) : t("hook.empty.file"), {
+  const picker = actionButton(value ? hookName(value) : t("hook.empty.file_text"), {
     variant: "pick",
     attrs: {
       "data-form-hook-pick": at,
       "aria-haspopup": "listbox",
       "aria-expanded": String(open),
-      title: t("hook.action.pick_file"),
+      title: t("hook.action.pick_file_title"),
     },
   });
   const drop = actionButton(icon("x"), {
-    attrs: { title: t("action.delete"), "data-form-hook-drop": at },
+    attrs: { title: t("action.delete_button"), "data-form-hook-drop": at },
   });
   return `<span class="pill hook"><select data-form-hook-surface='${esc(at)}' aria-label="${t("hook.surface.label")}">${
     HOOK_SURFACES.map(([key, label]) => `<option value="${key}"${key === surface ? " selected" : ""}>${esc(label)}</option>`).join("")
@@ -1584,8 +1584,8 @@ function hookFormRows(values, path, kind, name) {
   const choices = hookChoices(kind, name);
   const rows = (Array.isArray(values) ? values : [])
     .map((entry, index) => hookFormRow(entry, [...path, index], choices)).join("")
-    || `<em class="none">${t("hook.empty.file")}</em>`;
-  return `<div class="pills">${rows}${actionButton(t("action.add_file"), {
+    || `<em class="none">${t("hook.empty.file_text")}</em>`;
+  return `<div class="pills">${rows}${actionButton(t("action.add_file_button"), {
     variant: "add",
     attrs: { "data-form-hook-add": JSON.stringify([path, kind, name]) },
   })}</div>`;
@@ -1647,10 +1647,10 @@ function hookSurfacesCell(row) {
   const named = new Set(row.runs || []);
   const chips = (row.surfaces || []).map((surface) => {
     const mark = named.has(surface) ? " named" : "";
-    const note = named.has(surface) ? t("hook.state.named") : t("hook.state.not_named");
+    const note = named.has(surface) ? t("hook.state.named_text") : t("hook.state.not_named_text");
     return `<span class="pill ${row.enabled ? "on" : "off"}${mark}" title="${note}">${esc(labels.get(surface) || surface)}</span>`;
   }).join("");
-  return `<div class="pills">${chips || `<em class="none">${t("hook.empty.surface")}</em>`}</div>`;
+  return `<div class="pills">${chips || `<em class="none">${t("hook.empty.surface_text")}</em>`}</div>`;
 }
 
 // The candidate files of each surface. Runtime filters their metadata scope before it applies this
@@ -1664,8 +1664,8 @@ function hookOrderRows() {
         attrs: {
           "data-hook-move": JSON.stringify([surface, index, -1]),
           disabled: !index,
-          "aria-label": t("hook.order.up_named", { file }),
-          title: t("hook.order.up"),
+          "aria-label": t("hook.order.up_named_label", { file }),
+          title: t("hook.order.up_title"),
         },
       })}
       ${actionButton(icon("chevron_down"), {
@@ -1673,13 +1673,13 @@ function hookOrderRows() {
         attrs: {
           "data-hook-move": JSON.stringify([surface, index, 1]),
           disabled: index + 1 >= files.length,
-          "aria-label": t("hook.order.down_named", { file }),
-          title: t("hook.order.down"),
+          "aria-label": t("hook.order.down_named_label", { file }),
+          title: t("hook.order.down_title"),
         },
       })}</li>`).join("");
     const hint = t("hook.order.hint");
     return field(label, hint, `
-      <ul class="hook-order">${rows || `<li><em class="none">${t("hook.empty.file_for_surface")}</em></li>`}</ul>`);
+      <ul class="hook-order">${rows || `<li><em class="none">${t("hook.empty.file_for_surface_text")}</em></li>`}</ul>`);
   }).join("");
 }
 
@@ -1711,12 +1711,12 @@ function updateNote(answer) {
   const moved = (answer.hooks || []).filter((hook) => hook.moved);
   // A source that fetched and moved nothing says why, so the note diagnoses itself.
   if (moved.length) {
-    const files = moved.map((hook) => t("hook.update.transition", {
+    const files = moved.map((hook) => t("hook.update.transition_text", {
       name: hook.name, before: hookVersion(hook.before), after: hookVersion(hook.after),
     })).join(", ");
-    return t("hook.update.moved", { files });
+    return t("hook.update.moved_text", { files });
   }
-  return t("hook.empty.moved");
+  return t("hook.empty.moved_text");
 }
 
 // A failure rides the floating note in the red of the theme, not the line under the card.
@@ -1732,7 +1732,7 @@ function hooksManager() {
   const at = Math.min(state.hooksSource ?? 0, Math.max(0, sources.length - 1));
   const options = sources.length
     ? sources.map((entry, index) => `<option value="${index}"${index === at ? " selected" : ""}>${esc(sourceLabel(entry))}</option>`).join("")
-    : `<option value="">${t("hook.empty.source")}</option>`;
+    : `<option value="">${t("hook.empty.source_text")}</option>`;
   const list = rows.map((row) => {
     const record = row.record || {};
     const source = record.repo ? `${record.repo}@${(record.commit || "").slice(0, 7)}` : "";
@@ -1741,27 +1741,27 @@ function hooksManager() {
     return `<tr><td role="cell" class="name"><span class="cell-value" title="${esc(row.name)}"><span class="hook-title">${esc(title)}</span>${author}</span></td>
       <td role="cell"><span class="cell-value">${esc(hookVersion(row))}</span></td>
       <td role="cell" class="surfaces">${hookSurfacesCell(row)}</td>
-      <td role="cell"><span class="cell-value">${esc(row.scope || t("hook.scope.global"))}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
-      <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || t("hook.scope.local"))}">${row.problem ? statusBadge(row.problem, { variant: "bad" }) : esc(record.repo || t("hook.scope.local"))}${record.commit ? `<span class="hook-sha">${esc(record.commit.slice(0, 7))}</span>` : ""}</span></td>
+      <td role="cell"><span class="cell-value">${esc(row.scope || t("hook.scope.global_text"))}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
+      <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || t("hook.scope.local_text"))}">${row.problem ? statusBadge(row.problem, { variant: "bad" }) : esc(record.repo || t("hook.scope.local_text"))}${record.commit ? `<span class="hook-sha">${esc(record.commit.slice(0, 7))}</span>` : ""}</span></td>
       <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
-        ${disabled.includes(row.name) ? "" : "checked"} aria-label="${t("hook.state.enabled_named", { name: esc(row.name) })}"></td>
+        ${disabled.includes(row.name) ? "" : "checked"} aria-label="${t("hook.state.enabled_named_label", { name: esc(row.name) })}"></td>
       <td class="end">${actionButton(icon("trash"), {
         variant: "ghost danger",
-        attrs: { "data-hook-drop": row.path, "aria-label": t("hook.action.delete_named", { name: row.name }), title: t("action.delete") },
+        attrs: { "data-hook-drop": row.path, "aria-label": t("hook.action.delete_named_label", { name: row.name }), title: t("action.delete_button") },
       })}</td></tr>`;
-  }).join("") || `<tr><td role="cell" colspan="7"><em class="none">${t("hook.empty.file")}</em></td></tr>`;
+  }).join("") || `<tr><td role="cell" colspan="7"><em class="none">${t("hook.empty.file_text")}</em></td></tr>`;
   const scan = state.hooksScan;
   const panel = scan ? `<div class="pills" id="hooks-scan">
-      <span class="sub">${t("hook.scan.at", { source: esc(sourceLabel(scan)), commit: esc((scan.commit || "").slice(0, 7)) })}</span>${scan.files
+      <span class="sub">${t("hook.scan.at_text", { source: esc(sourceLabel(scan)), commit: esc((scan.commit || "").slice(0, 7)) })}</span>${scan.files
     .map((file) => `<label class="pill"><input type="checkbox" data-hook-take="${esc(file.name)}"
       ${scan.take[file.name] ? "checked" : ""}>${esc(file.name)}${file.version ? ` ${esc(file.version)}` : ""}</label>`).join("")}
-      ${actionButton(t("action.take_files"), {
+      ${actionButton(t("action.take_files_button"), {
         variant: "primary", attrs: { "data-hook-take-all": true },
       })}</div>` : "";
   return `${field(t("settings.hooks.installed.label"), t("settings.hooks.installed.hint"), `
-      <div class="card-scroll"><table class="keys"><thead><tr><th>${t("hook.column.author_title")}</th><th>${t("hook.column.version")}</th><th>${t("hook.column.surfaces")}</th><th>${t("hook.column.scopes")}</th><th class="hide-sm">${t("hook.column.source")}</th><th>${t("hook.column.enabled")}</th><th></th></tr></thead>
+      <div class="card-scroll"><table class="keys"><thead><tr><th>${t("hook.column.author_title")}</th><th>${t("hook.column.version_column")}</th><th>${t("hook.column.surfaces_column")}</th><th>${t("hook.column.scopes_column")}</th><th class="hide-sm">${t("hook.column.source_column")}</th><th>${t("hook.column.enabled_column")}</th><th></th></tr></thead>
       <tbody>${list}</tbody></table></div>
-      ${actionButton(t("action.update_sources"), {
+      ${actionButton(t("action.update_sources_button"), {
         variant: "ghost", attrs: { "data-hooks-update": true },
       })}`)}
     <div class="field stack info" id="hooks-order">${hookOrderRows()}</div>
@@ -1771,12 +1771,12 @@ function hooksManager() {
         placeholder="${esc(state.settings.defaults.hooks.dir)}"></span>`)}
     ${field(t("settings.hooks.sources.label"), t("settings.hooks.sources.hint"), `
       <div class="pills"><select id="hook-source" data-hook-source aria-label="${t("settings.hooks.source.label")}">${options}</select>
-        ${actionButton(`${icon("plus")} ${t("action.add_repository")}`, {
+        ${actionButton(`${icon("plus")} ${t("action.add_repository_button")}`, {
           variant: "add", attrs: { "data-hook-source-add": true },
         })}
         ${actionButton(icon("x"), {
           variant: "ghost",
-          attrs: { "data-hook-source-drop": true, title: t("hook.action.delete_source") },
+          attrs: { "data-hook-source-drop": true, title: t("hook.action.delete_source_title") },
         })}</div>${panel}
       <div class="sub" id="hooks-note" role="status"></div>`)}`;
 }
@@ -1785,7 +1785,7 @@ function hooksManager() {
 // entries of the file stay, so the row shows the problem of a missing file.
 async function dropHookFile(button) {
   const name = button.dataset.hookDrop;
-  if (!(await ask(t("dialog.delete_hook.title"), t("dialog.delete_hook.message", { name }), t("action.delete"), true))) return;
+  if (!(await ask(t("dialog.delete_hook.title"), t("dialog.delete_hook.message", { name }), t("action.delete_button"), true))) return;
   await guarded(async () => {
     await call("hooks/file", { method: "DELETE", body: JSON.stringify({ name }) });
     await loadSettings();
@@ -1794,7 +1794,7 @@ async function dropHookFile(button) {
 
 async function addHookSource() {
   const typed = await ask(t("dialog.source.title"), t("dialog.source.hint"),
-    t("action.scan"), false, t("dialog.source.placeholder"));
+    t("action.scan_button"), false, t("dialog.source.placeholder"));
   if (!typed) return;
   const parts = sourceParts($("modal-input").value.trim());
   try {
@@ -1805,9 +1805,9 @@ async function addHookSource() {
       take: Object.fromEntries(found.files.map((file) => [file.name, installed.get(file.name) !== file.version])),
     };
     renderSettings();
-    hooksNote(t("hook.source.count", { files: count(found.files.length, "file"), source: sourceLabel(found) }));
+    hooksNote(t("hook.source.count_text", { files: count(found.files.length, "file"), source: sourceLabel(found) }));
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.add_source"));
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.add_source_text"));
     showWrite("settings", error.message, true);
   }
 }
@@ -1831,13 +1831,13 @@ async function takeHooks() {
     hooksNote(fails ? "" : updateNote(answer));
     if (fails) showNotice(fails);
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.take_files"));
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.take_files_text"));
     showWrite("settings", error.message, true);
   }
 }
 
 async function runHooksUpdate() {
-  hooksNote(t("hook.state.updating"));
+  hooksNote(t("hook.state.updating_text"));
   try {
     const answer = await call("hooks/update", { method: "POST" });
     await loadSettings();
@@ -1845,7 +1845,7 @@ async function runHooksUpdate() {
     hooksNote(fails ? "" : updateNote(answer));
     if (fails) showNotice(fails);
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.update"));
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.update_text"));
     hooksNote(error.message);
   }
 }
@@ -1951,7 +1951,7 @@ function sectionList(id, items, active) {
     variant: key === active ? "on" : "",
     attrs: { "data-section": key, "aria-current": key === active ? "true" : null },
   })).join("");
-  return `<nav class="sections" aria-label="${t("common.sections")}">${buttons}</nav>`;
+  return `<nav class="sections" aria-label="${t("common.sections_label")}">${buttons}</nav>`;
 }
 
 // The pane of a section list. The back button names the page it returns to, as iOS does.
@@ -1966,8 +1966,8 @@ function sectionPane(back, cards) {
 // cannot show, so a broken file still opens.
 function yamlCard(editor, save, hint) {
   return `<div class="card yaml-view" data-section="yaml"><h3>${t("yaml.label")}</h3><p class="sub">${esc(hint)}</p>`
-    + `<textarea id="${editor}" spellcheck="false" aria-label="${t("common.file_text")}"></textarea>`
-    + `<div class="yaml-save">${actionButton(t("action.save"), {
+    + `<textarea id="${editor}" spellcheck="false" aria-label="${t("common.file_text_label")}"></textarea>`
+    + `<div class="yaml-save">${actionButton(t("action.save_button"), {
       variant: "primary", attrs: { id: save, disabled: true },
     })}`
     + `<span class="hint">${t("settings.yaml.save_hint")}</span></div></div>`;
@@ -2074,7 +2074,7 @@ function providerCard(name, block) {
   const path = [name];
   if (!block || typeof block !== "object" || Array.isArray(block)) {
     return `<div class="card provider" data-section="${esc(name)}" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
-      <p class="sub">${t("provider.block.invalid")}</p></div>`;
+      <p class="sub">${t("provider.block.invalid_text")}</p></div>`;
   }
   const defaults = state.providerDefaults[name] || state.providerDefaults["*"] || {};
   const tokenInfo = (value) => {
@@ -2103,27 +2103,27 @@ function providerCard(name, block) {
       return row.start + "•".repeat(rest);
     }
     if (hasSaved && row.end) return `${row.start || ""}••••`.slice(0, 4) + "•".repeat(Math.max(0, (row.length || 8) - 4));
-    if (hasSaved) return t("provider.secret.database");
-    if (row.state === "env" || row.has_env) return t("provider.secret.environment");
+    if (hasSaved) return t("provider.secret.database_text");
+    if (row.state === "env" || row.has_env) return t("provider.secret.environment_text");
     return "";
   };
   const placeholderFor = (info, row) => {
     if (!info) return "";
     if (info.type === "env") {
       const eff = effectiveState(info, row);
-      if (eff === "env") return t("provider.secret.environment");
-      if (eff === "missing") return t("provider.secret.missing_environment");
+      if (eff === "env") return t("provider.secret.environment_text");
+      if (eff === "missing") return t("provider.secret.missing_environment_text");
       return "";
     }
     if (info.type === "db") {
-      if (!row) return t("provider.secret.database");
+      if (!row) return t("provider.secret.database_text");
       const hasSaved = row.has_saved ?? (row.state === "saved");
       if (hasSaved && row.start && row.length) {
         const rest = Math.max(0, row.length - row.start.length);
         return row.start + "•".repeat(rest);
       }
-      if (hasSaved) return t("provider.secret.database");
-      return t("provider.secret.database");
+      if (hasSaved) return t("provider.secret.database_text");
+      return t("provider.secret.database_text");
     }
     return maskedPlaceholder(row);
   };
@@ -2161,14 +2161,14 @@ function providerCard(name, block) {
       ${actionButton(icon("x"), {
         variant: "ghost",
         attrs: {
-          title: t("provider.pattern.delete"),
+          title: t("provider.pattern.delete_title"),
           "data-drop": JSON.stringify([...path, "models", pattern]),
         },
       })}
     </div>`;
   }).join("");
   const others = Object.keys(block).filter((key) => !FORM_KEYS.includes(key) && key !== "_file");
-  const values = others.map((key) => pill(`${key}: ${shown(block[key])}`, path, key)).join("") + adder(path, "column", t("action.add_key"));
+  const values = others.map((key) => pill(`${key}: ${shown(block[key])}`, path, key)).join("") + adder(path, "column", t("action.add_key_button"));
   const accountField = name === "cloudflare"
     ? text("account_id", t("provider.account_id.label"), t("provider.account_id.hint"))
     : "";
@@ -2183,7 +2183,7 @@ function providerCard(name, block) {
     ${field(t("provider.discovery_match.label"), t("provider.discovery_match.hint"), `<div class="pills">${mapPills(block.discovery_match, [...path, "discovery_match"], "match", " = ")}</div>`)}
     ${field(t("provider.exclude.label"), t("provider.exclude.hint", { pattern_hint: PATTERN_HINT }), listField("exclude", block.exclude, [...path, "exclude"]))}
     ${fold(t("provider.tiers.label"), t("provider.tiers.hint", { pattern_hint: PATTERN_HINT }), tiers)}
-    ${fold(t("provider.model_overrides.label"), t("provider.model_overrides.hint", { pattern_hint: PATTERN_HINT }), `${overrides}<div class="pills">${adder([...path, "models"], "pattern", t("action.add_pattern"))}</div>`)}
+    ${fold(t("provider.model_overrides.label"), t("provider.model_overrides.hint", { pattern_hint: PATTERN_HINT }), `${overrides}<div class="pills">${adder([...path, "models"], "pattern", t("action.add_pattern_button"))}</div>`)}
     ${fold(t("provider.hooks.label"), t("provider.hooks.hint"), hookFormRows(block.hooks, [name, "hooks"], "provider", name))}
     ${fold(t("provider.provider_values.label"), t("provider.provider_values.hint"), `<div class="pills">${values}</div>`)}
   </div>`;
@@ -2198,9 +2198,9 @@ function renderForm() {
   if (!state.files.length) return (host.innerHTML = "");
   if (blocks == null) {
     host.innerHTML = sectionList("provider-form", [["yaml", t("yaml.label")]], "yaml")
-      + sectionPane(t("nav.providers"), `<div class="card" data-section="error"><h3>${t("provider.yaml.invalid")}</h3>
+      + sectionPane(t("nav.providers_link"), `<div class="card" data-section="error"><h3>${t("provider.yaml.invalid_text")}</h3>
       <p class="sub">${esc(state.files[state.file].error ?? "")}</p>
-      <p class="sub">${t("provider.yaml.fix")}</p></div>`
+      <p class="sub">${t("provider.yaml.fix_text")}</p></div>`
       + yamlCard("editor", "yaml-save", t("provider.yaml.file_hint", { file: fileName(state.files[state.file].path) })));
     pickSection(host, "yaml");
     $("editor").value = typed ?? state.files[state.file].text;
@@ -2212,7 +2212,7 @@ function renderForm() {
   const picked = sectionState(host).key;
   const active = items.some(([key]) => key === picked) ? picked : items[0][0];
   host.innerHTML = sectionList("provider-form", items, active)
-    + sectionPane(t("nav.providers"), names.map((name) => providerCard(name, blocks[name])).join("")
+    + sectionPane(t("nav.providers_link"), names.map((name) => providerCard(name, blocks[name])).join("")
       + yamlCard("editor", "yaml-save", t("provider.yaml.file_hint", { file: fileName(state.files[state.file]?.path ?? "") })));
   pickSection(host, active);
   $("editor").value = typed ?? state.files[state.file]?.text ?? "";
@@ -2258,11 +2258,11 @@ function showAdder(button) {
   const choices = kind === "column" ? [...state.overrideKeys.filter((key) => !MODEL_ONLY.includes(key)), ...PROVIDER_ONLY].sort() : state.overrideKeys;
   const keys = choices.map((key) => `<option>${esc(key)}</option>`).join("");
   const placeholder = {
-    list: t("provider.adder.pattern"),
-    match: t("provider.adder.key_value"),
-    pattern: t("provider.adder.model_pattern"),
-    override: t("provider.adder.value"),
-    column: t("provider.adder.value"),
+    list: t("provider.adder.pattern_placeholder"),
+    match: t("provider.adder.key_value_placeholder"),
+    pattern: t("provider.adder.model_pattern_placeholder"),
+    override: t("provider.adder.value_placeholder"),
+    column: t("provider.adder.value_placeholder"),
   }[kind];
   const hint = kind === "list" || kind === "pattern" ? PATTERN_HINT : "";
   box.innerHTML = `${kind === "override" || kind === "column" ? `<select aria-label="${t("provider.key.label")}">${keys}</select>` : ""}
@@ -2296,13 +2296,13 @@ function addValue(path, kind, text, key) {
   } else if (kind === "pattern") {
     const models = parentOf([...path, text], {});
     if (text in models) {
-      showWrite("providers", t("provider.pattern.exists", { pattern: text }), true);
+      showWrite("providers", t("provider.pattern.exists_text", { pattern: text }), true);
       kept = false;
     } else models[text] = {};
   } else {
     const [name, value] = kind === "match" ? text.split(/\s*=\s*(.*)/s) : [key, text];
     if (!name || value === undefined) {
-      showWrite("providers", t("provider.validation.map_value"), true);
+      showWrite("providers", t("provider.validation.map_value_text"), true);
       kept = false;
     } else parentOf([...path, name], {})[name] = parsed(value);
   }
@@ -2320,8 +2320,8 @@ function renamePattern(input) {
   if (!after || after in models) {
     input.value = before;
     showWrite("providers", after
-      ? t("provider.pattern.exists", { pattern: after })
-      : t("provider.pattern.required"), true);
+      ? t("provider.pattern.exists_text", { pattern: after })
+      : t("provider.pattern.required_text"), true);
     return;
   }
   const renamed = Object.fromEntries(Object.entries(models).map(([key, value]) => [key === before ? after : key, value]));
@@ -2403,8 +2403,8 @@ function rememberWrite(page, restore, anchor = null) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "ghost undo-step";
-  button.title = t("action.undo_write");
-  button.setAttribute("aria-label", t("action.undo_write"));
+  button.title = t("action.undo_write_label");
+  button.setAttribute("aria-label", t("action.undo_write_label"));
   button.textContent = "\u21b6";
   button.addEventListener("click", (event) => {
     // The row of a switch is a label, so the click must not reach it.
@@ -2467,7 +2467,7 @@ async function undoWrite() {
     }
     refresh();
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended"));
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended_text"));
     showWrite(write.page, error.message, true);
   }
 }
@@ -2491,7 +2491,7 @@ async function saveForm() {
     renderForm();
     refresh();
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.save"));
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.save_text"));
     showWrite("providers", error.message, true);
   }
   renderFiles();
@@ -2510,7 +2510,7 @@ async function saveYaml() {
     refresh();
     guarded(refreshEnv);
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.save"));
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.save_text"));
     showWrite("providers", error.message, true);
   }
   renderFiles();
@@ -2527,7 +2527,7 @@ async function pickProviderSection(key) {
   const host = $("provider-form");
   const view = key === "yaml" ? "yaml" : "form";
   if (view !== state.view) {
-    if (dirty() && !(await ask(t("dialog.discard.title"), t("dialog.discard_file.message"), t("action.discard"), true))) return;
+    if (dirty() && !(await ask(t("dialog.discard.title"), t("dialog.discard_file.message"), t("action.discard_button"), true))) return;
     const index = state.file;
     if (state.view === "yaml") state.files[index].text = state.saved[index];
     state.forms[index] = clone(state.files[index].blocks ?? {});
@@ -2617,18 +2617,18 @@ const SETTINGS = [
 // The options of each choice field.
 const CHOICES = {
   mode: [
-    ["none", t("settings.choice.none")],
-    ["session", t("settings.choice.session")],
-    ["race", t("settings.choice.race")],
+    ["none", t("settings.choice.none_option")],
+    ["session", t("settings.choice.session_option")],
+    ["race", t("settings.choice.race_option")],
   ],
   theme: [
-    ["system", t("settings.choice.system")],
-    ["light", t("settings.choice.light")],
-    ["dark", t("settings.choice.dark")],
+    ["system", t("settings.choice.system_option")],
+    ["light", t("settings.choice.light_option")],
+    ["dark", t("settings.choice.dark_option")],
   ],
   time_format: [
-    ["24h", t("settings.time_format.hour24")],
-    ["12h", t("settings.time_format.hour12")],
+    ["24h", t("settings.time_format.hour24_option")],
+    ["12h", t("settings.time_format.hour12_option")],
   ],
 };
 
@@ -2683,18 +2683,18 @@ function keysCard() {
   return `<div class="card" data-section="keys"><h3>${t("settings.keys.title")}</h3>
     <form class="toolbar" id="new-key">
       <input id="key-name" maxlength="40" placeholder="${t("settings.keys.new_placeholder")}" required>
-      ${actionButton(t("action.new_key"), { variant: "primary", type: "submit" })}
+      ${actionButton(t("action.new_key_button"), { variant: "primary", type: "submit" })}
       <span class="message bad" id="key-message" role="alert"></span>
     </form>
     <div class="reveal" id="reveal" hidden>
       <span>${t("settings.keys.copy_hint", { name: '<b id="reveal-name"></b>' })}</span>
       <code id="reveal-key"></code>
-      ${actionButton(t("action.copy"), { variant: "ghost", attrs: { id: "copy" } })}
-      ${actionButton(t("action.done"), { variant: "ghost", attrs: { id: "reveal-close" } })}
+      ${actionButton(t("action.copy_button"), { variant: "ghost", attrs: { id: "copy" } })}
+      ${actionButton(t("action.done_button"), { variant: "ghost", attrs: { id: "reveal-close" } })}
     </div>
     <div class="card-scroll"><table class="keys">
       <thead><tr>
-        <th>${t("settings.keys.name")}</th><th>${t("settings.keys.key")}</th><th class="hide-sm">${t("settings.keys.created")}</th><th>${t("settings.keys.last_used")}</th><th></th>
+        <th>${t("settings.keys.name_column")}</th><th>${t("settings.keys.key_column")}</th><th class="hide-sm">${t("settings.keys.created_column")}</th><th>${t("settings.keys.last_used_column")}</th><th></th>
       </tr></thead>
       <tbody id="keys"></tbody>
     </table></div>
@@ -2746,7 +2746,7 @@ function renderSettings() {
   const picked = sectionState($("settings")).key;
   const active = items.some(([key]) => key === picked) ? picked : items[0][0];
   $("settings").innerHTML = sectionList("settings", items, active)
-    + sectionPane(t("nav.settings"), groups.map(([group, title, fields]) => card([group, title, fields]).replace(
+    + sectionPane(t("nav.settings_link"), groups.map(([group, title, fields]) => card([group, title, fields]).replace(
       '<div class="card">', `<div class="card" data-section="${esc(group)}">`)).join("")
       + keysCard()
       + yamlCard("settings-editor", "settings-yaml-save", t("settings.yaml.hint", { file: fileName(state.settings.path) })));
@@ -2865,7 +2865,7 @@ async function loadSettings() {
 async function pickSettingsSection(key) {
   const view = key === "yaml" ? "yaml" : "form";
   if (view !== state.settingsView) {
-    if (settingsDirty() && !(await ask(t("dialog.discard.title"), t("dialog.discard_settings.message"), t("action.discard"), true))) return;
+    if (settingsDirty() && !(await ask(t("dialog.discard.title"), t("dialog.discard_settings.message"), t("action.discard_button"), true))) return;
     state.settingsView = view;
     clearWrite("settings");
     renderSettings();
@@ -2888,7 +2888,7 @@ async function saveSettings() {
     clearWrite("settings");
     refresh();
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.save"));
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.save_text"));
     showWrite("settings", error.message, true);
   }
   renderSettingsSave();
@@ -2924,20 +2924,20 @@ async function refreshFast() {
 
 // The short unit of a rate-limit row, for example tok/min.
 const SPANS = {
-  minute: t("limits.span.minute.short"),
-  hour: t("limits.span.hour.short"),
-  day: t("limits.span.day.short"),
-  month: t("limits.span.month.short"),
+  minute: t("limits.span.minute.short_text"),
+  hour: t("limits.span.hour.short_text"),
+  day: t("limits.span.day.short_text"),
+  month: t("limits.span.month.short_text"),
 };
-const unit = (r) => t("limits.unit.rate_short", {
-  unit: r.kind === "tokens" ? t("limits.unit.tokens.short") : t("limits.unit.requests.short"),
+const unit = (r) => t("limits.unit.rate_short_text", {
+  unit: r.kind === "tokens" ? t("limits.unit.tokens.short_text") : t("limits.unit.requests.short_text"),
   span: r.span ? `/${SPANS[r.span] || r.span}` : "",
 });
 const SPAN_SHORT = {
-  minute: t("limits.span.minute.initial"),
-  hour: t("limits.span.hour.initial"),
-  day: t("limits.span.day.initial"),
-  month: t("limits.span.month.initial"),
+  minute: t("limits.span.minute.initial_text"),
+  hour: t("limits.span.hour.initial_text"),
+  day: t("limits.span.day.initial_text"),
+  month: t("limits.span.month.initial_text"),
 };
 const SPAN_WORD = {
   minute: t("limits.span.minute.label"),
@@ -2946,21 +2946,21 @@ const SPAN_WORD = {
   month: t("limits.span.month.label"),
 };
 function limitUnit(r) {
-  if (r.kind === "neurons") return t("limits.balance.neurons_per_day");
+  if (r.kind === "neurons") return t("limits.balance.neurons_per_day_text");
   if (!SPAN_SHORT[r.span]) return r.kind;
-  return t("limits.unit.rate_initial", {
-    unit: r.kind === "tokens" ? t("limits.unit.tokens.initial") : t("limits.unit.requests.initial"),
+  return t("limits.unit.rate_initial_text", {
+    unit: r.kind === "tokens" ? t("limits.unit.tokens.initial_text") : t("limits.unit.requests.initial_text"),
     span: SPAN_SHORT[r.span],
   });
 }
 // The full name of a short unit, for the hover text of the Limit column, for example Requests per day.
 function limitTitle(r) {
   const kind = r.kind === "neurons"
-    ? t("limits.unit.neurons")
+    ? t("limits.unit.neurons_text")
     : r.kind === "tokens"
-      ? t("limits.unit.tokens")
-      : t("limits.unit.requests");
-  return r.span ? t("limits.unit.per", { unit: kind, span: SPAN_WORD[r.span] || r.span }) : kind;
+      ? t("limits.unit.tokens_text")
+      : t("limits.unit.requests_text");
+  return r.span ? t("limits.unit.per_text", { unit: kind, span: SPAN_WORD[r.span] || r.span }) : kind;
 }
 
 // A time cell of the Limits table: the relative time, with the exact stamp on hover. An empty
@@ -2979,8 +2979,8 @@ function overviewLimits(data) {
   const rows = data.lanes.flatMap((lane) => lane.rows.map((row) => ({ ...row, model: lane.model })))
     .sort((a, b) => share(a) - share(b)).slice(0, 3)
     .map((r) => `<div class="balance">${line(`<span title="${esc(r.model)}">${modelName(r.model)}</span>`,
-      `${t("limits.value.of", { remaining: floorCount(r.remaining), limit: floorCount(r.limit) })} ${esc(unit(r))}`,
-      { title: t("limits.value.of", { remaining: r.remaining.toLocaleString(), limit: r.limit.toLocaleString() }) })}${bar(share(r))}</div>`);
+      `${t("limits.value.of_text", { remaining: floorCount(r.remaining), limit: floorCount(r.limit) })} ${esc(unit(r))}`,
+      { title: t("limits.value.of_text", { remaining: r.remaining.toLocaleString(), limit: r.limit.toLocaleString() }) })}${bar(share(r))}</div>`);
   return [...balances, ...rows].join("");
 }
 
@@ -3001,8 +3001,8 @@ function renderLimits(data) {
   limitsHash();
   renderLimitRows(shownLimits());
   $("limits-checked").textContent = data.checked
-    ? t("limits.checked", { time: stamp(data.checked) })
-    : t("limits.not_checked");
+    ? t("limits.checked_text", { time: stamp(data.checked) })
+    : t("limits.not_checked_text");
   $("balances").hidden = !data.providers.length;
   draw("balances", data.providers.map((p) => `<div class="card"><h3>${esc(p.name)}</h3>
     ${p.items.map(([label, value, left]) => `<div class="balance">${line(esc(label), esc(value))}
@@ -3014,12 +3014,12 @@ function renderLimitRows(rows) {
   draw("limit-rows", rows.length ? rows.map((r) => `<tr>
       ${nameCell(r.model, `${modelName(r.model)}${r.client ? ` <span class="muted">${esc(r.client)}</span>` : ""}`)}
       <td title="${esc(limitTitle(r))}">${esc(limitUnit(r))}</td>
-      <td><div class="weight left" title="${t("limits.value.of", { remaining: r.remaining.toLocaleString(), limit: r.limit.toLocaleString() })}">
+      <td><div class="weight left" title="${t("limits.value.of_text", { remaining: r.remaining.toLocaleString(), limit: r.limit.toLocaleString() })}">
         ${progressMeter(r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0)}
-        <span class="num${r.remaining > 0 ? "" : " out"}">${t("limits.value.of", { remaining: floorCount(r.remaining), limit: floorCount(r.limit) })}</span></div></td>
+        <span class="num${r.remaining > 0 ? "" : " out"}">${t("limits.value.of_text", { remaining: floorCount(r.remaining), limit: floorCount(r.limit) })}</span></div></td>
       ${limitTimeCell(r.reset, "hide-sm muted time")}
       ${limitTimeCell(r.at, "hide-sm muted time")}
-    </tr>`).join("") : `<tr><td colspan="5" class="empty">${t("limits.empty")}</td></tr>`);
+    </tr>`).join("") : `<tr><td colspan="5" class="empty">${t("limits.empty_text")}</td></tr>`);
 }
 
 const DIFF_KINDS = [
@@ -3035,25 +3035,25 @@ function rebuildDiff(event) {
 }
 
 const DIFF_CAPABILITIES = {
-  supports_function_calling: [CHIP_ICON_NAMES.tools, t("model.capability.tools")],
-  supports_tool_choice: [CHIP_ICON_NAMES.tools, t("model.capability.tool_choice")],
-  supports_parallel_function_calling: [CHIP_ICON_NAMES.tools, t("model.capability.parallel_tools")],
-  supports_response_schema: ["", t("model.capability.structured_output")],
-  supports_reasoning: [CHIP_ICON_NAMES.brain, t("model.column.reasoning")],
+  supports_function_calling: [CHIP_ICON_NAMES.tools, t("model.capability.tools_label")],
+  supports_tool_choice: [CHIP_ICON_NAMES.tools, t("model.capability.tool_choice_label")],
+  supports_parallel_function_calling: [CHIP_ICON_NAMES.tools, t("model.capability.parallel_tools_label")],
+  supports_response_schema: ["", t("model.capability.structured_output_label")],
+  supports_reasoning: [CHIP_ICON_NAMES.brain, t("model.column.reasoning_column")],
   supports_vision: [FLAG_ICON_NAMES.vision, FLAGS.vision],
   supports_pdf_input: [FLAG_ICON_NAMES.pdf_input, FLAGS.pdf_input],
   supports_audio_input: [FLAG_ICON_NAMES.audio_input, FLAGS.audio_input],
   supports_audio_output: [FLAG_ICON_NAMES.audio_output, FLAGS.audio_output],
-  supports_web_search: ["search", t("model.capability.web_search")],
+  supports_web_search: ["search", t("model.capability.web_search_label")],
 };
 const DIFF_LABELS = {
-  mode: t("model.column.type"),
-  max_input_tokens: t("model.column.context"),
-  max_output_tokens: t("model.column.output"),
-  max_tokens: t("model.column.tokens"),
-  rpm: t("model.column.rpm"),
-  tpm: t("model.column.tpm"),
-  tier: t("model.column.tier"),
+  mode: t("model.column.type_column"),
+  max_input_tokens: t("model.column.context_column"),
+  max_output_tokens: t("model.column.output_column"),
+  max_tokens: t("model.column.tokens_column"),
+  rpm: t("model.column.rpm_column"),
+  tpm: t("model.column.tpm_column"),
+  tier: t("model.column.tier_column"),
 };
 
 function diffChip(label, iconName = "", kind = "") {
@@ -3072,7 +3072,7 @@ function diffValue(text) {
 }
 
 function diffShown(value) {
-  if (typeof value === "boolean") return value ? t("common.boolean.yes") : t("common.boolean.no");
+  if (typeof value === "boolean") return value ? t("common.boolean.yes_text") : t("common.boolean.no_text");
   if (Array.isArray(value)) return value.join(", ");
   return String(value);
 }
@@ -3145,7 +3145,7 @@ function openDiffModal(event) {
     ? lines
         .map(([kind, mark, text]) => `<div class="line diff-line"><span class="${kind}">${mark}</span><span class="diff-model" title="${esc(text)}">${diffModel(text, kind)}</span></div>`)
         .join("")
-    : none(t("model.diff.empty"));
+    : none(t("model.diff.empty_text"));
   $("model-modal").showModal();
 }
 
@@ -3165,10 +3165,10 @@ function renderNotifications(data) {
       html: item(
         "reset",
         event.at,
-        t("notification.reset", { provider: esc(event.provider), unit: esc(limitUnit(event)) }),
+        t("notification.reset_text", { provider: esc(event.provider), unit: esc(limitUnit(event)) }),
         event.client
-          ? t("notification.client", { client: esc(event.client) })
-          : t("notification.provider_renewed"),
+          ? t("notification.client_text", { client: esc(event.client) })
+          : t("notification.provider_renewed_text"),
       ),
     })),
     ...(data.limits || []).map((event) => ({
@@ -3176,8 +3176,8 @@ function renderNotifications(data) {
       html: item(
         "warning",
         event.at,
-        t("notification.limit_near", { model: esc(event.model) }),
-        t("notification.limit_left", {
+        t("notification.limit_near_text", { model: esc(event.model) }),
+        t("notification.limit_left_text", {
           remaining: floorCount(event.remaining),
           limit: floorCount(event.limit),
           unit: esc(limitUnit(event)),
@@ -3190,10 +3190,10 @@ function renderNotifications(data) {
       html: item(
         "rebuild",
         event.at,
-        t("notification.catalog_rebuild", { reason: esc(event.reason) }),
+        t("notification.catalog_rebuild_text", { reason: esc(event.reason) }),
         `${count(event.models, "model")} · ${rebuildDiff(event)}`
           + (event.failed.length
-            ? t("notification.catalog_failed", { failures: esc(event.failed.join(", ")) })
+            ? t("notification.catalog_failed_text", { failures: esc(event.failed.join(", ")) })
             : ""),
         { "data-rebuild": index },
       ),
@@ -3202,25 +3202,25 @@ function renderNotifications(data) {
   draw(
     "notification-feed",
     `<h3>${t("notification.title")}</h3>` +
-      (notices.length ? notices.map((notice) => notice.html).join("") : none(t("notification.empty")))
+      (notices.length ? notices.map((notice) => notice.html).join("") : none(t("notification.empty_text")))
   );
   const update = data.update;
   let body = `<h3>${t("update.title")}</h3>`;
-  if (!update) body += none(t("update.not_checked"));
+  if (!update) body += none(t("update.not_checked_text"));
   else if (update.error === "no commit in this build's version")
-    body += none(t("update.no_commit"));
-  else if (update.error) body += none(t("update.check_failed", { error: esc(update.error) }));
+    body += none(t("update.no_commit_text"));
+  else if (update.error) body += none(t("update.check_failed_text", { error: esc(update.error) }));
   else if (update.channel === "release")
     body += update.update
-      ? line(t("update.available"), `<a href="${esc(update.url)}">${esc(update.latest)}</a>`) +
-        line(t("update.you_are_on"), esc(update.current))
-      : line(t("update.up_to_date"), esc(update.latest || update.current));
-  else if (update.update) body += line(t("update.behind_main"), count(update.behind, "commit"));
-  else body += line(t("update.up_to_date"), "main");
-  body += line(t("update.checked"), update ? stamp(update.at) : "-");
+      ? line(t("update.available_text"), `<a href="${esc(update.url)}">${esc(update.latest)}</a>`) +
+        line(t("update.you_are_on_text"), esc(update.current))
+      : line(t("update.up_to_date_text"), esc(update.latest || update.current));
+  else if (update.update) body += line(t("update.behind_main_text"), count(update.behind, "commit"));
+  else body += line(t("update.up_to_date_text"), "main");
+  body += line(t("update.checked_text"), update ? stamp(update.at) : "-");
   draw(
     "update-card",
-    body + actionButton(t("action.check_now"), { variant: "ghost", attrs: { id: "update-check" } })
+    body + actionButton(t("action.check_now_button"), { variant: "ghost", attrs: { id: "update-check" } })
   );
 }
 
@@ -3306,7 +3306,7 @@ $("login").addEventListener("submit", async (event) => {
 $("limits-check").addEventListener("click", async () => {
   const button = $("limits-check");
   button.disabled = true;
-  $("limits-message").textContent = t("action.checking");
+  $("limits-message").textContent = t("action.checking_button");
   try {
     renderLimits(await call("limits", { method: "POST" }));
     $("limits-message").textContent = "";
@@ -3328,7 +3328,7 @@ $("update-card").addEventListener("click", async (event) => {
   const button = event.target.closest("#update-check");
   if (!button) return;
   button.disabled = true;
-  button.textContent = t("action.checking");
+  button.textContent = t("action.checking_button");
   try {
     const result = await call("updates", { method: "POST" });
     if (state.notifications) {
@@ -3338,7 +3338,7 @@ $("update-card").addEventListener("click", async (event) => {
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin();
     button.disabled = false;
-    button.textContent = t("action.check_now");
+    button.textContent = t("action.check_now_button");
   }
 });
 $("show-password").addEventListener("click", () => showPassword($("login").password.type === "password"));
@@ -3350,7 +3350,7 @@ document.addEventListener("click", async (event) => {
   }
   if (event.target.closest("[data-catalog-rebuild]")) return rebuildCatalog();
   if (!event.target.closest(".logout")) return;
-  if (!(await ask(t("action.logout"), t("auth.logout.message"), t("action.logout")))) return;
+  if (!(await ask(t("action.logout_button"), t("auth.logout.message"), t("action.logout_button")))) return;
   await call("logout", { method: "POST" }).catch(() => {});
   keepSession(null);
   showLogin();
@@ -3358,12 +3358,12 @@ document.addEventListener("click", async (event) => {
 $("reset-weights").addEventListener("click", async () => {
   const message = $("reset-message");
   message.textContent = "";
-  const go = await ask(t("dialog.reset.title"), t("dialog.reset.message"), t("action.reset"), true);
+  const go = await ask(t("dialog.reset.title"), t("dialog.reset.message"), t("action.reset_button"), true);
   if (!go) return;
   try {
     await call("reset", { method: "POST" });
     message.className = "message ok";
-    message.textContent = t("model.reset.done");
+    message.textContent = t("model.reset.done_text");
     refresh();
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin();
@@ -3374,7 +3374,7 @@ $("reset-weights").addEventListener("click", async () => {
 
 // A field that stops at its length says the rule, so the cut is not silent.
 function showLengthLimit(input, message) {
-  const limit = t("validation.characters_at_most", { count: input.maxLength });
+  const limit = t("validation.characters_at_most_text", { count: input.maxLength });
   if (input.maxLength > 0 && input.value.length >= input.maxLength) {
     message.textContent = limit;
   } else if (message.textContent === limit) {
@@ -3407,23 +3407,23 @@ $("settings").addEventListener("click", async (event) => {
   if (event.target.closest("#copy")) {
     try {
       await navigator.clipboard.writeText($("reveal-key").textContent);
-      $("copy").textContent = t("action.copied");
+      $("copy").textContent = t("action.copied_button");
     } catch {
       getSelection().selectAllChildren($("reveal-key"));
-      $("copy").textContent = t("action.press_ctrl_c");
+      $("copy").textContent = t("action.press_ctrl_c_button");
     }
     return;
   }
   if (event.target.closest("#reveal-close")) {
     $("reveal").hidden = true;
     $("reveal-key").textContent = "";
-    $("copy").textContent = t("action.copy");
+    $("copy").textContent = t("action.copy_button");
     return;
   }
   const button = event.target.closest("[data-key]");
   if (!button) return;
   const name = button.dataset.key;
-  if (!(await ask(t("dialog.delete_key.title"), t("dialog.delete_key.message", { name }), t("action.delete"), true))) return;
+  if (!(await ask(t("dialog.delete_key.title"), t("dialog.delete_key.message", { name }), t("action.delete_button"), true))) return;
   await guarded(async () => {
     await call("keys/" + encodeURIComponent(name), { method: "DELETE" });
     await refreshKeys();
@@ -3505,10 +3505,10 @@ $("requests").addEventListener("click", async (event) => {
     const found = state.requests.find((r) => String(r.at) === button.dataset.at);
     try {
       await navigator.clipboard.writeText(chainText(found));
-      button.textContent = t("action.copied");
+      button.textContent = t("action.copied_button");
     } catch {
       getSelection().selectAllChildren(button.closest("td"));
-      button.textContent = t("action.press_ctrl_c");
+      button.textContent = t("action.press_ctrl_c_button");
     }
     return;
   }
@@ -3522,13 +3522,13 @@ $("requests").addEventListener("click", async (event) => {
 });
 const PAGES = ["overview", "requests", "models", "limits", "notifications", "providers", "settings"];
 const PAGE_LABELS = {
-  overview: t("nav.overview"),
-  requests: t("nav.requests"),
-  models: t("nav.models"),
-  limits: t("nav.limits"),
-  notifications: t("nav.notifications"),
-  providers: t("nav.providers"),
-  settings: t("nav.settings"),
+  overview: t("nav.overview_link"),
+  requests: t("nav.requests_link"),
+  models: t("nav.models_link"),
+  limits: t("nav.limits_link"),
+  notifications: t("nav.notifications_link"),
+  providers: t("nav.providers_link"),
+  settings: t("nav.settings_link"),
 };
 
 // A Models link such as #/models?tier=C&mode=chat&sort=weight sets the filters.
@@ -3767,7 +3767,7 @@ $("files").addEventListener("click", async (event) => {
   clearWrite("providers");
   const ok = await ask(
     t("dialog.new_provider.title"), t("dialog.new_provider.hint"),
-    t("action.create"), false, t("dialog.new_provider.placeholder"),
+    t("action.create_button"), false, t("dialog.new_provider.placeholder"),
   );
   if (!ok) return;
   const name = $("modal-input").value.trim();
@@ -3785,7 +3785,7 @@ $("files").addEventListener("click", async (event) => {
   clearWrite("providers");
   const file = state.files[state.file];
   if (!file || !(await ask(t("dialog.delete_file.title"),
-    t("dialog.delete_file.message", { path: file.path }), t("action.delete"), true))) return;
+    t("dialog.delete_file.message", { path: file.path }), t("action.delete_button"), true))) return;
   try {
     await call("files", { method: "DELETE", body: JSON.stringify({ path: file.path }) });
     await reloadFiles(null);
@@ -3823,12 +3823,12 @@ async function addClientKey(button) {
   clearWrite("providers");
   const ok = await askPair(
     t("dialog.client_key.title"), t("dialog.client_key.message"),
-    t("provider.key_name.label"), t("provider.provider_key.label"),
+    t("provider.client_key_placeholder"), t("provider.provider_key_placeholder"),
   );
   if (!ok) return;
   const name = $("modal-input").value.trim();
   const value = $("modal-input2").value.trim();
-  if (!name || !value) return showWrite("providers", t("provider.validation.client_key"), true);
+  if (!name || !value) return showWrite("providers", t("provider.validation.client_key_text"), true);
   parentOf([...path, name], {})[name] = parsed(value);
   renderCard(path[0]);
   saveForm();

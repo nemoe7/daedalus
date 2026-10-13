@@ -16,13 +16,13 @@
     <h1>daedalus<span class="yes">.</span></h1>
     <small id="login-version"></small>
   </div>
-  <label><span data-i18n="auth.username">auth.username</span> <input name="username" autocomplete="username" required></label>
-  <label><span data-i18n="auth.password">auth.password</span>
+  <label><span data-i18n="auth.username_label">auth.username_label</span> <input name="username" autocomplete="username" required></label>
+  <label><span data-i18n="auth.password_label">auth.password_label</span>
     <span class="secret">
       <input name="password" type="password" autocomplete="current-password" required>
       <button class="eye" type="button" id="show-password" aria-pressed="false"
-        aria-label="auth.password.show" title="auth.password.show"
-        data-i18n-aria-label="auth.password.show" data-i18n-title="auth.password.show">
+        aria-label="auth.password.show_label" title="auth.password.show_label"
+        data-i18n-aria-label="auth.password.show_label" data-i18n-title="auth.password.show_label">
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none"
           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/>
@@ -33,8 +33,8 @@
     </span>
     <small id="login-hint" hidden data-i18n="auth.master_key_hint">auth.master_key_hint</small>
   </label>
-  <label class="check"><input name="remember" type="checkbox" checked> <span data-i18n="auth.remember">auth.remember</span></label>
-  <button class="primary" type="submit" data-i18n="action.login">action.login</button>
+  <label class="check"><input name="remember" type="checkbox" checked> <span data-i18n="auth.remember_label">auth.remember_label</span></label>
+  <button class="primary" type="submit" data-i18n="action.login_button">action.login_button</button>
   <div class="message bad" id="login-message" role="alert"></div>
 </form>
 
@@ -42,11 +42,11 @@
   <form method="dialog">
     <h3 id="modal-title"></h3>
     <p id="modal-message"></p>
-    <label class="modal-field" id="modal-field" hidden><input id="modal-input" type="text" spellcheck="false" autocomplete="off" aria-label="dialog.name" data-i18n-aria-label="dialog.name"></label>
-    <label class="modal-field" id="modal-field2" hidden><input id="modal-input2" type="text" spellcheck="false" autocomplete="off" aria-label="dialog.value" data-i18n-aria-label="dialog.value"></label>
+    <label class="modal-field" id="modal-field" hidden><input id="modal-input" type="text" spellcheck="false" autocomplete="off" aria-label="dialog.name_label" data-i18n-aria-label="dialog.name_label"></label>
+    <label class="modal-field" id="modal-field2" hidden><input id="modal-input2" type="text" spellcheck="false" autocomplete="off" aria-label="dialog.value_label" data-i18n-aria-label="dialog.value_label"></label>
     <div class="modal-actions">
-      <button class="ghost" type="submit" value="cancel" data-i18n="action.cancel">action.cancel</button>
-      <button class="primary" type="submit" id="modal-ok" value="ok" data-i18n="action.confirm">action.confirm</button>
+      <button class="ghost" type="submit" value="cancel" data-i18n="action.cancel_button">action.cancel_button</button>
+      <button class="primary" type="submit" id="modal-ok" value="ok" data-i18n="action.confirm_button">action.confirm_button</button>
     </div>
   </form>
 </dialog>
@@ -55,7 +55,7 @@
     <h3 id="model-modal-title"></h3>
     <div id="model-modal-body"></div>
     <div class="modal-actions">
-      <button class="ghost" type="submit" value="close" data-i18n="action.close">action.close</button>
+      <button class="ghost" type="submit" value="close" data-i18n="action.close_button">action.close_button</button>
     </div>
   </form>
 </dialog>
@@ -64,29 +64,29 @@
   <header>
     <div class="brand"><img src="ui/logo.svg" alt="" width="34" height="34"><div>daedalus<span>.</span><small id="version"></small></div></div>
     <div class="tab-bar">
-    <button class="ghost tab-step" type="button" id="nav-left" aria-label="nav.earlier_tabs" data-i18n-aria-label="nav.earlier_tabs" hidden><span aria-hidden="true">&lsaquo;</span></button>
+    <button class="ghost tab-step" type="button" id="nav-left" aria-label="nav.earlier_tabs_label" data-i18n-aria-label="nav.earlier_tabs_label" hidden><span aria-hidden="true">&lsaquo;</span></button>
     <nav class="tabs" id="nav">
-      <a href="#/" data-page="overview" data-i18n="nav.overview">nav.overview</a>
-      <a href="#/requests" data-page="requests" data-i18n="nav.requests">nav.requests</a>
-      <a href="#/models" data-page="models"><span data-i18n="nav.models">nav.models</span><span class="count" id="nav-models"></span></a>
-      <a href="#/limits" data-page="limits" data-i18n="nav.limits">nav.limits</a>
-      <a href="#/notifications" data-page="notifications" data-i18n="nav.notifications">nav.notifications</a>
-      <a href="#/providers" data-page="providers" data-i18n="nav.providers">nav.providers</a>
-      <a href="#/settings" data-page="settings" data-i18n="nav.settings">nav.settings</a>
+      <a href="#/" data-page="overview" data-i18n="nav.overview_link">nav.overview_link</a>
+      <a href="#/requests" data-page="requests" data-i18n="nav.requests_link">nav.requests_link</a>
+      <a href="#/models" data-page="models"><span data-i18n="nav.models_link">nav.models_link</span><span class="count" id="nav-models"></span></a>
+      <a href="#/limits" data-page="limits" data-i18n="nav.limits_link">nav.limits_link</a>
+      <a href="#/notifications" data-page="notifications" data-i18n="nav.notifications_link">nav.notifications_link</a>
+      <a href="#/providers" data-page="providers" data-i18n="nav.providers_link">nav.providers_link</a>
+      <a href="#/settings" data-page="settings" data-i18n="nav.settings_link">nav.settings_link</a>
     </nav>
-    <button class="ghost tab-step" type="button" id="nav-right" aria-label="nav.later_tabs" data-i18n-aria-label="nav.later_tabs" hidden><span aria-hidden="true">&rsaquo;</span></button>
+    <button class="ghost tab-step" type="button" id="nav-right" aria-label="nav.later_tabs_label" data-i18n-aria-label="nav.later_tabs_label" hidden><span aria-hidden="true">&rsaquo;</span></button>
     </div>
     <div class="chips">
       <span class="spinner" id="spinner" aria-hidden="true"></span>
       <span id="status" class="chips" data-status></span>
-      <button class="ghost logout" type="button" id="logout" data-i18n="action.logout">action.logout</button>
+      <button class="ghost logout" type="button" id="logout" data-i18n="action.logout_button">action.logout_button</button>
     </div>
   </header>
   <main>
     <div class="notice" id="notice" role="alert" hidden>
       <span id="notice-text"></span>
-      <button class="ghost" type="button" id="notice-retry"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /></svg> <span data-i18n="action.retry">action.retry</span></button>
-      <button class="ghost" type="button" id="notice-close" aria-label="notice.dismiss" data-i18n-aria-label="notice.dismiss"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></svg></button>
+      <button class="ghost" type="button" id="notice-retry"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /></svg> <span data-i18n="action.retry_button">action.retry_button</span></button>
+      <button class="ghost" type="button" id="notice-close" aria-label="notice.dismiss_label" data-i18n-aria-label="notice.dismiss_label"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></svg></button>
     </div>
     <section data-page="overview" hidden>
       <div class="card kpis" id="ov-kpis"></div>
@@ -99,11 +99,11 @@
         </div>
         <div class="status-rows" id="card-rows"></div>
       </div>
-          <a class="card snippet" href="#/requests"><h3 data-i18n="nav.requests">nav.requests</h3><div id="ov-requests"></div></a>
-          <a class="card snippet" href="#/limits"><h3 data-i18n="nav.limits">nav.limits</h3><div id="ov-limits"></div></a>
+          <a class="card snippet" href="#/requests"><h3 data-i18n="nav.requests_link">nav.requests_link</h3><div id="ov-requests"></div></a>
+          <a class="card snippet" href="#/limits"><h3 data-i18n="nav.limits_link">nav.limits_link</h3><div id="ov-limits"></div></a>
         </div>
         <div class="column">
-          <a class="card snippet" href="#/models"><h3><span><span data-i18n="nav.models">nav.models</span><span class="count" id="ov-model-count"></span></span></h3><div id="ov-models"></div></a>
+          <a class="card snippet" href="#/models"><h3><span><span data-i18n="nav.models_link">nav.models_link</span><span class="count" id="ov-model-count"></span></span></h3><div id="ov-models"></div></a>
         </div>
       </div>
     </section>
@@ -112,30 +112,30 @@
         <div class="column wide">
           <div class="panel editbar requests-bar">
             <input type="search" id="request-search" placeholder="request.filter.placeholder" data-i18n-placeholder="request.filter.placeholder">
-            <select id="request-status" aria-label="request.filter.status" data-i18n-aria-label="request.filter.status">
-              <option value="all" data-i18n="request.filter.all_statuses">request.filter.all_statuses</option>
-              <option value="ok" data-i18n="request.filter.success">request.filter.success</option>
-              <option value="bad" data-i18n="request.filter.errors">request.filter.errors</option>
+            <select id="request-status" aria-label="request.filter.status_label" data-i18n-aria-label="request.filter.status_label">
+              <option value="all" data-i18n="request.filter.all_statuses_option">request.filter.all_statuses_option</option>
+              <option value="ok" data-i18n="request.filter.success_option">request.filter.success_option</option>
+              <option value="bad" data-i18n="request.filter.errors_option">request.filter.errors_option</option>
             </select>
-            <select id="request-hours" aria-label="request.filter.time_range" data-i18n-aria-label="request.filter.time_range">
-              <option value="0" data-i18n="request.filter.all_time">request.filter.all_time</option>
-              <option value="1" data-i18n="request.filter.last_hour">request.filter.last_hour</option>
-              <option value="24" data-i18n="request.filter.last_24_hours">request.filter.last_24_hours</option>
+            <select id="request-hours" aria-label="request.filter.time_range_label" data-i18n-aria-label="request.filter.time_range_label">
+              <option value="0" data-i18n="request.filter.all_time_option">request.filter.all_time_option</option>
+              <option value="1" data-i18n="request.filter.last_hour_option">request.filter.last_hour_option</option>
+              <option value="24" data-i18n="request.filter.last_24_hours_option">request.filter.last_24_hours_option</option>
             </select>
-            <button class="ghost live-toggle" type="button" id="live-toggle" aria-pressed="false"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" /></svg> <span data-i18n="request.live">request.live</span></button>
-            <button class="ghost off" type="button" id="request-clear" data-i18n="action.clear_filters">action.clear_filters</button>
+            <button class="ghost live-toggle" type="button" id="live-toggle" aria-pressed="false"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" /></svg> <span data-i18n="request.live_button">request.live_button</span></button>
+            <button class="ghost off" type="button" id="request-clear" data-i18n="action.clear_filters_button">action.clear_filters_button</button>
             <span class="hint" id="request-count"></span>
           </div>
           <div class="panel">
-            <table class="requests" aria-label="nav.requests" data-i18n-aria-label="nav.requests" role="table">
+            <table class="requests" aria-label="nav.requests_link" data-i18n-aria-label="nav.requests_link" role="table">
               <thead role="rowgroup"><tr role="row">
-                <th scope="col" role="columnheader" title="request.column.time.hint" data-i18n-title="request.column.time.hint" data-i18n="request.column.time">request.column.time</th><th scope="col" role="columnheader" title="request.column.app.hint" data-i18n-title="request.column.app.hint" data-i18n="request.column.app">request.column.app</th><th scope="col" class="hide-sm" role="columnheader" title="request.column.session.hint" data-i18n-title="request.column.session.hint" data-i18n="request.column.session">request.column.session</th><th scope="col" role="columnheader" title="request.column.model.hint" data-i18n-title="request.column.model.hint" data-i18n="request.column.model">request.column.model</th><th scope="col" role="columnheader" title="request.column.served_by.hint" data-i18n-title="request.column.served_by.hint" data-i18n="request.column.served_by">request.column.served_by</th><th scope="col" class="hide-sm" role="columnheader" title="request.column.effort.hint" data-i18n-title="request.column.effort.hint" data-i18n="request.column.effort">request.column.effort</th>
-                <th scope="col" role="columnheader" title="request.column.status.hint" data-i18n-title="request.column.status.hint" data-i18n="request.column.status">request.column.status</th><th scope="col" class="hide-sm" role="columnheader" title="request.column.input.hint" data-i18n-title="request.column.input.hint" data-i18n="request.column.input">request.column.input</th><th scope="col" class="hide-sm" role="columnheader" title="request.column.output.hint" data-i18n-title="request.column.output.hint" data-i18n="request.column.output">request.column.output</th><th scope="col" class="hide-sm" role="columnheader" title="request.column.ttft.hint" data-i18n-title="request.column.ttft.hint" data-i18n="request.column.ttft">request.column.ttft</th><th scope="col" class="hide-sm" role="columnheader" title="request.column.stream.hint" data-i18n-title="request.column.stream.hint" data-i18n="request.column.stream">request.column.stream</th>
+                <th scope="col" role="columnheader" title="request.column.time.hint" data-i18n-title="request.column.time.hint" data-i18n="request.column.time_column">request.column.time_column</th><th scope="col" role="columnheader" title="request.column.app.hint" data-i18n-title="request.column.app.hint" data-i18n="request.column.app_column">request.column.app_column</th><th scope="col" class="hide-sm" role="columnheader" title="request.column.session.hint" data-i18n-title="request.column.session.hint" data-i18n="request.column.session_column">request.column.session_column</th><th scope="col" role="columnheader" title="request.column.model.hint" data-i18n-title="request.column.model.hint" data-i18n="request.column.model_column">request.column.model_column</th><th scope="col" role="columnheader" title="request.column.served_by.hint" data-i18n-title="request.column.served_by.hint" data-i18n="request.column.served_by_column">request.column.served_by_column</th><th scope="col" class="hide-sm" role="columnheader" title="request.column.effort.hint" data-i18n-title="request.column.effort.hint" data-i18n="request.column.effort_column">request.column.effort_column</th>
+                <th scope="col" role="columnheader" title="request.column.status.hint" data-i18n-title="request.column.status.hint" data-i18n="request.column.status_column">request.column.status_column</th><th scope="col" class="hide-sm" role="columnheader" title="request.column.input.hint" data-i18n-title="request.column.input.hint" data-i18n="request.column.input_column">request.column.input_column</th><th scope="col" class="hide-sm" role="columnheader" title="request.column.output.hint" data-i18n-title="request.column.output.hint" data-i18n="request.column.output_column">request.column.output_column</th><th scope="col" class="hide-sm" role="columnheader" title="request.column.ttft.hint" data-i18n-title="request.column.ttft.hint" data-i18n="request.column.ttft_column">request.column.ttft_column</th><th scope="col" class="hide-sm" role="columnheader" title="request.column.stream.hint" data-i18n-title="request.column.stream.hint" data-i18n="request.column.stream_column">request.column.stream_column</th>
               </tr></thead>
               <tbody id="live" role="rowgroup"></tbody>
               <tbody id="requests" role="rowgroup"></tbody>
             </table>
-            <button class="ghost" type="button" id="more-requests" hidden data-i18n="action.show_more">action.show_more</button>
+            <button class="ghost" type="button" id="more-requests" hidden data-i18n="action.show_more_button">action.show_more_button</button>
           </div>
         </div>
         <div class="column">
@@ -156,43 +156,43 @@
       <div class="panel">
         <div class="toolbar">
           <input type="search" id="search" placeholder="model.filter.placeholder" data-i18n-placeholder="model.filter.placeholder">
-          <select id="mode" aria-label="model.filter.type" data-i18n-aria-label="model.filter.type">
-            <option value="all" data-i18n="model.filter.all_types">model.filter.all_types</option>
-            <option value="chat" data-i18n="model.mode.chat">model.mode.chat</option>
-            <option value="embedding" data-i18n="model.mode.embedding">model.mode.embedding</option>
-            <option value="audio_transcription" data-i18n="model.mode.audio_transcription">model.mode.audio_transcription</option>
-            <option value="audio_speech" data-i18n="model.mode.audio_speech">model.mode.audio_speech</option>
-            <option value="image_generation" data-i18n="model.mode.image_generation">model.mode.image_generation</option>
-            <option value="video_generation" data-i18n="model.mode.video_generation">model.mode.video_generation</option>
-            <option value="decisions" data-i18n="model.mode.decisions">model.mode.decisions</option>
-            <option value="rerank" data-i18n="model.mode.rerank">model.mode.rerank</option>
-            <optgroup label="model.filter.media" data-i18n-label="model.filter.media">
-              <option value="vision" data-i18n="model.flag.vision">model.flag.vision</option>
-              <option value="pdf_input" data-i18n="model.flag.pdf_input">model.flag.pdf_input</option>
-              <option value="audio_input" data-i18n="model.flag.audio_input">model.flag.audio_input</option>
-              <option value="audio_output" data-i18n="model.flag.audio_output">model.flag.audio_output</option>
+          <select id="mode" aria-label="model.filter.type_label" data-i18n-aria-label="model.filter.type_label">
+            <option value="all" data-i18n="model.filter.all_types_option">model.filter.all_types_option</option>
+            <option value="chat" data-i18n="model.mode.chat_label">model.mode.chat_label</option>
+            <option value="embedding" data-i18n="model.mode.embedding_label">model.mode.embedding_label</option>
+            <option value="audio_transcription" data-i18n="model.mode.audio_transcription_label">model.mode.audio_transcription_label</option>
+            <option value="audio_speech" data-i18n="model.mode.audio_speech_label">model.mode.audio_speech_label</option>
+            <option value="image_generation" data-i18n="model.mode.image_generation_label">model.mode.image_generation_label</option>
+            <option value="video_generation" data-i18n="model.mode.video_generation_label">model.mode.video_generation_label</option>
+            <option value="decisions" data-i18n="model.mode.decisions_label">model.mode.decisions_label</option>
+            <option value="rerank" data-i18n="model.mode.rerank_label">model.mode.rerank_label</option>
+            <optgroup label="model.filter.media_label" data-i18n-label="model.filter.media_label">
+              <option value="vision" data-i18n="model.flag.vision_label">model.flag.vision_label</option>
+              <option value="pdf_input" data-i18n="model.flag.pdf_input_label">model.flag.pdf_input_label</option>
+              <option value="audio_input" data-i18n="model.flag.audio_input_label">model.flag.audio_input_label</option>
+              <option value="audio_output" data-i18n="model.flag.audio_output_label">model.flag.audio_output_label</option>
             </optgroup>
           </select>
           <div id="tiers"></div>
           <select id="sort-small" class="only-sm" aria-label="model.sort.label" data-i18n-aria-label="model.sort.label">
-            <option value="id" data-i18n="model.sort.model">model.sort.model</option>
-            <option value="tier" data-i18n="model.sort.tier">model.sort.tier</option>
-            <option value="tools" data-i18n="model.sort.tools">model.sort.tools</option>
-            <option value="cooldown" data-i18n="model.sort.cooldown">model.sort.cooldown</option>
-            <option value="weight" data-i18n="model.sort.weight">model.sort.weight</option>
+            <option value="id" data-i18n="model.sort.model_option">model.sort.model_option</option>
+            <option value="tier" data-i18n="model.sort.tier_option">model.sort.tier_option</option>
+            <option value="tools" data-i18n="model.sort.tools_option">model.sort.tools_option</option>
+            <option value="cooldown" data-i18n="model.sort.cooldown_option">model.sort.cooldown_option</option>
+            <option value="weight" data-i18n="model.sort.weight_option">model.sort.weight_option</option>
           </select>
         </div>
         <table class="models">
           <thead><tr id="model-head">
-            <th data-sort="id"><button class="sort" type="button" data-i18n="model.column.model">model.column.model</button></th>
-            <th data-sort="mode" class="hide-sm"><button class="sort" type="button" data-i18n="model.column.type">model.column.type</button></th>
-            <th data-sort="tier"><button class="sort" type="button" data-i18n="model.column.tier">model.column.tier</button></th>
-            <th data-sort="order" class="hide-sm" title="model.column.order.hint" data-i18n-title="model.column.order.hint"><button class="sort" type="button" data-i18n="model.column.order">model.column.order</button></th>
-            <th data-sort="context" class="hide-sm"><button class="sort" type="button" data-i18n="model.column.context">model.column.context</button></th>
-            <th data-sort="tools"><button class="sort" type="button" data-i18n="model.column.tools">model.column.tools</button></th>
-            <th data-sort="reasoning" class="hide-sm"><button class="sort" type="button" data-i18n="model.column.reasoning">model.column.reasoning</button></th>
-            <th data-sort="cooldown"><button class="sort" type="button" data-i18n="model.column.cooldown">model.column.cooldown</button></th>
-            <th data-sort="weight"><button class="sort" type="button" data-i18n="model.column.weight">model.column.weight</button></th>
+            <th data-sort="id"><button class="sort" type="button" data-i18n="model.column.model_column">model.column.model_column</button></th>
+            <th data-sort="mode" class="hide-sm"><button class="sort" type="button" data-i18n="model.column.type_column">model.column.type_column</button></th>
+            <th data-sort="tier"><button class="sort" type="button" data-i18n="model.column.tier_column">model.column.tier_column</button></th>
+            <th data-sort="order" class="hide-sm" title="model.column.order.hint" data-i18n-title="model.column.order.hint"><button class="sort" type="button" data-i18n="model.column.order_column">model.column.order_column</button></th>
+            <th data-sort="context" class="hide-sm"><button class="sort" type="button" data-i18n="model.column.context_column">model.column.context_column</button></th>
+            <th data-sort="tools"><button class="sort" type="button" data-i18n="model.column.tools_column">model.column.tools_column</button></th>
+            <th data-sort="reasoning" class="hide-sm"><button class="sort" type="button" data-i18n="model.column.reasoning_column">model.column.reasoning_column</button></th>
+            <th data-sort="cooldown"><button class="sort" type="button" data-i18n="model.column.cooldown_column">model.column.cooldown_column</button></th>
+            <th data-sort="weight"><button class="sort" type="button" data-i18n="model.column.weight_column">model.column.weight_column</button></th>
           </tr></thead>
           <tbody id="models"></tbody>
         </table>
@@ -201,7 +201,7 @@
     <section data-page="notifications" hidden>
       <div class="flow">
         <div class="column wide">
-          <div class="card notification-feed" id="notification-feed" aria-label="nav.notifications" data-i18n-aria-label="nav.notifications"></div>
+          <div class="card notification-feed" id="notification-feed" aria-label="nav.notifications_link" data-i18n-aria-label="nav.notifications_link"></div>
         </div>
         <div class="column">
           <div class="card" id="update-card"></div>
@@ -210,9 +210,9 @@
     </section>
     <section data-page="limits" hidden>
       <div class="panel editbar">
-        <button class="ghost" type="button" id="limits-check" data-i18n="action.check_now">action.check_now</button>
+        <button class="ghost" type="button" id="limits-check" data-i18n="action.check_now_button">action.check_now_button</button>
         <span class="search-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34" /> <circle cx="11" cy="11" r="8" /></svg></span><input type="search" id="limits-search" placeholder="limits.filter.placeholder" data-i18n-placeholder="limits.filter.placeholder">
-        <button class="ghost" type="button" id="limits-clear" hidden data-i18n="action.clear_filters">action.clear_filters</button>
+        <button class="ghost" type="button" id="limits-clear" hidden data-i18n="action.clear_filters_button">action.clear_filters_button</button>
         <span class="message" id="limits-message" role="status"></span>
         <span class="hint" id="limits-checked"></span>
       </div>
@@ -221,7 +221,7 @@
           <div class="panel">
             <table>
               <thead><tr>
-                <th data-i18n="model.column.model">model.column.model</th><th data-i18n="limits.column.limit">limits.column.limit</th><th data-i18n="limits.column.left">limits.column.left</th><th class="hide-sm" data-i18n="limits.column.reset">limits.column.reset</th><th class="hide-sm" data-i18n="limits.column.seen">limits.column.seen</th>
+                <th data-i18n="model.column.model_column">model.column.model_column</th><th data-i18n="limits.column.limit_column">limits.column.limit_column</th><th data-i18n="limits.column.left_column">limits.column.left_column</th><th class="hide-sm" data-i18n="limits.column.reset_column">limits.column.reset_column</th><th class="hide-sm" data-i18n="limits.column.seen_column">limits.column.seen_column</th>
               </tr></thead>
               <tbody id="limit-rows"></tbody>
             </table>
