@@ -2560,7 +2560,7 @@ async function pickProviderSection(key) {
   const host = $("provider-form");
   const view = key === "yaml" ? "yaml" : "form";
   if (view !== state.view) {
-    if (dirty() && !(await ask(t("dialog.discard.title"), t("dialog.discard_file.message"), t("action.discard_button"), true))) return;
+    if (dirty() && !(await ask(t("dialog.discard.title"), t("dialog.discard.message"), t("action.discard_button"), true))) return;
     const index = state.file;
     if (state.view === "yaml") state.files[index].text = state.saved[index];
     state.forms[index] = clone(state.files[index].blocks ?? {});
@@ -2898,7 +2898,7 @@ async function loadSettings() {
 async function pickSettingsSection(key) {
   const view = key === "yaml" ? "yaml" : "form";
   if (view !== state.settingsView) {
-    if (settingsDirty() && !(await ask(t("dialog.discard.title"), t("dialog.discard_settings.message"), t("action.discard_button"), true))) return;
+    if (settingsDirty() && !(await ask(t("dialog.discard.title"), t("dialog.discard.message"), t("action.discard_button"), true))) return;
     state.settingsView = view;
     clearWrite("settings");
     renderSettings();
