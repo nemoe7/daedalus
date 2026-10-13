@@ -31,7 +31,8 @@ Use this guide and its Markdown references for instructions. Do not read shipped
 
    After a sandbox restart, rerun the installer and reuse the same state directory. If the server dies, warn the owner before restarting. If another service owns the port, choose a free one without stopping it. The gate warns when a serve names another port.
 
-- During a root gate, ALWAYS use `arena-preview worktree start` before unrelated task work; declare its nonoverlapping paths first.
+- When multiple queued tasks each edit files, ALWAYS start the root gate after task scope.
+- While that gate runs, ALWAYS use `arena-preview worktree start` before unrelated file-editing work; a lone file-editing task needs no worktree; declare nonoverlapping paths first.
 - NEVER start a gate, commit or push in the detached worktree; only collect its diff after the root gate passes, then validate it on the root.
 
 4. Name the preview in chat. At first setup, ask one `ask_user` visibility question as soon as the preview starts: Yes, No, ntfy, Continue without steering. Block non-setup work until the answer. Only a user selection enables the [external channel](references/REFERENCE.md#external-channel-ntfy); never switch silently. Keep the preview inbox running; the first `read` follows the answer. Do not claim visibility before confirmation. If it stays hidden, ask how to continue with `ask_user`. Reuse a visible preview after confirmation. Keep ARENA.md's activation acknowledgement when applicable.
