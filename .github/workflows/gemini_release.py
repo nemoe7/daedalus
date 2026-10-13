@@ -86,21 +86,34 @@ Task: repair a release draft after template validation fails.
 - Return only the corrected release body.
 """
   ),
-  "version": (
+  "proposal": (
     """\
-Task: classify the release impact of the supplied commit messages, diffs or evidence \
-summaries under Semantic Versioning 2.0.0.
+Task: determine the release impact and write release notes in Markdown from the supplied \
+template and evidence.
 """
     + BOUNDARY
     + """\
-- major: incompatible public API changes.
-- minor: backward-compatible public API functionality, deprecation, or substantial private functionality.
-- patch: backward-compatible bug fixes.
-- none: no release impact.
-- review: the evidence cannot establish compatibility.
-- Choose the highest required impact.
-- NEVER infer compatibility from commit prefixes alone.
-- Return only one word: major, minor, patch, none or review.
+- Determine impact under Semantic Versioning 2.0.0: major for incompatible public API changes; \
+minor for backward-compatible public API functionality, deprecation or substantial private \
+functionality; patch for backward-compatible bug fixes; none for no release impact; review \
+when the evidence cannot establish compatibility.
+- Choose the highest required impact; NEVER infer compatibility from commit prefixes alone.
+- Use previous release notes only as a style reference; NEVER use them as evidence for current changes.
+- Use the template headings in their order; replace every placeholder.
+- ALWAYS keep the Summary section.
+- Write the Summary as one or two sentences on the release headline; NEVER repeat an entry from another section.
+- Omit any other section, heading included, that the evidence does not support.
+- Report a change under Features or Fixes only when a user of the software sees or does it; \
+NEVER list repository tooling, builds or workflow changes.
+- Name a change by what a user sees; NEVER use internal identifiers, table names or metric \
+names unless a user must type them.
+- Summarize user-visible changes; do not list every commit.
+- Count a change once: merge diffs are labeled by parent and repeat changes.
+- In Upgrade notes, write `No action required` when the migration is automatic; list the required edits when it is not.
+- Use the supplied comparison URL verbatim when the template has one.
+- Set `impact` to exactly one of: major, minor, patch, none or review.
+- Set `body` to the release body only; NEVER include Markdown fences or text outside the JSON object.
+- Return only a JSON object with exactly two fields: `impact` and `body`.
 """
   ),
 }
@@ -542,6 +555,7 @@ def gemini_call(model, action, payload):
       "x-goog-api-key": os.environ["GEMINI_API_KEY"],
     },
   )
+  summary(f"Gemini model attempt: {model} ({action})")
   try:
     with urllib.request.urlopen(request, timeout=180) as response:
       return json.load(response)
@@ -669,11 +683,14 @@ def generate_once(context, evidence, model):
   started = time.monotonic()
   # The chunk rounds cap their output. The final summarization reads a compact payload,
   # so its output stays uncapped and a long combination cannot truncate.
-  config = (
-    {}
-    if context.get("phase") == "combine"
-    else {"generationConfig": {"maxOutputTokens": MAX_OUTPUT_TOKENS}}
-  )
+  phase = context.get("phase")
+  if phase == "combine":
+    config = {}
+  else:
+    generation = {"maxOutputTokens": MAX_OUTPUT_TOKENS}
+    if phase == "proposal":
+      generation["responseMimeType"] = "application/json"
+    config = {"generationConfig": generation}
   data = gemini_call(model, "generateContent", {**request, **config})
   text = response_text(data)
   usage = data.get("usageMetadata") or {}
@@ -772,7 +789,7 @@ def release_body(
       summary(
         f"  invalid {final_phase} answer {answer.strip()[:60]!r}; retrying on the next rung"
       )
-  raise RuntimeError(f"Gemini returned an invalid {final_phase} classification")
+  raise RuntimeError(f"Gemini returned an invalid {final_phase} answer")
 
 
 def save_draft(repo, tag, body, target):
@@ -889,19 +906,42 @@ def current_base(repo, target):
 
 
 IMPACTS = ("major", "minor", "patch", "none", "review")
+PROPOSAL_FIELDS = {"impact", "body"}
 
 
-def classify(units, context, model):
-  "One word of version impact. Release_body retries a refused answer on the ladder."
+def proposal_result(text):
+  """Parse the one structured model answer that carries impact and release notes."""
+  try:
+    result = json.loads(text, object_pairs_hook=unique_object)
+  except (json.JSONDecodeError, RuntimeError) as error:
+    raise RuntimeError("Gemini returned invalid proposal JSON") from error
+  if not isinstance(result, dict) or set(result) != PROPOSAL_FIELDS:
+    raise RuntimeError("Gemini proposal must contain only impact and body")
+  if result["impact"] not in IMPACTS:
+    raise RuntimeError("Gemini proposal has an invalid impact")
+  if not isinstance(result["body"], str) or not result["body"].strip():
+    raise RuntimeError("Gemini proposal has an invalid release body")
+  return result
+
+
+def combined_release(units, context, model, on_success=None):
+  """Ask one model request for the SemVer impact and release body together."""
   text = release_body(
     units,
-    {**context, "phase": "version"},
+    {**context, "phase": "proposal"},
     model,
-    accept=lambda answer: answer.strip() in IMPACTS,
-  ).strip()
-  if text not in IMPACTS:
-    raise RuntimeError("Gemini returned an invalid version classification")
-  return text
+    on_success=on_success,
+    accept=lambda answer: _valid_proposal_result(answer),
+  )
+  return proposal_result(text)
+
+
+def _valid_proposal_result(text):
+  try:
+    proposal_result(text)
+  except RuntimeError:
+    return False
+  return True
 
 
 def release_template(base):
@@ -974,11 +1014,17 @@ def validated_body(body, context, model, generate_fn=generate):
 
 
 def summary(message):
+  """Write operational progress to the workflow log, never the release draft summary."""
+  print(message, flush=True)
+
+
+def draft_summary(message):
+  """Publish a deliberate proposal or approval result to the release draft summary."""
   path = os.getenv("GITHUB_STEP_SUMMARY")
   if path:
     with open(path, "a", encoding="utf-8") as output:
       output.write(message + "\n")
-  print(message, flush=True)
+  summary(message)
 
 
 def propose(repo, branch):
@@ -1014,9 +1060,11 @@ def propose(repo, branch):
     override = ""
   if override and override not in ("major", "minor", "patch", "none"):
     raise RuntimeError("Invalid impact override")
-  # One reduction serves the classification and the release body. A run that needs
-  # neither pays nothing.
+  # One reduction serves either the combined auto proposal or the overridden release body.
+  # The reduction keeps prior notes out because they are style, not release evidence.
   base_context = dict(context)
+  if baseline_release and baseline_release["body"]:
+    context["previous_release_notes"] = baseline_release["body"]
   reduced = None
 
   def summary_evidence():
@@ -1025,11 +1073,19 @@ def propose(repo, branch):
       reduced = prepared(units, base_context, model)
     return reduced
 
-  impact = override or classify(summary_evidence(), context, model)
   promotion_input = os.getenv("PROMOTE_TO_STABLE", "false")
   if promotion_input not in ("true", "false"):
     raise RuntimeError("Invalid promotion switch")
   promote = promotion_input == "true"
+  selected_model = []
+  generated = None
+  if override:
+    impact = override
+  else:
+    generated = combined_release(
+      summary_evidence(), context, model, on_success=selected_model.append
+    )
+    impact = generated["impact"]
   version = next_version(version_base, impact, promote)
   if not version:
     summary("No release impact; no proposal artifact or tag created.")
@@ -1039,12 +1095,12 @@ def propose(repo, branch):
     raise RuntimeError("Proposed tag already has a release")
   if remote_ref(repo, tag) is not None:
     raise RuntimeError("Proposed tag already exists")
-  context["target_tag"] = tag
-  if baseline_release and baseline_release["body"]:
-    context["previous_release_notes"] = baseline_release["body"]
-  selected_model = []
-  body = release_body(
-    summary_evidence(), context, model, on_success=selected_model.append
+  body = (
+    generated["body"]
+    if generated is not None
+    else release_body(
+      summary_evidence(), context, model, on_success=selected_model.append
+    )
   )
   body = validated_body(body, context, selected_model[-1] if selected_model else None)
   check_remote_target(repo, branch, target)
@@ -1067,7 +1123,7 @@ def propose(repo, branch):
   if os.getenv("GITHUB_OUTPUT"):
     with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as stream:
       stream.write("generated=true\n")
-  summary(
+  draft_summary(
     f"Proposal run: `{os.getenv('GITHUB_RUN_ID', 'local')}`\n\n"
     f"Proposed tag: `{tag}`\n\nTarget SHA: `{target}`\n\n"
     f"Baseline: `{previous or '(all history)'}`\n\nImpact: `{impact}`\n\n"
@@ -1254,8 +1310,8 @@ def approve(repo, branch):
         raise
   if remote_tag_sha(repo, tag) != target:
     raise RuntimeError("Existing tag conflicts with the approved target")
-  summary(f"Approved proposal run `{run_id}`. Tag `{tag}` points to `{target}`.")
-  summary(save_draft(repo, tag, proposal["body"], target))
+  draft_summary(f"Approved proposal run `{run_id}`. Tag `{tag}` points to `{target}`.")
+  draft_summary(save_draft(repo, tag, proposal["body"], target))
 
 
 def main():

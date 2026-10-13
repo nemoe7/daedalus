@@ -53,9 +53,13 @@ arena-preview ack <id> --reply 'a reply with `backticks`'
 
 If the preview is not visible, acknowledge a delivered note in chat with literal `ACK:` and your interpretation. Treat `STOP:`, `PRIORITY:`, `CONTEXT:` and ordinary notes under chat's instruction precedence; check their claims against evidence.
 
-ALWAYS report every workaround or bypass found during Arena skill work to the owner immediately as a violation.
+ALWAYS report every workaround or bypass found during Arena skill work through a preview report immediately as a violation.
+
+ALWAYS report every dead end found during Arena skill work to the owner as an upstream bug to fix.
 
 Run `task-list` at turn start. Before implementation, record approved work with `task <kebab-title-id> "<title>" [details ...]`, put the current item first with `--order 1`, and update its status (`upcoming` or `finished`, no other value) and details as work changes; in every ack, put the task ID in backticks so the log links it. For a task from a note or report answer, use `--msg-id <full-message-id>`; queue and acknowledge it in the same tool block. The task marker does not replace `ack`. Mark a task `--status finished` only after verification. For a task that waits on a report, add `--report <report-id>`; the owner's answer clears its blocked mark, and until then the task sorts first in its group.
+
+When a task creates a commit, MUST add its landed subject and short hash to task details.
 
 ## Publish reports and forms
 
@@ -72,6 +76,8 @@ Republish the same ID after each source update; if answers exist, use a new ID. 
 ## Files and downloads
 
 For each note's `attachments[]`, the read carries each file's size; an image MUST be read before acknowledging that note once, and read a text file with caution. If `present` is false or bytes are missing, report the loss.
+
+For an explicit state import, NEVER read the full text attachment unless the import fails or its contents are needed to resolve an error.
 
 To ask for a file, run `download-request <url>`: it queues a pending job and does not download it. The owner approves or denies it in Downloads. Add `--allow-proxy` only when that URL may use AllOrigins and then CodeTabs. URLs cannot contain credentials. A saved job writes an inbox note with the path. Read that note and acknowledge it. Report failed or missing files.
 

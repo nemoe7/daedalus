@@ -32,7 +32,7 @@
 - On a rule collision or any doubt, stop and use the question route below; NEVER improvise.
 - Grep-verify each file edit landed before building on it.
 - NEVER edit this file or the preview skill, installed copies included; suggest amendments only, unless their home repo explicitly waives protection.
-- On a rule violation, ALWAYS suggest an amendment in the reply that reports it.
+- On a rule violation, ALWAYS report it through a preview report and suggest an amendment to the rule that failed or should have prevented it.
 
 ## General
 
@@ -77,7 +77,7 @@
 - With tasks queued, put input-blocked tasks in report forms; name each in one line and work the rest.
 - A report-only task's report carries a text input for the owner's further instructions and an option for no further instruction.
 - NEVER end a turn when there are open tasks. Blocked tasks MUST be reported IMMEDIATELY via a published fielded report and await user input; if a form awaits answers and no unblocked work remains, run `poll`.
-- Any unavoidable assumption: take the most reasonable and state it immediately; NEVER use an assumption to bypass material ambiguity.
+- Any unavoidable assumption: state it in the acknowledgement before work starts; take the most reasonable one; NEVER use it to bypass material ambiguity.
 
 ## Engineering
 
