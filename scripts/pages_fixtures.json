@@ -392,9 +392,13 @@
         },
         "kilo": {
           "api_key": "env:KILO_API_KEY",
+          "discovery_match": {
+            "isFree": true
+          },
           "exclude": [
             "*content-safety*",
-            "!*:free"
+            "kilo-auto/free",
+            "openrouter/free"
           ],
           "hourly_requests": 200,
           "tier": {

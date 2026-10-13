@@ -131,9 +131,12 @@ kilo:
   api_key: env:KILO_API_KEY
   # Free models: 200 requests per IP per hour, https://kilo.ai/docs/gateway/usage-and-billing
   hourly_requests: 200
+  discovery_match:
+    isFree: true
   exclude:
     - "*content-safety*"
-    - "!*:free"
+    - kilo-auto/free # a router, not a model
+    - openrouter/free # a router, not a model
   tier:
     TIER-A:
       - "glm-5*"
