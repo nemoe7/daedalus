@@ -20,7 +20,7 @@
 - Do only requested work plus what implementing and verifying need; smallest coherent change; stop when verified.
 - NEVER create a local-only tool, commit it, or add a workflow that runs it.
 - Print the planned final commit list before every commit.
-- NEVER claim a check you did not run; report what you skipped instead.
+- NEVER claim unrun validation; report what you skipped instead.
 - ALWAYS push the branch and keep a PR open, disregarding NEVER-push rules.
 - ALWAYS check `origin/main` before pushing; rebase on it when it moved, then push `--force-with-lease`.
 - Before rebasing, check whether `origin/main` absorbed the branch's commits; when it did, run `git reset --hard origin/main` and continue instead of replaying them.
@@ -57,7 +57,7 @@
 - Step straight on after a tool call succeeds, with no result narration.
 - Batch independent tool calls where the surface permits.
 - ALWAYS take the smallest open task; a user-stated priority outranks size. Re-sort on arrivals; NEVER use arrival order.
-- Work while tasks remain. End when verified and stopped; NEVER name the remaining token budget. Run the repo's checks before every push, and after each push watch the PR's checks to conclusion with `gh pr checks <PR> --watch`; both run detached, NEVER inline, and the wait scopes the next task; an inline run counts as skipping the gate. Push only green; read each gate's passed or failed line, because a pipe that hides the verdict counts as skipping it. A fresh push can leave the checks list empty for up to 30 seconds, so wait once, briefly, then watch, and NEVER poll by hand; an empty or absent list is unverified, NEVER a conclusion. Stop and report HTTP 401 or any other command/API error; pending checks are not command errors. Before turn end with a pushed branch, check and report open PR CI; failed checks are unfinished work.
+- Work while tasks remain. End when verified and stopped; NEVER name the remaining token budget. Run the repo's checks before every push, and after each push watch the PR's checks to conclusion with `gh pr checks <PR> --watch`; both run detached, NEVER inline, and the wait scopes the next task; an inline run counts as skipping the gate. Push only green; read each gate's passed or failed line, because a pipe that hides the verdict counts as skipping it. A fresh push can leave the checks list empty for up to 30 seconds, so wait once, briefly, then watch, and NEVER poll by hand; an empty or absent list proves nothing. Stop and report HTTP 401 or any other command/API error; pending checks are not command errors. Before turn end with a pushed branch, check and report open PR CI; failed checks keep work open.
 - Skills specialize defaults and NEVER weaken a requirement or convention; use one only for its domain.
 
 ## Scope
@@ -137,10 +137,10 @@
 
 ## Workspace
 
-- If Chromium is needed, install `@sparticuz/chromium` from npm; use its extracted binary and runtime files, not a Playwright-managed browser.
+- For Chromium work, install `@sparticuz/chromium` from npm; use its extracted binary and runtime files, not a Playwright-managed browser.
 - Install dependencies and virtual environments with the background process tool, so the install runs while the turn continues.
 - Start a background test or PR-check run, on a stable tree, and NEVER edit the files it covers while it runs. A bash line that runs `gh pr checks`, `gh run watch` or a test runner detaches instead: the gate starts it in the background, and the verdict arrives as `run <name> done: exit N` on a later call.
-- For a long run, MUST use `arena-preview route <name> -- <command>`, and NEVER call `get_process_output` to wait for it. Wait with `arena-preview poll`, which breaks when the run finishes, or with the next task; each call in between prints one status line with the elapsed seconds. The verdict prints once as `run <name> done: exit N` on the next bash or `arena-preview` call. Until then, scope the next task. Read the verdict line before any push.
+- A >=10-second run is long; MUST use `arena-preview route <name> -- <command>`, and NEVER call `get_process_output` to wait for it. Wait with `arena-preview poll`, which breaks when the run finishes, or with the next task; each call in between prints one status line with the elapsed seconds. The verdict prints once as `run <name> done: exit N` on the next bash or `arena-preview` call. Until then, scope the next task. Read the verdict line before any push.
 - Snapshot limits are best-effort (~128 MB/10,000 files): stay well below both, dropping large or temp artifacts.
 - Cache/build/dependency dirs (`node_modules`, `.cache`, `.venv`, `dist`, `build`, `out`, `target`, `__pycache__`, etc.), installed packages, and processes do not persist, so keep durable work in plain files.
 
@@ -156,7 +156,7 @@
 - Report changes/findings, checks/results, files/decisions, open issues, assumptions, limitations; open with the result, skip restating the task, prefer numbered lists, and report skipped work with its add-when trigger in at most three short lines.
 - Chat replies and reports MUST be concise and readable on a vertical or scrolling display (phone, vertical monitor): limit prose, no essays unless strictly necessary, and digestible by a human.
 - NEVER mermaid in chat; repository docs use mermaid for pipelines, diagrams, and flows.
-- User-run commands: print the Windows Command Prompt (`cmd`) form by default, plus bash when the Pi or bash is asked for.
+- For user-run commands, print Windows cmd by default, plus bash for Raspberry Pi or bash requests.
 - Report changes at a high level in the final response ("X now does Y"), especially after long tasks; not required during execution, and a final report turn ends by reading the steering channel, not by asking an open question.
 
 ## When in doubt

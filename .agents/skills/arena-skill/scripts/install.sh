@@ -1,6 +1,5 @@
 #!/bin/bash
-# Installer for the arena automatic poll hook and the state directory.
-# Idempotent: safe to run repeatedly, and a sandbox restore requires it again.
+# Installer for the arena automatic poll hook and the state directory. Idempotent: safe to run repeatedly, and a sandbox restore requires it again.
 # Run from the repository root, where the skill lives at .agents/skills/arena-skill.
 set -u
 
@@ -25,7 +24,7 @@ if [ ! -x "$VENV/bin/python" ]; then
   python3 -m venv "$VENV" || fail "cannot create venv at $VENV"
 fi
 
-# 3. markdown-it-py into the venv, so serve can start from it too.
+# 3. Markdown-it-py into the venv, so serve can start from it too.
 if ! "$VENV/bin/python" -c 'import markdown_it' >/dev/null 2>&1; then
   "$VENV/bin/pip" install --quiet markdown-it-py || fail "cannot install markdown-it-py into $VENV"
 fi
@@ -109,10 +108,8 @@ cat > "$HOOK" <<EOF || fail "cannot write $HOOK"
 #!/bin/bash
 # arena-preview-hook: poll the steering inbox after every agent call.
 rc=\$?
-# The platform hosts its own processes and runs its own probes through login shells, and each of
-# those would count as an agent call and stamp a call end. These are the shapes the gate already
-# ignores, so the count and the stamp answer for the agent's own calls.
-# The hook is a child of the shell that exits, so its parent carries that shell's line.
+# The platform runs processes and probes through login shells. Those shells would otherwise count as agent calls and stamp call ends.
+# These are the shapes the gate already ignores, so the count and the stamp answer for the agent's own calls. The hook is a child of the shell that exits, so its parent carries that shell's line.
 # case: platform-shell
 case "\$(tr '\\0' ' ' < /proc/\$PPID/cmdline 2>/dev/null)" in
   *arena-workspace*|*"ss -ltn"*|*"netstat -ltn"*|*"source ~/.profile"*|*"mkdir -p '/home/user'"*)
@@ -153,14 +150,12 @@ strip_block "$GATE_MARKER"
 
 # arena-preview-gate
 _arena_preview_gate() {
-  # Only an agent call shell is gated: Arena runs one as the shell binary with a
-  # command. It hosts every long-lived process in a login shell over a launcher
-  # script, and an exit in that shell takes the hosted process down.
+  # Arena gates only an agent call shell. That shell hosts each long-lived process through a launcher script.
+  # An exit ends the hosted process.
   # case: shell-shape
   case "\${0##*/}" in bash|sh|dash|ksh|zsh) ;; *) return 0 ;; esac
-  # Arena's own probe and bookkeeping shells must never meet the gate: an exit
-  # in one reads as a dead preview or sandbox while the server stays up. Mark
-  # such a shell once from its command line and leave the rest of it alone.
+  # Never gate Arena probes or bookkeeping shells. An exit from either can report a dead preview or sandbox while the server runs.
+  # Mark such a shell once from its command line and leave the rest of it alone.
   case "\${_arena_preview_platform:-}" in 1) return 0 ;; esac
   # case: platform-shell
   case "\$(tr '\\0' ' ' < /proc/\$\$/cmdline 2>/dev/null)" in
@@ -178,9 +173,8 @@ _arena_preview_gate() {
       fi
       ;;
   esac
-  # A branch that trails origin/main replays onto a stale base. The check runs once per shell,
-  # and only on a line that already names a commit or a push, so the git call stays off every
-  # other command line.
+  # A branch that trails origin/main replays onto a stale base.
+  # Run this check once per shell. Check only lines that name a commit or push.
   # case: main-moved
   case "\$BASH_COMMAND" in
     *"git commit"*|*"git push"*)
@@ -207,27 +201,24 @@ _arena_preview_gate() {
       ;;
   esac
   _arena_preview_line="\$(tr '\\0' ' ' < /proc/\$\$/cmdline 2>/dev/null)"
-  # A detached route runs its own line, and the gate already started that wait, so a
-  # shell that carries the marker never matches the same family twice.
+  # A detached route runs its own line. Its marker prevents the gate from matching its family twice.
   # case: route-marker
   case "\${ARENA_PREVIEW_ROUTE:-}" in 1) return 0 ;; esac
-  # A PR-check wait belongs to a background process: a bash call holds the turn open
-  # while it waits, so the gate starts the line detached, prints its status line, and
-  # stops the line from running a second time here.
+  # A PR-check wait runs in the background. The gate detaches it, prints its status, and prevents a second run here.
   # case: long-run
   case "\$BASH_COMMAND" in
     *gh*"pr"[[:space:]]*"checks"*|*gh*"run"[[:space:]]*"watch"*|*pytest*|*"node --test"*|*"npm test"*|*"npm run test"*|*"yarn test"*|*"pnpm test"*|*"make test"*|*"npx jest"*|*"npx vitest"*|*"npx mocha"*|*"npx ava"*|*"go test"*|*"cargo test"*|*"dotnet test"*|*"mvn test"*|*"mvnw test"*|*"gradle test"*|*"gradlew test"*|*" tox"*|*"tox "*|tox|*" nox"*|*"nox "*|nox)
       "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" pr-check-tick "\$_arena_preview_line"
       case \$? in
-        # Only a line that names a wait is stopped. A started wait ends the call clean,
-        # because the work runs in the background; a failed start keeps the refusal.
+        # The gate stops only a line that names a wait.
+        # A started wait ends the call. A failed start keeps the refusal.
         1) exit 0 ;;
         2) exit 130 ;;
       esac
       ;;
   esac
-  # The command sits on PATH in every shell the installer touched, so a spelled-out path
-  # only buries the call. Say it once per shell, then let the line run its gate.
+  # The command sits on PATH in every shell the installer touched, so a spelled-out path only buries the call.
+  # Say it once per shell, then let the line run its gate.
   # case: bare-path
   case "\$_arena_preview_line" in
     *"$REPO_ROOT/$SKILL_REL/scripts/arena-preview"*|*"$REPO_ROOT/$SKILL_REL/scripts/preview.py"*)
@@ -247,8 +238,8 @@ _arena_preview_gate() {
       fi
       ;;
   esac
-  # A backtick inside double quotes runs as a command, so the shell eats the ticks before the
-  # tool sees the text. The warning lands before the ack runs, and it names the file form.
+  # A backtick inside double quotes runs as a command, so the shell eats the ticks before the tool sees the text.
+  # The warning lands before the ack runs, and it names the file form.
   # case: ack-ticks
   case "\$BASH_COMMAND" in
     *"arena-preview ack"*|*"preview.py ack"*)
@@ -263,22 +254,23 @@ _arena_preview_gate() {
       "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" serve-tick "\$BASH_COMMAND"
       ;;
   esac
-  # A fetch to a host outside the egress allowlist fails its TLS handshake, and the error
-  # reads as a transient fault. The warning lands before the call runs, and it names the
-  # tool that reaches the host instead.
+  # A fetch to a host outside the egress allowlist fails its TLS handshake, and the error reads as a transient fault.
+  # The warning lands before the call runs, and it names the tool that reaches the host instead.
   # case: egress
   case "\$BASH_COMMAND" in
     *curl*|*wget*|*"git clone"*|*"git fetch"*|*"git ls-remote"*)
       "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" egress-tick "\$BASH_COMMAND"
       ;;
   esac
-  # A commit that cites a session-local ID leaves a reader an ID nothing can resolve.
-  # The scan reads the staged diff against the state database, so a git SHA that is not
-  # a session ID never matches, while a full ID and its 7-character head both do.
+  # A detached task worktree never commits. The ID scan then rejects session-local citations.
   # case: commit-id
   case "\$BASH_COMMAND" in
     *"git commit"*)
-      "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" commit-tick --repo "$REPO_ROOT"
+      "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" worktree-tick commit
+      case \$? in
+        1) exit 130 ;;
+      esac
+      "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" commit-tick --repo .
       case \$? in
         1) exit 130 ;;
       esac
@@ -286,21 +278,22 @@ _arena_preview_gate() {
   esac
   # case: inert-line
   case "\$BASH_COMMAND" in *preview*|*profile*|*bashrc*|*arena-state*|gh*|sleep*|true*|:*|test*|"git status"*|"git diff"*|"git add"*|"git commit"*|*arena-workspace*|*"ss -ltn"*|*"netstat -ltn"*) return 0 ;; esac
-  # A push is a checkpoint: an unread note can change what leaves the sandbox,
-  # so it waits for an ack whatever the call count.
+  # A detached task worktree never pushes. The root push remains an inbox checkpoint.
   # case: push-checkpoint
   case "\$BASH_COMMAND" in
     *"git push"*)
+      "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" worktree-tick push
+      case \$? in
+        1) exit 130 ;;
+      esac
       "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" gate --push --line "\$_arena_preview_line" 2>/dev/null
       case \$? in
         1) exit 130 ;;
       esac
       ;;
   esac
-  # A command line that reads or answers the inbox must reach its read: a chain with a cd
-  # before the read stays quiet for the count gate, while the push rule above still runs
-  # for every push in the same shell. The quiet line holds only when every command on it
-  # is an inbox call or an inert prefix, so a read beside work never exempts the work.
+  # An inbox line must reach its read. A cd prefix stays quiet for the count gate. The push check still runs.
+  # A quiet line holds only inbox calls and inert prefixes. A read beside work never exempts that work.
   # case: inbox-line
   case "\$_arena_preview_line" in
     *"arena-preview read"*|*"arena-preview ack"*|*"arena-preview poll"*|*"arena-preview task"*|*"preview.py read"*|*"preview.py ack"*|*"preview.py poll"*|*"preview.py task"*)
@@ -324,8 +317,8 @@ strip_block "$PATH_MARKER"
   cat >> "$PROFILE" <<'EOF' || fail "cannot append to $PROFILE"
 
 # arena-preview-path
-# The root is pinned at install time: a source-time lookup reads the cwd of the
-# sourcing shell, so a shell outside the checkout would miss the command.
+# The installer pins the root at install time.
+# A source-time lookup could read a shell outside the checkout.
 _arena_preview_scripts="__ARENA_PREVIEW_ROOT__/.agents/skills/arena-skill/scripts"
 if [ -x "$_arena_preview_scripts/arena-preview" ]; then
   case ":$PATH:" in
