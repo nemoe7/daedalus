@@ -250,8 +250,7 @@ Hooks get no database access. An `on-catalog` hook changes only the row. daedalu
 
 The dashboard edits the `hooks` list of a model or a provider. The Hooks card of the Settings page names the
 folder, the sources and the files that load. Only the update writes a hook file, and it writes to the folder
-of `hooks.dir`. The Delete button deletes the file and its lock record, and the settings entries
-of the file stay.
+of `hooks.dir`. The Delete button deletes the file, its lock record and its settings entries.
 
 A hook runs inside the daedalus process, with all its access.
 

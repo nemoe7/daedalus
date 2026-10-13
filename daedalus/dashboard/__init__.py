@@ -758,6 +758,35 @@ def unlink_file(path: Path, label: str) -> JSONResponse | None:
   return None
 
 
+def clear_hook_entries(
+  name: str, apply: Callable[[dict[str, Any]], None], rebuild: Callable[[], None]
+) -> JSONResponse | None:
+  """Drop 1 file from the hook entries of the settings: the disabled list, the order, and each surface."""
+  group = settings.load(settings.DEFAULT_PATH)["hooks"]
+
+  def keep(items: list[str]) -> list[str]:
+    return [item for item in items if str(item).split("/")[-1] != name]
+
+  changes: dict[str, Any] = {
+    "disabled": keep(group.get("disabled") or []),
+    "order": {
+      surface: keep(files) for surface, files in (group.get("order") or {}).items()
+    },
+  }
+  for key, value in group.items():
+    if key.startswith("on-") and isinstance(value, list):
+      changes[key] = keep(value)
+  if all(changes.get(key) == group.get(key) for key in changes):
+    return None
+  path = settings.DEFAULT_PATH
+  text = path.read_text(encoding="utf-8") if path.exists() else ""
+  try:
+    text = settings.update_text(text, {"hooks": changes})
+  except settings.SettingsError as exc:
+    return failure(422, str(exc), "invalid_request_error")
+  return write_config(path, text, apply, rebuild)
+
+
 def login_routes(api: APIRouter) -> None:
   """The login and the logout endpoints, the 1 group without a session."""
 
@@ -1375,6 +1404,9 @@ def settings_routes(
     if key in records:
       del records[key]
       remote.write_records(records)
+    answer = clear_hook_entries(path.name, apply, rebuild)
+    if answer is not None:
+      return answer
     return JSONResponse({"ok": True})
 
 
