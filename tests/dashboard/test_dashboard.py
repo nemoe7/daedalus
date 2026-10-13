@@ -1933,14 +1933,13 @@ def test_requests_time_column_keeps_its_width() -> None:
   assert free, "the model and served by columns share the free width"
   shared = re.search(
     r"\.requests tr:not\(\.chain\) > td\.name > \.cell-value \{\n"
-    r"\s+display: inline-block; width: 28ch; overflow: hidden; text-overflow: ellipsis;",
+    r"\s+display: inline-block; width: 100%; overflow: hidden; text-overflow: ellipsis;",
     desktop,
   )
-  assert shared, "both name columns cap the name at the same width"
-  assert (
-    ".requests td.name { max-width: 16rem; overflow: hidden; text-overflow: ellipsis; }"
-    in css
-  ), "a name past its share ends in an ellipsis"
+  assert shared, "both name columns give the name the full width of the column"
+  assert ".requests td.name { overflow: hidden; text-overflow: ellipsis; }" in css, (
+    "a name past its share ends in an ellipsis"
+  )
   phone = css.split("@media (max-width: 720px) {", 1)[1]
   assert (
     "display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto;"

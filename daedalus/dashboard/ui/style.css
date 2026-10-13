@@ -448,11 +448,10 @@ td.end { text-align: right; }
   .requests tr:not(.chain) > th:nth-child(5), .requests tr:not(.chain) > td:nth-child(5) {
     width: 30%; max-width: 30%;
   }
-  /* Both name columns land on 1 width, whatever the names are: the same cap on the value inside the
-     cell gives the 2 columns the same minimum and the same maximum, so the browser sizes them alike
-     and a longer name ends in an ellipsis. */
+  /* Both name columns land on 1 width, whatever the names are: the 30% share of each column is
+     that width, and the value takes all of it, so a longer name ends in an ellipsis at the edge. */
   .requests tr:not(.chain) > td.name > .cell-value {
-    display: inline-block; width: 28ch; overflow: hidden; text-overflow: ellipsis;
+    display: inline-block; width: 100%; overflow: hidden; text-overflow: ellipsis;
   }
 }
 /* A collapsed border scrolls away from a sticky head, so the rule rides on an inset shadow. */
@@ -467,7 +466,7 @@ td.end { text-align: right; }
 tr.request.has-chain { cursor: pointer; }
 /* Each cell keeps 1 line. A long model name ends in an ellipsis. */
 .requests tr:not(.chain) > td { white-space: nowrap; }
-.requests td.name { max-width: 16rem; overflow: hidden; text-overflow: ellipsis; }
+.requests td.name { overflow: hidden; text-overflow: ellipsis; }
 .requests th:not(:first-child), .requests td:not(:first-child) { padding-left: 8px; padding-right: 8px; }
 /* The desktop table reads the fallback count in the chain of the row. The phone card keeps a cell
 for the details. */
