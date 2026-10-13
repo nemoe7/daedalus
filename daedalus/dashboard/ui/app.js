@@ -1766,6 +1766,7 @@ function hooksManager() {
   const options = sources.length
     ? sources.map((entry, index) => `<option value="${index}"${index === at ? " selected" : ""}>${esc(sourceLabel(entry))}</option>`).join("")
     : `<option value="">${t("hook.empty.source_text")}</option>`;
+  const picked = sources.length ? sourceLabel(sources[at]) : "";
   const list = rows.map((row) => {
     const record = row.record || {};
     const source = record.repo ? `${record.repo}@${(record.commit || "").slice(0, 7)}` : "";
@@ -1807,10 +1808,10 @@ function hooksManager() {
         ${actionButton(`${icon("plus")} ${t("action.add_repository_button")}`, {
           variant: "add", attrs: { "data-hook-source-add": true },
         })}
-        ${actionButton(icon("x"), {
+        ${sources.length ? actionButton(icon("x"), {
           variant: "ghost",
-          attrs: { "data-hook-source-drop": true, title: t("hook.action.delete_source_title") },
-        })}</div>${panel}
+          attrs: { "data-hook-source-drop": true, title: t("hook.action.delete_source_title", { name: picked }) },
+        }) : ""}</div>${panel}
       <div class="sub" id="hooks-note" role="status"></div>`)}`;
 }
 
