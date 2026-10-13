@@ -74,6 +74,7 @@ AGENT_SEEN_META='agent_seen_at'
 AGENT_CALL_ENDED_META='agent_call_ended_at'
 TURN_ENDED_META='turn_ended_at'
 REMOVED_META='state_removed_at'
+REPORT_CHANGE_VIEW_SECONDS=60
 AGENT_KEY_RE=re.compile('[A-Za-z0-9_-]{20,64}\\Z')
 AGENT_HOST_RE=re.compile('https://[A-Za-z0-9.-]+\\Z')
 def now():return datetime.now(timezone.utc).isoformat()
@@ -877,7 +878,7 @@ def render_report(markdown):
 	return''.join(parts),questions
 class ReportChanged(ValueError):pass
 class FetchChanged(ValueError):pass
-class UnpublishHeld(ValueError):pass
+class ReportHeld(ValueError):pass
 class Store:
 	def __init__(self,directory,create=False,save_path=None):
 		directory=Path(directory).resolve();self.path=directory/'state.sqlite3';self.save_path=Path(save_path)if save_path else self.path.parent/SAVED_STATE;existed=self.path.is_file()
@@ -1415,6 +1416,13 @@ class Store:
 				else:raise ValueError(f"Unknown note: {record_id}; no receipts written")
 			db.execute("INSERT OR REPLACE INTO meta VALUES ('last_check', ?)",(stamp,))
 			if not any(db.execute(f"SELECT 1 FROM {table} WHERE acknowledged_at IS NULL LIMIT 1").fetchone()for table in('notes','submissions')):db.execute("INSERT OR REPLACE INTO meta VALUES (?, '0')",(POLLS_SINCE_MESSAGE,))
+	def guard_report_change(self,db,report_id,report):
+		unread=db.execute('SELECT 1 FROM submissions WHERE report_id = ? AND acknowledged_at IS NULL LIMIT 1',(report_id,)).fetchone()
+		if unread is not None:raise ReportHeld('The report has an unacknowledged answer.')
+		acknowledged=db.execute('SELECT MAX(acknowledged_at) FROM submissions WHERE report_id = ?',(report_id,)).fetchone()[0]
+		if acknowledged and not at_or_after(report['ack_seen_at'],acknowledged):raise ReportHeld('The report waits for the owner: its answer acknowledgement is unseen.')
+		age=seconds_since(report['viewed_at'])
+		if age is not None and 0<=age<REPORT_CHANGE_VIEW_SECONDS:remaining=max(1,int(REPORT_CHANGE_VIEW_SECONDS-age));raise ReportHeld(f"The owner is reading this report: retry after {remaining} s without a view.")
 	def publish(self,report_id,title,source):
 		identifier(report_id)
 		if not isinstance(title,str)or not title.strip()or len(title)>200:raise ValueError('Report title must contain 1–200 characters')
@@ -1424,16 +1432,19 @@ class Store:
 		if len(data)>MAX_REPORT:raise ValueError('Report exceeds the 2 MB limit; split it into reports')
 		text=data.decode('utf-8');fields=parse_fields(text)[1]
 		with self.transaction()as db:
-			answered=db.execute('SELECT count(*) FROM submissions WHERE report_id = ?',(report_id,)).fetchone()[0]
-			if answered:raise ValueError(f"Report {report_id} has submitted answers; publish the update under a new ID")
+			report=db.execute('SELECT ack_seen_at, viewed_at FROM reports WHERE id = ?',(report_id,)).fetchone()
+			if report is not None:self.guard_report_change(db,report_id,report)
+			else:
+				answered=db.execute('SELECT 1 FROM submissions WHERE report_id = ? LIMIT 1',(report_id,)).fetchone()
+				if answered is not None:raise ValueError(f"Report {report_id} has submitted answers; publish the update under a new ID")
 			self.refuse_shared_id(db,'reports','tasks',report_id);highest=db.execute('SELECT COALESCE(MAX(seq), 0) FROM reports').fetchone()[0];db.execute('INSERT INTO reports (id, title, markdown, updated_at, published_at, seq)\n           VALUES (?, ?, ?, ?, ?, ?)\n           ON CONFLICT(id) DO UPDATE SET title = excluded.title,\n             markdown = excluded.markdown, updated_at = excluded.updated_at,\n             seq = COALESCE(reports.seq, excluded.seq), seen_at = NULL',(report_id,title,text,now(),now(),highest+1))
 		return len(fields)
 	def unpublish(self,report_id,dismissed_by_owner=False):
 		identifier(report_id)
 		with self.transaction()as db:
-			row=db.execute('SELECT title, seen_at, ack_seen_at, viewed_at FROM reports WHERE id = ?',(report_id,)).fetchone()
+			row=db.execute('SELECT title, ack_seen_at, viewed_at FROM reports WHERE id = ?',(report_id,)).fetchone()
 			if row is None:raise FileNotFoundError('Report not found')
-			if not row['seen_at']:raise UnpublishHeld('The report waits for the owner: it has not been seen yet. Open it to clear the wait.')
+			if not dismissed_by_owner:self.guard_report_change(db,report_id,row)
 			db.execute('DELETE FROM reports WHERE id = ?',(report_id,));db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(REMOVED_META,now()))
 			if dismissed_by_owner:db.execute('INSERT INTO notes (id, text, at, quiet) VALUES (?, ?, ?, 1)',(new_id(),f"The owner dismissed the report {report_id} ({row['title']}).",now()))
 	def clear_state(self):
@@ -1648,7 +1659,7 @@ def handler(store):
 				note=store.note(payload.get('id'),payload.get('text'),quiet=bool(payload.get('quiet')))
 				for key in('at','acknowledged_at','ack_edited_at','seen_at'):note[key]=clip_stamp(note[key])
 				self.reply(201,json.dumps(note,ensure_ascii=False))
-			except(ReportChanged,FetchChanged,UnpublishHeld)as error:self.problem(409,error)
+			except(ReportChanged,FetchChanged,ReportHeld)as error:self.problem(409,error)
 			except FileNotFoundError as error:self.problem(404,error)
 			except(ValueError,TypeError,UnicodeDecodeError)as error:self.problem(400,error)
 			except(OSError,sqlite3.Error,RuntimeError)as error:self.problem(503,error)
