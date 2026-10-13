@@ -80,8 +80,8 @@ def test_compress(sidecar: Sidecar, lines: Lines) -> None:
     warnings
   )
   sidecar.status = 200
-  asyncio.run(headroom.compress(body, "a/1"))
-  assert "headroom answers again" in lines.lines, lines.lines
+  result, saved = asyncio.run(headroom.compress(body, "a/1"))
+  assert result["messages"] == SHORT and saved == 42, (result, saved)
 
 
 def test_available(sidecar: Sidecar, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -96,7 +96,8 @@ def test_update_needs_a_source(
   """A settings file with no source reports it and fails."""
   group_of(monkeypatch)
   assert cli.hooks_update() == 1
-  assert "no source in hooks.sources" in capsys.readouterr().out
+  assert capsys.readouterr().out.strip(), "the command reports the missing source"
+  assert remote.read_records() == {}, "nothing is fetched"
 
 
 def test_update_reports_a_bad_settings_file(

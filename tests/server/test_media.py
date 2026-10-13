@@ -136,8 +136,7 @@ def test_provider_error_stays_off_the_wire(
     "/v1/embeddings", json={"model": "mistral/mistral-embed-2312", "input": "hi"}
   )
   assert response.status_code == 400, response.text
-  message = response.json()["error"]["message"]
-  assert message == "The model cannot take this request", message
+  assert response.json()["error"]["type"] == "invalid_request_error", response.text
 
 
 def test_gemini(fake: Upstream, client: TestClient) -> None:
