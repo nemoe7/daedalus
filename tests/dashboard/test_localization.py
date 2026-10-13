@@ -74,7 +74,7 @@ vm.createContext(sandbox);
 vm.runInContext(fs.readFileSync("{CATALOG.as_posix()}", "utf8"), sandbox);
 vm.runInContext({json.dumps(helper.group(0))}, sandbox);
 const assert = require("assert");
-assert.strictEqual(sandbox.t("nav.overview"), "Overview");
+assert.strictEqual(sandbox.t("nav.overview_link"), "Overview");
 assert.strictEqual(sandbox.t("test.missing"), "test.missing");
 sandbox.DAEDALUS_LOCALE["test.template"] = "{{value}} then {{value}} and {{missing}}";
 assert.strictEqual(
@@ -82,7 +82,7 @@ assert.strictEqual(
   "again then again and {{missing}}",
 );
 assert.strictEqual(
-  sandbox.t("request.count.other", {{ count: 3 }}),
+  sandbox.t("request.count.other_text", {{ count: 3 }}),
   "3 requests",
 );
 """
@@ -101,12 +101,12 @@ const element = (attributes = {{}}, dataset = {{}}) => ({{
   getAttribute(name) {{ return this.attributes[name]; }},
   setAttribute(name, value) {{ this.attributes[name] = value; }},
 }});
-const text = element({{}}, {{ i18n: "nav.overview" }});
+const text = element({{}}, {{ i18n: "nav.overview_link" }});
 const missing = element({{}}, {{ i18n: "test.missing" }});
-const aria = element({{ "data-i18n-aria-label": "nav.requests" }});
-const label = element({{ "data-i18n-label": "model.filter.media" }});
+const aria = element({{ "data-i18n-aria-label": "nav.requests_link" }});
+const label = element({{ "data-i18n-label": "model.filter.media_label" }});
 const placeholder = element({{ "data-i18n-placeholder": "model.filter.placeholder" }});
-const title = element({{ "data-i18n-title": "auth.password.show" }});
+const title = element({{ "data-i18n-title": "auth.password.show_label" }});
 const groups = {{
   "[data-i18n]": [text, missing],
   "[data-i18n-aria-label]": [aria],
