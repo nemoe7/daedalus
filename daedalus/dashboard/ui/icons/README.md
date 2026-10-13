@@ -52,3 +52,5 @@ The chips and small buttons draw lucide glyphs from `cap/`. They come from `luci
 | `cap/info.svg` | The hint button of a field label |
 | `cap/x.svg` | The delete button of a pill or source |
 | `cap/trash.svg` | The delete button of a table row |
+| `cap/refresh-cw.svg` | The check-now button of the limits bar and the update card |
+| `cap/download.svg` | The import-hooks button |
