@@ -3311,6 +3311,34 @@ def test_hook_file_delete_with_a_relative_folder(
   assert not (root / "drop.py").exists()
 
 
+def test_hook_file_delete_clears_the_settings_entries(
+  client: TestClient, state_folder: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """The delete drops the file from the disabled list, the order and each surface."""
+  root = state_folder / "hooks"
+  root.mkdir(parents=True, exist_ok=True)
+  (root / "drop.py").write_text(
+    "# ---\n# version: 1.0.0\n# ---\ndef on_answer(a, m):\n  return a\n",
+    encoding="utf-8",
+  )
+  path = state_folder / "settings.yml"
+  path.write_text(
+    "hooks:\n  dir: hooks\n  disabled:\n    - drop.py\n  order:\n    on-request:\n      - drop.py\n"
+    "  on-request:\n    - drop.py\n  on-prompt: []\n  on-chunk: []\n",
+    encoding="utf-8",
+  )
+  monkeypatch.setattr(settings, "DEFAULT_PATH", path)
+  monkeypatch.setattr(remote, "read_records", lambda path=None: {})
+  monkeypatch.setattr(remote, "write_records", lambda records, path=None: None)
+  client.post("/ui/api/login", json={"username": "admin", "password": MASTER})
+  found = client.request("DELETE", "/ui/api/hooks/file", json={"name": "hooks/drop.py"})
+  assert found.status_code == 200, found.text
+  group = settings.load(path)["hooks"]
+  assert "drop.py" not in group["disabled"], group
+  assert "drop.py" not in group["order"]["on-request"], group
+  assert "drop.py" not in (group.get("on-request") or []), group
+
+
 def test_a_hook_file_that_stays_answers_a_clear_message(
   client: TestClient, state_folder: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -5421,7 +5449,10 @@ def test_dashboard_icons_and_feedback_keep_accessible_names() -> None:
     'type="button" id="nav-right" aria-label="nav.later_tabs_label"',
     'type="button" id="notice-close" aria-label="notice.dismiss_label"',
     '"data-key": k.name, "aria-label": t("settings.keys.delete_named_label", { name: k.name })',
-    '"data-hook-drop": row.path, "aria-label": t("hook.action.delete_named_label", { name: row.name })',
+    (
+      '"data-hook-drop": row.path, "data-hook-title": title, '
+      '"aria-label": t("hook.action.delete_named_label", { name: row.name })'
+    ),
     'button.setAttribute("aria-label", t("action.undo_write_label"))',
   ):
     assert fragment in page or fragment in app, fragment

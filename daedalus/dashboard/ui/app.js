@@ -169,6 +169,7 @@ function ask(title, message, confirm = t("action.confirm_button"), danger = fals
     globalThis.__settle = resolve;
     $("modal-title").textContent = title;
     $("modal-message").textContent = message;
+    $("modal-message").hidden = !message;
     $("modal-field").hidden = placeholder === null;
     $("modal-field2").hidden = true;
     $("modal-choice-field").hidden = true;
@@ -192,6 +193,7 @@ function askPair(title, message, nameLabel, valueLabel, name = "", value = "", c
     globalThis.__settle = resolve;
     $("modal-title").textContent = title;
     $("modal-message").textContent = message;
+    $("modal-message").hidden = !message;
     $("modal-field").hidden = false;
     $("modal-field2").hidden = false;
     $("modal-choice-field").hidden = true;
@@ -218,6 +220,7 @@ function askChoicePair(title, message, choices, placeholder) {
     globalThis.__settle = resolve;
     $("modal-title").textContent = title;
     $("modal-message").textContent = message;
+    $("modal-message").hidden = !message;
     $("modal-field").hidden = true;
     $("modal-field2").hidden = false;
     $("modal-choice-field").hidden = false;
@@ -241,7 +244,7 @@ async function editValue(input, write) {
   const box = $("modal-input");
   box.type = input.type === "password" ? "password" : "text";
   const done = ask(t("dialog.edit_value.title", { name: input.dataset.value }),
-    t("dialog.edit_value.message"), t("action.save_button"), false, input.placeholder ?? "", input.value);
+    "", t("action.save_button"), false, input.placeholder ?? "", input.value);
   if (!(await done)) {
     box.type = "text";
     return;
@@ -1777,7 +1780,7 @@ function hooksManager() {
         ${disabled.includes(row.name) ? "" : "checked"} aria-label="${t("hook.state.enabled_named_label", { name: esc(row.name) })}"></td>
       <td class="end">${actionButton(icon("trash"), {
         variant: "ghost danger",
-        attrs: { "data-hook-drop": row.path, "aria-label": t("hook.action.delete_named_label", { name: row.name }), title: t("action.remove_button") },
+        attrs: { "data-hook-drop": row.path, "data-hook-title": title, "aria-label": t("hook.action.delete_named_label", { name: row.name }), title: t("action.remove_button") },
       })}</td></tr>`;
   }).join("") || `<tr><td role="cell" colspan="7"><em class="none">${t("hook.empty.file_text")}</em></td></tr>`;
   const scan = state.hooksScan;
@@ -1814,7 +1817,7 @@ function hooksManager() {
 // The Delete button of a row: the file leaves the folder and the lock, and the settings
 // entries of the file stay, so the row shows the problem of a missing file.
 async function dropHookFile(button) {
-  const name = button.dataset.hookDrop;
+  const name = button.dataset.hookTitle || button.dataset.hookDrop;
   if (!(await ask(t("dialog.delete_hook.title"), t("dialog.delete_hook.message", { name }), t("action.delete_button"), true))) return;
   await guarded(async () => {
     await call("hooks/file", { method: "DELETE", body: JSON.stringify({ name }) });
@@ -1823,7 +1826,7 @@ async function dropHookFile(button) {
 }
 
 async function addHookSource() {
-  const typed = await ask(t("dialog.source.title"), t("dialog.source.hint"),
+  const typed = await ask(t("dialog.source.title"), "",
     t("action.scan_button"), false, t("dialog.source.placeholder"));
   if (!typed) return;
   const parts = sourceParts($("modal-input").value.trim());
@@ -3390,7 +3393,7 @@ document.addEventListener("click", async (event) => {
 $("reset-weights").addEventListener("click", async () => {
   const message = $("reset-message");
   message.textContent = "";
-  const go = await ask(t("dialog.reset.title"), t("dialog.reset.message"), t("action.reset_button"), true);
+  const go = await ask(t("dialog.reset.title"), "", t("action.reset_button"), true);
   if (!go) return;
   try {
     await call("reset", { method: "POST" });
@@ -3816,8 +3819,9 @@ $("files").addEventListener("click", async (event) => {
   if (!event.target.closest("#drop-provider")) return;
   clearWrite("providers");
   const file = state.files[state.file];
+  const label = file ? fileName(file.path).replace(/\.[^.]+$/, "") : "";
   if (!file || !(await ask(t("dialog.delete_file.title"),
-    t("dialog.delete_file.message", { path: file.path }), t("action.delete_button"), true))) return;
+    t("dialog.delete_file.message", { name: label }), t("action.delete_button"), true))) return;
   try {
     await call("files", { method: "DELETE", body: JSON.stringify({ path: file.path }) });
     await reloadFiles(null);

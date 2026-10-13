@@ -152,7 +152,7 @@ it.
 
 A switch and a pick list hold 1 valid value, so the change writes at once. The last write shows its
 Undo beside the row that changed, and a failure shows its line under the file chips. The file row
-holds 2 actions beside the file chips. They are **+ New provider**, and **Delete file** for a file
+holds 2 actions beside the file chips. They are **+ New provider**, and **Delete provider** for a file
 that is not the main one.
 
 | Field | YAML key | Input |
@@ -193,7 +193,7 @@ The panel under the form lists the names used by `env:NAME` and `db:NAME` values
 | A value row | Opens the small editor. **Save** writes that 1 value, then reloads the configuration. |
 | Ctrl+S | Writes the text of the YAML view, and does nothing in the Form view. |
 | **New provider** | Asks for the provider name, then makes `config/providers/{name}.yml` with 1 card |
-| **Delete file** | Deletes the `{provider}.yml` file after a confirmation. The main file stays. |
+| **Delete provider** | Deletes the `{provider}.yml` file after a confirmation. Its models stay until a catalog rebuild. |
 
 A value of `true` or `false` becomes a boolean. A value with digits only becomes a number. Other values stay text.
 

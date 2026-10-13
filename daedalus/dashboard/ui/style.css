@@ -383,7 +383,7 @@ a.more:hover { color: var(--accent); }
 @starting-style { .modal[open]::backdrop { background: rgb(0 0 0 / 0); } }
 .modal form { display: grid; gap: 8px; margin: 0; padding: 20px; }
 .modal h3 { margin: 0; font-size: 15px; font-weight: 600; }
-.modal p { margin: 0; color: var(--muted); font-size: 13px; }
+.modal p { margin: 0; color: var(--muted); font-size: 13px; white-space: pre-line; }
 .modal-field { display: block; }
 .modal-field input, .modal-field select { width: 100%; box-sizing: border-box; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
