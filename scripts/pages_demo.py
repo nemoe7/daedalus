@@ -1566,13 +1566,17 @@ def build(out: Path, version: str) -> Path:
     DEMO_JS.replace("__FIXTURES__", json.dumps(fixtures)), encoding="utf-8"
   )
   page = (UI / "index.html").read_text(encoding="utf-8")
-  marker = '<script src="ui/app.js"></script>'
+  marker = '<script src="ui/en.js"></script>\n<script src="ui/app.js"></script>'
   if marker not in page:
     raise SystemExit(
-      "index.html does not load ui/app.js: the demo build cannot patch it"
+      "index.html does not load ui/en.js before ui/app.js: the demo build cannot patch it"
     )
   # The version rides on each asset, so a browser picks up a new build and not the cache.
-  stamped = f'<script src="demo.js?v={version}"></script>\n<script src="ui/app.js?v={version}"></script>'
+  stamped = (
+    f'<script src="demo.js?v={version}"></script>\n'
+    f'<script src="ui/en.js?v={version}"></script>\n'
+    f'<script src="ui/app.js?v={version}"></script>'
+  )
   page = page.replace(marker, stamped)
   page = page.replace(
     '<link rel="stylesheet" href="ui/style.css">',

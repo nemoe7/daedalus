@@ -1,13 +1,34 @@
 "use strict";
 
+function t(key, values = {}) {
+  const catalog = globalThis.DAEDALUS_LOCALE || {};
+  const template = Object.prototype.hasOwnProperty.call(catalog, key) ? catalog[key] : key;
+  return String(template).replace(/\{([a-z0-9_]+)\}/gi, (match, name) => (
+    Object.prototype.hasOwnProperty.call(values, name) ? String(values[name]) : match
+  ));
+}
+globalThis.t = t;
+
+const applyLocale = (root = document) => {
+  root.querySelectorAll("[data-i18n]").forEach((node) => {
+    node.textContent = t(node.dataset.i18n);
+  });
+  ["aria-label", "label", "placeholder", "title"].forEach((attribute) => {
+    const dataAttribute = `data-i18n-${attribute}`;
+    root.querySelectorAll(`[${dataAttribute}]`).forEach((node) => {
+      node.setAttribute(attribute, t(node.getAttribute(dataAttribute)));
+    });
+  });
+};
+
 const POOL_NOTES = {
-  "daedalus/auto": "Picks a pool from the prompt",
-  "daedalus/sophos": "Tier A",
-  "daedalus/deinos": "Tier B",
-  "daedalus/koinos": "Tier C",
-  "daedalus/moros": "Tier D",
-  "daedalus/graphos": "Transcription",
-  "daedalus/photos": "Image",
+  "daedalus/auto": t("model.pool.auto"),
+  "daedalus/sophos": t("model.pool.tier_a"),
+  "daedalus/deinos": t("model.pool.tier_b"),
+  "daedalus/koinos": t("model.pool.tier_c"),
+  "daedalus/moros": t("model.pool.tier_d"),
+  "daedalus/graphos": t("model.pool.graphos"),
+  "daedalus/photos": t("model.pool.photos"),
 };
 // The Requests page loads 50 rows, and each "Show more" adds 50, up to the 500 that the server keeps.
 const REQUESTS_STEP = 50;
@@ -33,20 +54,29 @@ const stamp = (seconds) => {
   });
   return `${day} ${time}`;
 };
+const plural = (number, one, other, values = {}) =>
+  t(number === 1 ? one : other, { count: number, ...values });
+
 // A shared relative time: 2 hours ago, in 6 hours, 12 mins ago, 29 days ago.
 function relative(seconds) {
   const minutes = (seconds * 1000 - Date.now()) / 60000;
   const ago = minutes <= 0;
   const size = ago ? Math.floor(-minutes) : Math.ceil(minutes);
-  if (ago && size === 0) return "just now";
+  if (ago && size === 0) return t("time.just_now");
   const dayMinutes = 60 * 24;
-  if (ago && size >= dayMinutes * 30) return "a long time ago";
-  const [count, unit] = size < 60
-    ? [size, "min"]
-    : ago && size >= dayMinutes
-      ? [Math.floor(size / dayMinutes), "day"]
-      : [ago ? Math.floor(size / 60) : Math.ceil(size / 60), "hour"];
-  return `${ago ? `${count} ${unit}${count === 1 ? "" : "s"} ago` : `in ${count} ${unit}${count === 1 ? "" : "s"}`}`;
+  if (ago && size >= dayMinutes * 30) return t("time.long_ago");
+  if (size < 60) {
+    return ago
+      ? plural(size, "time.minute_ago.one", "time.minute_ago.other")
+      : plural(size, "time.minute_from_now.one", "time.minute_from_now.other");
+  }
+  if (ago && size >= dayMinutes) {
+    return plural(Math.floor(size / dayMinutes), "time.day_ago.one", "time.day_ago.other");
+  }
+  const hours = ago ? Math.floor(size / 60) : Math.ceil(size / 60);
+  return ago
+    ? plural(hours, "time.hour_ago.one", "time.hour_ago.other")
+    : plural(hours, "time.hour_from_now.one", "time.hour_from_now.other");
 }
 
 // A relative time with its exact stamp on hover. The caller keeps the surrounding layout local.
@@ -71,14 +101,20 @@ function line(left, right, valueAttrs = {}) {
   const value = attrs ? `<span${attrs}>${right}</span>` : right;
   return `<div class="line"><span>${left}</span><span>${value}</span></div>`;
 }
-const count = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const count = (number, kind) => {
+  if (kind === "commit") return plural(number, "update.count.commit.one", "update.count.commit.other");
+  if (kind === "file") return plural(number, "hook.count.file.one", "hook.count.file.other");
+  if (kind === "model") return plural(number, "model.count.one", "model.count.other");
+  if (kind === "request") return plural(number, "request.count.one", "request.count.other");
+  return t(kind, { count: number });
+};
 const none = (text) => `<div class="more">${text}</div>`;
 function actionButton(content, { variant = "", type = "button", attrs = {} } = {}) {
   return `<button${variant ? ` class="${esc(variant)}"` : ""} type="${esc(type)}"${htmlAttrs(attrs)}>${content}</button>`;
 }
 // A model name cell that ends in an ellipsis when it is too long. The title shows the full name.
 const mobileLabel = (text) => `<span class="mobile-label" aria-hidden="true">${esc(text)}</span>`;
-const nameCell = (text, shown = esc(text), label = "Model", extra = "") =>
+const nameCell = (text, shown = esc(text), label = t("model.column.model"), extra = "") =>
   `<td role="cell" class="name" title="${esc(text)}">${label ? mobileLabel(label) : ""}<span class="cell-value">${shown}</span>${extra}</td>`;
 // The marks beside a model name: `provider/developer/slug`. The provider mark drops when the
 // developer carries the same name. The set names the SVG files that ship under `ui/icons/`; a name
@@ -128,7 +164,7 @@ const cell = (label, inner, cls = "", attrs = "") =>
 // A confirmation modal in place of window.confirm. It resolves true on Confirm.
 // A placeholder shows the name field: the caller reads modal-input after a true.
 // The settle promise lives on the sandbox so a test can resolve the dialog.
-function ask(title, message, confirm = "Confirm", danger = false, placeholder = null, value = "") {
+function ask(title, message, confirm = t("action.confirm"), danger = false, placeholder = null, value = "") {
   return new Promise((resolve) => {
     globalThis.__settle = resolve;
     $("modal-title").textContent = title;
@@ -150,7 +186,7 @@ function ask(title, message, confirm = "Confirm", danger = false, placeholder = 
 
 // The 2-field modal: a name and its value, for a client key. It resolves true on Confirm,
 // and the caller reads modal-input and modal-input2 after a true.
-function askPair(title, message, nameLabel, valueLabel, name = "", value = "", confirm = "Save") {
+function askPair(title, message, nameLabel, valueLabel, name = "", value = "", confirm = t("action.save")) {
   return new Promise((resolve) => {
     globalThis.__settle = resolve;
     $("modal-title").textContent = title;
@@ -178,8 +214,8 @@ function askPair(title, message, nameLabel, valueLabel, name = "", value = "", c
 async function editValue(input, write) {
   const box = $("modal-input");
   box.type = input.type === "password" ? "password" : "text";
-  const done = ask(`Edit ${input.dataset.value}`, "The new value goes to the file when this dialog closes.",
-    "Save", false, input.placeholder ?? "", input.value);
+  const done = ask(t("dialog.edit_value.title", { name: input.dataset.value }),
+    t("dialog.edit_value.message"), t("action.save"), false, input.placeholder ?? "", input.value);
   if (!(await done)) {
     box.type = "text";
     return;
@@ -219,15 +255,15 @@ function renderOverview() {
     ? `${Math.round(Math.min(...lanes.map((r) => (r.limit > 0 ? r.remaining / r.limit : 1))) * 100)}%`
     : "-";
   draw("ov-kpis", [
-    kpi(state.live.size, "In flight now"),
-    kpi(share, `Success of last ${count(state.requests.length, "request")}`),
-    kpi(left, "Lowest limit left"),
-    kpi(state.models.length || 0, "Models in the catalog"),
+    kpi(state.live.size, t("overview.kpi.in_flight")),
+    kpi(share, t("overview.kpi.success", { requests: count(state.requests.length, "request") })),
+    kpi(left, t("overview.kpi.limit_left")),
+    kpi(state.models.length || 0, t("overview.kpi.catalog_models")),
   ].join(""));
   draw("ov-requests", state.requests.slice(0, 5).map((r) => line(
     `<span class="status ${statusClass(r)}">${statusCell(r)}</span> <span title="${esc(r.via || r.model || "")}">${r.via || r.model ? modelName(r.via || r.model) : "-"}</span>`,
     timeText(r.at),
-  )).join("") || none("No requests"));
+  )).join("") || none(t("overview.empty.requests")));
   $("ov-model-count").textContent = state.models.length || "";
   // Each pool with its mean weight and the model that served it most.
   const served = {};
@@ -236,9 +272,9 @@ function renderOverview() {
     const top = topModel(pool.members, served);
     const health = poolHealth(pool.members);
     return `<div class="pool-line"><div class="line"><span>${esc(pool.shown.replace("daedalus/", ""))}</span>
-      <span title="${esc(top?.id)}">${top ? modelName(top.id) : "no models"}</span></div>${health === null ? "" : progressMeter(health)}</div>`;
-  }).join("") || none(state.models.length ? "No pools" : "No models. Run daedalus catalog."));
-  draw("ov-limits", overviewLimits(state.limits) || none("No limits yet"));
+      <span title="${esc(top?.id)}">${top ? modelName(top.id) : t("model.empty.pool")}</span></div>${health === null ? "" : progressMeter(health)}</div>`;
+  }).join("") || none(state.models.length ? t("model.pool.no_pools") : t("model.empty.catalog")));
+  draw("ov-limits", overviewLimits(state.limits) || none(t("overview.empty.limits")));
 }
 
 class LoggedOut extends Error {}
@@ -276,7 +312,7 @@ async function call(path, options = {}) {
       });
     } catch {
       // No answer at all: the line says so in place of the browser wording of a failed fetch.
-      throw new Error("The dashboard cannot reach the server.");
+      throw new Error(t("error.dashboard_unreachable"));
     }
     if (response.status === 401 && path !== "login") {
       keepSession(null);
@@ -284,7 +320,7 @@ async function call(path, options = {}) {
     }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(body.error?.message || `The server answered HTTP ${response.status} with no message.`);
+      throw new Error(body.error?.message || t("error.http_without_message", { status: response.status }));
     }
     return body;
   } finally {
@@ -326,7 +362,7 @@ async function loginHints() {
 // The eye button shows the password until the next click or login.
 function showPassword(on) {
   const button = $("show-password");
-  const label = on ? "Hide the password" : "Show the password";
+  const label = on ? t("auth.password.hide") : t("auth.password.show");
   $("login").password.type = on ? "text" : "password";
   button.setAttribute("aria-pressed", String(on));
   button.setAttribute("aria-label", label);
@@ -336,7 +372,7 @@ function showPassword(on) {
 // A read failure: 1 line in the page and 1 button to ask again. The line stays until the
 // user clears it with the x; the retry asks again but keeps the line in place.
 function showNotice(message) {
-  $("notice-text").textContent = message || "The dashboard cannot reach the server.";
+  $("notice-text").textContent = message || t("error.dashboard_unreachable");
   const note = $("notice");
   note.classList.remove("leave");
   note.hidden = false;
@@ -363,7 +399,7 @@ async function guarded(task) {
 }
 
 async function rebuildCatalog() {
-  const go = await ask("Rebuild the catalog", "daedalus reads the model list of each provider again.", "Rebuild");
+  const go = await ask(t("catalog.action.title"), t("catalog.action.hint"), t("action.rebuild"));
   if (!go) return;
   try {
     await call("catalog", { method: "POST" });
@@ -377,19 +413,24 @@ async function rebuildCatalog() {
 // The status card of a phone: the health row, then 1 line for each value. The catalog line starts a rebuild.
 function renderStatusCard(status) {
   const { built, next, rebuilding } = status.catalog || {};
-  const last = rebuilding ? "rebuilding" : built ? relative(built) : "never";
-  const following = next ? ` &middot; Next ${esc(relative(next))}` : " &middot; no schedule";
-  const label = rebuilding ? "A catalog rebuild runs now" : "Rebuild the catalog now";
+  const last = rebuilding ? t("catalog.rebuilding") : built ? relative(built) : t("catalog.never");
+  const following = next
+    ? t("catalog.next", { time: esc(relative(next)) })
+    : t("catalog.no_schedule");
+  const label = rebuilding ? t("catalog.rebuild.running") : t("catalog.rebuild.start");
   $("card-health").innerHTML =
-    `<span class="dot${status.healthy ? "" : " off"}"></span>${status.healthy ? "Healthy" : "Down"}`;
+    `<span class="dot${status.healthy ? "" : " off"}"></span>${status.healthy ? t("state.healthy") : t("state.down")}`;
   const affinity = status.affinity;
   const affinityLine = affinity?.mode && affinity.mode !== "none"
-    ? line("Affinity", affinity.mode === "race"
-        ? `race &middot; ${affinity.count} &middot; ${Math.round(affinity.chance * 100)}% &middot; ${affinity.slow}s`
-        : affinity.mode)
+    ? line(t("common.affinity"), affinity.mode === "race"
+        ? t("status.affinity.race", {
+            mode: t("settings.choice.race"), count: affinity.count,
+            chance: Math.round(affinity.chance * 100), slow: affinity.slow,
+          })
+        : t("settings.choice.session"))
     : "";
-  $("card-rows").innerHTML = line("Sessions", status.sessions) + affinityLine
-    + actionButton(`<span>Catalog</span><span><b>${esc(last)}</b>${following}</span>`, {
+  $("card-rows").innerHTML = line(t("common.sessions"), status.sessions) + affinityLine
+    + actionButton(`<span>${t("catalog.label")}</span><span><b>${esc(last)}</b>${following}</span>`, {
       variant: "line rebuild",
       attrs: { "data-catalog-rebuild": true, title: label, disabled: rebuilding },
     });
@@ -399,9 +440,9 @@ function renderStatusCard(status) {
 let stateKnown = null;
 
 function stateChip() {
-  if (stateKnown === null) return '<span class="chip" id="state-loading">Loading the state</span>';
+  if (stateKnown === null) return `<span class="chip" id="state-loading">${t("state.loading")}</span>`;
   if (stateKnown) return "";
-  return '<span class="chip bad" id="state-unknown" title="The last state call failed. The page shows the last good answer.">State unknown</span>';
+  return `<span class="chip bad" id="state-unknown" title="${t("state.unknown.hint")}">${t("state.unknown")}</span>`;
 }
 
 // The Overview card holds the health, the sessions and the catalog; the header keeps the state.
@@ -464,10 +505,10 @@ function renderPools(pools) {
   draw("pools", pools.map((pool) => {
     const { tier, mode } = poolFilter(pool);
     const health = poolHealth(pool.members);
-    const bar = health === null ? "" : `<div class="health" title="Mean weight. A model in a cooldown counts as 0.">
+    const bar = health === null ? "" : `<div class="health" title="${t("model.pool.mean_weight")}">
       ${progressMeter(health)}<span class="num">${health.toFixed(2)}</span></div>`;
     const context = pool.context
-      ? ` <span class="ctx" title="The largest context of a pool model, ${pool.context.toLocaleString()} tokens">${tokens(pool.context)}</span>` : "";
+      ? ` <span class="ctx" title="${t("model.context.pool_hint", { count: pool.context.toLocaleString() })}">${tokens(pool.context)}</span>` : "";
     return `<a class="card pool" data-tier="${tier}" data-mode="${esc(mode)}" title="${esc(pool.shown)}: ${esc(POOL_NOTES[pool.name] || "")}">
       <h3>${esc(pool.shown.replace("daedalus/", ""))}${context}</h3>${bar}<div class="sub">${count(pool.members.length, "model")}</div></a>`;
   }).join(""));
@@ -477,14 +518,19 @@ function renderPools(pools) {
 const opened = new Set();
 let shownRequests = "";
 
-const seconds = (value) => value == null ? "" : `${value.toFixed(3)}s`;
+const seconds = (value) => value == null ? "" : t("time.seconds.short", { value: value.toFixed(3) });
 
 // A cooldown that an attempt started, such as "cooldown 60s backoff".
-const coolText = (c) => `cooldown ${timeLeft(Date.now() / 1000 + c.seconds) || "0s"} ${c.reason}`;
-const weightText = (a) => `weight ${a.weight_change.from.toFixed(2)} → ${a.weight_change.to.toFixed(2)}`;
+const coolText = (c) => t("request.chain.cooldown", {
+  time: timeLeft(Date.now() / 1000 + c.seconds) || t("time.seconds.short", { value: 0 }),
+  reason: c.reason,
+});
+const weightText = (a) => t("request.chain.weight", {
+  from: a.weight_change.from.toFixed(2), to: a.weight_change.to.toFixed(2),
+});
 
 function sentText(a, asked) {
-  if (a.effort == null) return "dropped";
+  if (a.effort == null) return t("request.effort.dropped");
   const shown = String(a.effort).replace(/^thinkingLevel=/, "");
   const level = shown.split("=").pop().toLowerCase();
   return asked && level === String(asked).toLowerCase() ? asked : shown;
@@ -508,11 +554,16 @@ function effortCell(r) {
 
 // A request that the client closed shows "cancelled" in place of its status.
 function statusText(r) {
-  return r.cancelled ? "cancelled" : r.status;
+  return r.cancelled ? t("request.state.cancelled") : r.status;
 }
 
 // The meaning of each status, for the hover of the status cell.
-const STATUS_NOTES = { 200: "OK", 429: "Too many requests", 500: "Upstream error", err: "The attempt failed" };
+const STATUS_NOTES = {
+  200: t("request.status.ok"),
+  429: t("request.status.rate_limited"),
+  500: t("request.status.upstream_error"),
+  err: t("request.status.failed"),
+};
 
 // One short state. Its caller decides the meaning, color, and surrounding layout.
 function statusBadge(text, { variant = "", title = "" } = {}) {
@@ -522,7 +573,7 @@ function statusBadge(text, { variant = "", title = "" } = {}) {
 
 // The status on the page: 499, the nginx code of a request that the client closed.
 function statusCell(r) {
-  if (r.cancelled) return statusBadge(499, { title: "Cancelled" });
+  if (r.cancelled) return statusBadge(499, { title: t("request.status.cancelled") });
   const note = STATUS_NOTES[r.status];
   return note ? statusBadge(r.status, { title: note }) : esc(r.status);
 }
@@ -534,12 +585,20 @@ function statusClass(r) {
 }
 
 function chainText(r) {
-  const head = [stamp(r.at), r.model, statusText(r), r.effort && `effort=${r.effort}`, r.pool && `pool=${r.pool}`,
-    r.routed && `from=${r.routed}`,
-    `fallbacks=${r.fallbacks ?? 0}`, r.retry && `retry=${r.retry}`, r.loop && `loop=${r.loop}`].filter(Boolean).join(" ");
+  const head = [stamp(r.at), r.model, statusText(r),
+    r.effort && t("request.chain.field.effort", { value: r.effort }),
+    r.pool && t("request.chain.field.pool", { value: r.pool }),
+    r.routed && t("request.chain.field.from", { value: r.routed }),
+    t("request.chain.field.fallbacks", { value: r.fallbacks ?? 0 }),
+    r.retry && t("request.chain.field.retry", { value: r.retry }),
+    r.loop && t("request.chain.field.loop", { value: r.loop }),
+  ].filter(Boolean).join(" ");
   const steps = (r.attempts || []).map((a, i) =>
-    `${i + 1}. ${a.model} ${a.result} ${seconds(a.seconds)}`.trim() + ("effort" in a ? ` effort=${sentText(a, r.effort)}` : "")
-      + (a.race === "won" ? " won race" : "")
+    t("request.chain.attempt", {
+      number: i + 1, model: a.model, result: a.result, time: seconds(a.seconds),
+    }).trim() + ("effort" in a
+      ? ` ${t("request.chain.field.effort", { value: sentText(a, r.effort) })}` : "")
+      + (a.race === "won" ? ` ${t("request.chain.won_race")}` : "")
       + (a.weight_change ? ` ${weightText(a)}` : "")
       + (a.cooldown ? ` ${coolText(a.cooldown)}` : "")
       + (a.error ? `\n   ${a.error}` : ""));
@@ -554,20 +613,23 @@ function chainSteps(r) {
     <li class="step ${a.result === "answered" ? "good" : "bad"}">
       <span class="num">${i + 1}.</span> <b>${esc(a.model)}</b>
       <span class="result">${esc(a.result)}</span> <span class="muted num">${seconds(a.seconds)}</span>
-      ${"effort" in a ? `<span class="from">effort ${esc(shortEffort(sentText(a, r.effort)))}</span>` : ""}
+      ${"effort" in a ? `<span class="from">${t("request.chain.effort", { effort: esc(shortEffort(sentText(a, r.effort))) })}</span>` : ""}
       ${a.weight_change ? `<span class="from">${esc(weightText(a))}</span>` : ""}
       ${a.cooldown ? `<span class="from">${esc(coolText(a.cooldown))}</span>` : ""}
-      ${a.race === "won" ? '<span class="from">won race</span>' : ""}
+      ${a.race === "won" ? `<span class="from">${t("request.chain.won_race")}</span>` : ""}
       ${a.error ? `<pre>${esc(a.error)}</pre>` : ""}
     </li>`).join("");
-  return steps ? `<ol>${steps}</ol>` : '<p class="muted">No attempt data for this request.</p>';
+  return steps ? `<ol>${steps}</ol>` : `<p class="muted">${t("request.chain.empty")}</p>`;
 }
 
 function chainRows(r) {
   const many = fallbackCount(r);
+  const title = many
+    ? t("request.chain.title_with_count", { count: many })
+    : t("request.chain.title");
   return `<tr role="row" class="chain"><td role="cell" colspan="13"><div class="chain-body">
-    <div class="chain-head"><span class="muted">Fallback chain${many ? ` · ${many}` : ""}</span>
-      ${actionButton("Copy", { variant: "ghost copy-chain", attrs: { "data-at": r.at } })}</div>
+    <div class="chain-head"><span class="muted">${title}</span>
+      ${actionButton(t("request.chain.copy"), { variant: "ghost copy-chain", attrs: { "data-at": r.at } })}</div>
     ${raceNote(r)}${chainSteps(r)}
   </div></td></tr>`;
 }
@@ -576,32 +638,40 @@ function chainRows(r) {
 // Why the racers did or did not start: the code wears the same 3 letter shape as the routing
 // codes, and the title carries the full note. It shows while the race is on.
 const RACE_NOTES = {
-  off: "No race: the affinity mode is not \"race\"",
-  pool: "No race: the route is not a pool or auto",
-  stream: "No race: the request is not a stream",
-  single: "No race: the pool holds 1 model",
-  fast: "No race: the first model answered before the slow seconds",
-  slow: "Raced the pin: the racers started after the slow timeout",
-  drawn: "Raced the pin: the draw started the racers with the first model",
+  off: t("request.race.off.note"),
+  pool: t("request.race.pool.note"),
+  stream: t("request.race.stream.note"),
+  single: t("request.race.single.note"),
+  fast: t("request.race.fast.note"),
+  slow: t("request.race.slow.note"),
+  drawn: t("request.race.drawn.note"),
 };
 const RACE_CODES = {
-  off: "race off", pool: "not a pool", stream: "not a stream", single: "one model",
-  fast: "fast pin", slow: "slow pin", drawn: "on draw",
+  off: t("request.race.off.label"),
+  pool: t("request.race.pool.label"),
+  stream: t("request.race.stream.label"),
+  single: t("request.race.single.label"),
+  fast: t("request.race.fast.label"),
+  slow: t("request.race.slow.label"),
+  drawn: t("request.race.drawn.label"),
 };
 const raceNote = (r) => (state.status?.affinity?.enabled && RACE_CODES[r.race]
   ? `<p class="chain-race" title="${esc(RACE_NOTES[r.race])}">${esc(RACE_CODES[r.race])}</p>` : "");
 
 function routingCodes(r) {
-  const from = r.routed ? ` <span class="from" title="Tier ${esc(poolTier(r.routed))} of the previous model">fr${esc(poolTier(r.routed))}</span>` : "";
-  const loop = r.loop ? ` <span class="from" title="${esc(r.loop)} equal tool calls stopped the chain">tl${esc(r.loop)}</span>` : "";
+  const from = r.routed ? ` <span class="from" title="${t("request.route.previous_tier", { tier: esc(poolTier(r.routed)) })}">fr${esc(poolTier(r.routed))}</span>` : "";
+  const loop = r.loop ? ` <span class="from" title="${t("request.route.tool_loop", { count: esc(r.loop) })}">tl${esc(r.loop)}</span>` : "";
   return transitionCell(r.transition) + from + loop;
 }
 
 function mobileFallbackChain(r, tail = "") {
+  const summary = tail
+    ? t("request.chain.view_with_count", { count: tail.replace(/^ · /, "") })
+    : t("request.chain.view");
   return `<details class="mobile-fallback-chain">
-    <summary>View fallback chain${tail}</summary>
-    <div class="mobile-chain-head"><span class="muted">Fallback chain</span>
-      ${actionButton("Copy", { variant: "ghost copy-chain", attrs: { "data-at": r.at } })}</div>
+    <summary>${summary}</summary>
+    <div class="mobile-chain-head"><span class="muted">${t("request.chain.title")}</span>
+      ${actionButton(t("request.chain.copy"), { variant: "ghost copy-chain", attrs: { "data-at": r.at } })}</div>
     ${raceNote(r)}${chainSteps(r)}
   </details>`;
 }
@@ -611,7 +681,7 @@ function mobileFallbackChain(r, tail = "") {
 function fallbackCount(r) {
   return r.fallbacks === undefined || r.fallbacks === null
     ? ""
-    : `${esc(r.fallbacks)} ${Number(r.fallbacks) === 1 ? "fallback" : "fallbacks"}`;
+    : plural(Number(r.fallbacks), "request.chain.fallback.one", "request.chain.fallback.other");
 }
 
 function mobileRequestDetails(r, live = false) {
@@ -633,7 +703,7 @@ function floorCount(n) {
   return `${Math.floor(n / size)}${mark}`;
 }
 
-function tokenCell(count, mark = "", label = "Input") {
+function tokenCell(count, mark = "", label = t("request.column.input")) {
   if (typeof count !== "number") return cell(label, "-", "hide-sm num");
   const shown = floorCount(count);
   return `<td role="cell" class="hide-sm num" title="${mark}${count.toLocaleString()}">${mobileLabel(label)}<span class="cell-value">${mark}${shown}</span></td>`;
@@ -647,7 +717,7 @@ function streamCell(r) {
 }
 
 // The short app name from the client headers, with the API key name on hover.
-const appCell = (r) => `<td role="cell"${r.key ? ` title="API key: ${esc(r.key)}"` : ""}>${mobileLabel("App")}<span class="cell-value">${r.app ? esc(r.app) : dash}</span></td>`;
+const appCell = (r) => `<td role="cell"${r.key ? ` title="${t("request.app.api_key", { key: esc(r.key) })}"` : ""}>${mobileLabel(t("request.column.app"))}<span class="cell-value">${r.app ? esc(r.app) : dash}</span></td>`;
 
 // A live request with local times, because the server sends ages and not clock times.
 function liveRow(r) {
@@ -662,8 +732,10 @@ function renderLiveToggle() {
   const button = $("live-toggle");
   button.setAttribute("aria-pressed", String(state.livePaused));
   const label = state.livePaused
-    ? `Paused${state.liveWaiting.size ? ` · ${state.liveWaiting.size} new` : ""}`
-    : "Live";
+    ? state.liveWaiting.size
+      ? t("request.live.paused_new", { count: state.liveWaiting.size })
+      : t("request.live.paused")
+    : t("request.live");
   button.innerHTML = `${state.livePaused ? icon("pause") : icon("activity")} ${esc(label)}`;
 }
 
@@ -718,19 +790,19 @@ function closeLive() {
 }
 
 const TRANSITION_REASONS = {
-  ctx: "Previous model exceeded the context limit",
-  hlt: "No healthy deployments in the previous pool",
-  lmt: "Quota or cooldown blocked the previous pool",
-  err: "Previous upstream attempt failed",
-  rnd: "Weighted random draw selected another model",
-  cls: "Prompt classifier chose a different tier",
-  esc: "Escalation keyword raised the tier",
-  rce: "A racing model took the pin",
+  ctx: t("request.route.context"),
+  hlt: t("request.route.health"),
+  lmt: t("request.route.limit"),
+  err: t("request.route.failure"),
+  rnd: t("request.route.random"),
+  cls: t("request.route.classifier"),
+  esc: t("request.route.escalation"),
+  rce: t("request.route.race"),
 };
 
 // A repeat carries the code of the hook, such as rt1. The row shows the code as given.
 const REPEAT_CODE = /^rt\d+$/;
-const REPEAT_LABEL = "A repeat picked another model";
+const REPEAT_LABEL = t("request.route.repeat");
 
 function transitionCell(t) {
   if (!t || !t.reason) return "";
@@ -758,8 +830,8 @@ const raceOn = () => Boolean(
 function renderLegend(extra = state.legendExtra) {
   const rows = [
     ...Object.entries(TRANSITION_REASONS).filter(([code]) => code !== "rce" || raceOn()),
-    ["frX", "the tier of the previous model"],
-    ["tlN", "N equal tool calls stopped the chain"],
+    ["frX", t("request.legend.frx")],
+    ["tlN", t("request.legend.tln")],
     ...extra,
   ];
   $("legend-body").innerHTML = rows.map(([code, label]) =>
@@ -787,18 +859,18 @@ function renderLive() {
   // carries the glide: a redraw of a row already on the page stays still.
   $("live").innerHTML = rows.map((r) => `
     <tr role="row" class="live-row${state.liveSeen.has(r.id) ? "" : " arrive"}" data-live="${r.id}">
-      ${cell("Time", `<span class="pulse"></span><span class="live-ago">${relative(r.since / 1000)}</span>`, "num muted",
+      ${cell(t("request.column.time"), `<span class="pulse"></span><span class="live-ago">${relative(r.since / 1000)}</span>`, "num muted",
         ` title="${esc(stamp(r.since / 1000))}"`)}
       ${appCell(r)}
-      ${cell("Session", esc(r.session || "-"), "hide-sm num mono")}
-      ${nameCell(r.model || r.path, modelName(r.model || r.path, poolOf(r)) + routingCodes(r))}
-      ${nameCell(r.via || r.trying || "", r.via ? modelName(r.via) : `<span class="muted">${r.trying ? `trying ${modelName(r.trying)}` : "waiting"}</span>`, "Served by")}
-      ${cell("Effort", effortCell(r), "hide-sm")}
-      ${cell("Status", "live", "status muted")}
-      ${cell("Input", "-", "hide-sm num muted")}
-      ${cell("Output", "-", "hide-sm num muted")}
-      <td role="cell" class="hide-sm num">${mobileLabel("TTFT")}<span class="cell-value"><span data-clock="ttft"></span></span></td>
-      <td role="cell" class="hide-sm num">${mobileLabel("Stream")}<span class="cell-value"><span data-clock="stream"></span></span></td>
+      ${cell(t("request.column.session"), esc(r.session || "-"), "hide-sm num mono")}
+      ${nameCell(r.model || r.path, modelName(r.model || r.path, poolOf(r)) + routingCodes(r), t("request.column.model"))}
+      ${nameCell(r.via || r.trying || "", r.via ? modelName(r.via) : `<span class="muted">${r.trying ? t("request.state.trying", { model: modelName(r.trying) }) : t("request.state.waiting")}</span>`, t("request.column.served_by"))}
+      ${cell(t("request.column.effort"), effortCell(r), "hide-sm")}
+      ${cell(t("request.column.status"), t("request.state.live"), "status muted")}
+      ${cell(t("request.column.input"), "-", "hide-sm num muted")}
+      ${cell(t("request.column.output"), "-", "hide-sm num muted")}
+      <td role="cell" class="hide-sm num">${mobileLabel(t("request.column.ttft"))}<span class="cell-value"><span data-clock="ttft"></span></span></td>
+      <td role="cell" class="hide-sm num">${mobileLabel(t("request.column.stream"))}<span class="cell-value"><span data-clock="stream"></span></span></td>
       ${fallbackCell(r, "hide-sm num muted", true)}
     </tr>`).join("");
   state.liveSeen = new Set(rows.map((r) => r.id));
@@ -907,17 +979,21 @@ function renderRequestTable() {
   const live = [...state.live.values()].filter((r) => requestMatches(r, { live: true })).length;
   const total = state.requests.length + live;
   renderRequests(rows, total && !rows.length && !live
-    ? "No requests match the filter, or the last 500 hold none"
-    : "No requests", live);
+    ? t("request.empty.filter")
+    : t("request.empty.none"), live);
   // The button keeps its seat in the bar, so showing it never moves the count hint.
   $("request-clear").classList.toggle("off",
     !state.requestSearch && state.requestStatus === "all" && !state.requestHours);
   $("more-requests").hidden = state.requestFetched < state.requestLimit
     || state.requestLimit >= REQUESTS_KEPT;
   const shown = rows.length + live;
-  const head = shown === total ? count(total, "request") : `${shown} of ${count(total, "request")}`;
+  const head = shown === total
+    ? count(total, "request")
+    : t("request.count.shown", { shown, total: count(total, "request") });
   const hint = $("request-count");
-  hint.textContent = total ? `${head}${live ? ` · ${live} in flight` : ""}` : "";
+  hint.textContent = total
+    ? `${head}${live ? ` · ${t("request.count.in_flight", { count: live })}` : ""}`
+    : "";
   // The hint pulses when the stream itself changes, not when a filter rewrites the text.
   if (live !== state.liveCount) {
     state.liveCount = live;
@@ -927,7 +1003,7 @@ function renderRequestTable() {
   }
 }
 
-function renderRequests(rows, empty = "No requests", live = 0) {
+function renderRequests(rows, empty = t("request.empty.none"), live = 0) {
   const flatRows = splitRequests(rows);
   // The live count rides in the key: a live row hides the empty row, so it changes the markup.
   const text = JSON.stringify([flatRows, live ? 1 : 0]);
@@ -939,18 +1015,18 @@ function renderRequests(rows, empty = "No requests", live = 0) {
     const chain = hasChain(r);
     const chainOpen = chain && opened.has(String(r.at));
     return `
-    <tr role="row" class="request${chain ? " has-chain" : ""}${chainOpen ? " open" : ""}" data-at="${r.at}"${chain ? ' title="Show the fallback chain"' : ""}>
-      ${cell("Time", `<span class="caret${chain ? "" : " none"}"></span>${relative(r.at)}`, "num muted", ` title="${esc(stamp(r.at))}"`)}
+    <tr role="row" class="request${chain ? " has-chain" : ""}${chainOpen ? " open" : ""}" data-at="${r.at}"${chain ? ` title="${t("request.chain.show")}"` : ""}>
+      ${cell(t("request.column.time"), `<span class="caret${chain ? "" : " none"}"></span>${relative(r.at)}`, "num muted", ` title="${esc(stamp(r.at))}"`)}
       ${appCell(r)}
-      ${cell("Session", esc(r.session || "-"), "hide-sm num mono")}
-      ${nameCell(r.model || "-", modelName(r.model || "-", poolOf(r)) + routingCodes(r))}
-      ${nameCell(r.via || "", r.via ? modelName(r.via) : '<span class="muted">none</span>', "Served by")}
-      ${cell("Effort", effortCell(r), "hide-sm")}
-      ${cell("Status", statusCell(r), `status ${statusClass(r)}`)}
-      ${tokenCell(r.tokens?.input, r.tokens?.estimate ? "~" : "", "Input")}
-      ${tokenCell(r.tokens?.output, "", "Output")}
-      ${cell("TTFT", esc(r.ttft || "-"), "hide-sm num")}
-      ${cell("Stream", streamCell(r), "hide-sm num")}
+      ${cell(t("request.column.session"), esc(r.session || "-"), "hide-sm num mono")}
+      ${nameCell(r.model || "-", modelName(r.model || "-", poolOf(r)) + routingCodes(r), t("request.column.model"))}
+      ${nameCell(r.via || "", r.via ? modelName(r.via) : `<span class="muted">${t("request.state.none")}</span>`, t("request.column.served_by"))}
+      ${cell(t("request.column.effort"), effortCell(r), "hide-sm")}
+      ${cell(t("request.column.status"), statusCell(r), `status ${statusClass(r)}`)}
+      ${tokenCell(r.tokens?.input, r.tokens?.estimate ? "~" : "", t("request.column.input"))}
+      ${tokenCell(r.tokens?.output, "", t("request.column.output"))}
+      ${cell(t("request.column.ttft"), esc(r.ttft || "-"), "hide-sm num")}
+      ${cell(t("request.column.stream"), streamCell(r), "hide-sm num")}
       ${fallbackCell(r, "hide-sm num")}
     </tr>${chainOpen ? chainRows(r) : ""}`;
   }).join("") : live ? "" : `<tr role="row"><td role="cell" colspan="13" class="empty">${empty}</td></tr>`;
@@ -959,9 +1035,14 @@ function renderRequests(rows, empty = "No requests", live = 0) {
 
 // The label of each catalog mode.
 const MODES = {
-  chat: "Chat", embedding: "Embedding", audio_transcription: "Transcription",
-  audio_speech: "Speech", image_generation: "Image", video_generation: "Video",
-  decisions: "Decisions", rerank: "Rerank",
+  chat: t("model.mode.chat"),
+  embedding: t("model.mode.embedding"),
+  audio_transcription: t("model.mode.audio_transcription"),
+  audio_speech: t("model.mode.audio_speech"),
+  image_generation: t("model.mode.image_generation"),
+  video_generation: t("model.mode.video_generation"),
+  decisions: t("model.mode.decisions"),
+  rerank: t("model.mode.rerank"),
 };
 // Dynamic glyphs share one decorative SVG wrapper, so their size and Lucide attributes stay aligned.
 const ICON_PATHS = {
@@ -988,7 +1069,12 @@ function icon(name) {
 // The flag chips name registered glyphs; a flag without a glyph keeps its text.
 const FLAG_ICON_NAMES = { vision: "image", pdf_input: "file_text", audio_input: "mic", audio_output: "volume_2" };
 // The label of each media flag chip.
-const FLAGS = { vision: "Image in", pdf_input: "PDF in", audio_input: "Audio in", audio_output: "Audio out" };
+const FLAGS = {
+  vision: t("model.flag.vision"),
+  pdf_input: t("model.flag.pdf_input"),
+  audio_input: t("model.flag.audio_input"),
+  audio_output: t("model.flag.audio_output"),
+};
 // The mode already says what these media flags say: Speech is audio out, Transcription is audio in.
 const REDUNDANT = { audio_speech: "audio_output", audio_transcription: "audio_input" };
 // The Type cell: a chip for the mode, then a chip for each media flag the mode does not carry.
@@ -1006,28 +1092,28 @@ const CHIP_ICON_NAMES = { tools: "wrench", cool: "snowflake", brain: "brain" };
 
 function phoneChips(m) {
   // The desktop columns a phone drops ride as labelled chips, so the card row stays full.
-  const tier = m.tier ? `<span class="chip flag" title="Tier">Tier ${esc(tierLetter(m.tier))}</span>` : "";
-  const order = m.order ? `<span class="chip flag" title="Order">Order ${m.order}</span>` : "";
+  const tier = m.tier ? `<span class="chip flag" title="${t("model.column.tier")}">${t("model.mobile.tier", { value: esc(tierLetter(m.tier)) })}</span>` : "";
+  const order = m.order ? `<span class="chip flag" title="${t("model.column.order")}">${t("model.mobile.order", { value: m.order })}</span>` : "";
   const context = m.max_input_tokens
-    ? `<span class="chip flag" title="Context">Context <span class="num">${tokens(m.max_input_tokens)}</span></span>`
+    ? `<span class="chip flag" title="${t("model.column.context")}">${t("model.mobile.context", { value: `<span class="num">${tokens(m.max_input_tokens)}</span>` })}</span>`
     : "";
   // A state the model does not support shows no chip at all.
   const tools = m.mode === "chat" && m.tools
-    ? `<span class="chip flag" title="Tools">${icon(CHIP_ICON_NAMES.tools)}</span>` : "";
+    ? `<span class="chip flag" title="${t("model.column.tools")}">${icon(CHIP_ICON_NAMES.tools)}</span>` : "";
   const reasoning = m.mode === "chat" && m.reasoning
-    ? `<span class="chip flag" title="Reasoning">${icon(CHIP_ICON_NAMES.brain)}${m.effort ? `<span class="num">${esc(m.effort)}</span>` : ""}</span>`
+    ? `<span class="chip flag" title="${t("model.column.reasoning")}">${icon(CHIP_ICON_NAMES.brain)}${m.effort ? `<span class="num">${esc(m.effort)}</span>` : ""}</span>`
     : "";
   const cool = m.cooldown && m.cooldown > Date.now() / 1000
-    ? `<span class="chip flag" title="Cooldown">${icon(CHIP_ICON_NAMES.cool)}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
+    ? `<span class="chip flag" title="${t("model.column.cooldown")}">${icon(CHIP_ICON_NAMES.cool)}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
     : "";
   return tier + order + context + tools + reasoning + cool;
 }
 
 function renderTiers() {
-  $("tiers").innerHTML = ["All", "A", "B", "C", "D"].map((t) =>
-    actionButton(esc(t), {
-      variant: `filter${t === state.tier ? " on" : ""}`,
-      attrs: { "data-tier": t },
+  $("tiers").innerHTML = ["All", "A", "B", "C", "D"].map((tier) =>
+    actionButton(esc(tier === "All" ? t("model.type.all") : tier), {
+      variant: `filter${tier === state.tier ? " on" : ""}`,
+      attrs: { "data-tier": tier },
     }),
   ).join(" ");
   $("mode").value = state.mode;
@@ -1047,7 +1133,15 @@ const sortValue = {
 };
 
 // The label of each reasoning effort. The chip color grows with the effort.
-const EFFORTS = { none: "None", minimal: "Minimal", low: "Low", medium: "Medium", high: "High", xhigh: "X-High", max: "Max" };
+const EFFORTS = {
+  none: t("model.effort.none"),
+  minimal: t("model.effort.minimal"),
+  low: t("model.effort.low"),
+  medium: t("model.effort.medium"),
+  high: t("model.effort.high"),
+  xhigh: t("model.effort.xhigh"),
+  max: t("model.effort.max"),
+};
 function effortChip(name, label = EFFORTS[name] || name) {
   const level = name in EFFORTS ? ` e-${name}` : "";
   return `<span class="chip flag effort${level}">${esc(label)}</span>`;
@@ -1057,9 +1151,9 @@ function reasoningCell(m) {
   if (!m.reasoning || !m.effort) return yesNo(m.reasoning);
   const known = m.effort in EFFORTS;
   const label = known ? EFFORTS[m.effort] : m.effort.charAt(0).toUpperCase() + m.effort.slice(1);
-  return `<span class="chip flag effort${known ? ` e-${m.effort}` : ""}" title="Default reasoning effort">${esc(label)}</span>`;
+  return `<span class="chip flag effort${known ? ` e-${m.effort}` : ""}" title="${t("model.detail.default_effort")}">${esc(label)}</span>`;
 }
-const yesNo = (on) => statusBadge(on ? "Yes" : "No", { variant: on ? "yes" : "muted" });
+const yesNo = (on) => statusBadge(on ? t("common.boolean.yes") : t("common.boolean.no"), { variant: on ? "yes" : "muted" });
 
 // The modal of 1 model: a card that leads with the model, its developer and its provider.
 // The capabilities read as lucide icon chips, the limits as stats, the efforts as chips.
@@ -1070,9 +1164,9 @@ function openModelModal(m) {
   // A lobe mark rides beside a part that owns one; a part without a file keeps plain text.
   const markImg = (name) => (MARK_FILES.has(name) ? mark(name) : "");
   const identity = [
-    ["Model", model || m.slug || m.id, ""],
-    ...(dev ? [["Developer", dev, markImg(dev)]] : []),
-    ["Provider", provider, markImg(provider)],
+    [t("model.column.model"), model || m.slug || m.id, ""],
+    ...(dev ? [[t("model.detail.developer"), dev, markImg(dev)]] : []),
+    [t("model.detail.provider"), provider, markImg(provider)],
   ].map(([label, value, icon]) =>
     `<div class="id-row"><span class="label">${esc(label)}</span>${icon}<span class="value">${esc(value)}</span></div>`)
     .join("");
@@ -1082,22 +1176,22 @@ function openModelModal(m) {
     .join("");
   const chips = [
     `<span class="chip flag mode">${esc(MODES[m.mode] || m.mode)}</span>` + flags,
-    m.tier ? `<span class="chip flag" title="Tier">Tier ${esc(tierLetter(m.tier))}</span>` : "",
-    m.order ? `<span class="chip flag" title="Order">Order ${m.order}</span>` : "",
+    m.tier ? `<span class="chip flag" title="${t("model.column.tier")}">${t("model.mobile.tier", { value: esc(tierLetter(m.tier)) })}</span>` : "",
+    m.order ? `<span class="chip flag" title="${t("model.column.order")}">${t("model.mobile.order", { value: m.order })}</span>` : "",
     m.mode === "chat" && m.tools
-      ? `<span class="chip flag" title="Tools">${icon(CHIP_ICON_NAMES.tools)} Tools</span>` : "",
+      ? `<span class="chip flag" title="${t("model.column.tools")}">${icon(CHIP_ICON_NAMES.tools)} ${t("model.column.tools")}</span>` : "",
     m.mode === "chat" && m.reasoning
-      ? `<span class="chip flag" title="Reasoning">${icon(CHIP_ICON_NAMES.brain)} Reasoning</span>`
+      ? `<span class="chip flag" title="${t("model.column.reasoning")}">${icon(CHIP_ICON_NAMES.brain)} ${t("model.column.reasoning")}</span>`
       : "",
     m.cooldown && m.cooldown > Date.now() / 1000
-      ? `<span class="chip flag" title="Cooldown">${icon(CHIP_ICON_NAMES.cool)}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
+      ? `<span class="chip flag" title="${t("model.column.cooldown")}">${icon(CHIP_ICON_NAMES.cool)}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
       : "",
   ].join("");
   // Only the weight draws a bar. A floor in the style keeps the blocks at one height.
   const stats = [
-    m.max_input_tokens ? [m.max_input_tokens.toLocaleString(), "input tokens"] : null,
-    m.max_output_tokens ? [m.max_output_tokens.toLocaleString(), "output tokens"] : null,
-    m.weight != null ? [m.weight.toFixed(2), "weight", progressMeter(m.weight)] : null,
+    m.max_input_tokens ? [m.max_input_tokens.toLocaleString(), t("model.detail.input_tokens")] : null,
+    m.max_output_tokens ? [m.max_output_tokens.toLocaleString(), t("model.detail.output_tokens")] : null,
+    m.weight != null ? [m.weight.toFixed(2), t("model.detail.weight"), progressMeter(m.weight)] : null,
   ].filter(Boolean).map(([value, label, bar]) =>
     `<div class="stat"><span class="num">${esc(value)}</span><span class="label">${esc(label)}</span>${bar || ""}</div>`)
     .join("");
@@ -1105,7 +1199,7 @@ function openModelModal(m) {
   $("model-modal-body").innerHTML = `<div class="model-id">${identity}</div>`
     + (chips ? `<div class="model-chips">${chips}</div>` : "")
     + (stats ? `<div class="model-stats">${stats}</div>` : "")
-    + (efforts ? `<h4>Supported efforts</h4><div class="pills">${efforts}</div>` : "");
+    + (efforts ? `<h4>${t("model.detail.supported_efforts")}</h4><div class="pills">${efforts}</div>` : "");
   $("model-modal").showModal();
 }
 // Red at 0, orange at 0.5 and blue at 1, mixed in between.
@@ -1191,18 +1285,18 @@ function renderModels() {
     (state.tier === "All" || tierLetter(m.tier) === state.tier)
     && (state.mode === "all" || m.mode === state.mode || m.flags.includes(state.mode))
     && m.id.toLowerCase().includes(query)));
-  const empty = state.models.length ? "No models match the filter" : "No models. Run daedalus catalog.";
+  const empty = state.models.length ? t("model.empty.filter") : t("model.empty.catalog");
   draw("models", rows.length ? rows.map((m) => `
     <tr data-model="${esc(m.id)}">
       ${nameCell(m.id, modelName(m.id), "", `<span class="types phone-types">${typeChips(m)}</span><span class="phone-chips">${phoneChips(m)}</span>`)}
       <td class="hide-sm"><div class="types">${typeChips(m)}</div></td>
-      <td class="mid hide-sm">${mobileLabel("Tier")}<span class="cell-value">${m.tier ? `<span class="tier" title="${esc(m.tier)}">${esc(tierLetter(m.tier))}</span>` : dash}</span></td>
+      <td class="mid hide-sm">${mobileLabel(t("model.column.tier"))}<span class="cell-value">${m.tier ? `<span class="tier" title="${esc(m.tier)}">${esc(tierLetter(m.tier))}</span>` : dash}</span></td>
       <td class="hide-sm mid num${m.order > 1 ? "" : " muted"}">${m.order ?? dash}</td>
-      <td class="hide-sm num muted"><span${m.max_input_tokens ? ` title="${m.max_input_tokens.toLocaleString()} tokens"` : ""}>${tokens(m.max_input_tokens)}</span></td>
-      <td class="mid hide-sm">${mobileLabel("Tools")}<span class="cell-value">${m.mode === "chat" ? yesNo(m.tools) : dash}</span></td>
+      <td class="hide-sm num muted"><span${m.max_input_tokens ? ` title="${t("model.tokens.title", { count: m.max_input_tokens.toLocaleString() })}"` : ""}>${tokens(m.max_input_tokens)}</span></td>
+      <td class="mid hide-sm">${mobileLabel(t("model.column.tools"))}<span class="cell-value">${m.mode === "chat" ? yesNo(m.tools) : dash}</span></td>
       <td class="hide-sm mid">${m.mode === "chat" ? reasoningCell(m) : dash}</td>
-      <td class="num hide-sm">${mobileLabel("Cooldown")}<span class="cell-value">${coolCells(m)}</span></td>
-      <td>${mobileLabel("Weight")}<span class="cell-value">${m.weight == null ? dash
+      <td class="num hide-sm">${mobileLabel(t("model.column.cooldown"))}<span class="cell-value">${coolCells(m)}</span></td>
+      <td>${mobileLabel(t("model.column.weight"))}<span class="cell-value">${m.weight == null ? dash
         : `<div class="weight">${progressMeter(m.weight)}<span class="num">${m.weight.toFixed(2)}</span></div>`}</span></td>
     </tr>`).join("") : `<tr><td colspan="9" class="empty">${empty}</td></tr>`);
 }
@@ -1213,11 +1307,15 @@ function timeLeft(until) {
   if (left <= 0) return null;
   const h = Math.floor(left / 3600), m = Math.floor((left % 3600) / 60), s = left % 60;
   const pad = (n) => String(n).padStart(2, "0");
-  return h ? `${h}h ${pad(m)}m` : m ? `${m}m ${pad(s)}s` : `${s}s`;
+  return h
+    ? t("time.duration.hours_minutes", { hours: h, minutes: pad(m) })
+    : m
+      ? t("time.duration.minutes_seconds", { minutes: m, seconds: pad(s) })
+      : t("time.duration.seconds", { seconds: s });
 }
 const coolCell = (until) => {
   const left = until ? timeLeft(until) : null;
-  return left ? `<span class="cool" data-until="${until}" title="Until ${esc(stamp(until))}">${left}</span>` : dash;
+  return left ? `<span class="cool" data-until="${until}" title="${t("model.cooldown.until", { time: esc(stamp(until)) })}">${left}</span>` : dash;
 };
 // The cooldown of the model, and of each client with its own provider key, such as "kilo 4m 05s".
 function coolCells(m) {
@@ -1245,14 +1343,14 @@ function renderKeys(rows) {
   draw("keys", rows.length ? rows.map((k) => `
     <tr>
       <td class="name" title="${esc(k.name)}">${esc(k.name)}</td>
-      <td class="num muted mono"><span${k.start ? ` title="Only the start of a saved key is kept"` : ""}>${k.start ? esc(k.start) + "&hellip;" : "-"}</span></td>
+      <td class="num muted mono"><span${k.start ? ` title="${t("settings.keys.only_start")}"` : ""}>${k.start ? esc(k.start) + "&hellip;" : "-"}</span></td>
       <td class="hide-sm muted">${stamp(k.created)}</td>
-      <td class="muted">${mobileLabel("Last used")}<span class="cell-value">${k.used ? stamp(k.used) : "never"}</span></td>
+      <td class="muted">${mobileLabel(t("settings.keys.last_used"))}<span class="cell-value">${k.used ? stamp(k.used) : t("settings.keys.used_never")}</span></td>
       <td class="end">${actionButton(icon("trash"), {
         variant: "ghost danger",
-        attrs: { "data-key": k.name, "aria-label": `Delete ${k.name}`, title: "Delete" },
+        attrs: { "data-key": k.name, "aria-label": t("settings.keys.delete_named", { name: k.name }), title: t("action.delete") },
       })}</td>
-    </tr>`).join("") : '<tr><td colspan="5" class="empty">No API keys. The master key opens /v1.</td></tr>');
+    </tr>`).join("") : `<tr><td colspan="5" class="empty">${t("settings.keys.empty")}</td></tr>`);
   markCardScrollEdges();
 }
 
@@ -1265,7 +1363,7 @@ async function refreshKeys() {
 // The block keys that the form edits. The YAML view edits the other keys.
 const FORM_KEYS = ["api_key", "account_id", "client_keys", "api_base", "api_type", "discovery_url", "discovery_match", "exclude", "tier", "models", "hooks"];
 // The pattern fields take the same 4 shapes, so 1 hint serves them all.
-const PATTERN_HINT = "Exact: the whole name. Glob: a * or a ?. Regex: a leading ^. A leading ! refuses.";
+const PATTERN_HINT = t("provider.pattern.hint");
 // The keys that a model override sets but the provider level does not.
 const MODEL_ONLY = ["pool", "timeout"];
 // The keys that the provider level sets but a model override does not.
@@ -1321,7 +1419,7 @@ function renderFiles() {
   const chips = state.files.map((file, index) => {
     const mark = fileDirty(index) ? " &bull;" : "";
     // The provider keys of a shadowed file do nothing, so the tab says which file wins.
-    const shadow = file.shadow ? ` (provider keys: ${file.shadow} wins)` : "";
+    const shadow = file.shadow ? t("provider.file.shadow", { file: file.shadow }) : "";
     return actionButton(`${esc(fileName(file.path))}${mark}`, {
       variant: `tab${index === state.file ? " on" : ""}`,
       attrs: { "data-file": index, title: `${file.path}${shadow}` },
@@ -1330,8 +1428,8 @@ function renderFiles() {
   // The page actions ride in the file row, as 1 more chip. The main provider file stays:
   // only a {provider}.yml file can go.
   const drop = current?.main === false
-    ? actionButton("Delete file", { variant: "tab danger", attrs: { id: "drop-provider" } }) : "";
-  $("files").innerHTML = `${chips} ${actionButton("+ New provider", {
+    ? actionButton(t("action.delete_file"), { variant: "tab danger", attrs: { id: "drop-provider" } }) : "";
+  $("files").innerHTML = `${chips} ${actionButton(t("action.new_provider"), {
     variant: "tab", attrs: { id: "new-provider" },
   })}${drop ? ` ${drop}` : ""}`;
   // The card Save writes the text. The form rows write themselves, on the close.
@@ -1362,7 +1460,7 @@ async function takeFile(index) {
 // A file with YAML that is not valid opens in the YAML view, with the error line.
 function showFileError(index) {
   const error = state.files[index]?.error;
-  if (error) showWrite("providers", `Not valid YAML: ${error}`, true);
+  if (error) showWrite("providers", t("provider.yaml.error", { error }), true);
   else clearWrite("providers");
   if (error) state.view = "yaml";
 }
@@ -1385,11 +1483,11 @@ function openFile(index) {
 
 // A chip for 1 value. The × button deletes the list item or the map key.
 const pill = (text, path, key) => `<span class="pill">${esc(text)}${actionButton(icon("x"), {
-  attrs: { title: "Delete", "data-drop": JSON.stringify([...path, key]) },
+  attrs: { title: t("action.delete"), "data-drop": JSON.stringify([...path, key]) },
 })}</span>`;
 
 // The "+ Add" button. A click puts an inline input in its place.
-const adder = (path, kind, label = "+ Add") => actionButton(esc(label), {
+const adder = (path, kind, label = t("action.add")) => actionButton(esc(label), {
   variant: "add",
   attrs: { "data-add": JSON.stringify(path), "data-kind": kind },
 });
@@ -1402,7 +1500,7 @@ function listField(name, values, path) {
 function mapPills(values, path, kind, separator) {
   const map = values && typeof values === "object" ? values : {};
   return Object.entries(map).map(([key, value]) => pill(`${key}${separator}${shown(value)}`, path, key)).join("")
-    + adder(path, kind, kind === "override" ? "+ key" : "+ Add");
+    + adder(path, kind, kind === "override" ? t("action.add_key") : t("action.add"));
 }
 
 // The chip list of a Settings field. The edited values live in the page state, so a
@@ -1419,9 +1517,9 @@ function setListValue(group, key, values) {
   state.settings.lists[`${group}.${key}`] = values;
 }
 const settingPill = (group, key, value, index) => `<span class="pill">${esc(value)}${actionButton(icon("x"), {
-  attrs: { title: "Delete", "data-setting-drop": JSON.stringify([group, key, index]) },
+  attrs: { title: t("action.delete"), "data-setting-drop": JSON.stringify([group, key, index]) },
 })}</span>`;
-const settingAdder = (group, key) => actionButton("+ Add", {
+const settingAdder = (group, key) => actionButton(t("action.add"), {
   variant: "add", attrs: { "data-setting-add": JSON.stringify([group, key]) },
 });
 
@@ -1456,27 +1554,27 @@ const hookFormRow = (entry, path, choices) => {
   const value = String(list[surface] ?? "");
   const at = JSON.stringify(path);
   const open = openFormHook === at;
-  const menu = open ? `<div class="menu" role="listbox" aria-label="Hook file">${[""].concat(choices)
-    .map((name) => actionButton(name ? hookName(name) : "No file", {
+  const menu = open ? `<div class="menu" role="listbox" aria-label="${t("hook.file.label")}">${[""].concat(choices)
+    .map((name) => actionButton(name ? hookName(name) : t("hook.empty.file"), {
       attrs: {
         role: "option",
         "aria-selected": String(name === value),
         "data-form-hook-choice": JSON.stringify([...path, name]),
       },
     })).join("")}</div>` : "";
-  const picker = actionButton(value ? hookName(value) : "No file", {
+  const picker = actionButton(value ? hookName(value) : t("hook.empty.file"), {
     variant: "pick",
     attrs: {
       "data-form-hook-pick": at,
       "aria-haspopup": "listbox",
       "aria-expanded": String(open),
-      title: "Pick a hook file",
+      title: t("hook.action.pick_file"),
     },
   });
   const drop = actionButton(icon("x"), {
-    attrs: { title: "Delete", "data-form-hook-drop": at },
+    attrs: { title: t("action.delete"), "data-form-hook-drop": at },
   });
-  return `<span class="pill hook"><select data-form-hook-surface='${esc(at)}' aria-label="Hook surface">${
+  return `<span class="pill hook"><select data-form-hook-surface='${esc(at)}' aria-label="${t("hook.surface.label")}">${
     HOOK_SURFACES.map(([key, label]) => `<option value="${key}"${key === surface ? " selected" : ""}>${esc(label)}</option>`).join("")
     }</select>${picker}${drop}${menu}</span>`;
 };
@@ -1486,8 +1584,8 @@ function hookFormRows(values, path, kind, name) {
   const choices = hookChoices(kind, name);
   const rows = (Array.isArray(values) ? values : [])
     .map((entry, index) => hookFormRow(entry, [...path, index], choices)).join("")
-    || '<em class="none">No hook file</em>';
-  return `<div class="pills">${rows}${actionButton("+ Add file", {
+    || `<em class="none">${t("hook.empty.file")}</em>`;
+  return `<div class="pills">${rows}${actionButton(t("action.add_file"), {
     variant: "add",
     attrs: { "data-form-hook-add": JSON.stringify([path, kind, name]) },
   })}</div>`;
@@ -1549,10 +1647,10 @@ function hookSurfacesCell(row) {
   const named = new Set(row.runs || []);
   const chips = (row.surfaces || []).map((surface) => {
     const mark = named.has(surface) ? " named" : "";
-    const note = named.has(surface) ? "Named in the settings" : "Not named in the settings";
+    const note = named.has(surface) ? t("hook.state.named") : t("hook.state.not_named");
     return `<span class="pill ${row.enabled ? "on" : "off"}${mark}" title="${note}">${esc(labels.get(surface) || surface)}</span>`;
   }).join("");
-  return `<div class="pills">${chips || '<em class="none">No surface</em>'}</div>`;
+  return `<div class="pills">${chips || `<em class="none">${t("hook.empty.surface")}</em>`}</div>`;
 }
 
 // The candidate files of each surface. Runtime filters their metadata scope before it applies this
@@ -1566,8 +1664,8 @@ function hookOrderRows() {
         attrs: {
           "data-hook-move": JSON.stringify([surface, index, -1]),
           disabled: !index,
-          "aria-label": `Move ${file} up`,
-          title: "Move up",
+          "aria-label": t("hook.order.up_named", { file }),
+          title: t("hook.order.up"),
         },
       })}
       ${actionButton(icon("chevron_down"), {
@@ -1575,13 +1673,13 @@ function hookOrderRows() {
         attrs: {
           "data-hook-move": JSON.stringify([surface, index, 1]),
           disabled: index + 1 >= files.length,
-          "aria-label": `Move ${file} down`,
-          title: "Move down",
+          "aria-label": t("hook.order.down_named", { file }),
+          title: t("hook.order.down"),
         },
       })}</li>`).join("");
-    const hint = "The matching files run in this order. Their provider, model or client scopes still apply.";
+    const hint = t("hook.order.hint");
     return field(label, hint, `
-      <ul class="hook-order">${rows || '<li><em class="none">No file for this surface</em></li>'}</ul>`);
+      <ul class="hook-order">${rows || `<li><em class="none">${t("hook.empty.file_for_surface")}</em></li>`}</ul>`);
   }).join("");
 }
 
@@ -1612,9 +1710,13 @@ function hooksNote(text) {
 function updateNote(answer) {
   const moved = (answer.hooks || []).filter((hook) => hook.moved);
   // A source that fetched and moved nothing says why, so the note diagnoses itself.
-  if (moved.length)
-    return `Moved ${moved.map((hook) => `${hook.name}: ${hookVersion(hook.before)} to ${hookVersion(hook.after)}`).join(", ")}.`;
-  return "No file moved.";
+  if (moved.length) {
+    const files = moved.map((hook) => t("hook.update.transition", {
+      name: hook.name, before: hookVersion(hook.before), after: hookVersion(hook.after),
+    })).join(", ");
+    return t("hook.update.moved", { files });
+  }
+  return t("hook.empty.moved");
 }
 
 // A failure rides the floating note in the red of the theme, not the line under the card.
@@ -1630,7 +1732,7 @@ function hooksManager() {
   const at = Math.min(state.hooksSource ?? 0, Math.max(0, sources.length - 1));
   const options = sources.length
     ? sources.map((entry, index) => `<option value="${index}"${index === at ? " selected" : ""}>${esc(sourceLabel(entry))}</option>`).join("")
-    : '<option value="">No source</option>';
+    : `<option value="">${t("hook.empty.source")}</option>`;
   const list = rows.map((row) => {
     const record = row.record || {};
     const source = record.repo ? `${record.repo}@${(record.commit || "").slice(0, 7)}` : "";
@@ -1639,42 +1741,42 @@ function hooksManager() {
     return `<tr><td role="cell" class="name"><span class="cell-value" title="${esc(row.name)}"><span class="hook-title">${esc(title)}</span>${author}</span></td>
       <td role="cell"><span class="cell-value">${esc(hookVersion(row))}</span></td>
       <td role="cell" class="surfaces">${hookSurfacesCell(row)}</td>
-      <td role="cell"><span class="cell-value">${esc(row.scope || "global")}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
-      <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || "local")}">${row.problem ? statusBadge(row.problem, { variant: "bad" }) : esc(record.repo || "local")}${record.commit ? `<span class="hook-sha">${esc(record.commit.slice(0, 7))}</span>` : ""}</span></td>
+      <td role="cell"><span class="cell-value">${esc(row.scope || t("hook.scope.global"))}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
+      <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || t("hook.scope.local"))}">${row.problem ? statusBadge(row.problem, { variant: "bad" }) : esc(record.repo || t("hook.scope.local"))}${record.commit ? `<span class="hook-sha">${esc(record.commit.slice(0, 7))}</span>` : ""}</span></td>
       <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
-        ${disabled.includes(row.name) ? "" : "checked"} aria-label="Enabled ${esc(row.name)}"></td>
+        ${disabled.includes(row.name) ? "" : "checked"} aria-label="${t("hook.state.enabled_named", { name: esc(row.name) })}"></td>
       <td class="end">${actionButton(icon("trash"), {
         variant: "ghost danger",
-        attrs: { "data-hook-drop": row.path, "aria-label": `Delete ${row.name}`, title: "Delete" },
+        attrs: { "data-hook-drop": row.path, "aria-label": t("hook.action.delete_named", { name: row.name }), title: t("action.delete") },
       })}</td></tr>`;
-  }).join("") || '<tr><td role="cell" colspan="7"><em class="none">No hook file</em></td></tr>';
+  }).join("") || `<tr><td role="cell" colspan="7"><em class="none">${t("hook.empty.file")}</em></td></tr>`;
   const scan = state.hooksScan;
   const panel = scan ? `<div class="pills" id="hooks-scan">
-      <span class="sub">${esc(sourceLabel(scan))} at ${esc((scan.commit || "").slice(0, 7))}</span>${scan.files
+      <span class="sub">${t("hook.scan.at", { source: esc(sourceLabel(scan)), commit: esc((scan.commit || "").slice(0, 7)) })}</span>${scan.files
     .map((file) => `<label class="pill"><input type="checkbox" data-hook-take="${esc(file.name)}"
       ${scan.take[file.name] ? "checked" : ""}>${esc(file.name)}${file.version ? ` ${esc(file.version)}` : ""}</label>`).join("")}
-      ${actionButton("Take the picked files", {
+      ${actionButton(t("action.take_files"), {
         variant: "primary", attrs: { "data-hook-take-all": true },
       })}</div>` : "";
-  return `${field("Installed hooks", "The files of the hook folder. A surface is a stage of a request. The block of the file names the surfaces that run the file. The switch keeps a file on disk and out of the run.", `
-      <div class="card-scroll"><table class="keys"><thead><tr><th>Author/Title</th><th>Version</th><th>Surfaces</th><th>Scopes</th><th class="hide-sm">Source</th><th>Enabled</th><th></th></tr></thead>
+  return `${field(t("settings.hooks.installed.label"), t("settings.hooks.installed.hint"), `
+      <div class="card-scroll"><table class="keys"><thead><tr><th>${t("hook.column.author_title")}</th><th>${t("hook.column.version")}</th><th>${t("hook.column.surfaces")}</th><th>${t("hook.column.scopes")}</th><th class="hide-sm">${t("hook.column.source")}</th><th>${t("hook.column.enabled")}</th><th></th></tr></thead>
       <tbody>${list}</tbody></table></div>
-      ${actionButton("Update from the sources", {
+      ${actionButton(t("action.update_sources"), {
         variant: "ghost", attrs: { "data-hooks-update": true },
       })}`)}
     <div class="field stack info" id="hooks-order">${hookOrderRows()}</div>
-    ${field("Folder", "The folder at the root that holds the hook files.", `
-      <span class="input"><input type="text" id="set-hooks-dir" data-value="Folder"
+    ${field(t("settings.hooks.folder.label"), t("settings.hooks.folder.hint"), `
+      <span class="input"><input type="text" id="set-hooks-dir" data-value="${t("settings.hooks.folder.label")}"
         readonly spellcheck="false" value="${esc(fileValue("hooks", "dir") ?? "")}"
         placeholder="${esc(state.settings.defaults.hooks.dir)}"></span>`)}
-    ${field("Sources", "Each source names a GitHub repo, a folder in it and a ref.", `
-      <div class="pills"><select id="hook-source" data-hook-source aria-label="Source">${options}</select>
-        ${actionButton(`${icon("plus")} Add a repo`, {
+    ${field(t("settings.hooks.sources.label"), t("settings.hooks.sources.hint"), `
+      <div class="pills"><select id="hook-source" data-hook-source aria-label="${t("settings.hooks.source.label")}">${options}</select>
+        ${actionButton(`${icon("plus")} ${t("action.add_repository")}`, {
           variant: "add", attrs: { "data-hook-source-add": true },
         })}
         ${actionButton(icon("x"), {
           variant: "ghost",
-          attrs: { "data-hook-source-drop": true, title: "Delete the source" },
+          attrs: { "data-hook-source-drop": true, title: t("hook.action.delete_source") },
         })}</div>${panel}
       <div class="sub" id="hooks-note" role="status"></div>`)}`;
 }
@@ -1683,7 +1785,7 @@ function hooksManager() {
 // entries of the file stay, so the row shows the problem of a missing file.
 async function dropHookFile(button) {
   const name = button.dataset.hookDrop;
-  if (!(await ask("Delete the hook file", `Delete ${name} from the folder and the lock. The settings entries of the file stay.`, "Delete", true))) return;
+  if (!(await ask(t("dialog.delete_hook.title"), t("dialog.delete_hook.message", { name }), t("action.delete"), true))) return;
   await guarded(async () => {
     await call("hooks/file", { method: "DELETE", body: JSON.stringify({ name }) });
     await loadSettings();
@@ -1691,8 +1793,8 @@ async function dropHookFile(button) {
 }
 
 async function addHookSource() {
-  const typed = await ask("Add a source", "The GitHub repo of the hooks. A /tree URL also names the ref and the folder.",
-    "Scan", false, "owner/name or a GitHub URL");
+  const typed = await ask(t("dialog.source.title"), t("dialog.source.hint"),
+    t("action.scan"), false, t("dialog.source.placeholder"));
   if (!typed) return;
   const parts = sourceParts($("modal-input").value.trim());
   try {
@@ -1703,9 +1805,9 @@ async function addHookSource() {
       take: Object.fromEntries(found.files.map((file) => [file.name, installed.get(file.name) !== file.version])),
     };
     renderSettings();
-    hooksNote(`${count(found.files.length, "file")} in ${sourceLabel(found)}.`);
+    hooksNote(t("hook.source.count", { files: count(found.files.length, "file"), source: sourceLabel(found) }));
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin("The session ended. Log in to add the source again.");
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.add_source"));
     showWrite("settings", error.message, true);
   }
 }
@@ -1729,13 +1831,13 @@ async function takeHooks() {
     hooksNote(fails ? "" : updateNote(answer));
     if (fails) showNotice(fails);
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin("The session ended. Log in and take the files again.");
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.take_files"));
     showWrite("settings", error.message, true);
   }
 }
 
 async function runHooksUpdate() {
-  hooksNote("Updating...");
+  hooksNote(t("hook.state.updating"));
   try {
     const answer = await call("hooks/update", { method: "POST" });
     await loadSettings();
@@ -1743,7 +1845,7 @@ async function runHooksUpdate() {
     hooksNote(fails ? "" : updateNote(answer));
     if (fails) showNotice(fails);
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin("The session ended. Log in to update again.");
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.update"));
     hooksNote(error.message);
   }
 }
@@ -1789,7 +1891,7 @@ function showSettingAdder(button) {
   const [group, key] = JSON.parse(button.dataset.settingAdd);
   const box = document.createElement("span");
   box.className = "adder";
-  box.innerHTML = '<input type="text" spellcheck="false" placeholder="word or phrase">';
+  box.innerHTML = `<input type="text" spellcheck="false" placeholder="${t("settings.list.placeholder")}">`;
   button.replaceWith(box);
   const input = box.querySelector("input");
   input.focus();
@@ -1830,7 +1932,7 @@ function labelSpan(label, hint) {
   const id = `hint-${++HINT_COUNT}`;
   const button = actionButton(icon("info"), {
     variant: "hint",
-    attrs: { "aria-describedby": id, "aria-label": "Hint" },
+    attrs: { "aria-describedby": id, "aria-label": t("common.hint") },
   });
   return `<span><b>${esc(label)}</b>${button}<small id="${id}" role="tooltip">${esc(hint)}</small></span>`;
 }
@@ -1849,7 +1951,7 @@ function sectionList(id, items, active) {
     variant: key === active ? "on" : "",
     attrs: { "data-section": key, "aria-current": key === active ? "true" : null },
   })).join("");
-  return `<nav class="sections" aria-label="Sections">${buttons}</nav>`;
+  return `<nav class="sections" aria-label="${t("common.sections")}">${buttons}</nav>`;
 }
 
 // The pane of a section list. The back button names the page it returns to, as iOS does.
@@ -1863,12 +1965,12 @@ function sectionPane(back, cards) {
 // The last section of a list: the file text, and its own save. It holds the lines that the form
 // cannot show, so a broken file still opens.
 function yamlCard(editor, save, hint) {
-  return `<div class="card yaml-view" data-section="yaml"><h3>YAML</h3><p class="sub">${esc(hint)}</p>`
-    + `<textarea id="${editor}" spellcheck="false" aria-label="File text"></textarea>`
-    + `<div class="yaml-save">${actionButton("Save", {
+  return `<div class="card yaml-view" data-section="yaml"><h3>${t("yaml.label")}</h3><p class="sub">${esc(hint)}</p>`
+    + `<textarea id="${editor}" spellcheck="false" aria-label="${t("common.file_text")}"></textarea>`
+    + `<div class="yaml-save">${actionButton(t("action.save"), {
       variant: "primary", attrs: { id: save, disabled: true },
     })}`
-    + `<span class="hint">Ctrl+S saves and reloads</span></div></div>`;
+    + `<span class="hint">${t("settings.yaml.save_hint")}</span></div></div>`;
 }
 
 // The phone slide of the view that arrives: the pane from the right, and the list back from the left.
@@ -1961,7 +2063,7 @@ function fold(label, hint, body) {
   const id = `hint-${++HINT_COUNT}`;
   const button = actionButton(icon("info"), {
     variant: "hint",
-    attrs: { "aria-describedby": id, "aria-label": "Hint" },
+    attrs: { "aria-describedby": id, "aria-label": t("common.hint") },
   });
   return `<details class="fold"><summary>${esc(label)}${button}`
     + `<small id="${id}" role="tooltip">${esc(hint)}</small></summary>`
@@ -1972,7 +2074,7 @@ function providerCard(name, block) {
   const path = [name];
   if (!block || typeof block !== "object" || Array.isArray(block)) {
     return `<div class="card provider" data-section="${esc(name)}" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
-      <p class="sub">This block is not a map. Edit it in the YAML view.</p></div>`;
+      <p class="sub">${t("provider.block.invalid")}</p></div>`;
   }
   const defaults = state.providerDefaults[name] || state.providerDefaults["*"] || {};
   const tokenInfo = (value) => {
@@ -2001,27 +2103,27 @@ function providerCard(name, block) {
       return row.start + "•".repeat(rest);
     }
     if (hasSaved && row.end) return `${row.start || ""}••••`.slice(0, 4) + "•".repeat(Math.max(0, (row.length || 8) - 4));
-    if (hasSaved) return "From database";
-    if (row.state === "env" || row.has_env) return "From environment";
+    if (hasSaved) return t("provider.secret.database");
+    if (row.state === "env" || row.has_env) return t("provider.secret.environment");
     return "";
   };
   const placeholderFor = (info, row) => {
     if (!info) return "";
     if (info.type === "env") {
       const eff = effectiveState(info, row);
-      if (eff === "env") return "From environment";
-      if (eff === "missing") return "Missing — set env var";
+      if (eff === "env") return t("provider.secret.environment");
+      if (eff === "missing") return t("provider.secret.missing_environment");
       return "";
     }
     if (info.type === "db") {
-      if (!row) return "From database";
+      if (!row) return t("provider.secret.database");
       const hasSaved = row.has_saved ?? (row.state === "saved");
       if (hasSaved && row.start && row.length) {
         const rest = Math.max(0, row.length - row.start.length);
         return row.start + "•".repeat(rest);
       }
-      if (hasSaved) return "From database";
-      return "From database";
+      if (hasSaved) return t("provider.secret.database");
+      return t("provider.secret.database");
     }
     return maskedPlaceholder(row);
   };
@@ -2052,36 +2154,38 @@ function providerCard(name, block) {
     const rest = values && typeof values === "object" && !Array.isArray(values) ? { ...values } : values;
     if (rest && typeof rest === "object" && !Array.isArray(rest)) delete rest.hooks;
     return `<div class="override">
-      <input class="text" type="text" spellcheck="false" value="${esc(pattern)}" aria-label="Model pattern" title="${esc(PATTERN_HINT)}"
+      <input class="text" type="text" spellcheck="false" value="${esc(pattern)}" aria-label="${t("provider.model_pattern.label")}" title="${esc(PATTERN_HINT)}"
         data-pattern='${esc(JSON.stringify([...path, "models"]))}' data-key="${esc(pattern)}">
       <div class="pills">${mapPills(rest, [...path, "models", pattern], "override", ": ")}</div>
       ${hookFormRows(values?.hooks, [...path, "models", pattern, "hooks"], "model", pattern)}
       ${actionButton(icon("x"), {
         variant: "ghost",
         attrs: {
-          title: "Delete the pattern",
+          title: t("provider.pattern.delete"),
           "data-drop": JSON.stringify([...path, "models", pattern]),
         },
       })}
     </div>`;
   }).join("");
   const others = Object.keys(block).filter((key) => !FORM_KEYS.includes(key) && key !== "_file");
-  const values = others.map((key) => pill(`${key}: ${shown(block[key])}`, path, key)).join("") + adder(path, "column", "+ key");
-  const accountField = name === "cloudflare" ? text("account_id", "Account ID", "The Cloudflare account of the URL templates") : "";
+  const values = others.map((key) => pill(`${key}: ${shown(block[key])}`, path, key)).join("") + adder(path, "column", t("action.add_key"));
+  const accountField = name === "cloudflare"
+    ? text("account_id", t("provider.account_id.label"), t("provider.account_id.hint"))
+    : "";
   return `<div class="card provider" data-section="${esc(name)}" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
-    <p class="sub">env:NAME reads the environment variables. A pasted key goes to the database.</p>
-    ${text("api_key", "API key")}
+    <p class="sub">${t("provider.secret.note")}</p>
+    ${text("api_key", t("provider.api_key.label"))}
     ${accountField}
-    ${field("Client keys", "A provider key for each daedalus key name", `<div class="pills">${mapPills(block.client_keys, [...path, "client_keys"], "match", " = ")}</div>`)}
-    ${text("api_base", "API base", "Empty: the default, in gray")}
-    ${text("api_type", "API type", "openai or gemini. Empty: the default, in gray")}
-    ${text("discovery_url", "Discovery URL", "The model list URL. Empty: the default, in gray")}
-    ${field("Discovery match", "The catalog keeps a model when each key matches", `<div class="pills">${mapPills(block.discovery_match, [...path, "discovery_match"], "match", " = ")}</div>`)}
-    ${field("Exclude", `Model patterns that never route. ${PATTERN_HINT}`, listField("exclude", block.exclude, [...path, "exclude"]))}
-    ${fold("Tiers", `Model patterns for each tier. ${PATTERN_HINT}`, tiers)}
-    ${fold("Model overrides", `A pattern and the catalog values that it sets. ${PATTERN_HINT}`, `${overrides}<div class="pills">${adder([...path, "models"], "pattern", "+ Pattern")}</div>`)}
-    ${fold("Hooks", "The hook files of this provider, for each surface. The installed files that fit the provider come first.", hookFormRows(block.hooks, [name, "hooks"], "provider", name))}
-    ${fold("Provider values", "Catalog values for each model of the provider. A model override has priority.", `<div class="pills">${values}</div>`)}
+    ${field(t("provider.client_keys.label"), t("provider.client_keys.hint"), `<div class="pills">${mapPills(block.client_keys, [...path, "client_keys"], "match", " = ")}</div>`)}
+    ${text("api_base", t("provider.api_base.label"), t("provider.api_base.hint"))}
+    ${text("api_type", t("provider.api_type.label"), t("provider.api_type.hint"))}
+    ${text("discovery_url", t("provider.discovery_url.label"), t("provider.discovery_url.hint"))}
+    ${field(t("provider.discovery_match.label"), t("provider.discovery_match.hint"), `<div class="pills">${mapPills(block.discovery_match, [...path, "discovery_match"], "match", " = ")}</div>`)}
+    ${field(t("provider.exclude.label"), t("provider.exclude.hint", { pattern_hint: PATTERN_HINT }), listField("exclude", block.exclude, [...path, "exclude"]))}
+    ${fold(t("provider.tiers.label"), t("provider.tiers.hint", { pattern_hint: PATTERN_HINT }), tiers)}
+    ${fold(t("provider.model_overrides.label"), t("provider.model_overrides.hint", { pattern_hint: PATTERN_HINT }), `${overrides}<div class="pills">${adder([...path, "models"], "pattern", t("action.add_pattern"))}</div>`)}
+    ${fold(t("provider.hooks.label"), t("provider.hooks.hint"), hookFormRows(block.hooks, [name, "hooks"], "provider", name))}
+    ${fold(t("provider.provider_values.label"), t("provider.provider_values.hint"), `<div class="pills">${values}</div>`)}
   </div>`;
 }
 
@@ -2093,23 +2197,23 @@ function renderForm() {
   const typed = state.view === "yaml" ? $("editor")?.value : undefined;
   if (!state.files.length) return (host.innerHTML = "");
   if (blocks == null) {
-    host.innerHTML = sectionList("provider-form", [["yaml", "YAML"]], "yaml")
-      + sectionPane("Providers", `<div class="card" data-section="error"><h3>The YAML is not valid</h3>
+    host.innerHTML = sectionList("provider-form", [["yaml", t("yaml.label")]], "yaml")
+      + sectionPane(t("nav.providers"), `<div class="card" data-section="error"><h3>${t("provider.yaml.invalid")}</h3>
       <p class="sub">${esc(state.files[state.file].error ?? "")}</p>
-      <p class="sub">Fix the text in the YAML section. Then the form opens the file.</p></div>`
-      + yamlCard("editor", "yaml-save", `The file text of ${fileName(state.files[state.file].path)}. A block that the form cannot show still opens here.`));
+      <p class="sub">${t("provider.yaml.fix")}</p></div>`
+      + yamlCard("editor", "yaml-save", t("provider.yaml.file_hint", { file: fileName(state.files[state.file].path) })));
     pickSection(host, "yaml");
     $("editor").value = typed ?? state.files[state.file].text;
     renderFiles();
     return;
   }
   const names = Object.keys(blocks);
-  const items = names.map((name) => [name, name]).concat([["yaml", "YAML"]]);
+  const items = names.map((name) => [name, name]).concat([["yaml", t("yaml.label")]]);
   const picked = sectionState(host).key;
   const active = items.some(([key]) => key === picked) ? picked : items[0][0];
   host.innerHTML = sectionList("provider-form", items, active)
-    + sectionPane("Providers", names.map((name) => providerCard(name, blocks[name])).join("")
-      + yamlCard("editor", "yaml-save", `The file text of ${fileName(state.files[state.file]?.path ?? "")}. A block that the form cannot show still opens here.`));
+    + sectionPane(t("nav.providers"), names.map((name) => providerCard(name, blocks[name])).join("")
+      + yamlCard("editor", "yaml-save", t("provider.yaml.file_hint", { file: fileName(state.files[state.file]?.path ?? "") })));
   pickSection(host, active);
   $("editor").value = typed ?? state.files[state.file]?.text ?? "";
   renderFiles();
@@ -2153,9 +2257,15 @@ function showAdder(button) {
   box.className = "adder";
   const choices = kind === "column" ? [...state.overrideKeys.filter((key) => !MODEL_ONLY.includes(key)), ...PROVIDER_ONLY].sort() : state.overrideKeys;
   const keys = choices.map((key) => `<option>${esc(key)}</option>`).join("");
-  const placeholder = { list: "pattern", match: "key = value", pattern: "model pattern", override: "value", column: "value" }[kind];
+  const placeholder = {
+    list: t("provider.adder.pattern"),
+    match: t("provider.adder.key_value"),
+    pattern: t("provider.adder.model_pattern"),
+    override: t("provider.adder.value"),
+    column: t("provider.adder.value"),
+  }[kind];
   const hint = kind === "list" || kind === "pattern" ? PATTERN_HINT : "";
-  box.innerHTML = `${kind === "override" || kind === "column" ? `<select aria-label="Key">${keys}</select>` : ""}
+  box.innerHTML = `${kind === "override" || kind === "column" ? `<select aria-label="${t("provider.key.label")}">${keys}</select>` : ""}
     <input type="text" spellcheck="false" placeholder="${placeholder}" title="${esc(hint)}">`;
   button.replaceWith(box);
   const input = box.querySelector("input");
@@ -2186,13 +2296,13 @@ function addValue(path, kind, text, key) {
   } else if (kind === "pattern") {
     const models = parentOf([...path, text], {});
     if (text in models) {
-      showWrite("providers", `The pattern ${text} exists.`, true);
+      showWrite("providers", t("provider.pattern.exists", { pattern: text }), true);
       kept = false;
     } else models[text] = {};
   } else {
     const [name, value] = kind === "match" ? text.split(/\s*=\s*(.*)/s) : [key, text];
     if (!name || value === undefined) {
-      showWrite("providers", "Write the value as key = value.", true);
+      showWrite("providers", t("provider.validation.map_value"), true);
       kept = false;
     } else parentOf([...path, name], {})[name] = parsed(value);
   }
@@ -2209,7 +2319,9 @@ function renamePattern(input) {
   if (after === before) return;
   if (!after || after in models) {
     input.value = before;
-    showWrite("providers", after ? `The pattern ${after} exists.` : "A pattern cannot be empty.", true);
+    showWrite("providers", after
+      ? t("provider.pattern.exists", { pattern: after })
+      : t("provider.pattern.required"), true);
     return;
   }
   const renamed = Object.fromEntries(Object.entries(models).map(([key, value]) => [key === before ? after : key, value]));
@@ -2291,8 +2403,8 @@ function rememberWrite(page, restore, anchor = null) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "ghost undo-step";
-  button.title = "Undo this write";
-  button.setAttribute("aria-label", "Undo this write");
+  button.title = t("action.undo_write");
+  button.setAttribute("aria-label", t("action.undo_write"));
   button.textContent = "\u21b6";
   button.addEventListener("click", (event) => {
     // The row of a switch is a label, so the click must not reach it.
@@ -2355,7 +2467,7 @@ async function undoWrite() {
     }
     refresh();
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin("The session ended. Log in again.");
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended"));
     showWrite(write.page, error.message, true);
   }
 }
@@ -2379,7 +2491,7 @@ async function saveForm() {
     renderForm();
     refresh();
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin("The session ended. Log in to save again.");
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.save"));
     showWrite("providers", error.message, true);
   }
   renderFiles();
@@ -2398,7 +2510,7 @@ async function saveYaml() {
     refresh();
     guarded(refreshEnv);
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin("The session ended. Log in to save again.");
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.save"));
     showWrite("providers", error.message, true);
   }
   renderFiles();
@@ -2415,7 +2527,7 @@ async function pickProviderSection(key) {
   const host = $("provider-form");
   const view = key === "yaml" ? "yaml" : "form";
   if (view !== state.view) {
-    if (dirty() && !(await ask("Discard changes", "The unsaved changes of this file go away.", "Discard", true))) return;
+    if (dirty() && !(await ask(t("dialog.discard.title"), t("dialog.discard_file.message"), t("action.discard"), true))) return;
     const index = state.file;
     if (state.view === "yaml") state.files[index].text = state.saved[index];
     state.forms[index] = clone(state.files[index].blocks ?? {});
@@ -2430,83 +2542,94 @@ async function pickProviderSection(key) {
 
 // The request-level hook surfaces, in the order of `daedalus/providers/hooks.py`.
 const HOOK_SURFACES = [
-  ["on-catalog", "On catalog", "hooks", "At each catalog build, as the row goes to the store."],
-  ["on-request", "On request", "hooks", "Before the chain of a chat request, and on the repeat with the count. It sets the key of a turn."],
-  ["on-prompt", "On prompt", "hooks", "Before the first attempt, when the chain holds a reasoning model. It sets the reasoning effort."],
-  ["on-upstream", "On upstream", "hooks", "On the request body, before it goes to the provider."],
-  ["on-answer", "On answer", "hooks", "On the non-streamed answer of a provider."],
-  ["on-chunk", "On chunk", "hooks", "On each streamed chunk of a chat request."],
+  ["on-catalog", t("hook.surface.catalog.label"), "hooks", t("hook.surface.catalog.hint")],
+  ["on-request", t("hook.surface.request.label"), "hooks", t("hook.surface.request.hint")],
+  ["on-prompt", t("hook.surface.prompt.label"), "hooks", t("hook.surface.prompt.hint")],
+  ["on-upstream", t("hook.surface.upstream.label"), "hooks", t("hook.surface.upstream.hint")],
+  ["on-answer", t("hook.surface.answer.label"), "hooks", t("hook.surface.answer.hint")],
+  ["on-chunk", t("hook.surface.chunk.label"), "hooks", t("hook.surface.chunk.hint")],
 ];
 
 // The Settings form: [group, title, [[key, label, unit, hint], ...]].
 const SETTINGS = [
-  ["routing", "Routing", [
-    ["threshold", "Success threshold", "", "The odds a tier needs to take a request. 0.75 is the value of the shipped table."],
-    ["escalation", "Escalation keywords", "list", "1 word or phrase per chip. A match in the last user message moves the daedalus/auto session tier 1 step up."],
-    ["switch", "Switch keywords", "list", "1 word or phrase per chip. A match in the last user message gives the pool session another model of the same tier."],
+  ["routing", t("settings.routing.title"), [
+    ["threshold", t("settings.routing.threshold.label"), "", t("settings.routing.threshold.hint")],
+    ["escalation", t("settings.routing.escalation.label"), "list", t("settings.routing.escalation.hint")],
+    ["switch", t("settings.routing.switch.label"), "list", t("settings.routing.switch.hint")],
   ]],
   // The 5th element of a row lists the modes that show it. Only `mode` always shows.
-  ["affinity", "Affinity", [
-    ["mode", "Mode", "choice", "none: no pin and no race. session: each conversation stays on 1 model. race: the next models also race the first content."],
-    ["change_on_draw", "Change pin on draw", "", "Off: keep the current pin while it remains eligible after a weighted draw.", ["session"]],
-    ["idle", "Idle expiry", "s", "The session model expires after this time without a request.", ["session", "race"]],
-    ["stay", "Stay share", "", "The share of first-tier draws for the session model. Below 1.", ["session"]],
-    ["count", "Racing models", "", "The models that race the original one. 1 to 10.", ["race"]],
-    ["chance", "Race chance", "", "The chance to start the racing models with the original one. 0 to 1.", ["race"]],
-    ["slow", "Race slow token", "s", "Seconds with no content from the first model. Then the racing models start.", ["race"]],
-    ["penalty", "Loser factor", "x", "The weight factor for the model that loses the race. At most 1.", ["race"]],
+  ["affinity", t("settings.affinity.title"), [
+    ["mode", t("settings.affinity.mode.label"), "choice", t("settings.affinity.mode.hint")],
+    ["change_on_draw", t("settings.affinity.change_on_draw.label"), "", t("settings.affinity.change_on_draw.hint"), ["session"]],
+    ["idle", t("settings.affinity.idle.label"), "s", t("settings.affinity.idle.hint"), ["session", "race"]],
+    ["stay", t("settings.affinity.stay.label"), "", t("settings.affinity.stay.hint"), ["session"]],
+    ["count", t("settings.affinity.count.label"), "", t("settings.affinity.count.hint"), ["race"]],
+    ["chance", t("settings.affinity.race_chance.label"), "", t("settings.affinity.race_chance.hint"), ["race"]],
+    ["slow", t("settings.affinity.race_slow.label"), "s", t("settings.affinity.race_slow.hint"), ["race"]],
+    ["penalty", t("settings.affinity.penalty.label"), "x", t("settings.affinity.penalty.hint"), ["race"]],
   ]],
-  ["balance", "Load Distribution", [
-    ["weights", "Weights on", "", "Off: all weights stay at 1, and the chain keeps the usual order."],
-    ["success", "Success", "x", "The weight factor for a success."],
-    ["fault", "Fault", "x", "The weight factor for a fault."],
-    ["slow", "Slow success", "x", "The weight factor for a slow first token."],
-    ["hourly", "Hourly recovery", "x", "The weight factor for each hour."],
-    ["rate_limit", "Rate limit", "x", "The weight factor for an HTTP 429."],
-    ["first", "First backoff", "s", "The cooldown of a first 429 with no reset time."],
-    ["longest", "Longest backoff", "s", "Each next 429 doubles the cooldown, up to this time."],
-    ["pacing", "Pacing on", "", "A model at its rpm or tpm for the last minute leaves the chains."],
+  ["balance", t("settings.balance.title"), [
+    ["weights", t("settings.balance.weights.label"), "", t("settings.balance.weights.hint")],
+    ["success", t("settings.balance.success.label"), "x", t("settings.balance.success.hint")],
+    ["fault", t("settings.balance.fault.label"), "x", t("settings.balance.fault.hint")],
+    ["slow", t("settings.balance.slow.label"), "x", t("settings.balance.slow.hint")],
+    ["hourly", t("settings.balance.hourly.label"), "x", t("settings.balance.hourly.hint")],
+    ["rate_limit", t("settings.balance.rate_limit.label"), "x", t("settings.balance.rate_limit.hint")],
+    ["first", t("settings.balance.first.label"), "s", t("settings.balance.first.hint")],
+    ["longest", t("settings.balance.longest.label"), "s", t("settings.balance.longest.hint")],
+    ["pacing", t("settings.balance.pacing.label"), "", t("settings.balance.pacing.hint")],
   ]],
-  ["limits", "Limits", [
-    ["request", "Request", "s", "The time to wait for an answer, for all attempts. A stream that started does not stop at this limit."],
-    ["wait", "Wait", "s", "The time without data from the provider. Keep-alive bytes do not count."],
-    ["slow", "Slow first token", "s", "A first token after this time is slow."],
-    ["calls", "Tool calls", "", "Repeated identical calls since the last user message; 2–100."],
-    ["repeats", "Text repeats", "", "Consecutive copies of a text passage; 2–16."],
-    ["shortest", "Shortest passage", "", "Minimum period in characters; 1–1,000 and no greater than Longest."],
-    ["longest", "Longest passage", "", "Maximum period in characters; 1–10,000."],
+  ["limits", t("settings.limits.title"), [
+    ["request", t("settings.limits.request.label"), "s", t("settings.limits.request.hint")],
+    ["wait", t("settings.limits.wait.label"), "s", t("settings.limits.wait.hint")],
+    ["slow", t("settings.limits.slow.label"), "s", t("settings.limits.slow.hint")],
+    ["calls", t("settings.limits.calls.label"), "", t("settings.limits.calls.hint")],
+    ["repeats", t("settings.limits.repeats.label"), "", t("settings.limits.repeats.hint")],
+    ["shortest", t("settings.limits.shortest.label"), "", t("settings.limits.shortest.hint")],
+    ["longest", t("settings.limits.longest.label"), "", t("settings.limits.longest.hint")],
   ]],
-  ["optimization", "Optimization", [
-    ["enabled", "Headroom on", "", "Off: the messages of every model go to the provider unchanged."],
-    ["timeout", "Headroom timeout", "s", "After this time, the original messages go to the provider."],
+  ["optimization", t("settings.optimization.title"), [
+    ["enabled", t("settings.optimization.enabled.label"), "", t("settings.optimization.enabled.hint")],
+    ["timeout", t("settings.optimization.timeout.label"), "s", t("settings.optimization.timeout.hint")],
   ]],
-  ["privacy", "Privacy", [
-    ["forward_owui_chat_id", "Forward OWUI chat ID", "", "On: send the Open WebUI conversation ID to model providers. Off: keep it inside daedalus."],
+  ["privacy", t("settings.privacy.title"), [
+    ["forward_owui_chat_id", t("settings.privacy.forward_chat_id.label"), "", t("settings.privacy.forward_chat_id.hint")],
   ]],
-  ["catalog", "Catalog", [
-    ["every", "Rebuild interval", "h", "The hours between rebuilds. 0 stops them."],
-    ["anchor", "Anchor hour", "h", "The local hour (TZ) that the rebuild times start from."],
+  ["catalog", t("settings.catalog.title"), [
+    ["every", t("settings.catalog.every.label"), "h", t("settings.catalog.every.hint")],
+    ["anchor", t("settings.catalog.anchor.label"), "h", t("settings.catalog.anchor.hint")],
   ]],
   // The request surfaces live in the hooks table, so the card holds the manager alone.
-  ["hooks", "Hooks", []],
-  ["personalization", "Personalization", [
-    ["tier-a", "Tier A", "name", "The client name of the tier A pool: sophos by default."],
-    ["tier-b", "Tier B", "name", "The client name of the tier B pool: deinos by default."],
-    ["tier-c", "Tier C", "name", "The client name of the tier C pool: koinos by default."],
-    ["tier-d", "Tier D", "name", "The client name of the tier D pool: moros by default."],
-    ["audio", "Transcription", "name", "The client name of the transcription pool: graphos by default."],
-    ["images", "Image", "name", "The client name of the image pool: photos by default."],
-    ["theme", "Theme", "choice", "System follows the light or dark setting of the device."],
-    ["time_format", "Time format", "choice", "The hour of each shown time. Every time carries its date."],
+  ["hooks", t("settings.hooks.title"), []],
+  ["personalization", t("settings.personalization.title"), [
+    ["tier-a", t("settings.personalization.tier_a.label"), "name", t("settings.personalization.tier_a.hint")],
+    ["tier-b", t("settings.personalization.tier_b.label"), "name", t("settings.personalization.tier_b.hint")],
+    ["tier-c", t("settings.personalization.tier_c.label"), "name", t("settings.personalization.tier_c.hint")],
+    ["tier-d", t("settings.personalization.tier_d.label"), "name", t("settings.personalization.tier_d.hint")],
+    ["audio", t("settings.personalization.audio.label"), "name", t("settings.personalization.audio.hint")],
+    ["images", t("settings.personalization.image.label"), "name", t("settings.personalization.image.hint")],
+    ["theme", t("settings.personalization.theme.label"), "choice", t("settings.personalization.theme.hint")],
+    ["time_format", t("settings.personalization.time_format.label"), "choice", t("settings.personalization.time_format.hint")],
   ]],
 ];
 
 // The Settings cards of each column, from top to bottom.
 // The options of each choice field.
 const CHOICES = {
-  mode: [["none", "None"], ["session", "Session"], ["race", "Race"]],
-  theme: [["system", "System"], ["light", "Light"], ["dark", "Dark"]],
-  time_format: [["24h", "24 h"], ["12h", "12 h"]],
+  mode: [
+    ["none", t("settings.choice.none")],
+    ["session", t("settings.choice.session")],
+    ["race", t("settings.choice.race")],
+  ],
+  theme: [
+    ["system", t("settings.choice.system")],
+    ["light", t("settings.choice.light")],
+    ["dark", t("settings.choice.dark")],
+  ],
+  time_format: [
+    ["24h", t("settings.time_format.hour24")],
+    ["12h", t("settings.time_format.hour12")],
+  ],
 };
 
 // The theme of the page. System follows the device, also before the login.
@@ -2557,21 +2680,21 @@ const isSwitch = (group, key) => typeof state.settings.defaults[group][key] === 
 
 // The API keys card of the Settings page: the form, the reveal and the table ride in it.
 function keysCard() {
-  return `<div class="card" data-section="keys"><h3>API Keys</h3>
+  return `<div class="card" data-section="keys"><h3>${t("settings.keys.title")}</h3>
     <form class="toolbar" id="new-key">
-      <input id="key-name" maxlength="40" placeholder="Name of the new key" required>
-      ${actionButton("New key", { variant: "primary", type: "submit" })}
+      <input id="key-name" maxlength="40" placeholder="${t("settings.keys.new_placeholder")}" required>
+      ${actionButton(t("action.new_key"), { variant: "primary", type: "submit" })}
       <span class="message bad" id="key-message" role="alert"></span>
     </form>
     <div class="reveal" id="reveal" hidden>
-      <span>Copy the key <b id="reveal-name"></b> now. daedalus shows it only this time.</span>
+      <span>${t("settings.keys.copy_hint", { name: '<b id="reveal-name"></b>' })}</span>
       <code id="reveal-key"></code>
-      ${actionButton("Copy", { variant: "ghost", attrs: { id: "copy" } })}
-      ${actionButton("Done", { variant: "ghost", attrs: { id: "reveal-close" } })}
+      ${actionButton(t("action.copy"), { variant: "ghost", attrs: { id: "copy" } })}
+      ${actionButton(t("action.done"), { variant: "ghost", attrs: { id: "reveal-close" } })}
     </div>
     <div class="card-scroll"><table class="keys">
       <thead><tr>
-        <th>Name</th><th>Key</th><th class="hide-sm">Created</th><th>Last used</th><th></th>
+        <th>${t("settings.keys.name")}</th><th>${t("settings.keys.key")}</th><th class="hide-sm">${t("settings.keys.created")}</th><th>${t("settings.keys.last_used")}</th><th></th>
       </tr></thead>
       <tbody id="keys"></tbody>
     </table></div>
@@ -2617,14 +2740,16 @@ function renderSettings() {
     }).join("")}${group === "hooks" ? hooksManager() : ""}</div>`;
   // The section list: the rail names every group, and the pane holds its card.
   const groups = SETTINGS.filter(([group]) => group !== "headroom" || state.settings.headroom_available);
-  const items = groups.map(([group, title]) => [group, title]).concat([["keys", "API Keys"], ["yaml", "YAML"]]);
+  const items = groups.map(([group, title]) => [group, title]).concat([
+    ["keys", t("settings.keys.title")], ["yaml", t("yaml.label")],
+  ]);
   const picked = sectionState($("settings")).key;
   const active = items.some(([key]) => key === picked) ? picked : items[0][0];
   $("settings").innerHTML = sectionList("settings", items, active)
-    + sectionPane("Settings", groups.map(([group, title, fields]) => card([group, title, fields]).replace(
+    + sectionPane(t("nav.settings"), groups.map(([group, title, fields]) => card([group, title, fields]).replace(
       '<div class="card">', `<div class="card" data-section="${esc(group)}">`)).join("")
       + keysCard()
-      + yamlCard("settings-editor", "settings-yaml-save", `The file text of ${fileName(state.settings.path)}. A key that the form cannot show still opens here.`));
+      + yamlCard("settings-editor", "settings-yaml-save", t("settings.yaml.hint", { file: fileName(state.settings.path) })));
   pickSection($("settings"), active);
   $("settings-editor").value = typed ?? state.settings.text;
   // The rendered file wins, and the shown rows follow its mode.
@@ -2740,7 +2865,7 @@ async function loadSettings() {
 async function pickSettingsSection(key) {
   const view = key === "yaml" ? "yaml" : "form";
   if (view !== state.settingsView) {
-    if (settingsDirty() && !(await ask("Discard changes", "The unsaved settings changes go away.", "Discard", true))) return;
+    if (settingsDirty() && !(await ask(t("dialog.discard.title"), t("dialog.discard_settings.message"), t("action.discard"), true))) return;
     state.settingsView = view;
     clearWrite("settings");
     renderSettings();
@@ -2763,7 +2888,7 @@ async function saveSettings() {
     clearWrite("settings");
     refresh();
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin("The session ended. Log in to save again.");
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.save"));
     showWrite("settings", error.message, true);
   }
   renderSettingsSave();
@@ -2798,19 +2923,44 @@ async function refreshFast() {
 // Counts from 100,000 show short, for example 998.8M, so the bar keeps its room.
 
 // The short unit of a rate-limit row, for example tok/min.
-const SPANS = { minute: "min", hour: "h", day: "day", month: "mo" };
-const unit = (r) => `${r.kind === "tokens" ? "tok" : "req"}${r.span ? `/${SPANS[r.span] || r.span}` : ""}`;
-const SPAN_SHORT = { minute: "M", hour: "H", day: "D", month: "MO" };
-const SPAN_WORD = { minute: "minute", hour: "hour", day: "day", month: "month" };
+const SPANS = {
+  minute: t("limits.span.minute.short"),
+  hour: t("limits.span.hour.short"),
+  day: t("limits.span.day.short"),
+  month: t("limits.span.month.short"),
+};
+const unit = (r) => t("limits.unit.rate_short", {
+  unit: r.kind === "tokens" ? t("limits.unit.tokens.short") : t("limits.unit.requests.short"),
+  span: r.span ? `/${SPANS[r.span] || r.span}` : "",
+});
+const SPAN_SHORT = {
+  minute: t("limits.span.minute.initial"),
+  hour: t("limits.span.hour.initial"),
+  day: t("limits.span.day.initial"),
+  month: t("limits.span.month.initial"),
+};
+const SPAN_WORD = {
+  minute: t("limits.span.minute.label"),
+  hour: t("limits.span.hour.label"),
+  day: t("limits.span.day.label"),
+  month: t("limits.span.month.label"),
+};
 function limitUnit(r) {
-  if (r.kind === "neurons") return "Neurons/day";
+  if (r.kind === "neurons") return t("limits.balance.neurons_per_day");
   if (!SPAN_SHORT[r.span]) return r.kind;
-  return `${r.kind === "tokens" ? "T" : "R"}P${SPAN_SHORT[r.span]}`;
+  return t("limits.unit.rate_initial", {
+    unit: r.kind === "tokens" ? t("limits.unit.tokens.initial") : t("limits.unit.requests.initial"),
+    span: SPAN_SHORT[r.span],
+  });
 }
 // The full name of a short unit, for the hover text of the Limit column, for example Requests per day.
 function limitTitle(r) {
-  const kind = r.kind === "neurons" ? "Neurons" : r.kind === "tokens" ? "Tokens" : "Requests";
-  return r.span ? `${kind} per ${SPAN_WORD[r.span] || r.span}` : kind;
+  const kind = r.kind === "neurons"
+    ? t("limits.unit.neurons")
+    : r.kind === "tokens"
+      ? t("limits.unit.tokens")
+      : t("limits.unit.requests");
+  return r.span ? t("limits.unit.per", { unit: kind, span: SPAN_WORD[r.span] || r.span }) : kind;
 }
 
 // A time cell of the Limits table: the relative time, with the exact stamp on hover. An empty
@@ -2829,8 +2979,8 @@ function overviewLimits(data) {
   const rows = data.lanes.flatMap((lane) => lane.rows.map((row) => ({ ...row, model: lane.model })))
     .sort((a, b) => share(a) - share(b)).slice(0, 3)
     .map((r) => `<div class="balance">${line(`<span title="${esc(r.model)}">${modelName(r.model)}</span>`,
-      `${floorCount(r.remaining)} of ${floorCount(r.limit)} ${esc(unit(r))}`,
-      { title: `${r.remaining.toLocaleString()} of ${r.limit.toLocaleString()}` })}${bar(share(r))}</div>`);
+      `${t("limits.value.of", { remaining: floorCount(r.remaining), limit: floorCount(r.limit) })} ${esc(unit(r))}`,
+      { title: t("limits.value.of", { remaining: r.remaining.toLocaleString(), limit: r.limit.toLocaleString() }) })}${bar(share(r))}</div>`);
   return [...balances, ...rows].join("");
 }
 
@@ -2850,7 +3000,9 @@ function renderLimits(data) {
   state.limits = data;
   limitsHash();
   renderLimitRows(shownLimits());
-  $("limits-checked").textContent = data.checked ? `Checked ${stamp(data.checked)} · each hour` : "Not checked yet";
+  $("limits-checked").textContent = data.checked
+    ? t("limits.checked", { time: stamp(data.checked) })
+    : t("limits.not_checked");
   $("balances").hidden = !data.providers.length;
   draw("balances", data.providers.map((p) => `<div class="card"><h3>${esc(p.name)}</h3>
     ${p.items.map(([label, value, left]) => `<div class="balance">${line(esc(label), esc(value))}
@@ -2862,12 +3014,12 @@ function renderLimitRows(rows) {
   draw("limit-rows", rows.length ? rows.map((r) => `<tr>
       ${nameCell(r.model, `${modelName(r.model)}${r.client ? ` <span class="muted">${esc(r.client)}</span>` : ""}`)}
       <td title="${esc(limitTitle(r))}">${esc(limitUnit(r))}</td>
-      <td><div class="weight left" title="${r.remaining.toLocaleString()} of ${r.limit.toLocaleString()}">
+      <td><div class="weight left" title="${t("limits.value.of", { remaining: r.remaining.toLocaleString(), limit: r.limit.toLocaleString() })}">
         ${progressMeter(r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0)}
-        <span class="num${r.remaining > 0 ? "" : " out"}">${floorCount(r.remaining)} of ${floorCount(r.limit)}</span></div></td>
+        <span class="num${r.remaining > 0 ? "" : " out"}">${t("limits.value.of", { remaining: floorCount(r.remaining), limit: floorCount(r.limit) })}</span></div></td>
       ${limitTimeCell(r.reset, "hide-sm muted time")}
       ${limitTimeCell(r.at, "hide-sm muted time")}
-    </tr>`).join("") : '<tr><td colspan="5" class="empty">No rate-limit headers yet. Groq and Mistral send them with each answer.</td></tr>');
+    </tr>`).join("") : `<tr><td colspan="5" class="empty">${t("limits.empty")}</td></tr>`);
 }
 
 const DIFF_KINDS = [
@@ -2883,25 +3035,25 @@ function rebuildDiff(event) {
 }
 
 const DIFF_CAPABILITIES = {
-  supports_function_calling: [CHIP_ICON_NAMES.tools, "Tools"],
-  supports_tool_choice: [CHIP_ICON_NAMES.tools, "Tool choice"],
-  supports_parallel_function_calling: [CHIP_ICON_NAMES.tools, "Parallel tools"],
-  supports_response_schema: ["", "Structured output"],
-  supports_reasoning: [CHIP_ICON_NAMES.brain, "Reasoning"],
+  supports_function_calling: [CHIP_ICON_NAMES.tools, t("model.capability.tools")],
+  supports_tool_choice: [CHIP_ICON_NAMES.tools, t("model.capability.tool_choice")],
+  supports_parallel_function_calling: [CHIP_ICON_NAMES.tools, t("model.capability.parallel_tools")],
+  supports_response_schema: ["", t("model.capability.structured_output")],
+  supports_reasoning: [CHIP_ICON_NAMES.brain, t("model.column.reasoning")],
   supports_vision: [FLAG_ICON_NAMES.vision, FLAGS.vision],
   supports_pdf_input: [FLAG_ICON_NAMES.pdf_input, FLAGS.pdf_input],
   supports_audio_input: [FLAG_ICON_NAMES.audio_input, FLAGS.audio_input],
   supports_audio_output: [FLAG_ICON_NAMES.audio_output, FLAGS.audio_output],
-  supports_web_search: ["search", "Web search"],
+  supports_web_search: ["search", t("model.capability.web_search")],
 };
 const DIFF_LABELS = {
-  mode: "Type",
-  max_input_tokens: "Context",
-  max_output_tokens: "Output",
-  max_tokens: "Tokens",
-  rpm: "RPM",
-  tpm: "TPM",
-  tier: "Tier",
+  mode: t("model.column.type"),
+  max_input_tokens: t("model.column.context"),
+  max_output_tokens: t("model.column.output"),
+  max_tokens: t("model.column.tokens"),
+  rpm: t("model.column.rpm"),
+  tpm: t("model.column.tpm"),
+  tier: t("model.column.tier"),
 };
 
 function diffChip(label, iconName = "", kind = "") {
@@ -2920,7 +3072,7 @@ function diffValue(text) {
 }
 
 function diffShown(value) {
-  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "boolean") return value ? t("common.boolean.yes") : t("common.boolean.no");
   if (Array.isArray(value)) return value.join(", ");
   return String(value);
 }
@@ -2993,7 +3145,7 @@ function openDiffModal(event) {
     ? lines
         .map(([kind, mark, text]) => `<div class="line diff-line"><span class="${kind}">${mark}</span><span class="diff-model" title="${esc(text)}">${diffModel(text, kind)}</span></div>`)
         .join("")
-    : none("No model moved.");
+    : none(t("model.diff.empty"));
   $("model-modal").showModal();
 }
 
@@ -3013,8 +3165,10 @@ function renderNotifications(data) {
       html: item(
         "reset",
         event.at,
-        `${esc(event.provider)} ${esc(limitUnit(event))} reset`,
-        event.client ? `Client ${esc(event.client)}` : "Provider allowance renewed",
+        t("notification.reset", { provider: esc(event.provider), unit: esc(limitUnit(event)) }),
+        event.client
+          ? t("notification.client", { client: esc(event.client) })
+          : t("notification.provider_renewed"),
       ),
     })),
     ...(data.limits || []).map((event) => ({
@@ -3022,9 +3176,13 @@ function renderNotifications(data) {
       html: item(
         "warning",
         event.at,
-        `${esc(event.model)} near its limit`,
-        `${floorCount(event.remaining)} of ${floorCount(event.limit)} ${esc(limitUnit(event))} left`
-          + (event.client ? ` · ${esc(event.client)}` : ""),
+        t("notification.limit_near", { model: esc(event.model) }),
+        t("notification.limit_left", {
+          remaining: floorCount(event.remaining),
+          limit: floorCount(event.limit),
+          unit: esc(limitUnit(event)),
+          client: event.client ? ` · ${esc(event.client)}` : "",
+        }),
       ),
     })),
     ...(data.rebuilds || []).map((event, index) => ({
@@ -3032,35 +3190,37 @@ function renderNotifications(data) {
       html: item(
         "rebuild",
         event.at,
-        `Catalog rebuild · ${esc(event.reason)}`,
+        t("notification.catalog_rebuild", { reason: esc(event.reason) }),
         `${count(event.models, "model")} · ${rebuildDiff(event)}`
-          + (event.failed.length ? ` · Failed: ${esc(event.failed.join(", "))}` : ""),
+          + (event.failed.length
+            ? t("notification.catalog_failed", { failures: esc(event.failed.join(", ")) })
+            : ""),
         { "data-rebuild": index },
       ),
     })),
   ].sort((a, b) => b.at - a.at);
   draw(
     "notification-feed",
-    "<h3>Notifications</h3>" +
-      (notices.length ? notices.map((notice) => notice.html).join("") : none("No notifications yet."))
+    `<h3>${t("notification.title")}</h3>` +
+      (notices.length ? notices.map((notice) => notice.html).join("") : none(t("notification.empty")))
   );
   const update = data.update;
-  let body = "<h3>Update</h3>";
-  if (!update) body += none("Not checked yet");
+  let body = `<h3>${t("update.title")}</h3>`;
+  if (!update) body += none(t("update.not_checked"));
   else if (update.error === "no commit in this build's version")
-    body += none("This build's version names no commit, so the check has nothing to compare.");
-  else if (update.error) body += none(`Check failed: ${esc(update.error)}`);
+    body += none(t("update.no_commit"));
+  else if (update.error) body += none(t("update.check_failed", { error: esc(update.error) }));
   else if (update.channel === "release")
     body += update.update
-      ? line("Available", `<a href="${esc(update.url)}">${esc(update.latest)}</a>`) +
-        line("You are on", esc(update.current))
-      : line("Up to date", esc(update.latest || update.current));
-  else if (update.update) body += line("Behind main", `${update.behind} ${update.behind === 1 ? "commit" : "commits"}`);
-  else body += line("Up to date", "main");
-  body += line("Checked", update ? stamp(update.at) : "-");
+      ? line(t("update.available"), `<a href="${esc(update.url)}">${esc(update.latest)}</a>`) +
+        line(t("update.you_are_on"), esc(update.current))
+      : line(t("update.up_to_date"), esc(update.latest || update.current));
+  else if (update.update) body += line(t("update.behind_main"), count(update.behind, "commit"));
+  else body += line(t("update.up_to_date"), "main");
+  body += line(t("update.checked"), update ? stamp(update.at) : "-");
   draw(
     "update-card",
-    body + actionButton("Check now", { variant: "ghost", attrs: { id: "update-check" } })
+    body + actionButton(t("action.check_now"), { variant: "ghost", attrs: { id: "update-check" } })
   );
 }
 
@@ -3146,7 +3306,7 @@ $("login").addEventListener("submit", async (event) => {
 $("limits-check").addEventListener("click", async () => {
   const button = $("limits-check");
   button.disabled = true;
-  $("limits-message").textContent = "Checking";
+  $("limits-message").textContent = t("action.checking");
   try {
     renderLimits(await call("limits", { method: "POST" }));
     $("limits-message").textContent = "";
@@ -3168,7 +3328,7 @@ $("update-card").addEventListener("click", async (event) => {
   const button = event.target.closest("#update-check");
   if (!button) return;
   button.disabled = true;
-  button.textContent = "Checking";
+  button.textContent = t("action.checking");
   try {
     const result = await call("updates", { method: "POST" });
     if (state.notifications) {
@@ -3178,7 +3338,7 @@ $("update-card").addEventListener("click", async (event) => {
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin();
     button.disabled = false;
-    button.textContent = "Check now";
+    button.textContent = t("action.check_now");
   }
 });
 $("show-password").addEventListener("click", () => showPassword($("login").password.type === "password"));
@@ -3190,7 +3350,7 @@ document.addEventListener("click", async (event) => {
   }
   if (event.target.closest("[data-catalog-rebuild]")) return rebuildCatalog();
   if (!event.target.closest(".logout")) return;
-  if (!(await ask("Log out", "The dashboard session ends.", "Log out"))) return;
+  if (!(await ask(t("action.logout"), t("auth.logout.message"), t("action.logout")))) return;
   await call("logout", { method: "POST" }).catch(() => {});
   keepSession(null);
   showLogin();
@@ -3198,12 +3358,12 @@ document.addEventListener("click", async (event) => {
 $("reset-weights").addEventListener("click", async () => {
   const message = $("reset-message");
   message.textContent = "";
-  const go = await ask("Reset weights and cooldowns", "All weights go back to 1. All cooldowns end. Session models stay.", "Reset", true);
+  const go = await ask(t("dialog.reset.title"), t("dialog.reset.message"), t("action.reset"), true);
   if (!go) return;
   try {
     await call("reset", { method: "POST" });
     message.className = "message ok";
-    message.textContent = "All weights are 1. No cooldowns.";
+    message.textContent = t("model.reset.done");
     refresh();
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin();
@@ -3214,9 +3374,10 @@ $("reset-weights").addEventListener("click", async () => {
 
 // A field that stops at its length says the rule, so the cut is not silent.
 function showLengthLimit(input, message) {
+  const limit = t("validation.characters_at_most", { count: input.maxLength });
   if (input.maxLength > 0 && input.value.length >= input.maxLength) {
-    message.textContent = `${input.maxLength} characters at most`;
-  } else if (message.textContent.endsWith("characters at most")) {
+    message.textContent = limit;
+  } else if (message.textContent === limit) {
     message.textContent = "";
   }
 }
@@ -3246,23 +3407,23 @@ $("settings").addEventListener("click", async (event) => {
   if (event.target.closest("#copy")) {
     try {
       await navigator.clipboard.writeText($("reveal-key").textContent);
-      $("copy").textContent = "Copied";
+      $("copy").textContent = t("action.copied");
     } catch {
       getSelection().selectAllChildren($("reveal-key"));
-      $("copy").textContent = "Press Ctrl+C";
+      $("copy").textContent = t("action.press_ctrl_c");
     }
     return;
   }
   if (event.target.closest("#reveal-close")) {
     $("reveal").hidden = true;
     $("reveal-key").textContent = "";
-    $("copy").textContent = "Copy";
+    $("copy").textContent = t("action.copy");
     return;
   }
   const button = event.target.closest("[data-key]");
   if (!button) return;
   const name = button.dataset.key;
-  if (!(await ask("Delete key", `Clients with the key "${name}" get 401 at once.`, "Delete", true))) return;
+  if (!(await ask(t("dialog.delete_key.title"), t("dialog.delete_key.message", { name }), t("action.delete"), true))) return;
   await guarded(async () => {
     await call("keys/" + encodeURIComponent(name), { method: "DELETE" });
     await refreshKeys();
@@ -3344,10 +3505,10 @@ $("requests").addEventListener("click", async (event) => {
     const found = state.requests.find((r) => String(r.at) === button.dataset.at);
     try {
       await navigator.clipboard.writeText(chainText(found));
-      button.textContent = "Copied";
+      button.textContent = t("action.copied");
     } catch {
       getSelection().selectAllChildren(button.closest("td"));
-      button.textContent = "Press Ctrl+C";
+      button.textContent = t("action.press_ctrl_c");
     }
     return;
   }
@@ -3360,6 +3521,15 @@ $("requests").addEventListener("click", async (event) => {
   renderRequestTable();
 });
 const PAGES = ["overview", "requests", "models", "limits", "notifications", "providers", "settings"];
+const PAGE_LABELS = {
+  overview: t("nav.overview"),
+  requests: t("nav.requests"),
+  models: t("nav.models"),
+  limits: t("nav.limits"),
+  notifications: t("nav.notifications"),
+  providers: t("nav.providers"),
+  settings: t("nav.settings"),
+};
 
 // A Models link such as #/models?tier=C&mode=chat&sort=weight sets the filters.
 function applyModelFilters(query) {
@@ -3535,7 +3705,7 @@ function showPage() {
   if (page === "providers" && state.view === "form") renderForm();
   applySectionHash();
   slideAgain();
-  document.title = `daedalus · ${document.querySelector(`#nav a[data-page="${page}"]`).firstChild.textContent}`;
+  document.title = t("page.title", { page: PAGE_LABELS[page] });
   fitSectionPane();
   markCardScrollEdges();
 }
@@ -3596,7 +3766,8 @@ $("files").addEventListener("click", async (event) => {
   if (!event.target.closest("#new-provider")) return;
   clearWrite("providers");
   const ok = await ask(
-    "New provider", "Lowercase letters, digits and dashes.", "Create", false, "Provider name",
+    t("dialog.new_provider.title"), t("dialog.new_provider.hint"),
+    t("action.create"), false, t("dialog.new_provider.placeholder"),
   );
   if (!ok) return;
   const name = $("modal-input").value.trim();
@@ -3613,7 +3784,8 @@ $("files").addEventListener("click", async (event) => {
   if (!event.target.closest("#drop-provider")) return;
   clearWrite("providers");
   const file = state.files[state.file];
-  if (!file || !(await ask("Delete file", `${file.path} goes away. The main file stays.`, "Delete", true))) return;
+  if (!file || !(await ask(t("dialog.delete_file.title"),
+    t("dialog.delete_file.message", { path: file.path }), t("action.delete"), true))) return;
   try {
     await call("files", { method: "DELETE", body: JSON.stringify({ path: file.path }) });
     await reloadFiles(null);
@@ -3650,13 +3822,13 @@ async function addClientKey(button) {
   const path = JSON.parse(button.dataset.add);
   clearWrite("providers");
   const ok = await askPair(
-    "Client key", "The key and its value go to the file when this dialog closes.",
-    "Key name", "Provider key",
+    t("dialog.client_key.title"), t("dialog.client_key.message"),
+    t("provider.key_name.label"), t("provider.provider_key.label"),
   );
   if (!ok) return;
   const name = $("modal-input").value.trim();
   const value = $("modal-input2").value.trim();
-  if (!name || !value) return showWrite("providers", "Write the key name and its value.", true);
+  if (!name || !value) return showWrite("providers", t("provider.validation.client_key"), true);
   parentOf([...path, name], {})[name] = parsed(value);
   renderCard(path[0]);
   saveForm();
@@ -3818,5 +3990,6 @@ $("modal").addEventListener("close", (event) => {
   done?.(event.target.returnValue === "ok");
 });
 
+applyLocale();
 renderLegend();
 guarded(start);
