@@ -383,14 +383,17 @@ def history(target, base, evidence=EVIDENCE_KINDS[0], policy=None):
             parts.append(git(*diff_tree_args(parent, sha), "-p", "--", *included))
     units.append((sha, "\n\n".join(parts)))
   if policy is not None:
-    summary(
-      f"Evidence scope: selected {len(selected_audit)} commit(s); "
-      f"omitted {len(omitted_audit)} commit(s)"
+    reasons = {}
+    for _, reason in omitted_audit:
+      reasons[reason] = reasons.get(reason, 0) + 1
+    omitted = (
+      ", ".join(f"{reason}: {count}" for reason, count in sorted(reasons.items()))
+      or "none"
     )
-    for sha, paths in selected_audit:
-      summary(f"  selected {sha}: selected-paths: {', '.join(paths)}")
-    for sha, reason in omitted_audit:
-      summary(f"  omitted {sha}: {reason}")
+    summary(
+      f"Evidence scope: {len(selected_audit)} selected commit(s); "
+      f"{len(omitted_audit)} omitted ({omitted})"
+    )
   return units
 
 
@@ -548,6 +551,14 @@ def gemini_call(model, action, payload):
     if detail:
       message += f": {detail}"
     raise RuntimeError(redact(message)) from None
+  except (urllib.error.URLError, TimeoutError) as exc:
+    detail = str(getattr(exc, "reason", exc)) or type(exc).__name__
+    kind = (
+      "request timed out after 180s"
+      if "timed out" in detail.lower()
+      else "transport error"
+    )
+    raise RuntimeError(redact(f"Gemini {action} failed: {kind}: {detail}")) from None
 
 
 def response_text(data):
@@ -638,7 +649,7 @@ def generate(context, evidence, model, on_success=None):
       if "429" in detail:
         wait = (float(hint.group(1)) if hint else 60.0) + SAFETY_SECONDS
         cool(rung, wait, f"429, retry in {wait:.1f}s")
-      elif "HTTP" in detail:
+      elif "HTTP" in detail or (detail.startswith("Gemini ") and " failed:" in detail):
         # The request never ran, so the rung stays ready. Step down for this request.
         exhausted.add(rung)
         summary(f"Gemini model {rung} failed: {short_error(detail)}; stepping down")
