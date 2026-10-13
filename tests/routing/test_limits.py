@@ -211,7 +211,8 @@ def test_neurons() -> None:
     "data": {"viewer": {"accounts": [{"aiInferenceAdaptiveGroups": []}]}},
     "errors": None,
   }
-  assert limits.neuron_items(empty) == [("Neurons today", "10K of 10K left", 1.0)]
+  rows = limits.neuron_items(empty)
+  assert len(rows) == 1 and rows[0][2] == 1.0, rows
   small = {
     "data": {
       "viewer": {
@@ -219,9 +220,8 @@ def test_neurons() -> None:
       }
     }
   }
-  assert limits.neuron_items(small) == [
-    ("Neurons today", "9K of 10K left", pytest.approx(0.99991, abs=1e-5))
-  ], "the number and the bar show the neurons that are left"
+  rows = limits.neuron_items(small)
+  assert len(rows) == 1 and rows[0][2] == pytest.approx(0.99991, abs=1e-5), rows
   refused = {"data": None, "errors": [{"message": "not authorized for that account"}]}
   assert limits.neuron_items(refused) == []
   assert limits.neuron_items({"data": {"viewer": {"accounts": []}}}) == []

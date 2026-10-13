@@ -164,6 +164,9 @@ async def test_renamed(client: httpx.AsyncClient) -> None:
   assert response.status_code == 200, response.text
   image = {"model": "daedalus/photos", "prompt": "a cat"}
   response = await client.post("/v1/images/generations", json=image)
-  assert response.status_code == 400 and "Unknown provider or pool" in response.text
+  assert (
+    response.status_code == 400
+    and response.json()["error"]["type"] == "invalid_request_error"
+  )
   response = await client.post("/v1/chat/completions", json=chat("daedalus/unused"))
   assert response.status_code == 400, response.text

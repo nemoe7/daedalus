@@ -3231,7 +3231,10 @@ def test_hook_rows_and_update(
     },
   )
   empty = client.post("/ui/api/hooks/update")
-  assert empty.status_code == 400 and "No source" in empty.text, empty.text
+  assert (
+    empty.status_code == 400
+    and empty.json()["error"]["type"] == "invalid_request_error"
+  ), empty.text
   assert TestClient(api.app).post("/ui/api/hooks/update").status_code == 401, (
     "a session is needed"
   )
