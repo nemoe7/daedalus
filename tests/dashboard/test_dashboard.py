@@ -2105,6 +2105,15 @@ def test_header_state_matches_the_page_switcher() -> None:
   )
 
 
+def test_pills_cap_their_radius() -> None:
+  """A tall pill is a rounded rectangle; a 1-line pill stays round."""
+  css = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
+  ).read_text(encoding="utf-8")
+  rule = re.search(r"(?m)^\.pill \{([^}]*)\}", css)
+  assert rule and "border-radius: 12px" in rule.group(1)
+
+
 def run_app_js(probe: str, body: str) -> None:
   """Run a node snippet over `app.js` with a small DOM stand-in, and the named probes on `__probe`."""
   code = f"""

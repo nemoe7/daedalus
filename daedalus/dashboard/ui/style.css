@@ -575,7 +575,7 @@ section[data-page="providers"], section[data-page="settings"] {
 .pills { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .pill {
   display: inline-flex; align-items: center; gap: 2px; padding: 1px 2px 1px 10px; border: 1px solid var(--line);
-  border-radius: 999px; background: var(--field); font: 12px/20px var(--mono); overflow-wrap: anywhere;
+  border-radius: 12px; background: var(--field); font: 12px/20px var(--mono); overflow-wrap: anywhere;
 }
 .pill button, .override > .ghost {
   border: 0; background: transparent; color: var(--muted); padding: 0 8px; font-size: 15px; line-height: 24px; cursor: pointer;
