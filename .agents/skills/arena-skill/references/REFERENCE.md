@@ -19,7 +19,7 @@ Use `scripts/preview.py` relative to the actual installed `arena-skill` skill. T
 | `task-list` | List tasks and their stored status, order and details |
 | `task ID TITLE [DETAIL ...]` | Add or update a task; every task carries at least one detail, and reject a write that leaves none; one task holds one job, so several jobs mean several tasks rather than one task with many details; `--msg-id` is optional and only a note-born or report-born task carries it; `--blocked` or `--unblocked` sets the blocked mark |
 | `task-remove ID` | Remove a task entered by mistake |
-| `import-state [FILE]` | Import copied NDJSON or JSON notes, tasks and report answers from a file or stdin in one transaction; it replaces the live notes, answers, reports and tasks unless `--merge` keeps them; `--replace-tasks` replaces only tasks; reject imports older than the live state unless `--force` |
+| `import-state [FILE]` | Import copied NDJSON or JSON notes, tasks and report answers from a file or stdin in one transaction; it replaces the live notes, answers, reports and tasks unless `--merge` keeps them; `--replace-tasks` replaces only tasks |
 | `publish <source.md> --id <id> --title <title>` | Publish or update a rendered report |
 | `unpublish <id>` | Remove a report from the tab; its answers and source survive. It refuses while the owner has an unseen answer ack, or within the minute after the owner's last look. A held call answers `409` |
 | `rename <id> <new-id>` | Rename one stored note, report answer, report or task in place, so its answers, order and stamps survive |
@@ -82,7 +82,7 @@ Task IDs have 1–64 lowercase letters, digits or hyphens and start with a lette
 
 A task linked with `--report` stays blocked until the owner answers that report. The answer clears the mark once, and the link then only records what the wait was. The command refuses a report ID that no report holds. A report-linked task sorts ahead of unlinked tasks in its status group until an answer arrives. The `current` seat, in the listing and in the page's Current div, goes to the first upcoming task no blocked mark holds, so a task waiting on a report never reads as the work in hand.
 
-`import-state` replaces the live notes, answers, reports and tasks. With `--merge` it merges by ID and preserves existing message receipts. It refuses an import whose newest message is older than the newest message in the live state, and names both stamps. `--force` overrides the guard. Use `--replace-tasks` only after checking the input. Never infer a finished task from a commit alone.
+`import-state` replaces the live notes, answers, reports and tasks. With `--merge` it merges by ID and preserves existing message receipts. Use `--replace-tasks` only after checking the input. Never infer a finished task from a commit alone.
 
 ## Publish reports
 
