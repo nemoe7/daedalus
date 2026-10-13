@@ -352,7 +352,7 @@ docker exec daedalus-api daedalus hooks verify
 
 ## The Settings page
 
-The Hooks card of the Settings page holds the folder, the sources and 1 switch per installed file. It lists the active candidates of each surface, and its arrows set their order without changing their scopes. `Update from the sources` reads the same sources as `daedalus hooks update`, and names the old version and the new version of each file that moved. `+ Add a repo` opens 1 modal for the repo URL.
+The Hooks card of the Settings page holds the folder, the sources and 1 switch per installed file. It lists the active candidates of each surface, and its arrows set their order without changing their scopes. `Check for updates` reads the same sources as `daedalus hooks update`, and names the old version and the new version of each file that moved. `+ Add source` opens 1 modal for the repo URL.
 
 The scan then lists the files of that repo, each with its own switch, so the operator takes some files and leaves the rest.
 
