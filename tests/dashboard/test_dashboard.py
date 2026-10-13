@@ -193,8 +193,8 @@ vm.runInContext(src, sandbox);
 const assert = require('assert');
 const cell = sandbox.transitionCell({ reason: 'err' });
 assert(cell.includes('transition-code'));
-assert(!cell.includes('previous'));
-assert(!cell.includes('next'));
+assert(cell.includes('title="' + sandbox.t('request.route.failure') + '"'), 'the reason rides in the hover');
+assert(cell.includes('>err</span>'), 'the visible text of the cell is the code');
 
 const r = {
   at: 100,
@@ -2366,8 +2366,10 @@ probe.renderSettings();
 const html = node('settings').innerHTML;
 assert(!html.includes('id="set-hooks-on-request"'), 'the surface section left the card body');
 assert(html.includes('<th>Surfaces</th>'), 'the table names its surface column');
-assert(html.includes('class="pill on named" title="Named in the settings">On request'), 'the named surface reads on');
-assert(html.includes('class="pill off named" title="Named in the settings">On chunk'), 'the off file reads dim');
+assert(html.includes('class="pill on named" title="' + sandbox.t('hook.surface.request.hint') + '">' +
+  sandbox.t('hook.surface.request.label')), 'the named surface reads on and its hover names the stage');
+assert(html.includes('class="pill off named" title="' + sandbox.t('hook.surface.chunk.hint') + '">' +
+  sandbox.t('hook.surface.chunk.label')), 'the off file reads dim and its hover names the stage');
 assert(html.includes('<em class="none">No surface</em>'), 'a file that names no surface reads none');
 assert(!html.includes('data-hook-surface-pick'), 'nothing adds a surface');
 assert(!html.includes('data-hook-surface-drop'), 'nothing takes a surface off');
@@ -3878,7 +3880,7 @@ probe.renderRequestTable();
 assert.strictEqual(rows(), 2, 'the range drops the 2 hour old row');
 probe.state.requestSearch = 'nothing at all';
 probe.renderRequestTable();
-assert(node('requests').innerHTML.includes('No requests match the filter'), 'the empty table names the filter');
+assert(node('requests').innerHTML.includes(sandbox.t('request.empty.filter')), 'the empty table names the filter');
 
 assert.strictEqual(probe.requestMatches({ status: 200, at: now }, { live: true }), false,
   'a live row follows the text too');
@@ -3926,11 +3928,15 @@ probe.state.limits = { providers: [], lanes: [{ rows: [{ limit: 100, remaining: 
 probe.renderOverview();
 const kpis = node('ov-kpis').innerHTML;
 assert.strictEqual((kpis.match(/class="kpi"/g) || []).length, 4, 'the strip holds 4 numbers');
-assert(kpis.includes('<b>2</b><small>In flight now</small>'), 'the strip counts the live requests');
-assert(kpis.includes('Success of last 7 requests</small>'), 'the strip names the success share');
+const flight = sandbox.t('overview.kpi.in_flight');
+assert(kpis.includes('<b>2</b><small>' + flight + '</small>'), 'the strip counts the live requests');
+const seven = sandbox.t('overview.kpi.success', { requests: sandbox.t('request.count.other', { count: 7 }) });
+assert(kpis.includes(seven + '</small>'), 'the strip names the success share');
 assert(kpis.includes('<b>86%</b>'), '6 answered of 7 reads 86 percent');
-assert(kpis.includes('<b>25%</b><small>Lowest limit left</small>'), 'the strip takes the lowest limit left');
-assert(kpis.includes('<b>3</b><small>Models in the catalog</small>'), 'the strip counts the catalog');
+const lowest = sandbox.t('overview.kpi.limit_left');
+assert(kpis.includes('<b>25%</b><small>' + lowest + '</small>'), 'the strip takes the lowest limit left');
+const models = sandbox.t('overview.kpi.catalog_models');
+assert(kpis.includes('<b>3</b><small>' + models + '</small>'), 'the strip counts the catalog');
 const overviewRequests = node('ov-requests').innerHTML;
 const rows = (overviewRequests.match(/class="line"/g) || []).length;
 assert.strictEqual(rows, 5, 'the request card holds 5 rows, not 10');
@@ -4397,13 +4403,13 @@ const answer = (status, body) => ({ ok: status < 400, status, json: () => Promis
 (async () => {
   sandbox.fetch = () => Promise.resolve(answer(500, {}));
   const bare = await sandbox.__probe.call('catalog').then(() => '', (error) => error.message);
-  assert.strictEqual(bare, 'The server answered HTTP 500 with no message.', bare);
+  assert.strictEqual(bare, sandbox.t('error.http_without_message', { status: 500 }), bare);
   sandbox.fetch = () => Promise.resolve(answer(409, { error: { message: 'The file could not be deleted.' } }));
   const said = await sandbox.__probe.call('hooks/file').then(() => '', (error) => error.message);
   assert.strictEqual(said, 'The file could not be deleted.', said);
   sandbox.fetch = () => Promise.reject(new TypeError('Failed to fetch'));
   const offline = await sandbox.__probe.call('catalog').then(() => '', (error) => error.message);
-  assert.strictEqual(offline, 'The dashboard cannot reach the server.', offline);
+  assert.strictEqual(offline, sandbox.t('error.dashboard_unreachable'), offline);
 })().catch((error) => { console.error(error); process.exit(1); });
 """
   )
