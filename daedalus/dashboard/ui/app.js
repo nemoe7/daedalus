@@ -1835,7 +1835,7 @@ async function addHookSource() {
     renderSettings();
     hooksNote(t("hook.source.count_text", { files: count(found.files.length, "file"), source: sourceLabel(found) }));
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.add_source_text"));
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended"));
     showWrite("settings", error.message, true);
   }
 }
@@ -1859,7 +1859,7 @@ async function takeHooks() {
     hooksNote(fails ? "" : updateNote(answer));
     if (fails) showNotice(fails);
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.take_files_text"));
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended"));
     showWrite("settings", error.message, true);
   }
 }
@@ -1873,7 +1873,7 @@ async function runHooksUpdate() {
     hooksNote(fails ? "" : updateNote(answer));
     if (fails) showNotice(fails);
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.update_text"));
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended"));
     hooksNote(error.message);
   }
 }
@@ -2495,7 +2495,7 @@ async function undoWrite() {
     }
     refresh();
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended_text"));
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended"));
     showWrite(write.page, error.message, true);
   }
 }
@@ -2519,7 +2519,7 @@ async function saveForm() {
     renderForm();
     refresh();
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.save_text"));
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended"));
     showWrite("providers", error.message, true);
   }
   renderFiles();
@@ -2538,7 +2538,7 @@ async function saveYaml() {
     refresh();
     guarded(refreshEnv);
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.save_text"));
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended"));
     showWrite("providers", error.message, true);
   }
   renderFiles();
@@ -2916,7 +2916,7 @@ async function saveSettings() {
     clearWrite("settings");
     refresh();
   } catch (error) {
-    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended.save_text"));
+    if (error instanceof LoggedOut) return showLogin(t("auth.session_ended"));
     showWrite("settings", error.message, true);
   }
   renderSettingsSave();
