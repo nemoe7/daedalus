@@ -2099,12 +2099,9 @@ function slideAgain() {
 // A group of fields that starts closed, so a long card stays short.
 function fold(label, hint, body) {
   const id = `hint-${++HINT_COUNT}`;
-  const button = actionButton(icon("info"), {
-    variant: "hint",
-    attrs: { "aria-describedby": id, "aria-label": t("common.hint") },
-  });
-  return `<details class="fold"><summary>${esc(label)}${button}`
-    + `<small id="${id}" role="tooltip">${esc(hint)}</small></summary>`
+  const mark = `<span class="hint" aria-hidden="true">${icon("info")}</span>`;
+  return `<details class="fold"><summary aria-describedby="${id}">${esc(label)}${mark}`
+    + `<small id="${id}" role="tooltip" aria-hidden="true">${esc(hint)}</small></summary>`
     + `<div class="fold-body">${body}</div></details>`;
 }
 

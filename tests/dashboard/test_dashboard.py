@@ -4934,7 +4934,7 @@ def test_the_providers_page_folds_the_long_groups() -> None:
   assert (
     "function fold(label, hint, body) {" in app and '<details class="fold">' in app
   ), "a closed group wraps its fields"
-  assert app.count('variant: "hint"') >= 2
+  assert 'variant: "hint"' in app
   assert '"aria-label": t("common.hint")' in app, (
     "the field hint rides behind the info icon"
   )
@@ -4942,7 +4942,7 @@ def test_the_providers_page_folds_the_long_groups() -> None:
   assert 'closest(".fold summary .hint")' in app, (
     "a click on the hint of a group never opens the group"
   )
-  assert '"aria-describedby": id' in app, "the hint of a group names its tooltip"
+  assert '<summary aria-describedby="${id}">' in app, "the summary names its tooltip"
   style = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   assert ".settings > .column {" not in style and "column-count" not in style, (
     "no page splits a card across a column"
@@ -5629,4 +5629,21 @@ input.dispatchEvent = () => {};
   page = Path("daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   assert re.search(
     r'<button\b(?=[^>]*value="cancel")(?=[^>]*\bformnovalidate\b)[^>]*>', page
+  )
+
+
+def test_provider_summary_has_help_without_a_nested_button() -> None:
+  """A native summary carries the help text without another interactive control."""
+  run_app_js(
+    "fold",
+    r"""
+const html = probe.fold('synthetic <label>', 'synthetic <help>', '<input>');
+const summary = html.split('</summary>')[0];
+assert(!summary.includes('<button'));
+assert(/<summary aria-describedby="hint-\d+">/.test(summary));
+assert(summary.includes('class="hint" aria-hidden="true"'));
+assert(summary.includes('role="tooltip" aria-hidden="true"'));
+assert(summary.includes('synthetic &lt;label&gt;'));
+assert(summary.includes('synthetic &lt;help&gt;'));
+""",
   )

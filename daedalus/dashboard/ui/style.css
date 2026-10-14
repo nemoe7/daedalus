@@ -717,11 +717,12 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6
 .fold summary small { display: none; }
 /* The info icon of a closed group carries its hint, as the icon of a field does. */
 .fold summary .hint {
+  display: inline-flex; align-items: center; justify-content: center;
   margin-left: 2px; width: 16px; height: 16px; padding: 0; border: 1px solid var(--line);
   border-radius: 50%; background: transparent; color: var(--muted); font-family: inherit; font-size: 11px; line-height: 1;
 }
-.fold summary .hint:hover, .fold summary .hint:focus-visible { color: var(--text); border-color: var(--muted); }
-.fold summary .hint:hover ~ small, .fold summary .hint:focus ~ small {
+.fold summary .hint:hover, .fold summary:focus-visible .hint { color: var(--text); border-color: var(--muted); }
+.fold summary .hint:hover ~ small, .fold summary:focus > small {
   display: block; position: absolute; top: auto; bottom: calc(100% + 4px); left: 0; z-index: 3;
   width: max-content; max-width: 260px; padding: 6px 8px; border: 1px solid var(--line);
   border-radius: 8px; background: var(--panel); color: var(--muted); font-size: 12px;
