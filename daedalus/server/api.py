@@ -804,8 +804,8 @@ async def hook_call(request: Request, file: str) -> Response:
     return upstream.error_response(
       400, "The body must be an object.", "invalid_request_error"
     )
-  path = hooks.resolve(f"hooks/{file}")
-  if path is None or not path.is_file():
+  path = hooks.resolve(f"{hooks.DIR}/{file}")
+  if path is None or not path.is_file() or not hooks.enabled(path):
     return upstream.error_response(
       404, f"No hook file {file}.", "invalid_request_error"
     )
@@ -1072,6 +1072,7 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
           REQUEST_HOOKS,
           model,
           value,
+          app=app,
           headers=dict(request.headers),
         )
         written = value.get("code")

@@ -1,5 +1,6 @@
 """Tests for `POST /v1/hook/{file}`: the HTTP surface of the hook files."""
 
+import pytest
 from fastapi.testclient import TestClient
 
 from daedalus.providers import hooks
@@ -36,6 +37,72 @@ def written(name: str, source: str) -> str:
   root.mkdir(parents=True, exist_ok=True)
   (root / name).write_text(source)
   return name
+
+
+@pytest.mark.parametrize("folder", ["hooks", "hooks-local"])
+@pytest.mark.parametrize("nested", [False, True])
+@pytest.mark.parametrize("suffix", [False, True])
+def test_hook_http_uses_configured_folder(
+  tmp_path, monkeypatch, folder, nested, suffix
+):
+  """Default and custom folders expose both flat and nested hook names."""
+  monkeypatch.setattr(hooks, "ROOT", tmp_path)
+  monkeypatch.setattr(hooks, "DIR", folder)
+  monkeypatch.setattr(hooks, "DISABLED", set())
+  name = "nested/probe.py" if nested else "probe.py"
+  path = tmp_path / folder / name
+  path.parent.mkdir(parents=True)
+  path.write_text(GOOD)
+  route = name if suffix else name.removesuffix(".py")
+  response = TestClient(api.app, headers=AUTH).post(
+    f"/v1/hook/{route}", json={"messages": CHAT}
+  )
+  assert response.status_code == 200
+  assert response.json()["key"] == api.session_key(MASTER, CHAT)
+
+
+@pytest.mark.parametrize("cached", [False, True])
+def test_disabled_http_hook_does_not_load(tmp_path, monkeypatch, cached):
+  """Disabling a file blocks HTTP calls before import, including a cached module."""
+  monkeypatch.setattr(hooks, "ROOT", tmp_path)
+  monkeypatch.setattr(hooks, "DIR", "hooks")
+  monkeypatch.setattr(hooks, "DISABLED", set())
+  marker = tmp_path / "loaded"
+  name = written(
+    "off.py",
+    f"from pathlib import Path\nPath({str(marker)!r}).write_text('loaded')\n" + GOOD,
+  )
+  path = tmp_path / "hooks" / name
+  if cached:
+    assert hooks.load(path) is not None
+    marker.unlink()
+  hooks.DISABLED = {path.stem if cached else path.name}
+  response = TestClient(api.app, headers=AUTH).post(f"/v1/hook/{name}", json={})
+  assert response.status_code == 404
+  assert not marker.exists()
+
+
+def test_custom_hook_folder_keeps_access_checks(tmp_path, monkeypatch):
+  """Custom folders keep authentication first and reject traversal to another file."""
+  monkeypatch.setattr(hooks, "ROOT", tmp_path)
+  monkeypatch.setattr(hooks, "DIR", "hooks-local")
+  monkeypatch.setattr(hooks, "DISABLED", set())
+  marker = tmp_path / "loaded"
+  source = (
+    f"from pathlib import Path\nPath({str(marker)!r}).write_text('loaded')\n" + GOOD
+  )
+  folder = tmp_path / hooks.DIR
+  folder.mkdir()
+  (folder / "probe.py").write_text(source)
+  (tmp_path / "outside.py").write_text(source)
+  assert TestClient(api.app).post("/v1/hook/probe.py", json={}).status_code == 401
+  assert (
+    TestClient(api.app, headers=AUTH)
+    .post("/v1/hook/%2e%2e/outside.py", json={})
+    .status_code
+    == 404
+  )
+  assert not marker.exists()
 
 
 def test_hook_http_answers_with_the_dict() -> None:

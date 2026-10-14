@@ -123,6 +123,17 @@ def test_shipped_hook_legend(client: TestClient) -> None:
   assert hooks.init_rows({"on-request": path}) == module.on_init()
 
 
+def test_metadata_hook_keeps_client_scope_on_retry(client, monkeypatch) -> None:
+  """An automatically attached client hook runs again with the retry count."""
+  monkeypatch.setattr(api, "REQUEST_HOOKS", {})
+  headers = {"X-OpenWebUI-Chat-Id": "metadata-retry"}
+  assert ask(client, FIRST, headers) == "c/1"
+  assert ask(client, FIRST, headers) == "b/1"
+  row = dashboard.HISTORY.latest(1)[0]
+  assert row["retry"] == "1"
+  assert row["transition"]["reason"] == "rt1"
+
+
 def test_expiry() -> None:
   now = [0.0]
   found = retries.Retries(idle=60, clock=lambda: now[0])

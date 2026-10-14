@@ -24,6 +24,49 @@ def config(*entries: dict) -> dict:
   return {"p": {"api_key": "k", "hooks": list(entries)}}
 
 
+@pytest.mark.parametrize("entrypoint", ["model", "request", "legend", "load"])
+@pytest.mark.parametrize("cached", [False, True])
+def test_disabled_hook_stays_out_of_explicit_calls(
+  tmp_path, monkeypatch, entrypoint, cached
+) -> None:
+  """A disabled file neither loads nor runs through an explicit entry."""
+  monkeypatch.setattr(hooks, "ROOT", tmp_path)
+  monkeypatch.setattr(hooks, "DIR", "hooks")
+  monkeypatch.setattr(hooks, "DISABLED", set())
+  marker = tmp_path / "loaded"
+  relative = write(
+    "off.py",
+    f"from pathlib import Path\nPath({str(marker)!r}).write_text('loaded')\n"
+    "def on_answer(value, **context):\n  return {'ran': True}\n"
+    "def on_request(value, **context):\n  return {'ran': True}\n"
+    "def on_init():\n  return [['test', 'Test hook']]\n",
+  )
+  path = tmp_path / relative
+  if cached:
+    assert hooks.load(path) is not None
+    marker.unlink()
+  hooks.DISABLED = {path.stem if cached else path.name}
+  value = {"kept": True}
+  if entrypoint == "model":
+    assert (
+      hooks.run("on-answer", config({"on-answer": relative}), "p/m", value) == value
+    )
+  elif entrypoint == "request":
+    assert (
+      hooks.run_request("on-request", {}, {"on-request": relative}, "p/m", value)
+      == value
+    )
+  elif entrypoint == "legend":
+    assert hooks.init_rows({"on-request": relative}) == []
+  else:
+    assert hooks.load(path) is None
+  assert not marker.exists()
+  hooks.DISABLED = set()
+  assert hooks.run("on-answer", config({"on-answer": relative}), "p/m", {}) == {
+    "ran": True
+  }
+
+
 def test_no_hooks() -> None:
   """Without a hooks list, the value stays the same object."""
   body = {"model": "m"}

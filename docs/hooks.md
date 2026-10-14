@@ -13,7 +13,9 @@ openrouter:
         - on-upstream: hooks/or_cheapest_output.py
 ```
 
-The `hooks` key works like `order`. A `models` entry has priority. Then comes the provider block in the `{provider}.yml` file of the model, then the provider block in the main file. A model with `hooks: []` uses no hooks.
+The `hooks` key works like `order`. A `models` entry has priority. Then comes the provider block in the `{provider}.yml` file of the model, then the provider block in the main file.
+
+A model with `hooks: []` names no explicit hooks. Matching installed files can still attach through their frontmatter.
 
 Each item has 1 hook surface and 1 file path. The path starts in the [`config`](../config) folder, and the file must stay in that folder. The usual path is `hooks/name.py`, under the folder of `hooks.dir`. An installed file joins a surface without a line here, from its own `surfaces` block.
 
@@ -194,8 +196,8 @@ A function gets a copy of the value. It can change the copy and return None, or 
 
 ## The HTTP surface
 
-A hook file can answer an HTTP call. The path names the file, and the file must sit under
-`hooks`:
+A hook file can answer an HTTP call. The path names the file inside the folder that
+`hooks.dir` selects:
 
 cmd:
 
@@ -246,7 +248,7 @@ The shipped files log their own decisions. A log line never changes the answer o
 
 daedalus reads a file again when its file time changes. A restart is not necessary.
 
-Hooks get no database access. An `on-catalog` hook changes only the row. daedalus writes only the known columns of the row, so a hook cannot change a table. A hook that keeps data uses its own file, such as `cheapest_output.json`.
+For `on-catalog`, daedalus writes only the known columns from the row that the hook returns. The hook arguments do not include a database connection, but this is not an access restriction. Hooks can import `daedalus.store` and access the database directly. A hook can also keep data in its own file, such as `cheapest_output.json`.
 
 The dashboard edits the `hooks` list of a model or a provider. The Hooks card of the Settings page names the
 folder, the sources and the files that load. Only the update writes a hook file, and it writes to the folder
@@ -328,6 +330,8 @@ The lock [`hooks.lock.json`](../config) lives in the hooks folder and records th
 version, the repo and the commit of each installed file. A file that leaves the repo stays on disk with its record. An
 installed file runs at a surface when its block names that surface, its scope matches the model, and
 `hooks.disabled` does not hold its name.
+
+Disabled files also stay out of explicit hook lists, the code legend and HTTP calls. An HTTP call to a disabled file returns 404, as a missing file does.
 
 ## The CLI
 

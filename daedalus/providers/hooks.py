@@ -513,7 +513,9 @@ def init_rows(entries: Mapping[str, Any] | None) -> list[list[str]]:
 
 
 def load(path: Path) -> ModuleType | None:
-  """The module of one hook file, or None when the file is not there or does not load."""
+  """The module of one enabled hook file, or None when it is absent, disabled or fails to load."""
+  if not enabled(path):
+    return None
   try:
     stamp = path.stat().st_mtime
   except OSError:
