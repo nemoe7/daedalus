@@ -814,12 +814,15 @@ def login_routes(api: APIRouter) -> None:
         f"Too many failed tries. Wait {int(left) + 1} seconds.",
         "rate_limit_error",
       )
-    user = hmac.compare_digest(
-      str(body.get("username", "")).encode(), username.encode()
-    )
-    known = hmac.compare_digest(
-      str(body.get("password", "")).encode(), password.encode()
-    )
+    try:
+      user = hmac.compare_digest(
+        str(body.get("username", "")).encode(), username.encode()
+      )
+      known = hmac.compare_digest(
+        str(body.get("password", "")).encode(), password.encode()
+      )
+    except UnicodeEncodeError:
+      return await login_failed(client)
     if not (user and known):
       return await login_failed(client)
     LOGIN_FAILURES.pop(client, None)

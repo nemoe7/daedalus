@@ -5694,3 +5694,33 @@ assert(html.includes('aria-controls="model-modal"'));
 assert(html.includes('data-model="synthetic/model"'));
 """,
   )
+
+
+def test_login_rejects_surrogates_without_skipping_failure_controls(
+  client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """Malformed credentials follow the failed-login path, while valid Unicode works."""
+  monkeypatch.setenv(dashboard.DAEDALUS_MASTER_KEY, MASTER)
+  monkeypatch.setenv(dashboard.DAEDALUS_USERNAME, "utilisateur-é")
+  monkeypatch.setenv(dashboard.DAEDALUS_PASSWORD, "mot-de-passe-秘密")
+  monkeypatch.setattr(dashboard, "LOGIN_FAILURES", {})
+  monkeypatch.setattr(dashboard, "LOGIN_DELAY", 0.001)
+  credentials = {"username": "utilisateur-é", "password": "mot-de-passe-秘密"}
+  for field in ("username", "password"):
+    for surrogate in ("\ud800", "\udfff"):
+      malformed = {**credentials, field: surrogate}
+      started = time.monotonic()
+      response = client.post(
+        "/ui/api/login",
+        content=json.dumps(malformed),
+        headers={"Content-Type": "application/json"},
+      )
+      assert response.status_code == 401
+      assert time.monotonic() - started >= dashboard.LOGIN_DELAY
+      assert "set-cookie" not in response.headers
+  host = next(iter(dashboard.LOGIN_FAILURES))
+  assert dashboard.LOGIN_FAILURES[host][0] == 4
+  assert client.post("/ui/api/login", json=credentials).status_code == 200
+  assert not dashboard.LOGIN_FAILURES
+  dashboard.LOGIN_FAILURES[host] = (dashboard.LOGIN_LIMIT, time.time())
+  assert client.post("/ui/api/login", json=credentials).status_code == 429
