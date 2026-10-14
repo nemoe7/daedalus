@@ -114,7 +114,7 @@ With no answer the command rebuilds in its own process.
 
 ## Development
 
-`uv sync` also installs the development tools: pytest, pytest-xdist and Ruff. CI runs these commands for each code change:
+`uv sync` also installs the development tools: pytest, pytest-xdist and Ruff. CI runs these commands for each code or Markdown change:
 
 ```sh
 uv run pytest
@@ -124,6 +124,22 @@ uv run ruff format --check
 
 - `uv run pytest` runs the test files in parallel, with 1 worker for each CPU. `uv run pytest -n 0` runs them in 1 process.
 - Each test file gets a temporary state folder. The tests do not change `.daedalus-state`.
+
+### Prose tools
+
+These commands work in cmd, PowerShell, and bash.
+
+| Command | Result |
+| --- | --- |
+| `uv run python scripts/extract_prose.py` | A JSON inventory of first-party prose, with file paths, source lines, kinds, and text |
+| `uv run python scripts/lint_prose.py` | Checks Python comments and docstrings, plus Markdown STE and structure |
+| `uv run python scripts/lint_prose.py --scan --json` | STE findings and manual-review coverage, including runtime string candidates |
+
+Both tools select tracked files by exclusion. Add `--exclude GLOB` to omit more paths. The extractor returns 2 when any file needs manual review.
+
+The inventory distinguishes comments, docstrings, Markdown, locale strings, and runtime candidates. Unsupported formats and extraction errors remain explicit. Review runtime candidates in context before changing them.
+
+Keep JSON inventories out of git.
 
 ## Documentation
 
