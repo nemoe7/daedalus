@@ -61,6 +61,82 @@ def answers(monkeypatch: pytest.MonkeyPatch, pages: dict[str, bytes]) -> list[st
   return calls
 
 
+@pytest.mark.parametrize("existing", [False, True])
+def test_write_reports_directory_failure(
+  tmp_path: Path,
+  monkeypatch: pytest.MonkeyPatch,
+  caplog: pytest.LogCaptureFixture,
+  existing: bool,
+) -> None:
+  """A failed parent mkdir reports failure and keeps any existing hook bytes."""
+  target = tmp_path / "locked" / "one.py"
+  before = b"previous hook\n"
+  if existing:
+    target.parent.mkdir()
+    target.write_bytes(before)
+  original = Path.mkdir
+
+  def denied(path: Path, *args, **kwargs) -> None:
+    if path == target.parent:
+      raise PermissionError("test directory failure")
+    original(path, *args, **kwargs)
+
+  monkeypatch.setattr(Path, "mkdir", denied)
+  report: list[str] = []
+  with caplog.at_level("ERROR", logger=remote.logger.name):
+    assert remote.write(target, b"new hook\n", report) is False
+  assert len(report) == 1
+  assert any(record.name == remote.logger.name for record in caplog.records)
+  if existing:
+    assert target.read_bytes() == before
+  else:
+    assert not target.exists()
+  assert not target.with_name(f".{target.name}.part").exists()
+
+
+def test_update_keeps_file_and_lock_on_directory_failure(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A parent mkdir error keeps the installed file and its lock record."""
+  target = tmp_path / "owner/name/one.py"
+  target.parent.mkdir(parents=True)
+  before = block("1.0.0").encode()
+  target.write_bytes(before)
+  lock = tmp_path / "hooks.lock.json"
+  records = {
+    "owner/name/one.py": {
+      "sha256": remote.digest(before),
+      "version": "1.0.0",
+      "repo": "owner/name",
+      "commit": "b" * 40,
+    }
+  }
+  remote.write_records(records, lock)
+  lock_before = lock.read_bytes()
+  answers(
+    monkeypatch,
+    {
+      API: json.dumps({"sha": COMMIT}).encode(),
+      ARCHIVE: tar({"hooks/one.py": block("1.3.0")}),
+    },
+  )
+  original = Path.mkdir
+
+  def denied(path: Path, *args, **kwargs) -> None:
+    if path == target.parent:
+      raise PermissionError("test directory failure")
+    original(path, *args, **kwargs)
+
+  monkeypatch.setattr(Path, "mkdir", denied)
+  report: list[str] = []
+  assert remote.update([source()], tmp_path, lock, report=report) == []
+  assert len(report) == 1
+  assert target.read_bytes() == before
+  assert lock.read_bytes() == lock_before
+  assert remote.read_records(lock) == records
+  assert not target.with_name(f".{target.name}.part").exists()
+
+
 def test_repo_name() -> None:
   """A plain owner/name and a GitHub URL both give the owner/name, and another value gives None."""
   assert remote.repo_name("owner/name") == "owner/name"

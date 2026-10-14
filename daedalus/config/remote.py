@@ -79,9 +79,9 @@ def write(path: Path, body: bytes, report: list[str] | None = None) -> bool:
 
   False names a write that failed, so a caller never records a file that did not land.
   """
-  path.parent.mkdir(parents=True, exist_ok=True)
   temporary = path.with_name(f".{path.name}.part")
   try:
+    path.parent.mkdir(parents=True, exist_ok=True)
     temporary.write_bytes(body)
     temporary.replace(path)
   except OSError as exc:
