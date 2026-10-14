@@ -1,5 +1,5 @@
 # ---
-# version: 1.0.2
+# version: 1.0.3
 # surfaces: []
 # author: nemoe7
 # title: Example hook
@@ -21,6 +21,7 @@ A request-level surface, such as `on-request`, goes in the `hooks` group of `con
 A `surfaces` list in the block above joins those surfaces with no key there.
 
 Each function is optional. daedalus calls only the functions of the surfaces in the list.
+
 A function gets a copy. It can change the copy and return None, or it can return a new dict.
 An error goes to the log, and the value goes on without the changes of the hook.
 """
@@ -67,10 +68,13 @@ def on_prompt(
   """Before the first attempt of a chat request that has a reasoning model in its chain.
 
   `value` starts empty. Set `value["reasoning_effort"]` to a string to set the effort. `messages` is
-  the request list. `prompt` holds the user turns joined. `tier` and `tier_name` name the ladder tier,
-  `slot` the pool slot. `reasoning` lists the chain models that support reasoning. `effort` is the
-  value of the client, `None` when it sent none. The value that a hook sets wins. `app` names the
-  client app of the request: `OWUI`, `Kilo`, another title, or None.
+  the request list.
+
+  `prompt` holds the user turns joined. `tier` and `tier_name` name the ladder tier,
+  `slot` the pool slot. `reasoning` lists the chain models that support reasoning.
+
+  `effort` is the value of the client, `None` when it sent none. The value that a hook sets wins.
+  `app` names the client app of the request: `OWUI`, `Kilo`, another title, or None.
   """
   # Example: think on a hard prompt only, and keep the rest quick.
   # from daedalus.routing import router
@@ -90,8 +94,9 @@ def on_http(
   The file sits under `hooks`, and its path names it. The route passes the JSON body,
   the session `key` of the chat (the bearer token and its first user turn), the first user
   turn as `prompt`, and the request `headers`. It also passes `pin`, the slot and the model
-  of the last answer of the chat, when the file names that argument. Any valid key may call a
-  hook file, so treat it as admin code. The returned dict is the JSON answer.
+  of the last answer of the chat, when the file names that argument.
+
+  Any valid key may call a hook file, so treat it as admin code. The returned dict is the JSON answer.
   """
   # Example: answer with the model and the time of the call.
   # return {"model": body.get("model"), "at": time.time()}
@@ -116,8 +121,10 @@ def on_chunk(chunk: dict, model: str, context: dict) -> None:
   """On each streamed chunk of a chat request, before the client gets it: 1 OpenAI chunk.
 
   `model` is the requested name. `context` holds the fields of the call. `previous` is the model
-  of the last session answer, and it is empty on the first. `attempts` counts the failures so
-  far. `code` names the retry code, `pool` the landed pool and `served` the landed model.
+  of the last session answer, and it is empty on the first.
+
+  `attempts` counts the failures so far. `code` names the retry code, `pool` the landed pool
+  and `served` the landed model.
   """
   # Example: mark the last chunk of the answer.
   # if any(choice.get("finish_reason") for choice in chunk.get("choices") or []):

@@ -1,5 +1,5 @@
 # ---
-# version: 1.0.4
+# version: 1.0.5
 # surfaces: [on-request, on-prompt, on-chunk]
 # scope: client
 # targets: [OWUI]
@@ -17,8 +17,7 @@ from daedalus.routing import router
 
 logger = logging.getLogger("daedalus.hooks")
 
-# The header that names the chat. Open WebUI sends it when `ENABLE_FORWARD_USER_INFO_HEADERS` is
-# true, and no other client sends it.
+# The header that names the Open WebUI chat. The bundled service sets it through custom request headers.
 HEADER = "x-openwebui-chat-id"
 
 # The level of each tier, from `TIER-D` none to `TIER-A` high.
@@ -126,9 +125,11 @@ def on_prompt(
   client keeps the last word. A step of a continuing turn, whose newest message is no user turn, keeps
   the level of the last answer, so a multistep agentic turn never drops to `none`. A try again steps
   the level of the last answer 1 up, above the value of the client, because the regenerate button
-  carries the level. A last answer with no recorded level took no reasoning step, so that request
-  takes the read and no step, while the tier still steps 1 up. The cap of the ladder is `high`. A
-  model that requires reasoning floors the read to `low`, so it never takes `none`.
+  carries the level.
+
+  A last answer with no recorded level took no reasoning step, so that request takes the read
+  and no step, while the tier still steps 1 up. The cap of the ladder is `high`. A model that
+  requires reasoning floors the read to `low`, so it never takes `none`.
 
   :param value: the request values, holding `reasoning_effort`
   :param prompt: the user turns joined, the fallback when the messages do not come
