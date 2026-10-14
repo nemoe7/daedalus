@@ -335,9 +335,13 @@ def allowed(request: Request, query: bool = False) -> bool:
 
 def live(key: str, value: str) -> bool:
   expires, _, signed = value.partition(".")
-  if not expires.isdigit() or int(expires) < time.time():
+  if not expires.isascii() or not expires.isdigit() or not signed.isascii():
     return False
-  return hmac.compare_digest(signed, signature(key, int(expires)))
+  try:
+    expiry = int(expires)
+  except ValueError:
+    return False
+  return expiry >= time.time() and hmac.compare_digest(signed, signature(key, expiry))
 
 
 def denied() -> JSONResponse:
