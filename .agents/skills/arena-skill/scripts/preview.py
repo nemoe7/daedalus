@@ -1809,6 +1809,7 @@ def main():
 			if args.report:
 				try:store.report(args.report)
 				except FileNotFoundError:raise ValueError(f"No report is stored under {args.report}")from None
+				if args.blocked is None:args.blocked=True
 			if args.msg_id:
 				with store.transaction()as shared:record=store.write_task(task_id,args.title_arg,details,args.status,args.order,args.blocked,args.report,shared=shared);store.mark_task(args.msg_id,task_id,shared=shared)
 			else:record=store.write_task(task_id,args.title_arg,details,args.status,args.order,args.blocked,args.report)
