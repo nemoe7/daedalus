@@ -32,6 +32,7 @@ globalThis.DAEDALUS_LOCALE = {
   "action.take_files_button": "Import hooks",
   "action.undo_write_label": "Undo",
   "action.update_sources_button": "Check for updates",
+  "action.view_link": "View",
   "auth.logout.message": "Logged out",
   "auth.master_key_hint": "The password is the master key: DAEDALUS_MASTER_KEY.",
   "auth.password_label": "Password",
