@@ -1326,7 +1326,10 @@ function renderModels() {
   const empty = state.models.length ? t("model.empty.filter_text") : t("model.empty.catalog_text");
   draw("models", rows.length ? rows.map((m) => `
     <tr data-model="${esc(m.id)}">
-      ${nameCell(m.id, modelName(m.id), "", `<span class="types phone-types">${typeChips(m)}</span><span class="phone-chips">${phoneChips(m)}</span>`)}
+      ${nameCell(m.id, actionButton(modelName(m.id), {
+        variant: "model-open",
+        attrs: { "aria-label": m.id, "aria-haspopup": "dialog", "aria-controls": "model-modal" },
+      }), "", `<span class="types phone-types">${typeChips(m)}</span><span class="phone-chips">${phoneChips(m)}</span>`)}
       <td class="hide-sm"><div class="types">${typeChips(m)}</div></td>
       <td class="mid hide-sm">${mobileLabel(t("model.column.tier_column"))}<span class="cell-value">${m.tier ? `<span class="tier" title="${esc(m.tier)}">${esc(tierLetter(m.tier))}</span>` : dash}</span></td>
       <td class="hide-sm mid num${m.order > 1 ? "" : " muted"}">${m.order ?? dash}</td>

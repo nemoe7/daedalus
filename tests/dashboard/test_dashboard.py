@@ -4599,7 +4599,10 @@ def test_the_phone_model_cards_carry_the_desktop_columns() -> None:
   root = Path(__file__).resolve().parents[2]
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   chips = app.split("function phoneChips(m) {", 1)[1].split("\n}", 1)[0]
-  assert 'nameCell(m.id, modelName(m.id), "",' in app, "the card drops the Model label"
+  assert "nameCell(m.id, actionButton(modelName(m.id), {" in app
+  assert '}), "", `<span class="types phone-types">' in app, (
+    "the card drops the Model label"
+  )
   assert 'title="${t("model.column.context_column")}"' in chips, (
     "the context column rides as a chip"
   )
@@ -5527,7 +5530,7 @@ def test_dashboard_rows_keep_their_responsive_cell_order() -> None:
   in_order(
     models,
     (
-      '${nameCell(m.id, modelName(m.id), "",',
+      "${nameCell(m.id, actionButton(modelName(m.id), {",
       '<td class="hide-sm"><div class="types">',
       '<td class="mid hide-sm">${mobileLabel(t("model.column.tier_column"))}',
       '<td class="hide-sm mid num${m.order > 1 ? "" : " muted"}">',
@@ -5674,3 +5677,20 @@ def test_dark_accent_roles_keep_text_and_controls_readable() -> None:
     assert contrast(colors["--red"], colors[background]) >= 4.5
   assert contrast("#ffffff", colors["--accent"]) >= 4.5
   assert contrast(colors["--accent"], colors["--panel"]) >= 3
+
+
+def test_model_names_supply_native_dialog_buttons() -> None:
+  """A model name is a native button with a stable dialog target."""
+  run_app_js(
+    "state, selectRows",
+    """
+probe.state.models = [{ id: 'synthetic/model', mode: 'chat', flags: [], tier: '', order: 1 }];
+probe.selectRows();
+const html = node('models').innerHTML;
+assert(html.includes('class="model-open" type="button"'));
+assert(html.includes('aria-label="synthetic/model"'));
+assert(html.includes('aria-haspopup="dialog"'));
+assert(html.includes('aria-controls="model-modal"'));
+assert(html.includes('data-model="synthetic/model"'));
+""",
+  )
