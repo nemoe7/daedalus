@@ -758,3 +758,29 @@ def test_failed_providers() -> None:
   assert list(lines) == ["up/m"], lines
   assert failed == ["down"], failed
   assert len(skipped) == 3, skipped
+
+
+@pytest.mark.parametrize(
+  "name",
+  [
+    "plain.sqlite3",
+    "hash#state.sqlite3",
+    "query?state.sqlite3",
+    "percent%20state.sqlite3",
+  ],
+)
+@pytest.mark.parametrize("relative", [False, True])
+def test_snapshot_uri_path(
+  tmp_path: Path, monkeypatch, name: str, relative: bool
+) -> None:
+  monkeypatch.chdir(tmp_path)
+  path = Path(name) if relative else tmp_path / name
+  monkeypatch.setattr(store, "MODELS_DB", path)
+  url = "https://cache.test/models"
+  payload = {"data": [{"id": "alpha"}]}
+  assert discovery.cached_snapshot(url) is None
+  assert not list(tmp_path.iterdir())
+  discovery.save_snapshot(url, payload)
+  files = set(tmp_path.iterdir())
+  assert discovery.cached_snapshot(url) == payload
+  assert set(tmp_path.iterdir()) == files

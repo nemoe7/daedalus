@@ -90,7 +90,7 @@ def cached_snapshot(url: str) -> dict[str, Any] | None:
   if not target.exists():
     return None
   try:
-    with sqlite3.connect(f"file:{target}?mode=ro", uri=True) as database:
+    with sqlite3.connect(f"{target.resolve().as_uri()}?mode=ro", uri=True) as database:
       row = database.execute(
         "SELECT payload FROM provider_snapshots WHERE url_hash = ?",
         (snapshot_hash(url),),

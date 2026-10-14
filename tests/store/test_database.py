@@ -1,5 +1,6 @@
 """Tests of the state file connections."""
 
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -51,3 +52,49 @@ def test_prompt_cache() -> None:
 @pytest.fixture
 def folder(tmp_path: Path) -> Path:
   return tmp_path
+
+
+@pytest.mark.parametrize(
+  "name",
+  [
+    "plain.sqlite3",
+    "hash#state.sqlite3",
+    "query?state.sqlite3",
+    "percent%20state.sqlite3",
+  ],
+)
+@pytest.mark.parametrize("relative", [False, True])
+def test_read_uri_path(tmp_path: Path, monkeypatch, name: str, relative: bool) -> None:
+  monkeypatch.chdir(tmp_path)
+  path = Path(name) if relative else tmp_path / name
+  with sqlite3.connect(path) as source:
+    source.execute(TABLE[0])
+    source.execute("INSERT INTO t VALUES (7)")
+  source.close()
+  found = database.connect_read(path)
+  assert found.execute("SELECT a FROM t").fetchall() == [(7,)]
+  with pytest.raises(sqlite3.OperationalError):
+    found.execute("INSERT INTO t VALUES (8)")
+  found.close()
+  assert database.connect_read(path) is found
+  assert {item.name for item in tmp_path.iterdir()} == {name}
+
+
+@pytest.mark.parametrize(
+  "name",
+  [
+    "plain.sqlite3",
+    "hash#state.sqlite3",
+    "query?state.sqlite3",
+    "percent%20state.sqlite3",
+  ],
+)
+@pytest.mark.parametrize("relative", [False, True])
+def test_read_missing_uri_path(
+  tmp_path: Path, monkeypatch, name: str, relative: bool
+) -> None:
+  monkeypatch.chdir(tmp_path)
+  path = Path(name) if relative else tmp_path / name
+  with pytest.raises(sqlite3.OperationalError):
+    database.connect_read(path)
+  assert not list(tmp_path.iterdir())

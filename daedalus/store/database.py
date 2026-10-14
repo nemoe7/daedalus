@@ -44,13 +44,15 @@ def connect_read(path: Path | str) -> sqlite3.Connection:
   try:
     inode = os.stat(target).st_ino
   except FileNotFoundError:
-    return sqlite3.connect(f"file:{target}?mode=ro", uri=True)
+    return sqlite3.connect(f"{Path(target).resolve().as_uri()}?mode=ro", uri=True)
   held = _READ.get((threading.get_ident(), target))
   if held is not None:
     if held[1] == inode:
       return held[0]
     sqlite3.Connection.close(held[0])
-  found = sqlite3.connect(f"file:{target}?mode=ro", uri=True, factory=Kept)
+  found = sqlite3.connect(
+    f"{Path(target).resolve().as_uri()}?mode=ro", uri=True, factory=Kept
+  )
   _READ[(threading.get_ident(), target)] = (found, inode)
   return found
 

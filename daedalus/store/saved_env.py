@@ -18,7 +18,9 @@ def read(path: Path | str) -> dict[str, str]:
   target = Path(path)
   if not target.exists():
     return {}
-  database = sqlite3.connect(f"file:{target}?mode=ro", uri=True, timeout=5)
+  database = sqlite3.connect(
+    f"{target.resolve().as_uri()}?mode=ro", uri=True, timeout=5
+  )
   try:
     return dict(database.execute(f"SELECT name, value FROM {TABLE}").fetchall())
   except sqlite3.OperationalError:
