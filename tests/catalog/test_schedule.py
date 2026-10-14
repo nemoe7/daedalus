@@ -2,6 +2,9 @@ import asyncio
 import os
 import sqlite3
 import time
+from contextlib import suppress
+
+import pytest
 
 from daedalus import store
 from daedalus.catalog import schedule
@@ -71,7 +74,7 @@ def test_due() -> None:
   assert store.built() is None and schedule.due(time.time()), "a store without the time"
 
 
-async def test_run() -> None:
+async def test_run(monkeypatch: pytest.MonkeyPatch) -> None:
   store.MODELS_DB.unlink(missing_ok=True)
   calls: list[str] = []
 
@@ -81,10 +84,22 @@ async def test_run() -> None:
       raise OSError("disk full")
     store.write_store([])
 
-  schedule.RETRY_SECONDS = 0.01
+  finished = asyncio.Event()
+  run_rebuild = schedule.rebuild
+
+  async def observe_rebuild(refresh, reason) -> None:
+    await run_rebuild(refresh, reason)
+    finished.set()
+
+  monkeypatch.setattr(schedule, "rebuild", observe_rebuild)
+  monkeypatch.setattr(schedule, "RETRY_SECONDS", 0.01)
   task = asyncio.create_task(schedule.run(rebuild))
-  await asyncio.sleep(0.3)
-  task.cancel()
+  try:
+    await asyncio.wait_for(finished.wait(), 5)
+  finally:
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+      await task
   assert calls == ["rebuild", "rebuild"], "a retry after a failure, then no rebuild"
   assert schedule.due(time.time()) is False
 
