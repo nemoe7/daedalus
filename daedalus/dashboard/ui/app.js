@@ -242,15 +242,27 @@ function askChoicePair(title, message, choices, placeholder) {
 // 1 value: Save writes it, and Cancel or Escape leaves the file alone.
 async function editValue(input, write) {
   const box = $("modal-input");
+  const number = input.type === "number" ? document.createElement("input") : null;
+  if (number) number.type = "number";
   box.type = input.type === "password" ? "password" : "text";
+  box.inputMode = number ? "decimal" : "";
+  const validate = () => {
+    if (!number) return;
+    number.value = box.value;
+    box.pattern = box.value === "" || (number.value !== "" && Number.isFinite(number.valueAsNumber))
+      ? ".*" : "(?!)";
+  };
   const done = ask(t("dialog.edit_value.title", { name: input.dataset.value }),
     "", t("action.save_button"), false, input.placeholder ?? "", input.value);
-  if (!(await done)) {
-    box.type = "text";
-    return;
-  }
+  validate();
+  box.addEventListener("input", validate);
+  const confirmed = await done;
+  const valid = box.checkValidity();
+  box.removeEventListener("input", validate);
+  box.removeAttribute("pattern");
+  box.inputMode = "";
   box.type = "text";
-  if (box.value === input.value) return;
+  if (!confirmed || !valid || box.value === input.value) return;
   input.value = box.value;
   input.dispatchEvent(new Event("input", { bubbles: true }));
   state.writeAnchor = anchorOf(input);

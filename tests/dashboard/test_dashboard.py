@@ -5580,3 +5580,53 @@ def test_dashboard_rows_keep_their_responsive_cell_order() -> None:
       "${fallbackCell(r,",
     ),
   )
+
+
+def test_value_editor_validates_numbers_and_clears_modal_constraints() -> None:
+  """Invalid numeric text cannot reset a value or leave constraints in the shared dialog."""
+  run_app_js(
+    "editValue",
+    """
+node('modal').showModal = () => {};
+const box = node('modal-input');
+box.removeAttribute = (name) => { delete box[name]; };
+box.removeEventListener = (type, fn) => { box.handlers[type] = box.handlers[type].filter(item => item !== fn); };
+box.checkValidity = () => box.pattern !== '(?!)';
+Object.defineProperty(node('made-input'), 'valueAsNumber', { get() { return Number(this.value); } });
+sandbox.Event = class { constructor(type) { this.type = type; } };
+const input = node('synthetic-value');
+input.dataset.value = 'synthetic';
+input.dispatchEvent = () => {};
+(async () => {
+  for (const [type, value, confirm, expected, count] of [
+    ['number', 'abc', true, '120', 0],
+    ['number', '1e999', true, '120', 0],
+    ['number', '1.25', true, '1.25', 1],
+    ['number', '', true, '', 1],
+    ['number', '', false, '120', 0],
+    ['password', 'synthetic-secret', false, '120', 0],
+  ]) {
+    input.type = type;
+    input.value = '120';
+    let writes = 0;
+    const done = probe.editValue(input, () => { writes += 1; });
+    assert.strictEqual(box.type, type === 'password' ? 'password' : 'text');
+    assert.strictEqual(box.inputMode, type === 'number' ? 'decimal' : '');
+    box.value = value;
+    box.handlers.input.forEach(fn => fn());
+    sandbox.__settle(confirm);
+    await done;
+    assert.strictEqual(input.value, expected);
+    assert.strictEqual(writes, count);
+    assert.strictEqual(box.type, 'text');
+    assert.strictEqual(box.pattern, undefined);
+    assert.strictEqual(box.inputMode, '');
+    assert.strictEqual(box.handlers.input.length, 0);
+  }
+})().catch((error) => { console.error(error); process.exitCode = 1; });
+""",
+  )
+  page = Path("daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  assert re.search(
+    r'<button\b(?=[^>]*value="cancel")(?=[^>]*\bformnovalidate\b)[^>]*>', page
+  )
