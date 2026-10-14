@@ -145,6 +145,35 @@ def test_nonfinite_settings(group: str, key: str, value: float) -> None:
     settings.parse(settings.update_text("", changes))
 
 
+@pytest.mark.parametrize("value", [1e-7, 1 / 120, 5e-324, 1e12, 25.0, 7.0])
+def test_catalog_interval_rejects_unsupported_range(value: float) -> None:
+  with pytest.raises(settings.SettingsError):
+    settings.parse(yaml.safe_dump({"catalog": {"every": value}}))
+
+
+@pytest.mark.parametrize("value", [0.0, 1 / 60, 0.5, 6.0, 24.0])
+def test_catalog_interval_supported_bounds(value: float) -> None:
+  values = settings.parse(yaml.safe_dump({"catalog": {"every": value}}))
+  assert values["catalog"]["every"] == value
+
+
+@pytest.mark.parametrize(
+  "group,key",
+  [
+    ("affinity", "idle"),
+    ("balance", "hourly"),
+    ("limits", "request"),
+    ("catalog", "every"),
+  ],
+)
+def test_settings_integer_overflow(group: str, key: str) -> None:
+  changes = {group: {key: 10**400}}
+  with pytest.raises(settings.SettingsError):
+    settings.parse(yaml.safe_dump(changes))
+  with pytest.raises(settings.SettingsError):
+    settings.parse(settings.update_text("", changes))
+
+
 def test_loop_settings() -> None:
   limits = settings.parse("")["limits"]
   assert (

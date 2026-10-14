@@ -275,7 +275,10 @@ def model_wait(config: Mapping[str, Any], model: str, default: float) -> float:
     or (isinstance(value, float) and not math.isfinite(value))
   ):
     return default
-  return float(value)
+  try:
+    return float(value)
+  except OverflowError:
+    return default
 
 
 # The tier rows of the last config, for each model list. A new config object clears it.

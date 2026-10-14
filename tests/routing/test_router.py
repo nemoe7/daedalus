@@ -27,6 +27,11 @@ def test_model_wait_nonfinite(value: float) -> None:
   assert router.model_wait(blocks, "p/m", 60.0) == 60.0
 
 
+def test_model_wait_integer_overflow() -> None:
+  blocks = {"p": {"api_key": "k", "models": {"m": {"timeout": 10**400}}}}
+  assert router.model_wait(blocks, "p/m", 60.0) == 60.0
+
+
 def test_classify() -> None:
   """The ported rules name what a prompt asks for."""
   cases = {

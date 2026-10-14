@@ -443,7 +443,7 @@ globalThis.DAEDALUS_LOCALE = {
   "settings.balance.weights.label": "Weights on",
   "settings.catalog.anchor.hint": "The local hour, in TZ, from which rebuild times start.",
   "settings.catalog.anchor.label": "Anchor hour",
-  "settings.catalog.every.hint": "Hours between rebuilds. Set 0 to stop scheduled rebuilds.",
+  "settings.catalog.every.hint": "Hours between rebuilds. Set 0 to stop, or use an interval from 1 minute to 24 hours that divides 24 hours.",
   "settings.catalog.every.label": "Rebuild interval",
   "settings.catalog.title": "Catalog",
   "settings.choice.dark_option": "Dark",

@@ -254,7 +254,10 @@ def check(group: str, key: str, value: Any) -> Any:
     raise SettingsError(f"{name} must be below 1")
   if key == "penalty" and value > 1:
     raise SettingsError(f"{name} must be at most 1")
-  return float(value)
+  try:
+    return float(value)
+  except OverflowError as exc:
+    raise SettingsError(f"{name} is too large for a numeric setting") from exc
 
 
 def keyword_list(name: str, value: Any) -> list[str]:
@@ -372,8 +375,11 @@ def schedule_value(name: str, key: str, value: Any) -> float:
     raise SettingsError(f"{name} must be a finite number of hours, 0 or more")
   if key == "anchor" and (value >= 24 or value != int(value)):
     raise SettingsError(f"{name} must be a whole hour from 0 to 23")
-  if key == "every" and value and abs(24 / value - round(24 / value)) > 1e-9:
-    raise SettingsError(f"{name} must divide 24 hours, or be 0 to stop the rebuilds")
+  if key == "every" and value:
+    if not 1 / 60 <= value <= 24:
+      raise SettingsError(f"{name} must be 0 or from 1 minute to 24 hours")
+    if abs(24 / value - round(24 / value)) > 1e-9:
+      raise SettingsError(f"{name} must divide 24 hours, or be 0 to stop the rebuilds")
   return float(value)
 
 

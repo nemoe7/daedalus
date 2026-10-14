@@ -151,8 +151,10 @@ The shipped file holds the changes from the defaults only. The **Settings** page
 
 | Key | Default | Use |
 | --- | --- | --- |
-| `catalog.every` | `6` | Hours between catalog rebuilds. `0` stops them. |
+| `catalog.every` | `6` | Hours between rebuilds. Use `0` to stop, or an interval from 1 minute to 24 hours. The interval must divide 24 hours. |
 | `catalog.anchor` | `6` | Local hour that the rebuild times start from. A whole hour from 0 to 23. |
+
+Values use hours. For example, `0.5` means 30 minutes. Replace existing out-of-range intervals before restarting.
 
 ### Updates
 
