@@ -2356,10 +2356,10 @@ assert(probe.HOOK_SURFACES.every((surface) => surface.length === 2),
   'surface metadata holds only the key and rendered label');
 assert(!html.includes('id="set-hooks-on-request"'), 'the surface section left the card body');
 assert(html.includes('<th>' + LOCALE["hook.column.surfaces_column"] + '</th>'), 'the table names its surface column');
-assert(html.includes('class="pill on named" title="' + LOCALE["hook.state.named_text"]
-  + '">' + LOCALE["hook.surface.request.label"]), 'the named surface reads on');
-assert(html.includes('class="pill off named" title="' + LOCALE["hook.state.named_text"]
-  + '">' + LOCALE["hook.surface.chunk.label"]), 'the off file reads dim');
+assert(html.includes('class="pill on named">' + LOCALE["hook.surface.request.label"]),
+  'the named surface reads on without a title');
+assert(html.includes('class="pill off named">' + LOCALE["hook.surface.chunk.label"]),
+  'the off file reads dim without a title');
 assert(html.includes('<em class="none">' + LOCALE["hook.empty.surface_text"] + '</em>'),
   'a file that names no surface reads none');
 assert(!html.includes('data-hook-surface-select'), 'nothing adds a surface');

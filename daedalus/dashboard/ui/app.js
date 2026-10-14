@@ -1673,8 +1673,7 @@ function hookSurfacesCell(row) {
   const named = new Set(row.runs || []);
   const chips = (row.surfaces || []).map((surface) => {
     const mark = named.has(surface) ? " named" : "";
-    const note = named.has(surface) ? t("hook.state.named_text") : t("hook.state.not_named_text");
-    return `<span class="pill ${row.enabled ? "on" : "off"}${mark}" title="${note}">${esc(labels.get(surface) || surface)}</span>`;
+    return `<span class="pill ${row.enabled ? "on" : "off"}${mark}">${esc(labels.get(surface) || surface)}</span>`;
   }).join("");
   return `<div class="pills">${chips || `<em class="none">${t("hook.empty.surface_text")}</em>`}</div>`;
 }
