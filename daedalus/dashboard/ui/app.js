@@ -407,10 +407,6 @@ function showNotice(message) {
   note.hidden = false;
 }
 
-function clearNotice() {
-  $("notice").hidden = true;
-}
-
 function closeNotice() {
   $("notice").classList.add("leave");
 }
@@ -516,9 +512,6 @@ function poolHealth(members) {
   const now = Date.now() / 1000;
   return members.reduce((sum, m) => sum + (m.cooldown > now ? 0 : m.weight), 0) / members.length;
 }
-
-// The highest weight first. A tie keeps the chain order.
-const byWeight = (members) => [...members].sort((a, b) => b.weight - a.weight);
 
 // The Models tab filters of a pool.
 const poolFilter = (pool) => ({ tier: POOL_TIERS[pool.name] || "All", mode: pool.mode || "chat" });
