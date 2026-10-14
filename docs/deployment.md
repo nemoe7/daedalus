@@ -79,6 +79,28 @@ Saving provider YAML in the dashboard rebuilds the model list from cache. After 
 | User | `DAEDALUS_UID` and `DAEDALUS_GID`, both default `1000` |
 | Headroom | `HEADROOM_URL`, default `http://headroom:8787`. The messages go there first. |
 
+### Writable hook storage
+
+UID 1000 owns `/app/hooks` in the image. A different `DAEDALUS_UID` needs a writable hook folder to install or update files.
+
+Create `./.daedalus-state/hooks` on the host. Give the configured `DAEDALUS_UID` and `DAEDALUS_GID` write access to that folder before starting Compose. Add this mount to the `api` service in the ignored `compose.override.yml`:
+
+```yaml
+services:
+  api:
+    volumes:
+      - ./.daedalus-state/hooks:/app/hooks-local
+```
+
+Set `dir` in the existing `hooks` group of `config/daedalus.yml`, and keep its other keys. Update explicit hook paths and `hooks.order` entries to use the new folder.
+
+```yaml
+hooks:
+  dir: hooks-local
+```
+
+`hooks.dir` accepts one folder name, not a nested path. The new folder starts without the image's hook files. Use **Take** on the hook source in Settings to install the selected files. daedalus does not move existing hooks or change folder ownership automatically.
+
 ## Image release
 
 A successful **Gemini Release Draft** approval starts the `release` job of [`.github/workflows/docker.yml`](../.github/workflows/docker.yml) with the approved `v*` tag. The workflow publishes `ghcr.io/nemoe7/daedalus:TAG` and `ghcr.io/nemoe7/daedalus:latest`. A proposal-only Gemini run does not build an image. A manual image build is also available from the Actions tab.
