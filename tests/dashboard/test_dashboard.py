@@ -5724,3 +5724,23 @@ def test_login_rejects_surrogates_without_skipping_failure_controls(
   assert not dashboard.LOGIN_FAILURES
   dashboard.LOGIN_FAILURES[host] = (dashboard.LOGIN_LIMIT, time.time())
   assert client.post("/ui/api/login", json=credentials).status_code == 429
+
+
+def test_numeric_metadata_names_rendered_settings() -> None:
+  """Every numeric constraint names a setting in the current form."""
+  run_app_js(
+    "SETTINGS, DECIMALS, MINIMA, MAXIMA",
+    """
+const names = new Set(probe.SETTINGS.flatMap(([group, title, fields]) =>
+  fields.map(([key]) => `${group}.${key}`)));
+for (const key of [...probe.DECIMALS, ...Object.keys(probe.MINIMA), ...Object.keys(probe.MAXIMA)]) {
+  assert(names.has(key), key);
+}
+for (const key of ['success', 'fault', 'slow', 'hourly', 'rate_limit']) {
+  assert(probe.DECIMALS.has(`balance.${key}`));
+}
+assert.strictEqual(probe.MINIMA['limits.calls'], 2);
+assert.strictEqual(probe.MAXIMA['limits.calls'], 100);
+assert.strictEqual(probe.MAXIMA['optimization.timeout'], 86400);
+""",
+  )

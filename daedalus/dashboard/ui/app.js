@@ -2678,25 +2678,25 @@ applyTheme();
 // The fields that take decimals. The other fields take whole numbers.
 const DECIMALS = new Set([
   "affinity.stay", "affinity.chance", "affinity.penalty",
-  "weights.success", "weights.fault", "weights.slow", "weights.hourly", "weights.rate_limit",
+  "balance.success", "balance.fault", "balance.slow", "balance.hourly", "balance.rate_limit",
   "routing.threshold",
 ]);
 // The input bounds. The server also checks them before saving.
-const MINIMA = { "loops.calls": 2, "loops.repeats": 2, "loops.shortest": 1, "loops.longest": 1, "affinity.count": 1 };
+const MINIMA = { "limits.calls": 2, "limits.repeats": 2, "limits.shortest": 1, "limits.longest": 1, "affinity.count": 1 };
 const MAXIMA = {
   "catalog.anchor": 23,
-  "timeouts.request": 86400,
-  "timeouts.wait": 86400,
-  "timeouts.slow": 86400,
-  "headroom.timeout": 86400,
+  "limits.request": 86400,
+  "limits.wait": 86400,
+  "limits.slow": 86400,
+  "optimization.timeout": 86400,
   "affinity.count": 10,
   "affinity.chance": 1,
   "affinity.penalty": 1,
   "routing.threshold": 1,
-  "loops.calls": 100,
-  "loops.repeats": 16,
-  "loops.shortest": 1000,
-  "loops.longest": 10000,
+  "limits.calls": 100,
+  "limits.repeats": 16,
+  "limits.shortest": 1000,
+  "limits.longest": 10000,
 };
 
 // The value in the file, or null when the file does not set it.
