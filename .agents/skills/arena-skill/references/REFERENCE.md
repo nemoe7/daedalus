@@ -9,6 +9,7 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 | `init` | Create a missing state database without starting the server |
 | `serve --port 8000` | Start the shared preview with `start_process`. The gate warns when a serve names a port other than 8000 |
 | `read` | List every pending note and report answer; mark only delivered IDs Seen, and stamp the parent report read by the agent |
+| `note-list [--page N] [--page-size N]` | List stored note IDs, including acknowledged and quiet notes, newest first; default page 1, 20 IDs per page, maximum 100; leave receipts and exports unchanged |
 | `note <id>` | Reread a stored note by its six or full characters; a short ID that matches several notes prints every match |
 | `key` | Print the recorded agent key, host and stamp; needs no server, and a later session recovers the key after acknowledging the quiet note |
 | `poll` | Wait for a pending inbox item before ending a turn; return at once with the task list for an unblocked upcoming task, and at once when the owner pressed Skip poll in the page. It prints a retry disclaimer at the start that names the 1800-second span. The shell `timeout` command must not wrap it; give the bash tool's timeout 1800 instead |
@@ -16,21 +17,25 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 | `logs <name>` | Print a routed run's status and its recorded output tail; it works while the run lives and after its verdict |
 | `worktree start --gate <gate-name> [--allow <glob>] <name> <destination>` | Create a detached task worktree outside the root while the named root gate runs |
 | `worktree collect <name>` | Print the allowed detached-worktree patch after a green root gate |
+| `ack --reply <markdown>` | With exactly one non-quiet pending note or report answer, IDs are optional. Supply exactly one reply/note source; with multiple pending items, supply the ID |
 | `ack <id> --reply <markdown>` | Answer one delivered ID with a rendered reply; single-quote the text, because a backtick inside double quotes runs as a shell command |
 | `ack <id> --note <text>` | Answer one delivered ID with one plain line; quote it the same way |
 | `ack <id> --reply-file <path>` | Read the rendered reply from a file, so no shell quoting touches a backtick; `--note-file` reads the plain line the same way. The gate warns when an inline ack text holds a backtick inside double quotes |
-| `task-list` | List tasks and their stored status, order and details |
+| `task-list [-f]` | List upcoming task IDs, order, status and report links; -f adds finished tasks. Read details with task ID |
+| `task ID` | Print a stored task's title, status, order, report link, blocked mark and all details |
 | `task ID TITLE [DETAIL ...]` | Add or update a task; every task carries at least one detail, and reject a write that leaves none; one task holds one job, so several jobs mean several tasks rather than one task with many details; `--msg-id` is optional and only a note-born or report-born task carries it; `--blocked` or `--unblocked` sets the blocked mark |
 | `task-remove ID` | Remove a task entered by mistake |
 | `import-state [FILE]` | Import copied NDJSON or JSON notes, tasks and report answers from a file or stdin in one transaction; it replaces the live notes, answers, reports and tasks unless `--merge` keeps them; `--replace-tasks` replaces only tasks |
 | `download-request <url>` | Queue one pending file download for the owner to approve in Downloads; `--allow-proxy` permits the two proxies |
 | `publish <source.md> --id <id> --title <title>` | Publish or update a rendered report |
-| `unpublish <id>` | Remove a report from the tab; its answers and source survive. It refuses while the owner has an unseen answer ack, or within the minute after the owner's last look. A held call answers `409` |
+| `unpublish <id>` | Remove a report from the tab, keeping answers and source. Unacknowledged answers or unseen answer receipts return 409; a fresh owner view does not block agent unpublish. The page keeps an open report until the owner clicks away |
 | `stale-reports` | List stale published report IDs and reasons without changing state |
 | `rename <id> <new-id>` | Rename one stored note, report answer, report or task in place, so its answers, order and stamps survive |
 | `clear-state` | Empty every state table in place; preserve the agent key, refresh the save file to match, and keep a running server's page token |
 
 - Use complete IDs in CLI calls; cite their first six characters in prose.
+- Read notes, answers and tasks only through CLI `read`, `note ID`, `note-list`, `task ID` and `task-list`; use report HTTP endpoints only for required publication checks.
+- Keep `state.sqlite3` as storage, never a read path.
 - `read` does not acknowledge an item.
 - Supply one of `--reply` or `--note` to `ack`; use separate calls for different answers.
 - A repeated `ack` on an ID appends one more reply block and keeps the earlier ones.
@@ -60,11 +65,11 @@ When an acknowledgement refers to a report or task, use `ack --reply` and put it
 
 ## Read cadence
 
-- Read the inbox when a Bash call reports a pending note, answer or upload count on stderr, before the next work step; that reminder is the schedule.
+- Read the inbox when a Bash call reports a pending note, answer or upload count on stderr, before the next work step, unless that call already printed those items in full; acknowledge the delivered IDs before another read.
 - NEVER wait for the Bash gate to block before a read.
 - When ending a turn or a report form awaits answers, run `poll`.
 - NEVER set or export `_arena_preview_platform`; repair a blocked gate, NEVER bypass it.
-- A blocking-only call needs its read after return.
+- After a blocking-only call, run `read` if it did not print the pending items in full; a `poll` that printed them counts as the read, so acknowledge those IDs without a second read.
 - Initial discovery may precede the first read; startup MUST.
 - A blocked call that runs `tail`, `head` or `grep` hears which commands to drop.
 - A call that spells the preview path hears the bare `arena-preview` form once a shell.

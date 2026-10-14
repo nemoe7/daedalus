@@ -7,11 +7,11 @@
 - Initial file/skill reads may precede the first reply.
 - Load the named skill `arena-skill` for the inbox, the reports, the gate, and the proxy routes to a source the sandbox cannot reach.
 - Before the first skill use in a session, read its SKILL.md and every Markdown reference it names in full; a partial read (head, tail or a grep excerpt) does not count.
-- Read ARENA.md, the root AGENTS.md with any nested AGENTS.md, and the `arena-skill` SKILL.md in full at the start of every turn, and after a compaction or summary, before any non-read tool call, batching the reads into one call and splitting them only where the harness output cap cuts the text; a partial read (head, tail or a grep excerpt) does not count.
+- At session start and after compaction or summary, MUST read ARENA.md, the root AGENTS.md with any nested AGENTS.md, and the `arena-skill` SKILL.md in full before any other tool call; batch reads, splitting only at the harness output cap; a partial read (head, tail or grep excerpt) does not count. Complete these reads before queued work or a pending push.
 - `references/REFERENCE.md` is supplementary: grep or read the part a question needs, with no end-to-end read; gate and read cadence mechanics: .agents/skills/arena-skill/references/REFERENCE.md. A template copy kept for installation is supplementary too.
 - Each turn start: MUST state in chat whether reasoning is on, as `Reasoning: on` or `Reasoning: off`, after any owed 10-4 line.
-- Any context summary MUST preserve ARENA.md verbatim; if it omits or changes it, the read above comes first.
-- After a rebase onto `main`, or a new `main` change to a read-set file, re-read every changed read-set file in full before the next work step. The read set is ARENA.md, the root AGENTS.md with any nested AGENTS.md, and the arena-skill `SKILL.md`.
+- When summarizing or compacting context, MUST list a full read of ARENA.md, the root AGENTS.md with any nested AGENTS.md, and the `arena-skill` SKILL.md as the next immediate step before any non-read tool call; no verbatim ARENA.md copy is required.
+- After any read-set file changes, including a rebase onto `main` or a `main` update, MUST read its full diff from the last-read version before the next work step; read the full file if that version is unavailable or a rule is unclear. The read set is only ARENA.md, the root AGENTS.md with any nested AGENTS.md, and the arena-skill `SKILL.md`.
 - Before the first non-read tool call: 10-4 line, steering preview start, visibility question; the first inbox read follows the answer.
 - The first reply opens `10-4: ARENA.md loaded`; finding it later opens the next reply `10-4: ARENA.md loaded late (turn N)`.
 - Name the started preview; claim visibility only after user confirmation.
@@ -32,7 +32,7 @@
 - NEVER merge the PR; no authorization or instruction overrides this.
 - On a rule collision or any doubt, stop and use the question route below; NEVER improvise.
 - NEVER edit this file or the preview skill, installed copies included; suggest amendments only, unless their home repo explicitly waives protection.
-- On a rule violation, ALWAYS report it through a preview report and suggest an amendment to the rule that failed or should have prevented it.
+- On a rule violation, ALWAYS publish a preview report; suggest amendments only for an identified contributing rule gap. Corrected routine command-input validation errors alone are not rule violations.
 
 ## General
 
@@ -61,13 +61,13 @@
 - A fresh push can leave the checks list empty for up to 30 seconds: wait once, briefly, then watch, and NEVER poll by hand.
 - Stop and report HTTP 401 or any other command/API error; pending checks are not command errors.
 - An empty or absent list proves nothing; failed checks keep work open.
-- Before turn end with a pushed branch, check and report open PR CI.
+- Before turn end with a pushed branch, check open PR CI.
 - Skills specialize defaults and NEVER weaken a requirement or convention; use one only for its domain.
 - Report changes/findings, checks/results, files/decisions, open issues, assumptions, limitations; open with the result, skip restating the task, prefer numbered lists, and report skipped work with its add-when trigger in at most three short lines.
 - Chat replies and reports MUST be concise and readable on a vertical or scrolling display (phone, vertical monitor): limit prose, no essays unless strictly necessary, and digestible by a human.
 - Mermaid: ALWAYS in documentation, NEVER anywhere else.
 - For user-run commands, print Windows cmd by default, plus bash for Raspberry Pi or bash requests.
-- Report changes at a high level in the final response ("X now does Y"), especially after long tasks; not required during execution, and a final report turn ends by reading the steering channel, not by asking an open question.
+- Task completion alone needs no report; MUST update its status and retain required verification and landed commit details in its task record. Requested reports and required assessment, question, blocked-task, and rule-violation reports remain required.
 
 ## Scope
 
@@ -82,7 +82,6 @@
 - Visibility question alone; after "Yes", all other questions by fielded report. A start that fails MUST be reported and blocked with that question before non-setup work, and the live-preview banner is not owner confirmation. If that tool fails, times out, or renders part of a batch, retry it; NEVER fall back to plain text.
 - The first successful, unconfirmed preview start still needs a visibility question, including a start that repairs earlier failed reads; a same-session restart does not.
 - Questions with 3+ options or an open choice need a recommended answer, marked among options; yes/no or confirm questions need none.
-- A report-only task's report carries a text input for the owner's further instructions and an option for no further instruction.
 - NEVER end a turn when there are open tasks. Blocked tasks MUST be reported IMMEDIATELY via a published fielded report that names each in one line; the other tasks continue, and if a form awaits answers and no unblocked work remains, run `poll`.
 - Any unavoidable assumption: state it in the acknowledgement before work starts; take the most reasonable one; NEVER use it to bypass material ambiguity.
 
@@ -112,7 +111,7 @@
 - Grep-verify each file edit landed before building on it.
 - Review each diff for requirements, acceptance criteria, scope, correctness, edge cases, security, maintainability, regressions, complexity, unrelated changes, formatting noise, and debug artifacts; fix in-scope issues, recheck, ALWAYS criticize documentation and code in chat and reports, and check external or version-specific facts against authoritative sources.
 - Run the repo's validation entrypoints before finishing, parsing every generated config the change touches.
-- Before opening a PR, read the open code-scanning alerts and address each.
+- MUST read open code-scanning alerts and address each without blocking PR creation.
 
 ## Style
 
@@ -122,8 +121,6 @@
 ## Git
 
 - The sandbox clone may be shallow: check it with `git rev-parse --is-shallow-repository`, and run `git fetch --unshallow` before work that needs full history.
-- **Before every commit, without exception, print the planned final commit list first** — every commit and fix folded into one timeline, one message per logical change, keeping the PR title and body matching it.
-- If one landed unlisted, print the corrected timeline first.
 - Stage only task-related changes, leaving unrelated and user-owned ones unstaged; commits MUST be atomic: one logical change with every file in it, checks green, independently revertible.
 - Prefer the shortest history that keeps every commit atomic.
 - NEVER commit intermediate fixes, review changes, formatting or debugging; squash each into its commit before pushing.

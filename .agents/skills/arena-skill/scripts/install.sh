@@ -212,7 +212,7 @@ _arena_preview_gate() {
   # case: long-run
   case "\$BASH_COMMAND" in
     *gh*"pr"[[:space:]]*"checks"*|*gh*"run"[[:space:]]*"watch"*|*pytest*|*"node --test"*|*"npm test"*|*"npm run test"*|*"yarn test"*|*"pnpm test"*|*"make test"*|*"npx jest"*|*"npx vitest"*|*"npx mocha"*|*"npx ava"*|*"go test"*|*"cargo test"*|*"dotnet test"*|*"mvn test"*|*"mvnw test"*|*"gradle test"*|*"gradlew test"*|*" tox"*|*"tox "*|tox|*" nox"*|*"nox "*|nox)
-      "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" pr-check-tick "\$_arena_preview_line"
+      "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" pr-check-tick "\$_arena_preview_line" --command "\$BASH_COMMAND"
       case \$? in
         # The gate stops only a line that names a wait.
         # A started wait ends the call. A failed start keeps the refusal.

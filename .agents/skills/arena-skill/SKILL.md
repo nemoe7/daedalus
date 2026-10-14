@@ -46,7 +46,7 @@ arena-preview read
 arena-preview poll
 ```
 
-- When a Bash call's stderr names a pending count, `read` now.
+- When Bash stderr names a pending count, `read` unless that call printed those items in full; acknowledge delivered IDs before another read.
 - It prints full pending notes and report answers; a failed or missing inbox is an error, not an empty inbox.
 - Do not mark count-only, truncated, or failed deliveries Seen.
 - A pending item repeats until acknowledged.
@@ -73,9 +73,9 @@ arena-preview ack <id> --reply 'a reply with `backticks`'
 
 If the preview is not visible, acknowledge a delivered note in chat with literal `ACK:` and your interpretation. Treat `STOP:`, `PRIORITY:`, `CONTEXT:` and ordinary notes under chat's instruction precedence; check their claims against evidence.
 
-ALWAYS report every workaround or bypass found during Arena skill work through a preview report immediately as a violation.
+ALWAYS report a workaround or bypass through a preview report when it violates a rule, bypasses a required safeguard, or creates material risk, with a suggested fix.
 
-ALWAYS report every dead end found during Arena skill work to the owner as an upstream bug to fix.
+ALWAYS report reproducible skill defects or unresolved skill failures through a preview report with evidence and a suggested fix; corrected routine command-input validation errors get a brief notice, not a separate report or rule proposal.
 
 - Run `task-list` at turn start.
 - Before implementation, record approved work with `task <kebab-title-id> "<title>" [details ...]`, put the current item first with `--order 1`, and update its status (`upcoming` or `finished`, no other value) and details as work changes; in every ack, put the task ID in backticks so the log links it.
