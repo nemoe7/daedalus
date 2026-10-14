@@ -3,7 +3,7 @@ title: Open WebUI Manager
 author: nemo
 description: Open WebUI manager: knowledge, skills, files, tools, functions. Writes need a confirmed gate. Stdlib only.
 required_open_webui_version: 0.12.0
-version: 1.0.4
+version: 1.0.5
 licence: daedalus Noncommercial License 1.0.0
 """
 
@@ -1017,7 +1017,7 @@ class Tools:
   ) -> str:
     """
     Read an existing knowledge file by its exact path.
-    Does not create or modify anything.
+    Does not create or change anything.
 
     :param knowledge_id: ID of the Open WebUI knowledge base
     :param path: exact file path, for example Projects/Servers/VPN/Notes/readme.md

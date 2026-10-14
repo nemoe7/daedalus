@@ -1,5 +1,5 @@
 # ---
-# version: 1.0.3
+# version: 1.0.4
 # surfaces: [on-chunk]
 # scope: client
 # targets: [OWUI]
@@ -44,7 +44,7 @@ def on_chunk(
 
   :param chunk: one OpenAI chunk on its way to the client
   :param model: the requested model, `daedalus/auto` or a pool
-  :param context: `pool`, the landed pool; `served`, the landed model
+  :param context: `pool` names the pool. `served` names the model.
   """
   if model != RESERVED and model not in router.POOLS:
     return chunk
