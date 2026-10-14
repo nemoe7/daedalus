@@ -1,4 +1,4 @@
-"""Check first-party prose. Use --scan for STE findings and manual-review coverage."""
+"""Check first-party prose. Use --scan for string candidates and coverage limits."""
 
 import argparse
 import ast
@@ -296,7 +296,7 @@ def long_sentences(paths: list[Path] | None = None) -> int:
 
 
 def main() -> int:
-  """Keep the structural command and offer a full STE inventory with --scan."""
+  """Check comments and Markdown, or scan string candidates with --scan."""
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument(
     "--scan",
@@ -341,11 +341,11 @@ def main() -> int:
         print(f"--- {path}")
         print(run.stdout.strip())
   pages = [ROOT / path for path in paths if path.suffix == ".md"]
-  failures += long_blocks(pages) + long_sentences(pages)
+  failures += scan(pages) + long_blocks(pages) + long_sentences(pages)
   if failures:
     print(f"Structural check failures: {failures}.")
     return 1
-  print("Structural checks passed. Use --scan for STE findings and coverage limits.")
+  print("Default checks passed. Use --scan for string candidates and coverage limits.")
   return 0
 
 

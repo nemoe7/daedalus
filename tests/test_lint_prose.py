@@ -107,11 +107,26 @@ def test_structural_command_keeps_custom_markdown_exclusions(tmp_path, monkeypat
   monkeypatch.setattr(
     lint_prose.sys, "argv", ["lint_prose.py", "--exclude", "excluded.md"]
   )
-  monkeypatch.setattr(
-    lint_prose.subprocess,
-    "run",
-    lambda *args, **kwargs: subprocess.CompletedProcess(
-      args, 0, stdout="kept.md\0excluded.md\0"
-    ),
-  )
+  run = subprocess.run
+
+  def with_tracked_paths(args, **kwargs):
+    if args[0] == "git":
+      return subprocess.CompletedProcess(args, 0, stdout="kept.md\0excluded.md\0")
+    return run(args, **kwargs)
+
+  monkeypatch.setattr(lint_prose.subprocess, "run", with_tracked_paths)
   assert lint_prose.main() == 0
+
+
+def test_default_command_checks_markdown_ste_findings(tmp_path, monkeypatch):
+  source = tmp_path / "guide.md"
+  monkeypatch.setattr(lint_prose, "ROOT", tmp_path)
+  monkeypatch.setattr(lint_prose.sys, "argv", ["lint_prose.py"])
+  monkeypatch.setattr(lint_prose, "tracked_files", lambda excludes: [Path("guide.md")])
+  for text, expected in (
+    ("Alpha; beta.\n", 1),
+    ("The file is saved.\n", 1),
+    ("Save the file.\n", 0),
+  ):
+    source.write_text(text, encoding="utf-8")
+    assert lint_prose.main() == expected
