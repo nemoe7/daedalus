@@ -43,8 +43,7 @@ A request for one `provider/slug` goes to that model, with no skip.
 - A model without LiteLLM data or a discovery value gets no tool request from a chain
   until the config sets `tools: true`.
 - A model with no vision value gets no image request from a chain until the config sets
-  `supports_vision: true`. Cloudflare text models and Gemini models without LiteLLM data
-  have no value.
+  `supports_vision: true`.
 - A tool request can reach TIER-C and TIER-D models.
 - When no model in the chain can call tools or take the image, the client gets 502
   `upstream_error`.

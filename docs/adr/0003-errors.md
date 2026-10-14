@@ -33,7 +33,7 @@ only keep-alive bytes, the next model starts.
 ## Consequences
 
 - A client sees one answer or one error, never the failures in between.
-- The internal log is the only record of the fallbacks it tried.
+- The internal log and the dashboard record the fallback attempts.
 - A slow provider that keeps sending data can hold a request longer than 60 seconds.
 - A slow model that sends only keep-alive bytes while it reads a long input loses its turn.
 - A continued answer can change style or facts at the join, because two models wrote it.
