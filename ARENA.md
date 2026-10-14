@@ -74,7 +74,7 @@
 
 - Keep intent, behavior, architecture, interfaces, conventions, leaving unrelated code alone; touch refactors, renames, reformatting, dependencies, error handling, or security only when required.
 - Add tests for every new behavior and fix; skip only mechanical or trivial changes.
-- Report every unrelated finding; fix only blocking ones.
+- Publish every unrelated finding in a fielded report with a suggested next action; fix only blocking ones.
 - When the user describes a problem or asks how something works, deliver the assessment: report the findings and stop, and implement only after the user asks for the change.
 - Assessment/evaluation reports MUST have a next-action field: recommended option, no-change option, custom response.
 - Ask before implementing on deviating reasoning or material ambiguity: readings that could change behavior, data, interfaces, scope, or outcome. Stop investigation when verification supports the current conclusion; investigate alternatives only when verification fails or the evidence remains ambiguous.

@@ -302,7 +302,7 @@ MAX_TASK_DETAILS=40
 TASK_STEP_MAX=120
 ECHO_DETAIL=200
 TASK_COLUMNS='id, title, details, status, position, updated_at, completed_at, blocked, report_id'
-TASK_ORDER="status DESC, CASE WHEN status = 'finished' THEN completed_at END DESC, CASE WHEN status = 'finished' THEN id END DESC, (report_id IS NULL), position, id"
+TASK_ORDER="status DESC, CASE WHEN status = 'finished' THEN completed_at END DESC, CASE WHEN status = 'finished' THEN id END DESC, (blocked = 0 OR report_id IS NULL), position, id"
 RENAME_TARGETS={'note':('notes',(('uploads','note_id'),)),'answer':('submissions',()),'report':('reports',(('submissions','report_id'),('tasks','report_id'))),'task':('tasks',(('notes','task_id'),('submissions','task_id')))}
 RENAME_TABLES='notes','submissions','reports','tasks'
 CLI_DESCRIPTION='Notes, reports, tasks and the preview server for Arena steering.'
