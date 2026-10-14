@@ -2,14 +2,29 @@
 
 import asyncio
 import json
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
 import httpx
+import pytest
 
 from daedalus import config
 from daedalus.routing import classifier, router
 from daedalus.server import upstream
+
+
+def test_router_import_in_fresh_process() -> None:
+  subprocess.run(
+    [sys.executable, "-c", "from daedalus.routing import router"], check=True
+  )
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_model_wait_nonfinite(value: float) -> None:
+  blocks = {"p": {"api_key": "k", "models": {"m": {"timeout": value}}}}
+  assert router.model_wait(blocks, "p/m", 60.0) == 60.0
 
 
 def test_classify() -> None:

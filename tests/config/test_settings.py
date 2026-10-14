@@ -127,6 +127,24 @@ def test_load(folder: Path) -> None:
   assert keywords == ["ultrathink", "think hard"], "a config list replaces the default"
 
 
+@pytest.mark.parametrize(
+  "group,key",
+  [
+    (group, key)
+    for group, values in settings.DEFAULTS.items()
+    for key, value in values.items()
+    if isinstance(value, float)
+  ],
+)
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_nonfinite_settings(group: str, key: str, value: float) -> None:
+  changes = {group: {key: value}}
+  with pytest.raises(settings.SettingsError):
+    settings.parse(yaml.safe_dump(changes))
+  with pytest.raises(settings.SettingsError):
+    settings.parse(settings.update_text("", changes))
+
+
 def test_loop_settings() -> None:
   limits = settings.parse("")["limits"]
   assert (

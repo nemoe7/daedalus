@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import math
 from collections import OrderedDict
 from collections.abc import Mapping
 from typing import Any, Final
 
 from daedalus import store
-from daedalus.catalog.discovery import matches, specificity
 from daedalus.config import block_for, client_key, file_block, main_block
 from daedalus.routing import lanes
 from daedalus.routing.classifier import (
@@ -86,6 +86,8 @@ def tier_models(provider: Mapping[str, Any], tier_name: str) -> list[str]:
 
 def claiming_tier(provider: Mapping[str, Any], slug: str) -> str | None:
   """The tier with the most specific pattern for a slug. A tie goes to the higher tier."""
+  from daedalus.catalog.discovery import matches, specificity
+
   best: tuple[tuple[int, int], str] | None = None
   for tier in reversed(TIERS):
     name = TIER_NAMES[tier]
@@ -97,6 +99,8 @@ def claiming_tier(provider: Mapping[str, Any], slug: str) -> str | None:
 
 def model_setting(config: Mapping[str, Any], model: str, key: str) -> Any:
   """The value of a key in the last `models` entry that matches the model and has it."""
+  from daedalus.catalog.discovery import matches
+
   name, _, slug = model.partition("/")
   block = block_for(config, name, slug)
   found = None
@@ -264,7 +268,12 @@ def by_order(config: Mapping[str, Any], groups: list[list[str]]) -> list[list[st
 def model_wait(config: Mapping[str, Any], model: str, default: float) -> float:
   """The seconds with no data from the provider: the `timeout` of the model, or the default."""
   value = model_setting(config, model, "timeout")
-  if isinstance(value, bool) or not isinstance(value, int | float) or value <= 0:
+  if (
+    isinstance(value, bool)
+    or not isinstance(value, int | float)
+    or value <= 0
+    or (isinstance(value, float) and not math.isfinite(value))
+  ):
     return default
   return float(value)
 

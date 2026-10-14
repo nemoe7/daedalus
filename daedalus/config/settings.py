@@ -1,5 +1,6 @@
 """Router settings from `config/daedalus.yml`, over the built-in defaults."""
 
+import math
 import re
 from io import StringIO
 from pathlib import Path
@@ -240,8 +241,13 @@ def check(group: str, key: str, value: Any) -> Any:
     return value
   if key == "chance":
     return unit_interval(name, value)
-  if isinstance(value, bool) or not isinstance(value, int | float) or value <= 0:
-    raise SettingsError(f"{name} must be a number above 0")
+  if (
+    isinstance(value, bool)
+    or not isinstance(value, int | float)
+    or value <= 0
+    or (isinstance(value, float) and not math.isfinite(value))
+  ):
+    raise SettingsError(f"{name} must be a finite number above 0")
   if group in ("limits", "optimization") and value > TIMEOUT_MAX:
     raise SettingsError(f"{name} must be at most {int(TIMEOUT_MAX)} seconds")
   if key == "stay" and value >= 1:
@@ -357,8 +363,13 @@ def hook_order(name: str, value: Any) -> dict[str, list[str]]:
 
 def schedule_value(name: str, key: str, value: Any) -> float:
   """A catalog hour value: `every` is 0 or a part of 24, and `anchor` is an hour of the day."""
-  if isinstance(value, bool) or not isinstance(value, int | float) or value < 0:
-    raise SettingsError(f"{name} must be a number of hours, 0 or more")
+  if (
+    isinstance(value, bool)
+    or not isinstance(value, int | float)
+    or value < 0
+    or (isinstance(value, float) and not math.isfinite(value))
+  ):
+    raise SettingsError(f"{name} must be a finite number of hours, 0 or more")
   if key == "anchor" and (value >= 24 or value != int(value)):
     raise SettingsError(f"{name} must be a whole hour from 0 to 23")
   if key == "every" and value and abs(24 / value - round(24 / value)) > 1e-9:
