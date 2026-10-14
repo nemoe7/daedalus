@@ -463,7 +463,7 @@ sandbox.showLengthLimit(field, message);
 assert.strictEqual(message.textContent, '', '39 characters fit');
 field.value = 'k'.repeat(40);
 sandbox.showLengthLimit(field, message);
-assert(message.textContent.includes('40 characters at most'), message.textContent);
+assert.strictEqual(message.textContent, LOCALE["validation.characters_at_most_text"].replace("{count}", "40"));
 """
   )
   subprocess.run(["node", "-e", code], check=True)
