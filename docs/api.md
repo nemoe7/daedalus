@@ -123,7 +123,7 @@ Kilo Code reads token limits only from its config, and it cannot show the routed
 
 | Endpoint | Input | What daedalus changes |
 | --- | --- | --- |
-| Embeddings | JSON: `input`, `dimensions`, `encoding_format` | The provider always sends float vectors. daedalus returns the base64 form. |
+| Embeddings | JSON: `input`, `dimensions`, `encoding_format` | Requests float vectors from the provider. Returns floats by default, or base64 when `encoding_format` is `base64`. |
 | Transcriptions | Multipart form: `file`, `language`, `prompt`, `response_format`, `temperature`, `timestamp_granularities[]` | Each provider gets only the fields that it accepts. |
 | Speech | JSON: `input`, `voice`, `instructions`, `response_format`, `speed` | The audio comes back with the provider media type. |
 | Images | JSON: `prompt`, `n`, `size`, `quality`, `style`, `response_format` | A native provider image comes back as a `data:` URL, or as `b64_json`. |

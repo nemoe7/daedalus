@@ -47,14 +47,14 @@ A standalone installer records managed hashes in `.daedalus-state/managed-files.
 
 Move the customization to `local.env` or `compose.override.yml`, install the candidate managed file, and rerun. The installer does not use a per-key merge.
 
-The commands below are the same in cmd, PowerShell and bash.
+The Docker and git commands below are the same in cmd, PowerShell and bash.
 
 | Task | Command |
 | --- | --- |
 | Start | `docker compose up -d` |
 | Update | `git pull`, then `docker compose pull`, then `docker compose up -d` |
 | Build from the source | [`compose.dev.yml`](../compose.dev.yml) builds `daedalus:dev` from the source at each start, with each command. Needs the source in the folder. |
-| Run the dev image | `install --dev` outside a checkout pulls `ghcr.io/nemoe7/daedalus:dev` at each start. It downloads the files of `main`. |
+| Run the dev image | Run the [platform installer](../README.md#quick-start) with `--dev` without the source. It downloads the files of `main` and pulls `ghcr.io/nemoe7/daedalus:dev` at each start. |
 | Stop | `docker compose down` |
 | Log | `docker compose logs -f api` |
 | Rebuild the catalog | The Catalog line of the Overview status card, or `docker compose exec api daedalus catalog` |
@@ -87,7 +87,7 @@ A successful **Gemini Release Draft** approval starts the `release` job of [`.gi
 | --- | --- |
 | Release | Run **Gemini Release Draft** and approve it. The approval tags `v*` and builds the image. |
 | Manual image build | Run **Docker** in the Actions tab, select `release`, and enter an existing `v*` tag. |
-| Use 1 release | Set `image:` of `daedalus` in [`compose.yml`](../compose.yml) to `ghcr.io/nemoe7/daedalus:v0.1.0`. |
+| Use 1 release | Set `image:` of the `api` service in [`compose.yml`](../compose.yml) to `ghcr.io/nemoe7/daedalus:v0.1.0`. |
 
 ## Dev image
 
@@ -100,7 +100,7 @@ changes no file under the CI paths starts no build.
 | --- | --- |
 | Dev image | Push to `main`. CI passes, then **Docker** publishes `dev`. |
 | Manual dev image build | Run **Docker** in the Actions tab and select `dev`. |
-| Use the dev image | `install --dev` outside a git checkout, or `image: ghcr.io/nemoe7/daedalus:dev` in [`compose.yml`](../compose.yml). |
+| Use the dev image | Use the [platform installer](../README.md#quick-start) with `--dev` without the source, or set `image: ghcr.io/nemoe7/daedalus:dev` in [`compose.yml`](../compose.yml). |
 
 The dev image tracks `main`. Its code has no review. Use it to test the newest commits, not to run a
 release. `DAEDALUS_DEV_IMAGE` and `DAEDALUS_DEV_PULL` change the image and the pull policy, and
@@ -231,7 +231,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Setting | Value |
 | --- | --- |
 | Mode | `lossy_inline` |
-| Switch | `headroom.enabled`, or `headroom: false` in a provider block or a model entry. |
+| Switch | `optimization.enabled`, or `headroom: false` in a provider block or a model entry. |
 | Timeout | 5 s. Then the original messages go to the provider. |
 | Failure | daedalus sends the original messages. |
 | Log | `saved=N` shows the saved tokens. |
@@ -240,8 +240,6 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | `HEADROOM_ALLOW_UNAUTHENTICATED_BIND` | `1`. Headroom binds only inside the Compose network. Do not publish its port without adding authentication. |
 | `HEADROOM_COMPRESS_ALLOW_REMOTE` | `1`. Without it, Headroom answers the `api` container with a 404. |
 | `HEADROOM_TELEMETRY`, `HOME`, `HEADROOM_WORKSPACE_DIR` | Telemetry `off`, and the workspace of the image user at `/home/nonroot`. |
-
-Headroom helps long agentic tasks. It keeps token use lower at the same model quality.
 
 ### Tailscale
 

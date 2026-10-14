@@ -108,7 +108,7 @@ Put `uv run` before each command in the table. After `git pull`, run `uv sync` a
 
 `daedalus catalog` looks for a live server first. It probes `DAEDALUS_URL`, or
 `http://DAEDALUS_HOST:DAEDALUS_PORT`, on `/health` with a 0.3 s limit. On an answer the command prints 1 line
-and asks that server to rebuild. The route is `POST /v1/catalog`, behind the master key.
+and asks that server to rebuild. The `POST /v1/catalog` route accepts the master key or a valid API key.
 
 With no answer the command rebuilds in its own process.
 
