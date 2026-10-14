@@ -21,7 +21,7 @@ from daedalus.routing.classifier import (
 
 __all__ = ["TIERS", "TIER_NAMES"]
 
-# The one model name the proxy resolves itself. Every other name goes upstream as written.
+# The automatic routing alias.
 RESERVED_MODEL: Final = "daedalus/auto"
 # Four pools, each a gateway to one tier.
 POOLS: Final[Mapping[str, int]] = {
@@ -37,12 +37,12 @@ MEDIA_POOLS: Final[Mapping[str, str]] = {
 }
 # The pool names that clients use, from the `pools` settings. Only renamed pools are here.
 RENAMED: Mapping[str, str] = {}
-# The `headroom.enabled` setting. A block or a model entry alone turns the switch off for 1 model.
+# The `optimization.enabled` setting. A block or a model entry alone turns the switch off for 1 model.
 HEADROOM: bool = True
 
 
 def set_headroom(enabled: bool) -> None:
-  """Use the `headroom.enabled` setting of the settings file."""
+  """Use the `optimization.enabled` setting of the settings file."""
   global HEADROOM
   HEADROOM = enabled is not False
 
