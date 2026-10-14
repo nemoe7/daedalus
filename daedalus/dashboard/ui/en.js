@@ -10,7 +10,6 @@ globalThis.DAEDALUS_LOCALE = {
   "action.checking_button": "Checking…",
   "action.clear_filters_button": "Clear filters",
   "action.close_button": "Close",
-  "action.confirm_button": "Continue",
   "action.copied_button": "Copied",
   "action.copy_button": "Copy",
   "action.create_button": "Create",

@@ -164,7 +164,7 @@ const cell = (label, inner, cls = "", attrs = "") =>
 // A confirmation modal in place of window.confirm. It resolves true on Confirm.
 // A placeholder shows the name field: the caller reads modal-input after a true.
 // The settle promise lives on the sandbox so a test can resolve the dialog.
-function ask(title, message, confirm = t("action.confirm_button"), danger = false, placeholder = null, value = "") {
+function ask(title, message, confirm, danger = false, placeholder = null, value = "") {
   return new Promise((resolve) => {
     globalThis.__settle = resolve;
     $("modal-title").textContent = title;
