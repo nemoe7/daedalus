@@ -84,7 +84,10 @@ def daily_end(model: str, body: dict[str, Any], now: float) -> tuple[str, float]
   client = lanes.split(model)[1]
   if provider == "gemini":
     for detail in gemini_details(body):
-      for violation in detail.get("violations") or []:
+      violations = detail.get("violations")
+      if not isinstance(violations, list):
+        continue
+      for violation in violations:
         if isinstance(violation, dict) and "PerDay" in str(
           violation.get("quotaId", "")
         ):

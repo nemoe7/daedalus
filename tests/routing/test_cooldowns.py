@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from email.utils import format_datetime
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from daedalus import store
@@ -59,6 +60,92 @@ def openrouter_daily(reset: float) -> dict:
       },
     }
   }
+
+
+@pytest.mark.parametrize(
+  "detail",
+  [
+    {},
+    *(
+      {"violations": value}
+      for value in (
+        None,
+        False,
+        1,
+        True,
+        1.5,
+        "invalid",
+        {},
+        {"quotaId": "RequestsPerDay"},
+        [],
+        [None, 1, "invalid", {"quotaId": "RequestsPerMinute"}],
+      )
+    ),
+  ],
+)
+@pytest.mark.parametrize(
+  ("headers", "seconds", "reason"),
+  [({"retry-after": "30"}, 30, "reset"), ({}, cooldowns.FIRST, "backoff")],
+)
+def test_malformed_quotas_keep_normal_cooldown(
+  tmp_path, detail, headers, seconds, reason
+) -> None:
+  """Invalid daily-quota details keep the reset-header or backoff rule."""
+  body = {"error": {"details": [detail]}}
+  cool = cooldowns.Cooldowns(lambda: tmp_path / "cooldowns.sqlite3", lambda: NOW)
+  assert cool.start("gemini/g", headers, json.dumps(body).encode()) == {
+    "seconds": seconds,
+    "reason": reason,
+  }
+  assert cool.ends() == {"gemini/g": NOW + seconds}
+
+
+def test_malformed_quota_response_keeps_fallback(monkeypatch) -> None:
+  """A malformed Gemini 429 still records its cooldown and tries the next model."""
+  config = {
+    "gemini": {"api_key": "k", "api_base": "https://limited.test/v1"},
+    "second": {"api_key": "k", "api_base": "https://answers.test/v1"},
+  }
+  sent: list[str] = []
+
+  def recorded(request: httpx.Request) -> httpx.Response:
+    sent.append(request.url.host)
+    if request.url.host == "limited.test":
+      return httpx.Response(
+        429,
+        json={"error": {"details": [{"violations": 1}]}},
+        headers={"retry-after": "30"},
+      )
+    return answer(request)
+
+  api.PENALTIES.clear()
+  api.COOLDOWNS.clear()
+  api.PACING.clear()
+  store.write_store([{"id": "gemini/g"}, {"id": "second/b"}])
+  monkeypatch.setattr(api, "get_config", lambda: config)
+  monkeypatch.setattr(
+    api,
+    "chain",
+    lambda *args, **kwargs: ([["gemini/g", "second/b"]], "daedalus/koinos"),
+  )
+  monkeypatch.setattr(api.PENALTIES, "select", lambda: 0.0)
+  upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(recorded)))
+  try:
+    with TestClient(api.app, headers={"Authorization": f"Bearer {MASTER}"}) as client:
+      response = client.post(
+        "/v1/chat/completions",
+        json={
+          "model": "daedalus/koinos",
+          "messages": [{"role": "user", "content": "hi"}],
+        },
+      )
+    assert response.status_code == 200
+    assert sent == ["limited.test", "answers.test"]
+    assert response.json()["choices"][0]["message"]["content"] == "hi"
+    assert api.COOLDOWNS.until("gemini/g", api.COOLDOWNS.ends()) is not None
+  finally:
+    upstream.set_client(None)
+    api.COOLDOWNS.clear()
 
 
 def test_rules(caplog) -> None:
