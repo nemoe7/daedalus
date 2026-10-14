@@ -62,8 +62,12 @@ def count(value: Any) -> int | None:
   """Read a positive token count from a number or a digit string."""
   if isinstance(value, bool) or not isinstance(value, (int, str)):
     return None
-  text = str(value)
-  return int(text) if text.isdigit() and int(text) > 0 else None
+  try:
+    text = str(value)
+    parsed = int(text) if text.isdigit() else 0
+  except ValueError:
+    return None
+  return parsed if parsed > 0 else None
 
 
 def limits(max_input: Any = None, max_output: Any = None) -> dict[str, Any]:

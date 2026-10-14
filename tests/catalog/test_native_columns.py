@@ -1,4 +1,9 @@
+import sys
+
+import pytest
+
 from daedalus.catalog import discovery
+from daedalus.providers.base import count
 
 
 def test_cloudflare() -> None:
@@ -148,3 +153,69 @@ def test_build_rows() -> None:
   lines, skipped = discovery.build_rows(config, lambda *_: payload)
   assert skipped == [], skipped
   assert lines == {"groq/m1": {"max_input_tokens": 8192}}, lines
+
+
+@pytest.mark.parametrize(
+  ("value", "expected"),
+  [
+    (8192, 8192),
+    ("8192", 8192),
+    ("８１９２", 8192),
+    ("008192", 8192),
+    (0, None),
+    (-1, None),
+    ("0", None),
+    ("-1", None),
+    ("", None),
+    ("1.0", None),
+    (8192.0, None),
+    (True, None),
+    (False, None),
+    (None, None),
+    ("NaN", None),
+    ({}, None),
+  ],
+)
+def test_token_count_inputs(value, expected) -> None:
+  assert count(value) == expected
+
+
+@pytest.fixture(params=["digit-like", "long-string", "long-integer"])
+def unparseable_count(request):
+  if request.param == "digit-like":
+    yield "²"
+    return
+  if not hasattr(sys, "set_int_max_str_digits"):
+    pytest.skip("This Python runtime has no integer conversion limit.")
+  previous = sys.get_int_max_str_digits()
+  try:
+    sys.set_int_max_str_digits(640)
+    yield "9" * 641 if request.param == "long-string" else 10**641
+  finally:
+    sys.set_int_max_str_digits(previous)
+
+
+def test_token_count_conversion_failure(unparseable_count) -> None:
+  assert count(unparseable_count) is None
+
+
+def test_discovery_token_conversion_failure(unparseable_count) -> None:
+  payload = {
+    "data": [
+      {
+        "id": "example",
+        "context_window": unparseable_count,
+        "max_completion_tokens": 4096,
+        "supported_features": ["tools"],
+      }
+    ]
+  }
+  providers = {
+    "groq": {"api_key": "placeholder", "discovery_url": "https://groq.test/models"}
+  }
+  rows, skipped = discovery.build_rows(providers, lambda *_: payload)
+  assert not skipped
+  found = rows["groq/example"]
+  assert "max_input_tokens" not in found
+  assert found["max_output_tokens"] == found["max_tokens"] == 4096
+  assert found["supports_function_calling"] is True
