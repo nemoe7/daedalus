@@ -17,7 +17,7 @@ TIMEOUT = 10.0
 
 
 def fetch(url: str = URL, timeout: float = TIMEOUT) -> str:
-  """The bytes of the default file. A network or status error raises."""
+  """The text of the default file. A network or status error raises."""
   response = httpx.get(url, timeout=timeout, follow_redirects=True)
   response.raise_for_status()
   return response.text
@@ -113,9 +113,14 @@ def cached_raw() -> dict[str, Any]:
   """The last good default blocks with their value tokens kept, or an empty mapping."""
   try:
     text = PATH.read_text(encoding="utf-8")
+    blocks = raw(text)
   except OSError:
     return {}
-  blocks = raw(text)
+  except (UnicodeError, yaml.YAMLError):
+    logger.warning(
+      "The default provider cache is invalid. No cached defaults are available."
+    )
+    return {}
   if _restore_tokens(blocks):
     try:
       PATH.write_text(yaml.safe_dump(blocks, sort_keys=False), encoding="utf-8")

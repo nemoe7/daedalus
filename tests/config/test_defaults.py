@@ -1,11 +1,13 @@
 """The default provider file of the repository fills only the names that the local file lacks."""
 
+import logging
 from pathlib import Path
 
 import httpx
 import pytest
 import yaml
 
+from daedalus import config
 from daedalus.config import defaults
 
 
@@ -131,3 +133,58 @@ def test_the_cache_file_holds_yaml(
   assert yaml.safe_load(
     (tmp_path / "free.defaults.yml").read_text(encoding="utf-8")
   ) == {"kilo": {"api_base": "https://kilo.test"}}
+
+
+@pytest.mark.parametrize(
+  "body",
+  [b"groq: [private-cache-marker", b"private-cache-marker: \xff"],
+  ids=["yaml", "utf8"],
+)
+@pytest.mark.parametrize("reader", ["cached_raw", "cached", "refresh", "load_config"])
+def test_unreadable_cache(
+  tmp_path: Path, monkeypatch, caplog, body: bytes, reader: str
+) -> None:
+  cache = tmp_path / "cache" / "free.defaults.yml"
+  cache.parent.mkdir()
+  cache.write_bytes(body)
+  monkeypatch.setattr(defaults, "PATH", cache)
+  local = tmp_path / "providers" / "free.yml"
+  local.parent.mkdir()
+  local.write_text("example:\n  api_key: local-placeholder\n", encoding="utf-8")
+  calls = []
+
+  def unavailable():
+    calls.append(True)
+    raise httpx.ConnectError("simulated outage")
+
+  monkeypatch.setattr(defaults, "fetch", unavailable)
+  try:
+    found = (
+      config.load_config(local)
+      if reader == "load_config"
+      else getattr(defaults, reader)()
+    )
+    expected = (
+      {"example": {"api_key": "local-placeholder"}} if reader == "load_config" else {}
+    )
+    assert found == expected
+  finally:
+    config.set_config(None)
+  assert cache.read_bytes() == body
+  assert local.read_text(encoding="utf-8") == "example:\n  api_key: local-placeholder\n"
+  assert len(calls) == (1 if reader == "refresh" else 0)
+  warnings = [record for record in caplog.records if record.levelno == logging.WARNING]
+  assert len(warnings) == (2 if reader == "refresh" else 1)
+  assert "private-cache-marker" not in caplog.text
+
+
+@pytest.mark.parametrize("body", [b"example: [", b"\xff"], ids=["yaml", "utf8"])
+def test_unreadable_local_config_stays_invalid(tmp_path: Path, body: bytes) -> None:
+  local = tmp_path / "free.yml"
+  local.write_bytes(body)
+  try:
+    with pytest.raises((yaml.YAMLError, UnicodeError)):
+      config.load_config(local)
+  finally:
+    config.set_config(None)
+  assert local.read_bytes() == body
