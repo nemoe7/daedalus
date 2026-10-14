@@ -643,7 +643,7 @@ function chainSteps(r) {
       ${a.race === "won" ? `<span class="from">${t("request.chain.won_race_text")}</span>` : ""}
       ${a.error ? `<pre>${esc(a.error)}</pre>` : ""}
     </li>`).join("");
-  return steps ? `<ol>${steps}</ol>` : `<p class="muted">${t("request.chain.empty_text")}</p>`;
+  return `<ol>${steps}</ol>`;
 }
 
 function chainRows(r) {
@@ -2281,17 +2281,15 @@ function showAdder(button) {
   const kind = button.dataset.kind;
   const box = document.createElement("span");
   box.className = "adder";
-  const choices = kind === "column" ? [...state.overrideKeys.filter((key) => !MODEL_ONLY.includes(key)), ...PROVIDER_ONLY].sort() : state.overrideKeys;
+  const choices = state.overrideKeys;
   const keys = choices.map((key) => `<option>${esc(key)}</option>`).join("");
   const placeholder = {
     list: t("provider.adder.pattern_placeholder"),
-    match: t("provider.adder.key_value_placeholder"),
     pattern: t("provider.adder.model_pattern_placeholder"),
     override: t("provider.adder.value_placeholder"),
-    column: t("provider.adder.value_placeholder"),
   }[kind];
   const hint = kind === "list" || kind === "pattern" ? PATTERN_HINT : "";
-  box.innerHTML = `${kind === "override" || kind === "column" ? `<select aria-label="${t("provider.key.label")}">${keys}</select>` : ""}
+  box.innerHTML = `${kind === "override" ? `<select aria-label="${t("provider.key.label")}">${keys}</select>` : ""}
     <input type="text" spellcheck="false" placeholder="${placeholder}" title="${esc(hint)}">`;
   button.replaceWith(box);
   const input = box.querySelector("input");
@@ -2326,11 +2324,7 @@ function addValue(path, kind, text, key) {
       kept = false;
     } else models[text] = {};
   } else {
-    const [name, value] = kind === "match" ? text.split(/\s*=\s*(.*)/s) : [key, text];
-    if (!name || value === undefined) {
-      showWrite("providers", t("provider.validation.map_value_text"), true);
-      kept = false;
-    } else parentOf([...path, name], {})[name] = parsed(value);
+    parentOf([...path, key], {})[key] = parsed(text);
   }
   renderCard(path[0]);
   return kept;
