@@ -1410,7 +1410,6 @@ const MODEL_ONLY = ["pool", "timeout"];
 // The keys that the provider level sets but a model override does not.
 const PROVIDER_ONLY = ["hourly_requests"];
 const TIERS = ["TIER-A", "TIER-B", "TIER-C", "TIER-D"];
-// The width of 1 column of provider cards.
 
 const clone = (value) => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)));
 const shown = (value) => (value !== null && typeof value === "object" ? JSON.stringify(value) : String(value));
@@ -2771,7 +2770,7 @@ function renderSettings() {
           placeholder="${fallback ?? ""}"><i>${esc(unit)}</i></span></label>`;
     }).join("")}${group === "hooks" ? hooksManager() : ""}</div>`;
   // The section list: the rail names every group, and the pane holds its card.
-  const groups = SETTINGS.filter(([group]) => group !== "headroom" || state.settings.headroom_available);
+  const groups = SETTINGS;
   const items = groups.map(([group, title]) => [group, title]).concat([
     ["keys", t("settings.keys.title")], ["yaml", t("yaml.label")],
   ]);
@@ -2826,7 +2825,6 @@ function settingsChanges() {
   if (!state.settings) return {};
   const changes = {};
   for (const [group, , fields] of SETTINGS) {
-    if (group === "headroom" && !state.settings.headroom_available) continue;
     for (const [key, , unit] of fields) {
       const input = $(`set-${group}-${key}`);
       if (!input) continue;
