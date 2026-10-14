@@ -2576,12 +2576,12 @@ async function pickProviderSection(key) {
 
 // The request-level hook surfaces, in the order of `daedalus/providers/hooks.py`.
 const HOOK_SURFACES = [
-  ["on-catalog", t("hook.surface.catalog.label"), "hooks", t("hook.surface.catalog.hint")],
-  ["on-request", t("hook.surface.request.label"), "hooks", t("hook.surface.request.hint")],
-  ["on-prompt", t("hook.surface.prompt.label"), "hooks", t("hook.surface.prompt.hint")],
-  ["on-upstream", t("hook.surface.upstream.label"), "hooks", t("hook.surface.upstream.hint")],
-  ["on-answer", t("hook.surface.answer.label"), "hooks", t("hook.surface.answer.hint")],
-  ["on-chunk", t("hook.surface.chunk.label"), "hooks", t("hook.surface.chunk.hint")],
+  ["on-catalog", t("hook.surface.catalog.label")],
+  ["on-request", t("hook.surface.request.label")],
+  ["on-prompt", t("hook.surface.prompt.label")],
+  ["on-upstream", t("hook.surface.upstream.label")],
+  ["on-answer", t("hook.surface.answer.label")],
+  ["on-chunk", t("hook.surface.chunk.label")],
 ];
 
 // The Settings form: [group, title, [[key, label, unit, hint], ...]].

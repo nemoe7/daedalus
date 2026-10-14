@@ -1651,7 +1651,7 @@ def test_requests_hover_rules_need_a_pointer() -> None:
 
 
 def test_app_js_modal() -> None:
-  """A confirmation opens the modal: Confirm resolves true, and any other close resolves false."""
+  """Only the confirmation action resolves the modal to true."""
   source = Path("daedalus/dashboard/ui/app.js").read_text()
   assert "confirm(" not in source, "the dashboard uses the modal, not window.confirm"
   assert "prompt(" not in source, (
@@ -2141,7 +2141,7 @@ def test_header_state_matches_the_page_switcher() -> None:
 
 
 def test_pills_cap_their_radius() -> None:
-  """A tall pill is a rounded rectangle; a 1-line pill stays round."""
+  """A tall pill has rounded corners, and a one-line pill stays round."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
   ).read_text(encoding="utf-8")
@@ -2347,11 +2347,13 @@ def test_app_js_hook_point_chips() -> None:
     }
   )
   run_app_js(
-    "state, renderSettings",
+    "state, renderSettings, HOOK_SURFACES",
     f"""
 probe.state.settings = {payload};
 probe.renderSettings();
 const html = node('settings').innerHTML;
+assert(probe.HOOK_SURFACES.every((surface) => surface.length === 2),
+  'surface metadata holds only the key and rendered label');
 assert(!html.includes('id="set-hooks-on-request"'), 'the surface section left the card body');
 assert(html.includes('<th>' + LOCALE["hook.column.surfaces_column"] + '</th>'), 'the table names its surface column');
 assert(html.includes('class="pill on named" title="' + LOCALE["hook.state.named_text"]

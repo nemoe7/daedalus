@@ -51,6 +51,8 @@ def test_every_locale_reference_has_a_catalog_entry() -> None:
   assert referenced, "the page references locale keys"
   missing = sorted(referenced - catalog.keys())
   assert not missing, f"locale keys without English copy: {missing}"
+  unused = sorted(catalog.keys() - referenced)
+  assert not unused, f"locale keys without callers: {unused}"
 
 
 def test_locale_keys_are_semantic_and_unique() -> None:
