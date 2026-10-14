@@ -69,6 +69,8 @@ The client sees only the last error, so a switch between models stays quiet.
 
 Each provider request carries the headers of the client request, for example `HTTP-Referer` and `X-Title`. OpenRouter uses these 2 headers to show the app, for example Kilo Code. The provider headers, for example the provider key, replace a client header with the same name.
 
+The proxy removes these client headers before adding provider headers.
+
 | Group | Headers |
 | --- | --- |
 | Credentials | `Authorization`, `Cookie`, `X-Api-Key`, `Api-Key`, `X-Goog-Api-Key` |
@@ -103,7 +105,7 @@ flowchart TD
 | Length | 1 of 4 odds buckets: `short` under 200 characters, `medium` under 800, `long` under 2000, or `very long`. The type scan reads the first 2000 characters. |
 | Conversation | The tier does not go down until the session expires (1 h idle). |
 | Tool call | After the first tool call, the tier is C or higher, and the search stops. |
-| Keyword | An `escalation.keywords` match in the last user message moves the tier 1 step up. |
+| Keyword | A `routing.escalation` match in the last user message moves the tier 1 step up. |
 
 The classifier is a copy of the [LiteLLM](https://github.com/BerriAI/litellm) [AutoRouter heuristic v2](https://docs.litellm.ai/blog/heuristic-v2). The `routing.threshold` setting gives the odds a tier needs to take a request, and the shipped value is `0.75`.
 
@@ -275,7 +277,7 @@ sequenceDiagram
 | Modes | `none` keeps no pin and no race. `session` keeps the pin. `race` keeps the pin and the [race](#parallel-queries). |
 | Slot | The pool name, or `daedalus/auto` plus the tier |
 | Share of first-tier draws | 85%. With `affinity.mode: race`, the session model starts each request. |
-| Pin removed by | A fault, a slow success or a `switch.keywords` match |
+| Pin removed by | A fault, a slow success or a `routing.switch` match |
 | Expiry | 1 h with no request |
 | Storage | `.daedalus-state/models.sqlite3`, kept after a restart |
 
@@ -324,7 +326,7 @@ repeat is a new request with no hook.
 | Tier | On `daedalus/auto`, 1 above the pool that answered the last attempt |
 | At tier A | A tier A model that did not answer this message. Then the list starts again at the top. |
 | Named pool | The pool keeps its models, without the models that answered |
-| Next new message | The classifier and the session tier, as before |
+| Next new message | The classifier and the session tier |
 | Session model | The model that answers becomes the session model of its tier slot |
 | Weights | No change for the earlier answer |
 | Log | `retry=N`. The Requests row shows the `code` of the hook, such as `rt1`. |

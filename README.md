@@ -64,12 +64,12 @@ Copy the file under a new name, keep the functions you need, and name the copy i
 
 2. Open the dashboard at `http://localhost:3357/`. The user is `DAEDALUS_USERNAME`, else `admin`. The password is `DAEDALUS_PASSWORD`, else `DAEDALUS_MASTER_KEY`.
 3. On **Providers**, paste each provider key into its **API key** field and save. For Cloudflare, add the Account ID too. Click the Catalog chip to rebuild the model list. The dashboard saves pasted values in state. The shipped [`config/providers/free.yml`](config/providers/free.yml) keeps `env:NAME` references for `.env` values. See [Configuration](docs/configuration.md).
-4. On the **API keys** page, make a key for each client.
+4. In **Settings > API keys**, make a key for each client.
 
 | Client setting | Value |
 | --- | --- |
 | Base URL | `http://localhost:3357/v1` |
-| API key | A key from the **API keys** page |
+| API key | A key from **Settings > API keys** |
 | Model | `daedalus/auto`, a pool name, or a `provider/slug` from the **Models** page |
 
 The tested clients are Kilo Code and Open WebUI.
@@ -110,7 +110,7 @@ Put `uv run` before each command in the table. After `git pull`, run `uv sync` a
 `http://DAEDALUS_HOST:DAEDALUS_PORT`, on `/health` with a 0.3 s limit. On an answer the command prints 1 line
 and asks that server to rebuild. The route is `POST /v1/catalog`, behind the master key.
 
-With no answer the command rebuilds in its own process, as before.
+With no answer the command rebuilds in its own process.
 
 ## Development
 

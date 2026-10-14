@@ -23,7 +23,7 @@ With no local `free.yml`, the remote or cached copy supplies the main provider b
 The **Providers** form shows these inherited blocks while the local YAML stays empty.
 Before the form reads an older cache, daedalus replaces resolved provider key values with their `env:` or `db:` tokens.
 
-Saving a changed inherited block writes that complete provider block to the local `free.yml`; untouched blocks stay inherited.
+Saving a changed inherited block writes that complete provider block to the local `free.yml`. Untouched blocks stay inherited.
 With no network or a bad file, the copy of the last good read stands, and daedalus logs 1 line.
 
 daedalus reads the files at the start and on each save from the dashboard. A hand edit of a file on disk needs a reload. A save from the dashboard reloads the file for the live server and rebuilds the catalog from it. With no save, run `daedalus catalog`: the command reads the files again for its store build.
@@ -314,7 +314,7 @@ block stays.
 
 ### Client keys
 
-`client_keys` gives a client its own provider key, for example its own Gemini project. The map key is the name of a daedalus key from the [API keys](dashboard.md#api-keys) page.
+`client_keys` gives a client its own provider key, for example its own Gemini project. The map key is the name of a daedalus key from [Settings > API keys](dashboard.md#api-keys).
 
 ```yaml
 gemini:
@@ -332,7 +332,7 @@ gemini:
 
 To set up 2 clients:
 
-1. On the dashboard **API keys** page, make the keys `kilo` and `owui`. Give each client its key.
+1. In **Settings > API keys** on the dashboard, make the keys `kilo` and `owui`. Give each client its key.
 2. In `.env`, set `GEMINI_API_KEY_KILO` and `GEMINI_API_KEY_OWUI`. Or save them in **Keys and values** on the Providers page, after step 3.
 3. Add `client_keys` to the provider file, or add it in the **Client keys** field of the Providers page.
 
