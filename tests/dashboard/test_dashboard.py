@@ -1478,7 +1478,7 @@ def test_the_short_values_carry_their_full_text() -> None:
     in css
   ), "the tier filters and the view tabs answer the mouse"
   assert "text-decoration: underline; }" in css, "a sort head marks its own click"
-  assert "button.line.rebuild:hover { color: var(--accent); }" in css, (
+  assert "button.line.rebuild:hover { color: var(--accent-text); }" in css, (
     "the phone catalog line answers the mouse"
   )
   assert ".mobile-fallback-chain > summary:hover" in css, (
@@ -2014,7 +2014,7 @@ def test_the_live_switch_reads_blue_live_and_gray_paused() -> None:
   assert 't("request.live.paused_button")' in app
   assert "Live: paused" not in app, "the label is just Paused"
   assert (
-    '.live-toggle[aria-pressed="false"] { border-color: var(--accent); color: var(--accent); }'
+    '.live-toggle[aria-pressed="false"] { border-color: var(--accent); color: var(--accent-text); }'
     in css
   ), "blue reads Live"
   assert '.live-toggle[aria-pressed="true"]' not in css, (
@@ -5647,3 +5647,30 @@ assert(summary.includes('synthetic &lt;label&gt;'));
 assert(summary.includes('synthetic &lt;help&gt;'));
 """,
   )
+
+
+def test_dark_accent_roles_keep_text_and_controls_readable() -> None:
+  """Dark accent text and filled controls meet their distinct contrast requirements."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  theme = css.split(':root[data-theme="dark"] {', 1)[1].split("}", 1)[0]
+  colors = dict(re.findall(r"(--[a-z-]+): (#[0-9a-f]{6})", theme))
+
+  def luminance(color: str) -> float:
+    channels = [int(color[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+    linear = [
+      x / 12.92 if x <= 0.04045 else ((x + 0.055) / 1.055) ** 2.4 for x in channels
+    ]
+    return sum(
+      x * weight for x, weight in zip(linear, (0.2126, 0.7152, 0.0722), strict=True)
+    )
+
+  def contrast(first: str, second: str) -> float:
+    low, high = sorted((luminance(first), luminance(second)))
+    return (high + 0.05) / (low + 0.05)
+
+  text = colors.get("--accent-text", colors["--accent"])
+  for background in ("--bg", "--panel", "--field"):
+    assert contrast(text, colors[background]) >= 4.5
+    assert contrast(colors["--red"], colors[background]) >= 4.5
+  assert contrast("#ffffff", colors["--accent"]) >= 4.5
+  assert contrast(colors["--accent"], colors["--panel"]) >= 3

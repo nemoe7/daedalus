@@ -12,7 +12,7 @@
 }
 :root {
   --bg: #f3f3f5; --panel: #ffffff; --text: #212121; --muted: #616161; --line: #cfcfcf;
-  --accent: #304ffe; --ok: #283593; --warn: #a3386c; --bad: #781f4c; --bar: #e3e8fd; --orange: #b45309; --red: #d32f2f;
+  --accent: #304ffe; --accent-text: var(--accent); --ok: #283593; --warn: #a3386c; --bad: #781f4c; --bar: #e3e8fd; --orange: #b45309; --red: #d32f2f;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23616161' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --tier: #212c70; --tag: #5c388c; --field: #f7f7f9; --radius: 12px;
   --fast: .12s; --soft: .2s; --ease: cubic-bezier(.2, .7, .3, 1);
@@ -23,7 +23,7 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #1c1c1c; --panel: #262626; --text: #e6e6e6; --muted: #adadad; --line: #424242;
-  --accent: #536dfe; --ok: #90caf9; --warn: #e1bee7; --bad: #d4608f; --bar: #212c70; --orange: #ffa040; --red: #ef5350;
+  --accent: #4b63e8; --accent-text: #8c9eff; --ok: #90caf9; --warn: #e1bee7; --bad: #d4608f; --bar: #212c70; --orange: #ffa040; --red: #ff6663;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23adadad' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --tier: #90caf9; --tag: #e1bee7; --field: #1f1f1f;
 }
@@ -80,7 +80,7 @@ tr.skeleton td span {
 }
 @keyframes shimmer { from { opacity: .45; } to { opacity: 1; } }
 /* The count of the stream glows on a change, then settles back to the muted hint. */
-@keyframes bump { from { color: var(--accent); } }
+@keyframes bump { from { color: var(--accent-text); } }
 .hint.bump { animation: bump 2s var(--ease); }
 /* A tab switch fades the arriving page in, so the change of the view reads. */
 @keyframes enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
@@ -96,7 +96,7 @@ header {
   column-gap: 32px; padding: 0 32px; border-bottom: 1px solid var(--line); background: var(--panel);
 }
 .brand { grid-area: brand; align-self: center; display: flex; align-items: center; gap: 8px; padding: 6px 0; font-weight: 650; font-size: 18px; letter-spacing: .2px; }
-.brand span { color: var(--accent); }
+.brand span { color: var(--accent-text); }
 .brand small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; letter-spacing: 0; font-family: var(--mono); }
 .tabs { grid-area: tabs; display: flex; gap: 24px; overflow-x: auto; scrollbar-width: none; }
 .tabs a {
@@ -193,7 +193,7 @@ button.chip:disabled { cursor: progress; }
 /* A state that the page cannot confirm reads in the bad color, so it cannot pass for healthy. */
 .chip.bad { color: var(--bad); }
 .effort { font-weight: 600; border-color: currentColor; }
-.e-none, .e-minimal { color: var(--muted); } .e-low { color: var(--ok); } .e-medium { color: var(--accent); }
+.e-none, .e-minimal { color: var(--muted); } .e-low { color: var(--ok); } .e-medium { color: var(--accent-text); }
 .e-high { color: var(--orange); } .e-xhigh, .e-max { color: var(--red); }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
 .dot.off { background: var(--bad); }
@@ -266,13 +266,13 @@ button.notification-item { cursor: pointer; }
 .snippet { color: inherit; text-decoration: none; display: block; }
 .snippet:hover { border-color: var(--accent); }
 .snippet h3 { margin-bottom: 12px; display: flex; justify-content: space-between; }
-.snippet h3::after { content: "View"; color: var(--accent); font-size: 12px; font-weight: 500; }
+.snippet h3::after { content: "View"; color: var(--accent-text); font-size: 12px; font-weight: 500; }
 .line { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 13px; }
 .line + .line { border-top: 1px solid var(--line); }
 .line > :first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .line > :last-child { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* The catalog line of the phone status card is a button, so it answers the mouse. */
-button.line.rebuild:hover { color: var(--accent); }
+button.line.rebuild:hover { color: var(--accent-text); }
 .track { grid-column: 1 / -1; height: 4px; border-radius: 4px; background: var(--bar); }
 .fill { height: 100%; border-radius: 4px; background: var(--accent); }
 .more, .muted { color: var(--muted); }
@@ -335,7 +335,7 @@ th[data-sort] { cursor: pointer; }
 .models td.name { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .models .mid { text-align: center; }
 a.more { display: inline-block; margin-top: 2px; color: var(--muted); text-decoration: none; }
-a.more:hover { color: var(--accent); }
+a.more:hover { color: var(--accent-text); }
 .chain-race { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
 .filter, .tab {
   padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line);
@@ -348,7 +348,7 @@ a.more:hover { color: var(--accent); }
   display: inline-block; min-width: 22px; text-align: center; padding: 1px 6px; border-radius: 6px;
   background: var(--bar); color: var(--tier); font-size: 12px; font-weight: 600;
 }
-.yes { color: var(--accent); }
+.yes { color: var(--accent-text); }
 .reveal {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 16px;
   border-bottom: 1px solid var(--line); background: var(--bar);
@@ -584,7 +584,7 @@ section[data-page="providers"], section[data-page="settings"] {
   padding: 3px 12px; border: 1px dashed var(--line); border-radius: 999px; background: transparent;
   color: var(--muted); font-size: 12px; line-height: 22px; cursor: pointer;
 }
-.add:hover { color: var(--accent); border-color: var(--accent); }
+.add:hover { color: var(--accent-text); border-color: var(--accent); }
 .adder { display: inline-flex; gap: 6px; }
 /* A hook row: the file name in a chip that opens the list of the hooks folder. The chip holds the
    same pill as a keyword chip, and the list draws in the page so it follows the page theme. */
@@ -755,7 +755,7 @@ section[data-page="models"] > .editbar, section[data-page="limits"] > .editbar {
 .notice .ghost { margin-left: auto; color: var(--red); border-color: var(--red); }
 #notice-text { min-width: 0; overflow-wrap: anywhere; }
 /* The Live switch: blue reads Live, gray reads Paused, with the count of the requests that wait. */
-.live-toggle[aria-pressed="false"] { border-color: var(--accent); color: var(--accent); }
+.live-toggle[aria-pressed="false"] { border-color: var(--accent); color: var(--accent-text); }
 /* The Limits filter keeps a readable width beside the check button. */
 .editbar input[type="search"] { min-width: 12rem; }
 section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
@@ -771,7 +771,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 /* The Undo of the last write, beside the row that caused it: a small round arrow. */
 .undo-step {
   padding: 0; width: 26px; height: 26px; border-radius: 50%; flex: none;
-  font-size: 14px; line-height: 1; color: var(--accent); border-color: var(--accent);
+  font-size: 14px; line-height: 1; color: var(--accent-text); border-color: var(--accent);
 }
 .undo-step:hover { color: var(--text); border-color: var(--muted); }
 /* The row of a write holds the Undo beside its control, in the flow: the free space moves left,
@@ -851,7 +851,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   /* The pane of a phone closes the gap above the back row: the header sits close, and the card
      follows the label with no empty band between. */
   .section-pane { gap: 10px; }
-  .section-pane .back { display: block; min-height: 0; padding: 0; border: 0; color: var(--accent); }
+  .section-pane .back { display: block; min-height: 0; padding: 0; border: 0; color: var(--accent-text); }
   .section-pane .back .chev { font-size: 24px; line-height: 1; vertical-align: -3px; }
 }
 @media (max-width: 1320px) {
@@ -1075,7 +1075,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   }
   .requests .fallbacks-cell > .mobile-label, .requests .fallbacks-cell > .cell-value { display: none; }
   .requests .mobile-fallback-chain > summary {
-    width: fit-content; padding: 5px 0; color: var(--accent); cursor: pointer; font-size: inherit; font-weight: 600;
+    width: fit-content; padding: 5px 0; color: var(--accent-text); cursor: pointer; font-size: inherit; font-weight: 600;
   }
   @media (hover: hover) {
     .requests .mobile-fallback-chain > summary:hover {
