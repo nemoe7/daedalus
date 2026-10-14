@@ -104,7 +104,7 @@ def test_docker_workflow_dev_job_prunes_the_old_dev_versions() -> None:
 
 
 def test_docker_workflow_dispatch_chooses_dev_or_release() -> None:
-  """One manual run picks a mode, and the release mode asks for a tag."""
+  """One manual run selects a mode, and the release mode asks for a tag."""
   inputs = YAML(typ="safe").load(WORKFLOW.read_text())["on"]["workflow_dispatch"][
     "inputs"
   ]

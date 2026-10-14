@@ -42,9 +42,9 @@ class Penalties:
     self,
     path: Callable[[], Path],
     clock: Callable[[], float] = time.time,
-    pick: Callable[[], float] = random.random,
+    select: Callable[[], float] = random.random,
   ) -> None:
-    self.path, self.clock, self.pick = path, clock, pick
+    self.path, self.clock, self.select = path, clock, select
     self.enabled, self.idle, self.stay, self.change_on_draw = (
       True,
       IDLE_SECONDS,
@@ -251,7 +251,7 @@ class Penalties:
     """A random model, with a probability that follows its weight."""
     if not models:
       return None
-    goal = self.pick() * sum(weights[m] for m in models)
+    goal = self.select() * sum(weights[m] for m in models)
     for model in models:
       goal -= weights[model]
       if goal < 0:

@@ -76,7 +76,7 @@ async def client():
   )
   store.write_store([{"id": f"{name}/x"} for name in NAMES])
   api.PENALTIES.clear()
-  api.PENALTIES.pick = lambda: 0.0
+  api.PENALTIES.select = lambda: 0.0
   loops.clear()
   SEEN.clear()
   async with httpx.AsyncClient(transport=httpx.MockTransport(upstream)) as outer:

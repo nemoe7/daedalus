@@ -92,7 +92,7 @@ def test_other_requests(client: TestClient) -> None:
   assert second.status_code == 200, second.text
   row2 = dashboard.HISTORY.latest(1)[0]
   assert row2["retry"] == "1", "a named pool counts on a repeat"
-  assert row2["via"] != row1["via"], "the pool picks another model"
+  assert row2["via"] != row1["via"], "the pool selects another model"
   change = row2["transition"]
   assert (change["from_pool"], change["to_pool"]) == ("sophos", "sophos"), change
   timed = [{"role": "system", "content": "10:00"}, {"role": "user", "content": "time"}]
@@ -117,9 +117,10 @@ def test_no_hook_no_retry(client: TestClient) -> None:
 
 def test_shipped_hook_legend(client: TestClient) -> None:
   """The shipped hook names its row of the code legend."""
-  assert hooks.init_rows({"on-request": "hooks/owui_auto_reasoning_effort.py"}) == [
-    ["rtN", "A repeat picked another model, N times"]
-  ]
+  path = "hooks/owui_auto_reasoning_effort.py"
+  module = hooks.load(hooks.ROOT / path)
+  assert module is not None
+  assert hooks.init_rows({"on-request": path}) == module.on_init()
 
 
 def test_expiry() -> None:
@@ -148,7 +149,7 @@ def client():
     patch.setattr(api, "REQUEST_HOOKS", {"on-request": shipped_hook()})
     patch.setattr(api, "get_config", lambda: CONFIG)
     patch.setattr(router, "required_tier", lambda text: 2)
-    patch.setattr(api.PENALTIES, "pick", lambda: 0.0)
+    patch.setattr(api.PENALTIES, "select", lambda: 0.0)
     model_store.write_store(ROWS)
     upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
     yield TestClient(api.app, headers={"Authorization": f"Bearer {MASTER}"})

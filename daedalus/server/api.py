@@ -921,7 +921,7 @@ async def race_models(
   takes = [Try(first, sent, asyncio.create_task(start_candidate(plan, first, sent)))]
   try:
     # A draw starts the other models now. Without it, only a first model with no content starts them.
-    quick = bool(PARALLEL_CHANCE) and PENALTIES.pick() < PARALLEL_CHANCE
+    quick = bool(PARALLEL_CHANCE) and PENALTIES.select() < PARALLEL_CHANCE
     if not quick:
       await asyncio.wait([takes[0].task], timeout=PARALLEL_SLOW_SECONDS)
     if quick or not takes[0].task.done():
@@ -1518,7 +1518,7 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   hooks.set_installed(hook_values["dir"], hook_values["disabled"], hook_values["order"])
   router.set_headroom(values["optimization"]["enabled"])
   router.set_threshold(values["routing"]["threshold"])
-  # A start reads a source that asks for it. The Settings card picks the other files.
+  # A start reads a source that asks for it. The Settings card selects the other files.
   asked = [
     entry
     for entry in hook_values["sources"]

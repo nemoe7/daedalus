@@ -66,7 +66,7 @@ def test_requests() -> None:
     if "/" in model and "daedalus" not in model
     else ([["first/a", "second/b"]], "daedalus/koinos")
   )
-  pick, api.PENALTIES.pick = api.PENALTIES.pick, lambda: 0.0
+  selection, api.PENALTIES.select = api.PENALTIES.select, lambda: 0.0
   upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
   client = TestClient(api.app, headers={"Authorization": f"Bearer {MASTER}"})
   body = {"model": "daedalus/koinos", "messages": [{"role": "user", "content": "hi"}]}
@@ -89,7 +89,7 @@ def test_requests() -> None:
     assert sent == ["one.test"], "pacing is off"
   finally:
     api.get_config, api.chain = original
-    api.PENALTIES.pick = pick
+    api.PENALTIES.select = selection
     api.PACING.enabled = True
     api.PACING.clear()
     upstream.set_client(None)

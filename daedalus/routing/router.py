@@ -107,7 +107,7 @@ def model_setting(config: Mapping[str, Any], model: str, key: str) -> Any:
 
 
 # The reasoning efforts each provider accepts, from its docs, lowest first. The list is a ladder:
-# the hook picks a rung by the tier of the request. A config key of the model or of the block wins
+# the hook selects a rung by the tier of the request. A config key of the model or of the block wins
 # over the code, and the catalog list of 1 model wins over the coded set (`efforts`).
 # Cloudflare takes `reasoning_effort` per model, and its reasoning models agree on low and medium
 # alone: gpt-oss names low, medium and high, and qwen3.8 names low, medium and xhigh.

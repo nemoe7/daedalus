@@ -9,7 +9,7 @@
 # privacy:
 #   forward_owui_chat_id: false
 
-# The hook files of the repo. The Settings page lists them and takes the picked 1s.
+# The hook files of the repo. The Settings page lists them and takes the selected 1s.
 hooks:
   sources:
     - repo: nemoe7/daedalus

@@ -80,7 +80,7 @@ async def client(tmp_path: Path):
 
 
 def lines(text: str) -> list[dict]:
-  """The served model picks of one answer body, in order."""
+  """The served model selections of one answer body, in order."""
   found = []
   for block in text.split("\n\n"):
     if not block.startswith("data: {") or '"daedalus"' not in block:
@@ -117,9 +117,9 @@ async def test_the_line_carries_the_routed_reasoning(
       json={**BODY, "stream": True, "reasoning_effort": asked},
     )
     assert answer.status_code == 200, answer.text
-    picks = lines(answer.text)
-    assert len(picks) == 1, picks
-    assert picks[0]["line"] == wanted, (asked, picks)
+    selections = lines(answer.text)
+    assert len(selections) == 1, selections
+    assert selections[0]["line"] == wanted, (asked, selections)
 
 
 async def test_the_line_follows_the_installed_files(
@@ -140,11 +140,14 @@ async def test_the_line_follows_the_installed_files(
       json={**BODY, "stream": True, "reasoning_effort": "high"},
     )
     assert answer.status_code == 200, answer.text
-    picks = lines(answer.text)
+    selections = lines(answer.text)
     if wanted is None:
-      assert picks == [], (off, picks)
+      assert selections == [], (off, selections)
     else:
-      assert [pick["line"] for pick in picks] == [wanted], (off, picks)
+      assert [selection["line"] for selection in selections] == [wanted], (
+        off,
+        selections,
+      )
   hooks.set_installed("hooks", [])
 
 
@@ -160,7 +163,7 @@ async def test_the_client_scope_gates_the_line_on_the_request(
   )
   assert answer.status_code == 200, answer.text
   # The name order of the folder puts the served model hook last, so the line holds no effort.
-  assert [pick["line"] for pick in lines(answer.text)] == ["p/a"]
+  assert [selection["line"] for selection in lines(answer.text)] == ["p/a"]
   other = await client.post("/v1/chat/completions", json=body)
   assert other.status_code == 200, other.text
   assert lines(other.text) == []

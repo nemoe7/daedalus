@@ -165,7 +165,7 @@ def test_modelschemas_columns_reads_the_flag_and_the_ladder() -> None:
     "supports_reasoning": True,
     "supported_efforts": ["max"],
   }
-  # adaptive names no rung the operator picks
+  # adaptive names no rung the operator selects
   assert enrichment.modelschemas_columns(rows["f"]) == {"supports_reasoning": True}
 
 

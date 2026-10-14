@@ -86,7 +86,7 @@ A successful **Gemini Release Draft** approval starts the `release` job of [`.gi
 | Task | Command |
 | --- | --- |
 | Release | Run **Gemini Release Draft** and approve it. The approval tags `v*` and builds the image. |
-| Manual image build | Run **Docker** in the Actions tab, pick `release`, and enter an existing `v*` tag. |
+| Manual image build | Run **Docker** in the Actions tab, select `release`, and enter an existing `v*` tag. |
 | Use 1 release | Set `image:` of `daedalus` in [`compose.yml`](../compose.yml) to `ghcr.io/nemoe7/daedalus:v0.1.0`. |
 
 ## Dev image
@@ -99,7 +99,7 @@ changes no file under the CI paths starts no build.
 | Task | Command |
 | --- | --- |
 | Dev image | Push to `main`. CI passes, then **Docker** publishes `dev`. |
-| Manual dev image build | Run **Docker** in the Actions tab and pick `dev`. |
+| Manual dev image build | Run **Docker** in the Actions tab and select `dev`. |
 | Use the dev image | `install --dev` outside a git checkout, or `image: ghcr.io/nemoe7/daedalus:dev` in [`compose.yml`](../compose.yml). |
 
 The dev image tracks `main`. Its code has no review. Use it to test the newest commits, not to run a

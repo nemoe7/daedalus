@@ -38,9 +38,9 @@ The 8 providers each need a key: Cloudflare, Gemini, Groq, Kilo, Mistral, OpenRo
 ### Use the key
 
 1. Open the **Providers** page of the dashboard.
-2. Pick the form of the provider.
+2. Select the form of the provider.
 3. Paste the key into the key field.
-4. Pick **Save**.
+4. Select **Save**.
 
 A key can also go into `.env` under the name that [Configuration](configuration.md) lists, for example `GEMINI_API_KEY`.
 

@@ -466,7 +466,7 @@ def test_legacy_skill_update_keeps_its_single_content_request():
 
 
 def test_the_preset_filter_takes_ids_and_names():
-  """PRESET_MODELS picks the presets by id or by name, empty serves all."""
+  """PRESET_MODELS selects the presets by id or by name, empty serves all."""
   tool, _ = make_tool()
   assert tool._preset_selected({"id": "m1", "name": "One"}) is True
   tool.valves.PRESET_MODELS = "m2, Two"

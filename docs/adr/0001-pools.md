@@ -7,7 +7,7 @@ Accepted.
 ## Context
 
 A client must be able to ask for a level of capability without naming a provider model.
-The config already sorts models into four tiers for each provider, and the router can pick
+The config already sorts models into four tiers for each provider, and the router can select
 a tier from a prompt. Some clients already know the level they need, and those should not
 pay for a classifier call.
 

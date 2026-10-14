@@ -107,7 +107,7 @@ def test_example() -> None:
   )
 
 
-def test_pick_line() -> None:
+def test_selection_line() -> None:
   """The served model line: the tier letter and the slug for `daedalus/auto`, the slug alone for a pool."""
   module = hooks.load(FOLDER / "served_model.py")
   assert module is not None
@@ -126,7 +126,7 @@ def test_pick_line() -> None:
   assert pool["usage"]["daedalus"]["line"] == "kilo/poolside/laguna-s-2.1:free"
 
 
-def test_pick_on_every_answer() -> None:
+def test_selection_on_every_answer() -> None:
   """A repeated model draws too, and the first answer and a retry draw."""
   module = hooks.load(FOLDER / "served_model.py")
   assert module is not None

@@ -232,7 +232,7 @@ def meta_problem(path: Path) -> str | None:
 def resolve(value: Any) -> Path | None:
   """The path of 1 hook file from the folder listing, or None when the folder holds no such name.
 
-  The name picks a file of the listing, so a name outside the folder finds nothing.
+  The name selects a file of the listing, so a name outside the folder finds nothing.
   A name with no suffix names the `.py` file, as the docs and the OWUI action write it.
   """
   if not isinstance(value, str) or not value.strip():

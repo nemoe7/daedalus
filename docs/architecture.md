@@ -313,7 +313,7 @@ sequenceDiagram
 
 ## Try again
 
-A try again in Open WebUI moves the repeated message 1 tier up on `daedalus/auto`. On a named pool, it picks
+A try again in Open WebUI moves the repeated message 1 tier up on `daedalus/auto`. On a named pool, it selects
 another model of that pool. The rule needs a request hook, and the shipped [`owui_auto_reasoning_effort`](hooks/owui_auto_reasoning_effort.md) file holds it. A
 repeat is a new request with no hook.
 

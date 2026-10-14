@@ -477,7 +477,7 @@ def test_empty_pool(client: TestClient, own_store) -> None:
 
 def test_pools(fake: Upstream, client: TestClient, own_store) -> None:
   store.write_store(POOL_ROWS)
-  pick, api.PENALTIES.pick = api.PENALTIES.pick, lambda: 0.0
+  selection, api.PENALTIES.select = api.PENALTIES.select, lambda: 0.0
   try:
     row = transcribe(client, b"RIFF-one")
     assert row["via"] == "mistral/voxtral" and row["fallbacks"] == "0", row
@@ -513,7 +513,7 @@ def test_pools(fake: Upstream, client: TestClient, own_store) -> None:
     voxtral = models["mistral/voxtral"]
     assert isinstance(voxtral["weight"], float), "media pool models have weights"
   finally:
-    api.PENALTIES.pick = pick
+    api.PENALTIES.select = selection
   assert_media_cooldown(fake, client)
   assert_media_pacing(fake, client)
   count = len(fake.sent)

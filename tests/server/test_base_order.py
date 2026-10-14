@@ -49,7 +49,7 @@ async def client():
     + [{"id": f"{name}/img", "mode": "image_generation"} for name in ("cf", "groq")]
   )
   api.PENALTIES.clear()
-  api.PENALTIES.pick = lambda: 0.0
+  api.PENALTIES.select = lambda: 0.0
   media.REPEATS.clear()
   SEEN.clear()
   FAILING.clear()

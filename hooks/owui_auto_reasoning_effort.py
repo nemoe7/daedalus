@@ -1,5 +1,5 @@
 # ---
-# version: 1.0.3
+# version: 1.0.4
 # surfaces: [on-request, on-prompt, on-chunk]
 # scope: client
 # targets: [OWUI]
@@ -170,7 +170,7 @@ def on_prompt(
 
 def on_init() -> list[list[str]]:
   """The legend row of this hook."""
-  return [["rtN", "A repeat picked another model, N times"]]
+  return [["rtN", "A repeat selected another model, N times"]]
 
 
 def on_chunk(
@@ -195,7 +195,7 @@ def on_chunk(
   line = str(found["line"])
   if line.endswith(f"{DOT}{effort}"):
     return chunk
-  pick = {**found, "line": f"{line}{DOT}{effort}"}
-  chunk["usage"] = {**usage, "daedalus": pick}
-  logger.info("served reasoning %s for %s", pick["line"], model)
+  selection = {**found, "line": f"{line}{DOT}{effort}"}
+  chunk["usage"] = {**usage, "daedalus": selection}
+  logger.info("served reasoning %s for %s", selection["line"], model)
   return chunk

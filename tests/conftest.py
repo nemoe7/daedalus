@@ -90,7 +90,7 @@ def state_folder(
     patch.setattr(updates, "_fetch", no_network)
     patch.setattr(discovery, "DUMP_DIR", folder / "dump")
     patch.setattr(hooks, "ROOT", folder)
-    patch.setattr(api.PENALTIES, "pick", api.PENALTIES.pick)
+    patch.setattr(api.PENALTIES, "select", api.PENALTIES.select)
     patch.setattr(headroom, "_down", False)
     # Each test file starts like a new process, with no router state.
     for kept in (

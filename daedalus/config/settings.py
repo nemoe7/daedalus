@@ -14,7 +14,7 @@ from daedalus.config.provider_edit import round_trip
 
 DEFAULT_PATH = Path("config/daedalus.yml")
 DEFAULTS: dict[str, dict[str, Any]] = {
-  # How a request picks a model: the classifier bar and the keyword rules.
+  # How a request selects a model: the classifier bar and the keyword rules.
   "routing": {
     "threshold": 0.75,
     "escalation": [

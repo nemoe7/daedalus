@@ -259,7 +259,7 @@ def test_apply(folder: Path) -> None:
     assert loops.text_loop(unit * 5) is None
     assert loops.text_loop(unit * 6) == 10
     assert api.Tracker("key", "daedalus/deinos").slot is None, "no pins"
-    store.pick = lambda: 0.99
+    store.select = lambda: 0.99
     assert store.record("a", store.fault) == 1.0, "no weights"
     assert store.order([["a", "b", "c"], ["d"]]) == ["a", "b", "c", "d"], "usual order"
   finally:

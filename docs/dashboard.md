@@ -150,7 +150,7 @@ The cards of the Form view stack in columns. The page carries no Save bar: a row
 shows its value as text, and a click opens the small editor of that 1 value. The close of that dialog writes
 it.
 
-A switch and a pick list hold 1 valid value, so the change writes at once. The last write shows its
+A switch and a selection list hold 1 valid value, so the change writes at once. The last write shows its
 Undo beside the row that changed, and a failure shows its line under the file chips. The file row
 holds 2 actions beside the file chips. They are **+ New provider**, and **Delete provider** for a file
 that is not the main one.
@@ -201,7 +201,7 @@ A write from the Form view keeps the comments, the key order, the quotes and the
 
 A change to the other view asks for a confirmation when the file holds unsaved changes. The other view shows the saved file.
 
-The Settings rows write the same way. A switch and a pick list write on the change. A text or a number row
+The Settings rows write the same way. A switch and a selection list write on the change. A text or a number row
 writes when its editor closes. A chip list writes on the add or the drop.
 
 The Settings page keeps no bar: the rail starts the page, and only an error shows a line.
@@ -212,8 +212,8 @@ A write of a file that is not valid YAML, or that has a key 2 times in 1 map, ge
 
 A provider file on disk that is not valid YAML still gets its tab. It opens in the YAML view, with the error line next to the Save button. Fix the text there and save it.
 
-The form holds the section list of the current file: the rail names every provider of the file, and the pane shows the picked card.
-A narrow screen shows the list alone, and a pick opens 1 provider, with a button back to the list.
+The form holds the section list of the current file: the rail names every provider of the file, and the pane shows the selected card.
+A narrow screen shows the list alone, and a selection opens 1 provider, with a button back to the list.
 A field hint sits behind the info icon next to its label. The `Tiers`, `Model overrides` and
 `Provider values` groups start closed, and their icon carries the group hint.
 
@@ -255,7 +255,7 @@ To test the token, send the query of [`daedalus/routing/limits.py`](../daedalus/
 
 ## A phone
 
-The Settings page and the provider form show their section list alone on a phone. Each row carries a chevron, and a pick opens 1 section as its own page. The section rides in the hash as `#/settings?section=timeouts`, so the back gesture of the phone returns to the list. The button above the card names that list, as `‹ Settings`, for a phone without the gesture.
+The Settings page and the provider form show their section list alone on a phone. Each row carries a chevron, and a selection opens 1 section as its own page. The section rides in the hash as `#/settings?section=timeouts`, so the back gesture of the phone returns to the list. The button above the card names that list, as `‹ Settings`, for a phone without the gesture.
 
 A phone keeps the 4 numbers of the Overview above the status card, in 2 rows of 2. The Models table
 and the API keys table become cards, as the Requests table does. A phone card carries its own border:

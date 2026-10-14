@@ -1,5 +1,5 @@
 # ---
-# version: 1.0.2
+# version: 1.0.3
 # surfaces: [on-chunk]
 # scope: client
 # targets: [OWUI]
@@ -58,10 +58,12 @@ def on_chunk(
   if not served:
     return chunk
   pool = str(found.get("pool") or "")
-  pick = {"line": line_for(model, pool, served), "model": served, "pool": pool}
+  selection = {"line": line_for(model, pool, served), "model": served, "pool": pool}
   usage = chunk.get("usage")
   chunk["usage"] = (
-    {**usage, "daedalus": pick} if isinstance(usage, dict) else {"daedalus": pick}
+    {**usage, "daedalus": selection}
+    if isinstance(usage, dict)
+    else {"daedalus": selection}
   )
-  logger.info("served model %s for %s", pick["line"], model)
+  logger.info("served model %s for %s", selection["line"], model)
   return chunk

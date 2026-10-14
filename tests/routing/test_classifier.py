@@ -172,7 +172,7 @@ def test_predict_gives_odds_that_never_fall() -> None:
 
 
 def test_predict_names_a_tier_in_the_config_map() -> None:
-  """The tier it picks is one the config names."""
+  """The tier it selects is one the config names."""
   found = classifier.predict(LOOKUP, classifier.load_artifact())
   assert found.required_tier in classifier.TIERS
   assert found.tier_name == classifier.TIER_NAMES[found.required_tier]
@@ -197,7 +197,7 @@ def test_predict_takes_a_given_threshold() -> None:
 
 
 def test_predict_uses_the_request_type_it_is_given(tmp_path: Path) -> None:
-  """A given type picks its own domain row, and the rules never run."""
+  """A given type selects its own domain row, and the rules never run."""
   found = artifact(
     tmp_path / "tiers.json",
     global_statistics=rows(),

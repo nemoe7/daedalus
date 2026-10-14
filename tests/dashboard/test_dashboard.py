@@ -1984,24 +1984,24 @@ def test_requests_time_column_keeps_its_width() -> None:
   assert "width: 1%" not in phone, "the phone cells keep their grid tracks"
 
 
-def test_each_model_filter_pick_moves_the_rows_only() -> None:
+def test_each_model_filter_selection_moves_the_rows_only() -> None:
   """A search, a select or a tier of the Models tab replays the table, not the page."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert "function pickRows() {" in app and 'replay($("models"));' in app, (
-    "the pick replays the table"
+  assert "function selectRows() {" in app and 'replay($("models"));' in app, (
+    "the selection replays the table"
   )
   for handler in (
-    '$("search").addEventListener("input", pickRows);',
+    '$("search").addEventListener("input", selectRows);',
     '$("sort-small").addEventListener("change", () => {',
     '$("mode").addEventListener("change", () => {',
     '$("tiers").addEventListener("click", (event) => {',
   ):
     assert handler in app, handler
-  # The handlers of this tab never call the plain draw, so no pick moves the page.
+  # The handlers of this tab never call the plain draw, so no selection moves the page.
   toolbar = app[app.index('$("search").addEventListener') :]
   toolbar = toolbar[: toolbar.index("$('files')") if "$('files')" in toolbar else 4000]
-  assert "renderModels();" not in toolbar, "each pick goes through pickRows"
+  assert "renderModels();" not in toolbar, "each selection goes through selectRows"
 
 
 def test_the_live_switch_reads_blue_live_and_gray_paused() -> None:
@@ -2038,7 +2038,7 @@ def test_the_motion_reaches_the_modal_the_sections_and_the_switches() -> None:
     "the backdrop fades in"
   )
   assert 'replay([...host.querySelectorAll(".section-pane > .card")]' in app, (
-    "the picked section card arrives"
+    "the selected section card arrives"
   )
   assert (
     ".section-pane > .card.drawn { animation: fade var(--soft) var(--ease); }" in css
@@ -2084,7 +2084,7 @@ def test_the_settings_sections_carry_a_rule() -> None:
 
 
 def test_the_providers_back_keeps_its_slide() -> None:
-  """A phone back from a Providers section slides: the form renders before the pick lands."""
+  """A phone back from a Providers section slides: the form renders before the selection lands."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   body = app[
@@ -2093,22 +2093,22 @@ def test_the_providers_back_keeps_its_slide() -> None:
   render = body.index(
     'if (page === "providers" && state.view === "form") renderForm();'
   )
-  pick = body.index("applySectionHash();")
-  assert render < pick, "the form renders before the section pick"
-  assert "slideAgain();" in body[pick:], (
-    "the slide of the pick replays on the fresh markup"
+  selection = body.index("applySectionHash();")
+  assert render < selection, "the form renders before the section selection"
+  assert "slideAgain();" in body[selection:], (
+    "the slide of the selection replays on the fresh markup"
   )
   assert "function playSlide(host, open) {" in app, "1 helper plays the arriving slide"
   assert "state_.slide = true;" in app, (
-    "a pick holds its slide for the render that follows"
+    "a selection holds its slide for the render that follows"
   )
   assert 'for (const host of [$("settings"), $("provider-form")]) {' in app, (
     "both pages replay their slide"
   )
 
 
-def test_the_requests_bar_keeps_its_line_on_a_filter_pick() -> None:
-  """A filter pick holds the toolbar: the count hint never drops to a second row."""
+def test_the_requests_bar_keeps_its_line_on_a_filter_selection() -> None:
+  """A filter selection holds the toolbar: the count hint never drops to a second row."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   desktop = css.split("@media (min-width: 721px) {", 1)[1]
@@ -2362,7 +2362,7 @@ assert(html.includes('class="pill off named" title="' + LOCALE["hook.state.named
   + '">' + LOCALE["hook.surface.chunk.label"]), 'the off file reads dim');
 assert(html.includes('<em class="none">' + LOCALE["hook.empty.surface_text"] + '</em>'),
   'a file that names no surface reads none');
-assert(!html.includes('data-hook-surface-pick'), 'nothing adds a surface');
+assert(!html.includes('data-hook-surface-select'), 'nothing adds a surface');
 assert(!html.includes('data-hook-surface-drop'), 'nothing takes a surface off');
 assert(!html.includes('class="menu"'), 'no surface list opens');
 assert(html.includes('>' + LOCALE["hook.scope.local_text"] + '<'), 'a file with no source reads local');
@@ -2427,8 +2427,8 @@ assert.deepStrictEqual(JSON.parse(JSON.stringify(probe.settingsChanges().hooks))
   )
 
 
-def test_app_js_a_file_change_leaves_the_pick_of_the_other_file() -> None:
-  """A file switch opens the first section of the new file, so the pick of the other file does not ride over."""
+def test_app_js_a_file_change_leaves_the_selection_of_the_other_file() -> None:
+  """A file switch opens the first section of the new file, so the selection of the other file does not ride over."""
   files = [
     {
       "path": "config/providers/openrouter.yml",
@@ -2447,13 +2447,13 @@ def test_app_js_a_file_change_leaves_the_pick_of_the_other_file() -> None:
     },
   ]
   run_app_js(
-    "state, takeFiles, renderForm, pickSection, openFile",
+    "state, takeFiles, renderForm, selectSection, openFile",
     f"""
 probe.takeFiles({json.dumps(files)});
 probe.state.file = 0;
 probe.renderForm();
 // The user of a phone opens the openrouter section of openrouter.yml as a page.
-probe.pickSection(node('provider-form'), 'openrouter', true);
+probe.selectSection(node('provider-form'), 'openrouter', true);
 // Then the user switches the file to free.yml.
 probe.openFile(1);
 const html = node('provider-form').innerHTML;
@@ -2461,7 +2461,7 @@ const list = html.slice(html.indexOf('class="sections"'), html.indexOf('class="s
 assert(list.includes('class="on" type="button" data-section="cloudflare" aria-current="true"'),
   'the new file opens its first section');
 assert(!list.includes('class="on" type="button" data-section="openrouter"'),
-  'the pick of the other file does not ride over');
+  'the selection of the other file does not ride over');
 assert.strictEqual(node('provider-form').dataset.detail, '0', 'the phone returns to the section list');
 assert(html.includes('The file text of free.yml'), 'the yaml card names the new file');
 """,
@@ -2472,7 +2472,7 @@ def test_hook_chip_matches_the_keyword_chips() -> None:
   """A hook row uses the keyword pill, and its file list draws in the page, on the page theme."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  chip = re.search(r"\.pill\.hook \.pick \{([^}]*)\}", css)
+  chip = re.search(r"\.pill\.hook \.select \{([^}]*)\}", css)
   assert chip and "border: 0" in chip.group(1)
   assert "padding: 0" in chip.group(1) and "background: transparent" in chip.group(1)
   assert "font: 12px/20px var(--mono)" in chip.group(1), "the keyword chip font"
@@ -2494,8 +2494,8 @@ def test_hook_chip_matches_the_keyword_chips() -> None:
   markup = re.search(r"const hookFormRow = .*?\n};", app, re.DOTALL)
   assert markup, "the hook row builds 1 chip"
   assert 'class="pill hook"' in markup.group(0), "the row rides in a chip"
-  assert 'title: t("hook.action.pick_file_title")' in markup.group(0), (
-    "the chip names its picker"
+  assert 'title: t("hook.action.select_file_title")' in markup.group(0), (
+    "the chip names its selector"
   )
   assert 'role="listbox"' in markup.group(0), "the list names its role"
   assert 'role: "option"' in app and '"aria-selected":' in app, (
@@ -2538,21 +2538,21 @@ const rendered = (mode) => {{
 rendered('none');
 rendered('session');
 rendered('race');
-// A new pick moves the rows of the card at once, and the file keeps its own mode.
+// A new selection moves the rows of the card at once, and the file keeps its own mode.
 probe.state.settings.file.affinity = {{ mode: 'session' }};
-for (const pick of ['none', 'race', 'session']) {{
+for (const selection of ['none', 'race', 'session']) {{
   const select = node('set-affinity-mode');
-  select.value = pick;
+  select.value = selection;
   node('settings').handlers.input.forEach((fn) => fn({{ target: select }}));
-  assert.strictEqual(select.value, pick, 'the pick stays after a change to ' + pick);
-  assert.deepStrictEqual(shown(), expect[pick], pick + ' moves the rows');
+  assert.strictEqual(select.value, selection, 'the selection stays after a change to ' + selection);
+  assert.deepStrictEqual(shown(), expect[selection], selection + ' moves the rows');
   assert.strictEqual(probe.state.settings.file.affinity.mode, 'session', 'the file is not written back');
 }}
-// A pick that differs from the file reaches the write payload of that 1 row.
+// A selection that differs from the file reaches the write payload of that 1 row.
 const select = node('set-affinity-mode');
 select.value = 'race';
 node('settings').handlers.input.forEach((fn) => fn({{ target: select }}));
-assert.strictEqual(probe.settingsChanges().affinity.mode, 'race', 'the pick reaches the save payload');
+assert.strictEqual(probe.settingsChanges().affinity.mode, 'race', 'the selection reaches the save payload');
 """,
   )
 
@@ -2610,7 +2610,7 @@ idle.classList = {{ toggle: (name, on) => (on ? idle.off.add(name) : idle.off.de
 idle.querySelectorAll = () => idle.controls;
 node('set-affinity-change_on_draw').checked = false;
 probe.showSwitchRows();
-assert(!off('set-affinity-idle') && !disabled('set-affinity-idle'), 'the affinity pin pick greys nothing');
+assert(!off('set-affinity-idle') && !disabled('set-affinity-idle'), 'the affinity pin selection greys nothing');
 // The form listens for the flip, so the card greys on the click without a save.
 node('set-balance-weights').checked = true;
 node('set-optimization-enabled').checked = true;
@@ -2954,14 +2954,16 @@ def test_hook_legend_rows(client: TestClient, state_folder: Path) -> None:
     encoding="utf-8",
   )
   body = client.get("/ui/api/hooks").json()
-  assert body == {"legend": [["rtN", "A repeat picked another model, N times"]]}, body
+  module = hooks.load(folder / "owui_auto_reasoning_effort.py")
+  assert module is not None
+  assert body == {"legend": module.on_init()}, body
 
 
 def _tar() -> bytes:
   """The archive of 1 commit, with 2 hook files under `hooks`."""
   body = io.BytesIO()
   with tarfile.open(fileobj=body, mode="w:gz") as archive:
-    for name, version in (("scanned.py", "1.2.0"), ("picked.py", "2.0.0")):
+    for name, version in (("scanned.py", "1.2.0"), ("selected.py", "2.0.0")):
       text = (
         "# ---\n"
         f"# version: {version}\n"
@@ -3076,7 +3078,7 @@ assert(html.includes('data-hook-toggle="one.py"') && html.includes('data-hook-to
 assert(html.includes('>1.2.0<') && html.includes('provider: openrouter'), 'the version and the scope of a file');
 assert(html.includes('owner/name@ccccccc'), 'the source of an installed file');
 assert(html.includes('unknown surface'), 'a bad block shows its problem');
-assert(!html.includes('data-hook-take'), 'no scan before a repo is picked');
+assert(!html.includes('data-hook-take'), 'no scan before a repo is selected');
 probe.setListValue('hooks', 'disabled', []);
 assert(JSON.stringify(probe.settingsChanges().hooks.disabled) === '[]', 'the off names reach the payload');
 probe.setListValue('hooks', 'sources', []);
@@ -3395,7 +3397,7 @@ def test_a_provider_file_that_stays_answers_a_clear_message(
 def test_hook_scan_and_take(
   client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The scan answers with the files of a repo, and an update takes the picked names."""
+  """The scan answers with the files of a repo, and an update takes the selected names."""
   commit = "a" * 40
   pages = {
     remote.API.format(repo="owner/name", ref="main"): json.dumps(
@@ -3414,8 +3416,8 @@ def test_hook_scan_and_take(
   answer = found.json()
   assert answer["repo"] == "owner/name" and answer["commit"] == commit
   assert [row["name"] for row in answer["files"]] == [
-    "owner/name/picked.py",
     "owner/name/scanned.py",
+    "owner/name/selected.py",
   ]
   assert {row["name"]: row["version"] for row in answer["files"]}[
     "owner/name/scanned.py"
@@ -3425,11 +3427,11 @@ def test_hook_scan_and_take(
   bad = client.post("/ui/api/hooks/scan", json={"repo": "owner/other"})
   assert bad.status_code == 400, bad.text
   take = client.post(
-    "/ui/api/hooks/update", json={"source": body, "take": ["owner/name/picked.py"]}
+    "/ui/api/hooks/update", json={"source": body, "take": ["owner/name/selected.py"]}
   )
   assert take.status_code == 200, take.text
-  assert take.json()["moved"] == ["owner/name/picked.py"], take.text
-  assert (root / "owner/name/picked.py").is_file()
+  assert take.json()["moved"] == ["owner/name/selected.py"], take.text
+  assert (root / "owner/name/selected.py").is_file()
   assert not (root / "owner/name/scanned.py").exists()
 
 
@@ -3459,11 +3461,11 @@ def test_files(
   )
   root = folder / "hooks"
   root.mkdir(parents=True, exist_ok=True)
-  (root / "picked.py").write_text(
+  (root / "selected.py").write_text(
     "def on_answer(value, model, headers):\n  return value\n"
   )
-  assert "hooks/picked.py" in client.get("/ui/api/settings").json()["hook_files"], (
-    "the settings page lists the hook files, so a row picks its own"
+  assert "hooks/selected.py" in client.get("/ui/api/settings").json()["hook_files"], (
+    "the settings page lists the hook files, so a row selects its own"
   )
   assert shown["defaults"]["limits"]["slow"] == 30.0, shown
   assert shown["defaults"]["balance"]["fault"] == 0.5, shown
@@ -3545,11 +3547,13 @@ def test_files(
     == 422
   ), "a hook path is a string"
   hook = {
-    "hooks": {"on-request": ["hooks/owui_auto_reasoning_effort.py", "hooks/picked.py"]}
+    "hooks": {
+      "on-request": ["hooks/owui_auto_reasoning_effort.py", "hooks/selected.py"]
+    }
   }
   assert client.put("/ui/api/settings", json={"changes": hook}).status_code == 200
   assert api.REQUEST_HOOKS == {
-    "on-request": ["hooks/owui_auto_reasoning_effort.py", "hooks/picked.py"],
+    "on-request": ["hooks/owui_auto_reasoning_effort.py", "hooks/selected.py"],
     "on-prompt": [],
     "on-chunk": [],
   }, "the save applies each request hook of the surface"
@@ -4663,7 +4667,7 @@ def test_the_first_data_of_a_card_arrives_once() -> None:
   assert 'firstDraw($("requests"));' in app, "the requests table marks itself too"
 
 
-def test_app_js_a_pool_pick_moves_the_models_table_only() -> None:
+def test_app_js_a_pool_selection_moves_the_models_table_only() -> None:
   """A pool card holds the page still: the models table arrives, and nothing else moves."""
   code = _app_js_vm(
     """
@@ -4754,14 +4758,14 @@ def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
 
 
 def test_each_page_holds_a_section_list() -> None:
-  """Every section sits in a rail, and the pane shows the picked 1."""
+  """Every section sits in a rail, and the pane shows the selected 1."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   for needle in (
     "function sectionList(",
-    "function pickSection(",
-    "pickSettingsSection(section.dataset.section)",
-    "pickProviderSection(section.dataset.section)",
+    "function selectSection(",
+    "selectSettingsSection(section.dataset.section)",
+    "selectProviderSection(section.dataset.section)",
     'class="section-pane"',
     'variant: "ghost back"',
     "function yamlCard(editor, save, hint) {",
@@ -4992,7 +4996,7 @@ def test_the_yaml_editor_ends_each_list_and_saves_itself() -> None:
   ):
     assert needle in app, needle
   assert 'data-section="yaml"' in app and 'yamlCard("editor", "yaml-save"' in app, (
-    "the card holds the picked section and the editor"
+    "the card holds the selected section and the editor"
   )
   assert 'yamlCard("settings-editor", "settings-yaml-save"' in app, (
     "the settings card carries its own pair"
@@ -5038,7 +5042,7 @@ def test_a_row_writes_itself_and_the_bar_is_gone() -> None:
 
 
 def test_a_phone_opens_a_section_as_its_own_page() -> None:
-  """A pick pushes the section into the hash, and the back button names its page."""
+  """A selection pushes the section into the hash, and the back button names its page."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   for needle in (
@@ -5061,7 +5065,7 @@ def test_a_phone_opens_a_section_as_its_own_page() -> None:
     "a phone row carries a chevron"
   )
   assert '.settings[data-detail="1"] .section-pane { display: grid; }' in phone, (
-    "a phone shows the picked section alone"
+    "a phone shows the selected section alone"
   )
 
 
@@ -5398,9 +5402,9 @@ assert.strictEqual(rendered,
 assert.strictEqual(probe.actionButton('Paused', {
   variant: 'ghost live-toggle', attrs: { 'aria-pressed': 'false' },
 }), '<button class="ghost live-toggle" type="button" aria-pressed="false">Paused</button>');
-assert.strictEqual(probe.actionButton('Pick', {
+assert.strictEqual(probe.actionButton('Select', {
   attrs: { role: 'option', 'aria-selected': 'false' },
-}), '<button type="button" role="option" aria-selected="false">Pick</button>');
+}), '<button type="button" role="option" aria-selected="false">Select</button>');
 """,
   )
 

@@ -167,7 +167,7 @@ def test_requests() -> None:
     if "/" in model and "daedalus" not in model
     else ([["first/a", "second/b"]], "daedalus/koinos")
   )
-  pick, api.PENALTIES.pick = api.PENALTIES.pick, lambda: 0.0
+  selection, api.PENALTIES.select = api.PENALTIES.select, lambda: 0.0
   upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(recorded)))
   client = TestClient(api.app, headers={"Authorization": f"Bearer {MASTER}"})
   body = {"model": "daedalus/koinos", "messages": [{"role": "user", "content": "hi"}]}
@@ -192,7 +192,7 @@ def test_requests() -> None:
     assert 29 <= int(response.headers["retry-after"]) <= 30, "the first end"
   finally:
     api.get_config, api.chain = original
-    api.PENALTIES.pick = pick
+    api.PENALTIES.select = selection
     upstream.set_client(None)
     api.COOLDOWNS.clear()
 

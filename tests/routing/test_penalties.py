@@ -29,9 +29,9 @@ def answer(request: httpx.Request) -> httpx.Response:
 
 
 def test_weights(folder: Path) -> None:
-  now, picks = [0.0], [0.0]
+  now, selections = [0.0], [0.0]
   store = penalties.Penalties(
-    lambda: folder / "w.sqlite3", clock=lambda: now[0], pick=lambda: picks[0]
+    lambda: folder / "w.sqlite3", clock=lambda: now[0], select=lambda: selections[0]
   )
   assert store.weights(["a"]) == {"a": 1.0}, "all models start at 1"
   assert store.record_change("a", penalties.FAULT) == (1.0, 0.5)
@@ -65,11 +65,11 @@ def test_weights(folder: Path) -> None:
   assert store.order(groups) == ["a", "b", "c", "e", "d"], (
     "a draw at 0 takes the first model"
   )
-  picks[0] = 0.99
+  selections[0] = 0.99
   assert store.order(groups)[0] == "c", "a draw near 1 takes the last model"
-  picks[0] = 0.45
+  selections[0] = 0.45
   assert store.order(groups)[0] == "b", "the weights set the draw: a has 0.5 of 2.5"
-  picks[0] = 0.1
+  selections[0] = 0.1
   assert store.order(groups)[0] == "a"
   assert store.order([["x", "y"], ["x"]]) == ["x", "y"], "a model shows once"
   assert store.order([[], ["z"]]) == ["z"], "an empty tier"
@@ -78,7 +78,7 @@ def test_weights(folder: Path) -> None:
 def test_pins(folder: Path) -> None:
   now = [0.0]
   store = penalties.Penalties(lambda: folder / "p.sqlite3", clock=lambda: now[0])
-  store.pick = lambda: 0.0
+  store.select = lambda: 0.0
   groups = [["a/1", "b/1"], ["c/1"]]
   assert store.pin("k", "pool", "c/1") == "new"
   order = store.order(groups, "k", "pool")
@@ -88,22 +88,22 @@ def test_pins(folder: Path) -> None:
   store.pin("k", "other-slot", "z/1")
   assert store.last_pin("k") == ("other-slot", "z/1")
   assert store.last_pin("other") is None
-  store.pick = lambda: 0.2
+  store.select = lambda: 0.2
   assert store.order(groups, "k", "pool") == ["b/1", "a/1", "c/1"], "the session model"
   assert store.order(groups, "other", "pool")[0] == "a/1", (
     "each key has its own session"
   )
   assert store.order(groups, "k", "other")[0] == "a/1", "each slot has its own session"
-  store.pick = lambda: 0.14
+  store.select = lambda: 0.14
   assert store.order(groups, "k", "pool")[0] == "a/1", "a/1 gets 15% of the draws"
   assert store.order([["x/1"], ["a/1", "b/1"]], "k", "pool") == ["x/1", "b/1", "a/1"], (
     "after the first model, the session model goes first in its tier"
   )
   store.pin("k", "pool", "a/1")
   for tier in (["a/1", "b/1"], ["a/1", "b/1", "d/1", "e/1", "f/1"]):
-    store.pick = lambda: 0.84
+    store.select = lambda: 0.84
     assert store.order([tier], "k", "pool")[0] == "a/1", "85% for the session model"
-    store.pick = lambda: 0.86
+    store.select = lambda: 0.86
     assert store.order([tier], "k", "pool")[0] == "b/1", (
       "the share ignores the tier size"
     )
@@ -295,8 +295,8 @@ def test_requests() -> None:
 
   keys.add(model_store.MODELS_DB, "second", LOCAL)
 
-  def ask(token: str = MASTER, pick: float = 0.5) -> str:
-    api.PENALTIES.pick = lambda: pick
+  def ask(token: str = MASTER, selection: float = 0.5) -> str:
+    api.PENALTIES.select = lambda: selection
     body = {"model": "daedalus/deinos", "messages": [{"role": "user", "content": "x"}]}
     headers = {"Authorization": f"Bearer {token}"}
     response = client.post("/v1/chat/completions", json=body, headers=headers)
@@ -305,11 +305,11 @@ def test_requests() -> None:
 
   try:
     FAILING.add("a.test")
-    assert ask(pick=0.0) == "b.test", "the first model that answers"
+    assert ask(selection=0.0) == "b.test", "the first model that answers"
     assert api.PENALTIES.weights(["a/1"])["a/1"] < 0.51, "a fault lowers the weight"
     FAILING.clear()
     assert ask() == "b.test", "the session model keeps the turn"
-    assert ask(LOCAL, pick=0.4) == "b.test", "a/1 has a lower weight for all keys"
+    assert ask(LOCAL, selection=0.4) == "b.test", "a/1 has a lower weight for all keys"
     FAILING.add("b.test")
     assert ask() == "a.test", "a failed session model moves to the next model"
     FAILING.clear()
@@ -319,14 +319,14 @@ def test_requests() -> None:
     api.PENALTIES.enabled = True
     api.PENALTIES.stay = 0.0
     api.PENALTIES.change_on_draw = False
-    assert ask(pick=0.0) == "a.test", "the initial pin"
+    assert ask(selection=0.0) == "a.test", "the initial pin"
     key = api.session_key(MASTER, [{"role": "user", "content": "x"}])
     slot = "daedalus/deinos"
     assert api.PENALTIES.pinned(key, slot) == "a/1"
-    assert ask(pick=0.99) == "b.test", "a weighted draw still serves the new model"
+    assert ask(selection=0.99) == "b.test", "a weighted draw still serves the new model"
     assert api.PENALTIES.pinned(key, slot) == "a/1", "the old eligible pin stays"
     api.PENALTIES.change_on_draw = True
-    assert ask(pick=0.99) == "b.test"
+    assert ask(selection=0.99) == "b.test"
     assert api.PENALTIES.pinned(key, slot) == "b/1", "the default replaces the pin"
   finally:
     api.get_config, api.chain = original

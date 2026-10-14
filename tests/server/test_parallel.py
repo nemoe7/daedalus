@@ -111,7 +111,7 @@ def fresh() -> None:
   """Each test starts with no pin, no weight change and no call list."""
   api.PENALTIES.clear()
   api.PENALTIES.race = True
-  api.PENALTIES.pick = lambda: 0.0
+  api.PENALTIES.select = lambda: 0.0
   dashboard.HISTORY.clear()
   PLAN.clear()
   TAIL.clear()

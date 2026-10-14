@@ -314,7 +314,7 @@ async def attempt(
 ) -> tuple[providers.OpenAIProvider, httpx.Response]:
   """Send one candidate request, and fail on an upstream error status.
 
-  When `sent` is a dict, it gets the reasoning effort that went upstream. `client` picks its
+  When `sent` is a dict, it gets the reasoning effort that went upstream. `client` selects its
   provider key.
   """
   asked = "reasoning_effort" in body

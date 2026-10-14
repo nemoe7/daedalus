@@ -40,7 +40,7 @@ The first chart follows a chat request. The second shows the catalog build and t
 ```mermaid
 flowchart LR
   A[Client request] --> B{{on-request}}
-  B --> C[Catalog pick and fallback chain]
+  B --> C[Catalog selection and fallback chain]
   C --> P{{on-prompt}}
   P --> D{{on-upstream}}
   D --> E[Provider API]
@@ -156,7 +156,7 @@ At the dashboard load, for each enabled request hook file.
 
 `on_init()`
 
-No arguments. It returns the rows of the code legend of the dashboard, such as `[["rtN", "A repeat picked another model, N times"]]`.
+No arguments. It returns the rows of the code legend of the dashboard, such as `[["rtN", "A repeat selected another model, N times"]]`.
 
 A request-level surface, such as `on-request`, takes its files from the `hooks` group of [`config/daedalus.yml`](../config/daedalus.yml), because no provider owns the request yet. An installed file with a `surfaces` block in its frontmatter joins its surfaces without a key there:
 
@@ -319,7 +319,7 @@ hooks:
 | `auto_update` | true or false | `true` follows the ref at each start. `false`, the default, waits for the Take button |
 
 A start reads a source that sets `auto_update`. The Settings card lists a source, and its Take button
-writes the picked files. An update reads the commit of the ref,
+writes the selected files. An update reads the commit of the ref,
 reads the archive of that commit, and writes each file through a temporary name.
 A request that fails, an archive that does not read, a refused block or a failed write all keep the
 files on disk.
@@ -355,7 +355,7 @@ The Hooks card of the Settings page holds the folder, the sources and 1 switch p
 
 The scan then lists the files of that repo, each with its own switch, so the operator takes some files and leaves the rest.
 
-The `×` of the source row deletes the picked source.
+The `×` of the source row deletes the selected source.
 
 A hook row of a provider card or of a model entry lists the installed files whose scope fits that
 card. The keyword chips of the Hooks card accept any file of the folder.

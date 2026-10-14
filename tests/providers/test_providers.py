@@ -117,7 +117,7 @@ async def test_providers() -> None:
 
       async def send(model, **extra):
         api.PENALTIES.clear()
-        api.PENALTIES.pick = lambda: 0.0
+        api.PENALTIES.select = lambda: 0.0
         return await client.post(
           "/v1/chat/completions",
           json={

@@ -140,9 +140,9 @@ def test_served() -> None:
 
 
 @pytest.fixture(scope="module", autouse=True)
-def first_pick():
+def first_selection():
   with pytest.MonkeyPatch.context() as patch:
-    patch.setattr(api.PENALTIES, "pick", lambda: 0.0)
+    patch.setattr(api.PENALTIES, "select", lambda: 0.0)
     yield
 
 

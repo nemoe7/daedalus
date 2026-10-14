@@ -8,7 +8,7 @@ See [Open WebUI integration](../owui.md) for the other plugins.
 flowchart TD
   A[The reader asks a question] --> B[The model plans the report]
   B --> C[search_web round 1]
-  C --> D[fetch_url on the picked pages]
+  C --> D[fetch_url on the selected pages]
   D --> E{Enough sources?}
   E -- no --> C
   E -- yes --> F[The report, with numbered sources]

@@ -32,7 +32,7 @@ reads and the new items, and holds the mutations and the toggles. `Always allow`
 
 The question names the item.
 
-A new knowledge base, skill, tool or function joins the model presets in the same call. The tool reads each preset, merges the matching `meta` list and posts the record back. It skips a preset without write access and names it. The `PRESET_MODELS` valve picks the presets by id or by name, and an empty list serves each preset.
+A new knowledge base, skill, tool or function joins the model presets in the same call. The tool reads each preset, merges the matching `meta` list and posts the record back. It skips a preset without write access and names it. The `PRESET_MODELS` valve selects the presets by id or by name, and an empty list serves each preset.
 
 ## Open WebUI v0.12 skills
 

@@ -107,8 +107,8 @@ async def client():
   PLAN.clear()
   # A request with no stream reads our own stream when it may race, so the race is on here.
   api.PARALLEL_ENABLED = True
-  pick = api.PENALTIES.pick
-  api.PENALTIES.pick = random.random
+  selection = api.PENALTIES.select
+  api.PENALTIES.select = random.random
   try:
     async with httpx.AsyncClient(transport=httpx.MockTransport(upstream)) as outer:
       set_client(outer)
@@ -120,7 +120,7 @@ async def client():
       ) as inner:
         yield inner
   finally:
-    api.PENALTIES.pick = pick
+    api.PENALTIES.select = selection
     set_client(None)
     config.set_config(None)
 
@@ -151,7 +151,7 @@ async def test_a_non_stream_client_reads_our_stream(client: httpx.AsyncClient) -
 
 async def test_a_refused_stream_retries_without_one(client: httpx.AsyncClient) -> None:
   """A 400 on the stream attempt reads as a compatibility sign, not a fault of the model."""
-  api.PENALTIES.pick = lambda: 0.2
+  api.PENALTIES.select = lambda: 0.2
   PLAN["a"] = "refuse"
   response = await client.post("/v1/chat/completions", json=CHAT)
   assert response.status_code == 200, response.text
@@ -165,7 +165,7 @@ async def test_a_refused_stream_retries_without_one(client: httpx.AsyncClient) -
 
 async def test_a_denied_key_keeps_its_own_path(client: httpx.AsyncClient) -> None:
   """A 401 is not a stream refusal, so a model makes no second attempt without a stream."""
-  api.PENALTIES.pick = lambda: 0.2
+  api.PENALTIES.select = lambda: 0.2
   PLAN["a"] = PLAN["b"] = "denied"
   response = await client.post("/v1/chat/completions", json=CHAT)
   assert response.status_code == 401, response.text
@@ -208,7 +208,7 @@ async def test_a_flagged_model_skips_the_stream(client: httpx.AsyncClient) -> No
 
 async def test_a_stream_without_done_falls_back(client: httpx.AsyncClient) -> None:
   """A stream that stops early hands the request to the next model of the chain."""
-  api.PENALTIES.pick = lambda: 0.2
+  api.PENALTIES.select = lambda: 0.2
   PLAN["a"] = "cut"
   response = await client.post("/v1/chat/completions", json=CHAT)
   assert response.status_code == 200, response.text

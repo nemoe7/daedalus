@@ -57,7 +57,7 @@ tr.live-row.arrive { animation: arrive var(--soft) var(--ease); }
 @keyframes fade { from { opacity: 0; } }
 .section-pane > .card.drawn { animation: fade var(--soft) var(--ease); }
 /* A phone slides the arriving view in: the section pane from the right, and the list back from the
-   left. The class lands on a pick or a back only, so a render never replays it. */
+   left. The class lands on a selection or a back only, so a render never replays it. */
 @keyframes slide-in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
 @keyframes slide-back { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
 @media (max-width: 900px) {
@@ -106,7 +106,7 @@ header {
 .tabs a:hover { color: var(--text); }
 .tabs a.on { color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
 /* A chevron at an end of the tab bar shows the tabs that wait off screen, and scrolls to them. */
-/* The bar stretches, so the underline of the picked tab lands on the header bottom line.
+/* The bar stretches, so the underline of the selected tab lands on the header bottom line.
    The step buttons keep their own center. */
 .tab-bar { grid-area: tabs; display: flex; align-items: stretch; gap: 2px; min-width: 0; }
 .tabs { flex: 1; min-width: 0; }
@@ -431,7 +431,7 @@ td.end { text-align: right; }
   }
   section[data-page="requests"] > .flow > .column > .panel:not(.editbar) { flex: 1; min-height: 0; overflow: auto; }
   section[data-page="requests"] > .flow > .column > .requests-bar { flex: none; }
-  /* The bar keeps 1 row: a filter pick never drops the count hint to a second line. The search
+  /* The bar keeps 1 row: a filter selection never drops the count hint to a second line. The search
      field gives up its width first, so the controls and the hint hold their place. */
   section[data-page="requests"] .requests-bar { flex-wrap: nowrap; }
   section[data-page="requests"] .requests-bar input[type="search"] { flex: 1 1 8rem; min-width: 0; }
@@ -597,7 +597,7 @@ section[data-page="providers"], section[data-page="settings"] {
 .pill.on, .pill.off, #hooks-scan .pill { padding-right: 10px; }
 .pill.hook { position: relative; }
 .pill.hook:focus-within { border-color: var(--accent); }
-.pill.hook .pick {
+.pill.hook .select {
   border: 0; padding: 0; background: transparent; color: inherit; cursor: pointer;
   font: 12px/20px var(--mono); max-width: 30ch; overflow: hidden; text-overflow: ellipsis;
 }
@@ -622,7 +622,7 @@ section[data-page="providers"], section[data-page="settings"] {
 .override { display: grid; grid-template-columns: minmax(110px, 38%) 1fr auto; gap: 8px; align-items: start; }
 .override input.text { padding: 3px 8px; font-size: 12px; }
 /* The provider form and the Settings page share the container: a section list, and the pane of
-   the picked section. A wide screen puts the rail beside the pane, and a phone shows 1 at a time. */
+   the selected section. A wide screen puts the rail beside the pane, and a phone shows 1 at a time. */
 .settings { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; align-items: flex-start; }
 .sections {
   flex: 0 1 240px; display: grid; align-content: start; overflow: hidden;
@@ -808,7 +808,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 .login .check { display: flex; align-items: center; gap: 8px; }
 .login .check input { accent-color: var(--accent); }
 
-/* A wide screen holds the header and the rail still, and the pane of the picked section carries its
+/* A wide screen holds the header and the rail still, and the pane of the selected section carries its
    own scroll, so the form moves without the page. */
 @media (min-width: 901px) {
   #app > main:has(> section[data-page="providers"]:not([hidden])),
@@ -839,10 +839,10 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 @media (max-width: 900px) {
   /* A phone shows the section list, then 1 section, with a way back to the list. */
   .sections, .section-pane { flex: 1 1 100%; }
-  /* A phone row carries a chevron at its right edge, and a pick opens the section as its own page. */
+  /* A phone row carries a chevron at its right edge, and a selection opens the section as its own page. */
   .sections button { min-height: 44px; }
   .sections button::after { content: "\203a"; color: var(--muted); font-size: 18px; line-height: 1; }
-  /* A pick opens the section as its own page, so the list carries no selected mark. */
+  /* A selection opens the section as its own page, so the list carries no selected mark. */
   .sections button.on { background: none; box-shadow: none; }
   .section-pane { display: none; }
   .settings[data-detail="1"] .sections { display: none; }

@@ -87,7 +87,7 @@ def test_media(client: TestClient) -> None:
 def test_wait(client: TestClient) -> None:
   ANSWERS.add("two")
   upstream.TIMEOUT_SECONDS, upstream.WAIT_SECONDS = 30.0, 0.2
-  api.PENALTIES.pick = lambda: 0.0
+  api.PENALTIES.select = lambda: 0.0
   sent: list[tuple[str, dict]] = []
   send = dashboard.LIVE.send
   dashboard.LIVE.send = lambda kind, data: sent.append((kind, data))

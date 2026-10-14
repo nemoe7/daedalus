@@ -100,7 +100,7 @@ def use_upstream(api_key: str = UPSTREAM_KEY, local_key: str = "") -> None:
   if local_key:
     keys.add(store.MODELS_DB, "local", local_key)
   api.PENALTIES.clear()
-  api.PENALTIES.pick = lambda: 0.0
+  api.PENALTIES.select = lambda: 0.0
   upstream.set_client(
     httpx.AsyncClient(
       transport=httpx.ASGITransport(app=make_upstream()),

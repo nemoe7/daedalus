@@ -1283,7 +1283,7 @@ function firstDraw(host) {
   DRAWN_SHOWN.add(host);
   host.classList.add("drawn");
 }
-// Restart the arrival on 1 host: a filter pick or a section pick moves its own block, and the
+// Restart the arrival on 1 host: a filter selection or a section selection moves its own block, and the
 // page around it holds still. A host that never arrived keeps its own draw path.
 function replay(host) {
   if (!host) return;
@@ -1302,9 +1302,9 @@ function draw(id, markup) {
   firstDraw(host);
 }
 
-// A filter pick of the Models tab moves the rows only: the table arrives again, and the page holds
+// A filter selection of the Models tab moves the rows only: the table arrives again, and the page holds
 // still, so a pool card, a select or the search box never moves the whole view.
-function pickRows() {
+function selectRows() {
   renderModels();
   replay($("models"));
 }
@@ -1503,14 +1503,14 @@ function openFile(index) {
   if (state.files.length && editor) state.files[state.file].text = editor.value;
   state.file = index;
   showFileError(index);
-  // The pick of the other file would ride over into this one, and the pane would show the
+  // The selection of the other file would ride over into this one, and the pane would show the
   // content of the file under a section of the other. The new file opens its first section.
   const section = sectionState("provider-form");
   section.key = "";
   section.open = false;
   renderFiles();
   renderForm();
-  // The picked file arrives its form, so a file change reads on the page.
+  // The selected file arrives its form, so a file change reads on the page.
   replay($("provider-form"));
 }
 
@@ -1576,7 +1576,7 @@ function hookChoices(kind, name) {
     .map((row) => row.path);
 }
 
-// The form of a provider or a model, where each hook row picks a surface and 1 file that fits the
+// The form of a provider or a model, where each hook row selects a surface and 1 file that fits the
 // card. The rows write through the path of the form, and the same chip flow as the Settings page.
 const HOOK_DEFAULT = "on-upstream";
 let openFormHook = null;
@@ -1595,13 +1595,13 @@ const hookFormRow = (entry, path, choices) => {
         "data-form-hook-choice": JSON.stringify([...path, name]),
       },
     })).join("")}</div>` : "";
-  const picker = actionButton(value ? hookName(value) : t("hook.empty.file_text"), {
-    variant: "pick",
+  const selector = actionButton(value ? hookName(value) : t("hook.empty.file_text"), {
+    variant: "select",
     attrs: {
-      "data-form-hook-pick": at,
+      "data-form-hook-select": at,
       "aria-haspopup": "listbox",
       "aria-expanded": String(open),
-      title: t("hook.action.pick_file_title"),
+      title: t("hook.action.select_file_title"),
     },
   });
   const drop = actionButton(icon("x"), {
@@ -1609,7 +1609,7 @@ const hookFormRow = (entry, path, choices) => {
   });
   return `<span class="pill hook"><select data-form-hook-surface='${esc(at)}' aria-label="${t("hook.surface.label")}">${
     HOOK_SURFACES.map(([key, label]) => `<option value="${key}"${key === surface ? " selected" : ""}>${esc(label)}</option>`).join("")
-    }</select>${picker}${drop}${menu}</span>`;
+    }</select>${selector}${drop}${menu}</span>`;
 };
 
 // The hook rows of a provider block or of a model override, with the installed hooks that fit.
@@ -1766,7 +1766,7 @@ function hooksManager() {
   const options = sources.length
     ? sources.map((entry, index) => `<option value="${index}"${index === at ? " selected" : ""}>${esc(sourceLabel(entry))}</option>`).join("")
     : `<option value="">${t("hook.empty.source_text")}</option>`;
-  const picked = sources.length ? sourceLabel(sources[at]) : "";
+  const selected = sources.length ? sourceLabel(sources[at]) : "";
   const list = rows.map((row) => {
     const record = row.record || {};
     const source = record.repo ? `${record.repo}@${(record.commit || "").slice(0, 7)}` : "";
@@ -1810,7 +1810,7 @@ function hooksManager() {
         })}
         ${sources.length ? actionButton(icon("x"), {
           variant: "ghost",
-          attrs: { "data-hook-source-drop": true, title: t("hook.action.delete_source_title", { name: picked }) },
+          attrs: { "data-hook-source-drop": true, title: t("hook.action.delete_source_title", { name: selected }) },
         }) : ""}</div>${panel}
       <div class="sub" id="hooks-note" role="status"></div>`)}`;
 }
@@ -1975,11 +1975,11 @@ function field(label, hint, body) {
   return `<div class="field stack info">${labelSpan(label, hint)}${body}</div>`;
 }
 
-// The picked section of each list, and whether the phone shows that section or the list.
+// The selected section of each list, and whether the phone shows that section or the list.
 const SECTION_STATE = { settings: { key: "", open: false }, providers: { key: "", open: false } };
 const sectionState = (host) => SECTION_STATE[host.id === "settings" ? "settings" : "providers"];
 
-// A section list: every section in a rail, and the pane shows the picked 1.
+// A section list: every section in a rail, and the pane shows the selected 1.
 function sectionList(id, items, active) {
   const buttons = items.map(([key, label]) => actionButton(esc(label), {
     variant: key === active ? "on" : "",
@@ -2017,8 +2017,8 @@ function playSlide(host, open) {
   arriving.classList.add("slide");
 }
 
-// The pick of a section: 1 button on, 1 card shown, and the phone leaves the list.
-function pickSection(host, key, open = sectionState(host).open) {
+// The selection of a section: 1 button on, 1 card shown, and the phone leaves the list.
+function selectSection(host, key, open = sectionState(host).open) {
   const state_ = sectionState(host);
   const moved = state_.open !== open;
   state_.key = key;
@@ -2041,12 +2041,12 @@ function pickSection(host, key, open = sectionState(host).open) {
   playSlide(host, open);
 }
 
-// A phone turns a pick into its own page: the section rides in the hash, so the back gesture returns.
+// A phone turns a selection into its own page: the section rides in the hash, so the back gesture returns.
 const phoneSection = () => matchMedia("(max-width: 900px)").matches;
 
 function openSection(host, key) {
-  pickSection(host, key, true);
-  // The picked card arrives: a section change of Providers or Settings reads on the page.
+  selectSection(host, key, true);
+  // The selected card arrives: a section change of Providers or Settings reads on the page.
   replay([...host.querySelectorAll(".section-pane > .card")]
     .find((card) => card.dataset.section === key));
   // The section rides in the hash, so a refresh keeps it; a phone also gets a back step.
@@ -2062,7 +2062,7 @@ function closeSection(host) {
   if (history.state?.section === key) return history.back();
   const [path] = location.hash.split("?");
   history.replaceState(null, "", path);
-  pickSection(host, key, false);
+  selectSection(host, key, false);
 }
 
 // The section of the shown page, from the hash: a deep link and the phone back gesture read it.
@@ -2072,17 +2072,17 @@ function applySectionHash() {
   if (!host) return;
   const key = new URLSearchParams(query ?? "").get("section");
   const known = [...host.querySelectorAll(".sections button")].some((button) => button.dataset.section === key);
-  if (key && known) pickSection(host, key, true);
+  if (key && known) selectSection(host, key, true);
   else if (key) {
-    // The rail renders later, on the first data: the pick rides the state until then.
+    // The rail renders later, on the first data: the selection rides the state until then.
     const state_ = sectionState(host);
     state_.key = key;
     state_.open = true;
-  } else pickSection(host, sectionState(host).key, false);
+  } else selectSection(host, sectionState(host).key, false);
 }
 
 // A phone back moves the section before the page builds its form, and that build replaces the
-// pane. The slide of the pick replays once on the fresh markup, so the back reads as a move.
+// pane. The slide of the selection replays once on the fresh markup, so the back reads as a move.
 function slideAgain() {
   for (const host of [$("settings"), $("provider-form")]) {
     const state_ = sectionState(host);
@@ -2223,7 +2223,7 @@ function providerCard(name, block) {
   </div>`;
 }
 
-// The section list of the current file: every provider of the file, and the picked card.
+// The section list of the current file: every provider of the file, and the selected card.
 function renderForm() {
   const host = $("provider-form");
   const blocks = state.forms[state.file];
@@ -2236,30 +2236,30 @@ function renderForm() {
       <p class="sub">${esc(state.files[state.file].error ?? "")}</p>
       <p class="sub">${t("provider.yaml.fix_text")}</p></div>`
       + yamlCard("editor", "yaml-save", t("provider.yaml.file_hint", { file: fileName(state.files[state.file].path) })));
-    pickSection(host, "yaml");
+    selectSection(host, "yaml");
     $("editor").value = typed ?? state.files[state.file].text;
     renderFiles();
     return;
   }
   const names = Object.keys(blocks);
   const items = names.map((name) => [name, name]).concat([["yaml", t("yaml.label")]]);
-  const picked = sectionState(host).key;
-  const active = items.some(([key]) => key === picked) ? picked : items[0][0];
+  const selected = sectionState(host).key;
+  const active = items.some(([key]) => key === selected) ? selected : items[0][0];
   host.innerHTML = sectionList("provider-form", items, active)
     + sectionPane(t("nav.providers_link"), names.map((name) => providerCard(name, blocks[name])).join("")
       + yamlCard("editor", "yaml-save", t("provider.yaml.file_hint", { file: fileName(state.files[state.file]?.path ?? "") })));
-  pickSection(host, active);
+  selectSection(host, active);
   $("editor").value = typed ?? state.files[state.file]?.text ?? "";
   renderFiles();
   placeUndo();
   fitSectionPane();
 }
 
-// 1 card again after an edit, in the same place, and the pick stays.
+// 1 card again after an edit, in the same place, and the selection stays.
 function renderCard(name) {
   const card = [...document.querySelectorAll("#provider-form [data-provider]")].find((item) => item.dataset.provider === name);
   if (card) card.outerHTML = providerCard(name, state.forms[state.file][name]);
-  pickSection($("provider-form"), sectionState($("provider-form")).key);
+  selectSection($("provider-form"), sectionState($("provider-form")).key);
   renderFiles();
   placeUndo();
 }
@@ -2550,14 +2550,14 @@ async function saveYaml() {
   renderFiles();
 }
 
-// The shown view is the YAML section of the page when its card is the picked 1.
+// The shown view is the YAML section of the page when its card is the selected 1.
 const yamlView = () => (location.hash.startsWith("#/settings")
   ? state.settingsView === "yaml"
   : state.view === "yaml");
 
-// A pick sets the view of the page: the form rows, or the file text. A leave of the text with
+// A selection sets the view of the page: the form rows, or the file text. A leave of the text with
 // unsaved lines asks first, then shows the saved file again.
-async function pickProviderSection(key) {
+async function selectProviderSection(key) {
   const host = $("provider-form");
   const view = key === "yaml" ? "yaml" : "form";
   if (view !== state.view) {
@@ -2777,14 +2777,14 @@ function renderSettings() {
   const items = groups.map(([group, title]) => [group, title]).concat([
     ["keys", t("settings.keys.title")], ["yaml", t("yaml.label")],
   ]);
-  const picked = sectionState($("settings")).key;
-  const active = items.some(([key]) => key === picked) ? picked : items[0][0];
+  const selected = sectionState($("settings")).key;
+  const active = items.some(([key]) => key === selected) ? selected : items[0][0];
   $("settings").innerHTML = sectionList("settings", items, active)
     + sectionPane(t("nav.settings_link"), groups.map(([group, title, fields]) => card([group, title, fields]).replace(
       '<div class="card">', `<div class="card" data-section="${esc(group)}">`)).join("")
       + keysCard()
       + yamlCard("settings-editor", "settings-yaml-save", t("settings.yaml.hint", { file: fileName(state.settings.path) })));
-  pickSection($("settings"), active);
+  selectSection($("settings"), active);
   $("settings-editor").value = typed ?? state.settings.text;
   // The rendered file wins, and the shown rows follow its mode.
   showAffinityRows(setting("affinity", "mode"));
@@ -2797,7 +2797,7 @@ function renderSettings() {
 }
 
 // A row with a mode list shows only under those modes: the race values wait for race, and the pin
-// values wait for session or race. Only `mode` always shows. The rows stay in the page, so a pick
+// values wait for session or race. Only `mode` always shows. The rows stay in the page, so a selection
 // keeps its value and the card moves rows only.
 function showAffinityRows(mode = $("set-affinity-mode")?.value) {
   for (const [key, , , , show] of SETTINGS.find(([group]) => group === "affinity")[2]) {
@@ -2895,8 +2895,8 @@ async function loadSettings() {
   renderSettings();
 }
 
-// A pick sets the view of the page. Unsaved changes of the other view go after a confirmation.
-async function pickSettingsSection(key) {
+// A selection sets the view of the page. Unsaved changes of the other view go after a confirmation.
+async function selectSettingsSection(key) {
   const view = key === "yaml" ? "yaml" : "form";
   if (view !== state.settingsView) {
     if (settingsDirty() && !(await ask(t("dialog.discard.title"), t("dialog.discard.message"), t("action.discard_button"), true))) return;
@@ -3712,7 +3712,7 @@ function showPage() {
   const changed = page !== shownPage;
   shownPage = page;
   // A pool card lands on the page it already shows: the table below it arrives, and the page
-  // itself holds still, so a filter pick never moves the whole view.
+  // itself holds still, so a filter selection never moves the whole view.
   if (asked === "models" && query !== undefined) {
     applyModelFilters(query);
     if (!changed) replay($("models"));
@@ -3736,8 +3736,8 @@ function showPage() {
   });
   // The first paint marks the chevrons too, so a cut tab shows before the first status answer.
   markNavSteps();
-  // The page renders before the section pick: a render replaces the markup of the pane, and the
-  // slide of a phone back rides on the classes that the pick sets.
+  // The page renders before the section selection: a render replaces the markup of the pane, and the
+  // slide of a phone back rides on the classes that the selection sets.
   if (page === "providers" && state.view === "form") renderForm();
   applySectionHash();
   slideAgain();
@@ -3749,7 +3749,7 @@ function showPage() {
 window.addEventListener("hashchange", showPage);
 window.addEventListener("popstate", applySectionHash);
 showPage();
-$("search").addEventListener("input", pickRows);
+$("search").addEventListener("input", selectRows);
 // A row or card of the models list opens the modal of its model.
 $("models").addEventListener("click", (event) => {
   const row = event.target.closest("tr[data-model]");
@@ -3766,23 +3766,23 @@ $("model-head").addEventListener("click", (event) => {
   const same = state.sort.key === key;
   state.sort = !same ? { key, dir: 1 } : state.sort.dir > 0 ? { key, dir: -1 } : { key: "", dir: 1 };
   renderSortHeads();
-  pickRows();
+  selectRows();
 });
 $("sort-small").addEventListener("change", () => {
   state.sort = { key: $("sort-small").value, dir: 1 };
   renderSortHeads();
-  pickRows();
+  selectRows();
 });
 $("mode").addEventListener("change", () => {
   state.mode = $("mode").value;
-  pickRows();
+  selectRows();
 });
 $("tiers").addEventListener("click", (event) => {
   const button = event.target.closest("[data-tier]");
   if (!button) return;
   state.tier = button.dataset.tier;
   renderTiers();
-  pickRows();
+  selectRows();
 });
 $("files").addEventListener("click", (event) => {
   const button = event.target.closest("[data-file]");
@@ -3838,7 +3838,7 @@ bindValueRows($("provider-form"), () => saveForm());
 bindValueRows($("settings"), () => saveSettings());
 $("provider-form").addEventListener("click", (event) => {
   const section = event.target.closest(".sections button[data-section]");
-  if (section) return pickProviderSection(section.dataset.section);
+  if (section) return selectProviderSection(section.dataset.section);
   if (event.target.closest("[data-back]")) return closeSection($("provider-form"));
   if (event.target.closest("#yaml-save")) return saveYaml();
   const drop = event.target.closest("[data-drop]");
@@ -3926,9 +3926,9 @@ $("provider-form").addEventListener("click", (event) => {
     renderCard(parts[0]);
     return saveForm();
   }
-  const pick = event.target.closest("[data-form-hook-pick]");
-  if (pick) {
-    const at = pick.dataset.formHookPick;
+  const selection = event.target.closest("[data-form-hook-select]");
+  if (selection) {
+    const at = selection.dataset.formHookSelect;
     openFormHook = openFormHook === at ? null : at;
     renderCard(JSON.parse(at)[0]);
   }
@@ -3956,7 +3956,7 @@ window.addEventListener("resize", () => {
 $("settings").addEventListener("input", (event) => {
   clearWrite("settings");
   showLengthLimit(event.target, $("settings-message"));
-  // The mode decides which rows of the affinity card show. The pick stays, so only the rows move.
+  // The mode decides which rows of the affinity card show. The selection stays, so only the rows move.
   if (event.target.id === "set-affinity-mode") {
     showAffinityRows();
     return renderSettingsSave();
@@ -3967,7 +3967,7 @@ $("settings").addEventListener("input", (event) => {
 });
 $("settings").addEventListener("click", async (event) => {
   const section = event.target.closest(".sections button[data-section]");
-  if (section) return pickSettingsSection(section.dataset.section);
+  if (section) return selectSettingsSection(section.dataset.section);
   if (event.target.closest("[data-back]")) return closeSection($("settings"));
   // The manager: the modal of a source, the delete of 1, the update and the take of a scan.
   if (event.target.closest("[data-hook-source-add]")) return addHookSource();
@@ -3990,7 +3990,7 @@ $("settings").addEventListener("click", async (event) => {
 });
 $("settings").addEventListener("change", (event) => {
   const input = event.target;
-  // The manager writes at once too: the source pick stays in the page, and the 2 boxes save.
+  // The manager writes at once too: the source selection stays in the page, and the 2 boxes save.
   if (input.dataset.hookSource !== undefined) {
     state.hooksSource = Number(input.value) || 0;
     return;
@@ -4000,7 +4000,7 @@ $("settings").addEventListener("change", (event) => {
     state.hooksScan.take[input.dataset.hookTake] = input.checked;
     return;
   }
-  // A switch and a pick list hold 1 valid value, so the change writes it at once.
+  // A switch and a selection list hold 1 valid value, so the change writes it at once.
   if (input.type !== "checkbox" && input.tagName !== "SELECT") return;
   state.writeAnchor = anchorOf(input);
   saveSettings();

@@ -202,7 +202,7 @@ def test_init_rows() -> None:
   """The legend rows come from each enabled file that defines on_init, and bad rows drop."""
   first = write(
     "legend-one.py",
-    "def on_init():\n  return [['rtN', 'A repeat picked another model, N times']]\n",
+    "def on_init():\n  return [['rtN', 'retry-label']]\n",
   )
   second = write(
     "legend-two.py", "def on_request(value, model, headers):\n  return value\n"
@@ -218,10 +218,11 @@ def test_init_rows() -> None:
     "on-init": third,
     "on-catalog": "",
   }
-  assert hooks.init_rows(entries) == [
-    ["rtN", "A repeat picked another model, N times"],
-    ["x", "one"],
-  ], "a row of 2 entries lands, other rows drop"
+  module = hooks.load(hooks.ROOT / first)
+  assert module is not None
+  assert hooks.init_rows(entries) == [*module.on_init(), ["x", "one"]], (
+    "a row of 2 entries lands, other rows drop"
+  )
   assert hooks.init_rows({"on-request": broken}) == []
   assert hooks.init_rows({"on-answer": [second]}) == [], (
     "a file with no on_init adds no row"
@@ -230,7 +231,7 @@ def test_init_rows() -> None:
 
 
 def test_hook_files() -> None:
-  """The picker lists the Python files of the hooks folder as config paths."""
+  """The selector lists the Python files of the hooks folder as config paths."""
   root = hooks.ROOT / "hooks"
   root.mkdir(parents=True, exist_ok=True)
   named = write("listed.py", "def on_answer(value, model, headers):\n  return value\n")
@@ -396,7 +397,7 @@ def test_requires_compare() -> None:
 
 
 def test_hook_folder() -> None:
-  """The settings name the folder of the hook files, and the picker follows it."""
+  """The settings name the folder of the hook files, and the selector follows it."""
   try:
     hooks.set_installed("shared", [])
     path = hooks.ROOT / "shared" / "one.py"

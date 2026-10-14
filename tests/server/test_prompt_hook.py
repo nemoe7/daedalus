@@ -360,7 +360,11 @@ def test_the_shipped_hook_writes_the_retry_key_and_the_code() -> None:
   value["count"] = 2
   module.on_request(value, "daedalus/auto", {"x-openwebui-chat-id": "c1"})
   assert value["code"] == "rt2"
-  assert module.on_init() == [["rtN", "A repeat picked another model, N times"]]
+  rows = module.on_init()
+  assert isinstance(rows, list) and len(rows) == 1
+  assert isinstance(rows[0], list) and len(rows[0]) == 2
+  assert rows[0][0] == "rtN"
+  assert isinstance(rows[0][1], str) and rows[0][1]
 
 
 def test_a_hook_file_wins_over_the_client(

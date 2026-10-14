@@ -191,7 +191,7 @@ async def test_the_hook_writes_the_repeat_code(
   assert row["retry"] == "1", row
 
 
-async def test_a_named_pool_repeat_picks_another_model(
+async def test_a_named_pool_repeat_selects_another_model(
   client: httpx.AsyncClient, state_folder
 ) -> None:
   """A repeat of a named pool keeps the pool, drops the model that answered, and shows its code."""

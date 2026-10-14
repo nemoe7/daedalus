@@ -52,8 +52,8 @@ def test_a_chunk_without_the_key_draws_nothing() -> None:
   chunk = {"choices": []}
   assert run(plugin.stream(chunk, __event_emitter__=emit)) is chunk
   plugin.valves.enabled = False
-  picked = {"usage": {"daedalus": {"line": "B \u00b7 kilo/y"}}}
-  assert run(plugin.stream(picked, __event_emitter__=emit)) is picked
+  selected = {"usage": {"daedalus": {"line": "B \u00b7 kilo/y"}}}
+  assert run(plugin.stream(selected, __event_emitter__=emit)) is selected
   assert seen == []
 
 
@@ -65,8 +65,8 @@ def test_an_empty_line_draws_nothing() -> None:
     seen.append(event)
 
   plugin = module.Filter()
-  for pick in ({"line": ""}, {"line": None}, {"line": 7}, {}):
-    chunk = {"usage": {"daedalus": pick}}
+  for selection in ({"line": ""}, {"line": None}, {"line": 7}, {}):
+    chunk = {"usage": {"daedalus": selection}}
     assert run(plugin.stream(chunk, __event_emitter__=emit)) is chunk
   assert seen == []
 

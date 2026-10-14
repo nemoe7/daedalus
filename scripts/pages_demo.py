@@ -81,7 +81,7 @@ DEMO_CALLS = (
   ),
   ("openrouter/z-ai/glm-5.3-flash", "Say hello in Japanese."),
   ("daedalus/koinos", "Draft a short release note for version 0.3."),
-  # The auto pool: the row carries the pool that the route picked.
+  # The auto pool: the row carries the pool that the route selected.
   ("daedalus/auto", "Sort these 3 words by length."),
 )
 DEMO_STREAM = DEMO_CALLS[2][0]
@@ -458,7 +458,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     : value >= 1e3 ? `${Math.floor(value / 1e3)}K`
     : `${Math.floor(value)}`);
   // The media models answer on their own paths.
-  // The embedding model of an owui chat, and the chat models. The catalog mode picks them, as the
+  // The embedding model of an owui chat, and the chat models. The catalog mode selects them, as the
   // server does, so an image, audio, embedding, decisions or rerank row never answers a chat wave.
   const EMBED = "mistral/mistral-embed-2312";
   // The members of each pool: the ids the pool holds, as the router draws from them.
@@ -497,7 +497,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     const r = Math.random();
     return r < 0.6 ? gap(15, 45) : r < 0.85 ? gap(0.5, 15) : gap(45, 120);
   };
-  const pick = (rows) => rows[Math.floor(Math.random() * rows.length)];
+  const select = (rows) => rows[Math.floor(Math.random() * rows.length)];
   // The times of a row in flight, as `Live` keeps them. The clocks count in whole
   // milliseconds from 1 read of the clock: a timer that fired is at least 1 ms, so a first
   // token always ages above zero.
@@ -1253,7 +1253,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     if (path === "files" && method !== "GET")
       return bad("The demo keeps the shipped file list read-only.", 403);
     if (path === "settings" && method === "PUT") return settings_saved(init);
-    // The demo fetch names the demo repo, and the take holds the picked files in the page memory.
+    // The demo fetch names the demo repo, and the take holds the selected files in the page memory.
     if (path === "hooks/scan" && method === "POST") {
       const asked = body_of(init);
       return json({
@@ -1356,14 +1356,14 @@ const DEMO_FIXTURES = __FIXTURES__;
       this.send("live", [...this.running.values()]);
       const queue = window.DEMO_SCENARIOS;
       while (!this.closed) {
-        const kind = queue && queue.length ? queue.shift() : this.pick();
+        const kind = queue && queue.length ? queue.shift() : this.select();
         await this.scenario(kind);
         if (this.closed) return;
         await wait(gap(...WAVE_MS));
       }
     }
     // The mix of a day of traffic: mostly owui chats, often agents, and a rare stray client.
-    pick() {
+    select() {
       const r = Math.random();
       if (r < 0.06) return "stray";
       if (r < 0.18) return "kilo";
@@ -1388,11 +1388,11 @@ const DEMO_FIXTURES = __FIXTURES__;
         path: "/v1/embeddings", stream: false, ttft: ttftFor("embed"),
       });
       await this.call({
-        app: "OWUI", session: s, model: "daedalus/auto", via: pick(TEXT),
+        app: "OWUI", session: s, model: "daedalus/auto", via: select(TEXT),
         stream: false, ttft: ttftFor("title"),
       });
       await this.call({
-        app: "OWUI", session: s, model: "daedalus/auto", via: pick(TEXT),
+        app: "OWUI", session: s, model: "daedalus/auto", via: select(TEXT),
         stream: true, ttft: ttftFor("chat"), effort: "none", routed: "deinos",
         tokens: { estimate: false, input: 14 + this.sessions, output: 5 + this.sessions },
       });
@@ -1405,7 +1405,7 @@ const DEMO_FIXTURES = __FIXTURES__;
         path: "/v1/embeddings", stream: false, ttft: ttftFor("embed"),
       });
       await this.call({
-        app: "OWUI", session: s, model: "daedalus/auto", via: pick(TEXT),
+        app: "OWUI", session: s, model: "daedalus/auto", via: select(TEXT),
         stream: true, ttft: ttftFor("chat"), effort: "low",
         tokens: { estimate: false, input: 480 + this.sessions, output: 90 },
       });
@@ -1416,7 +1416,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       for (let i = 0; i < steps; i++) {
         if (this.closed) return;
         await this.call({
-          app, session: s, model: "daedalus/auto", via: pick(TEXT),
+          app, session: s, model: "daedalus/auto", via: select(TEXT),
           stream: true, ttft: ttftFor("chat"), effort: LADDER[Math.min(i, LADDER.length - 1)],
           loop: i === steps - 1 ? "2" : null,
           tokens: { estimate: true, input: 1200 + 90 * i, output: 240 + 30 * i },
@@ -1428,7 +1428,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       // The scripted wave shows the rate limit: the cooldown template serves, if the
       // capture holds one.
       const cooled = TEMPLATES.find((row) => (row.attempts || []).some((a) => a.cooldown));
-      const template = cooled || pick(TEMPLATES);
+      const template = cooled || select(TEMPLATES);
       const reason = REASONS[reasonN++ % REASONS.length];
       const s = session(++this.sessions * 7919);
       await this.call({
@@ -1443,9 +1443,9 @@ const DEMO_FIXTURES = __FIXTURES__;
     // A client the page does not know: no app, and no session. Rare, but it happens.
     async stray() {
       const pooled = Math.random() < 0.5;
-      const model = pooled ? `daedalus/${pick(POOL_NAMES)}` : pick(TEXT);
+      const model = pooled ? `daedalus/${select(POOL_NAMES)}` : select(TEXT);
       await this.call({
-        app: null, session: null, model, via: pooled ? pick(MEMBERS[model] || TEXT) : model,
+        app: null, session: null, model, via: pooled ? select(MEMBERS[model] || TEXT) : model,
         stream: Math.random() < 0.5, ttft: ttftFor("chat"),
       });
     }
@@ -1571,7 +1571,7 @@ def build(out: Path, version: str) -> Path:
     raise SystemExit(
       "index.html does not load ui/en.js before ui/app.js: the demo build cannot patch it"
     )
-  # The version rides on each asset, so a browser picks up a new build and not the cache.
+  # The version rides on each asset, so a browser loads a new build and not the cache.
   stamped = (
     f'<script src="demo.js?v={version}"></script>\n'
     f'<script src="ui/en.js?v={version}"></script>\n'

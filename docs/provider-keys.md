@@ -5,20 +5,20 @@ Each provider needs 1 key, and daedalus skips a provider without one. The steps 
 ## Cloudflare Workers AI
 
 1. Go to <https://dash.cloudflare.com> and sign in. A new account needs no payment method.
-2. In the left menu, pick **AI**, then **Workers AI**.
-3. Under **Use REST API**, pick **Create Workers AI API Token**.
+2. In the left menu, select **AI**, then **Workers AI**.
+3. Under **Use REST API**, select **Create Workers AI API Token**.
 4. Copy the token and the **Account ID** in the right sidebar.
 
 ## Google Gemini
 
 1. Go to <https://aistudio.google.com/apikey> with a Google account.
-2. Pick **Create API key**.
+2. Select **Create API key**.
 3. Copy the key.
 
 ## Groq
 
 1. Go to <https://console.groq.com/keys> and sign in, or create an account.
-2. Pick **Create API Key**.
+2. Select **Create API Key**.
 3. Copy the key.
 
 ## Kilo
@@ -30,13 +30,13 @@ Each provider needs 1 key, and daedalus skips a provider without one. The steps 
 ## Mistral
 
 1. Go to <https://console.mistral.ai/api-keys/> and sign in, or create an account.
-2. Pick **Create new key**.
+2. Select **Create new key**.
 3. Copy the key.
 
 ## OpenRouter
 
 1. Go to <https://openrouter.ai/settings/keys> and sign in, or create an account.
-2. Pick **Create Key**.
+2. Select **Create Key**.
 3. Copy the key. The `:free` models need no credit balance.
 
 ## Pollinations

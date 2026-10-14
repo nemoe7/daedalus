@@ -570,7 +570,7 @@ def test_the_demo_serves_auto_only_from_the_members_of_the_auto_pool(
   out = pages_demo.build(tmp_path / "site", "demo.9")
   script = (out / "demo.js").read_text(encoding="utf-8")
   assert 'const TEXT = MEMBERS["daedalus/auto"]' in script, (
-    "the auto pool picks the chat models"
+    "the auto pool selects the chat models"
   )
   assert "MEDIA_PATH" not in script, "no name list decides the chat models"
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))

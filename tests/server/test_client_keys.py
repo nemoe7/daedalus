@@ -60,7 +60,7 @@ async def tokens():
     ]
   )
   api.PENALTIES.clear()
-  api.PENALTIES.pick = lambda: 0.0
+  api.PENALTIES.select = lambda: 0.0
   api.COOLDOWNS.clear()
   api.PACING.clear()
   media.REPEATS.clear()

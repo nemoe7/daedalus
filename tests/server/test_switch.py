@@ -80,7 +80,7 @@ def client():
     patch.setattr(api, "get_config", lambda: CONFIG)
     patch.setattr(api, "AFFINITY", True)
     patch.setattr(api, "SWITCH", api.keyword_pattern(["clanker"]))
-    patch.setattr(api.PENALTIES, "pick", lambda: 0.5)
+    patch.setattr(api.PENALTIES, "select", lambda: 0.5)
     patch.setattr(logger, "level", logger.level)
     upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
     logger.addHandler(LINES)
