@@ -2792,8 +2792,7 @@ function showAffinityRows(mode = $("set-affinity-mode")?.value) {
   }
 }
 
-// A card whose first row is an On switch greys its other rows while the switch is off. The other
-// boolean rows, such as `change_on_draw` of Affinity, belong to their own card and grey nothing.
+// A card switch disables its dependent rows. Pacing is independent of weights.
 function showSwitchRows() {
   for (const [group, , fields] of SETTINGS) {
     if (!fields.length) continue;
@@ -2801,7 +2800,7 @@ function showSwitchRows() {
     if (!isSwitch(group, toggle)) continue;
     const off = !$(`set-${group}-${toggle}`)?.checked;
     for (const [key] of fields) {
-      if (key === toggle) continue;
+      if (key === toggle || (group === "balance" && key === "pacing")) continue;
       const field = $(`set-${group}-${key}`)?.closest(".field");
       if (!field) continue;
       field.classList.toggle("off", off);

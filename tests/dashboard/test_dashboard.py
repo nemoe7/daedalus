@@ -2558,8 +2558,8 @@ assert.strictEqual(probe.settingsChanges().affinity.mode, 'race', 'the selection
   )
 
 
-def test_app_js_switch_rows_grey_the_card() -> None:
-  """A card whose first row is an On switch greys and disables its other rows while the switch is off."""
+def test_app_js_switch_rows_disable_dependent_controls() -> None:
+  """A switch disables only its dependent controls."""
   payload = json.dumps(
     {
       "path": "config/daedalus.yml",
@@ -2575,7 +2575,7 @@ def test_app_js_switch_rows_grey_the_card() -> None:
 probe.state.settings = {payload};
 // The rows of the Weights and Headroom cards, with the controls that the grey keeps in step.
 const rows = ['set-balance-success', 'set-balance-fault', 'set-balance-slow', 'set-balance-hourly',
-  'set-balance-rate_limit', 'set-optimization-timeout'];
+  'set-balance-rate_limit', 'set-optimization-timeout', 'set-balance-pacing'];
 for (const id of rows) {{
   const made = node(id);
   made.off = new Set();
@@ -2594,6 +2594,7 @@ node('set-optimization-enabled').checked = true;
 probe.renderSettings();
 assert(rows.slice(0, 5).every(off), 'every weights factor greys');
 assert(rows.slice(0, 5).every(disabled), 'and every factor control goes disabled');
+assert(!off('set-balance-pacing') && !disabled('set-balance-pacing'), 'pacing stays independent');
 assert(!off('set-optimization-timeout') && !disabled('set-optimization-timeout'), 'the other card stays live');
 // The switch keeps its own row live, so it can be turned back on.
 assert(!node('set-balance-weights').disabled, 'the switch stays usable');
