@@ -2463,7 +2463,8 @@ assert(list.includes('class="on" type="button" data-section="cloudflare" aria-cu
 assert(!list.includes('class="on" type="button" data-section="openrouter"'),
   'the selection of the other file does not ride over');
 assert.strictEqual(node('provider-form').dataset.detail, '0', 'the phone returns to the section list');
-assert(html.includes('The file text of free.yml'), 'the yaml card names the new file');
+assert(html.includes(LOCALE["provider.yaml.file_hint"].replace("{{file}}", "free.yml")),
+  "the yaml card names the new file");
 """,
   )
 
