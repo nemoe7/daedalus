@@ -12,7 +12,7 @@
 }
 :root {
   --bg: #f3f3f5; --panel: #ffffff; --text: #212121; --muted: #616161; --line: #cfcfcf;
-  --accent: #304ffe; --ok: #283593; --warn: #a3386c; --bad: #781f4c; --bar: #e3e8fd; --orange: #ef6c00; --red: #d32f2f;
+  --accent: #304ffe; --ok: #283593; --warn: #a3386c; --bad: #781f4c; --bar: #e3e8fd; --orange: #b45309; --red: #d32f2f;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23616161' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --tier: #212c70; --tag: #5c388c; --field: #f7f7f9; --radius: 12px;
   --fast: .12s; --soft: .2s; --ease: cubic-bezier(.2, .7, .3, 1);
