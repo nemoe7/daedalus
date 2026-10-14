@@ -63,7 +63,7 @@ That script answers each `ui/api/` call from [`scripts/pages_fixtures.json`](../
 
 One state holds the demo together. The provider files build the catalog and the pools. The requests move the weights, the cooldowns, the lane counters and the balance cards. A fake upstream answers each provider with its plan, so a save and a check now agree with the tables.
 
-A reload brings the captured data back. The Catalog line of the status card starts a rebuild in the page, and it finishes after about 26 seconds. The header shows the version `demo`.
+A reload brings the captured data back. The Catalog line of the status card starts a rebuild in the page, and it finishes after about 26 seconds. The header uses `DEMO_VERSION` when set. Otherwise, it shows `demo.<commit count>`, or `demo` when the count is unavailable.
 
 The Pages demo workflow builds the demo from `main` and deploys it after a change to the page, the script or the fixtures. After a change to an endpoint, run `python3 scripts/pages_demo.py --capture` and commit the new fixtures.
 
@@ -102,8 +102,7 @@ A wide screen keeps the table in its own panel, so the head stays in view. The p
 
 A card for each pool shows above the table, with its top model and its mean weight. A click on a card sets the filters of that pool.
 
-A phone shows 1 card for each model: the name on its own line, then `Tier`, `Tools`, `Cooldown` and
-`Weight` as 1 small row. The `Sort` control in the toolbar takes the place of the column heads.
+On a phone, each model has a card with its name and chips. Chips show tier, order, context, tools, reasoning, and cooldown when applicable. The weight has its own line. The **Sort** control replaces the column heads.
 
 | Control | Effect |
 | --- | --- |
@@ -137,7 +136,7 @@ The page drops the hash after it reads it.
 | --- | --- |
 | Rebuilds | 1 row per catalog rebuild: the time, the reason, the model count after the rebuild, and the diff. |
 | Reason | `scheduled` is the 6-hour clock, `manual` the rebuild button, and a config save the save of a provider file. |
-| Diff | `+N` rows added, `-N` rows deleted, `~N` rows whose stored columns moved. A click on a row lists the models, and a second click closes the list. |
+| Diff | `+N` rows added, `-N` rows deleted, `~N` rows whose stored columns moved. Select a rebuild to open its model diff in a modal. Close the modal with its close button or Escape. |
 | Failed | The providers whose model list failed in the rebuild. |
 | Rebuild storage | The `catalog_rebuilds` table of `.daedalus-state/models.sqlite3`, the 200 newest events. |
 | Update check | The version that goes after this build. A build from a `v` tag reads the latest release of `updates.repo`. A source build reads the head of `main` and compares its own commit. |
@@ -146,9 +145,7 @@ The page drops the hash after it reads it.
 
 ## Providers
 
-The cards of the Form view stack in columns. The page carries no Save bar: a row writes itself. A value row
-shows its value as text, and a click opens the small editor of that 1 value. The close of that dialog writes
-it.
+Select a provider in the section list to show its card. Select a value to open its editor. **Save** writes a valid change. Cancel, Escape, or closing without confirmation keeps the earlier value.
 
 A switch and a selection list hold 1 valid value, so the change writes at once. The last write shows its
 Undo beside the row that changed, and a failure shows its line under the file chips. The file row
@@ -171,16 +168,15 @@ that is not the main one.
 
 ### Keys and values
 
-The panel under the form lists the names used by `env:NAME` and `db:NAME` values in provider files and provider defaults.
+Use the **API key** and **Account ID** value editors. Add client values in the **Client keys** field.
 
 | Item | Value |
 | --- | --- |
 | `env:NAME` | Reads the environment variable. |
 | `db:NAME` | Reads the saved value. |
 | Storage | The `saved_env` table of `.daedalus-state/models.sqlite3`. Not in the YAML or git. |
-| Shown | Saved, from the environment, or missing. A long saved value shows its last 4 characters. |
+| Shown | Environment references stay visible. Saved API keys and Account IDs of 8 or more characters show the first 4 characters, then dots. Shorter values show a database label. |
 | Save | Takes effect at once, with no restart. A new provider key needs a catalog rebuild. |
-| Clear | Deletes the saved value. A `db:NAME` value then resolves empty. `env:NAME` still reads the environment. |
 
 | Action | Result |
 | --- | --- |
@@ -195,14 +191,13 @@ The panel under the form lists the names used by `env:NAME` and `db:NAME` values
 | **New provider** | Asks for the provider name, then makes `config/providers/{name}.yml` with 1 card |
 | **Delete provider** | Deletes the `{provider}.yml` file after a confirmation. Its models stay until a catalog rebuild. |
 
-A value of `true` or `false` becomes a boolean. A value with digits only becomes a number. Other values stay text.
+Valid JSON objects and lists keep their structure. `true` and `false` become booleans. Numeric values such as `12`, `-12`, or `12.5` become numbers. Other values stay text.
 
 A write from the Form view keeps the comments, the key order, the quotes and the one-line maps of the file. It changes only the lines of the values that changed. An empty list or map leaves the file. An empty pattern row stays, because a pattern alone declares a model.
 
 A change to the other view asks for a confirmation when the file holds unsaved changes. The other view shows the saved file.
 
-The Settings rows write the same way. A switch and a selection list write on the change. A text or a number row
-writes when its editor closes. A chip list writes on the add or the drop.
+The Settings rows write the same way. A switch and a selection list write on the change. **Save** writes a valid text or number change. A chip list writes on the add or the drop.
 
 The Settings page keeps no bar: the rail starts the page, and only an error shows a line.
 
@@ -255,7 +250,7 @@ To test the token, send the query of [`daedalus/routing/limits.py`](../daedalus/
 
 ## A phone
 
-The Settings page and the provider form show their section list alone on a phone. Each row carries a chevron, and a selection opens 1 section as its own page. The section rides in the hash as `#/settings?section=timeouts`, so the back gesture of the phone returns to the list. The button above the card names that list, as `‹ Settings`, for a phone without the gesture.
+The Settings page and the provider form show their section list alone on a phone. Each row carries a chevron, and a selection opens 1 section as its own page. The section rides in the hash as `#/settings?section=limits`, so the back gesture of the phone returns to the list. The button above the card names that list, as `‹ Settings`, for a phone without the gesture.
 
 A phone keeps the 4 numbers of the Overview above the status card, in 2 rows of 2. The Models table
 and the API keys table become cards, as the Requests table does. A phone card carries its own border:

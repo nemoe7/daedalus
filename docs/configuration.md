@@ -333,7 +333,7 @@ gemini:
 To set up 2 clients:
 
 1. In **Settings > API keys** on the dashboard, make the keys `kilo` and `owui`. Give each client its key.
-2. In `.env`, set `GEMINI_API_KEY_KILO` and `GEMINI_API_KEY_OWUI`. Or save them in **Keys and values** on the Providers page, after step 3.
+2. In `.env`, set `GEMINI_API_KEY_KILO` and `GEMINI_API_KEY_OWUI`. Or paste the keys in **Client keys** on the Providers page in step 3.
 3. Add `client_keys` to the provider file, or add it in the **Client keys** field of the Providers page.
 
 4. After a `.env` change, run `docker compose up -d`. It rebuilds the container with the new `.env` values. `docker compose restart` keeps the old values.
