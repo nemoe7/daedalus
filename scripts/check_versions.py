@@ -65,24 +65,27 @@ def failures(
 
 
 def git(*args: str) -> str:
-  """The stdout of a git call, empty when the call fails."""
-  found = subprocess.run(["git", *args], capture_output=True, text=True, check=False)
-  return found.stdout if found.returncode == 0 else ""
+  """The stdout of a checked Git call. A failed read raises an error."""
+  return subprocess.run(
+    ["git", *args], capture_output=True, text=True, check=True
+  ).stdout
 
 
 def rows_for(
   base: str, head: str
 ) -> list[tuple[str, tuple[int, ...] | None, tuple[int, ...] | None]]:
   """The version of each changed module at the merge base and at the head."""
-  merge = git("merge-base", base, head).strip() or base
+  merge = git("merge-base", base, head).strip()
   rows: list[tuple[str, tuple[int, ...] | None, tuple[int, ...] | None]] = []
-  for line in git("diff", "--name-status", merge, head).splitlines():
-    parts = line.split("\t")
-    status, path = parts[0], parts[-1]
-    if status.startswith("D") or not watched(path):
+  # A rename is a deletion and an addition. NUL separators keep each path intact.
+  changed = git(
+    "diff", "--no-ext-diff", "--no-renames", "--name-status", "-z", merge, head, "--"
+  ).split("\0")[:-1]
+  for status, path in zip(changed[::2], changed[1::2], strict=True):
+    if status == "D" or not watched(path):
       continue
-    before = version_of(git("show", f"{merge}:{path}") or None)
-    after = version_of(git("show", f"{head}:{path}") or None)
+    before = None if status == "A" else version_of(git("show", f"{merge}:{path}"))
+    after = version_of(git("show", f"{head}:{path}"))
     rows.append((path, before, after))
   return rows
 
@@ -93,7 +96,12 @@ def main(argv: list[str] | None = None) -> int:
   parser.add_argument("--base", default="origin/main", help="the base branch or commit")
   parser.add_argument("--head", default="HEAD", help="the head branch or commit")
   args = parser.parse_args(argv)
-  rows = rows_for(args.base, args.head)
+  try:
+    rows = rows_for(args.base, args.head)
+  except (OSError, subprocess.CalledProcessError) as error:
+    detail = (getattr(error, "stderr", None) or str(error)).strip()
+    print(f"Git read failed: {detail}", file=sys.stderr)
+    return 1
   for path, before, after in rows:
     print(f"{path}: {dotted(before)} -> {dotted(after)}")
   if not rows:

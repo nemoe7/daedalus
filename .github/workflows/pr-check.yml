@@ -81,6 +81,12 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Read the pinned PR objects
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/pr_snapshot.py "$PR_NUMBER" "$PR_HEAD"
       - name: Check the version of each changed module
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
