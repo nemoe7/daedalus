@@ -1,13 +1,17 @@
 """Tests of the upstream error classes."""
 
 import asyncio
+import json
 import tempfile
 from pathlib import Path
 
 import httpx
+import pytest
+from fastapi.testclient import TestClient
 
 from daedalus import store
-from daedalus.server import upstream
+from daedalus.providers.base import frame
+from daedalus.server import api, upstream
 
 CONFIG = {"groq": {"api_key": "q", "api_base": "https://groq.test/openai/v1"}}
 BODY = {"messages": [{"role": "user", "content": "hi"}]}
@@ -53,6 +57,78 @@ def test_a_rejected_body_reaches_limit_tracking(monkeypatch) -> None:
     upstream.set_client(None)
   expected = b'{"error":{"details":["quota"]}}'
   assert seen == [("groq/m", expected), ("groq/m", expected)]
+
+
+@pytest.mark.parametrize("streamed", [False, True])
+@pytest.mark.parametrize(
+  "choices", [[1], [{"message": "bad", "delta": "bad"}], {"bad": "shape"}]
+)
+def test_malformed_answer_keeps_healthy_fallback(monkeypatch, streamed, choices):
+  """Malformed plain answers and first stream events do not stop fallback."""
+  setup = {
+    "first": {"api_key": "k", "api_base": "https://invalid.test/v1"},
+    "second": {"api_key": "k", "api_base": "https://answers.test/v1"},
+  }
+  sent = []
+
+  def answer(request):
+    sent.append(request.url.host)
+    if request.url.host == "invalid.test":
+      data = {"id": "bad", "choices": choices}
+    else:
+      key = "delta" if streamed else "message"
+      data = {
+        "id": "good",
+        "choices": [
+          {
+            "index": 0,
+            key: {"role": "assistant", "content": "ok"},
+            "finish_reason": "stop",
+          }
+        ],
+      }
+    if streamed:
+      return httpx.Response(
+        200,
+        content=frame(data) + b"data: [DONE]\n\n",
+        headers={"content-type": "text/event-stream"},
+      )
+    return httpx.Response(200, json=data)
+
+  api.PENALTIES.clear()
+  api.COOLDOWNS.clear()
+  api.PACING.clear()
+  store.write_store([{"id": "first/a"}, {"id": "second/b"}])
+  monkeypatch.setattr(api, "get_config", lambda: setup)
+  monkeypatch.setattr(
+    api, "chain", lambda *args, **kwargs: ([["first/a", "second/b"]], "daedalus/koinos")
+  )
+  monkeypatch.setattr(api.PENALTIES, "select", lambda: 0.0)
+  upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
+  try:
+    with TestClient(
+      api.app, headers={"Authorization": "Bearer test-master-key-0001"}
+    ) as client:
+      response = client.post(
+        "/v1/chat/completions",
+        json={
+          "model": "daedalus/koinos",
+          "messages": [{"role": "user", "content": "hi"}],
+          "stream": streamed,
+        },
+      )
+    assert response.status_code == 200
+    assert sent == ["invalid.test", "answers.test"]
+    if streamed:
+      lines = [
+        line[6:] for line in response.text.splitlines() if line.startswith("data: ")
+      ]
+      assert lines[-1] == "[DONE]"
+      assert json.loads(lines[0])["choices"][0]["delta"]["content"] == "ok"
+    else:
+      assert response.json()["choices"][0]["message"]["content"] == "ok"
+  finally:
+    upstream.set_client(None)
 
 
 def test_errors() -> None:

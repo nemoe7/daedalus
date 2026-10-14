@@ -5,7 +5,7 @@ import sqlite3
 import time
 
 from daedalus import store
-from daedalus.providers.base import ProviderError
+from daedalus.providers.base import ProviderError, choice_rows
 
 # The same tool call this many times since the last user message is a tool loop.
 CALLS = 3
@@ -107,7 +107,7 @@ def answer_calls(completion: dict) -> list[str]:
   """The tool call ids of an answer without a stream."""
   return [
     call["id"]
-    for choice in completion.get("choices") or []
+    for choice in choice_rows(completion, "message")
     for call in (choice.get("message") or {}).get("tool_calls") or []
     if isinstance(call, dict) and isinstance(call.get("id"), str)
   ]
@@ -163,7 +163,7 @@ def kept(text: str, period: int) -> str:
 
 def answer_loop(completion: dict) -> str | None:
   """The channel with a loop in an answer without a stream: "thinking" or "answer"."""
-  for choice in completion.get("choices") or []:
+  for choice in choice_rows(completion, "message"):
     message = choice.get("message") or {}
     thinking = message.get("reasoning_content") or message.get("reasoning")
     if isinstance(thinking, str) and text_loop(thinking) is not None:

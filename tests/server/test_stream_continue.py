@@ -65,6 +65,73 @@ async def send(client: httpx.AsyncClient) -> list[str]:
   return output(response.text)
 
 
+@pytest.mark.anyio
+@pytest.mark.parametrize("tool", [False, True])
+async def test_malformed_midstream_event_keeps_continuation_rules(monkeypatch, tool):
+  """A malformed event continues text, but never continues a sent tool call."""
+  setup = {
+    name: {"api_base": f"https://{name}.test/v1", "api_key": "k", "tier": TIER}
+    for name in ("a", "b")
+  }
+  monkeypatch.setattr(api, "get_config", lambda: setup)
+  store.write_store([{"id": "a/x"}, {"id": "b/x"}])
+  api.COOLDOWNS.clear()
+  api.PACING.clear()
+  SEEN.clear()
+  PLAN.clear()
+  first = text("a1", "prefix")
+  if tool:
+    first = data(
+      {
+        "id": "a1",
+        "choices": [
+          {
+            "index": 0,
+            "delta": {
+              "tool_calls": [
+                {
+                  "index": 0,
+                  "id": "call_1",
+                  "function": {"name": "f", "arguments": "{"},
+                }
+              ]
+            },
+          }
+        ],
+      }
+    )
+  PLAN.update(
+    a=("ok", [first, data({"choices": [1]})]),
+    b=("ok", [text("b1", " suffix"), b"data: [DONE]\n\n"]),
+  )
+  try:
+    async with httpx.AsyncClient(
+      transport=httpx.MockTransport(upstream)
+    ) as upstream_client:
+      set_client(upstream_client)
+      async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=api.app), base_url="http://t", headers=AUTH
+      ) as client:
+        lines = await send(client)
+    if tool:
+      assert "[DONE]" not in lines
+      assert json.loads(lines[-1])["error"]["type"] == "upstream_error"
+      assert [host for host, _ in SEEN] == ["a.test"]
+    else:
+      assert lines[-1] == "[DONE]"
+      chunks = [json.loads(line) for line in lines[:-1]]
+      assert (
+        "".join(chunk["choices"][0]["delta"].get("content", "") for chunk in chunks)
+        == "prefix suffix"
+      )
+      assert [host for host, _ in SEEN] == ["a.test", "b.test"]
+      assert SEEN[1][1]["messages"][-1] == {"role": "assistant", "content": "prefix"}
+  finally:
+    set_client(None)
+    SEEN.clear()
+    PLAN.clear()
+
+
 async def test_stream_continue(monkeypatch: pytest.MonkeyPatch) -> None:
   transitions: list[dict] = []
   live_update = dashboard.live_update

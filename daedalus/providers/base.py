@@ -183,6 +183,20 @@ def first(items: Any) -> dict:
   )
 
 
+def choice_rows(answer: dict, field: str) -> list[dict]:
+  """The choices with object-valued messages or deltas, or a provider error."""
+  found = answer.get("choices")
+  if found is None:
+    return []
+  if not isinstance(found, list) or any(not isinstance(row, dict) for row in found):
+    raise ProviderError("Invalid upstream choices")
+  if any(
+    row.get(field) is not None and not isinstance(row[field], dict) for row in found
+  ):
+    raise ProviderError(f"Invalid upstream {field}")
+  return found
+
+
 def frame(data: dict) -> bytes:
   return b"data: " + json.dumps(data).encode() + b"\n\n"
 

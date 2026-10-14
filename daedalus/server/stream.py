@@ -11,7 +11,7 @@ import httpx
 
 from daedalus import providers, store
 from daedalus.providers import hooks
-from daedalus.providers.base import error_text
+from daedalus.providers.base import choice_rows, error_text
 from daedalus.routing import context, loops, pacing, router
 from daedalus.server import upstream
 
@@ -41,7 +41,7 @@ async def sse_data(
   buffer, heard = b"", time.perf_counter()
   try:
     async for piece in chunks:
-      buffer += piece.replace(b"\r\n", b"\n")
+      buffer = (buffer + piece).replace(b"\r\n", b"\n")
       while b"\n\n" in buffer:
         block, buffer = buffer.split(b"\n\n", 1)
         lines = [
@@ -73,7 +73,7 @@ def has_content(data: str) -> bool:
   chunk = json.loads(data)
   if not isinstance(chunk, dict) or chunk.get("error"):
     raise providers.ProviderError(f"Upstream stream error: {error_text(chunk)}")
-  for choice in chunk.get("choices") or []:
+  for choice in choice_rows(chunk, "delta"):
     delta = choice.get("delta") or {}
     text = [delta.get(key) for key in ("content", "reasoning_content", "reasoning")]
     if any(text) or delta.get("tool_calls") or choice.get("finish_reason"):
@@ -148,9 +148,7 @@ async def cache(
           found[key] = chunk[key]
       if chunk.get("usage") is not None:
         found["usage"] = chunk["usage"]
-      for choice in chunk.get("choices") or []:
-        if not isinstance(choice, dict):
-          continue
+      for choice in choice_rows(chunk, "delta"):
         index = choice.get("index")
         if not isinstance(index, int):
           index = 0
@@ -233,7 +231,7 @@ async def relay(
         identifier = identifier or chunk.get("id")
         if identifier:
           chunk["id"] = identifier
-        for choice in chunk.get("choices") or []:
+        for choice in choice_rows(chunk, "delta"):
           delta = choice.get("delta") or {}
           tool = tool or bool(delta.get("tool_calls"))
           loops.save(

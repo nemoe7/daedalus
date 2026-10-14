@@ -46,6 +46,55 @@ async def test_sse_data_takes_crlf_and_newlines() -> None:
   assert await sse(b'data: {"a":1}\r\n\r\n') == ['{"a":1}']
 
 
+@pytest.mark.anyio
+@pytest.mark.parametrize("newline", [b"\n", b"\r\n"])
+@pytest.mark.parametrize("size", [1, 2, 3, 7, 100])
+async def test_sse_chunk_boundaries_keep_line_endings(newline, size):
+  """Chunk boundaries do not change CRLF or LF events, and the iterator closes."""
+  raw = newline.join(
+    [b": ping", b"", b'data: {"a":', b"data: 1}", b"", b"data: [DONE]", b"", b""]
+  )
+  closed = []
+
+  async def fragmented():
+    try:
+      for index in range(0, len(raw), size):
+        yield raw[index : index + size]
+    finally:
+      closed.append(True)
+
+  assert [value async for value in stream.sse_data(fragmented())] == [
+    '{"a":\n1}',
+    "[DONE]",
+  ]
+  assert closed == [True]
+
+
+async def test_split_crlf_keep_alive_still_times_out():
+  raw = b": ping\r\n\r\n"
+  with pytest.raises(httpx.ReadTimeout):
+    await sse(*(raw[index : index + 1] for index in range(len(raw))), wait=0.0)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+  "answer",
+  [
+    {"choices": [1]},
+    {"choices": [{"delta": "bad"}]},
+    {"choices": {"bad": "shape"}},
+    {"choices": [{"delta": True}]},
+  ],
+)
+async def test_malformed_choices_raise_provider_errors(answer):
+  """Malformed choices and deltas use the handled provider-error path."""
+  data = json.dumps(answer)
+  with pytest.raises(ProviderError):
+    stream.has_content(data)
+  with pytest.raises(ProviderError):
+    await stream.cache([], events(data, "[DONE]"), "p/m")
+
+
 async def test_sse_data_skips_a_keep_alive_comment() -> None:
   """A block with only a comment yields nothing."""
   assert await sse(b': ping\n\ndata: {"a":1}\n\n') == ['{"a":1}']
