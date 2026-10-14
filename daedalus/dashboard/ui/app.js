@@ -271,11 +271,15 @@ async function editValue(input, write) {
 
 // A value row: the value shows as text, and a click opens the small editor.
 function bindValueRows(host, write) {
-  host.addEventListener("click", (event) => {
+  const activate = (event) => {
     const input = event.target.closest("[data-value]");
-    if (!input) return;
+    if (!input || input.disabled) return;
     event.preventDefault();
     editValue(input, write);
+  };
+  host.addEventListener("click", activate);
+  host.addEventListener("keydown", (event) => {
+    if (!event.repeat && (event.key === "Enter" || event.key === " ")) activate(event);
   });
 }
 
@@ -1046,13 +1050,19 @@ function renderRequests(rows, empty = t("request.empty.none_text"), live = 0) {
   const selected = getSelection();
   if (text === shownRequests) return;
   if (!selected.isCollapsed && $("requests").contains(selected.anchorNode)) return;
+  const focused = document.activeElement?.closest?.(".request-toggle")?.dataset.chainToggle;
   shownRequests = text;
   $("requests").innerHTML = flatRows.length ? flatRows.map((r) => {
     const chain = hasChain(r);
     const chainOpen = chain && opened.has(String(r.at));
+    const time = `<span class="caret${chain ? "" : " none"}" aria-hidden="true"></span>${relative(r.at)}`;
+    const timeControl = chain ? actionButton(time, {
+      variant: "request-toggle hide-sm",
+      attrs: { "data-chain-toggle": r.at, "aria-expanded": String(chainOpen), title: t("request.chain.show_title") },
+    }) + `<span class="only-sm">${time}</span>` : time;
     return `
     <tr role="row" class="request${chain ? " has-chain" : ""}${chainOpen ? " open" : ""}" data-at="${r.at}"${chain ? ` title="${t("request.chain.show_title")}"` : ""}>
-      ${cell(t("request.column.time_column"), `<span class="caret${chain ? "" : " none"}"></span>${relative(r.at)}`, "num muted", ` title="${esc(stamp(r.at))}"`)}
+      ${cell(t("request.column.time_column"), timeControl, "num muted", ` title="${esc(stamp(r.at))}"`)}
       ${appCell(r)}
       ${cell(t("request.column.session_column"), esc(r.session || "-"), "hide-sm num mono")}
       ${nameCell(r.model || "-", modelName(r.model || "-", poolOf(r)) + routingCodes(r), t("request.column.model_column"))}
@@ -1067,6 +1077,8 @@ function renderRequests(rows, empty = t("request.empty.none_text"), live = 0) {
     </tr>${chainOpen ? chainRows(r) : ""}`;
   }).join("") : live ? "" : `<tr role="row"><td role="cell" colspan="13" class="empty">${empty}</td></tr>`;
   firstDraw($("requests"));
+  if (focused) [...$("requests").querySelectorAll("[data-chain-toggle]")]
+    .find((button) => button.dataset.chainToggle === focused)?.focus({ preventScroll: true });
 }
 
 // The label of each catalog mode.
@@ -1806,7 +1818,7 @@ function hooksManager() {
       })}`)}
     <div class="field stack info" id="hooks-order">${hookOrderRows()}</div>
     ${field(t("settings.hooks.folder.label"), t("settings.hooks.folder.hint"), `
-      <span class="input"><input type="text" id="set-hooks-dir" data-value="${t("settings.hooks.folder.label")}"
+      <span class="input"><input type="text" id="set-hooks-dir" aria-haspopup="dialog" aria-controls="modal" data-value="${t("settings.hooks.folder.label")}"
         readonly spellcheck="false" value="${esc(fileValue("hooks", "dir") ?? "")}"
         placeholder="${esc(state.settings.defaults.hooks.dir)}"></span>`)}
     ${field(t("settings.hooks.sources.label"), t("settings.hooks.sources.hint"), `
@@ -2181,7 +2193,7 @@ function providerCard(name, block) {
       }
     }
     return field(label, hint, `<input class="text" type="${type}" readonly spellcheck="false" autocomplete="off"
-      data-value="${esc(label)}" data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(value)}" placeholder="${esc(placeholder)}">`);
+      aria-haspopup="dialog" aria-controls="modal" data-value="${esc(label)}" data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(value)}" placeholder="${esc(placeholder)}">`);
   };
   const tiers = TIERS.map((tier) => `<div class="tier-row"><span class="tier">${tier.slice(-1)}</span>
     ${listField(tier, block.tier?.[tier], [...path, "tier", tier])}</div>`).join("");
@@ -2752,7 +2764,7 @@ function renderSettings() {
       if (unit === "name") {
         return `<label class="field info" for="${id}">${labelSpan(label, hint)}
           <span class="input"><i class="prefix">daedalus/</i><input type="text" id="${id}" maxlength="40" readonly
-            aria-label="${esc(label)}" data-value="${esc(label)}" spellcheck="false"
+            aria-label="${esc(label)}" aria-haspopup="dialog" aria-controls="modal" data-value="${esc(label)}" spellcheck="false"
             value="${esc(fileValue(group, key) ?? "")}" placeholder="${esc(state.settings.defaults[group][key])}"></span></label>`;
       }
       if (unit === "list") {
@@ -2764,7 +2776,7 @@ function renderSettings() {
       const fallback = state.settings.defaults[group][key];
       const value = fileValue(group, key);
       return `<label class="field info" for="${id}">${labelSpan(label, hint)}
-        <span class="input"><input type="number" readonly aria-label="${esc(label)}" data-value="${esc(label)}"
+        <span class="input"><input type="number" readonly aria-label="${esc(label)}" aria-haspopup="dialog" aria-controls="modal" data-value="${esc(label)}"
           min="${MINIMA[`${group}.${key}`] ?? 0}" id="${id}" value="${value ?? ""}"
           step="${DECIMALS.has(`${group}.${key}`) ? "any" : "1"}" ${MAXIMA[`${group}.${key}`] ? `max="${MAXIMA[`${group}.${key}`]}"` : ""}
           placeholder="${fallback ?? ""}"><i>${esc(unit)}</i></span></label>`;

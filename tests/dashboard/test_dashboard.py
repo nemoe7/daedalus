@@ -4458,14 +4458,24 @@ const answer = (status, body) => ({ ok: status < 400, status, json: () => Promis
 
 
 def test_the_requests_rows_show_a_relative_time() -> None:
-  """A row reads `4 mins ago`, and the title holds the exact stamp."""
+  """The Time cell keeps relative text and the exact timestamp."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert 'const cell = (label, inner, cls = "", attrs = "") =>' in app, (
     "the cell takes attributes"
   )
-  assert '${relative(r.at)}`, "num muted", ` title="${esc(stamp(r.at))}"`)}' in app, (
-    "the Time cell keeps the relative text and the exact stamp"
+  run_app_js(
+    "renderRequests, relative, stamp, esc",
+    r"""
+const sample = JSON.parse(fs.readFileSync('scripts/pages_fixtures.json', 'utf8')).requests
+  .find(item => item.attempts?.length > 1);
+const row = {...sample, at: Date.now() / 1000 - 240};
+probe.renderRequests([row]);
+const timeCell = node('requests').innerHTML.match(/<td\b[^>]*title="([^"]*)"[^>]*>([\s\S]*?)<\/td>/);
+assert(timeCell);
+assert.strictEqual(timeCell[1], probe.esc(probe.stamp(row.at)));
+assert(timeCell[2].includes(probe.esc(probe.relative(row.at))));
+""",
   )
 
 
@@ -5742,5 +5752,78 @@ for (const key of ['success', 'fault', 'slow', 'hourly', 'rate_limit']) {
 assert.strictEqual(probe.MINIMA['limits.calls'], 2);
 assert.strictEqual(probe.MAXIMA['limits.calls'], 100);
 assert.strictEqual(probe.MAXIMA['optimization.timeout'], 86400);
+""",
+  )
+
+
+def test_value_editor_keyboard_activation_uses_the_shared_editor() -> None:
+  """Enter, Space and clicks use the same editor without bypassing its write callback."""
+  run_app_js(
+    "bindValueRows, setEditor: fn => { editValue = fn; }",
+    """
+const host = node('synthetic-host');
+const input = node('synthetic-value');
+let opened = 0, prevented = 0;
+const write = () => assert.fail('unexpected write');
+probe.setEditor((target, callback) => {
+  assert.strictEqual(target, input);
+  assert.strictEqual(callback, write);
+  opened += 1;
+});
+probe.bindValueRows(host, write);
+assert(host.handlers.keydown?.length);
+const send = (type, key, repeat = false) => host.handlers[type].forEach(fn => fn({
+  target: input, key, repeat, preventDefault: () => { prevented += 1; },
+}));
+send('keydown', 'ArrowDown');
+send('keydown', 'Enter', true);
+assert.strictEqual(opened, 0);
+for (const key of ['Enter', ' ']) send('keydown', key);
+send('click');
+assert.strictEqual(opened, 3);
+assert.strictEqual(prevented, 3);
+input.disabled = true;
+send('keydown', 'Enter');
+send('click');
+input.disabled = false;
+input.closest = () => null;
+send('keydown', 'Enter');
+assert.strictEqual(opened, 3);
+assert.strictEqual(prevented, 3);
+""",
+  )
+
+
+def test_request_chains_supply_disclosure_buttons_and_keep_focus() -> None:
+  """A desktop chain button keeps its expanded state and focus through a redraw."""
+  run_app_js(
+    "state, renderRequests",
+    """
+const row = JSON.parse(fs.readFileSync('scripts/pages_fixtures.json', 'utf8')).requests
+  .find(item => item.attempts?.length > 1);
+assert(row);
+probe.state.requests = [row];
+probe.renderRequests([row]);
+assert(node('requests').innerHTML.includes('class="request-toggle hide-sm" type="button"'));
+assert(node('requests').innerHTML.includes('aria-expanded="false"'));
+assert(node('requests').innerHTML.includes(LOCALE['request.chain.show_title']));
+assert(node('requests').innerHTML.includes('class="only-sm"'));
+let focused = 0;
+const request = {dataset: {at: String(row.at)}, classList: {contains: name => name === 'has-chain'}};
+const button = {
+  dataset: {chainToggle: String(row.at)},
+  closest: selector => selector === '.request-toggle' ? button : selector === 'tr.request' ? request : null,
+  focus: () => { focused += 1; sandbox.document.activeElement = button; },
+};
+sandbox.document.activeElement = button;
+sandbox.window.matchMedia = () => ({matches: false});
+node('requests').querySelectorAll = () => [button];
+const activate = () => node('requests').handlers.click.forEach(fn => fn({target: button}));
+activate();
+assert(node('requests').innerHTML.includes('aria-expanded="true"'));
+assert.strictEqual(focused, 1);
+activate();
+assert(node('requests').innerHTML.includes('aria-expanded="false"'));
+assert.strictEqual(focused, 2);
 """,
   )

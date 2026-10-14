@@ -349,11 +349,11 @@ a.more:hover { color: var(--accent-text); }
   background: var(--bar); color: var(--tier); font-size: 12px; font-weight: 600;
 }
 .yes { color: var(--accent-text); }
-.model-open {
+.model-open, .request-toggle {
   max-width: 100%; padding: 0; border: 0; background: transparent; color: inherit;
   text-align: left; overflow: hidden; text-overflow: ellipsis; vertical-align: middle;
 }
-.model-open:focus-visible { outline-offset: -2px; }
+.model-open:focus-visible, .request-toggle:focus-visible { outline-offset: -2px; }
 .reveal {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 16px;
   border-bottom: 1px solid var(--line); background: var(--bar);
