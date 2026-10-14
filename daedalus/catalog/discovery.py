@@ -426,8 +426,8 @@ def read_providers(
       if source not in reported:
         reported.add(source)
         skipped.append(f"{provider_name}: {payload}")
-        if failed is not None and provider_name not in failed:
-          failed.append(provider_name)
+      if failed is not None and provider_name not in failed:
+        failed.append(provider_name)
       continue
     found.append((provider_name, provider, payload, is_file))
     if save_snapshots and not cached and source not in saved:

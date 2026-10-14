@@ -897,3 +897,52 @@ def test_pagination_failure_retains_rows(tmp_path: Path, monkeypatch) -> None:
   assert len(calls) == 1 and len(skipped) == 1
   assert failed == ["example"] and rows == {}
   assert store.read_models() == ["example/old"]
+
+
+@pytest.mark.parametrize("cached", [False, True])
+def test_shared_failure_retains_each_provider(
+  tmp_path: Path, monkeypatch, cached: bool
+) -> None:
+  monkeypatch.setattr(store, "MODELS_DB", tmp_path / "models.sqlite3")
+  shared, healthy = "https://shared.test/models", "https://healthy.test/models"
+  block = {"api_key": "placeholder", "discovery_url": shared}
+  providers = {
+    "first": {**block, config.FILE_KEY: {**block, "models": {"*": {}}}},
+    "second": dict(block),
+    "healthy": {"api_key": "placeholder", "discovery_url": healthy},
+  }
+  store.write_store(
+    [
+      {"id": "first/old", "max_input_tokens": 8192},
+      {"id": "second/old", "max_input_tokens": 4096},
+      {"id": "healthy/old"},
+    ]
+  )
+  payload = {"data": [{"id": "new"}]}
+  discovery.save_snapshot(healthy, payload)
+  calls: list[str] = []
+  original = discovery.cached_snapshot
+
+  def snapshot(url: str) -> dict[str, Any] | None:
+    calls.append(url)
+    return original(url)
+
+  def fetch(url: str, headers: dict[str, str]) -> dict[str, Any]:
+    calls.append(url)
+    if url == shared:
+      raise httpx.ConnectError("simulated outage")
+    return payload
+
+  monkeypatch.setattr(discovery, "cached_snapshot", snapshot)
+  failed: list[str] = []
+  rows, skipped = discovery.build_rows(providers, fetch, failed, cached=cached)
+  store.write_store(
+    [{"id": model, **values} for model, values in rows.items()], keep=failed
+  )
+  assert failed == ["first", "second"]
+  assert len(skipped) == 1
+  assert calls.count(shared) == calls.count(healthy) == 1
+  assert set(store.read_models()) == {"first/old", "second/old", "healthy/new"}
+  kept = {row["id"]: row for row in store.stored_rows()}
+  assert kept["first/old"]["max_input_tokens"] == 8192
+  assert kept["second/old"]["max_input_tokens"] == 4096
