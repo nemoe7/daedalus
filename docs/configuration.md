@@ -283,6 +283,8 @@ groq:
 | `headroom` | Optional. `false`: no Headroom compression for the models of the block. Default: `optimization.enabled`. |
 | `hourly_requests` | Optional. The provider requests per hour. At the limit, the provider leaves the chains. |
 
+Catalog next-page links can be relative. They must keep the discovery URL's scheme, host and effective port, with no username or password in the URL. An unsafe link fails that provider's refresh and keeps its previous catalog rows.
+
 A known key with a wrong shape is a 422 on the Providers page. A hand-edited file drops that key
 with a line in the log, so a bad `tier` or `models` never breaks a request. See [A wrong shape](#a-wrong-shape).
 

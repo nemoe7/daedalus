@@ -784,3 +784,116 @@ def test_snapshot_uri_path(
   files = set(tmp_path.iterdir())
   assert discovery.cached_snapshot(url) == payload
   assert set(tmp_path.iterdir()) == files
+
+
+@pytest.mark.parametrize(
+  "link",
+  [
+    "https://other.test/models?page=2",
+    "//other.test/models?page=2",
+    "http://provider.test/models?page=2",
+    "https://provider.test:444/models?page=2",
+    "https://user:password@provider.test/models?page=2",
+    "file:///models",
+    "https://provider.test:99999/models",
+  ],
+)
+def test_pagination_origin(link: str) -> None:
+  calls: list[tuple[str, dict[str, str]]] = []
+  url = "https://provider.test/models"
+
+  def fetch(page: str, headers: dict[str, str]) -> dict[str, Any]:
+    calls.append((page, dict(headers)))
+    return (
+      {"data": [{"id": "alpha"}], "links": {"next": link}}
+      if len(calls) == 1
+      else {"data": []}
+    )
+
+  with pytest.raises(ValueError):
+    discovery.read_pages(
+      "example", {"api_key": "placeholder", "discovery_url": url}, fetch
+    )
+  assert calls == [(url, {"Authorization": "Bearer placeholder"})]
+
+
+@pytest.mark.parametrize(
+  ("url", "link", "expected"),
+  [
+    ("https://provider.test/models", "?page=2", "https://provider.test/models?page=2"),
+    ("https://provider.test/v1/models", "next", "https://provider.test/v1/next"),
+    (
+      "https://provider.test/v1/models",
+      "/models?page=2",
+      "https://provider.test/models?page=2",
+    ),
+    (
+      "https://provider.test/models",
+      "//provider.test/models?page=2",
+      "https://provider.test/models?page=2",
+    ),
+    (
+      "https://provider.test/models",
+      "https://PROVIDER.test:443/models?page=2",
+      "https://provider.test/models?page=2",
+    ),
+    (
+      "http://provider.test/models",
+      "http://provider.test:80/models?page=2",
+      "http://provider.test/models?page=2",
+    ),
+    (
+      "http://provider.test:8080/models",
+      "?page=2",
+      "http://provider.test:8080/models?page=2",
+    ),
+  ],
+)
+def test_pagination_same_origin(url: str, link: str, expected: str) -> None:
+  calls: list[tuple[str, dict[str, str]]] = []
+
+  def fetch(page: str, headers: dict[str, str]) -> dict[str, Any]:
+    calls.append((page, dict(headers)))
+    return (
+      {"data": [{"id": "alpha"}], "links": {"next": link}}
+      if len(calls) == 1
+      else {"data": [{"id": "beta"}]}
+    )
+
+  payload = discovery.read_pages(
+    "example", {"api_key": "placeholder", "discovery_url": url}, fetch
+  )
+  assert payload["data"] == [{"id": "alpha"}, {"id": "beta"}]
+  assert calls == [
+    (url, {"Authorization": "Bearer placeholder"}),
+    (expected, {"Authorization": "Bearer placeholder"}),
+  ]
+
+
+def test_pagination_failure_retains_rows(tmp_path: Path, monkeypatch) -> None:
+  monkeypatch.setattr(store, "MODELS_DB", tmp_path / "models.sqlite3")
+  store.write_store([{"id": "example/old"}])
+  providers = {
+    "example": {
+      "api_key": "placeholder",
+      "discovery_url": "https://provider.test/models",
+    }
+  }
+  calls: list[str] = []
+
+  def fetch(page: str, headers: dict[str, str]) -> dict[str, Any]:
+    calls.append(page)
+    return (
+      {"data": [{"id": "partial"}], "links": {"next": "https://other.test/models"}}
+      if len(calls) == 1
+      else {"data": []}
+    )
+
+  failed: list[str] = []
+  rows, skipped = discovery.build_rows(providers, fetch, failed)
+  store.write_store(
+    [{"id": model, **values} for model, values in rows.items()], keep=failed
+  )
+  assert len(calls) == 1 and len(skipped) == 1
+  assert failed == ["example"] and rows == {}
+  assert store.read_models() == ["example/old"]

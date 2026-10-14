@@ -253,7 +253,19 @@ def next_page_url(url: str, payload: dict[str, Any]) -> str | None:
     return with_param(url, "pageToken", token)
   links = payload.get("links")
   if isinstance(links, dict) and isinstance(links.get("next"), str) and links["next"]:
-    return links["next"]
+    try:
+      source = httpx.URL(url)
+      target = source.join(links["next"])
+    except httpx.InvalidURL as exc:
+      raise ValueError("Invalid catalog next-page URL.") from exc
+    if (
+      target.scheme not in {"http", "https"}
+      or target.userinfo
+      or (target.scheme, target.host, target.port)
+      != (source.scheme, source.host, source.port)
+    ):
+      raise ValueError("The next catalog page must keep the provider origin.")
+    return str(target)
   info = payload.get("result_info")
   if not isinstance(info, dict):
     return None
