@@ -1,6 +1,7 @@
 """The SQLite model store: the model table, and the tables of the other modules."""
 
 import json
+import math
 import sqlite3
 import time
 from collections.abc import Iterable
@@ -37,6 +38,7 @@ COLUMNS = (
 # The Alembic steps: env.py, and 1 file in versions/ for each layout change.
 MIGRATIONS = Path(__file__).with_name("migrations")
 TEXT_COLUMNS = frozenset({"mode", "reasoning_effort", "supported_efforts", "tier"})
+TOKEN_COLUMNS = frozenset({"max_input_tokens", "max_output_tokens", "max_tokens"})
 # Rows that enter the chat chains. No catalog match gives no mode.
 ROUTABLE_MODES = (None, "chat")
 
@@ -73,6 +75,15 @@ def migrate(path: Path | str | None = None, revision: str = "head") -> None:
     engine.dispose()
 
 
+def finite_token_limit(value: Any) -> Any:
+  """Replace non-finite token limits with None. Keep other values unchanged."""
+  try:
+    finite = math.isfinite(float(value))
+  except (TypeError, ValueError, OverflowError):
+    return value
+  return value if finite else None
+
+
 def write_store(
   rows: Iterable[dict[str, Any]],
   path: Path | str | None = None,
@@ -106,6 +117,8 @@ def write_store(
           key: previous.get(key) if value is None else value
           for key, value in found.items()
         }
+      for key in TOKEN_COLUMNS:
+        found[key] = finite_token_limit(found[key])
       stored = tuple(
         json.dumps(value) if isinstance(value, (list, dict)) else value
         for value in found.values()
@@ -207,7 +220,11 @@ def stored_rows() -> list[dict[str, Any]]:
     database.close()
   return [
     {
-      key: bool(value) if key.startswith("supports_") else value
+      key: bool(value)
+      if key.startswith("supports_")
+      else finite_token_limit(value)
+      if key in TOKEN_COLUMNS
+      else value
       for key, value in zip(STORED_COLUMNS, row, strict=True)
     }
     for row in rows
@@ -262,7 +279,7 @@ def model_info() -> dict[str, dict[str, int | bool]]:
         continue
       try:
         number = int(float(value))
-      except (TypeError, ValueError):
+      except (TypeError, ValueError, OverflowError):
         continue
       if number > 0:
         fields[name] = number
@@ -331,7 +348,7 @@ def model_limits(model: str) -> dict[str, Any]:
     found["supported_efforts"] = names
   try:
     number = int(float(output))
-  except (TypeError, ValueError):
+  except (TypeError, ValueError, OverflowError):
     number = 0
   if number > 0:
     found["max_output_tokens"] = number
@@ -369,7 +386,7 @@ def input_limits() -> dict[str, int]:
   for key, value in rows:
     try:
       limit = int(float(value))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
       continue
     if limit > 0:
       limits[key] = limit

@@ -1,4 +1,4 @@
-"""Values for `db:NAME` / `env:NAME` that the dashboard saves in the state file."""
+"""Values for `db:NAME` that the dashboard saves in the state file."""
 
 import sqlite3
 import time

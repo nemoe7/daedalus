@@ -1,9 +1,11 @@
+import json
 import sqlite3
 import tempfile
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
+import pytest
 
 from daedalus import store
 from daedalus.catalog import enrichment
@@ -33,6 +35,44 @@ PAGES = {
     "has_more": False,
   },
 }
+
+
+@pytest.mark.parametrize(
+  "value", [float("nan"), float("inf"), -float("inf"), "nan", "inf", "-inf", "1e999"]
+)
+@pytest.mark.parametrize("legacy", [False, True])
+def test_nonfinite_token_limits(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch, value: float | str, legacy: bool
+) -> None:
+  path = tmp_path / "limits.sqlite3"
+  monkeypatch.setattr(store, "MODELS_DB", path)
+  columns = ("max_input_tokens", "max_output_tokens", "max_tokens")
+  good = dict(zip(columns, (2048, 512, 2560), strict=True))
+  bad = dict.fromkeys(columns, 1 if legacy else value)
+  store.write_store([{"id": "p/good", **good}, {"id": "p/bad", **bad}])
+  with sqlite3.connect(path) as connection:
+    if legacy:
+      connection.execute(
+        "UPDATE models SET max_input_tokens = ?, max_output_tokens = ?, "
+        "max_tokens = ? WHERE id = ?",
+        (value, value, value, "p/bad"),
+      )
+    else:
+      assert connection.execute(
+        "SELECT max_input_tokens, max_output_tokens, max_tokens "
+        "FROM models WHERE id = ?",
+        ("p/bad",),
+      ).fetchone() == (None, None, None)
+  connection.close()
+  rows = {row["id"]: row for row in store.stored_rows()}
+  assert all(rows["p/bad"][key] is None for key in columns)
+  assert all(rows["p/good"][key] == good[key] for key in columns)
+  assert store.model_info()["p/bad"] == {}
+  assert store.model_info()["p/good"]["max_input_tokens"] == 2048
+  assert store.model_limits("p/bad") == {}
+  assert store.model_limits("p/good")["max_output_tokens"] == 512
+  assert store.input_limits() == {"p/good": 2048}
+  json.dumps(store.model_rows(), allow_nan=False)
 
 
 def test_model_store() -> None:
