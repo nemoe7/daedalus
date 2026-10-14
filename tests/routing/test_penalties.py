@@ -28,6 +28,52 @@ def answer(request: httpx.Request) -> httpx.Response:
   return httpx.Response(200, json={"id": "x", "model": "m", "choices": [choice]})
 
 
+@pytest.mark.parametrize(
+  ("hourly", "hours", "initial", "expected"),
+  [
+    (penalties.HOURLY, 180 * 24, 0.5, 1.0),
+    (penalties.HOURLY, 365 * 24, penalties.FLOOR, 1.0),
+    (1e308, 2, 0.5, 1.0),
+    (1e155, 2, 1e-320, penalties.FLOOR),
+    (1e155, 2, 1e-311, 0.1),
+    (penalties.HOURLY, 180 * 24, 0.0, penalties.FLOOR),
+    (1e308, 2, 0.0, penalties.FLOOR),
+    (1.0, 365 * 24, 0.5, 0.5),
+    (0.5, 365 * 24, 0.5, penalties.FLOOR),
+    (1e-308, 2, 0.5, penalties.FLOOR),
+    (penalties.HOURLY, 1, 0.5, 0.5 * penalties.HOURLY),
+    (penalties.HOURLY, 0, 0.5, 0.5),
+    (penalties.HOURLY, -10, 0.5, 0.5),
+    (1e308, 0, penalties.FLOOR, penalties.FLOOR),
+    (penalties.HOURLY, 180 * 24, 1.0, 1.0),
+    (penalties.HOURLY, 180 * 24, -0.5, penalties.FLOOR),
+  ],
+)
+def test_weight_recovery_boundaries(tmp_path, hourly, hours, initial, expected):
+  """Recovery stays bounded after long gaps without changing stored rows."""
+  now = [0.0]
+  found = penalties.Penalties(
+    lambda: tmp_path / "weights.sqlite3", clock=lambda: now[0]
+  )
+  found.hourly = hourly
+  database = found.connect()
+  try:
+    with database:
+      database.execute(
+        "INSERT INTO weights (model, weight, updated) VALUES (?, ?, ?)",
+        ("a", initial, now[0]),
+      )
+    now[0] = hours * 3600.0
+    assert found.weights(["a", "new"]) == {
+      "a": pytest.approx(expected),
+      "new": 1.0,
+    }
+    stored = database.execute("SELECT model, weight, updated FROM weights").fetchall()
+    assert stored == [("a", initial, 0.0)]
+  finally:
+    database.close()
+
+
 def test_weights(folder: Path) -> None:
   now, selections = [0.0], [0.0]
   store = penalties.Penalties(

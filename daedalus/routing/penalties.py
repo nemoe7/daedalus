@@ -1,5 +1,6 @@
 """Model weights, session models (pins) and the reasoning level of the last answer, in the model store."""
 
+import math
 import random
 import sqlite3
 import time
@@ -89,7 +90,16 @@ class Penalties:
       ):
         if model in rows:
           hours = max(now - updated, 0.0) / 3600
-          rows[model] = min(1.0, max(FLOOR, weight * self.hourly**hours))
+          try:
+            recovered = weight * self.hourly**hours
+          except OverflowError:
+            # A tiny stored weight can keep the product finite when the power overflows.
+            recovered = (
+              math.exp(min(0.0, math.log(weight) + hours * math.log(self.hourly)))
+              if weight > 0
+              else FLOOR
+            )
+          rows[model] = min(1.0, max(FLOOR, recovered))
       return rows
     finally:
       database.close()
