@@ -163,3 +163,40 @@ async def test_the_client_scope_gates_the_line_on_the_request(
   other = await client.post("/v1/chat/completions", json=body)
   assert other.status_code == 200, other.text
   assert lines(other.text) == []
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("previous", ["", "p/a"])
+async def test_chunk_hook_receives_previous_model(
+  client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch, previous: str
+) -> None:
+  """A custom chunk hook receives the empty or saved previous-model value."""
+  path = hooks.ROOT / "hooks" / "previous_context.py"
+  path.write_text(
+    "seen = []\n"
+    "def on_chunk(value, *, context, **kwargs):\n"
+    "  seen.append((context['previous'], context))\n"
+    "  return value\n",
+    encoding="utf-8",
+  )
+  monkeypatch.setattr(api, "AFFINITY", True)
+  monkeypatch.setattr(api, "REQUEST_HOOKS", {"on-chunk": ["hooks/previous_context.py"]})
+  if previous:
+    key = api.session_key(MASTER, BODY["messages"], {})
+    api.PENALTIES.pin(key, BODY["model"], previous)
+  response = await client.post("/v1/chat/completions", json={**BODY, "stream": True})
+  assert response.status_code == 200, response.text
+  seen = hooks.load(path).seen
+  assert seen and {value for value, _ in seen} == {previous}
+  assert all("plan.previous" not in context for _, context in seen)
+  assert CALLS == ["a"]
+  chunks = [
+    json.loads(block[5:])
+    for block in response.text.split("\n\n")
+    if block.startswith("data: {")
+  ]
+  assert "hi" in [
+    choice.get("delta", {}).get("content")
+    for chunk in chunks
+    for choice in chunk.get("choices", [])
+  ]

@@ -1501,7 +1501,7 @@ async def run_chat(plan: Plan) -> Response:
         stream_context={
           "pool": getattr(request.state, "pool", "") or "",
           "code": getattr(request.state, "code", "") or "",
-          "plan.previous": (plan.previous or {}).get("model", ""),
+          "previous": (plan.previous or {}).get("model", ""),
         },
         hook_files=hooks.request_paths(
           REQUEST_HOOKS,
