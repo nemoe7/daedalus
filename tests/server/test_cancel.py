@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 
 import httpx
+import pytest
 
 from daedalus import config, dashboard, store
 from daedalus.server import api
@@ -117,3 +118,54 @@ async def test_cancel() -> None:
     api.Tracker.failed = original
     store.MODELS_DB = saved
     config.set_config(None)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("external", [False, True])
+@pytest.mark.parametrize("headers_sent", [False, True])
+async def test_handler_cancellation_ends_only_its_live_row(
+  monkeypatch: pytest.MonkeyPatch, external: bool, headers_sent: bool
+) -> None:
+  """Handler cancellation propagates and ends its live row without changing history rules."""
+  live = dashboard.Live()
+  monkeypatch.setattr(dashboard, "LIVE", live)
+  other = live.start("/v1/chat/completions")
+  history = dashboard.HISTORY.latest()
+  entered = asyncio.Event()
+  sent = []
+
+  async def handler(scope, receive, send):
+    if headers_sent:
+      await send({"type": "http.response.start", "status": 200, "headers": []})
+    entered.set()
+    if external:
+      await asyncio.Event().wait()
+    raise asyncio.CancelledError
+
+  async def receive():
+    await asyncio.Event().wait()
+
+  async def send(message):
+    sent.append(message)
+
+  task = asyncio.create_task(api.RequestLog(handler)(scope(), receive, send))
+  try:
+    if external:
+      await asyncio.wait_for(entered.wait(), 1)
+      assert len(live.rows) == 2
+      task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+      await task
+  finally:
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+  assert set(live.rows) == {other}
+  rows = dashboard.HISTORY.latest()
+  if headers_sent:
+    assert rows[1:] == history
+    assert rows[0]["status"] == 200
+    assert not rows[0].get("cancelled")
+    assert len(sent) == 1
+  else:
+    assert rows == history
+    assert sent == []

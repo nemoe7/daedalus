@@ -218,6 +218,8 @@ class RequestLog:
       await task
     except asyncio.CancelledError:
       if not watch.cancelled:
+        if status is None:
+          dashboard.LIVE.end(request.state.live, None)
         raise
     except Exception:
       if status is None:
