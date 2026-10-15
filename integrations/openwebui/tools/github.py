@@ -443,6 +443,8 @@ class Tools:
     repository_full_name: str | None = None,
     repository_id: int | None = None,
     repository_url: str | None = None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """Read one GitHub issue. Exactly one repository selector.
 
@@ -451,23 +453,61 @@ class Tools:
     :param repository_id: numeric repository id
     :param repository_url: repository html or api url
     """
-    repo = self._repo_of(repository_full_name, repository_id, repository_url)
-    issue = await self._request("GET", f"{API}{repo}/issues/{int(issue_number)}")
-    return self._ok(self._issue_shape(issue))
 
-  async def fetch_issue_comments(self, repo_full_name: str, issue_number: int) -> dict:
+    async def run(
+      issue_number=issue_number,
+      repository_full_name=repository_full_name,
+      repository_id=repository_id,
+      repository_url=repository_url,
+    ):
+      repo = self._repo_of(repository_full_name, repository_id, repository_url)
+      issue = await self._request("GET", f"{API}{repo}/issues/{int(issue_number)}")
+      return self._ok(self._issue_shape(issue))
+
+    return await self._read(
+      "read fetch_issue",
+      str({
+        "issue_number": issue_number,
+        "repository_full_name": repository_full_name,
+        "repository_id": repository_id,
+        "repository_url": repository_url,
+      }),
+      run, __user__, __event_call__,
+    )
+
+  async def fetch_issue_comments(
+    self,
+    repo_full_name: str,
+    issue_number: int,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """Read a GitHub issue's comments, first page.
 
     :param repo_full_name: owner/repo
     :param issue_number: the issue number
     """
-    repo = self._repo(repo_full_name)
-    comments = await self._request(
-      "GET",
-      f"{API}{repo}/issues/{int(issue_number)}/comments",
-      params={"per_page": 100},
+
+    async def run(
+      repo_full_name=repo_full_name,
+      issue_number=issue_number,
+    ):
+      repo = self._repo(repo_full_name)
+      comments = await self._request(
+        "GET",
+        f"{API}{repo}/issues/{int(issue_number)}/comments",
+        params={"per_page": 100},
+      )
+      return self._ok({"comments": comments})
+
+    return await self._read(
+      "read fetch_issue_comments",
+      str({
+        "repo_full_name": repo_full_name,
+        "issue_number": issue_number,
+      }),
+      run, __user__, __event_call__,
     )
-    return self._ok({"comments": comments})
 
   async def list_recent_issues(
     self,
@@ -1195,54 +1235,94 @@ class Tools:
       __event_call__,
     )
 
-  async def fetch_pr(self, repo_full_name: str, pr_number: int) -> dict:
+  async def fetch_pr(
+    self,
+    repo_full_name: str,
+    pr_number: int,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """Read a GitHub pull request with its title, url and unified diff.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
     """
-    repo = self._repo(repo_full_name)
-    pull = await self._request("GET", f"{API}{repo}/pulls/{int(pr_number)}")
-    diff = await self._request(
-      "GET",
-      f"{API}{repo}/pulls/{int(pr_number)}",
-      accept="application/vnd.github.diff",
-      raw=True,
-    )
-    return self._ok(
-      {
-        "pull_request": pull,
-        "url": pull.get("html_url"),
-        "title": pull.get("title"),
-        "display_url": pull.get("html_url"),
-        "display_title": f"#{pr_number} {pull.get('title')}",
-        "diff": diff,
-      }
+
+    async def run(
+      repo_full_name=repo_full_name,
+      pr_number=pr_number,
+    ):
+      repo = self._repo(repo_full_name)
+      pull = await self._request("GET", f"{API}{repo}/pulls/{int(pr_number)}")
+      diff = await self._request(
+        "GET",
+        f"{API}{repo}/pulls/{int(pr_number)}",
+        accept="application/vnd.github.diff",
+        raw=True,
+      )
+      return self._ok(
+        {
+          "pull_request": pull,
+          "url": pull.get("html_url"),
+          "title": pull.get("title"),
+          "display_url": pull.get("html_url"),
+          "display_title": f"#{pr_number} {pull.get('title')}",
+          "diff": diff,
+        }
+      )
+
+    return await self._read(
+      "read fetch_pr",
+      str({
+        "repo_full_name": repo_full_name,
+        "pr_number": pr_number,
+      }),
+      run, __user__, __event_call__,
     )
 
-  async def fetch_pr_comments(self, repo_full_name: str, pr_number: int) -> dict:
+  async def fetch_pr_comments(
+    self,
+    repo_full_name: str,
+    pr_number: int,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """Read a GitHub pull request discussion: issue comments, review comments and reviews.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
     """
-    repo = self._repo(repo_full_name)
-    number = int(pr_number)
-    issue_comments = await self._request(
-      "GET", f"{API}{repo}/issues/{number}/comments", params={"per_page": 100}
+
+    async def run(
+      repo_full_name=repo_full_name,
+      pr_number=pr_number,
+    ):
+      repo = self._repo(repo_full_name)
+      number = int(pr_number)
+      issue_comments = await self._request(
+        "GET", f"{API}{repo}/issues/{number}/comments", params={"per_page": 100}
+      )
+      review_comments = await self._request(
+        "GET", f"{API}{repo}/pulls/{number}/comments", params={"per_page": 100}
+      )
+      reviews = await self._request(
+        "GET", f"{API}{repo}/pulls/{number}/reviews", params={"per_page": 100}
+      )
+      comments = (
+        [{"kind": "issue_comment", **c} for c in issue_comments]
+        + [{"kind": "review_comment", **c} for c in review_comments]
+        + [{"kind": "review", **r} for r in reviews]
+      )
+      return self._ok({"comments": comments})
+
+    return await self._read(
+      "read fetch_pr_comments",
+      str({
+        "repo_full_name": repo_full_name,
+        "pr_number": pr_number,
+      }),
+      run, __user__, __event_call__,
     )
-    review_comments = await self._request(
-      "GET", f"{API}{repo}/pulls/{number}/comments", params={"per_page": 100}
-    )
-    reviews = await self._request(
-      "GET", f"{API}{repo}/pulls/{number}/reviews", params={"per_page": 100}
-    )
-    comments = (
-      [{"kind": "issue_comment", **c} for c in issue_comments]
-      + [{"kind": "review_comment", **c} for c in review_comments]
-      + [{"kind": "review", **r} for r in reviews]
-    )
-    return self._ok({"comments": comments})
 
   async def get_pr_diff(
     self,
@@ -1285,29 +1365,49 @@ class Tools:
       __event_call__,
     )
 
-  async def fetch_pr_patch(self, repo_full_name: str, pr_number: int) -> dict:
+  async def fetch_pr_patch(
+    self,
+    repo_full_name: str,
+    pr_number: int,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """Read the per-file patches of a GitHub pull request, first page.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
     """
-    repo = self._repo(repo_full_name)
-    files = await self._request(
-      "GET", f"{API}{repo}/pulls/{int(pr_number)}/files", params={"per_page": 100}
+
+    async def run(
+      repo_full_name=repo_full_name,
+      pr_number=pr_number,
+    ):
+      repo = self._repo(repo_full_name)
+      files = await self._request(
+        "GET", f"{API}{repo}/pulls/{int(pr_number)}/files", params={"per_page": 100}
+      )
+      patches = [
+        {
+          "filename": f.get("filename"),
+          "patch": f.get("patch"),
+          "url": f.get("blob_url"),
+          "title": f.get("filename"),
+          "status": f.get("status"),
+          "additions": f.get("additions"),
+          "deletions": f.get("deletions"),
+        }
+        for f in files
+      ]
+      return self._ok({"patches": patches})
+
+    return await self._read(
+      "read fetch_pr_patch",
+      str({
+        "repo_full_name": repo_full_name,
+        "pr_number": pr_number,
+      }),
+      run, __user__, __event_call__,
     )
-    patches = [
-      {
-        "filename": f.get("filename"),
-        "patch": f.get("patch"),
-        "url": f.get("blob_url"),
-        "title": f.get("filename"),
-        "status": f.get("status"),
-        "additions": f.get("additions"),
-        "deletions": f.get("deletions"),
-      }
-      for f in files
-    ]
-    return self._ok({"patches": patches})
 
   async def list_pr_changed_filenames(
     self,
@@ -1343,7 +1443,12 @@ class Tools:
     )
 
   async def fetch_pr_file_patch(
-    self, repo_full_name: str, pr_number: int, path: str
+    self,
+    repo_full_name: str,
+    pr_number: int,
+    path: str,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """Read the patch of one changed GitHub file. The path comes from list_pr_changed_filenames.
 
@@ -1351,28 +1456,44 @@ class Tools:
     :param pr_number: the pull request number
     :param path: the file path as it appears in the pull request
     """
-    repo = self._repo(repo_full_name)
-    for page in (1, 2, 3):
-      files = await self._request(
-        "GET",
-        f"{API}{repo}/pulls/{int(pr_number)}/files",
-        params={"per_page": 100, "page": page},
-      )
-      for f in files:
-        if f.get("filename") == path:
-          return self._ok(
-            {
-              "patch": {
-                "filename": f.get("filename"),
-                "patch": f.get("patch"),
-                "url": f.get("blob_url"),
-                "title": f.get("filename"),
+
+    async def run(
+      repo_full_name=repo_full_name,
+      pr_number=pr_number,
+      path=path,
+    ):
+      repo = self._repo(repo_full_name)
+      for page in (1, 2, 3):
+        files = await self._request(
+          "GET",
+          f"{API}{repo}/pulls/{int(pr_number)}/files",
+          params={"per_page": 100, "page": page},
+        )
+        for f in files:
+          if f.get("filename") == path:
+            return self._ok(
+              {
+                "patch": {
+                  "filename": f.get("filename"),
+                  "patch": f.get("patch"),
+                  "url": f.get("blob_url"),
+                  "title": f.get("filename"),
+                }
               }
-            }
-          )
-      if len(files) < 100:
-        break
-    return self._ok({"patch": None})
+            )
+        if len(files) < 100:
+          break
+      return self._ok({"patch": None})
+
+    return await self._read(
+      "read fetch_pr_file_patch",
+      str({
+        "repo_full_name": repo_full_name,
+        "pr_number": pr_number,
+        "path": path,
+      }),
+      run, __user__, __event_call__,
+    )
 
   # ═════════════════════════ pull request mutations ═════════════════════
 
@@ -1640,6 +1761,8 @@ class Tools:
     encoding: str = "utf-8",
     start_line: int | None = None,
     end_line: int | None = None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """Read a GitHub file, base64 decoded. A directory returns its listing as JSON text.
 
@@ -1650,51 +1773,81 @@ class Tools:
     :param start_line: keep from this line, 1-based
     :param end_line: keep to this line, inclusive
     """
-    repo = self._repo(repository_full_name)
-    data = await self._request(
-      "GET", f"{API}{repo}/contents/{self._path(path)}", params={"ref": ref}
-    )
-    if isinstance(data, list):
-      return self._ok(
-        {
-          "content": json.dumps(data, indent=2)[:400000],
-          "encoding": "json",
-          "sha": None,
-          "directory": True,
-          "display_url": data[0].get("html_url").rsplit("/", 1)[0] if data else None,
-          "display_title": f"{repository_full_name}/{path}",
-        }
+
+    async def run(
+      repository_full_name=repository_full_name,
+      path=path,
+      ref=ref,
+      encoding=encoding,
+      start_line=start_line,
+      end_line=end_line,
+    ):
+      repo = self._repo(repository_full_name)
+      data = await self._request(
+        "GET", f"{API}{repo}/contents/{self._path(path)}", params={"ref": ref}
       )
-    blob = data.get("content") or ""
-    text = (
-      base64.b64decode(blob).decode("utf-8", "replace")
-      if data.get("encoding") == "base64"
-      else blob
-    )
-    if start_line or end_line:
-      lines = text.splitlines()
-      first = max(1, int(start_line or 1))
-      last = min(len(lines), int(end_line or len(lines)))
-      text = "\n".join(lines[first - 1 : last])
-    if encoding == "base64":
+      if isinstance(data, list):
+        return self._ok(
+          {
+            "content": json.dumps(data, indent=2)[:400000],
+            "encoding": "json",
+            "sha": None,
+            "directory": True,
+            "display_url": data[0].get("html_url").rsplit("/", 1)[0] if data else None,
+            "display_title": f"{repository_full_name}/{path}",
+          }
+        )
+      blob = data.get("content") or ""
       text = (
-        base64.b64encode(text.encode()).decode()
-        if data.get("encoding") != "base64"
+        base64.b64decode(blob).decode("utf-8", "replace")
+        if data.get("encoding") == "base64"
         else blob
       )
-    return self._ok(
-      {
-        "content": text,
+      if start_line or end_line:
+        lines = text.splitlines()
+        first = max(1, int(start_line or 1))
+        last = min(len(lines), int(end_line or len(lines)))
+        text = "\n".join(lines[first - 1 : last])
+      if encoding == "base64":
+        text = (
+          base64.b64encode(text.encode()).decode()
+          if data.get("encoding") != "base64"
+          else blob
+        )
+      return self._ok(
+        {
+          "content": text,
+          "encoding": encoding,
+          "sha": data.get("sha"),
+          "display_url": data.get("html_url"),
+          "display_title": data.get("name") or path,
+          "path": data.get("path"),
+          "size": data.get("size"),
+        }
+      )
+
+    return await self._read(
+      "read fetch_github_file",
+      str({
+        "repository_full_name": repository_full_name,
+        "path": path,
+        "ref": ref,
         "encoding": encoding,
-        "sha": data.get("sha"),
-        "display_url": data.get("html_url"),
-        "display_title": data.get("name") or path,
-        "path": data.get("path"),
-        "size": data.get("size"),
-      }
+        "start_line": start_line,
+        "end_line": end_line,
+      }),
+      run, __user__, __event_call__,
     )
 
-  async def fetch_blob(self, repository_full_name: str, blob_sha: str, offset: int = 0, max_chars: int = 10000) -> dict:
+  async def fetch_blob(
+    self,
+    repository_full_name: str,
+    blob_sha: str,
+    offset: int = 0,
+    max_chars: int = 10000,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """Read a GitHub blob by SHA, base64 decoded.
 
     :param repository_full_name: owner/repo
@@ -1702,166 +1855,207 @@ class Tools:
     :param offset: character offset in the decoded text
     :param max_chars: maximum characters, subject to the output byte limit
     """
-    repo = self._repo(repository_full_name)
-    data = await self._request("GET", f"{API}{repo}/git/blobs/{self._seg(blob_sha)}")
-    content = data.get("content") or ""
-    if data.get("encoding") == "base64":
-      content = base64.b64decode(content).decode("utf-8", "replace")
-    return self._ok(
-      self._page({"content": content, "sha": data.get("sha"), "size": data.get("size")}, offset, max_chars)
+
+    async def run(
+      repository_full_name=repository_full_name,
+      blob_sha=blob_sha,
+      offset=offset,
+      max_chars=max_chars,
+    ):
+      repo = self._repo(repository_full_name)
+      data = await self._request("GET", f"{API}{repo}/git/blobs/{self._seg(blob_sha)}")
+      content = data.get("content") or ""
+      if data.get("encoding") == "base64":
+        content = base64.b64decode(content).decode("utf-8", "replace")
+      return self._ok(
+        self._page({"content": content, "sha": data.get("sha"), "size": data.get("size")}, offset, max_chars)
+      )
+
+    return await self._read(
+      "read fetch_blob",
+      str({
+        "repository_full_name": repository_full_name,
+        "blob_sha": blob_sha,
+        "offset": offset,
+        "max_chars": max_chars,
+      }),
+      run, __user__, __event_call__,
     )
 
-  async def fetch_github_url(self, url: str, offset: int = 0, max_chars: int = 10000) -> dict:
+  async def fetch_github_url(
+    self,
+    url: str,
+    offset: int = 0,
+    max_chars: int = 10000,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """Read one GitHub URL of github.com or api.github.com. For any other URL, use the builtin `fetch_url` tool.
 
     :param url: a github.com or api.github.com URL
     :param offset: character offset in the returned text
     :param max_chars: maximum characters, subject to the output byte limit
     """
-    def paged(payload):
-      title = payload.get("title")
-      if isinstance(title, str) and len(title) > 200:
-        payload = {**payload, "title": title[:200], "title_truncated": True}
-      return self._ok(self._page(payload, offset, max_chars))
 
-    parsed = urlparse(url)
-    if parsed.netloc in ("api.github.com",):
-      path = parsed.path + (f"?{parsed.query}" if parsed.query else "")
-      data = await self._request("GET", f"https://api.github.com{path}", raw=True)
-      return paged(
-        {"content": data, "url": url, "title": None, "modified_date": None}
-      )
-    parts = [p for p in parsed.path.split("/") if p]
-    if parsed.netloc != "github.com" or len(parts) < 2:
-      raise GitHubError(
-        422,
-        f"fetch_github_url reads github.com or api.github.com URLs only, not {url}. "
-        "Use the builtin fetch_url tool for that URL.",
-        "GET",
-        url,
-      )
-    owner, repo_name = parts[0], parts[1]
-    rest = parts[2:]
-    repo = self._repo(f"{owner}/{repo_name}")
-    title = f"{owner}/{repo_name}"
-    if not rest:
-      data = await self._request("GET", f"{API}{repo}")
-      return paged(
-        {
-          "content": json.dumps(data, indent=2),
-          "title": title,
-          "url": url,
-          "modified_date": data.get("updated_at"),
-        }
-      )
-    kind, tail = rest[0], rest[1:]
-    if kind in ("tree", "blob") and tail:
-      ref, path = tail[0], "/".join(tail[1:])
-      if kind == "tree":
-        data = await self._request(
-          "GET", f"{API}{repo}/contents/{self._path(path)}", params={"ref": ref}
+    async def run(
+      url=url,
+      offset=offset,
+      max_chars=max_chars,
+    ):
+      def paged(payload):
+        title = payload.get("title")
+        if isinstance(title, str) and len(title) > 200:
+          payload = {**payload, "title": title[:200], "title_truncated": True}
+        return self._ok(self._page(payload, offset, max_chars))
+
+      parsed = urlparse(url)
+      if parsed.netloc in ("api.github.com",):
+        path = parsed.path + (f"?{parsed.query}" if parsed.query else "")
+        data = await self._request("GET", f"https://api.github.com{path}", raw=True)
+        return paged(
+          {"content": data, "url": url, "title": None, "modified_date": None}
         )
+      parts = [p for p in parsed.path.split("/") if p]
+      if parsed.netloc != "github.com" or len(parts) < 2:
+        raise GitHubError(
+          422,
+          f"fetch_github_url reads github.com or api.github.com URLs only, not {url}. "
+          "Use the builtin fetch_url tool for that URL.",
+          "GET",
+          url,
+        )
+      owner, repo_name = parts[0], parts[1]
+      rest = parts[2:]
+      repo = self._repo(f"{owner}/{repo_name}")
+      title = f"{owner}/{repo_name}"
+      if not rest:
+        data = await self._request("GET", f"{API}{repo}")
         return paged(
           {
             "content": json.dumps(data, indent=2),
+            "title": title,
+            "url": url,
+            "modified_date": data.get("updated_at"),
+          }
+        )
+      kind, tail = rest[0], rest[1:]
+      if kind in ("tree", "blob") and tail:
+        ref, path = tail[0], "/".join(tail[1:])
+        if kind == "tree":
+          data = await self._request(
+            "GET", f"{API}{repo}/contents/{self._path(path)}", params={"ref": ref}
+          )
+          return paged(
+            {
+              "content": json.dumps(data, indent=2),
+              "title": f"{title}/{path}",
+              "url": url,
+              "modified_date": None,
+            }
+          )
+        file_data = await self._request(
+          "GET", f"{API}{repo}/contents/{self._path(path)}", params={"ref": ref}
+        )
+        content = file_data.get("content") or ""
+        if file_data.get("encoding") == "base64":
+          content = base64.b64decode(content).decode("utf-8", "replace")
+        return paged(
+          {
+            "content": content,
             "title": f"{title}/{path}",
             "url": url,
             "modified_date": None,
           }
         )
-      file_data = await self._request(
-        "GET", f"{API}{repo}/contents/{self._path(path)}", params={"ref": ref}
-      )
-      content = file_data.get("content") or ""
-      if file_data.get("encoding") == "base64":
-        content = base64.b64decode(content).decode("utf-8", "replace")
-      return paged(
-        {
-          "content": content,
-          "title": f"{title}/{path}",
-          "url": url,
-          "modified_date": None,
-        }
-      )
-    if kind == "issues" and tail:
-      data = await self._request("GET", f"{API}{repo}/issues/{int(tail[0])}")
-      return paged(
-        {
-          "content": f"#{data.get('number')} {data.get('title')}\n\n{data.get('body') or ''}",
-          "title": data.get("title"),
-          "url": url,
-          "modified_date": data.get("updated_at"),
-        }
-      )
-    if kind == "pull" and tail:
-      pull = await self._request("GET", f"{API}{repo}/pulls/{int(tail[0])}")
-      diff = await self._request(
-        "GET",
-        f"{API}{repo}/pulls/{int(tail[0])}",
-        accept="application/vnd.github.diff",
-        raw=True,
-      )
-      return paged(
-        {
-          "content": diff,
-          "title": f"#{pull.get('number')} {pull.get('title')}",
-          "url": url,
-          "modified_date": pull.get("updated_at"),
-        }
-      )
-    if kind == "commit" and tail:
-      commit = await self._request("GET", f"{API}{repo}/commits/{self._seg(tail[0])}")
-      lines = ((commit.get("commit") or {}).get("message") or "").splitlines()
-      return paged(
-        {
-          "content": json.dumps(commit, indent=2),
-          "title": lines[0] if lines else "",
-          "url": url,
-          "modified_date": ((commit.get("commit") or {}).get("committer") or {}).get(
-            "date"
-          ),
-        }
-      )
-    if kind == "branches":
-      data = await self._request(
-        "GET", f"{API}{repo}/branches", params={"per_page": 100}
-      )
-      return paged(
-        {
-          "content": json.dumps(data, indent=2),
-          "title": f"{title} branches",
-          "url": url,
-          "modified_date": None,
-        }
-      )
-    if kind == "actions" and tail[:1] == ["runs"]:
-      run_id = tail[1] if len(tail) > 1 else None
-      if run_id:
-        data = await self._request("GET", f"{API}{repo}/actions/runs/{int(run_id)}")
-      else:
-        data = await self._request(
-          "GET", f"{API}{repo}/actions/runs", params={"per_page": 20}
+      if kind == "issues" and tail:
+        data = await self._request("GET", f"{API}{repo}/issues/{int(tail[0])}")
+        return paged(
+          {
+            "content": f"#{data.get('number')} {data.get('title')}\n\n{data.get('body') or ''}",
+            "title": data.get("title"),
+            "url": url,
+            "modified_date": data.get("updated_at"),
+          }
         )
-      return paged(
-        {
-          "content": json.dumps(data, indent=2),
-          "title": f"{title} actions",
-          "url": url,
-          "modified_date": None,
-        }
+      if kind == "pull" and tail:
+        pull = await self._request("GET", f"{API}{repo}/pulls/{int(tail[0])}")
+        diff = await self._request(
+          "GET",
+          f"{API}{repo}/pulls/{int(tail[0])}",
+          accept="application/vnd.github.diff",
+          raw=True,
+        )
+        return paged(
+          {
+            "content": diff,
+            "title": f"#{pull.get('number')} {pull.get('title')}",
+            "url": url,
+            "modified_date": pull.get("updated_at"),
+          }
+        )
+      if kind == "commit" and tail:
+        commit = await self._request("GET", f"{API}{repo}/commits/{self._seg(tail[0])}")
+        lines = ((commit.get("commit") or {}).get("message") or "").splitlines()
+        return paged(
+          {
+            "content": json.dumps(commit, indent=2),
+            "title": lines[0] if lines else "",
+            "url": url,
+            "modified_date": ((commit.get("commit") or {}).get("committer") or {}).get(
+              "date"
+            ),
+          }
+        )
+      if kind == "branches":
+        data = await self._request(
+          "GET", f"{API}{repo}/branches", params={"per_page": 100}
+        )
+        return paged(
+          {
+            "content": json.dumps(data, indent=2),
+            "title": f"{title} branches",
+            "url": url,
+            "modified_date": None,
+          }
+        )
+      if kind == "actions" and tail[:1] == ["runs"]:
+        run_id = tail[1] if len(tail) > 1 else None
+        if run_id:
+          data = await self._request("GET", f"{API}{repo}/actions/runs/{int(run_id)}")
+        else:
+          data = await self._request(
+            "GET", f"{API}{repo}/actions/runs", params={"per_page": 20}
+          )
+        return paged(
+          {
+            "content": json.dumps(data, indent=2),
+            "title": f"{title} actions",
+            "url": url,
+            "modified_date": None,
+          }
+        )
+      if kind == "search":
+        query = parse_qs(parsed.query).get("q", [""])[0]
+        return paged(
+          {
+            "content": json.dumps(await self._search_code(query, 20), indent=2),
+            "title": "search",
+            "url": url,
+            "modified_date": None,
+          }
+        )
+      raise GitHubError(
+        422, f"fetch does not read this github.com path yet: {parsed.path}.", "GET", url
       )
-    if kind == "search":
-      query = parse_qs(parsed.query).get("q", [""])[0]
-      return paged(
-        {
-          "content": json.dumps(await self._search_code(query, 20), indent=2),
-          "title": "search",
-          "url": url,
-          "modified_date": None,
-        }
-      )
-    raise GitHubError(
-      422, f"fetch does not read this github.com path yet: {parsed.path}.", "GET", url
+
+    return await self._read(
+      "read fetch_github_url",
+      str({
+        "url": url,
+        "offset": offset,
+        "max_chars": max_chars,
+      }),
+      run, __user__, __event_call__,
     )
 
   async def create_branch(
@@ -2210,6 +2404,8 @@ class Tools:
     direction: str = "desc",
     per_page: int = 30,
     page: int = 1,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """List the code scanning alerts of a GitHub repository, or read 1 alert with its instances.
 
@@ -2224,29 +2420,59 @@ class Tools:
     :param per_page: alerts per page
     :param page: the page number
     """
-    repo = self._repo(repo_full_name)
-    if alert_number is not None:
-      number = int(alert_number)
-      alert = await self._request("GET", f"{API}{repo}/code-scanning/alerts/{number}")
-      instances = await self._request(
-        "GET", f"{API}{repo}/code-scanning/alerts/{number}/instances"
+
+    async def run(
+      repo_full_name=repo_full_name,
+      alert_number=alert_number,
+      state=state,
+      tool_name=tool_name,
+      ref=ref,
+      severity=severity,
+      sort=sort,
+      direction=direction,
+      per_page=per_page,
+      page=page,
+    ):
+      repo = self._repo(repo_full_name)
+      if alert_number is not None:
+        number = int(alert_number)
+        alert = await self._request("GET", f"{API}{repo}/code-scanning/alerts/{number}")
+        instances = await self._request(
+          "GET", f"{API}{repo}/code-scanning/alerts/{number}/instances"
+        )
+        return self._ok({"alert": alert, "instances": instances})
+      alerts = await self._request(
+        "GET",
+        f"{API}{repo}/code-scanning/alerts",
+        params={
+          "state": state,
+          "tool_name": tool_name,
+          "ref": ref,
+          "severity": severity,
+          "sort": sort,
+          "direction": direction,
+          "per_page": min(max(1, int(per_page)), 100),
+          "page": int(page),
+        },
       )
-      return self._ok({"alert": alert, "instances": instances})
-    alerts = await self._request(
-      "GET",
-      f"{API}{repo}/code-scanning/alerts",
-      params={
+      return self._ok({"alerts": alerts})
+
+    return await self._read(
+      "read code_scanning_alerts",
+      str({
+        "repo_full_name": repo_full_name,
+        "alert_number": alert_number,
         "state": state,
         "tool_name": tool_name,
         "ref": ref,
         "severity": severity,
         "sort": sort,
         "direction": direction,
-        "per_page": min(max(1, int(per_page)), 100),
-        "page": int(page),
-      },
+        "per_page": per_page,
+        "page": page,
+      }),
+      run, __user__, __event_call__,
     )
-    return self._ok({"alerts": alerts})
 
   async def secret_scanning_alerts(
     self,
@@ -2260,6 +2486,8 @@ class Tools:
     direction: str = "desc",
     per_page: int = 30,
     page: int = 1,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """List the secret scanning alerts of a GitHub repository, or read 1 alert with its locations.
 
@@ -2274,29 +2502,59 @@ class Tools:
     :param per_page: alerts per page
     :param page: the page number
     """
-    repo = self._repo(repo_full_name)
-    if alert_number is not None:
-      number = int(alert_number)
-      alert = await self._request("GET", f"{API}{repo}/secret-scanning/alerts/{number}")
-      locations = await self._request(
-        "GET", f"{API}{repo}/secret-scanning/alerts/{number}/locations"
+
+    async def run(
+      repo_full_name=repo_full_name,
+      alert_number=alert_number,
+      state=state,
+      resolution=resolution,
+      secret_type=secret_type,
+      validity=validity,
+      sort=sort,
+      direction=direction,
+      per_page=per_page,
+      page=page,
+    ):
+      repo = self._repo(repo_full_name)
+      if alert_number is not None:
+        number = int(alert_number)
+        alert = await self._request("GET", f"{API}{repo}/secret-scanning/alerts/{number}")
+        locations = await self._request(
+          "GET", f"{API}{repo}/secret-scanning/alerts/{number}/locations"
+        )
+        return self._ok({"alert": alert, "locations": locations})
+      alerts = await self._request(
+        "GET",
+        f"{API}{repo}/secret-scanning/alerts",
+        params={
+          "state": state,
+          "resolution": resolution,
+          "secret_type": secret_type,
+          "validity": validity,
+          "sort": sort,
+          "direction": direction,
+          "per_page": min(max(1, int(per_page)), 100),
+          "page": int(page),
+        },
       )
-      return self._ok({"alert": alert, "locations": locations})
-    alerts = await self._request(
-      "GET",
-      f"{API}{repo}/secret-scanning/alerts",
-      params={
+      return self._ok({"alerts": alerts})
+
+    return await self._read(
+      "read secret_scanning_alerts",
+      str({
+        "repo_full_name": repo_full_name,
+        "alert_number": alert_number,
         "state": state,
         "resolution": resolution,
         "secret_type": secret_type,
         "validity": validity,
         "sort": sort,
         "direction": direction,
-        "per_page": min(max(1, int(per_page)), 100),
-        "page": int(page),
-      },
+        "per_page": per_page,
+        "page": page,
+      }),
+      run, __user__, __event_call__,
     )
-    return self._ok({"alerts": alerts})
 
   async def dependabot_alerts(
     self,
@@ -2312,6 +2570,8 @@ class Tools:
     direction: str = "desc",
     per_page: int = 30,
     page: int = 1,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """List the Dependabot alerts of a GitHub repository, or read 1 alert.
 
@@ -2328,16 +2588,50 @@ class Tools:
     :param per_page: alerts per page
     :param page: the page number
     """
-    repo = self._repo(repo_full_name)
-    if alert_number is not None:
-      alert = await self._request(
-        "GET", f"{API}{repo}/dependabot/alerts/{int(alert_number)}"
+
+    async def run(
+      repo_full_name=repo_full_name,
+      alert_number=alert_number,
+      state=state,
+      severity=severity,
+      ecosystem=ecosystem,
+      package=package,
+      manifest=manifest,
+      scope=scope,
+      sort=sort,
+      direction=direction,
+      per_page=per_page,
+      page=page,
+    ):
+      repo = self._repo(repo_full_name)
+      if alert_number is not None:
+        alert = await self._request(
+          "GET", f"{API}{repo}/dependabot/alerts/{int(alert_number)}"
+        )
+        return self._ok({"alert": alert})
+      alerts = await self._request(
+        "GET",
+        f"{API}{repo}/dependabot/alerts",
+        params={
+          "state": state,
+          "severity": severity,
+          "ecosystem": ecosystem,
+          "package": package,
+          "manifest": manifest,
+          "scope": scope,
+          "sort": sort,
+          "direction": direction,
+          "per_page": min(max(1, int(per_page)), 100),
+          "page": int(page),
+        },
       )
-      return self._ok({"alert": alert})
-    alerts = await self._request(
-      "GET",
-      f"{API}{repo}/dependabot/alerts",
-      params={
+      return self._ok({"alerts": alerts})
+
+    return await self._read(
+      "read dependabot_alerts",
+      str({
+        "repo_full_name": repo_full_name,
+        "alert_number": alert_number,
         "state": state,
         "severity": severity,
         "ecosystem": ecosystem,
@@ -2346,11 +2640,11 @@ class Tools:
         "scope": scope,
         "sort": sort,
         "direction": direction,
-        "per_page": min(max(1, int(per_page)), 100),
-        "page": int(page),
-      },
+        "per_page": per_page,
+        "page": page,
+      }),
+      run, __user__, __event_call__,
     )
-    return self._ok({"alerts": alerts})
 
   async def create_pr_with_files(
     self,
@@ -2504,19 +2798,42 @@ class Tools:
       __event_call__=__event_call__,
     )
 
-  async def compare_commits(self, repo_full_name: str, base: str, head: str) -> dict:
+  async def compare_commits(
+    self,
+    repo_full_name: str,
+    base: str,
+    head: str,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """Compare two GitHub refs and return the commit and file changes.
 
     :param repo_full_name: owner/repo
     :param base: the base ref
     :param head: the head ref
     """
-    repo = self._repo(repo_full_name)
-    data = await self._request(
-      "GET", f"{API}{repo}/compare/{self._path(base)}...{self._path(head)}"
-    )
-    return self._ok(
-      {**data, "repository_full_name": repo_full_name, "base": base, "head": head}
+
+    async def run(
+      repo_full_name=repo_full_name,
+      base=base,
+      head=head,
+    ):
+      repo = self._repo(repo_full_name)
+      data = await self._request(
+        "GET", f"{API}{repo}/compare/{self._path(base)}...{self._path(head)}"
+      )
+      return self._ok(
+        {**data, "repository_full_name": repo_full_name, "base": base, "head": head}
+      )
+
+    return await self._read(
+      "read compare_commits",
+      str({
+        "repo_full_name": repo_full_name,
+        "base": base,
+        "head": head,
+      }),
+      run, __user__, __event_call__,
     )
 
   # ═════════════════════ repository metadata and discovery ══════════════
@@ -2731,6 +3048,8 @@ class Tools:
     topn: int = 20,
     repository_name: str | list[str] | None = None,
     org: str | None = None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """Search code and file names. Use fetch_file for full contents.
 
@@ -2739,11 +3058,29 @@ class Tools:
     :param repository_name: one repository or a list to restrict to
     :param org: restrict to one organization
     """
-    if isinstance(repository_name, list):
-      repo = " ".join(repository_name)
-    else:
-      repo = repository_name
-    return self._ok({"results": await self._search_code(query, topn, repo, org)})
+
+    async def run(
+      query=query,
+      topn=topn,
+      repository_name=repository_name,
+      org=org,
+    ):
+      if isinstance(repository_name, list):
+        repo = " ".join(repository_name)
+      else:
+        repo = repository_name
+      return self._ok({"results": await self._search_code(query, topn, repo, org)})
+
+    return await self._read(
+      "read search_github_code",
+      str({
+        "query": query,
+        "topn": topn,
+        "repository_name": repository_name,
+        "org": org,
+      }),
+      run, __user__, __event_call__,
+    )
 
   async def search_branches(
     self,
@@ -3056,15 +3393,35 @@ class Tools:
 
   # ═══════════════════════ commit read (draft extra) ════════════════════
 
-  async def fetch_commit(self, repository_full_name: str, commit_sha: str) -> dict:
+  async def fetch_commit(
+    self,
+    repository_full_name: str,
+    commit_sha: str,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """Fetch one GitHub commit with its files and stats.
 
     :param repository_full_name: owner/repo
     :param commit_sha: the commit SHA
     """
-    repo = self._repo(repository_full_name)
-    data = await self._request("GET", f"{API}{repo}/commits/{self._seg(commit_sha)}")
-    return self._ok(data)
+
+    async def run(
+      repository_full_name=repository_full_name,
+      commit_sha=commit_sha,
+    ):
+      repo = self._repo(repository_full_name)
+      data = await self._request("GET", f"{API}{repo}/commits/{self._seg(commit_sha)}")
+      return self._ok(data)
+
+    return await self._read(
+      "read fetch_commit",
+      str({
+        "repository_full_name": repository_full_name,
+        "commit_sha": commit_sha,
+      }),
+      run, __user__, __event_call__,
+    )
 
   # ═════════════════════════ workspace actions ══════════════════════════
 
@@ -3078,6 +3435,8 @@ class Tools:
     filter: str | None = None,
     per_page: int = 30,
     page: int = 1,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """List the GitHub check runs of a ref, or read 1 check run with its annotations.
 
@@ -3090,30 +3449,56 @@ class Tools:
     :param per_page: runs per page
     :param page: the page number
     """
-    repo = self._repo(repo_full_name)
-    if check_run_id is not None:
-      number = int(check_run_id)
-      run = await self._request("GET", f"{API}{repo}/check-runs/{number}")
-      annotations = await self._request(
-        "GET", f"{API}{repo}/check-runs/{number}/annotations"
+
+    async def run(
+      repo_full_name=repo_full_name,
+      ref=ref,
+      check_name=check_name,
+      check_run_id=check_run_id,
+      status=status,
+      filter=filter,
+      per_page=per_page,
+      page=page,
+    ):
+      repo = self._repo(repo_full_name)
+      if check_run_id is not None:
+        number = int(check_run_id)
+        run = await self._request("GET", f"{API}{repo}/check-runs/{number}")
+        annotations = await self._request(
+          "GET", f"{API}{repo}/check-runs/{number}/annotations"
+        )
+        return self._ok({"check_run": run, "annotations": annotations})
+      data = await self._request(
+        "GET",
+        f"{API}{repo}/commits/{self._seg(ref)}/check-runs",
+        params={
+          "check_name": check_name,
+          "status": status,
+          "filter": filter,
+          "per_page": min(max(1, int(per_page)), 100),
+          "page": int(page),
+        },
       )
-      return self._ok({"check_run": run, "annotations": annotations})
-    data = await self._request(
-      "GET",
-      f"{API}{repo}/commits/{self._seg(ref)}/check-runs",
-      params={
+      return self._ok(
+        {
+          "check_runs": data.get("check_runs") or [],
+          "total_count": data.get("total_count"),
+        }
+      )
+
+    return await self._read(
+      "read list_github_check_runs",
+      str({
+        "repo_full_name": repo_full_name,
+        "ref": ref,
         "check_name": check_name,
+        "check_run_id": check_run_id,
         "status": status,
         "filter": filter,
-        "per_page": min(max(1, int(per_page)), 100),
-        "page": int(page),
-      },
-    )
-    return self._ok(
-      {
-        "check_runs": data.get("check_runs") or [],
-        "total_count": data.get("total_count"),
-      }
+        "per_page": per_page,
+        "page": page,
+      }),
+      run, __user__, __event_call__,
     )
 
   async def list_workflows(
@@ -3160,65 +3545,148 @@ class Tools:
     )
 
   async def fetch_commit_workflow_runs(
-    self, repo_full_name: str, commit_sha: str
+    self,
+    repo_full_name: str,
+    commit_sha: str,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """Fetch the GitHub pull-request-triggered workflow runs of a commit, first page.
 
     :param repo_full_name: owner/repo
     :param commit_sha: the commit SHA
     """
-    repo = self._repo(repo_full_name)
-    data = await self._request(
-      "GET",
-      f"{API}{repo}/actions/runs",
-      params={"head_sha": commit_sha, "event": "pull_request", "per_page": 100},
-    )
-    return self._ok({"workflow_runs": data.get("workflow_runs") or []})
 
-  async def fetch_workflow_run_jobs(self, repo_full_name: str, run_id: int) -> dict:
+    async def run(
+      repo_full_name=repo_full_name,
+      commit_sha=commit_sha,
+    ):
+      repo = self._repo(repo_full_name)
+      data = await self._request(
+        "GET",
+        f"{API}{repo}/actions/runs",
+        params={"head_sha": commit_sha, "event": "pull_request", "per_page": 100},
+      )
+      return self._ok({"workflow_runs": data.get("workflow_runs") or []})
+
+    return await self._read(
+      "read fetch_commit_workflow_runs",
+      str({
+        "repo_full_name": repo_full_name,
+        "commit_sha": commit_sha,
+      }),
+      run, __user__, __event_call__,
+    )
+
+  async def fetch_workflow_run_jobs(
+    self,
+    repo_full_name: str,
+    run_id: int,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """Fetch the jobs of a GitHub workflow run, latest attempt.
 
     :param repo_full_name: owner/repo
     :param run_id: the workflow run id
     """
-    repo = self._repo(repo_full_name)
-    data = await self._request(
-      "GET",
-      f"{API}{repo}/actions/runs/{int(run_id)}/jobs",
-      params={"filter": "latest", "per_page": 100},
-    )
-    return self._ok({"jobs": data.get("jobs") or []})
 
-  async def fetch_workflow_job_steps(self, repo_full_name: str, job_id: int) -> dict:
+    async def run(
+      repo_full_name=repo_full_name,
+      run_id=run_id,
+    ):
+      repo = self._repo(repo_full_name)
+      data = await self._request(
+        "GET",
+        f"{API}{repo}/actions/runs/{int(run_id)}/jobs",
+        params={"filter": "latest", "per_page": 100},
+      )
+      return self._ok({"jobs": data.get("jobs") or []})
+
+    return await self._read(
+      "read fetch_workflow_run_jobs",
+      str({
+        "repo_full_name": repo_full_name,
+        "run_id": run_id,
+      }),
+      run, __user__, __event_call__,
+    )
+
+  async def fetch_workflow_job_steps(
+    self,
+    repo_full_name: str,
+    job_id: int,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """Fetch the steps of a GitHub workflow job.
 
     :param repo_full_name: owner/repo
     :param job_id: the job id
     """
-    repo = self._repo(repo_full_name)
-    data = await self._request("GET", f"{API}{repo}/actions/jobs/{int(job_id)}")
-    return self._ok({"steps": data.get("steps") or [], "job": data})
 
-  async def fetch_workflow_job_logs(self, repo_full_name: str, job_id: int) -> dict:
+    async def run(
+      repo_full_name=repo_full_name,
+      job_id=job_id,
+    ):
+      repo = self._repo(repo_full_name)
+      data = await self._request("GET", f"{API}{repo}/actions/jobs/{int(job_id)}")
+      return self._ok({"steps": data.get("steps") or [], "job": data})
+
+    return await self._read(
+      "read fetch_workflow_job_steps",
+      str({
+        "repo_full_name": repo_full_name,
+        "job_id": job_id,
+      }),
+      run, __user__, __event_call__,
+    )
+
+  async def fetch_workflow_job_logs(
+    self,
+    repo_full_name: str,
+    job_id: int,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """Fetch the raw log text of a GitHub workflow job.
 
     :param repo_full_name: owner/repo
     :param job_id: the job id
     """
-    repo = self._repo(repo_full_name)
-    text = await self._request(
-      "GET",
-      f"{API}{repo}/actions/jobs/{int(job_id)}/logs",
-      accept="application/vnd.github+json",
-      raw=True,
+
+    async def run(
+      repo_full_name=repo_full_name,
+      job_id=job_id,
+    ):
+      repo = self._repo(repo_full_name)
+      text = await self._request(
+        "GET",
+        f"{API}{repo}/actions/jobs/{int(job_id)}/logs",
+        accept="application/vnd.github+json",
+        raw=True,
+      )
+      if len(text) > 400000:
+        text = text[-400000:]
+        text = "[log truncated to the last 400000 characters]\n" + text
+      return self._ok({"content": text})
+
+    return await self._read(
+      "read fetch_workflow_job_logs",
+      str({
+        "repo_full_name": repo_full_name,
+        "job_id": job_id,
+      }),
+      run, __user__, __event_call__,
     )
-    if len(text) > 400000:
-      text = text[-400000:]
-      text = "[log truncated to the last 400000 characters]\n" + text
-    return self._ok({"content": text})
 
   async def fetch_workflow_run_artifacts(
-    self, repo_full_name: str, run_id: int, name: str | None = None
+    self,
+    repo_full_name: str,
+    run_id: int,
+    name: str | None = None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """Fetch the GitHub artifacts of a workflow run, first page.
 
@@ -3226,16 +3694,32 @@ class Tools:
     :param run_id: the workflow run id
     :param name: keep one artifact name
     """
-    repo = self._repo(repo_full_name)
-    data = await self._request(
-      "GET",
-      f"{API}{repo}/actions/runs/{int(run_id)}/artifacts",
-      params={"per_page": 100},
+
+    async def run(
+      repo_full_name=repo_full_name,
+      run_id=run_id,
+      name=name,
+    ):
+      repo = self._repo(repo_full_name)
+      data = await self._request(
+        "GET",
+        f"{API}{repo}/actions/runs/{int(run_id)}/artifacts",
+        params={"per_page": 100},
+      )
+      artifacts = data.get("artifacts") or []
+      if name:
+        artifacts = [a for a in artifacts if a.get("name") == name]
+      return self._ok({"artifacts": artifacts})
+
+    return await self._read(
+      "read fetch_workflow_run_artifacts",
+      str({
+        "repo_full_name": repo_full_name,
+        "run_id": run_id,
+        "name": name,
+      }),
+      run, __user__, __event_call__,
     )
-    artifacts = data.get("artifacts") or []
-    if name:
-      artifacts = [a for a in artifacts if a.get("name") == name]
-    return self._ok({"artifacts": artifacts})
 
   async def download_workflow_artifact(
     self,
@@ -3444,21 +3928,41 @@ class Tools:
 
   # ═════════════════════ releases, tags, packages, minutes ═══════════════
 
-  async def actions_minutes(self, owner: str, owner_type: str = "org") -> dict:
+  async def actions_minutes(
+    self,
+    owner: str,
+    owner_type: str = "org",
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """Read the GitHub Actions minutes used, for an organization or a user.
 
     :param owner: the organization or the user login
     :param owner_type: org reads /orgs/{owner}/settings/billing/actions, user reads
       /users/{owner}/settings/billing/actions
     """
-    kind = (owner_type or "org").strip().lower()
-    if kind not in ("org", "user"):
-      raise GitHubError(422, "owner_type must be 'org' or 'user'.", "GET", "")
-    base = "orgs" if kind == "org" else "users"
-    data = await self._request(
-      "GET", f"{API}/{base}/{self._seg(owner)}/settings/billing/actions"
+
+    async def run(
+      owner=owner,
+      owner_type=owner_type,
+    ):
+      kind = (owner_type or "org").strip().lower()
+      if kind not in ("org", "user"):
+        raise GitHubError(422, "owner_type must be 'org' or 'user'.", "GET", "")
+      base = "orgs" if kind == "org" else "users"
+      data = await self._request(
+        "GET", f"{API}/{base}/{self._seg(owner)}/settings/billing/actions"
+      )
+      return self._ok({"minutes": data})
+
+    return await self._read(
+      "read actions_minutes",
+      str({
+        "owner": owner,
+        "owner_type": owner_type,
+      }),
+      run, __user__, __event_call__,
     )
-    return self._ok({"minutes": data})
 
   async def list_github_releases(
     self,
@@ -3467,6 +3971,8 @@ class Tools:
     tag: str | None = None,
     per_page: int = 30,
     page: int = 1,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """List the releases of a GitHub repository, or read 1 release by id or by tag.
 
@@ -3476,22 +3982,47 @@ class Tools:
     :param per_page: releases per page
     :param page: the page number
     """
-    repo = self._repo(repo_full_name)
-    if release_id is not None:
-      data = await self._request("GET", f"{API}{repo}/releases/{int(release_id)}")
-      return self._ok({"release": data})
-    if tag:
-      data = await self._request("GET", f"{API}{repo}/releases/tags/{self._seg(tag)}")
-      return self._ok({"release": data})
-    data = await self._request(
-      "GET",
-      f"{API}{repo}/releases",
-      params={"per_page": min(max(1, int(per_page)), 100), "page": int(page)},
+
+    async def run(
+      repo_full_name=repo_full_name,
+      release_id=release_id,
+      tag=tag,
+      per_page=per_page,
+      page=page,
+    ):
+      repo = self._repo(repo_full_name)
+      if release_id is not None:
+        data = await self._request("GET", f"{API}{repo}/releases/{int(release_id)}")
+        return self._ok({"release": data})
+      if tag:
+        data = await self._request("GET", f"{API}{repo}/releases/tags/{self._seg(tag)}")
+        return self._ok({"release": data})
+      data = await self._request(
+        "GET",
+        f"{API}{repo}/releases",
+        params={"per_page": min(max(1, int(per_page)), 100), "page": int(page)},
+      )
+      return self._ok({"releases": data})
+
+    return await self._read(
+      "read list_github_releases",
+      str({
+        "repo_full_name": repo_full_name,
+        "release_id": release_id,
+        "tag": tag,
+        "per_page": per_page,
+        "page": page,
+      }),
+      run, __user__, __event_call__,
     )
-    return self._ok({"releases": data})
 
   async def list_github_tags(
-    self, repo_full_name: str, per_page: int = 30, page: int = 1
+    self,
+    repo_full_name: str,
+    per_page: int = 30,
+    page: int = 1,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """List the tags of a GitHub repository.
 
@@ -3499,13 +4030,29 @@ class Tools:
     :param per_page: tags per page
     :param page: the page number
     """
-    repo = self._repo(repo_full_name)
-    data = await self._request(
-      "GET",
-      f"{API}{repo}/tags",
-      params={"per_page": min(max(1, int(per_page)), 100), "page": int(page)},
+
+    async def run(
+      repo_full_name=repo_full_name,
+      per_page=per_page,
+      page=page,
+    ):
+      repo = self._repo(repo_full_name)
+      data = await self._request(
+        "GET",
+        f"{API}{repo}/tags",
+        params={"per_page": min(max(1, int(per_page)), 100), "page": int(page)},
+      )
+      return self._ok({"tags": data})
+
+    return await self._read(
+      "read list_github_tags",
+      str({
+        "repo_full_name": repo_full_name,
+        "per_page": per_page,
+        "page": page,
+      }),
+      run, __user__, __event_call__,
     )
-    return self._ok({"tags": data})
 
   async def list_github_packages(
     self,
@@ -3515,6 +4062,8 @@ class Tools:
     package_name: str | None = None,
     per_page: int = 30,
     page: int = 1,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """List the GitHub packages of the signed-in user, a user or an organization, or read 1 package.
 
@@ -3525,27 +4074,49 @@ class Tools:
     :param per_page: versions per page, on the read of 1 package
     :param page: the page number, on the read of 1 package
     """
-    kind = (owner_type or "org").strip().lower()
-    if kind not in ("org", "user"):
-      raise GitHubError(422, "owner_type must be 'org' or 'user'.", "GET", "")
-    if owner and not package_type:
-      raise GitHubError(422, "Give package_type with owner.", "GET", "")
-    if package_name and not package_type:
-      raise GitHubError(422, "Give package_type with package_name.", "GET", "")
-    base = f"/{kind}s/{self._seg(owner)}" if owner else "/user"
-    if package_name:
-      path = f"{API}{base}/packages/{self._seg(package_type)}/{self._seg(package_name)}"
-      info = await self._request("GET", path)
-      versions = await self._request(
-        "GET",
-        f"{path}/versions",
-        params={"per_page": min(max(1, int(per_page)), 100), "page": int(page)},
+
+    async def run(
+      package_type=package_type,
+      owner=owner,
+      owner_type=owner_type,
+      package_name=package_name,
+      per_page=per_page,
+      page=page,
+    ):
+      kind = (owner_type or "org").strip().lower()
+      if kind not in ("org", "user"):
+        raise GitHubError(422, "owner_type must be 'org' or 'user'.", "GET", "")
+      if owner and not package_type:
+        raise GitHubError(422, "Give package_type with owner.", "GET", "")
+      if package_name and not package_type:
+        raise GitHubError(422, "Give package_type with package_name.", "GET", "")
+      base = f"/{kind}s/{self._seg(owner)}" if owner else "/user"
+      if package_name:
+        path = f"{API}{base}/packages/{self._seg(package_type)}/{self._seg(package_name)}"
+        info = await self._request("GET", path)
+        versions = await self._request(
+          "GET",
+          f"{path}/versions",
+          params={"per_page": min(max(1, int(per_page)), 100), "page": int(page)},
+        )
+        return self._ok({"package": info, "versions": versions})
+      data = await self._request(
+        "GET", f"{API}{base}/packages", params={"package_type": package_type}
       )
-      return self._ok({"package": info, "versions": versions})
-    data = await self._request(
-      "GET", f"{API}{base}/packages", params={"package_type": package_type}
+      return self._ok({"packages": data})
+
+    return await self._read(
+      "read list_github_packages",
+      str({
+        "package_type": package_type,
+        "owner": owner,
+        "owner_type": owner_type,
+        "package_name": package_name,
+        "per_page": per_page,
+        "page": page,
+      }),
+      run, __user__, __event_call__,
     )
-    return self._ok({"packages": data})
 
   # ═════════════════════════════════ gists ═══════════════════════════════
 
@@ -3555,6 +4126,8 @@ class Tools:
     per_page: int = 30,
     page: int = 1,
     since: str | None = None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> dict:
     """List the GitHub gists of a user, or the gists of the signed-in user.
 
@@ -3563,25 +4136,60 @@ class Tools:
     :param page: the page number
     :param since: an ISO 8601 timestamp. Only the gists updated after it
     """
-    url = f"{API}/users/{self._seg(username)}/gists" if username else f"{API}/gists"
-    data = await self._request(
-      "GET",
-      url,
-      params={
-        "per_page": min(max(1, int(per_page)), 100),
-        "page": int(page),
-        "since": since,
-      },
-    )
-    return self._ok({"gists": data})
 
-  async def fetch_gist(self, gist_id: str) -> dict:
+    async def run(
+      username=username,
+      per_page=per_page,
+      page=page,
+      since=since,
+    ):
+      url = f"{API}/users/{self._seg(username)}/gists" if username else f"{API}/gists"
+      data = await self._request(
+        "GET",
+        url,
+        params={
+          "per_page": min(max(1, int(per_page)), 100),
+          "page": int(page),
+          "since": since,
+        },
+      )
+      return self._ok({"gists": data})
+
+    return await self._read(
+      "read list_gists",
+      str({
+        "username": username,
+        "per_page": per_page,
+        "page": page,
+        "since": since,
+      }),
+      run, __user__, __event_call__,
+    )
+
+  async def fetch_gist(
+    self,
+    gist_id: str,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
     """Fetch one GitHub gist with its files.
 
     :param gist_id: the gist id
     """
-    data = await self._request("GET", f"{API}/gists/{self._seg(gist_id)}")
-    return self._ok({"gist": data})
+
+    async def run(
+      gist_id=gist_id,
+    ):
+      data = await self._request("GET", f"{API}/gists/{self._seg(gist_id)}")
+      return self._ok({"gist": data})
+
+    return await self._read(
+      "read fetch_gist",
+      str({
+        "gist_id": gist_id,
+      }),
+      run, __user__, __event_call__,
+    )
 
   async def create_gist(
     self,

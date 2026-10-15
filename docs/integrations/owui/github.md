@@ -65,7 +65,7 @@ The 3 alert reads take gated writes: `update_code_scanning_alert`, `update_secre
 | `max_files_per_commit` | `30` | The file limit of `create_pr_with_files`. |
 | `max_tree_entries` | `2000` | The entry limit of `list_tree`. |
 
-The 22 reads are the issue, pull request, commit, workflow and profile reads. Under `Always ask` each one waits for the click, so no repository line reaches the chat. `Allow reads` frees them.
+All 49 public reads use the same permission gate. Under `Always ask` each one waits for the click, so no repository line reaches the chat. `Allow reads` frees them.
 
 `UserValves.mode` gives each user the same 3 levels, and `default` follows the tool valve. `UserValves.timeout_seconds` gives each user their own confirmation wait. A value of `0` keeps the tool valve.
 
