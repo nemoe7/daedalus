@@ -40,7 +40,7 @@ A new knowledge base, skill, tool or function joins the model presets in the sam
 
 ### Read files
 
-`show_skill` includes the current version and complete file manifest. `list_skill_files` can inspect that version again. `read_skill_file` pages a UTF-8 file by character offset and reports binary-file metadata without decoding the bytes.
+`show_skill` pages the current version, file manifest, and source as text. `list_skill_files` can inspect that version again. `read_skill_file` pages a UTF-8 file by character offset and reports binary-file metadata without decoding the bytes.
 
 ### Create and update files
 
@@ -62,6 +62,7 @@ The preset helpers stay private, so Open WebUI builds no model tool spec for the
 | --- | --- | --- |
 | `OWUI_API_BASE` | `http://127.0.0.1:8080/api/v1` | The Open WebUI API base |
 | `PRESET_MODELS` | empty | The ids or names of the presets that take an attach. Empty serves each preset |
+| `max_output_bytes` | `32768` | Maximum UTF-8 bytes in one complete tool result, at least 1024 |
 | `permissions` | `Always ask` | `Always ask` gates every call, reads included. `Allow reads` frees the reads and the new items. `Always allow` holds nothing |
 | `timeout_seconds` | `60` | The wait for a confirmation. `0` keeps the valve |
 | `INSTALL_FETCH_TIMEOUT` | `60.0` | The total wait for Open WebUI's native skill URL loader |
@@ -72,3 +73,16 @@ The preset helpers stay private, so Open WebUI builds no model tool spec for the
 2. **Access** on the tool: make it public, or give read access to each user.
 
 [`tests/integrations/test_owui_manager.py`](../../../tests/integrations/test_owui_manager.py) holds the surface, gate, free reads and creates, preset filtering and attachment, plus the v0.12 URL-import and multi-file request shapes.
+
+## Output limits
+
+`max_output_bytes` limits the complete serialized result, including metadata. It does not limit the HTTP download or the total chat context. Repeated calls can still fill a chat.
+
+A result that does not fit returns `tool_output_too_large`, its original byte count, and complete identifiers that fit. The tool withholds the oversized payload instead of returning broken JSON. It does not repeat the operation. Do not repeat a write to recover omitted output.
+
+Read only the pages needed for the task. Text offsets count characters, not bytes. A text page includes `offset`, `next_offset`, `total_chars`, and `truncated`. A null `next_offset` ends the read.
+
+- `read_file_content` returns a JSON string with the file ID, text, and continuation fields.
+- `read_knowledge_file`, `read_knowledge_file_at_path`, `show_skill`, `show_tool`, and `show_function` accept `offset` and `max_chars`. Their JSON strings contain a range of the rendered text and continuation fields.
+- `read_skill_file` keeps its text format and character offsets. It also reduces the range to fit the byte limit.
+- Other oversized results return the output-limit object as a JSON string. Existing list-page arguments remain available.

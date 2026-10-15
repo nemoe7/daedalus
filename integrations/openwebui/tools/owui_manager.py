@@ -10,9 +10,11 @@ licence: daedalus Noncommercial License 1.0.0
 # fmt: off
 
 import asyncio
+import inspect
 import json
 import re
 from collections.abc import Callable
+from functools import wraps
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
@@ -78,6 +80,30 @@ class SkillFileOperationInput(BaseModel):
   destination: str | None = Field(default=None, description="Destination path for move")
 
 
+def _bounded(method):
+  signature = inspect.signature(method)
+  @wraps(method)
+  async def call(self, *args, **kwargs):
+    try:
+      value = await method(self, *args, **kwargs)
+    except Exception as error:
+      value = {"error": str(error)}
+      if self._output_size(value) <= self.valves.max_output_bytes:
+        raise
+    arguments = signature.bind(self, *args, **kwargs).arguments
+    return self._output(value, method.__annotations__.get("return") in (str, "str"), arguments)
+
+  return call
+
+
+def _bounded_tools(cls):
+  for name, method in list(vars(cls).items()):
+    if not name.startswith("_") and inspect.iscoroutinefunction(method):
+      setattr(cls, name, _bounded(method))
+  return cls
+
+
+@_bounded_tools
 class Tools:
   """The one Open WebUI workspace manager tool.
 
@@ -89,6 +115,7 @@ class Tools:
   """
 
   class Valves(BaseModel):
+    max_output_bytes: int = Field(default=32768, ge=1024, description="Maximum UTF-8 bytes in one tool result.")
     OWUI_API_BASE: str = "http://127.0.0.1:8080/api/v1"
     PRESET_MODELS: str = ""
     permissions: Literal["Always ask", "Allow reads", "Always allow"] = "Always ask"
@@ -100,6 +127,74 @@ class Tools:
   class UserValves(BaseModel):
     mode: str = "default"
     timeout_seconds: int = 0
+
+  @staticmethod
+  def _output_size(value: Any) -> int:
+    text = value if isinstance(value, str) else json.dumps(value, indent=2, ensure_ascii=False)
+    return len(text.encode("utf-8"))
+
+  def _output(self, value: Any, as_text: bool = False, arguments: dict | None = None) -> Any:
+    limit = self.valves.max_output_bytes
+    size = self._output_size(value)
+    if size <= limit:
+      return value
+    result = {
+      "error": "tool_output_too_large",
+      "truncated": True,
+      "output_bytes": size,
+      "max_output_bytes": limit,
+      "message": "Use a smaller page or text range. Do not repeat a write to recover output.",
+      "identifiers": {},
+    }
+    pending = [arguments or {}]
+    if isinstance(value, (dict, list)):
+      pending.append(value)
+    keys = {
+      "id", "sha", "node_id", "html_url", "url", "file_id", "thread_id", "skill_id", "version_id",
+      "tool_id", "function_id", "knowledge_id", "repository_full_name", "repo_full_name", "commit_sha", "blob_sha",
+    }
+    for _ in range(100):
+      if not pending:
+        break
+      row = pending.pop()
+      if isinstance(row, list):
+        pending.extend(item for item in row[:100] if isinstance(item, (dict, list)))
+        continue
+      for key, item in row.items():
+        if key in keys and key not in result["identifiers"] and isinstance(item, (str, int)):
+          result["identifiers"][key] = item
+          if self._output_size(result) > limit:
+            del result["identifiers"][key]
+        elif isinstance(item, (dict, list)):
+          pending.append(item)
+    return json.dumps(result, indent=2, ensure_ascii=False) if as_text else result
+
+  def _page(self, payload: dict, offset: int, max_chars: int, field: str = "content") -> dict:
+    text = payload[field]
+    start = min(max(0, int(offset)), len(text))
+    upper = min(max(1, int(max_chars)), 200000, len(text) - start)
+
+    def page(count):
+      end = start + count
+      return {
+        **payload,
+        field: text[start:end],
+        "offset": start,
+        "next_offset": end if end < len(text) else None,
+        "total_chars": len(text),
+        "truncated": end < len(text),
+      }
+
+    lower = 0
+    while lower < upper:
+      middle = (lower + upper + 1) // 2
+      if self._output_size({"result": page(middle)}) <= self.valves.max_output_bytes:
+        lower = middle
+      else:
+        upper = middle - 1
+    if lower == 0 and start < len(text):
+      raise ValueError("Output metadata leaves no room for text. Use a smaller result.")
+    return page(lower)
 
   def __init__(self):
     self.valves = self.Valves()
@@ -934,12 +1029,16 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    offset: int = 0,
+    max_chars: int = 10000,
   ) -> str:
     """
     Read the extracted/indexed text content of an Open WebUI knowledge file.
     Use this before editing an existing document.
 
     :param file_id: ID of the Open WebUI knowledge file to read
+    :param offset: character offset in the returned text
+    :param max_chars: maximum characters, subject to the output byte limit
     """
 
     async def run(
@@ -963,6 +1062,7 @@ class Tools:
       run,
       __user__,
       __event_call__,
+      offset=offset, max_chars=max_chars, identifiers={"file_id": file_id},
     )
 
   async def update_knowledge_file_at_path(
@@ -1014,6 +1114,8 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    offset: int = 0,
+    max_chars: int = 10000,
   ) -> str:
     """
     Read an existing knowledge file by its exact path.
@@ -1021,6 +1123,8 @@ class Tools:
 
     :param knowledge_id: ID of the Open WebUI knowledge base
     :param path: exact file path, for example Projects/Servers/VPN/Notes/readme.md
+    :param offset: character offset in the returned text
+    :param max_chars: maximum characters, subject to the output byte limit
     """
 
     async def run(
@@ -1040,6 +1144,7 @@ class Tools:
       run,
       __user__,
       __event_call__,
+      offset=offset, max_chars=max_chars, identifiers={"knowledge_id": knowledge_id},
     )
 
   async def upsert_knowledge_markdown_at_path(
@@ -1911,6 +2016,9 @@ class Tools:
     fn: Callable,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    offset: int | None = None,
+    max_chars: int = 10000,
+    identifiers: dict | None = None,
   ):
     """Run one read behind the read gate.
 
@@ -1929,7 +2037,11 @@ class Tools:
           }
         }
       )
-    return await fn()
+    value = await fn()
+    if offset is not None and isinstance(value, str) and not value.startswith("Error:"):
+      page = self._page({**(identifiers or {}), "content": value}, offset, max_chars)
+      return json.dumps(page, indent=2, ensure_ascii=False)
+    return value
 
   # ---------------------------------------------------------------- the files
 
@@ -2031,11 +2143,15 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    offset: int = 0,
+    max_chars: int = 10000,
   ) -> str:
     """
-    Read the stored text content of one file of the library. A read runs free.
+    Read a character range from the stored text of one library file.
 
     :param file_id: the id of the Open WebUI file to read
+    :param offset: character offset in the stored text
+    :param max_chars: maximum characters, subject to the output byte limit
     """
 
     async def run(
@@ -2053,7 +2169,8 @@ class Tools:
       content = (data or {}).get("content")
       if content is None:
         return "Error: the file has no stored text content."
-      return str(content)
+      page = self._page({"file_id": file_id, "content": str(content)}, offset, max_chars)
+      return json.dumps(page, indent=2, ensure_ascii=False)
 
     return await self._read(
       "read read_file_content",
@@ -2218,11 +2335,15 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    offset: int = 0,
+    max_chars: int = 10000,
   ) -> str:
     """
-    Show one skill: its name, its state and its full source.
+    Show one skill: its name, its state and a source text range.
 
     :param skill_id: the id of the skill to read
+    :param offset: character offset in the returned text
+    :param max_chars: maximum characters, subject to the output byte limit
     """
 
     async def run(
@@ -2260,6 +2381,7 @@ class Tools:
       run,
       __user__,
       __event_call__,
+      offset=offset, max_chars=max_chars, identifiers={"skill_id": skill_id},
     )
 
   async def list_skill_files(
@@ -2378,13 +2500,13 @@ class Tools:
         content = data
       else:
         content = json.dumps(data, ensure_ascii=False, indent=2)
-      start = max(0, int(offset or 0))
-      end = start + max(1, min(int(max_chars or 10000), 100000))
-      next_offset = end if end < len(content) else None
+      payload = {"content": content, "path": path, "version_id": snapshot}
+      page = self._page(payload, offset or 0, min(int(max_chars or 10000), 100000))
+      next_offset = page["next_offset"]
       return (
-        f"path={path}\nversion_id={snapshot}\noffset={start}\n"
+        f"path={path}\nversion_id={snapshot}\noffset={page['offset']}\n"
         f"next_offset={next_offset if next_offset is not None else 'none'}\n"
-        f"content={content[start:end]}"
+        f"content={page['content']}"
       )
 
     return await self._read(
@@ -2793,11 +2915,15 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    offset: int = 0,
+    max_chars: int = 10000,
   ) -> str:
     """
-    Show one Workspace Tool: its name, its spec and its source.
+    Show one Workspace Tool: its name and a source text range.
 
     :param tool_id: the id of the tool to read
+    :param offset: character offset in the returned text
+    :param max_chars: maximum characters, subject to the output byte limit
     """
 
     async def run(
@@ -2827,6 +2953,7 @@ class Tools:
       run,
       __user__,
       __event_call__,
+      offset=offset, max_chars=max_chars, identifiers={"tool_id": tool_id},
     )
 
   async def create_tool(
@@ -3027,11 +3154,15 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    offset: int = 0,
+    max_chars: int = 10000,
   ) -> str:
     """
-    Show one Function: its name, its state and its source.
+    Show one Function: its name, its state and a source text range.
 
     :param function_id: the id of the function to read
+    :param offset: character offset in the returned text
+    :param max_chars: maximum characters, subject to the output byte limit
     """
 
     async def run(
@@ -3062,6 +3193,7 @@ class Tools:
       run,
       __user__,
       __event_call__,
+      offset=offset, max_chars=max_chars, identifiers={"function_id": function_id},
     )
 
   async def create_function(

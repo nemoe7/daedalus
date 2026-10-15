@@ -11,15 +11,17 @@ licence: daedalus Noncommercial License 1.0.0
 
 import asyncio
 import base64
+import inspect
 import json
 import os
 from collections.abc import Callable
+from functools import wraps
 from typing import Any, Literal
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, quote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 API = "https://api.github.com"
 GRAPHQL_URL = "https://api.github.com/graphql"
@@ -38,8 +40,33 @@ class GitHubError(Exception):
     super().__init__(f"GitHub {status} on {method} {url}: {message}")
 
 
+def _bounded(method):
+  signature = inspect.signature(method)
+  @wraps(method)
+  async def call(self, *args, **kwargs):
+    try:
+      value = await method(self, *args, **kwargs)
+    except Exception as error:
+      value = {"error": str(error)}
+      if self._output_size(value) <= self.valves.max_output_bytes:
+        raise
+    arguments = signature.bind(self, *args, **kwargs).arguments
+    return self._output(value, method.__annotations__.get("return") in (str, "str"), arguments)
+
+  return call
+
+
+def _bounded_tools(cls):
+  for name, method in list(vars(cls).items()):
+    if not name.startswith("_") and inspect.iscoroutinefunction(method):
+      setattr(cls, name, _bounded(method))
+  return cls
+
+
+@_bounded_tools
 class Tools:
   class Valves(BaseModel):
+    max_output_bytes: int = Field(default=32768, ge=1024, description="Maximum UTF-8 bytes in one tool result.")
     github_token: str = ""
     permissions: Literal["Always ask", "Allow reads", "Always allow"] = "Always ask"
     timeout_seconds: int = 60
@@ -51,6 +78,74 @@ class Tools:
   class UserValves(BaseModel):
     mode: str = "default"
     timeout_seconds: int = 0
+
+  @staticmethod
+  def _output_size(value: Any) -> int:
+    text = value if isinstance(value, str) else json.dumps(value, indent=2, ensure_ascii=False)
+    return len(text.encode("utf-8"))
+
+  def _output(self, value: Any, as_text: bool = False, arguments: dict | None = None) -> Any:
+    limit = self.valves.max_output_bytes
+    size = self._output_size(value)
+    if size <= limit:
+      return value
+    result = {
+      "error": "tool_output_too_large",
+      "truncated": True,
+      "output_bytes": size,
+      "max_output_bytes": limit,
+      "message": "Use a smaller page or text range. Do not repeat a write to recover output.",
+      "identifiers": {},
+    }
+    pending = [arguments or {}]
+    if isinstance(value, (dict, list)):
+      pending.append(value)
+    keys = {
+      "id", "sha", "node_id", "html_url", "url", "file_id", "thread_id", "skill_id", "version_id",
+      "tool_id", "function_id", "knowledge_id", "repository_full_name", "repo_full_name", "commit_sha", "blob_sha",
+    }
+    for _ in range(100):
+      if not pending:
+        break
+      row = pending.pop()
+      if isinstance(row, list):
+        pending.extend(item for item in row[:100] if isinstance(item, (dict, list)))
+        continue
+      for key, item in row.items():
+        if key in keys and key not in result["identifiers"] and isinstance(item, (str, int)):
+          result["identifiers"][key] = item
+          if self._output_size(result) > limit:
+            del result["identifiers"][key]
+        elif isinstance(item, (dict, list)):
+          pending.append(item)
+    return json.dumps(result, indent=2, ensure_ascii=False) if as_text else result
+
+  def _page(self, payload: dict, offset: int, max_chars: int, field: str = "content") -> dict:
+    text = payload[field]
+    start = min(max(0, int(offset)), len(text))
+    upper = min(max(1, int(max_chars)), 200000, len(text) - start)
+
+    def page(count):
+      end = start + count
+      return {
+        **payload,
+        field: text[start:end],
+        "offset": start,
+        "next_offset": end if end < len(text) else None,
+        "total_chars": len(text),
+        "truncated": end < len(text),
+      }
+
+    lower = 0
+    while lower < upper:
+      middle = (lower + upper + 1) // 2
+      if self._output_size({"result": page(middle)}) <= self.valves.max_output_bytes:
+        lower = middle
+      else:
+        upper = middle - 1
+    if lower == 0 and start < len(text):
+      raise ValueError("Output metadata leaves no room for text. Use a smaller result.")
+    return page(lower)
 
   def __init__(self):
     self.valves = self.Valves()
@@ -250,6 +345,20 @@ class Tools:
   @staticmethod
   def _ok(payload: Any) -> dict:
     return {"result": payload}
+
+  @staticmethod
+  def _commit_summary(item: dict) -> dict:
+    commit = item.get("commit") or {}
+    author = commit.get("author") or {}
+    subject = (commit.get("message") or "").partition("\n")[0]
+    return {
+      "sha": item.get("sha"),
+      "html_url": item.get("html_url"),
+      "message": subject[:200],
+      "message_truncated": len(subject) > 200 or "\n" in (commit.get("message") or ""),
+      "author": author.get("name"),
+      "date": author.get("date"),
+    }
 
   # ------------------------------------------------------------- pointers
 
@@ -1558,11 +1667,13 @@ class Tools:
       }
     )
 
-  async def fetch_blob(self, repository_full_name: str, blob_sha: str) -> dict:
+  async def fetch_blob(self, repository_full_name: str, blob_sha: str, offset: int = 0, max_chars: int = 10000) -> dict:
     """Read a GitHub blob by SHA, base64 decoded.
 
     :param repository_full_name: owner/repo
     :param blob_sha: the blob SHA
+    :param offset: character offset in the decoded text
+    :param max_chars: maximum characters, subject to the output byte limit
     """
     repo = self._repo(repository_full_name)
     data = await self._request("GET", f"{API}{repo}/git/blobs/{self._seg(blob_sha)}")
@@ -1570,19 +1681,27 @@ class Tools:
     if data.get("encoding") == "base64":
       content = base64.b64decode(content).decode("utf-8", "replace")
     return self._ok(
-      {"content": content, "sha": data.get("sha"), "size": data.get("size")}
+      self._page({"content": content, "sha": data.get("sha"), "size": data.get("size")}, offset, max_chars)
     )
 
-  async def fetch_github_url(self, url: str) -> dict:
+  async def fetch_github_url(self, url: str, offset: int = 0, max_chars: int = 10000) -> dict:
     """Read one GitHub URL of github.com or api.github.com. For any other URL, use the builtin `fetch_url` tool.
 
     :param url: a github.com or api.github.com URL
+    :param offset: character offset in the returned text
+    :param max_chars: maximum characters, subject to the output byte limit
     """
+    def paged(payload):
+      title = payload.get("title")
+      if isinstance(title, str) and len(title) > 200:
+        payload = {**payload, "title": title[:200], "title_truncated": True}
+      return self._ok(self._page(payload, offset, max_chars))
+
     parsed = urlparse(url)
     if parsed.netloc in ("api.github.com",):
       path = parsed.path + (f"?{parsed.query}" if parsed.query else "")
       data = await self._request("GET", f"https://api.github.com{path}", raw=True)
-      return self._ok(
+      return paged(
         {"content": data, "url": url, "title": None, "modified_date": None}
       )
     parts = [p for p in parsed.path.split("/") if p]
@@ -1600,7 +1719,7 @@ class Tools:
     title = f"{owner}/{repo_name}"
     if not rest:
       data = await self._request("GET", f"{API}{repo}")
-      return self._ok(
+      return paged(
         {
           "content": json.dumps(data, indent=2),
           "title": title,
@@ -1615,9 +1734,9 @@ class Tools:
         data = await self._request(
           "GET", f"{API}{repo}/contents/{self._path(path)}", params={"ref": ref}
         )
-        return self._ok(
+        return paged(
           {
-            "content": json.dumps(data, indent=2)[:400000],
+            "content": json.dumps(data, indent=2),
             "title": f"{title}/{path}",
             "url": url,
             "modified_date": None,
@@ -1629,7 +1748,7 @@ class Tools:
       content = file_data.get("content") or ""
       if file_data.get("encoding") == "base64":
         content = base64.b64decode(content).decode("utf-8", "replace")
-      return self._ok(
+      return paged(
         {
           "content": content,
           "title": f"{title}/{path}",
@@ -1639,7 +1758,7 @@ class Tools:
       )
     if kind == "issues" and tail:
       data = await self._request("GET", f"{API}{repo}/issues/{int(tail[0])}")
-      return self._ok(
+      return paged(
         {
           "content": f"#{data.get('number')} {data.get('title')}\n\n{data.get('body') or ''}",
           "title": data.get("title"),
@@ -1655,7 +1774,7 @@ class Tools:
         accept="application/vnd.github.diff",
         raw=True,
       )
-      return self._ok(
+      return paged(
         {
           "content": diff,
           "title": f"#{pull.get('number')} {pull.get('title')}",
@@ -1666,7 +1785,7 @@ class Tools:
     if kind == "commit" and tail:
       commit = await self._request("GET", f"{API}{repo}/commits/{self._seg(tail[0])}")
       lines = ((commit.get("commit") or {}).get("message") or "").splitlines()
-      return self._ok(
+      return paged(
         {
           "content": json.dumps(commit, indent=2),
           "title": lines[0] if lines else "",
@@ -1680,7 +1799,7 @@ class Tools:
       data = await self._request(
         "GET", f"{API}{repo}/branches", params={"per_page": 100}
       )
-      return self._ok(
+      return paged(
         {
           "content": json.dumps(data, indent=2),
           "title": f"{title} branches",
@@ -1696,7 +1815,7 @@ class Tools:
         data = await self._request(
           "GET", f"{API}{repo}/actions/runs", params={"per_page": 20}
         )
-      return self._ok(
+      return paged(
         {
           "content": json.dumps(data, indent=2),
           "title": f"{title} actions",
@@ -1706,7 +1825,7 @@ class Tools:
       )
     if kind == "search":
       query = parse_qs(parsed.query).get("q", [""])[0]
-      return self._ok(
+      return paged(
         {
           "content": json.dumps(await self._search_code(query, 20), indent=2),
           "title": "search",
@@ -1941,7 +2060,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """List GitHub commits, newest first, with an optional path filter.
+    """List short GitHub commit records, newest first, with an optional path filter.
 
     :param repository_full_name: owner/repo
     :param path: only the commits that touch this path
@@ -1976,7 +2095,13 @@ class Tools:
           "page": int(page),
         },
       )
-      return self._ok({"commits": data})
+      limit = min(max(1, int(per_page)), 100)
+      return self._ok({
+        "commits": [self._commit_summary(item) for item in data],
+        "page": int(page),
+        "per_page": limit,
+        "next_page": int(page) + 1 if len(data) == limit else None,
+      })
 
     return await self._read(
       "read list_commits",
@@ -2862,7 +2987,7 @@ class Tools:
         },
       )
       items = [
-        {**item, "html_url": item.get("html_url")} for item in (data.get("items") or [])
+        self._commit_summary(item) for item in (data.get("items") or [])
       ]
       return self._ok({"commits": items, "total_count": data.get("total_count")})
 

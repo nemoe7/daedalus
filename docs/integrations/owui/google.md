@@ -36,12 +36,26 @@ flowchart TD
 | `google_refresh_token` | empty | The refresh token of the 1-time consent. The tool trades it for an access token and caches that for an hour. |
 | `calendar_id` | `primary` | The calendar the agenda reads. |
 | `max_results` | `10` | The default page of a list read. |
+| `max_output_bytes` | `32768` | Maximum UTF-8 bytes in one complete tool result, at least 1024 |
 | `permissions` | `Always ask` | `Always ask` gates every call, reads included. `Allow reads` frees the reads and holds the gated calls. `Always allow` holds nothing. |
 | `timeout_seconds` | `60` | The wait for the confirmation. A closed tab, no dialog, or a late answer reads as no. |
 | `http_timeout_seconds` | `30` | The Google HTTP timeout. |
 
-The 5 reads are `search_mail`, `read_thread`, `agenda`, `search_files` and `read_document`. The 3 gated writes are `send_mail`, `create_event` and `append_to_document`.
+The 6 reads are `search_mail`, `read_thread`, `read_message`, `agenda`, `search_files` and `read_document`. The 3 gated writes are `send_mail`, `create_event` and `append_to_document`.
 
 The shipped `Always ask` holds every call, reads included, so no mail line and no one-time code reaches the chat without a click. `Allow reads` frees the reads and keeps the gate on the 3 writes. `Always allow` runs everything. `UserValves.mode` carries the same 3 values for one user, and `default` follows the tool valve.
 
 [`tests/integrations/test_owui_google_tool.py`](../../../tests/integrations/test_owui_google_tool.py) holds the surface, the gate, the token cache and the error path.
+
+## Output limits
+
+`max_output_bytes` limits the complete serialized result, including metadata. It does not limit the HTTP download or the total chat context. Repeated calls can still fill a chat.
+
+A result that does not fit returns `tool_output_too_large`, its original byte count, and complete identifiers that fit. The tool withholds the oversized payload instead of returning broken JSON. It does not repeat the operation. Do not repeat a write to recover omitted output.
+
+Read only the pages needed for the task. Text offsets count characters, not bytes. A text page includes `offset`, `next_offset`, `total_chars`, and `truncated`. A null `next_offset` ends the read.
+
+- `read_thread` returns message headers and snippets, not message bodies. Use its message `offset`, `max_results`, and `next_offset` to read further pages.
+- `read_message` reads body text by message ID, `offset`, and `max_chars`.
+- `read_document` accepts a character `offset` with its existing `max_chars` argument.
+- Message and document ranges shrink when needed to fit the byte limit. Other lists can return an output-limit error when fields are too large, even with a small item count.

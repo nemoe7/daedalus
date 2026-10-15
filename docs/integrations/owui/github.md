@@ -57,6 +57,7 @@ The 3 alert reads take gated writes: `update_code_scanning_alert`, `update_secre
 | Valve | Default | Meaning |
 | --- | --- | --- |
 | `github_token` | empty | The token. `GITHUB_TOKEN` is the fallback. |
+| `max_output_bytes` | `32768` | Maximum UTF-8 bytes in one complete tool result, at least 1024 |
 | `permissions` | `Always ask` | `Always ask` gates every call, reads included. `Allow reads` frees the reads and holds the gated calls. `Always allow` holds nothing. |
 | `timeout_seconds` | `60` | The wait for the confirmation. A closed tab, no dialog, or a late answer reads as no. |
 | `http_timeout_seconds` | `30` | The GitHub HTTP timeout. |
@@ -71,3 +72,16 @@ The 22 reads are the issue, pull request, commit, workflow and profile reads. Un
 The confirmation travels over the socket of the chat tab. `WEBSOCKET_EVENT_CALLER_TIMEOUT` is unset by default, so the Open WebUI server waits without a timeout when the browser does not answer. Only `timeout_seconds` ends that wait. A page refresh drops the dialog, the tool returns `denied: true`, and the tool sends nothing.
 
 [`tests/integrations/test_owui_github_tool.py`](../../../tests/integrations/test_owui_github_tool.py) holds the tool surface, the gate and the error path.
+
+## Output limits
+
+`max_output_bytes` limits the complete serialized result, including metadata. It does not limit the HTTP download or the total chat context. Repeated calls can still fill a chat.
+
+A result that does not fit returns `tool_output_too_large`, its original byte count, and complete identifiers that fit. The tool withholds the oversized payload instead of returning broken JSON. It does not repeat the operation. Do not repeat a write to recover omitted output.
+
+Read only the pages needed for the task. Text offsets count characters, not bytes. A text page includes `offset`, `next_offset`, `total_chars`, and `truncated`. A null `next_offset` ends the read.
+
+- `list_commits` returns SHA, URL, author, date, and a subject of at most 200 characters. `message_truncated` marks omitted message text. It returns `page`, `per_page`, and `next_page` without fetching further pages.
+- `search_commits` uses the same short records. Use its existing page arguments for further results.
+- `fetch_blob` and `fetch_github_url` accept `offset` and `max_chars`. For a large commit, file, or diff, read its GitHub URL in text ranges.
+- Text reads reduce the requested range when needed to fit the byte limit. JSON API responses read through a URL are text, so one range need not contain a complete JSON document.

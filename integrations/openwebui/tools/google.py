@@ -11,16 +11,18 @@ licence: daedalus Noncommercial License 1.0.0
 
 import asyncio
 import base64
+import inspect
 import json
 import time
 from collections.abc import Callable
 from email.message import EmailMessage
+from functools import wraps
 from typing import Any, Literal
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 GMAIL = "https://gmail.googleapis.com/gmail/v1/users/me"
@@ -42,8 +44,33 @@ class GoogleError(Exception):
     super().__init__(f"Google {status} on {method} {url}: {message}")
 
 
+def _bounded(method):
+  signature = inspect.signature(method)
+  @wraps(method)
+  async def call(self, *args, **kwargs):
+    try:
+      value = await method(self, *args, **kwargs)
+    except Exception as error:
+      value = {"error": str(error)}
+      if self._output_size(value) <= self.valves.max_output_bytes:
+        raise
+    arguments = signature.bind(self, *args, **kwargs).arguments
+    return self._output(value, method.__annotations__.get("return") in (str, "str"), arguments)
+
+  return call
+
+
+def _bounded_tools(cls):
+  for name, method in list(vars(cls).items()):
+    if not name.startswith("_") and inspect.iscoroutinefunction(method):
+      setattr(cls, name, _bounded(method))
+  return cls
+
+
+@_bounded_tools
 class Tools:
   class Valves(BaseModel):
+    max_output_bytes: int = Field(default=32768, ge=1024, description="Maximum UTF-8 bytes in one tool result.")
     google_client_id: str = ""
     google_client_secret: str = ""
     google_refresh_token: str = ""
@@ -56,6 +83,74 @@ class Tools:
   class UserValves(BaseModel):
     mode: str = "default"
     timeout_seconds: int = 0
+
+  @staticmethod
+  def _output_size(value: Any) -> int:
+    text = value if isinstance(value, str) else json.dumps(value, indent=2, ensure_ascii=False)
+    return len(text.encode("utf-8"))
+
+  def _output(self, value: Any, as_text: bool = False, arguments: dict | None = None) -> Any:
+    limit = self.valves.max_output_bytes
+    size = self._output_size(value)
+    if size <= limit:
+      return value
+    result = {
+      "error": "tool_output_too_large",
+      "truncated": True,
+      "output_bytes": size,
+      "max_output_bytes": limit,
+      "message": "Use a smaller page or text range. Do not repeat a write to recover output.",
+      "identifiers": {},
+    }
+    pending = [arguments or {}]
+    if isinstance(value, (dict, list)):
+      pending.append(value)
+    keys = {
+      "id", "sha", "node_id", "html_url", "url", "file_id", "thread_id", "skill_id", "version_id",
+      "tool_id", "function_id", "knowledge_id", "repository_full_name", "repo_full_name", "commit_sha", "blob_sha",
+    }
+    for _ in range(100):
+      if not pending:
+        break
+      row = pending.pop()
+      if isinstance(row, list):
+        pending.extend(item for item in row[:100] if isinstance(item, (dict, list)))
+        continue
+      for key, item in row.items():
+        if key in keys and key not in result["identifiers"] and isinstance(item, (str, int)):
+          result["identifiers"][key] = item
+          if self._output_size(result) > limit:
+            del result["identifiers"][key]
+        elif isinstance(item, (dict, list)):
+          pending.append(item)
+    return json.dumps(result, indent=2, ensure_ascii=False) if as_text else result
+
+  def _page(self, payload: dict, offset: int, max_chars: int, field: str = "content") -> dict:
+    text = payload[field]
+    start = min(max(0, int(offset)), len(text))
+    upper = min(max(1, int(max_chars)), 200000, len(text) - start)
+
+    def page(count):
+      end = start + count
+      return {
+        **payload,
+        field: text[start:end],
+        "offset": start,
+        "next_offset": end if end < len(text) else None,
+        "total_chars": len(text),
+        "truncated": end < len(text),
+      }
+
+    lower = 0
+    while lower < upper:
+      middle = (lower + upper + 1) // 2
+      if self._output_size({"result": page(middle)}) <= self.valves.max_output_bytes:
+        lower = middle
+      else:
+        upper = middle - 1
+    if lower == 0 and start < len(text):
+      raise ValueError("Output metadata leaves no room for text. Use a smaller result.")
+    return page(lower)
 
   def __init__(self):
     self.valves = self.Valves()
@@ -378,19 +473,32 @@ class Tools:
     thread_id: str,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    offset: int = 0,
+    max_results: int = 10,
   ) -> dict:
-    """Read one Gmail thread, every message in order, with the text of each.
+    """Read a page of Gmail message headers and snippets, in thread order.
 
     :param thread_id: the thread id from search_mail
+    :param offset: message offset in the thread
+    :param max_results: messages per page, up to 50
     """
 
     async def run():
       data = await self._request(
         "GET", f"{GMAIL}/threads/{thread_id}", params={"format": "full"}
       )
-      messages = [self._message(item) for item in data.get("messages") or []]
+      items = data.get("messages") or []
+      start = min(max(0, int(offset)), len(items))
+      end = min(start + self._limit(max_results), len(items))
+      messages = []
+      for item in items[start:end]:
+        message = self._message({**item, "payload": {**(item.get("payload") or {}), "body": {}, "parts": []}})
+        message.pop("text")
+        messages.append(message)
       return self._ok(
-        {"thread_id": thread_id, "messages": messages, "count": len(messages)}
+        {"thread_id": thread_id, "messages": messages, "count": len(messages),
+         "offset": start, "next_offset": end if end < len(items) else None,
+         "total_count": len(items), "truncated": end < len(items)}
       )
 
     return await self._read(
@@ -399,6 +507,31 @@ class Tools:
       run,
       __user__=__user__,
       __event_call__=__event_call__,
+    )
+
+  async def read_message(
+    self,
+    message_id: str,
+    offset: int = 0,
+    max_chars: int = 10000,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
+  ) -> dict:
+    """Read a character range from one Gmail message.
+
+    :param message_id: a message id from search_mail or read_thread
+    :param offset: character offset in the message text
+    :param max_chars: maximum characters, subject to the output byte limit
+    """
+    async def run():
+      data = await self._request("GET", f"{GMAIL}/messages/{message_id}", params={"format": "full"})
+      message = self._message(data)
+      message["text"] = self._body(data.get("payload") or {})
+      return self._ok(self._page(message, offset, max_chars, "text"))
+
+    return await self._read(
+      "read a Gmail message", message_id, run,
+      __user__=__user__, __event_call__=__event_call__,
     )
 
   async def send_mail(
@@ -604,11 +737,13 @@ class Tools:
     max_chars: int = 20000,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    offset: int = 0,
   ) -> dict:
     """Read the text of a Drive file. The tool exports a Google Doc, and downloads any other file.
 
     :param file_id: the file id from search_files
-    :param max_chars: the text limit, up to 200000
+    :param max_chars: the text limit, up to 200000 and subject to the output byte limit
+    :param offset: character offset in the document text
     """
 
     async def run():
@@ -616,7 +751,6 @@ class Tools:
         "GET", f"{DRIVE}/files/{file_id}", params={"fields": "id,name,mimeType"}
       )
       kind = meta.get("mimeType") or ""
-      limit = min(max(1000, int(max_chars or 20000)), 200000)
       if kind == "application/vnd.google-apps.document":
         text = await self._request(
           "GET",
@@ -628,15 +762,13 @@ class Tools:
         text = await self._request(
           "GET", f"{DRIVE}/files/{file_id}", params={"alt": "media"}, raw=True
         )
-      truncated = len(text) > limit
       return self._ok(
-        {
+        self._page({
           "file_id": file_id,
           "name": meta.get("name"),
           "mime_type": kind,
-          "text": text[:limit],
-          "truncated": truncated,
-        }
+          "text": text,
+        }, offset, max_chars or 20000, "text")
       )
 
     return await self._read(

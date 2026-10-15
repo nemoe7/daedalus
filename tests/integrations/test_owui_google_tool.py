@@ -26,6 +26,7 @@ FUNCS = [
   "create_event",
   "read_document",
   "read_thread",
+  "read_message",
   "search_files",
   "search_mail",
   "send_mail",
@@ -99,7 +100,7 @@ def reader() -> object:
   return instance
 
 
-def test_the_surface_holds_the_eight_functions():
+def test_the_surface_holds_the_functions():
   tree = ast.parse(TOOL.read_text())
   cls = next(
     node
