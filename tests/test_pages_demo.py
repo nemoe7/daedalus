@@ -80,6 +80,21 @@ NODE_CHECK = (
   NODE_SETUP
   + """
 (async () => {
+  const hookSettings = await (await context.fetch("ui/api/settings")).json();
+  const targetHook = hookSettings.hook_rows[0];
+  const deleteHook = (name) => context.fetch("ui/api/hooks/file", {
+    method: "DELETE", body: JSON.stringify({ name }),
+  });
+  check((await deleteHook(targetHook.title)).status === 404, "a hook title is not a path");
+  check((await deleteHook(7)).status === 400, "a hook path must be text");
+  check((await deleteHook(targetHook.path)).status === 200, "delete the hook path");
+  const afterHook = await (await context.fetch("ui/api/settings")).json();
+  check(afterHook.hook_rows.length === hookSettings.hook_rows.length - 1, "delete one hook row");
+  check(!afterHook.hook_rows.some(row => row.path === targetHook.path), "the deleted hook leaves the list");
+  check((await deleteHook(targetHook.path)).status === 404, "a repeated delete finds no file");
+  const hookLeaf = targetHook.name.split("/").pop();
+  const hookOrder = Object.values(afterHook.file.hooks.order || {}).flat();
+  check(!hookOrder.some(name => name.split("/").pop() === hookLeaf), "delete clears the hook order");
   const status = await context.fetch("ui/api/status");
   check(status.status === 200, "status");
   check((await status.json()).healthy === true, "status body");

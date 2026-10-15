@@ -4430,6 +4430,47 @@ sandbox.document.querySelector = (sel) => (sel === '.undo-step' ? { remove: () =
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_hook_delete_keeps_the_title_out_of_the_request() -> None:
+  """Hook deletion uses the file path and keeps the title in the dialog."""
+  code = _app_js_vm(
+    """
+sandbox.setTimeout = () => 0;
+sandbox.clearTimeout = () => {};
+const store = { getItem: () => null, removeItem: () => {}, setItem: () => {} };
+sandbox.sessionStorage = store;
+sandbox.localStorage = store;
+const sent = [], dialogs = [];
+let accepted = false, loaded = 0;
+sandbox.ask = async (...args) => { dialogs.push(args); return accepted; };
+sandbox.loadSettings = async () => { loaded += 1; };
+sandbox.fetch = async (url, options) => {
+  sent.push({ url, method: options.method, body: JSON.parse(options.body) });
+  return { ok: true, status: 200, json: async () => ({ ok: true }) };
+};
+(async () => {
+  for (const title of ['Display title', '', 'hooks/other.py']) {
+    const path = 'hooks/owner/repo/one.py';
+    const button = { dataset: { hookDrop: path, hookTitle: title } };
+    accepted = false;
+    const before = sent.length;
+    await sandbox.dropHookFile(button);
+    assert.strictEqual(sent.length, before, 'cancel sends nothing');
+    assert.strictEqual(loaded, before, 'cancel does not reload settings');
+    accepted = true;
+    await sandbox.dropHookFile(button);
+    assert.deepStrictEqual(sent.at(-1), {
+      url: 'ui/api/hooks/file', method: 'DELETE', body: { name: path },
+    });
+    assert.strictEqual(dialogs.at(-1)[1],
+      LOCALE['dialog.delete_hook.message'].replaceAll('{name}', title || path));
+    assert.strictEqual(loaded, sent.length, 'success reloads settings');
+  }
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_app_js_names_a_failure_with_no_message() -> None:
   """A failure with no server message names the status, and the message of the server shows."""
   code = _app_js_vm(

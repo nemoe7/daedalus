@@ -1833,11 +1833,10 @@ function hooksManager() {
       <div class="sub" id="hooks-note" role="status"></div>`)}`;
 }
 
-// The Delete button of a row: the file leaves the folder and the lock, and the settings
-// entries of the file stay, so the row shows the problem of a missing file.
 async function dropHookFile(button) {
-  const name = button.dataset.hookTitle || button.dataset.hookDrop;
-  if (!(await ask(t("dialog.delete_hook.title"), t("dialog.delete_hook.message", { name }), t("action.delete_button"), true))) return;
+  const name = button.dataset.hookDrop;
+  const title = button.dataset.hookTitle || name;
+  if (!(await ask(t("dialog.delete_hook.title"), t("dialog.delete_hook.message", { name: title }), t("action.delete_button"), true))) return;
   await guarded(async () => {
     await call("hooks/file", { method: "DELETE", body: JSON.stringify({ name }) });
     await loadSettings();

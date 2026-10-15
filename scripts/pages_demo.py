@@ -1234,6 +1234,25 @@ const DEMO_FIXTURES = __FIXTURES__;
     file.error = null;
     return reload(json({ ok: true, text: file.text }));
   };
+  const hook_dropped = (init) => {
+    const { name } = body_of(init);
+    if (typeof name !== "string" || !name.trim()) return bad("A file name is needed.", 400);
+    const saved = DEMO_FIXTURES.settings;
+    const at = saved.hook_rows.findIndex(row => row.path === name || row.path === `${name}.py`);
+    if (at < 0) return bad(`The hook ${name} is not a file of the folder.`, 404);
+    const leaf = saved.hook_rows[at].name.split("/").pop();
+    const group = { ...DEFAULTS.hooks, ...saved.file.hooks };
+    const keep = (items) => (items || []).filter(item => String(item).split("/").pop() !== leaf);
+    const changes = {
+      disabled: keep(group.disabled),
+      order: Object.fromEntries(Object.entries(group.order || {}).map(([surface, files]) => [surface, keep(files)])),
+    };
+    for (const [key, value] of Object.entries(group)) {
+      if (key.startsWith("on-") && Array.isArray(value)) changes[key] = keep(value);
+    }
+    saved.hook_rows.splice(at, 1);
+    return settings_saved({ body: JSON.stringify({ changes: { hooks: changes } }) });
+  };
   // A write with no home in the demo stays refused.
   const save = (path, method, init) => {
     if (path === "catalog" && method === "POST") return rebuild();
@@ -1267,6 +1286,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     if (path === "files" && method !== "GET")
       return bad("The demo keeps the shipped file list read-only.", 403);
     if (path === "settings" && method === "PUT") return settings_saved(init);
+    if (path === "hooks/file" && method === "DELETE") return hook_dropped(init);
     // The demo fetch names the demo repo, and the take holds the selected files in the page memory.
     if (path === "hooks/scan" && method === "POST") {
       const asked = body_of(init);
