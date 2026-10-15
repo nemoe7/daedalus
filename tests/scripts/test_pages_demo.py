@@ -931,7 +931,11 @@ def test_demo_rejected_provider_form_keeps_state(tmp_path: Path) -> None:
   const files = await read("files");
   for (const file of [files.find(row => row.main), files.find(row => !row.main)]) {
     const provider = file.main ? "cloudflare" : Object.keys(file.blocks)[0];
-    const block = { api_key: "new-api-key", account_id: "new-account", client_keys: { first: "new-client-one" } };
+    const block = {
+      api_key: "new-api-key", account_id: "new-account", client_keys: { first: "new-client-one" },
+      hooks: [{ "on-answer": "hooks/provider.py" }],
+      models: { "fixture/*": { hooks: [{ "on-answer": "hooks/model.py" }] } },
+    };
     const before = await Promise.all(["files", "env", "models"].map(read));
     for (const [invalid, status] of [[{ account_id: "two words" }, 400], [{ models: [] }, 422],
       [{ client_keys: { first: "new-client-one", second: "two words" } }, 400]]) {
@@ -948,6 +952,9 @@ def test_demo_rejected_provider_form_keeps_state(tmp_path: Path) -> None:
       body: JSON.stringify({ path: file.path, blocks: { [provider]: block } }),
     });
     check(response.status === 200, "valid provider form saves");
+    const saved = (await read("files")).find(row => row.path === file.path).blocks[provider];
+    check(JSON.stringify(saved.hooks) === JSON.stringify(block.hooks), "provider hook surface saves");
+    check(JSON.stringify(saved.models) === JSON.stringify(block.models), "model hook surface saves");
     const text = (await response.json()).text;
     check(["new-api-key", "new-account", "new-client-one"].every(secret => !text.includes(secret)),
       "saved form masks keys");

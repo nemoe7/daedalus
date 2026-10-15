@@ -4011,8 +4011,8 @@ $("provider-form").addEventListener("click", (event) => {
 });
 $("provider-form").addEventListener("change", (event) => {
   if (event.target.dataset.pattern) return renamePattern(event.target);
-  if (event.target.dataset.formHookPoint) {
-    const parts = JSON.parse(event.target.dataset.formHookPoint);
+  if (event.target.dataset.formHookSurface) {
+    const parts = JSON.parse(event.target.dataset.formHookSurface);
     const index = parts.pop();
     const list = formHookList(parts);
     const entry = list[index] && typeof list[index] === "object" ? list[index] : {};

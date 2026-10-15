@@ -3038,6 +3038,49 @@ def test_app_js_hooks_section() -> None:
     assert piece in script.text, piece
 
 
+def test_provider_hook_surface_changes_save() -> None:
+  """Hook surface changes save at provider and model paths without changing the file."""
+  run_app_js(
+    "state, hookFormRow",
+    """
+sandbox.setTimeout = () => 0;
+sandbox.clearTimeout = () => {};
+sandbox.sessionStorage = sandbox.localStorage = { getItem: () => null };
+probe.state.files = [{ path: 'providers.yml', text: 'saved fixture data' }];
+probe.state.forms = [{ p: {
+  hooks: [{ 'on-upstream': 'hooks/provider.py' }],
+  models: { 'fixture/*': { hooks: [{ 'on-upstream': 'hooks/model.py' }] } },
+} }];
+probe.state.formSaved = [JSON.stringify(probe.state.forms[0])];
+const sent = [];
+sandbox.takeFile = sandbox.refreshEnv = async () => {};
+sandbox.renderCard = sandbox.renderForm = sandbox.renderFiles = sandbox.refresh = () => {};
+sandbox.fetch = async (url, options) => {
+  sent.push({ url, method: options.method, body: JSON.parse(options.body) });
+  return { ok: true, status: 200, json: async () => ({}) };
+};
+(async () => {
+  for (const path of [['p', 'hooks', 0], ['p', 'models', 'fixture/*', 'hooks', 0]]) {
+    const list = path.slice(0, -1).reduce((value, key) => value[key], probe.state.forms[0]);
+    const file = list[0]['on-upstream'];
+    const html = probe.hookFormRow(list[0], path, [file]);
+    const attr = html.match(/<select ([a-z-]+)=/)[1];
+    const key = attr.slice(5).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+    const target = { value: 'on-answer', dataset: { [key]: JSON.stringify(path) } };
+    const count = sent.length;
+    await node('provider-form').handlers.change[0]({ target });
+    assert.strictEqual(JSON.stringify(list[0]), JSON.stringify({ 'on-answer': file }));
+    assert.strictEqual(sent.length, count + 1, 'each selection saves once');
+    assert.deepStrictEqual(sent.at(-1), {
+      url: 'ui/api/providers', method: 'PUT',
+      body: { path: 'providers.yml', blocks: JSON.parse(JSON.stringify(probe.state.forms[0])) },
+    });
+  }
+})().catch(error => { console.error(error); process.exitCode = 1; });
+""",
+  )
+
+
 def test_app_js_hooks_manager_renders() -> None:
   """The Hooks card lists the installed files, the folder and the sources, and its rows save."""
   payload = json.dumps(
