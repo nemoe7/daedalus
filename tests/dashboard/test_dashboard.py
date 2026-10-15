@@ -4430,6 +4430,34 @@ sandbox.document.querySelector = (sel) => (sel === '.undo-step' ? { remove: () =
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_error_notice_dismissal_respects_reduced_motion() -> None:
+  """Reduced motion hides the notice without an animation event."""
+  run_app_js(
+    "showNotice, closeNotice",
+    """
+const notice = node('notice');
+const classes = new Set();
+notice.classList = { add: name => classes.add(name), remove: name => classes.delete(name) };
+for (const reduced of [false, true]) {
+  sandbox.matchMedia = query => ({ matches: query === '(prefers-reduced-motion: reduce)' && reduced });
+  probe.showNotice(LOCALE['error.dashboard_unreachable_text']);
+  assert.strictEqual(notice.hidden, false);
+  assert.strictEqual(classes.has('leave'), false);
+  probe.closeNotice();
+  assert.strictEqual(notice.hidden, reduced);
+  assert.strictEqual(classes.has('leave'), !reduced);
+  if (!reduced) {
+    for (const handler of notice.handlers.animationend) handler({ animationName: 'arrive' });
+    assert.strictEqual(notice.hidden, false, 'arrival does not hide the notice');
+    for (const handler of notice.handlers.animationend) handler({ animationName: 'leave' });
+    assert.strictEqual(notice.hidden, true);
+    assert.strictEqual(classes.has('leave'), false);
+  }
+}
+""",
+  )
+
+
 def test_hook_delete_keeps_the_title_out_of_the_request() -> None:
   """Hook deletion uses the file path and keeps the title in the dialog."""
   code = _app_js_vm(
@@ -4868,20 +4896,22 @@ def test_the_notice_takes_the_red_and_wraps() -> None:
   )
 
 
-def test_the_notice_sits_under_the_header() -> None:
-  """The failure line opens the page under the header and stays there on a scroll."""
+def test_the_notice_floats_without_moving_page_content() -> None:
+  """The error banner floats within the viewport without a layout margin."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   rule = re.search(r"\n\.notice \{([^}]*)\}", css)
   assert rule, "the notice keeps its rule"
-  assert "position: sticky; top: 0;" in rule.group(1), (
-    "the line holds the top of the pane"
-  )
-  assert "bottom" not in rule.group(1), "the line leaves the bottom of the page"
+  rules = dict(re.findall(r"([a-z-]+):\s*([^;]+)", rule.group(1)))
+  assert rules["position"] == "fixed"
+  assert rules["margin"] == "0 auto"
+  assert {"left", "right", "bottom", "max-width", "max-height"} <= rules.keys()
+  assert rules["overflow-y"] == "auto"
+  assert rules["align-items"] == "safe center"
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   first = page.split("<main>", 1)[1].lstrip().split(">", 1)[0]
   assert first.startswith('<div class="notice"'), (
-    "the line opens the pane, so its top holds under the header"
+    "the alert precedes the page content in document order"
   )
 
 

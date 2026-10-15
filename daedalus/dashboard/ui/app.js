@@ -424,7 +424,13 @@ function showNotice(message) {
 }
 
 function closeNotice() {
-  $("notice").classList.add("leave");
+  const note = $("notice");
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    note.classList.remove("leave");
+    note.hidden = true;
+  } else {
+    note.classList.add("leave");
+  }
 }
 
 async function guarded(task) {
