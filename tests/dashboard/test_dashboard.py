@@ -1487,12 +1487,12 @@ def test_the_short_values_carry_their_full_text() -> None:
 
 
 def test_the_parallel_race_reads_on_the_page() -> None:
-  """The race carries a code and a ladder mark, and its legend row waits for the setting."""
+  """The race carries a code and a ladder mark."""
   app = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/app.js"
   ).read_text(encoding="utf-8")
   assert 'rce: t("request.route.race_text")' in app, "the race code"
-  assert 'code !== "rce" || raceOn()' in app, "its legend row waits for the setting"
+  assert 'code !== "rce" || raceOn()' in app, "the setting keeps race in the legend"
   assert 'a.race === "won"' in app and 't("request.chain.won_race_text")' in app, (
     "the winning step carries the mark"
   )
@@ -1790,7 +1790,7 @@ def test_app_js_retry_code() -> None:
   source = Path("daedalus/dashboard/ui/app.js").read_text()
   assert "const REPEAT_CODE = " in source, "the repeat code family"
   assert "function renderLegend(extra = state.legendExtra) {" in source, (
-    "the hook rows join the base rows, and the race row waits for the setting"
+    "the hook rows join the base rows"
   )
   assert "...extra," in source, "the hook rows show below the base rows"
   code = """
@@ -5901,5 +5901,56 @@ assert.strictEqual(focused, 1);
 activate();
 assert(node('requests').innerHTML.includes('aria-expanded="false"'));
 assert.strictEqual(focused, 2);
+""",
+  )
+
+
+@pytest.mark.parametrize("mode", [None, "session", "race"])
+def test_race_legend_covers_visible_history(mode) -> None:
+  run_app_js(
+    "state, renderLegend, renderRequestTable",
+    f"const mode = {json.dumps(mode)};\n"
+    + r"""
+probe.state.settings = mode === null ? null : {
+  defaults: { affinity: { mode } }, file: {},
+};
+probe.state.legendExtra = [['rtN', 'synthetic <label>']];
+const raceShown = () => node('legend-body').innerHTML.includes('<code>rce</code>');
+probe.renderLegend();
+assert.strictEqual(raceShown(), mode === 'race');
+const row = { at: Date.now() / 1000, model: 'p/synthetic', status: 200,
+  transition: { reason: 'rce' } };
+probe.state.requests = [row];
+probe.renderRequestTable();
+assert(raceShown());
+assert(node('legend-body').innerHTML.includes(LOCALE['request.route.race_text']));
+assert(node('legend-body').innerHTML.includes('synthetic &lt;label&gt;'));
+probe.state.requestSearch = 'no-match';
+probe.renderRequestTable();
+assert.strictEqual(raceShown(), mode === 'race');
+probe.state.requestSearch = '';
+probe.renderRequestTable();
+assert(raceShown());
+probe.state.requestStatus = 'bad';
+probe.renderRequestTable();
+assert.strictEqual(raceShown(), mode === 'race');
+probe.state.requestStatus = 'all';
+row.at -= 7200;
+probe.state.requestHours = 1;
+probe.renderRequestTable();
+assert.strictEqual(raceShown(), mode === 'race');
+probe.state.requestHours = 0;
+probe.renderRequestTable();
+assert(raceShown());
+const selection = { isCollapsed: false, anchorNode: {} };
+sandbox.getSelection = () => selection;
+node('requests').contains = () => true;
+probe.state.requests = [];
+probe.renderRequestTable();
+assert(raceShown(), 'a deferred redraw keeps the meaning of the visible code');
+selection.isCollapsed = true;
+probe.renderRequestTable();
+assert.strictEqual(raceShown(), mode === 'race');
+assert(node('legend-body').innerHTML.includes('synthetic &lt;label&gt;'));
 """,
   )

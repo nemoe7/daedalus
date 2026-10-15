@@ -89,7 +89,7 @@ const state = {
   models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, saved: [], timers: [],
   view: "form", forms: [], formSaved: [], overrideKeys: [], providerDefaults: {}, settingsView: "form",
   pools: [], requests: [], requestLimit: REQUESTS_STEP, requestFetched: 0, keys: [], catalog: {},
-  settings: null, legendExtra: [],
+  settings: null, legendExtra: [], requestRace: false,
   requestSearch: "", requestStatus: "all", requestHours: 0, limitSearch: "",
   live: new Map(), livePaused: false, liveWaiting: new Set(), liveSeen: new Set(), liveCount: 0,
   source: null, env: [],
@@ -870,15 +870,13 @@ function poolTier(name) {
   return tier ? tierLetter(tier) : BUILT_IN_TIERS[name] || String(name).slice(0, 1).toUpperCase();
 }
 
-// The code legend of the Requests page: each short code with its meaning.
-// The parallel row of the legend joins it only while the setting is on.
 const raceOn = () => Boolean(
   state.settings && (fileValue("affinity", "mode") ?? state.settings.defaults.affinity.mode) === "race",
 );
 
 function renderLegend(extra = state.legendExtra) {
   const rows = [
-    ...Object.entries(TRANSITION_REASONS).filter(([code]) => code !== "rce" || raceOn()),
+    ...Object.entries(TRANSITION_REASONS).filter(([code]) => code !== "rce" || raceOn() || state.requestRace),
     ["frX", t("request.legend.frx_text")],
     ["tlN", t("request.legend.tln_text")],
     ...extra,
@@ -1085,6 +1083,11 @@ function renderRequests(rows, empty = t("request.empty.none_text"), live = 0) {
       ${fallbackCell(r, "hide-sm num")}
     </tr>${chainOpen ? chainRows(r) : ""}`;
   }).join("") : live ? "" : `<tr role="row"><td role="cell" colspan="13" class="empty">${empty}</td></tr>`;
+  const race = flatRows.some((row) => row.transition?.reason === "rce");
+  if (race !== state.requestRace) {
+    state.requestRace = race;
+    renderLegend();
+  }
   firstDraw($("requests"));
   if (focused) [...$("requests").querySelectorAll("[data-chain-toggle]")]
     .find((button) => button.dataset.chainToggle === focused)?.focus({ preventScroll: true });
