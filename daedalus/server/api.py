@@ -890,10 +890,25 @@ class Plan:
   request: Request
   body: dict[str, Any]
   config: dict[str, Any]
+  model: str
+  turn: retries.Turn | None
+  previous: dict[str, str] | None
+  found: tuple[list[list[str]], str | None]
   pin: Tracker
-  attempts: list[dict[str, Any]]
+  raw_groups: list[list[str]]
+  sized_groups: list[list[str]]
+  cooled_groups: list[list[str]]
+  paced: list[list[str]]
+  models: list[str]
+  old: str | None
+  looping: str | None
+  first_transition: dict[str, Any] | None
+  include_usage: bool
   deadline: float
+  direct_wait: bool
   racing: bool
+  runners: list[str]
+  attempts: list[dict[str, Any]]
   tokens: dict[str, Any]
 
 
@@ -1021,35 +1036,6 @@ async def race_models(
     # The winner keeps its content. The other tasks are over.
     for take in takes:
       take.task.cancel()
-
-
-@dataclass
-class Plan:
-  """The plan of 1 chat request: the body, the chain, the pins and the attempts."""
-
-  request: Request
-  body: dict[str, Any]
-  config: dict[str, Any]
-  model: str
-  turn: retries.Turn | None
-  previous: dict[str, str] | None
-  found: tuple[list[list[str]], str | None]
-  pin: Tracker
-  raw_groups: list[list[str]]
-  sized_groups: list[list[str]]
-  cooled_groups: list[list[str]]
-  paced: list[list[str]]
-  models: list[str]
-  old: str | None
-  looping: str | None
-  first_transition: dict[str, Any] | None
-  include_usage: bool
-  deadline: float
-  direct_wait: bool
-  racing: bool
-  runners: list[str]
-  attempts: list[dict[str, Any]]
-  tokens: dict[str, Any]
 
 
 async def plan_chat(request: Request, body: Any) -> Plan | Response:
