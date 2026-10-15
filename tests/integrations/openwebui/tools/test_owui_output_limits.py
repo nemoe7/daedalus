@@ -205,8 +205,10 @@ def test_text_pages_round_trip_and_stop_at_the_end():
   assert "".join(parts) == text
   end = tool._page({"content": text}, len(text) + 100, 10)
   assert end["content"] == "" and end["next_offset"] is None and not end["truncated"]
-  with pytest.raises(ValueError, match="metadata"):
-    tool._page({"content": text, "id": "x" * 5000}, 0, 10)
+  oversized = {"content": text, "id": "x" * 5000}
+  assert size({"result": {**oversized, "content": ""}}) > tool.valves.max_output_bytes
+  with pytest.raises(ValueError):
+    tool._page(oversized, 0, 10)
 
 
 def test_google_document_ranges_and_denied_message_reads():

@@ -134,8 +134,10 @@ def test_load_artifact_uses_the_documented_defaults(tmp_path: Path) -> None:
 
 def test_load_artifact_needs_statistics_for_all_four_tiers(tmp_path: Path) -> None:
   """Missing tier statistics raise ValueError."""
-  with pytest.raises(ValueError, match="global statistics for tiers 1 to 4"):
-    artifact(tmp_path / "tiers.json", global_statistics=rows()[:1])
+  path = tmp_path / "tiers.json"
+  with pytest.raises(ValueError) as error:
+    artifact(path, global_statistics=rows()[:1])
+  assert str(path) in str(error.value)
 
 
 def test_load_artifact_tolerates_a_payload_with_no_domain_rows(tmp_path: Path) -> None:
