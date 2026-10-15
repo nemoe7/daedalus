@@ -181,6 +181,59 @@ def test_edit_count_conversion(fake: Upstream, client: TestClient) -> None:
     assert parts(fake.sent[-1])["n"] == str(expected).encode()
 
 
+@pytest.mark.parametrize(
+  "variant", ["mask", "mask_presence", "boundaries", "order", "fields"]
+)
+def test_edit_retry_inputs(
+  fake: Upstream, client: TestClient, monkeypatch: pytest.MonkeyPatch, variant: str
+) -> None:
+  monkeypatch.setattr(media, "REPEATS", media.retries.Retries())
+  store.write_store([{**ROWS[1], "id": name} for name in ("groq/img", "groq/other")])
+  monkeypatch.setattr(fake, "down", set())
+  a, b, c = picture(64, 64), picture(64, 65), picture(65, 64)
+  prompt = f"retry {variant}"
+  first = ([a, b], None, prompt)
+  changed = ([b, a], None, prompt)
+  if variant in ("mask", "mask_presence"):
+    masks = []
+    for alpha in (0, 255):
+      output = io.BytesIO()
+      Image.new("RGBA", (64, 64), (0, 0, 0, alpha)).save(output, format="PNG")
+      masks.append(output.getvalue())
+    initial_mask = masks[0] if variant == "mask" else None
+    first, changed = ([a], initial_mask, prompt), ([a], masks[1], prompt)
+  elif variant == "boundaries":
+    first, changed = ([a + b, c], None, prompt), ([a, b + c], None, prompt)
+  elif variant == "fields":
+    changed = ([a, b], None, prompt + " changed")
+  answered = {}
+  try:
+    for label, content, retry in (
+      ("first", first, None),
+      ("changed", changed, None),
+      ("changed", changed, "1"),
+      ("first", first, "1"),
+    ):
+      images, mask, text = content
+      files = [("image[]", ("in.png", image, "image/png")) for image in images]
+      if mask is not None:
+        files.append(("mask", ("mask.png", mask, "image/png")))
+      response = client.post(
+        "/v1/images/edits",
+        data={"model": "daedalus/photos", "prompt": text},
+        files=files,
+      )
+      assert response.status_code == 200, response.text
+      row = dashboard.HISTORY.latest(1)[0]
+      assert row.get("retry") == retry, row
+      if retry is None:
+        answered[label] = row["via"]
+      else:
+        assert row["via"] != answered[label], row
+  finally:
+    store.write_store(ROWS)
+
+
 def test_edit_errors(client: TestClient) -> None:
   """An edit needs an image, and a model that can edit it."""
   small = picture(64, 64)

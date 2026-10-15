@@ -466,8 +466,15 @@ async def edits(request: Request) -> Response:
 
     return send()
 
-  seen = (
-    b"".join(data for _, data, _ in images) + json.dumps(body, sort_keys=True).encode()
-  )
+  seen = json.dumps(
+    {
+      "fields": body,
+      "images": [hashlib.sha256(data).hexdigest() for _, data, _ in images],
+      "mask": hashlib.sha256(mask_file[1]).hexdigest()
+      if mask_file is not None
+      else None,
+    },
+    sort_keys=True,
+  ).encode()
   result = await attempt(request, model, IMAGE_POOL, seen, call, vision=True)
   return result if isinstance(result, Response) else JSONResponse(result)
