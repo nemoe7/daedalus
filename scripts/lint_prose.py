@@ -1,4 +1,4 @@
-"""Check first-party prose. Use --scan for string candidates and coverage limits."""
+"""Check first-party prose, with --scan for string candidates and coverage limits."""
 
 import argparse
 import json
