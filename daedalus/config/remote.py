@@ -68,7 +68,7 @@ def fetch(
     response = httpx.get(url, timeout=timeout, follow_redirects=True)
     response.raise_for_status()
   except httpx.HTTPError as exc:
-    tell(f"remote hook {url} did not load: {exc}; the last copy stays")
+    tell(f"remote hook {url} did not load: {exc}. The last copy stays")
     if report is not None:
       report.append(f"{url} did not load")
     return None
@@ -185,7 +185,7 @@ def archive_files(
         if stream is not None:
           found[name] = stream.read()
   except (tarfile.TarError, OSError, EOFError) as exc:
-    tell(f"hook archive did not read: {exc}; the files on disk stay")
+    tell(f"could not read the hook archive: {exc}. The files on disk stay")
     if report is not None:
       report.append("the archive did not read")
     return None
@@ -264,11 +264,11 @@ def update(
       try:
         text = raw.decode("utf-8")
       except UnicodeDecodeError:
-        logger.warning("hook %s/%s is not UTF-8 text; the file stays out", repo, name)
+        logger.warning("hook %s/%s is not UTF-8 text. The file stays out", repo, name)
         continue
       info, problem = meta_check(text)
       if problem is not None:
-        logger.warning("hook %s/%s: %s; the file stays out", repo, name, problem)
+        logger.warning("hook %s/%s: %s. The file stays out", repo, name, problem)
         if report is not None:
           report.append(f"{identity}: {problem}")
         continue

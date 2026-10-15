@@ -134,7 +134,7 @@ def capped(seconds: float) -> float:
   """Cut a provider reset time at the cap, and log the cut."""
   if seconds > LONGEST_RESET:
     logger.warning(
-      "the reset time %.0fs is above the cap of %.0fs: it is cut",
+      "the reset time %.0fs is above the cap of %.0fs: using the cap",
       seconds,
       LONGEST_RESET,
     )

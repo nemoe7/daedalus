@@ -63,7 +63,7 @@ def _rebuild(cached: bool) -> Path:
     logger.warning("skipped %s", reason)
   for provider_name in failed:
     logger.warning(
-      "kept the old rows of %s: its model list could not be loaded", provider_name
+      "kept the old rows of %s: failed to load its model list", provider_name
     )
   providers = len({line.split("/", 1)[0] for line in lines})
   logger.info("wrote %d models from %d providers to %s", len(lines), providers, target)
