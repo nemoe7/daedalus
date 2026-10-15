@@ -105,6 +105,11 @@ NODE_CHECK = (
   check(status.status === 200, "status");
   check((await status.json()).healthy === true, "status body");
   const notifications = await (await context.fetch("ui/api/notifications")).json();
+  check(notifications.update.channel === "dev", "the update fixture uses the development channel");
+  check(notifications.update.behind === 2 && notifications.update.update === true,
+    "the fixture shows two main commits absent from this build");
+  const checkedUpdate = await (await context.fetch("ui/api/updates", { method: "POST" })).json();
+  check(checkedUpdate.behind === 2 && checkedUpdate.update === true, "a new check keeps the demo distance");
   check(notifications.resets.length === 1, "the reset fixture reaches Notifications");
   check(notifications.resets[0].kind === "neurons", "the reset fixture keeps its limit");
   check(notifications.limits.length === 1, "the one-time warning fixture reaches Notifications");

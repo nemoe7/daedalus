@@ -92,7 +92,7 @@ def check(
     compare = fetch(
       f"https://api.github.com/repos/{repository}/compare/{base}...{head}"
     )
-    found["behind"] = int(compare.get("behind_by", 0))
+    found["behind"] = int(compare.get("ahead_by", 0))
     found["update"] = found["behind"] > 0
   except (httpx.HTTPError, ValueError, AttributeError, KeyError) as exc:
     found["error"] = str(exc) or type(exc).__name__

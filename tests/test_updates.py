@@ -1,6 +1,7 @@
 """The update check: the channel of the version, the GitHub reads, the stored row."""
 
 import httpx
+import pytest
 
 from daedalus import store, updates
 
@@ -38,16 +39,18 @@ def test_check_release_same() -> None:
   assert found["latest"] == "v1.2.0" and found["update"] is False
 
 
-def test_check_dev_behind() -> None:
+@pytest.mark.parametrize("ahead, behind", [(4, 0), (0, 4), (2, 3)])
+def test_check_dev_distance(ahead: int, behind: int) -> None:
   def fetch(url: str) -> dict:
     if url.endswith("/commits/main"):
       return {"sha": HEAD}
     assert url == f"https://api.github.com/repos/o/r/compare/{SHA}...{HEAD}"
-    return {"behind_by": 4}
+    return {"ahead_by": ahead, "behind_by": behind}
 
   found = updates.check("o/r", f"dev-{SHA}", fetch=fetch)
   assert found["channel"] == "dev"
-  assert found["behind"] == 4 and found["update"] is True
+  assert found["behind"] == ahead
+  assert found["update"] is (ahead > 0)
 
 
 def test_check_dev_current() -> None:

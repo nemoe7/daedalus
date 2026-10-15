@@ -3449,7 +3449,17 @@
         "span": "day"
       }
     ],
-    "update": null
+    "update": {
+      "at": 1791597600.0,
+      "behind": 2,
+      "channel": "dev",
+      "current": "demo",
+      "error": null,
+      "latest": null,
+      "repo": "nemoe7/daedalus",
+      "update": true,
+      "url": null
+    }
   },
   "pools": [
     {
