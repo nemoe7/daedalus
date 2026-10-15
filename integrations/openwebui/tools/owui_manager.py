@@ -385,6 +385,15 @@ class Tools:
     except aiohttp.ClientError as exc:
       return None, f"Error: Open WebUI connection failed: {exc}"
 
+  def _path_parts(self, path):
+    path = (path or "").strip().replace("\\", "/").strip("/")
+    if not path:
+      return None, "Error: path is empty."
+    parts = [part.strip() for part in path.split("/") if part.strip()]
+    if not parts or any(part in (".", "..") for part in parts):
+      return None, "Error: invalid path. Do not use '.' or '..'."
+    return parts, None
+
   def _file_item(self, item):
     return item.get("file", item) if isinstance(item, dict) else {}
 
@@ -764,6 +773,8 @@ class Tools:
     ),
     __request__=None,
     __event_emitter__: Callable | None = None,
+    __user__: dict | None = None,
+    __event_call__: Callable | None = None,
   ) -> str:
     """
     Ensure that a nested directory path exists inside a knowledge base.
@@ -774,6 +785,15 @@ class Tools:
     :param knowledge_id: ID of the Open WebUI knowledge base
     :param path: directory path to create or reuse, for example Servers/VPN/Notes
     """
+    refusal = await self._guard(
+      "create a knowledge directory path",
+      f"{knowledge_id}:{path}",
+      __user__,
+      __event_call__,
+      sensitive=False,
+    )
+    if refusal:
+      return refusal
     parts, err = self._path_parts(path)
     if err:
       return err

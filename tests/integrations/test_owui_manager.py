@@ -630,3 +630,126 @@ def test_status_finishes_after_permission_denial():
   assert json.loads(result)["result"]["denied"] is True
   assert calls == []
   assert [event["data"]["done"] for event in events] == [False, True]
+
+
+PATH_OPERATIONS = [
+  ("ensure_knowledge_directory_path", (), "directory_id=new-dir"),
+  ("create_knowledge_markdown_at_path", ("body",), "file_id=uploaded"),
+  ("read_knowledge_file_at_path", (), "file_id=f"),
+  ("update_knowledge_file_at_path", ("body",), "file_id=f"),
+  ("upsert_knowledge_markdown_at_path", ("body",), "file_id=f"),
+  ("delete_knowledge_file_at_path", (True,), "file_id=f"),
+]
+
+
+@pytest.mark.parametrize(("operation", "arguments", "identifier"), PATH_OPERATIONS)
+def test_knowledge_path_operations_normalize_and_resolve(
+  operation, arguments, identifier
+):
+  tool, calls = make_tool(
+    {
+      "GET /knowledge/k/files": {
+        "directories": [{"id": "d", "name": "folder"}],
+        "items": [{"file": {"id": "f", "filename": "note.md"}}],
+        "total": 1,
+      },
+      "POST /knowledge/k/dirs/create": {"id": "new-dir", "name": "child"},
+      "GET /files/f/data/content": {"content": "body"},
+    }
+  )
+  tool.valves.permissions = "Always allow"
+  uploads = []
+
+  async def upload(session, knowledge_id, directory_id, filename, content):
+    uploads.append((knowledge_id, directory_id, filename, content))
+    return {"id": "uploaded", "filename": filename}, None
+
+  tool._upload = upload
+  leaf = "child" if operation == "ensure_knowledge_directory_path" else "note.md"
+  path = " /folder/ /\\" + leaf + "/ "
+  result = asyncio.run(
+    getattr(tool, operation)("k", path, *arguments, __request__=object())
+  )
+  assert identifier in result
+  assert calls[0][1] == "/knowledge/k/files"
+  writes = [call for call in calls if call[0] != "GET"]
+  if operation == "ensure_knowledge_directory_path":
+    assert len(writes) == 1
+    assert writes[0][2]["json"] == {"name": "child", "parent_id": "d"}
+  elif operation == "create_knowledge_markdown_at_path":
+    assert uploads == [("k", "d", "note.md", "body")]
+  elif operation in (
+    "update_knowledge_file_at_path",
+    "upsert_knowledge_markdown_at_path",
+  ):
+    assert len(writes) == 1
+    assert writes[0][1] == "/files/f/data/content/update"
+    assert writes[0][2]["json"] == {"content": "body"}
+  elif operation == "delete_knowledge_file_at_path":
+    assert [(method, url) for method, url, _ in writes] == [("DELETE", "/files/f")]
+  else:
+    assert not writes
+    assert "body" in result
+
+
+@pytest.mark.parametrize(("operation", "arguments", "identifier"), PATH_OPERATIONS)
+@pytest.mark.parametrize("path", [None, "", "folder/../note.md", "folder/./note.md"])
+def test_knowledge_path_operations_reject_invalid_paths_before_requests(
+  operation, arguments, identifier, path
+):
+  tool, calls = make_tool()
+  tool.valves.permissions = "Always allow"
+  result = asyncio.run(
+    getattr(tool, operation)("k", path, *arguments, __request__=object())
+  )
+  assert "Error:" in result
+  assert calls == []
+
+
+@pytest.mark.parametrize(
+  ("mode", "user_mode", "decision", "denied", "asked"),
+  [
+    ("Always ask", None, None, True, False),
+    ("Always ask", None, False, True, True),
+    ("Always ask", None, True, False, True),
+    ("Allow reads", None, None, False, False),
+    ("Always allow", None, None, False, False),
+    ("Always allow", "Always ask", False, True, True),
+    ("Always ask", "Always allow", None, False, False),
+    ("Always ask", "Allow reads", None, False, False),
+    ("Allow reads", "Always ask", True, False, True),
+  ],
+)
+def test_directory_path_creation_uses_the_new_item_gate(
+  mode, user_mode, decision, denied, asked
+):
+  tool, calls = make_tool({"POST /knowledge/k/dirs/create": {"id": "d"}})
+  tool.valves.permissions = mode
+  questions = []
+
+  async def confirm(event):
+    assert calls == []
+    questions.append(event)
+    assert "new" in event["data"]["message"]
+    return decision
+
+  user = {"valves": {"mode": user_mode}} if user_mode else None
+  result = asyncio.run(
+    tool.ensure_knowledge_directory_path(
+      "k",
+      "new",
+      __request__=object(),
+      __user__=user,
+      __event_call__=confirm if decision is not None else None,
+    )
+  )
+  assert bool(questions) is asked
+  if denied:
+    assert json.loads(result)["result"]["denied"] is True
+    assert calls == []
+  else:
+    assert "directory_id=d" in result
+    assert [(method, url) for method, url, _ in calls] == [
+      ("GET", "/knowledge/k/files"),
+      ("POST", "/knowledge/k/dirs/create"),
+    ]
