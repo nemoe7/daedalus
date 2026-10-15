@@ -501,6 +501,7 @@ A chip reads as noise, so the separator stays plain, and the icons keep the text
 .card[data-section="hooks"] .keys td.name { min-width: 9rem; white-space: normal; overflow-wrap: anywhere; }
 .card[data-section="hooks"] .keys .hook-title { display: block; }
 .card[data-section="hooks"] .keys .hook-author { display: block; font-size: 0.85em; color: var(--muted, #8b8b8b); }
+.card[data-section="hooks"] .keys .hook-problem { color: var(--bad); white-space: normal; overflow-wrap: anywhere; }
 .card[data-section="hooks"] .keys .hook-sha { display: block; font-size: 0.85em; color: var(--muted, #8b8b8b); font-family: monospace; }
 .card[data-section="hooks"] .keys td.surfaces { white-space: normal; }
 .card[data-section="hooks"] .keys td.surfaces .pill { white-space: nowrap; }

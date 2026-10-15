@@ -1815,7 +1815,8 @@ function hooksManager() {
     const source = record.repo ? `${record.repo}@${(record.commit || "").slice(0, 7)}` : "";
     const title = row.title || row.name;
     const author = row.author ? `<span class="hook-author">${esc(row.author)}</span>` : "";
-    return `<tr><td role="cell" class="name"><span class="cell-value" title="${esc(row.name)}"><span class="hook-title">${esc(title)}</span>${author}</span></td>
+    const problem = row.problem ? statusBadge(row.problem, { variant: "hook-problem only-sm" }) : "";
+    return `<tr><td role="cell" class="name"><span class="cell-value" title="${esc(row.name)}"><span class="hook-title">${esc(title)}</span>${author}${problem}</span></td>
       <td role="cell"><span class="cell-value">${esc(hookVersion(row))}</span></td>
       <td role="cell" class="surfaces">${hookSurfacesCell(row)}</td>
       <td role="cell"><span class="cell-value">${esc(row.scope || t("hook.scope.global_text"))}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>

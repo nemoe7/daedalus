@@ -3113,6 +3113,8 @@ assert(html.includes('data-hook-toggle="one.py"') && html.includes('data-hook-to
 assert(html.includes('>1.2.0<') && html.includes('provider: openrouter'), 'the version and the scope of a file');
 assert(html.includes('owner/name@ccccccc'), 'the source of an installed file');
 assert(html.includes('unknown surface'), 'a bad block shows its problem');
+const phoneError = html.match(/<span class="hook-problem only-sm">([^<]+)/);
+assert(phoneError && phoneError[1].includes('unknown surface'), 'the phone card keeps the file error');
 assert(!html.includes('data-hook-take'), 'no scan before a repo is selected');
 probe.setListValue('hooks', 'disabled', []);
 assert(JSON.stringify(probe.settingsChanges().hooks.disabled) === '[]', 'the off names reach the payload');
