@@ -753,3 +753,67 @@ def test_directory_path_creation_uses_the_new_item_gate(
       ("GET", "/knowledge/k/files"),
       ("POST", "/knowledge/k/dirs/create"),
     ]
+
+
+@pytest.mark.parametrize(
+  ("operation", "arguments", "targets"),
+  [
+    (
+      "list_knowledge_files",
+      {
+        "knowledge_id": "knowledge-target",
+        "directory_id": "directory-target",
+        "page": 2,
+      },
+      ("knowledge-target", "directory-target", "2"),
+    ),
+    ("read_knowledge_file", {"file_id": "file-target"}, ("file-target",)),
+    (
+      "read_knowledge_file_at_path",
+      {"knowledge_id": "knowledge-target", "path": "folder/note.md"},
+      ("knowledge-target", "folder/note.md"),
+    ),
+    ("search_knowledge_files", {"query": "query-target"}, ("query-target",)),
+    (
+      "find_and_read_knowledge_file",
+      {"query": "query-target", "exact_filename": "note-target.md"},
+      ("query-target", "note-target.md"),
+    ),
+    ("get_knowledge_tree", {"knowledge_id": "knowledge-target"}, ("knowledge-target",)),
+    ("search_files", {"filename": "file-target"}, ("file-target",)),
+    ("read_file_content", {"file_id": "file-target"}, ("file-target",)),
+    ("show_skill", {"skill_id": "skill-target"}, ("skill-target",)),
+    ("show_tool", {"tool_id": "tool-target"}, ("tool-target",)),
+    ("show_function", {"function_id": "function-target"}, ("function-target",)),
+  ],
+)
+@pytest.mark.parametrize("approved", [False, True])
+def test_read_confirmation_identifies_targets_before_requests(
+  operation, arguments, targets, approved
+):
+  tool, calls = make_tool()
+  events = []
+  before = []
+
+  async def confirm(event):
+    events.append(event)
+    before.append(bool(calls))
+    return approved
+
+  result = asyncio.run(
+    getattr(tool, operation)(
+      **arguments,
+      __request__=object(),
+      __event_call__=confirm,
+    )
+  )
+  assert len(events) == 1
+  assert events[0]["type"] == "confirmation"
+  for target in targets:
+    assert target in events[0]["data"]["message"]
+  assert before == [False]
+  if approved:
+    assert calls
+  else:
+    assert json.loads(result)["result"]["denied"] is True
+    assert calls == []

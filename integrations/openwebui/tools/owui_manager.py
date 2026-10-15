@@ -582,7 +582,7 @@ class Tools:
 
     return await self._read(
       "read list_knowledge_files",
-      str(locals().get("page", "") or ""),
+      f"Knowledge base: {knowledge_id}\nDirectory: {directory_id or 'ROOT'}\nPage: {page}",
       run,
       __user__,
       __event_call__,
@@ -1123,7 +1123,7 @@ class Tools:
 
     return await self._read(
       "read read_knowledge_file",
-      str(locals().get("page", "") or ""),
+      f"File: {file_id}",
       run,
       __user__,
       __event_call__,
@@ -1207,7 +1207,7 @@ class Tools:
 
     return await self._read(
       "read read_knowledge_file_at_path",
-      str(locals().get("page", "") or ""),
+      f"Knowledge base: {knowledge_id}\nPath: {path}",
       run,
       __user__,
       __event_call__,
@@ -1676,7 +1676,7 @@ class Tools:
 
     return await self._read(
       "read search_knowledge_files",
-      str(locals().get("page", "") or ""),
+      f"Query: {query}\nPage: {page}",
       run,
       __user__,
       __event_call__,
@@ -1750,7 +1750,7 @@ class Tools:
 
     return await self._read(
       "read find_and_read_knowledge_file",
-      str(locals().get("page", "") or ""),
+      f"Query: {query}\nExact filename: {exact_filename}",
       run,
       __user__,
       __event_call__,
@@ -1838,7 +1838,7 @@ class Tools:
 
     return await self._read(
       "read get_knowledge_tree",
-      str(locals().get("page", "") or ""),
+      f"Knowledge base: {knowledge_id}",
       run,
       __user__,
       __event_call__,
@@ -2199,7 +2199,7 @@ class Tools:
 
     return await self._read(
       "read search_files",
-      str(locals().get("page", "") or ""),
+      f"Filename: {filename}",
       run,
       __user__,
       __event_call__,
@@ -2243,7 +2243,7 @@ class Tools:
 
     return await self._read(
       "read read_file_content",
-      str(locals().get("page", "") or ""),
+      f"File: {file_id}",
       run,
       __user__,
       __event_call__,
@@ -2453,7 +2453,7 @@ class Tools:
 
     return await self._read(
       "read show_skill",
-      str(locals().get("page", "") or ""),
+      f"Skill: {skill_id}",
       run,
       __user__,
       __event_call__,
@@ -3042,7 +3042,7 @@ class Tools:
 
     return await self._read(
       "read show_tool",
-      str(locals().get("page", "") or ""),
+      f"Tool: {tool_id}",
       run,
       __user__,
       __event_call__,
@@ -3283,7 +3283,7 @@ class Tools:
 
     return await self._read(
       "read show_function",
-      str(locals().get("page", "") or ""),
+      f"Function: {function_id}",
       run,
       __user__,
       __event_call__,
