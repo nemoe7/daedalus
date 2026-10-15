@@ -188,6 +188,49 @@ def test_rejected_form_keeps_saved_values(
   assert calls == [("reload", main), ("rebuild", rebuild)]
 
 
+@pytest.mark.parametrize("route", ["providers", "files", "env"])
+def test_save_name_shapes(
+  client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, route: str
+) -> None:
+  main = tmp_path / "main.yml"
+  original = "groq:\n  api_key: db:GROQ_API_KEY\n"
+  main.write_text(original)
+  monkeypatch.setattr(config, "DEFAULT_PATH", main)
+  monkeypatch.setattr(dashboard, "FILES", (main,))
+  monkeypatch.setattr(store, "MODELS_DB", tmp_path / "state.sqlite3")
+  saved_env.save(store.MODELS_DB, "GROQ_API_KEY", "old-key")
+  values = saved_env.read(store.MODELS_DB)
+  calls = []
+  monkeypatch.setattr(config, "load_config", lambda path: calls.append("reload"))
+  monkeypatch.setattr(api, "CATALOG_REBUILD_CACHED", lambda: None)
+  monkeypatch.setattr(
+    dashboard.schedule, "request", lambda task: calls.append("rebuild")
+  )
+  payload = {
+    "providers": {"blocks": yaml.safe_load(original)},
+    "files": {"text": original},
+    "env": {"value": "new-key"},
+  }[route]
+  field = "name" if route == "env" else "path"
+  url = f"/ui/api/{route}"
+  control = client.put(url, json={**payload, field: "unknown"})
+  assert control.status_code == 400
+  valid_name = "GROQ_API_KEY" if route == "env" else str(main)
+  for name in ([], {}, [valid_name], None, 1, False):
+    response = client.put(url, json={**payload, field: name})
+    assert response.status_code == 400, response.text
+    assert response.json() == control.json()
+  assert main.read_text() == original
+  assert saved_env.read(store.MODELS_DB) == values
+  assert calls == []
+  response = client.put(url, json={**payload, field: valid_name})
+  assert response.status_code == 200, response.text
+  assert calls == ["reload", "rebuild"]
+  assert saved_env.read(store.MODELS_DB) == {
+    "GROQ_API_KEY": "new-key" if route == "env" else "old-key"
+  }
+
+
 @pytest.fixture(scope="module")
 def client(tmp_path_factory: pytest.TempPathFactory):
   original = config.DEFAULT_PATH, dashboard.FILES

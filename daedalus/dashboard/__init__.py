@@ -1176,7 +1176,11 @@ def file_routes(
       return denied()
     body = await json_body(request)
     names = {str(path): path for path in config_files()}
-    if not isinstance(body, dict) or body.get("path") not in names:
+    if (
+      not isinstance(body, dict)
+      or not isinstance(body.get("path"), str)
+      or body["path"] not in names
+    ):
       return failure(400, "Unknown config file.", "invalid_request_error")
     path, blocks = names[body["path"]], body.get("blocks")
     if not isinstance(blocks, dict) or not all(
@@ -1223,7 +1227,7 @@ def file_routes(
     body = await json_body(request)
     name = body.get("name") if isinstance(body, dict) else None
     value = body.get("value") if isinstance(body, dict) else None
-    if name not in env_names():
+    if not isinstance(name, str) or name not in env_names():
       return failure(
         400,
         "No provider file uses this name.",
@@ -1257,7 +1261,11 @@ def file_routes(
       return denied()
     body = await json_body(request)
     names = {str(path): path for path in config_files()}
-    if not isinstance(body, dict) or body.get("path") not in names:
+    if (
+      not isinstance(body, dict)
+      or not isinstance(body.get("path"), str)
+      or body["path"] not in names
+    ):
       return failure(400, "Unknown config file.", "invalid_request_error")
     path, text = names[body["path"]], body.get("text")
     if not isinstance(text, str):

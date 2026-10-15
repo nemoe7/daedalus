@@ -934,6 +934,51 @@ def test_demo_rejected_provider_form_keeps_state(tmp_path: Path) -> None:
   assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
 
 
+def test_demo_save_name_shapes(tmp_path: Path) -> None:
+  out = pages_demo.build(tmp_path / "site", "demo.test")
+  script = (
+    NODE_SETUP
+    + """
+(async () => {
+  const read = async path => (await context.fetch("ui/api/" + path)).json();
+  const file = (await read("files")).find(row => row.main);
+  const env = (await read("env"))[0];
+  const before = await Promise.all(["files", "env", "models"].map(read));
+  for (const [route, field, name, payload] of [
+    ["providers", "path", file.path, { blocks: file.blocks }],
+    ["files", "path", file.path, { text: file.text }],
+    ["env", "name", env.name, { value: "new-key" }],
+  ]) {
+    const put = value => context.fetch("ui/api/" + route, {
+      method: "PUT", headers: JSON_HEADERS,
+      body: JSON.stringify({ ...payload, [field]: value }),
+    });
+    const control = await put("unknown");
+    check(control.status === 400, "reject unknown name");
+    const error = JSON.stringify(await control.json());
+    for (const value of [[], {}, [name], null, 1, false]) {
+      const response = await put(value);
+      check(response.status === 400, "reject invalid name shape");
+      check(JSON.stringify(await response.json()) === error, "keep error shape");
+    }
+  }
+  const after = await Promise.all(["files", "env", "models"].map(read));
+  check(JSON.stringify(after) === JSON.stringify(before), "rejected names keep state");
+  check(context.network.length === 0, "no network calls");
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
+  )
+  result = subprocess.run(
+    ["node", "-e", script],
+    cwd=out,
+    capture_output=True,
+    text=True,
+    timeout=10,
+    check=False,
+  )
+  assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+
+
 def test_the_capture_builds_the_demo_state() -> None:
   """The capture runs the dashboard in this process, so the fixtures can be made again."""
   assert pytest.importorskip("fastapi")
