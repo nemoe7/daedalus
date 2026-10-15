@@ -512,6 +512,49 @@ def test_hooks_sources_take_a_repo_path_ref_and_flag() -> None:
       settings.parse(text)
 
 
+@pytest.mark.parametrize(
+  "name",
+  [
+    "one.py",
+    "one",
+    "owner/repo/one.py",
+    "owner/repo/one",
+    "nested/one.py",
+    "owner/_repo/one.py",
+    f"{'o' * 100}/{'r' * 100}/{'f' * 80}.py",
+  ],
+)
+def test_disabled_hook_identity_round_trip(name):
+  """Safe relative identities survive settings validation and serialization."""
+  text = settings.update_text("", {"hooks": {"disabled": [name]}})
+  assert settings.parse(text)["hooks"]["disabled"] == [name]
+
+
+@pytest.mark.parametrize(
+  "name",
+  [
+    None,
+    7,
+    True,
+    "",
+    "/owner/repo/one.py",
+    "../one.py",
+    "owner/../one.py",
+    "owner/./one.py",
+    "owner//one.py",
+    "owner/repo/",
+    "owner\\repo\\one.py",
+    "C:/one.py",
+    "owner/repo/one\x00.py",
+    f"owner/{'r' * 101}/one.py",
+    "owner/" + "r/" * 256 + "one.py",
+  ],
+)
+def test_unsafe_disabled_hook_identities_fail(name):
+  with pytest.raises(settings.SettingsError):
+    settings.parse(yaml.safe_dump({"hooks": {"disabled": [name]}}))
+
+
 def test_hooks_disabled_names_stay_off() -> None:
   """`hooks.disabled` holds the names that stay on disk and do not load."""
   assert settings.parse("")["hooks"]["disabled"] == []
@@ -519,7 +562,7 @@ def test_hooks_disabled_names_stay_off() -> None:
     "one.py",
     "two",
   ]
-  for bad in ("nope", "[one.py, 7]", "[a/b]"):
+  for bad in ("nope", "[one.py, 7]", "[a/../b]"):
     with pytest.raises(settings.SettingsError, match="list of hook names"):
       settings.parse(f"hooks:\n  disabled: {bad}\n")
 

@@ -284,7 +284,16 @@ def ordered(surface: str, paths: list[Path]) -> list[Path]:
 
 def enabled(path: Path) -> bool:
   """True when the settings do not disable this hook file."""
-  return path.name not in DISABLED and path.stem not in DISABLED
+  if not DISABLED:
+    return True
+  names = {path.name, path.stem}
+  try:
+    relative = path.absolute().relative_to(folder())
+  except ValueError:
+    pass
+  else:
+    names.update((relative.as_posix(), relative.with_suffix("").as_posix()))
+  return names.isdisjoint(DISABLED)
 
 
 def file_rows() -> list[tuple[str, Path]]:

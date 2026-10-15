@@ -49,7 +49,7 @@ READS = (
   "status",
 )
 
-NODE_CHECK = """
+NODE_SETUP = """
 const fs = require("fs");
 const vm = require("vm");
 const context = {
@@ -74,6 +74,11 @@ const check = (ok, text) => {
   if (!ok) throw new Error(text);
   console.log("ok " + text);
 };
+"""
+
+NODE_CHECK = (
+  NODE_SETUP
+  + """
 (async () => {
   const status = await context.fetch("ui/api/status");
   check(status.status === 200, "status");
@@ -416,6 +421,7 @@ const check = (ok, text) => {
   process.exit(1);
 });
 """
+)
 
 
 def test_the_fixtures_cover_each_call_of_the_page() -> None:
@@ -739,6 +745,87 @@ def test_the_demo_answers_the_page_without_a_server(tmp_path: Path) -> None:
   assert f"models {len(fixtures['models'])}\n" in built.stdout, (
     f"the page serves each row of the snapshot: {built.stdout}"
   )
+
+
+@pytest.mark.parametrize("mode", ["changes", "text"])
+@pytest.mark.parametrize(
+  "disabled, enabled",
+  [
+    (["a/repo/shared.py"], [False, True]),
+    (["a/repo/shared"], [False, True]),
+    (["b/repo/shared.py"], [True, False]),
+    (["shared.py"], [False, False]),
+    (["shared"], [False, False]),
+    ([], [True, True]),
+    (None, [True, True]),
+    ("", [True, True]),
+    (["a/" + "b" * 100], [True, True]),
+    ("shared.py", None),
+    ([None], None),
+    (["../shared.py"], None),
+    (["a//shared.py"], None),
+    (["a\\shared.py"], None),
+    (["a/shared.py\n"], None),
+    (["a/" + "b" * 101], None),
+    (["a" * 81], None),
+  ],
+)
+def test_demo_hook_identities(
+  tmp_path: Path, monkeypatch, mode, disabled, enabled
+) -> None:
+  """The demo checks hook identities and shows each saved switch state."""
+  fixtures = pages_demo.demo_fixtures("demo.9")
+  sample = fixtures["settings"]["hook_rows"][0]
+  fixtures["settings"]["hook_rows"] = [
+    {**sample, "name": f"{source}/repo/shared.py", "enabled": True, "problem": ""}
+    for source in ("a", "b")
+  ] + [{**sample, "name": "broken.py", "enabled": False, "problem": "invalid"}]
+  fixtures["settings"]["file"].setdefault("hooks", {})["disabled"] = []
+  monkeypatch.setattr(pages_demo, "demo_fixtures", lambda version: fixtures)
+  out = pages_demo.build(tmp_path / "site", "demo.9")
+  values = {"hooks": {"disabled": disabled}}
+  body = (
+    {"text": "hooks:\n  disabled: " + json.dumps(disabled) + "\n"}
+    if mode == "text"
+    else {"changes": values}
+  )
+  (out / "case.json").write_text(json.dumps({"body": body, "enabled": enabled}))
+  script = (
+    NODE_SETUP
+    + """
+(async () => {
+  const scenario = JSON.parse(fs.readFileSync("case.json", "utf8"));
+  const read = async () => (await context.fetch("ui/api/settings")).json();
+  const save = (body) => context.fetch("ui/api/settings", {
+    method: "PUT", body: JSON.stringify(body),
+  });
+  const before = await read();
+  const answer = await save(scenario.body);
+  check(answer.status === (scenario.enabled === null ? 422 : 200), "save status");
+  const after = await read();
+  if (scenario.enabled === null) {
+    check(JSON.stringify(after) === JSON.stringify(before), "invalid save keeps state");
+  } else {
+    check(JSON.stringify(after.hook_rows.map(row => row.enabled)) ===
+      JSON.stringify([...scenario.enabled, false]), "source and legacy switch states");
+    const reset = await save({ changes: { hooks: { disabled: [] } } });
+    check(reset.status === 200, "clear disabled hooks");
+    check(JSON.stringify((await read()).hook_rows.map(row => row.enabled)) ===
+      JSON.stringify([true, true, false]), "clear restores valid hooks only");
+  }
+  check(context.network.length === 0, "no network calls");
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
+  )
+  result = subprocess.run(
+    ["node", "-e", script],
+    cwd=out,
+    capture_output=True,
+    text=True,
+    timeout=10,
+    check=False,
+  )
+  assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
 
 
 def test_the_capture_builds_the_demo_state() -> None:

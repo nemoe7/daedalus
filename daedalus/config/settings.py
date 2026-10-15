@@ -148,6 +148,8 @@ TIME_FORMATS = ("24h", "12h")
 # A folder at the root that holds the hook files, and the name of 1 hook file.
 DIR_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,39}")
 HOOK_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}")
+# Parts of a source-qualified hook identity. The whole identity is at most 512 characters.
+HOOK_PART = re.compile(r"[A-Za-z0-9._-]{1,100}")
 # The GitHub repository of the update check, as owner/name.
 REPO_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9._-]+")
 # The keys of 1 hook source, and the keys that left the hooks group with the group that replaces them.
@@ -316,13 +318,25 @@ def source_list(name: str, value: Any) -> list[dict[str, Any]]:
   return found
 
 
+def hook_name(value: Any) -> bool:
+  """True for a legacy name or a bounded relative hook identity."""
+  if not isinstance(value, str):
+    return False
+  if HOOK_NAME.fullmatch(value):
+    return True
+  parts = value.split("/")
+  return (
+    len(value) <= 512
+    and len(parts) > 1
+    and all(part not in (".", "..") and HOOK_PART.fullmatch(part) for part in parts)
+  )
+
+
 def name_list(name: str, value: Any) -> list[str]:
   """The names of the hooks that stay on disk and do not load."""
   if value in (None, ""):
     return []
-  if not isinstance(value, list) or not all(
-    isinstance(item, str) and HOOK_NAME.fullmatch(item) for item in value
-  ):
+  if not isinstance(value, list) or not all(hook_name(item) for item in value):
     raise SettingsError(f"{name} must be a list of hook names")
   return list(value)
 

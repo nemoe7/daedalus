@@ -706,6 +706,16 @@ const DEMO_FIXTURES = __FIXTURES__;
     }
     return { value: box.node };
   };
+  const hook_name = (value) => {
+    if (typeof value !== "string" || value.length > 512 || /[^A-Za-z0-9._/-]/.test(value)) return false;
+    const parts = value.split("/");
+    if (parts.length === 1) return value.length <= 80 && /^[A-Za-z0-9]/.test(value);
+    return parts.every(part => part.length > 0 && part.length <= 100 && part !== "." && part !== "..");
+  };
+  const hook_names_error = (value) => {
+    if (value === null || value === undefined || value === "") return "";
+    return Array.isArray(value) && value.every(hook_name) ? "" : "hooks.disabled must be a list of hook names";
+  };
   // `settings.parse` of the server: the error line of a settings text, or an empty string.
   const settings_error = (value) => {
     if (!value || typeof value !== "object" || Array.isArray(value))
@@ -717,6 +727,8 @@ const DEMO_FIXTURES = __FIXTURES__;
       for (const key of Object.keys(values)) {
         if (!(key in DEFAULTS[group])) return `unknown key ${group}.${key} in ${SETTINGS_PATH}`;
       }
+      const error = group === "hooks" ? hook_names_error(values.disabled) : "";
+      if (error) return error;
     }
     const pools = { ...DEFAULTS.personalization, ...(value.personalization || {}) };
     if (new Set(Object.values(pools)).size !== Object.keys(pools).length)
@@ -908,6 +920,8 @@ const DEMO_FIXTURES = __FIXTURES__;
       for (const key of Object.keys(values)) {
         if (!(key in DEFAULTS[group])) return bad(`unknown key ${group}.${key}`, 422);
       }
+      const error = group === "hooks" ? hook_names_error(values.disabled) : "";
+      if (error) return bad(error, 422);
     }
     for (const [group, values] of Object.entries(changes)) {
       const file = DEMO_FIXTURES.settings.file;
@@ -1309,6 +1323,17 @@ const DEMO_FIXTURES = __FIXTURES__;
       cooldown: cooldowns.has(row.id) ? cooldowns.get(row.id) : row.cooldown ?? null,
     })));
     if (path === "pools") return json(pools());
+    if (path === "settings") {
+      const saved = DEMO_FIXTURES.settings;
+      const disabled = saved.file.hooks?.disabled || [];
+      const hook_rows = saved.hook_rows.map(row => {
+        const names = [row.name, row.name.split("/").pop()];
+        const enabled = !row.problem && !names.some(name =>
+          disabled.includes(name) || disabled.includes(name.slice(0, -3)));
+        return { ...row, enabled };
+      });
+      return json({ ...saved, hook_rows });
+    }
     if (path === "limits") return check_limits();
     if (path === "notifications") return json(DEMO_FIXTURES.notifications);
     if (path === "status")

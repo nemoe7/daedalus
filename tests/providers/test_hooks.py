@@ -67,6 +67,41 @@ def test_disabled_hook_stays_out_of_explicit_calls(
   }
 
 
+@pytest.mark.parametrize(
+  ("disabled", "expected"),
+  [
+    ("a/repo/shared.py", ["b"]),
+    ("a/repo/shared", ["b"]),
+    ("shared.py", []),
+    ("shared", []),
+  ],
+)
+def test_disabled_hook_identity_selects_its_source(
+  tmp_path, monkeypatch, disabled, expected
+):
+  """A relative identity selects one source, while a legacy name covers both."""
+  monkeypatch.setattr(hooks, "ROOT", tmp_path)
+  monkeypatch.setattr(hooks, "DIR", "hooks")
+  monkeypatch.setattr(hooks, "DISABLED", {disabled})
+  monkeypatch.setattr(hooks, "ORDER", {})
+  for source in ("a", "b"):
+    path = tmp_path / "hooks" / source / "repo" / "shared.py"
+    path.parent.mkdir(parents=True)
+    path.write_text(
+      "# ---\n# surfaces: [on-answer]\n# ---\n"
+      f"def on_answer(value, model):\n  value.setdefault('by', []).append({source!r})\n"
+    )
+  paths = [tmp_path / "hooks" / source / "repo" / "shared.py" for source in ("a", "b")]
+  assert [
+    source for source, path in zip(("a", "b"), paths) if hooks.enabled(path)
+  ] == expected
+  rows = {row["name"]: row for row in hooks.rows()}
+  assert rows["a/repo/shared.py"]["enabled"] is False
+  assert rows["b/repo/shared.py"]["enabled"] is ("b" in expected)
+  assert hooks.run("on-answer", {}, "p/m", {}).get("by", []) == expected
+  assert hooks.run_files("on-answer", paths, {}, model="p/m").get("by", []) == expected
+
+
 def test_no_hooks() -> None:
   """Without a hooks list, the value stays the same object."""
   body = {"model": "m"}
