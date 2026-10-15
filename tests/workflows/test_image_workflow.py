@@ -1,4 +1,4 @@
-"""The Docker workflow. One file publishes the dev image and the release image."""
+"""One Docker workflow publishes development and release images."""
 
 from pathlib import Path
 
@@ -43,7 +43,7 @@ def test_docker_workflow_release_job_validates_the_tag_and_the_sha() -> None:
 
 
 def test_docker_workflow_release_job_keeps_its_own_queue() -> None:
-  """A release merge never cancels another one, so latest ends on the newest tag."""
+  """Release merges share a queue without cancellation and have a 10-minute timeout."""
   jobs = YAML(typ="safe").load(WORKFLOW.read_text())["jobs"]
   assert jobs["release-merge"]["concurrency"] == {
     "group": "docker-release",
@@ -53,7 +53,7 @@ def test_docker_workflow_release_job_keeps_its_own_queue() -> None:
 
 
 def test_docker_workflow_keeps_least_privilege_at_the_top() -> None:
-  """The workflow reads. Each job that publishes asks for packages: write itself."""
+  """The workflow defaults to read-only access, and publishing jobs request package-write access."""
   data = YAML(typ="safe").load(WORKFLOW.read_text())
 
   assert data["permissions"] == {"contents": "read"}
@@ -84,7 +84,7 @@ def test_docker_workflow_dev_job_publishes_dev_tags() -> None:
   assert "github.event.workflow_run.name == 'CI'" in content
   assert "github.event.workflow_run.conclusion == 'success'" in content
   assert "github.event.workflow_run.head_branch == 'main'" in content
-  # The checkout takes a fixed trusted ref. The commit CI tested is compared only.
+  # The checkout uses a fixed trusted ref and only compares the commit from CI.
   assert "ref: main" in content
   assert "Pin the tested commit" in content
   assert "type=raw,value=dev\n" in content
@@ -116,7 +116,7 @@ def test_docker_workflow_dispatch_chooses_dev_or_release() -> None:
 
 
 def test_docker_workflow_splits_the_two_jobs() -> None:
-  """CI on main builds the dev image. A Gemini run builds the release image."""
+  """The test checks development and release modes and the Gemini Release Draft workflow name."""
   content = WORKFLOW.read_text()
   assert "inputs.mode == 'dev'" in content
   assert "inputs.mode == 'release'" in content
@@ -124,7 +124,7 @@ def test_docker_workflow_splits_the_two_jobs() -> None:
 
 
 def test_docker_workflow_builds_each_platform_on_a_native_runner() -> None:
-  """Each platform builds on its own runner, so no leg emulates the other one."""
+  """Each platform uses a native runner without emulation."""
   data = YAML(typ="safe").load(WORKFLOW.read_text())
   content = WORKFLOW.read_text()
 
@@ -133,7 +133,6 @@ def test_docker_workflow_builds_each_platform_on_a_native_runner() -> None:
     assert [entry["arch"] for entry in matrix] == ["amd64", "arm64"]
     assert [entry["runner"] for entry in matrix] == ["ubuntu-24.04", "ubuntu-24.04-arm"]
 
-  # QEMU left with the emulated build. Each leg pushes a digest only.
   assert "docker/setup-qemu-action" not in content
   assert content.count("platforms: linux/${{ matrix.arch }}") == 2
   assert content.count("push-by-digest=true") == 2
@@ -142,7 +141,7 @@ def test_docker_workflow_builds_each_platform_on_a_native_runner() -> None:
   assert content.count("merge-multiple: true") == 2
   assert "name: digests-dev-${{ matrix.arch }}" in content
   assert "name: digests-release-${{ matrix.arch }}" in content
-  # An attestation entry never hides behind a digest, and a bad input fails by name.
+  # Check disabled attestations and missing-tag/digest guards.
   assert content.count("provenance: false") == 2
   assert content.count("sbom: false") == 2
   assert content.count("The metadata output holds no tag") == 2
@@ -152,15 +151,15 @@ def test_docker_workflow_builds_each_platform_on_a_native_runner() -> None:
   assert '"-t " + .' not in content
 
 
-def test_no_duplicate_docker_publishing_workflow_remains() -> None:
-  """The dev and release workflows live in docker.yml now, and nowhere else."""
+def test_docker_workflow_replaces_the_two_known_image_workflow_files() -> None:
+  """`docker.yml` exists, while `dev-image.yml` and `image.yml` do not."""
   assert not Path(".github/workflows/dev-image.yml").exists()
   assert not Path(".github/workflows/image.yml").exists()
   assert "docker.yml" in [path.name for path in Path(".github/workflows").glob("*.yml")]
 
 
 def test_docker_workflow_dev_job_waits_for_ci_on_main() -> None:
-  """The dev job only runs for a successful CI run whose branch is main."""
+  """The workflow-run path requires successful CI on main."""
   content = WORKFLOW.read_text()
   dev = content[content.index("  dev:") : content.index("  release:")]
   assert "github.event.workflow_run.name == 'CI'" in dev
@@ -172,7 +171,7 @@ DOCKERFILE = Path("Dockerfile")
 
 
 def test_dockerfile_removes_pip_from_the_image() -> None:
-  """The start runs the uv venv, so pip only adds its vendored packages to the scan."""
+  """The runtime image removes system pip and setuptools."""
   content = DOCKERFILE.read_text()
 
   # The uninstall needs the system Python: PATH puts the uv venv first and it has no pip.
