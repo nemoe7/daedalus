@@ -65,7 +65,7 @@ def test_image_size_guard(monkeypatch, side: int) -> None:
 
 
 def test_flux2_multipart() -> None:
-  """A FLUX.2 image request is multipart, also with a prompt only. Other models get JSON."""
+  """FLUX.2 requests use multipart data, including prompt-only requests, while other models use JSON."""
   payload = {"prompt": "a cat", "size": "1024x768"}
   slug = "@cf/black-forest-labs/flux-2-klein-4b"
   url, options, headers = CLOUDFLARE.image_request(slug, payload)

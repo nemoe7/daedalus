@@ -168,7 +168,9 @@ def test_history() -> None:
     {"role": "assistant", "content": "plain", "reasoning_content": ""},
   ]
   sent = PROVIDER.request("m", {"messages": messages})[1]["messages"]
-  assert sent[0] == {"role": "user", "content": "hi"}, "only assistant messages change"
+  assert sent[0] == {"role": "user", "content": "hi"}, (
+    "the provider removes reasoning content from user messages"
+  )
   assert sent[1]["content"] == [thinking, {"type": "text", "text": "391"}], sent[1]
   assert sent[2]["content"] == [thinking] and sent[2]["tool_calls"] == [call], sent[2]
   assert sent[3]["content"] == [thinking, {"type": "text", "text": "a"}], sent[3]
