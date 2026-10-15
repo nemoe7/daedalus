@@ -60,6 +60,7 @@ const context = {
   Response, Headers, URL, clearTimeout, console, Promise, Math, JSON, Object, Array, performance,
   network: [], listeners: [], timers: [],
 };
+context.location.search = process.env.DEMO_QUERY || "";
 context.window = context;
 context.addEventListener = (kind) => context.listeners.push(kind);
 // The rebuild waits 26 s. The test shortens only that timer.
@@ -219,7 +220,7 @@ NODE_CHECK = (
   check(!files.some((row) => row.shadow),
     "a sibling provider file does not suppress its cloud main block");
   const models = await (await context.fetch("ui/api/models")).json();
-  check(models.length > 100, "the models are the captured snapshot");
+  check(models.length === served.length, "the model count stays unchanged");
   check(models.every((row) => !String(row.id).includes("*")), "no glob reaches the models page");
   const nonChat = models.filter((row) => row.mode !== "chat");
   check(nonChat.length > 0 && nonChat.every((row) => row.tier === null),
@@ -408,9 +409,11 @@ NODE_CHECK = (
   check(grown.length > all.length, "the finished row joins the table");
   // An auto row names the pool that answered, as the live server records it.
   const autos = grown.filter((row) => String(row.model).startsWith("daedalus/auto"));
-  check(autos.length > 0 && autos.every((row) =>
-    ["sophos", "deinos", "koinos", "moros"].includes(row.pool)),
-    "an auto row names the pool that answered");
+  const fixturePools = JSON.parse(fs.readFileSync("expected-pools.json", "utf8"));
+  const poolOf = new Map(fixturePools.filter(pool => pool.name !== "daedalus/auto")
+    .flatMap(pool => pool.members.map(member => [member.id, pool.name.replace("daedalus/", "")])));
+  check(autos.length > 0 && autos.every(row => row.pool === poolOf.get(row.via)),
+    "an auto row names the pool of its served model");
   // The status and the cards read the same state as the table.
   const liveStatus = await (await context.fetch("ui/api/status")).json();
   check(liveStatus.models === (await (await context.fetch("ui/api/models")).json()).length,
@@ -518,6 +521,32 @@ NODE_CHECK = (
 )
 
 
+def demo_read(out: Path, *paths: str) -> dict:
+  script = (
+    NODE_SETUP
+    + """
+(async () => {
+  const rows = await Promise.all(process.argv.slice(1).map(async path => {
+    const answer = await context.fetch("ui/api/" + path);
+    if (answer.status !== 200) throw new Error(path + ": " + answer.status);
+    return [path, await answer.json()];
+  }));
+  console.log(JSON.stringify(Object.fromEntries(rows)));
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
+  )
+  result = subprocess.run(
+    ["node", "-e", script, *paths],
+    cwd=out,
+    capture_output=True,
+    text=True,
+    timeout=10,
+    check=False,
+  )
+  assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+  return json.loads(result.stdout)
+
+
 def test_the_fixtures_cover_each_call_of_the_page() -> None:
   """A new call on the page fails here, so the capture runs again."""
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
@@ -555,7 +584,6 @@ def test_the_fixtures_carry_the_edge_cases() -> None:
   """The demo shows the states that the page must fit: a long name, a cooldown and a failure."""
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
   rows = fixtures["models"]
-  assert len(rows) >= 10, len(rows)
   assert any(len(row["id"]) > 50 for row in rows), "a long model name"
   assert any(row.get("cooldown") for row in rows), "a cooldown"
   assert any(row.get("weight") is not None and row["weight"] < 1 for row in rows), (
@@ -652,39 +680,60 @@ def test_the_demo_main_form_uses_cloud_blocks_with_an_empty_local_file() -> None
     assert row["text"] == (shipped / Path(row["path"]).name).read_text(
       encoding="utf-8"
     ), row["path"]
-  assert len(fixtures["models"]) > 100, len(fixtures["models"])
+  captured = json.loads(pages_demo.MODELS_FILE.read_text(encoding="utf-8"))
+  assert {row["id"] for row in fixtures["models"]} == {row["id"] for row in captured}
 
 
-def test_the_demo_can_slow_its_answers_for_a_reviewer(tmp_path: Path) -> None:
-  """A reviewer sets `?slow=800` to watch the spinner and the skeleton rows of the page."""
-  out = pages_demo.build(tmp_path / "site", "demo.9")
-  script = (out / "demo.js").read_text(encoding="utf-8")
-  assert "const SLOW =" in script and "slow=([0-9]+)" in script, (
-    "the knob reads the address bar"
-  )
-  assert "SLOW ? wait(SLOW) : Promise.resolve()" in script, "every fixture answer waits"
-
-
-def test_the_demo_serves_auto_only_from_the_members_of_the_auto_pool(
-  tmp_path: Path,
+@pytest.mark.parametrize(
+  "query, delay", [("", 0), ("?slow=800", 800), ("?other=1&slow=25", 25)]
+)
+def test_the_demo_can_slow_its_answers_for_a_reviewer(
+  tmp_path: Path, query: str, delay: int
 ) -> None:
-  """The auto waves draw the members the auto pool holds, so no stray model answers."""
   out = pages_demo.build(tmp_path / "site", "demo.9")
-  script = (out / "demo.js").read_text(encoding="utf-8")
-  assert 'const TEXT = MEMBERS["daedalus/auto"]' in script, (
-    "the auto pool selects the chat models"
+  script = (
+    NODE_SETUP
+    + """
+(async () => {
+  const timers = [];
+  context.setTimeout = (fn, ms) => { timers.push({ fn, ms }); return 0; };
+  const delay = Number(process.argv[1]);
+  for (const path of process.argv.slice(2)) {
+    let settled = false;
+    const answer = context.fetch("ui/api/" + path);
+    answer.then(() => { settled = true; });
+    await Promise.resolve();
+    if (delay) {
+      check(!settled, "response waits for its timer");
+      check(timers.length === 1 && timers[0].ms === delay, "query sets response delay");
+      timers.shift().fn();
+    } else {
+      check(timers.length === 0, "no delay without the query");
+    }
+    check((await answer).status === 200, "response completes after delay");
+  }
+  check(context.network.length === 0, "no network calls");
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
   )
-  assert "MEDIA_PATH" not in script, "no name list decides the chat models"
+  result = subprocess.run(
+    ["node", "-e", script, str(delay), *READS],
+    cwd=out,
+    capture_output=True,
+    text=True,
+    env={**os.environ, "DEMO_QUERY": query},
+    timeout=10,
+    check=False,
+  )
+  assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+
+
+def test_the_auto_fixture_contains_only_chat_models() -> None:
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
   auto = next(row for row in fixtures["pools"] if row["name"] == "daedalus/auto")
   members = [item["id"] for item in auto["members"]]
   mode = {row["id"]: row["mode"] for row in fixtures["models"]}
-  assert members and all(mode.get(name) == "chat" for name in members), (
-    "every member of the auto pool is a chat model"
-  )
-  assert not any("leonardo/lucid-origin" in name for name in members), (
-    "no image model rides the auto pool"
-  )
+  assert members and all(mode.get(name) == "chat" for name in members)
 
 
 def test_demo_pool_membership(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -770,9 +819,8 @@ def test_the_demo_keeps_every_row_of_the_snapshot(tmp_path: Path) -> None:
   ids = [row["id"] for row in fixtures["models"]]
   assert len(ids) == len(set(ids)), "each row is listed once"
   out = pages_demo.build(tmp_path / "site", "demo.9")
-  script = (out / "demo.js").read_text(encoding="utf-8")
-  for model_id in ids:
-    assert f'"id": "{model_id}"' in script, f"{model_id} reaches the page"
+  models = demo_read(out, "models")["models"]
+  assert sorted(row["id"] for row in models) == sorted(ids)
 
 
 def test_the_demo_states_its_source_and_the_hook_versions(tmp_path: Path) -> None:
@@ -785,10 +833,9 @@ def test_the_demo_states_its_source_and_the_hook_versions(tmp_path: Path) -> Non
   assert not any(surface in hooks_file for surface in pages_demo.DEMO_HOOK_SURFACES), (
     "the demo exercises metadata-only hooks"
   )
-  assert "repo: nemoe7/daedalus" in fixtures["settings"]["text"], (
-    "the YAML card shows it"
-  )
-  assert "order:" in fixtures["settings"]["text"], "the YAML card shows the order"
+  shown_hooks = yaml.safe_load(fixtures["settings"]["text"])["hooks"]
+  assert shown_hooks["sources"] == hooks_file["sources"]
+  assert shown_hooks["order"] == hooks_file["order"]
   rows = {row["name"]: row for row in fixtures["settings"]["hook_rows"]}
   # The example of the base repo ships for copy, so the table leaves it out.
   shipped = {
@@ -804,11 +851,11 @@ def test_the_demo_states_its_source_and_the_hook_versions(tmp_path: Path) -> Non
   assert rows["owui_auto_reasoning_effort.py"]["runs"] == []
   assert rows["served_model.py"]["runs"] == []
   out = pages_demo.build(tmp_path / "site", "demo.test")
-  script = (out / "demo.js").read_text(encoding="utf-8")
-  assert '"repo": "nemoe7/daedalus"' in script, "the source reaches the page"
-  assert f'"version": "{rows["served_model.py"]["version"]}"' in script, (
-    "the version of a hook reaches the page"
-  )
+  shown = demo_read(out, "settings")["settings"]
+  assert shown["file"]["hooks"]["sources"] == [pages_demo.DEMO_SOURCE]
+  assert {row["name"]: row["version"] for row in shown["hook_rows"]} == {
+    name: row["version"] for name, row in rows.items()
+  }
 
 
 def test_a_capture_without_an_update_block_still_builds(
@@ -847,7 +894,13 @@ def test_the_build_copies_the_page_and_loads_the_demo_first(tmp_path: Path) -> N
   ):
     assert (out / "ui" / name).exists() or (out / name).exists(), name
   fixtures = pages_demo.demo_fixtures(pages_demo.demo_version())
-  assert json.dumps(fixtures) in (out / "demo.js").read_text(encoding="utf-8")
+  answers = demo_read(out, *READS)
+  for name in ("env", "files", "keys", "provider-defaults", "provider-keys", "hooks"):
+    assert answers[name] == fixtures[name], name
+  for name in ("file", "defaults"):
+    assert answers["settings"][name] == fixtures["settings"][name], name
+  assert answers["requests"] == []
+  assert answers["status"]["models"] == len(answers["models"])
 
 
 def test_the_demo_carries_the_version_of_the_build(tmp_path: Path) -> None:
@@ -980,7 +1033,11 @@ def test_demo_timing_and_event_contract(tmp_path: Path) -> None:
 
 def test_the_demo_answers_the_page_without_a_server(tmp_path: Path) -> None:
   """The script in a JavaScript runtime: the catalog count, a refused write and a live request."""
-  out = pages_demo.build(tmp_path / "site", pages_demo.demo_version())
+  version = pages_demo.demo_version()
+  out = pages_demo.build(tmp_path / "site", version)
+  (out / "expected-pools.json").write_text(
+    json.dumps(pages_demo.demo_fixtures(version)["pools"]), encoding="utf-8"
+  )
   built = subprocess.run(
     ["node", "-e", NODE_CHECK],
     cwd=out,
@@ -1184,7 +1241,10 @@ def test_the_capture_builds_the_demo_state() -> None:
   assert pytest.importorskip("fastapi")
   found = pages_demo.capture()
   assert found["status"]["version"] == DAEDALUS_VERSION, found["status"]["version"]
-  assert len(found["models"]) >= 10, len(found["models"])
+  captured = json.loads(pages_demo.MODELS_FILE.read_text(encoding="utf-8"))
+  assert sorted(row["id"] for row in found["models"]) == sorted(
+    row["id"] for row in captured
+  )
   assert found["requests"], "the demo requests"
 
 
