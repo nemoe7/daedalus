@@ -69,6 +69,7 @@ gemini:
     - gemini-3.1-pro-preview*
     - gemini-3.5-flash # Google deprecated the model
     - gemini-3.7-flash* # Google deprecated the model
+    - gemini-4-argon
     - deep-research*
     - "*omni*"
     - "*-image*"

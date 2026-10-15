@@ -720,6 +720,7 @@ def test_non_text() -> None:
     "gemini-2.5-flash-preview-tts",
     "gemini-2.5-flash",
     "gemini-3.5-flash",
+    "gemini-4-argon",
     "gemini-3.1-flash-lite",
   ]
   kept = discovery.select(providers["gemini"], gemini)
