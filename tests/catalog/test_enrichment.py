@@ -183,7 +183,7 @@ def test_column_values_drops_a_value_that_is_none() -> None:
 
 
 def test_column_values_turns_tools_into_the_function_calling_flag() -> None:
-  """`tools` is a config word. The column is a boolean."""
+  """The `tools` config value maps to the boolean function-calling column."""
   assert enrichment.column_values({"tools": True}) == {
     "supports_function_calling": True
   }
@@ -253,7 +253,7 @@ def test_enrich_gives_a_text_row_the_chat_mode() -> None:
 
 
 def test_enrich_reads_the_providers_at_the_same_time() -> None:
-  """The 2 provider reads of one source overlap, and each source keeps its own batch."""
+  """The provider reads can satisfy a two-party synchronization barrier."""
   both = threading.Barrier(2, timeout=5)
 
   def fetch(url: str, headers: dict[str, str]) -> dict:
@@ -308,7 +308,7 @@ def test_enrich_reports_a_modelschemas_source_that_failed() -> None:
 
 
 def test_enrich_fills_only_what_the_earlier_sources_left_empty() -> None:
-  """modelschemas fills the gaps. The native column and the config key keep the lead."""
+  """modelschemas fills gaps while native columns and config values take precedence."""
   fetch, _ = sequenced(PAGE, MS_PAGE)
   config = {"openrouter": {"models": {"c": {"supported_reasoning_efforts": ["xhigh"]}}}}
   rows, _ = enrichment.enrich(
@@ -385,7 +385,7 @@ def test_enrich_keeps_the_litellm_ladder_over_modelschemas() -> None:
 
 
 def test_enrich_lets_the_native_columns_beat_the_catalog() -> None:
-  """What the provider API said wins over what the catalog guessed."""
+  """Native RPM overrides the LiteLLM RPM."""
   fetch, _ = sequenced(PAGE)
   rows, _ = enrichment.enrich(
     ["openrouter/a"], {}, fetch, native={"openrouter/a": {"rpm": 1}}
@@ -394,7 +394,7 @@ def test_enrich_lets_the_native_columns_beat_the_catalog() -> None:
 
 
 def test_enrich_leaves_a_model_with_no_catalog_entry() -> None:
-  """No catalog row means no columns, not a missing model."""
+  """A model without a catalog entry remains in the results with no RPM value."""
   fetch, _ = sequenced(PAGE)
   rows, _ = enrichment.enrich(["openrouter/zzz"], {}, fetch)
   assert rows[0]["id"] == "openrouter/zzz"
@@ -402,7 +402,7 @@ def test_enrich_leaves_a_model_with_no_catalog_entry() -> None:
 
 
 def test_enrich_finalizes_the_supported_efforts_ladder() -> None:
-  """The store takes the resolved ladder of a reasoning model, null for one that does not, and the claimed tier."""
+  """Enrichment resolves effort lists and tiers, and clears efforts for non-reasoning models."""
   fetch, _ = sequenced(PAGE)
   config = {
     "openrouter": {
@@ -428,11 +428,11 @@ def test_enrich_finalizes_the_supported_efforts_ladder() -> None:
   )
   # the model key has the last word
   assert rows[0]["supported_efforts"] == ["xhigh"]
-  # a model that does not reasoning carries null, even if a list is present
+  # A non-reasoning model has no effort list, even when the source includes one.
   assert rows[1]["supported_efforts"] is None
-  # a reasoning model without config keys keeps the list its catalog row holds
+  # Keep the native effort list when no config key overrides it.
   assert rows[2]["supported_efforts"] == ["high", "medium"]
-  # the tier the block claims, or null for a row no pattern claims
+  # The matching tier patterns assign all three rows.
   assert rows[0]["tier"] == "TIER-A"
   assert rows[1]["tier"] == "TIER-B"
   assert rows[2]["tier"] == "TIER-A"
