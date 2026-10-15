@@ -3,7 +3,7 @@ title: GitHub
 author: nemo
 description: GitHub access for Open WebUI. Reads run freely. Writes need a confirmed gate and a timeout. Stdlib only.
 required_open_webui_version: 0.10.0
-version: 3.0.3
+version: 3.0.4
 licence: daedalus Noncommercial License 1.0.0
 """
 
@@ -109,7 +109,7 @@ class Tools:
         ),
         timeout=self._wait_seconds(__user__),
       )
-    except asyncio.TimeoutError:
+    except TimeoutError:
       return False
     except Exception:
       return False

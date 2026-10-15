@@ -36,7 +36,7 @@ async def available() -> bool:
     if not response.is_success:
       return False
     health = response.json()
-  except (httpx.HTTPError, ValueError, TypeError, asyncio.TimeoutError):
+  except (httpx.HTTPError, ValueError, TypeError, TimeoutError):
     return False
   return (
     isinstance(health, dict)
@@ -75,7 +75,7 @@ async def compress(
     OverflowError,
     KeyError,
     TypeError,
-    asyncio.TimeoutError,
+    TimeoutError,
   ) as exc:
     if not _down:
       if isinstance(exc, asyncio.TimeoutError):

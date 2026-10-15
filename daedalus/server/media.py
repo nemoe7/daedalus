@@ -1,6 +1,5 @@
 """The OpenAI endpoints for non-chat models, for one model or a media pool."""
 
-import asyncio
 import base64
 import hashlib
 import json
@@ -177,7 +176,7 @@ async def attempt(
     upstream.LANE.set(lane(candidate))
     try:
       answer = await upstream.in_time(pending, deadline)
-    except asyncio.TimeoutError:
+    except TimeoutError:
       attempts.append(upstream.late_note(candidate, started))
       if pooled and PENALTIES:
         _record_weight_change(attempts[-1], candidate, PENALTIES.fault)

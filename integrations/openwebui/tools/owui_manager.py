@@ -3,7 +3,7 @@ title: Open WebUI Manager
 author: nemo
 description: Open WebUI manager: knowledge, skills, files, tools, functions. Writes need a confirmed gate. Stdlib only.
 required_open_webui_version: 0.12.0
-version: 1.0.5
+version: 1.0.6
 licence: daedalus Noncommercial License 1.0.0
 """
 
@@ -160,7 +160,7 @@ class Tools:
         ),
         timeout=self._wait_seconds(__user__),
       )
-    except asyncio.TimeoutError:
+    except TimeoutError:
       return False
     except Exception:
       return False
@@ -239,7 +239,7 @@ class Tools:
         except (ValueError, aiohttp.ContentTypeError):
           text = await response.text()
           return {"_text": text}, None
-    except asyncio.TimeoutError:
+    except TimeoutError:
       return None, "Error: Open WebUI API request timed out."
     except aiohttp.ClientError as exc:
       return None, f"Error: Open WebUI connection failed: {exc}"

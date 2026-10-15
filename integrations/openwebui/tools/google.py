@@ -3,7 +3,7 @@ title: Google
 author: nemo
 description: Gmail, Calendar, Drive, Docs for Open WebUI. Reads run freely. Writes need a confirmed gate. Stdlib only.
 required_open_webui_version: 0.10.0
-version: 1.0.2
+version: 1.0.3
 licence: daedalus Noncommercial License 1.0.0
 """
 
@@ -147,7 +147,7 @@ class Tools:
         ),
         timeout=self._wait_seconds(__user__),
       )
-    except asyncio.TimeoutError:
+    except TimeoutError:
       return False
     except Exception:
       return False

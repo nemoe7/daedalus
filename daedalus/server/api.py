@@ -1370,7 +1370,7 @@ async def run_chat(plan: Plan) -> Response:
         return JSONResponse(completion)
       events, pending = content["events"], content["pending"]
       ttft = time.perf_counter() - started
-    except asyncio.TimeoutError:
+    except TimeoutError:
       attempts.append(upstream.late_note(candidate, started) | sent)
       pin.failed(candidate, attempt=attempts[-1])
       failure = upstream.error_response(
