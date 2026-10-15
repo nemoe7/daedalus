@@ -84,7 +84,7 @@ def edit(
 
 
 def test_edits(fake: Upstream, client: TestClient) -> None:
-  """Only image input models edit. Cloudflare gets a small copy, and the others get the original."""
+  """Image edits use capable models, resize Cloudflare inputs, and keep other inputs unchanged."""
   store.write_store(ROWS)
   large = picture(1024, 800)
   fake.down = {"groq.test"}
@@ -134,7 +134,7 @@ def test_image_size_error(
 def test_image_size_error_keeps_pool_fallback(
   client: TestClient, fake: Upstream, monkeypatch
 ) -> None:
-  """The pool skips the refused image and can use the next provider."""
+  """An image-size failure skips one provider but keeps pool fallback."""
   store.write_store(ROWS[:2])
   try:
     image = picture(3, 3)
