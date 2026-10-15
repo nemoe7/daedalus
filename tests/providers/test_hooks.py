@@ -1,7 +1,6 @@
-"""Provider hooks from the `hooks` list change a copy of the request or answer, and a failure keeps the
-value that came in.
-"""
+"""Provider hook tests cover copied values, execution order and failure isolation."""
 
+import logging
 import os
 import time
 
@@ -110,7 +109,7 @@ def test_no_hooks() -> None:
 
 
 def test_upstream_hooks_in_order() -> None:
-  """Each hook of the surface runs in list order on a copy. Any file name works."""
+  """Upstream hooks run in configured order on a copy, including files without a Python suffix."""
   first = write(
     "add_user",
     "def on_upstream(body, model, headers):\n"
@@ -141,8 +140,11 @@ def test_reload() -> None:
   assert hooks.run("on-answer", config({"on-answer": path}), "p/m", {}) == {"v": 2}
 
 
-def test_failures(caplog: pytest.LogCaptureFixture) -> None:
+def test_failures(
+  caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
   """A failure keeps the value, and the next hook still runs."""
+  monkeypatch.setattr(hooks, "_told", set())
   body = {"k": 1}
   boom = write(
     "boom.py", "def on_upstream(body, model, headers):\n  raise RuntimeError('boom')\n"
@@ -151,41 +153,58 @@ def test_failures(caplog: pytest.LogCaptureFixture) -> None:
   broken = write("broken.py", "def on_upstream(:\n")
   other = write("other.py", "def on_answer(answer, model):\n  return None\n")
   good = write("good.py", "def on_upstream(body, model, headers):\n  body['k'] = 2\n")
-  (hooks.ROOT / "outside.py").write_text("raise RuntimeError('ran')\n")
-  setup = config(
-    {"on-upstream": boom},
-    {"on-upstream": text},
-    {"on-upstream": broken},
-    {"on-upstream": other},
-    {"on-upstream": "hooks/missing.py"},
-    {"on-upstream": "../outside.py"},
-    {"on-upstream": 5},
-    {"on-later": good},
-    "not a dict",
-    {"on-upstream": good},
+  marker = hooks.ROOT / "outside-ran"
+  (hooks.ROOT / "outside.py").write_text(
+    "from pathlib import Path\n"
+    f"Path({str(marker)!r}).write_text('ran')\n"
+    "raise RuntimeError('ran')\n"
   )
-  assert hooks.run("on-upstream", setup, "p/m", body, headers={}) == {"k": 2}
-  assert body == {"k": 1}
-  for part in (
-    "boom",
-    "returned no dict",
-    "did not load",
-    "has no on_upstream function",
-    "is not a file of the config folder",
-    "is not a file path",
-    "unknown surface on-later",
-    "each item needs a surface",
-  ):
-    assert part in caplog.text, part
+  cases = (
+    ({"on-upstream": boom}, logging.ERROR, RuntimeError, ("boom.py", "on-upstream")),
+    ({"on-upstream": text}, logging.WARNING, None, ("text.py", "on-upstream")),
+    ({"on-upstream": broken}, logging.ERROR, SyntaxError, ("broken.py",)),
+    ({"on-upstream": other}, logging.WARNING, None, ("other.py", "on_upstream")),
+    ({"on-upstream": "hooks/missing.py"}, logging.WARNING, None, ("hooks/missing.py",)),
+    ({"on-upstream": "../outside.py"}, logging.WARNING, None, ("../outside.py",)),
+    ({"on-upstream": "outside.py"}, logging.WARNING, None, ("outside.py",)),
+    ({"on-upstream": 5}, logging.WARNING, None, ("5",)),
+    ({"on-later": good}, logging.WARNING, None, ("on-later",)),
+    ("not a dict", logging.WARNING, None, ("p",)),
+  )
+  for entry, level, exception, identifiers in cases:
+    caplog.clear()
+    setup = config(entry, {"on-upstream": good})
+    assert hooks.run("on-upstream", setup, "p/m", body, headers={}) == {"k": 2}
+    assert body == {"k": 1}
+    assert not marker.exists()
+    records = [
+      record
+      for record in caplog.records
+      if record.name == hooks.logger.name and record.levelno >= logging.WARNING
+    ]
+    assert len(records) == 1
+    record = records[0]
+    assert record.levelno == level
+    assert record.getMessage().strip()
+    assert all(identifier in record.getMessage() for identifier in identifiers)
+    if exception is not None:
+      assert record.exc_info and isinstance(record.exc_info[1], exception)
+    else:
+      assert record.exc_info is None
+    if exception is RuntimeError:
+      assert str(record.exc_info[1]) == "boom"
+  caplog.clear()
   bad = {"p": {"hooks": {"on-upstream": good}}}
   assert hooks.run("on-upstream", bad, "p/m", body, headers={}) is body
-  assert "must be a list" in caplog.text
+  records = [record for record in caplog.records if record.name == hooks.logger.name]
+  assert len(records) == 1 and records[0].levelno == logging.WARNING
+  assert "p" in records[0].getMessage() and records[0].getMessage().strip()
   with pytest.raises(ValueError):
     hooks.run("unknown", setup, "p/m", body)
 
 
 def test_levels() -> None:
-  """Like `order`: a models entry wins, then the block that owns the model. An empty list turns hooks off."""
+  """Model entries override their owning block, and an empty list disables hooks."""
   mark = write(
     "mark.py",
     "def on_answer(answer, model):\n  answer.setdefault('by', []).append('main')\n",
@@ -338,7 +357,7 @@ def test_broken_hook_retry() -> None:
 
 
 def test_chunk_hook_changes_the_copy() -> None:
-  """The on-chunk surface runs with its context on each stream chunk, and the value that came in stays."""
+  """An on-chunk hook receives its context and changes a copy."""
   path = write(
     "mark.py",
     "def on_chunk(chunk, model, context=None):\n"
@@ -352,21 +371,27 @@ def test_chunk_hook_changes_the_copy() -> None:
 
 
 def test_a_run_writes_1_log_line(caplog: pytest.LogCaptureFixture) -> None:
-  """Each hook that runs writes 1 line. The chunk surface waits for DEBUG."""
+  """Answer hooks log at INFO, while chunk hooks log only at DEBUG."""
   path = write(
     "told.py",
     "def on_answer(answer, model):\n  return {'v': 1}\n"
     "def on_chunk(chunk, model, context=None):\n  chunk['seen'] = True\n",
   )
   setup = config({"on-answer": path}, {"on-chunk": path})
-  with caplog.at_level("INFO"):
-    hooks.run("on-answer", setup, "p/m", {})
-    hooks.run("on-chunk", setup, "p/m", {}, context={})
-  assert "on-answer hook told.py for p/m: a new value" in caplog.text
-  assert "on-chunk hook told.py for p/m" not in caplog.text
-  with caplog.at_level("DEBUG"):
-    hooks.run("on-chunk", setup, "p/m", {}, context={})
-  assert "on-chunk hook told.py for p/m: edits in place" in caplog.text
+  with caplog.at_level(logging.INFO, logger=hooks.logger.name):
+    assert hooks.run("on-answer", setup, "p/m", {}) == {"v": 1}
+    assert hooks.run("on-chunk", setup, "p/m", {}, context={}) == {"seen": True}
+  records = [record for record in caplog.records if record.name == hooks.logger.name]
+  assert len(records) == 1 and records[0].levelno == logging.INFO
+  assert records[0].args[:3] == ("on-answer", "told.py", "p/m")
+  assert isinstance(records[0].args[3], str) and records[0].args[3].strip()
+  caplog.clear()
+  with caplog.at_level(logging.DEBUG, logger=hooks.logger.name):
+    assert hooks.run("on-chunk", setup, "p/m", {}, context={}) == {"seen": True}
+  records = [record for record in caplog.records if record.name == hooks.logger.name]
+  assert len(records) == 1 and records[0].levelno == logging.DEBUG
+  assert records[0].args[:3] == ("on-chunk", "told.py", "p/m")
+  assert isinstance(records[0].args[3], str) and records[0].args[3].strip()
 
 
 def test_meta_block() -> None:
@@ -395,7 +420,7 @@ def test_meta_block() -> None:
 
 
 def test_meta_absent_and_defaults() -> None:
-  """A file with no block has no problem, and the loader keeps its file name."""
+  """No frontmatter returns no metadata and no metadata error."""
   path = hooks.ROOT / "hooks" / "plain.py"
   path.parent.mkdir(parents=True, exist_ok=True)
   path.write_text(
@@ -406,7 +431,7 @@ def test_meta_absent_and_defaults() -> None:
 
 
 def test_meta_problems() -> None:
-  """A bad surface, a bad scope, a target-less scope and a new version stop the file."""
+  """Invalid metadata returns no block and identifies the offending field or value."""
   cases = (
     ("# ---\n# surfaces: [on-later]\n# ---\n", "on-later"),
     ("# ---\n# scope: pool\n# ---\n", "pool"),
@@ -490,7 +515,7 @@ def test_hook_folder() -> None:
 
 
 def test_a_nested_install_lists_and_loads() -> None:
-  """A fetched install under owner/repo lists by identity and loads with the flat files."""
+  """Nested and flat hook fixtures list by identity and run in file-name order."""
   try:
     hooks.set_installed("nested")
     scoped(
