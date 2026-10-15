@@ -1,4 +1,4 @@
-"""Clients use the pool names of the `pools` settings, and a replaced name gets HTTP 400."""
+"""Clients use the pool names from personalization settings, and a replaced name gets HTTP 400."""
 
 from types import SimpleNamespace
 

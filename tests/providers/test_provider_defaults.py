@@ -64,7 +64,7 @@ def test_provider_defaults() -> None:
     assert "api_base" not in plain and "discovery_url" not in plain, plain
     assert providers.CloudflareProvider.defaults["api_base"].startswith(
       "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1"
-    ), "the card placeholder holds the template"
+    ), "the provider defaults keep the URL template"
   finally:
     os.environ["CLOUDFLARE_ACCOUNT_ID"] = "test-account"
     if saved is not None:
