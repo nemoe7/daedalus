@@ -181,7 +181,7 @@ def test_allow_reads_frees_a_read_and_holds_a_mutation():
   tool, calls = make_tool({"GET /files/": {}})
   tool.valves.permissions = "Allow reads"
   answer = asyncio.run(tool.list_files(__request__=object()))
-  assert "No files found" in answer
+  assert json.loads(answer)["items"] == []
   denied = json.loads(asyncio.run(tool.delete_file("f1", __request__=object())))
   assert denied["result"]["denied"] is True
   assert [call[0] for call in calls] == ["GET"]
@@ -222,16 +222,14 @@ def test_a_new_item_runs_free_and_joins_the_presets():
   assert payload["meta"]["skillIds"] == ["my-skill"]
 
 
-def test_list_skills_accepts_the_v012_list_response():
-  """The v0.12 collection route returns a bare list, not an items wrapper."""
-  tool, _ = make_tool(
-    {"GET /skills/": [{"id": "s1", "name": "Skill One", "is_active": True}]}
-  )
+def test_list_skills_uses_the_v012_paged_route():
+  """The paged route returns items and the total, with write access."""
+  row = {"id": "s1", "name": "Skill One", "is_active": True, "write_access": False}
+  tool, calls = make_tool({"GET /skills/list": {"items": [row], "total": 1}})
   tool.valves.permissions = "Allow reads"
-
-  answer = asyncio.run(tool.list_skills(__request__=object()))
-
-  assert answer == "- Skill One (id=s1, active=True)"
+  answer = json.loads(asyncio.run(tool.list_skills(__request__=object())))
+  assert answer["items"] == [row] and answer["next_page"] is None
+  assert calls[0][1] == "/skills/list" and calls[0][2]["params"] == {"page": 1}
 
 
 def test_create_skill_sends_the_root_and_supporting_files():

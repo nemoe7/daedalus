@@ -347,6 +347,33 @@ class Tools:
     return {"result": payload}
 
   @staticmethod
+  def _repository_summary(item: dict) -> dict:
+    description = item.get("description") or ""
+    return {
+      "id": item.get("id"), "node_id": item.get("node_id"),
+      "full_name": item.get("full_name"), "html_url": item.get("html_url"),
+      "description": description[:160], "description_truncated": len(description) > 160,
+      "private": item.get("private"), "visibility": item.get("visibility"),
+      "default_branch": item.get("default_branch"), "permissions": item.get("permissions"),
+      "archived": item.get("archived"), "disabled": item.get("disabled"),
+    }
+
+  @staticmethod
+  def _issue_summary(item: dict) -> dict:
+    title = item.get("title") or ""
+    return {
+      "id": item.get("id"), "node_id": item.get("node_id"), "number": item.get("number"),
+      "repository_url": item.get("repository_url"), "html_url": item.get("html_url"),
+      "title": title[:200], "title_truncated": len(title) > 200,
+      "state": item.get("state"), "state_reason": item.get("state_reason"),
+      "author": (item.get("user") or {}).get("login"),
+      "author_association": item.get("author_association"), "locked": item.get("locked"),
+      "labels": [label.get("name") if isinstance(label, dict) else label for label in item.get("labels") or []],
+      "created_at": item.get("created_at"), "updated_at": item.get("updated_at"),
+      "is_pull_request": "pull_request" in item, "draft": item.get("draft"),
+    }
+
+  @staticmethod
   def _commit_summary(item: dict) -> dict:
     commit = item.get("commit") or {}
     author = commit.get("author") or {}
@@ -2554,7 +2581,8 @@ class Tools:
       __event_call__=__event_call__,
     ):
       size = min(max(1, int(page_size)), 100)
-      page = int(page_offset) // size + 1
+      offset = max(0, int(page_offset))
+      page = offset // size + 1
       if owner:
         path = f"{API}/users/{self._seg(owner)}/repos"
       else:
@@ -2569,7 +2597,12 @@ class Tools:
           "affiliation": "owner,collaborator,organization_member",
         },
       )
-      return self._ok({"repositories": data})
+      items = data[offset % size:]
+      return self._ok({
+        "repositories": [self._repository_summary(item) for item in items],
+        "page_offset": offset, "page_size": size,
+        "next_offset": offset + len(items) if len(data) == size else None,
+      })
 
     return await self._read(
       "read list_repositories",
@@ -2608,19 +2641,25 @@ class Tools:
       __event_call__=__event_call__,
     ):
       terms = [query] + ([f"org:{org}"] if org else [])
+      size = min(max(1, int(per_page or topn or 20)), 100)
+      current = max(1, int(page))
       data = await self._request(
         "GET",
         f"{API}/search/repositories",
         params={
           "q": " ".join(terms),
-          "per_page": min(per_page or topn or 20, 100),
-          "page": page,
+          "per_page": size,
+          "page": current,
         },
       )
       return self._ok(
         {
-          "repositories": data.get("items") or [],
-          "archive_filter_applied": None,
+          "repositories": [self._repository_summary(item) for item in data.get("items") or []],
+          "page": current, "per_page": size,
+          "next_page": (current + 1 if len(data.get("items") or []) == size
+                        and current * size < min(data.get("total_count", 1000), 1000) else None),
+          "search_limited": data.get("total_count", 0) > 1000,
+          "incomplete_results": data.get("incomplete_results", False),
           "total_count": data.get("total_count"),
         }
       )
@@ -2769,6 +2808,7 @@ class Tools:
     sort: str | None,
     order: str | None,
     state: str | None,
+    page: int = 1,
   ) -> dict:
     terms = [query]
     if kind:
@@ -2792,21 +2832,30 @@ class Tools:
       "reactions": "reactions",
       "interactions": "interactions",
     }
+    size = min(max(1, int(topn)), 100)
+    current = max(1, int(page))
     data = await self._request(
       "GET",
       f"{API}/search/issues",
       params={
         "q": " ".join(terms),
-        "per_page": min(max(1, int(topn)), 100),
+        "per_page": size,
+        "page": current,
         "sort": sorts.get(sort or "best-match"),
         "order": order,
       },
     )
     items = [
-      {**item, "display_url": item.get("html_url"), "display_title": item.get("title")}
+      self._issue_summary(item)
       for item in (data.get("items") or [])
     ]
-    return self._ok({"issues": items, "total_count": data.get("total_count")})
+    return self._ok({
+      "issues": items, "total_count": data.get("total_count"), "page": current, "per_page": size,
+      "next_page": (current + 1 if len(items) == size
+                    and current * size < min(data.get("total_count", 1000), 1000) else None),
+      "search_limited": data.get("total_count", 0) > 1000,
+      "incomplete_results": data.get("incomplete_results", False),
+    })
 
   async def search_issues(
     self,
@@ -2820,6 +2869,7 @@ class Tools:
     state: str | None = None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    page: int = 1,
   ) -> dict:
     """Search GitHub issues and GitHub pull requests together.
 
@@ -2827,7 +2877,8 @@ class Tools:
     :param repository_full_name: one repository or a list to restrict to
     :param repository_id: one numeric id or a list to restrict to
     :param repository_url: one repository url or a list
-    :param topn: results wanted
+    :param topn: results per page, up to 100
+    :param page: page number, starting at 1
     :param sort: best-match, created, updated, comments, reactions or interactions
     :param order: desc or asc
     :param state: open, closed or all
@@ -2856,6 +2907,7 @@ class Tools:
         sort,
         order,
         state,
+        page=page,
       )
 
     return await self._read(
@@ -2879,6 +2931,7 @@ class Tools:
     state: str | None = None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    page: int = 1,
   ) -> dict:
     """Search pull requests. The output field keeps its GitHub name, issues.
 
@@ -2887,7 +2940,8 @@ class Tools:
     :param repository_id: one numeric id or a list to restrict to
     :param repository_url: one repository url or a list
     :param org: restrict to one organization
-    :param topn: results wanted
+    :param topn: results per page, up to 100
+    :param page: page number, starting at 1
     :param sort: best-match, created, updated, comments, reactions or interactions
     :param order: desc or asc
     :param state: open, closed or all
@@ -2917,6 +2971,7 @@ class Tools:
         sort,
         order,
         state,
+        page=page,
       )
 
     return await self._read(

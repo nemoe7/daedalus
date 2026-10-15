@@ -81,6 +81,10 @@ A result that does not fit returns `tool_output_too_large`, its original byte co
 
 Read only the pages needed for the task. Text offsets count characters, not bytes. A text page includes `offset`, `next_offset`, `total_chars`, and `truncated`. A null `next_offset` ends the read.
 
+- `list_repositories` returns short records with complete IDs, URLs, branch names, and permissions. Pass `next_offset` as `page_offset` and keep `page_size` unchanged.
+- `search_repositories`, `search_issues`, and `search_prs` return `next_page`. Keep the query and page size unchanged for later pages.
+- Search stops at GitHub's 1,000-result limit. When `search_limited` is true, narrow the query to find more results. `incomplete_results` retains the API status.
+- Issue and pull request summaries omit bodies and display aliases. Use their IDs or URLs with detail reads when needed.
 - `list_commits` returns SHA, URL, author, date, and a subject of at most 200 characters. `message_truncated` marks omitted message text. It returns `page`, `per_page`, and `next_page` without fetching further pages.
 - `search_commits` uses the same short records. Use its existing page arguments for further results.
 - `fetch_blob` and `fetch_github_url` accept `offset` and `max_chars`. For a large commit, file, or diff, read its GitHub URL in text ranges.

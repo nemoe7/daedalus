@@ -435,17 +435,19 @@ class Tools:
     max_results: int = 0,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    page_token: str = "",
   ) -> dict:
     """Search Gmail and return the newest matches with their headers and snippets.
 
     :param query: the Gmail search, for example from:ana newer_than:7d or subject:invoice
     :param max_results: how many messages to read, up to 50. Zero uses the valve
+    :param page_token: next_page_token from the previous result, or empty for the first page
     """
 
     async def run():
       limit = self._limit(max_results)
       found = await self._request(
-        "GET", f"{GMAIL}/messages", params={"q": query, "maxResults": limit}
+        "GET", f"{GMAIL}/messages", params={"q": query, "maxResults": limit, "pageToken": page_token or None}
       )
       out = []
       for item in (found.get("messages") or [])[:limit]:
@@ -458,7 +460,7 @@ class Tools:
           },
         )
         out.append(self._message(message))
-      return self._ok({"messages": out, "count": len(out)})
+      return self._ok({"messages": out, "count": len(out), "next_page_token": found.get("nextPageToken")})
 
     return await self._read(
       "read Gmail",
@@ -485,7 +487,8 @@ class Tools:
 
     async def run():
       data = await self._request(
-        "GET", f"{GMAIL}/threads/{thread_id}", params={"format": "full"}
+        "GET", f"{GMAIL}/threads/{thread_id}",
+        params={"format": "metadata", "metadataHeaders": ["From", "To", "Subject", "Date"]}
       )
       items = data.get("messages") or []
       start = min(max(0, int(offset)), len(items))
@@ -590,19 +593,25 @@ class Tools:
     max_results: int = 0,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    page_token: str = "",
+    time_min: str = "",
+    time_max: str = "",
   ) -> dict:
     """Read the next events of a calendar, the primary one by default.
 
     :param days: how many days ahead to read, from 1 to 60
     :param calendar_id: the calendar id, primary when absent
     :param max_results: how many events, up to 50. Zero uses the valve
+    :param time_min: reuse the previous result from value when reading another page
+    :param time_max: reuse the previous result to value when reading another page
+    :param page_token: next_page_token from the previous result, or empty for the first page
     """
 
     async def run():
       span = min(max(1, int(days or 7)), 60)
       now = time.time()
-      start = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
-      end = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now + span * 86400))
+      start = time_min or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
+      end = time_max or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now + span * 86400))
       data = await self._request(
         "GET",
         f"{CALENDAR}/calendars/{calendar_id or self.valves.calendar_id or 'primary'}/events",
@@ -612,6 +621,7 @@ class Tools:
           "singleEvents": "true",
           "orderBy": "startTime",
           "maxResults": self._limit(max_results),
+          "pageToken": page_token or None,
         },
       )
       events = [
@@ -629,7 +639,7 @@ class Tools:
         for item in data.get("items") or []
       ]
       return self._ok(
-        {"events": events, "count": len(events), "from": start, "to": end}
+        {"events": events, "count": len(events), "from": start, "to": end, "next_page_token": data.get("nextPageToken")}
       )
 
     return await self._read(
@@ -699,11 +709,13 @@ class Tools:
     max_results: int = 0,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    page_token: str = "",
   ) -> dict:
     """Search Drive and return the matching files.
 
     :param query: a Drive query, or plain words. Plain words search the full text
     :param max_results: how many files, up to 50. Zero uses the valve
+    :param page_token: next_page_token from the previous result, or empty for the first page
     """
 
     async def run():
@@ -716,11 +728,13 @@ class Tools:
         params={
           "q": text,
           "pageSize": self._limit(max_results),
-          "fields": "files(id,name,mimeType,modifiedTime,webViewLink,owners(displayName))",
+          "pageToken": page_token or None,
+          "fields": "nextPageToken,files(id,name,mimeType,modifiedTime,webViewLink,owners(displayName))",
         },
       )
       return self._ok(
-        {"files": data.get("files") or [], "count": len(data.get("files") or [])}
+        {"files": data.get("files") or [], "count": len(data.get("files") or []),
+         "next_page_token": data.get("nextPageToken")}
       )
 
     return await self._read(

@@ -253,4 +253,4 @@ def test_google_and_manager_generic_results_obey_the_guard():
   )
   tool.valves.permissions = "Allow reads"
   out = asyncio.run(tool.list_tools(__request__=object()))
-  assert json.loads(out)["truncated"] is True and size(out) <= 32768
+  assert json.loads(out)["next_offset"] > 0 and size(out) <= 32768

@@ -196,6 +196,36 @@ class Tools:
       raise ValueError("Output metadata leaves no room for text. Use a smaller result.")
     return page(lower)
 
+  def _list_page(
+    self, items: list[dict], offset: int, max_results: int,
+    *, page: int | None = None, more: bool = False, base_offset: int = 0, **metadata,
+  ) -> str:
+    start = min(max(0, int(offset)), len(items))
+    upper = min(max(1, int(max_results)), 100, len(items) - start)
+
+    def result(count):
+      end = start + count
+      within = end < len(items)
+      value = {
+        "total_count": len(items), **metadata,
+        "items": items[start:end], "count": count, "offset": base_offset + start,
+        "next_offset": base_offset + end if within or (more and page is None) else 0 if more else None,
+      }
+      if page is not None:
+        value.update(page=page, next_page=page if within else page + 1 if more else None)
+      return value
+
+    lower = 0
+    while lower < upper:
+      middle = (lower + upper + 1) // 2
+      if self._output_size(result(middle)) <= self.valves.max_output_bytes:
+        lower = middle
+      else:
+        upper = middle - 1
+    if lower == 0 and start < len(items):
+      return self._output(result(1), as_text=True)
+    return json.dumps(result(lower), indent=2, ensure_ascii=False)
+
   def __init__(self):
     self.valves = self.Valves()
     self._short_timeout = aiohttp.ClientTimeout(total=30)
@@ -449,36 +479,36 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    page: int = 1,
+    offset: int = 0,
+    max_results: int = 20,
   ) -> str:
     """
     List knowledge bases available to the current Open WebUI user,
     including their IDs and write access.
+
+    :param offset: row offset within this page
+    :param max_results: maximum rows, subject to the output byte limit
+    :param page: API page, from 1
     """
 
-    async def run(
-      __request__=__request__, __user__=__user__, __event_call__=__event_call__
-    ):
+    async def run():
       if __request__ is None:
         return NO_CONTEXT
+      current = max(1, int(page))
       async with await self._open_session(__request__) as session:
-        data, err = await self._request(session, "GET", "/knowledge/")
+        data, err = await self._request(session, "GET", "/knowledge/", params={"page": current})
       if err:
         return err
-      items = (data or {}).get("items", [])
-      if not items:
-        return "No knowledge bases found."
-      return "\n".join(
-        f"- {x.get('name', 'Unnamed')} (id={x.get('id')}, write_access={x.get('write_access')})"
-        for x in items
-      )
+      items = (data or {}).get("items") or []
+      rows = [{key: item[key] for key in (
+        "id", "name", "write_access", "access_control", "access_grants", "user_id"
+      ) if key in item} for item in items]
+      total = (data or {}).get("total")
+      more = current * 30 < total if isinstance(total, int) else len(items) == 30
+      return self._list_page(rows, offset, max_results, page=current, more=more, total_count=total)
 
-    return await self._read(
-      "read list_knowledge_bases",
-      str(locals().get("page", "") or ""),
-      run,
-      __user__,
-      __event_call__,
-    )
+    return await self._read("read list_knowledge_bases", str(page), run, __user__, __event_call__)
 
   async def list_knowledge_files(
     self,
@@ -487,6 +517,9 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    page: int = 1,
+    offset: int = 0,
+    max_results: int = 20,
   ) -> str:
     """
     List files and directories inside an Open WebUI knowledge base.
@@ -500,6 +533,9 @@ class Tools:
 
     :param knowledge_id: ID of the Open WebUI knowledge base
     :param directory_id: the directory id to list, or the knowledge root when absent
+    :param offset: row offset within this API page
+    :param max_results: maximum rows, subject to the output byte limit
+    :param page: API page, from 1
     """
 
     async def run(
@@ -511,28 +547,28 @@ class Tools:
     ):
       if __request__ is None:
         return NO_CONTEXT
+      current = max(1, int(page))
       async with await self._open_session(__request__) as session:
-        data, err = await self._directory_listing(session, knowledge_id, directory_id)
+        data, err = await self._request(session, "GET", f"/knowledge/{knowledge_id}/files",
+          params={"directory_id": directory_id, "page": current})
       if err:
         return err
-      out = []
-      if data["breadcrumbs"]:
-        out.append("PATH:")
-        out += [
-          f"- {x.get('name', 'Unnamed')} (directory_id={x.get('id')})"
-          for x in data["breadcrumbs"]
-        ]
-      out.append("\nDIRECTORIES:")
-      out += [
-        f"- {x.get('name', 'Unnamed')} (directory_id={x.get('id')}, parent_id={x.get('parent_id')})"
-        for x in data["directories"]
-      ] or ["- none"]
-      out.append("\nFILES:")
-      out += [
-        f"- {self._file_item(x).get('filename', 'Unnamed')} (file_id={self._file_item(x).get('id')})"
-        for x in data["items"]
-      ] or ["- none"]
-      return "\n".join(out)
+      data = data or {}
+      rows = []
+      if current == 1:
+        rows.extend({"kind": "directory", "directory_id": item.get("id"),
+          "name": item.get("name"), "parent_id": item.get("parent_id")}
+          for item in data.get("directories") or [])
+      files = data.get("items") or []
+      rows.extend({"kind": "file", "file_id": self._file_item(item).get("id"),
+        "filename": self._file_item(item).get("filename")} for item in files)
+      total = data.get("total")
+      more = current * 30 < total if isinstance(total, int) else len(files) == 30
+      breadcrumbs = [{key: item[key] for key in ("id", "name", "parent_id") if key in item}
+                     for item in data.get("breadcrumbs") or []]
+      return self._list_page(rows, offset, max_results, page=current, more=more,
+        knowledge_id=knowledge_id, directory_id=directory_id, breadcrumbs=breadcrumbs,
+        total_count=total)
 
     return await self._read(
       "read list_knowledge_files",
@@ -2051,46 +2087,34 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    offset: int = 0,
+    max_results: int = 20,
   ) -> str:
     """
     List the files of the Open WebUI file library, with their ids and sizes.
 
-    :param page: the page of results, from 1
+    :param offset: row offset within this page
+    :param max_results: maximum rows, subject to the output byte limit
+    :param page: API page, from 1
     """
 
-    async def run(
-      page=page,
-      __request__=__request__,
-      __user__=__user__,
-      __event_call__=__event_call__,
-    ):
+    async def run():
       if __request__ is None:
         return NO_CONTEXT
-      async with await self._open_session(__request__) as s:
-        data, err = await self._request(
-          s, "GET", "/files/", params={"page": max(1, page)}
-        )
+      current = max(1, int(page))
+      async with await self._open_session(__request__) as session:
+        data, err = await self._request(session, "GET", "/files/", params={"page": current, "content": "false"})
       if err:
         return err
       items = (data or {}).get("items") or []
-      if not items:
-        return "No files found."
-      lines = [f"total={(data or {}).get('total')}"]
-      for item in items:
-        meta = item.get("meta") or {}
-        lines.append(
-          f"- {item.get('filename') or 'Unnamed'} (id={item.get('id')}, "
-          f"size={meta.get('size') or 0})"
-        )
-      return "\n".join(lines)
+      rows = [{key: item[key] for key in ("id", "filename") if key in item} for item in items]
+      for row, item in zip(rows, items):
+        row["size"] = (item.get("meta") or {}).get("size") or 0
+      total = (data or {}).get("total")
+      more = current * 50 < total if isinstance(total, int) else len(items) == 50
+      return self._list_page(rows, offset, max_results, page=current, more=more, total_count=total)
 
-    return await self._read(
-      "read list_files",
-      str(locals().get("page", "") or ""),
-      run,
-      __user__,
-      __event_call__,
-    )
+    return await self._read("read list_files", str(page), run, __user__, __event_call__)
 
   async def search_files(
     self,
@@ -2098,11 +2122,15 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    offset: int = 0,
+    max_results: int = 20,
   ) -> str:
     """
     Search the file library by name. Wildcards such as *.md work.
 
     :param filename: the filename or part of it to search for
+    :param offset: row offset
+    :param max_results: maximum rows, subject to the output byte limit
     """
 
     async def run(
@@ -2116,18 +2144,18 @@ class Tools:
       name = (filename or "").strip()
       if not name:
         return "Error: filename is empty."
+      start = max(0, int(offset))
+      size = min(100, max(1, int(max_results)))
       async with await self._open_session(__request__) as s:
         data, err = await self._request(
-          s, "GET", "/files/search", params={"filename": name}
+          s, "GET", "/files/search", expected=(200, 404),
+          params={"filename": name, "content": "false", "skip": start, "limit": size}
         )
       if err:
         return err
       items = data if isinstance(data, list) else (data or {}).get("items") or []
-      if not items:
-        return "No files found."
-      return "\n".join(
-        f"- {item.get('filename') or 'Unnamed'} (id={item.get('id')})" for item in items
-      )
+      rows = [{key: item[key] for key in ("id", "filename") if key in item} for item in items]
+      return self._list_page(rows, 0, size, base_offset=start, more=len(items) == size, total_count=None)
 
     return await self._read(
       "read search_files",
@@ -2300,34 +2328,36 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    page: int = 1,
+    offset: int = 0,
+    max_results: int = 20,
   ) -> str:
-    """List the skills of the workspace, with their ids and their state."""
+    """
+    List the skills of the workspace, with their ids and their state.
 
-    async def run(
-      __request__=__request__, __user__=__user__, __event_call__=__event_call__
-    ):
+    :param offset: row offset within this page
+    :param max_results: maximum rows, subject to the output byte limit
+    :param page: API page, from 1
+    """
+
+    async def run():
       if __request__ is None:
         return NO_CONTEXT
-      async with await self._open_session(__request__) as s:
-        data, err = await self._request(s, "GET", "/skills/")
+      current = max(1, int(page))
+      async with await self._open_session(__request__) as session:
+        data, err = await self._request(session, "GET", "/skills/list", params={"page": current})
       if err:
         return err
-      items = data if isinstance(data, list) else (data or {}).get("items") or []
-      if not items:
-        return "No skills found."
-      return "\n".join(
-        f"- {item.get('name') or 'Unnamed'} (id={item.get('id')}, "
-        f"active={item.get('is_active')})"
-        for item in items
-      )
+      items = (data or {}).get("items") or []
+      rows = [{key: item[key] for key in (
+        "id", "name", "is_active", "version_id", "write_access",
+        "access_control", "access_grants", "user_id"
+      ) if key in item} for item in items]
+      total = (data or {}).get("total")
+      more = current * 30 < total if isinstance(total, int) else len(items) == 30
+      return self._list_page(rows, offset, max_results, page=current, more=more, total_count=total)
 
-    return await self._read(
-      "read list_skills",
-      str(locals().get("page", "") or ""),
-      run,
-      __user__,
-      __event_call__,
-    )
+    return await self._read("read list_skills", str(page), run, __user__, __event_call__)
 
   async def show_skill(
     self,
@@ -2391,12 +2421,16 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    offset: int = 0,
+    max_results: int = 20,
   ) -> str:
     """
-    List every file in one skill snapshot, with its size and encoding.
+    List a page of files in one skill snapshot, with its size and encoding.
 
     :param skill_id: the id of the skill to inspect
     :param version_id: a version id from show_skill, or empty for the current version
+    :param offset: row offset
+    :param max_results: maximum rows, subject to the output byte limit
     """
 
     async def run(
@@ -2413,7 +2447,12 @@ class Tools:
         data, err = await self._request(
           s, "GET", f"/skills/id/{skill_id}/files", params=params
         )
-      return err or self._format_skill_files(data)
+      if err:
+        return err
+      data = data or {}
+      rows = [{key: item[key] for key in ("path", "size", "encoding") if key in item}
+              for item in data.get("files") or []]
+      return self._list_page(rows, offset, max_results, skill_id=skill_id, version_id=data.get("version_id"))
 
     return await self._read(
       "read list_skill_files",
@@ -2882,32 +2921,30 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    offset: int = 0,
+    max_results: int = 20,
   ) -> str:
-    """List the Workspace Tools, with their ids."""
+    """
+    List the Workspace Tools, with their ids.
 
-    async def run(
-      __request__=__request__, __user__=__user__, __event_call__=__event_call__
-    ):
+    :param offset: row offset within this page
+    :param max_results: maximum rows, subject to the output byte limit
+    """
+
+    async def run():
       if __request__ is None:
         return NO_CONTEXT
-      async with await self._open_session(__request__) as s:
-        data, err = await self._request(s, "GET", "/tools/")
+      async with await self._open_session(__request__) as session:
+        data, err = await self._request(session, "GET", "/tools/")
       if err:
         return err
       items = data if isinstance(data, list) else (data or {}).get("items") or []
-      if not items:
-        return "No tools found."
-      return "\n".join(
-        f"- {item.get('name') or 'Unnamed'} (id={item.get('id')})" for item in items
-      )
+      rows = [{key: item[key] for key in (
+        "id", "name", "write_access", "access_control", "access_grants", "user_id"
+      ) if key in item} for item in items]
+      return self._list_page(rows, offset, max_results)
 
-    return await self._read(
-      "read list_tools",
-      str(locals().get("page", "") or ""),
-      run,
-      __user__,
-      __event_call__,
-    )
+    return await self._read("read list_tools", str(offset), run, __user__, __event_call__)
 
   async def show_tool(
     self,
@@ -3118,35 +3155,30 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    offset: int = 0,
+    max_results: int = 20,
   ) -> str:
-    """List the Functions, with their ids and their types."""
+    """
+    List the Functions, with their ids and their types.
 
-    async def run(
-      __request__=__request__, __user__=__user__, __event_call__=__event_call__
-    ):
+    :param offset: row offset within this page
+    :param max_results: maximum rows, subject to the output byte limit
+    """
+
+    async def run():
       if __request__ is None:
         return NO_CONTEXT
-      async with await self._open_session(__request__) as s:
-        data, err = await self._request(s, "GET", "/functions/")
+      async with await self._open_session(__request__) as session:
+        data, err = await self._request(session, "GET", "/functions/")
       if err:
         return err
       items = data if isinstance(data, list) else (data or {}).get("items") or []
-      if not items:
-        return "No functions found."
-      return "\n".join(
-        f"- {item.get('name') or 'Unnamed'} (id={item.get('id')}, "
-        f"type={item.get('type')}, active={item.get('is_active')}, "
-        f"global={item.get('is_global')})"
-        for item in items
-      )
+      rows = [{key: item[key] for key in (
+        "id", "name", "type", "is_active", "is_global"
+      ) if key in item} for item in items]
+      return self._list_page(rows, offset, max_results)
 
-    return await self._read(
-      "read list_functions",
-      str(locals().get("page", "") or ""),
-      run,
-      __user__,
-      __event_call__,
-    )
+    return await self._read("read list_functions", str(offset), run, __user__, __event_call__)
 
   async def show_function(
     self,

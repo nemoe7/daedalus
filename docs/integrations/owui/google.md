@@ -55,7 +55,9 @@ A result that does not fit returns `tool_output_too_large`, its original byte co
 
 Read only the pages needed for the task. Text offsets count characters, not bytes. A text page includes `offset`, `next_offset`, `total_chars`, and `truncated`. A null `next_offset` ends the read.
 
-- `read_thread` returns message headers and snippets, not message bodies. Use its message `offset`, `max_results`, and `next_offset` to read further pages.
+- `search_mail`, `agenda`, and `search_files` return `next_page_token`. Pass it as `page_token`. A null value ends the list.
+- Keep the query, calendar, and page size unchanged for later pages. For `agenda`, also pass the returned `from` and `to` as `time_min` and `time_max`.
+- `read_thread` requests metadata and returns message headers and snippets, not message bodies. Use its message `offset`, `max_results`, and `next_offset` to read further pages.
 - `read_message` reads body text by message ID, `offset`, and `max_chars`.
 - `read_document` accepts a character `offset` with its existing `max_chars` argument.
 - Message and document ranges shrink when needed to fit the byte limit. Other lists can return an output-limit error when fields are too large, even with a small item count.
