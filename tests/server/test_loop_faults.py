@@ -1,4 +1,4 @@
-"""A tool, thinking or answer loop counts as a fault, and the request goes to the next model."""
+"""Test loop attribution, penalties, fallback, and streamed continuation."""
 
 import json
 

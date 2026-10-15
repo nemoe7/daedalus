@@ -144,7 +144,7 @@ def test_hook_http_hands_the_level_of_the_session() -> None:
 
 
 def test_hook_http_takes_a_nested_path() -> None:
-  """A file in a folder under `hooks` is named by its path, `nested/probe.py`."""
+  """The route accepts the nested path `nested/probe.py`."""
   root = hooks.ROOT / "hooks" / "nested"
   root.mkdir(parents=True, exist_ok=True)
   (root / "probe.py").write_text(GOOD)
@@ -155,7 +155,7 @@ def test_hook_http_takes_a_nested_path() -> None:
 
 
 def test_hook_http_takes_the_short_name() -> None:
-  """The route takes the file name of the docs with no suffix, `owui_auto_reasoning`."""
+  """The route accepts a hook filename without the .py suffix."""
   name = written("probe_short.py", GOOD)
   response = TestClient(api.app, headers=AUTH).post(
     f"/v1/hook/{name.removesuffix('.py')}", json={"messages": CHAT}
@@ -191,7 +191,7 @@ def test_hook_http_refuses_a_path_outside_the_folder() -> None:
 
 
 def test_hook_http_reports_a_failure() -> None:
-  """A hook that raises is a 500. The message names the file, and the exception text stays in the log."""
+  """A hook failure returns 500 with the filename but without the exception text."""
   name = written("broken.py", BROKEN)
   response = TestClient(api.app, headers=AUTH).post(f"/v1/hook/{name}", json={})
   assert response.status_code == 500, response.text
