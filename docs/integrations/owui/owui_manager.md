@@ -2,6 +2,8 @@
 
 See [Open WebUI integration](../owui.md) for the other plugins.
 
+Import [`owui_manager.json`](../../../integrations/openwebui/imports/tools/owui_manager.json) through **Workspace → Tools**, **Import JSON**. Then configure its valves and access.
+
 [`integrations/openwebui/tools/owui_manager.py`](../../../integrations/openwebui/tools/owui_manager.py) is 1 Workspace Tool over the whole workspace: knowledge bases, skills, the file library, the Workspace Tools and the Functions. The caller token comes from the chat request, and the `OWUI_API_BASE` valve holds the base URL.
 
 ```mermaid

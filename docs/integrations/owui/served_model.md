@@ -9,7 +9,7 @@ is an Open WebUI Filter: it draws the daedalus served model line above the answe
 | Reads | `usage.daedalus.line` of the chunk, which [`hooks/served_model.py`](../../hooks/served_model.md) writes |
 | Valves | `enabled`, default `true`. `prefix`, empty by default. `when`, `always` by default, else `on change` |
 | Rows | 1 row for each line, and no row for a line equal to the last line of that message |
-| Install | **Admin Panel → Functions**, **New Function**, type **Filter**, paste, **Save** |
+| Install | Download [`served_model.json`](../../../integrations/openwebui/imports/functions/served_model.json). Use **Import JSON** in **Admin Panel → Functions**, then enable the filter |
 
 ```mermaid
 flowchart TD

@@ -2,7 +2,7 @@
 
 The [`integrations/openwebui`](../../integrations/openwebui) folder holds 1 directory for each Open WebUI plugin type. [`functions/`](../../integrations/openwebui/functions) holds the filters and the pipes. [`tools/`](../../integrations/openwebui/tools) holds the Workspace Tools. [`skills/`](../../integrations/openwebui/skills) holds the skills.
 
-Each file is 1 plugin: paste its content in **Workspace → Tools** or **Workspace → Skills**, or import the file. The sections below name the install steps and the valves of each plugin.
+The Python files are the editable sources. The [`imports/`](../../integrations/openwebui/imports) folder holds generated JSON downloads for the tools and filters. Import the skill directly from Markdown.
 
 | Plugin | Type | What it does |
 | --- | --- | --- |
@@ -26,7 +26,7 @@ flowchart TD
 
 ## Install
 
-1. **Admin Panel → Functions**, **New Function**, type **Filter** or **Action**, paste the file, **Save**. A Tool or a Skill uses **Workspace → Tools** or **Workspace → Skills**, with **Create** or **Import JSON**.
+1. Download the JSON file for the tool or filter. Use **Import JSON** in **Workspace → Tools** or **Admin Panel → Functions**. Enable a filter after import. For the skill, use **Import** in **Workspace → Skills**, select its Markdown file, then **Import selected**.
 2. **Access** on the item: make it public, or give read access to each user. A user without read access does not see the plugin.
 3. **Valves**: set the keys of the plugin. The page of each plugin names them.
 4. **Workspace → Models**: turn the plugin on for a model. A tool id and an action id ride in the `meta.toolIds` and `meta.actionIds` lists of the model.
@@ -36,3 +36,16 @@ A gated tool asks over the socket of the chat tab. `WEBSOCKET_EVENT_CALLER_TIMEO
 default, so the Open WebUI server waits without a timeout when the browser does not answer. Only
 `timeout_seconds` ends that wait. A page refresh drops the dialog, the tool returns `denied: true`,
 and the tool sends nothing.
+
+## Generate import files
+
+Edit the Python sources, not the generated JSON. The imports contain source code and display metadata, not saved valves or credentials. Configure keys and access after import.
+
+Run from the repository root in cmd, PowerShell, or bash:
+
+```text
+python scripts/export_owui.py
+python scripts/export_owui.py --check
+```
+
+The existing test suite checks the generated files against their sources. An import file installs one resource through its native page, not all plugin types at once.

@@ -2,6 +2,8 @@
 
 See [Open WebUI integration](../owui.md) for the other plugins.
 
+Import [`google.json`](../../../integrations/openwebui/imports/tools/google.json) through **Workspace → Tools**, **Import JSON**. Then configure its valves and access.
+
 [`integrations/openwebui/tools/google.py`](../../../integrations/openwebui/tools/google.py) is a second
 Workspace Tool: 1 file, standard library only, empty `requirements`. It holds Gmail, Calendar, Drive and Docs.
 The `permissions` valve sets the gate. `Always ask`, the shipped default, holds every call, including reads.

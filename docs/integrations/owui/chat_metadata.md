@@ -9,7 +9,7 @@ date with the clock, the timezone, the place and the language.
 | Type | Filter. The `inlet` method reads the body |
 | Reads | The clock of the server, and the `Accept-Language` header of the request |
 | Valves | `enabled`, default `true`. `location`, empty by default. `location_approximate`, `false` by default. `language`, empty by default |
-| Install | **Admin Panel → Functions**, **New Function**, type **Filter**, paste, **Save** |
+| Install | Download [`chat_metadata.json`](../../../integrations/openwebui/imports/functions/chat_metadata.json). Use **Import JSON** in **Admin Panel → Functions**, then enable the filter |
 
 ```mermaid
 flowchart TD

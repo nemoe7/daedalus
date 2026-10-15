@@ -14,7 +14,7 @@ flowchart TD
   E -- yes --> F[The report, with numbered sources]
 ```
 
-1. **Workspace → Skills**, the arrow next to **Create**, **Import JSON**. Select `deep-research.md`, then **Save**.
+1. **Workspace → Skills**, the arrow next to **Create**, **Import**. Select `deep-research.md`, then **Import selected**.
 2. **Access** on the skill: make it public, or give read access to each user. A user without read access does not receive the skill.
 3. **Workspace → Models**, **Create**: base model `daedalus/sophos`, name `Deep Research`. In **Skills**, select `deep-research`. **Save**.
 4. In a chat with `Deep Research`, keep **Web Search** on. Use `$deep-research` in a chat with another model.
