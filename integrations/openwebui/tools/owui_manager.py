@@ -3,7 +3,7 @@ title: Open WebUI Manager
 author: nemo
 description: Open WebUI knowledge, skills, files, tools, and functions. Read and write approval follows permission mode.
 required_open_webui_version: 0.12.0
-version: 1.0.6
+version: 1.0.7
 licence: daedalus Noncommercial License 1.0.0
 """
 
@@ -113,14 +113,7 @@ def _bounded_tools(cls):
 
 @_bounded_tools
 class Tools:
-  """The one Open WebUI workspace manager tool.
-
-  The file wins over the 2 old manager tools: the 23 knowledge tools keep
-  their names, and the skills, the file library, the Workspace Tools and the
-  Functions join them. Reads and new items run freely. A mutation and a
-  toggle pass the gate. The preset attach is private, so Open WebUI builds no
-  model tool spec for it.
-  """
+  """Manage Open WebUI workspaces with approval rules set by the permission mode."""
 
   class Valves(BaseModel):
     max_output_bytes: int = Field(default=32768, ge=1024, description="Maximum UTF-8 bytes in one tool result.")
@@ -282,13 +275,7 @@ class Tools:
     __event_call__: Callable | None = None,
     __user__: dict | None = None,
   ) -> bool:
-    """Ask the user to confirm one write. Returns False when it cannot be asked.
-
-    The confirmation travels over the socket of the tab that started the chat.
-    A page refresh drops the dialog and the server would wait forever, because
-    WEBSOCKET_EVENT_CALLER_TIMEOUT starts unset. The wait_for below is the only
-    timeout that always exists, so a refresh costs one wait, then a deny.
-    """
+    """Ask for confirmation within the configured timeout, returning False when approval fails."""
     if not callable(__event_call__):
       return False
     try:
@@ -310,11 +297,7 @@ class Tools:
   async def _guard(
     self, action, detail, __user__, __event_call__, sensitive: bool = True
   ):
-    """Run the gate for one mutation. Returns a refusal text, or None to go on.
-
-    sensitive holds a mutation and a toggle: every level but Always allow asks.
-    A new item passes sensitive=False, so only Always ask holds it.
-    """
+    """Return a refusal if the active permission mode requires confirmation and approval fails."""
     level = self._permissions(__user__)
     asked = level != "Always allow" if sensitive else level == "Always ask"
     if asked and not await self._ask(action, detail, __event_call__, __user__):
@@ -2115,11 +2098,7 @@ class Tools:
     max_chars: int = 10000,
     identifiers: dict | None = None,
   ):
-    """Run one read behind the read gate.
-
-    Always ask holds the read at the same confirmation as a mutation. Allow
-    reads and Always allow let it run.
-    """
+    """Apply the read permission gate and bound text output for a requested range."""
     if self._permissions(__user__) == "Always ask" and not await self._ask(
       action, detail, __event_call__, __user__
     ):
