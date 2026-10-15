@@ -56,7 +56,7 @@ The URL must use HTTPS, contain no credentials and match `TRUSTED_DOMAINS`. Open
 
 `timeout_seconds` sets the wait for the confirmation, and `UserValves.mode` plus `UserValves.timeout_seconds` give each user their own gate, where `0` keeps the tool valve. Open WebUI v0.12.0 has no per-tool toggle route, so `toggle_tool` toggles the tool id in the preset `toolIds` lists.
 
-The preset helpers stay private, so Open WebUI builds no model tool spec for them. `/model/update` needs the owner, a write grant or an admin.
+The preset helpers stay private, so Open WebUI builds no model tool spec for them. `/models/model/update` needs the owner, a write grant or an admin.
 
 | Valve | Default | Meaning |
 | --- | --- | --- |
@@ -64,10 +64,10 @@ The preset helpers stay private, so Open WebUI builds no model tool spec for the
 | `PRESET_MODELS` | empty | The ids or names of the presets that take an attach. Empty serves each preset |
 | `max_output_bytes` | `32768` | Maximum UTF-8 bytes in one complete tool result, at least 1024 |
 | `permissions` | `Always ask` | `Always ask` gates every call, reads included. `Allow reads` frees the reads and the new items. `Always allow` holds nothing |
-| `timeout_seconds` | `60` | The wait for a confirmation. `0` keeps the valve |
+| `timeout_seconds` | `60` | Confirmation wait in seconds, at least 1. Tool value `0` uses 60 seconds. User value `0` uses the tool value |
 | `INSTALL_FETCH_TIMEOUT` | `60.0` | The total wait for Open WebUI's native skill URL loader |
 | `TRUSTED_DOMAINS` | `github.com,huggingface.co,githubusercontent.com` | The domains a skill install may fetch from |
-| `SHOW_STATUS` | `true` | Draw the status line of each operation |
+| `SHOW_STATUS` | `true` | Inactive. The manager does not read this valve |
 
 1. **Workspace → Tools**, **Create**, paste the file, **Save**.
 2. **Access** on the tool: make it public, or give read access to each user.
