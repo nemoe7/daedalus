@@ -14,7 +14,7 @@ AUTH = {"Authorization": f"Bearer {MASTER}"}
 
 TIER = {"TIER-D": ["x"]}
 SEEN: list[tuple[str, dict]] = []
-PLAN: dict[str, list] = {}
+PLAN: dict[str, tuple[str, int | list[bytes]]] = {}
 
 
 class Dropped(httpx.AsyncByteStream):
