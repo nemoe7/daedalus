@@ -96,8 +96,8 @@ def test_the_tier_the_store_holds_beats_the_on_call_resolution(
 
 
 async def test_generic_keys(client: httpx.AsyncClient) -> None:
-  """A generic config key renames its pool, and the default value keeps the built-in name."""
-  defaults = {
+  """A generic config key selects the pool name that clients list and request."""
+  names = {
     "tier-a": "sophos",
     "tier-b": "deinos",
     "tier-c": "koinos",
@@ -105,15 +105,19 @@ async def test_generic_keys(client: httpx.AsyncClient) -> None:
     "audio": "graphos",
     "images": "photos",
   }
-  assert {
-    key: settings.DEFAULTS["personalization"][key] for key in defaults
-  } == defaults
+  baseline = "personalization:\n" + "".join(
+    f"  {key}: {value}\n" for key, value in names.items()
+  )
   try:
-    api.apply_settings(settings.parse(""))
+    api.apply_settings(settings.parse(baseline))
     assert router.pool_name("daedalus/sophos") == "daedalus/sophos"
     ids = [m["id"] for m in (await client.get("/v1/models")).json()["data"]]
     assert "daedalus/sophos" in ids and "daedalus/tier-a" not in ids, ids
-    api.apply_settings(settings.parse("personalization:\n  tier-a: best\n"))
+    api.apply_settings(
+      settings.parse(
+        settings.update_text(baseline, {"personalization": {"tier-a": "best"}})
+      )
+    )
     assert router.pool_name("daedalus/sophos") == "daedalus/best"
     ids = [m["id"] for m in (await client.get("/v1/models")).json()["data"]]
     assert "daedalus/best" in ids and "daedalus/sophos" not in ids, ids
@@ -127,6 +131,40 @@ async def test_generic_keys(client: httpx.AsyncClient) -> None:
   finally:
     router.set_pool_names({})
     api.apply_settings(settings.parse(""))
+
+
+@pytest.mark.parametrize("override", [False, True])
+def test_pool_ids_do_not_depend_on_default_labels(monkeypatch, override) -> None:
+  names = {
+    "tier-a": ("sophos", "chat-a"),
+    "tier-b": ("deinos", "chat-b"),
+    "tier-c": ("koinos", "chat-c"),
+    "tier-d": ("moros", "chat-d"),
+    "audio": ("graphos", "speech"),
+    "images": ("photos", "pictures"),
+  }
+  for key, (_, name) in names.items():
+    monkeypatch.setitem(settings.DEFAULTS["personalization"], key, name)
+  text = (
+    "personalization:\n"
+    + "".join(f"  {key}: custom-{name}\n" for key, (_, name) in names.items())
+    if override
+    else ""
+  )
+  values = settings.parse(text)
+  values["hooks"]["sources"] = []
+  try:
+    api.apply_settings(values)
+    for key, (canonical, name) in names.items():
+      public = f"daedalus/{'custom-' if override else ''}{name}"
+      assert router.pool_name(f"daedalus/{canonical}") == public
+      assert router.built_in(public) == f"daedalus/{canonical}"
+      assert router.built_in(f"daedalus/{canonical}") is None
+      assert router.pool_name(canonical) == values["personalization"][key]
+    assert router.built_in("daedalus/auto") == "daedalus/auto"
+    assert router.built_in("p/x") == "p/x"
+  finally:
+    router.set_pool_names({})
 
 
 def test_names() -> None:

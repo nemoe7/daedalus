@@ -1537,13 +1537,16 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   global SLOW_SECONDS, AFFINITY, AFFINITY_MODE, KEYWORDS, SWITCH
   global PARALLEL_ENABLED, PARALLEL_COUNT, PARALLEL_CHANCE, PARALLEL_SLOW_SECONDS
   global PARALLEL_PENALTY, REQUEST_HOOKS
-  # The settings key each pool by its generic name. Its default value gives the built-in name.
   personal = values["personalization"]
+  pool_keys = {
+    name: router.TIER_NAMES[tier].lower() for name, tier in router.POOLS.items()
+  }
+  media_keys = {"audio_transcription": "audio", "image_generation": "images"}
+  pool_keys.update(
+    {name: media_keys[mode] for name, mode in router.MEDIA_POOLS.items()}
+  )
   router.set_pool_names(
-    {
-      settings.DEFAULTS["personalization"][key]: personal[key]
-      for key in settings.POOL_KEYS
-    }
+    {name.removeprefix("daedalus/"): personal[key] for name, key in pool_keys.items()}
   )
   hook_values = values["hooks"]
   REQUEST_HOOKS = {

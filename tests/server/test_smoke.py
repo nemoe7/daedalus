@@ -92,6 +92,7 @@ def use_config(api_key: str = UPSTREAM_KEY) -> None:
 def use_upstream(api_key: str = UPSTREAM_KEY, local_key: str = "") -> None:
   """Point the app at the stub upstream, with its model in the store."""
   use_config(api_key)
+  api.router.set_pool_names({})
   store.write_store([{"id": "stub/gpt-test"}])
   for item in keys.listing(store.MODELS_DB):
     keys.delete(store.MODELS_DB, item["name"])
