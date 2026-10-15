@@ -1,4 +1,4 @@
-"""Pick a tier for a prompt with the vendored litellm heuristic v2."""
+"""Select a tier for a prompt with the vendored litellm heuristic v2."""
 
 # Vendored from litellm 1.102.1, MIT licence (artifacts/LITELLM-LICENSE.txt): classify_prompt,
 # TierSuccessPredictor, and the bundled ultrafeedback_tiers.json artifact.
@@ -29,7 +29,7 @@ TIER_NAMES: Final[Mapping[int, str]] = {
 
 
 class RequestType(str, Enum):
-  """What a prompt asks for. The artifact keys its rows by these seven values."""
+  """The seven request types that key the artifact rows."""
 
   CODE_GENERATION = "code_generation"
   CODE_UNDERSTANDING = "code_understanding"
@@ -168,7 +168,7 @@ _PROMPT_LIMIT: Final = 2000
 
 
 def classify_prompt(text: str) -> RequestType:
-  """Name what a prompt asks for. The first rule that matches wins, else `GENERAL`."""
+  """Return the first matching request type, or GENERAL when no rule matches."""
   if not text or not text.strip():
     return RequestType.GENERAL
   truncated: Final = text[:_PROMPT_LIMIT]
@@ -246,7 +246,7 @@ def _rows(payload: list[dict[str, Any]], key: str | None) -> dict[Any, TierStati
 
 
 def load_artifact(path: Path | None = None) -> Artifact:
-  """Read the tier table. Fails loudly if a tier is missing or a row repeats."""
+  """Read the tier table and reject missing global tiers."""
   source: Final = ARTIFACT_PATH if path is None else path
   payload: Final = json.loads(source.read_text(encoding="utf-8"))
   global_stats = _rows(payload.get("global_statistics") or [], None)
@@ -270,7 +270,7 @@ def _posterior_mean(
   prior_mass: float,
   prior_mean: float,
 ) -> float:
-  """Pull a row's rate toward the tier above it. No row means no pull."""
+  """Blend a row with its prior, or return the prior mean when no row exists."""
   if stat is None:
     return prior_mean
   return (stat.successes + prior_mass * prior_mean) / (stat.observations + prior_mass)
@@ -299,10 +299,7 @@ def predict(
   request_type: RequestType | None = None,
   threshold: float | None = None,
 ) -> Prediction:
-  """Score a prompt against every tier, and name the cheapest tier that will do.
-
-  A given threshold replaces the `routing_threshold` of the artifact.
-  """
+  """Score each tier and select the cheapest qualifying tier, using a given threshold before the artifact threshold."""
   kind: Final = classify_prompt(prompt) if request_type is None else request_type
   cohort: Final = similarity_cohort(prompt, kind)
   raw: Final = tuple(_probability(artifact, tier, kind, cohort) for tier in TIERS)
