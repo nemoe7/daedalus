@@ -10,6 +10,7 @@ import sqlite3
 import time
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any
@@ -84,15 +85,15 @@ def save_snapshot(url: str, payload: dict[str, Any]) -> None:
     )
 
 
-def cached_snapshot(url: str) -> dict[str, Any] | None:
-  """Return one cached raw response, or None when it is absent or unreadable."""
+def cached_snapshot_record(url: str) -> tuple[dict[str, Any], float] | None:
+  """Read a cached response and its save time together, or None without a readable snapshot."""
   target = Path(store.MODELS_DB)
   if not target.exists():
     return None
   try:
     with sqlite3.connect(f"{target.resolve().as_uri()}?mode=ro", uri=True) as database:
       row = database.execute(
-        "SELECT payload FROM provider_snapshots WHERE url_hash = ?",
+        "SELECT payload, updated FROM provider_snapshots WHERE url_hash = ?",
         (snapshot_hash(url),),
       ).fetchone()
   except sqlite3.Error as error:
@@ -105,7 +106,13 @@ def cached_snapshot(url: str) -> dict[str, Any] | None:
   except (json.JSONDecodeError, TypeError):
     logger.warning("ignored an invalid provider snapshot for %s", snapshot_hash(url))
     return None
-  return payload if isinstance(payload, dict) else None
+  return (payload, row[1]) if isinstance(payload, dict) else None
+
+
+def cached_snapshot(url: str) -> dict[str, Any] | None:
+  """Return the cached raw response without its timestamp."""
+  record = cached_snapshot_record(url)
+  return record[0] if record is not None else None
 
 
 def read_each(keys: Iterable[str], read: Callable[[str], Any]) -> dict[str, Any]:
@@ -492,6 +499,17 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
       )
 
 
+def dump_record(data: dict | list, time_key: str, at: float | None) -> dict:
+  """Wrap dump data with its UTC export and source timestamps."""
+  return {
+    "exported_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+    time_key: datetime.fromtimestamp(at, UTC).isoformat().replace("+00:00", "Z")
+    if at is not None
+    else None,
+    "data": data,
+  }
+
+
 def dump(
   config: dict[str, Any] | None = None,
   folder: Path | str = DUMP_DIR,
@@ -514,7 +532,13 @@ def dump(
       continue
     written.append(payload)
     if file_format == "json":
-      path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", "utf-8")
+      record = cached_snapshot_record(provider["discovery_url"])
+      if record is None:
+        logger.warning("skipped %s: no cached catalog snapshot", provider_name)
+        continue
+      payload, fetched_at = record
+      wrapped = dump_record(payload, "fetched_at", fetched_at)
+      path.write_text(json.dumps(wrapped, indent=2, ensure_ascii=False) + "\n", "utf-8")
     else:
       rows = provider_rows(provider_name, provider, payload)
       write_csv(path, [{"id": slug, **row} for slug, row in rows.items()])

@@ -201,15 +201,13 @@ MEDIA_FLAGS = ("vision", "pdf_input", "audio_input", "audio_output")
 STORED_COLUMNS = ("id", "provider", "slug", *COLUMNS)
 
 
-def stored_rows() -> list[dict[str, Any]]:
-  """Every stored model row, with every column of the models table.
-
-  The column names come from `STORED_COLUMNS`, so a new column appears here, and in
-  `daedalus dump models`, without another edit.
-  """
-  if not Path(MODELS_DB).exists():
+def stored_rows(database: sqlite3.Connection | None = None) -> list[dict[str, Any]]:
+  """Read all model columns through a supplied or new read-only connection."""
+  owned = database is None
+  if owned and not Path(MODELS_DB).exists():
     return []
-  database = connect_read(MODELS_DB)
+  if database is None:
+    database = connect_read(MODELS_DB)
   try:
     rows = database.execute(
       f"SELECT {', '.join(STORED_COLUMNS)} FROM models ORDER BY rowid"
@@ -217,7 +215,8 @@ def stored_rows() -> list[dict[str, Any]]:
   except sqlite3.OperationalError:
     return []
   finally:
-    database.close()
+    if owned:
+      database.close()
   return [
     {
       key: bool(value)
@@ -419,18 +418,33 @@ def pace_limits() -> dict[str, tuple[float | None, float | None]]:
   return {key: pair for key, pair in found.items() if pair != (None, None)}
 
 
-def built() -> float | None:
-  """The time of the last catalog rebuild. None without a store or an older store."""
-  if not Path(MODELS_DB).exists():
+def built(database: sqlite3.Connection | None = None) -> float | None:
+  """Read the last catalog build time through a supplied or new read-only connection."""
+  owned = database is None
+  if owned and not Path(MODELS_DB).exists():
     return None
-  database = connect_read(MODELS_DB)
+  if database is None:
+    database = connect_read(MODELS_DB)
   try:
     row = database.execute("SELECT built FROM catalog").fetchone()
   except sqlite3.OperationalError:
     return None
   finally:
-    database.close()
+    if owned:
+      database.close()
   return row[0] if row else None
+
+
+def stored_catalog() -> tuple[list[dict[str, Any]], float | None]:
+  """Read model rows and their build time in one SQLite snapshot."""
+  if not Path(MODELS_DB).exists():
+    return [], None
+  database = sqlite3.connect(f"{Path(MODELS_DB).resolve().as_uri()}?mode=ro", uri=True)
+  try:
+    database.execute("BEGIN")
+    return stored_rows(database), built(database)
+  finally:
+    database.close()
 
 
 def readable() -> bool:

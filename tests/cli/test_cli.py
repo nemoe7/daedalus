@@ -174,7 +174,7 @@ def test_dump_modes(tmp_path: Path, monkeypatch) -> None:
   )
   monkeypatch.setattr(store, "migrate", lambda: calls.append("migrate"))
   monkeypatch.setattr(catalog, "refresh", lambda: calls.append("refresh"))
-  monkeypatch.setattr(store, "stored_rows", lambda: rows)
+  monkeypatch.setattr(store, "stored_rows", lambda *_: rows)
   # The tier column has its own test: this 1 reads the format switch alone.
   monkeypatch.setattr(config, "get_config", dict)
 
@@ -183,7 +183,7 @@ def test_dump_modes(tmp_path: Path, monkeypatch) -> None:
   cli.run(["dump", "models", "--format", "json"])
   assert calls == ["migrate", ("catalog", "csv"), "migrate"], calls
   # The store holds no ladder for the row, so the dump mirrors that.
-  assert json.loads((tmp_path / "models.json").read_text("utf-8")) == [
+  assert json.loads((tmp_path / "models.json").read_text("utf-8"))["data"] == [
     {**rows[0], "tier": None, "supported_efforts": None}
   ]
   cli.run(["dump", "all", "-f", "csv"])
@@ -213,7 +213,7 @@ def test_dump_models_names_the_tier_of_each_row(tmp_path: Path, monkeypatch) -> 
   monkeypatch.setattr(store, "MODELS_DB", tmp_path / "models.sqlite3")
   store.write_store([{"id": "p/one", "tier": "TIER-A"}, {"id": "q/two"}])
   cli.dump_models("json")
-  rows = json.loads((tmp_path / "dump" / "models.json").read_text("utf-8"))
+  rows = json.loads((tmp_path / "dump" / "models.json").read_text("utf-8"))["data"]
   assert {row["id"]: row["tier"] for row in rows} == {
     "p/one": "TIER-A",
     "q/two": None,
@@ -253,7 +253,7 @@ def test_dump_models_carries_the_ladder_of_the_store(
     ]
   )
   cli.dump_models("json")
-  rows = json.loads((tmp_path / "dump" / "models.json").read_text("utf-8"))
+  rows = json.loads((tmp_path / "dump" / "models.json").read_text("utf-8"))["data"]
   assert {row["id"]: row["supported_efforts"] for row in rows} == {
     "p/one": ["max", "high", "low"],
     "q/two": None,

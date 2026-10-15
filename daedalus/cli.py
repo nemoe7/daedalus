@@ -37,12 +37,15 @@ ANY_HOST = ("0.0.0.0", "::")
 
 def dump_models(file_format: str) -> None:
   """Write stored model rows with parsed effort lists to JSON or CSV."""
+  stored, built_at = (
+    store.stored_catalog() if file_format == "json" else (store.stored_rows(), None)
+  )
   rows = [
     {
       **row,
       "supported_efforts": store.effort_list(row.get("supported_efforts")) or None,
     }
-    for row in store.stored_rows()
+    for row in stored
   ]
   folder = discovery.DUMP_DIR
   folder.mkdir(parents=True, exist_ok=True)
@@ -50,7 +53,8 @@ def dump_models(file_format: str) -> None:
     (folder / f"models.{extension}").unlink(missing_ok=True)
   path = folder / f"models.{file_format}"
   if file_format == "json":
-    path.write_text(json.dumps(rows, indent=2, ensure_ascii=False) + "\n", "utf-8")
+    wrapped = discovery.dump_record(rows, "built_at", built_at)
+    path.write_text(json.dumps(wrapped, indent=2, ensure_ascii=False) + "\n", "utf-8")
   else:
     discovery.write_csv(path, rows)
   logger.info("wrote %d available models to %s", len(rows), path)

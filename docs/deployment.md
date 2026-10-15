@@ -65,7 +65,13 @@ The Docker and git commands below are the same in cmd, PowerShell and bash.
 `dump` defaults to JSON. Add `-f csv` (also `--fmt` or `--format`) for CSV. Catalog refresh saves provider
 snapshots. Every dump reads those snapshots and never fetches.
 
-The models dump carries the tier of each row.
+The models dump carries the tier of each row. JSON dumps wrap the original payload under `data` and
+add UTC ISO 8601 timestamps with a `Z` suffix. `exported_at` gives the file generation time.
+
+Provider dumps add `fetched_at` from the saved snapshot. Model dumps add `built_at` from the model
+store, or `null` without a build. A build time does not give the fetch time of each retained model row.
+
+CSV output does not change.
 
 The dashboard starts while the initial catalog builds in a worker thread. `serve --catalog` also uses a
 background build. Existing models remain available during a rebuild. On a first install, model requests

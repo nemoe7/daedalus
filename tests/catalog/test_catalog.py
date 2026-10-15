@@ -1,9 +1,11 @@
 """Tests for the model catalog."""
 
 import json
+import sqlite3
 import tempfile
 import threading
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -509,7 +511,7 @@ def test_dump() -> None:
     ], names
     assert not stale.exists(), "a failed provider keeps no old dump"
     cloudflare = json.loads((Path(folder) / "cloudflare.json").read_text("utf-8"))
-    slugs = row_slugs(cloudflare)
+    slugs = row_slugs(cloudflare["data"])
     assert "@cf/zai-org/glm-5.3" in slugs, "the dump keeps excluded rows"
     assert "@cf/openai/gpt-oss-120b" in slugs, "the dump merges every page"
     csv_paths = discovery.dump(CONFIG, folder=folder, file_format="csv")
@@ -966,3 +968,27 @@ def test_shared_failure_retains_each_provider(
   kept = {row["id"]: row for row in store.stored_rows()}
   assert kept["first/old"]["max_input_tokens"] == 8192
   assert kept["second/old"]["max_input_tokens"] == 4096
+
+
+def test_catalog_dump_keeps_fetch_time_separate_from_export_time(tmp_path, monkeypatch):
+  """JSON metadata preserves the source time and every upstream payload key."""
+  monkeypatch.setattr(store, "MODELS_DB", tmp_path / "models.sqlite3")
+  url = "https://snapshot.test/models"
+  payload = {
+    "data": [{"id": "one"}],
+    "exported_at": "upstream",
+    "fetched_at": "upstream",
+  }
+  discovery.save_snapshot(url, payload)
+  fetched = 1_700_000_000.25
+  with sqlite3.connect(store.MODELS_DB) as database:
+    database.execute("UPDATE provider_snapshots SET updated = ?", (fetched,))
+  before = datetime.now(UTC)
+  paths = discovery.dump({"p": {"discovery_url": url}}, folder=tmp_path / "dump")
+  envelope = json.loads(paths[0].read_text())
+  assert envelope["data"] == payload
+  assert envelope["fetched_at"] == datetime.fromtimestamp(
+    fetched, UTC
+  ).isoformat().replace("+00:00", "Z")
+  assert envelope["exported_at"].endswith("Z")
+  assert before <= datetime.fromisoformat(envelope["exported_at"]) <= datetime.now(UTC)
