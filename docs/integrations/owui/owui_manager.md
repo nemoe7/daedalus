@@ -56,6 +56,8 @@ The URL must use HTTPS, contain no credentials and match `TRUSTED_DOMAINS`. Open
 
 `timeout_seconds` sets the wait for the confirmation, and `UserValves.mode` plus `UserValves.timeout_seconds` give each user their own gate, where `0` keeps the tool valve. Open WebUI v0.12.0 has no per-tool toggle route, so `toggle_tool` toggles the tool id in the preset `toolIds` lists.
 
+`UserValves.mode` accepts `default` and the three permission modes only. Unknown runtime modes require confirmation.
+
 The preset helpers stay private, so Open WebUI builds no model tool spec for them. `/models/model/update` needs the owner, a write grant or an admin.
 
 | Valve | Default | Meaning |

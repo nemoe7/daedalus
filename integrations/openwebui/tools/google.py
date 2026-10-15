@@ -81,7 +81,7 @@ class Tools:
     http_timeout_seconds: int = 30
 
   class UserValves(BaseModel):
-    mode: str = "default"
+    mode: Literal["default", "Always ask", "Allow reads", "Always allow"] = "default"
     timeout_seconds: int = 0
 
   @staticmethod
@@ -169,15 +169,10 @@ class Tools:
     return value
 
   def _permissions(self, __user__: dict | None = None) -> str:
-    """The permission level: the user valve wins, then the tool valve.
-
-    Always ask holds every call, reads included. Allow reads lets a read run
-    and holds the gated calls. Always allow holds nothing.
-    """
+    """Resolve the permission mode, requiring confirmation for unknown values."""
     user_mode = self._user_valve(__user__, "mode")
-    if user_mode and user_mode != "default":
-      return str(user_mode)
-    return str(self.valves.permissions or "Always ask")
+    mode = self.valves.permissions if user_mode is None or user_mode == "default" else user_mode
+    return mode if isinstance(mode, str) and mode in ("Always ask", "Allow reads", "Always allow") else "Always ask"
 
   async def _read(
     self,

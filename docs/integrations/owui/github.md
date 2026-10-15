@@ -69,6 +69,8 @@ All 49 public reads use the same permission gate. Under `Always ask` each one wa
 
 `UserValves.mode` gives each user the same 3 levels, and `default` follows the tool valve. `UserValves.timeout_seconds` gives each user their own confirmation wait. A value of `0` keeps the tool valve.
 
+`UserValves.mode` accepts `default` and the three permission modes only. Unknown runtime modes require confirmation.
+
 The confirmation travels over the socket of the chat tab. `WEBSOCKET_EVENT_CALLER_TIMEOUT` is unset by default, so the Open WebUI server waits without a timeout when the browser does not answer. Only `timeout_seconds` ends that wait. A page refresh drops the dialog, the tool returns `denied: true`, and the tool sends nothing.
 
 [`tests/integrations/openwebui/tools/test_owui_github_tool.py`](../../../tests/integrations/openwebui/tools/test_owui_github_tool.py) holds the tool surface, the gate and the error path.
