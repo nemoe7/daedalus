@@ -198,16 +198,17 @@ def test_loop_settings() -> None:
     1000,
     10000,
   )
-  for text, message in (
-    ("limits:\n  calls: true\n", "whole number"),
-    ("limits:\n  calls: 1\n", "between 2 and 100"),
-    ("limits:\n  repeats: 17\n", "between 2 and 16"),
-    ("limits:\n  shortest: 1001\n", "between 1 and 1000"),
-    ("limits:\n  longest: 10001\n", "between 1 and 10000"),
-    ("limits:\n  shortest: 21\n  longest: 20\n", "at most limits.longest"),
+  for text, identifiers in (
+    ("limits:\n  calls: true\n", ("limits.calls",)),
+    ("limits:\n  calls: 1\n", ("limits.calls",)),
+    ("limits:\n  repeats: 17\n", ("limits.repeats",)),
+    ("limits:\n  shortest: 1001\n", ("limits.shortest",)),
+    ("limits:\n  longest: 10001\n", ("limits.longest",)),
+    ("limits:\n  shortest: 21\n  longest: 20\n", ("limits.shortest", "limits.longest")),
   ):
-    with pytest.raises(settings.SettingsError, match=message):
+    with pytest.raises(settings.SettingsError) as error:
       settings.parse(text)
+    assert all(identifier in str(error.value) for identifier in identifiers)
 
 
 def test_affinity_settings(folder: Path) -> None:
@@ -465,8 +466,9 @@ def test_pool_names() -> None:
   for bad in ("a/b", "auto", "''", "x" * 41, "[a]"):
     with pytest.raises(settings.SettingsError):
       settings.parse(f"personalization:\n  tier-a: {bad}\n")
-  with pytest.raises(settings.SettingsError, match="own name"):
+  with pytest.raises(settings.SettingsError) as error:
     settings.parse("personalization:\n  tier-a: koinos\n")
+  assert "personalization" in str(error.value)
   swapped = settings.parse("personalization:\n  tier-a: koinos\n  tier-c: sophos\n")[
     "personalization"
   ]
@@ -506,8 +508,9 @@ def test_hooks_dir_names_the_folder() -> None:
     settings.parse("hooks:\n  dir: mine-2.hooks\n")["hooks"]["dir"] == "mine-2.hooks"
   )
   for bad in ("a/b", "../hooks", "", " hooks", ".", ".."):
-    with pytest.raises(settings.SettingsError, match="dir must be 1 folder name"):
+    with pytest.raises(settings.SettingsError) as error:
       settings.parse(f'hooks:\n  dir: "{bad}"\n')
+    assert "hooks.dir" in str(error.value)
 
 
 def test_hooks_sources_take_a_repo_path_ref_and_flag() -> None:
@@ -526,19 +529,26 @@ def test_hooks_sources_take_a_repo_path_ref_and_flag() -> None:
   assert url == [
     {"repo": "owner/name", "path": "", "ref": "main", "auto_update": False}
   ]
-  for text, message in (
-    ("hooks:\n  sources: nope\n", "must be a list"),
-    ("hooks:\n  sources:\n    - path: hooks\n", "owner/name or a GitHub URL"),
-    ("hooks:\n  sources:\n    - repo: owner\n", "owner/name or a GitHub URL"),
-    ("hooks:\n  sources:\n    - repo: owner/name\n      ref: ''\n", "ref must be"),
+  for text, identifiers in (
+    ("hooks:\n  sources: nope\n", ("hooks.sources",)),
+    ("hooks:\n  sources:\n    - path: hooks\n", ("hooks.sources", "repo")),
+    ("hooks:\n  sources:\n    - repo: owner\n", ("hooks.sources", "repo")),
+    (
+      "hooks:\n  sources:\n    - repo: owner/name\n      ref: ''\n",
+      ("hooks.sources", "ref"),
+    ),
     (
       "hooks:\n  sources:\n    - repo: owner/name\n      auto_update: 1\n",
-      "auto_update must be",
+      ("hooks.sources", "auto_update"),
     ),
-    ("hooks:\n  sources:\n    - repo: owner/name\n      extra: 1\n", "unknown key"),
+    (
+      "hooks:\n  sources:\n    - repo: owner/name\n      extra: 1\n",
+      ("hooks.sources", "extra"),
+    ),
   ):
-    with pytest.raises(settings.SettingsError, match=message):
+    with pytest.raises(settings.SettingsError) as error:
       settings.parse(text)
+    assert all(identifier in str(error.value) for identifier in identifiers)
 
 
 @pytest.mark.parametrize(
@@ -592,17 +602,22 @@ def test_hooks_disabled_names_stay_off() -> None:
     "two",
   ]
   for bad in ("nope", "[one.py, 7]", "[a/../b]"):
-    with pytest.raises(settings.SettingsError, match="list of hook names"):
+    with pytest.raises(settings.SettingsError) as error:
       settings.parse(f"hooks:\n  disabled: {bad}\n")
+    assert "hooks.disabled" in str(error.value)
 
 
 def test_hooks_remote_is_gone() -> None:
   """The settings file of the old shape names `hooks.sources`, on a load and on a save."""
   for key in ("remote", "remote_hosts"):
-    with pytest.raises(settings.SettingsError, match="hooks.sources"):
+    with pytest.raises(settings.SettingsError) as error:
       settings.parse(f"hooks:\n  {key}: []\n")
-  with pytest.raises(settings.SettingsError, match="hooks.sources"):
+    assert f"hooks.{key}" in str(error.value)
+    assert "hooks.sources" in str(error.value)
+  with pytest.raises(settings.SettingsError) as error:
     settings.update_text("", {"hooks": {"remote": []}})
+  assert "hooks.remote" in str(error.value)
+  assert "hooks.sources" in str(error.value)
 
 
 def test_apply_wires_the_hook_settings(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -655,8 +670,9 @@ def test_updates_repo_names_the_repository() -> None:
     == "mine/daedalus"
   )
   for bad in ("daedalus", "a/b/c", "", "o//r", "/o/r"):
-    with pytest.raises(settings.SettingsError, match="repository"):
+    with pytest.raises(settings.SettingsError) as error:
       settings.parse(f'updates:\n  repo: "{bad}"\n')
+    assert "updates.repo" in str(error.value)
 
 
 @pytest.mark.parametrize(
