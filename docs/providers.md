@@ -137,7 +137,7 @@ Discovery also keeps these Mistral rows out:
 
 | Rows | Reason |
 | --- | --- |
-| Aliases: a `name` that is not the `id` | Each alias copies a main id: `mistral-vibe-cli-latest` of `mistral-medium-latest`. A client can send it. |
+| An ID reference to another declared alias | Check `name` first, then `billing_model_name` for human-readable names. A human-readable name alone is not an alias ID. |
 | The `ocr`, `moderation`, `classification` or `audio_transcription_realtime` capability | No daedalus endpoint serves these models. |
 
 The Groq `rpm` and `tpm` values come from the free limits in the [Groq docs](https://console.groq.com/docs/rate-limits).

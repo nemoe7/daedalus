@@ -100,7 +100,12 @@ def test_discoverable() -> None:
     slug
     for slug, (name, capabilities) in rows.items()
     if MistralProvider.discoverable(
-      {"id": slug, "name": name, "capabilities": capabilities}
+      {
+        "id": slug,
+        "name": name,
+        "aliases": [name] if name != slug else [],
+        "capabilities": capabilities,
+      }
     )
   ]
   assert kept == ["mistral-medium-latest", "codestral-embed"], kept
@@ -152,3 +157,30 @@ def test_history() -> None:
   )
   assert all("reasoning_content" not in m for m in sent), sent
   assert messages[1]["content"] == "391", "the client body does not change"
+
+
+def test_display_names_do_not_remove_primary_models() -> None:
+  """Display names keep primary IDs while declared references exclude aliases."""
+  primary = {
+    "id": "speech-1234",
+    "name": "Speech Model",
+    "billing_model_name": "speech-1234",
+    "aliases": ["speech-latest"],
+    "capabilities": {"audio_transcription": True},
+  }
+  assert MistralProvider.discoverable(primary)
+  alias = {**primary, "id": "speech-latest", "aliases": [primary["id"]]}
+  assert not MistralProvider.discoverable(alias)
+  assert not MistralProvider.discoverable({**alias, "name": primary["id"]})
+  for aliases in (None, [], {}, "speech-1234"):
+    assert MistralProvider.discoverable({**primary, "aliases": aliases})
+  assert MistralProvider.discoverable({**primary, "billing_model_name": "price-group"})
+  for capability in (
+    "ocr",
+    "moderation",
+    "classification",
+    "audio_transcription_realtime",
+  ):
+    assert not MistralProvider.discoverable(
+      {**primary, "capabilities": {capability: True}}
+    )

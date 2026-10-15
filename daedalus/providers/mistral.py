@@ -129,10 +129,14 @@ class MistralProvider(OpenAIProvider):
 
   @staticmethod
   def discoverable(row: dict) -> bool:
-    """Only the main id of a model that daedalus serves. An alias row has another `name`."""
+    """Accept supported models unless their ID reference names a declared alias."""
     found = row.get("capabilities") or {}
+    aliases = row.get("aliases")
+    aliases = aliases if isinstance(aliases, list) else []
     name = row.get("name")
-    alias = isinstance(name, str) and name != row.get("id")
+    if name != row.get("id") and name not in aliases:
+      name = row.get("billing_model_name")
+    alias = isinstance(name, str) and name != row.get("id") and name in aliases
     return not alias and not any(found.get(key) is True for key in SKIPPED)
 
   @staticmethod
