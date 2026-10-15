@@ -75,7 +75,4 @@ async function apply(config) {
   }
 }
 
-export default {
-  id: "daedalus",
-  server: async () => ({ config: apply }),
-};
+export default async () => ({ config: apply });

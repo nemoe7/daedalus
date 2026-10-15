@@ -32,10 +32,11 @@ ROWS = [
   },
 ]
 DRIVER = """
-const plugin = (await import(process.argv[1])).default;
-const hooks = await plugin.server({});
+const mod = await import(process.argv[1]);
+const hooks = [];
+for (const plugin of new Set(Object.values(mod))) hooks.push(await plugin({}));
 const config = JSON.parse(process.argv[2]);
-await hooks.config(config);
+for (const hook of hooks) await hook.config?.(config);
 console.log(JSON.stringify(config));
 """
 
