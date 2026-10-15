@@ -41,7 +41,8 @@ def tar(files: dict[str, str]) -> bytes:
 def folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
   """The hook folder and the lock file of 1 test."""
   monkeypatch.setattr(hooks, "ROOT", tmp_path)
-  monkeypatch.setattr(remote, "LOCK", tmp_path / "hooks.lock.json")
+  monkeypatch.setattr(remote, "LOCK", Path("hooks.lock.json"))
+  monkeypatch.setattr(hooks, "DIR", "hooks")
   found = tmp_path / "hooks"
   found.mkdir()
   return found
@@ -145,6 +146,24 @@ def test_verify_passes_a_recorded_file(
     "ok        one.py: lock ok: 1.2.0 owner/name@aaaaaaaaaaaa"
     in capsys.readouterr().out
   )
+
+
+def test_verify_repeats_with_a_colocated_lock_and_real_import(
+  folder: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+  """Repeated checks inspect only the pinned source, not its lock or bytecode."""
+  monkeypatch.delenv("PYTHONDONTWRITEBYTECODE", raising=False)
+  path = folder / "owner/name/one.py"
+  path.parent.mkdir(parents=True)
+  path.write_bytes(BODY)
+  remote.write_records({"owner/name/one.py": RECORD})
+  assert (folder / "hooks.lock.json").is_file()
+  group_of(monkeypatch)
+  for _ in range(2):
+    assert cli.hooks_verify() == 0
+    rows = [line.split(maxsplit=2)[:2] for line in capsys.readouterr().out.splitlines()]
+    assert rows == [["ok", "owner/name/one.py:"]]
+  assert list(folder.rglob("*.pyc"))
 
 
 def test_verify_fails_a_changed_file_and_a_missing_one(

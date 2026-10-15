@@ -449,6 +449,12 @@ def test_on_disk_skips_a_temporary_name(tmp_path: Path) -> None:
   (tmp_path / "owner/name").mkdir(parents=True)
   (tmp_path / "owner/name/two.py").write_bytes(b"more\n")
   (tmp_path / "owner/name/.two.py.part").write_bytes(b"half")
+  (tmp_path / "hooks.lock.json").write_text("{}")
+  (tmp_path / "notes.md").write_text("hook notes")
+  (tmp_path / "owner/name/__pycache__").mkdir()
+  (tmp_path / "owner/name/__pycache__/two.cpython-311.pyc").write_bytes(b"cache")
+  (tmp_path / ".hidden").mkdir()
+  (tmp_path / ".hidden/secret.py").write_bytes(b"hidden")
   assert remote.on_disk(tmp_path) == {
     "one.py": remote.digest(b"body\n"),
     "owner/name/two.py": remote.digest(b"more\n"),

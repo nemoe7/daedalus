@@ -102,7 +102,7 @@ def on_disk(folder: Path | None = None) -> dict[str, str]:
   if not target.is_dir():
     return {}
   found = {}
-  for path in sorted(target.rglob("*")):
+  for path in sorted(target.rglob("*.py")):
     if not path.is_file():
       continue
     rel = path.relative_to(target).as_posix()
