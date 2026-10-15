@@ -324,14 +324,13 @@ def test_the_shipped_hook_floors_a_model_that_requires_reasoning() -> None:
   """Required reasoning selects `minimal` in this fixture, while the unrestricted model keeps `none`."""
   module = shipped_module()
   config = {
-    "kilo": {
-      "api_key": "k",
-      "models": {"liquid/lfm-2.5-2.6b:free": {"reasoning": "required"}},
+    "fixture": {
+      "supported_reasoning_efforts": ["none", "minimal", "low", "high"],
+      "models": {"required": {"reasoning": "required"}},
     }
   }
-  model = "kilo/liquid/lfm-2.5-2.6b:free"
+  model = "fixture/required"
   # A TIER-D read is `none`, but a model that requires reasoning floors one step up.
-  # The kilo list is `none, minimal, low, medium, high, xhigh, max`, so the floor is `minimal`.
   value: dict = {}
   module.on_prompt(value, prompt="thanks", app="OWUI", model=model, config=config)
   assert value["reasoning_effort"] == "minimal", value
@@ -344,7 +343,7 @@ def test_the_shipped_hook_floors_a_model_that_requires_reasoning() -> None:
   # A model with no `reasoning: required` keeps the plain read, so `none` stays.
   value = {}
   module.on_prompt(
-    value, prompt="thanks", app="OWUI", model="kilo/other", config=config
+    value, prompt="thanks", app="OWUI", model="fixture/other", config=config
   )
   assert value["reasoning_effort"] == "none", value
 
@@ -431,8 +430,13 @@ def test_the_shipped_hook_caps_the_model_turn() -> None:
   )
 
 
-def test_the_shipped_hook_ladders_the_catalog_efforts() -> None:
+def test_the_shipped_hook_ladders_the_catalog_efforts(
+  monkeypatch: pytest.MonkeyPatch,
+) -> None:
   """A model with a catalog effort list ladders by that list, over the coded set."""
+  monkeypatch.setattr(
+    api.router, "DEFAULT_EFFORTS", {"fixture": ("none", "minimal", "high")}
+  )
   module = shipped_module()
   value: dict = {}
   module.on_prompt(
@@ -441,14 +445,14 @@ def test_the_shipped_hook_ladders_the_catalog_efforts() -> None:
     app="OWUI",
     retry=1,
     level="none",
-    model="openrouter/z-ai/glm-5.3-flash",
-    config={"openrouter": {}},
+    model="fixture/m",
+    config={"fixture": {}},
   )
   assert value["reasoning_effort"] == "minimal", "the coded set of the gateway"
   store.write_store(
     [
       {
-        "id": "openrouter/z-ai/glm-5.3-flash",
+        "id": "fixture/m",
         "supported_efforts": ["low", "high"],
       }
     ]
@@ -460,8 +464,8 @@ def test_the_shipped_hook_ladders_the_catalog_efforts() -> None:
     app="OWUI",
     retry=1,
     level="none",
-    model="openrouter/z-ai/glm-5.3-flash",
-    config={"openrouter": {}},
+    model="fixture/m",
+    config={"fixture": {}},
   )
   assert value["reasoning_effort"] == "high", "one step up on the list of the catalog"
 
