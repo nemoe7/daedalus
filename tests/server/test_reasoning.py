@@ -1,4 +1,4 @@
-"""Check that `reasoning_effort` goes only to models that reason."""
+"""Check reasoning effort against stored capabilities and supported effort values."""
 
 import asyncio
 import json

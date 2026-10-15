@@ -92,11 +92,7 @@ def lines(text: str) -> list[dict]:
 async def test_each_round_of_one_message_carries_its_own_line(
   client: httpx.AsyncClient,
 ) -> None:
-  """The 2 tool rounds of 1 message each carry a line, and 1 model makes the 2 lines equal.
-
-  The client sends the same message id for both rounds, so the served-model Filter draws 1 row:
-  it drops a line equal to the last line of that message.
-  """
+  """Two calls each carry one served-model line, with equal lines when the model is unchanged."""
   first = await client.post("/v1/chat/completions", json={**BODY, "stream": True})
   assert first.status_code == 200, first.text
   second = await client.post("/v1/chat/completions", json={**BODY, "stream": True})
