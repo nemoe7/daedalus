@@ -2,6 +2,7 @@ import logging
 import re
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from daedalus.providers.base import error_text
@@ -50,45 +51,73 @@ def test_lines() -> None:
   assert record.name == "uvicorn", record.name
   lines = Lines()
   logging.getLogger("daedalus").addHandler(lines)
-  config = {
-    "first": {"api_key": "k", "api_base": "https://rejects.test/v1"},
-    "second": {"api_key": "k", "api_base": "https://answers.test/v1"},
-    "keyless": {"api_base": "https://answers.test/v1"},
-  }
-  original = api.get_config, api.chain
-  api.get_config = lambda: config
-  groups = [["keyless/c"], ["first/a"], ["second/b"]]
-  api.chain = lambda model, body, config, key="": (groups, "daedalus/auto:TIER-B")
-  upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
   try:
-    body = {"model": "daedalus/auto", "messages": [{"role": "user", "content": "hi"}]}
-    response = TestClient(api.app, headers=AUTH).post("/v1/chat/completions", json=body)
+    config = {
+      "first": {"api_key": "k", "api_base": "https://rejects.test/v1"},
+      "second": {"api_key": "k", "api_base": "https://answers.test/v1"},
+      "keyless": {"api_base": "https://answers.test/v1"},
+    }
+    original = api.get_config, api.chain
+    api.get_config = lambda: config
+    groups = [["keyless/c"], ["first/a"], ["second/b"]]
+    api.chain = lambda model, body, config, key="": (groups, "daedalus/auto:TIER-B")
+    upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
+    try:
+      body = {"model": "daedalus/auto", "messages": [{"role": "user", "content": "hi"}]}
+      response = TestClient(api.app, headers=AUTH).post(
+        "/v1/chat/completions", json=body
+      )
+    finally:
+      api.get_config, api.chain = original
+      upstream.set_client(None)
+    assert response.status_code == 200, response.text
+    shown = [" ".join(line.split()[:4]) for line in lines.lines]
+    assert shown == [
+      "WARN daedalus upstream keyless/c",
+      "WARN daedalus upstream first/a",
+      "INFO daedalus cooldown first/a",
+      "INFO daedalus upstream second/b",
+      "INFO daedalus POST /v1/chat/completions",
+    ], lines.lines
+    assert lines.lines[0].endswith("ProviderError: Missing api_key for keyless")
+    assert lines.lines[1].split()[4] == "429", lines.lines
+    assert lines.lines[1].endswith("s: slow"), "the provider message"
+    assert lines.lines[2].endswith("cooldown first/a 60.000s reason=backoff"), (
+      lines.lines
+    )
+    assert re.search(
+      r"key=master model=daedalus/auto pool=deinos via=second/b pin=new ttft=\d+\.\d{3}s fallbacks=2$",
+      lines.lines[4],
+    )
+    lines.lines.clear()
+    client = TestClient(api.app)
+    client.get("/")
+    client.get("/health")
+    client.get("/ui/api/status")
+    shown = [" ".join(line.split()[:5]) for line in lines.lines]
+    assert shown == ["INFO daedalus GET /ui/api/status 401"], (
+      "dashboard reads and health probes go to debug"
+    )
   finally:
-    api.get_config, api.chain = original
-    upstream.set_client(None)
-  assert response.status_code == 200, response.text
-  shown = [" ".join(line.split()[:4]) for line in lines.lines]
-  assert shown == [
-    "WARN daedalus upstream keyless/c",
-    "WARN daedalus upstream first/a",
-    "INFO daedalus cooldown first/a",
-    "INFO daedalus upstream second/b",
-    "INFO daedalus POST /v1/chat/completions",
-  ], lines.lines
-  assert lines.lines[0].endswith("ProviderError: Missing api_key for keyless")
-  assert lines.lines[1].split()[4] == "429", lines.lines
-  assert lines.lines[1].endswith("s: slow"), "the provider message"
-  assert lines.lines[2].endswith("cooldown first/a 60.000s reason=backoff"), lines.lines
-  assert re.search(
-    r"key=master model=daedalus/auto pool=deinos via=second/b pin=new ttft=\d+\.\d{3}s fallbacks=2$",
-    lines.lines[4],
-  )
-  lines.lines.clear()
-  client = TestClient(api.app)
-  client.get("/")
-  client.get("/health")
-  client.get("/ui/api/status")
-  shown = [" ".join(line.split()[:5]) for line in lines.lines]
-  assert shown == ["INFO daedalus GET /ui/api/status 401"], (
-    "dashboard reads and health probes go to debug"
-  )
+    logging.getLogger("daedalus").removeHandler(lines)
+    lines.close()
+
+
+def test_lines_releases_its_handler_after_a_failure(monkeypatch) -> None:
+  before = tuple(logging.getLogger("daedalus").handlers)
+  closed = []
+
+  class CheckedLines(Lines):
+    def close(self):
+      closed.append(self)
+      super().close()
+
+  def broken_client(*args, **kwargs):
+    raise RuntimeError("synthetic client failure")
+
+  monkeypatch.setitem(globals(), "Lines", CheckedLines)
+  monkeypatch.setitem(globals(), "TestClient", broken_client)
+  with pytest.raises(RuntimeError, match="synthetic client failure"):
+    test_lines()
+  assert tuple(logging.getLogger("daedalus").handlers) == before
+  assert len(closed) == 1 and isinstance(closed[0], CheckedLines)
