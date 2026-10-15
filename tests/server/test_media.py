@@ -489,7 +489,7 @@ def test_empty_pool(client: TestClient, own_store) -> None:
   response = client.post("/v1/images/generations", json=body)
   assert response.status_code == 400, response.text
   assert response.json()["error"]["message"] == "photos has no models", response.text
-  # The other media pool answers the same text, and a pool of the other endpoint gets the hint.
+  # Both media pools use the same error format, and a pool for another endpoint gets a hint.
   response = client.post(
     "/v1/audio/transcriptions", data={"model": "daedalus/graphos"}, files=AUDIO
   )

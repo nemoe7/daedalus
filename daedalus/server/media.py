@@ -126,9 +126,7 @@ async def attempt(
   call: Call,
   vision: bool = False,
 ) -> Any:
-  """Try the models in turn, record each attempt for the dashboard, and update the pool weights. Vision:
-  only image input models.
-  """
+  """Try media models in sequence, optionally require image input, and record outcomes and pool weight changes."""
   found = router.built_in(model)
   if found is None:
     return invalid("Unknown provider or pool")
