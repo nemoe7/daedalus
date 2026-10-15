@@ -403,10 +403,12 @@ def test_timeout_cap() -> None:
     ("limits", "wait", 1e20),
     ("optimization", "timeout", 86401),
   ):
-    with pytest.raises(settings.SettingsError, match="at most 86400 seconds"):
+    with pytest.raises(settings.SettingsError) as error:
       settings.check(group, key, value)
-  with pytest.raises(settings.SettingsError, match="at most 86400 seconds"):
+    assert f"{group}.{key}" in str(error.value)
+  with pytest.raises(settings.SettingsError) as error:
     settings.parse("limits:\n  request: 90000\n")
+  assert "limits.request" in str(error.value)
 
 
 def test_headroom_switch() -> None:
@@ -417,8 +419,9 @@ def test_headroom_switch() -> None:
     settings.parse("optimization:\n  enabled: false\n")["optimization"]["enabled"]
     is False
   )
-  with pytest.raises(settings.SettingsError, match="true or false"):
+  with pytest.raises(settings.SettingsError) as error:
     settings.parse("optimization:\n  enabled: 1\n")
+  assert "optimization.enabled" in str(error.value)
 
 
 def test_routing_threshold() -> None:
@@ -428,10 +431,12 @@ def test_routing_threshold() -> None:
   assert settings.parse("routing:\n  threshold: 0\n")["routing"]["threshold"] == 0.0
   assert settings.parse("routing:\n  threshold: 1\n")["routing"]["threshold"] == 1.0
   for bad in ("-0.1", "1.1", "true", "'high'", "[1]"):
-    with pytest.raises(settings.SettingsError, match="from 0 to 1"):
+    with pytest.raises(settings.SettingsError) as error:
       settings.parse(f"routing:\n  threshold: {bad}\n")
-  with pytest.raises(settings.SettingsError, match="unknown key"):
+    assert "routing.threshold" in str(error.value)
+  with pytest.raises(settings.SettingsError) as error:
     settings.parse("routing:\n  bar: 0.5\n")
+  assert "routing.bar" in str(error.value)
 
 
 def test_apply_takes_the_threshold(folder: Path) -> None:
