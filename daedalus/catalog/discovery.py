@@ -514,6 +514,7 @@ def dump(
   config: dict[str, Any] | None = None,
   folder: Path | str = DUMP_DIR,
   file_format: str = "json",
+  since: float | None = None,
 ) -> list[Path]:
   """Write cached provider catalogs to `{provider}.json` or `{provider}.csv`."""
   if file_format not in {"json", "csv"}:
@@ -528,15 +529,22 @@ def dump(
   written: list[dict[str, Any]] = []
   for provider_name, provider, payload, _ in found:
     path = target / f"{provider_name}.{file_format}"
+    if since is not None and path.parent != target:
+      raise ValueError("a provider name is not an export basename")
     if any(payload is seen for seen in written) or path in paths:
       continue
     written.append(payload)
-    if file_format == "json":
+    if file_format == "json" or since is not None:
       record = cached_snapshot_record(provider["discovery_url"])
       if record is None:
+        if since is not None:
+          raise ValueError("a selected provider has no snapshot")
         logger.warning("skipped %s: no cached catalog snapshot", provider_name)
         continue
       payload, fetched_at = record
+      if since is not None and fetched_at < since:
+        raise ValueError("a selected provider snapshot was not refreshed")
+    if file_format == "json":
       wrapped = dump_record(payload, "fetched_at", fetched_at)
       path.write_text(json.dumps(wrapped, indent=2, ensure_ascii=False) + "\n", "utf-8")
     else:

@@ -63,6 +63,14 @@ curl http://localhost:3357/v1/models -H "Authorization: Bearer $DAEDALUS_KEY"
 | `POST /v1/images/edits` | `daedalus/photos` or `provider/slug` | Yes, for `daedalus/photos`: only the models with image input |
 | `POST /v1/hook/<file>` | A hook file under `hooks`, named by its path, with or without the `.py` suffix | None |
 
+`POST /v1/catalog` returns `202` for the default background rebuild. Add `dump=catalog`, `dump=models`,
+or `dump=all`, with `format=json` or `format=csv`, to wait for completed files (`200`). This mode requires
+the master key, not a named API key. The response's `files` object maps filenames to file text.
+
+The rebuild guard stays held through file capture, including after a client disconnects. A busy build
+returns `409`, invalid options return `400`, and a failed refresh or export returns `502`. This mode does
+not write the server's dump folder.
+
 Embeddings and speech have no pool and no fallback. Vectors and voices from 2 models are different. See [Architecture](architecture.md#media-pools) for the media pools.
 
 ## Hook files

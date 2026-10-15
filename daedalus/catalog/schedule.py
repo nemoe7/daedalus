@@ -20,7 +20,7 @@ BUSY = False
 # The most recent config-save rebuild to run after a fetch already in progress.
 PENDING: Callable[[], object] | None = None
 # The manual rebuild tasks, so that the event loop keeps a reference to each.
-TASKS: set[asyncio.Task[None]] = set()
+TASKS: set[asyncio.Task[object]] = set()
 
 
 def times(day: time.struct_time, offset: int) -> list[float]:
@@ -89,19 +89,24 @@ def _record(before: dict[str, dict], reason: str) -> None:
   )
 
 
-async def rebuild(refresh: Callable[[], object], reason: str) -> None:
+async def rebuild(
+  refresh: Callable[[], object],
+  reason: str,
+  capture: Callable[[], object] | None = None,
+) -> object:
   """Run 1 rebuild in a worker thread, record its diff, and drain the queued config rebuild."""
   global BUSY, PENDING
   BUSY = True
   logger.info("catalog rebuild: %s", reason)
 
-  def build() -> None:
+  def build() -> object:
     before = store.rows_by_id()
     refresh()
     _record(before, reason)
+    return capture() if capture is not None else None
 
   try:
-    await asyncio.to_thread(build)
+    return await asyncio.to_thread(build)
   finally:
     BUSY = False
     pending, PENDING = PENDING, None

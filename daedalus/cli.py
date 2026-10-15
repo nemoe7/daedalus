@@ -1,20 +1,24 @@
 """The `daedalus` command: serve, catalog, dump and hooks."""
 
 import argparse
+import errno
 import json
 import logging
 import os
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode, urlsplit
 
 import yaml
 
 from daedalus import __version__, catalog, config, dashboard, store
-from daedalus.catalog import discovery
+from daedalus.catalog import discovery, exports
+from daedalus.catalog.exports import dump_models
 from daedalus.config import remote, settings
 from daedalus.providers import hooks
 from daedalus.server import api, logs
@@ -30,34 +34,10 @@ IMPORT_CODE = (
 # The discovery step of a host CLI: the wait for `/health`, and for the rebuild ask.
 PROBE_SECONDS = 0.3
 ASK_SECONDS = 2.0
+EXPORT_SECONDS = 300.0
 DAEDALUS_URL = "DAEDALUS_URL"
 # The server hosts that a client reaches at the loopback address.
 ANY_HOST = ("0.0.0.0", "::")
-
-
-def dump_models(file_format: str) -> None:
-  """Write stored model rows with parsed effort lists to JSON or CSV."""
-  stored, built_at = (
-    store.stored_catalog() if file_format == "json" else (store.stored_rows(), None)
-  )
-  rows = [
-    {
-      **row,
-      "supported_efforts": store.effort_list(row.get("supported_efforts")) or None,
-    }
-    for row in stored
-  ]
-  folder = discovery.DUMP_DIR
-  folder.mkdir(parents=True, exist_ok=True)
-  for extension in ("json", "csv"):
-    (folder / f"models.{extension}").unlink(missing_ok=True)
-  path = folder / f"models.{file_format}"
-  if file_format == "json":
-    wrapped = discovery.dump_record(rows, "built_at", built_at)
-    path.write_text(json.dumps(wrapped, indent=2, ensure_ascii=False) + "\n", "utf-8")
-  else:
-    discovery.write_csv(path, rows)
-  logger.info("wrote %d available models to %s", len(rows), path)
 
 
 def import_problem(path: Path) -> str | None:
@@ -89,15 +69,58 @@ def probe(url: str) -> bool:
     return False
 
 
-def live_url() -> str | None:
-  """Return the configured server address if its health probe succeeds, or None."""
+def server_url() -> str:
+  """Return the configured server address without probing it."""
   url = os.environ.get(DAEDALUS_URL, "").rstrip("/")
   if not url:
     host = os.environ.get(api.DAEDALUS_HOST) or api.HOST
     if host in ANY_HOST:
       host = "127.0.0.1"
     url = f"http://{host}:{os.environ.get(api.DAEDALUS_PORT) or api.PORT}"
+  return url
+
+
+def live_url() -> str | None:
+  """Return the configured server address if its health probe succeeds, or None."""
+  url = server_url()
   return url if probe(url) else None
+
+
+def refresh_dump(kind: str, file_format: str) -> None:
+  """Use a completed live export, or refresh locally after an implicit local refusal."""
+  url = server_url()
+  key = dashboard.master()
+  query = urlencode({"dump": kind, "format": file_format})
+  request = urllib.request.Request(
+    f"{url}/v1/catalog?{query}",
+    method="POST",
+    headers={"Authorization": f"Bearer {key}"} if key else {},
+  )
+  try:
+    with urllib.request.urlopen(request, timeout=EXPORT_SECONDS) as answer:
+      if answer.status != 200:
+        raise ValueError("the server did not return a completed export")
+      body = json.load(answer)
+      if not isinstance(body, dict):
+        raise TypeError("the server returned an invalid export")
+      files = body.get("files")
+  except urllib.error.HTTPError:
+    raise
+  except (urllib.error.URLError, OSError) as error:
+    cause = error.reason if isinstance(error, urllib.error.URLError) else error
+    local = urlsplit(url).hostname in {"127.0.0.1", "localhost", "::1"}
+    if (
+      os.environ.get(DAEDALUS_URL)
+      or not local
+      or not isinstance(cause, OSError)
+      or cause.errno != errno.ECONNREFUSED
+    ):
+      raise
+    store.migrate()
+    started = time.time()
+    catalog.refresh()
+    files = exports.collect(kind, file_format, started)
+  exports.write(files, kind, file_format)
 
 
 class Refused(Exception):
@@ -269,6 +292,9 @@ def run(argv: list[str] | None = None) -> None:
     default="json",
     help="file format (default: json)",
   )
+  dump.add_argument(
+    "--refresh", action="store_true", help="fetch and wait for fresh dump files"
+  )
   hooks_command = commands.add_parser(
     "hooks", help="update the hook files, list them, and check them on disk"
   )
@@ -290,6 +316,12 @@ def run(argv: list[str] | None = None) -> None:
     return
   logs.setup_logging()
   if args.command == "dump":
+    if args.refresh:
+      try:
+        refresh_dump(args.kind, args.format)
+      except (OSError, TypeError, ValueError) as error:
+        parser.exit(2, f"daedalus: fresh dump failed: {error}\n")
+      return
     store.migrate()
     if args.kind in ("catalog", "all"):
       discovery.dump(file_format=args.format)

@@ -63,7 +63,15 @@ The Docker and git commands below are the same in cmd, PowerShell and bash.
 | Update the hook files | `docker compose exec api daedalus hooks update` reads the `hooks.sources` repos and writes `hooks.lock.json`. `daedalus hooks verify` then reads the lock and loads each file. See [Hooks](hooks.md#sources-and-the-lock) |
 
 `dump` defaults to JSON. Add `-f csv` (also `--fmt` or `--format`) for CSV. Catalog refresh saves provider
-snapshots. Every dump reads those snapshots and never fetches.
+snapshots. Without `--refresh`, dumps read saved data and never fetch.
+
+Add `--refresh` to `dump catalog`, `dump models`, or `dump all` to fetch before exporting. A live server
+requires its master key and returns the completed files, not the local CLI store. The command waits
+up to 300 seconds for the server.
+
+Only a connection refusal from the implicit local address permits a local refresh. An explicit
+`DAEDALUS_URL`, a remote host, an HTTP refusal, or a timeout never causes a second local rebuild.
+A required fetch failure stops the command without replacing dump files or removing retained model rows.
 
 The models dump carries the tier of each row. JSON dumps wrap the original payload under `data` and
 add UTC ISO 8601 timestamps with a `Z` suffix. `exported_at` gives the file generation time.

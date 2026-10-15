@@ -1,6 +1,7 @@
 """OpenAI-compatible local router for the configured providers."""
 
 import asyncio
+import hmac
 import inspect
 import json
 import logging
@@ -18,7 +19,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from daedalus import __version__, dashboard, providers, store
-from daedalus.catalog import schedule
+from daedalus.catalog import exports, schedule
 from daedalus.config import block_for, get_config, remote, settings
 from daedalus.providers import hooks, signatures
 from daedalus.providers.base import error_text
@@ -375,10 +376,47 @@ async def rebuild_catalog(request: Request) -> Response:
   denied = access.check_api_key(request)
   if denied is not None:
     return denied
+  kind = request.query_params.get("dump")
+  file_format = request.query_params.get("format", "json")
+  if kind is not None:
+    master = dashboard.master()
+    if master is None or not hmac.compare_digest(
+      access.bearer(request).encode(), master.encode()
+    ):
+      return upstream.error_response(
+        403, "Raw exports need the master key.", "authentication_error"
+      )
+    if kind not in exports.KINDS or file_format not in exports.FORMATS:
+      return upstream.error_response(
+        400, "Invalid dump kind or format.", "invalid_request_error"
+      )
   if CATALOG_REFRESH is None:
     return upstream.error_response(
       503, "This process has no catalog rebuild.", "server_error"
     )
+  if kind is not None:
+    if schedule.BUSY:
+      return upstream.error_response(
+        409, "A catalog rebuild runs now.", "invalid_request_error"
+      )
+    schedule.BUSY = True
+    started = time.time()
+    task = asyncio.create_task(
+      schedule.rebuild(
+        CATALOG_REFRESH, "manual", lambda: exports.collect(kind, file_format, started)
+      )
+    )
+    schedule.TASKS.add(task)
+    task.add_done_callback(schedule.TASKS.discard)
+    task.add_done_callback(lambda done: None if done.cancelled() else done.exception())
+    try:
+      files = await asyncio.shield(task)
+    except Exception:
+      logger.exception("catalog export failed")
+      return upstream.error_response(
+        502, "Catalog refresh or export failed.", "server_error"
+      )
+    return JSONResponse({"files": files})
   if not schedule.start(CATALOG_REFRESH):
     return upstream.error_response(
       409, "A catalog rebuild runs now.", "invalid_request_error"
