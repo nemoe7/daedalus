@@ -3,8 +3,8 @@ title: GitHub
 author: nemo
 description: GitHub access for Open WebUI. Read and write approval follows permission mode.
 required_open_webui_version: 0.10.0
-version: 3.0.4
-licence: daedalus Noncommercial License 1.0.0
+version: 3.0.5
+licence: nemoe7 Noncommercial License 1.0.0
 """
 
 # fmt: off

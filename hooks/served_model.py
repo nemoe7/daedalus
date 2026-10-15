@@ -1,12 +1,12 @@
 # ---
-# version: 1.0.4
+# version: 1.0.5
 # surfaces: [on-chunk]
 # scope: client
 # targets: [OWUI]
 # author: nemoe7
 # title: Served model
 # description: The model that served a pool answer, in the final chunk's usage.daedalus.
-# license: daedalus Noncommercial License 1.0.0
+# license: nemoe7 Noncommercial License 1.0.0
 # ---
 
 import logging

@@ -1,12 +1,12 @@
 # ---
-# version: 1.0.5
+# version: 1.0.6
 # surfaces: [on-request, on-prompt, on-chunk]
 # scope: client
 # targets: [OWUI]
 # author: nemoe7
 # title: Auto reasoning effort
 # description: The Open WebUI reasoning level and try-again rule.
-# license: daedalus Noncommercial License 1.0.0
+# license: nemoe7 Noncommercial License 1.0.0
 # ---
 
 import logging

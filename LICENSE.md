@@ -1,6 +1,6 @@
-# daedalus Noncommercial License 1.0.0
+# nemoe7 Noncommercial License 1.0.0
 
-<https://github.com/nemoe7/daedalus/blob/main/LICENSE.md>
+<https://github.com/nemoe7/license/blob/v1.0.0/LICENSE.md>
 
 Required Notice: Copyright (c) 2026 nemoe7 (<https://github.com/nemoe7>)
 
@@ -32,11 +32,11 @@ If you distribute the software with changes, or a new work based on the software
 
 ## Name and Logo
 
-These terms do not grant any right to the name "daedalus" or the daedalus logo as trademarks. A changed copy that you distribute can keep the name, but it must say that it is changed, and it must not suggest that the licensor endorses it.
+These terms do not grant any right to the name or logo of the software as trademarks. A changed copy that you distribute can keep the name, but it must say that it is changed, and it must not suggest that the licensor endorses it.
 
 ## Third-Party Parts
 
-Parts of the software that come from third parties, such as the vendored LiteLLM classifier and its data, stay under their own licenses. Their license files come with the software, and these terms do not limit the rights that those licenses give you.
+Parts of the software that come from third parties stay under their own licenses. Their license files come with the software, and these terms do not limit the rights that those licenses give you.
 
 ## Patent License
 

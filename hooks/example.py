@@ -1,10 +1,10 @@
 # ---
-# version: 1.0.3
+# version: 1.0.4
 # surfaces: []
 # author: nemoe7
 # title: Example hook
 # description: An example hook file that changes nothing.
-# license: daedalus Noncommercial License 1.0.0
+# license: nemoe7 Noncommercial License 1.0.0
 # ---
 """An example daedalus hook file. It changes nothing.
 

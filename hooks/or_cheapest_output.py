@@ -1,12 +1,12 @@
 # ---
-# version: 1.0.3
+# version: 1.0.4
 # surfaces: [on-catalog, on-upstream]
 # scope: yaml
 # targets: [openrouter]
 # author: nemoe7
 # title: Cheapest output first
 # description: OpenRouter tries the endpoints with the cheapest output price first.
-# license: daedalus Noncommercial License 1.0.0
+# license: nemoe7 Noncommercial License 1.0.0
 # ---
 
 import json

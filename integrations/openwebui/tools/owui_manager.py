@@ -3,8 +3,8 @@ title: Open WebUI Manager
 author: nemo
 description: Open WebUI knowledge, skills, files, tools, and functions. Read and write approval follows permission mode.
 required_open_webui_version: 0.12.0
-version: 1.0.7
-licence: daedalus Noncommercial License 1.0.0
+version: 1.0.8
+licence: nemoe7 Noncommercial License 1.0.0
 """
 
 # fmt: off
