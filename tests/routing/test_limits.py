@@ -647,7 +647,7 @@ async def test_check_keeps_a_failed_card(cooldowns: Cooldowns) -> None:
 @pytest.mark.parametrize("field", ["limit", "remaining", "reset"])
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf"), 10**1000])
 def test_restore_drops_only_invalid_numeric_rows(tmp_path: Path, field, value) -> None:
-  """Old nonfinite rows are dropped while valid rows and balances survive."""
+  """Skip invalid numeric rows while restoring valid rows and balances."""
   path = tmp_path / "models.sqlite3"
   good = {
     "kind": "requests",

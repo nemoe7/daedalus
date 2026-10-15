@@ -144,7 +144,7 @@ def test_matches() -> None:
 def test_nested_repeat_pattern_matches_nothing(
   caplog: pytest.LogCaptureFixture,
 ) -> None:
-  """A repeat inside a repeat can hang the catalog on a long slug: it is refused."""
+  """Reject nested repeats that can hang catalog matching on long slugs."""
   # A config file supplies this shape, so the test reads it as data. A literal
   # here trips the ReDoS query on this file.
   nested = json.loads('"^(a+)+$"')
@@ -584,7 +584,7 @@ def test_merge_pages() -> None:
 
 
 def test_declared_kept() -> None:
-  """A slug a `models:` key names is kept even when `exclude` drops it."""
+  """A `models:` key keeps matching slugs even when `exclude` would omit them."""
   provider = {"exclude": ["*"], "models": {"glm-4.7-flash": {"tpm": 8000}}}
   slugs = ["glm-4.5", "glm-4.6", "glm-4.7-flash"]
   assert discovery.select(provider, slugs) == ["glm-4.7-flash"]
@@ -597,7 +597,7 @@ def test_declared_kept() -> None:
     "openai/gpt-oss-120b"
   ]
 
-  # An exact `models:` key is written even when discovery does not return it.
+  # Select an exact `models:` slug even when discovery omits it.
   absent = {"exclude": ["*"], "models": {"glm-4.5-flash": {"rpm": 60}}}
   assert discovery.select(absent, ["glm-4.5", "glm-5"]) == ["glm-4.5-flash"]
 

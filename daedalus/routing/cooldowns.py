@@ -19,7 +19,7 @@ FIRST, LONGEST = 60.0, 21600.0
 # A provider reset time above 1 day is a bad header: a model must not leave for ever.
 LONGEST_RESET = 86400.0
 PACIFIC = ZoneInfo("America/Los_Angeles")
-# Cloudflare error 4006: the daily free neurons of the account are used up.
+# Cloudflare error 4006: the account exhausted its daily free neurons.
 CLOUDFLARE_DAILY = 4006
 TABLE = (
   "CREATE TABLE IF NOT EXISTS cooldowns (model TEXT PRIMARY KEY, until REAL NOT NULL,"

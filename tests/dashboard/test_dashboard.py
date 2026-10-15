@@ -2141,7 +2141,7 @@ def test_header_state_matches_the_page_switcher() -> None:
 
 
 def test_pills_cap_their_radius() -> None:
-  """A tall pill has rounded corners, and a one-line pill stays round."""
+  """Tall pills keep rounded corners, and one-line pills stay round."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
   ).read_text(encoding="utf-8")

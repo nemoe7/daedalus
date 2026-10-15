@@ -300,7 +300,7 @@ def _log_capture():
 
 
 def test_a_wrong_shape_in_the_main_file_drops_out() -> None:
-  """A hand-edited key of a provider block leaves the config, and the router reads what is left."""
+  """The loader omits invalid provider values, and the router uses the remaining block."""
   with tempfile.TemporaryDirectory() as folder:
     main = Path(folder) / "free.yml"
     main.write_text(

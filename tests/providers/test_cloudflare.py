@@ -136,7 +136,7 @@ def test_the_toggle_ladders_are_in_the_shipped_config() -> None:
 
 
 def test_the_no_control_rows_drop_the_effort_and_log_it(caplog) -> None:
-  """The always-reasoning models document no control: the effort drops, and the drop is logged."""
+  """Clear unsupported effort settings for always-reasoning models and log the action."""
   for slug in (
     "@cf/qwen/qwq-32b",
     "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",

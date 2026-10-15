@@ -753,7 +753,7 @@ def tool_loop(request: Request, messages: list, pin: Tracker) -> str | None:
 def without_cooling(
   groups: list[list[str]], ends: dict[str, float], lane: Callable[[str], str]
 ) -> tuple[list[list[str]], float | None]:
-  """The groups without the models in a cooldown, and the seconds to the first end when none is left."""
+  """The groups without models in cooldown, plus seconds to the first expiry when no models remain."""
   left = [
     [m for m in group if COOLDOWNS.until(lane(m), ends) is None] for group in groups
   ]
@@ -948,7 +948,7 @@ async def race_models(
           if "events" in content:
             await content["events"].aclose()
           else:
-            # A non-stream loser is already whole, and its body is dropped with its connection.
+            # Close the response of the non-stream loser, which already has a complete body.
             await content["response"].aclose()
       if exc is not None:
         if take.model != first or winner is not None:

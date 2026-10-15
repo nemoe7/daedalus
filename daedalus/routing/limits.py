@@ -61,7 +61,7 @@ NEURONS = (
   " filter: {datetimeHour_geq: $start}) { sum { totalNeurons } } } } }"
 )
 logger = logging.getLogger("daedalus")
-# A label, a value, and the part of the limit that is left for a bar, or None.
+# A label, a value, and a remaining fraction or None for the bar.
 Item = tuple[str, str, float | None]
 
 
@@ -242,7 +242,7 @@ async def cloudflare(client: httpx.AsyncClient, base: str, key: str) -> Any:
 
 
 def share(left: float, limit: float) -> float | None:
-  """The part of a limit that is left, from 0 to 1, or None without a limit."""
+  """The remaining fraction of a limit, from 0 to 1, or None without a limit."""
   return max(0.0, min(1.0, left / limit)) if limit > 0 else None
 
 
@@ -298,7 +298,7 @@ def neuron_items(data: Any) -> list[Item]:
     return []
   used = sum(value for value in values if value is not None)
   left = share(CLOUDFLARE_FREE - used, CLOUDFLARE_FREE)
-  # The value and the bar show the same quantity: the neurons that are left today.
+  # The value and the bar show the same quantity: the remaining neurons today.
   return [
     (
       "Neurons today",
@@ -548,7 +548,7 @@ class Limits:
     database.close()
 
   def restore(self) -> None:
-    """Load the lane rows and the balance cards of the last run. A bad row is dropped."""
+    """Restore saved lane rows and balance cards while skipping invalid rows."""
     if not self.path().exists():
       return
     database = self.connect()
@@ -806,7 +806,7 @@ class Limits:
     self.save()
 
   def free_used_up(self, data: Mapping[str, Any], now: float) -> None:
-    """Cool down the OpenRouter free models to the next UTC day when no free request is left."""
+    """Cool down OpenRouter free models until the next UTC day when no free requests remain."""
     free = data.get("free_model_daily_requests")
     if (
       not isinstance(free, dict)

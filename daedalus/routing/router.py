@@ -132,7 +132,7 @@ DEFAULT_EFFORTS: Final[Mapping[str, tuple[str, ...]]] = {
 }
 # The ladder of a provider with no coded list: the 4 levels of the heuristics read.
 FALLBACK_EFFORTS: Final[tuple[str, ...]] = ("none", "low", "medium", "high")
-# The effort names from lowest to highest, the vocabulary every ladder is made of.
+# The effort names from lowest to highest for all effort ladders.
 EFFORT_RANKS: Final[tuple[str, ...]] = (
   "none",
   "minimal",
@@ -359,7 +359,7 @@ def set_threshold(value: float | None) -> None:
   """Use the bar of `routing.threshold` for the next reads. None keeps the artifact value."""
   global THRESHOLD
   if THRESHOLD != value:
-    # The cached tiers were read against the old bar.
+    # The cached tiers use the previous threshold.
     _TIER_OF.clear()
   THRESHOLD = value
 

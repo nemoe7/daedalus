@@ -412,7 +412,7 @@ def test_the_shipped_hook_reads_a_parted_content() -> None:
 
 
 def test_the_shipped_hook_caps_the_model_turn() -> None:
-  """The read joins the model turn and the newest user turn, and the model part is capped."""
+  """Join the model and newest user turns, with a cap on the model portion."""
   module = shipped_module()
   answer, newest = "a" * 900, "thanks"
   text = module._newest(

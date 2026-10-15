@@ -282,7 +282,7 @@ async def test_reroute(client: httpx.AsyncClient) -> None:
 
 
 def test_wait_cap() -> None:
-  """The wait for one answer is capped, and the other timeouts are not."""
+  """The client uses the read-wait cap for reads and the general timeout for connections."""
   upstream.set_client(None)
   client = upstream.get_client()
   assert client.timeout.read == upstream.WAIT_SECONDS, client.timeout

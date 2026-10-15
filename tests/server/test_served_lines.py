@@ -92,7 +92,7 @@ def lines(text: str) -> list[dict]:
 async def test_each_round_of_one_message_carries_its_own_line(
   client: httpx.AsyncClient,
 ) -> None:
-  """Two calls each carry one served-model line, with equal lines when the model is unchanged."""
+  """Two calls each carry one served-model line, and equal models give equal lines."""
   first = await client.post("/v1/chat/completions", json={**BODY, "stream": True})
   assert first.status_code == 200, first.text
   second = await client.post("/v1/chat/completions", json={**BODY, "stream": True})

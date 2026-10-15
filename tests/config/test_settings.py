@@ -472,7 +472,7 @@ def test_update_text_keeps_a_comment_of_a_written_file() -> None:
 
 
 def test_hooks_dir_names_the_folder() -> None:
-  """`hooks.dir` takes 1 plain folder name, and another value is refused."""
+  """`hooks.dir` accepts one plain folder name and rejects other values."""
   assert settings.parse("")["hooks"]["dir"] == "hooks"
   assert (
     settings.parse("hooks:\n  dir: mine-2.hooks\n")["hooks"]["dir"] == "mine-2.hooks"
