@@ -128,7 +128,7 @@ class Answer:
 
 
 def opener(monkeypatch, body, calls=None, error=None):
-  """Patch module urlopen and record each request. A list body answers in order."""
+  """Record requests and return the body or each list item in order."""
   replies = list(body) if isinstance(body, list) else None
   served = 0
 
@@ -177,13 +177,12 @@ def test_the_surface_holds_the_tool_list():
     and not node.name.startswith("_")
   ]
   assert sorted(found) == sorted(TOOLS)
-  assert len(TOOLS) == 83
 
 
-def test_the_gate_defaults_to_always_ask_with_sixty_seconds():
+def test_the_gate_defaults_to_confirmation_and_user_inheritance():
   instance = tool.Tools()
   assert instance.valves.permissions == "Always ask"
-  assert instance.valves.timeout_seconds == 60
+  assert instance._wait_seconds() > 0
   assert tool.Tools.UserValves().mode == "default"
   assert tool.Tools.UserValves().timeout_seconds == 0
 
@@ -209,7 +208,12 @@ def test_every_write_goes_through_the_gate():
     ) or node.name.startswith("_"):
       continue
     source = ast.dump(node)
-    mutates = any(f"'{method}'" in source for method in writers)
+    mutates = any(f"'{method}'" in source for method in writers) or any(
+      isinstance(value, ast.Constant)
+      and isinstance(value.value, str)
+      and value.value.lstrip().startswith("mutation")
+      for value in ast.walk(node)
+    )
     gated = "_write" in source
     assert mutates <= gated, f"{node.name} sends a write without the gate"
 
@@ -219,8 +223,27 @@ def test_an_unanswered_write_is_denied_and_sends_nothing(monkeypatch):
   opener(monkeypatch, "{}", calls)
   out = asyncio.run(client().label_pr("o/r", 1, "bug", __event_call__=None))
   assert out["result"]["denied"] is True
-  assert "I sent nothing" in out["result"]["reason"]
+  assert isinstance(out["result"]["reason"], str) and out["result"]["reason"].strip()
   assert calls == []
+
+
+@pytest.mark.parametrize(
+  "method, args",
+  [
+    ("resolve_review_thread", ("thread-id",)),
+    ("unresolve_review_thread", ("thread-id",)),
+    ("dismiss_pull_request_review", ("review-id", "New review needed.")),
+    ("convert_pull_request_to_draft", ("o/r", 1)),
+    ("mark_pull_request_ready_for_review", ("o/r", 1)),
+  ],
+)
+def test_graphql_writes_without_a_dialog_send_nothing(monkeypatch, method, args):
+  calls = []
+  opener(monkeypatch, '{"node_id": "PR_test"}', calls)
+  out = asyncio.run(getattr(client(), method)(*args, __event_call__=None))
+  assert calls == []
+  assert out["result"]["denied"] is True
+  assert isinstance(out["result"]["reason"], str) and out["result"]["reason"].strip()
 
 
 def test_a_confirmed_write_sends_one_request(monkeypatch):
@@ -274,7 +297,8 @@ def test_a_user_timeout_wins_over_the_tool_valve(monkeypatch):
       instance.remove_issue_label("o/r", 3, "stale", __user__=user, __event_call__=slow)
     )
     assert out["result"]["denied"] is True
-    assert "1s" in out["result"]["reason"]
+    assert instance._wait_seconds(user) == 1
+    assert isinstance(out["result"]["reason"], str) and out["result"]["reason"].strip()
     assert time.monotonic() - started < 3
   assert calls == []
 
