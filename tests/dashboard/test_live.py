@@ -5,6 +5,7 @@ import json
 import tempfile
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import httpx
 from starlette.requests import Request
@@ -101,24 +102,40 @@ async def test_events() -> None:
   assert not live.queues, "a closed stream leaves no queue"
 
 
-def test_the_live_clocks_count_in_whole_milliseconds() -> None:
-  """The live list counts in whole milliseconds, so no age, ttft or seconds carries a fraction of a ms."""
-  source = Path(dashboard.__file__).read_text(encoding="utf-8")
-  view = source[source.index("def view(self, key") : source.index("def send(")]
-  for needle in (
-    'round((now - row["started"]) * 1000) / 1000',
-    'round((now - row["attempt_started"]) * 1000) / 1000',
-    'round((row["first"] - row["attempt_started"]) * 1000) / 1000',
-  ):
-    assert needle in view, needle
-  assert 'round((now - row["started"], 3)' not in view, (
-    "no fractions of a ms in the ages"
-  )
-  record = source[source.index("def record(") : source.index("def live_update(")]
-  assert "round(seconds * 1000) / 1000" in record, (
-    "the seconds of a row count in whole ms"
-  )
-  assert "round(seconds, 3)" not in record
+def test_the_live_clocks_count_in_whole_milliseconds(monkeypatch) -> None:
+  """Live ages, first-token time and recorded duration round to whole milliseconds."""
+  now = 0.0
+  recorded = []
+  monkeypatch.setattr(dashboard, "time", SimpleNamespace(time=lambda: now))
+  monkeypatch.setattr(dashboard, "HISTORY", SimpleNamespace(add=recorded.append))
+  request = Request({"type": "http", "headers": []})
+  for seconds, expected in [
+    (0.0, 0.0),
+    (0.00049, 0.0),
+    (0.0005, 0.0),
+    (0.00051, 0.001),
+    (0.0015, 0.002),
+    (0.0025, 0.002),
+    (0.0035, 0.004),
+  ]:
+    now = -1.0
+    live = Live()
+    key = live.start("/v1/chat/completions")
+    now = 0.0
+    live.update(key, trying="model")
+    now = seconds
+    shown = live.view(key)
+    assert shown["age"] == 1.0 + expected
+    assert shown["attempt_age"] == expected
+    assert shown["ttft"] is None
+    live.first(key)
+    now = 2.0
+    shown = live.view(key)
+    assert shown["age"] == 3.0
+    assert shown["attempt_age"] == 2.0
+    assert shown["ttft"] == expected
+    dashboard.record(request, 200, seconds)
+    assert recorded[-1]["seconds"] == expected
 
 
 def test_url_session() -> None:
