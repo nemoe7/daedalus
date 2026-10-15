@@ -398,6 +398,6 @@ if [ "$(uname -s)" = Linux ] && address=$(hostname -I 2>/dev/null | awk '{print 
   echo "From another device: http://$address:3357/"
 fi
 echo "Dashboard: http://localhost:3357/ (user DAEDALUS_USERNAME or admin, password DAEDALUS_PASSWORD or DAEDALUS_MASTER_KEY)"
-if [ -n "$key" ]; then echo "Your new master key, also the dashboard password: $key (it is in $dir/.env)"; fi
+if [ -n "$key" ]; then echo "Your new master key: $key (it is in $dir/.env)"; fi
 echo "Add your provider API keys to $dir/.env, then run this script again."
 echo "Make API keys for your clients in the dashboard."

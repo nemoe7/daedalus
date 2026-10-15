@@ -1,4 +1,4 @@
-"""Tests of install.sh in a checkout with stub Docker and curl commands."""
+"""Installer tests use stub Docker and curl commands, plus Windows source and optional syntax checks."""
 
 import hashlib
 import os
@@ -17,9 +17,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def checkout(tmp_path: Path, env_text: str | None) -> tuple[Path, dict[str, str]]:
-  """A folder with install.sh, compose.yml, .env.example and config/, and a PATH with a docker that logs
-  its arguments.
-  """
+  """Create a checkout fixture and a PATH containing stub Docker and curl commands."""
   folder = tmp_path / "daedalus"
   folder.mkdir()
   for name in ("install.sh", "compose.yml", ".env.example"):
@@ -106,7 +104,7 @@ def run_interactive(
   piped: bool = False,
   cwd: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
-  """Run install.sh on a pseudo-terminal with line answers. A piped run reads the script from a pipe."""
+  """Run the installer on a pseudo-terminal with supplied answers, optionally through a pipe."""
   import pty
   import selectors
   import signal
@@ -277,7 +275,7 @@ def test_tailscale_openwebui_profile_requires_service_file(tmp_path: Path) -> No
 
 
 def test_question(tmp_path: Path) -> None:
-  """A missing .env asks first. With no answer, nothing changes."""
+  """An unanswered setup prompt leaves .env absent and makes no Docker call."""
   folder, env = checkout(tmp_path, None)
   result = run(folder, env)
   assert (
@@ -395,7 +393,7 @@ def test_windows_installer_parses() -> None:
 
 
 def test_windows_installer_has_the_managed_override_contract() -> None:
-  """The Windows path keeps the same managed files and local layers as bash."""
+  """The Windows source names the expected managed files, state paths and local override."""
   script = (ROOT / "install.ps1").read_text()
   for service in (
     "api",
@@ -417,7 +415,7 @@ def test_windows_installer_has_the_managed_override_contract() -> None:
 def test_new_installer_can_install_a_release_before_managed_defaults(
   tmp_path: Path,
 ) -> None:
-  """A main installer still installs the latest tag when that tag predates the env split."""
+  """The installer accepts a synthetic archive when its Compose file does not use the absent managed defaults."""
   folder, env = checkout(tmp_path, None)
   release = tmp_path / "old-release"
   copy_release_tree(release)

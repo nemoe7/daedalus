@@ -381,6 +381,6 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host 'daedalus runs on http://localhost:3357/v1'
 Write-Host 'Dashboard: http://localhost:3357/ (user DAEDALUS_USERNAME or admin, password DAEDALUS_PASSWORD or DAEDALUS_MASTER_KEY)'
-if ($key) { Write-Host "Your new master key, also the dashboard password: $key (it is in $envFile)" -ForegroundColor Yellow }
+if ($key) { Write-Host "Your new master key: $key (it is in $envFile)" -ForegroundColor Yellow }
 Write-Host "Add your provider API keys to $envFile, then run this script again."
 Write-Host 'Make API keys for your clients in the dashboard.'
