@@ -99,7 +99,7 @@ def get_client() -> httpx.AsyncClient:
 
 
 def set_client(client: httpx.AsyncClient | None) -> None:
-  """Replace the upstream client. Test seam."""
+  """Replace or clear the shared upstream client."""
   global _client
   _client = client
 
@@ -208,7 +208,7 @@ def note(
   error: str = "",
   ended: float | None = None,
 ) -> dict[str, Any]:
-  """One attempt of a request, for the dashboard. `ended` names its end, when that is not now."""
+  """Describe one dashboard attempt using the supplied end time or the current time."""
   end = time.perf_counter() if ended is None else ended
   seconds = None if started is None else round(end - started, 3)
   return {"model": model, "result": result, "seconds": seconds, "error": error}
@@ -229,12 +229,7 @@ OUTPUT_FIELDS = ("max_tokens", "max_completion_tokens")
 
 # The effort names in rank order, lowest first. A gateway maps a name it lists to itself.
 def nearest_effort(asked: str, listed: list[str]) -> str | None:
-  """The listed name nearest the asked effort, the lower of 2 equals, and None without a match.
-
-  An asked name outside the effort ranks, and a list of such names alone, find no answer.
-  `none` is no rung of the ladder: a real level takes a real rung, and `none` answers only a
-  model that lists `none` alone.
-  """
+  """Select an exact or nearest listed effort, with lower ties and non-`none` alternatives, or None without a match."""
   ranks = router.EFFORT_RANKS
   if asked in listed:
     return asked
@@ -250,11 +245,7 @@ def nearest_effort(asked: str, listed: list[str]) -> str | None:
 
 
 def with_defaults(candidate: str, body: dict[str, Any]) -> dict[str, Any]:
-  """The body with the stored effort, the effort moved to a name the model lists, and limits cut.
-
-  The stored effort fills the gap when the body names none, then the list of the catalog moves
-  the value to the nearest name of that list, so a model never receives a name it refuses.
-  """
+  """Apply stored effort defaults, map recognized efforts to supported names, and cap requested output limits."""
   found = store.model_limits(candidate)
   changed = dict(body)
   if "reasoning_effort" not in body:
@@ -312,11 +303,7 @@ async def attempt(
   sent: dict[str, Any] | None = None,
   client: str | None = None,
 ) -> tuple[providers.OpenAIProvider, httpx.Response]:
-  """Send one candidate request, and fail on an upstream error status.
-
-  When `sent` is a dict, it gets the reasoning effort that went upstream. `client` selects its
-  provider key.
-  """
+  """Send a request with its selected client key, optionally record effort, and raise on an upstream error status."""
   asked = "reasoning_effort" in body
   body = without_reasoning(candidate, with_defaults(candidate, body))
   provider, url, payload, headers = providers.prepare(candidate, body, config, client)
