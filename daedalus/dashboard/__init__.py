@@ -410,7 +410,7 @@ class JSONRoute(APIRoute):
 
 
 async def json_body(request: Request) -> Any:
-  """The JSON body. Other content types give None, so a cross-site form cannot post."""
+  """Read a JSON body only for application/json, returning None for other content types or invalid JSON."""
   if not json_content(request):
     return None
   try:
@@ -472,9 +472,7 @@ def env_tokens(node: Any) -> list[str]:
 
 
 def env_names() -> dict[str, list[str]]:
-  """Each env:NAME and db:NAME of the provider files and of the defaults of the providers in use, with
-  the places that use it.
-  """
+  """List env:NAME and db:NAME references from provider files and active provider defaults, with their locations."""
   found: dict[str, list[str]] = {}
 
   def add(name: str, place: str) -> None:
@@ -615,9 +613,7 @@ def new_file_text(name: str) -> str:
 
 
 def form_blocks(path: Path, text: str) -> tuple[dict[str, Any] | None, str | None]:
-  """The provider blocks of a file by provider name and no error, or None and the error line when the
-  YAML is not valid.
-  """
+  """Parse provider blocks by name, or return an error for invalid YAML or a non-map document."""
   try:
     found = config.load_yaml(text) if text.strip() else {}
   except yaml.YAMLError as exc:
@@ -653,16 +649,14 @@ def override_keys() -> list[str]:
 
 
 def provider_defaults() -> dict[str, dict[str, str]]:
-  """The `api_type`, `api_base` and `discovery_url` defaults of each known provider, with no values from
-  the environment.
-  """
+  """The raw class defaults of known providers and the generic provider, without environment expansion."""
   found = {name: dict(kind.defaults) for name, kind in providers.PROVIDERS.items()}
   found["*"] = dict(providers.OpenAIProvider.defaults)
   return found
 
 
 def check_file(path: Path, text: str) -> dict[str, Any] | None:
-  """Validate the text of one config file. Returns settings values for the settings file."""
+  """Validate config text and return parsed settings values only for the settings file."""
   if path == settings.DEFAULT_PATH:
     return settings.parse(text, path)
   loaded = config.load_yaml(text)
@@ -695,10 +689,7 @@ def model_tag(
   weights: Mapping[str, float],
   ends: Mapping[str, float],
 ) -> str:
-  """The stamp of the model list: the catalog time, the config, the rows and the cooling state.
-
-  The weights carry 2 decimals, as the page shows them, so a slow recovery keeps the stamp.
-  """
+  """Hash catalog time, config, model rows, cooldowns and weights rounded to two decimals for the model-list stamp."""
   shown = {model: round(weight, 2) for model, weight in weights.items()}
   text = json.dumps([built, config, rows, shown, ends], default=str, sort_keys=True)
   return f'"{hashlib.sha256(text.encode()).hexdigest()[:16]}"'
@@ -714,7 +705,7 @@ def versioned_index() -> str:
 
 
 def page() -> APIRouter:
-  """The dashboard page, its script and style, and the model marks. They hold no data."""
+  """Serve the dashboard page, static assets and model icons without session data."""
   pages = APIRouter()
 
   @pages.get("/", include_in_schema=False)
@@ -1476,7 +1467,7 @@ def routes(
   rebuild_cached: Callable[[], Callable[[], object] | None] = lambda: None,
   affinity: Callable[[], dict[str, Any]] = dict,
 ) -> APIRouter:
-  """The dashboard endpoints. All except login need a session."""
+  """Create dashboard API routes, requiring a session except for login and logout."""
   api = APIRouter(prefix="/ui/api", route_class=JSONRoute)
 
   def request_cached_rebuild() -> None:
