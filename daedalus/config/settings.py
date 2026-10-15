@@ -406,10 +406,7 @@ def load(path: Path | str = DEFAULT_PATH) -> dict[str, dict[str, Any]]:
 
 def parse(text: str, target: Path | str = DEFAULT_PATH) -> dict[str, dict[str, Any]]:
   """The settings from YAML text, over the defaults."""
-  merged = {
-    group: dict(values) if isinstance(values, dict) else list(values)
-    for group, values in DEFAULTS.items()
-  }
+  merged = {group: dict(values) for group, values in DEFAULTS.items()}
   raw = load_yaml(text)
   if raw is None:
     raw = {}
@@ -422,10 +419,6 @@ def parse(text: str, target: Path | str = DEFAULT_PATH) -> dict[str, dict[str, A
       raise SettingsError(f"{group} is gone. Use {RENAMED[group]}")
     if group not in DEFAULTS:
       raise SettingsError(f"unknown group {group!r} in {target}")
-    if not isinstance(DEFAULTS[group], dict):
-      # A group that holds a list, such as the remote hook files, takes the list as its value.
-      merged[group] = check(group, group, values)
-      continue
     if not isinstance(values, dict):
       raise SettingsError(f"{group} must hold keys")
     for key, value in values.items():
