@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 
 pytestmark = pytest.mark.skipif(
   sys.platform == "win32" or not shutil.which("bash"), reason="needs bash"

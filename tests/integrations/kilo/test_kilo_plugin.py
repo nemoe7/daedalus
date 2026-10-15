@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-PLUGIN = Path(__file__).resolve().parents[2] / "integrations" / "kilo" / "daedalus.js"
+PLUGIN = Path(__file__).resolve().parents[3] / "integrations" / "kilo" / "daedalus.js"
 KEY = "sk-test"
 ROWS = [
   {

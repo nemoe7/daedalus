@@ -10,7 +10,7 @@ import check_versions
 import pytest
 import yaml
 
-ROOT = Path(__file__).parents[1]
+ROOT = Path(__file__).parents[2]
 
 
 def version_git(repo: Path, *args: str) -> str:

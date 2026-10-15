@@ -10,7 +10,7 @@ from typing import Self
 from urllib.error import HTTPError
 
 TOOL = (
-  Path(__file__).resolve().parents[2]
+  Path(__file__).resolve().parents[4]
   / "integrations"
   / "openwebui"
   / "tools"

@@ -14,7 +14,7 @@ from urllib.error import HTTPError
 import pytest
 
 TOOL = (
-  Path(__file__).resolve().parents[2]
+  Path(__file__).resolve().parents[4]
   / "integrations"
   / "openwebui"
   / "tools"

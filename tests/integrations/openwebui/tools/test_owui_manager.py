@@ -19,7 +19,7 @@ fake.ContentTypeError = Exception
 sys.modules.setdefault("aiohttp", fake)
 
 TOOL = (
-  pathlib.Path(__file__).resolve().parents[2]
+  pathlib.Path(__file__).resolve().parents[4]
   / "integrations"
   / "openwebui"
   / "tools"

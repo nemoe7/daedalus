@@ -45,7 +45,7 @@ The 6 reads are `search_mail`, `read_thread`, `read_message`, `agenda`, `search_
 
 The shipped `Always ask` holds every call, reads included, so no mail line and no one-time code reaches the chat without a click. `Allow reads` frees the reads and keeps the gate on the 3 writes. `Always allow` runs everything. `UserValves.mode` carries the same 3 values for one user, and `default` follows the tool valve.
 
-[`tests/integrations/test_owui_google_tool.py`](../../../tests/integrations/test_owui_google_tool.py) holds the surface, the gate, the token cache and the error path.
+[`tests/integrations/openwebui/tools/test_owui_google_tool.py`](../../../tests/integrations/openwebui/tools/test_owui_google_tool.py) holds the surface, the gate, the token cache and the error path.
 
 ## Output limits
 

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 FILTER = (
-  Path(__file__).resolve().parents[2]
+  Path(__file__).resolve().parents[4]
   / "integrations"
   / "openwebui"
   / "functions"

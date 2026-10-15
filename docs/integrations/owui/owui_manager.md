@@ -72,7 +72,7 @@ The preset helpers stay private, so Open WebUI builds no model tool spec for the
 1. **Workspace → Tools**, **Create**, paste the file, **Save**.
 2. **Access** on the tool: make it public, or give read access to each user.
 
-[`tests/integrations/test_owui_manager.py`](../../../tests/integrations/test_owui_manager.py) holds the surface, gate, free reads and creates, preset filtering and attachment, plus the v0.12 URL-import and multi-file request shapes.
+[`tests/integrations/openwebui/tools/test_owui_manager.py`](../../../tests/integrations/openwebui/tools/test_owui_manager.py) holds the surface, gate, free reads and creates, preset filtering and attachment, plus the v0.12 URL-import and multi-file request shapes.
 
 ## Output limits
 
