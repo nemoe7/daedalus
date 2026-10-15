@@ -1,4 +1,4 @@
-"""The Open WebUI Google tool reads freely, gates every write and propagates errors."""
+"""Test Google-tool permissions, API requests, token caching, and error propagation."""
 
 import ast
 import asyncio
@@ -34,7 +34,7 @@ FUNCS = [
 
 
 class Answer:
-  """A FakeResponse for urlopen: read returns the body, the context manager closes."""
+  """Model urlopen response bytes without suppressing context-manager exceptions."""
 
   def __init__(self, body: str):
     self.body = body.encode()
@@ -50,7 +50,7 @@ class Answer:
 
 
 def opener(monkeypatch, body, calls=None, error=None):
-  """Patch module urlopen and record each request. A list body answers in order."""
+  """Patch urlopen to record requests, return configured replies, or raise the configured error."""
   replies = list(body) if isinstance(body, list) else None
   served = 0
 
@@ -94,7 +94,7 @@ async def answer(payload):
 
 
 def reader() -> object:
-  """A client whose read valve is allow, so a read runs without a dialog."""
+  """Create a client with the Allow reads permission policy."""
   instance = client()
   instance.valves.permissions = "Allow reads"
   return instance
