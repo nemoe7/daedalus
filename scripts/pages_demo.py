@@ -1,11 +1,4 @@
-"""Build the static demo of the dashboard for GitHub Pages, and capture its fixtures.
-
-`--capture` runs the dashboard against a demo state, in this process, and writes the JSON
-fixtures. `--out` copies the UI, adds `demo.js`, and patches the page to load it. The demo
-holds one state: the provider files build the catalog and the pools, a fake upstream
-answers the limits and the cards, and the simulated requests move the weights, the
-cooldowns and the counts. The pages move as they do on a server.
-"""
+"""Build the static dashboard demo and capture its fixtures."""
 
 from __future__ import annotations
 
@@ -259,9 +252,7 @@ def seed_saved() -> None:
     keys.add(store.MODELS_DB, name)
 
 
-# The rows that the mock provider cannot reach: the client app, the effort, a retry, a loop
-# and a routed pool. Each row starts from a real row of the capture, so every field keeps the
-# shape of `dashboard.record`.
+# Add synthetic request fields that the mock provider does not emit.
 DEMO_SHAPES = (
   {
     "app": "OWUI",
@@ -480,9 +471,7 @@ def capture() -> dict[str, Any]:
 
 DEMO_JS = """\
 "use strict";
-// The demo of the daedalus dashboard. The page is the file that the server serves;
-// this script answers each `ui/api/` call from the fixtures, with no server and no login.
-// The Requests tab starts empty, and the simulated live requests fill and rotate it.
+// Serve API data from page memory and fill the initially empty request list.
 const DEMO_FIXTURES = __FIXTURES__;
 (() => {
   // A demo cannot save, so the reload warning of the page never applies here.
@@ -493,20 +482,15 @@ const DEMO_FIXTURES = __FIXTURES__;
   const KEPT = 500;
   // The requests of this page, by model. The limits check reads the count.
   const USED = new Map();
-  // The tests shrink every wait with `window.DEMO_SCALE`; the shipped page keeps 1. The floor
+  // The tests shrink every wait with `window.DEMO_SCALE`. The shipped page keeps 1. The floor
   // keeps a shrunken wait at the timer resolution, so every wait stays measurable.
   const wait = (ms) => new Promise((done) => setTimeout(done, Math.max(1, ms * (window.DEMO_SCALE || 1))));
-  // A reviewer adds `?slow=800` to the address, and every fixture answer waits that long. The page
-  // then shows the ring of a slow call and the skeleton rows of a first load, which an answer that
-  // lands at once never shows.
+  // Use ?slow=800 to delay fixture responses by 800 ms.
   const SLOW = (() => {
     const found = /[?&]slow=([0-9]+)/.exec(location.search || "");
     return found ? Number(found[1]) : 0;
   })();
   const round = (value) => Math.round(value * 1000) / 1000;
-  // The media models answer on their own paths.
-  // The embedding model of an owui chat, and the chat models. The catalog mode selects them, as the
-  // server does, so an image, audio, embedding, decisions or rerank row never answers a chat wave.
   const EMBED = "mistral/mistral-embed-2312";
   // The members of each pool: the ids the pool holds, as the router draws from them.
   const MEMBERS = Object.fromEntries(
@@ -528,10 +512,7 @@ const DEMO_FIXTURES = __FIXTURES__;
   // A session reads like the server sends it: the first 7 characters of the key hash.
   const session = (n) => ((n * 2654435761) % 0xfffffff).toString(16).padStart(7, "0");
   const gap = (min, max) => min + Math.random() * (max - min);
-  // The pace of the live demo: 1 scenario per wave, and a long wait between the waves. A real
-  // first token takes 0 to 60 s, most often 20 to 30 s, and a stream lands near 30 s, drops
-  // close to 0, and the long tail reaches 120 s. The tests
-  // script the waves with `window.DEMO_SCENARIOS`.
+  // Use DEMO_SCENARIOS to script waves without changing the timing ranges.
   const WAVE_MS = [6000, 18000];
   const ttftFor = (kind) => {
     if (kind === "embed") return gap(0.1, 0.5);
@@ -545,9 +526,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     return r < 0.6 ? gap(15, 45) : r < 0.85 ? gap(0.5, 15) : gap(45, 120);
   };
   const select = (rows) => rows[Math.floor(Math.random() * rows.length)];
-  // The times of a row in flight, as `Live` keeps them. The clocks count in whole
-  // milliseconds from 1 read of the clock: a timer that fired is at least 1 ms, so a first
-  // token always ages above zero.
+  // Read the clock once and clamp elapsed time to whole milliseconds above zero.
   const CLOCKS = new Map();
   const began = (id) => {
     const now = performance.now();
@@ -580,8 +559,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     const limit = +(new URL(url, location.origin).searchParams.get("limit") || 0);
     return limit > 0 ? DEMO_FIXTURES.requests.slice(0, limit) : DEMO_FIXTURES.requests;
   };
-  // A catalog rebuild is a page job in the demo. The chip reads rebuilding, and the
-  // wait matches the real run. No provider is read.
+  // The simulated rebuild waits 26 seconds and reads no provider.
   const REBUILD_MS = 26000;
   const rebuild = () => {
     if (DEMO_FIXTURES.status.catalog.rebuilding) {
@@ -1007,9 +985,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     }
     return plan;
   };
-  // The catalog of the server: each provider block of the config files gives its models,
-  // its tiers and its metadata. The capture keeps the weight, the order and the flags of a
-  // known model, and the traffic moves the weight and the cooldown of every model.
+  // Rebuild catalog rows from provider blocks and captured metadata.
   const MODEL_DEFAULTS = Object.fromEntries(
     Object.entries(DEMO_FIXTURES.models[0]).map(([key, value]) => [key, value])
   );
@@ -1449,9 +1425,6 @@ const DEMO_FIXTURES = __FIXTURES__;
       return json({ error: { message: "This is a static demo. The change is not saved." } }, 403);
     }
     if (path === "requests") return json(slice(url));
-    // These reads come from the demo state: the provider files, the requests and the
-    // fake upstream, so a save moves them together.
-    // The models page reads the catalog of the current files, so a provider edit moves it.
     if (path === "models") return json(state.models.map((row) => ({
       ...row,
       weight: weights.has(row.id) ? weights.get(row.id) : row.weight,
@@ -1627,7 +1600,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       const live = { id, path: spec.path || "/v1/chat/completions", ...ages(id), ttft: null };
       this.send("start", live);
       await wait(gap(60, 200));
-      // The attempt starts when the model is known, as `Live.update` restarts its clock.
+      // Restart the attempt clock when the simulation selects the model.
       attempted(id);
       Object.assign(live, {
         app: spec.app ?? null, session: spec.session ?? null, key: "master", model: spec.model,
