@@ -104,7 +104,7 @@ def test_headers_drop_an_invalid_count(field, value) -> None:
 
 
 def test_rows() -> None:
-  """Groq headers have no window in the name, but Mistral headers do. A group with no remaining count does not show."""
+  """Header fixtures identify quota windows and omit groups without a remaining count."""
   rows = limits.header_rows("groq", GROQ, NOW)
   assert [(r["kind"], r["span"]) for r in rows] == [
     ("requests", "day"),
@@ -217,7 +217,7 @@ def test_gemini_quota_failures_track_gemma_and_flash_limits(tmp_path: Path) -> N
 
 
 def test_cooldown(cooldowns: Cooldowns) -> None:
-  """0 left of a day or a month starts a cooldown until the reset. 0 left of a minute does not."""
+  """Exhausted day and month quotas start cooldowns, while exhausted minute quotas do not."""
   found = limits.Limits(cooldowns, clock=lambda: NOW)
   found.observe("groq/llama", httpx.Headers(GROQ))
   found.observe("mistral/large#kilo", httpx.Headers(MISTRAL))
@@ -260,7 +260,7 @@ def answer(request: httpx.Request) -> httpx.Response:
 
 
 def test_neurons() -> None:
-  """An empty group list with no errors is 0 neurons. An error or no account shows nothing."""
+  """An empty group list represents zero usage, while errors and missing accounts produce no rows."""
   empty = {
     "data": {"viewer": {"accounts": [{"aiInferenceAdaptiveGroups": []}]}},
     "errors": None,
@@ -282,7 +282,7 @@ def test_neurons() -> None:
 
 
 async def test_check(cooldowns: Cooldowns) -> None:
-  """Each keyed provider with a balance endpoint shows its values. A refused read or no key shows nothing."""
+  """Mocked balance reads show successful providers and omit refused, unsupported or keyless providers."""
   config = {
     "openrouter": {"api_key": "k"},
     "kilo": {"api_key": "k"},
@@ -466,7 +466,7 @@ def test_a_newer_advertised_boundary_replaces_the_pending_one(tmp_path: Path) ->
 
 
 def test_reset_boundaries_and_deduplication_survive_a_restart(tmp_path: Path) -> None:
-  """A pending reset and its one emitted event persist through separate process starts."""
+  """New Limits instances restore pending boundaries and retain event deduplication."""
   now = [NOW]
   path = tmp_path / "models.sqlite3"
   boundary = NOW + 30
@@ -564,7 +564,7 @@ async def test_cloudflare_neurons_reset_at_utc_midnight(tmp_path: Path) -> None:
 
 
 def test_rows_survive_a_restart(tmp_path: Path) -> None:
-  """The lane rows and the balances of the last run come back after a restart, and `clear` drops them."""
+  """New Limits instances restore lane rows and balances until clear removes the saved state."""
   path = tmp_path / "models.sqlite3"
   found = limits.Limits(clock=lambda: NOW, path=lambda: path)
   found.restore()
