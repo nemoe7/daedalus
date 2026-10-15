@@ -116,5 +116,7 @@ Each chat pool is a gateway to one tier. The rule of thumb for the tiers:
 
 - Write a comment only where the function is extremely complex.
 - Keep a comment to two lines and three sentences.
-- Keep a docstring to one line and one sentence.
+- Keep an ordinary docstring to one line and one sentence.
+- Preserve the required multiline format of plugin metadata and parser-required tool parameter fields.
+- Keep a tool docstring's prose summary to one line and one sentence.
 - Do not refer to ADRs in code, comments, docstrings or tests.
