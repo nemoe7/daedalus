@@ -687,20 +687,36 @@ const DEMO_FIXTURES = __FIXTURES__;
       const column = indent.indexOf("\\t");
       if (column >= 0)
         return { error: `found character '\\t' that cannot start any token at line ${n + 1}, column ${column + 1}` };
-      const depth = indent.length;
-      const body = raw.trim().replace(/\\s+#.*$/, "");
+      let depth = indent.length;
+      let body = raw.trim().replace(/\\s+#.*$/, "");
       while (stack.length > 1 && depth <= stack[stack.length - 1].indent) stack.pop();
-      const top = stack[stack.length - 1];
-      if (body.startsWith("- ")) {
+      let top = stack[stack.length - 1];
+      if (body === "-" || body.startsWith("- ")) {
         // A top-level list is valid YAML. The caller says that a file needs blocks.
-        if (stack.length === 1) {
+        if (stack.length === 1 && !Array.isArray(top.node)) {
           top.node = [];
           box.node = top.node;
         }
         if (!Array.isArray(top.node))
           return { error: `sequence entries are not allowed here at line ${n + 1}, column ${depth + 1}` };
-        top.node.push(unscale(body.slice(2)));
-        continue;
+        const item = body.slice(1).trim();
+        if (!item) {
+          const follows = next_body(n + 1, depth);
+          const child = follows === "-" || follows.startsWith("- ") ? [] : {};
+          top.node.push(child);
+          stack.push({ indent: depth, node: child });
+          continue;
+        }
+        if (/^["']/.test(item) || !/:(?:\\s|$)/.test(item)) {
+          top.node.push(unscale(item));
+          continue;
+        }
+        const child = {};
+        top.node.push(child);
+        top = { indent: depth, node: child };
+        stack.push(top);
+        body = item;
+        depth += 2;
       }
       const at = body.indexOf(":");
       if (at < 0)
@@ -715,7 +731,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       const key = body.slice(0, at).trim().replace(/^(["'])(.*)\\1$/, "$2");
       if (!value) {
         const follows = next_body(n + 1, depth);
-        const child = follows.startsWith("- ") ? [] : {};
+        const child = follows === "-" || follows.startsWith("- ") ? [] : {};
         top.node[key] = child;
         stack.push({ indent: depth, node: child });
       } else if (value.startsWith("{") && value.endsWith("}")) {
@@ -742,6 +758,10 @@ const DEMO_FIXTURES = __FIXTURES__;
     if (value === null || value === undefined || value === "") return "";
     return Array.isArray(value) && value.every(hook_name) ? "" : "hooks.disabled must be a list of hook names";
   };
+  const limits_error = (values) => {
+    const limits = { ...DEFAULTS.limits, ...values };
+    return limits.shortest > limits.longest ? "limits.shortest must be at most limits.longest" : "";
+  };
   // `settings.parse` of the server: the error line of a settings text, or an empty string.
   const settings_error = (value) => {
     if (!value || typeof value !== "object" || Array.isArray(value))
@@ -759,9 +779,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     const pools = { ...DEFAULTS.personalization, ...(value.personalization || {}) };
     if (new Set(Object.values(pools)).size !== Object.keys(pools).length)
       return "each pool in personalization must have its own name";
-    const limits = { ...DEFAULTS.limits, ...(value.limits || {}) };
-    if (limits.shortest > limits.longest) return "limits.shortest must be at most limits.longest";
-    return "";
+    return limits_error(value.limits);
   };
   // The provider form sends parsed blocks. The files tab reads the text of a file.
   // A plain YAML key starts with a letter, a digit or _. A slug such as @cf/... needs quotes.
@@ -950,6 +968,13 @@ const DEMO_FIXTURES = __FIXTURES__;
       const error = group === "hooks" ? hook_names_error(values.disabled) : "";
       if (error) return bad(error, 422);
     }
+    const limits = { ...DEMO_FIXTURES.settings.file.limits };
+    for (const [key, value] of Object.entries(changes.limits || {})) {
+      if (value === null || value === undefined) delete limits[key];
+      else limits[key] = value;
+    }
+    const error = limits_error(limits);
+    if (error) return bad(error, 422);
     for (const [group, values] of Object.entries(changes)) {
       const file = DEMO_FIXTURES.settings.file;
       file[group] ||= {};

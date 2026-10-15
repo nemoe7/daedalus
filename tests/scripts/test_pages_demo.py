@@ -1055,3 +1055,83 @@ def test_demo_request_state_is_consistent() -> None:
       if change := attempt.get("weight_change"):
         assert 0 < change["from"] <= 1
         assert 0 < change["to"] <= 1
+
+
+@pytest.mark.parametrize("scenario", ["inline_sources", "block_sources", "limits"])
+def test_demo_settings_save_contract(tmp_path: Path, monkeypatch, scenario) -> None:
+  fixtures = pages_demo.demo_fixtures("demo.test")
+  settings = fixtures["settings"]
+  settings["defaults"]["limits"].update(shortest=10, longest=1000)
+  changes = {
+    "limits": {"shortest": 20, "longest": 100},
+    "hooks": {
+      "sources": [
+        {"repo": "sample/tools", "path": "hooks", "ref": "topic", "auto_update": True},
+        {
+          "repo": "other/hooks",
+          "path": "plugins",
+          "ref": "stable",
+          "auto_update": False,
+        },
+      ]
+    },
+  }
+  settings["text"] = pages_demo.settings.update_text(settings["text"], changes)
+  if scenario == "block_sources":
+    settings["text"] = re.sub(
+      r"^( *)- repo: (.+)$", r"\1-\n\1  repo: \2", settings["text"], flags=re.MULTILINE
+    )
+  settings["file"] = yaml.safe_load(settings["text"])
+  monkeypatch.setattr(pages_demo, "demo_fixtures", lambda version: fixtures)
+  out = pages_demo.build(tmp_path / "site", "demo.test")
+  (out / "case.json").write_text(json.dumps({"scenario": scenario}))
+  script = (
+    NODE_SETUP
+    + """
+(async () => {
+  const { scenario } = JSON.parse(fs.readFileSync("case.json", "utf8"));
+  const read = async () => (await context.fetch("ui/api/settings")).json();
+  const save = body => context.fetch("ui/api/settings", {
+    method: "PUT", headers: JSON_HEADERS, body: JSON.stringify(body),
+  });
+  const before = await read();
+  if (scenario !== "limits") {
+    const response = await save({ text: before.text });
+    check(response.status === 200, "save generated source maps");
+    const after = await read();
+    check(JSON.stringify(after.file) === JSON.stringify(before.file), "keep parsed settings");
+    check(after.text === before.text, "keep saved YAML");
+  } else {
+    for (const limits of [{ shortest: 500, longest: 1 }, { shortest: 101 }, { longest: 19 },
+      { shortest: null, longest: 5 }, { longest: null, shortest: 1001 }]) {
+      const response = await save({ changes: { personalization: { theme: "light" }, limits } });
+      check(response.status === 422, "reject combined limit bounds");
+      const error = (await response.json()).error;
+      check(error.code === 422 && error.type === "invalid_request_error", "keep error fields");
+      check(typeof error.message === "string" && error.message.length > 0, "explain invalid bounds");
+      check(JSON.stringify(await read()) === JSON.stringify(before), "rejected save keeps all settings");
+    }
+    for (const limits of [{ shortest: 75, longest: 75 }, { longest: 90 }]) {
+      check((await save({ changes: { limits } })).status === 200, "save valid combined bounds");
+      const after = await read();
+      check(Object.entries(limits).every(([key, value]) => after.file.limits[key] === value),
+        "keep saved limit values");
+    }
+    check((await save({ changes: { limits: { shortest: null, longest: null } } })).status === 200,
+      "restore default bounds");
+    const limits = (await read()).file.limits || {};
+    check(!("shortest" in limits) && !("longest" in limits), "clear both overrides");
+  }
+  check(context.network.length === 0, "no network calls");
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
+  )
+  result = subprocess.run(
+    ["node", "-e", script],
+    cwd=out,
+    capture_output=True,
+    text=True,
+    timeout=10,
+    check=False,
+  )
+  assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
