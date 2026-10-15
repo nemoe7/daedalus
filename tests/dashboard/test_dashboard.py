@@ -3536,8 +3536,23 @@ def invalid_request(response, status: int = 422) -> dict:
 
 
 def test_files(
-  client: TestClient, folder: Path, monkeypatch: pytest.MonkeyPatch
+  client: TestClient, folder: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+  source = {
+    "repo": "fixture/hooks",
+    "path": "hooks",
+    "ref": "test-ref",
+    "auto_update": False,
+  }
+  settings_path = tmp_path / "settings.yml"
+  settings_path.write_text(
+    "# Router settings.\nhooks:\n  sources:\n    - repo: fixture/hooks\n"
+    "      path: hooks\n      ref: test-ref\n      auto_update: false\n",
+    encoding="utf-8",
+  )
+  monkeypatch.setattr(settings, "DEFAULT_PATH", settings_path)
+  monkeypatch.setitem(settings.DEFAULTS["routing"], "escalation", ["fixture-fallback"])
+  monkeypatch.setattr(api, "KEYWORDS", api.KEYWORDS)
   # The dashboard session is a cookie, and the bearer header does not carry it, so the
   # test logs in rather than ride a cookie that an earlier test in the worker left.
   client.post("/ui/api/login", json={"username": "admin", "password": MASTER})
@@ -3550,14 +3565,8 @@ def test_files(
     client.put("/ui/api/files", json={"path": path, "text": ""}).status_code == 400
   ), "the Settings page owns the settings file"
   shown = client.get("/ui/api/settings").json()
-  source = {
-    "repo": "nemoe7/daedalus",
-    "path": "hooks",
-    "ref": "main",
-    "auto_update": False,
-  }
   assert shown["file"] == {"hooks": {"sources": [source]}}, (
-    "the shipped file holds the initial hook source alone"
+    "the settings file supplies the hook source"
   )
   root = folder / "hooks"
   root.mkdir(parents=True, exist_ok=True)
@@ -3567,20 +3576,7 @@ def test_files(
   assert "hooks/selected.py" in client.get("/ui/api/settings").json()["hook_files"], (
     "the settings page lists the hook files, so a row selects its own"
   )
-  assert shown["defaults"]["limits"]["slow"] == 30.0, shown
-  assert shown["defaults"]["balance"]["fault"] == 0.5, shown
-  limits = shown["defaults"]["limits"]
-  assert (
-    limits["calls"],
-    limits["repeats"],
-    limits["shortest"],
-    limits["longest"],
-  ) == (
-    3,
-    4,
-    20,
-    2000,
-  ), shown
+  assert shown["defaults"] == settings.DEFAULTS, shown
   assert shown["headroom_available"] is False, shown
 
   async def ready() -> bool:
@@ -3618,7 +3614,7 @@ def test_files(
   assert (
     cleared.status_code == 200 and "  slow:" not in settings.DEFAULT_PATH.read_text()
   ), "a cleared key leaves the file"
-  assert api.SLOW_SECONDS == 30.0, "the default slow time"
+  assert api.SLOW_SECONDS == settings.DEFAULTS["limits"]["slow"]
   reset = client.put("/ui/api/settings", json={"changes": {"catalog": {"every": None}}})
   assert reset.status_code == 200, reset.text
   assert "  every:" not in settings.DEFAULT_PATH.read_text(), (
@@ -3637,9 +3633,10 @@ def test_files(
   assert client.put("/ui/api/settings", json={"changes": words}).status_code == 200
   text = settings.DEFAULT_PATH.read_text()
   assert "  escalation:" not in text, "a cleared key leaves the file"
-  assert api.KEYWORDS and api.KEYWORDS.search("ultrathink"), (
-    "an empty field falls back to the code default"
+  assert api.KEYWORDS and api.KEYWORDS.search("fixture-fallback"), (
+    "an empty field uses the supplied default"
   )
+  assert not api.KEYWORDS.search("ultrathink")
   assert (
     client.put(
       "/ui/api/settings", json={"changes": {"hooks": {"on-request": 3}}}
