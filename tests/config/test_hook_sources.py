@@ -209,7 +209,7 @@ def test_the_lock_records_the_source(
 def test_a_bad_block_stays_out(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-  """A block with an unknown surface or an unmet requires never lands, with 1 warning a file."""
+  """Invalid hook metadata prevents installation and appears in warnings."""
   pages = {
     API: json.dumps({"sha": COMMIT}).encode(),
     ARCHIVE: tar(
@@ -233,7 +233,7 @@ def test_a_bad_block_stays_out(
 def test_no_block_still_installs(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-  """A fetched file with no block lands, with an empty version and 1 line that asks for a block."""
+  """A hook without frontmatter installs with an empty version and a frontmatter warning."""
   pages = {
     API: json.dumps({"sha": COMMIT}).encode(),
     ARCHIVE: tar(
@@ -488,7 +488,7 @@ def test_lock_replaces_a_complete_sibling(
 
 
 def test_records_round_trip(tmp_path: Path) -> None:
-  """The lock writes in name order, reads back its records, and keeps 1 bad record out."""
+  """Lock records round-trip in name order, while malformed records and missing files return empty maps."""
   lock = tmp_path / "hooks.lock.json"
   one = {"sha256": "a" * 64, "version": "2.0", "repo": "owner/name", "commit": COMMIT}
   two = {"sha256": "b" * 64, "version": "", "repo": "owner/name", "commit": COMMIT}
@@ -542,7 +542,8 @@ def test_update_takes_the_named_files(
 def test_scan_names_the_files_of_a_source(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The scan answers with the frontmatter of each file, under its identity, and writes nothing."""
+  """The scan returns frontmatter by identity and leaves the configured hook root empty."""
+  monkeypatch.setattr(hooks, "DIR", str(tmp_path))
   pages = {
     API: json.dumps({"sha": COMMIT}).encode(),
     ARCHIVE: tar(
@@ -579,9 +580,7 @@ def test_scan_names_the_files_of_a_source(
   assert not list(tmp_path.iterdir()), "a scan writes nothing"
 
 
-def test_scan_of_a_bad_source_gives_none(
-  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_scan_of_a_bad_source_gives_none(monkeypatch: pytest.MonkeyPatch) -> None:
   """A source that GitHub does not answer gives None."""
   answers(monkeypatch, {})
   assert remote.scan(source(repo="owner/none")) is None
@@ -679,7 +678,7 @@ def test_the_base_example_never_installs(
 def test_the_lock_lives_in_the_hooks_folder(
   monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-  """The defaults put the lock beside the hook files, where a server owns the folder."""
+  """The default lock path is the hooks folder, beside installed hook files."""
   (tmp_path / "hooks").mkdir()
   monkeypatch.setattr(hooks, "ROOT", Path("."))
   monkeypatch.chdir(tmp_path)
