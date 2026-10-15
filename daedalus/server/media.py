@@ -165,7 +165,12 @@ async def attempt(
     except providers.ProviderError as exc:
       if not pooled:
         logger.warning("media %s failed: %s", candidate, upstream.failure_text(exc))
-        return invalid("The model cannot take this request")
+        return upstream.error_response(
+          400,
+          "The model cannot take this request",
+          "invalid_request_error",
+          locale_key="error.model_request_text",
+        )
       # A pool model that cannot take this request is not a fault.
       attempts.append(upstream.note(candidate, "skipped", None, str(exc)))
       continue

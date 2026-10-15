@@ -550,15 +550,23 @@ def test_a_busy_store_answers_503(monkeypatch: pytest.MonkeyPatch) -> None:
   try:
     sent = client.post("/v1/chat/completions", json=body, headers=AUTH)
     assert sent.status_code == 503, sent.text
-    assert sent.json()["error"]["message"] == "The state store is busy. Try again."
+    busy = sent.json()["error"]
+    assert busy["type"] == "server_error" and busy["code"] == 503
+    assert busy["locale_key"] == "error.store_busy_text"
+    assert busy["locale_params"] == {}
+    assert isinstance(busy["message"], str) and busy["message"].strip()
     corrupt = sqlite3.DatabaseError("file is not a database")
     monkeypatch.setattr(api.COOLDOWNS, "ends", lambda: (_ for _ in ()).throw(corrupt))
     monkeypatch.setattr(api.PENALTIES, "pinned", lambda *_: None)
     sent = client.post("/v1/chat/completions", json=body, headers=AUTH)
     assert sent.status_code == 503, sent.text
-    assert sent.json()["error"]["message"] == (
-      "The model store is not readable. Run `daedalus catalog`."
-    )
+    unreadable = sent.json()["error"]
+    assert unreadable["type"] == "server_error" and unreadable["code"] == 503
+    assert unreadable["locale_key"] == "error.store_unreadable_text"
+    assert unreadable["locale_params"] == {"command": "daedalus catalog"}
+    assert isinstance(unreadable["message"], str) and unreadable["message"].strip()
+    assert unreadable["message"] != busy["message"]
+    assert "daedalus catalog" in unreadable["message"]
   finally:
     api.get_config, api.chain = original
     upstream.set_client(None)

@@ -111,7 +111,10 @@ async def busy_store(_request: Request, exc: sqlite3.OperationalError) -> JSONRe
   """Answer 503 for a lock on the state store, in place of a raw 500."""
   logger.warning("the state store is busy: %s", exc)
   return upstream.error_response(
-    503, "The state store is busy. Try again.", "server_error"
+    503,
+    "The state store is busy. Try again.",
+    "server_error",
+    locale_key="error.store_busy_text",
   )
 
 
@@ -122,7 +125,11 @@ async def unreadable_store(
   """Answer 503 for a state store that is not a database, with the command that rebuilds it."""
   logger.error("the state store is not readable: %s", exc)
   return upstream.error_response(
-    503, "The model store is not readable. Run `daedalus catalog`.", "server_error"
+    503,
+    "The model store is not readable. Run `daedalus catalog`.",
+    "server_error",
+    locale_key="error.store_unreadable_text",
+    locale_params={"command": "daedalus catalog"},
   )
 
 

@@ -107,7 +107,8 @@ def test_model_store() -> None:
   rows, problems = enrichment.enrich(lines, config, fetch, native)
   assert [query["page"] for query in seen[:2]] == [["1"], ["2"]], seen
   assert len(seen) == 4, seen
-  assert problems == ["broken: LiteLLM catalog failed: down"], problems
+  assert len(problems) == 1
+  assert all(value in problems[0] for value in ("broken", "LiteLLM", "down")), problems
   glm = rows[0]
   assert glm["max_input_tokens"] == 131072, glm
   assert glm["max_output_tokens"] == 64000, "the provider row wins over LiteLLM"

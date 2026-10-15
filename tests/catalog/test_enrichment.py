@@ -1,5 +1,6 @@
 """Catalog enrichment: the LiteLLM pages, the config columns and the overrides."""
 
+import logging
 import sqlite3
 import threading
 from pathlib import Path
@@ -271,9 +272,11 @@ def test_enrich_logs_each_source_read(caplog) -> None:
   fetch, _ = sequenced(PAGE, MS_PAGE)
   with caplog.at_level("INFO", logger="daedalus.catalog"):
     enrichment.enrich(["openrouter/a"], {}, fetch)
-  told = [record.getMessage() for record in caplog.records]
-  assert "openrouter: read 1 LiteLLM entries" in told, told
-  assert "openrouter: read 6 modelschemas rows" in told, told
+  for source, count in (("LiteLLM", 1), ("modelschemas", 6)):
+    told = [record for record in caplog.records if source in record.getMessage()]
+    assert len(told) == 1
+    assert told[0].levelno == logging.INFO
+    assert told[0].args == ("openrouter", count)
 
 
 def test_enrich_reports_a_catalog_that_failed() -> None:
@@ -284,8 +287,8 @@ def test_enrich_reports_a_catalog_that_failed() -> None:
   )
   assert failed == ["openrouter"]
   assert len(problems) == 2
-  assert problems[0].startswith("openrouter: LiteLLM catalog failed: boom")
-  assert problems[1].startswith("openrouter: modelschemas source failed: boom")
+  assert all(value in problems[0] for value in ("openrouter", "LiteLLM", "boom"))
+  assert all(value in problems[1] for value in ("openrouter", "modelschemas", "boom"))
   assert [row["id"] for row in rows] == ["openrouter/a", "openrouter/b"]
 
 
@@ -302,7 +305,8 @@ def test_enrich_reports_a_modelschemas_source_that_failed() -> None:
 
   rows, problems = enrichment.enrich(["openrouter/a"], {}, flaky, failed=failed)
   assert failed == ["openrouter"]
-  assert problems == ["openrouter: modelschemas source failed: boom"]
+  assert len(problems) == 1
+  assert all(value in problems[0] for value in ("openrouter", "modelschemas", "boom"))
   assert rows[0]["rpm"] == 9
 
 

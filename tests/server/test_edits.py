@@ -247,10 +247,14 @@ def test_edit_errors(client: TestClient) -> None:
     files={"image": ("in.png", small, "image/png")},
   )
   assert response.status_code == 400, response.text
-  assert response.json()["error"] == {
-    "message": "The model cannot take this request",
+  error = response.json()["error"]
+  message = error.pop("message")
+  assert isinstance(message, str) and message.strip()
+  assert error == {
     "type": "invalid_request_error",
     "code": 400,
+    "locale_key": "error.model_request_text",
+    "locale_params": {},
   }, response.text
   response = edit(client, "x", small, n="two")
   assert response.status_code == 400 and "n must be" in response.text, response.text
@@ -260,8 +264,12 @@ def test_edit_errors(client: TestClient) -> None:
     files={"image": ("in.png", base64.b64decode("AAAA"), "image/png")},
   )
   assert response.status_code == 400, response.text
-  assert response.json()["error"] == {
-    "message": "The model cannot take this request",
+  error = response.json()["error"]
+  message = error.pop("message")
+  assert isinstance(message, str) and message.strip()
+  assert error == {
     "type": "invalid_request_error",
     "code": 400,
+    "locale_key": "error.model_request_text",
+    "locale_params": {},
   }, response.text

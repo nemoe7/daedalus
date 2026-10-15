@@ -112,12 +112,21 @@ async def close() -> None:
 
 
 def error_response(
-  status: int, message: str, error_type: str, headers: dict[str, str] | None = None
+  status: int,
+  message: str,
+  error_type: str,
+  headers: dict[str, str] | None = None,
+  *,
+  locale_key: str | None = None,
+  locale_params: dict[str, str] | None = None,
 ) -> JSONResponse:
-  """Answer in the OpenAI error shape."""
+  """Answer in the OpenAI error shape with optional locale metadata."""
+  error = {"message": message, "type": error_type, "code": status}
+  if locale_key is not None:
+    error.update(locale_key=locale_key, locale_params=locale_params or {})
   return JSONResponse(
     status_code=status,
-    content={"error": {"message": message, "type": error_type, "code": status}},
+    content={"error": error},
     headers=headers,
   )
 

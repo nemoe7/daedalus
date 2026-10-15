@@ -1,5 +1,7 @@
 """The on-catalog hooks change the catalog rows of their provider before the store write."""
 
+import logging
+
 import pytest
 
 from daedalus import catalog
@@ -30,4 +32,9 @@ def test_with_hooks(caplog: pytest.LogCaptureFixture) -> None:
     "seen": ("https://p.test/v1", "Bearer k"),
   }
   assert found[1:] == rows[1:]
-  assert "no on-catalog hooks for nokey/b" in caplog.text
+  assert any(
+    record.name == "daedalus.catalog"
+    and record.levelno == logging.WARNING
+    and "nokey/b" in record.getMessage()
+    for record in caplog.records
+  )

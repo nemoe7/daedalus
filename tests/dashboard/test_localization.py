@@ -8,7 +8,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from daedalus import dashboard
-from daedalus.server import api
+from daedalus.server import api, upstream
 
 UI = Path("daedalus/dashboard/ui")
 CATALOG = UI / "en.js"
@@ -100,6 +100,13 @@ vm.runInContext("let calling = 0; let spinnerTimer;" + {json.dumps(translation.g
   await assert.rejects(sandbox.call("hooks/file"), {{
     message: sandbox.t("error.http_without_message", {{ status }}),
   }});
+  for (const key of ["error.store_busy_text", "error.store_unreadable_text", "error.model_request_text"]) {{
+    const params = {{ command: "synthetic-command", value: "fixture" }};
+    body = {{ error: {{ message: "server detail", locale_key: key, locale_params: params }} }};
+    await assert.rejects(sandbox.call("catalog"), {{ message: sandbox.t(key, params) }});
+    sandbox.DAEDALUS_LOCALE[key] = "Locale: {{value}}";
+    await assert.rejects(sandbox.call("catalog"), {{ message: "Locale: fixture" }});
+  }}
 }})().catch(error => {{ console.error(error); process.exitCode = 1; }});
 """
   subprocess.run(["node", "-e", script], check=True)
@@ -129,15 +136,20 @@ def test_every_locale_reference_has_a_catalog_entry() -> None:
     app,
   ):
     referenced.update((one, other))
-  backend = ast.parse((UI.parent / "__init__.py").read_text(encoding="utf-8"))
-  referenced.update(
-    node.value.value
-    for node in ast.walk(backend)
-    if isinstance(node, ast.keyword)
-    and node.arg == "locale_key"
-    and isinstance(node.value, ast.Constant)
-    and isinstance(node.value.value, str)
-  )
+  for source in (
+    UI.parent / "__init__.py",
+    Path("daedalus/server/api.py"),
+    Path("daedalus/server/media.py"),
+  ):
+    backend = ast.parse(source.read_text(encoding="utf-8"))
+    referenced.update(
+      node.value.value
+      for node in ast.walk(backend)
+      if isinstance(node, ast.keyword)
+      and node.arg == "locale_key"
+      and isinstance(node.value, ast.Constant)
+      and isinstance(node.value.value, str)
+    )
   assert referenced, "the page references locale keys"
   missing = sorted(referenced - catalog.keys())
   assert not missing, f"locale keys without English copy: {missing}"
@@ -302,3 +314,35 @@ def test_static_copy_uses_locale_keys() -> None:
   audit.feed(html)
   assert set(audit.direct_text) == {"daedalus"}, audit.direct_text
   assert not audit.direct_attributes, audit.direct_attributes
+
+
+def test_api_error_locale_metadata_preserves_payload_and_headers() -> None:
+  """API locale metadata preserves status, headers, messages and parameter values."""
+  for status, key, params in (
+    (503, "error.store_busy_text", {}),
+    (503, "error.store_unreadable_text", {"command": "daedalus catalog"}),
+    (400, "error.model_request_text", {}),
+  ):
+    response = upstream.error_response(
+      status,
+      "synthetic message",
+      "synthetic_type",
+      {"Retry-After": "3"},
+      locale_key=key,
+      locale_params=params,
+    )
+    assert response.status_code == status
+    assert response.headers["Retry-After"] == "3"
+    assert json.loads(response.body)["error"] == {
+      "message": "synthetic message",
+      "type": "synthetic_type",
+      "code": status,
+      "locale_key": key,
+      "locale_params": params,
+    }
+    assert isinstance(read_catalog()[key], str) and read_catalog()[key]
+    assert all("{" + name + "}" in read_catalog()[key] for name in params)
+  plain = upstream.error_response(409, "synthetic", "server_error")
+  assert json.loads(plain.body) == {
+    "error": {"message": "synthetic", "type": "server_error", "code": 409}
+  }
