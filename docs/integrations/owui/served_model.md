@@ -6,6 +6,7 @@ is an Open WebUI Filter: it draws the daedalus served model line above the answe
 | Item | Value |
 | --- | --- |
 | Type | Filter. The `stream` method reads each chunk |
+| Requires | A daedalus connection with the [`served_model.py` hook](../../hooks/served_model.md) installed and enabled |
 | Reads | `usage.daedalus.line` of the chunk, which [`hooks/served_model.py`](../../hooks/served_model.md) writes |
 | Valves | `enabled`, default `true`. `prefix`, empty by default. `when`, `always` by default, else `on change` |
 | Rows | 1 row for each line, and no row for a line equal to the last line of that message |

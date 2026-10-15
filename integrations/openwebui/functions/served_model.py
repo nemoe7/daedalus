@@ -1,7 +1,7 @@
 """
 title: Served model
 author: nemo
-description: The daedalus served model line above the answer body. It reads the stream usage. No key.
+description: Requires daedalus and its served_model.py hook for the served model line above an answer.
 required_open_webui_version: 0.10.0
 version: 1.0.7
 licence: nemoe7 Noncommercial and Public-Interest License 1.2.0
