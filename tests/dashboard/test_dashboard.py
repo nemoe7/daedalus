@@ -2937,6 +2937,8 @@ def test_history(client: TestClient) -> None:
 
 
 def test_keys(client: TestClient) -> None:
+  login = client.post("/ui/api/login", json={"username": "admin", "password": MASTER})
+  assert login.status_code == 200
   assert client.get("/ui/api/keys").json() == []
   made = client.post("/ui/api/keys", json={"name": " laptop "})
   assert made.status_code == 201 and made.json()["name"] == "laptop", made.text
@@ -3725,7 +3727,7 @@ def test_provider_file_save_loads_the_main_config(client: TestClient) -> None:
   loaded = config.get_config()
   assert "api_key" not in loaded, "the keys of the file must not become providers"
   main = config.load_yaml(config.DEFAULT_PATH.read_text(encoding="utf-8"))
-  assert {k: v for k, v in loaded.items() if k != "probe"} == main, (
+  assert {k: v for k, v in loaded.items() if k != "probe"} == config.expand(main), (
     "the main file keeps its blocks"
   )
   assert loaded["probe"]["_file"] == {"api_key": "k"}, loaded.get("probe")
