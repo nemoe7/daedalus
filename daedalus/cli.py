@@ -36,11 +36,7 @@ ANY_HOST = ("0.0.0.0", "::")
 
 
 def dump_models(file_format: str) -> None:
-  """Write every stored model row to `models.json` or `models.csv`.
-
-  The dump mirrors the store: the tier and the ladder the store holds for each row, verbatim.
-  What the live data says is what the dump says, and missing stays missing.
-  """
+  """Write stored model rows with parsed effort lists to JSON or CSV."""
   rows = [
     {
       **row,
@@ -61,10 +57,7 @@ def dump_models(file_format: str) -> None:
 
 
 def import_problem(path: Path) -> str | None:
-  """The last line of the load error of a hook file, or None when it loads.
-
-  The check runs the file in its own process, with a timeout, the way the loader runs it.
-  """
+  """Return a hook-load error detail, or None after a successful subprocess check."""
   try:
     done = subprocess.run(
       [sys.executable, "-c", IMPORT_CODE, str(path)],
@@ -93,11 +86,7 @@ def probe(url: str) -> bool:
 
 
 def live_url() -> str | None:
-  """The address of a live daedalus, else None.
-
-  It comes from `DAEDALUS_URL`, or from the host and the port, and a `/health`
-  probe within `PROBE_SECONDS` agrees on it.
-  """
+  """Return the configured server address if its health probe succeeds, or None."""
   url = os.environ.get(DAEDALUS_URL, "").rstrip("/")
   if not url:
     host = os.environ.get(api.DAEDALUS_HOST) or api.HOST
@@ -112,11 +101,7 @@ class Refused(Exception):
 
 
 def ask_rebuild(url: str) -> bool:
-  """Ask a live daedalus to rebuild its store.
-
-  A silent server returns False, and the rebuild goes here. A refusal raises
-  `Refused`, because that server owns the store and a second writer is unsafe.
-  """
+  """Request a live rebuild, returning False without a key or response and raising Refused on HTTP errors."""
   key = dashboard.master()
   if key is None:
     logger.warning("no master key: the rebuild runs in this process")
