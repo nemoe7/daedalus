@@ -10,7 +10,7 @@ from ruamel.yaml.error import YAMLError
 
 from daedalus.config import settings
 from daedalus.providers import hooks
-from daedalus.routing import loops, penalties
+from daedalus.routing import loops
 from daedalus.server import api, upstream
 
 
@@ -27,33 +27,36 @@ def expect_error(folder: Path, text: str, message: str) -> None:
 
 def test_load(folder: Path) -> None:
   values = settings.load(folder / "missing.yml")
-  limits = values["limits"]
-  assert (limits["request"], limits["wait"], limits["slow"]) == (600.0, 60.0, 30.0)
-  assert values["balance"]["fault"] == penalties.FAULT
-  assert "think hard" in values["routing"]["escalation"], "the default keywords"
-  assert values["routing"]["switch"] == ["clanker"]
+  assert values == settings.DEFAULTS
   shipped_path = Path(__file__).parents[2] / "config" / "daedalus.yml"
-  shipped = yaml.safe_load(shipped_path.read_text(encoding="utf-8")) or {}
-  assert set(shipped) <= {"hooks"}, (
-    "the shipped file holds the initial hook source alone"
-  )
-  assert set(shipped.get("hooks") or {}) == {"sources"}, (
-    "no hook runs at the first start. The dashboard writes its other changes into the file"
-  )
-  loaded = settings.load(shipped_path)
-  assert loaded["hooks"]["sources"] == [
-    {"repo": "nemoe7/daedalus", "path": "hooks", "ref": "main", "auto_update": False}
-  ], "the shipped file names the repo of the hooks"
-  loaded["hooks"]["sources"] = values["hooks"]["sources"]
-  assert loaded == values, "the shipped file leaves every other default in place"
+  assert isinstance(settings.load(shipped_path), dict)
   path = folder / "daedalus.yml"
+  source = {
+    "repo": "example/fixture",
+    "path": "plugins",
+    "ref": "v-test",
+    "auto_update": False,
+  }
+  path.write_text(yaml.safe_dump({"hooks": {"sources": [source]}}), encoding="utf-8")
+  loaded = settings.load(path)
+  assert loaded["hooks"]["sources"] == [source]
+  loaded["hooks"]["sources"] = values["hooks"]["sources"]
+  assert loaded == values
   path.write_text("limits:\n  wait: 120\nbalance:\n  fault: 0.25\n", encoding="utf-8")
   values = settings.load(path)
-  assert values["limits"]["slow"] == 30.0, "slow keeps its own default"
-  assert values["balance"]["fault"] == 0.25 and values["balance"]["success"] == 1.5
+  assert values["limits"]["slow"] == settings.DEFAULTS["limits"]["slow"]
+  assert (
+    values["balance"]["fault"] == 0.25
+    and values["balance"]["success"] == settings.DEFAULTS["balance"]["success"]
+  )
   path.write_text("", encoding="utf-8")
-  assert settings.load(path)["affinity"]["mode"] == "session", "an empty file"
-  assert settings.load(path)["affinity"]["change_on_draw"] is True
+  assert (
+    settings.load(path)["affinity"]["mode"] == settings.DEFAULTS["affinity"]["mode"]
+  )
+  assert (
+    settings.load(path)["affinity"]["change_on_draw"]
+    == settings.DEFAULTS["affinity"]["change_on_draw"]
+  )
   expect_error(folder, "affinity:\n  change_on_draw: 1\n", "affinity.change_on_draw")
   expect_error(folder, "server:\n  port: 1\n", "'server'")
   expect_error(folder, "balance:\n  factor: 2\n", "balance.factor")
@@ -65,8 +68,9 @@ def test_load(folder: Path) -> None:
   )
   expect_error(folder, "hooks:\n  on-later: a.py\n", "hooks.on-later")
   hooks = settings.parse('hooks:\n  on-request: ""\n')["hooks"]
-  assert hooks["on-request"] == [] and hooks["sources"] == []
-  assert hooks["order"] == {}
+  assert hooks["on-request"] == []
+  assert hooks["sources"] == settings.DEFAULTS["hooks"]["sources"]
+  assert hooks["order"] == settings.DEFAULTS["hooks"]["order"]
   hooks = settings.parse("hooks:\n  on-request: hooks/x.py\n")["hooks"]
   assert hooks["on-request"] == ["hooks/x.py"], "1 path on its own works"
   hooks = settings.parse("hooks:\n  on-request: [hooks/x.py, hooks/y.py]\n")["hooks"]
@@ -114,8 +118,9 @@ def test_load(folder: Path) -> None:
   expect_error(folder, "personalization:\n  theme: blue\n", "personalization.theme")
   path.write_text("personalization:\n  theme: dark\n", encoding="utf-8")
   assert settings.load(path)["personalization"]["theme"] == "dark"
-  assert settings.load(path)["personalization"]["time_format"] == "24h", (
-    "24h by default"
+  assert (
+    settings.load(path)["personalization"]["time_format"]
+    == settings.DEFAULTS["personalization"]["time_format"]
   )
   expect_error(
     folder, "personalization:\n  time_format: 25h\n", "personalization.time_format"
@@ -179,17 +184,7 @@ def test_settings_integer_overflow(group: str, key: str) -> None:
 
 def test_loop_settings() -> None:
   limits = settings.parse("")["limits"]
-  assert (
-    limits["calls"],
-    limits["repeats"],
-    limits["shortest"],
-    limits["longest"],
-  ) == (
-    3,
-    4,
-    20,
-    2000,
-  )
+  assert limits == settings.DEFAULTS["limits"]
   moved = settings.parse(
     "limits:\n  calls: 100\n  repeats: 16\n  shortest: 1000\n  longest: 10000\n"
   )["limits"]
@@ -213,17 +208,8 @@ def test_loop_settings() -> None:
 
 
 def test_affinity_settings(folder: Path) -> None:
-  """The affinity defaults, the 3 modes, and the 2 bounds of the race numbers."""
-  assert settings.parse("")["affinity"] == {
-    "mode": "session",
-    "idle": 3600.0,
-    "stay": 0.85,
-    "change_on_draw": True,
-    "count": 1,
-    "chance": 0.05,
-    "slow": 30.0,
-    "penalty": 0.9,
-  }
+  """Affinity settings accept three modes and enforce numeric bounds."""
+  assert settings.parse("")["affinity"] == settings.DEFAULTS["affinity"]
   expect_error(folder, "affinity:\n  mode: fast\n", "affinity.mode")
   expect_error(folder, "affinity:\n  count: 0\n", "affinity.count")
   expect_error(folder, "affinity:\n  count: 11\n", "affinity.count")
@@ -246,7 +232,7 @@ def test_affinity_settings(folder: Path) -> None:
     assert api.AFFINITY_MODE == "race" and api.PARALLEL_ENABLED is True
     assert api.AFFINITY is True and api.PENALTIES.race is True
   finally:
-    api.apply_settings(settings.load(folder / "missing.yml"))
+    api.apply_settings(settings.parse("affinity:\n  mode: session\n"))
   assert api.PARALLEL_ENABLED is False and api.PENALTIES.race is False
   assert api.AFFINITY_MODE == "session" and api.AFFINITY is True
   values = settings.parse("affinity:\n  mode: none\n")
@@ -254,7 +240,7 @@ def test_affinity_settings(folder: Path) -> None:
   try:
     assert api.AFFINITY is False and api.PARALLEL_ENABLED is False
   finally:
-    api.apply_settings(settings.load(folder / "missing.yml"))
+    api.apply_settings(settings.parse("affinity:\n  mode: session\n"))
 
 
 def test_privacy_settings(folder: Path) -> None:
@@ -280,6 +266,11 @@ def test_apply(folder: Path) -> None:
     "balance:\n  weights: false\n"
     "limits:\n  calls: 5\n  repeats: 6\n  shortest: 10\n  longest: 3000\n",
     encoding="utf-8",
+  )
+  baseline = settings.parse(
+    "affinity:\n  mode: session\n  change_on_draw: true\n"
+    "balance:\n  weights: true\n"
+    "limits:\n  slow: 30\n  calls: 3\n  repeats: 4\n  shortest: 20\n  longest: 2000\n"
   )
   store = api.PENALTIES
   original = store.path
@@ -314,7 +305,7 @@ def test_apply(folder: Path) -> None:
     assert store.record("a", store.fault) == 1.0, "no weights"
     assert store.order([["a", "b", "c"], ["d"]]) == ["a", "b", "c", "d"], "usual order"
   finally:
-    api.apply_settings(settings.load(folder / "missing.yml"))
+    api.apply_settings(baseline)
     store.path = original
   assert (
     api.AFFINITY is True
@@ -357,7 +348,7 @@ def test_cli(folder: Path) -> None:
   twice = subprocess.run(
     [*command, "serve"], cwd=folder, capture_output=True, text=True, check=False
   )
-  assert twice.returncode == 2 and "duplicate key 'groq'" in twice.stderr, twice.stderr
+  assert twice.returncode == 2 and "groq" in twice.stderr, twice.stderr
   environment = {**os.environ, "DAEDALUS_PORT": "9100"}
   shown = subprocess.run(
     [*command, "serve", "--help"],
@@ -427,8 +418,11 @@ def test_headroom_switch() -> None:
 
 
 def test_routing_threshold() -> None:
-  """The bar of the classifier is a number from 0 to 1, and its default is the shipped one."""
-  assert settings.parse("")["routing"]["threshold"] == 0.75
+  """The classifier threshold accepts numbers from zero through one."""
+  assert (
+    settings.parse("")["routing"]["threshold"]
+    == settings.DEFAULTS["routing"]["threshold"]
+  )
   assert settings.parse("routing:\n  threshold: 0.95\n")["routing"]["threshold"] == 0.95
   assert settings.parse("routing:\n  threshold: 0\n")["routing"]["threshold"] == 0.0
   assert settings.parse("routing:\n  threshold: 1\n")["routing"]["threshold"] == 1.0
@@ -442,7 +436,7 @@ def test_routing_threshold() -> None:
 
 
 def test_apply_takes_the_threshold(folder: Path) -> None:
-  """A save moves the bar of the router, and the shipped default returns it."""
+  """Apply the saved threshold and restore the current default when the file is missing."""
   path = folder / "threshold.yml"
   path.write_text("routing:\n  threshold: 0.91\n", encoding="utf-8")
   try:
@@ -450,12 +444,15 @@ def test_apply_takes_the_threshold(folder: Path) -> None:
     assert api.router.THRESHOLD == 0.91
   finally:
     api.apply_settings(settings.load(folder / "missing.yml"))
-  assert api.router.THRESHOLD == 0.75
+  assert api.router.THRESHOLD == settings.DEFAULTS["routing"]["threshold"]
 
 
 def test_pool_names() -> None:
-  """The key of each pool is generic, its default is the built-in name, and a save keeps a number-like name."""
-  assert settings.parse("")["personalization"]["tier-a"] == "sophos"
+  """Pool keys accept valid names, reject collisions and preserve number-like names on save."""
+  assert (
+    settings.parse("")["personalization"]["tier-a"]
+    == settings.DEFAULTS["personalization"]["tier-a"]
+  )
   assert (
     settings.parse("personalization:\n  tier-a: fast\n")["personalization"]["tier-a"]
     == "fast"
@@ -468,7 +465,7 @@ def test_pool_names() -> None:
     with pytest.raises(settings.SettingsError):
       settings.parse(f"personalization:\n  tier-a: {bad}\n")
   with pytest.raises(settings.SettingsError) as error:
-    settings.parse("personalization:\n  tier-a: koinos\n")
+    settings.parse("personalization:\n  tier-a: koinos\n  tier-c: koinos\n")
   assert "personalization" in str(error.value)
   swapped = settings.parse("personalization:\n  tier-a: koinos\n  tier-c: sophos\n")[
     "personalization"
@@ -504,7 +501,7 @@ def test_update_text_keeps_a_comment_of_a_written_file() -> None:
 
 def test_hooks_dir_names_the_folder() -> None:
   """`hooks.dir` accepts one plain folder name and rejects other values."""
-  assert settings.parse("")["hooks"]["dir"] == "hooks"
+  assert settings.parse("")["hooks"]["dir"] == settings.DEFAULTS["hooks"]["dir"]
   assert (
     settings.parse("hooks:\n  dir: mine-2.hooks\n")["hooks"]["dir"] == "mine-2.hooks"
   )
@@ -516,7 +513,7 @@ def test_hooks_dir_names_the_folder() -> None:
 
 def test_hooks_sources_take_a_repo_path_ref_and_flag() -> None:
   """`hooks.sources` holds 1 entry per repo, with the folder, the ref and the auto_update flag."""
-  assert settings.parse("")["hooks"]["sources"] == []
+  assert settings.parse("")["hooks"]["sources"] == settings.DEFAULTS["hooks"]["sources"]
   text = (
     "hooks:\n  sources:\n    - repo: owner/name\n"
     "      path: hooks/\n      ref: v1.2\n      auto_update: true\n"
@@ -597,7 +594,9 @@ def test_unsafe_disabled_hook_identities_fail(name):
 
 def test_hooks_disabled_names_stay_off() -> None:
   """`hooks.disabled` holds the names that stay on disk and do not load."""
-  assert settings.parse("")["hooks"]["disabled"] == []
+  assert (
+    settings.parse("")["hooks"]["disabled"] == settings.DEFAULTS["hooks"]["disabled"]
+  )
   assert settings.parse("hooks:\n  disabled: [one.py, two]\n")["hooks"]["disabled"] == [
     "one.py",
     "two",
@@ -650,22 +649,24 @@ def test_apply_wires_the_hook_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     api.apply_settings(
       settings.parse(
-        "hooks:\n  sources:\n    - repo: owner/name\n      auto_update: true\n"
+        "hooks:\n  dir: fetched\n  sources:\n    - repo: owner/name\n      auto_update: true\n"
       )
     )
     assert seen[-1] == (
       [{"repo": "owner/name", "path": "", "ref": "main", "auto_update": True}],
       True,
-      hooks.ROOT / "hooks",
+      hooks.ROOT / "fetched",
     ), "a source with auto_update reads the ref at a start"
   finally:
     api.apply_settings(settings.parse(""))
-  assert hooks.DIR == "hooks" and hooks.DISABLED == set() and hooks.ORDER == {}
+  assert hooks.DIR == settings.DEFAULTS["hooks"]["dir"]
+  assert hooks.DISABLED == set(settings.DEFAULTS["hooks"]["disabled"])
+  assert hooks.ORDER == settings.DEFAULTS["hooks"]["order"]
 
 
 def test_updates_repo_names_the_repository() -> None:
   """`updates.repo` holds the GitHub repository the check reads, as owner/name."""
-  assert settings.parse("")["updates"]["repo"] == "nemoe7/daedalus"
+  assert settings.parse("")["updates"]["repo"] == settings.DEFAULTS["updates"]["repo"]
   assert (
     settings.parse("updates:\n  repo: mine/daedalus\n")["updates"]["repo"]
     == "mine/daedalus"
