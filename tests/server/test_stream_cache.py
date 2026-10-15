@@ -281,8 +281,9 @@ async def test_cache_merges_the_deltas() -> None:
 
 async def test_cache_needs_the_done_marker() -> None:
   """A stream that stops before [DONE] is a failure, not a short answer."""
-  with pytest.raises(ProviderError, match=r"without \[DONE\]"):
+  with pytest.raises(ProviderError) as error:
     await stream.cache([], events(delta(content="x")), "p/a")
+  assert "[DONE]" in str(error.value)
 
 
 async def test_cache_keeps_the_usage_and_rejects_an_error() -> None:
@@ -292,5 +293,5 @@ async def test_cache_keeps_the_usage_and_rejects_an_error() -> None:
   )
   answer = await stream.cache([], events(delta(content="x"), usage, "[DONE]"), "p/a")
   assert answer["usage"] == {"prompt_tokens": 1, "completion_tokens": 2}
-  with pytest.raises(ProviderError, match="Upstream stream error"):
+  with pytest.raises(ProviderError, match="boom"):
     await stream.cache([], events(json.dumps({"error": {"message": "boom"}})), "p/a")

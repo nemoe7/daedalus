@@ -143,7 +143,7 @@ def test_has_content_needs_text_a_tool_call_or_a_finish_reason() -> None:
 
 def test_has_content_raises_on_an_error_chunk() -> None:
   """An error object in the stream stops the relay."""
-  with pytest.raises(ProviderError, match="Upstream stream error"):
+  with pytest.raises(ProviderError, match="boom"):
     stream.has_content('{"error":{"message":"boom"}}')
 
 
