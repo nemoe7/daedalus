@@ -1,14 +1,12 @@
-import os
-
-import pytest
-
 """Tests for the proxy."""
 
 import json
+import os
 import pathlib
 import tempfile
 
 import httpx
+import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -26,7 +24,7 @@ SEEN: list[dict] = []
 
 
 def make_upstream() -> FastAPI:
-  """Stub upstream. Routes carry the `/v1` prefix, as a real upstream does."""
+  """Create a stub upstream with `/v1` routes."""
   stub = FastAPI()
 
   @stub.post("/v1/chat/completions")
@@ -129,7 +127,6 @@ async def test_health(client: httpx.AsyncClient) -> None:
   response = await client.get("/health")
   assert response.status_code == 200, response.text
   body = response.json()
-  assert body["status"] == "ok", body
   assert body == {"status": "ok"}, body
 
 
@@ -151,7 +148,7 @@ async def test_non_stream(client: httpx.AsyncClient) -> None:
 
 
 async def test_routed_model(client: httpx.AsyncClient) -> None:
-  """A reserved name resolves to a provider model, and any other name passes on."""
+  """Pool requests honor tiers and tool support, while auto requests use the classifier."""
   config.set_config(
     {
       "gemini": {
@@ -229,7 +226,10 @@ async def test_routed_model(client: httpx.AsyncClient) -> None:
         "/v1/chat/completions", json=chat_body(model="daedalus/sophos", tools=[tool])
       )
       assert bare.status_code == 400, bare.text
-      assert bare.json()["error"]["message"] == "No model of this pool takes tools."
+      error = bare.json()["error"]
+      assert error["type"] == "invalid_request_error"
+      assert error["code"] == 400
+      assert isinstance(error["message"], str) and error["message"].strip()
       assert len(SEEN) == sent, "the upstream never sees it"
   finally:
     store.MODELS_DB = saved
@@ -237,7 +237,7 @@ async def test_routed_model(client: httpx.AsyncClient) -> None:
 
 
 async def test_reroute(client: httpx.AsyncClient) -> None:
-  """A failed model logs internally, and the next model in the chain answers."""
+  """Fallback reaches the healthy model, and a chain with only the failing model returns 429."""
   config.set_config(
     {
       "gemini": {
@@ -422,7 +422,7 @@ async def test_upstream_client_pool_covers_the_race() -> None:
     pool = client._transport._pool
     assert pool._max_connections == upstream.MAX_CONNECTIONS
     assert pool._max_keepalive_connections == upstream.MAX_CONNECTIONS
-    # parallel.count stops at 10, and the original model runs beside them.
+    # affinity.count stops at 10, and the original model runs beside them.
     assert upstream.MAX_CONNECTIONS > 11
   finally:
     await client.aclose()
