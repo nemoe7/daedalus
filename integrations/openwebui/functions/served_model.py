@@ -3,7 +3,7 @@ title: Served model
 author: nemo
 description: The daedalus served model line above the answer body. It reads the stream usage. No key.
 required_open_webui_version: 0.10.0
-version: 1.0.4
+version: 1.0.5
 licence: daedalus Noncommercial License 1.0.0
 """
 
@@ -37,9 +37,9 @@ class Filter:
   def _keep(self, book: dict[str, str], key: str, value: str) -> str | None:
     """The value of that key before this one, and this value takes its place, with 200 keys at most."""
     before = book.get(key)
+    book[key] = value
     if len(book) > 200:
       book.pop(next(iter(book)))
-    book[key] = value
     return before
 
   def _changed(self, chat: str, name: str) -> bool:

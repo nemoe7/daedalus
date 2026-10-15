@@ -147,3 +147,18 @@ def test_the_valves_draw_a_schema() -> None:
   assert schema["properties"]["when"]["enum"] == ["always", "on change"]
   assert schema["properties"]["enabled"]["description"] == "Draw the line."
   assert module.Filter().valves.when == "always"
+
+
+def test_tracking_caches_keep_the_bound_without_evicting_on_updates() -> None:
+  for name in ("drawn", "lines"):
+    plugin = module.Filter()
+    book = getattr(plugin, name)
+    for index in range(200):
+      assert plugin._keep(book, str(index), "value") is None
+    assert plugin._keep(book, "199", "changed") == "value"
+    assert len(book) == 200 and book["0"] == "value"
+    assert plugin._keep(book, "200", "new") is None
+    assert len(book) == 200 and "0" not in book
+    assert book["199"] == "changed" and book["200"] == "new"
+    assert plugin._keep(book, "1", "changed") == "value"
+    assert len(book) == 200 and book["2"] == "value"
