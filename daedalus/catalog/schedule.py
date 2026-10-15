@@ -94,10 +94,14 @@ async def rebuild(refresh: Callable[[], object], reason: str) -> None:
   global BUSY, PENDING
   BUSY = True
   logger.info("catalog rebuild: %s", reason)
-  try:
+
+  def build() -> None:
     before = store.rows_by_id()
-    await asyncio.to_thread(refresh)
+    refresh()
     _record(before, reason)
+
+  try:
+    await asyncio.to_thread(build)
   finally:
     BUSY = False
     pending, PENDING = PENDING, None

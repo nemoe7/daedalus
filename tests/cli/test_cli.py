@@ -10,6 +10,8 @@ import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from daedalus import catalog, cli, config, store
 from daedalus.catalog import discovery
 from daedalus.server import api
@@ -78,6 +80,7 @@ def test_commands() -> None:
     catalog.refresh,
     discovery.dump,
     api.CATALOG_REFRESH,
+    api.CATALOG_INITIAL,
     api.CATALOG_REBUILD_CACHED,
     cli.live_url,
     sys.modules.get("uvicorn"),
@@ -100,13 +103,13 @@ def test_commands() -> None:
       assert calls == ["dump"], "a dump does not build the store"
       calls.clear()
       cli.run(["serve"])
-      assert calls == ["catalog", "listen:3357"], "serve builds a missing store"
+      assert calls == ["listen:3357"], "serve defers a missing-store build"
       assert api.CATALOG_REFRESH is catalog.refresh, "serve starts the rebuild schedule"
       assert api.CATALOG_REBUILD_CACHED is catalog.rebuild_cached
       store.MODELS_DB.touch()
       calls.clear()
       cli.run(["serve"])
-      assert calls == ["catalog", "listen:3357"], "a file without the model table"
+      assert calls == ["listen:3357"], "a file without the model table"
       layout = sqlite3.connect(store.MODELS_DB)
       tables = {row[0] for row in layout.execute("SELECT name FROM sqlite_master")}
       layout.close()
@@ -116,7 +119,7 @@ def test_commands() -> None:
       assert store.MODELS_DB.exists(), "catalog runs the Alembic steps"
       calls.clear()
       cli.run(["serve"])
-      assert calls == ["catalog", "listen:3357"], "empty tables are not a built store"
+      assert calls == ["listen:3357"], "empty tables are not a built store"
       store.write_store([], store.MODELS_DB)
       calls.clear()
       cli.run(["serve"])
@@ -124,7 +127,7 @@ def test_commands() -> None:
       store.MODELS_DB.write_text("not a database")
       calls.clear()
       cli.run(["serve"])
-      assert calls == ["catalog", "listen:3357"], "an unreadable store is rebuilt"
+      assert calls == ["listen:3357"], "an unreadable store queues a rebuild"
       assert store.MODELS_DB.with_name("models.sqlite3.broken").exists(), (
         "the bad file went aside"
       )
@@ -135,10 +138,10 @@ def test_commands() -> None:
       assert calls == ["catalog"], calls
       calls.clear()
       cli.run(["serve", "--catalog"])
-      assert calls == ["catalog", "listen:3357"], calls
+      assert calls == ["listen:3357"], calls
       calls.clear()
       cli.run(["serve", "--catalog", "9000"])
-      assert calls == ["catalog", "listen:9000"], calls
+      assert calls == ["listen:9000"], calls
       calls.clear()
       cli.run(["serve", "9000"])
       assert calls == ["listen:9000"], calls
@@ -149,6 +152,7 @@ def test_commands() -> None:
       catalog.refresh,
       discovery.dump,
       api.CATALOG_REFRESH,
+      api.CATALOG_INITIAL,
       api.CATALOG_REBUILD_CACHED,
       cli.live_url,
       uvicorn,
@@ -293,4 +297,28 @@ def assert_key_command(calls: list[str]) -> None:
   keys.add(store.MODELS_DB, "ci")
   calls.clear()
   cli.run(["serve"])
-  assert calls == ["catalog", "listen:3357"], "a key-only store is not a model store"
+  assert calls == ["listen:3357"], "a key-only store is not a model store"
+
+
+@pytest.mark.parametrize(
+  ("stored", "force", "initial"),
+  [(False, False, True), (True, False, False), (True, True, True)],
+)
+def test_serve_defers_the_initial_build(monkeypatch, tmp_path, stored, force, initial):
+  """The CLI starts the listener and marks required catalog work for the server."""
+  calls = []
+  monkeypatch.setattr(store, "MODELS_DB", tmp_path / "models.sqlite3")
+  if stored:
+    store.write_store([])
+  monkeypatch.setattr(config, "DEFAULT_PATH", tmp_path / "absent.yml")
+  monkeypatch.setattr(api, "apply_settings", lambda _: None)
+  monkeypatch.setattr(api, "CATALOG_INITIAL", False, raising=False)
+  for name in ("CATALOG_REFRESH", "CATALOG_REBUILD_CACHED", "LIMIT_CHECKS"):
+    monkeypatch.setattr(api, name, getattr(api, name))
+  monkeypatch.setattr(catalog, "refresh", lambda: calls.append("build"))
+  monkeypatch.setitem(
+    sys.modules, "uvicorn", SimpleNamespace(run=lambda *_, **__: calls.append("listen"))
+  )
+  cli.run(["serve", *(["--catalog"] if force else [])])
+  assert calls == ["listen"]
+  assert api.CATALOG_INITIAL is initial

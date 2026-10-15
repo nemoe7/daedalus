@@ -226,7 +226,7 @@ def run(argv: list[str] | None = None) -> None:
   commands = parser.add_subparsers(dest="command", metavar="COMMAND")
   serve = commands.add_parser(
     "serve",
-    help=f"start the router on {api.HOST}:PORT; build a missing model store first",
+    help=f"start the router on {api.HOST}:PORT and build a missing store in the background",
   )
   serve.add_argument(
     "port",
@@ -236,7 +236,7 @@ def run(argv: list[str] | None = None) -> None:
     help=f"default {api.PORT}, or DAEDALUS_PORT",
   )
   serve.add_argument(
-    "--catalog", action="store_true", help="rebuild the model store first"
+    "--catalog", action="store_true", help="rebuild the model store in the background"
   )
   catalog_command = commands.add_parser(
     "catalog", help="discover provider models and rebuild the model store"
@@ -336,8 +336,7 @@ def run(argv: list[str] | None = None) -> None:
         config.load_config()
     except (settings.SettingsError, yaml.YAMLError) as exc:
       parser.exit(2, f"daedalus: {exc}\n")
-    if args.catalog or not store.has_store():
-      catalog.refresh()
+    api.CATALOG_INITIAL = args.catalog or not store.has_store()
     api.CATALOG_REFRESH = catalog.refresh
     api.CATALOG_REBUILD_CACHED = catalog.rebuild_cached
     api.LIMIT_CHECKS = True

@@ -63,6 +63,8 @@ logger = logging.getLogger("daedalus")
 async def lifespan(_application: FastAPI) -> AsyncIterator[None]:
   """Set up logging and the catalog schedule, then stop both parts on shutdown."""
   logs.setup_logging()
+  if CATALOG_INITIAL and CATALOG_REFRESH:
+    schedule.start(CATALOG_REFRESH)
   rebuilds = (
     asyncio.create_task(schedule.run(CATALOG_REFRESH)) if CATALOG_REFRESH else None
   )
@@ -94,6 +96,7 @@ async def prune_store() -> None:
 
 # The catalog rebuild for the schedule. `daedalus serve` sets it, and tests leave it off.
 CATALOG_REFRESH: Callable[[], object] | None = None
+CATALOG_INITIAL = False
 # A config-save rebuild uses cached provider snapshots only.
 CATALOG_REBUILD_CACHED: Callable[[], object] | None = None
 # The hourly balance checks of the Limits page. `daedalus serve` turns them on.

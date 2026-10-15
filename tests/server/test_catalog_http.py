@@ -1,10 +1,12 @@
 """Tests for `POST /v1/catalog`: the master-key rebuild route of a live daedalus."""
 
+import asyncio
 import threading
 
+import httpx
 from fastapi.testclient import TestClient
 
-from daedalus import dashboard
+from daedalus import dashboard, store
 from daedalus.catalog import schedule
 from daedalus.server import api
 
@@ -49,3 +51,55 @@ def test_the_control_calls_leave_no_request_row() -> None:
   assert client.post("/v1/catalog").status_code == 401
   assert client.post("/v1/hook/example.py").status_code == 401
   assert dashboard.HISTORY.latest() == [], "a control call is not a model request"
+
+
+async def test_startup_build_keeps_the_ui_and_api_available(monkeypatch) -> None:
+  """A blocked startup worker leaves the event loop and dashboard routes available."""
+  store.write_store([])
+  loop = asyncio.get_running_loop()
+  loop_thread = threading.get_ident()
+  started = asyncio.Event()
+  release = threading.Event()
+  threads, snapshot_threads = [], []
+  rows_by_id = store.rows_by_id
+
+  def snapshot():
+    snapshot_threads.append(threading.get_ident())
+    return rows_by_id()
+
+  monkeypatch.setattr(store, "rows_by_id", snapshot)
+
+  def rebuild():
+    threads.append(threading.get_ident())
+    loop.call_soon_threadsafe(started.set)
+    assert release.wait(5)
+
+  monkeypatch.setattr(api, "CATALOG_INITIAL", True, raising=False)
+  monkeypatch.setattr(api, "CATALOG_REFRESH", rebuild)
+  monkeypatch.setattr(api, "LIMIT_CHECKS", False)
+  monkeypatch.setattr(schedule, "EVERY", 0)
+  monkeypatch.setattr(schedule, "BUSY", False)
+  monkeypatch.setattr(schedule, "PENDING", None)
+  monkeypatch.setattr(schedule, "TASKS", set())
+  async with api.lifespan(api.app):
+    try:
+      await asyncio.wait_for(started.wait(), 1)
+      assert threads and threads[0] != loop_thread
+      assert schedule.BUSY
+      async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=api.app), base_url="http://test", headers=AUTH
+      ) as client:
+        assert (await client.get("/health")).status_code == 200
+        assert (await client.get("/ui/", follow_redirects=True)).status_code == 200
+        assert (await client.get("/v1/models")).status_code == 200
+        login = await client.post(
+          "/ui/api/login", json={"username": "admin", "password": MASTER}
+        )
+        assert login.status_code == 200
+        session = {"x-daedalus-session": login.json()["session"]}
+        assert (await client.get("/ui/api/models", headers=session)).status_code == 200
+    finally:
+      release.set()
+      await asyncio.gather(*schedule.TASKS)
+  assert not schedule.BUSY
+  assert snapshot_threads and set(snapshot_threads) == set(threads)
