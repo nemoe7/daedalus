@@ -53,7 +53,7 @@ def test_the_vendored_linter_rejects_long_passive_prose(tmp_path: Path) -> None:
 
 
 def test_the_template_uses_the_exact_canonical_format() -> None:
-  """The template carries the five headings in order, and nothing else."""
+  """The template carries the three required headings in order, and nothing else."""
   text = TEMPLATE.read_text(encoding="utf-8")
   found = [
     found.group(1) for found in re.finditer(r"^## (.+?)\s*$", text, re.MULTILINE)

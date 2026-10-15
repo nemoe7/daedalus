@@ -32,7 +32,7 @@ def listing(url: str, headers: dict[str, str]) -> dict:
 
 
 def test_shipped_block(monkeypatch: pytest.MonkeyPatch) -> None:
-  """The pollinations.yml file keeps only the cheap image models, with their rpm, at the order of Cloudflare."""
+  """The shared provider file keeps the cheap image models and their rates at the Cloudflare order."""
   monkeypatch.setenv("POLLINATIONS_API_KEY", "sk_test")
   loaded = config.load_config(Path("config/providers/free.yml"))
   shipped = {"pollinations": loaded["pollinations"]}

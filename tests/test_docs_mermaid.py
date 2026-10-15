@@ -34,7 +34,7 @@ def test_the_check_finds_a_theme() -> None:
 
 
 def test_mermaid_blocks_stay_in_the_docs() -> None:
-  """The pages keep their diagrams, so a removal never empties a page."""
+  """The documentation contains 25 Mermaid diagrams in total."""
   total = sum(len(BLOCK.findall(page.read_text(encoding="utf-8"))) for page in pages())
   assert total == 25, total
 
