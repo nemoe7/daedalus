@@ -1,4 +1,4 @@
-"""Tests for the vendored tier router."""
+"""Tests for tier routing and the vendored classifier."""
 
 import asyncio
 import json
@@ -66,7 +66,7 @@ def test_cohort() -> None:
 
 
 def test_artifact() -> None:
-  """The vendored table holds every tier, once, with its calibration."""
+  """The shipped artifact has all four tier keys and the expected calibration."""
   artifact = classifier.load_artifact()
   assert sorted(artifact.global_stats) == [1, 2, 3, 4]
   assert len(artifact.domain_stats) == 28, len(artifact.domain_stats)
@@ -89,14 +89,14 @@ def test_artifact_rejects_a_broken_table() -> None:
     try:
       classifier.load_artifact(broken)
     except ValueError as error:
-      assert "tiers 1 to 4" in str(error), error
+      assert str(broken) in str(error), error
     else:
       msg = "a table missing tier 3 loaded without a complaint"
       raise AssertionError(msg)
 
 
 def test_predict() -> None:
-  """Odds rise with the tier, and the first tier over the bar wins."""
+  """Predictions use the first tier that meets the threshold, or tier 4, with nondecreasing probabilities."""
   artifact = classifier.load_artifact()
   prompts = [
     "hi",
@@ -154,7 +154,7 @@ def test_tier_models() -> None:
 
 
 def chain(config: dict, lines: list[str], tier: int) -> list[str]:
-  """Every row of a tier chain, in the order that the proxy tries them."""
+  """Flatten the configured candidate groups in tier order."""
   groups = router.chain_groups(config, lines, router.fallback_order(tier))
   return [line for group in groups for line in group]
 
@@ -433,25 +433,25 @@ def test_the_efforts_key_follows_the_block_hierarchy() -> None:
     "max",
   ]
   assert router.efforts(config, "z-ai/glm-5.3") == ["low", "high", "max"], (
-    "the levels that GLM-5.2 and GLM-5.3 both take"
+    "the code default for this GLM fixture"
   )
   assert router.efforts(config, "groq/openai/gpt-oss-120b") == [
     "low",
     "medium",
     "high",
-  ], "the gpt-oss models of the block refuse none"
+  ], "the code default for this gpt-oss fixture"
   assert router.efforts(config, "cloudflare/@cf/qwen/qwen3.8-27b") == [
     "low",
     "medium",
-  ], "the reasoning models of the block agree on these 2 levels"
+  ], "the code default for this Cloudflare fixture"
   assert router.efforts(config, "cloudflare/@cf/a/b") == ["low", "medium"]
   assert router.efforts(config, "unknown/x") == ["none", "low", "medium", "high"]
 
 
-def test_the_shipped_config_names_the_documented_efforts() -> None:
-  """The shipped provider files name the effort ladder each model takes, per its docs."""
+def test_the_shipped_config_has_the_expected_efforts() -> None:
+  """The shipped provider configuration matches the expected effort lists."""
   found = config.load_config(Path("config/providers/free.yml"))
-  documented = {
+  expected = {
     "cloudflare/@cf/openai/gpt-oss-120b": ["low", "medium", "high"],
     "cloudflare/@cf/openai/gpt-oss-20b": ["low", "medium", "high"],
     "cloudflare/@cf/qwen/qwen3.8-27b": ["low", "medium", "xhigh"],
@@ -463,7 +463,7 @@ def test_the_shipped_config_names_the_documented_efforts() -> None:
     "gemini/gemma-4-26b-a4b-it": ["minimal", "low", "medium", "high"],
     "gemini/gemma-4-31b-it": ["minimal", "low", "medium", "high"],
   }
-  for model, ladder in documented.items():
+  for model, ladder in expected.items():
     assert router.efforts(found, model, None) == ladder, model
 
 
@@ -476,3 +476,5 @@ def test_the_effort_ladder_caps_at_five_and_at_the_list() -> None:
   assert router.effort_at(efforts, 7) == "xhigh"
   assert router.effort_at(["low", "medium"], 0) == "low", "no none starts at the lowest"
   assert router.effort_at(["low", "medium"], 5) == "medium"
+  longer = ["none", "minimal", "low", "medium", "high", "xhigh", "max"]
+  assert router.effort_at(longer, 7) == "xhigh"
