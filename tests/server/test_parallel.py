@@ -287,7 +287,7 @@ def test_tie_keeps_the_first_model() -> None:
 
 
 def test_race_starts_the_session_model() -> None:
-  """With the race on, the session model starts the request and the draw keeps its share."""
+  """Race mode starts the pinned model, and disabling it restores the fixed draw."""
   store_penalties = api.PENALTIES
   store_penalties.clear()
   store_penalties.pin("key", "slot", "b/2")
