@@ -2545,12 +2545,6 @@ async function saveForm() {
   const index = state.file;
   const file = state.files[index];
   rememberWrite("providers", { index, path: file.path, text: file.text }, state.writeAnchor);
-  const isToken = (v) => typeof v === "string" && (v.startsWith("env:") || v.startsWith("db:"));
-  const hadRaw = Object.values(pruned(state.forms[index]) || {}).some((block) =>
-    block && typeof block === "object" && (
-      (typeof block.api_key === "string" && block.api_key.trim() && !isToken(block.api_key)) ||
-      (block.client_keys && typeof block.client_keys === "object" && Object.values(block.client_keys).some((v) => typeof v === "string" && v.trim() && !isToken(v)))
-    ));
   try {
     await call("providers", { method: "PUT", body: JSON.stringify({ path: file.path, blocks: pruned(state.forms[index]) }) });
     await takeFile(index);
