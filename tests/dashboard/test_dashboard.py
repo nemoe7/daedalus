@@ -6205,3 +6205,38 @@ def test_settings_form_rejects_malformed_existing_yaml(
   assert "\n" not in error["message"]
   assert path.read_bytes() == original
   assert api.SLOW_SECONDS == before
+
+
+def test_limit_check_time_is_relative_with_an_exact_hover() -> None:
+  """Check status uses shared time markup and keeps the unchecked state."""
+  run_app_js(
+    "renderLimits, timeText",
+    """
+const checked = Date.now() / 1000 - 120;
+probe.renderLimits({checked, providers: [], lanes: []});
+assert(node('limits-checked').innerHTML.includes(probe.timeText(checked)));
+probe.renderLimits({checked: null, providers: [], lanes: []});
+assert.strictEqual(node('limits-checked').innerHTML, LOCALE['limits.not_checked_text']);
+""",
+  )
+
+
+def test_key_use_and_update_check_times_keep_empty_states() -> None:
+  """Status times share relative markup without changing creation dates or empty states."""
+  run_app_js(
+    "renderKeys, renderNotifications, timeText, stamp, line",
+    """
+const checked = Date.now() / 1000 - 120;
+const key = {name: 'synthetic', created: checked - 3600, used: checked};
+probe.renderKeys([key]);
+assert(node('keys').innerHTML.includes(probe.timeText(checked)));
+assert(node('keys').innerHTML.includes(probe.stamp(key.created)));
+probe.renderKeys([{...key, used: null}]);
+assert(node('keys').innerHTML.includes(LOCALE['settings.keys.used_never_text']));
+assert(!node('keys').innerHTML.includes(probe.timeText(checked)));
+probe.renderNotifications({update: {at: checked, channel: 'release', latest: '1', current: '1'}});
+assert(node('update-card').innerHTML.includes(probe.timeText(checked)));
+probe.renderNotifications({update: null});
+assert(node('update-card').innerHTML.includes(probe.line(LOCALE['update.checked_text'], '-')));
+""",
+  )

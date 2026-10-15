@@ -1424,7 +1424,7 @@ function renderKeys(rows) {
       <td class="name" title="${esc(k.name)}">${esc(k.name)}</td>
       <td class="num muted mono"><span${k.start ? ` title="${t("settings.keys.only_start_title")}"` : ""}>${k.start ? esc(k.start) + "&hellip;" : "-"}</span></td>
       <td class="hide-sm muted">${stamp(k.created)}</td>
-      <td class="muted">${mobileLabel(t("settings.keys.last_used_column"))}<span class="cell-value">${k.used ? stamp(k.used) : t("settings.keys.used_never_text")}</span></td>
+      <td class="muted">${mobileLabel(t("settings.keys.last_used_column"))}<span class="cell-value">${k.used ? timeText(k.used) : t("settings.keys.used_never_text")}</span></td>
       <td class="end">${actionButton(icon("trash"), {
         variant: "ghost danger",
         attrs: { "data-key": k.name, "aria-label": t("settings.keys.delete_named_label", { name: k.name }), title: t("action.remove_button") },
@@ -3060,9 +3060,9 @@ function renderLimits(data) {
   state.limits = data;
   limitsHash();
   renderLimitRows(shownLimits());
-  $("limits-checked").textContent = data.checked
-    ? t("limits.checked_text", { time: stamp(data.checked) })
-    : t("limits.not_checked_text");
+  draw("limits-checked", data.checked
+    ? t("limits.checked_text", { time: timeText(data.checked) })
+    : t("limits.not_checked_text"));
   $("balances").hidden = !data.providers.length;
   draw("balances", data.providers.map((p) => `<div class="card"><h3>${esc(p.name)}</h3>
     ${p.items.map(([label, value, left]) => `<div class="balance">${line(esc(label), esc(value))}
@@ -3277,7 +3277,7 @@ function renderNotifications(data) {
       : line(t("update.up_to_date_text"), esc(update.latest || update.current));
   else if (update.update) body += line(t("update.behind_main_text"), count(update.behind, "commit"));
   else body += line(t("update.up_to_date_text"), "main");
-  body += line(t("update.checked_text"), update ? stamp(update.at) : "-");
+  body += line(t("update.checked_text"), update ? timeText(update.at) : "-");
   draw(
     "update-card",
     body + actionButton(`${icon("refresh_cw")} ${t("action.check_now_button")}`, {
