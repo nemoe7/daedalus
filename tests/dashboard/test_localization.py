@@ -257,7 +257,7 @@ def test_static_copy_uses_locale_keys() -> None:
         value = fields.get(attribute)
         if (
           value
-          and re.search(r"[A-Za-z]", value)
+          and any(char.isalpha() for char in value)
           and fields.get(f"data-i18n-{attribute}") != value
         ):
           self.direct_attributes.append((tag, attribute, value))
@@ -277,7 +277,7 @@ def test_static_copy_uses_locale_keys() -> None:
 
     def handle_data(self, data: str) -> None:
       text = " ".join(data.split())
-      if not text or not re.search(r"[A-Za-z]", text):
+      if not text or not any(char.isalpha() for char in text):
         return
       if any(tag in {"script", "style"} for tag, _ in self.stack):
         return
@@ -285,6 +285,18 @@ def test_static_copy_uses_locale_keys() -> None:
       if fields.get("data-i18n") == text and text in catalog:
         return
       self.direct_text.append(text)
+
+  for text, letters in (
+    ("Hello", True),
+    ("東京", True),
+    ("é", True),
+    ("123", False),
+    ("→", False),
+  ):
+    sample = CopyAudit()
+    sample.feed(f'<span>{text}</span><input title="{text}">')
+    assert sample.direct_text == ([text] if letters else [])
+    assert sample.direct_attributes == ([("input", "title", text)] if letters else [])
 
   audit = CopyAudit()
   audit.feed(html)
