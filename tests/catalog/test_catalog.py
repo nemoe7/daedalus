@@ -1,6 +1,7 @@
 """Tests for the model catalog."""
 
 import json
+import logging
 import sqlite3
 import tempfile
 import threading
@@ -156,7 +157,7 @@ def test_nested_repeat_pattern_matches_nothing(
     assert discovery.matches(nested, slug) is False
   told = [record for record in caplog.records if record.name == "daedalus.catalog"]
   assert len(told) == 1, told
-  assert told[0].levelname == "WARNING"
+  assert told[0].levelno == logging.WARNING
   assert discovery.matches("^a+b$", slug), "a safe pattern still works"
 
 
