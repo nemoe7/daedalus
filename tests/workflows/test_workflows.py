@@ -68,7 +68,7 @@ def triggers(name: str) -> dict:
 
 
 def test_every_workflow_file_has_the_agreed_name() -> None:
-  """Each file carries the name the handoff table gives it."""
+  """Each workflow uses its expected configured name."""
   assert sorted(path.name for path in WORKFLOWS.glob("*.yml")) == sorted(NAMES)
   for name, expected in NAMES.items():
     assert load(name)["name"] == expected, name
@@ -111,7 +111,7 @@ def test_no_workflow_asks_for_write_all_permissions() -> None:
 
 
 def test_codeql_scans_python_and_the_workflows_only() -> None:
-  """daedalus is Python and Actions. No JavaScript enters the scan."""
+  """The CodeQL matrix selects Python and Actions but not JavaScript."""
   matrix = load("codeql.yml")["jobs"]["analyze"]["strategy"]["matrix"]
   assert matrix["language"] == ["python", "actions"]
   assert "javascript" not in matrix["language"]
@@ -183,8 +183,8 @@ def test_the_gemini_release_helper_stays_in_place() -> None:
   assert (WORKFLOWS / "gemini-release.yml").exists()
 
 
-def test_one_docker_workflow_publishes_every_image() -> None:
-  """No second file publishes to GHCR. The dev and release jobs live in docker.yml."""
+def test_docker_jobs_and_absent_image_workflow_files() -> None:
+  """Docker declares five jobs, and the two former image workflow files are absent."""
   assert not (WORKFLOWS / "dev-image.yml").exists()
   assert not (WORKFLOWS / "image.yml").exists()
   assert sorted(load("docker.yml")["jobs"]) == [
@@ -197,14 +197,14 @@ def test_one_docker_workflow_publishes_every_image() -> None:
 
 
 def test_the_secret_scan_reads_the_whole_history() -> None:
-  """A secret from years ago still fails the scan, so the checkout is not shallow."""
+  """The secret-scan workflow uses full checkout history."""
   content = (WORKFLOWS / "secret-scan.yml").read_text()
   assert "gitleaks" in content
   assert "fetch-depth: 0" in content
 
 
 def test_the_ignore_file_holds_only_global_fingerprints() -> None:
-  """A commit-pinned entry dies with its branch, so every entry must stay global."""
+  """Ignore entries use global three-field fingerprints rather than commit-specific fingerprints."""
   entries = [
     line.strip()
     for line in Path(".gitleaksignore").read_text().splitlines()
