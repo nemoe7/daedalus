@@ -130,3 +130,39 @@ def test_default_command_checks_markdown_ste_findings(tmp_path, monkeypatch):
   ):
     source.write_text(text, encoding="utf-8")
     assert lint_prose.main() == expected
+
+
+def test_default_command_counts_python_advisories(tmp_path, monkeypatch):
+  source = tmp_path / "sample.py"
+  monkeypatch.setattr(lint_prose, "ROOT", tmp_path)
+  monkeypatch.setattr(lint_prose.sys, "argv", ["lint_prose.py"])
+  monkeypatch.setattr(lint_prose, "tracked_files", lambda excludes: [Path("sample.py")])
+  for text, expected in (
+    ('"""The file is saved."""\n', 1),
+    ("# The file is saved.\n", 1),
+    ('"""Alpha; beta."""\n', 1),
+    ('"""Save the file."""\nmessage = "The file is saved."\n', 0),
+  ):
+    source.write_text(text, encoding="utf-8")
+    assert lint_prose.main() == expected
+
+
+def test_default_command_reports_python_linter_failures(tmp_path, monkeypatch, capsys):
+  source = tmp_path / "sample.py"
+  source.write_text('"""Save the file."""\n', encoding="utf-8")
+  monkeypatch.setattr(lint_prose, "ROOT", tmp_path)
+  monkeypatch.setattr(lint_prose.sys, "argv", ["lint_prose.py"])
+  monkeypatch.setattr(lint_prose, "tracked_files", lambda excludes: [Path("sample.py")])
+  for code, output, error in ((2, "", "synthetic failure"), (0, "{", "")):
+    monkeypatch.setattr(
+      lint_prose.subprocess,
+      "run",
+      lambda *args, code=code, output=output, error=error, **kwargs: (
+        subprocess.CompletedProcess(args, code, stdout=output, stderr=error)
+      ),
+    )
+    assert lint_prose.main() == 1
+    captured = capsys.readouterr().out
+    assert "sample.py" in captured
+    if error:
+      assert error in captured

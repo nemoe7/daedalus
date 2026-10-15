@@ -9,8 +9,10 @@ from pathlib import Path
 
 if __package__:
   from . import extract_prose
+  from .check_pr import run_ste_lint
 else:
   import extract_prose
+  from check_pr import run_ste_lint
 
 ROOT = extract_prose.ROOT
 EXCLUDES = extract_prose.EXCLUDES
@@ -217,17 +219,11 @@ def main() -> int:
       if ADR_REFERENCE.search(text):
         failures += 1
         print(f"--- {path}\nA comment or docstring refers to an ADR.")
-      run = subprocess.run(
-        [sys.executable, str(LINTER)],
-        input=text,
-        capture_output=True,
-        text=True,
-        check=False,
-      )
-      if run.returncode != 0:
+      passed, output = run_ste_lint(text)
+      if not passed:
         failures += 1
         print(f"--- {path}")
-        print(run.stdout.strip())
+        print(output)
   pages = [ROOT / path for path in paths if path.suffix == ".md"]
   failures += scan(pages) + long_blocks(pages) + long_sentences(pages)
   if failures:
