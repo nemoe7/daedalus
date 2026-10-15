@@ -237,7 +237,7 @@ td.time { white-space: nowrap; }
 /* Notifications read as one phone feed. Exact times remain available on hover. */
 .notification-feed { padding: 0; overflow: hidden; }
 .notification-feed > h3 { padding: 18px 20px 12px; }
-.notification-feed > .empty { margin: 0; padding: 16px 20px 20px; border-top: 1px solid var(--line); }
+.notification-feed > .more { margin: 0; padding: 16px 20px 20px; border-top: 1px solid var(--line); }
 .notification-item {
   appearance: none; width: 100%; box-sizing: border-box; display: grid;
   grid-template-columns: 8px minmax(0, 1fr); gap: 12px; align-items: start;
