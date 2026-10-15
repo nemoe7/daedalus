@@ -365,7 +365,10 @@ async function call(path, options = {}) {
     }
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(body.error?.message || t("error.http_without_message", { status: response.status }));
+      const key = body.error?.locale_key;
+      const known = typeof key === "string" && Object.prototype.hasOwnProperty.call(globalThis.DAEDALUS_LOCALE || {}, key);
+      const message = known ? t(key, body.error.locale_params || {}) : body.error?.message;
+      throw new Error(message || t("error.http_without_message", { status: response.status }));
     }
     return body;
   } finally {

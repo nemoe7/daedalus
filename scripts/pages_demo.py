@@ -572,7 +572,8 @@ const DEMO_FIXTURES = __FIXTURES__;
       return {};
     }
   };
-  const bad = (message, code) => json({ error: { message, type: "invalid_request_error", code } }, code);
+  const bad = (message, code, locale = {}) =>
+    json({ error: { message, type: "invalid_request_error", code, ...locale } }, code);
   const word = (value) => String(value ?? "").trim();
   const noise = (size) => Math.random().toString(36).slice(2, 2 + size);
   const scald = (value) => {
@@ -1239,7 +1240,9 @@ const DEMO_FIXTURES = __FIXTURES__;
     if (typeof name !== "string" || !name.trim()) return bad("A file name is needed.", 400);
     const saved = DEMO_FIXTURES.settings;
     const at = saved.hook_rows.findIndex(row => row.path === name || row.path === `${name}.py`);
-    if (at < 0) return bad(`The hook ${name} is not a file of the folder.`, 404);
+    if (at < 0) return bad(`The hook ${name} is not a file of the folder.`, 404, {
+      locale_key: "hook.error.file_missing_text", locale_params: { name },
+    });
     const leaf = saved.hook_rows[at].name.split("/").pop();
     const group = { ...DEFAULTS.hooks, ...saved.file.hooks };
     const keep = (items) => (items || []).filter(item => String(item).split("/").pop() !== leaf);

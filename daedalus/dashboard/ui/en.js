@@ -99,6 +99,7 @@ globalThis.DAEDALUS_LOCALE = {
   "hook.empty.moved_text": "No hooks updated.",
   "hook.empty.source_text": "No sources",
   "hook.empty.surface_text": "No surfaces",
+  "hook.error.file_missing_text": "The hook {name} is not a file of the folder.",
   "hook.file.label": "Hook file",
   "hook.order.down_title": "Move down",
   "hook.order.down_named_label": "Move {file} down",

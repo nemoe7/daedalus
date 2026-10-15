@@ -3282,6 +3282,11 @@ def test_hook_file_delete(
     "DELETE", "/ui/api/hooks/file", json={"name": "hooks/nope.py"}
   )
   assert missing.status_code == 404, missing.text
+  error = missing.json()["error"]
+  assert error["type"] == "invalid_request_error" and error["code"] == 404
+  assert error["message"]
+  assert error["locale_key"] == "hook.error.file_missing_text"
+  assert error["locale_params"] == {"name": "hooks/nope.py"}
   escape = client.request(
     "DELETE", "/ui/api/hooks/file", json={"name": "config/daedalus.yml"}
   )

@@ -368,8 +368,17 @@ async def login_failed(client: str) -> JSONResponse:
   return failure(401, "Wrong username or password.", "authentication_error")
 
 
-def failure(status: int, message: str, kind: str) -> JSONResponse:
-  error = {"message": message, "type": kind, "code": status}
+def failure(
+  status: int,
+  message: str,
+  kind: str,
+  *,
+  locale_key: str | None = None,
+  locale_params: dict[str, str] | None = None,
+) -> JSONResponse:
+  error: dict[str, Any] = {"message": message, "type": kind, "code": status}
+  if locale_key is not None:
+    error.update(locale_key=locale_key, locale_params=locale_params or {})
   return JSONResponse(status_code=status, content={"error": error})
 
 
@@ -1401,7 +1410,11 @@ def settings_routes(
     path = hooks.resolve(name)
     if path is None:
       return failure(
-        404, f"The hook {name} is not a file of the folder.", "invalid_request_error"
+        404,
+        f"The hook {name} is not a file of the folder.",
+        "invalid_request_error",
+        locale_key="hook.error.file_missing_text",
+        locale_params={"name": name},
       )
     answer = unlink_file(path, name)
     if answer is not None:

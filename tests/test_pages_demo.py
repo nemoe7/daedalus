@@ -85,7 +85,13 @@ NODE_CHECK = (
   const deleteHook = (name) => context.fetch("ui/api/hooks/file", {
     method: "DELETE", body: JSON.stringify({ name }),
   });
-  check((await deleteHook(targetHook.title)).status === 404, "a hook title is not a path");
+  const missingHook = await deleteHook(targetHook.title);
+  check(missingHook.status === 404, "a hook title is not a path");
+  const missingError = (await missingHook.json()).error;
+  check(missingError.locale_key === "hook.error.file_missing_text", "missing hook locale key");
+  check(missingError.locale_params.name === targetHook.title, "missing hook locale parameter");
+  check(missingError.code === 404 && missingError.type === "invalid_request_error", "missing hook error fields");
+  check(typeof missingError.message === "string" && missingError.message.length > 0, "missing hook message");
   check((await deleteHook(7)).status === 400, "a hook path must be text");
   check((await deleteHook(targetHook.path)).status === 200, "delete the hook path");
   const afterHook = await (await context.fetch("ui/api/settings")).json();

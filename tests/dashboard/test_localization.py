@@ -1,3 +1,4 @@
+import ast
 import json
 import re
 import subprocess
@@ -6,6 +7,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from daedalus import dashboard
 from daedalus.server import api
 
 UI = Path("daedalus/dashboard/ui")
@@ -22,6 +24,85 @@ def read_catalog() -> dict[str, str]:
   keys = [key for key, _ in pairs]
   assert len(keys) == len(set(keys)), "the catalog has duplicate keys"
   return dict(pairs)
+
+
+def test_hook_error_keeps_response_fields_with_locale_metadata() -> None:
+  """Locale metadata adds to the existing dashboard error fields."""
+  key = "hook.error.file_missing_text"
+  response = dashboard.failure(
+    404,
+    "server message",
+    "invalid_request_error",
+    locale_key=key,
+    locale_params={"name": "hooks/owner/repo/one.py"},
+  )
+  assert response.status_code == 404
+  assert json.loads(response.body) == {
+    "error": {
+      "message": "server message",
+      "type": "invalid_request_error",
+      "code": 404,
+      "locale_key": key,
+      "locale_params": {"name": "hooks/owner/repo/one.py"},
+    }
+  }
+  plain = dashboard.failure(409, "kept", "server_error")
+  assert json.loads(plain.body) == {
+    "error": {"message": "kept", "type": "server_error", "code": 409}
+  }
+  assert "{name}" in read_catalog()[key]
+
+
+def test_call_uses_known_locale_metadata_and_keeps_error_fallbacks() -> None:
+  app = (UI / "app.js").read_text(encoding="utf-8")
+  translation = re.search(
+    r"function t\(key, values = \{\}\) \{.*?^\}", app, re.MULTILINE | re.DOTALL
+  )
+  call = re.search(
+    r"async function call\(path, options = \{\}\) \{.*?^\}",
+    app,
+    re.MULTILINE | re.DOTALL,
+  )
+  assert translation and call
+  script = f"""
+const fs = require("fs");
+const vm = require("vm");
+const assert = require("assert");
+let body;
+let status = 404;
+const sandbox = {{
+  fetch: async () => ({{ ok: false, status, json: async () => body }}),
+  session: () => null,
+  showSpinner: () => {{}},
+  setTimeout: () => 1,
+  clearTimeout: () => {{}},
+}};
+vm.createContext(sandbox);
+vm.runInContext(fs.readFileSync("{CATALOG.as_posix()}", "utf8"), sandbox);
+vm.runInContext("let calling = 0; let spinnerTimer;" + {json.dumps(translation.group(0) + call.group(0))}, sandbox);
+(async () => {{
+  const key = "hook.error.file_missing_text";
+  const name = "hooks/owner/repo/one.py";
+  body = {{ error: {{ message: "server detail", locale_key: key, locale_params: {{ name }} }} }};
+  await assert.rejects(sandbox.call("hooks/file"), {{ message: sandbox.t(key, {{ name }}) }});
+  sandbox.DAEDALUS_LOCALE[key] = "Locale: {{name}}";
+  await assert.rejects(sandbox.call("hooks/file"), {{ message: "Locale: " + name }});
+  body.error.locale_params = null;
+  await assert.rejects(sandbox.call("hooks/file"), {{ message: "Locale: {{name}}" }});
+  body.error.locale_key = "test.unknown";
+  await assert.rejects(sandbox.call("hooks/file"), {{ message: "server detail" }});
+  body.error.locale_key = "toString";
+  await assert.rejects(sandbox.call("hooks/file"), {{ message: "server detail" }});
+  body = {{ error: {{ message: "plain detail" }} }};
+  await assert.rejects(sandbox.call("hooks/file"), {{ message: "plain detail" }});
+  body = {{}};
+  status = 503;
+  await assert.rejects(sandbox.call("hooks/file"), {{
+    message: sandbox.t("error.http_without_message", {{ status }}),
+  }});
+}})().catch(error => {{ console.error(error); process.exitCode = 1; }});
+"""
+  subprocess.run(["node", "-e", script], check=True)
 
 
 def test_english_catalog_is_a_versioned_dashboard_asset() -> None:
@@ -48,6 +129,15 @@ def test_every_locale_reference_has_a_catalog_entry() -> None:
     app,
   ):
     referenced.update((one, other))
+  backend = ast.parse((UI.parent / "__init__.py").read_text(encoding="utf-8"))
+  referenced.update(
+    node.value.value
+    for node in ast.walk(backend)
+    if isinstance(node, ast.keyword)
+    and node.arg == "locale_key"
+    and isinstance(node.value, ast.Constant)
+    and isinstance(node.value.value, str)
+  )
   assert referenced, "the page references locale keys"
   missing = sorted(referenced - catalog.keys())
   assert not missing, f"locale keys without English copy: {missing}"
