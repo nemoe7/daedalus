@@ -431,7 +431,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Read one GitHub issue. Exactly one repository selector.
+    """Read one GitHub issue, with repository selectors in full-name, ID, then URL order.
 
     :param issue_number: the issue number
     :param repository_full_name: owner/repo
@@ -2052,12 +2052,12 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Create a GitHub branch. Give exactly one of sha or base_ref.
+    """Create a GitHub branch from a SHA, or from `base_ref` when the SHA is absent.
 
     :param repository_full_name: owner/repo
     :param branch_name: the new branch name
     :param sha: the commit to point at
-    :param base_ref: a branch or tag to start from
+    :param base_ref: a branch to start from
     """
     repo = self._repo(repository_full_name)
 
@@ -2831,7 +2831,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Fetch GitHub repository metadata. Normally exactly one selector.
+    """Read GitHub repository metadata, with selectors in full-name, ID, then URL order.
 
     :param repository_full_name: owner/repo
     :param repository_id: the numeric repository id
