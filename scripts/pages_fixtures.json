@@ -4565,6 +4565,60 @@
   ],
   "requests": [
     {
+      "app": "OWUI",
+      "at": 1792028752.5710046,
+      "attempts": [
+        {
+          "error": "HTTP 500: upstream failed",
+          "model": "z-ai/glm-4.5-flash",
+          "result": "error",
+          "seconds": 0.08,
+          "weight_change": {
+            "from": 1.0,
+            "to": 0.5
+          }
+        },
+        {
+          "error": "",
+          "model": "kilo/nvidia/nemotron-3.5-lightning:free",
+          "race": "won",
+          "result": "answered",
+          "seconds": 0.297,
+          "weight_change": {
+            "from": 1.0,
+            "to": 1.5
+          }
+        }
+      ],
+      "effort": null,
+      "fallbacks": "0",
+      "key": "master",
+      "loop": null,
+      "model": "daedalus/deinos",
+      "pool": "deinos",
+      "race": "drawn",
+      "retry": null,
+      "routed": null,
+      "seconds": 2.824,
+      "session": "547df45",
+      "status": 200,
+      "stream": true,
+      "tokens": {
+        "estimate": false,
+        "input": 14,
+        "output": 5
+      },
+      "transition": {
+        "from_model": "z-ai/glm-4.5-flash",
+        "from_pool": "deinos",
+        "reason": "rce",
+        "to_model": "kilo/nvidia/nemotron-3.5-lightning:free",
+        "to_pool": "deinos"
+      },
+      "ttft": "0.297s",
+      "via": "kilo/nvidia/nemotron-3.5-lightning:free"
+    },
+    {
       "app": "Kilo",
       "at": 1791608879.1283774,
       "attempts": [

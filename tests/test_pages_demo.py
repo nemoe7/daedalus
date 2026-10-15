@@ -288,7 +288,7 @@ NODE_CHECK = (
   // A scripted run: the harness shrinks the waits, names each wave, and freezes the draws so
   // the escalation template with the cooldown and the weight change always serves.
   context.DEMO_SCALE = 0.005;
-  context.DEMO_SCENARIOS = ["chat", "escalate", "agentic", "rag", "kilo", "stray",
+  context.DEMO_SCENARIOS = ["race", "chat", "escalate", "agentic", "rag", "kilo", "stray",
     "escalate", "escalate", "escalate", "escalate", "escalate", "escalate", "escalate",
     "escalate"];
   context.Math.random = () => 0.25;
@@ -326,6 +326,9 @@ NODE_CHECK = (
     const reasons = new Set(rows.filter((row) => row.transition)
       .map((row) => row.transition.reason));
     return ordered && climbing
+      && rows.some((row) => row.race === "drawn" && row.transition?.reason === "rce"
+        && row.attempts.length === 2 && row.attempts[0].result === "error"
+        && row.attempts[1].race === "won")
       && rows.some((row) => row.app === null)
       && rows.some((row) => row.routed === "deinos")
       && rows.some((row) => row.loop === "2")
@@ -347,7 +350,7 @@ NODE_CHECK = (
   const end = seen.find(([kind]) => kind === "end")[1];
   check(end.row.model && end.row.at, "the finished row");
   const KEYS = ["app", "at", "attempts", "effort", "fallbacks", "key", "loop", "model",
-    "pool", "retry", "routed", "seconds", "session", "status", "stream", "tokens",
+    "pool", "race", "retry", "routed", "seconds", "session", "status", "stream", "tokens",
     "transition", "ttft", "via"];
   const stamp = (row) => row.ttft == null || (
     typeof row.ttft === "string" && row.ttft.endsWith("s") && row.ttft.split(".")[1]?.length === 4
@@ -861,3 +864,25 @@ def test_the_capture_builds_the_demo_state() -> None:
   assert found["status"]["version"] == DAEDALUS_VERSION, found["status"]["version"]
   assert len(found["models"]) >= 10, len(found["models"])
   assert found["requests"], "the demo requests"
+
+
+def test_race_demo_shape() -> None:
+  """The demo has a race winner, a failed first attempt and a transition reason."""
+  shapes = [row for row in pages_demo.DEMO_SHAPES if row.get("race") == "drawn"]
+  fixtures = json.loads(pages_demo.FIXTURES.read_text())
+  rows = [row for row in fixtures["requests"] if row.get("race") == "drawn"]
+  assert shapes and rows
+  for row in [*shapes, *rows]:
+    assert (
+      row["seconds"]
+      >= float(row["ttft"].removesuffix("s"))
+      >= row["attempts"][-1]["seconds"]
+    )
+    transition = row["transition"]
+    assert transition["reason"] == "rce"
+    assert transition["from_model"] != transition["to_model"]
+    attempts = row["attempts"]
+    assert attempts[0]["model"] == transition["from_model"]
+    assert attempts[0]["result"] == "error" and attempts[0]["error"]
+    assert attempts[-1]["model"] == transition["to_model"] == row["via"]
+    assert attempts[-1]["result"] == "answered" and attempts[-1]["race"] == "won"

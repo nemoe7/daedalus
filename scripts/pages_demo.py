@@ -311,6 +311,45 @@ DEMO_SHAPES = (
     "pool": "sophos",
     "tokens": {"estimate": True, "input": 1200, "output": 240},
   },
+  {
+    "app": "OWUI",
+    "model": "daedalus/deinos",
+    "pool": "deinos",
+    "via": "kilo/nvidia/nemotron-3.5-lightning:free",
+    "race": "drawn",
+    "seconds": 2.824,
+    "ttft": "0.297s",
+    "stream": True,
+    "routed": None,
+    "retry": None,
+    "loop": None,
+    "fallbacks": "0",
+    "status": 200,
+    "transition": {
+      "from_model": "z-ai/glm-4.5-flash",
+      "from_pool": "deinos",
+      "reason": "rce",
+      "to_model": "kilo/nvidia/nemotron-3.5-lightning:free",
+      "to_pool": "deinos",
+    },
+    "attempts": [
+      {
+        "model": "z-ai/glm-4.5-flash",
+        "result": "error",
+        "seconds": 0.08,
+        "error": "HTTP 500: upstream failed",
+        "weight_change": {"from": 1.0, "to": 0.5},
+      },
+      {
+        "model": "kilo/nvidia/nemotron-3.5-lightning:free",
+        "result": "answered",
+        "seconds": 0.297,
+        "error": "",
+        "race": "won",
+        "weight_change": {"from": 1.0, "to": 1.5},
+      },
+    ],
+  },
 )
 
 
@@ -1418,6 +1457,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       if (r < 0.34) return "agentic";
       if (r < 0.46) return "rag";
       if (r < 0.62) return "escalate";
+      if (r < 0.72) return "race";
       return "chat";
     }
     async scenario(kind) {
@@ -1426,6 +1466,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       if (kind === "agentic") return this.agentic("OWUI", 2 + Math.floor(Math.random() * 4));
       if (kind === "rag") return this.rag();
       if (kind === "escalate") return this.escalate();
+      if (kind === "race") return this.race();
       return this.chat();
     }
     // An owui chat does these in order: the embedding, the title, and the chat itself.
@@ -1488,6 +1529,12 @@ const DEMO_FIXTURES = __FIXTURES__;
         attempts: (template.attempts || []).map((item) => ({ ...item })),
       });
     }
+    async race() {
+      const template = TEMPLATES.find((row) => row.race === "drawn");
+      await this.call({
+        ...template, session: session(++this.sessions * 7919), stream: true, ttft: 0.297,
+      });
+    }
     // A client the page does not know: no app, and no session. Rare, but it happens.
     async stray() {
       const pooled = Math.random() < 0.5;
@@ -1529,7 +1576,8 @@ const DEMO_FIXTURES = __FIXTURES__;
         at: Date.now() / 1000, status: 200, seconds: round(frozen.attempt_age + streamed),
         app: spec.app ?? null, session: spec.session ?? null, key: "master", model: spec.model,
         effort: spec.effort ?? null, pool, routed: spec.routed ?? null,
-        transition: spec.transition ?? null, retry: spec.retry ?? null, loop: spec.loop ?? null,
+        transition: spec.transition ?? null, race: spec.race ?? null,
+        retry: spec.retry ?? null, loop: spec.loop ?? null,
         via: spec.via, ttft: `${frozen.attempt_age.toFixed(3)}s`, stream: spec.stream === true,
         fallbacks: spec.fallbacks || "0", tokens: spec.tokens ?? null,
         attempts: spec.attempts

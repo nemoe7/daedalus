@@ -11,6 +11,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from daedalus import dashboard, store
+from daedalus.routing.cooldowns import Cooldowns
+from daedalus.routing.pacing import Pacing
 from daedalus.server import api, upstream
 
 MASTER = "test-master-key-0001"
@@ -298,3 +300,93 @@ def test_race_starts_the_session_model() -> None:
     "the draw decides"
   )
   store_penalties.race = True
+
+
+@pytest.mark.parametrize("streamed", [False, True])
+@pytest.mark.parametrize(
+  "chance, wait, raced", [(0.1, 30.0, "drawn"), (0.0, 0.01, "slow")]
+)
+@pytest.mark.parametrize("winner", ["b/1", "b/2"])
+def test_race_transition_matches_the_winner(
+  client: TestClient,
+  monkeypatch: pytest.MonkeyPatch,
+  streamed,
+  chance,
+  wait,
+  raced,
+  winner,
+) -> None:
+  """Only a changed race winner carries the normal transition object."""
+  monkeypatch.setattr(api, "PARALLEL_CHANCE", chance)
+  monkeypatch.setattr(api, "PARALLEL_SLOW_SECONDS", wait)
+  PLAN.update({model: 0.0 if model == winner else 0.5 for model in ("b/1", "b/2")})
+  key = api.session_key(MASTER, [FIRST])
+  api.PENALTIES.pin(key, "daedalus/deinos", "b/1")
+  response = client.post(
+    "/v1/chat/completions",
+    json={"model": "daedalus/deinos", "messages": [FIRST], "stream": streamed},
+    headers={"Authorization": f"Bearer {MASTER}"},
+  )
+  assert response.status_code == 200 and winner in response.text
+  row = dashboard.HISTORY.latest(1)[0]
+  assert row["via"] == winner
+  assert row["race"] == ("fast" if winner == "b/1" and chance == 0 else raced)
+  assert api.PENALTIES.pinned(key, "daedalus/deinos") == winner
+  assert row["transition"] == (
+    {
+      "from_pool": "deinos",
+      "from_model": "b/1",
+      "to_pool": "deinos",
+      "to_model": "b/2",
+      "reason": "rce",
+    }
+    if winner == "b/2"
+    else None
+  )
+
+
+@pytest.mark.parametrize("status", [500, 429])
+@pytest.mark.parametrize("all_failed", [False, True])
+def test_failed_first_racer_is_recorded_once(
+  client: TestClient,
+  monkeypatch: pytest.MonkeyPatch,
+  tmp_path: Path,
+  status,
+  all_failed,
+) -> None:
+  """A failed first racer has one record and one fault, even when another model wins."""
+  monkeypatch.setattr(api, "PARALLEL_CHANCE", 0.1)
+  monkeypatch.setattr(api, "PACING", Pacing())
+  monkeypatch.setattr(
+    api, "COOLDOWNS", Cooldowns(lambda: tmp_path / "cooldowns.sqlite3")
+  )
+
+  def failed(request: httpx.Request) -> httpx.Response:
+    model = f"b/{json.loads(request.content)['model']}"
+    if model == "b/1" or all_failed:
+      CALLS.append(model)
+      return httpx.Response(
+        status if model == "b/1" else 500,
+        headers={"Retry-After": "60"},
+        json={"error": {"message": "upstream failed"}},
+      )
+    return answer(request)
+
+  upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(failed)))
+  try:
+    response = client.post(
+      "/v1/chat/completions",
+      json={"model": "daedalus/deinos", "messages": [FIRST]},
+      headers={"Authorization": f"Bearer {MASTER}"},
+    )
+    assert response.status_code == (500 if all_failed else 200)
+    rows = attempts()
+    first = [row for row in rows if row["model"] == "b/1"]
+    assert len(first) == 1
+    assert first[0]["result"] != "answered" and first[0]["error"]
+    assert len(rows) == len(CALLS)
+    factor = api.PENALTIES.rate_limit if status == 429 else api.PENALTIES.fault
+    assert api.PENALTIES.weights(["b/1"])["b/1"] == pytest.approx(factor, abs=1e-3)
+    assert bool(api.COOLDOWNS.ends()) == (status == 429)
+  finally:
+    upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))

@@ -144,7 +144,14 @@ async def test_a_runner_that_wins_takes_the_pin(client: httpx.AsyncClient) -> No
   response = await client.post("/v1/chat/completions", json={**CHAT, "stream": True})
   assert response.status_code == 200, response.text
   row = dashboard.HISTORY.latest()[0]
-  assert row["via"] != first and row["transition"] == "rce", row
+  assert row["via"] != first, row
+  assert row["transition"] == {
+    "from_pool": "moros",
+    "from_model": first,
+    "to_pool": "moros",
+    "to_model": row["via"],
+    "reason": "rce",
+  }, row
 
 
 async def test_a_first_model_that_wins_keeps_the_pin(client: httpx.AsyncClient) -> None:

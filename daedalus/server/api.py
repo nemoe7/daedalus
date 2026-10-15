@@ -951,8 +951,8 @@ async def race_models(
             # A non-stream loser is already whole, and its body is dropped with its connection.
             await content["response"].aclose()
       if exc is not None:
-        if take.model != first:
-          # A racing model that failed takes its own fault, as a fallback does.
+        if take.model != first or winner is not None:
+          # With no winner, the caller records the first failure.
           plan.attempts.append(
             upstream.failure_note(take.model, started, exc) | take.sent
           )
@@ -968,7 +968,13 @@ async def race_models(
     # The row reads the race: the winner carries the mark, and a runner that wins takes the pin.
     winner.sent["race"] = "won"
     if winner.model != first:
-      plan.request.state.transition = "rce"
+      plan.request.state.transition = route_transition(
+        model_pool(plan.config, first) or "",
+        first,
+        model_pool(plan.config, winner.model),
+        winner.model,
+        "rce",
+      )
     return winner
   finally:
     # The winner keeps its content. The other tasks are over.
