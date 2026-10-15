@@ -22,6 +22,7 @@ services:
       - "${DAEDALUS_HOST_PORT:-3357}:3357"
     volumes:
       - ./.daedalus-state:/app/.daedalus-state
+      - hooks:/app/hooks
       - ./config:/app/config # read-write: the dashboard edits and reloads these files
     restart: unless-stopped
 
@@ -166,6 +167,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  hooks:
   open-webui:
   webui-db:
   searxng:

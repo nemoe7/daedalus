@@ -61,6 +61,21 @@ def test_every_service_layers_managed_defaults_before_local_overrides() -> None:
       assert len(_service_env(compose, name)) == expected[name]
 
 
+def test_hook_files_and_lock_share_persistent_storage() -> None:
+  """Both container modes keep the hook folder in a named volume."""
+  mounts = []
+  for filename in ("compose.yml", "compose.dev.yml"):
+    compose = yaml.safe_load((ROOT / filename).read_text())
+    volumes = compose["services"]["api"]["volumes"]
+    hook_mounts = [value for value in volumes if value.split(":")[1] == "/app/hooks"]
+    assert len(hook_mounts) == 1, (filename, volumes)
+    name, target = hook_mounts[0].split(":")
+    assert name in compose["volumes"]
+    assert target == "/app/hooks"
+    mounts.append(name)
+  assert mounts[0] == mounts[1]
+
+
 def test_dev_copy() -> None:
   """compose.dev.yml is compose.yml with a daedalus build and the 2 dev variables."""
   main = yaml.safe_load((ROOT / "compose.yml").read_text())

@@ -17,7 +17,6 @@ COPY hooks ./hooks
 # pip leaves the image, plus its own urllib3, msgpack and setuptools, which the scan
 # reports. The path is the system Python: PATH puts the uv venv first, and it has no pip.
 # uv comes from a build mount, so it is not in the image.
-# The hooks folder rides in the image owned by daedalus, so an update writes it without a mount.
 RUN --mount=from=ghcr.io/astral-sh/uv:0.12.19,source=/uv,target=/bin/uv \
   apt-get update && apt-get install -y --no-install-recommends tzdata libpcre2-8-0 liblzma5 \
   && rm -rf /var/lib/apt/lists/* \

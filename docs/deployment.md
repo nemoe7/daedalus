@@ -58,7 +58,7 @@ The Docker and git commands below are the same in cmd, PowerShell and bash.
 | Stop | `docker compose down` |
 | Log | `docker compose logs -f api` |
 | Rebuild the catalog | The Catalog line of the Overview status card, or `docker compose exec api daedalus catalog` |
-| Run the CLI on the host | `daedalus catalog` probes `DAEDALUS_URL`, or `DAEDALUS_HOST` and `DAEDALUS_PORT`, and asks a live server to rebuild. A refused request stops the command, and `--force` rebuilds the store here. `dump`, `hooks update` and `hooks verify` read the same files as the container. |
+| Run the CLI on the host | `daedalus catalog` probes `DAEDALUS_URL`, or `DAEDALUS_HOST` and `DAEDALUS_PORT`, and asks a live server to rebuild. A refused request stops the command, and `--force` rebuilds the store here. `dump` reads the shared state folder. Run hook commands through the container CLI. |
 | Dump catalogs/models | `docker compose exec api daedalus dump catalog`, `models`, or `all`. Files go to `.daedalus-state/dump` |
 | Update the hook files | `docker compose exec api daedalus hooks update` reads the `hooks.sources` repos and writes `hooks.lock.json`. `daedalus hooks verify` then reads the lock and loads each file. See [Hooks](hooks.md#sources-and-the-lock) |
 
@@ -76,10 +76,21 @@ Saving provider YAML in the dashboard rebuilds the model list from cache. After 
 | Port | `DAEDALUS_HOST_PORT`, default `3357`. The container port stays `3357`. |
 | State | `./.daedalus-state` (model store, API keys, weights, sessions) |
 | Config | `./config`, read-write. The dashboard edits these files. |
+| Hooks | The `hooks` named volume at `/app/hooks`, with the hook files and `hooks.lock.json`. |
 | User | `DAEDALUS_UID` and `DAEDALUS_GID`, both default `1000` |
 | Headroom | `HEADROOM_URL`, default `http://headroom:8787`. The messages go there first. |
 
 ### Writable hook storage
+
+Both Compose modes mount the `hooks` named volume at `/app/hooks`. Docker copies the image files into a new empty volume. The volume keeps hook files and source records when Compose replaces the container. Image updates do not replace files in an existing volume.
+
+Use **Take** in Settings or `docker compose exec api daedalus hooks update` to update installed hooks. `docker compose down -v` deletes the volume and its hook files.
+
+Before updating a container without persistent hook storage, copy its files to a backup folder. The installer does not migrate them. This command works in cmd, PowerShell and bash:
+
+```console
+docker cp daedalus-api:/app/hooks ./hooks-backup
+```
 
 UID 1000 owns `/app/hooks` in the image. A different `DAEDALUS_UID` needs a writable hook folder to install or update files.
 
