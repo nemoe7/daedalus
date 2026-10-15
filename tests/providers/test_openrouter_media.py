@@ -1,14 +1,19 @@
 """Tests for the OpenRouter media models: discovery of each output type, speech and images."""
 
-from pathlib import Path
-
 import pytest
 
-from daedalus import config, providers
+from daedalus import providers
 from daedalus.catalog import discovery
 from daedalus.providers.base import openrouter_columns
 
 FREE = {"prompt": "0", "completion": "0"}
+CONFIG = {
+  "openrouter": {
+    "api_key": "sk-or-test",
+    "discovery_url": "https://gateway.test/models?output_modalities=all",
+    "exclude": ["!*:free", "recraft/*"],
+  }
+}
 
 
 def row(slug: str, outputs: list[str], pricing: dict | None = None) -> dict:
@@ -56,14 +61,9 @@ def test_output_mode() -> None:
   assert "mode" not in openrouter_columns({"id": "a/b"})
 
 
-def test_free_media(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_free_media() -> None:
   """Discovery keeps the free embedding and speech models, but no paid or image model."""
-  monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
-  loaded = config.load_config(Path("config/providers/free.yml"))
-  block = {
-    key: value for key, value in loaded["openrouter"].items() if key != config.FILE_KEY
-  }
-  lines, skipped = modes(block)
+  lines, skipped = modes(CONFIG["openrouter"])
   assert not skipped, skipped
   assert lines == {
     "openrouter/deepgram/flux-tts:free": "audio_speech",
@@ -72,11 +72,9 @@ def test_free_media(monkeypatch: pytest.MonkeyPatch) -> None:
   }, lines
 
 
-def test_speech_request(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_speech_request() -> None:
   """A speech request asks for mp3 unless the client asks for pcm."""
-  monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
-  loaded = config.load_config(Path("config/providers/free.yml"))
-  provider, slug = providers.provider_for("openrouter/deepgram/flux-tts:free", loaded)
+  provider, slug = providers.provider_for("openrouter/deepgram/flux-tts:free", CONFIG)
   for asked, sent in ((None, "mp3"), ("wav", "mp3"), ("pcm", "pcm"), ("mp3", "mp3")):
     payload = {"input": "hi", "voice": "flux-alexis-en", "response_format": asked}
     url, options, _ = provider.speech_request(slug, payload)
@@ -85,11 +83,9 @@ def test_speech_request(monkeypatch: pytest.MonkeyPatch) -> None:
     assert options["json"]["voice"] == "flux-alexis-en", options
 
 
-def test_image_request(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_image_request() -> None:
   """An image request goes to `/images`, with only the fields of the Image API."""
-  monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
-  loaded = config.load_config(Path("config/providers/free.yml"))
-  provider, slug = providers.provider_for("openrouter/some/image", loaded)
+  provider, slug = providers.provider_for("openrouter/some/image", CONFIG)
   url, options, headers = provider.image_request(
     slug,
     {
@@ -109,11 +105,9 @@ def test_image_request(monkeypatch: pytest.MonkeyPatch) -> None:
   assert headers["Authorization"] == "Bearer sk-or-test", headers
 
 
-def test_edit_request(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_edit_request() -> None:
   """An edit goes to the Image API, with each input image as a data URL."""
-  monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
-  loaded = config.load_config(Path("config/providers/free.yml"))
-  provider, slug = providers.provider_for("openrouter/some/image", loaded)
+  provider, slug = providers.provider_for("openrouter/some/image", CONFIG)
   images = [("a.png", b"PNG", "image/png")]
   url, options, _ = provider.edit_request(slug, {"prompt": "blue"}, images, None)
   assert url == "https://openrouter.ai/api/v1/images", url

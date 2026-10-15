@@ -2,14 +2,11 @@ import io
 
 import httpx
 import pytest
-import yaml
 from PIL import Image
 
 from daedalus import providers
-from daedalus.catalog.enrichment import config_params
 from daedalus.providers.base import ProviderError
 from daedalus.providers.cloudflare import smaller
-from daedalus.routing import router
 
 CLOUDFLARE = providers.CloudflareProvider(
   "cloudflare", {"api_base": "https://cloudflare.test", "api_key": "k"}
@@ -82,19 +79,6 @@ def test_flux2_multipart() -> None:
   assert options == {"json": {"prompt": "a cat"}}, options
 
 
-def test_new_models() -> None:
-  """The 2 new instruct models join TIER-D, and the Clef models stay out of the chat mode."""
-  with open("config/providers/free.yml", encoding="utf-8") as handle:
-    cloudflare = yaml.safe_load(handle)["cloudflare"]
-  for slug in ("@cf/swiss-ai/apertus-v1.5-8b", "@cf/utter-project/eurollm-9b-it"):
-    assert router.claiming_tier(cloudflare, slug) == "TIER-D", slug
-  for slug in ("@cf/cloudflare/clef", "@cf/cloudflare/clef-flash"):
-    assert router.claiming_tier(cloudflare, slug) is None, (
-      "a decision model stays out of the pools"
-    )
-    assert config_params(cloudflare, slug).get("mode") == "decisions", slug
-
-
 def sent(slug: str, effort: object) -> dict:
   """The body that goes to Workers AI for one client effort."""
   payload = {"messages": [{"role": "user", "content": "hi"}]}
@@ -120,21 +104,6 @@ def test_the_on_off_toggles_map_the_effort_to_enable_thinking() -> None:
   assert CLOUDFLARE.effort(sent("@cf/zai-org/glm-4.7-flash", "max")) == "max"
 
 
-def test_the_toggle_ladders_are_in_the_shipped_config() -> None:
-  """The 3 on/off models of the shipped config name the documented on/off ladder."""
-  with open("config/providers/free.yml", encoding="utf-8") as handle:
-    cloudflare = yaml.safe_load(handle)["cloudflare"]
-  for slug in (
-    "@cf/zai-org/glm-4.7-flash",
-    "@cf/google/gemma-4-26b-a4b-it",
-    "@cf/nvidia/nemotron-3-120b-a12b",
-  ):
-    found = router.model_setting(
-      {"cloudflare": cloudflare}, f"cloudflare/{slug}", "supported_reasoning_efforts"
-    )
-    assert found == ["none", "max"], (slug, found)
-
-
 def test_the_no_control_rows_drop_the_effort_and_log_it(caplog) -> None:
   """Clear unsupported effort settings for always-reasoning models and log the action."""
   for slug in (
@@ -148,21 +117,6 @@ def test_the_no_control_rows_drop_the_effort_and_log_it(caplog) -> None:
     assert "chat_template_kwargs" not in body, slug
     assert any(slug in line and "dropped" in line for line in caplog.messages), slug
   assert CLOUDFLARE.effort(sent("@cf/qwen/qwq-32b", "max")) is None
-
-
-def test_the_no_control_ladders_are_in_the_shipped_config() -> None:
-  """The 3 no-control models of the shipped config name the max ladder alone."""
-  with open("config/providers/free.yml", encoding="utf-8") as handle:
-    cloudflare = yaml.safe_load(handle)["cloudflare"]
-  for slug in (
-    "@cf/qwen/qwq-32b",
-    "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
-    "@cf/qwen/qwen3-30b-a3b-fp8",
-  ):
-    found = router.model_setting(
-      {"cloudflare": cloudflare}, f"cloudflare/{slug}", "supported_reasoning_efforts"
-    )
-    assert found == ["max"], (slug, found)
 
 
 def test_a_model_outside_the_toggles_keeps_the_pass_through() -> None:

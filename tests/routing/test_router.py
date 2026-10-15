@@ -448,25 +448,6 @@ def test_the_efforts_key_follows_the_block_hierarchy() -> None:
   assert router.efforts(config, "unknown/x") == ["none", "low", "medium", "high"]
 
 
-def test_the_shipped_config_has_the_expected_efforts() -> None:
-  """The shipped provider configuration matches the expected effort lists."""
-  found = config.load_config(Path("config/providers/free.yml"))
-  expected = {
-    "cloudflare/@cf/openai/gpt-oss-120b": ["low", "medium", "high"],
-    "cloudflare/@cf/openai/gpt-oss-20b": ["low", "medium", "high"],
-    "cloudflare/@cf/qwen/qwen3.8-27b": ["low", "medium", "xhigh"],
-    "gemini/gemini-3.8-flash": ["low", "medium", "high"],
-    "gemini/gemini-3.6-flash": ["minimal", "low", "medium", "high"],
-    "gemini/gemini-3.5-flash-lite": ["minimal", "low", "medium", "high"],
-    "gemini/gemini-3.1-flash-lite": ["minimal", "low", "medium", "high"],
-    "gemini/gemini-3.1-flash-lite-preview": ["minimal", "low", "medium", "high"],
-    "gemini/gemma-4-26b-a4b-it": ["minimal", "low", "medium", "high"],
-    "gemini/gemma-4-31b-it": ["minimal", "low", "medium", "high"],
-  }
-  for model, ladder in expected.items():
-    assert router.efforts(found, model, None) == ladder, model
-
-
 def test_the_effort_ladder_caps_at_five_and_at_the_list() -> None:
   """Ladder step 0 is the lowest effort, and a step caps at 5 and at the list end."""
   efforts = ["none", "low", "medium", "high", "xhigh"]

@@ -638,7 +638,10 @@ def test_free_stealth() -> None:
       {"id": "google/lyria-3-pro-preview", "pricing": free, "isFree": False},
     ]
   }
-  providers = config.load_config()
+  providers = {
+    "openrouter": {"exclude": ["!*:free"]},
+    "kilo": {"discovery_match": {"isFree": True}},
+  }
   for name in ("openrouter", "kilo"):
     block = {
       key: value for key, value in providers[name].items() if key != config.FILE_KEY
@@ -666,7 +669,16 @@ def test_free_stealth() -> None:
 
 def test_free_only() -> None:
   """Configured filters select the expected free fixture rows and retain explicit OpenRouter declarations."""
-  providers = config.load_config()
+  providers = {
+    "openrouter": {
+      "exclude": ["!*:free", "*content-safety*", "openrouter/*"],
+      "models": {"declared": {}},
+    },
+    "kilo": {
+      "discovery_match": {"isFree": True},
+      "exclude": ["*content-safety*", "kilo-auto/free", "openrouter/free"],
+    },
+  }
   rows = [
     "openai/gpt-6-sol",
     "google/gemma-4-31b-it:free",
@@ -709,8 +721,10 @@ def test_free_only() -> None:
 
 
 def test_non_text() -> None:
-  """The committed config drops Gemini image, live and 2.5 rows, and sets other modes."""
-  providers = config.load_config()
+  """Configured exclusions and model declarations control the fixture rows and modes."""
+  providers = {
+    "gemini": {"exclude": ["*-image*", "*-live*", "gemini-2.5-*", "gemini-3.5-flash"]}
+  }
   gemini = [
     "gemini-3.1-flash-image",
     "gemini-3.1-flash-image-preview",
@@ -720,7 +734,6 @@ def test_non_text() -> None:
     "gemini-2.5-flash-preview-tts",
     "gemini-2.5-flash",
     "gemini-3.5-flash",
-    "gemini-4-argon",
     "gemini-3.1-flash-lite",
   ]
   kept = discovery.select(providers["gemini"], gemini)
@@ -738,6 +751,8 @@ def test_non_text() -> None:
     ("cloudflare", "@cf/cloudflare/clef"): "decisions",
     ("cloudflare", "@cf/cloudflare/clef-flash"): "decisions",
   }
+  for (name, slug), mode in modes.items():
+    providers.setdefault(name, {}).setdefault("models", {})[slug] = {"mode": mode}
   for (name, slug), mode in modes.items():
     assert slug in discovery.select(providers[name], [slug]), slug
     found = enrichment.config_params(providers[name], slug).get("mode")

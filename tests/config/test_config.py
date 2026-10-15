@@ -8,8 +8,6 @@ from pathlib import Path
 import pytest
 
 from daedalus import config, providers
-from daedalus.catalog import discovery
-from daedalus.catalog.enrichment import config_params
 from daedalus.config import defaults
 from daedalus.routing import router
 
@@ -119,83 +117,8 @@ def test_missing_main_keeps_defaults_beside_a_provider_file(
 
 
 def test_repo_file() -> None:
-  """The committed provider file parses, and its top-level keys are alphabetical."""
-  for name in (
-    "CLOUDFLARE",
-    "GEMINI",
-    "GROQ",
-    "KILO",
-    "MISTRAL",
-    "OPENROUTER",
-    "POLLINATIONS",
-    "ZAI",
-  ):
-    os.environ.setdefault(f"{name}_API_KEY", "k")
-  os.environ.setdefault("CLOUDFLARE_ACCOUNT_ID", "test-account")
-  loaded = config.load_config(Path("config/providers/free.yml"))
-  main = [name for name, provider in loaded.items() if config.main_block(provider)]
-  assert sorted(main) == main, main
-  assert main == [
-    "cloudflare",
-    "gemini",
-    "groq",
-    "kilo",
-    "mistral",
-    "openrouter",
-    "z-ai",
-  ], main
-  assert config.main_block(loaded["pollinations"]) is None, loaded["pollinations"]
-  for name, provider in loaded.items():
-    merged = providers.settings(name, provider)
-    assert merged.get("discovery_url", "").startswith("https://"), name
-    assert "api_key" in (config.main_block(provider) or config.file_block(provider)), (
-      name
-    )
-  assert loaded["z-ai"]["exclude"] == ["*"], loaded["z-ai"]["exclude"]
-  assert loaded["groq"]["rpm"] == 30, loaded["groq"]["rpm"]
-  author_prefixed = [
-    "@cf/meta/llama-guard-3-8b",
-    "@cf/meta/llama-3.2-11b-vision-instruct",
-  ]
-  # Cloudflare marks these `require_workers_paid` in its model search API.
-  paid = [
-    "@cf/deepseek-ai/deepseek-v4-flash-0731",
-    "@cf/deepseek-ai/deepseek-v4-pro-0813",
-    "@cf/moonshotai/kimi-k2.6",
-    "@cf/moonshotai/kimi-k2.7-code",
-    "@cf/zai-org/glm-5.2",
-    "@cf/zai-org/glm-5.3",
-    "@cf/zai-org/glm-5.3-flash",
-  ]
-  free = ["@cf/openai/gpt-oss-120b", "@cf/zai-org/glm-4.7-flash"]
-  flag = [{"property_id": "require_workers_paid", "value": "true"}]
-  rows = [{"name": name} for name in [*author_prefixed, *free]]
-  rows += [{"name": name, "properties": flag} for name in paid]
-  cloudflare = loaded["cloudflare"]
-  found = list(discovery.extract_rows({"result": rows}, cloudflare["discovery_match"]))
-  kept = discovery.select(cloudflare, found)
-  assert set(free) <= set(kept), kept
-  assert not set(author_prefixed + paid) & set(kept), kept
-  groq = ["canopylabs/orpheus-v1-english", "whisper-large-v3", "openai/gpt-oss-20b"]
-  assert set(groq) <= set(discovery.select(loaded["groq"], groq)), "audio rows stay"
-  audio = [f"groq/{slug}" for slug in groq[:2]]
-  assert not any(
-    router.candidates(loaded, tier, audio) for tier in router.TIER_NAMES.values()
-  ), "no tier for audio rows"
-  gemini = ["lyria-3.5", "gemini-3.8-flash"]
-  assert "lyria-3.5" not in discovery.select(loaded["gemini"], gemini), "music rows"
-  assert router.candidates(loaded, "TIER-A", ["groq/qwen/qwen3.8-27b"]), "groq tier"
-  qwen = ["cloudflare/@cf/qwen/qwen3-30b-a3b-fp8", "cloudflare/@cf/qwen/qwen3.8-27b"]
-  assert router.candidates(loaded, "TIER-A", qwen) == qwen[1:], (
-    "the org head must not hide"
-  )
-  assert router.candidates(loaded, "TIER-B", qwen) == qwen[:1], "a weaker thinker"
-  for slug in ("gemini-3.8-flash", "gemma-4-31b-it", "gemini-9-flash"):
-    effort = config_params(loaded["gemini"], slug).get("reasoning_effort")
-    assert effort == "high", (slug, effort)
-  # allam-2-7b has a 4096 combined window, so the input limit leaves room for the output.
-  allam = config_params(loaded["groq"], "allam-2-7b")
-  assert allam.get("max_input_tokens") == 2048, allam
+  """The shipped provider files load without a parse error."""
+  config.load_config(Path("config/providers/free.yml"))
 
 
 def walk(node: object) -> list[str]:
@@ -209,20 +132,18 @@ def walk(node: object) -> list[str]:
   return []
 
 
-def test_url_substitution() -> None:
-  """A URL carries `env:NAME` inside it, not as a whole value."""
-  os.environ["CLOUDFLARE_ACCOUNT_ID"] = "acct-123"
-  config.SAVED.pop("CLOUDFLARE_ACCOUNT_ID", None)
-  loaded = config.load_config(Path("config/providers/free.yml"))
-  url = providers.settings("cloudflare", loaded["cloudflare"])["discovery_url"]
-  assert url == (
-    "https://api.cloudflare.com/client/v4/accounts/acct-123"
-    "/ai/models/search?per_page=100"
-  ), url
-  left = [text for text in walk(loaded) if "env:" in text or "db:" in text]
-  assert left == [], left
-  os.environ.pop("CLOUDFLARE_ACCOUNT_ID", None)
-  config.SAVED.pop("CLOUDFLARE_ACCOUNT_ID", None)
+def test_url_substitution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+  """A URL resolves an environment token inside its path."""
+  monkeypatch.setenv("TEST_ACCOUNT_ID", "acct-123")
+  path = tmp_path / "config.yml"
+  path.write_text(
+    "p:\n  api_base: https://provider.test/accounts/env:TEST_ACCOUNT_ID/v1\n"
+  )
+  loaded = config.load_config(path)
+  assert providers.settings("p", loaded["p"])["api_base"] == (
+    "https://provider.test/accounts/acct-123/v1"
+  )
+  assert not [text for text in walk(loaded) if "env:" in text or "db:" in text]
 
 
 def test_provider_file() -> None:

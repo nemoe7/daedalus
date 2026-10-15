@@ -6,7 +6,6 @@ from pathlib import Path
 
 import httpx
 import pytest
-import yaml
 
 from daedalus import store
 from daedalus.catalog import enrichment
@@ -330,8 +329,8 @@ def test_enrich_fills_only_what_the_earlier_sources_left_empty() -> None:
   assert by_id["openrouter/d"]["supported_efforts"] is None
 
 
-def test_zai_config_keeps_flash_reasoning_without_native_rows() -> None:
-  """The shipped Z.AI block keeps its on/off ladder without native rows."""
+def test_config_keeps_reasoning_without_native_rows() -> None:
+  """Configured reasoning fields override catalog metadata without native rows."""
   litellm = {
     "data": [
       {"id": "zai/glm-4.5-flash"},
@@ -349,7 +348,9 @@ def test_zai_config_keeps_flash_reasoning_without_native_rows() -> None:
       return litellm
     return {"models": []}
 
-  config = yaml.safe_load(Path("config/providers/free.yml").read_text(encoding="utf-8"))
+  config = {
+    "z-ai": {"supports_reasoning": True, "supported_reasoning_efforts": ["none", "max"]}
+  }
   slugs = ["glm-4.5-flash", "glm-4.6v-flash", "glm-4.7-flash"]
   rows, problems = enrichment.enrich(
     [f"z-ai/{slug}" for slug in slugs], config, fetch, native={}
