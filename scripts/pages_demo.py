@@ -266,6 +266,15 @@ DEMO_SHAPES = (
   {
     "app": "OWUI",
     "effort": "high",
+    "via": "cloudflare/@cf/zai-org/glm-4.7-flash",
+    "attempts": [
+      {
+        "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
+        "result": "answered",
+        "seconds": 0.001,
+        "error": "",
+      },
+    ],
     "pool": "koinos",
     "routed": "moros",
     "transition": {
@@ -278,6 +287,7 @@ DEMO_SHAPES = (
   },
   {
     "app": "Kilo",
+    "via": "cloudflare/@cf/zai-org/glm-4.7-flash",
     "retry": "1",
     "fallbacks": "1",
     "status": 200,
@@ -348,7 +358,6 @@ DEMO_SHAPES = (
         "seconds": 0.297,
         "error": "",
         "race": "won",
-        "weight_change": {"from": 1.0, "to": 1.5},
       },
     ],
   },

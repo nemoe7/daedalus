@@ -4590,11 +4590,7 @@
           "model": "kilo/nvidia/nemotron-3.5-lightning:free",
           "race": "won",
           "result": "answered",
-          "seconds": 0.297,
-          "weight_change": {
-            "from": 1.0,
-            "to": 1.5
-          }
+          "seconds": 0.297
         }
       ],
       "effort": null,
@@ -4713,7 +4709,7 @@
         "to_pool": "koinos"
       },
       "ttft": "0.001s",
-      "via": "mistral/codestral-2508"
+      "via": "cloudflare/@cf/zai-org/glm-4.7-flash"
     },
     {
       "app": "OWUI",
@@ -4721,7 +4717,7 @@
       "attempts": [
         {
           "error": "",
-          "model": "mistral/codestral-2508",
+          "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
           "result": "answered",
           "seconds": 0.001
         }
@@ -4752,7 +4748,7 @@
         "to_pool": "deinos"
       },
       "ttft": "0.001s",
-      "via": "mistral/codestral-2508"
+      "via": "cloudflare/@cf/zai-org/glm-4.7-flash"
     },
     {
       "app": null,

@@ -418,6 +418,10 @@ NODE_CHECK = (
     && item.items.some((value) => typeof value.share === "number" && value.share < 1));
   check(!!card, "the traffic moves the balance card");
   check(grown.every(shaped), "each row of the table carries the fields of the server");
+  check(grown.every(row => !row.transition || row.transition.to_model === row.via),
+    "the transition names the served model");
+  check(grown.every(row => row.attempts.filter(attempt => attempt.result === "answered")
+    .every(attempt => attempt.model === row.via)), "the successful attempt names the served model");
   check(grown.some((row) => Number(row.fallbacks) > 0), "a fallback chain arrives");
   check(grown.some((row) => (row.attempts || []).some((a) => a.cooldown)), "a rate limit");
   // The rows of a scenario share a session, in the order the apps send them.
@@ -447,6 +451,7 @@ NODE_CHECK = (
   // The cards read the same traffic: the weights and the cooldowns move as the rows land.
   const moved = await (await context.fetch("ui/api/models")).json();
   check(moved.some((row) => row.weight !== 1), "the traffic moves the weights");
+  check(moved.every(row => row.weight > 0 && row.weight <= 1), "weights stay within the server bounds");
   check(moved.some((row) => row.cooldown !== null), "the traffic sets a cooldown");
   const seven = (value) => typeof value === "string" && /^[0-9a-f]{7}$/.test(value);
   check(grown.filter((row) => row.session).every((row) => seven(row.session)),
@@ -1037,3 +1042,16 @@ def test_demo_keeps_valid_limits_when_a_header_group_is_invalid() -> None:
   assert [row["kind"] for row in rows] == ["requests", "tokens"]
   assert rows[0]["limit"] == 14400
   json.dumps(rows, allow_nan=False)
+
+
+def test_demo_request_state_is_consistent() -> None:
+  fixtures = json.loads(pages_demo.FIXTURES.read_text())
+  for row in [*pages_demo.DEMO_SHAPES, *fixtures["requests"]]:
+    if transition := row.get("transition"):
+      assert transition["to_model"] == row.get("via")
+    for attempt in row.get("attempts", []):
+      if attempt["result"] == "answered":
+        assert attempt["model"] == row["via"]
+      if change := attempt.get("weight_change"):
+        assert 0 < change["from"] <= 1
+        assert 0 < change["to"] <= 1
