@@ -1805,7 +1805,6 @@ function updateFails(answer) {
 function hooksManager() {
   const rows = state.settings.hook_rows || [];
   const sources = listValue("hooks", "sources");
-  const disabled = listValue("hooks", "disabled");
   const at = Math.min(state.hooksSource ?? 0, Math.max(0, sources.length - 1));
   const options = sources.length
     ? sources.map((entry, index) => `<option value="${index}"${index === at ? " selected" : ""}>${esc(sourceLabel(entry))}</option>`).join("")
@@ -1822,7 +1821,7 @@ function hooksManager() {
       <td role="cell"><span class="cell-value">${esc(row.scope || t("hook.scope.global_text"))}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
       <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || t("hook.scope.local_text"))}">${row.problem ? statusBadge(row.problem, { variant: "bad" }) : esc(record.repo || t("hook.scope.local_text"))}${record.commit ? `<span class="hook-sha">${esc(record.commit.slice(0, 7))}</span>` : ""}</span></td>
       <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
-        ${disabled.includes(row.name) ? "" : "checked"} aria-label="${t("hook.state.enabled_named_label", { name: esc(row.name) })}"></td>
+        ${row.enabled ? "checked" : ""} aria-label="${t("hook.state.enabled_named_label", { name: esc(row.name) })}"></td>
       <td class="end">${actionButton(icon("trash"), {
         variant: "ghost danger",
         attrs: { "data-hook-drop": row.path, "data-hook-title": title, "aria-label": t("hook.action.delete_named_label", { name: row.name }), title: t("action.remove_button") },
@@ -1940,8 +1939,15 @@ function dropHookSource() {
 
 function toggleHook(name, on) {
   const disabled = new Set(listValue("hooks", "disabled"));
-  if (on) disabled.delete(name);
-  else disabled.add(name);
+  if (on) {
+    const matches = (file, value) => [file, file.replace(/\.py$/, ""),
+      file.split("/").pop(), file.split("/").pop().replace(/\.py$/, "")].includes(value);
+    const removed = [...disabled].filter(value => matches(name, value));
+    for (const value of removed) disabled.delete(value);
+    for (const row of state.settings.hook_rows || []) {
+      if (row.name !== name && removed.some(value => matches(row.name, value))) disabled.add(row.name);
+    }
+  } else disabled.add(name);
   setListValue("hooks", "disabled", [...disabled]);
   // The save re-renders the table after the write. The chips flip in place first, so the color
   // transition runs on the same node instead of a swap that no transition can cross.

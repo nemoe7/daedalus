@@ -6345,3 +6345,67 @@ const ordinary = {kind: 'hourly_requests', value: '198', limit: '200', share: .9
 assert.strictEqual(probe.balanceValue(ordinary), probe.balanceValue(ordinary, false));
 """,
   )
+
+
+@pytest.mark.parametrize("contract", ["render", "toggle"])
+@pytest.mark.parametrize(
+  "disabled, remaining",
+  [
+    (["shared.py", "missing.py"], ["missing.py", "b/repo/shared.py"]),
+    (["shared", "missing.py"], ["missing.py", "b/repo/shared.py"]),
+    (["a/repo/shared.py", "missing.py"], ["missing.py"]),
+    (
+      ["a/repo/shared", "b/repo/shared.py", "missing.py"],
+      ["b/repo/shared.py", "missing.py"],
+    ),
+  ],
+)
+def test_hook_switch_effective_state(
+  tmp_path, monkeypatch, contract, disabled, remaining
+) -> None:
+  monkeypatch.setattr(hooks, "DISABLED", set(disabled))
+  monkeypatch.setattr(hooks, "folder", lambda: tmp_path)
+  names = ["a/repo/shared.py", "b/repo/shared.py", "other.py", "broken.py"]
+  payload = {
+    "defaults": settings.DEFAULTS,
+    "file": {"hooks": {"disabled": disabled}},
+    "hook_rows": [
+      {
+        "name": name,
+        "path": f"hooks/{name}",
+        "enabled": hooks.enabled(tmp_path / name) and name != "broken.py",
+        "problem": "invalid" if name == "broken.py" else "",
+      }
+      for name in names
+    ],
+  }
+  run_app_js(
+    "state, hooksManager, toggleHook, listValue, settingsChanges",
+    "probe.state.settings = "
+    + json.dumps(payload)
+    + ";\n"
+    + "const contract = "
+    + json.dumps(contract)
+    + ";\n"
+    + "const remaining = "
+    + json.dumps(remaining)
+    + ";\n"
+    + r"""
+vm.runInContext('saveSettings = () => {};', sandbox);
+if (contract === 'render') {
+  const switches = new Map([...probe.hooksManager().matchAll(/<input\b[^>]*data-hook-toggle="([^"]+)"[^>]*>/g)]
+    .map(match => [match[1], /\schecked(?:\s|>)/.test(match[0])]));
+  assert.strictEqual(switches.size, probe.state.settings.hook_rows.length);
+  for (const row of probe.state.settings.hook_rows) assert.strictEqual(switches.get(row.name), row.enabled);
+} else {
+  const target = 'a/repo/shared.py';
+  probe.toggleHook(target, true);
+  assert.deepStrictEqual([...probe.listValue('hooks', 'disabled')].sort(), remaining.sort());
+  assert.deepStrictEqual([...probe.settingsChanges().hooks.disabled].sort(), remaining.sort());
+  probe.toggleHook(target, false);
+  assert.deepStrictEqual([...probe.listValue('hooks', 'disabled')].sort(), [...remaining, target].sort());
+  probe.toggleHook(target, true);
+  assert.deepStrictEqual([...probe.listValue('hooks', 'disabled')].sort(), remaining.sort());
+}
+""",
+  )
