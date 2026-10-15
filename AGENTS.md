@@ -1,5 +1,10 @@
 # AGENTS.md
 
+## Development phase
+
+The project is in development. Code changes are rapid and can break existing behavior.
+Do not add backward-compatibility code yet. Use the current contract without compatibility layers or legacy migrations.
+
 ## Pull request body
 
 - Use the H2 sections Summary, Changes, and Validation in that order.
