@@ -1,5 +1,7 @@
 """Tests of the counted `hourly_requests` of a provider."""
 
+import json
+
 from daedalus.routing import pacing
 from daedalus.routing.limits import Limits
 
@@ -68,12 +70,35 @@ def test_limits_row() -> None:
   seen.counted = paced.hour_rows
   view = seen.view()
   assert view["lanes"] == [], "the counted limit is not a header row"
-  assert view["providers"] == [
-    {"name": "kilo", "items": [["Requests left this hour", "2 of 3", 2 / 3]]}
-  ], "without a balance, the counter makes the kilo card"
-  seen.balances = {"kilo": [("Balance", "$1.00", None)]}
+  counter = {"kind": "hourly_requests", "value": "2", "limit": "3", "share": 2 / 3}
+  assert view["providers"] == [{"name": "kilo", "items": [counter]}], (
+    "without a balance, the counter makes the kilo card"
+  )
+  balance = {"kind": "balance", "value": 1.0, "limit": None, "share": None}
+  seen.balances = {"kilo": [balance]}
   items = seen.view()["providers"][0]["items"]
-  assert items[0][0] == "Balance" and items[1][1] == "2 of 3", "below the balance"
+  assert items == [balance, counter], "below the balance"
+  items[0]["value"] = 0
+  assert seen.balances["kilo"][0]["value"] == 1.0
   assert paced.hour_rows(50_000.0)[0]["reset"] == 50_000.0 + 3000
   paced.used_up("kilo/a")
   assert paced.hour_rows(50_000.0)[0]["remaining"] == 0, "a 429 leaves 0"
+
+
+def test_large_hourly_counts_keep_every_digit() -> None:
+  """Hourly cards encode counts exactly above the JavaScript integer boundary."""
+  for cap in (2**53 + 1, 10**400):
+    paced = paced_kilo({"now": 1000.0}, cap)
+    paced.record("kilo/a")
+    seen = Limits(clock=lambda: 1000.0)
+    seen.counted = paced.hour_rows
+    view = seen.view()
+    assert view["providers"][0]["items"] == [
+      {
+        "kind": "hourly_requests",
+        "value": str(cap - 1),
+        "limit": str(cap),
+        "share": (cap - 1) / cap,
+      }
+    ]
+    json.dumps(view, allow_nan=False)

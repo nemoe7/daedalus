@@ -12,6 +12,8 @@ from daedalus import dashboard, store
 from daedalus.routing import limits
 from daedalus.routing.cooldowns import Cooldowns
 
+BALANCE = {"kind": "balance", "value": 1.2, "limit": None, "share": None}
+
 NOW = datetime(2026, 9, 29, 6, 0, tzinfo=UTC).timestamp()
 GROQ = {
   "x-ratelimit-limit-requests": "14400",
@@ -266,7 +268,7 @@ def test_neurons() -> None:
     "errors": None,
   }
   rows = limits.neuron_items(empty)
-  assert len(rows) == 1 and rows[0][2] == 1.0, rows
+  assert len(rows) == 1 and rows[0]["share"] == 1.0, rows
   small = {
     "data": {
       "viewer": {
@@ -275,7 +277,7 @@ def test_neurons() -> None:
     }
   }
   rows = limits.neuron_items(small)
-  assert len(rows) == 1 and rows[0][2] == pytest.approx(0.99991, abs=1e-5), rows
+  assert len(rows) == 1 and rows[0]["share"] == pytest.approx(0.99991, abs=1e-5), rows
   refused = {"data": None, "errors": [{"message": "not authorized for that account"}]}
   assert limits.neuron_items(refused) == []
   assert limits.neuron_items({"data": {"viewer": {"accounts": []}}}) == []
@@ -301,13 +303,18 @@ async def test_check(cooldowns: Cooldowns) -> None:
   shown = {item["name"]: item["items"] for item in found.view()["providers"]}
   assert shown == {
     "openrouter": [
-      ["Credit left", "$7.50 of $10.00", 0.75],
-      ["Used today", "$0.25", None],
-      ["Free requests today", "0 of 50 left", 0.0],
+      {"kind": "credit", "value": 7.5, "limit": 10, "share": 0.75},
+      {"kind": "usage", "value": 0.25, "limit": None, "share": None},
+      {"kind": "free_requests", "value": 0, "limit": 50, "share": 0.0},
     ],
-    "kilo": [["Balance", "$1.20", None]],
+    "kilo": [BALANCE],
     "cloudflare": [
-      ["Neurons today", "8K of 10K left", pytest.approx(0.87657, abs=1e-5)]
+      {
+        "kind": "neurons",
+        "value": pytest.approx(8765.6),
+        "limit": 10000,
+        "share": pytest.approx(0.87657, abs=1e-5),
+      }
     ],
   }, shown
   ends = cooldowns.ends()
@@ -332,12 +339,6 @@ def test_bare_headers() -> None:
   assert limits.cooling_end(rows[0], NOW) == NOW + 3600, (
     "0 left holds the lane to the reset"
   )
-
-
-def test_floored() -> None:
-  """Counts floor to K, M or B, and stay whole below 1,000."""
-  values = [0, 999, 1234, 998_765_432, 1_000_000_000]
-  assert [limits.floored(v) for v in values] == ["0", "999", "1K", "998M", "1B"]
 
 
 def test_advertised_resets_notify_at_the_boundary_once(tmp_path: Path) -> None:
@@ -570,14 +571,12 @@ def test_rows_survive_a_restart(tmp_path: Path) -> None:
   found.restore()
   assert not path.exists(), "a restore with no state file writes nothing"
   found.observe("groq/llama", httpx.Headers(GROQ))
-  found.balances, found.checked = {"kilo": [("Balance", "$1.20", None)]}, NOW
+  found.balances, found.checked = {"kilo": [BALANCE]}, NOW
   found.save()
   again = limits.Limits(clock=lambda: NOW, path=lambda: path)
   again.restore()
   assert [item["model"] for item in again.view()["lanes"]] == ["groq/llama"]
-  assert again.view()["providers"] == [
-    {"name": "kilo", "items": [["Balance", "$1.20", None]]}
-  ]
+  assert again.view()["providers"] == [{"name": "kilo", "items": [BALANCE]}]
   assert again.view()["checked"] == NOW
   again.clear()
   empty = limits.Limits(clock=lambda: NOW, path=lambda: path)
@@ -596,7 +595,7 @@ def test_a_bad_saved_view_is_dropped(tmp_path: Path) -> None:
         "junk": 3,
         "bad": {"at": "yesterday", "rows": []},
       },
-      "balances": {"kilo": [["Balance", "$1.20", None], "junk"], "nope": 4},
+      "balances": {"kilo": [BALANCE, "junk"], "nope": 4},
       "checked": "a while ago",
     }
   )
@@ -610,9 +609,7 @@ def test_a_bad_saved_view_is_dropped(tmp_path: Path) -> None:
   found.restore()
   assert [item["model"] for item in found.view()["lanes"]] == ["groq/llama"]
   assert found.view()["lanes"][0]["rows"] == [{"kind": "requests"}]
-  assert found.view()["providers"] == [
-    {"name": "kilo", "items": [["Balance", "$1.20", None]]}
-  ]
+  assert found.view()["providers"] == [{"name": "kilo", "items": [BALANCE]}]
   assert found.view()["checked"] is None
   database = found.connect()
   with database:
@@ -631,7 +628,7 @@ async def test_check_keeps_a_failed_card(cooldowns: Cooldowns) -> None:
   async with httpx.AsyncClient(transport=httpx.MockTransport(answer)) as client:
     found = limits.Limits(cooldowns, lambda: config, lambda: client, clock=lambda: NOW)
     await found.check()
-    assert [item["name"] for item in found.view()["providers"]] == ["kilo"]
+    assert found.view()["providers"] == [{"name": "kilo", "items": [BALANCE]}]
 
     def refused(_request: httpx.Request) -> httpx.Response:
       return httpx.Response(500)
@@ -639,9 +636,7 @@ async def test_check_keeps_a_failed_card(cooldowns: Cooldowns) -> None:
     async with httpx.AsyncClient(transport=httpx.MockTransport(refused)) as other:
       found.client = lambda: other
       await found.check()
-  assert [item["name"] for item in found.view()["providers"]] == ["kilo"], (
-    "the last good card stays"
-  )
+  assert found.view()["providers"] == [{"name": "kilo", "items": [BALANCE]}]
 
 
 @pytest.mark.parametrize("field", ["limit", "remaining", "reset"])
@@ -658,14 +653,14 @@ def test_restore_drops_only_invalid_numeric_rows(tmp_path: Path, field, value) -
   }
   found = limits.Limits(clock=lambda: NOW, path=lambda: path)
   found.lanes = {"groq/llama": {"at": NOW, "rows": [good, {**good, field: value}]}}
-  found.balances = {"kilo": [("Balance", "$1.20", None)]}
+  found.balances = {"kilo": [BALANCE]}
   found.checked = NOW
   found.save()
   again = limits.Limits(clock=lambda: NOW, path=lambda: path)
   again.restore()
   view = again.view()
   assert view["lanes"][0]["rows"] == [good]
-  assert view["providers"] == [{"name": "kilo", "items": [["Balance", "$1.20", None]]}]
+  assert view["providers"] == [{"name": "kilo", "items": [BALANCE]}]
   assert view["checked"] == NOW
   json.dumps(view, allow_nan=False)
 
@@ -685,6 +680,7 @@ async def test_limit_http_view_keeps_valid_rows(
     return None
 
   monkeypatch.setattr(found, "check", no_refresh)
+  found.balances = {"kilo": [BALANCE]}
   app = FastAPI()
   routes = APIRouter(prefix="/ui/api")
   dashboard.limit_routes(routes, found)
@@ -699,6 +695,129 @@ async def test_limit_http_view_keeps_valid_rows(
     assert denied.status_code == 401
     answer = await client.request(method, "/ui/api/limits", headers=headers)
   assert answer.status_code == 200
+  assert answer.json()["providers"] == [{"name": "kilo", "items": [BALANCE]}]
   rows = answer.json()["lanes"][0]["rows"]
   assert [row["kind"] for row in rows] == ["tokens"]
   assert rows[0]["limit"] == 18000
+
+
+def test_saved_balance_cards_reject_invalid_and_old_shapes() -> None:
+  """Cached cards accept only finite numeric values and known semantic kinds."""
+  invalid = [
+    ["Balance", "$1.20", None],
+    {},
+    "junk",
+    *({**BALANCE, "kind": kind} for kind in ("unknown", None, [], True)),
+    *(
+      {**BALANCE, "value": value}
+      for value in (True, None, "1.2", float("nan"), float("inf"), 10**1000)
+    ),
+    *(
+      {**BALANCE, "limit": value} for value in (True, "10", float("nan"), float("inf"))
+    ),
+    *(
+      {**BALANCE, "share": value}
+      for value in (True, "0.5", -0.1, 1.1, float("nan"), float("inf"))
+    ),
+    {key: value for key, value in BALANCE.items() if key != "share"},
+    {**BALANCE, "limit": 10},
+    {**BALANCE, "share": 0.5},
+    {**BALANCE, "kind": "credit"},
+    {**BALANCE, "kind": "hourly_requests", "value": "2", "limit": "3", "share": 2 / 3},
+  ]
+  assert limits.saved_balances(
+    {"kilo": [BALANCE, *invalid], "old": invalid, "bad": 4}
+  ) == {"kilo": [BALANCE]}
+  assert limits.saved_balances(None) == {}
+
+
+def test_balance_amounts_keep_decimal_precision_and_raw_shares() -> None:
+  """Numeric amounts keep Python rounding without rounding the remaining fraction."""
+  rows = limits.openrouter_items(
+    {"limit_remaining": 2.675, "limit": 10.005, "usage_daily": 1.005}
+  )
+  assert rows == [
+    {"kind": "credit", "value": 2.67, "limit": 10.01, "share": 2.675 / 10.005},
+    {"kind": "usage", "value": 1.0, "limit": None, "share": None},
+  ]
+  tiny = limits.openrouter_items({"limit_remaining": 0.001, "limit": 0.004})
+  assert tiny[0]["limit"] == 0 and tiny[0]["share"] == 0.25
+  assert limits.saved_balances({"p": tiny}) == {"p": tiny}
+  assert limits.READERS["pollinations"][1]({"balance": 2.675}) == [
+    {"kind": "pollen", "value": 2.67, "limit": None, "share": None}
+  ]
+  assert limits.READERS["kilo"][1]({"balance": 0}) == [
+    {"kind": "balance", "value": 0, "limit": None, "share": None}
+  ]
+
+  assert limits.openrouter_items(
+    {"free_model_daily_requests": {"remaining": 2.5, "limit": 999.9}}
+  ) == [{"kind": "free_requests", "value": 2.5, "limit": 999.9, "share": 2.5 / 999.9}]
+  assert limits.openrouter_items({"limit_remaining": -1, "limit": 0}) == [
+    {"kind": "credit", "value": -1, "limit": 0, "share": None}
+  ]
+
+
+async def test_old_balance_cards_wait_for_a_successful_refresh(tmp_path: Path) -> None:
+  """An old card resets without changing rate rows, pending resets or warning state."""
+  now = [NOW]
+  path = tmp_path / "models.sqlite3"
+  found = limits.Limits(clock=lambda: now[0], path=lambda: path)
+  found.observe(
+    "groq/model",
+    httpx.Headers(
+      {
+        "x-ratelimit-limit-requests-minute": "100",
+        "x-ratelimit-remaining-requests-minute": "10",
+        "x-ratelimit-reset-requests-minute": str(NOW + 30),
+      }
+    ),
+  )
+  found.balances = {"kilo": [["Balance", "$1.20", None]]}
+  found.save()
+  again = limits.Limits(
+    config=lambda: {"kilo": {"api_key": "k"}}, clock=lambda: now[0], path=lambda: path
+  )
+  again.restore()
+  assert again.view()["providers"] == []
+  assert again.lanes == found.lanes
+  assert again.pending_resets == found.pending_resets
+  assert again.warnings() == found.warnings()
+  assert again.warned_limits == found.warned_limits
+  async with httpx.AsyncClient(
+    transport=httpx.MockTransport(lambda request: httpx.Response(500))
+  ) as client:
+    again.client = lambda: client
+    await again.check()
+    assert again.view()["providers"] == []
+  async with httpx.AsyncClient(transport=httpx.MockTransport(answer)) as client:
+    again.client = lambda: client
+    await again.check()
+  assert again.view()["providers"] == [{"name": "kilo", "items": [BALANCE]}]
+  now[0] += 30
+  events = again.resets()
+  assert len(events) == 1 and events[0]["at"] == now[0]
+  restored = limits.Limits(clock=lambda: now[0], path=lambda: path)
+  restored.restore()
+  assert restored.resets() == events
+  assert restored.warnings() == again.warnings()
+
+
+def test_neuron_sum_overflow_remains_a_failed_read() -> None:
+  """An overflowing sum raises a value error instead of entering a JSON balance card."""
+  data = {
+    "data": {
+      "viewer": {
+        "accounts": [
+          {
+            "aiInferenceAdaptiveGroups": [
+              {"sum": {"totalNeurons": 1e308}},
+              {"sum": {"totalNeurons": 1e308}},
+            ]
+          }
+        ]
+      }
+    }
+  }
+  with pytest.raises(ValueError):
+    limits.neuron_items(data)

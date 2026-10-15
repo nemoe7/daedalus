@@ -303,6 +303,19 @@ NODE_CHECK = (
   check((await (await context.fetch("ui/api/login")).json()).session === true, "the login opens the page again");
   const fresh = await (await context.fetch("ui/api/limits", { method: "POST", headers: JSON_HEADERS })).json();
   check(fresh.checked > 0 && fresh.lanes[0].at > 0, "the limits check reads a fresh time");
+  const balanceKinds = new Set(['credit', 'usage', 'free_requests', 'balance', 'pollen', 'neurons', 'hourly_requests']);
+  for (const item of fresh.providers.flatMap(provider => provider.items)) {
+    check(balanceKinds.has(item.kind), "the refreshed card has a semantic kind");
+    if (item.kind === 'hourly_requests') {
+      check(typeof item.value === 'string' && /^[0-9]+$/.test(item.value), "the hourly count has exact digits");
+      check(typeof item.limit === 'string' && /^[0-9]+$/.test(item.limit), "the hourly limit has exact digits");
+    } else {
+      check(Number.isFinite(item.value), "the refreshed card has a numeric value");
+      check(item.limit === null || Number.isFinite(item.limit), "the refreshed card has a numeric limit");
+    }
+    check(item.share === null || Number.isFinite(item.share) && item.share >= 0 && item.share <= 1,
+      "the refreshed card has a bounded remaining fraction");
+  }
   const limitUnits = new Set(fresh.lanes.flatMap((lane) =>
     lane.rows.map((row) => `${row.kind}/${row.span}`)));
   check(limitUnits.has("requests/day"), "the demo keeps an RPD row");
@@ -402,7 +415,7 @@ NODE_CHECK = (
   // The provider that the waves reached has a card, and its traffic moved the number.
   const reached = new Set(grown.map((row) => String(row.via).split("/")[0]));
   const card = liveLimits.providers.find((item) => reached.has(item.name)
-    && item.items.some((value) => typeof value[2] === "number" && value[2] < 1));
+    && item.items.some((value) => typeof value.share === "number" && value.share < 1));
   check(!!card, "the traffic moves the balance card");
   check(grown.every(shaped), "each row of the table carries the fields of the server");
   check(grown.some((row) => Number(row.fallbacks) > 0), "a fallback chain arrives");
@@ -563,16 +576,18 @@ def test_the_fixtures_carry_the_edge_cases() -> None:
     "pollinations",
     "cloudflare",
   ], "each balance card of the page"
-  assert all(len(item) == 3 for card in cards for item in card["items"]), (
-    "the card items"
-  )
-  labels = {item[0] for card in cards for item in card["items"]}
-  assert {
-    "Free requests today",
-    "Balance",
-    "Requests left this hour",
-    "Pollen",
-  } <= labels, labels
+  items = [item for card in cards for item in card["items"]]
+  assert all(set(item) == {"kind", "value", "limit", "share"} for item in items)
+  kinds = {item["kind"] for item in items}
+  assert {"free_requests", "balance", "hourly_requests", "pollen", "neurons"} <= kinds
+  for item in items:
+    if item["kind"] == "hourly_requests":
+      assert isinstance(item["value"], str) and item["value"].isdecimal()
+      assert isinstance(item["limit"], str) and item["limit"].isdecimal()
+    else:
+      assert isinstance(item["value"], (int, float))
+      assert item["limit"] is None or isinstance(item["limit"], (int, float))
+  assert all(item["share"] is None or 0 <= item["share"] <= 1 for item in items)
   assert fixtures["limits"]["checked"], "the checked time"
   assert any(len(key["name"]) == 40 for key in fixtures["keys"]), (
     "a key name at its limit"

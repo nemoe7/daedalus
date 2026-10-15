@@ -6240,3 +6240,74 @@ probe.renderNotifications({update: null});
 assert(node('update-card').innerHTML.includes(probe.line(LOCALE['update.checked_text'], '-')));
 """,
   )
+
+
+def test_balance_cards_use_localized_semantic_values() -> None:
+  """Both balance views use locale labels and values without changing numeric formats."""
+  run_app_js(
+    "overviewLimits, renderLimits, progressMeter",
+    """
+const specs = [
+  ['credit', 2.67, 10, .267],
+  ['usage', 1.01, null, null],
+  ['free_requests', 2.5, 1000, .0025],
+  ['balance', -0, null, null],
+  ['pollen', 1234.56, null, null],
+  ['neurons', 9000, 10000, .9],
+  ['hourly_requests', '1987', '2000', .9935],
+  ['hourly_requests', '9007199254740993', '9007199254740995', 1],
+];
+for (const [kind] of specs) LOCALE[`limits.balance.${kind}.label`] = `label-${kind}`;
+LOCALE['limits.value.of_text'] = '{remaining} / {limit}';
+LOCALE['limits.value.remaining_text'] = 'reste({remaining}; {limit})';
+LOCALE['limits.value.money_text'] = 'monnaie({value})';
+const decimal = value => value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const expected = [
+  `monnaie(${decimal(2.67)}) / monnaie(${decimal(10)})`,
+  `monnaie(${decimal(1.01)})`,
+  `reste(${(2).toLocaleString()}; 1K)`,
+  `monnaie(${decimal(-0)})`,
+  decimal(1234.56),
+  'reste(9K; 10K)',
+  `${(1987).toLocaleString()} / ${(2000).toLocaleString()}`,
+  `${9007199254740993n.toLocaleString()} / ${9007199254740995n.toLocaleString()}`,
+];
+const items = specs.map(([kind, value, limit, share]) => ({kind, value, limit, share}));
+const data = {checked: null, lanes: [], providers: [{name: 'provider<&>', items}]};
+const overview = probe.overviewLimits(data);
+probe.renderLimits(data);
+for (const markup of [overview, node('balances').innerHTML]) {
+  assert(markup.includes('provider&lt;&amp;&gt;'));
+  for (let i = 0; i < items.length; i++) {
+    assert(markup.includes(`label-${items[i].kind}`));
+    assert(markup.includes(expected[i]), expected[i]);
+    if (items[i].share !== null) assert(markup.includes(probe.progressMeter(items[i].share)));
+  }
+}
+assert.strictEqual(node('balances').hidden, false);
+LOCALE['limits.balance.credit.label'] = '<changed&>';
+LOCALE['limits.value.money_text'] = '<{value}>';
+for (const markup of [probe.overviewLimits(data), (probe.renderLimits(data), node('balances').innerHTML)]) {
+  assert(markup.includes('&lt;changed&amp;&gt;'));
+  assert(markup.includes(`&lt;${decimal(2.67)}&gt;`));
+  assert(!markup.includes('label-credit'));
+}
+probe.renderLimits({checked: null, lanes: [], providers: []});
+assert.strictEqual(node('balances').hidden, true);
+""",
+  )
+
+
+def test_balance_count_format_keeps_rounding_and_unit_boundaries() -> None:
+  """Counts keep whole-number rounding below 1,000 and floor larger positive values."""
+  run_app_js(
+    "balanceCount",
+    """
+const values = [0, 999, 1234, 998765432, 1000000000, 2.5, 3.5, 999.9, -2.5, -0.5];
+const expected = [0, 999, '1K', '998M', '1B', 2, 4, 1000, -2, -0];
+for (let i = 0; i < values.length; i++) {
+  const wanted = typeof expected[i] === 'number' ? expected[i].toLocaleString() : expected[i];
+  assert.strictEqual(probe.balanceCount(values[i]), wanted);
+}
+""",
+  )

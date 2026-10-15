@@ -779,46 +779,51 @@
     "providers": [
       {
         "items": [
-          [
-            "Free requests today",
-            "991 of 1K left",
-            0.991
-          ]
+          {
+            "kind": "free_requests",
+            "value": 991,
+            "limit": 1000,
+            "share": 0.991
+          }
         ],
         "name": "openrouter"
       },
       {
         "items": [
-          [
-            "Balance",
-            "$0.00",
-            null
-          ],
-          [
-            "Requests left this hour",
-            "198 of 200",
-            0.99
-          ]
+          {
+            "kind": "balance",
+            "value": 0,
+            "limit": null,
+            "share": null
+          },
+          {
+            "kind": "hourly_requests",
+            "value": "198",
+            "limit": "200",
+            "share": 0.99
+          }
         ],
         "name": "kilo"
       },
       {
         "items": [
-          [
-            "Pollen",
-            "0.25",
-            null
-          ]
+          {
+            "kind": "pollen",
+            "value": 0.25,
+            "limit": null,
+            "share": null
+          }
         ],
         "name": "pollinations"
       },
       {
         "items": [
-          [
-            "Neurons today",
-            "10K of 10K left",
-            1.0
-          ]
+          {
+            "kind": "neurons",
+            "value": 10000,
+            "limit": 10000,
+            "share": 1.0
+          }
         ],
         "name": "cloudflare"
       }

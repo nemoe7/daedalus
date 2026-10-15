@@ -3029,12 +3029,39 @@ const limitTimeCell = (seconds, cls) => (seconds
   ? timeText(seconds, { tag: "td", variant: cls })
   : `<td class="${cls}">-</td>`);
 
+const BALANCE_LABELS = {
+  credit: () => t("limits.balance.credit.label"),
+  usage: () => t("limits.balance.usage.label"),
+  free_requests: () => t("limits.balance.free_requests.label"),
+  balance: () => t("limits.balance.balance.label"),
+  pollen: () => t("limits.balance.pollen.label"),
+  neurons: () => t("limits.balance.neurons.label"),
+  hourly_requests: () => t("limits.balance.hourly_requests.label"),
+};
+
+function balanceCount(value) {
+  return value >= 1000 ? floorCount(value)
+    : value.toLocaleString(undefined, { maximumFractionDigits: 0, roundingMode: "halfEven" });
+}
+
+function balanceValue(item) {
+  const decimal = value => value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const money = value => t("limits.value.money_text", { value: decimal(value) });
+  if (item.kind === "credit") return t("limits.value.of_text", { remaining: money(item.value), limit: money(item.limit) });
+  if (item.kind === "usage" || item.kind === "balance") return money(item.value);
+  if (item.kind === "pollen") return decimal(item.value);
+  if (item.kind === "hourly_requests") return t("limits.value.of_text", {
+    remaining: BigInt(item.value).toLocaleString(), limit: BigInt(item.limit).toLocaleString(),
+  });
+  return t("limits.value.remaining_text", { remaining: balanceCount(item.value), limit: balanceCount(item.limit) });
+}
+
 // The balances, then the 3 rate-limit rows with the least left.
 function overviewLimits(data) {
   if (!data) return "";
   const bar = (left) => (left == null ? "" : progressMeter(left));
-  const balances = data.providers.flatMap((p) => p.items.map(([label, value, left]) =>
-    `<div class="balance">${line(`${esc(p.name)} &middot; ${esc(label)}`, esc(value))}${bar(left)}</div>`));
+  const balances = data.providers.flatMap((p) => p.items.map(item =>
+    `<div class="balance">${line(`${esc(p.name)} &middot; ${esc(BALANCE_LABELS[item.kind]())}`, esc(balanceValue(item)))}${bar(item.share)}</div>`));
   const share = (r) => (r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0);
   const rows = data.lanes.flatMap((lane) => lane.rows.map((row) => ({ ...row, model: lane.model })))
     .sort((a, b) => share(a) - share(b)).slice(0, 3)
@@ -3065,8 +3092,8 @@ function renderLimits(data) {
     : t("limits.not_checked_text"));
   $("balances").hidden = !data.providers.length;
   draw("balances", data.providers.map((p) => `<div class="card"><h3>${esc(p.name)}</h3>
-    ${p.items.map(([label, value, left]) => `<div class="balance">${line(esc(label), esc(value))}
-      ${left == null ? "" : progressMeter(left)}</div>`).join("")}</div>`).join(""));
+    ${p.items.map(item => `<div class="balance">${line(esc(BALANCE_LABELS[item.kind]()), esc(balanceValue(item)))}
+      ${item.share == null ? "" : progressMeter(item.share)}</div>`).join("")}</div>`).join(""));
 }
 
 function renderLimitRows(rows) {

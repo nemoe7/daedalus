@@ -61,8 +61,7 @@ NEURONS = (
   " filter: {datetimeHour_geq: $start}) { sum { totalNeurons } } } } }"
 )
 logger = logging.getLogger("daedalus")
-# A label, a value, and a remaining fraction or None for the bar.
-Item = tuple[str, str, float | None]
+Item = dict[str, str | float | None]
 
 
 def number(value: Any) -> float | None:
@@ -188,10 +187,6 @@ def cooling_end(row: Mapping[str, Any], now: float) -> float | None:
   ).timestamp()
 
 
-def money(value: float) -> str:
-  return f"${value:,.2f}"
-
-
 def keyed_block(provider: Any) -> dict[str, Any] | None:
   """The first block of a provider with an API key: the main file, else the provider file."""
   for block in (main_block(provider), file_block(provider)):
@@ -246,41 +241,42 @@ def share(left: float, limit: float) -> float | None:
   return max(0.0, min(1.0, left / limit)) if limit > 0 else None
 
 
+def card_item(
+  kind: str,
+  value: float | str,
+  limit: float | str | None = None,
+  fraction: float | None = None,
+) -> Item:
+  """A balance value with its semantic kind, limit and remaining fraction."""
+  return {"kind": kind, "value": value, "limit": limit, "share": fraction}
+
+
 def openrouter_items(data: Any) -> list[Item]:
   items: list[Item] = []
   left, limit = number(data.get("limit_remaining")), number(data.get("limit"))
   if left is not None and limit is not None:
     items.append(
-      ("Credit left", f"{money(left)} of {money(limit)}", share(left, limit))
+      card_item(
+        "credit", float(f"{left:.2f}"), float(f"{limit:.2f}"), share(left, limit)
+      )
     )
   used = number(data.get("usage_daily"))
   if used:
-    items.append(("Used today", money(used), None))
+    items.append(card_item("usage", float(f"{used:.2f}")))
   free = data.get("free_model_daily_requests")
   free = free if isinstance(free, dict) else {}
   left, limit = number(free.get("remaining")), number(free.get("limit"))
   if left is not None and limit is not None:
-    text = f"{floored(left)} of {floored(limit)} left"
-    items.append(("Free requests today", text, share(left, limit)))
+    items.append(card_item("free_requests", left, limit, share(left, limit)))
   return items
 
 
-def floored(value: float) -> str:
-  """A count floored to K, M or B, for example 8K. Below 1,000 it stays whole."""
-  for size, mark in ((1_000_000_000, "B"), (1_000_000, "M"), (1_000, "K")):
-    if value >= size:
-      return f"{int(value // size)}{mark}"
-  return f"{value:,.0f}"
-
-
-def balance_items(
-  name: str, text: Callable[[float], str]
-) -> Callable[[Any], list[Item]]:
-  """The values of a `balance` answer, with 1 label and 1 number format."""
+def balance_items(kind: str) -> Callable[[Any], list[Item]]:
+  """The values of a balance answer, rounded to two decimal places."""
 
   def items(data: Any) -> list[Item]:
     found = number(data.get("balance"))
-    return [] if found is None else [(name, text(found), None)]
+    return [] if found is None else [card_item(kind, float(f"{found:.2f}"))]
 
   return items
 
@@ -297,23 +293,18 @@ def neuron_items(data: Any) -> list[Item]:
   if None in values:
     return []
   used = sum(value for value in values if value is not None)
+  if not math.isfinite(used):
+    raise ValueError("the neuron sum is not finite")
   left = share(CLOUDFLARE_FREE - used, CLOUDFLARE_FREE)
-  # The value and the bar show the same quantity: the remaining neurons today.
-  return [
-    (
-      "Neurons today",
-      f"{floored(CLOUDFLARE_FREE - used)} of {floored(CLOUDFLARE_FREE)} left",
-      left,
-    )
-  ]
+  return [card_item("neurons", CLOUDFLARE_FREE - used, CLOUDFLARE_FREE, left)]
 
 
 Reader = Callable[[httpx.AsyncClient, str, str], Awaitable[Any]]
 # The balance reader of each provider, and the values it shows.
 READERS: dict[str, tuple[Reader, Callable[[Any], list[Item]]]] = {
   "openrouter": (openrouter, openrouter_items),
-  "kilo": (kilo, balance_items("Balance", money)),
-  "pollinations": (pollinations, balance_items("Pollen", "{:,.2f}".format)),
+  "kilo": (kilo, balance_items("balance")),
+  "pollinations": (pollinations, balance_items("pollen")),
   "cloudflare": (cloudflare, neuron_items),
 }
 
@@ -343,16 +334,43 @@ def saved_lanes(found: Any) -> dict[str, dict[str, Any]]:
 
 
 def saved_balances(found: Any) -> dict[str, list[Item]]:
-  """The balance cards of a stored view: a name with its label, value and bar rows."""
+  """Restore finite semantic balance cards and discard old text rows."""
   if not isinstance(found, dict):
     return {}
-  return {
-    str(name): [
-      tuple(item) for item in items if isinstance(item, list) and len(item) == 3
-    ]
-    for name, items in found.items()
-    if isinstance(items, list)
-  }
+  restored = {}
+  paired = {"credit", "free_requests", "neurons"}
+  kinds = paired | {"balance", "usage", "pollen"}
+  for name, items in found.items():
+    if not isinstance(items, list):
+      continue
+    rows = []
+    for item in items:
+      if (
+        not isinstance(item, dict)
+        or not {"kind", "value", "limit", "share"} <= item.keys()
+      ):
+        continue
+      kind = item["kind"]
+      if not isinstance(kind, str) or kind not in kinds:
+        continue
+      value, limit, fraction = item["value"], item["limit"], item["share"]
+      if not isinstance(value, (int, float)) or number(value) is None:
+        continue
+      if kind in paired:
+        if not isinstance(limit, (int, float)) or number(limit) is None:
+          continue
+        if fraction is not None and (
+          not isinstance(fraction, (int, float))
+          or number(fraction) is None
+          or not 0 <= fraction <= 1
+        ):
+          continue
+      elif limit is not None or fraction is not None:
+        continue
+      rows.append(card_item(kind, value, limit, fraction))
+    if rows:
+      restored[str(name)] = rows
+  return restored
 
 
 def reset_event(found: Any) -> dict[str, Any] | None:
@@ -835,7 +853,7 @@ class Limits:
       model, client = lanes.split(lane)
       rows.append({"model": model, "client": client or None, **seen})
     shown = [
-      {"name": name, "items": [list(item) for item in items]}
+      {"name": name, "items": [dict(item) for item in items]}
       for name, items in self.balances.items()
     ]
     # A counted limit goes into the card of its provider, below the balance.
@@ -846,10 +864,6 @@ class Limits:
         shown.append(card)
       left, limit = row["remaining"], row["limit"]
       card["items"].append(
-        [
-          "Requests left this hour",
-          f"{left:,} of {limit:,}",
-          share(left, limit),
-        ]
+        card_item("hourly_requests", str(left), str(limit), share(left, limit))
       )
     return {"checked": self.checked, "providers": shown, "lanes": rows}

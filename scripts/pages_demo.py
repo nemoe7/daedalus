@@ -495,11 +495,6 @@ const DEMO_FIXTURES = __FIXTURES__;
     return found ? Number(found[1]) : 0;
   })();
   const round = (value) => Math.round(value * 1000) / 1000;
-  // A count in the compact form that the server writes: floored to K, M or B.
-  const floored = (value) => (value >= 1e9 ? `${Math.floor(value / 1e9)}B`
-    : value >= 1e6 ? `${Math.floor(value / 1e6)}M`
-    : value >= 1e3 ? `${Math.floor(value / 1e3)}K`
-    : `${Math.floor(value)}`);
   // The media models answer on their own paths.
   // The embedding model of an owui chat, and the chat models. The catalog mode selects them, as the
   // server does, so an image, audio, embedding, decisions or rerank row never answers a chat wave.
@@ -1191,25 +1186,26 @@ const DEMO_FIXTURES = __FIXTURES__;
   };
   const cards = () => {
     const out = [];
-    const seen = new Set();
     for (const card of DEMO_FIXTURES.limits.providers) {
       const provider = card.name;
       const count = served_by(provider);
       const plan = plan_of(provider, blocks().get(provider));
       if (provider === "openrouter") {
         const left = Math.max(0, plan.free - count);
-        out.push({ items: [["Free requests today", `${left} of 1K left`, left / plan.free]], name: provider });
+        out.push({ items: [{ kind: "free_requests", value: left, limit: plan.free, share: left / plan.free }],
+          name: provider });
       } else if (provider === "kilo") {
         const left = Math.max(0, plan.requests - count);
-        out.push({ items: [["Balance", "$0.00", null], ["Requests left this hour", `${left} of ${plan.requests}`,
-        left / plan.requests]], name: provider });
+        out.push({ items: [{ kind: "balance", value: 0, limit: null, share: null },
+          { kind: "hourly_requests", value: String(left), limit: String(plan.requests),
+            share: left / plan.requests }], name: provider });
       } else if (provider === "pollinations") {
-        out.push({ items: [["Pollen", "0.25", null]], name: provider });
+        out.push({ items: [{ kind: "pollen", value: 0.25, limit: null, share: null }], name: provider });
       } else if (provider === "cloudflare") {
         const left = Math.max(0, plan.neurons - count * 40);
-        out.push({ items: [["Neurons today", `${floored(left)} of 10K left`, left / plan.neurons]], name: provider });
+        out.push({ items: [{ kind: "neurons", value: left, limit: plan.neurons, share: left / plan.neurons }],
+          name: provider });
       }
-      seen.add(provider);
     }
     return out;
   };
