@@ -159,6 +159,6 @@ Keep JSON inventories out of git.
 
 ## License
 
-daedalus uses the [nemoe7 Noncommercial License 1.1.0](LICENSE.md). Read the license for permitted purposes, source requirements and other terms.
+daedalus uses the [nemoe7 Noncommercial and Public-Interest License 1.2.0](LICENSE.md). Read the license for permitted purposes, source requirements and other terms.
 
 The classifier and its data come from [LiteLLM](https://github.com/BerriAI/litellm) (MIT). Its license is in [`daedalus/routing/artifacts/LITELLM-LICENSE.txt`](daedalus/routing/artifacts/LITELLM-LICENSE.txt).

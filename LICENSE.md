@@ -1,8 +1,12 @@
-# nemoe7 Noncommercial License 1.1.0
+# nemoe7 Noncommercial and Public-Interest License 1.2.0
 
-<https://github.com/nemoe7/license/blob/v1.1.0/LICENSE.md>
+<https://github.com/nemoe7/license/blob/v1.2.0/LICENSE.md>
 
 Required Notice: Copyright (c) 2026 nemoe7 (<https://github.com/nemoe7>)
+
+> **Scope summary:** This License grants rights only for the Permitted Purposes in Section 3. It does not grant a general right to use the Software for commercial purposes. Section 3.3 is a limited exception for mission-related use by specified organizations, even when the use has commercial funding or related obligations. Other uses outside the Permitted Purposes require a separate license before use. The possibility of obtaining a separate license does not make that use permitted under this License. The Licensor may grant separate licenses, but those grants do not expand the rights this License gives other recipients.
+
+This summary is explanatory. The operative terms below control.
 
 ## 1. Acceptance
 
@@ -14,7 +18,7 @@ This License does not restrict any use, right, exception, limitation, or defense
 
 Subject to this License, the Licensor grants You a worldwide, royalty-free, non-exclusive copyright license to reproduce, run, display, perform, modify, adapt, prepare derivative works of, and distribute the Software.
 
-You may exercise these rights only for a Permitted Purpose, as defined in Section 3. You must comply with the conditions in this License when You exercise these rights.
+You may exercise these rights only for a Permitted Purpose, as defined in Section 3. This License does not grant a general right to use the Software for a Commercial Purpose. Section 3.3 is a limited exception for qualifying mission-related uses by specified organizations. A use that does not qualify as a Permitted Purpose requires a separate license from the Licensor before that use begins. You must comply with the conditions in this License when You exercise these rights.
 
 This grant covers only copyright rights that the Licensor owns or is authorized to license. It does not grant rights in Third-Party Parts, except to the extent that the Licensor owns or controls those rights or an applicable third-party license grants them.
 
@@ -36,13 +40,17 @@ Personal use for research, experimentation, testing for the benefit of public kn
 
 Use by a charitable organization, educational institution, public research organization, public safety or health organization, environmental protection organization, or government institution is a Permitted Purpose, regardless of the source of funding or obligations associated with that funding.
 
-The exceptions in this section apply to the use by the listed organization. They do not grant a separate organization, contractor, or other person permission to use the Software for a purpose that this License does not permit.
+This section is a limited exception to the general noncommercial restriction. The listed organization may use the Software to carry out or support its stated mission even when the use has commercial funding, includes payment, or is subject to funding obligations. Funding, sponsorship, reimbursement, or payment does not alone remove permission for an otherwise qualifying mission-related use.
+
+This exception applies only to the qualifying use by the listed organization. It does not grant a separate organization, contractor, customer, or other person permission to use the Software for its own purpose that this License does not permit, merely because that person funds, commissions, or benefits from the organization’s use.
 
 ## 4. Commercial Purposes and Separate Licensing
 
 A **Commercial Purpose** is a purpose primarily intended for or directed toward obtaining commercial advantage or monetary compensation.
 
-Subject to the exceptions in Section 3.3, examples of Commercial Purposes include:
+A Commercial Purpose is not permitted under this License unless the use independently qualifies as a Permitted Purpose under Section 3. Section 3.3 is a limited exception for qualifying mission-related uses by specified organizations. It is not a general commercial-use grant and does not extend to another person’s independent use merely because that person funds or benefits from the organization.
+
+Examples of Commercial Purposes include:
 
 - Using the Software in the ordinary business operations of a for-profit business.
 - Developing, operating, or supporting a product or service offered for sale or paid access.
@@ -52,7 +60,7 @@ Subject to the exceptions in Section 3.3, examples of Commercial Purposes includ
 
 These examples are illustrative, not exhaustive. The purpose and circumstances of the use determine whether it is commercial. Payment to the Licensor is not required for a use to have a Commercial Purpose. Free access to a product or service does not, by itself, make the underlying use noncommercial.
 
-Any use that is not a Permitted Purpose requires a separate license from the Licensor. This License does not require the Licensor to negotiate or grant that license.
+Any use that is not a Permitted Purpose is not authorized by this License and requires a separate license from the Licensor before that use begins. A separate license is a distinct grant of permission. It is not included in, or implied by, this License. This License does not require the Licensor to negotiate or grant a separate license.
 
 ## 5. Distribution and Share Alike
 
@@ -190,4 +198,4 @@ A failure to enforce a provision does not waive the right to enforce it later. A
 
 **Your licenses** means all licenses that the Licensor grants to You under this License.
 
-**This License** means the *nemoe7 Noncommercial License 1.1.0* at the URL stated at the start of this document.
+**This License** means the *nemoe7 Noncommercial and Public-Interest License 1.2.0* at the URL stated at the start of this document.
