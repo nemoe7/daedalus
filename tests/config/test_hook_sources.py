@@ -427,6 +427,66 @@ def test_other_sources_stay_in_the_lock(
   assert found["owner/name/one.py"]["commit"] == COMMIT
 
 
+@pytest.mark.parametrize("stage", ["write", "replace"])
+def test_failed_lock_write_keeps_previous_records(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stage: str
+) -> None:
+  """A failed lock write or replacement keeps the previous bytes and raises."""
+  lock = tmp_path / "hooks.lock.json"
+  records = {
+    "one.py": {
+      "sha256": "a" * 64,
+      "version": "1.0",
+      "repo": "owner/name",
+      "commit": COMMIT,
+    }
+  }
+  remote.write_records(records, lock)
+  before = lock.read_bytes()
+  write_text = Path.write_text
+
+  def interrupted(path: Path, text: str, *args, **kwargs) -> int:
+    write_text(path, text[:12], *args, **kwargs)
+    raise OSError("interrupted lock write")
+
+  def refused(path: Path, target: Path) -> Path:
+    raise OSError("refused lock replacement")
+
+  if stage == "write":
+    monkeypatch.setattr(Path, "write_text", interrupted)
+  else:
+    monkeypatch.setattr(Path, "replace", refused)
+  with pytest.raises(OSError):
+    remote.write_records({}, lock)
+  assert lock.read_bytes() == before
+  assert remote.read_records(lock) == records
+  assert list(tmp_path.iterdir()) == [lock]
+
+
+def test_lock_replaces_a_complete_sibling(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """The live lock keeps its bytes until a complete sibling replaces it."""
+  lock = tmp_path / "hooks.lock.json"
+  lock.write_text('{"old": "bytes"}')
+  before = lock.read_bytes()
+  replace = Path.replace
+  calls = []
+
+  def complete(path: Path, target: Path) -> Path:
+    assert path != lock and path.parent == lock.parent
+    assert target == lock and lock.read_bytes() == before
+    assert json.loads(path.read_text()) == {}
+    calls.append(path)
+    return replace(path, target)
+
+  monkeypatch.setattr(Path, "replace", complete)
+  remote.write_records({}, lock)
+  assert len(calls) == 1
+  assert json.loads(lock.read_text()) == {}
+  assert list(tmp_path.iterdir()) == [lock]
+
+
 def test_records_round_trip(tmp_path: Path) -> None:
   """The lock writes in name order, reads back its records, and keeps 1 bad record out."""
   lock = tmp_path / "hooks.lock.json"

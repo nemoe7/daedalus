@@ -23,6 +23,7 @@ import re
 import tarfile
 from collections.abc import Iterable, Mapping
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Any, Final
 from urllib.parse import urlparse
 
@@ -429,4 +430,12 @@ def write_records(
   target = hooks.folder() / LOCK if path is None else path
   target.parent.mkdir(parents=True, exist_ok=True)
   body = {name: dict(records[name]) for name in sorted(records)}
-  target.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
+  with NamedTemporaryFile(
+    dir=target.parent, prefix=f".{target.name}.", delete=False
+  ) as handle:
+    temporary = Path(handle.name)
+  try:
+    temporary.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(target)
+  finally:
+    temporary.unlink(missing_ok=True)
