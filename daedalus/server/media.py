@@ -353,8 +353,13 @@ async def speech(request: Request) -> Response:
 
 
 def digits(text: str) -> bool:
-  """True for 1 or more decimal digits and no leading zero."""
-  return text.isascii() and text.isdigit() and not text.startswith("0")
+  """True for a positive decimal integer that Python can read, without leading zeros."""
+  try:
+    return (
+      text.isascii() and text.isdigit() and not text.startswith("0") and int(text) > 0
+    )
+  except ValueError:
+    return False
 
 
 def valid_size(size: str) -> bool:
@@ -440,7 +445,10 @@ async def edits(request: Request) -> Response:
     if key not in ("model", "image", "image[]", "mask") and isinstance(form[key], str)
   }
   if isinstance(body.get("n"), str) and body["n"].isdecimal():
-    body["n"] = int(body["n"])
+    try:
+      body["n"] = int(body["n"])
+    except ValueError:
+      return invalid("n must be a positive integer")
   problem = image_error(body)
   if problem:
     return invalid(problem)

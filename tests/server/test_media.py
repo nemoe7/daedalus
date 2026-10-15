@@ -4,6 +4,7 @@ import base64
 import io
 import json
 import struct
+import sys
 import tempfile
 import wave
 from pathlib import Path
@@ -350,6 +351,32 @@ def test_images(fake: Upstream, client: TestClient) -> None:
     response = client.post("/v1/images/generations", json=body)
     assert response.status_code == 400, (body, response.text)
   assert len(fake.sent) == count, "no upstream call for a bad request"
+
+
+def test_images_reject_unconvertible_dimensions(
+  fake: Upstream, client: TestClient
+) -> None:
+  limit = sys.get_int_max_str_digits()
+  if not limit:
+    pytest.skip("The integer conversion limit is off.")
+  body = {
+    "model": "cloudflare/@cf/stabilityai/stable-diffusion-xl-base-1.0",
+    "prompt": "a cat",
+    "size": "0x1",
+  }
+  control = client.post("/v1/images/generations", json=body)
+  assert control.status_code == 400
+  count = len(fake.sent)
+  large = "1" * (limit + 1)
+  for size in (f"{large}x1", f"1x{large}"):
+    response = client.post("/v1/images/generations", json={**body, "size": size})
+    assert response.status_code == 400, response.text
+    assert response.json() == control.json()
+  assert len(fake.sent) == count
+  response = client.post("/v1/images/generations", json={**body, "size": "100000x1"})
+  assert response.status_code == 200, response.text
+  sent = json.loads(fake.sent[-1].content)
+  assert sent["width"] == 100000 and sent["height"] == 1
 
 
 def test_valid_size() -> None:

@@ -2,6 +2,7 @@
 
 import base64
 import io
+import sys
 
 import httpx
 import pytest
@@ -158,6 +159,26 @@ def test_image_size_error_keeps_pool_fallback(
     assert Image.MAX_IMAGE_PIXELS == 4
   finally:
     store.write_store(ROWS)
+
+
+def test_edit_count_conversion(fake: Upstream, client: TestClient) -> None:
+  limit = sys.get_int_max_str_digits()
+  if not limit:
+    pytest.skip("The integer conversion limit is off.")
+  store.write_store(ROWS)
+  small = picture(3, 3)
+  control = edit(client, "count limits", small, model="groq/img", n="0")
+  assert control.status_code == 400
+  count = len(fake.sent)
+  for raw in ("1" * (limit + 1), "١" * (limit + 1), "-1", "1.0", "²"):
+    response = edit(client, "count limits", small, model="groq/img", n=raw)
+    assert response.status_code == 400, response.text
+    assert response.json() == control.json()
+  assert len(fake.sent) == count
+  for raw, expected in (("1", 1), ("01", 1), ("١", 1), ("２", 2)):
+    response = edit(client, "count limits", small, model="groq/img", n=raw)
+    assert response.status_code == 200, response.text
+    assert parts(fake.sent[-1])["n"] == str(expected).encode()
 
 
 def test_edit_errors(client: TestClient) -> None:
