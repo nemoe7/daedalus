@@ -244,7 +244,7 @@ def test_in_place() -> None:
 
 
 def test_readable_and_set_aside() -> None:
-  """An unreadable store is named, and a start moves it aside for a new build."""
+  """The store helper moves an unreadable database aside and leaves a missing database unchanged."""
   with tempfile.TemporaryDirectory() as folder:
     path = Path(folder) / "models.sqlite3"
     store.MODELS_DB = path

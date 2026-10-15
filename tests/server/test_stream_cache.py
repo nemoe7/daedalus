@@ -1,4 +1,4 @@
-"""The stream cache: a non-stream client reads our own stream, with 1 retry without one."""
+"""Test stream caching for eligible non-stream requests and retries after stream refusal."""
 
 import json
 import random
@@ -45,7 +45,7 @@ def whole_body(model: str) -> dict:
 
 
 def upstream(request: httpx.Request) -> httpx.Response:
-  """One model answers. A plan makes it refuse the stream, deny the key or stop early."""
+  """Return a normal response, refuse streaming, deny the key, or end the stream early."""
   body = json.loads(request.content)
   SEEN.append(body)
   model = body["model"]
@@ -105,7 +105,7 @@ async def client():
   dashboard.HISTORY.clear()
   SEEN.clear()
   PLAN.clear()
-  # A request with no stream reads our own stream when it may race, so the race is on here.
+  # Enable parallel routing so eligible non-stream requests use the stream cache.
   api.PARALLEL_ENABLED = True
   selection = api.PENALTIES.select
   api.PENALTIES.select = random.random
