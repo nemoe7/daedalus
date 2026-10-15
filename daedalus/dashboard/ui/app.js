@@ -116,9 +116,8 @@ function actionButton(content, { variant = "", type = "button", attrs = {} } = {
 const mobileLabel = (text) => `<span class="mobile-label" aria-hidden="true">${esc(text)}</span>`;
 const nameCell = (text, shown = esc(text), label = t("model.column.model_column"), extra = "") =>
   `<td role="cell" class="name" title="${esc(text)}">${label ? mobileLabel(label) : ""}<span class="cell-value">${shown}</span>${extra}</td>`;
-// The marks beside a model name: `provider/developer/slug`. The provider mark drops when the
-// developer carries the same name. The set names the SVG files that ship under `ui/icons/`; a name
-// with no file shows its own text in place of a mark.
+// Model marks use `provider/developer/slug`, without a duplicate provider name.
+// Names without a matching SVG under `ui/icons/` show as text.
 const MARK_FILES = new Set([
   "anthropic", "baai", "black-forest-labs", "bytedance", "cloudflare", "cohere", "daedalus",
   "deepseek-ai",
@@ -417,8 +416,7 @@ function showPassword(on) {
   button.title = label;
 }
 
-// A read failure: 1 line in the page and 1 button to ask again. The line stays until the
-// user clears it with the x; the retry asks again but keeps the line in place.
+// A read failure stays visible until the user closes it. A retry keeps the failure text.
 function showNotice(message) {
   $("notice-text").textContent = message || t("error.dashboard_unreachable_text");
   const note = $("notice");
@@ -497,7 +495,7 @@ function stateChip() {
   return `<span class="chip bad" id="state-unknown" title="${t("state.unknown.hint")}">${t("state.unknown_text")}</span>`;
 }
 
-// The Overview card holds the health, the sessions and the catalog; the header keeps the state.
+// The Overview card holds health, sessions and catalog data. The header shows the state.
 function renderChips() {
   document.querySelectorAll("[data-status]").forEach((host) => { host.innerHTML = stateChip(); });
 }
@@ -788,7 +786,7 @@ function renderLiveToggle() {
   button.innerHTML = `${state.livePaused ? icon("pause") : icon("activity")} ${esc(label)}`;
 }
 
-// A change while the table is paused. It waits for the resume.
+// Hold changes until the user resumes the table.
 function holdLive(id) {
   if (!state.livePaused) return false;
   state.liveWaiting.add(id);
@@ -1001,8 +999,7 @@ function splitRequest(r) {
 
 const splitRequests = (requests) => (requests || []).flatMap(splitRequest);
 
-// The Requests toolbar: a text match over the model, the client and the session, a status class and
-// a time range. The kept rows are the window; a filter narrows the view of it.
+// Filter retained requests by model, client, session, status and time without discarding rows.
 function requestMatches(r, { live = false } = {}) {
   if (state.requestSearch) {
     const hay = `${r.model || ""} ${r.via || ""} ${r.app || ""} ${r.session || ""} ${r.status || ""}`;
@@ -1128,7 +1125,7 @@ const ICON_PATHS = {
 function icon(name) {
   return `<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON_PATHS[name]}</svg>`;
 }
-// The flag chips name registered glyphs; a flag without a glyph keeps its text.
+// Flag chips use registered glyphs. A flag without a glyph keeps its text.
 const FLAG_ICON_NAMES = { vision: "image", pdf_input: "file_text", audio_input: "mic", audio_output: "volume_2" };
 // The label of each media flag chip.
 const FLAGS = {
@@ -1223,7 +1220,7 @@ function openModelModal(m) {
   const { provider, dev, model } = parts(m.id);
   $("model-modal-title").innerHTML =
     `${mark(provider)}<span class="name">${esc(model || m.slug || m.id)}</span>`;
-  // A lobe mark rides beside a part that owns one; a part without a file keeps plain text.
+  // Show a mark only when its file exists. Keep plain text for other names.
   const markImg = (name) => (MARK_FILES.has(name) ? mark(name) : "");
   const identity = [
     [t("model.column.model_column"), model || m.slug || m.id, ""],
@@ -1713,8 +1710,7 @@ function hookOrderFiles(surface) {
   return [...new Set([...saved, ...explicit, ...installed])];
 }
 
-// Request surfaces stay visible when empty. The other surfaces show when an installed hook uses
-// them, so an on-catalog or on-upstream hook also gets an order control.
+// Keep default hook surfaces visible when empty. Show other surfaces when an installed hook uses them.
 const orderedSurfaces = () => HOOK_SURFACES.filter(([surface]) =>
   surface in (state.settings?.defaults?.hooks ?? {}) || hookOrderFiles(surface).length);
 
@@ -2099,7 +2095,7 @@ function openSection(host, key) {
   // The selected card arrives: a section change of Providers or Settings reads on the page.
   replay([...host.querySelectorAll(".section-pane > .card")]
     .find((card) => card.dataset.section === key));
-  // The section rides in the hash, so a refresh keeps it; a phone also gets a back step.
+  // Keep the section in the hash across refreshes. Phones also have a back step.
   const [path] = location.hash.split("?");
   const url = `${path}?section=${encodeURIComponent(key)}`;
   if (phoneSection()) history.pushState({ section: key }, "", url);
@@ -2609,7 +2605,7 @@ async function selectProviderSection(key) {
   openSection(host, key);
 }
 
-// The request-level hook surfaces, in the order of `daedalus/providers/hooks.py`.
+// Hook surfaces available in the form, in backend order.
 const HOOK_SURFACES = [
   ["on-catalog", t("hook.surface.catalog.label")],
   ["on-request", t("hook.surface.request.label")],
@@ -2718,7 +2714,7 @@ const DECIMALS = new Set([
   "balance.success", "balance.fault", "balance.slow", "balance.hourly", "balance.rate_limit",
   "routing.threshold",
 ]);
-// The input bounds. The server also checks them before saving.
+// The server rejects values outside these bounds before saving.
 const MINIMA = { "limits.calls": 2, "limits.repeats": 2, "limits.shortest": 1, "limits.longest": 1, "affinity.count": 1 };
 const MAXIMA = {
   "catalog.anchor": 23,
@@ -3244,7 +3240,7 @@ function diffModel(text, kind = "") {
   return identity + change;
 }
 
-// The modal of 1 rebuild: the full diff, one line per added, removed or moved model.
+// Show the complete rebuild diff, with one line per added, deleted or moved model.
 function openDiffModal(event) {
   $("model-modal-title").textContent = `${event.reason} \u00b7 ${stamp(event.at)}`;
   const lines = DIFF_KINDS.flatMap(([kind, mark, key]) =>
@@ -3601,7 +3597,7 @@ $("notice-retry").addEventListener("click", () => {
 $("notice-close").addEventListener("click", () => {
   closeNotice();
 });
-// The leave plays out, then hides the note; a new failure interrupts the leave.
+// Hide the note after its exit animation. A new failure interrupts the animation.
 $("notice").addEventListener("animationend", (event) => {
   if (event.animationName !== "leave") return;
   const note = $("notice");
@@ -4110,8 +4106,8 @@ $("modal-input").addEventListener("keydown", (event) => {
   $("modal-ok").click();
 });
 
-// A click on the backdrop closes the dialog. A click on the box itself does not, so the check
-// tests the box. Escape closes a dialog on its own.
+// Close on a backdrop click outside the dialog bounds, not on clicks inside the box.
+// Escape closes the dialog without this handler.
 $("modal").addEventListener("click", (event) => {
   const dialog = event.currentTarget;
   if (event.target !== dialog) return;
