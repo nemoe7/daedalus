@@ -132,7 +132,8 @@ The Gemini exclude list keeps these models out:
 | `aqa` | It answers from given sources only. |
 | `*-latest` aliases | The model behind each alias changes over time. |
 
-Mistral needs no exclude list. Discovery keeps these Mistral rows out:
+The Mistral exclude list is in [the shipped provider config](../config/providers/free.yml).
+Discovery also keeps these Mistral rows out:
 
 | Rows | Reason |
 | --- | --- |
