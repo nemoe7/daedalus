@@ -95,7 +95,7 @@ def test_similarity_cohort_flags_a_prompt_that_holds_code() -> None:
 
 
 def test_similarity_cohort_flags_a_prompt_that_holds_math() -> None:
-  """A math word, or a `$` or `=` sign, sets the math flag."""
+  """A math word or an `=` sign sets the math flag."""
   for prompt in ("What is the probability of rain?", "What is 2 = 2?"):
     assert "|math=1|" in classifier.similarity_cohort(
       prompt, classifier.RequestType.GENERAL
@@ -109,7 +109,7 @@ def test_similarity_cohort_flags_a_multiple_choice_prompt() -> None:
   )
 
 
-def test_similarity_cohort_flags_a_prompt_that_is_mostly_not_ascii() -> None:
+def test_similarity_cohort_checks_non_ascii_content() -> None:
   """Over a tenth of the characters above 127 sets the international flag."""
   assert classifier.similarity_cohort(
     "αααααα", classifier.RequestType.GENERAL
@@ -133,7 +133,7 @@ def test_load_artifact_uses_the_documented_defaults(tmp_path: Path) -> None:
 
 
 def test_load_artifact_needs_statistics_for_all_four_tiers(tmp_path: Path) -> None:
-  """A table with one tier is a broken table, and fails loudly."""
+  """Missing tier statistics raise ValueError."""
   with pytest.raises(ValueError, match="global statistics for tiers 1 to 4"):
     artifact(tmp_path / "tiers.json", global_statistics=rows()[:1])
 
@@ -145,8 +145,8 @@ def test_load_artifact_tolerates_a_payload_with_no_domain_rows(tmp_path: Path) -
   assert found.cohort_stats == {}
 
 
-def test_posterior_mean_pulls_a_row_toward_the_tier_above() -> None:
-  """No row gives the prior back. A row blends into it by its own mass."""
+def test_posterior_mean_blends_a_row_with_its_prior() -> None:
+  """An absent row returns the prior, and an observed row uses the prior mass."""
   assert classifier._posterior_mean(None, 200.0, 0.5) == 0.5
   stat = classifier.TierStatistic(1, successes=1.0, observations=1.0)
   assert classifier._posterior_mean(stat, 200.0, 0.5) == pytest.approx(101.0 / 201.0)
@@ -197,7 +197,7 @@ def test_predict_takes_a_given_threshold() -> None:
 
 
 def test_predict_uses_the_request_type_it_is_given(tmp_path: Path) -> None:
-  """A given type selects its own domain row, and the rules never run."""
+  """A given request type controls which domain statistics the prediction uses."""
   found = artifact(
     tmp_path / "tiers.json",
     global_statistics=rows(),
