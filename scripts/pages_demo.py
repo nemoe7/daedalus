@@ -281,6 +281,8 @@ DEMO_SHAPES = (
     "via": "cloudflare/@cf/zai-org/glm-4.7-flash",
     "retry": "1",
     "fallbacks": "1",
+    "seconds": 1.3,
+    "ttft": "0.884s",
     "status": 200,
     "transition": {
       "from_model": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
@@ -1641,18 +1643,26 @@ const DEMO_FIXTURES = __FIXTURES__;
       this.send("first", live);
       const streamed = round(streamFor(spec.stream === true));
       await wait(streamed * 1000);
+      const elapsed = ages(id);
+      const source = spec.attempts || [{ model: spec.via, result: "answered", error: "" }];
+      const parallel = spec.race === "drawn";
+      const span = parallel ? Math.max(...source.map(item => item.seconds || 0))
+        : source.reduce((sum, item) => sum + (item.result === "answered" ? 0 : item.seconds || 0), 0);
+      const budget = parallel ? frozen.attempt_age : round(frozen.age - frozen.attempt_age);
+      const attempts = source.map(item => ({ ...item, seconds: item.result === "answered"
+        ? frozen.attempt_age : item.seconds == null ? null
+        : Math.floor((span ? item.seconds * budget / span : 0) * 1000) / 1000 }));
       // The finished row carries the fields of `dashboard.record`: the status code, the text
       // times, and the answer.
       const done = {
-        at: Date.now() / 1000, status: 200, seconds: round(frozen.attempt_age + streamed),
+        at: Date.now() / 1000, status: 200, seconds: elapsed.age,
         app: spec.app ?? null, session: spec.session ?? null, key: "master", model: spec.model,
         effort: spec.effort ?? null, pool, routed: spec.routed ?? null,
         transition: spec.transition ?? null, race: spec.race ?? null,
         retry: spec.retry ?? null, loop: spec.loop ?? null,
         via: spec.via, ttft: `${frozen.attempt_age.toFixed(3)}s`, stream: spec.stream === true,
         fallbacks: spec.fallbacks || "0", tokens: spec.tokens ?? null,
-        attempts: spec.attempts
-          || [{ model: spec.via, result: "answered", seconds: frozen.attempt_age, error: "" }],
+        attempts,
       };
       // The row lands before the end event: the refresh of the page then reads it at once.
       keep(done);

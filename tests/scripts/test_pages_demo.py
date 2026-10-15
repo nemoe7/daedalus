@@ -331,7 +331,7 @@ NODE_CHECK = (
   context.Math.random = () => 0.25;
   const stream = new context.EventSource("ui/api/requests/live");
   ["live", "start", "update", "first", "end"].forEach((kind) =>
-    stream.addEventListener(kind, (event) => seen.push([kind, JSON.parse(event.data)])),
+    stream.addEventListener(kind, (event) => seen.push([kind, JSON.parse(event.data), performance.now()])),
   );
   let endRead = null;
   stream.addEventListener("end", (event) => {
@@ -466,10 +466,10 @@ NODE_CHECK = (
   // The clocks of a row in flight: TTFT counts first, then it freezes at the first token and
   // the stream clock counts from 0. A row holds the ages of the moment it sent them.
   const byId = new Map();
-  for (const [kind, data] of seen) {
+  for (const [kind, data, clock] of seen) {
     if (!data || data.id == null) continue;
     if (!byId.has(data.id)) byId.set(data.id, []);
-    byId.get(data.id).push([kind, data]);
+    byId.get(data.id).push([kind, data, clock]);
   }
   const traffic = [...byId.values()];
   const aged = traffic.map((events) => events.filter(([, data]) => typeof data.age === "number"));
@@ -486,6 +486,23 @@ NODE_CHECK = (
     && token.ttft === token.attempt_age && token.ttft > 0
     && `${token.ttft.toFixed(3)}s` === row.ttft && row.seconds >= token.ttft),
     "TTFT freezes at the first token, and the stream time follows it");
+  for (const events of traffic) {
+    const start = events.find(([kind]) => kind === "start");
+    const finish = events.find(([kind]) => kind === "end");
+    if (!finish) continue;
+    const row = finish[1].row;
+    const elapsed = (finish[2] - start[2]) / 1000;
+    check(Math.abs(row.seconds - elapsed) < 0.05, "the total uses measured elapsed time");
+    const first = events.find(([kind]) => kind === "first")[1];
+    check(row.attempts.every(attempt => attempt.seconds === null ||
+      attempt.seconds >= 0 && attempt.seconds <= row.seconds), "attempts fit the request total");
+    check(row.attempts.filter(attempt => attempt.result === "answered")
+      .every(attempt => attempt.seconds === first.ttft), "the successful attempt uses its first token time");
+    const duration = row.race === "drawn"
+      ? Math.max(...row.attempts.map(attempt => attempt.seconds || 0))
+      : row.attempts.reduce((sum, attempt) => sum + (attempt.seconds || 0), 0);
+    check(duration <= first.age + 0.001, "the chain fits before the first token");
+  }
   check(context.network.length === 0, "no call reaches the network");
 })().catch((error) => {
   console.error(error.message);
@@ -1135,3 +1152,31 @@ def test_demo_settings_save_contract(tmp_path: Path, monkeypatch, scenario) -> N
     check=False,
   )
   assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+
+
+@pytest.mark.parametrize("source", ["shapes", "fixtures"])
+def test_demo_template_timing(source) -> None:
+  rows = (
+    [
+      {"seconds": 0.005, "ttft": "0.001s", **shape}
+      for shape in pages_demo.DEMO_SHAPES
+      if "attempts" in shape
+    ]
+    if source == "shapes"
+    else json.loads(pages_demo.FIXTURES.read_text())["requests"]
+  )
+  for row in rows:
+    if not row.get("attempts") or "seconds" not in row:
+      continue
+    durations = [attempt["seconds"] or 0 for attempt in row["attempts"]]
+    assert all(0 <= seconds <= row["seconds"] for seconds in durations)
+    elapsed = max(durations) if row.get("race") == "drawn" else sum(durations)
+    assert elapsed <= row["seconds"] + 0.001
+    if row.get("ttft"):
+      ttft = float(row["ttft"].removesuffix("s"))
+      assert 0 <= ttft <= row["seconds"]
+      assert all(
+        abs(attempt["seconds"] - ttft) <= 0.001
+        for attempt in row["attempts"]
+        if attempt["result"] == "answered"
+      )
