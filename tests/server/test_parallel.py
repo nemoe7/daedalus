@@ -98,6 +98,8 @@ def client():
     patch.setattr(api, "get_config", lambda: CONFIG)
     patch.setattr(api, "AFFINITY", True)
     patch.setattr(api, "PARALLEL_ENABLED", True)
+    patch.setattr(api, "PARALLEL_COUNT", 1)
+    patch.setattr(api, "PARALLEL_PENALTY", 0.9)
     patch.setattr(api, "PARALLEL_CHANCE", 0.0)
     patch.setattr(api, "PARALLEL_SLOW_SECONDS", 0.05)
     logger.addHandler(LINES)
