@@ -112,6 +112,54 @@ def test_edits(fake: Upstream, client: TestClient) -> None:
   fake.down = set()
 
 
+@pytest.mark.parametrize("model, status", [(KLEIN, 400), ("daedalus/photos", 502)])
+def test_image_size_error(
+  client: TestClient, fake: Upstream, monkeypatch, model, status
+) -> None:
+  """An image above the size guard follows the media error path."""
+  store.write_store(ROWS[:1])
+  try:
+    image = picture(3, 3)
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 4)
+    fake.sent.clear()
+    response = edit(client, "x", image, model=model)
+    assert response.status_code == status, response.text
+    assert response.json()["error"]["code"] == status
+    assert not fake.sent
+    assert Image.MAX_IMAGE_PIXELS == 4
+  finally:
+    store.write_store(ROWS)
+
+
+def test_image_size_error_keeps_pool_fallback(
+  client: TestClient, fake: Upstream, monkeypatch
+) -> None:
+  """The pool skips the refused image and can use the next provider."""
+  store.write_store(ROWS[:2])
+  try:
+    image = picture(3, 3)
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 4)
+    models_for = media.models_for
+
+    def ordered(*args):
+      assert set(models_for(*args)) == {KLEIN, "groq/img"}
+      return [KLEIN, "groq/img"]
+
+    monkeypatch.setattr(media, "models_for", ordered)
+    fake.sent.clear()
+    fake.down.clear()
+    response = edit(client, "x", image)
+    assert response.status_code == 200, response.text
+    assert response.json()["data"] == [{"b64_json": "groq"}]
+    assert [request.url.host for request in fake.sent] == ["groq.test"]
+    assert parts(fake.sent[0])["image"] == image
+    attempts = dashboard.HISTORY.latest(1)[0]["attempts"]
+    assert attempts[0]["model"] == KLEIN and attempts[0]["result"] == "skipped"
+    assert Image.MAX_IMAGE_PIXELS == 4
+  finally:
+    store.write_store(ROWS)
+
+
 def test_edit_errors(client: TestClient) -> None:
   """An edit needs an image, and a model that can edit it."""
   small = picture(64, 64)

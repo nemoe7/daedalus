@@ -100,7 +100,12 @@ def smaller(upload: Upload) -> Upload:
       copy.thumbnail((EDIT_SIDE, EDIT_SIDE))
       output = io.BytesIO()
       copy.save(output, format="PNG")
-  except (UnidentifiedImageError, OSError, ValueError) as exc:
+  except (
+    UnidentifiedImageError,
+    OSError,
+    ValueError,
+    Image.DecompressionBombError,
+  ) as exc:
     raise ProviderError("Cloudflare cannot read the input image") from exc
   return f"{name.rsplit('.', 1)[0]}.png", output.getvalue(), "image/png"
 

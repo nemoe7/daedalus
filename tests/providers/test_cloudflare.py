@@ -1,8 +1,14 @@
+import io
+
 import httpx
+import pytest
 import yaml
+from PIL import Image
 
 from daedalus import providers
 from daedalus.catalog.enrichment import config_params
+from daedalus.providers.base import ProviderError
+from daedalus.providers.cloudflare import smaller
 from daedalus.routing import router
 
 CLOUDFLARE = providers.CloudflareProvider(
@@ -40,6 +46,22 @@ def test_cloudflare() -> None:
   text = [{"type": "text", "text": "a"}, {"type": "text", "text": "b"}]
   joined = CLOUDFLARE.body("@cf/m", {"messages": [{"role": "user", "content": text}]})
   assert joined["messages"][0]["content"] == "a\nb", "text parts join with a new line"
+
+
+@pytest.mark.parametrize("side", [2, 3])
+def test_image_size_guard(monkeypatch, side: int) -> None:
+  """An image above the size guard becomes a provider error."""
+  output = io.BytesIO()
+  Image.new("RGB", (side, side)).save(output, format="PNG")
+  upload = ("in.png", output.getvalue(), "image/png")
+  monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 4)
+  if side == 2:
+    assert smaller(upload) == upload
+  else:
+    with pytest.raises(ProviderError) as caught:
+      smaller(upload)
+    assert isinstance(caught.value.__cause__, Image.DecompressionBombError)
+  assert Image.MAX_IMAGE_PIXELS == 4
 
 
 def test_flux2_multipart() -> None:
