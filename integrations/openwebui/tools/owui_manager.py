@@ -12,6 +12,7 @@ licence: daedalus Noncommercial License 1.0.0
 import asyncio
 import inspect
 import json
+import logging
 import re
 from collections.abc import Callable
 from functools import wraps
@@ -20,6 +21,8 @@ from urllib.parse import urlsplit
 
 import aiohttp
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 # The answer of each tool call without a request context.
 NO_CONTEXT = "Error: Open WebUI request context is unavailable."
@@ -84,14 +87,19 @@ def _bounded(method):
   signature = inspect.signature(method)
   @wraps(method)
   async def call(self, *args, **kwargs):
-    try:
-      value = await method(self, *args, **kwargs)
-    except Exception as error:
-      value = {"error": str(error)}
-      if self._output_size(value) <= self.valves.max_output_bytes:
-        raise
     arguments = signature.bind(self, *args, **kwargs).arguments
-    return self._output(value, method.__annotations__.get("return") in (str, "str"), arguments)
+    emitter = arguments.get("__event_emitter__")
+    await self._status(emitter, method.__name__, False)
+    try:
+      try:
+        value = await method(self, *args, **kwargs)
+      except Exception as error:
+        value = {"error": str(error)}
+        if self._output_size(value) <= self.valves.max_output_bytes:
+          raise
+      return self._output(value, method.__annotations__.get("return") in (str, "str"), arguments)
+    finally:
+      await self._status(emitter, method.__name__, True)
 
   return call
 
@@ -127,6 +135,14 @@ class Tools:
   class UserValves(BaseModel):
     mode: str = "default"
     timeout_seconds: int = 0
+
+  async def _status(self, emitter, operation: str, done: bool) -> None:
+    if not self.valves.SHOW_STATUS or not callable(emitter):
+      return
+    try:
+      await emitter({"type": "status", "data": {"description": operation, "done": done}})
+    except Exception:
+      logger.warning("Could not send manager status for %s", operation)
 
   @staticmethod
   def _output_size(value: Any) -> int:
@@ -482,6 +498,7 @@ class Tools:
     page: int = 1,
     offset: int = 0,
     max_results: int = 20,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     List knowledge bases available to the current Open WebUI user,
@@ -520,6 +537,7 @@ class Tools:
     page: int = 1,
     offset: int = 0,
     max_results: int = 20,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     List files and directories inside an Open WebUI knowledge base.
@@ -585,6 +603,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Create a new Open WebUI knowledge base for the current user.
@@ -637,6 +656,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Update the name and/or description of an Open WebUI knowledge base.
@@ -693,6 +713,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Create a directory inside an Open WebUI knowledge base.
@@ -742,6 +763,7 @@ class Tools:
       description="Directory path to create or reuse, for example Servers/VPN/Notes.",
     ),
     __request__=None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Ensure that a nested directory path exists inside a knowledge base.
@@ -832,6 +854,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Create a new Markdown file in an Open WebUI knowledge base
@@ -894,6 +917,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Create a Markdown file at a nested path inside a knowledge base.
@@ -1027,6 +1051,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Replace the content of an existing Open WebUI knowledge file
@@ -1067,6 +1092,7 @@ class Tools:
     __event_call__: Callable | None = None,
     offset: int = 0,
     max_chars: int = 10000,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Read the extracted/indexed text content of an Open WebUI knowledge file.
@@ -1115,6 +1141,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Find an existing knowledge file by its exact path
@@ -1152,6 +1179,7 @@ class Tools:
     __event_call__: Callable | None = None,
     offset: int = 0,
     max_chars: int = 10000,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Read an existing knowledge file by its exact path.
@@ -1198,6 +1226,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Create or update a Markdown file at an exact knowledge-base path.
@@ -1279,6 +1308,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Rename an existing Open WebUI knowledge file.
@@ -1323,6 +1353,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Rename a directory inside an Open WebUI knowledge base.
@@ -1371,6 +1402,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Move a directory inside an Open WebUI knowledge base.
@@ -1418,6 +1450,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Permanently delete an Open WebUI knowledge file.
@@ -1458,6 +1491,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Permanently delete an existing knowledge file by its exact path.
@@ -1511,6 +1545,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Delete a directory from an Open WebUI knowledge base.
@@ -1556,6 +1591,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Search files across all Open WebUI knowledge bases available
@@ -1652,6 +1688,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Find a file across all accessible Open WebUI knowledge bases
@@ -1724,6 +1761,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Return the complete directory/file tree of an Open WebUI knowledge base.
@@ -1817,6 +1855,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Permanently delete an Open WebUI knowledge base.
@@ -2089,6 +2128,7 @@ class Tools:
     __event_call__: Callable | None = None,
     offset: int = 0,
     max_results: int = 20,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     List the files of the Open WebUI file library, with their ids and sizes.
@@ -2124,6 +2164,7 @@ class Tools:
     __event_call__: Callable | None = None,
     offset: int = 0,
     max_results: int = 20,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Search the file library by name. Wildcards such as *.md work.
@@ -2173,6 +2214,7 @@ class Tools:
     __event_call__: Callable | None = None,
     offset: int = 0,
     max_chars: int = 10000,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Read a character range from the stored text of one library file.
@@ -2215,6 +2257,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
     __request__=None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Create one text file in the library. A new item runs free.
@@ -2265,6 +2308,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
     __request__=None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Rename one file. The rename is a mutation, so it passes the gate.
@@ -2291,6 +2335,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
     __request__=None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Delete one file of the library. The delete passes the gate.
@@ -2331,6 +2376,7 @@ class Tools:
     page: int = 1,
     offset: int = 0,
     max_results: int = 20,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     List the skills of the workspace, with their ids and their state.
@@ -2367,6 +2413,7 @@ class Tools:
     __event_call__: Callable | None = None,
     offset: int = 0,
     max_chars: int = 10000,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Show one skill: its name, its state and a source text range.
@@ -2423,6 +2470,7 @@ class Tools:
     __event_call__: Callable | None = None,
     offset: int = 0,
     max_results: int = 20,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     List a page of files in one skill snapshot, with its size and encoding.
@@ -2472,6 +2520,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Read a UTF-8 file from one skill snapshot, with character-offset paging.
@@ -2567,6 +2616,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Create one skill. A new item runs free, and it joins the preset models.
@@ -2638,6 +2688,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
     __request__=None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Import one or more skills from a trusted URL through Open WebUI v0.12.
@@ -2751,6 +2802,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
     __request__=None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Replace one skill. The overwrite passes the gate.
@@ -2790,6 +2842,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
     __request__=None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Apply UTF-8 file operations as one new version of an existing skill.
@@ -2872,6 +2925,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
     __request__=None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Switch one skill on or off. The toggle passes the gate.
@@ -2897,6 +2951,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
     __request__=None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Delete one skill. The delete passes the gate.
@@ -2923,6 +2978,7 @@ class Tools:
     __event_call__: Callable | None = None,
     offset: int = 0,
     max_results: int = 20,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     List the Workspace Tools, with their ids.
@@ -2954,6 +3010,7 @@ class Tools:
     __event_call__: Callable | None = None,
     offset: int = 0,
     max_chars: int = 10000,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Show one Workspace Tool: its name and a source text range.
@@ -3002,6 +3059,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Create one Workspace Tool. A new item runs free and joins the presets.
@@ -3052,6 +3110,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
     __request__=None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Replace one Workspace Tool. The overwrite passes the gate.
@@ -3084,6 +3143,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
     __request__=None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Toggle one Workspace Tool on the preset models.
@@ -3133,6 +3193,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
     __request__=None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Delete one Workspace Tool. The delete passes the gate.
@@ -3157,6 +3218,7 @@ class Tools:
     __event_call__: Callable | None = None,
     offset: int = 0,
     max_results: int = 20,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     List the Functions, with their ids and their types.
@@ -3188,6 +3250,7 @@ class Tools:
     __event_call__: Callable | None = None,
     offset: int = 0,
     max_chars: int = 10000,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Show one Function: its name, its state and a source text range.
@@ -3237,6 +3300,7 @@ class Tools:
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Create one Function. A new item runs free and joins the presets.
@@ -3287,6 +3351,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
     __request__=None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Replace one Function. The overwrite passes the gate.
@@ -3321,6 +3386,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
     __request__=None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Switch one Function on or off. The toggle passes the gate.
@@ -3349,6 +3415,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
     __request__=None,
+    __event_emitter__: Callable | None = None,
   ) -> str:
     """
     Delete one Function. The delete passes the gate.

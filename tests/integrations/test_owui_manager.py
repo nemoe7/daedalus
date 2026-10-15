@@ -7,6 +7,7 @@ layer, so no test reaches the network.
 
 import asyncio
 import importlib.util
+import inspect
 import json
 import pathlib
 import sys
@@ -518,3 +519,119 @@ def test_the_merge_keeps_the_order_and_the_ids():
   )
   assert [MOD._entry_key(item) for item in merged] == ["a", "c"]
   assert MOD._split_ids("a, b" + chr(10) + "c, a") == ["a", "b", "c"]
+
+
+@pytest.mark.parametrize(
+  ("operation", "arguments"),
+  [
+    ("list_knowledge_bases", {}),
+    ("list_files", {}),
+    ("list_skills", {}),
+    ("list_tools", {}),
+    ("list_functions", {}),
+    ("create_skill", {"name": "status-test", "content": "instructions"}),
+    ("delete_skill", {"skill_id": "s"}),
+  ],
+)
+@pytest.mark.parametrize("enabled", [True, False])
+def test_operation_status_preserves_results_and_requests(operation, arguments, enabled):
+  tool, calls = make_tool()
+  tool.valves.permissions = "Always allow"
+  tool.valves.SHOW_STATUS = enabled
+  arguments = {**arguments, "__request__": object()}
+  method = getattr(tool, operation)
+  expected = asyncio.run(method(**arguments))
+  expected_calls = calls.copy()
+  calls.clear()
+  events = []
+
+  async def emit(event):
+    events.append(event)
+
+  actual = asyncio.run(method(**arguments, __event_emitter__=emit))
+  assert actual == expected
+  assert calls == expected_calls
+  assert events == (
+    [
+      {"type": "status", "data": {"description": operation, "done": False}},
+      {"type": "status", "data": {"description": operation, "done": True}},
+    ]
+    if enabled
+    else []
+  )
+
+
+def test_status_emitter_is_an_optional_injected_parameter():
+  methods = inspect.getmembers(Tools, inspect.iscoroutinefunction)
+  assert methods
+  for name, method in methods:
+    if name.startswith("_"):
+      continue
+    parameters = inspect.signature(method).parameters
+    assert "__event_emitter__" in parameters, name
+    parameter = parameters["__event_emitter__"]
+    assert parameter.default is None, name
+    assert parameter.annotation == MOD.Callable | None, name
+
+
+@pytest.mark.parametrize("failure_at", [False, True])
+def test_status_emission_failure_does_not_change_the_result(failure_at, caplog):
+  tool, calls = make_tool()
+  tool.valves.permissions = "Always allow"
+  expected = asyncio.run(tool.list_skills(__request__=object()))
+  expected_calls = calls.copy()
+  calls.clear()
+  events = []
+
+  async def emit(event):
+    events.append(event)
+    if event["data"]["done"] == failure_at:
+      raise RuntimeError("event transport failed")
+
+  assert (
+    asyncio.run(tool.list_skills(__request__=object(), __event_emitter__=emit))
+    == expected
+  )
+  assert calls == expected_calls
+  assert [event["data"]["done"] for event in events] == [False, True]
+  assert len(caplog.records) == 1
+  assert caplog.records[0].name == MOD.__name__
+  assert caplog.records[0].levelname == "WARNING"
+  assert caplog.records[0].args == ("list_skills",)
+
+
+@pytest.mark.parametrize("error_type", [ValueError, asyncio.CancelledError])
+def test_status_finishes_when_the_operation_raises(error_type):
+  tool, _ = make_tool()
+  events = []
+  error = error_type("operation failed")
+
+  async def emit(event):
+    events.append(event)
+
+  @MOD._bounded
+  async def operation(self, __event_emitter__: MOD.Callable | None = None):
+    raise error
+
+  with pytest.raises(error_type) as caught:
+    asyncio.run(operation(tool, __event_emitter__=emit))
+  assert caught.value is error
+  assert events == [
+    {"type": "status", "data": {"description": "operation", "done": False}},
+    {"type": "status", "data": {"description": "operation", "done": True}},
+  ]
+
+
+def test_status_finishes_after_permission_denial():
+  tool, calls = make_tool()
+  events = []
+
+  async def emit(event):
+    events.append(event)
+
+  result = asyncio.run(
+    tool.delete_skill("s", __request__=object(), __event_emitter__=emit)
+  )
+  assert json.loads(result)["result"]["denied"] is True
+  assert calls == []
+  assert [event["data"]["done"] for event in events] == [False, True]

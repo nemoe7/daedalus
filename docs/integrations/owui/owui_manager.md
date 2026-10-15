@@ -67,7 +67,7 @@ The preset helpers stay private, so Open WebUI builds no model tool spec for the
 | `timeout_seconds` | `60` | Confirmation wait in seconds, at least 1. Tool value `0` uses 60 seconds. User value `0` uses the tool value |
 | `INSTALL_FETCH_TIMEOUT` | `60.0` | The total wait for Open WebUI's native skill URL loader |
 | `TRUSTED_DOMAINS` | `github.com,huggingface.co,githubusercontent.com` | The domains a skill install may fetch from |
-| `SHOW_STATUS` | `true` | Inactive. The manager does not read this valve |
+| `SHOW_STATUS` | `true` | Show the tool name while an operation runs. Close the status when the call ends |
 
 1. **Workspace → Tools**, **Create**, paste the file, **Save**.
 2. **Access** on the tool: make it public, or give read access to each user.
