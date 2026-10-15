@@ -72,6 +72,7 @@ async def compress(
   except (
     httpx.HTTPError,
     ValueError,
+    OverflowError,
     KeyError,
     TypeError,
     asyncio.TimeoutError,

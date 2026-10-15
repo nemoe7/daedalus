@@ -84,6 +84,44 @@ def test_compress(sidecar: Sidecar, lines: Lines) -> None:
   assert result["messages"] == SHORT and saved == 42, (result, saved)
 
 
+@pytest.mark.parametrize(
+  "raw, expected",
+  [("1e309", None), ("-1e309", None), ('"invalid"', None), ("null", 0), ("42", 42)],
+)
+def test_saved_count_fallback(
+  sidecar: Sidecar, monkeypatch, caplog: pytest.LogCaptureFixture, raw, expected
+) -> None:
+  """An invalid saved count keeps the original messages."""
+  body = {"messages": [{"role": "user", "content": "long"}]}
+  reply = '{"messages":' + json.dumps(SHORT) + ',"tokens_saved":' + raw + "}"
+  transport = httpx.MockTransport(lambda request: httpx.Response(200, text=reply))
+  client = httpx.AsyncClient(transport=transport)
+  kept = upstream.get_client()
+  monkeypatch.setenv(headroom.HEADROOM_URL, "http://headroom:8787")
+  monkeypatch.setattr(headroom, "_down", False)
+  upstream.set_client(client)
+  caplog.set_level(logging.INFO, logger=headroom.logger.name)
+  try:
+    result, saved = asyncio.run(headroom.compress(body, "a/1"))
+    assert saved == expected
+    assert result == (body if expected is None else {**body, "messages": SHORT})
+    assert headroom._down is (expected is None)
+    if expected is None:
+      assert result is body
+      assert asyncio.run(headroom.compress(body, "a/1")) == (body, None)
+      assert sum(record.levelno == logging.WARNING for record in caplog.records) == 1
+      reply = json.dumps({"messages": SHORT, "tokens_saved": 42})
+      assert asyncio.run(headroom.compress(body, "a/1")) == (
+        {**body, "messages": SHORT},
+        42,
+      )
+      assert headroom._down is False
+      assert sum(record.levelno == logging.INFO for record in caplog.records) == 1
+  finally:
+    asyncio.run(client.aclose())
+    upstream.set_client(kept)
+
+
 def test_available(sidecar: Sidecar, monkeypatch: pytest.MonkeyPatch) -> None:
   monkeypatch.delenv(headroom.HEADROOM_URL, raising=False)
   assert not asyncio.run(headroom.available()), "off without a URL"
