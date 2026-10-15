@@ -165,7 +165,7 @@ def test_files_show_cloud_main_when_local_main_is_missing(
 def test_files_restore_tokens_from_an_expanded_cloud_cache(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """A legacy resolved cache never sends provider values to the browser."""
+  """The provider form receives credential references instead of resolved secrets from an expanded cache."""
   main = tmp_path / "free.yml"
   cache = {
     "cloudflare": {
