@@ -113,6 +113,8 @@ DEMO_HEADERS = {
   "x-ratelimit-remaining-tokens": "3980123",
   "x-ratelimit-reset-requests": "37s",
   "x-ratelimit-reset-tokens": "12s",
+  "x-ratelimit-limit-tokens-hour": "Infinity",
+  "x-ratelimit-remaining-tokens-hour": "NaN",
 }
 
 

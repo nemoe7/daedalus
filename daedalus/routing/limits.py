@@ -70,9 +70,10 @@ def number(value: Any) -> float | None:
   if isinstance(value, bool):
     return None
   try:
-    return float(value)
-  except (TypeError, ValueError):
+    result = float(value)
+  except (TypeError, ValueError, OverflowError):
     return None
+  return result if math.isfinite(result) else None
 
 
 def label(provider: str, name: str) -> tuple[str, str | None]:
@@ -324,7 +325,15 @@ def saved_lanes(found: Any) -> dict[str, dict[str, Any]]:
   return {
     str(lane): {
       "at": seen["at"],
-      "rows": [row for row in seen["rows"] if isinstance(row, dict)],
+      "rows": [
+        row
+        for row in seen["rows"]
+        if isinstance(row, dict)
+        and all(
+          row.get(key) is None or number(row[key]) is not None
+          for key in ("limit", "remaining", "reset")
+        )
+      ],
     }
     for lane, seen in found.items()
     if isinstance(seen, dict)

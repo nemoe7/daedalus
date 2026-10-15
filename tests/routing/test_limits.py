@@ -6,8 +6,9 @@ from pathlib import Path
 
 import httpx
 import pytest
+from fastapi import APIRouter, FastAPI
 
-from daedalus import store
+from daedalus import dashboard, store
 from daedalus.routing import limits
 from daedalus.routing.cooldowns import Cooldowns
 
@@ -30,7 +31,7 @@ MISTRAL = {
 
 
 def gemini_quota(
-  model: str, violations: list[tuple[str, str, str]], delay: str
+  model: str, violations: list[tuple[str, str, str | int]], delay: str
 ) -> bytes:
   """A Gemini quota failure with its RetryInfo boundary."""
   return json.dumps(
@@ -66,6 +67,42 @@ def cooldowns(tmp_path: Path) -> Cooldowns:
   return Cooldowns(lambda: tmp_path / "models.sqlite3", clock=lambda: NOW)
 
 
+@pytest.mark.parametrize(
+  "value",
+  [
+    float("nan"),
+    float("inf"),
+    float("-inf"),
+    "NaN",
+    "Infinity",
+    "-Infinity",
+    "1e309",
+    10**1000,
+  ],
+)
+def test_number_rejects_nonfinite_values(value) -> None:
+  """Nonfinite counts and conversion overflow are not valid numbers."""
+  assert limits.number(value) is None
+
+
+@pytest.mark.parametrize(
+  "value, expected",
+  [(0, 0.0), (100, 100.0), ("12.5", 12.5), (True, None), (None, None)],
+)
+def test_number_keeps_finite_values(value, expected) -> None:
+  """Finite numbers stay valid and booleans stay invalid."""
+  assert limits.number(value) == expected
+
+
+@pytest.mark.parametrize("field", ["limit", "remaining"])
+@pytest.mark.parametrize("value", ["NaN", "Infinity", "-Infinity", "1e309"])
+def test_headers_drop_an_invalid_count(field, value) -> None:
+  """An invalid count drops only its header group."""
+  headers = {**GROQ, f"x-ratelimit-{field}-requests": value}
+  rows = limits.header_rows("groq", headers, NOW)
+  assert [row["kind"] for row in rows] == ["tokens"]
+
+
 def test_rows() -> None:
   """Groq headers have no window in the name, but Mistral headers do. A group with no remaining count does not show."""
   rows = limits.header_rows("groq", GROQ, NOW)
@@ -78,6 +115,23 @@ def test_rows() -> None:
   spans = [(r["kind"], r["span"], r["remaining"]) for r in rows]
   assert spans == [("tokens", "minute", 49000), ("tokens", "month", 0)], spans
   assert limits.header_rows("gemini", {"content-type": "x"}, NOW) == []
+
+
+@pytest.mark.parametrize("value", ["NaN", "Infinity", "-Infinity", "1e309", 10**1000])
+def test_quota_drops_an_invalid_count(value) -> None:
+  """Invalid quota values do not become limit rows."""
+  body = gemini_quota(
+    "gemma-4-26b",
+    [
+      (
+        "generativelanguage.googleapis.com/generate_content_free_tier_input_token_count",
+        "GenerateContentInputTokensPerModelPerMinute-FreeTier",
+        value,
+      )
+    ],
+    "51s",
+  )
+  assert limits.gemini_quota_rows(body, NOW) == []
 
 
 def test_gemini_quota_failures_track_gemma_and_flash_limits(tmp_path: Path) -> None:
@@ -588,3 +642,63 @@ async def test_check_keeps_a_failed_card(cooldowns: Cooldowns) -> None:
   assert [item["name"] for item in found.view()["providers"]] == ["kilo"], (
     "the last good card stays"
   )
+
+
+@pytest.mark.parametrize("field", ["limit", "remaining", "reset"])
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf"), 10**1000])
+def test_restore_drops_only_invalid_numeric_rows(tmp_path: Path, field, value) -> None:
+  """Old nonfinite rows are dropped while valid rows and balances survive."""
+  path = tmp_path / "models.sqlite3"
+  good = {
+    "kind": "requests",
+    "span": "day",
+    "limit": 100.0,
+    "remaining": 12.0,
+    "reset": None,
+  }
+  found = limits.Limits(clock=lambda: NOW, path=lambda: path)
+  found.lanes = {"groq/llama": {"at": NOW, "rows": [good, {**good, field: value}]}}
+  found.balances = {"kilo": [("Balance", "$1.20", None)]}
+  found.checked = NOW
+  found.save()
+  again = limits.Limits(clock=lambda: NOW, path=lambda: path)
+  again.restore()
+  view = again.view()
+  assert view["lanes"][0]["rows"] == [good]
+  assert view["providers"] == [{"name": "kilo", "items": [["Balance", "$1.20", None]]}]
+  assert view["checked"] == NOW
+  json.dumps(view, allow_nan=False)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("method", ["GET", "POST"])
+async def test_limit_http_view_keeps_valid_rows(
+  tmp_path: Path, monkeypatch, method
+) -> None:
+  found = limits.Limits(clock=lambda: NOW, path=lambda: tmp_path / "models.sqlite3")
+  found.observe(
+    "groq/model",
+    httpx.Headers({**GROQ, "x-ratelimit-remaining-requests": "Infinity"}),
+  )
+
+  async def no_refresh():
+    return None
+
+  monkeypatch.setattr(found, "check", no_refresh)
+  app = FastAPI()
+  routes = APIRouter(prefix="/ui/api")
+  dashboard.limit_routes(routes, found)
+  app.include_router(routes)
+  key = dashboard.secret()
+  assert key is not None
+  headers = {dashboard.HEADER: dashboard.cookie(key, datetime.now(UTC).timestamp())}
+  async with httpx.AsyncClient(
+    transport=httpx.ASGITransport(app=app), base_url="http://test"
+  ) as client:
+    denied = await client.request(method, "/ui/api/limits")
+    assert denied.status_code == 401
+    answer = await client.request(method, "/ui/api/limits", headers=headers)
+  assert answer.status_code == 200
+  rows = answer.json()["lanes"][0]["rows"]
+  assert [row["kind"] for row in rows] == ["tokens"]
+  assert rows[0]["limit"] == 18000

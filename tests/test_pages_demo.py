@@ -6,11 +6,13 @@ import re
 import subprocess
 from pathlib import Path
 
+import httpx
 import pages_demo
 import pytest
 import yaml
 
 from daedalus import __version__ as DAEDALUS_VERSION
+from daedalus.routing.limits import header_rows
 
 APP_JS = Path("daedalus/dashboard/ui/app.js")
 # The calls that change state. The demo holds each of them in the page memory.
@@ -886,3 +888,17 @@ def test_race_demo_shape() -> None:
     assert attempts[0]["result"] == "error" and attempts[0]["error"]
     assert attempts[-1]["model"] == transition["to_model"] == row["via"]
     assert attempts[-1]["result"] == "answered" and attempts[-1]["race"] == "won"
+
+
+def test_demo_keeps_valid_limits_when_a_header_group_is_invalid() -> None:
+  answer = pages_demo.answer(
+    httpx.Request(
+      "POST", "https://groq.test/v1/chat/completions", json={"model": "synthetic-limit"}
+    )
+  )
+  assert answer.status_code == 200
+  assert answer.headers["x-ratelimit-limit-tokens-hour"] == "Infinity"
+  rows = header_rows("groq", answer.headers, 0)
+  assert [row["kind"] for row in rows] == ["requests", "tokens"]
+  assert rows[0]["limit"] == 14400
+  json.dumps(rows, allow_nan=False)
