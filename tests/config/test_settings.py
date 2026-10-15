@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import sys
@@ -363,7 +364,29 @@ def test_cli(folder: Path) -> None:
     text=True,
     check=True,
   )
-  assert "default 9100" in shown.stdout, shown.stdout
+  assert shown.stdout
+  served_folder = folder / "port-check"
+  served_folder.mkdir()
+  server = (
+    """
+import json
+import uvicorn
+from daedalus import catalog
+catalog.refresh = lambda: None
+uvicorn.run = lambda *args, **kwargs: print(json.dumps({"port": kwargs["port"]}))
+"""
+    + CLI
+  )
+  for args, expected in (([], 9100), (["9200"], 9200)):
+    served = subprocess.run(
+      [sys.executable, "-c", server, "serve", *args],
+      cwd=served_folder,
+      env=environment,
+      capture_output=True,
+      text=True,
+      check=True,
+    )
+    assert json.loads(served.stdout) == {"port": expected}
 
 
 @pytest.fixture(scope="module")

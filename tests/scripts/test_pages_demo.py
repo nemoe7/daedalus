@@ -677,7 +677,10 @@ def test_the_demo_states_its_source_and_the_hook_versions(tmp_path: Path) -> Non
   assert set(rows) == shipped, rows
   for name, row in rows.items():
     assert row["version"], f"no version for {name}"
-  assert rows["served_model.py"]["title"] == "Served model"
+  metadata, problem = pages_demo.hooks.meta_file(Path("hooks/served_model.py"))
+  assert problem is None
+  assert metadata is not None
+  assert rows["served_model.py"]["title"] == metadata["title"]
   assert rows["owui_auto_reasoning_effort.py"]["runs"] == []
   assert rows["served_model.py"]["runs"] == []
   out = pages_demo.build(tmp_path / "site", "demo.test")

@@ -79,9 +79,7 @@ def test_page(client: TestClient) -> None:
   assert "<details" not in page.text and "<summary" not in page.text, (
     "the legend keeps no expand button"
   )
-  assert "Keys and values" not in page.text and "env-rows" not in page.text, (
-    "the provider block owns the keys: no Keys and values card"
-  )
+  assert "env-rows" not in page.text, "the provider block owns the keys"
   assert '<dialog id="modal"' in page.text, "the confirmation modal"
   assert "<code>frX</code>" not in page.text, "the legend body is filled by app.js"
   for block in ("ov-providers", "ov-keys", "ov-settings"):
@@ -2005,14 +2003,37 @@ def test_each_model_filter_selection_moves_the_rows_only() -> None:
 
 
 def test_the_live_switch_reads_blue_live_and_gray_paused() -> None:
-  """The switch says Paused, and blue marks the live stream while gray marks the pause."""
+  """Live state controls the localized switch label, pressed state and colors."""
   root = Path(__file__).resolve().parent.parent.parent
-  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
-  assert 't("request.live.paused_new_button", { count: state.liveWaiting.size })' in app
-  assert 't("request.live.paused_button")' in app
-  assert "Live: paused" not in app, "the label is just Paused"
+  run_app_js(
+    "state, renderLiveToggle, esc",
+    """
+const button = node('live-toggle');
+const attributes = {};
+button.setAttribute = (name, value) => { attributes[name] = value; };
+for (const catalog of [LOCALE, {
+  ...LOCALE,
+  'request.live_button': 'fixture-live',
+  'request.live.paused_button': 'fixture-paused',
+  'request.live.paused_new_button': 'fixture-waiting-{count}',
+}]) {
+  sandbox.DAEDALUS_LOCALE = catalog;
+  for (const [paused, waiting] of [[false, 0], [true, 0], [true, 2], [false, 2]]) {
+    probe.state.livePaused = paused;
+    probe.state.liveWaiting = new Set(Array.from({ length: waiting }, (_, i) => i));
+    probe.renderLiveToggle();
+    const key = paused
+      ? waiting ? 'request.live.paused_new_button' : 'request.live.paused_button'
+      : 'request.live_button';
+    const expected = catalog[key].replaceAll('{count}', String(waiting));
+    assert.strictEqual(button.innerHTML.replace(/<[^>]*>/g, '').trim(), probe.esc(expected));
+    assert.strictEqual(attributes['aria-pressed'], String(paused));
+  }
+}
+""",
+  )
   assert (
     '.live-toggle[aria-pressed="false"] { border-color: var(--accent); color: var(--accent-text); }'
     in css
@@ -5227,8 +5248,51 @@ def test_a_row_writes_itself_and_the_bar_is_gone() -> None:
   assert 'clearWrite("providers")' in app and 'clearWrite("settings")' in app, (
     "a quiet page stays quiet"
   )
-  assert 'showWrite("providers", "Saved and reloaded")' not in app, (
-    "a good write says nothing"
+  run_app_js(
+    "state, saveForm, showWrite, lastWrite: () => lastWrite",
+    """
+sandbox.setTimeout = () => 0;
+sandbox.clearTimeout = () => {};
+sandbox.sessionStorage = sandbox.localStorage = { getItem: () => null };
+const before = { path: 'providers.yml', text: 'saved fixture data' };
+probe.state.file = 0;
+probe.state.view = 'form';
+probe.state.files = [before];
+probe.state.forms = [{ p: { api_key: 'db:FIXTURE_KEY' } }];
+probe.state.formSaved = ['{}'];
+probe.state.writeAnchor = null;
+let taken = 0;
+sandbox.takeFile = async () => { taken += 1; };
+sandbox.refreshEnv = async () => {};
+sandbox.renderForm = sandbox.renderFiles = sandbox.refresh = () => {};
+const sent = [];
+const failure = 'fixture-save-error';
+let accepted = true;
+sandbox.fetch = async (url, options) => {
+  sent.push({ url, method: options.method, body: JSON.parse(options.body) });
+  return { ok: accepted, status: accepted ? 200 : 422,
+    json: async () => accepted ? {} : { error: { message: failure } } };
+};
+probe.showWrite('providers', failure, true);
+(async () => {
+  for (const success of [true, false, true]) {
+    accepted = success;
+    await probe.saveForm();
+    assert.strictEqual(node('save-message').textContent, success ? '' : failure);
+    assert.strictEqual(node('save-note').hidden, success);
+    assert.deepStrictEqual(sent.at(-1), {
+      url: 'ui/api/providers', method: 'PUT',
+      body: { path: before.path, blocks: probe.state.forms[0] },
+    });
+    if (success) {
+      assert.strictEqual(probe.lastWrite().path, before.path);
+      assert.strictEqual(probe.lastWrite().text, before.text);
+    }
+  }
+  assert.strictEqual(sent.length, 3);
+  assert.strictEqual(taken, 2, 'only successful saves reload the file');
+})().catch(error => { console.error(error); process.exitCode = 1; });
+""",
   )
 
 
