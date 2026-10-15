@@ -202,7 +202,7 @@ def test_dump_modes(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_dump_models_names_the_tier_of_each_row(tmp_path: Path, monkeypatch) -> None:
-  """The dump mirrors the tier the store holds for a row, so no reader matches slugs to patterns by hand."""
+  """Dumps use stored tiers, with null in JSON and an empty CSV cell for missing tiers."""
   monkeypatch.setattr(discovery, "DUMP_DIR", tmp_path / "dump")
   monkeypatch.setattr(store, "MODELS_DB", tmp_path / "models.sqlite3")
   store.write_store([{"id": "p/one", "tier": "TIER-A"}, {"id": "q/two"}])
@@ -221,7 +221,7 @@ def test_dump_models_names_the_tier_of_each_row(tmp_path: Path, monkeypatch) -> 
 def test_dump_models_carries_the_ladder_of_the_store(
   tmp_path: Path, monkeypatch
 ) -> None:
-  """The dump mirrors the store's ladder: what the catalog holds is what the dump holds, and missing stays missing."""
+  """Model dumps keep nonempty stored effort strings and leave missing ladders absent."""
   monkeypatch.setattr(
     config,
     "get_config",
