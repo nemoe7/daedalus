@@ -360,7 +360,7 @@ def test_read_only_security_gates_keep_their_workflow_and_policy_trusted() -> No
 def test_the_pages_demo_builds_the_page_and_deploys_it() -> None:
   """The demo goes to Pages from an artifact, and only main deploys it."""
   data = load("pages.yml")
-  assert "pull_request" not in (triggers("pages.yml"), triggers("pages.yml"))
+  assert "pull_request" not in triggers("pages.yml")
   assert triggers("pages.yml")["push"]["paths"] == [
     "daedalus/dashboard/ui/**",
     "scripts/pages_demo.py",
