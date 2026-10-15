@@ -1,7 +1,7 @@
 """
 title: Open WebUI Manager
 author: nemo
-description: Open WebUI manager: knowledge, skills, files, tools, functions. Writes need a confirmed gate. Stdlib only.
+description: Open WebUI knowledge, skills, files, tools, and functions. Read and write approval follows permission mode.
 required_open_webui_version: 0.12.0
 version: 1.0.6
 licence: daedalus Noncommercial License 1.0.0

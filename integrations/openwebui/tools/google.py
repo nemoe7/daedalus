@@ -1,7 +1,7 @@
 """
 title: Google
 author: nemo
-description: Gmail, Calendar, Drive, Docs for Open WebUI. Reads run freely. Writes need a confirmed gate. Stdlib only.
+description: Gmail, Calendar, Drive, and Docs for Open WebUI. Read and write approval follows permission mode.
 required_open_webui_version: 0.10.0
 version: 1.0.3
 licence: daedalus Noncommercial License 1.0.0

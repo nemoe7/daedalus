@@ -1,7 +1,7 @@
 """
 title: GitHub
 author: nemo
-description: GitHub access for Open WebUI. Reads run freely. Writes need a confirmed gate and a timeout. Stdlib only.
+description: GitHub access for Open WebUI. Read and write approval follows permission mode.
 required_open_webui_version: 0.10.0
 version: 3.0.4
 licence: daedalus Noncommercial License 1.0.0
