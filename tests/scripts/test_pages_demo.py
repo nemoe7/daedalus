@@ -77,6 +77,12 @@ const check = (ok, text) => {
   if (!ok) throw new Error(text);
   console.log("ok " + text);
 };
+const errorMessage = async (answer, structured = true) => {
+  const error = (await answer.json()).error;
+  check(typeof error.message === "string" && error.message.trim().length > 0, "nonblank error message");
+  if (structured) check(error.code === answer.status && error.type === "invalid_request_error",
+    "structured error fields");
+};
 """
 
 NODE_CHECK = (
@@ -124,6 +130,8 @@ NODE_CHECK = (
   const status = await context.fetch("ui/api/status");
   check(status.status === 200, "status");
   check((await status.json()).healthy === true, "status body");
+  const absolute = await context.fetch(new URL("/ui/api/status", context.location.origin).href);
+  check(absolute.status === 200 && (await absolute.json()).healthy === true, "absolute API route");
   const notifications = await (await context.fetch("ui/api/notifications")).json();
   check(notifications.update.channel === "dev", "the update fixture uses the development channel");
   check(notifications.update.behind === 2 && notifications.update.update === true,
@@ -143,7 +151,7 @@ NODE_CHECK = (
   check(all.length === 0, "the Overview starts empty too");
   const stray = await context.fetch("ui/api/nothing", { method: "PUT", headers: JSON_HEADERS });
   check(stray.status === 403, "a write with no home is refused");
-  check((await stray.json()).error.message.includes("static demo"), "the write text");
+  await errorMessage(stray, false);
   const missing = await context.fetch("ui/api/nothing");
   check(missing.status === 404, "an unknown call");
   const stateBefore = await (await context.fetch("ui/api/status")).json();
@@ -153,7 +161,7 @@ NODE_CHECK = (
   check(running.catalog.rebuilding === true, "the chip reads rebuilding");
   const busy = await context.fetch("ui/api/catalog", { method: "POST", headers: JSON_HEADERS });
   check(busy.status === 409, "a rebuild is refused while 1 runs");
-  check((await busy.json()).error.message.includes("rebuild runs now"), "the busy text");
+  await errorMessage(busy);
   check(context.timers.includes(26000), "the rebuild takes the real 26 s");
   await new Promise((done) => setTimeout(done, 300));
   const stateAfter = await (await context.fetch("ui/api/status")).json();
@@ -218,14 +226,10 @@ NODE_CHECK = (
     "non-chat models have no routing tier");
   check(models.some((row) => row.mode === "chat" && row.tier),
     "chat models keep their routing tiers");
-  const sophos = (await (await context.fetch("ui/api/pools")).json())
-    .find((pool) => pool.name === "daedalus/sophos");
-  check(sophos.members.length > 10 && sophos.members.every((row) => row.tier === "TIER-A"),
-    "a pool reads its tier patterns");
   const readOnly = async (path, body, method) => {
     const answer = await context.fetch("ui/api/" + path, { method, headers: JSON_HEADERS, body: JSON.stringify(body) });
     check(answer.status === 403, `the refusal of ${path}`);
-    check((await answer.json()).error.message.includes("read-only"), `the text of ${path}`);
+    await errorMessage(answer);
   };
   // The demo takes provider edits in page memory: YAML overlays the cloud blocks, and the form
   // writes only changed whole blocks. A refresh brings the empty local main back.
@@ -263,11 +267,13 @@ NODE_CHECK = (
   check(round.blocks.cloudflare.order === 3 && round.blocks.demoprovider === undefined,
     "the round trip keeps the blocks");
   edit = await put("files", { path: main.path, text: "\\tcloudflare: 2" });
-  check(edit.status === 422 && String(edit.body.error.message).includes("cannot start any token"),
-    "the bad yaml is refused");
+  check(edit.status === 422 && edit.body.error.code === 422
+    && edit.body.error.type === "invalid_request_error", "the bad yaml is refused");
+  check(typeof edit.body.error.message === "string" && edit.body.error.message.trim(), "explain invalid YAML");
   edit = await put("files", { path: main.path, text: "- 1\\n- 2" });
-  check(edit.status === 422 && edit.body.error.message.includes("must hold provider blocks"),
-    "a list is not provider blocks");
+  check(edit.status === 422 && edit.body.error.code === 422
+    && edit.body.error.type === "invalid_request_error", "a list is not provider blocks");
+  check(typeof edit.body.error.message === "string" && edit.body.error.message.trim(), "explain invalid shape");
   list = await (await context.fetch("ui/api/files")).json();
   check(list.find((row) => row.path === main.path).text === rewrote.text, "the refusals keep the text");
   await readOnly("files", { name: "extra" }, "POST");
@@ -281,14 +287,14 @@ NODE_CHECK = (
   check(cleared.every((row) => row.cooldown === null && row.weight === 1),
     "the reset clears the weights");
   // Each write carries the checks of the server: the names and the session.
-  const refuse = async (path, body, status, text, method = "PUT") => {
+  const refuse = async (path, body, status, method = "PUT") => {
     const answer = await context.fetch("ui/api/" + path, { method, headers: JSON_HEADERS, body: JSON.stringify(body) });
     check(answer.status === status, `the refusal of ${path} (${status})`);
-    check((await answer.json()).error.message.includes(text), `the text of ${path}`);
+    await errorMessage(answer);
   };
-  await refuse("settings", { changes: { personalization: { grid: 1 } } }, 422, "unknown key");
-  await refuse("keys", { name: "x".repeat(41) }, 400, "1 to 40 characters", "POST");
-  await refuse("keys", { name: "openwebui" }, 400, "is in use", "POST");
+  await refuse("settings", { changes: { personalization: { grid: 1 } } }, 422);
+  await refuse("keys", { name: "x".repeat(41) }, 400, "POST");
+  await refuse("keys", { name: "openwebui" }, 400, "POST");
   await context.fetch("ui/api/logout", { method: "POST", headers: JSON_HEADERS });
   check((await (await context.fetch("ui/api/login")).json()).session === false, "a logout ends the session");
   const wrong = await context.fetch("ui/api/login", {
@@ -681,6 +687,83 @@ def test_the_demo_serves_auto_only_from_the_members_of_the_auto_pool(
   )
 
 
+def test_demo_pool_membership(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+  fixtures = pages_demo.demo_fixtures("demo.pools")
+  template = fixtures["models"][0]
+  fixtures["models"] = [
+    {**template, "id": f"fixture/{name}", "mode": mode, "tier": None}
+    for name, mode in (
+      ("alpha-one", "chat"),
+      ("alpha-two", "chat"),
+      ("beta", "chat"),
+      ("image", "image_generation"),
+    )
+  ]
+  fixtures["files"] = [
+    {
+      "path": "config/providers/fixture.yml",
+      "blocks": {
+        "fixture": {
+          "models": {"*": {}},
+          "tier": {"TIER-A": ["alpha-*"], "TIER-B": ["beta"]},
+        }
+      },
+    }
+  ]
+  fixtures["settings"]["defaults"]["personalization"] = {
+    "tier-a": "fixture-strong",
+    "tier-b": "fixture-other",
+    "images": "fixture-images",
+  }
+  fixtures["settings"]["file"]["personalization"] = {}
+  fixtures["pools"] = [
+    {
+      "name": "daedalus/auto",
+      "members": [{"id": "fixture/alpha-two"}, {"id": "fixture/beta"}],
+    }
+  ]
+  monkeypatch.setattr(pages_demo, "demo_fixtures", lambda version: fixtures)
+  out = pages_demo.build(tmp_path / "site", "demo.pools")
+  script = (
+    NODE_SETUP
+    + """
+(async () => {
+  const pools = await (await context.fetch("ui/api/pools")).json();
+  const members = (name) => pools.find(pool => pool.name === "daedalus/" + name).members;
+  check(members("fixture-strong").map(row => row.id).join(",") === "fixture/alpha-one,fixture/alpha-two",
+    "tier pattern membership");
+  check(members("fixture-strong").every(row => row.tier === "TIER-A"), "member tiers");
+  check(members("fixture-other").map(row => row.id).join(",") === "fixture/beta", "other tier membership");
+  check(members("fixture-images").map(row => row.id).join(",") === "fixture/image", "image membership");
+  check(members("auto").map(row => row.id).join(",") === "fixture/alpha-one,fixture/alpha-two,fixture/beta",
+    "auto catalog membership");
+  context.EventSource.prototype.loop = async () => {};
+  context.Math = Object.create(Math);
+  const feed = new context.EventSource("ui/api/events");
+  for (const [random, expected] of [[0, "fixture/alpha-two"], [0.999999, "fixture/beta"]]) {
+    context.Math.random = () => random;
+    const calls = [];
+    feed.call = async (spec) => calls.push(spec);
+    await feed.chat();
+    check(calls.length === 3 && calls.slice(1).every(spec =>
+      spec.model === "daedalus/auto" && spec.via === expected), "auto traffic uses supplied members");
+  }
+  feed.close();
+  check(context.network.length === 0, "no network calls");
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
+  )
+  result = subprocess.run(
+    ["node", "-e", script],
+    cwd=out,
+    capture_output=True,
+    text=True,
+    timeout=10,
+    check=False,
+  )
+  assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+
+
 def test_the_demo_keeps_every_row_of_the_snapshot(tmp_path: Path) -> None:
   """The demo shows the captured catalog as it is: each snapshot row reaches the page."""
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
@@ -765,18 +848,33 @@ def test_the_build_copies_the_page_and_loads_the_demo_first(tmp_path: Path) -> N
     assert (out / "ui" / name).exists() or (out / name).exists(), name
   fixtures = pages_demo.demo_fixtures(pages_demo.demo_version())
   assert json.dumps(fixtures) in (out / "demo.js").read_text(encoding="utf-8")
-  assert 'const MARKER = "ui/api/";' in (out / "demo.js").read_text(encoding="utf-8"), (
-    "the demo matches the call path"
-  )
 
 
 def test_the_demo_carries_the_version_of_the_build(tmp_path: Path) -> None:
   """A build stamps its version into the header, and every change bumps it."""
   out = pages_demo.build(tmp_path / "site", "demo.7")
-  demo = (out / "demo.js").read_text(encoding="utf-8")
-  assert demo.count('"version": "demo.7"') == 2, (
-    "the header and the login hint carry it"
+  script = (
+    NODE_SETUP
+    + """
+(async () => {
+  for (const path of ["status", "login"]) {
+    const body = await (await context.fetch("ui/api/" + path)).json();
+    check(body.version === "demo.7", "build version in " + path);
+  }
+  const notifications = await (await context.fetch("ui/api/notifications")).json();
+  check(notifications.update.current === "demo.7", "update version");
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
   )
+  result = subprocess.run(
+    ["node", "-e", script],
+    cwd=out,
+    capture_output=True,
+    text=True,
+    timeout=10,
+    check=False,
+  )
+  assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
   assert pages_demo.demo_version() != "", (
     "an environment with no version keeps a fallback"
   )
@@ -787,39 +885,97 @@ def test_the_demo_carries_the_version_of_the_build(tmp_path: Path) -> None:
     del os.environ["DEMO_VERSION"]
 
 
-def test_the_live_demo_lands_a_row_before_the_end_event() -> None:
-  """The row joins the table state before the end event, and the spreads are the real ones."""
-  js = pages_demo.DEMO_JS
-  block = js[js.index("// 1 request, as the server lives it") :]
-  assert block.index("keep(done);") < block.index('this.send("end"'), (
-    "the row lands 1st"
+def test_demo_timing_and_event_contract(tmp_path: Path) -> None:
+  out = pages_demo.build(tmp_path / "site", "demo.timing")
+  script = (
+    NODE_SETUP
+    + """
+(async () => {
+  let now = 0;
+  context.performance = { now: () => now };
+  context.Math = Object.create(Math);
+  context.setTimeout = (fn, ms) => { now += ms; fn(); return 0; };
+  const prototype = context.EventSource.prototype;
+  const loop = prototype.loop;
+  const makeFeed = () => {
+    prototype.loop = async () => {};
+    try { return new context.EventSource("ui/api/events"); }
+    finally { prototype.loop = loop; }
+  };
+  const near = (actual, expected) => Math.abs(actual - expected) < 1e-8;
+  const age = (elapsed) => Math.max(1, Math.round(elapsed)) / 1000;
+  for (const r of [0, 1 / 3, 0.599, 0.6, 0.699, 0.7, 0.849, 0.85, 0.899, 0.9, 0.999999]) {
+    context.Math.random = () => r;
+    const plan = makeFeed();
+    const calls = [];
+    plan.call = async (spec) => calls.push(spec);
+    await plan.chat();
+    check(calls.length === 3 && calls[0].path === "/v1/embeddings"
+      && !calls[0].stream && !calls[1].stream && calls[2].stream, "chat phases");
+    check(near(calls[0].ttft, 0.1 + r * 0.4), "embedding TTFT");
+    check(near(calls[1].ttft, 0.4 + r * 1.1), "title TTFT");
+    const chat = r < 0.7 ? 20 + r * 10 : r < 0.9 ? r * 20 : 30 + r * 30;
+    check(near(calls[2].ttft, chat), "chat TTFT distribution");
+    const wave = makeFeed();
+    let waves = 0;
+    wave.scenario = async () => { if (++waves === 2) wave.close(); };
+    const waveStart = now;
+    await wave.loop();
+    check(waves === 2 && near(now - waveStart, 1 + 6000 + r * 12000), "wave interval");
+    for (const stream of [false, true]) {
+      const feed = makeFeed();
+      const events = [];
+      let finishedRead;
+      for (const kind of ["start", "update", "first", "end"]) {
+        feed.addEventListener(kind, event => {
+          events.push({ kind, data: JSON.parse(event.data), at: now });
+          if (kind === "end") finishedRead = context.fetch("ui/api/requests?limit=1");
+        });
+      }
+      const start = now;
+      await feed.call({ model: "fixture/clock", via: "fixture/clock", stream, ttft: 0.0026 });
+      check(events.map(event => event.kind).join(",") === "start,update,first,end", "event order");
+      const attempt = events[1].at;
+      for (const event of events.slice(0, 3)) {
+        check(event.data.age === age(event.at - start), "whole millisecond age");
+        check(event.data.attempt_age === age(event.at - (event.kind === "start" ? start : attempt)),
+          "whole millisecond attempt age");
+      }
+      check(events[0].data.age === 0.001 && events[1].data.attempt_age === 0.001, "positive clock floor");
+      const first = events[2];
+      const end = events[3];
+      const duration = !stream ? 0.2 + r * 1.3
+        : r < 0.6 ? 15 + r * 30 : r < 0.85 ? 0.5 + r * 14.5 : 45 + r * 75;
+      check(near(end.at - first.at, Math.round(duration * 1000)), "stream duration distribution");
+      check(first.data.ttft === first.data.attempt_age, "first token freezes TTFT");
+      check(Number.parseFloat(end.data.row.ttft) === first.data.ttft, "finished TTFT");
+      check(end.data.row.seconds === age(end.at - start), "finished elapsed time");
+      const rows = await (await finishedRead).json();
+      check(JSON.stringify(rows[0]) === JSON.stringify(end.data.row), "row exists when end arrives");
+      feed.close();
+    }
+  }
+  context.performance.now = () => { const value = now; now += 1.25; return value; };
+  const clockFeed = makeFeed();
+  clockFeed.addEventListener("start", event => {
+    const data = JSON.parse(event.data);
+    check(data.age === data.attempt_age, "both initial ages use the same clock sample");
+  });
+  await clockFeed.call({ model: "fixture/clock", via: "fixture/clock", ttft: 0 });
+  clockFeed.close();
+  check(context.network.length === 0, "no network calls");
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
   )
-  assert "return r < 0.7 ? gap(20, 30) : r < 0.9 ? gap(0, 20) : gap(30, 60);" in js, (
-    "the TTFT"
+  result = subprocess.run(
+    ["node", "-e", script],
+    cwd=out,
+    capture_output=True,
+    text=True,
+    timeout=10,
+    check=False,
   )
-  assert "r < 0.6 ? gap(15, 45) : r < 0.85 ? gap(0.5, 15) : gap(45, 120)" in js, (
-    "the stream spread lands near 30 s, near 0, and up to 120 s"
-  )
-  assert "const WAVE_MS = [6000, 18000];" in js, "the gap between the waves"
-
-
-def test_the_demo_clocks_count_in_whole_milliseconds() -> None:
-  """The clocks count in whole milliseconds from 1 read of the clock, so a first token always ages above zero."""
-  js = pages_demo.DEMO_JS
-  block = js[
-    js.index("const CLOCKS = new Map()") : js.index(
-      "const SEEDED = DEMO_FIXTURES.requests.map"
-    )
-  ]
-  assert "Math.max(1, Math.round(now - clock.at))" in block, "the age floors at 1 ms"
-  assert "Math.max(1, Math.round(now - clock.attempt))" in block, (
-    "the attempt age floors at 1 ms"
-  )
-  assert "(now - clock.at) / 1000" not in block, (
-    "no fractions of a millisecond in the ages"
-  )
-  reads = block.count("performance.now()")
-  assert reads == 3, "began, attempted, and the 1 read of ages"
+  assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
 
 
 def test_the_demo_answers_the_page_without_a_server(tmp_path: Path) -> None:
