@@ -54,18 +54,16 @@ def test_load(folder: Path) -> None:
   path.write_text("", encoding="utf-8")
   assert settings.load(path)["affinity"]["mode"] == "session", "an empty file"
   assert settings.load(path)["affinity"]["change_on_draw"] is True
-  expect_error(folder, "affinity:\n  change_on_draw: 1\n", "true or false")
-  expect_error(folder, "server:\n  port: 1\n", "unknown group 'server'")
-  expect_error(folder, "balance:\n  factor: 2\n", "unknown key balance.factor")
-  expect_error(
-    folder, "hooks:\n  on-request: 3\n", "must be a hook file path, or a list"
-  )
+  expect_error(folder, "affinity:\n  change_on_draw: 1\n", "affinity.change_on_draw")
+  expect_error(folder, "server:\n  port: 1\n", "'server'")
+  expect_error(folder, "balance:\n  factor: 2\n", "balance.factor")
+  expect_error(folder, "hooks:\n  on-request: 3\n", "hooks.on-request")
   expect_error(
     folder,
     "hooks:\n  on-request: [hooks/x.py, 2]\n",
-    "must be a hook file path",
+    "hooks.on-request",
   )
-  expect_error(folder, "hooks:\n  on-later: a.py\n", "unknown key hooks.on-later")
+  expect_error(folder, "hooks:\n  on-later: a.py\n", "hooks.on-later")
   hooks = settings.parse('hooks:\n  on-request: ""\n')["hooks"]
   assert hooks["on-request"] == [] and hooks["sources"] == []
   assert hooks["order"] == {}
@@ -77,11 +75,11 @@ def test_load(folder: Path) -> None:
     "hooks:\n  order:\n    on-request: [hooks/y.py, hooks/x.py]\n"
   )["hooks"]
   assert hooks["order"] == {"on-request": ["hooks/y.py", "hooks/x.py"]}
-  expect_error(folder, "hooks:\n  order: []\n", "order must hold surfaces")
+  expect_error(folder, "hooks:\n  order: []\n", "hooks.order")
   expect_error(
     folder,
     "hooks:\n  order:\n    on-later: [hooks/x.py]\n",
-    "unknown surface on-later",
+    "on-later",
   )
   text = settings.update_text(
     "",
@@ -97,31 +95,34 @@ def test_load(folder: Path) -> None:
     {"hooks": {"on-request": "hooks/b.py"}},
   )
   assert text == "hooks:\n  on-request: hooks/b.py # keep\n", text
-  expect_error(folder, "balance:\n  weights: 1\n", "true or false")
-  expect_error(folder, "limits:\n  wait: true\n", "above 0")
-  expect_error(folder, "limits:\n  wait: 0\n", "above 0")
-  expect_error(folder, "affinity:\n  stay: 1\n", "below 1")
-  expect_error(folder, "- a\n", "groups of keys")
+  expect_error(folder, "balance:\n  weights: 1\n", "balance.weights")
+  expect_error(folder, "limits:\n  wait: true\n", "limits.wait")
+  expect_error(folder, "limits:\n  wait: 0\n", "limits.wait")
+  expect_error(folder, "affinity:\n  stay: 1\n", "affinity.stay")
+  expect_error(folder, "- a\n", "bad.yml")
   (folder / "twice.yml").write_text("balance:\n  fault: 0.5\n  fault: 0.25\n")
   try:
     settings.load(folder / "twice.yml")
-  except yaml.YAMLError as exc:
-    assert "duplicate key 'fault'" in str(exc) and "line 3" in str(exc), exc
+  except yaml.constructor.ConstructorError as exc:
+    assert "'fault'" in exc.problem
+    assert exc.problem_mark.line == 2
   else:
     raise AssertionError("no error for a duplicate key")
-  expect_error(folder, "routing:\n  escalation: think\n", "list of words or phrases")
-  expect_error(folder, "routing:\n  escalation: [1]\n", "list of words or phrases")
-  expect_error(folder, "routing:\n  switch: clanker\n", "list of words or phrases")
-  expect_error(folder, "personalization:\n  theme: blue\n", "system, light or dark")
+  expect_error(folder, "routing:\n  escalation: think\n", "routing.escalation")
+  expect_error(folder, "routing:\n  escalation: [1]\n", "routing.escalation")
+  expect_error(folder, "routing:\n  switch: clanker\n", "routing.switch")
+  expect_error(folder, "personalization:\n  theme: blue\n", "personalization.theme")
   path.write_text("personalization:\n  theme: dark\n", encoding="utf-8")
   assert settings.load(path)["personalization"]["theme"] == "dark"
   assert settings.load(path)["personalization"]["time_format"] == "24h", (
     "24h by default"
   )
-  expect_error(folder, "personalization:\n  time_format: 25h\n", "24h or 12h")
+  expect_error(
+    folder, "personalization:\n  time_format: 25h\n", "personalization.time_format"
+  )
   path.write_text("personalization:\n  time_format: 12h\n", encoding="utf-8")
   assert settings.load(path)["personalization"]["time_format"] == "12h"
-  expect_error(folder, "routing:\n  escalation: [' ']\n", "list of words or phrases")
+  expect_error(folder, "routing:\n  escalation: [' ']\n", "routing.escalation")
   path.write_text(
     "routing:\n  escalation: [ultrathink, ' think hard ']\n", encoding="utf-8"
   )
@@ -223,16 +224,16 @@ def test_affinity_settings(folder: Path) -> None:
     "slow": 30.0,
     "penalty": 0.9,
   }
-  expect_error(folder, "affinity:\n  mode: fast\n", "none, session or race")
-  expect_error(folder, "affinity:\n  count: 0\n", "between 1 and 10")
-  expect_error(folder, "affinity:\n  count: 11\n", "between 1 and 10")
-  expect_error(folder, "affinity:\n  count: 1.5\n", "whole number")
+  expect_error(folder, "affinity:\n  mode: fast\n", "affinity.mode")
+  expect_error(folder, "affinity:\n  count: 0\n", "affinity.count")
+  expect_error(folder, "affinity:\n  count: 11\n", "affinity.count")
+  expect_error(folder, "affinity:\n  count: 1.5\n", "affinity.count")
   assert settings.parse("affinity:\n  count: 3\n")["affinity"]["count"] == 3
-  expect_error(folder, "affinity:\n  chance: 2\n", "from 0 to 1")
-  expect_error(folder, "affinity:\n  chance: -0.1\n", "from 0 to 1")
-  expect_error(folder, "affinity:\n  penalty: 2\n", "at most 1")
-  expect_error(folder, "affinity:\n  penalty: 0\n", "above 0")
-  expect_error(folder, "affinity:\n  slow: 0\n", "above 0")
+  expect_error(folder, "affinity:\n  chance: 2\n", "affinity.chance")
+  expect_error(folder, "affinity:\n  chance: -0.1\n", "affinity.chance")
+  expect_error(folder, "affinity:\n  penalty: 2\n", "affinity.penalty")
+  expect_error(folder, "affinity:\n  penalty: 0\n", "affinity.penalty")
+  expect_error(folder, "affinity:\n  slow: 0\n", "affinity.slow")
   # The 2 groups of the old shape stop, and each names the mode that replaces it.
   expect_error(folder, "session_affinity:\n  enabled: true\n", "affinity.mode: session")
   expect_error(folder, "parallel:\n  enabled: true\n", "affinity.mode: race")
@@ -262,7 +263,7 @@ def test_privacy_settings(folder: Path) -> None:
   expect_error(
     folder,
     "privacy:\n  forward_owui_chat_id: 1\n",
-    "true or false",
+    "privacy.forward_owui_chat_id",
   )
   api.apply_settings(settings.parse("privacy:\n  forward_owui_chat_id: true\n"))
   try:
