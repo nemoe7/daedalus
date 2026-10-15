@@ -649,7 +649,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Edit a GitHub issue. Labels replace the current set, unlike add_issue_labels.
+    """Edit a GitHub issue, replacing its labels when supplied rather than adding them.
 
     :param repository_full_name: owner/repo
     :param issue_number: the issue number
@@ -952,7 +952,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Submit a GitHub pull request review. COMMENT and REQUEST_CHANGES need a review body.
+    """Submit a GitHub pull request review, with a body for COMMENT or REQUEST_CHANGES.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1435,7 +1435,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Read the patch of one changed GitHub file. The path comes from list_pr_changed_filenames.
+    """Read one changed file's patch with a path from `list_pr_changed_filenames`.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1498,7 +1498,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Open a pull request. The call needs a title unless it names a GitHub issue.
+    """Open a GitHub pull request with a title or an existing issue number.
 
     :param repository_full_name: owner/repo
     :param title: the pull request title
@@ -1749,7 +1749,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Read a GitHub file, base64 decoded. A directory returns its listing as JSON text.
+    """Read a GitHub file as text or base64, or a directory as JSON text.
 
     :param repository_full_name: owner/repo
     :param path: the path inside the repository
@@ -1875,7 +1875,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Read one GitHub URL of github.com or api.github.com. For any other URL, use the builtin `fetch_url` tool.
+    """Read github.com or api.github.com URLs, and use the builtin `fetch_url` tool for other hosts.
 
     :param url: a github.com or api.github.com URL
     :param offset: character offset in the returned text
@@ -2181,7 +2181,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Replace a GitHub file with one commit. The sha comes from fetch_github_file.
+    """Replace a GitHub file in one commit with its current SHA from `fetch_github_file`.
 
     :param repository_full_name: owner/repo
     :param path: the file path
@@ -2228,7 +2228,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Delete a GitHub file with one commit. The sha comes from fetch_github_file.
+    """Delete a GitHub file in one commit with its current SHA from `fetch_github_file`.
 
     :param repository_full_name: owner/repo
     :param path: the file path
@@ -2644,16 +2644,12 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Open or update a GitHub pull request from a file list, in 1 confirmed call.
-
-    Each files entry holds path and content. An entry with delete true removes the file. The call
-    creates the blobs, the tree and the commit, then the branch and the pull request, or it moves
-    the branch when it already exists and returns its open pull request.
+    """Write file changes to a GitHub branch, creating its pull request only when the branch is new.
 
     :param repository_full_name: owner/repo
     :param files: the changes, each {path, content} or {path, delete: true}
     :param branch: the branch to create or move
-    :param title: the pull request title, required when the pull request is new
+    :param title: the pull request title, or the branch name when absent
     :param body: the pull request body
     :param base: the base branch, the default branch when absent
     :param commit_message: the commit message, the title when absent
@@ -3036,7 +3032,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Search code and file names. Use fetch_file for full contents.
+    """Search code and file names, then use `fetch_github_file` for full contents.
 
     :param query: the search terms, with any GitHub qualifiers
     :param topn: results wanted
@@ -3255,7 +3251,7 @@ class Tools:
     __event_call__: Callable | None = None,
     page: int = 1,
   ) -> dict:
-    """Search pull requests. The output field keeps its GitHub name, issues.
+    """Search GitHub pull requests and return them in the `issues` field.
 
     :param query: the search terms
     :param repository_full_name: one repository or a list to restrict to
@@ -3714,7 +3710,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Fetch a GitHub artifact's metadata and its download url. The archive needs the token.
+    """Read a GitHub artifact's metadata and download URL, which requires token authentication.
 
     :param repo_full_name: owner/repo
     :param artifact_id: the artifact id
@@ -3804,7 +3800,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Rerun the failed jobs of a GitHub workflow run. Needs Actions write permission.
+    """Rerun failed jobs of a GitHub workflow run with Actions write permission.
 
     :param repo_full_name: owner/repo
     :param run_id: the workflow run id
@@ -4184,7 +4180,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Create a GitHub gist. The gate asks first.
+    """Create a GitHub gist through the write permission gate.
 
     :param files: the files, each {name: {"content": "..."}}
     :param description: the gist description
@@ -4217,7 +4213,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Edit a GitHub gist. The gate asks first.
+    """Edit a GitHub gist through the write permission gate.
 
     :param gist_id: the gist id
     :param files: the files to add or replace, each {name: {"content": "..."}}
@@ -4246,7 +4242,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Delete a GitHub gist. The gate asks first.
+    """Delete a GitHub gist through the write permission gate.
 
     :param gist_id: the gist id
     """
@@ -4275,7 +4271,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Dismiss or reopen a GitHub code scanning alert. The gate asks first.
+    """Dismiss or reopen a GitHub code scanning alert through the write permission gate.
 
     :param repo_full_name: owner/repo
     :param alert_number: the alert number
@@ -4315,7 +4311,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Resolve or reopen a GitHub secret scanning alert. The gate asks first.
+    """Resolve or reopen a GitHub secret scanning alert through the write permission gate.
 
     :param repo_full_name: owner/repo
     :param alert_number: the alert number
@@ -4355,7 +4351,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Dismiss or reopen a GitHub Dependabot alert. The gate asks first.
+    """Dismiss or reopen a GitHub Dependabot alert through the write permission gate.
 
     :param repo_full_name: owner/repo
     :param alert_number: the alert number
