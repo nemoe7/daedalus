@@ -114,7 +114,7 @@ def test_catalog_wins(provider: Provider, monkeypatch: pytest.MonkeyPatch) -> No
 def test_hook_file_wins(
   provider: Provider, hook_file: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """A hook file answers above the catalog default, and it sees each surface."""
+  """The prompt hook receives the expected context and sets the outgoing effort."""
   monkeypatch.setattr(api, "REQUEST_HOOKS", {"on-prompt": [hook_file]})
   written = post(provider, "daedalus/auto:TIER-B")
   assert written["reasoning_effort"] == "max"
@@ -143,7 +143,7 @@ def test_hook_file_wins(
 def test_the_row_carries_the_hook_level(
   provider: Provider, hook_file: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The stored row carries the level the hook set, so the tab shows the effective level."""
+  """History records the effort set by the prompt hook."""
   monkeypatch.setattr(api, "REQUEST_HOOKS", {"on-prompt": [hook_file]})
   post(provider, "daedalus/auto:TIER-B")
   row = dashboard.HISTORY.latest(1)[0]
@@ -308,7 +308,7 @@ def test_the_shipped_hook_keeps_the_level_of_a_continuing_turn() -> None:
 
 
 def test_the_shipped_hook_keeps_the_client_value() -> None:
-  """A new message keeps the value of the client. The base gates the client, not the file."""
+  """The shipped hook preserves a client effort and otherwise selects the classified level."""
   module = shipped_module()
   read = int(api.router.required_tier("why is this slow"))
   value: dict = {}
@@ -320,7 +320,7 @@ def test_the_shipped_hook_keeps_the_client_value() -> None:
 
 
 def test_the_shipped_hook_floors_a_model_that_requires_reasoning() -> None:
-  """A model with `reasoning: required` never takes `none`, so the read floors to `low`."""
+  """Required reasoning selects `minimal` in this fixture, while the unrestricted model keeps `none`."""
   module = shipped_module()
   config = {
     "kilo": {
