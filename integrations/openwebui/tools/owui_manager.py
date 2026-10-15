@@ -1604,8 +1604,8 @@ class Tools:
     Set include_content=true to return file content preview for found files.
     max_content_items limits how many files come back with their content (default: 10).
 
-    Note: Open WebUI search API searches by filename, not by file content.
-    Full-text search within file content is not supported by the current API.
+    With include_content=true, the API also matches extracted content
+    within its configured character limit.
 
     :param query: filename or text to search for across all accessible knowledge bases
     :param include_content: true to search the file text too, false for filenames alone
@@ -1656,9 +1656,7 @@ class Tools:
           result.append(f"- {filename} (file_id={file_id})")
 
           if include_content and file_id and i < max_content_items:
-            # Some Open WebUI versions do not return the text in the search
-            # response. Therefore, with include_content we read it with
-            # a separate request.
+            # Read content separately for each requested preview.
             content_data, content_error = await self._request(
               s, "GET", f"/files/{file_id}/data/content"
             )
