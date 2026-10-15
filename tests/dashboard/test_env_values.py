@@ -112,6 +112,82 @@ def test_form_moves_keys(client: TestClient) -> None:
   assert dashboard.new_file_text("my-llm").count("env:MY_LLM_API_KEY\n") == 1
 
 
+@pytest.mark.parametrize("separate", [False, True])
+@pytest.mark.parametrize(
+  "invalid, status",
+  [
+    ({"account_id": "two words"}, 400),
+    ({"models": []}, 422),
+    ({"client_keys": {"first": "new-client-one", "second": "two words"}}, 400),
+  ],
+)
+def test_rejected_form_keeps_saved_values(
+  client: TestClient,
+  tmp_path: Path,
+  monkeypatch: pytest.MonkeyPatch,
+  separate,
+  invalid,
+  status,
+) -> None:
+  main = tmp_path / "main.yml"
+  path = tmp_path / "cloudflare.yml" if separate else main
+  original = {"api_key": "db:CLOUDFLARE_API_KEY"}
+  main.write_text("{}\n" if separate else yaml.safe_dump({"cloudflare": original}))
+  if separate:
+    path.write_text(yaml.safe_dump(original))
+  monkeypatch.setattr(config, "DEFAULT_PATH", main)
+  monkeypatch.setattr(dashboard, "FILES", (main,))
+  monkeypatch.setattr(store, "MODELS_DB", tmp_path / "state.sqlite3")
+  saved_env.save(store.MODELS_DB, "CLOUDFLARE_API_KEY", "old-key")
+  saved_env.save(store.MODELS_DB, "CLOUDFLARE_ACCOUNT_ID", "old-account")
+  values = saved_env.read(store.MODELS_DB)
+  files = {file: file.read_bytes() for file in (main, path)}
+  calls = []
+  monkeypatch.setattr(
+    config, "load_config", lambda file: calls.append(("reload", file))
+  )
+
+  def rebuild():
+    return None
+
+  monkeypatch.setattr(api, "CATALOG_REBUILD_CACHED", rebuild)
+  monkeypatch.setattr(
+    dashboard.schedule, "request", lambda task: calls.append(("rebuild", task))
+  )
+  block = {
+    "api_key": "new-api-key",
+    "account_id": "new-account",
+    "client_keys": {
+      "first": "new-client-one",
+      "environment": "env:FORM_ENV_KEY",
+      "stored": "db:CLOUDFLARE_API_KEY",
+    },
+  }
+  rejected = client.put(
+    "/ui/api/providers",
+    json={"path": str(path), "blocks": {"cloudflare": {**block, **invalid}}},
+  )
+  assert rejected.status_code == status, rejected.text
+  assert saved_env.read(store.MODELS_DB) == values
+  assert all(file.read_bytes() == text for file, text in files.items())
+  assert calls == []
+  secrets = ("new-api-key", "new-account", "new-client-one")
+  assert all(secret not in rejected.text for secret in secrets)
+  saved = client.put(
+    "/ui/api/providers", json={"path": str(path), "blocks": {"cloudflare": block}}
+  )
+  assert saved.status_code == 200, saved.text
+  assert saved_env.read(store.MODELS_DB) == {
+    "CLOUDFLARE_API_KEY": "new-api-key",
+    "CLOUDFLARE_ACCOUNT_ID": "new-account",
+    "CLOUDFLARE_API_KEY_FIRST": "new-client-one",
+  }
+  text = path.read_text()
+  assert all(secret not in saved.text and secret not in text for secret in secrets)
+  assert "db:CLOUDFLARE_API_KEY" in text and "env:FORM_ENV_KEY" in text
+  assert calls == [("reload", main), ("rebuild", rebuild)]
+
+
 @pytest.fixture(scope="module")
 def client(tmp_path_factory: pytest.TempPathFactory):
   original = config.DEFAULT_PATH, dashboard.FILES

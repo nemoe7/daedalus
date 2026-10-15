@@ -543,10 +543,9 @@ def raw_value(value: Any) -> bool:
   )
 
 
-def park_keys(provider: str, block: dict[str, Any]) -> None:
-  """Move the keys in the key fields of a form block to the saved values, and put their db:NAME in the
-  block, or keep env:NAME.
-  """
+def stage_keys(provider: str, block: dict[str, Any]) -> dict[str, str]:
+  """Replace raw credentials with db:NAME references and return their values without saving them."""
+  values: dict[str, str] = {}
 
   def is_env_token(value: Any) -> str | None:
     if not isinstance(value, str) or not value.startswith(config.ENV_PREFIX):
@@ -565,7 +564,7 @@ def park_keys(provider: str, block: dict[str, Any]) -> None:
     if not raw or len(raw) > MAX_VALUE or any(c.isspace() for c in raw):
       raise ValueError("The value must be 1 word with no spaces.")
     name = env_name(provider)
-    saved_env.save(store.MODELS_DB, name, raw)
+    values[name] = raw
     block["api_key"] = config.SAVED_PREFIX + name
 
   account_id = block.get("account_id")
@@ -583,7 +582,7 @@ def park_keys(provider: str, block: dict[str, Any]) -> None:
       name = "CLOUDFLARE_ACCOUNT_ID"
     else:
       name = env_name(provider) + "_ACCOUNT_ID"
-    saved_env.save(store.MODELS_DB, name, raw)
+    values[name] = raw
     block["account_id"] = config.SAVED_PREFIX + name
 
   clients = block.get("client_keys")
@@ -599,8 +598,9 @@ def park_keys(provider: str, block: dict[str, Any]) -> None:
         if not raw or len(raw) > MAX_VALUE or any(c.isspace() for c in raw):
           raise ValueError("The value must be 1 word with no spaces.")
         name = env_name(provider, str(client))
-        saved_env.save(store.MODELS_DB, name, raw)
+        values[name] = raw
         clients[client] = config.SAVED_PREFIX + name
+  return values
 
 
 def new_file_text(name: str) -> str:
@@ -768,12 +768,16 @@ def write_config(
   text: str,
   apply: Callable[[dict[str, Any]], None],
   rebuild: Callable[[], None],
+  *,
+  key_values: Mapping[str, str] | None = None,
 ) -> JSONResponse:
   """Write a valid text in 1 step, reload it, and send it back."""
   try:
     values = check_file(path, text)
   except (settings.SettingsError, yaml.YAMLError) as exc:
     return failure(422, config.error_text(exc), "invalid_request_error")
+  for name, value in (key_values or {}).items():
+    saved_env.save(store.MODELS_DB, name, value)
   path.parent.mkdir(parents=True, exist_ok=True)
   temporary = path.with_suffix(".tmp")
   temporary.write_text(text, encoding="utf-8")
@@ -1193,12 +1197,13 @@ def file_routes(
       return failure(
         400, f"{path} needs the block {path.stem}.", "invalid_request_error"
       )
+    key_values: dict[str, str] = {}
     try:
       if path == FILES[0]:
         for provider, block in document.items():
-          park_keys(str(provider), block)
+          key_values.update(stage_keys(str(provider), block))
       else:
-        park_keys(path.stem, document)
+        key_values.update(stage_keys(path.stem, document))
     except ValueError as exc:
       return failure(400, str(exc), "invalid_request_error")
     old = path.read_text(encoding="utf-8") if path.exists() else ""
@@ -1206,7 +1211,13 @@ def file_routes(
       local, _ = form_blocks(path, old)
       if isinstance(local, dict):
         document = local_main_blocks(document, local)
-    return write_config(path, provider_edit.merge_text(old, document), apply, rebuild)
+    return write_config(
+      path,
+      provider_edit.merge_text(old, document),
+      apply,
+      rebuild,
+      key_values=key_values,
+    )
 
   @api.get("/env")
   async def env_list(request: Request) -> JSONResponse:

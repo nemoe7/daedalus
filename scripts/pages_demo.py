@@ -895,6 +895,10 @@ const DEMO_FIXTURES = __FIXTURES__;
     }
     return prune_groups(put_value(lines, node, key, value)).join("\\n");
   };
+  const saved_fields = secret => ({
+    state: "saved", has_saved: true, length: secret.length,
+    start: secret.slice(0, 4), end: secret.length >= 12 ? secret.slice(-4) : null,
+  });
   const env_saved = async (init) => {
     const { name, value } = await body_of(init);
     const row = DEMO_FIXTURES.env.find((item) => item.name === name);
@@ -902,10 +906,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     const secret = word(value);
     if (!secret || /[\\s]/.test(secret))
       return bad("The value must be 1 word with no spaces.", 400);
-    Object.assign(row, {
-      state: "saved", has_saved: true, length: secret.length,
-      start: secret.slice(0, 4), end: secret.length >= 12 ? secret.slice(-4) : null,
-    });
+    Object.assign(row, saved_fields(secret));
     return json(DEMO_FIXTURES.env);
   };
   const env_cleared = async (init) => {
@@ -1252,31 +1253,90 @@ const DEMO_FIXTURES = __FIXTURES__;
     file.error = null;
     return reload(json({ ok: true, text }));
   };
+  const PROVIDER_SHAPES = __PROVIDER_SHAPES__;
+  const provider_map = value => value !== null && typeof value === "object" && !Array.isArray(value);
+  const provider_shape = (value, kind) => kind === "dict" ? provider_map(value)
+    : kind === "list" ? Array.isArray(value) : typeof value === "string";
+  const provider_error = block => {
+    for (const [key, [kind, wanted]] of Object.entries(PROVIDER_SHAPES.block)) {
+      if (block[key] != null && !provider_shape(block[key], kind)) return `${key} must be ${wanted}`;
+    }
+    for (const [key, [kind, wanted]] of Object.entries(PROVIDER_SHAPES.nested)) {
+      if (!provider_map(block[key])) continue;
+      for (const [name, value] of Object.entries(block[key])) {
+        if (value != null && !provider_shape(value, kind)) return `${key}.${name} must be ${wanted}`;
+      }
+    }
+    return "";
+  };
+  const provider_env_name = (provider, client = "") =>
+    `${provider}_API_KEY${client ? "_" + client : ""}`.toUpperCase().replace(/[^A-Z0-9_]/g, "_");
   // The form save of the Providers tab: the blocks re-write the text of the file.
   const form_saved = (init) => {
     const asked = body_of(init);
     const file = DEMO_FIXTURES.files.find((item) => item.path === asked.path);
     if (!file) return bad("Unknown config file.", 400);
     const sent = asked.blocks;
-    if (!sent || typeof sent !== "object" || Array.isArray(sent))
-      return bad("The blocks must be a map of providers.", 400);
+    if (!provider_map(sent) || !Object.values(sent).every(provider_map))
+      return bad("Each provider block must be a map.", 400);
     const stem = stem_of(file.path);
-    let document = sent[stem];
+    let document = file.main ? sent : sent[stem];
+    if (!provider_map(document)) return bad(`${stem} must hold the block ${stem}.`, 400);
+    const pending = new Map();
+    for (const [provider, block] of Object.entries(file.main ? document : { [stem]: document })) {
+      const name = provider_env_name(provider);
+      const fields = [[block, "api_key", name], [block, "account_id",
+        provider === "cloudflare" ? "CLOUDFLARE_ACCOUNT_ID" : name + "_ACCOUNT_ID"]];
+      if (provider_map(block.client_keys)) {
+        for (const client of Object.keys(block.client_keys))
+          fields.push([block.client_keys, client, provider_env_name(provider, client)]);
+      }
+      for (const [target, key, name] of fields) {
+        const value = target[key];
+        if (typeof value !== "string") continue;
+        const raw = value.trim();
+        if (raw.startsWith("env:")) {
+          const found = raw.match(/env:([A-Za-z_][A-Za-z0-9_]*)/);
+          if (!found) return bad("The env: value must be env:NAME with a valid name.", 400);
+          target[key] = "env:" + found[1];
+        } else if (raw && !value.includes("env:") && !value.includes("db:")) {
+          if (raw.length > PROVIDER_SHAPES.max_value || /\\s/.test(raw))
+            return bad("The value must be 1 word with no spaces.", 400);
+          pending.set(name, raw);
+          target[key] = "db:" + name;
+        }
+      }
+    }
     if (file.main) {
       const parsed = file.local || yaml_read(file.text).value || {};
       document = Object.fromEntries(Object.entries(sent).filter(([name, block]) =>
         Object.prototype.hasOwnProperty.call(parsed, name)
         || JSON.stringify(block) !== JSON.stringify(CLOUD_MAIN[name])));
     }
-    if (!document || typeof document !== "object" || Array.isArray(document))
-      return bad(`${stem} must hold the block ${stem}.`, 400);
+    let problem = provider_error(document);
+    for (const [name, block] of Object.entries(document)) {
+      if (!problem && !Object.prototype.hasOwnProperty.call(PROVIDER_SHAPES.block, name) && provider_map(block)) {
+        const error = provider_error(block);
+        if (error) problem = `${name}.${error}`;
+      }
+    }
+    if (problem) return bad(`${file.path}: ${problem}`, 422);
+    const text = yaml_of(document);
+    for (const [name, secret] of pending) {
+      let row = DEMO_FIXTURES.env.find(item => item.name === name);
+      if (!row) {
+        row = { name, used: [file.path], has_env: false };
+        DEMO_FIXTURES.env.push(row);
+      }
+      Object.assign(row, saved_fields(secret));
+    }
     if (file.main) {
       file.local = document;
       file.blocks = { ...CLOUD_MAIN, ...document };
     } else file.blocks = { [stem]: document };
-    file.text = yaml_of(document);
+    file.text = text;
     file.error = null;
-    return reload(json({ ok: true, text: file.text }));
+    return reload(json({ ok: true, text }));
   };
   const hook_dropped = (init) => {
     const { name } = body_of(init);
@@ -1666,8 +1726,19 @@ def build(out: Path, version: str) -> Path:
   if out.exists():
     shutil.rmtree(out)
   shutil.copytree(UI, out / "ui")
+  shapes = {
+    name: {key: [kind.__name__, wanted] for key, (kind, wanted) in group.items()}
+    for name, group in (
+      ("block", config.BLOCK_SHAPES),
+      ("nested", config.NESTED_SHAPES),
+    )
+  }
+  shapes["max_value"] = dashboard.MAX_VALUE
   (out / "demo.js").write_text(
-    DEMO_JS.replace("__FIXTURES__", json.dumps(fixtures)), encoding="utf-8"
+    DEMO_JS.replace("__FIXTURES__", json.dumps(fixtures)).replace(
+      "__PROVIDER_SHAPES__", json.dumps(shapes)
+    ),
+    encoding="utf-8",
   )
   page = (UI / "index.html").read_text(encoding="utf-8")
   marker = '<script src="ui/en.js"></script>\n<script src="ui/app.js"></script>'

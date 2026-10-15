@@ -881,6 +881,56 @@ def test_demo_hook_identities(
   assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
 
 
+def test_demo_rejected_provider_form_keeps_state(tmp_path: Path) -> None:
+  out = pages_demo.build(tmp_path / "site", "demo.test")
+  script = (
+    NODE_SETUP
+    + """
+(async () => {
+  const read = async path => (await context.fetch("ui/api/" + path)).json();
+  const files = await read("files");
+  for (const file of [files.find(row => row.main), files.find(row => !row.main)]) {
+    const provider = file.main ? "cloudflare" : Object.keys(file.blocks)[0];
+    const block = { api_key: "new-api-key", account_id: "new-account", client_keys: { first: "new-client-one" } };
+    const before = await Promise.all(["files", "env", "models"].map(read));
+    for (const [invalid, status] of [[{ account_id: "two words" }, 400], [{ models: [] }, 422],
+      [{ client_keys: { first: "new-client-one", second: "two words" } }, 400]]) {
+      const response = await context.fetch("ui/api/providers", {
+        method: "PUT", headers: JSON_HEADERS,
+        body: JSON.stringify({ path: file.path, blocks: { [provider]: { ...block, ...invalid } } }),
+      });
+      check(response.status === status, "reject invalid provider form");
+      const after = await Promise.all(["files", "env", "models"].map(read));
+      check(JSON.stringify(after) === JSON.stringify(before), "rejected form keeps all state");
+    }
+    const response = await context.fetch("ui/api/providers", {
+      method: "PUT", headers: JSON_HEADERS,
+      body: JSON.stringify({ path: file.path, blocks: { [provider]: block } }),
+    });
+    check(response.status === 200, "valid provider form saves");
+    const text = (await response.json()).text;
+    check(["new-api-key", "new-account", "new-client-one"].every(secret => !text.includes(secret)),
+      "saved form masks keys");
+    const name = provider.toUpperCase().replace(/[^A-Z0-9_]/g, "_") + "_API_KEY";
+    const env = await read("env");
+    check(env.find(row => row.name === name).has_saved === true, "valid form saves key metadata");
+    check(env.find(row => row.name === name + "_FIRST").has_saved === true, "valid form saves client metadata");
+  }
+  check(context.network.length === 0, "no network calls");
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
+  )
+  result = subprocess.run(
+    ["node", "-e", script],
+    cwd=out,
+    capture_output=True,
+    text=True,
+    timeout=10,
+    check=False,
+  )
+  assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+
+
 def test_the_capture_builds_the_demo_state() -> None:
   """The capture runs the dashboard in this process, so the fixtures can be made again."""
   assert pytest.importorskip("fastapi")
