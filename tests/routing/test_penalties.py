@@ -515,10 +515,8 @@ def test_keyword_tier() -> None:
     api.PENALTIES.clear()
 
 
-def test_pinned_never_writes_and_prune_drops_the_idle(
-  folder: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-  """A request reads the pins: only `prune` writes, so a lock cannot fail a read."""
+def test_expired_pin_read_retains_its_row_until_prune(folder: Path) -> None:
+  """Reading an expired pin retains its row until prune removes it."""
   now = [0.0]
   store = penalties.Penalties(lambda: folder / "r.sqlite3", clock=lambda: now[0])
   store.pin("k", "pool", "m/1")
@@ -539,7 +537,7 @@ def test_pinned_never_writes_and_prune_drops_the_idle(
 
 
 def test_a_busy_store_answers_503(monkeypatch: pytest.MonkeyPatch) -> None:
-  """A lock on the state store gives a clear 503, in place of a raw 500."""
+  """Injected lock and corruption errors produce distinct HTTP 503 responses."""
   config = {"a": {"api_key": "k", "api_base": "https://a.test/v1"}}
   original = api.get_config, api.chain
   api.get_config = lambda: config
