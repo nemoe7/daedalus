@@ -6006,3 +6006,34 @@ assert.strictEqual(sandbox.document.activeElement,
   expected === 'outside' ? outside : phone ? small : buttons[2]);
 """,
   )
+
+
+@pytest.mark.parametrize(
+  "text",
+  [
+    "limits: [private-source-marker",
+    'limits:\n  wait: "private-source-marker',
+    "limits:\n  wait: private-source-marker\n  wait: another-value\n",
+    "limits:\n  wait: private-source-marker\x00\n",
+  ],
+  ids=["parser", "scanner", "duplicate", "reader"],
+)
+def test_settings_form_rejects_malformed_existing_yaml(
+  client, tmp_path, monkeypatch, text
+):
+  login = client.post("/ui/api/login", json={"username": "admin", "password": MASTER})
+  assert login.status_code == 200
+  path = tmp_path / "broken-settings.yml"
+  original = text.encode("utf-8")
+  path.write_bytes(original)
+  monkeypatch.setattr(settings, "DEFAULT_PATH", path)
+  before = api.SLOW_SECONDS
+  response = client.put("/ui/api/settings", json={"changes": {"limits": {"slow": 12}}})
+  assert response.status_code == 422
+  error = response.json()["error"]
+  assert error["type"] == "invalid_request_error"
+  assert "private-source-marker" not in error["message"]
+  assert "another-value" not in error["message"]
+  assert "\n" not in error["message"]
+  assert path.read_bytes() == original
+  assert api.SLOW_SECONDS == before

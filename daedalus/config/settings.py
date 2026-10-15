@@ -8,9 +8,10 @@ from typing import Any
 
 import yaml
 from ruamel.yaml.comments import CommentedMap
+from ruamel.yaml.error import YAMLError
 from ruamel.yaml.scalarstring import SingleQuotedScalarString
 
-from daedalus.config import error_text, load_yaml
+from daedalus.config import load_yaml
 from daedalus.config.provider_edit import round_trip
 
 DEFAULT_PATH = Path("config/daedalus.yml")
@@ -473,8 +474,12 @@ def update_text(text: str, changes: dict[str, dict[str, Any]]) -> str:
   writer = round_trip()
   try:
     document = writer.load(text) if text.strip() else None
-  except yaml.YAMLError as exc:
-    raise SettingsError(error_text(exc)) from exc
+  except YAMLError as exc:
+    message = "invalid YAML"
+    mark = getattr(exc, "problem_mark", None)
+    if mark is not None:
+      message += f" at line {mark.line + 1}, column {mark.column + 1}"
+    raise SettingsError(message) from exc
   head = ""
   if not isinstance(document, CommentedMap):
     if document is None:

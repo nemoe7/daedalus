@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from ruamel.yaml.error import YAMLError
 
 from daedalus.config import settings
 from daedalus.providers import hooks
@@ -628,3 +629,28 @@ def test_updates_repo_names_the_repository() -> None:
   for bad in ("daedalus", "a/b/c", "", "o//r", "/o/r"):
     with pytest.raises(settings.SettingsError, match="repository"):
       settings.parse(f'updates:\n  repo: "{bad}"\n')
+
+
+@pytest.mark.parametrize(
+  "text",
+  [
+    "limits: [private-source-marker",
+    'limits:\n  wait: "private-source-marker',
+    "limits:\n  wait: private-source-marker\n  wait: another-value\n",
+    "limits:\n  wait: private-source-marker\x00\n",
+  ],
+  ids=["parser", "scanner", "duplicate", "reader"],
+)
+def test_update_text_wraps_parser_errors_without_source_text(text):
+  with pytest.raises(settings.SettingsError) as caught:
+    settings.update_text(text, {"limits": {"slow": 12}})
+  cause = caught.value.__cause__
+  assert isinstance(cause, YAMLError)
+  message = str(caught.value)
+  assert "private-source-marker" not in message
+  assert "another-value" not in message
+  assert "\n" not in message
+  mark = getattr(cause, "problem_mark", None)
+  if mark is not None:
+    assert str(mark.line + 1) in message
+    assert str(mark.column + 1) in message
