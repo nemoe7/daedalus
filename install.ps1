@@ -68,10 +68,6 @@ if ($dev -and $prod) { Stop-Install '--dev and --prod/--no-dev cannot be used to
 if ($dev -and (Test-Path -LiteralPath (Join-Path $dir 'daedalus')) -and -not (Test-Path -LiteralPath (Join-Path $dir 'compose.dev.yml'))) {
   Stop-Install "--dev needs compose.dev.yml beside the source in $dir."
 }
-# Make --dev persistent: create marker; --prod/--no-dev/--dev=off removes it.
-if ($dev) { New-Item -ItemType Directory -Force -Path $dir | Out-Null; New-Item -ItemType File -Force -Path (Join-Path $dir '.daedalus-dev') | Out-Null }
-if ($prod) { Remove-Item -LiteralPath (Join-Path $dir '.daedalus-dev') -Force -ErrorAction SilentlyContinue; $dev = $false }
-
 # Managed Compose/default files update as a unit outside Git checkouts. Local env files and
 # compose.override.yml are user-owned and never downloaded or replaced.
 $serviceDefaults = @(
@@ -151,6 +147,9 @@ if ($plan.Count -gt 0) {
   $answer = Read-Host 'Continue? [y/N]'
   if ($answer -notmatch '^(y|yes)$') { Stop-Install 'Stopped. Nothing changed.' }
 }
+
+if ($dev) { New-Item -ItemType Directory -Force -Path $dir | Out-Null; New-Item -ItemType File -Force -Path (Join-Path $dir '.daedalus-dev') | Out-Null }
+if ($prod) { Remove-Item -LiteralPath (Join-Path $dir '.daedalus-dev') -Force -ErrorAction SilentlyContinue; $dev = $false }
 
 $profileList = ''
 if ($missingEnv) {

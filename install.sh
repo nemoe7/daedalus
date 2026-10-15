@@ -60,10 +60,6 @@ if [ "$dev" = 1 ] && [ -d "$dir/daedalus" ] && [ ! -f "$dir/compose.dev.yml" ]; 
   echo "--dev needs compose.dev.yml beside the source in $dir." >&2
   exit 1
 fi
-# Make --dev persistent: create marker; --prod/--no-dev/--dev=off removes it.
-if [ "$dev" = 1 ]; then mkdir -p "$dir"; touch "$dir/.daedalus-dev"; fi
-if [ "$prod" = 1 ]; then rm -f "$dir/.daedalus-dev"; dev=0; fi
-
 # Managed Compose/default files update as a unit outside Git checkouts. Local env files and
 # compose.override.yml are user-owned and never downloaded or replaced.
 service_defaults=(
@@ -164,6 +160,9 @@ if [ "${#plan[@]}" -gt 0 ]; then
     *) echo "Stopped. Nothing changed."; exit 1 ;;
   esac
 fi
+
+if [ "$dev" = 1 ]; then mkdir -p "$dir"; touch "$dir/.daedalus-dev"; fi
+if [ "$prod" = 1 ]; then rm -f "$dir/.daedalus-dev"; dev=0; fi
 
 # Ask only on the first install. Updates keep the profiles in .env.
 ask_profile() {

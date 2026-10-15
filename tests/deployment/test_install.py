@@ -103,6 +103,7 @@ def run_interactive(
   *answers: str,
   piped: bool = False,
   cwd: Path | None = None,
+  args: tuple[str, ...] = (),
 ) -> subprocess.CompletedProcess[str]:
   """Run the installer on a pseudo-terminal with supplied answers, optionally through a pipe."""
   import pty
@@ -111,7 +112,11 @@ def run_interactive(
   import time
 
   script = str(folder / "install.sh")
-  argv = ["bash", "-c", f'cat "{script}" | bash'] if piped else ["bash", script]
+  argv = (
+    ["bash", "-c", f'cat "{script}" | bash -s -- "$@"', "bash", *args]
+    if piped
+    else ["bash", script, *args]
+  )
   pid, master = pty.fork()
   if pid == 0:
     if cwd is not None:
@@ -284,6 +289,65 @@ def test_question(tmp_path: Path) -> None:
   assert "Stopped. Nothing changed." in result.stdout
   assert "Install Headroom?" not in result.stdout
   assert not (folder / ".env").exists() and not (tmp_path / "docker.log").exists()
+
+
+@pytest.mark.parametrize(
+  "flags, existed, dev",
+  [
+    (("--dev",), False, True),
+    (("--prod",), True, False),
+    (("--no-dev",), True, False),
+  ],
+)
+@pytest.mark.parametrize("accept", [False, True])
+def test_mode_marker_waits_for_consent(
+  tmp_path: Path, flags: tuple[str, ...], existed: bool, dev: bool, accept: bool
+) -> None:
+  folder, env = checkout(tmp_path, None)
+  marker = folder / ".daedalus-dev"
+  if existed:
+    marker.write_bytes(b"keep existing marker\n")
+  before = marker.read_bytes() if marker.exists() else None
+  result = run_interactive(
+    folder, env, "y" if accept else "n", "n", "n", "n", args=flags
+  )
+  if accept:
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert marker.exists() == dev
+    assert (folder / ".env").is_file()
+    command = "compose -f compose.dev.yml up -d" if dev else "compose up -d"
+    assert command in (tmp_path / "docker.log").read_text()
+  else:
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert (marker.read_bytes() if marker.exists() else None) == before
+    assert not (folder / ".env").exists()
+    assert not (tmp_path / "docker.log").exists()
+
+
+@pytest.mark.parametrize("flags", [("--dev", "--prod"), ("--prod", "--dev")])
+def test_conflicting_mode_flags_keep_marker(
+  tmp_path: Path, flags: tuple[str, ...]
+) -> None:
+  folder, env = checkout(tmp_path, None)
+  marker = folder / ".daedalus-dev"
+  marker.write_bytes(b"keep existing marker\n")
+  result = run(folder, env, *flags)
+  assert result.returncode == 1, result.stdout + result.stderr
+  assert "--dev" in result.stderr and "--prod" in result.stderr
+  assert marker.read_bytes() == b"keep existing marker\n"
+  assert not (folder / ".env").exists()
+  assert not (tmp_path / "docker.log").exists()
+
+
+def test_windows_marker_source_order() -> None:
+  lines = (ROOT / "install.ps1").read_text().splitlines()
+  declined = next(i for i, line in enumerate(lines) if "if ($answer -notmatch" in line)
+  writes = [
+    i
+    for i, line in enumerate(lines)
+    if "'.daedalus-dev'" in line and ("New-Item" in line or "Remove-Item" in line)
+  ]
+  assert len(writes) == 2 and all(i > declined for i in writes)
 
 
 def test_bad_key(tmp_path: Path) -> None:
