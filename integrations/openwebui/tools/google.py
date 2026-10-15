@@ -34,7 +34,7 @@ JSON_ACCEPT = "application/json"
 
 
 class GoogleError(Exception):
-  """A Google call failed. The message keeps the status and the API text."""
+  """A failed Google call with its status and API error text."""
 
   def __init__(self, status: int, message: str, method: str = "", url: str = ""):
     self.status = status
@@ -169,7 +169,7 @@ class Tools:
     return value
 
   def _permissions(self, __user__: dict | None = None) -> str:
-    """Resolve the permission mode, requiring confirmation for unknown values."""
+    """Resolve the active permission mode from the user and tool valves."""
     user_mode = self._user_valve(__user__, "mode")
     mode = self.valves.permissions if user_mode is None or user_mode == "default" else user_mode
     return mode if isinstance(mode, str) and mode in ("Always ask", "Allow reads", "Always allow") else "Always ask"
@@ -183,12 +183,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> Any:
-    """Run one read behind the read gate.
-
-    The read_mode valve is ask or allow. ask holds every read at the same
-    confirmation as a write, so a one time code or a private line cannot reach
-    the chat without a click. allow lets the read run at once.
-    """
+    """Run a read only when the active permission mode or a confirmation allows it."""
     if self._permissions(__user__) == "Always ask" and not await self._ask(
       action, detail, __event_call__, __user__
     ):
@@ -206,7 +201,7 @@ class Tools:
     return await fn()
 
   def _wait_seconds(self, __user__: dict | None = None) -> int:
-    """The confirmation wait: the user value wins, then the tool value. Zero keeps the tool value."""
+    """Return a positive confirmation timeout, using the tool value when the user supplies zero or no override."""
     user_wait = self._user_valve(__user__, "timeout_seconds")
     value = int(user_wait or 0) or int(self.valves.timeout_seconds or 0) or 60
     return max(1, value)
@@ -218,13 +213,7 @@ class Tools:
     __event_call__: Callable | None = None,
     __user__: dict | None = None,
   ) -> bool:
-    """Ask the user to confirm one write. Returns False when it cannot be asked.
-
-    The confirmation travels over the socket of the tab that started the chat. A
-    page refresh drops the dialog and the server would wait forever, because
-    WEBSOCKET_EVENT_CALLER_TIMEOUT starts unset. The wait_for below is the only
-    timeout that always exists, so a refresh costs one wait, then a deny.
-    """
+    """Ask for confirmation within the configured timeout and return False when confirmation fails."""
     if not callable(__event_call__):
       return False
     try:
@@ -252,7 +241,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> Any:
-    """Run one write behind the gate. deny => never asked, timeout => never sent."""
+    """Run a write only when the active permission mode or a confirmation allows it."""
     if self._permissions(__user__) != "Always allow" and not await self._ask(
       action, detail, __event_call__, __user__
     ):
@@ -271,7 +260,7 @@ class Tools:
   # ---------------------------------------------------------------- http
 
   def _refresh(self) -> str:
-    """Trade the refresh token for an access token. Blocking."""
+    """Exchange the refresh token for an access token through a blocking request."""
     if not (self.valves.google_client_id and self.valves.google_refresh_token):
       raise GoogleError(
         401,
@@ -327,7 +316,7 @@ class Tools:
     payload: dict | None = None,
     raw: bool = False,
   ) -> Any:
-    """One blocking call. The caller holds the token."""
+    """Make one blocking API call with the current access token."""
     target = url
     if params:
       clean = {key: value for key, value in params.items() if value is not None}
@@ -396,7 +385,7 @@ class Tools:
 
   @classmethod
   def _body(cls, payload: dict) -> str:
-    """The text of one message payload, plain text first, walking the parts."""
+    """Return the first text payload while walking the message's MIME parts."""
     data = (payload.get("body") or {}).get("data")
     if data and (payload.get("mimeType") or "").startswith("text/"):
       return base64.urlsafe_b64decode(data + "==").decode("utf-8", "replace")
@@ -542,7 +531,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Send one mail from the signed-in account. The gate asks first.
+    """Send one message from the signed-in account under the active permission mode.
 
     :param to: the recipient, comma separated for several
     :param subject: the subject line
@@ -656,7 +645,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Create one calendar event. The gate asks first.
+    """Create one calendar event under the active permission mode.
 
     :param summary: the event title
     :param start: the start in RFC 3339, for example 2026-10-06T09:00:00+08:00
@@ -748,7 +737,7 @@ class Tools:
     __event_call__: Callable | None = None,
     offset: int = 0,
   ) -> dict:
-    """Read the text of a Drive file. The tool exports a Google Doc, and downloads any other file.
+    """Read a text range from a Drive file, exporting Google Docs and downloading other files.
 
     :param file_id: the file id from search_files
     :param max_chars: the text limit, up to 200000 and subject to the output byte limit
@@ -795,7 +784,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Append text to the end of a Google Doc. The gate asks first.
+    """Append text to the end of a Google Doc under the active permission mode.
 
     :param document_id: the document id from search_files
     :param text: the text to add, with a leading newline when wanted
