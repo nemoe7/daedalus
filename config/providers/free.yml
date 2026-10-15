@@ -147,6 +147,7 @@ kilo:
       - "poolside/laguna-s-*"
       - "qwen/qwen3.8-27b*"
       - "stepfun/step-3.7-flash*"
+      - "*step-5-preview-free"
       - "thinkingmachines/inkling*"
     TIER-B:
       - "*" # every other model; a more specific pattern wins
