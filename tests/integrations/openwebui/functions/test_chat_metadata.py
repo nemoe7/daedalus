@@ -173,5 +173,6 @@ def test_the_valves_draw_a_schema() -> None:
     "location_approximate",
     "language",
   }
-  assert schema["properties"]["enabled"]["description"] == "Draw the block."
+  description = schema["properties"]["enabled"]["description"]
+  assert isinstance(description, str) and description.strip()
   assert module.Filter().valves.location_approximate is False

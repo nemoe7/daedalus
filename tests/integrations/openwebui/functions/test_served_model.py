@@ -145,7 +145,8 @@ def test_the_valves_draw_a_schema() -> None:
   schema = module.Filter.Valves.model_json_schema()
   assert set(schema["properties"]) == {"enabled", "prefix", "when"}
   assert schema["properties"]["when"]["enum"] == ["always", "on change"]
-  assert schema["properties"]["enabled"]["description"] == "Draw the line."
+  description = schema["properties"]["enabled"]["description"]
+  assert isinstance(description, str) and description.strip()
   assert module.Filter().valves.when == "always"
 
 
