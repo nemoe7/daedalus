@@ -6,6 +6,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import ClassVar
 
+import httpx
 import pytest
 
 from daedalus import catalog, cli, dashboard
@@ -22,10 +23,16 @@ class Live(BaseHTTPRequestHandler):
 
   def do_GET(self) -> None:
     Live.seen.append(("GET", self.path))
+    if self.path != "/health":
+      self.answer(404, b"{}")
+      return
     self.answer(200, b'{"status": "ok"}')
 
   def do_POST(self) -> None:
     Live.seen.append(("POST", self.headers.get("Authorization")))
+    if self.path != "/v1/catalog":
+      self.answer(404, b"{}")
+      return
     self.answer(Live.status, b'{"ok": true}')
 
   def answer(self, status: int, body: bytes) -> None:
@@ -53,8 +60,25 @@ def live():
 
 
 def test_probe_answers_over_the_socket(live: str) -> None:
-  assert cli.probe(f"{live}/health") is True
+  assert cli.probe(live) is True
+  assert Live.seen == [("GET", "/health")]
   assert cli.probe("http://127.0.0.1:1") is False
+
+
+@pytest.mark.parametrize(
+  "method, path, status",
+  [
+    ("GET", "/health/health", 404),
+    ("GET", "/v1/catalog", 404),
+    ("POST", "/health", 404),
+    ("POST", "/v1/catalog/extra", 404),
+    ("PUT", "/health", 501),
+  ],
+)
+def test_live_refuses_unexpected_requests(
+  live: str, method: str, path: str, status: int
+) -> None:
+  assert httpx.request(method, live + path).status_code == status
 
 
 def test_live_url_from_the_address_the_host_and_the_port(
