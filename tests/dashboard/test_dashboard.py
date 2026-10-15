@@ -5954,3 +5954,55 @@ assert.strictEqual(raceShown(), mode === 'race');
 assert(node('legend-body').innerHTML.includes('synthetic &lt;label&gt;'));
 """,
   )
+
+
+@pytest.mark.parametrize(
+  "phone,focused,expected",
+  [
+    (True, "header", "small"),
+    (True, "small", "small"),
+    (True, "outside", "outside"),
+    (False, "small", "header"),
+    (False, "header", "header"),
+    (False, "outside", "outside"),
+  ],
+)
+def test_sort_header_focus_follows_layout(phone, focused, expected) -> None:
+  run_app_js(
+    "state, renderSortHeads",
+    f"const layout = {json.dumps([phone, focused, expected])};\n"
+    + r"""
+let [phone, focused, expected] = layout;
+const keys = ['id', 'tier', 'weight'];
+const buttons = keys.map(key => ({ id: key, tabIndex: 0, disabled: false,
+  focus() { sandbox.document.activeElement = this; } }));
+const heads = keys.map((key, index) => ({
+  dataset: { sort: key }, hidden: false, attrs: {},
+  setAttribute(name, value) { this.attrs[name] = value; },
+  querySelector: () => buttons[index],
+  contains: element => element === buttons[index],
+}));
+const small = node('sort-small');
+small.options = keys.map(value => ({ value }));
+small.focus = () => { sandbox.document.activeElement = small; };
+const outside = node('search');
+const focus = { header: buttons[2], small, outside };
+sandbox.document.activeElement = focus[focused];
+sandbox.document.querySelectorAll = selector => selector === '#model-head th' ? heads : [];
+sandbox.matchMedia = query => ({ matches: query === '(max-width: 720px)' && phone,
+  addEventListener() {} });
+probe.state.sort = { key: 'weight', dir: -1 };
+probe.renderSortHeads();
+assert(buttons.every(button => button.tabIndex === (phone ? -1 : 0)));
+assert(buttons.every(button => button.disabled === false));
+assert(heads.every(head => !head.hidden && head.attrs['aria-hidden'] !== 'true'));
+assert.deepStrictEqual(heads.map(head => head.attrs['aria-sort']), ['none', 'none', 'descending']);
+assert.strictEqual(small.value, 'weight');
+assert.strictEqual(sandbox.document.activeElement, focus[expected]);
+phone = !phone;
+probe.renderSortHeads();
+assert(buttons.every(button => button.tabIndex === (phone ? -1 : 0)));
+assert.strictEqual(sandbox.document.activeElement,
+  expected === 'outside' ? outside : phone ? small : buttons[2]);
+""",
+  )

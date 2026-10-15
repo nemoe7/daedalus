@@ -1287,7 +1287,21 @@ function sortModels(rows) {
   });
 }
 
+function syncSortFocus() {
+  const phone = matchMedia("(max-width: 720px)").matches;
+  const heads = [...document.querySelectorAll("#model-head th")];
+  const small = $("sort-small");
+  heads.forEach((th) => { th.querySelector("button").tabIndex = phone ? -1 : 0; });
+  const focused = document.activeElement;
+  if (phone && heads.some((th) => th.contains(focused))) small.focus();
+  if (!phone && focused === small) {
+    const head = heads.find((th) => th.dataset.sort === state.sort.key) || heads[0];
+    head?.querySelector("button").focus();
+  }
+}
+
 function renderSortHeads() {
+  syncSortFocus();
   document.querySelectorAll("#model-head th").forEach((th) => {
     const on = th.dataset.sort === state.sort.key;
     th.setAttribute("aria-sort", on ? (state.sort.dir > 0 ? "ascending" : "descending") : "none");
@@ -3776,6 +3790,8 @@ $("models").addEventListener("click", (event) => {
   if (model) openModelModal(model);
 });
 
+matchMedia("(max-width: 720px)").addEventListener("change", syncSortFocus);
+syncSortFocus();
 $("model-head").addEventListener("click", (event) => {
   const th = event.target.closest("th[data-sort]");
   if (!th) return;
