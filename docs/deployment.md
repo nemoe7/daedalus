@@ -152,7 +152,7 @@ flowchart LR
   W -->|web search| S[searxng, internal]
   D -->|messages| H[headroom :8787, internal]
   T[tailscale] -->|HTTPS :443 in the tailnet| D
-  O[tailscale-openwebui] -->|HTTPS :8443 in the tailnet| W
+  O[tailscale-openwebui] -->|HTTPS :443 in the tailnet| W
   D --> P[Providers]
 ```
 
@@ -163,7 +163,7 @@ flowchart LR
 | `search` | `searxng` | Web search for Open WebUI. No port on the host, no key. |
 | `headroom` | `headroom` | Compresses the messages before daedalus sends them. No port on the host. |
 | `tailscale` | `tailscale` | Publishes daedalus to your tailnet over HTTPS. |
-| `tailscale-openwebui` | `tailscale-openwebui` | Publishes Open WebUI to its own Tailscale device over HTTPS. The `webui` profile enables it. |
+| `tailscale-openwebui` | `tailscale-openwebui` | Publishes Open WebUI to its own Tailscale device over HTTPS. Enable both the `webui` and `tailscale-openwebui` profiles. |
 
 The installers ask for profiles only when `.env` is absent. If you decline Open WebUI, they skip Tika, SearXNG search, and Open WebUI Tailscale. Updates keep the existing `COMPOSE_PROFILES` value.
 
@@ -281,7 +281,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Auth key | `TS_AUTHKEY` for daedalus. `TS_AUTHKEY_OWUI` for Open WebUI, with a `TS_AUTHKEY` fallback. |
 | Device name | `TS_HOSTNAME`, default `daedalus`. `TS_HOSTNAME_OWUI`, default `owui`. |
 | daedalus | `https://TS_HOSTNAME.TAILNET.ts.net` |
-| Open WebUI | `https://TS_HOSTNAME_OWUI.TAILNET.ts.net:8443`, with the `webui` and `tailscale-openwebui` profiles. A phone microphone needs the HTTPS. |
+| Open WebUI | `https://TS_HOSTNAME_OWUI.TAILNET.ts.net`, with the `webui` and `tailscale-openwebui` profiles. A phone microphone needs the HTTPS. |
 | Funnel | Off: only your tailnet can connect. |
 | `TS_AUTH_ONCE` | `true`. The state volume keeps the login, and the old auth keys, across restarts. |
 | `TS_STATE_DIR`, `TS_SERVE_CONFIG` | `/var/lib/tailscale` and `/config/serve.json`. |
