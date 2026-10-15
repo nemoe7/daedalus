@@ -220,11 +220,12 @@ def text_input(value: Any) -> bool:
     return bool(value)
   if not isinstance(value, list) or not value:
     return False
-  if all(isinstance(item, int) for item in value):
+  if all(type(item) is int for item in value):
+    return True
+  if all(isinstance(item, str) and item for item in value):
     return True
   return all(
-    isinstance(item, str)
-    or (isinstance(item, list) and all(isinstance(t, int) for t in item))
+    isinstance(item, list) and bool(item) and all(type(t) is int for t in item)
     for item in value
   )
 

@@ -140,6 +140,41 @@ def test_provider_error_stays_off_the_wire(
   assert response.json()["error"]["type"] == "invalid_request_error", response.text
 
 
+def test_embedding_input_shapes(fake: Upstream, client: TestClient) -> None:
+  body = {"model": "mistral/mistral-embed-2312", "input": []}
+  control = client.post("/v1/embeddings", json=body)
+  assert control.status_code == 400
+  count = len(fake.sent)
+  for value in (
+    [True],
+    [False],
+    [[False]],
+    [1, True],
+    [[1, True]],
+    ["text", [1, 2]],
+    [[1, 2], "text"],
+    [""],
+    [[]],
+    [[1], []],
+    ["text", ""],
+    [1, "text"],
+    [1.0],
+    True,
+    None,
+    {},
+    "",
+    [],
+  ):
+    response = client.post("/v1/embeddings", json={**body, "input": value})
+    assert response.status_code == 400, (value, response.text)
+    assert response.json() == control.json()
+  assert len(fake.sent) == count
+  for value in ("text", ["a", "b"], [-1, 0, 2], [[-1], [0, 2]], " ", [" "]):
+    response = client.post("/v1/embeddings", json={**body, "input": value})
+    assert response.status_code == 200, (value, response.text)
+    assert json.loads(fake.sent[-1].content)["input"] == value
+
+
 def test_gemini(fake: Upstream, client: TestClient) -> None:
   body = {"model": "gemini/gemini-embedding-001", "input": ["a", "b"], "dimensions": 2}
   response = client.post("/v1/embeddings", json=body)
