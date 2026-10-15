@@ -452,7 +452,9 @@ def capture() -> dict[str, Any]:
       seed_requests(client, auth)
       seed_state()
       # The Check now button of the Limits page: the balances and the checked time.
-      client.post("/ui/api/limits", headers=auth).raise_for_status()
+      client.post(
+        "/ui/api/limits", headers={**auth, "Content-Type": "application/json"}
+      ).raise_for_status()
       found = {
         name.split("?")[0]: client.get(f"/ui/api/{name}").json() for name in ENDPOINTS
       }
@@ -1373,6 +1375,10 @@ const DEMO_FIXTURES = __FIXTURES__;
     const path = found.endsWith("/") ? found.slice(0, -1) : found;
     const method = (init.method || "GET").toUpperCase();
     if (method !== "GET") {
+      const contentType = new Headers(init.headers).get("content-type") || "";
+      if (["POST", "PUT", "PATCH", "DELETE"].includes(method)
+        && contentType.split(";")[0].trim() !== "application/json")
+        return bad("Send application/json content.", 400);
       const job = save(path, method, init);
       if (job) return job;
       return json({ error: { message: "This is a static demo. The change is not saved." } }, 403);

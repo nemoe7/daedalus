@@ -24,6 +24,7 @@ from fastapi.responses import (
   Response,
   StreamingResponse,
 )
+from fastapi.routing import APIRoute
 
 from daedalus import __version__, config, providers, store, updates
 from daedalus.catalog import schedule
@@ -382,11 +383,35 @@ def failure(
   return JSONResponse(status_code=status, content={"error": error})
 
 
+def json_content(request: Request) -> bool:
+  return (
+    request.headers.get("content-type", "").split(";")[0].strip() == "application/json"
+  )
+
+
+class JSONRoute(APIRoute):
+  """Require JSON for dashboard changes without changing read access."""
+
+  def get_route_handler(self) -> Callable[[Request], Awaitable[Response]]:
+    handler = super().get_route_handler()
+
+    async def guarded(request: Request) -> Response:
+      if request.method in ("POST", "PUT", "PATCH", "DELETE") and not json_content(
+        request
+      ):
+        if self.path not in ("/ui/api/login", "/ui/api/logout") and not allowed(
+          request
+        ):
+          return denied()
+        return failure(400, "Send application/json content.", "invalid_request_error")
+      return await handler(request)
+
+    return guarded
+
+
 async def json_body(request: Request) -> Any:
   """The JSON body. Other content types give None, so a cross-site form cannot post."""
-  if (
-    request.headers.get("content-type", "").split(";")[0].strip() != "application/json"
-  ):
+  if not json_content(request):
     return None
   try:
     return await request.json()
@@ -1441,7 +1466,7 @@ def routes(
   affinity: Callable[[], dict[str, Any]] = dict,
 ) -> APIRouter:
   """The dashboard endpoints. All except login need a session."""
-  api = APIRouter(prefix="/ui/api")
+  api = APIRouter(prefix="/ui/api", route_class=JSONRoute)
 
   def request_cached_rebuild() -> None:
     task = rebuild_cached()

@@ -2745,7 +2745,7 @@ def test_login(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
   assert client.get("/v1/models").status_code == 200, "the master key stays the /v1 key"
   monkeypatch.delenv(dashboard.DAEDALUS_USERNAME)
   monkeypatch.delenv(dashboard.DAEDALUS_PASSWORD)
-  client.post("/ui/api/logout")
+  client.post("/ui/api/logout", headers={"Content-Type": "application/json"})
   assert client.get("/ui/api/status").status_code == 401, "logout ends the session"
   https = {"Origin": "https://3357-box.example.app"}
   framed = client.post("/ui/api/login", json=login, headers=https).headers["set-cookie"]
@@ -2934,8 +2934,18 @@ def test_keys(client: TestClient) -> None:
   assert sent.status_code == 200, sent.text
   outside = TestClient(api.app)
   assert outside.get("/ui/api/keys", headers=bearer).status_code == 401, "no dashboard"
-  assert client.delete("/ui/api/keys/laptop").status_code == 204
-  assert client.delete("/ui/api/keys/laptop").status_code == 404
+  assert (
+    client.delete(
+      "/ui/api/keys/laptop", headers={"Content-Type": "application/json"}
+    ).status_code
+    == 204
+  )
+  assert (
+    client.delete(
+      "/ui/api/keys/laptop", headers={"Content-Type": "application/json"}
+    ).status_code
+    == 404
+  )
   assert (
     client.post("/v1/chat/completions", json=body, headers=bearer).status_code == 401
   )
@@ -3214,7 +3224,9 @@ def test_hook_rows_and_update(
     },
   )
   state["records"] = before
-  found = client.post("/ui/api/hooks/update")
+  found = client.post(
+    "/ui/api/hooks/update", headers={"Content-Type": "application/json"}
+  )
   assert found.status_code == 200, found.text
   assert found.json() == {
     "moved": ["one.py"],
@@ -3236,7 +3248,9 @@ def test_hook_rows_and_update(
       "hooks": {"dir": "hooks", "sources": [], "disabled": [], "order": {}}
     },
   )
-  empty = client.post("/ui/api/hooks/update")
+  empty = client.post(
+    "/ui/api/hooks/update", headers={"Content-Type": "application/json"}
+  )
   assert (
     empty.status_code == 400
     and empty.json()["error"]["type"] == "invalid_request_error"
@@ -3749,14 +3763,29 @@ def test_broken_file(client: TestClient, folder: Path) -> None:
 
 
 def test_catalog(client: TestClient) -> None:
-  assert client.post("/ui/api/catalog").status_code == 503, "no rebuild in tests"
+  assert (
+    client.post(
+      "/ui/api/catalog", headers={"Content-Type": "application/json"}
+    ).status_code
+    == 503
+  ), "no rebuild in tests"
   api.CATALOG_REFRESH = lambda: None
   try:
     schedule.BUSY = True
     assert client.get("/ui/api/status").json()["catalog"]["rebuilding"] is True
-    assert client.post("/ui/api/catalog").status_code == 409, "1 rebuild at a time"
+    assert (
+      client.post(
+        "/ui/api/catalog", headers={"Content-Type": "application/json"}
+      ).status_code
+      == 409
+    ), "1 rebuild at a time"
     schedule.BUSY = False
-    assert client.post("/ui/api/catalog").status_code == 202
+    assert (
+      client.post(
+        "/ui/api/catalog", headers={"Content-Type": "application/json"}
+      ).status_code
+      == 202
+    )
   finally:
     api.CATALOG_REFRESH, schedule.BUSY = None, False
   assert TestClient(api.app).post("/ui/api/catalog").status_code == 401
@@ -3767,11 +3796,82 @@ def test_reset(client: TestClient) -> None:
   api.COOLDOWNS.begin("p/big", {}, b"")
   api.PENALTIES.pin("chat", "koinos", "p/big")
   assert api.PENALTIES.weights(["p/big"])["p/big"] < 1 and api.COOLDOWNS.ends()
-  assert client.post("/ui/api/reset").status_code == 200
+  assert (
+    client.post(
+      "/ui/api/reset", headers={"Content-Type": "application/json"}
+    ).status_code
+    == 200
+  )
   assert api.PENALTIES.weights(["p/big"]) == {"p/big": 1.0}, "the weights go back to 1"
   assert api.COOLDOWNS.ends() == {}, "the cooldowns end"
   assert api.PENALTIES.pinned("chat", "koinos") == "p/big", "the pins stay"
   assert TestClient(api.app).post("/ui/api/reset").status_code == 401
+
+
+def test_mutations_require_json_before_actions(
+  client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  now = time.time()
+  monkeypatch.setattr(api.PENALTIES, "clock", lambda: now)
+  monkeypatch.setattr(api.COOLDOWNS, "clock", lambda: now)
+  browser = TestClient(api.app)
+  login = {"username": "admin", "password": MASTER}
+  assert browser.post("/ui/api/login", json=login).status_code == 200
+  api.PENALTIES.record("p/big", 0.1)
+  api.COOLDOWNS.begin("p/big", {}, b"")
+  weights = api.PENALTIES.weights(["p/big"])
+  cooldowns = api.COOLDOWNS.ends()
+  session = browser.cookies.get(dashboard.COOKIE)
+  actions = (
+    ("POST", "reset"),
+    ("POST", "catalog"),
+    ("POST", "limits"),
+    ("POST", "updates"),
+    ("POST", "hooks/update"),
+    ("POST", "logout"),
+    ("PUT", "settings"),
+    ("DELETE", "keys/missing"),
+  )
+  for content_type in (
+    None,
+    "text/plain",
+    "application/x-www-form-urlencoded",
+    "multipart/form-data",
+  ):
+    headers = {"Origin": "https://other.test"}
+    if content_type is not None:
+      headers["Content-Type"] = content_type
+    for method, path in actions:
+      answer = browser.request(method, f"/ui/api/{path}", headers=headers)
+      assert answer.status_code == 400, (method, path, content_type, answer.text)
+      error = answer.json()["error"]
+      assert error["code"] == 400 and error["type"] == "invalid_request_error"
+      assert "application/json" in error["message"]
+    assert api.PENALTIES.weights(["p/big"]) == weights
+    assert api.COOLDOWNS.ends() == cooldowns
+    assert browser.cookies.get(dashboard.COOKIE) == session
+    assert browser.get("/ui/api/status", headers=headers).status_code == 200
+    assert TestClient(api.app).post("/ui/api/reset", headers=headers).status_code == 401
+  headers = {
+    "Content-Type": "application/json; charset=utf-8",
+    "Origin": "https://other.test",
+  }
+  assert browser.post("/ui/api/reset", headers=headers).status_code == 200
+  assert api.PENALTIES.weights(["p/big"]) == {"p/big": 1.0}
+  assert api.COOLDOWNS.ends() == {}
+  browser.cookies.clear()
+  headers[dashboard.HEADER] = session
+  assert browser.post("/ui/api/reset", headers=headers).status_code == 200
+  assert browser.post("/ui/api/logout", headers=headers).status_code == 200
+  assert browser.get("/ui/api/status").status_code == 401
+  outside = TestClient(api.app)
+  assert outside.post("/ui/api/logout").status_code == 400
+  assert (
+    outside.post(
+      "/ui/api/logout", headers={"Content-Type": "application/json"}
+    ).status_code
+    == 200
+  )
 
 
 @pytest.fixture(scope="module")
@@ -5260,7 +5360,9 @@ def test_update_check_now(client: TestClient) -> None:
     patch.setattr(
       updates, "_fetch", lambda url: {"tag_name": "v9.9.9", "html_url": "https://x"}
     )
-    answer = client.post("/ui/api/updates")
+    answer = client.post(
+      "/ui/api/updates", headers={"Content-Type": "application/json"}
+    )
     assert answer.status_code == 200
     data = answer.json()
     assert data["latest"] == "v9.9.9" and data["update"] is True

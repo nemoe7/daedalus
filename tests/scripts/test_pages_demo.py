@@ -52,11 +52,12 @@ READS = (
 )
 
 NODE_SETUP = """
+const JSON_HEADERS = { "Content-Type": "application/json" };
 const fs = require("fs");
 const vm = require("vm");
 const context = {
   location: { origin: "https://demo.test", href: "https://demo.test/" },
-  Response, URL, clearTimeout, console, Promise, Math, JSON, Object, Array, performance,
+  Response, Headers, URL, clearTimeout, console, Promise, Math, JSON, Object, Array, performance,
   network: [], listeners: [], timers: [],
 };
 context.window = context;
@@ -82,10 +83,27 @@ NODE_CHECK = (
   NODE_SETUP
   + """
 (async () => {
+  const beforeActions = JSON.stringify(await (await context.fetch("ui/api/models")).json());
+  for (const contentType of [null, "text/plain", "application/x-www-form-urlencoded", "multipart/form-data"]) {
+    for (const [method, path] of [["POST", "reset"], ["POST", "logout"], ["POST", "catalog"],
+      ["POST", "limits"], ["POST", "updates"], ["POST", "hooks/update"], ["PUT", "settings"],
+      ["DELETE", "keys/missing"]]) {
+      const headers = contentType === null ? {} : { "Content-Type": contentType };
+      const answer = await context.fetch("ui/api/" + path, { method, headers });
+      check(answer.status === 400, "reject non-JSON " + method + " " + path);
+      const error = (await answer.json()).error;
+      check(error.code === 400 && error.type === "invalid_request_error", "JSON boundary error fields");
+      check(error.message.includes("application/json"), "name the required content type");
+    }
+  }
+  check(JSON.stringify(await (await context.fetch("ui/api/models")).json()) === beforeActions,
+    "rejected actions keep model state");
+  check((await (await context.fetch("ui/api/login")).json()).session === true,
+    "rejected logout keeps the session");
   const hookSettings = await (await context.fetch("ui/api/settings")).json();
   const targetHook = hookSettings.hook_rows[0];
   const deleteHook = (name) => context.fetch("ui/api/hooks/file", {
-    method: "DELETE", body: JSON.stringify({ name }),
+    method: "DELETE", headers: JSON_HEADERS, body: JSON.stringify({ name }),
   });
   const missingHook = await deleteHook(targetHook.title);
   check(missingHook.status === 404, "a hook title is not a path");
@@ -110,7 +128,7 @@ NODE_CHECK = (
   check(notifications.update.channel === "dev", "the update fixture uses the development channel");
   check(notifications.update.behind === 2 && notifications.update.update === true,
     "the fixture shows two main commits absent from this build");
-  const checkedUpdate = await (await context.fetch("ui/api/updates", { method: "POST" })).json();
+  const checkedUpdate = await (await context.fetch("ui/api/updates", { method: "POST", headers: JSON_HEADERS })).json();
   check(checkedUpdate.behind === 2 && checkedUpdate.update === true, "a new check keeps the demo distance");
   check(notifications.resets.length === 1, "the reset fixture reaches Notifications");
   check(notifications.resets[0].kind === "neurons", "the reset fixture keeps its limit");
@@ -123,17 +141,17 @@ NODE_CHECK = (
   console.log("models " + served.length);
   const all = await (await context.fetch("ui/api/requests")).json();
   check(all.length === 0, "the Overview starts empty too");
-  const stray = await context.fetch("ui/api/nothing", { method: "PUT" });
+  const stray = await context.fetch("ui/api/nothing", { method: "PUT", headers: JSON_HEADERS });
   check(stray.status === 403, "a write with no home is refused");
   check((await stray.json()).error.message.includes("static demo"), "the write text");
   const missing = await context.fetch("ui/api/nothing");
   check(missing.status === 404, "an unknown call");
   const stateBefore = await (await context.fetch("ui/api/status")).json();
-  const start = await context.fetch("ui/api/catalog", { method: "POST" });
+  const start = await context.fetch("ui/api/catalog", { method: "POST", headers: JSON_HEADERS });
   check(start.status === 202, "a rebuild starts");
   const running = await (await context.fetch("ui/api/status")).json();
   check(running.catalog.rebuilding === true, "the chip reads rebuilding");
-  const busy = await context.fetch("ui/api/catalog", { method: "POST" });
+  const busy = await context.fetch("ui/api/catalog", { method: "POST", headers: JSON_HEADERS });
   check(busy.status === 409, "a rebuild is refused while 1 runs");
   check((await busy.json()).error.message.includes("rebuild runs now"), "the busy text");
   check(context.timers.includes(26000), "the rebuild takes the real 26 s");
@@ -147,7 +165,7 @@ NODE_CHECK = (
   check(context.listeners.includes("click"), "the other listeners still register");
   // A simulated save lands in the page memory, and a reload brings the fixtures back.
   const save = await context.fetch("ui/api/settings", {
-    method: "PUT",
+    method: "PUT", headers: JSON_HEADERS,
     body: JSON.stringify({ changes: { personalization: { theme: "light" } } }),
   });
   check(save.status === 200, "a settings save lands");
@@ -156,7 +174,7 @@ NODE_CHECK = (
   check(held.text.includes("theme: light"), "the saved text holds it");
   // An empty field writes the default, and the group stays whole.
   const clearedTheme = await context.fetch("ui/api/settings", {
-    method: "PUT",
+    method: "PUT", headers: JSON_HEADERS,
     body: JSON.stringify({ changes: { personalization: { theme: null } } }),
   });
   check(clearedTheme.status === 200, "a settings clear lands");
@@ -164,12 +182,12 @@ NODE_CHECK = (
   check(afterClear.file.personalization === undefined, "the cleared key leaves the file");
   check(!afterClear.text.includes("theme"), "the cleared line leaves the text");
   const env = await (await context.fetch("ui/api/env", {
-    method: "PUT",
+    method: "PUT", headers: JSON_HEADERS,
     body: JSON.stringify({ name: "CLOUDFLARE_ACCOUNT_ID", value: "abc12345" }),
   })).json();
   check(env.find((row) => row.name === "CLOUDFLARE_ACCOUNT_ID").state === "saved", "an env save lands");
   const made = await context.fetch("ui/api/keys", {
-    method: "POST",
+    method: "POST", headers: JSON_HEADERS,
     body: JSON.stringify({ name: "extra-client" }),
   });
   check(made.status === 201, "a key is made");
@@ -177,7 +195,7 @@ NODE_CHECK = (
   check(key.name === "extra-client" && key.key.startsWith("sk-"), "the key text");
   check((await (await context.fetch("ui/api/keys")).json()).some((row) => row.name === "extra-client"),
     "the key list shows it");
-  check((await context.fetch("ui/api/keys/extra-client", { method: "DELETE" })).status === 204,
+  check((await context.fetch("ui/api/keys/extra-client", { method: "DELETE", headers: JSON_HEADERS })).status === 204,
     "a key is dropped");
   check(!(await (await context.fetch("ui/api/keys")).json()).some((row) => row.name === "extra-client"),
     "the key list drops it");
@@ -205,14 +223,16 @@ NODE_CHECK = (
   check(sophos.members.length > 10 && sophos.members.every((row) => row.tier === "TIER-A"),
     "a pool reads its tier patterns");
   const readOnly = async (path, body, method) => {
-    const answer = await context.fetch("ui/api/" + path, { method, body: JSON.stringify(body) });
+    const answer = await context.fetch("ui/api/" + path, { method, headers: JSON_HEADERS, body: JSON.stringify(body) });
     check(answer.status === 403, `the refusal of ${path}`);
     check((await answer.json()).error.message.includes("read-only"), `the text of ${path}`);
   };
   // The demo takes provider edits in page memory: YAML overlays the cloud blocks, and the form
   // writes only changed whole blocks. A refresh brings the empty local main back.
   const put = async (path, body) => {
-    const answer = await context.fetch("ui/api/" + path, { method: "PUT", body: JSON.stringify(body) });
+    const answer = await context.fetch("ui/api/" + path, {
+      method: "PUT", headers: JSON_HEADERS, body: JSON.stringify(body),
+    });
     return { status: answer.status, body: await answer.json() };
   };
   const added = main.text + "demoprovider:\\n  models:\\n    demo-edit-check:\\n";
@@ -254,32 +274,34 @@ NODE_CHECK = (
   await readOnly("files", { path: main.path }, "DELETE");
   check((await (await context.fetch("ui/api/files")).json()).length === 3,
     "the files stay as shipped");
-  check((await context.fetch("ui/api/reset", { method: "POST" })).status === 200, "a reset lands");
+  check((await context.fetch("ui/api/reset", {
+    method: "POST", headers: JSON_HEADERS,
+  })).status === 200, "a reset lands");
   const cleared = await (await context.fetch("ui/api/models")).json();
   check(cleared.every((row) => row.cooldown === null && row.weight === 1),
     "the reset clears the weights");
   // Each write carries the checks of the server: the names and the session.
   const refuse = async (path, body, status, text, method = "PUT") => {
-    const answer = await context.fetch("ui/api/" + path, { method, body: JSON.stringify(body) });
+    const answer = await context.fetch("ui/api/" + path, { method, headers: JSON_HEADERS, body: JSON.stringify(body) });
     check(answer.status === status, `the refusal of ${path} (${status})`);
     check((await answer.json()).error.message.includes(text), `the text of ${path}`);
   };
   await refuse("settings", { changes: { personalization: { grid: 1 } } }, 422, "unknown key");
   await refuse("keys", { name: "x".repeat(41) }, 400, "1 to 40 characters", "POST");
   await refuse("keys", { name: "openwebui" }, 400, "is in use", "POST");
-  await context.fetch("ui/api/logout", { method: "POST" });
+  await context.fetch("ui/api/logout", { method: "POST", headers: JSON_HEADERS });
   check((await (await context.fetch("ui/api/login")).json()).session === false, "a logout ends the session");
   const wrong = await context.fetch("ui/api/login", {
-    method: "POST",
+    method: "POST", headers: JSON_HEADERS,
     body: JSON.stringify({ username: "nobody", password: "x" }),
   });
   check(wrong.status === 401, "a wrong login is refused");
   await context.fetch("ui/api/login", {
-    method: "POST",
+    method: "POST", headers: JSON_HEADERS,
     body: JSON.stringify({ username: "admin", password: "master" }),
   });
   check((await (await context.fetch("ui/api/login")).json()).session === true, "the login opens the page again");
-  const fresh = await (await context.fetch("ui/api/limits", { method: "POST" })).json();
+  const fresh = await (await context.fetch("ui/api/limits", { method: "POST", headers: JSON_HEADERS })).json();
   check(fresh.checked > 0 && fresh.lanes[0].at > 0, "the limits check reads a fresh time");
   const limitUnits = new Set(fresh.lanes.flatMap((lane) =>
     lane.rows.map((row) => `${row.kind}/${row.span}`)));
@@ -376,7 +398,7 @@ NODE_CHECK = (
     "the status counts the catalog");
   check(liveStatus.sessions === new Set(grown.map((row) => row.session).filter(Boolean)).size,
     "the status counts the sessions of the table");
-  const liveLimits = await (await context.fetch("ui/api/limits", { method: "POST" })).json();
+  const liveLimits = await (await context.fetch("ui/api/limits", { method: "POST", headers: JSON_HEADERS })).json();
   // The provider that the waves reached has a card, and its traffic moved the number.
   const reached = new Set(grown.map((row) => String(row.via).split("/")[0]));
   const card = liveLimits.providers.find((item) => reached.has(item.name)
@@ -828,7 +850,7 @@ def test_demo_hook_identities(
   const scenario = JSON.parse(fs.readFileSync("case.json", "utf8"));
   const read = async () => (await context.fetch("ui/api/settings")).json();
   const save = (body) => context.fetch("ui/api/settings", {
-    method: "PUT", body: JSON.stringify(body),
+    method: "PUT", headers: JSON_HEADERS, body: JSON.stringify(body),
   });
   const before = await read();
   const answer = await save(scenario.body);
