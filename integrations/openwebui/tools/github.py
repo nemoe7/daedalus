@@ -3,7 +3,7 @@ title: GitHub
 author: nemo
 description: GitHub access for Open WebUI. Read and write approval follows permission mode.
 required_open_webui_version: 0.10.0
-version: 3.0.6
+version: 3.0.7
 licence: nemoe7 Noncommercial and Public-Interest License 1.2.0
 """
 
@@ -30,7 +30,7 @@ JSON_ACCEPT = "application/vnd.github+json"
 
 
 class GitHubError(Exception):
-  """A GitHub call failed. The message keeps the status and the API text."""
+  """Report a GitHub failure with its status, API message, method and URL."""
 
   def __init__(self, status: int, message: str, method: str = "", url: str = ""):
     self.status = status
@@ -168,7 +168,7 @@ class Tools:
     return mode if isinstance(mode, str) and mode in ("Always ask", "Allow reads", "Always allow") else "Always ask"
 
   def _wait_seconds(self, __user__: dict | None = None) -> int:
-    """The confirmation wait: the user value wins, then the tool value. Zero keeps the tool value."""
+    """Use a nonzero user timeout, else the tool timeout or 60 seconds, with a one-second minimum."""
     user_wait = self._user_valve(__user__, "timeout_seconds")
     value = int(user_wait or 0) or int(self.valves.timeout_seconds or 0) or 60
     return max(1, value)
@@ -180,13 +180,7 @@ class Tools:
     __event_call__: Callable | None = None,
     __user__: dict | None = None,
   ) -> bool:
-    """Ask the user to confirm one write. Returns False when it cannot be asked.
-
-    The confirmation travels over the socket of the tab that started the chat. A
-    page refresh drops the dialog and the server would wait forever, because
-    WEBSOCKET_EVENT_CALLER_TIMEOUT starts unset. The wait_for below is the only
-    timeout that always exists, so a refresh costs one wait, then a deny.
-    """
+    """Request confirmation within the configured wait and accept only the Boolean value `True`."""
     if not callable(__event_call__):
       return False
     try:
@@ -213,11 +207,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> Any:
-    """Run one read behind the read gate.
-
-    Always ask holds the read at the same confirmation as a write. Allow reads
-    and Always allow let it run.
-    """
+    """Run a read after confirmation in Always ask mode, or directly in the other permission modes."""
     if self._permissions(__user__) == "Always ask" and not await self._ask(
       action, detail, __event_call__, __user__
     ):
@@ -239,7 +229,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> Any:
-    """Run one write behind the gate. deny => never asked, timeout => never sent."""
+    """Run a write only with Always allow permission or explicit confirmation."""
     if self._permissions(__user__) != "Always allow" and not await self._ask(
       action, detail, __event_call__, __user__
     ):
@@ -282,7 +272,7 @@ class Tools:
     accept: str = JSON_ACCEPT,
     raw: bool = False,
   ) -> Any:
-    """The one HTTP call. Blocking on purpose: every caller awaits it in a thread."""
+    """Make a blocking HTTP request for callers that run it in a thread."""
     clean = {k: v for k, v in (params or {}).items() if v is not None}
     if clean:
       url = f"{url}?{urlencode(clean, doseq=True)}"
