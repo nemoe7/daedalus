@@ -1,91 +1,193 @@
-# nemoe7 Noncommercial License 1.0.0
+# nemoe7 Noncommercial License 1.1.0
 
-<https://github.com/nemoe7/license/blob/v1.0.0/LICENSE.md>
+<https://github.com/nemoe7/license/blob/v1.1.0/LICENSE.md>
 
 Required Notice: Copyright (c) 2026 nemoe7 (<https://github.com/nemoe7>)
 
-## Acceptance
+## 1. Acceptance
 
-In order to get any license under these terms, you must agree to them as both strict obligations and conditions to all your licenses.
+To obtain the permissions granted by this License, You must comply with its terms. Each restriction on a copyright or patent license is a condition of that license. To the extent applicable law recognizes a contract, You also agree to the contractual obligations in this License when You knowingly exercise a right that it grants.
 
-## Copyright License
+This License does not restrict any use, right, exception, limitation, or defense that applicable law permits without authorization or does not allow a person to waive or restrict by contract.
 
-The licensor grants you a copyright license for the software to do everything you might do with the software that would otherwise infringe the licensor's copyright in it for any permitted purpose.  However, you may only distribute the software according to [Distribution License](#distribution-license) and make changes or new works based on the software according to [Changes and New Works License](#changes-and-new-works-license).
+## 2. Copyright License
 
-## Distribution License
+Subject to this License, the Licensor grants You a worldwide, royalty-free, non-exclusive copyright license to reproduce, run, display, perform, modify, adapt, prepare derivative works of, and distribute the Software.
 
-The licensor grants you an additional copyright license to distribute copies of the software.  Your license to distribute covers distributing the software with changes and new works permitted by [Changes and New Works License](#changes-and-new-works-license).
+You may exercise these rights only for a Permitted Purpose, as defined in Section 3. You must comply with the conditions in this License when You exercise these rights.
 
-## Notices
+This grant covers only copyright rights that the Licensor owns or is authorized to license. It does not grant rights in Third-Party Parts, except to the extent that the Licensor owns or controls those rights or an applicable third-party license grants them.
 
-You must ensure that anyone who gets a copy of any part of the software from you also gets a copy of these terms or the URL for them above, as well as copies of any plain-text lines beginning with `Required Notice:` that the licensor provided with the software.  For example:
+## 3. Permitted Purposes
 
-> Required Notice: Copyright Yoyodyne, Inc. (<http://example.com>)
+A **Permitted Purpose** is a purpose allowed by this section.
 
-## Changes and New Works License
+### 3.1 Noncommercial Purposes
 
-The licensor grants you an additional copyright license to make changes and new works based on the software for any permitted purpose.
+Any Noncommercial Purpose is a Permitted Purpose.
 
-## Share Alike
+A **Noncommercial Purpose** is a purpose that is not primarily intended for or directed toward obtaining commercial advantage or monetary compensation. The purpose and circumstances of the use determine whether it is noncommercial. The absence of a fee or payment does not, by itself, make a use noncommercial.
 
-If you distribute the software with changes, or a new work based on the software, you must license your changes and the new work under these terms, and give each recipient the source code of them.
+### 3.2 Personal Uses
 
-## Name and Logo
+Personal use for research, experimentation, testing for the benefit of public knowledge, personal study, private entertainment, hobby projects, amateur pursuits, or religious observance is a Permitted Purpose when You do not reasonably anticipate a commercial application for that use.
 
-These terms do not grant any right to the name or logo of the software as trademarks. A changed copy that you distribute can keep the name, but it must say that it is changed, and it must not suggest that the licensor endorses it.
+### 3.3 Noncommercial Organizations
 
-## Third-Party Parts
+Use by a charitable organization, educational institution, public research organization, public safety or health organization, environmental protection organization, or government institution is a Permitted Purpose, regardless of the source of funding or obligations associated with that funding.
 
-Parts of the software that come from third parties stay under their own licenses. Their license files come with the software, and these terms do not limit the rights that those licenses give you.
+The exceptions in this section apply to the use by the listed organization. They do not grant a separate organization, contractor, or other person permission to use the Software for a purpose that this License does not permit.
 
-## Patent License
+## 4. Commercial Purposes and Separate Licensing
 
-The licensor grants you a patent license for the software that covers patent claims the licensor can license, or becomes able to license, that you would infringe by using the software.
+A **Commercial Purpose** is a purpose primarily intended for or directed toward obtaining commercial advantage or monetary compensation.
 
-## Noncommercial Purposes
+Subject to the exceptions in Section 3.3, examples of Commercial Purposes include:
 
-Any noncommercial purpose is a permitted purpose.
+- Using the Software in the ordinary business operations of a for-profit business.
+- Developing, operating, or supporting a product or service offered for sale or paid access.
+- Providing paid hosting, software-as-a-service, consulting, support, or other services using the Software.
+- Using the Software to perform work for a paying client.
+- Using the Software primarily to promote, sell, or support paid goods or services.
 
-## Personal Uses
+These examples are illustrative, not exhaustive. The purpose and circumstances of the use determine whether it is commercial. Payment to the Licensor is not required for a use to have a Commercial Purpose. Free access to a product or service does not, by itself, make the underlying use noncommercial.
 
-Personal use for research, experiment, and testing for the benefit of public knowledge, personal study, private entertainment, hobby projects, amateur pursuits, or religious observance, without any anticipated commercial application, is use for a permitted purpose.
+Any use that is not a Permitted Purpose requires a separate license from the Licensor. This License does not require the Licensor to negotiate or grant that license.
 
-## Noncommercial Organizations
+## 5. Distribution and Share Alike
 
-Use by any charitable organization, educational institution, public research organization, public safety or health organization, environmental protection organization, or government institution is use for a permitted purpose regardless of the source of funding or obligations resulting from the funding.
+The Licensor grants You the right to distribute copies of the Software, subject to this License.
 
-## Commercial Licensing
+If You distribute the Software or a Covered Work, You must license the Covered Work under this same version of this License for all rights that You own or control in it. You must license Your copyrightable contributions to a Covered Work under this version. You must not impose additional terms that restrict a recipient's exercise of the rights granted by this License in those parts.
 
-Any use that is not for a permitted purpose needs a separate license from the licensor. Ask the licensor for one.
+A **Covered Work** means the Software, a modification of the Software, or a work that incorporates or adapts copyrightable expression from the Software where distribution of that work requires permission under applicable copyright law.
 
-## Fair Use
+A work is not a Covered Work solely because You distribute it with the Software, run it in the same process or container, or make it communicate or interoperate with the Software through an interface or protocol. Whether a particular combination or work is a derivative work depends on applicable law and the facts.
 
-You may have "fair use" rights for the software under the law. These terms do not limit them.
+This section does not grant rights in Third-Party Parts that You do not own or control. Section 8 governs those parts.
 
-## No Other Rights
+Making the Software available only for remote interaction, without transferring a copy of the Software or a Covered Work, is not distribution under this section. This sentence does not permit a Commercial Purpose that Section 4 prohibits.
 
-These terms do not allow you to sublicense or transfer any of your licenses to anyone else, or prevent the licensor from granting licenses to anyone else.  These terms do not imply any other licenses.
+## 6. Source Code
 
-## Patent Defense
+When You distribute the Software or a Covered Work, You must provide each recipient with the complete Corresponding Source Code for the parts covered by Section 5.
 
-If you make any written claim that the software infringes or contributes to infringement of any patent, your patent license for the software granted under these terms ends immediately. If your company makes such a claim, your patent license ends immediately for work on behalf of your company.
+**Corresponding Source Code** means the source code in the preferred form for making modifications. It includes the source files for the covered parts and the configuration files, interface definitions, and build and installation scripts needed to modify, build, and install those parts.
 
-## Violations
+You must provide Corresponding Source Code with the distributed work or by a durable, accessible method that gives each recipient access to the complete source without an additional license fee.
 
-The first time you are notified in writing that you have violated any of these terms, or done anything with the software not covered by your licenses, your licenses can nonetheless continue if you come into full compliance with these terms, and take practical steps to correct past violations, within 32 days of receiving notice.  Otherwise, all your licenses end immediately.
+This requirement applies only to the parts covered by Section 5 that You own or control. It does not transfer rights in Third-Party Parts or override their licenses.
 
-## No Liability
+## 7. Notices and Changes
 
-***As far as the law allows, the software comes as is, without any warranty or condition, and the licensor will not be liable to you for any damages arising out of these terms or the use or nature of the software, under any kind of legal claim.***
+You must give each recipient a copy of this License or the exact URL for this version. You must also provide every applicable line beginning with `Required Notice:` that the Licensor supplied with the Software.
 
-## Definitions
+You must preserve copyright notices, license notices, warranty disclaimers, and notices about Third-Party Parts. You must not remove notices that applicable law or another applicable license requires You to preserve.
 
-The **licensor** is the individual or entity offering these terms, and the **software** is the software the licensor makes available under these terms.
+If You distribute a modified version, You must identify it as modified. The notice must not state or imply that the Licensor approved, certified, or endorsed the changes.
 
-**You** refers to the individual or entity agreeing to these terms.
+A notice must not falsely identify You as the original author of work created by another person.
 
-**Your company** is any legal entity, sole proprietorship, or other kind of organization that you work for, plus all organizations that have control over, are under the control of, or are under common control with that organization.  **Control** means ownership of substantially all the assets of an entity, or the power to direct its management and policies by vote, contract, or otherwise.  Control can be direct or indirect.
+## 8. Third-Party Parts
 
-**Your licenses** are all the licenses granted to you for the software under these terms.
+**Third-Party Parts** are components, files, or other materials that the Licensor does not own or control and that are included with or used by the Software.
 
-**Use** means anything you do with the software requiring one of your licenses.
+Third-Party Parts remain subject to their own licenses. This License does not expand, replace, or remove any rights or obligations under those licenses.
+
+When You distribute Third-Party Parts, You must preserve their applicable license files and notices. You must comply with this License and the applicable third-party licenses.
+
+You must obtain any additional permission that You need before You distribute a Third-Party Part. This License does not grant that permission.
+
+## 9. Name and Logo
+
+This License does not grant trademark rights in the Software's name, the Licensor's name, or any logo.
+
+You may use the Software's name in a factual statement that identifies the original Software or describes compatibility, to the extent applicable law permits that use.
+
+You may retain the Software's name in a modified version only if You clearly identify the version as modified and do not suggest that the Licensor endorses it.
+
+You must not use the Licensor's name or logo in a way that falsely suggests sponsorship, approval, certification, or endorsement. Any use remains subject to applicable trademark law.
+
+## 10. Patent License
+
+The Licensor grants You a worldwide, royalty-free, non-exclusive patent license to make, have made, use, offer to sell, sell, import, and otherwise transfer the Software, but only for a Permitted Purpose and as allowed by this License.
+
+This grant covers only patent claims that the Licensor owns or controls and that You would necessarily infringe by exercising the rights this License grants for the Software as supplied by the Licensor.
+
+This grant does not cover a claim that You infringe only because You modified the Software, combined it with other material, or used it in a way that this License does not authorize. It does not grant rights under patents owned or controlled by a third party.
+
+## 11. Patent Defense
+
+If You institute patent litigation against any entity, including a cross-claim or counterclaim in a lawsuit, alleging that the Software or a contribution incorporated into the Software directly or contributorily infringes a patent, then the patent licenses granted to You under Section 10 terminate on the date that litigation is filed.
+
+If Your Company institutes such litigation, the termination applies to Your use of the Software on behalf of, or as part of work for, that Company.
+
+**Your Company** means an entity that You work for and any entity that controls, is controlled by, or is under common control with it. **Control** means the power to direct an entity's management or policies by ownership, voting rights, contract, or another lawful means.
+
+This section applies only to the patent license under this License. It does not terminate the copyright license or affect patent rights granted by a third party. It applies only to the extent permitted by applicable law.
+
+## 12. Statutory Rights
+
+This License does not limit any right, exception, limitation, or defense that applicable law does not allow You to waive or exclude by contract.
+
+This includes fair use, fair dealing, and mandatory exceptions or rights that apply to software or consumers under the law that governs the use.
+
+## 13. Breach, Cure, and Termination
+
+If You breach this License, the Licensor may give You written notice that identifies the breach and provides enough information for You to understand and address it.
+
+The first time You receive written notice that You have breached this License or used the Software outside the rights it grants, Your licenses will not terminate if, within 32 calendar days after receipt of that notice, You achieve full compliance and take practical steps to correct the effects of the breach.
+
+If You do not achieve full compliance and take those steps within that period, all licenses granted to You under this License terminate automatically at the end of the period, to the extent permitted by applicable law. For a later breach after the first notice, the Licensor may terminate Your licenses by written notice, to the extent permitted by applicable law.
+
+If a breach cannot be fully reversed, You must stop the breach and take practical steps to reduce or correct its effects. These steps may include removing an unauthorized distribution, correcting missing notices, or providing source code that You were required to provide.
+
+The Licensor may restore a terminated license only by written permission.
+
+Termination of Your license does not, by itself, terminate a separate license that the Licensor has granted directly to a recipient who complies with this License. Termination does not authorize You to continue exercising rights under this License after Your own license has ended.
+
+A written notice under this section must identify the alleged breach and must be delivered in a manner reasonably calculated to reach the recipient at a known address or contact method. Receipt and proof of delivery are determined under applicable law. The Licensor's public contact channel is <https://github.com/nemoe7>.
+
+## 14. No Warranty and Limitation of Liability
+
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE," TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW. THE LICENSOR DISCLAIMS ALL WARRANTIES AND CONDITIONS, WHETHER EXPRESS, IMPLIED, OR STATUTORY, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, ACCURACY, AND SECURITY.
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSOR WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES, OR FOR LOSS OF PROFITS, REVENUE, DATA, GOODWILL, BUSINESS, OR BUSINESS INTERRUPTION, ARISING FROM THIS LICENSE OR THE SOFTWARE.
+
+THIS LIMITATION APPLIES UNDER ANY LEGAL THEORY, INCLUDING CONTRACT, TORT, NEGLIGENCE, OR OTHERWISE, EVEN IF THE LICENSOR KNEW THAT SUCH DAMAGE WAS POSSIBLE.
+
+NOTHING IN THIS SECTION EXCLUDES OR LIMITS LIABILITY THAT APPLICABLE LAW DOES NOT ALLOW A PARTY TO EXCLUDE OR LIMIT.
+
+## 15. No Other Rights
+
+This License grants only the rights that it states. It does not grant any other rights by implication, estoppel, or otherwise.
+
+You may not sublicense or assign the rights granted to You by the Licensor, except to the extent applicable law does not allow that restriction.
+
+A recipient who accepts this License and receives the Software through a distribution that complies with this License receives a separate license directly from the Licensor, subject to this same version and its terms. This does not authorize You to sublicense or assign Your own license.
+
+The Licensor may offer the Software under separate terms or grant other licenses. A later version of this License does not change rights granted under this version unless the affected party expressly accepts the later version or applicable law provides otherwise.
+
+This License does not require the Licensor to provide updates, support, maintenance, or other services.
+
+## 16. Severability and Waiver
+
+If a court finds a provision of this License invalid or unenforceable, the court may limit that provision only to the extent necessary to make it enforceable, where applicable law permits. The remaining provisions remain in effect to the extent permitted by law.
+
+A failure to enforce a provision does not waive the right to enforce it later. A waiver must be in writing and must identify the provision or breach that it covers.
+
+## 17. Definitions
+
+**Licensor** means the person or entity that owns or controls the rights in the Software and offers this License. The Required Notice accompanying the Software identifies the Licensor for notice and attribution purposes. Applicable law may require additional information to establish the Licensor's legal identity or standing.
+
+**Software** means the software, source code, documentation, configuration, and other materials that the Licensor makes available under this License. It does not include Third-Party Parts except to the extent that the Licensor owns or controls rights in those parts.
+
+**You** means the individual or entity that accepts this License. If an individual accepts or exercises rights on behalf of an entity and has authority to bind that entity, both the individual and the entity are You.
+
+**Use** means an act that requires permission under copyright or patent law.
+
+**Distribute** means to transfer a copy of the Software or a Covered Work to another person or entity, or to make such a copy available for download by another person or entity. It does not, by itself, include remote access that transfers no copy, as described in Section 5.
+
+**Your licenses** means all licenses that the Licensor grants to You under this License.
+
+**This License** means the *nemoe7 Noncommercial License 1.1.0* at the URL stated at the start of this document.
