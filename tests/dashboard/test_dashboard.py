@@ -1,5 +1,6 @@
 import io
 import json
+import logging
 import os
 import re
 import shutil
@@ -3524,6 +3525,16 @@ def test_hook_scan_and_take(
   assert not (root / "owner/name/scanned.py").exists()
 
 
+def invalid_request(response, status: int = 422) -> dict:
+  """Check a rejected request and return its diagnostic fields."""
+  assert response.status_code == status
+  body = response.json() if hasattr(response, "json") else json.loads(response.body)
+  error = body["error"]
+  assert error["type"] == "invalid_request_error" and error["code"] == status
+  assert isinstance(error["message"], str) and error["message"].strip()
+  return body
+
+
 def test_files(
   client: TestClient, folder: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -3579,14 +3590,14 @@ def test_files(
   assert client.get("/ui/api/settings").json()["headroom_available"] is True
   before = settings.DEFAULT_PATH.read_text()
   bad = client.put("/ui/api/settings", json={"changes": {"balance": {"fault": 0}}})
-  assert bad.status_code == 422 and "above 0" in bad.text, bad.text
+  invalid_request(bad)
   bad = client.put("/ui/api/settings", json={"changes": {"limits": {"calls": 1}}})
-  assert bad.status_code == 422 and "between 2 and 100" in bad.text, bad.text
+  invalid_request(bad)
   huge = client.put(
     "/ui/api/settings",
     json={"changes": {"limits": {"request": 99999999999999999999}}},
   )
-  assert huge.status_code == 422 and "at most 86400 seconds" in huge.text, huge.text
+  invalid_request(huge)
   assert settings.DEFAULT_PATH.read_text() == before, "a bad value is not written"
   unknown = client.put("/ui/api/settings", json={"changes": {"x": {"y": 1}}})
   assert unknown.status_code == 422, unknown.text
@@ -3665,7 +3676,7 @@ def test_files(
   blue = client.put(
     "/ui/api/settings", json={"changes": {"personalization": {"theme": "blue"}}}
   )
-  assert blue.status_code == 422 and "system, light or dark" in blue.text, blue.text
+  invalid_request(blue)
   assert (
     client.put(
       "/ui/api/settings", json={"changes": {"personalization": {"theme": None}}}
@@ -3676,7 +3687,7 @@ def test_files(
   text = client.get("/ui/api/settings").json()["text"]
   assert text == settings.DEFAULT_PATH.read_text(), "the text of the file"
   broken = client.put("/ui/api/settings", json={"text": "balance:\n  fault: 0\n"})
-  assert broken.status_code == 422 and "above 0" in broken.text, broken.text
+  invalid_request(broken)
   assert settings.DEFAULT_PATH.read_text() == text, "a bad text is not written"
   edited = text + "optimization:\n  timeout: 14 # edited\n"
   saved = client.put("/ui/api/settings", json={"text": edited})
@@ -3691,17 +3702,14 @@ def test_files(
   assert listed.status_code == 422, "provider blocks only"
   twice = "q:\n  api_key: k\nq:\n  api_key: j\n"
   doubled = client.put("/ui/api/files", json={"path": providers, "text": twice})
-  assert doubled.status_code == 422 and doubled.json()["error"]["message"] == (
-    "duplicate key 'q' at line 3, column 1 (first at line 1)"
-  ), doubled.text
+  invalid_request(doubled)
   broken = client.put("/ui/api/files", json={"path": providers, "text": "a: [\n"})
-  assert "<unicode string>" not in broken.text and "line 2" in broken.text, broken.text
+  invalid_request(broken)
+  assert "<unicode string>" not in broken.text, broken.text
   doubled = client.put(
     "/ui/api/settings", json={"text": "weights:\n  fault: 0.5\n  fault: 0.25\n"}
   )
-  assert doubled.status_code == 422 and "duplicate key 'fault'" in doubled.text, (
-    doubled.text
-  )
+  invalid_request(doubled)
   new = "q:\n  api_key: k\n"
   assert (
     client.put("/ui/api/files", json={"path": providers, "text": new}).status_code
@@ -4791,7 +4799,7 @@ def test_the_requests_filters_ride_in_the_hash() -> None:
 
 
 def test_a_wrong_shape_is_refused_at_save(client: TestClient) -> None:
-  """A known key with a wrong shape gives 422 with its name, and a good shape lands."""
+  """A wrong shape gives 422 without field details, and a valid shape saves."""
   login = {"username": "admin", "password": MASTER}
   assert client.post("/ui/api/login", json=login).status_code == 200, "the session"
   made = client.post("/ui/api/files", json={"name": "shapetest"})
@@ -4807,8 +4815,8 @@ def test_a_wrong_shape_is_refused_at_save(client: TestClient) -> None:
       ("api_key: k\ntier:\n  TIER-B: TIER-B\n", "TIER-B"),
     ):
       reply = client.put("/ui/api/files", json={"path": path, "text": text})
-      assert reply.status_code == 422, reply.text
-      assert word in reply.json()["error"]["message"], reply.text
+      assert reply.status_code == 422, (word, reply.text)
+      invalid_request(reply)
     good = "api_key: k\ntier:\n  TIER-B: [a]\n"
     assert (
       client.put("/ui/api/files", json={"path": path, "text": good}).status_code == 200
@@ -6454,3 +6462,81 @@ if (contract === 'render') {
 }
 """,
   )
+
+
+@pytest.mark.parametrize(
+  "operation,error_type,status",
+  [
+    ("write-yaml", dashboard.yaml.YAMLError, 422),
+    ("write-settings", settings.SettingsError, 422),
+    ("hook", settings.SettingsError, 422),
+    ("key", dashboard.keys.KeyNameError, 400),
+    ("provider", ValueError, 400),
+    ("settings", settings.SettingsError, 422),
+  ],
+)
+def test_validation_errors_keep_exception_details_private(
+  client, tmp_path, monkeypatch, caplog, operation, error_type, status
+) -> None:
+  """Validation failures keep exception details out of responses and logs without saving changes."""
+  path = tmp_path / "settings.yml"
+  path.write_text("hooks:\n  disabled: [blocked.py]\n", encoding="utf-8")
+  monkeypatch.setattr(settings, "DEFAULT_PATH", path)
+  assert (
+    client.post(
+      "/ui/api/login", json={"username": "admin", "password": MASTER}
+    ).status_code
+    == 200
+  )
+  paths = {path, *dashboard.FILES}
+  before = {p: p.read_bytes() if p.exists() else None for p in paths}
+  before_keys = dashboard.keys.listing(store.MODELS_DB)
+  before_config = json.dumps(config.get_config(), sort_keys=True)
+  before_slow = api.SLOW_SECONDS
+  writes = []
+  marker = "private-exception-marker"
+
+  def fail(*args, **kwargs):
+    raise error_type(marker)
+
+  def changed(*args, **kwargs):
+    writes.append((args, kwargs))
+
+  monkeypatch.setattr(dashboard.saved_env, "save", changed)
+  caplog.set_level(logging.WARNING, logger=dashboard.logger.name)
+  caplog.clear()
+  if operation.startswith("write-"):
+    monkeypatch.setattr(dashboard, "check_file", fail)
+    response = dashboard.write_config(
+      path, "replacement", changed, changed, key_values={"FIXTURE_KEY": marker}
+    )
+  elif operation == "hook":
+    monkeypatch.setattr(settings, "update_text", fail)
+    response = dashboard.clear_hook_entries("blocked.py", changed, changed)
+  elif operation == "key":
+    monkeypatch.setattr(dashboard.keys, "add", fail)
+    response = client.post("/ui/api/keys", json={"name": "fixture-key"})
+  elif operation == "provider":
+    monkeypatch.setattr(dashboard, "stage_keys", fail)
+    response = client.put(
+      "/ui/api/providers",
+      json={"path": str(dashboard.FILES[0]), "blocks": {"p": {"api_key": marker}}},
+    )
+  else:
+    monkeypatch.setattr(settings, "update_text", fail)
+    response = client.put(
+      "/ui/api/settings", json={"changes": {"limits": {"slow": 12}}}
+    )
+  body = invalid_request(response, status)
+  assert marker not in json.dumps(body) and "\n" not in body["error"]["message"]
+  records = [r for r in caplog.records if r.name == dashboard.logger.name]
+  assert len(records) == 1
+  assert records[0].levelno == logging.WARNING
+  assert records[0].args == (error_type.__name__,)
+  assert records[0].exc_info is None and records[0].stack_info is None
+  assert marker not in caplog.text
+  assert writes == []
+  assert {p: p.read_bytes() if p.exists() else None for p in paths} == before
+  assert dashboard.keys.listing(store.MODELS_DB) == before_keys
+  assert json.dumps(config.get_config(), sort_keys=True) == before_config
+  assert api.SLOW_SECONDS == before_slow

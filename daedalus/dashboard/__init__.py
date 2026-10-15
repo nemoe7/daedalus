@@ -766,7 +766,8 @@ def write_config(
   try:
     values = check_file(path, text)
   except (settings.SettingsError, yaml.YAMLError) as exc:
-    return failure(422, config.error_text(exc), "invalid_request_error")
+    logger.warning("config write rejected (%s)", type(exc).__name__)
+    return failure(422, "Invalid configuration input.", "invalid_request_error")
   for name, value in (key_values or {}).items():
     saved_env.save(store.MODELS_DB, name, value)
   path.parent.mkdir(parents=True, exist_ok=True)
@@ -816,7 +817,8 @@ def clear_hook_entries(
   try:
     text = settings.update_text(text, {"hooks": changes})
   except settings.SettingsError as exc:
-    return failure(422, str(exc), "invalid_request_error")
+    logger.warning("hook settings change rejected (%s)", type(exc).__name__)
+    return failure(422, "Invalid hook settings.", "invalid_request_error")
   return write_config(path, text, apply, rebuild)
 
 
@@ -1114,7 +1116,8 @@ def key_routes(api: APIRouter) -> None:
         store.MODELS_DB, body.get("name") if isinstance(body, dict) else None
       )
     except keys.KeyNameError as exc:
-      return failure(400, str(exc), "invalid_request_error")
+      logger.warning("key creation rejected (%s)", type(exc).__name__)
+      return failure(400, "The key request is invalid.", "invalid_request_error")
     return JSONResponse({"name": body["name"].strip(), "key": key}, status_code=201)
 
   @api.delete("/keys/{name:path}")
@@ -1200,7 +1203,8 @@ def file_routes(
       else:
         key_values.update(stage_keys(path.stem, document))
     except ValueError as exc:
-      return failure(400, str(exc), "invalid_request_error")
+      logger.warning("provider change rejected (%s)", type(exc).__name__)
+      return failure(400, "Invalid provider input.", "invalid_request_error")
     old = path.read_text(encoding="utf-8") if path.exists() else ""
     if path == FILES[0]:
       local, _ = form_blocks(path, old)
@@ -1367,7 +1371,8 @@ def settings_routes(
     try:
       text = settings.update_text(text, changes)
     except settings.SettingsError as exc:
-      return failure(422, str(exc), "invalid_request_error")
+      logger.warning("settings change rejected (%s)", type(exc).__name__)
+      return failure(422, "Invalid settings input.", "invalid_request_error")
     return write_config(path, text, apply, rebuild)
 
   @api.post("/hooks/scan")
