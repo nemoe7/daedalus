@@ -125,8 +125,12 @@ def test_the_language_reads_the_valve_then_the_header(monkeypatch: Any) -> None:
   filt = module.Filter()
   filt.valves.language = "fr"
   assert "Language: fr" in run(filt.inlet({"messages": []}))["messages"][0]["content"]
-  filt.valves.language = ""
   headers = {"accept-language": "en-PH,en;q=0.9,fr;q=0.8"}
+  content = run(filt.inlet({"messages": []}, Request(headers)))["messages"][0][
+    "content"
+  ]
+  assert "Language: fr" in content
+  filt.valves.language = ""
   content = run(filt.inlet({"messages": []}, Request(headers)))["messages"][0][
     "content"
   ]

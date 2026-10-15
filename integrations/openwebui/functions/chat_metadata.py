@@ -3,7 +3,7 @@ title: Chat metadata
 author: nemo
 description: Inject the date, the clock, the timezone, the place and the language at the top of the chat. No key.
 required_open_webui_version: 0.10.0
-version: 1.0.2
+version: 1.0.3
 licence: daedalus Noncommercial License 1.0.0
 """
 
@@ -19,12 +19,12 @@ from pydantic import BaseModel, Field
 MARK = "[chat metadata]"
 
 
-def _language(__request__: Any, fallback: str) -> str:
-  """The language of the reader: the first value of `Accept-Language`, else the given fallback."""
+def _language(__request__: Any, configured: str) -> str:
+  """The configured language, or the first value of `Accept-Language`."""
   headers = getattr(__request__, "headers", None)
   header = headers.get("accept-language") if headers is not None else None
   first = str(header or "").partition(",")[0].partition(";")[0].strip()
-  return first or fallback
+  return configured or first
 
 
 class Filter:
@@ -59,8 +59,8 @@ class Filter:
     if place:
       label = "Approximate location" if self.valves.location_approximate else "Location"
       lines.append(f"{label}: {place}")
-    fallback = str(getattr(self.valves, "language", "") or "").strip()
-    lines.append(f"Language: {_language(__request__, fallback) or 'unknown'}")
+    language = str(getattr(self.valves, "language", "") or "").strip()
+    lines.append(f"Language: {_language(__request__, language) or 'unknown'}")
     return "\n".join(lines)
 
   async def inlet(
