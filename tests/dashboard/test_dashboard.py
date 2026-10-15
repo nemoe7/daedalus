@@ -6311,3 +6311,37 @@ for (let i = 0; i < values.length; i++) {
 }
 """,
   )
+
+
+def test_long_balance_values_are_compact_with_exact_hover_text() -> None:
+  """Large values stay short on both pages while hover text retains their full precision."""
+  run_app_js(
+    "balanceValue, overviewLimits, renderLimits",
+    """
+LOCALE["limits.value.of_text"] = "{remaining}|{limit}";
+const items = [
+  {kind: 'hourly_requests', value: '9007199254740993', limit: '9007199254740995', share: 1},
+  {kind: 'hourly_requests', value: String(10n ** 400n - 1n), limit: String(10n ** 400n), share: 1},
+  {kind: 'balance', value: 1234567890123.45, limit: null, share: null},
+  {kind: 'pollen', value: -1234567890123.45, limit: null, share: null},
+];
+for (const item of items) {
+  const shown = probe.balanceValue(item);
+  const full = probe.balanceValue(item, false);
+  assert(shown.length < full.length);
+  assert(!shown.includes('Infinity'));
+  const data = {checked: null, lanes: [], providers: [{name: 'p', items: [item]}]};
+  const overview = probe.overviewLimits(data);
+  probe.renderLimits(data);
+  for (const markup of [overview, node('balances').innerHTML]) {
+    assert(markup.includes(shown));
+    assert(markup.includes(`title="${full}"`));
+  }
+}
+const hourly = items[0];
+assert.strictEqual(probe.balanceValue(hourly, false),
+  `${BigInt(hourly.value).toLocaleString()}|${BigInt(hourly.limit).toLocaleString()}`);
+const ordinary = {kind: 'hourly_requests', value: '198', limit: '200', share: .99};
+assert.strictEqual(probe.balanceValue(ordinary), probe.balanceValue(ordinary, false));
+""",
+  )

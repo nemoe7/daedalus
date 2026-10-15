@@ -3039,21 +3039,35 @@ const BALANCE_LABELS = {
   hourly_requests: () => t("limits.balance.hourly_requests.label"),
 };
 
-function balanceCount(value) {
-  return value >= 1000 ? floorCount(value)
-    : value.toLocaleString(undefined, { maximumFractionDigits: 0, roundingMode: "halfEven" });
+const BALANCE_VALUE_LENGTH = 10;
+
+function balanceNumber(value, options = {}, compact = true) {
+  const full = value.toLocaleString(undefined, options);
+  if (!compact || full.length <= BALANCE_VALUE_LENGTH) return full;
+  const shortOptions = { maximumFractionDigits: 1, roundingMode: "trunc", useGrouping: false };
+  const short = value.toLocaleString(undefined, { ...shortOptions, notation: "compact" });
+  return short.length <= BALANCE_VALUE_LENGTH ? short
+    : value.toLocaleString(undefined, { ...shortOptions, notation: "scientific" });
 }
 
-function balanceValue(item) {
-  const decimal = value => value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function balanceCount(value) {
+  const options = { maximumFractionDigits: 0, roundingMode: "halfEven" };
+  const shown = value >= 1000 ? floorCount(value) : value.toLocaleString(undefined, options);
+  return shown.length <= BALANCE_VALUE_LENGTH ? shown : balanceNumber(value, options);
+}
+
+function balanceValue(item, compact = true) {
+  const decimal = value => balanceNumber(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 }, compact);
   const money = value => t("limits.value.money_text", { value: decimal(value) });
   if (item.kind === "credit") return t("limits.value.of_text", { remaining: money(item.value), limit: money(item.limit) });
   if (item.kind === "usage" || item.kind === "balance") return money(item.value);
   if (item.kind === "pollen") return decimal(item.value);
   if (item.kind === "hourly_requests") return t("limits.value.of_text", {
-    remaining: BigInt(item.value).toLocaleString(), limit: BigInt(item.limit).toLocaleString(),
+    remaining: balanceNumber(BigInt(item.value), {}, compact), limit: balanceNumber(BigInt(item.limit), {}, compact),
   });
-  return t("limits.value.remaining_text", { remaining: balanceCount(item.value), limit: balanceCount(item.limit) });
+  const count = value => compact ? balanceCount(value)
+    : value.toLocaleString(undefined, { maximumSignificantDigits: 21 });
+  return t("limits.value.remaining_text", { remaining: count(item.value), limit: count(item.limit) });
 }
 
 // The balances, then the 3 rate-limit rows with the least left.
@@ -3061,7 +3075,7 @@ function overviewLimits(data) {
   if (!data) return "";
   const bar = (left) => (left == null ? "" : progressMeter(left));
   const balances = data.providers.flatMap((p) => p.items.map(item =>
-    `<div class="balance">${line(`${esc(p.name)} &middot; ${esc(BALANCE_LABELS[item.kind]())}`, esc(balanceValue(item)))}${bar(item.share)}</div>`));
+    `<div class="balance">${line(`${esc(p.name)} &middot; ${esc(BALANCE_LABELS[item.kind]())}`, esc(balanceValue(item)), { title: balanceValue(item, false) })}${bar(item.share)}</div>`));
   const share = (r) => (r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0);
   const rows = data.lanes.flatMap((lane) => lane.rows.map((row) => ({ ...row, model: lane.model })))
     .sort((a, b) => share(a) - share(b)).slice(0, 3)
@@ -3092,7 +3106,7 @@ function renderLimits(data) {
     : t("limits.not_checked_text"));
   $("balances").hidden = !data.providers.length;
   draw("balances", data.providers.map((p) => `<div class="card"><h3>${esc(p.name)}</h3>
-    ${p.items.map(item => `<div class="balance">${line(esc(BALANCE_LABELS[item.kind]()), esc(balanceValue(item)))}
+    ${p.items.map(item => `<div class="balance">${line(esc(BALANCE_LABELS[item.kind]()), esc(balanceValue(item)), { title: balanceValue(item, false) })}
       ${item.share == null ? "" : progressMeter(item.share)}</div>`).join("")}</div>`).join(""));
 }
 
