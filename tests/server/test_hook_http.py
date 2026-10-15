@@ -82,10 +82,11 @@ def test_disabled_http_hook_does_not_load(tmp_path, monkeypatch, cached):
   assert not marker.exists()
 
 
-def test_custom_hook_folder_keeps_access_checks(tmp_path, monkeypatch):
-  """Custom folders keep authentication first and reject traversal to another file."""
+@pytest.mark.parametrize("folder", ["hooks", "hooks-local"])
+def test_hook_folders_keep_access_checks(tmp_path, monkeypatch, folder):
+  """Hook folders keep authentication first and reject traversal to another file."""
   monkeypatch.setattr(hooks, "ROOT", tmp_path)
-  monkeypatch.setattr(hooks, "DIR", "hooks-local")
+  monkeypatch.setattr(hooks, "DIR", folder)
   monkeypatch.setattr(hooks, "DISABLED", set())
   marker = tmp_path / "loaded"
   source = (
@@ -96,12 +97,11 @@ def test_custom_hook_folder_keeps_access_checks(tmp_path, monkeypatch):
   (folder / "probe.py").write_text(source)
   (tmp_path / "outside.py").write_text(source)
   assert TestClient(api.app).post("/v1/hook/probe.py", json={}).status_code == 401
-  assert (
-    TestClient(api.app, headers=AUTH)
-    .post("/v1/hook/%2e%2e/outside.py", json={})
-    .status_code
-    == 404
+  response = TestClient(api.app, headers=AUTH).post(
+    "/v1/hook/%2e%2e/outside.py", json={}
   )
+  assert response.request.url.path == "/v1/hook/../outside.py"
+  assert response.status_code == 404
   assert not marker.exists()
 
 
@@ -180,14 +180,6 @@ def test_hook_http_asks_for_the_key_before_the_file() -> None:
   real = client.post(f"/v1/hook/{name}", json={"messages": CHAT})
   assert missing.status_code == 401, missing.text
   assert real.status_code == 401, real.text
-
-
-def test_hook_http_refuses_a_path_outside_the_folder() -> None:
-  """A path that leaves the config folder never loads."""
-  response = TestClient(api.app, headers=AUTH).post(
-    "/v1/hook/../outside.py", json={"messages": CHAT}
-  )
-  assert response.status_code == 404, response.text
 
 
 def test_hook_http_reports_a_failure() -> None:
