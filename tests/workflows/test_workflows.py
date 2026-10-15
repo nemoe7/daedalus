@@ -291,7 +291,7 @@ def test_pr_files_cannot_replace_the_trusted_checks() -> None:
     assert "pull_request_target" in workflow["on"]
     body_steps = workflow["jobs"]["body"]["steps"]
     command = next(
-      s["run"] for s in body_steps if s.get("name") == "Check the structure"
+      s["run"] for s in body_steps if s.get("name") == "Check the description"
     )
     commands = (
       shlex.split(command)[1:],
@@ -303,6 +303,20 @@ def test_pr_files_cannot_replace_the_trusted_checks() -> None:
         [sys.executable, *args], cwd=base, capture_output=True, check=False
       )
       assert result.returncode == 1, result.stdout + result.stderr
+    (base / "pr-body.md").write_text(
+      "## Summary\n\nThe file is saved.\n\n## Changes\n\n- Read the file.\n\n"
+      "## Validation\n\n- [x] Run the test.\n",
+      encoding="utf-8",
+    )
+    advisory = subprocess.run(
+      [sys.executable, *shlex.split(command)[1:]],
+      cwd=base,
+      capture_output=True,
+      text=True,
+      check=False,
+    )
+    assert advisory.returncode == 1, advisory.stdout + advisory.stderr
+    assert "passive-voice" in advisory.stdout
     assert not marker.exists()
     assert disabled.read_text() == "on: workflow_dispatch\njobs: {}\n"
 
@@ -316,7 +330,12 @@ def test_the_pr_check_validates_the_body_prose_and_commits() -> None:
   assert "scripts/check_pr.py --body-file" in content
   assert "scripts/check_pr.py --range" in content
   assert "ste-lint.py --selftest" in content
-  assert "ste-lint.py pr-body.md" in content
+  command = next(
+    step["run"]
+    for step in data["jobs"]["body"]["steps"]
+    if step.get("name") == "Check the description"
+  )
+  assert command == "python3 scripts/check_pr.py --body-file pr-body.md"
   # The vendored linter runs on the runner Python. No skill install, no new package.
   assert "install.sh" not in content
   assert "pip install" not in content

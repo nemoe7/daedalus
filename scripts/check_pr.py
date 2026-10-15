@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -257,14 +258,26 @@ def _check_none_or_bullets(title: str, entries: list[tuple[int, str]]) -> list[F
 
 def run_ste_lint(text: str) -> tuple[bool, str]:
   """Check prose with the repository linter and return its result."""
-  result = subprocess.run(
-    [sys.executable, str(STE_LINT)],
-    input=text,
-    capture_output=True,
-    text=True,
-    check=False,
-  )
-  return result.returncode == 0, (result.stdout + result.stderr).strip()
+  try:
+    result = subprocess.run(
+      [sys.executable, str(STE_LINT), "--json"],
+      input=text,
+      capture_output=True,
+      text=True,
+      check=False,
+    )
+  except OSError as exc:
+    return False, f"STE lint could not run: {exc}"
+  output = (result.stdout + result.stderr).strip()
+  if result.returncode or result.stderr:
+    return False, output or f"STE lint exited with status {result.returncode}."
+  try:
+    report = json.loads(result.stdout)
+  except ValueError:
+    return False, f"Invalid STE lint JSON.\n{output}".strip()
+  if not isinstance(report, dict) or not isinstance(report.get("violations"), list):
+    return False, f"Invalid STE lint findings.\n{output}".strip()
+  return not report["violations"], output
 
 
 def _git(*arguments: str) -> str:

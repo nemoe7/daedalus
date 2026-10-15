@@ -279,6 +279,44 @@ def test_ste_lint_rejects_invalid_text():
   assert "semicolon" in output
 
 
+def test_ste_lint_rejects_advisory_findings(tmp_path):
+  passed, output = check_pr.run_ste_lint("The file is saved.\n")
+  assert not passed and "passive-voice" in output
+  body = tmp_path / "body.md"
+  body.write_text(VALID_BODY.replace("Add the commit validator.", "The file is saved."))
+  failures = check_pr.check(None, None, str(body), True)
+  assert any("passive-voice" in failure.message for failure in failures)
+  assert check_pr.check(None, None, str(body), False) == []
+
+
+def test_ste_lint_fails_closed_on_process_or_json_errors(monkeypatch):
+  for code, output, error in (
+    (2, "", "synthetic linter error"),
+    (1, '{"violations": []}', ""),
+    (0, '{"violations": []}', "synthetic linter error"),
+    (0, "not JSON", ""),
+    (0, "[]", ""),
+    (0, "{}", ""),
+    (0, '{"violations": null}', ""),
+    (0, '{"violations": {}}', ""),
+  ):
+    result = subprocess.CompletedProcess([], code, output, error)
+    monkeypatch.setattr(
+      check_pr.subprocess, "run", lambda *args, result=result, **kwargs: result
+    )
+    passed, detail = check_pr.run_ste_lint("Read the file.")
+    assert not passed and detail, (code, output, error)
+    if error:
+      assert error in detail
+
+  def missing(*args, **kwargs):
+    raise OSError("synthetic missing linter")
+
+  monkeypatch.setattr(check_pr.subprocess, "run", missing)
+  passed, detail = check_pr.run_ste_lint("Read the file.")
+  assert not passed and "synthetic missing linter" in detail
+
+
 def test_ste_lint_selftest_passes():
   result = subprocess.run(
     [sys.executable, str(check_pr.STE_LINT), "--selftest"],
