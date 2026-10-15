@@ -15,7 +15,7 @@ PATH_MARKER="# arena-preview-path"
 
 fail(){ echo "arena-preview installer: $*" >&2; exit 1; }
 
-# 1. Verify the skill in this repository checkout.
+# 1. Check the skill in this repository checkout.
 [ -f "$SKILL_REL/scripts/preview.py" ] || fail "missing $SKILL_REL/scripts/preview.py; run this installer from the repository root"
 [ -x "$SKILL_REL/scripts/arena-preview" ] || fail "missing $SKILL_REL/scripts/arena-preview; update the installed skill and rerun this installer"
 

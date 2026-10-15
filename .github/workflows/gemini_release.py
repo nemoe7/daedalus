@@ -988,7 +988,7 @@ def check_body(body, context):
 
 
 def validated_body(body, context, model, generate_fn=generate):
-  """Validate a body and give its producing model one format-repair attempt."""
+  """Check a body and give its producing model one format-repair attempt."""
   template = context["template"]
   body = omit_empty_sections(body, template)
   try:
