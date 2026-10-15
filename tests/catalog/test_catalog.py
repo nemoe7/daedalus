@@ -993,3 +993,25 @@ def test_catalog_dump_keeps_fetch_time_separate_from_export_time(tmp_path, monke
   ).isoformat().replace("+00:00", "Z")
   assert envelope["exported_at"].endswith("Z")
   assert before <= datetime.fromisoformat(envelope["exported_at"]) <= datetime.now(UTC)
+
+
+@pytest.mark.parametrize("file_format", ["json", "csv"])
+@pytest.mark.parametrize("relative", [False, True])
+def test_cached_dump_rejects_provider_paths(
+  tmp_path, monkeypatch, file_format, relative
+):
+  """An invalid provider path leaves existing output intact and writes no external file."""
+  monkeypatch.setattr(store, "MODELS_DB", tmp_path / "models.sqlite3")
+  url = "https://path.test/models"
+  discovery.save_snapshot(url, {"data": [{"id": "one"}]})
+  folder = tmp_path / "dump"
+  folder.mkdir()
+  existing = folder / "kept.json"
+  existing.write_text("existing output")
+  name = "../escape" if relative else str(tmp_path / "escape")
+  with pytest.raises(ValueError):
+    discovery.dump(
+      {name: {"discovery_url": url}}, folder=folder, file_format=file_format
+    )
+  assert not (tmp_path / f"escape.{file_format}").exists()
+  assert existing.read_text() == "existing output"

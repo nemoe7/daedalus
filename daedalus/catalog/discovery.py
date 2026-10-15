@@ -520,17 +520,17 @@ def dump(
   if file_format not in {"json", "csv"}:
     raise ValueError("file_format must be json or csv")
   target = Path(folder)
+  found, skipped = read_providers(config, cached=True, require_api_key=False)
+  if any((target / f"{name}.{file_format}").parent != target for name, *_ in found):
+    raise ValueError("a provider name is not an export basename")
   target.mkdir(parents=True, exist_ok=True)
   for old in target.iterdir():
     if old.is_file() and old.suffix in {".json", ".csv"} and old.stem != "models":
       old.unlink()
-  found, skipped = read_providers(config, cached=True, require_api_key=False)
   paths = []
   written: list[dict[str, Any]] = []
   for provider_name, provider, payload, _ in found:
     path = target / f"{provider_name}.{file_format}"
-    if since is not None and path.parent != target:
-      raise ValueError("a provider name is not an export basename")
     if any(payload is seen for seen in written) or path in paths:
       continue
     written.append(payload)
