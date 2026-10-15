@@ -155,3 +155,74 @@ def test_errors() -> None:
     upstream.set_client(None)
     store.MODELS_DB = original
     folder.cleanup()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("mode", ["read-error", "cancel", "complete-error", "success"])
+async def test_attempt_response_ownership(monkeypatch, mode) -> None:
+  """Rejected responses close after read failure or cancellation, while successful responses remain caller-owned."""
+  entered = asyncio.Event()
+  failed = httpx.ReadError("synthetic body failure")
+  raw = b'{"error":"no"}'
+  observed = []
+
+  class Body(httpx.AsyncByteStream):
+    def __init__(self):
+      self.closed = 0
+
+    async def __aiter__(self):
+      yield raw
+      if mode == "read-error":
+        raise failed
+      if mode == "cancel":
+        entered.set()
+        await asyncio.Event().wait()
+
+    async def aclose(self):
+      self.closed += 1
+
+  body = Body()
+  response = httpx.Response(
+    200 if mode == "success" else 429,
+    stream=body,
+    headers={"retry-after": "7"},
+  )
+  monkeypatch.setattr(
+    upstream,
+    "observe",
+    lambda lane, headers, raw=b"": observed.append((lane, raw)),
+  )
+  async with httpx.AsyncClient(
+    transport=httpx.MockTransport(lambda request: response)
+  ) as client:
+    upstream.set_client(client)
+    try:
+      if mode == "cancel":
+        task = asyncio.create_task(upstream.attempt("groq/m", BODY, CONFIG))
+        try:
+          await asyncio.wait_for(entered.wait(), 5)
+        finally:
+          task.cancel()
+          with pytest.raises(asyncio.CancelledError):
+            await task
+        assert observed == []
+      elif mode == "read-error":
+        with pytest.raises(httpx.ReadError) as caught:
+          await upstream.attempt("groq/m", BODY, CONFIG)
+        assert caught.value is failed
+        assert observed == []
+      elif mode == "complete-error":
+        with pytest.raises(upstream.RateLimitError) as caught:
+          await upstream.attempt("groq/m", BODY, CONFIG)
+        assert caught.value.status == 429 and caught.value.body == raw
+        assert caught.value.headers["retry-after"] == "7"
+        assert observed == [("groq/m", raw)]
+      else:
+        _, returned = await upstream.attempt("groq/m", BODY, CONFIG)
+        assert returned is response and not response.is_closed and body.closed == 0
+        assert observed == [("groq/m", b"")]
+      if mode != "success":
+        assert response.is_closed and body.closed == 1
+    finally:
+      await response.aclose()
+      upstream.set_client(None)

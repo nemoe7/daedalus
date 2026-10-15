@@ -346,8 +346,10 @@ async def attempt(
     observe(lane, response.headers)
     logger.info("upstream %s %d %s", candidate, status, elapsed(started))
     return provider, response
-  raw = await response.aread()
-  await response.aclose()
+  try:
+    raw = await response.aread()
+  finally:
+    await response.aclose()
   observe(lane, response.headers, raw)
   raise rejected(candidate, response, started, raw)
 
