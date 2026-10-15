@@ -462,7 +462,7 @@ def request_files(entries: Mapping[str, Any] | None, surface: str) -> list[Path]
     return []
   items = [value] if isinstance(value, str) else value
   if not isinstance(items, list):
-    tell(f"request_hooks.{surface} must be a file path or a list of them")
+    tell(f"hooks.{surface} must be a file path or a list of them")
     return []
   found = []
   for item in items:

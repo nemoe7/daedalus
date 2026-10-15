@@ -46,7 +46,7 @@ BLOCK_SHAPES: dict[str, tuple[type, str]] = {
   "client_keys": (dict, "a mapping of a client to its key"),
   "tier": (dict, "a mapping of a tier name to a list of patterns"),
   "models": (dict, "a mapping of a pattern to its values"),
-  "hooks": (list, "a list of hook file names"),
+  "hooks": (list, "a list of hook mappings"),
   "exclude": (list, "a list of patterns"),
   "supported_reasoning_efforts": (list, "a list of effort names"),
 }
@@ -58,12 +58,12 @@ NESTED_SHAPES: dict[str, tuple[type, str]] = {
 
 
 def env_value(name: str) -> str:
-  """The value of 1 name: the environment variable, else empty. Used for env:NAME."""
+  """Return the environment value for env:NAME, or an empty string."""
   return os.environ.get(name, "")
 
 
 def saved_value(name: str) -> str:
-  """The saved value of 1 name, else empty. Used for db:NAME (DB-only, no env fallback)."""
+  """Return the saved value for db:NAME, or an empty string without an environment fallback."""
   return SAVED.get(name, "")
 
 
@@ -123,7 +123,7 @@ class _UniqueKeys(yaml.SafeLoader):
 
 
 def load_yaml(text: Any) -> Any:
-  """The content of one YAML text or stream. A duplicate key raises a `yaml.YAMLError`."""
+  """Read YAML text or a stream, raising `yaml.YAMLError` for duplicate keys."""
   loader = _UniqueKeys(text)
   try:
     return loader.get_single_data()
@@ -143,7 +143,7 @@ def error_text(exc: Exception) -> str:
 
 
 def read_yaml(path: Path) -> dict[str, Any]:
-  """One YAML mapping, with `env:` / `db:` values resolved. Other content gives an empty mapping."""
+  """Read and expand a YAML mapping, or return an empty mapping for other content."""
   with path.open(encoding="utf-8") as handle:
     raw = load_yaml(handle)
   return expand(raw) if isinstance(raw, dict) else {}
@@ -152,14 +152,12 @@ def read_yaml(path: Path) -> dict[str, Any]:
 def provider_blocks(
   path: Path | str = DEFAULT_PATH,
 ) -> list[tuple[Path, dict[str, Any]]]:
-  """The `{provider}.yml` files next to the main file, in name order, with their content. Not valid YAML raises."""
+  """Read the `{provider}.yml` files beside the main file in name order, raising errors for invalid YAML."""
   return [(file, read_yaml(file)) for file in provider_files(path)]
 
 
 def provider_files(path: Path | str = DEFAULT_PATH) -> list[Path]:
-  """The paths of the `{provider}.yml` files next to the main provider file, also the files with YAML
-  that is not valid.
-  """
+  """List the `{provider}.yml` paths beside the main file, including files with invalid YAML."""
   main = Path(path)
   found = []
   for file in sorted(main.parent.glob("*.yml")):
@@ -334,7 +332,7 @@ def get_config() -> dict[str, Any]:
 
 
 def set_config(config: dict[str, Any] | None) -> None:
-  """Replace the loaded and local config. Test seam."""
+  """Replace the loaded and local config for tests."""
   global _config, _local_config
   _config = config
   _local_config = dict(config) if config is not None else None

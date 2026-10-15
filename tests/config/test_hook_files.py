@@ -49,7 +49,7 @@ def test_cheapest_first(cheapest) -> None:
 
 
 def test_on_catalog(cheapest, monkeypatch: pytest.MonkeyPatch) -> None:
-  """A model with the hook gets its order from the endpoint list. A failed read keeps the old order."""
+  """The catalog hook saves endpoint order and keeps the saved order after a failed read."""
   asked: list[tuple[str, str]] = []
   down = False
 

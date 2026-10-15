@@ -457,7 +457,7 @@ def written(value: Any) -> Any:
 
 
 def update_text(text: str, changes: dict[str, dict[str, Any]]) -> str:
-  """The YAML text with new values, and its comments kept. None removes the key."""
+  """Update YAML values while keeping comments, with None removing a key."""
   for group, values in changes.items():
     if group in MIGRATED:
       raise SettingsError(f"{group} is gone. Use affinity.mode: {MIGRATED[group]}")

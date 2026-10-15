@@ -1,9 +1,4 @@
-"""Tests for the one Open WebUI manager tool.
-
-Tests load the tool file by path because Open WebUI tools are standalone
-Python files and not part of the daedalus package. A stub replaces the HTTP
-layer, so no test reaches the network.
-"""
+"""Test the standalone Open WebUI manager with a mocked HTTP layer."""
 
 import asyncio
 import importlib.util
