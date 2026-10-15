@@ -43,9 +43,9 @@ HOST = os.environ.get(DAEDALUS_HOST) or "0.0.0.0"
 PORT = int(os.environ.get(DAEDALUS_PORT) or 3357)
 SLOW_SECONDS = 30.0
 AFFINITY = True
-# The keywords of `escalation.keywords` as 1 pattern, or None when the list is empty.
+# The keywords of `routing.escalation` as 1 pattern, or None when the list is empty.
 KEYWORDS: re.Pattern[str] | None = None
-# The keywords of `switch.keywords` as 1 pattern, or None when the list is empty.
+# The keywords of `routing.switch` as 1 pattern, or None when the list is empty.
 SWITCH: re.Pattern[str] | None = None
 # The `affinity` settings: the mode names the session pin and the race of the next models.
 AFFINITY_MODE = settings.DEFAULTS["affinity"]["mode"]
@@ -160,7 +160,7 @@ class Watch:
     self.done = self.cancelled = False
 
   async def inner(self, *_: Any) -> dict:
-    """The receive of the handler. After the body, only `watch` reads from the client."""
+    """Receive the request body, then let `watch` alone read later client messages."""
     if self.read.is_set():
       await self.gone.wait()
       return {"type": "http.disconnect"}
@@ -187,10 +187,7 @@ MODEL_PATHS = ("/v1/chat/completions", *(route.path for route in media.routes.ro
 
 
 class RequestLog:
-  """Log each request, and keep each model call for the dashboard after its last byte.
-
-  A plain ASGI class passes the stream chunks on with no extra queue.
-  """
+  """Log requests and track model calls through a plain ASGI wrapper without another stream queue."""
 
   def __init__(self, inner: Any) -> None:
     self.inner = inner
@@ -301,7 +298,7 @@ def has_image(messages: object) -> bool:
 
 
 def request_lines(body: dict[str, Any]) -> list[str]:
-  """The chat models for one request. Tool and image requests skip the models without that feature."""
+  """Return the chat models that support the tools and images of this request."""
   return store.read_models(
     tools_only=bool(body.get("tools")), vision_only=has_image(body.get("messages"))
   )
@@ -535,10 +532,7 @@ def pool_tier(pool: str) -> int | None:
 
 
 def model_pool(config: dict[str, Any], model: str) -> str | None:
-  """The pool that owns a provider model, or None when no pool claims it.
-
-  The tier the store holds for the model beats the on-call resolution of the config.
-  """
+  """Return the model's pool or None, using a stored tier before provider settings."""
   name, _, slug = model.partition("/")
   tier_name = store.model_limits(model).get("tier")
   if tier_name is None:
@@ -635,10 +629,7 @@ def route_transition(
 
 
 def attempted_pool(config: dict[str, Any], candidate: str) -> str | None:
-  """The client pool of one model, for the live row of a `daedalus/auto` request.
-
-  The tier the store holds for the model beats the on-call resolution of the config.
-  """
+  """Return the attempted model's pool for its live row, using a stored tier before provider settings."""
   provider_name, _, slug = candidate.partition("/")
   tier = store.model_limits(candidate).get("tier")
   if tier is None:
@@ -648,10 +639,7 @@ def attempted_pool(config: dict[str, Any], candidate: str) -> str | None:
 
 
 def served(request: Request, config: dict[str, Any], candidate: str) -> None:
-  """Show the pool of the model that answers, and keep the first pool when it differs.
-
-  The tier the store holds for the model beats the on-call resolution of the config.
-  """
+  """Show the serving pool from the stored or configured tier and retain a different original pool."""
   first = getattr(request.state, "pool", None)
   provider_name, _, slug = candidate.partition("/")
   tier = store.model_limits(candidate).get("tier")
@@ -742,7 +730,7 @@ class Tracker:
   def answered(
     self, model: str, ttft: float, attempt: dict[str, Any] | None = None
   ) -> str | None:
-    """Update the weight, keep the reasoning level, and pin the model. A slow success removes the pin instead."""
+    """Record the success weight and reasoning level, then pin a fast answer or remove a slow answer's pin."""
     slow = ttft >= SLOW_SECONDS
     self._weight(model, PENALTIES.slow if slow else PENALTIES.success, attempt)
     COOLDOWNS.succeeded(self.lane(model))
@@ -767,9 +755,7 @@ class Tracker:
     exc: Exception | None = None,
     attempt: dict[str, Any] | None = None,
   ) -> dict[str, Any] | None:
-    """Lower the weight, and remove the pin when it names this model. A rate limit also starts a cooldown
-    and ends the counted hour.
-    """
+    """Lower the weight, remove this model's pin, and start a cooldown and end the counted hour for a rate limit."""
     limited = isinstance(exc, upstream.RateLimitError)
     if limited:
       PACING.used_up(model)
@@ -823,7 +809,7 @@ class Try:
 
 
 async def first_winner(tries: list[Try]) -> Try | None:
-  """The first try with content, or None when all of them failed. A pair that lands together keeps the first try."""
+  """Return the first successful try, or None when all fail, with simultaneous successes resolved in input order."""
   waiting = [take.task for take in tries]
   while waiting:
     done, waiting = await asyncio.wait(waiting, return_when=asyncio.FIRST_COMPLETED)
@@ -838,11 +824,7 @@ async def first_winner(tries: list[Try]) -> Try | None:
 
 @app.post("/v1/hook/{file:path}")
 async def hook_call(request: Request, file: str) -> Response:
-  """Run the `on_http` function of 1 hook file, and answer with the dict it returns.
-
-  The file sits under `hooks`, and its path names it, for example `example.py`.
-  Any valid key may call it, so treat a hook file as admin code.
-  """
+  """Run an enabled admin `on_http` hook under the configured hook folder for any valid API key and return its dict."""
   denied = access.check_api_key(request)
   if denied is not None:
     return denied
@@ -982,7 +964,7 @@ async def start_candidate(plan, model: str, sent: dict[str, Any]) -> dict[str, A
 async def race_models(
   plan: Plan, first: str, others: list[str], sent: dict[str, Any], started: float
 ) -> Try:
-  """Race the models for the first content. Each loser stops, with its own fault or with the race factor."""
+  """Race for first content and stop each loser with its own fault or the race factor."""
   takes = [Try(first, sent, asyncio.create_task(start_candidate(plan, first, sent)))]
   try:
     # A draw starts the other models now. Without it, only a first model with no content starts them.
