@@ -42,6 +42,10 @@ MODELSCHEMAS_PROVIDER = {
 }
 
 
+class SourceShapeError(TypeError):
+  pass
+
+
 def litellm_entries(
   provider_name: str, fetch: Fetch = fetch_json
 ) -> dict[str, dict[str, Any]]:
@@ -53,7 +57,10 @@ def litellm_entries(
   entries: dict[str, dict[str, Any]] = {}
   for page in range(1, MAX_PAGES + 1):
     payload = fetch(with_param(url, "page", page), {})
-    for entry in payload.get("data") or []:
+    data = payload.get("data", [])
+    if not isinstance(data, list):
+      raise SourceShapeError("LiteLLM data must be a list")
+    for entry in data:
       if isinstance(entry, dict) and isinstance(entry.get("id"), str):
         entries[entry["id"].removeprefix(f"{name}/")] = entry
     if payload.get("has_more") is not True:
@@ -70,7 +77,10 @@ def modelschemas_entries(
   url = with_param(MODELSCHEMAS_URL, "provider", name)
   payload = fetch(url, {})
   entries: dict[str, dict[str, Any]] = {}
-  for row in payload.get("models") or []:
+  models = payload.get("models", [])
+  if not isinstance(models, list):
+    raise SourceShapeError("modelschemas models must be a list")
+  for row in models:
     if isinstance(row, dict) and isinstance(row.get("rawId"), str) and row["rawId"]:
       entries[row["rawId"]] = row
   save_snapshot(url, payload)
@@ -86,7 +96,12 @@ def modelschemas_columns(row: dict[str, Any]) -> dict[str, Any]:
     found["supports_reasoning"] = True
     mandatory = reasoning.get("mandatory") is True
     if reasoning.get("mode") == "effort":
-      listed = [name for name in reasoning.get("efforts") or () if name in EFFORT_RANKS]
+      values = reasoning.get("efforts")
+      listed = (
+        [name for name in values if name in EFFORT_RANKS]
+        if isinstance(values, list)
+        else []
+      )
       if mandatory:
         listed = [name for name in listed if name != "none"]
       if listed:
@@ -133,7 +148,7 @@ def entries_or_reason(
   """Read 1 source for 1 name, or the reason it failed."""
   try:
     return reader(name, fetch)
-  except (httpx.HTTPError, ValueError) as error:
+  except (httpx.HTTPError, ValueError, SourceShapeError) as error:
     return str(error)
 
 

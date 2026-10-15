@@ -1,11 +1,14 @@
 """Catalog enrichment: the LiteLLM pages, the config columns and the overrides."""
 
+import sqlite3
 import threading
 from pathlib import Path
 
 import httpx
+import pytest
 import yaml
 
+from daedalus import store
 from daedalus.catalog import enrichment
 from daedalus.catalog.discovery import MAX_PAGES, Fetch, with_param
 
@@ -433,3 +436,80 @@ def test_enrich_finalizes_the_supported_efforts_ladder() -> None:
   assert rows[0]["tier"] == "TIER-A"
   assert rows[1]["tier"] == "TIER-B"
   assert rows[2]["tier"] == "TIER-A"
+
+
+@pytest.mark.parametrize(
+  "field, reader",
+  [
+    ("data", enrichment.litellm_entries),
+    ("models", enrichment.modelschemas_entries),
+  ],
+)
+@pytest.mark.parametrize("value", [7, "bad", {}, {"id": "not-a-list"}, False])
+def test_source_requires_a_list(field, reader, value) -> None:
+  """Malformed source containers follow the existing source-failure path."""
+  fetch, _ = sequenced({field: value})
+  with pytest.raises(enrichment.SourceShapeError):
+    reader("openrouter", fetch)
+
+
+@pytest.mark.parametrize("value", [7, "high", {"high": True}, False])
+def test_malformed_efforts_keep_the_reasoning_flag(value) -> None:
+  """An invalid optional effort list does not discard other row metadata."""
+  found = enrichment.modelschemas_columns(
+    {
+      "reasoning": {"mode": "effort", "efforts": value},
+      "capabilities": {"reasoning": True},
+    }
+  )
+  assert found == {"supports_reasoning": True}
+
+
+@pytest.mark.parametrize("source", ["litellm", "modelschemas"])
+def test_malformed_source_keeps_the_healthy_source(source) -> None:
+  """A source with an invalid list reports its failure without losing healthy metadata."""
+
+  def fetch(url: str, headers: dict[str, str]) -> dict:
+    if url.startswith(enrichment.LITELLM_CATALOG):
+      return {"data": 7} if source == "litellm" else PAGE
+    return {"models": 7} if source == "modelschemas" else MS_PAGE
+
+  failed = []
+  rows, problems = enrichment.enrich(
+    ["openrouter/a", "openrouter/b"], {}, fetch, failed=failed
+  )
+  assert failed == ["openrouter"] and len(problems) == 1
+  if source == "litellm":
+    assert rows[0]["supports_reasoning"] is True
+    assert rows[0]["supported_efforts"] == ["none", "low", "high"]
+  else:
+    assert rows[0]["rpm"] == 9
+
+
+@pytest.mark.parametrize("field", ["data", "models"])
+def test_invalid_source_keeps_prior_stored_metadata(tmp_path: Path, field) -> None:
+  """A malformed source preserves prior columns through the existing fill path."""
+  path = tmp_path / "models.sqlite3"
+  store.write_store([{"id": "openrouter/a", "max_input_tokens": 8192}], path)
+
+  def fetch(url: str, headers: dict[str, str]) -> dict:
+    key = "data" if url.startswith(enrichment.LITELLM_CATALOG) else "models"
+    return {key: 7 if key == field else []}
+
+  failed = []
+  rows, problems = enrichment.enrich(["openrouter/a"], {}, fetch, failed=failed)
+  assert failed == ["openrouter"] and len(problems) == 1
+  store.write_store(rows, path, fill=failed)
+  with sqlite3.connect(path) as database:
+    value = database.execute(
+      "SELECT max_input_tokens FROM models WHERE id = ?", ("openrouter/a",)
+    ).fetchone()
+    assert value == (8192,)
+
+
+def test_enrichment_does_not_hide_fetch_type_errors() -> None:
+  def broken_type(url, headers):
+    raise TypeError("synthetic code error")
+
+  with pytest.raises(TypeError, match="synthetic code error"):
+    enrichment.enrich(["openrouter/a"], {}, broken_type)
