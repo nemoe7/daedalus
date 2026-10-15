@@ -6,7 +6,7 @@ The Python files are the editable sources. The [`imports/`](../../integrations/o
 
 | Plugin | Type | What it does |
 | --- | --- | --- |
-| [`deep-research.md`](owui/deep-research.md) | Skill | A research plan over `search_web` and `fetch_url` |
+| [`deep-research.md`](owui/deep-research.md) | Skill | A portable research plan with source links |
 | [`served_model.py`](owui/served_model.md) | Filter | Draws the daedalus served model line above the answer |
 | [`chat_metadata.py`](owui/chat_metadata.md) | Filter | Puts 1 system message at the top, with the date, the clock, the timezone, the place and the language |
 | [`github.py`](owui/github.md) | Tool | The GitHub reads and writes, behind the permission gate |
@@ -21,7 +21,7 @@ flowchart TD
   A --> E[Skill deep-research]
   B --> F[daedalus]
   D --> G[GitHub, Google, the Open WebUI API]
-  E --> F
+  E --> H[Search and page-reading tools]
 ```
 
 ## Install
