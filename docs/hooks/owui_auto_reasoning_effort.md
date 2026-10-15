@@ -2,7 +2,7 @@
 
 [`hooks/owui_auto_reasoning_effort.py`](../../hooks/owui_auto_reasoning_effort.py) holds 1
 function for each surface: `on_request` names the turn and the retry code of a repeat, and `on_prompt` sets the
-reasoning level of the request.
+reasoning level of the request. The optional Open WebUI Filter sends controls to this hook.
 
 | Item | Value |
 | --- | --- |
@@ -51,6 +51,26 @@ routing of `daedalus/auto`, so this file sets the level only.
 The base sets no effort of its own, and the `client` scope of the block serves the Open WebUI
 client. The base never runs this file for a Kilo request or a generic client, so that client keeps
 its own effort. A chain with no reasoning model gets no call and no effort. `upstream.without_reasoning` drops the field for a model the catalog marks as a model with no reasoning.
+
+## Optional Filter
+
+The [Auto reasoning effort Filter](../../integrations/openwebui/functions/auto_reasoning_effort.py) requires daedalus and this updated hook. It has no classifier of its own and does not work with a direct provider connection.
+
+1. Install the updated hook in the configured `hooks.dir` on daedalus.
+2. Import [auto_reasoning_effort.json](../../integrations/openwebui/imports/functions/auto_reasoning_effort.json) in **Admin Panel → Functions**.
+3. Enable the Filter only for models on the daedalus connection. Keep the `x-openwebui-chat-id` custom header described below.
+4. Set the Filter valves.
+
+| Valve | Default | Effect |
+| --- | --- | --- |
+| `sensitivity` | `0.75` | Confidence threshold from 0 to 1. Higher values can select higher effort |
+| `minimum_effort` | `none` | Automatic floor: `none`, `low`, `medium` or `high` |
+
+The hook removes `_daedalus_auto_effort` from the body during `on-request`, even when the prompt is empty or the model has no reasoning. It keeps the controls in the request value dict through the second call on a retry. No control changes the global routing threshold or its cache.
+
+The floor selects the first supported effort at or above the requested minimum, or the highest supported effort when none reaches it. The existing ladder cap still applies. Explicit client effort, continuing turns and retries with a recorded level keep their existing priority rules.
+
+Without valid sensitivity controls, the hook uses the existing routing threshold. The hook ignores invalid control values. The Filter changes only its private control field, not messages or explicit effort.
 
 ## The served line
 

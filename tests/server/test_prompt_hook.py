@@ -131,6 +131,7 @@ def test_hook_file_wins(
     "retry",
     "level",
     "body",
+    "request_values",
     "config",
     "key",
     "app",

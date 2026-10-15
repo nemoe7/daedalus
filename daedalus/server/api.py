@@ -1097,33 +1097,41 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
   turn = None
   code = None
   app = getattr(request.state, "app", "") or ""
+  request_values: dict[str, Any] = {}
   if hooks.request_paths(REQUEST_HOOKS, config, "on-request", model, app):
-    value = hooks.run_request(
+    request_values = hooks.run_request(
       "on-request",
       config,
       REQUEST_HOOKS,
       model,
-      {"key": None, "digest": retries.digest(body["messages"]), "count": None},
+      {
+        "key": None,
+        "digest": retries.digest(body["messages"]),
+        "count": None,
+        "body": body,
+      },
       app=app,
       headers=dict(request.headers),
     )
-    found_key = value.get("key")
+    found_key = request_values.get("key")
     if isinstance(found_key, str) and found_key:
       turn = RETRIES.turn(found_key)
       if turn.count:
         # The hook writes the code of the row: it runs again with the count filled in.
-        value["count"] = turn.count
-        value = hooks.run_request(
+        request_values["count"] = turn.count
+        request_values = hooks.run_request(
           "on-request",
           config,
           REQUEST_HOOKS,
           model,
-          value,
+          request_values,
           app=app,
           headers=dict(request.headers),
         )
-        written = value.get("code")
+        written = request_values.get("code")
         code = written if isinstance(written, str) and written else None
+    if isinstance(request_values.get("body"), dict):
+      body = request_values["body"]
   if turn is not None and turn.count:
     request.state.code = code
     found = (
@@ -1187,6 +1195,7 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
         retry=turn.count if turn else 0,
         level=PENALTIES.last_level(key) if key else None,
         body=body,
+        request_values=request_values,
         config=config,
         key=key,
         app=getattr(request.state, "app", None),

@@ -8,6 +8,7 @@ The Python files are the editable sources. The [`imports/`](../../integrations/o
 | --- | --- | --- |
 | [`deep-research.md`](owui/deep-research.md) | Skill | A portable research plan with source links |
 | [`served_model.py`](owui/served_model.md) | Filter | Draws the daedalus served model line above the answer |
+| [Auto reasoning effort](../hooks/owui_auto_reasoning_effort.md#optional-filter) | Filter | Sends per-request controls to daedalus and its auto-effort hook |
 | [`chat_metadata.py`](owui/chat_metadata.md) | Filter | Puts 1 system message at the top, with the date, the clock, the timezone, the place and the language |
 | [`github.py`](owui/github.md) | Tool | The GitHub reads and writes, behind the permission gate |
 | [`google.py`](owui/google.md) | Tool | Gmail, Calendar, Drive and Docs, behind the permission gate |
@@ -19,6 +20,8 @@ flowchart TD
   A --> C[Filter chat_metadata]
   A --> D[Tools github, google, owui_manager]
   A --> E[Skill deep-research]
+  A --> I[Filter auto_reasoning_effort]
+  I --> F
   B --> F[daedalus]
   D --> G[GitHub, Google, the Open WebUI API]
   E --> H[Search and page-reading tools]
@@ -30,7 +33,7 @@ flowchart TD
 2. **Access** on the item: make it public, or give read access to each user. A user without read access does not see the plugin.
 3. **Valves**: set the keys of the plugin. The page of each plugin names them.
 4. **Workspace → Models**: turn the plugin on for a model. A tool id and an action id ride in the `meta.toolIds` and `meta.actionIds` lists of the model.
-5. **The daedalus key**: the tools carry the keys of their services. The filter reads the stream, so it holds no daedalus key.
+5. **The daedalus key**: the tools carry the keys of their services. The filters use the configured connection and hold no daedalus key.
 
 A gated tool asks over the socket of the chat tab. `WEBSOCKET_EVENT_CALLER_TIMEOUT` is unset by
 default, so the Open WebUI server waits without a timeout when the browser does not answer. Only

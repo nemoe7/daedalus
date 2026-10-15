@@ -68,9 +68,11 @@ Before the chain of a chat request, and again on a repeat with the count.
 
 | Argument | Value |
 | --- | --- |
-| `value` | `key` (`None`), `digest`, the hash of the messages without the system rows, and on the second run `count` |
+| `value` | `key` (`None`), `digest` (the hash of the messages without system rows), `body` and, on the second run, `count` |
 | `model` | The requested model |
 | `headers` | The client headers |
+
+A returned `body` dict replaces the request body before chain selection. The `model` argument remains the validated request model. The final value dict reaches `on-prompt` as `request_values`.
 
 ### `on-catalog`
 
@@ -87,11 +89,12 @@ At each catalog build, for each model with the hook, before the store write.
 
 Before the first attempt of a chat request, when the chain holds a reasoning model.
 
-`on_prompt(value, messages, prompt, model, tier, tier_name, slot, reasoning, effort, retry, level, body, config, key, app)`
+`on_prompt(value, messages, prompt, model, tier, tier_name, slot, reasoning, effort, retry, level, body, request_values, config, key, app)`
 
 | Argument | Value |
 | --- | --- |
 | `value` | The dict the hook files change, empty at the start |
+| `request_values` | The final `on-request` value dict, or an empty dict when no request hook runs |
 | `reasoning` | The chain models that support reasoning |
 | `effort` | The value of the client, `None` when it sent none |
 | `retry` | The number of retries for this message, `0` for its first answer |

@@ -19,6 +19,7 @@ def test_committed_imports_match_sources() -> None:
     "owui_manager",
     "chat_metadata",
     "served_model",
+    "auto_reasoning_effort",
   }
   expected = set()
   for source in sources:

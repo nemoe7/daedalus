@@ -10,10 +10,11 @@
 # ---
 
 import logging
+from functools import cache
 from typing import Any
 
 from daedalus import store
-from daedalus.routing import router
+from daedalus.routing import classifier, router
 
 logger = logging.getLogger("daedalus.hooks")
 
@@ -29,6 +30,9 @@ TOP = max(router.TIERS)
 
 # The characters of the model turn that join the read. A long answer would bloat the read.
 ANSWER_CHARS = 500
+
+CONTROL = "_daedalus_auto_effort"
+_artifact = cache(classifier.load_artifact)
 
 # The separator of the served model line: `kilo/poolside/laguna-s-2.1:free · high`.
 DOT = " · "
@@ -77,13 +81,17 @@ def _newest(messages: Any, prompt: str) -> str:
 def on_request(value: dict, model: str, headers: dict) -> dict | None:
   """The key of the turn, and on a repeat the code of the row.
 
-  :param value: the request values, holding `digest` and, on a repeat, `count`
+  :param value: the request values, holding `body`, `digest` and, on a repeat, `count`
   :param model: the requested model
   :param headers: the request headers
   """
+  body = value.get("body")
+  if isinstance(body, dict) and CONTROL in body:
+    controls = body.pop(CONTROL)
+    value[CONTROL] = controls if isinstance(controls, dict) else {}
   chat = headers.get(HEADER)
   if not chat:
-    return None
+    return value if CONTROL in value else None
   value["key"] = f"{chat}\x00{value['digest']}"
   count = value.get("count")
   if count:
@@ -92,16 +100,26 @@ def on_request(value: dict, model: str, headers: dict) -> dict | None:
   return value
 
 
-def _level(context: Any, tier: int) -> str:
+def _level(context: Any, tier: int, minimum: str = "none") -> str:
   model = context.get("model") or ""
-  return router.effort_at(
-    router.efforts(
-      context.get("config") or {},
-      model,
-      store.model_limits(model).get("supported_efforts"),
-    ),
-    tier - 1,
+  efforts = router.efforts(
+    context.get("config") or {},
+    model,
+    store.model_limits(model).get("supported_efforts"),
   )
+  step = tier - 1
+  if minimum in ("low", "medium", "high"):
+    rank = router.EFFORT_RANKS.index(minimum)
+    floor = next(
+      (
+        i
+        for i, effort in enumerate(efforts)
+        if effort in router.EFFORT_RANKS and router.EFFORT_RANKS.index(effort) >= rank
+      ),
+      len(efforts) - 1,
+    )
+    step = max(step, floor)
+  return router.effort_at(efforts, step)
 
 
 def _floor(context: Any) -> int:
@@ -140,7 +158,16 @@ def on_prompt(
   :param context: the other values of the surface
   """
   model = context.get("model") or ""
-  read = max(int(router.required_tier(_newest(messages, prompt))), _floor(context))
+  controls = (context.get("request_values") or {}).get(CONTROL) or {}
+  sensitivity = controls.get("sensitivity")
+  text = _newest(messages, prompt)
+  if type(sensitivity) in (int, float) and 0 <= sensitivity <= 1:
+    tier = classifier.predict(text, _artifact(), threshold=sensitivity).required_tier
+  else:
+    tier = router.required_tier(text)
+  read = max(int(tier), _floor(context))
+  minimum = controls.get("minimum_effort")
+  minimum = minimum if isinstance(minimum, str) else "none"
   if not retry:
     if effort:
       return
@@ -153,12 +180,12 @@ def on_prompt(
       value["reasoning_effort"] = kept_level
       logger.info("a continuing turn keeps %s for %s", kept_level, model)
       return
-    read_level = _level(context, read)
+    read_level = _level(context, read, minimum)
     value["reasoning_effort"] = read_level
     logger.info("the prompt reads %s for %s", read_level, model)
     return
   if level is None:
-    read_level = _level(context, read)
+    read_level = _level(context, read, minimum)
     value["reasoning_effort"] = read_level
     logger.info("a try again after no reasoned answer: %s", read_level)
     return
