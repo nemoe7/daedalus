@@ -137,7 +137,7 @@ def test_quota_drops_an_invalid_count(value) -> None:
 
 
 def test_gemini_quota_failures_track_gemma_and_flash_limits(tmp_path: Path) -> None:
-  """Gemma and Flash quota details track exhausted TPM, RPM and RPD rows."""
+  """Gemma and Flash quota details track exhausted TPM, RPM, and RPD rows."""
   now = [NOW]
   found = limits.Limits(clock=lambda: now[0], path=lambda: tmp_path / "models.sqlite3")
   input_metric = (
@@ -284,7 +284,7 @@ def test_neurons() -> None:
 
 
 async def test_check(cooldowns: Cooldowns) -> None:
-  """Mocked balance reads show successful providers and omit refused, unsupported or keyless providers."""
+  """Mocked balance reads show successful providers and omit refused, unsupported, or keyless providers."""
   config = {
     "openrouter": {"api_key": "k"},
     "kilo": {"api_key": "k"},
@@ -326,7 +326,7 @@ async def test_check(cooldowns: Cooldowns) -> None:
 
 
 def test_bare_headers() -> None:
-  """A header set with no window in the name counts requests for a day, the OpenRouter way."""
+  """Windowless Kilo headers form a daily request quota."""
   bare = {
     "x-ratelimit-limit": "1000",
     "x-ratelimit-remaining": "0",
@@ -342,7 +342,7 @@ def test_bare_headers() -> None:
 
 
 def test_advertised_resets_notify_at_the_boundary_once(tmp_path: Path) -> None:
-  """TPM, RPM, RPH and RPD wait for their advertised time, then notify once with the boundary time."""
+  """TPM, RPM, RPH, and RPD wait for their advertised time, then notify once with the boundary time."""
   now = [NOW]
   boundary = NOW + 60
   headers = {}
@@ -585,7 +585,7 @@ def test_rows_survive_a_restart(tmp_path: Path) -> None:
 
 
 def test_a_bad_saved_view_is_dropped(tmp_path: Path) -> None:
-  """A saved view with a bad lane, card or time keeps the parts that fit and drops the rest."""
+  """A saved view with a bad lane, card, or time keeps the parts that fit and drops the rest."""
   path = tmp_path / "models.sqlite3"
   found = limits.Limits(clock=lambda: NOW, path=lambda: path)
   payload = json.dumps(
@@ -759,7 +759,7 @@ def test_balance_amounts_keep_decimal_precision_and_raw_shares() -> None:
 
 
 async def test_old_balance_cards_wait_for_a_successful_refresh(tmp_path: Path) -> None:
-  """An old card resets without changing rate rows, pending resets or warning state."""
+  """An old card resets without changing rate rows, pending resets, or warning state."""
   now = [NOW]
   path = tmp_path / "models.sqlite3"
   found = limits.Limits(clock=lambda: now[0], path=lambda: path)

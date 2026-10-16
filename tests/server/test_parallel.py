@@ -21,8 +21,7 @@ CONFIG = {
 }
 ROWS = [{"id": m} for m in ("b/1", "b/2", "b/3")]
 FIRST = {"role": "user", "content": "hi"}
-# The seconds before the first content of each model, the seconds before its end, and the
-# models that the client called.
+# PLAN sets content delays, TAIL sets end delays, and CALLS records requested models.
 PLAN: dict[str, float] = {}
 TAIL: dict[str, float] = {}
 CALLS: list[str] = []
@@ -112,7 +111,7 @@ def client():
 
 @pytest.fixture(autouse=True)
 def fresh() -> None:
-  """Each test starts with no pin, no weight change and no call list."""
+  """Clear penalties, timing plans, calls, and captured logs before each test."""
   api.PENALTIES.clear()
   api.PENALTIES.race = True
   api.PENALTIES.select = lambda: 0.0
@@ -160,7 +159,7 @@ def test_chance_starts_the_second_model(client: TestClient) -> None:
 
 
 def test_a_lost_racer_reads_slower_than_the_winner(client: TestClient) -> None:
-  """The winner's row reads its first content, so a loser that stops later reads the larger time."""
+  """Check that a losing racer's elapsed time is not less than the winner's first-content time."""
   api.PARALLEL_CHANCE = 1.0
   try:
     PLAN.update({"b/1": 1.0, "b/2": 0.0})
@@ -274,7 +273,7 @@ def test_no_stream_reads_our_stream_and_races(client: TestClient) -> None:
 
 
 def test_tie_keeps_the_first_model() -> None:
-  """Content from both models in the same batch gives the pin to the model that started first."""
+  """A content tie returns the first model in the supplied attempt order."""
 
   async def work() -> None:
     first = asyncio.create_task(asyncio.sleep(0, result="b/1"))

@@ -76,7 +76,7 @@ SETTINGS = (
 def state_folder(
   request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory
 ):
-  """A temporary state folder and fresh router state for each test file. No test touches `.daedalus-state`."""
+  """Create temporary per-file state and reset shared router state."""
   folder = tmp_path_factory.mktemp("state")
   environ = dict(os.environ)
   os.environ.pop(headroom.HEADROOM_URL, None)

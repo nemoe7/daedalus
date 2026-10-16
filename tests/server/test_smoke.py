@@ -417,7 +417,7 @@ def test_app_version_follows_the_build() -> None:
 
 
 async def test_upstream_client_pool_covers_the_race() -> None:
-  """The client pool holds every connection that a race can open at once."""
+  """Check that client pool limits match the configured capacity and exceed eleven connections."""
   client = upstream.new_client()
   try:
     pool = client._transport._pool
