@@ -5548,6 +5548,16 @@ def test_a_phone_opens_a_section_as_its_own_page() -> None:
   assert '.settings[data-detail="1"] > .section-pane { display: grid; }' in phone, (
     "a phone shows the selected section alone"
   )
+  assert ".card.nested .sections { flex: 1 1 100%; }" in phone, (
+    "the nested rail spans the phone card"
+  )
+  assert (
+    '#settings .section-pane:has(.card.nested .settings[data-detail="1"]) > .back'
+    " { display: none; }" in phone
+  ), "the outer back yields to the nested one"
+  assert (
+    "button.hint, .pills [data-drop], .pills [data-add], [data-hook-drop]," in phone
+  ), "the phone lifts the small controls to the touch floor"
 
 
 def test_notifications_endpoint(

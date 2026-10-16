@@ -1058,6 +1058,10 @@ def test_the_dead_tier_patterns_retire_and_phonellm_leaves() -> None:
     assert pattern not in open_a, pattern
   assert "mistral-medium-3-5" not in loaded["mistral"]["exclude"]
   cloud = loaded["cloudflare"]
-  kept = discovery.select(cloud, ["@cf/daily-co/phonellm-mini-alpha-2", "@cf/qwen/qwen3.8-27b"])
-  assert "@cf/daily-co/phonellm-mini-alpha-2" not in kept, "the voice row leaves the pool"
+  kept = discovery.select(
+    cloud, ["@cf/daily-co/phonellm-mini-alpha-2", "@cf/qwen/qwen3.8-27b"]
+  )
+  assert "@cf/daily-co/phonellm-mini-alpha-2" not in kept, (
+    "the voice row leaves the pool"
+  )
   assert "@cf/qwen/qwen3.8-27b" in kept, "the chat rows stay"
