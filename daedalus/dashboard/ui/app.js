@@ -137,7 +137,7 @@ const parts = (id) => {
   const bits = String(id).split("/");
   const provider = bits.shift();
   const model = bits.length ? bits.pop() : null;
-  let dev = bits.length ? bits[bits.length - 1].replace(/^@[^/]+\//, "") : null;
+  let dev = bits.length ? bits[bits.length - 1] : null;
   if (dev && dev.toLowerCase() === provider.toLowerCase()) dev = null;
   return { provider, dev, model };
 };
