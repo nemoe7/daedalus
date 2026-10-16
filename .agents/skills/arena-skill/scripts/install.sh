@@ -186,23 +186,7 @@ _arena_preview_gate() {
     *"git commit"*|*"git push"*)
       if [ -z "\${_arena_preview_main_checked:-}" ]; then
         _arena_preview_main_checked=1
-        _arena_preview_behind="\$(git rev-list --count HEAD..origin/main 2>/dev/null)"
-        case "\${_arena_preview_behind:-}" in
-          ''|0) ;;
-          *)
-            # A shallow fetch leaves main's tip alone in the graph. The count then
-            # measures the graft, not main, so the line waits for a visible history.
-            _arena_preview_lone=0
-            if [ "\$(git rev-parse --is-shallow-repository 2>/dev/null)" = true ]; then
-              case "\$(git rev-list --count origin/main 2>/dev/null)" in
-                0|1) _arena_preview_lone=1 ;;
-              esac
-            fi
-            if [ "\${_arena_preview_lone}" = 0 ]; then
-              printf '%s\n' "origin/main carries \${_arena_preview_behind} commit(s) this branch lacks. Replay your commits over main: run git fetch origin and git rebase origin/main, then push." >&2
-            fi
-            ;;
-        esac
+        "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" main-drift-tick
       fi
       ;;
   esac
