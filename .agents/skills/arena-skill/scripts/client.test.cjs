@@ -1,7 +1,7 @@
 // Ordered preview-client checks under node:test. Later checks read the page earlier checks left.
 // This is not a browser rendering test.
 const assert = require('node:assert/strict');
-// Heights ride relations, not pixels: the box must grow with its content, whatever the font measures.
+// Check that height grows with content instead of requiring a fixed pixel value.
 const px = (value) => parseInt(value, 10) || 0;
 const { test } = require('node:test');
 const fs = require('node:fs');
@@ -224,7 +224,7 @@ test('preview client', async (t) => {
       }
       if (url === '/api/markdown') return { ok: true, text: async () => '<strong>draft</strong>' };
       if (url === '/api/notes') {
-        // A note send is the write the retry tests drive, now that no save route exists.
+        // Retry tests send notes. There is no save route.
         writeTokens.push(options.headers['X-Preview-Token']);
         if (staleToken && options.headers['X-Preview-Token'] !== servedToken) {
           return { ok: false, status: 403, text: async () => JSON.stringify({ error: 'Bad or missing token' }) };
@@ -567,7 +567,7 @@ test('preview client', async (t) => {
   });
 
   await t.test("An empty field keeps the stylesheet's min-height; a placeholder no longer holds the box op", async () => {
-    // An empty field keeps the stylesheet's min-height. A placeholder no longer holds the box open.
+    // An empty field keeps the stylesheet's min-height, independent of its placeholder.
     assert.equal(get('#note').style.height, '');
     get('#note').value = 'a draft';
     // The stub carries the height the browser would measure for three lines.
@@ -986,7 +986,7 @@ test('preview client', async (t) => {
   });
 
   await t.test("The log and the tasks lost their own copy buttons", async () => {
-    // The log and the tasks lost their own copy buttons. One copy button carries the note, task and live-answer lines a restore reads back, as NDJSON, and the reports tab keeps its button.
+    // One button copies notes, tasks, and live answers as restorable NDJSON. Reports keep a separate copy button.
     // Copy only state data. Exclude rendered HTML, tokens, sequences, uploads, and last checks. Poll stamps already use seconds.
     cacheKeyHere = [...storage.keys()].find(key => key.endsWith(':state-cache'));
     assert.ok(cacheKeyHere, 'every poll caches the state the copy button copies');
@@ -1047,8 +1047,7 @@ test('preview client', async (t) => {
     await tick();
     assert.equal(get('#copy-state').dataset.state, 'good', 'the server export needs no client cache');
     assert.ok(copied.at(-1).endsWith('\n'), 'the copy stays NDJSON with one trailing newline');
-    // The toolbar no longer carries a save control: the userscript owns the file path.
-    // The page keeps the copy route alone.
+    // The userscript owns the save path. The toolbar has a copy control and no save control.
     const pageHtml = fs.readFileSync(path.join(__dirname, '../assets/index.html'), 'utf8');
     assert.ok(!pageHtml.includes('save-state'), 'the page carries no save control');
     assert.ok(
@@ -1569,8 +1568,7 @@ test('preview client', async (t) => {
     shipBox.checked = true;
     await get('#report-form').events.submit(event({}));
     assert.deepEqual(sent.at(-1).answers, { name: 'ada lovelace', areas: ['ui', 'api'], verdict: 'Ship it' });
-    // The report ID stays on show after a send: the status line carried the chip
-    // on load and dropped it on the sent answer.
+    // The status line keeps the report ID visible before and after submission.
     assert.equal(get('#report-status').children.find(child => child.dataset?.quote === 'full').textContent,
       get('#report').dataset.reportId,
       'a sent answer keeps the report ID on show');
@@ -1847,8 +1845,7 @@ test('preview client', async (t) => {
   });
 
   await t.test("A report showing its end stays read when the last scroll event missed: the poll rechecks", async () => {
-    // The dot and star outlived a reload because the end-scroll stamp can miss its event, and nothing looked at the panel again.
-    // The state poll now rechecks it, so a report showing its end stamps without another scroll.
+    // State polls mark a report read when its end is visible, even if no scroll event fires.
     state.reports = [{ id: 'r1', title: 'Long', updated_at: new Date().toISOString(), seen_at: null }];
     readStamps.length = 0;
     panel.scrollHeight = 900; panel.clientHeight = 300; panel.scrollTop = 0;
@@ -2234,7 +2231,7 @@ test('preview client', async (t) => {
   });
 
   await t.test("Second net: a write refused before any poll re-reads the page for its token and tries once", async () => {
-    // Second net: a write refused before any poll re-reads the page for its token and tries once more.
+    // A write refused before any poll reads the page token and retries once.
     servedToken = 'token-three';
     await sendNote('before any poll');
     await tick();
@@ -2671,8 +2668,8 @@ test('preview client', async (t) => {
   });
 
   await t.test("Multiple files stage as removable filename chips beside \"Your message\"", async () => {
-    // Multiple files stage as removable filename chips beside "Your message". The saved-files list
-    // is deliberately gone. The note receipt and backend state still carry every original name.
+    // Files stage as removable filename chips beside "Your message", with no saved-files list.
+    // The note receipt and backend state keep every original name.
     picker = get('#upload-file');
     chips = () => get('#staged-files').children.map(chip => chip.children[0].textContent.replace(/ · .*$/, ''));
     chipText = () => get('#staged-files').children[0].children[0].textContent;
@@ -3705,8 +3702,8 @@ test('the phone footer keeps Send beside a long status', () => {
 });
 
 test('a wide table scrolls sideways on its own and keeps its words whole', () => {
-  // Report and message text wrap anywhere. A table cell could shrink to one character. Wide tables now scroll.
-  // Each table is its own scroll box now, as on GitHub, and its cells wrap only between words.
+  // Report and message text can wrap anywhere. Each table scrolls independently, as on GitHub.
+  // Cells wrap only between words, so longer words stay whole.
   const css = fs.readFileSync(path.join(__dirname, '../assets/style.css'), 'utf8');
   const table = /\.report table, \.message-text table {[^}]*}/.exec(css);
   assert.ok(table, 'the tables have their own rule');
