@@ -208,7 +208,7 @@ globalThis.DAEDALUS_LOCALE = {
   "model.empty.pool_text": "No models",
   "model.filter.all_types_option": "All types",
   "model.filter.media_label": "Media",
-  "model.filter.placeholder": "Filter by provider or model",
+  "model.filter.placeholder": "Provider or model",
   "model.filter.type_label": "Model type",
   "model.flag.audio_input_label": "Audio in",
   "model.flag.audio_output_label": "Audio out",
