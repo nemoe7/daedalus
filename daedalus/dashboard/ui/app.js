@@ -1122,6 +1122,19 @@ const ICON_PATHS = {
   trash: '<path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />',
   refresh_cw: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /> <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /> <path d="M8 16H3v5" />',
   download: '<path d="M12 15V3" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /> <path d="m7 10 5 5 5-5" />',
+  chevron_right: '<path d="m9 18 6-6-6-6" />',
+  route: '<circle cx="6" cy="19" r="3" /> <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" /> <circle cx="18" cy="5" r="3" />',
+  link: '<path d="M9 17H7A5 5 0 0 1 7 7h2" /> <path d="M15 7h2a5 5 0 1 1 0 10h-2" /> <line x1="8" x2="16" y1="12" y2="12" />',
+  scale: '<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" /> <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" /> <path d="M7 21h10" /> <path d="M12 3v18" /> <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" />',
+  gauge: '<path d="m12 14 4-4" /> <path d="M3.34 19a10 10 0 1 1 17.32 0" />',
+  zap: '<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />',
+  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />',
+  database: '<ellipse cx="12" cy="5" rx="9" ry="3" /> <path d="M3 5V19A9 3 0 0 0 21 19V5" /> <path d="M3 12A9 3 0 0 0 21 12" />',
+  plug: '<path d="M12 22v-5" /> <path d="M9 8V2" /> <path d="M15 8V2" /> <path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z" />',
+  palette: '<circle cx="13.5" cy="6.5" r=".5" fill="currentColor" /> <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" /> <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" /> <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" /> <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />',
+  key: '<path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4" />',
+  code: '<path d="M10 12.5 8 15l2 2.5" /> <path d="m14 12.5 2 2.5-2 2.5" /> <path d="M14 2v4a2 2 0 0 0 2 2h4" /> <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z" />',
+  cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />',
 };
 function icon(name) {
   return `<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON_PATHS[name]}</svg>`;
@@ -2004,9 +2017,24 @@ function field(label, hint, body) {
 const SECTION_STATE = { settings: { key: "", open: false }, providers: { key: "", open: false } };
 const sectionState = (host) => SECTION_STATE[host.id === "settings" ? "settings" : "providers"];
 
+// Each section row and card header carries one colored chip, as the studied reference does.
+const SECTION_CHIPS = {
+  routing: "route", affinity: "link", balance: "scale", limits: "gauge", optimization: "zap",
+  privacy: "shield", catalog: "database", hooks: "plug", personalization: "palette",
+  keys: "key", yaml: "code", providers: "cloud",
+};
+// Provider rows share the providers tile: their names are data, not sections.
+const chipFor = (host, key) => {
+  const name = SECTION_CHIPS[key] ?? (host === "provider-form" ? "providers" : "");
+  const tint = SECTION_CHIPS[key] ? key : name;
+  return name
+    ? `<span class="tile" data-chip="${esc(tint)}" aria-hidden="true">${icon(name)}</span>` : "";
+};
+const chip = (key) => chipFor("settings", key);
+
 // List sections in the rail and display the selected section in the pane.
 function sectionList(id, items, active) {
-  const buttons = items.map(([key, label]) => actionButton(esc(label), {
+  const buttons = items.map(([key, label]) => actionButton(`${chipFor(id, key)}<span>${esc(label)}</span>`, {
     variant: key === active ? "on" : "",
     attrs: { "data-section": key, "aria-current": key === active ? "true" : null },
   })).join("");
@@ -2024,7 +2052,7 @@ function sectionPane(back, cards) {
 // The final YAML section has its own Save and includes content that the form cannot display.
 // It also opens invalid files.
 function yamlCard(editor, save, hint) {
-  return `<div class="card yaml-view" data-section="yaml"><h3>${t("yaml.label")}</h3><p class="sub">${esc(hint)}</p>`
+  return `<div class="card yaml-view" data-section="yaml"><h3>${chip("yaml")}${t("yaml.label")}</h3><p class="sub">${esc(hint)}</p>`
     + `<textarea id="${editor}" spellcheck="false" aria-label="${t("common.file_text_label")}"></textarea>`
     + `<div class="yaml-save">${actionButton(t("action.save_button"), {
       variant: "primary", attrs: { id: save, disabled: true },
@@ -2128,7 +2156,7 @@ function fold(label, hint, body) {
 function providerCard(name, block) {
   const path = [name];
   if (!block || typeof block !== "object" || Array.isArray(block)) {
-    return `<div class="card provider" data-section="${esc(name)}" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
+    return `<div class="card provider" data-section="${esc(name)}" data-provider="${esc(name)}"><h3>${chip("providers")}${esc(name)}</h3>
       <p class="sub">${t("provider.block.invalid_text")}</p></div>`;
   }
   const defaults = state.providerDefaults[name] || state.providerDefaults["*"] || {};
@@ -2209,7 +2237,7 @@ function providerCard(name, block) {
   const accountField = name === "cloudflare"
     ? text("account_id", t("provider.account_id.label"), t("provider.account_id.hint"))
     : "";
-  return `<div class="card provider" data-section="${esc(name)}" data-provider="${esc(name)}"><h3>${esc(name)}</h3>
+  return `<div class="card provider" data-section="${esc(name)}" data-provider="${esc(name)}"><h3>${chip("providers")}${esc(name)}</h3>
     <p class="sub">${t("provider.secret.note")}</p>
     ${text("api_key", t("provider.api_key.label"))}
     ${accountField}
@@ -2699,7 +2727,7 @@ const isSwitch = (group, key) => typeof state.settings.defaults[group][key] === 
 
 // The Settings API keys card contains the form, key display, and table.
 function keysCard() {
-  return `<div class="card" data-section="keys"><h3>${t("settings.keys.title")}</h3>
+  return `<div class="card" data-section="keys"><h3>${chip("keys")}${t("settings.keys.title")}</h3>
     <form class="toolbar" id="new-key">
       <input id="key-name" maxlength="40" placeholder="${t("settings.keys.new_placeholder")}" required>
       ${actionButton(t("action.new_key_button"), { variant: "primary", type: "submit" })}
@@ -2726,7 +2754,7 @@ function renderSettings() {
   // Restore the scroll position after the card rebuild.
   const scroll = settingsScroll();
   const card = ([group, title, fields]) => `
-    <div class="card"><h3>${esc(title)}</h3>${fields.map(([key, label, unit, hint]) => {
+    <div class="card"><h3>${chip(group)}${esc(title)}</h3>${fields.map(([key, label, unit, hint]) => {
       const id = `set-${group}-${key}`;
       if (isSwitch(group, key)) {
         // Place the label and hint before the right-aligned switch.

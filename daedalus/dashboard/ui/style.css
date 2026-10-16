@@ -642,6 +642,27 @@ section[data-page="providers"], section[data-page="settings"] {
   .sections button:hover { background: var(--field); }
 }
 .sections button.on { background: var(--field); box-shadow: inset 2px 0 0 var(--accent); }
+/* Each section row and card header carries one colored tile, as the studied reference does.
+   A phone row keeps its chevron at the right edge, where the list rule already draws it. */
+.tile {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 22px; height: 22px; border-radius: 6px; background: var(--muted); color: #fff;
+}
+.tile svg { width: 13px; height: 13px; }
+[data-chip="routing"] { background: #007aff; }
+[data-chip="affinity"] { background: #5856d6; }
+[data-chip="balance"] { background: #ff9500; }
+[data-chip="limits"] { background: #ff3b30; }
+[data-chip="optimization"] { background: #ffcc00; color: #1d1d1f; }
+[data-chip="privacy"] { background: #34c759; }
+[data-chip="catalog"] { background: #5ac8fa; color: #1d1d1f; }
+[data-chip="hooks"] { background: #ff2d55; }
+[data-chip="personalization"] { background: #af52de; }
+[data-chip="keys"] { background: #8e8e93; }
+[data-chip="yaml"] { background: #64d2ff; color: #1d1d1f; }
+[data-chip="providers"] { background: #00c7be; color: #1d1d1f; }
+.sections button > span:not(.tile) { flex: 1; min-width: 0; }
+.settings h3, .card.provider > h3, .card.yaml-view > h3 { display: flex; align-items: center; gap: 8px; }
 /* A card of a section closes on the room of 1 row: the last row keeps the same space to the edge
    of the card as the space between 2 rows. */
 section[data-page="settings"] .card,

@@ -2218,7 +2218,7 @@ def test_the_settings_sections_carry_a_rule() -> None:
   assert '["balance", t("settings.balance.title"), [' in app, (
     "the group reads from the Load Distribution key"
   )
-  assert '<h3>${t("settings.keys.title")}</h3>' in app, (
+  assert '<h3>${chip("keys")}${t("settings.keys.title")}</h3>' in app, (
     "the keys card reads its title key"
   )
   assert '["keys", t("settings.keys.title")], ["yaml", t("yaml.label")]' in app, (
