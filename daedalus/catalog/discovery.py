@@ -179,7 +179,7 @@ def any_match(patterns: Iterable[str], slug: str) -> bool:
 
 
 def auth_headers(provider_name: str, provider: dict[str, Any]) -> dict[str, str]:
-  """Build the auth header for one provider. No key gives no header."""
+  """Build auth headers for a provider with an API key, or return empty headers."""
   api_key = provider.get("api_key") or ""
   if not api_key:
     return {}
@@ -195,7 +195,7 @@ def row_shape(payload: dict[str, Any]) -> str | None:
 
 
 def row_matches(row: dict[str, Any], match: dict[str, Any]) -> bool:
-  """Test one discovered row against `discovery_match`. A missing property matches."""
+  """Test each discovered row against `discovery_match` and accept missing properties."""
   properties = {
     item.get("property_id"): item.get("value")
     for item in row.get("properties") or []
@@ -229,7 +229,7 @@ def extract_rows(
 
 
 def merge_pages(pages: list[dict[str, Any]]) -> dict[str, Any]:
-  """Merge paged rows into one payload. Keeps the first page's other fields."""
+  """Merge page rows and retain the first page's other fields."""
   if not pages:
     return {}
   merged = dict(pages[0])
