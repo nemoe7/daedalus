@@ -2308,7 +2308,7 @@ probe.dropSetting(['routing', 'escalation', 0]);
 assert(!probe.listValue('routing', 'escalation').includes(first), 'the chip left the list');
 assert.deepStrictEqual(probe.settingsChanges().routing.escalation, probe.listValue('routing', 'escalation'),
   'the change reaches the save payload');
-// A new value joins the list 1 time.
+// The raw list retains duplicate values.
 probe.setListValue('routing', 'switch', [...probe.listValue('routing', 'switch'), 'clanker', 'clanker']);
 assert.strictEqual(probe.listValue('routing', 'switch').length,
   probe.state.settings.defaults.routing.switch.length + 2, 'the raw list takes both');
