@@ -31,6 +31,7 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 | `image-data-uri <path>` | Print one Markdown line carrying a local PNG, JPEG, GIF or WebP file as a data URI; the command checks the type and a 2 MiB size cap before encoding |
 | `publish <source.md> --id <id> --title <title>` | Publish or update a rendered report. Publication embeds readable local images as data URIs, skips remote sources with a helper hint, and keeps links and data URIs |
 | `unpublish <id>` | Remove a report from the tab, retaining answers and source. Unacknowledged answers or unseen answer receipts block the call with 409. A fresh owner view does not block agent unpublish, and the page retains the open report until the owner clicks away |
+| `report unpublish --stale` | Recheck eligibility, then unpublish only stale reports through existing guards; retain sources and answers |
 | `stale-reports` | List stale published report IDs and reasons without changing state |
 | `report-state` | Print publication, owner view stamp, staleness and answer visibility for one report or all |
 | `rename <id> <new-id>` | Rename one stored note, report answer, report or task in place, so its answers, order and stamps survive |
@@ -89,6 +90,7 @@ The profile gate and the EXIT hook beside it hold one case per shape below. Ever
 
 | Case | Trigger | Answer |
 | --- | --- | --- |
+| `pr-state` | visible `gh pr close`, `gh pr reopen`, `gh pr merge`, equivalent API writes, or destructive head-ref operations | `exit 130` before bypasses. Reads, comments, title/body edits, and permitted working-branch pushes pass |
 | `shell-shape` | a caller that is not `bash`, `sh`, `dash`, `ksh` or `zsh` | pass, so a hosted process keeps its shell |
 | `shell-line` | every gated shell | the command line is read once per shell, so a command costs no read |
 | `platform-shell` | the platform's probe or its own hosted process | pass, and mark the shell once |
@@ -145,8 +147,8 @@ A task row shows the answers linked to it in a read-only block under its details
 - Source edits do not update a published report: call `publish` again.
 - A report that has answers refuses republishing under the same ID; publish its update under a new ID.
 - Delete a report the owner no longer needs with `unpublish <id>`; its sent answers and its `.md` source under the state directory stay.
-- An unseen answer ack holds the removal, and the agent's own call waits the minute after the owner's last look at the report.
-- The page's own press passes that window, because the click is the owner's decision.
+- Block agent unpublish for an unseen answer ack, not for a fresh owner view.
+- Let the owner remove a report through the page without these agent-side guards.
 - Verify the rendered report before telling the owner it is available.
 - An image renders from its URL.
 - `![alt](src =320x200)` sets its size, and `=320x` scales the height.
@@ -181,7 +183,7 @@ Which checks must pass first? {#release-checks}
 
 ## Uploaded notes and Downloads
 
-Each file on a composed note is 1–50MB. `read` returns the note with an `attachments[]` list that carries each file's byte size; read an image record's `path` before acknowledging the single note ID, and read a text record with caution. `present: false` means the record remains but the bytes do not.
+Keep composed-note files nonempty, with no application byte cap. `read` returns the note with an `attachments[]` list that carries each file's byte size; read an image record's `path` before acknowledging the single note ID, and read a text record with caution. `present: false` means the record remains but the bytes do not.
 
 An agent asks with `download-request <url>`. That queues a pending job. The owner approves or denies it before the browser fetches the URL. Add `--allow-proxy` only for that URL. Reject credentials in URLs. Each completed job sends one inbox note with the saved path. Retry failures in Downloads; report CORS, network and size failures. A restore may keep a job record but lose the file. The NDJSON backup does not restore jobs or file bytes.
 

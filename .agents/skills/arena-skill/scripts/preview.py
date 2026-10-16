@@ -23,7 +23,7 @@ from email.parser import BytesParser
 from fnmatch import fnmatchcase
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs,urlsplit,urlunsplit
+from urllib.parse import parse_qs,unquote,urlsplit,urlunsplit
 from zoneinfo import ZoneInfo
 try:import markdown_it;HAS_RENDERER=True
 except ImportError:HAS_RENDERER=False
@@ -32,7 +32,6 @@ IDENTIFIER=re.compile('[a-zA-Z0-9_-]{1,80}\\Z')
 REPLY_REFERENCE=re.compile('^RE:\\s*([a-zA-Z0-9_-]{1,80})(?:\\s|$)',re.IGNORECASE)
 MAX_REPORT=2000000
 SNAPSHOT_CAP_BYTES=128000000
-MAX_FETCH=SNAPSHOT_CAP_BYTES*80//100
 IMAGE_DATA_URI_MAX_BYTES=2*1024*1024
 WORKSPACE_SKIP={'.arena','.cache','.git','.local','.mypy_cache','.next','.nox','.npm','.nuxt','.output','.parcel-cache','.pytest_cache','.ruff_cache','.svelte-kit','.tox','.turbo','.venv','.vite','__pycache__','build','coverage','dist','node_modules','out','target'}
 FETCH_LEASE=timedelta(minutes=5)
@@ -46,7 +45,7 @@ def workspace_usage(root=None):
 			try:total+=(Path(dirpath)/name).stat().st_size
 			except OSError:continue
 			count+=1
-	return{'bytes':total,'files':count,'documented_cap_bytes':SNAPSHOT_CAP_BYTES,'download_cap_bytes':MAX_FETCH}
+	return{'bytes':total,'files':count,'documented_cap_bytes':SNAPSHOT_CAP_BYTES,'download_cap_bytes':None}
 FENCE=re.compile('^ {0,3}(`{3,}|~{3,})')
 CHOICE=re.compile('^\\s*[-*]\\s+\\(([ xX]?)\\)\\s+(\\S.*?)\\s*$')
 CHECKBOX=re.compile('^\\s*[-*]\\s+\\[([ xX]?)\\]\\s+(\\S.*?)\\s*$')
@@ -105,6 +104,125 @@ def reset_poll_count(db):
 	if gate_pending_count(db)==1:db.execute("INSERT OR REPLACE INTO meta VALUES (?, '0')",(POLLS_SINCE_MESSAGE,))
 def meta_number(db,key):row=db.execute('SELECT value FROM meta WHERE key = ?',(key,)).fetchone();value=str(row[0])if row else'';return int(value)if value.isdigit()else 0
 def gate_pending_count(db):return db.execute('SELECT (SELECT count(*) FROM notes WHERE acknowledged_at IS NULL AND quiet = 0) + (SELECT count(*) FROM submissions WHERE acknowledged_at IS NULL)').fetchone()[0]
+def pr_state_warning(line):
+	def payload(text):
+		if text.startswith('@'):
+			try:text=Path(text[1:]).read_text(encoding='utf-8')
+			except(OSError,UnicodeError):return{}
+		try:value=json.loads(text);return value if isinstance(value,dict)else{}
+		except(ValueError,TypeError):return{}
+	def api_write(words,client):
+		method,endpoint,data='','',{};has_body=False;index=0
+		while index<len(words):
+			word=words[index];option,equal,value=word.partition('=')
+			if option in{'-X','--method','--request','-d','--data','--data-raw','--data-binary','--json','--post-data','--body-data','--input','--post-file','--body-file'}|({'-f','-F','--field','--raw-field'}if client=='gh'else set()):
+				if not equal:index+=1;value=words[index]if index<len(words)else''
+				has_body=has_body or option not in{'-X','--method','--request'}
+				if option in{'-X','--method','--request'}:method=value.upper()
+				elif option in{'-f','-F','--field','--raw-field'}:
+					key,separator,field=value.partition('=')
+					if separator:
+						if option in{'-F','--field'}and field.startswith('@')and field!='@-':
+							try:field=Path(field[1:]).read_text(encoding='utf-8')
+							except(OSError,UnicodeError):field=''
+						keys=[key for key in re.split('\\[|\\]',key)if key];target=data
+						for key in keys[:-1]:
+							target=target.setdefault(key,{})
+							if not isinstance(target,dict):break
+						if keys and isinstance(target,dict):
+							try:target[keys[-1]]=json.loads(field)
+							except ValueError:target[keys[-1]]=field
+				elif option in{'--input','--post-file','--body-file'}:
+					if value!='-':data.update(payload('@'+value))
+				else:data.update(payload(value))
+			elif len(word)>2 and word[:2]in{'-X','-d'}|({'-f','-F'}if client=='gh'else set()):words=[word[:2],word[2:],*words[index+1:]];index=0;continue
+			elif word.startswith(('https://','http://')):
+				url=urlsplit(word)
+				if client=='gh'or url.hostname=='api.github.com':endpoint=url.path.strip('/');data.update({key:values[-1]for(key,values)in parse_qs(url.query).items()})
+			elif client=='gh'and(word=='graphql'or word.lstrip('/').startswith('repos/')):endpoint=word.strip('/').split('?',1)[0]
+			index+=1
+		endpoint=unquote(endpoint);method=method or('POST'if has_body else'GET')
+		if endpoint=='graphql':
+			query=data.get('query','')
+			if not isinstance(query,str):return False
+			query=re.sub('"""[\\s\\S]*?"""|"(?:\\\\.|[^"\\\\])*"','""',query);query=re.sub('#[^\\n]*','',query)
+			if re.search('\\b(?:closePullRequest|reopenPullRequest|mergePullRequest|enablePullRequestAutoMerge|enqueuePullRequest|deleteRef|updateRef|mergeBranch|createCommitOnBranch)\\s*\\(',query):return True
+			if re.search('\\bupdatePullRequest\\s*\\(',query):
+				if re.search('\\bstate\\s*:\\s*(?:CLOSED|OPEN)\\b',query):return True
+				variables=data.get('variables',{})
+				if isinstance(variables,str):variables=payload(variables)
+				def state_input(value):return isinstance(value,dict)and any(key=='state'and item in('CLOSED','OPEN')or state_input(item)for(key,item)in value.items())
+				if isinstance(variables,dict)and any(state_input(variables.get(name))for name in re.findall('\\binput\\s*:\\s*\\$(\\w+)',query)):return True
+				if isinstance(variables,dict):return any(variables.get(name)in('CLOSED','OPEN')for name in re.findall('\\bstate\\s*:\\s*\\$(\\w+)',query))
+			return False
+		if method=='GET'or method=='HEAD':return False
+		if re.fullmatch('repos/[^/]+/[^/]+/pulls/\\d+/merge(?:-async)?',endpoint):return True
+		if re.fullmatch('repos/[^/]+/[^/]+/merges',endpoint):return True
+		if re.match('repos/[^/]+/[^/]+/git/refs/heads/',endpoint):return method in{'DELETE','PATCH'}
+		return bool(method=='PATCH'and re.fullmatch('repos/[^/]+/[^/]+/(?:pulls|issues)/\\d+',endpoint)and data.get('state')in('closed','open'))
+	def blocked(words):
+		while words:
+			executable=Path(words[0]).name
+			if'='in words[0]and not words[0].startswith('-'):words=words[1:]
+			elif executable in{'command','builtin','exec','env','sudo'}:
+				if executable=='command'and any(word in{'-v','-V'}for word in words[1:]):return False
+				words=words[1:]
+				while words and words[0].startswith('-'):
+					option=words.pop(0)
+					if option in{'-u','--unset','--user','-g','--group'}and words:words.pop(0)
+			else:break
+		if not words:return False
+		executable,arguments=Path(words[0]).name,words[1:]
+		if executable in{'bash','sh','dash','zsh','ksh'}:
+			for(index,word)in enumerate(arguments[:-1]):
+				if word.startswith('-')and'c'in word:return script_write(arguments[index+1])
+			return False
+		if executable=='git':
+			if'push'not in arguments:return False
+			position=arguments.index('push');prefix,remaining=arguments[:position],arguments[position+1:];targets,destructive,read_only,remote_option,tags_only=[],False,False,False,False;index=0
+			while index<len(remaining):
+				word=remaining[index];option,equal,_=word.partition('=')
+				if option in{'-o','--push-option','--receive-pack','--exec','--repo'}:
+					remote_option=remote_option or option=='--repo'
+					if not equal:index+=1
+				elif word in{'--help','-h','--dry-run','-n'}:read_only=True
+				elif option in{'--delete','-d','--mirror','--all','--prune'}:destructive=True
+				elif word=='--tags':tags_only=True
+				elif not word.startswith('-'):targets.append(word)
+				index+=1
+			if read_only:return False
+			if destructive:return True
+			refs=targets if remote_option else targets[1:]
+			if refs:return any(word.lstrip('+').startswith(':')or word.rsplit(':',1)[-1].removeprefix('refs/heads/').lstrip('+')=='main'for word in refs)
+			if tags_only:return False
+			try:branch=subprocess.run(['git',*prefix,'symbolic-ref','--quiet','--short','HEAD'],capture_output=True,text=True,check=False);return branch.returncode==0 and branch.stdout.strip()=='main'
+			except OSError:return False
+		if executable=='gh':
+			while arguments and arguments[0].startswith('-'):
+				option=arguments.pop(0)
+				if option in{'--help','-h','--version'}:return False
+				if option in{'-R','--repo','--hostname'}and arguments:arguments.pop(0)
+			if len(arguments)>=2 and arguments[0]=='pr':
+				if arguments[1]not in{'close','reopen','merge'}:return False
+				value_flags={'--comment','--body','--subject','--match-head-commit','--author-email','--repo','-R','-b'};return not any(word in{'--help','-h'}and(index==0 or arguments[index-1]not in value_flags)for(index,word)in enumerate(arguments))
+			return bool(arguments and arguments[0]=='api'and api_write(arguments[1:],'gh'))
+		return executable in{'curl','wget'}and api_write(arguments,executable)
+	def script_write(text):
+		start,quote,escaped=0,'',False
+		for(index,char)in enumerate(text):
+			if escaped:escaped=False
+			elif char=='\\'and quote!="'":escaped=True
+			elif quote:
+				if char==quote:quote=''
+			elif char in'"\'':quote=char
+			elif char in';&|\n':
+				if blocked(shlex.split(text[start:index])):return True
+				start=index+1
+		return blocked(shlex.split(text[start:]))
+	try:
+		if blocked(shlex.split(line)):return'PR STATE BLOCKED: visible PR-state write; use reads or metadata edits.'
+	except ValueError:return None
+	return None
 def main_identical(root='.'):
 	def git(*arguments):return subprocess.run(['git',*arguments],cwd=root,capture_output=True,text=True,check=False)
 	try:
@@ -1357,7 +1475,6 @@ class Store:
 		try:
 			with self.transaction(autosave=False)as db:
 				row=self.claimed_fetch(db,job_id,claim)
-				if row['origin']!='owner'and len(data)>MAX_FETCH:raise ValueError(f"A download must be 1–{MAX_FETCH:,} bytes")
 				if source!='direct'and not row['allow_proxy']:raise ValueError('Proxy fallback was not enabled for this URL')
 				directory=self.path.parent/FETCH_DIR;directory.mkdir(parents=True,exist_ok=True,mode=448);target=directory/f"{job_id}{Path(cleaned).suffix[:16]}";save_body(target,data);target.chmod(384);stamp=now();db.execute("UPDATE fetch_jobs SET status = 'saved', source = ?, name = ?, type = ?, size = ?, sha256 = ?, file = ?, error = NULL, claim = NULL, lease_until = NULL, updated_at = ? WHERE id = ?",(source,cleaned,file_type,len(data),body_digest(data),target.name,stamp,job_id));message=f"Download: {cleaned} ({len(data)} B, {file_type}) from {urlsplit(row['url']).hostname} via {source} saved to {target}";db.execute('INSERT INTO notes (id, text, at) VALUES (?, ?, ?)',(job_id,message,stamp));result=db.execute('SELECT * FROM fetch_jobs WHERE id = ?',(job_id,)).fetchone()
 		except Exception:
@@ -1586,14 +1703,19 @@ class Store:
 				if answered is not None:raise ValueError(f"Report {report_id} has submitted answers; publish the update under a new ID")
 			self.refuse_shared_id(db,'reports','tasks',report_id);highest=db.execute('SELECT COALESCE(MAX(seq), 0) FROM reports').fetchone()[0];db.execute('INSERT INTO reports (id, title, markdown, updated_at, published_at, seq)\n           VALUES (?, ?, ?, ?, ?, ?)\n           ON CONFLICT(id) DO UPDATE SET title = excluded.title,\n             markdown = excluded.markdown, updated_at = excluded.updated_at,\n             seq = COALESCE(reports.seq, excluded.seq), seen_at = NULL',(report_id,title,text,now(),now(),highest+1))
 		return len(fields)
-	def unpublish(self,report_id,dismissed_by_owner=False):
+	def unpublish(self,report_id,dismissed_by_owner=False,*,stale_only=False):
 		identifier(report_id)
 		with self.transaction()as db:
+			if stale_only:db.execute('BEGIN IMMEDIATE')
 			row=db.execute('SELECT title, ack_seen_at, viewed_at FROM reports WHERE id = ?',(report_id,)).fetchone()
-			if row is None:raise FileNotFoundError('Report not found')
+			if row is None:
+				if stale_only:return False
+				raise FileNotFoundError('Report not found')
+			if stale_only and report_id not in self.stale_report_ids(db):return False
 			if not dismissed_by_owner:self.guard_report_change(db,report_id,row,hold_view=False)
 			db.execute('DELETE FROM reports WHERE id = ?',(report_id,));db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(REMOVED_META,now()))
 			if dismissed_by_owner:db.execute('INSERT INTO notes (id, text, at, quiet) VALUES (?, ?, ?, 1)',(new_id(),f"The owner dismissed the report {report_id} ({row['title']}).",now()))
+		if stale_only:return True
 	def clear_state(self):
 		counts={}
 		with self.transaction()as db:
@@ -1774,16 +1896,10 @@ def handler(store):
 			elif content_type!='application/json'and not fetch_result:self.problem(415,'Expected application/json');return
 			try:
 				if self.headers.get('Transfer-Encoding')or len(self.headers.get_all('Content-Length',[]))!=1:raise ValueError('Send one Content-Length and no Transfer-Encoding')
-				length=int(self.headers.get('Content-Length','0'));limit=None
+				length=int(self.headers.get('Content-Length','0'))
 				if fetch_result:
-					with closing(store.connect())as db:job=store.claimed_fetch(db,fetch_post.group(1),self.headers.get('X-Fetch-Claim',''));limit=MAX_FETCH if job['origin']!='owner'else None
-				if length<=0 or limit is not None and length>limit:
-					subject='Upload'if note_upload else'Download'if fetch_result else'Request body';remaining=length if limit is not None and 0<length<=limit+1 else 0
-					while remaining>0:
-						chunk=self.rfile.read(min(65536,remaining))
-						if not chunk:break
-						remaining-=len(chunk)
-					self.problem(413,f"{subject} has an invalid length"if limit is None else f"{subject} must be 1–{limit:,} bytes");return
+					with closing(store.connect())as db:store.claimed_fetch(db,fetch_post.group(1),self.headers.get('X-Fetch-Claim',''))
+				if length<=0:subject='Upload'if note_upload else'Download'if fetch_result else'Request body';self.problem(413,f"{subject} has an invalid length");return
 				if note_upload:
 					with stream_note_attachments(content_type,self.rfile,length)as parsed:note=store.note_with_uploads(*parsed)
 					for key in('at','acknowledged_at','ack_edited_at','seen_at'):note[key]=clip_stamp(note[key])
@@ -1909,7 +2025,7 @@ def embed_report_images(markdown,report_dir):
 class PreviewArgumentParser(argparse.ArgumentParser):
 	def print_usage(self,file=None):pass
 def main():
-	parser=PreviewArgumentParser(description=CLI_DESCRIPTION);parser.add_argument('-r','--reminder',action='store_true',help='Print the unacked-count reminder line and exit');commands=parser.add_subparsers(dest='command',required=False);serve=commands.add_parser('serve',help='Serve the preview page; -p names the port');serve.add_argument('-p','--port',type=int,default=DEFAULT_PORT,help=f"Port to bind (default: {DEFAULT_PORT})");init=commands.add_parser('init',help='Create the state directory and its database');init.add_argument('--tz',help='An IANA zone for CLI stamps. The TZ env still wins');commands.add_parser('read',help='Print every pending note, answer and upload');commands.add_parser('skills',help='List skill names, full descriptions, and paths without loading skills');note_list=commands.add_parser('note-list',help='List stored note IDs by page, newest first, including acknowledged notes');note_list.add_argument('--page',type=int,default=1,help='Page number (default: 1)');note_list.add_argument('--page-size',type=int,default=20,help='IDs per page, 1 to 100 (default: 20)');note_reread=commands.add_parser('note',help='Reread a stored note by its short or full ID');note_reread.add_argument('id',help='Six or all characters of a note ID');image_uri=commands.add_parser('image-data-uri',help='Print Markdown text that carries one local image as a data URI');image_uri.add_argument('path',type=Path,help='One local PNG, JPEG, GIF or WebP file up to 2 MiB');commands.add_parser('key',help='Print the recorded agent key, host and use line');inbox_line=commands.add_parser('inbox-line',help='Report whether a command line that names an inbox call runs nothing else');inbox_line.add_argument('line',help='The command line, as the hook read it');route=commands.add_parser('route',help='Start a command detached, keep its output tail, and show the exit on a later call');route.add_argument('name',help='A short name for the run, for example gates');route.add_argument('command_args',nargs=argparse.REMAINDER,help='The command, after --');route_run=commands.add_parser('route-run',help='Run one command here and record its exit for a later call');route_run.add_argument('name',help='The run name the caller already recorded');route_run.add_argument('command_args',nargs=argparse.REMAINDER,help='The command, after --');logs=commands.add_parser('logs',help="Print a routed run's status and its recorded output tail");logs.add_argument('name',help='The run name to read');worktree=commands.add_parser('worktree',help='Create or collect a detached task worktree beside a root gate');worktree_action=worktree.add_subparsers(dest='worktree_action',required=True);worktree_start=worktree_action.add_parser('start',help='Create a detached worktree while a named root gate runs');worktree_start.add_argument('name',help='A short worktree name');worktree_start.add_argument('destination',type=Path,help='A new path outside the root');worktree_start.add_argument('--gate',required=True,help='The running root gate name');worktree_start.add_argument('--allow',action='append',default=[],help='A path glob task work may change');worktree_collect=worktree_action.add_parser('collect',help='Print the allowed detached-worktree patch after a green root gate');worktree_collect.add_argument('name',help='The worktree name to collect');worktree_tick=commands.add_parser('worktree-tick',help='Block a gate, commit or push from a detached task worktree');worktree_tick.add_argument('action',choices=sorted(WORKTREE_ACTIONS));ack_tick=commands.add_parser('ack-tick',help='Warn when an inline ack text holds a backtick the shell will substitute');ack_tick.add_argument('line',help='The command line, as the hook read it');serve_tick=commands.add_parser('serve-tick',help='Warn when a serve names a port other than the default');serve_tick.add_argument('line',help='The command line, as the hook read it');pr_check_tick=commands.add_parser('pr-check-tick',help='Refuse a bash line that runs a PR-check wait the background tool must take');pr_check_tick.add_argument('line',help='The command line, as the hook read it');pr_check_tick.add_argument('--command',dest='current_command',help='The command the DEBUG trap reached');main_drift_tick=commands.add_parser('main-drift-tick',help='Check fresh remote branch drift at commit/push checkpoints');main_drift_tick.add_argument('--repo',default='.');egress_tick=commands.add_parser('egress-tick',help='Warn when a line fetches a host the sandbox egress filter blocks');egress_tick.add_argument('line',help='The command line, as the hook read it');rename=commands.add_parser('rename',help='Move a note, answer, report or task to a new ID');rename.add_argument('old_id',help='The stored ID, or a prefix that names one record');rename.add_argument('new_id',help='The ID to move the record to');commit_tick=commands.add_parser('commit-tick',help='Block a commit whose staged lines cite a session-local ID');commit_tick.add_argument('--repo',default='.',help='The repository to read the staged diff from');gate=commands.add_parser('gate',help='Read the inbox gate; -p blocks on any unacked note, -l names the blocked line');gate.add_argument('-p','--push',action='store_true',help='Block while any note or answer awaits an ack, whatever the call count');gate.add_argument('-l','--line',default='',help='The command line, as the hook read it; a blocked call then names the commands to drop');commands.add_parser('poll',help='Block until the owner answers or a gate run finishes');download=commands.add_parser('download-request',help='Request an HTTPS browser download, pending a preview Approve click; -a allows the proxy fallback');download.add_argument('url',help='One HTTPS URL without embedded credentials');download.add_argument('-a','--allow-proxy',action='store_true',help='Let the owner opt in to AllOrigins and CodeTabs fallback for this request');ack=commands.add_parser('ack',help='Answer a note; a bare call answers the one pending item; -r replies, -n notes, -R and -N read the answer from a file');ack.add_argument('ids',nargs='*');ack.add_argument('-r','--reply',help='Markdown answer shown in the message log');ack.add_argument('-n','--note',help='Short plain answer shown in the message log');ack.add_argument('-R','--reply-file',type=Path,help='Read the Markdown answer from this file');ack.add_argument('-N','--note-file',type=Path,help='Read the plain answer from this file');publish=commands.add_parser('publish',help='Publish a report; -i names the ID, -t the title');publish.add_argument('source',type=Path);publish.add_argument('-i','--id',required=True);publish.add_argument('-t','--title',required=True);unpublish=commands.add_parser('unpublish',help='Withdraw a published report by its ID');unpublish.add_argument('report_id');commands.add_parser('stale-reports',help='List stale published report IDs and reasons without changing state');report_state=commands.add_parser('report-state',help='Print publication, owner view stamp and answer visibility for one report or all');report_state.add_argument('report_id',nargs='?');task=commands.add_parser('task',help='Write or update a task; TASK-ID alone prints the stored row; -s status, -o order, -d details, -m note, -r report, -b blocked, -u unblocked, -a amend');task.add_argument('id_arg',nargs='?',metavar='TASK-ID');task.add_argument('title_arg',nargs='?',metavar='TASK-TITLE');task.add_argument('detail_arg',nargs='*',metavar='TASK-DETAIL');task.add_argument('-d','--details','--task-details',dest='task_details',action='append',help='One step per line, 120 characters or fewer, repeatable; an empty string clears the list');task.add_argument('-A','--append',dest='append_details',action='store_true',help='Append provided details instead of replacing stored details');task.add_argument('-b','--blocked',dest='blocked',action='store_true',default=None,help='Mark the task blocked, so a poll may wait');task.add_argument('-u','--unblocked',dest='blocked',action='store_false',help='Clear the blocked mark');task.add_argument('-m','--msg-id',help='Message this task answers; marks that message as having a task');task.add_argument('-r','--report',metavar='REPORT-ID',help='Report this task waits on; its answer clears the blocked mark');task.add_argument('-a','--amend',metavar='PREV-ID',help='Rename the task stored under this ID to the one given');task.add_argument('-s','--status',choices=TASK_STATUSES,default=None);task.add_argument('--task-type',dest='task_type',choices=TASK_TYPES,default=None,help='Primary deliverable type; an omitted flag keeps a stored type');task.add_argument('-o','--order',type=int,default=None,help='1-based place in its div, not the end');task_remove=commands.add_parser('task-remove',help='Delete a task by its ID');task_remove.add_argument('task_id');task_list=commands.add_parser('task-list',help='List the tasks; -f includes the finished ones');task_list.add_argument('-f','--full',action='store_true',help='print every task, finished included');state_import=commands.add_parser('import-state',help='Import an NDJSON backup; replaces the live state unless --merge; -f forces');state_import.add_argument('source',nargs='?',type=Path);state_import.add_argument('-r','--replace-tasks',action='store_true');state_import.add_argument('--merge',action='store_true',help='keep the live notes, answers, reports and tasks, and merge the import by ID');commands.add_parser('clear-state',help='Empty every state table in place; the agent key record survives');args=parser.parse_args();state_dir=resolve_state_dir();fresh_state=not(Path(state_dir).resolve()/'state.sqlite3').is_file()
+	parser=PreviewArgumentParser(description=CLI_DESCRIPTION);parser.add_argument('-r','--reminder',action='store_true',help='Print the unacked-count reminder line and exit');commands=parser.add_subparsers(dest='command',required=False);serve=commands.add_parser('serve',help='Serve the preview page; -p names the port');serve.add_argument('-p','--port',type=int,default=DEFAULT_PORT,help=f"Port to bind (default: {DEFAULT_PORT})");init=commands.add_parser('init',help='Create the state directory and its database');init.add_argument('--tz',help='An IANA zone for CLI stamps. The TZ env still wins');commands.add_parser('read',help='Print every pending note, answer and upload');commands.add_parser('skills',help='List skill names, full descriptions, and paths without loading skills');note_list=commands.add_parser('note-list',help='List stored note IDs by page, newest first, including acknowledged notes');note_list.add_argument('--page',type=int,default=1,help='Page number (default: 1)');note_list.add_argument('--page-size',type=int,default=20,help='IDs per page, 1 to 100 (default: 20)');note_reread=commands.add_parser('note',help='Reread a stored note by its short or full ID');note_reread.add_argument('id',help='Six or all characters of a note ID');image_uri=commands.add_parser('image-data-uri',help='Print Markdown text that carries one local image as a data URI');image_uri.add_argument('path',type=Path,help='One local PNG, JPEG, GIF or WebP file up to 2 MiB');commands.add_parser('key',help='Print the recorded agent key, host and use line');pr_state=commands.add_parser('pr-state-tick',help='Reject visible PR-state writes');pr_state.add_argument('line',help='The command as the DEBUG hook read it');inbox_line=commands.add_parser('inbox-line',help='Report whether a command line that names an inbox call runs nothing else');inbox_line.add_argument('line',help='The command line, as the hook read it');route=commands.add_parser('route',help='Start a command detached, keep its output tail, and show the exit on a later call');route.add_argument('name',help='A short name for the run, for example gates');route.add_argument('command_args',nargs=argparse.REMAINDER,help='The command, after --');route_run=commands.add_parser('route-run',help='Run one command here and record its exit for a later call');route_run.add_argument('name',help='The run name the caller already recorded');route_run.add_argument('command_args',nargs=argparse.REMAINDER,help='The command, after --');logs=commands.add_parser('logs',help="Print a routed run's status and its recorded output tail");logs.add_argument('name',help='The run name to read');worktree=commands.add_parser('worktree',help='Create or collect a detached task worktree beside a root gate');worktree_action=worktree.add_subparsers(dest='worktree_action',required=True);worktree_start=worktree_action.add_parser('start',help='Create a detached worktree while a named root gate runs');worktree_start.add_argument('name',help='A short worktree name');worktree_start.add_argument('destination',type=Path,help='A new path outside the root');worktree_start.add_argument('--gate',required=True,help='The running root gate name');worktree_start.add_argument('--allow',action='append',default=[],help='A path glob task work may change');worktree_collect=worktree_action.add_parser('collect',help='Print the allowed detached-worktree patch after a green root gate');worktree_collect.add_argument('name',help='The worktree name to collect');worktree_tick=commands.add_parser('worktree-tick',help='Block a gate, commit or push from a detached task worktree');worktree_tick.add_argument('action',choices=sorted(WORKTREE_ACTIONS));ack_tick=commands.add_parser('ack-tick',help='Warn when an inline ack text holds a backtick the shell will substitute');ack_tick.add_argument('line',help='The command line, as the hook read it');serve_tick=commands.add_parser('serve-tick',help='Warn when a serve names a port other than the default');serve_tick.add_argument('line',help='The command line, as the hook read it');pr_check_tick=commands.add_parser('pr-check-tick',help='Refuse a bash line that runs a PR-check wait the background tool must take');pr_check_tick.add_argument('line',help='The command line, as the hook read it');pr_check_tick.add_argument('--command',dest='current_command',help='The command the DEBUG trap reached');main_drift_tick=commands.add_parser('main-drift-tick',help='Check fresh remote branch drift at commit/push checkpoints');main_drift_tick.add_argument('--repo',default='.');egress_tick=commands.add_parser('egress-tick',help='Warn when a line fetches a host the sandbox egress filter blocks');egress_tick.add_argument('line',help='The command line, as the hook read it');rename=commands.add_parser('rename',help='Move a note, answer, report or task to a new ID');rename.add_argument('old_id',help='The stored ID, or a prefix that names one record');rename.add_argument('new_id',help='The ID to move the record to');commit_tick=commands.add_parser('commit-tick',help='Block a commit whose staged lines cite a session-local ID');commit_tick.add_argument('--repo',default='.',help='The repository to read the staged diff from');gate=commands.add_parser('gate',help='Read the inbox gate; -p blocks on any unacked note, -l names the blocked line');gate.add_argument('-p','--push',action='store_true',help='Block while any note or answer awaits an ack, whatever the call count');gate.add_argument('-l','--line',default='',help='The command line, as the hook read it; a blocked call then names the commands to drop');commands.add_parser('poll',help='Block until the owner answers or a gate run finishes');download=commands.add_parser('download-request',help='Request an HTTPS browser download, pending a preview Approve click; -a allows the proxy fallback');download.add_argument('url',help='One HTTPS URL without embedded credentials');download.add_argument('-a','--allow-proxy',action='store_true',help='Let the owner opt in to AllOrigins and CodeTabs fallback for this request');ack=commands.add_parser('ack',help='Answer a note; a bare call answers the one pending item; -r replies, -n notes, -R and -N read the answer from a file');ack.add_argument('ids',nargs='*');ack.add_argument('-r','--reply',help='Markdown answer shown in the message log');ack.add_argument('-n','--note',help='Short plain answer shown in the message log');ack.add_argument('-R','--reply-file',type=Path,help='Read the Markdown answer from this file');ack.add_argument('-N','--note-file',type=Path,help='Read the plain answer from this file');publish=commands.add_parser('publish',help='Publish a report; -i names the ID, -t the title');publish.add_argument('source',type=Path);publish.add_argument('-i','--id',required=True);publish.add_argument('-t','--title',required=True);report=commands.add_parser('report',help='Report batch actions');report_actions=report.add_subparsers(dest='report_action',required=True);report_unpublish=report_actions.add_parser('unpublish',help='Remove stale reports through existing guards');report_unpublish.add_argument('--stale',action='store_true',required=True);unpublish=commands.add_parser('unpublish',help='Withdraw a published report by its ID');unpublish.add_argument('report_id');commands.add_parser('stale-reports',help='List stale published report IDs and reasons without changing state');report_state=commands.add_parser('report-state',help='Print publication, owner view stamp and answer visibility for one report or all');report_state.add_argument('report_id',nargs='?');task=commands.add_parser('task',help='Write or update a task; TASK-ID alone prints the stored row; -s status, -o order, -d details, -m note, -r report, -b blocked, -u unblocked, -a amend');task.add_argument('id_arg',nargs='?',metavar='TASK-ID');task.add_argument('title_arg',nargs='?',metavar='TASK-TITLE');task.add_argument('detail_arg',nargs='*',metavar='TASK-DETAIL');task.add_argument('-d','--details','--task-details',dest='task_details',action='append',help='One step per line, 120 characters or fewer, repeatable; an empty string clears the list');task.add_argument('-A','--append',dest='append_details',action='store_true',help='Append provided details instead of replacing stored details');task.add_argument('-b','--blocked',dest='blocked',action='store_true',default=None,help='Mark the task blocked, so a poll may wait');task.add_argument('-u','--unblocked',dest='blocked',action='store_false',help='Clear the blocked mark');task.add_argument('-m','--msg-id',help='Message this task answers; marks that message as having a task');task.add_argument('-r','--report',metavar='REPORT-ID',help='Report this task waits on; its answer clears the blocked mark');task.add_argument('-a','--amend',metavar='PREV-ID',help='Rename the task stored under this ID to the one given');task.add_argument('-s','--status',choices=TASK_STATUSES,default=None);task.add_argument('--task-type',dest='task_type',choices=TASK_TYPES,default=None,help='Primary deliverable type; an omitted flag keeps a stored type');task.add_argument('-o','--order',type=int,default=None,help='1-based place in its div, not the end');task_remove=commands.add_parser('task-remove',help='Delete a task by its ID');task_remove.add_argument('task_id');task_list=commands.add_parser('task-list',help='List the tasks; -f includes the finished ones');task_list.add_argument('-f','--full',action='store_true',help='print every task, finished included');state_import=commands.add_parser('import-state',help='Import an NDJSON backup; replaces the live state unless --merge; -f forces');state_import.add_argument('source',nargs='?',type=Path);state_import.add_argument('-r','--replace-tasks',action='store_true');state_import.add_argument('--merge',action='store_true',help='keep the live notes, answers, reports and tasks, and merge the import by ID');commands.add_parser('clear-state',help='Empty every state table in place; the agent key record survives');args=parser.parse_args();state_dir=resolve_state_dir();fresh_state=not(Path(state_dir).resolve()/'state.sqlite3').is_file()
 	try:
 		if args.reminder:
 			store=Store(state_dir,create=False);require_server(store);reminder=store.reminder(advance=True);store.set_meta(AGENT_CALL_ENDED_META,now())
@@ -1917,6 +2033,10 @@ def main():
 			return 0
 		if not args.command:parser.error('a command is required')
 		if args.command=='skills':print_skills();return 0
+		if args.command=='pr-state-tick':
+			warning=pr_state_warning(args.line)
+			if warning:print(warning,file=sys.stderr);return 1
+			return 0
 		if args.command=='inbox-line':return 0 if quiet_inbox_line(args.line)else 1
 		if args.command=='image-data-uri':
 			try:print(image_data_uri(args.path))
@@ -2025,6 +2145,15 @@ def main():
 		elif args.command=='publish':
 			count=store.publish(args.id,args.title,args.source);print(f"Published {args.id}, {count} fields.")
 			if not count and'{#'in Path(args.source).read_text('utf-8'):print('Warning: 0 fields parsed. A `{#id}` marker ends a prompt line, then the `- ( ) option` lines follow.',file=sys.stderr)
+		elif args.command=='report':
+			held=False
+			for record in store.stale_reports():
+				report_id=record['id']
+				try:removed=store.unpublish(report_id,stale_only=True)
+				except ReportHeld as error:print(f"Skipped {report_id}: {error}");held=True;continue
+				if removed:print(f"Unpublished {report_id}. Answers and source file remain.")
+				else:print(f"Skipped {report_id}: no longer stale or published.")
+			return 1 if held else 0
 		elif args.command=='unpublish':report_id=store.resolve_id(args.report_id);store.unpublish(report_id);print(f"Unpublished {report_id}. Answers and source file remain.")
 		elif args.command=='stale-reports':
 			reports=store.stale_reports();print(f"Stale reports {len(reports)}")

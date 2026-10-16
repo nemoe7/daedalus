@@ -8,7 +8,11 @@
 - Load the named skill `arena-skill` for the inbox, the reports, the gate, and the proxy routes to a source the sandbox cannot reach.
 - Before the first skill use in a session, read its SKILL.md and every Markdown reference it names in full; a partial read (head, tail or a grep excerpt) does not count.
 - Read set: ARENA.md, root AGENTS.md with any nested AGENTS.md, and arena-skill SKILL.md only.
-- At session start and after compaction or summary, MUST read the read set in full before any other tool call; batch reads, splitting only at the harness output cap; a partial read (head, tail or grep excerpt) does not count. Complete these reads before queued work or a pending push.
+- At session start or after compaction, summary, or context replacement, MUST read each read-set file whose current full text is absent from context, end-to-end, before any tool call except read-set reads.
+- On a context-check reminder, MUST read each read-set file whose current full text is absent from context before continuing work.
+- NEVER count a file name, read receipt, summary, remembered rule, or partial read (head, tail, or grep excerpt) as a read-set file's current full text.
+- MUST batch required read-set reads in one call, splitting only where the harness output cap cuts text.
+- MUST complete required reads end-to-end, with all output-cap continuations, before queued work or a pending push.
 - `references/REFERENCE.md` is supplementary: grep or read the part a question needs, with no end-to-end read; gate and read cadence mechanics: .agents/skills/arena-skill/references/REFERENCE.md. A template copy kept for installation is supplementary too.
 - First assistant reply to each new user chat message: MUST state reasoning status once in chat as `Reasoning: on` or `Reasoning: off`, after any owed 10-4 line. Tool results, steering notes, context compaction or summary, and agent continuation do not start a new turn.
 - When summarizing or compacting context, MUST list a full read of the read set as the next immediate step before any non-read tool call; no verbatim ARENA.md copy is required.

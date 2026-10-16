@@ -151,6 +151,14 @@ strip_block "$GATE_MARKER"
 
 # arena-preview-gate
 _arena_preview_gate() {
+  # case: pr-state
+  case "\$BASH_COMMAND" in
+    *gh*|*git*|*curl*|*wget*)
+      if ! "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" pr-state-tick "\$BASH_COMMAND"; then
+        exit 130
+      fi
+      ;;
+  esac
   # Arena gates only an agent call shell. That shell hosts each long-lived process through a launcher script.
   # An exit ends the hosted process.
   # case: shell-shape
