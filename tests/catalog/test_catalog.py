@@ -148,8 +148,7 @@ def test_nested_repeat_pattern_matches_nothing(
   caplog: pytest.LogCaptureFixture,
 ) -> None:
   """Reject nested repeats that can hang catalog matching on long slugs."""
-  # A config file supplies this shape, so the test reads it as data. A literal
-  # here trips the ReDoS query on this file.
+  # Load the pattern as config data to avoid a ReDoS finding on the test itself.
   nested = json.loads('"^(a+)+$"')
   slug = "a" * 40 + "b"
   with caplog.at_level("WARNING", logger="daedalus.catalog"):
@@ -166,7 +165,7 @@ def row_slugs(payload: dict, match: dict | None = None) -> list[str]:
 
 
 def discover(name: str, fetch) -> tuple[list[str], list[str]]:
-  """The kept slugs and skip reasons of 1 provider, through the catalog build."""
+  """Return one provider's retained slugs and skip reasons."""
   lines, skipped = discovery.build_rows({name: CONFIG[name]}, fetch)
   return [line.split("/", 1)[1] for line in lines], skipped
 
@@ -256,11 +255,10 @@ def test_select() -> None:
   kept = discovery.select(provider, slugs)
   assert kept == ["@cf/meta/llama-guard-3-8b", "@cf/qwen/qwq-32b"], kept
 
-  # An excluded slug stays excluded: a tier pattern does not claim it back.
+  # Tier patterns do not restore excluded slugs.
   assert discovery.select(CONFIG["z-ai"], ["glm-4.5", "glm-4.6"]) == []
 
-  # A pattern that names its own provider is a slug pattern, not a head to strip:
-  # `openrouter/*` reaches `openrouter/auto`, and only that.
+  # Keep the provider prefix in `openrouter/*` so it matches only `openrouter/auto` here.
   routers = discovery.select(
     {"exclude": ["openrouter/*"]},
     ["openrouter/auto", "openai/gpt-6-sol", "qwen/qwen3.8-27b:free"],
@@ -334,7 +332,7 @@ def test_the_provider_reads_run_at_the_same_time(monkeypatch) -> None:
 
 
 def test_a_line_per_provider_read(caplog) -> None:
-  """Each provider read logs its model count, so a rebuild shows its progress."""
+  """Provider reads log raw model counts at INFO."""
   with caplog.at_level("INFO", logger="daedalus.catalog"):
     discovery.build_rows(
       {"openrouter": CONFIG["openrouter"], "gemini": CONFIG["gemini"]},
@@ -349,7 +347,7 @@ def test_a_line_per_provider_read(caplog) -> None:
 
 
 def test_the_read_cap_holds(monkeypatch) -> None:
-  """With 1 core the reads run one after the other."""
+  """A one-worker read pool has no overlapping calls."""
   monkeypatch.setattr(discovery, "CORES", 1)
   live = 0
   peak = 0
@@ -375,7 +373,7 @@ def test_the_read_cap_holds(monkeypatch) -> None:
 
 
 def test_provider_file_override() -> None:
-  """A file takes only its models, with values that do not mix with the main block."""
+  """Provider-file models use their own settings without mixing main-block values."""
   main = {
     "api_key": "old",
     "discovery_url": "https://or.test/api/v1/models",
@@ -416,7 +414,7 @@ def test_provider_file_override() -> None:
 
 
 def test_shared_download() -> None:
-  """A file with the same URL as its main block reads the list 1 time, also with another key."""
+  """Main and file blocks with one discovery URL share a fetch despite different keys."""
   block = {"api_key": "main", "discovery_url": "https://or.test/api/v1/models"}
   file = {**block, "api_key": "file", "models": {"openai/gpt-6-sol": {"pool": False}}}
   config.set_config({"openrouter": {**block, config.FILE_KEY: file}})
@@ -449,7 +447,7 @@ def test_shared_download() -> None:
 
 
 def test_shared_litellm() -> None:
-  """Kilo and OpenRouter read the same LiteLLM catalog and modelschemas provider 1 time."""
+  """Kilo and OpenRouter share one LiteLLM read and one modelschemas read."""
   calls: list[str] = []
 
   def fetch(url: str, headers: dict[str, str]) -> dict[str, Any]:
@@ -608,7 +606,7 @@ def test_declared_kept() -> None:
   absent = {"exclude": ["*"], "models": {"glm-4.5-flash": {"rpm": 60}}}
   assert discovery.select(absent, ["glm-4.5", "glm-5"]) == ["glm-4.5-flash"]
 
-  # A pattern key is a matcher, not an id, so it never becomes a slug of its own.
+  # Pattern keys match slugs but never become slugs.
   pattern_only = {"exclude": ["*"], "models": {"*gemma-4-31b-it:free": {"rpm": 5}}}
   assert discovery.select(pattern_only, ["google/gemma-4-31b-it:free"]) == [
     "google/gemma-4-31b-it:free"

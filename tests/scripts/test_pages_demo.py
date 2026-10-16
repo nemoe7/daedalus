@@ -1,4 +1,4 @@
-"""The GitHub Pages demo: the build, the fixtures, and the script that answers the page."""
+"""Tests for the GitHub Pages build, fixtures, and simulated responses."""
 
 import json
 import os
@@ -15,7 +15,7 @@ from daedalus import __version__ as DAEDALUS_VERSION
 from daedalus.routing.limits import header_rows
 
 APP_JS = Path("daedalus/dashboard/ui/app.js")
-# The calls that change state. The demo holds each of them in the page memory.
+# State-changing calls use page memory.
 SIMULATED = (
   "catalog",
   "env",
@@ -33,7 +33,7 @@ SIMULATED = (
   "settings",
   "updates",
 )
-# The calls that the demo answers from the fixtures.
+# Read calls use fixture data.
 READS = (
   "env",
   "files",
@@ -548,7 +548,7 @@ def demo_read(out: Path, *paths: str) -> dict:
 
 
 def test_the_fixtures_cover_each_call_of_the_page() -> None:
-  """A new call on the page fails here, so the capture runs again."""
+  """The fixtures cover known reads and static page calls."""
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
   assert sorted(fixtures) == sorted(READS), sorted(fixtures)
   calls = set(re.findall(r'call\("([a-z/_-]*)"', APP_JS.read_text(encoding="utf-8")))
@@ -557,7 +557,7 @@ def test_the_fixtures_cover_each_call_of_the_page() -> None:
 
 
 def test_the_fixtures_hold_each_settings_row_of_the_page() -> None:
-  """A settings group or key added to the page fails here, so the capture runs again."""
+  """Fixture defaults cover each settings group and key used by the page."""
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
   defaults = fixtures["settings"]["defaults"]
   text = APP_JS.read_text(encoding="utf-8")
@@ -581,7 +581,7 @@ def test_the_fixtures_hold_each_settings_row_of_the_page() -> None:
 
 
 def test_the_fixtures_carry_the_edge_cases() -> None:
-  """The demo shows the states that the page must fit: a long name, a cooldown and a failure."""
+  """Fixture data includes long names, cooldowns, and request fields."""
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
   rows = fixtures["models"]
   assert any(len(row["id"]) > 50 for row in rows), "a long model name"
@@ -602,7 +602,7 @@ def test_the_fixtures_carry_the_edge_cases() -> None:
     attempt.get("cooldown") for row in requests for attempt in row.get("attempts") or []
   ), "a rate limit with a cooldown"
   assert any(row.get("stream") for row in requests), "a stream"
-  # The attempt fields carry the shapes of the server, so the page can render each chain.
+  # Attempt fields match the server's response shapes.
   for row in requests:
     for attempt in row.get("attempts") or []:
       change = attempt.get("weight_change")
@@ -616,10 +616,10 @@ def test_the_fixtures_carry_the_edge_cases() -> None:
           "a cooldown holds the seconds and the reason",
           cooldown,
         )
-  # The demo names only the 2 client apps that daedalus supports.
+  # The fixtures name only OWUI and Kilo clients.
   apps = {row["app"] for row in requests if row.get("app")}
   assert apps <= {"OWUI", "Kilo"}, apps
-  # The max shape: each column of the table carries a value in 1 row at least.
+  # Each listed request field has a value in at least one row.
   for field in ("app", "effort", "pool", "routed", "retry", "loop", "transition"):
     assert any(row.get(field) for row in requests), field
   assert any((row.get("tokens") or {}).get("estimate") for row in requests), (
@@ -666,7 +666,7 @@ def test_the_fixtures_carry_the_edge_cases() -> None:
 
 
 def test_the_demo_main_form_uses_cloud_blocks_with_an_empty_local_file() -> None:
-  """The Providers demo shows the shipped main as inherited and keeps its local text empty."""
+  """Provider fixtures inherit main blocks and keep local main text empty."""
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
   shipped = pages_demo.ROOT / "config" / "providers"
   names = [Path(row["path"]).name for row in fixtures["files"]]
@@ -814,7 +814,7 @@ def test_demo_pool_membership(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_the_demo_keeps_every_row_of_the_snapshot(tmp_path: Path) -> None:
-  """The demo shows the captured catalog as it is: each snapshot row reaches the page."""
+  """The demo models response retains each captured model ID."""
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
   ids = [row["id"] for row in fixtures["models"]]
   assert len(ids) == len(set(ids)), "each row is listed once"
@@ -824,7 +824,7 @@ def test_the_demo_keeps_every_row_of_the_snapshot(tmp_path: Path) -> None:
 
 
 def test_the_demo_states_its_source_and_the_hook_versions(tmp_path: Path) -> None:
-  """The Sources card starts with the repo that ships the hooks, and the table shows its versions."""
+  """Demo settings contain the shipped hook source and versions."""
   assert pages_demo.DEMO_SOURCE["repo"] == "nemoe7/daedalus"
   fixtures = pages_demo.demo_fixtures("demo.test")
   hooks_file = fixtures["settings"]["file"]["hooks"]
@@ -837,7 +837,7 @@ def test_the_demo_states_its_source_and_the_hook_versions(tmp_path: Path) -> Non
   assert shown_hooks["sources"] == hooks_file["sources"]
   assert shown_hooks["order"] == hooks_file["order"]
   rows = {row["name"]: row for row in fixtures["settings"]["hook_rows"]}
-  # The example of the base repo ships for copy, so the table leaves it out.
+  # The copy-only example hook is absent from the rows.
   shipped = {
     path.name for path in Path("hooks").glob("*.py") if path.name != "example.py"
   }
@@ -861,7 +861,7 @@ def test_the_demo_states_its_source_and_the_hook_versions(tmp_path: Path) -> Non
 def test_a_capture_without_an_update_block_still_builds(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """A fresh capture holds no update block, and the build stamps its version into it."""
+  """Fixture generation adds version metadata when the update block is absent."""
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
   fixtures["notifications"]["update"] = None
   made = tmp_path / "pages_fixtures.json"
@@ -872,7 +872,7 @@ def test_a_capture_without_an_update_block_still_builds(
 
 
 def test_the_build_copies_the_page_and_loads_the_demo_first(tmp_path: Path) -> None:
-  """`--out` serves the real UI, with the demo and locale before the app."""
+  """Built assets include the UI, with the demo and locale before the app."""
   out = pages_demo.build(tmp_path / "site", pages_demo.demo_version())
   page = (out / "index.html").read_text(encoding="utf-8")
   assert page.index("demo.js") < page.index("ui/en.js") < page.index("ui/app.js")
@@ -904,7 +904,7 @@ def test_the_build_copies_the_page_and_loads_the_demo_first(tmp_path: Path) -> N
 
 
 def test_the_demo_carries_the_version_of_the_build(tmp_path: Path) -> None:
-  """A build stamps its version into the header, and every change bumps it."""
+  """Build versions reach status, login, and update responses, with an environment override."""
   out = pages_demo.build(tmp_path / "site", "demo.7")
   script = (
     NODE_SETUP
@@ -1032,7 +1032,7 @@ def test_demo_timing_and_event_contract(tmp_path: Path) -> None:
 
 
 def test_the_demo_answers_the_page_without_a_server(tmp_path: Path) -> None:
-  """The script in a JavaScript runtime: the catalog count, a refused write and a live request."""
+  """The JavaScript runtime covers catalog reads, rejected writes, and live requests."""
   version = pages_demo.demo_version()
   out = pages_demo.build(tmp_path / "site", version)
   (out / "expected-pools.json").write_text(
@@ -1079,7 +1079,7 @@ def test_the_demo_answers_the_page_without_a_server(tmp_path: Path) -> None:
 def test_demo_hook_identities(
   tmp_path: Path, monkeypatch, mode, disabled, enabled
 ) -> None:
-  """The demo checks hook identities and shows each saved switch state."""
+  """The demo validates hook identities and returns saved enabled states."""
   fixtures = pages_demo.demo_fixtures("demo.9")
   sample = fixtures["settings"]["hook_rows"][0]
   fixtures["settings"]["hook_rows"] = [
@@ -1237,7 +1237,7 @@ def test_demo_save_name_shapes(tmp_path: Path) -> None:
 
 
 def test_the_capture_builds_the_demo_state() -> None:
-  """The capture runs the dashboard in this process, so the fixtures can be made again."""
+  """An in-process capture returns the dashboard version, model IDs, and requests."""
   assert pytest.importorskip("fastapi")
   found = pages_demo.capture()
   assert found["status"]["version"] == DAEDALUS_VERSION, found["status"]["version"]
@@ -1249,7 +1249,7 @@ def test_the_capture_builds_the_demo_state() -> None:
 
 
 def test_race_demo_shape() -> None:
-  """The demo has a race winner, a failed first attempt and a transition reason."""
+  """The demo has a race winner, a failed first attempt, and a transition reason."""
   shapes = [row for row in pages_demo.DEMO_SHAPES if row.get("race") == "drawn"]
   fixtures = json.loads(pages_demo.FIXTURES.read_text())
   rows = [row for row in fixtures["requests"] if row.get("race") == "drawn"]
