@@ -1487,8 +1487,8 @@ assert(modal.includes('class="diff-id added"'), 'an added model identity uses th
 assert(modal.includes('class="diff-id removed"'), 'a removed model identity uses the - color');
 assert(modal.includes('class="diff-id moved"'), 'a changed model identity uses the ~ color');
 assert(modal.includes('class="mark tint"'), 'the provider icon can inherit the identity color');
-assert(modal.includes('--mark:url(icons/openrouter.svg)'),
-  'the tinted provider mark resolves beside the dashboard stylesheet');
+assert(modal.includes('--mark:url(ui/icons/openrouter.svg)'),
+  'the tinted provider mark resolves against the page root, like the image branch');
 assert(modal.includes('<span class="mark-sep" aria-hidden="true">/</span>'),
   'the slash separator stays beside the provider mark');
 """,
@@ -2434,6 +2434,24 @@ assert.strictEqual(probe.listValue('routing', 'switch').length,
   probe.state.settings.defaults.routing.switch.length + 2, 'the raw list takes both');
 """,
   )
+
+
+def test_app_js_provider_rows_draw_the_providers_glyph() -> None:
+  """The nested rail rows carry the cloud glyph, and every chip name exists."""
+  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  block = app.partition("const chipFor = (host, key) => {")[2].partition("};")[0]
+  assert (
+    'SECTION_CHIPS[key] ?? (host === "provider-form" ? SECTION_CHIPS.providers : "")'
+    in block
+  ), "a provider row draws the providers glyph, not an undefined icon"
+  assert 'const tint = SECTION_CHIPS[key] ? key : "providers";' in block, (
+    "a provider row keeps the providers hue"
+  )
+  chips = app.partition("const SECTION_CHIPS = {")[2].partition("};")[0]
+  for glyph in re.findall(r': "([a-z_0-9]+)"', chips):
+    assert re.search(rf"^  {glyph}: '", app, re.MULTILINE), (
+      f"the glyph {glyph} is registered"
+    )
 
 
 def test_app_js_hook_point_chips() -> None:

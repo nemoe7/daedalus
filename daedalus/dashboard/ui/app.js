@@ -127,7 +127,7 @@ const MARK_FILES = new Set([
 ]);
 const mark = (name, tint = false) => MARK_FILES.has(name)
   ? tint
-    ? `<span class="mark tint" style="--mark:url(icons/${esc(name)}.svg)" aria-hidden="true"></span>`
+    ? `<span class="mark tint" style="--mark:url(ui/icons/${esc(name)}.svg)" aria-hidden="true"></span>`
     : `<img class="mark" src="ui/icons/${esc(name)}.svg" alt="" aria-hidden="true">`
   : `<span class="mark slug">${esc(name)}</span>`;
 // `provider/dev/model` and `provider/model` both land. The developer is the part before the model,
@@ -2026,8 +2026,8 @@ const SECTION_CHIPS = {
 };
 // Provider rows share the providers tile: their names are data, not sections.
 const chipFor = (host, key) => {
-  const name = SECTION_CHIPS[key] ?? (host === "provider-form" ? "providers" : "");
-  const tint = SECTION_CHIPS[key] ? key : name;
+  const name = SECTION_CHIPS[key] ?? (host === "provider-form" ? SECTION_CHIPS.providers : "");
+  const tint = SECTION_CHIPS[key] ? key : "providers";
   return name
     ? `<span class="tile" data-chip="${esc(tint)}" aria-hidden="true">${icon(name)}</span>` : "";
 };
