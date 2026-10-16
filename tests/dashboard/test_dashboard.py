@@ -6147,6 +6147,46 @@ input.dispatchEvent = () => {};
   )
 
 
+def test_value_editor_restores_focus_to_the_rebuilt_field() -> None:
+  """Save returns focus to the rebuilt value field only when the rebuild dropped it."""
+  run_app_js(
+    "editValue",
+    """
+node('modal').showModal = () => {};
+const box = node('modal-input');
+box.removeAttribute = (name) => { delete box[name]; };
+box.removeEventListener = (type, fn) => { box.handlers[type] = box.handlers[type].filter(item => item !== fn); };
+box.checkValidity = () => box.pattern !== '(?!)';
+sandbox.Event = class { constructor(type) { this.type = type; } };
+sandbox.document.body = { id: 'body' };
+const input = node('set-synthetic');
+input.dataset.value = 'synthetic';
+input.dispatchEvent = () => {};
+let focused = 0;
+input.focus = () => { focused += 1; };
+(async () => {
+  for (const [drop, expected] of [[true, 1], [false, 0]]) {
+    input.type = 'text';
+    input.value = '1';
+    focused = 0;
+    sandbox.document.activeElement = input;
+    let writes = 0;
+    const done = probe.editValue(input, () => {
+      writes += 1;
+      sandbox.document.activeElement = drop ? sandbox.document.body : { id: 'other' };
+    });
+    box.value = '2';
+    box.handlers.input.forEach(fn => fn());
+    sandbox.__settle(true);
+    await done;
+    assert.strictEqual(writes, 1);
+    assert.strictEqual(focused, expected, 'focus returns only when the rebuild dropped it');
+  }
+})().catch((error) => { console.error(error); process.exitCode = 1; });
+""",
+  )
+
+
 def test_provider_summary_has_help_without_a_nested_button() -> None:
   """Summary markup includes escaped help text and no nested button."""
   run_app_js(

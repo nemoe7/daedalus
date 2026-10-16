@@ -268,7 +268,10 @@ async function editValue(input, write) {
   input.value = box.value;
   input.dispatchEvent(new Event("input", { bubbles: true }));
   state.writeAnchor = anchorOf(input);
-  write(input);
+  const wanted = input.id && document.activeElement === input ? input.id : "";
+  await write(input);
+  const back = wanted && document.activeElement === document.body ? $(wanted) : null;
+  if (back) back.focus();
 }
 
 // Open the row-value editor on a click.
