@@ -620,16 +620,16 @@ const DEMO_FIXTURES = __FIXTURES__;
     return quoted ? quoted[2] : text;
   };
   // Read one-level flow lists of scalar values, such as effort ladders.
-  const flow_list = (text, where) => {
+  const flow_list = (text) => {
     const inner = text.slice(1, -1).trim();
     if (!inner) return [];
     const out = [];
     for (const part of inner.split(",")) out.push(unscale(part));
     return out;
   };
-  const flow_value = (raw, where) => {
+  const flow_value = (raw) => {
     const value = raw.trim();
-    return value.startsWith("[") ? flow_list(value, where) : unscale(value);
+    return value.startsWith("[") ? flow_list(value) : unscale(value);
   };
   // Read one-level flow maps with scalar or flow-list values.
   // Keep list commas together to preserve effort ladders inside maps.
@@ -653,7 +653,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     for (const part of parts) {
       const at = part.indexOf(":");
       if (at < 0) throw new Error(`expected ':' in the flow mapping at ${where}`);
-      out[unscale(part.slice(0, at))] = flow_value(part.slice(at + 1), where);
+      out[unscale(part.slice(0, at))] = flow_value(part.slice(at + 1));
     }
     return out;
   };
@@ -741,7 +741,7 @@ const DEMO_FIXTURES = __FIXTURES__;
           return { error: String(problem.message) };
         }
       } else if (value.startsWith("[") && value.endsWith("]")) {
-        top.node[key] = flow_list(value, `line ${n + 1}`);
+        top.node[key] = flow_list(value);
       } else {
         top.node[key] = unscale(value);
       }
@@ -844,7 +844,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       return lines.slice(0, found ? found.line : at).concat(block, lines.slice(at));
     }
     if (value && typeof value === "object") {
-      if (found) return put_map(lines, found, value, pad + "  ");
+      if (found) return put_map(lines, found, value);
       const block = [`${pad}${key}:`].concat(yaml_of(value, pad + "  ").split("\\n").filter(Boolean));
       return lines.slice(0, at).concat(block, lines.slice(at));
     }
@@ -855,7 +855,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     if (found) return lines.slice(0, found.line).concat([`${pad}${key}: ${scald(value)}`], lines.slice(at));
     return lines.slice(0, at).concat([`${pad}${key}: ${scald(value)}`], lines.slice(at));
   };
-  const put_map = (lines, node, document, pad) => {
+  const put_map = (lines, node, document) => {
     for (const [key, value] of Object.entries(document)) lines = put_value(lines, node, key, value);
     return lines;
   };
@@ -1004,9 +1004,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     return plan;
   };
   // Rebuild catalog rows from provider blocks and captured metadata.
-  const MODEL_DEFAULTS = Object.fromEntries(
-    Object.entries(DEMO_FIXTURES.models[0]).map(([key, value]) => [key, value])
-  );
+  const MODEL_KEYS = Object.keys(DEMO_FIXTURES.models[0]);
   const weights = new Map();
   const cooldowns = new Map();
   // Merge shadow files into their named blocks, key by key, as config does.
@@ -1083,7 +1081,7 @@ const DEMO_FIXTURES = __FIXTURES__;
         const meta = take(block.models || {}, slug) || {};
         const cap = known.get(id);
         const row = {};
-        for (const key of Object.keys(MODEL_DEFAULTS))
+        for (const key of MODEL_KEYS)
           row[key] = cap ? cap[key] : DEMO_FIXTURES.models[0][key];
         row.id = id;
         row.mode = meta.mode || (cap ? cap.mode : "chat");
