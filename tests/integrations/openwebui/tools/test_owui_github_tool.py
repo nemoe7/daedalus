@@ -1,4 +1,4 @@
-"""The Open WebUI GitHub tool holds the spec surface, gates every write and propagates errors."""
+"""Test GitHub tool discovery, permission gates, request payloads, and error propagation."""
 
 import ast
 import asyncio
@@ -113,7 +113,7 @@ TOOLS = [
 
 
 class Answer:
-  """A FakeResponse for urlopen: read returns the body, the context manager closes."""
+  """Wrap a text response for urlopen with context-manager support."""
 
   def __init__(self, body: str):
     self.body = body.encode()
