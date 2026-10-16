@@ -476,16 +476,16 @@ DEMO_JS = """\
 // Serve API data from page memory and fill the initially empty request list.
 const DEMO_FIXTURES = __FIXTURES__;
 (() => {
-  // A demo cannot save, so the reload warning of the page never applies here.
+  // Demo changes stay in page memory, so suppress the reload warning.
   const listen = window.addEventListener.bind(window);
   window.addEventListener = (kind, ...rest) =>
     kind === "beforeunload" ? undefined : listen(kind, ...rest);
-  // The server keeps 500 rows. The demo does the same, and drops the oldest.
+  // Keep 500 request rows, as the server does, and discard older rows.
   const KEPT = 500;
-  // The requests of this page, by model. The limits check reads the count.
+  // Count requests by model for the limits check.
   const USED = new Map();
-  // The tests shrink every wait with `window.DEMO_SCALE`. The shipped page keeps 1. The floor
-  // keeps a shrunken wait at the timer resolution, so every wait stays measurable.
+  // Tests reduce waits with `window.DEMO_SCALE`. The shipped page uses 1.
+  // Keep each reduced wait at or above timer resolution.
   const wait = (ms) => new Promise((done) => setTimeout(done, Math.max(1, ms * (window.DEMO_SCALE || 1))));
   // Use ?slow=800 to delay fixture responses by 800 ms.
   const SLOW = (() => {
@@ -494,24 +494,24 @@ const DEMO_FIXTURES = __FIXTURES__;
   })();
   const round = (value) => Math.round(value * 1000) / 1000;
   const EMBED = "mistral/mistral-embed-2312";
-  // The members of each pool: the ids the pool holds, as the router draws from them.
+  // Map each pool to the model IDs that the router can select.
   const MEMBERS = Object.fromEntries(
     DEMO_FIXTURES.pools.map((pool) => [pool.name, pool.members.map((item) => item.id)])
   );
   const TEXT = MEMBERS["daedalus/auto"] || [];
-  // The pool that answers with each model, as a live row names it: the tier pool that holds it.
+  // Map each model to its tier pool for live rows.
   const POOL_OF = {};
   for (const pool of DEMO_FIXTURES.pools) {
     if (pool.name === "daedalus/auto") continue;
     for (const item of pool.members) POOL_OF[item.id] = pool.name.replace("daedalus/", "");
   }
   const POOL_NAMES = ["sophos", "deinos", "koinos", "moros"];
-  // The auto reasoning hook climbs this ladder, 1 step per agent step.
+  // Increase auto reasoning effort once per agent step.
   const LADDER = ["none", "low", "medium", "high"];
-  // The transition codes of the legend, in the order the try-again rows cycle through them.
+  // Cycle retry rows through these legend transition codes.
   const REASONS = ["err", "ctx", "lmt", "hlt", "rnd", "cls", "esc", "rce", "rt1"];
   let reasonN = 0;
-  // A session reads like the server sends it: the first 7 characters of the key hash.
+  // Show the first 7 key-hash characters as the session, as the server does.
   const session = (n) => ((n * 2654435761) % 0xfffffff).toString(16).padStart(7, "0");
   const gap = (min, max) => min + Math.random() * (max - min);
   // Use DEMO_SCENARIOS to script waves without changing the timing ranges.
@@ -543,13 +543,11 @@ const DEMO_FIXTURES = __FIXTURES__;
       attempt_age: Math.max(1, Math.round(now - clock.attempt)) / 1000,
     };
   };
-  // The Requests tab starts empty. The captured rows feed the scenarios as templates, so the
-  // fallback chains and the rate limits keep the shapes and the codes of the server.
+  // Start Requests empty. Use captured rows as templates to keep server fallback chains, rate limits, and codes.
   const SEEDED = DEMO_FIXTURES.requests.map((row) => ({ ...row }));
   DEMO_FIXTURES.requests = [];
   const TEMPLATES = SEEDED.filter((row) => row.transition);
-  // The captured catalog clock shifts to the viewer once: the last build 10 minutes ago,
-  // and the next in 2 hours.
+  // Shift the catalog clock once: the previous build was 10 minutes ago, and the next is in 2 hours.
   const opened = Date.now() / 1000;
   DEMO_FIXTURES.status.catalog.built = opened - 600;
   DEMO_FIXTURES.status.catalog.next = opened + 7200;
@@ -574,7 +572,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       DEMO_FIXTURES.status.catalog.rebuilding = false;
       DEMO_FIXTURES.status.catalog.built = Date.now() / 1000;
       state.models = catalog();
-      // The rebuild event of the Notifications page: the rows the rebuild added, removed or moved.
+      // Report added, removed, or changed rows in the Notifications rebuild event.
       const after = new Map(state.models.map((row) => [row.id, JSON.stringify(row)]));
       DEMO_FIXTURES.notifications.rebuilds.unshift({
         at: Date.now() / 1000,
@@ -589,8 +587,8 @@ const DEMO_FIXTURES = __FIXTURES__;
     }, REBUILD_MS);
     return json({ ok: true }, 202);
   };
-  // A simulated save lands in the page memory: the page shows it, and a reload brings the
-  // captured fixtures back. Each answer carries the text and the code of the server.
+  // Save changes in page memory. Reload restores captured fixtures.
+  // Keep server response text and codes.
   const body_of = (init) => {
     try {
       const value = JSON.parse(init.body || "null");
@@ -621,7 +619,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     const quoted = text.match(/^(["'])(.*)\\1$/);
     return quoted ? quoted[2] : text;
   };
-  // The flow lists of the config files: one level, scalar values, as the effort ladders write them.
+  // Read one-level flow lists of scalar values, such as effort ladders.
   const flow_list = (text, where) => {
     const inner = text.slice(1, -1).trim();
     if (!inner) return [];
@@ -633,8 +631,8 @@ const DEMO_FIXTURES = __FIXTURES__;
     const value = raw.trim();
     return value.startsWith("[") ? flow_list(value, where) : unscale(value);
   };
-  // The flow maps of the config files: one level, the values are scalars or flow lists. The split
-  // keeps the commas of a list together, so a ladder inside a map survives.
+  // Read one-level flow maps with scalar or flow-list values.
+  // Keep list commas together to preserve effort ladders inside maps.
   const flow_map = (text, where) => {
     const out = {};
     const inner = text.slice(1, -1).trim();
@@ -663,11 +661,11 @@ const DEMO_FIXTURES = __FIXTURES__;
   const SETTINGS_PATH = DEMO_FIXTURES.settings.path;
   const name_of = (path) => String(path).split("/").pop();
   const stem_of = (path) => name_of(path).replace(/\\.yml$/, "");
-  // The demo starts with an empty local main. These effective blocks are its cached cloud copy.
+  // Start with an empty local main file. These effective blocks hold its cached cloud copy.
   const CLOUD_MAIN = JSON.parse(JSON.stringify(
     DEMO_FIXTURES.files.find((file) => file.main)?.blocks || {},
   ));
-  // The values of the YAML subset of the config files: maps, lists and scalars.
+  // Read the config YAML subset: maps, lists, and scalars.
   const yaml_read = (text) => {
     const box = { node: {} };
     const stack = [{ indent: -1, node: box.node }];
@@ -694,7 +692,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       while (stack.length > 1 && depth <= stack[stack.length - 1].indent) stack.pop();
       let top = stack[stack.length - 1];
       if (body === "-" || body.startsWith("- ")) {
-        // A top-level list is valid YAML. The caller says that a file needs blocks.
+        // Accept top-level YAML lists. Callers require blocks where necessary.
         if (stack.length === 1 && !Array.isArray(top.node)) {
           top.node = [];
           box.node = top.node;
@@ -724,12 +722,12 @@ const DEMO_FIXTURES = __FIXTURES__;
       if (at < 0)
         return { error: `could not find expected ':' at line ${n + 1}, column ${depth + body.length}` };
       const value = body.slice(at + 1).trim();
-      // The flow map of a line holds `: ` pairs inside its braces, so it reads before the guard.
+      // Read flow maps before the guard because their braces contain `: ` pairs.
       if (!value.startsWith("{") && value.includes(": "))
         return { error: `mapping values are not allowed here at line ${n + 1}, column ${depth + at + 3}` };
       if (!top.node || typeof top.node !== "object" || Array.isArray(top.node))
         return { error: `mapping values are not allowed here at line ${n + 1}, column ${depth + 1}` };
-      // A quoted key carries its quotes in the text only, as the server's reader does.
+      // Remove quotes from parsed keys, as the server does.
       const key = body.slice(0, at).trim().replace(/^(["'])(.*)\\1$/, "$2");
       if (!value) {
         const follows = next_body(n + 1, depth);
@@ -764,7 +762,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     const limits = { ...DEFAULTS.limits, ...values };
     return limits.shortest > limits.longest ? "limits.shortest must be at most limits.longest" : "";
   };
-  // `settings.parse` of the server: the error line of a settings text, or an empty string.
+  // Match `settings.parse`: return the settings error text or an empty string.
   const settings_error = (value) => {
     if (!value || typeof value !== "object" || Array.isArray(value))
       return `${SETTINGS_PATH} must hold groups of keys`;
@@ -783,8 +781,8 @@ const DEMO_FIXTURES = __FIXTURES__;
       return "each pool in personalization must have its own name";
     return limits_error(value.limits);
   };
-  // The provider form sends parsed blocks. The files tab reads the text of a file.
-  // A plain YAML key starts with a letter, a digit or _. A slug such as @cf/... needs quotes.
+  // Provider forms send parsed blocks. The files tab reads text.
+  // Plain keys start with a letter, digit, or _ and slugs such as @cf/... need quotes.
   const key_of = (key) => (/^[A-Za-z0-9_][A-Za-z0-9_./@+-]*$/.test(String(key)) ? key : JSON.stringify(String(key)));
   const yaml_of = (value, pad = "") => {
     if (Array.isArray(value))
@@ -805,7 +803,7 @@ const DEMO_FIXTURES = __FIXTURES__;
         .join("");
     return `${pad}${scald(value)}\\n`;
   };
-  // The lines of a file as a tree, so a merged value keeps the comments of its line.
+  // Build a line tree to preserve line comments when values merge.
   const line_tree = (text) => {
     const root = { line: -1, indent: -1, children: [] };
     const stack = [root];
@@ -822,7 +820,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     return root;
   };
   const tail_of = (line) => (line.match(/\\s+#.*$/) || [""])[0];
-  // The line after the block of a key: the next line at its indent or above, blanks aside.
+  // Find the next line at this indent or above, excluding blank lines.
   const node_end = (node, lines) => {
     let at = node.line + 1;
     while (at < lines.length) {
@@ -876,14 +874,14 @@ const DEMO_FIXTURES = __FIXTURES__;
     const lines = text.length ? text.split("\\n") : [];
     const tree = line_tree(text);
     let node = tree.children.find((child) => child.key === group);
-    // The server appends a group that the file does not have yet.
+    // Append a missing group, as the server does.
     if (!node) {
       if (value === null || value === undefined) return text;
       lines.push(`${group}:`);
       node = { line: lines.length - 1, indent: 0, key: group, children: [] };
     }
     const found = node.children.find((child) => child.key === key);
-    // A key without a default goes away, and the last key of a group takes the group.
+    // Remove keys without defaults. Remove a group when its last key goes.
     if (value === null || value === undefined) {
       if (!found) return text;
       const rest = lines.slice(node_end(found, lines));
@@ -914,7 +912,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     });
     return json(DEMO_FIXTURES.env);
   };
-  // `keys.check_name` of the server: 1 to 40 characters, and a name that is free.
+  // Match `keys.check_name`: require a free name of 1 to 40 characters.
   const key_made = async (init) => {
     const raw = (await body_of(init)).name;
     const name = typeof raw === "string" ? raw.trim() : "";
@@ -933,7 +931,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     DEMO_FIXTURES.keys.splice(at, 1);
     return new Response(null, { status: 204 });
   };
-  // The demo opens without a login. After a logout, `admin` and any password open it again.
+  // Open the demo without login. After logout, accept `admin` and any password.
   const log_in = async (init) => {
     const body = await body_of(init);
     const user = word(body.username);
@@ -989,8 +987,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     }
     return json({ ok: true, text: DEMO_FIXTURES.settings.text });
   };
-  // The fake upstream of the demo: each provider answers with its plan, its caps and its
-  // balance. The capture keeps the values of a real plan, so the shapes stay true.
+  // Simulate provider plans, caps, and balances with captured values from real plans.
   const PLAN = {
     cloudflare: { requests: 14400, tokens: 4000000, neurons: 10000 },
     kilo: { requests: 200, tokens: 1000000 },
@@ -1000,7 +997,7 @@ const DEMO_FIXTURES = __FIXTURES__;
   const plan_of = (provider, block) => {
     const plan = { ...(PLAN[provider] || { requests: 1000, tokens: 1000000 }) };
     if (block) {
-      // A block may set its own cap, as the hourly_requests key of kilo does.
+      // Let blocks override caps, such as kilo hourly_requests.
       if (block.hourly_requests) plan.requests = block.hourly_requests;
       if (block.models && typeof block.models === "object") plan.token_cap = null;
     }
@@ -1012,7 +1009,7 @@ const DEMO_FIXTURES = __FIXTURES__;
   );
   const weights = new Map();
   const cooldowns = new Map();
-  // A shadow file merges over the block of its name, key by key, as the config does.
+  // Merge shadow files into their named blocks, key by key, as config does.
   const merge = (into = {}, from = {}) => {
     const out = { ...into };
     for (const [key, value] of Object.entries(from)) {
@@ -1037,7 +1034,7 @@ const DEMO_FIXTURES = __FIXTURES__;
   };
   const catalog = () => {
     const known = new Map(DEMO_FIXTURES.models.map((row) => [row.id, row]));
-    // The patterns of the server: an exact name, then a glob, then a regex, then a negation.
+    // Match exact names, globs, regexes, and negations, as the server does.
     const BACKSLASH = String.fromCharCode(92);
     const esc = (text) => String(text).split("").map((char) =>
       (".+^$()|[]{}".includes(char) || char === BACKSLASH ? BACKSLASH + char : char)).join("");
@@ -1056,7 +1053,7 @@ const DEMO_FIXTURES = __FIXTURES__;
         return [2, pattern.replace(/[*?]/g, "").length];
       return [3, pattern.length];
     };
-    // The value of the most specific pattern that takes one slug, as the config does.
+    // Return the value of the most specific matching pattern, as config does.
     const take = (map, slug) => {
       let best = null, bestSpec = null;
       for (const [pattern, value] of Object.entries(map)) {
@@ -1075,8 +1072,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       const tiers = {};
       for (const [tier, ids] of Object.entries(block.tier || {}))
         if (Array.isArray(ids)) for (const id of ids) tiers[String(id)] = tier;
-      // The snapshot is the catalog state, so each captured row reaches the page. The models
-      // block still names an exact slug that the snapshot does not hold.
+      // Include every captured catalog row and any exact slug declared in the models block.
       const slugs = new Set();
       for (const id of known.keys())
         if (id.startsWith(`${name}/`)) slugs.add(id.slice(name.length + 1));
@@ -1108,7 +1104,7 @@ const DEMO_FIXTURES = __FIXTURES__;
   };
   const state = { models: catalog() };
   const model_of = (id) => state.models.find((row) => row.id === id);
-  // A finished request moves the weights and the cooldowns of its attempts, as the server does.
+  // Apply finished request weights and cooldowns to each attempt, as the server does.
   const apply = (row) => {
     for (const attempt of row.attempts || []) {
       const target = model_of(attempt.model);
@@ -1124,7 +1120,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       }
     }
   };
-  // The pools of the server: the settings name each tier, and auto holds every chat model.
+  // Settings name each tier pool. The auto pool includes all chat models.
   const pools = () => {
     const file = DEMO_FIXTURES.settings.file.personalization || {};
     const names = { ...DEMO_FIXTURES.settings.defaults.personalization, ...file };
@@ -1163,8 +1159,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     }
     return out;
   };
-  // The limits check of the server reads each provider again. The fake upstream answers
-  // with the plan of each provider, and the requests of this page move what it answered.
+  // Limits checks read each provider again. Simulated plans account for requests from this page.
   const served_by = (provider) =>
     [...USED].filter(([id]) => String(id).startsWith(provider + "/"))
       .reduce((sum, [, count]) => sum + count, 0);
@@ -1222,21 +1217,20 @@ const DEMO_FIXTURES = __FIXTURES__;
       if (!model_of(lane.model)) continue;
       lanes.push(lane_of(lane.model, lane, now));
     }
-    // A model that the capture never held is new: the upstream reports a lane for it.
+    // Report a new lane for chat models absent from the capture.
     const captured = new Set(DEMO_FIXTURES.models.map((row) => row.id));
     for (const row of state.models) {
       if (!captured.has(row.id) && row.mode === "chat") lanes.push(lane_of(row.id, null, now));
     }
     return json({ checked: now, lanes, providers: cards() });
   };
-  // A provider write builds the catalog again, so the Models page, the pools and the
-  // Limits page follow the text at once.
+  // Rebuild the catalog after provider writes to update Models, pools, and Limits.
   const reload = (job) =>
     job && job.then((answer) => {
       if (answer.status === 200 || answer.status === 201) state.models = catalog();
       return answer;
     });
-  // The yaml save of the Providers tab: the text re-reads into the blocks of the file.
+  // Parse saved provider YAML into file blocks.
   const file_saved = (init) => {
     const asked = body_of(init);
     const file = DEMO_FIXTURES.files.find((item) => item.path === asked.path);
@@ -1273,7 +1267,7 @@ const DEMO_FIXTURES = __FIXTURES__;
   };
   const provider_env_name = (provider, client = "") =>
     `${provider}_API_KEY${client ? "_" + client : ""}`.toUpperCase().replace(/[^A-Z0-9_]/g, "_");
-  // The form save of the Providers tab: the blocks re-write the text of the file.
+  // Write provider form blocks to file text.
   const form_saved = (init) => {
     const asked = body_of(init);
     const file = DEMO_FIXTURES.files.find((item) => item.path === asked.path);
@@ -1361,17 +1355,17 @@ const DEMO_FIXTURES = __FIXTURES__;
     saved.hook_rows.splice(at, 1);
     return settings_saved({ body: JSON.stringify({ changes: { hooks: changes } }) });
   };
-  // A write with no home in the demo stays refused.
+  // Reject writes that the demo does not support.
   const save = (path, method, init) => {
     if (path === "catalog" && method === "POST") return rebuild();
     if (path === "limits" && method === "POST") return check_limits();
     if (path === "updates" && method === "POST") {
-      // The demo keeps the captured answer: the check moves its checked time.
+      // Keep the captured answer and update its check time.
       DEMO_FIXTURES.notifications.update = { ...DEMO_FIXTURES.notifications.update, at: Date.now() / 1000 };
       return json(DEMO_FIXTURES.notifications.update);
     }
     if (path === "reset" && method === "POST") {
-      // The snapshot rows carry the captured weights, so the reset pins them back to 1.
+      // Reset captured model weights to 1.
       for (const row of DEMO_FIXTURES.models) {
         weights.set(row.id, 1);
         cooldowns.set(row.id, null);
@@ -1395,7 +1389,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       return bad("The demo keeps the shipped file list read-only.", 403);
     if (path === "settings" && method === "PUT") return settings_saved(init);
     if (path === "hooks/file" && method === "DELETE") return hook_dropped(init);
-    // The demo fetch names the demo repo, and the take holds the selected files in the page memory.
+    // Hook scans name the demo repository. Selected files stay in page memory.
     if (path === "hooks/scan" && method === "POST") {
       const asked = body_of(init);
       return json({
@@ -1409,7 +1403,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     if (path === "hooks/update" && method === "POST") return json(DEMO_HOOKS.answer);
     return null;
   };
-  // The hook manager of the demo: a scan names 2 files, and an update reports the version move.
+  // Simulate hook scans with 2 files and report version changes on update.
   const DEMO_HOOKS = {
     repo: "nemoe7/daedalus",
     commit: "3f9c1ab4d2e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9",
@@ -1478,15 +1472,14 @@ const DEMO_FIXTURES = __FIXTURES__;
     USED.set(served, (USED.get(served) || 0) + 1);
     apply(row);
   };
-  // The live stream of a server: the demo sends the same events, 1 request per wave,
-  // each with its own timings and a random gap before the next wave.
+  // Emit server events for one request per wave, with separate timings and random gaps between waves.
   window.EventSource = class {
     constructor() {
       this.listeners = new Map();
       this.closed = false;
       this.next = 0;
       this.sessions = 0;
-      // The server sends the requests in flight 1st, then each change.
+      // Send requests in progress first, then each change, as the server does.
       this.running = new Map();
       this.loop();
     }
@@ -1499,13 +1492,13 @@ const DEMO_FIXTURES = __FIXTURES__;
     }
     send(kind, data) {
       if (this.closed) return;
-      // The rows in flight, as the server keeps them for the next page that connects.
+      // Keep requests in progress for the next page connection, as the server does.
       if (kind === "start" || kind === "update" || kind === "first") this.running.set(data.id, data);
       if (kind === "end") this.running.delete(data.id);
       for (const call of this.listeners.get(kind) || []) call({ data: JSON.stringify(data) });
     }
     async loop() {
-      // The page attaches its listeners 1st: the server answers on a later tick.
+      // Let the page attach listeners before the server response on a later tick.
       await wait(0);
       this.send("live", [...this.running.values()]);
       const queue = window.DEMO_SCENARIOS;
@@ -1516,7 +1509,7 @@ const DEMO_FIXTURES = __FIXTURES__;
         await wait(gap(...WAVE_MS));
       }
     }
-    // The mix of a day of traffic: mostly owui chats, often agents, and a rare stray client.
+    // Simulate mostly OWUI chats, frequent agents, and rare unknown clients.
     select() {
       const r = Math.random();
       if (r < 0.06) return "stray";
@@ -1536,7 +1529,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       if (kind === "race") return this.race();
       return this.chat();
     }
-    // An owui chat does these in order: the embedding, the title, and the chat itself.
+    // Run OWUI chat requests in order: embedding, title, and chat.
     async chat() {
       const s = session(++this.sessions * 7919);
       await this.call({
@@ -1553,7 +1546,7 @@ const DEMO_FIXTURES = __FIXTURES__;
         tokens: { estimate: false, input: 14 + this.sessions, output: 5 + this.sessions },
       });
     }
-    // A rag search calls the embedding model, and the chat answers from the documents.
+    // Run embeddings for RAG search, then answer the chat from documents.
     async rag() {
       const s = session(++this.sessions * 7919);
       await this.call({
@@ -1566,7 +1559,7 @@ const DEMO_FIXTURES = __FIXTURES__;
         tokens: { estimate: false, input: 480 + this.sessions, output: 90 },
       });
     }
-    // An agent workflow climbs the effort ladder, 1 step per call, and can stop on a tool loop.
+    // Increase agent effort once per call, with an optional stop on a tool loop.
     async agentic(app, steps) {
       const s = session(++this.sessions * 7919);
       for (let i = 0; i < steps; i++) {
@@ -1579,10 +1572,9 @@ const DEMO_FIXTURES = __FIXTURES__;
         });
       }
     }
-    // A try again bumps to a higher tier: the row keeps the chain, the cooldown and the weight.
+    // Retry at a higher tier and keep the chain, cooldown, and weight.
     async escalate() {
-      // The scripted wave shows the rate limit: the cooldown template serves, if the
-      // capture holds one.
+      // Use a captured cooldown template, if available, to show the rate limit.
       const cooled = TEMPLATES.find((row) => (row.attempts || []).some((a) => a.cooldown));
       const template = cooled || select(TEMPLATES);
       const reason = REASONS[reasonN++ % REASONS.length];
@@ -1602,7 +1594,7 @@ const DEMO_FIXTURES = __FIXTURES__;
         ...template, session: session(++this.sessions * 7919), stream: true, ttft: 0.297,
       });
     }
-    // A client the page does not know: no app, and no session. Rare, but it happens.
+    // Simulate rare requests with no known app or session.
     async stray() {
       const pooled = Math.random() < 0.5;
       const model = pooled ? `daedalus/${select(POOL_NAMES)}` : select(TEXT);
@@ -1611,10 +1603,10 @@ const DEMO_FIXTURES = __FIXTURES__;
         stream: Math.random() < 0.5, ttft: ttftFor("chat"),
       });
     }
-    // 1 request, as the server lives it: start, model known, first token, end.
+    // Emit each request in four stages: start, model selection, first token, and end.
     async call(spec) {
       const id = ++this.next;
-      // An auto row carries the pool that answered, as `dashboard.record` writes it.
+      // Include the answering pool in auto rows, as `dashboard.record` does.
       const pool = spec.pool ?? (String(spec.model).startsWith("daedalus/auto")
         ? POOL_OF[spec.via] || null : null);
       began(id);
@@ -1631,7 +1623,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       });
       this.send("update", live);
       await wait(round(spec.ttft) * 1000);
-      // The first token: TTFT freezes at the wait, and the stream clock counts from 0.
+      // Freeze TTFT at the first token and start the stream clock at zero.
       const frozen = ages(id);
       Object.assign(live, { trying: null, via: spec.via, ttft: frozen.attempt_age, ...frozen });
       this.send("first", live);
@@ -1646,8 +1638,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       const attempts = source.map(item => ({ ...item, seconds: item.result === "answered"
         ? frozen.attempt_age : item.seconds == null ? null
         : Math.floor((span ? item.seconds * budget / span : 0) * 1000) / 1000 }));
-      // The finished row carries the fields of `dashboard.record`: the status code, the text
-      // times, and the answer.
+      // Include `dashboard.record` fields: status code, text times, and answer.
       const done = {
         at: Date.now() / 1000, status: 200, seconds: elapsed.age,
         app: spec.app ?? null, session: spec.session ?? null, key: "master", model: spec.model,
@@ -1658,7 +1649,7 @@ const DEMO_FIXTURES = __FIXTURES__;
         fallbacks: spec.fallbacks || "0", tokens: spec.tokens ?? null,
         attempts,
       };
-      // The row lands before the end event: the refresh of the page then reads it at once.
+      // Store the row before the end event so page refreshes read it at once.
       keep(done);
       this.send("end", { id, row: done });
       CLOCKS.delete(id);
