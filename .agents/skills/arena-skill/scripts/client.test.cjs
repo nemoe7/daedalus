@@ -3649,6 +3649,50 @@ test('preview client', async (t) => {
     }
   });
 
+
+  await t.test('Successful message receipts retain Markdown until the state poll', async () => {
+    const keptState = state;
+    const keptSendHandler = sendHandler;
+    let releaseState = () => {};
+    try {
+      state = { ...state, notes: [], reports: [], fetch_jobs: [], tasks: { upcoming: [], finished: [] } };
+      await refresh();
+      get('#notes-tab').events.click();
+      for (const withHtml of [false, true]) {
+        const draft = '> test\n\ntest';
+        const localHtml = context.renderMessageMarkdown(draft);
+        const serverHtml = localHtml.replace('<blockquote>', '<blockquote class="server-rendered">');
+        sendHandler = async posted => {
+          const receipt = { ...posted, at: new Date().toISOString() };
+          state.notes.push({ ...receipt, html: serverHtml });
+          stateResponseWait = new Promise(resolve => { releaseState = resolve; });
+          return response(withHtml ? { ...receipt, html: serverHtml } : receipt);
+        };
+        get('#note').value = draft;
+        await get('#form').events.submit(event({}));
+        const confirmedBody = get('#history').children.at(-1).children[0];
+        assert.equal(confirmedBody.className, 'message-text',
+          'successful confirmation keeps the rendered message body');
+        assert.equal(confirmedBody.innerHTML, withHtml ? serverHtml : localHtml,
+          'server HTML takes precedence, and a raw receipt keeps the local rendering');
+        assert.equal(get('#note').value, '');
+        releaseState();
+        stateResponseWait = null;
+        await tick();
+        await refresh();
+        assert.equal(get('#history').children.at(-1).children[0].innerHTML, serverHtml,
+          'the following state poll uses the server rendering');
+      }
+    } finally {
+      releaseState();
+      stateResponseWait = null;
+      sendHandler = keptSendHandler;
+      state = keptState;
+      await tick();
+      await refresh();
+    }
+  });
+
 });
 
 test('the phone footer keeps Send beside a long status', () => {

@@ -520,12 +520,15 @@ def format_task_list(tasks,full=False):
 		lines.append(line)
 		for detail in task.get('details',[]):lines.append(f"    {detail}")
 	return'\n'.join(lines)
-def format_task(record):
-	id_=record.get('id');order=record.get('order');status=record.get('status');report_id=record.get('report_id');blocked=record.get('blocked');title=record.get('title')or'';details=record.get('details')or[];cut=[detail[:ECHO_DETAIL]+('…'if len(detail)>ECHO_DETAIL else'')for detail in details];first=f"task {id_}, order {order}, status {status}";task_type=record.get('type')
+def format_task(record,full=False):
+	id_=record.get('id');order=record.get('order');status=record.get('status');report_id=record.get('report_id');blocked=record.get('blocked');title=record.get('title')or'';details=record.get('details')or[];cut=details if full else[detail[:ECHO_DETAIL]+('…'if len(detail)>ECHO_DETAIL else'')for detail in details];first=f"task {id_}, order {order}, status {status}";task_type=record.get('type')
 	if task_type and task_type!=TASK_UNSPECIFIED:first+=f", type {task_type}"
 	if report_id:first+=f", report {report_id}"
 	if blocked:first+=', blocked'
-	lines=[first,title]+[f"- {d}"for d in cut];return'\n'.join(lines)
+	lines=[first,title]+[f"- {d}"for d in cut]
+	if full:
+		for answer in record.get('answers',[]):lines.extend([f"answer {answer['id']}, at {answer['at']}",answer['text']])
+	return'\n'.join(lines)
 def format_key(record):
 	lines=[]
 	if record.get('key'):lines.append(f"key {record['key']}")
@@ -1936,9 +1939,9 @@ def main():
 			task_id=args.id_arg
 			if not task_id:raise ValueError('A task needs an ID')
 			if args.title_arg is None and not args.detail_arg and args.task_details is None and not args.append_details and args.status is None and args.order is None and args.blocked is None and args.report is None and args.msg_id is None and args.amend is None and args.task_type is None:
-				resolved=store.resolve_id(task_id);record=store.task_record(resolved)
+				resolved=store.resolve_id(task_id);tasks=store.tasks()or{};record=next((item for status in TASK_STATUSES for item in tasks.get(status,[])if item['id']==resolved),None)
 				if record is None:raise ValueError(f"No task is stored under {resolved}")
-				print(format_task(record));return 0
+				print(format_task(record,full=True));return 0
 			details=args.task_details
 			if details is None and args.detail_arg:details=args.detail_arg
 			if details is not None:details=task_steps(details);check_task_steps(details)
