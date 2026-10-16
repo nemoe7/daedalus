@@ -819,12 +819,6 @@ const DEMO_FIXTURES = __FIXTURES__;
       stack[stack.length - 1].children.push(node);
       stack.push(node);
     });
-    const ends = (node, last) => {
-      node.children.forEach((child, at) => {
-        ends(child, at + 1 < node.children.length ? node.children[at + 1].line : last);
-      });
-    };
-    ends(root, text.split("\\n").length);
     return root;
   };
   const tail_of = (line) => (line.match(/\\s+#.*$/) || [""])[0];
@@ -849,7 +843,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     const at = found ? node_end(found, lines) : node_end(node, lines);
     if (Array.isArray(value)) {
       const block = [`${pad}${key}:`].concat(value.map((item) => `${pad}  - ${scald(item)}`));
-      return lines.slice(0, found ? found.line : at).concat(block, lines.slice(found ? at : at));
+      return lines.slice(0, found ? found.line : at).concat(block, lines.slice(at));
     }
     if (value && typeof value === "object") {
       if (found) return put_map(lines, found, value, pad + "  ");
