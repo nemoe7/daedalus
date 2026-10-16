@@ -30,7 +30,7 @@ const POOL_NOTES = {
   "daedalus/graphos": t("model.pool.graphos_text"),
   "daedalus/photos": t("model.pool.photos_text"),
 };
-// The Requests page loads 50 rows, and each "Show more" adds 50, up to the 500 that the server keeps.
+// Load requests in batches of 50, up to the server's 500-row history limit.
 const REQUESTS_STEP = 50;
 const REQUESTS_KEPT = 500;
 const $ = (id) => document.getElementById(id);
@@ -42,7 +42,7 @@ const htmlAttrs = (attrs = {}) => Object.entries(attrs).map(([name, value]) => {
 }).join("");
 const tierLetter = (name) => (name || "").replace("TIER-", "") || "-";
 const tokens = (n) => !n ? "-" : n >= 1e6 ? +(n / 1e6).toFixed(1) + "M" : n < 1000 ? String(n) : Math.round(n / 1024) + "K";
-// The hour cycle of each shown time, from personalization.time_format: h23 for 24h, h12 for 12h.
+// Use personalization.time_format: h23 for 24h and h12 for 12h.
 let hourCycle = "h23";
 // The stamp of an absolute time: 2026-10-04 12:30:46.
 const stamp = (seconds) => {
@@ -57,7 +57,7 @@ const stamp = (seconds) => {
 const plural = (number, one, other, values = {}) =>
   t(number === 1 ? one : other, { count: number, ...values });
 
-// A shared relative time: 2 hours ago, in 6 hours, 12 mins ago, 29 days ago.
+// Format relative time with localized labels.
 function relative(seconds) {
   const minutes = (seconds * 1000 - Date.now()) / 60000;
   const ago = minutes <= 0;
@@ -79,7 +79,7 @@ function relative(seconds) {
     : plural(hours, "time.hour_from_now.one_text", "time.hour_from_now.other_text");
 }
 
-// A relative time with its exact stamp on hover. The caller keeps the surrounding layout local.
+// Render relative time with an exact-time title, leaving layout to the caller.
 function timeText(seconds, { tag = "span", variant = "" } = {}) {
   const attrs = htmlAttrs({ class: variant || null, title: stamp(seconds) });
   return `<${tag}${attrs}>${esc(relative(seconds))}</${tag}>`;
@@ -112,12 +112,11 @@ const none = (text) => `<div class="more">${text}</div>`;
 function actionButton(content, { variant = "", type = "button", attrs = {} } = {}) {
   return `<button${variant ? ` class="${esc(variant)}"` : ""} type="${esc(type)}"${htmlAttrs(attrs)}>${content}</button>`;
 }
-// A model name cell that ends in an ellipsis when it is too long. The title shows the full name.
+// Model-name cells use ellipses for long text and keep the full name in the title.
 const mobileLabel = (text) => `<span class="mobile-label" aria-hidden="true">${esc(text)}</span>`;
 const nameCell = (text, shown = esc(text), label = t("model.column.model_column"), extra = "") =>
   `<td role="cell" class="name" title="${esc(text)}">${label ? mobileLabel(label) : ""}<span class="cell-value">${shown}</span>${extra}</td>`;
-// Model marks use `provider/developer/slug`, without a duplicate provider name.
-// Names without a matching SVG under `ui/icons/` show as text.
+// Render `provider/developer/slug` without duplicate provider names, using text when no SVG matches.
 const MARK_FILES = new Set([
   "anthropic", "baai", "black-forest-labs", "bytedance", "cloudflare", "cohere", "daedalus",
   "deepseek-ai",
@@ -141,7 +140,7 @@ const parts = (id) => {
   if (dev && dev.toLowerCase() === provider.toLowerCase()) dev = null;
   return { provider, dev, model };
 };
-// The separator of the parts, so the cell reads as the model id does.
+// Separate model-ID parts with a slash.
 const sep = '<span class="mark-sep" aria-hidden="true">/</span>';
 const modelName = (id, pool = "", tint = false) => {
   const { provider, dev, model } = parts(id);
@@ -151,8 +150,8 @@ const modelName = (id, pool = "", tint = false) => {
   return heads.join(sep) + sep + `<span class="model-part">${esc(model)}</span>` + tail;
 };
 
-// The pool rides in the slug of the auto model: daedalus/auto/moros. The field may carry the
-// full pool name, such as daedalus/moros, and the slug keeps the last part.
+// Use the pool suffix in auto model slugs, such as daedalus/auto/moros.
+// A full pool name such as daedalus/moros contributes moros.
 const poolOf = (r) => {
   const pool = String(r.pool || "").replace(/^daedalus\//, "");
   return pool && String(r.model || "").startsWith("daedalus/auto") ? pool : "";
@@ -160,9 +159,8 @@ const poolOf = (r) => {
 const cell = (label, inner, cls = "", attrs = "") =>
   `<td role="cell"${cls ? ` class="${cls}"` : ""}${attrs}>${mobileLabel(label)}<span class="cell-value">${inner}</span></td>`;
 
-// A confirmation modal in place of window.confirm. It resolves true on Confirm.
-// A placeholder shows the name field: the caller reads modal-input after a true.
-// The settle promise lives on the sandbox so a test can resolve the dialog.
+// Replace window.confirm with a modal that resolves true on Confirm, with an optional name field.
+// Read modal-input after confirmation. Tests resolve the dialog through globalThis.__settle.
 function ask(title, message, confirm, danger = false, placeholder = null, value = "") {
   return new Promise((resolve) => {
     globalThis.__settle = resolve;
@@ -185,8 +183,8 @@ function ask(title, message, confirm, danger = false, placeholder = null, value 
   });
 }
 
-// The 2-field modal: a name and its value. It resolves true on Confirm,
-// and the caller reads modal-input and modal-input2 after a true.
+// Resolve a two-field modal to true on Confirm.
+// Then read the name from modal-input and its value from modal-input2.
 function askPair(title, message, nameLabel, valueLabel, name = "", value = "", confirm = t("action.save_button")) {
   return new Promise((resolve) => {
     globalThis.__settle = resolve;
@@ -212,8 +210,8 @@ function askPair(title, message, nameLabel, valueLabel, name = "", value = "", c
   });
 }
 
-// The 2-field modal with a select on top and a text field below. It resolves true on
-// Confirm, and the caller reads modal-choice and modal-input2 after a true.
+// Display a select above a text field, and resolve true on Confirm.
+// Then read modal-choice and modal-input2.
 function askChoicePair(title, message, choices, placeholder) {
   return new Promise((resolve) => {
     globalThis.__settle = resolve;
@@ -237,8 +235,8 @@ function askChoicePair(title, message, choices, placeholder) {
   });
 }
 
-// The small editor of a value row, on the modal manager. The close of that dialog writes the
-// 1 value: Save writes it, and Cancel or Escape leaves the file alone.
+// Edit one row value through the modal.
+// Save writes changes, while Cancel or Escape keeps the file unchanged.
 async function editValue(input, write) {
   const box = $("modal-input");
   const number = input.type === "number" ? document.createElement("input") : null;
@@ -268,7 +266,7 @@ async function editValue(input, write) {
   write(input);
 }
 
-// A value row: the value shows as text, and a click opens the small editor.
+// Open the row-value editor on a click.
 function bindValueRows(host, write) {
   const activate = (event) => {
     const input = event.target.closest("[data-value]");
@@ -282,11 +280,10 @@ function bindValueRows(host, write) {
   });
 }
 
-// The anchor of a write: the row of the control that caused it. A value row holds its editor,
-// so the icon lands inside that row.
+// Use the control's row as the write anchor so Undo stays inside it.
 const anchorOf = (node) => node?.closest(".pills, .tier-row, .override, .input, .field") ?? node ?? null;
 
-// A number of the Overview strip: the value on top, its name below.
+// An Overview metric, with its value above its label.
 const kpi = (value, label) => `<div class="kpi"><b>${value}</b><small>${esc(label)}</small></div>`;
 
 // One card for each page, from the data that the pages already read.
@@ -332,9 +329,8 @@ function keepSession(value, remember) {
   if (value) (remember ? localStorage : sessionStorage).setItem(SESSION, value);
 }
 
-// A call that runs longer than a blink shows the header spinner, so a slow answer never reads as a
-// dead page. The count holds the ring while any call of the page is open, and a fast call shows
-// nothing: the timer waits out the grace period first.
+// Display the header spinner after a 300 ms delay while calls remain active.
+// Fast calls finish before the spinner appears.
 let calling = 0;
 let spinnerTimer = null;
 function showSpinner(on) {
@@ -355,7 +351,7 @@ async function call(path, options = {}) {
         ...options,
       });
     } catch {
-      // No answer at all: the line says so in place of the browser wording of a failed fetch.
+      // Replace browser fetch errors with the dashboard connection error.
       throw new Error(t("error.dashboard_unreachable_text"));
     }
     if (response.status === 401 && path !== "login") {
@@ -379,7 +375,7 @@ async function call(path, options = {}) {
   }
 }
 
-// The first load draws placeholder rows, so a table shows its shape while the answer is on the way.
+// Draw placeholder rows during the first load.
 function skeletons(id, cols, rows = 3) {
   $(id).innerHTML = Array.from({ length: rows }, () =>
     `<tr class="skeleton" aria-hidden="true">${`<td><span></span></td>`.repeat(cols)}</tr>`).join("");
@@ -396,7 +392,7 @@ function showLogin(message = "") {
   loginHints();
 }
 
-// The username to fill in and the master key hint, for the values that the environment does not set.
+// Read the default username and master key hint when the environment does not set them.
 async function loginHints() {
   const hints = await call("login").catch(() => ({}));
   const form = $("login");
@@ -406,7 +402,7 @@ async function loginHints() {
   form[form.username.value ? "password" : "username"].focus();
 }
 
-// The eye button shows the password until the next click or login.
+// Display the password until the next click or login.
 function showPassword(on) {
   const button = $("show-password");
   const label = on ? t("auth.password.hide_label") : t("auth.password.show_label");
@@ -447,7 +443,7 @@ async function guarded(task) {
 }
 
 async function rebuildCatalog() {
-  // The count is the providers in the catalog now: a rebuild reads their model lists again.
+  // Count the current providers before the rebuild reads their model lists again.
   const providers = new Set(state.models.map((row) => row.provider)).size;
   const go = await ask(t("catalog.action.title"), t("catalog.action.hint", { count: providers }), t("action.rebuild_button"));
   if (!go) return;
@@ -460,7 +456,8 @@ async function rebuildCatalog() {
   guarded(refreshFast);
 }
 
-// The status card of a phone: the health row, then 1 line for each value. The catalog line starts a rebuild.
+// The phone status card has a health row and one row per value.
+// Its catalog button starts a rebuild.
 function renderStatusCard(status) {
   const { built, next, rebuilding } = status.catalog || {};
   const last = rebuilding ? t("catalog.rebuilding_text") : built ? relative(built) : t("catalog.never_text");
@@ -486,7 +483,7 @@ function renderStatusCard(status) {
     });
 }
 
-// The last state answer. It stays in place when a later call fails, and the chip says so.
+// Track status availability. Retain the last data and display a chip after a failed request.
 let stateKnown = null;
 
 function stateChip() {
@@ -495,7 +492,7 @@ function stateChip() {
   return `<span class="chip bad" id="state-unknown" title="${t("state.unknown.hint")}">${t("state.unknown_text")}</span>`;
 }
 
-// The Overview card holds health, sessions and catalog data. The header shows the state.
+// The Overview card contains health, sessions, and catalog data. The header displays the state.
 function renderChips() {
   document.querySelectorAll("[data-status]").forEach((host) => { host.innerHTML = stateChip(); });
 }
@@ -515,14 +512,14 @@ function renderStatus(status) {
   markNavSteps();
 }
 
-// The tier filter of the Models tab for each pool. The other pools show all tiers.
+// Filter Models by each pool's tier. Other pools display all tiers.
 const POOL_TIERS = {
   "daedalus/auto": "All", "daedalus/sophos": "A", "daedalus/deinos": "B",
   "daedalus/koinos": "C", "daedalus/moros": "D",
 };
 
-// A pool row names the member that served the most requests the page holds.
-// A pool without those requests keeps its catalog first model.
+// Select the member with the most requests in the page history.
+// Use the first catalog member if none have requests.
 function topModel(members, served) {
   const counts = members.map((member) => served[member.id] || 0);
   const best = Math.max(...counts);
@@ -590,7 +587,7 @@ function shortEffort(value) {
   return EFFORT_SHORT[level] || shown;
 }
 
-// The effort that the client asked for, then the effort that went to the model that answered.
+// Display the requested effort, then the effort sent to the model that answered.
 function effortCell(r) {
   const served = (r.attempts || []).filter((a) => a.result === "answered" && "effort" in a).pop();
   if (!served) return esc(r.effort || "-");
@@ -599,12 +596,12 @@ function effortCell(r) {
   return `${esc(r.effort || "-")} <span class="from">${esc(shortEffort(sent))}</span>`;
 }
 
-// A request that the client closed shows "cancelled" in place of its status.
+// Display cancelled instead of the status for a request that the client closed.
 function statusText(r) {
   return r.cancelled ? t("request.state.cancelled_text") : r.status;
 }
 
-// The meaning of each status, for the hover of the status cell.
+// Explain each status in the cell title.
 const STATUS_NOTES = {
   200: t("request.status.ok_text"),
   429: t("request.status.rate_limited_text"),
@@ -618,7 +615,7 @@ function statusBadge(text, { variant = "", title = "" } = {}) {
   return `<span${attrs}>${esc(text)}</span>`;
 }
 
-// The status on the page: 499, the nginx code of a request that the client closed.
+// Display status 499 for a request that the client closed.
 function statusCell(r) {
   if (r.cancelled) return statusBadge(499, { title: t("request.status.cancelled_text") });
   const note = STATUS_NOTES[r.status];
@@ -652,7 +649,7 @@ function chainText(r) {
   return [head, ...steps].join("\n");
 }
 
-// A request opens its fallback chain only after a fallback, or when an attempt failed and has an error to show.
+// A chain is available for multiple attempts or any result other than answered.
 const hasChain = (r) => (r.attempts || []).length > 1 || (r.attempts || []).some((a) => a.result !== "answered");
 
 function chainSteps(r) {
@@ -681,9 +678,8 @@ function chainRows(r) {
   </div></td></tr>`;
 }
 
-// The routing codes of the model cell: a transition, a fallback tier, and a stopped loop.
-// Why the racers did or did not start: the code wears the same 3 letter shape as the routing
-// codes, and the title carries the full note. It shows while the race is on.
+// Explain race decisions with three-letter codes and titles.
+// Display race notes only with active affinity.
 const RACE_NOTES = {
   off: t("request.race.off.note"),
   pool: t("request.race.pool.note"),
@@ -723,8 +719,7 @@ function mobileFallbackChain(r, tail = "") {
   </details>`;
 }
 
-// The fallback count of a request: the table hides the column, so the details of the chain carry
-// the count, and a live row reads the count alone.
+// Put the fallback count in the chain details. Display only the count for live rows.
 function fallbackCount(r) {
   return r.fallbacks === undefined || r.fallbacks === null
     ? ""
@@ -742,8 +737,7 @@ function fallbackCell(r, classes = "", live = false) {
   return `<td role="cell" class="${classes} fallbacks-cell${details ? "" : " no-details"}">${details}</td>`;
 }
 
-// A token count in whole thousands from 1,000, such as 79K, with the exact count on hover.
-// A count floored to K, M or B, for example 79K. Below 1,000 it stays whole.
+// Round counts down to K, M, or B units. Keep counts below 1,000 as whole numbers.
 const FLOORS = [[1e9, "B"], [1e6, "M"], [1e3, "K"]];
 function floorCount(n) {
   const [size, mark] = FLOORS.find(([step]) => n >= step) || [1, ""];
@@ -766,7 +760,7 @@ function streamCell(r) {
 // The short app name from the client headers, with the API key name on hover.
 const appCell = (r) => `<td role="cell"${r.key ? ` title="${t("request.app.api_key_text", { key: esc(r.key) })}"` : ""}>${mobileLabel(t("request.column.app_column"))}<span class="cell-value">${r.app ? esc(r.app) : dash}</span></td>`;
 
-// A live request with local times, because the server sends ages and not clock times.
+// Convert server ages to local timestamps for live requests.
 function liveRow(r) {
   const now = Date.now();
   const since = now - r.age * 1000;
@@ -774,7 +768,7 @@ function liveRow(r) {
   return { ...r, since, attemptSince, first: r.ttft == null ? null : attemptSince + r.ttft * 1000 };
 }
 
-// The Live switch: the paused table holds still, and the button counts the requests that wait.
+// Pause table updates and display the waiting request count on the Live button.
 function renderLiveToggle() {
   const button = $("live-toggle");
   button.setAttribute("aria-pressed", String(state.livePaused));
@@ -847,7 +841,7 @@ const TRANSITION_REASONS = {
   rce: t("request.route.race_text"),
 };
 
-// A repeat carries the code of the hook, such as rt1. The row shows the code as given.
+// Display the hook repeat code unchanged, such as rt1.
 const REPEAT_CODE = /^rt\d+$/;
 const REPEAT_LABEL = t("request.route.repeat_text");
 
@@ -859,8 +853,7 @@ function transitionCell(t) {
   return ` <span class="transition-code" title="${esc(label)}" aria-label="${esc(label)}">${esc(t.reason)}</span>`;
 }
 
-// The tier letter of a pool short name: sophos gives A. The pool cards give it, and the
-// built-in names cover the first paint, before the cards arrive.
+// Use catalog tiers, with built-in tiers available before the pool cards load.
 const BUILT_IN_TIERS = { sophos: "A", deinos: "B", koinos: "C", moros: "D" };
 function poolTier(name) {
   const pool = state.pools.find((p) => p.shown.replace("daedalus/", "") === name);
@@ -883,8 +876,7 @@ function renderLegend(extra = state.legendExtra) {
     `<span><code>${esc(code)}</code>${esc(label)}</span>`).join("");
 }
 
-// The legend rows of the hook files. They show below the base rows, and a page with no hook keeps
-// the base rows.
+// Add hook legend rows below the base rows. Keep the base rows when no hook is available.
 async function loadLegend() {
   try {
     const body = await call("hooks");
@@ -900,8 +892,7 @@ function renderLive() {
   if (state.livePaused) return;
   const rows = [...state.live.values()].filter((r) => requestMatches(r, { live: true }))
     .sort((a, b) => b.since - a.since);
-  // The whole group is redrawn on each event, so only a row that the page has not drawn yet
-  // carries the glide: a redraw of a row already on the page stays still.
+  // Animate only new rows when the live group is redrawn.
   $("live").innerHTML = rows.map((r) => `
     <tr role="row" class="live-row${state.liveSeen.has(r.id) ? "" : " arrive"}" data-live="${r.id}">
       ${cell(t("request.column.time_column"), `<span class="pulse"></span><span class="live-ago">${relative(r.since / 1000)}</span>`, "num muted",
@@ -922,8 +913,8 @@ function renderLive() {
   tickLive();
 }
 
-// The live clocks: TTFT until the first token. The stream clock starts at the first token,
-// and it counts the whole request when the answer does not stream.
+// Stop the TTFT clock at the first token. Start the stream clock then.
+// For non-streamed replies, count total request time.
 function tickLive() {
   if (state.livePaused) return;
   const now = Date.now();
@@ -999,13 +990,13 @@ function splitRequest(r) {
 
 const splitRequests = (requests) => (requests || []).flatMap(splitRequest);
 
-// Filter retained requests by model, client, session, status and time without discarding rows.
+// Filter retained requests by model, client, session, status, and time without discarding rows.
 function requestMatches(r, { live = false } = {}) {
   if (state.requestSearch) {
     const hay = `${r.model || ""} ${r.via || ""} ${r.app || ""} ${r.session || ""} ${r.status || ""}`;
     if (!hay.toLowerCase().includes(state.requestSearch)) return false;
   }
-  if (live) return true; // a running request has no final status and no age
+  if (live) return true; // Live rows use only the text filter.
   const cls = statusClass(r);
   if (state.requestStatus === "ok" && cls !== "s2") return false;
   if (state.requestStatus === "bad" && cls !== "s4" && cls !== "s5") return false;
@@ -1016,8 +1007,7 @@ function requestMatches(r, { live = false } = {}) {
   return true;
 }
 
-// The kept rows the toolbar shows, and the count beside the controls. The count and the empty row
-// read both lists: the requests in flight at the top, and the kept ones below.
+// Render filtered history and count both retained and live requests.
 function renderRequestTable() {
   const rows = state.requests.filter((r) => requestMatches(r));
   const live = [...state.live.values()].filter((r) => requestMatches(r, { live: true })).length;
@@ -1025,7 +1015,7 @@ function renderRequestTable() {
   renderRequests(rows, total && !rows.length && !live
     ? t("request.empty.filter_text")
     : t("request.empty.none_text"), live);
-  // The button keeps its seat in the bar, so showing it never moves the count hint.
+  // Preserve the button space so the count hint does not move.
   $("request-clear").classList.toggle("off",
     !state.requestSearch && state.requestStatus === "all" && !state.requestHours);
   $("more-requests").hidden = state.requestFetched < state.requestLimit
@@ -1038,7 +1028,7 @@ function renderRequestTable() {
   hint.textContent = total
     ? `${head}${live ? ` · ${t("request.count.in_flight_text", { count: live })}` : ""}`
     : "";
-  // The hint pulses when the stream itself changes, not when a filter rewrites the text.
+  // Pulse the hint when the displayed live count changes.
   if (live !== state.liveCount) {
     state.liveCount = live;
     hint.classList.remove("bump");
@@ -1049,7 +1039,7 @@ function renderRequestTable() {
 
 function renderRequests(rows, empty = t("request.empty.none_text"), live = 0) {
   const flatRows = splitRequests(rows);
-  // The live count rides in the key: a live row hides the empty row, so it changes the markup.
+  // Include live-row presence in the cache key because it changes the empty row.
   const text = JSON.stringify([flatRows, live ? 1 : 0, empty]);
   const selected = getSelection();
   if (text === shownRequests) return;
@@ -1101,7 +1091,7 @@ const MODES = {
   decisions: t("model.mode.decisions_label"),
   rerank: t("model.mode.rerank_label"),
 };
-// Dynamic glyphs share one decorative SVG wrapper, so their size and Lucide attributes stay aligned.
+// Use one decorative SVG wrapper for consistent size and Lucide attributes.
 const ICON_PATHS = {
   wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z" />',
   brain: '<path d="M12 18V5" /> <path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4" /> <path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5" /> <path d="M17.997 5.125a4 4 0 0 1 2.526 5.77" /> <path d="M18 18a4 4 0 0 0 2-7.464" /> <path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517" /> <path d="M6 18a4 4 0 0 1-2-7.464" /> <path d="M6.003 5.125a4 4 0 0 0-2.526 5.77" />',
@@ -1145,18 +1135,17 @@ function typeChips(m) {
       : `<span class="chip flag">${esc(FLAGS[f] || f)}</span>`)).join("");
 }
 
-// The phone folds the Tier, Tools and Cooldown columns into a row of chips under the name.
-// The chips draw lucide: a wrench for tools, snow for cooldown and a brain for reasoning.
+// Represent hidden model columns as phone chips with Lucide icons.
 const CHIP_ICON_NAMES = { tools: "wrench", cool: "snowflake", brain: "brain" };
 
 function phoneChips(m) {
-  // The desktop columns a phone drops ride as labelled chips, so the card row stays full.
+  // Represent hidden desktop columns with chips.
   const tier = m.tier ? `<span class="chip flag" title="${t("model.column.tier_column")}">${t("model.mobile.tier_text", { value: esc(tierLetter(m.tier)) })}</span>` : "";
   const order = m.order ? `<span class="chip flag" title="${t("model.column.order_column")}">${t("model.mobile.order_text", { value: m.order })}</span>` : "";
   const context = m.max_input_tokens
     ? `<span class="chip flag" title="${t("model.column.context_column")}">${t("model.mobile.context_text", { value: `<span class="num">${tokens(m.max_input_tokens)}</span>` })}</span>`
     : "";
-  // A state the model does not support shows no chip at all.
+  // Omit chips for unsupported capabilities.
   const tools = m.mode === "chat" && m.tools
     ? `<span class="chip flag" title="${t("model.column.tools_column")}">${icon(CHIP_ICON_NAMES.tools)}</span>` : "";
   const reasoning = m.mode === "chat" && m.reasoning
@@ -1205,7 +1194,7 @@ function effortChip(name, label = EFFORTS[name] || name) {
   const level = name in EFFORTS ? ` e-${name}` : "";
   return `<span class="chip flag effort${level}">${esc(label)}</span>`;
 }
-// A reasoning model shows its default effort from the catalog, else Yes.
+// Display the catalog effort for reasoning models, or Yes if the catalog has no effort.
 function reasoningCell(m) {
   if (!m.reasoning || !m.effort) return yesNo(m.reasoning);
   const known = m.effort in EFFORTS;
@@ -1214,13 +1203,12 @@ function reasoningCell(m) {
 }
 const yesNo = (on) => statusBadge(on ? t("common.boolean.yes_text") : t("common.boolean.no_text"), { variant: on ? "yes" : "muted" });
 
-// The modal of 1 model: a card that leads with the model, its developer and its provider.
-// The capabilities read as lucide icon chips, the limits as stats, the efforts as chips.
+// Render model identity, capability chips, limits, and reasoning efforts.
 function openModelModal(m) {
   const { provider, dev, model } = parts(m.id);
   $("model-modal-title").innerHTML =
     `${mark(provider)}<span class="name">${esc(model || m.slug || m.id)}</span>`;
-  // Show a mark only when its file exists. Keep plain text for other names.
+  // Display a mark only when its file exists. Keep plain text for other names.
   const markImg = (name) => (MARK_FILES.has(name) ? mark(name) : "");
   const identity = [
     [t("model.column.model_column"), model || m.slug || m.id, ""],
@@ -1229,7 +1217,7 @@ function openModelModal(m) {
   ].map(([label, value, icon]) =>
     `<div class="id-row"><span class="label">${esc(label)}</span>${icon}<span class="value">${esc(value)}</span></div>`)
     .join("");
-  // The modal chips carry icon and word together, so a chip reads without its title.
+  // Pair chip icons with text so the title is not required.
   const flags = (m.flags || []).filter((f) => f !== REDUNDANT[m.mode]).map((f) =>
     `<span class="chip flag" title="${esc(FLAGS[f] || f)}">${FLAG_ICON_NAMES[f] ? `${icon(FLAG_ICON_NAMES[f])} ` : ""}${esc(FLAGS[f] || f)}</span>`)
     .join("");
@@ -1246,7 +1234,7 @@ function openModelModal(m) {
       ? `<span class="chip flag" title="${t("model.column.cooldown_column")}">${icon(CHIP_ICON_NAMES.cool)}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
       : "",
   ].join("");
-  // Only the weight draws a bar. A floor in the style keeps the blocks at one height.
+  // Add a bar only for weight. CSS keeps the blocks at one height.
   const stats = [
     m.max_input_tokens ? [m.max_input_tokens.toLocaleString(), t("model.detail.input_tokens_label")] : null,
     m.max_output_tokens ? [m.max_output_tokens.toLocaleString(), t("model.detail.output_tokens_label")] : null,
@@ -1261,7 +1249,7 @@ function openModelModal(m) {
     + (efforts ? `<h4>${t("model.detail.supported_efforts_label")}</h4><div class="pills">${efforts}</div>` : "");
   $("model-modal").showModal();
 }
-// Red at 0, orange at 0.5 and blue at 1, mixed in between.
+// Mix red at 0, orange at 0.5, and blue at 1.
 function weightColor(weight) {
   const high = weight >= 0.5;
   const share = Math.round((high ? (weight - 0.5) * 2 : weight * 2) * 100);
@@ -1311,20 +1299,17 @@ function renderSortHeads() {
 
 const dash = '<span class="muted">-</span>';
 
-// A redraw that keeps the DOM when the markup did not change. The browser find marks and the text
-// selection of the page survive, because an identical table is not built again. A live selection
-// holds the redraw of its own host back, as the Requests table does.
+// Retain unchanged markup to preserve browser search marks and text selection.
+// Defer updates while the host contains selected text.
 const DRAWN = new Map();
-// A host that already arrived: the first data of a card or a table fades in, and a later redraw
-// of a host that holds data stays still, so a refresh or a live tick never blinks the panel.
+// Animate each host only on its first data render.
 const DRAWN_SHOWN = new Set();
 function firstDraw(host) {
   if (!host || DRAWN_SHOWN.has(host)) return;
   DRAWN_SHOWN.add(host);
   host.classList.add("drawn");
 }
-// Restart the arrival on 1 host: a filter selection or a section selection moves its own block, and the
-// page around it holds still. A host that never arrived keeps its own draw path.
+// Replay the animation only for the selected host, not the surrounding page.
 function replay(host) {
   if (!host) return;
   host.classList.remove("drawn");
@@ -1342,8 +1327,7 @@ function draw(id, markup) {
   firstDraw(host);
 }
 
-// A filter selection of the Models tab moves the rows only: the table arrives again, and the page holds
-// still, so a pool card, a select or the search box never moves the whole view.
+// Animate only model rows after a filter selection.
 function selectRows() {
   renderModels();
   replay($("models"));
@@ -1351,7 +1335,7 @@ function selectRows() {
 
 function renderModels() {
   markPools();
-  // The badge counts the rows of this page, not the routable models of the status answer.
+  // Count catalog rows, not routable models from the status response.
   $("nav-models").textContent = state.models.length || "";
   const query = $("search").value.trim().toLowerCase();
   const rows = sortModels(state.models.filter((m) =>
@@ -1377,7 +1361,7 @@ function renderModels() {
     </tr>`).join("") : `<tr><td colspan="9" class="empty">${empty}</td></tr>`);
 }
 
-// The time left of a cooldown, such as 59s, 4m 05s or 3h 12m.
+// Format remaining cooldown time, such as 59s, 4m 05s, or 3h 12m.
 function timeLeft(until) {
   const left = Math.ceil(until - Date.now() / 1000);
   if (left <= 0) return null;
@@ -1393,7 +1377,7 @@ const coolCell = (until) => {
   const left = until ? timeLeft(until) : null;
   return left ? `<span class="cool" data-until="${until}" title="${t("model.cooldown.until_text", { time: esc(stamp(until)) })}">${left}</span>` : dash;
 };
-// The cooldown of the model, and of each client with its own provider key, such as "kilo 4m 05s".
+// Display model cooldowns and cooldowns for clients with their own provider keys.
 function coolCells(m) {
   const clients = Object.entries(m.client_cooldowns || {}).filter(([, until]) => timeLeft(until))
     .map(([client, until]) => `<div><small>${esc(client)}</small> ${coolCell(until)}</div>`);
@@ -1409,7 +1393,7 @@ function tickCooldowns() {
   }
 }
 
-// The saved values of the provider keys. A key field shows the state: env:NAME or db:NAME.
+// Read provider key states such as env:NAME and db:NAME.
 async function refreshEnv() {
   state.env = await call("env");
   if (!document.querySelector('section[data-page="providers"]').hidden) renderForm();
@@ -1436,9 +1420,9 @@ async function refreshKeys() {
   renderOverview();
 }
 
-// The block keys that the form edits. The YAML view edits the other keys.
+// Edit these keys in the form and other keys in YAML.
 const FORM_KEYS = ["api_key", "account_id", "client_keys", "api_base", "api_type", "discovery_url", "discovery_match", "exclude", "tier", "models", "hooks"];
-// The pattern fields take the same 4 shapes, so 1 hint serves them all.
+// Share one hint across pattern fields that accept the same four shapes.
 const PATTERN_HINT = t("provider.pattern.hint");
 // The keys that a model override sets but the provider level does not.
 const MODEL_ONLY = ["pool", "timeout"];
@@ -1464,7 +1448,7 @@ function parsed(text) {
   return value.replace(/^(["'])(.*)\1$/, "$2");
 }
 
-// The blocks without the empty lists and maps that the form leaves. An empty override stays.
+// Remove empty form lists and maps. Retain empty model overrides.
 function pruned(blocks) {
   const out = clone(blocks);
   const empty = (value) => value == null || (typeof value === "object" && !Object.keys(value).length);
@@ -1493,26 +1477,25 @@ function renderFiles() {
   const current = state.files[state.file];
   const chips = state.files.map((file, index) => {
     const mark = fileDirty(index) ? " &bull;" : "";
-    // The provider keys of a shadowed file do nothing, so the tab says which file wins.
+    // Name the file that overrides this file in the tab title.
     const shadow = file.shadow ? t("provider.file.shadow_text", { file: file.shadow }) : "";
     return actionButton(`${esc(fileName(file.path))}${mark}`, {
       variant: `tab${index === state.file ? " on" : ""}`,
       attrs: { "data-file": index, title: `${file.path}${shadow}` },
     });
   }).join(" ");
-  // The page actions ride in the file row, as 1 more chip. The main provider file stays:
-  // only a {provider}.yml file can go.
+  // Put file actions beside the tabs. Allow removal only for non-main provider files.
   const drop = current?.main === false
     ? actionButton(t("action.delete_file_button"), { variant: "tab danger", attrs: { id: "drop-provider" } }) : "";
   $("files").innerHTML = `${chips} ${actionButton(t("action.new_provider_button"), {
     variant: "tab", attrs: { id: "new-provider" },
   })}${drop ? ` ${drop}` : ""}`;
-  // The card Save writes the text. The form rows write themselves, on the close.
+  // Save writes YAML text. Form rows save when they close.
   const yamlSave = $("yaml-save");
   if (yamlSave) yamlSave.disabled = state.view !== "yaml" || !dirty();
 }
 
-// The files, the form copies and the saved copies, from the API.
+// Store API files with editable form copies and saved copies.
 function takeFiles(files) {
   state.files = files;
   state.saved = files.map((file) => file.text);
@@ -1520,7 +1503,7 @@ function takeFiles(files) {
   state.formSaved = files.map((file, index) => formText(index));
 }
 
-// 1 file again from the API, after a save. The other files keep their changes.
+// Reload one saved file from the API without discarding changes to other files.
 async function takeFile(index) {
   const fresh = (await call("files")).find((file) => file.path === state.files[index].path);
   if (!fresh) return;
@@ -1532,7 +1515,7 @@ async function takeFile(index) {
   if (index === state.file && editor) editor.value = fresh.text;
 }
 
-// A file with YAML that is not valid opens in the YAML view, with the error line.
+// Open invalid YAML in the text view and display the error.
 function showFileError(index) {
   const error = state.files[index]?.error;
   if (error) showWrite("providers", t("provider.yaml.error_text", { error }), true);
@@ -1545,23 +1528,22 @@ function openFile(index) {
   if (state.files.length && editor) state.files[state.file].text = editor.value;
   state.file = index;
   showFileError(index);
-  // The selection of the other file would ride over into this one, and the pane would show the
-  // content of the file under a section of the other. The new file opens its first section.
+  // Reset the section selection so the new file opens at its first section.
   const section = sectionState("provider-form");
   section.key = "";
   section.open = false;
   renderFiles();
   renderForm();
-  // The selected file arrives its form, so a file change reads on the page.
+  // Animate the form after a file change.
   replay($("provider-form"));
 }
 
-// A chip for 1 value. The × button deletes the list item or the map key.
+// The × button removes the chip value from its list or map.
 const pill = (text, path, key) => `<span class="pill">${esc(text)}${actionButton(icon("x"), {
   attrs: { title: t("action.remove_button"), "data-drop": JSON.stringify([...path, key]) },
 })}</span>`;
 
-// The "+ Add" button. A click puts an inline input in its place.
+// Replace the Add button with an inline input on click.
 const adder = (path, kind, label = t("action.add_button")) => actionButton(esc(label), {
   variant: "add",
   attrs: { "data-add": JSON.stringify(path), "data-kind": kind },
@@ -1578,12 +1560,11 @@ function mapPills(values, path, kind, separator) {
     + adder(path, kind, kind === "override" ? t("action.add_key_button") : t("action.add_button"));
 }
 
-// The chip list of a Settings field. The edited values live in the page state, so a
-// re-render of 1 list never touches the other fields.
+// Keep edited lists in page state so each list can render without changing other fields.
 function listValue(group, key) {
   state.settings.lists ||= {};
   const found = state.settings.lists[`${group}.${key}`] ?? setting(group, key);
-  // An older file holds 1 path where the form holds a list.
+  // Convert a single path from an older file to a form list.
   return Array.isArray(found) ? found : found ? [found] : [];
 }
 
@@ -1598,11 +1579,11 @@ const settingAdder = (group, key) => actionButton(t("action.add_button"), {
   variant: "add", attrs: { "data-setting-add": JSON.stringify([group, key]) },
 });
 
-// The name of a hook file as a chip shows it, without the folder of the config.
+// Omit the hooks folder prefix from the displayed file name.
 const hookName = (name) => esc(name.replace(/^hooks\//, ""));
 
-// The installed hooks whose scope fits a card: a global hook, then 1 that names the provider, its
-// file or the model. `kind` is "provider" or "model", and `name` is the provider or the model id.
+// Match installed hooks to global, provider, YAML, or model scope.
+// kind identifies the card type, and name identifies the provider or model.
 function hookFit(row, kind, name) {
   const scope = row.scope || "global";
   const targets = row.targets || [];
@@ -1618,8 +1599,8 @@ function hookChoices(kind, name) {
     .map((row) => row.path);
 }
 
-// The form of a provider or a model, where each hook row selects a surface and 1 file that fits the
-// card. The rows write through the path of the form, and the same chip flow as the Settings page.
+// Each provider or model hook row selects a surface and a matching file.
+// Write through the form path with the Settings chip flow.
 const HOOK_DEFAULT = "on-upstream";
 let openFormHook = null;
 
@@ -1654,7 +1635,7 @@ const hookFormRow = (entry, path, choices) => {
     }</select>${selector}${drop}${menu}</span>`;
 };
 
-// The hook rows of a provider block or of a model override, with the installed hooks that fit.
+// List suitable installed hooks for a provider or model override.
 function hookFormRows(values, path, kind, name) {
   const choices = hookChoices(kind, name);
   const rows = (Array.isArray(values) ? values : [])
@@ -1666,14 +1647,13 @@ function hookFormRows(values, path, kind, name) {
   })}</div>`;
 }
 
-// The list of the form at a hook path, created when it is missing. The path of a row ends with the
-// index, so the parent list arrives from 1 extra step.
+// Return the hook list through an extra path index. Create the list if absent.
 const formHookList = (path) => parentOf([...path, 0], []);
 
-// The label of a source: the repo, then the folder and the ref that differ from the usual 1s.
+// Label sources with the repository, optional folder, and non-main reference.
 const sourceLabel = (entry) => `${entry.repo || ""}${entry.path ? `/${entry.path}` : ""}${entry.ref && entry.ref !== "main" ? `@${entry.ref}` : ""}`;
 
-// The parts of a source from the typed text: owner/name, and the ref and the folder of a /tree URL.
+// Parse the repository, reference, and folder from source text or a GitHub tree URL.
 function sourceParts(value) {
   const tree = String(value).match(/github\.com\/([^/]+\/[^/]+)\/tree\/([^/]+)\/?(.*)$/);
   if (tree) return { repo: tree[1].replace(/\.git$/, ""), ref: tree[2], path: tree[3].replace(/\/$/, "") };
@@ -1688,8 +1668,8 @@ const hookVersion = (record) => record?.version || "-";
 // card names every file at the surfaces it runs at, so the settings hold no list of its own.
 const requestSurfaces = () => HOOK_SURFACES.filter(([key]) => key in (state.settings?.defaults?.hooks ?? {}));
 
-// The saved surface order is separate from the explicit request-hook lists. An order changes only
-// precedence, so a metadata hook keeps its provider, model or client scope.
+// Store surface order separately from explicit request-hook lists.
+// Order changes precedence, not provider, model, or client scope.
 function hookOrderState() {
   if (!state.settings.hookOrder) {
     const saved = setting("hooks", "order");
@@ -1699,8 +1679,8 @@ function hookOrderState() {
   return state.settings.hookOrder;
 }
 
-// The preferred files first, then every explicitly named or installed file that supports the
-// surface. The row order from the server is file-name order.
+// List preferred files first, then explicit and installed files that support the surface.
+// The server orders rows by file name.
 function hookOrderFiles(surface) {
   const saved = hookOrderState()[surface] || [];
   const explicit = surface in (state.settings?.defaults?.hooks ?? {}) ? settingList("hooks", surface) : [];
@@ -1710,12 +1690,11 @@ function hookOrderFiles(surface) {
   return [...new Set([...saved, ...explicit, ...installed])];
 }
 
-// Keep default hook surfaces visible when empty. Show other surfaces when an installed hook uses them.
+// Keep default hook surfaces visible when empty. Display other surfaces that installed hooks use.
 const orderedSurfaces = () => HOOK_SURFACES.filter(([surface]) =>
   surface in (state.settings?.defaults?.hooks ?? {}) || hookOrderFiles(surface).length);
 
-// The surface chips of a hook row: 1 chip per surface the block of the file names. The file defines
-// what it hooks into, so the card shows the surfaces and holds no control over them.
+// Display one chip per hook surface. The file, not the card, defines the surfaces.
 function hookSurfacesCell(row) {
   const labels = new Map(HOOK_SURFACES.map(([key, label]) => [key, label]));
   const named = new Set(row.runs || []);
@@ -1726,8 +1705,8 @@ function hookSurfacesCell(row) {
   return `<div class="pills">${chips || `<em class="none">${t("hook.empty.surface_text")}</em>`}</div>`;
 }
 
-// The candidate files of each surface. Runtime filters their metadata scope before it applies this
-// order, and files not shown here keep their existing order after these files.
+// Runtime filters metadata scopes before it applies this surface order.
+// Unlisted files follow in their existing order.
 function hookOrderRows() {
   return orderedSurfaces().map(([surface, label]) => {
     const files = hookOrderFiles(surface);
@@ -1756,13 +1735,13 @@ function hookOrderRows() {
   }).join("");
 }
 
-// The order block of the Hooks card, after a move.
+// Read the Hooks card order after a move.
 function renderHookOrder() {
   const host = $("hooks-order");
   if (host) host.innerHTML = hookOrderRows();
 }
 
-// The move of 1 file in the order of a surface: up is -1, down is 1.
+// Move a surface file up by -1 or down by 1.
 function moveHookFile([surface, index, step]) {
   const values = [...hookOrderFiles(surface)];
   const at = index + step;
@@ -1774,7 +1753,7 @@ function moveHookFile([surface, index, step]) {
   saveSettings();
 }
 
-// The note under the sources. The update fills it with the old and the new version of each file.
+// Display old and new file versions under the sources after an update.
 function hooksNote(text) {
   const note = $("hooks-note");
   if (note) note.textContent = text;
@@ -1782,7 +1761,7 @@ function hooksNote(text) {
 
 function updateNote(answer) {
   const moved = (answer.hooks || []).filter((hook) => hook.moved);
-  // A source that fetched and moved nothing says why, so the note diagnoses itself.
+  // Explain why a source fetched and moved no files.
   if (moved.length) {
     const files = moved.map((hook) => t("hook.update.transition_text", {
       name: hook.name, before: hookVersion(hook.before), after: hookVersion(hook.after),
@@ -1792,12 +1771,12 @@ function updateNote(answer) {
   return t("hook.empty.moved_text");
 }
 
-// A failure rides the floating note in the red of the theme, not the line under the card.
+// Display failures in the red floating notice, not under the card.
 function updateFails(answer) {
   return (answer.report || []).join(" ");
 }
 
-// The manager of the Hooks card: the folder, the sources, the files that load and the update.
+// Manage the hook folder, sources, loaded files, and updates.
 function hooksManager() {
   const rows = state.settings.hook_rows || [];
   const sources = listValue("hooks", "sources");
@@ -1946,8 +1925,7 @@ function toggleHook(name, on) {
     }
   } else disabled.add(name);
   setListValue("hooks", "disabled", [...disabled]);
-  // The save re-renders the table after the write. The chips flip in place first, so the color
-  // transition runs on the same node instead of a swap that no transition can cross.
+  // Change chip colors before saving. The transition needs the same node, which saving replaces.
   const row = [...document.querySelectorAll('.card[data-section="hooks"] .keys tbody tr')].find(
     (tr) => tr.querySelector("input[data-hook-toggle]")?.dataset.hookToggle === name
   );
@@ -1966,7 +1944,7 @@ function renderSettingList(group, key) {
     .map((value, index) => settingPill(group, key, value, index)).join("") + settingAdder(group, key);
 }
 
-// The inline input of a Settings chip list. Enter or a click away keeps the value.
+// Keep a Settings list value on Enter or a click outside the input.
 function showSettingAdder(button) {
   const [group, key] = JSON.parse(button.dataset.settingAdd);
   const box = document.createElement("span");
@@ -2021,11 +1999,11 @@ function field(label, hint, body) {
   return `<div class="field stack info">${labelSpan(label, hint)}${body}</div>`;
 }
 
-// The selected section of each list, and whether the phone shows that section or the list.
+// Track the selected section and whether the phone displays its detail or list.
 const SECTION_STATE = { settings: { key: "", open: false }, providers: { key: "", open: false } };
 const sectionState = (host) => SECTION_STATE[host.id === "settings" ? "settings" : "providers"];
 
-// A section list: every section in a rail, and the pane shows the selected 1.
+// List sections in the rail and display the selected section in the pane.
 function sectionList(id, items, active) {
   const buttons = items.map(([key, label]) => actionButton(esc(label), {
     variant: key === active ? "on" : "",
@@ -2034,7 +2012,7 @@ function sectionList(id, items, active) {
   return `<nav class="sections" aria-label="${t("common.sections_label")}">${buttons}</nav>`;
 }
 
-// The pane of a section list. The back button names the page it returns to, as iOS does.
+// Name the back button for its destination, as iOS does.
 function sectionPane(back, cards) {
   const button = actionButton(`<span class="chev" aria-hidden="true">&lsaquo;</span> ${esc(back)}`, {
     variant: "ghost back", attrs: { "data-back": true },
@@ -2042,8 +2020,8 @@ function sectionPane(back, cards) {
   return `<div class="section-pane">${button}${cards}</div>`;
 }
 
-// The last section of a list: the file text, and its own save. It holds the lines that the form
-// cannot show, so a broken file still opens.
+// The final YAML section has its own Save and includes content that the form cannot display.
+// It also opens invalid files.
 function yamlCard(editor, save, hint) {
   return `<div class="card yaml-view" data-section="yaml"><h3>${t("yaml.label")}</h3><p class="sub">${esc(hint)}</p>`
     + `<textarea id="${editor}" spellcheck="false" aria-label="${t("common.file_text_label")}"></textarea>`
@@ -2053,7 +2031,7 @@ function yamlCard(editor, save, hint) {
     + `<span class="hint">${t("settings.yaml.save_hint")}</span></div></div>`;
 }
 
-// The phone slide of the view that arrives: the pane from the right, and the list back from the left.
+// Slide the phone pane from the right and the list from the left.
 function playSlide(host, open) {
   if (!phoneSection()) return;
   const arriving = host.querySelector(open ? ".section-pane" : ".sections");
@@ -2063,7 +2041,7 @@ function playSlide(host, open) {
   arriving.classList.add("slide");
 }
 
-// The selection of a section: 1 button on, 1 card shown, and the phone leaves the list.
+// Activate one section button and card. On phones, leave the list.
 function selectSection(host, key, open = sectionState(host).open) {
   const state_ = sectionState(host);
   const moved = state_.open !== open;
@@ -2082,17 +2060,17 @@ function selectSection(host, key, open = sectionState(host).open) {
   markCardScrollEdges();
   markSectionPaneEdges();
   if (!moved) return;
-  // The slide plays at once, and the flag holds it for a render that builds the pane again.
+  // Start the slide and retain its flag for a pane rebuild.
   state_.slide = true;
   playSlide(host, open);
 }
 
-// A phone turns a selection into its own page: the section rides in the hash, so the back gesture returns.
+// Store the phone section in the hash so the back gesture returns to the list.
 const phoneSection = () => matchMedia("(max-width: 900px)").matches;
 
 function openSection(host, key) {
   selectSection(host, key, true);
-  // The selected card arrives: a section change of Providers or Settings reads on the page.
+  // Animate section changes in Providers and Settings.
   replay([...host.querySelectorAll(".section-pane > .card")]
     .find((card) => card.dataset.section === key));
   // Keep the section in the hash across refreshes. Phones also have a back step.
@@ -2102,7 +2080,7 @@ function openSection(host, key) {
   else history.replaceState(null, "", url);
 }
 
-// The back button leaves the pushed page when it can, and closes the section either way.
+// Go back in history if possible. Always close the section.
 function closeSection(host) {
   const key = sectionState(host).key;
   if (history.state?.section === key) return history.back();
@@ -2111,7 +2089,7 @@ function closeSection(host) {
   selectSection(host, key, false);
 }
 
-// The section of the shown page, from the hash: a deep link and the phone back gesture read it.
+// Read the section hash for deep links and the phone back gesture.
 function applySectionHash() {
   const [path, query] = location.hash.split("?");
   const host = path === "#/settings" ? $("settings") : path === "#/providers" ? $("provider-form") : null;
@@ -2120,15 +2098,14 @@ function applySectionHash() {
   const known = [...host.querySelectorAll(".sections button")].some((button) => button.dataset.section === key);
   if (key && known) selectSection(host, key, true);
   else if (key) {
-    // The rail renders later, on the first data: the selection rides the state until then.
+    // Retain the selection until data arrives and the rail renders.
     const state_ = sectionState(host);
     state_.key = key;
     state_.open = true;
   } else selectSection(host, sectionState(host).key, false);
 }
 
-// A phone back moves the section before the page builds its form, and that build replaces the
-// pane. The slide of the selection replays once on the fresh markup, so the back reads as a move.
+// Replay the phone back slide once after the form rebuild replaces the pane.
 function slideAgain() {
   for (const host of [$("settings"), $("provider-form")]) {
     const state_ = sectionState(host);
@@ -2209,7 +2186,7 @@ function providerCard(name, block) {
     ${listField(tier, block.tier?.[tier], [...path, "tier", tier])}</div>`).join("");
   const models = block.models && typeof block.models === "object" ? block.models : {};
   const overrides = Object.entries(models).map(([pattern, values]) => {
-    // The hooks of the override ride in their own rows, so the value pills show the other keys.
+    // Put override hooks in separate rows and other keys in value pills.
     const rest = values && typeof values === "object" && !Array.isArray(values) ? { ...values } : values;
     if (rest && typeof rest === "object" && !Array.isArray(rest)) delete rest.hooks;
     return `<div class="override">
@@ -2248,11 +2225,11 @@ function providerCard(name, block) {
   </div>`;
 }
 
-// The section list of the current file: every provider of the file, and the selected card.
+// List providers from the current file and display the selected card.
 function renderForm() {
   const host = $("provider-form");
   const blocks = state.forms[state.file];
-  // A render keeps the text of an edit in progress. The saved text shows otherwise.
+  // Preserve text during an edit. Otherwise, display the saved text.
   const typed = state.view === "yaml" ? $("editor")?.value : undefined;
   if (!state.files.length) return (host.innerHTML = "");
   if (blocks == null) {
@@ -2280,7 +2257,7 @@ function renderForm() {
   fitSectionPane();
 }
 
-// 1 card again after an edit, in the same place, and the selection stays.
+// Replace the edited card in place and retain its selection.
 function renderCard(name) {
   const card = [...document.querySelectorAll("#provider-form [data-provider]")].find((item) => item.dataset.provider === name);
   if (card) card.outerHTML = providerCard(name, state.forms[state.file][name]);
@@ -2289,7 +2266,7 @@ function renderCard(name) {
   placeUndo();
 }
 
-// The parent object of a path, with the empty maps and lists that it needs.
+// Return the path parent and create missing maps and lists.
 function parentOf(path, leaf) {
   let node = state.forms[state.file];
   path.slice(0, -1).forEach((key, index) => {
@@ -2348,7 +2325,7 @@ function addValue(path, kind, text, key) {
   clearWrite("providers");
   if (kind === "list") {
     const list = parentOf([...path, 0], []);
-    // A repeat is a no-op, so no double value lands in the list.
+    // Ignore repeated values.
     if (!list.some((value) => String(value) === text)) list.push(parsed(text));
   } else if (kind === "pattern") {
     const models = parentOf([...path, text], {});
@@ -2439,13 +2416,12 @@ function clearWrite(page) {
   ui.note.hidden = true;
 }
 
-// The text of the file before a write, with the row that caused it. The Undo icon rides beside
-// that row, so the way back sits next to the change.
+// Keep the previous file text and changed row. Put Undo beside that row.
 function rememberWrite(page, restore, anchor = null) {
   lastWrite = {
     page, ...restore,
     section: anchor?.closest("[data-section]")?.dataset.section ?? "",
-    // The row of the write, so a render of its card can put the icon back in that row.
+    // Retain the row key to restore its Undo icon after rendering.
     key: controlKey(anchor),
   };
   const old = document.querySelector(".undo-step");
@@ -2458,7 +2434,7 @@ function rememberWrite(page, restore, anchor = null) {
   button.setAttribute("aria-label", t("action.undo_write_label"));
   button.textContent = "\u21b6";
   button.addEventListener("click", (event) => {
-    // The row of a switch is a label, so the click must not reach it.
+    // Stop the click before it reaches the switch label.
     event.preventDefault();
     event.stopPropagation();
     undoWrite();
@@ -2467,8 +2443,7 @@ function rememberWrite(page, restore, anchor = null) {
   placeUndo(anchor);
 }
 
-// The control of a row: the key of its field, so the row of a fresh render matches the row of
-// the write that just landed.
+// Identify the changed row by its field key after a render.
 function controlKey(anchor) {
   if (!anchor) return "";
   const set = anchor.matches?.("[data-set]") ? anchor : anchor.querySelector?.("[data-set]");
@@ -2490,14 +2465,13 @@ function placeUndo(anchor = null) {
     ?? document.querySelector(`.section-pane > .card[data-section="${lastWrite.section}"]`);
   if (!target) return;
   const row = target.closest(".field") ?? target;
-  // The row reads {label} {undo} {control}: the icon sits beside the control it undoes, so the
-  // label keeps its place and the row never moves.
+  // Put Undo between the label and control without moving the label or row.
   const control = row.querySelector(".input, .pills, select, input");
   if (control) row.insertBefore(lastWrite.button, control);
   else row.prepend(lastWrite.button);
 }
 
-// No write waits a way back: the icon of the last write leaves the page.
+// Remove the Undo icon when no write can be undone.
 function dropUndo() {
   lastWrite = null;
   document.querySelector(".undo-step")?.remove();
@@ -2561,13 +2535,12 @@ async function saveYaml() {
   renderFiles();
 }
 
-// The shown view is the YAML section of the page when its card is the selected 1.
+// Use YAML view for the selected YAML card.
 const yamlView = () => (location.hash.startsWith("#/settings")
   ? state.settingsView === "yaml"
   : state.view === "yaml");
 
-// A selection sets the view of the page: the form rows, or the file text. A leave of the text with
-// unsaved lines asks first, then shows the saved file again.
+// Switch between form and YAML views. Confirm before discarding unsaved YAML and restoring the saved file.
 async function selectProviderSection(key) {
   const host = $("provider-form");
   const view = key === "yaml" ? "yaml" : "form";
@@ -2581,7 +2554,7 @@ async function selectProviderSection(key) {
   }
   renderFiles();
   renderForm();
-  // The build comes first: the arrival lands on the form that the page now shows.
+  // Build the form before the arrival animation.
   openSection(host, key);
 }
 
@@ -2602,7 +2575,7 @@ const SETTINGS = [
     ["escalation", t("settings.routing.escalation.label"), "list", t("settings.routing.escalation.hint")],
     ["switch", t("settings.routing.switch.label"), "list", t("settings.routing.switch.hint")],
   ]],
-  // The 5th element of a row lists the modes that show it. Only `mode` always shows.
+  // The fifth row element lists its visible modes. Always display `mode`.
   ["affinity", t("settings.affinity.title"), [
     ["mode", t("settings.affinity.mode.label"), "choice", t("settings.affinity.mode.hint")],
     ["change_on_draw", t("settings.affinity.change_on_draw.label"), "", t("settings.affinity.change_on_draw.hint"), ["session"]],
@@ -2644,7 +2617,7 @@ const SETTINGS = [
     ["every", t("settings.catalog.every.label"), "h", t("settings.catalog.every.hint")],
     ["anchor", t("settings.catalog.anchor.label"), "h", t("settings.catalog.anchor.hint")],
   ]],
-  // The request surfaces live in the hooks table, so the card holds the manager alone.
+  // Keep request surfaces in the hooks table and only the manager in this card.
   ["hooks", t("settings.hooks.title"), []],
   ["personalization", t("settings.personalization.title"), [
     ["tier-a", t("settings.personalization.tier_a.label"), "name", t("settings.personalization.tier_a.hint")],
@@ -2677,7 +2650,7 @@ const CHOICES = {
   ],
 };
 
-// The theme of the page. System follows the device, also before the login.
+// System theme follows the device, including before login.
 const darkDevice = matchMedia("(prefers-color-scheme: dark)");
 let theme = "system";
 function applyTheme(value = theme) {
@@ -2688,7 +2661,7 @@ function applyTheme(value = theme) {
 darkDevice.addEventListener("change", () => applyTheme());
 applyTheme();
 
-// The fields that take decimals. The other fields take whole numbers.
+// These fields accept decimals. Other fields accept whole numbers.
 const DECIMALS = new Set([
   "affinity.stay", "affinity.chance", "affinity.penalty",
   "balance.success", "balance.fault", "balance.slow", "balance.hourly", "balance.rate_limit",
@@ -2712,10 +2685,10 @@ const MAXIMA = {
   "limits.longest": 10000,
 };
 
-// The value in the file, or null when the file does not set it.
+// Return the file value, or null if absent.
 const fileValue = (group, key) => state.settings.file?.[group]?.[key] ?? null;
 const setting = (group, key) => fileValue(group, key) ?? state.settings.defaults[group][key];
-// A setting that holds a list of files: an older file holds 1 path.
+// Normalize file lists, including a single path from an older file.
 const settingList = (group, key) => {
   const found = setting(group, key);
   return Array.isArray(found) ? found : found ? [found] : [];
@@ -2723,7 +2696,7 @@ const settingList = (group, key) => {
 // The boolean settings, such as `enabled` and `change_on_draw`, are checkboxes in the form.
 const isSwitch = (group, key) => typeof state.settings.defaults[group][key] === "boolean";
 
-// The API keys card of the Settings page: the form, the reveal and the table ride in it.
+// The Settings API keys card contains the form, key display, and table.
 function keysCard() {
   return `<div class="card" data-section="keys"><h3>${t("settings.keys.title")}</h3>
     <form class="toolbar" id="new-key">
@@ -2747,15 +2720,15 @@ function keysCard() {
 }
 
 function renderSettings() {
-  // A render keeps the text of an edit in progress. The saved text shows otherwise.
+  // Preserve text during an edit. Otherwise, display the saved text.
   const typed = state.settingsView === "yaml" ? $("settings-editor")?.value : undefined;
-  // The rebuild of the card leaves the pane at its top: the scroll comes back after it.
+  // Restore the scroll position after the card rebuild.
   const scroll = settingsScroll();
   const card = ([group, title, fields]) => `
     <div class="card"><h3>${esc(title)}</h3>${fields.map(([key, label, unit, hint]) => {
       const id = `set-${group}-${key}`;
       if (isSwitch(group, key)) {
-        // A boolean row reads as a row: the label with its hint, then the switch at the right edge.
+        // Place the label and hint before the right-aligned switch.
         return `<label class="field info" for="${id}">${labelSpan(label, hint)}
           <input type="checkbox" role="switch" class="switch" id="${id}" ${setting(group, key) ? "checked" : ""}></label>`;
       }
@@ -2783,7 +2756,7 @@ function renderSettings() {
           step="${DECIMALS.has(`${group}.${key}`) ? "any" : "1"}" ${MAXIMA[`${group}.${key}`] ? `max="${MAXIMA[`${group}.${key}`]}"` : ""}
           placeholder="${fallback ?? ""}"><i>${esc(unit)}</i></span></label>`;
     }).join("")}${group === "hooks" ? hooksManager() : ""}</div>`;
-  // The section list: the rail names every group, and the pane holds its card.
+  // List groups in the rail and put their cards in the pane.
   const groups = SETTINGS;
   const items = groups.map(([group, title]) => [group, title]).concat([
     ["keys", t("settings.keys.title")], ["yaml", t("yaml.label")],
@@ -2797,7 +2770,7 @@ function renderSettings() {
       + yamlCard("settings-editor", "settings-yaml-save", t("settings.yaml.hint", { file: fileName(state.settings.path) })));
   selectSection($("settings"), active);
   $("settings-editor").value = typed ?? state.settings.text;
-  // The rendered file wins, and the shown rows follow its mode.
+  // Use the rendered file's mode to select visible rows.
   showAffinityRows(setting("affinity", "mode"));
   showSwitchRows();
   renderSettingsSave();
@@ -2807,9 +2780,8 @@ function renderSettings() {
   markCardScrollEdges();
 }
 
-// A row with a mode list shows only under those modes: the race values wait for race, and the pin
-// values wait for session or race. Only `mode` always shows. The rows stay in the page, so a selection
-// keeps its value and the card moves rows only.
+// Display rows only in their listed modes: race values in race, and pin values in session or race.
+// Always display `mode` and retain hidden rows with their values.
 function showAffinityRows(mode = $("set-affinity-mode")?.value) {
   for (const [key, , , , show] of SETTINGS.find(([group]) => group === "affinity")[2]) {
     const row = $(`set-affinity-${key}`)?.closest(".field");
@@ -2864,7 +2836,7 @@ function settingsChanges() {
       if (value !== before) (changes[group] ||= {})[key] = value;
     }
   }
-  // The hook manager sends its own rows: the folder, sources, disabled names and surface order.
+  // Include the hook folder, sources, disabled names, and surface order.
   const dir = document.getElementById("set-hooks-dir");
   if (dir && dir.value.trim() && dir.value.trim() !== setting("hooks", "dir")) (changes.hooks ||= {}).dir = dir.value.trim();
   const sources = listValue("hooks", "sources");
@@ -2890,7 +2862,7 @@ function settingsDirty() {
 
 function renderSettingsSave() {
   const yaml = state.settingsView === "yaml";
-  // The card Save writes the text. The rows write themselves, on the change or the close.
+  // Save writes YAML text. Form rows save on change or close.
   const cardSave = $("settings-yaml-save");
   if (cardSave) cardSave.disabled = !yaml || !settingsDirty();
 }
@@ -2917,7 +2889,7 @@ async function selectSettingsSection(key) {
 }
 
 async function saveSettings() {
-  // A change that lands back on the saved value makes no write, so the last Undo goes.
+  // Skip unchanged values and remove the previous Undo.
   if (!settingsDirty()) {
     dropUndo();
     return clearWrite("settings");
@@ -2938,7 +2910,7 @@ async function saveSettings() {
 }
 
 async function refreshFast() {
-  // A failed call keeps the last values and marks the page, so the page never lies in silence.
+  // Keep the last values after a failed call and mark the page state.
   const [answer, rows] = await Promise.allSettled([
     call("status"),
     call(`requests?limit=${state.requestLimit}`),
@@ -2963,7 +2935,7 @@ async function refreshFast() {
 }
 
 // The Limits page: the balances of the provider keys, and the last rate-limit headers of each model.
-// Counts from 100,000 show short, for example 998.8M, so the bar keeps its room.
+// Use short counts from 100,000, such as 998.8M, to keep space for the bar.
 
 // The short unit of a rate-limit row, for example tok/min.
 const SPANS = {
@@ -3053,7 +3025,7 @@ function balanceValue(item, compact = true) {
   return t("limits.value.remaining_text", { remaining: count(item.value), limit: count(item.limit) });
 }
 
-// The balances, then the 3 rate-limit rows with the least left.
+// Display balances, then the three rate-limit rows with the lowest remaining shares.
 function overviewLimits(data) {
   if (!data) return "";
   const bar = (left) => (left == null ? "" : progressMeter(left));
@@ -3074,7 +3046,7 @@ function limitRows() {
     lane.rows.map((row) => ({ ...row, model: lane.model, client: lane.client, at: lane.at })));
 }
 
-// The rows that the filter keeps: a text match over the model and the client.
+// Filter rows by model and client text.
 function shownLimits() {
   return limitRows().filter((r) => !state.limitSearch
     || `${r.model} ${r.client || ""}`.toLowerCase().includes(state.limitSearch));
@@ -3220,7 +3192,7 @@ function diffModel(text, kind = "") {
   return identity + change;
 }
 
-// Show the complete rebuild diff, with one line per added, deleted or moved model.
+// Display the rebuild diff with one line per added, removed, or moved model.
 function openDiffModal(event) {
   $("model-modal-title").textContent = `${event.reason} \u00b7 ${stamp(event.at)}`;
   const lines = DIFF_KINDS.flatMap(([kind, mark, key]) =>
@@ -3335,13 +3307,13 @@ function refresh() {
 async function start() {
   // With no stored session, 1 hint call says whether the cookie is live, so the start asks for no 401.
   if (!session() && !(await call("login").catch(() => ({}))).session) return showLogin();
-  // The settings come first, so that the first tables use the time format.
+  // Load settings before tables to apply the time format.
   await loadSettings();
   await loadLegend();
-  // The page shows before the first state answer, so a slow answer paints the shape of the page.
+  // Display the page before the first state response.
   $("login").hidden = true;
   $("app").hidden = false;
-  // The pane sizes once the app shows: a pane built while the app is hidden has no height yet.
+  // Size panes after the app becomes visible. Hidden panes have no height.
   fitSectionPane();
   markCardScrollEdges();
   setStateKnown(null);
@@ -3359,7 +3331,7 @@ async function start() {
   renderOverview();
   if (!document.querySelector(`section[data-page="providers"]`).hidden) renderForm();
   state.timers = [
-    // A hidden tab asks the server for nothing. It refreshes when it shows again.
+    // Skip server calls in hidden tabs and refresh when they become visible.
     setInterval(() => document.hidden || guarded(refreshFast), 5000),
     setInterval(() => document.hidden || guarded(refreshSlow), 15000),
     setInterval(tickCooldowns, 1000),
@@ -3403,7 +3375,7 @@ $("limits-check").addEventListener("click", async () => {
     button.disabled = false;
   }
 });
-// A rebuild notification opens the modal of its diff.
+// Open the diff dialog from a rebuild notification.
 $("notification-feed").addEventListener("click", (event) => {
   const row = event.target.closest("[data-rebuild]");
   if (!row || !state.notifications) return;
@@ -3429,7 +3401,7 @@ $("update-card").addEventListener("click", async (event) => {
 });
 $("show-password").addEventListener("click", () => showPassword($("login").password.type === "password"));
 document.addEventListener("click", async (event) => {
-  // The info icon of a closed group shows its hint. It never opens the group.
+  // Display hints without opening closed groups.
   if (event.target.closest(".fold summary .hint")) {
     event.preventDefault();
     return;
@@ -3458,7 +3430,7 @@ $("reset-weights").addEventListener("click", async () => {
   }
 });
 
-// A field that stops at its length says the rule, so the cut is not silent.
+// Display the character limit when a field reaches it.
 function showLengthLimit(input, message) {
   const limit = t("validation.characters_at_most_text", { count: input.maxLength });
   if (input.maxLength > 0 && input.value.length >= input.maxLength) {
@@ -3468,7 +3440,7 @@ function showLengthLimit(input, message) {
   }
 }
 
-// The API keys card rides in the rendered Settings pane, so its events delegate to the pane.
+// Delegate API key events to the Settings pane, which survives card renders.
 $("settings").addEventListener("input", (event) => {
   if (event.target.id === "key-name") showLengthLimit($("key-name"), $("key-message"));
 });
@@ -3520,7 +3492,7 @@ $("more-requests").addEventListener("click", () => {
   guarded(refreshFast);
 });
 
-// The Requests toolbar narrows the table at once, with no new call to the server.
+// Apply Requests filters without a server call.
 $("request-search").addEventListener("input", () => {
   state.requestSearch = $("request-search").value.trim().toLowerCase();
   requestHash();
@@ -3632,8 +3604,8 @@ function applyModelFilters(query) {
   history.replaceState(null, "", "#/models");
 }
 
-// A Requests link such as #/requests?status=bad&hours=24&q=timeout sets the filters. The hash keeps
-// them, so a shared link shows the same view.
+// A Requests link such as #/requests?status=bad&hours=24&q=timeout sets the filters.
+// Keep filters in the hash so shared links display the same view.
 function applyRequestFilters(query) {
   const params = new URLSearchParams(query);
   const asked = params.get("q") || "";
@@ -3654,7 +3626,7 @@ function applyLimitFilters(query) {
   renderLimitRows(shownLimits());
 }
 
-// The filter owns the address bar only on the Limits page: the poll calls this on every page.
+// Update the filter URL only on the Limits page. Polling calls this on every page.
 function limitsHash() {
   if (!location.hash.startsWith("#/limits")) return;
   const asked = $("limits-search").value.trim();
@@ -3702,7 +3674,7 @@ document.addEventListener("scroll", (event) => {
   if (scroller.matches?.(".section-pane")) markPaneEdges(scroller);
 }, true);
 
-// A chevron at each end of the tab bar shows the tabs that wait off screen, and scrolls to them.
+// Each tab bar chevron marks off-screen tabs and scrolls toward them.
 const nav = $("nav");
 function markNavSteps() {
   const { left, right } = markScrollEdges(nav);
@@ -3710,8 +3682,7 @@ function markNavSteps() {
   $("nav-right").hidden = right;
 }
 nav.addEventListener("scroll", markNavSteps, { passive: true });
-// A tab reuses the entry in place of pushing one, so the phone back leaves the app
-// in place of walking the tabs in reverse.
+// Replace the history entry so phone back leaves the app instead of retracing tabs.
 for (const link of document.querySelectorAll("#nav a")) {
   link.addEventListener("click", (event) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey) return;
@@ -3724,14 +3695,14 @@ for (const [id, step] of [["nav-left", -1], ["nav-right", 1]]) {
   $(id).addEventListener("click", () => nav.scrollBy({ left: (step * nav.clientWidth) / 2, behavior: "smooth" }));
 }
 
-// A wide screen holds the page still: each pane of a section takes the height that its own top
-// leaves on the screen, so the form scrolls on its own under a still header and rail.
+// On wide screens, fit each pane below its top edge.
+// Scroll forms separately from the fixed header and rail.
 function settingsScroll() {
   const pane = $("settings")?.querySelector?.(".section-pane");
   return { pane: pane?.scrollTop ?? 0, top: typeof window.scrollY === "number" ? window.scrollY : 0 };
 }
 
-// A rebuild of the card lands under the same scroll, so an update from the sources holds its place.
+// Restore the scroll position after a card rebuild.
 function keepSettingsScroll(at) {
   const pane = $("settings")?.querySelector?.(".section-pane");
   if (pane && at.pane) pane.scrollTop = at.pane;
@@ -3762,8 +3733,7 @@ function showPage() {
   const page = PAGES.includes(asked) ? asked : PAGES[0];
   const changed = page !== shownPage;
   shownPage = page;
-  // A pool card lands on the page it already shows: the table below it arrives, and the page
-  // itself holds still, so a filter selection never moves the whole view.
+  // Animate the table, not the page, when a pool filter targets the current Models page.
   if (asked === "models" && query !== undefined) {
     applyModelFilters(query);
     if (!changed) replay($("models"));
@@ -3785,10 +3755,9 @@ function showPage() {
     if (on) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
   });
-  // The first paint marks the chevrons too, so a cut tab shows before the first status answer.
+  // Mark navigation chevrons on the first paint, before the status response.
   markNavSteps();
-  // The page renders before the section selection: a render replaces the markup of the pane, and the
-  // slide of a phone back rides on the classes that the selection sets.
+  // Render before selecting the section to preserve its phone back animation classes.
   if (page === "providers" && state.view === "form") renderForm();
   applySectionHash();
   slideAgain();
@@ -3801,7 +3770,7 @@ window.addEventListener("hashchange", showPage);
 window.addEventListener("popstate", applySectionHash);
 showPage();
 $("search").addEventListener("input", selectRows);
-// A row or card of the models list opens the modal of its model.
+// Open model details from a row or card.
 $("models").addEventListener("click", (event) => {
   const row = event.target.closest("tr[data-model]");
   if (!row) return;
@@ -3908,7 +3877,7 @@ $("provider-form").addEventListener("click", (event) => {
   }
 });
 
-// The map adder opens the 2-field modal: a name and its value, named for the map it fills.
+// Add a map entry with a name and value dialog.
 async function addMapPair(button) {
   const path = JSON.parse(button.dataset.add);
   clearWrite("providers");
@@ -3933,8 +3902,7 @@ async function addMapPair(button) {
   saveForm();
 }
 
-// The provider values adder opens the 2-field modal: a catalog key from the select,
-// and its value in the text field below it.
+// Select a catalog key and type its value in the dialog.
 async function addProviderValue(button) {
   const path = JSON.parse(button.dataset.add);
   clearWrite("providers");
@@ -4009,12 +3977,12 @@ window.addEventListener("resize", () => {
 $("settings").addEventListener("input", (event) => {
   clearWrite("settings");
   showLengthLimit(event.target, $("settings-message"));
-  // The mode decides which rows of the affinity card show. The selection stays, so only the rows move.
+  // Change visible affinity rows without changing the selected mode.
   if (event.target.id === "set-affinity-mode") {
     showAffinityRows();
     return renderSettingsSave();
   }
-  // A switch decides whether its card keeps its other rows usable.
+  // Use the switch to enable or disable other card rows.
   if (event.target.type === "checkbox") showSwitchRows();
   renderSettingsSave();
 });
@@ -4022,7 +3990,7 @@ $("settings").addEventListener("click", async (event) => {
   const section = event.target.closest(".sections button[data-section]");
   if (section) return selectSettingsSection(section.dataset.section);
   if (event.target.closest("[data-back]")) return closeSection($("settings"));
-  // The manager: the modal of a source, the delete of 1, the update and the take of a scan.
+  // Handle hook source edits, removal, updates, and scan results.
   if (event.target.closest("[data-hook-source-add]")) return addHookSource();
   if (event.target.closest("[data-hook-source-drop]")) return dropHookSource();
   const move = event.target.closest("[data-hook-move]");
@@ -4053,7 +4021,7 @@ $("settings").addEventListener("change", (event) => {
     state.hooksScan.take[input.dataset.hookTake] = input.checked;
     return;
   }
-  // A switch and a selection list hold 1 valid value, so the change writes it at once.
+  // Save switch and select values immediately on change.
   if (input.type !== "checkbox" && input.tagName !== "SELECT") return;
   state.writeAnchor = anchorOf(input);
   saveSettings();
@@ -4098,7 +4066,7 @@ $("modal").addEventListener("click", (event) => {
   if (outside) dialog.close("cancel");
 });
 
-// The dialog closes on Confirm, on Cancel, on Escape and on a backdrop click.
+// Confirm, Cancel, Escape, and backdrop clicks close the dialog.
 $("modal").addEventListener("close", (event) => {
   const done = globalThis.__settle;
   globalThis.__settle = null;
