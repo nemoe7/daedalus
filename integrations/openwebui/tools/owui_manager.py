@@ -3,7 +3,7 @@ title: Open WebUI Manager
 author: nemo
 description: Open WebUI knowledge, skills, files, tools, and functions. Read and write approval follows permission mode.
 required_open_webui_version: 0.12.0
-version: 1.0.11
+version: 1.0.12
 licence: nemoe7 Noncommercial and Public-Interest License 1.2.0
 """
 
@@ -2079,7 +2079,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Search the file library by name. Wildcards such as *.md work.
+    Search the file library by name, with wildcard patterns such as `*.md`.
 
     :param filename: the filename or part of it to search for
     :param offset: row offset
@@ -2172,7 +2172,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Create one text file in the library. A new item runs free.
+    Upload one text file through the new-item permission gate.
 
     :param filename: the name of the new file, with its extension
     :param content: the full content of the new file
@@ -2217,7 +2217,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Rename one file. The rename is a mutation, so it passes the gate.
+    Rename one library file through the write permission gate.
 
     :param file_id: the id of the file to rename
     :param name: the new filename, with its extension
@@ -2244,7 +2244,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Delete one file of the library. The delete passes the gate.
+    Delete one library file through the write permission gate.
 
     :param file_id: the id of the file to delete
     """
@@ -2429,9 +2429,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Read a UTF-8 file from one skill snapshot, with character-offset paging.
-
-    Binary supporting files return their metadata instead of decoded bytes.
+    Read a UTF-8 skill file with character-offset paging, or return metadata for a binary file.
 
     :param skill_id: the id of the skill to inspect
     :param path: the relative file path, for example references/api.md
@@ -2525,12 +2523,12 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Create one skill. A new item runs free, and it joins the preset models.
+    Create a skill and attach it to selected writable presets after any required confirmation.
 
     :param name: the name of the new skill
     :param content: the complete UTF-8 SKILL.md text
     :param description: a short description, or empty
-    :param skill_id: an id to use, or empty to let Open WebUI build one
+    :param skill_id: an id to use, or empty to generate one from the name
     :param files: optional UTF-8 supporting files, each with path and content
     :param commit_message: an optional description of this version
     """
@@ -2597,11 +2595,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Import one or more skills from a trusted URL through Open WebUI v0.12.
-
-    A GitHub repository, folder or SKILL.md URL can carry complete skill
-    packages. Raw Markdown, JSON and ZIP URLs also work. The importer preserves
-    binary files. Open WebUI restricts URL loading to administrators.
+    Import full skill packages and binary files from a trusted HTTPS URL through Open WebUI's admin-only importer.
 
     :param url: the HTTPS URL of a skill file, package, folder or repository
     """
@@ -2711,7 +2705,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Replace one skill. The overwrite passes the gate.
+    Replace a skill through the write permission gate.
 
     :param skill_id: the id of the skill to change
     :param name: the new name
@@ -2751,12 +2745,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Apply UTF-8 file operations as one new version of an existing skill.
-
-    Operations are {op: put, path, content}, {op: move, path, destination},
-    or {op: delete, path}. Untouched files stay in the snapshot. Pass the
-    version from show_skill for strict optimistic concurrency, or leave it
-    empty to use the version read immediately before this update.
+    Apply version-checked UTF-8 skill file changes, keeping other files and using the given version or the current one.
 
     :param skill_id: the id of the skill to update
     :param operations: put, move or delete operations for relative skill paths
@@ -2834,7 +2823,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Switch one skill on or off. The toggle passes the gate.
+    Switch a skill on or off through the write permission gate.
 
     :param skill_id: the id of the skill to turn on or off
     """
@@ -2860,7 +2849,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Delete one skill. The delete passes the gate.
+    Delete a skill through the write permission gate.
 
     :param skill_id: the id of the skill to delete
     """
@@ -2968,12 +2957,12 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Create one Workspace Tool. A new item runs free and joins the presets.
+    Create a Workspace Tool and attach it to selected writable presets after any required confirmation.
 
     :param name: the name of the new tool
     :param content: the full Python source of the tool
     :param description: a short description, or empty
-    :param tool_id: an id to use, or empty to let Open WebUI build one
+    :param tool_id: an id to use, or empty to generate one from the name
     """
 
     refusal = await self._guard(
@@ -3019,7 +3008,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Replace one Workspace Tool. The overwrite passes the gate.
+    Replace a Workspace Tool through the write permission gate.
 
     :param tool_id: the id of the tool to change
     :param name: the new name
@@ -3052,11 +3041,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Toggle one Workspace Tool on the preset models.
-
-    Open WebUI v0.11.4 has no per-tool on and off switch, so this toggles the
-    tool id in the toolIds list of each preset the caller can write: a tool in
-    every preset leaves them, and a tool in no preset joins them.
+    Detach a tool from selected writable presets if any contains it, or attach it to all when none does.
 
     :param tool_id: the id of the tool to turn on or off
     """
@@ -3102,7 +3087,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Delete one Workspace Tool. The delete passes the gate.
+    Delete a Workspace Tool through the write permission gate.
 
     :param tool_id: the id of the tool to delete
     """
@@ -3209,12 +3194,12 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Create one Function. A new item runs free and joins the presets.
+    Create a Function and attach it to selected writable presets after any required confirmation.
 
     :param name: the name of the new function
     :param content: the full Python source of the function
     :param description: a short description, or empty
-    :param function_id: an id to use, or empty to let Open WebUI build one
+    :param function_id: an id to use, or empty to generate one from the name
     """
 
     refusal = await self._guard(
@@ -3260,7 +3245,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Replace one Function. The overwrite passes the gate.
+    Replace a Function through the write permission gate.
 
     :param function_id: the id of the function to change
     :param name: the new name
@@ -3295,7 +3280,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Switch one Function on or off. The toggle passes the gate.
+    Switch a Function on or off through the write permission gate.
 
     :param function_id: the id of the function to turn on or off
     """
@@ -3324,7 +3309,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Delete one Function. The delete passes the gate.
+    Delete a Function through the write permission gate.
 
     :param function_id: the id of the function to delete
     """
