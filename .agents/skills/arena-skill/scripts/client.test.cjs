@@ -2847,12 +2847,12 @@ test('preview client', async (t) => {
   });
 
   await t.test("A long text paste stages one attachment and leaves the composer alone", async () => {
-    // A paste over the 25-line limit becomes one text attachment named for its line count and the
+    // A paste above either limit becomes one text attachment named for its line count and the
     // epoch, so a pasted log never fills the composer. A shorter paste stays a native paste.
     const paste = get('#compose').events.paste;
     const stamp = 1790674500000;
     context.Date = class extends Date { static now() { return stamp; } };
-    const lines = 26;
+    const lines = 15;
     const text = 'x\n'.repeat(lines - 1) + 'x';
     const textEvent = () => event({ clipboardData: { files: [], getData: () => text } });
     try {
@@ -2861,10 +2861,23 @@ test('preview client', async (t) => {
       paste(shortPaste);
       assert.equal(shortPaste.prevented, undefined, 'a short paste stays native');
       assert.equal(get('#staged-files').hidden, true);
-      // One long line stays native: the rule counts lines, not characters.
-      const under = event({ clipboardData: { files: [], getData: () => 'y'.repeat(3000) } });
-      paste(under);
-      assert.equal(under.prevented, undefined, 'one long line stays native');
+      const boundary = event({ clipboardData: { files: [], getData: () => Array.from({ length: lines - 1 }, () => 'x').join('\n') } });
+      paste(boundary);
+      assert.equal(boundary.prevented, undefined, 'the line-limit boundary stays native');
+      assert.equal(get('#staged-files').hidden, true, 'the boundary stages no attachment');
+      const characters = 1500;
+      for (const unit of ['y', '😀']) {
+        const atLimit = event({ clipboardData: { files: [], getData: () => unit.repeat(characters) } });
+        paste(atLimit);
+        assert.equal(atLimit.prevented, undefined, 'the character boundary stays native, including Unicode');
+        assert.equal(get('#staged-files').hidden, true, 'the character boundary stages no attachment');
+        const aboveLimit = event({ clipboardData: { files: [], getData: () => unit.repeat(characters) + 'x' } });
+        paste(aboveLimit);
+        assert.equal(aboveLimit.prevented, true, 'one long line above the character limit becomes a file');
+        assert.deepEqual(chips(), [`1-pasted-lines-${stamp}.txt`]);
+        assert.equal(get('#note').value, 'Review this log', 'character conversion keeps the existing draft');
+        for (const chip of get('#staged-files').children.slice()) await chip.children[1].events.click();
+      }
       const longPaste = textEvent();
       paste(longPaste);
       assert.equal(longPaste.prevented, true, 'a long paste never reaches the composer');
