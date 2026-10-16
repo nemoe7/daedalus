@@ -301,6 +301,60 @@ for (const key of [...Object.getOwnPropertyNames(Object.prototype), 'unknown-key
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_pool_filters_replace_tier_buttons() -> None:
+  """Pool links retain valid tiers, while type changes clear tiers without changing search or sort."""
+  run_app_js(
+    "state, applyModelFilters, markPools, POOL_TIERS, MODES, FLAGS",
+    """
+sandbox.URLSearchParams = URLSearchParams;
+sandbox.history = { replaceState() {} };
+node('sort-small').options = [];
+const cards = Object.values(probe.POOL_TIERS).map(tier => ({
+  dataset: {tier, mode: 'chat'}, on: false,
+  classList: {toggle(name, on) { this.owner.on = on; }},
+}));
+for (const card of cards) card.classList.owner = card;
+const queryAll = sandbox.document.querySelectorAll;
+sandbox.document.querySelectorAll = selector => selector === '#pools .pool' ? cards : queryAll(selector);
+probe.applyModelFilters('');
+const defaultTier = probe.state.tier;
+const tiers = [...new Set(Object.values(probe.POOL_TIERS))].filter(tier => tier !== defaultTier);
+const modes = [...Object.keys(probe.MODES), ...Object.keys(probe.FLAGS), 'all'];
+for (const tier of tiers) {
+  for (const mode of modes) {
+    probe.applyModelFilters(new URLSearchParams({tier, mode}).toString());
+    const nonChat = Object.hasOwn(probe.MODES, mode) && mode !== 'chat';
+    assert.strictEqual(probe.state.tier, nonChat ? defaultTier : tier);
+    assert.strictEqual(node('mode').value, mode);
+    if (!nonChat) {
+      const active = cards.find(card => card.on);
+      assert(active && active.dataset.tier === tier);
+      probe.applyModelFilters(active.href.split('?')[1]);
+      assert.strictEqual(probe.state.tier, defaultTier);
+      assert(cards.every(card => !card.on));
+    }
+  }
+  for (const mode of modes) {
+    probe.applyModelFilters(new URLSearchParams({tier, mode: 'chat', sort: 'weight'}).toString());
+    const search = 'fixture';
+    node('search').value = search;
+    const sort = probe.state.sort;
+    node('mode').value = mode;
+    for (const handler of node('mode').handlers.change) handler({target: node('mode')});
+    assert.strictEqual(probe.state.tier, defaultTier);
+    assert.strictEqual(probe.state.mode, mode);
+    assert.strictEqual(node('search').value, search);
+    assert.strictEqual(probe.state.sort, sort);
+  }
+}
+""",
+  )
+  html = (
+    Path(__file__).resolve().parents[2] / "daedalus/dashboard/ui/index.html"
+  ).read_text()
+  assert 'id="tiers"' not in html
+
+
 def test_app_js_tab_steps() -> None:
   """Navigation chevrons follow the tab bar scroll bounds."""
   code = _app_js_vm(
@@ -566,7 +620,7 @@ def test_requests_reads_model_served_effort() -> None:
     'data-i18n="request.column.effort_column"'
   )
   js = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  rows = js[js.index("function renderRequests") : js.index("function renderTiers")]
+  rows = js[js.index("function renderRequests") : js.index("const MODES")]
   assert rows.index('t("request.column.served_by_column")') < rows.index(
     'cell(t("request.column.effort_column")'
   )
@@ -1534,10 +1588,9 @@ def test_the_short_values_carry_their_full_text() -> None:
   assert ".primary:hover:not(:disabled) { filter: brightness(1.2);" in css, (
     "the primary button answers the mouse"
   )
-  assert (
-    ".filter:hover, .tab:hover { color: var(--text); border-color: var(--muted); }"
-    in css
-  ), "the tier filters and the view tabs answer the mouse"
+  assert ".tab:hover { color: var(--text); border-color: var(--muted); }" in css, (
+    "the view tabs answer the mouse"
+  )
   assert "text-decoration: underline; }" in css, "a sort head marks its own click"
   assert "button.line.rebuild:hover { color: var(--accent-text); }" in css, (
     "the phone catalog line answers the mouse"
@@ -2046,7 +2099,7 @@ def test_requests_time_column_keeps_its_width() -> None:
 
 
 def test_each_model_filter_selection_moves_the_rows_only() -> None:
-  """Model filter code routes input, sort, mode, and tier changes through selectRows."""
+  """Model filter code routes input, sort, and mode changes through selectRows."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert "function selectRows() {" in app and 'replay($("models"));' in app, (
@@ -2056,7 +2109,6 @@ def test_each_model_filter_selection_moves_the_rows_only() -> None:
     '$("search").addEventListener("input", selectRows);',
     '$("sort-small").addEventListener("change", () => {',
     '$("mode").addEventListener("change", () => {',
-    '$("tiers").addEventListener("click", (event) => {',
   ):
     assert handler in app, handler
   # Model filter handlers use selectRows rather than calling renderModels directly.
@@ -4236,7 +4288,7 @@ def test_a_phone_keeps_the_tap_size_of_its_controls() -> None:
   ).read_text(encoding="utf-8")
   assert (
     ".toolbar input, .toolbar select, .requests-bar input, .requests-bar select,\n"
-    "  .filter, .tab { min-height: 44px; }"
+    "  .tab { min-height: 44px; }"
   ) in css, "the phone keeps the 44px target of the filter controls"
 
 
@@ -5831,7 +5883,6 @@ assert.strictEqual(probe.actionButton('Select', {
   ):
     assert fragment in page, fragment
   for fragment in (
-    'variant: `filter${tier === state.tier ? " on" : ""}`',
     'variant: `tab${index === state.file ? " on" : ""}`',
     'variant: "add"',
   ):

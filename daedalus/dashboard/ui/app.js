@@ -538,8 +538,9 @@ const poolFilter = (pool) => ({ tier: POOL_TIERS[pool.name] || "All", mode: pool
 
 // A pool card links to its filters. The card of the active filters is on, and its link clears them.
 function markPools() {
+  const mode = state.tier === "All" ? state.mode : "chat";
   document.querySelectorAll("#pools .pool").forEach((card) => {
-    const on = card.dataset.tier === state.tier && card.dataset.mode === state.mode;
+    const on = card.dataset.tier === state.tier && card.dataset.mode === mode;
     card.classList.toggle("on", on);
     card.href = on ? "#/models?tier=All&mode=all" : `#/models?tier=${card.dataset.tier}&mode=${card.dataset.mode}&sort=weight`;
   });
@@ -1155,16 +1156,6 @@ function phoneChips(m) {
     ? `<span class="chip flag" title="${t("model.column.cooldown_column")}">${icon(CHIP_ICON_NAMES.cool)}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
     : "";
   return tier + order + context + tools + reasoning + cool;
-}
-
-function renderTiers() {
-  $("tiers").innerHTML = ["All", "A", "B", "C", "D"].map((tier) =>
-    actionButton(esc(tier === "All" ? t("model.type.all_button") : tier), {
-      variant: `filter${tier === state.tier ? " on" : ""}`,
-      attrs: { "data-tier": tier },
-    }),
-  ).join(" ");
-  $("mode").value = state.mode;
 }
 
 // The sort value of each column. Null goes last in both directions.
@@ -3327,7 +3318,6 @@ async function start() {
   state.file = 0;
   showFileError(0);
   renderFiles();
-  renderTiers();
   renderOverview();
   if (!document.querySelector(`section[data-page="providers"]`).hidden) renderForm();
   state.timers = [
@@ -3595,9 +3585,10 @@ function applyModelFilters(query) {
   state.tier = ["All", "A", "B", "C", "D"].includes(params.get("tier")) ? params.get("tier") : "All";
   state.mode = Object.hasOwn(MODES, params.get("mode")) || Object.hasOwn(FLAGS, params.get("mode"))
     ? params.get("mode") : "all";
+  if (Object.hasOwn(MODES, state.mode) && state.mode !== "chat") state.tier = "All";
   state.sort = Object.hasOwn(sortValue, params.get("sort")) ? { key: params.get("sort"), dir: -1 } : { key: "", dir: 1 };
   $("search").value = "";
-  renderTiers();
+  $("mode").value = state.mode;
   renderSortHeads();
   markPools();
   if (state.models.length) renderModels();
@@ -3796,14 +3787,8 @@ $("sort-small").addEventListener("change", () => {
   selectRows();
 });
 $("mode").addEventListener("change", () => {
+  state.tier = "All";
   state.mode = $("mode").value;
-  selectRows();
-});
-$("tiers").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-tier]");
-  if (!button) return;
-  state.tier = button.dataset.tier;
-  renderTiers();
   selectRows();
 });
 $("files").addEventListener("click", (event) => {
