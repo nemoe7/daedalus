@@ -2160,10 +2160,6 @@ function providerCard(name, block) {
     if (value.startsWith("db:")) return { type: "db", name: value.slice("db:".length), raw: value };
     return null;
   };
-  const tokenName = (value) => {
-    const info = tokenInfo(value);
-    return info ? info.name : null;
-  };
   const effectiveState = (info, row) => {
     if (!row) return "missing";
     const hasSaved = row.has_saved ?? (row.state === "saved");
@@ -2171,18 +2167,6 @@ function providerCard(name, block) {
     if (info && info.type === "env") return hasEnv ? "env" : "missing";
     if (info && info.type === "db") return hasSaved ? "saved" : "missing";
     return row.state;
-  };
-  const maskedPlaceholder = (row) => {
-    if (!row) return "";
-    const hasSaved = row.has_saved ?? (row.state === "saved");
-    if (hasSaved && row.start && row.length) {
-      const rest = Math.max(0, row.length - row.start.length);
-      return row.start + "•".repeat(rest);
-    }
-    if (hasSaved && row.end) return `${row.start || ""}••••`.slice(0, 4) + "•".repeat(Math.max(0, (row.length || 8) - 4));
-    if (hasSaved) return t("provider.secret.database_text");
-    if (row.state === "env" || row.has_env) return t("provider.secret.environment_text");
-    return "";
   };
   const placeholderFor = (info, row) => {
     if (!info) return "";
@@ -2199,10 +2183,8 @@ function providerCard(name, block) {
         const rest = Math.max(0, row.length - row.start.length);
         return row.start + "•".repeat(rest);
       }
-      if (hasSaved) return t("provider.secret.database_text");
       return t("provider.secret.database_text");
     }
-    return maskedPlaceholder(row);
   };
   const text = (key, label, hint) => {
     let type = "text";
@@ -2422,8 +2404,6 @@ function setText(input) {
         } else {
           parent[key] = trimmed;
         }
-      } else if (trimmed.startsWith("db:")) {
-        parent[key] = trimmed;
       } else {
         parent[key] = trimmed;
       }
