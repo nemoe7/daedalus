@@ -72,7 +72,6 @@
       <a href="#/models" data-page="models"><span data-i18n="nav.models_link">nav.models_link</span><span class="count" id="nav-models"></span></a>
       <a href="#/limits" data-page="limits" data-i18n="nav.limits_link">nav.limits_link</a>
       <a href="#/notifications" data-page="notifications" data-i18n="nav.notifications_link">nav.notifications_link</a>
-      <a href="#/providers" data-page="providers" data-i18n="nav.providers_link">nav.providers_link</a>
       <a href="#/settings" data-page="settings" data-i18n="nav.settings_link">nav.settings_link</a>
     </nav>
     <button class="ghost tab-step" type="button" id="nav-right" aria-label="nav.later_tabs_label" data-i18n-aria-label="nav.later_tabs_label" hidden><span aria-hidden="true">&rsaquo;</span></button>
@@ -230,18 +229,18 @@
         <div class="column" id="balances"></div>
       </div>
     </section>
-    <section data-page="providers" hidden>
-      <div class="files" id="files"></div>
+    <section data-page="settings" hidden>
       <div class="write-note" id="save-note" hidden>
         <span class="message" id="save-message" role="status"></span>
       </div>
-      <div class="settings" id="provider-form"></div>
-    </section>
-    <section data-page="settings" hidden>
       <div class="write-note" id="settings-note" hidden>
         <span class="message" id="settings-message" role="status"></span>
       </div>
       <div class="settings" id="settings"></div>
+      <div hidden id="providers-holder">
+        <div class="files" id="files"></div>
+        <div class="settings" id="provider-form"></div>
+      </div>
     </section>
   </main>
 </div>

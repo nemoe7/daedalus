@@ -664,6 +664,13 @@ section[data-page="providers"], section[data-page="settings"] {
 [data-chip="providers"] { background: color-mix(in srgb, var(--ok) 60%, var(--accent)); }
 .sections button > span:not(.tile) { flex: 1; min-width: 0; }
 .settings h3, .card.provider > h3, .card.yaml-view > h3 { display: flex; align-items: center; gap: 8px; }
+/* The providers card nests its own list and pane, so the drill-in reads as one page. */
+.card.nested { padding: 0; }
+.card.nested > h3 { padding: 18px 20px 8px; }
+.card.nested .files { padding: 0 20px 12px; }
+.card.nested .settings { margin: 0; }
+.card.nested .sections { flex: 0 1 200px; border: 0; background: none; }
+.card.nested .section-pane { padding: 0 20px 10px; }
 /* A card of a section closes on the room of 1 row: the last row keeps the same space to the edge
    of the card as the space between 2 rows. */
 section[data-page="settings"] .card,
@@ -864,8 +871,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   /* A selection opens the section as its own page, so the list carries no selected mark. */
   .sections button.on { background: none; box-shadow: none; }
   .section-pane { display: none; }
-  .settings[data-detail="1"] .sections { display: none; }
-  .settings[data-detail="1"] .section-pane { display: grid; }
+  /* Only the host's own list and pane: a nested providers host keeps its own step. */
+  .settings[data-detail="1"] > .sections { display: none; }
+  .settings[data-detail="1"] > .section-pane { display: grid; }
   /* The pane of a phone closes the gap above the back row: the header sits close, and the card
      follows the label with no empty band between. */
   .section-pane { gap: 10px; }

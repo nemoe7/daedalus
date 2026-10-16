@@ -89,11 +89,11 @@ def test_page(client: TestClient) -> None:
     "overview",
     "requests",
     "models",
-    "providers",
     "limits",
     "settings",
   ):
     assert f'<section data-page="{name}"' in page.text, f"the {name} page"
+  assert 'id="providers-holder"' in page.text, "the providers host waits for its card"
   assert 'name="remember" type="checkbox" checked' in page.text, "remember me starts on"
   script = client.get("/ui/app.js")
   assert script.status_code == 200 and "javascript" in script.headers["content-type"]
@@ -235,6 +235,7 @@ const nav = {{
 const byId = new Map();
 const el = (id) => {{
   if (!byId.has(id)) byId.set(id, {{ innerHTML: '', textContent: '', addEventListener: () => {{}},
+    after: () => {{}}, remove: () => {{}},
     classList: {{ add: () => {{}}, remove: () => {{}}, toggle: () => {{}} }} }});
   return byId.get(id);
 }};
@@ -1233,8 +1234,8 @@ def test_phone_panels_clear_the_last_row() -> None:
   assert ".panel { padding-bottom: 8px; }" in mobile, "the panel edge clears"
 
 
-def test_the_header_puts_providers_before_settings(client: TestClient) -> None:
-  """Header markup and page routes list seven tabs, with Providers before Settings."""
+def test_the_header_lists_six_tabs_with_settings_last(client: TestClient) -> None:
+  """Header markup and page routes list six tabs, and Providers lives inside Settings."""
   page = client.get("/")
   nav = page.text[
     page.text.index('<nav class="tabs" id="nav">') : page.text.index("</nav>")
@@ -1245,14 +1246,14 @@ def test_the_header_puts_providers_before_settings(client: TestClient) -> None:
     "models",
     "limits",
     "notifications",
-    "providers",
     "settings",
   ]
   app = client.get("/ui/app.js").text
   assert (
     'const PAGES = ["overview", "requests", "models", "limits",'
-    ' "notifications", "providers", "settings"];'
+    ' "notifications", "settings"];'
   ) in app
+  assert 'data-page="providers"' not in page.text
 
 
 def test_the_model_rows_light_up_on_hover() -> None:
@@ -2226,18 +2227,16 @@ def test_the_settings_sections_carry_a_rule() -> None:
   )
 
 
-def test_the_providers_back_keeps_its_slide() -> None:
-  """Provider-page code renders the form before section selection and slide replay."""
+def test_the_settings_back_keeps_its_slide() -> None:
+  """Settings-page code renders the provider cards before selection and slide replay."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   body = app[
     app.index("function showPage()") : app.index('window.addEventListener("hashchange"')
   ]
-  render = body.index(
-    'if (page === "providers" && state.view === "form") renderForm();'
-  )
+  render = body.index('if (page === "settings" && state.settings) renderSettings();')
   selection = body.index("applySectionHash();")
-  assert render < selection, "the form renders before the section selection"
+  assert render < selection, "the cards render before the section selection"
   assert "slideAgain();" in body[selection:], (
     "the slide of the selection replays on the fresh markup"
   )
@@ -2245,8 +2244,8 @@ def test_the_providers_back_keeps_its_slide() -> None:
   assert "state_.slide = true;" in app, (
     "a selection holds its slide for the render that follows"
   )
-  assert 'for (const host of [$("settings"), $("provider-form")]) {' in app, (
-    "both pages replay their slide"
+  assert 'for (const host of [$("settings")]) {' in app, (
+    "the settings page replays its slide"
   )
 
 
@@ -2308,7 +2307,7 @@ const node = (id) => {{
       addEventListener: (type, fn) => {{ (made.handlers[type] ||= []).push(fn); }},
       remove: () => {{}}, append: () => {{}}, prepend: () => {{}}, after: () => {{}}, setAttribute: () => {{}},
       classList: {{ add: () => {{}}, remove: () => {{}}, toggle: () => {{}} }},
-        closest: (sel) => (sel === '[data-section]' ? null : made),
+        closest: (sel) => (sel === '[data-section]' || sel === '#provider-form' ? null : made),
       querySelector: () => null, querySelectorAll: () => [] }};
     nodes.set(id, made);
   }}
@@ -2799,7 +2798,7 @@ def test_pages_not_nested(client: TestClient) -> None:
         self.depth -= 1
 
   Sections().feed(client.get("/").text)
-  assert len(found) == 7 and all(depth == 0 for _, depth in found), found
+  assert len(found) == 6 and all(depth == 0 for _, depth in found), found
 
 
 def test_login_form(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -5191,7 +5190,7 @@ def test_each_page_holds_a_section_list() -> None:
   for needle in (
     ".sections button.on",
     ".section-pane {",
-    '.settings[data-detail="1"] .section-pane',
+    '.settings[data-detail="1"] > .section-pane',
     ".sections button { min-height: 44px; }",
   ):
     assert needle in style, needle
@@ -5543,7 +5542,7 @@ def test_a_phone_opens_a_section_as_its_own_page() -> None:
   assert '.sections button::after { content: "\\203a";' in phone, (
     "a phone row carries a chevron"
   )
-  assert '.settings[data-detail="1"] .section-pane { display: grid; }' in phone, (
+  assert '.settings[data-detail="1"] > .section-pane { display: grid; }' in phone, (
     "a phone shows the selected section alone"
   )
 

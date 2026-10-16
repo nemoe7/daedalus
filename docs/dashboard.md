@@ -1,7 +1,7 @@
 # Dashboard
 
 The dashboard is the browser view of a daedalus server: the overview, the requests, the models, the
-notifications, the providers, the limits and the settings.
+notifications, the limits and the settings. The providers live in a section of the settings.
 
 Open `http://HOST:3357/`.
 
@@ -29,13 +29,12 @@ Open `http://HOST:3357/`.
 
 | Page | Contents |
 | --- | --- |
-| Overview | 4 numbers on top: in flight, success rate, lowest limit left, models. Then the status, the last 5 requests, the limits and the pools in columns. Each pool row names its top model. The page shows state only: the Providers and Settings pages hold the configuration. |
+| Overview | 4 numbers on top: in flight, success rate, lowest limit left, models. Then the status, the last 5 requests, the limits and the pools in columns. Each pool row names its top model. The page shows state only: the Settings page holds the configuration. |
 | Requests | The log of the last model calls and the ones in flight. See [Requests](#requests). |
 | Models | The catalog table and a card for each pool. See [Models](#models). |
 | Notifications | The catalog rebuilds with their diffs, the update check, and the lane rows near their limit. |
-| Providers | A tab per provider file. Form: a section per provider. YAML: the file text, as the last section. |
 | Limits | The last rate-limit headers of each model, and each provider key balance in a card. |
-| Settings | Form and YAML sections of [`config/daedalus.yml`](../config/daedalus.yml). A write checks the value, then reloads the settings. An API keys section makes and deletes keys. |
+| Settings | Form and YAML sections of [`config/daedalus.yml`](../config/daedalus.yml). A write checks the value, then reloads the settings. An API keys section makes and deletes keys. A Providers section nests the provider files, their forms and their YAML. |
 
 The logo shows in the header, on the login page and as the tab icon. The page has a web app manifest, so a browser can install the dashboard as an app. A browser installs it only over HTTPS or from localhost. The version shows under the name, also on the login page before a login: the image tag, for example v0.2.0, or dev-COMMIT after `install --dev`.
 
@@ -145,7 +144,9 @@ The page drops the hash after it reads it.
 
 ## Providers
 
-Select a provider in the section list to show its card. Select a value to open its editor. **Save** writes a valid change. Cancel, Escape, or closing without confirmation keeps the earlier value.
+Open the Providers section of the Settings page, then select a provider in its list to show its
+card. Select a value to open its editor. **Save** writes a valid change. Cancel, Escape, or closing
+without confirmation keeps the earlier value.
 
 A switch and a selection list hold 1 valid value, so the change writes at once. The last write shows its
 Undo beside the row that changed, and a failure shows its line under the file chips. The file row

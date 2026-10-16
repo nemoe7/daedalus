@@ -1410,7 +1410,8 @@ function tickCooldowns() {
 // Read provider key states such as env:NAME and db:NAME.
 async function refreshEnv() {
   state.env = await call("env");
-  if (!document.querySelector('section[data-page="providers"]').hidden) renderForm();
+  const settings = document.querySelector('section[data-page="settings"]');
+  if (!settings.hidden && sectionState($("settings")).key === "providers") renderForm();
 }
 
 function renderKeys(rows) {
@@ -2103,8 +2104,17 @@ function openSection(host, key) {
   replay([...host.querySelectorAll(".section-pane > .card")]
     .find((card) => card.dataset.section === key));
   // Keep the section in the hash across refreshes. Phones also have a back step.
-  const [path] = location.hash.split("?");
-  const url = `${path}?section=${encodeURIComponent(key)}`;
+  // The nested providers rail keeps the outer section and adds its own param.
+  const [path, query] = location.hash.split("?");
+  const params = new URLSearchParams(query ?? "");
+  if (host.id === "settings") {
+    params.set("section", key);
+    params.delete("provider");
+  } else {
+    params.set("section", "providers");
+    params.set("provider", key);
+  }
+  const url = `${path}?${params.toString()}`;
   if (phoneSection()) history.pushState({ section: key }, "", url);
   else history.replaceState(null, "", url);
 }
@@ -2113,17 +2123,25 @@ function openSection(host, key) {
 function closeSection(host) {
   const key = sectionState(host).key;
   if (history.state?.section === key) return history.back();
-  const [path] = location.hash.split("?");
-  history.replaceState(null, "", path);
+  const [path, query] = location.hash.split("?");
+  if (host.id === "settings") {
+    history.replaceState(null, "", path);
+  } else {
+    // Closing the nested rail keeps the outer providers section selected.
+    const params = new URLSearchParams(query ?? "");
+    params.delete("provider");
+    history.replaceState(null, "", `${path}?${params.toString()}`);
+  }
   selectSection(host, key, false);
 }
 
 // Read the section hash for deep links and the phone back gesture.
 function applySectionHash() {
   const [path, query] = location.hash.split("?");
-  const host = path === "#/settings" ? $("settings") : path === "#/providers" ? $("provider-form") : null;
+  const host = path === "#/settings" ? $("settings") : null;
   if (!host) return;
-  const key = new URLSearchParams(query ?? "").get("section");
+  const params = new URLSearchParams(query ?? "");
+  const key = params.get("section");
   const known = [...host.querySelectorAll(".sections button")].some((button) => button.dataset.section === key);
   if (key && known) selectSection(host, key, true);
   else if (key) {
@@ -2132,15 +2150,38 @@ function applySectionHash() {
     state_.key = key;
     state_.open = true;
   } else selectSection(host, sectionState(host).key, false);
+  // The nested providers rail reads its own param the same way. A phone back
+  // step drops the param and closes the nested detail.
+  const inner = $("provider-form");
+  const pkey = params.get("provider");
+  if (inner) {
+    if (pkey) {
+      const innerKnown = [...inner.querySelectorAll(".sections button")]
+        .some((button) => button.dataset.section === pkey);
+      if (innerKnown) selectSection(inner, pkey, true);
+      else {
+        const inner_ = sectionState(inner);
+        inner_.key = pkey;
+        inner_.open = true;
+      }
+    } else selectSection(inner, sectionState(inner).key, false);
+  }
 }
 
 // Replay the phone back slide once after the form rebuild replaces the pane.
 function slideAgain() {
-  for (const host of [$("settings"), $("provider-form")]) {
+  for (const host of [$("settings")]) {
     const state_ = sectionState(host);
     if (!state_.slide) continue;
     state_.slide = false;
     playSlide(host, state_.open);
+  }
+  // The nested providers host replays its own slide after a rebuild.
+  const inner = $("provider-form");
+  const nested = inner ? sectionState(inner) : null;
+  if (nested?.slide) {
+    nested.slide = false;
+    playSlide(inner, nested.open);
   }
 }
 
@@ -2564,10 +2605,13 @@ async function saveYaml() {
   renderFiles();
 }
 
-// Use YAML view for the selected YAML card.
-const yamlView = () => (location.hash.startsWith("#/settings")
-  ? state.settingsView === "yaml"
-  : state.view === "yaml");
+// Use YAML view for the selected YAML card: the settings file or the provider file.
+const yamlView = () => {
+  const key = sectionState($("settings")).key;
+  if (key === "yaml") return state.settingsView === "yaml";
+  if (key === "providers") return state.view === "yaml";
+  return false;
+};
 
 // Switch between form and YAML views. Confirm before discarding unsaved YAML and restoring the saved file.
 async function selectProviderSection(key) {
@@ -2788,16 +2832,29 @@ function renderSettings() {
   // List groups in the rail and put their cards in the pane.
   const groups = SETTINGS;
   const items = groups.map(([group, title]) => [group, title]).concat([
-    ["keys", t("settings.keys.title")], ["yaml", t("yaml.label")],
+    ["providers", t("nav.providers_link")], ["keys", t("settings.keys.title")], ["yaml", t("yaml.label")],
   ]);
   const selected = sectionState($("settings")).key;
   const active = items.some(([key]) => key === selected) ? selected : items[0][0];
+  // Grab the live providers nodes first: the wipe detaches the card that holds them.
+  const filesHost = $("files");
+  const formHost = $("provider-form");
   $("settings").innerHTML = sectionList("settings", items, active)
     + sectionPane(t("nav.settings_link"), groups.map(([group, title, fields]) => card([group, title, fields]).replace(
       '<div class="card">', `<div class="card" data-section="${esc(group)}">`)).join("")
+      + `<div class="card nested" data-section="providers"><h3>${chip("providers")}${esc(t("nav.providers_link"))}</h3>`
+      + `<div id="providers-slot"></div></div>`
       + keysCard()
       + yamlCard("settings-editor", "settings-yaml-save", t("settings.yaml.hint", { file: fileName(state.settings.path) })));
+  // The providers host keeps its listeners: move the live nodes into the fresh card.
+  // Grab them before the wipe, since a rebuild detaches the card that holds them.
+  const slot = $("providers-slot");
+  if (slot && filesHost && formHost) {
+    slot.after(filesHost, formHost);
+    slot.remove();
+  }
   selectSection($("settings"), active);
+  renderForm();
   $("settings-editor").value = typed ?? state.settings.text;
   // Use the rendered file's mode to select visible rows.
   showAffinityRows(setting("affinity", "mode"));
@@ -3357,7 +3414,8 @@ async function start() {
   showFileError(0);
   renderFiles();
   renderOverview();
-  if (!document.querySelector(`section[data-page="providers"]`).hidden) renderForm();
+  if (!document.querySelector(`section[data-page="settings"]`).hidden
+    && sectionState($("settings")).key === "providers") renderForm();
   state.timers = [
     // Skip server calls in hidden tabs and refresh when they become visible.
     setInterval(() => document.hidden || guarded(refreshFast), 5000),
@@ -3606,14 +3664,13 @@ $("requests").addEventListener("click", async (event) => {
   shownRequests = "";
   renderRequestTable();
 });
-const PAGES = ["overview", "requests", "models", "limits", "notifications", "providers", "settings"];
+const PAGES = ["overview", "requests", "models", "limits", "notifications", "settings"];
 const PAGE_LABELS = {
   overview: t("nav.overview_link"),
   requests: t("nav.requests_link"),
   models: t("nav.models_link"),
   limits: t("nav.limits_link"),
   notifications: t("nav.notifications_link"),
-  providers: t("nav.providers_link"),
   settings: t("nav.settings_link"),
 };
 
@@ -3757,8 +3814,22 @@ function fitSectionPane() {
 
 let shownPage = "";
 function showPage() {
-  const [path, query] = location.hash.split("?");
-  const asked = path.replace("#/", "").replace(/^config$/, "providers").replace(/^pools$/, "models");
+  let [path, query] = location.hash.split("?");
+  let asked = path.replace("#/", "").replace(/^config$/, "providers").replace(/^pools$/, "models");
+  // The providers page lives in Settings now: old links land on its section.
+  if (asked === "providers") {
+    const inner = new URLSearchParams(query ?? "").get("section");
+    const providers = SECTION_STATE.providers;
+    providers.key = inner && inner !== "yaml" ? inner : inner === "yaml" ? "yaml" : "";
+    providers.open = Boolean(inner);
+    SECTION_STATE.settings.key = "providers";
+    SECTION_STATE.settings.open = true;
+    history.replaceState(null, "", inner
+      ? `#/settings?section=providers&provider=${encodeURIComponent(inner)}`
+      : "#/settings?section=providers");
+    [path, query] = location.hash.split("?");
+    asked = "settings";
+  }
   const page = PAGES.includes(asked) ? asked : PAGES[0];
   const changed = page !== shownPage;
   shownPage = page;
@@ -3789,7 +3860,7 @@ function showPage() {
   // Mark navigation chevrons on the first paint, before the status response.
   markNavSteps();
   // Render before selecting the section to preserve its phone back animation classes.
-  if (page === "providers" && state.view === "form") renderForm();
+  if (page === "settings" && state.settings) renderSettings();
   applySectionHash();
   slideAgain();
   document.title = t("page.title", { page: PAGE_LABELS[page] });
@@ -4000,6 +4071,8 @@ window.addEventListener("resize", () => {
   markCardScrollEdges();
 });
 $("settings").addEventListener("input", (event) => {
+  // The nested providers host handles its own events.
+  if (event.composedPath?.().includes($("provider-form"))) return;
   clearWrite("settings");
   showLengthLimit(event.target, $("settings-message"));
   // Change visible affinity rows without changing the selected mode.
@@ -4012,6 +4085,8 @@ $("settings").addEventListener("input", (event) => {
   renderSettingsSave();
 });
 $("settings").addEventListener("click", async (event) => {
+  // The nested providers host handles its own events.
+  if (event.composedPath?.().includes($("provider-form"))) return;
   const section = event.target.closest(".sections button[data-section]");
   if (section) return selectSettingsSection(section.dataset.section);
   if (event.target.closest("[data-back]")) return closeSection($("settings"));
@@ -4035,6 +4110,8 @@ $("settings").addEventListener("click", async (event) => {
   }
 });
 $("settings").addEventListener("change", (event) => {
+  // The nested providers host handles its own events.
+  if (event.composedPath?.().includes($("provider-form"))) return;
   const input = event.target;
   // The manager writes at once too: the source selection stays in the page, and the 2 boxes save.
   if (input.dataset.hookSource !== undefined) {
