@@ -817,7 +817,7 @@ def test_the_demo_keeps_every_row_of_the_snapshot(tmp_path: Path) -> None:
   """The demo models response retains each captured model ID."""
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
   ids = [row["id"] for row in fixtures["models"]]
-  assert len(ids) == len(set(ids)), "each row is listed once"
+  assert len(ids) == len(set(ids)), "each row appears once"
   out = pages_demo.build(tmp_path / "site", "demo.9")
   models = demo_read(out, "models")["models"]
   assert sorted(row["id"] for row in models) == sorted(ids)
