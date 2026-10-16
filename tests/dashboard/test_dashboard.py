@@ -5666,6 +5666,29 @@ assert.strictEqual((html.match(/<input class="text" type="(?:text|password)" rea
   )
 
 
+def test_provider_text_inputs_have_accessible_names() -> None:
+  """Provider inputs use their field labels as accessible names without placeholders."""
+  run_app_js(
+    "state, providerCard",
+    """
+probe.state.providerDefaults = {};
+probe.state.env = [];
+for (const kind of ['env', 'db']) {
+  const html = probe.providerCard('cloudflare', {
+    api_key: `${kind}:FIXTURE_KEY`, account_id: `${kind}:FIXTURE_KEY`,
+    api_base: 'https://fixture.invalid/v1',
+  });
+  const inputs = html.match(/<input[^>]* readonly[^>]*>/g) || [];
+  assert(inputs.length > 0, 'the provider form has text inputs');
+  for (const input of inputs) {
+    const label = input.match(/data-value="([^"]+)"/)?.[1];
+    assert(label && input.includes(`aria-label="${label}"`), input);
+  }
+}
+""",
+  )
+
+
 def test_dashboard_display_primitives_keep_their_contracts() -> None:
   """Shared value renderers preserve trusted markup, escaped data, and exact wrappers."""
   app = (
