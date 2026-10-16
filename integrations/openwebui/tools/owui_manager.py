@@ -52,10 +52,7 @@ def _entry_key(item: Any) -> str:
 
 
 def _merge_ids(current: Any, add: list[Any], remove: list[str]) -> list[Any]:
-  """Apply the add and remove lists to a current list, order kept.
-
-  Knowledge entries are reference objects. The other lists hold plain ids.
-  """
+  """Merge IDs or knowledge references with exclusions and additions, preserving the order of retained entries."""
   gone = {str(item) for item in remove}
   merged = [item for item in (current or []) if _entry_key(item) not in gone]
   have = {_entry_key(item) for item in merged}
@@ -258,7 +255,7 @@ class Tools:
     return mode if isinstance(mode, str) and mode in ("Always ask", "Allow reads", "Always allow") else "Always ask"
 
   def _wait_seconds(self, __user__: dict | None = None) -> int:
-    """The confirmation wait: the user value wins, then the tool value."""
+    """Use a nonzero user timeout, else the tool timeout or 60 seconds, with a one-second minimum."""
     user_wait = self._user_valve(__user__, "timeout_seconds")
     value = int(user_wait or 0) or int(self.valves.timeout_seconds or 0) or 60
     return max(1, value)
@@ -335,7 +332,7 @@ class Tools:
     as_text=False,
     **kwargs,
   ):
-    """Unified HTTP request sending and response handling."""
+    """Send an Open WebUI API request and return response data or an error."""
     try:
       async with session.request(
         method,
@@ -1941,23 +1938,18 @@ class Tools:
     return add, remove
 
   def _preset_filter(self) -> list[str]:
-    """The PRESET_MODELS valve as an id or name list. Empty serves each preset."""
+    """Parse PRESET_MODELS as preset IDs or names, with an empty list for all presets."""
     return _split_ids(self.valves.PRESET_MODELS)
 
   def _preset_selected(self, item) -> bool:
-    """Tell whether PRESET_MODELS serves one preset. Empty serves each preset."""
+    """Match a preset ID or name against PRESET_MODELS, or accept every preset when the valve is empty."""
     wanted = self._preset_filter()
     if not wanted:
       return True
     return str(item.get("id")) in wanted or str(item.get("name")) in wanted
 
   async def _attach_to_presets(self, add: dict, __request__, remove=None) -> str:
-    """Add or remove ids in the meta list of each selected preset.
-
-    One call per list: the caller names the meta key, such as skillIds or
-    toolIds. The tool skips a preset without write access and names it. The report
-    is `added to N[. skipped, no write access: ids][. failed: msg]`.
-    """
+    """Update attachments on selected writable presets and report changed, skipped, and failed updates."""
     add = {
       key: [str(i) for i in value if i] for key, value in (add or {}).items() if value
     }
