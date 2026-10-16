@@ -240,14 +240,19 @@ function askChoicePair(title, message, choices, placeholder) {
 async function editValue(input, write) {
   const box = $("modal-input");
   const number = input.type === "number" ? document.createElement("input") : null;
-  if (number) number.type = "number";
+  if (number) {
+    number.type = "number";
+    number.min = input.min;
+    number.max = input.max;
+    number.step = input.step;
+  }
   box.type = input.type === "password" ? "password" : "text";
   box.inputMode = number ? "decimal" : "";
   const validate = () => {
     if (!number) return;
     number.value = box.value;
-    box.pattern = box.value === "" || (number.value !== "" && Number.isFinite(number.valueAsNumber))
-      ? ".*" : "(?!)";
+    const bounded = number.value !== "" && Number.isFinite(number.valueAsNumber) && number.checkValidity();
+    box.pattern = box.value === "" || bounded ? ".*" : "(?!)";
   };
   const done = ask(t("dialog.edit_value.title", { name: input.dataset.value }),
     "", t("action.save_button"), false, input.placeholder ?? "", input.value);

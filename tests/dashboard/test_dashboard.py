@@ -6084,7 +6084,7 @@ def test_dashboard_rows_keep_their_responsive_cell_order() -> None:
 
 
 def test_value_editor_validates_numbers_and_clears_modal_constraints() -> None:
-  """Invalid numeric text cannot reset a value or leave constraints in the shared dialog."""
+  """Out-of-bounds or invalid numeric text cannot reset a value or leave dialog constraints."""
   run_app_js(
     "editValue",
     """
@@ -6094,21 +6094,35 @@ box.removeAttribute = (name) => { delete box[name]; };
 box.removeEventListener = (type, fn) => { box.handlers[type] = box.handlers[type].filter(item => item !== fn); };
 box.checkValidity = () => box.pattern !== '(?!)';
 Object.defineProperty(node('made-input'), 'valueAsNumber', { get() { return Number(this.value); } });
+node('made-input').checkValidity = function check() {
+  if (this.value === '') return true;
+  const value = Number(this.value);
+  if (this.min && value < Number(this.min)) return false;
+  if (this.max && value > Number(this.max)) return false;
+  if (this.step && this.step !== 'any') return (value - Number(this.min || 0)) % Number(this.step) === 0;
+  return true;
+};
 sandbox.Event = class { constructor(type) { this.type = type; } };
 const input = node('synthetic-value');
 input.dataset.value = 'synthetic';
 input.dispatchEvent = () => {};
 (async () => {
-  for (const [type, value, confirm, expected, count] of [
-    ['number', 'abc', true, '120', 0],
-    ['number', '1e999', true, '120', 0],
-    ['number', '1.25', true, '1.25', 1],
-    ['number', '', true, '', 1],
-    ['number', '', false, '120', 0],
-    ['password', 'synthetic-secret', false, '120', 0],
+  for (const [type, value, confirm, expected, count, min, max, step] of [
+    ['number', 'abc', true, '120', 0, '', '', ''],
+    ['number', '1e999', true, '120', 0, '', '', ''],
+    ['number', '1.25', true, '1.25', 1, '', '', ''],
+    ['number', '', true, '', 1, '', '', ''],
+    ['number', '', false, '120', 0, '', '', ''],
+    ['number', '2', true, '120', 0, '0', '1', 'any'],
+    ['number', '-0.5', true, '120', 0, '0', '1', 'any'],
+    ['number', '0.5', true, '0.5', 1, '0', '1', 'any'],
+    ['password', 'synthetic-secret', false, '120', 0, '', '', ''],
   ]) {
     input.type = type;
     input.value = '120';
+    input.min = min;
+    input.max = max;
+    input.step = step;
     let writes = 0;
     const done = probe.editValue(input, () => { writes += 1; });
     assert.strictEqual(box.type, type === 'password' ? 'password' : 'text');
