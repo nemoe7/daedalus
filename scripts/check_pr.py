@@ -366,7 +366,7 @@ def check(
 def main(argv: list[str] | None = None) -> int:
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument("--range", dest="revision_range", help="commit range, BASE..HEAD")
-  parser.add_argument("--pr-title", help="PR title to validate as a commit subject")
+  parser.add_argument("--pr-title", help="PR title to check as a commit subject")
   parser.add_argument("--body-file", help="file holding the complete PR body")
   parser.add_argument(
     "--no-ste",

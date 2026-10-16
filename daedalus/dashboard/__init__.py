@@ -142,7 +142,7 @@ class Live:
       self.send("first", self.view(key))
 
   def end(self, key: int, row: dict[str, Any] | None) -> None:
-    """Remove a finished request, and send the row that the history keeps."""
+    """Delete a finished request, and send the row that the history keeps."""
     if self.rows.pop(key, None) is not None:
       self.send("end", {"id": key, "row": row})
 
@@ -784,7 +784,7 @@ def write_config(
 
 
 def unlink_file(path: Path, label: str) -> JSONResponse | None:
-  """Remove 1 file, and answer the failure when the file stays."""
+  """Delete 1 file, and answer the failure when the file stays."""
   try:
     path.unlink()
   except OSError:
@@ -1438,7 +1438,7 @@ def settings_routes(
 
   @api.delete("/hooks/file")
   async def hooks_file_delete(request: Request) -> JSONResponse:
-    """Remove 1 hook file from the hook folder, and leave its record out of the lock."""
+    """Delete 1 hook file from the hook folder, and leave its record out of the lock."""
     if not allowed(request):
       return denied()
     body = await json_body(request)
