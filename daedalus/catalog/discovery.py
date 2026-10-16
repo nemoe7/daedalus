@@ -196,11 +196,14 @@ def row_shape(payload: dict[str, Any]) -> str | None:
 
 def row_matches(row: dict[str, Any], match: dict[str, Any]) -> bool:
   """Test each discovered row against `discovery_match` and accept missing properties."""
-  properties = {
-    item.get("property_id"): item.get("value")
-    for item in row.get("properties") or []
-    if isinstance(item, dict)
-  }
+  try:
+    properties = {
+      item.get("property_id"): item.get("value")
+      for item in row.get("properties") or []
+      if isinstance(item, dict)
+    }
+  except TypeError as error:
+    raise ValueError("Invalid catalog row properties.") from error
   for key, expected in match.items():
     value = row.get(key, properties.get(key))
     if value is not None and text(value).lower() != text(expected).lower():
@@ -247,9 +250,11 @@ def failure(payload: dict[str, Any]) -> str | None:
   """Return the message of a failed envelope, so a bad URL is not an empty catalog."""
   if payload.get("success") is not False:
     return None
-  for error in payload.get("errors") or []:
-    if isinstance(error, dict) and error.get("message"):
-      return str(error["message"])
+  errors = payload.get("errors")
+  if isinstance(errors, list):
+    for error in errors:
+      if isinstance(error, dict) and error.get("message"):
+        return str(error["message"])
   return "the upstream reported a failure"
 
 
@@ -369,16 +374,19 @@ def read_source(
   provider_name: str, provider: dict[str, Any], source: str, fetch: Fetch, cached: bool
 ) -> dict[str, Any] | str:
   """Read 1 discovery URL and log its model count, or return the reason it failed."""
-  if cached:
-    payload = cached_snapshot(source)
-    if payload is None:
-      return "no cached catalog snapshot"
-  else:
-    try:
+  try:
+    if cached:
+      payload = cached_snapshot(source)
+      if payload is None:
+        return "no cached catalog snapshot"
+      problem = failure(payload)
+      if problem is not None:
+        return problem
+    else:
       payload = read_pages(provider_name, provider, fetch)
-    except (httpx.HTTPError, ValueError) as error:
-      return str(error)
-  count = len(extract_rows(payload, provider.get("discovery_match")))
+    count = len(extract_rows(payload, provider.get("discovery_match")))
+  except (httpx.HTTPError, ValueError) as error:
+    return str(error)
   logger.info("%s: read %d models", provider_name, count)
   return payload
 

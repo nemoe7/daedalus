@@ -921,8 +921,17 @@ def test_pagination_failure_retains_rows(tmp_path: Path, monkeypatch) -> None:
 
 
 @pytest.mark.parametrize("cached", [False, True])
+@pytest.mark.parametrize(
+  "malformed",
+  [
+    None,
+    {"data": [{"id": "new", "properties": 1}]},
+    {"data": [{"id": "new", "properties": [{"property_id": [], "value": 1}]}]},
+    {"success": False, "errors": 1},
+  ],
+)
 def test_shared_failure_retains_each_provider(
-  tmp_path: Path, monkeypatch, cached: bool
+  tmp_path: Path, monkeypatch, cached: bool, malformed: dict[str, Any] | None
 ) -> None:
   monkeypatch.setattr(store, "MODELS_DB", tmp_path / "models.sqlite3")
   shared, healthy = "https://shared.test/models", "https://healthy.test/models"
@@ -932,15 +941,16 @@ def test_shared_failure_retains_each_provider(
     "second": dict(block),
     "healthy": {"api_key": "placeholder", "discovery_url": healthy},
   }
-  store.write_store(
-    [
-      {"id": "first/old", "max_input_tokens": 8192},
-      {"id": "second/old", "max_input_tokens": 4096},
-      {"id": "healthy/old"},
-    ]
-  )
+  stored = [
+    {"id": "first/old", "max_input_tokens": 8192},
+    {"id": "second/old", "max_input_tokens": 4096},
+    {"id": "healthy/old"},
+  ]
+  store.write_store(stored)
   payload = {"data": [{"id": "new"}]}
   discovery.save_snapshot(healthy, payload)
+  if malformed is not None:
+    discovery.save_snapshot(shared, malformed)
   calls: list[str] = []
   original = discovery.cached_snapshot
 
@@ -951,6 +961,8 @@ def test_shared_failure_retains_each_provider(
   def fetch(url: str, headers: dict[str, str]) -> dict[str, Any]:
     calls.append(url)
     if url == shared:
+      if malformed is not None:
+        return malformed
       raise httpx.ConnectError("simulated outage")
     return payload
 
@@ -960,13 +972,23 @@ def test_shared_failure_retains_each_provider(
   store.write_store(
     [{"id": model, **values} for model, values in rows.items()], keep=failed
   )
-  assert failed == ["first", "second"]
-  assert len(skipped) == 1
-  assert calls.count(shared) == calls.count(healthy) == 1
-  assert set(store.read_models()) == {"first/old", "second/old", "healthy/new"}
+  assert failed == [
+    name for name, block in providers.items() if block["discovery_url"] == shared
+  ]
+  assert len(skipped) == len({providers[name]["discovery_url"] for name in failed})
+  assert set(calls) == {block["discovery_url"] for block in providers.values()}
+  assert len(calls) == len(set(calls))
+  preserved = [row for row in stored if row["id"].split("/", 1)[0] in failed]
+  added = {
+    f"{name}/{row['id']}"
+    for name in providers
+    if name not in failed
+    for row in payload["data"]
+  }
+  assert set(store.read_models()) == {row["id"] for row in preserved} | added
   kept = {row["id"]: row for row in store.stored_rows()}
-  assert kept["first/old"]["max_input_tokens"] == 8192
-  assert kept["second/old"]["max_input_tokens"] == 4096
+  for row in preserved:
+    assert {key: kept[row["id"]][key] for key in row} == row
 
 
 def test_catalog_dump_keeps_fetch_time_separate_from_export_time(tmp_path, monkeypatch):
