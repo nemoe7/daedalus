@@ -3,7 +3,7 @@ title: GitHub
 author: nemo
 description: GitHub access for Open WebUI. Read and write approval follows permission mode.
 required_open_webui_version: 0.10.0
-version: 3.0.7
+version: 3.0.8
 licence: nemoe7 Noncommercial and Public-Interest License 1.2.0
 """
 
@@ -1796,7 +1796,7 @@ class Tools:
       if encoding == "base64":
         text = (
           base64.b64encode(text.encode()).decode()
-          if data.get("encoding") != "base64"
+          if data.get("encoding") != "base64" or start_line or end_line
           else blob
         )
       return self._ok(
@@ -3006,11 +3006,12 @@ class Tools:
   # ═════════════════════════════════ search ═════════════════════════════
 
   async def _search_code(
-    self, query: str, topn: int, repo: str | None = None, org: str | None = None
+    self, query: str, topn: int, repo: str | list[str] | None = None, org: str | None = None
   ) -> list:
     terms = [query]
     if repo:
-      terms.append(f"repo:{repo}")
+      for name in repo if isinstance(repo, list) else [repo]:
+        terms.append(f"repo:{name}")
     if org:
       terms.append(f"org:{org}")
     data = await self._request(
@@ -3046,11 +3047,7 @@ class Tools:
       repository_name=repository_name,
       org=org,
     ):
-      if isinstance(repository_name, list):
-        repo = " ".join(repository_name)
-      else:
-        repo = repository_name
-      return self._ok({"results": await self._search_code(query, topn, repo, org)})
+      return self._ok({"results": await self._search_code(query, topn, repository_name, org)})
 
     return await self._read(
       "read search_github_code",
@@ -3342,6 +3339,10 @@ class Tools:
         if value:
           for item in value if isinstance(value, list) else [value]:
             terms.append(f"repo:{str(item).removeprefix('https://github.com/')}")
+      if repository_id:
+        for item in repository_id if isinstance(repository_id, list) else [repository_id]:
+          repository = await self._request("GET", f"{API}/repositories/{int(item)}")
+          terms.append(f"repo:{repository['full_name']}")
       if org:
         terms.append(f"org:{org}")
       sorts = {

@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 from typing import Self
 from urllib.error import HTTPError
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
@@ -707,3 +708,94 @@ def test_the_url_reader_carries_a_github_name():
     asyncio.run(client().fetch_github_url("https://example.com/page"))
   assert info.value.status == 422
   assert "fetch_url" in str(info.value), "the error names the builtin reader"
+
+
+@pytest.mark.parametrize(
+  "repositories", [["fixture/one", "fixture/two"], "fixture/one"]
+)
+def test_code_search_qualifies_each_repository(monkeypatch, repositories):
+  calls = []
+  query, org, page_limit = "needle", "fixture", 100
+  opener(monkeypatch, json.dumps({"items": []}), calls)
+  for topn in (page_limit, page_limit * 2):
+    asyncio.run(
+      client().search_github_code(
+        query, topn=topn, repository_name=repositories, org=org
+      )
+    )
+  params = [parse_qs(urlsplit(call["url"]).query) for call in calls]
+  assert int(params[0]["per_page"][0]) == page_limit
+  assert params[1]["per_page"] == params[0]["per_page"]
+  names = repositories if isinstance(repositories, list) else [repositories]
+  expected = [query, *[f"repo:{name}" for name in names], f"org:{org}"]
+  assert all(row["q"][0].split() == expected for row in params)
+
+
+@pytest.mark.parametrize("encoding", ["utf-8", "base64"])
+def test_file_range_applies_to_each_encoding(monkeypatch, encoding):
+  lines = ["first", "second", "third"]
+  start, end = 2, 2
+  blob = base64.b64encode("\n".join(lines).encode()).decode()
+  opener(
+    monkeypatch,
+    json.dumps({"content": blob, "encoding": "base64", "sha": "fixture-sha"}),
+  )
+  answer = asyncio.run(
+    client().fetch_github_file(
+      "fixture/repo", "file.txt", encoding=encoding, start_line=start, end_line=end
+    )
+  )
+  content = answer["result"]["content"]
+  if encoding == "base64":
+    content = base64.b64decode(content).decode()
+  assert content == "\n".join(lines[start - 1 : end])
+
+
+@pytest.mark.parametrize("repository_ids", [7, [7, 9]])
+def test_commit_search_resolves_repository_ids(monkeypatch, repository_ids):
+  query = "needle"
+  ids = repository_ids if isinstance(repository_ids, list) else [repository_ids]
+  names = [f"fixture/repo-{value}" for value in ids]
+  calls = []
+  opener(
+    monkeypatch,
+    [json.dumps({"full_name": name}) for name in names] + [json.dumps({"items": []})],
+    calls,
+  )
+  asyncio.run(client().search_commits(query, repository_id=repository_ids))
+  assert [urlsplit(call["url"]).path for call in calls] == [
+    *[f"/repositories/{value}" for value in ids],
+    "/search/commits",
+  ]
+  sent = parse_qs(urlsplit(calls[-1]["url"]).query)["q"][0]
+  assert sent.split() == [query, *[f"repo:{name}" for name in names]]
+
+
+def test_file_base64_without_range_preserves_original_blob(monkeypatch):
+  blob = base64.b64encode(b"first\n\xff\x00").decode() + "\n"
+  opener(monkeypatch, json.dumps({"content": blob, "encoding": "base64"}))
+  answer = asyncio.run(
+    client().fetch_github_file("fixture/repo", "file.bin", encoding="base64")
+  )
+  assert answer["result"]["content"] == blob
+
+
+def test_commit_search_permission_precedes_id_lookup(monkeypatch):
+  calls = []
+  opener(monkeypatch, json.dumps({"items": []}), calls)
+  instance = client()
+  instance.valves.permissions = "Always ask"
+  answer = asyncio.run(instance.search_commits("needle", repository_id=7))
+  assert answer["result"]["denied"] is True
+  assert calls == []
+
+
+def test_commit_search_id_lookup_error_prevents_unrestricted_search(monkeypatch):
+  calls = []
+  error = HTTPError(
+    "https://api.github.com/repositories/7", 404, "missing", {}, io.BytesIO(b"{}")
+  )
+  opener(monkeypatch, {}, calls, error)
+  with pytest.raises(tool.GitHubError):
+    asyncio.run(client().search_commits("needle", repository_id=7))
+  assert [urlsplit(call["url"]).path for call in calls] == ["/repositories/7"]
