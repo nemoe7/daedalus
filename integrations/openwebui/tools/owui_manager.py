@@ -3,7 +3,7 @@ title: Open WebUI Manager
 author: nemo
 description: Open WebUI knowledge, skills, files, tools, and functions. Read and write approval follows permission mode.
 required_open_webui_version: 0.12.0
-version: 1.0.9
+version: 1.0.10
 licence: nemoe7 Noncommercial and Public-Interest License 1.2.0
 """
 
@@ -2269,24 +2269,18 @@ class Tools:
       return refusal
     if __request__ is None:
       return NO_CONTEXT
-    name = (filename or "").strip() or "untitled.txt"
-    boundary = "daedalus-openwebui-manager"
-    body = (
-      f"--{boundary}\r\n"
-      f'Content-Disposition: form-data; name="file"; filename="{name}"\r\n'
-      "Content-Type: text/markdown\r\n\r\n"
-      f"{content}\r\n"
-      f"--{boundary}--\r\n"
-    ).encode()
+    name = filename or ""
+    if "\r" in name or "\n" in name:
+      return "Error: filename must not contain line breaks."
+    name = name.strip() or "untitled.txt"
+    body = aiohttp.FormData(quote_fields=False)
+    body.add_field("file", content.encode("utf-8"), filename=name, content_type="text/markdown")
     async with await self._open_session(__request__) as s:
       data, err = await self._request(
         s,
         "POST",
         "/files/",
         data=body,
-        headers={
-          "Content-Type": f"multipart/form-data; boundary={boundary}",
-        },
         expected=(200, 201),
       )
     if err:

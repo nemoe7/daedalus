@@ -6,17 +6,11 @@ import inspect
 import json
 import pathlib
 import sys
-import types
 
+import aiohttp
 import pytest
-
-# The tool imports aiohttp, which the daedalus venv does not hold. The stub satisfies it.
-fake = types.ModuleType("aiohttp")
-fake.ClientTimeout = lambda **kwargs: None
-fake.ClientSession = object
-fake.ClientError = Exception
-fake.ContentTypeError = Exception
-sys.modules.setdefault("aiohttp", fake)
+from starlette.datastructures import Headers
+from starlette.formparsers import MultiPartParser
 
 TOOL = (
   pathlib.Path(__file__).resolve().parents[4]
@@ -817,3 +811,86 @@ def test_read_confirmation_identifies_targets_before_requests(
   else:
     assert json.loads(result)["result"]["denied"] is True
     assert calls == []
+
+
+@pytest.mark.parametrize(
+  "filename, content",
+  [
+    ("notes.md", "plain text"),
+    ('quoted"name.md', "text"),
+    ("spaced name.md", "first\nsecond\r\n"),
+    ("nóta.md", "日本語\ntext"),
+    ("", ""),
+    (
+      "notes.md",
+      (
+        "first\r\n--daedalus-openwebui-manager\r\n"
+        'Content-Disposition: form-data; name="extra"\r\n\r\nsecond'
+      ),
+    ),
+  ],
+)
+@pytest.mark.parametrize("permissions", ["Always allow", "Allow reads"])
+def test_upload_file_multipart_round_trip(filename, content, permissions):
+  async def run():
+    tool, calls = make_tool({"POST /files/": {"id": "fixture-file"}})
+    tool.valves.permissions = permissions
+    answer = await tool.upload_file(filename, content, __request__=object())
+    assert "id=fixture-file" in answer
+    assert len(calls) == 1
+    method, path, kwargs = calls[0]
+    assert (method, path) == ("POST", "/files/")
+    assert kwargs["expected"] == (200, 201)
+    body = kwargs["data"]
+    chunks = []
+
+    class Writer:
+      async def write(self, chunk):
+        chunks.append(chunk)
+
+    if isinstance(body, aiohttp.FormData):
+      payload = body()
+      content_type = payload.headers["Content-Type"]
+      await payload.write(Writer())
+    else:
+      content_type = kwargs["headers"]["Content-Type"]
+      chunks.append(body)
+
+    async def stream():
+      yield b"".join(chunks)
+
+    form = await MultiPartParser(
+      Headers({"Content-Type": content_type}), stream()
+    ).parse()
+    try:
+      assert list(form) == ["file"]
+      uploaded = form["file"]
+      assert uploaded.filename == (filename.strip() or "untitled.txt")
+      assert uploaded.content_type == "text/markdown"
+      assert await uploaded.read() == content.encode("utf-8")
+    finally:
+      await form.close()
+
+  asyncio.run(run())
+
+
+@pytest.mark.parametrize("filename", ["bad\rname.md", "bad\nname.md", "name.md\r\n"])
+def test_upload_file_rejects_filename_line_breaks(filename):
+  async def run():
+    tool, calls = make_tool()
+    tool.valves.permissions = "Always allow"
+    answer = await tool.upload_file(filename, "text", __request__=object())
+    assert answer.startswith("Error:")
+    assert calls == []
+
+  asyncio.run(run())
+
+
+def test_upload_file_denial_precedes_request():
+  async def run():
+    tool, calls = make_tool()
+    answer = await tool.upload_file("notes.md", "text", __request__=object())
+    assert json.loads(answer)["result"]["denied"] is True
+    assert calls == []
+
+  asyncio.run(run())
