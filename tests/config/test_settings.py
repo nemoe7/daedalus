@@ -220,7 +220,7 @@ def test_affinity_settings(folder: Path) -> None:
   expect_error(folder, "affinity:\n  penalty: 2\n", "affinity.penalty")
   expect_error(folder, "affinity:\n  penalty: 0\n", "affinity.penalty")
   expect_error(folder, "affinity:\n  slow: 0\n", "affinity.slow")
-  # The 2 groups of the old shape stop, and each names the mode that replaces it.
+  # Legacy groups report their replacement affinity mode.
   expect_error(folder, "session_affinity:\n  enabled: true\n", "affinity.mode: session")
   expect_error(folder, "parallel:\n  enabled: true\n", "affinity.mode: race")
   path = folder / "affinity.yml"
@@ -244,7 +244,7 @@ def test_affinity_settings(folder: Path) -> None:
 
 
 def test_privacy_settings(folder: Path) -> None:
-  """OWUI chat IDs stay private by default, and the privacy switch can forward them."""
+  """The privacy flag defaults to false and follows applied settings."""
   assert settings.parse("")["privacy"] == {"forward_owui_chat_id": False}
   expect_error(
     folder,
@@ -316,7 +316,7 @@ def test_apply(folder: Path) -> None:
   assert (loops.CALLS, loops.REPEATS, loops.SHORTEST, loops.LONGEST) == (3, 4, 20, 2000)
 
 
-# The CLI runs with a temporary state folder, so it never touches .daedalus-state.
+# Run the CLI with temporary model and catalog storage.
 CLI = """
 import tempfile
 from pathlib import Path
@@ -388,7 +388,7 @@ def folder(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 def test_timeout_cap() -> None:
-  """A timeout stops at 1 day, in the file and in the form."""
+  """Timeout validation accepts one day and rejects larger values."""
   assert settings.check("limits", "request", 86400) == 86400.0
   assert settings.check("optimization", "timeout", 86400) == 86400.0
   for group, key, value in (
@@ -405,7 +405,7 @@ def test_timeout_cap() -> None:
 
 
 def test_headroom_switch() -> None:
-  """The Headroom switch is a boolean, in the settings file and in the form."""
+  """The optimization switch accepts booleans and rejects numeric settings."""
   assert settings.check("optimization", "enabled", True) is True
   assert settings.check("optimization", "enabled", False) is False
   assert (
@@ -448,7 +448,7 @@ def test_apply_takes_the_threshold(folder: Path) -> None:
 
 
 def test_pool_names() -> None:
-  """Pool keys accept valid names, reject collisions and preserve number-like names on save."""
+  """Pool keys accept valid names, reject collisions, and preserve number-like names on save."""
   assert (
     settings.parse("")["personalization"]["tier-a"]
     == settings.DEFAULTS["personalization"]["tier-a"]
@@ -478,7 +478,7 @@ def test_pool_names() -> None:
 
 
 def test_update_text_drops_an_empty_group() -> None:
-  """The last key of a group takes the group with it."""
+  """Removing a group's last key removes the group."""
   text = settings.update_text(
     "limits:\n  slow: 30\ncatalog:\n  every: 6\n", {"limits": {"slow": None}}
   )
@@ -486,13 +486,13 @@ def test_update_text_drops_an_empty_group() -> None:
 
 
 def test_update_text_writes_into_a_file_of_comments_only() -> None:
-  """A file of comment lines holds no group, and a save writes the changes into it."""
+  """Updates add settings after a comment-only prefix."""
   text = settings.update_text("# Router settings.\n", {"limits": {"slow": 12}})
   assert text == "# Router settings.\nlimits:\n  slow: 12\n", text
 
 
 def test_update_text_keeps_a_comment_of_a_written_file() -> None:
-  """A save keeps the comment lines of a file that holds keys."""
+  """Settings updates preserve existing comments."""
   text = settings.update_text(
     "# Router settings.\nlimits:\n  slow: 30\n", {"limits": {"slow": 12}}
   )
@@ -512,7 +512,7 @@ def test_hooks_dir_names_the_folder() -> None:
 
 
 def test_hooks_sources_take_a_repo_path_ref_and_flag() -> None:
-  """`hooks.sources` holds 1 entry per repo, with the folder, the ref and the auto_update flag."""
+  """Hook sources validate repository, path, ref, and update fields."""
   assert settings.parse("")["hooks"]["sources"] == settings.DEFAULTS["hooks"]["sources"]
   text = (
     "hooks:\n  sources:\n    - repo: owner/name\n"
@@ -593,7 +593,7 @@ def test_unsafe_disabled_hook_identities_fail(name):
 
 
 def test_hooks_disabled_names_stay_off() -> None:
-  """`hooks.disabled` holds the names that stay on disk and do not load."""
+  """`hooks.disabled` accepts safe relative hook names."""
   assert (
     settings.parse("")["hooks"]["disabled"] == settings.DEFAULTS["hooks"]["disabled"]
   )
@@ -608,7 +608,7 @@ def test_hooks_disabled_names_stay_off() -> None:
 
 
 def test_hooks_remote_is_gone() -> None:
-  """The settings file of the old shape names `hooks.sources`, on a load and on a save."""
+  """Reject old remote-hook keys with a `hooks.sources` hint."""
   for key in ("remote", "remote_hosts"):
     with pytest.raises(settings.SettingsError) as error:
       settings.parse(f"hooks:\n  {key}: []\n")
@@ -621,7 +621,7 @@ def test_hooks_remote_is_gone() -> None:
 
 
 def test_apply_wires_the_hook_settings(monkeypatch: pytest.MonkeyPatch) -> None:
-  """A save takes the hook folder, disabled names, order and sources of a start."""
+  """Applying settings configures the hook folder, disabled names, order, and sources."""
   seen: list[tuple[list[dict[str, object]], bool, Path | None]] = []
 
   def record(
@@ -665,7 +665,7 @@ def test_apply_wires_the_hook_settings(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_updates_repo_names_the_repository() -> None:
-  """`updates.repo` holds the GitHub repository the check reads, as owner/name."""
+  """`updates.repo` accepts owner/name pairs and rejects invalid repository names."""
   assert settings.parse("")["updates"]["repo"] == settings.DEFAULTS["updates"]["repo"]
   assert (
     settings.parse("updates:\n  repo: mine/daedalus\n")["updates"]["repo"]

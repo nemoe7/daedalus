@@ -1,4 +1,4 @@
-"""Provider hook tests cover copied values, execution order and failure isolation."""
+"""Provider hook tests cover copied values, execution order, and failure isolation."""
 
 import logging
 import os
@@ -10,7 +10,7 @@ from daedalus.providers import hooks
 
 
 def write(name: str, text: str) -> str:
-  """Write a hook file in the config folder with a new file time, and give its config path."""
+  """Write a hook with a future modification time and return its config path."""
   path = hooks.ROOT / "hooks" / name
   path.parent.mkdir(parents=True, exist_ok=True)
   path.write_text(text)
@@ -78,7 +78,7 @@ def test_disabled_hook_stays_out_of_explicit_calls(
 def test_disabled_hook_identity_selects_its_source(
   tmp_path, monkeypatch, disabled, expected
 ):
-  """A relative identity selects one source, while a legacy name covers both."""
+  """A relative identity selects one source, while a bare name covers both."""
   monkeypatch.setattr(hooks, "ROOT", tmp_path)
   monkeypatch.setattr(hooks, "DIR", "hooks")
   monkeypatch.setattr(hooks, "DISABLED", {disabled})
@@ -345,7 +345,7 @@ def test_hook_files() -> None:
 
 
 def test_broken_hook_retry() -> None:
-  """A hook file with an error does not cache None and reloads on fix."""
+  """A hook loads after a syntax correction."""
   target = hooks.ROOT / "flaky.py"
   target.parent.mkdir(parents=True, exist_ok=True)
   target.write_text("def on_answer(:\n")
@@ -395,7 +395,7 @@ def test_a_run_writes_1_log_line(caplog: pytest.LogCaptureFixture) -> None:
 
 
 def test_meta_block() -> None:
-  """The frontmatter block gives the name, the version, the surfaces, the scope and the targets."""
+  """Frontmatter supplies the name, version, surfaces, scope, and targets."""
   path = hooks.ROOT / "hooks" / "meta.py"
   path.parent.mkdir(parents=True, exist_ok=True)
   path.write_text(
@@ -452,7 +452,7 @@ def test_meta_problems() -> None:
 
 
 def test_meta_runs_no_code() -> None:
-  """The reader takes the block from the text, so the body runs at no read."""
+  """Read frontmatter without running the hook body."""
   path = hooks.ROOT / "hooks" / "danger.py"
   path.parent.mkdir(parents=True, exist_ok=True)
   path.write_text(
@@ -464,7 +464,7 @@ def test_meta_runs_no_code() -> None:
 
 
 def test_meta_reads_one_file_state_once(monkeypatch) -> None:
-  """An unchanged hook file gives its frontmatter from the cache, so the file reads once."""
+  """Unchanged hook metadata uses one cached read."""
   path = hooks.ROOT / "hooks" / "cached.py"
   path.parent.mkdir(parents=True, exist_ok=True)
   path.write_text(
@@ -491,7 +491,7 @@ def test_meta_reads_one_file_state_once(monkeypatch) -> None:
 
 
 def test_requires_compare() -> None:
-  """A requirement takes a comma list of comparisons against the running version."""
+  """Requirements compare a comma-separated constraint list against the supplied version."""
   assert hooks.requires_ok(">=0.1", "0.1.0") is True
   assert hooks.requires_ok(">=0.2", "0.1.0") is False
   assert hooks.requires_ok(">=0.1,<1.0", "0.1.0") is True
@@ -500,7 +500,7 @@ def test_requires_compare() -> None:
 
 
 def test_hook_folder() -> None:
-  """The settings name the folder of the hook files, and the selector follows it."""
+  """Hook resolution and file listing use the configured folder."""
   try:
     hooks.set_installed("shared", [])
     path = hooks.ROOT / "shared" / "one.py"
@@ -536,7 +536,7 @@ def test_a_nested_install_lists_and_loads() -> None:
 
 
 def scoped(name: str, body: str, block: str) -> None:
-  """Write 1 hook file with a frontmatter block in the hook folder."""
+  """Write a hook and its frontmatter to the hook folder."""
   path = hooks.ROOT / hooks.DIR / name
   path.parent.mkdir(parents=True, exist_ok=True)
   path.write_text(f"{block}{body}", encoding="utf-8")
@@ -575,7 +575,7 @@ def test_scoped_hooks() -> None:
 
 
 def test_yaml_scope_follows_the_provider_file() -> None:
-  """A yaml scope runs for the models of the provider file, and not for the models of the main file."""
+  """YAML-scoped hooks match only models listed in the provider-file fixture."""
   try:
     hooks.set_installed("yamlscope", [])
     scoped(
@@ -663,7 +663,7 @@ def test_surface_order_keeps_hook_scopes() -> None:
 
 
 def test_bad_block_stays_out() -> None:
-  """A block with an unknown surface keeps the file out of the installed list."""
+  """An unknown declared surface prevents hook execution."""
   try:
     hooks.set_installed("badblock", [])
     scoped(
@@ -677,7 +677,7 @@ def test_bad_block_stays_out() -> None:
 
 
 def test_rows_add_the_request_points_that_name_a_file() -> None:
-  """The settings name a file at a request surface: the row shows that surface once, in surface order."""
+  """Row surfaces follow frontmatter declarations or explicit request settings."""
   try:
     hooks.set_installed("rows2")
     scoped("both.py", ANSWER % "both", "# ---\n# surfaces: [on-chunk]\n# ---\n")
@@ -700,7 +700,7 @@ def test_rows_add_the_request_points_that_name_a_file() -> None:
 
 
 def test_rows_carry_the_title() -> None:
-  """A row carries the title of its frontmatter, and no title when the block has none."""
+  """Rows expose frontmatter titles or empty strings when absent."""
   try:
     hooks.set_installed("rows3")
     scoped(
@@ -717,7 +717,7 @@ def test_rows_carry_the_title() -> None:
 
 
 def test_rows_report_the_folder() -> None:
-  """Each row names the file, its frontmatter, its state and its problem."""
+  """Rows expose hook paths, metadata, enabled states, and validation problems."""
   try:
     hooks.set_installed("rows", ["off.py"])
     scoped(
