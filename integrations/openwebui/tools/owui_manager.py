@@ -3,7 +3,7 @@ title: Open WebUI Manager
 author: nemo
 description: Open WebUI knowledge, skills, files, tools, and functions. Read and write approval follows permission mode.
 required_open_webui_version: 0.12.0
-version: 1.0.10
+version: 1.0.11
 licence: nemoe7 Noncommercial and Public-Interest License 1.2.0
 """
 
@@ -488,8 +488,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    List knowledge bases available to the current Open WebUI user,
-    including their IDs and write access.
+    List the current user's Open WebUI knowledge bases with their IDs and write access.
 
     :param offset: row offset within this page
     :param max_results: maximum rows, subject to the output byte limit
@@ -527,14 +526,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    List files and directories inside an Open WebUI knowledge base.
-
-    directory_id:
-    - empty string = root directory
-    - directory ID = show contents of that directory
-
-    Returns directory IDs, file IDs and breadcrumbs so the model
-    can navigate the knowledge base without creating duplicate folders.
+    List a knowledge directory's files, child directories, and breadcrumbs with their IDs.
 
     :param knowledge_id: ID of the Open WebUI knowledge base
     :param directory_id: the directory id to list, or the knowledge root when absent
@@ -646,10 +638,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Update the name and/or description of an Open WebUI knowledge base.
-
-    Empty new_name keeps the existing name.
-    Empty new_description keeps the existing description.
+    Update a knowledge base's name or description, retaining each current value when its input is empty.
 
     :param knowledge_id: ID of the Open WebUI knowledge base
     :param new_name: the new name, or empty to keep the current one
@@ -703,8 +692,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Create a directory inside an Open WebUI knowledge base.
-    Supports nested directories using parent_id.
+    Create a knowledge directory under the specified parent or at the knowledge root.
 
     :param knowledge_id: ID of the Open WebUI knowledge base
     :param name: name of the directory to create
@@ -755,10 +743,7 @@ class Tools:
     __event_call__: Callable | None = None,
   ) -> str:
     """
-    Ensure that a nested directory path exists inside a knowledge base.
-
-    The tool reuses an existing directory and creates a missing one.
-    Example: Servers/VPN/Notes
+    Resolve a knowledge directory path, reusing existing directories and creating missing ones.
 
     :param knowledge_id: ID of the Open WebUI knowledge base
     :param path: directory path to create or reuse, for example Servers/VPN/Notes
@@ -855,12 +840,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Create a new Markdown file in an Open WebUI knowledge base
-    and automatically index it for retrieval.
-
-    directory_id:
-    - empty string = create in knowledge base root
-    - directory ID = create directly inside that directory
+    Create and index a Markdown file in the specified knowledge directory or at the knowledge root.
 
     :param knowledge_id: ID of the target Open WebUI knowledge base
     :param filename: filename for the new Markdown document, for example server-notes.md
@@ -918,10 +898,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Create a Markdown file at a nested path inside a knowledge base.
-
-    The tool reuses an existing directory and creates a missing one.
-    The file goes directly into the final directory.
+    Create and index a Markdown file at a knowledge path, creating missing parent directories.
 
     :param knowledge_id: ID of the target Open WebUI knowledge base
     :param path: full path including filename, for example Projects/Servers/VPN/Notes/readme.md
@@ -1052,8 +1029,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Replace the content of an existing Open WebUI knowledge file
-    and reindex it for retrieval.
+    Replace a knowledge file's content and request reindexing.
 
     :param file_id: ID of the existing Open WebUI knowledge file
     :param content: complete new Markdown/text content that will replace the existing file content
@@ -1093,8 +1069,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Read the extracted/indexed text content of an Open WebUI knowledge file.
-    Use this before editing an existing document.
+    Read a text range from a knowledge file before editing it.
 
     :param file_id: ID of the Open WebUI knowledge file to read
     :param offset: character offset in the returned text
@@ -1142,11 +1117,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Find an existing knowledge file by its exact path
-    and replace its complete text content.
-
-    Open WebUI reindexes the file automatically.
-    Does not create missing directories or files.
+    Replace and reindex a knowledge file at an existing path without creating directories or files.
 
     :param knowledge_id: ID of the Open WebUI knowledge base
     :param path: full path to the existing file, for example Projects/Servers/VPN/Notes/readme.md
@@ -1180,8 +1151,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Read an existing knowledge file by its exact path.
-    Does not create or change anything.
+    Read a knowledge file at an existing path without changing it.
 
     :param knowledge_id: ID of the Open WebUI knowledge base
     :param path: exact file path, for example Projects/Servers/VPN/Notes/readme.md
@@ -1227,13 +1197,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Create or update a Markdown file at an exact knowledge-base path.
-
-    - The tool reuses an existing directory.
-    - The tool creates a missing directory.
-    - The tool updates and reindexes an existing file.
-    - The tool creates and indexes a missing file.
-    - Ambiguous directory or file matches are never guessed.
+    Create or update a Markdown file at a knowledge path, creating missing directories and refusing ambiguous matches.
 
     :param knowledge_id: ID of the target Open WebUI knowledge base
     :param path: full Markdown file path, for example Projects/Servers/VPN/Notes/readme.md
@@ -1403,9 +1367,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Move a directory inside an Open WebUI knowledge base.
-
-    Use an empty target_parent_id to move the directory to the root.
+    Move a knowledge directory under the specified parent, or to the root when the parent ID is empty.
 
     :param knowledge_id: ID of the Open WebUI knowledge base
     :param directory_id: ID of the directory to move
@@ -1451,12 +1413,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Permanently delete an Open WebUI knowledge file.
-
-    This removes the file itself, its knowledge-base associations,
-    and its indexed embeddings.
-
-    Use only when the user explicitly asks to delete the file.
+    Permanently delete a knowledge file and its indexed data only when the user requests deletion and `confirm` is true.
 
     :param file_id: ID of the Open WebUI file to permanently delete
     :param confirm: Must be true. Set true only when the user explicitly requested permanent deletion of the file
@@ -1492,12 +1449,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Permanently delete an existing knowledge file by its exact path.
-
-    Safety:
-    - confirm must be true.
-    - The exact directory path and filename must resolve.
-    - ambiguous matches are never deleted.
+    Permanently delete a knowledge file at an unambiguous path only when `confirm` is true.
 
     :param knowledge_id: ID of the Open WebUI knowledge base
     :param path: exact path of the file to permanently delete
@@ -1546,10 +1498,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Delete a directory from an Open WebUI knowledge base.
-
-    The tool moves the files inside the directory to its parent,
-    and does not delete them.
+    Delete a knowledge directory and move its files to its parent without deleting them.
 
     :param knowledge_id: ID of the Open WebUI knowledge base
     :param directory_id: ID of the directory to delete
@@ -1592,15 +1541,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Search files across all Open WebUI knowledge bases available
-    to the current user.
-
-    By default searches metadata/filenames.
-    Set include_content=true to return file content preview for found files.
-    max_content_items limits how many files come back with their content (default: 10).
-
-    With include_content=true, the API also matches extracted content
-    within its configured character limit.
+    Search accessible knowledge files by filename or optional bounded text, with optional content previews.
 
     :param query: filename or text to search for across all accessible knowledge bases
     :param include_content: true to search the file text too, false for filenames alone
@@ -1687,11 +1628,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Find a file across all accessible Open WebUI knowledge bases
-    and immediately return its full extracted/indexed text content.
-
-    If the call names exact_filename, prefer an exact filename match.
-    If several files still match, return their IDs instead of guessing.
+    Find and read a first-page knowledge match, preferring filenames and listing IDs when matches are ambiguous.
 
     :param query: filename or search text used to find the knowledge file
     :param exact_filename: the exact filename to match
@@ -1760,10 +1697,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Return the complete directory/file tree of an Open WebUI knowledge base.
-
-    Includes directory IDs and file IDs.
-    Traverses nested directories recursively.
+    Read a knowledge directory and file tree with IDs, subject to depth, node, and output limits.
 
     :param knowledge_id: ID of the Open WebUI knowledge base
     :param max_depth: how deep the tree goes, 1 or more
@@ -1854,13 +1788,7 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Permanently delete an Open WebUI knowledge base.
-
-    Safety rules:
-    - confirm must be true.
-    - The tool refuses to delete a knowledge base with files by default.
-    - Set allow_nonempty=true only when the user explicitly wants
-      a non-empty knowledge base deleted.
+    Delete a knowledge base only when `confirm` is true, with `allow_nonempty` required when files remain.
 
     :param knowledge_id: ID of the Open WebUI knowledge base to permanently delete
     :param confirm: Must be true. Use true only when the user explicitly requested deletion of the knowledge base
