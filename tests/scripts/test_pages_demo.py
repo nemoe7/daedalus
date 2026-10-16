@@ -181,7 +181,7 @@ NODE_CHECK = (
   const held = await (await context.fetch("ui/api/settings")).json();
   check(held.file.personalization.theme === "light", "the page shows the saved value");
   check(held.text.includes("theme: light"), "the saved text holds it");
-  // An empty field writes the default, and the group stays whole.
+  // Clearing the only explicit field removes its empty group.
   const clearedTheme = await context.fetch("ui/api/settings", {
     method: "PUT", headers: JSON_HEADERS,
     body: JSON.stringify({ changes: { personalization: { theme: null } } }),
