@@ -30,7 +30,7 @@ Every page, in the order of a first read.
 | --- | --- |
 | [Open WebUI](integrations/owui.md) | The filters, the tools and the skill of Open WebUI |
 | [Kilo Code](integrations/kilo.md) | The Kilo Code plugin and its model fields |
-| [Deep research](integrations/owui/deep-research.md) | The research skill over `search_web` and `fetch_url` |
+| [Deep research](integrations/owui/deep-research.md) | A portable research plan with source links |
 | [Served model](integrations/owui/served_model.md) | The filter that draws the served model line |
 | [Chat metadata](integrations/owui/chat_metadata.md) | The filter that adds the date, the clock, the timezone, the place and the language |
 | [GitHub](integrations/owui/github.md) | The GitHub reads and writes, behind the permission gate |

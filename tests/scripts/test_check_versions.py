@@ -247,7 +247,8 @@ def test_only_the_versioned_folders_count():
     check_versions.watched("integrations/openwebui/functions/served_model.py") is True
   )
   assert (
-    check_versions.watched("integrations/openwebui/skills/deep-research.md") is True
+    check_versions.watched("integrations/openwebui/skills/deep-research/SKILL.md")
+    is True
   )
   assert (
     check_versions.watched(

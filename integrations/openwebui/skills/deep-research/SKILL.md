@@ -1,7 +1,7 @@
 ---
 name: deep-research
 description: Researches a question with checked sources and clear limits.
-version: 0.1.1
+version: 0.1.2
 ---
 
 # Deep Research
