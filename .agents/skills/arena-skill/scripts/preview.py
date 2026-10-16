@@ -23,6 +23,7 @@ from fnmatch import fnmatchcase
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs,urlsplit,urlunsplit
+from zoneinfo import ZoneInfo
 try:import markdown_it;HAS_RENDERER=True
 except ImportError:HAS_RENDERER=False
 ASSETS=Path(__file__).resolve().parents[1]/'assets'
@@ -62,7 +63,7 @@ def reminder_tail(cursor,remaining,stale=0):
 			if tail=='Unpublish stale reports.'and stale:return f"Unpublish {stale} stale report{'s'if stale!=1 else''}."
 			return tail
 	return REMINDERS[cursor%len(REMINDERS)]
-REMINDERS='Refresh: ARENA.md, SKILL.md.','`task-list` at turn start. Update it as work changes.','Take the smallest open task next.','Always push.','`ask_user` on GH_TOKEN failure.','Keep docs terse but clear.','Ask questions ASAP in reports.','Publish your reports.','Never end a turn with unblocked tasks.','Unpublish stale reports.','End the turn with `poll`.','Grep-verify each edit.',TASK_REMINDER,'Rebase `origin/main` before pushing; empty checks mean it moved.',"Check the PR's CI before ending a pushed turn; read the run's verdict on a later call, never a loop in the call.",'Run `arena-preview`, not the full path.'
+REMINDERS='Context check: ARENA.md, SKILL.md, and all repository AGENTS.md files. Read only files whose current text is absent from context.','`task-list` at turn start. Update it as work changes.','Take the smallest open task next.','Always push.','`ask_user` on GH_TOKEN failure.','Keep docs terse but clear.','Ask questions ASAP in reports.','Publish your reports.','Never end a turn with unblocked tasks.','Unpublish stale reports.','End the turn with `poll`.','Grep-verify each edit.',TASK_REMINDER,'Rebase `origin/main` before pushing; empty checks mean it moved.',"Check the PR's CI before ending a pushed turn; read the run's verdict on a later call, never a loop in the call.",'Run `arena-preview`, not the full path.'
 REMINDER_CURSOR='reminder_cursor'
 POLLS_SINCE_MESSAGE='polls_since_message'
 GATE_THRESHOLD=6
@@ -79,6 +80,21 @@ REPORT_CHANGE_VIEW_SECONDS=60
 AGENT_KEY_RE=re.compile('[A-Za-z0-9_-]{20,64}\\Z')
 AGENT_HOST_RE=re.compile('https://[A-Za-z0-9.-]+\\Z')
 def now():return datetime.now(timezone.utc).isoformat()
+TIMEZONE_META='display_tz'
+DISPLAY_ZONE=None
+def zone_exists(name):
+	try:ZoneInfo(name);return True
+	except(KeyError,ValueError,OSError):return False
+def resolve_display_zone(store):
+	name=os.environ.get('TZ')or(store.meta_value(TIMEZONE_META)if store else None)
+	if not name or not zone_exists(name):return None
+	return ZoneInfo(name)
+def local_stamp(value):
+	if not value or DISPLAY_ZONE is None:return value
+	try:parsed=datetime.fromisoformat(value)
+	except ValueError:return value
+	if parsed.tzinfo is None:parsed=parsed.replace(tzinfo=timezone.utc)
+	return parsed.astimezone(DISPLAY_ZONE).isoformat()
 def workspace_branch(root=None):
 	try:head=(Path(root or Path.cwd())/'.git'/'HEAD').read_text(encoding='utf-8').strip()
 	except OSError:return''
@@ -119,6 +135,36 @@ def pr_failed_check(root='.'):
 def pr_check_once(result,root):
 	failed=pr_failed_check(root)
 	if failed:result.append(failed)
+PR_CHECK_DISCOVERY_SECONDS=120
+PR_CHECK_DISCOVERY_STEP=5
+def pr_head_sha(root,branch,slug):
+	try:listed=subprocess.run(['gh','pr','list','--head',branch,'--json','headRefOid','--jq','.[0].headRefOid'],cwd=root,capture_output=True,text=True,check=False)
+	except OSError:return None
+	if listed.returncode:return None
+	return listed.stdout.strip()
+def check_run_count(root,slug,sha):
+	try:counted=subprocess.run(['gh','api',f"repos/{slug}/commits/{sha}/check-runs",'--jq','.total_count'],cwd=root,capture_output=True,text=True,check=False)
+	except OSError:return None
+	if counted.returncode:return None
+	try:return int(counted.stdout.strip())
+	except ValueError:return None
+def pr_checks_discovery(root='.',seconds=PR_CHECK_DISCOVERY_SECONDS,step=PR_CHECK_DISCOVERY_STEP,sleep=None):
+	pause=sleep or time.sleep;branch=workspace_branch(root);slug=repo_slug(root)
+	if not branch or not slug:return'no branch pull request to watch'
+	pinned=pr_head_sha(root,branch,slug)
+	if pinned is None:return'gh did not read the pull request head'
+	if not pinned:return'no branch pull request to watch'
+	polls=seconds//step+1
+	for poll in range(polls):
+		if poll:
+			head=pr_head_sha(root,branch,slug)
+			if head is None:return'gh did not read the pull request head'
+			if head!=pinned:return f"the pull request head moved from {pinned[:7]} to {head[:7]}"
+		count=check_run_count(root,slug,pinned)
+		if count is None:return'gh did not read the check runs'
+		if count:return None
+		if poll+1<polls:pause(step)
+	return f"no check appeared on {pinned[:7]} within {seconds} seconds"
 SESSION_ID_TABLES=('notes','note'),('submissions','answer'),('reports','report'),('tasks','task')
 HEX7_RE=re.compile('[0-9a-f]{7}')
 MINT_ATTEMPTS=16
@@ -296,6 +342,8 @@ def field_html(question):
 		named=html.escape(label,quote=True);group+=f'<label class="option"><input type="{control}" name="{name}" value="{value}"{checked} data-label="{named}" aria-label="{named}"><textarea class="custom-text" rows="1" data-custom="{named}" placeholder="{named}:" aria-label="{named}, your own answer"></textarea></label>'
 	return f"{body}{group}</div></div>"
 TASK_STATUSES='upcoming','finished'
+TASK_UNSPECIFIED='unspecified'
+TASK_TYPES='report','code','docs','operations','unspecified'
 TASK_ID=re.compile('^[a-z0-9][a-z0-9-]{0,63}$')
 NOTE_ID=re.compile('^[0-9a-f]{6,7}(?:-[0-9a-f]+)?$')
 MAX_TASK_TITLE=200
@@ -303,20 +351,20 @@ MAX_TASK_DETAIL=2000
 MAX_TASK_DETAILS=40
 TASK_STEP_MAX=120
 ECHO_DETAIL=200
-TASK_COLUMNS='id, title, details, status, position, updated_at, completed_at, blocked, report_id'
+TASK_COLUMNS='id, title, details, status, position, updated_at, completed_at, blocked, report_id, type'
 TASK_ORDER="status DESC, CASE WHEN status = 'finished' THEN completed_at END DESC, CASE WHEN status = 'finished' THEN id END DESC, (blocked = 0 OR report_id IS NULL), position, id"
 RENAME_TARGETS={'note':('notes',(('uploads','note_id'),)),'answer':('submissions',()),'report':('reports',(('submissions','report_id'),('tasks','report_id'))),'task':('tasks',(('notes','task_id'),('submissions','task_id')))}
 RENAME_TABLES='notes','submissions','reports','tasks'
 CLI_DESCRIPTION='Notes, reports, tasks and the preview server for Arena steering.'
 SAVED_STATE='saved-state.ndjson'
 NOTE_LINE_KEYS='id','text','at','acknowledged_at','ack_kind','ack_text','ack_edited_at','replies','ack_edited_seen_count','seen_at','task_id'
-TASK_LINE_KEYS='id','title','details','status','completed_at','order','report_id'
+TASK_LINE_KEYS='id','title','details','status','completed_at','order','report_id','type'
 SUBMISSION_LINE_KEYS='id','report_id','text','at','acknowledged_at','ack_kind','ack_text','ack_edited_at','replies','ack_edited_seen_count','seen_at','task_id'
 REPORT_LINE_KEYS='id','title','markdown','published_at','seen_at'
 def task_row(row):
 	shaped={'id':row[0],'title':row[1],'details':json.loads(row[2]),'status':row[3],'order':row[4],'updated_at':row[5],'completed_at':row[6]if len(row)>6 else None,'blocked':bool(row[7])if len(row)>7 else False}
 	if len(row)>8 and row[8]:shaped['report_id']=row[8]
-	return shaped
+	shaped['type']=row[9]if len(row)>9 and row[9]else TASK_UNSPECIFIED;return shaped
 def saved_note_line(record):
 	if not isinstance(record,dict):raise TypeError('Every saved note is an object')
 	return{key:record.get(key)for key in NOTE_LINE_KEYS}
@@ -329,7 +377,7 @@ def saved_report_line(record):
 def state_ndjson(lines):return''.join(json.dumps(line,ensure_ascii=False)+'\n'for line in lines)
 def saved_task_line(record):
 	if not isinstance(record,dict):raise TypeError('Every saved task is an object')
-	line={key:record.get(key)for key in TASK_LINE_KEYS};line['details']=[str(item)for item in record.get('details')or[]]
+	line={key:record.get(key)for key in TASK_LINE_KEYS};line['details']=[str(item)for item in record.get('details')or[]];line['type']=record.get('type')or TASK_UNSPECIFIED
 	if not line.get('report_id'):line.pop('report_id',None)
 	return line
 def upload_name(name):
@@ -451,7 +499,7 @@ def format_pending_record(item):
 def format_pending_item(item):thread=item.get('thread')or[];return'\n'.join([*(format_pending_record(record)for record in thread),format_pending_record(item)])
 def format_read(listing):
 	checked_at=listing.get('checked_at');pending=listing.get('pending')or[];count=len(pending)
-	if checked_at:first=f"Inbox {checked_at}: {count} pending"
+	if checked_at:first=f"Inbox {local_stamp(checked_at)}: {count} pending"
 	else:first=f"Inbox: {count} pending"
 	if count==0:return first
 	return'\n'.join([first,*(format_pending_item(item)for item in pending)])
@@ -460,16 +508,21 @@ def current_task(tasks):
 		if task.get('status')=='upcoming'and not task.get('blocked'):return task
 	return None
 def format_task_list(tasks,full=False):
-	shown=tasks if full else[t for t in tasks if t.get('status')=='upcoming'];lines=[f"Tasks {len(shown)}"if full else f"Tasks {len(shown)} upcoming"];head=None if full else current_task(shown)
+	shown=tasks if full else[t for t in tasks if t.get('status')=='upcoming'];lines=[f"Tasks {len(shown)}"if full else f"Tasks {len(shown)} upcoming"]
+	if any(t.get('blocked')for t in shown):lines.append('* = blocked on a report answer')
+	head=None if full else current_task(shown)
 	for task in shown:
 		order=task.get('order');status=task.get('status')
 		if head is not None and task.get('id')==head.get('id'):status='current'
 		id_=task.get('id');blocked=task.get('blocked');report_id=task.get('report_id');blocked_mark='*'if blocked else'';line=f"{order}{blocked_mark}  {status} {id_}"
 		if report_id:line+=f" report {report_id}"
+		if task.get('type')and task.get('type')!=TASK_UNSPECIFIED:line+=f" type {task.get('type')}"
 		lines.append(line)
+		for detail in task.get('details',[]):lines.append(f"    {detail}")
 	return'\n'.join(lines)
 def format_task(record):
-	id_=record.get('id');order=record.get('order');status=record.get('status');report_id=record.get('report_id');blocked=record.get('blocked');title=record.get('title')or'';details=record.get('details')or[];cut=[detail[:ECHO_DETAIL]+('…'if len(detail)>ECHO_DETAIL else'')for detail in details];first=f"task {id_}, order {order}, status {status}"
+	id_=record.get('id');order=record.get('order');status=record.get('status');report_id=record.get('report_id');blocked=record.get('blocked');title=record.get('title')or'';details=record.get('details')or[];cut=[detail[:ECHO_DETAIL]+('…'if len(detail)>ECHO_DETAIL else'')for detail in details];first=f"task {id_}, order {order}, status {status}";task_type=record.get('type')
+	if task_type and task_type!=TASK_UNSPECIFIED:first+=f", type {task_type}"
 	if report_id:first+=f", report {report_id}"
 	if blocked:first+=', blocked'
 	lines=[first,title]+[f"- {d}"for d in cut];return'\n'.join(lines)
@@ -477,7 +530,7 @@ def format_key(record):
 	lines=[]
 	if record.get('key'):lines.append(f"key {record['key']}")
 	if record.get('host'):lines.append(f"host {record['host']}");lines.append(f"use fetch_page on {record['host']}/v1/<route>?key=<key>, never bash")
-	if record.get('at'):lines.append(f"at {record['at']}")
+	if record.get('at'):lines.append(f"at {local_stamp(record['at'])}")
 	return'\n'.join(lines)if lines else''
 def format_fetch_job(job):
 	id_=job.get('id');url=job.get('url');allow_proxy=job.get('allow_proxy');approval=job.get('approval');status=job.get('status');parts=[f"Queued {id_} {url}"]
@@ -671,7 +724,10 @@ def run_command(state_dir,name,argv):
 	if not RUN_NAME.fullmatch(name or''):print('arena-preview route: the name takes 1 to 64 letters, digits, dot, dash or underscore.',flush=True);return 2
 	if argv[:1]==['--']:argv=argv[1:]
 	if not argv:print('arena-preview route: name a command after --, for example: route gates -- make check',flush=True);return 2
-	started=time.monotonic();completed=subprocess.run(argv,capture_output=True,text=True,check=False);seconds=round(time.monotonic()-started,1);output=(completed.stdout+completed.stderr).splitlines();tail=output[-RUN_TAIL_LINES:];verdict=tail[-1]if tail else'(no output)';path=run_record_path(state_dir,name);existing=json_record(path)or{};record={**existing,'name':name,'argv':argv,'exit':completed.returncode,'seconds':seconds,'finished_at':now(),'verdict':verdict,'tail':tail,'announced':False};write_run_record(path,record)
+	started=time.monotonic();discovery=pr_checks_discovery(resolve_repo_root())if pr_checks_command(argv)else None
+	if discovery:completed=subprocess.CompletedProcess(argv,1,f"pr-checks wait failed: {discovery}\n",'')
+	else:completed=subprocess.run(argv,capture_output=True,text=True,check=False)
+	seconds=round(time.monotonic()-started,1);output=(completed.stdout+completed.stderr).splitlines();tail=output[-RUN_TAIL_LINES:];verdict=tail[-1]if tail else'(no output)';path=run_record_path(state_dir,name);existing=json_record(path)or{};record={**existing,'name':name,'argv':argv,'exit':completed.returncode,'seconds':seconds,'finished_at':now(),'verdict':verdict,'tail':tail,'announced':False};write_run_record(path,record)
 	for line in tail:print(line,flush=True)
 	print(f"run {name} done: exit {completed.returncode} {seconds}s {verdict}",flush=True);return completed.returncode
 def live_runs(state_dir):
@@ -725,7 +781,7 @@ PR_CHECK_WRAPPERS='env','command','timeout','xargs','nice','nohup','stdbuf','sud
 PR_CHECK_NAMES=('pr','checks','pr-checks'),('run','watch','run-watch')
 LONG_RUN_HEADS={'pytest':'pytest','py.test':'pytest','tox':'tox','nox':'nox'}
 LONG_RUN_WORDS=(('npm','test'),'npm-tests'),(('npm','run','test*'),'npm-tests'),(('yarn','test'),'yarn-tests'),(('pnpm','test'),'pnpm-tests'),(('make','test'),'make-tests'),(('npx','jest'),'npx-tests'),(('npx','vitest'),'npx-tests'),(('npx','mocha'),'npx-tests'),(('npx','ava'),'npx-tests'),(('go','test'),'go-tests'),(('cargo','test'),'cargo-tests'),(('dotnet','test'),'dotnet-tests'),(('mvn','test'),'mvn-tests'),(('mvnw','test'),'mvn-tests'),(('gradle','test'),'gradle-tests'),(('gradlew','test'),'gradle-tests')
-WORKTREE_STEP='NEXT TASK: a queued task that edits files continues in a worktree while this runs: `arena-preview worktree start <name> -- <command line>`.'
+WORKTREE_STEP='NEXT TASK: a queued task that edits files continues in a worktree while this runs: `arena-preview worktree start --gate <gate-name> [--allow <glob>] <name> <destination>`.'
 DETACHED_NOTICE='RUN DETACHED: `{name}` runs in the background, so the call ends clean; its verdict prints on a later call. '+WORKTREE_STEP
 DETACHED_BLOCK='RUN BLOCKED: the background start failed, so the wait never left. Run `arena-preview route {name} -- <the same line>` instead.'
 DETACHED_STATUS_SECONDS=7200
@@ -765,6 +821,7 @@ def long_run_name(line):
 				if word==first and tokens[index+2+position]==second:return name
 	return None
 def pr_check_line(line):return long_run_name(line)is not None
+def pr_checks_command(argv):line=argv[-1]if len(argv)>2 and argv[0]in SHELL_BASENAMES else' '.join(argv);return long_run_name(line)=='pr-checks'
 def detached_seconds(started_at):
 	try:
 		started=datetime.fromisoformat(str(started_at))
@@ -820,7 +877,7 @@ def route_command(state_dir,name,argv):
 	print(f"routed {name}: the run continues in the background, and its verdict prints on a later call. {WORKTREE_STEP}",file=sys.stderr,flush=True);return 0
 def run_log_report(state_dir,name):
 	record=routed_record(state_dir,name)
-	if record.get('exit')is None:elapsed=detached_seconds(record.get('started_at'));age=f" {elapsed}s"if elapsed is not None else'';print(f"run {name} running{age}");return 0
+	if record.get('exit')is None:elapsed=detached_seconds(record.get('started_at'));age=f" {elapsed}s"if elapsed is not None else'';print(f"run {name} running{age}");print(WORKTREE_STEP);return 0
 	print(f"run {name} done: exit {record['exit']} {record.get('seconds')}s")
 	for line in record.get('tail')or[]:print(line)
 	return 0
@@ -831,7 +888,7 @@ def poll_inbox(store,sleeper=None):
 		for index in range(POLL_MAX_LOOPS):
 			listing=store.read(include_quiet=False)
 			if listing['pending']:full=store.read();print(format_read(full),flush=True);store.mark_seen([item['id']for item in full['pending']]);store.mark_reports_agent_seen([item.get('report_id')for item in full['pending']]);return 0
-			if run_notices(store.path.parent):print('CLOSING POLL REQUIRED',flush=True);return 0
+			if run_notices(store.path.parent):print('DO NOT END TURN. POLL AGAIN.',flush=True);return 0
 			if failures:print(f"PR CHECKS FAILED: {failures[0]}. Fix the failed check before the next push.",flush=True);return 0
 			open_tasks=[item for item in store.list_tasks()if item['status']=='upcoming'and not item['blocked']]
 			if open_tasks:listing['tasks']=open_tasks;names=', '.join(item['id']for item in open_tasks);continue_line=f"CONTINUE: unblocked task {names}. Work it or block it; do not end the turn.";print(continue_line,flush=True);print(format_task_list(listing.get('tasks',[])),flush=True);return 0
@@ -887,13 +944,20 @@ def render_report(markdown):
 class ReportChanged(ValueError):pass
 class FetchChanged(ValueError):pass
 class ReportHeld(ValueError):pass
+def format_report_state(rows):
+	lines=[]
+	for row in rows:
+		lines.append(f"{row['id']} {row['title']}");lines.append(f"  published: {local_stamp(row['published_at'])or'never'}");lines.append(f"  updated: {local_stamp(row['updated_at'])}");lines.append(f"  stale: {'yes'if row['stale']else'no'}");lines.append(f"  viewed: {local_stamp(row['viewed_at'])or'never'}")
+		if not row['answers']:lines.append('  answers: none')
+		for answer in row['answers']:lines.append(f"  answers: {answer['id']} acknowledged {'yes'if answer['acknowledged']else'no'}, agent-seen {'yes'if answer['seen']else'no'}")
+	return'\n'.join(lines)+('\n'if lines else'')
 class Store:
 	def __init__(self,directory,create=False,save_path=None):
 		directory=Path(directory).resolve();self.path=directory/'state.sqlite3';self.save_path=Path(save_path)if save_path else self.path.parent/SAVED_STATE;existed=self.path.is_file()
 		if not create and not existed:raise FileNotFoundError(f"Inbox missing: {self.path}. The sandbox may have been reset, so follow the restore routine: run scripts/install.sh from the repository root, start `arena-preview serve --port 8000` with the start_process tool, then `arena-preview read`.")
 		if create and not existed:directory.mkdir(parents=True,exist_ok=True,mode=448)
 		with closing(self.connect())as db,db:
-			db.executescript("\n        CREATE TABLE IF NOT EXISTS notes (\n          seq INTEGER PRIMARY KEY, id TEXT UNIQUE NOT NULL,\n          text TEXT NOT NULL, at TEXT NOT NULL, acknowledged_at TEXT,\n          ack_kind TEXT, ack_text TEXT, seen_at TEXT, replies TEXT,\n          ack_edited_seen_count INTEGER NOT NULL DEFAULT 0,\n          quiet INTEGER NOT NULL DEFAULT 0\n        );\n        CREATE TABLE IF NOT EXISTS reports (\n          id TEXT PRIMARY KEY, title TEXT NOT NULL,\n          markdown TEXT NOT NULL, updated_at TEXT NOT NULL, published_at TEXT,\n          seq INTEGER, seen_at TEXT,\n          ever_seen INTEGER NOT NULL DEFAULT 0, agent_seen_at TEXT,\n          ack_seen_at TEXT, viewed_at TEXT\n        );\n        CREATE TABLE IF NOT EXISTS submissions (\n          seq INTEGER PRIMARY KEY, id TEXT UNIQUE NOT NULL,\n          report_id TEXT NOT NULL, text TEXT NOT NULL, at TEXT NOT NULL,\n          acknowledged_at TEXT, ack_kind TEXT, ack_text TEXT, seen_at TEXT, replies TEXT,\n          ack_edited_seen_count INTEGER NOT NULL DEFAULT 0\n        );\n        CREATE TABLE IF NOT EXISTS uploads (\n          seq INTEGER PRIMARY KEY, id TEXT UNIQUE NOT NULL, note_id TEXT,\n          name TEXT NOT NULL, type TEXT NOT NULL, size INTEGER NOT NULL,\n          sha256 TEXT NOT NULL, file TEXT NOT NULL, at TEXT NOT NULL\n        );\n        CREATE TABLE IF NOT EXISTS fetch_jobs (\n          seq INTEGER PRIMARY KEY, id TEXT UNIQUE NOT NULL,\n          url TEXT NOT NULL, allow_proxy INTEGER NOT NULL CHECK (allow_proxy IN (0, 1)),\n          status TEXT NOT NULL CHECK (status IN ('queued', 'fetching', 'saved', 'failed')),\n          approval TEXT NOT NULL DEFAULT 'approved'\n            CHECK (approval IN ('pending', 'approved', 'denied')),\n          claim TEXT, lease_until TEXT, error TEXT, source TEXT,\n          name TEXT, type TEXT, size INTEGER, sha256 TEXT, file TEXT,\n          at TEXT NOT NULL, updated_at TEXT NOT NULL\n        );\n        CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);\n        CREATE TABLE IF NOT EXISTS tasks (\n          id TEXT PRIMARY KEY,\n          title TEXT NOT NULL,\n          details TEXT NOT NULL DEFAULT '[]',\n          status TEXT NOT NULL DEFAULT 'upcoming'\n            CHECK (status IN ('upcoming', 'finished')),\n          position INTEGER NOT NULL,\n          created_at TEXT NOT NULL,\n          updated_at TEXT NOT NULL,\n          completed_at TEXT,\n          blocked INTEGER NOT NULL DEFAULT 0\n        );\n      ");columns={row['name']for row in db.execute('PRAGMA table_info(notes)')}
+			db.executescript("\n        CREATE TABLE IF NOT EXISTS notes (\n          seq INTEGER PRIMARY KEY, id TEXT UNIQUE NOT NULL,\n          text TEXT NOT NULL, at TEXT NOT NULL, acknowledged_at TEXT,\n          ack_kind TEXT, ack_text TEXT, seen_at TEXT, replies TEXT,\n          ack_edited_seen_count INTEGER NOT NULL DEFAULT 0,\n          quiet INTEGER NOT NULL DEFAULT 0\n        );\n        CREATE TABLE IF NOT EXISTS reports (\n          id TEXT PRIMARY KEY, title TEXT NOT NULL,\n          markdown TEXT NOT NULL, updated_at TEXT NOT NULL, published_at TEXT,\n          seq INTEGER, seen_at TEXT,\n          ever_seen INTEGER NOT NULL DEFAULT 0, agent_seen_at TEXT,\n          ack_seen_at TEXT, viewed_at TEXT\n        );\n        CREATE TABLE IF NOT EXISTS submissions (\n          seq INTEGER PRIMARY KEY, id TEXT UNIQUE NOT NULL,\n          report_id TEXT NOT NULL, text TEXT NOT NULL, at TEXT NOT NULL,\n          acknowledged_at TEXT, ack_kind TEXT, ack_text TEXT, seen_at TEXT, replies TEXT,\n          ack_edited_seen_count INTEGER NOT NULL DEFAULT 0\n        );\n        CREATE TABLE IF NOT EXISTS uploads (\n          seq INTEGER PRIMARY KEY, id TEXT UNIQUE NOT NULL, note_id TEXT,\n          name TEXT NOT NULL, type TEXT NOT NULL, size INTEGER NOT NULL,\n          sha256 TEXT NOT NULL, file TEXT NOT NULL, at TEXT NOT NULL\n        );\n        CREATE TABLE IF NOT EXISTS fetch_jobs (\n          seq INTEGER PRIMARY KEY, id TEXT UNIQUE NOT NULL,\n          url TEXT NOT NULL, allow_proxy INTEGER NOT NULL CHECK (allow_proxy IN (0, 1)),\n          status TEXT NOT NULL CHECK (status IN ('queued', 'fetching', 'saved', 'failed')),\n          approval TEXT NOT NULL DEFAULT 'approved'\n            CHECK (approval IN ('pending', 'approved', 'denied')),\n          claim TEXT, lease_until TEXT, error TEXT, source TEXT,\n          name TEXT, type TEXT, size INTEGER, sha256 TEXT, file TEXT,\n          at TEXT NOT NULL, updated_at TEXT NOT NULL\n        );\n        CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);\n        CREATE TABLE IF NOT EXISTS tasks (\n          id TEXT PRIMARY KEY,\n          title TEXT NOT NULL,\n          details TEXT NOT NULL DEFAULT '[]',\n          status TEXT NOT NULL DEFAULT 'upcoming'\n            CHECK (status IN ('upcoming', 'finished')),\n          position INTEGER NOT NULL,\n          created_at TEXT NOT NULL,\n          updated_at TEXT NOT NULL,\n          completed_at TEXT,\n          blocked INTEGER NOT NULL DEFAULT 0,\n          type TEXT NOT NULL DEFAULT 'unspecified'\n        );\n      ");columns={row['name']for row in db.execute('PRAGMA table_info(notes)')}
 			for column in('ack_kind','ack_text','ack_edited_at','seen_at','task_id','replies'):
 				if column not in columns:db.execute(f"ALTER TABLE notes ADD COLUMN {column} TEXT")
 			if'ack_edited_seen_count'not in columns:db.execute('ALTER TABLE notes ADD COLUMN ack_edited_seen_count INTEGER NOT NULL DEFAULT 0')
@@ -904,6 +968,7 @@ class Store:
 			if'blocked'not in columns:db.execute('ALTER TABLE tasks ADD COLUMN blocked INTEGER NOT NULL DEFAULT 0')
 			if'report_id'not in columns:db.execute('ALTER TABLE tasks ADD COLUMN report_id TEXT')
 			if'completed_at'not in columns:db.execute('ALTER TABLE tasks ADD COLUMN completed_at TEXT')
+			if'type'not in columns:db.execute("ALTER TABLE tasks ADD COLUMN type TEXT NOT NULL DEFAULT 'unspecified'")
 			db.execute("UPDATE tasks SET completed_at = updated_at WHERE status = 'finished' AND completed_at IS NULL");columns={row['name']for row in db.execute('PRAGMA table_info(submissions)')}
 			if'ack_edited_at'not in columns:db.execute('ALTER TABLE submissions ADD COLUMN ack_edited_at TEXT')
 			if'seen_at'not in columns:db.execute('ALTER TABLE submissions ADD COLUMN seen_at TEXT')
@@ -993,9 +1058,13 @@ class Store:
 				tasks['updated_at']=clip_stamp(tasks['updated_at'])
 			polling=self.polling();return{'notes':notes,'reports':reports,'tasks':tasks,'uploads':uploads,'fetch_jobs':fetch_jobs,'workspace':workspace_usage(),'last_check':clip_stamp(meta.get('last_check')),'polling':polling,'waiting_for_gates':polling and bool(live_runs(self.path.parent)),'polling_since':clip_stamp(meta.get(POLL_SINCE_META))if polling else None,'skip_poll':clip_stamp(meta.get(SKIP_POLL_META)),'calls_since_message':meta_number(db,POLLS_SINCE_MESSAGE),'agent_key':self.agent_key(),'agent_seen_at':clip_stamp(meta.get(AGENT_SEEN_META)),'turn_ended_at':clip_stamp(meta.get(TURN_ENDED_META)),'agent_call_ended_at':clip_stamp(meta.get(AGENT_CALL_ENDED_META))}
 	def tasks(self):
-		with closing(self.connect())as db:rows=db.execute(f"SELECT {TASK_COLUMNS} FROM tasks ORDER BY {TASK_ORDER}").fetchall()
+		with closing(self.connect())as db:rows=db.execute(f"SELECT {TASK_COLUMNS} FROM tasks ORDER BY {TASK_ORDER}").fetchall();links=db.execute('SELECT id, report_id, task_id, text, at FROM submissions ORDER BY at, seq').fetchall()
 		records=[task_row(row)for row in rows]
 		if not records:return None
+		answers=[{'id':link['id'],'at':clip_stamp(link['at']),'text':link['text'],'report_id':link['report_id'],'task_id':link['task_id']}for link in links]
+		for item in records:
+			linked=[{'id':answer['id'],'at':answer['at'],'text':answer['text']}for answer in answers if answer['task_id']==item['id']or answer['report_id']and answer['report_id']==item.get('report_id')]
+			if linked:item['answers']=linked
 		return{'finished':[item for item in records if item['status']=='finished'],'upcoming':[item for item in records if item['status']=='upcoming'],'updated_at':max(item['updated_at']for item in records)}
 	def list_tasks(self):
 		with closing(self.connect())as db:rows=db.execute(f"SELECT {TASK_COLUMNS} FROM tasks ORDER BY {TASK_ORDER}").fetchall()
@@ -1015,11 +1084,12 @@ class Store:
 		if db is not None:yield db;return
 		with closing(self.connect())as own,own:yield own
 		if autosave:self.autosave()
-	def write_task(self,task_id,title=None,details=None,status=None,order=None,blocked=None,report_id=None,completed_at=None,shared=None,append_details=False):
+	def write_task(self,task_id,title=None,details=None,status=None,order=None,blocked=None,report_id=None,completed_at=None,task_type=None,shared=None,append_details=False):
 		details=[str(item)for item in details if str(item).strip()]if details else None
 		if append_details and not details:raise ValueError('Appending requires at least one task detail')
 		check_task(task_id,title,details)
 		if status is not None and status not in TASK_STATUSES:raise ValueError(f"A task is either {' or '.join(TASK_STATUSES)}")
+		if task_type is not None and task_type not in TASK_TYPES:raise ValueError(f"A task type is one of {', '.join(TASK_TYPES)}")
 		stamp=now()
 		with self.transaction(shared)as db:
 			if append_details and not db.in_transaction:db.execute('BEGIN IMMEDIATE')
@@ -1037,14 +1107,15 @@ class Store:
 			else:completed_at=None
 			if blocked is None:blocked=stored['blocked']if stored else False
 			if report_id is None:report_id=stored.get('report_id')if stored else None
+			if task_type is None:task_type=(stored.get('type')if stored else None)or TASK_UNSPECIFIED
 			if report_id:identifier(report_id)
 			if report_id and blocked and self.report_has_answers(db,report_id):blocked=False
 			if status=='finished'and blocked:raise ValueError(f"Task {task_id} is blocked; clear the mark with --unblocked first")
-			siblings=[task_row(item)for item in db.execute(f"SELECT {TASK_COLUMNS} FROM tasks WHERE status = ? AND id != ? ORDER BY position, id",(status,task_id)).fetchall()];record={'id':task_id,'title':title,'details':details,'status':status,'order':len(siblings)+1,'updated_at':stamp,'completed_at':completed_at,'blocked':bool(blocked),'report_id':report_id}
+			siblings=[task_row(item)for item in db.execute(f"SELECT {TASK_COLUMNS} FROM tasks WHERE status = ? AND id != ? ORDER BY position, id",(status,task_id)).fetchall()];record={'id':task_id,'title':title,'details':details,'status':status,'order':len(siblings)+1,'updated_at':stamp,'completed_at':completed_at,'blocked':bool(blocked),'report_id':report_id,'type':task_type}
 			if order is not None:index=max(0,min(order-1,len(siblings)))
 			elif stored and stored['status']==status:index=max(0,min(stored['order']-1,len(siblings)))
 			else:index=len(siblings)
-			siblings.insert(index,record);record['order']=index+1;db.execute('INSERT INTO tasks (id, title, details, status, position, created_at, updated_at, completed_at, blocked, report_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, details = excluded.details, status = excluded.status, position = excluded.position, updated_at = excluded.updated_at, completed_at = excluded.completed_at, blocked = excluded.blocked, report_id = excluded.report_id',(task_id,title,json.dumps(details,ensure_ascii=False),status,index+1,stamp,stamp,completed_at,1 if blocked else 0,report_id))
+			siblings.insert(index,record);record['order']=index+1;db.execute('INSERT INTO tasks (id, title, details, status, position, created_at, updated_at, completed_at, blocked, report_id, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, details = excluded.details, status = excluded.status, position = excluded.position, updated_at = excluded.updated_at, completed_at = excluded.completed_at, blocked = excluded.blocked, report_id = excluded.report_id, type = excluded.type',(task_id,title,json.dumps(details,ensure_ascii=False),status,index+1,stamp,stamp,completed_at,1 if blocked else 0,report_id,task_type))
 			for(position,item)in enumerate(siblings,1):db.execute('UPDATE tasks SET position = ? WHERE id = ?',(position,item['id']))
 			self.renumber(db)
 		return record
@@ -1088,7 +1159,12 @@ class Store:
 		saved_notes=[record for record in notes if not record.get('quiet')];lines=[saved_note_line(record)for record in saved_notes]
 		for status in TASK_STATUSES:
 			for record in tasks.get(status)or[]:lines.append(saved_task_line(record))
-		sources=self.report_sources();live={record['id']for record in sources};answers=[saved_answer_line(record)for record in self.submissions()if record.get('report_id')in live];lines.extend(answers);reports=[saved_report_line(record)for record in sources];lines.extend(reports);return lines,{'notes':len(saved_notes),'tasks':len(lines)-len(saved_notes)-len(answers)-len(reports),'answers':len(answers),'reports':len(reports)}
+		sources=self.report_sources();live={record['id']for record in sources};task_ids=set();task_reports=set()
+		for status in TASK_STATUSES:
+			for record in(tasks.get(status)if tasks is not None else None)or[]:
+				task_ids.add(record.get('id'))
+				if record.get('report_id'):task_reports.add(record['report_id'])
+		answers=[saved_answer_line(record)for record in self.submissions()if record.get('report_id')in live or record.get('task_id')in task_ids or record.get('report_id')in task_reports];lines.extend(answers);reports=[saved_report_line(record)for record in sources];lines.extend(reports);return lines,{'notes':len(saved_notes),'tasks':len(lines)-len(saved_notes)-len(answers)-len(reports),'answers':len(answers),'reports':len(reports)}
 	def newest_stamps(self):
 		groups=('note','notes',('at','acknowledged_at','ack_edited_at','seen_at')),('answer','submissions',('at','acknowledged_at','seen_at')),('report','reports',('updated_at','published_at','seen_at','agent_seen_at')),('upload','uploads',('at',)),('task','tasks',('updated_at',));stamps={}
 		with closing(self.connect())as db:
@@ -1277,10 +1353,12 @@ class Store:
 			if not isinstance(record,dict):raise TypeError('Import a list of task objects')
 			details=[str(item)for item in record.get('details')or[]if str(item).strip()];status=record.get('status');completed_at=record.get('completed_at');check_task(record.get('id'),record.get('title'),details)
 			if status is not None and status not in TASK_STATUSES:raise ValueError(f"A task is either {' or '.join(TASK_STATUSES)}")
+			task_type=record.get('type')
+			if task_type is not None and task_type not in TASK_TYPES:raise ValueError(f"A task type is one of {', '.join(TASK_TYPES)}")
 			if completed_at is not None:
 				if not isinstance(completed_at,str):raise ValueError('A saved completion stamp is text')
 				when(completed_at)
-			prepared.append((record.get('id'),record.get('title'),details,status,record.get('order')or index,record.get('blocked'),record.get('report_id'),completed_at))
+			prepared.append((record.get('id'),record.get('title'),details,status,record.get('order')or index,record.get('blocked'),record.get('report_id'),completed_at,task_type))
 		with self.transaction(shared,autosave=autosave)as db:
 			if replace:
 				for(task_id,title,*_)in prepared:
@@ -1349,6 +1427,11 @@ class Store:
 	def stale_report_ids(self,db):return[record['id']for record in self.stale_report_rows(db)]
 	def stale_reports(self):
 		with closing(self.connect())as db:return self.stale_report_rows(db)
+	def report_state(self,report_id=None):
+		with closing(self.connect())as db:
+			rows=db.execute('SELECT id, title, published_at, updated_at, viewed_at FROM reports'+(' WHERE id = ?'if report_id else'')+' ORDER BY updated_at DESC',(report_id,)if report_id else()).fetchall();stale={row['id']for row in self.stale_report_rows(db)};out=[]
+			for row in rows:answers=db.execute('SELECT id, acknowledged_at, seen_at FROM submissions WHERE report_id = ? ORDER BY seq',(row['id'],)).fetchall();out.append({'id':row['id'],'title':row['title'],'published_at':row['published_at'],'updated_at':row['updated_at'],'viewed_at':row['viewed_at'],'stale':row['id']in stale,'answers':[{'id':answer['id'],'acknowledged':answer['acknowledged_at']is not None,'seen':answer['seen_at']is not None}for answer in answers]})
+			return out
 	def reminder(self,advance=False):
 		with closing(self.connect())as db,db:
 			uploads=db.execute('SELECT count(*) FROM notes JOIN uploads USING (id) WHERE acknowledged_at IS NULL AND quiet = 0').fetchone()[0];notes=db.execute('SELECT count(*) FROM notes WHERE acknowledged_at IS NULL AND quiet = 0').fetchone()[0]-uploads;reports=db.execute('SELECT count(*) FROM submissions WHERE acknowledged_at IS NULL').fetchone()[0];remaining=db.execute("SELECT count(*) FROM tasks WHERE status <> 'finished'").fetchone()[0];published=db.execute('SELECT count(*) FROM reports WHERE published_at IS NOT NULL').fetchone()[0];stale=self.stale_report_ids(db)if published>=STALE_REPORT_THRESHOLD else[];cursor=meta_number(db,REMINDER_CURSOR);polls=0 if advance and not notes+reports+uploads else meta_number(db,POLLS_SINCE_MESSAGE)+(1 if advance else 0);blocked=bool(gate_pending_count(db))and polls>=GATE_THRESHOLD;db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(REMINDER_CURSOR,str(cursor+1)))
@@ -1532,12 +1615,20 @@ class Store:
 			else:
 				if not isinstance(value,list)or len({item for item in value if isinstance(item,str)})!=len(value)or any(item not in field['options']and not custom_answer(field,item)for item in value):raise ValueError(f"{field_id}: pick options only: "+', '.join(field['options']))
 				rendered=', '.join(value)if value else'(skipped)'
-			lines.append(f"  {field_id}: {rendered}")
+			lines.append(f"  {field['prompt']} ({field_id}): {rendered}")
 		return self.submission(note_id,report_id,'\n'.join(lines),shared=shared)
 def open_link(renderer,tokens,index,options,env):
 	token=tokens[index];href=token.attrGet('href')or''
 	if href and not href.startswith('#'):token.attrSet('target','_blank');token.attrSet('rel','noopener noreferrer')
 	return renderer.renderToken(tokens,index,options,env)
+def render_image(renderer,tokens,index,options,env):
+	pending=list(tokens[index].children or[])
+	while pending:
+		token=pending.pop()
+		if token.type in{'text_special','code_inline'}:token.type='text'
+		elif token.type=='hardbreak':token.type='softbreak'
+		pending.extend(token.children or[])
+	return renderer.image(tokens,index,options,env)
 def require_renderer():
 	if not HAS_RENDERER:raise SystemExit("serve needs markdown-it-py: install it in the preview venv with `python -m pip install markdown-it-py`, then start the server with that venv's Python. read, ack and publish work without it.")
 CODE_BLOCK=re.compile('<pre>(.*?)</pre>',re.DOTALL)
@@ -1558,7 +1649,7 @@ def sized_image(match,validate):
 def render(markdown,breaks=False):
 	try:from markdown_it import MarkdownIt;from markdown_it.common.normalize_url import validateLink
 	except ImportError as error:raise RuntimeError("Markdown rendering needs markdown-it-py. Install it in the preview's venv and restart the server with that venv's Python; steering still works.")from error
-	parser=MarkdownIt('commonmark',{'html':False,'breaks':breaks}).enable(['table','strikethrough']);parser.add_render_rule('link_open',open_link);tagged,images=hold_out(markdown,SIZED_IMAGE,lambda match:sized_image(match,validateLink),'image');rendered=drop_paragraph_breaks(parser.render(unescape_fences(tagged)));return add_copy_buttons(put_back(rendered,images,'image'))
+	parser=MarkdownIt('commonmark',{'html':False,'breaks':breaks}).enable(['table','strikethrough']);parser.add_render_rule('link_open',open_link);parser.add_render_rule('image',render_image);tagged,images=hold_out(markdown,SIZED_IMAGE,lambda match:sized_image(match,validateLink),'image');rendered=drop_paragraph_breaks(parser.render(unescape_fences(tagged)));return add_copy_buttons(put_back(rendered,images,'image'))
 def handler(store):
 	token=secrets.token_urlsafe(32)
 	class Handler(BaseHTTPRequestHandler):
@@ -1571,7 +1662,7 @@ def handler(store):
 		def do_GET(self):
 			path=urlsplit(self.path).path
 			try:
-				if path=='/':page=(ASSETS/'index.html').read_text(encoding='utf-8');page=page.replace('__STYLE__',(ASSETS/'style.css').read_text(encoding='utf-8'));page=page.replace('__SCRIPT__',(ASSETS/'app.js').read_text(encoding='utf-8'));self.reply(200,page.replace('__TOKEN__',token),'text/html; charset=utf-8');return
+				if path=='/':page=(ASSETS/'index.html').read_text(encoding='utf-8');page=page.replace('__STYLE__',(ASSETS/'style.css').read_text(encoding='utf-8'));page=page.replace('__MARKDOWN_SCRIPT__',(ASSETS/'markdown-it.min.js').read_text(encoding='utf-8'));page=page.replace('__SCRIPT__',(ASSETS/'message-markdown.js').read_text(encoding='utf-8')+'\n'+(ASSETS/'app.js').read_text(encoding='utf-8'));self.reply(200,page.replace('__TOKEN__',token),'text/html; charset=utf-8');return
 				if path=='/api/state':
 					state=store.state();state['token']=token
 					try:
@@ -1699,15 +1790,17 @@ def image_payload(path:Path)->tuple:
 	if not path.is_file():raise ValueError(f"{path} is not a file")
 	size=path.stat().st_size
 	if size>IMAGE_DATA_URI_MAX_BYTES:raise ValueError(f"{path} is {size} bytes; the data URI cap is {IMAGE_DATA_URI_MAX_BYTES} bytes")
-	try:data=path.read_bytes()
+	try:
+		with path.open('rb')as image:data=image.read(IMAGE_DATA_URI_MAX_BYTES+1)
 	except OSError as error:raise ValueError(f"Cannot read {path}: {error.strerror or error}")from None
+	if len(data)>IMAGE_DATA_URI_MAX_BYTES:raise ValueError(f"{path} exceeds the data URI cap of {IMAGE_DATA_URI_MAX_BYTES} bytes")
 	if data.startswith(b'\x89PNG\r\n\x1a\n'):mime='image/png'
 	elif data.startswith(b'\xff\xd8\xff'):mime='image/jpeg'
 	elif data.startswith((b'GIF87a',b'GIF89a')):mime='image/gif'
 	elif data.startswith(b'RIFF')and data[8:12]==b'WEBP':mime='image/webp'
 	else:raise ValueError(f"{path} is not a supported image; the allowed types are PNG, JPEG, GIF and WebP")
 	encoded=base64.b64encode(data).decode('ascii');return mime,encoded
-def image_data_uri(path:Path)->str:mime,encoded=image_payload(path);return f"![{path.stem}](data:{mime};base64,{encoded})"
+def image_data_uri(path:Path)->str:mime,encoded=image_payload(path);alt=path.stem.replace('\\','\\\\').replace('[','\\[').replace(']','\\]');return f"![{alt}](data:{mime};base64,{encoded})"
 IMAGE_IN_MARKDOWN=re.compile('!\\[([^\\]\\n]*)\\]\\(\\s*(<[^>]+>|[^)\\s]+)([^)\\n]*)\\)')
 def embed_report_images(markdown,report_dir):
 	def swap(match):
@@ -1720,8 +1813,10 @@ def embed_report_images(markdown,report_dir):
 		except ValueError as error:return f"Publication skips local image {source}: {error}. Run arena-preview image-data-uri for the helper."
 		return f"![{alt}](data:{mime};base64,{encoded}{suffix})"
 	return IMAGE_IN_MARKDOWN.sub(swap,markdown)
+class PreviewArgumentParser(argparse.ArgumentParser):
+	def print_usage(self,file=None):pass
 def main():
-	parser=argparse.ArgumentParser(description=CLI_DESCRIPTION);parser.add_argument('-r','--reminder',action='store_true',help='Print the unacked-count reminder line and exit');commands=parser.add_subparsers(dest='command',required=False);serve=commands.add_parser('serve',help='Serve the preview page; -p names the port');serve.add_argument('-p','--port',type=int,default=DEFAULT_PORT,help=f"Port to bind (default: {DEFAULT_PORT})");commands.add_parser('init',help='Create the state directory and its database');commands.add_parser('read',help='Print every pending note, answer and upload');note_list=commands.add_parser('note-list',help='List stored note IDs by page, newest first, including acknowledged notes');note_list.add_argument('--page',type=int,default=1,help='Page number (default: 1)');note_list.add_argument('--page-size',type=int,default=20,help='IDs per page, 1 to 100 (default: 20)');note_reread=commands.add_parser('note',help='Reread a stored note by its short or full ID');note_reread.add_argument('id',help='Six or all characters of a note ID');image_uri=commands.add_parser('image-data-uri',help='Print Markdown text that carries one local image as a data URI');image_uri.add_argument('path',type=Path,help='One local PNG, JPEG, GIF or WebP file up to 2 MiB');commands.add_parser('key',help='Print the recorded agent key, host and use line');inbox_line=commands.add_parser('inbox-line',help='Report whether a command line that names an inbox call runs nothing else');inbox_line.add_argument('line',help='The command line, as the hook read it');route=commands.add_parser('route',help='Start a command detached, keep its output tail, and show the exit on a later call');route.add_argument('name',help='A short name for the run, for example gates');route.add_argument('command_args',nargs=argparse.REMAINDER,help='The command, after --');route_run=commands.add_parser('route-run',help='Run one command here and record its exit for a later call');route_run.add_argument('name',help='The run name the caller already recorded');route_run.add_argument('command_args',nargs=argparse.REMAINDER,help='The command, after --');logs=commands.add_parser('logs',help="Print a routed run's status and its recorded output tail");logs.add_argument('name',help='The run name to read');worktree=commands.add_parser('worktree',help='Create or collect a detached task worktree beside a root gate');worktree_action=worktree.add_subparsers(dest='worktree_action',required=True);worktree_start=worktree_action.add_parser('start',help='Create a detached worktree while a named root gate runs');worktree_start.add_argument('name',help='A short worktree name');worktree_start.add_argument('destination',type=Path,help='A new path outside the root');worktree_start.add_argument('--gate',required=True,help='The running root gate name');worktree_start.add_argument('--allow',action='append',default=[],help='A path glob task work may change');worktree_collect=worktree_action.add_parser('collect',help='Print the allowed detached-worktree patch after a green root gate');worktree_collect.add_argument('name',help='The worktree name to collect');worktree_tick=commands.add_parser('worktree-tick',help='Block a gate, commit or push from a detached task worktree');worktree_tick.add_argument('action',choices=sorted(WORKTREE_ACTIONS));ack_tick=commands.add_parser('ack-tick',help='Warn when an inline ack text holds a backtick the shell will substitute');ack_tick.add_argument('line',help='The command line, as the hook read it');serve_tick=commands.add_parser('serve-tick',help='Warn when a serve names a port other than the default');serve_tick.add_argument('line',help='The command line, as the hook read it');pr_check_tick=commands.add_parser('pr-check-tick',help='Refuse a bash line that runs a PR-check wait the background tool must take');pr_check_tick.add_argument('line',help='The command line, as the hook read it');pr_check_tick.add_argument('--command',dest='current_command',help='The command the DEBUG trap reached');egress_tick=commands.add_parser('egress-tick',help='Warn when a line fetches a host the sandbox egress filter blocks');egress_tick.add_argument('line',help='The command line, as the hook read it');rename=commands.add_parser('rename',help='Move a note, answer, report or task to a new ID');rename.add_argument('old_id',help='The stored ID, or a prefix that names one record');rename.add_argument('new_id',help='The ID to move the record to');commit_tick=commands.add_parser('commit-tick',help='Block a commit whose staged lines cite a session-local ID');commit_tick.add_argument('--repo',default='.',help='The repository to read the staged diff from');gate=commands.add_parser('gate',help='Read the inbox gate; -p blocks on any unacked note, -l names the blocked line');gate.add_argument('-p','--push',action='store_true',help='Block while any note or answer awaits an ack, whatever the call count');gate.add_argument('-l','--line',default='',help='The command line, as the hook read it; a blocked call then names the commands to drop');commands.add_parser('poll',help='Block until the owner answers or a gate run finishes');download=commands.add_parser('download-request',help='Request an HTTPS browser download, pending a preview Approve click; -a allows the proxy fallback');download.add_argument('url',help='One HTTPS URL without embedded credentials');download.add_argument('-a','--allow-proxy',action='store_true',help='Let the owner opt in to AllOrigins and CodeTabs fallback for this request');ack=commands.add_parser('ack',help='Answer a note; a bare call answers the one pending item; -r replies, -n notes, -R and -N read the answer from a file');ack.add_argument('ids',nargs='*');ack.add_argument('-r','--reply',help='Markdown answer shown in the message log');ack.add_argument('-n','--note',help='Short plain answer shown in the message log');ack.add_argument('-R','--reply-file',type=Path,help='Read the Markdown answer from this file');ack.add_argument('-N','--note-file',type=Path,help='Read the plain answer from this file');publish=commands.add_parser('publish',help='Publish a report; -i names the ID, -t the title');publish.add_argument('source',type=Path);publish.add_argument('-i','--id',required=True);publish.add_argument('-t','--title',required=True);unpublish=commands.add_parser('unpublish',help='Withdraw a published report by its ID');unpublish.add_argument('report_id');commands.add_parser('stale-reports',help='List stale published report IDs and reasons without changing state');task=commands.add_parser('task',help='Write or update a task; TASK-ID alone prints the stored row; -s status, -o order, -d details, -m note, -r report, -b blocked, -u unblocked, -a amend');task.add_argument('id_arg',nargs='?',metavar='TASK-ID');task.add_argument('title_arg',nargs='?',metavar='TASK-TITLE');task.add_argument('detail_arg',nargs='*',metavar='TASK-DETAIL');task.add_argument('-d','--details','--task-details',dest='task_details',action='append',help='One step per line, 120 characters or fewer, repeatable; an empty string clears the list');task.add_argument('-A','--append',dest='append_details',action='store_true',help='Append provided details instead of replacing stored details');task.add_argument('-b','--blocked',dest='blocked',action='store_true',default=None,help='Mark the task blocked, so a poll may wait');task.add_argument('-u','--unblocked',dest='blocked',action='store_false',help='Clear the blocked mark');task.add_argument('-m','--msg-id',help='Message this task answers; marks that message as having a task');task.add_argument('-r','--report',metavar='REPORT-ID',help='Report this task waits on; its answer clears the blocked mark');task.add_argument('-a','--amend',metavar='PREV-ID',help='Rename the task stored under this ID to the one given');task.add_argument('-s','--status',choices=TASK_STATUSES,default=None);task.add_argument('-o','--order',type=int,default=None,help='1-based place in its div, not the end');task_remove=commands.add_parser('task-remove',help='Delete a task by its ID');task_remove.add_argument('task_id');task_list=commands.add_parser('task-list',help='List the tasks; -f includes the finished ones');task_list.add_argument('-f','--full',action='store_true',help='print every task, finished included');state_import=commands.add_parser('import-state',help='Import an NDJSON backup; replaces the live state unless --merge; -f forces');state_import.add_argument('source',nargs='?',type=Path);state_import.add_argument('-r','--replace-tasks',action='store_true');state_import.add_argument('--merge',action='store_true',help='keep the live notes, answers, reports and tasks, and merge the import by ID');commands.add_parser('clear-state',help='Empty every state table in place; the agent key record survives');args=parser.parse_args();state_dir=resolve_state_dir();fresh_state=not(Path(state_dir).resolve()/'state.sqlite3').is_file()
+	parser=PreviewArgumentParser(description=CLI_DESCRIPTION);parser.add_argument('-r','--reminder',action='store_true',help='Print the unacked-count reminder line and exit');commands=parser.add_subparsers(dest='command',required=False);serve=commands.add_parser('serve',help='Serve the preview page; -p names the port');serve.add_argument('-p','--port',type=int,default=DEFAULT_PORT,help=f"Port to bind (default: {DEFAULT_PORT})");init=commands.add_parser('init',help='Create the state directory and its database');init.add_argument('--tz',help='An IANA zone for CLI stamps. The TZ env still wins');commands.add_parser('read',help='Print every pending note, answer and upload');note_list=commands.add_parser('note-list',help='List stored note IDs by page, newest first, including acknowledged notes');note_list.add_argument('--page',type=int,default=1,help='Page number (default: 1)');note_list.add_argument('--page-size',type=int,default=20,help='IDs per page, 1 to 100 (default: 20)');note_reread=commands.add_parser('note',help='Reread a stored note by its short or full ID');note_reread.add_argument('id',help='Six or all characters of a note ID');image_uri=commands.add_parser('image-data-uri',help='Print Markdown text that carries one local image as a data URI');image_uri.add_argument('path',type=Path,help='One local PNG, JPEG, GIF or WebP file up to 2 MiB');commands.add_parser('key',help='Print the recorded agent key, host and use line');inbox_line=commands.add_parser('inbox-line',help='Report whether a command line that names an inbox call runs nothing else');inbox_line.add_argument('line',help='The command line, as the hook read it');route=commands.add_parser('route',help='Start a command detached, keep its output tail, and show the exit on a later call');route.add_argument('name',help='A short name for the run, for example gates');route.add_argument('command_args',nargs=argparse.REMAINDER,help='The command, after --');route_run=commands.add_parser('route-run',help='Run one command here and record its exit for a later call');route_run.add_argument('name',help='The run name the caller already recorded');route_run.add_argument('command_args',nargs=argparse.REMAINDER,help='The command, after --');logs=commands.add_parser('logs',help="Print a routed run's status and its recorded output tail");logs.add_argument('name',help='The run name to read');worktree=commands.add_parser('worktree',help='Create or collect a detached task worktree beside a root gate');worktree_action=worktree.add_subparsers(dest='worktree_action',required=True);worktree_start=worktree_action.add_parser('start',help='Create a detached worktree while a named root gate runs');worktree_start.add_argument('name',help='A short worktree name');worktree_start.add_argument('destination',type=Path,help='A new path outside the root');worktree_start.add_argument('--gate',required=True,help='The running root gate name');worktree_start.add_argument('--allow',action='append',default=[],help='A path glob task work may change');worktree_collect=worktree_action.add_parser('collect',help='Print the allowed detached-worktree patch after a green root gate');worktree_collect.add_argument('name',help='The worktree name to collect');worktree_tick=commands.add_parser('worktree-tick',help='Block a gate, commit or push from a detached task worktree');worktree_tick.add_argument('action',choices=sorted(WORKTREE_ACTIONS));ack_tick=commands.add_parser('ack-tick',help='Warn when an inline ack text holds a backtick the shell will substitute');ack_tick.add_argument('line',help='The command line, as the hook read it');serve_tick=commands.add_parser('serve-tick',help='Warn when a serve names a port other than the default');serve_tick.add_argument('line',help='The command line, as the hook read it');pr_check_tick=commands.add_parser('pr-check-tick',help='Refuse a bash line that runs a PR-check wait the background tool must take');pr_check_tick.add_argument('line',help='The command line, as the hook read it');pr_check_tick.add_argument('--command',dest='current_command',help='The command the DEBUG trap reached');egress_tick=commands.add_parser('egress-tick',help='Warn when a line fetches a host the sandbox egress filter blocks');egress_tick.add_argument('line',help='The command line, as the hook read it');rename=commands.add_parser('rename',help='Move a note, answer, report or task to a new ID');rename.add_argument('old_id',help='The stored ID, or a prefix that names one record');rename.add_argument('new_id',help='The ID to move the record to');commit_tick=commands.add_parser('commit-tick',help='Block a commit whose staged lines cite a session-local ID');commit_tick.add_argument('--repo',default='.',help='The repository to read the staged diff from');gate=commands.add_parser('gate',help='Read the inbox gate; -p blocks on any unacked note, -l names the blocked line');gate.add_argument('-p','--push',action='store_true',help='Block while any note or answer awaits an ack, whatever the call count');gate.add_argument('-l','--line',default='',help='The command line, as the hook read it; a blocked call then names the commands to drop');commands.add_parser('poll',help='Block until the owner answers or a gate run finishes');download=commands.add_parser('download-request',help='Request an HTTPS browser download, pending a preview Approve click; -a allows the proxy fallback');download.add_argument('url',help='One HTTPS URL without embedded credentials');download.add_argument('-a','--allow-proxy',action='store_true',help='Let the owner opt in to AllOrigins and CodeTabs fallback for this request');ack=commands.add_parser('ack',help='Answer a note; a bare call answers the one pending item; -r replies, -n notes, -R and -N read the answer from a file');ack.add_argument('ids',nargs='*');ack.add_argument('-r','--reply',help='Markdown answer shown in the message log');ack.add_argument('-n','--note',help='Short plain answer shown in the message log');ack.add_argument('-R','--reply-file',type=Path,help='Read the Markdown answer from this file');ack.add_argument('-N','--note-file',type=Path,help='Read the plain answer from this file');publish=commands.add_parser('publish',help='Publish a report; -i names the ID, -t the title');publish.add_argument('source',type=Path);publish.add_argument('-i','--id',required=True);publish.add_argument('-t','--title',required=True);unpublish=commands.add_parser('unpublish',help='Withdraw a published report by its ID');unpublish.add_argument('report_id');commands.add_parser('stale-reports',help='List stale published report IDs and reasons without changing state');report_state=commands.add_parser('report-state',help='Print publication, owner view stamp and answer visibility for one report or all');report_state.add_argument('report_id',nargs='?');task=commands.add_parser('task',help='Write or update a task; TASK-ID alone prints the stored row; -s status, -o order, -d details, -m note, -r report, -b blocked, -u unblocked, -a amend');task.add_argument('id_arg',nargs='?',metavar='TASK-ID');task.add_argument('title_arg',nargs='?',metavar='TASK-TITLE');task.add_argument('detail_arg',nargs='*',metavar='TASK-DETAIL');task.add_argument('-d','--details','--task-details',dest='task_details',action='append',help='One step per line, 120 characters or fewer, repeatable; an empty string clears the list');task.add_argument('-A','--append',dest='append_details',action='store_true',help='Append provided details instead of replacing stored details');task.add_argument('-b','--blocked',dest='blocked',action='store_true',default=None,help='Mark the task blocked, so a poll may wait');task.add_argument('-u','--unblocked',dest='blocked',action='store_false',help='Clear the blocked mark');task.add_argument('-m','--msg-id',help='Message this task answers; marks that message as having a task');task.add_argument('-r','--report',metavar='REPORT-ID',help='Report this task waits on; its answer clears the blocked mark');task.add_argument('-a','--amend',metavar='PREV-ID',help='Rename the task stored under this ID to the one given');task.add_argument('-s','--status',choices=TASK_STATUSES,default=None);task.add_argument('--task-type',dest='task_type',choices=TASK_TYPES,default=None,help='Primary deliverable type; an omitted flag keeps a stored type');task.add_argument('-o','--order',type=int,default=None,help='1-based place in its div, not the end');task_remove=commands.add_parser('task-remove',help='Delete a task by its ID');task_remove.add_argument('task_id');task_list=commands.add_parser('task-list',help='List the tasks; -f includes the finished ones');task_list.add_argument('-f','--full',action='store_true',help='print every task, finished included');state_import=commands.add_parser('import-state',help='Import an NDJSON backup; replaces the live state unless --merge; -f forces');state_import.add_argument('source',nargs='?',type=Path);state_import.add_argument('-r','--replace-tasks',action='store_true');state_import.add_argument('--merge',action='store_true',help='keep the live notes, answers, reports and tasks, and merge the import by ID');commands.add_parser('clear-state',help='Empty every state table in place; the agent key record survives');args=parser.parse_args();state_dir=resolve_state_dir();fresh_state=not(Path(state_dir).resolve()/'state.sqlite3').is_file()
 	try:
 		if args.reminder:
 			store=Store(state_dir,create=False);require_server(store);reminder=store.reminder(advance=True);store.set_meta(AGENT_CALL_ENDED_META,now())
@@ -1794,9 +1889,9 @@ def main():
 				return 1
 			if args.push and main_identical():print('HEAD equals `origin/main`, so the push carries nothing. Start new work from `origin/main`.',flush=True);return 1
 			return 0
-		store=Store(state_dir,create=args.command in{'serve','init','import-state'})
+		store=Store(state_dir,create=args.command in{'serve','init','import-state'});global DISPLAY_ZONE;DISPLAY_ZONE=resolve_display_zone(store)
 		if args.command not in{'serve','init'}:require_server(store)
-		read_only=args.command in{'stale-reports','note-list'}
+		read_only=args.command in{'stale-reports','note-list','report-state'}
 		if not read_only:print(store.reminder(),file=sys.stderr,flush=True)
 		if args.command!='serve'and not read_only:store.touch_agent()
 		if args.command=='serve':
@@ -1809,7 +1904,7 @@ def main():
 		elif args.command=='note':
 			rows=store.notes_matching(args.id)
 			if not rows:print(f"No note matches {args.id}.",file=sys.stderr);return 1
-			for row in rows:head=f"note {row['id']} at {row['at']}";head+=f" acked {row['acknowledged_at']}"if row['acknowledged_at']else' unacked';print(head);print(row['text']);print()
+			for row in rows:head=f"note {row['id']} at {local_stamp(row['at'])}";head+=f" acked {local_stamp(row['acknowledged_at'])}"if row['acknowledged_at']else' unacked';print(head);print(row['text']);print()
 		elif args.command=='key':
 			record=store.agent_key()
 			if not record:print('No agent key recorded.',file=sys.stderr);return 1
@@ -1833,10 +1928,14 @@ def main():
 		elif args.command=='stale-reports':
 			reports=store.stale_reports();print(f"Stale reports {len(reports)}")
 			for report in reports:print(f"{report['id']}\t{report['reason']}")
+		elif args.command=='report-state':
+			rows=store.report_state(args.report_id)
+			if args.report_id and not rows:print(f"No report {args.report_id}");raise SystemExit(1)
+			print(format_report_state(rows),end='')
 		elif args.command=='task':
 			task_id=args.id_arg
 			if not task_id:raise ValueError('A task needs an ID')
-			if args.title_arg is None and not args.detail_arg and args.task_details is None and not args.append_details and args.status is None and args.order is None and args.blocked is None and args.report is None and args.msg_id is None and args.amend is None:
+			if args.title_arg is None and not args.detail_arg and args.task_details is None and not args.append_details and args.status is None and args.order is None and args.blocked is None and args.report is None and args.msg_id is None and args.amend is None and args.task_type is None:
 				resolved=store.resolve_id(task_id);record=store.task_record(resolved)
 				if record is None:raise ValueError(f"No task is stored under {resolved}")
 				print(format_task(record));return 0
@@ -1849,14 +1948,18 @@ def main():
 				except FileNotFoundError:raise ValueError(f"No report is stored under {args.report}")from None
 				if args.blocked is None:args.blocked=True
 			if args.msg_id:
-				with store.transaction()as shared:record=store.write_task(task_id,args.title_arg,details,args.status,args.order,args.blocked,args.report,shared=shared,append_details=args.append_details);store.mark_task(args.msg_id,task_id,shared=shared)
-			else:record=store.write_task(task_id,args.title_arg,details,args.status,args.order,args.blocked,args.report,append_details=args.append_details)
+				with store.transaction()as shared:record=store.write_task(task_id,args.title_arg,details,args.status,args.order,args.blocked,args.report,task_type=args.task_type,shared=shared,append_details=args.append_details);store.mark_task(args.msg_id,task_id,shared=shared)
+			else:record=store.write_task(task_id,args.title_arg,details,args.status,args.order,args.blocked,args.report,task_type=args.task_type,append_details=args.append_details)
 			print(format_task(record))
 		elif args.command=='task-remove':print(format_task(store.remove_task(store.resolve_id(args.task_id))))
 		elif args.command=='task-list':print(format_task_list(store.list_tasks(),args.full))
 		elif args.command=='import-state':text=args.source.read_text(encoding='utf-8')if args.source else sys.stdin.read();print(format_import_receipt(store.import_state(text,args.replace_tasks,args.merge)))
 		elif args.command=='clear-state':print(format_clear_state(store.clear_state()))
-		elif args.command=='init':print(f"state {store.path} {'created'if fresh_state else'present'}")
+		elif args.command=='init':
+			if args.tz:
+				if not zone_exists(args.tz):print(f"Unknown zone {args.tz}.",file=sys.stderr);return 1
+				store.set_meta(TIMEZONE_META,args.tz);DISPLAY_ZONE=resolve_display_zone(store)
+			print(f"state {store.path} {'created'if fresh_state else'present'}")
 	except(OSError,ValueError,TypeError,KeyError,sqlite3.Error,RuntimeError)as error:print(f"Preview error: {error}",file=sys.stderr);return 1
 	return 0
 if __name__=='__main__':ensure_installed();raise SystemExit(main())

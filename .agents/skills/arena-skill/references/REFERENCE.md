@@ -6,36 +6,39 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 
 | Command | Use |
 | --- | --- |
-| `init` | Create a missing state database without starting the server |
+| `init [--tz <zone>]` | Create a missing state database without starting the server. A zone names where CLI stamps print, and the TZ env wins |
 | `serve --port 8000` | Start the shared preview with `start_process`. The gate warns when a serve names a port other than 8000 |
 | `read` | List every pending note and report answer; mark only delivered IDs Seen, and stamp the parent report read by the agent |
 | `note-list [--page N] [--page-size N]` | List stored note IDs, including acknowledged and quiet notes, newest first; default page 1, 20 IDs per page, maximum 100; leave receipts and exports unchanged |
 | `note <id>` | Reread a stored note by its six or full characters; a short ID that matches several notes prints every match |
-| `key` | Print the recorded agent key, host and stamp; needs no server, and a later session recovers the key after acknowledging the quiet note |
+| `key` | Print the recorded agent key, host and stamp; breaks while the preview server is not up, and a later session recovers the key after acknowledging the quiet note |
 | `poll` | Wait for a pending inbox item before ending a turn; return at once with the task list for an unblocked upcoming task, and at once when the owner pressed Skip poll in the page. It prints a retry disclaimer at the start that names the 1800-second span. The shell `timeout` command must not wrap it; give the bash tool's timeout 1800 instead |
 | `route <name> -- <command>` | The gate's helper for a detected long run, and the call a failed start names: it starts the command detached under a name and records its tail and exit, so the verdict prints on a later call as `run <name> done: exit N`, with one status line per call while it runs |
 | `logs <name>` | Print a routed run's status and its recorded output tail; it works while the run lives and after its verdict |
 | `worktree start --gate <gate-name> [--allow <glob>] <name> <destination>` | Create a detached task worktree outside the root while the named root gate runs |
 | `worktree collect <name>` | Print the allowed detached-worktree patch after a green root gate |
-| `ack --reply <markdown>` | With exactly one non-quiet pending note or report answer, IDs are optional. Supply exactly one reply/note source; with multiple pending items, supply the ID |
+| `ack --reply <markdown>` | Omit IDs only when exactly one non-quiet note or report answer is pending. Supply exactly one reply/note source. With multiple pending items, supply the ID |
 | `ack <id> --reply <markdown>` | Answer one delivered ID with a rendered reply; single-quote the text, because a backtick inside double quotes runs as a shell command |
 | `ack <id> --note <text>` | Answer one delivered ID with one plain line; quote it the same way |
 | `ack <id> --reply-file <path>` | Read the rendered reply from a file, so no shell quoting touches a backtick; `--note-file` reads the plain line the same way. The gate warns when an inline ack text holds a backtick inside double quotes |
-| `task-list [-f]` | List upcoming task IDs, order, status and report links; -f adds finished tasks. Read details with task ID |
-| `task ID` | Print a stored task's title, status, order, report link, blocked mark and all details |
+| `task-list [-f]` | List upcoming task IDs, order, status, report links and set type marks. With -f, include finished tasks. Use task ID for details |
+| `task ID` | Print one stored task: its title, status, order, primary type when set, report link, blocked mark and every detail |
 | `task ID TITLE [DETAIL ...]` | Add or update a task; every task carries at least one detail, and reject a write that leaves none; one task holds one job, so several jobs mean several tasks rather than one task with many details; `--msg-id` is optional and only a note-born or report-born task carries it; `--blocked` or `--unblocked` sets the blocked mark |
 | `task-remove ID` | Remove a task entered by mistake |
 | `import-state [FILE]` | Import copied NDJSON or JSON notes, tasks and report answers from a file or stdin in one transaction; it replaces the live notes, answers, reports and tasks unless `--merge` keeps them; `--replace-tasks` replaces only tasks |
 | `download-request <url>` | Queue one pending file download for the owner to approve in Downloads; `--allow-proxy` permits the two proxies |
-| `publish <source.md> --id <id> --title <title>` | Publish or update a rendered report |
-| `unpublish <id>` | Remove a report from the tab, keeping answers and source. Unacknowledged answers or unseen answer receipts return 409; a fresh owner view does not block agent unpublish. The page keeps an open report until the owner clicks away |
+| `image-data-uri <path>` | Print one Markdown line carrying a local PNG, JPEG, GIF or WebP file as a data URI; the command checks the type and a 2 MiB size cap before encoding |
+| `publish <source.md> --id <id> --title <title>` | Publish or update a rendered report. Publication embeds readable local images as data URIs, skips remote sources with a helper hint, and keeps links and data URIs |
+| `unpublish <id>` | Remove a report from the tab, retaining answers and source. Unacknowledged answers or unseen answer receipts block the call with 409. A fresh owner view does not block agent unpublish, and the page retains the open report until the owner clicks away |
 | `stale-reports` | List stale published report IDs and reasons without changing state |
+| `report-state` | Print publication, owner view stamp, staleness and answer visibility for one report or all |
 | `rename <id> <new-id>` | Rename one stored note, report answer, report or task in place, so its answers, order and stamps survive |
-| `clear-state` | Empty every state table in place; preserve the agent key, refresh the save file to match, and keep a running server's page token |
+| `clear-state` | Empty every state table in place; preserve the agent key, refresh the save file to match, and keep a running server's page token and recorded port |
 
+- Every command except `init` and `serve` breaks with a restart line while no preview answers, so the agent starts the server first.
 - Use complete IDs in CLI calls; cite their first six characters in prose.
-- Read notes, answers and tasks only through CLI `read`, `note ID`, `note-list`, `task ID` and `task-list`; use report HTTP endpoints only for required publication checks.
-- Keep `state.sqlite3` as storage, never a read path.
+- Read note, answer and task content through the CLI alone: use `read`, `note ID`, `note-list`, `task ID` and `task-list`; use report HTTP endpoints only for required publication checks.
+- Treat `state.sqlite3` as the store, never as a read path.
 - `read` does not acknowledge an item.
 - Supply one of `--reply` or `--note` to `ack`; use separate calls for different answers.
 - A repeated `ack` on an ID appends one more reply block and keeps the earlier ones.
@@ -105,6 +108,8 @@ The profile gate and the EXIT hook beside it hold one case per shape below. Ever
 
 A blocked call repeats its reason on stderr, and every case above answers one bash call: the gate never holds the turn.
 
+A detached `gh pr checks` wait first looks for a check on the branch head, once every five seconds for up to 120. The watch runs only after a check appears, and a window that runs out, a moved head or a gh fault fails the run.
+
 ## Tasks
 
 Task IDs have 1–64 lowercase letters, digits or hyphens and start with a letter or digit; use a short kebab-case title. Titles have at most 200 characters. A task has at most 40 details of 2000 characters each. Existing IDs update; omitted fields keep stored values.
@@ -112,6 +117,7 @@ Task IDs have 1–64 lowercase letters, digits or hyphens and start with a lette
 | Flag | Use |
 | --- | --- |
 | `--status upcoming` or `--status finished` | Set status; new tasks start upcoming |
+| `--task-type report\|code\|docs\|operations\|unspecified` | Set the primary deliverable type; an omitted flag keeps a stored type, and a task without one reads `unspecified` |
 | `--order N` | Set 1-based position in the task's status group |
 | Repeatable `--task-details` | Set the detail lines; the arguments replace the stored details |
 | `--task-details ""` | Clear stored details |
@@ -119,7 +125,9 @@ Task IDs have 1–64 lowercase letters, digits or hyphens and start with a lette
 | `--report <report-id>` | Link a blocked task to the report it waits on; an answer to that report clears the blocked mark |
 | `--amend <previous-task-id>` | Rename a task without losing its details or order |
 
-A task linked with `--report` stays blocked until the owner answers that report. The answer clears the mark once, and the link then only records what the wait was. The command refuses a report ID that no report holds. A report-linked task sorts ahead of unlinked tasks in its status group until an answer arrives. The `current` seat, in the listing and in the page's Current div, goes to the first upcoming task no blocked mark holds, so a task waiting on a report never reads as the work in hand.
+A task linked with `--report` stays blocked until the owner answers that report. The answer clears the mark once, and the link then only records what the wait was. The command refuses a report ID that no report holds. A report-linked task sorts ahead of unlinked tasks in its status group until an answer arrives. The `current` seat, in the listing and in the page's Current div, goes to the first upcoming task no blocked mark holds, so a task waiting on a report never reads as the work in hand. A typed task shows its type as a badge on its row, and the page's Type filter narrows every task div to one type.
+
+A task row shows the answers linked to it in a read-only block under its details, and the block never replaces those details. The export keeps an answer its task still references, even after the report row is gone.
 
 `import-state` replaces the live notes, answers, reports and tasks. With `--merge` it merges by ID and preserves existing message receipts. Use `--replace-tasks` only after checking the input. Never infer a finished task from a commit alone.
 
