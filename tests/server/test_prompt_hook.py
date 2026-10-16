@@ -381,6 +381,8 @@ def test_a_hook_file_wins_over_the_client(
 def test_the_shipped_hook_reads_the_newest_turn() -> None:
   """The level comes from the newest user turn, not from the turns joined."""
   module = shipped_module()
+  # Other tests may leave an applied threshold behind. The pair needs the fresh state.
+  api.router.set_threshold(None)
   older = "Write a Python function that reverses a string."
   newest = "thanks"
   assert api.router.required_tier(older) != api.router.required_tier(newest), (
