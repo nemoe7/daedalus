@@ -3745,8 +3745,10 @@ function showPage() {
   document.querySelectorAll("#nav a").forEach((link) => {
     const on = link.dataset.page === page;
     link.classList.toggle("on", on);
-    if (on) link.setAttribute("aria-current", "page");
-    else link.removeAttribute("aria-current");
+    if (on) {
+      link.setAttribute("aria-current", "page");
+      link.scrollIntoView({ block: "nearest", inline: "nearest" });
+    } else link.removeAttribute("aria-current");
   });
   // Mark navigation chevrons on the first paint, before the status response.
   markNavSteps();

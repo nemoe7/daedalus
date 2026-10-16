@@ -4138,14 +4138,46 @@ assert(host.innerHTML === 'new', 'an unchanged table is not built again');
 
 
 def test_app_js_nav_marks_the_current_page_for_a_screen_reader() -> None:
-  """Navigation code sets `aria-current="page"` only on the current tab."""
-  app = (
-    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/app.js"
-  ).read_text(encoding="utf-8")
-  assert (
-    'if (on) link.setAttribute("aria-current", "page");\n'
-    '    else link.removeAttribute("aria-current");'
-  ) in app, "the page switcher marks the current tab"
+  """Route changes expose the active tab without changing focus or history."""
+  run_app_js(
+    "state, showPage, PAGES",
+    """
+sandbox.history = {
+  replaceState: () => { throw new Error('a route change rewrote history'); },
+  pushState: () => { throw new Error('a route change pushed history'); },
+};
+const focused = { id: 'focused-before' };
+sandbox.document.activeElement = focused;
+const links = Array.from(probe.PAGES, (page) => ({
+  dataset: { page },
+  attrs: {},
+  scrolled: [],
+  classList: { toggle: () => {} },
+  setAttribute(name, value) { this.attrs[name] = value; },
+  removeAttribute(name) { delete this.attrs[name]; },
+  scrollIntoView(options) { this.scrolled.push(options); },
+}));
+sandbox.document.querySelectorAll = (sel) => (sel === '#nav a' ? links : []);
+sandbox.URLSearchParams = URLSearchParams;
+for (const page of probe.PAGES) {
+  for (const link of links) link.scrolled.length = 0;
+  sandbox.location.hash = `#/${page}`;
+  probe.showPage();
+  const active = links.filter((link) => link.dataset.page === page);
+  assert.strictEqual(active.length, 1, 'one tab matches the route');
+  const marked = links.filter((link) => link.attrs['aria-current'] === 'page');
+  assert.deepStrictEqual(marked, active, 'only the matching tab carries aria-current');
+  const scrolled = links.filter((link) => link.scrolled.length > 0);
+  assert.deepStrictEqual(scrolled, active, 'only the matching tab scrolls into view');
+  const [options] = active[0].scrolled;
+  assert.strictEqual(options.block, 'nearest', 'the tab keeps its vertical place');
+  assert.strictEqual(options.inline, 'nearest', 'the tab takes the short horizontal move');
+}
+assert.strictEqual(sandbox.document.activeElement, focused, 'focus stays put');
+const last = probe.PAGES[probe.PAGES.length - 1];
+assert.strictEqual(sandbox.location.hash, `#/${last}`, 'the hash stays as routed');
+""",
+  )
 
 
 def test_app_js_requests_toolbar_narrows_the_table() -> None:
