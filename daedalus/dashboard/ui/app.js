@@ -1274,7 +1274,7 @@ const progressMeter = (value) => `<div class="track"><div class="fill"
 // With no column chosen, the rows sort by type, then by model name.
 function sortModels(rows) {
   const { dir } = state.sort;
-  const key = sortValue[state.sort.key] ? state.sort.key : "mode";
+  const key = Object.hasOwn(sortValue, state.sort.key) ? state.sort.key : "mode";
   return [...rows].sort((a, b) => {
     const x = sortValue[key](a), y = sortValue[key](b);
     if (x === y) return a.id.localeCompare(b.id);
@@ -3621,8 +3621,9 @@ const PAGE_LABELS = {
 function applyModelFilters(query) {
   const params = new URLSearchParams(query);
   state.tier = ["All", "A", "B", "C", "D"].includes(params.get("tier")) ? params.get("tier") : "All";
-  state.mode = MODES[params.get("mode")] || FLAGS[params.get("mode")] ? params.get("mode") : "all";
-  state.sort = sortValue[params.get("sort")] ? { key: params.get("sort"), dir: -1 } : { key: "", dir: 1 };
+  state.mode = Object.hasOwn(MODES, params.get("mode")) || Object.hasOwn(FLAGS, params.get("mode"))
+    ? params.get("mode") : "all";
+  state.sort = Object.hasOwn(sortValue, params.get("sort")) ? { key: params.get("sort"), dir: -1 } : { key: "", dir: 1 };
   $("search").value = "";
   renderTiers();
   renderSortHeads();

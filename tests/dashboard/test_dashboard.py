@@ -266,6 +266,41 @@ const LOCALE = sandbox.DAEDALUS_LOCALE;
 """
 
 
+def test_model_queries_reject_inherited_keys() -> None:
+  """Model queries accept defined keys and retain defaults for inherited keys."""
+  code = _app_js_vm(
+    """
+sandbox.URLSearchParams = URLSearchParams;
+sandbox.history = { replaceState() {} };
+sandbox.__el("sort-small").options = [];
+const probe = vm.runInContext('({state, applyModelFilters, sortModels, sortValue, MODES, FLAGS})', sandbox);
+const rows = [{id: 'fixture/b', mode: 'chat'}, {id: 'fixture/a', mode: 'chat'}];
+probe.applyModelFilters('');
+const defaultMode = probe.state.mode;
+const defaultSort = JSON.stringify(probe.state.sort);
+const defaultOrder = JSON.stringify(probe.sortModels(rows));
+const defaultDirection = probe.state.sort.dir;
+for (const key of Object.keys(probe.sortValue)) {
+  probe.applyModelFilters(new URLSearchParams({sort: key}).toString());
+  assert.strictEqual(probe.state.sort.key, key);
+  assert.strictEqual(probe.state.sort.dir, -defaultDirection);
+}
+for (const key of [...Object.keys(probe.MODES), ...Object.keys(probe.FLAGS)]) {
+  probe.applyModelFilters(new URLSearchParams({mode: key}).toString());
+  assert.strictEqual(probe.state.mode, key);
+}
+for (const key of [...Object.getOwnPropertyNames(Object.prototype), 'unknown-key', '']) {
+  probe.applyModelFilters(new URLSearchParams({sort: key, mode: key}).toString());
+  assert.strictEqual(probe.state.mode, defaultMode, key);
+  assert.strictEqual(JSON.stringify(probe.state.sort), defaultSort, key);
+  probe.state.sort = {key, dir: defaultDirection};
+  assert.strictEqual(JSON.stringify(probe.sortModels(rows)), defaultOrder, key);
+}
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_app_js_tab_steps() -> None:
   """Navigation chevrons follow the tab bar scroll bounds."""
   code = _app_js_vm(
