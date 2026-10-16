@@ -194,7 +194,7 @@ def test_dump_modes(tmp_path: Path, monkeypatch) -> None:
     "migrate",
     ("catalog", "csv"),
   ], calls
-  assert not (tmp_path / "models.json").exists(), "the old format is removed"
+  assert not (tmp_path / "models.json").exists(), "the old format is gone"
   with (tmp_path / "models.csv").open(encoding="utf-8", newline="") as source:
     assert list(csv.DictReader(source)) == [
       {

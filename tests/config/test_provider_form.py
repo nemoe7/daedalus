@@ -199,7 +199,7 @@ def test_files_restore_tokens_from_an_expanded_cloud_cache(
   leaked = ("cloudflare-secret", "zai-secret", "kilo-secret", "stale-secret")
   assert not any(value in answer.text for value in leaked)
   assert "secret" not in defaults.PATH.read_text(encoding="utf-8"), (
-    "the legacy cache is migrated away from resolved values"
+    "the migration clears resolved values from the legacy cache"
   )
   assert defaults.cached()["cloudflare"]["api_key"] == "cloudflare-secret", (
     "the runtime still resolves the provider value"

@@ -299,7 +299,7 @@ def test_session_key() -> None:
   )
   assert chat_key == api.session_key(
     "t", later, {"x-openwebui-chat-id": "  chat-1  "}
-  ), "the header name and surrounding space are normalized"
+  ), "the parser normalizes the header name and surrounding space"
   assert chat_key == api.session_key("t", later, chat), "one OWUI chat keeps its key"
   assert chat_key == api.session_key("t", other, chat), (
     "the chat ID wins over the prompt"

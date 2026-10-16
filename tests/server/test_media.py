@@ -512,7 +512,7 @@ def test_model_list(client: TestClient) -> None:
   )
   assert names[:5] == ["daedalus/auto", *api.router.POOLS], names
   assert names[5:7] == ["groq/llama", "kilo/new"], "chat models first"
-  assert names[7] == "daedalus/graphos", "a media pool with members is listed"
+  assert names[7] == "daedalus/graphos", "the list shows a media pool with members"
   assert sorted(names[8:]) == [
     "groq/whisper-large-v3",
     "mistral/mistral-embed-2312",

@@ -98,7 +98,7 @@ def test_update_needs_a_source(
   group_of(monkeypatch)
   assert cli.hooks_update() == 1
   assert capsys.readouterr().out.strip(), "the command reports the missing source"
-  assert remote.read_records() == {}, "nothing is fetched"
+  assert remote.read_records() == {}, "the call fetches nothing"
 
 
 def test_update_reports_a_bad_settings_file(
