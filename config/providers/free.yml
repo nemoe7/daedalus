@@ -8,6 +8,7 @@ cloudflare:
   exclude:
     - "*llama-guard*"
     - "*llama-3.2-11b-vision*"
+    - "*phonellm*" # a voice-agent model: Workers AI lists it as text, and no tier claims it
   tier:
     TIER-A:
       - "*qwen3.*"
@@ -138,16 +139,13 @@ kilo:
     - "*content-safety*"
     - kilo-auto/free # a router, not a model
     - openrouter/free # a router, not a model
+  # The provider dumps: kilo withdrew the free tiers of glm-5, ling-3.0-flash, qwen3.8-27b,
+  # step-3.7-flash and step-5-preview, so their old TIER-A patterns claimed nothing kept.
   tier:
     TIER-A:
-      - "glm-5*"
-      - "inclusionai/ling-3.0-flash*"
       - "nvidia/nemotron-3-super-*"
       - "nvidia/nemotron-3-ultra-*"
       - "poolside/laguna-s-*"
-      - "qwen/qwen3.8-27b*"
-      - "stepfun/step-3.7-flash*"
-      - "*step-5-preview-free"
       - "thinkingmachines/inkling*"
     TIER-B:
       - "*" # every other model; a more specific pattern wins
@@ -158,7 +156,6 @@ mistral:
   api_key: env:MISTRAL_API_KEY
   exclude:
     - "*-latest" # aliases can move to a model with different access
-    - mistral-medium-3-5 # the Free workspace reports 0 requests per minute
     - mistral-small-2603 # the Free workspace reports 0 requests per minute
   tier:
     TIER-C:
@@ -180,14 +177,13 @@ openrouter:
     - "*content-safety*"
     - recraft/* # image generation needs a credit balance, also for the :free ids
     - "!*:free"
+  # The provider dumps: openrouter keeps ling-3.0-flash, qwen3.8-27b and step-3.7-flash only as
+  # paid variants, so their TIER-A patterns claimed nothing the :free exclude kept.
   tier:
     TIER-A:
-      - "inclusionai/ling-3.0-flash*"
       - "nvidia/nemotron-3-super-*"
       - "nvidia/nemotron-3-ultra-*"
       - "poolside/laguna-s-*"
-      - "qwen/qwen3.8-27b*"
-      - "stepfun/step-3.7-flash*"
       - "thinkingmachines/inkling*"
     TIER-B:
       - "*" # every other model; a more specific pattern wins

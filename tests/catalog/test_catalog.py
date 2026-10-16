@@ -1035,3 +1035,29 @@ def test_cached_dump_rejects_provider_paths(
     )
   assert not (tmp_path / f"escape.{file_format}").exists()
   assert existing.read_text() == "existing output"
+
+
+def test_the_dead_tier_patterns_retire_and_phonellm_leaves() -> None:
+  """The free config drops the patterns the provider dumps proved dead."""
+  loaded = config.read_yaml(config.DEFAULT_PATH)
+  kilo = loaded["kilo"]["tier"]["TIER-A"]
+  for pattern in (
+    "glm-5*",
+    "inclusionai/ling-3.0-flash*",
+    "qwen/qwen3.8-27b*",
+    "stepfun/step-3.7-flash*",
+    "*step-5-preview-free",
+  ):
+    assert pattern not in kilo, pattern
+  open_a = loaded["openrouter"]["tier"]["TIER-A"]
+  for pattern in (
+    "inclusionai/ling-3.0-flash*",
+    "qwen/qwen3.8-27b*",
+    "stepfun/step-3.7-flash*",
+  ):
+    assert pattern not in open_a, pattern
+  assert "mistral-medium-3-5" not in loaded["mistral"]["exclude"]
+  cloud = loaded["cloudflare"]
+  kept = discovery.select(cloud, ["@cf/daily-co/phonellm-mini-alpha-2", "@cf/qwen/qwen3.8-27b"])
+  assert "@cf/daily-co/phonellm-mini-alpha-2" not in kept, "the voice row leaves the pool"
+  assert "@cf/qwen/qwen3.8-27b" in kept, "the chat rows stay"
