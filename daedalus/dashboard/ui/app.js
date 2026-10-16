@@ -1050,7 +1050,7 @@ function renderRequestTable() {
 function renderRequests(rows, empty = t("request.empty.none_text"), live = 0) {
   const flatRows = splitRequests(rows);
   // The live count rides in the key: a live row hides the empty row, so it changes the markup.
-  const text = JSON.stringify([flatRows, live ? 1 : 0]);
+  const text = JSON.stringify([flatRows, live ? 1 : 0, empty]);
   const selected = getSelection();
   if (text === shownRequests) return;
   if (!selected.isCollapsed && $("requests").contains(selected.anchorNode)) return;

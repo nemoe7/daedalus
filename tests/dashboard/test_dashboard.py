@@ -357,6 +357,33 @@ sandbox.call = async (path) => {
   client.cookies.clear()
 
 
+def test_request_empty_message_changes_with_retained_history() -> None:
+  """Empty-request markup follows history and live-row changes under a filter."""
+  code = _app_js_vm(
+    """
+const probe = vm.runInContext("({state, renderRequestTable})", sandbox);
+probe.state.requests = [];
+probe.state.live = new Map();
+probe.state.requestSearch = "fixture-no-match";
+probe.renderRequestTable();
+assert(el("requests").innerHTML.includes(LOCALE["request.empty.none_text"]));
+probe.state.requests = [{model: "fixture/model", status: 200, at: 1}];
+probe.renderRequestTable();
+assert(el("requests").innerHTML.includes(LOCALE["request.empty.filter_text"]));
+probe.state.requests = [];
+probe.renderRequestTable();
+assert(el("requests").innerHTML.includes(LOCALE["request.empty.none_text"]));
+probe.state.live.set(1, {id: 1, model: "fixture-no-match"});
+probe.renderRequestTable();
+assert(!el("requests").innerHTML);
+probe.state.live.clear();
+probe.renderRequestTable();
+assert(el("requests").innerHTML.includes(LOCALE["request.empty.none_text"]));
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_app_js_hides_the_empty_row_when_a_request_goes_live(
   client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
