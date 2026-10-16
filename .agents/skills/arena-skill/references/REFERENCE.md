@@ -15,7 +15,7 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 | `key` | Print the recorded agent key, host and stamp; breaks while the preview server is not up, and a later session recovers the key after acknowledging the quiet note |
 | `poll` | Wait for a pending inbox item before ending a turn; return at once with the task list for an unblocked upcoming task, and at once when the owner pressed Skip poll in the page. It prints a retry disclaimer at the start that names the 1800-second span. The shell `timeout` command must not wrap it; give the bash tool's timeout 1800 instead |
 | `route <name> -- <command>` | The gate's helper for a detected long run, and the call a failed start names: it starts the command detached under a name and records its tail and exit, so the verdict prints on a later call as `run <name> done: exit N`, with one status line per call while it runs |
-| `logs <name>` | Print a routed run's status and its recorded output tail; it works while the run lives and after its verdict |
+| `logs <name>` | Print a routed run's status and its recorded output tail; it works while the run lives and after its verdict, and a second read before that verdict exits 130 |
 | `worktree start --gate <gate-name> [--allow <glob>] <name> <destination>` | Create a detached task worktree outside the root while the named root gate runs |
 | `worktree collect <name>` | Print the allowed detached-worktree patch after a green root gate |
 | `ack --reply <markdown>` | Omit IDs only when exactly one non-quiet note or report answer is pending. Supply exactly one reply/note source. With multiple pending items, supply the ID |
@@ -90,13 +90,14 @@ The profile gate and the EXIT hook beside it hold one case per shape below. Ever
 
 | Case | Trigger | Answer |
 | --- | --- | --- |
-| `pr-state` | visible `gh pr close`, `gh pr reopen`, `gh pr merge`, equivalent API writes, or destructive head-ref operations | `exit 130` before bypasses. Reads, comments, title/body edits, and permitted working-branch pushes pass |
+| `pr-state` | visible `gh pr close`, `gh pr reopen`, `gh pr merge`, equivalent API writes, or destructive head-ref operations | `exit 130` before bypasses. A read line skips the veto spawn. Reads, comments, title/body edits, and permitted working-branch pushes pass |
 | `shell-shape` | a caller that is not `bash`, `sh`, `dash`, `ksh` or `zsh` | pass, so a hosted process keeps its shell |
 | `shell-line` | every gated shell | the command line is read once per shell, so a command costs no read |
 | `platform-shell` | the platform's probe or its own hosted process | pass, and mark the shell once |
 | `task-reminder` | `git commit`, `git push` or `gh pr checks` | the task-list notice once per shell, then the line runs |
-| `main-moved` | `git commit` or `git push` | the fresh remote/local drift check once per shell, including shallow and absorbed history, then the line runs |
+| `main-moved` | `git commit` or `git push` | the drift check once per shell, from local refs at the commit line and with a fresh fetch at the push line, then the line runs |
 | `route-marker` | a shell the gate started itself (`ARENA_PREVIEW_ROUTE=1`) | pass, so a detached run never matches its own family |
+| `idle-wait` | a line whose first real command is `sleep` | `exit 130` before the sleep, so the turn takes queued work. A retry loop names its own command first and passes |
 | `long-run` | `gh pr checks`, `gh run watch`, or a test runner head (`pytest`, `node --test`, `npm test`, `make test`, `go test`, `cargo test` and the rest) | the call ends clean and the run continues, or `exit 130` when the start fails. Any run of 10 seconds or more is a long run too, and MUST use `route` |
 | `bare-path` | a line that spells out the installed `preview.py` or `arena-preview` | the bare-call notice once per shell, then the line runs |
 | `proxy-route` | a read of code-scanning alerts or workflow run logs | the proxy notice once per shell, then the line runs |

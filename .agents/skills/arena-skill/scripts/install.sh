@@ -154,9 +154,19 @@ _arena_preview_gate() {
   # case: pr-state
   case "\$BASH_COMMAND" in
     *gh*|*git*|*curl*|*wget*)
-      if ! "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" pr-state-tick "\$BASH_COMMAND"; then
-        exit 130
-      fi
+      # A read line holds no write shape, so the gate spends no spawn on it.
+      # Quotes and backslashes come off first: the veto parses the same words.
+      _arena_preview_write="\${BASH_COMMAND//\"/}"
+      _arena_preview_write="\${_arena_preview_write//\'/}"
+      _arena_preview_write="\${_arena_preview_write//\\\\/}"
+      case " \${_arena_preview_write,,} " in
+        *[[:space:]]push[[:space:]]*|*[[:space:]]merge[[:space:]]*|*[[:space:]]close[[:space:]]*|*[[:space:]]reopen[[:space:]]*|*[[:space:]]api[[:space:]]*|*repos/*|*graphql*|*github.com*)
+          if ! "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" pr-state-tick "\$BASH_COMMAND"; then
+            exit 130
+          fi
+          ;;
+      esac
+      unset _arena_preview_write
       ;;
   esac
   # Arena gates only an agent call shell. That shell hosts each long-lived process through a launcher script.
@@ -188,12 +198,18 @@ _arena_preview_gate() {
       ;;
   esac
   # A branch that trails origin/main replays onto a stale base.
-  # Run this check once per shell. Check only lines that name a commit or push.
+  # The commit line reads local refs. The push line refreshes the remote tips first.
   # case: main-moved
   case "\$BASH_COMMAND" in
-    *"git commit"*|*"git push"*)
-      if [ -z "\${_arena_preview_main_checked:-}" ]; then
-        _arena_preview_main_checked=1
+    *"git commit"*)
+      if [ -z "\${_arena_preview_main_local:-}" ]; then
+        _arena_preview_main_local=1
+        "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" main-drift-tick --local
+      fi
+      ;;
+    *"git push"*)
+      if [ -z "\${_arena_preview_main_fresh:-}" ]; then
+        _arena_preview_main_fresh=1
         "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" main-drift-tick
       fi
       ;;
@@ -201,6 +217,16 @@ _arena_preview_gate() {
   # A detached route runs its own line. Its marker prevents the gate from matching its family twice.
   # case: route-marker
   case "\${ARENA_PREVIEW_ROUTE:-}" in 1) return 0 ;; esac
+  # A bare sleep holds the turn. The tick reads the whole line, so a loop that names its
+  # own command first still passes, and the gate stops only a line that leads with a wait.
+  # case: idle-wait
+  case "\$BASH_COMMAND" in
+    *sleep*)
+      if ! "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" idle-tick "\$_arena_preview_line"; then
+        exit 130
+      fi
+      ;;
+  esac
   # A PR-check wait runs in the background. The gate detaches it, prints its status, and prevents a second run here.
   # case: long-run
   case "\$BASH_COMMAND" in

@@ -9,7 +9,6 @@ import secrets
 import shlex
 import shutil
 import socket
-import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -18,15 +17,15 @@ import time
 import uuid
 from contextlib import closing,contextmanager,nullcontext
 from datetime import datetime,timedelta,timezone
-from email import policy
-from email.parser import BytesParser
 from fnmatch import fnmatchcase
-from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs,unquote,urlsplit,urlunsplit
 from zoneinfo import ZoneInfo
-try:import markdown_it;HAS_RENDERER=True
-except ImportError:HAS_RENDERER=False
+HAS_RENDERER=None
+sqlite3=None
+def __getattr__(name):
+	if name in('BaseHTTPRequestHandler','ThreadingHTTPServer'):from http import server;return getattr(server,name)
+	raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 ASSETS=Path(__file__).resolve().parents[1]/'assets'
 IDENTIFIER=re.compile('[a-zA-Z0-9_-]{1,80}\\Z')
 REPLY_REFERENCE=re.compile('^RE:\\s*([a-zA-Z0-9_-]{1,80})(?:\\s|$)',re.IGNORECASE)
@@ -230,13 +229,13 @@ def main_identical(root='.'):
 			if git('rev-parse','--verify','--quiet',ref).returncode:return False
 		return git('diff','--quiet','origin/main','HEAD','--').returncode==0
 	except OSError:return False
-def main_drift_warning(root='.'):
+def main_drift_warning(root='.',fresh=True):
 	def git(*arguments):return subprocess.run(['git',*arguments],cwd=root,capture_output=True,text=True,check=False,timeout=30,env={**os.environ,'GIT_TERMINAL_PROMPT':'0'})
 	def unavailable(reason):return f"Remote branch check unavailable: {reason}; behind count is unknown."
 	try:
 		if git('rev-parse','--git-dir').returncode:return''
 		remote=git('remote','get-url','origin')
-		if remote.returncode==0:
+		if fresh and remote.returncode==0:
 			branch=git('symbolic-ref','--quiet','--short','HEAD').stdout.strip()
 			if not branch:return unavailable('detached HEAD')
 			shallow=git('rev-parse','--is-shallow-repository').stdout.strip()=='true';main_ref='refs/remotes/origin/main';branch_ref=f"refs/remotes/origin/{branch}";refs=list(dict.fromkeys([f"+refs/heads/main:{main_ref}",f"+refs/heads/{branch}:{branch_ref}"]));arguments=['fetch','--quiet','--no-tags']
@@ -260,6 +259,19 @@ def main_drift_warning(root='.'):
 		return''
 	except subprocess.TimeoutExpired:return unavailable('Git timed out')
 	except(OSError,ValueError):return unavailable('cannot read Git state')
+def main_ancestor_warning(root='.'):
+	def git(*arguments):return subprocess.run(['git',*arguments],cwd=root,capture_output=True,text=True,check=False,timeout=30,env={**os.environ,'GIT_TERMINAL_PROMPT':'0'})
+	try:
+		if git('rev-parse','--git-dir').returncode:return''
+		if git('remote','get-url','origin').returncode:return''
+		main_ref='refs/remotes/origin/main';arguments=['fetch','--quiet','--no-tags']
+		if git('rev-parse','--is-shallow-repository').stdout.strip()=='true':arguments.append('--unshallow')
+		if git(*arguments,'origin',f"+refs/heads/main:{main_ref}").returncode:return''
+		if git('rev-parse','--verify','--quiet',main_ref).returncode:return''
+		if git('merge-base','--is-ancestor',main_ref,'HEAD').returncode!=1:return''
+		return'PUSH BLOCKED: `origin/main` is not an ancestor of HEAD, so the push replays onto a stale base. Run `git fetch origin` and `git rebase origin/main`, then push again.'
+	except subprocess.TimeoutExpired:return''
+	except(OSError,ValueError):return''
 def repo_slug(root='.'):
 	try:url=subprocess.run(['git','config','--get','remote.origin.url'],cwd=root,capture_output=True,text=True,check=False).stdout.strip()
 	except OSError:return''
@@ -600,6 +612,7 @@ class RequestBody:
 			if not self.fill():raise ValueError('Incomplete multipart body')
 @contextmanager
 def stream_note_attachments(content_type,stream,length):
+	from email import policy;from email.parser import BytesParser
 	if any(char in content_type for char in'\r\n'):raise ValueError('Invalid multipart boundary')
 	header=BytesParser(policy=policy.default).parsebytes(b'Content-Type: '+content_type.encode('ascii')+b'\r\n\r\n');boundary=header.get_boundary()
 	if not boundary or not re.fullmatch("[0-9A-Za-z'()+_,./:=? -]{1,70}",boundary)or boundary.endswith(' '):raise ValueError('Invalid multipart boundary')
@@ -777,11 +790,25 @@ def first_blocking_piece(line):
 			continue
 		return piece.strip()
 	return None
+def idle_wait(line):
+	piece=first_blocking_piece(agent_line(line))
+	if not piece:return None
+	head=piece.split()[0].rsplit('/',1)[-1].strip('"\'')
+	if head!='sleep':return None
+	return'WAIT BLOCKED: a bare sleep holds the turn. Take the next queued task, or read the run on a later call. A routed run keeps its verdict, and `arena-preview poll` waits when the queue is empty.'
 def quiet_inbox_line(line):return first_blocking_piece(line)is None
 GATE_NOISE='tail','grep','head'
 RUN_NAME=re.compile('[A-Za-z0-9._-]{1,64}')
 RUN_TAIL_LINES=40
 def run_record_path(state_dir,name):return Path(state_dir)/'runs'/f"{name}.json"
+def read_marker_path(state_dir,name):return Path(state_dir)/'runs'/f"{name}.read"
+def run_read_stamp(state_dir,name):
+	try:return read_marker_path(state_dir,name).read_text(encoding='utf-8').strip()
+	except OSError:return None
+def mark_run_read(state_dir,name,record):
+	marker=read_marker_path(state_dir,name)
+	try:marker.parent.mkdir(parents=True,exist_ok=True);marker.write_text(str(record.get('started_at')or''),encoding='utf-8')
+	except OSError:pass
 ROUTE_START_FAILED='routed child failed to start; rerun the gate'
 ROUTE_CHILD_EXITED='routed child exited without recording a verdict; rerun the gate'
 def write_run_record(path,record):
@@ -1039,7 +1066,10 @@ def route_command(state_dir,name,argv):
 	print(f"routed {name}: background run. Verdict on later call. {WORKTREE_STEP}",file=sys.stderr,flush=True);return 0
 def run_log_report(state_dir,name):
 	record=routed_record(state_dir,name)
-	if record.get('exit')is None:elapsed=detached_seconds(record.get('started_at'));age=f" {elapsed}s"if elapsed is not None else'';print(f"run {name} running{age}");print(WORKTREE_STEP);return 0
+	if record.get('exit')is None:
+		stamp=str(record.get('started_at')or'')
+		if run_read_stamp(state_dir,name)==stamp:print(f"WAIT BLOCKED: run {name} has no verdict yet. Take the next queued task, or read it on a later call. The verdict keeps, and `arena-preview poll` waits when the queue is empty.",file=sys.stderr,flush=True);return 130
+		mark_run_read(state_dir,name,record);elapsed=detached_seconds(record.get('started_at'));age=f" {elapsed}s"if elapsed is not None else'';print(f"run {name} running{age}");print(WORKTREE_STEP);return 0
 	print(f"run {name} done: exit {record['exit']} {record.get('seconds')}s")
 	for line in record.get('tail')or[]:print(line)
 	return 0
@@ -1113,6 +1143,10 @@ def format_report_state(rows):
 		if not row['answers']:lines.append('  answers: none')
 		for answer in row['answers']:lines.append(f"  answers: {answer['id']} acknowledged {'yes'if answer['acknowledged']else'no'}, agent-seen {'yes'if answer['seen']else'no'}")
 	return'\n'.join(lines)+('\n'if lines else'')
+def sqlite_api():
+	global sqlite3
+	if sqlite3 is None:import sqlite3
+	return sqlite3
 class Store:
 	def __init__(self,directory,create=False,save_path=None):
 		directory=Path(directory).resolve();self.path=directory/'state.sqlite3';self.save_path=Path(save_path)if save_path else self.path.parent/SAVED_STATE;existed=self.path.is_file()
@@ -1172,7 +1206,7 @@ class Store:
 		return ids,total
 	def notes_matching(self,token):
 		with closing(self.connect())as db:return[message_row(row)for row in db.execute('SELECT * FROM notes WHERE id = ? OR id LIKE ? ORDER BY at DESC',(token,f"{token}%")).fetchall()]
-	def connect(self):db=sqlite3.connect(self.path,timeout=5);db.row_factory=sqlite3.Row;return db
+	def connect(self):db=sqlite_api().connect(self.path,timeout=5);db.row_factory=sqlite_api().Row;return db
 	def note(self,note_id,text,at=None,acknowledged_at=None,ack_kind=None,ack_text=None,seen_at=None,task_id=None,ack_edited_at=None,autosave=True,shared=None,replies=None,ack_edited_seen_count=None,quiet=False):
 		identifier(note_id);owner_text(text);receipt=restore_receipt(acknowledged_at,ack_kind,ack_text,ack_edited_at);more=restore_replies(replies,receipt[0]);seen_reply_count=restore_reply_seen_count(ack_edited_seen_count,more);seen=when(seen_at)if seen_at is not None else None
 		with self.transaction(shared,autosave=autosave)as db:
@@ -1802,8 +1836,15 @@ def render_image(renderer,tokens,index,options,env):
 		elif token.type=='hardbreak':token.type='softbreak'
 		pending.extend(token.children or[])
 	return renderer.image(tokens,index,options,env)
+def has_renderer():
+	global HAS_RENDERER
+	if HAS_RENDERER is None:
+		try:import markdown_it
+		except ImportError:HAS_RENDERER=False
+		else:HAS_RENDERER=True
+	return HAS_RENDERER
 def require_renderer():
-	if not HAS_RENDERER:raise SystemExit("serve needs markdown-it-py: install it in the preview venv with `python -m pip install markdown-it-py`, then start the server with that venv's Python. read, ack and publish work without it.")
+	if not has_renderer():raise SystemExit("serve needs markdown-it-py: install it in the preview venv with `python -m pip install markdown-it-py`, then start the server with that venv's Python. read, ack and publish work without it.")
 CODE_BLOCK=re.compile('<pre>(.*?)</pre>',re.DOTALL)
 CODE_TAG=re.compile('<[^>]+>')
 ICON_COPY='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>'
@@ -1851,7 +1892,7 @@ def render(markdown,breaks=False):
 	except ImportError as error:raise RuntimeError("Markdown rendering needs markdown-it-py. Install it in the preview's venv and restart the server with that venv's Python; steering still works.")from error
 	parser=MarkdownIt('commonmark',{'html':False,'breaks':breaks}).enable(['table','strikethrough']);highlight_markdown(parser);parser.add_render_rule('link_open',open_link);parser.add_render_rule('image',render_image);tagged,images=hold_out(markdown,SIZED_IMAGE,lambda match:sized_image(match,validateLink),'image');rendered=drop_paragraph_breaks(parser.render(unescape_fences(tagged)));return add_copy_buttons(put_back(rendered,images,'image'))
 def handler(store):
-	token=secrets.token_urlsafe(32)
+	from http.server import BaseHTTPRequestHandler;token=secrets.token_urlsafe(32)
 	class Handler(BaseHTTPRequestHandler):
 		def setup(self):super().setup();self.connection.settimeout(15)
 		def reply(self,status,body,content_type='application/json; charset=utf-8',filename=None):
@@ -1886,7 +1927,7 @@ def handler(store):
 					self.reply(200,report['markdown'],'text/plain; charset=utf-8',f"{report_id}.md");return
 				self.problem(404,'Not found')
 			except FileNotFoundError as error:self.problem(404,error)
-			except(OSError,sqlite3.Error,RuntimeError)as error:self.problem(503,error)
+			except(OSError,sqlite_api().Error,RuntimeError)as error:self.problem(503,error)
 		def do_POST(self):
 			path=urlsplit(self.path).path;report_submit=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/submit',path);report_seen=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/seen',path);report_ack_seen=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/ack-seen',path);report_view=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/view',path);message_replies_seen=re.fullmatch('/api/messages/([a-zA-Z0-9_-]{1,80})/replies/seen',path);report_unpublish=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/unpublish',path);fetch_post=re.fullmatch('/api/fetch-jobs/([a-zA-Z0-9_-]{1,80})/(renew|result|fail|retry|approve|deny|drop)',path);note_upload=path=='/api/notes/with-file';agent_key_post=path=='/api/key';skip_poll_post=path=='/api/skip-poll';fetch_result=bool(fetch_post and fetch_post.group(2)=='result')
 			if path not in{'/api/notes','/api/markdown','/api/fetch-jobs','/api/fetch-jobs/claim'}and not report_submit and not report_seen and not report_ack_seen and not report_view and not message_replies_seen and not report_unpublish and not note_upload and not fetch_post and not agent_key_post and not skip_poll_post:self.problem(404,'Not found');return
@@ -1960,7 +2001,7 @@ def handler(store):
 			except(ReportChanged,FetchChanged,ReportHeld)as error:self.problem(409,error)
 			except FileNotFoundError as error:self.problem(404,error)
 			except(ValueError,TypeError,UnicodeDecodeError)as error:self.problem(400,error)
-			except(OSError,sqlite3.Error,RuntimeError)as error:self.problem(503,error)
+			except(OSError,sqlite_api().Error,RuntimeError)as error:self.problem(503,error)
 	return Handler
 def resolve_repo_root():
 	for parent in Path(__file__).resolve().parents:
@@ -2025,7 +2066,7 @@ def embed_report_images(markdown,report_dir):
 class PreviewArgumentParser(argparse.ArgumentParser):
 	def print_usage(self,file=None):pass
 def main():
-	parser=PreviewArgumentParser(description=CLI_DESCRIPTION);parser.add_argument('-r','--reminder',action='store_true',help='Print the unacked-count reminder line and exit');commands=parser.add_subparsers(dest='command',required=False);serve=commands.add_parser('serve',help='Serve the preview page; -p names the port');serve.add_argument('-p','--port',type=int,default=DEFAULT_PORT,help=f"Port to bind (default: {DEFAULT_PORT})");init=commands.add_parser('init',help='Create the state directory and its database');init.add_argument('--tz',help='An IANA zone for CLI stamps. The TZ env still wins');commands.add_parser('read',help='Print every pending note, answer and upload');commands.add_parser('skills',help='List skill names, full descriptions, and paths without loading skills');note_list=commands.add_parser('note-list',help='List stored note IDs by page, newest first, including acknowledged notes');note_list.add_argument('--page',type=int,default=1,help='Page number (default: 1)');note_list.add_argument('--page-size',type=int,default=20,help='IDs per page, 1 to 100 (default: 20)');note_reread=commands.add_parser('note',help='Reread a stored note by its short or full ID');note_reread.add_argument('id',help='Six or all characters of a note ID');image_uri=commands.add_parser('image-data-uri',help='Print Markdown text that carries one local image as a data URI');image_uri.add_argument('path',type=Path,help='One local PNG, JPEG, GIF or WebP file up to 2 MiB');commands.add_parser('key',help='Print the recorded agent key, host and use line');pr_state=commands.add_parser('pr-state-tick',help='Reject visible PR-state writes');pr_state.add_argument('line',help='The command as the DEBUG hook read it');inbox_line=commands.add_parser('inbox-line',help='Report whether a command line that names an inbox call runs nothing else');inbox_line.add_argument('line',help='The command line, as the hook read it');route=commands.add_parser('route',help='Start a command detached, keep its output tail, and show the exit on a later call');route.add_argument('name',help='A short name for the run, for example gates');route.add_argument('command_args',nargs=argparse.REMAINDER,help='The command, after --');route_run=commands.add_parser('route-run',help='Run one command here and record its exit for a later call');route_run.add_argument('name',help='The run name the caller already recorded');route_run.add_argument('command_args',nargs=argparse.REMAINDER,help='The command, after --');logs=commands.add_parser('logs',help="Print a routed run's status and its recorded output tail");logs.add_argument('name',help='The run name to read');worktree=commands.add_parser('worktree',help='Create or collect a detached task worktree beside a root gate');worktree_action=worktree.add_subparsers(dest='worktree_action',required=True);worktree_start=worktree_action.add_parser('start',help='Create a detached worktree while a named root gate runs');worktree_start.add_argument('name',help='A short worktree name');worktree_start.add_argument('destination',type=Path,help='A new path outside the root');worktree_start.add_argument('--gate',required=True,help='The running root gate name');worktree_start.add_argument('--allow',action='append',default=[],help='A path glob task work may change');worktree_collect=worktree_action.add_parser('collect',help='Print the allowed detached-worktree patch after a green root gate');worktree_collect.add_argument('name',help='The worktree name to collect');worktree_tick=commands.add_parser('worktree-tick',help='Block a gate, commit or push from a detached task worktree');worktree_tick.add_argument('action',choices=sorted(WORKTREE_ACTIONS));ack_tick=commands.add_parser('ack-tick',help='Warn when an inline ack text holds a backtick the shell will substitute');ack_tick.add_argument('line',help='The command line, as the hook read it');serve_tick=commands.add_parser('serve-tick',help='Warn when a serve names a port other than the default');serve_tick.add_argument('line',help='The command line, as the hook read it');pr_check_tick=commands.add_parser('pr-check-tick',help='Refuse a bash line that runs a PR-check wait the background tool must take');pr_check_tick.add_argument('line',help='The command line, as the hook read it');pr_check_tick.add_argument('--command',dest='current_command',help='The command the DEBUG trap reached');main_drift_tick=commands.add_parser('main-drift-tick',help='Check fresh remote branch drift at commit/push checkpoints');main_drift_tick.add_argument('--repo',default='.');egress_tick=commands.add_parser('egress-tick',help='Warn when a line fetches a host the sandbox egress filter blocks');egress_tick.add_argument('line',help='The command line, as the hook read it');rename=commands.add_parser('rename',help='Move a note, answer, report or task to a new ID');rename.add_argument('old_id',help='The stored ID, or a prefix that names one record');rename.add_argument('new_id',help='The ID to move the record to');commit_tick=commands.add_parser('commit-tick',help='Block a commit whose staged lines cite a session-local ID');commit_tick.add_argument('--repo',default='.',help='The repository to read the staged diff from');gate=commands.add_parser('gate',help='Read the inbox gate; -p blocks on any unacked note, -l names the blocked line');gate.add_argument('-p','--push',action='store_true',help='Block while any note or answer awaits an ack, whatever the call count');gate.add_argument('-l','--line',default='',help='The command line, as the hook read it; a blocked call then names the commands to drop');commands.add_parser('poll',help='Block until the owner answers or a gate run finishes');download=commands.add_parser('download-request',help='Request an HTTPS browser download, pending a preview Approve click; -a allows the proxy fallback');download.add_argument('url',help='One HTTPS URL without embedded credentials');download.add_argument('-a','--allow-proxy',action='store_true',help='Let the owner opt in to AllOrigins and CodeTabs fallback for this request');ack=commands.add_parser('ack',help='Answer a note; a bare call answers the one pending item; -r replies, -n notes, -R and -N read the answer from a file');ack.add_argument('ids',nargs='*');ack.add_argument('-r','--reply',help='Markdown answer shown in the message log');ack.add_argument('-n','--note',help='Short plain answer shown in the message log');ack.add_argument('-R','--reply-file',type=Path,help='Read the Markdown answer from this file');ack.add_argument('-N','--note-file',type=Path,help='Read the plain answer from this file');publish=commands.add_parser('publish',help='Publish a report; -i names the ID, -t the title');publish.add_argument('source',type=Path);publish.add_argument('-i','--id',required=True);publish.add_argument('-t','--title',required=True);report=commands.add_parser('report',help='Report batch actions');report_actions=report.add_subparsers(dest='report_action',required=True);report_unpublish=report_actions.add_parser('unpublish',help='Remove stale reports through existing guards');report_unpublish.add_argument('--stale',action='store_true',required=True);unpublish=commands.add_parser('unpublish',help='Withdraw a published report by its ID');unpublish.add_argument('report_id');commands.add_parser('stale-reports',help='List stale published report IDs and reasons without changing state');report_state=commands.add_parser('report-state',help='Print publication, owner view stamp and answer visibility for one report or all');report_state.add_argument('report_id',nargs='?');task=commands.add_parser('task',help='Write or update a task; TASK-ID alone prints the stored row; -s status, -o order, -d details, -m note, -r report, -b blocked, -u unblocked, -a amend');task.add_argument('id_arg',nargs='?',metavar='TASK-ID');task.add_argument('title_arg',nargs='?',metavar='TASK-TITLE');task.add_argument('detail_arg',nargs='*',metavar='TASK-DETAIL');task.add_argument('-d','--details','--task-details',dest='task_details',action='append',help='One step per line, 120 characters or fewer, repeatable; an empty string clears the list');task.add_argument('-A','--append',dest='append_details',action='store_true',help='Append provided details instead of replacing stored details');task.add_argument('-b','--blocked',dest='blocked',action='store_true',default=None,help='Mark the task blocked, so a poll may wait');task.add_argument('-u','--unblocked',dest='blocked',action='store_false',help='Clear the blocked mark');task.add_argument('-m','--msg-id',help='Message this task answers; marks that message as having a task');task.add_argument('-r','--report',metavar='REPORT-ID',help='Report this task waits on; its answer clears the blocked mark');task.add_argument('-a','--amend',metavar='PREV-ID',help='Rename the task stored under this ID to the one given');task.add_argument('-s','--status',choices=TASK_STATUSES,default=None);task.add_argument('--task-type',dest='task_type',choices=TASK_TYPES,default=None,help='Primary deliverable type; an omitted flag keeps a stored type');task.add_argument('-o','--order',type=int,default=None,help='1-based place in its div, not the end');task_remove=commands.add_parser('task-remove',help='Delete a task by its ID');task_remove.add_argument('task_id');task_list=commands.add_parser('task-list',help='List the tasks; -f includes the finished ones');task_list.add_argument('-f','--full',action='store_true',help='print every task, finished included');state_import=commands.add_parser('import-state',help='Import an NDJSON backup; replaces the live state unless --merge; -f forces');state_import.add_argument('source',nargs='?',type=Path);state_import.add_argument('-r','--replace-tasks',action='store_true');state_import.add_argument('--merge',action='store_true',help='keep the live notes, answers, reports and tasks, and merge the import by ID');commands.add_parser('clear-state',help='Empty every state table in place; the agent key record survives');args=parser.parse_args();state_dir=resolve_state_dir();fresh_state=not(Path(state_dir).resolve()/'state.sqlite3').is_file()
+	parser=PreviewArgumentParser(description=CLI_DESCRIPTION);parser.add_argument('-r','--reminder',action='store_true',help='Print the unacked-count reminder line and exit');commands=parser.add_subparsers(dest='command',required=False);serve=commands.add_parser('serve',help='Serve the preview page; -p names the port');serve.add_argument('-p','--port',type=int,default=DEFAULT_PORT,help=f"Port to bind (default: {DEFAULT_PORT})");init=commands.add_parser('init',help='Create the state directory and its database');init.add_argument('--tz',help='An IANA zone for CLI stamps. The TZ env still wins');commands.add_parser('read',help='Print every pending note, answer and upload');commands.add_parser('skills',help='List skill names, full descriptions, and paths without loading skills');note_list=commands.add_parser('note-list',help='List stored note IDs by page, newest first, including acknowledged notes');note_list.add_argument('--page',type=int,default=1,help='Page number (default: 1)');note_list.add_argument('--page-size',type=int,default=20,help='IDs per page, 1 to 100 (default: 20)');note_reread=commands.add_parser('note',help='Reread a stored note by its short or full ID');note_reread.add_argument('id',help='Six or all characters of a note ID');image_uri=commands.add_parser('image-data-uri',help='Print Markdown text that carries one local image as a data URI');image_uri.add_argument('path',type=Path,help='One local PNG, JPEG, GIF or WebP file up to 2 MiB');commands.add_parser('key',help='Print the recorded agent key, host and use line');pr_state=commands.add_parser('pr-state-tick',help='Reject visible PR-state writes');pr_state.add_argument('line',help='The command as the DEBUG hook read it');inbox_line=commands.add_parser('inbox-line',help='Report whether a command line that names an inbox call runs nothing else');inbox_line.add_argument('line',help='The command line, as the hook read it');route=commands.add_parser('route',help='Start a command detached, keep its output tail, and show the exit on a later call');route.add_argument('name',help='A short name for the run, for example gates');route.add_argument('command_args',nargs=argparse.REMAINDER,help='The command, after --');route_run=commands.add_parser('route-run',help='Run one command here and record its exit for a later call');route_run.add_argument('name',help='The run name the caller already recorded');route_run.add_argument('command_args',nargs=argparse.REMAINDER,help='The command, after --');logs=commands.add_parser('logs',help="Print a routed run's status and its recorded output tail");logs.add_argument('name',help='The run name to read');worktree=commands.add_parser('worktree',help='Create or collect a detached task worktree beside a root gate');worktree_action=worktree.add_subparsers(dest='worktree_action',required=True);worktree_start=worktree_action.add_parser('start',help='Create a detached worktree while a named root gate runs');worktree_start.add_argument('name',help='A short worktree name');worktree_start.add_argument('destination',type=Path,help='A new path outside the root');worktree_start.add_argument('--gate',required=True,help='The running root gate name');worktree_start.add_argument('--allow',action='append',default=[],help='A path glob task work may change');worktree_collect=worktree_action.add_parser('collect',help='Print the allowed detached-worktree patch after a green root gate');worktree_collect.add_argument('name',help='The worktree name to collect');worktree_tick=commands.add_parser('worktree-tick',help='Block a gate, commit or push from a detached task worktree');worktree_tick.add_argument('action',choices=sorted(WORKTREE_ACTIONS));ack_tick=commands.add_parser('ack-tick',help='Warn when an inline ack text holds a backtick the shell will substitute');ack_tick.add_argument('line',help='The command line, as the hook read it');idle_tick=commands.add_parser('idle-tick',help='Refuse a line that only waits on a sleep');idle_tick.add_argument('line',help='The command line, as the hook read it');serve_tick=commands.add_parser('serve-tick',help='Warn when a serve names a port other than the default');serve_tick.add_argument('line',help='The command line, as the hook read it');pr_check_tick=commands.add_parser('pr-check-tick',help='Refuse a bash line that runs a PR-check wait the background tool must take');pr_check_tick.add_argument('line',help='The command line, as the hook read it');pr_check_tick.add_argument('--command',dest='current_command',help='The command the DEBUG trap reached');main_drift_tick=commands.add_parser('main-drift-tick',help='Check remote branch drift at commit and push checkpoints');main_drift_tick.add_argument('--repo',default='.');main_drift_tick.add_argument('--local',dest='local_read',action='store_true',help='Read the local refs alone, with no fetch');egress_tick=commands.add_parser('egress-tick',help='Warn when a line fetches a host the sandbox egress filter blocks');egress_tick.add_argument('line',help='The command line, as the hook read it');rename=commands.add_parser('rename',help='Move a note, answer, report or task to a new ID');rename.add_argument('old_id',help='The stored ID, or a prefix that names one record');rename.add_argument('new_id',help='The ID to move the record to');commit_tick=commands.add_parser('commit-tick',help='Block a commit whose staged lines cite a session-local ID');commit_tick.add_argument('--repo',default='.',help='The repository to read the staged diff from');gate=commands.add_parser('gate',help='Read the inbox gate; -p blocks on any unacked note, -l names the blocked line');gate.add_argument('-p','--push',action='store_true',help='Block while any note or answer awaits an ack, whatever the call count');gate.add_argument('-l','--line',default='',help='The command line, as the hook read it; a blocked call then names the commands to drop');commands.add_parser('poll',help='Block until the owner answers or a gate run finishes');download=commands.add_parser('download-request',help='Request an HTTPS browser download, pending a preview Approve click; -a allows the proxy fallback');download.add_argument('url',help='One HTTPS URL without embedded credentials');download.add_argument('-a','--allow-proxy',action='store_true',help='Let the owner opt in to AllOrigins and CodeTabs fallback for this request');ack=commands.add_parser('ack',help='Answer a note; a bare call answers the one pending item; -r replies, -n notes, -R and -N read the answer from a file');ack.add_argument('ids',nargs='*');ack.add_argument('-r','--reply',help='Markdown answer shown in the message log');ack.add_argument('-n','--note',help='Short plain answer shown in the message log');ack.add_argument('-R','--reply-file',type=Path,help='Read the Markdown answer from this file');ack.add_argument('-N','--note-file',type=Path,help='Read the plain answer from this file');publish=commands.add_parser('publish',help='Publish a report; -i names the ID, -t the title');publish.add_argument('source',type=Path);publish.add_argument('-i','--id',required=True);publish.add_argument('-t','--title',required=True);report=commands.add_parser('report',help='Report batch actions');report_actions=report.add_subparsers(dest='report_action',required=True);report_unpublish=report_actions.add_parser('unpublish',help='Remove stale reports through existing guards');report_unpublish.add_argument('--stale',action='store_true',required=True);unpublish=commands.add_parser('unpublish',help='Withdraw a published report by its ID');unpublish.add_argument('report_id');commands.add_parser('stale-reports',help='List stale published report IDs and reasons without changing state');report_state=commands.add_parser('report-state',help='Print publication, owner view stamp and answer visibility for one report or all');report_state.add_argument('report_id',nargs='?');task=commands.add_parser('task',help='Write or update a task; TASK-ID alone prints the stored row; -s status, -o order, -d details, -m note, -r report, -b blocked, -u unblocked, -a amend');task.add_argument('id_arg',nargs='?',metavar='TASK-ID');task.add_argument('title_arg',nargs='?',metavar='TASK-TITLE');task.add_argument('detail_arg',nargs='*',metavar='TASK-DETAIL');task.add_argument('-d','--details','--task-details',dest='task_details',action='append',help='One step per line, 120 characters or fewer, repeatable; an empty string clears the list');task.add_argument('-A','--append',dest='append_details',action='store_true',help='Append provided details instead of replacing stored details');task.add_argument('-b','--blocked',dest='blocked',action='store_true',default=None,help='Mark the task blocked, so a poll may wait');task.add_argument('-u','--unblocked',dest='blocked',action='store_false',help='Clear the blocked mark');task.add_argument('-m','--msg-id',help='Message this task answers; marks that message as having a task');task.add_argument('-r','--report',metavar='REPORT-ID',help='Report this task waits on; its answer clears the blocked mark');task.add_argument('-a','--amend',metavar='PREV-ID',help='Rename the task stored under this ID to the one given');task.add_argument('-s','--status',choices=TASK_STATUSES,default=None);task.add_argument('--task-type',dest='task_type',choices=TASK_TYPES,default=None,help='Primary deliverable type; an omitted flag keeps a stored type');task.add_argument('-o','--order',type=int,default=None,help='1-based place in its div, not the end');task_remove=commands.add_parser('task-remove',help='Delete a task by its ID');task_remove.add_argument('task_id');task_list=commands.add_parser('task-list',help='List the tasks; -f includes the finished ones');task_list.add_argument('-f','--full',action='store_true',help='print every task, finished included');state_import=commands.add_parser('import-state',help='Import an NDJSON backup; replaces the live state unless --merge; -f forces');state_import.add_argument('source',nargs='?',type=Path);state_import.add_argument('-r','--replace-tasks',action='store_true');state_import.add_argument('--merge',action='store_true',help='keep the live notes, answers, reports and tasks, and merge the import by ID');commands.add_parser('clear-state',help='Empty every state table in place; the agent key record survives');args=parser.parse_args();state_dir=resolve_state_dir();fresh_state=not(Path(state_dir).resolve()/'state.sqlite3').is_file()
 	try:
 		if args.reminder:
 			store=Store(state_dir,create=False);require_server(store);reminder=store.reminder(advance=True);store.set_meta(AGENT_CALL_ENDED_META,now())
@@ -2062,12 +2103,16 @@ def main():
 			warning=tick_warning(args.line)
 			if warning:print(warning,file=sys.stderr)
 			return 0
+		if args.command=='idle-tick':
+			warning=idle_wait(args.line)
+			if warning:print(warning,file=sys.stderr);return 1
+			return 0
 		if args.command=='serve-tick':
 			warning=serve_warning(args.line)
 			if warning:print(warning,file=sys.stderr)
 			return 0
 		if args.command=='main-drift-tick':
-			warning=main_drift_warning(args.repo)
+			warning=main_drift_warning(args.repo,fresh=not args.local_read)
 			if warning:print(warning,file=sys.stderr)
 			return 0
 		if args.command=='egress-tick':
@@ -2106,6 +2151,8 @@ def main():
 				if blocker:blocker=shell_command_text(blocker);print(f"Blocked by the part `{blocker}`. Run the inbox calls alone, or drop this part.",flush=True)
 				return 1
 			if args.push and main_identical():print('HEAD equals `origin/main`, so the push carries nothing. Start new work from `origin/main`.',flush=True);return 1
+			stale=main_ancestor_warning()if args.push else''
+			if stale:print(stale,flush=True);return 1
 			return 0
 		store=Store(state_dir,create=args.command in{'serve','init','import-state'});global DISPLAY_ZONE;DISPLAY_ZONE=resolve_display_zone(store)
 		if args.command not in{'serve','init'}:require_server(store)
@@ -2115,7 +2162,7 @@ def main():
 			if reminder:print(reminder,file=sys.stderr,flush=True)
 		if args.command!='serve'and not read_only:store.touch_agent()
 		if args.command=='serve':
-			require_renderer()
+			from http.server import ThreadingHTTPServer;require_renderer()
 			with ThreadingHTTPServer(('0.0.0.0',args.port),handler(store))as server:store.set_meta('port',str(server.server_port));print(f"Preview on 0.0.0.0:{server.server_port}; state: {store.path}",flush=True);server.serve_forever()
 		elif args.command=='read':require_server(store);store.notice_expired_key();print_read(store)
 		elif args.command=='note-list':
@@ -2190,6 +2237,6 @@ def main():
 				if not zone_exists(args.tz):print(f"Unknown zone {args.tz}.",file=sys.stderr);return 1
 				store.set_meta(TIMEZONE_META,args.tz);DISPLAY_ZONE=resolve_display_zone(store)
 			print(f"state {store.path} {'created'if fresh_state else'present'}")
-	except(OSError,ValueError,TypeError,KeyError,sqlite3.Error,RuntimeError)as error:print(f"Preview error: {error}",file=sys.stderr);return 1
+	except(OSError,ValueError,TypeError,KeyError,sqlite_api().Error,RuntimeError)as error:print(f"Preview error: {error}",file=sys.stderr);return 1
 	return 0
 if __name__=='__main__':ensure_installed();raise SystemExit(main())
