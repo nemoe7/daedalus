@@ -3,7 +3,7 @@ title: Auto reasoning effort
 author: nemo
 description: Requires daedalus and its owui_auto_reasoning_effort.py hook to select reasoning effort.
 required_open_webui_version: 0.10.0
-version: 1.0.0
+version: 1.0.1
 licence: nemoe7 Noncommercial and Public-Interest License 1.2.0
 """
 
@@ -22,7 +22,10 @@ class Filter:
       default=0.75,
       ge=0,
       le=1,
-      description="The confidence threshold, from 0 to 1.",
+      description=(
+        "Confidence threshold from 0 to 1, where higher values can raise automatic effort "
+        "and lower values can reduce it."
+      ),
     )
     minimum_effort: Literal["none", "low", "medium", "high"] = Field(
       default="none",
