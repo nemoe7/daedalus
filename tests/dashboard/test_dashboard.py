@@ -310,8 +310,11 @@ sandbox.URLSearchParams = URLSearchParams;
 sandbox.history = { replaceState() {} };
 node('sort-small').options = [];
 const cards = Object.values(probe.POOL_TIERS).map(tier => ({
-  dataset: {tier, mode: 'chat'}, on: false,
+  dataset: {tier, mode: 'chat'}, on: false, attributes: new Map(),
   classList: {toggle(name, on) { this.owner.on = on; }},
+  setAttribute(name, value) { this.attributes.set(name, String(value)); },
+  getAttribute(name) { return this.attributes.get(name) ?? null; },
+  removeAttribute(name) { this.attributes.delete(name); },
 }));
 for (const card of cards) card.classList.owner = card;
 const queryAll = sandbox.document.querySelectorAll;
@@ -326,12 +329,16 @@ for (const tier of tiers) {
     const nonChat = Object.hasOwn(probe.MODES, mode) && mode !== 'chat';
     assert.strictEqual(probe.state.tier, nonChat ? defaultTier : tier);
     assert.strictEqual(node('mode').value, mode);
+    for (const card of cards) {
+      assert.strictEqual(card.getAttribute('aria-current'), card.on ? String(card.on) : null);
+    }
     if (!nonChat) {
       const active = cards.find(card => card.on);
       assert(active && active.dataset.tier === tier);
       probe.applyModelFilters(active.href.split('?')[1]);
       assert.strictEqual(probe.state.tier, defaultTier);
       assert(cards.every(card => !card.on));
+      assert(cards.every(card => card.getAttribute('aria-current') === null));
     }
   }
   for (const mode of modes) {

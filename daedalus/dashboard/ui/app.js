@@ -542,6 +542,8 @@ function markPools() {
   document.querySelectorAll("#pools .pool").forEach((card) => {
     const on = card.dataset.tier === state.tier && card.dataset.mode === mode;
     card.classList.toggle("on", on);
+    if (on) card.setAttribute("aria-current", "true");
+    else card.removeAttribute("aria-current");
     card.href = on ? "#/models?tier=All&mode=all" : `#/models?tier=${card.dataset.tier}&mode=${card.dataset.mode}&sort=weight`;
   });
 }
