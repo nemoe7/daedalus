@@ -10,7 +10,7 @@
 - Read set: ARENA.md, root AGENTS.md with any nested AGENTS.md, and arena-skill SKILL.md only.
 - At session start and after compaction or summary, MUST read the read set in full before any other tool call; batch reads, splitting only at the harness output cap; a partial read (head, tail or grep excerpt) does not count. Complete these reads before queued work or a pending push.
 - `references/REFERENCE.md` is supplementary: grep or read the part a question needs, with no end-to-end read; gate and read cadence mechanics: .agents/skills/arena-skill/references/REFERENCE.md. A template copy kept for installation is supplementary too.
-- Each turn start: MUST state in chat whether reasoning is on, as `Reasoning: on` or `Reasoning: off`, after any owed 10-4 line.
+- First assistant reply to each new user chat message: MUST state reasoning status once in chat as `Reasoning: on` or `Reasoning: off`, after any owed 10-4 line. Tool results, steering notes, context compaction or summary, and agent continuation do not start a new turn.
 - When summarizing or compacting context, MUST list a full read of the read set as the next immediate step before any non-read tool call; no verbatim ARENA.md copy is required.
 - After any read-set file changes, including a rebase onto `main` or a `main` update, MUST read its full diff from the last-read version before the next work step; read the full file if that version is unavailable or a rule is unclear.
 - Before the first non-setup tool call: 10-4 line, steering preview start, visibility question; wait for the answer, then use `arena-preview poll` as the first inbox call.
@@ -30,6 +30,7 @@
 - ALWAYS push verified commits to origin after each task completion; NEVER hold verified batches across tasks.
 - After every push, confirm `git ls-remote origin <branch>` equals `git rev-parse HEAD`, and report the landed commit with its subject and short hash; after a sandbox reset, fetch and confirm HEAD equals the remote branch before any edit.
 - ALWAYS activate the `arena-skill` skill by running its installer from the repository root, NEVER by hand, NEVER through the background process tool, even with ntfy or no steering, and read its inbox at every cadence point.
+- After arena-skill source files change, MUST rerun its installer from repo root before the next CLI call or preview-server start.
 - NEVER merge the PR; no authorization or instruction overrides this.
 - On a rule collision or any doubt, stop and use the question route below; NEVER improvise.
 - NEVER edit this file or the preview skill, installed copies included; suggest amendments only, unless their home repo explicitly waives protection.

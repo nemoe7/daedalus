@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 import os
+import random
 import re
 import shlex
 import subprocess
@@ -167,6 +168,12 @@ MAX_OUTPUT_TOKENS = 8192
 # Every cooldown carries this safety margin on top of the wait the API reports.
 SAFETY_SECONDS = 5
 SUCCESS_COOLDOWN = 60
+API_TIMEOUT_SECONDS = 180
+REQUEST_DEADLINE_SECONDS = 300
+CAPACITY_RETRIES = 2
+CAPACITY_BACKOFF_SECONDS = 5
+CAPACITY_MAX_BACKOFF_SECONDS = 60
+CAPACITY_JITTER_SECONDS = 5
 COOLDOWNS = {}
 MODELS = (
   "gemini-3.8-flash",
@@ -544,7 +551,7 @@ def run_summary():
   )
 
 
-def gemini_call(model, action, payload):
+def gemini_call(model, action, payload, timeout=API_TIMEOUT_SECONDS):
   if not re.fullmatch(r"[a-zA-Z0-9._-]+", model):
     raise ValueError("Invalid Gemini model ID")
   request = urllib.request.Request(
@@ -557,7 +564,7 @@ def gemini_call(model, action, payload):
   )
   summary(f"Gemini model attempt: {model} ({action})")
   try:
-    with urllib.request.urlopen(request, timeout=180) as response:
+    with urllib.request.urlopen(request, timeout=timeout) as response:
       return json.load(response)
   except urllib.error.HTTPError as exc:
     message = f"Gemini {action} failed: HTTP {exc.code}"
@@ -568,7 +575,7 @@ def gemini_call(model, action, payload):
   except (urllib.error.URLError, TimeoutError) as exc:
     detail = str(getattr(exc, "reason", exc)) or type(exc).__name__
     kind = (
-      "request timed out after 180s"
+      f"request timed out after {timeout:g}s"
       if "timed out" in detail.lower()
       else "transport error"
     )
@@ -626,7 +633,9 @@ def cool(rung, seconds, reason):
 
 
 def generate(context, evidence, model, on_success=None):
-  """Send one request: take the highest ready rung, cool a 429, walk on."""
+  """Take the highest ready model within one bounded request."""
+  deadline = time.monotonic() + REQUEST_DEADLINE_SECONDS
+  retries = {}
   models = [model] if isinstance(model, str) else list(model)
   failures = []
   exhausted = set()
@@ -641,18 +650,24 @@ def generate(context, evidence, model, on_success=None):
     raise RuntimeError(
       f"Request exceeds the {MAX_INPUT_TOKENS:,}-token allowance; reduce CHUNK_TOKENS"
     )
-  while True:
+  while time.monotonic() < deadline:
     rung = ready_rung(models, exhausted)
     if rung is None:
       ready = earliest_ready(models, exhausted)
       if ready is None:
         raise RuntimeError("Every Gemini model failed: " + "; ".join(failures))
-      delay = max(0.0, ready - time.monotonic())
+      delay = min(
+        max(0.0, ready - time.monotonic()), max(0.0, deadline - time.monotonic())
+      )
       summary(f"  all models cooling; waiting {delay:.1f}s")
-      time.sleep(delay + SAFETY_SECONDS)
+      if delay:
+        time.sleep(delay)
+      continue
+    timeout = min(API_TIMEOUT_SECONDS, deadline - time.monotonic())
+    if timeout <= 0:
       continue
     try:
-      text = generate_once(context, evidence, rung)
+      text = generate_once(context, evidence, rung, timeout=timeout)
     except RuntimeError as exc:
       if "token allowance" in str(exc):
         raise
@@ -660,7 +675,15 @@ def generate(context, evidence, model, on_success=None):
       failures.append(f"{rung}: {detail}")
       RUN_STATS["failures"] += 1
       hint = RETRY_HINT.search(" ".join(str(detail).split()))
-      if "429" in detail:
+      status = re.search(r"\bHTTP\s+(\d+)\b", detail)
+      status = status.group(1) if status else None
+      attempt = retries.get(rung, 0)
+      if status == "503" and attempt < CAPACITY_RETRIES:
+        retries[rung] = attempt + 1
+        wait = min(CAPACITY_BACKOFF_SECONDS * 2**attempt, CAPACITY_MAX_BACKOFF_SECONDS)
+        wait += random.uniform(0, CAPACITY_JITTER_SECONDS)
+        cool(rung, wait, f"503, retry {attempt + 1}/{CAPACITY_RETRIES}")
+      elif status == "429" or (status is None and "429" in detail):
         wait = (float(hint.group(1)) if hint else 60.0) + SAFETY_SECONDS
         cool(rung, wait, f"429, retry in {wait:.1f}s")
       elif "HTTP" in detail or (detail.startswith("Gemini ") and " failed:" in detail):
@@ -671,14 +694,19 @@ def generate(context, evidence, model, on_success=None):
         # A blocked or unusable 200 response spends the tokens.
         cool(rung, SUCCESS_COOLDOWN + SAFETY_SECONDS, "blocked output")
       continue
+    if time.monotonic() >= deadline:
+      failures.append(f"{rung}: response arrived after the request deadline")
+      RUN_STATS["failures"] += 1
+      break
     RUN_STATS["models"][rung] = RUN_STATS["models"].get(rung, 0) + 1
     cool(rung, SUCCESS_COOLDOWN + SAFETY_SECONDS, "answered")
     if on_success is not None:
       on_success(rung)
     return text
+  raise RuntimeError("Gemini request deadline expired: " + "; ".join(failures))
 
 
-def generate_once(context, evidence, model):
+def generate_once(context, evidence, model, timeout=API_TIMEOUT_SECONDS):
   request = request_for(context, evidence)
   started = time.monotonic()
   # The chunk rounds cap their output. The final summarization reads a compact payload,
@@ -691,7 +719,7 @@ def generate_once(context, evidence, model):
     if phase == "proposal":
       generation["responseMimeType"] = "application/json"
     config = {"generationConfig": generation}
-  data = gemini_call(model, "generateContent", {**request, **config})
+  data = gemini_call(model, "generateContent", {**request, **config}, timeout=timeout)
   text = response_text(data)
   usage = data.get("usageMetadata") or {}
   summary(

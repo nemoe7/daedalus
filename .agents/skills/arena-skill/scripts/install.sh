@@ -24,9 +24,9 @@ if [ ! -x "$VENV/bin/python" ]; then
   python3 -m venv "$VENV" || fail "cannot create venv at $VENV"
 fi
 
-# 3. Markdown-it-py into the venv, so serve can start from it too.
-if ! "$VENV/bin/python" -c 'import markdown_it' >/dev/null 2>&1; then
-  "$VENV/bin/pip" install --quiet markdown-it-py || fail "cannot install markdown-it-py into $VENV"
+# 3. Dependencies for the server and skill metadata.
+if ! "$VENV/bin/python" -c 'import markdown_it, yaml' >/dev/null 2>&1; then
+  "$VENV/bin/pip" install --quiet markdown-it-py PyYAML || fail "cannot install markdown-it-py and PyYAML into $VENV"
 fi
 
 # 4. Ignore the state directory through core.excludesFile, never through the repository .gitignore.
@@ -137,6 +137,7 @@ strip_block "$MARKER"
   cat >> "$PROFILE" <<'EOF' || fail "cannot append to $PROFILE"
 
 # arena-preview-hook
+export ARENA_PREVIEW_SHELL_HOOK=1
 case "$(trap -p EXIT)" in
   *arena-preview-hook*) ;;
   *) trap 'rc=$?; "$HOME/.arena-preview-hook.sh"; exit "$rc"' EXIT ;;

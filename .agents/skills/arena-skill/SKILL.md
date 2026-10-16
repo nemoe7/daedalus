@@ -13,7 +13,7 @@ Use this guide and its Markdown references for instructions. Do not read shipped
 
 ## Start here
 
-1. Run `<skill>/scripts/install.sh` from the repository root, once per session.
+1. Run `<skill>/scripts/install.sh` from repo root at session start and after skill source files change, before the next CLI call or preview-server start.
 2. Start the preview as Setup step 3 describes.
 3. Read the inbox with `arena-preview read`; answer with `arena-preview ack`.
 4. When a call needs the recorded key after a 401 or an owner question, run `arena-preview key` to print the key, host, and stamp. With no live preview server, it fails with the restart line.
@@ -78,7 +78,8 @@ ALWAYS report a workaround or bypass through a preview report when it violates a
 ALWAYS report reproducible skill defects or unresolved skill failures through a preview report with evidence and a suggested fix; corrected routine command-input validation errors get a brief notice, not a separate report or rule proposal.
 
 - Run `task-list` at turn start.
-- Before implementation, record approved work with `task <kebab-title-id> "<title>" [details ...]`, put the current item first with `--order 1`, and update its status (`upcoming` or `finished`, no other value) and details as work changes; in every ack, put the task ID in backticks so the log links it.
+- Before implementation, record approved work: `task <kebab-title-id> "<title>" [details ...] --task-type <type>`; set current task first with `--order 1`; update status (`upcoming` or `finished` only) and details as work changes; put task ID in backticks in every ack to link it.
+- Create tasks with explicit `--task-type`: `report`, `code`, `docs`, `ops`, or `misc`; no default. Keep stored type if an update omits it.
 - For a task from a note or report answer, use `--msg-id <full-message-id>`; queue and acknowledge it in the same tool block.
 - The task marker does not replace `ack`.
 - Mark a task `--status finished` only after verification.

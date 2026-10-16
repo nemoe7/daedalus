@@ -9,6 +9,7 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 | `init [--tz <zone>]` | Create a missing state database without starting the server. A zone names where CLI stamps print, and the TZ env wins |
 | `serve --port 8000` | Start the shared preview with `start_process`. The gate warns when a serve names a port other than 8000 |
 | `read` | List every pending note and report answer; mark only delivered IDs Seen, and stamp the parent report read by the agent |
+| `skills` | List installed and repository skill names, full descriptions, and paths; prefer installed duplicates; do not load skills |
 | `note-list [--page N] [--page-size N]` | List stored note IDs, including acknowledged and quiet notes, newest first; default page 1, 20 IDs per page, maximum 100; leave receipts and exports unchanged |
 | `note <id>` | Reread a stored note by its six or full characters; a short ID that matches several notes prints every match |
 | `key` | Print the recorded agent key, host and stamp; breaks while the preview server is not up, and a later session recovers the key after acknowledging the quiet note |
@@ -114,10 +115,16 @@ A detached `gh pr checks` wait first looks for a check on the branch head, once 
 
 Task IDs have 1–64 lowercase letters, digits or hyphens and start with a letter or digit; use a short kebab-case title. Titles have at most 200 characters. A task has at most 40 details of 2000 characters each. Existing IDs update; omitted fields keep stored values.
 
+### Task types
+
+Choose the primary deliverable type: `report` for findings or assessments, `code` for source or configuration changes, `docs` for documentation or rule text, `ops` for repository, environment, build, test, or release operations, and `misc` for other work.
+
+### Options
+
 | Flag | Use |
 | --- | --- |
 | `--status upcoming` or `--status finished` | Set status; new tasks start upcoming |
-| `--task-type report\|code\|docs\|operations\|unspecified` | Set the primary deliverable type; an omitted flag keeps a stored type, and a task without one reads `unspecified` |
+| `--task-type report\|code\|docs\|ops\|misc` | Required for normal new tasks; omit on updates to keep the stored type. Restore missing legacy types as `misc` |
 | `--order N` | Set 1-based position in the task's status group |
 | Repeatable `--task-details` | Set the detail lines; the arguments replace the stored details |
 | `--task-details ""` | Clear stored details |
