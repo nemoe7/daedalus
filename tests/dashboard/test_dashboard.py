@@ -5121,6 +5121,29 @@ def test_the_notice_leaves_on_its_own_keyframes() -> None:
   ), "the note hides only when its own leave played out"
 
 
+def test_model_modal_heading_sizes_images_and_wraps_text() -> None:
+  """Model-heading CSS sizes images and wraps text like identity values."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  rules = re.findall(r"([^{}]+)\{([^{}]+)\}", css)
+  sizes = [
+    selector.strip()
+    for selector, declarations in rules
+    if ".model-modal h3" in selector
+    and re.search(r"\b(?:width|height)\s*:", declarations)
+  ]
+  assert sizes
+  assert all(re.search(r"\bimg\.mark\b", selector) for selector in sizes), sizes
+  styles = {
+    selector.strip(): dict(re.findall(r"([\w-]+)\s*:\s*([^;]+)", declarations))
+    for selectors, declarations in rules
+    for selector in selectors.split(",")
+  }
+  wrap = styles[".model-id .value"]["overflow-wrap"]
+  for selector in (".model-modal h3 .name", ".model-modal h3 .slug"):
+    assert styles.get(selector, {}).get("overflow-wrap") == wrap
+
+
 def test_the_model_modal_reads_as_a_card() -> None:
   """Model-modal source includes identity fields, labeled capability chips, and responsive stat CSS."""
   root = Path(__file__).resolve().parent.parent.parent
@@ -5175,9 +5198,6 @@ def test_the_model_modal_reads_as_a_card() -> None:
   assert (
     "@media (max-width: 479px) { .model-stats { grid-template-columns: 1fr; } }" in css
   ), "a narrow page folds them to one column, so no wrap leaves an orphan"
-  assert ".model-modal h3 .name { overflow-wrap: anywhere; }" in css, (
-    "the modal name reads in the regular face"
-  )
   assert "width: min(560px, calc(100vw - 32px));" in css, (
     "the modal keeps one width on every screen"
   )

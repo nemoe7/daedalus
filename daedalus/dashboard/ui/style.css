@@ -399,8 +399,8 @@ a.more:hover { color: var(--accent-text); }
 /* The modal keeps one width on every screen, in place of sizing to its content. */
 .model-modal { width: min(560px, calc(100vw - 32px)); max-width: min(560px, calc(100vw - 32px)); }
 .model-modal h3 { display: flex; align-items: center; gap: 10px; }
-.model-modal h3 .mark { width: 22px; height: 22px; }
-.model-modal h3 .name { overflow-wrap: anywhere; }
+.model-modal h3 img.mark { width: 22px; height: 22px; }
+.model-modal h3 .name, .model-modal h3 .slug { overflow-wrap: anywhere; }
 .model-id { display: grid; gap: 4px; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--field); }
 .model-id .id-row { display: flex; align-items: center; gap: 10px; }
 .model-id .label { flex: 0 0 72px; color: var(--muted); font-size: 12px; }
