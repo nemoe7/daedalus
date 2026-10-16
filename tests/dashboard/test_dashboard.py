@@ -2188,7 +2188,7 @@ def test_the_motion_reaches_the_modal_the_sections_and_the_switches() -> None:
     ".section-pane > .card.drawn { animation: fade var(--soft) var(--ease); }" in css
   ), "the card fades, so the scroll pane never clips its top"
   assert 'replay($("provider-form"));' in app, "a file change arrives its form"
-  assert "if (!off) replay(field);" in app, "the rows of a switch arrive"
+  assert "if (!off) replay(field);" not in app, "a switch toggle replays no row fade"
   assert (
     ".section-pane.slide { animation: slide-in var(--soft) var(--ease); }" in css
   ), "the phone slides the pane in"
@@ -2759,6 +2759,9 @@ assert(!off('set-affinity-idle') && !disabled('set-affinity-idle'), 'the affinit
 node('set-balance-weights').checked = true;
 node('set-optimization-enabled').checked = true;
 probe.showSwitchRows();
+// The fade belongs to the section arrival alone: a toggle back on animates nothing.
+assert(!node('set-optimization-timeout').added.has('drawn'), 'the headroom toggle plays no row fade');
+assert(!node('set-balance-success').added.has('drawn'), 'the weights toggle plays no row fade');
 node('set-balance-weights').checked = false;
 node('set-balance-weights').type = 'checkbox';
 node('settings').handlers.input.forEach((fn) => fn({{ target: node('set-balance-weights') }}));

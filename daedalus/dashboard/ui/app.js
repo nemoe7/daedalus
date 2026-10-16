@@ -2888,7 +2888,6 @@ function showSwitchRows() {
       if (!field) continue;
       field.classList.toggle("off", off);
       field.querySelectorAll("input, select, button").forEach((node) => { node.disabled = off; });
-      if (!off) replay(field);
     }
   }
 }
