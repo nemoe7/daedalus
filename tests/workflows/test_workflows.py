@@ -184,10 +184,11 @@ def test_the_gemini_release_helper_stays_in_place() -> None:
 
 
 def test_docker_jobs_and_absent_image_workflow_files() -> None:
-  """Docker declares five jobs, and the two former image workflow files are absent."""
+  """Docker declares six jobs, and the two former image workflow files are absent."""
   assert not (WORKFLOWS / "dev-image.yml").exists()
   assert not (WORKFLOWS / "image.yml").exists()
   assert sorted(load("docker.yml")["jobs"]) == [
+    "changes",
     "dev",
     "dev-merge",
     "release",

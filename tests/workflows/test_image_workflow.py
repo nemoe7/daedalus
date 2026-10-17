@@ -178,3 +178,34 @@ def test_dockerfile_removes_pip_from_the_image() -> None:
   assert "/usr/local/bin/python -m pip uninstall -y pip setuptools" in content
   assert "\n  && python -m pip" not in content
   assert "pip install" not in content
+
+
+def test_docker_workflow_dev_build_waits_for_image_paths() -> None:
+  """The dev image builds only when the tested commit touched image paths."""
+  data = YAML(typ="safe").load(WORKFLOW.read_text())
+  jobs = data["jobs"]
+  assert jobs["dev"]["needs"] == "changes"
+  assert "needs.changes.outputs.build == 'yes'" in jobs["dev"]["if"]
+  changes = jobs["changes"]
+  assert changes["outputs"] == {"build": "${{ steps.filter.outputs.build }}"}
+  assert changes["permissions"] == {"contents": "read"}
+  step = changes["steps"][0]
+  assert step["id"] == "filter"
+  assert step["env"]["SHA"] == (
+    "${{ github.event.workflow_run.head_sha || github.sha }}"
+  )
+  run = step["run"]
+  assert "workflow_dispatch" in run, "a manual dev run always builds"
+  for path in (
+    "daedalus/*",
+    "config/*",
+    "hooks/*",
+    "pyproject.toml",
+    "uv.lock",
+    "Dockerfile",
+    ".dockerignore",
+  ):
+    assert path in run, f"{path} changes the image"
+  assert "ARENA.md" not in run and "*.md" not in run, (
+    "docs alone leave the image the same"
+  )
