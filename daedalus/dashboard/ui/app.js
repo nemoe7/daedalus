@@ -2025,11 +2025,15 @@ const SECTION_CHIPS = {
   keys: "key", yaml: "code", providers: "cloud",
 };
 // Provider rows share the providers tile: their names are data, not sections.
+// A provider with a vendored mark draws that mark in the tile ink.
 const chipFor = (host, key) => {
-  const name = SECTION_CHIPS[key] ?? (host === "provider-form" ? SECTION_CHIPS.providers : "");
-  const tint = SECTION_CHIPS[key] ? key : "providers";
-  return name
-    ? `<span class="tile" data-chip="${esc(tint)}" aria-hidden="true">${icon(name)}</span>` : "";
+  const known = SECTION_CHIPS[key];
+  const provider = host === "provider-form" && !known && MARK_FILES.has(key);
+  const name = known ?? (host === "provider-form" ? SECTION_CHIPS.providers : "");
+  const tint = known ? key : "providers";
+  if (!known && !provider) return "";
+  return `<span class="tile" data-chip="${esc(tint)}" aria-hidden="true">${
+    provider ? mark(key, true) : icon(name)}</span>`;
 };
 const chip = (key) => chipFor("settings", key);
 
@@ -2279,7 +2283,7 @@ function providerCard(name, block) {
   const accountField = name === "cloudflare"
     ? text("account_id", t("provider.account_id.label"), t("provider.account_id.hint"))
     : "";
-  return `<div class="card provider" data-section="${esc(name)}" data-provider="${esc(name)}"><h3>${chip("providers")}${esc(name)}</h3>
+  return `<div class="card provider" data-section="${esc(name)}" data-provider="${esc(name)}"><h3>${chipFor("provider-form", name)}${esc(name)}</h3>
     <p class="sub">${t("provider.secret.note")}</p>
     ${text("api_key", t("provider.api_key.label"))}
     ${accountField}

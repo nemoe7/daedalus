@@ -649,6 +649,7 @@ section[data-page="providers"], section[data-page="settings"] {
   width: 22px; height: 22px; border-radius: 6px; background: var(--muted); color: var(--tile-ink);
 }
 .tile svg { width: 13px; height: 13px; }
+.tile .mark { width: 13px; height: 13px; vertical-align: middle; }
 /* The tiles take their hues from the theme tokens, so both themes stay in the house palette. */
 [data-chip="routing"] { background: var(--accent); }
 [data-chip="affinity"] { background: var(--tag); }
@@ -667,7 +668,7 @@ section[data-page="providers"], section[data-page="settings"] {
 /* The providers card nests its own list and pane, so the drill-in reads as one page. */
 .card.nested { padding: 0; }
 .card.nested > h3 { padding: 18px 20px 8px; }
-.card.nested .files { padding: 0 20px 12px; }
+.card.nested .files { padding: 12px 20px; }
 .card.nested .settings { margin: 0; }
 .card.nested .sections { flex: 0 1 200px; border: 0; background: none; }
 .card.nested .section-pane { padding: 0 20px 10px; }

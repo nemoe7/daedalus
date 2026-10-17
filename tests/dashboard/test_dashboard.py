@@ -1543,6 +1543,25 @@ def test_select_section_scopes_its_queries_to_its_own_host() -> None:
   assert ":scope > .section-pane > .card" in body, "the pane cards of this host alone"
 
 
+def test_provider_tiles_carry_the_vendored_marks() -> None:
+  """Provider rows and card headers draw the vendored mark in the tile."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  block = app.partition("const chipFor = (host, key) => {")[2].partition("};")[0]
+  assert "MARK_FILES.has(key)" in block and "mark(key, true)" in block, (
+    "a provider tile draws its vendored mark"
+  )
+  card = app.partition("function providerCard(name, block) {")[2].partition("\n}\n")[0]
+  assert 'chipFor("provider-form", name)' in card, (
+    "the card header draws the provider tile"
+  )
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  tile = css.partition(".tile .mark {")[2].partition("}")[0]
+  assert "width: 13px" in tile, "the tile sizes the mark like its glyph"
+  files = css.partition(".card.nested .files {")[2].partition("}")[0]
+  assert "padding: 12px 20px" in files, "the file chips clear the card divider"
+
+
 def test_keys_page_holds_its_labels_on_one_line() -> None:
   """Keys and button CSS prevent key values and labels from wrapping."""
   root = Path(__file__).resolve().parent.parent.parent
@@ -2454,14 +2473,15 @@ assert.strictEqual(probe.listValue('routing', 'switch').length,
 
 
 def test_app_js_provider_rows_draw_the_providers_glyph() -> None:
-  """The nested rail rows carry the cloud glyph, and every chip name exists."""
+  """The nested rail rows carry their mark or glyph, and every chip name exists."""
   app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   block = app.partition("const chipFor = (host, key) => {")[2].partition("};")[0]
   assert (
-    'SECTION_CHIPS[key] ?? (host === "provider-form" ? SECTION_CHIPS.providers : "")'
+    'const name = known ?? (host === "provider-form" ? SECTION_CHIPS.providers : "");'
     in block
-  ), "a provider row draws the providers glyph, not an undefined icon"
-  assert 'const tint = SECTION_CHIPS[key] ? key : "providers";' in block, (
+  ), "a provider row without a mark draws the providers glyph"
+  assert "MARK_FILES.has(key)" in block, "a provider row with a mark draws that mark"
+  assert 'const tint = known ? key : "providers";' in block, (
     "a provider row keeps the providers hue"
   )
   chips = app.partition("const SECTION_CHIPS = {")[2].partition("};")[0]
