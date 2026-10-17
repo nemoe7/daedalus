@@ -1330,9 +1330,6 @@ assert(html.includes(LOCALE["time.just_now_text"])
 assert(html.indexOf('groq/model') < html.indexOf(rebuildText),
   'newest notifications come first');
 assert(html.includes('data-rebuild="0"'), 'the rebuild notification still opens its diff');
-const card = node('update-card').innerHTML;
-assert(card.includes(probe.icon('refresh_cw') + ' ' + LOCALE['action.check_now_button']),
-  'the update card check button leads with the refresh glyph');
 """,
   )
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -1351,7 +1348,9 @@ def test_rebuild_notification_and_catalog_action_have_distinct_targets() -> None
   assert "data-catalog-rebuild" in status, "the catalog line owns the rebuild action"
 
   notifications = app[
-    app.index("function renderNotifications") : app.index("async function refreshSlow")
+    app.index("function renderNotifications") : app.index(
+      "// The maintenance card lives"
+    )
   ]
   assert '{ "data-rebuild": index }' in notifications, (
     "a notification owns the diff action"
@@ -1361,7 +1360,9 @@ def test_rebuild_notification_and_catalog_action_have_distinct_targets() -> None
   )
 
   click = app[
-    app.index('document.addEventListener("click"') : app.index('$("reset-weights")')
+    app.index('document.addEventListener("click"') : app.index(
+      "function showLengthLimit"
+    )
   ]
   assert 'event.target.closest("[data-catalog-rebuild]")' in click
   assert 'event.target.closest(".rebuild")' not in click, (
@@ -4760,7 +4761,6 @@ def test_every_note_of_a_write_is_a_live_region() -> None:
   root = Path(__file__).resolve().parent.parent.parent
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   for name, role in (
-    ("reset-message", "status"),
     ("limits-message", "status"),
     ("save-message", "status"),
     ("settings-message", "status"),
@@ -4771,6 +4771,9 @@ def test_every_note_of_a_write_is_a_live_region() -> None:
     assert tag and f'role="{role}"' in tag.group(0), (name, tag and tag.group(0))
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert 'id="key-message" role="alert"' in app, "the key note is a live region too"
+  assert 'id="reset-message" role="status"' in app, (
+    "the reset note rides in the rendered maintenance card"
+  )
 
 
 def test_a_failed_read_shows_a_line_in_the_page() -> None:
@@ -5792,7 +5795,7 @@ def test_a_failed_update_check_keeps_the_glyph_and_the_word() -> None:
     """
 const button = node('update-check');
 button.closest = () => button;
-node('update-card').handlers.click[0]({ target: button }).then(() => {
+node('settings').handlers.click[0]({ target: button }).then(() => {
   assert(button.disabled === false, 'the button is live again');
   assert(button.innerHTML.includes(probe.icon('refresh_cw')), 'the glyph returns');
   assert(button.innerHTML.includes(LOCALE['action.check_now_button']), 'the word returns');
@@ -6042,7 +6045,6 @@ assert.strictEqual(probe.actionButton('Select', {
   for fragment in (
     'class="primary" type="submit"',
     'class="ghost" type="submit" value="cancel"',
-    'class="ghost danger" type="button" id="reset-weights"',
     'class="ghost live-toggle" type="button" id="live-toggle" aria-pressed="false"',
     'class="ghost tab-step" type="button" id="nav-left"',
     'class="sort" type="button"',
@@ -6051,6 +6053,7 @@ assert.strictEqual(probe.actionButton('Select', {
   for fragment in (
     'variant: `tab${index === state.file ? " on" : ""}`',
     'variant: "add"',
+    'variant: "ghost danger", attrs: { id: "reset-weights", title: t("dialog.reset.message") }',
   ):
     assert fragment in app, fragment
 
@@ -6095,7 +6098,6 @@ def test_dashboard_icons_and_feedback_keep_accessible_names() -> None:
   for name, role in (
     ("login-message", "alert"),
     ("notice", "alert"),
-    ("reset-message", "status"),
     ("limits-message", "status"),
     ("save-message", "status"),
     ("settings-message", "status"),
@@ -6103,6 +6105,7 @@ def test_dashboard_icons_and_feedback_keep_accessible_names() -> None:
     tag = re.search(rf'<[^>]*id="{name}"[^>]*>', page)
     assert tag and f'role="{role}"' in tag.group(0), name
   assert 'id="key-message" role="alert"' in app
+  assert 'id="reset-message" role="status"' in app
   assert '<dialog id="modal" class="modal" aria-labelledby="modal-title">' in page
   assert (
     '<dialog id="model-modal" class="modal model-modal" aria-labelledby="model-modal-title">'
@@ -6646,10 +6649,36 @@ assert.strictEqual(node('limits-checked').innerHTML, LOCALE['limits.not_checked_
   )
 
 
+def test_the_maintenance_card_lives_in_settings() -> None:
+  """The update check, the rebuild, and the reset live in a Settings section."""
+  root = Path(__file__).resolve().parent.parent.parent
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  locale = (root / "daedalus/dashboard/ui/en.js").read_text(encoding="utf-8")
+  assert 'id="update-card"' not in page and 'id="reset-weights"' not in page, (
+    "the notifications page and the models page keep no maintenance hosts"
+  )
+  assert '"settings.maintenance.title"' in locale, "the section carries its own label"
+  assert "function maintenanceCard()" in app, "one builder draws the card"
+  assert '["maintenance", t("settings.maintenance.title")]' in app, (
+    "the rail lists the section"
+  )
+  assert "+ maintenanceCard())" in app, "the pane carries the card"
+  assert '$("settings").addEventListener("click"' in app, (
+    "the settings host owns the check and the reset"
+  )
+  notifications = app[
+    app.index("function renderNotifications") : app.index(
+      "// The maintenance card lives"
+    )
+  ]
+  assert "update-card" not in notifications, "the feed renderer draws no update card"
+
+
 def test_key_use_and_update_check_times_keep_empty_states() -> None:
   """Status times share relative markup without changing creation dates or empty states."""
   run_app_js(
-    "renderKeys, renderNotifications, timeText, stamp, line",
+    "state, renderKeys, maintenanceCard, timeText, stamp, line",
     """
 const checked = Date.now() / 1000 - 120;
 const key = {name: 'synthetic', created: checked - 3600, used: checked};
@@ -6659,10 +6688,10 @@ assert(node('keys').innerHTML.includes(probe.stamp(key.created)));
 probe.renderKeys([{...key, used: null}]);
 assert(node('keys').innerHTML.includes(LOCALE['settings.keys.used_never_text']));
 assert(!node('keys').innerHTML.includes(probe.timeText(checked)));
-probe.renderNotifications({update: {at: checked, channel: 'release', latest: '1', current: '1'}});
-assert(node('update-card').innerHTML.includes(probe.timeText(checked)));
-probe.renderNotifications({update: null});
-assert(node('update-card').innerHTML.includes(probe.line(LOCALE['update.checked_text'], '-')));
+probe.state.notifications = {update: {at: checked, channel: 'release', latest: '1', current: '1'}};
+assert(probe.maintenanceCard().includes(probe.timeText(checked)));
+probe.state.notifications = {update: null};
+assert(probe.maintenanceCard().includes(probe.line(LOCALE['update.checked_text'], '-')));
 """,
   )
 

@@ -2022,7 +2022,7 @@ const sectionState = (host) => SECTION_STATE[host.id === "settings" ? "settings"
 const SECTION_CHIPS = {
   routing: "route", affinity: "link", balance: "scale", limits: "gauge", optimization: "zap",
   privacy: "shield", catalog: "database", hooks: "plug", personalization: "palette",
-  keys: "key", yaml: "code", providers: "cloud",
+  keys: "key", yaml: "code", providers: "cloud", maintenance: "wrench",
 };
 // Provider rows share the providers tile: their names are data, not sections.
 // A provider with a vendored mark draws that mark in the tile ink.
@@ -2838,6 +2838,7 @@ function renderSettings() {
   const groups = SETTINGS;
   const items = groups.map(([group, title]) => [group, title]).concat([
     ["providers", t("nav.providers_link")], ["keys", t("settings.keys.title")], ["yaml", t("yaml.label")],
+    ["maintenance", t("settings.maintenance.title")],
   ]);
   const selected = sectionState($("settings")).key;
   const active = items.some(([key]) => key === selected) ? selected : items[0][0];
@@ -2850,7 +2851,8 @@ function renderSettings() {
       + `<div class="card nested" data-section="providers"><h3>${chip("providers")}${esc(t("nav.providers_link"))}</h3>`
       + `<div id="providers-slot"></div></div>`
       + keysCard()
-      + yamlCard("settings-editor", "settings-yaml-save", t("settings.yaml.hint", { file: fileName(state.settings.path) })));
+      + yamlCard("settings-editor", "settings-yaml-save", t("settings.yaml.hint", { file: fileName(state.settings.path) }))
+      + maintenanceCard());
   // The providers host keeps its listeners: move the live nodes into the fresh card.
   // Grab them before the wipe, since a rebuild detaches the card that holds them.
   const slot = $("providers-slot");
@@ -3353,8 +3355,12 @@ function renderNotifications(data) {
     `<h3>${t("notification.title")}</h3>` +
       (notices.length ? notices.map((notice) => notice.html).join("") : none(t("notification.empty_text")))
   );
-  const update = data.update;
-  let body = `<h3>${t("update.title")}</h3>`;
+}
+
+// The maintenance card lives in Settings: the update check, the catalog rebuild, and the reset.
+function maintenanceCard() {
+  const update = state.notifications?.update;
+  let body = `<h3>${chip("maintenance")}${esc(t("settings.maintenance.title"))}</h3>`;
   if (!update) body += none(t("update.not_checked_text"));
   else if (update.error === "no commit in this build's version")
     body += none(t("update.no_commit_text"));
@@ -3367,12 +3373,24 @@ function renderNotifications(data) {
   else if (update.update) body += line(t("update.behind_main_text"), count(update.behind, "commit"));
   else body += line(t("update.up_to_date_text"), "main");
   body += line(t("update.checked_text"), update ? timeText(update.at) : "-");
-  draw(
-    "update-card",
-    body + actionButton(`${icon("refresh_cw")} ${t("action.check_now_button")}`, {
+  const { built, next, rebuilding } = state.status?.catalog || {};
+  const last = rebuilding ? t("catalog.rebuilding_text") : built ? relative(built) : t("catalog.never_text");
+  const following = next
+    ? t("catalog.next_text", { time: esc(relative(next)) })
+    : t("catalog.no_schedule_text");
+  const label = rebuilding ? t("catalog.rebuild.running_title") : t("catalog.rebuild.start_title");
+  body += actionButton(`<span>${t("catalog.label")}</span><span><b>${esc(last)}</b>${following}</span>`, {
+    variant: "line rebuild",
+    attrs: { "data-catalog-rebuild": true, title: label, disabled: rebuilding },
+  });
+  body += `<div class="maint-reset">` + actionButton(t("dialog.reset.title"), {
+    variant: "ghost danger", attrs: { id: "reset-weights", title: t("dialog.reset.message") },
+  }) + `<span class="message" id="reset-message" role="status"></span>`
+    + `<span class="hint">${t("model.reset.hint")}</span></div>`;
+  return `<div class="card" data-section="maintenance" id="update-card">${body}`
+    + actionButton(`${icon("refresh_cw")} ${t("action.check_now_button")}`, {
       variant: "ghost", attrs: { id: "update-check" },
-    })
-  );
+    }) + `</div>`;
 }
 
 async function refreshSlow() {
@@ -3475,21 +3493,37 @@ $("notification-feed").addEventListener("click", (event) => {
   const index = Number(row.dataset.rebuild);
   openDiffModal(state.notifications.rebuilds[index]);
 });
-$("update-card").addEventListener("click", async (event) => {
+$("settings").addEventListener("click", async (event) => {
   const button = event.target.closest("#update-check");
-  if (!button) return;
-  button.disabled = true;
-  button.textContent = t("action.checking_button");
-  try {
-    const result = await call("updates", { method: "POST" });
-    if (state.notifications) {
-      state.notifications = { ...state.notifications, update: result };
-      renderNotifications(state.notifications);
+  if (button) {
+    button.disabled = true;
+    button.textContent = t("action.checking_button");
+    try {
+      const result = await call("updates", { method: "POST" });
+      state.notifications = { ...(state.notifications || {}), update: result };
+      const card = $("settings").querySelector("#update-card");
+      if (card) card.outerHTML = maintenanceCard();
+    } catch (error) {
+      if (error instanceof LoggedOut) return showLogin();
+      button.disabled = false;
+      button.innerHTML = `${icon("refresh_cw")} ${t("action.check_now_button")}`;
     }
+    return;
+  }
+  if (!event.target.closest("#reset-weights")) return;
+  const message = $("reset-message");
+  message.textContent = "";
+  const go = await ask(t("dialog.reset.title"), "", t("action.reset_button"), true);
+  if (!go) return;
+  try {
+    await call("reset", { method: "POST" });
+    message.className = "message ok";
+    message.textContent = t("model.reset.done_text");
+    refresh();
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin();
-    button.disabled = false;
-    button.innerHTML = `${icon("refresh_cw")} ${t("action.check_now_button")}`;
+    message.className = "message bad";
+    message.textContent = error.message;
   }
 });
 $("show-password").addEventListener("click", () => showPassword($("login").password.type === "password"));
@@ -3505,22 +3539,6 @@ document.addEventListener("click", async (event) => {
   await call("logout", { method: "POST" }).catch(() => {});
   keepSession(null);
   showLogin();
-});
-$("reset-weights").addEventListener("click", async () => {
-  const message = $("reset-message");
-  message.textContent = "";
-  const go = await ask(t("dialog.reset.title"), "", t("action.reset_button"), true);
-  if (!go) return;
-  try {
-    await call("reset", { method: "POST" });
-    message.className = "message ok";
-    message.textContent = t("model.reset.done_text");
-    refresh();
-  } catch (error) {
-    if (error instanceof LoggedOut) return showLogin();
-    message.className = "message bad";
-    message.textContent = error.message;
-  }
 });
 
 // Display the character limit when a field reaches it.

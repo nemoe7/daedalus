@@ -309,6 +309,8 @@ tr:last-child td { border-bottom: 0; }
 .diff-chips { display: inline-flex; width: max-content; max-width: 100%; flex-wrap: wrap; gap: 4px; vertical-align: middle; }
 /* A strike marks the old value of a changed pair, so the two chips never look alike. */
 .diff-chips .chip.old { text-decoration: line-through; }
+/* The maintenance reset keeps its button, its status, and its hint on one wrapping row. */
+.maint-reset { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .status { font-weight: 600; font-variant-numeric: tabular-nums; }
 .s2 { color: var(--ok); } .s4 { color: var(--warn); } .s5 { color: var(--bad); }
 .toolbar {
