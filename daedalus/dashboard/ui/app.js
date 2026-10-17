@@ -1204,9 +1204,9 @@ const EFFORTS = {
   xhigh: t("model.effort.xhigh_label"),
   max: t("model.effort.max_label"),
 };
-function effortChip(name, label = EFFORTS[name] || name) {
+function effortChip(name, label = EFFORTS[name] || name, struck = false) {
   const level = name in EFFORTS ? ` e-${name}` : "";
-  return `<span class="chip flag effort${level}">${esc(label)}</span>`;
+  return `<span class="chip flag effort${level}${struck ? " old" : ""}">${esc(label)}</span>`;
 }
 // Display the catalog effort for reasoning models, or Yes if the catalog has no effort.
 function reasoningCell(m) {
@@ -3240,22 +3240,23 @@ function diffField(name, oldText, newText) {
     const oldEfforts = before || [];
     const newEfforts = after || [];
     const chips = [
-      ...oldEfforts.filter((value) => !newEfforts.includes(value)).map((value) => effortChip(value)),
+      ...oldEfforts.filter((value) => !newEfforts.includes(value)).map((value) => effortChip(value, undefined, true)),
       ...newEfforts.filter((value) => !oldEfforts.includes(value)).map((value) => effortChip(value)),
     ];
     if (chips.length) return chips;
   }
-  const chip = (value) => {
-    if (name === "reasoning_effort") return effortChip(value);
-    if (name === "mode") return diffChip(MODES[value] || value, "", "mode");
+  // The old value of a pair reads struck, so the two chips never look alike.
+  const chip = (value, struck = false) => {
+    if (name === "reasoning_effort") return effortChip(value, undefined, struck);
+    if (name === "mode") return diffChip(MODES[value] || value, "", struck ? "mode old" : "mode");
     const shown = name === "tier" ? tierLetter(value) : diffShown(value);
-    return diffChip(`${DIFF_LABELS[name] || name} ${shown}`);
+    return diffChip(`${DIFF_LABELS[name] || name} ${shown}`, "", struck ? "old" : "");
   };
   const chips = [];
-  if (before != null) chips.push(chip(before));
+  if (before != null) chips.push(chip(before, true));
   if (after != null) chips.push(chip(after));
   if (!chips.length) {
-    chips.push(diffChip(`${DIFF_LABELS[name] || name} ${oldText}`));
+    chips.push(diffChip(`${DIFF_LABELS[name] || name} ${oldText}`, "", "old"));
     chips.push(diffChip(`${DIFF_LABELS[name] || name} ${newText}`));
   }
   return chips;

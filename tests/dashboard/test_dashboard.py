@@ -1450,6 +1450,29 @@ def test_a_rebuild_row_opens_the_diff_modal() -> None:
   assert "rebuild-detail" not in app, "the diff rides in the modal, not an inline row"
 
 
+def test_the_rebuild_diff_strikes_the_old_value() -> None:
+  """Old diff chips carry a strike class, and the CSS strikes them."""
+  run_app_js(
+    "diffModel",
+    """
+const entry = 'z-ai/glm-4.7-flash: supported_efforts ["low", "max"]->["none", "max"], '
+  + 'max_input_tokens 4096->8192';
+const changed = probe.diffModel(entry);
+assert(changed.includes('class="chip flag effort e-low old">'), 'a dropped effort reads struck');
+assert(changed.includes('class="chip flag old">' + LOCALE["model.column.context_column"] + ' 4096</span>'),
+  'the old count reads struck');
+assert(changed.includes('class="chip flag effort e-none">'), 'an added effort stays plain');
+assert(changed.includes('>' + LOCALE["model.column.context_column"] + ' 8192</span>'),
+  'the new count stays plain');
+assert(!changed.includes('e-none old'), 'no strike rides on a new effort');
+""",
+  )
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert ".diff-chips .chip.old { text-decoration: line-through; }" in css, (
+    "the strike marks the old value"
+  )
+
+
 def test_app_js_diff_rows_use_model_marks() -> None:
   """Catalog-diff markup uses provider and developer marks with field chips."""
   run_app_js(
@@ -1470,12 +1493,12 @@ assert(changed.includes(`class="chip flag">${probe.icon('wrench')} ${LOCALE["mod
   'the tools chip keeps its normal color');
 assert(changed.includes(`class="chip flag">${probe.icon('brain')} ${LOCALE["model.column.reasoning_column"]}</span>`),
   'the reasoning chip keeps its normal color');
-assert(changed.includes('class="chip flag effort e-low">' + LOCALE["model.effort.low_label"] + '</span>'),
-  'a removed effort keeps its normal effort color');
+assert(changed.includes('class="chip flag effort e-low old">' + LOCALE["model.effort.low_label"] + '</span>'),
+  'a removed effort reads struck');
 assert(changed.includes('class="chip flag effort e-none">' + LOCALE["model.effort.none_label"] + '</span>'),
   'an added effort keeps its normal effort color');
-assert(changed.includes('class="chip flag">' + LOCALE["model.column.context_column"] + ' 4096</span>'),
-  'the old scalar chip keeps its normal color');
+assert(changed.includes('class="chip flag old">' + LOCALE["model.column.context_column"] + ' 4096</span>'),
+  'the old scalar chip reads struck');
 assert(changed.includes('class="chip flag">' + LOCALE["model.column.context_column"] + ' 8192</span>'),
   'the new scalar chip keeps its normal color');
 assert(!changed.includes('>+') && !changed.includes('>-'), 'field chips carry no diff signs');
