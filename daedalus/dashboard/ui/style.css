@@ -125,12 +125,6 @@ header {
   mask-image: linear-gradient(90deg, transparent 0, #000 var(--fade-left),
     #000 calc(100% - var(--fade-right)), transparent 100%);
 }
-#nav {
-  transition: --fade-left var(--soft) var(--ease),
-    --fade-right var(--soft) var(--ease);
-}
-#nav.fade-left, .card-scroll.fade-left { --fade-left: 20px; }
-#nav.fade-right, .card-scroll.fade-right { --fade-right: 20px; }
 .card-scroll { max-width: 100%; }
 /* A shown chevron sits at the page edge, not at the bar padding, so the step reads as the
    edge of the bar. */
@@ -310,7 +304,6 @@ tr:last-child td { border-bottom: 0; }
 /* A strike marks the old value of a changed pair, so the two chips never look alike. */
 .diff-chips .chip.old { text-decoration: line-through; }
 /* The maintenance reset keeps its button, its status, and its hint on one wrapping row. */
-.maint-reset { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .status { font-weight: 600; font-variant-numeric: tabular-nums; }
 .s2 { color: var(--ok); } .s4 { color: var(--warn); } .s5 { color: var(--bad); }
 .toolbar {
@@ -579,7 +572,8 @@ section[data-page="providers"], section[data-page="settings"] {
 }
 /* The YAML section of a list: the file text in its card, with the save under it. */
 .card.yaml-view textarea { min-height: 320px; margin: 4px 0 0; border: 1px solid var(--line); border-radius: 8px; }
-.yaml-save { display: flex; align-items: center; gap: 12px; padding-top: 12px; }
+.card > .editbar { padding-inline: 0; }
+.yaml-view > .editbar .hint { order: -1; margin-left: 0; }
 /* The file row of a provider rides on the page rail: the page padding above it is the only space
    above the row, so the gap is not 1 layer of margin on top of 1 layer of padding. */
 .files { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
@@ -746,6 +740,7 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6
   display: block; position: absolute; top: auto; bottom: calc(100% + 4px); left: 0; z-index: 3;
   width: max-content; max-width: 260px; padding: 6px 8px; border: 1px solid var(--line);
   border-radius: 8px; background: var(--panel); color: var(--muted); font-size: 12px;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 25%);
 }
 /* A closed group of fields: the summary is the row, and the body holds the fields. */
 .fold { border-top: 1px solid var(--line); }
@@ -768,6 +763,7 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6
   display: block; position: absolute; top: auto; bottom: calc(100% + 4px); left: 0; z-index: 3;
   width: max-content; max-width: 260px; padding: 6px 8px; border: 1px solid var(--line);
   border-radius: 8px; background: var(--panel); color: var(--muted); font-size: 12px;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 25%);
 }
 .fold summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .fold-body { padding-bottom: 4px; }
@@ -864,14 +860,16 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .sections { position: sticky; top: 0; }
   /* The pane softens only a clipped edge. Its cards stay the content of this one scrollport. */
   .section-pane {
-    --fade-top: 0px; --fade-bottom: 0px; min-height: 0; overflow-y: auto;
+    --fade-top: 0px; --fade-bottom: 0px; min-height: 0; overflow-y: auto; align-self: stretch;
     mask-image: linear-gradient(180deg, transparent 0, #000 var(--fade-top),
       #000 calc(100% - var(--fade-bottom)), transparent 100%);
-    transition: --fade-top var(--soft) var(--ease),
-      --fade-bottom var(--soft) var(--ease);
   }
-  .section-pane.fade-top { --fade-top: 20px; }
-  .section-pane.fade-bottom { --fade-bottom: 20px; }
+  /* A pane that holds one filling card stops scrolling, so the card's own form carries the scroll. */
+  .section-pane.fit-host { overflow: hidden; mask-image: none; display: flex; flex-direction: column; }
+  .section-pane:not(.fit-host) > .card { align-self: start; }
+  .section-pane.fit-host > .card { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  .card.nested > .settings { flex: 1 1 auto; min-height: 0; align-items: stretch; }
+  .card.yaml-view textarea { flex: 1 1 auto; min-height: 120px; }
 }
 
 @media (max-width: 900px) {
