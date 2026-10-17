@@ -3835,6 +3835,9 @@ function showPage() {
   const page = PAGES.includes(asked) ? asked : PAGES[0];
   const changed = page !== shownPage;
   shownPage = page;
+  // The page layout of main rides on this dataset, so it needs no :has support.
+  const main = document.querySelector("main");
+  if (main?.dataset) main.dataset.page = page;
   // Animate the table, not the page, when a pool filter targets the current Models page.
   if (asked === "models" && query !== undefined) {
     applyModelFilters(query);

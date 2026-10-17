@@ -1567,6 +1567,21 @@ def test_provider_tiles_carry_the_vendored_marks() -> None:
   assert "padding: 12px 20px" in files, "the file chips clear the card divider"
 
 
+def test_the_page_scroll_does_not_wait_on_has_support() -> None:
+  """The page layout of main rides on a dataset page, so one scrollbar survives old browsers."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert ":has(> section" not in css, (
+    "a browser without :has support would scroll main beside the pane"
+  )
+  for page in ("requests", "providers", "settings"):
+    assert f'main[data-page="{page}"]' in css, f"the {page} layout rides on the dataset"
+  assert "if (main?.dataset) main.dataset.page = page;" in app, (
+    "the page switch writes the dataset the CSS reads"
+  )
+
+
 def test_the_fallback_chain_opens_in_a_modal() -> None:
   """The chain cell opens a dialog instead of expanding a list in place."""
   root = Path(__file__).resolve().parent.parent.parent
@@ -4633,8 +4648,8 @@ def test_wide_settings_and_providers_scroll_only_the_section_pane() -> None:
   assert wide, "the wide section layout"
   body = wide.group(1)
   outer = re.search(
-    r'#app > main:has\(> section\[data-page="providers"\]:not\(\[hidden\]\)\),\n'
-    r'\s+#app > main:has\(> section\[data-page="settings"\]:not\(\[hidden\]\)\) \{([^}]*)\}',
+    r'#app > main\[data-page="providers"\],\n'
+    r'\s+#app > main\[data-page="settings"\] \{([^}]*)\}',
     body,
   )
   assert outer and "overflow-y: hidden" in outer.group(1), (
