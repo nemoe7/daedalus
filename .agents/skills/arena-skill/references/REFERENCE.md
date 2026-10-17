@@ -22,7 +22,7 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 | `ack <id> --reply <markdown>` | Answer one delivered ID with a rendered reply; single-quote the text, because a backtick inside double quotes runs as a shell command |
 | `ack <id> --note <text>` | Answer one delivered ID with one plain line; quote it the same way |
 | `ack <id> --reply-file <path>` | Read the rendered reply from a file, so no shell quoting touches a backtick; `--note-file` reads the plain line the same way. The gate warns when an inline ack text holds a backtick inside double quotes |
-| `task-list [-f]` | List upcoming task IDs, order, status, report links and set type marks. With -f, include finished tasks. Use task ID for details |
+| `task-list [-f]` | List upcoming task IDs, order, status, report links, set type marks and each linked report answer with its stamp and text. With -f, include finished tasks. Use task ID for details |
 | `task ID` | Print one stored task: its title, status, order, primary type when set, report link, blocked mark and every detail |
 | `task ID TITLE [DETAIL ...]` | Add or update a task; every task carries at least one detail, and reject a write that leaves none; one task holds one job, so several jobs mean several tasks rather than one task with many details; `--msg-id` is optional and only a note-born or report-born task carries it; `--blocked` or `--unblocked` sets the blocked mark |
 | `task-remove ID` | Remove a task entered by mistake |
@@ -97,7 +97,7 @@ The profile gate and the EXIT hook beside it hold one case per shape below. Ever
 | `task-reminder` | `git commit`, `git push` or `gh pr checks` | the task-list notice once per shell, then the line runs |
 | `main-moved` | `git commit` or `git push` | the drift check once per shell, from local refs at the commit line and with a fresh fetch at the push line, then the line runs |
 | `route-marker` | a shell the gate started itself (`ARENA_PREVIEW_ROUTE=1`) | pass, so a detached run never matches its own family |
-| `idle-wait` | a line whose first real command is `sleep` | `exit 130` before the sleep, so the turn takes queued work. A retry loop names its own command first and passes |
+| `idle-wait` | a line that names both a `sleep` and an `arena-preview` call | `exit 130` before the sleep, so the turn takes queued work. A sleep on its own runs |
 | `long-run` | `gh pr checks`, `gh run watch`, or a test runner head (`pytest`, `node --test`, `npm test`, `make test`, `go test`, `cargo test` and the rest) | the call ends clean and the run continues, or `exit 130` when the start fails. Any run of 10 seconds or more is a long run too, and MUST use `route` |
 | `bare-path` | a line that spells out the installed `preview.py` or `arena-preview` | the bare-call notice once per shell, then the line runs |
 | `proxy-route` | a read of code-scanning alerts or workflow run logs | the proxy notice once per shell, then the line runs |
@@ -111,6 +111,15 @@ The profile gate and the EXIT hook beside it hold one case per shape below. Ever
 | `call-count` | a line over the call threshold with a pending inbox | `exit 130` until the ack |
 
 A blocked call repeats its reason on stderr, and every case above answers one bash call: the gate never holds the turn.
+
+Every message carries one class. The prefix names the class, and the class fixes the stream and the exit code.
+
+| Class | Prefix | Stream and exit |
+| --- | --- | --- |
+| advisory | `arena-preview gate:` | stderr, 0, and the call still runs |
+| refusal | `Preview error:` | stderr, 1 |
+| verdict | an all-caps opener, such as `WAIT BLOCKED:` or `READ INBOX NOW.` | stdout for the gate and a poll, stderr for a wait, 130 or 1, and 0 when a poll line hands the turn back |
+| hint | `arena-preview:` | stderr, 0, or 2 from the wrapper |
 
 A detached `gh pr checks` wait first looks for a check on the branch head, once every five seconds for up to 120. The watch runs only after a check appears, and a window that runs out, a moved head or a gh fault fails the run.
 

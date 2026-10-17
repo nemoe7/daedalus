@@ -217,8 +217,8 @@ _arena_preview_gate() {
   # A detached route runs its own line. Its marker prevents the gate from matching its family twice.
   # case: route-marker
   case "\${ARENA_PREVIEW_ROUTE:-}" in 1) return 0 ;; esac
-  # A bare sleep holds the turn. The tick reads the whole line, so a loop that names its
-  # own command first still passes, and the gate stops only a line that leads with a wait.
+  # A sleep beside a preview call holds the turn. The tick reads the whole line, so a
+  # plain sleep runs, and the gate stops only a line that also names the preview.
   # case: idle-wait
   case "\$BASH_COMMAND" in
     *sleep*)
