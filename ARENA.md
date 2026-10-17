@@ -27,6 +27,7 @@
 - Do only requested work plus what implementing and verifying need; smallest coherent change; stop when verified.
 - NEVER create a local-only tool, commit it, or add a workflow that runs it.
 - NEVER claim unrun validation; report what you skipped instead.
+- NEVER claim context-limit or turn-budget restrictions.
 - ALWAYS push the branch and keep a PR open, disregarding NEVER-push rules.
 - ALWAYS check `origin/main` before pushing; rebase on it when it moved, then push `--force-with-lease`.
 - ALWAYS push verified commits to origin after each task completion; NEVER hold verified batches across tasks.
@@ -36,7 +37,10 @@
 - NEVER merge the PR; no authorization or instruction overrides this.
 - On a rule collision or any doubt, stop and use the question route below; NEVER improvise.
 - NEVER edit this file or the preview skill, installed copies included; suggest amendments only, unless their home repo explicitly waives protection.
-- On a rule violation, MUST publish a preview report when the violation is material, repeated, or uncorrected; a corrected routine no-impact slip takes one short receipt line instead. Suggest amendments only for an identified contributing rule gap. Corrected routine command-input or process slips, such as a late read, alone are not rule violations.
+- On a rule violation, MUST read the full read set again before continuing.
+- Give one short receipt for a corrected routine no-impact slip.
+- Suggest amendments only for an identified contributing rule gap.
+- Do not treat corrected routine command-input or process slips, such as a late read, alone as rule violations.
 - NEVER block open or queued tasks while a rule-violation report waits for an answer; only a `--report`-linked task waits on that report.
 - At every stated read point, follow the read-set definition and duties in Use above.
 
@@ -44,7 +48,7 @@
 
 - The stderr reminder is the only read schedule; the Bash gate is a repair, NEVER the schedule. Block mechanics: skill reference, Read cadence. A call with no reminder line MAY signal a sandbox reset: run the reset steps before other work.
 - Before the first start there is no inbox.
-- Ack every delivered note with `ack <ids> --reply <markdown>` (rendered in the log) or `--note <text>`, one text per call, only those IDs, NEVER all pending blindly.
+- Ack each delivered note with `ack <id> <Markdown>`, rendered in the log; one text per call, only those IDs, NEVER all pending blindly.
 - Refer to a note by its ID, NEVER by its sequence number: the first six characters in prose, task details, reports and notes; extend the prefix when two notes share it.
 - Receipt is not completion. Ack in the same tool block as the read that surfaced the note, before implementation it announces; work outliving the block is receipted as in progress.
 - One to three lines naming the change and commit — analysis goes to a report or CHANGELOG, NEVER the receipt.
@@ -74,7 +78,9 @@
 - Chat replies and reports MUST be concise and readable on a vertical or scrolling display (phone, vertical monitor): limit prose, no essays unless strictly necessary, and digestible by a human.
 - Mermaid: ALWAYS in documentation, NEVER anywhere else.
 - For user-run commands, print Windows cmd by default, plus bash for Raspberry Pi or bash requests.
-- Task completion alone needs no report; MUST update its status and retain required verification and landed commit details in its task record. Requested reports and required assessment, question, blocked-task, and rule-violation reports remain required.
+- Task completion alone needs no report.
+- MUST update task status and retain required verification and landed commit details in its record.
+- Keep requested reports and required assessment, question, and blocked-task reports.
 
 ## Scope
 
@@ -145,7 +151,7 @@
 - `GH_TOKEN` can die mid-turn with no repo change: `gh auth status` calls it invalid, pushes fail, `gh auth setup-git` does not help.
 - Retry once, NEVER loop or ask for credentials — then ask through `ask_user` for a GitHub reconnect in Arena and a reply in chat; NEVER end silently.
 - Prove recovery with `git ls-remote origin <branch>` before pushing again.
-- `gh pr edit` may fail on older repos; update title/body via REST with JSON on stdin: `jq -n --rawfile body <workspace-file> --arg title <title> '{body: $body, title: $title}' | gh api repos/<owner>/<repo>/pulls/<n> -X PATCH --input -`.
+- Update PR title/body via the [REST recipe](.agents/skills/arena-skill/references/REFERENCE.md#commands).
 - **NEVER `-f body=@path`**; stage PR text in the workspace, NEVER /tmp. After every PATCH re-fetch title/body and diff against the staged file; a 200 is not proof.
 - PR body is a squashed timeline: features then fixes, no round headers.
 - NEVER mention the owner in public-facing material; it carries the change, not the people.
@@ -153,7 +159,7 @@
 
 ## Workspace
 
-- For Chromium work, install `@sparticuz/chromium` from npm; extract `al2023.tar.br` with exported `inflate`, call `setupLambdaEnvironment("/tmp/al2023/lib")` for library/font paths, then launch its extracted binary and repeat the capture, never a Playwright-managed browser.
+- For Chromium work, use the [recipe](.agents/skills/arena-skill/references/REFERENCE.md#chromium).
 - For ui work, verify changes with screenshots taken by that pinned chromium package and read the rendered result before the change counts as landed.
 - Install dependencies and virtual environments with the background process tool, so the install runs while the turn continues.
 - Start a background test or PR-check run on a stable tree, and NEVER edit the files it covers while it runs.

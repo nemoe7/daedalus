@@ -18,10 +18,9 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 | `logs <name>` | Print a routed run's status and its recorded output tail; it works while the run lives and after its verdict, and a second read before that verdict exits 130 |
 | `worktree start --gate <gate-name> [--allow <glob>] <name> <destination>` | Create a detached task worktree outside the root while the named root gate runs |
 | `worktree collect <name>` | Print the allowed detached-worktree patch after a green root gate |
-| `ack --reply <markdown>` | Omit IDs only when exactly one non-quiet note or report answer is pending. Supply exactly one reply/note source. With multiple pending items, supply the ID |
-| `ack <id> --reply <markdown>` | Answer one delivered ID with a rendered reply; single-quote the text, because a backtick inside double quotes runs as a shell command |
-| `ack <id> --note <text>` | Answer one delivered ID with one plain line; quote it the same way |
-| `ack <id> --reply-file <path>` | Read the rendered reply from a file, so no shell quoting touches a backtick; `--note-file` reads the plain line the same way. The gate warns when an inline ack text holds a backtick inside double quotes |
+| `ack <markdown>` | Omit IDs only when exactly one non-quiet note or report answer is pending. Supply one Markdown text. With multiple pending items, supply the ID |
+| `ack <id> <markdown>` | Answer one delivered ID with a rendered reply; single-quote inline text |
+| `ack <id> -` | Read the Markdown answer from stdin, with a workspace file redirected into the command |
 | `task-list [-f]` | List upcoming task IDs, order, status, report links, set type marks and each linked report answer with its stamp and text. With -f, include finished tasks. Use task ID for details |
 | `task ID` | Print one stored task: its title, status, order, primary type when set, report link, blocked mark and every detail |
 | `task ID TITLE [DETAIL ...]` | Add or update a task; every task carries at least one detail, and reject a write that leaves none; one task holds one job, so several jobs mean several tasks rather than one task with many details; `--msg-id` is optional and only a note-born or report-born task carries it; `--blocked` or `--unblocked` sets the blocked mark |
@@ -36,13 +35,14 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 | `report-state` | Print publication, owner view stamp, staleness and answer visibility for one report or all |
 | `rename <id> <new-id>` | Rename one stored note, report answer, report or task in place, so its answers, order and stamps survive |
 | `clear-state` | Empty every state table in place; preserve the agent key, refresh the save file to match, and keep a running server's page token and recorded port |
+| PR title/body | Update PR title/body via REST with JSON on stdin: `jq -n --rawfile body <workspace-file> --arg title <title> '{body: $body, title: $title}' \| gh api repos/<owner>/<repo>/pulls/<n> -X PATCH --input -` |
 
 - Every command except `init` and `serve` breaks with a restart line while no preview answers, so the agent starts the server first.
 - Use complete IDs in CLI calls; cite their first six characters in prose.
 - Read note, answer and task content through the CLI alone: use `read`, `note ID`, `note-list`, `task ID` and `task-list`; use report HTTP endpoints only for required publication checks.
 - Treat `state.sqlite3` as the store, never as a read path.
 - `read` does not acknowledge an item.
-- Supply one of `--reply` or `--note` to `ack`; use separate calls for different answers.
+- Supply one Markdown text to `ack`; use separate calls for different answers.
 - A repeated `ack` on an ID appends one more reply block and keeps the earlier ones.
 - The same on a submission ID appends reply blocks to its receipt.
 - An unknown ID fails the whole receipt batch.
@@ -51,7 +51,15 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 
 Refer to a note in prose by the first six characters of its ID. Use the full ID in CLI calls. Check a note reference against the ID returned by `read` before sending it.
 
-When an acknowledgement refers to a report or task, use `ack --reply` and put its exact full ID in inline backticks; the six-character shortening applies to note IDs only. Use IDs unique across notes, reports and tasks so the client can link them; `publish` and `task` refuse an ID the other holds.
+When an acknowledgement refers to a report or task, use `ack` and put its exact full ID in inline backticks; the six-character shortening applies to note IDs only. Use IDs unique across notes, reports and tasks so the client can link them; `publish` and `task` refuse an ID the other holds.
+
+## Chromium
+
+- Install `@sparticuz/chromium` from npm for Chromium work.
+- Extract `al2023.tar.br` with the package's exported `inflate`.
+- Call `setupLambdaEnvironment("/tmp/al2023/lib")` for library and font paths.
+- Launch the package's extracted binary.
+- NEVER use a Playwright-managed browser.
 
 ## External channel (ntfy)
 
