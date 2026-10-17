@@ -1606,6 +1606,23 @@ def test_the_page_scroll_does_not_wait_on_has_support() -> None:
   )
 
 
+def test_the_limits_table_scrolls_inside_its_panel() -> None:
+  """The Limits table panel is the only scrollport on wide screens."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert (
+    'main[data-page="limits"] { display: flex; flex-direction: column; overflow: hidden; }'
+    in css
+  ), "the limits page holds its height instead of scrolling the document"
+  assert (
+    'section[data-page="limits"] > .flow > .column > .panel:not(.editbar) '
+    "{ flex: 1; min-height: 0; overflow: auto; }"
+  ) in css, "the table panel carries the scroll"
+  assert 'section[data-page="limits"] thead th { position: sticky;' in css, (
+    "the column head stays in view while the rows scroll"
+  )
+
+
 def test_the_fallback_chain_opens_in_a_modal() -> None:
   """The chain cell opens a dialog instead of expanding a list in place."""
   root = Path(__file__).resolve().parent.parent.parent
