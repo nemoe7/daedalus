@@ -2078,13 +2078,14 @@ function selectSection(host, key, open = sectionState(host).open) {
   state_.key = key;
   state_.open = open;
   host.dataset.detail = open ? "1" : "0";
-  for (const button of host.querySelectorAll(".sections button")) {
+  // Scope both queries: the settings host wraps the nested providers host.
+  for (const button of host.querySelectorAll(":scope > .sections button")) {
     const on = button.dataset.section === key;
     button.classList.toggle("on", on);
     if (on) button.setAttribute("aria-current", "true");
     else button.removeAttribute("aria-current");
   }
-  for (const card of host.querySelectorAll(".section-pane > .card")) {
+  for (const card of host.querySelectorAll(":scope > .section-pane > .card")) {
     card.hidden = card.dataset.section !== key;
   }
   markCardScrollEdges();
@@ -2859,6 +2860,8 @@ function renderSettings() {
   // Use the rendered file's mode to select visible rows.
   showAffinityRows(setting("affinity", "mode"));
   showSwitchRows();
+  // The rebuild wipes the injected table bodies, so redraw them.
+  renderKeys(state.keys ?? []);
   renderSettingsSave();
   placeUndo();
   fitSectionPane();

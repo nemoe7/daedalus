@@ -1526,6 +1526,23 @@ def test_a_card_closes_on_the_room_of_its_rows() -> None:
   ) in css, "the last row of a card keeps the room of a row at the bottom edge"
 
 
+def test_a_settings_rebuild_redraws_the_keys_rows() -> None:
+  """The keys table survives a settings rebuild, such as the YAML round trip."""
+  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  body = app.partition("function renderSettings() {")[2].partition("\n}\n")[0]
+  assert "renderKeys(state.keys ?? []);" in body, (
+    "a rebuild redraws the stored keys into the fresh table"
+  )
+
+
+def test_select_section_scopes_its_queries_to_its_own_host() -> None:
+  """A host selection leaves the nested providers rail and cards alone."""
+  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  body = app.partition("function selectSection(host, key,")[2].partition("\n}\n")[0]
+  assert ":scope > .sections button" in body, "the rail buttons of this host alone"
+  assert ":scope > .section-pane > .card" in body, "the pane cards of this host alone"
+
+
 def test_keys_page_holds_its_labels_on_one_line() -> None:
   """Keys and button CSS prevent key values and labels from wrapping."""
   root = Path(__file__).resolve().parent.parent.parent
