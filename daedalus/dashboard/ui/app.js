@@ -2087,7 +2087,7 @@ function sectionPane(back, cards) {
 function yamlCard(editor, save, hint) {
   return `<div class="card yaml-view" data-section="yaml"><h3>${chip("yaml")}${t("yaml.label")}</h3><p class="sub">${esc(hint)}</p>`
     + `<textarea id="${editor}" spellcheck="false" aria-label="${t("common.file_text_label")}"></textarea>`
-    + `<div class="yaml-save">${actionButton(t("action.save_button"), {
+    + `<div class="editbar">${actionButton(t("action.save_button"), {
       variant: "primary", attrs: { id: save, disabled: true },
     })}`
     + `<span class="hint">${t("settings.yaml.save_hint")}</span></div></div>`;
@@ -3413,14 +3413,13 @@ function maintenanceCard() {
     variant: "line rebuild",
     attrs: { "data-catalog-rebuild": true, title: label, disabled: rebuilding },
   });
-  body += `<div class="maint-reset">` + actionButton(t("dialog.reset.title"), {
+  body += `<div class="editbar">` + actionButton(t("dialog.reset.title"), {
     variant: "ghost danger", attrs: { id: "reset-weights", title: t("dialog.reset.message") },
+  }) + actionButton(`${icon("refresh_cw")} ${t("action.check_now_button")}`, {
+    variant: "ghost", attrs: { id: "update-check" },
   }) + `<span class="message" id="reset-message" role="status"></span>`
     + `<span class="hint">${t("model.reset.hint")}</span></div>`;
-  return `<div class="card" data-section="maintenance" id="update-card">${body}`
-    + actionButton(`${icon("refresh_cw")} ${t("action.check_now_button")}`, {
-      variant: "ghost", attrs: { id: "update-check" },
-    }) + `</div>`;
+  return `<div class="card" data-section="maintenance" id="update-card">${body}</div>`;
 }
 
 async function refreshSlow() {
@@ -3779,13 +3778,16 @@ function requestHash() {
   history.replaceState(null, "", `#/requests${query ? `?${query}` : ""}`);
 }
 
+// A fade grows over the first stretch of scroll, holds, and shrinks at the far end.
+const FADE_GROW = 48;
+const fadeLen = (dist) => `${Math.round(Math.min(1, Math.max(0, dist / FADE_GROW)) * 20)}px`;
+const setFade = (host, name, dist) => host.style?.setProperty(name, fadeLen(dist));
+
 function markScrollEdges(scroller) {
   const end = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
-  const left = scroller.scrollLeft <= 2;
-  const right = scroller.scrollLeft >= end - 2;
-  scroller.classList.toggle("fade-left", !left);
-  scroller.classList.toggle("fade-right", !right);
-  return { left, right };
+  setFade(scroller, "--fade-left", scroller.scrollLeft);
+  setFade(scroller, "--fade-right", end - scroller.scrollLeft);
+  return { left: scroller.scrollLeft <= 2, right: scroller.scrollLeft >= end - 2 };
 }
 
 function markCardScrollEdges() {
@@ -3793,12 +3795,12 @@ function markCardScrollEdges() {
 }
 
 function markPaneEdges(pane) {
+  pane.classList.toggle("fit-host", pane.querySelector(
+    ":scope > .card.nested:not([hidden]), :scope > .card.yaml-view:not([hidden])") != null);
   const end = Math.max(0, pane.scrollHeight - pane.clientHeight);
-  const top = pane.scrollTop <= 2;
-  const bottom = pane.scrollTop >= end - 2;
-  pane.classList.toggle("fade-top", !top);
-  pane.classList.toggle("fade-bottom", !bottom);
-  return { top, bottom };
+  setFade(pane, "--fade-top", pane.scrollTop);
+  setFade(pane, "--fade-bottom", end - pane.scrollTop);
+  return { top: pane.scrollTop <= 2, bottom: pane.scrollTop >= end - 2 };
 }
 
 function markSectionPaneEdges() {

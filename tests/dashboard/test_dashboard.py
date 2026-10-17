@@ -230,12 +230,12 @@ const nav = {{
   scrollLeft: 30, clientWidth: 100, scrollWidth: 260,
   classList: {{ add: (name) => classes.add(name), remove: (name) => classes.delete(name),
     toggle: (name, on) => (on ? classes.add(name) : classes.delete(name)) }},
-  addEventListener: () => {{}},
+  addEventListener: () => {{}}, style: {{ setProperty() {{}} }},
 }};
 const byId = new Map();
 const el = (id) => {{
   if (!byId.has(id)) byId.set(id, {{ innerHTML: '', textContent: '', addEventListener: () => {{}},
-    after: () => {{}}, remove: () => {{}},
+    after: () => {{}}, remove: () => {{}}, style: {{ setProperty() {{}} }},
     classList: {{ add: () => {{}}, remove: () => {{}}, toggle: () => {{}} }} }});
   return byId.get(id);
 }};
@@ -1641,6 +1641,70 @@ assert(use.includes('0.400s'), use);
   )
 
 
+def test_the_providers_card_keeps_the_only_scroll() -> None:
+  """The pane that holds the providers card stops scrolling, and the card form scrolls."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert (
+    ".section-pane.fit-host { overflow: hidden; mask-image: none; display: flex; flex-direction: column; }"
+    in css
+  ), "a pane that holds one filling card stops scrolling"
+  assert (
+    ".section-pane.fit-host > .card { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }"
+    in css
+  ), "the card fills the pane height"
+  assert (
+    ".card.nested > .settings { flex: 1 1 auto; min-height: 0; align-items: stretch; }"
+    in css
+  ), "the card body takes the leftover height"
+  assert ".section-pane:not(.fit-host) > .card { align-self: start; }" in css, (
+    "other sections keep content-height cards"
+  )
+  assert 'pane.classList.toggle("fit-host"' in app, "the pane learns what it holds"
+
+
+def test_the_yaml_editor_fills_the_pane_and_saves_at_the_right() -> None:
+  """The YAML textarea flexes to the leftover height, and Save sits at the right."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert ".card.yaml-view textarea { flex: 1 1 auto; min-height: 120px; }" in css, (
+    "the editor takes the leftover card height"
+  )
+  assert ".yaml-view > .editbar .hint { order: -1; margin-left: 0; }" in css, (
+    "the hint yields the right edge to Save"
+  )
+
+
+def test_the_maintenance_actions_share_one_row() -> None:
+  """The reset and the check buttons ride one row, with the hint at the right."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  card = app[
+    app.index("function maintenanceCard") : app.index("async function refreshSlow")
+  ]
+  assert card.index('class="editbar"') < card.index('id: "update-check"'), (
+    "the check button rides in the action row"
+  )
+  assert ".card > .editbar { padding-inline: 0; }" in css, (
+    "the shared row class fits the card padding"
+  )
+  assert "maint-reset" not in card and ".maint-reset" not in css, (
+    "the one-off row class is gone"
+  )
+  assert ".yaml-save {" not in css, "the yaml row rides the shared class too"
+
+
+def test_the_info_tip_lifts_off_the_card() -> None:
+  """Both hover tip containers carry a shadow, so they read above the card."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert css.count("box-shadow: 0 2px 10px rgb(0 0 0 / 25%);") == 2, (
+    "the field tip and the group tip both lift"
+  )
+
+
 def test_the_limits_table_scrolls_inside_its_panel() -> None:
   """The Limits table panel is the only scrollport on wide screens."""
   root = Path(__file__).resolve().parent.parent.parent
@@ -2451,7 +2515,7 @@ const nodes = new Map();
 const node = (id) => {{
   if (!nodes.has(id)) {{
     const made = {{ id, innerHTML: '', value: '', checked: false, textContent: '', disabled: false, hidden: false,
-      dataset: {{}}, handlers: {{}}, shown: false,
+      dataset: {{}}, handlers: {{}}, shown: false, style: {{ setProperty() {{}} }},
       isConnected: true, title: '', type: '',
       showModal: () => {{ made.shown = true; }},
       addEventListener: (type, fn) => {{ (made.handlers[type] ||= []).push(fn); }},
@@ -2511,7 +2575,7 @@ def test_app_js_keeps_the_scroll_of_the_settings_pane() -> None:
 probe.state.settings = {payload};
 const pane = {{
   scrollTop: 0, clientHeight: 200, scrollHeight: 600,
-  classList: {{ toggle: () => {{}} }},
+  classList: {{ toggle: () => {{}} }}, querySelector: () => null, style: {{ setProperty() {{}} }},
 }};
 node('settings').querySelector = (sel) => (sel === '.section-pane' ? pane : null);
 pane.scrollTop = 240;
@@ -4521,11 +4585,8 @@ def test_the_tab_bar_fades_its_clipped_edges() -> None:
   assert fade and "mask-image: linear-gradient(90deg, transparent 0," in fade.group(
     1
   ), "the tab and card scrollers share their edge mask"
-  assert "#nav.fade-left, .card-scroll.fade-left { --fade-left: 20px; }" in css, (
-    "the left fade rides a class"
-  )
-  assert "#nav.fade-right, .card-scroll.fade-right { --fade-right: 20px; }" in css, (
-    "the right fade rides a class"
+  assert "#nav.fade-left" not in css and ".card-scroll.fade-left" not in css, (
+    "the fades ride on inline lengths, not classes"
   )
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert "markScrollEdges(nav)" in app, "the bar fades only while it clips"
@@ -4553,18 +4614,13 @@ def test_scroll_edge_affordances_share_the_soft_motion() -> None:
     )
     assert "initial-value: 0px;" in registered.group(1)
 
-  nav = re.search(r"#nav \{([^}]*)\}", css)
-  assert nav and (
-    "transition: --fade-left var(--soft) var(--ease),\n"
-    "    --fade-right var(--soft) var(--ease);"
-  ) in nav.group(1), "the header fade uses the page's soft motion"
-
-  wide = re.search(r"@media \(min-width: 901px\) \{(.*?)\n\}", css, re.DOTALL)
-  pane = wide and re.search(r"\.section-pane \{([^}]*)\}", wide.group(1))
-  assert pane and (
-    "transition: --fade-top var(--soft) var(--ease),\n"
-    "      --fade-bottom var(--soft) var(--ease);"
-  ) in pane.group(1), "the settings fade uses the same motion"
+  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert 'setFade(scroller, "--fade-left", scroller.scrollLeft);' in app, (
+    "the header fade follows the scrolled distance"
+  )
+  assert 'setFade(pane, "--fade-top", pane.scrollTop);' in app, (
+    "the settings fade follows the scrolled distance"
+  )
 
   step = re.search(r"\n\.tab-step \{([^}]*)\}", css)
   assert step and "opacity: 1;" in step.group(1)
@@ -4606,11 +4662,11 @@ def test_card_tables_own_horizontal_overflow_and_fade_only_clipped_edges() -> No
   assert card_scroll and "overflow-x: auto;" in card_scroll.group(1), (
     "the table region, not the card or settings pane, owns horizontal overflow"
   )
-  assert ".card-scroll.fade-left" in css and ".card-scroll.fade-right" in css
+  assert ".card-scroll.fade-left" not in css, "the fades ride on inline lengths"
   assert "function markScrollEdges(scroller)" in app
   assert 'document.querySelectorAll(".card-scroll")' in app
-  assert 'scroller.classList.toggle("fade-left", !left)' in app
-  assert 'scroller.classList.toggle("fade-right", !right)' in app
+  assert 'setFade(scroller, "--fade-left"' in app
+  assert 'setFade(scroller, "--fade-right"' in app
   assert re.search(
     r'document\.addEventListener\("scroll",.*?\.card-scroll.*?, true\);',
     app,
@@ -4629,11 +4685,12 @@ def test_wide_section_pane_fades_only_clipped_vertical_edges() -> None:
   assert pane and "mask-image: linear-gradient(180deg, transparent 0," in pane.group(
     1
   ), "the vertical scrollport carries its own edge mask"
-  assert ".section-pane.fade-top { --fade-top: 20px; }" in wide.group(1)
-  assert ".section-pane.fade-bottom { --fade-bottom: 20px; }" in wide.group(1)
+  assert ".section-pane.fade-top" not in css and "#nav.fade-left" not in css, (
+    "the fades ride on inline lengths, not classes"
+  )
   assert "function markPaneEdges(pane)" in app
-  assert 'pane.classList.toggle("fade-top", !top)' in app
-  assert 'pane.classList.toggle("fade-bottom", !bottom)' in app
+  assert 'setFade(pane, "--fade-top"' in app
+  assert 'setFade(scroller, "--fade-left"' in app
   assert re.search(
     r'document\.addEventListener\("scroll",.*?\.section-pane.*?, true\);',
     app,
@@ -4643,23 +4700,30 @@ def test_wide_section_pane_fades_only_clipped_vertical_edges() -> None:
   run_app_js(
     "markPaneEdges",
     """
-const classes = new Set();
+const fades = {};
 const pane = {
   scrollTop: 0, clientHeight: 200, scrollHeight: 600,
-  classList: { toggle: (name, on) => (on ? classes.add(name) : classes.delete(name)) },
+  classList: { toggle: () => {} }, querySelector: () => null,
+  style: { setProperty: (name, value) => { fades[name] = value; } },
 };
 probe.markPaneEdges(pane);
-assert(!classes.has('fade-top') && classes.has('fade-bottom'), 'only the far edge fades at the top');
+assert(fades['--fade-top'] === '0px' && fades['--fade-bottom'] === '20px', 'the near edge starts clear');
+pane.scrollTop = 24;
+probe.markPaneEdges(pane);
+assert(fades['--fade-top'] === '10px', 'the fade grows with the scrolled distance');
 pane.scrollTop = 200;
 probe.markPaneEdges(pane);
-assert(classes.has('fade-top') && classes.has('fade-bottom'), 'both edges fade in the middle');
+assert(fades['--fade-top'] === '20px' && fades['--fade-bottom'] === '20px', 'the middle holds both fades');
+pane.scrollTop = 376;
+probe.markPaneEdges(pane);
+assert(fades['--fade-bottom'] === '10px', 'the far fade shrinks on the way back');
 pane.scrollTop = 400;
 probe.markPaneEdges(pane);
-assert(classes.has('fade-top') && !classes.has('fade-bottom'), 'only the near edge fades at the bottom');
+assert(fades['--fade-top'] === '20px' && fades['--fade-bottom'] === '0px', 'the far end clears');
 pane.scrollTop = 0;
 pane.scrollHeight = 200;
 probe.markPaneEdges(pane);
-assert(!classes.has('fade-top') && !classes.has('fade-bottom'), 'a fitting card has no fade');
+assert(fades['--fade-top'] === '0px' && fades['--fade-bottom'] === '0px', 'a fitting card has no fade');
 """,
   )
 
@@ -4761,12 +4825,14 @@ const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
   fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { fitSectionPane };";
 const pane = {
-  offsetParent: {}, style: {}, scrollTop: 0, clientHeight: 200, scrollHeight: 600,
+  offsetParent: {}, style: { setProperty() {} }, scrollTop: 0, clientHeight: 200, scrollHeight: 600,
   classList: { toggle: () => {} }, getBoundingClientRect: () => ({ top: 128 }),
+  querySelector: () => null,
 };
 const main = { clientHeight: 851, getBoundingClientRect: () => ({ top: 49 }) };
 const bare = () => ({
-  addEventListener: () => {}, classList: { add: () => {}, remove: () => {}, toggle: () => {} }, style: {}, dataset: {},
+  addEventListener: () => {}, classList: { add: () => {}, remove: () => {}, toggle: () => {} },
+  style: { setProperty() {} }, dataset: {},
   children: [], scrollWidth: 0, clientWidth: 0, scrollLeft: 0, querySelectorAll: () => [],
 });
 const sandbox = {
