@@ -2115,6 +2115,7 @@ vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
 const LOCALE = sandbox.DAEDALUS_LOCALE;
 const assert = require('assert');
+sandbox.__probe.state.models = [{{id: 'mistral/mistral-embed'}}];
 sandbox.__probe.renderLimits({json.dumps(payload)});
 const html = node('limit-rows').innerHTML;
 const rate = (unit, span) => LOCALE["limits.unit.rate_initial_text"]
@@ -6633,6 +6634,28 @@ def test_settings_form_rejects_malformed_existing_yaml(
   assert "\n" not in error["message"]
   assert path.read_bytes() == original
   assert api.SLOW_SECONDS == before
+
+
+def test_limits_rows_without_use_or_a_catalog_home_stay_hidden() -> None:
+  """A row with no use and no catalog home hides, while an exhausted row stays."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert app.index("state.models = models;") < app.index("renderLimits(limits);"), (
+    "the catalog list lands before the limits rows render"
+  )
+  run_app_js(
+    "state, shownLimits",
+    """
+probe.state.limits = {lanes: [
+  {model: 'quiet', client: '', at: null, rows: [{limit: 0, remaining: 0, reset: null}]},
+  {model: 'gone', client: '', at: null, rows: [{limit: 5, remaining: 1, reset: null}]},
+  {model: 'live', client: '', at: null, rows: [{limit: 5, remaining: 0, reset: null}]},
+]};
+probe.state.models = [{id: 'live'}, {id: 'quiet'}];
+const rows = probe.shownLimits();
+assert(rows.length === 1 && rows[0].model === 'live', 'only the exhausted catalog row stays');
+""",
+  )
 
 
 def test_limit_check_time_is_relative_with_an_exact_hover() -> None:

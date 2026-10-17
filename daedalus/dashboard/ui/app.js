@@ -3140,10 +3140,12 @@ function limitRows() {
     lane.rows.map((row) => ({ ...row, model: lane.model, client: lane.client, at: lane.at })));
 }
 
-// Filter rows by model and client text.
+// Filter rows without use or a catalog home, then by model and client text.
 function shownLimits() {
-  return limitRows().filter((r) => !state.limitSearch
-    || `${r.model} ${r.client || ""}`.toLowerCase().includes(state.limitSearch));
+  const known = new Set(state.models.map((m) => m.id));
+  return limitRows().filter((r) => known.has(r.model) && (r.limit > 0 || r.remaining > 0)
+    && (!state.limitSearch
+      || `${r.model} ${r.client || ""}`.toLowerCase().includes(state.limitSearch)));
 }
 
 function renderLimits(data) {
@@ -3401,11 +3403,11 @@ async function refreshSlow() {
     call("notifications"),
     refreshKeys(),
   ]);
+  state.pools = pools;
+  state.models = models;
   renderLimits(limits);
   renderNotifications(notifications);
   renderPools(pools);
-  state.pools = pools;
-  state.models = models;
   renderModels();
   renderOverview();
 }
