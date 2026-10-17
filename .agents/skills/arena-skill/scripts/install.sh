@@ -151,6 +151,11 @@ strip_block "$GATE_MARKER"
 
 # arena-preview-gate
 _arena_preview_gate() {
+  if [ "\${_arena_preview_interrupt_checked:-}" != 1 ]; then
+    _arena_preview_interrupt_checked=1
+    "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" interrupt-tick
+    case \$? in 1) exit 130 ;; esac
+  fi
   # case: pr-state
   case "\$BASH_COMMAND" in
     *gh*|*git*|*curl*|*wget*)
