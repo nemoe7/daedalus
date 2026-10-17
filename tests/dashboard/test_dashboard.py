@@ -1041,10 +1041,11 @@ const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
   fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') +
   "\\nglobalThis.__probe = {{ renderRequests, renderLive," +
-  " poolTier, state, modelName, poolOf, routingCodes, chainRows }};";
+  " poolTier, state, modelName, poolOf, routingCodes, mobileFallbackChain, openChain }};";
 const nodes = new Map();
 const node = (id) => {{
   if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', hidden: false,
+    showModal: () => {{}},
     children: [], listeners: {{}}, contains: () => false, addEventListener(type,
       handler) {{ this.listeners[type] = handler; }}, classList: {{ add: () => {{}}, remove: () => {{}},
       toggle: () => {{}} }} }});
@@ -1095,12 +1096,16 @@ assert(html.includes('hide-sm num mono'), 'the session id reads in the mono font
 assert(html.includes('class="request has-chain"'), 'requests with fallbacks expose their chain');
 assert(html.includes(chainView(1, "request.chain.fallback.one_text")),
   'the chain details disclose the fallback count');
-assert(probe.chainRows({json.dumps(row)}).includes(chainTitle(1, "request.chain.fallback.one_text")),
-  'the desktop chain details carry the count');
-assert(probe.chainRows({json.dumps({**row, "fallbacks": 3})})
-  .includes(chainTitle(3, "request.chain.fallback.other_text")), 'the count keeps its plural');
-assert(!probe.chainRows({json.dumps({**row, "fallbacks": None})}).includes(LOCALE["request.chain.title"] + ' ·'),
-  'a row with no count keeps the plain head');
+const CHAIN_ROW = {json.dumps(row)};
+probe.state.requests = [CHAIN_ROW];
+probe.openChain(String(CHAIN_ROW.at));
+const chainHtml = node('chain-modal-body').innerHTML;
+assert(chainHtml.includes(chainTitle(1, "request.chain.fallback.one_text")),
+  'the dialog head carries the count');
+assert(probe.mobileFallbackChain(CHAIN_ROW, ' · ' + fallbackCount(1, "request.chain.fallback.one_text"))
+  .includes('data-chain-at'), 'the chain cell opens the dialog');
+assert(probe.mobileFallbackChain({{ ...CHAIN_ROW, fallbacks: null }}, '').includes('data-chain-at'),
+  'a row with no count still opens the dialog');
 // The pool of the auto model rides in the slug, and the daedalus head carries its own mark.
 const autoCell = probe.modelName('daedalus/auto', probe.poolOf({{ model: 'daedalus/auto', pool: 'moros' }}));
 assert.strictEqual(probe.poolOf({{ model: 'daedalus/auto', pool: 'moros' }}), 'moros', 'the auto pool joins the slug');
@@ -1110,21 +1115,19 @@ assert(autoCell.includes('ui/icons/daedalus.svg'), 'the daedalus head carries it
 assert.strictEqual(probe.poolOf({{ model: 'p/big', pool: 'daedalus/deinos' }}), '',
   'a direct model keeps its own slug');
 assert.strictEqual(probe.routingCodes({{ routed: 'deinos' }}).includes('fr'), true, 'the fallback tier code stays');
-for (const value of [LOCALE["request.chain.view_text"], 's1',
-  'high <span class="from">xhi</span>', 'rate limited', 'frA', 'tl3'])
-  assert(html.includes(value), 'the details keep ' + value);
+assert(html.includes(LOCALE["request.chain.view_text"]), 'the cell offers the chain');
+for (const value of ['s1', 'high <span class="from">xhi</span>', 'frA', 'tl3'])
+  assert(html.includes(value), 'the table keeps ' + value);
+for (const value of ['<b>p/first</b>', '<pre>rate limited</pre>', '<span class="from">effort xhi</span>'])
+  assert(chainHtml.includes(value), 'the dialog keeps ' + value);
 assert(!html.includes('rt2') && !html.includes('tool loop'), 'the frX and tlN codes replace the long forms');
-const mobileSelectors = [];
-const mobileTap = {{ target: {{ closest: (selector) => {{ mobileSelectors.push(selector); return null; }} }} }};
-sandbox.window.matchMedia = () => ({{ matches: true }});
-node('requests').listeners.click(mobileTap);
-assert(!mobileSelectors.includes('tr.request'), 'a mobile row tap does not open a second chain');
-const detailSelectors = [];
-const detailTap = {{ target: {{ closest: (selector) => {{ detailSelectors.push(selector); return selector ===
-  '.mobile-fallback-chain' ? {{}} : null; }} }} }};
-sandbox.window.matchMedia = () => ({{ matches: false }});
-node('requests').listeners.click(detailTap);
-assert(!detailSelectors.includes('tr.request'), 'a detail disclosure does not toggle the desktop chain');
+const openSelectors = [];
+const openTap = {{ target: {{ closest: (selector) => {{ openSelectors.push(selector);
+  return selector === '[data-chain-at]'
+    ? {{ dataset: {{ chainAt: String(CHAIN_ROW.at) }} }} : null; }} }} }};
+node('requests').listeners.click(openTap);
+assert(openSelectors.includes('[data-chain-at]'), 'the table listens for the chain button');
+assert(node('chain-modal-body').innerHTML.includes('rate limited'), 'a chain button opens the dialog');
 probe.state.live.set(2, {{ id: 2, since: 100000, attemptSince: 100000, first: null, stream: false, session: 's2',
   app: 'OWUI', model: 'daedalus/auto', effort: 'medium', pool: 'moros', via: 'p/live', fallbacks: 0 }});
 probe.renderLive();
@@ -1141,7 +1144,7 @@ assert(liveHtml.includes('<span class="mobile-fallback-count">'
   'the live row reads the fallback count alone');
 for (const value of ['s2', 'medium', '<span class="model-part">moros</span>']) assert(liveHtml.includes(value),
   'live details keep ' + value);
-assert(!liveHtml.includes('mobile-fallback-chain'), 'live rows do not show a fallback chain');
+assert(!liveHtml.includes('data-chain-at'), 'live rows carry no chain button');
 """
   subprocess.run(["node", "-e", code], check=True)
 
@@ -1263,10 +1266,12 @@ def test_the_model_rows_light_up_on_hover() -> None:
   ).read_text(encoding="utf-8")
   assert (
     "@media (hover: hover) {\n"
-    "  tr.request.has-chain:hover td { background: var(--field); }\n"
     "  table.models tbody tr:hover td { background: var(--field); }\n"
     "}"
   ) in css, "the row hover waits for a pointer and lights the row"
+  assert "has-chain:hover" not in css, (
+    "a request row is no button, so it lights nothing on hover"
+  )
 
 
 def test_notification_actions_match_the_shared_pointer_hover() -> None:
@@ -1562,6 +1567,25 @@ def test_provider_tiles_carry_the_vendored_marks() -> None:
   assert "padding: 12px 20px" in files, "the file chips clear the card divider"
 
 
+def test_the_fallback_chain_opens_in_a_modal() -> None:
+  """The chain cell opens a dialog instead of expanding a list in place."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  index = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert 'id="chain-modal"' in index, "the page carries the chain dialog"
+  assert "mobile-fallback-chain" not in app and "mobile-fallback-chain" not in css, (
+    "the expand list leaves the page"
+  )
+  assert "chainRows(" not in app, "the hidden chain row leaves the table"
+  assert "function openChain(" in app and "data-chain-at" in app, (
+    "the chain cell opens the dialog"
+  )
+  assert ".chain-modal .chain-body { width: auto;" in css, (
+    "the chain body spans the dialog"
+  )
+
+
 def test_keys_page_holds_its_labels_on_one_line() -> None:
   """Keys and button CSS prevent key values and labels from wrapping."""
   root = Path(__file__).resolve().parent.parent.parent
@@ -1639,9 +1663,6 @@ def test_the_short_values_carry_their_full_text() -> None:
   assert "button.line.rebuild:hover { color: var(--accent-text); }" in css, (
     "the phone catalog line answers the mouse"
   )
-  assert ".mobile-fallback-chain > summary:hover" in css, (
-    "the phone chain summary answers the mouse"
-  )
 
 
 def test_the_parallel_race_reads_on_the_page() -> None:
@@ -1700,11 +1721,12 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
   assert ".requests td.fallbacks-cell { display: none; }" in base_css, (
     "the desktop table reads the fallback count in the chain of the row"
   )
-  assert "tr.request.has-chain { cursor: pointer; }" in base_css
-  assert "tr.request.has-chain.open td { background: var(--field); }" in base_css
+  assert "tr.request.has-chain { cursor: pointer; }" not in css, (
+    "the chain row is no button; its cell carries one"
+  )
+  assert ".open td" not in css, "no row keeps an expanded state"
   assert (
-    "@media (hover: hover) {\n  tr.request.has-chain:hover td "
-    "{ background: var(--field); }\n  table.models tbody tr:hover td "
+    "@media (hover: hover) {\n  table.models tbody tr:hover td "
     "{ background: var(--field); }\n}" in base_css
   ), "the row hover needs a pointer, a touch tap keeps no background"
   assert ".requests tr.request, .requests tr.live-row {" in mobile_css
@@ -1773,9 +1795,8 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
   ) in mobile_css, "1 text size holds every phone card"
   assert "user-select" not in mobile_css, "the phone card keeps the text selection"
   assert (
-    ".requests .mobile-fallback-chain ol { list-style: none; margin: 5px 0 0; "
-    "padding: 0; }"
-  ) in mobile_css
+    ".chain-modal ol { list-style: none; margin: 5px 0 0; padding: 0; }"
+  ) in mobile_css, "the phone dialog keeps its own step list"
   assert ".requests tr.request .caret { display: none; }" in mobile_css
   assert ".requests .mobile-request-meta" not in mobile_css, (
     "the details drop the 3 row list"
@@ -1800,8 +1821,7 @@ def test_requests_hover_rules_need_a_pointer() -> None:
   bare = re.sub(r"@media \(hover: hover\) \{\n.*?\n *\}", "", css, flags=re.DOTALL)
   rules = (
     ".ghost:hover { color: var(--text); border-color: var(--muted); }",
-    "tr.request.has-chain:hover td { background: var(--field); }",
-    ".requests .mobile-fallback-chain > summary:hover",
+    "table.models tbody tr:hover td { background: var(--field); }",
   )
   for rule in rules:
     assert rule in gated, f"{rule} needs a pointer device"
@@ -2034,6 +2054,7 @@ const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
 const nodes = new Map();
 const node = (id) => {{
   if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', hidden: false,
+    showModal: () => {{}},
     addEventListener: () => {{}}, classList: {{ add: () => {{}}, remove: () => {{}}, toggle: () => {{}} }} }});
   return nodes.get(id);
 }};
@@ -2338,8 +2359,9 @@ const nodes = new Map();
 const node = (id) => {{
   if (!nodes.has(id)) {{
     const made = {{ id, innerHTML: '', value: '', checked: false, textContent: '', disabled: false, hidden: false,
-      dataset: {{}}, handlers: {{}},
+      dataset: {{}}, handlers: {{}}, shown: false,
       isConnected: true, title: '', type: '',
+      showModal: () => {{ made.shown = true; }},
       addEventListener: (type, fn) => {{ (made.handlers[type] ||= []).push(fn); }},
       remove: () => {{}}, append: () => {{}}, prepend: () => {{}}, after: () => {{}}, setAttribute: () => {{}},
       classList: {{ add: () => {{}}, remove: () => {{}}, toggle: () => {{}} }},
@@ -6403,8 +6425,8 @@ assert.strictEqual(prevented, 3);
   )
 
 
-def test_request_chains_supply_disclosure_buttons_and_keep_focus() -> None:
-  """Request-chain handlers update expanded markup and call focus after redraw."""
+def test_request_chains_open_a_dialog_and_keep_focus() -> None:
+  """A chain button opens the dialog, and a redraw returns focus to that button."""
   run_app_js(
     "state, renderRequests",
     """
@@ -6414,26 +6436,26 @@ assert(row);
 probe.state.requests = [row];
 probe.renderRequests([row]);
 assert(node('requests').innerHTML.includes('class="request-toggle hide-sm" type="button"'));
-assert(node('requests').innerHTML.includes('aria-expanded="false"'));
+assert(node('requests').innerHTML.includes('data-chain-at'));
 assert(node('requests').innerHTML.includes(LOCALE['request.chain.show_title']));
 assert(node('requests').innerHTML.includes('class="only-sm"'));
+assert(!node('requests').innerHTML.includes('aria-expanded'), 'no disclosure state remains');
 let focused = 0;
-const request = {dataset: {at: String(row.at)}, classList: {contains: name => name === 'has-chain'}};
 const button = {
-  dataset: {chainToggle: String(row.at)},
-  closest: selector => selector === '.request-toggle' ? button : selector === 'tr.request' ? request : null,
+  dataset: {chainAt: String(row.at)},
+  closest: selector => selector === '[data-chain-at]' || selector === '.request-toggle' ? button : null,
   focus: () => { focused += 1; sandbox.document.activeElement = button; },
 };
-sandbox.document.activeElement = button;
-sandbox.window.matchMedia = () => ({matches: false});
-node('requests').querySelectorAll = () => [button];
 const activate = () => node('requests').handlers.click.forEach(fn => fn({target: button}));
 activate();
-assert(node('requests').innerHTML.includes('aria-expanded="true"'));
-assert.strictEqual(focused, 1);
-activate();
-assert(node('requests').innerHTML.includes('aria-expanded="false"'));
-assert.strictEqual(focused, 2);
+assert(node('chain-modal').shown, 'the chain button opens the dialog');
+assert(node('chain-modal-body').innerHTML.includes('<li class="step'), 'the dialog lists every attempt');
+assert(node('chain-modal-title').textContent.length > 0, 'the dialog carries a title');
+sandbox.document.activeElement = button;
+node('requests').querySelectorAll = () => [button];
+probe.renderRequests([]);
+probe.renderRequests([row]);
+assert.strictEqual(focused, 2, 'each redraw returns focus to the chain button');
 """,
   )
 

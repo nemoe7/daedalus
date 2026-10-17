@@ -469,7 +469,6 @@ td.end { text-align: right; }
 .legend-body span { display: flex; gap: 8px; }
 /* The legend codes use the font of the codes in the table. */
 .legend-body code { font-family: inherit; font-size: 12px; color: var(--text); }
-tr.request.has-chain { cursor: pointer; }
 /* Each cell keeps 1 line. A long model name ends in an ellipsis. */
 .requests tr:not(.chain) > td { white-space: nowrap; }
 .requests td.name { overflow: hidden; text-overflow: ellipsis; }
@@ -514,22 +513,20 @@ tr.live-row td { background: var(--field); }
   background: var(--accent); animation: pulse 1s var(--ease) infinite alternate;
 }
 @keyframes pulse { from { opacity: 1; } to { opacity: 0.25; } }
-tr.request.has-chain.open td { background: var(--field); }
 /* A touch screen keeps the hover look after a tap, so the hover style needs a pointer. */
 @media (hover: hover) {
-  tr.request.has-chain:hover td { background: var(--field); }
   table.models tbody tr:hover td { background: var(--field); }
 }
-tr.request.open td { border-bottom: 0; }
 .caret {
   display: inline-block; width: 6px; height: 6px; margin: 0 10px 1px 0;
   border: solid var(--muted); border-width: 0 1.5px 1.5px 0; transform: rotate(-45deg);
 }
-tr.open .caret { transform: rotate(45deg); }
 .caret.none { visibility: hidden; }
-tr.chain td { background: var(--field); padding-top: 4px; }
 /* Zero width with a full minimum: the chain fills the row but does not set the column widths. */
 .chain-body { width: 0; min-width: 100%; }
+/* The dialog carries the chain on every width: its body spans the dialog. */
+.chain-modal { max-width: min(640px, calc(100vw - 32px)); }
+.chain-modal .chain-body { width: auto; min-width: 0; }
 .step b { overflow-wrap: anywhere; }
 .chain-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
 .chain ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
@@ -1030,13 +1027,6 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .panel:has(> .requests), .panel:has(> .models), .panel:has(> .keys) { background: transparent; border: 0; }
   /* The first request card keeps the same gap from the bar rule as the Models and Keys cards. */
   .panel:has(> .requests) { margin-top: 0; }
-  /* A card row paints no patch on hover: the cells sit apart, so a fill lands as a rectangle
-     behind each 1 of them. The card edge and the live dot already tell the state. */
-  tr.request:hover td, tr.request.open td, tr.request.has-chain:hover td { background: transparent; }
-  .requests tr.request.open { border-bottom-left-radius: 0; border-bottom-right-radius: 0; margin-bottom: 0; }
-  .requests tr.chain {
-    margin-top: 0; border-top: 0; border-top-left-radius: 0; border-top-right-radius: 0;
-  }
   /* A press paints no background on a card: the cells hold their own colours, so a long press then
      selects the text with no patch behind it. */
   .requests tr.request > td, .requests tr.live-row > td {
@@ -1107,23 +1097,12 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
     flex: none; font-size: inherit; white-space: nowrap;
   }
   .requests .fallbacks-cell > .mobile-label, .requests .fallbacks-cell > .cell-value { display: none; }
-  .requests .mobile-fallback-chain > summary {
-    width: fit-content; padding: 5px 0; color: var(--accent-text); cursor: pointer; font-size: inherit; font-weight: 600;
-  }
-  @media (hover: hover) {
-    .requests .mobile-fallback-chain > summary:hover {
-      color: var(--text);
-    }
-  }
-  .requests .mobile-chain-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 5px; }
-  .requests .mobile-fallback-chain ol { list-style: none; margin: 5px 0 0; padding: 0; }
-  .requests .mobile-fallback-chain li { overflow-wrap: anywhere; white-space: normal; }
-  .requests .mobile-fallback-chain pre { overflow-wrap: anywhere; white-space: pre-wrap; }
-  /* The details read with the card: the chain keeps the card size too. */
-  .requests .mobile-fallback-chain pre, .requests .mobile-fallback-chain .from,
-  .requests .mobile-fallback-chain code { font-size: inherit; }
+  /* The chain dialog reads with the card on a phone: its text keeps the card size. */
+  .chain-modal ol { list-style: none; margin: 5px 0 0; padding: 0; }
+  .chain-modal li { overflow-wrap: anywhere; white-space: normal; }
+  .chain-modal pre { overflow-wrap: anywhere; white-space: pre-wrap; }
+  .chain-modal pre, .chain-modal .from, .chain-modal code { font-size: inherit; }
   .requests td.empty { display: block; text-align: center; }
-  .requests tr.chain td { display: block; padding-top: 0; }
 }
 @media (max-width: 360px) {
   .requests tr.live-row > td:nth-child(1) .pulse { width: 4px; height: 4px; margin-right: 2px; }

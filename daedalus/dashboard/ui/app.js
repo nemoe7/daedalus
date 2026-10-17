@@ -570,7 +570,6 @@ function renderPools(pools) {
   markPools();
 }
 
-const opened = new Set();
 let shownRequests = "";
 
 const seconds = (value) => value == null ? "" : t("time.seconds.short_text", { value: value.toFixed(3) });
@@ -677,18 +676,6 @@ function chainSteps(r) {
   return `<ol>${steps}</ol>`;
 }
 
-function chainRows(r) {
-  const many = fallbackCount(r);
-  const title = many
-    ? t("request.chain.title_with_count_text", { count: many })
-    : t("request.chain.title");
-  return `<tr role="row" class="chain"><td role="cell" colspan="13"><div class="chain-body">
-    <div class="chain-head"><span class="muted">${title}</span>
-      ${actionButton(t("request.chain.copy_button"), { variant: "ghost copy-chain", attrs: { "data-at": r.at } })}</div>
-    ${raceNote(r)}${chainSteps(r)}
-  </div></td></tr>`;
-}
-
 // Explain race decisions with three-letter codes and titles.
 // Display race notes only with active affinity.
 const RACE_NOTES = {
@@ -718,16 +705,30 @@ function routingCodes(r) {
   return transitionCell(r.transition) + from + loop;
 }
 
+// The chain opens in a dialog: an expand list in a table cell clips and shifts rows.
 function mobileFallbackChain(r, tail = "") {
   const summary = tail
     ? t("request.chain.view_with_count_text", { count: tail.replace(/^ · /, "") })
     : t("request.chain.view_text");
-  return `<details class="mobile-fallback-chain">
-    <summary>${summary}</summary>
-    <div class="mobile-chain-head"><span class="muted">${t("request.chain.title")}</span>
-      ${actionButton(t("request.chain.copy_button"), { variant: "ghost copy-chain", attrs: { "data-at": r.at } })}</div>
-    ${raceNote(r)}${chainSteps(r)}
-  </details>`;
+  return actionButton(summary, {
+    variant: "ghost chain-open", attrs: { "data-chain-at": r.at },
+  });
+}
+
+function openChain(at) {
+  const found = state.requests.find((r) => String(r.at) === at);
+  if (!found || !hasChain(found)) return;
+  const many = fallbackCount(found);
+  const title = many
+    ? t("request.chain.title_with_count_text", { count: many })
+    : t("request.chain.title");
+  $("chain-modal-title").textContent = title;
+  $("chain-modal-body").innerHTML = `<div class="chain-body">
+    <div class="chain-head"><span class="muted">${esc(title)}</span>
+      ${actionButton(t("request.chain.copy_button"), { variant: "ghost copy-chain", attrs: { "data-at": found.at } })}</div>
+    ${raceNote(found)}${chainSteps(found)}
+  </div>`;
+  $("chain-modal").showModal();
 }
 
 // Put the fallback count in the chain details. Display only the count for live rows.
@@ -1055,18 +1056,17 @@ function renderRequests(rows, empty = t("request.empty.none_text"), live = 0) {
   const selected = getSelection();
   if (text === shownRequests) return;
   if (!selected.isCollapsed && $("requests").contains(selected.anchorNode)) return;
-  const focused = document.activeElement?.closest?.(".request-toggle")?.dataset.chainToggle;
+  const focused = document.activeElement?.closest?.(".request-toggle")?.dataset.chainAt;
   shownRequests = text;
   $("requests").innerHTML = flatRows.length ? flatRows.map((r) => {
     const chain = hasChain(r);
-    const chainOpen = chain && opened.has(String(r.at));
     const time = `<span class="caret${chain ? "" : " none"}" aria-hidden="true"></span>${relative(r.at)}`;
     const timeControl = chain ? actionButton(time, {
       variant: "request-toggle hide-sm",
-      attrs: { "data-chain-toggle": r.at, "aria-expanded": String(chainOpen), title: t("request.chain.show_title") },
+      attrs: { "data-chain-at": r.at, title: t("request.chain.show_title") },
     }) + `<span class="only-sm">${time}</span>` : time;
     return `
-    <tr role="row" class="request${chain ? " has-chain" : ""}${chainOpen ? " open" : ""}" data-at="${r.at}"${chain ? ` title="${t("request.chain.show_title")}"` : ""}>
+    <tr role="row" class="request${chain ? " has-chain" : ""}" data-at="${r.at}"${chain ? ` title="${t("request.chain.show_title")}"` : ""}>
       ${cell(t("request.column.time_column"), timeControl, "num muted", ` title="${esc(stamp(r.at))}"`)}
       ${appCell(r)}
       ${cell(t("request.column.session_column"), esc(r.session || "-"), "hide-sm num mono")}
@@ -1079,7 +1079,7 @@ function renderRequests(rows, empty = t("request.empty.none_text"), live = 0) {
       ${cell(t("request.column.ttft_column"), esc(r.ttft || "-"), "hide-sm num")}
       ${cell(t("request.column.stream_column"), streamCell(r), "hide-sm num")}
       ${fallbackCell(r, "hide-sm num")}
-    </tr>${chainOpen ? chainRows(r) : ""}`;
+    </tr>`;
   }).join("") : live ? "" : `<tr role="row"><td role="cell" colspan="13" class="empty">${empty}</td></tr>`;
   const race = flatRows.some((row) => row.transition?.reason === "rce");
   if (race !== state.requestRace) {
@@ -1087,8 +1087,8 @@ function renderRequests(rows, empty = t("request.empty.none_text"), live = 0) {
     renderLegend();
   }
   firstDraw($("requests"));
-  if (focused) [...$("requests").querySelectorAll("[data-chain-toggle]")]
-    .find((button) => button.dataset.chainToggle === focused)?.focus({ preventScroll: true });
+  if (focused) [...$("requests").querySelectorAll("[data-chain-at]")]
+    .find((button) => button.dataset.chainAt === focused)?.focus({ preventScroll: true });
 }
 
 // The label of each catalog mode.
@@ -3649,26 +3649,22 @@ $("notice").addEventListener("animationend", (event) => {
   note.hidden = true;
 });
 
-$("requests").addEventListener("click", async (event) => {
+$("requests").addEventListener("click", (event) => {
+  const open = event.target.closest("[data-chain-at]");
+  if (open) openChain(open.dataset.chainAt);
+});
+// The copy button lives in the chain dialog, outside the table listener.
+$("chain-modal").addEventListener("click", async (event) => {
   const button = event.target.closest(".copy-chain");
-  if (button) {
-    const found = state.requests.find((r) => String(r.at) === button.dataset.at);
-    try {
-      await navigator.clipboard.writeText(chainText(found));
-      button.textContent = t("action.copied_button");
-    } catch {
-      getSelection().selectAllChildren(button.closest("td"));
-      button.textContent = t("action.press_ctrl_c_button");
-    }
-    return;
+  if (!button) return;
+  const found = state.requests.find((r) => String(r.at) === button.dataset.at);
+  try {
+    await navigator.clipboard.writeText(chainText(found));
+    button.textContent = t("action.copied_button");
+  } catch {
+    getSelection().selectAllChildren(button.closest(".chain-body"));
+    button.textContent = t("action.press_ctrl_c_button");
   }
-  if (event.target.closest(".mobile-fallback-chain") || window.matchMedia("(max-width: 720px)").matches) return;
-  const row = event.target.closest("tr.request");
-  if (!row || !row.classList.contains("has-chain") || !getSelection().isCollapsed) return;
-  const at = row.dataset.at;
-  opened.has(at) ? opened.delete(at) : opened.add(at);
-  shownRequests = "";
-  renderRequestTable();
 });
 const PAGES = ["overview", "requests", "models", "limits", "notifications", "settings"];
 const PAGE_LABELS = {
