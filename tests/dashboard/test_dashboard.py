@@ -1606,6 +1606,41 @@ def test_the_page_scroll_does_not_wait_on_has_support() -> None:
   )
 
 
+def test_the_model_dialog_counts_use_rates_on_open() -> None:
+  """The model dialog derives use rates from the request rows when it opens."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  locale = (root / "daedalus/dashboard/ui/en.js").read_text(encoding="utf-8")
+  for key in (
+    "model.detail.use_title",
+    "model.detail.success_label",
+    "model.detail.races_won_label",
+    "model.detail.fallbacks_label",
+    "model.detail.streamed_label",
+    "model.detail.first_token_label",
+  ):
+    assert f'"{key}"' in locale, key
+  assert "function useStats(m) {" in app, "one helper derives the rates"
+  assert "useStats(m)" in app, "the dialog draws them on open"
+  run_app_js(
+    "state, useStats",
+    """
+probe.state.requests = [
+  {model: 'p/m', status: 200, stream: true, ttft: '0.4', fallbacks: 0,
+   attempts: [{model: 'p/m', race: 'won', result: 'answered'}]},
+  {model: 'p/m', status: 500, fallbacks: 1,
+   attempts: [{model: 'p/m', result: 'error'}, {model: 'q/n', race: 'won', result: 'answered'}]},
+  {model: 'q/n', status: 200, fallbacks: 0,
+   attempts: [{model: 'p/m', result: 'error'}, {model: 'q/n', race: 'won', result: 'answered'}]},
+];
+const use = probe.useStats({id: 'p/m'}).map(([value, label]) => value + ' ' + label).join(', ');
+assert(use.includes('50%'), use);
+assert(use.includes('33%'), use);
+assert(use.includes('0.400s'), use);
+""",
+  )
+
+
 def test_the_limits_table_scrolls_inside_its_panel() -> None:
   """The Limits table panel is the only scrollport on wide screens."""
   root = Path(__file__).resolve().parent.parent.parent

@@ -1218,6 +1218,30 @@ function reasoningCell(m) {
 const yesNo = (on) => statusBadge(on ? t("common.boolean.yes_text") : t("common.boolean.no_text"), { variant: on ? "yes" : "muted" });
 
 // Render model identity, capability chips, limits, and reasoning efforts.
+// The use rates of one model, counted from the request rows when the dialog opens.
+function useStats(m) {
+  const served = state.requests.filter((r) => (r.via || r.model) === m.id);
+  if (!served.length) return [];
+  const pct = (count, total) => `${Math.round((100 * count) / total)}%`;
+  const ok = served.filter((r) => !r.cancelled && String(r.status)[0] === "2").length;
+  const races = state.requests.filter((r) => (r.attempts || []).some((a) => a.model === m.id)
+    && (r.attempts || []).some((a) => a.race));
+  const won = races.filter((r) => (r.attempts || []).find((a) => a.race === "won")?.model === m.id).length;
+  const fell = served.filter((r) => (r.fallbacks ?? 0) > 0).length;
+  const streamed = served.filter((r) => r.stream).length;
+  const tokens = served.filter((r) => r.ttft != null).map((r) => parseFloat(r.ttft))
+    .sort((a, b) => a - b);
+  const mid = tokens.length % 2 ? tokens[(tokens.length - 1) / 2]
+    : tokens.length ? (tokens[tokens.length / 2 - 1] + tokens[tokens.length / 2]) / 2 : null;
+  return [
+    [pct(ok, served.length), t("model.detail.success_label")],
+    races.length ? [pct(won, races.length), t("model.detail.races_won_label")] : null,
+    [pct(fell, served.length), t("model.detail.fallbacks_label")],
+    [pct(streamed, served.length), t("model.detail.streamed_label")],
+    mid == null ? null : [seconds(mid), t("model.detail.first_token_label")],
+  ].filter(Boolean);
+}
+
 function openModelModal(m) {
   const { provider, dev, model } = parts(m.id);
   $("model-modal-title").innerHTML =
@@ -1256,10 +1280,14 @@ function openModelModal(m) {
   ].filter(Boolean).map(([value, label, bar]) =>
     `<div class="stat"><span class="num">${esc(value)}</span><span class="label">${esc(label)}</span>${bar || ""}</div>`)
     .join("");
+  const use = useStats(m).map(([value, label]) =>
+    `<div class="stat"><span class="num">${esc(value)}</span><span class="label">${esc(label)}</span></div>`)
+    .join("");
   const efforts = (m.efforts || []).map((name) => effortChip(name)).join("");
   $("model-modal-body").innerHTML = `<div class="model-id">${identity}</div>`
     + (chips ? `<div class="model-chips">${chips}</div>` : "")
     + (stats ? `<div class="model-stats">${stats}</div>` : "")
+    + (use ? `<h4>${t("model.detail.use_title")}</h4><div class="model-stats">${use}</div>` : "")
     + (efforts ? `<h4>${t("model.detail.supported_efforts_label")}</h4><div class="pills">${efforts}</div>` : "");
   $("model-modal").showModal();
 }
