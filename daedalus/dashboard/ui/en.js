@@ -343,7 +343,7 @@ globalThis.DAEDALUS_LOCALE = {
   "request.chain.show_title": "Show the fallback chain",
   "request.chain.title": "Fallback chain",
   "request.chain.title_with_count_text": "Fallback chain · {count}",
-  "request.chain.weight_text": "weight {from} → {to}",
+  "request.chain.weight_text": "weight {from} to {to}",
   "request.chain.won_race_text": "won race",
   "request.column.app_column": "App",
   "request.column.app.hint": "The client app, from its request headers",

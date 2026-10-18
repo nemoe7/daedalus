@@ -91,7 +91,7 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 
 The 2 old groups, `session_affinity` and `parallel`, also stop the server from starting. The error names the `affinity.mode` that replaces each one.
 
-The shipped file holds the changes from the defaults only. The **Settings** page writes the changed keys only. A cleared field loses its line, and the default applies. The table below lists each key, its default and its use.
+The shipped file holds the changes from the defaults only. The **Settings** page writes the changed keys only. A cleared field loses its line, and the default applies.
 
 ### Limits
 
