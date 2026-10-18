@@ -522,6 +522,8 @@ globalThis.DAEDALUS_LOCALE = {
   "settings.optimization.title": "Optimization",
   "settings.personalization.audio.hint": "The client name of the transcription pool: graphos by default.",
   "settings.personalization.audio.label": "Transcription",
+  "settings.personalization.hide_headers.hint": "On: settings pages hide the centered summary header.",
+  "settings.personalization.hide_headers.label": "Hide page headers",
   "settings.personalization.image.hint": "The client name of the image pool: photos by default.",
   "settings.personalization.image.label": "Image",
   "settings.personalization.theme.hint": "System follows the light or dark setting of the device.",

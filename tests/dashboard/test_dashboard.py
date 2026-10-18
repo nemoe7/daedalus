@@ -1583,22 +1583,22 @@ def test_select_section_scopes_its_queries_to_its_own_host() -> None:
   """A host selection leaves the nested providers rail and cards alone."""
   app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   body = app.partition("function selectSection(host, key,")[2].partition("\n}\n")[0]
-  assert ":scope > .sections button" in body, "the rail buttons of this host alone"
+  assert ":scope > .rail > .sections button" in body, (
+    "the rail buttons of this host alone"
+  )
   assert ":scope > .section-pane > .card" in body, "the pane cards of this host alone"
 
 
 def test_provider_tiles_carry_the_vendored_marks() -> None:
-  """Provider rows and card headers draw the vendored mark in the tile."""
+  """Provider rows and the pane summary draw the vendored mark in the tile."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   block = app.partition("const chipFor = (host, key) => {")[2].partition("};")[0]
   assert "MARK_FILES.has(key)" in block and "mark(key, true)" in block, (
     "a provider tile draws its vendored mark"
   )
-  card = app.partition("function providerCard(name, block) {")[2].partition("\n}\n")[0]
-  assert 'chipFor("provider-form", name)' in card, (
-    "the card header draws the provider tile"
-  )
+  summary = app.partition("function selectSection(host, key,")[2].partition("\n}\n")[0]
+  assert "chipFor(host.id, key)" in summary, "the pane summary draws the provider tile"
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   tile = css.partition(".tile .mark {")[2].partition("}")[0]
   assert "width: 13px" in tile, "the tile sizes the mark like its glyph"
@@ -2453,15 +2453,11 @@ def test_the_settings_sections_carry_a_rule() -> None:
   """Settings CSS defines header separators, and section code uses localized titles."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  assert 'section[data-page="settings"] .card > h3, .card.provider > h3 {' in css, (
-    "the title header carries a rule too"
+  assert "padding: 10px 0; border-top: 1px solid var(--line);" in css, (
+    "every settings row carries the rule that separates it from the row above"
   )
-  assert (
-    "padding-bottom: 8px; border-bottom: 1px solid var(--line); margin-bottom: 0;"
-    in css
-  )
-  assert ".card > h3 + .field { border-top: 0; }" in css, (
-    "the first row of a card keeps no rule of its own"
+  assert ".card > h3 + .field, .card > .field:first-child { border-top: 0; }" in css, (
+    "the first row of a headerless card keeps no rule of its own"
   )
   assert ".field:first-of-type" not in css, (
     "the rule follows the row order, not the tag"
@@ -2470,8 +2466,8 @@ def test_the_settings_sections_carry_a_rule() -> None:
   assert '["balance", t("settings.balance.title"), [' in app, (
     "the group reads from the Load Distribution key"
   )
-  assert '<h3>${chip("keys")}${t("settings.keys.title")}</h3>' in app, (
-    "the keys card reads its title key"
+  assert 'keys: t("settings.keys.summary")' in app, (
+    "the pane summary reads the keys summary key"
   )
   assert '["keys", t("settings.keys.title")], ["yaml", t("yaml.label")]' in app, (
     "the keys section reads its title keys"
@@ -4821,7 +4817,7 @@ def test_the_wide_rail_sticky_never_pushes_the_rail_down() -> None:
   ).read_text(encoding="utf-8")
   wide = re.search(r"@media \(min-width: 901px\) \{(.*?)\n\}", css, re.DOTALL)
   assert wide, "the wide media query holds the still-header layout"
-  rail = re.search(r"\.sections \{([^}]*)\}", wide.group(1))
+  rail = re.search(r"\.rail \{([^}]*)\}", wide.group(1))
   assert rail and "position: sticky" in rail.group(1), (
     "the rail sticks on a wide screen"
   )
