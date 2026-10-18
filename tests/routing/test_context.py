@@ -57,7 +57,17 @@ def test_limits(database: Path) -> None:
   assert store.input_limits() == {"a/1": 10, "c/1": 1000}, store.input_limits()
 
 
-def test_requests() -> None:
+def test_requests(monkeypatch, tmp_path) -> None:
+  database = tmp_path / "models.sqlite3"
+  monkeypatch.setattr(store, "MODELS_DB", database)
+  store.write_store(
+    [
+      {"id": "a/1", "max_input_tokens": 10},
+      {"id": "b/1"},
+      {"id": "d/1", "max_input_tokens": 10},
+    ],
+    database,
+  )
   config = {
     name: {"api_key": "k", "api_base": f"https://{name}.test/v1"} for name in "abcd"
   }
@@ -90,9 +100,9 @@ def test_requests() -> None:
     small = {**large, "messages": [{"role": "user", "content": "x"}]}
     assert client.post("/v1/chat/completions", json=small).status_code == 200
     failed = dashboard.HISTORY.latest(1)[0]["attempts"][0]
-    assert failed["result"] == "HTTP 429" and "Rate limit for c" in failed["error"], (
-      failed
-    )
+    assert failed["result"] == "HTTP 429", failed
+    assert failed["error"] == upstream.RateLimited().safe_line, failed
+    assert "Rate limit for c" not in failed["error"], failed
     assert isinstance(failed["seconds"], float), failed
     api.chain = lambda model, body, config, key="": ([["a/1", "b/1"]], None)
     response = client.post("/v1/chat/completions", json=small)

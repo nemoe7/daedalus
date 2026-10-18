@@ -1,8 +1,10 @@
 """The upstream HTTP client, one candidate request, and the OpenAI error shape."""
 
 import asyncio
+import json
 import logging
 import math
+import re
 import time
 from collections.abc import Awaitable, Mapping
 from contextvars import ContextVar
@@ -170,6 +172,7 @@ class UpstreamStatus(Exception):
     self.detail = detail
     self.headers = httpx.Headers(headers or {})
     self.body = body
+    self.behavior = None
 
 
 class BadRequestError(UpstreamStatus):
@@ -202,12 +205,107 @@ STATUS_ERRORS: dict[int, type[UpstreamStatus]] = {
 }
 
 
+class RateLimited:
+  """A short provider rate limit, with the retry delay the provider names."""
+
+  def __init__(self, retry_seconds: float | None = None) -> None:
+    self.retry_seconds = retry_seconds
+
+  @property
+  def safe_line(self) -> str:
+    if self.retry_seconds:
+      return f"Rate limited by the provider. Retry in {int(self.retry_seconds)}s."
+    return "Rate limited by the provider. Retry shortly."
+
+
+class DailyCap:
+  """A provider daily cap, with the reset time its headers carry."""
+
+  def __init__(self, reset_epoch: float) -> None:
+    self.reset_epoch = reset_epoch
+
+  @property
+  def safe_line(self) -> str:
+    when = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(self.reset_epoch))
+    return f"Daily limit reached. Resets {when}."
+
+
+class HarnessGate:
+  """A provider gate on the calling harness; its own message explains the rule."""
+
+  def __init__(self, message: str) -> None:
+    self.message = message
+
+  @property
+  def safe_line(self) -> str:
+    return self.message
+
+
+def epoch_seconds(value: str) -> float:
+  """One reset header value as epoch seconds, reading millisecond values down."""
+  found = float(value)
+  return found / 1000 if found > 1e11 else found
+
+
+def retry_delay(payload: Any, headers: Mapping[str, str], text: str) -> float | None:
+  """The retry wait a provider body, header or message names, in seconds."""
+  error = payload.get("error") if isinstance(payload, dict) else None
+  details = error.get("details") if isinstance(error, dict) else None
+  for detail in details or []:
+    delay = detail.get("retryDelay") if isinstance(detail, dict) else None
+    if isinstance(delay, str) and delay.endswith("s"):
+      return float(delay[:-1])
+  after = headers.get("Retry-After") or headers.get("retry-after")
+  if after:
+    return float(after)
+  found = re.search(r"retry in ([\d.]+)s", text, re.IGNORECASE)
+  return float(found.group(1)) if found else None
+
+
+def mapped_behavior(
+  status: int, headers: Mapping[str, str], raw: bytes
+) -> RateLimited | DailyCap | HarnessGate | providers.UpstreamOverload | None:
+  """The known behavior of one upstream error body, or None when it is unrecognized."""
+  text = error_text(raw)
+  low = text.lower()
+  payload: Any = {}
+  try:
+    payload = json.loads(raw)
+  except ValueError:
+    payload = {}
+  error = payload.get("error") if isinstance(payload, dict) else None
+  meta = error.get("metadata") if isinstance(error, dict) else None
+  meta = meta if isinstance(meta, dict) else {}
+  inner = meta.get("headers") if isinstance(meta.get("headers"), dict) else {}
+  reset = inner.get("X-RateLimit-Reset") or headers.get("x-ratelimit-reset")
+  if status == 403 and (
+    "routing_funnel" in meta
+    or "failed_routing_step" in meta
+    or "agentic harness" in low
+  ):
+    return HarnessGate(text)
+  if status == 429 and reset and "daily limit" in low:
+    return DailyCap(epoch_seconds(str(reset)))
+  if "overloaded" in low:
+    return providers.UpstreamOverload(text)
+  if status == 429 and (
+    retry_delay(payload, headers, text) is not None
+    or "remedy_hint" in meta
+    or "resource_exhausted" in low
+    or "rate limit" in low
+  ):
+    return RateLimited(retry_delay(payload, headers, text))
+  return None
+
+
 def status_error(
   status: int, detail: str, headers: Mapping[str, str], body: bytes
 ) -> UpstreamStatus:
-  """The error class of one upstream status."""
+  """The error class of one upstream status, with its mapped behavior when known."""
   kind = STATUS_ERRORS.get(status, ServerError if status >= 500 else UpstreamStatus)
-  return kind(status, detail, headers, body)
+  error = kind(status, detail, headers, body)
+  error.behavior = mapped_behavior(status, headers, body)
+  return error
 
 
 def note(
@@ -223,10 +321,15 @@ def note(
   return {"model": model, "result": result, "seconds": seconds, "error": error}
 
 
+def status_line(exc: UpstreamStatus) -> str:
+  """The note text of one upstream status: its behavior's safe line, or the relay."""
+  return exc.behavior.safe_line if exc.behavior else exc.detail
+
+
 def failure_note(model: str, started: float, exc: Exception) -> dict[str, Any]:
   """One failed attempt, with the full provider error text when there is one."""
   if isinstance(exc, UpstreamStatus):
-    return note(model, f"HTTP {exc.status}", started, exc.detail)
+    return note(model, f"HTTP {exc.status}", started, status_line(exc))
   if isinstance(exc, loops.LoopError):
     return note(model, "loop", started, str(exc))
   return note(model, "failed", started, failure_text(exc))

@@ -927,7 +927,9 @@ async def start_candidate(plan, model: str, sent: dict[str, Any]) -> dict[str, A
       # fault keep their own paths.
       if not buffered or exc.status in NOT_A_REFUSAL or exc.status >= 500:
         raise
-      plan.attempts.append(upstream.note(model, "stream refused", began, exc.detail))
+      plan.attempts.append(
+        upstream.note(model, "stream refused", began, upstream.status_line(exc))
+      )
       logger.info("upstream %s refused the stream, retrying without one", model)
       buffered, response = False, None
       provider, response = await upstream.in_time(

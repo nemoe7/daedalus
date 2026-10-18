@@ -12,7 +12,34 @@ class ProviderError(ValueError):
   pass
 
 
+class UpstreamOverload(ProviderError):
+  """An upstream provider reported itself overloaded; the surface names it, never the relay."""
+
+  def __init__(self, text: str) -> None:
+    super().__init__(text)
+    marker = "Upstream error from "
+    self.provider = (
+      text.split(marker, 1)[1].split(":", 1)[0].strip() if marker in text else ""
+    )
+
+  @property
+  def safe_line(self) -> str:
+    """The user-facing line for one overload."""
+    if self.provider:
+      return f"The {self.provider} upstream is temporarily overloaded."
+    return "The upstream provider is temporarily overloaded."
+
+
 ERROR_TEXT_LIMIT = 300
+
+
+def stream_error(text: str) -> ProviderError:
+  """Classify one stream error event: an overload gets its own class, the rest keep the relay prefix."""
+  if "overloaded" in text.lower():
+    return UpstreamOverload(text)
+  return ProviderError(f"Upstream stream error: {text}")
+
+
 # One uploaded file: the file name, the bytes and the media type.
 Upload = tuple[str, bytes, str]
 

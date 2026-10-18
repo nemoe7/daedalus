@@ -3,14 +3,15 @@
 import asyncio
 import json
 import tempfile
+import time
 from pathlib import Path
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from daedalus import store
-from daedalus.providers.base import frame
+from daedalus import providers, store
+from daedalus.providers.base import error_detail, error_text, frame
 from daedalus.server import api, upstream
 
 CONFIG = {"groq": {"api_key": "q", "api_base": "https://groq.test/openai/v1"}}
@@ -226,3 +227,88 @@ async def test_attempt_response_ownership(monkeypatch, mode) -> None:
     finally:
       await response.aclose()
       upstream.set_client(None)
+
+
+GEMINI = (
+  b'{"error": {"code": 429, "message": "You exceeded your current quota, please check your plan'
+  b' and billing details.\\nPlease retry in 10.328642999s.", '
+  b'"status": "RESOURCE_EXHAUSTED", "details": [{"@type": "type.googleapis.com/google.rpc.RetryInfo",'
+  b' "retryDelay": "10s"}]}}'
+)
+DAILY = (
+  b'{"error": {"message": "Rate limit exceeded: limit_rpd/m. Daily limit reached for m via P.'
+  b' Credits don\'t affect this cap.", "code": 429, "metadata": {"headers":'
+  b' {"X-RateLimit-Reset": "1792368000000"}, "remedy_hint": "Retry shortly"}}}'
+)
+HARNESS = (
+  b'{"error": {"message": "m is only available on agentic harnesses. Try plugging it into a coding'
+  b' agent", "code": 403, "metadata": {"routing_funnel": [{"step": "Initial Endpoints"}],'
+  b' "failed_routing_step": "Gate Free Endpoints by Agentic Harness"}}}'
+)
+NVIDIA = "Upstream error from Nvidia: Service temporarily overloaded"
+
+
+def test_mapped_provider_behaviors_keep_safe_lines() -> None:
+  """Known provider failures map to one behavior each, with a safe user line."""
+  behavior = upstream.mapped_behavior(429, {}, GEMINI)
+  assert isinstance(behavior, upstream.RateLimited), behavior
+  assert behavior.retry_seconds == 10
+  assert behavior.safe_line == "Rate limited by the provider. Retry in 10s."
+  behavior = upstream.mapped_behavior(429, {}, DAILY)
+  assert isinstance(behavior, upstream.DailyCap), behavior
+  assert behavior.safe_line == (
+    "Daily limit reached. Resets "
+    + time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(1792368000))
+    + "."
+  )
+  behavior = upstream.mapped_behavior(403, {}, HARNESS)
+  assert isinstance(behavior, upstream.HarnessGate), behavior
+  assert behavior.safe_line == error_text(HARNESS)
+  behavior = upstream.mapped_behavior(503, {}, json.dumps({"error": NVIDIA}).encode())
+  assert isinstance(behavior, providers.UpstreamOverload), behavior
+  assert behavior.safe_line == "The Nvidia upstream is temporarily overloaded."
+  assert (
+    upstream.mapped_behavior(418, {}, b'{"error": {"message": "something new"}}')
+    is None
+  )
+
+
+def test_failure_notes_hide_bodies_only_for_mapped_behaviors() -> None:
+  """Mapped statuses note their safe line; unrecognized ones keep the full relay."""
+  started = time.perf_counter()
+  mapped = upstream.status_error(
+    429, error_detail(GEMINI, upstream.DETAIL_LIMIT), {}, GEMINI
+  )
+  note = upstream.failure_note("groq/m", started, mapped)
+  assert note["error"] == "Rate limited by the provider. Retry in 10s.", note
+  assert "RESOURCE_EXHAUSTED" not in note["error"]
+  raw = b'{"error": {"message": "something new", "code": 418}}'
+  unknown = upstream.status_error(
+    418, error_detail(raw, upstream.DETAIL_LIMIT), {}, raw
+  )
+  assert unknown.behavior is None
+  assert upstream.failure_note("groq/m", started, unknown)["error"] == error_detail(
+    raw, upstream.DETAIL_LIMIT
+  )
+
+
+def test_stream_refusal_notes_use_the_same_safe_line() -> None:
+  """The stream-refused attempt note rides the shared status line, not the body."""
+  api_source = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/server/api.py"
+  ).read_text(encoding="utf-8")
+  assert 'upstream.note(model, "stream refused", began, upstream.status_line(exc))' in (
+    api_source
+  ), "the refusal note shares the behavior line"
+
+
+def test_overloaded_stream_chunks_raise_the_overload_behavior() -> None:
+  """A Nvidia-style overload chunk stops reading the stream as its own class."""
+  from daedalus.server import stream
+
+  with pytest.raises(providers.UpstreamOverload) as caught:
+    stream.has_content(json.dumps({"error": {"message": NVIDIA}}))
+  assert caught.value.safe_line == "The Nvidia upstream is temporarily overloaded."
+  with pytest.raises(providers.ProviderError) as plain:
+    stream.has_content(json.dumps({"error": {"message": "boom"}}))
+  assert "Upstream stream error: boom" in str(plain.value)

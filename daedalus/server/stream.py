@@ -11,7 +11,7 @@ import httpx
 
 from daedalus import providers, store
 from daedalus.providers import hooks
-from daedalus.providers.base import choice_rows, error_text
+from daedalus.providers.base import choice_rows, error_text, stream_error
 from daedalus.routing import context, loops, pacing, router
 from daedalus.server import upstream
 
@@ -72,7 +72,7 @@ def has_content(data: str) -> bool:
     return True
   chunk = json.loads(data)
   if not isinstance(chunk, dict) or chunk.get("error"):
-    raise providers.ProviderError(f"Upstream stream error: {error_text(chunk)}")
+    raise stream_error(error_text(chunk))
   for choice in choice_rows(chunk, "delta"):
     delta = choice.get("delta") or {}
     text = [delta.get(key) for key in ("content", "reasoning_content", "reasoning")]
@@ -142,7 +142,7 @@ async def cache(
         break
       chunk = json.loads(data)
       if not isinstance(chunk, dict) or chunk.get("error"):
-        raise providers.ProviderError(f"Upstream stream error: {error_text(chunk)}")
+        raise stream_error(error_text(chunk))
       for key in ("id", "created", "model", "system_fingerprint"):
         if found.get(key) is None and chunk.get(key) is not None:
           found[key] = chunk[key]
@@ -219,7 +219,7 @@ async def relay(
           return
         chunk = json.loads(data)
         if not isinstance(chunk, dict) or chunk.get("error"):
-          raise providers.ProviderError(f"Upstream stream error: {error_text(chunk)}")
+          raise stream_error(error_text(chunk))
         if counts is not None:
           counts.update(provider_count(chunk.get("usage")) or {})
         if not include_usage and "usage" in chunk:

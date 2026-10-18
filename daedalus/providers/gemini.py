@@ -22,6 +22,7 @@ from daedalus.providers.base import (
   frame,
   function_call,
   limits,
+  stream_error,
   system_text,
   tool_call,
 )
@@ -567,7 +568,7 @@ class GeminiProvider(OpenAIProvider):
     try:
       async for event in events(response, wait):
         if event.get("error"):
-          raise ProviderError(f"Upstream stream error: {error_text(event)}")
+          raise stream_error(error_text(event))
         if event.get("usageMetadata"):
           counts = usage(event)
         for position, candidate in enumerate(event.get("candidates") or []):
