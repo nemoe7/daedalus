@@ -664,8 +664,9 @@ section[data-page="providers"], section[data-page="settings"] {
 .card.nested > h3 { padding: 18px 20px 8px; }
 .card.nested .files { padding: 12px 20px; }
 .card.nested .settings { margin: 0; }
-/* The drill list page keeps its rows flush, and every row carries a chevron. */
-.card.list { padding: 0; }
+/* The drill list page keeps its rows flush, and every row carries a chevron.
+   The list wrapper paints nothing: the rows sit on the pane, not in a second card. */
+.card.list { padding: 0; background: none; border: 0; }
 .sections.drill button::after { content: "\203a"; color: var(--muted); font-size: 18px; line-height: 1; }
 .card.nested .sections { border: 0; background: none; }
 .card.nested .section-pane { padding: 0 20px 10px; }
