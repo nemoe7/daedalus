@@ -2630,6 +2630,50 @@ assert(pane.scrollTop === 240, 'the pane lands where it was');
   assert "keepSettingsScroll(scroll);" in body, "the rebuild puts the pane back"
 
 
+def test_app_js_settings_hide_headers_classes_section() -> None:
+  """The personalization hide flag classes the settings section, and CSS hides the summary."""
+  on = json.dumps(
+    {
+      "path": "config/daedalus.yml",
+      "headroom_available": False,
+      "text": "",
+      "defaults": settings.DEFAULTS,
+      "file": {"personalization": {"hide_headers": True}},
+    }
+  )
+  off = json.dumps(
+    {
+      "path": "config/daedalus.yml",
+      "headroom_available": False,
+      "text": "",
+      "defaults": settings.DEFAULTS,
+      "file": {},
+    }
+  )
+  run_app_js(
+    "state, renderSettings",
+    f"""
+const section = {{ classes: new Set() }};
+section.classList = {{
+  toggle: (name, keep) => (keep ? section.classes.add(name) : section.classes.delete(name)),
+}};
+node('settings').closest = (sel) => (sel.includes('data-page="settings"') ? section : null);
+probe.state.settings = {on};
+probe.renderSettings();
+assert(section.classes.has('hide-page-headers'), 'the hide flag classes the settings section');
+const html = node('settings').innerHTML;
+assert(html.includes('id="set-personalization-hide_headers"'), 'the row carries the switch');
+probe.state.settings = {off};
+probe.renderSettings();
+assert(!section.classes.has('hide-page-headers'), 'the cleared flag removes the class');
+""",
+  )
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert 'section[data-page="settings"].hide-page-headers .pane-summary {' in css, (
+    "the class hides the centered summary"
+  )
+
+
 def test_app_js_settings_switches() -> None:
   """Settings markup includes the affinity switch, and unchanged fields produce no save changes."""
   payload = json.dumps(
