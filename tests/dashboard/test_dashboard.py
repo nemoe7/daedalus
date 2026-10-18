@@ -1632,12 +1632,13 @@ def test_the_model_dialog_counts_use_rates_on_open() -> None:
     "model.detail.fallbacks_label",
     "model.detail.streamed_label",
     "model.detail.first_token_label",
+    "model.detail.limit_left_label",
   ):
     assert f'"{key}"' in locale, key
   assert "function useStats(m) {" in app, "one helper derives the rates"
   assert "useStats(m)" in app, "the dialog draws them on open"
   run_app_js(
-    "state, useStats",
+    "state, useStats, limitUnit",
     """
 probe.state.requests = [
   {model: 'p/m', status: 200, stream: true, ttft: '0.4', fallbacks: 0,
@@ -1651,6 +1652,16 @@ const use = probe.useStats({id: 'p/m'}).map(([value, label]) => value + ' ' + la
 assert(use.includes('50%'), use);
 assert(use.includes('33%'), use);
 assert(use.includes('0.400s'), use);
+assert(!use.includes('of 60'), 'a model without known limits adds no limit row');
+const row = {kind: 'requests', span: 'minute', limit: 60, remaining: 12};
+probe.state.limits = {lanes: [{model: 'p/m', rows: [row]}]};
+const withLimits = probe.useStats({id: 'p/m'}).map(([value, label]) => value + ' ' + label)
+  .join(', ');
+assert(withLimits.includes('12 of 60'), withLimits);
+assert(withLimits.includes(LOCALE['model.detail.limit_left_label']
+  .replace('{unit}', probe.limitUnit(row))), withLimits);
+assert(!probe.useStats({id: 'q/n'}).map(([value, label]) => value + ' ' + label).join(', ')
+  .includes('of 60'), 'siblings of a limited model stay silent');
 """,
   )
 

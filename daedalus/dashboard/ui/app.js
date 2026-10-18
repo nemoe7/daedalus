@@ -1228,6 +1228,11 @@ function useStats(m) {
     [pct(fell, served.length), t("model.detail.fallbacks_label")],
     [pct(streamed, served.length), t("model.detail.streamed_label")],
     mid == null ? null : [seconds(mid), t("model.detail.first_token_label")],
+    ...limitRows().filter((r) => r.model === m.id && (r.limit > 0 || r.remaining > 0))
+      .map((r) => [t("limits.value.of_text", {
+        remaining: r.remaining.toLocaleString(),
+        limit: r.limit.toLocaleString(),
+      }), t("model.detail.limit_left_label", { unit: limitUnit(r) })]),
   ].filter(Boolean);
 }
 
