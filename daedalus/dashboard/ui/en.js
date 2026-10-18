@@ -249,8 +249,6 @@ globalThis.DAEDALUS_LOCALE = {
   "model.sort.tools_option": "Sort: Tools",
   "model.sort.weight_option": "Sort: Weight",
   "model.tokens.title": "{count} tokens",
-  "nav.earlier_tabs_label": "Show previous tabs",
-  "nav.later_tabs_label": "Show more tabs",
   "nav.limits_link": "Limits",
   "nav.models_link": "Models",
   "nav.notifications_link": "Notifications",

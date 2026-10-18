@@ -517,7 +517,7 @@ function renderStatus(status) {
   setStateKnown(true);
   renderStatusCard(status);
   $("version").textContent = status.version;
-  markNavSteps();
+  markNavEdges();
 }
 
 // Filter Models by each pool's tier. Other pools display all tiers.
@@ -1843,7 +1843,7 @@ function hooksManager() {
         variant: "primary", attrs: { "data-hook-take-all": true },
       })}</div>` : "";
   return `${field(t("settings.hooks.installed.label"), t("settings.hooks.installed.hint"), `
-      <div class="card-scroll"><table class="keys"><thead><tr><th>${t("hook.column.author_title")}</th><th>${t("hook.column.version_column")}</th><th>${t("hook.column.surfaces_column")}</th><th>${t("hook.column.scopes_column")}</th><th class="hide-sm">${t("hook.column.source_column")}</th><th>${t("hook.column.enabled_column")}</th><th></th></tr></thead>
+      <div class="card-scroll scroll-fade"><table class="keys"><thead><tr><th>${t("hook.column.author_title")}</th><th>${t("hook.column.version_column")}</th><th>${t("hook.column.surfaces_column")}</th><th>${t("hook.column.scopes_column")}</th><th class="hide-sm">${t("hook.column.source_column")}</th><th>${t("hook.column.enabled_column")}</th><th></th></tr></thead>
       <tbody>${list}</tbody></table></div>
       ${actionButton(`${icon("refresh_cw")} ${t("action.update_sources_button")}`, {
         variant: "ghost", attrs: { "data-hooks-update": true },
@@ -2804,7 +2804,7 @@ function keysCard() {
       ${actionButton(t("action.copy_button"), { variant: "ghost", attrs: { id: "copy" } })}
       ${actionButton(t("action.done_button"), { variant: "ghost", attrs: { id: "reveal-close" } })}
     </div>
-    <div class="card-scroll"><table class="keys">
+    <div class="card-scroll scroll-fade"><table class="keys">
       <thead><tr>
         <th>${t("settings.keys.name_column")}</th><th>${t("settings.keys.key_column")}</th><th class="hide-sm">${t("settings.keys.created_column")}</th><th>${t("settings.keys.last_used_column")}</th><th></th>
       </tr></thead>
@@ -3809,14 +3809,12 @@ document.addEventListener("scroll", (event) => {
   if (scroller.matches?.(".section-pane")) markPaneEdges(scroller);
 }, true);
 
-// Each tab bar chevron marks off-screen tabs and scrolls toward them.
+// The strip breathes its own clipped edges: fades only, no chevrons.
 const nav = $("nav");
-function markNavSteps() {
-  const { left, right } = markScrollEdges(nav);
-  $("nav-left").hidden = left;
-  $("nav-right").hidden = right;
+function markNavEdges() {
+  markScrollEdges(nav);
 }
-nav.addEventListener("scroll", markNavSteps, { passive: true });
+nav.addEventListener("scroll", markNavEdges, { passive: true });
 // Replace the history entry so phone back leaves the app instead of retracing tabs.
 for (const link of document.querySelectorAll("#nav a")) {
   link.addEventListener("click", (event) => {
@@ -3826,9 +3824,7 @@ for (const link of document.querySelectorAll("#nav a")) {
     showPage();
   });
 }
-for (const [id, step] of [["nav-left", -1], ["nav-right", 1]]) {
-  $(id).addEventListener("click", () => nav.scrollBy({ left: (step * nav.clientWidth) / 2, behavior: "smooth" }));
-}
+
 
 // On wide screens, fit each pane below its top edge.
 // Scroll forms separately from the fixed header and rail.
@@ -3910,7 +3906,7 @@ function showPage() {
     } else link.removeAttribute("aria-current");
   });
   // Mark navigation chevrons on the first paint, before the status response.
-  markNavSteps();
+  markNavEdges();
   // Render before selecting the section to preserve its phone back animation classes.
   if (page === "settings" && state.settings) renderSettings();
   applySectionHash();
@@ -4118,7 +4114,7 @@ $("provider-form").addEventListener("keydown", (event) => {
   if (event.key === "Enter" && event.target.dataset.pattern) event.target.blur();
 });
 window.addEventListener("resize", () => {
-  markNavSteps();
+  markNavEdges();
   fitSectionPane();
   markCardScrollEdges();
 });

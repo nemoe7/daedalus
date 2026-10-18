@@ -230,7 +230,8 @@ const nav = {{
   scrollLeft: 30, clientWidth: 100, scrollWidth: 260,
   classList: {{ add: (name) => classes.add(name), remove: (name) => classes.delete(name),
     toggle: (name, on) => (on ? classes.add(name) : classes.delete(name)) }},
-  addEventListener: () => {{}}, style: {{ setProperty() {{}} }},
+  addEventListener: () => {{}},
+  style: {{ props: {{}}, setProperty(key, value) {{ this.props[key] = value; }} }},
 }};
 const byId = new Map();
 const el = (id) => {{
@@ -364,26 +365,23 @@ for (const tier of tiers) {
 
 
 def test_app_js_tab_steps() -> None:
-  """Navigation chevrons follow the tab bar scroll bounds."""
+  """The tab strip breathes its edge fades and carries no chevrons."""
   code = _app_js_vm(
     """
-const left = byId.get('nav-left'), right = byId.get('nav-right');
-assert(!left.hidden && !right.hidden, 'both chevrons show on the first paint');
-sandbox.renderStatus({
-  healthy: true, sessions: 2, models: 80, version: 'v1',
-  catalog: { built: 1, next: 2, rebuilding: false },
-});
-assert(!left.hidden && !right.hidden);
+assert(!byId.has('nav-left') && !byId.has('nav-right'), 'no chevron buttons remain');
 nav.scrollLeft = 0;
-sandbox.markNavSteps();
-assert(left.hidden && !right.hidden, 'the left chevron goes at the start');
-nav.scrollLeft = 160;
-sandbox.markNavSteps();
-assert(!left.hidden && right.hidden, 'the right chevron goes at the end');
-nav.scrollLeft = 0;
-nav.scrollWidth = 100;
-sandbox.markNavSteps();
-assert(left.hidden && right.hidden, 'no chevron when every tab fits');
+nav.scrollWidth = 400;
+nav.clientWidth = 200;
+sandbox.markNavEdges();
+assert.strictEqual(nav.style.props['--fade-left'], '0px', 'no fade at the start');
+assert.strictEqual(nav.style.props['--fade-right'], '20px', 'the far edge breathes in');
+nav.scrollLeft = 24;
+sandbox.markNavEdges();
+assert.strictEqual(nav.style.props['--fade-left'], '10px', 'the fade grows over the stretch');
+nav.scrollLeft = 200;
+sandbox.markNavEdges();
+assert.strictEqual(nav.style.props['--fade-left'], '20px', 'the near edge holds');
+assert.strictEqual(nav.style.props['--fade-right'], '0px', 'the far fade shrinks away');
 """
   )
   subprocess.run(["node", "-e", code], check=True)
@@ -1238,7 +1236,9 @@ def test_the_header_lists_six_tabs_with_settings_last(client: TestClient) -> Non
   """Header markup and page routes list six tabs, and Providers lives inside Settings."""
   page = client.get("/")
   nav = page.text[
-    page.text.index('<nav class="tabs" id="nav">') : page.text.index("</nav>")
+    page.text.index('<nav class="tabs scroll-fade" id="nav">') : page.text.index(
+      "</nav>"
+    )
   ]
   assert re.findall(r'data-page="([a-z]+)"', nav) == [
     "overview",
@@ -1808,6 +1808,15 @@ def test_the_short_values_carry_their_full_text() -> None:
   )
   assert ".tab:hover { color: var(--text); border-color: var(--muted); }" in css, (
     "the view tabs answer the mouse"
+  )
+  assert (
+    ".tabs a {\n"
+    "  display: flex; align-items: center; min-height: 48px; color: var(--muted);\n"
+    "  text-decoration: none; font-size: 14px; font-weight: 500; white-space: nowrap;\n"
+    "  flex: none;\n"
+    "}" in css
+  ), (
+    "a tab keeps its intrinsic width inside the scrolling strip, so labels never overlap"
   )
   assert "text-decoration: underline; }" in css, "a sort head marks its own click"
   assert "button.line.rebuild:hover { color: var(--accent-text); }" in css, (
@@ -4576,30 +4585,33 @@ def test_the_confirm_dialog_keeps_the_phone_gutter() -> None:
 
 
 def test_the_tab_bar_fades_its_clipped_edges() -> None:
-  """Tab CSS defines edge masks and retains hidden chevron slots."""
+  """One shared class carries the breathing edge mask; no chevrons remain."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  fade = re.search(r"#nav,\s*\.card-scroll \{([^}]*)\}", css)
+  fade = re.search(r"\n\.scroll-fade \{([^}]*)\}", css)
   assert fade and "mask-image: linear-gradient(90deg, transparent 0," in fade.group(
     1
-  ), "the tab and card scrollers share their edge mask"
-  assert "#nav.fade-left" not in css and ".card-scroll.fade-left" not in css, (
-    "the fades ride on inline lengths, not classes"
+  ), "the shared class carries the edge mask"
+  assert "overflow-x: auto;" in fade.group(1), "the shared class owns its overflow"
+  assert "#nav," not in css, (
+    "the strip joins the scrollers through the class, not an id"
+  )
+  assert (
+    ".tab-step" not in css and "#nav-left" not in css and "#nav-right" not in css
+  ), "no chevron control or slot remains in the css"
+  html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  assert 'class="tabs scroll-fade" id="nav"' in html, "the strip wears the shared class"
+  assert "nav-left" not in html and "nav-right" not in html, (
+    "the header carries no step buttons"
   )
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert "markScrollEdges(nav)" in app, "the bar fades only while it clips"
-  assert ".tab-step span { display: block; transform: translateY(-2px); }" in css, (
-    "the angle glyph centers on the tab text"
+  assert app.count('class="card-scroll scroll-fade"') == 2, (
+    "the card scrollers wear the same class"
   )
-  assert "#nav-left:not([hidden]) { margin-left: -12px; }" in css, (
-    "a shown chevron sits at the page edge"
+  assert "tab-step" not in app and "nav-left" not in app, (
+    "no chevron code remains in the app"
   )
-  hidden = re.search(r"\.tab-step\[hidden\] \{([^}]*)\}", css)
-  assert hidden and "display: grid !important;" in hidden.group(1), (
-    "a hidden chevron keeps its slot, so the scroll never snaps"
-  )
-  assert "visibility: hidden;" in hidden.group(1)
-  assert "pointer-events: none;" in hidden.group(1), "the fading chevron takes no input"
 
 
 def test_scroll_edge_affordances_share_the_soft_motion() -> None:
@@ -4620,16 +4632,11 @@ def test_scroll_edge_affordances_share_the_soft_motion() -> None:
     "the settings fade follows the scrolled distance"
   )
 
-  step = re.search(r"\n\.tab-step \{([^}]*)\}", css)
-  assert step and "opacity: 1;" in step.group(1)
-  assert "opacity var(--soft) var(--ease)" in step.group(1), (
-    "a shown header chevron fades in with its mask"
-  )
-  hidden = re.search(r"\.tab-step\[hidden\] \{([^}]*)\}", css)
-  assert hidden and "opacity: 0;" in hidden.group(1)
-  assert "visibility 0s var(--soft)" in hidden.group(1), (
-    "visibility waits while a header chevron fades out"
-  )
+  assert ".tab-step" not in css, "no chevron remains to animate"
+  app_nav = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert (
+    'nav.addEventListener("scroll", markNavEdges, { passive: true });' in app_nav
+  ), "the strip recomputes its fades on scroll"
 
 
 def test_card_tables_own_horizontal_overflow_and_fade_only_clipped_edges() -> None:
@@ -4643,11 +4650,13 @@ def test_card_tables_own_horizontal_overflow_and_fade_only_clipped_edges() -> No
   ]
 
   assert re.search(
-    r'<div class="card-scroll">\s*<table class="keys">.*?</table>\s*</div>',
+    r'<div class="card-scroll scroll-fade">\s*<table class="keys">.*?</table>\s*</div>',
     keys,
     re.DOTALL,
   ), "the API Keys table scrolls without masking its form or reveal controls"
-  assert keys.index('<form class="toolbar"') < keys.index('<div class="card-scroll">')
+  assert keys.index('<form class="toolbar"') < keys.index(
+    '<div class="card-scroll scroll-fade">'
+  )
   table_end = hooks.index("</table></div>")
   update = hooks.index(
     'actionButton(`${icon("refresh_cw")} ${t("action.update_sources_button")}`',
@@ -4656,7 +4665,7 @@ def test_card_tables_own_horizontal_overflow_and_fade_only_clipped_edges() -> No
   assert (
     update > table_end and '"data-hooks-update": true' in hooks[update : update + 200]
   ), "the Hooks table scrolls without masking its Update control"
-  card_scroll = re.search(r"\.card-scroll \{([^}]*)\}", css)
+  card_scroll = re.search(r"\n\.scroll-fade \{([^}]*)\}", css)
   assert card_scroll and "overflow-x: auto;" in card_scroll.group(1), (
     "the table region, not the card or settings pane, owns horizontal overflow"
   )
@@ -6163,7 +6172,7 @@ assert.strictEqual(probe.actionButton('Select', {
     'class="primary" type="submit"',
     'class="ghost" type="submit" value="cancel"',
     'class="ghost live-toggle" type="button" id="live-toggle" aria-pressed="false"',
-    'class="ghost tab-step" type="button" id="nav-left"',
+    'class="tabs scroll-fade" id="nav"',
     'class="sort" type="button"',
   ):
     assert fragment in page, fragment
@@ -6201,8 +6210,6 @@ def test_dashboard_icons_and_feedback_keep_accessible_names() -> None:
   assert inline_icons and all('aria-hidden="true"' in tag for tag in inline_icons)
   for fragment in (
     'aria-label="auth.password.show_label"',
-    'type="button" id="nav-left" aria-label="nav.earlier_tabs_label"',
-    'type="button" id="nav-right" aria-label="nav.later_tabs_label"',
     'type="button" id="notice-close" aria-label="notice.dismiss_label"',
     '"data-key": k.name, "aria-label": t("settings.keys.delete_named_label", { name: k.name })',
     (
