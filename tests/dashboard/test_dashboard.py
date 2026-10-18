@@ -5837,8 +5837,17 @@ def test_a_phone_opens_a_section_as_its_own_page() -> None:
     " { display: none; }" in phone
   ), "the outer back yields to the nested one"
   assert (
-    "button.hint, .pills [data-drop], .pills [data-add], [data-hook-drop]," in phone
-  ), "the phone lifts the small controls to the touch floor"
+    ".pills [data-drop], .pills [data-add], [data-hook-drop],\n"
+    "  .section-pane .back, #nav a { min-height: 44px; min-width: 44px; }" in phone
+  ), "the phone lifts the boxed controls to the touch floor"
+  assert "button.hint, .pills" not in phone, (
+    "the round icon buttons keep their drawn size on a phone"
+  )
+  assert (
+    "button.hint, .undo-step { position: relative; }\n"
+    '  button.hint::after, .undo-step::after { content: ""; position: absolute;'
+    " inset: -14px; }" in phone
+  ), "the round icon buttons grow their hit area outside the drawn box"
 
 
 def test_notifications_endpoint(

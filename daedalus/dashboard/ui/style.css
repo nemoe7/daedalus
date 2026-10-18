@@ -867,9 +867,12 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   /* The nested rail spans the whole card, and the outer back yields to the nested one. */
   .card.nested .sections { flex: 1 1 100%; }
   #settings .section-pane:has(.card.nested .settings[data-detail="1"]) > .back { display: none; }
-  /* The touch floor: the small controls grow their hit areas on a phone. */
-  button.hint, .pills [data-drop], .pills [data-add], [data-hook-drop],
+  /* The touch floor: the boxed controls grow their hit areas on a phone. */
+  .pills [data-drop], .pills [data-add], [data-hook-drop],
   .section-pane .back, #nav a { min-height: 44px; min-width: 44px; }
+  /* Round icon buttons keep their drawn box: the target grows outside it. */
+  button.hint, .undo-step { position: relative; }
+  button.hint::after, .undo-step::after { content: ""; position: absolute; inset: -14px; }
 }
 @media (max-width: 1320px) {
   /* A narrow desktop keeps 1 header row: the state leaves the header, as on a phone, and the
