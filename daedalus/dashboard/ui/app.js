@@ -2141,6 +2141,10 @@ function playSlide(host, open) {
 
 // Activate one section button and card. On phones, leave the list.
 function selectSection(host, key, open = sectionState(host).open) {
+  // Settings always shows one card: an entry with no selection takes the first section.
+  if (!key && host.id === "settings") {
+    key = host.querySelector(":scope > .rail > .sections button")?.dataset.section ?? "";
+  }
   const state_ = sectionState(host);
   const moved = state_.open !== open;
   state_.key = key;
@@ -2153,8 +2157,9 @@ function selectSection(host, key, open = sectionState(host).open) {
     if (on) button.setAttribute("aria-current", "true");
     else button.removeAttribute("aria-current");
   }
+  const list = host.id === "settings" ? key : "";
   for (const card of host.querySelectorAll(":scope > .section-pane > .card")) {
-    card.hidden = open ? card.dataset.section !== key : card.dataset.section !== "";
+    card.hidden = open ? card.dataset.section !== key : card.dataset.section !== list;
   }
   // A drill page names itself in the bar, as the reference detail pages do.
   const title = host.id === "provider-form"
@@ -2164,7 +2169,7 @@ function selectSection(host, key, open = sectionState(host).open) {
     title.textContent = key === "yaml" ? t("yaml.label") : key;
   }
   // The reference clears the sidebar mark while a drill page holds the pane.
-  if (host.id === "provider-form") {
+  if (host.id === "provider-form" && sectionState($("settings")).key === "providers") {
     const outer = $("settings").querySelector(':scope > .rail > .sections button[data-section="providers"]');
     if (outer) {
       outer.classList.toggle("on", !open);

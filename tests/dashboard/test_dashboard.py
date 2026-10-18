@@ -2577,6 +2577,8 @@ const sandbox = {{
   }},
   navigator: {{}},
   location: {{ hash: '' }},
+  history: {{ replaceState: () => {{}}, pushState: () => {{}} }},
+  URLSearchParams,
   window: {{ addEventListener: () => {{}} }},
   getSelection: () => ({{ isCollapsed: true }}),
   console: {{ error: () => {{}} }},
@@ -2876,6 +2878,56 @@ assert.deepStrictEqual(Array.from(probe.hookOrderFiles('on-chunk')),
 assert.deepStrictEqual(JSON.parse(JSON.stringify(probe.settingsChanges().hooks)),
   {{order: {{'on-chunk': ['hooks/served.py', 'hooks/auto.py']}}}},
   'the save writes only the order hint');
+""",
+  )
+
+
+def test_app_js_settings_entry_shows_the_first_section_card() -> None:
+  """A tab switch into Settings with no section in the hash shows one card."""
+  payload = json.dumps(
+    {
+      "path": "config/daedalus.yml",
+      "headroom_available": False,
+      "text": "",
+      "hook_files": [],
+      "defaults": settings.DEFAULTS,
+      "file": {"hooks": {"sources": []}},
+      "hook_rows": [],
+    }
+  )
+  run_app_js(
+    "state, renderSettings, selectSection",
+    f"""
+probe.state.settings = {payload};
+probe.renderSettings();
+const settings = node('settings');
+const html = settings.innerHTML;
+const cards = [...html.matchAll(/<div class="card[^"]*" data-section="([a-z]+)"/g)]
+  .map((m) => ({{ dataset: {{ section: m[1] }}, hidden: false }}));
+const buttons = [...html.matchAll(/<button[^>]*data-section="([a-z]+)"/g)]
+  .map((m) => {{
+    const button = {{ dataset: {{ section: m[1] }}, on: false,
+      setAttribute: () => {{}}, removeAttribute: () => {{}}, querySelector: () => null }};
+    button.classList = {{ toggle: (name, on) => {{ if (name === 'on') button.on = on; }} }};
+    return button;
+  }});
+const summary = {{ innerHTML: '' }};
+settings.querySelectorAll = (sel) => (sel.includes('.card') ? cards : buttons);
+settings.querySelector = (sel) => {{
+  if (sel.includes('data-pane-summary')) return summary;
+  const want = sel.match(/data-section="([a-z]+)"/);
+  if (want) return buttons.find((button) => button.dataset.section === want[1]) ?? null;
+  return sel.includes('button') ? buttons[0] : null;
+}};
+// The tab switch lands on Settings with no section in the hash.
+probe.selectSection(settings, '', false);
+probe.selectSection(node('provider-form'), '', false);
+const marked = buttons.filter((button) => button.on).map((button) => button.dataset.section);
+assert.deepStrictEqual(marked, ['routing'], 'only the shown section keeps its rail mark');
+const shown = cards.filter((card) => !card.hidden);
+assert.strictEqual(shown.length, 1, 'exactly one settings card shows on entry');
+assert.strictEqual(shown[0].dataset.section, buttons[0].dataset.section,
+  'the shown card is the first rail section');
 """,
   )
 
