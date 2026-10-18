@@ -144,9 +144,12 @@ The page drops the hash after it reads it.
 
 ## Providers
 
-Open the Providers section of the Settings page, then select a provider in its list to show its
-card. Select a value to open its editor. **Save** writes a valid change. Cancel, Escape, or closing
-without confirmation keeps the earlier value.
+Open the Providers section of the Settings page. The section lists the providers of the selected
+file, each row with a chevron. Select a row to open the provider as its own page, headed by a back
+chevron and the provider name. The back returns to the list.
+
+Select a value on the page to open its editor. **Save** writes a valid change. Cancel, Escape, or
+closing without confirmation keeps the earlier value.
 
 A switch and a selection list hold 1 valid value, so the change writes at once. The last write shows its
 Undo beside the row that changed, and a failure shows its line under the file chips. The file row

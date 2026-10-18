@@ -664,7 +664,9 @@ section[data-page="providers"], section[data-page="settings"] {
 .card.nested > h3 { padding: 18px 20px 8px; }
 .card.nested .files { padding: 12px 20px; }
 .card.nested .settings { margin: 0; }
-.card.nested .rail { flex: 0 1 200px; }
+/* The drill list page keeps its rows flush, and every row carries a chevron. */
+.card.list { padding: 0; }
+.sections.drill button::after { content: "\203a"; color: var(--muted); font-size: 18px; line-height: 1; }
 .card.nested .sections { border: 0; background: none; }
 .card.nested .section-pane { padding: 0 20px 10px; }
 /* A card of a section closes on the room of 1 row: the last row keeps the same space to the edge
@@ -674,9 +676,14 @@ section[data-page="providers"] .card { padding-bottom: 10px; }
 .section-pane { flex: 1 1 min(360px, 100%); display: grid; gap: 16px; min-width: 0; }
 .section-pane > .card { min-width: 0; }
 .section-pane .back { display: none; justify-self: start; }
+/* The bar heads a drill page: back chevron and title, as the reference detail pages do. */
+.pane-bar { display: flex; align-items: center; gap: 12px; }
+.pane-title { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -0.5px; }
 .settings h3 { margin-bottom: 8px; }
 /* The personalization toggle hides the page summaries across the settings tabs. */
 section[data-page="settings"].hide-page-headers .pane-summary { display: none; }
+/* A drill page holds the pane alone: the section summary stays with the list. */
+#settings:has(#provider-form[data-detail="1"]) > .section-pane > .pane-summary { display: none; }
 .field {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 10px 0; border-top: 1px solid var(--line);
@@ -847,6 +854,17 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .rail { position: sticky; top: 0; }
   /* A desktop rail lists every section at once, so its search stays a phone tool. */
   .rail-search { display: none; }
+  /* A desktop drill page heads the pane with the bar, and the list keeps the summary. */
+  .pane-bar { display: none; }
+  #provider-form[data-detail="1"] > .section-pane > .pane-bar {
+    display: flex; gap: 20px; position: sticky; top: 0; z-index: 2;
+    background: var(--panel); padding: 14px 20px; margin: 0 -20px;
+  }
+  #provider-form[data-detail="1"] > .section-pane > .pane-bar .back {
+    display: block; min-height: 0; padding: 0; border: 0; color: var(--muted);
+  }
+  #provider-form[data-detail="1"] > .section-pane > .pane-bar .back .back-label { display: none; }
+  #provider-form[data-detail="1"] > .section-pane > .pane-bar .chev { font-size: 24px; line-height: 1; vertical-align: -3px; }
   /* The pane softens only a clipped edge. Its cards stay the content of this one scrollport. */
   .section-pane {
     --fade-top: 0px; --fade-bottom: 0px; min-height: 0; overflow-y: auto; align-self: stretch;
@@ -870,8 +888,12 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   /* A selection opens the section as its own page, so the list carries no selected mark. */
   .sections button.on { background: none; box-shadow: none; }
   .section-pane { display: none; }
+  /* The providers host keeps its list inside the pane: it has no rail to swap to. */
+  #provider-form > .section-pane { display: grid; }
+  /* The list page has no nested step to return from, so its bar stays away. */
+  #provider-form:not([data-detail="1"]) > .section-pane > .pane-bar { display: none; }
   /* Only the host's own list and pane: a nested providers host keeps its own step. */
-  .settings[data-detail="1"] > .sections { display: none; }
+  .settings[data-detail="1"] > .rail { display: none; }
   .settings[data-detail="1"] > .section-pane { display: grid; }
   /* The pane of a phone closes the gap above the back row: the header sits close, and the card
      follows the label with no empty band between. */
@@ -880,7 +902,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .section-pane .back .chev { font-size: 24px; line-height: 1; vertical-align: -3px; }
   /* The nested rail spans the whole card, and the outer back yields to the nested one. */
   .card.nested .sections { flex: 1 1 100%; }
-  #settings .section-pane:has(.card.nested .settings[data-detail="1"]) > .back { display: none; }
+  #settings .section-pane:has(.card.nested .settings[data-detail="1"]) > .pane-bar > .back { display: none; }
+  /* A phone drill page titles itself under the back label, as the reference lists do. */
+  .pane-title:not([hidden]) { font-size: 26px; letter-spacing: -0.9px; }
   /* The touch floor: the boxed controls grow their hit areas on a phone. */
   .pills [data-drop], .pills [data-add], [data-hook-drop],
   .section-pane .back, #nav a { min-height: 44px; min-width: 44px; }
