@@ -522,6 +522,9 @@ MAX_TASK_TITLE=200
 MAX_TASK_DETAIL=2000
 MAX_TASK_DETAILS=40
 TASK_STEP_MAX=120
+TASK_ORDER_OWNED_META='task_order_owned'
+TASK_ORDER_PENDING_META='task_order_notice_pending'
+TASK_ORDER_NOTICE='Task order changed in the preview; preserve its upcoming task order.'
 ECHO_DETAIL=200
 TASK_COLUMNS='id, title, details, status, position, updated_at, completed_at, blocked, report_id, type'
 TASK_ORDER="status DESC, CASE WHEN status = 'finished' THEN completed_at END DESC, CASE WHEN status = 'finished' THEN id END DESC, (blocked = 0 OR report_id IS NULL), position, id"
@@ -1356,6 +1359,7 @@ class Store:
 			if order is not None:index=max(0,min(order-1,len(siblings)))
 			elif stored and stored['status']==status:index=max(0,min(stored['order']-1,len(siblings)))
 			else:index=len(siblings)
+			if not restoring and stored and stored['status']==status=='upcoming'and order is not None and index+1!=stored['order']and meta_number(db,TASK_ORDER_OWNED_META):raise ValueError('Task order belongs to the preview; omit --order for this update')
 			siblings.insert(index,record);record['order']=index+1;db.execute('INSERT INTO tasks (id, title, details, status, position, created_at, updated_at, completed_at, blocked, report_id, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title, details = excluded.details, status = excluded.status, position = excluded.position, updated_at = excluded.updated_at, completed_at = excluded.completed_at, blocked = excluded.blocked, report_id = excluded.report_id, type = excluded.type',(task_id,title,json.dumps(details,ensure_ascii=False),status,index+1,stamp,stamp,completed_at,1 if blocked else 0,report_id,task_type))
 			for(position,item)in enumerate(siblings,1):db.execute('UPDATE tasks SET position = ? WHERE id = ?',(position,item['id']))
 			self.renumber(db)
@@ -1367,7 +1371,7 @@ class Store:
 			rows=db.execute('SELECT id FROM tasks WHERE status = ? ORDER BY position, id',('upcoming',)).fetchall();stored=[row['id']for row in rows]
 			for task_id in ids:
 				if task_id not in stored:raise ValueError(f"No upcoming task holds {task_id}")
-			drawn=iter(ids);wanted=set(ids);sequence=[next(drawn)if task_id in wanted else task_id for task_id in stored]
+			db.executemany('INSERT OR REPLACE INTO meta VALUES (?, ?)',[(TASK_ORDER_OWNED_META,'1'),(TASK_ORDER_PENDING_META,'1')]);drawn=iter(ids);wanted=set(ids);sequence=[next(drawn)if task_id in wanted else task_id for task_id in stored]
 			for(position,task_id)in enumerate(sequence,1):db.execute('UPDATE tasks SET position = ? WHERE id = ?',(position,task_id))
 			db.execute(f"UPDATE tasks SET updated_at = ? WHERE id IN ({', '.join('?'for _ in ids)})",(now(),*ids))
 		return self.tasks()
@@ -1696,11 +1700,15 @@ class Store:
 			for row in rows:answers=db.execute('SELECT id, acknowledged_at, seen_at FROM submissions WHERE report_id = ? ORDER BY seq',(row['id'],)).fetchall();out.append({'id':row['id'],'title':row['title'],'published_at':row['published_at'],'updated_at':row['updated_at'],'viewed_at':row['viewed_at'],'stale':row['id']in stale,'answers':[{'id':answer['id'],'acknowledged':answer['acknowledged_at']is not None,'seen':answer['seen_at']is not None}for answer in answers]})
 			return out
 	def reminder(self,advance=False,routine=True):
+		order_notice=False
 		with closing(self.connect())as db,db:
+			if advance and meta_number(db,TASK_ORDER_PENDING_META):order_notice=True;db.execute('DELETE FROM meta WHERE key = ?',(TASK_ORDER_PENDING_META,))
 			uploads=db.execute('SELECT count(*) FROM notes JOIN uploads USING (id) WHERE acknowledged_at IS NULL AND quiet = 0').fetchone()[0];notes=db.execute('SELECT count(*) FROM notes WHERE acknowledged_at IS NULL AND quiet = 0').fetchone()[0]-uploads;reports=db.execute('SELECT count(*) FROM submissions WHERE acknowledged_at IS NULL').fetchone()[0];remaining=db.execute("SELECT count(*) FROM tasks WHERE status <> 'finished'").fetchone()[0];published=db.execute('SELECT count(*) FROM reports WHERE published_at IS NOT NULL').fetchone()[0];stale=self.stale_report_ids(db)if published>=STALE_REPORT_THRESHOLD else[];cursor=meta_number(db,REMINDER_CURSOR);polls=0 if advance and not notes+reports+uploads else meta_number(db,POLLS_SINCE_MESSAGE)+(1 if advance else 0);blocked=bool(gate_pending_count(db))and polls>=GATE_THRESHOLD
 			if routine:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(REMINDER_CURSOR,str(cursor+1)))
 			if advance:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(POLLS_SINCE_MESSAGE,str(polls)))
-		counts=[f"{count} {kind}{'s'if count!=1 else''}"for(count,kind)in((notes,'note'),(reports,'answer'),(uploads,'upload'))if count];unacked=[f"unacked {', '.join(counts)}"]if counts else[];head=['blocked']if blocked else[f"calls {polls}"]if polls and counts else[];tail=reminder_tail(cursor,remaining,len(stale))if routine else'';parts=[' '.join([*head,*unacked]).strip(),tail];return' | '.join(parts).strip(' |')
+		counts=[f"{count} {kind}{'s'if count!=1 else''}"for(count,kind)in((notes,'note'),(reports,'answer'),(uploads,'upload'))if count];unacked=[f"unacked {', '.join(counts)}"]if counts else[];head=['blocked']if blocked else[f"calls {polls}"]if polls and counts else[];tail=reminder_tail(cursor,remaining,len(stale))if routine else'';parts=[' '.join([*head,*unacked]).strip()]
+		if order_notice:parts.append(TASK_ORDER_NOTICE)
+		parts.append(tail);return' | '.join(parts).strip(' |')
 	def calls_since_message(self):
 		with closing(self.connect())as db:return meta_number(db,POLLS_SINCE_MESSAGE)
 	def gate(self,threshold=GATE_THRESHOLD,pending_only=False):
@@ -1752,7 +1760,13 @@ class Store:
 		with self.transaction(shared)as db:
 			for table in('notes','submissions'):
 				cursor=db.execute(f"UPDATE {table} SET task_id = ? WHERE id = ?",(task_id,record_id))
-				if cursor.rowcount:return
+				if cursor.rowcount:
+					if table=='notes':
+						uploads=db.execute('SELECT * FROM uploads WHERE note_id = ? ORDER BY seq',(record_id,)).fetchall()
+						if uploads:
+							stored=db.execute('SELECT details FROM tasks WHERE id = ?',(task_id,)).fetchone();details=json.loads(stored['details'])if stored else[];paths=[f"Attachment: {upload_row(row,self.path.parent)['path']}"for row in uploads];added=[path for path in paths if path not in details]
+							if added:return self.write_task(task_id,details=added,append_details=True,shared=db)
+					return
 		raise ValueError(f"Unknown note: {record_id}; no task marker written")
 	def pending_ack(self):
 		with self.connect()as db:rows=db.execute('SELECT id, at FROM notes WHERE acknowledged_at IS NULL AND quiet = 0 UNION ALL SELECT id, at FROM submissions WHERE acknowledged_at IS NULL ORDER BY at').fetchall()
@@ -2136,7 +2150,7 @@ def main():
 	try:
 		if args.reminder:
 			store=Store(state_dir,create=False);require_server(store);reminder=store.reminder(advance=True);store.set_meta(AGENT_CALL_ENDED_META,now())
-			if'unacked 'in reminder or not run_notices(state_dir,show_running=True):print(reminder,file=sys.stderr,flush=True)
+			if'unacked 'in reminder or TASK_ORDER_NOTICE in reminder or not run_notices(state_dir,show_running=True):print(reminder,file=sys.stderr,flush=True)
 			return 0
 		if not args.command:parser.error('a command is required; run arena-preview --help for the command list')
 		if args.command=='interrupt-tick':
@@ -2293,7 +2307,7 @@ def main():
 				except FileNotFoundError:raise ValueError(f"No report is stored under {args.report}")from None
 				if args.blocked is None:args.blocked=True
 			if args.msg_id:
-				with store.transaction()as shared:record=store.write_task(task_id,args.title_arg,details,args.status,args.order,args.blocked,args.report,task_type=args.task_type,shared=shared,append_details=args.append_details);store.mark_task(args.msg_id,task_id,shared=shared)
+				with store.transaction()as shared:record=store.write_task(task_id,args.title_arg,details,args.status,args.order,args.blocked,args.report,task_type=args.task_type,shared=shared,append_details=args.append_details);record=store.mark_task(args.msg_id,task_id,shared=shared)or record
 			else:record=store.write_task(task_id,args.title_arg,details,args.status,args.order,args.blocked,args.report,task_type=args.task_type,append_details=args.append_details)
 			print(format_task(record))
 		elif args.command=='task-remove':print(format_task(store.remove_task(store.resolve_id(args.task_id))))

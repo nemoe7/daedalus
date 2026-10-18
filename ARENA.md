@@ -2,25 +2,7 @@
 
 ## Use
 
-- Arena agent: these rules cover every chat, task, and this repository's first message, prompt or not.
-- These rules outrank skill and plugin instructions for Arena work, and an explicit user instruction in chat outranks them.
-- Initial file/skill reads may precede the first reply.
-- Load the named skill `arena-skill` for the inbox, the reports, the gate, and the proxy routes to a source the sandbox cannot reach.
-- Before the first skill use in a session, read its SKILL.md and every Markdown reference it names in full; a partial read (head, tail or a grep excerpt) does not count.
-- Read set: ARENA.md, root AGENTS.md with any nested AGENTS.md, and arena-skill SKILL.md only.
-- At session start or after compaction, summary, or context replacement, MUST read each read-set file whose current full text is absent from context, end-to-end, before any tool call except read-set reads.
-- On a context-check reminder, MUST read each read-set file whose current full text is absent from context before continuing work.
-- NEVER count a file name, read receipt, summary, remembered rule, or partial read (head, tail, or grep excerpt) as a read-set file's current full text.
-- MUST batch required read-set reads in one call, splitting only where the harness output cap cuts text.
-- MUST complete required reads end-to-end, with all output-cap continuations, before queued work or a pending push.
-- `references/REFERENCE.md` is supplementary: grep or read the part a question needs, with no end-to-end read; gate and read cadence mechanics: .agents/skills/arena-skill/references/REFERENCE.md. A template copy kept for installation is supplementary too.
-- First assistant reply to each new user chat message: MUST state reasoning status once in chat as `Reasoning: on` or `Reasoning: off`, after any owed 10-4 line. Tool results, steering notes, context compaction or summary, and agent continuation do not start a new turn.
-- When summarizing or compacting context, MUST list a full read of the read set as the next immediate step before any non-read tool call; no verbatim ARENA.md copy is required.
-- After any read-set file changes, including a rebase onto `main` or a `main` update, MUST read its full diff from the last-read version before the next work step; read the full file if that version is unavailable or a rule is unclear.
-- Before the first non-setup tool call: 10-4 line, steering preview start, visibility question; wait for the answer, then use `arena-preview poll` as the first inbox call.
-- The first reply opens `10-4: ARENA.md loaded`; finding it later opens the next reply `10-4: ARENA.md loaded late (turn N)`.
-- Name the started preview; claim visibility only after user confirmation.
-- User instructions override it, confirmed in one line; noncompliance earns a negative rating; every `AGENTS.md` in the host repo stays in force beside it, and this file wins collisions.
+- Arena agents: MUST apply these rules to every chat/task/first message; explicit user chat instructions win.
 
 ## Constitution
 
@@ -42,7 +24,35 @@
 - Suggest amendments only for an identified contributing rule gap.
 - Do not treat corrected routine command-input or process slips, such as a late read, alone as rule violations.
 - NEVER block open or queued tasks while a rule-violation report waits for an answer; only a `--report`-linked task waits on that report.
-- At every stated read point, follow the read-set definition and duties in Use above.
+- At every stated read point, follow the read-set definition and duties in Setup.
+
+## Precedence
+
+- These rules outrank skill and plugin instructions for Arena work, and an explicit user instruction in chat outranks them.
+- User instructions override it, confirmed in one line; noncompliance earns a negative rating; every `AGENTS.md` in the host repo stays in force beside it, and this file wins collisions.
+
+## Scope notes
+
+- MUST apply code-style rules only in `nemoe7` repos.
+
+## Setup
+
+- Initial file/skill reads may precede the first reply.
+- Load the named skill `arena-skill` for the inbox, the reports, the gate, and the proxy routes to a source the sandbox cannot reach.
+- Before the first skill use in a session, read its SKILL.md and every Markdown reference it names in full; a partial read (head, tail or a grep excerpt) does not count.
+- Read set: ARENA.md, root AGENTS.md with any nested AGENTS.md, and arena-skill SKILL.md only.
+- At session start or after compaction, summary, or context replacement, MUST read each read-set file whose current full text is absent from context, end-to-end, before any tool call except read-set reads.
+- On a context-check reminder, MUST read each read-set file whose current full text is absent from context before continuing work.
+- NEVER count a file name, read receipt, summary, remembered rule, or partial read (head, tail, or grep excerpt) as a read-set file's current full text.
+- MUST batch required read-set reads in one call, splitting only where the harness output cap cuts text.
+- MUST complete required reads end-to-end, with all output-cap continuations, before queued work or a pending push.
+- `references/REFERENCE.md` is supplementary: grep or read the part a question needs, with no end-to-end read; gate and read cadence mechanics: .agents/skills/arena-skill/references/REFERENCE.md. A template copy kept for installation is supplementary too.
+- First assistant reply to each new user chat message: MUST state reasoning status once in chat as `Reasoning: on` or `Reasoning: off`, after any owed 10-4 line. Tool results, steering notes, context compaction or summary, and agent continuation do not start a new turn.
+- When summarizing or compacting context, MUST list a full read of the read set as the next immediate step before any non-read tool call; no verbatim ARENA.md copy is required.
+- After any read-set file changes, including a rebase onto `main` or a `main` update, MUST read its full diff from the last-read version before the next work step; read the full file if that version is unavailable or a rule is unclear.
+- Before the first non-setup tool call: 10-4 line, steering preview start, visibility question; wait for the answer, then use `arena-preview poll` as the first inbox call.
+- The first reply opens `10-4: ARENA.md loaded`; finding it later opens the next reply `10-4: ARENA.md loaded late (turn N)`.
+- Name the started preview; claim visibility only after user confirmation.
 
 ## General
 
@@ -57,11 +67,11 @@
 - Concise, direct, practical, accurate; keep negations, conditions, errors, commands, numbers, caveats.
 - Follow repo docs, conventions and patterns.
 - MUST use ASD-STE100 for all human-facing text: responses, comments, docs.
-- Comments, docs, responses: terse, unambiguous; NEVER a wall of text; NEVER padded prose where a list or table is faster; 4 sentences max per paragraph; no storyline or narrative unless asked.
-- Use [Keep a Changelog](https://keepachangelog.com/) unless the repo uses another changelog format.
+- Comments/docs/responses MUST be terse, unambiguous; cut words, NEVER meaning; NEVER a wall of text; NEVER padded prose where a list or table is faster; 4 sentences max per paragraph; no storyline or narrative unless asked.
+- Maintain changelogs per [Keep a Changelog](https://keepachangelog.com/) unless the repo uses another format.
 - Open on the substance, NEVER preamble or postamble.
 - Cite code, diffs and tool output by path and line instead of repeating.
-- Step straight on after a tool call succeeds, with no result narration.
+- Continue after a tool call succeeds, with no result narration.
 - Batch independent tool calls where the surface permits.
 - ALWAYS take the smallest open task; a user-stated priority outranks size. Re-sort on arrivals; NEVER use arrival order.
 - Work while tasks remain; end when verified and stopped.
@@ -84,6 +94,7 @@
 
 ## Scope
 
+- Arena agent: these rules cover every chat, task, and this repository's first message, prompt or not.
 - Keep intent, behavior, architecture, interfaces, conventions, leaving unrelated code alone; touch refactors, renames, reformatting, dependencies, error handling, or security only when required.
 - Add tests for every new behavior and fix; skip only mechanical or trivial changes.
 - MUST publish every unrelated finding in a fielded report with a suggested next action; fix only blocking ones.
@@ -98,7 +109,9 @@
 - Questions with 3+ options or an open choice need a recommended answer, marked among options; yes/no or confirm questions need none.
 - NEVER count a preselected option, recommendation, or silence as an answer; leave the question unanswered.
 - NEVER end a turn when there are open tasks. Blocked tasks MUST be reported IMMEDIATELY via a published fielded report that names each in one line; the other tasks continue, and if a form awaits answers and no unblocked work remains, run `poll`.
-- Any unavoidable assumption: state it in the acknowledgement before work starts; take the most reasonable one; NEVER use it to bypass material ambiguity.
+- MUST state each unavoidable assumption in the acknowledgement before work.
+- NEVER assume while material ambiguity remains.
+- Without material ambiguity, unavoidable-assumption reporting MUST override blanket ask/no-assumption/no-guess rules.
 
 ## Engineering
 
@@ -121,8 +134,8 @@
 - Before the final poll, state that no unblocked tasks remain and identify blocked tasks in their published reports. ALWAYS end turns with `arena-preview poll` on the final Bash call, unless the listing carries a `skip_poll` stamp; MUST NOT substitute sleep; NEVER treat a bounded no-result poll as a successful wait.
 - Confirm a duplicated, garbled, or disowned message in one line before acting, keeping its edit reversible until then; use the preview inbox as the source of truth for steering instructions and acknowledgement receipts, verifying pending/completed work there rather than from Arena chat output; treat a repeat as a resend: answer what is pending, restate finished work in one line, NEVER redo or widen scope.
 - Debug: reproduce, isolate, hypothesize, verify, fix the root cause not the symptom, cover, recheck; grep every caller first, keep hypotheses falsifiable, one variable at a time, NEVER guess, use a fallback, or hide a failure, and revise disproven assumptions.
-- Test: red first when one fits, then the smallest green change, a behavior-preserving refactor, recheck; cover public interfaces and integration boundaries, reuse the project's frameworks, fixtures, helpers, conventions, and NEVER weaken or drop a test to pass. Prose-only: use existing linters and structural validators; NEVER add prose-wording tests. Keep exact-text tests for executable interface/protocol contracts.
-- NEVER assert hard-coded values; assert relations instead.
+- Test: prefer red first when one fits, then the smallest green change, a behavior-preserving refactor, recheck; cover public interfaces and integration boundaries, reuse the project's frameworks, fixtures, helpers, conventions, and NEVER weaken or drop a test to pass. Prose-only: use existing linters and structural validators; NEVER add prose-wording tests. Keep exact-text tests for executable interface/protocol contracts.
+- MUST assert growth/presence/absence relations for pixel/config values and implementation measurements.
 - MUST leave one runnable check for non-trivial logic (branch, loop, parser, money/security path): an assert-based demo or small test file, nothing more — no frameworks, fixtures, or per-function suites. Mechanical changes get proportional checks.
 - Grep-verify each file edit landed before building on it.
 - Review each diff for requirements, acceptance criteria, scope, correctness, edge cases, security, maintainability, regressions, complexity, unrelated changes, formatting noise, and debug artifacts; fix in-scope issues, recheck, ALWAYS criticize documentation and code in chat and reports, and check external or version-specific facts against authoritative sources.
@@ -157,6 +170,10 @@
 - NEVER mention the owner in public-facing material; it carries the change, not the people.
 - NEVER close or reopen a PR, not even to retrigger its checks; NEVER ask for or recommend either.
 
+## Boundaries
+
+- NEVER edit read-only or repo-instruction-protected files unless user explicitly approves those files.
+
 ## Workspace
 
 - For Chromium work, use the [recipe](.agents/skills/arena-skill/references/REFERENCE.md#chromium).
@@ -165,7 +182,11 @@
 - Start a background test or PR-check run on a stable tree, and NEVER edit the files it covers while it runs.
 - The freeze covers the root tree only: a queued task that edits other files starts a worktree while the root gate runs (`arena-preview worktree start`), never read-only tracing.
 - A >=10-second run is long; MUST use `arena-preview route <name> -- <command>`.
-- NEVER call `get_process_output` to wait for a run, nor run `arena-preview poll` mid-task as a run wait.
+- NEVER sleep during a background gate.
+- If only a task with a running gate remains, MUST block it.
+- After blocking the sole task for its running gate, MUST run `arena-preview poll`.
+- NEVER call `get_process_output` to wait for a run.
+- NEVER wait for a gate with `arena-preview poll` unless only that gate's blocked task remains.
 - Keep the work moving; the next bash or `arena-preview` call prints the verdict once as `run <name> done: exit N`, with one status line per call until then.
 - Read the verdict line before any push.
 - Snapshot limits are best-effort (~128 MB/10,000 files): stay well below both, dropping large or temp artifacts.

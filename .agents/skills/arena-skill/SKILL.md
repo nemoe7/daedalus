@@ -35,6 +35,10 @@ Use this guide and its Markdown references for instructions. Do not read shipped
 
 ## Gate and worktrees
 
+- NEVER sleep during a background gate.
+- If only a task with a running gate remains, MUST block it.
+- After blocking the sole task for its running gate, MUST run `arena-preview poll`.
+- NEVER wait for a gate with `arena-preview poll` unless only that gate's blocked task remains.
 - When several queued tasks each edit files, declare each task's paths, then start the root gate before that file work.
 - While that gate runs, ALWAYS use `arena-preview worktree start` before unrelated file-editing work; a queued file task with non-overlapping paths works in that worktree and never waits read-only.
 - NEVER start a gate, commit or push in the detached worktree; only collect its diff after the root gate passes, then validate it on the root.
