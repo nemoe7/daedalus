@@ -6873,6 +6873,7 @@ def test_the_maintenance_card_lives_in_settings() -> None:
     "the notifications page and the models page keep no maintenance hosts"
   )
   assert '"settings.maintenance.title"' in locale, "the section carries its own label"
+  assert '"update.state_title"' in locale, "the update state row carries a label"
   assert "function maintenanceCard()" in app, "one builder draws the card"
   assert '["maintenance", t("settings.maintenance.title")]' in app, (
     "the rail lists the section"
@@ -6905,7 +6906,16 @@ assert(!node('keys').innerHTML.includes(probe.timeText(checked)));
 probe.state.notifications = {update: {at: checked, channel: 'release', latest: '1', current: '1'}};
 assert(probe.maintenanceCard().includes(probe.timeText(checked)));
 probe.state.notifications = {update: null};
-assert(probe.maintenanceCard().includes(probe.line(LOCALE['update.checked_text'], '-')));
+const checkedRow = '<div class="field"><span>' + LOCALE['update.checked_text']
+  + '</span><span>-</span></div>';
+assert(probe.maintenanceCard().includes(checkedRow),
+  'the checked row rides the shared settings row');
+const card = probe.maintenanceCard();
+assert(card.includes('<div class="field"><span>' + LOCALE['update.state_title'] + '</span>'),
+  'the update state reads as a labelled settings row');
+assert(!card.includes('<div class="line">'), 'no overview row rhythm remains in the card');
+assert(card.includes('class="line rebuild field"'),
+  'the catalog control keeps the shared row rhythm');
 """,
   )
 

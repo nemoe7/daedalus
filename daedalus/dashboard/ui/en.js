@@ -572,6 +572,7 @@ globalThis.DAEDALUS_LOCALE = {
   "update.count.commit.other_text": "{count} commits",
   "update.no_commit_text": "This build has no commit ID. The update check cannot compare versions.",
   "update.not_checked_text": "Not checked yet",
+  "update.state_title": "Update state",
   "update.up_to_date_text": "Up to date",
   "update.you_are_on_text": "Current version",
   "validation.characters_at_most_text": "Maximum {count} characters",

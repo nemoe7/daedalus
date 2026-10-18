@@ -3387,19 +3387,25 @@ function renderNotifications(data) {
 // The maintenance card lives in Settings: the update check, the catalog rebuild, and the reset.
 function maintenanceCard() {
   const update = state.notifications?.update;
-  let body = `<h3>${chip("maintenance")}${esc(t("settings.maintenance.title"))}</h3>`;
-  if (!update) body += none(t("update.not_checked_text"));
+  const stateTitle = t("update.state_title");
+  const rows = [];
+  if (!update) rows.push([stateTitle, esc(t("update.not_checked_text"))]);
   else if (update.error === "no commit in this build's version")
-    body += none(t("update.no_commit_text"));
-  else if (update.error) body += none(t("update.check_failed_text", { error: esc(update.error) }));
-  else if (update.channel === "release")
-    body += update.update
-      ? line(t("update.available_text"), `<a href="${esc(update.url)}">${esc(update.latest)}</a>`) +
-        line(t("update.you_are_on_text"), esc(update.current))
-      : line(t("update.up_to_date_text"), esc(update.latest || update.current));
-  else if (update.update) body += line(t("update.behind_main_text"), count(update.behind, "commit"));
-  else body += line(t("update.up_to_date_text"), "main");
-  body += line(t("update.checked_text"), update ? timeText(update.at) : "-");
+    rows.push([stateTitle, esc(t("update.no_commit_text"))]);
+  else if (update.error)
+    rows.push([stateTitle, esc(t("update.check_failed_text", { error: update.error }))]);
+  else if (update.channel === "release") {
+    rows.push(update.update
+      ? [stateTitle, `${esc(t("update.available_text"))} · <a href="${esc(update.url)}">${esc(update.latest)}</a>`]
+      : [stateTitle, `${esc(t("update.up_to_date_text"))} · ${esc(update.latest || update.current)}`]);
+    if (update.update) rows.push([t("update.you_are_on_text"), esc(update.current)]);
+  } else if (update.update)
+    rows.push([stateTitle, `${esc(t("update.behind_main_text"))} ${count(update.behind, "commit")}`]);
+  else rows.push([stateTitle, `${esc(t("update.up_to_date_text"))} · main`]);
+  rows.push([t("update.checked_text"), update ? timeText(update.at) : "-"]);
+  let body = `<h3>${chip("maintenance")}${esc(t("settings.maintenance.title"))}</h3>`;
+  body += rows.map(([left, right]) =>
+    `<div class="field"><span>${esc(left)}</span><span>${right}</span></div>`).join("");
   const { built, next, rebuilding } = state.status?.catalog || {};
   const last = rebuilding ? t("catalog.rebuilding_text") : built ? relative(built) : t("catalog.never_text");
   const following = next
@@ -3407,7 +3413,7 @@ function maintenanceCard() {
     : t("catalog.no_schedule_text");
   const label = rebuilding ? t("catalog.rebuild.running_title") : t("catalog.rebuild.start_title");
   body += actionButton(`<span>${t("catalog.label")}</span><span><b>${esc(last)}</b>${following}</span>`, {
-    variant: "line rebuild",
+    variant: "line rebuild field",
     attrs: { "data-catalog-rebuild": true, title: label, disabled: rebuilding },
   });
   body += `<div class="editbar">` + actionButton(t("dialog.reset.title"), {
