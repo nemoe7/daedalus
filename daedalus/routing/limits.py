@@ -374,15 +374,17 @@ def saved_balances(found: Any) -> dict[str, list[Item]]:
 
 
 def reset_event(found: Any) -> dict[str, Any] | None:
-  """A stored reset event with its provider, client lane, limit and boundary."""
+  """A stored reset event with its provider, lane, model, limit and boundary."""
   if not isinstance(found, dict):
     return None
   provider, client = found.get("provider"), found.get("client")
   kind, span, at = found.get("kind"), found.get("span"), number(found.get("at"))
+  model = found.get("model")
   if (
     not isinstance(provider, str)
     or not provider
     or (client is not None and not isinstance(client, str))
+    or (model is not None and not isinstance(model, str))
     or not isinstance(kind, str)
     or not isinstance(span, str)
     or (kind, span) not in RESET_LIMITS
@@ -390,11 +392,22 @@ def reset_event(found: Any) -> dict[str, Any] | None:
     or not math.isfinite(at)
   ):
     return None
-  return {"at": at, "provider": provider, "client": client, "kind": kind, "span": span}
+  return {
+    "at": at,
+    "provider": provider,
+    "client": client,
+    "model": model,
+    "kind": kind,
+    "span": span,
+  }
 
 
 def reset_key(event: Mapping[str, Any]) -> str:
-  """The persisted scope of one reset: provider, client lane, kind and span."""
+  """The persisted scope of one reset: provider, client lane, kind and span.
+
+  A provider cap is shared by its models, so the model rides the event for
+  display alone and never splits one boundary into several notices.
+  """
   return json.dumps(
     [event["provider"], event["client"], event["kind"], event["span"]],
     separators=(",", ":"),
@@ -635,10 +648,18 @@ class Limits:
     kind: Any,
     span: Any,
     at: Any,
+    model: Any = None,
   ) -> bool:
     """Keep a newer pending boundary for one notification scope."""
     event = reset_event(
-      {"provider": provider, "client": client, "kind": kind, "span": span, "at": at}
+      {
+        "provider": provider,
+        "client": client,
+        "model": model,
+        "kind": kind,
+        "span": span,
+        "at": at,
+      }
     )
     if event is None:
       return False
@@ -750,6 +771,7 @@ class Limits:
         row.get("kind"),
         row.get("span"),
         row.get("reset"),
+        row.get("model"),
       )
     changed |= self._materialize_resets(now)
     if changed:
@@ -779,7 +801,7 @@ class Limits:
     self.lanes[lane] = {"at": now, "rows": rows}
     for row in rows:
       self._schedule_reset(
-        provider, client or None, row["kind"], row["span"], row["reset"]
+        provider, client or None, row["kind"], row["span"], row["reset"], model
       )
     ends = [end for row in rows if (end := cooling_end(row, now))]
     if ends and self.cooldowns:

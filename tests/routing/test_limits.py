@@ -373,6 +373,9 @@ def test_advertised_resets_notify_at_the_boundary_once(tmp_path: Path) -> None:
     ("requests", "day", "mistral", "owui"),
   }
   assert all(event["at"] == boundary for event in events), events
+  assert all(event["model"] == "mistral/model" for event in events), (
+    "a lane-scoped reset carries its model"
+  )
   rows = found.view()["lanes"][0]["rows"]
   assert all(row["remaining"] == row["limit"] for row in rows), (
     "a reset restores each remembered allowance"
@@ -558,6 +561,7 @@ async def test_cloudflare_neurons_reset_at_utc_midnight(tmp_path: Path) -> None:
       "at": midnight,
       "provider": "cloudflare",
       "client": None,
+      "model": None,
       "kind": "neurons",
       "span": "day",
     }

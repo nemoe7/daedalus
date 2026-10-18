@@ -1296,16 +1296,20 @@ def test_limit_events_and_rebuilds_share_a_relative_notification_feed() -> None:
   assert 'id="reset-rows"' not in section and 'id="rebuild-rows"' not in section
   assert 'id="limit-warnings-card"' not in section
   run_app_js(
-    "renderNotifications, icon",
+    "renderNotifications, icon, relative",
     """
 const now = Math.floor(Date.now() / 1000);
 probe.renderNotifications({
-  resets: [{ at: now - 65, provider: 'groq', client: 'owui', kind: 'tokens', span: 'minute' }],
+  resets: [{ at: now - 65, provider: 'groq', client: 'owui', kind: 'tokens', span: 'minute' },
+    { at: now - 70, provider: 'groq', client: null, model: 'groq/model',
+      kind: 'requests', span: 'minute' }],
   rebuilds: [{ at: now - 125, reason: 'scheduled', models: 3,
     added: ['p/new'], removed: [], changed: [], failed: [] }],
   update: null,
   limits: [{ at: now - 5, model: 'groq/model', client: 'owui', kind: 'requests', span: 'minute',
-    remaining: 5, limit: 100, share: 0.05 }],
+    remaining: 5, limit: 100, share: 0.05 },
+  { at: now - 8, model: 'groq/zero', client: null, kind: 'tokens', span: 'minute',
+    remaining: 0, limit: 250, share: 0, reset: now + 600 }],
 });
 const html = node('notification-feed').innerHTML;
 const tokensPerMinute = LOCALE["limits.unit.rate_initial_text"]
@@ -1317,6 +1321,21 @@ assert(html.includes('groq/model'), 'the warning is its own notification');
 assert(html.includes('5 of 100'), 'the warning keeps its allowance');
 assert(html.includes('groq') && html.includes(tokensPerMinute),
   'the reset notification shows');
+const requestsPerMinute = LOCALE["limits.unit.rate_initial_text"]
+  .replace("{unit}", LOCALE["limits.unit.requests.initial_text"])
+  .replace("{span}", LOCALE["limits.span.minute.initial_text"]);
+const modelReset = LOCALE["notification.model_reset_text"]
+  .replace("{model}", 'groq/model').replace("{unit}", requestsPerMinute);
+assert(html.includes(modelReset), 'a model-scoped reset names the model');
+assert(html.includes(LOCALE["notification.model_renewed_text"]),
+  'the model-scoped body says the model allowance renewed');
+const reached = LOCALE["notification.limit_reached_text"].replace("{model}", 'groq/zero');
+const resets = LOCALE["notification.limit_resets_text"]
+  .replace("{when}", probe.relative(now + 600));
+assert(html.includes(reached), 'a zero remainder says the limit is reached');
+assert(!html.includes(LOCALE["notification.limit_near_text"].replace("{model}", 'groq/zero')),
+  'a zero remainder never reads near its limit');
+assert(html.includes(resets), 'the reached notice names the reset time');
 assert(html.includes(rebuildText), 'the rebuild notification shows');
 assert(html.includes(LOCALE["time.just_now_text"])
   && html.includes(LOCALE["time.minute_ago.one_text"])
@@ -4326,8 +4345,18 @@ def client(folder: Path):
     )
     patch.setattr(dashboard, "FILES", (config.DEFAULT_PATH,))
     patch.setattr(api, "get_config", lambda: CONFIG)
+    # The bearer header checks the environment on every request, so the
+    # fixture owns the key instead of borrowing an earlier test's patch.
+    patch.setenv(dashboard.DAEDALUS_MASTER_KEY, MASTER)
     upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
-    yield TestClient(api.app, headers=AUTH)
+    session = TestClient(api.app, headers=AUTH)
+    # The UI endpoints take a session cookie: log in once for the whole module
+    # instead of borrowing an earlier test's cookie jar.
+    login = session.post(
+      "/ui/api/login", json={"username": "admin", "password": MASTER}
+    )
+    assert login.status_code == 200, login.text
+    yield session
   upstream.set_client(None)
   config.set_config(None)
 
@@ -4942,6 +4971,14 @@ def test_the_undo_never_moves_the_row() -> None:
   assert ".field:has(> .undo-step) { padding-left: 34px; }" not in css, (
     "the row keeps its width in place of a shift"
   )
+  app = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/app.js"
+  ).read_text(encoding="utf-8")
+  assert 'button.innerHTML = icon("undo_2");' in app, (
+    "the undo glyph comes from the shared lucide set"
+  )
+  assert "undo_2:" in app, "the icon set carries the undo paths"
+  assert "\\u21b6" not in app, "no raw unicode arrow remains"
 
 
 def test_app_js_places_the_undo_beside_the_control() -> None:

@@ -1123,6 +1123,7 @@ const ICON_PATHS = {
   key: '<path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4" />',
   code: '<path d="M10 12.5 8 15l2 2.5" /> <path d="m14 12.5 2 2.5-2 2.5" /> <path d="M14 2v4a2 2 0 0 0 2 2h4" /> <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z" />',
   cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />',
+  undo_2: '<path d="M9 14 4 9l5-5" /> <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />',
 };
 function icon(name) {
   return `<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON_PATHS[name]}</svg>`;
@@ -2523,7 +2524,7 @@ function rememberWrite(page, restore, anchor = null) {
   button.className = "ghost undo-step";
   button.title = t("action.undo_write_label");
   button.setAttribute("aria-label", t("action.undo_write_label"));
-  button.textContent = "\u21b6";
+  button.innerHTML = icon("undo_2");
   button.addEventListener("click", (event) => {
     // Stop the click before it reaches the switch label.
     event.preventDefault();
@@ -3334,10 +3335,14 @@ function renderNotifications(data) {
       html: item(
         "reset",
         event.at,
-        t("notification.reset_text", { provider: esc(event.provider), unit: esc(limitUnit(event)) }),
+        event.model
+          ? t("notification.model_reset_text", { model: esc(event.model), unit: esc(limitUnit(event)) })
+          : t("notification.reset_text", { provider: esc(event.provider), unit: esc(limitUnit(event)) }),
         event.client
           ? t("notification.client_text", { client: esc(event.client) })
-          : t("notification.provider_renewed_text"),
+          : event.model
+            ? t("notification.model_renewed_text")
+            : t("notification.provider_renewed_text"),
       ),
     })),
     ...(data.limits || []).map((event) => ({
@@ -3345,13 +3350,17 @@ function renderNotifications(data) {
       html: item(
         "warning",
         event.at,
-        t("notification.limit_near_text", { model: esc(event.model) }),
+        event.remaining === 0
+          ? t("notification.limit_reached_text", { model: esc(event.model) })
+          : t("notification.limit_near_text", { model: esc(event.model) }),
         t("notification.limit_left_text", {
           remaining: floorCount(event.remaining),
           limit: floorCount(event.limit),
           unit: esc(limitUnit(event)),
           client: event.client ? ` · ${esc(event.client)}` : "",
-        }),
+        }) + (event.remaining === 0 && event.reset
+          ? ` · ${t("notification.limit_resets_text", { when: relative(event.reset) })}`
+          : ""),
       ),
     })),
     ...(data.rebuilds || []).map((event, index) => ({
