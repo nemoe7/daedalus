@@ -3,22 +3,14 @@ name: CI
 on:
   push:
     branches: [main]
-    paths: &code
-      - "daedalus/**"
-      - "tests/**"
-      - "config/**"
-      - "install.sh"
-      - "install.ps1"
-      - "install.cmd"
-      - "compose.yml"
-      - "compose.dev.yml"
-      - "scripts/**"
-      - "**/*.md"
-      - "pyproject.toml"
-      - "uv.lock"
-      - ".github/workflows/ci.yml"
+    # Steering syncs carry no shipped code, so their pushes skip CI and never
+    # cancel a code run through the concurrency group below.
+    paths-ignore: &steering
+      - ".agents/**"
+      - "ARENA.md"
+      - "AGENTS.md"
   pull_request:
-    paths: *code
+    paths-ignore: *steering
 
 # A new push stops the older run of the same branch or PR.
 concurrency:
