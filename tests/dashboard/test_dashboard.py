@@ -2910,11 +2910,10 @@ probe.selectSection(node('provider-form'), 'openrouter', true);
 // Then the user switches the file to free.yml.
 probe.openFile(1);
 const html = node('provider-form').innerHTML;
-const list = html.slice(html.indexOf('class="sections"'), html.indexOf('class="section-pane"'));
-assert(list.includes('class="on" type="button" data-section="cloudflare" aria-current="true"'),
-  'the new file opens its first section');
-assert(!list.includes('class="on" type="button" data-section="openrouter"'),
-  'the selection of the other file does not ride over');
+const list = html.slice(html.indexOf('class="card list"'), html.indexOf('class="card provider"'));
+assert(list.includes('data-section="cloudflare"'), 'the list names the first host of the new file');
+assert(list.includes('data-section="yaml"'), 'the list keeps the yaml row');
+assert(!list.includes('aria-current'), 'no list row carries a selected mark over');
 assert.strictEqual(node('provider-form').dataset.detail, '0', 'the phone returns to the section list');
 assert(html.includes(LOCALE["provider.yaml.file_hint"].replace("{{file}}", "free.yml")),
   "the yaml card names the new file");
@@ -5873,7 +5872,16 @@ def test_a_phone_opens_a_section_as_its_own_page() -> None:
   assert 'sectionPane(t("nav.providers_link")' in app, (
     "each pane names the page its back button returns to"
   )
+  assert '<h2 class="pane-title" data-pane-title hidden></h2>' in app, (
+    "the pane bar carries the drill page title"
+  )
   style = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert '#provider-form[data-detail="1"] > .section-pane > .pane-bar {' in style, (
+    "a desktop drill page shows the bar over the pane"
+  )
+  assert ".card.list { padding: 0; }" in style, (
+    "the drill list page keeps its rows flush"
+  )
   phone = style.split("@media (max-width: 900px) {", 1)[1]
   assert '.sections button::after { content: "\\203a";' in phone, (
     "a phone row carries a chevron"
@@ -5885,8 +5893,8 @@ def test_a_phone_opens_a_section_as_its_own_page() -> None:
     "the nested rail spans the phone card"
   )
   assert (
-    '#settings .section-pane:has(.card.nested .settings[data-detail="1"]) > .back'
-    " { display: none; }" in phone
+    '#settings .section-pane:has(.card.nested .settings[data-detail="1"])'
+    " > .pane-bar > .back { display: none; }" in phone
   ), "the outer back yields to the nested one"
   assert (
     ".pills [data-drop], .pills [data-add], [data-hook-drop],\n"

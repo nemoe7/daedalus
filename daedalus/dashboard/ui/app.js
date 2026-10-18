@@ -2109,10 +2109,12 @@ function filterRail(host) {
 
 // Name the back button for its destination, as iOS does.
 function sectionPane(back, cards) {
-  const button = actionButton(`<span class="chev" aria-hidden="true">&lsaquo;</span> ${esc(back)}`, {
+  const button = actionButton(`<span class="chev" aria-hidden="true">&lsaquo;</span><span class="back-label"> ${esc(back)}</span>`, {
     variant: "ghost back", attrs: { "data-back": true },
   });
-  return `<div class="section-pane">${button}${cards}</div>`;
+  // The reference heads a drill page with the back chevron and the page title.
+  return `<div class="section-pane"><div class="pane-bar">${button}`
+    + `<h2 class="pane-title" data-pane-title hidden></h2></div>${cards}</div>`;
 }
 
 // The final YAML section has its own Save and includes content that the form cannot display.
@@ -2129,11 +2131,12 @@ function yamlCard(editor, save, hint) {
 // Slide the phone pane from the right and the list from the left.
 function playSlide(host, open) {
   if (!phoneSection()) return;
-  const arriving = host.querySelector(open ? ".section-pane" : ".rail");
+  // A host without a rail slides the pane both ways.
+  const arriving = host.querySelector(open || !host.querySelector(":scope > .rail") ? ".section-pane" : ".rail");
   if (!arriving) return;
-  arriving.classList.remove("slide");
+  arriving.classList.remove("slide", "slide-back");
   void arriving.offsetWidth;
-  arriving.classList.add("slide");
+  arriving.classList.add(open ? "slide" : "slide-back");
 }
 
 // Activate one section button and card. On phones, leave the list.
@@ -2151,7 +2154,23 @@ function selectSection(host, key, open = sectionState(host).open) {
     else button.removeAttribute("aria-current");
   }
   for (const card of host.querySelectorAll(":scope > .section-pane > .card")) {
-    card.hidden = card.dataset.section !== key;
+    card.hidden = open ? card.dataset.section !== key : card.dataset.section !== "";
+  }
+  // A drill page names itself in the bar, as the reference detail pages do.
+  const title = host.id === "provider-form"
+    ? host.querySelector(":scope > .section-pane > .pane-bar > [data-pane-title]") : null;
+  if (title) {
+    title.hidden = !open;
+    title.textContent = key === "yaml" ? t("yaml.label") : key;
+  }
+  // The reference clears the sidebar mark while a drill page holds the pane.
+  if (host.id === "provider-form") {
+    const outer = $("settings").querySelector(':scope > .rail > .sections button[data-section="providers"]');
+    if (outer) {
+      outer.classList.toggle("on", !open);
+      if (!open) outer.setAttribute("aria-current", "true");
+      else outer.removeAttribute("aria-current");
+    }
   }
   // The studied reference heads each pane with a centered icon, title and one line.
   const summary = host.querySelector(":scope > .section-pane > [data-pane-summary]");
@@ -2379,12 +2398,11 @@ function renderForm() {
   const typed = state.view === "yaml" ? $("editor")?.value : undefined;
   if (!state.files.length) return (host.innerHTML = "");
   if (blocks == null) {
-    host.innerHTML = sectionList("provider-form", [["yaml", t("yaml.label")]], "yaml")
-      + sectionPane(t("nav.providers_link"), `<div class="card" data-section="error"><h3>${t("provider.yaml.invalid_text")}</h3>
+    host.innerHTML = sectionPane(t("nav.providers_link"), `<div class="card" data-section="error"><h3>${t("provider.yaml.invalid_text")}</h3>
       <p class="sub">${esc(state.files[state.file].error ?? "")}</p>
       <p class="sub">${t("provider.yaml.fix_text")}</p></div>`
       + yamlCard("editor", "yaml-save", t("provider.yaml.file_hint", { file: fileName(state.files[state.file].path) })));
-    selectSection(host, "yaml");
+    selectSection(host, "yaml", true);
     $("editor").value = typed ?? state.files[state.file].text;
     renderFiles();
     return;
@@ -2393,10 +2411,14 @@ function renderForm() {
   const items = names.map((name) => [name, name]).concat([["yaml", t("yaml.label")]]);
   const selected = sectionState(host).key;
   const active = items.some(([key]) => key === selected) ? selected : items[0][0];
-  host.innerHTML = sectionList("provider-form", items, active)
-    + sectionPane(t("nav.providers_link"), `<div class="pane-summary" data-pane-summary></div>`
-      + names.map((name) => providerCard(name, blocks[name])).join("")
-      + yamlCard("editor", "yaml-save", t("provider.yaml.file_hint", { file: fileName(state.files[state.file]?.path ?? "") })));
+  // The list page holds the drill rows; a chosen row opens its own page.
+  const list = `<div class="card list" data-section=""><nav class="sections drill"
+    aria-label="${t("common.sections_label")}">${items.map(([key, label]) => actionButton(`${chipFor("provider-form", key)}<span>${esc(label)}</span>`, {
+    attrs: { "data-section": key },
+  })).join("")}</nav></div>`;
+  host.innerHTML = sectionPane(t("nav.providers_link"), list
+    + names.map((name) => providerCard(name, blocks[name])).join("")
+    + yamlCard("editor", "yaml-save", t("provider.yaml.file_hint", { file: fileName(state.files[state.file]?.path ?? "") })));
   selectSection(host, active);
   $("editor").value = typed ?? state.files[state.file]?.text ?? "";
   renderFiles();
