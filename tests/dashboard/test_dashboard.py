@@ -1041,7 +1041,7 @@ const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
   fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') +
   "\\nglobalThis.__probe = {{ renderRequests, renderLive," +
-  " poolTier, state, modelName, poolOf, routingCodes, mobileFallbackChain, openChain }};";
+  " poolTier, state, modelName, poolOf, routingCodes, openChain }};";
 const nodes = new Map();
 const node = (id) => {{
   if (!nodes.has(id)) nodes.set(id, {{ innerHTML: '', value: '', checked: false, textContent: '', hidden: false,
@@ -1088,24 +1088,21 @@ const columnNames = {json.dumps(keys)}.map((key) => LOCALE[key]);
 const fallbackCount = (count, key) => LOCALE[key].replace("{{count}}", String(count));
 const chainTitle = (count, key) => LOCALE["request.chain.title_with_count_text"]
   .replace("{{count}}", fallbackCount(count, key));
-const chainView = (count, key) => LOCALE["request.chain.view_with_count_text"]
-  .replace("{{count}}", fallbackCount(count, key));
 assert.deepStrictEqual(mobileLabels(html), columnNames,
   'the cells show their column names in table order');
 assert(html.includes('hide-sm num mono'), 'the session id reads in the mono font');
 assert(html.includes('class="request has-chain"'), 'requests with fallbacks expose their chain');
-assert(html.includes(chainView(1, "request.chain.fallback.one_text")),
-  'the chain details disclose the fallback count');
+assert(!html.includes('chain-open'), 'the row carries no chain pill');
+const ROW_AT = {json.dumps(row["at"])};
+assert(html.includes('data-chain-at="' + ROW_AT + '"'), 'the chained row is the control');
+assert(html.includes('tabindex="0"'), 'the chained row takes focus');
 const CHAIN_ROW = {json.dumps(row)};
 probe.state.requests = [CHAIN_ROW];
 probe.openChain(String(CHAIN_ROW.at));
 const chainHtml = node('chain-modal-body').innerHTML;
 assert(chainHtml.includes(chainTitle(1, "request.chain.fallback.one_text")),
   'the dialog head carries the count');
-assert(probe.mobileFallbackChain(CHAIN_ROW, ' · ' + fallbackCount(1, "request.chain.fallback.one_text"))
-  .includes('data-chain-at'), 'the chain cell opens the dialog');
-assert(probe.mobileFallbackChain({{ ...CHAIN_ROW, fallbacks: null }}, '').includes('data-chain-at'),
-  'a row with no count still opens the dialog');
+assert(html.includes(LOCALE["request.chain.show_title"]), 'the chained row explains itself on hover');
 // The pool of the auto model rides in the slug, and the daedalus head carries its own mark.
 const autoCell = probe.modelName('daedalus/auto', probe.poolOf({{ model: 'daedalus/auto', pool: 'moros' }}));
 assert.strictEqual(probe.poolOf({{ model: 'daedalus/auto', pool: 'moros' }}), 'moros', 'the auto pool joins the slug');
@@ -1115,7 +1112,7 @@ assert(autoCell.includes('ui/icons/daedalus.svg'), 'the daedalus head carries it
 assert.strictEqual(probe.poolOf({{ model: 'p/big', pool: 'daedalus/deinos' }}), '',
   'a direct model keeps its own slug');
 assert.strictEqual(probe.routingCodes({{ routed: 'deinos' }}).includes('fr'), true, 'the fallback tier code stays');
-assert(html.includes(LOCALE["request.chain.view_text"]), 'the cell offers the chain');
+assert(!html.includes('class="caret'), 'no chevron sits in the time cell');
 for (const value of ['s1', 'high <span class="from">xhi</span>', 'frA', 'tl3'])
   assert(html.includes(value), 'the table keeps ' + value);
 for (const value of ['<b>p/first</b>', '<pre>rate limited</pre>', '<span class="from">effort xhi</span>'])
@@ -1267,11 +1264,9 @@ def test_the_model_rows_light_up_on_hover() -> None:
   assert (
     "@media (hover: hover) {\n"
     "  table.models tbody tr:hover td { background: var(--field); }\n"
+    "  tr.request.has-chain:hover td { background: var(--field); }\n"
     "}"
-  ) in css, "the row hover waits for a pointer and lights the row"
-  assert "has-chain:hover" not in css, (
-    "a request row is no button, so it lights nothing on hover"
-  )
+  ) in css, "the pointer hover lights model rows and chained request rows"
 
 
 def test_notification_actions_match_the_shared_pointer_hover() -> None:
@@ -1876,12 +1871,14 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
   assert ".requests td.fallbacks-cell { display: none; }" in base_css, (
     "the desktop table reads the fallback count in the chain of the row"
   )
-  assert "tr.request.has-chain { cursor: pointer; }" not in css, (
-    "the chain row is no button; its cell carries one"
+  assert "tr.request.has-chain { cursor: pointer; }" in css, (
+    "the chained row is itself the control"
   )
+  assert ".caret" not in css, "no chevron glyph remains on request rows"
   assert ".open td" not in css, "no row keeps an expanded state"
   assert (
     "@media (hover: hover) {\n  table.models tbody tr:hover td "
+    "{ background: var(--field); }\n  tr.request.has-chain:hover td "
     "{ background: var(--field); }\n}" in base_css
   ), "the row hover needs a pointer, a touch tap keeps no background"
   assert ".requests tr.request, .requests tr.live-row {" in mobile_css
@@ -1952,7 +1949,8 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
   assert (
     ".chain-modal ol { list-style: none; margin: 5px 0 0; padding: 0; }"
   ) in mobile_css, "the phone dialog keeps its own step list"
-  assert ".requests tr.request .caret { display: none; }" in mobile_css
+  assert ".caret" not in mobile_css, "no chevron reaches the phone cards"
+  assert ".chain-open" not in mobile_css, "no chain pill reaches the phone cards"
   assert ".requests .mobile-request-meta" not in mobile_css, (
     "the details drop the 3 row list"
   )
@@ -6586,36 +6584,58 @@ assert.strictEqual(prevented, 3);
 
 
 def test_request_chains_open_a_dialog_and_keep_focus() -> None:
-  """A chain button opens the dialog, and a redraw returns focus to that button."""
+  """The chained row itself opens the dialog, and a redraw returns focus to it."""
   run_app_js(
     "state, renderRequests",
     """
 const row = JSON.parse(fs.readFileSync('scripts/pages_fixtures.json', 'utf8')).requests
   .find(item => item.attempts?.length > 1);
 assert(row);
-probe.state.requests = [row];
-probe.renderRequests([row]);
-assert(node('requests').innerHTML.includes('class="request-toggle hide-sm" type="button"'));
-assert(node('requests').innerHTML.includes('data-chain-at'));
-assert(node('requests').innerHTML.includes(LOCALE['request.chain.show_title']));
-assert(node('requests').innerHTML.includes('class="only-sm"'));
-assert(!node('requests').innerHTML.includes('aria-expanded'), 'no disclosure state remains');
+const plain = {at: row.at + 1, model: 'p/plain', status: 200,
+  attempts: [{model: 'p/plain', result: 'answered', seconds: 1}]};
+probe.state.requests = [row, plain];
+probe.renderRequests([row, plain]);
+const html = () => node('requests').innerHTML;
+assert(html().includes(`data-chain-at="${row.at}"`), 'the chained row is itself the control');
+assert(html().includes('tabindex="0"'), 'the chained row takes focus');
+assert(html().includes(LOCALE['request.chain.show_title']));
+assert(!html().includes('request-toggle'), 'no separate chevron button remains');
+assert(!html().includes('caret'), 'no caret glyph remains');
+assert(!html().includes('only-sm'), 'no phone-only duplicate of the time remains');
+assert(!html().includes(`data-chain-at="${plain.at}"`), 'a chain-less row stays inert');
+assert(!html().includes('aria-expanded'), 'no disclosure state remains');
 let focused = 0;
-const button = {
+let prevented = 0;
+const stop = () => { prevented += 1; };
+const tr = {
   dataset: {chainAt: String(row.at)},
-  closest: selector => selector === '[data-chain-at]' || selector === '.request-toggle' ? button : null,
-  focus: () => { focused += 1; sandbox.document.activeElement = button; },
+  closest: selector => selector === '[data-chain-at]' || selector === 'tr[data-chain-at]' ? tr : null,
+  focus: () => { focused += 1; sandbox.document.activeElement = tr; },
 };
-const activate = () => node('requests').handlers.click.forEach(fn => fn({target: button}));
-activate();
-assert(node('chain-modal').shown, 'the chain button opens the dialog');
+const click = (target) => node('requests').handlers.click.forEach(fn => fn({target}));
+const key = (target, name) => node('requests').handlers.keydown.forEach(fn => fn({
+  target, key: name, preventDefault: stop,
+}));
+click(tr);
+assert(node('chain-modal').shown, 'clicking the row opens the dialog');
 assert(node('chain-modal-body').innerHTML.includes('<li class="step'), 'the dialog lists every attempt');
 assert(node('chain-modal-title').textContent.length > 0, 'the dialog carries a title');
-sandbox.document.activeElement = button;
-node('requests').querySelectorAll = () => [button];
+node('chain-modal').shown = false;
+key(tr, 'Enter');
+assert(node('chain-modal').shown, 'enter on the row opens the dialog');
+node('chain-modal').shown = false;
+key(tr, ' ');
+assert(node('chain-modal').shown, 'space on the row opens the dialog');
+assert.strictEqual(prevented, 2, 'the row keys swallow the page scroll');
+node('chain-modal').shown = false;
+click({closest: () => null});
+key({closest: () => null}, 'Enter');
+assert(!node('chain-modal').shown, 'a chain-less surface opens nothing');
+sandbox.document.activeElement = tr;
+node('requests').querySelectorAll = () => [tr];
 probe.renderRequests([]);
-probe.renderRequests([row]);
-assert.strictEqual(focused, 2, 'each redraw returns focus to the chain button');
+probe.renderRequests([row, plain]);
+assert.strictEqual(focused, 2, 'each redraw returns focus to the chained row');
 """,
   )
 

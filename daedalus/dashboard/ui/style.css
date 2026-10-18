@@ -347,11 +347,11 @@ a.more:hover { color: var(--accent-text); }
   background: var(--bar); color: var(--tier); font-size: 12px; font-weight: 600;
 }
 .yes { color: var(--accent-text); }
-.model-open, .request-toggle {
+.model-open {
   max-width: 100%; padding: 0; border: 0; background: transparent; color: inherit;
   text-align: left; overflow: hidden; text-overflow: ellipsis; vertical-align: middle;
 }
-.model-open:focus-visible, .request-toggle:focus-visible { outline-offset: -2px; }
+.model-open:focus-visible { outline-offset: -2px; }
 .reveal {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 16px;
   border-bottom: 1px solid var(--line); background: var(--bar);
@@ -483,6 +483,8 @@ td.end { text-align: right; }
 /* The desktop table reads the fallback count in the chain of the row. The phone card keeps a cell
 for the details. */
 .requests td.fallbacks-cell { display: none; }
+/* The chained row is itself the control that opens the dialog. */
+tr.request.has-chain { cursor: pointer; }
 .mobile-label { display: none; }
 /* A control that only a phone shows, such as the sort of the card list. */
 .only-sm { display: none; }
@@ -523,12 +525,8 @@ tr.live-row td { background: var(--field); }
 /* A touch screen keeps the hover look after a tap, so the hover style needs a pointer. */
 @media (hover: hover) {
   table.models tbody tr:hover td { background: var(--field); }
+  tr.request.has-chain:hover td { background: var(--field); }
 }
-.caret {
-  display: inline-block; width: 6px; height: 6px; margin: 0 10px 1px 0;
-  border: solid var(--muted); border-width: 0 1.5px 1.5px 0; transform: rotate(-45deg);
-}
-.caret.none { visibility: hidden; }
 /* Zero width with a full minimum: the chain fills the row but does not set the column widths. */
 .chain-body { width: 0; min-width: 100%; }
 /* The dialog carries the chain on every width: its body spans the dialog. */
@@ -1087,7 +1085,6 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .requests tr.live-row > td:nth-child(1) .mobile-label,
   .requests tr.live-row > td:nth-child(2) .mobile-label,
   .requests tr.live-row > td:nth-child(7) .mobile-label { display: none; }
-  .requests tr.request .caret { display: none; }
   .requests tr.request td.name .cell-value, .requests tr.live-row td.name .cell-value {
     overflow: hidden; overflow-wrap: normal; text-overflow: ellipsis; white-space: nowrap;
   }

@@ -705,16 +705,7 @@ function routingCodes(r) {
   return transitionCell(r.transition) + from + loop;
 }
 
-// The chain opens in a dialog: an expand list in a table cell clips and shifts rows.
-function mobileFallbackChain(r, tail = "") {
-  const summary = tail
-    ? t("request.chain.view_with_count_text", { count: tail.replace(/^ · /, "") })
-    : t("request.chain.view_text");
-  return actionButton(summary, {
-    variant: "ghost chain-open", attrs: { "data-chain-at": r.at },
-  });
-}
-
+// The chain opens in a dialog: the whole row is the control that opens it.
 function openChain(at) {
   const found = state.requests.find((r) => String(r.at) === at);
   if (!found || !hasChain(found)) return;
@@ -738,10 +729,11 @@ function fallbackCount(r) {
     : plural(Number(r.fallbacks), "request.chain.fallback.one_text", "request.chain.fallback.other_text");
 }
 
+// Live cards read the count alone; finished rows open their chain by row click.
 function mobileRequestDetails(r, live = false) {
+  if (!live) return "";
   const many = fallbackCount(r);
-  if (live) return many ? `<span class="mobile-fallback-count">${many}</span>` : "";
-  return hasChain(r) ? mobileFallbackChain(r, many ? ` · ${many}` : "") : "";
+  return many ? `<span class="mobile-fallback-count">${many}</span>` : "";
 }
 
 function fallbackCell(r, classes = "", live = false) {
@@ -1056,18 +1048,14 @@ function renderRequests(rows, empty = t("request.empty.none_text"), live = 0) {
   const selected = getSelection();
   if (text === shownRequests) return;
   if (!selected.isCollapsed && $("requests").contains(selected.anchorNode)) return;
-  const focused = document.activeElement?.closest?.(".request-toggle")?.dataset.chainAt;
+  const focused = document.activeElement?.closest?.("tr[data-chain-at]")?.dataset.chainAt;
   shownRequests = text;
   $("requests").innerHTML = flatRows.length ? flatRows.map((r) => {
     const chain = hasChain(r);
-    const time = `<span class="caret${chain ? "" : " none"}" aria-hidden="true"></span>${relative(r.at)}`;
-    const timeControl = chain ? actionButton(time, {
-      variant: "request-toggle hide-sm",
-      attrs: { "data-chain-at": r.at, title: t("request.chain.show_title") },
-    }) + `<span class="only-sm">${time}</span>` : time;
+    const time = relative(r.at);
     return `
-    <tr role="row" class="request${chain ? " has-chain" : ""}" data-at="${r.at}"${chain ? ` title="${t("request.chain.show_title")}"` : ""}>
-      ${cell(t("request.column.time_column"), timeControl, "num muted", ` title="${esc(stamp(r.at))}"`)}
+    <tr role="row" class="request${chain ? " has-chain" : ""}" data-at="${r.at}"${chain ? ` title="${t("request.chain.show_title")}" data-chain-at="${r.at}" tabindex="0"` : ""}>
+      ${cell(t("request.column.time_column"), time, "num muted", ` title="${esc(stamp(r.at))}"`)}
       ${appCell(r)}
       ${cell(t("request.column.session_column"), esc(r.session || "-"), "hide-sm num mono")}
       ${nameCell(r.model || "-", modelName(r.model || "-", poolOf(r)) + routingCodes(r), t("request.column.model_column"))}
@@ -3700,6 +3688,14 @@ $("notice").addEventListener("animationend", (event) => {
 $("requests").addEventListener("click", (event) => {
   const open = event.target.closest("[data-chain-at]");
   if (open) openChain(open.dataset.chainAt);
+});
+// The row is a control, so its keys open the chain like a press does.
+$("requests").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const row = event.target.closest?.("tr[data-chain-at]");
+  if (!row) return;
+  event.preventDefault();
+  openChain(row.dataset.chainAt);
 });
 // The copy button lives in the chain dialog, outside the table listener.
 $("chain-modal").addEventListener("click", async (event) => {
