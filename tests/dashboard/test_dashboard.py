@@ -1113,7 +1113,8 @@ assert.strictEqual(probe.routingCodes({{ routed: 'deinos' }}).includes('fr'), tr
 assert(!html.includes('class="caret'), 'no chevron sits in the time cell');
 for (const value of ['s1', 'high <span class="from">xhi</span>', 'frA', 'tl3'])
   assert(html.includes(value), 'the table keeps ' + value);
-for (const value of ['<b>p/first</b>', '<pre>rate limited</pre>', '<span class="from">effort xhi</span>'])
+for (const value of ['<span class="mark slug">p</span>', '<span class="model-part">first</span>',
+  '<pre>rate limited</pre>', '<span class="from">effort xhi</span>'])
   assert(chainHtml.includes(value), 'the dialog keeps ' + value);
 assert(!html.includes('rt2') && !html.includes('tool loop'), 'the frX and tlN codes replace the long forms');
 const openSelectors = [];
@@ -6684,6 +6685,22 @@ click(tr);
 assert(node('chain-modal').shown, 'clicking the row opens the dialog');
 assert(node('chain-modal-body').innerHTML.includes('<li class="step'), 'the dialog lists every attempt');
 assert(node('chain-modal-title').textContent.length > 0, 'the dialog carries a title');
+const iconRow = {at: 99, model: 'groq/synthetic', status: 500, attempts: [
+  {model: 'groq/synthetic', result: 'error', seconds: 1},
+  {model: 'openai/synthetic', result: 'answered', seconds: 1}]};
+probe.state.requests = [iconRow];
+probe.renderRequests([iconRow]);
+const tr2 = {
+  dataset: {chainAt: '99'},
+  closest: selector => selector === '[data-chain-at]' || selector === 'tr[data-chain-at]' ? tr2 : null,
+  focus: () => {},
+};
+click(tr2);
+const steps = node('chain-modal-body').innerHTML;
+assert(steps.includes('ui/icons/groq.svg') && steps.includes('ui/icons/openai.svg'),
+  'every chain step shows the vendored mark');
+assert(!steps.includes('<b>groq/synthetic</b>'), 'no raw slug remains in a step');
+probe.state.requests = [row, plain];
 node('chain-modal').shown = false;
 key(tr, 'Enter');
 assert(node('chain-modal').shown, 'enter on the row opens the dialog');
