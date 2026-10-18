@@ -38,7 +38,7 @@ The 8 providers each need a key: Cloudflare, Gemini, Groq, Kilo, Mistral, OpenRo
 ### Use the key
 
 1. Open the **Providers** page of the dashboard.
-2. Select the form of the provider.
+2. Select the row of the provider.
 3. Paste the key into the key field.
 4. Select **Save**.
 

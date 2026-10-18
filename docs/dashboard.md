@@ -211,8 +211,8 @@ A write of a file that is not valid YAML, or that has a key 2 times in 1 map, ge
 
 A provider file on disk that is not valid YAML still gets its tab. It opens in the YAML view, with the error line next to the Save button. Fix the text there and save it.
 
-The form holds the section list of the current file: the rail names every provider of the file, and the pane shows the selected card.
-A narrow screen shows the list alone, and a selection opens 1 provider, with a button back to the list.
+The list names every provider of the current file, and a selected row opens that provider as its own page.
+A phone slides the page in, and the back label returns to the list.
 A field hint sits behind the info icon next to its label. The `Tiers`, `Model overrides` and
 `Provider values` groups start closed, and their icon carries the group hint.
 

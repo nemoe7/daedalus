@@ -140,7 +140,7 @@ flowchart LR
   end
 ```
 
-The chain goes up first. The next tier up can usually do the same request. The chain goes down only after it gets to the highest tier. A lower tier often fails, because its models can do less.
+The chain goes up first. A tier above can usually do the same request. The chain goes down only after it gets to the highest tier. A lower tier often fails, because its models can do less.
 
 ### Order
 
