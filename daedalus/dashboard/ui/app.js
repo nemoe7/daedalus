@@ -89,7 +89,7 @@ const state = {
   models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, saved: [], timers: [],
   view: "form", forms: [], formSaved: [], overrideKeys: [], providerDefaults: {}, settingsView: "form",
   pools: [], requests: [], requestLimit: REQUESTS_STEP, requestFetched: 0, keys: [], catalog: {},
-  settings: null, legendExtra: [], requestRace: false,
+  settings: null, settingsSearch: "", legendExtra: [], requestRace: false,
   requestSearch: "", requestStatus: "all", requestHours: 0, limitSearch: "",
   live: new Map(), livePaused: false, liveWaiting: new Set(), liveSeen: new Set(), liveCount: 0,
   source: null, env: [],
@@ -2046,6 +2046,23 @@ const SECTION_CHIPS = {
   privacy: "shield", catalog: "database", hooks: "plug", personalization: "palette",
   keys: "key", yaml: "code", providers: "cloud", maintenance: "wrench",
 };
+// The pane summary lines read like the reference header. The locale test needs the
+// keys spelled out, so the map lists every section's summary key.
+const SECTION_SUMMARIES = {
+  routing: t("settings.routing.summary"),
+  affinity: t("settings.affinity.summary"),
+  balance: t("settings.balance.summary"),
+  limits: t("settings.limits.summary"),
+  optimization: t("settings.optimization.summary"),
+  privacy: t("settings.privacy.summary"),
+  catalog: t("settings.catalog.summary"),
+  hooks: t("settings.hooks.summary"),
+  personalization: t("settings.personalization.summary"),
+  providers: t("settings.providers.summary"),
+  keys: t("settings.keys.summary"),
+  yaml: t("settings.yaml.summary"),
+  maintenance: t("settings.maintenance.summary"),
+};
 // Provider rows share the providers tile: their names are data, not sections.
 // A provider with a vendored mark draws that mark in the tile ink.
 const chipFor = (host, key) => {
@@ -2059,13 +2076,35 @@ const chipFor = (host, key) => {
 };
 const chip = (key) => chipFor("settings", key);
 
-// List sections in the rail and display the selected section in the pane.
-function sectionList(id, items, active) {
-  const buttons = items.map(([key, label]) => actionButton(`${chipFor(id, key)}<span>${esc(label)}</span>`, {
-    variant: key === active ? "on" : "",
-    attrs: { "data-section": key, "aria-current": key === active ? "true" : null },
-  })).join("");
-  return `<nav class="sections" aria-label="${t("common.sections_label")}">${buttons}</nav>`;
+// List sections in the rail and display the selected section in the pane. The studied
+// reference filters its sidebar with a search field and groups rows with blank breaks.
+function sectionList(id, items, active, opts = {}) {
+  const breaks = new Set(opts.breaks ?? []);
+  const buttons = items.map(([key, label]) => `${breaks.has(key) ? '<div class="navbreak" aria-hidden="true"></div>' : ""}${
+    actionButton(`${chipFor(id, key)}<span>${esc(label)}</span>`, {
+      variant: key === active ? "on" : "",
+      attrs: { "data-section": key, "aria-current": key === active ? "true" : null },
+    })}`).join("");
+  const search = opts.search ? `<label class="rail-search">${icon("search")}<input id="settings-search" type="text"
+    autocomplete="off" aria-label="${esc(t("settings.search_label"))}" placeholder="${esc(t("settings.search_label"))}"></label>` : "";
+  return `<nav class="sections" aria-label="${t("common.sections_label")}">${search}${buttons
+  }<p class="rail-empty" hidden>${esc(t("settings.search_empty"))}</p></nav>`;
+}
+
+// Hide the rail rows the search text excludes, as the reference sidebar search does.
+function filterRail(host) {
+  const nav = host.querySelector(":scope > .sections");
+  if (!nav) return;
+  const query = (state.settingsSearch ?? "").trim().toLowerCase();
+  let shown = 0;
+  for (const button of nav.querySelectorAll("button")) {
+    const hit = !query || button.textContent.toLowerCase().includes(query);
+    button.hidden = !hit;
+    shown += Number(hit);
+  }
+  for (const gap of nav.querySelectorAll(".navbreak")) gap.hidden = Boolean(query);
+  const empty = nav.querySelector(".rail-empty");
+  if (empty) empty.hidden = shown > 0;
 }
 
 // Name the back button for its destination, as iOS does.
@@ -2113,6 +2152,13 @@ function selectSection(host, key, open = sectionState(host).open) {
   }
   for (const card of host.querySelectorAll(":scope > .section-pane > .card")) {
     card.hidden = card.dataset.section !== key;
+  }
+  // The studied reference heads each pane with a centered icon, title and one line.
+  const summary = host.querySelector(":scope > .section-pane > [data-pane-summary]");
+  if (summary) {
+    const label = [...host.querySelectorAll(":scope > .sections button")]
+      .find((button) => button.dataset.section === key)?.querySelector("span:not(.tile)")?.textContent ?? key;
+    summary.innerHTML = `${chip(key)}<h2>${esc(label)}</h2><p>${esc(SECTION_SUMMARIES[key] ?? "")}</p>`;
   }
   markCardScrollEdges();
   markSectionPaneEdges();
@@ -2864,11 +2910,14 @@ function renderSettings() {
   ]);
   const selected = sectionState($("settings")).key;
   const active = items.some(([key]) => key === selected) ? selected : items[0][0];
+  // The rail groups like the reference sidebar: routing, operations, looks, sources, care.
+  const breaks = ["privacy", "personalization", "providers", "maintenance"];
   // Grab the live providers nodes first: the wipe detaches the card that holds them.
   const filesHost = $("files");
   const formHost = $("provider-form");
-  $("settings").innerHTML = sectionList("settings", items, active)
-    + sectionPane(t("nav.settings_link"), groups.map(([group, title, fields]) => card([group, title, fields]).replace(
+  $("settings").innerHTML = sectionList("settings", items, active, { search: true, breaks })
+    + sectionPane(t("nav.settings_link"), `<div class="pane-summary" data-pane-summary></div>`
+      + groups.map(([group, title, fields]) => card([group, title, fields]).replace(
       '<div class="card">', `<div class="card" data-section="${esc(group)}">`)).join("")
       + `<div class="card nested" data-section="providers"><h3>${chip("providers")}${esc(t("nav.providers_link"))}</h3>`
       + `<div id="providers-slot"></div></div>`
@@ -2883,6 +2932,15 @@ function renderSettings() {
     slot.remove();
   }
   selectSection($("settings"), active);
+  const railSearch = $("settings-search");
+  if (railSearch) {
+    railSearch.value = state.settingsSearch ?? "";
+    railSearch.addEventListener("input", () => {
+      state.settingsSearch = railSearch.value;
+      filterRail($("settings"));
+    });
+    filterRail($("settings"));
+  }
   renderForm();
   $("settings-editor").value = typed ?? state.settings.text;
   // Use the rendered file's mode to select visible rows.

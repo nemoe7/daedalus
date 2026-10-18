@@ -622,6 +622,19 @@ section[data-page="providers"], section[data-page="settings"] {
   .sections button:hover { background: var(--field); }
 }
 .sections button.on { background: var(--field); box-shadow: inset 2px 0 0 var(--accent); }
+.rail-search { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); color: var(--muted); }
+.rail-search svg { width: 15px; height: 15px; }
+.rail-search input { flex: 1; min-width: 0; border: 0; background: none; color: var(--text); font: inherit; }
+.sections .navbreak { height: 9px; background: var(--bg); border-bottom: 1px solid var(--line); }
+.sections .rail-empty { margin: 0; padding: 10px; color: var(--muted); }
+.pane-summary { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center;
+  padding: 18px 16px 16px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--field); }
+.pane-summary .tile { width: 30px; height: 30px; border-radius: 8px; }
+.pane-summary .tile svg { width: 17px; height: 17px; }
+.pane-summary h2 { margin: 4px 0 0; font-size: 18px; }
+.pane-summary p { margin: 0; max-width: 560px; color: var(--muted); }
+/* The summary keeps its content height while the visible card fills the pane. */
+#settings > .section-pane { grid-template-rows: auto 1fr; }
 /* Each section row and card header carries one colored tile, as the studied reference does.
    A phone row keeps its chevron at the right edge, where the list rule already draws it. */
 .tile {
