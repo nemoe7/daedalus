@@ -20,7 +20,6 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 | `worktree collect <name>` | Print the allowed detached-worktree patch after a green root gate |
 | `ack <markdown>` | Omit IDs only when exactly one non-quiet note or report answer is pending. Supply one Markdown text. With multiple pending items, supply the ID |
 | `ack <id> <markdown>` | Answer one delivered ID with a rendered reply; single-quote inline text |
-| `ack <id> -` | Read the Markdown answer from stdin, with a workspace file redirected into the command |
 | `task-list [-f]` | List upcoming task IDs, order, status, report links, set type marks and each linked report answer with its stamp and text. With -f, include finished tasks. Use task ID for details |
 | `task ID` | Print one stored task: its title, status, order, primary type when set, report link, blocked mark and every detail |
 | `task ID TITLE [DETAIL ...]` | Add or update a task; every task carries at least one detail, and reject a write that leaves none; one task holds one job, so several jobs mean several tasks rather than one task with many details; `--msg-id` is optional and only a note-born or report-born task carries it; `--blocked` or `--unblocked` sets the blocked mark |

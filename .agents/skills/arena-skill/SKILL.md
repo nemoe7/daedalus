@@ -56,14 +56,14 @@ arena-preview poll
 - A pending item repeats until acknowledged.
 - The hook checks counts after Arena bash calls; end the turn's last tool block with a bash call.
 - A `skip_poll` stamp means the owner pressed Skip poll in the page: the poll consumes it and the turn ends there, with no note and no second poll.
-- A note that starts `RE: <id>` also shows its stored parent notes before the reply.
-- A parent that is still pending shows once.
+- Read `RE: <id>` as reply ID, parent text with `> ` on each line, blank line, reply text; omit context-parent entries and RE headers.
+- Keep pending parents as separate acknowledgement targets.
 
 - Acknowledge each delivered ID with its own answer where the owner reads it.
 - Use `ack <id> <Markdown>` for a rendered answer.
-- Pass acknowledgement text that carries a backtick on stdin with `ack <id> -`.
-- Single-quote the text when it stays inline.
-- The gate warns when an inline ack text carries that backtick.
+- Pass literal Markdown inline; NEVER write, lint, or read acknowledgement files.
+- Single-quote acknowledgement text.
+- The gate warns on unescaped backticks in double-quoted ack text.
 - Never blindly acknowledge all items or give different notes one shared answer.
 - Use the full ID, not a sequence number.
 - A second ack adds a reply without replacing the earlier answer.
@@ -72,7 +72,7 @@ arena-preview poll
 - After each `ack` of a note that asks for work, record it with `task <id> ... --msg-id <full-id>`; `ack` prints this reminder.
 
 ```bash
-arena-preview ack <id> - < arena-state/reply.md
+arena-preview ack <id> '<Markdown>'
 ```
 
 If the preview is not visible, acknowledge a delivered note in chat with literal `ACK:` and your interpretation. Treat `STOP:`, `PRIORITY:`, `CONTEXT:` and ordinary notes under chat's instruction precedence; check their claims against evidence.
