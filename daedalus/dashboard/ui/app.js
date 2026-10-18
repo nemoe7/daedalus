@@ -2079,31 +2079,31 @@ const chip = (key) => chipFor("settings", key);
 // List sections in the rail and display the selected section in the pane. The studied
 // reference filters its sidebar with a search field and groups rows with blank breaks.
 function sectionList(id, items, active, opts = {}) {
-  const breaks = new Set(opts.breaks ?? []);
-  const buttons = items.map(([key, label]) => `${breaks.has(key) ? '<div class="navbreak" aria-hidden="true"></div>' : ""}${
-    actionButton(`${chipFor(id, key)}<span>${esc(label)}</span>`, {
-      variant: key === active ? "on" : "",
-      attrs: { "data-section": key, "aria-current": key === active ? "true" : null },
-    })}`).join("");
+  // The reference groups its lists into stacked cards, one card per group.
+  const groups = opts.groups ?? [items];
+  const navs = groups.map((group) => `<nav class="sections" aria-label="${t("common.sections_label")}">${group.map(([key, label]) => actionButton(`${chipFor(id, key)}<span>${esc(label)}</span>`, {
+    variant: key === active ? "on" : "",
+    attrs: { "data-section": key, "aria-current": key === active ? "true" : null },
+  })).join("")}</nav>`).join("");
   const search = opts.search ? `<label class="rail-search">${icon("search")}<input id="settings-search" type="text"
     autocomplete="off" aria-label="${esc(t("settings.search_label"))}" placeholder="${esc(t("settings.search_label"))}"></label>` : "";
-  return `<nav class="sections" aria-label="${t("common.sections_label")}">${search}${buttons
-  }<p class="rail-empty" hidden>${esc(t("settings.search_empty"))}</p></nav>`;
+  return `<div class="rail">${search}${navs}<p class="rail-empty" hidden>${esc(t("settings.search_empty"))}</p></div>`;
 }
 
 // Hide the rail rows the search text excludes, as the reference sidebar search does.
 function filterRail(host) {
-  const nav = host.querySelector(":scope > .sections");
-  if (!nav) return;
+  const navs = host.querySelectorAll(":scope > .rail > .sections");
+  if (!navs.length) return;
   const query = (state.settingsSearch ?? "").trim().toLowerCase();
   let shown = 0;
-  for (const button of nav.querySelectorAll("button")) {
-    const hit = !query || button.textContent.toLowerCase().includes(query);
-    button.hidden = !hit;
-    shown += Number(hit);
+  for (const nav of navs) {
+    for (const button of nav.querySelectorAll("button")) {
+      const hit = !query || button.textContent.toLowerCase().includes(query);
+      button.hidden = !hit;
+      shown += Number(hit);
+    }
   }
-  for (const gap of nav.querySelectorAll(".navbreak")) gap.hidden = Boolean(query);
-  const empty = nav.querySelector(".rail-empty");
+  const empty = host.querySelector(":scope > .rail > .rail-empty");
   if (empty) empty.hidden = shown > 0;
 }
 
@@ -2118,7 +2118,7 @@ function sectionPane(back, cards) {
 // The final YAML section has its own Save and includes content that the form cannot display.
 // It also opens invalid files.
 function yamlCard(editor, save, hint) {
-  return `<div class="card yaml-view" data-section="yaml"><h3>${chip("yaml")}${t("yaml.label")}</h3><p class="sub">${esc(hint)}</p>`
+  return `<div class="card yaml-view" data-section="yaml"><p class="sub">${esc(hint)}</p>`
     + `<textarea id="${editor}" spellcheck="false" aria-label="${t("common.file_text_label")}"></textarea>`
     + `<div class="editbar">${actionButton(t("action.save_button"), {
       variant: "primary", attrs: { id: save, disabled: true },
@@ -2129,7 +2129,7 @@ function yamlCard(editor, save, hint) {
 // Slide the phone pane from the right and the list from the left.
 function playSlide(host, open) {
   if (!phoneSection()) return;
-  const arriving = host.querySelector(open ? ".section-pane" : ".sections");
+  const arriving = host.querySelector(open ? ".section-pane" : ".rail");
   if (!arriving) return;
   arriving.classList.remove("slide");
   void arriving.offsetWidth;
@@ -2144,7 +2144,7 @@ function selectSection(host, key, open = sectionState(host).open) {
   state_.open = open;
   host.dataset.detail = open ? "1" : "0";
   // Scope both queries: the settings host wraps the nested providers host.
-  for (const button of host.querySelectorAll(":scope > .sections button")) {
+  for (const button of host.querySelectorAll(":scope > .rail > .sections button")) {
     const on = button.dataset.section === key;
     button.classList.toggle("on", on);
     if (on) button.setAttribute("aria-current", "true");
@@ -2156,9 +2156,10 @@ function selectSection(host, key, open = sectionState(host).open) {
   // The studied reference heads each pane with a centered icon, title and one line.
   const summary = host.querySelector(":scope > .section-pane > [data-pane-summary]");
   if (summary) {
-    const label = [...host.querySelectorAll(":scope > .sections button")]
-      .find((button) => button.dataset.section === key)?.querySelector("span:not(.tile)")?.textContent ?? key;
-    summary.innerHTML = `${chip(key)}<h2>${esc(label)}</h2><p>${esc(SECTION_SUMMARIES[key] ?? "")}</p>`;
+    const label = [...host.querySelectorAll(":scope > .rail > .sections button")]
+      .find((button) => button.dataset.section === key)?.querySelector(":scope > span:not(.tile)")?.textContent ?? key;
+    const text = SECTION_SUMMARIES[key] ?? (host.id === "provider-form" ? t("settings.providers.summary") : "");
+    summary.innerHTML = `${chipFor(host.id, key)}<h2>${esc(label)}</h2><p>${esc(text)}</p>`;
   }
   markCardScrollEdges();
   markSectionPaneEdges();
@@ -2176,6 +2177,8 @@ function openSection(host, key) {
   // Animate section changes in Providers and Settings.
   replay([...host.querySelectorAll(".section-pane > .card")]
     .find((card) => card.dataset.section === key));
+  // A nested pane changes height with its section, so refit the scroll bounds here.
+  fitSectionPane();
   // Keep the section in the hash across refreshes. Phones also have a back step.
   // The nested providers rail keeps the outer section and adds its own param.
   const [path, query] = location.hash.split("?");
@@ -2270,7 +2273,7 @@ function fold(label, hint, body) {
 function providerCard(name, block) {
   const path = [name];
   if (!block || typeof block !== "object" || Array.isArray(block)) {
-    return `<div class="card provider" data-section="${esc(name)}" data-provider="${esc(name)}"><h3>${chip("providers")}${esc(name)}</h3>
+    return `<div class="card provider" data-section="${esc(name)}" data-provider="${esc(name)}">
       <p class="sub">${t("provider.block.invalid_text")}</p></div>`;
   }
   const defaults = state.providerDefaults[name] || state.providerDefaults["*"] || {};
@@ -2351,7 +2354,7 @@ function providerCard(name, block) {
   const accountField = name === "cloudflare"
     ? text("account_id", t("provider.account_id.label"), t("provider.account_id.hint"))
     : "";
-  return `<div class="card provider" data-section="${esc(name)}" data-provider="${esc(name)}"><h3>${chipFor("provider-form", name)}${esc(name)}</h3>
+  return `<div class="card provider" data-section="${esc(name)}" data-provider="${esc(name)}">
     <p class="sub">${t("provider.secret.note")}</p>
     ${text("api_key", t("provider.api_key.label"))}
     ${accountField}
@@ -2391,7 +2394,8 @@ function renderForm() {
   const selected = sectionState(host).key;
   const active = items.some(([key]) => key === selected) ? selected : items[0][0];
   host.innerHTML = sectionList("provider-form", items, active)
-    + sectionPane(t("nav.providers_link"), names.map((name) => providerCard(name, blocks[name])).join("")
+    + sectionPane(t("nav.providers_link"), `<div class="pane-summary" data-pane-summary></div>`
+      + names.map((name) => providerCard(name, blocks[name])).join("")
       + yamlCard("editor", "yaml-save", t("provider.yaml.file_hint", { file: fileName(state.files[state.file]?.path ?? "") })));
   selectSection(host, active);
   $("editor").value = typed ?? state.files[state.file]?.text ?? "";
@@ -2774,6 +2778,7 @@ const SETTINGS = [
     ["images", t("settings.personalization.image.label"), "name", t("settings.personalization.image.hint")],
     ["theme", t("settings.personalization.theme.label"), "choice", t("settings.personalization.theme.hint")],
     ["time_format", t("settings.personalization.time_format.label"), "choice", t("settings.personalization.time_format.hint")],
+    ["hide_headers", t("settings.personalization.hide_headers.label"), "", t("settings.personalization.hide_headers.hint")],
   ]],
 ];
 
@@ -2844,7 +2849,7 @@ const isSwitch = (group, key) => typeof state.settings.defaults[group][key] === 
 
 // The Settings API keys card contains the form, key display, and table.
 function keysCard() {
-  return `<div class="card" data-section="keys"><h3>${chip("keys")}${t("settings.keys.title")}</h3>
+  return `<div class="card" data-section="keys">
     <form class="toolbar" id="new-key">
       <input id="key-name" maxlength="40" placeholder="${t("settings.keys.new_placeholder")}" required>
       ${actionButton(t("action.new_key_button"), { variant: "primary", type: "submit" })}
@@ -2871,7 +2876,7 @@ function renderSettings() {
   // Restore the scroll position after the card rebuild.
   const scroll = settingsScroll();
   const card = ([group, title, fields]) => `
-    <div class="card"><h3>${chip(group)}${esc(title)}</h3>${fields.map(([key, label, unit, hint]) => {
+    <div class="card">${fields.map(([key, label, unit, hint]) => {
       const id = `set-${group}-${key}`;
       if (isSwitch(group, key)) {
         // Place the label and hint before the right-aligned switch.
@@ -2910,16 +2915,22 @@ function renderSettings() {
   ]);
   const selected = sectionState($("settings")).key;
   const active = items.some(([key]) => key === selected) ? selected : items[0][0];
-  // The rail groups like the reference sidebar: routing, operations, looks, sources, care.
-  const breaks = ["privacy", "personalization", "providers", "maintenance"];
+  // The rail groups like the reference lists: routing, operations, looks, sources, care.
+  const bounds = [["routing", "optimization"], ["privacy", "hooks"], ["personalization", "personalization"],
+    ["providers", "yaml"], ["maintenance", "maintenance"]];
+  const railGroups = bounds.map(([first, last]) => {
+    const start = items.findIndex(([key]) => key === first);
+    const end = items.findIndex(([key]) => key === last);
+    return items.slice(start, end + 1);
+  });
   // Grab the live providers nodes first: the wipe detaches the card that holds them.
   const filesHost = $("files");
   const formHost = $("provider-form");
-  $("settings").innerHTML = sectionList("settings", items, active, { search: true, breaks })
+  $("settings").innerHTML = sectionList("settings", items, active, { search: true, groups: railGroups })
     + sectionPane(t("nav.settings_link"), `<div class="pane-summary" data-pane-summary></div>`
       + groups.map(([group, title, fields]) => card([group, title, fields]).replace(
       '<div class="card">', `<div class="card" data-section="${esc(group)}">`)).join("")
-      + `<div class="card nested" data-section="providers"><h3>${chip("providers")}${esc(t("nav.providers_link"))}</h3>`
+      + `<div class="card nested" data-section="providers">`
       + `<div id="providers-slot"></div></div>`
       + keysCard()
       + yamlCard("settings-editor", "settings-yaml-save", t("settings.yaml.hint", { file: fileName(state.settings.path) }))
@@ -2932,6 +2943,9 @@ function renderSettings() {
     slot.remove();
   }
   selectSection($("settings"), active);
+  // The personalization toggle hides the page summaries across the settings tabs.
+  $("settings").closest("section[data-page=\"settings\"]")?.classList
+    .toggle("hide-page-headers", Boolean(setting("personalization", "hide_headers")));
   const railSearch = $("settings-search");
   if (railSearch) {
     railSearch.value = state.settingsSearch ?? "";
@@ -3466,7 +3480,7 @@ function maintenanceCard() {
     rows.push([stateTitle, `${esc(t("update.behind_main_text"))} ${count(update.behind, "commit")}`]);
   else rows.push([stateTitle, `${esc(t("update.up_to_date_text"))} · main`]);
   rows.push([t("update.checked_text"), update ? timeText(update.at) : "-"]);
-  let body = `<h3>${chip("maintenance")}${esc(t("settings.maintenance.title"))}</h3>`;
+  let body = "";
   body += rows.map(([left, right]) =>
     `<div class="field"><span>${esc(left)}</span><span>${right}</span></div>`).join("");
   const { built, next, rebuilding } = state.status?.catalog || {};

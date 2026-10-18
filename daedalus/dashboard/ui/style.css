@@ -606,8 +606,9 @@ section[data-page="providers"], section[data-page="settings"] {
 /* The provider form and the Settings page share the container: a section list, and the pane of
    the selected section. A wide screen puts the rail beside the pane, and a phone shows 1 at a time. */
 .settings { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; align-items: flex-start; }
+.rail { flex: 0 1 240px; display: grid; gap: 16px; align-content: start; min-width: 0; }
 .sections {
-  flex: 0 1 240px; display: grid; align-content: start; overflow: hidden;
+  display: grid; align-content: start; overflow: hidden;
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
 }
 .sections button {
@@ -622,13 +623,13 @@ section[data-page="providers"], section[data-page="settings"] {
   .sections button:hover { background: var(--field); }
 }
 .sections button.on { background: var(--field); box-shadow: inset 2px 0 0 var(--accent); }
-.rail-search { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); color: var(--muted); }
+.rail-search { display: flex; align-items: center; gap: 8px; padding: 10px 12px; color: var(--muted);
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
 .rail-search svg { width: 15px; height: 15px; }
 .rail-search input { flex: 1; min-width: 0; border: 0; background: none; color: var(--text); font: inherit; }
-.sections .navbreak { height: 9px; background: var(--bg); border-bottom: 1px solid var(--line); }
-.sections .rail-empty { margin: 0; padding: 10px; color: var(--muted); }
+.rail > .rail-empty { margin: 0; padding: 10px; color: var(--muted); }
 .pane-summary { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center;
-  padding: 18px 16px 16px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--field); }
+  padding: 18px 16px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--field); }
 .pane-summary .tile { width: 30px; height: 30px; border-radius: 8px; }
 .pane-summary .tile svg { width: 17px; height: 17px; }
 .pane-summary h2 { margin: 4px 0 0; font-size: 18px; }
@@ -663,7 +664,8 @@ section[data-page="providers"], section[data-page="settings"] {
 .card.nested > h3 { padding: 18px 20px 8px; }
 .card.nested .files { padding: 12px 20px; }
 .card.nested .settings { margin: 0; }
-.card.nested .sections { flex: 0 1 200px; border: 0; background: none; }
+.card.nested .rail { flex: 0 1 200px; }
+.card.nested .sections { border: 0; background: none; }
 .card.nested .section-pane { padding: 0 20px 10px; }
 /* A card of a section closes on the room of 1 row: the last row keeps the same space to the edge
    of the card as the space between 2 rows. */
@@ -673,19 +675,16 @@ section[data-page="providers"] .card { padding-bottom: 10px; }
 .section-pane > .card { min-width: 0; }
 .section-pane .back { display: none; justify-self: start; }
 .settings h3 { margin-bottom: 8px; }
-/* Every section of a Settings card carries a rule: the title header separates from its rows, and
-   each row from the next, so a long card reads as sections. */
-section[data-page="settings"] .card > h3, .card.provider > h3 {
-  padding-bottom: 8px; border-bottom: 1px solid var(--line); margin-bottom: 0;
-}
+/* The personalization toggle hides the page summaries across the settings tabs. */
+section[data-page="settings"].hide-page-headers .pane-summary { display: none; }
 .field {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 10px 0; border-top: 1px solid var(--line);
 }
 .field { position: relative; }
-/* The rule belongs to the row above: the first row of a card keeps none of its own, because the
-   title header already draws the rule over it. A row after a list row keeps its rule too. */
-.card > h3 + .field { border-top: 0; }
+/* The rule belongs to the row above: the first row of a card keeps none of its own. A title
+   header draws the rule over it, and a headerless card starts clean. */
+.card > h3 + .field, .card > .field:first-child { border-top: 0; }
 /* A card with an On switch greys its other rows while the switch is off. */
 .field.off { opacity: .5; }
 .field > span:first-child, .field.info > span { display: grid; gap: 2px; }
@@ -845,7 +844,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
     flex: 1 1 auto; min-height: 0;
   }
   header { position: sticky; top: 0; z-index: 4; }
-  .sections { position: sticky; top: 0; }
+  .rail { position: sticky; top: 0; }
+  /* A desktop rail lists every section at once, so its search stays a phone tool. */
+  .rail-search { display: none; }
   /* The pane softens only a clipped edge. Its cards stay the content of this one scrollport. */
   .section-pane {
     --fade-top: 0px; --fade-bottom: 0px; min-height: 0; overflow-y: auto; align-self: stretch;
@@ -862,7 +863,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 
 @media (max-width: 900px) {
   /* A phone shows the section list, then 1 section, with a way back to the list. */
-  .sections, .section-pane { flex: 1 1 100%; }
+  .rail, .section-pane { flex: 1 1 100%; }
   /* A phone row carries a chevron at its right edge, and a selection opens the section as its own page. */
   .sections button { min-height: 44px; }
   .sections button::after { content: "\203a"; color: var(--muted); font-size: 18px; line-height: 1; }
