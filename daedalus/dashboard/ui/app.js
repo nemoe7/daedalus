@@ -1571,6 +1571,9 @@ function openFile(index) {
   section.open = false;
   renderFiles();
   renderForm();
+  // A file of 1 provider opens that provider page at once; a shared file lists.
+  const blocks = Object.keys(state.files[index]?.blocks ?? {});
+  if (blocks.length === 1) openSection($("provider-form"), blocks[0]);
   // Animate the form after a file change.
   replay($("provider-form"));
 }

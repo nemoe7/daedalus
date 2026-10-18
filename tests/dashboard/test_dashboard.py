@@ -2882,6 +2882,40 @@ assert.deepStrictEqual(JSON.parse(JSON.stringify(probe.settingsChanges().hooks))
   )
 
 
+def test_app_js_a_one_provider_file_opens_its_provider_page() -> None:
+  """A chip of a one-provider file drills straight into that provider page."""
+  files = [
+    {
+      "path": "config/providers/openrouter.yml",
+      "text": "openrouter: {}",
+      "blocks": {"openrouter": {"api_key": "env:O"}},
+      "main": False,
+    },
+    {
+      "path": "config/providers/free.yml",
+      "text": "free",
+      "blocks": {
+        "cloudflare": {"api_key": "env:C"},
+        "openrouter": {"api_key": "env:F"},
+      },
+      "main": True,
+    },
+  ]
+  run_app_js(
+    "state, takeFiles, openFile",
+    f"""
+probe.takeFiles({json.dumps(files)});
+probe.state.file = 1;
+probe.openFile(0);
+assert.strictEqual(node('provider-form').dataset.detail, '1',
+  'the one-provider file opens its provider page at once');
+probe.openFile(1);
+assert.strictEqual(node('provider-form').dataset.detail, '0',
+  'a shared file keeps the provider list');
+""",
+  )
+
+
 def test_app_js_settings_entry_shows_the_first_section_card() -> None:
   """A tab switch into Settings with no section in the hash shows one card."""
   payload = json.dumps(
@@ -5931,8 +5965,8 @@ def test_a_phone_opens_a_section_as_its_own_page() -> None:
   assert '#provider-form[data-detail="1"] > .section-pane > .pane-bar {' in style, (
     "a desktop drill page shows the bar over the pane"
   )
-  assert ".card.list { padding: 0; }" in style, (
-    "the drill list page keeps its rows flush"
+  assert ".card.list { padding: 0; background: none; border: 0; }" in style, (
+    "the drill list page keeps its rows flush and paints no card of its own"
   )
   phone = style.split("@media (max-width: 900px) {", 1)[1]
   assert '.sections button::after { content: "\\203a";' in phone, (

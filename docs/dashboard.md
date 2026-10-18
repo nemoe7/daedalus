@@ -146,7 +146,8 @@ The page drops the hash after it reads it.
 
 Open the Providers section of the Settings page. The section lists the providers of the selected
 file, each row with a chevron. Select a row to open the provider as its own page, headed by a back
-chevron and the provider name. The back returns to the list.
+chevron and the provider name. The back returns to the list. A file of 1 provider opens that
+provider page at once. The rows form one grouped surface on the pane, and no second card wraps them.
 
 Select a value on the page to open its editor. **Save** writes a valid change. Cancel, Escape, or
 closing without confirmation keeps the earlier value.
