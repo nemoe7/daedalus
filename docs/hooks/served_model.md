@@ -26,7 +26,7 @@ the slug alone for a named pool. The [served model filter](../integrations/owui/
 
 The [auto reasoning hook](owui_auto_reasoning_effort.md) overrides the line with the routed effort
 when both files run.
-The chat pools own no provider block, so the `hooks` list of a provider cannot name this file.
-The file itself skips every model that is not `daedalus/auto` or a chat pool.
+Chat pools own no provider block, so the `hooks` list of a provider cannot name this file.
+This file skips every model that is not `daedalus/auto` or a chat pool.
 
-The other shipped hook files: [the auto reasoning effort and try-again rule](owui_auto_reasoning_effort.md) and [the OpenRouter endpoint order](or_cheapest_output.md).
+Also shipped: [the auto reasoning effort and try-again rule](owui_auto_reasoning_effort.md) and [the OpenRouter endpoint order](or_cheapest_output.md).
