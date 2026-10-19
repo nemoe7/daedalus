@@ -298,7 +298,7 @@ writes 1 warning line. The scope rules:
 4. `model` runs the hook for the named model ids alone.
 5. `client` runs the hook for a request of 1 of the named client apps. The base names the app from
    the request headers, such as `OWUI` or `Kilo`.
-6. A request surface accepts `provider`, `yaml`, `model` and `client` too.
+6. A request surface accepts `provider`, `yaml`, `model`, and `client` too.
 7. `on-http` needs no scope, because the route names the file.
 
 ## Sources and the lock
