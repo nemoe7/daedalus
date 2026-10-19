@@ -2742,18 +2742,36 @@ assert(!html.includes('>' + tokensPerMinute + '</td>'), 'the cell text stays sho
 
 
 def test_limit_columns_stay_compact() -> None:
-  """Limit CSS defines model-name ellipses and nonwrapping unit labels."""
+  """Limit CSS wraps a model name in full and keeps the unit labels on one line."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
   ).read_text(encoding="utf-8")
   model_cell = re.search(r"#limit-rows td\.name\s*\{([^}]*)\}", css)
+  value = re.search(r"#limit-rows td\.name \.cell-value\s*\{([^}]*)\}", css)
   limit_cell = re.search(r"#limit-rows td:nth-child\(2\)\s*\{([^}]*)\}", css)
   mobile_css = css.split("@media (max-width: 720px) {", 1)[1]
   mobile_weight = re.search(r"#limit-rows \.weight\.left\s*\{([^}]*)\}", mobile_css)
-  assert model_cell and "text-overflow: ellipsis" in model_cell.group(1)
-  assert model_cell and "white-space: nowrap" in model_cell.group(1)
+  assert model_cell and "white-space: normal" in model_cell.group(1)
+  assert model_cell and "max-width: 0" in model_cell.group(1)
+  assert value and "display: block" in value.group(1)
+  assert value and "overflow-wrap: anywhere" in value.group(1)
   assert limit_cell and "white-space: nowrap" in limit_cell.group(1)
   assert mobile_weight and "min-width: 0" in mobile_weight.group(1)
+
+
+def test_a_tablet_puts_the_limit_cards_under_the_table() -> None:
+  """The 601 to 1000 px band stacks the provider cards, so the name column keeps its width."""
+  css = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
+  ).read_text(encoding="utf-8")
+  band = re.search(
+    r"@media \(min-width: 601px\) and \(max-width: 1000px\) \{([^@]*?)\n\}",
+    css,
+  )
+  assert band, "the tablet band sets its own limits layout"
+  rules = band.group(1)
+  assert "flex-direction: column" in rules
+  assert "grid-template-columns: repeat(2, minmax(0, 1fr))" in rules
 
 
 def test_the_overview_pool_rows_draw_the_marks_of_the_top_model() -> None:

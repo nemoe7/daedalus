@@ -230,7 +230,7 @@ a.notification-item .notification-head b { text-decoration: underline; text-deco
 .notification-item.rebuild .notification-mark { background: var(--ok); }
 /* The first event opens the card itself: the count strip above it carried no action. */
 .notification-feed > .notification-item:first-child { border-top: 0; }
-.notification-copy { min-width: 0; display: grid; gap: 4px; }
+.notification-copy { min-width: 0; display: grid; gap: 4px; white-space: normal; }
 .notification-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .notification-head b { min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
 .notification-head time { flex: 0 0 auto; white-space: nowrap; font-size: 12px; }
@@ -314,8 +314,10 @@ select option { background: var(--panel); color: var(--text); }
 /* The whole head cell is the sort target, so it reads as one. */
 th[data-sort] { cursor: pointer; }
 .models .weight { width: 150px; }
-/* The name takes the free width. A longer name ends in an ellipsis. */
-.models td.name { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The name takes the free width and wraps rather than ending in an ellipsis. */
+.models td.name { max-width: 0; white-space: normal; }
+.models td.name .cell-value { display: block; }
+.models td.name .model-open { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.35; }
 .models .mid { text-align: center; }
 .models td.num, .models th.num { text-align: right; }
 .models td.num .weight { justify-content: flex-end; }
@@ -491,7 +493,8 @@ A chip reads as noise, so the separator stays plain, and the icons keep the text
 /* A dark theme inverts the monochrome mark files. The text of a slug needs no filter. */
 :root[data-theme="dark"] img.mark { filter: invert(1); }
 .model-part { overflow: hidden; text-overflow: ellipsis; }
-#limit-rows td.name { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#limit-rows td.name { max-width: 0; white-space: normal; }
+#limit-rows td.name .cell-value { display: block; overflow-wrap: anywhere; }
 #limit-rows td:nth-child(2) { white-space: nowrap; }
 table.limits th.num, table.limits td.num { text-align: right; }
 table.limits td.num .weight { justify-content: flex-end; }
@@ -933,6 +936,20 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   section[data-page="limits"] > .editbar { width: calc(100% - 276px); }
 }
 
+/* A tablet puts the provider cards under the table: beside it they left the name column 67 px
+   wide, too narrow for a model id to read. The cards keep two to a row on the way down. */
+@media (min-width: 601px) and (max-width: 1000px) {
+  main[data-page="limits"] { overflow: auto; }
+  main[data-page="limits"] > section[data-page="limits"] { flex: none; }
+  section[data-page="limits"] > .flow { flex-direction: column; flex: none; overflow: visible; }
+  section[data-page="limits"] > .flow > .column { flex: none; min-height: 0; }
+  section[data-page="limits"] > .flow > .column > .panel:not(.editbar) { flex: none; overflow: visible; }
+  section[data-page="limits"] > .flow > .column:not(.wide) {
+    flex: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+  }
+  section[data-page="limits"] > .editbar { width: auto; }
+}
+
 @media (max-width: 900px) {
   header { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; column-gap: 16px; }
   .tabs { flex-wrap: nowrap; gap: 0 16px; overflow-x: auto; }
@@ -977,12 +994,8 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   button.hint { position: relative; }
   button.hint::after { content: ""; position: absolute; inset: -14px; }
 }
-/* A tablet keeps the name in one column, so a name too long for it wraps instead of ending in an
-   ellipsis; the weight meter gives up 40 px for it. */
+/* A tablet trades 40 px of the weight meter for the name column beside it. */
 @media (min-width: 721px) and (max-width: 900px) {
-  .models td.name { max-width: none; white-space: normal; }
-  .models td.name .cell-value { display: block; }
-  .models td.name .model-open { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.35; }
   .models .weight { width: 110px; }
 }
 @media (max-width: 1320px) {
@@ -997,6 +1010,11 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   /* The header keeps the brand and Log out. The status chips move to the card below. */
   header { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; }
   .chips .ghost { min-height: 44px; }
+  /* The other controls a thumb reaches keep a 44 px box too: the sort heads, the catalog line,
+     the live switch, Check now, and the two filters. */
+  .sort { min-width: 44px; }
+  .sort, .line.rebuild, .live-toggle, section[data-page="limits"] > .editbar .ghost,
+  input[type="search"], #settings-search { min-height: 44px; }
   /* The phone card: a health row, then 1 line for each value. It fills the width, with no chip row.
      The 4 numbers of the strip stay above it, in 2 rows of 2, so the health line never leaves the page. */
   .kpis { grid-template-columns: 1fr 1fr; gap: 10px 14px; padding: 12px 14px; }
@@ -1055,7 +1073,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .models .tier { font-size: inherit; line-height: 16px; }
   .models tr > td:not(.name) .cell-value { font-size: inherit; }
   .models .cell-value { min-width: 0; text-align: left; }
-  .models td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .models td.name .cell-value { display: block; }
   .models .weight { width: auto; }
   /* The form row and the Models bar ride on the page rail, with their bottom padding. The 3px of
      room at the top left corner keeps the panel corner off the field and off its focus ring. */
@@ -1084,8 +1102,8 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .models th { padding: 13px 8px; }
   /* The first card row keeps a gap from the bar above it. */
   .models tbody, .keys tbody { display: block; margin-top: 16px; }
-  /* The dropped Type column shows under each model name, and the name keeps its ellipsis. */
-  .models td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* The dropped Type column shows under each model name, and the name wraps rather than clips. */
+  .models td.name .cell-value { display: block; }
   /* The modality and capability chips share one row, at one size. The name keeps its row,
      and the chips wrap under it as one group. */
   .phone-types, .phone-chips { display: contents; }
@@ -1130,7 +1148,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   }
   #limit-rows td, #limit-rows td:not(:first-child) { display: block; padding: 0; border: 0; width: auto; white-space: normal; }
   #limit-rows td.name { grid-column: 1; max-width: none; min-width: 0; }
-  #limit-rows td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #limit-rows td.name .cell-value { display: block; white-space: normal; overflow-wrap: anywhere; }
   #limit-rows td:nth-child(2) { display: none; }
   #limit-rows td.num { grid-column: 2; text-align: right; white-space: nowrap; }
   #limit-rows td.hide-sm { display: none; }
