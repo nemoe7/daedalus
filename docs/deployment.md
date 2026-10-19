@@ -47,7 +47,7 @@ A standalone installer records managed hashes in `.daedalus-state/managed-files.
 
 Move the customization to `local.env` or `compose.override.yml`, install the candidate managed file, and rerun. The installer does not use a per-key merge.
 
-The Docker and git commands below are the same in cmd, PowerShell and bash.
+The Docker and git commands below are the same in cmd, PowerShell, and bash.
 
 | Task | Command |
 | --- | --- |
@@ -107,7 +107,7 @@ Both Compose modes mount the `hooks` named volume at `/app/hooks`. Docker copies
 
 Use **Take** in Settings or `docker compose exec api daedalus hooks update` to update installed hooks. `docker compose down -v` deletes the volume and its hook files.
 
-Before updating a container without persistent hook storage, copy its files to a backup folder. The installer does not migrate them. This command works in cmd, PowerShell and bash:
+Before updating a container without persistent hook storage, copy its files to a backup folder. The installer does not migrate them. This command works in cmd, PowerShell, and bash:
 
 ```console
 docker cp daedalus-api:/app/hooks ./hooks-backup
@@ -201,20 +201,20 @@ The installers ask for profiles only when `.env` is absent. If you decline Open 
 | `ENABLE_FORWARD_USER_INFO_HEADERS` | `false`. Open WebUI does not send the user's name, email address, stable user ID, or role. |
 | `WEBUI_SECRET_KEY` | From `.env`. Without it, each new container makes a new key, and all logins end. |
 | `AIOHTTP_CLIENT_TIMEOUT` | `600`, the same as `limits.request`. The Open WebUI default is 300 s. |
-| `TASK_MODEL_EXTERNAL` | `daedalus/auto`, for titles, tags and follow-ups |
+| `TASK_MODEL_EXTERNAL` | `daedalus/auto`, for titles, tags, and follow-ups |
 | `AUDIO_STT_ENGINE`, `AUDIO_STT_MODEL` | `openai` and `daedalus/graphos`. Speech to text goes to daedalus, not to a local Whisper. |
 | `ENABLE_IMAGE_GENERATION`, `IMAGE_GENERATION_MODEL` | `true` and `daedalus/photos` |
-| `ENABLE_IMAGE_EDIT`, `IMAGE_EDIT_ENGINE`, `IMAGE_EDIT_MODEL` | `true`, `openai` and `daedalus/photos`. Only the photos models with image input take an edit request. |
+| `ENABLE_IMAGE_EDIT`, `IMAGE_EDIT_ENGINE`, `IMAGE_EDIT_MODEL` | `true`, `openai`, and `daedalus/photos`. Only the photos models with image input take an edit request. |
 | `AUDIO_STT_OPENAI_API_BASE_URL`, `AUDIO_STT_OPENAI_API_KEY`, `IMAGES_OPENAI_API_BASE_URL`, `IMAGES_OPENAI_API_KEY`, `IMAGES_EDIT_OPENAI_API_BASE_URL`, `IMAGES_EDIT_OPENAI_API_KEY` | The daedalus API base and key. Without them, speech and images go to OpenAI. |
-| `VECTOR_DB`, `PGVECTOR_DB_URL` | `pgvector` in `webui-db`, for files, knowledge and memory. `main-slim` supports no other vector store. |
+| `VECTOR_DB`, `PGVECTOR_DB_URL` | `pgvector` in `webui-db`, for files, knowledge, and memory. `main-slim` supports no other vector store. |
 | `ENABLE_MEMORY_BACKGROUND_REVIEW`, `MEMORIES_REVIEW_INTERVAL_TURNS` | `true` and `5`. After every 5th user turn, the chat model reviews the last turns and drafts the memories. |
-| `RAG_OPENAI_API_BASE_URL`, `RAG_OPENAI_API_KEY`, `RAG_EMBEDDING_ENGINE`, `RAG_EMBEDDING_MODEL` | `http://api:3357/v1`, the daedalus key, `openai` and `mistral/mistral-embed-2312`. `main-slim` has no local embedding model. |
+| `RAG_OPENAI_API_BASE_URL`, `RAG_OPENAI_API_KEY`, `RAG_EMBEDDING_ENGINE`, `RAG_EMBEDDING_MODEL` | `http://api:3357/v1`, the daedalus key, `openai`, and `mistral/mistral-embed-2312`. `main-slim` has no local embedding model. |
 | `CONTENT_EXTRACTION_ENGINE`, `TIKA_SERVER_URL` | `tika` and `http://tika:9998`. Without the `tika` profile, PDF and Office files fail. Plain text skips it. |
-| `ENABLE_WEB_SEARCH`, `WEB_SEARCH_ENGINE`, `SEARXNG_QUERY_URL` | `true`, `searxng` and `http://searxng:8080/search?q=<query>`. Without the `search` profile, a web search fails. |
+| `ENABLE_WEB_SEARCH`, `WEB_SEARCH_ENGINE`, `SEARXNG_QUERY_URL` | `true`, `searxng`, and `http://searxng:8080/search?q=<query>`. Without the `search` profile, a web search fails. |
 | `DEFAULT_MODEL_METADATA` | On in each new chat. An existing install: **Admin Settings → Models → Defaults**. |
 | MCP servers | MCP tools need **Native** function calling. Tool requests skip the models without it. See [MCP](https://docs.openwebui.com/features/extensibility/mcp/). |
 | Spoken replies | **Settings → Audio**: Web API or Kokoro.js. Gemini TTS allows 3 requests per minute. |
-| `RAG_EMBEDDING_BATCH_SIZE`, `ENABLE_ASYNC_EMBEDDING`, `RAG_EMBEDDING_CONCURRENT_REQUESTS` | `32`, `true` and `2`: 32 chunks in each call, 2 calls at a time, inside the free Mistral limits |
+| `RAG_EMBEDDING_BATCH_SIZE`, `ENABLE_ASYNC_EMBEDDING`, `RAG_EMBEDDING_CONCURRENT_REQUESTS` | `32`, `true`, and `2`: 32 chunks in each call, 2 calls at a time, inside the free Mistral limits |
 
 After a change of `personalization.audio` or `personalization.images` in [`config/daedalus.yml`](../config/daedalus.yml), override `AUDIO_STT_MODEL`, `IMAGE_GENERATION_MODEL` or `IMAGE_EDIT_MODEL` in `services/open-webui/local.env` and update **Admin Settings**. Also change the pool names in the Kilo and Open WebUI model settings.
 
@@ -243,7 +243,7 @@ To check the services and settings:
 
 Keep **Function Calling** on **Native**, the Open WebUI default since v0.10.0. Native sends the tools in `tools`, and daedalus skips the models that cannot call tools. Legacy puts the tools in the prompt and calls tools only 1 time, before the answer.
 
-The skills, filters and tools of the [`integrations/openwebui`](../integrations/openwebui) folder have their own page: [Open WebUI integration](integrations/owui.md).
+The skills, filters, and tools of the [`integrations/openwebui`](../integrations/openwebui) folder have their own page: [Open WebUI integration](integrations/owui.md).
 
 ### Open WebUI database
 
@@ -252,9 +252,9 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Setting | Value |
 | --- | --- |
 | Image | `pgvector/pgvector:0.8.6-pg18-trixie` |
-| Content | The vectors of files, knowledge and memory. The chats stay in the `open-webui` volume. |
+| Content | The vectors of files, knowledge, and memory. The chats stay in the `open-webui` volume. |
 | Password | `OPENWEBUI_DB_PASSWORD`, default `openwebui`. No port on the host. |
-| Keys | `POSTGRES_USER`, `POSTGRES_PASSWORD` and `POSTGRES_DB`, all `openwebui`. |
+| Keys | `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB`, all `openwebui`. |
 | Vector size | `PGVECTOR_INITIALIZE_MAX_VECTOR_LENGTH` is `1024`, the size of a `mistral/mistral-embed-2312` vector. A new model needs a new index. |
 | Volume | `webui-db` |
 

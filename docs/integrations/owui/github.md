@@ -33,7 +33,7 @@ flowchart TD
 
 3 tools sit outside the connector list. `create_pr_with_files` writes a file list as 1 commit and opens or updates the pull request. `list_commits` reads the history of a path or a branch. `list_tree` reads the whole tree in 1 call.
 
-3 security reads cover the alert lists: `code_scanning_alerts`, `secret_scanning_alerts` and `dependabot_alerts`. Each lists the alerts with filters, or reads 1 alert with its instances or locations. They need a token with the `security_events` scope, or the matching fine-grained read. Without it GitHub answers 403.
+3 security reads cover the alert lists: `code_scanning_alerts`, `secret_scanning_alerts`, and `dependabot_alerts`. Each lists the alerts with filters, or reads 1 alert with its instances or locations. They need a token with the `security_events` scope, or the matching fine-grained read. Without it GitHub answers 403.
 
 2 CI reads cover the checks. `list_github_check_runs` lists the check runs of a ref with the name, the status and the filter, or reads 1 run with its annotations. `list_workflows` lists the Actions workflows.
 
@@ -46,9 +46,9 @@ flowchart TD
 | `list_github_tags` | The tags |
 | `list_github_packages` | The packages of the signed-in user, a user or an org |
 
-Gist management ships as 5 tools: `list_gists`, `fetch_gist`, and the gated writes `create_gist`, `update_gist` and `delete_gist`.
+Gist management ships as 5 tools: `list_gists`, `fetch_gist`, and the gated writes `create_gist`, `update_gist`, and `delete_gist`.
 
-The 3 alert reads take gated writes: `update_code_scanning_alert`, `update_secret_scanning_alert` and `update_dependabot_alert` dismiss, resolve or reopen an alert.
+The 3 alert reads take gated writes: `update_code_scanning_alert`, `update_secret_scanning_alert`, and `update_dependabot_alert` dismiss, resolve or reopen an alert.
 
 1. Import the JSON file in **Workspace → Tools**, **Import JSON**.
 2. **Valves**: set `github_token`, or set the `GITHUB_TOKEN` environment value. Set `permissions`. `Always ask` is the shipped default.

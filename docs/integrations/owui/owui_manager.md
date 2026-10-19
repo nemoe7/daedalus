@@ -44,7 +44,7 @@ A new knowledge base, skill, tool or function joins the model presets in the sam
 
 ### Create and update files
 
-`create_skill` accepts `SKILL.md` as `content` plus optional UTF-8 supporting `files`. The legacy name/content call remains valid. `update_skill` remains the simple instructions update. `update_skill_files` adds `put`, `move` and `delete` operations while preserving untouched files.
+`create_skill` accepts `SKILL.md` as `content` plus optional UTF-8 supporting `files`. The legacy name/content call remains valid. `update_skill` remains the simple instructions update. `update_skill_files` adds `put`, `move`, and `delete` operations while preserving untouched files.
 
 Pass the version from `show_skill` as `expected_version_id` for optimistic concurrency. If this value is empty, the manager reads the current version immediately before saving. Agent-authored file writes are text-only.
 

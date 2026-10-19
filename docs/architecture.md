@@ -381,7 +381,7 @@ Transcription and images get a pool, because the answer of another model is stil
 A table change:
 
 1. Change the table in [`daedalus/store/schema.py`](../daedalus/store/schema.py) and the `CREATE TABLE` statement of its module.
-2. Make the step. The command is the same in cmd, PowerShell and bash:
+2. Make the step. The command is the same in cmd, PowerShell, and bash:
 
    ```text
    uv run alembic -c daedalus/store/alembic.ini upgrade head

@@ -84,7 +84,7 @@ the session model removes it, and the next model that answers in time becomes th
 model. A slow success does not become the session model. A session model expires after 1 hour
 without a request.
 
-Weights, cooldowns and session models stay in `models.sqlite3`. A restart keeps them, and `daedalus catalog` keeps them
+Weights, cooldowns, and session models stay in `models.sqlite3`. A restart keeps them, and `daedalus catalog` keeps them
 when it rebuilds the model table.
 
 ### Loops

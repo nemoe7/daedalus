@@ -192,7 +192,7 @@ word there. The levels and the shipped file are on the [auto reasoning effort](h
 `daedalus` then drops the models that answered the message: `daedalus/auto` steps the tier 1 step up, and a named pool keeps its pool. The surface runs again with `count` filled in. A file that writes `value["code"]` sets the code of the Requests row, such as `rt1`. Without a `key`, a repeat is a new request.
 
 Without a `code`, the row shows no code. [`hooks/owui_auto_reasoning_effort.py`](../hooks/owui_auto_reasoning_effort.py) applies this rule to the `x-openwebui-chat-id` header of Open WebUI.
-The media endpoints, transcription and images, count a repeat of the same content with no hook.
+The media endpoints, transcription, and images, count a repeat of the same content with no hook.
 That count is the only retry path of the base app.
 
 A function gets a copy of the value. It can change the copy and return None, or it can return a new dict. The hooks of 1 surface run in list order, and each hook gets the value of the hook before it.

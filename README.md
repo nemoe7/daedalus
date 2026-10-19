@@ -21,7 +21,7 @@ daedalus is in development. The code changes fast, and it breaks faster.
 - A [try again](docs/architecture.md#try-again) in Open WebUI moves the message 1 tier up. The rule needs the shipped [owui_auto_reasoning_effort](docs/hooks/owui_auto_reasoning_effort.md) hook.
 - Before a request, daedalus skips the models without tools, without vision or with a too-small context window. Each provider or model can carry an [order](docs/architecture.md#order).
 - A model catalog from provider discovery and LiteLLM data, rebuilt on a schedule, in place of a hand-written model list.
-- Endpoints for embeddings, transcriptions, speech, and images, and a dashboard for pools, requests, models, API keys, providers and settings.
+- Endpoints for embeddings, transcriptions, speech, and images, and a dashboard for pools, requests, models, API keys, providers, and settings.
 - Docker Compose, with optional Open WebUI, Tika, SearXNG, Headroom, and Tailscale.
 
 daedalus is for personal use only. Do not share it with other users, because the provider terms of service can forbid it.
@@ -147,14 +147,14 @@ Keep JSON inventories out of git.
 | --- | --- |
 | [Docs index](docs/README.md) | Every page, in the order of a first read |
 | [Architecture](docs/architecture.md) | Request flow, classification, fallback ladder, weights, session affinity and loops |
-| [API](docs/api.md) | Endpoints, model names, access and errors |
+| [API](docs/api.md) | Endpoints, model names, access, and errors |
 | [Configuration](docs/configuration.md) | Environment variables, [`config/daedalus.yml`](config/daedalus.yml) and provider files |
 | [Providers](docs/providers.md) | Supported providers and what each one can do |
 | [Provider keys](docs/provider-keys.md) | The steps that make a key for each provider |
 | [Deployment](docs/deployment.md) | Docker Compose, profiles, Open WebUI, Tika, SearXNG, Headroom, and Tailscale |
 | [Open WebUI integration](docs/integrations/owui.md) | The skills, the filters and the tools of the [`integrations/openwebui`](integrations/openwebui) folder |
 | [Dashboard](docs/dashboard.md) | Pages and API keys |
-| [Hooks](docs/hooks.md) | Python files that change catalog rows, requests and answers. Each shipped file has its own page |
+| [Hooks](docs/hooks.md) | Python files that change catalog rows, requests, and answers. Each shipped file has its own page |
 | [Decisions](docs/adr/) | Architecture decision records |
 
 ## License
