@@ -222,8 +222,11 @@ td.time { white-space: nowrap; }
   border-radius: 0; background: transparent; color: inherit; font: inherit; text-align: left;
 }
 button.notification-item { cursor: pointer; }
+a.notification-item { color: inherit; text-decoration: none; }
+/* A linked row reads as a link, so a warning shows that it opens. */
+a.notification-item .notification-head b { text-decoration: underline; text-decoration-color: var(--muted); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 @media (hover: hover) {
-  button.notification-item:hover { background: var(--field); }
+  button.notification-item:hover, a.notification-item:hover { background: var(--field); }
 }
 .notification-mark { width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: var(--muted); }
 .notification-item.reset .notification-mark { background: var(--accent); }

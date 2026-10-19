@@ -642,6 +642,26 @@ def test_status_card_sits_in_the_card_grid() -> None:
   assert column.index("status-card") < column.index("ov-limits")
 
 
+def test_notification_warnings_open_the_limits_page() -> None:
+  """A limit warning links to Limits filtered by its model."""
+  root = Path(__file__).resolve().parents[2]
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  start = app.index("function renderNotifications")
+  feed = app[start : app.index("\nfunction ", start + 10)]
+  assert "event.model ? `#/limits?q=${encodeURIComponent(event.model)}` : null" in feed
+  assert 'if (href) return `<a class="notification-item ${kind}" href="${esc(href)}">' in feed
+
+
+def test_rebuild_counts_carry_their_label() -> None:
+  """A rebuild row names each count instead of printing a bare sign."""
+  root = Path(__file__).resolve().parents[2]
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  en = (root / "daedalus/dashboard/ui/en.js").read_text(encoding="utf-8")
+  assert 't("notification.diff_added_text", { count })' in app
+  for kind in ("added", "moved", "removed"):
+    assert f'"notification.diff_{kind}_text"' in en
+
+
 def test_limit_bars_wait_for_a_limit_to_move() -> None:
   """The Limits table draws a bar only when a row sits below its cap."""
   root = Path(__file__).resolve().parents[2]
@@ -1373,8 +1393,8 @@ def test_notification_actions_match_the_shared_pointer_hover() -> None:
     re.findall(r"@media \(hover: hover\) \{\n(.*?)\n *\}", css, re.DOTALL)
   )
   bare = re.sub(r"@media \(hover: hover\) \{\n.*?\n *\}", "", css, flags=re.DOTALL)
-  hover = "button.notification-item:hover { background: var(--field); }"
-  assert hover in gated, "notification actions share the row hover color"
+  hover = "button.notification-item:hover, a.notification-item:hover { background: var(--field); }"
+  assert hover in gated, "notification actions and links share the row hover color"
   assert "button.notification-item:hover" not in bare, (
     "a touch tap keeps no notification hover"
   )
@@ -1527,7 +1547,7 @@ const event = {
 };
 assert.strictEqual(
   probe.rebuildDiff(event),
-  '<span class="added">+1</span> <span class="removed">-1</span> <span class="moved">~1</span>',
+  '<span class="added">1 added</span> · <span class="removed">1 deleted</span> · <span class="moved">1 changed</span>',
   'the summary reads the shared descriptors',
 );
 node('model-modal').showModal = () => {};
@@ -1538,7 +1558,7 @@ for (const [kind, mark] of [['added', '+'], ['removed', '-'], ['moved', '~']]) {
 }
 probe.DIFF_KINDS[0] = ['shared-kind', '!', 'added'];
 assert(
-  probe.rebuildDiff(event).startsWith('<span class="shared-kind">!1</span>'),
+  probe.rebuildDiff(event).startsWith('<span class="shared-kind">1 added</span>'),
   'the summary reads a descriptor change',
 );
 probe.openDiffModal(event);

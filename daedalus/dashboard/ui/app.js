@@ -3517,8 +3517,14 @@ const DIFF_KINDS = [
 ];
 
 function rebuildDiff(event) {
-  const marks = DIFF_KINDS.map(([kind, mark, key]) =>
-    event[key].length ? `<span class="${kind}">${mark}${event[key].length}</span>` : "").join(" ");
+  const marks = DIFF_KINDS.map(([kind, mark, key]) => {
+    const count = event[key].length;
+    if (!count) return "";
+    const label = key === "added" ? t("notification.diff_added_text", { count })
+      : key === "removed" ? t("notification.diff_removed_text", { count })
+        : t("notification.diff_moved_text", { count });
+    return `<span class="${kind}">${label}</span>`;
+  }).filter(Boolean).join(" · ");
   return marks || '<span class="muted">-</span>';
 }
 
@@ -3640,10 +3646,11 @@ function openDiffModal(event) {
 
 function renderNotifications(data) {
   state.notifications = data;
-  const item = (kind, at, title, body, attrs = null) => {
+  const item = (kind, at, title, body, attrs = null, href = null) => {
     const content = `<span class="notification-mark" aria-hidden="true"></span>
       <span class="notification-copy"><span class="notification-head"><b>${title}</b>${timeText(at, { tag: "time", variant: "muted" })}</span>
       <span class="notification-body">${body}</span></span>`;
+    if (href) return `<a class="notification-item ${kind}" href="${esc(href)}">${content}</a>`;
     return attrs
       ? actionButton(content, { variant: `notification-item ${kind}`, attrs })
       : `<div class="notification-item ${kind}">${content}</div>`;
@@ -3680,6 +3687,8 @@ function renderNotifications(data) {
         }) + (event.remaining === 0 && event.reset
           ? ` · ${t("notification.limit_resets_text", { when: relative(event.reset) })}`
           : ""),
+        null,
+        event.model ? `#/limits?q=${encodeURIComponent(event.model)}` : null,
       ),
     })),
     ...(data.rebuilds || []).map((event, index) => ({
