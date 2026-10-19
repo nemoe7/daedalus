@@ -710,7 +710,12 @@ section[data-page="providers"], section[data-page="settings"] {
 .card.list { padding: 0; background: none; border: 0; }
 .sections.drill button::after { content: "\203a"; color: var(--muted); font-size: 18px; line-height: 1; }
 /* A card of a section closes on the room of 1 row: the last row keeps the same space to the edge
-   of the card as the space between 2 rows. */
+   of the card as the space between 2 rows. The top edge keeps that same room: the first row drops
+   its own padding, so all 4 insets read equal. */
+section[data-page="settings"] .card:not(.list),
+section[data-page="providers"] .card:not(.list) { padding-top: 20px; }
+section[data-page="settings"] .card > .field:first-child,
+section[data-page="providers"] .card > .field:first-child { padding-top: 0; }
 section[data-page="settings"] .card,
 section[data-page="providers"] .card { padding-bottom: 10px; }
 .section-pane { flex: 1 1 min(360px, 100%); display: grid; gap: 16px; min-width: 0; }
