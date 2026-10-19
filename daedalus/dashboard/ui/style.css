@@ -635,7 +635,8 @@ section[data-page="providers"], section[data-page="settings"] {
 .pane-summary h2 { margin: 4px 0 0; font-size: 18px; }
 .pane-summary p { margin: 0; max-width: 560px; color: var(--muted); }
 /* The summary keeps its content height while the visible card fills the pane. */
-#settings > .section-pane { grid-template-rows: auto 1fr; }
+#settings > .section-pane,
+#provider-form > .section-pane { grid-template-rows: auto 1fr; }
 /* Each section row and card header carries one colored tile, as the studied reference does.
    A phone row keeps its chevron at the right edge, where the list rule already draws it. */
 .tile {
@@ -659,17 +660,19 @@ section[data-page="providers"], section[data-page="settings"] {
 [data-chip="providers"] { background: color-mix(in srgb, var(--ok) 60%, var(--accent)); }
 .sections button > span:not(.tile) { flex: 1; min-width: 0; }
 .settings h3, .card.provider > h3, .card.yaml-view > h3 { display: flex; align-items: center; gap: 8px; }
-/* The providers card nests its own list and pane, so the drill-in reads as one page. */
-.card.nested { padding: 0; }
-.card.nested > h3 { padding: 18px 20px 8px; }
-.card.nested .files { padding: 12px 20px; }
-.card.nested .settings { margin: 0; }
-/* The drill list page keeps its rows flush, and every row carries a chevron.
-   The list wrapper paints nothing: the rows sit on the pane, not in a second card. */
+.provider-flow { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; }
+.provider-flow > .files { display: flex; flex-direction: column; gap: 16px; min-width: 0; margin: 0; }
+.provider-flow > .settings { flex: 1 1 auto; min-width: 0; min-height: 0; margin: 0; }
+.provider-files-head { padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.provider-files-head h2 { margin: 0; font-size: 20px; }
+.provider-files-head p { margin: 4px 0 0; color: var(--muted); }
+#files .provider-file-actions { display: flex; }
+.provider-file-error { padding: 0 0 12px; color: var(--bad); }
+.provider-file-error h3 { margin: 0 0 6px; }
+.provider-file-error p { margin: 4px 0; }
+.pane-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .card.list { padding: 0; background: none; border: 0; }
 .sections.drill button::after { content: "\203a"; color: var(--muted); font-size: 18px; line-height: 1; }
-.card.nested .sections { border: 0; background: none; }
-.card.nested .section-pane { padding: 0 20px 10px; }
 /* A card of a section closes on the room of 1 row: the last row keeps the same space to the edge
    of the card as the space between 2 rows. */
 section[data-page="settings"] .card,
@@ -857,11 +860,13 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .rail-search { display: none; }
   /* A desktop drill page heads the pane with the bar, and the list keeps the summary. */
   .pane-bar { display: none; }
-  #provider-form[data-detail="1"] > .section-pane > .pane-bar {
+  #provider-form[data-detail="1"] > .section-pane > .pane-bar,
+  #provider-form[data-file-open="1"] > .section-pane > .pane-bar {
     display: flex; gap: 20px; position: sticky; top: 0; z-index: 2;
     background: var(--panel); padding: 14px 20px; margin: 0 -20px;
   }
-  #provider-form[data-detail="1"] > .section-pane > .pane-bar .back {
+  #provider-form[data-detail="1"] > .section-pane > .pane-bar .back,
+  #provider-form[data-file-open="1"] > .section-pane > .pane-bar .back {
     display: block; min-height: 0; padding: 0; border: 0; color: var(--muted);
   }
   #provider-form[data-detail="1"] > .section-pane > .pane-bar .back .back-label { display: none; }
@@ -875,8 +880,8 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   /* A pane that holds one filling card stops scrolling, so the card's own form carries the scroll. */
   .section-pane.fit-host { overflow: hidden; mask-image: none; display: flex; flex-direction: column; }
   .section-pane:not(.fit-host) > .card { align-self: start; }
-  .section-pane.fit-host > .card { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
-  .card.nested > .settings { flex: 1 1 auto; min-height: 0; align-items: stretch; }
+  .section-pane.fit-host > .card,
+  .section-pane.fit-host > .provider-flow { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
   .card.yaml-view textarea { flex: 1 1 auto; min-height: 120px; }
 }
 
@@ -891,19 +896,13 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .section-pane { display: none; }
   /* The providers host keeps its list inside the pane: it has no rail to swap to. */
   #provider-form > .section-pane { display: grid; }
-  /* The list page has no nested step to return from, so its bar stays away. */
-  #provider-form:not([data-detail="1"]) > .section-pane > .pane-bar { display: none; }
-  /* Only the host's own list and pane: a nested providers host keeps its own step. */
+  #provider-form:not([data-detail="1"]):not([data-file-open="1"]) > .section-pane > .pane-bar { display: none; }
   .settings[data-detail="1"] > .rail { display: none; }
   .settings[data-detail="1"] > .section-pane { display: grid; }
-  /* The pane of a phone closes the gap above the back row: the header sits close, and the card
-     follows the label with no empty band between. */
   .section-pane { gap: 10px; }
   .section-pane .back { display: block; min-height: 0; padding: 0; border: 0; color: var(--accent-text); }
   .section-pane .back .chev { font-size: 24px; line-height: 1; vertical-align: -3px; }
-  /* The nested rail spans the whole card, and the outer back yields to the nested one. */
-  .card.nested .sections { flex: 1 1 100%; }
-  #settings .section-pane:has(.card.nested .settings[data-detail="1"]) > .pane-bar > .back { display: none; }
+  #settings .section-pane:has(.provider-flow #provider-form[data-file-open="1"]) > .pane-bar > .back { display: none; }
   /* A phone drill page titles itself under the back label, as the reference lists do. */
   .pane-title:not([hidden]) { font-size: 26px; letter-spacing: -0.9px; }
   /* The touch floor: the boxed controls grow their hit areas on a phone. */
