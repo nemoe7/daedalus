@@ -6688,6 +6688,9 @@ assert.strictEqual(probe.yesNo(false), '<span class="muted">' + LOCALE["common.b
 const meter = probe.progressMeter(0.25);
 assert(meter.includes('class="track"') && meter.includes('class="fill"'), meter);
 assert(meter.includes('width:25%') && meter.includes('var(--orange) 50%'), meter);
+const healthyMeter = probe.progressMeter(0.9);
+assert(healthyMeter.includes('color-mix(in srgb, var(--ok) 80%'), healthyMeter);
+assert(!healthyMeter.includes('oklch, var(--ok)'), 'the healthy half keeps blue out of violet');
 """,
   )
 
