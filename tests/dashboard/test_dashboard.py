@@ -651,7 +651,10 @@ def test_notification_warnings_open_the_limits_page() -> None:
   start = app.index("function renderNotifications")
   feed = app[start : app.index("\nfunction ", start + 10)]
   assert "event.model ? `#/limits?q=${encodeURIComponent(event.model)}` : null" in feed
-  assert 'if (href) return `<a class="notification-item ${kind}" href="${esc(href)}">' in feed
+  assert (
+    'if (href) return `<a class="notification-item ${kind}" href="${esc(href)}">'
+    in feed
+  )
 
 
 def test_rebuild_counts_carry_their_label() -> None:
@@ -669,7 +672,9 @@ def test_limit_bars_wait_for_a_limit_to_move() -> None:
   root = Path(__file__).resolve().parents[2]
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   rows = app[app.index("function renderLimitRows") : app.index("const DIFF_KINDS")]
-  assert "const moving = rows.some((r) => r.limit > 0 && r.remaining < r.limit);" in rows
+  assert (
+    "const moving = rows.some((r) => r.limit > 0 && r.remaining < r.limit);" in rows
+  )
   assert "${moving ? progressMeter(" in rows
 
 
@@ -677,7 +682,9 @@ def test_balance_cards_read_as_numbers() -> None:
   """Every balance card carries a label and a value, and no bar."""
   root = Path(__file__).resolve().parents[2]
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  balances = app[app.index("function renderLimits") : app.index("function renderLimitRows")]
+  balances = app[
+    app.index("function renderLimits") : app.index("function renderLimitRows")
+  ]
   assert "progressMeter" not in balances
 
 
@@ -2209,7 +2216,7 @@ def test_every_screen_names_itself_in_one_page_title() -> None:
   assert '<h1 class="page-title" id="page-title"' in html
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert "settings-list-title" not in app
-  assert 'if (title) title.textContent = PAGE_LABELS[page];' in app
+  assert "if (title) title.textContent = PAGE_LABELS[page];" in app
   assert '<h1 class="pane-title" data-pane-title hidden></h1>' in app
   assert (
     'summary.innerHTML = `${chipFor(host.id, key)}<div class="pane-heading"><h2>${esc(label)}</h2>'
