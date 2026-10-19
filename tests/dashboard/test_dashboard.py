@@ -639,7 +639,19 @@ def test_status_card_sits_in_the_card_grid() -> None:
   assert "status-card" not in head, "the card no longer spans the page"
   flow = html[html.index('<div class="flow">)'.replace(")", "")) :]
   column = flow.split('<div class="column">', 1)[1]
-  assert column.index("status-card") < column.index("ov-requests")
+  assert column.index("status-card") < column.index("ov-limits")
+
+
+def test_overview_columns_share_the_card_load() -> None:
+  """Overview markup balances the 2 columns: status and limits beside models and requests."""
+  root = Path(__file__).resolve().parent.parent.parent
+  html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  start = html.index('<div class="flow">')
+  flow = html[start : html.index("</section>", start)]
+  left, right = flow.split('<div class="column">')[1:]
+  assert left.index("status-card") < left.index("ov-limits")
+  assert "ov-requests" not in left, "the short requests card balances the right column"
+  assert right.index("ov-models") < right.index("ov-requests")
 
 
 def test_requests_reads_model_served_effort() -> None:

@@ -941,6 +941,8 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   header { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; column-gap: 16px; }
   .tabs { flex-wrap: nowrap; gap: 0 16px; overflow-x: auto; }
   .settings-list-title { display: block; }
+  /* A tablet reads the 4 figures as 2 rows of 2, not 3 plus 1. */
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   /* A phone shows the section list, then 1 section, with a way back to the list. */
   .rail, .section-pane { flex: 1 1 100%; }
   /* A phone row carries a chevron at its right edge, and a selection opens the section as its own page. */
