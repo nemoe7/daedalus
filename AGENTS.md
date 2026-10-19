@@ -74,6 +74,7 @@ An ADR holds one decision and the reason for it.
 ## Front-end work
 
 - Read and apply `.agents/skills/frontend-design/SKILL.md` and `.agents/skills/taste-skill/SKILL.md` before front-end work.
+- Read `.agents/skills/ui-ux-pro-max/SKILL.md` for UI/UX search and its checklist. Keep `frontend-design` and `taste-skill` as the house art direction.
 - For dashboard screens, read `.agents/skills/taste-skill/references/app-screens.md` before you audit or change a screen.
 - For a dashboard audit, inspect every route at 1440, 768, and 390 pixels. Capture and review the screenshots.
 - Check keyboard focus, contrast, reduced motion, touch targets, and horizontal overflow.
