@@ -112,7 +112,7 @@ Each chat model and pool model in `GET /v1/models` has these catalog fields, whe
 
 ## Kilo Code plugin
 
-Kilo Code reads token limits only from its config, and it cannot show the routed model of a custom provider. The plugin [`integrations/kilo/daedalus.js`](../integrations/kilo/daedalus.js) copies the model list fields into the Kilo config in memory. See [Kilo Code integration](integrations/kilo.md) for the fields, the key order and the install steps.
+Kilo Code reads token limits only from its config, and it cannot show the routed model of a custom provider. The plugin [`integrations/kilo/daedalus.js`](../integrations/kilo/daedalus.js) copies the model list fields into the Kilo config in memory. See [Kilo Code integration](integrations/kilo.md) for the fields, the key order, and the install steps.
 
 ## Chat completions
 

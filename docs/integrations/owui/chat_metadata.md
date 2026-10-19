@@ -2,7 +2,7 @@
 
 [`integrations/openwebui/functions/chat_metadata.py`](../../../integrations/openwebui/functions/chat_metadata.py)
 is an Open WebUI Filter: it puts 1 system message at the top of the chat. That message carries the
-date with the clock, the timezone, the place and the language.
+date with the clock, the timezone, the place, and the language.
 
 | Item | Value |
 | --- | --- |

@@ -23,7 +23,7 @@ The config key `tools` decides first. `tools: true` on the provider or on a matc
 row as tool-capable. `tools: false` marks it as not tool-capable. Without a `tools` key, the discovery value,
 then the LiteLLM value, marks the row.
 
-A row with no config key, no discovery value and no LiteLLM value is not tool-capable.
+A row with no config key, no discovery value, and no LiteLLM value is not tool-capable.
 
 A request with an `image_url` part in any message skips the models without vision, in the
 same chains and with the same silent skip. The value `supports_vision` decides, in the same

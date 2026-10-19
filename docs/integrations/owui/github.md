@@ -44,11 +44,11 @@ flowchart TD
 | `actions_minutes` | The Actions minutes of an org or a user |
 | `list_github_releases` | The releases, or 1 by id or tag |
 | `list_github_tags` | The tags |
-| `list_github_packages` | The packages of the signed-in user, a user or an org |
+| `list_github_packages` | The packages of the signed-in user, a user, or an org |
 
 Gist management ships as 5 tools: `list_gists`, `fetch_gist`, and the gated writes `create_gist`, `update_gist`, and `delete_gist`.
 
-The 3 alert reads take gated writes: `update_code_scanning_alert`, `update_secret_scanning_alert`, and `update_dependabot_alert` dismiss, resolve or reopen an alert.
+The 3 alert reads take gated writes: `update_code_scanning_alert`, `update_secret_scanning_alert`, and `update_dependabot_alert` dismiss, resolve, or reopen an alert.
 
 1. Import the JSON file in **Workspace → Tools**, **Import JSON**.
 2. **Valves**: set `github_token`, or set the `GITHUB_TOKEN` environment value. Set `permissions`. `Always ask` is the shipped default.
@@ -73,7 +73,7 @@ All 49 public reads use the same permission gate. Under `Always ask` each one wa
 
 The confirmation travels over the socket of the chat tab. `WEBSOCKET_EVENT_CALLER_TIMEOUT` is unset by default, so the Open WebUI server waits without a timeout when the browser does not answer. Only `timeout_seconds` ends that wait. A page refresh drops the dialog, the tool returns `denied: true`, and the tool sends nothing.
 
-[`tests/integrations/openwebui/tools/test_owui_github_tool.py`](../../../tests/integrations/openwebui/tools/test_owui_github_tool.py) holds the tool surface, the gate and the error path.
+[`tests/integrations/openwebui/tools/test_owui_github_tool.py`](../../../tests/integrations/openwebui/tools/test_owui_github_tool.py) holds the tool surface, the gate, and the error path.
 
 ## Output limits
 
