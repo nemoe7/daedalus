@@ -230,8 +230,8 @@ button.notification-item { cursor: pointer; }
 .notification-item.reset .notification-mark { background: var(--accent); }
 .notification-item.warning .notification-mark { background: var(--warn); }
 .notification-item.rebuild .notification-mark { background: var(--ok); }
-.feed-meta { padding: 12px 20px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; }
-.feed-meta + .notification-item { border-top: 0; }
+/* The first event opens the card itself: the count strip above it carried no action. */
+.notification-feed > .notification-item:first-child { border-top: 0; }
 .notification-copy { min-width: 0; display: grid; gap: 4px; }
 .notification-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .notification-head b { min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
