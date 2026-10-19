@@ -937,7 +937,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 
 @media (max-width: 900px) {
   header { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; column-gap: 16px; }
-  .tabs { flex-wrap: wrap; gap: 0 16px; overflow: visible; mask-image: none; }
+  .tabs { flex-wrap: nowrap; gap: 0 16px; overflow-x: auto; }
   .settings-list-title { display: block; }
   /* A phone shows the section list, then 1 section, with a way back to the list. */
   .rail, .section-pane { flex: 1 1 100%; }
