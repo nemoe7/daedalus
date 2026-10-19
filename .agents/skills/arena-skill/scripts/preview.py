@@ -766,12 +766,14 @@ def format_fetch_job(job):
 	return'\n'.join(parts)
 def format_import_receipt(receipt,merged=False):notes=receipt.get('notes',0);answers=receipt.get('answers',0);reports=receipt.get('reports',0);tasks=receipt.get('tasks',0);fate='merged by ID'if merged else'the live state was replaced';return f"Imported notes {notes}, answers {answers}, reports {reports}, tasks {tasks}; {fate}"
 def format_clear_state(counts):parts=[f"{k} {v}"for(k,v)in counts.items()];return'Cleared '+', '.join(parts)if parts else'Cleared'
+def preview_server_available(store):
+	port=store.meta_value('port')
+	if not port:return False
+	with closing(socket.socket())as probe:probe.settimeout(1);return probe.connect_ex(('127.0.0.1',int(port)))==0
 def require_server(store):
 	port=store.meta_value('port')
 	if not port:raise ValueError('preview server is not up. Start it with arena-preview serve')
-	with closing(socket.socket())as probe:
-		probe.settimeout(1)
-		if probe.connect_ex(('127.0.0.1',int(port)))==0:return
+	if preview_server_available(store):return
 	raise ValueError(f"preview server is down; start it before polling: arena-preview serve --port {port}")
 def print_read(store):
 	listing=store.read();print(format_read(listing),flush=True)
@@ -2472,7 +2474,9 @@ def main():
 		if not args.command:parser.error('a command is required; run arena-preview --help for the command list')
 		if args.command=='read-set-tick':
 			if fresh_state:return 0
-			tick_store=Store(state_dir);warning=read_set_tick(tick_store,args.line,moment=datetime.now(resolve_display_zone(tick_store)),root=args.repo)
+			tick_store=Store(state_dir)
+			if not preview_server_available(tick_store):return 0
+			warning=read_set_tick(tick_store,args.line,moment=datetime.now(resolve_display_zone(tick_store)),root=args.repo)
 			if warning:print(warning,file=sys.stderr);return 1
 			return 0
 		if args.command=='interrupt-tick':
