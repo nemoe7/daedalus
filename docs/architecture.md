@@ -186,7 +186,7 @@ stateDiagram-v2
 | --- | --- |
 | Success | x1.5, 1 at most |
 | Fault (the next model got the request) | x0.5 |
-| [Loop](#loops) (tool, thinking or answer) | x0.5, as a fault |
+| [Loop](#loops) (tool, thinking, or answer) | x0.5, as a fault |
 | Slow success (first token after 30 s) | x0.75 |
 | Rate limit (HTTP 429) | x0.75, and a cooldown |
 | Recovery | x1.212 for each hour |
@@ -277,7 +277,7 @@ sequenceDiagram
 | Modes | `none` keeps no pin and no race. `session` keeps the pin. `race` keeps the pin and the [race](#parallel-queries). |
 | Slot | The pool name, or `daedalus/auto` plus the tier |
 | Share of first-tier draws | 85%. With `affinity.mode: race`, the session model starts each request. |
-| Pin removed by | A fault, a slow success or a `routing.switch` match |
+| Pin removed by | A fault, a slow success, or a `routing.switch` match |
 | Expiry | 1 h with no request |
 | Storage | `.daedalus-state/models.sqlite3`, kept after a restart |
 
@@ -388,7 +388,7 @@ A table change:
    uv run alembic -c daedalus/store/alembic.ini revision --autogenerate -m "add a column"
    ```
 
-3. Read the new step, then run the tests. [`tests/store/test_migrations.py`](../tests/store/test_migrations.py) fails until the table, the statement and the steps agree.
+3. Read the new step, then run the tests. [`tests/store/test_migrations.py`](../tests/store/test_migrations.py) fails until the table, the statement, and the steps agree.
 
 ## Performance
 

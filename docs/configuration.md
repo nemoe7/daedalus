@@ -40,7 +40,7 @@ A restart reads the edited file.
 
 ## Files per provider
 
-[`free.yml`](../config/providers/free.yml) holds each provider. A second file, `{provider}.yml`, holds 1 provider with its own settings. [`openrouter.yml`](../config/providers/openrouter.yml) and the `openrouter` block of [`free.yml`](../config/providers/free.yml) are independent: the tiers, the excludes and the models of 1 file do not apply to the other. [`pollinations.yml`](../config/providers/pollinations.yml) holds Pollinations, with no block in [`free.yml`](../config/providers/free.yml), because Pollinations spends a balance that does not refill ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)).
+[`free.yml`](../config/providers/free.yml) holds each provider. A second file, `{provider}.yml`, holds 1 provider with its own settings. [`openrouter.yml`](../config/providers/openrouter.yml) and the `openrouter` block of [`free.yml`](../config/providers/free.yml) are independent: the tiers, the excludes, and the models of 1 file do not apply to the other. [`pollinations.yml`](../config/providers/pollinations.yml) holds Pollinations, with no block in [`free.yml`](../config/providers/free.yml), because Pollinations spends a balance that does not refill ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)).
 
 | Item | Rule |
 | --- | --- |
@@ -211,7 +211,7 @@ The shipped `routing.escalation`:
 
 | Key | Default | Use |
 | --- | --- | --- |
-| `personalization.theme` | `system` | `system`, `light` or `dark`. The Settings page sets it. Login always follows the device. |
+| `personalization.theme` | `system` | `system`, `light`, or `dark`. The Settings page sets it. Login always follows the device. |
 | `personalization.time_format` | `24h` | `24h` or `12h` for the hour of each shown time. Every time carries its date: `2026-10-04 12:30:46`. The Settings page sets it. |
 
 ### Hooks
@@ -222,9 +222,9 @@ The shipped `routing.escalation`:
 | `hooks.on-prompt` | `[]` | The prompt hook files of the [`config`](../config) folder, called 1 time before the first attempt of a chat request. The call needs a prompt and a reasoning model in the chain. The value sets the reasoning effort of the request. See [Hooks](hooks.md). |
 | `hooks.on-chunk` | `[]` | The stream chunk hook files of the [`config`](../config) folder, called on each streamed chunk of a chat request, in list order. See [Hooks](hooks.md). |
 | `hooks.dir` | `hooks` | The folder at the root that holds the hook files: 1 plain folder name. See [Hooks](hooks.md#the-hook-folder). |
-| `hooks.sources` | `[]` | The GitHub sources of the hook files. Each entry names a `repo`, a `path`, a `ref` and `auto_update`. See [Hooks](hooks.md#sources-and-the-lock). |
+| `hooks.sources` | `[]` | The GitHub sources of the hook files. Each entry names a `repo`, a `path`, a `ref`, and `auto_update`. See [Hooks](hooks.md#sources-and-the-lock). |
 | `hooks.disabled` | `[]` | Hook names or relative identities, such as `owner/repo/file.py`, that stay on disk and do not run. A plain filename or stem applies to every matching file. The Settings page holds 1 switch per file. |
-| `hooks.order` | `{}` | A preferred file list for `on-catalog`, `on-request`, `on-prompt`, `on-upstream`, `on-answer` or `on-chunk`. The order applies after scope matching, so it does not change where a hook runs. Unlisted files keep their existing order after the listed files. |
+| `hooks.order` | `{}` | A preferred file list for `on-catalog`, `on-request`, `on-prompt`, `on-upstream`, `on-answer`, or `on-chunk`. The order applies after scope matching, so it does not change where a hook runs. Unlisted files keep their existing order after the listed files. |
 
 A key of the 3 surfaces lists files to run before the files of the folder. A file with a `# ---` block that
 names the surface joins it without a key here.
@@ -344,7 +344,7 @@ To set up 2 clients:
 
 A saved value needs no restart.
 
-A model with a `mode` other than `chat` never goes into a chat chain. Use `embedding`, `audio_transcription`, `audio_speech` or `image_generation`. A model with no mode goes into the chat chains. The `audio_transcription` models make the transcription pool, and the `image_generation` models make the image pool.
+A model with a `mode` other than `chat` never goes into a chat chain. Use `embedding`, `audio_transcription`, `audio_speech`, or `image_generation`. A model with no mode goes into the chat chains. The `audio_transcription` models make the transcription pool, and the `image_generation` models make the image pool.
 
 Set `supports_vision: true` on an `image_generation` model that edits images: only these models take `POST /v1/images/edits`.
 

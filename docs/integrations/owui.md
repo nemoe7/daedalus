@@ -9,7 +9,7 @@ The Python files are the editable sources. The [`imports/`](../../integrations/o
 | [Deep research](owui/deep-research.md) | Skill | A portable research plan with source links |
 | [`served_model.py`](owui/served_model.md) | Filter | Draws the daedalus served model line above the answer |
 | [Auto reasoning effort](../hooks/owui_auto_reasoning_effort.md#optional-filter) | Filter | Sends per-request controls to daedalus and its auto-effort hook |
-| [`chat_metadata.py`](owui/chat_metadata.md) | Filter | Puts 1 system message at the top, with the date, the clock, the timezone, the place and the language |
+| [`chat_metadata.py`](owui/chat_metadata.md) | Filter | Puts 1 system message at the top, with the date, the clock, the timezone, the place, and the language |
 | [`github.py`](owui/github.md) | Tool | The GitHub reads and writes, behind the permission gate |
 | [`google.py`](owui/google.md) | Tool | Gmail, Calendar, Drive, and Docs, behind the permission gate |
 | [`owui_manager.py`](owui/owui_manager.md) | Tool | The workspace: knowledge, skills, files, tools, and functions |

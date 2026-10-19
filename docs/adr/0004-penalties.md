@@ -107,7 +107,7 @@ A thinking or answer loop shows as an attempt with the result `loop`.
 ### Settings
 
 The numbers in this ADR are the defaults. [`config/daedalus.yml`](../../config/daedalus.yml) can change them, and it can
-turn off the weights, the session affinity or the pacing. The `affinity` group holds the
+turn off the weights, the session affinity, or the pacing. The `affinity` group holds the
 session and the race settings.
 
 ## Consequences

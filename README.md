@@ -14,12 +14,12 @@ daedalus is in development. The code changes fast, and it breaks faster.
 - 1 OpenAI-compatible endpoint for 8 providers: Cloudflare, Gemini, Groq, Kilo, Mistral, OpenRouter, Pollinations, and Z.ai. Each provider gets its native API, Gemini included.
 - 4 pools (tiers) and `daedalus/auto`, which selects a tier from the prompt with the [LiteLLM](https://github.com/BerriAI/litellm) [AutoRouter heuristic v2](https://docs.litellm.ai/blog/heuristic-v2) classifier.
 - A [fallback ladder](docs/architecture.md#pools-and-the-fallback-ladder): when a model fails, the next model gets the request. The chain walks up the tiers first, then down.
-- [Weights](docs/architecture.md#weights) that change after each request. A weight goes up on an answer and down on a fault, a slow answer or a rate limit. It also goes up with time.
+- [Weights](docs/architecture.md#weights) that change after each request. A weight goes up on an answer and down on a fault, a slow answer, or a rate limit. It also goes up with time.
 - [Session affinity](docs/architecture.md#session-affinity) in 3 modes (`none`, `session`, `race`), so a conversation keeps its model.
 - A conversation tier that does not go down, and keywords, such as "think hard", that move it 1 tier up.
 - [Loop fallback](docs/architecture.md#loops): a model that repeats a tool call 3 times or a thinking passage 4 times gets a fault. The next model continues.
 - A [try again](docs/architecture.md#try-again) in Open WebUI moves the message 1 tier up. The rule needs the shipped [owui_auto_reasoning_effort](docs/hooks/owui_auto_reasoning_effort.md) hook.
-- Before a request, daedalus skips the models without tools, without vision or with a too-small context window. Each provider or model can carry an [order](docs/architecture.md#order).
+- Before a request, daedalus skips the models without tools, without vision, or with a too-small context window. Each provider or model can carry an [order](docs/architecture.md#order).
 - A model catalog from provider discovery and LiteLLM data, rebuilt on a schedule, in place of a hand-written model list.
 - Endpoints for embeddings, transcriptions, speech, and images, and a dashboard for pools, requests, models, API keys, providers, and settings.
 - Docker Compose, with optional Open WebUI, Tika, SearXNG, Headroom, and Tailscale.
@@ -28,7 +28,7 @@ daedalus is for personal use only. Do not share it with other users, because the
 
 ## Hooks
 
-A hook is 1 Python file in the [`hooks`](hooks) folder that changes a catalog row, a chat request or an answer. A config key or a model block names the file, and daedalus calls it at the point of the change. The base runs with no hook file, and the shipped files are examples. The folder comes from `hooks.dir`, and a file carries a `# ---` frontmatter block with its version, its surfaces and its scope.
+A hook is 1 Python file in the [`hooks`](hooks) folder that changes a catalog row, a chat request or an answer. A config key or a model block names the file, and daedalus calls it at the point of the change. The base runs with no hook file, and the shipped files are examples. The folder comes from `hooks.dir`, and a file carries a `# ---` frontmatter block with its version, its surfaces, and its scope.
 
 [`hooks/example.py`](hooks/example.py) is the start for a new hook file. It holds 1 stub for each surface, with an example in the comments:
 
@@ -38,7 +38,7 @@ def on_upstream(body, model, headers):
     body["provider"]["allow_fallbacks"] = False
 ```
 
-Copy the file under a new name, keep the functions you need, and name the copy in the `hooks` list of the model or the provider. The surfaces, the frontmatter, the GitHub sources and the errors are in [Hooks](docs/hooks.md). Each shipped file has its own page under [`docs/hooks`](docs/hooks).
+Copy the file under a new name, keep the functions you need, and name the copy in the `hooks` list of the model or the provider. The surfaces, the frontmatter, the GitHub sources, and the errors are in [Hooks](docs/hooks.md). Each shipped file has its own page under [`docs/hooks`](docs/hooks).
 
 ## Quick start
 
@@ -146,19 +146,19 @@ Keep JSON inventories out of git.
 | Page | Contents |
 | --- | --- |
 | [Docs index](docs/README.md) | Every page, in the order of a first read |
-| [Architecture](docs/architecture.md) | Request flow, classification, fallback ladder, weights, session affinity and loops |
+| [Architecture](docs/architecture.md) | Request flow, classification, fallback ladder, weights, session affinity, and loops |
 | [API](docs/api.md) | Endpoints, model names, access, and errors |
 | [Configuration](docs/configuration.md) | Environment variables, [`config/daedalus.yml`](config/daedalus.yml) and provider files |
 | [Providers](docs/providers.md) | Supported providers and what each one can do |
 | [Provider keys](docs/provider-keys.md) | The steps that make a key for each provider |
 | [Deployment](docs/deployment.md) | Docker Compose, profiles, Open WebUI, Tika, SearXNG, Headroom, and Tailscale |
-| [Open WebUI integration](docs/integrations/owui.md) | The skills, the filters and the tools of the [`integrations/openwebui`](integrations/openwebui) folder |
+| [Open WebUI integration](docs/integrations/owui.md) | The skills, the filters, and the tools of the [`integrations/openwebui`](integrations/openwebui) folder |
 | [Dashboard](docs/dashboard.md) | Pages and API keys |
 | [Hooks](docs/hooks.md) | Python files that change catalog rows, requests, and answers. Each shipped file has its own page |
 | [Decisions](docs/adr/) | Architecture decision records |
 
 ## License
 
-daedalus uses the [nemoe7 Noncommercial and Public-Interest License 1.2.0](LICENSE.md). Read the license for permitted purposes, source requirements and other terms.
+daedalus uses the [nemoe7 Noncommercial and Public-Interest License 1.2.0](LICENSE.md). Read the license for permitted purposes, source requirements, and other terms.
 
 The classifier and its data come from [LiteLLM](https://github.com/BerriAI/litellm) (MIT). Its license is in [`daedalus/routing/artifacts/LITELLM-LICENSE.txt`](daedalus/routing/artifacts/LITELLM-LICENSE.txt).

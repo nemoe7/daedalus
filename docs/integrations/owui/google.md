@@ -47,7 +47,7 @@ The shipped `Always ask` holds every call, reads included, so no mail line and n
 
 `UserValves.mode` accepts `default` and the three permission modes only. Unknown runtime modes require confirmation.
 
-[`tests/integrations/openwebui/tools/test_owui_google_tool.py`](../../../tests/integrations/openwebui/tools/test_owui_google_tool.py) holds the surface, the gate, the token cache and the error path.
+[`tests/integrations/openwebui/tools/test_owui_google_tool.py`](../../../tests/integrations/openwebui/tools/test_owui_google_tool.py) holds the surface, the gate, the token cache, and the error path.
 
 ## Output limits
 

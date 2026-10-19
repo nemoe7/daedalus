@@ -108,7 +108,7 @@ Limits of the native Cloudflare API:
 
 | Endpoint | Limit |
 | --- | --- |
-| Transcriptions | `response_format` is `json`, `text` or `vtt` |
+| Transcriptions | `response_format` is `json`, `text`, or `vtt` |
 | Speech | MeloTTS answers in MP3 only |
 | Images | 1 image for each request. Flux 1 ignores `size`. FLUX.2 gets a multipart form. |
 | Image edits | FLUX.2 only: up to 4 inputs under 512x512, no mask, resized to a 511-pixel PNG. |
@@ -138,6 +138,6 @@ Discovery also drops these Mistral rows:
 | Rows | Reason |
 | --- | --- |
 | An ID reference to another declared alias | Check `name` first, then `billing_model_name` for human-readable names. A human-readable name alone is not an alias ID. |
-| The `ocr`, `moderation`, `classification` or `audio_transcription_realtime` capability | No daedalus endpoint serves these models. |
+| The `ocr`, `moderation`, `classification`, or `audio_transcription_realtime` capability | No daedalus endpoint serves these models. |
 
 The Groq `rpm` and `tpm` values come from the free limits in the [Groq docs](https://console.groq.com/docs/rate-limits).
