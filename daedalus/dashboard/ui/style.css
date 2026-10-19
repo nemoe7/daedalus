@@ -849,20 +849,21 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 .message:empty { display: none; }
 /* The status line of a write, with its Undo. It stays out of the way until a write lands. */
 .write-note { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; }
-/* The Undo of the last write, beside the row that caused it: a small round arrow. */
-.undo-step {
-  padding: 0; width: 26px; height: 26px; border-radius: 50%; flex: none;
-  font-size: 14px; line-height: 1; color: var(--accent-text); border-color: var(--accent);
+/* A Settings write reports in the pane header, with the time since it landed. */
+.save-line {
+  display: flex; align-items: center; gap: 10px; margin-left: auto;
+  font-size: 13px; color: var(--muted); white-space: nowrap;
 }
-.undo-step:hover { color: var(--text); border-color: var(--muted); }
+.undo-text { padding: 0 10px; min-height: 32px; font-size: 13px; color: var(--accent-text); border-color: var(--line); }
+.undo-text:hover { color: var(--text); border-color: var(--muted); }
 /* The row of a write holds the Undo beside its control, in the flow: the free space moves left,
    so the label and the control keep their place. */
-.field > .undo-step { margin-left: auto; margin-right: 8px; }
+.field > .undo-text { margin-left: auto; margin-right: 8px; }
 /* A row of a column holds the Undo on the line of its label: the control keeps its place below. */
-.field.stack > .undo-step { position: absolute; right: 0; top: 10px; }
-/* The card holds the icon at its top right when the row itself went away. */
+.field.stack > .undo-text { position: absolute; right: 0; top: 10px; }
+/* The card holds the Undo at its top right when the row itself went away. */
 .card { position: relative; }
-.card > .undo-step { position: absolute; right: 16px; top: 12px; }
+.card > .undo-text { position: absolute; right: 16px; top: 12px; }
 /* The action chips of the file row: a new file, and the delete of a provider file. */
 .files .tab.danger { color: var(--bad); border-color: var(--control-line); }
 .files .tab.danger:hover { color: var(--bad); border-color: var(--bad); }
@@ -958,12 +959,20 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .section-pane .pane-bar { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 12px; }
   .section-pane .pane-bar > .pane-title:not([hidden]) { grid-column: 1 / -1; }
   .pane-title:not([hidden]) { font-size: 26px; letter-spacing: -0.9px; }
+  /* A tablet keeps the model name and drops 4 secondary columns, so the name fits. */
+  .models thead th:nth-child(4), .models tbody td:nth-child(4),
+  .models thead th:nth-child(6), .models tbody td:nth-child(6),
+  .models thead th:nth-child(7), .models tbody td:nth-child(7),
+  .models thead th:nth-child(8), .models tbody td:nth-child(8) { display: none; }
+  .undo-text { min-height: 44px; }
   /* The touch floor: the boxed controls grow their hit areas on a phone. */
-  .pills [data-drop], .pills [data-add], [data-hook-drop],
-  .section-pane .back, #nav a { min-height: 44px; min-width: 44px; }
+  .pills [data-drop], .pills [data-add], .pills [data-setting-drop], .pills [data-setting-add],
+  [data-hook-drop], .section-pane .back, #nav a { min-height: 44px; min-width: 44px; }
+  /* A value row on a touch screen gives its field the 44 px floor. */
+  section[data-page="settings"] .field input:not(.switch) { min-height: 44px; }
   /* Round icon buttons keep their drawn box: the target grows outside it. */
-  button.hint, .undo-step { position: relative; }
-  button.hint::after, .undo-step::after { content: ""; position: absolute; inset: -14px; }
+  button.hint { position: relative; }
+  button.hint::after { content: ""; position: absolute; inset: -14px; }
 }
 @media (max-width: 1320px) {
   /* A narrow desktop keeps 1 header row: the state leaves the header, as on a phone, and the
@@ -1067,6 +1076,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   /* The modality and capability chips share one row, at one size. The name keeps its row,
      and the chips wrap under it as one group. */
   .phone-types, .phone-chips { display: contents; }
+  /* The name holds a 44 px target. The weight leaves the card and stays in the model sheet. */
+  .models .model-open { display: flex; align-items: center; min-height: 44px; }
+  .models tr > td:last-child:not(.empty) { display: none; }
   .models tr > td.name { flex-wrap: wrap; gap: 4px; }
   .models td.name .cell-value { flex-basis: 100%; }
   /* The card row aligns on the text baseline, and an icon chip has none, so it rides high.

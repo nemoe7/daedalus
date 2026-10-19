@@ -2753,19 +2753,20 @@ function clearWrite(page) {
 function rememberWrite(page, restore, anchor = null) {
   lastWrite = {
     page, ...restore,
+    at: Date.now(),
     section: anchor?.closest("[data-section]")?.dataset.section ?? "",
     // Retain the row key to restore its Undo icon after rendering.
     key: controlKey(anchor),
   };
-  const old = document.querySelector(".undo-step");
+  const old = document.querySelector(".undo-text");
   if (old) old.remove();
   if (!anchor) return;
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "ghost undo-step";
+  button.className = "ghost undo-text";
   button.title = t("action.undo_write_label");
   button.setAttribute("aria-label", t("action.undo_write_label"));
-  button.innerHTML = icon("undo_2");
+  button.textContent = t("action.undo_write_label");
   button.addEventListener("click", (event) => {
     // Stop the click before it reaches the switch label.
     event.preventDefault();
@@ -2789,6 +2790,7 @@ function controlKey(anchor) {
 // row, so the icon falls back to the header of the card.
 function placeUndo(anchor = null) {
   if (!lastWrite?.button) return;
+  if (lastWrite.page === "settings") return placeSaveLine();
   // The same row of the fresh render, from the key of the write.
   const again = lastWrite.key
     ? [...document.querySelectorAll("[data-set]")].find((node) => node.dataset.set === lastWrite.key)?.closest(".field")
@@ -2804,10 +2806,45 @@ function placeUndo(anchor = null) {
   else row.prepend(lastWrite.button);
 }
 
-// Remove the Undo icon when no write can be undone.
+let saveTimer = null;
+
+// Report the write in the pane header, with the time since it landed.
+function placeSaveLine() {
+  if (lastWrite?.page !== "settings" || !lastWrite.button) return;
+  const sum = document.querySelector(".section-pane [data-pane-summary]");
+  if (!sum) return;
+  let line = sum.querySelector(".save-line");
+  if (!line) {
+    line = document.createElement("span");
+    line.className = "save-line";
+    const text = document.createElement("span");
+    text.className = "saved";
+    line.append(text, lastWrite.button);
+    sum.appendChild(line);
+  }
+  const text = line.querySelector(".saved");
+  if (text) text.textContent = t("settings.saved_text", { when: relative(lastWrite.at / 1000) });
+  if (saveTimer === null) saveTimer = setInterval(tickSaveLine, 20000);
+}
+
+// Age the saved line while the write stays undoable.
+function tickSaveLine() {
+  const text = document.querySelector(".save-line .saved");
+  if (!text || !lastWrite?.at) {
+    if (saveTimer !== null) clearInterval(saveTimer);
+    saveTimer = null;
+    return;
+  }
+  text.textContent = t("settings.saved_text", { when: relative(lastWrite.at / 1000) });
+}
+
+// Remove the Undo control when no write can be undone.
 function dropUndo() {
   lastWrite = null;
-  document.querySelector(".undo-step")?.remove();
+  document.querySelector(".undo-text")?.remove();
+  document.querySelector(".save-line")?.remove();
+  if (saveTimer !== null) clearInterval(saveTimer);
+  saveTimer = null;
 }
 
 async function undoWrite() {
@@ -3284,6 +3321,7 @@ async function saveSettings(keepForm = false) {
     await call("settings", { method: "PUT", body: JSON.stringify(body) });
     await loadSettings({ render: !keepForm });
     clearWrite("settings");
+    placeSaveLine();
     refresh();
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin(t("auth.session_ended"));

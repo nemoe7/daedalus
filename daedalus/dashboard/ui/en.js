@@ -498,6 +498,7 @@ globalThis.DAEDALUS_LOCALE = {
   "settings.keys.title": "API Keys",
   "settings.maintenance.summary": "Read the update state and run maintenance actions.",
   "settings.maintenance.title": "Maintenance",
+  "settings.saved_text": "Saved {when}",
   "settings.keys.used_never_text": "never",
   "settings.limits.calls.hint": "Repeated identical calls since the last user message. Use 2–100.",
   "settings.limits.calls.label": "Tool calls",
