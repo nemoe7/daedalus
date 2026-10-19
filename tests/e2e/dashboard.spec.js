@@ -116,14 +116,28 @@ test("the header keeps one tab row on a phone", async ({ page }) => {
   expect(tabs.scrolls).toBe(true);
 });
 
-test("a tablet model name wraps instead of clipping", async ({ page }) => {
-  await open(page, "#/models", 768, 1024);
-  const clipped = await page.evaluate(() =>
-    [...document.querySelectorAll("#models .model-open")]
-      .filter((el) => el.getBoundingClientRect().width > 1 && el.scrollWidth > el.clientWidth + 1)
-      .map((el) => el.textContent.trim().slice(0, 40)),
-  );
-  expect(clipped, "every model name reads in full").toEqual([]);
+for (const [size, width, height] of SIZES.concat([["desktop small", 1024, 900], ["tablet wide", 900, 900]])) {
+  test(`a model name reads in full at ${size}`, async ({ page }) => {
+    await open(page, "#/models", width, height);
+    const clipped = await page.evaluate(() =>
+      [...document.querySelectorAll("#models .model-open")]
+        .filter((el) => el.getBoundingClientRect().width > 1 && el.scrollWidth > el.clientWidth + 1)
+        .map((el) => el.textContent.trim().slice(0, 40)),
+    );
+    expect(clipped, "every model name reads in full").toEqual([]);
+  });
+}
+
+test("a limit name reads in full on a phone and a desktop", async ({ page }) => {
+  for (const [width, height] of [[390, 844], [768, 1024], [1440, 900]]) {
+    await open(page, "#/limits", width, height);
+    const clipped = await page.evaluate(() =>
+      [...document.querySelectorAll("#limit-rows td.name .cell-value")]
+        .filter((el) => el.getBoundingClientRect().width > 1 && el.scrollWidth > el.clientWidth + 1)
+        .map((el) => el.textContent.trim().slice(0, 40)),
+    );
+    expect(clipped, `every limit name reads in full at ${width}`).toEqual([]);
+  }
 });
 
 test("a phone model row meets the touch floor", async ({ page }) => {
