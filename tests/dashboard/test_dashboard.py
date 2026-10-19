@@ -2125,7 +2125,7 @@ def test_model_numbers_align_right() -> None:
 
 
 def test_dashboard_routes_leave_the_title_to_the_active_tab() -> None:
-  """Dashboard routes carry no duplicate page heading; the active tab names the screen."""
+  """Dashboard routes carry no duplicate page heading. The active tab names the screen."""
   root = Path(__file__).resolve().parents[2]
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   assert 'class="page-title"' not in page, "the tab already names the route"
@@ -5499,7 +5499,7 @@ def test_the_undo_never_moves_the_row() -> None:
 
 
 def test_app_js_places_the_undo_beside_the_control() -> None:
-  """A provider write keeps Undo in its row; a settings write reports in the pane header."""
+  """A provider write keeps Undo in its row. A settings write reports in the pane header."""
   code = _app_js_vm(
     """
 vm.runInContext('globalThis.__probe.rememberWrite = rememberWrite; globalThis.__probe.placeUndo = placeUndo;'
