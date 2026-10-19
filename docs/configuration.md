@@ -9,9 +9,9 @@ daedalus reads its settings from these sources:
 | [`config/providers/free.yml`](../config/providers/free.yml) | Providers, tiers, and model limits | Yes, on the **Providers** page |
 | `config/providers/{provider}.yml` | 1 provider, on its own | Yes, on the **Providers** page |
 
-[`daedalus.yml`](../config/daedalus.yml) contains the main settings for the router and its jobs. [`config/providers/`](../config/providers) contains the provider configurations (tiers, models, limits, etc).
+[`daedalus.yml`](../config/daedalus.yml) holds the settings of the router and its jobs. [`config/providers/`](../config/providers) contains the provider configurations (tiers, models, limits, etc).
 
-A key that shows 2 times in 1 map of a config file stops the start. The error gives the key and the 2 line numbers.
+A key that appears 2 times in 1 map of a config file stops the start. The error gives the key and the 2 line numbers.
 
 At each catalog rebuild, daedalus reads the default provider file of the repository,
 [`config/providers/free.yml`](../config/providers/free.yml) on `main`, and adds each provider that the local `free.yml` lacks.
