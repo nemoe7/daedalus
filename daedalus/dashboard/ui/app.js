@@ -86,7 +86,8 @@ function timeText(seconds, { tag = "span", variant = "" } = {}) {
 }
 
 const state = {
-  models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, saved: [], timers: [],
+  models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, fileOpen: false,
+  providerReturnKey: "", saved: [], timers: [],
   view: "form", forms: [], formSaved: [], overrideKeys: [], providerDefaults: {}, settingsView: "form",
   pools: [], requests: [], requestLimit: REQUESTS_STEP, requestFetched: 0, keys: [], catalog: {},
   settings: null, settingsSearch: "", legendExtra: [], requestRace: false,
@@ -1511,22 +1512,21 @@ function fileDirty(index) {
 const dirty = () => state.files.length > 0 && fileDirty(state.file);
 
 function renderFiles() {
-  const current = state.files[state.file];
-  const chips = state.files.map((file, index) => {
+  const files = state.files.map((file, index) => {
     const mark = fileDirty(index) ? " &bull;" : "";
-    // Name the file that overrides this file in the tab title.
     const shadow = file.shadow ? t("provider.file.shadow_text", { file: file.shadow }) : "";
-    return actionButton(`${esc(fileName(file.path))}${mark}`, {
-      variant: `tab${index === state.file ? " on" : ""}`,
+    return actionButton(`${chipFor("settings", "providers")}<span>${esc(fileName(file.path))}${mark}</span>`, {
       attrs: { "data-file": index, title: `${file.path}${shadow}` },
     });
-  }).join(" ");
-  // Put file actions beside the tabs. Allow removal only for non-main provider files.
-  const drop = current?.main === false
-    ? actionButton(t("action.delete_file_button"), { variant: "tab danger", attrs: { id: "drop-provider" } }) : "";
-  $("files").innerHTML = `${chips} ${actionButton(t("action.new_provider_button"), {
-    variant: "tab", attrs: { id: "new-provider" },
-  })}${drop ? ` ${drop}` : ""}`;
+  }).join("");
+  const host = $("files");
+  host.hidden = state.fileOpen;
+  host.innerHTML = `<div class="provider-files-head"><h2>${t("nav.providers_link")}</h2>`
+    + `<p>${esc(t("settings.providers.summary"))}</p></div>`
+    + `<nav class="sections drill provider-files" aria-label="${esc(t("nav.providers_link"))}">${files}</nav>`
+    + `<div class="provider-file-actions">${actionButton(t("action.new_provider_button"), {
+      variant: "add", attrs: { id: "new-provider" },
+    })}</div>`;
   // Save writes YAML text. Form rows save when they close.
   const yamlSave = $("yaml-save");
   if (yamlSave) yamlSave.disabled = state.view !== "yaml" || !dirty();
@@ -1560,22 +1560,40 @@ function showFileError(index) {
   if (error) state.view = "yaml";
 }
 
-function openFile(index) {
-  const editor = $("editor");
-  if (state.files.length && editor) state.files[state.file].text = editor.value;
+function openProviderFile(index) {
   state.file = index;
-  showFileError(index);
-  // Reset the section selection so the new file opens at its first section.
+  state.fileOpen = true;
+  state.providerReturnKey = "";
   const section = sectionState("provider-form");
   section.key = "";
   section.open = false;
   renderFiles();
   renderForm();
-  // A file of 1 provider opens that provider page at once; a shared file lists.
-  const blocks = Object.keys(state.files[index]?.blocks ?? {});
-  if (blocks.length === 1) openSection($("provider-form"), blocks[0]);
-  // Animate the form after a file change.
+  setProviderRoute(state.files[index]?.path, null);
   replay($("provider-form"));
+}
+
+function captureProviderYamlDraft() {
+  const editor = $("editor");
+  const file = state.files[state.file];
+  if (state.fileOpen && state.view === "yaml" && editor && file) file.text = editor.value;
+}
+
+function openFile(index) {
+  captureProviderYamlDraft();
+  state.file = index;
+  state.fileOpen = true;
+  state.providerReturnKey = "";
+  showFileError(index);
+  const section = sectionState("provider-form");
+  section.key = "";
+  section.open = false;
+  const blocks = state.files[index]?.blocks == null ? null : Object.keys(state.files[index].blocks);
+  if (blocks == null) return selectProviderSection("yaml");
+  state.view = "form";
+  // A file of one provider opens its config; a shared file opens its provider list.
+  if (blocks.length === 1) return selectProviderSection(blocks[0]);
+  openProviderFile(index);
 }
 
 // The × button removes the chip value from its list or map.
@@ -2111,13 +2129,25 @@ function filterRail(host) {
 }
 
 // Name the back button for its destination, as iOS does.
-function sectionPane(back, cards) {
+function sectionPane(back, cards, actions = null) {
   const button = actionButton(`<span class="chev" aria-hidden="true">&lsaquo;</span><span class="back-label"> ${esc(back)}</span>`, {
     variant: "ghost back", attrs: { "data-back": true },
   });
+  const tools = actions === null ? "" : `<div class="pane-actions" data-pane-actions>${actions}</div>`;
   // The reference heads a drill page with the back chevron and the page title.
   return `<div class="section-pane"><div class="pane-bar">${button}`
-    + `<h2 class="pane-title" data-pane-title hidden></h2></div>${cards}</div>`;
+    + `<h2 class="pane-title" data-pane-title hidden></h2>${tools}</div>${cards}</div>`;
+}
+
+function providerPaneActions(section = sectionState("provider-form")) {
+  const file = state.files[state.file];
+  if (!file) return "";
+  const names = Object.keys(state.forms[state.file] ?? {});
+  const remove = file.main === false
+    ? actionButton(t("action.delete_file_button"), { variant: "ghost danger", attrs: { id: "drop-provider" } }) : "";
+  const yaml = section.open && names.length === 1 && section.key === names[0]
+    ? actionButton(t("yaml.label"), { variant: "ghost", attrs: { "data-provider-section": "yaml" } }) : "";
+  return `${remove}${yaml}`;
 }
 
 // The final YAML section has its own Save and includes content that the form cannot display.
@@ -2161,15 +2191,28 @@ function selectSection(host, key, open = sectionState(host).open) {
     else button.removeAttribute("aria-current");
   }
   const list = host.id === "settings" ? key : "";
-  for (const card of host.querySelectorAll(":scope > .section-pane > .card")) {
+  for (const card of host.querySelectorAll(":scope > .section-pane > [data-section]")) {
     card.hidden = open ? card.dataset.section !== key : card.dataset.section !== list;
   }
-  // A drill page names itself in the bar, as the reference detail pages do.
-  const title = host.id === "provider-form"
-    ? host.querySelector(":scope > .section-pane > .pane-bar > [data-pane-title]") : null;
-  if (title) {
-    title.hidden = !open;
-    title.textContent = key === "yaml" ? t("yaml.label") : key;
+  // A provider file names its list, while a selected provider names its detail page.
+  if (host.id === "provider-form") {
+    const file = state.files[state.file];
+    const names = Object.keys(state.forms[state.file] ?? {});
+    const title = host.querySelector(":scope > .section-pane > .pane-bar > [data-pane-title]");
+    if (title) {
+      title.hidden = !open && !state.fileOpen;
+      title.textContent = open ? (key === "yaml" ? t("yaml.label") : key) : fileName(file?.path ?? "");
+    }
+    const back = host.querySelector(":scope > .section-pane > .pane-bar .back-label");
+    if (back) {
+      const label = open
+        ? key === "yaml" && state.providerReturnKey ? state.providerReturnKey
+          : names.length > 1 ? fileName(file?.path ?? "") : t("nav.providers_link")
+        : t("nav.providers_link");
+      back.textContent = ` ${label}`;
+    }
+    const tools = host.querySelector(":scope > .section-pane > .pane-bar > [data-pane-actions]");
+    if (tools) tools.innerHTML = providerPaneActions(state_);
   }
   // The reference clears the sidebar mark while a drill page holds the pane.
   if (host.id === "provider-form" && sectionState($("settings")).key === "providers") {
@@ -2183,10 +2226,13 @@ function selectSection(host, key, open = sectionState(host).open) {
   // The studied reference heads each pane with a centered icon, title and one line.
   const summary = host.querySelector(":scope > .section-pane > [data-pane-summary]");
   if (summary) {
-    const label = [...host.querySelectorAll(":scope > .rail > .sections button")]
-      .find((button) => button.dataset.section === key)?.querySelector(":scope > span:not(.tile)")?.textContent ?? key;
-    const text = SECTION_SUMMARIES[key] ?? (host.id === "provider-form" ? t("settings.providers.summary") : "");
-    summary.innerHTML = `${chipFor(host.id, key)}<h2>${esc(label)}</h2><p>${esc(text)}</p>`;
+    summary.hidden = host.id === "settings" && key === "providers";
+    if (!summary.hidden) {
+      const label = [...host.querySelectorAll(":scope > .rail > .sections button")]
+        .find((button) => button.dataset.section === key)?.querySelector(":scope > span:not(.tile)")?.textContent ?? key;
+      const text = SECTION_SUMMARIES[key] ?? "";
+      summary.innerHTML = `${chipFor(host.id, key)}<h2>${esc(label)}</h2><p>${esc(text)}</p>`;
+    }
   }
   markCardScrollEdges();
   markSectionPaneEdges();
@@ -2199,43 +2245,95 @@ function selectSection(host, key, open = sectionState(host).open) {
 // Store the phone section in the hash so the back gesture returns to the list.
 const phoneSection = () => matchMedia("(max-width: 900px)").matches;
 
+function setProviderRoute(file, provider = null, push = phoneSection()) {
+  const [path, query] = location.hash.split("?");
+  const params = new URLSearchParams(query ?? "");
+  params.set("section", "providers");
+  if (file) params.set("file", file);
+  else params.delete("file");
+  if (provider) params.set("provider", provider);
+  else params.delete("provider");
+  const url = `${path}?${params.toString()}`;
+  if (push) history.pushState({ section: provider ?? "providers", file: file ?? null, provider }, "", url);
+  else history.replaceState(null, "", url);
+}
+
 function openSection(host, key) {
+  if (host.id === "settings") {
+    captureProviderYamlDraft();
+    state.fileOpen = false;
+    state.providerReturnKey = "";
+    const inner = sectionState($("provider-form"));
+    inner.key = "";
+    inner.open = false;
+    renderFiles();
+    renderForm();
+  }
   selectSection(host, key, true);
   // Animate section changes in Providers and Settings.
   replay([...host.querySelectorAll(".section-pane > .card")]
     .find((card) => card.dataset.section === key));
   // A nested pane changes height with its section, so refit the scroll bounds here.
   fitSectionPane();
-  // Keep the section in the hash across refreshes. Phones also have a back step.
-  // The nested providers rail keeps the outer section and adds its own param.
+  if (host.id === "provider-form") {
+    setProviderRoute(state.files[state.file]?.path, key, phoneSection());
+    return;
+  }
   const [path, query] = location.hash.split("?");
   const params = new URLSearchParams(query ?? "");
-  if (host.id === "settings") {
-    params.set("section", key);
-    params.delete("provider");
-  } else {
-    params.set("section", "providers");
-    params.set("provider", key);
-  }
+  params.set("section", key);
+  params.delete("provider");
+  params.delete("file");
   const url = `${path}?${params.toString()}`;
   if (phoneSection()) history.pushState({ section: key }, "", url);
   else history.replaceState(null, "", url);
 }
 
-// Go back in history if possible. Always close the section.
+// Go back one drill level, or fall back to a clean hash on desktop.
 function closeSection(host) {
-  const key = sectionState(host).key;
-  if (history.state?.section === key) return history.back();
-  const [path, query] = location.hash.split("?");
+  const section = sectionState(host);
+  const key = section.key;
+  captureProviderYamlDraft();
   if (host.id === "settings") {
+    if (history.state?.section === key) return history.back();
+    const [path] = location.hash.split("?");
+    state.fileOpen = false;
+    state.providerReturnKey = "";
+    const inner = sectionState($("provider-form"));
+    inner.key = "";
+    inner.open = false;
     history.replaceState(null, "", path);
-  } else {
-    // Closing the nested rail keeps the outer providers section selected.
-    const params = new URLSearchParams(query ?? "");
-    params.delete("provider");
-    history.replaceState(null, "", `${path}?${params.toString()}`);
+    selectSection(host, key, false);
+    renderFiles();
+    renderForm();
+    return;
   }
-  selectSection(host, key, false);
+  const file = state.files[state.file];
+  if (history.state?.section === key || history.state?.provider === key
+      || (!section.open && history.state?.file === file?.path)) return history.back();
+  const names = Object.keys(state.forms[state.file] ?? {});
+  if (section.open && key === "yaml" && state.providerReturnKey && names.includes(state.providerReturnKey)) {
+    const provider = state.providerReturnKey;
+    state.view = "form";
+    state.providerReturnKey = "";
+    selectSection(host, provider, true);
+    renderFiles();
+    renderForm();
+    setProviderRoute(file?.path, provider, false);
+  } else if (section.open && names.length > 1) {
+    state.providerReturnKey = "";
+    selectSection(host, "", false);
+    renderFiles();
+    renderForm();
+    setProviderRoute(file?.path, null, false);
+  } else {
+    state.fileOpen = false;
+    state.providerReturnKey = "";
+    selectSection(host, "", false);
+    renderFiles();
+    renderForm();
+    setProviderRoute(null, null, false);
+  }
 }
 
 // Read the section hash for deep links and the phone back gesture.
@@ -2243,6 +2341,7 @@ function applySectionHash() {
   const [path, query] = location.hash.split("?");
   const host = path === "#/settings" ? $("settings") : null;
   if (!host) return;
+  captureProviderYamlDraft();
   const params = new URLSearchParams(query ?? "");
   const key = params.get("section");
   const known = [...host.querySelectorAll(".sections button")].some((button) => button.dataset.section === key);
@@ -2253,21 +2352,57 @@ function applySectionHash() {
     state_.key = key;
     state_.open = true;
   } else selectSection(host, sectionState(host).key, false);
-  // The nested providers rail reads its own param the same way. A phone back
-  // step drops the param and closes the nested detail.
   const inner = $("provider-form");
+  if (sectionState(host).key !== "providers") {
+    state.fileOpen = false;
+    state.view = "form";
+    state.providerReturnKey = "";
+    const innerState = sectionState(inner);
+    innerState.key = "";
+    innerState.open = false;
+    renderFiles();
+    renderForm();
+    return;
+  }
+  // The file list can render before files arrive. The loader reapplies this hash after fetch.
+  if (!state.files.length) return;
+  const filePath = params.get("file");
   const pkey = params.get("provider");
-  if (inner) {
-    if (pkey) {
-      const innerKnown = [...inner.querySelectorAll(".sections button")]
-        .some((button) => button.dataset.section === pkey);
-      if (innerKnown) selectSection(inner, pkey, true);
-      else {
-        const inner_ = sectionState(inner);
-        inner_.key = pkey;
-        inner_.open = true;
-      }
-    } else selectSection(inner, sectionState(inner).key, false);
+  let index = filePath ? state.files.findIndex((file) => file.path === filePath) : -1;
+  if (index < 0 && !filePath && pkey) {
+    index = state.files.findIndex((file) => pkey === "yaml" ? file.error
+      : Object.hasOwn(file.blocks ?? {}, pkey));
+    if (index < 0 && pkey === "yaml") index = Math.min(state.file, state.files.length - 1);
+  }
+  if (index < 0) {
+    state.fileOpen = false;
+    state.view = "form";
+    state.providerReturnKey = "";
+    const innerState = sectionState(inner);
+    innerState.key = "";
+    innerState.open = false;
+    renderFiles();
+    renderForm();
+    return;
+  }
+  state.file = index;
+  state.fileOpen = true;
+  showFileError(index);
+  const blocks = state.forms[index];
+  const names = Object.keys(blocks ?? {});
+  let selected = pkey && (pkey === "yaml" || names.includes(pkey)) ? pkey : "";
+  if (!selected && blocks == null) selected = "yaml";
+  else if (!selected && names.length === 1) selected = names[0];
+  const innerState = sectionState(inner);
+  innerState.key = selected;
+  innerState.open = Boolean(selected);
+  state.providerReturnKey = selected === "yaml" && names.length === 1 ? names[0] : "";
+  state.view = selected === "yaml" ? "yaml" : "form";
+  renderFiles();
+  renderForm();
+  // Old provider-only links gain an explicit file path; single-provider files are canonical too.
+  if ((!filePath && pkey) || (filePath && !pkey && selected && selected !== "yaml")) {
+    setProviderRoute(state.files[index].path, selected, false);
   }
 }
 
@@ -2398,37 +2533,52 @@ function providerCard(name, block) {
   </div>`;
 }
 
-// List providers from the current file and display the selected card.
+// List provider files, provider blocks, and the YAML editor as separate drill pages.
 function renderForm() {
   const host = $("provider-form");
-  const blocks = state.forms[state.file];
-  // Preserve text during an edit. Otherwise, display the saved text.
-  const typed = state.view === "yaml" ? $("editor")?.value : undefined;
-  if (!state.files.length) return (host.innerHTML = "");
-  if (blocks == null) {
-    host.innerHTML = sectionPane(t("nav.providers_link"), `<div class="card" data-section="error"><h3>${t("provider.yaml.invalid_text")}</h3>
-      <p class="sub">${esc(state.files[state.file].error ?? "")}</p>
-      <p class="sub">${t("provider.yaml.fix_text")}</p></div>`
-      + yamlCard("editor", "yaml-save", t("provider.yaml.file_hint", { file: fileName(state.files[state.file].path) })));
-    selectSection(host, "yaml", true);
-    $("editor").value = typed ?? state.files[state.file].text;
-    renderFiles();
+  const file = state.files[state.file];
+  if (!state.fileOpen || !file) {
+    host.hidden = true;
+    host.dataset.fileOpen = "0";
+    host.innerHTML = "";
     return;
   }
-  const names = Object.keys(blocks);
+  host.hidden = false;
+  host.dataset.fileOpen = "1";
+  const blocks = state.forms[state.file];
+  const sameFile = host.dataset.filePath === file.path;
+  const typed = state.view === "yaml" && sameFile ? $("editor")?.value : undefined;
+  const section = sectionState(host);
+  const names = blocks == null ? [] : Object.keys(blocks);
+  const actions = providerPaneActions(section);
+  const back = section.key === "yaml" && state.providerReturnKey
+    ? state.providerReturnKey : names.length > 1 ? fileName(file.path) : t("nav.providers_link");
+  host.dataset.filePath = file.path;
+  if (blocks == null) {
+    host.innerHTML = sectionPane(t("nav.providers_link"), `<div class="provider-file-error">
+      <h3>${t("provider.yaml.invalid_text")}</h3>
+      <p class="sub">${esc(file.error ?? "")}</p>
+      <p class="sub">${t("provider.yaml.fix_text")}</p></div>`
+      + yamlCard("editor", "yaml-save", t("provider.yaml.file_hint", { file: fileName(file.path) })), actions);
+    selectSection(host, "yaml", true);
+    $("editor").value = typed ?? file.text;
+    renderFiles();
+    placeUndo();
+    fitSectionPane();
+    return;
+  }
   const items = names.map((name) => [name, name]).concat([["yaml", t("yaml.label")]]);
-  const selected = sectionState(host).key;
-  const active = items.some(([key]) => key === selected) ? selected : items[0][0];
-  // The list page holds the drill rows; a chosen row opens its own page.
-  const list = `<div class="card list" data-section=""><nav class="sections drill"
-    aria-label="${t("common.sections_label")}">${items.map(([key, label]) => actionButton(`${chipFor("provider-form", key)}<span>${esc(label)}</span>`, {
+  const selected = items.some(([key]) => key === section.key) ? section.key : "";
+  const open = Boolean(section.open && selected);
+  const list = `<div class="card list" data-section=""><nav class="sections drill provider-sections"
+    aria-label="${esc(t("common.sections_label"))}">${items.map(([key, label]) => actionButton(`${chipFor("provider-form", key)}<span>${esc(label)}</span>`, {
     attrs: { "data-section": key },
   })).join("")}</nav></div>`;
-  host.innerHTML = sectionPane(t("nav.providers_link"), list
+  host.innerHTML = sectionPane(open ? back : t("nav.providers_link"), list
     + names.map((name) => providerCard(name, blocks[name])).join("")
-    + yamlCard("editor", "yaml-save", t("provider.yaml.file_hint", { file: fileName(state.files[state.file]?.path ?? "") })));
-  selectSection(host, active);
-  $("editor").value = typed ?? state.files[state.file]?.text ?? "";
+    + yamlCard("editor", "yaml-save", t("provider.yaml.file_hint", { file: fileName(file.path) })), actions);
+  selectSection(host, selected, open);
+  $("editor").value = typed ?? file.text;
   renderFiles();
   placeUndo();
   fitSectionPane();
@@ -2716,14 +2866,18 @@ async function saveYaml() {
 const yamlView = () => {
   const key = sectionState($("settings")).key;
   if (key === "yaml") return state.settingsView === "yaml";
-  if (key === "providers") return state.view === "yaml";
-  return false;
+  const provider = sectionState($("provider-form"));
+  return key === "providers" && provider.open && provider.key === "yaml" && state.view === "yaml";
 };
 
 // Switch between form and YAML views. Confirm before discarding unsaved YAML and restoring the saved file.
 async function selectProviderSection(key) {
   const host = $("provider-form");
+  const section = sectionState(host);
   const view = key === "yaml" ? "yaml" : "form";
+  let returnKey = state.providerReturnKey;
+  if (key === "yaml" && section.open && section.key && section.key !== "yaml") returnKey = section.key;
+  else if (key !== "yaml") returnKey = "";
   if (view !== state.view) {
     if (dirty() && !(await ask(t("dialog.discard.title"), t("dialog.discard.message"), t("action.discard_button"), true))) return;
     const index = state.file;
@@ -2732,6 +2886,9 @@ async function selectProviderSection(key) {
     state.view = view;
     clearWrite("providers");
   }
+  state.providerReturnKey = returnKey;
+  state.fileOpen = true;
+  section.key = key;
   renderFiles();
   renderForm();
   // Build the form before the arrival animation.
@@ -2960,8 +3117,7 @@ function renderSettings() {
     + sectionPane(t("nav.settings_link"), `<div class="pane-summary" data-pane-summary></div>`
       + groups.map(([group, title, fields]) => card([group, title, fields]).replace(
       '<div class="card">', `<div class="card" data-section="${esc(group)}">`)).join("")
-      + `<div class="card nested" data-section="providers">`
-      + `<div id="providers-slot"></div></div>`
+      + `<div class="provider-flow" data-section="providers"><div id="providers-slot"></div></div>`
       + keysCard()
       + yamlCard("settings-editor", "settings-yaml-save", t("settings.yaml.hint", { file: fileName(state.settings.path) }))
       + maintenanceCard());
@@ -2985,6 +3141,7 @@ function renderSettings() {
     });
     filterRail($("settings"));
   }
+  renderFiles();
   renderForm();
   $("settings-editor").value = typed ?? state.settings.text;
   // Use the rendered file's mode to select visible rows.
@@ -3575,11 +3732,11 @@ async function start() {
   await refreshEnv();
   [state.overrideKeys, state.providerDefaults] = await Promise.all([call("provider-keys"), call("provider-defaults")]);
   state.file = 0;
+  state.fileOpen = false;
   showFileError(0);
   renderFiles();
   renderOverview();
-  if (!document.querySelector(`section[data-page="settings"]`).hidden
-    && sectionState($("settings")).key === "providers") renderForm();
+  applySectionHash();
   state.timers = [
     // Skip server calls in hidden tabs and refresh when they become visible.
     setInterval(() => document.hidden || guarded(refreshFast), 5000),
@@ -3914,7 +4071,7 @@ function markCardScrollEdges() {
 
 function markPaneEdges(pane) {
   pane.classList.toggle("fit-host", pane.querySelector(
-    ":scope > .card.nested:not([hidden]), :scope > .card.yaml-view:not([hidden])") != null);
+    ":scope > .provider-flow:not([hidden]), :scope > .card.yaml-view:not([hidden])") != null);
   const end = Math.max(0, pane.scrollHeight - pane.clientHeight);
   setFade(pane, "--fade-top", pane.scrollTop);
   setFade(pane, "--fade-bottom", end - pane.scrollTop);
@@ -4077,12 +4234,29 @@ $("files").addEventListener("click", (event) => {
   if (button) openFile(Number(button.dataset.file));
 });
 async function reloadFiles(keep) {
-  takeFiles(await call("files"));
+  captureProviderYamlDraft();
+  const previous = new Map(state.files.map((file, index) => [file.path, {
+    text: file.text, saved: state.saved[index], blocks: state.forms[index], formSaved: state.formSaved[index],
+  }]));
+  const fresh = await call("files");
+  state.files = fresh.map((file) => ({ ...file, text: previous.get(file.path)?.text ?? file.text }));
+  state.saved = state.files.map((file) => previous.get(file.path)?.saved ?? file.text);
+  state.forms = state.files.map((file) => previous.get(file.path)?.blocks ?? clone(file.blocks));
+  state.formSaved = state.files.map((file, index) => previous.get(file.path)?.formSaved ?? formText(index));
   const index = Math.max(0, state.files.findIndex((file) => file.path === keep));
-  state.file = index;
-  showFileError(index);
-  renderFiles();
-  renderForm();
+  if (keep && state.files.length) await openFile(index);
+  else {
+    state.file = index;
+    state.fileOpen = false;
+    state.providerReturnKey = "";
+    const section = sectionState("provider-form");
+    section.key = "";
+    section.open = false;
+    showFileError(index);
+    renderFiles();
+    renderForm();
+    setProviderRoute(null, null, false);
+  }
   guarded(refreshEnv);
 }
 
@@ -4104,8 +4278,7 @@ $("files").addEventListener("click", async (event) => {
     showWrite("providers", error.message, true);
   }
 });
-$("files").addEventListener("click", async (event) => {
-  if (!event.target.closest("#drop-provider")) return;
+async function deleteProviderFile() {
   clearWrite("providers");
   const file = state.files[state.file];
   const label = file ? fileName(file.path).replace(/\.[^.]+$/, "") : "";
@@ -4118,13 +4291,16 @@ $("files").addEventListener("click", async (event) => {
     if (error instanceof LoggedOut) return showLogin();
     showWrite("providers", error.message, true);
   }
-});
+}
 $("provider-form").addEventListener("input", (event) => {
   if (event.target.id === "editor") renderFiles();
 });
 bindValueRows($("provider-form"), () => saveForm());
 bindValueRows($("settings"), () => saveSettings());
 $("provider-form").addEventListener("click", (event) => {
+  if (event.target.closest("#drop-provider")) return deleteProviderFile();
+  const view = event.target.closest("[data-provider-section]");
+  if (view) return selectProviderSection(view.dataset.providerSection);
   const section = event.target.closest(".sections button[data-section]");
   if (section) return selectProviderSection(section.dataset.section);
   if (event.target.closest("[data-back]")) return closeSection($("provider-form"));
@@ -4310,7 +4486,7 @@ document.addEventListener("keydown", (event) => {
   if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s") return;
   if (!yamlView()) return;
   event.preventDefault();
-  if (location.hash.startsWith("#/settings")) saveSettings();
+  if (sectionState($("settings")).key === "yaml") saveSettings();
   else saveYaml();
 });
 document.addEventListener("visibilitychange", () => {

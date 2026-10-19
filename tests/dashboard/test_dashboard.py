@@ -1586,7 +1586,9 @@ def test_select_section_scopes_its_queries_to_its_own_host() -> None:
   assert ":scope > .rail > .sections button" in body, (
     "the rail buttons of this host alone"
   )
-  assert ":scope > .section-pane > .card" in body, "the pane cards of this host alone"
+  assert ":scope > .section-pane > [data-section]" in body, (
+    "the pane sections of this host alone"
+  )
 
 
 def test_provider_tiles_carry_the_vendored_marks() -> None:
@@ -1602,8 +1604,25 @@ def test_provider_tiles_carry_the_vendored_marks() -> None:
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   tile = css.partition(".tile .mark {")[2].partition("}")[0]
   assert "width: 13px" in tile, "the tile sizes the mark like its glyph"
-  files = css.partition(".card.nested .files {")[2].partition("}")[0]
-  assert "padding: 12px 20px" in files, "the file chips clear the card divider"
+
+
+def test_provider_files_use_the_shared_section_list_style() -> None:
+  """Provider file rows use the same panel and button spacing as other section lists."""
+  root = Path(__file__).resolve().parents[2]
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  sections = css.partition(".sections {")[2].partition("}")[0]
+  rows = css.partition(".sections button {")[2].partition("}")[0]
+  assert "#files .provider-files" not in css, (
+    "the provider list does not override the shared style"
+  )
+  assert "background: var(--panel)" in sections, "shared lists have a panel background"
+  assert "border: 1px solid var(--line)" in sections, (
+    "shared lists have the standard border"
+  )
+  assert "border-radius: var(--radius)" in sections, (
+    "shared lists have the standard radius"
+  )
+  assert "padding: 10px 14px" in rows, "shared list rows use the standard spacing"
 
 
 def test_the_page_scroll_does_not_wait_on_has_support() -> None:
@@ -1667,23 +1686,163 @@ assert(!probe.useStats({id: 'q/n'}).map(([value, label]) => value + ' ' + label)
   )
 
 
-def test_the_providers_card_keeps_the_only_scroll() -> None:
-  """The pane that holds the providers card stops scrolling, and the card form scrolls."""
+def test_provider_files_are_drilldown_steps() -> None:
+  """Multi-provider files list their providers; single-provider files open their config."""
+  root = Path(__file__).resolve().parents[2]
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  render_files = app.partition("function renderFiles() {")[2].partition("\n}\n")[0]
+  assert 'class="sections drill provider-files"' in render_files
+  assert '"data-file": index' in render_files
+  assert 'variant: "tab"' not in render_files
+  assert "state.fileOpen" in render_files
+  open_file = app.partition("function openFile(index) {")[2].partition("\n}\n")[0]
+  assert "state.fileOpen = true" in open_file
+  assert "blocks.length === 1" in open_file
+  assert "selectProviderSection(blocks[0])" in open_file
+  assert "openProviderFile(index)" in open_file
+  settings = app.partition("function renderSettings() {")[2].partition("\n}\n")[0]
+  assert 'class="provider-flow" data-section="providers"' in settings
+  assert 'class="card nested"' not in settings
+  assert 'params.set("file"' in app and 'params.get("file")' in app
+  run_app_js(
+    "state, renderFiles, openFile, applySectionHash, selectProviderSection, "
+    "formText, providerPaneActions, SECTION_STATE",
+    """
+sandbox.history.pushState = (value, _, hash) => {
+  sandbox.history.state = value;
+  sandbox.location.hash = hash;
+};
+sandbox.history.replaceState = sandbox.history.pushState;
+probe.state.files = [
+  {path: 'config/providers/free.yml', main: true, text: 'free',
+   blocks: {openrouter: {api_base: 'https://openrouter.ai'}, pollinations: {api_base: 'https://text.pollinations.ai'}}},
+  {path: 'config/providers/solo.yml', main: false, text: 'solo',
+   blocks: {openrouter: {api_base: 'https://openrouter.ai'}}},
+];
+probe.state.forms = probe.state.files.map(file => JSON.parse(JSON.stringify(file.blocks)));
+probe.state.formSaved = probe.state.forms.map((_, index) => probe.formText(index));
+probe.state.saved = probe.state.files.map(file => file.text);
+probe.state.view = 'form';
+probe.state.file = 0;
+probe.renderFiles();
+const html = node('files').innerHTML;
+assert(html.includes('class=\"sections drill provider-files\"'));
+assert(html.includes('data-file=\"0\"') && html.includes('free.yml'));
+assert(html.includes('data-file=\"1\"') && html.includes('solo.yml'));
+assert(html.includes('id=\"new-provider\"'));
+assert(!html.includes('class=\"tab'));
+(async () => {
+  await probe.openFile(0);
+  assert(probe.state.fileOpen, 'the shared file opens');
+  assert.strictEqual(probe.SECTION_STATE.providers.open, false, 'the shared file shows its list');
+  assert.strictEqual(probe.SECTION_STATE.providers.key, '', 'the file has no selected provider yet');
+  assert.strictEqual(new URLSearchParams(sandbox.location.hash.split('?')[1]).get('file'),
+    'config/providers/free.yml', 'the file route is shareable');
+  assert.strictEqual(new URLSearchParams(sandbox.location.hash.split('?')[1]).get('provider'), null);
+  node('editor').value = 'free YAML draft';
+  probe.state.view = 'yaml';
+  await probe.openFile(1);
+  assert.strictEqual(probe.state.view, 'form', 'a valid one-provider file opens its config from YAML mode');
+  assert.strictEqual(probe.state.files[0].text, 'free YAML draft', 'switching files keeps the earlier YAML draft');
+  assert(probe.state.fileOpen, 'the single-provider file opens');
+  assert.strictEqual(probe.SECTION_STATE.providers.open, true, 'the provider config opens directly');
+  assert.strictEqual(probe.SECTION_STATE.providers.key, 'openrouter');
+  let route = new URLSearchParams(sandbox.location.hash.split('?')[1]);
+  assert.strictEqual(route.get('file'), 'config/providers/solo.yml');
+  assert.strictEqual(route.get('provider'), 'openrouter');
+  const actions = probe.providerPaneActions(probe.SECTION_STATE.providers);
+  assert(actions.includes('id=\"drop-provider\"'), 'delete stays available');
+  assert(actions.includes('data-provider-section=\"yaml\"'), 'YAML stays available');
+
+  probe.SECTION_STATE.settings.key = 'providers';
+  probe.SECTION_STATE.settings.open = true;
+  probe.state.file = 0;
+  probe.state.fileOpen = true;
+  probe.state.view = 'yaml';
+  node('editor').value = 'free deep-link draft';
+  sandbox.location.hash = '#/settings?section=providers&file=config/providers/solo.yml';
+  probe.applySectionHash();
+  assert.strictEqual(probe.state.view, 'form', 'a provider deep link restores the config view');
+  assert.strictEqual(probe.state.file, 1, 'the route selects its provider file');
+  assert.strictEqual(probe.state.files[0].text, 'free deep-link draft', 'a route change preserves the YAML draft');
+  assert.strictEqual(probe.SECTION_STATE.providers.key, 'openrouter');
+  route = new URLSearchParams(sandbox.location.hash.split('?')[1]);
+  assert.strictEqual(route.get('file'), 'config/providers/solo.yml');
+  assert.strictEqual(route.get('provider'), 'openrouter');
+
+  probe.state.view = 'yaml';
+  probe.state.providerReturnKey = 'openrouter';
+  probe.SECTION_STATE.providers.key = 'yaml';
+  probe.SECTION_STATE.providers.open = true;
+  probe.state.saved[1] = 'solo';
+  node('editor').value = 'unsaved YAML';
+  const switchBack = probe.selectProviderSection('openrouter');
+  sandbox.__settle(false);
+  await switchBack;
+  assert.strictEqual(probe.state.providerReturnKey, 'openrouter', 'cancel keeps the YAML return route');
+  assert.strictEqual(probe.state.view, 'yaml', 'cancel keeps the YAML editor open');
+})().catch(error => { console.error(error); process.exit(1); });
+""",
+  )
+
+
+def test_provider_yaml_draft_is_captured_before_settings_section_changes() -> None:
+  """Changing Settings sections preserves the provider YAML draft."""
+  root = Path(__file__).resolve().parents[2]
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  helper = app.partition("function captureProviderYamlDraft() {")[2].partition("\n}\n")[
+    0
+  ]
+  assert helper, "the capture helper exists"
+  section = app.partition("function openSection(host, key) {")[2].partition("\n}\n")[0]
+  capture = section.index("captureProviderYamlDraft();")
+  reset = section.index("state.fileOpen = false;")
+  assert capture < reset, "the helper runs before the provider view resets"
+  close = app.partition("function closeSection(host) {")[2].partition("\n}\n")[0]
+  close_capture = close.index("captureProviderYamlDraft();")
+  back = close.index("if (history.state?.section === key ||")
+  assert close_capture < back, "the helper runs before the back route changes"
+  run_app_js(
+    "state, captureProviderYamlDraft",
+    """
+probe.state.files = [{path: 'config/providers/free.yml', text: 'saved'}];
+probe.state.file = 0;
+probe.state.fileOpen = true;
+probe.state.view = 'yaml';
+node('editor').value = 'unsaved desktop draft';
+probe.captureProviderYamlDraft();
+assert.strictEqual(probe.state.files[0].text, 'unsaved desktop draft',
+  'the helper copies the editor text to its file');
+probe.state.fileOpen = false;
+node('editor').value = 'unrelated editor value';
+probe.captureProviderYamlDraft();
+assert.strictEqual(probe.state.files[0].text, 'unsaved desktop draft',
+  'a hidden editor cannot overwrite the draft');
+""",
+  )
+
+
+def test_the_provider_flow_keeps_one_scroll_owner() -> None:
+  """The provider flow fills the pane without nesting a second card around its form."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert (
     ".section-pane.fit-host { overflow: hidden; mask-image: none; display: flex; flex-direction: column; }"
     in css
-  ), "a pane that holds one filling card stops scrolling"
+  ), "a pane that holds the provider flow stops scrolling"
   assert (
-    ".section-pane.fit-host > .card { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }"
-    in css
-  ), "the card fills the pane height"
+    ".section-pane.fit-host > .card,\n"
+    "  .section-pane.fit-host > .provider-flow { flex: 1 1 auto; "
+    "min-height: 0; display: flex; flex-direction: column; }" in css
+  ), "the provider flow fills the pane height"
   assert (
-    ".card.nested > .settings { flex: 1 1 auto; min-height: 0; align-items: stretch; }"
+    ".provider-flow > .settings { flex: 1 1 auto; min-width: 0; min-height: 0; margin: 0; }"
     in css
-  ), "the card body takes the leftover height"
+  )
+  assert "#provider-form > .section-pane { grid-template-rows: auto 1fr; }" in css, (
+    "the drill header stays compact while its content fills"
+  )
   assert ".section-pane:not(.fit-host) > .card { align-self: start; }" in css, (
     "other sections keep content-height cards"
   )
@@ -2946,7 +3105,7 @@ const buttons = [...html.matchAll(/<button[^>]*data-section="([a-z]+)"/g)]
     return button;
   }});
 const summary = {{ innerHTML: '' }};
-settings.querySelectorAll = (sel) => (sel.includes('.card') ? cards : buttons);
+settings.querySelectorAll = (sel) => (sel.includes('> [data-section]') ? cards : buttons);
 settings.querySelector = (sel) => {{
   if (sel.includes('data-pane-summary')) return summary;
   const want = sel.match(/data-section="([a-z]+)"/);
@@ -5847,7 +6006,7 @@ def test_the_yaml_editor_ends_each_list_and_saves_itself() -> None:
     '["keys", t("settings.keys.title")], ["yaml", t("yaml.label")],',
     'if (event.target.closest("#yaml-save")) return saveYaml();',
     'if (event.target.closest("#settings-yaml-save")) saveSettings();',
-    'const typed = state.view === "yaml" ? $("editor")?.value : undefined;',
+    'const typed = state.view === "yaml" && sameFile ? $("editor")?.value : undefined;',
     'const typed = state.settingsView === "yaml" ? $("settings-editor")?.value : undefined;',
   ):
     assert needle in app, needle
@@ -5945,7 +6104,7 @@ def test_a_phone_opens_a_section_as_its_own_page() -> None:
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   for needle in (
-    "function sectionPane(back, cards) {",
+    "function sectionPane(back, cards, actions = null) {",
     "function openSection(host, key) {",
     "function closeSection(host) {",
     "function applySectionHash() {",
@@ -5962,9 +6121,10 @@ def test_a_phone_opens_a_section_as_its_own_page() -> None:
     "the pane bar carries the drill page title"
   )
   style = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  assert '#provider-form[data-detail="1"] > .section-pane > .pane-bar {' in style, (
-    "a desktop drill page shows the bar over the pane"
-  )
+  assert (
+    '#provider-form[data-detail="1"] > .section-pane > .pane-bar,\n'
+    '  #provider-form[data-file-open="1"] > .section-pane > .pane-bar {' in style
+  ), "a desktop file or provider drill page shows the bar"
   assert ".card.list { padding: 0; background: none; border: 0; }" in style, (
     "the drill list page keeps its rows flush and paints no card of its own"
   )
@@ -5975,13 +6135,13 @@ def test_a_phone_opens_a_section_as_its_own_page() -> None:
   assert '.settings[data-detail="1"] > .section-pane { display: grid; }' in phone, (
     "a phone shows the selected section alone"
   )
-  assert ".card.nested .sections { flex: 1 1 100%; }" in phone, (
-    "the nested rail spans the phone card"
+  assert '#provider-form:not([data-detail="1"]):not([data-file-open="1"])' in phone, (
+    "the file list keeps its back bar, and the top-level providers list does not"
   )
   assert (
-    '#settings .section-pane:has(.card.nested .settings[data-detail="1"])'
+    '#settings .section-pane:has(.provider-flow #provider-form[data-file-open="1"])'
     " > .pane-bar > .back { display: none; }" in phone
-  ), "the outer back yields to the nested one"
+  ), "the outer back yields while a provider file is open"
   assert (
     ".pills [data-drop], .pills [data-add], [data-hook-drop],\n"
     "  .section-pane .back, #nav a { min-height: 44px; min-width: 44px; }" in phone
@@ -6369,7 +6529,7 @@ assert.strictEqual(probe.actionButton('Select', {
   ):
     assert fragment in page, fragment
   for fragment in (
-    'variant: `tab${index === state.file ? " on" : ""}`',
+    'variant: "ghost danger", attrs: { id: "drop-provider" }',
     'variant: "add"',
     'variant: "ghost danger", attrs: { id: "reset-weights", title: t("dialog.reset.message") }',
   ):
