@@ -212,12 +212,6 @@ main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
 .weight.left .num { width: auto; min-width: 78px; white-space: nowrap; }
 td.time { white-space: nowrap; }
 #more-requests { margin: 8px 16px; }
-/* The log pane keeps the full height of the page. The closing line sits on its floor, so the
-   empty band reads as room for the next request and not as a missing block. */
-.log-end {
-  margin: auto 0 0; padding: 10px 16px; border-top: 1px solid var(--line);
-  color: var(--muted); font-size: 12px;
-}
 .card h3 { margin: 0; font-size: 15px; font-weight: 600; }
 .card h3 .ctx { margin-left: 6px; padding: 1px 6px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 11px; font-weight: 500; vertical-align: 2px; }
 .card .sub { color: var(--muted); font-size: 12px; margin: 2px 0 14px; }
@@ -429,11 +423,7 @@ td.end { text-align: right; }
   #app > main[data-page="requests"] {
     padding-inline: max(32px, calc((100% - 1716px) / 2));
   }
-  section[data-page="requests"] > .flow > .column > .panel:not(.editbar) {
-    flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column;
-  }
-  /* The table takes the room that its rows need, and the closing line takes the rest. */
-  section[data-page="requests"] .panel > table { flex: 0 0 auto; }
+  section[data-page="requests"] > .flow > .column > .panel:not(.editbar) { flex: 1; min-height: 0; overflow: auto; }
   /* The Limits table scrolls inside its panel too, so a long lane list never scrolls the page. */
   main[data-page="limits"] { display: flex; flex-direction: column; overflow: hidden; }
   main[data-page="limits"] > section[data-page="limits"] {

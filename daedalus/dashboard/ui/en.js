@@ -379,7 +379,6 @@ globalThis.DAEDALUS_LOCALE = {
   "request.effort.dropped_text": "dropped",
   "request.empty.filter_text": "No requests match the filter.",
   "request.empty.none_text": "No requests",
-  "request.log.live_text": "Listening for new requests.",
   "request.filter.all_statuses_option": "All statuses",
   "request.filter.all_time_option": "All time",
   "request.filter.errors_option": "Errors only",
