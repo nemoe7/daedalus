@@ -1,6 +1,6 @@
 # Provider keys
 
-Each provider needs 1 key, and daedalus skips a provider without one. The steps below make the key. Copy it right after you create it: some pages show the key only once.
+Each provider needs 1 key, and daedalus skips a provider without one. The steps below create the key. Copy it right after you create it: some pages show the key only once.
 
 ## Cloudflare Workers AI
 
@@ -51,4 +51,4 @@ Each provider needs 1 key, and daedalus skips a provider without one. The steps 
 2. Go to <https://z.ai/manage-apikey/apikey-list>.
 3. Create a key and copy it.
 
-Set the environment variable named by `env:NAME`, or paste the key into the dashboard. The dashboard stores pasted keys in the database. The names are in [Configuration](configuration.md#environment-variables). [Providers](providers.md#use-the-key) gives the dashboard steps.
+Set the environment variable named by `env:NAME`, or paste the key into the dashboard. The dashboard stores pasted keys in the database. The variable names are in [Configuration](configuration.md#environment-variables). [Providers](providers.md#use-the-key) gives the dashboard steps.
