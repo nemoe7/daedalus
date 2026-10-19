@@ -3491,17 +3491,18 @@ function renderLimits(data) {
     : t("limits.not_checked_text"));
   $("balances").hidden = !data.providers.length;
   draw("balances", data.providers.map((p) => `<div class="card"><h3>${esc(p.name)}</h3>
-    ${p.items.map(item => `<div class="balance">${line(esc(BALANCE_LABELS[item.kind]()), esc(balanceValue(item)), { title: balanceValue(item, false) })}
-      ${item.share == null ? "" : progressMeter(item.share)}</div>`).join("")}</div>`).join(""));
+    ${p.items.map(item => `<div class="balance">${line(esc(BALANCE_LABELS[item.kind]()), esc(balanceValue(item)), { title: balanceValue(item, false) })}</div>`).join("")}</div>`).join(""));
 }
 
 function renderLimitRows(rows) {
   $("limits-clear").hidden = !state.limitSearch;
+  // A bar that is full on every row says nothing, so the table draws bars only once a limit moves.
+  const moving = rows.some((r) => r.limit > 0 && r.remaining < r.limit);
   draw("limit-rows", rows.length ? rows.map((r) => `<tr>
       ${nameCell(r.model, `${modelName(r.model)}${r.client ? ` <span class="muted">${esc(r.client)}</span>` : ""}`)}
       <td title="${esc(limitTitle(r))}">${esc(limitUnit(r))}</td>
       <td class="num"><div class="weight left" title="${t("limits.value.of_text", { remaining: r.remaining.toLocaleString(), limit: r.limit.toLocaleString() })}">
-        ${progressMeter(r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0)}
+        ${moving ? progressMeter(r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0) : ""}
         <span class="num${r.remaining > 0 ? "" : " out"}">${t("limits.value.of_text", { remaining: floorCount(r.remaining), limit: floorCount(r.limit) })}</span></div></td>
       ${limitTimeCell(r.reset, "hide-sm muted time num")}
       ${limitTimeCell(r.at, "hide-sm muted time num")}

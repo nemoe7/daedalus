@@ -642,6 +642,23 @@ def test_status_card_sits_in_the_card_grid() -> None:
   assert column.index("status-card") < column.index("ov-limits")
 
 
+def test_limit_bars_wait_for_a_limit_to_move() -> None:
+  """The Limits table draws a bar only when a row sits below its cap."""
+  root = Path(__file__).resolve().parents[2]
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  rows = app[app.index("function renderLimitRows") : app.index("const DIFF_KINDS")]
+  assert "const moving = rows.some((r) => r.limit > 0 && r.remaining < r.limit);" in rows
+  assert "${moving ? progressMeter(" in rows
+
+
+def test_balance_cards_read_as_numbers() -> None:
+  """Every balance card carries a label and a value, and no bar."""
+  root = Path(__file__).resolve().parents[2]
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  balances = app[app.index("function renderLimits") : app.index("function renderLimitRows")]
+  assert "progressMeter" not in balances
+
+
 def test_pool_strip_keeps_every_card_its_own_width() -> None:
   """No pool card stretches over a row; a phone swipes the strip instead."""
   root = Path(__file__).resolve().parents[2]
@@ -6725,7 +6742,7 @@ def test_dashboard_display_primitives_keep_their_contracts() -> None:
   assert app.count("timeText(") >= 4, (
     "the overview, limits, and notifications share time markup"
   )
-  assert app.count("progressMeter(") >= 7, (
+  assert app.count("progressMeter(") >= 6, (
     "every weight and allowance bar shares one meter"
   )
   assert app.count("statusBadge(") >= 5, (
@@ -7578,8 +7595,11 @@ for (const markup of [overview, node('balances').innerHTML]) {
   for (let i = 0; i < items.length; i++) {
     assert(markup.includes(`label-${items[i].kind}`));
     assert(markup.includes(expected[i]), expected[i]);
-    if (items[i].share !== null) assert(markup.includes(probe.progressMeter(items[i].share)));
   }
+}
+// The side cards read as a value alone; the overview snippet keeps its share bar.
+for (let i = 0; i < items.length; i++) {
+  if (items[i].share !== null) assert(overview.includes(probe.progressMeter(items[i].share)));
 }
 assert.strictEqual(node('balances').hidden, false);
 LOCALE['limits.balance.credit.label'] = '<changed&>';

@@ -205,7 +205,6 @@ main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
 .panel { overflow-x: auto; }
 .out { color: var(--bad); }
 .balance + .balance { border-top: 1px solid var(--line); }
-.balance .track { margin-bottom: 5px; }
 .weight.left { min-width: 140px; }
 .weight.left .num { width: auto; min-width: 78px; white-space: nowrap; }
 td.time { white-space: nowrap; }
