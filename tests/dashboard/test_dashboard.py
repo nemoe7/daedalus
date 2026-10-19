@@ -1270,6 +1270,41 @@ def test_the_model_rows_light_up_on_hover() -> None:
   ) in css, "the pointer hover lights model rows and chained request rows"
 
 
+def test_the_phone_limits_row_keeps_every_field() -> None:
+  """A phone limit row draws the reset and last-seen values that the desk columns hide."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  meta = app.partition("const limitMeta = (r) =>")[2].partition("\n\n")[0]
+  assert '"limits.meta.reset_text"' in meta, "the reset time reaches the phone line"
+  assert '"limits.meta.seen_text"' in meta, "the last check reaches the phone line"
+  assert 'class="limit-meta"' in app, "each row carries the phone line"
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  phone = css.split("@media (max-width: 720px) {", 1)[1]
+  assert ".limit-meta { display: none; }" in css, "the desk row hides the phone line"
+  assert "#limit-rows .limit-meta { display: block;" in phone, (
+    "the phone row shows the line"
+  )
+  assert "#limit-rows td.hide-sm { display: none; }" in phone, (
+    "the phone keeps the desk columns out of the row"
+  )
+
+
+def test_the_feed_and_the_log_name_their_own_state() -> None:
+  """The notification feed counts its events, and the request log states that it listens."""
+  root = Path(__file__).resolve().parent.parent.parent
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  feed = app.partition("const feed = notices.length")[2].partition("\n\n")[0]
+  assert 'class="feed-meta"' in feed, "the feed opens with its count"
+  assert '"notification.feed.oldest_text"' in feed, "the feed names its oldest event"
+  html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  assert 'class="log-end" data-i18n="request.log.live_text"' in html, (
+    "the log closes with one quiet line"
+  )
+  assert 'class="strip-note" id="pool-note"' in html, (
+    "the pool strip names the figure that its bars draw"
+  )
+
+
 def test_notification_actions_match_the_shared_pointer_hover() -> None:
   """Notification-action hover CSS uses the shared field color only with pointer support."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -1351,7 +1386,8 @@ assert(html.includes('data-rebuild="0"'), 'the rebuild notification still opens 
   assert ".notification-feed" in css and ".notification-item" in css, (
     "the shared card lays out notification rows"
   )
-  for selector, body in re.findall(r"([^{}]+)\{([^{}]*)\}", css):
+  desk = css.split("@media (max-width: 720px) {", 1)[0]
+  for selector, body in re.findall(r"([^{}]+)\{([^{}]*)\}", desk):
     if "#limit-rows" in selector:
       assert "padding" not in body, "Limits columns use the shared table cell padding"
 
@@ -2007,7 +2043,7 @@ def test_the_short_values_carry_their_full_text() -> None:
     "}" in css
   ), "desktop tabs keep their intrinsic width; narrow headers wrap the strip instead"
   assert "text-decoration: underline; }" in css, "a sort head marks its own click"
-  assert "button.line.rebuild:hover { color: var(--accent-text); }" in css, (
+  assert "button.line.rebuild:hover { color: var(--text); }" in css, (
     "the phone catalog line answers the mouse"
   )
 
@@ -2085,7 +2121,10 @@ def test_dashboard_routes_have_visible_titles() -> None:
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert 'class="settings-list-title"' in app
   assert '<h1 class="pane-title" data-pane-title hidden></h1>' in app
-  assert "summary.innerHTML = `${chipFor(host.id, key)}<h1>${esc(label)}</h1>" in app
+  assert (
+    'summary.innerHTML = `${chipFor(host.id, key)}<div class="pane-heading"><h1>${esc(label)}</h1>'
+    in app
+  )
 
 
 def test_provider_list_uses_the_settings_summary() -> None:
@@ -2096,7 +2135,8 @@ def test_provider_list_uses_the_settings_summary() -> None:
   assert "provider-files-head" not in files
   section = app.partition("function selectSection(host, key,")[2].partition("\n}\n")[0]
   assert (
-    "summary.innerHTML = `${chipFor(host.id, key)}<h1>${esc(label)}</h1>" in section
+    'summary.innerHTML = `${chipFor(host.id, key)}<div class="pane-heading"><h1>${esc(label)}</h1>'
+    in section
   )
   assert (
     'summary.hidden = host.id === "settings" && key === "providers";' not in section
@@ -2173,7 +2213,7 @@ def test_active_controls_have_no_resting_shadows() -> None:
   selectors = (
     r"\.sections button\.on",
     r"\.primary:hover:not\(:disabled\)",
-    r"\.pool:hover, \.pool\.on",
+    r"\.pool\.on",
     r"\.tabs a\.on",
   )
   for selector in selectors:
@@ -5367,8 +5407,9 @@ def test_the_requests_bar_keeps_its_own_height() -> None:
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
   ).read_text(encoding="utf-8")
   assert (
-    'section[data-page="requests"] > .flow > .column > .panel:not(.editbar) '
-    "{ flex: 1; min-height: 0; overflow: auto; }"
+    'section[data-page="requests"] > .flow > .column > .panel:not(.editbar) {\n'
+    "    flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column;\n"
+    "  }"
   ) in css, "the table panel keeps the free height"
   assert (
     'section[data-page="requests"] > .flow > .column > .requests-bar { flex: none; }'

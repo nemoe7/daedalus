@@ -568,6 +568,11 @@ function renderPools(pools) {
     return `<a class="card pool" data-tier="${tier}" data-mode="${esc(mode)}" title="${esc(pool.shown)}: ${esc(POOL_NOTES[pool.name] || "")}">
       <h3>${esc(pool.shown.replace("daedalus/", ""))}${context}</h3>${bar}<div class="sub">${count(pool.members.length, "model")}</div></a>`;
   }).join(""));
+  const note = $("pool-note");
+  if (note) {
+    note.textContent = t("model.pool.mean_weight_note");
+    note.hidden = !pools.length;
+  }
   markPools();
 }
 
@@ -1286,11 +1291,12 @@ function openModelModal(m) {
     + (efforts ? `<h4>${t("model.detail.supported_efforts_label")}</h4><div class="pills">${efforts}</div>` : "");
   $("model-modal").showModal();
 }
-// Mix red at 0, orange at 0.5, and blue at 1.
+// Mix red at 0, orange at 0.5, and green at 1: the bar carries the health of the weight. The
+// accent stays off the data, so the bar never reads as a control.
 function weightColor(weight) {
   const high = weight >= 0.5;
   const share = Math.round((high ? (weight - 0.5) * 2 : weight * 2) * 100);
-  return high ? `color-mix(in oklch, var(--accent) ${share}%, var(--orange))`
+  return high ? `color-mix(in oklch, var(--ok) ${share}%, var(--orange))`
     : `color-mix(in oklch, var(--orange) ${share}%, var(--red))`;
 }
 const progressMeter = (value) => `<div class="track"><div class="fill"
@@ -2229,7 +2235,7 @@ function selectSection(host, key, open = sectionState(host).open) {
     const label = [...host.querySelectorAll(":scope > .rail > .sections button")]
       .find((button) => button.dataset.section === key)?.querySelector(":scope > span:not(.tile)")?.textContent ?? key;
     const text = SECTION_SUMMARIES[key] ?? "";
-    summary.innerHTML = `${chipFor(host.id, key)}<h1>${esc(label)}</h1><p>${esc(text)}</p>`;
+    summary.innerHTML = `${chipFor(host.id, key)}<div class="pane-heading"><h1>${esc(label)}</h1><p>${esc(text)}</p></div>`;
   }
   markCardScrollEdges();
   markSectionPaneEdges();
@@ -3356,6 +3362,13 @@ const limitTimeCell = (seconds, cls) => (seconds
   ? timeText(seconds, { tag: "td", variant: cls })
   : `<td class="${cls}">-</td>`);
 
+// The phone line of a limit row: the kind, its reset, and the last check, in one sentence.
+const limitMeta = (r) => esc([
+  limitUnit(r),
+  r.reset ? t("limits.meta.reset_text", { when: relative(r.reset) }) : "",
+  r.at ? t("limits.meta.seen_text", { when: relative(r.at) }) : "",
+].filter(Boolean).join(" \u00b7 "));
+
 const BALANCE_LABELS = {
   credit: () => t("limits.balance.credit.label"),
   usage: () => t("limits.balance.usage.label"),
@@ -3444,12 +3457,13 @@ function renderLimitRows(rows) {
   draw("limit-rows", rows.length ? rows.map((r) => `<tr>
       ${nameCell(r.model, `${modelName(r.model)}${r.client ? ` <span class="muted">${esc(r.client)}</span>` : ""}`)}
       <td title="${esc(limitTitle(r))}">${esc(limitUnit(r))}</td>
-      <td><div class="weight left" title="${t("limits.value.of_text", { remaining: r.remaining.toLocaleString(), limit: r.limit.toLocaleString() })}">
+      <td class="num"><div class="weight left" title="${t("limits.value.of_text", { remaining: r.remaining.toLocaleString(), limit: r.limit.toLocaleString() })}">
         ${progressMeter(r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0)}
         <span class="num${r.remaining > 0 ? "" : " out"}">${t("limits.value.of_text", { remaining: floorCount(r.remaining), limit: floorCount(r.limit) })}</span></div></td>
-      ${limitTimeCell(r.reset, "hide-sm muted time")}
-      ${limitTimeCell(r.at, "hide-sm muted time")}
-    </tr>`).join("") : `<tr><td colspan="5" class="empty">${t("limits.empty_text")}</td></tr>`);
+      ${limitTimeCell(r.reset, "hide-sm muted time num")}
+      ${limitTimeCell(r.at, "hide-sm muted time num")}
+      <td class="limit-meta">${limitMeta(r)}</td>
+    </tr>`).join("") : `<tr><td colspan="6" class="empty">${t("limits.empty_text")}</td></tr>`);
 }
 
 const DIFF_KINDS = [
@@ -3638,9 +3652,13 @@ function renderNotifications(data) {
       ),
     })),
   ].sort((a, b) => b.at - a.at);
+  const feed = notices.length
+    ? `<div class="feed-meta">${plural(notices.length, "notification.feed.count_one_text", "notification.feed.count_other_text")}`
+      + ` · ${t("notification.feed.oldest_text", { when: relative(notices[notices.length - 1].at) })}</div>`
+    : "";
   draw(
     "notification-feed",
-    notices.length ? notices.map((notice) => notice.html).join("") : none(t("notification.empty_text"))
+    notices.length ? feed + notices.map((notice) => notice.html).join("") : none(t("notification.empty_text"))
   );
 }
 
