@@ -87,6 +87,7 @@
 - Report changes/findings, checks/results, files/decisions, open issues, assumptions, and limitations; open with the result, skip restating the task, prefer numbered lists, and report skipped work with its add-when trigger in at most three short lines.
 - ALWAYS use the Oxford comma.
 - Chat replies and reports MUST be concise and readable on a vertical or scrolling display (phone, vertical monitor): limit prose, no essays unless strictly necessary, and digestible by a human.
+- Keep each fielded-report question's relevant context, prompt, and controls on one vertical screen: put it immediately after at most one short paragraph or three short bullets with only needed facts; NEVER collect questions at a long report's end.
 - Mermaid: ALWAYS in documentation, NEVER anywhere else.
 - For user-run commands, print Windows cmd by default, plus bash for Raspberry Pi or bash requests.
 - Task completion alone needs no report.
@@ -109,7 +110,7 @@
 - The first successful, unconfirmed preview start still needs a visibility question, including a start that repairs earlier failed reads; a same-session restart does not.
 - Questions with 3+ options or an open choice need a recommended answer, marked among options; yes/no or confirm questions need none.
 - NEVER count a preselected option, recommendation, or silence as an answer; leave the question unanswered.
-- NEVER end with open tasks. For a live local gate, record its run name and block the task without a report; immediately publish a fielded report for other blocks, one line per task. Continue independent work; poll when no unblocked work remains.
+- NEVER end with open tasks. Link a live local gate to its task; the run owns its blocked state without a report. Immediately publish a fielded report for other blocks, one line per task. Continue independent work; poll when no unblocked work remains.
 - MUST state each unavoidable assumption in the acknowledgement before work.
 - NEVER assume while material ambiguity remains.
 - Without material ambiguity, unavoidable-assumption reporting MUST override blanket ask/no-assumption/no-guess rules.
@@ -184,7 +185,7 @@
 - The freeze covers the root tree only: a queued task that edits other files starts a worktree while the root gate runs (`arena-preview worktree start`), never read-only tracing.
 - A >=10-second run is long; MUST use `arena-preview route <name> -- <command>`.
 - NEVER sleep during a background gate.
-- If only a task with a running gate remains, MUST block it.
+- Link each local gate to its task at run start; the live run owns the task's blocked state.
 - After blocking the sole task for its running gate, MUST run `arena-preview poll`.
 - NEVER call `get_process_output` to wait for a run.
 - NEVER wait for a gate with `arena-preview poll` unless only that gate's blocked task remains.

@@ -36,7 +36,7 @@ Use this guide and its Markdown references for instructions. Do not read shipped
 ## Gate and worktrees
 
 - NEVER sleep during a background gate.
-- If only a task with a running gate remains, MUST block it.
+- Link each local gate to its task at run start; the live run owns the task's blocked state.
 - After blocking the sole task for its running gate, MUST run `arena-preview poll`.
 - NEVER wait for a gate with `arena-preview poll` unless only that gate's blocked task remains.
 - When several queued tasks each edit files, declare each task's paths, then start the root gate before that file work.

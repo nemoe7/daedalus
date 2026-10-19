@@ -194,6 +194,14 @@ _arena_preview_gate() {
     "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" interrupt-tick
     case \$? in 1) exit 130 ;; esac
   fi
+  # Schedule the hidden read-set checkpoint before any inert-line exemption can return.
+  # A poll line and an active poll defer the due slot inside the atomic tick.
+  # case: read-set-note
+  if [ "\${ARENA_PREVIEW_ROUTE:-}" != 1 ] && [ "\${_arena_preview_read_set_checked:-}" != 1 ]; then
+    _arena_preview_read_set_checked=1
+    "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" read-set-tick "\$_arena_preview_line" --repo "$REPO_ROOT"
+    case \$? in 1) exit 130 ;; esac
+  fi
   # case: task-reminder
   case "\$BASH_COMMAND" in
     *"git commit"*|*"git push"*|*"gh pr checks"*)
