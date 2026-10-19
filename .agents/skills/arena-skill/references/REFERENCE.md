@@ -13,13 +13,13 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 | `note-list [--page N] [--page-size N]` | List stored note IDs, including acknowledged and quiet notes, newest first; default page 1, 20 IDs per page, maximum 100; leave receipts and exports unchanged |
 | `note <id>` | Reread a stored note by its six or full characters; a short ID that matches several notes prints every match |
 | `key` | Print the recorded agent key, host and stamp; breaks while the preview server is not up, and a later session recovers the key after acknowledging the quiet note |
-| `poll` | Wait for a pending inbox item before ending a turn; return at once with the task list for an unblocked upcoming task, and at once when the owner pressed Skip poll in the page. It prints a retry disclaimer at the start that names the 1800-second span. The shell `timeout` command must not wrap it; give the bash tool's timeout 1800 instead |
+| `poll` | Wait for inbox items with `poll` before ending a turn; continue when it returns unblocked tasks. End after Skip poll or a 1799-second return with no new messages. Set the Bash tool timeout to 1800 seconds; NEVER wrap `poll` in shell `timeout`. |
 | `route <name> -- <command>` | The gate's helper for a detected long run, and the call a failed start names: it starts the command detached under a name and records its tail and exit, so the verdict prints on a later call as `run <name> done: exit N`, with one status line per call while it runs |
 | `logs <name>` | Print a routed run's status and its recorded output tail; it works while the run lives and after its verdict, and a second read before that verdict exits 130 |
 | `worktree start --gate <gate-name> [--allow <glob>] <name> <destination>` | Create a detached task worktree outside the root while the named root gate runs |
 | `worktree collect <name>` | Print the allowed detached-worktree patch after a green root gate |
 | `ack <markdown>` | Omit IDs only when exactly one non-quiet note or report answer is pending. Supply one Markdown text. With multiple pending items, supply the ID |
-| `ack <id> <markdown>` | Answer one delivered ID with a rendered reply; single-quote inline text |
+| `ack <id> <markdown>` | Answer one delivered ID with a rendered reply; single-quote inline text. Add `--task-id`, `--task-title`, `--task-type`, and repeatable `--task-detail` to create its linked task atomically |
 | `task-list [-f]` | List upcoming task IDs, order, status, report links, set type marks and each linked report answer with its stamp and text. With -f, include finished tasks. Use task ID for details |
 | `task ID` | Print one stored task: its title, status, order, primary type when set, report link, blocked mark and every detail |
 | `task ID TITLE [DETAIL ...]` | Add or update a task; every task carries at least one detail, and reject a write that leaves none; one task holds one job, so several jobs mean several tasks rather than one task with many details; `--msg-id` is optional and only a note-born or report-born task carries it; `--blocked` or `--unblocked` sets the blocked mark |
@@ -33,7 +33,7 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 | `stale-reports` | List stale published report IDs and reasons without changing state |
 | `report-state` | Print publication, owner view stamp, staleness and answer visibility for one report or all |
 | `rename <id> <new-id>` | Rename one stored note, report answer, report or task in place, so its answers, order and stamps survive |
-| `clear-state` | Empty every state table in place; preserve the agent key, refresh the save file to match, and keep a running server's page token and recorded port |
+| `clear-state` | Empty every state table in place; preserve the agent key, refresh the save file to match, and keep a running server's recorded port |
 | PR title/body | Update PR title/body via REST with JSON on stdin: `jq -n --rawfile body <workspace-file> --arg title <title> '{body: $body, title: $title}' \| gh api repos/<owner>/<repo>/pulls/<n> -X PATCH --input -` |
 
 - Every command except `init` and `serve` breaks with a restart line while no preview answers, so the agent starts the server first.
@@ -91,48 +91,9 @@ When an acknowledgement refers to a report or task, use `ack` and put its exact 
 
 The page's Message log toolbar carries a Skip poll button. A listing that carries a `skip_poll` stamp reports it: the poll that finds it consumes it, prints `SKIP: owner pressed Skip poll. End the turn, no second poll.` on stdout, and the turn ends there. Never poll again after a skip. While a detached run has no exit, the press waits: the poll runs its span, the stamp stays armed, and the run's finish breaks the wait first.
 
-## The gate's cases
-
-The profile gate and the EXIT hook beside it hold one case per shape below. Every case carries a label in `install.sh`, and a test compares this table with those labels.
-
-| Case | Trigger | Answer |
-| --- | --- | --- |
-| `pr-state` | visible `gh pr close`, `gh pr reopen`, `gh pr merge`, equivalent API writes, or destructive head-ref operations | `exit 130` before bypasses. A read line skips the veto spawn. Reads, comments, title/body edits, and permitted working-branch pushes pass |
-| `shell-shape` | a caller that is not `bash`, `sh`, `dash`, `ksh` or `zsh` | pass, so a hosted process keeps its shell |
-| `shell-line` | every gated shell | the command line is read once per shell, so a command costs no read |
-| `platform-shell` | the platform's probe or its own hosted process | pass, and mark the shell once |
-| `task-reminder` | `git commit`, `git push` or `gh pr checks` | the task-list notice once per shell, then the line runs |
-| `main-moved` | `git commit` or `git push` | the drift check once per shell, from local refs at the commit line and with a fresh fetch at the push line, then the line runs |
-| `route-marker` | a shell the gate started itself (`ARENA_PREVIEW_ROUTE=1`) | pass, so a detached run never matches its own family |
-| `idle-wait` | a line that names both a `sleep` and an `arena-preview` call | `exit 130` before the sleep, so the turn takes queued work. A sleep on its own runs |
-| `long-run` | `gh pr checks`, `gh run watch`, or a test runner head (`pytest`, `node --test`, `npm test`, `make test`, `go test`, `cargo test` and the rest) | the call ends clean and the run continues, or `exit 130` when the start fails. Any run of 10 seconds or more is a long run too, and MUST use `route` |
-| `bare-path` | a line that spells out the installed `preview.py` or `arena-preview` | the bare-call notice once per shell, then the line runs |
-| `proxy-route` | a read of code-scanning alerts or workflow run logs | the proxy notice once per shell, then the line runs |
-| `ack-ticks` | an `ack` whose inline text holds a backtick inside double quotes | the warning lands before the call runs |
-| `serve-port` | a `serve` on a port other than 8000 | the warning lands before the call runs |
-| `egress` | `curl`, `wget`, `git clone`, `git fetch` or `git ls-remote` | the egress notice lands before the call runs |
-| `commit-id` | a `git commit` whose staged message carries a session ID | `exit 130`, with the message unchanged |
-| `inert-line` | a line of the families the gate ignores | pass, with no count and no stamp |
-| `push-checkpoint` | a `git push` with a pending inbox | `exit 130` until the ack |
-| `inbox-line` | a line whose every piece is an inbox call | pass, whatever the call count holds |
-| `call-count` | a line over the call threshold with a pending inbox | `exit 130` until the ack |
-
-A blocked call repeats its reason on stderr, and every case above answers one bash call: the gate never holds the turn.
-
-Every message carries one class. The prefix names the class, and the class fixes the stream and the exit code.
-
-| Class | Prefix | Stream and exit |
-| --- | --- | --- |
-| advisory | `arena-preview gate:` | stderr, 0, and the call still runs |
-| refusal | `Preview error:` | stderr, 1 |
-| verdict | an all-caps opener, such as `WAIT BLOCKED:` or `READ INBOX NOW.` | stdout for the gate and a poll, stderr for a wait, 130 or 1, and 0 when a poll line hands the turn back |
-| hint | `arena-preview:` | stderr, 0, or 2 from the wrapper |
-
-A detached `gh pr checks` wait first looks for a check on the branch head, once every five seconds for up to 120. The watch runs only after a check appears, and a window that runs out, a moved head or a gh fault fails the run.
-
 ## Tasks
 
-Task IDs have 1–64 lowercase letters, digits or hyphens and start with a letter or digit; use a short kebab-case title. Titles have at most 200 characters. A task has at most 40 details of 2000 characters each. Existing IDs update; omitted fields keep stored values.
+Task IDs have 1–64 lowercase letters, digits or hyphens and start with a letter or digit; use a short kebab-case title. Titles have at most 200 characters. Use at most 40 task details, each on one line of 120 characters or fewer. Existing IDs update; omitted fields keep stored values.
 
 ### Task types
 
@@ -146,14 +107,13 @@ Choose the primary deliverable type: `report` for findings or assessments, `code
 | `--task-type report\|code\|docs\|ops\|misc` | Required for normal new tasks; omit on updates to keep the stored type. Restore missing legacy types as `misc` |
 | `--order N` | Set 1-based position in the task's status group |
 | Repeatable `--task-details` | Set the detail lines; the arguments replace the stored details |
-| `--task-details ""` | Clear stored details |
 | `--msg-id <full-message-id>` | Link the note or report answer a task came from; optional, and only a note-born or report-born task carries it; still call `ack` |
 | `--report <report-id>` | Link a blocked task to the report it waits on; an answer to that report clears the blocked mark |
 | `--amend <previous-task-id>` | Rename a task without losing its details or order |
 
-A task linked with `--report` stays blocked until the owner answers that report. The answer clears the mark once, and the link then only records what the wait was. The command refuses a report ID that no report holds. A report-linked task sorts ahead of unlinked tasks in its status group until an answer arrives. The `current` seat, in the listing and in the page's Current div, goes to the first upcoming task no blocked mark holds, so a task waiting on a report never reads as the work in hand. A typed task shows its type as a badge on its row, and the page's Type filter narrows every task div to one type.
+A task linked with `--report` stays blocked until the owner answers or the report is unpublished. Either action clears the mark once, and the link then only records what the wait was. The command refuses a report ID that no report holds. A report-linked task sorts ahead of unlinked tasks in its status group until an answer arrives. The `current` seat, in the listing and in the page's Current div, goes to the first upcoming task no blocked mark holds, so a task waiting on a report never reads as the work in hand. A typed task shows its type as a badge on its row, and the page's Type filter narrows every task div to one type.
 
-A task row shows the answers linked to it in a read-only block under its details, and the block never replaces those details. The export keeps an answer its task still references, even after the report row is gone.
+A task row shows the answers linked to it in a read-only block under its details, and the block never replaces those details.
 
 `import-state` replaces the live notes, answers, reports and tasks. With `--merge` it merges by ID and preserves existing message receipts. Use `--replace-tasks` only after checking the input. Never infer a finished task from a commit alone.
 
@@ -172,6 +132,8 @@ A task row shows the answers linked to it in a read-only block under its details
 - If an update rejects an answer, ask the owner to preserve the draft, reload and review the current report.
 
 ## Report fields
+
+In report diffs, keep leading and trailing whitespace outside `~~...~~` and `==...==`; do not mark whitespace-only runs.
 
 | Markdown marker | Control |
 | --- | --- |
@@ -208,4 +170,4 @@ An agent asks with `download-request <url>`. That queues a pending job. The owne
 
 Run `<skill>/scripts/install.sh` after a sandbox restore, before `git add`, to reinstate the venv, poll hook and ignore rule. Run it as a normal Bash call, never through the background process tool. Preserve the state directory and report source files. If the database is lost but `saved-state.ndjson` survives, run `import-state <file>` on that state directory; it creates the database and restores notes, tasks, report answers and report sources together. Files and unfinished download jobs are not in the NDJSON backup.
 
-For an occupied port, identify its owner or choose another port; do not stop another service. Verify a restore with `read`, `task-list` and rendered reports before discarding backups. Report failed reads or saves; never treat them as empty state or a success. If the preview stays unavailable, use `ask_user` to ask how to continue. Do not enable an external channel or local report commits without a new choice.
+Verify a restore with `read`, `task-list` and rendered reports before discarding backups. Report failed reads or saves; never treat them as empty state or a success. If the preview stays unavailable, use `ask_user` to ask how to continue. Do not enable an external channel or local report commits without a new choice.

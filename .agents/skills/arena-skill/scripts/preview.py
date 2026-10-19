@@ -62,7 +62,7 @@ def reminder_tail(cursor,remaining,stale=0):
 			if tail=='Unpublish stale reports.'and stale:return f"Unpublish {stale} stale report{'s'if stale!=1 else''}."
 			return tail
 	return REMINDERS[cursor%len(REMINDERS)]
-REMINDERS='Context check: read ARENA.md, root/nested AGENTS.md, and arena-skill SKILL.md fully when current full text is absent from context (including session start and post-compaction/summary/context replacement); reread all after a rule violation or reread request.','`task-list` at turn start. Update it as work changes.','Take the smallest open task next.','Always push.','`ask_user` on GH_TOKEN failure.','Keep docs terse but clear.','Ask questions ASAP in reports.','Publish your reports.','Never end a turn with unblocked tasks.','Unpublish stale reports.','End the turn with `poll`.','Grep-verify each edit.',TASK_REMINDER,'Rebase `origin/main` before pushing; empty checks mean it moved.',"Check the PR's CI before ending a pushed turn; read the run's verdict on a later call, never a loop in the call.",'Run `arena-preview`, not the full path.'
+REMINDERS='Context check: MUST read ARENA.md, root/nested AGENTS.md, and arena-skill SKILL.md fully before other tools if current full text is absent from context, including session start and post-compaction/summary/context replacement; MUST reread all after a rule violation or reread request.','`task-list` at turn start. Update it as work changes.','Take the smallest open task next.','Always push.','`ask_user` on GH_TOKEN failure.','Keep docs terse but clear.','Ask questions ASAP in reports.','Publish your reports.','Never end a turn with unblocked tasks.','Unpublish stale reports.','End the turn with `poll`.','Grep-verify each edit.',TASK_REMINDER,'Rebase `origin/main` before pushing; empty checks mean it moved.',"Check the PR's CI before ending a pushed turn; read the run's verdict on a later call, never a loop in the call.",'Run `arena-preview`, not the full path.'
 REMINDER_CURSOR='reminder_cursor'
 POLLS_SINCE_MESSAGE='polls_since_message'
 GATE_THRESHOLD=6
@@ -303,36 +303,61 @@ def pr_check_watch(result,root,stopped):
 		pr_check_once(result,root)
 		if result:return
 		stopped.wait(PR_CHECK_POLL_SECONDS)
-PR_CHECK_DISCOVERY_SECONDS=120
+PR_CHECK_DISCOVERY_SECONDS=30
 PR_CHECK_DISCOVERY_STEP=5
 def pr_head_sha(root,branch,slug):
-	try:listed=subprocess.run(['gh','pr','list','--head',branch,'--json','headRefOid','--jq','.[0].headRefOid'],cwd=root,capture_output=True,text=True,check=False)
-	except OSError:return None
+	try:listed=subprocess.run(['gh','pr','list','--head',branch,'--json','headRefOid','--jq','.[0].headRefOid'],cwd=root,capture_output=True,text=True,check=False,timeout=PR_CHECK_DISCOVERY_STEP)
+	except(OSError,subprocess.TimeoutExpired):return None
 	if listed.returncode:return None
 	return listed.stdout.strip()
-def check_run_count(root,slug,sha):
-	try:counted=subprocess.run(['gh','api',f"repos/{slug}/commits/{sha}/check-runs",'--jq','.total_count'],cwd=root,capture_output=True,text=True,check=False)
-	except OSError:return None
-	if counted.returncode:return None
-	try:return int(counted.stdout.strip())
-	except ValueError:return None
+def gh_check_json(root,arguments):
+	try:
+		result=subprocess.run(['gh',*arguments],cwd=root,capture_output=True,text=True,check=False,timeout=PR_CHECK_DISCOVERY_STEP)
+		if result.returncode:return None
+		return[json.loads(line)for line in result.stdout.splitlines()if line.strip()]
+	except(OSError,subprocess.TimeoutExpired,ValueError):return None
+def pr_check_rollup(root,slug,sha):
+	owner,name=slug.split('/',1);query='query($owner:String!,$name:String!,$sha:String!,$endCursor:String){repository(owner:$owner,name:$name){object(expression:$sha){... on Commit{statusCheckRollup{contexts(first:100,after:$endCursor){pageInfo{hasNextPage endCursor} nodes{__typename ... on CheckRun{name status conclusion startedAt checkSuite{workflowRun{workflow{name}}}} ... on StatusContext{context state createdAt}}}}}}}}';projection='.data.repository.object.statusCheckRollup.contexts.nodes[]? | if .__typename == "CheckRun" then {kind:"check",name,workflow:(.checkSuite.workflowRun.workflow.name // ""),state:(if .status == "COMPLETED" then .conclusion else .status end),at:.startedAt} else {kind:"status",name:.context,workflow:"",state,at:.createdAt} end | @json';data=gh_check_json(root,['api','graphql','--paginate','-f',f"query={query}",'-f',f"owner={owner}",'-f',f"name={name}",'-f',f"sha={sha}",'--jq',projection])
+	if not isinstance(data,list):return None
+	latest={}
+	for node in data:
+		if not isinstance(node,dict)or not all(isinstance(node.get(field),str)for field in('kind','name','workflow','state','at')):return None
+		if node['kind']not in('check','status')or not node['name']:return None
+		try:stamp=datetime.fromisoformat(node['at'].replace('Z','+00:00'))
+		except ValueError:return None
+		if stamp.tzinfo is None:return None
+		key=node['kind'],node['name'],node['workflow']
+		if key not in latest or stamp>latest[key][0]:latest[key]=stamp,node['state']
+	states={state for(_,state)in latest.values()}
+	if states&{'ERROR','FAILURE','CANCELLED','TIMED_OUT','ACTION_REQUIRED'}:return'FAILURE',len(latest)
+	if not states or states-{'SUCCESS','SKIPPED','NEUTRAL'}:return'PENDING',len(latest)
+	return'SUCCESS',len(latest)
 def pr_checks_discovery(root='.',seconds=PR_CHECK_DISCOVERY_SECONDS,step=PR_CHECK_DISCOVERY_STEP,sleep=None):
 	pause=sleep or time.sleep;branch=workspace_branch(root);slug=repo_slug(root)
 	if not branch or not slug:return'no branch pull request to watch'
 	pinned=pr_head_sha(root,branch,slug)
 	if pinned is None:return'gh did not read the pull request head'
 	if not pinned:return'no branch pull request to watch'
-	polls=seconds//step+1
-	for poll in range(polls):
+	started=time.monotonic();polls=(seconds+step-1)//step+1;poll=0
+	while True:
 		if poll:
 			head=pr_head_sha(root,branch,slug)
 			if head is None:return'gh did not read the pull request head'
-			if head!=pinned:return f"the pull request head moved from {pinned[:7]} to {head[:7]}"
-		count=check_run_count(root,slug,pinned)
-		if count is None:return'gh did not read the check runs'
-		if count:return None
-		if poll+1<polls:pause(step)
-	return f"no check appeared on {pinned[:7]} within {seconds} seconds"
+			if not head:return'no branch pull request to watch'
+			if head!=pinned:pinned=head;started=time.monotonic();poll=0
+		rollup=pr_check_rollup(root,slug,pinned)
+		if rollup is None:return'gh did not read the check rollup'
+		remaining=seconds-(time.monotonic()-started)
+		if remaining<=0 or poll+1==polls:
+			head=pr_head_sha(root,branch,slug)
+			if head is None:return'gh did not read the pull request head'
+			if not head:return'no branch pull request to watch'
+			if head!=pinned:pinned=head;started=time.monotonic();poll=0;continue
+			state,count=rollup
+			if not count:return f"no visible checks appeared on {pinned[:7]} within {seconds} seconds"
+			if state!='SUCCESS':return f"visible checks are {state.lower()} on {pinned[:7]} after {seconds} seconds"
+			return None
+		pause(min(step,remaining));poll+=1
 SESSION_ID_TABLES=('notes','note'),('submissions','answer'),('reports','report'),('tasks','task')
 HEX7_RE=re.compile('[0-9a-f]{7}')
 MINT_ATTEMPTS=16
@@ -747,6 +772,7 @@ def print_read(store):
 	if listing['pending']:store.mark_seen([item['id']for item in listing['pending']]);store.mark_reports_agent_seen([item.get('report_id')for item in listing['pending']])
 POLL_INTERVAL=1
 POLL_MAX_LOOPS=1800
+POLL_WAIT_SECONDS=1799
 POLLING_META='polling_at'
 POLL_SINCE_META='polling_since'
 POLLING_FRESH_SECONDS=5.
@@ -966,9 +992,11 @@ def run_command(state_dir,name,argv):
 	if not RUN_NAME.fullmatch(name or''):print('arena-preview route: the name takes 1 to 64 letters, digits, dot, dash or underscore.',flush=True);return 2
 	if argv[:1]==['--']:argv=argv[1:]
 	if not argv:print('arena-preview route: name a command after --, for example: route gates -- make check',flush=True);return 2
-	started=time.monotonic();discovery=pr_checks_discovery(resolve_repo_root())if pr_checks_command(argv)else None
+	started=time.monotonic();check_watch=pr_checks_command(argv);discovery=pr_checks_discovery(resolve_repo_root())if check_watch else None
 	if discovery:completed=subprocess.CompletedProcess(argv,1,f"pr-checks wait failed: {discovery}\n",'')
-	else:completed=subprocess.run(argv,capture_output=True,text=True,check=False)
+	else:
+		completed=subprocess.run(argv,capture_output=True,text=True,check=False)
+		if check_watch and completed.returncode==0:completed.stdout+='\nBest effort: all visible checks passed; later checks can still appear.\n'
 	seconds=round(time.monotonic()-started,1);output=(completed.stdout+completed.stderr).splitlines();tail=clean_run_tail(output[-RUN_TAIL_LINES:]);verdict=tail[-1]if tail else'(no output)';path=run_record_path(state_dir,name);existing=json_record(path)or{};record={**existing,'name':name,'argv':argv,'exit':completed.returncode,'seconds':seconds,'finished_at':now(),'verdict':verdict,'tail':tail,'announced':False};write_run_record(path,record)
 	for line in tail:print(line,flush=True)
 	print(f"run {name} done: exit {completed.returncode} {seconds}s {verdict}",flush=True);return completed.returncode
@@ -1128,9 +1156,12 @@ def run_log_report(state_dir,name):
 	return 0
 def poll_inbox(store,sleeper=None):
 	if sleeper is None:sleeper=time.sleep
-	listing={'checked_at':None,'pending':[]};print('arena-preview: poll waits up to 1800 s. Set the bash tool timeout to 1800 s, so a cut wait still returns its listing.',file=sys.stderr,flush=True);store.start_poll();failures=[];stop_checks=threading.Event();threading.Thread(target=pr_check_watch,args=(failures,resolve_repo_root(),stop_checks),daemon=True).start()
+	deadline=time.monotonic()+POLL_WAIT_SECONDS;listing={'checked_at':None,'pending':[]};print(f"poll waits up to {POLL_WAIT_SECONDS} s. Set the bash tool timeout to 1800 s.",file=sys.stderr,flush=True);store.start_poll();failures=[];stop_checks=threading.Event();threading.Thread(target=pr_check_watch,args=(failures,resolve_repo_root(),stop_checks),daemon=True).start()
 	try:
 		for index in range(POLL_MAX_LOOPS):
+			if time.monotonic()>=deadline:break
+			notice=store.take_interrupt()
+			if notice:print(notice,flush=True);return 0
 			listing=store.read(include_quiet=False)
 			if listing['pending']:full=store.read();print(format_read(full),flush=True);store.mark_seen([item['id']for item in full['pending']]);store.mark_reports_agent_seen([item.get('report_id')for item in full['pending']]);return 0
 			if run_notices(store.path.parent):print('DO NOT END TURN. POLL AGAIN.',flush=True);return 0
@@ -1138,9 +1169,12 @@ def poll_inbox(store,sleeper=None):
 			open_tasks=[item for item in store.list_tasks()if item['status']=='upcoming'and not item['blocked']]
 			if open_tasks:listing['tasks']=open_tasks;names=', '.join(item['id']for item in open_tasks);continue_line=f"CONTINUE: unblocked task {names}. Work it or block it; do not end the turn.";print(continue_line,flush=True);print(format_task_list(listing.get('tasks',[])),flush=True);return 0
 			if skip_poll_ready(store):store.take_skip_poll();store.mark_turn_ended();print('SKIP: owner pressed Skip poll. End the turn, no second poll.',flush=True);print(format_read(listing),flush=True);return 0
-			if index+1<POLL_MAX_LOOPS:sleeper(POLL_INTERVAL);store.stamp_polling()
+			if index+1<POLL_MAX_LOOPS:
+				remaining=deadline-time.monotonic()
+				if remaining<=0:break
+				sleeper(min(POLL_INTERVAL,remaining));store.stamp_polling()
 	finally:stop_checks.set();store.clear_polling()
-	store.mark_turn_ended();print('Poll ended: 0 pending.',flush=True);return 1
+	store.mark_turn_ended();print('Poll returned with no new messages. End the turn.',flush=True);return 1
 def parse_state_import(text):
 	try:value=json.loads(text)
 	except json.JSONDecodeError:value=[json.loads(line)for line in text.splitlines()if line.strip()]
@@ -1155,6 +1189,49 @@ def parse_state_import(text):
 	if not isinstance(value,list)or not all(isinstance(r,dict)for r in value):raise ValueError('Import JSON records or copied state')
 	if not value:raise ValueError('Nothing to import')
 	return value
+AUTOSAVE_HISTORY='userscript-autosave-history'
+AUTOSAVE_RECEIPTS='userscript-autosave-receipts'
+def autosave_core(records):
+	if not isinstance(records,list)or not all(isinstance(row,dict)for row in records):raise TypeError('Autosave core must be an array of records')
+	if any(row.get('kind')=='userscript-autosave'for row in records):raise ValueError('Autosave core cannot contain history')
+	with tempfile.TemporaryDirectory()as directory:
+		checked=Store(directory,create=True)
+		if records:checked.import_state(json.dumps(records))
+		core,_=checked.state_lines(checked.state()['notes'],checked.tasks()or{})
+	return core
+def autosave_digest(core):encoded=json.dumps(core,sort_keys=True,ensure_ascii=False,separators=(',',':'));return hashlib.sha256(encoded.encode('utf-8')).hexdigest()
+def autosave_scope_key(scope):
+	if not isinstance(scope,dict)or set(scope)!={'repo','branch'}:raise TypeError('Autosave scope needs repository and branch')
+	if not all(isinstance(value,str)for value in scope.values())or not scope['repo']:raise ValueError('Invalid autosave scope')
+	return json.dumps(scope,sort_keys=True)
+def autosave_record(record):
+	if record.get('kind')!='userscript-autosave'or type(record.get('version'))is not int or record['version']!=1:raise ValueError('Unsupported autosave history version')
+	if not isinstance(record.get('save_id'),str):raise TypeError('Autosave save ID must be a UUID string')
+	if set(record)-{'kind','version','save_id','scope','digest','core','confirmed_at','receipts'}:raise ValueError('Unsupported autosave history fields')
+	uuid.UUID(record['save_id']);autosave_scope_key(record['scope']);core=autosave_core(record['core'])
+	if autosave_digest(core)!=record.get('digest'):raise ValueError('Autosave history digest does not match')
+	if import_stamp(record.get('confirmed_at'))is None:raise ValueError('Autosave history needs a confirmation time')
+	receipts=record.get('receipts',{})
+	if not isinstance(receipts,dict):raise TypeError('Autosave receipts must be an object')
+	for(save_id,digest)in receipts.items():
+		uuid.UUID(save_id)
+		if not isinstance(digest,str)or not re.fullmatch('[0-9a-f]{64}',digest):raise ValueError('Invalid autosave receipt digest')
+	if record['save_id']in receipts and receipts[record['save_id']]!=record['digest']:raise ValueError('Autosave receipt conflicts with its saved state')
+	return{**record,'core':core}
+def verify_publication(store,report_id,revision,count):
+	from http.client import HTTPConnection,HTTPException;failure='Publication verification failed. Check the preview before retrying.'
+	try:
+		with closing(HTTPConnection('127.0.0.1',int(store.meta_value('port')),timeout=15))as client:
+			documents=[]
+			for path in('/api/state',f"/api/reports/{report_id}/html"):
+				client.request('GET',path);response=client.getresponse()
+				if response.status!=200:raise ValueError(f"Publication verification failed: HTTP {response.status}.")
+				documents.append(json.loads(response.read()))
+	except(OSError,HTTPException,UnicodeError,json.JSONDecodeError):raise ValueError(failure)from None
+	state,rendered=documents
+	if not isinstance(state,dict)or not isinstance(state.get('reports'),list):raise TypeError(failure)
+	matches=[row for row in state['reports']if isinstance(row,dict)and row.get('id')==report_id]
+	if len(matches)!=1 or matches[0].get('updated_at')!=clip_stamp(revision)or not isinstance(rendered,dict)or rendered.get('revision')!=revision or type(rendered.get('fields'))is not int or rendered['fields']!=count or not isinstance(rendered.get('html'),str):raise ValueError(failure)
 def task_steps(details):
 	steps=[]
 	for item in details or():steps.extend(part.strip()for part in str(item).splitlines())
@@ -1414,6 +1491,40 @@ class Store:
 			if row is None:raise ValueError(f"No task is stored under {prev_id}")
 			if db.execute('SELECT 1 FROM tasks WHERE id = ?',(task_id,)).fetchone():raise ValueError(f"A task is already stored under {task_id}")
 			self.refuse_shared_id(db,'tasks','reports',task_id);db.execute('DELETE FROM tasks WHERE id = ?',(prev_id,));db.execute('INSERT INTO tasks (id, title, details, status, position, created_at, updated_at, completed_at, blocked, report_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',(task_id,row[1],row[2],row[3],row[4],row[5],stamp,row[6],row[7],row[8]));self.renumber(db)
+	def userscript_history(self,shared=None):
+		with self.transaction(shared,autosave=False)as db:row=db.execute('SELECT value FROM meta WHERE key = ?',(AUTOSAVE_HISTORY,)).fetchone();return json.loads(row[0])if row else[]
+	def userscript_scope(self):root=self.path.parent.parent;return{'repo':root.name,'branch':workspace_branch(root)or''}
+	def userscript_snapshot(self):core,counts=self.state_lines(self.state()['notes'],self.tasks()or{});core=autosave_core(core);scope=self.userscript_scope();history=self.userscript_history();stamps=self.newest_stamps();return{'save_id':str(uuid.uuid4()),'scope':scope,'core':core,'digest':autosave_digest(core),'history':[row for row in history if row['scope']==scope],'text':state_ndjson(core+history),'counts':counts,'stamp':self.newest_stamp(stamps),'stamps':stamps}
+	def confirm_userscript_save(self,payload):
+		save_id,scope=payload.get('save_id'),payload.get('scope')
+		if not isinstance(save_id,str):raise TypeError('Autosave save ID must be a UUID string')
+		uuid.UUID(save_id);key=autosave_scope_key(scope)
+		if scope!=self.userscript_scope():raise ValueError('Autosave confirmation is outside this repository and branch')
+		core=autosave_core(payload.get('core'));digest=autosave_digest(core)
+		if digest!=payload.get('digest'):raise ValueError('Autosave confirmation digest does not match')
+		with self.transaction()as db:
+			db.execute('BEGIN IMMEDIATE');row=db.execute('SELECT value FROM meta WHERE key = ?',(AUTOSAVE_RECEIPTS,)).fetchone();receipts=json.loads(row[0])if row else{};scope_receipts=receipts.setdefault(key,{})
+			if save_id in scope_receipts:
+				if scope_receipts[save_id]!=digest:raise ValueError('Autosave save ID already confirms another state')
+			else:
+				scope_receipts[save_id]=digest;history=self.userscript_history(db);record={'kind':'userscript-autosave','version':1,'save_id':save_id,'scope':scope,'digest':digest,'core':core,'confirmed_at':now()};previous=[item for item in history if item['scope']==scope];kept=previous[-1:]+[record]
+				for item in kept:item['receipts']=scope_receipts.copy()
+				history=[item for item in history if item['scope']!=scope]+kept;db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(AUTOSAVE_HISTORY,json.dumps(history)));db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(AUTOSAVE_RECEIPTS,json.dumps(receipts)))
+		return{'confirmed':True,'save_id':save_id,'digest':digest}
+	def compare_userscript_save(self,payload):
+		candidate=autosave_core(payload.get('core'));digest=autosave_digest(candidate);baseline=payload.get('baseline');result={'candidate_digest':digest,'counts':{'candidate':len(candidate)}}
+		if not isinstance(baseline,dict):return{**result,'result':'unknown-baseline'}
+		if payload.get('scope')!=baseline.get('scope')or payload.get('scope')!=self.userscript_scope():return{**result,'result':'scope-mismatch'}
+		saved=next((row for row in self.userscript_history()if row['save_id']==baseline.get('save_id')and row['scope']==baseline['scope']and row['digest']==baseline.get('digest')),None);supplied=baseline.get('core')
+		if supplied is not None:
+			supplied=autosave_core(supplied)
+			if autosave_digest(supplied)!=baseline.get('digest'):return{**result,'result':'unknown-baseline'}
+		core=saved['core']if saved else supplied
+		if core is None:return{**result,'result':'unknown-baseline'}
+		core=autosave_core(core);before=autosave_digest(core)
+		if before!=baseline.get('digest'):return{**result,'result':'unknown-baseline'}
+		def identity(row):kind='report'if'markdown'in row else'task'if'title'in row else'answer'if'report_id'in row else'note';return kind,row['id']
+		missing=len({identity(row)for row in core}-{identity(row)for row in candidate});status='equal'if before==digest else'candidate-missing-records'if missing else'different';return{**result,'result':status,'baseline_digest':before,'counts':{'baseline':len(core),'candidate':len(candidate),'missing':missing}}
 	def autosave(self):
 		try:self.save_state({'notes':self.state()['notes'],'tasks':self.tasks()})
 		except Exception as error:print(f"preview: autosave failed: {error}",file=sys.stderr)
@@ -1446,7 +1557,7 @@ class Store:
 		if tasks is None:tasks={}
 		lines,counts=self.state_lines(notes,tasks);path=self.save_path
 		if path.parent!=Path('.'):path.parent.mkdir(parents=True,exist_ok=True)
-		path.write_text(state_ndjson(lines),encoding='utf-8');return{'path':str(path),**counts}
+		path.write_text(state_ndjson(lines+self.userscript_history()),encoding='utf-8');return{'path':str(path),**counts}
 	def uploads(self):
 		with closing(self.connect())as db:rows=db.execute('SELECT * FROM uploads ORDER BY seq').fetchall()
 		return[upload_row(row,self.path.parent)for row in rows]
@@ -1577,9 +1688,20 @@ class Store:
 			raise
 		self.autosave();return fetch_row(result,self.path.parent)
 	def import_state(self,text,replace_tasks=False,merge=False):
-		records=parse_state_import(text);reports=[r for r in records if'markdown'in r and'text'not in r];tasks=[r for r in records if'markdown'not in r and'title'in r and'text'not in r];messages=[r for r in records if'markdown'not in r and('title'not in r or'text'in r)]
+		records=parse_state_import(text);history=[autosave_record(row)for row in records if row.get('kind')=='userscript-autosave'];records=[row for row in records if row.get('kind')!='userscript-autosave'];groups={};imported_receipts={}
+		for row in history:
+			key=autosave_scope_key(row['scope']);groups.setdefault(key,[]).append(row);receipts=imported_receipts.setdefault(key,{})
+			for(save_id,digest)in{**row.get('receipts',{}),row['save_id']:row['digest']}.items():
+				if save_id in receipts and receipts[save_id]!=digest:raise ValueError('Conflicting autosave receipt digests')
+				receipts[save_id]=digest
+			if len(groups[key])>2 or len({item['save_id']for item in groups[key]})!=len(groups[key]):raise ValueError('Autosave history holds at most two distinct saves per scope')
+		reports=[r for r in records if'markdown'in r and'text'not in r];tasks=[r for r in records if'markdown'not in r and'title'in r and'text'not in r];messages=[r for r in records if'markdown'not in r and('title'not in r or'text'in r)]
 		with self.transaction(autosave=False)as db:
 			db.execute('BEGIN IMMEDIATE')
+			if history and(not merge or not self.userscript_history(db)):
+				receipts={}
+				for row in history:key=autosave_scope_key(row['scope']);receipts.setdefault(key,{}).update(row.get('receipts',{}));receipts[key][row['save_id']]=row['digest']
+				db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(AUTOSAVE_HISTORY,json.dumps(history)));db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(AUTOSAVE_RECEIPTS,json.dumps(receipts)))
 			if not merge:
 				for table in('notes','reports','submissions','tasks'):db.execute(f"DELETE FROM {table}")
 			self.import_reports(reports,shared=db);self.import_tasks(tasks,replace_tasks,autosave=False,shared=db)
@@ -1645,13 +1767,12 @@ class Store:
 	def request_interrupt(self,tab,report_id=None,armed=True):
 		if not armed:self.take_interrupt();return{'agent_interrupt_pending':False}
 		if not isinstance(tab,str)or tab not in{'notes','reports','tasks','downloads'}:raise ValueError('tab must name a preview tab')
-		notice='Read ARENA.md, root AGENTS.md, every nested AGENTS.md, and arena-skill SKILL.md in full again before continuing.'
-		if tab=='reports'and report_id is not None:self.report(report_id);notice+=f" Report {report_id} violates the rules. Fix it."
+		header='VIOLATION'
+		if tab=='reports'and report_id is not None:self.report(report_id);header=f"VIOLATION: report {report_id}"
 		elif tab=='tasks':
 			task=current_task((self.tasks()or{}).get('upcoming',[]))
-			if task:notice+=f" Work on task {task['id']}: {task['title']}. If you are working on something else, correct the task list."
-			else:notice+=' No current task is listed. Correct the task list if work is in progress.'
-		self.set_meta(AGENT_INTERRUPT_META,notice);return{'agent_interrupt_pending':True}
+			if task:header=f"VIOLATION: task {task['id']}"
+		notice=f"{header}\nRead ARENA.md, root AGENTS.md, every nested AGENTS.md, and arena-skill SKILL.md in full again, then fix the violation before continuing.";self.set_meta(AGENT_INTERRUPT_META,notice);return{'agent_interrupt_pending':True}
 	def take_interrupt(self):
 		with closing(self.connect())as db,db:db.execute('BEGIN IMMEDIATE');row=db.execute('SELECT value FROM meta WHERE key = ?',(AGENT_INTERRUPT_META,)).fetchone();db.execute('DELETE FROM meta WHERE key = ?',(AGENT_INTERRUPT_META,));return row['value']if row else None
 	def request_skip_poll(self,armed=True):
@@ -1726,7 +1847,10 @@ class Store:
 		quiet_filter=' AND (quiet = 0 OR seen_at IS NULL)'if include_quiet else' AND quiet = 0'
 		with self.transaction(autosave=False)as db:
 			pending=[message_row(row)|{'kind':'note'}for row in db.execute(f"SELECT * FROM notes WHERE acknowledged_at IS NULL{quiet_filter} ORDER BY at, seq")];pending+=[message_row(row)|{'kind':'report'}for row in db.execute('SELECT * FROM submissions WHERE acknowledged_at IS NULL ORDER BY at, seq')];notes={}
-			for row in db.execute('SELECT * FROM notes ORDER BY at, seq'):record=message_row(row);notes[record['id']]=record
+			for table in('notes','submissions'):
+				for row in db.execute(f"SELECT * FROM {table} ORDER BY at, seq"):record=message_row(row);notes[record['id']]=record
+			for row in db.execute('SELECT id, markdown FROM reports'):notes[row['id']]={'id':row['id'],'text':row['markdown']}
+			for row in db.execute(f"SELECT {TASK_COLUMNS} FROM tasks"):task=task_row(row);notes[task['id']]={'id':task['id'],'text':'\n'.join([task['title'],*task['details']])}
 			attachments={}
 			for row in db.execute('SELECT * FROM uploads ORDER BY seq'):record=upload_row(row,self.path.parent);attachments.setdefault(record['note_id'],[]).append(record)
 			for record in notes.values():add_note_attachments(record,attachments.get(record['id'],[]))
@@ -1780,9 +1904,9 @@ class Store:
 		if not rows:raise ValueError('No pending note or answer to acknowledge')
 		if len(rows)>1:listed=', '.join(row['id']for row in rows);raise ValueError(f"{len(rows)} items are pending: {listed}. Name the ID to answer one")
 		return rows[0]['id']
-	def acknowledge(self,ids,text):
+	def acknowledge(self,ids,text,shared=None):
 		text=note_text(text);stamp=now()
-		with self.transaction()as db:
+		with self.transaction(shared)as db:
 			for record_id in ids:
 				identifier(record_id)
 				for table in('notes','submissions'):
@@ -1829,7 +1953,7 @@ class Store:
 				raise FileNotFoundError('Report not found')
 			if stale_only and report_id not in self.stale_report_ids(db):return False
 			if not dismissed_by_owner:self.guard_report_change(db,report_id,row,hold_view=False)
-			db.execute('DELETE FROM reports WHERE id = ?',(report_id,));db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(REMOVED_META,now()))
+			db.execute('DELETE FROM reports WHERE id = ?',(report_id,));self.release_report_tasks(db,report_id);db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(REMOVED_META,now()))
 			if dismissed_by_owner:db.execute('INSERT INTO notes (id, text, at, quiet) VALUES (?, ?, ?, 1)',(new_id(),f"The owner dismissed the report {report_id} ({row['title']}).",now()))
 		if stale_only:return True
 	def clear_state(self):
@@ -1974,7 +2098,7 @@ def render(markdown,breaks=False):
 	except ImportError as error:raise RuntimeError("Markdown rendering needs markdown-it-py. Install it in the preview's venv and restart the server with that venv's Python; steering still works.")from error
 	parser=MarkdownIt('commonmark',{'html':False,'breaks':breaks}).enable(['table','strikethrough']);highlight_markdown(parser);parser.add_render_rule('link_open',open_link);parser.add_render_rule('image',render_image);tagged,images=hold_out(markdown,SIZED_IMAGE,lambda match:sized_image(match,validateLink),'image');rendered=drop_paragraph_breaks(parser.render(unescape_fences(tagged)));return add_copy_buttons(put_back(rendered,images,'image'))
 def handler(store):
-	from http.server import BaseHTTPRequestHandler;token=secrets.token_urlsafe(32)
+	from http.server import BaseHTTPRequestHandler
 	class Handler(BaseHTTPRequestHandler):
 		def setup(self):super().setup();self.connection.settimeout(15)
 		def reply(self,status,body,content_type='application/json; charset=utf-8',filename=None):
@@ -1985,9 +2109,10 @@ def handler(store):
 		def do_GET(self):
 			path=urlsplit(self.path).path
 			try:
-				if path=='/':page=(ASSETS/'index.html').read_text(encoding='utf-8');page=page.replace('__STYLE__',(ASSETS/'style.css').read_text(encoding='utf-8'));page=page.replace('__MARKDOWN_SCRIPT__',(ASSETS/'markdown-it.min.js').read_text(encoding='utf-8'));page=page.replace('__SCRIPT__',(ASSETS/'message-markdown.js').read_text(encoding='utf-8')+'\n'+(ASSETS/'app.js').read_text(encoding='utf-8'));self.reply(200,page.replace('__TOKEN__',token),'text/html; charset=utf-8');return
+				if path=='/':page=(ASSETS/'index.html').read_text(encoding='utf-8');page=page.replace('__STYLE__',(ASSETS/'style.css').read_text(encoding='utf-8'));page=page.replace('__MARKDOWN_SCRIPT__',(ASSETS/'markdown-it.min.js').read_text(encoding='utf-8'));page=page.replace('__SCRIPT__',(ASSETS/'message-markdown.js').read_text(encoding='utf-8')+'\n'+(ASSETS/'app.js').read_text(encoding='utf-8'));self.reply(200,page,'text/html; charset=utf-8');return
+				if path=='/api/userscript-autosave':self.reply(200,json.dumps(store.userscript_snapshot(),ensure_ascii=False));return
 				if path=='/api/state':
-					state=store.state();state['token']=token
+					state=store.state()
 					try:
 						for item in state['notes']+[ack for report in state['reports']for ack in report['acknowledgements']]:
 							if'text'in item:item['html']=render(item['text'])
@@ -2011,8 +2136,8 @@ def handler(store):
 			except FileNotFoundError as error:self.problem(404,error)
 			except(OSError,sqlite_api().Error,RuntimeError)as error:self.problem(503,error)
 		def do_POST(self):
-			path=urlsplit(self.path).path;report_submit=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/submit',path);report_seen=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/seen',path);report_ack_seen=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/ack-seen',path);report_view=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/view',path);message_replies_seen=re.fullmatch('/api/messages/([a-zA-Z0-9_-]{1,80})/replies/seen',path);report_unpublish=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/unpublish',path);fetch_post=re.fullmatch('/api/fetch-jobs/([a-zA-Z0-9_-]{1,80})/(renew|result|fail|retry|approve|deny|drop)',path);note_upload=path=='/api/notes/with-file';agent_key_post=path=='/api/key';skip_poll_post=path=='/api/skip-poll';interrupt_post=path=='/api/agent-interrupt';task_order_post=path=='/api/tasks/order';fetch_result=bool(fetch_post and fetch_post.group(2)=='result')
-			if path not in{'/api/notes','/api/markdown','/api/fetch-jobs','/api/fetch-jobs/claim'}and not report_submit and not report_seen and not report_ack_seen and not report_view and not message_replies_seen and not report_unpublish and not note_upload and not fetch_post and not agent_key_post and not skip_poll_post and not interrupt_post and not task_order_post:self.problem(404,'Not found');return
+			path=urlsplit(self.path).path;autosave_post=path in{'/api/userscript-autosave','/api/userscript-autosave/compare'};report_submit=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/submit',path);report_seen=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/seen',path);report_ack_seen=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/ack-seen',path);report_view=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/view',path);message_replies_seen=re.fullmatch('/api/messages/([a-zA-Z0-9_-]{1,80})/replies/seen',path);report_unpublish=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/unpublish',path);fetch_post=re.fullmatch('/api/fetch-jobs/([a-zA-Z0-9_-]{1,80})/(renew|result|fail|retry|approve|deny|drop)',path);note_upload=path=='/api/notes/with-file';agent_key_post=path=='/api/key';skip_poll_post=path=='/api/skip-poll';interrupt_post=path=='/api/agent-interrupt';task_order_post=path=='/api/tasks/order';fetch_result=bool(fetch_post and fetch_post.group(2)=='result')
+			if path not in{'/api/notes','/api/markdown','/api/fetch-jobs','/api/fetch-jobs/claim'}and not report_submit and not report_seen and not report_ack_seen and not report_view and not message_replies_seen and not report_unpublish and not note_upload and not fetch_post and not agent_key_post and not skip_poll_post and not interrupt_post and not task_order_post and not autosave_post:self.problem(404,'Not found');return
 			content_type=self.headers.get('Content-Type','')
 			if note_upload:
 				if not content_type.lower().startswith('multipart/form-data;'):self.problem(415,'Expected multipart/form-data');return
@@ -2041,6 +2166,7 @@ def handler(store):
 				if len(data)!=length:self.problem(400,'Incomplete request body; retry the upload or request');return
 				payload=json.loads(data)
 				if not isinstance(payload,dict):self.problem(400,'Expected a JSON object');return
+				if autosave_post:result=store.compare_userscript_save(payload)if path.endswith('/compare')else store.confirm_userscript_save(payload);self.reply(200,json.dumps(result,ensure_ascii=False));return
 				if agent_key_post:
 					candidate=payload.get('key')
 					if not isinstance(candidate,str)or not AGENT_KEY_RE.fullmatch(candidate):raise ValueError('key must be 20 to 64 letters, digits, dashes or underscores')
@@ -2152,8 +2278,9 @@ def embed_report_images(markdown,report_dir):
 	return IMAGE_IN_MARKDOWN.sub(swap,markdown)
 class PreviewArgumentParser(argparse.ArgumentParser):
 	def print_usage(self,file=None):pass
+	def exit(self,status=0,message=None):super().exit(status,message.removeprefix('arena-preview: ')if message else message)
 def main():
-	parser=PreviewArgumentParser(description=CLI_DESCRIPTION,prog='arena-preview');parser.add_argument('-r','--reminder',action='store_true',help='Print the unacked-count reminder line and exit');commands=parser.add_subparsers(dest='command',required=False);serve=commands.add_parser('serve',help='Serve the preview page; -p names the port');serve.add_argument('-p','--port',type=int,default=DEFAULT_PORT,help=f"Port to bind (default: {DEFAULT_PORT})");init=commands.add_parser('init',help='Create the state directory and its database');init.add_argument('--tz',help='An IANA zone for CLI stamps. The TZ env still wins');commands.add_parser('read',help='Print every pending note, answer and upload');commands.add_parser('interrupt-tick',help='Consume the header request and stop one Bash call');commands.add_parser('skills',help='List skill names, full descriptions, and paths without loading skills');note_list=commands.add_parser('note-list',help='List stored note IDs by page, newest first, including acknowledged notes');note_list.add_argument('--page',type=int,default=1,help='Page number (default: 1)');note_list.add_argument('--page-size',type=int,default=20,help='IDs per page, 1 to 100 (default: 20)');note_reread=commands.add_parser('note',help='Reread a stored note by its short or full ID');note_reread.add_argument('id',help='Six or all characters of a note ID');image_uri=commands.add_parser('image-data-uri',help='Print Markdown text that carries one local image as a data URI');image_uri.add_argument('path',type=Path,help='One local PNG, JPEG, GIF or WebP file up to 2 MiB');commands.add_parser('key',help='Print the recorded agent key, host and use line');pr_state=commands.add_parser('pr-state-tick',help='Reject visible PR-state writes');pr_state.add_argument('line',help='The command as the DEBUG hook read it');inbox_line=commands.add_parser('inbox-line',help='Report whether a command line that names an inbox call runs nothing else');inbox_line.add_argument('line',help='The command line, as the hook read it');route=commands.add_parser('route',help='Start a command detached, keep its output tail, and show the exit on a later call');route.add_argument('name',help='A short name for the run, for example gates');route.add_argument('command_args',nargs=argparse.REMAINDER,help='The command, after --');route_run=commands.add_parser('route-run',help='Run one command here and record its exit for a later call');route_run.add_argument('name',help='The run name the caller already recorded');route_run.add_argument('command_args',nargs=argparse.REMAINDER,help='The command, after --');logs=commands.add_parser('logs',help="Print a routed run's status and its recorded output tail");logs.add_argument('name',help='The run name to read');worktree=commands.add_parser('worktree',help='Create or collect a detached task worktree beside a root gate');worktree_action=worktree.add_subparsers(dest='worktree_action',required=True);worktree_start=worktree_action.add_parser('start',help='Create a detached worktree while a named root gate runs');worktree_start.add_argument('name',help='A short worktree name');worktree_start.add_argument('destination',type=Path,help='A new path outside the root');worktree_start.add_argument('--gate',required=True,help='The running root gate name');worktree_start.add_argument('--allow',action='append',default=[],help='A path glob task work may change');worktree_collect=worktree_action.add_parser('collect',help='Print the allowed detached-worktree patch after a green root gate');worktree_collect.add_argument('name',help='The worktree name to collect');worktree_tick=commands.add_parser('worktree-tick',help='Block a gate, commit or push from a detached task worktree');worktree_tick.add_argument('action',choices=sorted(WORKTREE_ACTIONS));ack_tick=commands.add_parser('ack-tick',help='Warn when an inline ack text holds a backtick the shell will substitute');ack_tick.add_argument('line',help='The command line, as the hook read it');idle_tick=commands.add_parser('idle-tick',help='Refuse a line that sleeps beside a preview call');idle_tick.add_argument('line',help='The command line, as the hook read it');serve_tick=commands.add_parser('serve-tick',help='Warn when a serve names a port other than the default');serve_tick.add_argument('line',help='The command line, as the hook read it');pr_check_tick=commands.add_parser('pr-check-tick',help='Refuse a bash line that runs a PR-check wait the background tool must take');pr_check_tick.add_argument('line',help='The command line, as the hook read it');pr_check_tick.add_argument('--command',dest='current_command',help='The command the DEBUG trap reached');main_drift_tick=commands.add_parser('main-drift-tick',help='Check remote branch drift at commit and push checkpoints');main_drift_tick.add_argument('--repo',default='.');main_drift_tick.add_argument('--local',dest='local_read',action='store_true',help='Read the local refs alone, with no fetch');egress_tick=commands.add_parser('egress-tick',help='Warn when a line fetches a host the sandbox egress filter blocks');egress_tick.add_argument('line',help='The command line, as the hook read it');rename=commands.add_parser('rename',help='Move a note, answer, report or task to a new ID');rename.add_argument('old_id',help='The stored ID, or a prefix that names one record');rename.add_argument('new_id',help='The ID to move the record to');commit_tick=commands.add_parser('commit-tick',help='Block a commit whose staged lines cite a session-local ID');commit_tick.add_argument('--repo',default='.',help='The repository to read the staged diff from');gate=commands.add_parser('gate',help='Read the inbox gate; -p blocks on any unacked note, -l names the blocked line');gate.add_argument('-p','--push',action='store_true',help='Block while any note or answer awaits an ack, whatever the call count');gate.add_argument('-l','--line',default='',help='The command line, as the hook read it; a blocked call then names the commands to drop');commands.add_parser('poll',help='Block until the owner answers or a gate run finishes');download=commands.add_parser('download-request',help='Request an HTTPS browser download, pending a preview Approve click; -a allows the proxy fallback');download.add_argument('url',help='One HTTPS URL without embedded credentials');download.add_argument('-a','--allow-proxy',action='store_true',help='Let the owner opt in to AllOrigins and CodeTabs fallback for this request');ack=commands.add_parser('ack',help='Answer notes with inline Markdown; omit IDs for one pending item');ack.add_argument('ids',nargs='*');ack.add_argument('markdown',help='Literal inline Markdown answer');publish=commands.add_parser('publish',help='Publish a report; -i names the ID, -t the title');publish.add_argument('source',type=Path);publish.add_argument('-i','--id',required=True);publish.add_argument('-t','--title',required=True);report=commands.add_parser('report',help='Report batch actions');report_actions=report.add_subparsers(dest='report_action',required=True);report_unpublish=report_actions.add_parser('unpublish',help='Remove stale reports through existing guards');report_unpublish.add_argument('--stale',action='store_true',required=True);unpublish=commands.add_parser('unpublish',help='Withdraw a published report by its ID');unpublish.add_argument('report_id');commands.add_parser('stale-reports',help='List stale published report IDs and reasons without changing state');report_state=commands.add_parser('report-state',help='Print publication, owner view stamp and answer visibility for one report or all');report_state.add_argument('report_id',nargs='?');task=commands.add_parser('task',help='Write or update a task; TASK-ID alone prints the stored row; -s status, -o order, -d details, -A append, -m message, -r report, -b blocked, -u unblocked, -a amend, --task-type type');task.add_argument('id_arg',nargs='?',metavar='TASK-ID');task.add_argument('title_arg',nargs='?',metavar='TASK-TITLE');task.add_argument('detail_arg',nargs='*',metavar='TASK-DETAIL');task.add_argument('-d','--details','--task-details',dest='task_details',action='append',help='One step per line, 120 characters or fewer, repeatable; an empty string clears the list');task.add_argument('-A','--append',dest='append_details',action='store_true',help='Append provided details instead of replacing stored details');task.add_argument('-b','--blocked',dest='blocked',action='store_true',default=None,help='Mark the task blocked, so a poll may wait');task.add_argument('-u','--unblocked',dest='blocked',action='store_false',help='Clear the blocked mark');task.add_argument('-m','--msg-id',help='Message this task answers; marks that message as having a task');task.add_argument('-r','--report',metavar='REPORT-ID',help='Report this task waits on; its answer clears the blocked mark');task.add_argument('-a','--amend',metavar='PREV-ID',help='Rename the task stored under this ID to the one given');task.add_argument('-s','--status',choices=TASK_STATUSES,default=None);task.add_argument('--task-type',dest='task_type',choices=TASK_TYPES,default=None,help='Primary deliverable type; an omitted flag keeps a stored type');task.add_argument('-o','--order',type=int,default=None,help='1-based place in its div, not the end');task_remove=commands.add_parser('task-remove',help='Delete a task by its ID');task_remove.add_argument('task_id');task_list=commands.add_parser('task-list',help='List the tasks; -f includes the finished ones');task_list.add_argument('-f','--full',action='store_true',help='print every task, finished included');state_import=commands.add_parser('import-state',help='Import an NDJSON backup; replaces the live state unless --merge; -f forces');state_import.add_argument('source',nargs='?',type=Path);state_import.add_argument('-r','--replace-tasks',action='store_true');state_import.add_argument('--merge',action='store_true',help='keep the live notes, answers, reports and tasks, and merge the import by ID');commands.add_parser('clear-state',help='Empty every state table in place; the agent key record survives');args=parser.parse_args();state_dir=resolve_state_dir();fresh_state=not(Path(state_dir).resolve()/'state.sqlite3').is_file()
+	parser=PreviewArgumentParser(description=CLI_DESCRIPTION,prog='arena-preview');parser.add_argument('-r','--reminder',action='store_true',help='Print the unacked-count reminder line and exit');commands=parser.add_subparsers(dest='command',required=False);serve=commands.add_parser('serve',help='Serve the preview page; -p names the port');serve.add_argument('-p','--port',type=int,default=DEFAULT_PORT,help=f"Port to bind (default: {DEFAULT_PORT})");init=commands.add_parser('init',help='Create the state directory and its database');init.add_argument('--tz',help='An IANA zone for CLI stamps. The TZ env still wins');commands.add_parser('read',help='Print every pending note, answer and upload');commands.add_parser('interrupt-tick',help='Read the header request without blocking Bash');commands.add_parser('skills',help='List skill names, full descriptions, and paths without loading skills');note_list=commands.add_parser('note-list',help='List stored note IDs by page, newest first, including acknowledged notes');note_list.add_argument('--page',type=int,default=1,help='Page number (default: 1)');note_list.add_argument('--page-size',type=int,default=20,help='IDs per page, 1 to 100 (default: 20)');note_reread=commands.add_parser('note',help='Reread a stored note by its short or full ID');note_reread.add_argument('id',help='Six or all characters of a note ID');image_uri=commands.add_parser('image-data-uri',help='Print Markdown text that carries one local image as a data URI');image_uri.add_argument('path',type=Path,help='One local PNG, JPEG, GIF or WebP file up to 2 MiB');commands.add_parser('key',help='Print the recorded agent key, host and use line');pr_state=commands.add_parser('pr-state-tick',help='Reject visible PR-state writes');pr_state.add_argument('line',help='The command as the DEBUG hook read it');inbox_line=commands.add_parser('inbox-line',help='Report whether a command line that names an inbox call runs nothing else');inbox_line.add_argument('line',help='The command line, as the hook read it');route=commands.add_parser('route',help='Start a command detached, keep its output tail, and show the exit on a later call');route.add_argument('name',help='A short name for the run, for example gates');route.add_argument('command_args',nargs=argparse.REMAINDER,help='The command, after --');route_run=commands.add_parser('route-run',help='Run one command here and record its exit for a later call');route_run.add_argument('name',help='The run name the caller already recorded');route_run.add_argument('command_args',nargs=argparse.REMAINDER,help='The command, after --');logs=commands.add_parser('logs',help="Print a routed run's status and its recorded output tail");logs.add_argument('name',help='The run name to read');worktree=commands.add_parser('worktree',help='Create or collect a detached task worktree beside a root gate');worktree_action=worktree.add_subparsers(dest='worktree_action',required=True);worktree_start=worktree_action.add_parser('start',help='Create a detached worktree while a named root gate runs');worktree_start.add_argument('name',help='A short worktree name');worktree_start.add_argument('destination',type=Path,help='A new path outside the root');worktree_start.add_argument('--gate',required=True,help='The running root gate name');worktree_start.add_argument('--allow',action='append',default=[],help='A path glob task work may change');worktree_collect=worktree_action.add_parser('collect',help='Print the allowed detached-worktree patch after a green root gate');worktree_collect.add_argument('name',help='The worktree name to collect');worktree_tick=commands.add_parser('worktree-tick',help='Block a gate, commit or push from a detached task worktree');worktree_tick.add_argument('action',choices=sorted(WORKTREE_ACTIONS));ack_tick=commands.add_parser('ack-tick',help='Warn when an inline ack text holds a backtick the shell will substitute');ack_tick.add_argument('line',help='The command line, as the hook read it');idle_tick=commands.add_parser('idle-tick',help='Refuse a line that sleeps beside a preview call');idle_tick.add_argument('line',help='The command line, as the hook read it');serve_tick=commands.add_parser('serve-tick',help='Warn when a serve names a port other than the default');serve_tick.add_argument('line',help='The command line, as the hook read it');pr_check_tick=commands.add_parser('pr-check-tick',help='Refuse a bash line that runs a PR-check wait the background tool must take');pr_check_tick.add_argument('line',help='The command line, as the hook read it');pr_check_tick.add_argument('--command',dest='current_command',help='The command the DEBUG trap reached');main_drift_tick=commands.add_parser('main-drift-tick',help='Check remote branch drift at commit and push checkpoints');main_drift_tick.add_argument('--repo',default='.');main_drift_tick.add_argument('--local',dest='local_read',action='store_true',help='Read the local refs alone, with no fetch');egress_tick=commands.add_parser('egress-tick',help='Warn when a line fetches a host the sandbox egress filter blocks');egress_tick.add_argument('line',help='The command line, as the hook read it');rename=commands.add_parser('rename',help='Move a note, answer, report or task to a new ID');rename.add_argument('old_id',help='The stored ID, or a prefix that names one record');rename.add_argument('new_id',help='The ID to move the record to');commit_tick=commands.add_parser('commit-tick',help='Block a commit whose staged lines cite a session-local ID');commit_tick.add_argument('--repo',default='.',help='The repository to read the staged diff from');gate=commands.add_parser('gate',help='Read the inbox gate; -p blocks on any unacked note, -l names the blocked line');gate.add_argument('-p','--push',action='store_true',help='Block while any note or answer awaits an ack, whatever the call count');gate.add_argument('-l','--line',default='',help='The command line, as the hook read it; a blocked call then names the commands to drop');commands.add_parser('poll',help='Block until the owner answers or a gate run finishes');download=commands.add_parser('download-request',help='Request an HTTPS browser download, pending a preview Approve click; -a allows the proxy fallback');download.add_argument('url',help='One HTTPS URL without embedded credentials');download.add_argument('-a','--allow-proxy',action='store_true',help='Let the owner opt in to AllOrigins and CodeTabs fallback for this request');ack=commands.add_parser('ack',help='Answer notes with inline Markdown; omit IDs for one pending item');ack.add_argument('ids',nargs='*');ack.add_argument('markdown',help='Literal inline Markdown answer');ack.add_argument('--task-id');ack.add_argument('--task-title');ack.add_argument('--task-type',choices=TASK_TYPES);ack.add_argument('--task-detail',action='append');publish=commands.add_parser('publish',help='Publish a report; -i names the ID, -t the title');publish.add_argument('source',type=Path);publish.add_argument('-i','--id',required=True);publish.add_argument('-t','--title',required=True);report=commands.add_parser('report',help='Report batch actions');report_actions=report.add_subparsers(dest='report_action',required=True);report_unpublish=report_actions.add_parser('unpublish',help='Remove stale reports through existing guards');report_unpublish.add_argument('--stale',action='store_true',required=True);unpublish=commands.add_parser('unpublish',help='Withdraw a published report by its ID');unpublish.add_argument('report_id');commands.add_parser('stale-reports',help='List stale published report IDs and reasons without changing state');report_state=commands.add_parser('report-state',help='Print publication, owner view stamp and answer visibility for one report or all');report_state.add_argument('report_id',nargs='?');task=commands.add_parser('task',help='Write or update a task; TASK-ID alone prints the stored row; -s status, -o order, -d details, -A append, -m message, -r report, -b blocked, -u unblocked, -a amend, --task-type type');task.add_argument('id_arg',nargs='?',metavar='TASK-ID');task.add_argument('title_arg',nargs='?',metavar='TASK-TITLE');task.add_argument('detail_arg',nargs='*',metavar='TASK-DETAIL');task.add_argument('-d','--details','--task-details',dest='task_details',action='append',help='One step per line, 120 characters or fewer, repeatable');task.add_argument('-A','--append',dest='append_details',action='store_true',help='Append provided details instead of replacing stored details');task.add_argument('-b','--blocked',dest='blocked',action='store_true',default=None,help='Mark the task blocked, so a poll may wait');task.add_argument('-u','--unblocked',dest='blocked',action='store_false',help='Clear the blocked mark');task.add_argument('-m','--msg-id',help='Message this task answers; marks that message as having a task');task.add_argument('-r','--report',metavar='REPORT-ID',help='Report this task waits on; its answer clears the blocked mark');task.add_argument('-a','--amend',metavar='PREV-ID',help='Rename the task stored under this ID to the one given');task.add_argument('-s','--status',choices=TASK_STATUSES,default=None);task.add_argument('--task-type',dest='task_type',choices=TASK_TYPES,default=None,help='Primary deliverable type; an omitted flag keeps a stored type');task.add_argument('-o','--order',type=int,default=None,help='1-based place in its div, not the end');task_remove=commands.add_parser('task-remove',help='Delete a task by its ID');task_remove.add_argument('task_id');task_list=commands.add_parser('task-list',help='List the tasks; -f includes the finished ones');task_list.add_argument('-f','--full',action='store_true',help='print every task, finished included');state_import=commands.add_parser('import-state',help='Import an NDJSON backup; replaces the live state unless --merge');state_import.add_argument('source',nargs='?',type=Path);state_import.add_argument('-r','--replace-tasks',action='store_true');state_import.add_argument('--merge',action='store_true',help='keep the live notes, answers, reports and tasks, and merge the import by ID');commands.add_parser('clear-state',help='Empty every state table in place; the agent key record survives');args=parser.parse_args();state_dir=resolve_state_dir();fresh_state=not(Path(state_dir).resolve()/'state.sqlite3').is_file()
 	try:
 		if args.reminder:
 			store=Store(state_dir,create=False);require_server(store);reminder=store.reminder(advance=True);store.set_meta(AGENT_CALL_ENDED_META,now())
@@ -2163,7 +2290,7 @@ def main():
 		if args.command=='interrupt-tick':
 			if fresh_state:return 0
 			notice=Store(state_dir,create=False).take_interrupt()
-			if notice:print(notice,file=sys.stderr);return 1
+			if notice:print(notice,file=sys.stderr);return 0
 			return 0
 		if args.command=='skills':print_skills();return 0
 		if args.command=='pr-state-tick':
@@ -2230,7 +2357,7 @@ def main():
 			return 0
 		if args.command=='gate':
 			run_notices(state_dir)
-			if poll_timeout_line(args.line):print('TIMEOUT BANNED: never wrap `arena-preview poll` in shell `timeout`. The poll holds its own 1800-second span. Set the bash tool timeout 1800 instead, so a cut wait still returns its listing.',flush=True);return 1
+			if poll_timeout_line(args.line):print('TIMEOUT BANNED: never wrap `arena-preview poll` in shell `timeout`. Set the Bash tool timeout to 1800 seconds; the poll returns within its 1799-second wait.',flush=True);return 1
 			try:gate_store=Store(state_dir);allowed=gate_store.gate(pending_only=args.push);blocked_calls=gate_store.calls_since_message()if not allowed and not args.push else None
 			except FileNotFoundError:allowed=True;blocked_calls=None
 			except Exception:return 2
@@ -2274,10 +2401,16 @@ def main():
 		elif args.command=='download-request':print(format_fetch_job(store.enqueue_fetch(args.url,args.allow_proxy,pending=True)))
 		elif args.command=='ack':
 			if args.markdown=='-':raise ValueError('Pass literal inline Markdown; acknowledgement stdin is not supported')
-			text=args.markdown;ids=[store.resolve_id(token)for token in args.ids]if args.ids else[store.pending_ack()];store.acknowledge(ids,text);short=[i[:6]for i in ids];print('ok '+' '.join(short));untracked=[record_id for record_id in ids if not any(record.get('task_id')for(_,record)in store.id_matches(record_id)if record['id']==record_id)]
+			text=args.markdown;ids=[store.resolve_id(token)for token in args.ids]if args.ids else[store.pending_ack()];task_options=args.task_id,args.task_title,args.task_type,args.task_detail
+			if any(value is not None for value in task_options):
+				if len(args.ids)!=1 or not all(task_options):raise ValueError('A combined acknowledgement needs one explicit message ID and all four task options')
+				details=task_steps(args.task_detail);check_task_steps(details)
+				with store.transaction()as shared:store.write_task(args.task_id,args.task_title,details,task_type=args.task_type,shared=shared);store.acknowledge(ids,text,shared=shared);store.mark_task(ids[0],args.task_id,shared=shared)
+			else:store.acknowledge(ids,text)
+			short=[i[:6]for i in ids];print('ok '+' '.join(short));untracked=[record_id for record_id in ids if not any(record.get('task_id')for(_,record)in store.id_matches(record_id)if record['id']==record_id)]
 			if untracked:print('link it with: '+'; '.join(f'arena-preview task <id> "<title>" -m {i}'for i in untracked))
 		elif args.command=='publish':
-			count=store.publish(args.id,args.title,args.source);plural=''if count==1 else's';print(f"Published {args.id}, {count} field{plural}.")
+			count=store.publish(args.id,args.title,args.source);revision=store.report(args.id)['updated_at'];verify_publication(store,args.id,revision,count);plural=''if count==1 else's';print(f"Published {args.id}, {count} field{plural}. Verification passed.")
 			if not count and'{#'in Path(args.source).read_text('utf-8'):print('Warning: 0 fields parsed. A `{#id}` marker ends a prompt line, then the `- ( ) option` lines follow.',file=sys.stderr)
 		elif args.command=='report':
 			held=False

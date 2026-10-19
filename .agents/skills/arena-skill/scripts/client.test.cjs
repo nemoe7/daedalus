@@ -48,6 +48,13 @@ test('preview client', async (t) => {
         this.children.push(child);
       }
     }
+    insertBefore(child, reference) {
+      this.children = this.children.filter(item => item !== child);
+      const index = this.children.indexOf(reference);
+      this.children.splice(index < 0 ? this.children.length : index, 0, child);
+      return child;
+    }
+    removeChild(child) { this.children = this.children.filter(item => item !== child); return child; }
     replaceChildren(...children) { this.children = children; this.replacements = (this.replacements || 0) + 1; }
     // Reset report scroll when replacing content, as browser layout does.
     set innerHTML(value) {
@@ -59,11 +66,13 @@ test('preview client', async (t) => {
       if (this.id === 'report' && panel) panel.scrollTop = 0;
     }
     get innerHTML() { return this.inner; }
+    querySelector(selector) { return this.children.find(child => child.tagName === selector) || null; }
     querySelectorAll(selector) { return this.fields && selector === '.question[data-field]' ? this.fields : []; }
     contains(node) { return this === node || this.children.some(child => child instanceof Element && child.contains(node)); }
     get lastElementChild() { return this.children.at(-1); }
     focus() { this.focused = true; }
     scrollIntoView() { this.scrolledIntoView = true; }
+    scrollTo(options) { this.lastScroll = options; this.scrollTop = options.top; }
     select() { this.selected = true; }
     setSelectionRange(start, end) { this.selectionStart = start; this.selectionEnd = end; }
     remove() { this.removed = true; }
@@ -88,6 +97,8 @@ test('preview client', async (t) => {
     }
     return elements.get(id);
   };
+  const taskParts = row => row.children.filter(child => child.className !== 'task-drag-handle');
+  const taskPart = (row, className) => row.children.find(child => child.className === className);
   // The first shape of a control's icon: a control holds one SVG, and its shapes sit in draw
   // order, so the same index reads the same shape however many the icon carries.
   const shapeOf = element => element.children.at(-1).children[0];
@@ -100,6 +111,8 @@ test('preview client', async (t) => {
   get('#downloads-panel').hidden = true;
   get('#upload-file').files = [];
   get('#note').placeholder = 'What should happen next?';
+  get('#send').textContent = 'Send';
+  get('#send').dataset.busyLabel = 'Sending...';
   const storage = new Map();
   const root = { dataset: {} };
   let counter = 0;
@@ -116,11 +129,14 @@ test('preview client', async (t) => {
   let reportSubmitWait = null;
   const sent = [];
   const readStamps = [];
+  let readStampFailures = 0;
   const ackSeenCalls = [];
   const ackSeenFailures = new Set();
   const viewCalls = [];
   const viewActive = [];
   const skipCalls = [];
+  const orderWrites = [];
+  let orderFails = false;
   const replySeenCalls = [];
   let replySeenWait = null;
   let replySeenError = false;
@@ -141,28 +157,39 @@ test('preview client', async (t) => {
   const resultCalls = [];
   const failedCalls = [];
   let enqueueResponseLost = false;
-  let staleToken = false;
-  let servedToken = 'token-one';
   let pageFetches = 0;
-  const writeTokens = [];
+  const writeHeadersSeen = [];
   const response = (value, ok = true) => {
     const body = JSON.stringify(value);
     return { ok, status: ok ? 200 : 503, json: async () => JSON.parse(body), text: async () => body };
   };
   let coarsePointer = false;
+  let reducedMotion = false;
   const pointerListeners = [];
   const pendingWrites = new Map();
+  const interruptCalls = [];
   const failedWrites = new Set();
   const context = {
     window: {
       addEventListener: (name, callback) => { windowEvents[name] = callback; },
       matchMedia: query => ({
         // A live getter: the client reads the query once and the pointer may change later.
-        get matches() { return query === '(pointer: coarse)' && coarsePointer; },
+        get matches() { return query === '(pointer: coarse)' ? coarsePointer : query === '(prefers-reduced-motion: reduce)' && reducedMotion; },
         addEventListener: (name, callback) => { if (name === 'change') pointerListeners.push(callback); },
       }),
     },
-    document: { querySelector: get, createElement: tag => Object.assign(new Element(), { tagName: tag }), createElementNS: (namespace, tag) => Object.assign(new Element(), { tagName: tag, namespace }), createTextNode: () => new Element(), documentElement: root, body: { dataset: {}, append() {} }, addEventListener: (name, callback, capture) => { (capture === true ? documentCaptureEvents : documentEvents)[name] = callback; }, execCommand: () => execCommandResult },
+    document: { querySelector: get, querySelectorAll(selector) {
+      if (selector !== '.task-answer time') return [];
+      const matches = new Set();
+      const visit = (node, inAnswer = false) => {
+        if (!(node instanceof Element)) return;
+        const answer = inAnswer || node.className === 'task-answer';
+        if (answer && node.tagName === 'time') matches.add(node);
+        node.children.forEach(child => visit(child, answer));
+      };
+      elements.forEach(node => visit(node));
+      return [...matches];
+    }, createElement: tag => Object.assign(new Element(), { tagName: tag }), createElementNS: (namespace, tag) => Object.assign(new Element(), { tagName: tag, namespace }), createTextNode: () => new Element(), documentElement: root, body: { dataset: {}, append() {} }, addEventListener: (name, callback, capture) => { (capture === true ? documentCaptureEvents : documentEvents)[name] = callback; }, execCommand: () => execCommandResult },
     navigator: { clipboard: { writeText: async value => { if (clipboardFails) throw new Error('denied'); copied.push(value); } } },
     localStorage: { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value) },
     crypto: { randomUUID: () => `${String(++counter).padStart(6, '0')}-0000-4000-8000-000000000000` },
@@ -182,7 +209,7 @@ test('preview client', async (t) => {
       if (url === '/api/state') {
         // A gateway in front of a dead server answers with its own page, not the app's JSON.
         if (stateGatewayBody !== null) return { ok: false, status: 502, statusText: 'Bad Gateway', json: async () => ({}), text: async () => stateGatewayBody };
-        const snapshot = stateFails ? response({ error: 'server gone' }, false) : response({ ...state, token: servedToken });
+        const snapshot = stateFails ? response({ error: 'server gone' }, false) : response(state);
         if (stateResponseWait) await stateResponseWait;
         return snapshot;
       }
@@ -222,13 +249,33 @@ test('preview client', async (t) => {
         state.skip_poll = posted.skip === false ? null : '2026-10-06T09:00:00';
         return response({ skip_poll: state.skip_poll });
       }
+      if (url === '/api/agent-interrupt') {
+        writeHeadersSeen.push(options.headers || {});
+        const posted = JSON.parse(options.body);
+        interruptCalls.push(posted);
+        state.agent_interrupt_pending = posted.armed !== false;
+        return response({ agent_interrupt_pending: state.agent_interrupt_pending });
+      }
+      if (url === '/api/tasks/order') {
+        writeHeadersSeen.push(options.headers || {});
+        if (orderFails) return { ok: false, status: 503, text: async () => JSON.stringify({ error: 'Write failed' }) };
+        const ids = JSON.parse(options.body).ids;
+        orderWrites.push(ids);
+        // The reply is the stored payload, the same shape the poll returns.
+        const drawn = ids.map(id => state.tasks.upcoming.find(task => task.id === id));
+        const slots = state.tasks.upcoming
+          .map((task, index) => ids.includes(task.id) ? index : -1)
+          .filter(index => index >= 0);
+        const next = [...state.tasks.upcoming];
+        slots.forEach((slot, position) => { next[slot] = drawn[position]; });
+        next.forEach((task, index) => { task.order = index + 1; });
+        state.tasks = { ...state.tasks, upcoming: next };
+        return response(state.tasks);
+      }
       if (url === '/api/markdown') return { ok: true, text: async () => '<strong>draft</strong>' };
       if (url === '/api/notes') {
         // Retry tests send notes. There is no save route.
-        writeTokens.push(options.headers['X-Preview-Token']);
-        if (staleToken && options.headers['X-Preview-Token'] !== servedToken) {
-          return { ok: false, status: 403, text: async () => JSON.stringify({ error: 'Bad or missing token' }) };
-        }
+        writeHeadersSeen.push(options.headers || {});
         const note = JSON.parse(options.body);
         sent.push(note);
         return sendHandler(note);
@@ -249,8 +296,8 @@ test('preview client', async (t) => {
         const id = options.body.get('id');
         const text = options.body.get('text');
         const files = options.body.getAll('file');
-        uploadCalls.push({ id, text, files, token: options.headers['X-Preview-Token'],
-          contentType: options.headers['Content-Type'] });
+        uploadCalls.push({ id, text, files, headers: options.headers || {},
+          contentType: (options.headers || {})['Content-Type'] });
         let saved = state.notes.find(note => note.id === id);
         if (!saved) {
           const records = files.map((file, index) => {
@@ -352,10 +399,8 @@ test('preview client', async (t) => {
         };
       }
       if (url === '/') {
-        // A fresh page carries the token the restarted server accepts, so the retry has one to take. The token rides an HTML attribute, the way the served page carries it.
-        // The minified script did not include this text. Save presses after a reset then failed.
         pageFetches += 1;
-        return { ok: true, status: 200, text: async () => `<body data-token="${servedToken}">` };
+        return { ok: true, status: 200, text: async () => '<body></body>' };
       }
       if (url.startsWith('/api/messages/') && url.endsWith('/replies/seen')) {
         if (replySeenWait) await replySeenWait;
@@ -370,6 +415,7 @@ test('preview client', async (t) => {
       }
       if (url.startsWith('/api/reports/') && url.endsWith('/seen')) {
         readStamps.push(url);
+        if (readStampFailures) { readStampFailures -= 1; return response({ error: 'Read stamp failed' }, false); }
         const id = decodeURIComponent(url.split('/')[3]);
         const seen_at = new Date().toISOString();
         const report = state.reports.find(item => item.id === id);
@@ -394,7 +440,7 @@ test('preview client', async (t) => {
       if (url.startsWith('/api/reports/') && url.endsWith('/unpublish')) {
         const target = decodeURIComponent(url.split('/')[3]);
         unpublished.push(target);
-        writeTokens.push(options.headers['X-Preview-Token']);
+        writeHeadersSeen.push(options.headers || {});
         state.reports = state.reports.filter(report => report.id !== target);
         return response({ unpublished: target });
       }
@@ -465,7 +511,6 @@ test('preview client', async (t) => {
   let pip;
   let agentAck;
   let panel;
-  let wait;
   let logStamp;
   let messageRow;
   let visibleRows;
@@ -579,7 +624,8 @@ test('preview client', async (t) => {
     await get('#preview-note').events.click();
     assert.equal(get('#note').hidden, true);
     assert.equal(get('#preview-note').getAttribute('aria-pressed'), 'true');
-    assert.equal(get('#preview-note').children[0].children[0].getAttribute('fill'), 'currentColor', 'the markdown mark is a filled path');
+    assert.equal(get('#preview-note').children[0].getAttribute('class'), 'markdown-icon', 'Markdown preview keeps its brand exception');
+    assert.equal(get('#preview-note').children[0].children[0].getAttribute('fill'), 'currentColor', 'the Markdown mark is a filled path');
     assert.equal(get('#preview-note').children.length, 1, 'the markdown mark stands alone');
     assert.equal(get('#draft-preview').innerHTML, '<strong>draft</strong>');
     assert.equal(sent.length, 0);
@@ -619,13 +665,13 @@ test('preview client', async (t) => {
     // has to land: stateBusy swallows a refresh while another is still in flight.
     await new Promise(resolve => setTimeout(resolve, 0));
     state.tasks = {
-      finished: [{ id: 'shipped', title: 'Dots in the receipt', details: [], status: 'finished',
+      finished: [{ type: 'unspecified', id: 'shipped', title: 'Dots in the receipt', details: [], status: 'finished',
         order: 1, updated_at: new Date().toISOString() }],
       upcoming: [
-        { id: 'docs-archive', title: '<img onerror=alert(1)> dir',
+        { type: 'unspecified', id: 'docs-archive', title: '<img onerror=alert(1)> dir',
           details: ['move BUDGET-EXCEPTIONS.md', 'write arena-quirks.md'], status: 'upcoming',
           order: 1, updated_at: new Date().toISOString() },
-        { id: 'second', title: 'Second in line', details: ['its only detail'], status: 'upcoming',
+        { type: 'unspecified', id: 'second', title: 'Second in line', details: ['its only detail'], status: 'upcoming',
           order: 2, updated_at: new Date().toISOString() }
       ],
       updated_at: new Date().toISOString()
@@ -639,12 +685,55 @@ test('preview client', async (t) => {
     // The second task shows the Upcoming row shape.
     assert.equal(upcomingBody.children.length, 1, 'the head stays out of Upcoming');
     assert.equal(upcomingBody.children[0].tagName, 'li');
-    assert.equal(upcomingBody.children[0].children[0].textContent, 'Second in line');
-    assert.equal(upcomingBody.children[0].children[0].className, 'task-title');
-    assert.equal(upcomingBody.children[0].children[1].tagName, 'details');
-    assert.equal(upcomingBody.children[0].children[1].children.length, 2, 'a summary and one list');
-    assert.equal(upcomingBody.children[0].children[1].children[0].tagName, 'summary');
-    assert.match(upcomingBody.children[0].children[1].children[0].textContent, /\d+ detail/, 'the summary counts the details');
+    const rowParts = taskParts(upcomingBody.children[0]);
+    assert.equal(rowParts[0].textContent, 'Second in line');
+    assert.equal(rowParts[0].className, 'task-title');
+    assert.equal(rowParts[1].tagName, 'details');
+    assert.equal(rowParts[1].children.length, 2, 'a summary and one list');
+    assert.equal(rowParts[1].children[0].tagName, 'summary');
+    assert.match(rowParts[1].children[0].textContent, /\d+ detail/, 'the summary counts the details');
+  });
+
+  await t.test("Canonical task types carry badges and filter legacy missing types as Misc", async () => {
+    const prior = state.tasks;
+    const filter = get('#task-type-filter');
+    const types = ['report', 'code', 'docs', 'ops', 'misc'];
+    const stamp = new Date().toISOString();
+    try {
+      state.tasks = {
+        finished: [],
+        upcoming: [
+          ...types.map((type, index) => ({ id: `new-${type}`, title: `New ${type}`,
+            details: [], status: 'upcoming', order: index + 1, type, updated_at: stamp })),
+          { id: 'missing-type', title: 'Old task', details: [], status: 'upcoming',
+            order: types.length + 1, updated_at: stamp },
+        ],
+        updated_at: stamp,
+      };
+      filter.value = 'all';
+      filter.events.change();
+      await refresh();
+      const rows = [...get('#tasks-current-body').children, ...get('#tasks-upcoming-body').children];
+      assert.equal(rows.length, state.tasks.upcoming.length);
+      for (const row of rows) {
+        const task = state.tasks.upcoming.find(item => item.id === row.title);
+        const badge = row.children.find(child => child.className === 'task-type');
+        assert.ok(badge, 'each task has a visible type');
+        assert.equal(badge.dataset.taskType, task.type || 'misc');
+      }
+      for (const type of types) {
+        filter.value = type;
+        filter.events.change();
+        const visible = [...get('#tasks-current-body').children, ...get('#tasks-upcoming-body').children];
+        const expected = state.tasks.upcoming.filter(task => (task.type || 'misc') === type);
+        assert.deepEqual(visible.map(row => row.title), expected.map(task => task.id));
+      }
+    } finally {
+      filter.value = 'all';
+      filter.events.change();
+      state.tasks = prior;
+      await refresh();
+    }
   });
 
   await t.test("A typed task carries a type badge and the type filter hides other types", async () => {
@@ -658,7 +747,7 @@ test('preview client', async (t) => {
           order: 1, type: 'code', updated_at: new Date().toISOString() },
         { id: 'docs-work', title: 'Docs work', details: ['step'], status: 'upcoming',
           order: 2, type: 'docs', updated_at: new Date().toISOString() },
-        { id: 'legacy-task', title: 'Legacy task', details: [], status: 'upcoming',
+        { type: 'unspecified', id: 'legacy-task', title: 'Legacy task', details: [], status: 'upcoming',
           order: 3, updated_at: new Date().toISOString() }
       ],
       updated_at: new Date().toISOString()
@@ -666,17 +755,21 @@ test('preview client', async (t) => {
     await refresh();
     const head = get('#tasks-current-body').children[0];
     assert.equal(head.title, 'code-work', 'the first open task keeps the seat');
-    const badge = head.children[1];
+    const headParts = taskParts(head);
+    const badge = headParts[1];
     assert.equal(badge.className, 'task-type', 'the badge rides beside the title');
     assert.ok(badge.textContent.trim().length > 0, 'the code row carries a type badge label');
     assert.equal(badge.dataset.taskType, 'code');
-    assert.equal(head.children[2].className, 'task-details',
+    assert.equal(headParts[2].className, 'task-details',
       'the details collapse follows the badge');
     const docsRow = get('#tasks-upcoming-body').children[0];
-    assert.equal(docsRow.children[1].className, 'task-type',
+    assert.equal(taskParts(docsRow)[1].className, 'task-type',
       'a typed row carries its badge beside the title');
-    assert.equal(get('#tasks-upcoming-body').children[1].children.length, 1,
-      'an Unspecified task keeps the row shape it had before types existed');
+    const unspecifiedRow = get('#tasks-upcoming-body').children[1];
+    assert.equal(taskParts(unspecifiedRow).length, 1,
+      'an Unspecified task keeps only its title outside the handle');
+    assert.equal(taskPart(unspecifiedRow, 'task-title').textContent, 'Legacy task');
+    assert.equal(unspecifiedRow.children[0].className, 'task-drag-handle');
     const filter = get('#task-type-filter');
     filter.value = 'docs';
     filter.events.change();
@@ -690,7 +783,7 @@ test('preview client', async (t) => {
     filter.events.change();
     assert.equal(get('#tasks-finished-body').children.length, 0,
       'a finished row of another type leaves the div');
-    filter.value = 'unspecified';
+    filter.value = 'misc';
     filter.events.change();
     assert.equal(get('#tasks-current-body').children[0].title, 'legacy-task',
       'the Unspecified filter finds old rows');
@@ -700,6 +793,126 @@ test('preview client', async (t) => {
     await refresh();
   });
 
+  await t.test("A queue drag uses the bullet handle, keeps title text selectable, and restores refused writes", async () => {
+    const prior = state.tasks;
+    const stamp = new Date().toISOString();
+    const settle = () => new Promise(resolve => setTimeout(resolve, 0));
+    state.tasks = {
+      finished: [],
+      upcoming: ['first', 'second', 'third'].map((id, index) => ({
+        id, title: `${id} task`, details: [], status: 'upcoming', order: index + 1,
+        type: 'code', updated_at: stamp,
+      })),
+      updated_at: stamp,
+    };
+    try {
+      await refresh();
+      const rows = () => [...get('#tasks-current-body').children, ...get('#tasks-upcoming-body').children];
+      const dragHandle = row => row.children.find(child => child.className === 'task-drag-handle');
+      const taskTitle = row => row.children.find(child => child.className === 'task-title');
+      const grab = row => {
+        const handle = dragHandle(row);
+        handle.events.dragstart(event({
+          target: handle, dataTransfer: { setData() {} },
+        }));
+      };
+      assert.deepEqual(rows().map(row => row.title), ['first', 'second', 'third']);
+      assert.notEqual(rows()[0].draggable, true, 'the task row leaves text selection to the browser');
+      assert.notEqual(taskTitle(rows()[0]).draggable, true, 'the title is not a drag target');
+      assert.equal(dragHandle(rows()[0]).draggable, true, 'the bullet handle starts the drag');
+      assert.equal(dragHandle(rows()[0]).children[0].getAttribute('class'), 'lucide lucide-dot', 'the Lucide dot is the list bullet');
+      assert.equal(rows()[0].dataset.dragHandle, 'true', 'the draggable row hides its native marker');
+      assert.equal(rows()[0].events.dragstart, undefined, 'dragstart is not attached to the task row');
+      assert.equal(taskTitle(rows()[0]).events.dragstart, undefined, 'dragstart is not attached to the title');
+      assert.match(dragHandle(rows()[0]).getAttribute('aria-label'), /reorder/i,
+        'the drag handle has an accessible name');
+      // A drag previews the seat: the queue redraws in the drawn order, and the seat keeps a mark.
+      grab(rows()[2]);
+      assert.equal(rows()[2].dataset.dragging, 'true', 'the dragged row reads as dragged');
+      const hover = event({ target: rows()[0] });
+      rows()[0].events.dragover(hover);
+      assert.equal(hover.prevented, true, 'the seat under the pointer takes the drag');
+      assert.deepEqual(rows().map(row => row.title), ['third', 'first', 'second'], 'the drag previews the drawn order');
+      assert.equal(orderWrites.length, 0, 'a preview writes nothing');
+      assert.equal(rows()[0].dataset.dragging, 'true', 'the dragged cue follows the row to its seat');
+      assert.equal(rows()[1].dataset.drop, 'true', 'the row below the seat carries the mark');
+      // The drop writes the previewed order, and the reply re-renders the rows.
+      const drop = event({ target: rows()[0] });
+      rows()[0].events.drop(drop);
+      assert.equal(drop.prevented, true, 'the drop takes the dragged row');
+      dragHandle(rows()[1]).events.dragend(event({ target: dragHandle(rows()[1]) }));
+      assert.ok(rows().every(row => row.dataset.dragging === undefined), 'the dragged cue clears');
+      assert.ok(rows().every(row => row.dataset.drop === undefined), 'the seat mark clears');
+      await settle();
+      assert.deepEqual(orderWrites.at(-1), ['third', 'first', 'second'], 'the write carries the drawn order');
+      assert.equal(Object.hasOwn(writeHeadersSeen.at(-1), 'X-Preview-Token'), false);
+      assert.deepEqual(rows().map(row => row.title), ['third', 'first', 'second'], 'the reply re-renders the rows');
+      assert.equal(get('#tasks-current-body').children.length, 1, 'one task keeps the seat');
+      // A drag that ends without a drop puts the stored rows back and writes nothing.
+      grab(rows()[2]);
+      rows()[0].events.dragover(event({ target: rows()[0] }));
+      assert.deepEqual(rows().map(row => row.title), ['second', 'third', 'first'], 'a preview moves the row under the hand');
+      dragHandle(rows()[0]).events.dragend(event({ target: dragHandle(rows()[0]) }));
+      assert.deepEqual(rows().map(row => row.title), ['third', 'first', 'second'], 'a cancelled drag restores the stored rows');
+      assert.equal(orderWrites.length, 1, 'a cancelled drag writes nothing');
+      // A drop on the list background moves the row to the end of that list.
+      const last = rows()[1];
+      grab(last);
+      const background = event({ target: get('#tasks-upcoming-body') });
+      get('#tasks-upcoming-body').events.drop(background);
+      dragHandle(last).events.dragend(event({ target: dragHandle(last) }));
+      await settle();
+      assert.deepEqual(orderWrites.at(-1), ['third', 'second', 'first'], 'the background drop appends the row');
+      // A refused write drops the drawn rows and names the failure.
+      orderFails = true;
+      const refused = rows()[2];
+      grab(refused);
+      rows()[0].events.drop(event({ target: rows()[0] }));
+      dragHandle(refused).events.dragend(event({ target: dragHandle(refused) }));
+      await settle();
+      assert.deepEqual(rows().map(row => row.title), ['third', 'second', 'first'], 'the refused write keeps the stored rows');
+      assert.match(get('#tasks-status').textContent, /not saved/i);
+      orderFails = false;
+      const end = get('#tasks-upcoming-body');
+      assert.doesNotMatch(fs.readFileSync(path.join(__dirname, '../assets/index.html'), 'utf8'),
+        /tasks-drop-end/, 'the dedicated end area is removed');
+      const beforeEnd = rows().map(row => row.title);
+      const moved = rows()[0];
+      const expectedEnd = [...beforeEnd.slice(1), beforeEnd[0]];
+      grab(moved);
+      assert.equal(end.dataset.dragging, 'true', 'a drag keeps the list background reachable');
+      rows().at(-1).events.dragover(event({ target: rows().at(-1) }));
+      const endHover = event({ target: end });
+      end.events.dragover(endHover);
+      assert.equal(endHover.prevented, true, 'the end target accepts a task drag');
+      assert.deepEqual(rows().map(row => row.title), expectedEnd, 'the end target replaces the earlier row preview');
+      assert.equal(end.dataset.drop, 'true', 'the end target marks its seat');
+      const rowAgain = rows().at(-2);
+      rowAgain.events.dragover(event({ target: rowAgain }));
+      assert.equal(end.dataset.drop, undefined, 'a row preview clears the end-target mark');
+      end.events.dragover(event({ target: end }));
+      end.events.drop(event({ target: end }));
+      dragHandle(moved).events.dragend(event({ target: dragHandle(moved) }));
+      await settle();
+      assert.deepEqual(orderWrites.at(-1), expectedEnd, 'the end target saves the appended order');
+      assert.equal(end.dataset.drop, undefined, 'the end-target mark clears after a drop');
+      assert.equal(end.dataset.dragging, undefined, 'a completed drag clears the list cue');
+      orderFails = true;
+      const refusedEnd = rows()[0];
+      grab(refusedEnd);
+      end.events.dragover(event({ target: end }));
+      end.events.drop(event({ target: end }));
+      dragHandle(refusedEnd).events.dragend(event({ target: dragHandle(refusedEnd) }));
+      await settle();
+      assert.deepEqual(rows().map(row => row.title), expectedEnd, 'a refused end drop restores the saved order');
+      assert.match(get('#tasks-status').textContent, /not saved/i);
+    } finally {
+      orderFails = false;
+      state.tasks = prior;
+      await refresh();
+    }
+  });
+
   await t.test("The operations badge reads Ops and a task click lifts a hiding filter", async () => {
     const prior = state.tasks;
     const stamp = new Date().toISOString();
@@ -707,13 +920,13 @@ test('preview client', async (t) => {
       finished: [],
       upcoming: [
         { id: 'ops-task', title: 'Ops work', details: ['watch the queue'],
-          status: 'upcoming', order: 1, type: 'operations', updated_at: stamp },
+          status: 'upcoming', order: 1, type: 'ops', updated_at: stamp },
       ],
       updated_at: stamp,
     };
     await refresh();
     const head = get('#tasks-current-body').children[0];
-    assert.ok(head.children[1].textContent.trim().length > 0,
+    assert.ok(taskPart(head, 'task-type').textContent.trim().length > 0,
       'the operations row carries a type badge label');
     const filter = get('#task-type-filter');
     filter.value = 'docs';
@@ -724,7 +937,7 @@ test('preview client', async (t) => {
     link.className = 'ack-reference';
     link.dataset = { referenceType: 'task', referenceId: 'ops-task' };
     documentEvents.click({ target: link, preventDefault: () => {} });
-    assert.equal(filter.value, 'operations', 'the click sets the filter to the target type');
+    assert.equal(filter.value, 'ops', 'the click sets the filter to the target type');
     assert.equal(get('#tasks-current-body').children[0].title, 'ops-task',
       'the clicked task row comes into view');
     const search = get('#task-search');
@@ -750,9 +963,9 @@ test('preview client', async (t) => {
     state.tasks = {
       finished: [],
       upcoming: [
-        { id: 'alpha-task', title: 'Alpha wiring', details: ['trace the proxy'],
+        { type: 'unspecified', id: 'alpha-task', title: 'Alpha wiring', details: ['trace the proxy'],
           status: 'upcoming', order: 1, updated_at: stamp },
-        { id: 'beta-task', title: 'Beta docs', details: ['rewrite the changelog'],
+        { type: 'unspecified', id: 'beta-task', title: 'Beta docs', details: ['rewrite the changelog'],
           status: 'upcoming', order: 2, updated_at: stamp },
       ],
       updated_at: stamp,
@@ -783,14 +996,70 @@ test('preview client', async (t) => {
     await refresh();
   });
 
+  await t.test('Task search marks literal matches and opens matching detail bodies', async () => {
+    const prior = state.tasks;
+    const at = new Date().toISOString();
+    const search = get('#task-search');
+    const hits = node => (node.children || []).flatMap(child => typeof child === 'string' ? []
+      : [...(child.className === 'search-hit' ? [child.textContent] : []), ...hits(child)]);
+    const head = () => get('#tasks-current-body').children[0];
+    const details = () => head().children.find(child => child.className === 'task-details');
+    const query = value => { search.value = value; search.events.input(); };
+    state.tasks = { updated_at: at, finished: [], upcoming: [
+      { id: 'alpha-search', title: 'Alpha wiring', details: ['Trace PROXY; <img onerror=alert(1)> stays text.'],
+        type: 'code', status: 'upcoming', order: 1, updated_at: at },
+      { id: 'beta-search', title: 'Beta docs', details: ['Read the changelog'],
+        type: 'docs', status: 'upcoming', order: 2, updated_at: at,
+        answers: [{ id: 'receipt-search', at, text: 'Confirmed support' }] },
+    ] };
+    const original = JSON.stringify(state.tasks);
+    await refresh();
+    try {
+      query('proxy');
+      assert.equal(head().title, 'alpha-search');
+      assert.deepEqual(hits(head()), ['PROXY'], 'the visible match preserves its case');
+      assert.equal(details().open, true, 'a detail match opens its body');
+      const row = head();
+      await refresh();
+      assert.equal(head(), row, 'an unchanged poll retains the marked row');
+      assert.equal(details().open, true, 'an unchanged poll retains the open body');
+      query('BETA');
+      assert.deepEqual(hits(head()), ['Beta'], 'title matches are marked case-insensitively');
+      assert.ok(!details().open, 'a title-only match does not open unrelated details');
+      const draft = get('#note').value;
+      const title = taskPart(head(), 'task-title');
+      const marked = title.children.find(child => child.className === 'search-hit');
+      marked.closest = selector => selector.includes('.task-title') ? title : null;
+      documentEvents.click({ target: marked, preventDefault() {} });
+      assert.match(get('#note').value, /^RE: beta-search/, 'a click on marked title text still quotes its task');
+      get('#note').value = draft;
+      get('#tasks-tab').events.click();
+      query('confirmed');
+      assert.equal(head().title, 'beta-search', 'answer text is searchable inside the details');
+      assert.deepEqual(hits(head()), ['Confirmed']);
+      assert.equal(details().open, true, 'an answer match opens its body');
+      query('<img');
+      assert.deepEqual(hits(head()), ['<img'], 'markup-shaped input stays literal');
+      assert.match(details().textContent, /<img onerror=alert\(1\)>/);
+      query('');
+      assert.deepEqual(hits(get('#tasks-current-body')), [], 'clearing removes the marks');
+      assert.ok(!details().open, 'clearing restores the normal collapsed body');
+      assert.equal(JSON.stringify(state.tasks), original, 'search leaves stored task data unchanged');
+    } finally {
+      query('');
+      state.tasks = prior;
+      await refresh();
+    }
+  });
+
   await t.test("A blocked task never takes the Current seat while another task is open", async () => {
     // A report-linked task sorts first in its group, so the head alone would hand the Current div
     // to work the agent cannot start. The first unblocked task takes the seat instead.
     const saved = state.tasks.upcoming;
     state.tasks.upcoming = [
-      { id: 'waits-on-report', title: 'Blocked work', details: ['waits'], status: 'upcoming',
+      { type: 'unspecified', id: 'waits-on-report', title: 'Blocked work', details: ['waits'], status: 'upcoming',
         order: 1, blocked: true, updated_at: new Date().toISOString() },
-      { id: 'second', title: 'Second in line', details: ['its only detail'], status: 'upcoming',
+      { type: 'unspecified', id: 'second', title: 'Second in line', details: ['its only detail'], status: 'upcoming',
         order: 2, updated_at: new Date().toISOString() }
     ];
     await refresh();
@@ -801,7 +1070,7 @@ test('preview client', async (t) => {
     upcomingBody = get('#tasks-upcoming-body');
     assert.equal(upcomingBody.children.length, 1);
     assert.equal(upcomingBody.children[0].title, 'waits-on-report');
-    assert.equal(upcomingBody.children[0].children[0].dataset.blocked, 'true');
+    assert.equal(taskPart(upcomingBody.children[0], 'task-title').dataset.blocked, 'true');
     // With every upcoming task blocked, no task reads as current work.
     state.tasks.upcoming[1].blocked = true;
     await refresh();
@@ -818,9 +1087,9 @@ test('preview client', async (t) => {
     // to work the agent cannot start. The first unblocked task takes the seat instead.
     const saved = state.tasks.upcoming;
     state.tasks.upcoming = [
-      { id: 'waits-on-report', title: 'Blocked work', details: ['waits'], status: 'upcoming',
+      { type: 'unspecified', id: 'waits-on-report', title: 'Blocked work', details: ['waits'], status: 'upcoming',
         order: 1, blocked: true, updated_at: new Date().toISOString() },
-      { id: 'second', title: 'Second in line', details: ['its only detail'], status: 'upcoming',
+      { type: 'unspecified', id: 'second', title: 'Second in line', details: ['its only detail'], status: 'upcoming',
         order: 2, updated_at: new Date().toISOString() }
     ];
     await refresh();
@@ -831,7 +1100,7 @@ test('preview client', async (t) => {
     upcomingBody = get('#tasks-upcoming-body');
     assert.equal(upcomingBody.children.length, 1);
     assert.equal(upcomingBody.children[0].title, 'waits-on-report');
-    assert.equal(upcomingBody.children[0].children[0].dataset.blocked, 'true');
+    assert.equal(taskPart(upcomingBody.children[0], 'task-title').dataset.blocked, 'true');
     // With every upcoming task blocked, no task reads as current work.
     state.tasks.upcoming[1].blocked = true;
     await refresh();
@@ -845,7 +1114,7 @@ test('preview client', async (t) => {
 
   await t.test("The details are a real list, so each carries its own marker rather than being a line in a ", async () => {
     // The details are a real list, so each carries its own marker rather than being a line in a span.
-    detailList = upcomingBody.children[0].children[1].children[1];
+    detailList = taskPart(upcomingBody.children[0], 'task-details').children[1];
     assert.equal(detailList.tagName, 'ul');
     assert.equal(detailList.className, 'task-detail-list');
     assert.equal(detailList.children.length, 1);
@@ -864,7 +1133,7 @@ test('preview client', async (t) => {
   await t.test("Finished tasks keep the backend completion order", async () => {
     const original = state.tasks.finished.slice();
     state.tasks.finished = [
-      { id: 'latest', title: 'Latest finished', details: [], status: 'finished', order: 2 },
+      { type: 'unspecified', id: 'latest', title: 'Latest finished', details: [], status: 'finished', order: 2 },
       ...original
     ];
     await refresh();
@@ -876,16 +1145,18 @@ test('preview client', async (t) => {
 
   await t.test("A task carries its linked answers in a read-only block below the details", async () => {
     const prior = state.tasks;
+    const priorReports = state.reports;
+    state.reports = [{ id: 'answer-source', title: 'Source report', updated_at: new Date().toISOString() }];
     state.tasks = {
       finished: [],
       upcoming: [
-        { id: 'filler-task', title: 'Filler', details: [], status: 'upcoming',
+        { type: 'unspecified', id: 'filler-task', title: 'Filler', details: [], status: 'upcoming',
           order: 1, updated_at: new Date().toISOString() },
-        { id: 'answered-task', title: 'Answered work', details: ['read it'], status: 'upcoming',
+        { type: 'unspecified', id: 'answered-task', title: 'Answered work', details: ['read it'], status: 'upcoming',
           order: 2, updated_at: new Date().toISOString(),
           answers: [
-            { id: 'answer-abc123', at: '2026-10-15T05:44:00.000Z', text: 'Choice? {#pick}\n- (x) yes' },
-            { id: 'answer-def456', at: '2026-10-15T06:00:00.000Z', text: 'Approved: ship it' },
+            { id: 'answer-abc123', report_id: 'answer-source', at: '2026-10-15T05:44:00.000Z', text: 'Choice? {#pick}\n- (x) yes' },
+            { id: 'answer-def456', report_id: 'unpublished-source', at: '2026-10-15T06:00:00.000Z', text: 'Approved: ship it' },
             { id: 'answer-long01', at: '2026-10-15T06:04:00.000Z',
               text: 'Decision recorded for the record: the receipt line keeps every word of the answer text, past the step cap that manual details obey.' },
           ] },
@@ -895,8 +1166,11 @@ test('preview client', async (t) => {
     await refresh();
     const row = get('#tasks-upcoming-body').children[0];
     assert.equal(row.title, 'answered-task', 'the filler holds the head seat');
-    assert.equal(row.children.length, 2, 'the receipt rides inside the details block');
-    const details = row.children[1];
+    const rowParts = taskParts(row);
+    assert.equal(rowParts.length, 2, 'the title and details stay beside the drag handle');
+    assert.equal(row.children[0].className, 'task-drag-handle');
+    assert.equal(row.dataset.dragHandle, 'true');
+    const details = taskPart(row, 'task-details');
     assert.equal(details.className, 'task-details');
     assert.ok(!details.open, 'the receipt stays hidden until expanded');
     assert.match(details.children[0].textContent, /\d+ details/,
@@ -908,18 +1182,48 @@ test('preview client', async (t) => {
     assert.ok(long.textContent.length > 120, 'a receipt entry keeps text past the step cap');
     const first = answers.children[0];
     assert.equal(first.className, 'task-answer');
-    assert.equal(first.children[0].tagName, 'code');
-    assert.equal(first.children[0].textContent, 'answer-abc123', 'the entry names its answer');
+    assert.equal(first.children[0].tagName, 'a', 'a published source makes the submission ID clickable');
+    assert.equal(first.children[0].href, '#reports-panel');
+    assert.equal(first.children[0].dataset.referenceType, 'report');
+    assert.equal(first.children[0].dataset.referenceId, 'answer-source');
+    assert.equal(first.children[0].children[0].tagName, 'code', 'the linked ID stays monospace');
+    assert.equal(first.children[0].textContent, 'answer-abc123', 'the entry still names the submission');
+    assert.equal(answers.children[1].children[0].tagName, 'code', 'an unpublished source leaves a plain ID');
+    assert.equal(answers.children[2].children[0].tagName, 'code', 'legacy answers without a source stay plain');
     assert.equal(first.children[1].tagName, 'time');
-    assert.equal(first.children[1].textContent, '2026-10-15T05:44:00.000Z', 'the entry carries its time');
+    assert.equal(first.children[1].textContent, context.time('2026-10-15T05:44:00.000Z'), 'the answer time uses the shared relative clock');
+    assert.equal(first.children[1].dateTime, '2026-10-15T05:44:00.000Z', 'the stored UTC stamp stays intact');
+    assert.equal(first.children[1].title, context.stampDate('2026-10-15T05:44:00.000Z').toLocaleString(),
+      'the tooltip uses the full date in the browser timezone');
     assert.match(first.children[2].textContent, /\(x\) yes/, 'the field and value text shows');
+    details.open = true;
+    state.reports.push({ id: 'unrelated-source', title: 'Unrelated report', updated_at: new Date().toISOString() });
+    await refresh();
+    assert.equal(get('#tasks-upcoming-body').children[0], row, 'an unrelated publication does not rebuild task rows');
+    assert.equal(details.open, true, 'an unrelated publication keeps open details');
+    first.children[1].textContent = 'stale age';
+    await refresh();
+    assert.equal(get('#tasks-upcoming-body').children[0], row, 'age updates do not rebuild task rows');
+    assert.equal(first.children[1].textContent, context.time(first.children[1].dateTime),
+      'an unchanged poll refreshes the relative age');
+    state.reports = [];
+    await refresh();
+    const plain = taskPart(get('#tasks-upcoming-body').children[0], 'task-details')
+      .children[2].children[0].children[0];
+    assert.equal(plain.tagName, 'code', 'unpublishing removes a source link without a task-data change');
+    assert.equal(plain.textContent, 'answer-abc123');
+    state.reports = [{ id: 'answer-source', title: 'Source report', updated_at: new Date().toISOString() }];
+    await refresh();
+    const restored = taskPart(get('#tasks-upcoming-body').children[0], 'task-details')
+      .children[2].children[0].children[0];
+    assert.equal(restored.tagName, 'a', 'republishing restores the source link without a task-data change');
     // The row builds this block from the record, so hostile answer text stays text.
     state.tasks = {
       finished: [],
       upcoming: [
-        { id: 'filler-task', title: 'Filler', details: [], status: 'upcoming',
+        { type: 'unspecified', id: 'filler-task', title: 'Filler', details: [], status: 'upcoming',
           order: 1, updated_at: new Date().toISOString() },
-        { id: 'hostile-task', title: 'Hostile', details: [], status: 'upcoming',
+        { type: 'unspecified', id: 'hostile-task', title: 'Hostile', details: [], status: 'upcoming',
           order: 2, updated_at: new Date().toISOString(),
           answers: [{ id: 'answer-z', at: '2026-10-15T06:10:00.000Z', text: '<img onerror=alert(1)>' }] },
       ],
@@ -928,11 +1232,13 @@ test('preview client', async (t) => {
     await refresh();
     const host = get('#tasks-upcoming-body').children[0];
     assert.equal(host.title, 'hostile-task', 'the filler still holds the head seat');
-    assert.equal(host.children.length, 2, 'a task with no manual details still wraps the receipt');
-    const hostileText = host.children[1].children[1].children[0].children[2];
+    assert.equal(taskParts(host).length, 2, 'the receipt stays in details beside the bullet handle');
+    assert.equal(host.children[0].className, 'task-drag-handle');
+    const hostileText = taskPart(host, 'task-details').children[1].children[0].children[2];
     assert.equal(hostileText.tagName, 'p', 'the answer text lands in a paragraph, not markup');
     assert.equal(hostileText.textContent, '<img onerror=alert(1)>', 'answer text stays text');
     state.tasks = prior;
+    state.reports = priorReports;
     await refresh();
   });
 
@@ -940,10 +1246,11 @@ test('preview client', async (t) => {
     currentBody = get('#tasks-current-body');
     assert.equal(get('#tasks-current').hidden, false);
     assert.equal(currentBody.children.length, 1);
-    assert.equal(currentBody.children[0].children[0].textContent, '<img onerror=alert(1)> dir');
-    assert.equal(currentBody.children[0].children[0].className, 'task-title');
+    const currentTitle = taskPart(currentBody.children[0], 'task-title');
+    assert.equal(currentTitle.textContent, '<img onerror=alert(1)> dir');
+    assert.equal(currentTitle.className, 'task-title');
     assert.equal(currentBody.children[0].title, 'docs-archive');
-    taskControl = currentBody.children[0].children[0];
+    taskControl = currentTitle;
     assert.equal(taskControl.dataset.taskId, 'docs-archive');
     assert.equal(taskControl.attributes.role, 'button');
     assert.equal(taskControl.tabIndex, 0, 'keyboard users can reach the task ID');
@@ -978,11 +1285,17 @@ test('preview client', async (t) => {
 
   await t.test("An unchanged poll must not rebuild the rows, or an opened details snaps shut three seconds", async () => {
     // An unchanged poll must not rebuild the rows, or an opened details snaps shut three seconds later.
-    opened = upcomingBody.children[0].children[1];
+    opened = taskPart(upcomingBody.children[0], 'task-details');
     opened.open = true;
+    const taskData = JSON.stringify(state.tasks);
+    get('#tasks-status').textContent = 'stale age';
     await refresh();
-    assert.equal(upcomingBody.children[0].children[1], opened, 'the row survives an unchanged poll');
-    assert.equal(upcomingBody.children[0].children[1].open, true);
+    assert.ok(get('#tasks-status').textContent.endsWith(context.time(state.tasks.updated_at)),
+      'an unchanged poll refreshes the Updated age');
+    assert.equal(JSON.stringify(state.tasks), taskData, 'age refresh does not change task data');
+    assert.equal(taskPart(upcomingBody.children[0], 'task-details'), opened,
+      'the row survives an unchanged poll');
+    assert.equal(opened.open, true);
   });
 
   await t.test("The log and the tasks lost their own copy buttons", async () => {
@@ -1029,8 +1342,8 @@ test('preview client', async (t) => {
       (cachedHere.tasks.upcoming || []).length + (cachedHere.tasks.finished || []).length,
       'every cached task rides the copy');
     assert.equal(get('#copy-state').dataset.state, 'good', 'the click reports through the button');
-    assert.notEqual(get('#send-status').textContent, statusBeforeCopy,
-      'the copy reports in the status without pinned wording');
+    assert.equal(get('#send-status').textContent, statusBeforeCopy,
+      'the copy reports through its own control, not the composer');
     state.tasks.upcoming = [];
     await refresh();
     assert.equal(get('#tasks-current').hidden, true, 'an empty queue has no current task');
@@ -1091,9 +1404,7 @@ test('preview client', async (t) => {
   await t.test("A cleared field collapses back to the stylesheet's min-height instead of keeping its grown", async () => {
     // A cleared field collapses back to the stylesheet's min-height instead of keeping its grown size.
     assert.equal(get('#note').style.height, '');
-    assert.match(get('#send-status').textContent, /Saved/);
-    assert.match(get('#send-status').textContent, /· Message sent\./);
-    assert.doesNotMatch(get('#send-status').textContent, /awaiting acknowledgement/);
+    assert.equal(get('#send-status').textContent, '', 'successful sends do not leave routine footer text');
     assert.equal(get('#note').placeholder, 'keep draft');
     await tick();
     get('#note').value = 'sent while typing';
@@ -1131,7 +1442,7 @@ test('preview client', async (t) => {
     const priorTasks = state.tasks;
     state.notes[0].task_id = 'linked-receipt';
     state.tasks = {
-      upcoming: [{ id: 'linked-receipt', title: 'Linked receipt', details: [], status: 'upcoming',
+      upcoming: [{ type: 'unspecified', id: 'linked-receipt', title: 'Linked receipt', details: ['A linked detail'], status: 'upcoming',
         order: 1, updated_at: new Date().toISOString() }],
       finished: [],
       updated_at: new Date().toISOString()
@@ -1149,6 +1460,9 @@ test('preview client', async (t) => {
       documentEvents.click({ target: link, preventDefault: () => { prevented = true; } });
       assert.equal(prevented, true, 'the receipt link takes the reference path');
       assert.equal(get('#tasks-panel').hidden, false, 'the jump opens the Tasks tab');
+      const target = get('#tasks-current-body').children[0];
+      assert.equal(target.children.find(child => child.className === 'task-details').open, true,
+        'a task-reference link opens its target details');
     } finally {
       delete state.notes[0].task_id;
       state.tasks = priorTasks;
@@ -1468,8 +1782,8 @@ test('preview client', async (t) => {
     await get('#refresh-report').events.click();
     await tick();
     assert.equal(get('#report').innerHTML, '<h1>Report</h1>');
-    assert.equal(get('#report-select').children[0].textContent, '1. * Fielded',
-      'a report with no read stamp carries the asterisk in the select');
+    assert.equal(get('#report-select').children[0].textContent, '1. Fielded',
+      'opening the report clears its unread asterisk');
     assert.equal(get('#report-submit').hidden, false);
     assert.equal(Number(get('#report-form').dataset.fields), reportFields);
     assert.equal(textInput.value, 'ada');
@@ -1700,7 +2014,7 @@ test('preview client', async (t) => {
     assert.equal(get('#report-ack-history').children.length, 2);
     assert.equal(get('#report-ack-history').children[0].innerHTML, '<p>First</p>');
     assert.equal(get('#report-ack-history').children[1].children[0].textContent, 'Second');
-    assert.equal(pip.hidden, false, 'acknowledging an answer does not mark the report read');
+    assert.equal(pip.hidden, true, 'the open report body is read independently of its answer receipt');
     state.reports[0].latest_answer_id = 'b765432-bbbbbbbbbbbbbbbbbbbbbbbbb';
     state.reports[0].latest_answer_at = '2026-09-24T10:02:00';
     state.reports[0].latest_answer_acknowledged_at = null;
@@ -1719,6 +2033,9 @@ test('preview client', async (t) => {
   });
 
   await t.test("An edited report keeps its star but drops the pip", async () => {
+    // Check edits while Reports is hidden. Opening now stamps the loaded body immediately.
+    get('#notes-tab').events.click();
+    await tick();
     // An edited report keeps its star but drops the pip: ever_seen remembers the open.
     state.reports = [{ id: 'r1', title: 'Fielded', updated_at: new Date().toISOString(),
       seen_at: null, ever_seen: 1 }];
@@ -1747,15 +2064,15 @@ test('preview client', async (t) => {
     assert.equal(pip.title, 'A report is unread');
     assert.equal(get('#report-select').children.find(item => item.value === 'r1').textContent,
       '1. * Fielded', 'an acked answer stars a report already read once');
-    // An earlier subtest already stamped the look, so the count stands as the throttle's base.
+    // An earlier subtest already stamped the look, so the count is the throttle's base.
     const viewsBefore = viewCalls.length;
     assert.ok(viewsBefore >= 1, 'an earlier look stamped the view');
     await get('#reports-tab').events.click();
     await tick(); await tick();
     assert.deepEqual(ackSeenCalls, ['/api/reports/r1/ack-seen'],
       'opening the report stamps the ack open once');
-    assert.equal(viewCalls.length, viewsBefore,
-      'the half-minute throttle holds a repeat look at the same report to one stamp');
+    assert.equal(viewCalls.length, viewsBefore + 1,
+      'returning to Reports starts a new active look');
     assert.equal(viewActive[viewActive.length - 1], true, 'that stamp counts as an active look');
     assert.equal(pip.hidden, true, 'the dot goes with the open');
     assert.equal(get('#report-select').children.find(item => item.value === 'r1').textContent,
@@ -1764,11 +2081,11 @@ test('preview client', async (t) => {
     await tick(); await tick();
     assert.deepEqual(ackSeenCalls, ['/api/reports/r1/ack-seen'],
       'a later open stamps nothing, because the ack is already seen');
-    assert.equal(viewCalls.length, viewsBefore, 'a refresh on the same report stamps no look');
+    assert.equal(viewCalls.length, viewsBefore + 1, 'a refresh on the same report stamps no look');
     // Leaving the report clears the stamp, so a page sitting in the background holds nothing.
     await get('#notes-tab').events.click();
     await tick(); await tick();
-    assert.equal(viewCalls.length, viewsBefore + 1, 'leaving the report sends the clear');
+    assert.equal(viewCalls.length, viewsBefore + 2, 'leaving the report sends the clear');
     assert.equal(viewActive[viewActive.length - 1], false, 'the clear ends the look');
   });
 
@@ -1816,93 +2133,102 @@ test('preview client', async (t) => {
       '1. Fielded', 'the star goes with the in-view ack');
   });
 
-  await t.test("What stamps a report is the browser showing it: one second in view for one that fits the", async () => {
+  await t.test('Opening a short report stamps it without a dwell', async () => {
     panel = get('#reports-panel');
-    wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
     state.reports = [{ id: 'r1', title: 'Fits', updated_at: new Date().toISOString(), seen_at: null }];
     readStamps.length = 0;
     panel.scrollHeight = 400; panel.clientHeight = 400; panel.scrollTop = 0;
     get('#reports-tab').events.click();
     await tick(); await tick();
-    assert.equal(readStamps.length, 0, 'a report that fits is not stamped on sight');
-    await wait(1200);
-    assert.deepEqual(readStamps, ['/api/reports/r1/seen'], 'one second in view stamps it');
+    assert.deepEqual(readStamps, ['/api/reports/r1/seen']);
   });
 
-  await t.test("A report longer than the panel is not stamped while its end is out of reach, and the panel", async () => {
-    // A report longer than the panel is not stamped while its end is out of reach, and the panel is
-    // the element that scrolls, so its own position is what counts.
+  await t.test('Opening a long report stamps it before scrolling', async () => {
     state.reports = [{ id: 'r1', title: 'Long', updated_at: new Date().toISOString(), seen_at: null }];
     readStamps.length = 0;
     panel.scrollHeight = 900; panel.clientHeight = 300; panel.scrollTop = 0;
     get('#reports-tab').events.click();
     await tick(); await tick();
-    assert.equal(readStamps.length, 0, 'an unscrolled long report is not stamped');
-    panel.scrollTop = 600;
+    assert.deepEqual(readStamps, ['/api/reports/r1/seen']);
     panel.events.scroll();
     await tick();
-    assert.deepEqual(readStamps, ['/api/reports/r1/seen'], 'reaching the end stamps it at once');
+    assert.equal(readStamps.length, 1, 'scrolling does not repeat the stamp');
   });
 
-  await t.test("A report showing its end stays read when the last scroll event missed: the poll rechecks", async () => {
-    // State polls mark a report read when its end is visible, even if no scroll event fires.
-    state.reports = [{ id: 'r1', title: 'Long', updated_at: new Date().toISOString(), seen_at: null }];
+  await t.test('A poll keeps the open report read without another stamp', async () => {
     readStamps.length = 0;
-    panel.scrollHeight = 900; panel.clientHeight = 300; panel.scrollTop = 0;
-    get('#reports-tab').events.click();
-    await tick(); await tick();
-    assert.deepEqual(readStamps, [], 'an unscrolled long report is not stamped');
-    // The owner reaches the end, but no scroll event follows the position.
-    panel.scrollTop = 600;
     await refresh();
     await tick(); await tick();
-    assert.deepEqual(readStamps, ['/api/reports/r1/seen'],
-      'the poll stamps a report that shows its end');
+    assert.deepEqual(readStamps, []);
   });
 
-  await t.test("Sending answers reads the report, so the submission stamps the read too", async () => {
-    // An answered report is a read report, whatever the panel position says.
-    state.reports = [{ id: 'r1', title: 'Long', updated_at: new Date().toISOString(), seen_at: null }];
+  await t.test('Sending answers preserves the open report read stamp', async () => {
     readStamps.length = 0;
-    panel.scrollHeight = 900; panel.clientHeight = 300; panel.scrollTop = 0;
-    get('#reports-tab').events.click();
-    await tick(); await tick();
-    assert.deepEqual(readStamps, [], 'an unscrolled long report is not stamped yet');
     await get('#report-form').events.submit(event({}));
     await tick();
-    assert.deepEqual(readStamps, ['/api/reports/r1/seen'], 'a submission stamps the read');
+    assert.deepEqual(readStamps, [], 'a read report needs no duplicate stamp');
   });
 
-  await t.test("Leaving the tab before the dwell is over stamps nothing, so a flick past a short report do", async () => {
-    // Leaving the tab before the dwell is over stamps nothing, so a flick past a short report does
-    // not count as reading it.
+  await t.test('A report loaded after leaving the tab stays unread', async () => {
+    get('#notes-tab').events.click();
+    state.reports = [{ id: 'r1', title: 'Hidden', updated_at: new Date().toISOString(), seen_at: null }];
     readStamps.length = 0;
-    panel.scrollHeight = 400; panel.clientHeight = 400; panel.scrollTop = 0;
+    await refresh();
+    let release;
+    reportHtmlWait = new Promise(resolve => { release = resolve; });
     get('#reports-tab').events.click();
     await tick(); await tick();
+    assert.deepEqual(readStamps, [], 'pending report HTML is not read');
+    get('#notes-tab').events.click();
+    reportHtmlWait = null;
+    release();
+    await tick(); await tick();
+    assert.deepEqual(readStamps, [], 'a response after leaving the tab is not read');
+    get('#reports-tab').events.click();
+    await tick(); await tick();
+    assert.deepEqual(readStamps, ['/api/reports/r1/seen']);
     get('#notes-tab').events.click();
     await tick();
-    await wait(1200);
-    assert.equal(readStamps.length, 0, 'a report left before its dwell ends is not stamped');
+    assert.ok(state.reports[0].seen_at, 'leaving retains the completed read');
     get('#reports-tab').events.click();
-    await tick();
+    await tick(); await tick();
   });
 
-  await t.test('Marking a report read preserves its scroll position and clears its star', async () => {
-    // Mark the report read without replacing its content or changing its scroll position.
-    state.reports = [{ id: 'r1', title: 'Long', updated_at: new Date().toISOString(), seen_at: null }];
-    await refresh();
-    await tick();
-    assert.equal(get('#report-select').children.find(item => item.value === 'r1').textContent,
-      '1. * Long', 'an unseen report is starred before the stamp lands');
+  await t.test('A hidden page does not read automatically, but a submission keeps its fallback', async () => {
+    context.document.hidden = true;
+    try {
+      state.reports = [{ id: 'r1', title: 'Hidden page', updated_at: new Date().toISOString(), seen_at: null }];
+      readStamps.length = 0;
+      await refresh(); await tick(); await tick();
+      assert.deepEqual(readStamps, [], 'a hidden page has no automatic read stamp');
+      await get('#report-form').events.submit(event({}));
+      await tick();
+      assert.deepEqual(readStamps, ['/api/reports/r1/seen'], 'sending answers retains the read fallback');
+    } finally { context.document.hidden = false; }
+  });
+
+  await t.test('A failed read stamp waits for a later check before retrying', async () => {
+    state.reports = [{ id: 'r1', title: 'Retry', updated_at: new Date().toISOString(), seen_at: null }];
     readStamps.length = 0;
-    panel.scrollHeight = 900; panel.clientHeight = 300; panel.scrollTop = 600;
-    panel.events.scroll();
-    await tick();
-    assert.deepEqual(readStamps, ['/api/reports/r1/seen'], 'reaching the end stamps the report');
-    assert.equal(panel.scrollTop, 600, 'the stamp does not move the panel');
+    readStampFailures = 1;
+    await refresh(); await tick(); await tick();
+    assert.equal(readStamps.length, 1, 'the failed write must not loop through its own rollback');
+    assert.equal(state.reports[0].seen_at, null);
+    await refresh(); await tick(); await tick();
+    assert.equal(readStamps.length, 2, 'a later poll retries the failed stamp once');
+    assert.ok(state.reports[0].seen_at);
+  });
+
+  await t.test('Reading a refreshed report preserves its scroll and clears its star', async () => {
+    panel.scrollHeight = 900; panel.clientHeight = 300; panel.scrollTop = 450;
+    state.reports = [{ id: 'r1', title: 'Long', updated_at: new Date(Date.now() + 1000).toISOString(), seen_at: null }];
+    readStamps.length = 0;
+    await refresh();
+    await tick(); await tick();
+    assert.deepEqual(readStamps, ['/api/reports/r1/seen']);
+    assert.equal(panel.scrollTop, 450, 'the stamp does not move the panel');
     assert.equal(get('#report-select').children.find(item => item.value === 'r1').textContent,
-      '1. Long', 'the asterisk goes as soon as the stamp lands');
+      '1. Long', 'the read stamp clears the star');
     assert.equal(pip.hidden, true, 'the pip clears in place');
   });
 
@@ -2072,6 +2398,29 @@ test('preview client', async (t) => {
     assert.equal(inner.textContent, 'beta alpha', 'the nested text stands as it stood');
   });
 
+  await t.test("The search lights a match inside the agent reply block", async () => {
+    // The reply block rides on the row, so a query that matches only its words marks them there.
+    state.notes = [
+      { id: 'n1', text: 'plain', at: logStamp, acknowledged_at: logStamp,
+        ack_kind: 'note', ack_text: 'landed the delta fix' }
+    ];
+    await refresh();
+    await tick();
+    const answer = messageRow('n1').children[1];
+    const hits = node => node.children.filter(child =>
+      typeof child !== 'string' && child.className === 'search-hit');
+    get('#log-search').value = 'delta';
+    get('#log-search').events.input();
+    assert.equal(messageRow('n1').hidden, false, 'the row stays while its reply matches');
+    assert.equal(hits(answer.children[0]).length, 1, 'the match in the reply wears a mark');
+    assert.equal(hits(answer.children[0])[0].textContent, 'delta', 'the mark covers the match');
+    assert.equal(answer.children[0].textContent, 'landed the delta fix', 'the reply text stays whole');
+    get('#log-search').value = '';
+    get('#log-search').events.input();
+    assert.equal(hits(answer.children[0]).length, 0, 'clearing the box takes the reply mark back');
+    assert.equal(answer.children[0].textContent, 'landed the delta fix', 'the reply stands as it stood');
+  });
+
   await t.test("A longer search re-marks text that a shorter search marked", async () => {
     // The shorter search leaves a mark on "a". The longer search must still mark "alpha" whole.
     state.notes = [{ id: 'n1', text: 'Alpha beta', at: logStamp, acknowledged_at: null }];
@@ -2175,12 +2524,13 @@ test('preview client', async (t) => {
     state = {
       notes: [{ id: 'saved', text: 'cached here', at: new Date().toISOString(), acknowledged_at: null }],
       reports: [],
-      tasks: { finished: [], upcoming: [{ id: 'saved-task', title: 'Cached here', details: [],
+      tasks: { finished: [], upcoming: [{ type: 'unspecified', id: 'saved-task', title: 'Cached here', details: [],
         status: 'upcoming', order: 1, updated_at: new Date().toISOString() }] },
       last_check: null
     };
     await refresh();
     stateCopyButton = get('#copy-state');
+    const composerBeforeCopy = get('#send-status').textContent;
     cacheKey = [...storage.keys()].find(item => item.endsWith(':state-cache'));
     assert.ok(cacheKey, 'every successful poll caches the copy the state button copies');
     copied.length = 0;
@@ -2188,64 +2538,53 @@ test('preview client', async (t) => {
     await tick();
     assert.equal(copied.length, 1, 'the button copies the cache');
     assert.ok(copied[0].split('\n').filter(Boolean).length > 1, 'the copy carries note and task lines');
-    assert.equal(get('#send-status').textContent, 'Copied state as NDJSON.');
+    assert.equal(get('#send-status').textContent, composerBeforeCopy, 'copy success leaves composer feedback alone');
     assert.equal(stateCopyButton.dataset.state, 'good');
     storage.delete(cacheKey);
     copied.length = 0;
     stateCopyButton.events.click();
     await tick();
     assert.equal(copied.length, 1, 'the server export copies without a client cache');
-    assert.match(get('#send-status').textContent,
-      /^Copied state as NDJSON/);
+    assert.equal(get('#send-status').textContent, composerBeforeCopy, 'server export stays in its own control');
     state.copyStateFails = true;
     copied.length = 0;
     stateCopyButton.events.click();
     await new Promise(done => setTimeout(done, 1200));
     await tick();
     assert.equal(copied.length, 0, 'a down route copies nothing');
-    assert.equal(get('#send-status').textContent,
-      'The state route did not answer; nothing is copied.');
+    assert.equal(get('#send-status').textContent, composerBeforeCopy, 'copy failure leaves composer feedback alone');
+    assert.equal(stateCopyButton.dataset.state, 'bad', 'copy failure stays visible on its control');
     delete state.copyStateFails;
   });
 
-  await t.test("A page outlives the server that served it", async () => {
-    staleToken = true;
+  await t.test('Writes after a state refresh carry no page-token header', async () => {
     storage.set(cacheKey, JSON.stringify({ notes: state.notes, tasks: state.tasks }));
     sendHandler = async note => response({ ...note, at: new Date().toISOString() });
     sendNote = async text => {
       get('#note').value = text;
       await get('#form').events.submit(event({}));
     };
-  });
-
-  await t.test('A poll updates the server token without a page fetch', async () => {
-    // The poll supplies the new token without a page fetch or reload.
-    servedToken = 'token-two';
     sendsBefore = sent.length;
     fetchesBefore = pageFetches;
     await refresh();
     await sendNote('after the poll');
-    assert.equal(pageFetches, fetchesBefore, 'the poll already refreshed the token');
-    assert.equal(sent.length, sendsBefore + 1, 'the send lands on the token from the poll');
-    assert.equal(writeTokens.at(-1), 'token-two', 'the send carries the token the new server accepts');
+    assert.equal(pageFetches, fetchesBefore);
+    assert.equal(sent.length, sendsBefore + 1);
+    assert.equal(Object.hasOwn(writeHeadersSeen.at(-1), 'X-Preview-Token'), false);
   });
 
-  await t.test("Second net: a write refused before any poll re-reads the page for its token and tries once", async () => {
-    // A write refused before any poll reads the page token and retries once.
-    servedToken = 'token-three';
-    await sendNote('before any poll');
-    await tick();
-    assert.equal(pageFetches, fetchesBefore + 1, 'a refused write re-reads the page for its token');
-    assert.equal(sent.length, sendsBefore + 2, 'the write lands on the retry');
-    assert.equal(writeTokens.at(-1), 'token-three', 'the retry carries the token the new server accepts');
-    staleToken = false;
-  });
-
-  await t.test("Give the page back the token its own page carried, so a later test that writes does not", async () => {
-    // Give the page back the token its own page carried, so a later test that writes does not
-    // inherit this one's stand-in token. The poll is what hands it over.
-    servedToken = '__TOKEN__';
-    await refresh();
+  await t.test('HTTP 401 and 403 keep the draft without fetching a replacement page', async () => {
+    for (const status of [401, 403]) {
+      sendHandler = async () => ({ ok: false, status, text: async () => JSON.stringify({ error: 'Access denied' }) });
+      const before = sent.length;
+      const pages = pageFetches;
+      const draft = `refused ${status}`;
+      await sendNote(draft);
+      assert.equal(sent.length, before + 1, 'a refused write is not retried');
+      assert.equal(pageFetches, pages, 'a refused write does not fetch the page');
+      assert.equal(get('#note').value, draft);
+    }
+    sendHandler = async note => response({ ...note, at: new Date().toISOString() });
   });
 
   await t.test("The fixture above is this test's own; later tests read the state that was live before it", async () => {
@@ -2491,6 +2830,29 @@ test('preview client', async (t) => {
       state.reports = keptReports;
       await refresh();
       get('#report-select').value = keptSelect;
+    }
+  });
+
+  await t.test('Explicit jump scrolling follows the current reduced-motion preference', () => {
+    const history = get('#history');
+    const panel = get('#reports-panel');
+    const saved = [history.scrollTop, history.scrollHeight, panel.scrollTop, history.lastScroll, panel.lastScroll];
+    try {
+      for (const reduce of [false, true]) {
+        reducedMotion = reduce;
+        history.scrollHeight = Math.max(history.scrollHeight, history.clientHeight + 1);
+        get('#log-newest').events.click();
+        assert.ok(history.lastScroll, 'the explicit jump must use the native scrolling API');
+        assert.equal(history.lastScroll.top, history.scrollHeight);
+        assert.equal(history.lastScroll.behavior, reduce ? 'auto' : 'smooth');
+        get('#report-top').events.click();
+        assert.ok(panel.lastScroll);
+        assert.equal(panel.lastScroll.top, 0);
+        assert.equal(panel.lastScroll.behavior, reduce ? 'auto' : 'smooth');
+      }
+    } finally {
+      reducedMotion = false;
+      [history.scrollTop, history.scrollHeight, panel.scrollTop, history.lastScroll, panel.lastScroll] = saved;
     }
   });
 
@@ -2741,7 +3103,7 @@ test('preview client', async (t) => {
     assert.deepEqual(uploadCalls[0].files, [first, thirdFile, second]);
     assert.equal(uploadCalls[0].text, 'Please review all attachments');
     assert.equal(uploadCalls[0].contentType, undefined, 'the browser supplies the multipart boundary');
-    assert.equal(uploadCalls[0].token, '__TOKEN__');
+    assert.equal(Object.hasOwn(uploadCalls[0].headers, 'X-Preview-Token'), false);
     assert.equal(sent.length, sendsBeforeFile, 'no separate upload notification note is posted');
     assert.equal(get('#staged-files').hidden, false, 'an unconfirmed response keeps every staged file');
     assert.match(get('#send-status').textContent, /^Save not confirmed:/);
@@ -2780,7 +3142,7 @@ test('preview client', async (t) => {
     assert.equal(uploadCalls.length, calls + 2, 'exactly one replay follows the drop');
     assert.equal(uploadCalls.at(-1).id, uploadCalls.at(-2).id, 'the replay keeps the note ID');
     assert.deepEqual(uploadCalls.at(-1).files.map(file => file.name), ['retry.bin']);
-    assert.match(get('#send-status').textContent, /^Saved /);
+    assert.equal(get('#send-status').textContent, '', 'a confirmed upload leaves no routine success footer');
     assert.equal(state.notes.length, notes + 1, 'the replay writes no second note');
     assert.equal(get('#staged-files').hidden, true, 'a saved note clears its chips');
   });
@@ -2894,6 +3256,46 @@ test('preview client', async (t) => {
       get('#send').disabled = false;
       for (const chip of get('#staged-files').children.slice()) await chip.children[1].events.click();
     }
+  });
+
+  await t.test('Ctrl+Shift+V keeps long clipboard text out of attachments without changing normal paste', async () => {
+    const composer = get('#compose');
+    const draft = get('#note').value;
+    const before = chips();
+    const text = 'long clipboard line\n'.repeat(50);
+    const pasted = () => event({ clipboardData: { files: [], getData: () => text } });
+    const shortcut = () => event({ key: 'V', ctrlKey: true, shiftKey: true });
+    const clear = async () => {
+      for (const chip of get('#staged-files').children.slice()) await chip.children[1].events.click();
+    };
+    assert.equal(typeof composer.events.keydown, 'function');
+    const key = shortcut();
+    composer.events.keydown(key);
+    const plain = pasted();
+    composer.events.paste(plain);
+    assert.equal(key.prevented, undefined, 'the native paste shortcut stays available');
+    assert.equal(plain.prevented, undefined, 'the browser inserts plain text');
+    assert.deepEqual(chips(), before, 'plain-text paste stages no file');
+    assert.equal(get('#note').value, draft, 'the handler does not replace the draft');
+    try {
+      const normal = pasted();
+      composer.events.paste(normal);
+      assert.equal(normal.prevented, true, 'the shortcut applies to one paste only');
+      assert.ok(chips().length > before.length);
+      await clear();
+      for (const cancel of [
+        () => composer.events.keyup(event({ key: 'Shift' })),
+        () => composer.events.focusout(event({})),
+        () => composer.events.keydown(event({ key: 'x', ctrlKey: false, shiftKey: false })),
+      ]) {
+        composer.events.keydown(shortcut());
+        cancel();
+        const next = pasted();
+        composer.events.paste(next);
+        assert.equal(next.prevented, true, 'an abandoned shortcut does not affect a later paste');
+        await clear();
+      }
+    } finally { await clear(); }
   });
 
   await t.test("The queue records per-job opt-in and a browser worker claims one URL at a time", async () => {
@@ -3045,19 +3447,19 @@ test('preview client', async (t) => {
     await waitFor(() => state.fetch_jobs[0]?.status === 'saved');
     assert.notEqual(streamBehavior.cancelled, true);
 
-    // Approved agent and legacy jobs must still enforce both byte checks.
+    // Approved agent and legacy jobs also pass the old byte thresholds.
     for (const [suffix, behavior] of [['declared', { declared: 102_400_001 }], ['stream', { chunks: [{ byteLength: 102_400_001 }] }]]) {
       const url = `https://files.example.org/agent-${suffix}.bin`;
       remoteBehaviors.set(url, behavior);
-      state.fetch_jobs.unshift({ id: `agent-${suffix}`, url, origin: suffix === 'declared' ? 'agent' : undefined, status: 'queued', approval: 'approved', allow_proxy: true });
+      state.fetch_jobs.unshift({ id: `agent-${suffix}`, url, origin: suffix === 'declared' ? 'agent' : undefined, status: 'queued', approval: 'approved', allow_proxy: true, error: null });
       callsBeforeLimit = remoteCalls.length;
       resultsBeforeLimit = resultCalls.length;
       await refresh();
-      await waitFor(() => state.fetch_jobs[0]?.status === 'failed');
+      await waitFor(() => state.fetch_jobs[0]?.status === 'saved');
       assert.equal(remoteCalls.length, callsBeforeLimit + 1);
-      assert.equal(resultCalls.length, resultsBeforeLimit);
-      assert.match(state.fetch_jobs[0].error, /102,400,000 bytes/);
-      if (suffix === 'stream') assert.equal(behavior.cancelled, true);
+      assert.equal(resultCalls.length, resultsBeforeLimit + 1);
+      assert.equal(state.fetch_jobs[0].error, null);
+      if (suffix === 'stream') assert.notEqual(behavior.cancelled, true);
     }
     lost = 'https://files.example.org/lost.bin';
     remoteBehaviors.set(lost, { chunks: [Uint8Array.from([1])] });
@@ -3158,11 +3560,19 @@ test('preview client', async (t) => {
         replies: [{ kind: 'reply', text: 'Second answer', at: '2026-10-13T03:02:00' }] }];
       await refresh();
       replySeenWait = new Promise(resolve => { release = resolve; });
+      const destination = get('#history').children[0].children[1];
+      const historyReplacements = get('#history').replacements;
       pendingWrite = get('#log-edited').events.click();
+      assert.equal(get('#history').replacements, historyReplacements, 'keep the focused answer attached during the optimistic render');
+      assert.equal(destination.dataset.highlight, 'true', 'highlight the reached answer before its write completes');
+      assert.equal(destination.scrolledIntoView, true);
+      assert.equal(destination.focused, true);
       assert.equal(get('#log-edited').hidden, true, 'do not wait for the server receipt');
       assert.equal(get('#notes-pip').hidden, true);
       await refresh();
       assert.equal(get('#log-edited').hidden, true, 'a pending write survives a refresh');
+      assert.equal(destination.dataset.highlight, 'true', 'a poll preserves the destination highlight');
+      assert.equal(get('#history').replacements, historyReplacements, 'a poll must not detach the focused answer');
       state.notes[0].replies.push({ kind: 'reply', text: 'Newer answer', at: '2026-10-13T03:03:00' });
       state.notes[0].ack_edited_at = '2026-10-13T03:03:00';
       await refresh();
@@ -3171,12 +3581,15 @@ test('preview client', async (t) => {
       await pendingWrite;
       replySeenWait = null;
       assert.equal(get('#log-edited').hidden, false, 'the old receipt cannot clear a newer reply');
+      const composerBeforeReplyFailure = get('#send-status').textContent;
       replySeenError = true;
       const failed = get('#log-edited').events.click();
       assert.equal(get('#log-edited').hidden, true);
       await failed;
       assert.equal(get('#log-edited').hidden, false, 'a failed write restores the indicator');
-      assert.match(get('#send-status').textContent, /Could not save reply status/);
+      assert.equal(get('#send-status').textContent, composerBeforeReplyFailure, 'reply feedback stays outside the composer');
+      assert.match(get('#log-edited').title, /Write failed/, 'the reply control retains its failure detail');
+      assert.match(get('#log-edited').getAttribute('aria-label'), /Write failed/, 'the reply failure has an accessible label');
       replySeenError = false;
       await get('#log-edited').events.click();
       assert.equal(get('#log-edited').hidden, true);
@@ -3221,7 +3634,11 @@ test('preview client', async (t) => {
     history.scrollTop = 600;
     history.events.scroll();
     const scrollIntoView = answer.scrollIntoView.bind(answer);
-    answer.scrollIntoView = () => { scrollIntoView(); history.scrollTop = 240; };
+    answer.scrollIntoView = options => {
+      assert.equal(options.behavior, 'smooth', 'New reply scrolls with animation');
+      assert.equal(get('#log-edited').hidden, true, 'render the optimistic receipt before starting the animation');
+      scrollIntoView(); history.scrollTop = 240;
+    };
     const replaceChildren = history.replaceChildren.bind(history);
     history.replaceChildren = (...children) => { replaceChildren(...children); history.scrollTop = 0; };
     try {
@@ -3234,6 +3651,65 @@ test('preview client', async (t) => {
     } finally {
       history.replaceChildren = replaceChildren;
       answer.scrollIntoView = scrollIntoView;
+    }
+  });
+
+  await t.test('Old-message jumps mount their target and honor reduced motion', async () => {
+    const history = get('#history');
+    try {
+      for (const reduce of [false, true]) {
+        reducedMotion = reduce;
+        const id = `old-jump-${reduce}`;
+        state = {
+          notes: [{ id, text: 'Old question', at: '2026-10-13T03:00:00',
+            acknowledged_at: '2026-10-13T03:01:00', ack_kind: 'reply', ack_text: 'First answer',
+            ack_edited_at: '2026-10-13T03:02:00', ack_edited_seen_count: 0,
+            replies: [{ kind: 'reply', text: 'Later answer', at: '2026-10-13T03:02:00' }] }],
+          reports: [], tasks: { upcoming: [], finished: [] }, fetch_jobs: [], last_check: null
+        };
+        get('#log-search').value = '';
+        get('#log-search').events.input();
+        await refresh();
+        const row = history.children.find(item => item.children[2].children[0].dataset.full === id);
+        const answer = row.children[1];
+        answer.scrollIntoView = options => {
+          assert.equal(history.contains(answer), true);
+          assert.equal(options.behavior, reduce ? 'auto' : 'smooth', 'mounted New reply honors motion settings');
+        };
+        await get('#log-edited').events.click();
+        state.notes[0].replies.push({kind: 'reply', text: 'Newest answer', at: '2026-10-13T03:03:00'});
+        state.notes.push(...Array.from({length: reduce ? 1000 : 500}, (_, index) => ({
+          id: `later-${reduce}-${index}`, text: 'Later question', at: '2026-10-13T03:03:00'
+        })));
+        await refresh();
+        assert.equal(history.contains(row), false, 'the old target starts outside the mounted window');
+        answer.scrollIntoView = options => {
+          assert.equal(history.contains(answer), true, 'mount before scrolling the reply');
+          assert.equal(options.behavior, reduce ? 'auto' : 'smooth');
+          answer.scrolledIntoView = true;
+        };
+        await get('#log-edited').events.click();
+        assert.equal(history.contains(row), true);
+        assert.equal(answer.scrolledIntoView, true);
+        assert.equal(answer.focused, true);
+        assert.equal(answer.dataset.highlight, 'true');
+
+        // Follow another old row through its reference.
+        const referenceId = `reference-${reduce}`;
+        state.notes.unshift({id: referenceId, text: 'Referenced question', at: '2026-10-13T02:00:00'});
+        await refresh();
+        assert.equal(history.children.some(item => item.children[2].children[0].dataset.full === referenceId), false);
+        const target = new Element();
+        target.className = 'ack-reference';
+        target.dataset = {referenceType: 'note', referenceId};
+        documentEvents.click({target, preventDefault() {}});
+        const reference = history.children.find(item => item.children[2].children[0].dataset.full === referenceId);
+        assert.ok(reference, 'a reference reveals its old message');
+        assert.equal(reference.scrolledIntoView, true);
+        assert.equal(reference.focused, true);
+      }
+    } finally {
+      reducedMotion = false;
     }
   });
 
@@ -3251,8 +3727,8 @@ test('preview client', async (t) => {
       ],
       tasks: {
         upcoming: [
-          { id: 'task-ref', title: 'Linked task', details: [], status: 'upcoming', order: 1 },
-          { id: 'duplicate-ref', title: 'Duplicate task', details: [], status: 'upcoming', order: 2 }
+          { type: 'unspecified', id: 'task-ref', title: 'Linked task', details: [], status: 'upcoming', order: 1 },
+          { type: 'unspecified', id: 'duplicate-ref', title: 'Duplicate task', details: [], status: 'upcoming', order: 2 }
         ],
         finished: [], updated_at: '2026-09-22T12:00:00'
       },
@@ -3382,6 +3858,7 @@ test('preview client', async (t) => {
   await t.test('Skip poll toggles one flag, and a poll consumes the arm', async () => {
     // The press must write no note: the agent reads the flag, ends its wait, and no stale
     // "skip poll" line waits in the log for a later turn to misread.
+    const composerBeforeSkip = get('#send-status').textContent;
     state.skip_poll = null;
     await refresh();
     assert.equal(get('#skip-poll').getAttribute('aria-pressed'), 'false');
@@ -3395,7 +3872,7 @@ test('preview client', async (t) => {
     assert.equal(get('#skip-poll').getAttribute('aria-pressed'), 'true');
     assert.equal(get('#skip-poll').dataset.state, 'good');
     assert.match(get('#skip-poll').getAttribute('aria-label'), /^Skip poll armed /);
-    assert.equal(get('#send-status').textContent, 'Skip poll armed; the agent ends its wait now.');
+    assert.equal(get('#send-status').textContent, composerBeforeSkip, 'arming Skip poll leaves composer feedback alone');
     // A second press clears the flag, so the owner can take the skip back.
     get('#skip-poll').events.click();
     await tick();
@@ -3403,7 +3880,7 @@ test('preview client', async (t) => {
     assert.equal(get('#skip-poll').getAttribute('aria-pressed'), 'false');
     assert.equal(get('#skip-poll').dataset.state, '');
     assert.equal(get('#skip-poll').getAttribute('aria-label'), 'Ask the agent to end its wait now');
-    assert.equal(get('#send-status').textContent, 'Skip poll cleared; the agent keeps waiting.');
+    assert.equal(get('#send-status').textContent, composerBeforeSkip, 'clearing Skip poll leaves composer feedback alone');
     // An armed flag ends the wait, and the next state paints the button unarmed again.
     get('#skip-poll').events.click();
     await tick();
@@ -3412,14 +3889,26 @@ test('preview client', async (t) => {
     await refresh();
     assert.equal(get('#skip-poll').getAttribute('aria-pressed'), 'false');
     assert.equal(get('#skip-poll').dataset.state, '');
+    failedWrites.add('/api/skip-poll');
+    try {
+      await get('#skip-poll').events.click();
+      assert.equal(get('#send-status').textContent, composerBeforeSkip, 'Skip poll errors stay outside the composer');
+      assert.equal(get('#skip-poll').dataset.state, 'bad', 'the failed control remains visible');
+      assert.match(get('#skip-poll').title, /Write failed/);
+      assert.match(get('#skip-poll').getAttribute('aria-label'), /Write failed/);
+    } finally {
+      failedWrites.delete('/api/skip-poll');
+      await get('#skip-poll').events.click();
+      await get('#skip-poll').events.click();
+    }
   });
   await t.test("Quoting a task title leaves the row tooltip on the task ID", async () => {
     const priorTasks = state.tasks;
     state.tasks = {
       upcoming: [
-        { id: 'head-filler', title: 'Head filler', details: [], status: 'upcoming',
+        { type: 'unspecified', id: 'head-filler', title: 'Head filler', details: [], status: 'upcoming',
           order: 1, updated_at: new Date().toISOString() },
-        { id: 'hover-stays', title: 'Hover stays', details: [], status: 'upcoming',
+        { type: 'unspecified', id: 'hover-stays', title: 'Hover stays', details: [], status: 'upcoming',
           order: 2, updated_at: new Date().toISOString() }
       ],
       finished: [],
@@ -3429,7 +3918,7 @@ test('preview client', async (t) => {
     try {
       const body = get('#tasks-upcoming-body');
       const row = body.children.find(item => item.title === 'hover-stays');
-      const title = row.children[0];
+      const title = taskPart(row, 'task-title');
       assert.equal(title.className, 'task-title');
       documentEvents.click({ target: title, preventDefault: () => {} });
       assert.equal(get('#note').value.startsWith('RE: hover-stays'), true, 'the quote still lands');
@@ -3541,10 +4030,13 @@ test('preview client', async (t) => {
       assert.equal(get('#fetch-url').value, 'https://example.test/new-job.txt', 'failure keeps the URL');
       pendingWrites.clear(); failedWrites.clear();
 
+      const readySendLabel = get('#send').textContent;
       get('#note').value = 'Pending draft stays safe';
       hold('/api/notes');
       writing = get('#form').events.submit(event({}));
       assert.equal(get('#note').value, '', 'submission clears before the pending message renders');
+      assert.equal(get('#send').disabled, true, 'Send stays locked during a save');
+      assert.equal(get('#send').textContent, get('#send').dataset.busyLabel, 'the pending label names the active save');
       assert.ok(get('#history').children.some(row => row.textContent.includes('Pending draft stays safe')));
       await refresh();
       assert.ok(get('#history').children.some(row => row.textContent.includes('Pending draft stays safe')));
@@ -3552,6 +4044,8 @@ test('preview client', async (t) => {
       release(); await writing;
       assert.equal(get('#history').children.some(row => row.textContent.includes('Pending draft stays safe')), false);
       assert.equal(get('#note').value, 'Pending draft stays safe', 'failure keeps the message draft');
+      assert.equal(get('#send').disabled, false);
+      assert.equal(get('#send').textContent, readySendLabel, 'failure restores the ready label');
       pendingWrites.clear(); failedWrites.clear();
 
       const nextDraft = 'A new draft while a message is pending';
@@ -3575,6 +4069,8 @@ test('preview client', async (t) => {
       get('#note').events.input();
       release(); await writing;
       assert.equal(get('#note').value, repeatedDraft, 'confirmation keeps a newly typed identical draft');
+      assert.equal(get('#send').disabled, false);
+      assert.equal(get('#send').textContent, readySendLabel, 'success restores the ready label');
       pendingWrites.clear(); failedWrites.clear();
 
       get('#note').value = 'The submitted draft';
@@ -3660,6 +4156,33 @@ test('preview client', async (t) => {
   });
 
 
+  await t.test('Highlights use safe Markdown tokens and leave code and destinations literal', () => {
+    const render = context.renderMessageMarkdown;
+    for (const [source, expected] of [
+      ['==safe==', '<mark>safe</mark>'],
+      ['==one **two**==', '<mark>one <strong>two</strong></mark>'],
+      ['**==safe==**', '<strong><mark>safe</mark></strong>'],
+      ['==one ~~gone~~==', '<mark>one <s>gone</s></mark>'],
+      ['==[safe](https://example.com)==', '<mark><a href="https://example.com"'],
+      ['==<script>alert(1)</script>==', '<mark>&lt;script&gt;alert(1)&lt;/script&gt;</mark>'],
+    ]) {
+      const html = render(source);
+      assert.ok(html.includes(expected), source);
+      assert.ok(!html.includes('<script>'), 'raw HTML stays escaped');
+    }
+    for (const source of ['`==code==`', '```text\n==code==\n```', String.raw`\==literal==`,
+      '== unmarked ==', '==unclosed', '====', '[label](https://example.com/==file==)']) {
+      assert.ok(!render(source).includes('<mark>'), source);
+    }
+    const unsafe = render('==[bad](javascript:alert(1))==');
+    assert.ok(unsafe.includes('<mark>'));
+    assert.ok(!unsafe.includes('href='));
+    const image = render('==text== ![image](https://example.com/image.png =20x10)');
+    assert.ok(image.includes('<mark>text</mark>'));
+    assert.ok(image.includes('<img src="https://example.com/image.png"'));
+    assert.ok(image.includes('width="20" height="10"'));
+  });
+
   await t.test('Successful message receipts retain Markdown until the state poll', async () => {
     const keptState = state;
     const keptSendHandler = sendHandler;
@@ -3703,29 +4226,121 @@ test('preview client', async (t) => {
     }
   });
 
+
+  await t.test('The header interrupt carries context without a note or a dialog', async () => {
+    const keptState = state;
+    const notesBefore = sent.length;
+    const draft = get('#note').value;
+    state = { ...state, reports: [{ id: 'context-report', title: 'Context',
+      updated_at: new Date().toISOString(), seen_at: new Date().toISOString() }],
+      tasks: { finished: [], upcoming: [{ id: 'current-work', title: 'Current work',
+        status: 'upcoming', order: 1, details: [] }] }, agent_interrupt_pending: false };
+    try {
+      get('#notes-tab').events.click();
+      await refresh(); await tick();
+      const button = get('#agent-interrupt');
+      assert.equal(typeof button.events.click, 'function');
+      assert.equal(button.getAttribute('aria-pressed'), 'false');
+      let release;
+      pendingWrites.set('/api/agent-interrupt', new Promise(resolve => { release = resolve; }));
+      const pending = button.events.click();
+      assert.equal(button.disabled, true);
+      assert.equal(button.getAttribute('aria-busy'), 'true');
+      const busyNode = button.children.at(-1);
+      const busyIcon = busyNode?.getAttribute('class');
+      await refresh();
+      assert.equal(button.children.at(-1), busyNode, 'a poll does not restart the loader');
+      await button.events.click();
+      release();
+      pendingWrites.delete('/api/agent-interrupt');
+      await pending;
+      assert.equal(interruptCalls.length, 1, 'a repeated busy press sends no second request');
+      assert.equal(busyIcon, 'lucide lucide-loader-circle', 'a pending write uses the Lucide loader, not the flag');
+      assert.equal(button.children.at(-1)?.getAttribute('class'), 'lucide lucide-flag', 'the flag returns after the write');
+      assert.equal(interruptCalls.at(-1).tab, 'notes');
+      assert.equal(button.getAttribute('aria-pressed'), 'true');
+      assert.equal(button.getAttribute('aria-busy'), 'false');
+      assert.equal(button.dataset.state, 'bad', 'the server-reported pending flag is red');
+      assert.equal(button.disabled, false);
+      assert.equal(interruptCalls.at(-1).armed, true, 'the request explicitly arms the flag');
+      await button.events.click();
+      assert.equal(interruptCalls.at(-1).armed, false, 'a second press explicitly disarms the flag');
+      assert.equal(button.getAttribute('aria-pressed'), 'false');
+      assert.equal(state.agent_interrupt_pending, false);
+      await button.events.click();
+      assert.equal(button.getAttribute('aria-pressed'), 'true', 'a cleared flag can be armed again');
+      state.agent_interrupt_pending = false;
+      await refresh();
+      assert.equal(button.getAttribute('aria-pressed'), 'false', 'the hook consumption clears the button');
+      assert.equal(button.dataset.state, '');
+      get('#reports-tab').events.click();
+      await tick(); await tick();
+      const selected = get('#report-select').value;
+      const reportStatus = get('#report-status').textContent;
+      await button.events.click();
+      assert.equal(interruptCalls.at(-1).tab, 'reports');
+      assert.equal(interruptCalls.at(-1).report_id, selected);
+      assert.equal(get('#report-select').value, selected);
+      assert.equal(get('#report-status').textContent, reportStatus, 'the action has no report status line');
+      state.agent_interrupt_pending = false;
+      await refresh();
+      get('#tasks-tab').events.click();
+      await button.events.click();
+      assert.equal(interruptCalls.at(-1).tab, 'tasks');
+      assert.equal(interruptCalls.at(-1).armed, true);
+      failedWrites.add('/api/agent-interrupt');
+      await button.events.click();
+      assert.equal(button.getAttribute('aria-pressed'), 'true', 'a refused disarm retains the pending flag');
+      failedWrites.delete('/api/agent-interrupt');
+      await button.events.click();
+      assert.equal(button.getAttribute('aria-pressed'), 'false', 'a refused disarm can be retried');
+      assert.equal(sent.length, notesBefore, 'the action writes no note');
+      assert.equal(get('#note').value, draft, 'the action keeps the composer draft');
+      state.agent_interrupt_pending = false;
+      await refresh();
+      failedWrites.add('/api/agent-interrupt');
+      await button.events.click();
+      assert.equal(button.disabled, false, 'a failed request can be retried');
+      assert.equal(button.children.at(-1).getAttribute('class'), 'lucide lucide-flag', 'a failed write restores the flag');
+      assert.equal(button.getAttribute('aria-busy'), 'false');
+      assert.equal(button.getAttribute('aria-pressed'), 'false');
+      assert.match(button.title, /Write failed/);
+    } finally {
+      pendingWrites.delete('/api/agent-interrupt');
+      failedWrites.delete('/api/agent-interrupt');
+      state = keptState;
+      await refresh();
+    }
+  });
+
 });
 
 test('the phone footer keeps Send beside a long status', () => {
   // The stacked key and status lines must shrink inside the footer row, so a long staged-files
   // line wraps within its own column and never pushes the Send note button onto a line of its own.
   const css = fs.readFileSync(path.join(__dirname, '../assets/style.css'), 'utf8');
-  const rule = /\.compose \.row > \.stack {[^}]*}/.exec(css);
+  const rule = /\.compose\s+\.row\s*>\s*\.stack\s*{[^}]*}/.exec(css);
   assert.ok(rule, 'the footer stack has its own rule');
-  assert.match(rule[0], /flex: 1 1 0\b/, 'the status stack starts from zero width so Send stays on its line');
+  assert.match(rule[0], /flex:\s*1\s+1\s+0\b/, 'the status stack starts from zero width so Send stays on its line');
 });
 
 test('a wide table scrolls sideways on its own and keeps its words whole', () => {
   // Report and message text can wrap anywhere. Each table scrolls independently, as on GitHub.
   // Cells wrap only between words, so longer words stay whole.
   const css = fs.readFileSync(path.join(__dirname, '../assets/style.css'), 'utf8');
-  const table = /\.report table, \.message-text table {[^}]*}/.exec(css);
-  assert.ok(table, 'the tables have their own rule');
-  for (const part of ['display: block', 'width: max-content', 'max-width: 100%', 'overflow-x: auto']) {
-    assert.ok(table[0].includes(part), `the table rule sets ${part}`);
+  const rules = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)];
+  const body = selector => {
+    const rule = rules.find(match => match[1].split(',').some(name => name.trim() === selector));
+    assert.ok(rule, `${selector} has a rule`);
+    return rule[2];
+  };
+  for (const selector of ['.report table', '.message-text table']) {
+    for (const [property, value] of [['display', 'block'], ['width', 'max-content'], ['max-width', '100%'], ['overflow-x', 'auto']]) {
+      assert.match(body(selector), new RegExp(`(?:^|;)\\s*${property}:\\s*${value}\\s*(?:;|$)`));
+    }
   }
-  for (const cells of [/\.report th, \.report td {[^}]*}/, /\.message-text th, \.message-text td {[^}]*}/]) {
-    const rule = cells.exec(css);
-    assert.ok(rule && rule[0].includes('overflow-wrap: normal'), `${cells.source} keeps words whole`);
+  for (const selector of ['.report th', '.report td', '.message-text th', '.message-text td']) {
+    assert.match(body(selector), /(?:^|;)\s*overflow-wrap:\s*normal\s*(?:;|$)/);
   }
 });
 
@@ -3760,4 +4375,28 @@ test('the toolbar and filter controls share the ui control sizes', () => {
   const fetchRule = rules.find(match => match[1].trim() === '.fetch-controls input');
   assert.equal(heightOf(fetchRule[2]), heightOf(searchRule[2]),
     'the downloads input height follows the message search height');
+});
+
+
+test('scroll fades grow over a longer distance than their maximum depth', () => {
+  const css = fs.readFileSync(path.join(__dirname, '../assets/style.css'), 'utf8');
+  const lengths = new Map([...css.matchAll(/--(edge-fade|edge-ramp):\s*([\d.]+)px/g)]
+    .map(([, name, value]) => [name, Number(value)]));
+  assert.ok(lengths.get('edge-ramp') > lengths.get('edge-fade'), 'the scroll ramp must be longer than the fade depth');
+  const ranges = [...css.matchAll(/animation-timeline:\s*(?:auto,\s*)?scroll\(self\),\s*scroll\(self\);\s*animation-range:\s*([^;]+);/g)]
+    .map(match => match[1]);
+  assert.ok(ranges.length > 0);
+  for (const range of ranges) {
+    assert.ok(range.includes('var(--edge-ramp)'), 'all scrollable ranges use the longer ramp');
+    assert.equal(range.includes('var(--edge-fade)'), false, 'maximum mask depth does not set ramp distance');
+  }
+});
+
+test('the queue end uses an accented line without an end card', () => {
+  const css = fs.readFileSync(path.join(__dirname, '../assets/style.css'), 'utf8');
+  assert.doesNotMatch(css, /\.task-drop-end/);
+  const hit = css.match(/\.task-list\[data-dragging\]\s*\{[^}]*padding-bottom:\s*(\d+)px/);
+  assert.ok(hit && px(hit[1]) > 0, 'the list keeps an end-drop hit region during a drag');
+  const line = css.match(/\.task-list\[data-drop\]\s*\{[^}]*box-shadow:\s*inset\s+0\s+(-?\d+)px/);
+  assert.ok(line && Number(line[1]) < 0, 'the accented line marks the list bottom');
 });

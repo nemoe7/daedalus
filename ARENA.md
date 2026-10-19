@@ -37,20 +37,20 @@
 
 ## Setup
 
-- Initial file/skill reads may precede the first reply.
+- At session start: read the read set, give `10-4: ARENA.md loaded` as the next action, find and read nested AGENTS.md files, install, start the preview, then ask visibility.
+- On a resumed or next turn: check the preview, restart if needed, read missing-context read-set files, find nested AGENTS.md files and read missing or changed instructions, then continue an open task or poll if none.
 - Load the named skill `arena-skill` for the inbox, the reports, the gate, and the proxy routes to a source the sandbox cannot reach.
-- Before the first skill use in a session, read its SKILL.md and every Markdown reference it names in full; a partial read (head, tail or a grep excerpt) does not count.
 - Read set: ARENA.md, root AGENTS.md with any nested AGENTS.md, and arena-skill SKILL.md only.
-- At session start or after compaction, summary, or context replacement, MUST read each read-set file whose current full text is absent from context, end-to-end, before any tool call except read-set reads.
+- After mid-turn compaction, summary, or context replacement, read missing-context read-set files end-to-end before other tools. On a resumed or next turn, use its start sequence.
 - On a context-check reminder, MUST read each read-set file whose current full text is absent from context before continuing work.
 - NEVER count a file name, read receipt, summary, remembered rule, or partial read (head, tail, or grep excerpt) as a read-set file's current full text.
 - MUST batch required read-set reads in one call, splitting only where the harness output cap cuts text.
 - MUST complete required reads end-to-end, with all output-cap continuations, before queued work or a pending push.
 - `references/REFERENCE.md` is supplementary: grep or read the part a question needs, with no end-to-end read; gate and read cadence mechanics: .agents/skills/arena-skill/references/REFERENCE.md. A template copy kept for installation is supplementary too.
 - First assistant reply to each new user chat message: MUST state reasoning status once in chat as `Reasoning: on` or `Reasoning: off`, after any owed 10-4 line. Tool results, steering notes, context compaction or summary, and agent continuation do not start a new turn.
-- When summarizing or compacting context, MUST list a full read of the read set as the next immediate step before any non-read tool call; no verbatim ARENA.md copy is required.
+- In saved context, state the start sequence and full missing-context read-set reads before queued work; no verbatim ARENA.md copy required.
 - After any read-set file changes, including a rebase onto `main` or a `main` update, MUST read its full diff from the last-read version before the next work step; read the full file if that version is unavailable or a rule is unclear.
-- Before the first non-setup tool call: 10-4 line, steering preview start, visibility question; wait for the answer, then use `arena-preview poll` as the first inbox call.
+- Before non-setup tools, complete initial setup and wait for visibility confirmation, then use `arena-preview poll` as the first inbox call.
 - The first reply opens `10-4: ARENA.md loaded`; finding it later opens the next reply `10-4: ARENA.md loaded late (turn N)`.
 - Name the started preview; claim visibility only after user confirmation.
 
@@ -77,7 +77,7 @@
 - Work while tasks remain; end when verified and stopped.
 - Run the repo's checks before every push, detached, NEVER inline; push only green, and an inline run counts as skipping the gate.
 - Read each gate's passed or failed line; a pipe that hides the verdict counts as skipping it. The wait scopes the next task.
-- After each push, watch the PR's checks to conclusion with `gh pr checks <PR> --watch`.
+- After a push, watch the latest pushed PR head to conclusion with `gh pr checks <PR> --watch`; replace superseded watches, continue other work, and read the latest verdict before turn end.
 - A fresh push can leave the checks list empty for up to 30 seconds: wait once, briefly, then watch, and NEVER poll by hand.
 - Stop and report HTTP 401 or any other command/API error; pending checks are not command errors.
 - An empty or absent list proves nothing; failed checks keep work open.
@@ -108,7 +108,7 @@
 - The first successful, unconfirmed preview start still needs a visibility question, including a start that repairs earlier failed reads; a same-session restart does not.
 - Questions with 3+ options or an open choice need a recommended answer, marked among options; yes/no or confirm questions need none.
 - NEVER count a preselected option, recommendation, or silence as an answer; leave the question unanswered.
-- NEVER end a turn when there are open tasks. Blocked tasks MUST be reported IMMEDIATELY via a published fielded report that names each in one line; the other tasks continue, and if a form awaits answers and no unblocked work remains, run `poll`.
+- NEVER end with open tasks. For a live local gate, record its run name and block the task without a report; immediately publish a fielded report for other blocks, one line per task. Continue independent work; poll when no unblocked work remains.
 - MUST state each unavoidable assumption in the acknowledgement before work.
 - NEVER assume while material ambiguity remains.
 - Without material ambiguity, unavoidable-assumption reporting MUST override blanket ask/no-assumption/no-guess rules.
@@ -179,7 +179,7 @@
 - For Chromium work, use the [recipe](.agents/skills/arena-skill/references/REFERENCE.md#chromium).
 - For ui work, verify changes with screenshots taken by that pinned chromium package and read the rendered result before the change counts as landed.
 - Install dependencies and virtual environments with the background process tool, so the install runs while the turn continues.
-- Start a background test or PR-check run on a stable tree, and NEVER edit the files it covers while it runs.
+- Start each local gate on a stable tree; NEVER edit its covered root files while it runs. A remote PR CI watch does not freeze the working tree.
 - The freeze covers the root tree only: a queued task that edits other files starts a worktree while the root gate runs (`arena-preview worktree start`), never read-only tracing.
 - A >=10-second run is long; MUST use `arena-preview route <name> -- <command>`.
 - NEVER sleep during a background gate.

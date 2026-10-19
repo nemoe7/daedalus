@@ -188,11 +188,6 @@ _arena_preview_gate() {
       return 0
       ;;
   esac
-  if [ "\${ARENA_PREVIEW_ROUTE:-}" != 1 ] && [ "\${_arena_preview_interrupt_checked:-}" != 1 ]; then
-    _arena_preview_interrupt_checked=1
-    "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" interrupt-tick
-    case \$? in 1) exit 130 ;; esac
-  fi
   # case: task-reminder
   case "\$BASH_COMMAND" in
     *"git commit"*|*"git push"*|*"gh pr checks"*)
@@ -267,7 +262,7 @@ _arena_preview_gate() {
       ;;
   esac
   # A backtick inside double quotes runs as a command, so the shell eats the ticks before the tool sees the text.
-  # The warning lands before the ack runs, and it names the file form.
+  # The warning runs before the acknowledgement and recommends single-quoted inline text.
   # case: ack-ticks
   case "\$BASH_COMMAND" in
     *"arena-preview ack"*|*"preview.py ack"*)
