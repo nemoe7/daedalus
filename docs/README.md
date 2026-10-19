@@ -12,7 +12,7 @@ Every page, in the order of a first read.
 | [Configuration](configuration.md) | The environment variables, `config/daedalus.yml` key by key, and the provider files |
 | [Providers](providers.md) | The 8 providers, the catalog rules and the media limits |
 | [Provider keys](provider-keys.md) | The steps that make a key for each provider |
-| [Deployment](deployment.md) | Docker Compose, the image release, the optional services, Open WebUI, Tika, SearXNG, Headroom and Tailscale |
+| [Deployment](deployment.md) | Docker Compose, the image release, the optional services, Open WebUI, Tika, SearXNG, Headroom, and Tailscale |
 | [Dashboard](dashboard.md) | The 7 pages, the requests view and the API keys |
 
 ## Hooks
@@ -34,8 +34,8 @@ Every page, in the order of a first read.
 | [Served model](integrations/owui/served_model.md) | The filter that draws the served model line |
 | [Chat metadata](integrations/owui/chat_metadata.md) | The filter that adds the date, the clock, the timezone, the place and the language |
 | [GitHub](integrations/owui/github.md) | The GitHub reads and writes, behind the permission gate |
-| [Google](integrations/owui/google.md) | Gmail, Calendar, Drive and Docs, behind the permission gate |
-| [Open WebUI manager](integrations/owui/owui_manager.md) | The workspace: knowledge, skills, files, tools and functions |
+| [Google](integrations/owui/google.md) | Gmail, Calendar, Drive, and Docs, behind the permission gate |
+| [Open WebUI manager](integrations/owui/owui_manager.md) | The workspace: knowledge, skills, files, tools, and functions |
 
 ## Decisions
 

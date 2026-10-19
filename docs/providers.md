@@ -33,7 +33,7 @@ The image pool uses `lykon/dreamshaper-8-lcm`, `black-forest-labs/flux.1-schnell
 
 ## Get a key
 
-The 8 providers each need a key: Cloudflare, Gemini, Groq, Kilo, Mistral, OpenRouter, Pollinations and Z.ai. See [Provider keys](provider-keys.md) for the steps of each one.
+The 8 providers each need a key: Cloudflare, Gemini, Groq, Kilo, Mistral, OpenRouter, Pollinations, and Z.ai. See [Provider keys](provider-keys.md) for the steps of each one.
 
 ### Use the key
 
