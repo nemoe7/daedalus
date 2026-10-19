@@ -2127,7 +2127,7 @@ function filterRail(host) {
   if (empty) empty.hidden = shown > 0;
 }
 
-// Name the back button for its destination, as iOS does.
+// Name the back button for its destination.
 function sectionPane(back, cards, actions = null) {
   const button = actionButton(`<span class="chev" aria-hidden="true">&lsaquo;</span><span class="back-label">${esc(back)}</span>`, {
     variant: "ghost back", attrs: { "data-back": true },

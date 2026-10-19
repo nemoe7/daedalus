@@ -244,7 +244,6 @@ UI_FILES = {
   "icon-192.png": "image/png",
   "icon-512.png": "image/png",
   "icon-maskable-512.png": "image/png",
-  "apple-touch-icon.png": "image/png",
   "manifest.json": "application/manifest+json",
 }
 # The path of each file of the page, so a request name never reaches the file system.

@@ -33,7 +33,7 @@
 [hidden] { display: none !important; }
 body {
   margin: 0; background: var(--bg); color: var(--text);
-  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 14px/1.5 system-ui, "Segoe UI", Roboto, sans-serif;
 }
 input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 button { font: inherit; cursor: pointer; white-space: nowrap; }
@@ -738,7 +738,7 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6
 .field input[type=number] { width: 72px; padding: 6px 8px; text-align: right; appearance: textfield; -moz-appearance: textfield; }
 .field input[type=number]::-webkit-inner-spin-button,
 .field input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-/* A boolean row draws an iOS style switch at the right edge of the row: a pill with a knob that
+/* A boolean row draws a switch at the right edge of the row: a pill with a knob that
    slides when the value changes. The label keeps the left of the row. */
 .field input.switch {
   appearance: none; width: 44px; height: 26px; margin: 0; flex: none; cursor: pointer;
@@ -1124,7 +1124,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .requests .live-ago { display: none; }
   /* The mono face belongs to the session hash, not to its "Session" label. */
   .requests td.mono .mobile-label {
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-family: system-ui, "Segoe UI", Roboto, sans-serif;
   }
   .requests tr.request > td:nth-child(1) .mobile-label,
   .requests tr.request > td:nth-child(2) .mobile-label,
