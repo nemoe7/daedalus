@@ -1776,11 +1776,14 @@ class Store:
 		if not armed:self.take_interrupt();return{'agent_interrupt_pending':False}
 		if not isinstance(tab,str)or tab not in{'notes','reports','tasks','downloads'}:raise ValueError('tab must name a preview tab')
 		header='VIOLATION'
-		if tab=='reports'and report_id is not None:self.report(report_id);header=f"VIOLATION: report {report_id}"
+		if tab=='reports'and report_id is not None:
+			try:self.report(report_id)
+			except FileNotFoundError:pass
+			else:header=f"VIOLATION: report {report_id}"
 		elif tab=='tasks':
 			task=current_task((self.tasks()or{}).get('upcoming',[]))
 			if task:header=f"VIOLATION: task {task['id']}"
-		notice=f"{header}\nRead ARENA.md, root AGENTS.md, every nested AGENTS.md, and arena-skill SKILL.md in full again, then fix the violation before continuing.";self.set_meta(AGENT_INTERRUPT_META,notice);return{'agent_interrupt_pending':True}
+		notice=f"{header}\nThis Bash call was blocked. Read ARENA.md, root AGENTS.md, every nested AGENTS.md, and arena-skill SKILL.md in full again, then fix the violation before continuing.";self.set_meta(AGENT_INTERRUPT_META,notice);return{'agent_interrupt_pending':True}
 	def take_interrupt(self):
 		with closing(self.connect())as db,db:db.execute('BEGIN IMMEDIATE');row=db.execute('SELECT value FROM meta WHERE key = ?',(AGENT_INTERRUPT_META,)).fetchone();db.execute('DELETE FROM meta WHERE key = ?',(AGENT_INTERRUPT_META,));return row['value']if row else None
 	def request_skip_poll(self,armed=True):
@@ -2372,7 +2375,7 @@ def main():
 		if args.command=='interrupt-tick':
 			if fresh_state:return 0
 			notice=Store(state_dir,create=False).take_interrupt()
-			if notice:print(notice,file=sys.stderr);return 0
+			if notice:print(notice,file=sys.stderr);return 1
 			return 0
 		if args.command=='skills':print_skills();return 0
 		if args.command=='pr-state-tick':

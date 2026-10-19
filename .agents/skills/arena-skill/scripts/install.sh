@@ -188,6 +188,12 @@ _arena_preview_gate() {
       return 0
       ;;
   esac
+  # case: violation-flag
+  if [ "\${ARENA_PREVIEW_ROUTE:-}" != 1 ] && [ "\${_arena_preview_interrupt_checked:-}" != 1 ]; then
+    _arena_preview_interrupt_checked=1
+    "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" interrupt-tick
+    case \$? in 1) exit 130 ;; esac
+  fi
   # case: task-reminder
   case "\$BASH_COMMAND" in
     *"git commit"*|*"git push"*|*"gh pr checks"*)
