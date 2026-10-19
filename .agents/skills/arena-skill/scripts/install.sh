@@ -151,200 +151,23 @@ strip_block "$GATE_MARKER"
 
 # arena-preview-gate
 _arena_preview_gate() {
-  # case: pr-state
-  case "\$BASH_COMMAND" in
-    *gh*|*git*|*curl*|*wget*)
-      # A read line holds no write shape, so the gate spends no spawn on it.
-      # Quotes and backslashes come off first: the veto parses the same words.
-      _arena_preview_write="\${BASH_COMMAND//\"/}"
-      _arena_preview_write="\${_arena_preview_write//\'/}"
-      _arena_preview_write="\${_arena_preview_write//\\\\/}"
-      case " \${_arena_preview_write,,} " in
-        *[[:space:]]push[[:space:]]*|*[[:space:]]merge[[:space:]]*|*[[:space:]]close[[:space:]]*|*[[:space:]]reopen[[:space:]]*|*[[:space:]]api[[:space:]]*|*repos/*|*graphql*|*github.com*)
-          if ! "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" pr-state-tick "\$BASH_COMMAND"; then
-            exit 130
-          fi
-          ;;
-      esac
-      unset _arena_preview_write
-      ;;
-  esac
-  # Arena gates only an agent call shell. That shell hosts each long-lived process through a launcher script.
-  # An exit ends the hosted process.
-  # case: shell-shape
-  case "\${0##*/}" in bash|sh|dash|ksh|zsh) ;; *) return 0 ;; esac
-  # Never gate Arena probes or bookkeeping shells. An exit from either can report a dead preview or sandbox while the server runs.
-  # Mark such a shell once from its command line and leave the rest of it alone.
-  case "\${_arena_preview_platform:-}" in 1) return 0 ;; esac
   # The shell command line never changes, so one read per shell serves every command.
   # case: shell-line
   case "\${_arena_preview_line:-}" in
     "") _arena_preview_line="\$(tr '\\0' ' ' < /proc/\$\$/cmdline 2>/dev/null)" ;;
   esac
-  # case: platform-shell
-  case "\$_arena_preview_line" in
-    *arena-workspace*|*"ss -ltn"*|*"netstat -ltn"*|*"source ~/.profile"*|*"mkdir -p '/home/user'"*)
-      _arena_preview_platform=1
-      return 0
-      ;;
-  esac
-  # case: violation-flag
-  if [ "\${ARENA_PREVIEW_ROUTE:-}" != 1 ] && [ "\${_arena_preview_interrupt_checked:-}" != 1 ]; then
-    _arena_preview_interrupt_checked=1
-    "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" interrupt-tick
-    case \$? in 1) exit 130 ;; esac
-  fi
-  # Schedule the hidden read-set checkpoint before any inert-line exemption can return.
-  # A poll line and an active poll defer the due slot inside the atomic tick.
-  # case: read-set-note
-  if [ "\${ARENA_PREVIEW_ROUTE:-}" != 1 ] && [ "\${_arena_preview_read_set_checked:-}" != 1 ]; then
-    _arena_preview_read_set_checked=1
-    "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" read-set-tick "\$_arena_preview_line" --repo "$REPO_ROOT"
-    case \$? in 1) exit 130 ;; esac
-  fi
-  # case: task-reminder
-  case "\$BASH_COMMAND" in
-    *"git commit"*|*"git push"*|*"gh pr checks"*)
-      if [ -z "\${_arena_preview_reminded:-}" ]; then
-        _arena_preview_reminded=1
-        printf '%s\n' "Finished a task? Update the task list: arena-preview task <id> --status finished." >&2
-      fi
-      ;;
-  esac
-  # A branch that trails origin/main replays onto a stale base.
-  # The commit line reads local refs. The push line refreshes the remote tips first.
-  # case: main-moved
-  case "\$BASH_COMMAND" in
-    *"git commit"*)
-      if [ -z "\${_arena_preview_main_local:-}" ]; then
-        _arena_preview_main_local=1
-        "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" main-drift-tick --local
-      fi
-      ;;
-    *"git push"*)
-      if [ -z "\${_arena_preview_main_fresh:-}" ]; then
-        _arena_preview_main_fresh=1
-        "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" main-drift-tick
-      fi
-      ;;
-  esac
-  # A detached route runs its own line. Its marker prevents the gate from matching its family twice.
-  # case: route-marker
-  case "\${ARENA_PREVIEW_ROUTE:-}" in 1) return 0 ;; esac
-  # A sleep beside a preview call holds the turn. The tick reads the whole line, so a
-  # plain sleep runs, and the gate stops only a line that also names the preview.
-  # case: idle-wait
-  case "\$BASH_COMMAND" in
-    *sleep*)
-      if ! "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" idle-tick "\$_arena_preview_line"; then
-        exit 130
-      fi
-      ;;
-  esac
-  # A PR-check wait runs in the background. The gate detaches it, prints its status, and prevents a second run here.
-  # case: long-run
-  case "\$BASH_COMMAND" in
-    *gh*"pr"[[:space:]]*"checks"*|*gh*"run"[[:space:]]*"watch"*|*pytest*|*"node --test"*|*"npm test"*|*"npm run test"*|*"yarn test"*|*"pnpm test"*|*"make test"*|*"npx jest"*|*"npx vitest"*|*"npx mocha"*|*"npx ava"*|*"go test"*|*"cargo test"*|*"dotnet test"*|*"mvn test"*|*"mvnw test"*|*"gradle test"*|*"gradlew test"*|*" tox"*|*"tox "*|tox|*" nox"*|*"nox "*|nox)
-      "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" pr-check-tick "\$_arena_preview_line" --command "\$BASH_COMMAND"
-      case \$? in
-        # The gate stops only a line that names a wait.
-        # A started wait ends the call. A failed start keeps the refusal.
-        1) exit 0 ;;
-        2) exit 130 ;;
-      esac
-      ;;
-  esac
-  # The command sits on PATH in every shell the installer touched, so a spelled-out path only buries the call.
-  # Say it once per shell, then let the line run its gate.
-  # case: bare-path
-  case "\$_arena_preview_line" in
-    *"$REPO_ROOT/$SKILL_REL/scripts/arena-preview"*|*"$REPO_ROOT/$SKILL_REL/scripts/preview.py"*)
-      if [ -z "\${_arena_preview_bare_told:-}" ]; then
-        _arena_preview_bare_told=1
-        printf '%s\n' 'Call it bare: arena-preview works from any directory, so drop the full path.' >&2
-      fi
-      ;;
-  esac
-  # A read the sandbox cannot reach on its own: the hook names the proxy route once a shell.
-  # case: proxy-route
-  case "\$_arena_preview_line" in
-    *code-scanning*|*code_scanning*|*"gh run view"*|*"gh run download"*|*actions/runs*)
-      if [ -z "\${_arena_preview_proxy_told:-}" ]; then
-        _arena_preview_proxy_told=1
-        printf '%s\n' 'Read that through the proxy: the arena skill carries the routes for code-scanning alerts and run logs.' >&2
-      fi
-      ;;
-  esac
-  # A backtick inside double quotes runs as a command, so the shell eats the ticks before the tool sees the text.
-  # The warning runs before the acknowledgement and recommends single-quoted inline text.
-  # case: ack-ticks
-  case "\$BASH_COMMAND" in
-    *"arena-preview ack"*|*"preview.py ack"*)
-      "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" ack-tick "\$BASH_COMMAND"
-      ;;
-  esac
-  # A serve on another port hides the owner's page from the address the skill names.
-  # The warning lands before the call runs.
-  # case: serve-port
-  case "\$BASH_COMMAND" in
-    *"arena-preview serve"*|*"preview.py serve"*)
-      "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" serve-tick "\$BASH_COMMAND"
-      ;;
-  esac
-  # A fetch to a host outside the egress allowlist fails its TLS handshake, and the error reads as a transient fault.
-  # The warning lands before the call runs, and it names the tool that reaches the host instead.
-  # case: egress
-  case "\$BASH_COMMAND" in
-    *curl*|*wget*|*"git clone"*|*"git fetch"*|*"git ls-remote"*)
-      "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" egress-tick "\$BASH_COMMAND"
-      ;;
-  esac
-  # A detached task worktree never commits. The ID scan then rejects session-local citations.
-  # case: commit-id
-  case "\$BASH_COMMAND" in
-    *"git commit"*)
-      "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" worktree-tick commit
-      case \$? in
-        1) exit 130 ;;
-      esac
-      "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" commit-tick --repo .
-      case \$? in
-        1) exit 130 ;;
-      esac
-      ;;
-  esac
-  # case: inert-line
-  case "\$BASH_COMMAND" in *preview*|*profile*|*bashrc*|*arena-state*|gh*|sleep*|true*|:*|test*|"git status"*|"git diff"*|"git add"*|"git commit"*|*arena-workspace*|*"ss -ltn"*|*"netstat -ltn"*) return 0 ;; esac
-  # A detached task worktree never pushes. The root push remains an inbox checkpoint.
-  # case: push-checkpoint
-  case "\$BASH_COMMAND" in
-    *"git push"*)
-      "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" worktree-tick push
-      case \$? in
-        1) exit 130 ;;
-      esac
-      "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" gate --push --line "\$_arena_preview_line" 2>/dev/null
-      case \$? in
-        1) exit 130 ;;
-      esac
-      ;;
-  esac
-  # An inbox line must reach its read. A cd prefix stays quiet for the count gate. The push check still runs.
-  # A quiet line holds only inbox calls and inert prefixes. A read beside work never exempts that work.
-  # case: inbox-line
-  case "\$_arena_preview_line" in
-    *"arena-preview read"*|*"arena-preview ack"*|*"arena-preview poll"*|*"arena-preview task"*|*"preview.py read"*|*"preview.py ack"*|*"preview.py poll"*|*"preview.py task"*)
-      if "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" inbox-line "\$_arena_preview_line" 2>/dev/null; then
-        return 0
-      fi
-      ;;
-  esac
-  case "\${_arena_preview_gate_checked:-}" in 1) return 0 ;; esac
-  _arena_preview_gate_checked=1
-  "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" gate --line "\$_arena_preview_line" 2>/dev/null
-  # case: call-count
-  case \$? in
-    1) exit 130 ;;
+  # Every rule runs in one call: 0 continues, 2 ends the call clean, and 130 blocks it.
+  # The reply names the steps this shell finished, so a later line skips them.
+  case "\${_arena_preview_pre_running:-}" in 1) return 0 ;; esac
+  _arena_preview_pre_running=1
+  local _arena_preview_reply _arena_preview_status
+  _arena_preview_reply="\$("$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" pre --shell "\${0##*/}" --line "\$_arena_preview_line" --command "\$BASH_COMMAND" --repo "$REPO_ROOT" --done "\${_arena_preview_done:-}")"
+  _arena_preview_status=\$?
+  eval "\$_arena_preview_reply"
+  _arena_preview_pre_running=
+  case \$_arena_preview_status in
+    2) exit 0 ;;
+    130) exit 130 ;;
   esac
 }
 EOF

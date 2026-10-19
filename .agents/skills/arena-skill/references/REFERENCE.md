@@ -10,35 +10,35 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 | `serve --port 8000` | Start the shared preview with `start_process`. The gate warns when a serve names a port other than 8000 |
 | `read` | List every pending note and report answer; mark only delivered IDs Seen, and stamp the parent report read by the agent |
 | `skills` | List installed and repository skill names, full descriptions, and paths; prefer installed duplicates; do not load skills |
-| `note-list [--page N] [--page-size N]` | List stored note IDs, including acknowledged and quiet notes, newest first; default page 1, 20 IDs per page, maximum 100; leave receipts and exports unchanged |
-| `note <id>` | Reread a stored note by its six or full characters; a short ID that matches several notes prints every match |
+| `note list [--page N] [--page-size N]` | List stored note IDs, including acknowledged and quiet notes, newest first; default page 1, 20 IDs per page, maximum 100; leave receipts and exports unchanged |
+| `note show <id>` | Reread a stored note by its six or full characters; a short ID that matches several notes prints every match |
 | `key` | Print the recorded agent key, host and stamp; breaks while the preview server is not up, and a later session recovers the key after acknowledging the quiet note |
 | `poll` | Wait for inbox items with `poll` before ending a turn; continue when it returns unblocked tasks. End after Skip poll or a 1799-second return with no new messages. Set the Bash tool timeout to 1800 seconds; NEVER wrap `poll` in shell `timeout`. |
-| `route [--task <task-id>] <name> -- <command>` | The gate's helper for a detected long run, and the call a failed start names: without `--task`, it links the first unblocked upcoming task when one exists; it starts the command detached under a name and records its tail and exit, so a live linked run blocks and names its task until it ends, and the verdict prints on a later call as `run <name> done: exit N`, with one status line per call while it runs. |
-| `logs <name>` | Print a routed run's status and its recorded output tail; it works while the run lives and after its verdict, and a second read before that verdict exits 130 |
-| `worktree start --gate <gate-name> [--allow <glob>] <name> <destination>` | Create a detached task worktree outside the root while the named root gate runs |
+| `run start [--task <task-id>] <name> -- <command>` | The gate's helper for a detected long run, and the call a failed start names: without `--task`, it links the first unblocked upcoming task when one exists; it starts the command detached under a name and records its tail and exit, so a live linked run blocks and names its task until it ends, and the verdict prints on a later call as `run <name> done: exit N`, with one status line per call while it runs. |
+| `run logs <name>` | Print a routed run's status and its recorded output tail; it works while the run lives and after its verdict, and a second read before that verdict exits 130 |
+| `worktree start [--gate <gate-name>] [--allow <glob>] <name> <destination>` | Create a detached task worktree outside the root, beside a named root gate when one runs |
 | `worktree collect <name>` | Print the allowed detached-worktree patch after a green root gate |
 | `ack <markdown>` | Omit IDs only when exactly one non-quiet note or report answer is pending. Supply one Markdown text. With multiple pending items, supply the ID |
 | `ack <id> <markdown>` | Answer one delivered ID with a rendered reply; single-quote inline text. Add `--task-id`, `--task-title`, `--task-type`, and repeatable `--task-detail` to create its linked task atomically |
-| `task-list [-f]` | List upcoming task IDs, order, status, report links, set type marks and each linked report answer with its stamp and text. With -f, include finished tasks. Use task ID for details |
-| `task ID` | Print one stored task: its title, status, order, primary type when set, report link, blocked mark and every detail |
-| `task ID TITLE [DETAIL ...]` | Add or update a task; every task carries at least one detail, and reject a write that leaves none; one task holds one job, so several jobs mean several tasks rather than one task with many details; `--msg-id` is optional and only a note-born or report-born task carries it; `--unblocked` clears a report wait. |
-| `task-remove ID` | Remove a task entered by mistake |
-| `import-state [FILE]` | Import copied NDJSON or JSON notes, tasks and report answers from a file or stdin in one transaction; it replaces the live notes, answers, reports and tasks unless `--merge` keeps them; `--replace-tasks` replaces only tasks |
+| `task list [-f]` | List upcoming task IDs, order, status, report links, set type marks and each linked report answer with its stamp and text. With -f, include finished tasks. Use task ID for details |
+| `task show ID` | Print one stored task: its title, status, order, primary type when set, report link, blocked mark and every detail |
+| `task set ID TITLE [DETAIL ...]` | Add or update a task; every task carries at least one detail, and reject a write that leaves none; one task holds one job, so several jobs mean several tasks rather than one task with many details; `--msg-id` is optional and only a note-born or report-born task carries it; `--unblocked` clears a report wait. |
+| `task remove ID` | Remove a task entered by mistake |
+| `state import [FILE]` | Import copied NDJSON or JSON notes, tasks and report answers from a file or stdin in one transaction; it always replaces the live notes, answers, reports and tasks; `--replace-tasks` replaces only tasks |
 | `download-request <url>` | Queue one pending file download for the owner to approve in Downloads; `--allow-proxy` permits the two proxies |
 | `image-data-uri <path>` | Print one Markdown line carrying a local PNG, JPEG, GIF or WebP file as a data URI; the command checks the type and a 2 MiB size cap before encoding |
-| `publish <source.md> --id <id> --title <title>` | Publish or update a rendered report. Publication embeds readable local images as data URIs, skips remote sources with a helper hint, and keeps links and data URIs |
-| `unpublish <id>` | Remove a report from the tab, retaining answers and source. Unacknowledged answers or unseen answer receipts block the call with 409. A fresh owner view does not block agent unpublish, and the page retains the open report until the owner clicks away |
+| `report publish <source.md> --id <id> --title <title>` | Publish or update a rendered report. Publication embeds readable local images as data URIs, skips remote sources with a helper hint, and keeps links and data URIs |
+| `report unpublish <id>` | Remove a report from the tab, retaining answers and source. Unacknowledged answers or unseen answer receipts block the call with 409. A fresh owner view does not block agent unpublish, and the page retains the open report until the owner clicks away |
 | `report unpublish --stale` | Recheck eligibility, then unpublish only stale reports through existing guards; retain sources and answers |
-| `stale-reports` | List stale published report IDs and reasons without changing state |
-| `report-state` | Print publication, owner view stamp, staleness and answer visibility for one report or all |
+| `report stale` | List stale published report IDs and reasons without changing state |
+| `report state` | Print publication, owner view stamp, staleness and answer visibility for one report or all |
 | `rename <id> <new-id>` | Rename one stored note, report answer, report or task in place, so its answers, order and stamps survive |
-| `clear-state` | Empty every state table in place; preserve the agent key, refresh the save file to match, and keep a running server's recorded port |
+| `state clear` | Empty every state table in place; preserve the agent key, refresh the save file to match, and keep a running server's recorded port |
 | PR title/body | Update PR title/body via REST with JSON on stdin: `jq -n --rawfile body <workspace-file> --arg title <title> '{body: $body, title: $title}' \| gh api repos/<owner>/<repo>/pulls/<n> -X PATCH --input -` |
 
 - Every command except `init` and `serve` breaks with a restart line while no preview answers, so the agent starts the server first.
 - Use complete IDs in CLI calls; cite their first six characters in prose.
-- Read note, answer and task content through the CLI alone: use `read`, `note ID`, `note-list`, `task ID` and `task-list`; use report HTTP endpoints only for required publication checks.
+- Read note, answer and task content through the CLI alone: use `read`, `note show ID`, `note list`, `task show ID` and `task list`; use report HTTP endpoints only for required publication checks.
 - Treat `state.sqlite3` as the store, never as a read path.
 - `read` does not acknowledge an item.
 - Supply one Markdown text to `ack`; use separate calls for different answers.
@@ -115,7 +115,7 @@ A task linked with `--report` stays blocked until the owner answers or the repor
 
 A task row shows the answers linked to it in a read-only block under its details, and the block never replaces those details.
 
-`import-state` replaces the live notes, answers, reports and tasks. With `--merge` it merges by ID and preserves existing message receipts. Use `--replace-tasks` only after checking the input. Never infer a finished task from a commit alone.
+`state import` replaces the live notes, answers, reports and tasks; no flag keeps the live rows. Use `--replace-tasks` only after checking the input. Never infer a finished task from a commit alone.
 
 ## Publish reports
 
@@ -168,6 +168,6 @@ An agent asks with `download-request <url>`. That queues a pending job. The owne
 
 ## Restore
 
-Run `<skill>/scripts/install.sh` after a sandbox restore, before `git add`, to reinstate the venv, poll hook and ignore rule. Run it as a normal Bash call, never through the background process tool. Preserve the state directory and report source files. If the database is lost but `saved-state.ndjson` survives, run `import-state <file>` on that state directory; it creates the database and restores notes, tasks, report answers and report sources together. Files and unfinished download jobs are not in the NDJSON backup.
+Run `<skill>/scripts/install.sh` after a sandbox restore, before `git add`, to reinstate the venv, poll hook and ignore rule. Run it as a normal Bash call, never through the background process tool. Preserve the state directory and report source files. If the database is lost but `saved-state.ndjson` survives, run `state import <file>` on that state directory; it creates the database and restores notes, tasks, report answers and report sources together. Files and unfinished download jobs are not in the NDJSON backup.
 
-Verify a restore with `read`, `task-list` and rendered reports before discarding backups. Report failed reads or saves; never treat them as empty state or a success. If the preview stays unavailable, use `ask_user` to ask how to continue. Do not enable an external channel or local report commits without a new choice.
+Verify a restore with `read`, `task list` and rendered reports before discarding backups. Report failed reads or saves; never treat them as empty state or a success. If the preview stays unavailable, use `ask_user` to ask how to continue. Do not enable an external channel or local report commits without a new choice.

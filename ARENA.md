@@ -43,7 +43,7 @@
 - Read set: ARENA.md, root AGENTS.md with any nested AGENTS.md, and arena-skill SKILL.md only.
 - MUST read required read-set files in full with the read tool, NEVER Bash.
 - After mid-turn compaction, summary, or context replacement, read missing-context read-set files end-to-end before other tools. On a resumed or next turn, use its start sequence.
-- On a context-check reminder, MUST read each read-set file whose current full text is absent from context before continuing work.
+- On a context-check reminder, MUST read only a read-set file whose current full text is absent from context.
 - NEVER count a file name, read receipt, summary, remembered rule, or partial read (head, tail, or grep excerpt) as a read-set file's current full text.
 - MUST batch required read-set reads in one call, splitting only where the harness output cap cuts text.
 - MUST complete required reads end-to-end, with all output-cap continuations, before queued work or a pending push.
@@ -183,7 +183,7 @@
 - Install dependencies and virtual environments with the background process tool, so the install runs while the turn continues.
 - Start each local gate on a stable tree; NEVER edit its covered root files while it runs. A remote PR CI watch does not freeze the working tree.
 - The freeze covers the root tree only: a queued task that edits other files starts a worktree while the root gate runs (`arena-preview worktree start`), never read-only tracing.
-- A >=10-second run is long; MUST use `arena-preview route <name> -- <command>`.
+- A >=10-second run is long; MUST use `arena-preview run start <name> -- <command>`.
 - NEVER sleep during a background gate.
 - Link each local gate to its task at run start; the live run owns the task's blocked state.
 - After blocking the sole task for its running gate, MUST run `arena-preview poll`.
