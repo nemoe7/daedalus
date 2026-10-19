@@ -11,7 +11,7 @@ The reference deployment is a Raspberry Pi 4B with 8 GB of RAM. The compose file
 
 ## Docker Compose
 
-The install scripts show the first-install plan and ask `[y/N]`. Then they install Docker if it is missing: Docker Desktop with winget on Windows, or `get.docker.com` on Linux. Outside a git checkout, each run downloads the files of the newest `v*` tag, or of `main` when there is no tag. It refreshes unchanged managed Compose files and service defaults, while `.env`, [`config/`](../config), local overrides and volumes stay.
+The install scripts show the first-install plan and ask `[y/N]`. Then they install Docker if it is missing: Docker Desktop with winget on Windows, or `get.docker.com` on Linux. Outside a git checkout, each run downloads the files of the newest `v*` tag, or of `main` when there is no tag. It refreshes unchanged managed Compose files and service defaults, while `.env`, [`config/`](../config), local overrides, and volumes stay.
 
 They make `.env` with a new master key, then pull the daedalus image and start the containers.
 With `--dev`, they use [`compose.dev.yml`](../compose.dev.yml). They build the image from the
@@ -41,7 +41,7 @@ OPENWEBUI_PORT=3001
 
 These values change only the host side of each mapping. The internal daedalus and Open WebUI ports stay at `3357` and `8080`. Use these variables instead of a Compose override because Compose can merge port lists and keep the original mapping active.
 
-Use the ignored `compose.override.yml` for other structural changes such as volumes, labels, devices, networks or image overrides. Normal production commands load that standard Compose override automatically. The installers also load it, including with `--dev`. A manual dev start uses `docker compose -f compose.dev.yml -f compose.override.yml up -d`.
+Use the ignored `compose.override.yml` for other structural changes such as volumes, labels, devices, networks, or image overrides. Normal production commands load that standard Compose override automatically. The installers also load it, including with `--dev`. A manual dev start uses `docker compose -f compose.dev.yml -f compose.override.yml up -d`.
 
 A standalone installer records managed hashes in `.daedalus-state/managed-files.sha256`. It replaces a file only when it still matches the recorded or a known shipped version. If a managed file has local edits, the installer preserves it, writes the new version under `.daedalus-state/updates/`, and stops before Docker.
 
