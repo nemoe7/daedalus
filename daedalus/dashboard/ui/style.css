@@ -958,6 +958,8 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .section-pane .back { display: flex; color: var(--accent-text); }
   #settings .section-pane:has(.provider-flow #provider-form[data-file-open="1"]) > .pane-bar > .back { display: none; }
   /* A phone drill page titles itself under the back label, as the reference lists do. */
+  .section-pane .pane-bar { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 12px; }
+  .section-pane .pane-bar > .pane-title:not([hidden]) { grid-column: 1 / -1; }
   .pane-title:not([hidden]) { font-size: 26px; letter-spacing: -0.9px; }
   /* The touch floor: the boxed controls grow their hit areas on a phone. */
   .pills [data-drop], .pills [data-add], [data-hook-drop],
