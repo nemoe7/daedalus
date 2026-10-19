@@ -6,7 +6,7 @@ daedalus reads its settings from these sources:
 | --- | --- | --- |
 | `.env` | Keys and container settings | No |
 | [`config/daedalus.yml`](../config/daedalus.yml) | Router settings | Yes, on the **Settings** page |
-| [`config/providers/free.yml`](../config/providers/free.yml) | Providers, tiers and model limits | Yes, on the **Providers** page |
+| [`config/providers/free.yml`](../config/providers/free.yml) | Providers, tiers, and model limits | Yes, on the **Providers** page |
 | `config/providers/{provider}.yml` | 1 provider, on its own | Yes, on the **Providers** page |
 
 [`daedalus.yml`](../config/daedalus.yml) contains the main settings for the router and its jobs. [`config/providers/`](../config/providers) contains the provider configurations (tiers, models, limits, etc).
@@ -283,7 +283,7 @@ groq:
 | `headroom` | Optional. `false`: no Headroom compression for the models of the block. Default: `optimization.enabled`. |
 | `hourly_requests` | Optional. The provider requests per hour. At the limit, the provider leaves the chains. |
 
-Catalog next-page links can be relative. They must keep the discovery URL's scheme, host and effective port, with no username or password in the URL. An unsafe link fails that provider's refresh and keeps its previous catalog rows.
+Catalog next-page links can be relative. They must keep the discovery URL's scheme, host, and effective port, with no username or password in the URL. An unsafe link fails that provider's refresh and keeps its previous catalog rows.
 
 A known key with a wrong shape is a 422 on the Providers page. A hand-edited file drops that key
 with a line in the log, so a bad `tier` or `models` never breaks a request. See [A wrong shape](#a-wrong-shape).
@@ -330,7 +330,7 @@ gemini:
 
 | Item | Value |
 | --- | --- |
-| Client in the map | Its requests use its key, its cooldowns, `rpm` and `tpm`. See [Client lanes](architecture.md#client-lanes). |
+| Client in the map | Its requests use its key, its cooldowns, `rpm`, and `tpm`. See [Client lanes](architecture.md#client-lanes). |
 | Other clients | They use `api_key`, and they share 1 set of cooldowns and counts. |
 | Weights, pins, discovery | 1 set for all clients |
 

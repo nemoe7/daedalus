@@ -27,7 +27,7 @@ flowchart TD
 
 1. In the Google Cloud console, make an OAuth client of the type Desktop app, and turn on the Gmail, Calendar, Drive, and Docs APIs.
 2. Do the consent 1 time, with the scopes `gmail.readonly`, `gmail.send`, `calendar.readonly`, `calendar.events`, `drive.readonly`, and `documents`. The reply holds the refresh token.
-3. **Valves**: set `google_client_id`, `google_client_secret` and `google_refresh_token`. Set `permissions`. `Always ask` is the shipped default.
+3. **Valves**: set `google_client_id`, `google_client_secret`, and `google_refresh_token`. Set `permissions`. `Always ask` is the shipped default.
 
 | Valve | Default | Meaning |
 | --- | --- | --- |
@@ -41,7 +41,7 @@ flowchart TD
 | `timeout_seconds` | `60` | The wait for the confirmation. A closed tab, no dialog, or a late answer reads as no. |
 | `http_timeout_seconds` | `30` | The Google HTTP timeout. |
 
-The 6 reads are `search_mail`, `read_thread`, `read_message`, `agenda`, `search_files`, and `read_document`. The 3 gated writes are `send_mail`, `create_event` and `append_to_document`.
+The 6 reads are `search_mail`, `read_thread`, `read_message`, `agenda`, `search_files`, and `read_document`. The 3 gated writes are `send_mail`, `create_event`, and `append_to_document`.
 
 The shipped `Always ask` holds every call, reads included, so no mail line and no one-time code reaches the chat without a click. `Allow reads` frees the reads and keeps the gate on the 3 writes. `Always allow` runs everything. `UserValves.mode` carries the same 3 values for one user, and `default` follows the tool valve.
 
