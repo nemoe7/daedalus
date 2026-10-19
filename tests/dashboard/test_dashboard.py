@@ -1940,6 +1940,19 @@ def test_the_limits_table_scrolls_inside_its_panel() -> None:
   )
 
 
+def test_the_limits_filter_bar_stops_where_the_table_stops() -> None:
+  """The Limits filter bar takes the table column width, and the field names itself."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  wide = re.search(r"@media \(min-width: 901px\) \{(.*?)\n\}", css, re.DOTALL)
+  assert wide, "the wide-page layout block"
+  assert 'section[data-page="limits"] > .editbar { width: calc(100% - 276px); }' in (
+    wide.group(1)
+  ), "the bar stops at the table edge, clear of the balance column"
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  assert 'class="search-ico"' not in page, "the placeholder names the field; no loose magnifier"
+
+
 def test_the_fallback_chain_opens_in_a_modal() -> None:
   """The chain cell opens a dialog instead of expanding a list in place."""
   root = Path(__file__).resolve().parent.parent.parent
@@ -2100,21 +2113,11 @@ def test_model_numbers_align_right() -> None:
   assert ".models .mid { text-align: center; }" in css
 
 
-def test_dashboard_routes_have_visible_titles() -> None:
-  """Dashboard routes name each screen in a visible heading."""
+def test_dashboard_routes_leave_the_title_to_the_active_tab() -> None:
+  """Dashboard routes carry no duplicate page heading; the active tab names the screen."""
   root = Path(__file__).resolve().parents[2]
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
-  for route, key in (
-    ("overview", "nav.overview_link"),
-    ("requests", "nav.requests_link"),
-    ("models", "nav.models_link"),
-    ("limits", "nav.limits_link"),
-    ("notifications", "nav.notifications_link"),
-  ):
-    section = page.split(f'<section data-page="{route}" hidden>', 1)[1].split(
-      "</section>", 1
-    )[0]
-    assert f'<h1 class="page-title" data-i18n="{key}">' in section, route
+  assert 'class="page-title"' not in page, "the tab already names the route"
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert 'class="settings-list-title"' in app
   assert '<h1 class="pane-title" data-pane-title hidden></h1>' in app

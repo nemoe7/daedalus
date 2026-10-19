@@ -157,7 +157,6 @@ button.line {
 /* The lucide glyphs sit on the text line; buttons draw them a touch larger. */
 .chip svg, button svg { vertical-align: -2px; }
 .ghost svg, .add svg, .hint svg { width: 14px; height: 14px; }
-.search-ico { display: inline-flex; color: var(--muted); }
 button.chip { background: transparent; font: inherit; font-size: 13px; cursor: pointer; }
 button.chip:hover:not(:disabled) { border-color: var(--accent); }
 button.chip:disabled { cursor: progress; }
@@ -183,10 +182,9 @@ button.chip:disabled { cursor: progress; }
   .ghost:hover { color: var(--text); border-color: var(--muted); }
 }
 main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
-.page-title, .settings-list-title {
+.settings-list-title {
   margin: 0; font-size: 24px; font-weight: 650; letter-spacing: -.5px; line-height: 1.2;
 }
-.page-title { margin-bottom: 16px; }
 .settings-list-title { display: none; }
 .pools {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(min(168px, 100%), 1fr)); gap: 12px; margin-bottom: 16px;
@@ -924,6 +922,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .section-pane.fit-host > .card,
   .section-pane.fit-host > .provider-flow { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
   .card.yaml-view textarea { flex: 1 1 auto; min-height: 120px; }
+  /* The Limits filter bar heads its table, so it stops at the table edge: the check time never
+     floats over the balance column. */
+  section[data-page="limits"] > .editbar { width: calc(100% - 276px); }
 }
 
 @media (max-width: 900px) {
@@ -963,8 +964,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   #status { display: none; }
 }
 @media (max-width: 720px) {
-  .page-title, .settings-list-title { font-size: 22px; letter-spacing: -.4px; }
-  .page-title { margin-bottom: 14px; }
+  .settings-list-title { font-size: 22px; letter-spacing: -.4px; }
   header, #app > main { padding-left: 16px; padding-right: 16px; }
   /* A phone keeps 1 padding all around the page, so the top matches the sides. */
   #app > main { padding-top: 16px; }
