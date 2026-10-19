@@ -977,6 +977,14 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   button.hint { position: relative; }
   button.hint::after { content: ""; position: absolute; inset: -14px; }
 }
+/* A tablet keeps the name in one column, so a name too long for it wraps instead of ending in an
+   ellipsis; the weight meter gives up 40 px for it. */
+@media (min-width: 721px) and (max-width: 900px) {
+  .models td.name { max-width: none; white-space: normal; }
+  .models td.name .cell-value { display: block; }
+  .models td.name .model-open { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.35; }
+  .models .weight { width: 110px; }
+}
 @media (max-width: 1320px) {
   /* A narrow desktop keeps 1 header row: the state leaves the header, as on a phone, and the
      tabs scroll when they do not fit. */

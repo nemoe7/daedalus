@@ -116,6 +116,16 @@ test("the header keeps one tab row on a phone", async ({ page }) => {
   expect(tabs.scrolls).toBe(true);
 });
 
+test("a tablet model name wraps instead of clipping", async ({ page }) => {
+  await open(page, "#/models", 768, 1024);
+  const clipped = await page.evaluate(() =>
+    [...document.querySelectorAll("#models .model-open")]
+      .filter((el) => el.getBoundingClientRect().width > 1 && el.scrollWidth > el.clientWidth + 1)
+      .map((el) => el.textContent.trim().slice(0, 40)),
+  );
+  expect(clipped, "every model name reads in full").toEqual([]);
+});
+
 test("a phone model row meets the touch floor", async ({ page }) => {
   await open(page, "#/models", 390, 844);
   const row = await page.evaluate(() => {
