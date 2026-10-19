@@ -237,6 +237,8 @@ const byId = new Map();
 const el = (id) => {{
   if (!byId.has(id)) byId.set(id, {{ innerHTML: '', textContent: '', addEventListener: () => {{}},
     after: () => {{}}, remove: () => {{}}, style: {{ setProperty() {{}} }},
+    append: () => {{}}, appendChild: () => {{}}, prepend: () => {{}}, insertBefore: () => {{}},
+    closest: () => null, querySelector: () => null, querySelectorAll: () => [],
     classList: {{ add: () => {{}}, remove: () => {{}}, toggle: () => {{}} }} }});
   return byId.get(id);
 }};
@@ -246,8 +248,10 @@ const sandbox = {{
     hidden: false,
     documentElement: {{ dataset: {{}} }},
     getElementById: (id) => (id === 'nav' ? nav : el(id)),
-    createElement: () => ({{ append: () => {{}}, prepend: () => {{}}, setAttribute: () => {{}},
-      addEventListener: () => {{}}, remove: () => {{}} }}),
+    createElement: () => ({{ append: () => {{}}, appendChild: () => {{}}, prepend: () => {{}},
+      insertBefore: () => {{}}, setAttribute: () => {{}}, addEventListener: () => {{}},
+      remove: () => {{}}, closest: () => null, querySelector: () => null,
+      querySelectorAll: () => [] }}),
     querySelector: () => ({{ firstChild: {{ textContent: 'Models' }} }}),
     querySelectorAll: (sel) => (sel === '[data-status]' ? hosts : []),
     addEventListener: () => {{}},
@@ -257,6 +261,8 @@ const sandbox = {{
   window: {{ addEventListener: () => {{}} }},
   getSelection: () => ({{ isCollapsed: true }}),
   $: (id) => (id === 'nav' ? nav : el(id)),
+  setInterval: () => 0,
+  clearInterval: () => {{}},
   __el: el,
   __probe: {{}},
 }};
@@ -2226,16 +2232,14 @@ def test_active_controls_have_no_resting_shadows() -> None:
     assert rule and "box-shadow" not in rule.group(1), selector
 
 
-def test_narrow_navigation_wraps_without_a_scroll_cut() -> None:
-  """Narrow headers wrap the navigation links without horizontal scrolling."""
+def test_narrow_navigation_scrolls_in_one_row() -> None:
+  """Narrow headers keep one row of links and scroll it without a hard cut."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   assert (
     "@media (max-width: 900px) {\n  header { grid-template-columns: 1fr auto;" in css
   )
-  assert (
-    ".tabs { flex-wrap: wrap; gap: 0 16px; overflow: visible; mask-image: none; }"
-    in css
-  )
+  assert ".tabs { flex-wrap: nowrap; gap: 0 16px; overflow-x: auto; }" in css
+  assert ".tabs { flex-wrap: wrap" not in css, "a phone never wraps the tabs"
   assert ".sections button { min-height: 44px; }" in css
   assert ".settings-list-title { display: none; }" in css
   narrow = css.rsplit("@media (max-width: 900px) {", 1)[1]
@@ -2925,7 +2929,8 @@ const node = (id) => {{
       isConnected: true, title: '', type: '',
       showModal: () => {{ made.shown = true; }},
       addEventListener: (type, fn) => {{ (made.handlers[type] ||= []).push(fn); }},
-      remove: () => {{}}, append: () => {{}}, prepend: () => {{}}, after: () => {{}}, setAttribute: () => {{}},
+      remove: () => {{}}, append: () => {{}}, appendChild: () => {{}}, prepend: () => {{}},
+      after: () => {{}}, setAttribute: () => {{}},
       classList: {{ add: () => {{}}, remove: () => {{}}, toggle: () => {{}} }},
         closest: (sel) => (sel === '[data-section]' || sel === '#provider-form' ? null : made),
       querySelector: () => null, querySelectorAll: () => [] }};
@@ -2943,7 +2948,8 @@ const sandbox = {{
     getElementById: node,
     createElement: (tag) => node('made-' + tag),
     querySelector: () => ({{ firstChild: {{ textContent: 'Models' }}, closest: () => null,
-      querySelector: () => null, append: () => {{}}, prepend: () => {{}}, remove: () => {{}} }}),
+      querySelector: () => null, append: () => {{}}, appendChild: () => {{}},
+      prepend: () => {{}}, remove: () => {{}} }}),
     querySelectorAll: () => ([]),
     addEventListener: (type, fn) => {{ (documentHandlers[type] ||= []).push(fn); }},
   }},
@@ -2955,6 +2961,8 @@ const sandbox = {{
   getSelection: () => ({{ isCollapsed: true }}),
   console: {{ error: () => {{}} }},
   $: node,
+  setInterval: () => 0,
+  clearInterval: () => {{}},
 }};
 vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
@@ -5467,31 +5475,31 @@ def test_a_failed_read_shows_a_line_in_the_page() -> None:
 
 
 def test_the_undo_never_moves_the_row() -> None:
-  """Undo CSS places the button beside controls without adding left padding."""
+  """Undo CSS places the text button beside controls without adding left padding."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
   ).read_text(encoding="utf-8")
-  assert ".field > .undo-step { margin-left: auto; margin-right: 8px; }" in css, (
-    "the icon rides in the free space of the row, before the control"
+  assert ".field > .undo-text { margin-left: auto; margin-right: 8px; }" in css, (
+    "the button rides in the free space of the row, before the control"
   )
   assert (
-    ".field.stack > .undo-step { position: absolute; right: 0; top: 10px; }" in css
-  ), "a row of a column holds the icon on the label line"
-  assert ".field:has(> .undo-step) { padding-left: 34px; }" not in css, (
+    ".field.stack > .undo-text { position: absolute; right: 0; top: 10px; }" in css
+  ), "a row of a column holds the button on the label line"
+  assert ".field:has(> .undo-text) { padding-left: 34px; }" not in css, (
     "the row keeps its width in place of a shift"
   )
+  assert ".undo-step" not in css, "the round icon leaves the sheet"
   app = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/app.js"
   ).read_text(encoding="utf-8")
-  assert 'button.innerHTML = icon("undo_2");' in app, (
-    "the undo glyph comes from the shared lucide set"
+  assert 'button.textContent = t("action.undo_write_label");' in app, (
+    "the Undo names its action in words"
   )
-  assert "undo_2:" in app, "the icon set carries the undo paths"
-  assert "\\u21b6" not in app, "no raw unicode arrow remains"
+  assert 'button.innerHTML = icon("undo_2");' not in app, "no icon-only Undo remains"
 
 
 def test_app_js_places_the_undo_beside_the_control() -> None:
-  """Undo placement inserts the button before its control and records the field key."""
+  """A provider write keeps Undo in its row; a settings write reports in the pane header."""
   code = _app_js_vm(
     """
 vm.runInContext('globalThis.__probe.rememberWrite = rememberWrite; globalThis.__probe.placeUndo = placeUndo;'
@@ -5508,19 +5516,36 @@ const row = {
   closest: () => row,
   querySelector: () => control,
 };
+const summary = { children: [], append: (node) => summary.children.push(node),
+  appendChild: (node) => summary.children.push(node), querySelector: () => null };
 sandbox.document.querySelector = () => null;
 sandbox.document.getElementById = () => ({ closest: () => null,
   classList: { add: () => {}, remove: () => {} } });
-sandbox.document.createElement = () => ({ addEventListener: () => {}, remove: () => {}, setAttribute: () => {} });
-sandbox.__probe.rememberWrite('settings', { settings: true, text: 'a' }, control);
-assert.strictEqual(placed, 'insertBefore true', 'the icon joins the row before its control: ' + placed);
+sandbox.document.createElement = (tag) => {
+  const made = { tag, children: [], className: '', addEventListener: () => {},
+    remove: () => {}, setAttribute: () => {}, querySelector: () => null,
+    append: (...kids) => made.children.push(...kids) };
+  return made;
+};
+sandbox.__probe.rememberWrite('providers', { path: 'p', text: 'a' }, control);
+assert.strictEqual(placed, 'insertBefore true', 'the provider Undo joins the row before its control: ' + placed);
 assert.strictEqual(sandbox.__probe.lastWrite().key, 'catalog.every', 'the key of the row');
-let dropped = 0;
-control.remove = () => { dropped += 1; };
-sandbox.document.querySelector = (sel) => (sel === '.undo-step' ? control : null);
 sandbox.__probe.dropUndo();
-assert.strictEqual(dropped, 1, 'the icon leaves the page');
+sandbox.document.querySelector = (sel) => (sel === '.section-pane [data-pane-summary]' ? summary : null);
+sandbox.__probe.rememberWrite('settings', { settings: true, text: 'b' }, control);
+assert.strictEqual(summary.children.length, 1, 'the settings write reports in the pane header');
+const line = summary.children[0];
+assert.strictEqual(line.className, 'save-line', 'the pane header takes the saved line');
+assert.strictEqual(line.children[1], sandbox.__probe.lastWrite().button,
+  'the Undo rides with the line');
+let dropped = 0;
+const gone = { remove: () => { dropped += 1; } };
+sandbox.document.querySelector = (sel) => (sel === '.undo-text' || sel === '.save-line' ? gone : null);
+sandbox.__probe.dropUndo();
+assert.strictEqual(dropped, 2, 'the Undo control and its line leave the page');
 assert.strictEqual(sandbox.__probe.lastWrite(), null, 'no write waits a way back');
+sandbox.setInterval = () => 0;
+sandbox.clearInterval = () => {};
 """
   )
   subprocess.run(["node", "-e", code], check=True)
@@ -5541,10 +5566,13 @@ sandbox.fetch = () => {
   sent += 1;
   return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
 };
-sandbox.document.querySelector = (sel) => (sel === '.undo-step' ? { remove: () => { removed += 1; } } : null);
+sandbox.setInterval = () => 0;
+sandbox.clearInterval = () => {};
+sandbox.document.querySelector = (sel) =>
+  (sel === '.undo-text' || sel === '.save-line' ? { remove: () => { removed += 1; } } : null);
 (async () => {
   await sandbox.__probe.saveSettings();
-  assert.strictEqual(removed, 1, 'the Undo of the write goes');
+  assert.strictEqual(removed, 2, 'the Undo of the write and its line go');
   assert.strictEqual(sent, 0, 'a change back to the saved value writes nothing');
 })().catch((error) => { console.error(error); process.exit(1); });
 """
@@ -6267,7 +6295,7 @@ def test_a_row_writes_itself_and_the_bar_is_gone() -> None:
     "async function undoWrite() {",
     "function rememberWrite(page, restore, anchor = null) {",
     "function placeUndo(anchor = null) {",
-    'button.className = "ghost undo-step";',
+    'button.className = "ghost undo-text";',
     'readonly spellcheck="false" autocomplete="off"',
   ):
     assert needle in app, needle
@@ -6369,17 +6397,21 @@ def test_a_phone_opens_a_section_as_its_own_page() -> None:
     " > .pane-bar > .back { display: none; }" in phone
   ), "the outer back yields while a provider file is open"
   assert (
-    ".pills [data-drop], .pills [data-add], [data-hook-drop],\n"
-    "  .section-pane .back, #nav a { min-height: 44px; min-width: 44px; }" in phone
+    ".pills [data-drop], .pills [data-add], .pills [data-setting-drop],"
+    " .pills [data-setting-add],\n"
+    "  [data-hook-drop], .section-pane .back, #nav a { min-height: 44px;"
+    " min-width: 44px; }" in phone
   ), "the phone lifts the boxed controls to the touch floor"
   assert "button.hint, .pills" not in phone, (
     "the round icon buttons keep their drawn size on a phone"
   )
   assert (
-    "button.hint, .undo-step { position: relative; }\n"
-    '  button.hint::after, .undo-step::after { content: ""; position: absolute;'
-    " inset: -14px; }" in phone
+    "button.hint { position: relative; }\n"
+    '  button.hint::after { content: ""; position: absolute; inset: -14px; }' in phone
   ), "the round icon buttons grow their hit area outside the drawn box"
+  assert ".undo-text { min-height: 44px; }" in phone, (
+    "the text Undo meets the touch floor"
+  )
 
 
 def test_notifications_endpoint(
