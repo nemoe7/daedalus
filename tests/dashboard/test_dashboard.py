@@ -1953,7 +1953,9 @@ def test_the_limits_filter_bar_stops_where_the_table_stops() -> None:
     wide.group(1)
   ), "the bar stops at the table edge, clear of the balance column"
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
-  assert 'class="search-ico"' not in page, "the placeholder names the field; no loose magnifier"
+  assert 'class="search-ico"' not in page, (
+    "the placeholder names the field; no loose magnifier"
+  )
 
 
 def test_the_fallback_chain_opens_in_a_modal() -> None:
@@ -5828,6 +5830,19 @@ def test_the_page_carries_a_motion_base() -> None:
     "the controls and the rows glide between their states"
   )
   assert "transition: background-color var(--" in css, "the switch reads the token"
+  assert ".field, .fold { transition: opacity var(--fast) var(--ease); }" in css, (
+    "a settings row fades between enabled and disabled"
+  )
+  assert ".field input:not(.switch), .field select {" in css, (
+    "the controls inside the row keep the same beat"
+  )
+  assert "replay(arrived)" in app, "a desktop section change fades the arriving card in"
+  assert 'saveSettings(input.type === "checkbox");' in app, (
+    "a saved switch keeps its node, so the knob finishes its slide"
+  )
+  assert "await loadSettings({ render: !keepForm });" in app, (
+    "the switch save reloads the data without redrawing the form"
+  )
   block = css.split("@media (prefers-reduced-motion: reduce) {", 1)[1].split("\n}", 1)[
     0
   ]

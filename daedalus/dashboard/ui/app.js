@@ -2195,9 +2195,13 @@ function selectSection(host, key, open = sectionState(host).open) {
     else button.removeAttribute("aria-current");
   }
   const list = host.id === "settings" ? key : "";
+  const before = host.querySelector(":scope > .section-pane > [data-section]:not([hidden])")?.dataset.section;
   for (const card of host.querySelectorAll(":scope > .section-pane > [data-section]")) {
     card.hidden = open ? card.dataset.section !== key : card.dataset.section !== list;
   }
+  // A desktop section change fades the arriving card in, as a phone slides it.
+  const arrived = host.querySelector(":scope > .section-pane > [data-section]:not([hidden])");
+  if (arrived && before && arrived.dataset.section !== before && !phoneSection()) replay(arrived);
   // A provider file names its list, while a selected provider names its detail page.
   if (host.id === "provider-form") {
     const file = state.files[state.file];
@@ -3244,13 +3248,15 @@ function renderSettingsSave() {
   if (cardSave) cardSave.disabled = !yaml || !settingsDirty();
 }
 
-async function loadSettings() {
+async function loadSettings({ render = true } = {}) {
   state.settings = await call("settings");
   state.settings.lists = {};
   renderLegend();
   applyTheme(setting("personalization", "theme"));
   hourCycle = setting("personalization", "time_format") === "12h" ? "h12" : "h23";
-  renderSettings();
+  // A saved switch already holds its state in the page: keep the node, so its knob and the row
+  // it fades reach the end of the motion instead of being replaced on the first frame.
+  if (render) renderSettings();
 }
 
 // A selection sets the view of the page. Unsaved changes of the other view go after a confirmation.
@@ -3265,7 +3271,7 @@ async function selectSettingsSection(key) {
   openSection($("settings"), key);
 }
 
-async function saveSettings() {
+async function saveSettings(keepForm = false) {
   // Skip unchanged values and remove the previous Undo.
   if (!settingsDirty()) {
     dropUndo();
@@ -3276,7 +3282,7 @@ async function saveSettings() {
   rememberWrite("settings", { settings: true, text: state.settings.text }, state.writeAnchor ?? $("settings-yaml-save"));
   try {
     await call("settings", { method: "PUT", body: JSON.stringify(body) });
-    await loadSettings();
+    await loadSettings({ render: !keepForm });
     clearWrite("settings");
     refresh();
   } catch (error) {
@@ -4478,10 +4484,11 @@ $("settings").addEventListener("change", (event) => {
     state.hooksScan.take[input.dataset.hookTake] = input.checked;
     return;
   }
-  // Save switch and select values immediately on change.
+  // Save switch and select values immediately on change. A switch keeps its form: the page
+  // already shows the new state, and a redraw would cut its motion off at the first frame.
   if (input.type !== "checkbox" && input.tagName !== "SELECT") return;
   state.writeAnchor = anchorOf(input);
-  saveSettings();
+  saveSettings(input.type === "checkbox");
 });
 $("settings").addEventListener("input", (event) => {
   if (event.target.id !== "settings-editor") return;

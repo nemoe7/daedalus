@@ -723,6 +723,13 @@ section[data-page="settings"].hide-page-headers .pane-summary { display: none; }
   padding: 10px 0; border-top: 1px solid var(--line);
 }
 .field { position: relative; }
+/* A row settles between enabled and disabled when a card switch turns it, and the control inside
+   keeps the same beat, so the grey never snaps. */
+.field, .fold { transition: opacity var(--fast) var(--ease); }
+.field input:not(.switch), .field select {
+  transition: background-color var(--fast) var(--ease), border-color var(--fast) var(--ease),
+    color var(--fast) var(--ease), opacity var(--fast) var(--ease);
+}
 /* The rule belongs to the row above: the first row of a card keeps none of its own. A title
    header draws the rule over it, and a headerless card starts clean. */
 .card > h3 + .field, .card > .field:first-child { border-top: 0; }
