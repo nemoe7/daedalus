@@ -25,7 +25,7 @@
   color-scheme: dark;
   --bg: #1c1c1c; --panel: #262626; --text: #e6e6e6; --muted: #adadad; --line: #353535;
   --control-line: #565656;
-  --accent: #4b63e8; --accent-text: #8c9eff; --ok: #90caf9; --warn: #e1bee7; --bad: #d4608f; --bar: #303036; --orange: #ffa040; --red: #ff6663;
+  --accent: #4b63e8; --accent-text: #8c9eff; --ok: #90caf9; --warn: #e1bee7; --bad: #d4608f; --bar: #212c70; --orange: #ffa040; --red: #ff6663;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23adadad' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --tier: #90caf9; --tag: #e1bee7; --field: #1f1f1f; --tile-ink: #1c1c1c;
 }
@@ -71,7 +71,7 @@ tr.live-row.arrive { animation: arrive var(--soft) var(--ease); }
    as work. The seat keeps its width, so the ring comes and goes without moving the tabs. */
 .spinner {
   width: 14px; height: 14px; flex: none; align-self: center; border-radius: 50%;
-  border: 2px solid var(--line); border-top-color: var(--text);
+  border: 2px solid var(--line); border-top-color: var(--accent);
   visibility: hidden;
 }
 .spinner.on { visibility: visible; animation: spin .7s linear infinite; }
@@ -99,7 +99,7 @@ header {
   column-gap: 32px; padding: 0 32px; border-bottom: 1px solid var(--line); background: var(--panel);
 }
 .brand { grid-area: brand; align-self: center; display: flex; align-items: center; gap: 8px; padding: 6px 0; font-weight: 650; font-size: 18px; letter-spacing: .2px; }
-.brand span { color: var(--muted); }
+.brand span { color: var(--accent-text); }
 .brand small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; letter-spacing: 0; font-family: var(--mono); }
 .tabs { grid-area: tabs; display: flex; gap: 24px; overflow-x: auto; scrollbar-width: none; }
 /* The touch floor sets a min-width on the links: without flex none the boxes
@@ -159,7 +159,7 @@ button.line {
 .ghost svg, .add svg, .hint svg { width: 14px; height: 14px; }
 .search-ico { display: inline-flex; color: var(--muted); }
 button.chip { background: transparent; font: inherit; font-size: 13px; cursor: pointer; }
-button.chip:hover:not(:disabled) { border-color: var(--muted); }
+button.chip:hover:not(:disabled) { border-color: var(--accent); }
 button.chip:disabled { cursor: progress; }
 .types { display: flex; gap: 4px; }
 /* A phone drops the Type column, so the chips of each model join its name. */
@@ -170,9 +170,9 @@ button.chip:disabled { cursor: progress; }
 /* A state that the page cannot confirm reads in the bad color, so it cannot pass for healthy. */
 .chip.bad { color: var(--bad); }
 .effort { font-weight: 600; border-color: currentColor; }
-.e-none, .e-minimal { color: var(--muted); } .e-low { color: var(--ok); } .e-medium { color: var(--text); }
+.e-none, .e-minimal { color: var(--muted); } .e-low { color: var(--ok); } .e-medium { color: var(--accent-text); }
 .e-high { color: var(--orange); } .e-xhigh, .e-max { color: var(--red); }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
 .dot.off { background: var(--bad); }
 .ghost {
   padding: 4px 12px; border-radius: 999px; border: 1px solid var(--control-line);
@@ -196,8 +196,7 @@ main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
 /* One line names the figure that every bar of the strip draws. */
 .strip-note { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
 .card.pool { padding: 12px 14px; color: inherit; text-decoration: none; cursor: pointer; }
-.pool:hover { border-color: var(--muted); }
-.pool.on { border-color: var(--text); }
+.pool:hover, .pool.on { border-color: var(--accent); }
 .card.pool .sub { margin: 2px 0 0; }
 .pool-line + .pool-line { border-top: 1px solid var(--line); }
 .pool-line .line > :first-child { flex-shrink: 0; }
@@ -236,7 +235,9 @@ button.notification-item { cursor: pointer; }
   button.notification-item:hover { background: var(--field); }
 }
 .notification-mark { width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: var(--muted); }
-/* One neutral mark for every event. The event name states the kind, so hue has no job here. */
+.notification-item.reset .notification-mark { background: var(--accent); }
+.notification-item.warning .notification-mark { background: var(--warn); }
+.notification-item.rebuild .notification-mark { background: var(--ok); }
 .feed-meta { padding: 12px 20px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; }
 .feed-meta + .notification-item { border-top: 0; }
 .notification-copy { min-width: 0; display: grid; gap: 4px; }
@@ -256,18 +257,18 @@ button.notification-item { cursor: pointer; }
 .flow > .overview-limits { flex: 1 1 100%; }
 .overview-limits #ov-limits { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); column-gap: 28px; }
 .snippet { color: inherit; text-decoration: none; display: block; }
-.snippet:hover { border-color: var(--muted); }
+.snippet:hover { border-color: var(--accent); }
 .snippet h3 { margin-bottom: 12px; display: flex; justify-content: space-between; }
-.snippet-action { color: var(--text); font-size: 12px; font-weight: 500; }
+.snippet-action { color: var(--accent-text); font-size: 12px; font-weight: 500; }
 .snippet-action::after { content: "\203a"; margin-left: 4px; color: var(--muted); }
 .line { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 13px; }
 .line + .line { border-top: 1px solid var(--line); }
 .line > :first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .line > :last-child { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* The catalog line of the phone status card is a button, so it answers the mouse. */
-button.line.rebuild:hover { color: var(--text); }
+button.line.rebuild:hover { color: var(--accent-text); }
 .track { grid-column: 1 / -1; height: 4px; border-radius: 4px; background: var(--bar); }
-.fill { height: 100%; border-radius: 4px; background: var(--muted); }
+.fill { height: 100%; border-radius: 4px; background: var(--accent); }
 .more, .muted { color: var(--muted); }
 .more { font-size: 12px; }
 table { width: 100%; border-collapse: collapse; }
@@ -333,7 +334,7 @@ th[data-sort] { cursor: pointer; }
 .models td.num, .models th.num { text-align: right; }
 .models td.num .weight { justify-content: flex-end; }
 a.more { display: inline-block; margin-top: 2px; color: var(--muted); text-decoration: none; }
-a.more:hover { color: var(--text); }
+a.more:hover { color: var(--accent-text); }
 .chain-race { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
 .tab {
   padding: 6px 12px; border-radius: 999px; border: 1px solid var(--control-line);
@@ -346,7 +347,7 @@ a.more:hover { color: var(--text); }
   display: inline-block; min-width: 22px; text-align: center; padding: 1px 6px; border-radius: 6px;
   background: var(--bar); color: var(--tier); font-size: 12px; font-weight: 600;
 }
-.yes { color: var(--text); }
+.yes { color: var(--accent-text); }
 .model-open {
   max-width: 100%; padding: 0; border: 0; background: transparent; color: inherit;
   text-align: left; overflow: hidden; text-overflow: ellipsis; vertical-align: middle;
@@ -559,7 +560,7 @@ tr.live-row td { background: var(--field); }
   overflow-wrap: anywhere; max-height: 180px; overflow: auto; user-select: text;
 }
 .primary {
-  padding: 8px 18px; border-radius: 8px; border: 0; background: var(--text); color: var(--panel);
+  padding: 8px 18px; border-radius: 8px; border: 0; background: var(--accent); color: #fff;
   font-weight: 600;
 }
 .primary:hover:not(:disabled) { filter: brightness(1.2); }
@@ -604,11 +605,11 @@ section[data-page="providers"], section[data-page="settings"] {
   padding: 3px 12px; border: 1px dashed var(--control-line); border-radius: 999px; background: transparent;
   color: var(--muted); font-size: 12px; line-height: 22px; cursor: pointer;
 }
-.add:hover { color: var(--text); border-color: var(--muted); }
+.add:hover { color: var(--accent-text); border-color: var(--accent); }
 .adder { display: inline-flex; gap: 6px; }
 /* A hook row: the file name in a chip that opens the list of the hooks folder. The chip holds the
    same pill as a keyword chip, and the list draws in the page so it follows the page theme. */
-.pill.on { border-color: var(--text); background: var(--field); color: var(--text); }
+.pill.on { border-color: var(--accent); background: var(--bar); color: var(--tier); }
 .pill.off { opacity: .5; }
 .pill.named::before { content: "\25CF"; margin-right: 4px; font-size: .7em; }
 /* A pill with no button of its own takes the room the button would. */
@@ -659,7 +660,7 @@ section[data-page="providers"], section[data-page="settings"] {
 @media (hover: hover) {
   .sections button:hover { background: var(--field); }
 }
-.sections button.on { background: var(--field); border-left-color: var(--text); }
+.sections button.on { background: var(--field); border-left-color: var(--accent); }
 .rail-search { display: flex; align-items: center; gap: 8px; padding: 10px 12px; color: var(--muted);
   background: var(--panel); border: 1px solid var(--control-line); border-radius: var(--radius); }
 .rail-search svg { width: 15px; height: 15px; }
@@ -679,12 +680,23 @@ section[data-page="providers"], section[data-page="settings"] {
    A phone row keeps its chevron at the right edge, where the list rule already draws it. */
 .tile {
   display: inline-flex; align-items: center; justify-content: center; flex: none;
-  width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--line);
-  background: var(--field); color: var(--muted);
+  width: 22px; height: 22px; border-radius: 6px; background: var(--muted); color: var(--tile-ink);
 }
 .tile svg { width: 13px; height: 13px; }
 .tile .mark { width: 13px; height: 13px; vertical-align: middle; }
-/* One neutral tile marks a section. Colour stays for status and data, not for navigation. */
+/* The tiles take their hues from the theme tokens, so both themes stay in the house palette. */
+[data-chip="routing"] { background: var(--accent); }
+[data-chip="affinity"] { background: var(--tag); }
+[data-chip="balance"] { background: var(--orange); }
+[data-chip="limits"] { background: var(--red); }
+[data-chip="optimization"] { background: var(--warn); }
+[data-chip="privacy"] { background: var(--ok); }
+[data-chip="catalog"] { background: var(--tier); }
+[data-chip="hooks"] { background: var(--bad); }
+[data-chip="personalization"] { background: color-mix(in srgb, var(--tag) 55%, var(--red)); }
+[data-chip="keys"] { background: var(--muted); }
+[data-chip="yaml"] { background: color-mix(in srgb, var(--accent) 55%, var(--ok)); }
+[data-chip="providers"] { background: color-mix(in srgb, var(--ok) 60%, var(--accent)); }
 .sections button > span:not(.tile) { flex: 1; min-width: 0; }
 .settings h3, .card.provider > h3, .card.yaml-view > h3 { display: flex; align-items: center; gap: 8px; }
 .provider-flow { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; }
@@ -762,7 +774,7 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6
   transition: background-color var(--fast) var(--ease), background-position var(--fast) var(--ease);
 }
 .field input.switch:checked {
-  border-color: var(--text); background-color: var(--text); background-position: 21px 50%;
+  border-color: var(--accent); background-color: var(--accent); background-position: 21px 50%;
   background-image: radial-gradient(circle, #fff 0 9px, transparent 10px);
 }
 .field input.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -846,7 +858,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 /* The Undo of the last write, beside the row that caused it: a small round arrow. */
 .undo-step {
   padding: 0; width: 26px; height: 26px; border-radius: 50%; flex: none;
-  font-size: 14px; line-height: 1; color: var(--text); border-color: var(--muted);
+  font-size: 14px; line-height: 1; color: var(--accent-text); border-color: var(--accent);
 }
 .undo-step:hover { color: var(--text); border-color: var(--muted); }
 /* The row of a write holds the Undo beside its control, in the flow: the free space moves left,
@@ -943,7 +955,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .settings[data-detail="1"] > .rail { display: none; }
   .settings[data-detail="1"] > .section-pane { display: grid; }
   .section-pane { gap: 10px; }
-  .section-pane .back { display: flex; color: var(--text); }
+  .section-pane .back { display: flex; color: var(--accent-text); }
   #settings .section-pane:has(.provider-flow #provider-form[data-file-open="1"]) > .pane-bar > .back { display: none; }
   /* A phone drill page titles itself under the back label, as the reference lists do. */
   .pane-title:not([hidden]) { font-size: 26px; letter-spacing: -0.9px; }

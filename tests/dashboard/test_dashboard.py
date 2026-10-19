@@ -2043,7 +2043,7 @@ def test_the_short_values_carry_their_full_text() -> None:
     "}" in css
   ), "desktop tabs keep their intrinsic width; narrow headers wrap the strip instead"
   assert "text-decoration: underline; }" in css, "a sort head marks its own click"
-  assert "button.line.rebuild:hover { color: var(--text); }" in css, (
+  assert "button.line.rebuild:hover { color: var(--accent-text); }" in css, (
     "the phone catalog line answers the mouse"
   )
 
@@ -6689,8 +6689,8 @@ const meter = probe.progressMeter(0.25);
 assert(meter.includes('class="track"') && meter.includes('class="fill"'), meter);
 assert(meter.includes('width:25%') && meter.includes('var(--orange) 50%'), meter);
 const healthyMeter = probe.progressMeter(0.9);
-assert(healthyMeter.includes('color-mix(in srgb, var(--ok) 80%'), healthyMeter);
-assert(!healthyMeter.includes('oklch, var(--ok)'), 'the healthy half keeps blue out of violet');
+assert(healthyMeter.includes('color-mix(in srgb, var(--accent) 80%'), healthyMeter);
+assert(!healthyMeter.includes('oklch, var(--accent)'), 'the healthy half keeps blue out of violet');
 """,
   )
 

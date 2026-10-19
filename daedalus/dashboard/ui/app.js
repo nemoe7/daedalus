@@ -1291,14 +1291,11 @@ function openModelModal(m) {
     + (efforts ? `<h4>${t("model.detail.supported_efforts_label")}</h4><div class="pills">${efforts}</div>` : "");
   $("model-modal").showModal();
 }
-// Mix red at 0, orange at 0.5, and green at 1: the bar carries the health of the weight. The
-// accent stays off the data, so the bar never reads as a control.
+// Mix red at 0, orange at 0.5, and blue at 1.
 function weightColor(weight) {
   const high = weight >= 0.5;
   const share = Math.round((high ? (weight - 0.5) * 2 : weight * 2) * 100);
-  // The high half mixes in sRGB: blue toward orange in oklch passes through violet, and a
-  // healthy bar must not read as a warning.
-  return high ? `color-mix(in srgb, var(--ok) ${share}%, var(--orange))`
+  return high ? `color-mix(in srgb, var(--accent) ${share}%, var(--orange))`
     : `color-mix(in oklch, var(--orange) ${share}%, var(--red))`;
 }
 const progressMeter = (value) => `<div class="track"><div class="fill"
