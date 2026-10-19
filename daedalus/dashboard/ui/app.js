@@ -1296,7 +1296,9 @@ function openModelModal(m) {
 function weightColor(weight) {
   const high = weight >= 0.5;
   const share = Math.round((high ? (weight - 0.5) * 2 : weight * 2) * 100);
-  return high ? `color-mix(in oklch, var(--ok) ${share}%, var(--orange))`
+  // The high half mixes in sRGB: blue toward orange in oklch passes through violet, and a
+  // healthy bar must not read as a warning.
+  return high ? `color-mix(in srgb, var(--ok) ${share}%, var(--orange))`
     : `color-mix(in oklch, var(--orange) ${share}%, var(--red))`;
 }
 const progressMeter = (value) => `<div class="track"><div class="fill"
