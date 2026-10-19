@@ -52,6 +52,8 @@ An ADR holds one decision and the reason for it.
 - Lint Python comments, docstrings and the pages' paragraphs with `scripts/lint_prose.py`.
 - Lint Markdown with `npx markdownlint-cli2 "**/*.md"`. The run must report 0 issues. The
   rules are in `.markdownlint-cli2.jsonc`: the markdownlint defaults, MD060 on, MD013 off.
+- Review every human-facing edit to `AGENTS.md` with `.agents/skills/humanizer/SKILL.md`.
+- Run `.agents/skills/asd-ste100/scripts/ste-lint.py AGENTS.md --json` after each edit. The run must report 0 violations.
 - Docs never hold narrative. State the fact, and leave out the story.
 - Use lists and tables. A human reads the text, not a model.
 - Write at most four sentences in a paragraph, and keep only the core idea.
@@ -69,13 +71,22 @@ An ADR holds one decision and the reason for it.
   report 0 violations.
 - Show each command for cmd, PowerShell and bash. Use Mermaid for diagrams.
 
+## Front-end work
+
+- Read and apply `.agents/skills/frontend-design/SKILL.md` and `.agents/skills/taste-skill/SKILL.md` before front-end work.
+- For dashboard screens, read `.agents/skills/taste-skill/references/app-screens.md` before you audit or change a screen.
+- For a dashboard audit, inspect every route at 1440, 768, and 390 pixels. Capture and review the screenshots.
+- Check keyboard focus, contrast, reduced motion, touch targets, and horizontal overflow.
+- Match the surrounding design for focused fixes. Avoid unrelated redesigns.
+
 ## Dashboard pages
 
 - A new page uses the `.flow` layout of `style.css`: the table in a `.column.wide`, and the cards in a `.column` beside it.
 - Do not put cards in a row above a table.
 - Reuse an existing shared UI component before adding page-specific markup, behavior, or CSS. When no component fits and the same contract has at least two current callers, add one shared component. Migrate those callers in the same change. Keep one-off domain UI local.
 - For each new UI component, reuse a suitable key in `daedalus/dashboard/ui/en.js` or add a semantic key. Do not add an English fallback in the component.
-- Update the pages simulation when code or UI changes: `scripts/pages_demo.py`, live at <https://nemoe7.github.io/daedalus/>.
+- Update the local demo in `scripts/pages_demo.py` when code or UI changes.
+- Keep the demo local on port 8001. Do not claim a public Pages deployment.
 
 ## Open WebUI plugins
 

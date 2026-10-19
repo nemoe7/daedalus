@@ -270,7 +270,6 @@ globalThis.DAEDALUS_LOCALE = {
   "notification.model_reset_text": "{model} {unit} reset",
   "notification.provider_renewed_text": "Provider allowance renewed",
   "notification.reset_text": "{provider} {unit} reset",
-  "notification.title": "Notifications",
   "overview.empty.limits_text": "No limits to show.",
   "overview.empty.requests_text": "No requests",
   "overview.kpi.catalog_models_label": "Models in the catalog",

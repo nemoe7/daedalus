@@ -2003,11 +2003,9 @@ def test_the_short_values_carry_their_full_text() -> None:
     ".tabs a {\n"
     "  display: flex; align-items: center; min-height: 48px; color: var(--muted);\n"
     "  text-decoration: none; font-size: 14px; font-weight: 500; white-space: nowrap;\n"
-    "  flex: none;\n"
+    "  flex: none; border-bottom: 2px solid transparent;\n"
     "}" in css
-  ), (
-    "a tab keeps its intrinsic width inside the scrolling strip, so labels never overlap"
-  )
+  ), "desktop tabs keep their intrinsic width; narrow headers wrap the strip instead"
   assert "text-decoration: underline; }" in css, "a sort head marks its own click"
   assert "button.line.rebuild:hover { color: var(--accent-text); }" in css, (
     "the phone catalog line answers the mouse"
@@ -2049,14 +2047,167 @@ def test_the_requests_head_keeps_its_rule_while_it_sticks() -> None:
   )
 
 
-def test_model_heads_align_left() -> None:
-  """Model-header markup omits centering classes, while CSS centers marked cells."""
+def test_model_numbers_align_right() -> None:
+  """Model numeric cells and sortable headers share right alignment."""
   root = Path(__file__).resolve().parent.parent.parent
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   head = page.split('<tr id="model-head">', 1)[1].split("</tr>", 1)[0]
-  assert "mid" not in head, "no Models head centers or right-aligns"
+  for key in ("order", "context", "cooldown", "weight"):
+    assert f'data-sort="{key}" class="' in head
+    column = head.split(f'data-sort="{key}"', 1)[1].split(">", 1)[0]
+    assert "num" in column, f"the {key} heading is numeric"
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  models = app.split("function renderModels() {", 1)[1].split("function timeLeft", 1)[0]
+  assert 'class="hide-sm mid num${m.order > 1' in models
+  assert 'class="hide-sm num muted"' in models
+  assert 'class="num hide-sm"' in models
+  assert '<td class="num">${mobileLabel(t("model.column.weight_column"))}' in models
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  assert ".models .mid { text-align: center; }" in css, "the cells keep the center"
+  assert ".models td.num, .models th.num { text-align: right; }" in css
+  assert ".models .mid { text-align: center; }" in css
+
+
+def test_dashboard_routes_have_visible_titles() -> None:
+  """Dashboard routes name each screen in a visible heading."""
+  root = Path(__file__).resolve().parents[2]
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  for route, key in (
+    ("overview", "nav.overview_link"),
+    ("requests", "nav.requests_link"),
+    ("models", "nav.models_link"),
+    ("limits", "nav.limits_link"),
+    ("notifications", "nav.notifications_link"),
+  ):
+    section = page.split(f'<section data-page="{route}" hidden>', 1)[1].split(
+      "</section>", 1
+    )[0]
+    assert f'<h1 class="page-title" data-i18n="{key}">' in section, route
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert 'class="settings-list-title"' in app
+  assert '<h1 class="pane-title" data-pane-title hidden></h1>' in app
+  assert "summary.innerHTML = `${chipFor(host.id, key)}<h1>${esc(label)}</h1>" in app
+
+
+def test_provider_list_uses_the_settings_summary() -> None:
+  """The provider list uses the same centered heading as other Settings sections."""
+  root = Path(__file__).resolve().parents[2]
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  files = app.partition("function renderFiles() {")[2].partition("\n}\n")[0]
+  assert "provider-files-head" not in files
+  section = app.partition("function selectSection(host, key,")[2].partition("\n}\n")[0]
+  assert (
+    "summary.innerHTML = `${chipFor(host.id, key)}<h1>${esc(label)}</h1>" in section
+  )
+  assert (
+    'summary.hidden = host.id === "settings" && key === "providers";' not in section
+  )
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert ".pane-summary h1 {" in css
+  assert (
+    '#settings:has(#provider-form[data-detail="1"]) > .section-pane > .pane-summary'
+    in css
+  )
+  assert (
+    '#settings:has(#provider-form[data-file-open="1"]) > .section-pane > .pane-summary'
+    in css
+  )
+
+
+def test_provider_values_and_helpers_use_readable_text_sizes() -> None:
+  """Provider data, chips, and helper copy stay at 13px or larger."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  rule = re.search(
+    r"(?s)/\* Provider form data and helper text stay at 13px\. \*/(.*?)\{([^}]*)\}",
+    css,
+  )
+  assert rule and "font-size: 13px;" in rule.group(2)
+  for selector in (
+    ".card.provider .sub",
+    ".card.provider .field small",
+    ".card.provider .pill",
+    ".card.provider .add",
+    ".card.provider .adder input",
+    ".card.provider .adder select",
+    ".card.provider .override input.text",
+    ".card.provider .pill.hook .select",
+    ".card.provider .pill.hook .menu button",
+  ):
+    assert selector in rule.group(1), selector
+
+
+def test_panel_borders_are_soft_and_controls_keep_their_edges() -> None:
+  """Panel borders stay soft, controls stay distinct, and text meets AA contrast in both themes."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  light = css.split(":root {", 1)[1].split("}", 1)[0]
+  dark = css.split(':root[data-theme="dark"] {', 1)[1].split("}", 1)[0]
+  light_colors = dict(re.findall(r"(--[\w-]+):\s*(#[0-9a-fA-F]{6})", light))
+  dark_colors = dict(re.findall(r"(--[\w-]+):\s*(#[0-9a-fA-F]{6})", dark))
+
+  def luminance(color: str) -> float:
+    channels = [int(color[index : index + 2], 16) / 255 for index in (1, 3, 5)]
+    linear = [
+      value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+      for value in channels
+    ]
+    return sum(
+      value * weight
+      for value, weight in zip(linear, (0.2126, 0.7152, 0.0722), strict=True)
+    )
+
+  def contrast(first: str, second: str) -> float:
+    low, high = sorted((luminance(first), luminance(second)))
+    return (high + 0.05) / (low + 0.05)
+
+  for colors in (light_colors, dark_colors):
+    assert 1.1 <= contrast(colors["--line"], colors["--panel"]) <= 1.3
+    assert contrast(colors["--control-line"], colors["--field"]) >= 1.8
+    assert contrast(colors["--text"], colors["--panel"]) >= 4.5
+    assert contrast(colors["--muted"], colors["--panel"]) >= 4.5
+    accent = colors.get("--accent-text", colors["--accent"])
+    assert contrast(accent, colors["--panel"]) >= 4.5
+
+
+def test_active_controls_have_no_resting_shadows() -> None:
+  """Active navigation and buttons use borders instead of shadows."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  selectors = (
+    r"\.sections button\.on",
+    r"\.primary:hover:not\(:disabled\)",
+    r"\.pool:hover, \.pool\.on",
+    r"\.tabs a\.on",
+  )
+  for selector in selectors:
+    rule = re.search(selector + r" \{([^}]*)\}", css)
+    assert rule and "box-shadow" not in rule.group(1), selector
+
+
+def test_narrow_navigation_wraps_without_a_scroll_cut() -> None:
+  """Narrow headers show every navigation link without horizontal scrolling."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert (
+    "@media (max-width: 900px) {\n  header { grid-template-columns: 1fr auto;" in css
+  )
+  assert (
+    ".tabs { flex-wrap: wrap; gap: 0 16px; overflow: visible; mask-image: none; }"
+    in css
+  )
+  assert ".sections button { min-height: 44px; }" in css
+  assert ".settings-list-title { display: none; }" in css
+  narrow = css.rsplit("@media (max-width: 900px) {", 1)[1]
+  assert ".settings-list-title { display: block; }" in narrow
+
+
+def test_provider_back_controls_have_room_and_a_touch_target() -> None:
+  """Back controls have a measured gap, padded glyph, and phone touch target."""
+  root = Path(__file__).resolve().parents[2]
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert '<span class="back-label">${esc(back)}</span>' in app
+  assert "back.textContent = label;" in app
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert ".pane-bar { display: flex; align-items: center; gap: 8px; }" in css
+  assert "background: var(--bg); padding: 6px 20px; margin: 0 -20px;" in css
+  assert "padding: 4px 8px;" in css and "gap: 6px;" in css
+  assert ".section-pane .back, #nav a { min-height: 44px; min-width: 44px; }" in css
 
 
 def test_mobile_request_cards_use_route_first_grid() -> None:
@@ -2671,6 +2822,23 @@ def test_the_requests_bar_keeps_its_line_on_a_filter_selection() -> None:
     'section[data-page="requests"] .requests-bar .hint { white-space: nowrap; }'
     in desktop
   ), "the count hint holds its own line"
+
+
+def test_tablet_requests_filters_wrap_without_clipping() -> None:
+  """A tablet wraps Requests filters into its narrow column instead of scrolling sideways."""
+  css = (
+    Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
+  ).read_text(encoding="utf-8")
+  assert "@media (min-width: 721px) and (max-width: 900px) {" in css
+  assert 'section[data-page="requests"] .requests-bar { flex-wrap: wrap; }' in css
+  assert (
+    'section[data-page="requests"] .requests-bar input[type="search"] '
+    "{ flex: 1 1 100%; min-width: 0; }" in css
+  )
+  assert (
+    'section[data-page="requests"] .requests-bar #request-clear.off { display: none; }'
+    in css
+  )
 
 
 def test_header_state_matches_the_page_switcher() -> None:
@@ -6117,7 +6285,7 @@ def test_a_phone_opens_a_section_as_its_own_page() -> None:
   assert 'sectionPane(t("nav.providers_link")' in app, (
     "each pane names the page its back button returns to"
   )
-  assert '<h2 class="pane-title" data-pane-title hidden></h2>' in app, (
+  assert '<h1 class="pane-title" data-pane-title hidden></h1>' in app, (
     "the pane bar carries the drill page title"
   )
   style = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -6642,7 +6810,7 @@ def test_dashboard_rows_keep_their_responsive_cell_order() -> None:
       '<td class="mid hide-sm">${mobileLabel(t("model.column.tools_column"))}',
       '<td class="hide-sm mid">${m.mode === "chat" ? reasoningCell(m) : dash}</td>',
       '<td class="num hide-sm">${mobileLabel(t("model.column.cooldown_column"))}',
-      '<td>${mobileLabel(t("model.column.weight_column"))}',
+      '<td class="num">${mobileLabel(t("model.column.weight_column"))}',
     ),
   )
 
