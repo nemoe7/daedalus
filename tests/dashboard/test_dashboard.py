@@ -2329,8 +2329,12 @@ def test_narrow_navigation_scrolls_in_one_row() -> None:
   assert ".sections button { min-height: 44px; }" in css
   narrow = css.rsplit("@media (max-width: 900px) {", 1)[1]
   assert (
-    'main[data-page="settings"]:has(.settings[data-detail="1"]) > .page-title { display: none; }'
-    in narrow
+    'main[data-page="settings"]:has(.section-pane .pane-title:not([hidden]):not(:empty))'
+    " > .page-title { display: none; }" in narrow
+  )
+  assert (
+    'main[data-page="settings"]:has(#provider-form .pane-title:not([hidden]):not(:empty))'
+    " #settings > .section-pane > .pane-bar > .pane-title { display: none; }" in narrow
   )
 
 
