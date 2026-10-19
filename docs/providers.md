@@ -4,12 +4,12 @@ Each provider except Pollinations has a tested free tier.
 
 | Provider key | Provider | API | Notes |
 | --- | --- | --- | --- |
-| `cloudflare` | Cloudflare Workers AI | OpenAI-compatible, plus the native run API for audio and images | A text-only message goes as 1 string. Paid models stay out. Order 2. The Clef models carry the `decisions` mode, not `chat`. |
+| `cloudflare` | Cloudflare Workers AI | OpenAI-compatible, plus the native run API for audio and images | daedalus sends a text-only message as 1 string. Paid models stay out. Order 2. The Clef models carry the `decisions` mode, not `chat`. |
 | `gemini` | Google Gemini | Native Gemini API | daedalus maps OpenAI to Gemini and back, thought signatures included. [`free.yml`](../config/providers/free.yml) sets `reasoning_effort: high`. |
 | `groq` | Groq | OpenAI-compatible | daedalus sends only the message fields that Groq accepts. |
 | `kilo` | Kilo Gateway | OpenAI-compatible | Only models whose discovery row has `isFree: true`. |
-| `mistral` | Mistral | OpenAI-compatible | Only the message fields that it accepts. `reasoning_effort`: `none` or `high`. Thinking chunks are `reasoning_content`. |
-| `openrouter` | OpenRouter | OpenAI-compatible, plus the OpenRouter Image API (`/images`). Speech is mp3, or pcm on ask. | Only `:free` and price-0 `stealth/` models. Output types set the modes. Images need credits. |
+| `mistral` | Mistral | OpenAI-compatible | daedalus sends only the message fields that Mistral accepts. `reasoning_effort`: `none` or `high`. Thinking chunks are `reasoning_content`. |
+| `openrouter` | OpenRouter | OpenAI-compatible, plus the OpenRouter Image API (`/images`). Speech is mp3, or pcm when the request asks for it. | Only `:free` and price-0 `stealth/` models. Output types set the modes. Images need credits. |
 | `pollinations` | Pollinations | OpenAI-compatible | In [`pollinations.yml`](../config/providers/pollinations.yml), not [`free.yml`](../config/providers/free.yml): its Pollen does not refill ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)). Order 2, as Cloudflare. |
 | `z-ai` | Z.ai | OpenAI-compatible | Only the 3 free models under `models:`: `glm-4.5-flash`, `glm-4.7-flash`, and `glm-4.6v-flash`. |
 
@@ -46,7 +46,7 @@ A key can also go into `.env` under the name that [Configuration](configuration.
 
 ## Catalog
 
-`daedalus catalog` makes the model store in `.daedalus-state/models.sqlite3`. The command reads the config files again, so a hand edit of a file applies to the new store. The provider reads run at the same time, 1 thread per provider, up to the processor count. Each read logs 1 line with its count.
+`daedalus catalog` builds the model store in `.daedalus-state/models.sqlite3`. The command reads the config files again, so a hand edit of a file applies to the new store. The provider reads run at the same time, 1 thread per provider, up to the processor count. Each read logs 1 line with its count.
 
 ```mermaid
 flowchart LR
@@ -60,7 +60,7 @@ flowchart LR
 | Rule | Value |
 | --- | --- |
 | Schedule | Each 6 h from 06:00 in `TZ`. `catalog.every: 0` stops it. |
-| Provider error | daedalus keeps the old rows of that provider only. |
+| Provider error | daedalus keeps only the old rows of that provider. |
 | Chat chains | Only chat rows, and rows with no mode, go into the chains. |
 | Stealth models | On Kilo and OpenRouter, a price-0 `stealth/` model passes `exclude`. A priced one stays out. |
 
@@ -87,7 +87,7 @@ The output type of an OpenRouter model sets its mode. Kilo keeps only the models
 | Video | `video_generation` |
 | Another type | The name of the type |
 
-A mode that daedalus does not know keeps the model out of each chain and pool.
+A mode that daedalus does not know keeps the model out of every chain and pool.
 
 ## Endpoints for non-chat models
 
@@ -133,7 +133,7 @@ The Gemini exclude list keeps these models out:
 | `*-latest` aliases | The model behind each alias changes over time. |
 
 The Mistral exclude list is in [the shipped provider config](../config/providers/free.yml).
-Discovery also keeps these Mistral rows out:
+Discovery also drops these Mistral rows:
 
 | Rows | Reason |
 | --- | --- |
