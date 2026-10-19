@@ -11,7 +11,7 @@ daedalus is in development. The code changes fast, and it breaks faster.
 
 ## Features
 
-- 1 OpenAI-compatible endpoint for 8 providers: Cloudflare, Gemini, Groq, Kilo, Mistral, OpenRouter, Pollinations and Z.ai. Each provider gets its native API, Gemini included.
+- 1 OpenAI-compatible endpoint for 8 providers: Cloudflare, Gemini, Groq, Kilo, Mistral, OpenRouter, Pollinations, and Z.ai. Each provider gets its native API, Gemini included.
 - 4 pools (tiers) and `daedalus/auto`, which selects a tier from the prompt with the [LiteLLM](https://github.com/BerriAI/litellm) [AutoRouter heuristic v2](https://docs.litellm.ai/blog/heuristic-v2) classifier.
 - A [fallback ladder](docs/architecture.md#pools-and-the-fallback-ladder): when a model fails, the next model gets the request. The chain walks up the tiers first, then down.
 - [Weights](docs/architecture.md#weights) that change after each request. A weight goes up on an answer and down on a fault, a slow answer or a rate limit. It also goes up with time.
@@ -21,8 +21,8 @@ daedalus is in development. The code changes fast, and it breaks faster.
 - A [try again](docs/architecture.md#try-again) in Open WebUI moves the message 1 tier up. The rule needs the shipped [owui_auto_reasoning_effort](docs/hooks/owui_auto_reasoning_effort.md) hook.
 - Before a request, daedalus skips the models without tools, without vision or with a too-small context window. Each provider or model can carry an [order](docs/architecture.md#order).
 - A model catalog from provider discovery and LiteLLM data, rebuilt on a schedule, in place of a hand-written model list.
-- Endpoints for embeddings, transcriptions, speech and images, and a dashboard for pools, requests, models, API keys, providers and settings.
-- Docker Compose, with optional Open WebUI, Tika, SearXNG, Headroom and Tailscale.
+- Endpoints for embeddings, transcriptions, speech, and images, and a dashboard for pools, requests, models, API keys, providers and settings.
+- Docker Compose, with optional Open WebUI, Tika, SearXNG, Headroom, and Tailscale.
 
 daedalus is for personal use only. Do not share it with other users, because the provider terms of service can forbid it.
 
@@ -114,7 +114,7 @@ With no answer the command rebuilds in its own process.
 
 ## Development
 
-`uv sync` also installs the development tools: pytest, pytest-xdist and Ruff. CI runs these commands for each code or Markdown change:
+`uv sync` also installs the development tools: pytest, pytest-xdist, and Ruff. CI runs these commands for each code or Markdown change:
 
 ```sh
 uv run pytest
@@ -151,7 +151,7 @@ Keep JSON inventories out of git.
 | [Configuration](docs/configuration.md) | Environment variables, [`config/daedalus.yml`](config/daedalus.yml) and provider files |
 | [Providers](docs/providers.md) | Supported providers and what each one can do |
 | [Provider keys](docs/provider-keys.md) | The steps that make a key for each provider |
-| [Deployment](docs/deployment.md) | Docker Compose, profiles, Open WebUI, Tika, SearXNG, Headroom and Tailscale |
+| [Deployment](docs/deployment.md) | Docker Compose, profiles, Open WebUI, Tika, SearXNG, Headroom, and Tailscale |
 | [Open WebUI integration](docs/integrations/owui.md) | The skills, the filters and the tools of the [`integrations/openwebui`](integrations/openwebui) folder |
 | [Dashboard](docs/dashboard.md) | Pages and API keys |
 | [Hooks](docs/hooks.md) | Python files that change catalog rows, requests and answers. Each shipped file has its own page |

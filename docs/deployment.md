@@ -85,7 +85,7 @@ The dashboard starts while the initial catalog builds in a worker thread. `serve
 background build. Existing models remain available during a rebuild. On a first install, model requests
 cannot succeed until models are available.
 
-Startup, manual, scheduled and config-save builds use the same worker-thread path, including the
+Startup, manual, scheduled, and config-save builds use the same worker-thread path, including the
 catalog diff and its saved event.
 
 Saving provider YAML in the dashboard rebuilds the model list from cache. After editing files outside the dashboard, click Catalog to fetch and rebuild.

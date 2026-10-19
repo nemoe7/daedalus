@@ -52,7 +52,7 @@ Pass the version from `show_skill` as `expected_version_id` for optimistic concu
 
 `install_skill` uses Open WebUI's native URL importer. It imports every package in a GitHub repository, folder or `SKILL.md` URL. It also imports packages in a raw Markdown, JSON or ZIP URL. Imported packages retain all text and base64-encoded binary files.
 
-The URL must use HTTPS, contain no credentials and match `TRUSTED_DOMAINS`. Open WebUI then applies its redirect, SSRF, size and package validation. The native URL-loader endpoint requires an Open WebUI administrator. Successfully imported skills join the selected presets.
+The URL must use HTTPS, contain no credentials and match `TRUSTED_DOMAINS`. Open WebUI then applies its redirect, SSRF, size, and package validation. The native URL-loader endpoint requires an Open WebUI administrator. Successfully imported skills join the selected presets.
 
 `timeout_seconds` sets the wait for the confirmation, and `UserValves.mode` plus `UserValves.timeout_seconds` give each user their own gate, where `0` keeps the tool valve. Open WebUI v0.12.0 has no per-tool toggle route, so `toggle_tool` toggles the tool id in the preset `toolIds` lists.
 

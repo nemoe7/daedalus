@@ -76,7 +76,7 @@ The proxy removes these client headers before adding provider headers.
 | Credentials | `Authorization`, `Cookie`, `X-Api-Key`, `Api-Key`, `X-Goog-Api-Key` |
 | Transport | `Host`, `Accept`, `Accept-Encoding`, `Content-Type`, `Content-Length`, `Content-Encoding`, `Transfer-Encoding`, `Connection`, `Keep-Alive`, `TE`, `Trailer`, `Upgrade`, `Expect` |
 | Proxy | `Forwarded`, `Via`, `X-Real-IP`, `Proxy-*`, `X-Forwarded-*`, `Tailscale-*` |
-| Open WebUI user | `X-OpenWebUI-User-*`: the name, e-mail, id and role of the user |
+| Open WebUI user | `X-OpenWebUI-User-*`: the name, e-mail, id, and role of the user |
 
 ## Classification
 
