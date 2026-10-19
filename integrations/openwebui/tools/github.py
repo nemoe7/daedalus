@@ -3,7 +3,7 @@ title: GitHub
 author: nemo
 description: GitHub access for Open WebUI. Read and write approval follows permission mode.
 required_open_webui_version: 0.10.0
-version: 3.0.8
+version: 3.0.9
 licence: nemoe7 Noncommercial and Public-Interest License 1.2.0
 """
 
@@ -727,11 +727,11 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Remove assignees from a GitHub issue.
+    """Unassign users from a GitHub issue.
 
     :param repository_full_name: owner/repo
     :param issue_number: the issue number
-    :param assignees: usernames to remove
+    :param assignees: usernames to unassign
     """
     repo = self._repo(repository_full_name)
 
@@ -792,7 +792,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Remove one label from a GitHub issue.
+    """Delete one label from a GitHub issue.
 
     :param repository_full_name: owner/repo
     :param issue_number: the issue number
@@ -2228,7 +2228,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Delete a GitHub file in one commit with its current SHA from `fetch_github_file`.
+    """Delete a GitHub file in one commit using the current SHA from `fetch_github_file`.
 
     :param repository_full_name: owner/repo
     :param path: the file path

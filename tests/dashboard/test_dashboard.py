@@ -1687,7 +1687,7 @@ assert(!probe.useStats({id: 'q/n'}).map(([value, label]) => value + ' ' + label)
 
 
 def test_provider_files_are_drilldown_steps() -> None:
-  """Multi-provider files list their providers; single-provider files open their config."""
+  """Multi-provider files list their providers. Single-provider files open their config."""
   root = Path(__file__).resolve().parents[2]
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   render_files = app.partition("function renderFiles() {")[2].partition("\n}\n")[0]
@@ -2013,7 +2013,7 @@ def test_the_short_values_carry_their_full_text() -> None:
 
 
 def test_the_parallel_race_reads_on_the_page() -> None:
-  """Race display code includes legend, winner, and chain labels."""
+  """Race output includes the legend, winner, and chain labels."""
   app = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/app.js"
   ).read_text(encoding="utf-8")
@@ -2182,7 +2182,7 @@ def test_active_controls_have_no_resting_shadows() -> None:
 
 
 def test_narrow_navigation_wraps_without_a_scroll_cut() -> None:
-  """Narrow headers show every navigation link without horizontal scrolling."""
+  """Narrow headers wrap the navigation links without horizontal scrolling."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   assert (
     "@media (max-width: 900px) {\n  header { grid-template-columns: 1fr auto;" in css
@@ -5078,7 +5078,7 @@ def test_the_confirm_dialog_keeps_the_phone_gutter() -> None:
 
 
 def test_the_tab_bar_fades_its_clipped_edges() -> None:
-  """One shared class carries the breathing edge mask; no chevrons remain."""
+  """The tab bar uses one shared edge mask. The header has no chevron controls."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   fade = re.search(r"\n\.scroll-fade \{([^}]*)\}", css)
