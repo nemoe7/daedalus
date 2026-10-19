@@ -11,7 +11,8 @@
   syntax: "<length>"; inherits: false; initial-value: 0px;
 }
 :root {
-  --bg: #f3f3f5; --panel: #ffffff; --text: #212121; --muted: #616161; --line: #cfcfcf;
+  --bg: #f3f3f5; --panel: #ffffff; --text: #212121; --muted: #616161; --line: #e5e5e7;
+  --control-line: #b3b3b3;
   --accent: #304ffe; --accent-text: var(--accent); --ok: #283593; --warn: #a3386c; --bad: #781f4c; --bar: #e3e8fd; --orange: #b45309; --red: #d32f2f;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23616161' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --tier: #212c70; --tag: #5c388c; --field: #f7f7f9; --radius: 12px; --tile-ink: #ffffff;
@@ -22,7 +23,8 @@
 /* app.js sets data-theme from the theme setting, or from the device when the setting is system. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #1c1c1c; --panel: #262626; --text: #e6e6e6; --muted: #adadad; --line: #424242;
+  --bg: #1c1c1c; --panel: #262626; --text: #e6e6e6; --muted: #adadad; --line: #353535;
+  --control-line: #565656;
   --accent: #4b63e8; --accent-text: #8c9eff; --ok: #90caf9; --warn: #e1bee7; --bad: #d4608f; --bar: #212c70; --orange: #ffa040; --red: #ff6663;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23adadad' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --tier: #90caf9; --tag: #e1bee7; --field: #1f1f1f; --tile-ink: #1c1c1c;
@@ -35,7 +37,7 @@ body {
 }
 input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 button { font: inherit; cursor: pointer; white-space: nowrap; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 /* A press shows at once, also on a touch screen without hover. */
 button:not(:disabled):active, .tabs a:active, .add:active, .card.pool:active { opacity: .7; }
 tr.request:active td { background: var(--field); }
@@ -105,10 +107,10 @@ header {
 .tabs a {
   display: flex; align-items: center; min-height: 48px; color: var(--muted);
   text-decoration: none; font-size: 14px; font-weight: 500; white-space: nowrap;
-  flex: none;
+  flex: none; border-bottom: 2px solid transparent;
 }
 .tabs a:hover { color: var(--text); }
-.tabs a.on { color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+.tabs a.on { color: var(--text); border-bottom-color: var(--accent); }
 /* The bar stretches, so the underline of the selected tab lands on the header bottom line. */
 .tab-bar { grid-area: tabs; display: flex; align-items: stretch; gap: 2px; min-width: 0; }
 .tabs { flex: 1; min-width: 0; }
@@ -173,7 +175,7 @@ button.chip:disabled { cursor: progress; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
 .dot.off { background: var(--bad); }
 .ghost {
-  padding: 4px 12px; border-radius: 999px; border: 1px solid var(--line);
+  padding: 4px 12px; border-radius: 999px; border: 1px solid var(--control-line);
   background: transparent; color: var(--muted); font-size: 13px;
 }
 /* A touch screen keeps a hover look after a tap, so a hover rule needs a pointer. */
@@ -181,12 +183,16 @@ button.chip:disabled { cursor: progress; }
   .ghost:hover { color: var(--text); border-color: var(--muted); }
 }
 main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
+.page-title, .settings-list-title {
+  margin: 0; font-size: 24px; font-weight: 650; letter-spacing: -.5px; line-height: 1.2;
+}
+.page-title { margin-bottom: 16px; }
+.settings-list-title { display: none; }
 .pools {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(min(136px, 100%), 1fr)); gap: 12px; margin-bottom: 16px;
 }
 .card.pool { padding: 12px 14px; color: inherit; text-decoration: none; cursor: pointer; }
 .pool:hover, .pool.on { border-color: var(--accent); }
-.pool.on { box-shadow: inset 0 0 0 1px var(--accent); }
 .card.pool .sub { margin: 2px 0 0; }
 .pool-line + .pool-line { border-top: 1px solid var(--line); }
 .pool-line .line > :first-child { flex-shrink: 0; }
@@ -207,7 +213,6 @@ td.time { white-space: nowrap; }
 .card .sub { color: var(--muted); font-size: 12px; margin: 2px 0 14px; }
 /* Notifications read as one phone feed. Exact times remain available on hover. */
 .notification-feed { padding: 0; overflow: hidden; }
-.notification-feed > h3 { padding: 18px 20px 12px; }
 .notification-feed > .more { margin: 0; padding: 16px 20px 20px; border-top: 1px solid var(--line); }
 .notification-item {
   appearance: none; width: 100%; box-sizing: border-box; display: grid;
@@ -288,12 +293,12 @@ tr:last-child td { border-bottom: 0; }
   border-bottom: 1px solid var(--line);
 }
 input {
-  padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line);
+  padding: 8px 12px; border-radius: 8px; border: 1px solid var(--control-line);
   background: var(--field); color: var(--text); font: inherit;
 }
 input[type=search] { flex: 1; min-width: 180px; }
 select {
-  appearance: none; padding: 7px 32px 7px 10px; border-radius: 8px; border: 1px solid var(--line);
+  appearance: none; padding: 7px 32px 7px 10px; border-radius: 8px; border: 1px solid var(--control-line);
   color: var(--text); font: inherit; cursor: pointer;
   background: var(--field) var(--chevron) no-repeat right 12px center;
 }
@@ -309,11 +314,13 @@ th[data-sort] { cursor: pointer; }
 /* The name takes the free width. A longer name ends in an ellipsis. */
 .models td.name { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .models .mid { text-align: center; }
+.models td.num, .models th.num { text-align: right; }
+.models td.num .weight { justify-content: flex-end; }
 a.more { display: inline-block; margin-top: 2px; color: var(--muted); text-decoration: none; }
 a.more:hover { color: var(--accent-text); }
 .chain-race { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
 .tab {
-  padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line);
+  padding: 6px 12px; border-radius: 999px; border: 1px solid var(--control-line);
   background: transparent; color: var(--muted);
 }
 .tab:hover { color: var(--text); border-color: var(--muted); }
@@ -444,6 +451,12 @@ td.end { text-align: right; }
     display: inline-block; width: 100%; overflow: hidden; text-overflow: ellipsis;
   }
 }
+/* A tablet narrows the Requests column beside the legend, so its filters wrap instead of clipping. */
+@media (min-width: 721px) and (max-width: 900px) {
+  section[data-page="requests"] .requests-bar { flex-wrap: wrap; }
+  section[data-page="requests"] .requests-bar input[type="search"] { flex: 1 1 100%; min-width: 0; }
+  section[data-page="requests"] .requests-bar #request-clear.off { display: none; }
+}
 /* A collapsed border scrolls away from a sticky head, so the rule rides on an inset shadow. */
 .requests thead th { position: sticky; top: 0; background: var(--panel); z-index: 2; border-bottom: 0; box-shadow: inset 0 -1px 0 var(--line); }
 /* The code legend of the Requests page. A desktop puts it in the column beside the table. */
@@ -526,11 +539,11 @@ tr.live-row td { background: var(--field); }
   padding: 8px 18px; border-radius: 8px; border: 0; background: var(--accent); color: #fff;
   font-weight: 600;
 }
-.primary:hover:not(:disabled) { filter: brightness(1.2); box-shadow: 0 1px 6px rgb(0 0 0 / 18%); }
+.primary:hover:not(:disabled) { filter: brightness(1.2); }
 .primary:disabled { opacity: .5; cursor: default; }
 textarea {
   display: block; width: 100%; min-height: 380px; resize: vertical; margin: 0; padding: 16px;
-  border: 0; border-bottom: 1px solid var(--line); background: var(--field); color: var(--text);
+  border: 0; border-bottom: 1px solid var(--control-line); background: var(--field); color: var(--text);
   font: 13px/1.6 var(--mono); tab-size: 2; outline: none;
 }
 /* Only the main area scrolls, so the header stays in place and spans the full width. */
@@ -546,7 +559,7 @@ section[data-page="providers"], section[data-page="settings"] {
   flex: 1 0 auto; display: flex; flex-direction: column;
 }
 /* The YAML section of a list: the file text in its card, with the save under it. */
-.card.yaml-view textarea { min-height: 320px; margin: 4px 0 0; border: 1px solid var(--line); border-radius: 8px; }
+.card.yaml-view textarea { min-height: 320px; margin: 4px 0 0; border: 1px solid var(--control-line); border-radius: 8px; }
 .card > .editbar { padding-inline: 0; }
 .yaml-view > .editbar .hint { order: -1; margin-left: 0; }
 /* The file row of a provider rides on the page rail: the page padding above it is the only space
@@ -557,7 +570,7 @@ section[data-page="providers"], section[data-page="settings"] {
 .provider input.text { width: 100%; padding: 6px 10px; font: 13px var(--mono); }
 .pills { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .pill {
-  display: inline-flex; align-items: center; gap: 2px; padding: 1px 2px 1px 10px; border: 1px solid var(--line);
+  display: inline-flex; align-items: center; gap: 2px; padding: 1px 2px 1px 10px; border: 1px solid var(--control-line);
   border-radius: 12px; background: var(--field); font: 12px/20px var(--mono); overflow-wrap: anywhere;
 }
 .pill button, .override > .ghost {
@@ -565,7 +578,7 @@ section[data-page="providers"], section[data-page="settings"] {
 }
 .pill button:hover, .override > .ghost:hover { color: var(--bad); }
 .add {
-  padding: 3px 12px; border: 1px dashed var(--line); border-radius: 999px; background: transparent;
+  padding: 3px 12px; border: 1px dashed var(--control-line); border-radius: 999px; background: transparent;
   color: var(--muted); font-size: 12px; line-height: 22px; cursor: pointer;
 }
 .add:hover { color: var(--accent-text); border-color: var(--accent); }
@@ -613,7 +626,8 @@ section[data-page="providers"], section[data-page="settings"] {
 }
 .sections button {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 10px 14px; border: 0; border-bottom: 1px solid var(--line); background: none;
+  padding: 10px 14px 10px 12px; border: 0; border-bottom: 1px solid var(--line);
+  border-left: 2px solid transparent; background: none;
   color: var(--text); font: inherit; font-weight: 500; text-align: left;
 }
 .sections button:last-child { border-bottom: 0; }
@@ -622,9 +636,9 @@ section[data-page="providers"], section[data-page="settings"] {
 @media (hover: hover) {
   .sections button:hover { background: var(--field); }
 }
-.sections button.on { background: var(--field); box-shadow: inset 2px 0 0 var(--accent); }
+.sections button.on { background: var(--field); border-left-color: var(--accent); }
 .rail-search { display: flex; align-items: center; gap: 8px; padding: 10px 12px; color: var(--muted);
-  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+  background: var(--panel); border: 1px solid var(--control-line); border-radius: var(--radius); }
 .rail-search svg { width: 15px; height: 15px; }
 .rail-search input { flex: 1; min-width: 0; border: 0; background: none; color: var(--text); font: inherit; }
 .rail > .rail-empty { margin: 0; padding: 10px; color: var(--muted); }
@@ -632,7 +646,7 @@ section[data-page="providers"], section[data-page="settings"] {
   padding: 18px 16px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--field); }
 .pane-summary .tile { width: 30px; height: 30px; border-radius: 8px; }
 .pane-summary .tile svg { width: 17px; height: 17px; }
-.pane-summary h2 { margin: 4px 0 0; font-size: 18px; }
+.pane-summary h1 { margin: 4px 0 0; font-size: 18px; font-weight: 650; }
 .pane-summary p { margin: 0; max-width: 560px; color: var(--muted); }
 /* The summary keeps its content height while the visible card fills the pane. */
 #settings > .section-pane,
@@ -663,9 +677,6 @@ section[data-page="providers"], section[data-page="settings"] {
 .provider-flow { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; }
 .provider-flow > .files { display: flex; flex-direction: column; gap: 16px; min-width: 0; margin: 0; }
 .provider-flow > .settings { flex: 1 1 auto; min-width: 0; min-height: 0; margin: 0; }
-.provider-files-head { padding-bottom: 12px; border-bottom: 1px solid var(--line); }
-.provider-files-head h2 { margin: 0; font-size: 20px; }
-.provider-files-head p { margin: 4px 0 0; color: var(--muted); }
 #files .provider-file-actions { display: flex; }
 .provider-file-error { padding: 0 0 12px; color: var(--bad); }
 .provider-file-error h3 { margin: 0 0 6px; }
@@ -679,15 +690,20 @@ section[data-page="settings"] .card,
 section[data-page="providers"] .card { padding-bottom: 10px; }
 .section-pane { flex: 1 1 min(360px, 100%); display: grid; gap: 16px; min-width: 0; }
 .section-pane > .card { min-width: 0; }
-.section-pane .back { display: none; justify-self: start; }
+.section-pane .back {
+  display: none; justify-self: start; align-items: center; gap: 6px;
+  min-height: 44px; min-width: 44px; padding: 4px 8px; border: 0;
+}
+.chev { display: block; font-size: 24px; line-height: 1; }
 /* The bar heads a drill page: back chevron and title, as the reference detail pages do. */
-.pane-bar { display: flex; align-items: center; gap: 12px; }
+.pane-bar { display: flex; align-items: center; gap: 8px; }
 .pane-title { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -0.5px; }
 .settings h3 { margin-bottom: 8px; }
 /* The personalization toggle hides the page summaries across the settings tabs. */
 section[data-page="settings"].hide-page-headers .pane-summary { display: none; }
 /* A drill page holds the pane alone: the section summary stays with the list. */
-#settings:has(#provider-form[data-detail="1"]) > .section-pane > .pane-summary { display: none; }
+#settings:has(#provider-form[data-detail="1"]) > .section-pane > .pane-summary,
+#settings:has(#provider-form[data-file-open="1"]) > .section-pane > .pane-summary { display: none; }
 .field {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 10px 0; border-top: 1px solid var(--line);
@@ -704,6 +720,16 @@ section[data-page="settings"].hide-page-headers .pane-summary { display: none; }
 .field .input { display: flex; align-items: center; gap: 6px; flex: none; }
 .field .input i { font-style: normal; color: var(--muted); font-size: 12px; width: 10px; }
 .field .input i.prefix { width: auto; }
+/* Provider form data and helper text stay at 13px. */
+.card.provider .sub,
+.card.provider .field small,
+.card.provider .pill,
+.card.provider .add,
+.card.provider .adder input,
+.card.provider .adder select,
+.card.provider .override input.text,
+.card.provider .pill.hook .select,
+.card.provider .pill.hook .menu button { font-size: 13px; }
 /* A value row shows its value as text: a click opens the small editor of that 1 value. */
 .field input[readonly] { border-color: transparent; background: transparent; padding-left: 2px; padding-right: 2px; cursor: pointer; }
 .field input[readonly]:hover, .field input[readonly]:focus-visible { background: var(--field); }
@@ -817,7 +843,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 .card { position: relative; }
 .card > .undo-step { position: absolute; right: 16px; top: 12px; }
 /* The action chips of the file row: a new file, and the delete of a provider file. */
-.files .tab.danger { color: var(--bad); border-color: var(--line); }
+.files .tab.danger { color: var(--bad); border-color: var(--control-line); }
 .files .tab.danger:hover { color: var(--bad); border-color: var(--bad); }
 .message.ok { color: var(--ok); } .message.bad { color: var(--bad); }
 .hint { margin-left: auto; font-size: 12px; color: var(--muted); }
@@ -863,14 +889,13 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   #provider-form[data-detail="1"] > .section-pane > .pane-bar,
   #provider-form[data-file-open="1"] > .section-pane > .pane-bar {
     display: flex; gap: 20px; position: sticky; top: 0; z-index: 2;
-    background: var(--panel); padding: 14px 20px; margin: 0 -20px;
+    background: var(--bg); padding: 6px 20px; margin: 0 -20px;
   }
   #provider-form[data-detail="1"] > .section-pane > .pane-bar .back,
   #provider-form[data-file-open="1"] > .section-pane > .pane-bar .back {
-    display: block; min-height: 0; padding: 0; border: 0; color: var(--muted);
+    display: flex; color: var(--muted);
   }
   #provider-form[data-detail="1"] > .section-pane > .pane-bar .back .back-label { display: none; }
-  #provider-form[data-detail="1"] > .section-pane > .pane-bar .chev { font-size: 24px; line-height: 1; vertical-align: -3px; }
   /* The pane softens only a clipped edge. Its cards stay the content of this one scrollport. */
   .section-pane {
     --fade-top: 0px; --fade-bottom: 0px; min-height: 0; overflow-y: auto; align-self: stretch;
@@ -886,13 +911,16 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 }
 
 @media (max-width: 900px) {
+  header { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; column-gap: 16px; }
+  .tabs { flex-wrap: wrap; gap: 0 16px; overflow: visible; mask-image: none; }
+  .settings-list-title { display: block; }
   /* A phone shows the section list, then 1 section, with a way back to the list. */
   .rail, .section-pane { flex: 1 1 100%; }
   /* A phone row carries a chevron at its right edge, and a selection opens the section as its own page. */
   .sections button { min-height: 44px; }
   .sections button::after { content: "\203a"; color: var(--muted); font-size: 18px; line-height: 1; }
   /* A selection opens the section as its own page, so the list carries no selected mark. */
-  .sections button.on { background: none; box-shadow: none; }
+  .sections button.on { background: none; border-left-color: transparent; }
   .section-pane { display: none; }
   /* The providers host keeps its list inside the pane: it has no rail to swap to. */
   #provider-form > .section-pane { display: grid; }
@@ -900,8 +928,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .settings[data-detail="1"] > .rail { display: none; }
   .settings[data-detail="1"] > .section-pane { display: grid; }
   .section-pane { gap: 10px; }
-  .section-pane .back { display: block; min-height: 0; padding: 0; border: 0; color: var(--accent-text); }
-  .section-pane .back .chev { font-size: 24px; line-height: 1; vertical-align: -3px; }
+  .section-pane .back { display: flex; color: var(--accent-text); }
   #settings .section-pane:has(.provider-flow #provider-form[data-file-open="1"]) > .pane-bar > .back { display: none; }
   /* A phone drill page titles itself under the back label, as the reference lists do. */
   .pane-title:not([hidden]) { font-size: 26px; letter-spacing: -0.9px; }
@@ -918,6 +945,8 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   #status { display: none; }
 }
 @media (max-width: 720px) {
+  .page-title, .settings-list-title { font-size: 22px; letter-spacing: -.4px; }
+  .page-title { margin-bottom: 14px; }
   header, #app > main { padding-left: 16px; padding-right: 16px; }
   /* A phone keeps 1 padding all around the page, so the top matches the sides. */
   #app > main { padding-top: 16px; }

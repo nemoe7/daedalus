@@ -1393,7 +1393,7 @@ function renderModels() {
       <td class="mid hide-sm">${mobileLabel(t("model.column.tools_column"))}<span class="cell-value">${m.mode === "chat" ? yesNo(m.tools) : dash}</span></td>
       <td class="hide-sm mid">${m.mode === "chat" ? reasoningCell(m) : dash}</td>
       <td class="num hide-sm">${mobileLabel(t("model.column.cooldown_column"))}<span class="cell-value">${coolCells(m)}</span></td>
-      <td>${mobileLabel(t("model.column.weight_column"))}<span class="cell-value">${m.weight == null ? dash
+      <td class="num">${mobileLabel(t("model.column.weight_column"))}<span class="cell-value">${m.weight == null ? dash
         : `<div class="weight">${progressMeter(m.weight)}<span class="num">${m.weight.toFixed(2)}</span></div>`}</span></td>
     </tr>`).join("") : `<tr><td colspan="9" class="empty">${empty}</td></tr>`);
 }
@@ -1521,9 +1521,7 @@ function renderFiles() {
   }).join("");
   const host = $("files");
   host.hidden = state.fileOpen;
-  host.innerHTML = `<div class="provider-files-head"><h2>${t("nav.providers_link")}</h2>`
-    + `<p>${esc(t("settings.providers.summary"))}</p></div>`
-    + `<nav class="sections drill provider-files" aria-label="${esc(t("nav.providers_link"))}">${files}</nav>`
+  host.innerHTML = `<nav class="sections drill provider-files" aria-label="${esc(t("nav.providers_link"))}">${files}</nav>`
     + `<div class="provider-file-actions">${actionButton(t("action.new_provider_button"), {
       variant: "add", attrs: { id: "new-provider" },
     })}</div>`;
@@ -2106,9 +2104,10 @@ function sectionList(id, items, active, opts = {}) {
     variant: key === active ? "on" : "",
     attrs: { "data-section": key, "aria-current": key === active ? "true" : null },
   })).join("")}</nav>`).join("");
+  const title = id === "settings" ? `<h1 class="settings-list-title">${esc(t("nav.settings_link"))}</h1>` : "";
   const search = opts.search ? `<label class="rail-search">${icon("search")}<input id="settings-search" type="text"
     autocomplete="off" aria-label="${esc(t("settings.search_label"))}" placeholder="${esc(t("settings.search_label"))}"></label>` : "";
-  return `<div class="rail">${search}${navs}<p class="rail-empty" hidden>${esc(t("settings.search_empty"))}</p></div>`;
+  return `<div class="rail">${title}${search}${navs}<p class="rail-empty" hidden>${esc(t("settings.search_empty"))}</p></div>`;
 }
 
 // Hide the rail rows the search text excludes, as the reference sidebar search does.
@@ -2130,13 +2129,13 @@ function filterRail(host) {
 
 // Name the back button for its destination, as iOS does.
 function sectionPane(back, cards, actions = null) {
-  const button = actionButton(`<span class="chev" aria-hidden="true">&lsaquo;</span><span class="back-label"> ${esc(back)}</span>`, {
+  const button = actionButton(`<span class="chev" aria-hidden="true">&lsaquo;</span><span class="back-label">${esc(back)}</span>`, {
     variant: "ghost back", attrs: { "data-back": true },
   });
   const tools = actions === null ? "" : `<div class="pane-actions" data-pane-actions>${actions}</div>`;
   // The reference heads a drill page with the back chevron and the page title.
   return `<div class="section-pane"><div class="pane-bar">${button}`
-    + `<h2 class="pane-title" data-pane-title hidden></h2>${tools}</div>${cards}</div>`;
+    + `<h1 class="pane-title" data-pane-title hidden></h1>${tools}</div>${cards}</div>`;
 }
 
 function providerPaneActions(section = sectionState("provider-form")) {
@@ -2209,7 +2208,7 @@ function selectSection(host, key, open = sectionState(host).open) {
         ? key === "yaml" && state.providerReturnKey ? state.providerReturnKey
           : names.length > 1 ? fileName(file?.path ?? "") : t("nav.providers_link")
         : t("nav.providers_link");
-      back.textContent = ` ${label}`;
+      back.textContent = label;
     }
     const tools = host.querySelector(":scope > .section-pane > .pane-bar > [data-pane-actions]");
     if (tools) tools.innerHTML = providerPaneActions(state_);
@@ -2226,13 +2225,11 @@ function selectSection(host, key, open = sectionState(host).open) {
   // The studied reference heads each pane with a centered icon, title and one line.
   const summary = host.querySelector(":scope > .section-pane > [data-pane-summary]");
   if (summary) {
-    summary.hidden = host.id === "settings" && key === "providers";
-    if (!summary.hidden) {
-      const label = [...host.querySelectorAll(":scope > .rail > .sections button")]
-        .find((button) => button.dataset.section === key)?.querySelector(":scope > span:not(.tile)")?.textContent ?? key;
-      const text = SECTION_SUMMARIES[key] ?? "";
-      summary.innerHTML = `${chipFor(host.id, key)}<h2>${esc(label)}</h2><p>${esc(text)}</p>`;
-    }
+    summary.hidden = false;
+    const label = [...host.querySelectorAll(":scope > .rail > .sections button")]
+      .find((button) => button.dataset.section === key)?.querySelector(":scope > span:not(.tile)")?.textContent ?? key;
+    const text = SECTION_SUMMARIES[key] ?? "";
+    summary.innerHTML = `${chipFor(host.id, key)}<h1>${esc(label)}</h1><p>${esc(text)}</p>`;
   }
   markCardScrollEdges();
   markSectionPaneEdges();
@@ -3643,8 +3640,7 @@ function renderNotifications(data) {
   ].sort((a, b) => b.at - a.at);
   draw(
     "notification-feed",
-    `<h3>${t("notification.title")}</h3>` +
-      (notices.length ? notices.map((notice) => notice.html).join("") : none(t("notification.empty_text")))
+    notices.length ? notices.map((notice) => notice.html).join("") : none(t("notification.empty_text"))
   );
 }
 
