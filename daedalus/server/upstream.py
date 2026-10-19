@@ -231,7 +231,7 @@ class DailyCap:
 
 
 class HarnessGate:
-  """A provider gate on the calling harness; its own message explains the rule."""
+  """A provider gate in the calling harness. Its message explains the rule."""
 
   def __init__(self, message: str) -> None:
     self.message = message
@@ -265,7 +265,7 @@ def retry_delay(payload: Any, headers: Mapping[str, str], text: str) -> float | 
 def mapped_behavior(
   status: int, headers: Mapping[str, str], raw: bytes
 ) -> RateLimited | DailyCap | HarnessGate | providers.UpstreamOverload | None:
-  """The known behavior of one upstream error body, or None when it is unrecognized."""
+  """Map one upstream error body to a known behavior. Return None when no rule matches."""
   text = error_text(raw)
   low = text.lower()
   payload: Any = {}

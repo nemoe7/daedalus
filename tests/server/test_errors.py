@@ -274,7 +274,7 @@ def test_mapped_provider_behaviors_keep_safe_lines() -> None:
 
 
 def test_failure_notes_hide_bodies_only_for_mapped_behaviors() -> None:
-  """Mapped statuses note their safe line; unrecognized ones keep the full relay."""
+  """Mapped behaviors use safe lines. Unknown behaviors keep the full relay message."""
   started = time.perf_counter()
   mapped = upstream.status_error(
     429, error_detail(GEMINI, upstream.DETAIL_LIMIT), {}, GEMINI

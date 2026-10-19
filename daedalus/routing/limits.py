@@ -403,10 +403,10 @@ def reset_event(found: Any) -> dict[str, Any] | None:
 
 
 def reset_key(event: Mapping[str, Any]) -> str:
-  """The persisted scope of one reset: provider, client lane, kind and span.
+  """The persisted scope of one reset: provider, client lane, kind, and span.
 
-  A provider cap is shared by its models, so the model rides the event for
-  display alone and never splits one boundary into several notices.
+  A provider sets one cap for all its models. The event carries a model name
+  for the UI. The key omits that name, so those models share one notice.
   """
   return json.dumps(
     [event["provider"], event["client"], event["kind"], event["span"]],

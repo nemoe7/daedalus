@@ -13,7 +13,7 @@ class ProviderError(ValueError):
 
 
 class UpstreamOverload(ProviderError):
-  """An upstream provider reported itself overloaded; the surface names it, never the relay."""
+  """The safe line names the overloaded provider and leaves out the relay name."""
 
   def __init__(self, text: str) -> None:
     super().__init__(text)

@@ -3,7 +3,7 @@ title: Open WebUI Manager
 author: nemo
 description: Open WebUI knowledge, skills, files, tools, and functions. Read and write approval follows permission mode.
 required_open_webui_version: 0.12.0
-version: 1.0.12
+version: 1.0.13
 licence: nemoe7 Noncommercial and Public-Interest License 1.2.0
 """
 
@@ -2745,7 +2745,8 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    Apply version-checked UTF-8 skill file changes, keeping other files and using the given version or the current one.
+    Apply UTF-8 skill file operations against the expected version. Use the current
+    version when the caller omits it. Keep other files unchanged.
 
     :param skill_id: the id of the skill to update
     :param operations: put, move or delete operations for relative skill paths
