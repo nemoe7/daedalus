@@ -614,21 +614,23 @@ def test_phone_model_head_keeps_a_tap_area() -> None:
 
 
 def test_each_screen_starts_with_a_named_heading() -> None:
-  """Each screen names itself in an h1, so the outline starts with the view."""
+  """Each screen names itself in the one page title, so the outline starts with the view."""
   root = Path(__file__).resolve().parent.parent.parent
   html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  assert html.count('class="page-title"') == 1
+  assert '<h1 class="page-title" id="page-title"></h1>' in html
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  labels = app.partition("const PAGE_LABELS = {")[2].partition("};")[0]
   for page, key in (
     ("overview", "nav.overview_link"),
     ("requests", "nav.requests_link"),
     ("models", "nav.models_link"),
     ("limits", "nav.limits_link"),
     ("notifications", "nav.notifications_link"),
+    ("settings", "nav.settings_link"),
   ):
-    start = html.index(f'<section data-page="{page}"')
-    stop = html.index("</section>", start)
-    section = html[start:stop]
-    assert section.index("<h1") < section.index("<div"), f"{page} opens on its heading"
-    assert f'data-i18n="{key}"' in section, f"{page} reuses the {key} label"
+    assert f'{page}: t("{key}")' in labels, f"{page} reuses the {key} label"
+  assert "title.textContent = PAGE_LABELS[page];" in app
 
 
 def test_status_card_sits_in_the_card_grid() -> None:
@@ -2199,14 +2201,18 @@ def test_model_numbers_align_right() -> None:
   assert ".models .mid { text-align: center; }" in css
 
 
-def test_settings_panes_carry_their_own_heading() -> None:
-  """The settings rail and pane keep a heading of their own beside the screen title."""
+def test_every_screen_names_itself_in_one_page_title() -> None:
+  """One title element names the screen, and a Settings section is a level below it."""
   root = Path(__file__).resolve().parents[2]
+  html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  assert html.count('class="page-title"') == 1
+  assert '<h1 class="page-title" id="page-title"' in html
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert 'class="settings-list-title"' in app
+  assert "settings-list-title" not in app
+  assert 'if (title) title.textContent = PAGE_LABELS[page];' in app
   assert '<h1 class="pane-title" data-pane-title hidden></h1>' in app
   assert (
-    'summary.innerHTML = `${chipFor(host.id, key)}<div class="pane-heading"><h1>${esc(label)}</h1>'
+    'summary.innerHTML = `${chipFor(host.id, key)}<div class="pane-heading"><h2>${esc(label)}</h2>'
     in app
   )
 
@@ -2219,14 +2225,14 @@ def test_provider_list_uses_the_settings_summary() -> None:
   assert "provider-files-head" not in files
   section = app.partition("function selectSection(host, key,")[2].partition("\n}\n")[0]
   assert (
-    'summary.innerHTML = `${chipFor(host.id, key)}<div class="pane-heading"><h1>${esc(label)}</h1>'
+    'summary.innerHTML = `${chipFor(host.id, key)}<div class="pane-heading"><h2>${esc(label)}</h2>'
     in section
   )
   assert (
     'summary.hidden = host.id === "settings" && key === "providers";' not in section
   )
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  assert ".pane-summary h1 {" in css
+  assert ".pane-summary h2 {" in css
   assert (
     '#settings:has(#provider-form[data-detail="1"]) > .section-pane > .pane-summary'
     in css
@@ -2314,9 +2320,11 @@ def test_narrow_navigation_scrolls_in_one_row() -> None:
   assert ".tabs { flex-wrap: nowrap; gap: 0 16px; overflow-x: auto; }" in css
   assert ".tabs { flex-wrap: wrap" not in css, "a phone never wraps the tabs"
   assert ".sections button { min-height: 44px; }" in css
-  assert ".settings-list-title { display: none; }" in css
   narrow = css.rsplit("@media (max-width: 900px) {", 1)[1]
-  assert ".settings-list-title { display: block; }" in narrow
+  assert (
+    'main[data-page="settings"]:has(.settings[data-detail="1"]) > .page-title { display: none; }'
+    in narrow
+  )
 
 
 def test_provider_back_controls_have_room_and_a_touch_target() -> None:

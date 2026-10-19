@@ -183,11 +183,7 @@ button.chip:disabled { cursor: progress; }
 }
 main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
 /* Each screen names itself above the first card, so the outline starts with the view. */
-.page-title { margin: 0 0 14px; font-size: 22px; font-weight: 650; letter-spacing: -.4px; line-height: 1.2; }
-.settings-list-title {
-  margin: 0; font-size: 24px; font-weight: 650; letter-spacing: -.5px; line-height: 1.2;
-}
-.settings-list-title { display: none; }
+.page-title { margin: 0 0 14px; font-size: 22px; font-weight: 650; letter-spacing: -.4px; line-height: 1.2; flex: none; }
 .pools {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(min(168px, 100%), 1fr)); gap: 12px; margin-bottom: 16px;
 }
@@ -656,7 +652,7 @@ section[data-page="providers"], section[data-page="settings"] {
   padding: 0 2px 2px; border: 0; border-radius: 0; background: none; }
 .pane-summary .tile { width: 22px; height: 22px; border-radius: 6px; margin-top: 3px; }
 .pane-summary .tile svg { width: 13px; height: 13px; }
-.pane-summary h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.4px; line-height: 1.25; }
+.pane-summary h2 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.4px; line-height: 1.25; }
 .pane-summary p { margin: 2px 0 0; max-width: 64ch; color: var(--muted); }
 .pane-heading { min-width: 0; }
 /* The summary keeps its content height while the visible card fills the pane. */
@@ -940,7 +936,10 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 @media (max-width: 900px) {
   header { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; column-gap: 16px; }
   .tabs { flex-wrap: nowrap; gap: 0 16px; overflow-x: auto; }
-  .settings-list-title { display: block; }
+  /* A phone drill page is named by its own title, so the page title leaves the screen and the
+     section summary keeps only its lede. */
+  main[data-page="settings"]:has(.settings[data-detail="1"]) > .page-title { display: none; }
+  .settings > .section-pane .pane-heading h2 { display: none; }
   /* A tablet reads the 4 figures as 2 rows of 2, not 3 plus 1. */
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   /* A phone shows the section list, then 1 section, with a way back to the list. */
@@ -984,7 +983,6 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   #status { display: none; }
 }
 @media (max-width: 720px) {
-  .settings-list-title { font-size: 22px; letter-spacing: -.4px; }
   header, #app > main { padding-left: 16px; padding-right: 16px; }
   /* A phone keeps 1 padding all around the page, so the top matches the sides. */
   #app > main { padding-top: 16px; }

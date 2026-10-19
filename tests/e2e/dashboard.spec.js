@@ -58,6 +58,49 @@ for (const [name, hash] of ROUTES) {
   }
 }
 
+// A screen names itself in the first h1 of the document, so the outline and any reader that
+// takes the first heading both meet the visible title.
+for (const [name, hash] of ROUTES) {
+  for (const [size, width, height] of SIZES) {
+    test(`${name} at ${size} names itself in the first h1`, async ({ page }) => {
+      await open(page, hash, width, height);
+      const title = await page.evaluate(() => {
+        const shown = (el) => {
+          const box = el.getBoundingClientRect();
+          return box.width > 1 && box.height > 1 && getComputedStyle(el).visibility !== "hidden";
+        };
+        const all = [...document.querySelectorAll("h1")];
+        return {
+          first: all[0] ? all[0].textContent.trim() : null,
+          firstDrawn: all[0] ? shown(all[0]) : false,
+          visible: all.filter(shown).map((el) => el.textContent.trim()),
+        };
+      });
+      const label = name.charAt(0).toUpperCase() + name.slice(1);
+      expect(title.firstDrawn, "the first h1 is the one on screen").toBe(true);
+      expect(title.first).toBe(label);
+      expect(title.visible).toEqual([label]);
+    });
+  }
+}
+
+test("a phone settings section is titled by its own name", async ({ page }) => {
+  await open(page, "#/settings", 390, 844);
+  const button = page.locator("#settings > .rail .sections button").first();
+  const name = (await button.locator("span:not(.tile)").first().innerText()).trim();
+  await button.click();
+  await page.waitForTimeout(500);
+  const headings = await page.evaluate(() =>
+    [...document.querySelectorAll("h1")]
+      .filter((el) => {
+        const box = el.getBoundingClientRect();
+        return box.width > 1 && box.height > 1 && getComputedStyle(el).visibility !== "hidden";
+      })
+      .map((el) => el.textContent.trim()),
+  );
+  expect(headings).toEqual([name]);
+});
+
 test("the header keeps one tab row on a phone", async ({ page }) => {
   await open(page, "#/models", 390, 844);
   const tabs = await page.evaluate(() => {

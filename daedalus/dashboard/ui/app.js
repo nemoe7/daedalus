@@ -2109,10 +2109,9 @@ function sectionList(id, items, active, opts = {}) {
     variant: key === active ? "on" : "",
     attrs: { "data-section": key, "aria-current": key === active ? "true" : null },
   })).join("")}</nav>`).join("");
-  const title = id === "settings" ? `<h1 class="settings-list-title">${esc(t("nav.settings_link"))}</h1>` : "";
   const search = opts.search ? `<label class="rail-search">${icon("search")}<input id="settings-search" type="text"
     autocomplete="off" aria-label="${esc(t("settings.search_label"))}" placeholder="${esc(t("settings.search_label"))}"></label>` : "";
-  return `<div class="rail">${title}${search}${navs}<p class="rail-empty" hidden>${esc(t("settings.search_empty"))}</p></div>`;
+  return `<div class="rail">${search}${navs}<p class="rail-empty" hidden>${esc(t("settings.search_empty"))}</p></div>`;
 }
 
 // Hide the rail rows the search text excludes, as the reference sidebar search does.
@@ -2232,13 +2231,21 @@ function selectSection(host, key, open = sectionState(host).open) {
     }
   }
   // The studied reference heads each pane with a centered icon, title and one line.
+  const label = [...host.querySelectorAll(":scope > .rail > .sections button")]
+    .find((button) => button.dataset.section === key)?.querySelector(":scope > span:not(.tile)")?.textContent ?? key;
   const summary = host.querySelector(":scope > .section-pane > [data-pane-summary]");
   if (summary) {
     summary.hidden = false;
-    const label = [...host.querySelectorAll(":scope > .rail > .sections button")]
-      .find((button) => button.dataset.section === key)?.querySelector(":scope > span:not(.tile)")?.textContent ?? key;
     const text = SECTION_SUMMARIES[key] ?? "";
-    summary.innerHTML = `${chipFor(host.id, key)}<div class="pane-heading"><h1>${esc(label)}</h1><p>${esc(text)}</p></div>`;
+    summary.innerHTML = `${chipFor(host.id, key)}<div class="pane-heading"><h2>${esc(label)}</h2><p>${esc(text)}</p></div>`;
+  }
+  // A phone drill page is titled by the section it opens, under the back label.
+  if (host.id === "settings") {
+    const title = host.querySelector(":scope > .section-pane > .pane-bar > [data-pane-title]");
+    if (title) {
+      title.hidden = !open;
+      title.textContent = open ? label : "";
+    }
   }
   markCardScrollEdges();
   markSectionPaneEdges();
@@ -4223,6 +4230,9 @@ function showPage() {
   // The page layout of main rides on this dataset, so it needs no :has support.
   const main = document.querySelector("main");
   if (main?.dataset) main.dataset.page = page;
+  // One heading names the screen, so a reader and the outline both meet the same title first.
+  const title = document.getElementById("page-title");
+  if (title) title.textContent = PAGE_LABELS[page];
   // Animate the table, not the page, when a pool filter targets the current Models page.
   if (asked === "models" && query !== undefined) {
     applyModelFilters(query);
