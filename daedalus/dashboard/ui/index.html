@@ -107,11 +107,11 @@
         <div class="status-rows" id="card-rows"></div>
       </div>
           <a class="card snippet" href="#/requests"><h3><span data-i18n="nav.requests_link">nav.requests_link</span> <span class="snippet-action" data-i18n="action.view_link">action.view_link</span></h3><div id="ov-requests"></div></a>
-          <a class="card snippet" href="#/limits"><h3><span data-i18n="nav.limits_link">nav.limits_link</span> <span class="snippet-action" data-i18n="action.view_link">action.view_link</span></h3><div id="ov-limits"></div></a>
         </div>
         <div class="column">
           <a class="card snippet" href="#/models"><h3><span><span data-i18n="nav.models_link">nav.models_link</span><span class="count" id="ov-model-count"></span></span> <span class="snippet-action" data-i18n="action.view_link">action.view_link</span></h3><div id="ov-models"></div></a>
         </div>
+        <a class="card snippet overview-limits" href="#/limits"><h3><span data-i18n="nav.limits_link">nav.limits_link</span> <span class="snippet-action" data-i18n="action.view_link">action.view_link</span></h3><div id="ov-limits"></div></a>
       </div>
     </section>
     <section data-page="requests" hidden>
@@ -144,6 +144,7 @@
               <tbody id="requests" role="rowgroup"></tbody>
             </table>
             <button class="ghost" type="button" id="more-requests" hidden data-i18n="action.show_more_button">action.show_more_button</button>
+            <p class="log-end" data-i18n="request.log.live_text">request.log.live_text</p>
           </div>
         </div>
         <div class="column">
@@ -156,6 +157,7 @@
     </section>
     <section data-page="models" hidden>
       <h1 class="page-title" data-i18n="nav.models_link">nav.models_link</h1>
+      <p class="strip-note" id="pool-note" hidden></p>
       <div class="pools" id="pools"></div>
       <div class="panel">
         <div class="toolbar">
@@ -221,9 +223,9 @@
       <div class="flow">
         <div class="column wide">
           <div class="panel">
-            <table>
+            <table class="limits">
               <thead><tr>
-                <th data-i18n="model.column.model_column">model.column.model_column</th><th data-i18n="limits.column.limit_column">limits.column.limit_column</th><th data-i18n="limits.column.left_column">limits.column.left_column</th><th class="hide-sm" data-i18n="limits.column.reset_column">limits.column.reset_column</th><th class="hide-sm" data-i18n="limits.column.seen_column">limits.column.seen_column</th>
+                <th data-i18n="model.column.model_column">model.column.model_column</th><th data-i18n="limits.column.limit_column">limits.column.limit_column</th><th class="num" data-i18n="limits.column.left_column">limits.column.left_column</th><th class="hide-sm num" data-i18n="limits.column.reset_column">limits.column.reset_column</th><th class="hide-sm num" data-i18n="limits.column.seen_column">limits.column.seen_column</th><th class="limit-meta" aria-hidden="true"></th>
               </tr></thead>
               <tbody id="limit-rows"></tbody>
             </table>
