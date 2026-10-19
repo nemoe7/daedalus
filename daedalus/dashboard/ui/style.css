@@ -191,8 +191,6 @@ main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
 .pools {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(min(168px, 100%), 1fr)); gap: 12px; margin-bottom: 16px;
 }
-/* An odd last card takes the whole row, so the strip never ends on a half-empty slot. */
-.pools > .pool:last-child:nth-child(odd) { grid-column: 1 / -1; }
 /* One line names the figure that every bar of the strip draws. */
 .strip-note { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
 .card.pool { padding: 12px 14px; color: inherit; text-decoration: none; cursor: pointer; }
@@ -994,6 +992,9 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   /* The phone card: a health row, then 1 line for each value. It fills the width, with no chip row.
      The 4 numbers of the strip stay above it, in 2 rows of 2, so the health line never leaves the page. */
   .kpis { grid-template-columns: 1fr 1fr; gap: 10px 14px; padding: 12px 14px; }
+  /* A phone swipes the pool strip sideways in 1 row, so the table keeps the first screen. */
+  .pools { display: flex; overflow-x: auto; gap: 10px; padding-bottom: 6px; scroll-snap-type: x mandatory; }
+  .pools > .pool { flex: 0 0 74%; scroll-snap-align: start; }
   .kpi b { font-size: 18px; }
   .editbar { gap: 8px; padding: 8px 10px; }
   .editbar .primary, .editbar .ghost { padding: 5px 12px; }

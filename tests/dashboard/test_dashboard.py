@@ -642,6 +642,14 @@ def test_status_card_sits_in_the_card_grid() -> None:
   assert column.index("status-card") < column.index("ov-limits")
 
 
+def test_pool_strip_keeps_every_card_its_own_width() -> None:
+  """No pool card stretches over a row; a phone swipes the strip instead."""
+  root = Path(__file__).resolve().parents[2]
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert ".pools > .pool:last-child:nth-child(odd)" not in css
+  assert ".pools { display: flex; overflow-x: auto;" in css
+
+
 def test_overview_columns_share_the_card_load() -> None:
   """Overview markup balances the 2 columns: status and limits beside models and requests."""
   root = Path(__file__).resolve().parent.parent.parent
