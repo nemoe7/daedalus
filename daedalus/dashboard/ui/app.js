@@ -3651,13 +3651,9 @@ function renderNotifications(data) {
       ),
     })),
   ].sort((a, b) => b.at - a.at);
-  const feed = notices.length
-    ? `<div class="feed-meta">${plural(notices.length, "notification.feed.count_one_text", "notification.feed.count_other_text")}`
-      + ` · ${t("notification.feed.oldest_text", { when: relative(notices[notices.length - 1].at) })}</div>`
-    : "";
   draw(
     "notification-feed",
-    notices.length ? feed + notices.map((notice) => notice.html).join("") : none(t("notification.empty_text"))
+    notices.length ? notices.map((notice) => notice.html).join("") : none(t("notification.empty_text"))
   );
 }
 
