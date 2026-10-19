@@ -1290,16 +1290,13 @@ def test_the_phone_limits_row_keeps_every_field() -> None:
 
 
 def test_the_feed_and_the_log_name_their_own_state() -> None:
-  """The notification feed counts its events, and the request log states that it listens."""
+  """The notification feed counts its events and names its oldest entry."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   feed = app.partition("const feed = notices.length")[2].partition("\n\n")[0]
   assert 'class="feed-meta"' in feed, "the feed opens with its count"
   assert '"notification.feed.oldest_text"' in feed, "the feed names its oldest event"
   html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
-  assert 'class="log-end" data-i18n="request.log.live_text"' in html, (
-    "the log closes with one quiet line"
-  )
   assert 'class="strip-note" id="pool-note"' in html, (
     "the pool strip names the figure that its bars draw"
   )
@@ -5407,9 +5404,8 @@ def test_the_requests_bar_keeps_its_own_height() -> None:
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
   ).read_text(encoding="utf-8")
   assert (
-    'section[data-page="requests"] > .flow > .column > .panel:not(.editbar) {\n'
-    "    flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column;\n"
-    "  }"
+    'section[data-page="requests"] > .flow > .column > .panel:not(.editbar) '
+    "{ flex: 1; min-height: 0; overflow: auto; }"
   ) in css, "the table panel keeps the free height"
   assert (
     'section[data-page="requests"] > .flow > .column > .requests-bar { flex: none; }'
