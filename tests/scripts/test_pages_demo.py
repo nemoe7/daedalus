@@ -557,8 +557,8 @@ def test_the_fixtures_cover_each_call_of_the_page() -> None:
 
 
 def test_the_fixtures_hold_each_settings_row_of_the_page() -> None:
-  """Fixture defaults cover each settings group and key used by the page."""
-  fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
+  """Built fixture defaults cover each settings group and key used by the page."""
+  fixtures = pages_demo.demo_fixtures("demo.test")
   defaults = fixtures["settings"]["defaults"]
   text = APP_JS.read_text(encoding="utf-8")
   block = text[
@@ -568,7 +568,7 @@ def test_the_fixtures_hold_each_settings_row_of_the_page() -> None:
   ]
   missing, group = [], ""
   for line in block.split("\n"):
-    name = re.match(r'\["([a-z_0-9-]+)", "', line.lstrip(" "))
+    name = re.match(r'\["([a-z_0-9-]+)", ', line.lstrip(" "))
     if not name or not line.startswith(" " * 2):
       continue
     if len(line) - len(line.lstrip(" ")) == 2:
@@ -578,6 +578,9 @@ def test_the_fixtures_hold_each_settings_row_of_the_page() -> None:
     elif group in defaults and name.group(1) not in defaults[group]:
       missing.append(f"{group}.{name.group(1)}")
   assert not missing, missing
+  assert defaults["personalization"]["hide_headers"] is False, (
+    "a boolean default keeps the switch, not the number box"
+  )
 
 
 def test_the_fixtures_carry_the_edge_cases() -> None:
