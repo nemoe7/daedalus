@@ -64,7 +64,7 @@ The [Auto reasoning effort Filter](../../integrations/openwebui/functions/auto_r
 | Valve | Default | Effect |
 | --- | --- | --- |
 | `sensitivity` | `0.75` | Confidence threshold from 0 to 1. Higher values can select higher effort |
-| `minimum_effort` | `none` | Automatic floor: `none`, `low`, `medium` or `high` |
+| `minimum_effort` | `none` | Automatic floor: `none`, `low`, `medium`, or `high` |
 
 The hook removes `_daedalus_auto_effort` from the body during `on-request`, even when the prompt is empty or the model has no reasoning. It keeps the controls in the request value dict through the second call on a retry. No control changes the global routing threshold or its cache.
 

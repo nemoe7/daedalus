@@ -4,7 +4,7 @@ See [Open WebUI integration](../owui.md) for the other plugins.
 
 Import [`owui_manager.json`](../../../integrations/openwebui/imports/tools/owui_manager.json) through **Workspace → Tools**, **Import JSON**. Then configure its valves and access.
 
-[`integrations/openwebui/tools/owui_manager.py`](../../../integrations/openwebui/tools/owui_manager.py) is 1 Workspace Tool over the whole workspace: knowledge bases, skills, the file library, the Workspace Tools and the Functions. The caller token comes from the chat request, and the `OWUI_API_BASE` valve holds the base URL.
+[`integrations/openwebui/tools/owui_manager.py`](../../../integrations/openwebui/tools/owui_manager.py) is 1 Workspace Tool over the whole workspace: knowledge bases, skills, the file library, the Workspace Tools, and the Functions. The caller token comes from the chat request, and the `OWUI_API_BASE` valve holds the base URL.
 
 ```mermaid
 flowchart TD
@@ -50,7 +50,7 @@ Pass the version from `show_skill` as `expected_version_id` for optimistic concu
 
 ### Import from a URL
 
-`install_skill` uses Open WebUI's native URL importer. It imports every package in a GitHub repository, folder or `SKILL.md` URL. It also imports packages in a raw Markdown, JSON or ZIP URL. Imported packages retain all text and base64-encoded binary files.
+`install_skill` uses Open WebUI's native URL importer. It imports every package in a GitHub repository, folder, or `SKILL.md` URL. It also imports packages in a raw Markdown, JSON or ZIP URL. Imported packages retain all text and base64-encoded binary files.
 
 The URL must use HTTPS, contain no credentials and match `TRUSTED_DOMAINS`. Open WebUI then applies its redirect, SSRF, size, and package validation. The native URL-loader endpoint requires an Open WebUI administrator. Successfully imported skills join the selected presets.
 
@@ -58,7 +58,7 @@ The URL must use HTTPS, contain no credentials and match `TRUSTED_DOMAINS`. Open
 
 `UserValves.mode` accepts `default` and the three permission modes only. Unknown runtime modes require confirmation.
 
-The preset helpers stay private, so Open WebUI builds no model tool spec for them. `/models/model/update` needs the owner, a write grant or an admin.
+The preset helpers stay private, so Open WebUI builds no model tool spec for them. `/models/model/update` needs the owner, a write grant, or an admin.
 
 | Valve | Default | Meaning |
 | --- | --- | --- |
@@ -74,7 +74,7 @@ The preset helpers stay private, so Open WebUI builds no model tool spec for the
 1. **Workspace → Tools**, **Create**, paste the file, **Save**.
 2. **Access** on the tool: make it public, or give read access to each user.
 
-[`tests/integrations/openwebui/tools/test_owui_manager.py`](../../../tests/integrations/openwebui/tools/test_owui_manager.py) holds the surface, gate, free reads and creates, preset filtering and attachment, plus the v0.12 URL-import and multi-file request shapes.
+[`tests/integrations/openwebui/tools/test_owui_manager.py`](../../../tests/integrations/openwebui/tools/test_owui_manager.py) holds the surface, gate, free reads, and creates, preset filtering and attachment, plus the v0.12 URL-import and multi-file request shapes.
 
 ## Output limits
 

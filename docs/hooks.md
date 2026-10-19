@@ -99,7 +99,7 @@ Before the first attempt of a chat request, when the chain holds a reasoning mod
 | `effort` | The value of the client, `None` when it sent none |
 | `retry` | The number of retries for this message, `0` for its first answer |
 | `level` | The reasoning level of the last answer of the chat, `None` when the chat has none |
-| `app` | The client app of the request, `OWUI`, `Kilo` or another title, from its headers |
+| `app` | The client app of the request, `OWUI`, `Kilo`, or another title, from its headers |
 
 ### `on-upstream`
 
@@ -283,8 +283,8 @@ frontmatter block, so the manager knows its version and its scope without a run 
 | `version` | text | The version of the file. The update line shows the old version and the new one |
 | `requires` | version range | The daedalus version that the file needs. A mismatch warns 1 time and leaves the file out |
 | `surfaces` | list of surface names | The functions of the file |
-| `scope` | `global`, `provider`, `yaml`, `model` or `client` | Where the hook attaches |
-| `targets` | list of names | The provider names, the model ids or the client apps of a `provider`, `yaml`, `model` or `client` scope |
+| `scope` | `global`, `provider`, `yaml`, `model`, or `client` | Where the hook attaches |
+| `targets` | list of names | The provider names, the model ids or the client apps of a `provider`, `yaml`, `model`, or `client` scope |
 | `author` | text | The name of the author of the file |
 | `title` | text | The short name of the hook |
 | `description` | text | One line of what the hook does |
@@ -322,7 +322,7 @@ hooks:
 | --- | --- | --- |
 | `repo` | `owner/name` or a GitHub URL | The repository of the hook files |
 | `path` | 1 folder in the repo | The folder that holds the `.py` files. daedalus reads the files directly under it |
-| `ref` | 1 branch, a tag or a commit | `main` by default |
+| `ref` | 1 branch, a tag, or a commit | `main` by default |
 | `auto_update` | true or false | `true` follows the ref at each start. `false`, the default, waits for the Take button |
 
 At start, daedalus reads each source that sets `auto_update: true`. The Settings card lists a source, and its Take button
@@ -343,12 +343,12 @@ Disabled files also stay out of explicit hook lists, the code legend, and HTTP c
 ```bash
 daedalus hooks update                       # every source of hooks.sources
 daedalus hooks update nemoe7/daedalus-hooks # the sources of 1 repo
-daedalus hooks list                         # the file, the version, the scope and the state of each
+daedalus hooks list                         # the file, the version, the scope, and the state of each
 daedalus hooks verify                       # the disk against the lock
 ```
 
 `hooks verify` loads each file in its own process, with a 10 second limit. It prints 1 line for each
-file: `ok`, `unpinned`, `warn` or `bad`. Only `bad` sets the exit code 1, so a script can gate on it.
+file: `ok`, `unpinned`, `warn`, or `bad`. Only `bad` sets the exit code 1, so a script can gate on it.
 
 Inside the Docker image, the `daedalus` command sits on the path of the container, so no shell and
 no install are necessary:
@@ -360,7 +360,7 @@ docker exec daedalus-api daedalus hooks verify
 
 ## The Settings page
 
-The Hooks card of the Settings page holds the folder, the sources and 1 switch per installed file. It lists the active candidates of each surface, and its arrows set their order without changing their scopes. `Check for updates` reads the same sources as `daedalus hooks update`, and names the old version and the new version of each file that moved. `+ Add source` opens 1 modal for the repo URL.
+The Hooks card of the Settings page holds the folder, the sources, and 1 switch per installed file. It lists the active candidates of each surface, and its arrows set their order without changing their scopes. `Check for updates` reads the same sources as `daedalus hooks update`, and names the old version and the new version of each file that moved. `+ Add source` opens 1 modal for the repo URL.
 
 The scan then lists the files of that repo, each with its own switch, so the operator takes some files and leaves the rest.
 
