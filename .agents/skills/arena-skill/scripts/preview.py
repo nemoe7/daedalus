@@ -30,6 +30,10 @@ ASSETS=Path(__file__).resolve().parents[1]/'assets'
 IDENTIFIER=re.compile('[a-zA-Z0-9_-]{1,80}\\Z')
 REPLY_REFERENCE=re.compile('^RE:\\s*([a-zA-Z0-9_-]{1,80})(?:\\s|$)',re.IGNORECASE)
 MAX_REPORT=2000000
+WS_TICK_SECONDS=.25
+WS_HEARTBEAT_SECONDS=10
+WS_IDLE_SECONDS=35
+WS_MAX_MESSAGE=MAX_REPORT+4096
 SNAPSHOT_CAP_BYTES=128000000
 IMAGE_DATA_URI_MAX_BYTES=2*1024*1024
 WORKSPACE_SKIP={'.arena','.cache','.git','.local','.mypy_cache','.next','.nox','.npm','.nuxt','.output','.parcel-cache','.pytest_cache','.ruff_cache','.svelte-kit','.tox','.turbo','.venv','.vite','__pycache__','build','coverage','dist','node_modules','out','target'}
@@ -1429,12 +1433,13 @@ class Store:
 				elif completed_at is None:completed_at=stamp
 			else:completed_at=None
 			if blocked is None:blocked=stored['blocked']if stored else False
+			report_wait=report_id is not None
 			if report_id is None:report_id=stored.get('report_id')if stored else None
 			if task_type is None:
 				if stored is None and not restoring:raise ValueError('A new task needs an explicit type')
 				task_type=(stored.get('type')if stored else None)or TASK_MISC
 			if report_id:identifier(report_id)
-			if report_id and blocked and self.report_has_answers(db,report_id):blocked=False
+			if report_wait and report_id and blocked and self.report_has_answers(db,report_id):blocked=False
 			if report_id and blocked and(not stored or not stored['blocked']or stored.get('report_id')!=report_id):
 				report=db.execute('SELECT markdown FROM reports WHERE id = ?',(report_id,)).fetchone()
 				if report is not None and not parse_fields(report['markdown'])[1]:raise ValueError('A blocked task needs a report with answer fields')
@@ -2102,13 +2107,87 @@ def handler(store):
 	class Handler(BaseHTTPRequestHandler):
 		def setup(self):super().setup();self.connection.settimeout(15)
 		def reply(self,status,body,content_type='application/json; charset=utf-8',filename=None):
-			data=body if isinstance(body,(bytes,bytearray))else body.encode('utf-8');self.send_response(status);self.send_header('Content-Type',content_type);self.send_header('Content-Length',str(len(data)));self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.send_header('Content-Security-Policy',"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; base-uri 'none'; form-action 'self'")
+			data=body if isinstance(body,(bytes,bytearray))else body.encode('utf-8')
+			if getattr(self,'ws_request_id',None)is not None:self.ws_send(1,json.dumps({'type':'response','id':self.ws_request_id,'status':status,'body':data.decode('utf-8'),'contentType':content_type}).encode());return
+			self.send_response(status);self.send_header('Content-Type',content_type);self.send_header('Content-Length',str(len(data)));self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.send_header('Content-Security-Policy',"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https: ws: wss:; base-uri 'none'; form-action 'self'")
 			if filename:safe=header_filename(filename);self.send_header('Content-Disposition',f'attachment; filename="{safe}"')
 			self.end_headers();self.wfile.write(data)
 		def problem(self,status,error):self.reply(status,json.dumps({'error':str(error)}))
+		def ws_send(self,opcode,data):size=len(data);length=bytes([size])if size<126 else b'~'+size.to_bytes(2,'big')if size<65536 else b'\x7f'+size.to_bytes(8,'big');self.connection.sendall(bytes([128|opcode])+length+data)
+		def ws_dispatch(self,value):
+			import io;from email.message import Message
+			if not isinstance(value,dict):raise TypeError('Expected an object')
+			if value.get('type')=='pong':return
+			request_id=value.get('id');method,path=value.get('method','GET'),value.get('path','');body,headers=value.get('body',''),value.get('headers',{})
+			if type(request_id)not in(str,int)or len(str(request_id))>80 or method not in('GET','POST')or not isinstance(path,str)or not path.startswith('/api/')or urlsplit(path).path=='/api/ws'or not isinstance(body,str)or not isinstance(headers,dict):raise ValueError('Invalid WebSocket request')
+			fields=Message()
+			for name in('Content-Type','X-Fetch-Claim','X-Fetch-Source'):
+				item=headers.get(name)
+				if item is not None:
+					if not isinstance(item,str)or'\r'in item or'\n'in item:raise ValueError('Invalid request header')
+					fields[name]=item
+			data=body.encode('utf-8');fields['Content-Length']=str(len(data));original=self.path,self.rfile,self.headers;self.path,self.rfile,self.headers=path,io.BytesIO(data),fields;self.ws_request_id=request_id
+			try:(self.do_GET if method=='GET'else self.do_POST)()
+			finally:self.path,self.rfile,self.headers=original;del self.ws_request_id
+		def websocket(self):
+			try:origin=urlsplit(self.headers.get('Origin',''))
+			except ValueError:self.problem(403,'Invalid WebSocket origin');return
+			if origin.scheme not in('http','https')or origin.netloc.lower()!=self.headers.get('Host','').lower():self.problem(403,'WebSocket origin must match the preview');return
+			if self.headers.get('Upgrade','').lower()!='websocket'or'upgrade'not in{part.strip()for part in self.headers.get('Connection','').lower().split(',')}or self.headers.get('Sec-WebSocket-Version')!='13':self.problem(400,'Expected a version 13 WebSocket upgrade');return
+			key=self.headers.get('Sec-WebSocket-Key','')
+			try:
+				if len(base64.b64decode(key,validate=True))!=16:raise ValueError('Invalid WebSocket key')
+			except ValueError as error:self.problem(400,error);return
+			self.protocol_version='HTTP/1.1';self.send_response(101);self.send_header('Upgrade','websocket');self.send_header('Connection','Upgrade');self.send_header('Sec-WebSocket-Accept',base64.b64encode(hashlib.sha1((key+'258EAFA5-E914-47DA-95CA-C5AB0DC85B11').encode(),usedforsecurity=False).digest()).decode());self.end_headers();self.close_connection=True;self.connection.settimeout(WS_TICK_SECONDS);buffer,message=bytearray(),bytearray();fragmented=False;last_seen=last_heartbeat=time.monotonic()
+			try:
+				with closing(store.connect())as db:
+					version=db.execute('PRAGMA data_version').fetchone()[0];self.ws_send(1,b'{"type":"change"}')
+					while True:
+						try:
+							chunk=self.connection.recv(65536)
+							if not chunk:return
+							buffer.extend(chunk);last_seen=time.monotonic()
+						except TimeoutError:pass
+						while len(buffer)>=2:
+							first,second=buffer[:2];opcode,final=first&15,bool(first&128)
+							if first&112 or not second&128 or opcode not in(0,1,2,8,9,10):raise ValueError('Invalid frame')
+							size,offset=second&127,2
+							if size in(126,127):
+								width=2 if size==126 else 8
+								if len(buffer)<2+width:break
+								size=int.from_bytes(buffer[2:2+width],'big');offset+=width
+								if size<(126 if width==2 else 65536)or size>=2**63:raise ValueError('Invalid frame length')
+							if opcode>=8 and(not final or size>125):raise ValueError('Invalid control frame')
+							if size+(len(message)if opcode<8 else 0)>WS_MAX_MESSAGE:self.ws_send(8,(1009).to_bytes(2,'big'));return
+							if len(buffer)<offset+4+size:break
+							mask=buffer[offset:offset+4];data=bytes(v^mask[i%4]for(i,v)in enumerate(buffer[offset+4:offset+4+size]));del buffer[:offset+4+size]
+							if opcode==8:
+								if len(data)==1:raise ValueError('Invalid close frame')
+								if data:
+									code=int.from_bytes(data[:2],'big')
+									if code not in(1000,1001,1002,1003,1007,1008,1009,1010,1011,1012,1013,1014)and not 3000<=code<5000:raise ValueError('Invalid close code')
+									data[2:].decode('utf-8')
+								self.ws_send(8,data);return
+							if opcode==9:self.ws_send(10,data);continue
+							if opcode==10:continue
+							if opcode==2:self.ws_send(8,(1003).to_bytes(2,'big'));return
+							if(opcode==0)!=fragmented:raise ValueError('Invalid continuation')
+							message.extend(data);fragmented=not final
+							if final:self.ws_dispatch(json.loads(message.decode('utf-8')));message.clear()
+						current=db.execute('PRAGMA data_version').fetchone()[0]
+						if current!=version:version=current;self.ws_send(1,b'{"type":"change"}')
+						now=time.monotonic()
+						if now-last_seen>WS_IDLE_SECONDS:self.ws_send(8,(1001).to_bytes(2,'big'));return
+						if now-last_heartbeat>=WS_HEARTBEAT_SECONDS:self.ws_send(1,b'{"type":"heartbeat"}');last_heartbeat=now
+			except(ValueError,TypeError)as error:
+				code=1007 if isinstance(error,UnicodeDecodeError)else 1002
+				try:self.ws_send(8,code.to_bytes(2,'big'))
+				except OSError:pass
+			except(OSError,sqlite_api().Error):return
 		def do_GET(self):
 			path=urlsplit(self.path).path
 			try:
+				if path=='/api/ws':self.websocket();return
 				if path=='/':page=(ASSETS/'index.html').read_text(encoding='utf-8');page=page.replace('__STYLE__',(ASSETS/'style.css').read_text(encoding='utf-8'));page=page.replace('__MARKDOWN_SCRIPT__',(ASSETS/'markdown-it.min.js').read_text(encoding='utf-8'));page=page.replace('__SCRIPT__',(ASSETS/'message-markdown.js').read_text(encoding='utf-8')+'\n'+(ASSETS/'app.js').read_text(encoding='utf-8'));self.reply(200,page,'text/html; charset=utf-8');return
 				if path=='/api/userscript-autosave':self.reply(200,json.dumps(store.userscript_snapshot(),ensure_ascii=False));return
 				if path=='/api/state':

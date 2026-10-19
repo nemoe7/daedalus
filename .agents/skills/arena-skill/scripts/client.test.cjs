@@ -4313,6 +4313,55 @@ test('preview client', async (t) => {
     }
   });
 
+  await t.test('WebSockets route JSON, retain binary HTTP, queue changes, and reject lost replies', async () => {
+    const sockets = [];
+    class SocketStub {
+      constructor(url) { this.url = String(url); this.readyState = 0; this.events = {}; this.sent = []; sockets.push(this); }
+      addEventListener(name, callback) { this.events[name] = callback; }
+      send(text) { this.sent.push(JSON.parse(text)); }
+      close() { this.readyState = 3; this.events.close?.(); }
+      emit(value) { this.events.message({data: JSON.stringify(value)}); }
+    }
+    context.WebSocket = SocketStub;
+    context.Response = Response;
+    context.window.location = {href: 'https://preview.example/'};
+    context.connectSocket();
+    const socket = sockets[0];
+    assert.equal(socket.url, 'wss://preview.example/api/ws');
+    socket.readyState = 1;
+    socket.events.open();
+    const states = () => socket.sent.filter(value => value.path === '/api/state');
+    assert.equal(states().length, 1);
+    socket.emit({type: 'change'});
+    socket.emit({type: 'change'});
+    const snapshot = {...state, notes: [], reports: [], fetch_jobs: []};
+    const reply = (call, body, status = 200) => socket.emit({type: 'response', id: call.id, status,
+      body: typeof body === 'string' ? body : JSON.stringify(body), contentType: 'application/json'});
+    reply(states()[0], snapshot);
+    await tick(); await tick();
+    assert.equal(states().length, 2, 'changes during refresh cause one final refresh');
+    reply(states()[1], snapshot);
+    await tick(); await tick();
+    const json = context.request('/api/markdown', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+    const call = socket.sent.at(-1);
+    assert.equal(call.path, '/api/markdown');
+    assert.equal(call.method, 'POST');
+    reply(call, '<strong>socket</strong>');
+    assert.equal(await (await json).text(), '<strong>socket</strong>');
+    const before = socket.sent.length;
+    await context.attempt('/api/markdown', {method: 'POST', body: new Blob(['bytes'])}, 100);
+    assert.equal(socket.sent.length, before, 'binary bodies keep HTTP');
+    socket.emit({type: 'heartbeat'});
+    assert.equal(socket.sent.at(-1).type, 'pong');
+    const lost = context.request('/api/markdown', {retryOnFailure: false});
+    context.WebSocket = undefined;
+    socket.close();
+    await assert.rejects(lost, /closed/i);
+    await tick(); await tick();
+    assert.ok(intervals.filter(callback => callback.name === 'refreshState').length > 1,
+      'the original polling path starts again after disconnect');
+  });
+
 });
 
 test('the phone footer keeps Send beside a long status', () => {
