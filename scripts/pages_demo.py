@@ -1677,6 +1677,13 @@ def demo_version() -> str:
 def demo_fixtures(version: str) -> dict[str, Any]:
   """The fixtures of 1 build: the rows the provider files keep, with the version stamps."""
   fixtures = json.loads(FIXTURES.read_text(encoding="utf-8"))
+  # The capture can predate a shipped setting, and a missing default picks the wrong widget: the
+  # boolean above falls back to a number box. Fill the gaps from the shipped defaults.
+  captured = fixtures["settings"].setdefault("defaults", {})
+  for group, values in settings.DEFAULTS.items():
+    current = captured.setdefault(group, {})
+    for key, value in values.items():
+      current.setdefault(key, value)
   # The snapshot is the actual catalog state, so every row stays.
   kept = {row["id"] for row in fixtures["models"]}
   for pool in fixtures["pools"]:
