@@ -21,3 +21,9 @@ hooks.lock.json
 
 # The local dashboard demo build of `scripts/pages_demo.py`
 _site/
+
+# The browser test bundle of `tests/e2e`
+tests/e2e/node_modules/
+tests/e2e/.site/
+tests/e2e/test-results/
+tests/e2e/playwright-report/

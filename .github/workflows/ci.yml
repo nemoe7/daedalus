@@ -44,3 +44,34 @@ jobs:
       - run: uv run --no-sync ruff format --check
       # pyproject.toml sets the pytest workers: 1 for each CPU. All the tests of 1 file run in 1 worker.
       - run: uv run --no-sync pytest
+
+  # Browser checks for the dashboard demo. The suite serves the built demo on
+  # port 8011 and drives it with Chromium from the Playwright bundle.
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.12.21"
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --locked
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tests/e2e/package-lock.json
+      - name: Install browser
+        working-directory: tests/e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Run browser checks
+        working-directory: tests/e2e
+        env:
+          DEMO_PYTHON: ${{ github.workspace }}/.venv/bin/python
+        run: npx playwright test
