@@ -1195,14 +1195,19 @@ def parse_state_import(text):
 	return value
 AUTOSAVE_HISTORY='userscript-autosave-history'
 AUTOSAVE_RECEIPTS='userscript-autosave-receipts'
-def autosave_core(records):
+def autosave_core_and_stamp(records):
 	if not isinstance(records,list)or not all(isinstance(row,dict)for row in records):raise TypeError('Autosave core must be an array of records')
 	if any(row.get('kind')=='userscript-autosave'for row in records):raise ValueError('Autosave core cannot contain history')
 	with tempfile.TemporaryDirectory()as directory:
 		checked=Store(directory,create=True)
 		if records:checked.import_state(json.dumps(records))
-		core,_=checked.state_lines(checked.state()['notes'],checked.tasks()or{})
-	return core
+		core,_=checked.state_lines(checked.state()['notes'],checked.tasks()or{});stamp=checked.newest_stamp()
+	order=dict.fromkeys(TASK_STATUSES,0)
+	for row in core:
+		status=row.get('status')
+		if status in order and'title'in row and'markdown'not in row:order[status]+=1;row['order']=order[status]
+	return core,stamp
+def autosave_core(records):return autosave_core_and_stamp(records)[0]
 def autosave_digest(core):encoded=json.dumps(core,sort_keys=True,ensure_ascii=False,separators=(',',':'));return hashlib.sha256(encoded.encode('utf-8')).hexdigest()
 def autosave_scope_key(scope):
 	if not isinstance(scope,dict)or set(scope)!={'repo','branch'}:raise TypeError('Autosave scope needs repository and branch')
@@ -1211,9 +1216,10 @@ def autosave_scope_key(scope):
 def autosave_record(record):
 	if record.get('kind')!='userscript-autosave'or type(record.get('version'))is not int or record['version']!=1:raise ValueError('Unsupported autosave history version')
 	if not isinstance(record.get('save_id'),str):raise TypeError('Autosave save ID must be a UUID string')
-	if set(record)-{'kind','version','save_id','scope','digest','core','confirmed_at','receipts'}:raise ValueError('Unsupported autosave history fields')
-	uuid.UUID(record['save_id']);autosave_scope_key(record['scope']);core=autosave_core(record['core'])
+	if set(record)-{'kind','version','save_id','scope','digest','core','stamp','confirmed_at','receipts'}:raise ValueError('Unsupported autosave history fields')
+	uuid.UUID(record['save_id']);autosave_scope_key(record['scope']);core,stamp=autosave_core_and_stamp(record['core'])
 	if autosave_digest(core)!=record.get('digest'):raise ValueError('Autosave history digest does not match')
+	if record.get('stamp')is not None and record['stamp']!=stamp:raise ValueError('Autosave history stamp does not match')
 	if import_stamp(record.get('confirmed_at'))is None:raise ValueError('Autosave history needs a confirmation time')
 	receipts=record.get('receipts',{})
 	if not isinstance(receipts,dict):raise TypeError('Autosave receipts must be an object')
@@ -1499,37 +1505,34 @@ class Store:
 	def userscript_history(self,shared=None):
 		with self.transaction(shared,autosave=False)as db:row=db.execute('SELECT value FROM meta WHERE key = ?',(AUTOSAVE_HISTORY,)).fetchone();return json.loads(row[0])if row else[]
 	def userscript_scope(self):root=self.path.parent.parent;return{'repo':root.name,'branch':workspace_branch(root)or''}
-	def userscript_snapshot(self):core,counts=self.state_lines(self.state()['notes'],self.tasks()or{});core=autosave_core(core);scope=self.userscript_scope();history=self.userscript_history();stamps=self.newest_stamps();return{'save_id':str(uuid.uuid4()),'scope':scope,'core':core,'digest':autosave_digest(core),'history':[row for row in history if row['scope']==scope],'text':state_ndjson(core+history),'counts':counts,'stamp':self.newest_stamp(stamps),'stamps':stamps}
+	def userscript_snapshot(self):core,counts=self.state_lines(self.state()['notes'],self.tasks()or{});core,stamp=autosave_core_and_stamp(core);scope=self.userscript_scope();history=self.userscript_history();stamps=self.newest_stamps();rows=[row for row in history if row['scope']==scope and row.get('stamp')];return{'save_id':str(uuid.uuid4()),'scope':scope,'core':core,'digest':autosave_digest(core),'history':rows,'lastsave':rows[-1]['stamp']if rows else None,'beforelastsave':rows[-2]['stamp']if len(rows)>1 else None,'text':state_ndjson(core+history),'counts':counts,'stamp':stamp,'stamps':stamps}
 	def confirm_userscript_save(self,payload):
 		save_id,scope=payload.get('save_id'),payload.get('scope')
 		if not isinstance(save_id,str):raise TypeError('Autosave save ID must be a UUID string')
 		uuid.UUID(save_id);key=autosave_scope_key(scope)
 		if scope!=self.userscript_scope():raise ValueError('Autosave confirmation is outside this repository and branch')
-		core=autosave_core(payload.get('core'));digest=autosave_digest(core)
+		core,stamp=autosave_core_and_stamp(payload.get('core'));digest=autosave_digest(core)
 		if digest!=payload.get('digest'):raise ValueError('Autosave confirmation digest does not match')
 		with self.transaction()as db:
 			db.execute('BEGIN IMMEDIATE');row=db.execute('SELECT value FROM meta WHERE key = ?',(AUTOSAVE_RECEIPTS,)).fetchone();receipts=json.loads(row[0])if row else{};scope_receipts=receipts.setdefault(key,{})
 			if save_id in scope_receipts:
 				if scope_receipts[save_id]!=digest:raise ValueError('Autosave save ID already confirms another state')
 			else:
-				scope_receipts[save_id]=digest;history=self.userscript_history(db);record={'kind':'userscript-autosave','version':1,'save_id':save_id,'scope':scope,'digest':digest,'core':core,'confirmed_at':now()};previous=[item for item in history if item['scope']==scope];kept=previous[-1:]+[record]
+				scope_receipts[save_id]=digest;history=self.userscript_history(db);record={'kind':'userscript-autosave','version':1,'save_id':save_id,'scope':scope,'digest':digest,'core':core,'stamp':stamp,'confirmed_at':now()};previous=[item for item in history if item['scope']==scope];kept=previous[-1:]+[record]
 				for item in kept:item['receipts']=scope_receipts.copy()
 				history=[item for item in history if item['scope']!=scope]+kept;db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(AUTOSAVE_HISTORY,json.dumps(history)));db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(AUTOSAVE_RECEIPTS,json.dumps(receipts)))
 		return{'confirmed':True,'save_id':save_id,'digest':digest}
 	def compare_userscript_save(self,payload):
-		candidate=autosave_core(payload.get('core'));digest=autosave_digest(candidate);baseline=payload.get('baseline');result={'candidate_digest':digest,'counts':{'candidate':len(candidate)}}
+		candidate,candidate_stamp=autosave_core_and_stamp(payload.get('core'));baseline=payload.get('baseline');result={'candidate_stamp':candidate_stamp,'counts':{'candidate':len(candidate)}}
 		if not isinstance(baseline,dict):return{**result,'result':'unknown-baseline'}
 		if payload.get('scope')!=baseline.get('scope')or payload.get('scope')!=self.userscript_scope():return{**result,'result':'scope-mismatch'}
-		saved=next((row for row in self.userscript_history()if row['save_id']==baseline.get('save_id')and row['scope']==baseline['scope']and row['digest']==baseline.get('digest')),None);supplied=baseline.get('core')
-		if supplied is not None:
-			supplied=autosave_core(supplied)
-			if autosave_digest(supplied)!=baseline.get('digest'):return{**result,'result':'unknown-baseline'}
-		core=saved['core']if saved else supplied
-		if core is None:return{**result,'result':'unknown-baseline'}
-		core=autosave_core(core);before=autosave_digest(core)
-		if before!=baseline.get('digest'):return{**result,'result':'unknown-baseline'}
+		rows=[row for row in self.userscript_history()if row['scope']==baseline['scope']and row.get('stamp')is not None];lastsave=rows[-1]['stamp']if rows else None;beforelastsave=rows[-2]['stamp']if len(rows)>1 else None;slots={'lastsave':lastsave,'beforelastsave':beforelastsave};result={**result,**slots}
+		if baseline.get('lastsave')!=lastsave or baseline.get('beforelastsave')!=beforelastsave or not rows:return{**result,'result':'unknown-baseline'}
+		saved=rows[-1];supplied=baseline.get('core')
+		if supplied is not None and autosave_core(supplied)!=autosave_core(saved['core']):return{**result,'result':'unknown-baseline'}
+		core=autosave_core(saved['core']);before=saved['stamp']
 		def identity(row):kind='report'if'markdown'in row else'task'if'title'in row else'answer'if'report_id'in row else'note';return kind,row['id']
-		missing=len({identity(row)for row in core}-{identity(row)for row in candidate});status='equal'if before==digest else'candidate-missing-records'if missing else'different';return{**result,'result':status,'baseline_digest':before,'counts':{'baseline':len(core),'candidate':len(candidate),'missing':missing}}
+		missing=len({identity(row)for row in core}-{identity(row)for row in candidate});status='equal'if candidate_stamp==before else'candidate-missing-records'if missing else'different';return{**result,'result':status,'baseline_stamp':before,'counts':{'baseline':len(core),'candidate':len(candidate),'missing':missing}}
 	def autosave(self):
 		try:self.save_state({'notes':self.state()['notes'],'tasks':self.tasks()})
 		except Exception as error:print(f"preview: autosave failed: {error}",file=sys.stderr)
