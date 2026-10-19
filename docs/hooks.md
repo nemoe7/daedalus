@@ -1,6 +1,6 @@
 # Hooks
 
-A hook is Python code that changes the catalog rows, chat requests and answers of a provider or a model. A `hooks` list names the hook files:
+A hook is Python code that changes the catalog rows, chat requests, and answers of a provider or a model. A `hooks` list names the hook files:
 
 ```yaml
 openrouter:
@@ -13,7 +13,7 @@ openrouter:
         - on-upstream: hooks/or_cheapest_output.py
 ```
 
-The `hooks` key works like `order`. A `models` entry has priority. Then comes the provider block in the `{provider}.yml` file of the model, then the provider block in the main file.
+The `hooks` key works like `order`. A `models` entry has priority. The provider block in the `{provider}.yml` file of the model comes next, then the provider block in the main file.
 
 A model with `hooks: []` names no explicit hooks. Matching installed files can still attach through their frontmatter.
 
@@ -37,7 +37,7 @@ Each item has 1 hook surface and 1 file path. The path starts in the [`config`](
 
 For each surface, the file defines 1 function with the name of the surface.
 
-The first chart follows a chat request. The second shows the catalog build and the dashboard load.
+The first chart follows a chat request. The second shows the catalog build, the dashboard load, and a hook call.
 
 ```mermaid
 flowchart LR
@@ -153,7 +153,9 @@ On `POST /v1/hook/<file>`, for the file the path names.
 | `prompt` | The first user turn |
 | `headers` | The request headers |
 | `pin` | The slot and the model of the last answer of the chat |
-| `level` | The reasoning level of that answer. The route passes each when the file names the argument. It returns the dict of the JSON answer |
+| `level` | The reasoning level of that answer |
+
+The route passes each argument that the file names. It answers with the dict that the function returns.
 
 ### `on-init`
 
@@ -192,7 +194,7 @@ word there. The levels and the shipped file are on the [auto reasoning effort](h
 `daedalus` then drops the models that answered the message: `daedalus/auto` steps the tier 1 step up, and a named pool keeps its pool. The surface runs again with `count` filled in. A file that writes `value["code"]` sets the code of the Requests row, such as `rt1`. Without a `key`, a repeat is a new request.
 
 Without a `code`, the row shows no code. [`hooks/owui_auto_reasoning_effort.py`](../hooks/owui_auto_reasoning_effort.py) applies this rule to the `x-openwebui-chat-id` header of Open WebUI.
-The media endpoints, transcription, and images, count a repeat of the same content with no hook.
+The media endpoints count a repeat of the same content with no hook: transcription and images.
 That count is the only retry path of the base app.
 
 A function gets a copy of the value. It can change the copy and return None, or it can return a new dict. The hooks of 1 surface run in list order, and each hook gets the value of the hook before it.
@@ -241,7 +243,7 @@ A hook error does not stop the request. daedalus logs the error, and the value g
 
 ## Logs
 
-The base writes 1 line for each hook that runs, at `INFO`. The line holds the surface, the file, the model and
+The base writes 1 line for each hook that runs, at `INFO`. The line holds the surface, the file, the model, and
 the value that the hook gave back. The `on-chunk` surface runs for each chunk of 1 answer. Its run line stays
 at `DEBUG`, and a hook file of that surface writes the line of the answer.
 
@@ -254,8 +256,8 @@ daedalus reads a file again when its file time changes. A restart is not necessa
 For `on-catalog`, daedalus writes only the known columns from the row that the hook returns. The hook arguments do not include a database connection, but this is not an access restriction. Hooks can import `daedalus.store` and access the database directly. A hook can also keep data in its own file, such as `cheapest_output.json`.
 
 The dashboard edits the `hooks` list of a model or a provider. The Hooks card of the Settings page names the
-folder, the sources and the files that load. Only the update writes a hook file, and it writes to the folder
-of `hooks.dir`. The Delete button deletes the file, its lock record and its settings entries.
+folder, the sources, and the files that load. Only the update writes a hook file, and it writes to the folder
+of `hooks.dir`. The Delete button deletes the file, its lock record, and its settings entries.
 
 A hook runs inside the daedalus process, with all its access.
 
@@ -323,18 +325,18 @@ hooks:
 | `ref` | 1 branch, a tag or a commit | `main` by default |
 | `auto_update` | true or false | `true` follows the ref at each start. `false`, the default, waits for the Take button |
 
-A start reads a source that sets `auto_update`. The Settings card lists a source, and its Take button
+At start, daedalus reads each source that sets `auto_update: true`. The Settings card lists a source, and its Take button
 writes the selected files. An update reads the commit of the ref,
 reads the archive of that commit, and writes each file through a temporary name.
-A request that fails, an archive that does not read, a refused block or a failed write all keep the
+A request that fails, an archive that does not read, a refused block, or a failed write all keep the
 files on disk.
 
 The lock [`hooks.lock.json`](../config) lives in the hooks folder and records the sha256, the
-version, the repo and the commit of each installed file. A file that leaves the repo stays on disk with its record. An
+version, the repo, and the commit of each installed file. A file that leaves the repo stays on disk with its record. An
 installed file runs at a surface when its block names that surface, its scope matches the model, and
 `hooks.disabled` does not hold its name.
 
-Disabled files also stay out of explicit hook lists, the code legend and HTTP calls. An HTTP call to a disabled file returns 404, as a missing file does.
+Disabled files also stay out of explicit hook lists, the code legend, and HTTP calls. An HTTP call to a disabled file returns 404, as a missing file does.
 
 ## The CLI
 
