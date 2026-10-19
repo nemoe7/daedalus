@@ -613,6 +613,24 @@ def test_phone_model_head_keeps_a_tap_area() -> None:
   )
 
 
+def test_each_screen_starts_with_a_named_heading() -> None:
+  """Each screen names itself in an h1, so the outline starts with the view."""
+  root = Path(__file__).resolve().parent.parent.parent
+  html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  for page, key in (
+    ("overview", "nav.overview_link"),
+    ("requests", "nav.requests_link"),
+    ("models", "nav.models_link"),
+    ("limits", "nav.limits_link"),
+    ("notifications", "nav.notifications_link"),
+  ):
+    start = html.index(f'<section data-page="{page}"')
+    stop = html.index("</section>", start)
+    section = html[start:stop]
+    assert section.index("<h1") < section.index("<div"), f"{page} opens on its heading"
+    assert f'data-i18n="{key}"' in section, f"{page} reuses the {key} label"
+
+
 def test_status_card_sits_in_the_card_grid() -> None:
   """Overview markup places the status card before requests in the card column."""
   root = Path(__file__).resolve().parent.parent.parent
@@ -2124,11 +2142,9 @@ def test_model_numbers_align_right() -> None:
   assert ".models .mid { text-align: center; }" in css
 
 
-def test_dashboard_routes_leave_the_title_to_the_active_tab() -> None:
-  """Dashboard routes carry no duplicate page heading. The active tab names the screen."""
+def test_settings_panes_carry_their_own_heading() -> None:
+  """The settings rail and pane keep a heading of their own beside the screen title."""
   root = Path(__file__).resolve().parents[2]
-  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
-  assert 'class="page-title"' not in page, "the tab already names the route"
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert 'class="settings-list-title"' in app
   assert '<h1 class="pane-title" data-pane-title hidden></h1>' in app
