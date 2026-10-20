@@ -34,12 +34,7 @@ jobs:
           python-version: "3.12"
           enable-cache: true
       - run: uv sync --locked
-      - name: Check documentation prose
-        run: >-
-          uv run --no-sync python -c
-          "from scripts.lint_prose import page_files, scan, long_blocks, long_sentences;
-          pages = page_files();
-          raise SystemExit(bool(scan(pages) + long_blocks(pages) + long_sentences(pages)))"
+      - run: uv run --no-sync python scripts/lint_prose.py
       - run: uv run --no-sync ruff check
       - run: uv run --no-sync ruff format --check
       # pyproject.toml sets the pytest workers: 1 for each CPU. All the tests of 1 file run in 1 worker.

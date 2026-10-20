@@ -689,7 +689,7 @@ def test_balance_cards_read_as_numbers() -> None:
 
 
 def test_pool_strip_keeps_every_card_its_own_width() -> None:
-  """No pool card stretches over a row; a phone swipes the strip instead."""
+  """No pool card stretches over a row. A phone swipes the strip instead."""
   root = Path(__file__).resolve().parents[2]
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   assert ".pools > .pool:last-child:nth-child(odd)" not in css

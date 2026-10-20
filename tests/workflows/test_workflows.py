@@ -394,3 +394,11 @@ def test_the_pages_demo_builds_the_page_and_deploys_it() -> None:
   assert deploy["environment"]["name"] == "github-pages"
   assert deploy["steps"][-1]["uses"].startswith("actions/deploy-pages@")
   assert deploy["steps"][-1]["id"] == "deployment"
+
+
+def test_the_ci_workflow_runs_the_prose_linter() -> None:
+  """The CI job checks Python prose and Markdown pages through scripts/lint_prose.py."""
+  runs = [
+    step["run"] for step in load("ci.yml")["jobs"]["ci"]["steps"] if "run" in step
+  ]
+  assert "uv run --no-sync python scripts/lint_prose.py" in runs
