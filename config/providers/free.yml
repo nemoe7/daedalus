@@ -147,6 +147,8 @@ kilo:
       - "nvidia/nemotron-3-ultra-*"
       - "poolside/laguna-s-*"
       - "thinkingmachines/inkling*"
+      - "reflection/beam-*"
+      - "minimax/minimax-m3.1-flash*"
     TIER-B:
       - "*" # every other model; a more specific pattern wins
     TIER-D:
@@ -185,6 +187,7 @@ openrouter:
       - "nvidia/nemotron-3-ultra-*"
       - "poolside/laguna-s-*"
       - "thinkingmachines/inkling*"
+      - "minimax/minimax-m3.1-flash*"
     TIER-B:
       - "*" # every other model; a more specific pattern wins
     TIER-D:
