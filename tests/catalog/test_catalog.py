@@ -1083,3 +1083,10 @@ def test_the_new_free_models_take_their_tier() -> None:
     block = loaded[provider]
     assert slug in discovery.select(block, [slug]), (provider, slug)
     assert claiming_tier(block, slug) == tier, (provider, slug)
+
+
+def test_the_clairic_extraction_model_leaves_the_chat_chains() -> None:
+  """The free config gives Clairic a mode, because Workers AI lists it as text."""
+  loaded = config.read_yaml(config.DEFAULT_PATH)
+  clairic = enrichment.config_params(loaded["cloudflare"], "@cf/cloudflare/clairic")
+  assert clairic.get("mode") == "decisions", "the extraction row leaves the chat chains"
