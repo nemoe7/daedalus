@@ -129,6 +129,9 @@
             "*flux-2*": {
               "supports_vision": true
             },
+            "@cf/cloudflare/clairic*": {
+              "mode": "decisions"
+            },
             "@cf/cloudflare/clef*": {
               "mode": "decisions"
             },

@@ -55,6 +55,8 @@ cloudflare:
     "*flux-2*": { supports_vision: true }
     # Clef answers typed questions with probabilities, not chat text, although Workers AI lists it as text.
     "@cf/cloudflare/clef*": { mode: decisions }
+    # Clairic extracts typed values, not chat text, although Workers AI lists it as text too.
+    "@cf/cloudflare/clairic*": { mode: decisions }
 
 gemini:
   api_key: env:GEMINI_API_KEY
