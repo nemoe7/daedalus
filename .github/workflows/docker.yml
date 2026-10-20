@@ -44,12 +44,20 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
+      actions: read
       contents: read
     outputs:
       build: ${{ steps.filter.outputs.build }}
     steps:
+      - if: github.event_name != 'workflow_dispatch'
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          ref: main
+          fetch-depth: 0
+
       - id: filter
-        name: Read the files of the tested commit
+        name: Read the files changed since the last dev build
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
@@ -63,9 +71,28 @@ jobs:
             exit 0
           fi
 
+          runs="$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/docker.yml/runs?branch=main&status=success&per_page=100" \
+            --jq '.workflow_runs[] | "\(.id) \(.head_sha)"')"
+          base=""
+          while read -r run_id head_sha; do
+            [[ -z "$run_id" ]] && continue
+            merged="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs?per_page=100" \
+              --jq '.jobs[] | select(.name == "dev-merge" and .conclusion == "success") | .conclusion')"
+            if [[ "$merged" == "success" ]] && git cat-file -e "$head_sha^{commit}" 2>/dev/null; then
+              base="$head_sha"
+              break
+            fi
+          done <<<"$runs"
+
+          if [[ -z "$base" ]]; then
+            printf 'build=yes\n' >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           # The image ships the package, its config, the hooks, and the lock.
-          # A docs-only commit leaves all of them the same, so it builds nothing.
-          files="$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA" --jq '.files[].filename')"
+          # Non-image commits since the last dev publish leave the image unchanged.
+          files="$(git diff --name-only "$base" "$SHA")"
           build=no
           while IFS= read -r file; do
             case "$file" in
@@ -104,12 +131,13 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
     steps:
-      # `main` is a fixed, trusted ref. The commit CI tested is compared, never
-      # checked out, so no ref from the event reaches the checkout.
+      # `main` is a fixed, trusted ref. The tested commit must be an ancestor of
+      # `main` before the build detaches at that exact commit.
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
           ref: main
+          fetch-depth: 0
 
       - name: Pin the tested commit
         env:
@@ -118,11 +146,15 @@ jobs:
         run: |
           set -euo pipefail
 
-          actual="$(git rev-parse HEAD)"
-          if [[ -n "$EXPECTED" && "$actual" != "$EXPECTED" ]]; then
-            echo "main is at $actual, but CI tested $EXPECTED" >&2
+          if [[ ! "$EXPECTED" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid commit SHA: $EXPECTED" >&2
             exit 1
           fi
+          if ! git merge-base --is-ancestor "$EXPECTED" HEAD; then
+            echo "$EXPECTED is not on main ($(git rev-parse HEAD))" >&2
+            exit 1
+          fi
+          git checkout --detach "$EXPECTED"
 
       - id: dev
         name: Resolve Dev Version
@@ -196,6 +228,7 @@ jobs:
         with:
           persist-credentials: false
           ref: main
+          fetch-depth: 0
 
       - id: dev
         name: Resolve Dev Version

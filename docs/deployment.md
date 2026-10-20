@@ -145,10 +145,7 @@ A successful **Gemini Release Draft** approval starts the `release` job of [`.gi
 
 ## Dev image
 
-A successful **CI** run on `main` starts the `dev` job of [`.github/workflows/docker.yml`](../.github/workflows/docker.yml). It publishes
-`ghcr.io/nemoe7/daedalus:dev` and `ghcr.io/nemoe7/daedalus:dev-COMMIT`, and it keeps the newest 10
-`dev-COMMIT` versions. It never publishes `latest`, and it never deletes a `v*` version. A push that
-changes no file under the CI paths starts no build.
+A successful **CI** run on `main` starts the `Docker` workflow in [`.github/workflows/docker.yml`](../.github/workflows/docker.yml). When commits since the last published `dev` image touch `daedalus/`, `config/`, `hooks/`, `pyproject.toml`, `uv.lock`, `Dockerfile`, or `.dockerignore`, it publishes `ghcr.io/nemoe7/daedalus:dev` and `ghcr.io/nemoe7/daedalus:dev-COMMIT`. Each publish keeps the newest 10 `dev-COMMIT` versions, skips `latest`, and keeps all `v*` tags. Commits outside CI paths or shipped image paths publish no image.
 
 | Task | Command |
 | --- | --- |
