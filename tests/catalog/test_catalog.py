@@ -1065,3 +1065,21 @@ def test_the_dead_tier_patterns_retire_and_phonellm_leaves() -> None:
     "the voice row leaves the pool"
   )
   assert "@cf/qwen/qwen3.8-27b" in kept, "the chat rows stay"
+
+
+def test_the_new_free_models_take_their_tier() -> None:
+  """The free config puts the strong new models in TIER-A and the small one in TIER-B."""
+  from daedalus.routing.router import claiming_tier
+
+  loaded = config.read_yaml(config.DEFAULT_PATH)
+  place = {
+    ("kilo", "reflection/beam-free"): "TIER-A",
+    ("kilo", "minimax/minimax-m3.1-flash:free"): "TIER-A",
+    ("openrouter", "minimax/minimax-m3.1-flash:free"): "TIER-A",
+    ("kilo", "xingchen-agi/xing4.0-29b-a4b:free"): "TIER-B",
+    ("openrouter", "xingchen-agi/xing4.0-29b-a4b:free"): "TIER-B",
+  }
+  for (provider, slug), tier in place.items():
+    block = loaded[provider]
+    assert slug in discovery.select(block, [slug]), (provider, slug)
+    assert claiming_tier(block, slug) == tier, (provider, slug)

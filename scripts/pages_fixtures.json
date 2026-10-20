@@ -408,7 +408,9 @@
               "nvidia/nemotron-3-super-*",
               "nvidia/nemotron-3-ultra-*",
               "poolside/laguna-s-*",
-              "thinkingmachines/inkling*"
+              "thinkingmachines/inkling*",
+              "reflection/beam-*",
+              "minimax/minimax-m3.1-flash*"
             ],
             "TIER-B": [
               "*"
@@ -460,7 +462,8 @@
               "nvidia/nemotron-3-super-*",
               "nvidia/nemotron-3-ultra-*",
               "poolside/laguna-s-*",
-              "thinkingmachines/inkling*"
+              "thinkingmachines/inkling*",
+              "minimax/minimax-m3.1-flash*"
             ],
             "TIER-B": [
               "*"
