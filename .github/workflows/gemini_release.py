@@ -26,6 +26,23 @@ BOUNDARY = """\
 - Use only the supplied content as evidence; NEVER invent changes, tests or compatibility claims.
 """
 
+RELEASE_RULES = """\
+- Use previous release notes only as a style reference; NEVER use them as evidence for current changes.
+- Use the template headings in their order; replace every placeholder.
+- ALWAYS keep the Summary section.
+- Write the Summary as one or two sentences on the release headline; NEVER repeat an entry from another section.
+- Omit any other section, heading included, that the evidence does not support.
+- Report a change under Features or Fixes only when a user of the software sees or does it; \
+NEVER list repository tooling, builds or workflow changes.
+- Name a change by what a user sees; NEVER use internal identifiers, table names or metric \
+names unless a user must type them.
+- Summarize user-visible changes; do not list every commit.
+- Count a change once: merge diffs are labeled by parent and repeat changes.
+- In Upgrade notes, write `No action required` when the migration is automatic; list the required edits when it is not.
+- Use the supplied comparison URL verbatim when the template has one.
+"""
+
+
 PROMPTS = {
   "chunk": (
     """\
@@ -55,20 +72,8 @@ Task: combine these partial evidence summaries for a later release draft.
 Task: write release notes in Markdown from the supplied template and evidence.
 """
     + BOUNDARY
+    + RELEASE_RULES
     + """\
-- Use previous release notes only as a style reference; NEVER use them as evidence for current changes.
-- Use the template headings in their order; replace every placeholder.
-- ALWAYS keep the Summary section.
-- Write the Summary as one or two sentences on the release headline; NEVER repeat an entry from another section.
-- Omit any other section, heading included, that the evidence does not support.
-- Report a change under Features or Fixes only when a user of the software sees or does it; \
-NEVER list repository tooling, builds or workflow changes.
-- Name a change by what a user sees; NEVER use internal identifiers, table names or metric \
-names unless a user must type them.
-- Summarize user-visible changes; do not list every commit.
-- Count a change once: merge diffs are labeled by parent and repeat changes.
-- In Upgrade notes, write `No action required` when the migration is automatic; list the required edits when it is not.
-- Use the supplied comparison URL verbatim when the template has one.
 - Return only the release body.
 """
   ),
@@ -99,19 +104,9 @@ minor for backward-compatible public API functionality, deprecation or substanti
 functionality; patch for backward-compatible bug fixes; none for no release impact; review \
 when the evidence cannot establish compatibility.
 - Choose the highest required impact; NEVER infer compatibility from commit prefixes alone.
-- Use previous release notes only as a style reference; NEVER use them as evidence for current changes.
-- Use the template headings in their order; replace every placeholder.
-- ALWAYS keep the Summary section.
-- Write the Summary as one or two sentences on the release headline; NEVER repeat an entry from another section.
-- Omit any other section, heading included, that the evidence does not support.
-- Report a change under Features or Fixes only when a user of the software sees or does it; \
-NEVER list repository tooling, builds or workflow changes.
-- Name a change by what a user sees; NEVER use internal identifiers, table names or metric \
-names unless a user must type them.
-- Summarize user-visible changes; do not list every commit.
-- Count a change once: merge diffs are labeled by parent and repeat changes.
-- In Upgrade notes, write `No action required` when the migration is automatic; list the required edits when it is not.
-- Use the supplied comparison URL verbatim when the template has one.
+"""
+    + RELEASE_RULES
+    + """\
 - Set `impact` to exactly one of: major, minor, patch, none or review.
 - Set `body` to the release body only; NEVER include Markdown fences or text outside the JSON object.
 - Return only a JSON object with exactly two fields: `impact` and `body`.
@@ -293,7 +288,7 @@ def baseline(rows, target):
   return "", ""
 
 
-EVIDENCE_KINDS = ("commits-and-diffs", "commits")
+EVIDENCE_TYPES = ("commits-and-diffs", "commits")
 EVIDENCE_POLICY = HERE / "gemini-release-evidence.json"
 
 
@@ -362,8 +357,8 @@ def scoped_paths(paths, policy, sha):
   return selected
 
 
-def history(target, base, evidence=EVIDENCE_KINDS[0], policy=None):
-  if evidence not in EVIDENCE_KINDS:
+def history(target, base, evidence=EVIDENCE_TYPES[0], policy=None):
+  if evidence not in EVIDENCE_TYPES:
     raise RuntimeError("Invalid evidence input")
   revision = f"{base}..{target}" if base else target
   commits = git("rev-list", "--reverse", "--topo-order", revision).splitlines()
@@ -574,12 +569,12 @@ def gemini_call(model, action, payload, timeout=API_TIMEOUT_SECONDS):
     raise RuntimeError(redact(message)) from None
   except (urllib.error.URLError, TimeoutError) as exc:
     detail = str(getattr(exc, "reason", exc)) or type(exc).__name__
-    kind = (
+    failure = (
       f"request timed out after {timeout:g}s"
       if "timed out" in detail.lower()
       else "transport error"
     )
-    raise RuntimeError(redact(f"Gemini {action} failed: {kind}: {detail}")) from None
+    raise RuntimeError(redact(f"Gemini {action} failed: {failure}: {detail}")) from None
 
 
 def response_text(data):
@@ -1067,7 +1062,7 @@ def propose(repo, branch):
   if previous:
     next_version(version_base, "patch")
   policy = load_evidence_policy()
-  units = history(target, base, os.getenv("EVIDENCE") or EVIDENCE_KINDS[0], policy)
+  units = history(target, base, os.getenv("EVIDENCE") or EVIDENCE_TYPES[0], policy)
   if not units:
     raise RuntimeError("No commits since the published baseline")
   link = (

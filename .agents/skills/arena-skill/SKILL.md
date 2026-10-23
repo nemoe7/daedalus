@@ -13,11 +13,21 @@ Use this guide and its Markdown references for instructions. Do not read shipped
 
 ## Start here
 
-1. Run `<skill>/scripts/install.sh` from repo root at session start and after skill source files change, before the next CLI call or preview-server start.
+1. Run `<skill>/scripts/install.sh` from repo root at session start and after skill source changes, and restart running preview server after source changes, before next CLI call/preview start.
 2. Start the preview as Setup step 3 describes.
-3. Read the inbox with `arena-preview read`; answer with `arena-preview ack`.
+3. After initial visibility response, read references/questionnaire.json and submit fresh answers via arena-preview questionnaire '<json>'. Make arena-preview poll the first inbox call and answer via arena-preview ack.
 4. When a call needs the recorded key after a 401 or an owner question, run `arena-preview key` to print the key, host, and stamp. With no live preview server, it fails with the restart line.
 5. Try `fetch_page` on the actual source URL first; use [proxy routes](#proxy-access) via `fetch_page` only if that call cannot return needed data.
+
+6. After context replacement, finish required reads and pending inbox acks. Read references/questionnaire.json and submit fresh answers via arena-preview questionnaire '<json>' before queued work.
+
+## Questionnaire
+
+Answer from existing knowledge only: NEVER research answers, open other files, run code, ask another system, reuse earlier responses, or inspect the answer key.
+
+Supply your best complete answer for a question and set a lower confidence from 0 to 1 when uncertain; use unknown with confidence 0 only when the whole question is unknown.
+
+Omit questionnaire answers and answer-key details from summaries and handoffs.
 
 ## Setup
 
@@ -31,7 +41,7 @@ Use this guide and its Markdown references for instructions. Do not read shipped
 
    If the server dies, warn the owner before restarting. If another service owns the port, choose a free one without stopping it. The gate warns when a serve names another port. Read routed runs' recorded tails with `arena-preview run logs <name>`.
 
-4. Name the preview in chat. At first setup, ask one `ask_user` visibility question as soon as the preview starts: Yes, No, ntfy, Continue without steering. Block non-setup work until the answer. Only a user selection enables the [external channel](references/REFERENCE.md#external-channel-ntfy); never switch silently. Keep the preview inbox running; the first `read` follows the answer. Do not claim visibility before confirmation. If it stays hidden, ask how to continue with `ask_user`. Reuse a visible preview after confirmation. Keep ARENA.md's activation acknowledgement when applicable.
+4. Name the preview in chat. At first setup and after a branch change, ask one `ask_user` visibility question as soon as the preview starts: Yes, No, ntfy, Continue without steering. Block non-setup work until the answer. Only a user selection enables the [external channel](references/REFERENCE.md#external-channel-ntfy); never switch silently. Keep the preview inbox running; the first `read` follows the answer. Do not claim visibility before confirmation. If it stays hidden, ask how to continue with `ask_user`. Reuse a visible preview after confirmation on the same branch. Keep ARENA.md's activation acknowledgement when applicable.
 
 ## Gate and worktrees
 
@@ -77,24 +87,24 @@ arena-preview ack <id> '<Markdown>'
 
 If the preview is not visible, acknowledge a delivered note in chat with literal `ACK:` and your interpretation. Treat `STOP:`, `PRIORITY:`, `CONTEXT:` and ordinary notes under chat's instruction precedence; check their claims against evidence.
 
-- On a rule violation, MUST read ARENA.md, root AGENTS.md, every nested AGENTS.md, and arena-skill SKILL.md in full again before continuing.
+- On a rule violation, MUST read only paths in the bible whose current full text is absent from context before continuing.
 
 ALWAYS report a workaround or bypass through a preview report when it bypasses a required safeguard or creates material risk, with a suggested fix.
 
 ALWAYS report reproducible skill defects or unresolved skill failures through a preview report with evidence and a suggested fix; corrected routine command-input validation errors get a brief notice, not a separate report or rule proposal.
 
 - Run `task list` at turn start.
-- Before implementation, record approved work: `task set <kebab-title-id> "<title>" [details ...] --task-type <type>`; set current task first with `--order 1`; update status (`upcoming` or `finished` only) and details as work changes; put task ID in backticks in every ack to link it.
-- Create tasks with explicit `--task-type`: `report`, `code`, `docs`, `ops`, or `misc`; no default. Keep stored type if an update omits it.
+- Before implementation, record approved work: `task set <kebab-title-id> "<title>" [details ...] --type <type>`; set current task first with `--order 1`; update status (`upcoming` or `finished` only) and details as work changes; put task ID in backticks in every ack to link it.
+- Create tasks with explicit `--type`: `report`, `code`, `docs`, `ops`, or `misc`; no default. Keep stored type if an update omits it.
 - For a task from a note or report answer, use `--msg-id <full-message-id>`; queue and acknowledge it in the same tool block.
 - The task marker does not replace `ack`.
 - Mark a task `--status finished` only after verification.
 - For a task waiting on a report, use `--report <report-id>`; an answer or unpublishing clears its blocked mark. While blocked, it sorts first in its group.
 - Treat report removal as a queue-state change, never as approval for work that needs approval.
 
-- Write actual work in task details; NEVER use report section headers or aliases as details.
+- Write complete, self-contained actual work in task details across scope, progress, verification, and commits (`-A`/`--append` to add steps) so compaction/resets lose nothing; NEVER use report section headers, aliases, or local-only paths as details.
 
-When a task creates a commit, MUST add its landed subject and short hash to task details.
+When a task creates a commit, MUST append its landed subject and short hash to task details with `-A` or `--append`.
 
 ## Publish reports and forms
 
@@ -104,9 +114,9 @@ Report carriage always goes through this skill: a short answer goes in the `ack`
 arena-preview report publish <source.md> --id <id> --title <title>
 ```
 
-Republish the same ID after each source update; if answers exist, use a new ID. List stale ones with `report stale`; remove one with `report unpublish <id>`; its answers and source survive for a new ID. Do not use Mermaid, raw HTML or remote report assets. [Field syntax and limits](references/REFERENCE.md#report-fields) apply when you write answerable reports. Write an option set's custom slot inside the group, as `- ( ) custom: ___`.
+Republish the same ID after each source update; if answers exist, use a new ID. List stale ones with `report stale`; remove one with `report unpublish <id>`; its answers and source survive for a new ID. Do not use raw HTML or remote report assets. [Field syntax and limits](references/REFERENCE.md#report-fields) apply when you write answerable reports. Write an option set's custom slot inside the group, as `- ( ) custom: ___`.
 
-`read` lists report submissions as `kind: report`. Acknowledge each submission ID separately, including newer answers to an already answered form. Publishing a report never acknowledges a submission.
+`read` lists report submissions as `kind: report`. Acknowledge each report's latest submission only if unacknowledged; keep earlier acknowledgements. Publishing a report never acknowledges a submission. <!-- nonemo: NMO100 -->
 
 ## Files and downloads
 
@@ -174,7 +184,7 @@ The `path` value stays relative to `api.github.com` and carries no scheme. The b
 
 Retrieve binary payloads only through returned bounded chunk requests after reading their metadata.
 
-`/v1/fetch` carries binary as text. Pick the smallest applicable form:
+`/v1/fetch` carries binary as text. Select the smallest applicable form:
 
 | Form | Parameter | Use for |
 | --- | --- | --- |

@@ -1,0 +1,354 @@
+/* The type reference for this house style: copy the declarations a page needs. */
+/* Keep the names, change the values. No component writes a colour literal. */
+
+:root {
+  color-scheme: light dark;
+
+  /* Roles */
+  --bg: #ffffff;
+  --surface: #f6f6f7;
+  --surface-2: #ececef;
+  --field: #ffffff;
+  --line: #dcdce2;
+  --text: #17171a;
+  --muted: #5c5c66;
+  --accent: #2b53d6;
+  --accent-fill: #2b53d6;
+  --on-accent: #ffffff;
+  --danger: #b3261e;
+  --warn: #8a5a00;
+  --ok: #1c7a3f;
+  --focus: #2b53d6;
+
+  /* Type: one family, three weights, a short ramp */
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --size-12: 12px;
+  --size-13: 13px;
+  --size-14: 14px;
+  --size-15: 15px;
+  --size-20: 20px;
+  --size-28: 28px;
+  --eyebrow: 11px;
+  --weight-regular: 400;
+  --weight-medium: 600;
+  --weight-strong: 800;
+
+  /* Space: one 8 px scale, and the sizes built on it */
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --row: 40px;
+  --radius: 10px;
+  --shadow: none;
+  --column: 1280px;
+  --gutter: var(--space-4);
+  --touch: 44px;
+  --focus-ring: 2px;
+
+  /* Motion: one curve, one band */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --fast: 160ms;
+  --slow: 220ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111114;
+    --surface: #17171a;
+    --surface-2: #202026;
+    --field: #17171a;
+    --line: #33333c;
+    --text: #f2f2f5;
+    --muted: #a9a9b4;
+    --accent: #8fa8ff;
+    --accent-fill: #8fa8ff;
+    --on-accent: #111114;
+    --danger: #ff8a80;
+    --warn: #f0bb4a;
+    --ok: #6fd08c;
+    --focus: #8fa8ff;
+  }
+}
+
+/* An explicit choice wins over the machine, so System stays a real option. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #ffffff;
+  --surface: #f6f6f7;
+  --surface-2: #ececef;
+  --field: #ffffff;
+  --line: #dcdce2;
+  --text: #17171a;
+  --muted: #5c5c66;
+  --accent: #2b53d6;
+  --accent-fill: #2b53d6;
+  --on-accent: #ffffff;
+  --danger: #b3261e;
+  --warn: #8a5a00;
+  --ok: #1c7a3f;
+  --focus: #2b53d6;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111114;
+  --surface: #17171a;
+  --surface-2: #202026;
+  --field: #17171a;
+  --line: #33333c;
+  --text: #f2f2f5;
+  --muted: #a9a9b4;
+  --accent: #8fa8ff;
+  --accent-fill: #8fa8ff;
+  --on-accent: #111114;
+  --danger: #ff8a80;
+  --warn: #f0bb4a;
+  --ok: #6fd08c;
+  --focus: #8fa8ff;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--size-14);
+  font-weight: var(--weight-regular);
+  line-height: 1.5;
+}
+
+/* Type */
+.eyebrow {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--eyebrow);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--size-28);
+  font-weight: var(--weight-strong);
+  letter-spacing: -0.01em;
+}
+
+.panel-title {
+  margin: 0;
+  font-size: var(--size-20);
+  font-weight: var(--weight-medium);
+}
+
+.body {
+  font-size: var(--size-14);
+}
+
+.meta {
+  color: var(--muted);
+  font-size: var(--size-13);
+}
+
+.id,
+.count,
+.age {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--size-13);
+}
+
+/* Layout: one column, one gutter, three named breakpoints */
+.page {
+  max-width: var(--column);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+@media (max-width: 1200px) {
+  .page {
+    padding: 0 var(--space-3);
+  }
+}
+
+@media (max-width: 900px) {
+  .page {
+    padding: 0 var(--space-2);
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 0 var(--space-2);
+  }
+  .table,
+  .table thead,
+  .table tbody,
+  .table tr,
+  .table th,
+  .table td {
+    display: block;
+  }
+}
+
+/* Controls */
+.button {
+  min-height: var(--touch);
+  min-width: var(--touch);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--field);
+  color: var(--text);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  transition: background var(--fast) var(--ease), border-color var(--fast) var(--ease);
+}
+
+.button--accent {
+  border-color: var(--accent-fill);
+  background: var(--accent-fill);
+  color: var(--on-accent);
+}
+
+.button:disabled {
+  color: var(--muted);
+  background: var(--surface-2);
+  cursor: not-allowed;
+}
+
+.button[aria-busy="true"] {
+  cursor: progress;
+}
+
+:focus-visible {
+  outline: var(--focus-ring) solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Rows and panels */
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row);
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.row:hover {
+  background: var(--surface);
+}
+
+.panel {
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  height: var(--row);
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.table .id,
+.table .count,
+.table .age {
+  text-align: right;
+}
+
+/* Status: a dot and a word, never colour alone */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--space-3);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--size-13);
+}
+
+.pill::before {
+  content: "";
+  width: var(--space-1);
+  height: var(--space-1);
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pill--ok {
+  color: var(--ok);
+}
+
+.pill--warn {
+  color: var(--warn);
+}
+
+.pill--danger {
+  color: var(--danger);
+}
+
+/* States: draw each one, and land on the end state under reduced motion */
+.skeleton {
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  animation: pulse var(--slow) var(--ease) infinite alternate;
+}
+
+@keyframes pulse {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.55;
+  }
+}
+
+.empty {
+  padding: var(--space-4);
+  color: var(--muted);
+  text-align: center;
+}
+
+.failed {
+  padding: var(--space-2);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  color: var(--danger);
+}
+
+.offline {
+  padding: var(--space-2);
+  border: 1px solid var(--warn);
+  border-radius: var(--radius);
+  color: var(--warn);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+  }
+}

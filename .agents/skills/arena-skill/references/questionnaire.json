@@ -1,0 +1,37 @@
+{
+  "response_order": ["id", "answer", "confidence"],
+  "confidence": {"minimum": 0, "maximum": 1, "all_unknown": 0},
+  "unknown_value": "unknown",
+  "quantity": {
+    "operators": ["gt", "eq", "lt", "unknown"],
+    "unknown": {"operator": "unknown", "value": null}
+  },
+  "questions": [
+    {
+      "id": "H8P3C",
+      "question": "Which new PostgreSQL 19 command and option rebuild tables while allowing concurrent use?",
+      "answer_fields": {
+        "command_name": "string|unknown",
+        "concurrency_option": "string|unknown"
+      }
+    },
+    {
+      "id": "D9V4N",
+      "question": "In the context of Codex usage-limit reset announcements, who is Tibo? Identify the person and their relevant Codex responsibility.",
+      "answer_fields": {
+        "full_name": "string|unknown",
+        "organization": "string|unknown",
+        "role": "string|unknown"
+      }
+    },
+    {
+      "id": "G2W6M",
+      "question": "Under Anthropic's May 2026 compute deal with SpaceX, which data center's capacity did Anthropic acquire, and what power and GPU scales were stated?",
+      "answer_fields": {
+        "data_center": "string|unknown",
+        "power_capacity_mw": "quantity",
+        "nvidia_gpu_count": "quantity"
+      }
+    }
+  ]
+}

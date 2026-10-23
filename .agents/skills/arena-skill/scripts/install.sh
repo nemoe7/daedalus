@@ -16,17 +16,22 @@ PATH_MARKER="# arena-preview-path"
 fail(){ echo "arena-preview installer: $*" >&2; exit 1; }
 
 # 1. Check the skill in this repository checkout.
-[ -f "$SKILL_REL/scripts/preview.py" ] || fail "missing $SKILL_REL/scripts/preview.py; run this installer from the repository root"
-[ -x "$SKILL_REL/scripts/arena-preview" ] || fail "missing $SKILL_REL/scripts/arena-preview; update the installed skill and rerun this installer"
+[ -f "$SKILL_REL/scripts/preview.py" ] || fail "missing $SKILL_REL/scripts/preview.py; run this installer from repo root"
+[ -x "$SKILL_REL/scripts/arena-preview" ] || fail "missing $SKILL_REL/scripts/arena-preview; update installed skill; rerun this installer"
 
 # 2. Persistent venv for the hook's interpreter.
 if [ ! -x "$VENV/bin/python" ]; then
-  python3 -m venv "$VENV" || fail "cannot create venv at $VENV"
+  python3 -m venv "$VENV" || fail "cannot create venv: $VENV"
 fi
 
 # 3. Dependencies for the server and skill metadata.
 if ! "$VENV/bin/python" -c 'import markdown_it, yaml' >/dev/null 2>&1; then
   "$VENV/bin/pip" install --quiet markdown-it-py PyYAML || fail "cannot install markdown-it-py and PyYAML into $VENV"
+fi
+
+# 3b. Pinned Acorn and CSS-tree parsers in ignored ~/.agents tool storage. Keep the preview usable on failure.
+if ! "$VENV/bin/python" -c 'import sys; sys.path.insert(0, "skills/refs/arena-skill/scripts"); sys.path.insert(0, ".agents/skills/arena-skill/scripts"); import preview; preview.install_portable_parsers()' >/dev/null 2>&1; then
+  echo "arena-preview installer: warning: portable parser setup skipped; preview remains usable" >&2
 fi
 
 # 4. Ignore the state directory through core.excludesFile, never through the repository .gitignore.
@@ -42,7 +47,7 @@ GIT_HOOKS="$GIT_DIR/hooks"
 GIT_HOOK="$GIT_HOOKS/commit-msg"
 LOCAL_HOOKS="$(git config --local --get core.hooksPath 2>/dev/null || true)"
 if [ -n "$LOCAL_HOOKS" ] && [ "$LOCAL_HOOKS" != "$GIT_HOOKS" ]; then
-  fail "core.hooksPath is already set to $LOCAL_HOOKS; refusing to replace it"
+  fail "core.hooksPath=$LOCAL_HOOKS; refuse replacement"
 fi
 mkdir -p "$GIT_HOOKS" || fail "cannot create $GIT_HOOKS"
 cat > "$GIT_HOOK" <<'COMMIT_MSG_HOOK' || fail "cannot write $GIT_HOOK"
@@ -160,10 +165,17 @@ _arena_preview_gate() {
   # The reply names the steps this shell finished, so a later line skips them.
   case "\${_arena_preview_pre_running:-}" in 1) return 0 ;; esac
   _arena_preview_pre_running=1
-  local _arena_preview_reply _arena_preview_status
+  local _arena_preview_reply _arena_preview_status _arena_preview_output_line
   _arena_preview_reply="\$("$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" pre --shell "\${0##*/}" --line "\$_arena_preview_line" --command "\$BASH_COMMAND" --repo "$REPO_ROOT" --done "\${_arena_preview_done:-}")"
   _arena_preview_status=\$?
-  eval "\$_arena_preview_reply"
+  if [ -n "\$_arena_preview_reply" ]; then
+    while IFS= read -r _arena_preview_output_line; do
+      case "\$_arena_preview_output_line" in
+        _arena_preview_done=*) eval "\$_arena_preview_output_line" ;;
+        *) printf '%s\\n' "\$_arena_preview_output_line" ;;
+      esac
+    done <<< "\$_arena_preview_reply"
+  fi
   _arena_preview_pre_running=
   case \$_arena_preview_status in
     2) exit 0 ;;
@@ -188,7 +200,7 @@ if [ -x "$_arena_preview_scripts/arena-preview" ]; then
 fi
 unset _arena_preview_scripts
 EOF
-sed -i "s|__ARENA_PREVIEW_ROOT__|$REPO_ROOT|" "$PROFILE" || fail "cannot pin the PATH root in $PROFILE"
+sed -i "s|__ARENA_PREVIEW_ROOT__|$REPO_ROOT|" "$PROFILE" || fail "cannot pin PATH root in $PROFILE"
 
 echo "arena-preview installer: ok; state: $REPO_ROOT/$STATE_REL, ignored through $GLOBAL_IGNORE; command: arena-preview in new Bash shells"
 

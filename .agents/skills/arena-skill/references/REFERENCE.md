@@ -9,24 +9,27 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 | `init [--tz <zone>]` | Create a missing state database without starting the server. A zone names where CLI stamps print, and the TZ env wins |
 | `serve --port 8000` | Start the shared preview with `start_process`. The gate warns when a serve names a port other than 8000 |
 | `read` | List every pending note and report answer; mark only delivered IDs Seen, and stamp the parent report read by the agent |
+| `questionnaire [<json>]` | Show the instructions, questions, and ordered JSON schema. Supply JSON to submit answers. The receipt has no verdict. Results stay in server RAM and appear through the connection-dot dialog |
 | `skills` | List installed and repository skill names, full descriptions, and paths; prefer installed duplicates; do not load skills |
 | `note list [--page N] [--page-size N]` | List stored note IDs, including acknowledged and quiet notes, newest first; default page 1, 20 IDs per page, maximum 100; leave receipts and exports unchanged |
 | `note show <id>` | Reread a stored note by its six or full characters; a short ID that matches several notes prints every match |
 | `key` | Print the recorded agent key, host and stamp; breaks while the preview server is not up, and a later session recovers the key after acknowledging the quiet note |
 | `poll` | Wait for inbox items with `poll` before ending a turn; continue when it returns unblocked tasks. End after Skip poll or a 1799-second return with no new messages. Set the Bash tool timeout to 1800 seconds; NEVER wrap `poll` in shell `timeout`. |
-| `run start [--task <task-id>] <name> -- <command>` | The gate's helper for a detected long run, and the call a failed start names: without `--task`, it links the first unblocked upcoming task when one exists; it starts the command detached under a name and records its tail and exit, so a live linked run blocks and names its task until it ends, and the verdict prints on a later call as `run <name> done: exit N`, with one status line per call while it runs. |
+| `run start [--task <task-id>] [--after <gate-name>] <name> -- <command>` | The gate's helper for a detected long run, and the call a failed start names: without `--task`, it links the first unblocked upcoming task when one exists; it starts the command detached under a name and records its tail and exit, so a live linked run blocks and names its task until it ends, and the verdict prints on a later call as `run <name> done: exit N`, with one status line per call while it runs. `--after` waits for that run instance to pass. A failed, missing, or replaced dependency cancels the waiting gate and its downstream chain. |
 | `run logs <name>` | Print a routed run's status and its recorded output tail; it works while the run lives and after its verdict, and a second read before that verdict exits 130 |
 | `worktree start [--gate <gate-name>] [--allow <glob>] <name> <destination>` | Create a detached task worktree outside the root, beside a named root gate when one runs |
 | `worktree collect <name>` | Print the allowed detached-worktree patch after a green root gate |
 | `ack <markdown>` | Omit IDs only when exactly one non-quiet note or report answer is pending. Supply one Markdown text. With multiple pending items, supply the ID |
-| `ack <id> <markdown>` | Answer one delivered ID with a rendered reply; single-quote inline text. Add `--task-id`, `--task-title`, `--task-type`, and repeatable `--task-detail` to create its linked task atomically |
+| `ack <id> <markdown>` | Answer one delivered ID with a rendered reply; single-quote inline text. Add `--id`, `--title`, `--type`, and repeatable `--detail` to create its linked task atomically |
 | `task list [-f]` | List upcoming task IDs, order, status, report links, set type marks and each linked report answer with its stamp and text. With -f, include finished tasks. Use task ID for details |
 | `task show ID` | Print one stored task: its title, status, order, primary type when set, report link, blocked mark and every detail |
 | `task set ID TITLE [DETAIL ...]` | Add or update a task; every task carries at least one detail, and reject a write that leaves none; one task holds one job, so several jobs mean several tasks rather than one task with many details; `--msg-id` is optional and only a note-born or report-born task carries it; `--unblocked` clears a report wait. |
+| `task unlink SUBMISSION-ID` | Remove an answer from all task answer lists without changing tasks, text, or receipts. Retain the explicit unlink in backups; `task set -m` can link it again |
 | `task remove ID` | Remove a task entered by mistake |
 | `state import [FILE]` | Import copied NDJSON or JSON notes, tasks and report answers from a file or stdin in one transaction; it always replaces the live notes, answers, reports and tasks; `--replace-tasks` replaces only tasks |
 | `download-request <url>` | Queue one pending file download for the owner to approve in Downloads; `--allow-proxy` permits the two proxies |
 | `image-data-uri <path>` | Print one Markdown line carrying a local PNG, JPEG, GIF or WebP file as a data URI; the command checks the type and a 2 MiB size cap before encoding |
+| `outline [--max-entries N] [--json] <path>` | Print a read-only source outline with line ranges for a local repository file up to 1 MB and 200 entries |
 | `report publish <source.md> --id <id> --title <title>` | Publish or update a rendered report. Publication embeds readable local images as data URIs, skips remote sources with a helper hint, and keeps links and data URIs |
 | `report unpublish <id>` | Remove a report from the tab, retaining answers and source. Unacknowledged answers or unseen answer receipts block the call with 409. A fresh owner view does not block agent unpublish, and the page retains the open report until the owner clicks away |
 | `report unpublish --stale` | Recheck eligibility, then unpublish only stale reports through existing guards; retain sources and answers |
@@ -54,9 +57,9 @@ When an acknowledgement refers to a report or task, use `ack` and put its exact 
 
 ## Chromium
 
-- Install `@sparticuz/chromium` from npm for Chromium work.
-- Extract `al2023.tar.br` with the package's exported `inflate`.
-- Call `setupLambdaEnvironment("/tmp/al2023/lib")` for library and font paths.
+- Install `@sparticuz/chromium` from npm.
+- Inflate `bin/al2023.tar.br` with the package's `inflate`. Fonts come from `bin/fonts.tar.br`.
+- Call `setupLambdaEnvironment` on the extracted `lib`.
 - Launch the package's extracted binary.
 - NEVER use a Playwright-managed browser.
 
@@ -104,9 +107,10 @@ Choose the primary deliverable type: `report` for findings or assessments, `code
 | Flag | Use |
 | --- | --- |
 | `--status upcoming` or `--status finished` | Set status; new tasks start upcoming |
-| `--task-type report\|code\|docs\|ops\|misc` | Required for normal new tasks; omit on updates to keep the stored type. Restore missing legacy types as `misc` |
+| `--type report\|code\|docs\|ops\|misc` | Required for normal new tasks; omit on updates to keep the stored type. Restore missing legacy types as `misc` |
 | `--order N` | Set 1-based position in the task's status group |
-| Repeatable `--task-details` | Set the detail lines; the arguments replace the stored details |
+| Repeatable `--details` | Set the detail lines; the arguments replace the stored details |
+| `-A`, `--append` | Append the detail lines to the stored details without replacing them |
 | `--msg-id <full-message-id>` | Link the note or report answer a task came from; optional, and only a note-born or report-born task carries it; still call `ack` |
 | `--report <report-id>` | Link a blocked task to the report it waits on; an answer to that report clears the blocked mark |
 | `--amend <previous-task-id>` | Rename a task without losing its details or order |
@@ -133,12 +137,12 @@ A task row shows the answers linked to it in a read-only block under its details
 
 ## Report fields
 
-In report diffs, keep leading and trailing whitespace outside `~~...~~` and `==...==`; do not mark whitespace-only runs.
+In report diffs, keep leading and trailing whitespace outside `~~...~~` and `==...==` spans; do not mark whitespace-only runs.
 
 | Markdown marker | Control |
 | --- | --- |
-| `- ( ) option` (`- (x)` to preselect) | One radio choice; the preselect is the marked recommended answer |
-| `- [ ] option` (`- [x]` to preselect) | Checkbox choices |
+| `- ( ) option` (`- (x)` to mark recommended) | One radio choice; the UI prefixes a marked choice with `* ` and `report publish` prints `you recommended:` |
+| `- [ ] option` (`- [x]` to mark recommended) | Checkbox choices; the UI prefixes each marked choice with `* ` |
 | `- ( ) Label: ___` or `- [ ] Label: ___` inside a group | A labeled free-text choice |
 | `Label: ___` or bare `___` | A text answer |
 
@@ -147,7 +151,7 @@ Write an option group's custom slot inside the group, as `- ( ) custom: ___`. Th
 Give each group its own prompt, so every answer maps to its question:
 
 ```
-Pick the release channel: {#release-channel}
+Select the release channel: {#release-channel}
 
 - ( ) stable
 - ( ) beta
