@@ -137,6 +137,7 @@ globalThis.DAEDALUS_LOCALE = {
   "limits.column.limit_column": "Limit",
   "limits.column.reset_column": "Reset",
   "limits.column.seen_column": "Last seen",
+  "limits.meta.reset_past_text": "reset {when}",
   "limits.meta.reset_text": "resets {when}",
   "limits.meta.seen_text": "seen {when}",
   "limits.empty_text": "No limits to show.",

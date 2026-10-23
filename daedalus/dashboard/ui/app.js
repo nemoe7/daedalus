@@ -3415,7 +3415,11 @@ const limitTimeCell = (seconds, cls) => (seconds
 // The phone line of a limit row: the kind, its reset, and the last check, in one sentence.
 const limitMeta = (r) => esc([
   limitUnit(r),
-  r.reset ? t("limits.meta.reset_text", { when: relative(r.reset) }) : "",
+  r.reset
+    ? (r.reset * 1000 > Date.now()
+      ? t("limits.meta.reset_text", { when: relative(r.reset) })
+      : t("limits.meta.reset_past_text", { when: relative(r.reset) }))
+    : "",
   r.at ? t("limits.meta.seen_text", { when: relative(r.at) }) : "",
 ].filter(Boolean).join(" \u00b7 "));
 
@@ -3691,7 +3695,7 @@ function renderNotifications(data) {
           limit: floorCount(event.limit),
           unit: esc(limitUnit(event)),
           client: event.client ? ` · ${esc(event.client)}` : "",
-        }) + (event.remaining === 0 && event.reset
+        }) + (event.remaining === 0 && event.reset && event.reset * 1000 > Date.now()
           ? ` · ${t("notification.limit_resets_text", { when: relative(event.reset) })}`
           : ""),
         null,

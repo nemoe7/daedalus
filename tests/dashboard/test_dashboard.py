@@ -1366,6 +1366,9 @@ def test_the_phone_limits_row_keeps_every_field() -> None:
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   meta = app.partition("const limitMeta = (r) =>")[2].partition("\n\n")[0]
   assert '"limits.meta.reset_text"' in meta, "the reset time reaches the phone line"
+  assert '"limits.meta.reset_past_text"' in meta, (
+    "a past reset uses the past-tense phone line"
+  )
   assert '"limits.meta.seen_text"' in meta, "the last check reaches the phone line"
   assert 'class="limit-meta"' in app, "each row carries the phone line"
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -1422,7 +1425,7 @@ def test_limit_events_and_rebuilds_share_a_relative_notification_feed() -> None:
   assert 'id="reset-rows"' not in section and 'id="rebuild-rows"' not in section
   assert 'id="limit-warnings-card"' not in section
   run_app_js(
-    "renderNotifications, icon, relative",
+    "renderNotifications, limitMeta, icon, relative",
     """
 const now = Math.floor(Date.now() / 1000);
 probe.renderNotifications({
@@ -1435,7 +1438,9 @@ probe.renderNotifications({
   limits: [{ at: now - 5, model: 'groq/model', client: 'owui', kind: 'requests', span: 'minute',
     remaining: 5, limit: 100, share: 0.05 },
   { at: now - 8, model: 'groq/zero', client: null, kind: 'tokens', span: 'minute',
-    remaining: 0, limit: 250, share: 0, reset: now + 600 }],
+    remaining: 0, limit: 250, share: 0, reset: now + 600 },
+  { at: now - 10, model: 'groq/past-zero', client: null, kind: 'tokens', span: 'minute',
+    remaining: 0, limit: 250, share: 0, reset: now - 900 }],
 });
 const html = node('notification-feed').innerHTML;
 const tokensPerMinute = LOCALE["limits.unit.rate_initial_text"]
@@ -1458,10 +1463,21 @@ assert(html.includes(LOCALE["notification.model_renewed_text"]),
 const reached = LOCALE["notification.limit_reached_text"].replace("{model}", 'groq/zero');
 const resets = LOCALE["notification.limit_resets_text"]
   .replace("{when}", probe.relative(now + 600));
+const pastReached = LOCALE["notification.limit_reached_text"].replace("{model}", 'groq/past-zero');
+const pastResets = LOCALE["notification.limit_resets_text"]
+  .replace("{when}", probe.relative(now - 900));
 assert(html.includes(reached), 'a zero remainder says the limit is reached');
 assert(!html.includes(LOCALE["notification.limit_near_text"].replace("{model}", 'groq/zero')),
   'a zero remainder never reads near its limit');
 assert(html.includes(resets), 'the reached notice names the reset time');
+assert(html.includes(pastReached), 'a past reached notice still shows');
+assert(!html.includes(pastResets), 'a past reset time is omitted from the reached notice');
+const futureMeta = probe.limitMeta({ kind: 'tokens', span: 'minute', reset: now + 600, at: now - 5 });
+const pastMeta = probe.limitMeta({ kind: 'tokens', span: 'minute', reset: now - 900, at: now - 5 });
+assert(futureMeta.includes(LOCALE["limits.meta.reset_text"].replace("{when}", probe.relative(now + 600))),
+  'a future limit row uses future tense');
+assert(pastMeta.includes(LOCALE["limits.meta.reset_past_text"].replace("{when}", probe.relative(now - 900))),
+  'a past limit row uses past tense');
 assert(html.includes(rebuildText), 'the rebuild notification shows');
 assert(html.includes(LOCALE["time.just_now_text"])
   && html.includes(LOCALE["time.minute_ago.one_text"])
