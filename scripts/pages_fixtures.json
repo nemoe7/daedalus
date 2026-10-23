@@ -427,17 +427,19 @@
           "api_key": "env:MISTRAL_API_KEY",
           "exclude": [
             "*-latest",
-            "mistral-small-2603"
+            "mistral-small-2603",
+            "voxtral-*-transcribe-3*",
+            "voxtral-mini-tts-3*"
           ],
           "models": {
             "*embed*": {
               "mode": "embedding"
             },
-            "voxtral*-tts*": {
-              "mode": "audio_speech"
-            },
-            "voxtral-mini*": {
+            "voxtral-mini-2*": {
               "mode": "audio_transcription"
+            },
+            "voxtral-mini-tts-2*": {
+              "mode": "audio_speech"
             }
           },
           "tier": {

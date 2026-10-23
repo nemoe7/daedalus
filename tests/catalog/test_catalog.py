@@ -1090,3 +1090,26 @@ def test_the_clairic_extraction_model_leaves_the_chat_chains() -> None:
   loaded = config.read_yaml(config.DEFAULT_PATH)
   clairic = enrichment.config_params(loaded["cloudflare"], "@cf/cloudflare/clairic")
   assert clairic.get("mode") == "decisions", "the extraction row leaves the chat chains"
+
+
+def test_mistral_voxtral_3_drops_from_the_free_config() -> None:
+  """The free config drops the Voxtral 3 audio models and keeps the dated free rows."""
+  loaded = config.read_yaml(config.DEFAULT_PATH)
+  mistral = loaded["mistral"]
+  dropped = [
+    "voxtral-mini-transcribe-3",
+    "voxtral-mini-transcribe-3-0",
+    "voxtral-small-transcribe-3",
+    "voxtral-small-transcribe-3-0",
+    "voxtral-mini-tts-3",
+    "voxtral-mini-tts-3-0",
+  ]
+  kept_rows = ["voxtral-mini-2602", "voxtral-mini-tts-2603", "voxtral-small-2507"]
+  kept = discovery.select(mistral, [*dropped, *kept_rows])
+  assert kept == kept_rows, kept
+  assert enrichment.config_params(mistral, "voxtral-mini-2602").get("mode") == (
+    "audio_transcription"
+  )
+  assert enrichment.config_params(mistral, "voxtral-mini-tts-2603").get("mode") == (
+    "audio_speech"
+  )

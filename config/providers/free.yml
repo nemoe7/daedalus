@@ -161,6 +161,8 @@ mistral:
   exclude:
     - "*-latest" # aliases can move to a model with different access
     - mistral-small-2603 # the Free workspace reports 0 requests per minute
+    - voxtral-*-transcribe-3*
+    - voxtral-mini-tts-3*
   tier:
     TIER-C:
       - codestral-2508
@@ -171,8 +173,8 @@ mistral:
       - ministral-8b-2512
       - ministral-3b-2512
   models:
-    "voxtral-mini*": { mode: audio_transcription }
-    "voxtral*-tts*": { mode: audio_speech } # the TTS models speak, they do not transcribe
+    "voxtral-mini-2*": { mode: audio_transcription }
+    "voxtral-mini-tts-2*": { mode: audio_speech } # the TTS models speak, they do not transcribe
     "*embed*": { mode: embedding }
 
 openrouter:
