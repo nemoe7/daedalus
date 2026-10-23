@@ -418,6 +418,9 @@
             "TIER-B": [
               "*"
             ],
+            "TIER-C": [
+              "recursive/flint-v1.0*"
+            ],
             "TIER-D": [
               "liquid/lfm-2.5-2.6b*"
             ]
@@ -472,6 +475,9 @@
             ],
             "TIER-B": [
               "*"
+            ],
+            "TIER-C": [
+              "recursive/flint-v1.0*"
             ],
             "TIER-D": [
               "liquid/lfm-2.5-2.6b*"

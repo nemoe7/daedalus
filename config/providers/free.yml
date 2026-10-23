@@ -153,6 +153,8 @@ kilo:
       - "minimax/minimax-m3.1-flash*"
     TIER-B:
       - "*" # every other model; a more specific pattern wins
+    TIER-C:
+      - "recursive/flint-v1.0*"
     TIER-D:
       - "liquid/lfm-2.5-2.6b*"
 
@@ -194,6 +196,8 @@ openrouter:
       - "minimax/minimax-m3.1-flash*"
     TIER-B:
       - "*" # every other model; a more specific pattern wins
+    TIER-C:
+      - "recursive/flint-v1.0*"
     TIER-D:
       - "liquid/lfm-2.5-2.6b*"
 

@@ -1068,7 +1068,7 @@ def test_the_dead_tier_patterns_retire_and_phonellm_leaves() -> None:
 
 
 def test_the_new_free_models_take_their_tier() -> None:
-  """The free config puts the strong new models in TIER-A and the small one in TIER-B."""
+  """The free config puts the strong new models in TIER-A and the smaller ones in TIER-B and TIER-C."""
   from daedalus.routing.router import claiming_tier
 
   loaded = config.read_yaml(config.DEFAULT_PATH)
@@ -1078,11 +1078,32 @@ def test_the_new_free_models_take_their_tier() -> None:
     ("openrouter", "minimax/minimax-m3.1-flash:free"): "TIER-A",
     ("kilo", "xingchen-agi/xing4.0-29b-a4b:free"): "TIER-B",
     ("openrouter", "xingchen-agi/xing4.0-29b-a4b:free"): "TIER-B",
+    ("kilo", "recursive/flint-v1.0:free"): "TIER-C",
+    ("openrouter", "recursive/flint-v1.0:free"): "TIER-C",
   }
   for (provider, slug), tier in place.items():
     block = loaded[provider]
     assert slug in discovery.select(block, [slug]), (provider, slug)
     assert claiming_tier(block, slug) == tier, (provider, slug)
+  non_chat = {
+    "nvidia/nemotron-3.5-embed-1b:free": (["embeddings"], "embedding"),
+    "nvidia/nemotron-3.5-embed-8b:free": (["embeddings"], "embedding"),
+    "nvidia/nemotron-3.5-rerank-8b:free": (["rerank"], "rerank"),
+    "baseten/elephant-1:free": (["decisions"], "decisions"),
+    "baseten/mammoth-1:free": (["decisions"], "decisions"),
+  }
+  native = {
+    f"openrouter/{slug}": discovery.native_columns(
+      "openrouter", {"architecture": {"output_modalities": modalities}}
+    )
+    for slug, (modalities, _) in non_chat.items()
+  }
+  rows, _ = enrichment.enrich(
+    list(native), loaded, lambda *_: {"data": [], "models": []}, native=native
+  )
+  for row in rows:
+    assert row["mode"] == non_chat[row["slug"]][1], row
+    assert row["tier"] is None, row
 
 
 def test_the_clairic_extraction_model_leaves_the_chat_chains() -> None:
