@@ -7,10 +7,10 @@ from pathlib import Path, PureWindowsPath
 from tempfile import TemporaryDirectory
 
 from daedalus import catalog, store
-from daedalus.catalog import discovery
+from daedalus.catalog import discovery, enrichment
 
 logger = logging.getLogger("daedalus")
-KINDS = {"catalog", "models", "all"}
+KINDS = {"catalog", "models", "enrichments", "all"}
 FORMATS = {"json", "csv"}
 
 
@@ -57,6 +57,8 @@ def collect(kind: str, file_format: str, since: float) -> dict[str, str]:
       paths.extend(discovery.dump(folder=folder, file_format=file_format, since=since))
     if kind in {"models", "all"}:
       paths.append(dump_models(file_format, folder, since))
+    if kind in {"enrichments", "all"}:
+      paths.extend(enrichment.dump(folder=folder, file_format=file_format, since=since))
     files = {}
     for path in paths:
       with path.open(encoding="utf-8", newline="") as source:
@@ -71,7 +73,11 @@ def write(files: object, kind: str, file_format: str) -> None:
   model_name = f"models.{file_format}"
   if kind in {"models", "all"} and model_name not in files:
     raise ValueError("the export has no models file")
+  if kind == "enrichments" and not files:
+    raise ValueError("the export has no enrichment files")
   for name, content in files.items():
+    stem = Path(name).stem
+    is_enrichment = discovery.is_enrichment_stem(stem)
     if (
       not isinstance(name, str)
       or not name
@@ -80,7 +86,8 @@ def write(files: object, kind: str, file_format: str) -> None:
       or PureWindowsPath(name).is_reserved()
       or Path(name).suffix != f".{file_format}"
       or (kind == "models" and name != model_name)
-      or (kind == "catalog" and name == model_name)
+      or (kind == "catalog" and (name == model_name or is_enrichment))
+      or (kind == "enrichments" and not is_enrichment)
       or not isinstance(content, str)
     ):
       raise ValueError("the export contains an invalid file")
@@ -93,7 +100,13 @@ def write(files: object, kind: str, file_format: str) -> None:
     for name in files:
       os.replace(staging / name, folder / name)
     for old in folder.iterdir():
-      selected = kind == "all" or (old.stem == "models") == (kind == "models")
+      is_enrichment = discovery.is_enrichment_stem(old.stem)
+      selected = (
+        kind == "all"
+        or (kind == "models" and old.stem == "models")
+        or (kind == "enrichments" and is_enrichment)
+        or (kind == "catalog" and old.stem != "models" and not is_enrichment)
+      )
       if (
         old.is_file()
         and old.suffix in {".json", ".csv"}

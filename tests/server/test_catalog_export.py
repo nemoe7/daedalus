@@ -16,13 +16,16 @@ MASTER = "test-master-export-0001"
 AUTH = {"Authorization": f"Bearer {MASTER}"}
 
 
-@pytest.mark.parametrize("kind", ["catalog", "models", "all"])
+@pytest.mark.parametrize("kind", ["catalog", "models", "enrichments", "all"])
 @pytest.mark.parametrize("file_format", ["json", "csv"])
 def test_export_returns_the_completed_server_build(monkeypatch, kind, file_format):
   """The response contains the requested fresh files without using the server dump folder."""
+  from daedalus.catalog import enrichment
+
   url = "https://export.test/models"
   monkeypatch.setattr(config, "SAVED", {"p": {"discovery_url": url, "api_key": "key"}})
   monkeypatch.setattr(discovery, "get_config", lambda: config.SAVED)
+  monkeypatch.setattr(enrichment, "get_config", lambda: config.SAVED)
   monkeypatch.setattr(catalog, "LAST_FAILED", [])
   monkeypatch.setattr(schedule, "BUSY", False)
   observed = []
@@ -30,6 +33,11 @@ def test_export_returns_the_completed_server_build(monkeypatch, kind, file_forma
   def refresh():
     observed.append(schedule.BUSY)
     discovery.save_snapshot(url, {"data": [{"id": "fresh"}]})
+    discovery.save_snapshot(enrichment.litellm_url("p"), {"data": [{"id": "p/fresh"}]})
+    discovery.save_snapshot(
+      enrichment.modelschemas_url("p"),
+      {"models": [{"id": "fresh", "rawId": "fresh"}]},
+    )
     store.write_store([{"id": "p/fresh"}])
 
   monkeypatch.setattr(api, "CATALOG_REFRESH", refresh)
@@ -44,9 +52,12 @@ def test_export_returns_the_completed_server_build(monkeypatch, kind, file_forma
   assert observed == [True]
   assert not schedule.BUSY
   files = response.json()["files"]
-  expected = (
-    ({"p"} if kind == "catalog" else {"models"}) if kind != "all" else {"p", "models"}
-  )
+  expected = {
+    "catalog": {"p"},
+    "models": {"models"},
+    "enrichments": {"litellm-p", "modelschemas-p"},
+    "all": {"p", "models", "litellm-p", "modelschemas-p"},
+  }[kind]
   assert set(files) == {f"{name}.{file_format}" for name in expected}
   for name, content in files.items():
     rows = (
@@ -55,8 +66,14 @@ def test_export_returns_the_completed_server_build(monkeypatch, kind, file_forma
       else list(csv.DictReader(io.StringIO(content)))
     )
     if isinstance(rows, dict):
-      rows = rows["data"]
-    assert rows[0]["id"] == ("p/fresh" if name.startswith("models.") else "fresh")
+      rows = rows.get("data") or rows.get("models")
+    expected_id = (
+      "p/fresh"
+      if name.startswith("models.")
+      or (file_format == "json" and name.startswith("litellm-"))
+      else "fresh"
+    )
+    assert rows[0]["id"] == expected_id
   assert existing.read_text() == "unchanged"
 
 

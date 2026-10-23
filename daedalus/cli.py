@@ -17,7 +17,7 @@ from urllib.parse import urlencode, urlsplit
 import yaml
 
 from daedalus import __version__, catalog, config, dashboard, store
-from daedalus.catalog import discovery, exports
+from daedalus.catalog import discovery, enrichment, exports
 from daedalus.catalog.exports import dump_models
 from daedalus.config import remote, settings
 from daedalus.providers import hooks
@@ -274,14 +274,15 @@ def run(argv: list[str] | None = None) -> None:
     help="rebuild the store in this process when a live daedalus refuses the request",
   )
   dump = commands.add_parser(
-    "dump", help="write provider catalogs or available models to .daedalus-state/dump"
+    "dump",
+    help="write provider catalogs, available models, or enrichments to .daedalus-state/dump",
   )
   dump.add_argument(
     "kind",
     nargs="?",
-    choices=("catalog", "models", "all"),
+    choices=("catalog", "models", "enrichments", "all"),
     default="catalog",
-    help="cached catalogs, stored models, or both (default: catalog)",
+    help="cached catalogs, stored models, cached enrichments, or all (default: catalog)",
   )
   dump.add_argument(
     "-f",
@@ -327,6 +328,8 @@ def run(argv: list[str] | None = None) -> None:
       discovery.dump(file_format=args.format)
     if args.kind in ("models", "all"):
       dump_models(args.format)
+    if args.kind in ("enrichments", "all"):
+      enrichment.dump(file_format=args.format)
   elif args.command == "catalog":
     url = live_url()
     if url is not None:

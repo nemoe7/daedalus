@@ -48,7 +48,16 @@ def test_help() -> None:
     check=False,
   )
   assert dump_help.returncode == 0, dump_help.stderr
-  for option in ("catalog", "models", "all", "--format", "--fmt", "-f", "csv"):
+  for option in (
+    "catalog",
+    "models",
+    "enrichments",
+    "all",
+    "--format",
+    "--fmt",
+    "-f",
+    "csv",
+  ):
     assert option in dump_help.stdout, dump_help.stdout
   assert "--init" not in shown.stdout and "-c," not in shown.stdout, "no flags"
   wrong = subprocess.run(
@@ -166,11 +175,18 @@ def test_commands() -> None:
 
 
 def test_dump_modes(tmp_path: Path, monkeypatch) -> None:
+  from daedalus.catalog import enrichment
+
   calls: list[tuple[str, str] | str] = []
   rows = [{"id": "p/a", "mode": "chat", "flags": ["vision"], "tier": None}]
   monkeypatch.setattr(discovery, "DUMP_DIR", tmp_path)
   monkeypatch.setattr(
     discovery, "dump", lambda *, file_format: calls.append(("catalog", file_format))
+  )
+  monkeypatch.setattr(
+    enrichment,
+    "dump",
+    lambda *, file_format: calls.append(("enrichments", file_format)),
   )
   monkeypatch.setattr(store, "migrate", lambda: calls.append("migrate"))
   monkeypatch.setattr(catalog, "refresh", lambda: calls.append("refresh"))
@@ -186,13 +202,24 @@ def test_dump_modes(tmp_path: Path, monkeypatch) -> None:
   assert json.loads((tmp_path / "models.json").read_text("utf-8"))["data"] == [
     {**rows[0], "tier": None, "supported_efforts": None}
   ]
+  cli.run(["dump", "enrichments", "-f", "json"])
+  assert calls == [
+    "migrate",
+    ("catalog", "csv"),
+    "migrate",
+    "migrate",
+    ("enrichments", "json"),
+  ], calls
   cli.run(["dump", "all", "-f", "csv"])
   assert calls == [
     "migrate",
     ("catalog", "csv"),
     "migrate",
     "migrate",
+    ("enrichments", "json"),
+    "migrate",
     ("catalog", "csv"),
+    ("enrichments", "csv"),
   ], calls
   assert not (tmp_path / "models.json").exists(), "the old format is gone"
   with (tmp_path / "models.csv").open(encoding="utf-8", newline="") as source:

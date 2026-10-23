@@ -160,6 +160,39 @@ def test_failed_offline_fetch_keeps_existing_export_and_cached_rows(
   assert [row["id"] for row in store.stored_rows()] == ["p/retained"]
 
 
+def test_fresh_enrichments_dump_writes_server_files_and_keeps_models(
+  tmp_path, monkeypatch
+):
+  """A fresh enrichments dump replaces enrichment files without touching models or provider catalogs."""
+  monkeypatch.setattr(discovery, "DUMP_DIR", tmp_path)
+  monkeypatch.setenv(cli.DAEDALUS_URL, "https://remote.test")
+  monkeypatch.setattr(cli.logs, "setup_logging", lambda: None)
+  (tmp_path / "models.json").write_text("models")
+  (tmp_path / "p.json").write_text("catalog")
+  (tmp_path / "litellm-old.json").write_text("old")
+  files = {
+    "litellm-p.json": json.dumps({"data": {"data": [{"id": "p/fresh"}]}}),
+    "modelschemas-p.json": json.dumps({"data": {"models": [{"rawId": "fresh"}]}}),
+  }
+
+  def open_url(request, timeout):
+    assert parse_qs(urlsplit(request.full_url).query) == {
+      "dump": ["enrichments"],
+      "format": ["json"],
+    }
+    response = io.BytesIO(json.dumps({"files": files}).encode())
+    response.status = 200
+    return response
+
+  monkeypatch.setattr(cli.urllib.request, "urlopen", open_url)
+  cli.run(["dump", "enrichments", "--refresh"])
+  assert (tmp_path / "litellm-p.json").read_text() == files["litellm-p.json"]
+  assert (tmp_path / "modelschemas-p.json").read_text() == files["modelschemas-p.json"]
+  assert not (tmp_path / "litellm-old.json").exists()
+  assert (tmp_path / "models.json").read_text() == "models"
+  assert (tmp_path / "p.json").read_text() == "catalog"
+
+
 def test_implicit_remote_host_refusal_does_not_trigger_a_local_build(monkeypatch):
   """A host setting for another server is not proof that the local server is absent."""
   monkeypatch.delenv(cli.DAEDALUS_URL, raising=False)

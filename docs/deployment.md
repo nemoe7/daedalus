@@ -59,13 +59,13 @@ The Docker and git commands below are the same in cmd, PowerShell, and bash.
 | Log | `docker compose logs -f api` |
 | Rebuild the catalog | The Catalog line of the Overview status card, or `docker compose exec api daedalus catalog` |
 | Run the CLI on the host | `daedalus catalog` probes `DAEDALUS_URL`, or `DAEDALUS_HOST` and `DAEDALUS_PORT`, and asks a live server to rebuild. A refused request stops the command, and `--force` rebuilds the store here. `dump` reads the shared state folder. Run hook commands through the container CLI. |
-| Dump catalogs/models | `docker compose exec api daedalus dump catalog`, `models`, or `all`. Files go to `.daedalus-state/dump` |
+| Dump catalogs/models | `docker compose exec api daedalus dump catalog`, `models`, `enrichments`, or `all`. Files go to `.daedalus-state/dump` |
 | Update the hook files | `docker compose exec api daedalus hooks update` reads the `hooks.sources` repos and writes `hooks.lock.json`. `daedalus hooks verify` then reads the lock and loads each file. See [Hooks](hooks.md#sources-and-the-lock) |
 
 `dump` defaults to JSON. Add `-f csv` (also `--fmt` or `--format`) for CSV. Catalog refresh saves provider
-snapshots. Without `--refresh`, dumps read saved data and never fetch.
+and enrichment snapshots. Without `--refresh`, dumps read saved data and never fetch.
 
-Add `--refresh` to `dump catalog`, `dump models`, or `dump all` to fetch before exporting. A live server
+Add `--refresh` to `dump catalog`, `dump models`, `dump enrichments`, or `dump all` to fetch before exporting. A live server
 requires its master key and returns the completed files, not the local CLI store. The command waits
 up to 300 seconds for the server.
 
@@ -76,7 +76,8 @@ A required fetch failure stops the command without replacing dump files or remov
 The models dump carries the tier of each row. JSON dumps wrap the original payload under `data` and
 add UTC ISO 8601 timestamps with a `Z` suffix. `exported_at` gives the file generation time.
 
-Provider dumps add `fetched_at` from the saved snapshot. Model dumps add `built_at` from the model
+Provider and enrichment dumps add `fetched_at` from the saved snapshot. `dump enrichments` writes
+`litellm-{provider}` and `modelschemas-{provider}` files. Model dumps add `built_at` from the model
 store, or `null` without a build. A build time does not give the fetch time of each retained model row.
 
 CSV output does not change.

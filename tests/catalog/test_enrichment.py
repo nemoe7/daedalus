@@ -518,3 +518,57 @@ def test_enrichment_does_not_hide_fetch_type_errors() -> None:
 
   with pytest.raises(TypeError, match="synthetic code error"):
     enrichment.enrich(["openrouter/a"], {}, broken_type)
+
+
+def test_enrichment_dump_writes_cached_litellm_and_modelschemas_snapshots(
+  tmp_path: Path,
+) -> None:
+  """LiteLLM and modelschemas reads save snapshots that `enrichment.dump` exports as JSON or CSV."""
+  import csv
+  import json
+
+  from daedalus.catalog import discovery
+
+  fetch, _ = sequenced(
+    {"data": [{"id": "openrouter/a", "rpm": 9}], "has_more": True},
+    {"data": [{"id": "openrouter/b", "rpm": 12}], "has_more": False},
+    MS_PAGE,
+  )
+  enrichment.litellm_entries("openrouter", fetch)
+  enrichment.modelschemas_entries("openrouter", fetch)
+  cached = discovery.cached_snapshot(enrichment.litellm_url("openrouter"))
+  assert cached == {
+    "data": [{"id": "openrouter/a", "rpm": 9}, {"id": "openrouter/b", "rpm": 12}]
+  }
+  folder = tmp_path / "dump"
+  folder.mkdir()
+  (folder / "openrouter.json").write_text("catalog", encoding="utf-8")
+  (folder / "models.json").write_text("models", encoding="utf-8")
+  (folder / "litellm-stale.json").write_text("stale", encoding="utf-8")
+  paths = enrichment.dump({"openrouter": {}}, folder=folder, file_format="json")
+  assert {path.name for path in paths} == {
+    "litellm-openrouter.json",
+    "modelschemas-openrouter.json",
+  }
+  assert not (folder / "litellm-stale.json").exists()
+  assert (folder / "openrouter.json").read_text(encoding="utf-8") == "catalog"
+  assert (folder / "models.json").read_text(encoding="utf-8") == "models"
+  litellm_json = json.loads(
+    (folder / "litellm-openrouter.json").read_text(encoding="utf-8")
+  )
+  assert litellm_json["fetched_at"] is not None
+  assert litellm_json["data"] == cached
+  csv_paths = enrichment.dump({"openrouter": {}}, folder=folder, file_format="csv")
+  assert {path.name for path in csv_paths} == {
+    "litellm-openrouter.csv",
+    "modelschemas-openrouter.csv",
+  }
+  assert not (folder / "litellm-openrouter.json").exists()
+  with (folder / "litellm-openrouter.csv").open(encoding="utf-8", newline="") as handle:
+    rows = list(csv.DictReader(handle))
+  assert [row["id"] for row in rows] == ["a", "b"]
+  with (folder / "modelschemas-openrouter.csv").open(
+    encoding="utf-8", newline=""
+  ) as handle:
+    ms_rows = list(csv.DictReader(handle))
+  assert [row["id"] for row in ms_rows] == ["a", "b", "c", "d", "e", "f", "no-raw"]

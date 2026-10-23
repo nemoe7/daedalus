@@ -64,7 +64,7 @@ curl http://localhost:3357/v1/models -H "Authorization: Bearer $DAEDALUS_KEY"
 | `POST /v1/hook/<file>` | A hook file under `hooks`, named by its path, with or without the `.py` suffix | None |
 
 `POST /v1/catalog` returns `202` for the default background rebuild. Add `dump=catalog`, `dump=models`,
-or `dump=all`, with `format=json` or `format=csv`, to wait for completed files (`200`). This mode requires
+`dump=enrichments`, or `dump=all`, with `format=json` or `format=csv`, to wait for completed files (`200`). This mode requires
 the master key, not a named API key. The response's `files` object maps filenames to file text.
 
 The rebuild guard stays held through file capture, including after a client disconnects. A busy build

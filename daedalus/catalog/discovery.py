@@ -518,6 +518,11 @@ def dump_record(data: dict | list, time_key: str, at: float | None) -> dict:
   }
 
 
+def is_enrichment_stem(stem: str) -> bool:
+  """Tell whether a dump file stem belongs to an enrichment export."""
+  return stem.startswith(("litellm-", "modelschemas-"))
+
+
 def dump(
   config: dict[str, Any] | None = None,
   folder: Path | str = DUMP_DIR,
@@ -533,7 +538,12 @@ def dump(
     raise ValueError("a provider name is not an export basename")
   target.mkdir(parents=True, exist_ok=True)
   for old in target.iterdir():
-    if old.is_file() and old.suffix in {".json", ".csv"} and old.stem != "models":
+    if (
+      old.is_file()
+      and old.suffix in {".json", ".csv"}
+      and old.stem != "models"
+      and not is_enrichment_stem(old.stem)
+    ):
       old.unlink()
   paths = []
   written: list[dict[str, Any]] = []

@@ -1,21 +1,29 @@
 """Add the catalog metadata and config values to each discovered model."""
 
+import json
 import logging
 from collections.abc import Callable, Iterable, Mapping
+from pathlib import Path
 from typing import Any
 
 import httpx
 
 from daedalus.catalog.discovery import (
+  DUMP_DIR,
   MAX_PAGES,
   Fetch,
+  cached_snapshot_record,
+  dump_record,
   fetch_json,
+  is_enrichment_stem,
   matches,
+  merge_pages,
   read_each,
   save_snapshot,
   with_param,
+  write_csv,
 )
-from daedalus.config import block_for
+from daedalus.config import block_for, get_config
 from daedalus.routing.router import EFFORT_RANKS, claiming_tier, efforts
 from daedalus.store import COLUMNS
 
@@ -46,25 +54,42 @@ class SourceShapeError(TypeError):
   pass
 
 
+def litellm_url(provider_name: str) -> str:
+  """The base LiteLLM catalog URL for one provider."""
+  name = LITELLM_PROVIDER.get(provider_name, provider_name)
+  return with_param(
+    with_param(LITELLM_CATALOG, "provider", name), "page_size", LITELLM_PAGE_SIZE
+  )
+
+
+def modelschemas_url(provider_name: str) -> str:
+  """The modelschemas catalog URL for one provider."""
+  name = MODELSCHEMAS_PROVIDER.get(provider_name, provider_name)
+  return with_param(MODELSCHEMAS_URL, "provider", name)
+
+
 def litellm_entries(
   provider_name: str, fetch: Fetch = fetch_json
 ) -> dict[str, dict[str, Any]]:
   """Read one provider from the LiteLLM catalog, page by page, keyed by slug."""
   name = LITELLM_PROVIDER.get(provider_name, provider_name)
-  url = with_param(
-    with_param(LITELLM_CATALOG, "provider", name), "page_size", LITELLM_PAGE_SIZE
-  )
+  url = litellm_url(provider_name)
   entries: dict[str, dict[str, Any]] = {}
+  pages: list[dict[str, Any]] = []
   for page in range(1, MAX_PAGES + 1):
     payload = fetch(with_param(url, "page", page), {})
     data = payload.get("data", [])
     if not isinstance(data, list):
       raise SourceShapeError("LiteLLM data must be a list")
+    pages.append(payload)
     for entry in data:
       if isinstance(entry, dict) and isinstance(entry.get("id"), str):
         entries[entry["id"].removeprefix(f"{name}/")] = entry
     if payload.get("has_more") is not True:
       break
+  merged = merge_pages(pages)
+  merged.pop("has_more", None)
+  save_snapshot(url, merged)
   logger.info("%s: read %d LiteLLM entries", name, len(entries))
   return entries
 
@@ -74,7 +99,7 @@ def modelschemas_entries(
 ) -> dict[str, dict[str, Any]]:
   """Read one provider from the modelschemas service, keyed by the raw id of each row."""
   name = MODELSCHEMAS_PROVIDER.get(provider_name, provider_name)
-  url = with_param(MODELSCHEMAS_URL, "provider", name)
+  url = modelschemas_url(provider_name)
   payload = fetch(url, {})
   entries: dict[str, dict[str, Any]] = {}
   models = payload.get("models", [])
@@ -86,6 +111,87 @@ def modelschemas_entries(
   save_snapshot(url, payload)
   logger.info("%s: read %d modelschemas rows", name, len(entries))
   return entries
+
+
+def _enrichment_rows(
+  prefix: str, provider_name: str, payload: dict[str, Any]
+) -> list[dict[str, Any]]:
+  """Extract CSV rows from one cached enrichment payload."""
+  if prefix == "litellm":
+    name = LITELLM_PROVIDER.get(provider_name, provider_name)
+    data = payload.get("data")
+    if not isinstance(data, list):
+      return []
+    return [
+      {**row, "id": row["id"].removeprefix(f"{name}/")}
+      for row in data
+      if isinstance(row, dict) and isinstance(row.get("id"), str) and row["id"]
+    ]
+  models = payload.get("models")
+  if not isinstance(models, list):
+    return []
+  return [
+    {**row, "id": str(row.get("rawId") or row.get("id"))}
+    for row in models
+    if isinstance(row, dict)
+    and isinstance(row.get("rawId") or row.get("id"), str)
+    and (row.get("rawId") or row.get("id"))
+  ]
+
+
+def dump(
+  config: dict[str, Any] | None = None,
+  folder: Path | str = DUMP_DIR,
+  file_format: str = "json",
+  since: float | None = None,
+) -> list[Path]:
+  """Write cached enrichment snapshots to `litellm-{provider}.{ext}` and `modelschemas-{provider}.{ext}`."""
+  if file_format not in {"json", "csv"}:
+    raise ValueError("file_format must be json or csv")
+  target = Path(folder)
+  providers = get_config() if config is None else config
+  names = [name for name, raw in providers.items() if isinstance(raw, dict)]
+  if any(
+    not name
+    or Path(name).name != name
+    or (target / f"litellm-{name}.{file_format}").parent != target
+    for name in names
+  ):
+    raise ValueError("a provider name is not an export basename")
+  target.mkdir(parents=True, exist_ok=True)
+  for old in target.iterdir():
+    if (
+      old.is_file() and old.suffix in {".json", ".csv"} and is_enrichment_stem(old.stem)
+    ):
+      old.unlink()
+  paths: list[Path] = []
+  for provider_name in names:
+    for prefix, url in (
+      ("litellm", litellm_url(provider_name)),
+      ("modelschemas", modelschemas_url(provider_name)),
+    ):
+      record = cached_snapshot_record(url)
+      if record is None:
+        logger.warning(
+          "skipped %s-%s: no cached enrichment snapshot", prefix, provider_name
+        )
+        continue
+      payload, fetched_at = record
+      if since is not None and fetched_at < since:
+        raise ValueError("a selected enrichment snapshot was not refreshed")
+      path = target / f"{prefix}-{provider_name}.{file_format}"
+      if file_format == "json":
+        wrapped = dump_record(payload, "fetched_at", fetched_at)
+        path.write_text(
+          json.dumps(wrapped, indent=2, ensure_ascii=False) + "\n", "utf-8"
+        )
+      else:
+        write_csv(path, _enrichment_rows(prefix, provider_name, payload))
+      paths.append(path)
+  if since is not None and not paths:
+    raise ValueError("no enrichment snapshot was refreshed")
+  logger.info("wrote %d enrichment dumps to %s", len(paths), target)
+  return paths
 
 
 def modelschemas_columns(row: dict[str, Any]) -> dict[str, Any]:
