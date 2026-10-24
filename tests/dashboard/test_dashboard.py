@@ -729,7 +729,9 @@ def test_pool_strip_keeps_every_card_its_own_width() -> None:
   root = Path(__file__).resolve().parents[2]
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   assert ".pools > .pool:last-child:nth-child(odd)" not in css
+  assert "repeat(auto-fill, minmax(min(136px, 100%), 1fr))" in css
   assert ".pools { display: flex; overflow-x: auto;" in css
+  assert ".pools > .pool { flex: 0 0 144px;" in css
 
 
 def test_overview_columns_share_the_card_load() -> None:
@@ -1429,8 +1431,8 @@ def test_the_feed_and_the_log_name_their_own_state() -> None:
     ': none(t("notification.empty_text"))'
   ) in app, "the feed draws its events, and its empty note, directly"
   html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
-  assert 'class="strip-note" id="pool-note"' in html, (
-    "the pool strip names the figure that its bars draw"
+  assert 'id="pool-note"' not in html and 'class="strip-note"' not in html, (
+    "the pool strip omits the top hint note because the bar tooltip carries it"
   )
 
 

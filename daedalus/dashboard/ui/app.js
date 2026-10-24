@@ -568,11 +568,6 @@ function renderPools(pools) {
     return `<a class="card pool" data-tier="${tier}" data-mode="${esc(mode)}" title="${esc(pool.shown)}: ${esc(POOL_NOTES[pool.name] || "")}">
       <h3>${esc(pool.shown.replace("daedalus/", ""))}${context}</h3>${bar}<div class="sub">${count(pool.members.length, "model")}</div></a>`;
   }).join(""));
-  const note = $("pool-note");
-  if (note) {
-    note.textContent = t("model.pool.mean_weight_note");
-    note.hidden = !pools.length;
-  }
   markPools();
 }
 

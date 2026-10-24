@@ -216,11 +216,9 @@ button.chip:disabled { cursor: progress; }
 }
 main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
 .pools {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(168px, 100%), 1fr)); gap: 12px; margin-bottom: 16px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(136px, 100%), 1fr)); gap: 10px; margin-bottom: 16px;
 }
-/* One line names the figure that every bar of the strip draws. */
-.strip-note { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
-.card.pool { padding: 12px 14px; color: inherit; text-decoration: none; cursor: pointer; }
+.card.pool { padding: 10px 12px; color: inherit; text-decoration: none; cursor: pointer; }
 .pool:hover, .pool.on { border-color: var(--accent); }
 .card.pool .sub { margin: 2px 0 0; }
 .pool-line + .pool-line { border-top: 1px solid var(--line); }
@@ -1057,7 +1055,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .kpis { grid-template-columns: 1fr 1fr; gap: 10px 14px; padding: 12px 14px; }
   /* A phone swipes the pool strip sideways in 1 row, so the table keeps the first screen. */
   .pools { display: flex; overflow-x: auto; gap: 10px; padding-bottom: 6px; scroll-snap-type: x mandatory; }
-  .pools > .pool { flex: 0 0 74%; scroll-snap-align: start; }
+  .pools > .pool { flex: 0 0 144px; scroll-snap-align: start; }
   .kpi b { font-size: 18px; }
   .editbar { gap: 8px; padding: 8px 10px; }
   .editbar .primary, .editbar .ghost { padding: 5px 12px; }

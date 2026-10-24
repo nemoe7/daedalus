@@ -238,7 +238,6 @@ globalThis.DAEDALUS_LOCALE = {
   "model.pool.auto_text": "Selects a pool from the prompt",
   "model.pool.graphos_text": "Transcription",
   "model.pool.mean_weight_title": "Mean weight. A model in a cooldown counts as 0.",
-  "model.pool.mean_weight_note": "Each bar shows the mean weight of the pool members.",
   "model.pool.no_pools_text": "No pools",
   "model.pool.photos_text": "Image",
   "model.pool.tier_a_text": "Tier A",
