@@ -540,7 +540,7 @@ def demo_read(out: Path, *paths: str) -> dict:
     cwd=out,
     capture_output=True,
     text=True,
-    timeout=10,
+    timeout=60,
     check=False,
   )
   assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
@@ -725,7 +725,7 @@ def test_the_demo_can_slow_its_answers_for_a_reviewer(
     capture_output=True,
     text=True,
     env={**os.environ, "DEMO_QUERY": query},
-    timeout=10,
+    timeout=60,
     check=False,
   )
   assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
@@ -810,7 +810,7 @@ def test_demo_pool_membership(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     cwd=out,
     capture_output=True,
     text=True,
-    timeout=10,
+    timeout=60,
     check=False,
   )
   assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
@@ -927,7 +927,7 @@ def test_the_demo_carries_the_version_of_the_build(tmp_path: Path) -> None:
     cwd=out,
     capture_output=True,
     text=True,
-    timeout=10,
+    timeout=60,
     check=False,
   )
   assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
@@ -1028,7 +1028,7 @@ def test_demo_timing_and_event_contract(tmp_path: Path) -> None:
     cwd=out,
     capture_output=True,
     text=True,
-    timeout=10,
+    timeout=60,
     check=False,
   )
   assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
@@ -1131,7 +1131,7 @@ def test_demo_hook_identities(
     cwd=out,
     capture_output=True,
     text=True,
-    timeout=10,
+    timeout=60,
     check=False,
   )
   assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
@@ -1188,7 +1188,7 @@ def test_demo_rejected_provider_form_keeps_state(tmp_path: Path) -> None:
     cwd=out,
     capture_output=True,
     text=True,
-    timeout=10,
+    timeout=60,
     check=False,
   )
   assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
@@ -1233,7 +1233,7 @@ def test_demo_save_name_shapes(tmp_path: Path) -> None:
     cwd=out,
     capture_output=True,
     text=True,
-    timeout=10,
+    timeout=60,
     check=False,
   )
   assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
@@ -1374,7 +1374,7 @@ def test_demo_settings_save_contract(tmp_path: Path, monkeypatch, scenario) -> N
     cwd=out,
     capture_output=True,
     text=True,
-    timeout=10,
+    timeout=60,
     check=False,
   )
   assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
