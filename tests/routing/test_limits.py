@@ -292,7 +292,13 @@ def test_neurons() -> None:
       "value": 0.0,
       "limit": limits.CLOUDFLARE_FREE,
       "share": 0.0,
-    }
+    },
+    {
+      "kind": "neurons_used",
+      "value": 12315.0,
+      "limit": None,
+      "share": None,
+    },
   ]
   refused = {"data": None, "errors": [{"message": "not authorized for that account"}]}
   assert limits.neuron_items(refused) == []
