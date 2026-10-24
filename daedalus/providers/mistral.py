@@ -5,7 +5,13 @@ from typing import Any, ClassVar
 
 import httpx
 
-from daedalus.providers.base import OpenAIProvider, check_wait, frame, limits
+from daedalus.providers.base import (
+  OpenAIProvider,
+  check_wait,
+  clean_display_name,
+  frame,
+  limits,
+)
 
 # Mistral takes only high or none. A real level maps to high, and only `none` maps to `none`.
 EFFORTS: Mapping[str, str] = {
@@ -144,6 +150,7 @@ class MistralProvider(OpenAIProvider):
     """Store columns from one Mistral row, whose capabilities are booleans."""
     found = row.get("capabilities") or {}
     return {
+      "name": clean_display_name(row.get("name"), str(row.get("id") or "")),
       "mode": "chat" if found.get("completion_chat") is True else None,
       **limits(row.get("max_context_length")),
       "supports_function_calling": found.get("function_calling"),

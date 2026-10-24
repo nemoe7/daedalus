@@ -16,6 +16,7 @@ from daedalus.providers.base import (
   OpenAIProvider,
   ProviderError,
   Upload,
+  clean_display_name,
   data_url,
   error_text,
   events,
@@ -378,6 +379,9 @@ class GeminiProvider(OpenAIProvider):
     methods = row.get("supportedGenerationMethods") or []
     mode = "embedding" if "embedContent" in methods else None
     return {
+      "name": clean_display_name(
+        row.get("displayName"), str(row.get("name") or "").removeprefix("models/")
+      ),
       "mode": "chat" if "generateContent" in methods else mode,
       **limits(row.get("inputTokenLimit"), row.get("outputTokenLimit")),
       "supports_reasoning": row.get("thinking") is True or None,

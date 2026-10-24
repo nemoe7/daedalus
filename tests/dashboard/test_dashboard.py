@@ -998,7 +998,7 @@ const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
   fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
-  + String.fromCharCode(10) + 'globalThis.__probe = { modelName, MARK_FILES };';
+  + String.fromCharCode(10) + 'globalThis.__probe = { modelName, MARK_FILES, state };';
 const byId = new Map();
 const el = (id) => {
   if (!byId.has(id)) byId.set(id, { innerHTML: '', textContent: '', value: '', addEventListener: () => {},
@@ -1041,6 +1041,12 @@ assert(modelName('cloudflare/@cf/meta/llama-3.1-8b-instruct')
 assert(modelName('cloudflare/@cf/inclusionai/ling-3.0-flash').includes('class="mark slug">inclusionai<'),
   'a name with no file shows its text');
 assert(sandbox.__probe.MARK_FILES.has('cloudflare') && sandbox.__probe.MARK_FILES.has('z-ai'), 'the shipped mark set');
+sandbox.__probe.state.models = [{ id: 'openrouter/baseten/mammoth-1:free', name: 'Mammoth 1' }];
+const named = modelName('openrouter/baseten/mammoth-1:free');
+assert(named.includes('ui/icons/openrouter.svg') && named.includes('ui/icons/baseten.svg'),
+  'real-name rendering preserves provider and developer marks');
+assert(named.includes('<span class="model-part">Mammoth 1</span>'),
+  'real-name rendering replaces the raw model slug with the human-readable name');
 """
   subprocess.run(["node", "-e", code], check=True)
 
@@ -3954,6 +3960,7 @@ def test_data(client: TestClient) -> None:
     "id": "p/big",
     "provider": "p",
     "slug": "big",
+    "name": None,
     "mode": "chat",
     "max_input_tokens": 1000,
     "max_output_tokens": None,

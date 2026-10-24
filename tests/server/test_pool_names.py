@@ -29,7 +29,12 @@ def upstream(request: httpx.Request) -> httpx.Response:
 async def client():
   block = {"api_base": "https://p.test/v1", "api_key": "k", "tier": {"TIER-D": ["x"]}}
   config.set_config({"p": block})
-  store.write_store([{"id": "p/x"}, {"id": "p/img", "mode": "image_generation"}])
+  store.write_store(
+    [
+      {"id": "p/x", "name": "Model X"},
+      {"id": "p/img", "mode": "image_generation", "name": "Image Studio"},
+    ]
+  )
   media.REPEATS.clear()
   router.set_pool_names({"moros": "fast", "koinos": "moros", "photos": "pics"})
   async with httpx.AsyncClient(transport=httpx.MockTransport(upstream)) as outer:
@@ -208,3 +213,7 @@ async def test_renamed(client: httpx.AsyncClient) -> None:
   )
   response = await client.post("/v1/chat/completions", json=chat("daedalus/unused"))
   assert response.status_code == 400, response.text
+  by_id = {m["id"]: m for m in (await client.get("/v1/models")).json()["data"]}
+  assert by_id["p/x"]["name"] == "Model X"
+  assert by_id["p/img"]["name"] == "Image Studio"
+  assert "name" not in by_id["daedalus/auto"]

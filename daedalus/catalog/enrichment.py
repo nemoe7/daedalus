@@ -24,6 +24,7 @@ from daedalus.catalog.discovery import (
   write_csv,
 )
 from daedalus.config import block_for, get_config
+from daedalus.providers.base import clean_display_name, humanize_slug
 from daedalus.routing.router import EFFORT_RANKS, claiming_tier, efforts
 from daedalus.store import COLUMNS
 
@@ -215,9 +216,12 @@ def dump(
   return paths
 
 
-def modelschemas_columns(row: dict[str, Any]) -> dict[str, Any]:
-  """The store columns of one modelschemas row: the reasoning flag and the effort ladder."""
+def modelschemas_columns(row: dict[str, Any], slug: str = "") -> dict[str, Any]:
+  """The store columns of one modelschemas row: display name, reasoning flag, and effort ladder."""
   found: dict[str, Any] = {}
+  name = clean_display_name(row.get("displayName"), slug or str(row.get("rawId") or ""))
+  if name:
+    found["name"] = name
   reasoning = row.get("reasoning")
   if isinstance(reasoning, Mapping):
     found["supports_reasoning"] = True
@@ -253,7 +257,7 @@ def column_values(values: dict[str, Any]) -> dict[str, Any]:
 
 def config_params(provider: dict[str, Any], slug: str) -> dict[str, Any]:
   """The provider-level values, then every matching `models` entry, in file order."""
-  found = column_values(provider)
+  found = {k: v for k, v in column_values(provider).items() if k != "name"}
   for pattern, values in (provider.get("models") or {}).items():
     if isinstance(values, dict) and matches(str(pattern), slug):
       found.update(column_values(values))
@@ -334,12 +338,13 @@ def enrich(
           failed.append(provider_name)
     else:
       # The service fills only what the earlier sources left empty.
-      for key, value in modelschemas_columns(ms.get(slug) or {}).items():
+      for key, value in modelschemas_columns(ms.get(slug) or {}, slug).items():
         if row.get(key) is None:
           row[key] = value
     row.update((native or {}).get(line, {}))
     block = block_for(config, provider_name, slug) or {}
     row.update(config_params(block, slug))
+    row["name"] = row.get("name") or humanize_slug(slug)
     # No catalog match gives no mode. The row makes text, so it takes the chat mode. A provider
     # whose catalog read failed keeps no mode, so the store keeps the mode it holds.
     if not unread:

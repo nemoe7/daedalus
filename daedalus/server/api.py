@@ -354,6 +354,7 @@ async def models(request: Request) -> Response:
   known = set(chat)
   others = [m for m in store.read_models(routable_only=False) if m not in known]
   info = store.model_info()
+  labels = store.model_names()
   fields = {name: info.get(name, {}) for name in chat}
   config = get_config()
   for name, tier in router.POOLS.items():
@@ -371,6 +372,7 @@ async def models(request: Request) -> Response:
       "id": router.pool_name(name),
       "object": "model",
       "owned_by": "daedalus",
+      **({"name": labels[name]} if name in labels else {}),
       **fields.get(name, {}),
     }
     for name in names

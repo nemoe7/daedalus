@@ -11,7 +11,13 @@ import httpx
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from daedalus.config import SAVED
-from daedalus.providers.base import OpenAIProvider, ProviderError, Upload, limits
+from daedalus.providers.base import (
+  OpenAIProvider,
+  ProviderError,
+  Upload,
+  clean_display_name,
+  limits,
+)
 
 TRANSCRIPT_FORMATS = ("json", "text", "vtt")
 logger = logging.getLogger("daedalus")
@@ -310,6 +316,7 @@ class CloudflareProvider(OpenAIProvider):
     }
     effort = found.get("reasoning_effort")
     return {
+      "name": clean_display_name(row.get("name"), str(row.get("name") or "")),
       "mode": TASK_MODES.get(task_name(row)),
       **limits(found.get("context_window")),
       "reasoning_effort": effort.get("default_effort")

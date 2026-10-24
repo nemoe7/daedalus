@@ -38,10 +38,13 @@ COLUMNS = (
   "supported_efforts",
   # A new column goes last: an added column lands at the table end, so 1 order fits both.
   "tier",
+  "name",
 )
 # The Alembic steps: env.py, and 1 file in versions/ for each layout change.
 MIGRATIONS = Path(__file__).with_name("migrations")
-TEXT_COLUMNS = frozenset({"mode", "reasoning_effort", "supported_efforts", "tier"})
+TEXT_COLUMNS = frozenset(
+  {"mode", "reasoning_effort", "supported_efforts", "tier", "name"}
+)
 TOKEN_COLUMNS = frozenset({"max_input_tokens", "max_output_tokens", "max_tokens"})
 # Rows that enter the chat chains. No catalog match gives no mode.
 ROUTABLE_MODES = (None, "chat")
@@ -297,6 +300,7 @@ def model_rows() -> list[dict[str, Any]]:
       "id": row["id"],
       "provider": row["provider"],
       "slug": row["slug"],
+      "name": row["name"],
       "mode": row["mode"] or "chat",
       "max_input_tokens": row["max_input_tokens"],
       "max_output_tokens": row["max_output_tokens"],
@@ -344,6 +348,24 @@ def model_info() -> dict[str, dict[str, int | bool]]:
         fields[name] = number
     info[key] = fields
   return info
+
+
+def model_names() -> dict[str, str]:
+  """Read stored non-empty display names keyed by model id."""
+  if not Path(MODELS_DB).exists():
+    return {}
+  database = connect_read(MODELS_DB)
+  try:
+    rows = database.execute("SELECT id, name FROM models").fetchall()
+  except sqlite3.OperationalError:
+    return {}
+  finally:
+    database.close()
+  return {
+    key: value.strip()
+    for key, value in rows
+    if isinstance(value, str) and value.strip()
+  }
 
 
 def catalog_name(model: str) -> str | None:

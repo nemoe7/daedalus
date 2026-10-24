@@ -219,3 +219,42 @@ def test_discovery_token_conversion_failure(unparseable_count) -> None:
   assert "max_input_tokens" not in found
   assert found["max_output_tokens"] == found["max_tokens"] == 4096
   assert found["supports_function_calling"] is True
+
+
+def test_display_name_extraction_and_humanizer() -> None:
+  """Upstream display names strip gateway affixes and echo slugs fall back to humanize_slug."""
+  from daedalus.providers.base import clean_display_name, humanize_slug
+
+  assert (
+    clean_display_name("Baseten: Mammoth 1 (free)", "baseten/mammoth-1:free")
+    == "Mammoth 1"
+  )
+  assert (
+    clean_display_name(
+      "Canopy Labs Orpheus V1 English", "canopylabs/orpheus-v1-english"
+    )
+    == "Orpheus V1 English"
+  )
+  assert clean_display_name("Qwen/Qwen3.8-27B", "qwen/qwen3.8-27b") is None
+  assert clean_display_name("@cf/meta/llama-3.1-8b", "@cf/meta/llama-3.1-8b") is None
+  assert clean_display_name("codestral-2508", "codestral-2508") is None
+  assert humanize_slug("@cf/openai/gpt-oss-120b") == "GPT OSS 120B"
+  assert humanize_slug("labs-leanstral-1-5-1") == "Labs Leanstral 1.5.1"
+  assert (
+    discovery.native_columns(
+      "gemini",
+      {
+        "name": "models/gemini-3.8-flash",
+        "displayName": "Gemini 3.8 Flash",
+        "supportedGenerationMethods": ["generateContent"],
+      },
+    )["name"]
+    == "Gemini 3.8 Flash"
+  )
+  assert (
+    discovery.native_columns(
+      "pollinations",
+      {"id": "black-forest-labs/flux.1-schnell", "title": "FLUX.1 Schnell"},
+    )["name"]
+    == "FLUX.1 Schnell"
+  )

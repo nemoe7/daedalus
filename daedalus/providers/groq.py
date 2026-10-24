@@ -1,7 +1,13 @@
 from collections.abc import Mapping
 from typing import Any, ClassVar
 
-from daedalus.providers.base import OpenAIProvider, limits, listed, modalities
+from daedalus.providers.base import (
+  OpenAIProvider,
+  clean_display_name,
+  limits,
+  listed,
+  modalities,
+)
 
 
 class GroqProvider(OpenAIProvider):
@@ -25,6 +31,7 @@ class GroqProvider(OpenAIProvider):
   def columns(row: dict) -> dict[str, Any]:
     """Store columns from one Groq row."""
     return {
+      "name": clean_display_name(row.get("name"), str(row.get("id") or "")),
       **limits(row.get("context_window"), row.get("max_completion_tokens")),
       **listed(
         row.get("supported_features"),

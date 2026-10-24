@@ -1,4 +1,5 @@
 import json
+import re
 import time
 import uuid
 from collections.abc import AsyncIterator, Mapping
@@ -166,6 +167,144 @@ def free_stealth(slug: str, row: dict) -> bool:
   return slug.startswith("stealth/") and free_price(row)
 
 
+ACRONYMS: Mapping[str, str] = {
+  "ai": "AI",
+  "asr": "ASR",
+  "bge": "BGE",
+  "cf": "CF",
+  "cls": "CLS",
+  "en": "EN",
+  "es": "ES",
+  "fp8": "FP8",
+  "fp16": "FP16",
+  "glm": "GLM",
+  "gpt": "GPT",
+  "hf": "HF",
+  "ibm": "IBM",
+  "int4": "INT4",
+  "int8": "INT8",
+  "it": "IT",
+  "lcm": "LCM",
+  "lfm": "LFM",
+  "llm": "LLM",
+  "lora": "LoRA",
+  "m3": "M3",
+  "moe": "MoE",
+  "ocr": "OCR",
+  "oss": "OSS",
+  "qwq": "QwQ",
+  "r1": "R1",
+  "rag": "RAG",
+  "rerank": "Rerank",
+  "sdxl": "SDXL",
+  "sft": "SFT",
+  "tts": "TTS",
+  "ui": "UI",
+  "v1": "v1",
+  "v2": "v2",
+  "v3": "v3",
+  "v4": "v4",
+  "vl": "VL",
+  "xl": "XL",
+  "xs": "XS",
+}
+BRAND_WORDS: Mapping[str, str] = {
+  "deepseek": "DeepSeek",
+  "dreamshaper": "DreamShaper",
+  "embeddinggemma": "EmbeddingGemma",
+  "eurollm": "EuroLLM",
+  "flux": "FLUX",
+  "gemma": "Gemma",
+  "glm": "GLM",
+  "granite": "Granite",
+  "kani": "Kani",
+  "leanstral": "Leanstral",
+  "llama": "Llama",
+  "melotts": "MeloTTS",
+  "ministral": "Ministral",
+  "mistral": "Mistral",
+  "nemotron": "Nemotron",
+  "plamo": "PLaMo",
+  "qwen": "Qwen",
+  "qwen2": "Qwen2",
+  "qwen2.5": "Qwen2.5",
+  "qwen3": "Qwen3",
+  "qwen3.5": "Qwen3.5",
+  "qwen3.8": "Qwen3.8",
+  "resnet": "ResNet",
+  "sea": "SEA",
+  "lion": "LION",
+  "smart": "Smart",
+  "turn": "Turn",
+  "sqlcoder": "SQLCoder",
+  "voxtral": "Voxtral",
+  "whisper": "Whisper",
+}
+
+
+def clean_display_name(raw_name: Any, slug: str = "") -> str | None:
+  """Normalize an upstream model display name when it differs from the raw slug."""
+  if not isinstance(raw_name, str):
+    return None
+  text = raw_name.strip()
+  if not text:
+    return None
+  tail = slug.rsplit("/", 1)[-1]
+  tail_bare = re.sub(r":free$", "", tail, flags=re.IGNORECASE)
+  if text in (slug, tail, tail_bare):
+    return None
+  text = re.sub(r"\s*\(free\)\s*$", "", text, flags=re.IGNORECASE).strip()
+  if ": " in text:
+    text = text.split(": ", 1)[1].strip()
+  if "/" in text and slug and text.lower() == slug.lower():
+    return None
+  parts = [part for part in slug.split("/") if part and not part.startswith("@")]
+  dev_norm = re.sub(r"[^a-z0-9]", "", parts[-2].lower()) if len(parts) >= 2 else ""
+  if len(dev_norm) >= 3:
+    words = text.split()
+    acc = ""
+    for index, word in enumerate(words[:-1]):
+      acc += re.sub(r"[^a-z0-9]", "", word.lower())
+      if acc == dev_norm:
+        text = " ".join(words[index + 1 :]).strip()
+        break
+      if not dev_norm.startswith(acc):
+        break
+  if not text or text in (slug, tail, tail_bare):
+    return None
+  return text
+
+
+def humanize_slug(slug: str) -> str:
+  """Format the model segment of a slug into a readable title."""
+  tail = slug.rsplit("/", 1)[-1]
+  tail = re.sub(r":free$", "", tail, flags=re.IGNORECASE)
+  tail = re.sub(r"(?<=\bv\d)-(?=\d\b)", ".", tail, flags=re.IGNORECASE)
+  tail = re.sub(r"(?<=\b\d)-(?=\d-\d\b)", ".", tail)
+  tail = re.sub(r"(?<=\d\.\d)-(?=\d\b)", ".", tail)
+  tokens = [token for token in tail.split("-") if token]
+  out: list[str] = []
+  for token in tokens:
+    low = token.lower()
+    if low in BRAND_WORDS:
+      out.append(BRAND_WORDS[low])
+    elif low in ACRONYMS:
+      out.append(ACRONYMS[low])
+    elif re.fullmatch(r"\d+(?:\.\d+)?[bmkv]", low):
+      out.append(token[:-1] + token[-1].upper())
+    elif re.fullmatch(r"a\d+(?:\.\d+)?b", low):
+      out.append("A" + token[1:-1] + "B")
+    elif re.fullmatch(r"v\d+(?:\.\d+)+", low):
+      out.append("v" + token[1:])
+    elif re.fullmatch(r"\d+e", low):
+      out.append(token.upper())
+    elif any(char.isupper() for char in token):
+      out.append(token)
+    else:
+      out.append(token.capitalize())
+  return (" ".join(out) or tail or slug).replace("SEA LION", "SEA-LION")
+
+
 def openrouter_columns(row: dict) -> dict[str, Any]:
   """Store columns from one OpenRouter-shaped discovery row."""
   top = row.get("top_provider") or {}
@@ -173,6 +312,7 @@ def openrouter_columns(row: dict) -> dict[str, Any]:
   reasoning = row.get("reasoning") or {}
   efforts = reasoning.get("supported_efforts")
   return {
+    "name": clean_display_name(row.get("name"), str(row.get("id") or "")),
     **limits(
       top.get("context_length") or row.get("context_length"),
       top.get("max_completion_tokens"),
@@ -381,8 +521,11 @@ class OpenAIProvider:
 
   @staticmethod
   def columns(row: dict) -> dict[str, Any]:
-    """Store columns from one discovery row. The base class reads none."""
-    return {}
+    """Store columns from one discovery row."""
+    name = clean_display_name(
+      row.get("title") or row.get("name"), str(row.get("id") or "")
+    )
+    return {"name": name} if name else {}
 
   @staticmethod
   def discoverable(row: dict) -> bool:

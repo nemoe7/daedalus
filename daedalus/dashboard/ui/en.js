@@ -198,6 +198,7 @@ globalThis.DAEDALUS_LOCALE = {
   "model.detail.developer_label": "Developer",
   "model.detail.fallbacks_label": "fallbacks",
   "model.detail.first_token_label": "median first token",
+  "model.detail.id_label": "ID",
   "model.detail.input_tokens_label": "input tokens",
   "model.detail.limit_left_label": "{unit} left",
   "model.detail.output_tokens_label": "output tokens",

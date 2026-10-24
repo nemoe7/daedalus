@@ -21,7 +21,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-C"
+    "tier": "TIER-C",
+    "name": "Gemma SEA-LION v4 27B IT"
   },
   {
     "id": "cloudflare/@cf/baai/bge-base-en-v1.5",
@@ -45,7 +46,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "BGE Base EN v1.5"
   },
   {
     "id": "cloudflare/@cf/baai/bge-large-en-v1.5",
@@ -69,7 +71,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "BGE Large EN v1.5"
   },
   {
     "id": "cloudflare/@cf/baai/bge-m3",
@@ -93,7 +96,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "BGE M3"
   },
   {
     "id": "cloudflare/@cf/baai/bge-small-en-v1.5",
@@ -117,7 +121,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "BGE Small EN v1.5"
   },
   {
     "id": "cloudflare/@cf/black-forest-labs/flux-1-schnell",
@@ -141,7 +146,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "FLUX 1 Schnell"
   },
   {
     "id": "cloudflare/@cf/black-forest-labs/flux-2-dev",
@@ -165,7 +171,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "FLUX 2 Dev"
   },
   {
     "id": "cloudflare/@cf/black-forest-labs/flux-2-klein-4b",
@@ -189,7 +196,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "FLUX 2 Klein 4B"
   },
   {
     "id": "cloudflare/@cf/black-forest-labs/flux-2-klein-9b",
@@ -213,7 +221,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "FLUX 2 Klein 9B"
   },
   {
     "id": "cloudflare/@cf/bytedance/stable-diffusion-xl-lightning",
@@ -237,7 +246,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Stable Diffusion XL Lightning"
   },
   {
     "id": "cloudflare/@cf/cloudflare/clairic",
@@ -261,7 +271,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Clairic"
   },
   {
     "id": "cloudflare/@cf/cloudflare/clef",
@@ -285,7 +296,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Clef"
   },
   {
     "id": "cloudflare/@cf/cloudflare/clef-flash",
@@ -309,7 +321,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Clef Flash"
   },
   {
     "id": "cloudflare/@cf/cloudflare/clef-omni",
@@ -333,7 +346,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Clef Omni"
   },
   {
     "id": "cloudflare/@cf/deepgram/aura-1",
@@ -357,7 +371,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Aura 1"
   },
   {
     "id": "cloudflare/@cf/deepgram/aura-2-en",
@@ -381,7 +396,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Aura 2 EN"
   },
   {
     "id": "cloudflare/@cf/deepgram/aura-2-es",
@@ -405,7 +421,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Aura 2 ES"
   },
   {
     "id": "cloudflare/@cf/deepgram/flux",
@@ -429,7 +446,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "FLUX"
   },
   {
     "id": "cloudflare/@cf/deepgram/nova-3",
@@ -453,7 +471,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Nova 3"
   },
   {
     "id": "cloudflare/@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
@@ -479,7 +498,8 @@
     "supported_efforts": [
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "DeepSeek R1 Distill Qwen 32B"
   },
   {
     "id": "cloudflare/@cf/google/embeddinggemma-300m",
@@ -503,7 +523,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "EmbeddingGemma 300M"
   },
   {
     "id": "cloudflare/@cf/google/gemma-2b-it-lora",
@@ -527,7 +548,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-D"
+    "tier": "TIER-D",
+    "name": "Gemma 2B IT LoRA"
   },
   {
     "id": "cloudflare/@cf/google/gemma-4-26b-a4b-it",
@@ -554,7 +576,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "Gemma 4 26B A4B IT"
   },
   {
     "id": "cloudflare/@cf/google/gemma-7b-it-lora",
@@ -578,7 +601,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-D"
+    "tier": "TIER-D",
+    "name": "Gemma 7B IT LoRA"
   },
   {
     "id": "cloudflare/@cf/ibm-granite/granite-4.0-h-micro",
@@ -602,7 +626,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-D"
+    "tier": "TIER-D",
+    "name": "Granite 4.0 H Micro"
   },
   {
     "id": "cloudflare/@cf/leonardo/lucid-origin",
@@ -626,7 +651,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Lucid Origin"
   },
   {
     "id": "cloudflare/@cf/leonardo/phoenix-1.0",
@@ -650,7 +676,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Phoenix 1.0"
   },
   {
     "id": "cloudflare/@cf/lykon/dreamshaper-8-lcm",
@@ -674,7 +701,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "DreamShaper 8 LCM"
   },
   {
     "id": "cloudflare/@cf/meta-llama/llama-2-7b-chat-hf-lora",
@@ -698,7 +726,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-D"
+    "tier": "TIER-D",
+    "name": "Llama 2 7B Chat HF LoRA"
   },
   {
     "id": "cloudflare/@cf/meta/llama-3.1-8b-instruct-fp8",
@@ -722,7 +751,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-D"
+    "tier": "TIER-D",
+    "name": "Llama 3.1 8B Instruct FP8"
   },
   {
     "id": "cloudflare/@cf/meta/llama-3.2-1b-instruct",
@@ -746,7 +776,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-D"
+    "tier": "TIER-D",
+    "name": "Llama 3.2 1B Instruct"
   },
   {
     "id": "cloudflare/@cf/meta/llama-3.2-3b-instruct",
@@ -770,7 +801,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-D"
+    "tier": "TIER-D",
+    "name": "Llama 3.2 3B Instruct"
   },
   {
     "id": "cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast",
@@ -794,7 +826,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-C"
+    "tier": "TIER-C",
+    "name": "Llama 3.3 70B Instruct FP8 Fast"
   },
   {
     "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
@@ -818,7 +851,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-C"
+    "tier": "TIER-C",
+    "name": "Llama 4 Scout 17B 16E Instruct"
   },
   {
     "id": "cloudflare/@cf/mistral/mistral-7b-instruct-v0.2-lora",
@@ -842,7 +876,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-D"
+    "tier": "TIER-D",
+    "name": "Mistral 7B Instruct v0.2 LoRA"
   },
   {
     "id": "cloudflare/@cf/mistralai/mistral-small-3.1-24b-instruct",
@@ -866,7 +901,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-C"
+    "tier": "TIER-C",
+    "name": "Mistral Small 3.1 24B Instruct"
   },
   {
     "id": "cloudflare/@cf/myshell-ai/melotts",
@@ -890,7 +926,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "MeloTTS"
   },
   {
     "id": "cloudflare/@cf/nvidia/nemotron-3-120b-a12b",
@@ -917,7 +954,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-A"
+    "tier": "TIER-A",
+    "name": "Nemotron 3 120B A12B"
   },
   {
     "id": "cloudflare/@cf/openai/gpt-oss-120b",
@@ -945,7 +983,8 @@
       "medium",
       "high"
     ],
-    "tier": "TIER-A"
+    "tier": "TIER-A",
+    "name": "GPT OSS 120B"
   },
   {
     "id": "cloudflare/@cf/openai/gpt-oss-20b",
@@ -973,7 +1012,8 @@
       "medium",
       "high"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "GPT OSS 20B"
   },
   {
     "id": "cloudflare/@cf/openai/whisper",
@@ -997,7 +1037,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Whisper"
   },
   {
     "id": "cloudflare/@cf/openai/whisper-large-v3-turbo",
@@ -1021,7 +1062,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Whisper Large v3 Turbo"
   },
   {
     "id": "cloudflare/@cf/openai/whisper-tiny-en",
@@ -1045,7 +1087,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Whisper Tiny EN"
   },
   {
     "id": "cloudflare/@cf/pfnet/plamo-embedding-1b",
@@ -1069,7 +1112,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "PLaMo Embedding 1B"
   },
   {
     "id": "cloudflare/@cf/qwen/qwen2.5-coder-32b-instruct",
@@ -1093,7 +1137,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-C"
+    "tier": "TIER-C",
+    "name": "Qwen2.5 Coder 32B Instruct"
   },
   {
     "id": "cloudflare/@cf/qwen/qwen3-30b-a3b-fp8",
@@ -1119,7 +1164,8 @@
     "supported_efforts": [
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "Qwen3 30B A3B FP8"
   },
   {
     "id": "cloudflare/@cf/qwen/qwen3-embedding-0.6b",
@@ -1143,7 +1189,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Qwen3 Embedding 0.6B"
   },
   {
     "id": "cloudflare/@cf/qwen/qwen3.8-27b",
@@ -1171,7 +1218,8 @@
       "medium",
       "xhigh"
     ],
-    "tier": "TIER-A"
+    "tier": "TIER-A",
+    "name": "Qwen3.8 27B"
   },
   {
     "id": "cloudflare/@cf/qwen/qwq-32b",
@@ -1197,7 +1245,8 @@
     "supported_efforts": [
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "QwQ 32B"
   },
   {
     "id": "cloudflare/@cf/runwayml/stable-diffusion-v1-5-inpainting",
@@ -1221,7 +1270,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Stable Diffusion v1.5 Inpainting"
   },
   {
     "id": "cloudflare/@cf/stabilityai/stable-diffusion-xl-base-1.0",
@@ -1245,7 +1295,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Stable Diffusion XL Base 1.0"
   },
   {
     "id": "cloudflare/@cf/swiss-ai/apertus-v1.5-8b",
@@ -1269,7 +1320,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-D"
+    "tier": "TIER-D",
+    "name": "Apertus v1.5 8B"
   },
   {
     "id": "cloudflare/@cf/utter-project/eurollm-9b-it",
@@ -1293,7 +1345,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-D"
+    "tier": "TIER-D",
+    "name": "EuroLLM 9B IT"
   },
   {
     "id": "cloudflare/@cf/zai-org/glm-4.7-flash",
@@ -1320,7 +1373,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "GLM 4.7 Flash"
   },
   {
     "id": "gemini/gemini-3-flash-preview",
@@ -1349,7 +1403,8 @@
       "medium",
       "high"
     ],
-    "tier": "TIER-C"
+    "tier": "TIER-C",
+    "name": "Gemini 3 Flash Preview"
   },
   {
     "id": "gemini/gemini-3.1-flash-lite",
@@ -1378,7 +1433,8 @@
       "medium",
       "high"
     ],
-    "tier": "TIER-C"
+    "tier": "TIER-C",
+    "name": "Gemini 3.1 Flash Lite"
   },
   {
     "id": "gemini/gemini-3.1-flash-lite-preview",
@@ -1407,7 +1463,8 @@
       "medium",
       "high"
     ],
-    "tier": "TIER-C"
+    "tier": "TIER-C",
+    "name": "Gemini 3.1 Flash Lite Preview"
   },
   {
     "id": "gemini/gemini-3.1-flash-tts-preview",
@@ -1431,7 +1488,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Gemini 3.1 Flash TTS Preview"
   },
   {
     "id": "gemini/gemini-3.5-flash-lite",
@@ -1460,7 +1518,8 @@
       "medium",
       "high"
     ],
-    "tier": "TIER-C"
+    "tier": "TIER-C",
+    "name": "Gemini 3.5 Flash Lite"
   },
   {
     "id": "gemini/gemini-3.5-transcribe",
@@ -1484,7 +1543,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Gemini 3.5 Transcribe"
   },
   {
     "id": "gemini/gemini-3.6-flash",
@@ -1513,7 +1573,8 @@
       "medium",
       "high"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "Gemini 3.6 Flash"
   },
   {
     "id": "gemini/gemini-3.8-flash",
@@ -1541,7 +1602,8 @@
       "medium",
       "high"
     ],
-    "tier": "TIER-A"
+    "tier": "TIER-A",
+    "name": "Gemini 3.8 Flash"
   },
   {
     "id": "gemini/gemini-3.8-flash-lite-tts",
@@ -1565,7 +1627,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Gemini 3.8 Flash Lite TTS"
   },
   {
     "id": "gemini/gemini-3.8-flash-tts",
@@ -1589,7 +1652,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Gemini 3.8 Flash TTS"
   },
   {
     "id": "gemini/gemini-embedding-001",
@@ -1613,7 +1677,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Gemini Embedding 001"
   },
   {
     "id": "gemini/gemini-embedding-2",
@@ -1637,7 +1702,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Gemini Embedding 2"
   },
   {
     "id": "gemini/gemini-embedding-2-preview",
@@ -1661,7 +1727,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Gemini Embedding 2 Preview"
   },
   {
     "id": "gemini/gemma-4-26b-a4b-it",
@@ -1690,7 +1757,8 @@
       "medium",
       "high"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "Gemma 4 26B A4B IT"
   },
   {
     "id": "gemini/gemma-4-31b-it",
@@ -1719,7 +1787,8 @@
       "medium",
       "high"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "Gemma 4 31B IT"
   },
   {
     "id": "groq/allam-2-7b",
@@ -1743,7 +1812,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-D"
+    "tier": "TIER-D",
+    "name": "ALLaM-2-7b"
   },
   {
     "id": "groq/canopylabs/orpheus-arabic-saudi",
@@ -1767,7 +1837,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Orpheus Arabic Saudi"
   },
   {
     "id": "groq/canopylabs/orpheus-v1-english",
@@ -1791,7 +1862,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Orpheus V1 English"
   },
   {
     "id": "groq/openai/gpt-oss-120b",
@@ -1819,7 +1891,8 @@
       "medium",
       "high"
     ],
-    "tier": "TIER-A"
+    "tier": "TIER-A",
+    "name": "GPT OSS 120B"
   },
   {
     "id": "groq/openai/gpt-oss-20b",
@@ -1847,7 +1920,8 @@
       "medium",
       "high"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "GPT OSS 20B"
   },
   {
     "id": "groq/qwen/qwen3.8-27b",
@@ -1875,7 +1949,8 @@
       "medium",
       "xhigh"
     ],
-    "tier": "TIER-A"
+    "tier": "TIER-A",
+    "name": "Qwen3.8 27B"
   },
   {
     "id": "groq/whisper-large-v3",
@@ -1899,7 +1974,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Whisper"
   },
   {
     "id": "groq/whisper-large-v3-turbo",
@@ -1923,7 +1999,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Whisper Large V3 Turbo"
   },
   {
     "id": "kilo/cohere/north-mini-code:free",
@@ -1950,7 +2027,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "North Mini Code"
   },
   {
     "id": "kilo/dots-studio/dots-3-note-preview:free",
@@ -1977,7 +2055,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "Dots3-Note Preview"
   },
   {
     "id": "kilo/liquid/lfm-2.5-2.6b:free",
@@ -2009,7 +2088,8 @@
       "xhigh",
       "max"
     ],
-    "tier": "TIER-D"
+    "tier": "TIER-D",
+    "name": "LFM2.5-2.6B"
   },
   {
     "id": "kilo/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
@@ -2041,7 +2121,8 @@
       "xhigh",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "Nemotron 3 Nano Omni"
   },
   {
     "id": "kilo/nvidia/nemotron-3-super-120b-a12b:free",
@@ -2069,7 +2150,8 @@
       "low",
       "medium"
     ],
-    "tier": "TIER-A"
+    "tier": "TIER-A",
+    "name": "Nemotron 3 Super"
   },
   {
     "id": "kilo/nvidia/nemotron-3-ultra-550b-a55b:free",
@@ -2097,7 +2179,8 @@
       "medium",
       "high"
     ],
-    "tier": "TIER-A"
+    "tier": "TIER-A",
+    "name": "Nemotron 3 Ultra"
   },
   {
     "id": "kilo/nvidia/nemotron-3.5-lightning:free",
@@ -2124,7 +2207,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "Nemotron 3.5 Lightning"
   },
   {
     "id": "kilo/nvidia/nemotron-3.5-super-vl:free",
@@ -2151,7 +2235,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "Nemotron 3.5 Super VL"
   },
   {
     "id": "kilo/poolside/laguna-s-2.1:free",
@@ -2178,7 +2263,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-A"
+    "tier": "TIER-A",
+    "name": "Laguna S 2.1"
   },
   {
     "id": "kilo/poolside/laguna-xs-2.1:free",
@@ -2205,7 +2291,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "Laguna XS 2.1"
   },
   {
     "id": "kilo/recursive/flint-v1.0:free",
@@ -2237,7 +2324,8 @@
       "xhigh",
       "max"
     ],
-    "tier": "TIER-C"
+    "tier": "TIER-C",
+    "name": "Flint"
   },
   {
     "id": "kilo/reflection/beam-free",
@@ -2269,7 +2357,8 @@
       "xhigh",
       "max"
     ],
-    "tier": "TIER-A"
+    "tier": "TIER-A",
+    "name": "Beam 1.0"
   },
   {
     "id": "kilo/stealth/glyph-cluster",
@@ -2301,7 +2390,8 @@
       "xhigh",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "Glyph Cluster"
   },
   {
     "id": "kilo/xingchen-agi/xing4.0-29b-a4b:free",
@@ -2328,7 +2418,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "Xing4.0 29B A4B"
   },
   {
     "id": "mistral/codestral-2508",
@@ -2352,7 +2443,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-C"
+    "tier": "TIER-C",
+    "name": "Codestral 2508"
   },
   {
     "id": "mistral/codestral-embed",
@@ -2376,7 +2468,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Codestral Embed"
   },
   {
     "id": "mistral/labs-leanstral-1-5-1",
@@ -2403,7 +2496,8 @@
       "none",
       "high"
     ],
-    "tier": "TIER-C"
+    "tier": "TIER-C",
+    "name": "Labs Leanstral 1.5.1"
   },
   {
     "id": "mistral/ministral-14b-2512",
@@ -2427,7 +2521,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-C"
+    "tier": "TIER-C",
+    "name": "Ministral 14B 2512"
   },
   {
     "id": "mistral/ministral-3b-2512",
@@ -2451,7 +2546,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-D"
+    "tier": "TIER-D",
+    "name": "Ministral 3B 2512"
   },
   {
     "id": "mistral/ministral-8b-2512",
@@ -2475,7 +2571,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-D"
+    "tier": "TIER-D",
+    "name": "Ministral 8B 2512"
   },
   {
     "id": "mistral/mistral-embed-2312",
@@ -2499,7 +2596,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Mistral Embed 2312"
   },
   {
     "id": "mistral/voxtral-mini-2602",
@@ -2523,7 +2621,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Voxtral Mini Transcribe"
   },
   {
     "id": "mistral/voxtral-mini-tts-2603",
@@ -2547,7 +2646,8 @@
     "supports_audio_output": true,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Voxtral Mini TTS"
   },
   {
     "id": "mistral/voxtral-small-2507",
@@ -2571,7 +2671,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": "TIER-C"
+    "tier": "TIER-C",
+    "name": "Voxtral Small Transcribe"
   },
   {
     "id": "openrouter/baseten/elephant-1:free",
@@ -2595,7 +2696,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Elephant 1"
   },
   {
     "id": "openrouter/baseten/mammoth-1:free",
@@ -2619,7 +2721,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Mammoth 1"
   },
   {
     "id": "openrouter/cohere/north-mini-code:free",
@@ -2646,7 +2749,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "North Mini Code"
   },
   {
     "id": "openrouter/dots-studio/dots-3-note-preview:free",
@@ -2673,7 +2777,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "Dots3-Note Preview"
   },
   {
     "id": "openrouter/fish-audio/s2.1-pro-free:free",
@@ -2697,7 +2802,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "S2.1 Pro Free"
   },
   {
     "id": "openrouter/google/gemma-4-26b-a4b-it:free",
@@ -2724,7 +2830,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "Gemma 4 26B A4B"
   },
   {
     "id": "openrouter/google/gemma-4-31b-it:free",
@@ -2751,7 +2858,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "Gemma 4 31B"
   },
   {
     "id": "openrouter/inception/mercury-decide:free",
@@ -2775,7 +2883,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Mercury Decide"
   },
   {
     "id": "openrouter/liquid/lfm-2.5-2.6b:free",
@@ -2807,7 +2916,8 @@
       "xhigh",
       "max"
     ],
-    "tier": "TIER-D"
+    "tier": "TIER-D",
+    "name": "LFM2.5-2.6B"
   },
   {
     "id": "openrouter/liquid/lfm-2.5-embedding-350m:free",
@@ -2831,7 +2941,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "LFM2.5-Embedding-350M"
   },
   {
     "id": "openrouter/nvidia/llama-nemotron-embed-vl-1b-v2:free",
@@ -2855,7 +2966,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Llama Nemotron Embed VL 1B V2"
   },
   {
     "id": "openrouter/nvidia/llama-nemotron-rerank-vl-1b-v2:free",
@@ -2879,7 +2991,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Llama Nemotron Rerank VL 1B V2"
   },
   {
     "id": "openrouter/nvidia/nemotron-3-embed-1b:free",
@@ -2903,7 +3016,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Nemotron 3 Embed 1B"
   },
   {
     "id": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
@@ -2935,7 +3049,8 @@
       "xhigh",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "Nemotron 3 Nano Omni"
   },
   {
     "id": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
@@ -2963,7 +3078,8 @@
       "low",
       "none"
     ],
-    "tier": "TIER-A"
+    "tier": "TIER-A",
+    "name": "Nemotron 3 Super"
   },
   {
     "id": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
@@ -2991,7 +3107,8 @@
       "medium",
       "none"
     ],
-    "tier": "TIER-A"
+    "tier": "TIER-A",
+    "name": "Nemotron 3 Ultra"
   },
   {
     "id": "openrouter/nvidia/nemotron-3.5-embed-1b:free",
@@ -3015,7 +3132,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Nemotron 3.5 Embed 1B"
   },
   {
     "id": "openrouter/nvidia/nemotron-3.5-embed-8b:free",
@@ -3039,7 +3157,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Nemotron 3.5 Embed 8B"
   },
   {
     "id": "openrouter/nvidia/nemotron-3.5-lightning:free",
@@ -3066,7 +3185,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "Nemotron 3.5 Lightning"
   },
   {
     "id": "openrouter/nvidia/nemotron-3.5-rerank-8b:free",
@@ -3090,7 +3210,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Nemotron 3.5 Rerank 8B"
   },
   {
     "id": "openrouter/nvidia/nemotron-3.5-super-vl:free",
@@ -3117,7 +3238,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "Nemotron 3.5 Super VL"
   },
   {
     "id": "openrouter/poolside/laguna-s-2.1:free",
@@ -3144,7 +3266,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-A"
+    "tier": "TIER-A",
+    "name": "Laguna S 2.1"
   },
   {
     "id": "openrouter/poolside/laguna-xs-2.1:free",
@@ -3171,7 +3294,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "Laguna XS 2.1"
   },
   {
     "id": "openrouter/recursive/flint-v1.0:free",
@@ -3203,7 +3327,8 @@
       "xhigh",
       "max"
     ],
-    "tier": "TIER-C"
+    "tier": "TIER-C",
+    "name": "Flint"
   },
   {
     "id": "openrouter/respan/span-01-lite:free",
@@ -3227,7 +3352,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Span-01 Lite"
   },
   {
     "id": "openrouter/thinkingmachines/inkling-small:free",
@@ -3258,7 +3384,8 @@
       "minimal",
       "none"
     ],
-    "tier": "TIER-A"
+    "tier": "TIER-A",
+    "name": "Inkling Small"
   },
   {
     "id": "openrouter/thinkingmachines/inkling:free",
@@ -3289,7 +3416,8 @@
       "minimal",
       "none"
     ],
-    "tier": "TIER-A"
+    "tier": "TIER-A",
+    "name": "Inkling"
   },
   {
     "id": "openrouter/xingchen-agi/xing4.0-29b-a4b:free",
@@ -3316,7 +3444,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "Xing4.0 29B A4B"
   },
   {
     "id": "openrouter/z-ai/glm-5.3-flash",
@@ -3344,7 +3473,8 @@
       "high",
       "low"
     ],
-    "tier": "TIER-A"
+    "tier": "TIER-A",
+    "name": "GLM 5.3 Flash"
   },
   {
     "id": "z-ai/glm-4.5-flash",
@@ -3371,7 +3501,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "GLM 4.5 Flash"
   },
   {
     "id": "z-ai/glm-4.6v-flash",
@@ -3398,7 +3529,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-D"
+    "tier": "TIER-D",
+    "name": "GLM 4.6V Flash"
   },
   {
     "id": "z-ai/glm-4.7-flash",
@@ -3425,7 +3557,8 @@
       "none",
       "max"
     ],
-    "tier": "TIER-B"
+    "tier": "TIER-B",
+    "name": "GLM 4.7 Flash"
   },
   {
     "id": "pollinations/black-forest-labs/flux.1-schnell",
@@ -3449,7 +3582,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "FLUX.1 Schnell"
   },
   {
     "id": "pollinations/black-forest-labs/flux.2-klein-4b",
@@ -3473,7 +3607,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "FLUX.2 Klein 4B"
   },
   {
     "id": "pollinations/lykon/dreamshaper-8-lcm",
@@ -3497,7 +3632,8 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "DreamShaper 8 LCM"
   },
   {
     "id": "pollinations/tongyi-mai/z-image-turbo",
@@ -3521,6 +3657,7 @@
     "supports_audio_output": false,
     "supports_web_search": false,
     "supported_efforts": null,
-    "tier": null
+    "tier": null,
+    "name": "Z-Image Turbo"
   }
 ]

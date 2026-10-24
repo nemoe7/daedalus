@@ -615,3 +615,37 @@ def test_enrichment_dump_writes_cached_litellm_and_modelschemas_snapshots(
   ) as handle:
     ms_rows = list(csv.DictReader(handle))
   assert [row["id"] for row in ms_rows] == ["a", "b", "c", "d", "e", "f", "no-raw"]
+
+
+def test_enrich_resolves_display_names_across_sources() -> None:
+  """Config overrides beat native names, which beat modelschemas and humanized slugs."""
+  ms_payload = {
+    "models": [
+      {"rawId": "ms-only", "displayName": "OpenRouter: Schema Title (free)"},
+      {"rawId": "native-wins", "displayName": "Schema Loser"},
+    ]
+  }
+  fetch, _ = sequenced({"data": [], "has_more": False}, ms_payload)
+  config = {"openrouter": {"models": {"cfg-wins": {"name": "Custom Name"}}}}
+  rows, problems = enrichment.enrich(
+    [
+      "openrouter/ms-only",
+      "openrouter/native-wins",
+      "openrouter/cfg-wins",
+      "openrouter/zai-org/glm-4.7-flash",
+    ],
+    config,
+    fetch,
+    native={
+      "openrouter/native-wins": {"name": "Native Winner"},
+      "openrouter/cfg-wins": {"name": "Native Overridden"},
+    },
+  )
+  assert problems == []
+  names = {row["id"]: row["name"] for row in rows}
+  assert names == {
+    "openrouter/ms-only": "Schema Title",
+    "openrouter/native-wins": "Native Winner",
+    "openrouter/cfg-wins": "Custom Name",
+    "openrouter/zai-org/glm-4.7-flash": "GLM 4.7 Flash",
+  }

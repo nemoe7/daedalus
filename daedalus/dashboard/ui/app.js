@@ -144,12 +144,14 @@ const parts = (id) => {
 };
 // Separate model-ID parts with a slash.
 const sep = '<span class="mark-sep" aria-hidden="true">/</span>';
+const realModelName = (id) => state.models.find((m) => m.id === id)?.name || "";
 const modelName = (id, pool = "", tint = false) => {
   const { provider, dev, model } = parts(id);
   if (model === null) return esc(id);
+  const shown = realModelName(id) || model;
   const heads = (dev ? [provider, dev] : [provider]).map((name) => mark(name, tint));
   const tail = pool ? sep + `<span class="model-part">${esc(pool)}</span>` : "";
-  return heads.join(sep) + sep + `<span class="model-part">${esc(model)}</span>` + tail;
+  return heads.join(sep) + sep + `<span class="model-part">${esc(shown)}</span>` + tail;
 };
 
 // Use the pool suffix in auto model slugs, such as daedalus/auto/moros.
@@ -1023,7 +1025,7 @@ const splitRequests = (requests) => (requests || []).flatMap(splitRequest);
 // Filter retained requests by model, client, session, status, and time without discarding rows.
 function requestMatches(r, { live = false } = {}) {
   if (state.requestSearch) {
-    const hay = `${r.model || ""} ${r.via || ""} ${r.app || ""} ${r.session || ""} ${r.status || ""}`;
+    const hay = `${r.model || ""} ${realModelName(r.model)} ${r.via || ""} ${realModelName(r.via)} ${r.app || ""} ${r.session || ""} ${r.status || ""}`;
     if (!hay.toLowerCase().includes(state.requestSearch)) return false;
   }
   if (live) return true; // Live rows use only the text filter.
@@ -1272,11 +1274,12 @@ function useStats(m) {
 
 function openModelModal(m) {
   const { provider, dev, model } = parts(m.id);
-  $("model-modal-title").innerHTML =
-    `${mark(provider)}<span class="name">${esc(model || m.slug || m.id)}</span>`;
   // Display a mark only when its file exists. Keep plain text for other names.
   const markImg = (name) => (MARK_FILES.has(name) ? mark(name) : "");
+  $("model-modal-title").innerHTML =
+    `${mark(provider)}${dev ? markImg(dev) : ""}<span class="name">${esc(m.name || model || m.slug || m.id)}</span>`;
   const identity = [
+    ...(m.id ? [[t("model.detail.id_label"), m.id, ""]] : []),
     [t("model.column.model_column"), model || m.slug || m.id, ""],
     ...(dev ? [[t("model.detail.developer_label"), dev, markImg(dev)]] : []),
     [t("model.detail.provider_label"), provider, markImg(provider)],
@@ -1411,7 +1414,7 @@ function renderModels() {
   const rows = sortModels(state.models.filter((m) =>
     (state.tier === "All" || tierLetter(m.tier) === state.tier)
     && (state.mode === "all" || m.mode === state.mode || m.flags.includes(state.mode))
-    && m.id.toLowerCase().includes(query)));
+    && `${m.id} ${m.name || ""}`.toLowerCase().includes(query)));
   const empty = state.models.length ? t("model.empty.filter_text") : t("model.empty.catalog_text");
   draw("models", rows.length ? rows.map((m) => `
     <tr data-model="${esc(m.id)}">
@@ -1496,7 +1499,7 @@ const FORM_KEYS = ["api_key", "account_id", "client_keys", "api_base", "api_type
 // Share one hint across pattern fields that accept the same four shapes.
 const PATTERN_HINT = t("provider.pattern.hint");
 // The keys that a model override sets but the provider level does not.
-const MODEL_ONLY = ["pool", "timeout"];
+const MODEL_ONLY = ["name", "pool", "timeout"];
 // The keys that the provider level sets but a model override does not.
 const PROVIDER_ONLY = ["hourly_requests"];
 const TIERS = ["TIER-A", "TIER-B", "TIER-C", "TIER-D"];
@@ -3542,7 +3545,7 @@ function activeLimits(data = state.limits) {
 // Filter rows without use or a catalog home, then by model and client text.
 function shownLimits() {
   return activeLimits().filter((r) => !state.limitSearch
-    || `${r.model} ${r.client || ""}`.toLowerCase().includes(state.limitSearch));
+    || `${r.model} ${realModelName(r.model)} ${r.client || ""}`.toLowerCase().includes(state.limitSearch));
 }
 
 function renderLimits(data) {

@@ -1084,6 +1084,7 @@ const DEMO_FIXTURES = __FIXTURES__;
         for (const key of MODEL_KEYS)
           row[key] = cap ? cap[key] : DEMO_FIXTURES.models[0][key];
         row.id = id;
+        row.name = meta.name ?? (cap ? cap.name : null);
         row.mode = meta.mode || (cap ? cap.mode : "chat");
         row.tier = row.mode === "chat" ? take(tiers, slug) || (cap ? cap.tier : null) : null;
         row.max_input_tokens = meta.max_input_tokens ?? (cap ? cap.max_input_tokens : null);

@@ -156,6 +156,7 @@ def test_model_store() -> None:
         "id",
         "provider",
         "slug",
+        "name",
         "mode",
         "max_input_tokens",
         "max_output_tokens",
@@ -165,6 +166,7 @@ def test_model_store() -> None:
         "efforts",
         "flags",
       }, compact[0]
+      assert store.model_names()["z-ai/glm-5"] == "GLM 5"
     finally:
       store.MODELS_DB = original
 
