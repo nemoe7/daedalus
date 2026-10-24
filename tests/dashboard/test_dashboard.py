@@ -2088,6 +2088,15 @@ def test_the_limits_table_scrolls_inside_its_panel() -> None:
   assert 'section[data-page="limits"] thead th { position: sticky;' in css, (
     "the column head stays in view while the rows scroll"
   )
+  assert 'section[data-page="models"] > .panel { overflow: clip; }' in css, (
+    "the models panel lets sticky children anchor to the main scrollport"
+  )
+  assert "position: sticky; top: 0; z-index: 3; background: var(--panel);" in css, (
+    "the models toolbar sticks at the top of the scrollport"
+  )
+  assert "position: sticky; top: 68px; z-index: 2; background: var(--panel);" in css, (
+    "the models table header sticks directly under the toolbar"
+  )
 
 
 def test_the_limits_filter_bar_stops_where_the_table_stops() -> None:

@@ -324,6 +324,17 @@ tr:last-child td { border-bottom: 0; }
   display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 14px 16px;
   border-bottom: 1px solid var(--line);
 }
+section[data-page="models"] > .panel { overflow: clip; }
+section[data-page="models"] .toolbar {
+  position: sticky; top: 0; z-index: 3; background: var(--panel);
+  border-top-left-radius: var(--radius); border-top-right-radius: var(--radius);
+}
+@media (min-width: 721px) {
+  section[data-page="models"] thead th {
+    position: sticky; top: 68px; z-index: 2; background: var(--panel);
+    border-bottom: 0; box-shadow: inset 0 -1px 0 var(--line);
+  }
+}
 input {
   padding: 8px 12px; border-radius: 8px; border: 1px solid var(--control-line);
   background: var(--field); color: var(--text); font: inherit;
