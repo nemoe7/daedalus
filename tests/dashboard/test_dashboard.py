@@ -3271,10 +3271,34 @@ def test_app_js_provider_rows_draw_the_providers_glyph() -> None:
     "a provider row keeps the providers hue"
   )
   chips = app.partition("const SECTION_CHIPS = {")[2].partition("};")[0]
+  keys = re.findall(r"([a-z_0-9]+): \"", chips)
   for glyph in re.findall(r': "([a-z_0-9]+)"', chips):
     assert re.search(rf"^  {glyph}: '", app, re.MULTILINE), (
       f"the glyph {glyph} is registered"
     )
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  light_colors = {
+    key: re.search(
+      rf'^\[data-chip="{key}"\] \{{ background: (#[0-9a-f]{{6}}); \}}',
+      css,
+      re.MULTILINE,
+    ).group(1)
+    for key in keys
+  }
+  dark_colors = {
+    key: re.search(
+      rf'^:root\[data-theme="dark"\] \[data-chip="{key}"\] \{{ background: (#[0-9a-f]{{6}}); \}}',
+      css,
+      re.MULTILINE,
+    ).group(1)
+    for key in keys
+  }
+  assert len(set(light_colors.values())) == len(keys), (
+    "every settings section tile has a unique light-mode color"
+  )
+  assert len(set(dark_colors.values())) == len(keys), (
+    "every settings section tile has a unique dark-mode color"
+  )
 
 
 def test_app_js_hook_point_chips() -> None:

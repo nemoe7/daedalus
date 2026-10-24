@@ -700,19 +700,33 @@ section[data-page="providers"], section[data-page="settings"] {
 }
 .tile svg { width: 13px; height: 13px; }
 .tile .mark { width: 13px; height: 13px; vertical-align: middle; }
-/* The tiles take their hues from the theme tokens, so both themes stay in the house palette. */
-[data-chip="routing"] { background: var(--accent); }
-[data-chip="affinity"] { background: var(--tag); }
-[data-chip="balance"] { background: var(--orange); }
-[data-chip="limits"] { background: var(--red); }
-[data-chip="optimization"] { background: var(--warn); }
-[data-chip="privacy"] { background: var(--ok); }
-[data-chip="catalog"] { background: var(--tier); }
-[data-chip="hooks"] { background: var(--bad); }
-[data-chip="personalization"] { background: color-mix(in srgb, var(--tag) 55%, var(--red)); }
-[data-chip="keys"] { background: var(--muted); }
-[data-chip="yaml"] { background: color-mix(in srgb, var(--accent) 55%, var(--ok)); }
-[data-chip="providers"] { background: color-mix(in srgb, var(--ok) 60%, var(--accent)); }
+/* Each section tile has a unique hue around the wheel and uniform contrast against --tile-ink. */
+[data-chip="providers"] { background: #c13a1f; }
+[data-chip="keys"] { background: #147a44; }
+[data-chip="personalization"] { background: #ab22d2; }
+[data-chip="routing"] { background: #677012; }
+[data-chip="affinity"] { background: #1b6fa7; }
+[data-chip="balance"] { background: #cc2153; }
+[data-chip="limits"] { background: #147c15; }
+[data-chip="optimization"] { background: #7a4ae1; }
+[data-chip="privacy"] { background: #8e6217; }
+[data-chip="catalog"] { background: #137771; }
+[data-chip="hooks"] { background: #c01f99; }
+[data-chip="maintenance"] { background: #407813; }
+[data-chip="yaml"] { background: #475ce1; }
+:root[data-theme="dark"] [data-chip="providers"] { background: #ec9d8d; }
+:root[data-theme="dark"] [data-chip="keys"] { background: #21cb71; }
+:root[data-theme="dark"] [data-chip="personalization"] { background: #dc99ee; }
+:root[data-theme="dark"] [data-chip="routing"] { background: #acba1e; }
+:root[data-theme="dark"] [data-chip="affinity"] { background: #71b9e8; }
+:root[data-theme="dark"] [data-chip="balance"] { background: #ee98b2; }
+:root[data-theme="dark"] [data-chip="limits"] { background: #21cd24; }
+:root[data-theme="dark"] [data-chip="optimization"] { background: #bda5f0; }
+:root[data-theme="dark"] [data-chip="privacy"] { background: #e1a745; }
+:root[data-theme="dark"] [data-chip="catalog"] { background: #20c5bb; }
+:root[data-theme="dark"] [data-chip="hooks"] { background: #ed93d8; }
+:root[data-theme="dark"] [data-chip="maintenance"] { background: #6bc720; }
+:root[data-theme="dark"] [data-chip="yaml"] { background: #a2adf0; }
 .sections button > span:not(.tile) { flex: 1; min-width: 0; }
 .settings h3, .card.provider > h3, .card.yaml-view > h3, #balances h3 { display: flex; align-items: center; gap: 8px; }
 .provider-flow { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; }
