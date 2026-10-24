@@ -203,6 +203,55 @@ def check_density(report: dict) -> list[dict]:
           ),
         }
       )
+    values = element.get("values") or {}
+    overflow_x = str(values.get("overflow-x") or values.get("overflow") or "").lower()
+    overflow_y = str(values.get("overflow-y") or values.get("overflow") or "").lower()
+    scroll_w = float(element.get("scroll_width", element.get("scrollWidth", 0)) or 0)
+    client_w = float(element.get("client_width", element.get("clientWidth", 0)) or 0)
+    scroll_h = float(element.get("scroll_height", element.get("scrollHeight", 0)) or 0)
+    client_h = float(element.get("client_height", element.get("clientHeight", 0)) or 0)
+    is_ellipsis = (
+      str(values.get("text-overflow") or "").lower() == "ellipsis"
+      or str(values.get("white-space") or "").lower() == "nowrap"
+    )
+    clipped = bool(element.get("clipped_content", element.get("clippedContent")))
+    if not clipped and not is_ellipsis:
+      if (
+        overflow_x in {"hidden", "clip"} and client_w > 0 and scroll_w > client_w + 1.0
+      ):
+        clipped = True
+      if (
+        overflow_y in {"hidden", "clip"} and client_h > 0 and scroll_h > client_h + 1.0
+      ):
+        clipped = True
+    if clipped:
+      findings.append(
+        {
+          "rule": "NUM209",
+          "selector": selector,
+          "evidence": f"{selector}: non-scrolling container clips child content",
+        }
+      )
+    overlap_target = element.get("sibling_overlap", element.get("siblingOverlap"))
+    if overlap_target:
+      findings.append(
+        {
+          "rule": "NUM210",
+          "selector": selector,
+          "evidence": f"{selector}: overlaps sibling {overlap_target}",
+        }
+      )
+  for pair in report.get("overlaps") or []:
+    if isinstance(pair, dict) and pair.get("relation") == "separate":
+      first = str(pair.get("first") or "?")
+      second = str(pair.get("second") or "?")
+      findings.append(
+        {
+          "rule": "NUM210",
+          "selector": first,
+          "evidence": f"{first}: overlaps sibling {second}",
+        }
+      )
   return findings
 
 
@@ -247,11 +296,23 @@ def main(argv: list[str] | None = None) -> int:
   check_command.add_argument(
     "-d", "--density", action="store_true", help="Include whitespace and density checks"
   )
+  check_command.add_argument(
+    "-C", "--clipping", action="store_true", help="Include container clipping checks"
+  )
+  check_command.add_argument(
+    "-O", "--overlaps", action="store_true", help="Include sibling overlap checks"
+  )
 
   density_command = commands.add_parser(
     "density", help="Check row/card ink ratio, sibling gaps, and control width caps"
   )
   density_command.add_argument("report", type=Path)
+  density_command.add_argument(
+    "-C", "--clipping", action="store_true", help="Include container clipping checks"
+  )
+  density_command.add_argument(
+    "-O", "--overlaps", action="store_true", help="Include sibling overlap checks"
+  )
 
   ruler_command = commands.add_parser(
     "ruler", help="Measure the gap between two guides"
@@ -289,7 +350,11 @@ def main(argv: list[str] | None = None) -> int:
 
   report = json.loads(arguments.report.read_text(encoding="utf-8"))
   findings = check(report, tokens, scale_val)
-  if getattr(arguments, "density", False):
+  if (
+    getattr(arguments, "density", False)
+    or getattr(arguments, "clipping", False)
+    or getattr(arguments, "overlaps", False)
+  ):
     findings.extend(f"{row['rule']} {row['evidence']}" for row in check_density(report))
   for finding in findings:
     print(f"{report.get('width')} px {finding}")

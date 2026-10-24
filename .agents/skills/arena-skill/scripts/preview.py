@@ -69,7 +69,6 @@ CHECKBOX=re.compile('^\\s*[-*]\\s+\\[([ xX]?)\\]\\s+(\\S.*?)\\s*$')
 BLANK=re.compile('^(?:(.*?)[\\s:])?_{3,}\\s*$')
 ANCHOR=re.compile('\\s*\\{#([a-zA-Z0-9_-]{1,80})\\}\\s*$')
 COMMENT_ANCHOR=re.compile('<!--\\s*(?:id\\s*[:=]\\s*|#)([a-zA-Z0-9_-]{1,80})\\s*-->',re.IGNORECASE)
-MD_COMMENT_OR_CODE=re.compile('(`+)[\\s\\S]*?(?<!`)\\1(?!`)|<!--[\\s\\S]*?-->')
 BLOCK_START=re.compile('^ {0,3}(?:#{1,6}(?:\\s|$)|>|[-*+](?:\\s|$)|\\d+[.)](?:\\s|$)|(?:[-*_]\\s*){3,}$|`{3,}|~{3,})')
 TASK_REMINDER='{remaining} tasks left.'
 def fill_reminder(tail,remaining):
@@ -611,19 +610,49 @@ def formatted_selection(field,item,mapping):
 		if mapping is None:return('custom',item['label']),f"{item['label']}: {text}"
 		wrapper=mapping.get('custom_answer');return('custom',item['label']),expand_submission_template(wrapper,{'custom':text})if wrapper is not None else text
 	raise ValueError(f"{field['id']}: invalid selection or blank custom answer")
-def strip_md_comments(text):return MD_COMMENT_OR_CODE.sub(lambda match:match.group(0)if match.group(1)else'',text)
+def iter_md_comments(text):
+	if'<!--'not in text:return
+	runs_by_len,offsets={},{};n=len(text)
+	if'`'in text:
+		pos=text.find('`')
+		while pos!=-1:
+			end_pos=pos+1
+			while end_pos<n and text[end_pos]=='`':end_pos+=1
+			runs_by_len.setdefault(end_pos-pos,[]).append((pos,end_pos));pos=text.find('`',end_pos)
+	cursor=0
+	while cursor<n:
+		c_start=text.find('<!--',cursor)
+		if c_start==-1:break
+		t_start=text.find('`',cursor)if runs_by_len else-1
+		if t_start==-1 or c_start<t_start:
+			c_end=text.find('-->',c_start+4)
+			if c_end==-1:break
+			yield(c_start,c_end+3);cursor=c_end+3;continue
+		t_end=t_start+1
+		while t_end<n and text[t_end]=='`':t_end+=1
+		run_len=t_end-t_start;spans=runs_by_len.get(run_len,());idx=offsets.get(run_len,0)
+		while idx<len(spans)and spans[idx][0]<t_end:idx+=1
+		if idx<len(spans):offsets[run_len]=idx+1;cursor=spans[idx][1]
+		else:offsets[run_len]=idx;cursor=t_end
+def strip_md_comments(text,keep_anchors=False):
+	if'<!--'not in text:return text
+	out,last=[],0
+	for(start,end)in iter_md_comments(text):
+		if keep_anchors and COMMENT_ANCHOR.fullmatch(text[start:end].strip()):continue
+		out.append(text[last:start]);last=end
+	if not out and last==0:return text
+	out.append(text[last:]);return''.join(out)
 def find_comment_anchor(text):
 	found=None
-	for match in MD_COMMENT_OR_CODE.finditer(text):
-		if match.group(1):continue
-		anchor_match=COMMENT_ANCHOR.fullmatch(match.group(0).strip())
+	for(start,end)in iter_md_comments(text):
+		anchor_match=COMMENT_ANCHOR.fullmatch(text[start:end].strip())
 		if anchor_match:found=anchor_match.group(1)
 	return found
 def strip_fenced_md_comments(markdown,keep_anchors=False):
 	lines=markdown.splitlines(keepends=True);out,chunk,fence=[],[],None
 	def flush():
 		if not chunk:return
-		segment=''.join(chunk);out.append(MD_COMMENT_OR_CODE.sub(lambda match:match.group(0)if match.group(1)or keep_anchors and COMMENT_ANCHOR.fullmatch(match.group(0).strip())else'',segment));chunk.clear()
+		out.append(strip_md_comments(''.join(chunk),keep_anchors=keep_anchors));chunk.clear()
 	for line in lines:
 		if fence is not None:
 			out.append(line)

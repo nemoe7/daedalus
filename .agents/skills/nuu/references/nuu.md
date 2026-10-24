@@ -17,7 +17,7 @@
 | `annotate`, `board` | Render boxes, arrows, labels, callouts, and multi-panel comparison boards with the project's default text font | `-i, --input <png>`, `-o, --output <png>`, `-b, --box <spec>`, `-l, --label <spec>`, `-a, --arrow <spec>`, `-c, --callout <spec>`, `-t, --title <text>`, `-p, --panel <spec>`, `-s, --spec <json>`, `-S, --scale <1-6>`, `-W, --wireframe` |
 | `audit` | Run source, measure, flow, and rendered a11y checks | `-r, --root <path>`, `-u, --url <url>`, `-s, --sheet <path>`, `-m, --measure <path>`, `-f, --flows <json>`, `-c, --change <spec>`, `-A, --allow-live-edits`, `-R, --ready <selector>`, `-W, --wireframe`, `-o, --out <dir>`, `-j, --json` |
 
-## Audit Coverage (`NUL001`–`NUA306`)
+## Audit Coverage (`NUL001`–`NUA308`)
 
 Suppress a source-lint finding on a line with `nonuu: <ID>` (for example, `<!-- nonuu: NUL001 -->` or `/* nonuu: NUL003 */`).
 
@@ -28,16 +28,21 @@ Suppress a source-lint finding on a line with `nonuu: <ID>` (for example, `<!-- 
 | `NUB104` | Browser (`--ready`) | Declared `--ready SELECTOR` did not match a visible element within the timeout |
 | `NUM201`–`NUM204` | Measure (`--measure`) | Off-scale spacing, off-ramp typography, unapproved border radius, or text contrast below 4.5:1 (`3:1` large text) |
 | `NUM205`–`NUM208` | Density (`density`, `--density`) | Row/card ink ratio below `0.75` at `>= 900` px excluding header and toolbar bars (`NUM205`), sibling horizontal gap `> 320` px and `> 40%` width (`NUM206`), form control width `> 480` px (`NUM207`), or non-symmetric icon-only button (`NUM208`) |
+| `NUM209`–`NUM210` | Density (`-C`, `-O`) | Non-scrolling container clipping child content (`NUM209`) or unintended sibling box overlap (`NUM210`) |
 | `NUA301` | Rendered `a11y` | Landmarks (`<main>` or `[role="main"]`) and skip-link target missing or broken |
 | `NUA302` | Rendered `a11y` | Visible interactive control without an accessible name or with `aria-hidden="true"` while focusable |
 | `NUA303` | Rendered `a11y` | Visible interactive control with bounding box smaller than `24x24` CSS px |
 | `NUA304` | Rendered `a11y` | Interactive control whose `:focus-visible` ring is clipped or identical to its unfocused outline/box-shadow |
 | `NUA305` | Rendered `a11y` | Invalid `role`, missing required ARIA state (`aria-checked`, `aria-expanded`, `aria-selected`), or broken `aria-labelledby` / `aria-describedby` / `aria-controls` ID target |
 | `NUA306` | Rendered `a11y` | Stylesheet animation or transition without a `@media (prefers-reduced-motion: reduce)` rule |
+| `NUA307` | Rendered `a11y` | Interactive control that renders a visible focus outline on pointer focus before keyboard navigation |
+| `NUA308` | Rendered `a11y` | Interactive control focus ring, shadow, or tooltip clipped by an overflow or mask ancestor |
 
 ## Optional Recipes
 
 - [references/recipes/offline-fonts.md](recipes/offline-fonts.md): bundled and offline fonts without reload jitter.
 - [references/recipes/scroll-edge-fade.md](recipes/scroll-edge-fade.md): scroll-driven CSS edge-fade mask (`@supports (animation-timeline: scroll(self))`).
+- [references/recipes/scrollbars.md](recipes/scrollbars.md): thin 10 px rounded-thumb scrollbar on the surface track without arrow buttons.
+- [references/recipes/overflow-and-clipping.md](recipes/overflow-and-clipping.md): focus-ring, shadow, and tooltip anti-clipping rules.
 
 

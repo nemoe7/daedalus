@@ -86,7 +86,7 @@
 - Skills specialize defaults and NEVER weaken a requirement or convention; use one only for its domain.
 - Report changes, findings, checks, results, useful files, decisions, open issues, assumptions, limitations. Open with result; skip task restatement; prefer numbered lists; skipped work + add-when in ≤3 short lines.
 - ALWAYS use the Oxford comma.
-- Chat/reports MUST be concise, vertical-display readable (phone/vertical monitor), human-digestible; limit prose; essays only if strictly necessary.
+- Chat/reports MUST be concise, vertical-display readable (phone/vertical monitor), human-digestible; limit prose; essays only if strictly necessary; requested explanation is NEVER debt.
 - Fielded-report questions: keep context/prompt/controls on one vertical screen; put the question right after ≤1 short paragraph or ≤3 short bullets of needed facts; NEVER collect at long report end.
 - Mermaid: ALWAYS in documentation, NEVER anywhere else.
 - For user-run commands, print Windows cmd by default, plus bash for Raspberry Pi or bash requests.

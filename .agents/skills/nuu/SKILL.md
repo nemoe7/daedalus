@@ -43,7 +43,7 @@ Apply this skill to a page, a component, or an interface change. The sheet is th
 
 8. Every transition shares one curve over 160 to 220 ms; for animations, vendor [GSAP](https://github.com/greensock/GSAP) into the project as the go-to library. Reduced motion turns animation off.
 
-9. Each control shows default, hover, focus, active, disabled, and loading. Lists also show empty, failed, and offline. Hover exists only where a pointer does.
+9. Each control shows default, hover, focus, active, disabled, and loading. Lists also show empty, failed, and offline. Hover exists only where a pointer does, and the focus outline appears only on keyboard navigation (NUA307).
 
 10. The pending row appears before the reply. A failure retries once with the same ID, so the list holds one row.
 
@@ -62,6 +62,12 @@ Apply this skill to a page, a component, or an interface change. The sheet is th
 17. Format time in 24-hour time by default; add 12-hour time when requested, and include a 24h/12h option in settings when settings exist.
 
 18. Show a subtle delayed loading bar for long-running UI operations via [references/recipes/loading-bar.md](references/recipes/loading-bar.md); use a loud loading bar only when requested.
+
+19. Style scrollbars with the thin 10 px rounded thumb on the background track and no arrow buttons via [references/recipes/scrollbars.md](references/recipes/scrollbars.md).
+
+20. Prevent container overflow and focus, shadow, or tooltip clipping via [references/recipes/overflow-and-clipping.md](references/recipes/overflow-and-clipping.md) (`NUM209`, `NUM210`, `NUA308`).
+
+21. Open a confirmation modal warning about the deletion before executing any delete action via [references/recipes/modal-manager.md](references/recipes/modal-manager.md).
 
 ## Go-to libraries
 
@@ -103,4 +109,6 @@ python scripts/measure.py ruler --from 120,340 --to 264,340
 - `references/recipes/scroll-edge-fade.md`: scroll-driven CSS edge-fade mask recipe for scrollable panels and inputs (`@supports (animation-timeline: scroll(self))`).
 - `references/recipes/modal-manager.md`: shared dialog modal manager and reusable template recipe (`showModal()`, deliberate autofocus with initial focus-ring suppression until keyboard navigation, and trigger focus restoration).
 - `references/recipes/loading-bar.md`: subtle delayed edge loading-bar recipe for long-running UI operations (`200ms` anti-flicker delay, `aria-busy` container, compositor `transform`, reduced-motion static fallback, and opt-in loud variant).
+- `references/recipes/scrollbars.md`: thin 10 px rounded-thumb scrollbar recipe on the surface track with arrow buttons hidden.
+- `references/recipes/overflow-and-clipping.md`: overflow, focus-halo, and tooltip anti-clipping recipe (`NUM209`, `NUM210`, `NUA308`).
 - `references/audit-report.md`: standalone template for nuu audits and visual verification reports.

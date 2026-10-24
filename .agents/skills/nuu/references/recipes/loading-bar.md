@@ -5,8 +5,8 @@
 - Default to a subtle `2px` edge loading bar anchored along the bottom of the top bar or panel toolbar; use an in-flow loud `<progress>` bar only when requested.
 - Delay visual appearance by `200ms` (`150–300ms`) so fast operations complete without flashing a transient indicator.
 - Set `aria-busy="true"` on the region whose content is being updated (`section`, `article`, or `main`) while loading and reset to `aria-busy="false"` in `finally`; never put `role="progressbar"` on a decorative edge pseudo-element.
-- Animate only compositor properties (`transform` and `opacity`), never `width`, `left`, or `margin`, so layout never reflows during loading.
-- Under `@media (prefers-reduced-motion: reduce)`, replace the looping sweep with a static full-width subtle bar (`width: 100%; opacity: 0.45; animation: none;`).
+- Grow the bar from left to right with `transform-origin: left center` and `transform: scaleX(...)` instead of a pulsing sweep. Animate only compositor properties (`transform` and `opacity`), never `width`, `left`, or `margin`, so layout never reflows during loading.
+- Under `@media (prefers-reduced-motion: reduce)`, replace growth animation with a static full-width subtle bar (`width: 100%`, `opacity: 0.45`, `animation: none`, `transform: none`).
 
 ## Subtle edge loading bar (default)
 
@@ -20,26 +20,28 @@
   position: absolute;
   left: 0;
   bottom: -1px;
-  width: 36%;
+  width: 100%;
   height: 2px;
   background: var(--focus);
   opacity: 0;
   pointer-events: none;
-  animation: nuu-edge-loading 1.2s 200ms ease-in-out infinite;
+  transform-origin: left center;
+  transform: scaleX(0);
+  animation: nuu-edge-loading 1.6s 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes nuu-edge-loading {
   0% {
-    opacity: 0.35;
-    transform: translateX(0) scaleX(0.4);
-  }
-  50% {
     opacity: 0.85;
-    transform: translateX(90%) scaleX(1);
+    transform: scaleX(0.05);
+  }
+  40% {
+    opacity: 0.85;
+    transform: scaleX(0.55);
   }
   100% {
-    opacity: 0.35;
-    transform: translateX(180%) scaleX(0.4);
+    opacity: 0.85;
+    transform: scaleX(0.92);
   }
 }
 
