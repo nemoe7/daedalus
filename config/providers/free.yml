@@ -37,18 +37,15 @@ cloudflare:
 
   models:
     "@cf/qwen/qwq-32b": { max_input_tokens: 20000, max_output_tokens: 4000, supported_reasoning_efforts: [max] }
-    # The ladders of the Workers AI docs: gpt-oss takes low, medium and high, and qwen3.8 takes
-    # low, medium and xhigh, wider than the coded low and medium of the block.
+    # Workers AI docs give gpt-oss low, medium, and high, and qwen3.8 low, medium, and xhigh.
     "@cf/openai/gpt-oss-120b": { supported_reasoning_efforts: [low, medium, high] }
     "@cf/openai/gpt-oss-20b": { supported_reasoning_efforts: [low, medium, high] }
     "@cf/qwen/qwen3.8-27b": { supported_reasoning_efforts: [low, medium, xhigh] }
-    # The Workers AI docs give these 3 an on/off enable_thinking only, no levels: none turns the
-    # thinking off, max leaves it on.
+    # Workers AI docs give these 3 an on/off enable_thinking toggle: none turns it off, max keeps it on.
     "@cf/zai-org/glm-4.7-flash": { supported_reasoning_efforts: [none, max] }
     "@cf/google/gemma-4-26b-a4b-it": { supported_reasoning_efforts: [none, max] }
     "@cf/nvidia/nemotron-3-120b-a12b": { supported_reasoning_efforts: [none, max] }
-    # qwq-32b, deepseek-r1-distill-qwen-32b and qwen3-30b-a3b-fp8 document no effort control:
-    # they reason always, so the ladder is max alone; the request effort drops, and the drop is logged.
+    # qwq-32b, deepseek-r1-distill-qwen-32b, and qwen3-30b-a3b-fp8 always reason at max and drop request effort.
     "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b": { supported_reasoning_efforts: [max] }
     "@cf/qwen/qwen3-30b-a3b-fp8": { supported_reasoning_efforts: [max] }
     # Image input: FLUX.2 edits with up to 4 input images, in daedalus/photos.
@@ -89,8 +86,7 @@ gemini:
       - gemini-3.5-flash-lite*
       - gemini-3-flash-preview
   models:
-    # The ladders of the Gemini docs: 3.8 flash rejects MINIMAL, and the rest of the 3.x
-    # flash line and the gemma-4 line name minimal to high.
+    # Gemini 3.8 flash rejects MINIMAL, while 3.x flash and gemma-4 accept minimal to high.
     gemini-3-flash-preview: { rpm: 5, tpm: 250000 }
     gemini-3.1-flash-lite: { rpm: 15, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }
     gemini-3.1-flash-lite-preview: { rpm: 15, tpm: 250000, supported_reasoning_efforts: [minimal, low, medium, high] }
@@ -124,7 +120,7 @@ groq:
     qwen/qwen3.8-27b:
       max_input_tokens: 7000
       max_output_tokens: 16384
-      # The model docs name these three rungs; the Groq deployment lists no effort set.
+      # Model docs name these three rungs, while the Groq deployment lists no effort set.
       supported_reasoning_efforts: [low, medium, xhigh]
     # allam-2-7b has a 4096 combined window, so the input cap leaves room for the output.
     allam-2-7b: { max_input_tokens: 2048 }
@@ -139,10 +135,10 @@ kilo:
     isFree: true
   exclude:
     - "*content-safety*"
-    - kilo-auto/free # a router, not a model
-    - openrouter/free # a router, not a model
-  # The provider dumps: kilo withdrew the free tiers of glm-5, ling-3.0-flash, qwen3.8-27b,
-  # step-3.7-flash and step-5-preview, so their old TIER-A patterns claimed nothing kept.
+    - kilo-auto/free # router alias, not a single model
+    - openrouter/free # router alias, not a single model
+
+  # Kilo withdrew free tiers for glm-5, ling-3.0-flash, qwen3.8-27b, and step-3.7-flash.
   tier:
     TIER-A:
       - "nvidia/nemotron-3-super-*"
@@ -152,7 +148,7 @@ kilo:
       - "reflection/beam-*"
       - "minimax/minimax-m3.1-flash*"
     TIER-B:
-      - "*" # every other model; a more specific pattern wins
+      - "*" # every other model, while more specific patterns win
     TIER-C:
       - "recursive/flint-v1.0*"
     TIER-D:
@@ -185,8 +181,8 @@ openrouter:
     - "*content-safety*"
     - recraft/* # image generation needs a credit balance, also for the :free ids
     - "!*:free"
-  # The provider dumps: openrouter keeps ling-3.0-flash, qwen3.8-27b and step-3.7-flash only as
-  # paid variants, so their TIER-A patterns claimed nothing the :free exclude kept.
+
+  # OpenRouter keeps ling-3.0-flash, qwen3.8-27b, and step-3.7-flash only as paid variants.
   tier:
     TIER-A:
       - "nvidia/nemotron-3-super-*"
@@ -195,7 +191,7 @@ openrouter:
       - "thinkingmachines/inkling*"
       - "minimax/minimax-m3.1-flash*"
     TIER-B:
-      - "*" # every other model; a more specific pattern wins
+      - "*" # every other model, while more specific patterns win
     TIER-C:
       - "recursive/flint-v1.0*"
     TIER-D:

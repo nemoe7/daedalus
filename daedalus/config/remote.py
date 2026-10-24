@@ -1,10 +1,9 @@
 """Fetch the hook files of a GitHub source, and record what each installed file holds.
 
-A source of the `hooks.sources` group names a repo, a folder inside it and a ref. `update` reads
-the commit of the ref from the GitHub API, reads the archive of that commit, and writes the `.py`
-files under owner/repo/file.py through a temporary name. A flat file stays a shipped copy.
-A failed fetch keeps the files on disk. The same holds for an archive that does not read,
-a block the reader refuses or a write that fails.
+Each `hooks.sources` entry names a repo, folder, and ref. `update` resolves the commit,
+downloads its archive, and writes `.py` files under owner/repo/file.py via temp files.
+Flat files remain shipped copies. Failed fetches, unreadable archives, refused blocks, or
+failed writes leave existing files untouched.
 
 The lock `hooks.lock.json` rides in the hooks folder and records, by owner/repo/file.py,
 the sha256, the version, the repo and the commit of each file. `daedalus hooks verify`
@@ -202,11 +201,9 @@ def update(
 ) -> list[str]:
   """Fetch each source and write its hook files. Return the identities whose bytes moved.
 
-  `only_missing` is the rule of a start: a source fetches only when 1 of its recorded files is
-  missing from the folder, unless the entry sets `auto_update`. A `take` list writes those
-  identities alone, which lets the operator leave a file of the source alone. A failed fetch,
-  an archive that does not read, a block the reader refuses or a write that fails all keep the
-  files on disk and the record that describes them.
+  `only_missing` fetches only when a recorded file is missing, unless `auto_update` is set.
+  `take` writes only listed identities so other files stay untouched. Failed fetches, unreadable
+  archives, refused blocks, or failed writes preserve existing files and lock records.
   """
   wanted = None if take is None else {str(name) for name in take}
   target = hooks.folder() if folder is None else folder
@@ -331,9 +328,9 @@ def update(
 def scan(entry: Any) -> dict[str, Any] | None:
   """Read 1 source and answer with its files, without a write.
 
-  The answer names the repo, the folder, the ref, the commit and 1 row per `.py` file of the
-  archive: the identity, the frontmatter, the sha256 and the problem of a refused block. A source
-  that GitHub does not answer gives None.
+  Return the repo, folder, ref, commit, and one row per `.py` archive file.
+  Each row carries identity, frontmatter, sha256, and any refusal problem. Unreachable sources
+  return None.
   """
   if not isinstance(entry, Mapping):
     return None

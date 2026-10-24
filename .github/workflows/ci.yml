@@ -34,8 +34,17 @@ jobs:
           python-version: "3.12"
           enable-cache: true
       - run: uv sync --locked
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tests/e2e/package-lock.json
+      - run: npm --prefix tests/e2e ci
       - run: python3 .agents/skills/nemoizer/scripts/nemoizer --selftest
-      - run: uv run --no-sync python scripts/lint_prose.py
+      - name: Lint prose and test contracts
+        env:
+          NODE_PATH: ${{ github.workspace }}/tests/e2e/node_modules
+        run: python3 .agents/skills/nemoizer/scripts/nemoizer .
       - run: uv run --no-sync ruff check
       - run: uv run --no-sync ruff format --check
       # pyproject.toml sets the pytest workers: 1 for each CPU. All the tests of 1 file run in 1 worker.

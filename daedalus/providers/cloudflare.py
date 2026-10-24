@@ -74,8 +74,7 @@ THINKING_TOGGLES = (
 )
 
 
-# The reasoning models that document no effort control: they reason always, so the ladder is
-# max alone, and the provider drops the request effort, which it logs.
+# Reasoning models without effort control always run at max and log dropped request efforts.
 NO_EFFORT_CONTROL = (
   "@cf/qwen/qwq-32b",
   "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",

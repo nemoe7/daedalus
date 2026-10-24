@@ -1,12 +1,8 @@
-# Router settings. Each key is optional. A missing key uses the built-in default.
-# This file holds the changes from the defaults only. docs/configuration.md lists each key,
-# its default and its use. The Settings page of the dashboard writes here.
-# DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.
-# HEADROOM_URL turns on message compression through a Headroom sidecar.
-# `headroom: false` in a provider block or a model entry turns it off for that scope.
+# Router settings overrides. Missing keys use defaults from docs/configuration.md.
+# DAEDALUS_HOST, DAEDALUS_PORT, and HEADROOM_URL configure network binding and compression.
 
-# Open WebUI chat IDs stay in daedalus unless this setting is true.
-# privacy:
+# Open WebUI chat IDs stay in daedalus unless forward_owui_chat_id is true.
+# privacy: # nonemo: NMP101
 #   forward_owui_chat_id: false
 
 # The hook files of the repo. The Settings page lists them and takes the selected 1s.

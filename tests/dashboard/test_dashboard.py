@@ -4843,10 +4843,12 @@ def test_files(
   invalid_request(broken)
   assert settings.DEFAULT_PATH.read_text() == text, "a bad text is not written"
   edited = text + "optimization:\n  timeout: 14 # edited\n"
+  edited_timeout = 14.0
   saved = client.put("/ui/api/settings", json={"text": edited})
   assert saved.status_code == 200 and saved.json()["text"] == edited, saved.text
   assert (
-    settings.DEFAULT_PATH.read_text() == edited and headroom.TIMEOUT_SECONDS == 14.0
+    settings.DEFAULT_PATH.read_text() == edited
+    and headroom.TIMEOUT_SECONDS == edited_timeout
   )
   providers = str(config.DEFAULT_PATH)
   broken = client.put("/ui/api/files", json={"path": providers, "text": "a: ["})

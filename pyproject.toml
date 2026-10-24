@@ -58,3 +58,36 @@ packages = [
 testpaths = ["tests"]
 # loadfile: the tests of 1 file run in 1 worker, in file order, with its module fixtures.
 addopts = "-n auto --dist loadfile -p no:cacheprovider"
+
+[tool.nemoizer]
+context = "description"
+extend-exclude = [
+  ".agents",
+  "arena-state",
+  "daedalus.egg-info",
+  "ARENA.md",
+  "AGENTS.md",
+  "**/AGENTS.md",
+  ".github/PULL_REQUEST_TEMPLATE.md",
+  ".github/workflows/gemini-release.yml",
+  ".github/workflows/gemini-release-evidence.json",
+  ".github/workflows/gemini_release.py",
+  "daedalus/routing/classifier.py",
+  "daedalus/routing/artifacts",
+  "daedalus/dashboard/ui/icons",
+  "*.json",
+  "*.webmanifest",
+  "*.lock",
+  "*.sha256",
+  "*.env",
+  ".env.example",
+  "install.ps1",
+  "install.sh",
+]
+
+[tool.nemoizer.lint.per-file-ignores]
+"**/*.py" = ["NMO100"]
+"**/*.js" = ["NMO100"]
+"hooks/*.py" = ["NMO100", "NMP101", "STE200"]
+"integrations/openwebui/**/*.py" = ["NMO100", "STE200"]
+

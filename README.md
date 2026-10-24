@@ -132,15 +132,11 @@ These commands work in cmd, PowerShell, and bash.
 
 | Command | Result |
 | --- | --- |
-| `uv run python scripts/extract_prose.py` | A JSON inventory of first-party prose, with file paths, source lines, kinds, and text |
-| `uv run python scripts/lint_prose.py` | Checks Python comments and docstrings, plus Markdown STE and structure |
-| `uv run python scripts/lint_prose.py --scan --json` | STE findings and manual-review coverage, including runtime string candidates |
+| `python3 .agents/skills/nemoizer/scripts/nemoizer .` | Checks comments, docstrings, Markdown pages, and test contracts against `[tool.nemoizer]` in `pyproject.toml` |
+| `python3 .agents/skills/nemoizer/scripts/nemoizer --selftest` | Runs the vendored `nemoizer` self-test suite |
+| `npx markdownlint-cli2 "**/*.md"` | Checks Markdown structure against `.markdownlint-cli2.jsonc` |
 
-Both tools select tracked files by exclusion. Add `--exclude GLOB` to omit more paths. The extractor returns 2 when any file needs manual review.
-
-The inventory distinguishes comments, docstrings, Markdown, locale strings, and runtime candidates. Unsupported formats and extraction errors remain explicit. Review runtime candidates in context before changing them.
-
-Keep JSON inventories out of git.
+`[tool.nemoizer]` in `pyproject.toml` configures excluded paths and per-file rules. Run `nemoizer` with `NODE_PATH=tests/e2e/node_modules` so Acorn parses JavaScript comments.
 
 ## Documentation
 

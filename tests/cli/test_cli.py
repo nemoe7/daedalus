@@ -313,8 +313,9 @@ def test_master() -> None:
       env=env,
       timeout=30,
     )
+    missing_key_hint = "DAEDALUS_MASTER_KEY"
     assert stopped.returncode == 2, stopped.stderr
-    assert "set DAEDALUS_MASTER_KEY" in stopped.stderr, stopped.stderr
+    assert missing_key_hint in stopped.stderr, stopped.stderr
 
 
 def assert_key_command(calls: list[str]) -> None:

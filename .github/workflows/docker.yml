@@ -25,13 +25,8 @@ on:
 permissions:
   contents: read
 
-# 1 native runner for each platform, so no job emulates the arm64 build for the
-# Raspberry Pi. Each leg pushes a digest, and a merge job puts the tags on the
-# manifest list.
-#
-# A successful CI run on main publishes the rolling dev image, but only when the
-# tested commit changed a path the image ships. A new dev build replaces an older
-# one, so its group cancels.
+# Native runners build each platform image and push digests for the manifest list.
+# Main CI runs publish the rolling dev image and cancel older dev builds.
 jobs:
   changes:
     name: Image Paths
@@ -316,9 +311,7 @@ jobs:
           done
           echo "Deleted ${#stale[@]} old dev versions."
 
-  # A tag push, or a Gemini Release Draft that ran to the end, publishes the release
-  # image. The job reads the approval itself and skips when the proposal was not
-  # approved. 1 build at a time, so latest ends on the newest tag.
+  # Tag pushes and approved Gemini Release Draft runs publish release images one at a time.
   release:
     if: >-
       github.event_name == 'push'

@@ -755,7 +755,7 @@ function fallbackCount(r) {
     : plural(Number(r.fallbacks), "request.chain.fallback.one_text", "request.chain.fallback.other_text");
 }
 
-// Live cards read the count alone; finished rows open their chain by row click.
+// Live cards show only the count, while finished rows open their chain on click.
 function mobileRequestDetails(r, live = false) {
   if (!live) return "";
   const many = fallbackCount(r);
@@ -1626,7 +1626,7 @@ function openFile(index) {
   const blocks = state.files[index]?.blocks == null ? null : Object.keys(state.files[index].blocks);
   if (blocks == null) return selectProviderSection("yaml");
   state.view = "form";
-  // A file of one provider opens its config; a shared file opens its provider list.
+  // Single-provider files open their config, while shared files open the provider list.
   if (blocks.length === 1) return selectProviderSection(blocks[0]);
   openProviderFile(index);
 }
@@ -2461,7 +2461,7 @@ function applySectionHash() {
   state.view = selected === "yaml" ? "yaml" : "form";
   renderFiles();
   renderForm();
-  // Old provider-only links gain an explicit file path; single-provider files are canonical too.
+  // Old provider-only links gain an explicit file path, and single-provider files stay canonical.
   if ((!filePath && pkey) || (filePath && !pkey && selected && selected !== "yaml")) {
     setProviderRoute(state.files[index].path, selected, false);
   }
@@ -3347,8 +3347,7 @@ async function loadSettings({ render = true } = {}) {
   renderLegend();
   applyTheme(setting("personalization", "theme"));
   hourCycle = setting("personalization", "time_format") === "12h" ? "h12" : "h23";
-  // A saved switch already holds its state in the page: keep the node, so its knob and the row
-  // it fades reach the end of the motion instead of being replaced on the first frame.
+  // Keep saved switch nodes in place so their knob and row transitions finish smoothly.
   if (render) renderSettings();
 }
 

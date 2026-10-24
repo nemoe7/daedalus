@@ -844,8 +844,7 @@ class Limits:
           )
       if name == "openrouter" and isinstance(data, dict):
         self.free_used_up(data, now)
-    # A read that fails now keeps the last card of that provider, the way a restart keeps
-    # the rows: a refused key must not empty the Limits tab.
+    # Keep the last card when a balance read fails so a refused key never empties Limits.
     kept = {name: items for name, items in self.balances.items() if name in failed}
     self.balances, self.checked = {**kept, **found}, now
     self.save()

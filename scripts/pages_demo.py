@@ -368,8 +368,7 @@ def seed_state() -> None:
     cooldowns.clock() + 26 * 3600,
     "reset",
   )
-  # The shapes carry chat-only fields, so they start from the newest chat row: a media
-  # row can never hold the app, the effort, the loop, the retry or the routed pool.
+  # Seed synthetic chat shapes from the newest chat row, since media rows omit chat-only fields.
   rows = [row for row in dashboard.HISTORY.latest(50) if row["model"] in router.POOLS]
   if not rows:
     return

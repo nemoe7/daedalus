@@ -401,9 +401,9 @@ def test_the_pages_demo_builds_the_page_and_deploys_it() -> None:
 
 
 def test_the_ci_workflow_runs_the_prose_linter() -> None:
-  """The CI job checks Python prose and Markdown pages through nemoizer and lint_prose.py."""
+  """The CI job checks repository prose and test contracts directly through nemoizer."""
   runs = [
     step["run"] for step in load("ci.yml")["jobs"]["ci"]["steps"] if "run" in step
   ]
   assert "python3 .agents/skills/nemoizer/scripts/nemoizer --selftest" in runs
-  assert "uv run --no-sync python scripts/lint_prose.py" in runs
+  assert "python3 .agents/skills/nemoizer/scripts/nemoizer ." in runs

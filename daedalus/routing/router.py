@@ -110,16 +110,7 @@ def model_setting(config: Mapping[str, Any], model: str, key: str) -> Any:
   return found
 
 
-# The reasoning efforts each provider accepts, from its docs, lowest first. The list is a ladder:
-# the hook selects a rung by the tier of the request. A config key of the model or of the block wins
-# over the code, and the catalog list of 1 model wins over the coded set (`efforts`).
-# Cloudflare takes `reasoning_effort` per model, and its reasoning models agree on low and medium
-# alone: gpt-oss names low, medium, and high, and qwen3.8 names low, medium, and xhigh.
-# Gemini names minimal to high, plus off, and its mapping sends the `thinkingLevel` of the model.
-# The Groq block holds gpt-oss models, which take low, medium, and high, and a name outside the set
-# of 1 model is a 400. `reasoning_effort` starts at GLM-5.2, which maps low to high and xhigh to
-# max, while GLM-5.3 takes low, high, and max alone, so the z-ai rungs fit both. The shipped z-ai
-# flash models predate the parameter, and the shipped Pollinations block holds image models only.
+# Default provider effort ladders, lowest first. Model and block overrides win over these defaults.
 DEFAULT_EFFORTS: Final[Mapping[str, tuple[str, ...]]] = {
   "cloudflare": ("low", "medium"),
   "gemini": ("none", "minimal", "low", "medium", "high"),

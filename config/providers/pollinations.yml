@@ -7,9 +7,9 @@ exclude:
 # Not in free.yml: the Pollen does not refill, see https://github.com/pollinations/pollinations/issues/11580
 # The Pollen for each image.
 models:
-  lykon/dreamshaper-8-lcm: { mode: image_generation, rpm: 300 } # 0.0001
-  black-forest-labs/flux.1-schnell: { mode: image_generation, rpm: 60 } # 0.002
-  tongyi-mai/z-image-turbo: { mode: image_generation, rpm: 60 } # 0.004
+  lykon/dreamshaper-8-lcm: { mode: image_generation, rpm: 300 }
+  black-forest-labs/flux.1-schnell: { mode: image_generation, rpm: 60 }
+  tongyi-mai/z-image-turbo: { mode: image_generation, rpm: 60 }
   # Image input: edits with up to 10 input images.
-  black-forest-labs/flux.2-klein-4b: { mode: image_generation, rpm: 60, supports_vision: true } # 0.005
+  black-forest-labs/flux.2-klein-4b: { mode: image_generation, rpm: 60, supports_vision: true }
 

@@ -7,14 +7,16 @@ from ruamel.yaml.tokens import CommentToken
 
 from daedalus.config import provider_edit as edit
 
-FILE = "# The provider list.\nname: old\nnote: keep  # stay\nrpm: 5\n"
+FILE_COMMENT = "# The provider list."
+INLINE_COMMENT = "note: keep  # stay"
+FILE = f"{FILE_COMMENT}\nname: old\n{INLINE_COMMENT}\nrpm: 5\n"
 
 
 def test_merge_text_keeps_the_comments_of_the_file() -> None:
   """A new value keeps the comment above the key and the one at the end of the line."""
   out = edit.merge_text(FILE, {"name": "new", "note": "keep", "rpm": 5})
-  assert "# The provider list." in out
-  assert "note: keep  # stay" in out
+  assert FILE_COMMENT in out
+  assert INLINE_COMMENT in out
   assert "name: new" in out
 
 

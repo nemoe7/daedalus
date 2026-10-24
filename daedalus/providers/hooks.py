@@ -574,8 +574,7 @@ def run_files(
     except Exception:
       logger.exception("%s hook %s for %s failed", surface, path, context.get("model"))
       continue
-    # The chunk surface runs for each chunk of 1 answer, so its run line stays on DEBUG, and a hook
-    # file of that surface writes the line of the answer.
+    # on-chunk runs on every chunk, so log chunk hooks at DEBUG and answer hooks at INFO.
     logger.log(
       logging.DEBUG if surface == "on-chunk" else logging.INFO,
       "%s hook %s for %s: %s",

@@ -10,13 +10,8 @@ COPY pyproject.toml uv.lock ./
 COPY daedalus ./daedalus
 COPY config ./config
 COPY hooks ./hooks
-# Editable install: the store path follows the source folder, so state goes to /app/.daedalus-state.
-# tzdata: the TZ env var sets the local clock of the catalog schedule.
-# libpcre2-8-0 and liblzma5: the install takes the Debian revision with the fix, ahead of a base
-# image refresh.
-# pip leaves the image, plus its own urllib3, msgpack and setuptools, which the scan
-# reports. The path is the system Python: PATH puts the uv venv first, and it has no pip.
-# uv comes from a build mount, so it is not in the image.
+# Editable install stores state in /app/.daedalus-state, and tzdata sets local schedule times.
+# Upgrade libpcre2-8-0 and liblzma5, remove system pip, and mount uv only during build.
 RUN --mount=from=ghcr.io/astral-sh/uv:0.13.5,source=/uv,target=/bin/uv \
   apt-get update && apt-get install -y --no-install-recommends tzdata libpcre2-8-0 liblzma5 \
   && rm -rf /var/lib/apt/lists/* \

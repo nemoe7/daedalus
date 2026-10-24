@@ -145,8 +145,9 @@ def test_failed_git_reads_fail_the_gate(version_repository, monkeypatch, capsys,
 
   monkeypatch.chdir(repo)
   monkeypatch.setattr(check_versions.subprocess, "run", fail_read)
+  expected_error = "test Git read failure"
   assert check_versions.main(["--base", base, "--head", head]) != 0
-  assert "test Git read failure" in capsys.readouterr().err
+  assert expected_error in capsys.readouterr().err
 
 
 def test_version_job_fetches_the_pinned_head():

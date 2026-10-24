@@ -854,8 +854,7 @@ async def hook_call(request: Request, file: str) -> Response:
   messages = body.get("messages")
   key = session_key(access.bearer(request), messages, request.headers)
   call: dict[str, Any] = {}
-  # A file that names `pin` gets the last pin of the chat, and a file that names `level` gets
-  # the reasoning level of its last answer: an older file keeps its 4 values.
+  # Pass `pin` and `level` only when the hook signature declares them.
   if "pin" in inspect.signature(handler).parameters:
     call["pin"] = PENALTIES.last_pin(key) if key else None
   if "level" in inspect.signature(handler).parameters:
@@ -926,9 +925,7 @@ async def start_candidate(plan, model: str, sent: dict[str, Any]) -> dict[str, A
         plan.deadline,
       )
     except upstream.UpstreamStatus as exc:
-      # A status that names the request shape is a stream refusal. Try this model once
-      # without a stream, and buffer its whole body. The key, the rate limit and a provider
-      # fault keep their own paths.
+      # Retry stream-shape refusals once without streaming, while auth, 429, and 5xx errors raise.
       if not buffered or exc.status in NOT_A_REFUSAL or exc.status >= 500:
         raise
       plan.attempts.append(
@@ -1142,9 +1139,7 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
     return upstream.error_response(
       400, f"Missing api_key for {name}.", "invalid_request_error"
     )
-  # A hook file of the prompt surface sets the reasoning effort of the attempt. The base sets
-  # none, so the value of a hook file, the client value and the catalog default decide, in that
-  # order. A chain with no reasoning model stays out of it.
+  # Resolve effort from prompt hooks, client payload, then catalog defaults for reasoning chains.
   chain_models = [candidate for group in found[0] for candidate in group]
   flags = store.reasoning_flags()
   reasoners = [candidate for candidate in chain_models if flags.get(candidate, True)]
@@ -1309,9 +1304,7 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
     and model != router.RESERVED_MODEL
     and (router.model_setting(config, model, "timeout") is not None)
   )
-  # A request to a pool or to `daedalus/auto` can race the next models of its own chain. A
-  # non-stream client reads our own stream from each model that can send one, so its race
-  # needs no stream on the request. Only a flagged-off model holds the gate.
+  # Pool and auto requests can race chain candidates whenever streaming is allowed on them.
   raceable = bool(body.get("stream")) or any(
     router.streams_allowed(config, name) for name in models[: 1 + PARALLEL_COUNT]
   )

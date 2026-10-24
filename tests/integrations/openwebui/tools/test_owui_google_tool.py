@@ -118,8 +118,9 @@ def test_the_surface_holds_the_functions():
 
 def test_the_gate_defaults_to_ask_with_sixty_seconds():
   instance = tool.Tools()
+  default_timeout = 60
   assert instance.valves.permissions == "Always ask"
-  assert instance.valves.timeout_seconds == 60
+  assert instance.valves.timeout_seconds == default_timeout
   assert instance.valves.calendar_id == "primary"
   assert tool.Tools.UserValves().mode == "default"
   assert tool.Tools.UserValves().timeout_seconds == 0

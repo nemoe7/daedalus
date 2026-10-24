@@ -149,8 +149,16 @@ def test_malformed_quota_response_keeps_fallback(monkeypatch) -> None:
 
 
 def test_rules(caplog) -> None:
-  assert cooldowns.duration("38s") == 38 and cooldowns.duration("250ms") == 0.25
-  assert cooldowns.duration("2m59.5s") == 179.5 and cooldowns.duration("1h") == 3600
+  expected_38s, expected_250ms = 38, 0.25
+  expected_179_5s, expected_1h = 179.5, 3600
+  assert (
+    cooldowns.duration("38s") == expected_38s
+    and cooldowns.duration("250ms") == expected_250ms
+  )
+  assert (
+    cooldowns.duration("2m59.5s") == expected_179_5s
+    and cooldowns.duration("1h") == expected_1h
+  )
   assert cooldowns.duration("soon") is None and cooldowns.duration("5sx") is None
   pacific = datetime(2026, 9, 28, 7, 0, tzinfo=UTC).timestamp()
   assert cooldowns.daily_end("gemini/g", GEMINI_DAILY, NOW) == ("gemini/g", pacific)

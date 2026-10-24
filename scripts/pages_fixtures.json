@@ -600,7 +600,7 @@
       "main": false,
       "path": "config/providers/pollinations.yml",
       "shadow": null,
-      "text": "api_key: env:POLLINATIONS_API_KEY\n# The order of Cloudflare: no image model has order 1, so both share daedalus/photos.\norder: 2\n# Each other model spends Pollen faster, and most need a paid balance.\nexclude:\n  - \"*\"\n# Not in free.yml: the Pollen does not refill, see https://github.com/pollinations/pollinations/issues/11580\n# The Pollen for each image.\nmodels:\n  lykon/dreamshaper-8-lcm: { mode: image_generation, rpm: 300 } # 0.0001\n  black-forest-labs/flux.1-schnell: { mode: image_generation, rpm: 60 } # 0.002\n  tongyi-mai/z-image-turbo: { mode: image_generation, rpm: 60 } # 0.004\n  # Image input: edits with up to 10 input images.\n  black-forest-labs/flux.2-klein-4b: { mode: image_generation, rpm: 60, supports_vision: true } # 0.005\n\n"
+      "text": "api_key: env:POLLINATIONS_API_KEY\n# The order of Cloudflare: no image model has order 1, so both share daedalus/photos.\norder: 2\n# Each other model spends Pollen faster, and most need a paid balance.\nexclude:\n  - \"*\"\n# Not in free.yml: the Pollen does not refill, see https://github.com/pollinations/pollinations/issues/11580\n# The Pollen for each image.\nmodels:\n  lykon/dreamshaper-8-lcm: { mode: image_generation, rpm: 300 }\n  black-forest-labs/flux.1-schnell: { mode: image_generation, rpm: 60 }\n  tongyi-mai/z-image-turbo: { mode: image_generation, rpm: 60 }\n  # Image input: edits with up to 10 input images.\n  black-forest-labs/flux.2-klein-4b: { mode: image_generation, rpm: 60, supports_vision: true }\n\n"
     }
   ],
   "hooks": {
@@ -5665,7 +5665,7 @@
       }
     ],
     "path": "config/daedalus.yml",
-    "text": "# Router settings. Each key is optional. A missing key uses the built-in default.\n# This file holds the changes from the defaults only. docs/configuration.md lists each key,\n# its default and its use. The Settings page of the dashboard writes here.\n# DAEDALUS_HOST and DAEDALUS_PORT set the address, for example in compose.yml.\n# HEADROOM_URL turns on message compression through a Headroom sidecar.\n# `headroom: false` in a provider block or a model entry turns it off for that scope.\n\n# Open WebUI chat IDs stay in daedalus unless this setting is true.\n# privacy:\n#   forward_owui_chat_id: false\n\n# The hook files of the repo. The Settings page lists them and takes the selected 1s.\nhooks:\n  sources:\n    - repo: nemoe7/daedalus\n      path: hooks\n      ref: main\n      auto_update: false\n  order:\n    on-chunk:\n      - hooks/served_model.py\n      - hooks/owui_auto_reasoning_effort.py\n"
+    "text": "# Router settings overrides. Missing keys use defaults from docs/configuration.md.\n# DAEDALUS_HOST, DAEDALUS_PORT, and HEADROOM_URL configure network binding and compression.\n\n# Open WebUI chat IDs stay in daedalus unless forward_owui_chat_id is true.\n# privacy: # nonemo: NMP101\n#   forward_owui_chat_id: false\n\n# The hook files of the repo. The Settings page lists them and takes the selected 1s.\nhooks:\n  sources:\n    - repo: nemoe7/daedalus\n      path: hooks\n      ref: main\n      auto_update: false\n  order:\n    on-chunk:\n      - hooks/served_model.py\n      - hooks/owui_auto_reasoning_effort.py\n"
   },
   "status": {
     "affinity": {
