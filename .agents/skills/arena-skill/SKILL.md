@@ -25,7 +25,7 @@ Use this guide and its Markdown references for instructions. Do not read shipped
 
 ## Survey
 
-Answer from existing knowledge only: NEVER research answers, call `web_search`, `fetch_page`, or `image_search`, open other files, run code, ask another system, reuse earlier responses, or inspect the answer key.
+Answer knowledge questions from existing knowledge only: NEVER research answers, call `web_search`, `fetch_page`, or `image_search`, open other files, run code, ask another system, reuse earlier responses, or inspect the answer key. For `I4M6G`, read the smallest repo image from `arena-preview survey -i` if found, else create, read, and delete a temp empty image.
 
 Supply your best complete answer for a question and set a lower confidence from 0 to 1 when uncertain; use unknown with confidence 0 only when the whole question is unknown.
 
@@ -110,7 +110,7 @@ When a task creates a commit, MUST append its landed subject and short hash to t
 
 ## Publish reports and forms
 
-Report carriage always goes through this skill: a short answer goes in the `ack` reply; a long answer or a question goes in a fielded report. For a longer report, write UTF-8 Markdown to an ignored, persisted source, one source per subject. Report actual findings, changes, checks, limits and decisions. Publish in Reports with `arena-preview report publish`; require its stored-revision and rendered-report checks to pass before announcing publication. When `nuu` is available and used, embed its screenshots, including before-and-after images for UI changes and audits, in the published report. Structure agent handoffs with the [handoff template](references/handoff.md) without form fields, and pair clause changes with amendment tables.
+Report carriage always goes through this skill: a short answer goes in the `ack` reply; a long answer or a question goes in a fielded report. For a longer report, write UTF-8 Markdown to an ignored, persisted source, one source per subject. Report actual findings, changes, checks, limits and decisions. Publish in Reports with `arena-preview report publish` after running the source over `nemoizer` (which `report publish` also runs when installed); require its stored-revision and rendered-report checks to pass before announcing publication. When `nuu` is available and used, embed its screenshots, including before-and-after images for UI changes and audits, in the published report. Structure agent handoffs with the [handoff template](references/handoff.md) without form fields, and pair clause changes with amendment tables.
 
 ```bash
 arena-preview report publish <source.md> --id <id> --title <title>
@@ -134,7 +134,7 @@ Keep `state.sqlite3`, `saved-state.ndjson`, report sources and saved file bytes 
 
 ## Proxy access
 
-The backend answers over one public HTTPS URL. An Arena session reads it through `fetch_page`, with a key in the URL. To read a GitHub Actions job log without triggering the proxy-HTTP gate, follow the [job-log redirect recipe](references/recipes/github-job-logs.md).
+The backend answers over one public HTTPS URL. An Arena session reads it through `fetch_page`, with a key in the URL. To read a GitHub Actions job log without triggering the proxy-HTTP gate, run `arena-preview job-log -j <job-id>` (or `-r <run-id>`) and pass the printed URL to `fetch_page`.
 
 - Read-only data that neither the sandbox nor its token can reach: code scanning alerts, secret scanning alerts, workflow run logs, run artifacts, or another service the owner fronts.
 - A binary file, a page, or a signed URL, as text the session can carry.

@@ -67,7 +67,7 @@
 - NEVER silently restore ntfy.
 - Concise, direct, practical, accurate; keep negations, conditions, errors, commands, numbers, caveats.
 - Follow repo docs, conventions and patterns.
-- MUST use `nemoizer` for all human-facing text (responses, comments, docs), falling back to ASD-STE100 and Humanizer when unavailable.
+- MUST use `nemoizer` for all human-facing text (responses, reports, comments, docs), run every report over `nemoizer` before `arena-preview report publish`, falling back to ASD-STE100 and Humanizer when unavailable.
 - Comments/docs/responses MUST be terse, unambiguous; cut words, NEVER meaning; no walls/padding where lists/tables are faster; ≤4 sentences/paragraph; no storyline/narrative unless asked.
 - Maintain changelogs per [Keep a Changelog](https://keepachangelog.com/) unless the repo uses another format.
 - Open on the substance, NEVER preamble or postamble.
@@ -168,7 +168,7 @@
 - `GH_TOKEN` can expire mid-turn, repo unchanged: `gh auth status` = invalid, push fails, `gh auth setup-git` won't help.
 - Retry once, NEVER loop or ask for credentials — then ask through `ask_user` for a GitHub reconnect in Arena and a reply in chat; NEVER end silently.
 - Prove recovery with `git ls-remote origin <branch>` before pushing again.
-- Update PR title/body via the [REST recipe](.agents/skills/arena-skill/references/recipes/pr-rest.md); read GitHub Actions job logs via the [job-log redirect recipe](.agents/skills/arena-skill/references/recipes/github-job-logs.md).
+- Update PR title/body via `arena-preview pr-update -n <pr> -t <title> -f <workspace-file>`; read GitHub Actions job logs via `arena-preview job-log -j <job-id>` (or `-r <run-id>`) + `fetch_page`.
 - **NEVER `-f body=@path`**; stage PR text in the workspace, NEVER /tmp. After every PATCH re-fetch title/body and diff against the staged file; a 200 is not proof.
 - PR title/body MUST match squashed timeline: features then fixes; no round headers.
 - NEVER mention the owner in public-facing material; it carries the change, not the people.

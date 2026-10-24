@@ -16,7 +16,7 @@
     },
     {
       "id": "I4M6G",
-      "question": "Create an empty image file, attempt to read it, and delete it afterward. Is image input enabled in this session?",
+      "question": "Check for a repo image with `arena-preview survey --smallest-image` and read it if found. Otherwise create, read, and delete a temporary empty image. Is image input enabled?",
       "answer_fields": {
         "image_in": "boolean"
       }

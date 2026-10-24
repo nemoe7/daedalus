@@ -9,7 +9,7 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 | `init [-z, --tz <zone>]` | Create a missing state database without starting the server. A zone names where CLI stamps print, and the TZ env wins |
 | `serve [-p, --port 8000]` | Start the shared preview with `start_process`. The gate warns when a serve names a port other than 8000 |
 | `read` | List every pending note and report answer; mark only delivered IDs Seen, and stamp the parent report read by the agent |
-| `survey [<json>]` | Show the instructions, questions, and ordered JSON schema. Supply JSON to submit answers. The receipt has no verdict. Results stay in server RAM and appear through the connection-dot dialog |
+| `survey [-i, --smallest-image] [<json>]` | Show the instructions, questions, and ordered JSON schema, or print the smallest repo image path with `-i, --smallest-image`. Supply JSON to submit answers. The receipt has no verdict. Results stay in server RAM and appear through the connection-dot dialog |
 | `skills` | List installed and repository skill names, full descriptions, and paths; prefer installed duplicates; do not load skills |
 | `note list [-p, --page N] [-s, --page-size N]` | List stored note IDs, including acknowledged and quiet notes, newest first; default page 1, 20 IDs per page, maximum 100; leave receipts and exports unchanged |
 | `note show <id>` | Reread a stored note by its six or full characters; a short ID that matches several notes prints every match |
@@ -31,6 +31,8 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 | `download-request [-a, --allow-proxy] <url>` | Queue one pending file download for the owner to approve in Downloads; `-a, --allow-proxy` permits the two proxies |
 | `image-data-uri <path>` | Print one Markdown line carrying a local PNG, JPEG, GIF or WebP file as a data URI; the command checks the type and a 2 MiB size cap before encoding |
 | `outline [-m, --max-entries N] [-j, --json] <path>` | Print a read-only source outline with line ranges for a local repository file up to 1 MB and 200 entries |
+| `pr-update -n, --number <pr> -t, --title <title> -f, --body-file <path>` | Update a pull request title and body via REST from a workspace file (never `/tmp` or `-f body=@path`), then re-fetch and verify exact parity |
+| `job-log [-j, --job <job-id>] [-r, --run <run-id>]` | Resolve the signed GitHub Actions job-log `Location` redirect URL via `gh api -i` (or fallback `/v1/gh` proxy URL) and print it for `fetch_page` |
 | `report publish <source.md> -i, --id <id> -t, --title <title> [-s, --submission-format <json>] [-u, --allow-unparsed-markers]` | Publish or update a rendered report. Publication embeds readable local images as data URIs, skips remote sources with a helper hint, keeps links and data URIs, and rejects possible unparsed `==` or `~~` diff markers unless `-u, --allow-unparsed-markers` is set |
 | `report unpublish <id>` | Remove a report from the tab, retaining answers and source. Unacknowledged answers or unseen answer receipts block the call with 409. A fresh owner view does not block agent unpublish, and the page retains the open report until the owner clicks away |
 | `report unpublish -s, --stale` | Recheck eligibility, then unpublish only stale reports through existing guards; retain sources and answers |

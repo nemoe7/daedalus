@@ -7,6 +7,7 @@ import re
 import subprocess
 import tokenize
 from functools import lru_cache
+from html.parser import HTMLParser
 from pathlib import Path
 
 COMMENT_BLOCK_CAP = 2
@@ -235,6 +236,97 @@ def html_comments(source: str) -> list[tuple[str, int, int]]:
   return comments
 
 
+HTML_INLINE_TAGS = {
+  "a",
+  "b",
+  "code",
+  "em",
+  "i",
+  "kbd",
+  "mark",
+  "samp",
+  "small",
+  "span",
+  "strong",
+  "sub",
+  "sup",
+}
+HTML_SKIP_TAGS = {"script", "style", "svg"}
+HTML_PROSE_ATTRS = {"aria-label", "title", "placeholder"}
+
+
+class _HTMLProseExtractor(HTMLParser):
+  """Extract visible HTML text nodes and prose attributes with line spans."""
+
+  def __init__(self) -> None:
+    super().__init__(convert_charrefs=True)
+    self.spans: list[tuple[str, int, int]] = []
+    self._skip_depth = 0
+    self._buf: list[str] = []
+    self._buf_start: int | None = None
+    self._buf_end: int | None = None
+
+  def flush(self) -> None:
+    if self._buf and self._buf_start is not None and self._buf_end is not None:
+      text = " ".join("".join(self._buf).split()).strip()
+      if (
+        text
+        and re.search(r"[A-Za-z]{2,}", text)
+        and not re.fullmatch(r"__[A-Z0-9_]+__", text)
+      ):
+        self.spans.append((text, self._buf_start, self._buf_end))
+    self._buf = []
+    self._buf_start = None
+    self._buf_end = None
+
+  def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+    lower = tag.lower()
+    if lower not in HTML_INLINE_TAGS:
+      self.flush()
+    if lower in HTML_SKIP_TAGS:
+      self._skip_depth += 1
+      return
+    if self._skip_depth == 0:
+      line = self.getpos()[0]
+      seen: set[str] = set()
+      for key, value in attrs:
+        if key and key.lower() in HTML_PROSE_ATTRS and value:
+          clean = " ".join(value.split()).strip()
+          if clean and clean not in seen and re.search(r"[A-Za-z]{2,}", clean):
+            seen.add(clean)
+            self.spans.append((clean, line, line))
+
+  def handle_endtag(self, tag: str) -> None:
+    lower = tag.lower()
+    if lower in HTML_SKIP_TAGS:
+      if self._skip_depth > 0:
+        self._skip_depth -= 1
+      return
+    if lower not in HTML_INLINE_TAGS:
+      self.flush()
+
+  def handle_data(self, data: str) -> None:
+    if self._skip_depth > 0:
+      return
+    if not data.strip():
+      if self._buf:
+        self._buf.append(" ")
+      return
+    line = self.getpos()[0]
+    if self._buf_start is None:
+      self._buf_start = line
+    self._buf_end = line + data.count("\n")
+    self._buf.append(data)
+
+
+def html_visible_prose(source: str) -> list[tuple[str, int, int]]:
+  """Collect visible element text nodes and prose attributes from HTML."""
+  extractor = _HTMLProseExtractor()
+  extractor.feed(source)
+  extractor.flush()
+  return extractor.spans
+
+
 def batch_comments(source: str) -> list[tuple[str, int, int]]:
   """Collect batch REM and double-colon comments with their source line spans."""
   comments: list[tuple[str, int, int]] = []
@@ -368,7 +460,7 @@ def prose_spans(path: Path, source: str) -> list[tuple[str, int, int]]:
       if not source.splitlines()[row[1] - 1].startswith("#!")
     ]
   else:
-    docs = []
+    docs = html_visible_prose(source) if path.suffix == ".html" else []
     comments = span_comments(path, source, skip_shebang=True) or []
   grouped = []
   source_lines = source.splitlines()

@@ -23,6 +23,6 @@
 
 ## Deviations
 
-| Component / Property | Before | After | Reason |
+| Component / Property or Recipe | Before | After | Reason |
 | --- | --- | --- | --- |
-| `<selector> (<property>)` | Before | After | Intentional product or layout reason |
+| `<selector> (<property or recipe>)` | Before | After | Intentional product or layout reason |

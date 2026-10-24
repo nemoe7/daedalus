@@ -129,32 +129,42 @@ def _iter_project_files(root: Path, suffixes: set[str]) -> list[Path]:
 
 def resolve_project_typography(project_root: Path | None = None) -> dict:
   root = (Path(project_root) if project_root else Path.cwd()).resolve()
-  css_files = _iter_project_files(root, {".css"})
+  style_files = _iter_project_files(root, {".css", ".html"})
   font_Index: dict[str, Path] = {}
   for font_path in _iter_project_files(root, set(FONT_MIMES)):
     font_Index.setdefault(font_path.name, font_path)
 
-  # Prefer product CSS with @font-face declarations over reference fallback sheets.
-  def css_priority(path: Path) -> tuple[int, str]:
+  # Prefer product CSS and HTML with @font-face declarations over reference fallback sheets.
+  def style_priority(path: Path) -> tuple[int, int, str]:
     rel = path.relative_to(root).as_posix() if root in path.parents else path.as_posix()
     is_nuu_ref = "nuu/references/style.css" in rel
-    return (1 if is_nuu_ref else 0, rel)
+    is_html = path.suffix.lower() == ".html"
+    return (1 if is_nuu_ref else 0, 1 if is_html else 0, rel)
 
-  css_files.sort(key=css_priority)
+  style_files.sort(key=style_priority)
   font_sans = None
   font_mono = None
   source_css = None
   font_face_rules: list[str] = []
   seen_faces: set[tuple[str, str, str, str]] = set()
 
-  for css_path in css_files:
+  for css_path in style_files:
     try:
       text = css_path.read_text(encoding="utf-8")
     except OSError:
       continue
+    if css_path.suffix.lower() == ".html":
+      blocks = re.findall(
+        r"<style[^>]*>(.*?)</style>", text, flags=re.IGNORECASE | re.DOTALL
+      )
+      if not blocks:
+        continue
+      text = "\n".join(blocks)
     clean = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
     if font_sans is None:
-      m_sans = re.search(r"--font-sans\s*:\s*([^;{}]+)", clean)
+      m_sans = re.search(r"--font-sans\s*:\s*([^;{}]+)", clean) or re.search(
+        r"--sans\s*:\s*([^;{}]+)", clean
+      )
       if m_sans:
         font_sans = m_sans.group(1).strip()
         source_css = str(css_path)
@@ -166,7 +176,9 @@ def resolve_project_typography(project_root: Path | None = None) -> dict:
           font_sans = m_body.group(1).strip()
           source_css = str(css_path)
     if font_mono is None:
-      m_mono = re.search(r"--font-mono\s*:\s*([^;{}]+)", clean)
+      m_mono = re.search(r"--font-mono\s*:\s*([^;{}]+)", clean) or re.search(
+        r"--mono\s*:\s*([^;{}]+)", clean
+      )
       if m_mono:
         font_mono = m_mono.group(1).strip()
     for block_match in re.finditer(r"@font-face\s*\{([^}]*)\}", clean, flags=re.DOTALL):
@@ -606,7 +618,12 @@ def parse_legend_callout(item):
 
 
 def _chromium_render_png(
-  html_doc: str, width: int, height: int, output_path: Path
+  html_doc: str,
+  width: int,
+  height: int,
+  output_path: Path,
+  selector: str = "#nuu-render-root",
+  settle_ms: int = 0,
 ) -> bool:
   if os.environ.get("NUU_RENDERER") == "bitmap" or not shutil.which("node"):
     return False
@@ -644,8 +661,8 @@ const payload = JSON.parse(fs.readFileSync(0, "utf8"));
     args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--single-process"]
   });
   try {
-    const vw = Math.max(2400, payload.width + 256);
-    const vh = Math.max(1600, payload.height + 256);
+    let vw = Math.max(1600, payload.width + 64);
+    let vh = Math.max(900, payload.height + 64);
     const context = await browser.newContext({
       viewport: { width: vw, height: vh },
       deviceScaleFactor: 1
@@ -653,7 +670,23 @@ const payload = JSON.parse(fs.readFileSync(0, "utf8"));
     const page = await context.newPage();
     await page.setContent(payload.html, { waitUntil: "load" });
     await page.evaluate(() => document.fonts ? document.fonts.ready : Promise.resolve());
-    const root = page.locator("#nuu-render-root");
+    if (payload.settle_ms > 0) {
+      await page.waitForTimeout(payload.settle_ms);
+    }
+    const root = page.locator(payload.selector || "#nuu-render-root").first();
+    const rect = await root.evaluate(el => {
+      const r = el.getBoundingClientRect();
+      return {
+        width: Math.ceil(Math.max(r.width, el.scrollWidth, el.offsetWidth)),
+        height: Math.ceil(Math.max(r.height, el.scrollHeight, el.offsetHeight))
+      };
+    });
+    if (rect.width + 64 > vw || rect.height + 64 > vh) {
+      await page.setViewportSize({
+        width: Math.max(vw, rect.width + 64),
+        height: Math.max(vh, rect.height + 64)
+      });
+    }
     await root.screenshot({ path: payload.output });
   } finally {
     await browser.close();
@@ -669,12 +702,14 @@ const payload = JSON.parse(fs.readFileSync(0, "utf8"));
         "height": max(1, height),
         "output": str(output_path),
         "executable": chromium_bin,
+        "selector": selector,
+        "settle_ms": max(0, int(settle_ms)),
       }
     ),
     text=True,
     capture_output=True,
     env=env,
-    timeout=25,
+    timeout=30,
     check=False,
   )
   return proc.returncode == 0 and output_path.is_file()
@@ -952,11 +987,14 @@ def build_board(
 
   prepared_panels = []
   for idx, panel in enumerate(parsed_panels, 1):
-    w, h, rgba = decode_png(panel["path"].read_bytes())
+    raw_bytes = panel["path"].read_bytes()
+    w, h, rgba = decode_png(raw_bytes)
     if panel["crop"]:
       cx, cy, cw, ch = panel["crop"]
       w, h, rgba = crop_rgba(w, h, rgba, cx, cy, cw, ch)
-    png_bytes = encode_png(w, h, rgba)
+      png_bytes = encode_png(w, h, rgba)
+    else:
+      png_bytes = raw_bytes
     prepared_panels.append(
       {
         **panel,
@@ -1226,12 +1264,523 @@ def build_board(
     "height": out_h,
     "renderer": used_renderer,
     "font_family": typography["font_sans"],
+    "embedded_fonts": typography["embedded_fonts"],
     "findings": [],
     "writes": writes,
   }
   if wf_dst is not None:
     result_payload["wireframe_output"] = str(wf_dst)
   return result_payload
+
+
+DESIGN_BOARD_CSS = """
+.board *, .board *::before, .board *::after {
+  animation: none !important; transition: none !important; }
+.board { padding: 32px; background: var(--bg, #08090b); color: var(--text, #ece9e2);
+  font-family: var(--sans, var(--font-sans, var(--nuu-font-sans)));
+  width: max-content; max-width: 1536px; box-sizing: border-box; }
+.board.wide { width: 2816px; max-width: 2816px; }
+.board h1 { font-size: var(--fs-5, 20px); font-weight: 640; margin: 0 0 4px; }
+.board .lede { color: var(--muted, #9c968c); font-size: var(--fs-2, 13px); margin: 0 0 24px; max-width: 720px; }
+.board .row { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+.board .col { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.board .frame { border: 1px solid var(--line, #2b2926); border-radius: 12px;
+  background: var(--surface, #181714); padding: 16px; }
+.board .lbl { font-size: var(--fs-2, 13px); font-weight: 600; margin: 0 0 2px; }
+.board .sub { font-size: var(--fs-1, 12px); color: var(--dim, #9c968c);
+  margin: 0 0 10px; max-width: 320px; line-height: 1.45; }
+.board .cap { font-size: var(--fs-1, 12px); color: var(--dim, #9c968c); margin-top: 8px; }
+.board img { display: block; border: 1px solid var(--line-2, #2b2926); border-radius: 8px; }
+.board table.sheet { border-collapse: collapse; font-size: var(--fs-2, 13px); }
+.board table.sheet td { padding: 6px 12px 6px 0; vertical-align: middle; }
+.board .mono { font-family: var(--mono, var(--font-mono, var(--nuu-font-mono)));
+  font-size: var(--fs-1, 12px); color: var(--muted, #9c968c); }
+.board .swatch { width: 72px; height: 28px; border-radius: 6px; border: 1px solid var(--line-2, #2b2926); }
+.board .sbar { height: 10px; background: var(--accent, #5aa2f7); border-radius: 2px; }
+.board .rbox { width: 72px; height: 48px; border: 1px solid var(--line-2, #2b2926);
+  background: var(--surface-2, #181714); }
+.board .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.board .verdict { display: flex; align-items: center; gap: 6px;
+  font-size: var(--fs-1, 12px); font-weight: 600; margin-bottom: 8px; }
+.board .verdict.do { color: #8fe0a0; }
+.board .verdict.dont { color: #ff9a94; }
+.board .off { display: flex; gap: 7px; align-items: center; }
+.board .glyph { font-size: 15px; line-height: 1; }
+.board .narrow { width: 328px; }
+.board .phases { list-style: none; margin: 0; padding: 0; }
+.wf .scr { width: 300px; border: 1px solid var(--line-2, #2b2926); border-radius: 8px;
+  background: var(--surface, #181714);
+  padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.wf .scr.wide { width: 420px; }
+.wf .blk { background: var(--surface-3, #2b2926); border-radius: 6px; min-height: 12px; }
+.wf .blk.hi { background: var(--accent, #5aa2f7); }
+.wf .blk.soft { background: var(--surface-2, #181714); border: 1px dashed var(--line-2, #2b2926); }
+.wf .blk.lbl { display: flex; align-items: center; justify-content: center; font-size: var(--fs-1, 12px);
+  color: var(--muted, #9c968c); padding: 6px 8px; }
+.wf .blk.lbl.hi { color: #fff; }
+.wf .bar { display: flex; gap: 6px; align-items: center; }
+.wf .wbox { display: inline-flex; width: 12px; height: 12px; margin-right: 6px; align-items: center;
+  justify-content: center; border: 1px solid var(--line-2, #2b2926); border-radius: 3px; font-size: 10px; }
+.wf .wbox.on { background: var(--accent, #5aa2f7); border-color: var(--accent, #5aa2f7); color: #fff; }
+.wf .down { transform: rotate(90deg); }
+.wf .arrow { align-self: center; color: var(--dim, #9c968c); font-size: var(--fs-1, 12px);
+  display: flex; flex-direction: column;
+  align-items: center; gap: 4px; padding: 0 4px; width: 92px; text-align: center; }
+.wf .arrow b { font-size: 18px; color: var(--muted, #9c968c); }
+"""
+
+
+def _extract_icon_script(icon_path: Path, table_name: str) -> str | None:
+  try:
+    text = icon_path.read_text(encoding="utf-8")
+  except OSError:
+    return None
+  fill_loop = (
+    'for (const slot of document.querySelectorAll("[data-icon]")) '
+    f'slot.innerHTML = ({table_name})[slot.dataset.icon] || "";'
+  )
+  if icon_path.suffix.lower() == ".json":
+    try:
+      data = json.loads(text)
+    except json.JSONDecodeError:
+      return None
+    if not isinstance(data, dict) or not data:
+      return None
+    return f"const {table_name} = {json.dumps(data)};\n{fill_loop}"
+  m_with_svg = re.search(
+    rf"(const\s+svg\s*=.*?\n\s*(?:const|let|var)\s+{re.escape(table_name)}\s*=\s*\{{.*?\n\s*\}};)",
+    text,
+    flags=re.DOTALL,
+  )
+  if m_with_svg:
+    snippet = m_with_svg.group(1)
+  else:
+    m_table = re.search(
+      rf"((?:const|let|var)\s+{re.escape(table_name)}\s*=\s*\{{.*?\}};)",
+      text,
+      flags=re.DOTALL,
+    )
+    if not m_table:
+      return None
+    m_svg = re.search(r"(const\s+svg\s*=\s*[^\n;]+;)", text)
+    snippet = f"{m_svg.group(1)}\n{m_table.group(1)}" if m_svg else m_table.group(1)
+  return f"{snippet}\n{fill_loop}"
+
+
+def build_design_boards(
+  output_path: Path,
+  spec_path: Path | None = None,
+  project: Path | None = None,
+  renderer: str = "auto",
+  wireframe: bool = False,
+  only=(),
+  settle_ms: int = 80,
+) -> dict:
+  if spec_path is None:
+    return {
+      "status": "failed",
+      "output": str(output_path),
+      "boards": [],
+      "findings": [
+        {
+          "id": "NUB104",
+          "severity": "error",
+          "message": "design board requires --spec <boards.json>",
+        }
+      ],
+      "writes": [],
+    }
+  spec_file = Path(spec_path).resolve()
+  if not spec_file.is_file():
+    return {
+      "status": "failed",
+      "output": str(output_path),
+      "boards": [],
+      "findings": [
+        {
+          "id": "NUB104",
+          "severity": "error",
+          "message": f"missing board spec: {spec_path}",
+        }
+      ],
+      "writes": [],
+    }
+  loaded = json.loads(spec_file.read_text(encoding="utf-8"))
+  if not isinstance(loaded, dict):
+    raise TypeError("board spec must be a JSON object")
+  spec_dir = spec_file.parent
+  project_root = Path(project).resolve() if project else spec_dir
+
+  def resolve_rel(rel: str) -> Path:
+    p = Path(rel)
+    if p.is_absolute():
+      return p
+    cand_proj = (project_root / p).resolve()
+    if cand_proj.exists():
+      return cand_proj
+    return (spec_dir / p).resolve()
+
+  app_css = ""
+  sheet_rel = loaded.get("stylesheet")
+  if sheet_rel:
+    sheet_path = resolve_rel(str(sheet_rel))
+    if not sheet_path.is_file():
+      return {
+        "status": "failed",
+        "output": str(output_path),
+        "boards": [],
+        "findings": [
+          {
+            "id": "NUB104",
+            "severity": "error",
+            "message": f"missing stylesheet: {sheet_rel}",
+          }
+        ],
+        "writes": [],
+      }
+    sheet_text = sheet_path.read_text(encoding="utf-8")
+    if sheet_path.suffix.lower() == ".html":
+      style_blocks = re.findall(
+        r"<style[^>]*>(.*?)</style>", sheet_text, flags=re.IGNORECASE | re.DOTALL
+      )
+      if not style_blocks:
+        return {
+          "status": "failed",
+          "output": str(output_path),
+          "boards": [],
+          "findings": [
+            {
+              "id": "NUB104",
+              "severity": "error",
+              "message": f"missing <style> block in stylesheet: {sheet_rel}",
+            }
+          ],
+          "writes": [],
+        }
+      app_css = "\n".join(style_blocks)
+    else:
+      app_css = sheet_text
+
+  icon_js = ""
+  icons_spec = loaded.get("icons")
+  if icons_spec:
+    if isinstance(icons_spec, dict):
+      icon_rel = icons_spec.get("file", "")
+      table_name = icons_spec.get("table", "ICONS")
+    else:
+      icon_rel = str(icons_spec)
+      table_name = "ICONS"
+    icon_path = resolve_rel(str(icon_rel))
+    if not icon_path.is_file():
+      return {
+        "status": "failed",
+        "output": str(output_path),
+        "boards": [],
+        "findings": [
+          {
+            "id": "NUB104",
+            "severity": "error",
+            "message": f"missing icon file: {icon_rel}",
+          }
+        ],
+        "writes": [],
+      }
+    extracted = _extract_icon_script(icon_path, str(table_name))
+    if not extracted:
+      return {
+        "status": "failed",
+        "output": str(output_path),
+        "boards": [],
+        "findings": [
+          {
+            "id": "NUB104",
+            "severity": "error",
+            "message": f"missing icon table {table_name} in {icon_rel}",
+          }
+        ],
+        "writes": [],
+      }
+    icon_js = extracted
+
+  shots_spec = loaded.get("shots") or {}
+  boards_raw = loaded.get("boards") or []
+  if not isinstance(boards_raw, list) or not boards_raw:
+    return {
+      "status": "failed",
+      "output": str(output_path),
+      "boards": [],
+      "findings": [
+        {
+          "id": "NUB104",
+          "severity": "error",
+          "message": "design board spec requires a non-empty boards array",
+        }
+      ],
+      "writes": [],
+    }
+
+  only_set = [str(item) for item in (only or ())]
+  if only_set:
+    known_names = {str(b.get("name")) for b in boards_raw if isinstance(b, dict)}
+    missing_only = [name for name in only_set if name not in known_names]
+    if missing_only:
+      return {
+        "status": "failed",
+        "output": str(output_path),
+        "boards": [],
+        "findings": [
+          {
+            "id": "NUB104",
+            "severity": "error",
+            "message": f"unknown board in --only: {', '.join(missing_only)}",
+          }
+        ],
+        "writes": [],
+      }
+    selected_boards = [b for b in boards_raw if str(b.get("name")) in only_set]
+  else:
+    selected_boards = list(boards_raw)
+
+  loaded_shots: dict[str, tuple[bytes, int, int, bytearray]] = {}
+  for shot_name, shot_val in shots_spec.items():
+    shot_rel = shot_val.get("path") if isinstance(shot_val, dict) else str(shot_val)
+    shot_path = resolve_rel(str(shot_rel))
+    if not shot_path.is_file():
+      return {
+        "status": "failed",
+        "output": str(output_path),
+        "boards": [],
+        "findings": [
+          {
+            "id": "NUB104",
+            "severity": "error",
+            "message": f"missing shot: {shot_name} ({shot_rel})",
+          }
+        ],
+        "writes": [],
+      }
+    raw_bytes = shot_path.read_bytes()
+    sw, sh, srgba = decode_png(raw_bytes)
+    loaded_shots[str(shot_name)] = (raw_bytes, sw, sh, srgba)
+
+  dst = Path(output_path).resolve()
+  single_png = dst.suffix.lower() == ".png" and len(selected_boards) == 1
+  out_dir = (
+    dst.parent if single_png else (dst.parent if dst.suffix.lower() == ".png" else dst)
+  )
+  out_dir.mkdir(parents=True, exist_ok=True)
+  typography = resolve_project_typography(project_root)
+  use_wireframe = bool(wireframe or loaded.get("wireframe"))
+
+  board_entries: list[dict] = []
+  writes: list[str] = []
+  used_renderer = "bitmap"
+
+  for idx, board in enumerate(selected_boards, 1):
+    b_name = str(board.get("name") or f"board-{idx}")
+    b_dst = dst if single_png else (out_dir / f"{b_name}.png")
+    if b_dst.exists():
+      raise ValueError(f"board output path already exists: {b_dst}")
+    b_title = board.get("title")
+    b_lede = board.get("lede")
+    is_wide = bool(board.get("wide"))
+    title_html = f"<h1>{html.escape(str(b_title))}</h1>" if b_title else ""
+    lede_html = f'<p class="lede">{html.escape(str(b_lede))}</p>' if b_lede else ""
+
+    max_frame_w = 0
+    total_frame_h = 240
+    frame_cols: list[str] = []
+    bitmap_shots: list[tuple[str, int, int, bytearray]] = []
+
+    if board.get("frames"):
+      for frame in board["frames"]:
+        f_lbl = frame.get("label")
+        f_sub = frame.get("sub")
+        lbl_html = f'<p class="lbl">{html.escape(str(f_lbl))}</p>' if f_lbl else ""
+        sub_html = f'<p class="sub">{html.escape(str(f_sub))}</p>' if f_sub else ""
+        head_html = f"<div>{lbl_html}{sub_html}</div>" if (lbl_html or sub_html) else ""
+
+        if "shot" in frame:
+          shot_name = str(frame["shot"])
+          if shot_name not in loaded_shots:
+            return {
+              "status": "failed",
+              "output": str(dst),
+              "boards": board_entries,
+              "findings": [
+                {
+                  "id": "NUB104",
+                  "severity": "error",
+                  "message": f"missing shot: {shot_name}",
+                }
+              ],
+              "writes": writes,
+            }
+          s_bytes, sw, sh, srgba = loaded_shots[shot_name]
+          disp_w = int(frame["width"]) if frame.get("width") else sw
+          disp_h = round(sh * (disp_w / max(1, sw)))
+          max_frame_w = max(max_frame_w, disp_w)
+          total_frame_h = max(total_frame_h, disp_h + 140)
+          b64 = base64.b64encode(s_bytes).decode("ascii")
+          cap_html = (
+            f'<div class="cap">{html.escape(str(frame["cap"]))}</div>'
+            if frame.get("cap")
+            else ""
+          )
+          body_html = (
+            f'<img src="data:image/png;base64,{b64}" width="{disp_w}" height="{disp_h}" '
+            f'style="width:{disp_w}px;height:auto;" alt="{html.escape(shot_name)}">'
+            f"{cap_html}"
+          )
+          bitmap_shots.append((str(f_lbl or shot_name), sw, sh, srgba))
+        elif "html" in frame:
+          h_val = str(frame["html"])
+          frag_path = resolve_rel(h_val)
+          if frag_path.is_file():
+            frag = frag_path.read_text(encoding="utf-8").strip()
+          elif "<" in h_val and ">" in h_val:
+            frag = h_val
+          else:
+            return {
+              "status": "failed",
+              "output": str(dst),
+              "boards": board_entries,
+              "findings": [
+                {
+                  "id": "NUB104",
+                  "severity": "error",
+                  "message": f"missing HTML fragment: {h_val}",
+                }
+              ],
+              "writes": writes,
+            }
+          if frame.get("bare") or re.match(
+            r'^<div\b[^>]*\bclass=["\'][^"\']*\bframe\b', frag
+          ):
+            body_html = frag
+          else:
+            body_html = f'<div class="frame">{frag}</div>'
+          max_frame_w = max(max_frame_w, 480)
+          total_frame_h = max(total_frame_h, 360)
+        else:
+          body_html = ""
+        frame_cols.append(f'<div class="col">{head_html}{body_html}</div>')
+      content_html = f'<div class="row">{"".join(frame_cols)}</div>'
+    elif board.get("html"):
+      h_val = str(board["html"])
+      frag_path = resolve_rel(h_val)
+      if frag_path.is_file():
+        content_html = frag_path.read_text(encoding="utf-8")
+      elif "<" in h_val and ">" in h_val:
+        content_html = h_val
+      else:
+        return {
+          "status": "failed",
+          "output": str(dst),
+          "boards": board_entries,
+          "findings": [
+            {
+              "id": "NUB104",
+              "severity": "error",
+              "message": f"missing HTML fragment: {h_val}",
+            }
+          ],
+          "writes": writes,
+        }
+      max_frame_w = 1200
+      total_frame_h = 600
+    else:
+      content_html = ""
+
+    board_cls = "board wide" if is_wide else "board"
+    style_attr = ""
+    if not is_wide and max_frame_w + 64 > 1536:
+      style_attr = f' style="max-width:{max_frame_w + 64}px"'
+
+    html_doc = (
+      "<!doctype html><html><head><meta charset='utf-8'><style>"
+      f"{typography['font_faces_css']}\n"
+      f":root {{ --nuu-font-sans: {typography['font_sans']}; --nuu-font-mono: {typography['font_mono']}; }}\n"
+      f"{app_css}\n"
+      f"{DESIGN_BOARD_CSS}\n"
+      "html, body { margin: 0; padding: 0; background: var(--bg, #08090b); }"
+      "</style></head><body>"
+      f'<div id="nuu-render-root" class="{board_cls}"{style_attr}>'
+      f"{title_html}{lede_html}{content_html}</div>"
+      f"<script>{icon_js}</script>"
+      "</body></html>"
+    )
+
+    est_w = 2816 if is_wide else max(1536, max_frame_w + 64)
+    est_h = max(600, total_frame_h + 128)
+    if renderer in {"auto", "chromium"} and _chromium_render_png(
+      html_doc, est_w, est_h, b_dst, selector=".board", settle_ms=settle_ms
+    ):
+      used_renderer = "chromium"
+      out_w, out_h, _ = decode_png(b_dst.read_bytes())
+    else:
+      out_w = 2816 if is_wide else max(960, max_frame_w + 64)
+      out_h = max(360, total_frame_h)
+      canvas = bytearray([8, 9, 11, 255] * (out_w * out_h))
+      draw_box(canvas, out_w, out_h, 0, 0, out_w, out_h, (43, 41, 38, 255), thickness=2)
+      if b_title:
+        draw_text(canvas, out_w, out_h, 32, 32, str(b_title), COLORS["white"], scale=2)
+      if b_lede:
+        draw_text(
+          canvas, out_w, out_h, 32, 60, str(b_lede)[:80], (156, 150, 140, 255), scale=1
+        )
+      x_cur = 32
+      for lbl_txt, sw, sh, srgba in bitmap_shots:
+        draw_text(
+          canvas, out_w, out_h, x_cur, 92, lbl_txt[:36], COLORS["white"], scale=1
+        )
+        blit_rgba(canvas, out_w, out_h, srgba, sw, sh, x_cur, 112)
+        x_cur += sw + 24
+      with b_dst.open("xb") as stream:
+        stream.write(encode_png(out_w, out_h, canvas))
+
+    writes.append(str(b_dst))
+    entry = {
+      "name": b_name,
+      "title": b_title,
+      "output": str(b_dst),
+      "width": out_w,
+      "height": out_h,
+    }
+    if use_wireframe:
+      wf_dst = b_dst.with_name(f"{b_dst.stem}-wireframe{b_dst.suffix}")
+      wf_w, wf_h, wf_rgba = decode_png(b_dst.read_bytes())
+      draw_box(wf_rgba, wf_w, wf_h, 0, 0, wf_w, wf_h, COLORS["blue"], thickness=2)
+      draw_label(
+        wf_rgba,
+        wf_w,
+        wf_h,
+        4,
+        4,
+        f"design {b_name} {wf_w}x{wf_h}",
+        COLORS["blue"],
+        scale=1,
+      )
+      with wf_dst.open("xb") as stream:
+        stream.write(encode_png(wf_w, wf_h, wf_rgba))
+      writes.append(str(wf_dst))
+      entry["wireframe_output"] = str(wf_dst)
+    board_entries.append(entry)
+
+  first = board_entries[0]
+  return {
+    "status": "composed",
+    "type": "design",
+    "output": first["output"] if single_png else str(out_dir),
+    "boards": board_entries,
+    "width": first["width"],
+    "height": first["height"],
+    "renderer": used_renderer,
+    "font_family": typography["font_sans"],
+    "embedded_fonts": typography["embedded_fonts"],
+    "findings": [],
+    "writes": writes,
+  }
 
 
 def main(argv: list[str] | None = None) -> int:

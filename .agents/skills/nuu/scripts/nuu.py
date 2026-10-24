@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
 
-from annotate import annotate_image, build_board
+from annotate import annotate_image, build_board, build_design_boards
 from measure import (
   DEFAULT_SCALE,
   DEFAULT_SHEET,
@@ -572,6 +572,13 @@ def main(argv=None):
       command.add_argument("-s", "--spec", type=Path)
       command.add_argument("-S", "--scale", type=int)
     if name == "board":
+      command.add_argument(
+        "-T",
+        "--type",
+        choices=("panels", "design"),
+        default=None,
+      )
+      command.add_argument("-O", "--only", action="append", default=[])
       command.add_argument("-t", "--title")
       command.add_argument("-p", "--panel", action="append", default=[])
       command.add_argument("-c", "--callout", action="append", default=[])
@@ -648,17 +655,36 @@ def main(argv=None):
       )
       args.output = None
     elif args.command == "board":
-      result = build_board(
-        args.output,
-        title=args.title,
-        panels=args.panel,
-        callouts=args.callout,
-        spec_path=args.spec,
-        columns=args.columns,
-        scale=args.scale,
-        project=root,
-        wireframe=bool(args.wireframe),
-      )
+      board_type = args.type
+      if board_type is None and args.spec is not None and Path(args.spec).is_file():
+        try:
+          spec_obj = json.loads(Path(args.spec).read_text(encoding="utf-8"))
+          if isinstance(spec_obj, dict) and (
+            "boards" in spec_obj or "stylesheet" in spec_obj
+          ):
+            board_type = "design"
+        except (OSError, json.JSONDecodeError):
+          pass
+      if board_type == "design":
+        result = build_design_boards(
+          args.output,
+          spec_path=args.spec,
+          project=root,
+          wireframe=bool(args.wireframe),
+          only=args.only,
+        )
+      else:
+        result = build_board(
+          args.output,
+          title=args.title,
+          panels=args.panel,
+          callouts=args.callout,
+          spec_path=args.spec,
+          columns=args.columns,
+          scale=args.scale,
+          project=root,
+          wireframe=bool(args.wireframe),
+        )
       args.output = None
     elif args.command == "doctor":
       result = doctor(root, args.manifest, args.config)
