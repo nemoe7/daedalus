@@ -1,0 +1,59 @@
+{
+  "stylesheet": "daedalus/dashboard/ui/style.css",
+  "boards": [
+    {
+      "name": "components-board",
+      "title": "Shared Component Family Board — Dark and Light Schemes",
+      "lede": "Header bar, KPI stat strip, health and pool bars, request toolbar, and settings controls across themes",
+      "frames": [
+        {
+          "label": "1. Header Bar & KPI Stat Strip",
+          "sub": "header.top, nav.tabs a, and .kpi cards",
+          "html": "components-1.html"
+        },
+        {
+          "label": "2. Health Status & Quota Progress Rows",
+          "sub": "#overview-health, .pool-line, and #limit-rows .weight.left",
+          "html": "components-2.html"
+        },
+        {
+          "label": "3. Filter Toolbar, Live Toggle & Pager",
+          "sub": ".requests-bar, #live-toggle, and .requests-pager",
+          "html": "components-3.html"
+        },
+        {
+          "label": "4. Settings Navigation, Provider Tiles & Chips",
+          "sub": ".sections, .tile[data-chip], .field, and .pill",
+          "html": "components-4.html"
+        }
+      ]
+    },
+    {
+      "name": "styles-board",
+      "title": "Foundation Style Reference Board — Dark and Light Color Roles & Type Ramp",
+      "lede": "CSS custom properties in style.css rendered with bundled Inter and Monaspace Neon WOFF2 fonts",
+      "frames": [
+        {
+          "label": "1. Dark Role Palette (:root[data-theme=\"dark\"])",
+          "sub": "Surface, text, accent, and status tokens",
+          "html": "styles-1.html"
+        },
+        {
+          "label": "2. Light Role Palette (:root default)",
+          "sub": "Surface, text, accent, and status tokens",
+          "html": "styles-2.html"
+        },
+        {
+          "label": "3. Typography Ramp (Inter & Monaspace Neon)",
+          "sub": "Bundled WOFF2 UI sans and tabular monospace scale",
+          "html": "styles-3.html"
+        },
+        {
+          "label": "4. Spacing & Radius Scale",
+          "sub": "8px spacing scale, 12px panel radius, and 8px control radius",
+          "html": "styles-4.html"
+        }
+      ]
+    }
+  ]
+}
