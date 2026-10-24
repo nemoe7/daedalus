@@ -250,6 +250,8 @@ UI_FILES = {
 UI_PATHS = {name: UI_DIR / name for name in UI_FILES}
 # The path of each model mark, 1 file for each name in the app.js set.
 ICON_PATHS = {path.name: path for path in (UI_DIR / "icons").glob("*.svg")}
+# The path of each bundled variable font in the UI fonts folder.
+FONT_PATHS = {path.name: path for path in (UI_DIR / "fonts").glob("*.woff2")}
 # The browser asks again each time, so a new version of the page applies at once.
 FRESH = {"Cache-Control": "no-cache"}
 # The answers of a session stay in 1 browser cache, and each read revalidates them.
@@ -728,6 +730,13 @@ def page() -> APIRouter:
     if path is None:
       return failure(404, "Not found.", "invalid_request_error")
     return FileResponse(path, media_type="image/svg+xml", headers=FRESH)
+
+  @pages.get("/ui/fonts/{name}", include_in_schema=False)
+  async def font(name: str) -> Response:
+    path = FONT_PATHS.get(name)
+    if path is None:
+      return failure(404, "Not found.", "invalid_request_error")
+    return FileResponse(path, media_type="font/woff2", headers=FRESH)
 
   return pages
 

@@ -1,3 +1,33 @@
+@font-face {
+  font-family: "Inter";
+  src: url("./fonts/inter-var.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Inter Fallback";
+  src: local("Arial");
+  size-adjust: 107.64%;
+  ascent-override: 90.49%;
+  descent-override: 22.48%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Monaspace Neon";
+  src: url("./fonts/monaspace-neon-var.woff2") format("woff2");
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Monaspace Neon Fallback";
+  src: local("Consolas"), local("Menlo"), local("DejaVu Sans Mono");
+  size-adjust: 100%;
+  ascent-override: 96%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+}
 @property --fade-left {
   syntax: "<length>"; inherits: false; initial-value: 0px;
 }
@@ -17,7 +47,9 @@
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23616161' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --tier: #212c70; --tag: #5c388c; --field: #f7f7f9; --radius: 12px; --tile-ink: #ffffff;
   --fast: .12s; --soft: .2s; --ease: cubic-bezier(.2, .7, .3, 1);
-  --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+  --font: "Inter", "Inter Fallback", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Monaspace Neon", "Monaspace Neon Fallback", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --mono: var(--font-mono);
   color-scheme: light; scrollbar-color: var(--line) transparent;
 }
 /* app.js sets data-theme from the theme setting, or from the device when the setting is system. */
@@ -33,7 +65,7 @@
 [hidden] { display: none !important; }
 body {
   margin: 0; background: var(--bg); color: var(--text);
-  font: 14px/1.5 system-ui, "Segoe UI", Roboto, sans-serif;
+  font: 14px/1.5 var(--font);
 }
 input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 button { font: inherit; cursor: pointer; white-space: nowrap; }
@@ -508,7 +540,7 @@ table.limits td.num .weight { justify-content: flex-end; }
 .card[data-section="hooks"] .keys .hook-title { display: block; }
 .card[data-section="hooks"] .keys .hook-author { display: block; font-size: 0.85em; color: var(--muted, #8b8b8b); }
 .card[data-section="hooks"] .keys .hook-problem { color: var(--bad); white-space: normal; overflow-wrap: anywhere; }
-.card[data-section="hooks"] .keys .hook-sha { display: block; font-size: 0.85em; color: var(--muted, #8b8b8b); font-family: monospace; }
+.card[data-section="hooks"] .keys .hook-sha { display: block; font-size: 0.85em; color: var(--muted, #8b8b8b); font-family: var(--mono); }
 .card[data-section="hooks"] .keys td.surfaces { white-space: normal; }
 .card[data-section="hooks"] .keys td.surfaces .pill { white-space: nowrap; }
 .card[data-section="hooks"] .hook-order { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
@@ -1213,7 +1245,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .requests .live-ago { display: none; }
   /* The mono face belongs to the session hash, not to its "Session" label. */
   .requests td.mono .mobile-label {
-    font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+    font-family: var(--font);
   }
   .requests tr.request > td:nth-child(1) .mobile-label,
   .requests tr.request > td:nth-child(2) .mobile-label,

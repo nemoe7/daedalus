@@ -161,6 +161,22 @@ def test_model_marks(client: TestClient) -> None:
   assert client.get("/ui/icons/CLOUDFLARE.svg").status_code == 404, "the name is exact"
 
 
+def test_bundled_fonts(client: TestClient) -> None:
+  """The dashboard preloads and serves bundled variable fonts with exact filenames."""
+  page = client.get("/").text
+  for name in ("inter-var.woff2", "monaspace-neon-var.woff2"):
+    preload = (
+      f'<link rel="preload" href="ui/fonts/{name}" as="font"'
+      ' type="font/woff2" crossorigin>'
+    )
+    assert preload in page and page.index(preload) < page.index("ui/style.css"), name
+    font = client.get(f"/ui/fonts/{name}")
+    assert font.status_code == 200 and font.headers["content-type"] == "font/woff2"
+    assert font.headers["cache-control"] == "no-cache", "an update applies at once"
+  assert client.get("/ui/fonts/nope.woff2").status_code == 404, "a missing font"
+  assert client.get("/ui/fonts/INTER-VAR.woff2").status_code == 404, "the name is exact"
+
+
 def test_app_js_split_requests() -> None:
   """The script splits answered attempts and formats transition codes."""
   code = """

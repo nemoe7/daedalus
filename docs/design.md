@@ -78,20 +78,20 @@ The visual direction matches the operational tooling domain:
 
 ## 5. Typography and Scannable Hierarchy
 
-The console uses native system font stacks for zero network latency:
+The console bundles variable `.woff2` fonts in `daedalus/dashboard/ui/fonts/` and preloads them with `crossorigin` and `font-display: block`:
 
-- **UI sans stack**: `14px/1.5 system-ui, "Segoe UI", Roboto, sans-serif`
-- **Monospace stack (`--mono`)**: `ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace`
+- **UI sans stack (`--font`)**: `"Inter", "Inter Fallback", system-ui, -apple-system, "Segoe UI", sans-serif`
+- **Monospace stack (`--font-mono`, `--mono`)**: `"Monaspace Neon", "Monaspace Neon Fallback", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace`
 
 | Element | Selector | Size | Weight | Line Height | Numeric Discipline |
 | --- | --- | --- | --- | --- | --- |
-| Brand mark | `.brand` | `18px` | `700` | `1.1` | Standard |
-| Hero stat value | `.stat-num` | `22px` | `700` | `1.2` | `font-variant-numeric: tabular-nums` |
-| Modal / section title | `.modal h3`, `.settings-pane h3` | `15px` | `600` | `1.35` | Standard |
-| Panel title | `.panel-title`, `h2` | `14px` | `600` | `1.4` | Standard |
+| Brand mark | `.brand` | `18px` | `650` | `1.1` | Standard |
+| Hero stat value | `.kpi b` | `22px` | `650` | `1.2` | `font-variant-numeric: tabular-nums` |
+| Modal / section title | `.modal h3`, `.card h3` | `15px` | `600` | `1.35` | Standard |
+| Panel title | `h2` | `14px` | `600` | `1.4` | Standard |
 | Body and table cells | `body`, `td` | `14px` | `400` | `1.5` | `tabular-nums` on `.num` and `.mono` |
 | Table header | `th` | `12px` | `500` | `1.4` | Standard |
-| Micro label / badge | `.hint`, `.tag`, `.tier`, `.stat-label` | `12px` | `500` | `1.4` | `tabular-nums` on counters |
+| Micro label / badge | `.hint`, `.chip`, `.kpi small` | `12px` | `500` | `1.4` | `tabular-nums` on counters |
 
 ## 6. Layout, Spatial Architecture, and Focal Point Design
 

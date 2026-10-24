@@ -33,13 +33,13 @@ Each swatch in rows `1` and `2` of `styles-board.png` maps directly to a CSS cus
 
 | Role | Font Family | Size | Weight | Line Height | CSS Selector |
 | --- | --- | --- | --- | --- | --- |
-| KPI numeral | `system-ui` (`tabular-nums`) | `22px` | `700` | `1.2` | `.stat-num` |
-| Brand wordmark | `system-ui` | `18px` | `700` | `1.1` | `.brand` |
-| Section / dialog heading | `system-ui` | `15px` | `600` | `1.35` | `.settings-pane h3`, `.modal h3` |
-| Panel heading | `system-ui` | `14px` | `600` | `1.4` | `.panel-title` |
-| Body copy and controls | `system-ui` | `14px` | `400` | `1.5` | `body`, `input`, `select`, `button` |
-| Monospace identifiers | `var(--mono)` (`tabular-nums`) | `12px–13px` | `400–500` | `1.4` | `.mono`, `code`, `.yaml-box` |
-| Table header and caption | `system-ui` | `12px` | `500` | `1.4` | `th`, `.stat-label`, `.hint`, `.tag` |
+| KPI numeral | `var(--font)` (`Inter`, `tabular-nums`) | `22px` | `650` | `1.2` | `.kpi b` |
+| Brand wordmark | `var(--font)` (`Inter`) | `18px` | `650` | `1.1` | `.brand` |
+| Section / dialog heading | `var(--font)` (`Inter`) | `15px` | `600` | `1.35` | `.card h3`, `.modal h3` |
+| Panel heading | `var(--font)` (`Inter`) | `14px` | `600` | `1.4` | `h2` |
+| Body copy and controls | `var(--font)` (`Inter`) | `14px` | `400` | `1.5` | `body`, `input`, `select`, `button` |
+| Monospace identifiers | `var(--mono)` (`Monaspace Neon`, `tabular-nums`) | `12px–13px` | `400–500` | `1.4` | `.mono`, `code`, `.yaml-box` |
+| Table header and caption | `var(--font)` (`Inter`) | `12px` | `500` | `1.4` | `th`, `.kpi small`, `.hint`, `.chip` |
 
 ## Spacing, Radius, and Elevation Tokens
 
