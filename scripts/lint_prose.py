@@ -9,10 +9,10 @@ from pathlib import Path
 
 if __package__:
   from . import extract_prose
-  from .check_pr import run_ste_lint
+  from .check_pr import lint_prose_lines, run_ste_lint
 else:
   import extract_prose
-  from check_pr import run_ste_lint
+  from check_pr import lint_prose_lines, run_ste_lint
 
 ROOT = extract_prose.ROOT
 EXCLUDES = extract_prose.EXCLUDES
@@ -22,8 +22,17 @@ extract = extract_prose.extract
 page_files = extract_prose.page_files
 prose = extract_prose.prose
 tracked_files = extract_prose.tracked_files
+__all__ = [
+  "extract",
+  "page_files",
+  "prose",
+  "scan",
+  "scan_file",
+  "subprocess",
+  "tracked_files",
+]
 
-LINTER = ROOT / ".agents/skills/asd-ste100/scripts/ste-lint.py"
+LINTER = ROOT / ".agents/skills/nemoizer/scripts/nemoizer"
 ADR_REFERENCE = re.compile(r"\bADR[- ]?\d|docs/adr")
 FENCE = re.compile(r"^\s*(```|~~~)")
 LIST = re.compile(r"^\s*(\d+[.)]|[-*+])\s")
@@ -53,21 +62,12 @@ def scan_file(path: Path) -> dict:
         anchors.append((start + offset if kind == "markdown" else start, kind))
     if not lines:
       return result
-    run = subprocess.run(
-      [sys.executable, str(LINTER), "--json"],
-      input="\n".join(lines),
-      capture_output=True,
-      text=True,
-      check=False,
-    )
-    if run.returncode not in (0, 1):
-      raise ValueError(
-        f"STE process failed with exit {run.returncode}: {run.stderr.strip()}"
-      )
-    report = json.loads(run.stdout)
-    result["words"] = report["words"]
-    for finding in report["violations"]:
-      line, kind = anchors[finding["line"] - 1]
+    ok, violations, words, detail = lint_prose_lines(lines, LINTER)
+    if not ok:
+      raise ValueError(detail)
+    result["words"] = words
+    for finding in violations:
+      line, kind = anchors[int(finding["line"]) - 1]
       result["findings"].append(
         {
           "line": line,

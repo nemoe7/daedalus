@@ -7,10 +7,10 @@ from pathlib import Path
 
 from check_pr import BODY_HEADINGS, validate_pr_body
 
-LINT = Path(".agents/skills/asd-ste100/scripts/ste-lint.py")
+LINT = Path(".agents/skills/nemoizer/scripts/nemoizer")
 TEMPLATE = Path(".github/PULL_REQUEST_TEMPLATE.md")
 
-CLEAN = "The workflow builds the image. The job pushes the image to GHCR.\n"
+CLEAN = "A workflow builds an image. Each job pushes that image to GHCR.\n"
 DIRTY = (
   "The images that were built by the workflow are being pushed to the registry "
   "by the job in order to make the release available to the users.\n"

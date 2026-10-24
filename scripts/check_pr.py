@@ -9,9 +9,35 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 ROOT = Path(__file__).resolve().parents[1]
-STE_LINT = ROOT / ".agents" / "skills" / "asd-ste100" / "scripts" / "ste-lint.py"
+STE_LINT = ROOT / ".agents" / "skills" / "nemoizer" / "scripts" / "nemoizer"
+
+INLINE_CODE_RE = re.compile(r"`[^`]*`")
+STE_RULE_NAMES = {
+  "STE100": ("semicolon", "hard", "Semicolon joins clauses."),
+  "STE101": ("slash-choice", "hard", "Slash choice obscures meaning."),
+  "STE200": ("long-sentence", "advisory-free", "Sentence exceeds word cap."),
+  "STE300": ("noun-cluster", "advisory-free", "Noun cluster exceeds 3 words."),
+  "STE400": ("unapproved-word", "hard", "Unapproved word."),
+  "STE901": ("passive-voice", "advisory", "Passive voice."),
+  "STE902": ("phrasal-verb", "advisory", "Phrasal verb."),
+  "STE903": ("participle", "advisory", "Trailing participle clause."),
+}
+NEGATED_OR_INFINITIVE_PASSIVE_RE = re.compile(
+  r"\b(?:not|be)\s+(?:\w+ly\s+)?(?:\w+ed|\w+en|built|done|drawn|found|given|gone|"
+  r"held|kept|known|laid|led|left|lost|made|meant|met|paid|put|read|run|said|seen|"
+  r"sent|set|shown|shut|spent|spread|stood|struck|sung|sunk|swept|sworn|swum|"
+  r"taken|taught|thought|thrown|told|torn|understood|worn|won|wound|written)\b",
+  re.IGNORECASE,
+)
+UI_TOGGLE_PHRASAL_RE = re.compile(
+  r"\b(?:set\s+up|sets\s+up|setting\s+up|turn\s+on|turns\s+on|turning\s+on|"
+  r"turned\s+on|turn\s+off|turns\s+off|turning\s+off|turned\s+off)\b",
+  re.IGNORECASE,
+)
+PARTICIPLE_CLAUSE_RE = re.compile(r",\s+[a-z]{4,}ing\b")
 
 ALLOWED_TYPES = (
   "feat",
@@ -256,28 +282,105 @@ def _check_none_or_bullets(title: str, entries: list[tuple[int, str]]) -> list[F
   return failures
 
 
-def run_ste_lint(text: str) -> tuple[bool, str]:
-  """Check prose with the repository linter and return its result."""
+def lint_prose_lines(
+  lines: list[str], linter: Path | None = None
+) -> tuple[bool, list[dict[str, object]], int, str]:
+  """Run the repository prose linter on line-anchored text."""
+  target = STE_LINT if linter is None else linter
+  cleaned: list[str] = []
+  in_fence = False
+  for line in lines:
+    if FENCE_RE.match(line.strip()):
+      in_fence = not in_fence
+      cleaned.append("")
+      continue
+    if in_fence or line.lstrip().startswith(("|", "#", ">", "<")):
+      cleaned.append("")
+    else:
+      cleaned.append(INLINE_CODE_RE.sub("", line))
+  words = sum(len(item.split()) for item in cleaned)
   try:
-    result = subprocess.run(
-      [sys.executable, str(STE_LINT), "--json"],
-      input=text,
-      capture_output=True,
-      text=True,
-      check=False,
-    )
+    with TemporaryDirectory() as directory:
+      sample = Path(directory) / "sample.md"
+      sample.write_text("\n\n".join(cleaned) + "\n", encoding="utf-8")
+      result = subprocess.run(
+        [
+          sys.executable,
+          str(target),
+          "prose",
+          "--context",
+          "description",
+          str(sample),
+        ],
+        input="\n".join(lines),
+        capture_output=True,
+        text=True,
+        check=False,
+      )
   except OSError as exc:
-    return False, f"STE lint could not run: {exc}"
+    return False, [], words, f"STE lint could not run: {exc}"
   output = (result.stdout + result.stderr).strip()
-  if result.returncode or result.stderr:
-    return False, output or f"STE lint exited with status {result.returncode}."
+  if result.returncode not in (0, 1) or result.stderr:
+    return (
+      False,
+      [],
+      words,
+      output or f"STE lint exited with status {result.returncode}.",
+    )
   try:
     report = json.loads(result.stdout)
   except ValueError:
-    return False, f"Invalid STE lint JSON.\n{output}".strip()
-  if not isinstance(report, dict) or not isinstance(report.get("violations"), list):
-    return False, f"Invalid STE lint findings.\n{output}".strip()
-  return not report["violations"], output
+    return False, [], words, f"Invalid STE lint JSON.\n{output}".strip()
+  if not isinstance(report, dict):
+    return False, [], words, f"Invalid STE lint findings.\n{output}".strip()
+  if "violations" in report:
+    raw = report.get("violations")
+    if (
+      not isinstance(raw, list)
+      or any(not isinstance(item, dict) for item in raw)
+      or (result.returncode and not raw)
+    ):
+      return False, [], words, f"Invalid STE lint findings.\n{output}".strip()
+    return True, raw, int(report.get("words", words)), output
+  raw = report.get("findings")
+  if (
+    not isinstance(raw, list)
+    or any(not isinstance(item, dict) for item in raw)
+    or (result.returncode and not raw)
+  ):
+    return False, [], words, f"Invalid STE lint findings.\n{output}".strip()
+  violations: list[dict[str, object]] = []
+  for item in raw:
+    code = str(item.get("rule", ""))
+    if code not in STE_RULE_NAMES:
+      continue
+    index = max(0, (int(item.get("line", 1)) - 1) // 2)
+    line_text = cleaned[index] if index < len(cleaned) else ""
+    if code == "STE901" and NEGATED_OR_INFINITIVE_PASSIVE_RE.search(line_text):
+      continue
+    if code == "STE902" and UI_TOGGLE_PHRASAL_RE.search(line_text):
+      continue
+    if code == "STE903" and not PARTICIPLE_CLAUSE_RE.search(line_text):
+      continue
+    rule_name, level, message = STE_RULE_NAMES[code]
+    violations.append(
+      {
+        "line": index + 1,
+        "rule": rule_name,
+        "level": level,
+        "message": message,
+      }
+    )
+  rendered = json.dumps({"violations": violations, "words": words}, indent=2)
+  return True, violations, words, rendered
+
+
+def run_ste_lint(text: str) -> tuple[bool, str]:
+  """Check prose with the repository linter and return its result."""
+  ok, violations, _, detail = lint_prose_lines(text.splitlines())
+  if not ok:
+    return False, detail
+  return not violations, detail
 
 
 def _git(*arguments: str) -> str:

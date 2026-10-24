@@ -1,9 +1,16 @@
 {
+  "globs": ["**/*.md"],
   "config": {
     "default": true,
     "MD013": false,
-    "MD060": true
+    "MD060": true,
+    "MD024": { "siblings_only": true }
   },
   "gitignore": true,
-  "ignores": [".agents/**", "ARENA.md", ".github/PULL_REQUEST_TEMPLATE.md"]
+  "ignores": [
+    ".agents/**",
+    "ARENA.md",
+    "LICENSE.md",
+    ".github/PULL_REQUEST_TEMPLATE.md"
+  ]
 }

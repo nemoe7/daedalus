@@ -34,6 +34,7 @@ jobs:
           python-version: "3.12"
           enable-cache: true
       - run: uv sync --locked
+      - run: python3 .agents/skills/nemoizer/scripts/nemoizer --selftest
       - run: uv run --no-sync python scripts/lint_prose.py
       - run: uv run --no-sync ruff check
       - run: uv run --no-sync ruff format --check

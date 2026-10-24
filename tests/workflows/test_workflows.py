@@ -269,9 +269,13 @@ def test_pr_files_cannot_replace_the_trusted_checks() -> None:
     base.mkdir()
     head.mkdir()
     marker = root / "executed"
+    shutil.copytree(
+      ".agents/skills/nemoizer/scripts",
+      base / ".agents/skills/nemoizer/scripts",
+    )
     for name in (
       "scripts/check_pr.py",
-      ".agents/skills/asd-ste100/scripts/ste-lint.py",
+      ".agents/skills/nemoizer/scripts/nemoizer",
     ):
       trusted = base / name
       trusted.parent.mkdir(parents=True, exist_ok=True)
@@ -297,7 +301,7 @@ def test_pr_files_cannot_replace_the_trusted_checks() -> None:
     commands = (
       shlex.split(command)[1:],
       ["scripts/check_pr.py", "--pr-title", "invalid subject"],
-      [".agents/skills/asd-ste100/scripts/ste-lint.py", "dirty.md"],
+      [".agents/skills/nemoizer/scripts/nemoizer", "dirty.md"],
     )
     for args in commands:
       result = subprocess.run(
@@ -330,7 +334,7 @@ def test_the_pr_check_validates_the_body_prose_and_commits() -> None:
   content = (WORKFLOWS / "pr-check.yml").read_text()
   assert "scripts/check_pr.py --body-file" in content
   assert "scripts/check_pr.py --range" in content
-  assert "ste-lint.py --selftest" in content
+  assert "nemoizer --selftest" in content
   command = next(
     step["run"]
     for step in data["jobs"]["body"]["steps"]
@@ -397,8 +401,9 @@ def test_the_pages_demo_builds_the_page_and_deploys_it() -> None:
 
 
 def test_the_ci_workflow_runs_the_prose_linter() -> None:
-  """The CI job checks Python prose and Markdown pages through scripts/lint_prose.py."""
+  """The CI job checks Python prose and Markdown pages through nemoizer and lint_prose.py."""
   runs = [
     step["run"] for step in load("ci.yml")["jobs"]["ci"]["steps"] if "run" in step
   ]
+  assert "python3 .agents/skills/nemoizer/scripts/nemoizer --selftest" in runs
   assert "uv run --no-sync python scripts/lint_prose.py" in runs

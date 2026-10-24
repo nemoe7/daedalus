@@ -5,7 +5,7 @@
 The project is in development. Code changes are rapid and can break existing behavior.
 Do not add backward-compatibility code yet. Use the current contract without compatibility layers or legacy migrations.
 
-## Pull request body
+## PR body
 
 - Use the H2 sections Summary, Changes, and Validation in that order.
 - Breaking Changes and Related follow in that order when present. Omit either section when empty.
@@ -42,47 +42,38 @@ An ADR holds one decision and the reason for it.
 - Edit an ADR in place. Never add dates.
 - Submit an amendment in a report first. Change the ADR only after the answer comes back.
 - Say that an ADR needs an amendment before the implementation changes, not after.
-- The owner dictates an ADR. Write a terse, formatted draft, publish it as a report, and
-  change `docs/adr` only after the owner approves it.
+- Owner input defines each ADR. Write a terse, formatted draft, publish it as a report, and change `docs/adr` only after owner approval.
 
 ## Human-facing text
 
-- Lint every human-facing file with `.agents/skills/asd-ste100/scripts/ste-lint.py`. The run
-  must report 0 violations, advisory findings included.
-- Lint Python comments, docstrings and the pages' paragraphs with `scripts/lint_prose.py`.
-- Lint Markdown with `npx markdownlint-cli2 "**/*.md"`. The run must report 0 issues. The
-  rules are in `.markdownlint-cli2.jsonc`: the markdownlint defaults, MD060 on, MD013 off.
-- Review every human-facing edit to `AGENTS.md` with `.agents/skills/humanizer/SKILL.md`.
-- Run `.agents/skills/asd-ste100/scripts/ste-lint.py AGENTS.md --json` after each edit. The run must report 0 violations.
-- Docs never hold narrative. State the fact, and leave out the story.
-- Use lists and tables. A human reads the text, not a model.
-- Write at most four sentences in a paragraph, and keep only the core idea.
-- Give each subject its own short section: what it does, where it runs, what it writes,
-  and the config names it reads. Do not write a wall of text.
+- Lint every human-facing file with `.agents/skills/nemoizer/scripts/nemoizer`. Each run must report 0 violations, advisory findings included.
+- Lint Python comments, docstrings, and page paragraphs with `scripts/lint_prose.py`.
+- Lint Markdown with `npx markdownlint-cli2 "**/*.md"`. Each run must report 0 issues. Config rules live in `.markdownlint-cli2.jsonc`: markdownlint defaults, MD060 on, and MD013 off.
+- Review every human-facing edit to `AGENTS.md` with `.agents/skills/nemoizer/SKILL.md`.
+- Run `.agents/skills/nemoizer/scripts/nemoizer AGENTS.md` after each edit. Each run must report 0 violations.
+- Docs never hold narrative. State facts, and leave out story text.
+- Use lists and tables. Humans read this text, not models.
+- Write at most four sentences in a paragraph, and keep only one core idea.
+- Give each subject its own short section. State what it does, where it runs, what it writes, and which config names it reads. Do not write a wall of text.
 
 ## Docs workflow
 
-- Write only facts that the code or a source shows.
-- For each point that needs the owner's words or decision, add a `> Q:` line with the
-  question. The owner writes the answer. Keep the question until the owner answers it.
-- Use a neutral voice. Do not add a claim, an opinion or a promise that the owner did not
-  make.
-- Lint each changed file with `.agents/skills/asd-ste100/scripts/ste-lint.py`. The run must
-  report 0 violations.
-- Show each command for cmd, PowerShell and bash. Use Mermaid for diagrams.
+- Write only facts that code or a primary source shows.
+- For each point that needs owner words or an owner decision, add a `> Q:` line with that question. Owner input supplies the answer. Keep that question until an answer arrives.
+- Use a neutral voice. Do not add a claim, an opinion, or a promise without owner approval.
+- Lint each changed file with `.agents/skills/nemoizer/scripts/nemoizer`. Each run must report 0 violations.
+- Show each command for cmd, PowerShell, and bash. Use Mermaid for diagrams.
 
 ## Front-end work
 
-- Read and apply `.agents/skills/frontend-design/SKILL.md` and `.agents/skills/taste-skill/SKILL.md` before front-end work.
-- Read `.agents/skills/ui-ux-pro-max/SKILL.md` for UI/UX search and its checklist. Keep `frontend-design` and `taste-skill` as the house art direction.
-- For dashboard screens, read `.agents/skills/taste-skill/references/app-screens.md` before you audit or change a screen.
-- For a dashboard audit, inspect every route at 1440, 768, and 390 pixels. Capture and review the screenshots.
+- Read and apply `.agents/skills/nuu/SKILL.md` before front-end work.
+- For a dashboard audit, inspect every route at 1440, 768, and 390 pixels. Capture and review screenshots.
 - Check keyboard focus, contrast, reduced motion, touch targets, and horizontal overflow.
-- Match the surrounding design for focused fixes. Avoid unrelated redesigns.
+- Match surrounding design patterns for focused fixes. Avoid unrelated redesigns.
 
 ## Dashboard pages
 
-- A new page uses the `.flow` layout of `style.css`: the table in a `.column.wide`, and the cards in a `.column` beside it.
+- A new page uses `.flow` in `style.css`. Put its table in `.column.wide`, and put cards in `.column` beside it.
 - Do not put cards in a row above a table.
 - Reuse an existing shared UI component before adding page-specific markup, behavior, or CSS. When no component fits and the same contract has at least two current callers, add one shared component. Migrate those callers in the same change. Keep one-off domain UI local.
 - For each new UI component, reuse a suitable key in `daedalus/dashboard/ui/en.js` or add a semantic key. Do not add an English fallback in the component.
@@ -102,7 +93,7 @@ at import time. The shipped files are examples, not a dependency.
 
 - Give an installed hook file a `# ---` frontmatter block, and bump its `version:` line on every
   change to that file. The manager reads the block before any run.
-- Keep the base free of a member that exists only for a hook. A helper, a constant or a config
+- Keep the base free of a member that exists only for a hook. A helper, a constant, or a config
   key that one hook needs belongs in that hook file.
 - Keep a hook file portable. It uses the documented surface of its hook and the public modules
   of the base, so it runs against any daedalus version.
@@ -131,4 +122,4 @@ Each chat pool is a gateway to one tier. The rule of thumb for the tiers:
 - Keep an ordinary docstring to one line and one sentence.
 - Preserve the required multiline format of plugin metadata and parser-required tool parameter fields.
 - Keep a tool docstring's prose summary to one line and one sentence.
-- Do not refer to ADRs in code, comments, docstrings or tests.
+- Do not refer to ADRs in code, comments, docstrings, or tests.

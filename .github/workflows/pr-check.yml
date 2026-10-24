@@ -41,7 +41,7 @@ jobs:
       - name: Check the description
         run: python3 scripts/check_pr.py --body-file pr-body.md
       - name: Check the linter itself
-        run: python3 .agents/skills/asd-ste100/scripts/ste-lint.py --selftest
+        run: python3 .agents/skills/nemoizer/scripts/nemoizer --selftest
 
   commits:
     name: Commit subjects
