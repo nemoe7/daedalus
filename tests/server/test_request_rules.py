@@ -104,12 +104,39 @@ def test_vision() -> None:
   assert api.chain("v/blind", image, config_now)[0] == [["v/blind"]], "a direct request"
 
 
+def test_beam_tool_limit() -> None:
+  """Reflection beam models stay in tool chains up to 128 tools and leave above 128."""
+  config_now = config.get_config()
+  tool = {"type": "function", "function": {"name": "fn"}}
+  at_cap = {
+    "messages": [{"role": "user", "content": "hi"}],
+    "tools": [tool] * api.BEAM_TOOL_LIMIT,
+  }
+  over_cap = {
+    "messages": [{"role": "user", "content": "hi"}],
+    "tools": [tool] * (api.BEAM_TOOL_LIMIT + 1),
+  }
+  assert api.chain("daedalus/sophos", at_cap, config_now)[0][0] == [
+    "kilo/reflection/beam-free",
+    "kilo/other/coder",
+  ]
+  assert api.chain("daedalus/sophos", over_cap, config_now)[0][0] == [
+    "kilo/other/coder"
+  ]
+
+
 @pytest.fixture(scope="module", autouse=True)
 def catalog():
   config.set_config(
     {
       "a": {"api_base": "https://a.test/v1", "api_key": "k", "tier": TIER},
       "b": {"api_base": "https://b.test/v1", "api_key": "", "tier": TIER},
+      "kilo": {
+        "api_base": "https://kilo.test/v1",
+        "api_key": "k",
+        "order": 1,
+        "tier": {"TIER-A": ["reflection/beam-free", "other/coder"]},
+      },
       "v": {
         "api_base": "https://v.test/v1",
         "api_key": "k",
@@ -128,6 +155,8 @@ def catalog():
         "max_output_tokens": 4000,
       },
       {"id": "a/plain", "supports_reasoning": False, "reasoning_effort": "high"},
+      {"id": "kilo/reflection/beam-free", "supports_function_calling": True},
+      {"id": "kilo/other/coder", "supports_function_calling": True},
       {"id": "v/eye", "supports_vision": True},
       {"id": "v/blind", "supports_vision": False},
       {"id": "v/unknown"},

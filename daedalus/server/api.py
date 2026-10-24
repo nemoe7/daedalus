@@ -299,11 +299,26 @@ def has_image(messages: object) -> bool:
   )
 
 
+# Reflection beam models cap `tools` at 128 items. Move this cap to model metadata once a second model sets one.
+BEAM_TOOL_LIMIT = 128
+
+
+def over_beam_tools(model: str, tools: object) -> bool:
+  """Tell if `model` is a Reflection beam model and `tools` has more than 128 items."""
+  return (
+    isinstance(tools, list)
+    and len(tools) > BEAM_TOOL_LIMIT
+    and "/reflection/beam" in f"/{model}"
+  )
+
+
 def request_lines(body: dict[str, Any]) -> list[str]:
   """Return the chat models that support the tools and images of this request."""
-  return store.read_models(
-    tools_only=bool(body.get("tools")), vision_only=has_image(body.get("messages"))
+  tools = body.get("tools")
+  models = store.read_models(
+    tools_only=bool(tools), vision_only=has_image(body.get("messages"))
   )
+  return [model for model in models if not over_beam_tools(model, tools)]
 
 
 def used_tools(messages: list) -> bool:
