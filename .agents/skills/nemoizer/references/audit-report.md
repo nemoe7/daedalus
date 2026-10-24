@@ -1,20 +1,19 @@
 # Nemoizer Audit: <target>
 
-- **Command:** `python3 skills/nemoizer/scripts/nemoize.py --audit <target>`
-- **Counts:** `<N>` blocking, `<N>` manual review, `<N>` `nonemo` markers (`<N>` files)
 - **Status:** `<pass | action-needed>`
+- **Counts:** `<N>` blocking, `<N>` manual review, `<N>` `nonemo` markers (`<N>` files)
 
 ## Blocking Findings
 
-| Location | Rule | Finding | Fix |
+| Location | Rule | Before | After |
 | --- | --- | --- | --- |
-| `path:line` | `NMO001` | `transmit -> send` | Replace `transmit` with `send` |
+| `path:line` | `NMO001`: avoided word | Before | After |
 
 ## Manual-Review Findings
 
-| Location | Rule | Finding | Disposition | Reason |
-| --- | --- | --- | --- | --- |
-| `path:line` | `STE901` | `passive voice` | `keep` or `fix` | Active voice is clear or rewrite clause |
+| Location | Rule | Disposition | Before | After | Reason |
+| --- | --- | --- | --- | --- | --- |
+| `path:line` | `STE901`: passive voice | `keep` or `fix` | Before | After | Active voice is clear or rewrite clause |
 
 ## Suppression Markers (`nonemo`)
 
