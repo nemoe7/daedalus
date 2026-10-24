@@ -504,6 +504,7 @@ td.end { text-align: right; }
 .requests tr:not(.chain) > td { white-space: nowrap; }
 .requests td.name { overflow: hidden; text-overflow: ellipsis; }
 .requests th:not(:first-child), .requests td:not(:first-child) { padding-left: 8px; padding-right: 8px; }
+.requests td.status, .requests td:nth-child(n+8):nth-child(-n+11) { text-align: right; }
 /* The desktop table reads the fallback count in the chain of the row. The phone card keeps a cell
 for the details. */
 .requests td.fallbacks-cell { display: none; }

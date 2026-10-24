@@ -2854,6 +2854,10 @@ def test_requests_time_column_keeps_its_width() -> None:
   assert ".requests td.name { overflow: hidden; text-overflow: ellipsis; }" in css, (
     "a name past its share ends in an ellipsis"
   )
+  assert (
+    ".requests td.status, .requests td:nth-child(n+8):nth-child(-n+11) { text-align: right; }"
+    in css
+  ), "status, token, and timing values align right while headers stay left"
   phone = css.split("@media (max-width: 720px) {", 1)[1]
   assert (
     "display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto;"
