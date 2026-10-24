@@ -7919,3 +7919,16 @@ def test_validation_errors_keep_exception_details_private(
   assert dashboard.keys.listing(store.MODELS_DB) == before_keys
   assert json.dumps(config.get_config(), sort_keys=True) == before_config
   assert api.SLOW_SECONDS == before_slow
+
+
+def test_scrollbars_are_thin_and_consistent_across_containers() -> None:
+  """Root and universal rules set thin scrollbars with the shared line and transparent track colors."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  root = re.search(r":root\s*\{([^}]+)\}", css)
+  universal = re.search(r"\*\s*\{([^}]+)\}", css)
+  tabs = re.search(r"\.tabs\s*\{([^}]+)\}", css)
+  assert root is not None and universal is not None and tabs is not None
+  for block in (root.group(1), universal.group(1)):
+    assert "scrollbar-width: thin;" in block
+    assert "scrollbar-color: var(--line) transparent;" in block
+  assert "scrollbar-width: none;" in tabs.group(1)
