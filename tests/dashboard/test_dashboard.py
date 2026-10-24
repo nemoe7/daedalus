@@ -712,6 +712,7 @@ def test_limit_bars_wait_for_a_limit_to_move() -> None:
     "const moving = rows.some((r) => r.limit > 0 && r.remaining < r.limit);" in rows
   )
   assert "${moving ? progressMeter(" in rows
+  assert rows.index('<span class="num') < rows.index("${moving ? progressMeter(")
 
 
 def test_balance_cards_read_as_numbers() -> None:
@@ -2797,6 +2798,10 @@ def test_limit_columns_stay_compact() -> None:
   assert value and "overflow-wrap: anywhere" in value.group(1)
   assert limit_cell and "white-space: nowrap" in limit_cell.group(1)
   assert mobile_weight and "min-width: 0" in mobile_weight.group(1)
+  stacked = re.search(r"#limit-rows \.weight\.left\s*\{([^}]*)\}", css)
+  stacked_num = re.search(r"#limit-rows \.weight\.left \.num\s*\{([^}]*)\}", css)
+  assert stacked and "flex-direction: column" in stacked.group(1)
+  assert stacked_num and "font-size: 12px" in stacked_num.group(1)
 
 
 def test_a_tablet_puts_the_limit_cards_under_the_table() -> None:

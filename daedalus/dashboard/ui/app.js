@@ -3540,8 +3540,8 @@ function renderLimitRows(rows) {
       ${nameCell(r.model, `${modelName(r.model)}${r.client ? ` <span class="muted">${esc(r.client)}</span>` : ""}`)}
       <td title="${esc(limitTitle(r))}">${esc(limitUnit(r))}</td>
       <td class="num"><div class="weight left" title="${t("limits.value.of_text", { remaining: r.remaining.toLocaleString(), limit: r.limit.toLocaleString() })}">
-        ${moving ? progressMeter(r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0) : ""}
-        <span class="num${r.remaining > 0 ? "" : " out"}">${t("limits.value.of_text", { remaining: floorCount(r.remaining), limit: floorCount(r.limit) })}</span></div></td>
+        <span class="num${r.remaining > 0 ? "" : " out"}">${t("limits.value.of_text", { remaining: floorCount(r.remaining), limit: floorCount(r.limit) })}</span>
+        ${moving ? progressMeter(r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0) : ""}</div></td>
       ${limitTimeCell(r.reset, "hide-sm muted time num")}
       ${limitTimeCell(r.at, "hide-sm muted time num")}
       <td class="limit-meta">${limitMeta(r)}</td>
