@@ -33,7 +33,7 @@ The primary P4 paradigm keeps long monitoring sessions calm in both dark and lig
 
 The visual direction matches the operational tooling domain:
 
-- **Surface treatment**: Flat, matte panels (`--panel`) sit on a low-glare canvas (`--bg`) with `1px solid var(--line)` borders and a `12px` radius (`--radius`). The UI uses no glassmorphism, no backdrop blur, and no drop shadows on page cards.
+- **Surface treatment**: Panels (`--panel`) use `1px solid var(--line)`, `10px` `--radius`, and `16px` card padding (`8px` vertical in `Settings`). Page cards use no blur or drop shadows.
 - **Border discipline**: Every `.panel`, `.stat`, and `.card` uses a single `1px solid var(--line)` border. Nested elements inside a panel use horizontal hairline dividers (`border-top: 1px solid var(--line)`) instead of nested boxes.
 - **Density calibration**: Desktop views (`>= 1024px`) cap each row at 4 stat cards (`repeat(4, 1fr)`) or 2 balanced workspace columns (`1.05fr 1fr` or `1fr 260px`).
 
@@ -121,9 +121,9 @@ The UI implementation in `daedalus/dashboard/ui/app.js` and `daedalus/dashboard/
 3. **Pool and Quota Bars (`.pool-row`, `.limit-row`, `.bar`)**: Horizontal `6px` progress bars (`border-radius: 999px`, track `var(--bar)`, fill `var(--accent)` or `var(--bad)`) that show model share or remaining quota.
 4. **Filter Toolbar (`.toolbar`)**: Flex row (`gap: 8px`) with text search, status `<select>`, time-range `<select>`, `#live-toggle`, and `#request-clear`.
 5. **Requests Table and Code Legend (`table.requests`, `.code-legend`)**: 11-column log table paired with a `260px` reference card for routing transition codes (`ctx`, `hlt`, `lmt`, `err`).
-6. **Settings Shell (`.settings-shell`, `.settings-menu`, `.setting-row`)**: 4 grouped category cards (`Routing / Affinity / Load Distribution / Limits / Optimization`, `Privacy / Catalog / Hooks`, `Personalization`, `Providers / API Keys / YAML / Maintenance`) that load the right-hand editor pane.
+6. **Settings Shell (`.settings-shell`, `.settings-menu`, `.setting-row`)**: 4 grouped category cards (`Routing / Affinity / Load Distribution / Limits / Optimization`, `Privacy / Catalog / Hooks`, `Personalization`, `Providers / API Keys / YAML / Maintenance`) that load the right-hand editor pane. Desktop rail and single-line pane rows use a `40px` height (`44px` below `900px`).
 7. **Token Chip Editor (`.chips`, `.chip`, `.chip-add`)**: Inline keyword tag list for `routing.escalation` and `routing.switch` with 1-click removal (`×`) and modal addition (`+ Add`).
-8. **Modal Dialogs (`<dialog id="modal">`, `<dialog id="chain-modal">`, `<dialog id="model-modal">`)**: Native `<dialog>` overlays (`border-radius: 12px`, `border: 1px solid var(--line)`) for setting values, fallback chains, and model details.
+8. **Modal Dialogs (`<dialog id="modal">`, `<dialog id="chain-modal">`, `<dialog id="model-modal">`)**: Native `<dialog>` overlays (`border-radius: 10px`, `border: 1px solid var(--line)`) for setting values, fallback chains, and model details.
 
 ## 8. Motion, Interaction, and States
 
@@ -169,6 +169,7 @@ Transitions apply only to `background-color`, `border-color`, `color`, `opacity`
 
 | Date | Summary | Affected Surfaces | Visual Reference |
 | --- | --- | --- | --- |
+| 2026-10-25 | Set `--radius` to `10px`, card padding to `16px`/`8px`, and desktop `Settings` rows to `40px` (`44px` mobile). Removed the mobile `Limits` check-stack cap. | `Overview`, `Limits`, `Settings`, `Providers` (`daedalus/dashboard/ui/style.css`, `docs/design/`, `docs/images/`) | [Component Visual Catalog](design-visuals/components.md), [Foundation Style Reference](design-visuals/styles.md) |
 | 2026-10-25 | Suppressed pointer focus rings, inset clipped `:focus-visible` rings, stacked `Requests` `.legend` at `<= 960px`, and harmonized `Settings` tiles. | `Overview`, `Requests`, `Models`, `Limits`, `Notifications`, `Settings` (`daedalus/dashboard/ui/style.css`, `app.js`, `docs/design/`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |
 | 2026-10-24 | Removed redundant `.page-head` title bars across all views because the `.top` navigation bar already indicates the active view. Restored accessibility semantics and contrast tokens across light and dark themes. | `Overview`, `Requests`, `Models`, `Limits`, `Notifications`, `Settings` (`daedalus/dashboard/ui/index.html`, `style.css`, `app.js`) | [Dashboard Visual Reference](design-visuals/dashboard.md) |
 | 2026-10-24 | Initialized the design record (`docs/design.md`), visual reference catalog (`docs/design-visuals/`), and annotated composite boards (`docs/images/`). | `docs/design.md`, `docs/design-visuals/*.md`, `docs/images/*.png` | [Component Visual Catalog](design-visuals/components.md), [Foundation Style Reference](design-visuals/styles.md) |

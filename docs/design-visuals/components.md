@@ -14,7 +14,7 @@ This composite board isolates 4 primary component groups from `daedalus/dashboar
 | Callout | Component | Selector | Anatomy | States |
 | --- | --- | --- | --- | --- |
 | `1` | Header Bar and Navigation Tabs | `header.top`, `nav.tabs a` | Brand wordmark + version tag (`.brand`, `#version`), 6 route tabs with count pills (`#tab-models-count`, `#tab-notifications-count`), and `#logout` ghost button | Default, `:hover`, `:focus-visible`, `.on[aria-current="page"]` |
-| `1` | KPI Stat Card | `.stats > .stat` | `22px` tabular numeral (`.stat-num`) above a `12px` muted caption (`.stat-label`) inside a `12px`-radius panel (`padding: 14px 16px`) | Default, live count update |
+| `1` | KPI Stat Card | `.stats > .stat` | `22px` tabular numeral (`.stat-num`) above a `12px` muted caption (`.stat-label`) inside a `10px`-radius panel (`padding: 14px 16px`) | Default, live count update |
 | `2` | Health Status Card | `#overview-health` | Status dot (`.dot.ok` or `.dot.bad`) + bold status label (`.health-head`), followed by hairline `.kv` rows (`Sessions`, `Affinity`, `Catalog`) | Healthy (`--ok`), Rebuilding, Degraded (`--bad`) |
 | `2` | Pool and Quota Progress Row | `.pool-card`, `#limit-rows .weight.left` | Compact 7-card pool strip on `Models`, and a `12px` remaining count stacked above a `4px` `.track` bar on `Limits` | Normal (`< 80%`), Warning (`80%–95%`), Exhausted (`100%`) |
 | `3` | Filter Toolbar and Live Toggle | `.toolbar`, `#live-toggle` | Search field (`input[type="search"]`), status and time `<select>` dropdowns, `#live-toggle` button with pulse icon, conditional `#request-clear` button, and `#request-count` hint | Idle, Filtered (`.off` removed from clear button), Live Paused (`aria-pressed="true"`) |

@@ -50,7 +50,7 @@
         },
         {
           "label": "4. Spacing & Radius Scale",
-          "sub": "8px spacing scale, 12px panel radius, and 8px control radius",
+          "sub": "8px spacing scale, 10px panel radius, and 40px desktop row height",
           "html": "styles-4.html"
         }
       ]

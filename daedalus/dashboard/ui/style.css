@@ -52,7 +52,7 @@
   --control-line: #b3b3b3;
   --accent: #304ffe; --accent-text: var(--accent); --ok: #283593; --warn: #a3386c; --bad: #781f4c; --bar: #e3e8fd; --orange: #b45309; --red: #d32f2f;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23616161' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  --tier: #212c70; --tag: #5c388c; --field: #f7f7f9; --radius: 12px; --tile-ink: #ffffff;
+  --tier: #212c70; --tag: #5c388c; --field: #f7f7f9; --radius: 10px; --tile-ink: #ffffff;
   --fast: .12s; --soft: .2s; --ease: cubic-bezier(.2, .7, .3, 1);
   --font: "Inter", "Inter Fallback", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Monaspace Neon", "Monaspace Neon Fallback", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
@@ -237,7 +237,7 @@ main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
 .pool-line .line > :last-child { overflow: hidden; text-overflow: ellipsis; }
 .pool-line .track { margin-bottom: 6px; }
 .card, .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
-.card { padding: 18px 20px; }
+.card { padding: 16px; }
 .panel { overflow-x: auto; }
 .out { color: var(--bad); }
 .balance + .balance { border-top: 1px solid var(--line); }
@@ -709,7 +709,7 @@ section[data-page="providers"], section[data-page="settings"] {
 }
 .sections button {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 10px 14px 10px 12px; border: 0; border-bottom: 1px solid var(--line);
+  padding: 8px 16px; border: 0; border-bottom: 1px solid var(--line);
   border-left: 2px solid transparent; background: none;
   color: var(--text); font: inherit; font-weight: 500; text-align: left;
 }
@@ -720,7 +720,7 @@ section[data-page="providers"], section[data-page="settings"] {
   .sections button:hover { background: var(--field); }
 }
 .sections button.on { background: var(--field); border-left-color: var(--accent); }
-.rail-search { display: flex; align-items: center; gap: 8px; padding: 10px 12px; color: var(--muted);
+.rail-search { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 12px; color: var(--muted);
   background: var(--panel); border: 1px solid var(--control-line); border-radius: var(--radius); }
 .rail-search svg { width: 15px; height: 15px; }
 .rail-search input { flex: 1; min-width: 0; border: 0; background: none; color: var(--text); font: inherit; }
@@ -792,20 +792,22 @@ section[data-page="providers"], section[data-page="settings"] {
 .pane-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .card.list { padding: 0; background: none; border: 0; }
 .sections.drill button::after { content: "\203a"; color: var(--muted); font-size: 18px; line-height: 1; }
-/* Match top and bottom card insets so single-line settings rows share a 56px height. */
+/* Match top and bottom card insets so single-line settings rows share a 40px height. */
 section[data-page="settings"] .card:not(.list),
-section[data-page="providers"] .card:not(.list) { padding-top: 10px; }
+section[data-page="providers"] .card:not(.list) { padding-top: 8px; }
 section[data-page="settings"] .card,
-section[data-page="providers"] .card { padding-bottom: 10px; }
+section[data-page="providers"] .card { padding-bottom: 8px; }
 section[data-page="settings"] .field:not(.stack),
-section[data-page="providers"] .field:not(.stack),
-.fold summary { min-height: 56px; }
-#settings > .section-pane .sections button { min-height: 56px; }
+section[data-page="providers"] .field:not(.stack) { min-height: 40px; padding: 0; }
+.fold summary { min-height: 40px; }
+#settings > .section-pane .sections button { min-height: 40px; }
 @media (min-width: 721px) {
-  .card[data-section="keys"] .keys tbody tr { height: 56px; }
+  .card[data-section="keys"] .keys tbody tr { height: 40px; }
+  .card[data-section="keys"] .keys tbody td { padding-block: 4px; }
 }
-.field select { padding-block: 6px; }
-.sections button { min-height: 44px; }
+.field select { padding-block: 4px; }
+section[data-page="providers"] .field:not(.stack) input:not(.switch) { padding-block: 4px; }
+.sections button { min-height: 40px; }
 .section-pane { flex: 1 1 min(360px, 100%); display: grid; gap: 16px; min-width: 0; }
 .section-pane > .card { min-width: 0; }
 .section-pane .back {
@@ -819,7 +821,7 @@ section[data-page="providers"] .field:not(.stack),
 .settings h3 { margin-bottom: 8px; }
 .field {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 10px 0; border-top: 1px solid var(--line);
+  padding: 8px 0; border-top: 1px solid var(--line);
 }
 .field { position: relative; }
 /* Fade rows and controls together when a card toggle enables or disables them. */
@@ -852,9 +854,9 @@ section[data-page="providers"] .field:not(.stack),
 /* A value row shows its value as text: a click opens the small editor of that 1 value. */
 .field input[readonly] { border-color: transparent; background: transparent; padding-left: 2px; padding-right: 2px; cursor: pointer; }
 .field input[readonly]:hover, .field input[readonly]:focus-visible { background: var(--field); }
-section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6px 8px; }
+section[data-page="settings"] .field input[type=text] { width: 110px; padding: 4px 8px; }
 .settings .field.stack input[type=text] { width: 100%; }
-.field input[type=number] { width: 72px; padding: 6px 8px; text-align: right; appearance: textfield; -moz-appearance: textfield; }
+.field input[type=number] { width: 72px; padding: 4px 8px; text-align: right; appearance: textfield; -moz-appearance: textfield; }
 .field input[type=number]::-webkit-inner-spin-button,
 .field input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 /* A boolean row draws a switch at the right edge of the row: a pill with a knob that
@@ -890,7 +892,7 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6
 /* A closed group of fields: the summary is the row, and the body holds the fields. */
 .fold { border-top: 1px solid var(--line); }
 .fold summary {
-  position: relative; display: flex; align-items: center; gap: 6px; padding: 10px 0;
+  position: relative; display: flex; align-items: center; gap: 6px; padding: 8px 0;
   cursor: pointer; list-style: none; font-weight: 500;
 }
 .fold summary::-webkit-details-marker { display: none; }
@@ -1102,6 +1104,14 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   [data-hook-drop], .section-pane .back, #nav a { min-height: 44px; min-width: 44px; }
   /* A value row on a touch screen gives its field the 44 px floor. */
   section[data-page="settings"] .field input:not(.switch) { min-height: 44px; }
+  #settings > .section-pane .sections button,
+  section[data-page="settings"] .field:not(.stack),
+  section[data-page="providers"] .field:not(.stack),
+  section[data-page="providers"] .field:not(.stack) input:not(.switch),
+  section[data-page="settings"] .field select,
+  section[data-page="providers"] .field select,
+  .card[data-section="keys"] .keys .ghost,
+  .fold summary { min-height: 44px; }
   /* Round icon buttons keep their drawn box: the target grows outside it. */
   button.hint { position: relative; }
   button.hint::after { content: ""; position: absolute; inset: -14px; }

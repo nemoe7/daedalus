@@ -45,7 +45,9 @@ Each swatch in rows `1` and `2` of `styles-board.png` maps directly to a CSS cus
 
 | Token / Property | Value | Usage |
 | --- | --- | --- |
-| `--radius` | `12px` | Outer border radius for `.panel`, `.stat`, and `<dialog class="modal">` |
+| `--radius` | `10px` | Outer border radius for `.panel`, `.card`, `.stat`, and `<dialog class="modal">` |
+| Card padding | `16px` (`8px 16px` in `Settings`) | Standard `.card` inset on the `8px` spacing scale |
+| Desktop row height | `40px` (`44px` `<= 900px`) | `Settings` rail rows, single-line pane rows, and `API Keys` table rows |
 | Control radius | `8px` | Inner border radius for `button`, `input`, `select`, and `.chip` |
 | Pill radius | `999px` | Progress bars (`.bar`) and status dots (`.dot`) |
 | Shell padding | `0 24px 48px` (`0 14px 32px` mobile) | Horizontal and bottom breathing room on `#app` |

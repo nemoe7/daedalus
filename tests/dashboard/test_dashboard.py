@@ -1753,28 +1753,42 @@ assert(modal.includes('<span class="mark-sep" aria-hidden="true">/</span>'),
 
 
 def test_a_card_closes_on_the_room_of_its_rows() -> None:
-  """Settings and Provider card CSS uses row-sized padding and standardized row heights."""
+  """Settings and Provider card CSS uses 8px-scale insets and 40px desktop rows."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
   ).read_text(encoding="utf-8")
+  assert "--radius: 10px;" in css, "panel radius follows the 10px house rule"
+  assert ".card { padding: 16px; }" in css, "cards sit on the 8px spacing scale"
   assert (
     'section[data-page="settings"] .card:not(.list),\n'
-    'section[data-page="providers"] .card:not(.list) { padding-top: 10px; }'
-  ) in css, "the first row of a card keeps the room of a row at the top edge"
+    'section[data-page="providers"] .card:not(.list) { padding-top: 8px; }'
+  ) in css, "the first row of a card keeps an 8px top inset"
   assert (
     'section[data-page="settings"] .card,\n'
-    'section[data-page="providers"] .card { padding-bottom: 10px; }'
-  ) in css, "the last row of a card keeps the room of a row at the bottom edge"
+    'section[data-page="providers"] .card { padding-bottom: 8px; }'
+  ) in css, "the last row of a card keeps an 8px bottom inset"
   assert (
     'section[data-page="settings"] .field:not(.stack),\n'
-    'section[data-page="providers"] .field:not(.stack),\n'
-    ".fold summary { min-height: 56px; }"
-  ) in css, "every single-line settings row shares one 56px height"
-  assert "#settings > .section-pane .sections button { min-height: 56px; }" in css, (
-    "providers section file and block rows share the 56px settings row height"
+    'section[data-page="providers"] .field:not(.stack) { min-height: 40px; padding: 0; }'
+  ) in css, "every single-line settings row shares one 40px desktop height"
+  assert ".fold summary { min-height: 40px; }" in css, (
+    "closed field groups share the 40px desktop row height"
   )
-  assert ".field select { padding-block: 6px; }" in css, (
-    "select controls match input control height inside settings rows"
+  assert "#settings > .section-pane .sections button { min-height: 40px; }" in css, (
+    "providers section file and block rows share the 40px desktop row height"
+  )
+  assert ".sections button { min-height: 40px; }" in css, (
+    "desktop settings rail rows share the 40px row height"
+  )
+  assert ".field select { padding-block: 4px; }" in css, (
+    "select controls match input control height inside 40px settings rows"
+  )
+  narrow = css.rsplit("@media (max-width: 900px) {", 1)[1]
+  assert ".sections button { min-height: 44px; }" in narrow, (
+    "narrow viewports preserve the 44px touch target floor"
+  )
+  assert ".fold summary { min-height: 44px; }" in narrow, (
+    "narrow viewports preserve a 44px touch target on closed field groups"
   )
 
 
@@ -1830,7 +1844,7 @@ def test_provider_files_use_the_shared_section_list_style() -> None:
   assert "border-radius: var(--radius)" in sections, (
     "shared lists have the standard radius"
   )
-  assert "padding: 10px 14px" in rows, "shared list rows use the standard spacing"
+  assert "padding: 8px 16px" in rows, "shared list rows use the 8px spacing scale"
 
 
 def test_the_page_scroll_does_not_wait_on_has_support() -> None:
@@ -3012,7 +3026,7 @@ def test_the_settings_sections_carry_a_rule() -> None:
   """Settings CSS defines header separators, and section code uses localized titles."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  assert "padding: 10px 0; border-top: 1px solid var(--line);" in css, (
+  assert "padding: 8px 0; border-top: 1px solid var(--line);" in css, (
     "every settings row carries the rule that separates it from the row above"
   )
   assert ".card > h3 + .field, .card > .field:first-child { border-top: 0; }" in css, (
