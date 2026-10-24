@@ -578,9 +578,7 @@ def test_the_fixtures_hold_each_settings_row_of_the_page() -> None:
     elif group in defaults and name.group(1) not in defaults[group]:
       missing.append(f"{group}.{name.group(1)}")
   assert not missing, missing
-  assert defaults["personalization"]["hide_headers"] is False, (
-    "a boolean default keeps the switch, not the number box"
-  )
+  assert "hide_headers" not in defaults["personalization"]
 
 
 def test_the_fixtures_carry_the_edge_cases() -> None:

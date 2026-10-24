@@ -1772,15 +1772,15 @@ def test_select_section_scopes_its_queries_to_its_own_host() -> None:
 
 
 def test_provider_tiles_carry_the_vendored_marks() -> None:
-  """Provider rows and the pane summary draw the vendored mark in the tile."""
+  """Provider rows in the section rail draw the vendored mark in the tile."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   block = app.partition("const chipFor = (host, key) => {")[2].partition("};")[0]
   assert "MARK_FILES.has(key)" in block and "mark(key, true)" in block, (
     "a provider tile draws its vendored mark"
   )
-  summary = app.partition("function selectSection(host, key,")[2].partition("\n}\n")[0]
-  assert "chipFor(host.id, key)" in summary, "the pane summary draws the provider tile"
+  rail = app.partition("function sectionList(id, items,")[2].partition("\n}\n")[0]
+  assert "chipFor(id, key)" in rail, "the section rail draws the provider tile"
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   tile = css.partition(".tile .mark {")[2].partition("}")[0]
   assert "width: 13px" in tile, "the tile sizes the mark like its glyph"
@@ -2263,44 +2263,28 @@ def test_model_numbers_align_right() -> None:
 
 
 def test_every_screen_names_itself_in_one_page_title() -> None:
-  """The header tabs name each screen, and Settings sections carry their own headings."""
+  """The header tabs name each screen, and Settings section buttons carry summary tooltips."""
   root = Path(__file__).resolve().parents[2]
   html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   assert "page-title" not in html
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert "settings-list-title" not in app
   assert "page-title" not in app
+  assert "data-pane-summary" not in app
   assert '<h1 class="pane-title" data-pane-title hidden></h1>' in app
-  assert (
-    'summary.innerHTML = `${chipFor(host.id, key)}<div class="pane-heading"><h2>${esc(label)}</h2>'
-    in app
-  )
+  assert 'title: id === "settings" ? (SECTION_SUMMARIES[key] ?? null) : null' in app
 
 
-def test_provider_list_uses_the_settings_summary() -> None:
-  """The provider list uses the same centered heading as other Settings sections."""
+def test_provider_list_omits_settings_hero_headers() -> None:
+  """The provider list and Settings sections omit hero headers in the pane."""
   root = Path(__file__).resolve().parents[2]
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   files = app.partition("function renderFiles() {")[2].partition("\n}\n")[0]
   assert "provider-files-head" not in files
   section = app.partition("function selectSection(host, key,")[2].partition("\n}\n")[0]
-  assert (
-    'summary.innerHTML = `${chipFor(host.id, key)}<div class="pane-heading"><h2>${esc(label)}</h2>'
-    in section
-  )
-  assert (
-    'summary.hidden = host.id === "settings" && key === "providers";' not in section
-  )
+  assert "data-pane-summary" not in section
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  assert ".pane-summary h2 {" in css
-  assert (
-    '#settings:has(#provider-form[data-detail="1"]) > .section-pane > .pane-summary'
-    in css
-  )
-  assert (
-    '#settings:has(#provider-form[data-file-open="1"]) > .section-pane > .pane-summary'
-    in css
-  )
+  assert ".pane-summary" not in css
 
 
 def test_provider_values_and_helpers_use_readable_text_sizes() -> None:
@@ -3172,18 +3156,9 @@ assert(pane.scrollTop === 240, 'the pane lands where it was');
   assert "keepSettingsScroll(scroll);" in body, "the rebuild puts the pane back"
 
 
-def test_app_js_settings_hide_headers_classes_section() -> None:
-  """The personalization hide flag classes the settings section, and CSS hides the summary."""
-  on = json.dumps(
-    {
-      "path": "config/daedalus.yml",
-      "headroom_available": False,
-      "text": "",
-      "defaults": settings.DEFAULTS,
-      "file": {"personalization": {"hide_headers": True}},
-    }
-  )
-  off = json.dumps(
+def test_app_js_settings_section_buttons_carry_summary_tooltips() -> None:
+  """Settings rail buttons carry the section description in their title attribute."""
+  payload = json.dumps(
     {
       "path": "config/daedalus.yml",
       "headroom_available": False,
@@ -3193,27 +3168,22 @@ def test_app_js_settings_hide_headers_classes_section() -> None:
     }
   )
   run_app_js(
-    "state, renderSettings",
+    "state, renderSettings, SECTION_SUMMARIES",
     f"""
-const section = {{ classes: new Set() }};
-section.classList = {{
-  toggle: (name, keep) => (keep ? section.classes.add(name) : section.classes.delete(name)),
-}};
-node('settings').closest = (sel) => (sel.includes('data-page="settings"') ? section : null);
-probe.state.settings = {on};
+probe.state.settings = {payload};
 probe.renderSettings();
-assert(section.classes.has('hide-page-headers'), 'the hide flag classes the settings section');
 const html = node('settings').innerHTML;
-assert(html.includes('id="set-personalization-hide_headers"'), 'the row carries the switch');
-probe.state.settings = {off};
-probe.renderSettings();
-assert(!section.classes.has('hide-page-headers'), 'the cleared flag removes the class');
+assert(!html.includes('id="set-personalization-hide_headers"'), 'hide_headers is removed');
+assert(!html.includes('data-pane-summary'), 'hero summary header is removed');
+for (const [key, text] of Object.entries(probe.SECTION_SUMMARIES)) {{
+  assert(
+    html.includes(`data-section="${{key}}"`) && html.includes(`title="${{text}}"`),
+    `section ${{key}} carries its summary in title`,
+  );
+}}
 """,
   )
-  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  assert 'section[data-page="settings"].hide-page-headers .pane-summary {' in css, (
-    "the class hides the centered summary"
-  )
+  assert "hide_headers" not in settings.DEFAULTS["personalization"]
 
 
 def test_app_js_settings_switches() -> None:
@@ -5659,31 +5629,31 @@ def test_the_undo_never_moves_the_row() -> None:
 
 
 def test_app_js_places_the_undo_beside_the_control() -> None:
-  """A provider write keeps Undo in its row. A settings write reports in the pane header."""
+  """Provider and settings writes place Undo and save status in the changed row."""
   code = _app_js_vm(
     """
 vm.runInContext('globalThis.__probe.rememberWrite = rememberWrite; globalThis.__probe.placeUndo = placeUndo;'
   + ' globalThis.__probe.lastWrite = () => lastWrite; globalThis.__probe.dropUndo = dropUndo;', sandbox);
 let placed = '';
+let inserted = null;
 const control = { id: 'set-catalog-every', dataset: { set: 'catalog.every' }, isConnected: true,
   matches: (sel) => sel === '[data-set]',
   closest: (sel) => (sel === '[data-section]' ? { dataset: { section: 'catalog' } } : row),
   querySelector: () => null };
 const row = {
   children: [control],
-  insertBefore: (button, before) => { placed = 'insertBefore ' + (before === control); },
+  insertBefore: (node, before) => { inserted = node; placed = 'insertBefore ' + (before === control); },
   prepend: () => { placed = 'prepend'; },
   closest: () => row,
-  querySelector: () => control,
+  querySelector: (sel) => (sel === '.save-line' ? null : control),
 };
-const summary = { children: [], append: (node) => summary.children.push(node),
-  appendChild: (node) => summary.children.push(node), querySelector: () => null };
 sandbox.document.querySelector = () => null;
 sandbox.document.getElementById = () => ({ closest: () => null,
   classList: { add: () => {}, remove: () => {} } });
 sandbox.document.createElement = (tag) => {
   const made = { tag, children: [], className: '', addEventListener: () => {},
-    remove: () => {}, setAttribute: () => {}, querySelector: () => null,
+    remove: () => {}, setAttribute: () => {},
+    querySelector: (sel) => (sel === '.saved' ? made.children[0] : null),
     append: (...kids) => made.children.push(...kids) };
   return made;
 };
@@ -5691,12 +5661,12 @@ sandbox.__probe.rememberWrite('providers', { path: 'p', text: 'a' }, control);
 assert.strictEqual(placed, 'insertBefore true', 'the provider Undo joins the row before its control: ' + placed);
 assert.strictEqual(sandbox.__probe.lastWrite().key, 'catalog.every', 'the key of the row');
 sandbox.__probe.dropUndo();
-sandbox.document.querySelector = (sel) => (sel === '.section-pane [data-pane-summary]' ? summary : null);
+placed = '';
+inserted = null;
 sandbox.__probe.rememberWrite('settings', { settings: true, text: 'b' }, control);
-assert.strictEqual(summary.children.length, 1, 'the settings write reports in the pane header');
-const line = summary.children[0];
-assert.strictEqual(line.className, 'save-line', 'the pane header takes the saved line');
-assert.strictEqual(line.children[1], sandbox.__probe.lastWrite().button,
+assert.strictEqual(placed, 'insertBefore true', 'the settings write reports in the changed row');
+assert.strictEqual(inserted.className, 'save-line', 'the row takes the saved line');
+assert.strictEqual(inserted.children[1], sandbox.__probe.lastWrite().button,
   'the Undo rides with the line');
 let dropped = 0;
 const gone = { remove: () => { dropped += 1; } };

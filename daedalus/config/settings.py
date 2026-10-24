@@ -105,7 +105,6 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "images": "photos",
     "theme": "system",
     "time_format": "24h",
-    "hide_headers": False,
   },
 }
 # The hook surfaces whose active files can have an explicit order.

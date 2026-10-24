@@ -2135,7 +2135,11 @@ function sectionList(id, items, active, opts = {}) {
   const groups = opts.groups ?? [items];
   const navs = groups.map((group) => `<nav class="sections" aria-label="${t("common.sections_label")}">${group.map(([key, label]) => actionButton(`${chipFor(id, key)}<span>${esc(label)}</span>`, {
     variant: key === active ? "on" : "",
-    attrs: { "data-section": key, "aria-current": key === active ? "true" : null },
+    attrs: {
+      "data-section": key,
+      "aria-current": key === active ? "true" : null,
+      title: id === "settings" ? (SECTION_SUMMARIES[key] ?? null) : null,
+    },
   })).join("")}</nav>`).join("");
   const search = opts.search ? `<label class="rail-search">${icon("search")}<input id="settings-search" type="text"
     autocomplete="off" aria-label="${esc(t("settings.search_label"))}" placeholder="${esc(t("settings.search_label"))}"></label>` : "";
@@ -2258,16 +2262,9 @@ function selectSection(host, key, open = sectionState(host).open) {
       else outer.removeAttribute("aria-current");
     }
   }
-  // The studied reference heads each pane with a centered icon, title and one line.
+  // A phone drill page is titled by the section it opens, under the back label.
   const label = [...host.querySelectorAll(":scope > .rail > .sections button")]
     .find((button) => button.dataset.section === key)?.querySelector(":scope > span:not(.tile)")?.textContent ?? key;
-  const summary = host.querySelector(":scope > .section-pane > [data-pane-summary]");
-  if (summary) {
-    summary.hidden = false;
-    const text = SECTION_SUMMARIES[key] ?? "";
-    summary.innerHTML = `${chipFor(host.id, key)}<div class="pane-heading"><h2>${esc(label)}</h2><p>${esc(text)}</p></div>`;
-  }
-  // A phone drill page is titled by the section it opens, under the back label.
   if (host.id === "settings") {
     const title = host.querySelector(":scope > .section-pane > .pane-bar > [data-pane-title]");
     if (title) {
@@ -2822,20 +2819,23 @@ function controlKey(anchor) {
   return named?.id ?? "";
 }
 
-// The icon sits at the top right of the row that changed. A render of that card replaces the
-// row, so the icon falls back to the header of the card.
-function placeUndo(anchor = null) {
-  if (!lastWrite?.button) return;
-  if (lastWrite.page === "settings") return placeSaveLine();
-  // The same row of the fresh render, from the key of the write.
-  const again = lastWrite.key
+function writeRow(anchor = null) {
+  const again = lastWrite?.key
     ? [...document.querySelectorAll("[data-set]")].find((node) => node.dataset.set === lastWrite.key)?.closest(".field")
       ?? document.getElementById(lastWrite.key)?.closest(".field")
     : null;
   const target = (anchor?.isConnected ? anchor : null) ?? again
-    ?? document.querySelector(`.section-pane > .card[data-section="${lastWrite.section}"]`);
-  if (!target) return;
-  const row = target.closest(".field") ?? target;
+    ?? document.querySelector(`.section-pane > .card[data-section="${lastWrite?.section}"]`);
+  return target ? (target.closest(".field") ?? target) : null;
+}
+
+// The icon sits at the top right of the row that changed. A render of that card replaces the
+// row, so the icon falls back to the header of the card.
+function placeUndo(anchor = null) {
+  if (!lastWrite?.button) return;
+  if (lastWrite.page === "settings") return placeSaveLine(anchor);
+  const row = writeRow(anchor);
+  if (!row) return;
   // Put Undo between the label and control without moving the label or row.
   const control = row.querySelector(".input, .pills, select, input");
   if (control) row.insertBefore(lastWrite.button, control);
@@ -2844,19 +2844,21 @@ function placeUndo(anchor = null) {
 
 let saveTimer = null;
 
-// Report the write in the pane header, with the time since it landed.
-function placeSaveLine() {
+// Report the write on the changed row, with the time since it landed.
+function placeSaveLine(anchor = null) {
   if (lastWrite?.page !== "settings" || !lastWrite.button) return;
-  const sum = document.querySelector(".section-pane [data-pane-summary]");
-  if (!sum) return;
-  let line = sum.querySelector(".save-line");
+  const row = writeRow(anchor);
+  if (!row) return;
+  let line = row.querySelector(".save-line");
   if (!line) {
     line = document.createElement("span");
     line.className = "save-line";
     const text = document.createElement("span");
     text.className = "saved";
     line.append(text, lastWrite.button);
-    sum.appendChild(line);
+    const control = row.querySelector(".input, .pills, select, input");
+    if (control) row.insertBefore(line, control);
+    else row.prepend(line);
   }
   const text = line.querySelector(".saved");
   if (text) text.textContent = t("settings.saved_text", { when: relative(lastWrite.at / 1000) });
@@ -3044,7 +3046,6 @@ const SETTINGS = [
     ["images", t("settings.personalization.image.label"), "name", t("settings.personalization.image.hint")],
     ["theme", t("settings.personalization.theme.label"), "choice", t("settings.personalization.theme.hint")],
     ["time_format", t("settings.personalization.time_format.label"), "choice", t("settings.personalization.time_format.hint")],
-    ["hide_headers", t("settings.personalization.hide_headers.label"), "", t("settings.personalization.hide_headers.hint")],
   ]],
 ];
 
@@ -3193,8 +3194,7 @@ function renderSettings() {
   const filesHost = $("files");
   const formHost = $("provider-form");
   $("settings").innerHTML = sectionList("settings", items, active, { search: true, groups: railGroups })
-    + sectionPane(t("nav.settings_link"), `<div class="pane-summary" data-pane-summary></div>`
-      + groups.map(([group, title, fields]) => card([group, title, fields]).replace(
+    + sectionPane(t("nav.settings_link"), groups.map(([group, title, fields]) => card([group, title, fields]).replace(
       '<div class="card">', `<div class="card" data-section="${esc(group)}">`)).join("")
       + `<div class="provider-flow" data-section="providers"><div id="providers-slot"></div></div>`
       + keysCard()
@@ -3208,9 +3208,6 @@ function renderSettings() {
     slot.remove();
   }
   selectSection($("settings"), active);
-  // The personalization toggle hides the page summaries across the settings tabs.
-  $("settings").closest("section[data-page=\"settings\"]")?.classList
-    .toggle("hide-page-headers", Boolean(setting("personalization", "hide_headers")));
   const railSearch = $("settings-search");
   if (railSearch) {
     railSearch.value = state.settingsSearch ?? "";
