@@ -79,7 +79,7 @@ services:
 
   tika:
     profiles: [tika]
-    image: apache/tika:3.3.0.0-full
+    image: apache/tika:3.3.1.0-full
     container_name: daedalus-tika
     command: ["-noFork"] # 1 Java process instead of a watchdog and a parser
     env_file:

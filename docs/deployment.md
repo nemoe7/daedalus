@@ -57,7 +57,7 @@ The Docker and git commands below are the same in cmd, PowerShell, and bash.
 | Run the dev image | Run the [platform installer](../README.md#quick-start) with `--dev` without the source. It downloads the files of `main` and pulls `ghcr.io/nemoe7/daedalus:dev` at each start. |
 | Stop | `docker compose down` |
 | Log | `docker compose logs -f api` |
-| Rebuild the catalog | The Catalog line of the Overview status card, or `docker compose exec api daedalus catalog` |
+| Rebuild catalog | Overview status card Catalog action, or `docker compose exec api daedalus catalog` |
 | Run the CLI on the host | `daedalus catalog` probes `DAEDALUS_URL`, or `DAEDALUS_HOST` and `DAEDALUS_PORT`, and asks a live server to rebuild. A refused request stops the command, and `--force` rebuilds the store here. `dump` reads the shared state folder. Run hook commands through the container CLI. |
 | Dump catalogs/models | `docker compose exec api daedalus dump catalog`, `models`, `enrichments`, or `all`. Files go to `.daedalus-state/dump` |
 | Update the hook files | `docker compose exec api daedalus hooks update` reads the `hooks.sources` repos and writes `hooks.lock.json`. `daedalus hooks verify` then reads the lock and loads each file. See [Hooks](hooks.md#sources-and-the-lock) |
@@ -237,7 +237,7 @@ To check the services and settings:
 | --- | --- | --- |
 | Web search | `search_web`, `fetch_url` | **Web Search** is on at the start of each chat. |
 | Files | none | Tika reads the file at upload. Open WebUI adds the matching parts to the prompt. |
-| Code | `execute_code` | On at the start of each chat. The code runs in the browser (Pyodide). |
+| Code | `execute_code` | On at chat start. Code runs in the browser (Pyodide). |
 
 Keep **Function Calling** on **Native**, the Open WebUI default since v0.10.0. Native sends the tools in `tools`, and daedalus skips the models that cannot call tools. Legacy puts the tools in the prompt and calls tools only 1 time, before the answer.
 
@@ -250,7 +250,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Setting | Value |
 | --- | --- |
 | Image | `pgvector/pgvector:0.8.6-pg18-trixie` |
-| Content | The vectors of files, knowledge, and memory. The chats stay in the `open-webui` volume. |
+| Content | Vectors for files, knowledge, and memory. Chats stay in the `open-webui` volume. |
 | Password | `OPENWEBUI_DB_PASSWORD`, default `openwebui`. No port on the host. |
 | Keys | `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB`, all `openwebui`. |
 | Vector size | `PGVECTOR_INITIALIZE_MAX_VECTOR_LENGTH` is `1024`, the size of a `mistral/mistral-embed-2312` vector. A new model needs a new index. |
@@ -260,7 +260,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 
 | Setting | Value |
 | --- | --- |
-| Image | `apache/tika:3.3.0.0-full`, with Tesseract OCR. Open WebUI uses the Tika 3 API by default. |
+| Image | `apache/tika:3.3.1.0-full`, with Tesseract OCR. Open WebUI uses the Tika 3 API by default. |
 | Process | 1 Java process (`-noFork`) with a 512 MB heap, from `JAVA_TOOL_OPTIONS` |
 | Out of memory | Java stops, and Docker starts Tika again |
 | OCR | Tesseract reads the pages with little text on the Pi CPU. 1 scanned page takes many seconds. |
