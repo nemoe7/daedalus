@@ -867,6 +867,13 @@ section[data-page="models"] > .editbar, section[data-page="limits"] > .editbar {
 /* The Limits filter keeps a readable width beside the check button. */
 .editbar input[type="search"] { min-width: 12rem; }
 section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
+.limits-check-stack {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; max-height: 39px; margin-block: -4px;
+}
+#limits-check { display: inline-flex; align-items: center; gap: 6px; padding: 2px 12px; }
+#limits-check.checking svg, #limits-check:disabled svg { animation: spin .7s linear infinite; }
+#limits-checked { margin-left: 0; font-size: 11px; line-height: 1; white-space: nowrap; }
 /* The provider cards hold short values, so the column stays narrow. The table takes the rest. */
 @media (min-width: 721px) { #balances { flex: 0 1 260px; } }
 /* A narrow card wraps a long label instead of cutting it. */

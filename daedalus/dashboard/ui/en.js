@@ -132,7 +132,7 @@ globalThis.DAEDALUS_LOCALE = {
   "limits.balance.neurons.label": "Neurons today",
   "limits.balance.hourly_requests.label": "Requests left this hour",
   "limits.balance.neurons_per_day_text": "Neurons/day",
-  "limits.checked_text": "Checked {time} · hourly",
+  "limits.checked_text": "Checked {time}",
   "limits.column.left_column": "Remaining",
   "limits.column.limit_column": "Limit",
   "limits.column.reset_column": "Reset",

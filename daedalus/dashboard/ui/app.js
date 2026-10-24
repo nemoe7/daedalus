@@ -349,15 +349,18 @@ function showSpinner(on) {
 }
 
 async function call(path, options = {}) {
-  calling += 1;
-  if (calling === 1) spinnerTimer = setTimeout(() => showSpinner(true), 300);
+  const { spinner = true, ...fetchOptions } = options;
+  if (spinner) {
+    calling += 1;
+    if (calling === 1) spinnerTimer = setTimeout(() => showSpinner(true), 300);
+  }
   try {
     let response;
     try {
       response = await fetch("ui/api/" + path, {
         credentials: "same-origin",
         headers: { "Content-Type": "application/json", ...(session() ? { "x-daedalus-session": session() } : {}) },
-        ...options,
+        ...fetchOptions,
       });
     } catch {
       // Replace browser fetch errors with the dashboard connection error.
@@ -376,10 +379,12 @@ async function call(path, options = {}) {
     }
     return body;
   } finally {
-    calling -= 1;
-    if (!calling) {
-      clearTimeout(spinnerTimer);
-      showSpinner(false);
+    if (spinner) {
+      calling -= 1;
+      if (!calling) {
+        clearTimeout(spinnerTimer);
+        showSpinner(false);
+      }
     }
   }
 }
@@ -3872,15 +3877,16 @@ $("login").addEventListener("submit", async (event) => {
 $("limits-check").addEventListener("click", async () => {
   const button = $("limits-check");
   button.disabled = true;
-  $("limits-message").textContent = t("action.checking_button");
+  button.classList.add("checking");
+  $("limits-message").textContent = "";
   try {
-    renderLimits(await call("limits", { method: "POST" }));
-    $("limits-message").textContent = "";
+    renderLimits(await call("limits", { method: "POST", spinner: false }));
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin();
     $("limits-message").textContent = error.message;
   } finally {
     button.disabled = false;
+    button.classList.remove("checking");
   }
 });
 // Open the diff dialog from a rebuild notification.

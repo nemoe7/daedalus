@@ -7608,13 +7608,30 @@ assert(rows.length === 1 && rows[0].model === 'live', 'only the exhausted catalo
 
 
 def test_limit_check_time_is_relative_with_an_exact_hover() -> None:
-  """Check status uses shared time markup and keeps the unchecked state."""
+  """Check status uses shared time markup, stacks below Check now, and omits hourly text."""
+  root = Path(__file__).resolve().parent.parent.parent
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  locale = (root / "daedalus/dashboard/ui/en.js").read_text(encoding="utf-8")
+  assert '"limits.checked_text": "Checked {time}"' in locale
+  assert 'class="limits-check-stack"' in page
+  stack = page.split('class="limits-check-stack">', 1)[1].split("</div>", 1)[0]
+  assert stack.index('id="limits-check"') < stack.index('id="limits-checked"')
+  assert 'call("limits", { method: "POST", spinner: false })' in app
+  assert 'button.classList.add("checking")' in app
+  assert 'button.classList.remove("checking")' in app
+  assert (
+    "#limits-check.checking svg, #limits-check:disabled svg { animation: spin .7s linear infinite; }"
+    in css
+  )
   run_app_js(
     "renderLimits, timeText",
     """
 const checked = Date.now() / 1000 - 120;
 probe.renderLimits({checked, providers: [], lanes: []});
 assert(node('limits-checked').innerHTML.includes(probe.timeText(checked)));
+assert(!node('limits-checked').innerHTML.includes('hourly'));
 probe.renderLimits({checked: null, providers: [], lanes: []});
 assert.strictEqual(node('limits-checked').innerHTML, LOCALE['limits.not_checked_text']);
 """,
