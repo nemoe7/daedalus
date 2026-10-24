@@ -267,6 +267,19 @@ def test_mapped_provider_behaviors_keep_safe_lines() -> None:
   behavior = upstream.mapped_behavior(503, {}, json.dumps({"error": NVIDIA}).encode())
   assert isinstance(behavior, providers.UpstreamOverload), behavior
   assert behavior.safe_line == "The Nvidia upstream is temporarily overloaded."
+  mistral_capacity = json.dumps(
+    {
+      "object": "error",
+      "message": "Not enough capacity available for this request, please retry later.",
+      "type": "backend_out_of_capacity",
+      "param": None,
+      "code": "3505",
+      "raw_status_code": 429,
+    }
+  ).encode()
+  behavior = upstream.mapped_behavior(429, {}, mistral_capacity)
+  assert isinstance(behavior, providers.UpstreamOverload), behavior
+  assert behavior.safe_line == "The upstream provider is temporarily overloaded."
   assert (
     upstream.mapped_behavior(418, {}, b'{"error": {"message": "something new"}}')
     is None

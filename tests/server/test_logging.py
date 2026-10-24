@@ -90,6 +90,36 @@ def test_lines() -> None:
       lines.lines[4],
     )
     lines.lines.clear()
+    api.COOLDOWNS.start("first/a", {"retry-after": "30"}, b"")
+    lines.lines.clear()
+    original = api.get_config, api.chain
+    api.get_config = lambda: config
+    api.chain = lambda model, body, config, key="": (
+      [["first/a"]],
+      "daedalus/auto:TIER-B",
+    )
+    try:
+      cooled_resp = TestClient(api.app, headers=AUTH).post(
+        "/v1/chat/completions",
+        json={
+          "model": "daedalus/auto",
+          "messages": [{"role": "user", "content": "hi"}],
+        },
+      )
+    finally:
+      api.get_config, api.chain = original
+      api.COOLDOWNS.clear()
+    assert cooled_resp.status_code == 429, cooled_resp.text
+    assert [" ".join(line.split()[:4]) for line in lines.lines] == [
+      "WARN daedalus rejected daedalus/auto",
+      "INFO daedalus POST /v1/chat/completions",
+    ], lines.lines
+    assert "429 cooldown:reset wait=" in lines.lines[0], lines.lines
+    assert re.search(
+      r"key=master model=daedalus/auto pool=deinos reason=cooldown:reset wait=\d+\.\d{3}s$",
+      lines.lines[1],
+    ), lines.lines
+    lines.lines.clear()
     client = TestClient(api.app)
     client.get("/")
     client.get("/health")

@@ -83,7 +83,12 @@ def test_requests() -> None:
     response = client.post("/v1/chat/completions", json=direct)
     assert response.status_code == 429 and sent == [], "no upstream request"
     assert response.json()["error"]["type"] == "rate_limit_exceeded", response.text
+    assert "Daedalus rate limit (pacing:rpm" in response.json()["error"]["message"]
     assert 59 <= int(response.headers["retry-after"]) <= 60, response.headers
+    row = api.dashboard.HISTORY.latest(1)[0]
+    assert row["attempts"][0]["model"] == "first/a", row["attempts"]
+    assert row["attempts"][0]["result"] == "paced", row["attempts"]
+    assert "Daedalus local pacing (rpm): 1/1 in 60s" in row["attempts"][0]["error"]
     api.PACING.enabled = False
     assert client.post("/v1/chat/completions", json=direct).status_code == 200
     assert sent == ["one.test"], "pacing is off"

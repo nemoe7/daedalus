@@ -271,12 +271,21 @@ def test_requests() -> None:
     response = client.post("/v1/chat/completions", json=direct)
     assert response.status_code == 429 and sent == [], "no upstream request"
     assert response.json()["error"]["type"] == "rate_limit_exceeded", response.text
+    assert "Daedalus rate limit (cooldown:reset" in response.json()["error"]["message"]
     assert 29 <= int(response.headers["retry-after"]) <= 30, response.headers
+    row = api.dashboard.HISTORY.latest(1)[0]
+    assert row["attempts"][0]["model"] == "first/a", row["attempts"]
+    assert row["attempts"][0]["result"] == "cooldown", row["attempts"]
+    assert row["attempts"][0]["cooldown"]["reason"] == "reset", row["attempts"]
+    assert "Daedalus local cooldown (reset)" in row["attempts"][0]["error"]
     api.PENALTIES.pin("", "daedalus/koinos", "second/b")
     api.COOLDOWNS.start("second/b", {"retry-after": "600"}, b"")
     response = client.post("/v1/chat/completions", json=body)
     assert response.status_code == 429 and sent == [], "each model is in a cooldown"
     assert 29 <= int(response.headers["retry-after"]) <= 30, "the first end"
+    row = api.dashboard.HISTORY.latest(1)[0]
+    assert [a["model"] for a in row["attempts"]] == ["first/a", "second/b"]
+    assert [a["result"] for a in row["attempts"]] == ["cooldown", "cooldown"]
   finally:
     api.get_config, api.chain = original
     api.PENALTIES.select = selection

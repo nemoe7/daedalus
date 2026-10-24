@@ -144,6 +144,8 @@ REQUEST_FIELDS = (
   "retry",
   "loop",
   "saved",
+  "reason",
+  "wait",
 )
 
 
@@ -1206,16 +1208,53 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
     return context.too_long(tokens)
   ends = COOLDOWNS.ends()
   cooled_groups, wait = without_cooling(sized_groups, ends, pin.lane)
+  cooled_notes: list[dict[str, Any]] = []
+  cooled_details: list[str] = []
+  if ends:
+    details = COOLDOWNS.details()
+    seen_cooled: set[str] = set()
+    for group in sized_groups:
+      for m in group:
+        if m not in seen_cooled and (info := COOLDOWNS.active(pin.lane(m), details)):
+          seen_cooled.add(m)
+          cooled_notes.append(upstream.cooldown_note(m, info))
+          cooled_details.append(
+            f"{m}({info['reason']}:{info['seconds']:.3f}s@{info['key']})"
+          )
   if wait is not None:
-    return upstream.cooling_response(wait)
+    reasons = sorted({note["cooldown"]["reason"] for note in cooled_notes})
+    reason = "cooldown:" + (",".join(reasons) if reasons else "active")
+    return upstream.reject_cooling(
+      request, model, wait, reason, cooled_notes, cooled_details
+    )
   pin.cooled(ends)
   paces = store.pace_limits()
   paced = [
     [m for m in group if not PACING.full(pin.lane(m), paces)] for group in cooled_groups
   ]
   if any(cooled_groups) and not any(paced):
-    return upstream.cooling_response(
-      PACING.wait(pin.lane(m) for group in cooled_groups for m in group)
+    paced_notes: list[dict[str, Any]] = []
+    paced_details: list[str] = []
+    seen_paced: set[str] = set()
+    kinds: set[str] = set()
+    for group in cooled_groups:
+      for m in group:
+        if m not in seen_paced and (info := PACING.detail(pin.lane(m), paces)):
+          seen_paced.add(m)
+          paced_notes.append(upstream.pacing_note(m, info))
+          paced_details.append(
+            f"{m}({info['kind']}:{info['used']}/{info['limit']}:{info['seconds']:.3f}s)"
+          )
+          kinds.add(info["kind"])
+    wait = PACING.wait(pin.lane(m) for group in cooled_groups for m in group)
+    reason = "pacing:" + (",".join(sorted(kinds)) if kinds else "active")
+    return upstream.reject_cooling(
+      request,
+      model,
+      wait,
+      reason,
+      [*cooled_notes, *paced_notes],
+      [*cooled_details, *paced_details],
     )
   models = pin.order(paced)
   if (
@@ -1403,7 +1442,7 @@ async def run_chat(plan: Plan) -> Response:
       attempts.append(upstream.late_note(candidate, started) | sent)
       pin.failed(candidate, attempt=attempts[-1])
       failure = upstream.error_response(
-        504, "Upstream provider timed out.", "upstream_error"
+        504, f"Upstream provider ({candidate}) timed out.", "upstream_error"
       )
       break
     except httpx.ReadTimeout as exc:
@@ -1415,9 +1454,9 @@ async def run_chat(plan: Plan) -> Response:
       pin.failed(candidate, attempt=attempts[-1])
       failure = upstream.error_response(
         504 if plan.direct_wait else 502,
-        "Upstream provider timed out"
+        f"Upstream provider ({candidate}) timed out"
         if plan.direct_wait
-        else "Upstream provider attempt failed",
+        else f"Upstream provider ({candidate}) attempt failed",
         "upstream_error",
       )
       previous_attempt = (candidate, candidate_pool)
@@ -1428,8 +1467,11 @@ async def run_chat(plan: Plan) -> Response:
       attempts.append(upstream.failure_note(candidate, started, exc) | sent)
       if started_cooldown := pin.failed(candidate, exc, attempts[-1]):
         attempts[-1]["cooldown"] = started_cooldown
+      detail = f": {exc.behavior.safe_line}" if exc.behavior is not None else ""
       failure = upstream.error_response(
-        exc.status, "Upstream provider rejected the request.", "upstream_error"
+        exc.status,
+        f"Upstream provider ({candidate}) rejected the request (HTTP {exc.status}){detail}",
+        "upstream_error",
       )
       previous_attempt = (candidate, candidate_pool)
       fallback_reason = "lmt" if isinstance(exc, upstream.RateLimitError) else "err"
@@ -1440,7 +1482,7 @@ async def run_chat(plan: Plan) -> Response:
       attempts.append(upstream.failure_note(candidate, started, exc) | sent)
       pin.failed(candidate, attempt=attempts[-1])
       failure = upstream.error_response(
-        502, "Upstream provider attempt failed.", "upstream_error"
+        502, f"Upstream provider ({candidate}) attempt failed.", "upstream_error"
       )
       previous_attempt = (candidate, candidate_pool)
       fallback_reason = "err"
@@ -1504,6 +1546,9 @@ async def run_chat(plan: Plan) -> Response:
       ),
       media_type="text/event-stream",
     )
+  if attempts and (cooled := attempts[-1].get("cooldown")):
+    request.state.reason = f"upstream:{cooled['reason']}"
+    request.state.wait = f"{cooled['seconds']:.3f}s"
   return failure
 
 

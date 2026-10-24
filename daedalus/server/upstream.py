@@ -140,15 +140,65 @@ def unknown_model(model: str) -> JSONResponse:
   return error_response(404, f"Unknown model {model}. {hint}", "model_not_found")
 
 
-def cooling_response(seconds: float) -> JSONResponse:
-  """The 429 answer when each model of the request is in a cooldown."""
+def cooling_response(seconds: float, detail: str = "") -> JSONResponse:
+  """The 429 answer when Daedalus blocks each model of the request locally."""
   wait = max(1, math.ceil(seconds))
+  prefix = f"Daedalus rate limit ({detail})" if detail else "Daedalus rate limit"
   return error_response(
     429,
-    f"Each model of this request is rate limited. Retry in {wait}s.",
+    f"{prefix}: each model of this request is rate limited locally. Retry in {wait}s.",
     "rate_limit_exceeded",
     {"Retry-After": str(wait)},
   )
+
+
+def cooldown_note(model: str, info: Mapping[str, Any]) -> dict[str, Any]:
+  """Describe one candidate blocked by a local Daedalus cooldown."""
+  when = time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime(info["until"]))
+  scope = f" on {info['key']}" if info["key"] != model else ""
+  span = f", backoff span {info['span']:g}s" if info.get("span") else ""
+  text = (
+    f"Daedalus local cooldown ({info['reason']}{scope}): "
+    f"{info['seconds']:.3f}s remaining until {when}{span}."
+  )
+  entry = note(model, "cooldown", None, text)
+  entry["cooldown"] = {"seconds": info["seconds"], "reason": info["reason"]}
+  return entry
+
+
+def pacing_note(model: str, info: Mapping[str, Any]) -> dict[str, Any]:
+  """Describe one candidate blocked by local Daedalus pacing."""
+  scope = f" on {info['scope']}" if info["scope"] != model else ""
+  text = (
+    f"Daedalus local pacing ({info['kind']}{scope}): "
+    f"{info['used']}/{info['limit']} in {info['window']}, "
+    f"{info['seconds']:.3f}s remaining."
+  )
+  return note(model, "paced", None, text)
+
+
+def reject_cooling(
+  request: Any,
+  model: str,
+  seconds: float,
+  reason: str,
+  notes: list[dict[str, Any]],
+  details: list[str],
+) -> JSONResponse:
+  """Record attempt notes, request state fields, and a warning log line before returning 429."""
+  wait = max(0.0, seconds)
+  request.state.attempts = notes
+  request.state.reason = reason
+  request.state.wait = f"{wait:.3f}s"
+  joined = ",".join(details)
+  logger.warning(
+    "rejected %s 429 %s wait=%.3fs models=%s",
+    model,
+    reason,
+    wait,
+    joined,
+  )
+  return cooling_response(seconds, f"{reason} on {joined}" if joined else reason)
 
 
 def failure_text(exc: Exception) -> str:
@@ -286,7 +336,12 @@ def mapped_behavior(
     return HarnessGate(text)
   if status == 429 and reset and "daily limit" in low:
     return DailyCap(epoch_seconds(str(reset)))
-  if "overloaded" in low:
+  if (
+    "overloaded" in low
+    or "not enough capacity" in low
+    or "capacity exceeded" in low
+    or (isinstance(error, dict) and error.get("type") == "backend_out_of_capacity")
+  ):
     return providers.UpstreamOverload(text)
   if status == 429 and (
     retry_delay(payload, headers, text) is not None

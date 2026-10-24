@@ -107,15 +107,17 @@ def models_for(
   )
 
 
-def failed(status: int) -> JSONResponse:
+def failed(status: int, candidate: str = "", detail: str = "") -> JSONResponse:
   """The error answer after the last attempt failed."""
+  who = f"Upstream provider ({candidate})" if candidate else "Upstream provider"
+  suffix = f": {detail}" if detail else ""
   if status:
     return upstream.error_response(
-      status, "Upstream provider rejected the request", "upstream_error"
+      status,
+      f"{who} rejected the request (HTTP {status}){suffix}",
+      "upstream_error",
     )
-  return upstream.error_response(
-    502, "Upstream provider attempt failed", "upstream_error"
-  )
+  return upstream.error_response(502, f"{who} attempt failed{suffix}", "upstream_error")
 
 
 async def attempt(
@@ -139,21 +141,56 @@ async def attempt(
   def lane(name: str) -> str:
     return router.lane(config, name, client)
 
+  cooled_notes: list[dict[str, Any]] = []
+  cooled_details: list[str] = []
   if COOLDOWNS:
     ends = COOLDOWNS.ends()
     cooling = {m: COOLDOWNS.until(lane(m), ends) for m in models}
+    if any(cooling.values()):
+      details = COOLDOWNS.details()
+      for m in models:
+        if info := COOLDOWNS.active(lane(m), details):
+          cooled_notes.append(upstream.cooldown_note(m, info))
+          cooled_details.append(
+            f"{m}({info['reason']}:{info['seconds']:.3f}s@{info['key']})"
+          )
     if models and all(cooling.values()):
-      return upstream.cooling_response(min(cooling.values()) - time.time())
+      wait = min(cooling.values()) - time.time()
+      reasons = sorted({note["cooldown"]["reason"] for note in cooled_notes})
+      reason = "cooldown:" + (",".join(reasons) if reasons else "active")
+      return upstream.reject_cooling(
+        request, model, wait, reason, cooled_notes, cooled_details
+      )
     models = [m for m in models if not cooling[m]]
   if PACING:
     paces = store.pace_limits()
     left = [m for m in models if not PACING.full(lane(m), paces)]
     if models and not left:
-      return upstream.cooling_response(PACING.wait(map(lane, models)))
+      paced_notes: list[dict[str, Any]] = []
+      paced_details: list[str] = []
+      kinds: set[str] = set()
+      for m in models:
+        if info := PACING.detail(lane(m), paces):
+          paced_notes.append(upstream.pacing_note(m, info))
+          paced_details.append(
+            f"{m}({info['kind']}:{info['used']}/{info['limit']}:{info['seconds']:.3f}s)"
+          )
+          kinds.add(info["kind"])
+      wait = PACING.wait(map(lane, models))
+      reason = "pacing:" + (",".join(sorted(kinds)) if kinds else "active")
+      return upstream.reject_cooling(
+        request,
+        model,
+        wait,
+        reason,
+        [*cooled_notes, *paced_notes],
+        [*cooled_details, *paced_details],
+      )
     models = left
   pooled = model == pool
   attempts: list[dict[str, Any]] = []
   request.state.attempts, status = attempts, 0
+  last_candidate, last_detail = "", ""
   deadline = time.perf_counter() + upstream.TIMEOUT_SECONDS
   for index, candidate in enumerate(models):
     request.state.fallbacks = str(index)
@@ -184,11 +221,16 @@ async def attempt(
       if pooled and PENALTIES:
         _record_weight_change(attempts[-1], candidate, PENALTIES.fault)
       return upstream.error_response(
-        504, "Upstream provider timed out", "upstream_error"
+        504, f"Upstream provider ({candidate}) timed out", "upstream_error"
       )
     except (upstream.UpstreamStatus, *stream.ATTEMPT_ERRORS) as exc:
       attempts.append(upstream.failure_note(candidate, started, exc))
-      status = exc.status if isinstance(exc, upstream.UpstreamStatus) else 0
+      last_candidate = candidate
+      if isinstance(exc, upstream.UpstreamStatus):
+        status = exc.status
+        last_detail = exc.behavior.safe_line if exc.behavior is not None else ""
+      else:
+        status, last_detail = 0, ""
       limited = isinstance(exc, upstream.RateLimitError)
       if pooled and PENALTIES:
         _record_weight_change(
@@ -211,7 +253,10 @@ async def attempt(
     return answer
   if not attempts:
     return invalid(f"No model of {pool} can take this request")
-  return failed(status)
+  if cooled := attempts[-1].get("cooldown"):
+    request.state.reason = f"upstream:{cooled['reason']}"
+    request.state.wait = f"{cooled['seconds']:.3f}s"
+  return failed(status, last_candidate, last_detail)
 
 
 def packed(vector: list[float]) -> str:

@@ -81,6 +81,50 @@ class Pacing:
       return True
     return tpm is not None and sum(tokens for _, tokens in found) >= tpm
 
+  def detail(self, model: str, limits: Limits) -> dict[str, Any] | None:
+    """The pacing limit that blocks `model` right now, with its usage, cap, and wait seconds."""
+    name = lanes.split(model)[0]
+    provider = name.partition("/")[0]
+    now = self.clock()
+    hour = self.hour_end(provider)
+    if hour is not None:
+      cap = self.caps().get(provider, 0)
+      used = len(self.in_hour(provider))
+      held = self.spent.get(provider, 0.0) > now
+      return {
+        "kind": "hourly_hold" if held else "hourly_requests",
+        "scope": provider,
+        "used": used,
+        "limit": cap,
+        "window": "1h",
+        "seconds": round(max(0.0, hour - now), 3),
+      }
+    rpm, tpm = limits.get(name, (None, None))
+    if not self.enabled or (rpm is None and tpm is None):
+      return None
+    found = self.recent(model)
+    wait = round(max(0.0, found[0][0] + WINDOW - now), 3) if found else 0.0
+    if rpm is not None and len(found) >= rpm:
+      return {
+        "kind": "rpm",
+        "scope": model,
+        "used": len(found),
+        "limit": int(rpm) if float(rpm).is_integer() else rpm,
+        "window": "60s",
+        "seconds": wait,
+      }
+    tokens = sum(count for _, count in found)
+    if tpm is not None and tokens >= tpm:
+      return {
+        "kind": "tpm",
+        "scope": model,
+        "used": tokens,
+        "limit": int(tpm) if float(tpm).is_integer() else tpm,
+        "window": "60s",
+        "seconds": wait,
+      }
+    return None
+
   def wait(self, models: Iterable[str]) -> float:
     """The seconds until the first of these models can take a request again."""
     ends = []

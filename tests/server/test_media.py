@@ -629,12 +629,20 @@ def assert_media_cooldown(fake: Upstream, client: TestClient) -> None:
   response = client.post("/v1/audio/transcriptions", data=form, files=files)
   fake.limited.clear()
   assert response.status_code == 429, response.text
+  assert (
+    "Upstream provider (mistral/voxtral) rejected the request (HTTP 429)"
+    in (response.json()["error"]["message"])
+  )
   cooled = dashboard.HISTORY.latest(1)[0]["attempts"][0]["cooldown"]
   assert cooled == {"seconds": 60, "reason": "reset"}, cooled
   count = len(fake.sent)
   response = client.post("/v1/audio/transcriptions", data=form, files=files)
   assert response.status_code == 429 and len(fake.sent) == count, "no upstream call"
   assert response.json()["error"]["type"] == "rate_limit_exceeded", response.text
+  assert "Daedalus rate limit (cooldown:reset" in response.json()["error"]["message"]
+  blocked = dashboard.HISTORY.latest(1)[0]["attempts"][0]
+  assert blocked["model"] == "mistral/voxtral" and blocked["result"] == "cooldown"
+  assert "Daedalus local cooldown (reset)" in blocked["error"]
   row = transcribe(client, b"RIFF-six")
   assert [a["model"] for a in row["attempts"]] == ["groq/whisper"], row
   api.COOLDOWNS.clear()
@@ -652,6 +660,10 @@ def assert_media_pacing(fake: Upstream, client: TestClient) -> None:
     count = len(fake.sent)
     response = client.post("/v1/audio/transcriptions", data=form, files=files)
     assert response.status_code == 429 and len(fake.sent) == count, "rpm 1 reached"
+    assert "Daedalus rate limit (pacing:rpm" in response.json()["error"]["message"]
+    paced = dashboard.HISTORY.latest(1)[0]["attempts"][0]
+    assert paced["model"] == "mistral/voxtral" and paced["result"] == "paced"
+    assert "Daedalus local pacing (rpm): 1/1 in 60s" in paced["error"]
     row = transcribe(client, b"RIFF-eight")
     assert [a["model"] for a in row["attempts"]] == ["groq/whisper"], row
   finally:

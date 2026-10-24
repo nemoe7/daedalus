@@ -196,6 +196,35 @@ class Cooldowns:
       database.close()
     return dict(rows)
 
+  def details(self) -> dict[str, dict[str, Any]]:
+    """The active cooldown rows, with their key, end time, backoff span, reason, and remaining seconds."""
+    now = self.clock()
+    database = self.connect()
+    try:
+      rows = database.execute(
+        "SELECT model, until, span, reason FROM cooldowns WHERE until > ?", (now,)
+      ).fetchall()
+    finally:
+      database.close()
+    return {
+      key: {
+        "key": key,
+        "until": until,
+        "span": span,
+        "reason": reason,
+        "seconds": round(max(0.0, until - now), 3),
+      }
+      for key, until, span, reason in rows
+    }
+
+  @staticmethod
+  def active(
+    model: str, details: Mapping[str, dict[str, Any]]
+  ) -> dict[str, Any] | None:
+    """The active cooldown detail of one model or lane, from its own row or its provider row."""
+    found = [details[key] for key in key_of(model) if key in details]
+    return max(found, key=lambda item: item["until"]) if found else None
+
   @staticmethod
   def until(model: str, ends: Mapping[str, float]) -> float | None:
     """The cooldown end of one model, from its own row or its provider row."""
