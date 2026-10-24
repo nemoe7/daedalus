@@ -296,9 +296,12 @@ def neuron_items(data: Any) -> list[Item]:
   if not math.isfinite(used):
     raise ValueError("the neuron sum is not finite")
   remaining = max(0.0, CLOUDFLARE_FREE - used)
-  return [
+  items = [
     card_item("neurons", remaining, CLOUDFLARE_FREE, share(remaining, CLOUDFLARE_FREE))
   ]
+  if used > CLOUDFLARE_FREE:
+    items.append(card_item("neurons_used", used))
+  return items
 
 
 Reader = Callable[[httpx.AsyncClient, str, str], Awaitable[Any]]
@@ -341,7 +344,7 @@ def saved_balances(found: Any) -> dict[str, list[Item]]:
     return {}
   restored = {}
   paired = {"credit", "free_requests", "neurons"}
-  kinds = paired | {"balance", "usage", "pollen"}
+  kinds = paired | {"balance", "usage", "pollen", "neurons_used"}
   for name, items in found.items():
     if not isinstance(items, list):
       continue

@@ -3476,6 +3476,7 @@ const BALANCE_LABELS = {
   balance: () => t("limits.balance.balance.label"),
   pollen: () => t("limits.balance.pollen.label"),
   neurons: () => t("limits.balance.neurons.label"),
+  neurons_used: () => t("limits.balance.neurons_used.label"),
   hourly_requests: () => t("limits.balance.hourly_requests.label"),
 };
 
@@ -3507,6 +3508,7 @@ function balanceValue(item, compact = true) {
   });
   const count = value => compact ? balanceCount(value)
     : value.toLocaleString(undefined, { maximumSignificantDigits: 21 });
+  if (item.kind === "neurons_used") return count(item.value);
   return t("limits.value.remaining_text", { remaining: count(item.value), limit: count(item.limit) });
 }
 
