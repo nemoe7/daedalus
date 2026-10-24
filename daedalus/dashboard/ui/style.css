@@ -127,7 +127,7 @@ a, button, .snippet, .card, .chip, .pill, tr.request td {
     border-color var(--fast) var(--ease), opacity var(--fast) var(--ease);
 }
 header {
-  display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "brand tabs chips";
+  display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr); grid-template-areas: "brand tabs chips";
   column-gap: 32px; padding: 0 32px; border-bottom: 1px solid var(--line); background: var(--panel);
 }
 .brand { grid-area: brand; align-self: center; display: flex; align-items: center; gap: 8px; padding: 6px 0; font-weight: 650; font-size: 18px; }
@@ -139,14 +139,14 @@ header {
 .tabs a {
   display: flex; align-items: center; min-height: 48px; color: var(--muted);
   text-decoration: none; font-size: 14px; font-weight: 500; white-space: nowrap;
-  flex: none; border-bottom: 2px solid transparent;
+  flex: none; border-top: 2px solid transparent; border-bottom: 2px solid transparent;
 }
 .tabs a:hover { color: var(--text); }
 .tabs a.on { color: var(--text); border-bottom-color: var(--accent); }
 .tabs a:focus-visible { outline-offset: -2px; }
 /* The bar stretches, so the underline of the selected tab lands on the header bottom line. */
-.tab-bar { grid-area: tabs; display: flex; align-items: stretch; gap: 2px; min-width: 0; }
-.tabs { flex: 1; min-width: 0; }
+.tab-bar { grid-area: tabs; display: flex; align-items: stretch; justify-content: center; gap: 2px; min-width: 0; }
+.tabs { flex: 0 1 auto; min-width: 0; }
 /* A clipped scroll edge fades toward its center, so no cut reads hard. The class only rides an
    edge while content waits beyond it. */
 .scroll-fade {
@@ -156,6 +156,7 @@ header {
 }
 .card-scroll { max-width: 100%; }
 .count { margin-left: 6px; color: var(--muted); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.tabs a .count { line-height: 1; position: relative; top: 1px; }
 .count:empty { display: none; }
 .chips {
   grid-area: chips; display: flex; gap: 32px; flex-wrap: wrap; justify-content: flex-end;

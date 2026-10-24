@@ -2201,9 +2201,16 @@ def test_the_short_values_carry_their_full_text() -> None:
     ".tabs a {\n"
     "  display: flex; align-items: center; min-height: 48px; color: var(--muted);\n"
     "  text-decoration: none; font-size: 14px; font-weight: 500; white-space: nowrap;\n"
-    "  flex: none; border-bottom: 2px solid transparent;\n"
+    "  flex: none; border-top: 2px solid transparent; border-bottom: 2px solid transparent;\n"
     "}" in css
   ), "desktop tabs keep their intrinsic width; narrow headers wrap the strip instead"
+  assert (
+    "grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);"
+    in css
+  ), "the desktop header balances outer tracks around the centered tab bar"
+  assert ".tabs a .count { line-height: 1; position: relative; top: 1px; }" in css, (
+    "the tab badge aligns with the label baseline"
+  )
   assert "text-decoration: underline; }" in css, "a sort head marks its own click"
   assert "button.line.rebuild:hover { color: var(--accent-text); }" in css, (
     "the phone catalog line answers the mouse"
