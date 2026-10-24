@@ -78,9 +78,9 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 button { font: inherit; cursor: pointer; white-space: nowrap; }
 :focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 :root:not([data-keyboard-nav="true"]) :focus-visible { outline: 0; } /* nonuu: NUL003 */
-.sections button, .notification-item,
+.sections button, .notification-item, #new-provider,
 section[data-page="models"] .toolbar :is(input, select, button), .models .sort { outline-offset: -3px; }
-.sections button:focus-visible, .notification-item:focus-visible,
+.sections button:focus-visible, .notification-item:focus-visible, #new-provider:focus-visible,
 section[data-page="models"] .toolbar :focus-visible, .models .sort:focus-visible { outline-offset: -2px; }
 /* A press shows at once, also on a touch screen without hover. */
 button:not(:disabled):active, .tabs a:active, .add:active, .card.pool:active { opacity: .7; }
@@ -1105,6 +1105,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   /* A value row on a touch screen gives its field the 44 px floor. */
   section[data-page="settings"] .field input:not(.switch) { min-height: 44px; }
   #settings > .section-pane .sections button,
+  #new-provider,
   section[data-page="settings"] .field:not(.stack),
   section[data-page="providers"] .field:not(.stack),
   section[data-page="providers"] .field:not(.stack) input:not(.switch),

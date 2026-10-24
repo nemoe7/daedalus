@@ -8190,3 +8190,13 @@ def test_scrollable_elements_follow_scroll_edge_fade_recipe() -> None:
     "textarea",
   ):
     assert target in css
+
+
+def test_new_provider_insets_focus_outline_and_keeps_mobile_touch_floor() -> None:
+  """The New provider button insets its focus halo inside `.section-pane` and reaches 44 px below 900 px."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert "#new-provider:focus-visible" in css
+  narrow = "\n".join(
+    re.findall(r"@media \(max-width: 900px\) \{\n(.*?)\n\}\n", css, re.DOTALL)
+  )
+  assert "#new-provider," in narrow
