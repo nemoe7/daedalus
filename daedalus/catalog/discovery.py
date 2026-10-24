@@ -60,6 +60,7 @@ SNAPSHOT_SCHEMA = (
   "CREATE TABLE IF NOT EXISTS provider_snapshots "
   "(url_hash TEXT PRIMARY KEY, payload TEXT NOT NULL, updated REAL NOT NULL)"
 )
+_SNAPSHOTS: dict[tuple[str, str], tuple[dict[str, Any], float]] = {}
 
 
 def snapshot_hash(url: str) -> str:
@@ -67,46 +68,73 @@ def snapshot_hash(url: str) -> str:
   return hashlib.sha256(url.encode("utf-8")).hexdigest()
 
 
+def _write_snapshot_db(target: Path, key: str, serialized: str, now: float) -> None:
+  """Write one snapshot record into the SQLite table and close the connection."""
+  target.parent.mkdir(parents=True, exist_ok=True)
+  database = sqlite3.connect(target, timeout=10)
+  try:
+    with database:
+      database.execute(SNAPSHOT_SCHEMA)
+      database.execute(
+        "INSERT INTO provider_snapshots (url_hash, payload, updated) VALUES (?, ?, ?) "
+        "ON CONFLICT(url_hash) DO UPDATE SET "
+        "payload = excluded.payload, updated = excluded.updated",
+        (key, serialized, now),
+      )
+  finally:
+    database.close()
+
+
 def save_snapshot(url: str, payload: dict[str, Any]) -> None:
   """Replace the cached raw response for one discovery URL."""
   target = Path(store.MODELS_DB)
-  target.parent.mkdir(parents=True, exist_ok=True)
-  with sqlite3.connect(target, timeout=10) as database:
-    database.execute(SNAPSHOT_SCHEMA)
-    database.execute(
-      "INSERT INTO provider_snapshots (url_hash, payload, updated) VALUES (?, ?, ?) "
-      "ON CONFLICT(url_hash) DO UPDATE SET "
-      "payload = excluded.payload, updated = excluded.updated",
-      (
-        snapshot_hash(url),
-        json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
-        time.time(),
-      ),
-    )
+  key = snapshot_hash(url)
+  now = time.time()
+  serialized = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+  try:
+    _write_snapshot_db(target, key, serialized, now)
+  except sqlite3.Error:
+    try:
+      store.set_aside(target)
+      _write_snapshot_db(target, key, serialized, now)
+    except (sqlite3.Error, OSError) as error:
+      _SNAPSHOTS[(str(target), key)] = (payload, now)
+      logger.warning("snapshot cache write failed for %s: %s", key, error)
+      return
+  _SNAPSHOTS.pop((str(target), key), None)
 
 
 def cached_snapshot_record(url: str) -> tuple[dict[str, Any], float] | None:
   """Read a cached response and its save time together, or None without a readable snapshot."""
   target = Path(store.MODELS_DB)
+  key = snapshot_hash(url)
+  fallback = _SNAPSHOTS.get((str(target), key))
   if not target.exists():
-    return None
+    return fallback
   try:
-    with sqlite3.connect(f"{target.resolve().as_uri()}?mode=ro", uri=True) as database:
+    database = sqlite3.connect(f"{target.resolve().as_uri()}?mode=ro", uri=True)
+    try:
       row = database.execute(
         "SELECT payload, updated FROM provider_snapshots WHERE url_hash = ?",
-        (snapshot_hash(url),),
+        (key,),
       ).fetchone()
+    finally:
+      database.close()
   except sqlite3.Error as error:
-    logger.debug("no provider snapshot for %s: %s", snapshot_hash(url), error)
-    return None
+    logger.debug("no provider snapshot for %s: %s", key, error)
+    return fallback
   if row is None:
-    return None
+    return fallback
   try:
     payload = json.loads(row[0])
   except (json.JSONDecodeError, TypeError):
-    logger.warning("ignored an invalid provider snapshot for %s", snapshot_hash(url))
-    return None
-  return (payload, row[1]) if isinstance(payload, dict) else None
+    logger.warning("ignored an invalid provider snapshot for %s", key)
+    return fallback
+  if not isinstance(payload, dict):
+    return fallback
+  if fallback is not None and fallback[1] > row[1]:
+    return fallback
+  return (payload, row[1])
 
 
 def cached_snapshot(url: str) -> dict[str, Any] | None:

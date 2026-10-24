@@ -198,3 +198,48 @@ def test_export_rejects_a_provider_path_before_writing(tmp_path, monkeypatch):
   response = TestClient(api.app, headers=AUTH).post("/v1/catalog?dump=catalog")
   assert response.status_code == 502
   assert not (tmp_path / "escape.json").exists()
+
+
+def test_export_degrades_sqlite_disk_io_errors_during_refresh(monkeypatch):
+  """A fresh export succeeds when SQLite snapshot and store writes raise disk I/O error."""
+  import sqlite3
+
+  from daedalus.catalog import enrichment
+
+  url = "https://ioerror.test/models"
+  monkeypatch.setattr(config, "SAVED", {"p": {"discovery_url": url, "api_key": "key"}})
+  monkeypatch.setattr(discovery, "get_config", lambda: config.SAVED)
+  monkeypatch.setattr(enrichment, "get_config", lambda: config.SAVED)
+  monkeypatch.setattr(catalog, "LAST_FAILED", [])
+  monkeypatch.setattr(schedule, "BUSY", False)
+
+  def broken_write(*_args, **_kwargs):
+    raise sqlite3.OperationalError("disk I/O error")
+
+  monkeypatch.setattr(discovery, "_write_snapshot_db", broken_write)
+  monkeypatch.setattr(store, "_write_store_db", broken_write)
+
+  def refresh():
+    discovery.save_snapshot(url, {"data": [{"id": "fresh"}]})
+    discovery.save_snapshot(enrichment.litellm_url("p"), {"data": [{"id": "p/fresh"}]})
+    discovery.save_snapshot(
+      enrichment.modelschemas_url("p"),
+      {"models": [{"id": "fresh", "rawId": "fresh"}]},
+    )
+    try:
+      store.write_store([{"id": "p/fresh"}])
+    except sqlite3.Error:
+      store.cache_memory_store([{"id": "p/fresh"}])
+
+  monkeypatch.setattr(api, "CATALOG_REFRESH", refresh)
+  response = TestClient(api.app, headers=AUTH).post(
+    "/v1/catalog", params={"dump": "all", "format": "json"}
+  )
+  assert response.status_code == 200, response.text
+  files = response.json()["files"]
+  assert set(files) == {
+    "p.json",
+    "models.json",
+    "litellm-p.json",
+    "modelschemas-p.json",
+  }

@@ -1,6 +1,7 @@
 """The SQLite model store: the model table, and the tables of the other modules."""
 
 import json
+import logging
 import math
 import sqlite3
 import time
@@ -9,9 +10,12 @@ from pathlib import Path
 from typing import Any
 
 from daedalus.config import STATE_DIR
-from daedalus.store.database import connect_read, open_db
+from daedalus.store.database import connect_read, open_db, prune
+
+logger = logging.getLogger("daedalus")
 
 MODELS_DB = STATE_DIR / "models.sqlite3"
+_MEMORY_STORE: dict[str, tuple[list[dict[str, Any]], float]] = {}
 # Metadata columns, in table order. Config values win over the catalog.
 COLUMNS = (
   "mode",
@@ -84,16 +88,46 @@ def finite_token_limit(value: Any) -> Any:
   return value if finite else None
 
 
-def write_store(
+def _normalize_store_row(row: dict[str, Any]) -> dict[str, Any]:
+  """Convert one model row into the shape returned by `stored_rows()`."""
+  provider, _, slug = row["id"].partition("/")
+  found: dict[str, Any] = {"id": row["id"], "provider": provider, "slug": slug}
+  for key in COLUMNS:
+    value = row.get(key)
+    if isinstance(value, (list, dict)):
+      value = json.dumps(value)
+    if key.startswith("supports_"):
+      value = bool(value)
+    elif key in TOKEN_COLUMNS:
+      value = finite_token_limit(value)
+    found[key] = value
+  return found
+
+
+def cache_memory_store(
   rows: Iterable[dict[str, Any]],
   path: Path | str | None = None,
   keep: Iterable[str] = (),
   fill: Iterable[str] = (),
 ) -> Path:
-  """Update the model rows in place in 1 transaction, and delete the stale rows."""
+  """Store rebuilt model rows in memory when the SQLite file cannot be written."""
+  del keep, fill
   target = Path(path or MODELS_DB)
+  _MEMORY_STORE[str(target)] = (
+    [_normalize_store_row(row) for row in rows],
+    time.time(),
+  )
+  return target
+
+
+def _write_store_db(
+  target: Path,
+  rows: list[dict[str, Any]],
+  kept: set[str],
+  filled: set[str],
+) -> None:
+  """Write model rows and build timestamp to the SQLite file in one transaction."""
   target.parent.mkdir(parents=True, exist_ok=True)
-  kept, filled = set(keep), set(fill)
   names = ("id", "provider", "slug", *COLUMNS)
   database = sqlite3.connect(target, isolation_level=None, timeout=10)
   try:
@@ -143,10 +177,31 @@ def write_store(
     database.execute("COMMIT")
   except BaseException:
     if database.in_transaction:
-      database.execute("ROLLBACK")
+      try:
+        database.execute("ROLLBACK")
+      except sqlite3.Error:
+        pass
     raise
   finally:
     database.close()
+
+
+def write_store(
+  rows: Iterable[dict[str, Any]],
+  path: Path | str | None = None,
+  keep: Iterable[str] = (),
+  fill: Iterable[str] = (),
+) -> Path:
+  """Update the model rows in place in 1 transaction, and delete the stale rows."""
+  target = Path(path or MODELS_DB)
+  items = list(rows)
+  kept, filled = set(keep), set(fill)
+  try:
+    _write_store_db(target, items, kept, filled)
+  except sqlite3.DatabaseError:
+    set_aside(target)
+    _write_store_db(target, items, kept, filled)
+  _MEMORY_STORE.pop(str(target), None)
   return target
 
 
@@ -204,16 +259,21 @@ STORED_COLUMNS = ("id", "provider", "slug", *COLUMNS)
 def stored_rows(database: sqlite3.Connection | None = None) -> list[dict[str, Any]]:
   """Read all model columns through a supplied or new read-only connection."""
   owned = database is None
-  if owned and not Path(MODELS_DB).exists():
-    return []
+  target = Path(MODELS_DB)
+  fallback = _MEMORY_STORE.get(str(target))
+  if owned and not target.exists():
+    return list(fallback[0]) if fallback is not None else []
   if database is None:
-    database = connect_read(MODELS_DB)
+    try:
+      database = connect_read(MODELS_DB)
+    except sqlite3.Error:
+      return list(fallback[0]) if fallback is not None else []
   try:
     rows = database.execute(
       f"SELECT {', '.join(STORED_COLUMNS)} FROM models ORDER BY rowid"
     ).fetchall()
-  except sqlite3.OperationalError:
-    return []
+  except sqlite3.Error:
+    return list(fallback[0]) if fallback is not None else []
   finally:
     if owned:
       database.close()
@@ -421,50 +481,69 @@ def pace_limits() -> dict[str, tuple[float | None, float | None]]:
 def built(database: sqlite3.Connection | None = None) -> float | None:
   """Read the last catalog build time through a supplied or new read-only connection."""
   owned = database is None
-  if owned and not Path(MODELS_DB).exists():
-    return None
+  target = Path(MODELS_DB)
+  fallback = _MEMORY_STORE.get(str(target))
+  if owned and not target.exists():
+    return fallback[1] if fallback is not None else None
   if database is None:
-    database = connect_read(MODELS_DB)
+    try:
+      database = connect_read(MODELS_DB)
+    except sqlite3.Error:
+      return fallback[1] if fallback is not None else None
   try:
     row = database.execute("SELECT built FROM catalog").fetchone()
-  except sqlite3.OperationalError:
-    return None
+  except sqlite3.Error:
+    return fallback[1] if fallback is not None else None
   finally:
     if owned:
       database.close()
-  return row[0] if row else None
+  if row:
+    return row[0]
+  return fallback[1] if fallback is not None else None
 
 
 def stored_catalog() -> tuple[list[dict[str, Any]], float | None]:
   """Read model rows and their build time in one SQLite snapshot."""
-  if not Path(MODELS_DB).exists():
-    return [], None
-  database = sqlite3.connect(f"{Path(MODELS_DB).resolve().as_uri()}?mode=ro", uri=True)
+  target = Path(MODELS_DB)
+  fallback = _MEMORY_STORE.get(str(target))
+  if not target.exists():
+    return (list(fallback[0]), fallback[1]) if fallback is not None else ([], None)
   try:
-    database.execute("BEGIN")
-    return stored_rows(database), built(database)
-  finally:
-    database.close()
+    database = sqlite3.connect(f"{target.resolve().as_uri()}?mode=ro", uri=True)
+    try:
+      database.execute("BEGIN")
+      rows, built_at = stored_rows(database), built(database)
+    finally:
+      database.close()
+  except sqlite3.Error:
+    return (list(fallback[0]), fallback[1]) if fallback is not None else ([], None)
+  if fallback is not None and (built_at is None or fallback[1] > built_at):
+    return list(fallback[0]), fallback[1]
+  return rows, built_at
 
 
 def readable() -> bool:
   """Tell if the model store can be read. A missing file is readable: it holds no rows."""
   if not Path(MODELS_DB).exists():
     return True
-  database = connect_read(MODELS_DB)
   try:
-    database.execute("SELECT count(*) FROM models").fetchall()
+    database = connect_read(MODELS_DB)
+    try:
+      database.execute("SELECT count(*) FROM models").fetchall()
+    finally:
+      database.close()
   except sqlite3.DatabaseError:
     return False
-  finally:
-    database.close()
   return True
 
 
-def set_aside() -> Path | None:
+def set_aside(path: Path | str | None = None) -> Path | None:
   """Move an unreadable store out of the way, with its write-ahead files, for a new build."""
-  target = Path(MODELS_DB)
+  target = Path(MODELS_DB if path is None else path)
+  prune(str(target))
   if not target.exists():
+    for suffix in ("-wal", "-shm"):
+      Path(f"{target}{suffix}").unlink(missing_ok=True)
     return None
   broken = target.with_name(target.name + ".broken")
   broken.unlink(missing_ok=True)
@@ -478,15 +557,16 @@ def has_store() -> bool:
   """Tell if a catalog build wrote the store, because the Alembic steps make only empty tables."""
   if not Path(MODELS_DB).exists():
     return False
-  database = connect_read(MODELS_DB)
   try:
-    found = database.execute(
-      "SELECT EXISTS (SELECT 1 FROM catalog) OR EXISTS (SELECT 1 FROM models)"
-    ).fetchone()[0]
-  except sqlite3.OperationalError:
+    database = connect_read(MODELS_DB)
+    try:
+      found = database.execute(
+        "SELECT EXISTS (SELECT 1 FROM catalog) OR EXISTS (SELECT 1 FROM models)"
+      ).fetchone()[0]
+    finally:
+      database.close()
+  except sqlite3.Error:
     found = False
-  finally:
-    database.close()
   return bool(found)
 
 
@@ -504,15 +584,16 @@ def rows_by_id() -> dict[str, dict[str, Any]]:
   """The values of each stored row by id, so a rebuild can name the moves it made."""
   if not Path(MODELS_DB).exists():
     return {}
-  database = connect_read(MODELS_DB)
   try:
-    rows = database.execute(
-      f"SELECT id, {', '.join(COLUMNS)} FROM models ORDER BY id"
-    ).fetchall()
-  except sqlite3.OperationalError:
+    database = connect_read(MODELS_DB)
+    try:
+      rows = database.execute(
+        f"SELECT id, {', '.join(COLUMNS)} FROM models ORDER BY id"
+      ).fetchall()
+    finally:
+      database.close()
+  except sqlite3.Error:
     return {}
-  finally:
-    database.close()
   return {row[0]: dict(zip(COLUMNS, row[1:])) for row in rows}
 
 
@@ -526,29 +607,32 @@ def record_rebuild(
   at: float | None = None,
 ) -> None:
   """Write one rebuild event with its diff, and keep the newest REBUILDS_KEEP events."""
-  database = open_db(MODELS_DB, (REBUILDS_TABLE,))
   try:
-    database.execute(
-      "INSERT INTO catalog_rebuilds (at, reason, models, added, removed, changed, failed) "
-      "VALUES (?, ?, ?, ?, ?, ?, ?)",
-      (
-        time.time() if at is None else at,
-        reason,
-        models,
-        json.dumps(added),
-        json.dumps(removed),
-        json.dumps(changed),
-        json.dumps(failed),
-      ),
-    )
-    database.execute(
-      "DELETE FROM catalog_rebuilds WHERE id IN ("
-      "SELECT id FROM catalog_rebuilds ORDER BY id DESC LIMIT ? OFFSET ?)",
-      (1, REBUILDS_KEEP),
-    )
-    database.commit()
-  finally:
-    database.close()
+    database = open_db(MODELS_DB, (REBUILDS_TABLE,))
+    try:
+      database.execute(
+        "INSERT INTO catalog_rebuilds (at, reason, models, added, removed, changed, failed) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (
+          time.time() if at is None else at,
+          reason,
+          models,
+          json.dumps(added),
+          json.dumps(removed),
+          json.dumps(changed),
+          json.dumps(failed),
+        ),
+      )
+      database.execute(
+        "DELETE FROM catalog_rebuilds WHERE id IN ("
+        "SELECT id FROM catalog_rebuilds ORDER BY id DESC LIMIT ? OFFSET ?)",
+        (1, REBUILDS_KEEP),
+      )
+      database.commit()
+    finally:
+      database.close()
+  except sqlite3.Error as error:
+    logger.warning("rebuild event write failed: %s", error)
 
 
 def recent_rebuilds(

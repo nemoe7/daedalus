@@ -1,10 +1,12 @@
 """Discover provider models, add LiteLLM catalog metadata, and write the store."""
 
 import logging
+import sqlite3
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+from daedalus import store
 from daedalus.catalog.discovery import build_rows
 from daedalus.catalog.enrichment import enrich
 from daedalus.config import get_config, sync_defaults
@@ -58,7 +60,12 @@ def _rebuild(cached: bool) -> Path:
   lines = list(native)
   unenriched: list[str] = []
   rows, problems = enrich(lines, config, native=native, failed=unenriched)
-  target = write_store(with_hooks(config, rows), keep=failed, fill=unenriched)
+  hooked = with_hooks(config, rows)
+  try:
+    target = write_store(hooked, keep=failed, fill=unenriched)
+  except sqlite3.Error as error:
+    logger.warning("model store write failed: %s", error)
+    target = store.cache_memory_store(hooked, keep=failed, fill=unenriched)
   for reason in [*skipped, *problems]:
     logger.warning("skipped %s", reason)
   for provider_name in failed:

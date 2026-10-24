@@ -32,6 +32,38 @@ def test_open(folder: Path) -> None:
   again.close()
 
 
+def test_open_reconnects_when_state_file_is_replaced(folder: Path) -> None:
+  """Replacing a state file on disk prunes stale cached and keeper connections."""
+  import threading
+
+  path = folder / "replaced.sqlite3"
+  first = database.open_db(path, TABLE)
+  with first:
+    first.execute("INSERT INTO t VALUES (42)")
+  read_conn = database.connect_read(path)
+  assert read_conn.execute("SELECT a FROM t").fetchall() == [(42,)]
+  for suffix in ("", "-wal", "-shm"):
+    Path(f"{path}{suffix}").unlink(missing_ok=True)
+  errors: list[BaseException] = []
+
+  def reopen_in_worker() -> None:
+    try:
+      worker_conn = database.open_db(path, TABLE)
+      assert worker_conn.execute("SELECT count(*) FROM t").fetchone() == (0,)
+      worker_conn.close()
+    except BaseException as exc:
+      errors.append(exc)
+
+  worker = threading.Thread(target=reopen_in_worker)
+  worker.start()
+  worker.join()
+  assert not errors, errors
+  reopened = database.open_db(path, TABLE)
+  assert reopened is not first
+  assert reopened.execute("SELECT count(*) FROM t").fetchone() == (0,)
+  reopened.close()
+
+
 def test_prompt_cache() -> None:
   """The same prompt runs the classifier 1 time."""
   runs: list[str] = []

@@ -114,6 +114,7 @@ def state_folder(
     config.SAVED.clear()
     upstream.set_client(None)
     yield folder
+    store.prune(str(folder / "models.sqlite3"))
   os.environ.clear()
   os.environ.update(environ)
 
