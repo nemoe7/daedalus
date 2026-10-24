@@ -1472,15 +1472,16 @@ def test_limit_events_and_rebuilds_share_a_relative_notification_feed() -> None:
   assert 'id="reset-rows"' not in section and 'id="rebuild-rows"' not in section
   assert 'id="limit-warnings-card"' not in section
   run_app_js(
-    "renderNotifications, limitMeta, icon, relative",
+    "renderNotifications, limitMeta, icon, relative, modelName, state",
     """
 const now = Math.floor(Date.now() / 1000);
+probe.state.models = [{ id: 'groq/model', name: 'GPT OSS 120B' }];
 probe.renderNotifications({
   resets: [{ at: now - 65, provider: 'groq', client: 'owui', kind: 'tokens', span: 'minute' },
     { at: now - 70, provider: 'groq', client: null, model: 'groq/model',
       kind: 'requests', span: 'minute' }],
   rebuilds: [{ at: now - 125, reason: 'scheduled', models: 3,
-    added: ['p/new'], removed: [], changed: [], failed: [] }],
+    added: ['p/new'], removed: [], changed: [], failed: ['openrouter'] }],
   update: null,
   limits: [{ at: now - 5, model: 'groq/model', client: 'owui', kind: 'requests', span: 'minute',
     remaining: 5, limit: 100, share: 0.05 },
@@ -1490,12 +1491,15 @@ probe.renderNotifications({
     remaining: 0, limit: 250, share: 0, reset: now - 900 }],
 });
 const html = node('notification-feed').innerHTML;
+const modelSpan = (id) => `<span title="${id}">${probe.modelName(id)}</span>`;
 const tokensPerMinute = LOCALE["limits.unit.rate_initial_text"]
   .replace("{unit}", LOCALE["limits.unit.tokens.initial_text"])
   .replace("{span}", LOCALE["limits.span.minute.initial_text"]);
 const rebuildText = LOCALE["notification.catalog_rebuild_text"]
   .replace("{reason}", 'scheduled');
-assert(html.includes('groq/model'), 'the warning is its own notification');
+assert(html.includes('groq/model') && html.includes('GPT OSS 120B'), 'the warning renders marks and real name');
+assert(html.includes('ui/icons/groq.svg') && html.includes('ui/icons/openrouter.svg'),
+  'reset and failed-rebuild notices render provider marks');
 assert(html.includes('5 of 100'), 'the warning keeps its allowance');
 assert(html.includes('groq') && html.includes(tokensPerMinute),
   'the reset notification shows');
@@ -1503,18 +1507,18 @@ const requestsPerMinute = LOCALE["limits.unit.rate_initial_text"]
   .replace("{unit}", LOCALE["limits.unit.requests.initial_text"])
   .replace("{span}", LOCALE["limits.span.minute.initial_text"]);
 const modelReset = LOCALE["notification.model_reset_text"]
-  .replace("{model}", 'groq/model').replace("{unit}", requestsPerMinute);
+  .replace("{model}", modelSpan('groq/model')).replace("{unit}", requestsPerMinute);
 assert(html.includes(modelReset), 'a model-scoped reset names the model');
 assert(html.includes(LOCALE["notification.model_renewed_text"]),
   'the model-scoped body says the model allowance renewed');
-const reached = LOCALE["notification.limit_reached_text"].replace("{model}", 'groq/zero');
+const reached = LOCALE["notification.limit_reached_text"].replace("{model}", modelSpan('groq/zero'));
 const resets = LOCALE["notification.limit_resets_text"]
   .replace("{when}", probe.relative(now + 600));
-const pastReached = LOCALE["notification.limit_reached_text"].replace("{model}", 'groq/past-zero');
+const pastReached = LOCALE["notification.limit_reached_text"].replace("{model}", modelSpan('groq/past-zero'));
 const pastResets = LOCALE["notification.limit_resets_text"]
   .replace("{when}", probe.relative(now - 900));
 assert(html.includes(reached), 'a zero remainder says the limit is reached');
-assert(!html.includes(LOCALE["notification.limit_near_text"].replace("{model}", 'groq/zero')),
+assert(!html.includes(LOCALE["notification.limit_near_text"].replace("{model}", modelSpan('groq/zero'))),
   'a zero remainder never reads near its limit');
 assert(html.includes(resets), 'the reached notice names the reset time');
 assert(html.includes(pastReached), 'a past reached notice still shows');

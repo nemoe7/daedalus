@@ -3712,6 +3712,11 @@ function openDiffModal(event) {
 
 function renderNotifications(data) {
   state.notifications = data;
+  const providerLabel = (name) => {
+    const key = String(name || "");
+    return MARK_FILES.has(key) ? `${mark(key)} ${esc(key)}` : esc(key);
+  };
+  const modelLabel = (id) => `<span title="${esc(id)}">${modelName(id)}</span>`;
   const item = (kind, at, title, body, attrs = null, href = null) => {
     const content = `<span class="notification-mark" aria-hidden="true"></span>
       <span class="notification-copy"><span class="notification-head"><b>${title}</b>${timeText(at, { tag: "time", variant: "muted" })}</span>
@@ -3728,8 +3733,8 @@ function renderNotifications(data) {
         "reset",
         event.at,
         event.model
-          ? t("notification.model_reset_text", { model: esc(event.model), unit: esc(limitUnit(event)) })
-          : t("notification.reset_text", { provider: esc(event.provider), unit: esc(limitUnit(event)) }),
+          ? t("notification.model_reset_text", { model: modelLabel(event.model), unit: esc(limitUnit(event)) })
+          : t("notification.reset_text", { provider: providerLabel(event.provider), unit: esc(limitUnit(event)) }),
         event.client
           ? t("notification.client_text", { client: esc(event.client) })
           : event.model
@@ -3743,8 +3748,8 @@ function renderNotifications(data) {
         "warning",
         event.at,
         event.remaining === 0
-          ? t("notification.limit_reached_text", { model: esc(event.model) })
-          : t("notification.limit_near_text", { model: esc(event.model) }),
+          ? t("notification.limit_reached_text", { model: modelLabel(event.model) })
+          : t("notification.limit_near_text", { model: modelLabel(event.model) }),
         t("notification.limit_left_text", {
           remaining: floorCount(event.remaining),
           limit: floorCount(event.limit),
@@ -3765,7 +3770,7 @@ function renderNotifications(data) {
         t("notification.catalog_rebuild_text", { reason: esc(event.reason) }),
         `${count(event.models, "model")} · ${rebuildDiff(event)}`
           + (event.failed.length
-            ? t("notification.catalog_failed_text", { failures: esc(event.failed.join(", ")) })
+            ? t("notification.catalog_failed_text", { failures: event.failed.map(providerLabel).join(", ") })
             : ""),
         { "data-rebuild": index },
       ),
