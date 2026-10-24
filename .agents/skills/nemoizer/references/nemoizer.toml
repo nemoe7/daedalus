@@ -12,6 +12,10 @@ exclude = [
   "out",
   ".agents/skills/**",
   "arena-state/**",
+  "AGENTS.md",
+  "**/AGENTS.md",
+  "ARENA.md",
+  "**/ARENA.md",
   "*.json",
   "*.webmanifest",
 ]

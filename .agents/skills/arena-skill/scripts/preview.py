@@ -1948,13 +1948,15 @@ def hold_out(markdown,pattern,build,slug):
 	return re.sub(pattern,hold,markdown),held
 def put_back(rendered,held,slug):return re.sub(f"preview{slug}(\\d+)x",lambda match:held[int(match.group(1))],rendered)
 def render_report_block(markdown):markdown=strip_fenced_md_comments(markdown);tagged,held=hold_out(markdown,'(?:\\s*(?:</?(?:ul|ol|li)>)\\s*){2,}',lambda match:match.group(0).strip().lower(),'listtag');out=put_back(render(tagged),held,'listtag');out=re.sub('<p>(<(?:ul|ol)>)','\\1',out);out=re.sub('(</(?:ul|ol)>)</p>','\\1',out);return out
-def render_report(markdown):
+def render_report(markdown,title=None):
 	blocks,questions=parse_fields(markdown);parts=[]
 	for(type,item)in blocks:
 		if type=='markdown':
 			if item.strip():parts.append(render_report_block(item))
 		else:parts.append(field_html(item))
-	return''.join(parts),questions
+	rendered=''.join(parts)
+	if isinstance(title,str)and title.strip()and not re.match('^\\s*<h1\\b',rendered,re.IGNORECASE):rendered=f"<h1>{html.escape(title.strip())}</h1>\n{rendered}"
+	return rendered,questions
 SLASH_COMMAND_RE=re.compile('^/(nuu|nemoizer)(?:\\s+([\\s\\S]*))?$',re.IGNORECASE)
 NEMOIZER_COLLECT_IGNORES='arena-state','.agents','.git','node_modules','LICENSE.md','skills/arena-skill','skills/refs/arena-skill/assets/markdown-it.min.js','skills/amending-violations/LICENSE.txt','skills/refs/amending-violations/LICENSE.txt','skills/squash/LICENSE.txt','skills/refs/squash/LICENSE.txt','skills/refs/arena-skill/assets/lucide.LICENSE','skills/refs/arena-skill/assets/markdown-it.LICENSE','skills/refs/arena-skill/assets/sortable.LICENSE','skills/nuu/data/vendor','skills/refs/nuu/data/vendor'
 def _find_skill_dir(root,name):
@@ -3163,9 +3165,16 @@ CODE_BLOCK=re.compile('<pre>(.*?)</pre>',re.DOTALL)
 CODE_TAG=re.compile('<[^>]+>')
 ICON_COPY='<svg class="lucide lucide-copy" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>'
 ICON_MARKDOWN='<svg class="markdown-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22.27 19.385H1.73A1.73 1.73 0 0 1 0 17.655V6.345a1.73 1.73 0 0 1 1.73-1.73h20.54A1.73 1.73 0 0 1 24 6.345v11.308a1.73 1.73 0 0 1-1.73 1.731Zm-16.501-3.462v-4.5l2.308 2.885 2.307-2.885v4.5h2.308V8.078h-2.308l-2.307 2.885-2.308-2.885H3.46v7.847Zm15.463-3.923h-2.309V8.077h-2.307V12h-2.308l3.461 4.039Z" fill="currentColor" stroke="none"></path></svg>'
+ICON_BRACES='<svg class="lucide lucide-braces" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"></path><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"></path></svg>'
 MARKDOWN_CODE_TAG=re.compile('^<code\\s+class="language-(?:markdown|md)"\\s*>',re.IGNORECASE)
+CODE_LANG_TAG=re.compile('^<code\\s+class="language-([^\\s"]+)"',re.IGNORECASE)
+CODE_LANG_NAMES={'bash':'Bash','c':'C','cjs':'JavaScript','cpp':'C++','cs':'C#','css':'CSS','diff':'Diff','go':'Go','html':'HTML','java':'Java','javascript':'JavaScript','js':'JavaScript','json':'JSON','jsx':'JSX','kt':'Kotlin','markdown':'Markdown','md':'Markdown','mermaid':'Mermaid','mjs':'JavaScript','php':'PHP','plaintext':'Text','py':'Python','python':'Python','rb':'Ruby','rs':'Rust','rust':'Rust','sh':'Shell','shell':'Shell','sql':'SQL','svg':'SVG','swift':'Swift','text':'Text','toml':'TOML','ts':'TypeScript','tsx':'TSX','txt':'Text','typescript':'TypeScript','xml':'XML','yaml':'YAML','yml':'YAML','zsh':'Zsh'}
+def format_code_language(inner):
+	match=CODE_LANG_TAG.match(inner.strip())
+	if not match:return'Code'
+	raw=match.group(1).lower();return CODE_LANG_NAMES.get(raw,raw[:1].upper()+raw[1:])
 def add_copy_buttons(rendered):
-	def replace(match):inner=match.group(1);code=html.unescape(CODE_TAG.sub('',inner));payload=html.escape(code,quote=True).replace('\n','&#10;');md_button=f'<button type="button" class="preview-code-md" aria-label="Preview Markdown" title="Preview Markdown" aria-pressed="false" data-code="{payload}">{ICON_MARKDOWN}</button>'if MARKDOWN_CODE_TAG.match(inner.strip())else'';button=f'<button type="button" class="copy-code" aria-label="Copy code" title="Copy code" data-code="{payload}">{ICON_COPY}</button>';return f'<div class="code-block">{md_button}{button}<pre>{inner}</pre></div>'
+	def replace(match):inner=match.group(1);code=html.unescape(CODE_TAG.sub('',inner));payload=html.escape(code,quote=True).replace('\n','&#10;');md_button=f'<button type="button" class="preview-code-md" aria-label="Preview Markdown" title="Preview Markdown" aria-pressed="false" data-code="{payload}">{ICON_MARKDOWN}</button>'if MARKDOWN_CODE_TAG.match(inner.strip())else'';button=f'<button type="button" class="copy-code" aria-label="Copy code" title="Copy code" data-code="{payload}">{ICON_COPY}</button>';lang=html.escape(format_code_language(inner),quote=True);header=f'<div class="code-block-header"><span class="code-block-lang">{ICON_BRACES}<span>{lang}</span></span></div>';return f'<div class="code-block">{md_button}{button}{header}<pre>{inner}</pre></div>'
 	return CODE_BLOCK.sub(replace,rendered)
 ESCAPED_FENCE=re.compile('^(?P<indent>[ \\t]*)\\\\(?P<fence>(?:`{3,}|~{3,}))',re.MULTILINE)
 def _unescape_inline_code_line(line):
@@ -3390,7 +3399,7 @@ def handler(store):
 				if match:
 					report_id,type=match.groups();report=store.report(report_id)
 					if type=='html':
-						try:body,questions=render_report(report['markdown'])
+						try:body,questions=render_report(report['markdown'],title=report.get('title'))
 						except ValueError as error:self.problem(500,f"This report cannot be rendered: {error}");return
 						self.reply(200,json.dumps({'html':body,'fields':len(questions),'warnings':report_marker_warnings(report['markdown']),'revision':report['updated_at'],'published':report['published_at']or report['updated_at'],'edited':report['updated_at']},ensure_ascii=False));return
 					self.reply(200,report['markdown'],'text/plain; charset=utf-8',f"{report_id}.md");return

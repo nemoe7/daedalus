@@ -509,6 +509,49 @@ async function a11yChecks(page) {
       }
     }
 
+    const prevFocus = document.activeElement;
+    for (const control of document.querySelectorAll(interactiveSelector)) {
+      if (!isVisible(control)) continue;
+      const baseRect = control.getBoundingClientRect();
+      if (baseRect.width <= 0 || baseRect.height <= 0) continue;
+      const hadBusy = control.hasAttribute('aria-busy');
+      const prevBusy = control.getAttribute('aria-busy');
+      const prevDisabled = 'disabled' in control ? control.disabled : null;
+      const checkRect = stateLabel => {
+        const nextRect = control.getBoundingClientRect();
+        if (Math.abs(nextRect.width - baseRect.width) > 0.5 || Math.abs(nextRect.height - baseRect.height) > 0.5) {
+          findings.push({
+            rule: 'NUA309',
+            severity: 'review',
+            criterion: 'clause-9',
+            selector: selectorFor(control),
+            evidence: `Interactive control ${selectorFor(control)} changes dimensions on ${stateLabel} (${baseRect.width.toFixed(1)}x${baseRect.height.toFixed(1)} -> ${nextRect.width.toFixed(1)}x${nextRect.height.toFixed(1)})`,
+          });
+          return true;
+        }
+        return false;
+      };
+      try {
+        if (!control.disabled && typeof control.focus === 'function') {
+          control.focus({preventScroll: true});
+          checkRect('focus');
+        }
+        control.setAttribute('aria-busy', 'true');
+        checkRect('aria-busy="true"');
+        if (hadBusy) control.setAttribute('aria-busy', prevBusy);
+        else control.removeAttribute('aria-busy');
+        if (prevDisabled !== null && !prevDisabled) {
+          control.disabled = true;
+          checkRect('disabled');
+          control.disabled = false;
+        }
+      } catch {}
+    }
+    try {
+      if (prevFocus && typeof prevFocus.focus === 'function') prevFocus.focus({preventScroll: true});
+      else if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();
+    } catch {}
+
     return {status: 'checked', findings};
   });
 }
@@ -812,6 +855,20 @@ async function run() {
     const location = {url: target, width: row.width, scheme: row.scheme, motion: row.motion};
     if (row.status === 'failed') findings.push({rule: 'NUB104', severity: 'error', location, evidence: row.error});
     if (row.flow.status === 'failed') findings.push({rule: 'NUB103', severity: 'error', location, evidence: row.flow});
+    if (Array.isArray(row.flow?.steps)) {
+      for (const stepRow of row.flow.steps) {
+        if (stepRow.dimensionShift) {
+          findings.push({
+            rule: 'NUA309',
+            severity: 'review',
+            criterion: 'clause-9',
+            selector: stepRow.selector,
+            location,
+            evidence: `Interactive control ${stepRow.selector} changes dimensions on ${stepRow.action} (${stepRow.dimensionShift.before.width.toFixed(1)}x${stepRow.dimensionShift.before.height.toFixed(1)} -> ${stepRow.dimensionShift.after.width.toFixed(1)}x${stepRow.dimensionShift.after.height.toFixed(1)})`,
+          });
+        }
+      }
+    }
     if (row.errors.length) findings.push({rule: 'NUB102', severity: 'review', location, evidence: row.errors});
     if (row.measurements?.overflow) findings.push({rule: 'NUB101', severity: 'review', location, evidence: 'Horizontal overflow'});
     if (row.a11y?.findings?.length) {

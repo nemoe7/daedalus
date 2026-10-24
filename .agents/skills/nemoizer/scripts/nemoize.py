@@ -281,6 +281,10 @@ SKIP_DIRS = {
 SKIP_PATHS = (
   ".agents/skills",
   "arena-state",
+  "AGENTS.md",
+  "**/AGENTS.md",
+  "ARENA.md",
+  "**/ARENA.md",
 )
 SKIP_SUFFIXES = {
   ".json",
@@ -329,8 +333,19 @@ def _match_glob(rel_posix, name, pattern):
   if pat.endswith("/**"):
     prefix = pat[:-3].rstrip("/")
     return rel_posix == prefix or rel_posix.startswith(prefix + "/")
+  if pat.startswith("**/"):
+    suffix = pat[3:]
+    return (
+      fnmatch.fnmatchcase(name, suffix)
+      or fnmatch.fnmatchcase(rel_posix, suffix)
+      or fnmatch.fnmatchcase(rel_posix, pat)
+    )
   if "/" not in pat:
-    return fnmatch.fnmatchcase(name, pat) or fnmatch.fnmatchcase(rel_posix, pat)
+    return (
+      pat in Path(rel_posix).parts
+      or fnmatch.fnmatchcase(name, pat)
+      or fnmatch.fnmatchcase(rel_posix, pat)
+    )
   return fnmatch.fnmatchcase(rel_posix, pat)
 
 
@@ -484,21 +499,20 @@ def text_file(path):
 
 def skipped(path, root, ignores):
   """True when a path sits under a skipped directory or an ignored prefix."""
-  if path.suffix.lower() in SKIP_SUFFIXES or is_license_file(path):
+  if is_license_file(path):
+    return True
+  custom_exclude = ACTIVE_CONFIG.get("exclude")
+  if custom_exclude is None and path.suffix.lower() in SKIP_SUFFIXES:
     return True
   try:
     relative = path.resolve().relative_to(root.resolve())
   except ValueError:
     relative = path
   text = relative.as_posix()
-  if any(part in SKIP_DIRS for part in Path(text).parts):
+  if custom_exclude is None and any(part in SKIP_DIRS for part in Path(text).parts):
     return True
-  base_skips = (
-    ACTIVE_CONFIG["exclude"] if ACTIVE_CONFIG.get("exclude") is not None else SKIP_PATHS
-  )
-  all_ignores = (*ignores, *ACTIVE_CONFIG.get("extend_exclude", ()))
-  if any(text == item or text.startswith(item + "/") for item in base_skips):
-    return True
+  base_skips = custom_exclude if custom_exclude is not None else SKIP_PATHS
+  all_ignores = (*base_skips, *ignores, *ACTIVE_CONFIG.get("extend_exclude", ()))
   return any(
     text == item or text.startswith(item + "/") or _match_glob(text, path.name, item)
     for item in all_ignores

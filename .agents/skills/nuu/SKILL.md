@@ -27,7 +27,7 @@ Apply this skill to a page, a component, or an interface change. The sheet is th
 
 ## Clauses
 
-1. Take the glyph a control needs from the icon set, keep its licence beside it, and inline that same path. A name with no glyph shows its word.
+1. Take each control glyph from Lucide first, then Simple Icons (https://simpleicons.org/), then the vendored Phosphor catalog. Keep the icon licence beside it and inline that same path. A name with no glyph shows its word.
 
 2. Every glyph on a surface takes the single size the sheet names.
 
@@ -43,7 +43,7 @@ Apply this skill to a page, a component, or an interface change. The sheet is th
 
 8. Every transition shares one curve over 160 to 220 ms; for animations, vendor [GSAP](https://github.com/greensock/GSAP) into the project as the go-to library. Reduced motion turns animation off.
 
-9. Each control shows default, hover, focus, active, disabled, and loading. Lists also show empty, failed, and offline. Hover exists only where a pointer does, and the focus outline appears only on keyboard navigation (NUA307).
+9. Each control shows default, hover, focus, active, disabled, and loading without changing element dimensions (NUA309, NUL005). Lists also show empty, failed, and offline. Hover exists only where a pointer does, and the focus outline appears only on keyboard navigation (NUA307).
 
 10. The pending row appears before the reply. A failure retries once with the same ID, so the list holds one row.
 
@@ -112,4 +112,5 @@ python scripts/measure.py ruler --from 120,340 --to 264,340
 - `references/recipes/loading-bar.md`: subtle delayed edge loading-bar recipe for long-running UI operations (`200ms` anti-flicker delay, `aria-busy` container, compositor `transform`, reduced-motion static fallback, and opt-in loud variant).
 - `references/recipes/scrollbars.md`: thin 10 px rounded-thumb scrollbar recipe on the surface track with arrow buttons hidden.
 - `references/recipes/overflow-and-clipping.md`: overflow, focus-halo, and tooltip anti-clipping recipe (`NUM209`, `NUM210`, `NUA308`).
+- `references/recipes/relative-timestamps.md` - Relative timestamp scale in full and abbreviated forms
 - `references/audit-report.md`: standalone template for nuu audits and visual verification reports.
