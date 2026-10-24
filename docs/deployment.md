@@ -154,7 +154,7 @@ A successful **CI** run on `main` starts the `Docker` workflow in [`.github/work
 | Manual dev image build | Run **Docker** in the Actions tab and select `dev`. |
 | Use the dev image | Use the [platform installer](../README.md#quick-start) with `--dev` without the source, or set `image: ghcr.io/nemoe7/daedalus:dev` in [`compose.yml`](../compose.yml). |
 
-The dev image tracks `main`. Its code has no review. Use it to test the newest commits, not to run a
+The dev image tracks `main`. Its code has no review. Run it for new-commit checks, not for a
 release. `DAEDALUS_DEV_IMAGE` and `DAEDALUS_DEV_PULL` change the image and the pull policy, and
 `DAEDALUS_VERSION` is the version under the logo.
 
@@ -236,7 +236,7 @@ To check the services and settings:
 | Feature | Tools for the model | Condition |
 | --- | --- | --- |
 | Web search | `search_web`, `fetch_url` | **Web Search** is on at the start of each chat. |
-| Files | none | Tika reads the file at upload. Open WebUI adds the matching parts to the prompt. |
+| Files | none | Tika reads each file at upload. Open WebUI adds matching text to the prompt. |
 | Code | `execute_code` | On at chat start. Code runs in the browser (Pyodide). |
 
 Keep **Function Calling** on **Native**, the Open WebUI default since v0.10.0. Native sends the tools in `tools`, and daedalus skips the models that cannot call tools. Legacy puts the tools in the prompt and calls tools only 1 time, before the answer.
@@ -270,7 +270,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 
 | Setting | Value |
 | --- | --- |
-| Image | `searxng/searxng:2026.9.25-12f8b6515` |
+| Image | `searxng/searxng:latest` |
 | Settings | [`services/searxng/settings.yml`](../services/searxng/settings.yml): JSON results on, the limiter off, so no Valkey |
 | `SEARXNG_SECRET` | From `.env`. Empty by default: no SearXNG host port, the image proxy off. |
 | `SEARXNG_QUERY_URL` | Open WebUI answers on `http://searxng:8080/search?q=<query>`. |
