@@ -194,6 +194,8 @@ def test_icon_only_remove_buttons_carry_aria_labels_and_square_boxes() -> None:
     "[data-hook-source-drop], [data-hook-move], [data-hook-drop], td.end > .ghost {"
     in css
   )
+  brand_rule = css.split(".brand {", 1)[1].split("}", 1)[0]
+  assert "letter-spacing" not in brand_rule
 
 
 def test_app_js_split_requests() -> None:
