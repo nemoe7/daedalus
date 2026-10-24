@@ -1310,11 +1310,12 @@ const node = (id) => {
     remove: () => {}, toggle: () => {} }, addEventListener(type, handler) { this.listeners[type] = handler; } });
   return nodes.get(id);
 };
+const ago = { textContent: '' };
 const ttft = { textContent: '' };
 const stream = { textContent: '' };
 const live = {
   innerHTML: '', children: [{ dataset: { live: '2' }, querySelector: (selector) =>
-    selector.includes('ttft') ? ttft : stream }],
+    selector.includes('live-ago') ? ago : selector.includes('ttft') ? ttft : stream }],
 };
 const liveNode = (id) => (id === 'live' ? live : node(id));
 const sandbox = {
@@ -1335,6 +1336,7 @@ const probe = sandbox.__probe;
 const row = (fields) => ({ id: 2, since: Date.now(), attemptSince: Date.now(), first: null, stream: false, ...fields });
 probe.state.live.set(2, row({}));
 probe.tickLive();
+assert.strictEqual(ago.textContent, 'just now', 'the live age updates on each tick');
 assert.strictEqual(stream.textContent, '', 'a plain request shows no stream time before the first token');
 assert(ttft.textContent.endsWith('s'), 'the TTFT clock counts while the first token is pending: ' + ttft.textContent);
 probe.state.live.set(2, row({ stream: true }));
@@ -5818,12 +5820,23 @@ def test_the_requests_rows_show_a_relative_time() -> None:
     r"""
 const sample = JSON.parse(fs.readFileSync('scripts/pages_fixtures.json', 'utf8')).requests
   .find(item => item.attempts?.length > 1);
-const row = {...sample, at: Date.now() / 1000 - 240};
-probe.renderRequests([row]);
-const timeCell = node('requests').innerHTML.match(/<td\b[^>]*title="([^"]*)"[^>]*>([\s\S]*?)<\/td>/);
-assert(timeCell);
-assert.strictEqual(timeCell[1], probe.esc(probe.stamp(row.at)));
-assert(timeCell[2].includes(probe.esc(probe.relative(row.at))));
+let now = Date.now();
+const realNow = Date.now;
+Date.now = () => now;
+try {
+  const row = {...sample, at: now / 1000 - 30};
+  probe.renderRequests([row]);
+  const timeCell = () => node('requests').innerHTML.match(/<td\b[^>]*title="([^"]*)"[^>]*>([\s\S]*?)<\/td>/);
+  assert(timeCell());
+  assert.strictEqual(timeCell()[1], probe.esc(probe.stamp(row.at)));
+  assert(timeCell()[2].includes(probe.esc(probe.relative(row.at))));
+  now += 180000;
+  probe.renderRequests([row]);
+  assert(timeCell()[2].includes(probe.esc(probe.relative(row.at))),
+    'the relative time updates when the clock moves while rows stay unchanged');
+} finally {
+  Date.now = realNow;
+}
 """,
   )
 

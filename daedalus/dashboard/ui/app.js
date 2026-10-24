@@ -571,7 +571,7 @@ function renderPools(pools) {
   markPools();
 }
 
-let shownRequests = "";
+let shownRequests = null;
 
 const seconds = (value) => value == null ? "" : t("time.seconds.short_text", { value: value.toFixed(3) });
 
@@ -943,6 +943,8 @@ function tickLive() {
   for (const row of $("live").children) {
     const r = state.live.get(Number(row.dataset.live));
     if (!r) continue;
+    const ago = row.querySelector(".live-ago");
+    if (ago) ago.textContent = relative(r.since / 1000);
     const ttft = ((r.first ?? now) - r.attemptSince) / 1000;
     const stream = r.first == null ? null : (r.stream ? now - r.first : now - r.since) / 1000;
     row.querySelector('[data-clock="ttft"]').textContent = seconds(ttft);
@@ -1061,14 +1063,7 @@ function renderRequestTable() {
 
 function renderRequests(rows, empty = t("request.empty.none_text"), live = 0) {
   const flatRows = splitRequests(rows);
-  // Include live-row presence in the cache key because it changes the empty row.
-  const text = JSON.stringify([flatRows, live ? 1 : 0, empty]);
-  const selected = getSelection();
-  if (text === shownRequests) return;
-  if (!selected.isCollapsed && $("requests").contains(selected.anchorNode)) return;
-  const focused = document.activeElement?.closest?.("tr[data-chain-at]")?.dataset.chainAt;
-  shownRequests = text;
-  $("requests").innerHTML = flatRows.length ? flatRows.map((r) => {
+  const markup = flatRows.length ? flatRows.map((r) => {
     const chain = hasChain(r);
     const time = relative(r.at);
     return `
@@ -1087,6 +1082,12 @@ function renderRequests(rows, empty = t("request.empty.none_text"), live = 0) {
       ${fallbackCell(r, "hide-sm num")}
     </tr>`;
   }).join("") : live ? "" : `<tr role="row"><td role="cell" colspan="13" class="empty">${empty}</td></tr>`;
+  const selected = getSelection();
+  if (markup === shownRequests) return;
+  if (!selected.isCollapsed && $("requests").contains(selected.anchorNode)) return;
+  const focused = document.activeElement?.closest?.("tr[data-chain-at]")?.dataset.chainAt;
+  shownRequests = markup;
+  $("requests").innerHTML = markup;
   const race = flatRows.some((row) => row.transition?.reason === "rce");
   if (race !== state.requestRace) {
     state.requestRace = race;
