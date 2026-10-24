@@ -115,7 +115,14 @@
               <tbody id="live" role="rowgroup"></tbody>
               <tbody id="requests" role="rowgroup"></tbody>
             </table>
-            <button class="ghost" type="button" id="more-requests" hidden data-i18n="action.show_more_button">action.show_more_button</button>
+            <div class="requests-pager" id="requests-pager" hidden>
+              <span class="hint" id="requests-page"></span>
+              <div class="pager-controls">
+                <button class="ghost" type="button" id="requests-prev" data-i18n="action.previous_button">action.previous_button</button>
+                <button class="ghost" type="button" id="requests-next" data-i18n="action.next_button">action.next_button</button>
+                <button class="ghost" type="button" id="more-requests" hidden data-i18n="action.show_more_button">action.show_more_button</button>
+              </div>
+            </div>
           </div>
         </div>
         <div class="column">

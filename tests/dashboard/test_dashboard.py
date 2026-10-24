@@ -5225,14 +5225,18 @@ probe.state.requestFetched = 3;
 const rows = () => (node('requests').innerHTML.match(/class="request/g) || []).length;
 probe.renderRequestTable();
 assert.strictEqual(rows(), 3, 'no filter shows every kept row');
-assert.strictEqual(node('request-count').textContent, '3 requests', 'the hint counts the shown rows');
+assert.strictEqual(node('request-count').textContent, '', 'the top-right bar omits the total requests count');
+assert.strictEqual(node('requests-page').textContent, '1\u20133 of 3 requests', 'the pager counts the shown page');
+assert.strictEqual(node('requests-pager').hidden, false, 'the pager renders when rows exist');
+assert.strictEqual(node('requests-prev').disabled, true, 'the first page disables previous');
+assert.strictEqual(node('requests-next').disabled, true, 'a single page disables next');
 assert.strictEqual(node('requests').classList.added.filter((n) => n === 'drawn').length, 1,
   'the first data of the table arrives once');
 assert.strictEqual(node('request-count').classList.added.filter((n) => n === 'bump').length, 0,
   'no pulse without a change of the stream');
 probe.state.live = new Map([[1, { id: 1 }]]);
 probe.renderRequestTable();
-assert.strictEqual(node('request-count').textContent, '4 requests · 1 in flight', 'the count reads both lists');
+assert.strictEqual(node('request-count').textContent, '1 in flight', 'the top-right hint reports in-flight requests');
 assert(!node('requests').innerHTML.includes(LOCALE["request.empty.none_text"]), 'a live row keeps the empty row away');
 probe.renderRequestTable();
 probe.state.live.clear();
@@ -5259,6 +5263,21 @@ assert.strictEqual(probe.requestMatches({ status: 200, at: now }, { live: true }
   'a live row follows the text too');
 probe.state.requestSearch = '';
 assert.strictEqual(probe.requestMatches({ status: 200, at: now }, { live: true }), true, 'a live row needs no status');
+probe.state.requests = Array.from({ length: 13 }, (_, i) => ({
+  at: now - i, model: `p/m${i + 1}`, via: `p/m${i + 1}`, app: 'OWUI', session: `s${i + 1}`, status: 200,
+}));
+probe.state.requestPage = 1;
+probe.renderRequestTable();
+assert.strictEqual(rows(), 10, 'page 1 renders 10 requests');
+assert.strictEqual(node('requests-page').textContent, '1\u201310 of 13 requests', 'page 1 range');
+assert.strictEqual(node('requests-prev').disabled, true, 'page 1 disables prev');
+assert.strictEqual(node('requests-next').disabled, false, 'page 1 enables next');
+probe.state.requestPage = 2;
+probe.renderRequestTable();
+assert.strictEqual(rows(), 3, 'page 2 renders remaining 3 requests');
+assert.strictEqual(node('requests-page').textContent, '11\u201313 of 13 requests', 'page 2 range');
+assert.strictEqual(node('requests-prev').disabled, false, 'page 2 enables prev');
+assert.strictEqual(node('requests-next').disabled, true, 'page 2 disables next');
 """
   subprocess.run(["node", "-e", code], check=True)
 

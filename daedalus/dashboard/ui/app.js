@@ -31,6 +31,7 @@ const POOL_NOTES = {
   "daedalus/photos": t("model.pool.photos_text"),
 };
 // Load requests in batches of 50, up to the server's 500-row history limit.
+const REQUESTS_PAGE = 10;
 const REQUESTS_STEP = 50;
 const REQUESTS_KEPT = 500;
 const $ = (id) => document.getElementById(id);
@@ -89,7 +90,7 @@ const state = {
   models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, fileOpen: false,
   providerReturnKey: "", saved: [], timers: [],
   view: "form", forms: [], formSaved: [], overrideKeys: [], providerDefaults: {}, settingsView: "form",
-  pools: [], requests: [], requestLimit: REQUESTS_STEP, requestFetched: 0, keys: [], catalog: {},
+  pools: [], requests: [], requestPage: 1, requestLimit: REQUESTS_STEP, requestFetched: 0, keys: [], catalog: {},
   settings: null, settingsSearch: "", legendExtra: [], requestRace: false,
   requestSearch: "", requestStatus: "all", requestHours: 0, limitSearch: "",
   live: new Map(), livePaused: false, liveWaiting: new Set(), liveSeen: new Set(), liveCount: 0,
@@ -1041,22 +1042,30 @@ function renderRequestTable() {
   const rows = state.requests.filter((r) => requestMatches(r));
   const live = [...state.live.values()].filter((r) => requestMatches(r, { live: true })).length;
   const total = state.requests.length + live;
-  renderRequests(rows, total && !rows.length && !live
+  const pages = Math.max(1, Math.ceil(rows.length / REQUESTS_PAGE));
+  state.requestPage = Math.min(Math.max(1, state.requestPage || 1), pages);
+  const start = (state.requestPage - 1) * REQUESTS_PAGE;
+  const pageRows = rows.slice(start, start + REQUESTS_PAGE);
+  renderRequests(pageRows, total && !rows.length && !live
     ? t("request.empty.filter_text")
     : t("request.empty.none_text"), live);
   // Preserve the button space so the count hint does not move.
   $("request-clear").classList.toggle("off",
     !state.requestSearch && state.requestStatus === "all" && !state.requestHours);
-  $("more-requests").hidden = state.requestFetched < state.requestLimit
-    || state.requestLimit >= REQUESTS_KEPT;
-  const shown = rows.length + live;
-  const head = shown === total
-    ? count(total, "request")
-    : t("request.count.shown_text", { shown, total: count(total, "request") });
-  const hint = $("request-count");
-  hint.textContent = total
-    ? `${head}${live ? ` · ${t("request.count.in_flight_text", { count: live })}` : ""}`
+  const canLoadMore = state.requestFetched >= state.requestLimit
+    && state.requestLimit < REQUESTS_KEPT;
+  $("more-requests").hidden = !canLoadMore;
+  $("requests-pager").hidden = !rows.length && !canLoadMore;
+  $("requests-prev").disabled = state.requestPage <= 1;
+  $("requests-next").disabled = state.requestPage >= pages && !canLoadMore;
+  $("requests-page").textContent = rows.length
+    ? t("request.count.shown_text", {
+      shown: `${start + 1}\u2013${start + pageRows.length}`,
+      total: count(rows.length, "request"),
+    })
     : "";
+  const hint = $("request-count");
+  hint.textContent = live ? t("request.count.in_flight_text", { count: live }) : "";
   // Pulse the hint when the displayed live count changes.
   if (live !== state.liveCount) {
     state.liveCount = live;
@@ -4014,20 +4023,43 @@ $("more-requests").addEventListener("click", () => {
   state.requestLimit = Math.min(state.requestLimit + REQUESTS_STEP, REQUESTS_KEPT);
   guarded(refreshFast);
 });
+$("requests-prev").addEventListener("click", () => {
+  if (state.requestPage > 1) {
+    state.requestPage -= 1;
+    renderRequestTable();
+  }
+});
+$("requests-next").addEventListener("click", () => {
+  const rows = state.requests.filter((r) => requestMatches(r));
+  const pages = Math.max(1, Math.ceil(rows.length / REQUESTS_PAGE));
+  if (state.requestPage < pages) {
+    state.requestPage += 1;
+    renderRequestTable();
+    return;
+  }
+  if (state.requestFetched >= state.requestLimit && state.requestLimit < REQUESTS_KEPT) {
+    state.requestPage += 1;
+    state.requestLimit = Math.min(state.requestLimit + REQUESTS_STEP, REQUESTS_KEPT);
+    guarded(refreshFast);
+  }
+});
 
 // Apply Requests filters without a server call.
 $("request-search").addEventListener("input", () => {
   state.requestSearch = $("request-search").value.trim().toLowerCase();
+  state.requestPage = 1;
   requestHash();
   renderRequestTable();
 });
 $("request-status").addEventListener("change", () => {
   state.requestStatus = $("request-status").value;
+  state.requestPage = 1;
   requestHash();
   renderRequestTable();
 });
 $("request-hours").addEventListener("change", () => {
   state.requestHours = Number($("request-hours").value) || 0;
+  state.requestPage = 1;
   requestHash();
   renderRequestTable();
 });
@@ -4049,6 +4081,7 @@ $("request-clear").addEventListener("click", () => {
   state.requestSearch = "";
   state.requestStatus = "all";
   state.requestHours = 0;
+  state.requestPage = 1;
   requestHash();
   renderRequestTable();
 });
@@ -4139,6 +4172,7 @@ function applyRequestFilters(query) {
   state.requestSearch = asked.trim().toLowerCase();
   state.requestStatus = ["all", "ok", "bad"].includes(params.get("status")) ? params.get("status") : "all";
   state.requestHours = [0, 1, 24].includes(Number(params.get("hours"))) ? Number(params.get("hours")) : 0;
+  state.requestPage = 1;
   $("request-search").value = asked;
   $("request-status").value = state.requestStatus;
   $("request-hours").value = String(state.requestHours);
