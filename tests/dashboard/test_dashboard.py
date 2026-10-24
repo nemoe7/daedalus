@@ -177,6 +177,25 @@ def test_bundled_fonts(client: TestClient) -> None:
   assert client.get("/ui/fonts/INTER-VAR.woff2").status_code == 404, "the name is exact"
 
 
+def test_icon_only_remove_buttons_carry_aria_labels_and_square_boxes() -> None:
+  """Icon-only remove buttons include aria-label attributes and symmetric CSS boxes."""
+  root = Path(__file__).resolve().parents[2]
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  for marker in (
+    '"data-drop": JSON.stringify([...path, key])',
+    '"data-setting-drop": JSON.stringify([group, key, index])',
+    '"data-form-hook-drop": at',
+  ):
+    block = app.split(marker, 1)[0].rsplit("actionButton(icon", 1)[1]
+    assert '"aria-label": t("action.remove_button")' in block, marker
+  assert ".pill > button:not(.select), .override > .ghost {" in css
+  assert (
+    "[data-hook-source-drop], [data-hook-move], [data-hook-drop], td.end > .ghost {"
+    in css
+  )
+
+
 def test_app_js_split_requests() -> None:
   """The script splits answered attempts and formats transition codes."""
   code = """

@@ -616,6 +616,12 @@ section[data-page="providers"], section[data-page="settings"] {
 .pill button, .override > .ghost {
   border: 0; background: transparent; color: var(--muted); padding: 0 8px; font-size: 15px; line-height: 24px; cursor: pointer;
 }
+.pill > button:not(.select), .override > .ghost {
+  width: 24px; height: 24px; padding: 0;
+}
+[data-hook-source-drop], [data-hook-move], [data-hook-drop], td.end > .ghost {
+  display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0;
+}
 .pill button:hover, .override > .ghost:hover { color: var(--bad); }
 .add {
   padding: 3px 12px; border: 1px dashed var(--control-line); border-radius: 999px; background: transparent;

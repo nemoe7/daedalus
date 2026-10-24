@@ -1618,7 +1618,11 @@ function openFile(index) {
 
 // The × button removes the chip value from its list or map.
 const pill = (text, path, key) => `<span class="pill">${esc(text)}${actionButton(icon("x"), {
-  attrs: { title: t("action.remove_button"), "data-drop": JSON.stringify([...path, key]) },
+  attrs: {
+    "aria-label": t("action.remove_button"),
+    title: t("action.remove_button"),
+    "data-drop": JSON.stringify([...path, key]),
+  },
 })}</span>`;
 
 // Replace the Add button with an inline input on click.
@@ -1651,7 +1655,11 @@ function setListValue(group, key, values) {
   state.settings.lists[`${group}.${key}`] = values;
 }
 const settingPill = (group, key, value, index) => `<span class="pill">${esc(value)}${actionButton(icon("x"), {
-  attrs: { title: t("action.remove_button"), "data-setting-drop": JSON.stringify([group, key, index]) },
+  attrs: {
+    "aria-label": t("action.remove_button"),
+    title: t("action.remove_button"),
+    "data-setting-drop": JSON.stringify([group, key, index]),
+  },
 })}</span>`;
 const settingAdder = (group, key) => actionButton(t("action.add_button"), {
   variant: "add", attrs: { "data-setting-add": JSON.stringify([group, key]) },
@@ -1706,7 +1714,11 @@ const hookFormRow = (entry, path, choices) => {
     },
   });
   const drop = actionButton(icon("x"), {
-    attrs: { title: t("action.remove_button"), "data-form-hook-drop": at },
+    attrs: {
+      "aria-label": t("action.remove_button"),
+      title: t("action.remove_button"),
+      "data-form-hook-drop": at,
+    },
   });
   return `<span class="pill hook"><select data-form-hook-surface='${esc(at)}' aria-label="${t("hook.surface.label")}">${
     HOOK_SURFACES.map(([key, label]) => `<option value="${key}"${key === surface ? " selected" : ""}>${esc(label)}</option>`).join("")
@@ -1907,7 +1919,11 @@ function hooksManager() {
         })}
         ${sources.length ? actionButton(icon("x"), {
           variant: "ghost",
-          attrs: { "data-hook-source-drop": true, title: t("hook.action.delete_source_title", { name: selected }) },
+          attrs: {
+            "data-hook-source-drop": true,
+            "aria-label": t("hook.action.delete_source_title", { name: selected }),
+            title: t("hook.action.delete_source_title", { name: selected }),
+          },
         }) : ""}</div>${panel}
       <div class="sub" id="hooks-note" role="status"></div>`)}`;
 }
@@ -2535,6 +2551,7 @@ function providerCard(name, block) {
       ${actionButton(icon("x"), {
         variant: "ghost",
         attrs: {
+          "aria-label": t("provider.pattern.delete_title"),
           title: t("provider.pattern.delete_title"),
           "data-drop": JSON.stringify([...path, "models", pattern]),
         },
