@@ -300,7 +300,7 @@ function renderOverview() {
   const failed = state.requests.filter((r) => ["s4", "s5"].includes(statusClass(r))).length;
   const answered = state.requests.length - failed;
   const share = state.requests.length ? `${Math.round((answered / state.requests.length) * 100)}%` : "-";
-  const lanes = state.limits ? state.limits.lanes.flatMap((lane) => lane.rows) : [];
+  const lanes = activeLimits();
   const left = lanes.length
     ? `${Math.round(Math.min(...lanes.map((r) => (r.limit > 0 ? r.remaining / r.limit : 1))) * 100)}%`
     : "-";
@@ -3503,7 +3503,7 @@ function overviewLimits(data) {
   const balances = data.providers.flatMap((p) => p.items.map(item =>
     `<div class="balance">${line(`${esc(p.name)} &middot; ${esc(BALANCE_LABELS[item.kind]())}`, esc(balanceValue(item)), { title: balanceValue(item, false) })}${bar(item.share)}</div>`));
   const share = (r) => (r.limit > 0 ? Math.min(1, r.remaining / r.limit) : 0);
-  const rows = data.lanes.flatMap((lane) => lane.rows.map((row) => ({ ...row, model: lane.model })))
+  const rows = activeLimits(data)
     .sort((a, b) => share(a) - share(b)).slice(0, 3)
     .map((r) => `<div class="balance">${line(`<span title="${esc(r.model)}">${modelName(r.model)}</span>`,
       `${t("limits.value.of_text", { remaining: floorCount(r.remaining), limit: floorCount(r.limit) })} ${esc(unit(r))}`,
@@ -3512,17 +3512,21 @@ function overviewLimits(data) {
 }
 
 // One row for each lane of each model, as the Limits table reads them.
-function limitRows() {
-  return (state.limits?.lanes || []).flatMap((lane) =>
+function limitRows(data = state.limits) {
+  return (data?.lanes || []).flatMap((lane) =>
     lane.rows.map((row) => ({ ...row, model: lane.model, client: lane.client, at: lane.at })));
+}
+
+// Keep only rows that have a catalog home and a non-zero count.
+function activeLimits(data = state.limits) {
+  const known = new Set(state.models.map((m) => m.id));
+  return limitRows(data).filter((r) => known.has(r.model) && (r.limit > 0 || r.remaining > 0));
 }
 
 // Filter rows without use or a catalog home, then by model and client text.
 function shownLimits() {
-  const known = new Set(state.models.map((m) => m.id));
-  return limitRows().filter((r) => known.has(r.model) && (r.limit > 0 || r.remaining > 0)
-    && (!state.limitSearch
-      || `${r.model} ${r.client || ""}`.toLowerCase().includes(state.limitSearch)));
+  return activeLimits().filter((r) => !state.limitSearch
+    || `${r.model} ${r.client || ""}`.toLowerCase().includes(state.limitSearch));
 }
 
 function renderLimits(data) {

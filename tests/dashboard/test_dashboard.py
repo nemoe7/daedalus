@@ -7593,16 +7593,21 @@ def test_limits_rows_without_use_or_a_catalog_home_stay_hidden() -> None:
     "the catalog list lands before the limits rows render"
   )
   run_app_js(
-    "state, shownLimits",
+    "state, shownLimits, overviewLimits",
     """
-probe.state.limits = {lanes: [
-  {model: 'quiet', client: '', at: null, rows: [{limit: 0, remaining: 0, reset: null}]},
-  {model: 'gone', client: '', at: null, rows: [{limit: 5, remaining: 1, reset: null}]},
-  {model: 'live', client: '', at: null, rows: [{limit: 5, remaining: 0, reset: null}]},
+const row = (limit, remaining) => [{kind: 'requests', span: 'minute', limit, remaining, reset: null}];
+probe.state.limits = {providers: [], lanes: [
+  {model: 'quiet', client: '', at: null, rows: row(0, 0)},
+  {model: 'gone', client: '', at: null, rows: row(5, 1)},
+  {model: 'live', client: '', at: null, rows: row(5, 0)},
 ]};
 probe.state.models = [{id: 'live'}, {id: 'quiet'}];
 const rows = probe.shownLimits();
 assert(rows.length === 1 && rows[0].model === 'live', 'only the exhausted catalog row stays');
+const overview = probe.overviewLimits(probe.state.limits);
+assert(overview.includes('live'), 'the Overview card keeps the active catalog row');
+assert(!overview.includes('quiet') && !overview.includes('gone'),
+  'the Overview card drops 0 of 0 and uncataloged rows just like the Limits tab');
 """,
   )
 
